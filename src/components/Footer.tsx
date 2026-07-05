@@ -1,3 +1,4 @@
+import Link from "next/link";
 import Logo from "./Logo";
 import { NAV_LINKS, SITE } from "@/lib/data";
 
@@ -76,9 +77,9 @@ export default function Footer() {
             &copy; {year} {SITE.name}. All rights reserved.
           </p>
           <div className="flex flex-wrap items-center justify-center gap-4 text-xs text-white/40">
-            <a href="/terms" className="transition-colors hover:text-emerald">
+            <Link href="/terms" className="transition-colors hover:text-emerald">
               Terms &amp; Conditions
-            </a>
+            </Link>
             <span className="hidden text-white/20 sm:inline">|</span>
             <span className="text-white/30">Fully licensed &amp; insured private hire operator</span>
           </div>

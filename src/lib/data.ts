@@ -1,3 +1,5 @@
+import { withBasePath } from "./paths";
+
 export const SITE = {
   name: "My Airport Taxi NI",
   tagline: "Premium Airport Transfers Across Northern Ireland",
@@ -18,21 +20,21 @@ export const HERO_SLIDES = [
     title: "Belfast International Airport Transfers",
     subtitle:
       "Reliable transfers to and from Aldergrove (BFS) with flight tracking, meet & greet, and 60 minutes complimentary waiting time.",
-    image: "/images/hero/belfast-international-arrivals-2025.jpg",
+    image: withBasePath("/images/hero/belfast-international-arrivals-2025.jpg"),
     alt: "Belfast International Airport new Arrivals terminal exterior",
   },
   {
     title: "Belfast City Airport Transfers",
     subtitle:
       "Quick transfers to George Best Belfast City Airport (BHD) — ideal for business trips and short-haul flights.",
-    image: "/images/hero/belfast-city.jpg",
+    image: withBasePath("/images/hero/belfast-city.jpg"),
     alt: "Entrance to George Best Belfast City Airport terminal",
   },
   {
     title: "Dublin Airport Transfers",
     subtitle:
       "Comfortable cross-border transfers to Dublin Airport (DUB) with experienced drivers from Northern Ireland.",
-    image: "/images/hero/dublin.jpg",
+    image: withBasePath("/images/hero/dublin.jpg"),
     alt: "Dublin Airport Terminal 2 building",
   },
 ] as const;

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { SITE } from "@/lib/data";
+import { withBasePath } from "@/lib/paths";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -26,7 +27,7 @@ export const metadata: Metadata = {
     locale: "en_GB",
   },
   icons: {
-    icon: "/logo.png",
+    icon: withBasePath("/logo.png"),
   },
 };
 
