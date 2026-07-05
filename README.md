@@ -1,17 +1,25 @@
-# My Airport Taxi NI - Version 3
+# My Airport Taxi NI
 
-## Upload to GitHub Pages
+Next.js site for Northern Ireland airport transfers — WhatsApp booking, quote form, and airport information.
 
-Upload the contents of this folder to the root of your GitHub repository.
+## Development
 
-Your repository must show:
+```bash
+npm install
+npm run dev
+```
 
-- index.html
-- css/style.css
-- js/script.js
-- assets/
-- README.md
+Open [http://localhost:3000](http://localhost:3000).
 
-Do not upload the folder itself as a nested folder.
+## Build
 
-Phone number used: 07549 815538
+```bash
+npm run build
+npm start
+```
+
+## Stack
+
+- Next.js 15
+- React 19
+- Tailwind CSS 4
