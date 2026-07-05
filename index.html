@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>My Airport Taxi NI | Airport Transfers Across Greater Belfast</title>
+  <meta name="description" content="Airport transfers across Greater Belfast to Belfast International, Belfast City and Dublin Airport. Fixed prices, WhatsApp booking and reliable service." />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="#home" aria-label="My Airport Taxi NI home">
+      <span class="brand-mark">✈</span>
+      <span class="brand-text">My Airport Taxi NI</span>
+    </a>
+    <nav class="nav" aria-label="Primary navigation">
+      <a href="#quote">Quote</a>
+      <a href="#airports">Airports</a>
+      <a href="#areas">Areas</a>
+      <a href="#reviews">Reviews</a>
+      <a href="#contact">Contact</a>
+    </nav>
+    <a class="phone" href="tel:07549815538">07549 815538</a>
+  </header>
+
+  <main id="home">
+    <section class="hero" aria-label="Airport transfer hero">
+      <div class="hero-bg hero-bg-1"></div>
+      <div class="hero-bg hero-bg-2"></div>
+      <div class="hero-bg hero-bg-3"></div>
+      <div class="hero-overlay"></div>
+
+      <div class="hero-content">
+        <div class="hero-copy">
+          <p class="eyebrow">Belfast • Dublin • Greater Belfast</p>
+          <h1>Airport Transfers Across Greater Belfast</h1>
+          <p class="lead">Reliable pre-booked airport transfers to and from Belfast International, Belfast City and Dublin Airport.</p>
+          <div class="hero-actions">
+            <a class="btn btn-primary" href="#quote">Get Instant Quote</a>
+            <a class="btn btn-secondary" href="https://wa.me/447549815538" target="_blank" rel="noopener">WhatsApp Us</a>
+          </div>
+          <div class="trust-row" aria-label="Trust points">
+            <span>Fixed prices</span>
+            <span>Flight monitoring</span>
+            <span>Secure booking</span>
+          </div>
+        </div>
+
+        <aside class="quote-card" id="quote" aria-label="Instant quote form">
+          <h2>Get a Quote</h2>
+          <p>Send your journey details and we’ll confirm availability.</p>
+          <form id="quoteForm">
+            <label for="journey">Journey type</label>
+            <select id="journey" name="journey">
+              <option>To airport</option>
+              <option>From airport</option>
+              <option>Return journey</option>
+            </select>
+
+            <label for="pickup">Pickup address / area</label>
+            <input id="pickup" name="pickup" placeholder="e.g. Glengormley, BT36" />
+
+            <label for="airport">Airport</label>
+            <select id="airport" name="airport">
+              <option>Belfast International Airport</option>
+              <option>Belfast City Airport</option>
+              <option>Dublin Airport</option>
+            </select>
+
+            <div class="form-grid">
+              <div>
+                <label for="date">Date</label>
+                <input id="date" name="date" type="date" />
+              </div>
+              <div>
+                <label for="time">Time</label>
+                <input id="time" name="time" type="time" />
+              </div>
+            </div>
+
+            <div class="form-grid">
+              <div>
+                <label for="passengers">Passengers</label>
+                <select id="passengers" name="passengers"><option>1</option><option>2</option><option>3</option><option>4</option></select>
+              </div>
+              <div>
+                <label for="cases">Suitcases</label>
+                <select id="cases" name="cases"><option>0</option><option>1</option><option>2</option><option>3</option><option>4</option></select>
+              </div>
+            </div>
+
+            <button class="btn btn-primary full" type="submit">Send Quote Request</button>
+            <p class="quote-result" id="quoteResult">Or call 07549 815538</p>
+          </form>
+        </aside>
+      </div>
+    </section>
+
+    <section class="feature-strip section">
+      <div><strong>3</strong><span>Airports covered</span></div>
+      <div><strong>24/7</strong><span>Pre-booked airport journeys</span></div>
+      <div><strong>5★</strong><span>Service focused approach</span></div>
+    </section>
+
+    <section class="section" id="airports">
+      <div class="section-heading">
+        <p class="eyebrow dark">Airports</p>
+        <h2>Airports We Cover</h2>
+      </div>
+      <div class="cards">
+        <article class="card"><h3>Belfast International</h3><p>Reliable transfers to and from Belfast International Airport for holidays, business trips and family travel.</p></article>
+        <article class="card"><h3>Belfast City Airport</h3><p>Convenient pre-booked airport transfers for George Best Belfast City Airport.</p></article>
+        <article class="card"><h3>Dublin Airport</h3><p>Longer distance transfers to Dublin Airport from Greater Belfast and surrounding areas.</p></article>
+      </div>
+    </section>
+
+    <section class="section split" id="areas">
+      <div>
+        <p class="eyebrow dark">Service Area</p>
+        <h2>Serving Greater Belfast</h2>
+        <p>Covering Belfast, Newtownabbey, Glengormley, Carnmoney, Whiteabbey, Jordanstown, Holywood, Dundonald, Lisburn, Carryduff, Bangor, Hillsborough and surrounding areas.</p>
+      </div>
+      <div class="area-box">
+        <span>Belfast</span><span>Newtownabbey</span><span>Glengormley</span><span>Carnmoney</span><span>Holywood</span><span>Lisburn</span><span>Dundonald</span><span>Bangor</span>
+      </div>
+    </section>
+
+    <section class="section reviews" id="reviews">
+      <p class="eyebrow">Reviews</p>
+      <h2>Trusted Airport Transfers</h2>
+      <p class="stars">★★★★★</p>
+      <p>Google Reviews integration can be added here once connected to your Google Business Profile.</p>
+    </section>
+
+    <section class="section cta" id="contact">
+      <h2>Ready to book your airport transfer?</h2>
+      <p>Call, WhatsApp or send a quote request.</p>
+      <div class="hero-actions center">
+        <a class="btn btn-primary" href="tel:07549815538">Call 07549 815538</a>
+        <a class="btn btn-secondary dark-btn" href="https://wa.me/447549815538" target="_blank" rel="noopener">WhatsApp</a>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div><strong>My Airport Taxi NI</strong><br>Airport Transfers Across Greater Belfast</div>
+    <div>07549 815538<br>Secure online booking coming soon</div>
+  </footer>
+
+  <script src="js/script.js"></script>
+</body>
+</html>
