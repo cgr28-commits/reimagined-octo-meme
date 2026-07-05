@@ -122,6 +122,10 @@ export function isAddressAllowedForAirport(
   return false;
 }
 
+function isNorthernIrelandCoordinates(lat: number, lon: number): boolean {
+  return lat >= 54.0 && lat <= 55.5 && lon >= -8.2 && lon <= -5.4;
+}
+
 export function isAllowedCoordinates(airportCode: string, lat: number, lon: number): boolean {
   if (isNorthernIrelandCoordinates(lat, lon)) {
     return true;

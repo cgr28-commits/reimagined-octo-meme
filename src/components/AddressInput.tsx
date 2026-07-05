@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
-import type { AddressSuggestion } from "@/app/api/addresses/route";
+import type { AddressSuggestion } from "@/lib/address-suggestion";
 
 type AddressInputProps = {
   id: string;

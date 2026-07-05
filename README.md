@@ -2,6 +2,10 @@
 
 Next.js site for Northern Ireland airport transfers — WhatsApp booking, quote form, and airport information.
 
+**Live site:** https://cgr28-commits.github.io/reimagined-octo-meme/
+
+**Repository:** https://github.com/cgr28-commits/reimagined-octo-meme
+
 ## Development
 
 ```bash

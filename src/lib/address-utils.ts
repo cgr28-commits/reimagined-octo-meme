@@ -4,7 +4,6 @@ export {
   isAddressAllowedForAirport,
   isAllowedCoordinates,
   isNorthernIrelandAddressParts,
-  isNorthernIrelandCoordinates,
   isNorthernIrelandPostcode,
   isNorthernIrelandText,
   isRepublicOfIrelandAddressParts,
