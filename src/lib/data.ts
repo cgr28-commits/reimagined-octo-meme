@@ -52,8 +52,8 @@ export const AIRPORTS = [
   {
     code: "BHD",
     name: "George Best Belfast City",
-    basePrice: 25,
-    distance: "From £25",
+    basePrice: 35,
+    distance: "From £35",
     duration: "~15 min from city centre",
     description:
       "Quick, convenient transfers to the heart of Belfast — ideal for business and short-haul flights.",
