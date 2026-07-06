@@ -10,9 +10,37 @@ export const SITE = {
 
 export const NAV_LINKS = [
   { label: "Airports", href: "#airports" },
+  { label: "Flight Status", href: "#flight-status" },
   { label: "Areas We Cover", href: "#areas" },
   { label: "Reviews", href: "#reviews" },
   { label: "FAQ", href: "#faq" },
+] as const;
+
+export const FLIGHT_AIRPORTS = [
+  {
+    code: "BFS",
+    name: "Belfast International",
+    subtitle: "Aldergrove",
+    officialUrl: "https://www.belfastairport.com/flights/live-flight-information/",
+    arrivalsUrl: "https://www.belfastairport.com/flights/arrivals",
+    departuresUrl: "https://www.belfastairport.com/flights/departures",
+  },
+  {
+    code: "BHD",
+    name: "George Best Belfast City",
+    subtitle: "The Heart of Belfast",
+    officialUrl: "https://www.belfastcityairport.com/Flight-Info",
+    arrivalsUrl: "https://www.belfastcityairport.com/Flight-Info/Arrivals",
+    departuresUrl: "https://www.belfastcityairport.com/Flight-Info/Departures",
+  },
+  {
+    code: "DUB",
+    name: "Dublin Airport",
+    subtitle: "Cross-border transfers",
+    officialUrl: "https://www.dublinairport.com/flight-information",
+    arrivalsUrl: "https://www.dublinairport.com/flight-information/live-arrivals",
+    departuresUrl: "https://www.dublinairport.com/flight-information/live-departures",
+  },
 ] as const;
 
 export const HERO_SLIDES = [

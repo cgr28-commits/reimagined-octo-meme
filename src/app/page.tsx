@@ -1,6 +1,7 @@
 import Header from "@/components/Header";
 import HeroSlideshow from "@/components/HeroSlideshow";
 import AirportsSection from "@/components/AirportsSection";
+import FlightStatusSection from "@/components/FlightStatusSection";
 import AreasSection from "@/components/AreasSection";
 import ReviewsSection from "@/components/ReviewsSection";
 import FAQSection from "@/components/FAQSection";
@@ -14,6 +15,7 @@ export default function Home() {
       <main>
         <HeroSlideshow />
         <AirportsSection />
+        <FlightStatusSection />
         <AreasSection />
         <ReviewsSection />
         <FAQSection />

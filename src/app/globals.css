@@ -91,3 +91,82 @@ body {
 .faq-answer > div {
   overflow: hidden;
 }
+
+/* Flightradar.live FIDS widget — dark theme to match site */
+.flight-widget-host .fids-widget.container {
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+}
+
+.flight-widget-host .fids-widget {
+  font-family: var(--font-sans), system-ui, sans-serif;
+}
+
+.flight-widget-host .fids-widget .table thead th {
+  background-color: rgba(12, 42, 82, 0.9) !important;
+  color: #e8edf5 !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.flight-widget-host .fids-widget .table,
+.flight-widget-host .fids-widget .table td,
+.flight-widget-host .fids-widget .table th {
+  color: #e8edf5 !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+.flight-widget-host .fids-widget .table-striped > tbody > tr:nth-of-type(odd) {
+  background-color: rgba(255, 255, 255, 0.03) !important;
+}
+
+.flight-widget-host .fids-widget .table-striped > tbody > tr:nth-of-type(even) {
+  background-color: transparent !important;
+}
+
+.flight-widget-host .fids-widget .fids-pagination {
+  background-color: rgba(12, 42, 82, 0.8) !important;
+  color: #e8edf5 !important;
+  border-radius: 0.5rem;
+}
+
+.flight-widget-host .fids-widget .form-select {
+  background-color: rgba(7, 28, 56, 0.9) !important;
+  border-color: rgba(255, 255, 255, 0.15) !important;
+  color: #e8edf5 !important;
+}
+
+.flight-widget-host .fids-widget .btn-info {
+  background-color: rgba(47, 191, 74, 0.2) !important;
+  border-color: rgba(47, 191, 74, 0.4) !important;
+  color: var(--color-emerald) !important;
+}
+
+.flight-widget-host .fids-widget .btn-info:hover {
+  background-color: rgba(47, 191, 74, 0.35) !important;
+}
+
+.flight-widget-host .fids-widget .badge.bg-primary {
+  background-color: rgba(47, 191, 74, 0.25) !important;
+  color: var(--color-emerald-light) !important;
+}
+
+.flight-widget-host .fids-widget .badge.bg-success {
+  background-color: rgba(47, 191, 74, 0.4) !important;
+  color: #fff !important;
+}
+
+.flight-widget-host .fids-widget .badge.bg-warning {
+  background-color: rgba(253, 126, 20, 0.35) !important;
+  color: #ffd6a5 !important;
+}
+
+.flight-widget-host .fids-widget .badge.bg-danger {
+  background-color: rgba(220, 53, 69, 0.35) !important;
+  color: #ffb3b3 !important;
+}
+
+.flight-widget-host .fids-widget .badge.bg-secondary {
+  background-color: rgba(255, 255, 255, 0.12) !important;
+  color: #e8edf5 !important;
+}
