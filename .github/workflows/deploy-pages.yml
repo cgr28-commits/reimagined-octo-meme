@@ -27,7 +27,7 @@ jobs:
       - run: npm run build
         env:
           GITHUB_PAGES: true
-          NEXT_PUBLIC_BASE_PATH: ""
+      - run: node scripts/fix-github-pages-paths.mjs
       - uses: actions/upload-pages-artifact@v3
         with:
           path: out
