@@ -9,6 +9,9 @@ import { TERMS_LAST_UPDATED, TERMS_SECTIONS } from "@/lib/terms";
 export const metadata: Metadata = {
   title: `Terms & Conditions | ${SITE.name}`,
   description: `Terms and conditions for booking airport transfers with ${SITE.name}.`,
+  alternates: {
+    canonical: "/terms/",
+  },
 };
 
 export default function TermsPage() {

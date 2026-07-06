@@ -5,7 +5,7 @@ export const SITE = {
   tagline: "Premium Airport Transfers Across Northern Ireland",
   whatsapp: "447549815538",
   email: "bookings@myairporttaxini.co.uk",
-  url: "https://myairporttaxini.co.uk",
+  url: "https://www.myairporttaxini.co.uk",
 } as const;
 
 export const NAV_LINKS = [

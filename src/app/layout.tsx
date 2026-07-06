@@ -10,9 +10,13 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE.url),
   title: `${SITE.name} | Premium Airport Transfers Northern Ireland`,
   description:
     "Professional airport taxi transfers across Northern Ireland. Flight tracking, meet & greet, and transfers from Belfast International, Dublin, and more. Book via WhatsApp.",
+  alternates: {
+    canonical: "/",
+  },
   keywords: [
     "airport taxi",
     "Belfast airport transfer",
