@@ -7,12 +7,26 @@ type TripDirection = "to-airport" | "from-airport";
 
 const ADDRESS_STORAGE_KEY = "my-airport-taxi-ni-pickup-address";
 
+function parseDateTime(date: string, time: string): Date {
+  return new Date(`${date}T${time}`);
+}
+
+function isReturnAfterOutbound(
+  outboundDate: string,
+  outboundTime: string,
+  returnDate: string,
+  returnTime: string,
+): boolean {
+  return parseDateTime(returnDate, returnTime) > parseDateTime(outboundDate, outboundTime);
+}
+
 export default function QuoteCard() {
   const [submitted, setSubmitted] = useState(false);
   const [tripDirection, setTripDirection] = useState<TripDirection>("to-airport");
   const [airportCode, setAirportCode] = useState("");
   const [address, setAddress] = useState("");
   const [returnJourney, setReturnJourney] = useState(false);
+  const [returnDateError, setReturnDateError] = useState("");
   const [vehicle, setVehicle] = useState<(typeof VEHICLE_TYPES)[number]>(
     VEHICLE_TYPES[0],
   );
@@ -45,6 +59,21 @@ export default function QuoteCard() {
       AIRPORTS.find((a) => a.code === airportCodeValue)?.name ?? airportCodeValue;
     const date = data.get("date") as string;
     const time = data.get("time") as string;
+    const returnDate = returnJourney ? (data.get("returnDate") as string) : "";
+    const returnTime = returnJourney ? (data.get("returnTime") as string) : "";
+
+    if (returnJourney) {
+      if (!returnDate || !returnTime) {
+        setReturnDateError("Please select a return date and time.");
+        return;
+      }
+      if (!isReturnAfterOutbound(date, time, returnDate, returnTime)) {
+        setReturnDateError("Return date and time must be after your outbound trip.");
+        return;
+      }
+    }
+    setReturnDateError("");
+
     const passengers = data.get("passengers") as string;
     const suitcases = data.get("suitcases") as string;
     const vehicleType = data.get("vehicle") as string;
@@ -62,8 +91,11 @@ export default function QuoteCard() {
         `Pickup: ${pickup}\n` +
         `Drop-off: ${destination}\n` +
         `Return journey: ${returnJourney ? "Yes" : "No"}\n` +
-        `Date: ${date}\n` +
-        `Time: ${time}\n` +
+        `${returnJourney ? "Outbound date" : "Date"}: ${date}\n` +
+        `${returnJourney ? "Outbound time" : "Time"}: ${time}\n` +
+        (returnJourney
+          ? `Return date: ${returnDate}\nReturn time: ${returnTime}\n`
+          : "") +
         (flightNumber ? `Flight number: ${flightNumber}\n` : "") +
         `Passengers: ${passengers}\n` +
         `Suitcases: ${suitcases}\n` +
@@ -122,7 +154,10 @@ export default function QuoteCard() {
           <div className="grid grid-cols-2 gap-2 rounded-xl border border-white/10 bg-white/5 p-1">
             <button
               type="button"
-              onClick={() => setReturnJourney(false)}
+              onClick={() => {
+                setReturnJourney(false);
+                setReturnDateError("");
+              }}
               className={`rounded-lg px-3 py-2.5 text-xs font-semibold transition-all sm:text-sm ${
                 !returnJourney
                   ? "bg-emerald text-navy shadow-sm"
@@ -203,7 +238,7 @@ export default function QuoteCard() {
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
             <label htmlFor="date" className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/50">
-              Date
+              {returnJourney ? "Outbound Date" : "Date"}
             </label>
             <input
               id="date"
@@ -215,7 +250,7 @@ export default function QuoteCard() {
           </div>
           <div>
             <label htmlFor="time" className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/50">
-              Time
+              {returnJourney ? "Outbound Time" : "Time"}
             </label>
             <input
               id="time"
@@ -226,6 +261,38 @@ export default function QuoteCard() {
             />
           </div>
         </div>
+
+        {returnJourney && (
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label htmlFor="returnDate" className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/50">
+                Return Date
+              </label>
+              <input
+                id="returnDate"
+                name="returnDate"
+                type="date"
+                required
+                className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30 [color-scheme:dark]"
+              />
+            </div>
+            <div>
+              <label htmlFor="returnTime" className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/50">
+                Return Time
+              </label>
+              <input
+                id="returnTime"
+                name="returnTime"
+                type="time"
+                required
+                className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30 [color-scheme:dark]"
+              />
+            </div>
+            {returnDateError && (
+              <p className="sm:col-span-2 text-xs text-red-400">{returnDateError}</p>
+            )}
+          </div>
+        )}
 
         <div>
           <label htmlFor="flightNumber" className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/50">
