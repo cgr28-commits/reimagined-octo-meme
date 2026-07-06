@@ -1,4 +1,5 @@
 import { AIRPORTS, AREAS } from "@/lib/data";
+import SectionHeading from "./SectionHeading";
 
 export default function AreasSection() {
   return (
@@ -11,17 +12,12 @@ export default function AreasSection() {
       <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="grid items-center gap-12 lg:grid-cols-2 lg:gap-20">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-widest text-emerald">
-              Coverage
-            </p>
-            <h2 className="section-heading mt-2 text-3xl font-bold text-white sm:text-4xl">
-              Areas We Cover
-            </h2>
-            <p className="mt-5 text-base leading-relaxed text-white/60">
-              Based in Belfast, we provide airport transfers across all of Northern
-              Ireland — from city centres to rural towns. Don&apos;t see your area?
-              Get in touch; we cover the entire province.
-            </p>
+            <SectionHeading
+              align="left"
+              eyebrow="Coverage"
+              title="Areas We Cover"
+              description="Based in Belfast, we provide airport transfers across all of Northern Ireland — from city centres to rural towns. Don't see your area? Get in touch; we cover the entire province."
+            />
 
             <div className="mt-8 flex flex-wrap gap-4">
               <div className="rounded-xl border border-white/10 bg-white/5 px-5 py-4">

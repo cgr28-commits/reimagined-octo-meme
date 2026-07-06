@@ -1,22 +1,16 @@
 import { AIRPORTS } from "@/lib/data";
+import SectionHeading from "./SectionHeading";
 
 export default function AirportsSection() {
   return (
     <section id="airports" className="relative py-20 sm:py-28">
       <div className="absolute inset-0 bg-gradient-to-b from-navy via-navy-light/30 to-navy" />
       <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-2xl text-center">
-          <p className="text-sm font-semibold uppercase tracking-widest text-emerald">
-            Destinations
-          </p>
-          <h2 className="section-heading mx-auto mt-2 text-3xl font-bold text-white sm:text-4xl">
-            Airports We Serve
-          </h2>
-          <p className="mt-5 text-base leading-relaxed text-white/60">
-            Professional transfers to every major airport — with live flight tracking,
-            meet &amp; greet, and complimentary waiting time included.
-          </p>
-        </div>
+        <SectionHeading
+          eyebrow="Destinations"
+          title="Airports We Serve"
+          description="Professional transfers to every major airport — with live flight tracking, meet & greet, and complimentary waiting time included."
+        />
 
         <div className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {AIRPORTS.map((airport) => (

@@ -1,4 +1,5 @@
 import { REVIEWS } from "@/lib/data";
+import SectionHeading from "./SectionHeading";
 
 function StarRating({ rating }: { rating: number }) {
   return (
@@ -24,13 +25,11 @@ export default function ReviewsSection() {
     <section id="reviews" className="relative py-20 sm:py-28">
       <div className="absolute inset-0 bg-gradient-to-b from-navy via-navy-light/20 to-navy" />
       <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="flex flex-col items-center text-center">
-          <p className="text-sm font-semibold uppercase tracking-widest text-emerald">
-            Testimonials
-          </p>
-          <h2 className="section-heading mx-auto mt-2 text-3xl font-bold text-white sm:text-4xl">
-            Google Reviews
-          </h2>
+        <div className="flex flex-col items-center">
+          <SectionHeading
+            eyebrow="Testimonials"
+            title="Google Reviews"
+          />
 
           <div className="mt-6 flex items-center gap-4 rounded-2xl border border-white/10 bg-white/[0.03] px-6 py-4">
             <div className="flex items-center gap-2">

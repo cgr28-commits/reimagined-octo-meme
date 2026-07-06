@@ -68,14 +68,62 @@ body {
   animation: float 4s ease-in-out infinite;
 }
 
+.section-header {
+  position: relative;
+}
+
+.section-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.375rem 0.875rem;
+  border-radius: 9999px;
+  border: 1px solid rgba(47, 191, 74, 0.22);
+  background: rgba(47, 191, 74, 0.08);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-emerald);
+}
+
+.section-eyebrow::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-emerald);
+  box-shadow: 0 0 10px rgba(47, 191, 74, 0.55);
+}
+
+.section-heading {
+  text-wrap: balance;
+}
+
 .section-heading::after {
   content: "";
   display: block;
-  width: 48px;
-  height: 3px;
-  margin-top: 12px;
+  width: 4rem;
+  height: 4px;
+  margin-top: 1rem;
   border-radius: 9999px;
-  background: linear-gradient(90deg, var(--color-emerald), var(--color-emerald-light));
+  background: linear-gradient(
+    90deg,
+    var(--color-emerald),
+    var(--color-emerald-light),
+    transparent
+  );
+  box-shadow: 0 0 16px rgba(47, 191, 74, 0.35);
+}
+
+.section-header.text-center .section-heading::after,
+.section-header.mx-auto .section-heading::after {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.section-description {
+  text-wrap: pretty;
 }
 
 .faq-answer {
@@ -92,81 +140,69 @@ body {
   overflow: hidden;
 }
 
-/* Flightradar.live FIDS widget — dark theme to match site */
-.flight-widget-host .fids-widget.container {
-  background: transparent !important;
-  box-shadow: none !important;
-  padding: 0 !important;
+/* Live flight board */
+.flight-board-table thead {
+  background: rgba(12, 42, 82, 0.95);
+  color: #e8edf5;
 }
 
-.flight-widget-host .fids-widget {
-  font-family: var(--font-sans), system-ui, sans-serif;
+.flight-board-table thead th {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.flight-widget-host .fids-widget .table thead th {
-  background-color: rgba(12, 42, 82, 0.9) !important;
-  color: #e8edf5 !important;
-  border-color: rgba(255, 255, 255, 0.1) !important;
+.flight-board-table tbody tr:nth-child(odd) {
+  background: rgba(255, 255, 255, 0.03);
 }
 
-.flight-widget-host .fids-widget .table,
-.flight-widget-host .fids-widget .table td,
-.flight-widget-host .fids-widget .table th {
-  color: #e8edf5 !important;
-  border-color: rgba(255, 255, 255, 0.08) !important;
+.flight-board-table tbody tr {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  transition: background-color 0.15s ease;
 }
 
-.flight-widget-host .fids-widget .table-striped > tbody > tr:nth-of-type(odd) {
-  background-color: rgba(255, 255, 255, 0.03) !important;
+.flight-board-table tbody tr:hover {
+  background: rgba(47, 191, 74, 0.06);
 }
 
-.flight-widget-host .fids-widget .table-striped > tbody > tr:nth-of-type(even) {
-  background-color: transparent !important;
+.flight-status-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 9999px;
+  padding: 0.2rem 0.65rem;
+  font-size: 0.75rem;
+  font-weight: 600;
 }
 
-.flight-widget-host .fids-widget .fids-pagination {
-  background-color: rgba(12, 42, 82, 0.8) !important;
-  color: #e8edf5 !important;
-  border-radius: 0.5rem;
+.flight-status-badge--success {
+  background: rgba(47, 191, 74, 0.2);
+  color: var(--color-emerald-light);
 }
 
-.flight-widget-host .fids-widget .form-select {
-  background-color: rgba(7, 28, 56, 0.9) !important;
-  border-color: rgba(255, 255, 255, 0.15) !important;
-  color: #e8edf5 !important;
+.flight-status-badge--neutral {
+  background: rgba(255, 255, 255, 0.1);
+  color: #e8edf5;
 }
 
-.flight-widget-host .fids-widget .btn-info {
-  background-color: rgba(47, 191, 74, 0.2) !important;
-  border-color: rgba(47, 191, 74, 0.4) !important;
-  color: var(--color-emerald) !important;
+.flight-status-badge--warning {
+  background: rgba(253, 126, 20, 0.25);
+  color: #ffd6a5;
 }
 
-.flight-widget-host .fids-widget .btn-info:hover {
-  background-color: rgba(47, 191, 74, 0.35) !important;
+.flight-status-badge--danger {
+  background: rgba(220, 53, 69, 0.25);
+  color: #ffb3b3;
 }
 
-.flight-widget-host .fids-widget .badge.bg-primary {
-  background-color: rgba(47, 191, 74, 0.25) !important;
-  color: var(--color-emerald-light) !important;
+.flight-board-spinner {
+  width: 1.25rem;
+  height: 1.25rem;
+  border: 2px solid rgba(255, 255, 255, 0.15);
+  border-top-color: var(--color-emerald);
+  border-radius: 50%;
+  animation: flight-board-spin 0.8s linear infinite;
 }
 
-.flight-widget-host .fids-widget .badge.bg-success {
-  background-color: rgba(47, 191, 74, 0.4) !important;
-  color: #fff !important;
-}
-
-.flight-widget-host .fids-widget .badge.bg-warning {
-  background-color: rgba(253, 126, 20, 0.35) !important;
-  color: #ffd6a5 !important;
-}
-
-.flight-widget-host .fids-widget .badge.bg-danger {
-  background-color: rgba(220, 53, 69, 0.35) !important;
-  color: #ffb3b3 !important;
-}
-
-.flight-widget-host .fids-widget .badge.bg-secondary {
-  background-color: rgba(255, 255, 255, 0.12) !important;
-  color: #e8edf5 !important;
+@keyframes flight-board-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }

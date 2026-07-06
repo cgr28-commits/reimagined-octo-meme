@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { FLIGHT_AIRPORTS, SITE } from "@/lib/data";
 import FlightWidget from "./FlightWidget";
+import SectionHeading from "./SectionHeading";
 
 type FlightType = "arrivals" | "departures";
 
@@ -16,18 +17,11 @@ export default function FlightStatusSection() {
     <section id="flight-status" className="relative py-20 sm:py-28">
       <div className="absolute inset-0 bg-gradient-to-b from-navy via-navy-dark/50 to-navy" />
       <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-2xl text-center">
-          <p className="text-sm font-semibold uppercase tracking-widest text-emerald">
-            Plan Your Pickup
-          </p>
-          <h2 className="section-heading mx-auto mt-2 text-3xl font-bold text-white sm:text-4xl">
-            Live Flight Status
-          </h2>
-          <p className="mt-5 text-base leading-relaxed text-white/60">
-            Check real-time arrivals and departures before you book. Share your flight
-            number via WhatsApp and we&apos;ll track delays automatically.
-          </p>
-        </div>
+        <SectionHeading
+          eyebrow="Plan Your Pickup"
+          title="Live Flight Status"
+          description="Check real-time arrivals and departures before you book. Share your flight number via WhatsApp and we'll track delays automatically."
+        />
 
         <div className="mt-12 flex flex-wrap justify-center gap-2">
           {FLIGHT_AIRPORTS.map((item, index) => (
@@ -80,7 +74,11 @@ export default function FlightStatusSection() {
           </div>
 
           <div className="p-4 sm:p-6">
-            <FlightWidget iata={airport.code} type={flightType} />
+            <FlightWidget
+              iata={airport.code}
+              type={flightType}
+              officialBoardUrl={flightType === "arrivals" ? airport.arrivalsUrl : airport.departuresUrl}
+            />
           </div>
 
           <div className="flex flex-col gap-4 border-t border-white/10 bg-white/[0.02] px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">

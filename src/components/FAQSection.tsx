@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { FAQS } from "@/lib/data";
+import SectionHeading from "./SectionHeading";
 
 export default function FAQSection() {
   const [openIndex, setOpenIndex] = useState<number | null>(0);
@@ -10,17 +11,11 @@ export default function FAQSection() {
     <section id="faq" className="relative py-20 sm:py-28">
       <div className="absolute inset-0 bg-navy-dark" />
       <div className="relative mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
-        <div className="text-center">
-          <p className="text-sm font-semibold uppercase tracking-widest text-emerald">
-            Help Centre
-          </p>
-          <h2 className="section-heading mx-auto mt-2 text-3xl font-bold text-white sm:text-4xl">
-            Frequently Asked Questions
-          </h2>
-          <p className="mt-5 text-base text-white/60">
-            Everything you need to know about booking your airport transfer.
-          </p>
-        </div>
+        <SectionHeading
+          eyebrow="Help Centre"
+          title="Frequently Asked Questions"
+          description="Everything you need to know about booking your airport transfer."
+        />
 
         <div className="mt-12 space-y-3">
           {FAQS.map((faq, index) => {
