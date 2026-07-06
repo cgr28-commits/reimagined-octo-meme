@@ -31,7 +31,7 @@ export const metadata: Metadata = {
     locale: "en_GB",
   },
   icons: {
-    icon: withBasePath("/logo.png"),
+    icon: withBasePath("/favicon.png"),
   },
 };
 
