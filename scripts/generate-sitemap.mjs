@@ -3,8 +3,23 @@ import { join } from "node:path";
 
 const SITE_URL = "https://www.myairporttaxini.co.uk";
 
+const tourSlugs = [
+  "giants-causeway",
+  "belfast-city",
+  "game-of-thrones",
+  "antrim-coast",
+  "mourne-mountains",
+  "derry-londonderry",
+];
+
 const pages = [
   { path: "/", changefreq: "monthly", priority: "1.0" },
+  { path: "/tours/", changefreq: "monthly", priority: "0.9" },
+  ...tourSlugs.map((slug) => ({
+    path: `/tours/${slug}/`,
+    changefreq: "monthly",
+    priority: "0.8",
+  })),
   { path: "/terms/", changefreq: "yearly", priority: "0.5" },
 ];
 

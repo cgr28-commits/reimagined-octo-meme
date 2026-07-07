@@ -5,6 +5,7 @@ import FlightStatusSection from "@/components/FlightStatusSection";
 import AreasSection from "@/components/AreasSection";
 import WhyChooseUsSection from "@/components/WhyChooseUsSection";
 import FAQSection from "@/components/FAQSection";
+import ToursTeaserSection from "@/components/ToursTeaserSection";
 import WhatsAppButton from "@/components/WhatsAppButton";
 import Footer from "@/components/Footer";
 
@@ -17,6 +18,7 @@ export default function Home() {
         <AirportsSection />
         <FlightStatusSection />
         <AreasSection />
+        <ToursTeaserSection />
         <WhyChooseUsSection />
         <FAQSection />
       </main>

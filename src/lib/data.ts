@@ -9,11 +9,12 @@ export const SITE = {
 } as const;
 
 export const NAV_LINKS = [
-  { label: "Airports", href: "#airports" },
-  { label: "Flight Status", href: "#flight-status" },
-  { label: "Areas We Cover", href: "#areas" },
-  { label: "Why Us", href: "#why-us" },
-  { label: "FAQ", href: "#faq" },
+  { label: "Airports", href: "/#airports" },
+  { label: "Tours", href: "/tours/" },
+  { label: "Flight Status", href: "/#flight-status" },
+  { label: "Areas We Cover", href: "/#areas" },
+  { label: "Why Us", href: "/#why-us" },
+  { label: "FAQ", href: "/#faq" },
 ] as const;
 
 export const FLIGHT_AIRPORTS = [
