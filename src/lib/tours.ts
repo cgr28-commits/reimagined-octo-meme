@@ -24,7 +24,7 @@ export const TOURS: readonly Tour[] = [
     shortDescription:
       "Explore Northern Ireland's most iconic coastline — hexagonal basalt columns, dramatic cliffs, and Atlantic views.",
     description:
-      "Discover the UNESCO World Heritage Giant's Causeway with a private driver who knows the best viewpoints, quieter stops, and photo spots along the Causeway Coast. We tailor the route to your pace — whether you want the full coastal experience or a focused visit to the stones and nearby attractions.",
+      "We take you to the UNESCO World Heritage Giant's Causeway with a private driver who knows the best viewpoints, quieter stops, and photo spots along the Causeway Coast. We tailor the route to your pace — whether you want the full coastal experience or a focused visit to the stones and nearby attractions.",
     duration: "Full day (~8 hours)",
     price: "From £250",
     priceNote: "Based on saloon vehicle from Belfast. MPV and minibus options available.",
@@ -36,21 +36,21 @@ export const TOURS: readonly Tour[] = [
       "Flexible photo and refreshment stops",
     ],
     whatsappMessage:
-      "Hi, I'd like to enquire about a private tour to the Giant's Causeway and Causeway Coast.",
+      "Hi, I'd like to enquire about a private day trip to the Giant's Causeway and Causeway Coast.",
     image: withBasePath("/images/tours/giants-causeway.jpg"),
     imageAlt: "Hexagonal basalt columns at Giant's Causeway on the Causeway Coast",
   },
   {
     slug: "belfast-city",
     title: "Belfast City Highlights",
-    eyebrow: "City Tour",
+    eyebrow: "Belfast City",
     shortDescription:
-      "A guided drive through Belfast's landmarks, murals, Titanic Quarter, and the best of the city centre.",
+      "Door-to-door transport to Belfast's landmarks, murals, Titanic Quarter, and the best of the city centre.",
     description:
-      "See Belfast at your own pace with a knowledgeable local driver. From the Titanic Quarter and Cathedral Quarter to political murals and panoramic viewpoints, we build an itinerary around your interests — history, architecture, food stops, or a bit of everything.",
+      "See Belfast at your own pace with a private driver. From the Titanic Quarter and Cathedral Quarter to political murals and panoramic viewpoints, we take you where you want to go — history, architecture, food stops, or a bit of everything.",
     duration: "Half day (~4 hours)",
     price: "From £120",
-    priceNote: "Ideal for cruise passengers, day visitors, or pre-flight sightseeing.",
+    priceNote: "Ideal for cruise passengers, day visitors, or pre-flight day trips.",
     highlights: [
       "Titanic Belfast and Titanic Quarter",
       "City Hall and Cathedral Quarter",
@@ -59,7 +59,7 @@ export const TOURS: readonly Tour[] = [
       "Local lunch and coffee stop recommendations",
     ],
     whatsappMessage:
-      "Hi, I'd like to enquire about a private Belfast city highlights tour.",
+      "Hi, I'd like to enquire about a private Belfast city highlights day trip.",
     image: withBasePath("/images/tours/belfast-city.jpg"),
     imageAlt: "Belfast City Hall and city centre skyline",
   },
@@ -70,7 +70,7 @@ export const TOURS: readonly Tour[] = [
     shortDescription:
       "Visit iconic Westeros filming sites across County Antrim and beyond — Dark Hedges, coastal castles, and more.",
     description:
-      "Northern Ireland served as the backdrop for much of Game of Thrones. Our private tour takes you to the most recognisable filming locations with a driver who knows the routes and the stories behind each stop. Perfect for fans who want to see multiple sites in one comfortable day.",
+      "Northern Ireland served as the backdrop for much of Game of Thrones. We take you to the most recognisable filming locations with a driver who knows the routes to each stop. Perfect for fans who want to see multiple sites in one comfortable day.",
     duration: "Full day (~8 hours)",
     price: "From £220",
     priceNote: "Route can be customised to focus on your favourite locations.",
@@ -82,7 +82,7 @@ export const TOURS: readonly Tour[] = [
       "Additional locations by request",
     ],
     whatsappMessage:
-      "Hi, I'd like to enquire about a private Game of Thrones filming locations tour.",
+      "Hi, I'd like to enquire about a private Game of Thrones filming locations day trip.",
     image: withBasePath("/images/tours/game-of-thrones.jpg"),
     imageAlt: "Dark Hedges tree-lined avenue in County Antrim",
   },
@@ -93,7 +93,7 @@ export const TOURS: readonly Tour[] = [
     shortDescription:
       "A relaxed coastal journey from Belfast to the Glens of Antrim — beaches, harbours, and sweeping sea views.",
     description:
-      "The Antrim Coast Road is one of the finest scenic drives in the UK. Enjoy a leisurely private tour through seaside towns, glens, and cliff-top lookouts without the stress of navigating narrow roads or finding parking. We can include Glenariff Forest Park, Cushendall, and Ballycastle depending on your time.",
+      "The Antrim Coast Road is one of the finest scenic drives in the UK. Enjoy a leisurely private chauffeur trip through seaside towns, glens, and cliff-top lookouts without the stress of navigating narrow roads or finding parking. We can include Glenariff Forest Park, Cushendall, and Ballycastle depending on your time.",
     duration: "Half to full day (~5–8 hours)",
     price: "From £180",
     priceNote: "Duration and price depend on how far along the coast you wish to travel.",
@@ -105,7 +105,7 @@ export const TOURS: readonly Tour[] = [
       "Flexible lunch stops at coastal pubs",
     ],
     whatsappMessage:
-      "Hi, I'd like to enquire about a private Antrim Coast scenic drive tour.",
+      "Hi, I'd like to enquire about a private Antrim Coast scenic drive day trip.",
     image: withBasePath("/images/tours/antrim-coast.jpg"),
     imageAlt: "Dramatic Antrim Coast cliffs beside Dunluce Castle",
   },
@@ -116,7 +116,7 @@ export const TOURS: readonly Tour[] = [
     shortDescription:
       "From dramatic mountain passes to the Newcastle coast — experience the beauty of County Down in comfort.",
     description:
-      "The Mourne Mountains inspired C.S. Lewis and offer some of Northern Ireland's most striking landscapes. Our private tour combines mountain scenery with charming coastal villages, Silent Valley Reservoir, and the seaside town of Newcastle — all at a pace that suits you.",
+      "The Mourne Mountains inspired C.S. Lewis and offer some of Northern Ireland's most striking landscapes. Our private day trip combines mountain scenery with charming coastal villages, Silent Valley Reservoir, and the seaside town of Newcastle — all at a pace that suits you.",
     duration: "Full day (~8 hours)",
     price: "From £200",
     priceNote: "Includes mountain viewpoints and coastal stops. Hiking time can be built in on request.",
@@ -128,21 +128,21 @@ export const TOURS: readonly Tour[] = [
       "Local food and refreshment stops",
     ],
     whatsappMessage:
-      "Hi, I'd like to enquire about a private Mourne Mountains and coastal route tour.",
+      "Hi, I'd like to enquire about a private Mourne Mountains and coastal route day trip.",
     image: withBasePath("/images/tours/mourne-mountains.jpg"),
     imageAlt: "Mourne Mountains rising above Newcastle on the County Down coast",
   },
   {
     slug: "derry-londonderry",
-    title: "Derry / Londonderry City & Walled Tour",
+    title: "Derry / Londonderry Walled City Day Trip",
     eyebrow: "North West",
     shortDescription:
-      "Walk the historic city walls, explore the Bogside murals, and discover the culture of the Walled City.",
+      "Door-to-door transport to the historic city walls, Bogside murals, and the landmarks of the Walled City.",
     description:
-      "Derry/Londonderry is one of Europe's finest walled cities. Our private tour covers the 17th-century walls, the Peace Bridge, Bogside murals, and the Guildhall — with your driver on hand for pickups between sites and local insight throughout the day.",
+      "Derry/Londonderry is one of Europe's finest walled cities. We take you to the 17th-century walls, the Peace Bridge, Bogside murals, and the Guildhall — with your driver on hand for pickups between sites throughout the day.",
     duration: "Full day (~7 hours)",
     price: "From £180",
-    priceNote: "Includes Belfast–Derry transfer time. Shorter city-only tours available on request.",
+    priceNote: "Includes Belfast–Derry transfer time. Shorter city-only trips available on request.",
     highlights: [
       "Historic city walls walk",
       "Bogside murals and Free Derry Corner",
@@ -151,7 +151,7 @@ export const TOURS: readonly Tour[] = [
       "River Foyle viewpoints",
     ],
     whatsappMessage:
-      "Hi, I'd like to enquire about a private Derry / Londonderry city tour.",
+      "Hi, I'd like to enquire about a private Derry / Londonderry city day trip.",
     image: withBasePath("/images/tours/derry-londonderry.jpg"),
     imageAlt: "View through Derry city walls overlooking the Walled City",
   },
@@ -172,9 +172,9 @@ export const TOUR_BENEFITS = [
       "Travel in comfort with a dedicated driver — no shared coaches, no fixed schedules, and no strangers in your group.",
   },
   {
-    title: "Local knowledge",
+    title: "We know the routes",
     description:
-      "Our drivers know the best routes, viewpoints, and lunch spots across Northern Ireland, with flexibility to adapt on the day.",
+      "Our drivers know the best roads, viewpoints, and lunch spots across Northern Ireland, with flexibility to adapt on the day.",
   },
   {
     title: "Door-to-door service",

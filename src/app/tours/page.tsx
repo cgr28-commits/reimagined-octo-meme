@@ -9,17 +9,17 @@ import { SITE } from "@/lib/data";
 import { getTourWhatsAppUrl, TOUR_BENEFITS, TOURS } from "@/lib/tours";
 
 export const metadata: Metadata = {
-  title: `Private Tours Northern Ireland | ${SITE.name}`,
+  title: `Private Day Trips Northern Ireland | ${SITE.name}`,
   description:
-    "Private day tours across Northern Ireland with a dedicated driver. Giant's Causeway, Belfast, Game of Thrones locations, Antrim Coast, Mournes, and Derry. Book via WhatsApp.",
+    "Private chauffeur day trips across Northern Ireland. We take you door-to-door to the Giant's Causeway, Belfast, Game of Thrones locations, Antrim Coast, Mournes, and Derry. Book via WhatsApp.",
   alternates: {
     canonical: "/tours/",
   },
   keywords: [
-    "Northern Ireland private tours",
-    "Giant's Causeway tour",
-    "Belfast city tour",
-    "Game of Thrones tour NI",
+    "Northern Ireland private day trips",
+    "Giant's Causeway chauffeur trip",
+    "Belfast private hire day trip",
+    "Game of Thrones locations transport NI",
     "Causeway Coast private hire",
   ],
 };
@@ -45,9 +45,9 @@ export default function ToursPage() {
             <div className="mt-8">
               <SectionHeading
                 align="left"
-                eyebrow="Private Tours"
+                eyebrow="Private Day Trips"
                 title="Discover Northern Ireland"
-                description="Explore the best of Northern Ireland with your own private vehicle and driver. Flexible itineraries, local knowledge, and door-to-door service — whether you're visiting for a day or planning a full sightseeing trip."
+                description="We take you to the best of Northern Ireland in your own private vehicle. Flexible itineraries, door-to-door transport, and a dedicated driver — whether you're visiting for a day or planning a full day trip."
               />
             </div>
 
@@ -64,8 +64,8 @@ export default function ToursPage() {
           <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <SectionHeading
               eyebrow="Why book with us"
-              title="Private Tours, Your Way"
-              description="The same professional service you expect from our airport transfers — applied to sightseeing across Northern Ireland."
+              title="Day Trips, Your Way"
+              description="The same professional chauffeur service you expect from our airport transfers — applied to private hire trips across Northern Ireland."
             />
 
             <div className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
@@ -85,13 +85,13 @@ export default function ToursPage() {
         <section className="relative pb-8">
           <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
             <div className="glass-card rounded-2xl p-8 text-center sm:p-10">
-              <h2 className="text-2xl font-bold text-white sm:text-3xl">Ready to plan your tour?</h2>
+              <h2 className="text-2xl font-bold text-white sm:text-3xl">Ready to plan your day trip?</h2>
               <p className="mt-4 text-sm leading-relaxed text-white/65">
-                Message us on WhatsApp with your preferred tour, travel dates, group size, and pickup
+                Message us on WhatsApp with your preferred trip, travel dates, group size, and pickup
                 location. We&apos;ll reply with a personalised quote — usually within minutes.
               </p>
               <a
-                href={getTourWhatsAppUrl("Hi, I'd like to enquire about a private tour in Northern Ireland.")}
+                href={getTourWhatsAppUrl("Hi, I'd like to enquire about a private day trip in Northern Ireland.")}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="mt-8 inline-flex items-center gap-2 rounded-full bg-emerald px-8 py-3.5 text-sm font-semibold text-navy transition-all hover:bg-emerald-light hover:shadow-lg hover:shadow-emerald/25"

@@ -22,18 +22,18 @@ export async function generateMetadata({ params }: TourPageProps): Promise<Metad
   const tour = getTourBySlug(slug);
 
   if (!tour) {
-    return { title: `Tour Not Found | ${SITE.name}` };
+    return { title: `Day Trip Not Found | ${SITE.name}` };
   }
 
   return {
-    title: `${tour.title} Private Tour | ${SITE.name}`,
-    description: `${tour.shortDescription} ${tour.duration}. ${tour.price}. Book your private tour via WhatsApp.`,
+    title: `${tour.title} Private Day Trip | ${SITE.name}`,
+    description: `${tour.shortDescription} ${tour.duration}. ${tour.price}. Book your private chauffeur trip via WhatsApp.`,
     alternates: {
       canonical: `/tours/${tour.slug}/`,
     },
     keywords: [
       tour.title,
-      "private tour Northern Ireland",
+      "private day trip Northern Ireland",
       tour.eyebrow,
       SITE.name,
     ],
@@ -75,7 +75,7 @@ export default async function TourDetailPage({ params }: TourPageProps) {
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
-            All tours
+            All day trips
           </Link>
 
           <header className="mt-6">
@@ -91,7 +91,7 @@ export default async function TourDetailPage({ params }: TourPageProps) {
           </header>
 
           <section className="mt-10 rounded-2xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
-            <h2 className="text-lg font-bold text-white">Tour highlights</h2>
+            <h2 className="text-lg font-bold text-white">Places we take you</h2>
             <ul className="mt-4 list-disc space-y-2 pl-5 text-sm leading-relaxed text-white/65">
               {tour.highlights.map((highlight) => (
                 <li key={highlight}>{highlight}</li>
@@ -101,7 +101,7 @@ export default async function TourDetailPage({ params }: TourPageProps) {
           </section>
 
           <div className="mt-10 glass-card rounded-2xl p-6 sm:p-8">
-            <h2 className="text-lg font-bold text-white">Book this tour</h2>
+            <h2 className="text-lg font-bold text-white">Book this day trip</h2>
             <p className="mt-3 text-sm leading-relaxed text-white/65">
               Send us a WhatsApp message with your travel dates, group size, and pickup location.
               We&apos;ll confirm availability and send a personalised quote.
@@ -121,8 +121,8 @@ export default async function TourDetailPage({ params }: TourPageProps) {
         </div>
 
         <section className="mx-auto mt-20 max-w-7xl px-4 sm:px-6 lg:px-8">
-          <h2 className="text-2xl font-bold text-white">Other tours</h2>
-          <p className="mt-2 text-sm text-white/50">Explore more private tour options across Northern Ireland.</p>
+          <h2 className="text-2xl font-bold text-white">Other day trips</h2>
+          <p className="mt-2 text-sm text-white/50">Explore more private chauffeur trip options across Northern Ireland.</p>
           <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {otherTours.slice(0, 3).map((otherTour) => (
               <TourCard key={otherTour.slug} tour={otherTour} />

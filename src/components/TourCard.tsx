@@ -41,7 +41,7 @@ export default function TourCard({ tour }: TourCardProps) {
             href={`/tours/${tour.slug}/`}
             className="inline-flex items-center gap-1 text-sm font-semibold text-emerald transition-colors hover:text-emerald-light"
           >
-            View tour details
+            View trip details
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
             </svg>
