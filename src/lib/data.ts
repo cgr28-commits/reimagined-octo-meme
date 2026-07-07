@@ -12,7 +12,7 @@ export const NAV_LINKS = [
   { label: "Airports", href: "#airports" },
   { label: "Flight Status", href: "#flight-status" },
   { label: "Areas We Cover", href: "#areas" },
-  { label: "Reviews", href: "#reviews" },
+  { label: "Why Us", href: "#why-us" },
   { label: "FAQ", href: "#faq" },
 ] as const;
 
@@ -125,42 +125,36 @@ export const AREAS = [
   "Hillsborough",
 ] as const;
 
-export const REVIEWS = [
+export const WHY_CHOOSE_US = [
   {
-    name: "Sarah M.",
-    rating: 5,
-    date: "2 weeks ago",
-    text: "Absolutely brilliant service! Driver was waiting at arrivals with a name board, car was spotless, and the journey to Belfast was smooth and comfortable. Will definitely use again.",
+    title: "Live flight tracking",
+    description:
+      "We monitor your flight in real time and adjust pickup times for delays or early arrivals at no extra cost.",
   },
   {
-    name: "James O'Neill",
-    rating: 5,
-    date: "1 month ago",
-    text: "Used My Airport Taxi NI for a Dublin Airport run. Clear quote upfront, no surprises. Driver was professional and even helped with luggage. Top class.",
+    title: "Meet & greet included",
+    description:
+      "Your driver meets you at arrivals with a name board — no searching for a taxi rank after a long flight.",
   },
   {
-    name: "Emma & David",
-    rating: 5,
-    date: "3 weeks ago",
-    text: "Booked via WhatsApp — super easy. They tracked our delayed flight and adjusted pickup time automatically. Can't recommend enough for airport transfers.",
+    title: "60 minutes free waiting",
+    description:
+      "Complimentary waiting time after landing is included, along with airport parking charges.",
   },
   {
-    name: "Michael T.",
-    rating: 5,
-    date: "2 months ago",
-    text: "Regular business traveller — these guys are my go-to. Always on time, always professional. The executive car option is worth every penny.",
+    title: "Clear upfront quotes",
+    description:
+      "Get a personalised quote via WhatsApp before you travel. All quotes include fuel, tolls, and your driver.",
   },
   {
-    name: "Claire R.",
-    rating: 5,
-    date: "1 week ago",
-    text: "Family of five with lots of luggage — they sent a spacious MPV that fit everything perfectly. Friendly driver, fair price. Five stars from us!",
+    title: "24/7, 365 days a year",
+    description:
+      "Early morning and late-night transfers are our speciality — including bank holidays and Christmas.",
   },
   {
-    name: "Patrick K.",
-    rating: 5,
-    date: "3 months ago",
-    text: "Early morning pickup to Belfast International — driver arrived 10 minutes early. Coffee stop on the way was no problem. Excellent communication throughout.",
+    title: "Licensed & insured fleet",
+    description:
+      "Saloon, executive, MPV, and minibus options — all fully licensed and insured for airport transfers.",
   },
 ] as const;
 
