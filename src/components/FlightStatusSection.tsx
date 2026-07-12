@@ -83,16 +83,17 @@ export default function FlightStatusSection() {
 
           <div className="flex flex-col gap-4 border-t border-white/10 bg-white/[0.02] px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
             <p className="text-xs text-white/40">
-              Data provided by{" "}
+              Flight times sourced from airport operators via{" "}
               <a
-                href="https://flightradar.live"
+                href="https://myairports.online"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-white/50 underline-offset-2 hover:text-emerald hover:underline"
               >
-                Flightradar.live
+                MyAirports
               </a>
-              . For official airport information, use the links below.
+              . Boards refresh on each site deploy — use the official links below for live airport
+              information.
             </p>
             <div className="flex flex-wrap gap-3">
               <a

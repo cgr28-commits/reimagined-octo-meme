@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { withBasePath } from "@/lib/paths";
 
 type FlightType = "arrivals" | "departures";
 
@@ -17,6 +18,13 @@ type FlightRecord = {
   status: string | null;
 };
 
+type FlightBoardPayload = {
+  fetchedAt?: string;
+  source?: string;
+  flights?: FlightRecord[];
+  error?: string;
+};
+
 type FlightWidgetProps = {
   iata: string;
   type: FlightType;
@@ -24,7 +32,7 @@ type FlightWidgetProps = {
 };
 
 const REFRESH_MS = 60_000;
-const API_BASE = "https://fids.flightradar.live/api/schedules";
+const STALE_MS = 60 * 60 * 1000;
 
 function formatTime(value: string | null): string {
   if (!value) return "—";
@@ -42,6 +50,7 @@ function statusClass(status: string | null): string {
     case "landed":
     case "arrived":
     case "active":
+    case "departed":
       return "flight-status-badge flight-status-badge--success";
     case "scheduled":
     case "expected":
@@ -72,32 +81,53 @@ function isDelayed(flight: FlightRecord, type: FlightType): boolean {
   return Boolean(type === "arrivals" ? flight.arr_delayed : flight.dep_delayed);
 }
 
+function parseFetchedAt(value: string | undefined): Date | null {
+  if (!value) return null;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
 export default function FlightWidget({ iata, type, officialBoardUrl }: FlightWidgetProps) {
   const [flights, setFlights] = useState<FlightRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [isStale, setIsStale] = useState(false);
 
   const loadFlights = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
     setError(null);
 
     try {
-      const response = await fetch(`${API_BASE}/${type}/${iata}`, { signal });
+      const response = await fetch(
+        `${withBasePath(`/flight-data/${iata}-${type}.json`)}?t=${Date.now()}`,
+        { signal, cache: "no-store" },
+      );
+
       if (!response.ok) {
         throw new Error(`Flight data unavailable (${response.status})`);
       }
 
-      const data = (await response.json()) as FlightRecord[];
-      if (!Array.isArray(data)) {
+      const data = (await response.json()) as FlightBoardPayload | FlightRecord[];
+      const payload: FlightBoardPayload = Array.isArray(data) ? { flights: data } : data;
+      const records = payload.flights;
+
+      if (!Array.isArray(records)) {
         throw new Error("Unexpected flight data format");
       }
 
-      setFlights(data.slice(0, 25));
-      setLastUpdated(new Date());
+      if (records.length === 0) {
+        throw new Error(payload.error ?? "No flights available right now");
+      }
+
+      const fetchedAt = parseFetchedAt(payload.fetchedAt);
+      setFlights(records.slice(0, 25));
+      setLastUpdated(fetchedAt ?? new Date());
+      setIsStale(Boolean(fetchedAt && Date.now() - fetchedAt.getTime() > STALE_MS));
     } catch (err) {
       if (signal?.aborted) return;
       setFlights([]);
+      setIsStale(false);
       setError(err instanceof Error ? err.message : "Unable to load flight data");
     } finally {
       if (!signal?.aborted) {
@@ -137,6 +167,10 @@ export default function FlightWidget({ iata, type, officialBoardUrl }: FlightWid
         <div className="rounded-xl border border-white/10 bg-white/[0.03] px-6 py-10 text-center">
           <p className="text-base font-semibold text-white">Unable to load live flights</p>
           <p className="mt-2 text-sm text-white/50">{error}</p>
+          <p className="mt-2 text-sm text-white/40">
+            Live flight boards are updated on each site deploy. For the latest official times, use
+            the airport board below.
+          </p>
           <a
             href={officialBoardUrl}
             target="_blank"
@@ -160,6 +194,21 @@ export default function FlightWidget({ iata, type, officialBoardUrl }: FlightWid
 
   return (
     <div className="flight-board" aria-label={`${iata} ${type} flight board`}>
+      {isStale ? (
+        <div className="mb-4 rounded-lg border border-amber-400/20 bg-amber-400/10 px-4 py-3 text-sm text-amber-100/90">
+          Flight times may be out of date.{" "}
+          <a
+            href={officialBoardUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-semibold text-amber-100 underline-offset-2 hover:underline"
+          >
+            Check the official {iata} board
+          </a>{" "}
+          for the latest information.
+        </div>
+      ) : null}
+
       <div className="overflow-x-auto rounded-xl border border-white/10">
         <table className="flight-board-table w-full min-w-[520px] text-left text-sm">
           <thead>
@@ -199,16 +248,28 @@ export default function FlightWidget({ iata, type, officialBoardUrl }: FlightWid
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-xs text-white/40">
         <p>
           Showing {flights.length} {type}
-          {lastUpdated ? ` · Updated ${lastUpdated.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}` : ""}
+          {lastUpdated
+            ? ` · Updated ${lastUpdated.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}`
+            : ""}
         </p>
-        <button
-          type="button"
-          onClick={() => void loadFlights()}
-          disabled={loading}
-          className="rounded-lg border border-white/10 px-3 py-1.5 font-semibold text-white/60 transition-colors hover:border-emerald/30 hover:text-emerald disabled:opacity-50"
-        >
-          {loading ? "Refreshing…" : "Refresh"}
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <a
+            href={officialBoardUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="rounded-lg border border-white/10 px-3 py-1.5 font-semibold text-white/60 transition-colors hover:border-emerald/30 hover:text-emerald"
+          >
+            Official board
+          </a>
+          <button
+            type="button"
+            onClick={() => void loadFlights()}
+            disabled={loading}
+            className="rounded-lg border border-white/10 px-3 py-1.5 font-semibold text-white/60 transition-colors hover:border-emerald/30 hover:text-emerald disabled:opacity-50"
+          >
+            {loading ? "Refreshing…" : "Refresh"}
+          </button>
+        </div>
       </div>
     </div>
   );

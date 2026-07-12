@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "node scripts/generate-sitemap.mjs && next build",
+    "fetch-flights": "node scripts/fetch-flight-data.mjs",
+    "build": "node scripts/generate-sitemap.mjs && node scripts/fetch-flight-data.mjs && next build",
     "start": "next start",
     "lint": "next lint"
   },
