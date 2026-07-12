@@ -77,7 +77,7 @@ export default function Footer() {
             &copy; {year} {SITE.name}. All rights reserved.
           </p>
           <div className="flex flex-wrap items-center justify-center gap-4 text-xs text-white/40">
-            <Link href="/terms" className="transition-colors hover:text-emerald">
+            <Link href="/terms/" className="transition-colors hover:text-emerald">
               Terms &amp; Conditions
             </Link>
             <span className="hidden text-white/20 sm:inline">|</span>

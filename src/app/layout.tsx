@@ -17,6 +17,14 @@ export const metadata: Metadata = {
   metadataBase: new URL(SITE.url),
   title: `${SITE.name} | Premium Airport Transfers Northern Ireland`,
   description,
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+    },
+  },
   alternates: {
     canonical: "/",
   },
