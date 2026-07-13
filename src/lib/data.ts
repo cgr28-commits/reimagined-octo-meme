@@ -12,6 +12,7 @@ export const NAV_LINKS = [
   { label: "Airports", href: "/#airports" },
   { label: "Day Trips", href: "/tours/" },
   { label: "Our Fleet", href: "/#vehicles" },
+  { label: "Chauffeur", href: "/#chauffeur" },
   { label: "Check Flights", href: "/#flight-status" },
   { label: "Areas We Cover", href: "/#areas" },
   { label: "Why Us", href: "/#why-us" },
@@ -160,6 +161,29 @@ export const WHY_CHOOSE_US = [
   },
 ] as const;
 
+export const CHAUFFEUR_SERVICES = [
+  {
+    title: "Business travel",
+    description:
+      "Discreet, punctual transport for meetings, conferences, and corporate clients across Belfast and Northern Ireland.",
+  },
+  {
+    title: "Airport & executive runs",
+    description:
+      "Premium airport transfers and executive journeys with flight monitoring, meet & greet, and complimentary waiting time.",
+  },
+  {
+    title: "Events & special occasions",
+    description:
+      "Weddings, celebrations, and nights out — your driver on hand for pickups and drop-offs when you need them.",
+  },
+  {
+    title: "As-directed hire",
+    description:
+      "Hourly or full-day private hire with multiple stops. Tell us your plans and we will quote for the journey.",
+  },
+] as const;
+
 export const FAQS = [
   {
     question: "How do I book an airport transfer?",
@@ -185,6 +209,11 @@ export const FAQS = [
     question: "What vehicle types do you offer?",
     answer:
       "Our fleet includes estate cars and saloons (up to 4 passengers), executive saloons, and 8-seater minibuses for larger groups. All vehicles are fully licensed and insured.",
+  },
+  {
+    question: "Do you offer chauffeur and executive private hire?",
+    answer:
+      "Yes. We provide chauffeur and executive private hire across Northern Ireland for business travel, events, and as-directed journeys — as well as our airport transfer service. Contact us via WhatsApp for a personalised quote.",
   },
   {
     question: "Do you operate 24 hours a day?",

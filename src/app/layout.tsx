@@ -34,6 +34,8 @@ export const metadata: Metadata = {
     "Northern Ireland taxi",
     "Dublin airport taxi",
     "airport shuttle NI",
+    "chauffeur Belfast",
+    "executive private hire NI",
   ],
   openGraph: {
     title: SITE.name,
