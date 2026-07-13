@@ -26,7 +26,7 @@ export const TOURS: readonly Tour[] = [
     description:
       "We take you to the UNESCO World Heritage Giant's Causeway with a private driver who knows the best viewpoints, quieter stops, and photo spots along the Causeway Coast. We tailor the route to your pace — whether you want the full coastal experience or a focused visit to the stones and nearby attractions.",
     duration: "Full day (~8 hours)",
-    price: "From £250",
+    price: "From £280",
     priceNote: "Based on saloon vehicle from Belfast. MPV and minibus options available.",
     highlights: [
       "Giant's Causeway UNESCO World Heritage Site",
@@ -72,7 +72,7 @@ export const TOURS: readonly Tour[] = [
     description:
       "Northern Ireland served as the backdrop for much of Game of Thrones. We take you to the most recognisable filming locations with a driver who knows the routes to each stop. Perfect for fans who want to see multiple sites in one comfortable day.",
     duration: "Full day (~8 hours)",
-    price: "From £220",
+    price: "From £280",
     priceNote: "Route can be customised to focus on your favourite locations.",
     highlights: [
       "Dark Hedges avenue",
@@ -95,7 +95,7 @@ export const TOURS: readonly Tour[] = [
     description:
       "The Antrim Coast Road is one of the finest scenic drives in the UK. Enjoy a leisurely private chauffeur trip through seaside towns, glens, and cliff-top lookouts without the stress of navigating narrow roads or finding parking. We can include Glenariff Forest Park, Cushendall, and Ballycastle depending on your time.",
     duration: "Half to full day (~5–8 hours)",
-    price: "From £180",
+    price: "From £280",
     priceNote: "Duration and price depend on how far along the coast you wish to travel.",
     highlights: [
       "Glens of Antrim coastal route",
@@ -141,7 +141,7 @@ export const TOURS: readonly Tour[] = [
     description:
       "Derry/Londonderry is one of Europe's finest walled cities. We take you to the 17th-century walls, the Peace Bridge, Bogside murals, and the Guildhall — with your driver on hand for pickups between sites throughout the day.",
     duration: "Full day (~7 hours)",
-    price: "From £180",
+    price: "From £280",
     priceNote: "Includes Belfast–Derry transfer time. Shorter city-only trips available on request.",
     highlights: [
       "Historic city walls walk",
