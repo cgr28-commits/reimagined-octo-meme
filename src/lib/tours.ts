@@ -118,7 +118,7 @@ export const TOURS: readonly Tour[] = [
     description:
       "The Mourne Mountains inspired C.S. Lewis and offer some of Northern Ireland's most striking landscapes. Our private day trip combines mountain scenery with charming coastal villages, Silent Valley Reservoir, and the seaside town of Newcastle — all at a pace that suits you.",
     duration: "Full day (~8 hours)",
-    price: "From £200",
+    price: "From £280",
     priceNote: "Includes mountain viewpoints and coastal stops. Hiking time can be built in on request.",
     highlights: [
       "Mourne mountain scenic viewpoints",
