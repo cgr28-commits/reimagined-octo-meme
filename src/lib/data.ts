@@ -11,6 +11,7 @@ export const SITE = {
 export const NAV_LINKS = [
   { label: "Airports", href: "/#airports" },
   { label: "Day Trips", href: "/tours/" },
+  { label: "Our Fleet", href: "/#vehicles" },
   { label: "Check Flights", href: "/#flight-status" },
   { label: "Areas We Cover", href: "/#areas" },
   { label: "Why Us", href: "/#why-us" },
@@ -189,6 +190,29 @@ export const FAQS = [
     question: "Do you operate 24 hours a day?",
     answer:
       "Absolutely. We operate 24/7, 365 days a year — including bank holidays and Christmas. Early morning and late-night transfers are our speciality.",
+  },
+] as const;
+
+export const VEHICLE_FLEET = [
+  {
+    name: "Standard Saloon",
+    capacity: "1–4 passengers",
+    description: "Ideal for solo travellers and couples with light luggage.",
+  },
+  {
+    name: "Executive Saloon",
+    capacity: "1–3 passengers",
+    description: "Premium comfort for business travel and airport runs.",
+  },
+  {
+    name: "MPV",
+    capacity: "4–6 passengers",
+    description: "Our most popular option — extra space for families and holiday luggage.",
+  },
+  {
+    name: "Minibus",
+    capacity: "7–8 passengers",
+    description: "Perfect for larger groups heading to the airport together.",
   },
 ] as const;
 
