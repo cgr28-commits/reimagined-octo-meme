@@ -33,7 +33,7 @@ const DEFAULT_AREA_SURCHARGE = 10;
 const VEHICLE_MULTIPLIERS: Record<(typeof VEHICLE_TYPES)[number], number> = {
   "Estate Car (1–4 passengers)": 1,
   "Standard Saloon (1–4 passengers)": 1,
-  "Executive Saloon (1–3 passengers)": 1.2,
+  "Executive Saloon (1–4 passengers)": 1.2,
   "Minibus (7–8 passengers)": 1.55,
 };
 

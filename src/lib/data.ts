@@ -206,7 +206,7 @@ export const VEHICLE_FLEET = [
   },
   {
     name: "Executive Saloon",
-    capacity: "1–3 passengers",
+    capacity: "1–4 passengers",
     description: "Premium comfort for business travel and airport runs.",
   },
   {
@@ -219,6 +219,6 @@ export const VEHICLE_FLEET = [
 export const VEHICLE_TYPES = [
   "Estate Car (1–4 passengers)",
   "Standard Saloon (1–4 passengers)",
-  "Executive Saloon (1–3 passengers)",
+  "Executive Saloon (1–4 passengers)",
   "Minibus (7–8 passengers)",
 ] as const;
