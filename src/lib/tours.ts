@@ -49,7 +49,7 @@ export const TOURS: readonly Tour[] = [
     description:
       "See Belfast at your own pace with a private driver. From the Titanic Quarter and Cathedral Quarter to political murals and panoramic viewpoints, we take you where you want to go — history, architecture, food stops, or a bit of everything.",
     duration: "Half day (~4 hours)",
-    price: "From £120",
+    price: "From £160",
     priceNote: "Ideal for cruise passengers, day visitors, or pre-flight day trips.",
     highlights: [
       "Titanic Belfast and Titanic Quarter",
