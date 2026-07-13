@@ -154,8 +154,21 @@ def main() -> None:
     favicon.save(PUBLIC / "favicon.png", optimize=True)
 
     # Small favicon for browsers that request 32px
-    favicon.resize((32, 32), Image.Resampling.LANCZOS).save(
-        PUBLIC / "favicon-32.png", optimize=True
+    favicon_32 = favicon.resize((32, 32), Image.Resampling.LANCZOS)
+    favicon_32.save(PUBLIC / "favicon-32.png", optimize=True)
+
+    # ICO for Bing and browsers that request /favicon.ico
+    ico_sizes = [
+        favicon.resize((16, 16), Image.Resampling.LANCZOS),
+        favicon_32,
+        favicon.resize((48, 48), Image.Resampling.LANCZOS),
+        favicon,
+    ]
+    ico_sizes[0].save(
+        PUBLIC / "favicon.ico",
+        format="ICO",
+        sizes=[(img.width, img.height) for img in ico_sizes],
+        append_images=ico_sizes[1:],
     )
 
     print("logo.png:", logo_dark.size)
