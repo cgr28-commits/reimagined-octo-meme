@@ -20,7 +20,7 @@ export default function VehiclesSection() {
           <div className="relative aspect-[16/10] overflow-hidden rounded-2xl border border-white/10 shadow-2xl shadow-black/30">
             <Image
               src={HERO_IMAGE}
-              alt="My Airport Taxi NI estate car with open boot and suitcases at Belfast City Airport"
+              alt="My Airport Taxi NI estate car with open boot and suitcases at Belfast International Airport"
               fill
               className="object-cover"
               sizes="(max-width: 1024px) 100vw, 50vw"
