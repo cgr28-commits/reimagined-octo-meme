@@ -13,14 +13,14 @@ export default function VehiclesSection() {
         <SectionHeading
           eyebrow="Our Fleet"
           title="Spacious vehicles for every journey"
-          description="From solo business trips to family holidays — our licensed fleet has room for passengers and luggage, with MPV and minibus options for larger groups."
+          description="From solo business trips to family holidays — our licensed estate cars and saloons have room for passengers and luggage, with minibus options for larger groups."
         />
 
         <div className="mt-12 grid items-center gap-10 lg:grid-cols-2 lg:gap-14">
           <div className="relative aspect-[16/10] overflow-hidden rounded-2xl border border-white/10 shadow-2xl shadow-black/30">
             <Image
               src={HERO_IMAGE}
-              alt="My Airport Taxi NI MPV with open tailgate and suitcases at Belfast City Airport"
+              alt="My Airport Taxi NI estate car with open boot and suitcases at Belfast City Airport"
               fill
               className="object-cover"
               sizes="(max-width: 1024px) 100vw, 50vw"
@@ -31,8 +31,8 @@ export default function VehiclesSection() {
 
           <div className="space-y-6">
             <p className="text-base leading-relaxed text-white/70">
-              Our typical airport transfer vehicle is a modern MPV with generous boot space for
-              suitcases, pushchairs, and holiday gear — ideal for families and group travel.
+              Our typical airport transfer vehicle is a modern estate car with a generous boot for
+              suitcases, pushchairs, and holiday gear — ideal for families and airport travel.
             </p>
 
             <ul className="grid gap-4 sm:grid-cols-2">

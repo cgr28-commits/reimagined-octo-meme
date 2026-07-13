@@ -156,7 +156,7 @@ export const WHY_CHOOSE_US = [
   {
     title: "Licensed & insured fleet",
     description:
-      "Saloon, executive, MPV, and minibus options — all fully licensed and insured for airport transfers.",
+      "Saloon, estate, executive, and minibus options — all fully licensed and insured for airport transfers.",
   },
 ] as const;
 
@@ -184,7 +184,7 @@ export const FAQS = [
   {
     question: "What vehicle types do you offer?",
     answer:
-      "Our fleet includes standard saloons (up to 4 passengers), executive saloons, MPVs (up to 6 passengers), and 8-seater minibuses for larger groups. All vehicles are fully licensed and insured.",
+      "Our fleet includes estate cars and saloons (up to 4 passengers), executive saloons, and 8-seater minibuses for larger groups. All vehicles are fully licensed and insured.",
   },
   {
     question: "Do you operate 24 hours a day?",
@@ -194,6 +194,11 @@ export const FAQS = [
 ] as const;
 
 export const VEHICLE_FLEET = [
+  {
+    name: "Estate Car",
+    capacity: "1–4 passengers",
+    description: "Our most popular option — a spacious estate with a large boot for family holidays and airport luggage.",
+  },
   {
     name: "Standard Saloon",
     capacity: "1–4 passengers",
@@ -205,20 +210,15 @@ export const VEHICLE_FLEET = [
     description: "Premium comfort for business travel and airport runs.",
   },
   {
-    name: "MPV",
-    capacity: "4–6 passengers",
-    description: "Our most popular option — extra space for families and holiday luggage.",
-  },
-  {
     name: "Minibus",
     capacity: "7–8 passengers",
-    description: "Perfect for larger groups heading to the airport together.",
+    description: "Available for larger groups heading to the airport together.",
   },
 ] as const;
 
 export const VEHICLE_TYPES = [
+  "Estate Car (1–4 passengers)",
   "Standard Saloon (1–4 passengers)",
   "Executive Saloon (1–3 passengers)",
-  "MPV (4–6 passengers)",
   "Minibus (7–8 passengers)",
 ] as const;

@@ -31,9 +31,9 @@ export const AREA_SURCHARGES: Record<(typeof AREAS)[number], number> = {
 const DEFAULT_AREA_SURCHARGE = 10;
 
 const VEHICLE_MULTIPLIERS: Record<(typeof VEHICLE_TYPES)[number], number> = {
+  "Estate Car (1–4 passengers)": 1,
   "Standard Saloon (1–4 passengers)": 1,
   "Executive Saloon (1–3 passengers)": 1.2,
-  "MPV (4–6 passengers)": 1.35,
   "Minibus (7–8 passengers)": 1.55,
 };
 
