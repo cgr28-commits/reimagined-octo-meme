@@ -11,7 +11,7 @@ export const SITE = {
 export const NAV_LINKS = [
   { label: "Airports", href: "/#airports" },
   { label: "Day Trips", href: "/tours/" },
-  { label: "Flight Status", href: "/#flight-status" },
+  { label: "Check Flights", href: "/#flight-status" },
   { label: "Areas We Cover", href: "/#areas" },
   { label: "Why Us", href: "/#why-us" },
   { label: "FAQ", href: "/#faq" },
