@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { buildAddressApiUrl } from "@/lib/address-api";
 
 const STORAGE_KEY = "my-airport-taxi-ni-pickup-address";
 
@@ -18,7 +19,12 @@ async function reverseGeocode(
     params.set("airport", airportCode);
   }
 
-  const response = await fetch(`/api/geocode?${params.toString()}`);
+  const requestUrl = buildAddressApiUrl("/api/geocode", params);
+  if (!requestUrl) {
+    return null;
+  }
+
+  const response = await fetch(requestUrl);
   if (!response.ok) {
     return null;
   }

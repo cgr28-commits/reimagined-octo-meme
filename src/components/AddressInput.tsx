@@ -2,6 +2,11 @@
 
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import type { AddressSuggestion } from "@/lib/address-suggestion";
+import {
+  buildAddressApiUrl,
+  createAddressSessionToken,
+  isAddressAutocompleteEnabled,
+} from "@/lib/address-api";
 
 type AddressInputProps = {
   id: string;
@@ -28,14 +33,20 @@ export default function AddressInput({
   action,
   airportCode = "",
 }: AddressInputProps) {
+  const autocompleteEnabled = isAddressAutocompleteEnabled();
   const listboxId = useId();
   const containerRef = useRef<HTMLDivElement>(null);
+  const sessionTokenRef = useRef(createAddressSessionToken());
   const [suggestions, setSuggestions] = useState<AddressSuggestion[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
 
   useEffect(() => {
+    if (!autocompleteEnabled) {
+      return;
+    }
+
     const trimmed = value.trim();
 
     if (trimmed.length < 3) {
@@ -49,12 +60,20 @@ export default function AddressInput({
       setIsSearching(true);
 
       try {
-        const params = new URLSearchParams({ q: trimmed });
+        const params = new URLSearchParams({
+          q: trimmed,
+          session: sessionTokenRef.current,
+        });
         if (airportCode) {
           params.set("airport", airportCode);
         }
 
-        const response = await fetch(`/api/addresses?${params.toString()}`, {
+        const requestUrl = buildAddressApiUrl("/api/addresses", params);
+        if (!requestUrl) {
+          return;
+        }
+
+        const response = await fetch(requestUrl, {
           signal: controller.signal,
         });
 
@@ -85,7 +104,7 @@ export default function AddressInput({
       controller.abort();
       window.clearTimeout(timer);
     };
-  }, [value, airportCode]);
+  }, [value, airportCode, autocompleteEnabled]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -103,13 +122,17 @@ export default function AddressInput({
       let resolved = suggestion.address;
 
       try {
-        if (!/^\d+$/.test(suggestion.id)) {
-          const params = new URLSearchParams({ id: suggestion.id });
-          if (airportCode) {
-            params.set("airport", airportCode);
-          }
+        const params = new URLSearchParams({
+          id: suggestion.id,
+          session: sessionTokenRef.current,
+        });
+        if (airportCode) {
+          params.set("airport", airportCode);
+        }
 
-          const response = await fetch(`/api/addresses?${params.toString()}`);
+        const requestUrl = buildAddressApiUrl("/api/addresses", params);
+        if (requestUrl) {
+          const response = await fetch(requestUrl);
           if (response.ok) {
             const data = (await response.json()) as { address?: string };
             if (data.address) {
@@ -124,6 +147,7 @@ export default function AddressInput({
       onChange(resolved);
       setIsOpen(false);
       setSuggestions([]);
+      sessionTokenRef.current = createAddressSessionToken();
     })();
   }
 
@@ -179,19 +203,19 @@ export default function AddressInput({
           }}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
-          aria-autocomplete="list"
-          aria-expanded={isOpen}
-          aria-controls={listboxId}
+          aria-autocomplete={autocompleteEnabled ? "list" : undefined}
+          aria-expanded={autocompleteEnabled ? isOpen : undefined}
+          aria-controls={autocompleteEnabled ? listboxId : undefined}
           className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/30 outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30"
         />
 
-        {isSearching && (
+        {autocompleteEnabled && isSearching && (
           <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-white/40">
             Searching…
           </span>
         )}
 
-        {isOpen && suggestions.length > 0 && (
+        {autocompleteEnabled && isOpen && suggestions.length > 0 && (
           <ul
             id={listboxId}
             role="listbox"
