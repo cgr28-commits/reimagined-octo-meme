@@ -27,6 +27,7 @@ jobs:
       - run: npm run build
         env:
           GITHUB_PAGES: true
+          NEXT_PUBLIC_ADDRESS_API_URL: ${{ secrets.ADDRESS_API_URL }}
       - run: node scripts/fix-github-pages-paths.mjs
       - uses: actions/upload-pages-artifact@v3
         with:
