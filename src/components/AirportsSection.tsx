@@ -32,16 +32,19 @@ export default function AirportsSection() {
               <p className="mt-3 text-sm leading-relaxed text-white/65">
                 {airport.description}
               </p>
-              <button
-                type="button"
-                onClick={() => prefillQuoteAirport(airport.code)}
+              <a
+                href="#quote"
+                onClick={(event) => {
+                  event.preventDefault();
+                  prefillQuoteAirport(airport.code);
+                }}
                 className="mt-5 inline-flex items-center gap-1 text-sm font-semibold text-emerald transition-colors hover:text-emerald-light"
               >
                 Book this route
                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
                 </svg>
-              </button>
+              </a>
             </article>
           ))}
         </div>

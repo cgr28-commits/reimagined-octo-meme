@@ -47,6 +47,14 @@ export default function QuoteCard() {
       }
     }
 
+    if (window.location.hash === "#quote") {
+      const params = new URLSearchParams(window.location.search);
+      const airportFromQuery = params.get("airport")?.trim().toUpperCase();
+      if (airportFromQuery) {
+        applyAirportPrefill(airportFromQuery);
+      }
+    }
+
     const stored = readPrefillAirport();
     if (stored) {
       applyAirportPrefill(stored);

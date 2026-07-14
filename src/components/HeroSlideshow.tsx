@@ -128,7 +128,7 @@ export default function HeroSlideshow() {
           </div>
         </div>
 
-        <div className="flex-1 lg:max-w-md" id="quote">
+        <div className="flex-1 scroll-mt-28 lg:max-w-md" id="quote">
           <QuoteCard />
         </div>
       </div>
