@@ -28,12 +28,10 @@ export default function Header() {
 
         <div className="hidden items-center gap-4 md:flex">
           <a
-            href={`https://wa.me/${SITE.whatsapp}`}
-            target="_blank"
-            rel="noopener noreferrer"
+            href="#quote"
             className="rounded-full bg-emerald px-5 py-2 text-sm font-semibold text-navy transition-all hover:bg-emerald-light hover:shadow-lg hover:shadow-emerald/25"
           >
-            Book Now
+            Get a Quote
           </a>
         </div>
 
@@ -72,12 +70,11 @@ export default function Header() {
             ))}
             <hr className="border-white/10" />
             <a
-              href={`https://wa.me/${SITE.whatsapp}`}
-              target="_blank"
-              rel="noopener noreferrer"
+              href="#quote"
+              onClick={() => setMenuOpen(false)}
               className="rounded-full bg-emerald px-5 py-3 text-center text-sm font-semibold text-navy"
             >
-              Book via WhatsApp
+              Get a Quote
             </a>
           </div>
         </nav>
