@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { AIRPORTS, SITE, VEHICLE_TYPES } from "@/lib/data";
+import { readPrefillAirport } from "@/lib/quote-prefill";
 
 type TripDirection = "to-airport" | "from-airport";
 
@@ -36,6 +37,30 @@ export default function QuoteCard() {
     if (saved) {
       setAddress(saved);
     }
+  }, []);
+
+  useEffect(() => {
+    function applyAirportPrefill(code: string) {
+      if (AIRPORTS.some((airport) => airport.code === code)) {
+        setAirportCode(code);
+        setTripDirection("to-airport");
+      }
+    }
+
+    const stored = readPrefillAirport();
+    if (stored) {
+      applyAirportPrefill(stored);
+    }
+
+    function handlePrefill(event: Event) {
+      const code = (event as CustomEvent<string>).detail;
+      if (code) {
+        applyAirportPrefill(code);
+      }
+    }
+
+    window.addEventListener("quote-prefill-airport", handlePrefill);
+    return () => window.removeEventListener("quote-prefill-airport", handlePrefill);
   }, []);
 
   const isFromAirport = tripDirection === "from-airport";
