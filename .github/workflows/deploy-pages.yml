@@ -15,52 +15,8 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  deploy-worker:
-    runs-on: ubuntu-latest
-    if: ${{ secrets.CLOUDFLARE_API_TOKEN != '' && secrets.CLOUDFLARE_ACCOUNT_ID != '' && secrets.GOOGLE_PLACES_API_KEY != '' }}
-    outputs:
-      worker_url: ${{ steps.deploy.outputs.worker_url }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-
-      - name: Install worker dependencies
-        working-directory: workers/addresses
-        run: npm ci
-
-      - name: Store Google API key on Cloudflare Worker
-        working-directory: workers/addresses
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          GOOGLE_PLACES_API_KEY: ${{ secrets.GOOGLE_PLACES_API_KEY }}
-        run: printf '%s' "$GOOGLE_PLACES_API_KEY" | npx wrangler secret put GOOGLE_PLACES_API_KEY
-
-      - name: Deploy Cloudflare Worker
-        id: deploy
-        working-directory: workers/addresses
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: |
-          set -euo pipefail
-          output="$(npx wrangler deploy 2>&1)"
-          echo "$output"
-          url="$(echo "$output" | grep -oE 'https://[a-zA-Z0-9.-]+\.workers\.dev' | head -1)"
-          if [ -z "$url" ]; then
-            echo "Could not detect worker URL from wrangler deploy output" >&2
-            exit 1
-          fi
-          echo "worker_url=$url" >> "$GITHUB_OUTPUT"
-          echo "Deployed address API to $url"
-
   build:
     runs-on: ubuntu-latest
-    needs: deploy-worker
-    if: ${{ always() && needs.deploy-worker.result != 'failure' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -71,7 +27,6 @@ jobs:
       - run: npm run build
         env:
           GITHUB_PAGES: true
-          NEXT_PUBLIC_ADDRESS_API_URL: ${{ needs.deploy-worker.outputs.worker_url || secrets.ADDRESS_API_URL }}
       - run: node scripts/fix-github-pages-paths.mjs
       - uses: actions/upload-pages-artifact@v3
         with:
