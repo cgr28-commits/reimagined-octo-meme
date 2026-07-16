@@ -7,6 +7,7 @@ import Header from "@/components/Header";
 import TourCard from "@/components/TourCard";
 import WhatsAppButton from "@/components/WhatsAppButton";
 import { SITE } from "@/lib/data";
+import { getBreadcrumbJsonLd } from "@/lib/structured-data";
 import { getTourBySlug, getTourWhatsAppUrl, TOURS } from "@/lib/tours";
 
 type TourPageProps = {
@@ -49,9 +50,18 @@ export default async function TourDetailPage({ params }: TourPageProps) {
   }
 
   const otherTours = TOURS.filter((item) => item.slug !== tour.slug);
+  const structuredData = getBreadcrumbJsonLd([
+    { name: "Home", path: "/" },
+    { name: "Day Trips", path: "/tours/" },
+    { name: tour.title, path: `/tours/${tour.slug}/` },
+  ]);
 
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+      />
       <Header />
       <main className="min-h-screen bg-navy pb-16">
         <div className="relative h-64 overflow-hidden sm:h-80 lg:h-96">

@@ -3,7 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { SITE } from "@/lib/data";
 import { withBasePath } from "@/lib/paths";
-import { getFaqPageJsonLd, getLocalBusinessJsonLd } from "@/lib/structured-data";
+import { getFaqPageJsonLd, getLocalBusinessJsonLd, getWebSiteJsonLd } from "@/lib/structured-data";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -24,9 +24,6 @@ export const metadata: Metadata = {
       index: true,
       follow: true,
     },
-  },
-  alternates: {
-    canonical: "/",
   },
   keywords: [
     "airport taxi",
@@ -70,7 +67,7 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const structuredData = [getLocalBusinessJsonLd(), getFaqPageJsonLd()];
+  const structuredData = [getWebSiteJsonLd(), getLocalBusinessJsonLd(), getFaqPageJsonLd()];
 
   return (
     <html lang="en-GB" className={inter.variable}>

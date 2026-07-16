@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Header from "@/components/Header";
 import HeroSlideshow from "@/components/HeroSlideshow";
 import AirportsSection from "@/components/AirportsSection";
@@ -10,6 +11,16 @@ import VehiclesSection from "@/components/VehiclesSection";
 import ChauffeurSection from "@/components/ChauffeurSection";
 import WhatsAppButton from "@/components/WhatsAppButton";
 import Footer from "@/components/Footer";
+import { SITE } from "@/lib/data";
+
+export const metadata: Metadata = {
+  alternates: {
+    canonical: "/",
+  },
+  openGraph: {
+    url: SITE.url,
+  },
+};
 
 export default function Home() {
   return (

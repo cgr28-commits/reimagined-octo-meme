@@ -7,6 +7,7 @@ import TourCard from "@/components/TourCard";
 import WhatsAppButton from "@/components/WhatsAppButton";
 import { SITE } from "@/lib/data";
 import { getTourWhatsAppUrl, TOUR_BENEFITS, TOURS } from "@/lib/tours";
+import { getTourItemListJsonLd } from "@/lib/structured-data";
 
 export const metadata: Metadata = {
   title: `Private Day Trips Northern Ireland | ${SITE.name}`,
@@ -25,8 +26,14 @@ export const metadata: Metadata = {
 };
 
 export default function ToursPage() {
+  const structuredData = getTourItemListJsonLd();
+
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+      />
       <Header />
       <main className="min-h-screen bg-navy pt-24 pb-16">
         <div className="relative overflow-hidden">
