@@ -245,7 +245,13 @@ export default function AddressInput({
         )}
       </div>
 
-      {helperText && <p className="mt-1.5 text-xs text-white/40">{helperText}</p>}
+      {helperText && (
+        <p className="mt-1.5 text-xs text-white/40">
+          {autocompleteEnabled
+            ? helperText
+            : "Enter your full address including town and postcode"}
+        </p>
+      )}
     </div>
   );
 }
