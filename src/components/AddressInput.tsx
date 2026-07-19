@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
-import type { AddressSuggestion } from "@/lib/address-suggestion";
 import {
-  buildAddressApiUrl,
-  createAddressSessionToken,
-  isAddressAutocompleteEnabled,
-} from "@/lib/address-api";
+  isGooglePlacesEnabled,
+  loadGoogleMapsPlaces,
+  parsePlaceAddress,
+} from "@/lib/google-maps";
+import { isAddressAllowedForAirport } from "@/lib/northern-ireland";
 
 type AddressInputProps = {
   id: string;
@@ -33,157 +33,77 @@ export default function AddressInput({
   action,
   airportCode = "",
 }: AddressInputProps) {
-  const autocompleteEnabled = isAddressAutocompleteEnabled();
-  const listboxId = useId();
-  const containerRef = useRef<HTMLDivElement>(null);
-  const sessionTokenRef = useRef(createAddressSessionToken());
-  const [suggestions, setSuggestions] = useState<AddressSuggestion[]>([]);
-  const [isOpen, setIsOpen] = useState(false);
-  const [isSearching, setIsSearching] = useState(false);
-  const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const autocompleteEnabled = isGooglePlacesEnabled();
+  const inputRef = useRef<HTMLInputElement>(null);
+  const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const hintId = useId();
 
   useEffect(() => {
-    if (!autocompleteEnabled) {
+    if (!autocompleteEnabled || !inputRef.current) {
       return;
     }
 
-    const trimmed = value.trim();
+    let cancelled = false;
 
-    if (trimmed.length < 3) {
-      setSuggestions([]);
-      setIsOpen(false);
-      return;
-    }
-
-    const controller = new AbortController();
-    const timer = window.setTimeout(async () => {
-      setIsSearching(true);
-
-      try {
-        const params = new URLSearchParams({
-          q: trimmed,
-          session: sessionTokenRef.current,
-        });
-        if (airportCode) {
-          params.set("airport", airportCode);
-        }
-
-        const requestUrl = buildAddressApiUrl("/api/addresses", params);
-        if (!requestUrl) {
+    void loadGoogleMapsPlaces()
+      .then(() => {
+        if (cancelled || !inputRef.current || !window.google?.maps?.places) {
           return;
         }
 
-        const response = await fetch(requestUrl, {
-          signal: controller.signal,
+        const countries = airportCode === "DUB" ? (["gb", "ie"] as const) : (["gb"] as const);
+        const autocomplete = new window.google.maps.places.Autocomplete(inputRef.current, {
+          componentRestrictions: { country: [...countries] },
+          fields: ["formatted_address", "address_components"],
+          types: ["address"],
         });
 
-        if (!response.ok) {
-          setSuggestions([]);
-          setIsOpen(false);
-          return;
-        }
-
-        const data = (await response.json()) as { suggestions?: AddressSuggestion[] };
-        const nextSuggestions = data.suggestions ?? [];
-        setSuggestions(nextSuggestions);
-        setIsOpen(nextSuggestions.length > 0);
-        setHighlightedIndex(-1);
-      } catch {
-        if (!controller.signal.aborted) {
-          setSuggestions([]);
-          setIsOpen(false);
-        }
-      } finally {
-        if (!controller.signal.aborted) {
-          setIsSearching(false);
-        }
-      }
-    }, 300);
-
-    return () => {
-      controller.abort();
-      window.clearTimeout(timer);
-    };
-  }, [value, airportCode, autocompleteEnabled]);
-
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent | TouchEvent) {
-      if (!containerRef.current?.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
-    }
-
-    document.addEventListener("mousedown", handleClickOutside);
-    document.addEventListener("touchstart", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-      document.removeEventListener("touchstart", handleClickOutside);
-    };
-  }, []);
-
-  function selectSuggestion(suggestion: AddressSuggestion) {
-    void (async () => {
-      let resolved = suggestion.address;
-
-      try {
-        const params = new URLSearchParams({
-          id: suggestion.id,
-          session: sessionTokenRef.current,
-        });
-        if (airportCode) {
-          params.set("airport", airportCode);
-        }
-
-        const requestUrl = buildAddressApiUrl("/api/addresses", params);
-        if (requestUrl) {
-          const response = await fetch(requestUrl);
-          if (response.ok) {
-            const data = (await response.json()) as { address?: string };
-            if (data.address) {
-              resolved = data.address;
-            }
+        autocomplete.addListener("place_changed", () => {
+          const place = autocomplete.getPlace();
+          const formatted = place.formatted_address?.trim();
+          if (!formatted) {
+            return;
           }
+
+          const parts = parsePlaceAddress(place);
+          if (
+            !isAddressAllowedForAirport(airportCode, {
+              ...parts,
+              displayName: formatted,
+            })
+          ) {
+            setLoadError(
+              airportCode === "DUB"
+                ? "Please choose an address in Northern Ireland or the Republic of Ireland."
+                : "Please choose an address in Northern Ireland.",
+            );
+            return;
+          }
+
+          setLoadError(null);
+          onChange(formatted);
+        });
+
+        autocompleteRef.current = autocomplete;
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setLoadError("Address suggestions are unavailable right now. Enter your address manually.");
         }
-      } catch {
-        // Use the suggestion label if full resolution fails.
+      });
+
+    return () => {
+      cancelled = true;
+      if (autocompleteRef.current) {
+        window.google.maps.event.clearInstanceListeners(autocompleteRef.current);
+        autocompleteRef.current = null;
       }
-
-      onChange(resolved);
-      setIsOpen(false);
-      setSuggestions([]);
-      sessionTokenRef.current = createAddressSessionToken();
-    })();
-  }
-
-  function handleKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
-    if (!isOpen || suggestions.length === 0) {
-      return;
-    }
-
-    if (event.key === "ArrowDown") {
-      event.preventDefault();
-      setHighlightedIndex((current) => (current + 1) % suggestions.length);
-    }
-
-    if (event.key === "ArrowUp") {
-      event.preventDefault();
-      setHighlightedIndex(
-        (current) => (current - 1 + suggestions.length) % suggestions.length,
-      );
-    }
-
-    if (event.key === "Enter" && highlightedIndex >= 0) {
-      event.preventDefault();
-      selectSuggestion(suggestions[highlightedIndex]);
-    }
-
-    if (event.key === "Escape") {
-      setIsOpen(false);
-    }
-  }
+    };
+  }, [airportCode, autocompleteEnabled, onChange]);
 
   return (
-    <div ref={containerRef}>
+    <div>
       <div className="mb-1.5 flex items-center justify-between gap-3">
         <label htmlFor={id} className="text-xs font-medium uppercase tracking-wider text-white/50">
           {label}
@@ -191,67 +111,29 @@ export default function AddressInput({
         {action}
       </div>
 
-      <div className="relative">
-        <input
-          id={id}
-          name={name}
-          type="text"
-          required={required}
-          autoComplete={autocompleteEnabled ? "off" : "street-address"}
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-          onFocus={() => {
-            if (suggestions.length > 0) {
-              setIsOpen(true);
-            }
-          }}
-          onKeyDown={handleKeyDown}
-          placeholder={placeholder}
-          aria-autocomplete={autocompleteEnabled ? "list" : undefined}
-          aria-expanded={autocompleteEnabled ? isOpen : undefined}
-          aria-controls={autocompleteEnabled ? listboxId : undefined}
-          className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/30 outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30"
-        />
+      <input
+        ref={inputRef}
+        id={id}
+        name={name}
+        type="text"
+        required={required}
+        autoComplete={autocompleteEnabled ? "off" : "street-address"}
+        value={value}
+        onChange={(event) => {
+          setLoadError(null);
+          onChange(event.target.value);
+        }}
+        placeholder={placeholder}
+        aria-describedby={hintId}
+        className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/30 outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30"
+      />
 
-        {autocompleteEnabled && isSearching && (
-          <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-white/40">
-            Searching…
-          </span>
-        )}
-
-        {autocompleteEnabled && isOpen && suggestions.length > 0 && (
-          <ul
-            id={listboxId}
-            role="listbox"
-            className="absolute z-50 mt-2 max-h-56 w-full overflow-auto rounded-xl border border-white/10 bg-navy-light py-2 shadow-xl"
-          >
-            {suggestions.map((suggestion, index) => (
-              <li key={suggestion.id} role="option" aria-selected={highlightedIndex === index}>
-                <button
-                  type="button"
-                  onPointerDown={(event) => event.preventDefault()}
-                  onClick={() => selectSuggestion(suggestion)}
-                  className={`block w-full px-4 py-2.5 text-left text-sm transition-colors ${
-                    highlightedIndex === index
-                      ? "bg-emerald/15 text-white"
-                      : "text-white/75 hover:bg-white/5 hover:text-white"
-                  }`}
-                >
-                  {suggestion.label}
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-
-      {helperText && (
-        <p className="mt-1.5 text-xs text-white/40">
-          {autocompleteEnabled
+      <p id={hintId} className="mt-1.5 text-xs text-white/40">
+        {loadError ??
+          (autocompleteEnabled
             ? helperText
-            : "Enter your full address including town and postcode"}
-        </p>
-      )}
+            : "Enter your full address including town and postcode")}
+      </p>
     </div>
   );
 }
