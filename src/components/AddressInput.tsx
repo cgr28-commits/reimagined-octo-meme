@@ -107,14 +107,18 @@ export default function AddressInput({
   }, [value, airportCode, autocompleteEnabled]);
 
   useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
+    function handleClickOutside(event: MouseEvent | TouchEvent) {
       if (!containerRef.current?.contains(event.target as Node)) {
         setIsOpen(false);
       }
     }
 
     document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    document.addEventListener("touchstart", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("touchstart", handleClickOutside);
+    };
   }, []);
 
   function selectSuggestion(suggestion: AddressSuggestion) {
@@ -193,7 +197,7 @@ export default function AddressInput({
           name={name}
           type="text"
           required={required}
-          autoComplete="street-address"
+          autoComplete={autocompleteEnabled ? "off" : "street-address"}
           value={value}
           onChange={(event) => onChange(event.target.value)}
           onFocus={() => {
@@ -219,13 +223,13 @@ export default function AddressInput({
           <ul
             id={listboxId}
             role="listbox"
-            className="absolute z-20 mt-2 max-h-56 w-full overflow-auto rounded-xl border border-white/10 bg-navy-light py-2 shadow-xl"
+            className="absolute z-50 mt-2 max-h-56 w-full overflow-auto rounded-xl border border-white/10 bg-navy-light py-2 shadow-xl"
           >
             {suggestions.map((suggestion, index) => (
               <li key={suggestion.id} role="option" aria-selected={highlightedIndex === index}>
                 <button
                   type="button"
-                  onMouseDown={(event) => event.preventDefault()}
+                  onPointerDown={(event) => event.preventDefault()}
                   onClick={() => selectSuggestion(suggestion)}
                   className={`block w-full px-4 py-2.5 text-left text-sm transition-colors ${
                     highlightedIndex === index
