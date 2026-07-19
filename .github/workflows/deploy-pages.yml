@@ -24,10 +24,30 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
+      - name: Resolve Google Places API key
+        id: google_key
+        env:
+          GOOGLE_PLACES_API_KEY: ${{ secrets.GOOGLE_PLACES_API_KEY }}
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
+        run: |
+          if [ -n "$GOOGLE_PLACES_API_KEY" ]; then
+            echo "Using GOOGLE_PLACES_API_KEY"
+            echo "key=$GOOGLE_PLACES_API_KEY" >> "$GITHUB_OUTPUT"
+          elif [ -n "$GOOGLE_API_KEY" ]; then
+            echo "Using GOOGLE_API_KEY"
+            echo "key=$GOOGLE_API_KEY" >> "$GITHUB_OUTPUT"
+          elif [ -n "$GOOGLE_MAPS_API_KEY" ]; then
+            echo "Using GOOGLE_MAPS_API_KEY"
+            echo "key=$GOOGLE_MAPS_API_KEY" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::No Google API key secret found. Add GOOGLE_PLACES_API_KEY in GitHub Actions secrets."
+          fi
+
       - run: npm run build
         env:
           GITHUB_PAGES: true
-          NEXT_PUBLIC_GOOGLE_PLACES_API_KEY: ${{ secrets.GOOGLE_PLACES_API_KEY }}
+          NEXT_PUBLIC_GOOGLE_PLACES_API_KEY: ${{ steps.google_key.outputs.key }}
       - run: node scripts/fix-github-pages-paths.mjs
       - uses: actions/upload-pages-artifact@v3
         with:
