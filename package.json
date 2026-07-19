@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:addresses": "npm --prefix workers/addresses run dev",
     "build": "node scripts/generate-sitemap.mjs && next build",
     "start": "next start",
     "lint": "next lint"

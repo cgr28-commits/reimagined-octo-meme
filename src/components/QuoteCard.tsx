@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
+import AddressInput from "@/components/AddressInput";
 import { AIRPORTS, SITE, VEHICLE_TYPES } from "@/lib/data";
 import { readPrefillAirport } from "@/lib/quote-prefill";
 
@@ -248,25 +249,16 @@ export default function QuoteCard() {
           </select>
         </div>
 
-        <div>
-          <label htmlFor="pickup" className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/50">
-            {isFromAirport ? "Your Drop-off Address" : "Your Pickup Address"}
-          </label>
-          <input
-            id="pickup"
-            name="pickup"
-            type="text"
-            required
-            autoComplete="street-address"
-            value={address}
-            onChange={(e) => handleAddressChange(e.target.value)}
-            placeholder="e.g. 12 Donegall Square, Belfast BT1 5GS"
-            className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/30 outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30"
-          />
-          <p className="mt-1.5 text-xs text-white/40">
-            Enter your full address including town and postcode
-          </p>
-        </div>
+        <AddressInput
+          id="pickup"
+          name="pickup"
+          value={address}
+          onChange={handleAddressChange}
+          airportCode={airportCode}
+          label={isFromAirport ? "Your Drop-off Address" : "Your Pickup Address"}
+          placeholder="e.g. 12 Donegall Square, Belfast BT1 5GS"
+          helperText="Start typing your address — suggestions appear for Northern Ireland and Dublin-area locations"
+        />
 
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
