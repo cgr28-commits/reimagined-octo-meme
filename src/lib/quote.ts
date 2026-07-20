@@ -76,6 +76,7 @@ export function calculateQuote(
   address: string,
   airportCode: string,
   vehicleType: (typeof VEHICLE_TYPES)[number],
+  returnJourney = false,
 ): QuoteResult | null {
   const trimmedAddress = address.trim();
   if (!trimmedAddress || !airportCode) {
@@ -92,7 +93,8 @@ export function calculateQuote(
     ? AREA_SURCHARGES[matchedArea]
     : DEFAULT_AREA_SURCHARGE;
   const vehicleMultiplier = VEHICLE_MULTIPLIERS[vehicleType] ?? 1;
-  const subtotal = (airport.basePrice + areaSurcharge) * vehicleMultiplier;
+  const oneWaySubtotal = (airport.basePrice + areaSurcharge) * vehicleMultiplier;
+  const subtotal = returnJourney ? oneWaySubtotal * 2 : oneWaySubtotal;
 
   return {
     amount: roundToNearestFive(subtotal),
@@ -101,6 +103,21 @@ export function calculateQuote(
     airportBase: airport.basePrice,
     vehicleMultiplier,
   };
+}
+
+export function getAirportFromPrice(
+  airportCode: string,
+  vehicleType: (typeof VEHICLE_TYPES)[number],
+  returnJourney = false,
+): number | null {
+  const airport = AIRPORTS.find((item) => item.code === airportCode);
+  if (!airport) {
+    return null;
+  }
+
+  const vehicleMultiplier = VEHICLE_MULTIPLIERS[vehicleType] ?? 1;
+  const oneWay = roundToNearestFive(airport.basePrice * vehicleMultiplier);
+  return returnJourney ? roundToNearestFive(oneWay * 2) : oneWay;
 }
 
 export function formatQuote(amount: number): string {

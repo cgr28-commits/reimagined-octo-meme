@@ -1,9 +1,10 @@
 "use client";
 
-import { FormEvent, memo, useEffect, useState } from "react";
+import { FormEvent, memo, useEffect, useMemo, useState } from "react";
 import AddressInput from "@/components/AddressInput";
 import { AIRPORTS, SITE, VEHICLE_TYPES } from "@/lib/data";
 import { readPrefillAirport } from "@/lib/quote-prefill";
+import { calculateQuote, formatQuote, getAirportFromPrice } from "@/lib/quote";
 
 type TripDirection = "to-airport" | "from-airport";
 
@@ -74,6 +75,16 @@ function QuoteCard() {
 
   const isFromAirport = tripDirection === "from-airport";
 
+  const liveQuote = useMemo(
+    () => calculateQuote(address, airportCode, vehicle, returnJourney),
+    [address, airportCode, returnJourney, vehicle],
+  );
+
+  const fromPrice = useMemo(
+    () => (airportCode ? getAirportFromPrice(airportCode, vehicle, returnJourney) : null),
+    [airportCode, returnJourney, vehicle],
+  );
+
   function handleAddressChange(value: string) {
     setAddress(value);
 
@@ -117,6 +128,7 @@ function QuoteCard() {
     const tripLabel = isFromAirport ? "Pickup from airport" : "To airport";
     const pickup = isFromAirport ? airportName : location;
     const destination = isFromAirport ? location : airportName;
+    const estimatedPrice = liveQuote ? formatQuote(liveQuote.amount) : null;
 
     const message = encodeURIComponent(
       `Hi, I'd like a quote please.\n\n` +
@@ -133,7 +145,8 @@ function QuoteCard() {
         (flightNumber ? `Flight number: ${flightNumber}\n` : "") +
         `Passengers: ${passengers}\n` +
         `Suitcases: ${suitcases}\n` +
-        `Vehicle: ${vehicleType}`,
+        `Vehicle: ${vehicleType}\n` +
+        (estimatedPrice ? `Estimated price: ${estimatedPrice}${returnJourney ? " (return)" : ""}\n` : ""),
     );
 
     window.open(`https://wa.me/${SITE.whatsapp}?text=${message}`, "_blank");
@@ -144,9 +157,9 @@ function QuoteCard() {
   return (
     <div className="glass-card rounded-2xl p-6 sm:p-8 lg:animate-float">
       <div className="mb-6">
-        <h2 className="text-xl font-bold text-white sm:text-2xl">Request a Quote</h2>
+        <h2 className="text-xl font-bold text-white sm:text-2xl">Get a Live Quote</h2>
         <p className="mt-1 text-sm text-white/60">
-          Send your trip details via WhatsApp and we&apos;ll confirm your quote with you directly
+          See your estimated fare instantly, then confirm via WhatsApp
         </p>
       </div>
 
@@ -390,11 +403,49 @@ function QuoteCard() {
           </div>
         </div>
 
+        <div className="rounded-xl border border-emerald/30 bg-emerald/10 px-4 py-4">
+          {liveQuote ? (
+            <>
+              <p className="text-xs font-medium uppercase tracking-wider text-emerald">
+                {returnJourney ? "Estimated return fare" : "Estimated fare"}
+              </p>
+              <p className="mt-1 text-3xl font-bold text-white">{formatQuote(liveQuote.amount)}</p>
+              <p className="mt-2 text-xs text-white/60">
+                {liveQuote.area
+                  ? `Includes ${liveQuote.area} area rate`
+                  : "Estimate based on your address — final fare confirmed on WhatsApp"}
+                {returnJourney ? " · Return journey (both legs)" : ""}
+              </p>
+            </>
+          ) : fromPrice ? (
+            <>
+              <p className="text-xs font-medium uppercase tracking-wider text-emerald">From</p>
+              <p className="mt-1 text-3xl font-bold text-white">{formatQuote(fromPrice)}</p>
+              <p className="mt-2 text-xs text-white/60">
+                Enter your {isFromAirport ? "drop-off" : "pickup"} address for an exact live quote
+                {returnJourney ? " · Return pricing shown once address is added" : ""}
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="text-xs font-medium uppercase tracking-wider text-white/50">
+                Live quote
+              </p>
+              <p className="mt-1 text-sm text-white/70">
+                Select an airport and enter your address to see your fare
+              </p>
+            </>
+          )}
+          <p className="mt-3 text-[11px] text-white/40">
+            Includes vehicle, driver, fuel, and tolls. Final price confirmed when you book.
+          </p>
+        </div>
+
         <button
           type="submit"
           className="w-full rounded-xl bg-emerald py-3.5 text-sm font-bold text-navy transition-all hover:bg-emerald-light hover:shadow-lg hover:shadow-emerald/25"
         >
-          {submitted ? "Opening WhatsApp…" : "Send via WhatsApp"}
+          {submitted ? "Opening WhatsApp…" : liveQuote ? `Book for ${formatQuote(liveQuote.amount)} via WhatsApp` : "Send via WhatsApp"}
         </button>
       </form>
     </div>
