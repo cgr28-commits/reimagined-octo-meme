@@ -623,7 +623,7 @@ function QuoteCard() {
               onChange={(e) => setSuitcases(Number(e.target.value))}
               className="w-full rounded-xl border border-white/10 bg-navy-light px-4 py-3 text-sm text-white outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30"
             >
-              {Array.from({ length: 13 }, (_, index) => index).map((count) => (
+              {Array.from({ length: 9 }, (_, index) => index).map((count) => (
                 <option key={count} value={count}>
                   {count}
                 </option>
