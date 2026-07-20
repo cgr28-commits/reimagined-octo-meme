@@ -207,7 +207,7 @@ function QuoteCard() {
         `Suitcases: ${suitcases}\n` +
         `Vehicle: ${vehicleType}\n` +
         (estimatedPrice
-          ? `Estimated price: ${estimatedPrice}${returnJourney ? " (return)" : ""}\n`
+          ? `Price: ${estimatedPrice}\n`
           : !isAirportTrip
             ? "Please provide a personal quote for this journey.\n"
             : ""),
@@ -219,13 +219,11 @@ function QuoteCard() {
   }
 
   const quoteHint = isAirportTrip
-    ? liveQuote
-      ? liveQuote.area
-        ? ` · ${liveQuote.area} area rate`
-        : " · estimate based on your address"
-      : fromPrice
-        ? ` · Enter your ${isFromAirport ? "drop-off" : "pickup"} address for an exact live quote`
-        : "Select an airport and enter your address to see your fare"
+    ? fromPrice && !liveQuote
+      ? `Enter your ${isFromAirport ? "drop-off" : "pickup"} address to see your price`
+      : !fromPrice
+        ? "Select an airport and enter your address to see your price"
+        : ""
     : "Fill in your journey details and send via WhatsApp — we'll confirm your fare personally.";
 
   return (
@@ -234,7 +232,7 @@ function QuoteCard() {
         <h2 className="text-xl font-bold text-white sm:text-2xl">Get a Live Quote</h2>
         <p className="mt-1 text-sm text-white/60">
           {isAirportTrip
-            ? "See your estimated airport fare instantly, then confirm via WhatsApp"
+            ? "See your airport transfer price instantly, then book via WhatsApp"
             : "Send your address-to-address trip details and we'll quote you personally"}
         </p>
       </div>
@@ -629,32 +627,25 @@ function QuoteCard() {
           {isAirportTrip ? (
             liveQuote ? (
               <>
-                <p className="text-xs font-medium uppercase tracking-wider text-emerald">
-                  {returnJourney ? "Estimated return fare" : "Estimated fare"}
-                </p>
+                <p className="text-xs font-medium uppercase tracking-wider text-emerald">Price</p>
                 <p className="mt-1 text-3xl font-bold text-white">{formatQuote(liveQuote.amount)}</p>
-                <p className="mt-2 text-xs text-white/60">
-                  {vehicle.split(" (")[0]}
-                  {quoteHint}
-                  {returnJourney ? " · Return journey (both legs)" : ""}
-                  {" · Final fare confirmed on WhatsApp"}
-                </p>
+                <p className="mt-2 text-xs text-white/60">{vehicle.split(" (")[0]}</p>
               </>
             ) : fromPrice ? (
               <>
                 <p className="text-xs font-medium uppercase tracking-wider text-emerald">From</p>
                 <p className="mt-1 text-3xl font-bold text-white">{formatQuote(fromPrice)}</p>
-                <p className="mt-2 text-xs text-white/60">
-                  {vehicle.split(" (")[0]}
-                  {quoteHint}
-                  {returnJourney ? " · Return pricing shown once address is added" : ""}
-                </p>
+                {quoteHint ? (
+                  <p className="mt-2 text-xs text-white/60">
+                    {vehicle.split(" (")[0]} · {quoteHint}
+                  </p>
+                ) : (
+                  <p className="mt-2 text-xs text-white/60">{vehicle.split(" (")[0]}</p>
+                )}
               </>
             ) : (
               <>
-                <p className="text-xs font-medium uppercase tracking-wider text-white/50">
-                  Live quote
-                </p>
+                <p className="text-xs font-medium uppercase tracking-wider text-white/50">Price</p>
                 <p className="mt-1 text-sm text-white/70">{quoteHint}</p>
               </>
             )
@@ -671,9 +662,7 @@ function QuoteCard() {
             </>
           )}
           <p className="mt-3 text-[11px] text-white/40">
-            {isAirportTrip
-              ? "Fixed estimate for your journey. Includes vehicle, driver, fuel, and tolls. Final price confirmed on WhatsApp."
-              : "Includes vehicle, driver, fuel, and tolls. Your confirmed fare will be sent via WhatsApp."}
+            Includes vehicle, driver, fuel, and tolls.
           </p>
         </div>
 
