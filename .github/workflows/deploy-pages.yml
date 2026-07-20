@@ -31,6 +31,7 @@ jobs:
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
           GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
           GETADDRESS_DOMAIN_TOKEN: ${{ secrets.GETADDRESS_DOMAIN_TOKEN }}
+          BOOKINGS_API_URL: ${{ secrets.BOOKINGS_API_URL }}
         run: |
           KEY="${GOOGLE_PLACES_API_KEY:-${GOOGLE_API_KEY:-${GOOGLE_MAPS_API_KEY}}}"
           if [ -z "$KEY" ]; then
@@ -45,6 +46,7 @@ jobs:
           fi
           NEXT_PUBLIC_GOOGLE_PLACES_API_KEY="$KEY" \
           NEXT_PUBLIC_GETADDRESS_API_KEY="$GETADDRESS_DOMAIN_TOKEN" \
+          NEXT_PUBLIC_BOOKINGS_API_URL="$BOOKINGS_API_URL" \
           GITHUB_PAGES=true npm run build
       - run: node scripts/fix-github-pages-paths.mjs
       - uses: actions/upload-pages-artifact@v3

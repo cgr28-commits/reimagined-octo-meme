@@ -14,7 +14,11 @@ import {
 type Env = {
   GOOGLE_PLACES_API_KEY: string;
   GETADDRESS_API_KEY?: string;
+  BOOKING_TO_EMAIL?: string;
+  BOOKING_FROM_EMAIL?: string;
 };
+
+const DEFAULT_BOOKING_EMAIL = "bookings@myairporttaxini.co.uk";
 
 function json(body: unknown, status: number, origin: string | null): Response {
   return new Response(JSON.stringify(body), {
@@ -26,7 +30,7 @@ function json(body: unknown, status: number, origin: string | null): Response {
   });
 }
 
-function routePath(pathname: string): "addresses" | "geocode" | null {
+function routePath(pathname: string): "addresses" | "geocode" | "bookings" | null {
   if (pathname === "/addresses" || pathname === "/api/addresses") {
     return "addresses";
   }
@@ -35,7 +39,66 @@ function routePath(pathname: string): "addresses" | "geocode" | null {
     return "geocode";
   }
 
+  if (pathname === "/bookings" || pathname === "/api/bookings") {
+    return "bookings";
+  }
+
   return null;
+}
+
+async function sendBookingEmail(
+  env: Env,
+  customerName: string,
+  message: string,
+): Promise<void> {
+  const toEmail = env.BOOKING_TO_EMAIL?.trim() || DEFAULT_BOOKING_EMAIL;
+  const fromEmail = env.BOOKING_FROM_EMAIL?.trim() || DEFAULT_BOOKING_EMAIL;
+
+  const response = await fetch("https://api.mailchannels.net/tx/v1/send", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      personalizations: [{ to: [{ email: toEmail }] }],
+      from: {
+        email: fromEmail,
+        name: "My Airport Taxi NI Website",
+      },
+      subject: `New booking — ${customerName}`,
+      content: [{ type: "text/plain", value: message }],
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error("Mailchannels request failed");
+  }
+}
+
+async function handleBookingRequest(
+  request: Request,
+  env: Env,
+  origin: string | null,
+): Promise<Response> {
+  let body: { customerName?: string; message?: string };
+
+  try {
+    body = await request.json();
+  } catch {
+    return json({ error: "Invalid JSON" }, 400, origin);
+  }
+
+  const customerName = body.customerName?.trim() ?? "";
+  const message = body.message?.trim() ?? "";
+
+  if (!customerName || !message) {
+    return json({ error: "Missing required fields" }, 400, origin);
+  }
+
+  try {
+    await sendBookingEmail(env, customerName, message);
+    return json({ ok: true }, 200, origin);
+  } catch {
+    return json({ error: "Failed to send booking email" }, 502, origin);
+  }
 }
 
 export default {
@@ -51,8 +114,20 @@ export default {
       });
     }
 
-    if (request.method !== "GET" || !route) {
+    if (!route) {
       return json({ error: "Not found" }, 404, origin);
+    }
+
+    if (route === "bookings") {
+      if (request.method !== "POST") {
+        return json({ error: "Method not allowed" }, 405, origin);
+      }
+
+      return handleBookingRequest(request, env, origin);
+    }
+
+    if (request.method !== "GET") {
+      return json({ error: "Method not allowed" }, 405, origin);
     }
 
     if (!env.GOOGLE_PLACES_API_KEY && !env.GETADDRESS_API_KEY) {

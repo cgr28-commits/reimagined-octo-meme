@@ -3,12 +3,15 @@
 import { FormEvent, memo, useEffect, useMemo, useState } from "react";
 import AddressInput from "@/components/AddressInput";
 import TripMap from "@/components/TripMap";
+import { buildBookingMessage, type BookingDetails } from "@/lib/booking-message";
+import { detectMobileDevice, useIsMobileDevice } from "@/lib/device";
 import { AIRPORTS, SITE, VEHICLE_TYPES } from "@/lib/data";
 import { readPrefillAirport } from "@/lib/quote-prefill";
 import {
   calculateQuote,
   formatQuote,
 } from "@/lib/quote";
+import { submitBookingByEmail } from "@/lib/submit-booking";
 
 type TripMode = "airport" | "address";
 type TripDirection = "to-airport" | "from-airport";
@@ -78,7 +81,10 @@ function isReturnAfterOutbound(
 }
 
 function QuoteCard() {
+  const isMobileDevice = useIsMobileDevice();
   const [submitted, setSubmitted] = useState(false);
+  const [submitError, setSubmitError] = useState("");
+  const [bookingSent, setBookingSent] = useState(false);
   const [showBookingPreview, setShowBookingPreview] = useState(false);
   const [customerName, setCustomerName] = useState("");
   const [tripMode, setTripMode] = useState<TripMode>("airport");
@@ -237,7 +243,7 @@ function QuoteCard() {
     return true;
   }
 
-  function openWhatsAppBooking() {
+  function buildBookingDetails(): BookingDetails {
     const tripLabel = isAirportTrip
       ? isFromAirport
         ? "Airport pickup"
@@ -247,37 +253,65 @@ function QuoteCard() {
     const estimatedPrice =
       isAirportTrip && liveQuote ? formatQuote(liveQuote.amount) : null;
 
-    const message = encodeURIComponent(
-      `Hi, I'd like a quote please.\n\n` +
-        `Name: ${customerName.trim()}\n` +
-        `Trip: ${tripLabel}\n` +
-        `Pickup: ${pickupLabel}\n` +
-        `Drop-off: ${dropoffLabel}\n` +
-        `Return journey: ${returnJourney ? "Yes" : "No"}\n` +
-        `${returnJourney ? "Outbound date" : "Date"}: ${tripDate}\n` +
-        `${returnJourney ? "Outbound time" : "Time"}: ${tripTime}\n` +
-        (returnJourney ? `Return date: ${returnDate}\nReturn time: ${returnTime}\n` : "") +
-        (isAirportTrip && flightNumber.trim()
-          ? `Flight number: ${flightNumber.trim()}\n`
-          : "") +
-        `Passengers: ${passengers}\n` +
-        `Suitcases: ${suitcases}\n` +
-        `Vehicle: ${quoteVehicle}\n` +
-        (estimatedPrice
-          ? `Estimated price: ${estimatedPrice}\n`
-          : !isAirportTrip
-            ? "Please provide a personal quote for this journey.\n"
-            : ""),
-    );
+    return {
+      customerName: customerName.trim(),
+      tripLabel,
+      pickupLabel,
+      dropoffLabel,
+      returnJourney,
+      tripDate,
+      tripTime,
+      returnDate,
+      returnTime,
+      flightNumber: flightNumber.trim().toUpperCase(),
+      passengers,
+      suitcases,
+      vehicle: quoteVehicle,
+      estimatedPrice,
+      isAirportTrip,
+    };
+  }
 
+  function openWhatsAppBooking(details: BookingDetails) {
+    const message = encodeURIComponent(buildBookingMessage(details));
     window.open(`https://wa.me/${SITE.whatsapp}?text=${message}`, "_blank");
     setSubmitted(true);
     setShowBookingPreview(false);
+    setBookingSent(true);
     setTimeout(() => setSubmitted(false), 4000);
+  }
+
+  async function submitDesktopBooking(details: BookingDetails) {
+    setSubmitted(true);
+    setSubmitError("");
+
+    try {
+      await submitBookingByEmail(details);
+      setShowBookingPreview(false);
+      setBookingSent(true);
+    } catch {
+      setSubmitError("We couldn't send your booking by email. Please try again or email us directly.");
+    } finally {
+      setSubmitted(false);
+    }
+  }
+
+  async function confirmBooking() {
+    const details = buildBookingDetails();
+    const mobile = isMobileDevice ?? detectMobileDevice();
+
+    if (mobile) {
+      openWhatsAppBooking(details);
+      return;
+    }
+
+    await submitDesktopBooking(details);
   }
 
   function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    setSubmitError("");
+    setBookingSent(false);
 
     if (!validateBooking()) {
       return;
@@ -288,12 +322,45 @@ function QuoteCard() {
       return;
     }
 
-    openWhatsAppBooking();
+    void confirmBooking();
   }
 
   function handleEditBooking() {
     setShowBookingPreview(false);
+    setSubmitError("");
+    setBookingSent(false);
   }
+
+  const usesWhatsApp = isMobileDevice === true;
+  const usesEmail = isMobileDevice === false;
+
+  const submitInProgressLabel = usesWhatsApp
+    ? "Opening WhatsApp…"
+    : usesEmail
+      ? "Sending booking…"
+      : "Submitting…";
+
+  const confirmButtonLabel =
+    isAirportTrip && liveQuote
+      ? usesWhatsApp
+        ? `Confirm & book for ${formatQuote(liveQuote.amount)}`
+        : `Confirm & submit for ${formatQuote(liveQuote.amount)}`
+      : usesWhatsApp
+        ? "Confirm & send via WhatsApp"
+        : "Confirm & submit booking";
+
+  const reviewButtonLabel = isAirportTrip && liveQuote ? "Review booking" : "Review booking details";
+
+  const initialButtonLabel =
+    isAirportTrip && liveQuote && !canBookAirport
+      ? "Enter flight number to book"
+      : isAirportTrip && liveQuote
+        ? reviewButtonLabel
+        : isAirportTrip
+          ? usesWhatsApp
+            ? "Send via WhatsApp"
+            : "Submit booking"
+          : reviewButtonLabel;
 
   const quoteHint = isAirportTrip
     ? !airportCode
@@ -305,7 +372,9 @@ function QuoteCard() {
         : !isAddressComplete
           ? `Enter your ${isFromAirport ? "drop-off" : "pickup"} address to see your estimated price`
           : ""
-    : "Fill in your journey details and send via WhatsApp — we'll confirm your fare personally.";
+    : usesWhatsApp
+      ? "Fill in your journey details and send via WhatsApp — we'll confirm your fare personally."
+      : "Fill in your journey details and submit your booking — we'll reply by email with your payment link.";
 
   return (
     <div className="glass-card rounded-2xl p-6 sm:p-8 lg:animate-float">
@@ -313,8 +382,14 @@ function QuoteCard() {
         <h2 className="text-xl font-bold text-white sm:text-2xl">Get a Live Quote</h2>
         <p className="mt-1 text-sm text-white/60">
           {isAirportTrip
-            ? "See your estimated price instantly, then book via WhatsApp"
-            : "Send your address-to-address trip details and we'll quote you personally"}
+            ? usesWhatsApp
+              ? "See your estimated price instantly, then book via WhatsApp"
+              : usesEmail
+                ? "See your estimated price instantly, then submit your booking by email"
+                : "See your estimated price instantly, then review and confirm your booking"
+            : usesWhatsApp
+              ? "Send your address-to-address trip details and we'll quote you personally"
+              : "Send your address-to-address trip details and we'll reply by email"}
         </p>
       </div>
 
@@ -436,6 +511,7 @@ function QuoteCard() {
             onChange={(e) => {
               setCustomerName(e.target.value);
               setShowBookingPreview(false);
+              setBookingSent(false);
             }}
             placeholder="John Smith"
             className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/30 outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30"
@@ -831,6 +907,25 @@ function QuoteCard() {
           </div>
         )}
 
+        {submitError && (
+          <p className="rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-100">
+            {submitError}
+          </p>
+        )}
+
+        {bookingSent && usesWhatsApp && (
+          <p className="rounded-xl border border-[#25D366]/30 bg-[#25D366]/10 px-4 py-3 text-sm text-white">
+            Your booking message should open in WhatsApp. If it didn&apos;t, tap the green chat
+            button at the bottom of the screen.
+          </p>
+        )}
+
+        {bookingSent && usesEmail && (
+          <p className="rounded-xl border border-emerald/30 bg-emerald/10 px-4 py-3 text-sm text-white">
+            Booking sent to {SITE.email}. We&apos;ll reply shortly with your payment link.
+          </p>
+        )}
+
         {showBookingPreview ? (
           <div className="grid gap-3 sm:grid-cols-2">
             <button
@@ -842,30 +937,19 @@ function QuoteCard() {
             </button>
             <button
               type="submit"
-              className="w-full rounded-xl bg-emerald py-3.5 text-sm font-bold text-navy transition-all hover:bg-emerald-light hover:shadow-lg hover:shadow-emerald/25"
+              disabled={submitted}
+              className="w-full rounded-xl bg-emerald py-3.5 text-sm font-bold text-navy transition-all hover:bg-emerald-light hover:shadow-lg hover:shadow-emerald/25 disabled:cursor-not-allowed disabled:opacity-70"
             >
-              {submitted
-                ? "Opening WhatsApp…"
-                : isAirportTrip && liveQuote
-                  ? `Confirm & book for ${formatQuote(liveQuote.amount)}`
-                  : "Confirm & send via WhatsApp"}
+              {submitted ? submitInProgressLabel : confirmButtonLabel}
             </button>
           </div>
         ) : (
           <button
             type="submit"
-            disabled={isAirportTrip && liveQuote != null && !canBookAirport}
+            disabled={(isAirportTrip && liveQuote != null && !canBookAirport) || submitted}
             className="w-full rounded-xl bg-emerald py-3.5 text-sm font-bold text-navy transition-all hover:bg-emerald-light hover:shadow-lg hover:shadow-emerald/25 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {submitted
-              ? "Opening WhatsApp…"
-              : isAirportTrip && liveQuote && !canBookAirport
-                ? "Enter flight number to book"
-                : isAirportTrip && liveQuote
-                  ? "Review booking"
-                  : isAirportTrip
-                    ? "Send via WhatsApp"
-                    : "Review & send via WhatsApp"}
+            {submitted ? submitInProgressLabel : initialButtonLabel}
           </button>
         )}
       </form>
