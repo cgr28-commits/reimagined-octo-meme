@@ -53,6 +53,8 @@ function QuoteCard() {
   const [dropoffAddress, setDropoffAddress] = useState("");
   const [returnJourney, setReturnJourney] = useState(false);
   const [returnDateError, setReturnDateError] = useState("");
+  const [flightNumberError, setFlightNumberError] = useState("");
+  const [flightNumber, setFlightNumber] = useState("");
   const [tripDate, setTripDate] = useState("");
   const [tripTime, setTripTime] = useState("");
   const [returnDate, setReturnDate] = useState("");
@@ -161,6 +163,8 @@ function QuoteCard() {
     }
   }
 
+  const canBookAirport = !isAirportTrip || Boolean(flightNumber.trim());
+
   function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const form = e.currentTarget;
@@ -191,8 +195,14 @@ function QuoteCard() {
     const passengers = data.get("passengers") as string;
     const suitcases = data.get("suitcases") as string;
     const vehicleType = data.get("vehicle") as string;
-    const flightNumber = (data.get("flightNumber") as string).trim();
+    const flightNumberValue = flightNumber.trim();
     const name = data.get("name") as string;
+
+    if (isAirportTrip && !flightNumberValue) {
+      setFlightNumberError("Please enter your flight number to book.");
+      return;
+    }
+    setFlightNumberError("");
 
     let tripLabel: string;
     let pickupLabel: string;
@@ -221,7 +231,7 @@ function QuoteCard() {
         `${returnJourney ? "Outbound date" : "Date"}: ${date}\n` +
         `${returnJourney ? "Outbound time" : "Time"}: ${time}\n` +
         (returnJourney ? `Return date: ${returnDateValue}\nReturn time: ${returnTimeValue}\n` : "") +
-        (isAirportTrip && flightNumber ? `Flight number: ${flightNumber}\n` : "") +
+        (isAirportTrip && flightNumberValue ? `Flight number: ${flightNumberValue}\n` : "") +
         `Passengers: ${passengers}\n` +
         `Suitcases: ${suitcases}\n` +
         `Vehicle: ${vehicleType}\n` +
@@ -567,21 +577,28 @@ function QuoteCard() {
               htmlFor="flightNumber"
               className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/50"
             >
-              Flight Number {isFromAirport ? "" : "(optional)"}
+              Flight Number
             </label>
             <input
               id="flightNumber"
               name="flightNumber"
               type="text"
-              required={isFromAirport}
+              value={flightNumber}
+              onChange={(e) => {
+                setFlightNumber(e.target.value);
+                if (e.target.value.trim()) {
+                  setFlightNumberError("");
+                }
+              }}
               placeholder="e.g. BA1234"
               className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm uppercase text-white placeholder:normal-case placeholder:text-white/30 outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30"
             />
             <p className="mt-1.5 text-xs text-white/40">
-              {isFromAirport
-                ? "Required for flight monitoring and complimentary airport waiting time."
-                : "Optional — helps us track your flight if your plans change."}
+              Required to book — used for flight monitoring and complimentary airport waiting time.
             </p>
+            {flightNumberError && (
+              <p className="mt-1.5 text-xs text-red-400">{flightNumberError}</p>
+            )}
           </div>
         )}
 
@@ -709,15 +726,18 @@ function QuoteCard() {
 
         <button
           type="submit"
-          className="w-full rounded-xl bg-emerald py-3.5 text-sm font-bold text-navy transition-all hover:bg-emerald-light hover:shadow-lg hover:shadow-emerald/25"
+          disabled={isAirportTrip && liveQuote != null && !canBookAirport}
+          className="w-full rounded-xl bg-emerald py-3.5 text-sm font-bold text-navy transition-all hover:bg-emerald-light hover:shadow-lg hover:shadow-emerald/25 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {submitted
             ? "Opening WhatsApp…"
-            : isAirportTrip && liveQuote
-              ? `Book for ${formatQuote(liveQuote.amount)} via WhatsApp`
-              : isAirportTrip
-                ? "Send via WhatsApp"
-                : "Send details for a quote via WhatsApp"}
+            : isAirportTrip && liveQuote && !canBookAirport
+              ? "Enter flight number to book"
+              : isAirportTrip && liveQuote
+                ? `Book for ${formatQuote(liveQuote.amount)} via WhatsApp`
+                : isAirportTrip
+                  ? "Send via WhatsApp"
+                  : "Send details for a quote via WhatsApp"}
         </button>
       </form>
     </div>
