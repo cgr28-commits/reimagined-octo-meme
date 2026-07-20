@@ -2,7 +2,7 @@ import { FAQS, SITE } from "./data";
 import { TOURS } from "./tours";
 
 const DESCRIPTION =
-  "Professional airport taxi transfers across Northern Ireland. Flight tracking, meet & greet, and transfers from Belfast International, Dublin, and more.";
+  "Professional airport taxi transfers across Northern Ireland. Belfast International from £45, Belfast City from £35, and Dublin Airport transfers. Flight tracking, meet & greet.";
 
 export function getWebSiteJsonLd() {
   return {

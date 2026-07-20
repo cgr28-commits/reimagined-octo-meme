@@ -11,7 +11,7 @@ const inter = Inter({
 });
 
 const description =
-  "Professional airport taxi transfers across Northern Ireland. Flight tracking, meet & greet, and transfers from Belfast International, Dublin, and more. Book via WhatsApp.";
+  "Professional airport taxi transfers across Northern Ireland. Belfast International from £45, Belfast City from £35, and Dublin Airport transfers. Flight tracking, meet & greet. Book via WhatsApp.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE.url),

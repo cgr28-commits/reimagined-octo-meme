@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Image from "next/image";
-import { HERO_SLIDES } from "@/lib/data";
+import { AIRPORTS, HERO_SLIDES } from "@/lib/data";
 import QuoteCard from "./QuoteCard";
 
 export default function HeroSlideshow() {
@@ -29,6 +29,9 @@ export default function HeroSlideshow() {
   }, [current, goToSlide]);
 
   const slide = HERO_SLIDES[current];
+  const slidePrice =
+    AIRPORTS.find((airport) => airport.code === slide.airportCode)?.distance ??
+    "From £45";
 
   return (
     <section className="relative min-h-screen overflow-hidden pt-16">
@@ -111,7 +114,13 @@ export default function HeroSlideshow() {
               <svg className="h-5 w-5 text-emerald" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
-              From £35
+              <span
+                className={`transition-opacity duration-300 ${
+                  isTransitioning ? "opacity-0" : "opacity-100"
+                }`}
+              >
+                {slidePrice}
+              </span>
             </div>
             <div className="flex items-center gap-2">
               <svg className="h-5 w-5 text-emerald" fill="none" viewBox="0 0 24 24" stroke="currentColor">

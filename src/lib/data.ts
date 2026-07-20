@@ -48,6 +48,7 @@ export const FLIGHT_AIRPORTS = [
 
 export const HERO_SLIDES = [
   {
+    airportCode: "BFS",
     title: "Belfast International Airport Transfers",
     subtitle:
       "Reliable transfers to and from Aldergrove (BFS) with flight tracking, meet & greet, and 60 minutes complimentary waiting time.",
@@ -55,6 +56,7 @@ export const HERO_SLIDES = [
     alt: "Belfast International Airport new Arrivals terminal exterior",
   },
   {
+    airportCode: "BHD",
     title: "Belfast City Airport Transfers",
     subtitle:
       "Quick transfers to George Best Belfast City Airport (BHD) — ideal for business trips and short-haul flights.",
@@ -62,6 +64,7 @@ export const HERO_SLIDES = [
     alt: "Entrance to George Best Belfast City Airport terminal",
   },
   {
+    airportCode: "DUB",
     title: "Dublin Airport Transfers",
     subtitle:
       "Comfortable cross-border transfers to Dublin Airport (DUB) with experienced drivers from Northern Ireland.",
