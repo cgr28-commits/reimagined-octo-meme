@@ -3,7 +3,7 @@
 import { FormEvent, memo, useEffect, useMemo, useState } from "react";
 import AddressInput from "@/components/AddressInput";
 import TripMap from "@/components/TripMap";
-import { buildBookingMessage, type BookingDetails } from "@/lib/booking-message";
+import { buildBookingMessage, isValidMobileNumber, type BookingDetails } from "@/lib/booking-message";
 import { detectMobileDevice, useIsMobileDevice } from "@/lib/device";
 import { AIRPORTS, SITE, VEHICLE_TYPES } from "@/lib/data";
 import { readPrefillAirport } from "@/lib/quote-prefill";
@@ -87,6 +87,8 @@ function QuoteCard() {
   const [bookingSent, setBookingSent] = useState(false);
   const [showBookingPreview, setShowBookingPreview] = useState(false);
   const [customerName, setCustomerName] = useState("");
+  const [customerMobile, setCustomerMobile] = useState("");
+  const [mobileNumberError, setMobileNumberError] = useState("");
   const [tripMode, setTripMode] = useState<TripMode>("airport");
   const [tripDirection, setTripDirection] = useState<TripDirection>("to-airport");
   const [airportCode, setAirportCode] = useState("");
@@ -240,6 +242,19 @@ function QuoteCard() {
     }
     setFlightNumberError("");
 
+    const onDesktop = !(isMobileDevice ?? detectMobileDevice());
+    if (onDesktop) {
+      if (!customerMobile.trim()) {
+        setMobileNumberError("Please enter your mobile number so we can contact you.");
+        return false;
+      }
+      if (!isValidMobileNumber(customerMobile)) {
+        setMobileNumberError("Please enter a valid mobile number.");
+        return false;
+      }
+    }
+    setMobileNumberError("");
+
     return true;
   }
 
@@ -255,6 +270,7 @@ function QuoteCard() {
 
     return {
       customerName: customerName.trim(),
+      mobileNumber: customerMobile.trim(),
       tripLabel,
       pickupLabel,
       dropoffLabel,
@@ -517,6 +533,39 @@ function QuoteCard() {
             className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/30 outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30"
           />
         </div>
+
+        {isMobileDevice !== true && (
+          <div>
+            <label
+              htmlFor="mobile"
+              className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/50"
+            >
+              Mobile Number
+            </label>
+            <input
+              id="mobile"
+              name="mobile"
+              type="tel"
+              required
+              autoComplete="tel"
+              value={customerMobile}
+              onChange={(e) => {
+                setCustomerMobile(e.target.value);
+                setShowBookingPreview(false);
+                setBookingSent(false);
+                setMobileNumberError("");
+              }}
+              placeholder="07xxx xxxxxx"
+              className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/30 outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30"
+            />
+            <p className="mt-1.5 text-xs text-white/40">
+              Required for email bookings so we can reach you with your payment link.
+            </p>
+            {mobileNumberError && (
+              <p className="mt-1.5 text-xs text-red-300">{mobileNumberError}</p>
+            )}
+          </div>
+        )}
 
         {isAirportTrip && (
           <div>
@@ -866,6 +915,9 @@ function QuoteCard() {
             </div>
             <dl>
               <PreviewRow label="Name" value={customerName.trim()} />
+              {isMobileDevice !== true && customerMobile.trim() && (
+                <PreviewRow label="Mobile" value={customerMobile.trim()} />
+              )}
               <PreviewRow
                 label="Trip"
                 value={

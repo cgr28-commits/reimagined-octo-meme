@@ -1,5 +1,6 @@
 export type BookingDetails = {
   customerName: string;
+  mobileNumber: string;
   tripLabel: string;
   pickupLabel: string;
   dropoffLabel: string;
@@ -16,10 +17,29 @@ export type BookingDetails = {
   isAirportTrip: boolean;
 };
 
+export function isValidMobileNumber(value: string): boolean {
+  const digits = value.replace(/\D/g, "");
+
+  if (digits.length < 10 || digits.length > 15) {
+    return false;
+  }
+
+  if (digits.startsWith("44")) {
+    return digits.length >= 12;
+  }
+
+  if (digits.startsWith("0")) {
+    return digits.length >= 10;
+  }
+
+  return digits.length >= 10;
+}
+
 export function buildBookingMessage(details: BookingDetails): string {
   return (
     `Hi, I would like to book the following. A payment link will follow shortly.\n\n` +
     `Name: ${details.customerName}\n` +
+    (details.mobileNumber ? `Mobile: ${details.mobileNumber}\n` : "") +
     `Trip: ${details.tripLabel}\n` +
     `Pickup: ${details.pickupLabel}\n` +
     `Drop-off: ${details.dropoffLabel}\n` +
