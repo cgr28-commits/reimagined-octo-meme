@@ -1,4 +1,5 @@
 import {
+  geocodeAddress,
   resolveGooglePlace,
   searchGooglePlaces,
 } from "../../shared/google-places";
@@ -23,6 +24,16 @@ function createSessionToken(): string {
 
 export function isGooglePlacesEnabled(): boolean {
   return API_KEY.length > 0;
+}
+
+export async function geocodePickupAddress(
+  address: string,
+): Promise<{ lat: number; lng: number } | null> {
+  if (!API_KEY) {
+    return null;
+  }
+
+  return geocodeAddress(API_KEY, address);
 }
 
 export async function fetchAddressPredictions(

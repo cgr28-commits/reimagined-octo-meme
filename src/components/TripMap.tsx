@@ -1,8 +1,18 @@
 "use client";
 
+import dynamic from "next/dynamic";
+import { useEffect, useMemo, useState } from "react";
 import { AIRPORTS } from "@/lib/data";
+import { geocodePickupAddress, isGooglePlacesEnabled } from "@/lib/google-maps";
 
-const API_KEY = process.env.NEXT_PUBLIC_GOOGLE_PLACES_API_KEY?.trim() ?? "";
+const TripMapView = dynamic(() => import("@/components/TripMapView"), {
+  ssr: false,
+  loading: () => (
+    <div className="flex h-48 items-center justify-center bg-white/5 sm:h-56">
+      <p className="text-sm text-white/60">Loading map…</p>
+    </div>
+  ),
+});
 
 type TripMapProps = {
   pickup: string;
@@ -10,7 +20,13 @@ type TripMapProps = {
   tripDirection: "to-airport" | "from-airport";
 };
 
-function buildDirectionsUrls(
+type MapPoint = {
+  lat: number;
+  lng: number;
+  label: string;
+};
+
+function buildGoogleMapsLink(
   pickup: string,
   airportCode: string,
   tripDirection: TripMapProps["tripDirection"],
@@ -23,25 +39,90 @@ function buildDirectionsUrls(
   const origin = tripDirection === "to-airport" ? pickup : airport.mapLabel;
   const destination = tripDirection === "to-airport" ? airport.mapLabel : pickup;
 
-  const mapsLink = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}&travelmode=driving`;
-  const embedUrl = API_KEY
-    ? `https://www.google.com/maps/embed/v1/directions?key=${encodeURIComponent(API_KEY)}&origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}&mode=driving`
-    : null;
-
-  return { mapsLink, embedUrl, airportName: airport.name };
+  return {
+    mapsLink: `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}&travelmode=driving`,
+    airportName: airport.name,
+  };
 }
 
 export default function TripMap({ pickup, airportCode, tripDirection }: TripMapProps) {
   const trimmedPickup = pickup.trim();
+  const [pickupPoint, setPickupPoint] = useState<MapPoint | null>(null);
+  const [mapError, setMapError] = useState<string | null>(null);
 
-  if (!trimmedPickup || !airportCode || trimmedPickup.length < 8) {
+  const airport = useMemo(
+    () => AIRPORTS.find((item) => item.code === airportCode) ?? null,
+    [airportCode],
+  );
+
+  const links = useMemo(
+    () =>
+      trimmedPickup && airportCode
+        ? buildGoogleMapsLink(trimmedPickup, airportCode, tripDirection)
+        : null,
+    [airportCode, tripDirection, trimmedPickup],
+  );
+
+  useEffect(() => {
+    if (!trimmedPickup || trimmedPickup.length < 8 || !airport || !isGooglePlacesEnabled()) {
+      setPickupPoint(null);
+      setMapError(null);
+      return;
+    }
+
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      void geocodePickupAddress(trimmedPickup)
+        .then((location) => {
+          if (cancelled) {
+            return;
+          }
+
+          if (!location) {
+            setPickupPoint(null);
+            setMapError("Could not locate this address on the map yet.");
+            return;
+          }
+
+          setPickupPoint({
+            lat: location.lat,
+            lng: location.lng,
+            label: tripDirection === "to-airport" ? "Pickup" : "Drop-off",
+          });
+          setMapError(null);
+        })
+        .catch(() => {
+          if (!cancelled) {
+            setPickupPoint(null);
+            setMapError("Map preview unavailable right now.");
+          }
+        });
+    }, 500);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [airport, tripDirection, trimmedPickup]);
+
+  if (!trimmedPickup || !airportCode || trimmedPickup.length < 8 || !links || !airport) {
     return null;
   }
 
-  const urls = buildDirectionsUrls(trimmedPickup, airportCode, tripDirection);
-  if (!urls) {
-    return null;
-  }
+  const airportPoint: MapPoint = {
+    lat: airport.mapLocation.lat,
+    lng: airport.mapLocation.lng,
+    label: airport.name,
+  };
+
+  const mapPickup =
+    tripDirection === "to-airport"
+      ? pickupPoint
+      : airportPoint;
+  const mapAirport =
+    tripDirection === "to-airport"
+      ? airportPoint
+      : pickupPoint;
 
   return (
     <div className="overflow-hidden rounded-xl border border-white/10 bg-white/5">
@@ -49,34 +130,29 @@ export default function TripMap({ pickup, airportCode, tripDirection }: TripMapP
         <p className="text-xs font-medium uppercase tracking-wider text-emerald">Your route</p>
         <p className="mt-1 text-sm text-white/70">
           {tripDirection === "to-airport"
-            ? `Pickup to ${urls.airportName}`
-            : `${urls.airportName} to your drop-off`}
+            ? `Pickup to ${links.airportName}`
+            : `${links.airportName} to your drop-off`}
         </p>
       </div>
 
-      {urls.embedUrl ? (
-        <iframe
-          title="Trip route map"
-          src={urls.embedUrl}
-          className="h-48 w-full border-0 bg-white sm:h-56"
-          loading="lazy"
-          referrerPolicy="no-referrer-when-downgrade"
-          allowFullScreen
-        />
+      {mapPickup && mapAirport ? (
+        <TripMapView pickup={mapPickup} airport={mapAirport} />
       ) : (
         <div className="flex h-48 items-center justify-center px-4 text-center sm:h-56">
-          <p className="text-sm text-white/60">Map preview unavailable — open the route in Google Maps.</p>
+          <p className="text-sm text-white/60">
+            {mapError ?? "Finding your address on the map…"}
+          </p>
         </div>
       )}
 
       <div className="border-t border-white/10 px-4 py-3">
         <a
-          href={urls.mapsLink}
+          href={links.mapsLink}
           target="_blank"
           rel="noopener noreferrer"
           className="text-sm font-medium text-emerald transition-colors hover:text-emerald-light"
         >
-          Open route in Google Maps
+          Open turn-by-turn directions in Google Maps
         </a>
       </div>
     </div>

@@ -78,6 +78,7 @@ export const AIRPORTS = [
     distance: "From £45",
     duration: "~30 min from Belfast",
     mapLabel: "Belfast International Airport, Aldergrove, UK",
+    mapLocation: { lat: 54.6575, lng: -6.2158 },
     description:
       "Direct transfers to and from Aldergrove with live flight monitoring and complimentary waiting time.",
   },
@@ -88,6 +89,7 @@ export const AIRPORTS = [
     distance: "From £35",
     duration: "~15 min from city centre",
     mapLabel: "George Best Belfast City Airport, Belfast, UK",
+    mapLocation: { lat: 54.6181, lng: -5.8724 },
     description:
       "Quick, convenient transfers to the heart of Belfast — ideal for business and short-haul flights.",
   },
@@ -98,6 +100,7 @@ export const AIRPORTS = [
     distance: "From £180",
     duration: "~2 hrs from Belfast",
     mapLabel: "Dublin Airport, Ireland",
+    mapLocation: { lat: 53.4213, lng: -6.2701 },
     description:
       "Comfortable cross-border transfers with experienced drivers who know every route and checkpoint.",
   },

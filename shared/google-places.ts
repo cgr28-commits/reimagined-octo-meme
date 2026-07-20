@@ -195,6 +195,40 @@ export async function searchGooglePlaces(
   return suggestions.slice(0, 6);
 }
 
+export async function geocodeAddress(
+  apiKey: string,
+  address: string,
+): Promise<{ lat: number; lng: number } | null> {
+  const response = await fetch("https://places.googleapis.com/v1/places:searchText", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Goog-Api-Key": apiKey,
+      "X-Goog-FieldMask": "places.location",
+    },
+    body: JSON.stringify({
+      textQuery: address,
+      regionCode: "gb",
+      languageCode: "en-GB",
+    }),
+  });
+
+  if (!response.ok) {
+    return null;
+  }
+
+  const data = (await response.json()) as {
+    places?: Array<{ location?: { latitude?: number; longitude?: number } }>;
+  };
+
+  const location = data.places?.[0]?.location;
+  if (location?.latitude == null || location?.longitude == null) {
+    return null;
+  }
+
+  return { lat: location.latitude, lng: location.longitude };
+}
+
 export async function resolveGooglePlace(
   apiKey: string,
   placeId: string,
