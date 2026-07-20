@@ -27,7 +27,6 @@ function QuoteCard() {
   const [tripDirection, setTripDirection] = useState<TripDirection>("to-airport");
   const [airportCode, setAirportCode] = useState("");
   const [address, setAddress] = useState("");
-  const [addressReady, setAddressReady] = useState(false);
   const [returnJourney, setReturnJourney] = useState(false);
   const [returnDateError, setReturnDateError] = useState("");
   const [vehicle, setVehicle] = useState<(typeof VEHICLE_TYPES)[number]>(
@@ -39,7 +38,6 @@ function QuoteCard() {
     if (saved) {
       setAddress(saved);
     }
-    setAddressReady(true);
   }, []);
 
   useEffect(() => {
@@ -252,7 +250,6 @@ function QuoteCard() {
         </div>
 
         <AddressInput
-          key={addressReady ? "address-ready" : "address-loading"}
           id="pickup"
           name="pickup"
           value={address}

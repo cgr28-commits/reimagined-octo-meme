@@ -2,6 +2,11 @@ const API_KEY = process.env.NEXT_PUBLIC_GOOGLE_PLACES_API_KEY?.trim() ?? "";
 
 let loadPromise: Promise<void> | null = null;
 
+export type AddressPrediction = {
+  placeId: string;
+  description: string;
+};
+
 export function isGooglePlacesEnabled(): boolean {
   return API_KEY.length > 0;
 }
@@ -52,6 +57,60 @@ export function loadGoogleMapsPlaces(): Promise<void> {
   }
 
   return loadPromise;
+}
+
+export function fetchAddressPredictions(
+  input: string,
+  countries: readonly string[],
+): Promise<AddressPrediction[]> {
+  return loadGoogleMapsPlaces().then(
+    () =>
+      new Promise<AddressPrediction[]>((resolve) => {
+        const service = new google.maps.places.AutocompleteService();
+        service.getPlacePredictions(
+          {
+            input,
+            componentRestrictions: { country: [...countries] },
+            types: ["geocode"],
+          },
+          (predictions, status) => {
+            if (status !== google.maps.places.PlacesServiceStatus.OK || !predictions?.length) {
+              resolve([]);
+              return;
+            }
+
+            resolve(
+              predictions.map((prediction) => ({
+                placeId: prediction.place_id,
+                description: prediction.description,
+              })),
+            );
+          },
+        );
+      }),
+  );
+}
+
+export function fetchPlaceDetails(placeId: string): Promise<google.maps.places.PlaceResult | null> {
+  return loadGoogleMapsPlaces().then(
+    () =>
+      new Promise((resolve) => {
+        const service = new google.maps.places.PlacesService(document.createElement("div"));
+        service.getDetails(
+          {
+            placeId,
+            fields: ["formatted_address", "address_components"],
+          },
+          (place, status) => {
+            if (status === google.maps.places.PlacesServiceStatus.OK && place) {
+              resolve(place);
+              return;
+            }
+            resolve(null);
+          },
+        );
+      }),
+  );
 }
 
 export function parsePlaceAddress(place: google.maps.places.PlaceResult) {
