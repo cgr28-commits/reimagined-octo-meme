@@ -1,5 +1,8 @@
-/** 25% supplement for address-to-address trips on weekend nights and bank holidays. */
-export const POINT_TO_POINT_PREMIUM_RATE = 0.25;
+/** 20% supplement for trips after midnight Friday through 6:30am Monday, and all day on bank holidays. */
+export const TRIP_PREMIUM_RATE = 0.2;
+
+/** @deprecated Use TRIP_PREMIUM_RATE */
+export const POINT_TO_POINT_PREMIUM_RATE = TRIP_PREMIUM_RATE;
 
 /** Northern Ireland bank holidays (inclusive). Update annually. */
 const NI_BANK_HOLIDAY_DATES = new Set([
@@ -57,61 +60,38 @@ function parseLocalDateTime(date: string, time: string): Date | null {
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
-function getPremiumReason(date: string, time: string): string | null {
+/** Premium window: after midnight Friday (Sat 00:00) through 6:30am Monday, plus all bank holidays. */
+export function isTripPremiumDateTime(date: string, time: string): boolean {
   if (NI_BANK_HOLIDAY_DATES.has(date)) {
-    return "Bank holiday";
+    return true;
   }
 
   const parsed = parseLocalDateTime(date, time);
   if (!parsed) {
-    return null;
+    return false;
   }
 
   const day = parsed.getDay();
-  const hour = parsed.getHours();
+  const minutes = parsed.getHours() * 60 + parsed.getMinutes();
+  const mondayCutoff = 6 * 60 + 30;
 
-  // After midnight on Friday → Saturday 00:00–05:59
-  if (day === 6 && hour < 6) {
-    return "Friday night";
+  if (day === 6 || day === 0) {
+    return true;
   }
 
-  // After midnight on Saturday → Sunday 00:00–05:59
-  if (day === 0 && hour < 6) {
-    return "Saturday night";
+  if (day === 1 && minutes < mondayCutoff) {
+    return true;
   }
 
-  return null;
+  return false;
 }
 
+/** @deprecated Use isTripPremiumDateTime */
 export function isPointToPointPremiumDateTime(date: string, time: string): boolean {
-  return getPremiumReason(date, time) !== null;
+  return isTripPremiumDateTime(date, time);
 }
 
-export function describePointToPointPremium(schedule: TripSchedule): string | null {
-  const reasons = new Set<string>();
-
-  if (schedule.outboundDate && schedule.outboundTime) {
-    const reason = getPremiumReason(schedule.outboundDate, schedule.outboundTime);
-    if (reason) {
-      reasons.add(reason);
-    }
-  }
-
-  if (schedule.returnJourney && schedule.returnDate && schedule.returnTime) {
-    const reason = getPremiumReason(schedule.returnDate, schedule.returnTime);
-    if (reason) {
-      reasons.add(reason);
-    }
-  }
-
-  if (reasons.size === 0) {
-    return null;
-  }
-
-  return [...reasons].join(" · ");
-}
-
-export function applyPointToPointPremium(
+export function applyTripPremium(
   oneWayFare: number,
   schedule: TripSchedule,
 ): { total: number; premiumApplied: boolean; premiumAmount: number } {
@@ -119,14 +99,14 @@ export function applyPointToPointPremium(
   let premiumAmount = 0;
 
   if (schedule.outboundDate && schedule.outboundTime) {
-    if (isPointToPointPremiumDateTime(schedule.outboundDate, schedule.outboundTime)) {
-      premiumAmount += oneWayFare * POINT_TO_POINT_PREMIUM_RATE;
+    if (isTripPremiumDateTime(schedule.outboundDate, schedule.outboundTime)) {
+      premiumAmount += oneWayFare * TRIP_PREMIUM_RATE;
     }
   }
 
   if (schedule.returnJourney && schedule.returnDate && schedule.returnTime) {
-    if (isPointToPointPremiumDateTime(schedule.returnDate, schedule.returnTime)) {
-      premiumAmount += oneWayFare * POINT_TO_POINT_PREMIUM_RATE;
+    if (isTripPremiumDateTime(schedule.returnDate, schedule.returnTime)) {
+      premiumAmount += oneWayFare * TRIP_PREMIUM_RATE;
     }
   }
 
@@ -135,4 +115,12 @@ export function applyPointToPointPremium(
     premiumApplied: premiumAmount > 0,
     premiumAmount,
   };
+}
+
+/** @deprecated Use applyTripPremium */
+export function applyPointToPointPremium(
+  oneWayFare: number,
+  schedule: TripSchedule,
+): { total: number; premiumApplied: boolean; premiumAmount: number } {
+  return applyTripPremium(oneWayFare, schedule);
 }

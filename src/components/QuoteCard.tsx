@@ -99,8 +99,26 @@ function QuoteCard() {
     }
 
     const address = isFromAirport ? dropoffAddress : pickupAddress;
-    return calculateQuote(address, airportCode, vehicle, returnJourney);
-  }, [airportCode, dropoffAddress, isAirportTrip, isFromAirport, pickupAddress, returnJourney, vehicle]);
+    return calculateQuote(address, airportCode, vehicle, returnJourney, {
+      outboundDate: tripDate,
+      outboundTime: tripTime,
+      returnDate,
+      returnTime,
+      returnJourney,
+    });
+  }, [
+    airportCode,
+    dropoffAddress,
+    isAirportTrip,
+    isFromAirport,
+    pickupAddress,
+    returnDate,
+    returnJourney,
+    returnTime,
+    tripDate,
+    tripTime,
+    vehicle,
+  ]);
 
   const fromPrice = useMemo(() => {
     if (!isAirportTrip) {

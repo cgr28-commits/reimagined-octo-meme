@@ -1,7 +1,6 @@
 import { AIRPORTS, AREAS, VEHICLE_TYPES } from "@/lib/data";
 import {
-  applyPointToPointPremium,
-  describePointToPointPremium,
+  applyTripPremium,
   type TripSchedule,
 } from "@/lib/point-to-point-premium";
 
@@ -33,7 +32,7 @@ const BFS_AREA_SURCHARGES: Partial<Record<Area, number>> & { default: number } =
   Cookstown: 50,
   Coleraine: 55,
   Omagh: 120,
-  "Derry / Londonderry": 75,
+  "Derry / Londonderry": 104,
   Enniskillen: 150,
   default: 35,
 };
@@ -63,7 +62,7 @@ const BHD_AREA_SURCHARGES: Partial<Record<Area, number>> & { default: number } =
   Cookstown: 55,
   Coleraine: 60,
   Omagh: 130,
-  "Derry / Londonderry": 85,
+  "Derry / Londonderry": 114,
   Enniskillen: 165,
   default: 25,
 };
@@ -120,7 +119,7 @@ export const AREA_SURCHARGES: Record<Area, number> = {
   Coleraine: 55,
   Cookstown: 50,
   Omagh: 120,
-  "Derry / Londonderry": 75,
+  "Derry / Londonderry": 104,
   Enniskillen: 150,
 };
 
@@ -155,7 +154,6 @@ export type QuoteResult = {
   pickupArea?: string | null;
   dropoffArea?: string | null;
   premiumApplied?: boolean;
-  premiumLabel?: string | null;
 };
 
 /** Local point-to-point base fare (Belfast-area short journeys). */
@@ -251,7 +249,9 @@ function getAirportVehiclePricingMeta(
 }
 
 function computeSaloonAirportOneWay(airportCode: string, basePlusSurcharge: number): number {
-  return applyAirportMinimumFare(airportCode, roundToNearestFive(basePlusSurcharge));
+  const fare = applyAirportMinimumFare(airportCode, basePlusSurcharge);
+  // Keep exact fares like £149; otherwise round to the nearest £5.
+  return fare % 5 === 4 ? fare : roundToNearestFive(fare);
 }
 
 /** Minimum one-way airport transfer fare by airport code. */
@@ -271,6 +271,11 @@ function applyAirportMinimumFare(airportCode: string, oneWayAmount: number): num
 
 function roundToNearestFive(value: number): number {
   return Math.round(value / 5) * 5;
+}
+
+function roundFare(value: number): number {
+  const rounded = Math.round(value);
+  return rounded % 5 === 4 ? rounded : roundToNearestFive(rounded);
 }
 
 function getAreaSurcharge(airportCode: string, area: Area | null): number {
@@ -351,7 +356,7 @@ export function calculatePointToPointQuote(
   const vehicleAdjustment = POINT_TO_POINT_VEHICLE_ADJUSTMENTS[vehicleType] ?? 0;
   const oneWay = applyPointToPointVehiclePricing(oneWaySubtotal, vehicleType);
   const baseSubtotal = returnJourney ? oneWay * 2 : oneWay;
-  const premium = applyPointToPointPremium(oneWay, {
+  const premium = applyTripPremium(oneWay, {
     ...schedule,
     returnJourney,
   });
@@ -367,7 +372,6 @@ export function calculatePointToPointQuote(
     pickupArea,
     dropoffArea,
     premiumApplied: premium.premiumApplied,
-    premiumLabel: describePointToPointPremium({ ...schedule, returnJourney }),
   };
 }
 
@@ -386,6 +390,7 @@ export function calculateQuote(
   airportCode: string,
   vehicleType: (typeof VEHICLE_TYPES)[number],
   returnJourney = false,
+  schedule: TripSchedule = {},
 ): QuoteResult | null {
   const trimmedAddress = address.trim();
   if (!trimmedAddress || !airportCode) {
@@ -405,15 +410,16 @@ export function calculateQuote(
   );
   const { vehicleMultiplier, vehicleAdjustment } = getAirportVehiclePricingMeta(vehicleType);
   const oneWayFare = applyAirportVehiclePricing(saloonOneWay, vehicleType);
-  const subtotal = returnJourney ? oneWayFare * 2 : oneWayFare;
+  const premium = applyTripPremium(oneWayFare, { ...schedule, returnJourney });
 
   return {
-    amount: subtotal,
+    amount: roundFare(premium.total),
     area: matchedArea,
     areaSurcharge,
     airportBase: airport.basePrice,
     vehicleMultiplier,
     vehicleAdjustment,
+    premiumApplied: premium.premiumApplied,
   };
 }
 
