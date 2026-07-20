@@ -14,11 +14,8 @@ import {
   fetchAddressPredictions,
   fetchPlaceDetails,
   isGooglePlacesEnabled,
-  loadGoogleMapsPlaces,
-  parsePlaceAddress,
   type AddressPrediction,
 } from "@/lib/google-maps";
-import { isAddressAllowedForAirport } from "@/lib/northern-ireland";
 
 type AddressInputProps = {
   id: string;
@@ -57,16 +54,9 @@ export default function AddressInput({
   const [suggestions, setSuggestions] = useState<AddressPrediction[]>([]);
   const [suggestionsOpen, setSuggestionsOpen] = useState(false);
   const [dropdownPosition, setDropdownPosition] = useState<DropdownPosition | null>(null);
-  const [mapsReady, setMapsReady] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const debounceRef = useRef<number | null>(null);
-  const valueRef = useRef(value);
   const hintId = useId();
-
-  valueRef.current = value;
-
-  const countries =
-    airportCode === "DUB" ? (["gb", "ie"] as const) : (["gb"] as const);
 
   const updateDropdownPosition = useCallback(() => {
     if (!inputRef.current) {
@@ -80,18 +70,6 @@ export default function AddressInput({
       width: rect.width,
     });
   }, []);
-
-  useEffect(() => {
-    if (!autocompleteEnabled) {
-      return;
-    }
-
-    void loadGoogleMapsPlaces()
-      .then(() => setMapsReady(true))
-      .catch(() => {
-        setLoadError("Address suggestions are unavailable right now. Enter your address manually.");
-      });
-  }, [autocompleteEnabled]);
 
   useEffect(() => {
     return () => {
@@ -140,7 +118,7 @@ export default function AddressInput({
 
   const requestSuggestions = useCallback(
     (query: string) => {
-      if (!autocompleteEnabled || !mapsReady) {
+      if (!autocompleteEnabled) {
         return;
       }
 
@@ -151,13 +129,15 @@ export default function AddressInput({
         return;
       }
 
-      void fetchAddressPredictions(trimmed, countries)
+      void fetchAddressPredictions(trimmed, airportCode)
         .then((predictions) => {
           setSuggestions(predictions);
           setSuggestionsOpen(predictions.length > 0);
-          if (predictions.length === 0) {
-            setLoadError(null);
-          }
+          setLoadError(
+            predictions.length === 0
+              ? "No matching addresses found — keep typing or enter your full address manually."
+              : null,
+          );
         })
         .catch(() => {
           setSuggestions([]);
@@ -165,14 +145,8 @@ export default function AddressInput({
           setLoadError("Address suggestions are unavailable right now. Enter your address manually.");
         });
     },
-    [autocompleteEnabled, countries, mapsReady],
+    [airportCode, autocompleteEnabled],
   );
-
-  useEffect(() => {
-    if (mapsReady && valueRef.current.trim().length >= 3) {
-      requestSuggestions(valueRef.current);
-    }
-  }, [mapsReady, requestSuggestions]);
 
   function handleChange(event: React.ChangeEvent<HTMLInputElement>) {
     const next = event.target.value;
@@ -192,30 +166,9 @@ export default function AddressInput({
     setSuggestionsOpen(false);
     setSuggestions([]);
 
-    const place = await fetchPlaceDetails(prediction.placePrediction);
-    const formatted = place?.formattedAddress?.trim();
-    if (!formatted || !place) {
-      onChange(prediction.description);
-      return;
-    }
-
-    const parts = parsePlaceAddress(place);
-    if (
-      !isAddressAllowedForAirport(airportCode, {
-        ...parts,
-        displayName: formatted,
-      })
-    ) {
-      setLoadError(
-        airportCode === "DUB"
-          ? "Please choose an address in Northern Ireland or the Republic of Ireland."
-          : "Please choose an address in Northern Ireland.",
-      );
-      return;
-    }
-
+    const formatted = await fetchPlaceDetails(prediction.placeId, airportCode);
+    onChange(formatted ?? prediction.description);
     setLoadError(null);
-    onChange(formatted);
   }
 
   const suggestionsPortal =
@@ -271,6 +224,8 @@ export default function AddressInput({
           updateDropdownPosition();
           if (suggestions.length > 0) {
             setSuggestionsOpen(true);
+          } else if (value.trim().length >= 3) {
+            requestSuggestions(value);
           }
         }}
         placeholder={placeholder}

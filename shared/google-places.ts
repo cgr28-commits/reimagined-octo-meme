@@ -116,7 +116,8 @@ export async function searchGooglePlaces(
   });
 
   if (!response.ok) {
-    return [];
+    const errorText = await response.text();
+    throw new Error(errorText || `Places autocomplete failed (${response.status})`);
   }
 
   const data = (await response.json()) as GoogleAutocompleteResponse;
