@@ -188,7 +188,7 @@ const POINT_TO_POINT_AREA_RATES: Partial<Record<Area, number>> & { default: numb
   Coleraine: 48,
   Cookstown: 42,
   Omagh: 52,
-  "Derry / Londonderry": 58,
+  "Derry / Londonderry": 136,
   Enniskillen: 62,
   default: 20,
 };
@@ -366,7 +366,7 @@ export function calculatePointToPointQuote(
   const subtotal = premium.total;
 
   return {
-    amount: roundToNearestFive(subtotal),
+    amount: roundFare(subtotal),
     area: dropoffArea ?? pickupArea,
     areaSurcharge: Math.max(pickupRate, dropoffRate),
     airportBase: POINT_TO_POINT_BASE,
