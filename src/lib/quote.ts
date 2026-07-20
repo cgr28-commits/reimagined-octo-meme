@@ -77,7 +77,7 @@ const DUB_AREA_SURCHARGES: Partial<Record<Area, number>> & { default: number } =
   Comber: 12,
   Newtownards: 12,
   Carrickfergus: 12,
-  Antrim: 15,
+  Antrim: 0,
   Ballymena: 20,
   Newry: 25,
   "Derry / Londonderry": 40,
@@ -258,7 +258,7 @@ function computeSaloonAirportOneWay(airportCode: string, basePlusSurcharge: numb
 const AIRPORT_MINIMUM_FARE: Record<string, number> = {
   BFS: 45,
   BHD: 35,
-  DUB: 180,
+  DUB: 230,
 };
 
 function applyAirportMinimumFare(airportCode: string, oneWayAmount: number): number {
@@ -304,6 +304,9 @@ export function matchAreaFromAddress(address: string): Area | null {
     }
     if (area === "Omagh") {
       aliases.push("tyrone", "county tyrone", "bt78", "bt79");
+    }
+    if (area === "Antrim") {
+      aliases.push("aldergrove", "belfast international", "bfs", "bt29");
     }
     if (area === "Newcastle") {
       aliases.push("newcastle, county down", "newcastle co down", "newcastle, co down");
