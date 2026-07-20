@@ -153,13 +153,47 @@ export type QuoteResult = {
 };
 
 /** Local point-to-point base fare (Belfast-area short journeys). */
-const POINT_TO_POINT_BASE = 28;
+const POINT_TO_POINT_BASE = 32;
 
-function getGenericAreaSurcharge(area: Area | null): number {
+/**
+ * Address-to-address distance bands from Belfast — calibrated to market rates
+ * (e.g. Belfast → Newcastle ≈ £75). Separate from airport transfer surcharges.
+ */
+const POINT_TO_POINT_AREA_RATES: Partial<Record<Area, number>> & { default: number } = {
+  "Belfast City Centre": 0,
+  Holywood: 8,
+  Newtownabbey: 10,
+  Dundonald: 12,
+  Lisburn: 12,
+  Hillsborough: 14,
+  Carrickfergus: 18,
+  Antrim: 10,
+  Ballyclare: 12,
+  Bangor: 22,
+  Comber: 18,
+  Newtownards: 20,
+  Larne: 22,
+  Ballymena: 28,
+  Downpatrick: 32,
+  Newcastle: 42,
+  Banbridge: 34,
+  Newry: 38,
+  Armagh: 36,
+  Portadown: 34,
+  Lurgan: 32,
+  Coleraine: 48,
+  Cookstown: 42,
+  Omagh: 52,
+  "Derry / Londonderry": 58,
+  Enniskillen: 62,
+  default: 20,
+};
+
+function getPointToPointAreaRate(area: Area | null): number {
   if (!area) {
-    return 22;
+    return POINT_TO_POINT_AREA_RATES.default;
   }
-  return AREA_SURCHARGES[area] ?? 22;
+  return POINT_TO_POINT_AREA_RATES[area] ?? POINT_TO_POINT_AREA_RATES.default;
 }
 
 function applyVehiclePricing(subtotal: number, vehicleType: (typeof VEHICLE_TYPES)[number]): number {
@@ -228,15 +262,16 @@ export function calculatePointToPointQuote(
 
   const pickupArea = matchAreaFromAddress(pickup);
   const dropoffArea = matchAreaFromAddress(dropoff);
-  const pickupCharge = getGenericAreaSurcharge(pickupArea);
-  const dropoffCharge = getGenericAreaSurcharge(dropoffArea);
+  const pickupRate = getPointToPointAreaRate(pickupArea);
+  const dropoffRate = getPointToPointAreaRate(dropoffArea);
 
   let oneWaySubtotal: number;
   if (pickupArea && dropoffArea && pickupArea === dropoffArea) {
-    oneWaySubtotal = POINT_TO_POINT_BASE + pickupCharge * 0.55;
+    oneWaySubtotal = POINT_TO_POINT_BASE + Math.max(pickupRate, dropoffRate) * 0.55;
   } else {
-    // Sum both area distance bands — better reflects cross-county journeys.
-    oneWaySubtotal = POINT_TO_POINT_BASE + pickupCharge + dropoffCharge;
+    const maxRate = Math.max(pickupRate, dropoffRate);
+    const minRate = Math.min(pickupRate, dropoffRate);
+    oneWaySubtotal = POINT_TO_POINT_BASE + maxRate + minRate * 0.35;
   }
 
   const vehicleMultiplier = VEHICLE_MULTIPLIERS[vehicleType] ?? 1;
@@ -252,7 +287,7 @@ export function calculatePointToPointQuote(
   return {
     amount: roundToNearestFive(subtotal),
     area: dropoffArea ?? pickupArea,
-    areaSurcharge: Math.max(pickupCharge, dropoffCharge),
+    areaSurcharge: Math.max(pickupRate, dropoffRate),
     airportBase: POINT_TO_POINT_BASE,
     vehicleMultiplier,
     vehicleAdjustment,
