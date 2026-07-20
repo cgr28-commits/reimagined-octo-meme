@@ -14,10 +14,15 @@ const TripMapView = dynamic(() => import("@/components/TripMapView"), {
   ),
 });
 
+type TripMode = "airport" | "address";
+type AirportTripDirection = "to-airport" | "from-airport";
+
 type TripMapProps = {
-  pickup: string;
-  airportCode: string;
-  tripDirection: "to-airport" | "from-airport";
+  tripMode: TripMode;
+  originAddress: string;
+  destinationAddress: string;
+  airportCode?: string;
+  tripDirection?: AirportTripDirection;
 };
 
 type MapPoint = {
@@ -26,28 +31,51 @@ type MapPoint = {
   label: string;
 };
 
-function buildGoogleMapsLink(
-  pickup: string,
-  airportCode: string,
-  tripDirection: TripMapProps["tripDirection"],
-) {
-  const airport = AIRPORTS.find((item) => item.code === airportCode);
-  if (!airport) {
+function buildGoogleMapsLink(origin: string, destination: string) {
+  return `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}&travelmode=driving`;
+}
+
+async function resolveMapPoint(address: string, label: string, airportCode?: string): Promise<MapPoint | null> {
+  const trimmed = address.trim();
+  if (!trimmed) {
     return null;
   }
 
-  const origin = tripDirection === "to-airport" ? pickup : airport.mapLabel;
-  const destination = tripDirection === "to-airport" ? airport.mapLabel : pickup;
+  const airport = airportCode
+    ? AIRPORTS.find((item) => item.code === airportCode && item.mapLabel === trimmed)
+    : null;
+
+  if (airport) {
+    return {
+      lat: airport.mapLocation.lat,
+      lng: airport.mapLocation.lng,
+      label: airport.name,
+    };
+  }
+
+  const location = await geocodePickupAddress(trimmed);
+  if (!location) {
+    return null;
+  }
 
   return {
-    mapsLink: `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}&travelmode=driving`,
-    airportName: airport.name,
+    lat: location.lat,
+    lng: location.lng,
+    label,
   };
 }
 
-export default function TripMap({ pickup, airportCode, tripDirection }: TripMapProps) {
-  const trimmedPickup = pickup.trim();
-  const [pickupPoint, setPickupPoint] = useState<MapPoint | null>(null);
+export default function TripMap({
+  tripMode,
+  originAddress,
+  destinationAddress,
+  airportCode = "",
+  tripDirection = "to-airport",
+}: TripMapProps) {
+  const trimmedOrigin = originAddress.trim();
+  const trimmedDestination = destinationAddress.trim();
+  const [originPoint, setOriginPoint] = useState<MapPoint | null>(null);
+  const [destinationPoint, setDestinationPoint] = useState<MapPoint | null>(null);
   const [mapError, setMapError] = useState<string | null>(null);
 
   const airport = useMemo(
@@ -55,45 +83,70 @@ export default function TripMap({ pickup, airportCode, tripDirection }: TripMapP
     [airportCode],
   );
 
-  const links = useMemo(
-    () =>
-      trimmedPickup && airportCode
-        ? buildGoogleMapsLink(trimmedPickup, airportCode, tripDirection)
-        : null,
-    [airportCode, tripDirection, trimmedPickup],
-  );
+  const links = useMemo(() => {
+    if (!trimmedOrigin || !trimmedDestination) {
+      return null;
+    }
+
+    if (tripMode === "airport" && airport) {
+      return {
+        mapsLink: buildGoogleMapsLink(trimmedOrigin, trimmedDestination),
+        routeLabel:
+          tripDirection === "to-airport"
+            ? `Pickup to ${airport.name}`
+            : `${airport.name} to your drop-off`,
+      };
+    }
+
+    return {
+      mapsLink: buildGoogleMapsLink(trimmedOrigin, trimmedDestination),
+      routeLabel: "Pickup to drop-off",
+    };
+  }, [airport, tripDirection, tripMode, trimmedDestination, trimmedOrigin]);
 
   useEffect(() => {
-    if (!trimmedPickup || trimmedPickup.length < 8 || !airport || !isGooglePlacesEnabled()) {
-      setPickupPoint(null);
+    if (!isGooglePlacesEnabled() || !trimmedOrigin || !trimmedDestination) {
+      setOriginPoint(null);
+      setDestinationPoint(null);
+      setMapError(null);
+      return;
+    }
+
+    const originLongEnough = trimmedOrigin.length >= 8;
+    const destinationLongEnough = trimmedDestination.length >= 8;
+    if (!originLongEnough || !destinationLongEnough) {
+      setOriginPoint(null);
+      setDestinationPoint(null);
       setMapError(null);
       return;
     }
 
     let cancelled = false;
     const timer = window.setTimeout(() => {
-      void geocodePickupAddress(trimmedPickup)
-        .then((location) => {
+      void Promise.all([
+        resolveMapPoint(trimmedOrigin, "Pickup", airportCode),
+        resolveMapPoint(trimmedDestination, "Drop-off", airportCode),
+      ])
+        .then(([origin, destination]) => {
           if (cancelled) {
             return;
           }
 
-          if (!location) {
-            setPickupPoint(null);
-            setMapError("Could not locate this address on the map yet.");
+          if (!origin || !destination) {
+            setOriginPoint(origin);
+            setDestinationPoint(destination);
+            setMapError("Could not locate one or both addresses on the map yet.");
             return;
           }
 
-          setPickupPoint({
-            lat: location.lat,
-            lng: location.lng,
-            label: tripDirection === "to-airport" ? "Pickup" : "Drop-off",
-          });
+          setOriginPoint(origin);
+          setDestinationPoint(destination);
           setMapError(null);
         })
         .catch(() => {
           if (!cancelled) {
-            setPickupPoint(null);
+            setOriginPoint(null);
+            setDestinationPoint(null);
             setMapError("Map preview unavailable right now.");
           }
         });
@@ -103,44 +156,25 @@ export default function TripMap({ pickup, airportCode, tripDirection }: TripMapP
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [airport, tripDirection, trimmedPickup]);
+  }, [airportCode, trimmedDestination, trimmedOrigin]);
 
-  if (!trimmedPickup || !airportCode || trimmedPickup.length < 8 || !links || !airport) {
+  if (!links || trimmedOrigin.length < 8 || trimmedDestination.length < 8) {
     return null;
   }
-
-  const airportPoint: MapPoint = {
-    lat: airport.mapLocation.lat,
-    lng: airport.mapLocation.lng,
-    label: airport.name,
-  };
-
-  const mapPickup =
-    tripDirection === "to-airport"
-      ? pickupPoint
-      : airportPoint;
-  const mapAirport =
-    tripDirection === "to-airport"
-      ? airportPoint
-      : pickupPoint;
 
   return (
     <div className="overflow-hidden rounded-xl border border-white/10 bg-white/5">
       <div className="border-b border-white/10 px-4 py-3">
         <p className="text-xs font-medium uppercase tracking-wider text-emerald">Your route</p>
-        <p className="mt-1 text-sm text-white/70">
-          {tripDirection === "to-airport"
-            ? `Pickup to ${links.airportName}`
-            : `${links.airportName} to your drop-off`}
-        </p>
+        <p className="mt-1 text-sm text-white/70">{links.routeLabel}</p>
       </div>
 
-      {mapPickup && mapAirport ? (
-        <TripMapView pickup={mapPickup} airport={mapAirport} />
+      {originPoint && destinationPoint ? (
+        <TripMapView pickup={originPoint} airport={destinationPoint} />
       ) : (
         <div className="flex h-48 items-center justify-center px-4 text-center sm:h-56">
           <p className="text-sm text-white/60">
-            {mapError ?? "Finding your address on the map…"}
+            {mapError ?? "Finding your addresses on the map…"}
           </p>
         </div>
       )}

@@ -138,7 +138,25 @@ export type QuoteResult = {
   airportBase: number;
   vehicleMultiplier: number;
   vehicleAdjustment: number;
+  pickupArea?: string | null;
+  dropoffArea?: string | null;
 };
+
+/** Local point-to-point base fare (Belfast-area short journeys). */
+const POINT_TO_POINT_BASE = 28;
+
+function getGenericAreaSurcharge(area: Area | null): number {
+  if (!area) {
+    return 22;
+  }
+  return AREA_SURCHARGES[area] ?? 22;
+}
+
+function applyVehiclePricing(subtotal: number, vehicleType: (typeof VEHICLE_TYPES)[number]): number {
+  const vehicleMultiplier = VEHICLE_MULTIPLIERS[vehicleType] ?? 1;
+  const vehicleAdjustment = VEHICLE_ADJUSTMENTS[vehicleType] ?? 0;
+  return subtotal * vehicleMultiplier + vehicleAdjustment;
+}
 
 function roundToNearestFive(value: number): number {
   return Math.round(value / 5) * 5;
@@ -176,6 +194,60 @@ export function matchAreaFromAddress(address: string): Area | null {
   }
 
   return null;
+}
+
+export function calculatePointToPointQuote(
+  pickupAddress: string,
+  dropoffAddress: string,
+  vehicleType: (typeof VEHICLE_TYPES)[number],
+  returnJourney = false,
+): QuoteResult | null {
+  const pickup = pickupAddress.trim();
+  const dropoff = dropoffAddress.trim();
+  if (!pickup || !dropoff) {
+    return null;
+  }
+
+  const pickupArea = matchAreaFromAddress(pickup);
+  const dropoffArea = matchAreaFromAddress(dropoff);
+  const pickupCharge = getGenericAreaSurcharge(pickupArea);
+  const dropoffCharge = getGenericAreaSurcharge(dropoffArea);
+
+  let oneWaySubtotal: number;
+  if (pickupArea && dropoffArea && pickupArea === dropoffArea) {
+    oneWaySubtotal = POINT_TO_POINT_BASE + pickupCharge * 0.55;
+  } else {
+    oneWaySubtotal =
+      POINT_TO_POINT_BASE +
+      (pickupCharge + dropoffCharge) * 0.45 +
+      Math.abs(pickupCharge - dropoffCharge) * 0.35;
+  }
+
+  const vehicleMultiplier = VEHICLE_MULTIPLIERS[vehicleType] ?? 1;
+  const vehicleAdjustment = VEHICLE_ADJUSTMENTS[vehicleType] ?? 0;
+  const oneWay = applyVehiclePricing(oneWaySubtotal, vehicleType);
+  const subtotal = returnJourney ? oneWay * 2 : oneWay;
+
+  return {
+    amount: roundToNearestFive(subtotal),
+    area: dropoffArea ?? pickupArea,
+    areaSurcharge: Math.max(pickupCharge, dropoffCharge),
+    airportBase: POINT_TO_POINT_BASE,
+    vehicleMultiplier,
+    vehicleAdjustment,
+    pickupArea,
+    dropoffArea,
+  };
+}
+
+export function getPointToPointFromPrice(
+  vehicleType: (typeof VEHICLE_TYPES)[number],
+  returnJourney = false,
+): number {
+  const vehicleMultiplier = VEHICLE_MULTIPLIERS[vehicleType] ?? 1;
+  const vehicleAdjustment = VEHICLE_ADJUSTMENTS[vehicleType] ?? 0;
+  const oneWay = roundToNearestFive(POINT_TO_POINT_BASE * vehicleMultiplier + vehicleAdjustment);
+  return returnJourney ? roundToNearestFive(oneWay * 2) : oneWay;
 }
 
 export function calculateQuote(

@@ -5,11 +5,19 @@ import AddressInput from "@/components/AddressInput";
 import TripMap from "@/components/TripMap";
 import { AIRPORTS, SITE, VEHICLE_TYPES } from "@/lib/data";
 import { readPrefillAirport } from "@/lib/quote-prefill";
-import { calculateQuote, formatQuote, getAirportFromPrice } from "@/lib/quote";
+import {
+  calculatePointToPointQuote,
+  calculateQuote,
+  formatQuote,
+  getAirportFromPrice,
+  getPointToPointFromPrice,
+} from "@/lib/quote";
 
+type TripMode = "airport" | "address";
 type TripDirection = "to-airport" | "from-airport";
 
-const ADDRESS_STORAGE_KEY = "my-airport-taxi-ni-pickup-address";
+const PICKUP_STORAGE_KEY = "my-airport-taxi-ni-pickup-address";
+const DROPOFF_STORAGE_KEY = "my-airport-taxi-ni-dropoff-address";
 
 function parseDateTime(date: string, time: string): Date {
   return new Date(`${date}T${time}`);
@@ -26,25 +34,34 @@ function isReturnAfterOutbound(
 
 function QuoteCard() {
   const [submitted, setSubmitted] = useState(false);
+  const [tripMode, setTripMode] = useState<TripMode>("airport");
   const [tripDirection, setTripDirection] = useState<TripDirection>("to-airport");
   const [airportCode, setAirportCode] = useState("");
-  const [address, setAddress] = useState("");
+  const [pickupAddress, setPickupAddress] = useState("");
+  const [dropoffAddress, setDropoffAddress] = useState("");
   const [returnJourney, setReturnJourney] = useState(false);
   const [returnDateError, setReturnDateError] = useState("");
-  const [vehicle, setVehicle] = useState<(typeof VEHICLE_TYPES)[number]>(
-    VEHICLE_TYPES[0],
-  );
+  const [vehicle, setVehicle] = useState<(typeof VEHICLE_TYPES)[number]>(VEHICLE_TYPES[0]);
+
+  const isAirportTrip = tripMode === "airport";
+  const isFromAirport = tripDirection === "from-airport";
+  const addressLookupCode = isAirportTrip ? airportCode : "BFS";
 
   useEffect(() => {
-    const saved = localStorage.getItem(ADDRESS_STORAGE_KEY);
-    if (saved) {
-      setAddress(saved);
+    const savedPickup = localStorage.getItem(PICKUP_STORAGE_KEY);
+    const savedDropoff = localStorage.getItem(DROPOFF_STORAGE_KEY);
+    if (savedPickup) {
+      setPickupAddress(savedPickup);
+    }
+    if (savedDropoff) {
+      setDropoffAddress(savedDropoff);
     }
   }, []);
 
   useEffect(() => {
     function applyAirportPrefill(code: string) {
       if (AIRPORTS.some((airport) => airport.code === code)) {
+        setTripMode("airport");
         setAirportCode(code);
         setTripDirection("to-airport");
       }
@@ -74,23 +91,42 @@ function QuoteCard() {
     return () => window.removeEventListener("quote-prefill-airport", handlePrefill);
   }, []);
 
-  const isFromAirport = tripDirection === "from-airport";
+  const liveQuote = useMemo(() => {
+    if (isAirportTrip) {
+      const address = isFromAirport ? dropoffAddress : pickupAddress;
+      return calculateQuote(address, airportCode, vehicle, returnJourney);
+    }
 
-  const liveQuote = useMemo(
-    () => calculateQuote(address, airportCode, vehicle, returnJourney),
-    [address, airportCode, returnJourney, vehicle],
-  );
+    return calculatePointToPointQuote(pickupAddress, dropoffAddress, vehicle, returnJourney);
+  }, [
+    airportCode,
+    dropoffAddress,
+    isAirportTrip,
+    isFromAirport,
+    pickupAddress,
+    returnJourney,
+    vehicle,
+  ]);
 
-  const fromPrice = useMemo(
-    () => (airportCode ? getAirportFromPrice(airportCode, vehicle, returnJourney) : null),
-    [airportCode, returnJourney, vehicle],
-  );
+  const fromPrice = useMemo(() => {
+    if (isAirportTrip) {
+      return airportCode ? getAirportFromPrice(airportCode, vehicle, returnJourney) : null;
+    }
 
-  function handleAddressChange(value: string) {
-    setAddress(value);
+    return getPointToPointFromPrice(vehicle, returnJourney);
+  }, [airportCode, isAirportTrip, returnJourney, vehicle]);
 
+  function handlePickupChange(value: string) {
+    setPickupAddress(value);
     if (value.trim()) {
-      localStorage.setItem(ADDRESS_STORAGE_KEY, value.trim());
+      localStorage.setItem(PICKUP_STORAGE_KEY, value.trim());
+    }
+  }
+
+  function handleDropoffChange(value: string) {
+    setDropoffAddress(value);
+    if (value.trim()) {
+      localStorage.setItem(DROPOFF_STORAGE_KEY, value.trim());
     }
   }
 
@@ -99,8 +135,9 @@ function QuoteCard() {
     const form = e.currentTarget;
     const data = new FormData(form);
 
-    const location = data.get("pickup") as string;
-    const airportCodeValue = data.get("destination") as string;
+    const pickup = (data.get("pickup") as string).trim();
+    const dropoff = (data.get("dropoff") as string).trim();
+    const airportCodeValue = (data.get("destination") as string).trim();
     const airportName =
       AIRPORTS.find((a) => a.code === airportCodeValue)?.name ?? airportCodeValue;
     const date = data.get("date") as string;
@@ -126,28 +163,39 @@ function QuoteCard() {
     const flightNumber = (data.get("flightNumber") as string).trim();
     const name = data.get("name") as string;
 
-    const tripLabel = isFromAirport ? "Pickup from airport" : "To airport";
-    const pickup = isFromAirport ? airportName : location;
-    const destination = isFromAirport ? location : airportName;
+    let tripLabel: string;
+    let pickupLabel: string;
+    let destinationLabel: string;
+
+    if (isAirportTrip) {
+      tripLabel = isFromAirport ? "Airport pickup" : "Airport drop-off";
+      pickupLabel = isFromAirport ? airportName : pickup;
+      destinationLabel = isFromAirport ? dropoff : airportName;
+    } else {
+      tripLabel = "Address to address";
+      pickupLabel = pickup;
+      destinationLabel = dropoff;
+    }
+
     const estimatedPrice = liveQuote ? formatQuote(liveQuote.amount) : null;
 
     const message = encodeURIComponent(
       `Hi, I'd like a quote please.\n\n` +
         `Name: ${name}\n` +
         `Trip: ${tripLabel}\n` +
-        `Pickup: ${pickup}\n` +
-        `Drop-off: ${destination}\n` +
+        `Pickup: ${pickupLabel}\n` +
+        `Drop-off: ${destinationLabel}\n` +
         `Return journey: ${returnJourney ? "Yes" : "No"}\n` +
         `${returnJourney ? "Outbound date" : "Date"}: ${date}\n` +
         `${returnJourney ? "Outbound time" : "Time"}: ${time}\n` +
-        (returnJourney
-          ? `Return date: ${returnDate}\nReturn time: ${returnTime}\n`
-          : "") +
-        (flightNumber ? `Flight number: ${flightNumber}\n` : "") +
+        (returnJourney ? `Return date: ${returnDate}\nReturn time: ${returnTime}\n` : "") +
+        (isAirportTrip && flightNumber ? `Flight number: ${flightNumber}\n` : "") +
         `Passengers: ${passengers}\n` +
         `Suitcases: ${suitcases}\n` +
         `Vehicle: ${vehicleType}\n` +
-        (estimatedPrice ? `Estimated price: ${estimatedPrice}${returnJourney ? " (return)" : ""}\n` : ""),
+        (estimatedPrice
+          ? `Estimated price: ${estimatedPrice}${returnJourney ? " (return)" : ""}\n`
+          : ""),
     );
 
     window.open(`https://wa.me/${SITE.whatsapp}?text=${message}`, "_blank");
@@ -155,45 +203,99 @@ function QuoteCard() {
     setTimeout(() => setSubmitted(false), 4000);
   }
 
+  const quoteHint = liveQuote
+    ? isAirportTrip
+      ? liveQuote.area
+        ? ` · ${liveQuote.area} area rate`
+        : " · estimate based on your address"
+      : liveQuote.pickupArea && liveQuote.dropoffArea
+        ? ` · ${liveQuote.pickupArea} to ${liveQuote.dropoffArea}`
+        : " · estimate based on your route"
+    : fromPrice
+      ? isAirportTrip
+        ? ` · Enter your ${isFromAirport ? "drop-off" : "pickup"} address for an exact live quote`
+        : " · Enter both addresses for an exact live quote"
+      : isAirportTrip
+        ? "Select an airport and enter your address to see your fare"
+        : "Enter pickup and drop-off addresses to see your fare";
+
   return (
     <div className="glass-card rounded-2xl p-6 sm:p-8 lg:animate-float">
       <div className="mb-6">
         <h2 className="text-xl font-bold text-white sm:text-2xl">Get a Live Quote</h2>
         <p className="mt-1 text-sm text-white/60">
-          See your estimated fare instantly, then confirm via WhatsApp
+          Airport transfers or any address-to-address journey across Northern Ireland
         </p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <p className="mb-2 text-xs font-medium uppercase tracking-wider text-white/50">
-            Trip Type
+            Service Type
           </p>
           <div className="grid grid-cols-2 gap-2 rounded-xl border border-white/10 bg-white/5 p-1">
             <button
               type="button"
-              onClick={() => setTripDirection("to-airport")}
+              onClick={() => {
+                setTripMode("airport");
+                setReturnDateError("");
+              }}
               className={`rounded-lg px-3 py-2.5 text-xs font-semibold transition-all sm:text-sm ${
-                tripDirection === "to-airport"
+                isAirportTrip
                   ? "bg-emerald text-navy shadow-sm"
                   : "text-white/70 hover:text-white"
               }`}
             >
-              To airport
+              Airport transfer
             </button>
             <button
               type="button"
-              onClick={() => setTripDirection("from-airport")}
+              onClick={() => {
+                setTripMode("address");
+                setReturnDateError("");
+              }}
               className={`rounded-lg px-3 py-2.5 text-xs font-semibold transition-all sm:text-sm ${
-                tripDirection === "from-airport"
+                !isAirportTrip
                   ? "bg-emerald text-navy shadow-sm"
                   : "text-white/70 hover:text-white"
               }`}
             >
-              From airport
+              Address to address
             </button>
           </div>
         </div>
+
+        {isAirportTrip && (
+          <div>
+            <p className="mb-2 text-xs font-medium uppercase tracking-wider text-white/50">
+              Trip Type
+            </p>
+            <div className="grid grid-cols-2 gap-2 rounded-xl border border-white/10 bg-white/5 p-1">
+              <button
+                type="button"
+                onClick={() => setTripDirection("to-airport")}
+                className={`rounded-lg px-3 py-2.5 text-xs font-semibold transition-all sm:text-sm ${
+                  tripDirection === "to-airport"
+                    ? "bg-emerald text-navy shadow-sm"
+                    : "text-white/70 hover:text-white"
+                }`}
+              >
+                To airport
+              </button>
+              <button
+                type="button"
+                onClick={() => setTripDirection("from-airport")}
+                className={`rounded-lg px-3 py-2.5 text-xs font-semibold transition-all sm:text-sm ${
+                  tripDirection === "from-airport"
+                    ? "bg-emerald text-navy shadow-sm"
+                    : "text-white/70 hover:text-white"
+                }`}
+              >
+                From airport
+              </button>
+            </div>
+          </div>
+        )}
 
         <div>
           <p className="mb-2 text-xs font-medium uppercase tracking-wider text-white/50">
@@ -229,7 +331,10 @@ function QuoteCard() {
         </div>
 
         <div>
-          <label htmlFor="name" className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/50">
+          <label
+            htmlFor="name"
+            className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/50"
+          >
             Your Name
           </label>
           <input
@@ -242,47 +347,115 @@ function QuoteCard() {
           />
         </div>
 
-        <div>
-          <label htmlFor="destination" className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/50">
-            {isFromAirport ? "Pickup Airport" : "Airport / Destination"}
-          </label>
-          <select
-            id="destination"
-            name="destination"
-            required
-            value={airportCode}
-            onChange={(e) => setAirportCode(e.target.value)}
-            className="w-full rounded-xl border border-white/10 bg-navy-light px-4 py-3 text-sm text-white outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30"
-          >
-            <option value="">Select airport</option>
-            {AIRPORTS.map((a) => (
-              <option key={a.code} value={a.code}>
-                {a.name} ({a.code}) — {a.distance}
-              </option>
-            ))}
-          </select>
-        </div>
+        {isAirportTrip && (
+          <div>
+            <label
+              htmlFor="destination"
+              className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/50"
+            >
+              {isFromAirport ? "Pickup Airport" : "Destination Airport"}
+            </label>
+            <select
+              id="destination"
+              name="destination"
+              required
+              value={airportCode}
+              onChange={(e) => setAirportCode(e.target.value)}
+              className="w-full rounded-xl border border-white/10 bg-navy-light px-4 py-3 text-sm text-white outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30"
+            >
+              <option value="">Select airport</option>
+              {AIRPORTS.map((a) => (
+                <option key={a.code} value={a.code}>
+                  {a.name} ({a.code}) — {a.distance}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
-        <AddressInput
-          id="pickup"
-          name="pickup"
-          value={address}
-          onChange={handleAddressChange}
-          airportCode={airportCode}
-          label={isFromAirport ? "Your Drop-off Address" : "Your Pickup Address"}
-          placeholder="e.g. Donegall Square, Belfast or 12 Donegall Square"
-          helperText="Type your street name or full address — numbered addresses appear in the list for you to pick"
-        />
+        {!isAirportTrip && <input type="hidden" name="destination" value="" />}
+
+        {isAirportTrip ? (
+          isFromAirport ? (
+            <>
+              <AddressInput
+                id="dropoff"
+                name="dropoff"
+                value={dropoffAddress}
+                onChange={handleDropoffChange}
+                airportCode={addressLookupCode}
+                label="Your Drop-off Address"
+                placeholder="e.g. Donegall Square, Belfast or 12 Donegall Square"
+                helperText="Type your street name or full address — numbered addresses appear in the list for you to pick"
+              />
+              <input type="hidden" name="pickup" value={airportCode ? AIRPORTS.find((a) => a.code === airportCode)?.name ?? "" : ""} />
+            </>
+          ) : (
+            <>
+              <AddressInput
+                id="pickup"
+                name="pickup"
+                value={pickupAddress}
+                onChange={handlePickupChange}
+                airportCode={addressLookupCode}
+                label="Your Pickup Address"
+                placeholder="e.g. Donegall Square, Belfast or 12 Donegall Square"
+                helperText="Type your street name or full address — numbered addresses appear in the list for you to pick"
+              />
+              <input type="hidden" name="dropoff" value={airportCode ? AIRPORTS.find((a) => a.code === airportCode)?.name ?? "" : ""} />
+            </>
+          )
+        ) : (
+          <>
+            <AddressInput
+              id="pickup"
+              name="pickup"
+              value={pickupAddress}
+              onChange={handlePickupChange}
+              airportCode={addressLookupCode}
+              label="Pickup Address"
+              placeholder="e.g. 12 High Street, Bangor"
+              helperText="Where should we collect you?"
+            />
+            <AddressInput
+              id="dropoff"
+              name="dropoff"
+              value={dropoffAddress}
+              onChange={handleDropoffChange}
+              airportCode={addressLookupCode}
+              label="Drop-off Address"
+              placeholder="e.g. 45 Main Street, Lisburn"
+              helperText="Where are you going?"
+            />
+          </>
+        )}
 
         <TripMap
-          pickup={address}
+          tripMode={tripMode}
+          originAddress={
+            isAirportTrip
+              ? isFromAirport
+                ? (AIRPORTS.find((a) => a.code === airportCode)?.mapLabel ?? "")
+                : pickupAddress
+              : pickupAddress
+          }
+          destinationAddress={
+            isAirportTrip
+              ? isFromAirport
+                ? dropoffAddress
+                : (AIRPORTS.find((a) => a.code === airportCode)?.mapLabel ?? "")
+              : dropoffAddress
+          }
           airportCode={airportCode}
           tripDirection={tripDirection}
         />
 
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
-            <label htmlFor="date" className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/50">
+            <label
+              htmlFor="date"
+              className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/50"
+            >
               {returnJourney ? "Outbound Date" : "Date"}
             </label>
             <input
@@ -294,7 +467,10 @@ function QuoteCard() {
             />
           </div>
           <div>
-            <label htmlFor="time" className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/50">
+            <label
+              htmlFor="time"
+              className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/50"
+            >
               {returnJourney ? "Outbound Time" : "Time"}
             </label>
             <input
@@ -310,7 +486,10 @@ function QuoteCard() {
         {returnJourney && (
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <label htmlFor="returnDate" className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/50">
+              <label
+                htmlFor="returnDate"
+                className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/50"
+              >
                 Return Date
               </label>
               <input
@@ -322,7 +501,10 @@ function QuoteCard() {
               />
             </div>
             <div>
-              <label htmlFor="returnTime" className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/50">
+              <label
+                htmlFor="returnTime"
+                className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/50"
+              >
                 Return Time
               </label>
               <input
@@ -339,28 +521,36 @@ function QuoteCard() {
           </div>
         )}
 
-        <div>
-          <label htmlFor="flightNumber" className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/50">
-            Flight Number {isFromAirport ? "" : "(optional)"}
-          </label>
-          <input
-            id="flightNumber"
-            name="flightNumber"
-            type="text"
-            required={isFromAirport}
-            placeholder="e.g. BA1234"
-            className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm uppercase text-white placeholder:normal-case placeholder:text-white/30 outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30"
-          />
-          <p className="mt-1.5 text-xs text-white/40">
-            {isFromAirport
-              ? "Required for flight monitoring and complimentary airport waiting time."
-              : "Optional — helps us track your flight if your plans change."}
-          </p>
-        </div>
+        {isAirportTrip && (
+          <div>
+            <label
+              htmlFor="flightNumber"
+              className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/50"
+            >
+              Flight Number {isFromAirport ? "" : "(optional)"}
+            </label>
+            <input
+              id="flightNumber"
+              name="flightNumber"
+              type="text"
+              required={isFromAirport}
+              placeholder="e.g. BA1234"
+              className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm uppercase text-white placeholder:normal-case placeholder:text-white/30 outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30"
+            />
+            <p className="mt-1.5 text-xs text-white/40">
+              {isFromAirport
+                ? "Required for flight monitoring and complimentary airport waiting time."
+                : "Optional — helps us track your flight if your plans change."}
+            </p>
+          </div>
+        )}
 
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
-            <label htmlFor="passengers" className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/50">
+            <label
+              htmlFor="passengers"
+              className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/50"
+            >
               Passengers
             </label>
             <input
@@ -375,7 +565,10 @@ function QuoteCard() {
             />
           </div>
           <div>
-            <label htmlFor="suitcases" className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/50">
+            <label
+              htmlFor="suitcases"
+              className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/50"
+            >
               Suitcases
             </label>
             <input
@@ -390,7 +583,10 @@ function QuoteCard() {
             />
           </div>
           <div className="sm:col-span-2">
-            <label htmlFor="vehicle" className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/50">
+            <label
+              htmlFor="vehicle"
+              className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/50"
+            >
               Vehicle Type
             </label>
             <select
@@ -419,7 +615,7 @@ function QuoteCard() {
               <p className="mt-1 text-3xl font-bold text-white">{formatQuote(liveQuote.amount)}</p>
               <p className="mt-2 text-xs text-white/60">
                 {vehicle.split(" (")[0]}
-                {liveQuote.area ? ` · ${liveQuote.area} area rate` : " · estimate based on your address"}
+                {quoteHint}
                 {returnJourney ? " · Return journey (both legs)" : ""}
                 {" · Final fare confirmed on WhatsApp"}
               </p>
@@ -429,9 +625,9 @@ function QuoteCard() {
               <p className="text-xs font-medium uppercase tracking-wider text-emerald">From</p>
               <p className="mt-1 text-3xl font-bold text-white">{formatQuote(fromPrice)}</p>
               <p className="mt-2 text-xs text-white/60">
-                {vehicle.split(" (")[0]} · Enter your {isFromAirport ? "drop-off" : "pickup"} address
-                for an exact live quote
-                {returnJourney ? " · Return pricing shown once address is added" : ""}
+                {vehicle.split(" (")[0]}
+                {quoteHint}
+                {returnJourney && isAirportTrip ? " · Return pricing shown once address is added" : ""}
               </p>
             </>
           ) : (
@@ -439,14 +635,12 @@ function QuoteCard() {
               <p className="text-xs font-medium uppercase tracking-wider text-white/50">
                 Live quote
               </p>
-              <p className="mt-1 text-sm text-white/70">
-                Select an airport and enter your address to see your fare
-              </p>
+              <p className="mt-1 text-sm text-white/70">{quoteHint}</p>
             </>
           )}
           <p className="mt-3 text-[11px] text-white/40">
-            Fixed estimate for your pickup area. Includes vehicle, driver, fuel, and tolls. Final
-            price confirmed on WhatsApp.
+            Fixed estimate for your journey. Includes vehicle, driver, fuel, and tolls. Final price
+            confirmed on WhatsApp.
           </p>
         </div>
 
@@ -454,7 +648,11 @@ function QuoteCard() {
           type="submit"
           className="w-full rounded-xl bg-emerald py-3.5 text-sm font-bold text-navy transition-all hover:bg-emerald-light hover:shadow-lg hover:shadow-emerald/25"
         >
-          {submitted ? "Opening WhatsApp…" : liveQuote ? `Book for ${formatQuote(liveQuote.amount)} via WhatsApp` : "Send via WhatsApp"}
+          {submitted
+            ? "Opening WhatsApp…"
+            : liveQuote
+              ? `Book for ${formatQuote(liveQuote.amount)} via WhatsApp`
+              : "Send via WhatsApp"}
         </button>
       </form>
     </div>
