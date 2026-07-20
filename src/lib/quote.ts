@@ -6,123 +6,53 @@ import {
 
 type Area = (typeof AREAS)[number];
 
-/** Area surcharges by airport — reflects realistic drive time/distance from each pickup area. */
-const BFS_AREA_SURCHARGES: Partial<Record<Area, number>> & { default: number } = {
-  "Belfast City Centre": 0,
-  Holywood: 10,
-  Newtownabbey: 12,
-  Dundonald: 15,
-  Lisburn: 12,
-  Hillsborough: 15,
-  Carrickfergus: 18,
-  Antrim: 5,
-  Ballyclare: 8,
-  Bangor: 30,
-  Comber: 25,
-  Newtownards: 28,
-  Larne: 22,
-  Ballymena: 25,
-  Downpatrick: 25,
-  Newcastle: 30,
-  Banbridge: 28,
-  Lurgan: 28,
-  Portadown: 30,
-  Armagh: 32,
-  Newry: 35,
-  Cookstown: 50,
-  Coleraine: 55,
-  Omagh: 120,
-  "Derry / Londonderry": 124,
-  Enniskillen: 150,
-  default: 35,
+type AirportCode = "BFS" | "BHD" | "DUB";
+
+/**
+ * Distance-based surcharges for every NI pickup area and airport.
+ * Fare = airport base price + surcharge, with the airport minimum as the floor.
+ * Calibrated to market rates (Fonacab benchmarks where provided).
+ */
+const AREA_AIRPORT_SURCHARGES: Record<Area, Record<AirportCode, number>> = {
+  "Belfast City Centre": { BFS: 0, BHD: 0, DUB: 50 },
+  Holywood: { BFS: 10, BHD: 5, DUB: 58 },
+  Newtownabbey: { BFS: 12, BHD: 8, DUB: 60 },
+  Lisburn: { BFS: 12, BHD: 12, DUB: 60 },
+  Dundonald: { BFS: 15, BHD: 5, DUB: 60 },
+  Antrim: { BFS: 5, BHD: 25, DUB: 50 },
+  Ballyclare: { BFS: 8, BHD: 20, DUB: 65 },
+  Hillsborough: { BFS: 15, BHD: 12, DUB: 65 },
+  Carrickfergus: { BFS: 18, BHD: 10, DUB: 62 },
+  Comber: { BFS: 25, BHD: 15, DUB: 62 },
+  Larne: { BFS: 22, BHD: 20, DUB: 72 },
+  Bangor: { BFS: 30, BHD: 22, DUB: 65 },
+  Newtownards: { BFS: 28, BHD: 18, DUB: 62 },
+  Ballymena: { BFS: 25, BHD: 30, DUB: 78 },
+  Downpatrick: { BFS: 25, BHD: 22, DUB: 75 },
+  Banbridge: { BFS: 28, BHD: 25, DUB: 75 },
+  Newcastle: { BFS: 30, BHD: 28, DUB: 80 },
+  Lurgan: { BFS: 28, BHD: 22, DUB: 82 },
+  Portadown: { BFS: 30, BHD: 25, DUB: 85 },
+  Armagh: { BFS: 32, BHD: 28, DUB: 88 },
+  Newry: { BFS: 35, BHD: 30, DUB: 40 },
+  Cookstown: { BFS: 50, BHD: 55, DUB: 95 },
+  Coleraine: { BFS: 55, BHD: 60, DUB: 159 },
+  Omagh: { BFS: 120, BHD: 130, DUB: 115 },
+  "Derry / Londonderry": { BFS: 124, BHD: 134, DUB: 105 },
+  Enniskillen: { BFS: 150, BHD: 165, DUB: 175 },
 };
 
-const BHD_AREA_SURCHARGES: Partial<Record<Area, number>> & { default: number } = {
-  "Belfast City Centre": 0,
-  Holywood: 5,
-  Dundonald: 5,
-  Newtownabbey: 8,
-  Carrickfergus: 10,
-  Comber: 15,
-  Newtownards: 18,
-  Bangor: 22,
-  Lisburn: 12,
-  Hillsborough: 12,
-  Antrim: 25,
-  Ballyclare: 20,
-  Ballymena: 30,
-  Larne: 20,
-  Downpatrick: 22,
-  Newcastle: 28,
-  Banbridge: 25,
-  Lurgan: 22,
-  Portadown: 25,
-  Armagh: 28,
-  Newry: 30,
-  Cookstown: 55,
-  Coleraine: 60,
-  Omagh: 130,
-  "Derry / Londonderry": 134,
-  Enniskillen: 165,
-  default: 25,
+/** Default surcharge when pickup area cannot be matched from the address. */
+const DEFAULT_AREA_SURCHARGE: Record<AirportCode, number> = {
+  BFS: 35,
+  BHD: 25,
+  DUB: 70,
 };
 
-const DUB_AREA_SURCHARGES: Partial<Record<Area, number>> & { default: number } = {
-  "Belfast City Centre": 50,
-  Holywood: 58,
-  Newtownabbey: 60,
-  Dundonald: 60,
-  Lisburn: 60,
-  Bangor: 65,
-  Comber: 62,
-  Newtownards: 62,
-  Carrickfergus: 62,
-  Antrim: 50,
-  Ballymena: 70,
-  Coleraine: 159,
-  Newry: 75,
-  "Derry / Londonderry": 90,
-  default: 68,
-};
-
-const AREA_SURCHARGES_BY_AIRPORT: Record<
-  string,
-  Partial<Record<Area, number>> & { default: number }
-> = {
-  BFS: BFS_AREA_SURCHARGES,
-  BHD: BHD_AREA_SURCHARGES,
-  DUB: DUB_AREA_SURCHARGES,
-};
-
-/** @deprecated Use airport-specific surcharges via getAreaSurcharge instead. */
-export const AREA_SURCHARGES: Record<Area, number> = {
-  "Belfast City Centre": 0,
-  Lisburn: 12,
-  Holywood: 10,
-  Newtownabbey: 12,
-  Carrickfergus: 18,
-  Dundonald: 15,
-  Hillsborough: 15,
-  Bangor: 30,
-  Antrim: 5,
-  Ballyclare: 8,
-  Comber: 25,
-  Newtownards: 28,
-  Ballymena: 25,
-  Larne: 22,
-  Downpatrick: 25,
-  Newcastle: 30,
-  Banbridge: 28,
-  Newry: 35,
-  Armagh: 32,
-  Portadown: 30,
-  Lurgan: 28,
-  Coleraine: 55,
-  Cookstown: 50,
-  Omagh: 120,
-  "Derry / Londonderry": 124,
-  Enniskillen: 150,
-};
+/** @deprecated Use getAreaSurcharge instead. */
+export const AREA_SURCHARGES: Record<Area, number> = Object.fromEntries(
+  Object.entries(AREA_AIRPORT_SURCHARGES).map(([area, surcharges]) => [area, surcharges.BFS]),
+) as Record<Area, number>;
 
 const VEHICLE_MULTIPLIERS: Record<(typeof VEHICLE_TYPES)[number], number> = {
   "Estate Car (1–4 passengers)": 1,
@@ -283,11 +213,15 @@ function roundFare(value: number): number {
 }
 
 function getAreaSurcharge(airportCode: string, area: Area | null): number {
-  const table = AREA_SURCHARGES_BY_AIRPORT[airportCode] ?? BFS_AREA_SURCHARGES;
+  const code = airportCode as AirportCode;
+  const table = AREA_AIRPORT_SURCHARGES;
+  const defaults = DEFAULT_AREA_SURCHARGE;
+
   if (!area) {
-    return table.default;
+    return defaults[code] ?? defaults.BFS;
   }
-  return table[area] ?? table.default;
+
+  return table[area]?.[code] ?? defaults[code] ?? defaults.BFS;
 }
 
 export function matchAreaFromAddress(address: string): Area | null {
@@ -300,6 +234,39 @@ export function matchAreaFromAddress(address: string): Area | null {
     }
 
     const aliases = [area.toLowerCase()];
+    if (area === "Lisburn") {
+      aliases.push("bt27", "bt28");
+    }
+    if (area === "Bangor") {
+      aliases.push("bt19", "bt20");
+    }
+    if (area === "Newtownabbey") {
+      aliases.push("bt36", "bt37");
+    }
+    if (area === "Holywood") {
+      aliases.push("bt18");
+    }
+    if (area === "Carrickfergus") {
+      aliases.push("bt38");
+    }
+    if (area === "Ballymena") {
+      aliases.push("bt42", "bt43");
+    }
+    if (area === "Larne") {
+      aliases.push("bt40");
+    }
+    if (area === "Newry") {
+      aliases.push("bt34", "bt35");
+    }
+    if (area === "Armagh") {
+      aliases.push("bt60", "bt61");
+    }
+    if (area === "Cookstown") {
+      aliases.push("bt80");
+    }
+    if (area === "Coleraine") {
+      aliases.push("portrush", "portstewart", "castlerock", "bt56", "bt57", "bt58", "bt51", "bt52");
+    }
     if (area === "Derry / Londonderry") {
       aliases.push("derry", "londonderry", "bt47", "bt48");
     }
@@ -307,16 +274,40 @@ export function matchAreaFromAddress(address: string): Area | null {
       aliases.push("fermanagh", "county fermanagh", "bt74", "bt92", "bt93", "bt94");
     }
     if (area === "Omagh") {
-      aliases.push("tyrone", "county tyrone", "bt78", "bt79");
-    }
-    if (area === "Coleraine") {
-      aliases.push("portrush", "portstewart", "castlerock", "bt56", "bt57", "bt58");
+      aliases.push("bt78", "bt79");
     }
     if (area === "Antrim") {
-      aliases.push("aldergrove", "belfast international", "bfs", "bt29");
+      aliases.push("aldergrove", "belfast international", "bfs", "bt29", "bt41");
+    }
+    if (area === "Downpatrick") {
+      aliases.push("bt30", "bt31");
     }
     if (area === "Newcastle") {
-      aliases.push("newcastle, county down", "newcastle co down", "newcastle, co down");
+      aliases.push("newcastle, county down", "newcastle co down", "newcastle, co down", "bt33");
+    }
+    if (area === "Banbridge") {
+      aliases.push("bt32");
+    }
+    if (area === "Portadown") {
+      aliases.push("bt62", "bt63");
+    }
+    if (area === "Lurgan") {
+      aliases.push("bt66", "bt67");
+    }
+    if (area === "Newtownards") {
+      aliases.push("bt22", "bt23");
+    }
+    if (area === "Comber") {
+      aliases.push("bt23");
+    }
+    if (area === "Dundonald") {
+      aliases.push("bt16");
+    }
+    if (area === "Hillsborough") {
+      aliases.push("bt26");
+    }
+    if (area === "Ballyclare") {
+      aliases.push("bt39");
     }
 
     if (aliases.some((alias) => normalised.includes(alias))) {
