@@ -2,6 +2,7 @@
 
 import { FormEvent, memo, useEffect, useMemo, useState } from "react";
 import AddressInput from "@/components/AddressInput";
+import TripMap from "@/components/TripMap";
 import { AIRPORTS, SITE, VEHICLE_TYPES } from "@/lib/data";
 import { readPrefillAirport } from "@/lib/quote-prefill";
 import { calculateQuote, formatQuote, getAirportFromPrice } from "@/lib/quote";
@@ -271,6 +272,12 @@ function QuoteCard() {
           label={isFromAirport ? "Your Drop-off Address" : "Your Pickup Address"}
           placeholder="e.g. 12 Donegall Square, Belfast BT1 5GS"
           helperText="Start with your door number, e.g. 12 Donegall Square — then pick your address from the list"
+        />
+
+        <TripMap
+          pickup={address}
+          airportCode={airportCode}
+          tripDirection={tripDirection}
         />
 
         <div className="grid gap-4 sm:grid-cols-2">
