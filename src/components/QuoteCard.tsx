@@ -16,6 +16,21 @@ type TripDirection = "to-airport" | "from-airport";
 const PICKUP_STORAGE_KEY = "my-airport-taxi-ni-pickup-address";
 const DROPOFF_STORAGE_KEY = "my-airport-taxi-ni-dropoff-address";
 
+const ESTATE = "Estate Car (1–4 passengers)" as const;
+const MINIBUS = "Minibus (7–8 passengers)" as const;
+
+type VehicleType = (typeof VEHICLE_TYPES)[number];
+
+function getAutoVehicle(passengers: number, suitcases: number): VehicleType | null {
+  if (passengers >= 8) {
+    return MINIBUS;
+  }
+  if (suitcases >= 4) {
+    return ESTATE;
+  }
+  return null;
+}
+
 function parseDateTime(date: string, time: string): Date {
   return new Date(`${date}T${time}`);
 }
@@ -42,7 +57,13 @@ function QuoteCard() {
   const [tripTime, setTripTime] = useState("");
   const [returnDate, setReturnDate] = useState("");
   const [returnTime, setReturnTime] = useState("");
-  const [vehicle, setVehicle] = useState<(typeof VEHICLE_TYPES)[number]>(VEHICLE_TYPES[0]);
+  const [vehicle, setVehicle] = useState<VehicleType>(VEHICLE_TYPES[0]);
+  const [passengers, setPassengers] = useState(1);
+  const [suitcases, setSuitcases] = useState(1);
+
+  const autoVehicle = getAutoVehicle(passengers, suitcases);
+  const quoteVehicle = autoVehicle ?? vehicle;
+  const isVehicleAutoSelected = autoVehicle != null;
 
   const isAirportTrip = tripMode === "airport";
   const isFromAirport = tripDirection === "from-airport";
@@ -106,7 +127,7 @@ function QuoteCard() {
       return null;
     }
 
-    return calculateQuote(quoteAddress, airportCode, vehicle, returnJourney, {
+    return calculateQuote(quoteAddress, airportCode, quoteVehicle, returnJourney, {
       outboundDate: tripDate,
       outboundTime: tripTime,
       returnDate,
@@ -123,7 +144,7 @@ function QuoteCard() {
     returnTime,
     tripDate,
     tripTime,
-    vehicle,
+    quoteVehicle,
   ]);
 
   function handlePickupChange(value: string) {
@@ -579,7 +600,8 @@ function QuoteCard() {
               min={1}
               max={8}
               required
-              defaultValue={1}
+              value={passengers}
+              onChange={(e) => setPassengers(Math.min(8, Math.max(1, Number(e.target.value) || 1)))}
               className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30"
             />
           </div>
@@ -588,7 +610,7 @@ function QuoteCard() {
               htmlFor="suitcases"
               className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/50"
             >
-              Suitcases
+              Suitcases (23kg each)
             </label>
             <input
               id="suitcases"
@@ -597,7 +619,8 @@ function QuoteCard() {
               min={0}
               max={12}
               required
-              defaultValue={1}
+              value={suitcases}
+              onChange={(e) => setSuitcases(Math.max(0, Number(e.target.value) || 0))}
               className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30"
             />
           </div>
@@ -608,13 +631,14 @@ function QuoteCard() {
             >
               Vehicle Type
             </label>
+            <input type="hidden" name="vehicle" value={quoteVehicle} />
             <select
               id="vehicle"
-              name="vehicle"
               required
-              value={vehicle}
-              onChange={(e) => setVehicle(e.target.value as (typeof VEHICLE_TYPES)[number])}
-              className="w-full rounded-xl border border-white/10 bg-navy-light px-4 py-3 text-sm text-white outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30"
+              value={quoteVehicle}
+              onChange={(e) => setVehicle(e.target.value as VehicleType)}
+              disabled={isVehicleAutoSelected}
+              className="w-full rounded-xl border border-white/10 bg-navy-light px-4 py-3 text-sm text-white outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30 disabled:cursor-not-allowed disabled:opacity-70"
             >
               {VEHICLE_TYPES.map((v) => (
                 <option key={v} value={v}>
@@ -622,6 +646,15 @@ function QuoteCard() {
                 </option>
               ))}
             </select>
+            {passengers >= 8 ? (
+              <p className="mt-1.5 text-xs text-white/40">
+                Minibus selected automatically for 8 passengers.
+              </p>
+            ) : suitcases >= 4 ? (
+              <p className="mt-1.5 text-xs text-white/40">
+                Estate car selected automatically for 4 or more suitcases.
+              </p>
+            ) : null}
           </div>
         </div>
 
@@ -633,7 +666,7 @@ function QuoteCard() {
                   {returnJourney ? "Estimated return price" : "Estimated price"}
                 </p>
                 <p className="mt-1 text-3xl font-bold text-white">{formatQuote(liveQuote.amount)}</p>
-                <p className="mt-2 text-xs text-white/60">{vehicle.split(" (")[0]}</p>
+                <p className="mt-2 text-xs text-white/60">{quoteVehicle.split(" (")[0]}</p>
                 <p className="mt-3 text-xs leading-relaxed text-white/60">
                   Includes express drop-off and pickup fees, and 60 minutes complimentary waiting
                   time from when your plane lands.
