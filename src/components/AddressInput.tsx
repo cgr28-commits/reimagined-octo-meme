@@ -131,6 +131,14 @@ export default function AddressInput({
 
       void fetchAddressPredictions(trimmed, airportCode)
         .then((predictions) => {
+          if (inputRef.current) {
+            const rect = inputRef.current.getBoundingClientRect();
+            setDropdownPosition({
+              top: rect.bottom + 8,
+              left: rect.left,
+              width: rect.width,
+            });
+          }
           setSuggestions(predictions);
           setSuggestionsOpen(predictions.length > 0);
           setLoadError(
@@ -174,16 +182,19 @@ export default function AddressInput({
   const suggestionsPortal =
     suggestionsOpen &&
     suggestions.length > 0 &&
-    dropdownPosition &&
     typeof document !== "undefined"
       ? createPortal(
           <ul
-            className="address-suggestions-portal fixed z-[100000] overflow-hidden rounded-xl border border-white/10 bg-white shadow-2xl"
-            style={{
-              top: dropdownPosition.top,
-              left: dropdownPosition.left,
-              width: dropdownPosition.width,
-            }}
+            className="address-suggestions-portal fixed z-[100000] max-h-64 overflow-y-auto rounded-xl border border-white/10 bg-white shadow-2xl"
+            style={
+              dropdownPosition
+                ? {
+                    top: dropdownPosition.top,
+                    left: dropdownPosition.left,
+                    width: dropdownPosition.width,
+                  }
+                : { visibility: "hidden" }
+            }
           >
             {suggestions.map((prediction) => (
               <li key={prediction.placeId}>
