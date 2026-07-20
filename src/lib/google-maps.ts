@@ -75,6 +75,25 @@ export async function geocodePickupAddress(
   return geocodeAddress(GOOGLE_API_KEY, address);
 }
 
+function toPredictions(
+  suggestions: Array<{
+    id: string;
+    label: string;
+    mainText: string;
+    secondaryText: string;
+  }>,
+): AddressPrediction[] {
+  return suggestions.map(toPrediction);
+}
+
+async function safePredictions(task: Promise<AddressPrediction[]>): Promise<AddressPrediction[]> {
+  try {
+    return await task;
+  } catch {
+    return [];
+  }
+}
+
 export async function fetchAddressPredictions(
   input: string,
   airportCode: string,
@@ -88,23 +107,23 @@ export async function fetchAddressPredictions(
 
   if (GETADDRESS_API_KEY && airportCode !== "DUB") {
     tasks.push(
-      searchGetAddress(GETADDRESS_API_KEY, trimmed, airportCode).then((suggestions) =>
-        suggestions.map(toPrediction),
+      safePredictions(
+        searchGetAddress(GETADDRESS_API_KEY, trimmed, airportCode).then(toPredictions),
       ),
     );
   }
 
   if (GOOGLE_API_KEY) {
     tasks.push(
-      searchGooglePlaces(GOOGLE_API_KEY, trimmed, airportCode, sessionToken).then((suggestions) =>
-        suggestions.map(toPrediction),
+      safePredictions(
+        searchGooglePlaces(GOOGLE_API_KEY, trimmed, airportCode, sessionToken).then(toPredictions),
       ),
     );
 
     if (isStreetOnlyQuery(trimmed)) {
       tasks.push(
-        searchGoogleStreetAddresses(GOOGLE_API_KEY, trimmed, airportCode).then((suggestions) =>
-          suggestions.map(toPrediction),
+        safePredictions(
+          searchGoogleStreetAddresses(GOOGLE_API_KEY, trimmed, airportCode).then(toPredictions),
         ),
       );
     }

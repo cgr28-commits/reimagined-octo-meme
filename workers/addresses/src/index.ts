@@ -134,32 +134,26 @@ export default {
     }
 
     try {
-      const suggestions: Awaited<ReturnType<typeof searchGooglePlaces>> = [];
+      const tasks: Promise<Awaited<ReturnType<typeof searchGooglePlaces>>>[] = [];
 
       if (env.GETADDRESS_API_KEY && airportCode !== "DUB") {
-        suggestions.push(...(await searchGetAddress(env.GETADDRESS_API_KEY, query, airportCode)));
+        tasks.push(searchGetAddress(env.GETADDRESS_API_KEY, query, airportCode));
       }
 
       if (env.GOOGLE_PLACES_API_KEY) {
-        suggestions.push(
-          ...(await searchGooglePlaces(
-            env.GOOGLE_PLACES_API_KEY,
-            query,
-            airportCode,
-            sessionToken,
-          )),
+        tasks.push(
+          searchGooglePlaces(env.GOOGLE_PLACES_API_KEY, query, airportCode, sessionToken),
         );
 
         if (isStreetOnlyQuery(query)) {
-          suggestions.push(
-            ...(await searchGoogleStreetAddresses(
-              env.GOOGLE_PLACES_API_KEY,
-              query,
-              airportCode,
-            )),
+          tasks.push(
+            searchGoogleStreetAddresses(env.GOOGLE_PLACES_API_KEY, query, airportCode),
           );
         }
       }
+
+      const results = await Promise.all(tasks.map((task) => task.catch(() => [])));
+      const suggestions = results.flat();
 
       const seen = new Set<string>();
       const merged = suggestions.filter((item) => {

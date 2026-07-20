@@ -153,7 +153,6 @@ export async function searchGooglePlaces(
 ): Promise<AddressSuggestion[]> {
   const body: Record<string, unknown> = {
     input: query,
-    includedPrimaryTypes: ["street_address", "premise", "subpremise"],
     includedRegionCodes: getRegionCodes(normaliseAirportCode(airportCode)),
     regionCode: "gb",
     languageCode: "en-GB",
@@ -179,8 +178,7 @@ export async function searchGooglePlaces(
   });
 
   if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(errorText || `Places autocomplete failed (${response.status})`);
+    return [];
   }
 
   const data = (await response.json()) as GoogleAutocompleteResponse;
