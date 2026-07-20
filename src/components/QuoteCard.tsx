@@ -270,8 +270,8 @@ function QuoteCard() {
           onChange={handleAddressChange}
           airportCode={airportCode}
           label={isFromAirport ? "Your Drop-off Address" : "Your Pickup Address"}
-          placeholder="e.g. 12 Donegall Square, Belfast BT1 5GS"
-          helperText="Start with your door number, e.g. 12 Donegall Square — then pick your address from the list"
+          placeholder="e.g. Donegall Square, Belfast or 12 Donegall Square"
+          helperText="Type your street name or full address — numbered addresses appear in the list for you to pick"
         />
 
         <TripMap

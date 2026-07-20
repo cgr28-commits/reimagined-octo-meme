@@ -3,10 +3,17 @@ import {
   resolveGooglePlace,
   reverseGeocodeGoogle,
   searchGooglePlaces,
+  searchGoogleStreetAddresses,
+  isStreetOnlyQuery,
 } from "../../../shared/google-places";
+import {
+  resolveGetAddress,
+  searchGetAddress,
+} from "../../../shared/getaddress";
 
 type Env = {
   GOOGLE_PLACES_API_KEY: string;
+  GETADDRESS_API_KEY?: string;
 };
 
 function json(body: unknown, status: number, origin: string | null): Response {
@@ -48,7 +55,7 @@ export default {
       return json({ error: "Not found" }, 404, origin);
     }
 
-    if (!env.GOOGLE_PLACES_API_KEY) {
+    if (!env.GOOGLE_PLACES_API_KEY && !env.GETADDRESS_API_KEY) {
       return json({ error: "Address lookup is not configured" }, 503, origin);
     }
 
@@ -93,6 +100,18 @@ export default {
 
     if (id) {
       try {
+        if (id.startsWith("ga:") && env.GETADDRESS_API_KEY) {
+          const address = await resolveGetAddress(env.GETADDRESS_API_KEY, id, airportCode);
+          if (!address) {
+            return json({ error: "Address not found" }, 404, origin);
+          }
+          return json({ address, provider: "getaddress" }, 200, origin);
+        }
+
+        if (!env.GOOGLE_PLACES_API_KEY) {
+          return json({ error: "Address lookup is not configured" }, 503, origin);
+        }
+
         const address = await resolveGooglePlace(
           env.GOOGLE_PLACES_API_KEY,
           id,
@@ -115,14 +134,51 @@ export default {
     }
 
     try {
-      const suggestions = await searchGooglePlaces(
-        env.GOOGLE_PLACES_API_KEY,
-        query,
-        airportCode,
-        sessionToken,
-      );
+      const suggestions: Awaited<ReturnType<typeof searchGooglePlaces>> = [];
 
-      return json({ suggestions, provider: "google" }, 200, origin);
+      if (env.GETADDRESS_API_KEY && airportCode !== "DUB") {
+        suggestions.push(...(await searchGetAddress(env.GETADDRESS_API_KEY, query, airportCode)));
+      }
+
+      if (env.GOOGLE_PLACES_API_KEY) {
+        suggestions.push(
+          ...(await searchGooglePlaces(
+            env.GOOGLE_PLACES_API_KEY,
+            query,
+            airportCode,
+            sessionToken,
+          )),
+        );
+
+        if (isStreetOnlyQuery(query)) {
+          suggestions.push(
+            ...(await searchGoogleStreetAddresses(
+              env.GOOGLE_PLACES_API_KEY,
+              query,
+              airportCode,
+            )),
+          );
+        }
+      }
+
+      const seen = new Set<string>();
+      const merged = suggestions.filter((item) => {
+        const key = item.label.toLowerCase();
+        if (seen.has(key)) {
+          return false;
+        }
+        seen.add(key);
+        return true;
+      });
+
+      return json(
+        {
+          suggestions: merged.slice(0, 8),
+          provider: env.GETADDRESS_API_KEY ? "getaddress+google" : "google",
+        },
+        200,
+        origin,
+      );
     } catch {
       return json({ error: "Address lookup failed" }, 502, origin);
     }

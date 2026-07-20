@@ -104,6 +104,10 @@ function hasLeadingStreetNumber(text: string): boolean {
   return /^\d+[a-zA-Z]?\s/.test(text.trim());
 }
 
+export function isStreetOnlyQuery(query: string): boolean {
+  return !extractLeadingStreetNumber(query) && query.trim().length >= 3;
+}
+
 function withStreetNumber(number: string, addressLine: string): string {
   const trimmed = addressLine.trim();
   if (!trimmed || hasLeadingStreetNumber(trimmed)) {
@@ -149,6 +153,7 @@ export async function searchGooglePlaces(
 ): Promise<AddressSuggestion[]> {
   const body: Record<string, unknown> = {
     input: query,
+    includedPrimaryTypes: ["street_address", "premise", "subpremise"],
     includedRegionCodes: getRegionCodes(normaliseAirportCode(airportCode)),
     regionCode: "gb",
     languageCode: "en-GB",
@@ -192,7 +197,90 @@ export async function searchGooglePlaces(
       return 0;
     });
 
-  return suggestions.slice(0, 6);
+  return suggestions.slice(0, 8);
+}
+
+export async function searchGoogleStreetAddresses(
+  apiKey: string,
+  query: string,
+  airportCode: string,
+): Promise<AddressSuggestion[]> {
+  const trimmed = query.trim();
+  if (trimmed.length < 3 || !isStreetOnlyQuery(trimmed)) {
+    return [];
+  }
+
+  const scopedQuery =
+    airportCode === "DUB"
+      ? trimmed
+      : /northern ireland|,\s*bt/i.test(trimmed)
+        ? trimmed
+        : `${trimmed}, Northern Ireland`;
+
+  const response = await fetch("https://places.googleapis.com/v1/places:searchText", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Goog-Api-Key": apiKey,
+      "X-Goog-FieldMask": "places.id,places.formattedAddress,places.addressComponents",
+    },
+    body: JSON.stringify({
+      textQuery: scopedQuery,
+      includedType: "street_address",
+      regionCode: airportCode === "DUB" ? "ie" : "gb",
+      languageCode: "en-GB",
+      pageSize: 15,
+    }),
+  });
+
+  if (!response.ok) {
+    return [];
+  }
+
+  const data = (await response.json()) as {
+    places?: Array<{
+      id?: string;
+      formattedAddress?: string;
+      addressComponents?: GoogleAddressComponent[];
+    }>;
+  };
+
+  const suggestions: AddressSuggestion[] = [];
+
+  for (const place of data.places ?? []) {
+    if (!place.id || !place.formattedAddress) {
+      continue;
+    }
+
+    const formatted = place.formattedAddress.trim();
+    if (!hasLeadingStreetNumber(formatted)) {
+      continue;
+    }
+
+    const parts = parseGoogleAddressComponents(place.addressComponents);
+    if (
+      !isAddressAllowedForAirport(normaliseAirportCode(airportCode), {
+        ...parts,
+        displayName: formatted,
+      })
+    ) {
+      continue;
+    }
+
+    const commaIndex = formatted.indexOf(",");
+    const mainText = commaIndex === -1 ? formatted : formatted.slice(0, commaIndex);
+    const secondaryText = commaIndex === -1 ? "" : formatted.slice(commaIndex + 1).trim();
+
+    suggestions.push({
+      id: place.id,
+      label: formatted,
+      address: formatted,
+      mainText,
+      secondaryText,
+    });
+  }
+
+  return suggestions.slice(0, 8);
 }
 
 export async function geocodeAddress(

@@ -1,10 +1,18 @@
 import {
   geocodeAddress,
+  isStreetOnlyQuery,
   resolveGooglePlace,
   searchGooglePlaces,
+  searchGoogleStreetAddresses,
 } from "../../shared/google-places";
+import {
+  isGetAddressPlaceId,
+  resolveGetAddress,
+  searchGetAddress,
+} from "../../shared/getaddress";
 
-const API_KEY = process.env.NEXT_PUBLIC_GOOGLE_PLACES_API_KEY?.trim() ?? "";
+const GOOGLE_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_PLACES_API_KEY?.trim() ?? "";
+const GETADDRESS_API_KEY = process.env.NEXT_PUBLIC_GETADDRESS_API_KEY?.trim() ?? "";
 
 let sessionToken = createSessionToken();
 
@@ -22,36 +30,92 @@ function createSessionToken(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
+function mergePredictions(predictions: AddressPrediction[]): AddressPrediction[] {
+  const seen = new Set<string>();
+  const merged: AddressPrediction[] = [];
+
+  for (const prediction of predictions) {
+    const key = prediction.description.toLowerCase();
+    if (seen.has(key)) {
+      continue;
+    }
+
+    seen.add(key);
+    merged.push(prediction);
+  }
+
+  return merged;
+}
+
+function toPrediction(suggestion: {
+  id: string;
+  label: string;
+  mainText: string;
+  secondaryText: string;
+}): AddressPrediction {
+  return {
+    placeId: suggestion.id,
+    description: suggestion.label,
+    mainText: suggestion.mainText,
+    secondaryText: suggestion.secondaryText,
+  };
+}
+
 export function isGooglePlacesEnabled(): boolean {
-  return API_KEY.length > 0;
+  return GOOGLE_API_KEY.length > 0 || GETADDRESS_API_KEY.length > 0;
 }
 
 export async function geocodePickupAddress(
   address: string,
 ): Promise<{ lat: number; lng: number } | null> {
-  if (!API_KEY) {
+  if (!GOOGLE_API_KEY) {
     return null;
   }
 
-  return geocodeAddress(API_KEY, address);
+  return geocodeAddress(GOOGLE_API_KEY, address);
 }
 
 export async function fetchAddressPredictions(
   input: string,
   airportCode: string,
 ): Promise<AddressPrediction[]> {
-  if (!API_KEY) {
-    throw new Error("Google Places API key is not configured");
+  const trimmed = input.trim();
+  if (trimmed.length < 3) {
+    return [];
   }
 
-  const suggestions = await searchGooglePlaces(API_KEY, input, airportCode, sessionToken);
+  const tasks: Promise<AddressPrediction[]>[] = [];
 
-  return suggestions.map((suggestion) => ({
-    placeId: suggestion.id,
-    description: suggestion.label,
-    mainText: suggestion.mainText,
-    secondaryText: suggestion.secondaryText,
-  }));
+  if (GETADDRESS_API_KEY && airportCode !== "DUB") {
+    tasks.push(
+      searchGetAddress(GETADDRESS_API_KEY, trimmed, airportCode).then((suggestions) =>
+        suggestions.map(toPrediction),
+      ),
+    );
+  }
+
+  if (GOOGLE_API_KEY) {
+    tasks.push(
+      searchGooglePlaces(GOOGLE_API_KEY, trimmed, airportCode, sessionToken).then((suggestions) =>
+        suggestions.map(toPrediction),
+      ),
+    );
+
+    if (isStreetOnlyQuery(trimmed)) {
+      tasks.push(
+        searchGoogleStreetAddresses(GOOGLE_API_KEY, trimmed, airportCode).then((suggestions) =>
+          suggestions.map(toPrediction),
+        ),
+      );
+    }
+  }
+
+  if (tasks.length === 0) {
+    throw new Error("Address lookup is not configured");
+  }
+
+  const results = await Promise.all(tasks);
+  return mergePredictions(results.flat()).slice(0, 8);
 }
 
 export async function fetchPlaceDetails(
@@ -59,12 +123,20 @@ export async function fetchPlaceDetails(
   airportCode: string,
   userInput?: string,
 ): Promise<string | null> {
-  if (!API_KEY) {
+  if (isGetAddressPlaceId(placeId)) {
+    if (!GETADDRESS_API_KEY) {
+      return null;
+    }
+
+    return resolveGetAddress(GETADDRESS_API_KEY, placeId, airportCode);
+  }
+
+  if (!GOOGLE_API_KEY) {
     return null;
   }
 
   const address = await resolveGooglePlace(
-    API_KEY,
+    GOOGLE_API_KEY,
     placeId,
     airportCode,
     sessionToken,

@@ -30,6 +30,7 @@ jobs:
           GOOGLE_PLACES_API_KEY: ${{ secrets.GOOGLE_PLACES_API_KEY }}
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
           GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
+          GETADDRESS_DOMAIN_TOKEN: ${{ secrets.GETADDRESS_DOMAIN_TOKEN }}
         run: |
           KEY="${GOOGLE_PLACES_API_KEY:-${GOOGLE_API_KEY:-${GOOGLE_MAPS_API_KEY}}}"
           if [ -z "$KEY" ]; then
@@ -37,7 +38,14 @@ jobs:
           else
             echo "Google API key configured (${#KEY} characters)"
           fi
-          NEXT_PUBLIC_GOOGLE_PLACES_API_KEY="$KEY" GITHUB_PAGES=true npm run build
+          if [ -n "$GETADDRESS_DOMAIN_TOKEN" ]; then
+            echo "getAddress domain token configured (${#GETADDRESS_DOMAIN_TOKEN} characters)"
+          else
+            echo "::notice::No GETADDRESS_DOMAIN_TOKEN — door numbers on street searches work best with getAddress.io (free tier available)."
+          fi
+          NEXT_PUBLIC_GOOGLE_PLACES_API_KEY="$KEY" \
+          NEXT_PUBLIC_GETADDRESS_API_KEY="$GETADDRESS_DOMAIN_TOKEN" \
+          GITHUB_PAGES=true npm run build
       - run: node scripts/fix-github-pages-paths.mjs
       - uses: actions/upload-pages-artifact@v3
         with:
