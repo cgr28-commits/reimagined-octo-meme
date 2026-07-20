@@ -202,6 +202,21 @@ function applyVehiclePricing(subtotal: number, vehicleType: (typeof VEHICLE_TYPE
   return subtotal * vehicleMultiplier + vehicleAdjustment;
 }
 
+/** Minimum one-way airport transfer fare by airport code. */
+const AIRPORT_MINIMUM_FARE: Record<string, number> = {
+  BFS: 45,
+  BHD: 35,
+  DUB: 180,
+};
+
+function applyAirportMinimumFare(airportCode: string, oneWayAmount: number): number {
+  const minimum = AIRPORT_MINIMUM_FARE[airportCode];
+  if (minimum == null) {
+    return oneWayAmount;
+  }
+  return Math.max(oneWayAmount, minimum);
+}
+
 function roundToNearestFive(value: number): number {
   return Math.round(value / 5) * 5;
 }
@@ -330,10 +345,14 @@ export function calculateQuote(
   const vehicleAdjustment = VEHICLE_ADJUSTMENTS[vehicleType] ?? 0;
   const oneWaySubtotal =
     (airport.basePrice + areaSurcharge) * vehicleMultiplier + vehicleAdjustment;
-  const subtotal = returnJourney ? oneWaySubtotal * 2 : oneWaySubtotal;
+  const oneWayFare = applyAirportMinimumFare(
+    airportCode,
+    roundToNearestFive(oneWaySubtotal),
+  );
+  const subtotal = returnJourney ? oneWayFare * 2 : oneWayFare;
 
   return {
-    amount: roundToNearestFive(subtotal),
+    amount: subtotal,
     area: matchedArea,
     areaSurcharge,
     airportBase: airport.basePrice,
@@ -354,8 +373,11 @@ export function getAirportFromPrice(
 
   const vehicleMultiplier = VEHICLE_MULTIPLIERS[vehicleType] ?? 1;
   const vehicleAdjustment = VEHICLE_ADJUSTMENTS[vehicleType] ?? 0;
-  const oneWay = roundToNearestFive(airport.basePrice * vehicleMultiplier + vehicleAdjustment);
-  return returnJourney ? roundToNearestFive(oneWay * 2) : oneWay;
+  const oneWay = applyAirportMinimumFare(
+    airportCode,
+    roundToNearestFive(airport.basePrice * vehicleMultiplier + vehicleAdjustment),
+  );
+  return returnJourney ? oneWay * 2 : oneWay;
 }
 
 export function formatQuote(amount: number): string {
