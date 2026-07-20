@@ -142,6 +142,9 @@ const POINT_TO_POINT_VEHICLE_ADJUSTMENTS: Record<(typeof VEHICLE_TYPES)[number],
 /** Estate is saloon + £10; executive and minibus scale from the estate tier. */
 const AIRPORT_ESTATE_PREMIUM = 10;
 
+/** Minimum one-way executive airport transfer fare (all airports). */
+const AIRPORT_EXECUTIVE_MINIMUM_FARE = 105;
+
 export type QuoteResult = {
   amount: number;
   area: string | null;
@@ -220,7 +223,10 @@ function applyAirportVehiclePricing(
     case "Estate Car (1–4 passengers)":
       return estateTier;
     case "Executive Saloon (1–4 passengers)":
-      return roundToNearestFive(estateTier * VEHICLE_MULTIPLIERS[vehicleType]);
+      return Math.max(
+        AIRPORT_EXECUTIVE_MINIMUM_FARE,
+        roundToNearestFive(estateTier * VEHICLE_MULTIPLIERS[vehicleType]),
+      );
     case "Minibus (7–8 passengers)":
       return roundToNearestFive(estateTier * VEHICLE_MULTIPLIERS[vehicleType]);
     default:
