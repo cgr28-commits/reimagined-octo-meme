@@ -593,17 +593,20 @@ function QuoteCard() {
             >
               Passengers
             </label>
-            <input
+            <select
               id="passengers"
               name="passengers"
-              type="number"
-              min={1}
-              max={8}
               required
               value={passengers}
-              onChange={(e) => setPassengers(Math.min(8, Math.max(1, Number(e.target.value) || 1)))}
-              className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30"
-            />
+              onChange={(e) => setPassengers(Number(e.target.value))}
+              className="w-full rounded-xl border border-white/10 bg-navy-light px-4 py-3 text-sm text-white outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30"
+            >
+              {Array.from({ length: 8 }, (_, index) => index + 1).map((count) => (
+                <option key={count} value={count}>
+                  {count}
+                </option>
+              ))}
+            </select>
           </div>
           <div>
             <label
@@ -612,17 +615,20 @@ function QuoteCard() {
             >
               Suitcases (23kg each)
             </label>
-            <input
+            <select
               id="suitcases"
               name="suitcases"
-              type="number"
-              min={0}
-              max={12}
               required
               value={suitcases}
-              onChange={(e) => setSuitcases(Math.max(0, Number(e.target.value) || 0))}
-              className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30"
-            />
+              onChange={(e) => setSuitcases(Number(e.target.value))}
+              className="w-full rounded-xl border border-white/10 bg-navy-light px-4 py-3 text-sm text-white outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30"
+            >
+              {Array.from({ length: 13 }, (_, index) => index).map((count) => (
+                <option key={count} value={count}>
+                  {count}
+                </option>
+              ))}
+            </select>
           </div>
           <div className="sm:col-span-2">
             <label
