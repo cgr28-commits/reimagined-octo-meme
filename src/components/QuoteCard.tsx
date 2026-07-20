@@ -22,10 +22,10 @@ const MINIBUS = "Minibus (7–8 passengers)" as const;
 type VehicleType = (typeof VEHICLE_TYPES)[number];
 
 function getAutoVehicle(passengers: number, suitcases: number): VehicleType | null {
-  if (passengers >= 8) {
+  if (passengers >= 8 || suitcases >= 5) {
     return MINIBUS;
   }
-  if (suitcases >= 4) {
+  if (suitcases === 4) {
     return ESTATE;
   }
   return null;
@@ -650,9 +650,13 @@ function QuoteCard() {
               <p className="mt-1.5 text-xs text-white/40">
                 Minibus selected automatically for 8 passengers.
               </p>
-            ) : suitcases >= 4 ? (
+            ) : suitcases >= 5 ? (
               <p className="mt-1.5 text-xs text-white/40">
-                Estate car selected automatically for 4 or more suitcases.
+                Minibus selected automatically for 5 or more suitcases.
+              </p>
+            ) : suitcases === 4 ? (
+              <p className="mt-1.5 text-xs text-white/40">
+                Estate car selected automatically for 4 suitcases.
               </p>
             ) : null}
           </div>
