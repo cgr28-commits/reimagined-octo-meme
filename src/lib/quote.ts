@@ -1,4 +1,9 @@
 import { AIRPORTS, AREAS, VEHICLE_TYPES } from "@/lib/data";
+import {
+  applyPointToPointPremium,
+  describePointToPointPremium,
+  type TripSchedule,
+} from "@/lib/point-to-point-premium";
 
 type Area = (typeof AREAS)[number];
 
@@ -140,6 +145,8 @@ export type QuoteResult = {
   vehicleAdjustment: number;
   pickupArea?: string | null;
   dropoffArea?: string | null;
+  premiumApplied?: boolean;
+  premiumLabel?: string | null;
 };
 
 /** Local point-to-point base fare (Belfast-area short journeys). */
@@ -201,6 +208,7 @@ export function calculatePointToPointQuote(
   dropoffAddress: string,
   vehicleType: (typeof VEHICLE_TYPES)[number],
   returnJourney = false,
+  schedule: TripSchedule = {},
 ): QuoteResult | null {
   const pickup = pickupAddress.trim();
   const dropoff = dropoffAddress.trim();
@@ -226,7 +234,12 @@ export function calculatePointToPointQuote(
   const vehicleMultiplier = VEHICLE_MULTIPLIERS[vehicleType] ?? 1;
   const vehicleAdjustment = VEHICLE_ADJUSTMENTS[vehicleType] ?? 0;
   const oneWay = applyVehiclePricing(oneWaySubtotal, vehicleType);
-  const subtotal = returnJourney ? oneWay * 2 : oneWay;
+  const baseSubtotal = returnJourney ? oneWay * 2 : oneWay;
+  const premium = applyPointToPointPremium(oneWay, {
+    ...schedule,
+    returnJourney,
+  });
+  const subtotal = premium.total;
 
   return {
     amount: roundToNearestFive(subtotal),
@@ -237,6 +250,8 @@ export function calculatePointToPointQuote(
     vehicleAdjustment,
     pickupArea,
     dropoffArea,
+    premiumApplied: premium.premiumApplied,
+    premiumLabel: describePointToPointPremium({ ...schedule, returnJourney }),
   };
 }
 

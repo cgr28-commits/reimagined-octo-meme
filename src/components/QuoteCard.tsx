@@ -41,6 +41,10 @@ function QuoteCard() {
   const [dropoffAddress, setDropoffAddress] = useState("");
   const [returnJourney, setReturnJourney] = useState(false);
   const [returnDateError, setReturnDateError] = useState("");
+  const [tripDate, setTripDate] = useState("");
+  const [tripTime, setTripTime] = useState("");
+  const [returnDate, setReturnDate] = useState("");
+  const [returnTime, setReturnTime] = useState("");
   const [vehicle, setVehicle] = useState<(typeof VEHICLE_TYPES)[number]>(VEHICLE_TYPES[0]);
 
   const isAirportTrip = tripMode === "airport";
@@ -97,14 +101,24 @@ function QuoteCard() {
       return calculateQuote(address, airportCode, vehicle, returnJourney);
     }
 
-    return calculatePointToPointQuote(pickupAddress, dropoffAddress, vehicle, returnJourney);
+    return calculatePointToPointQuote(pickupAddress, dropoffAddress, vehicle, returnJourney, {
+      outboundDate: tripDate,
+      outboundTime: tripTime,
+      returnDate,
+      returnTime,
+      returnJourney,
+    });
   }, [
     airportCode,
     dropoffAddress,
     isAirportTrip,
     isFromAirport,
     pickupAddress,
+    returnDate,
     returnJourney,
+    returnTime,
+    tripDate,
+    tripTime,
     vehicle,
   ]);
 
@@ -140,17 +154,17 @@ function QuoteCard() {
     const airportCodeValue = (data.get("destination") as string).trim();
     const airportName =
       AIRPORTS.find((a) => a.code === airportCodeValue)?.name ?? airportCodeValue;
-    const date = data.get("date") as string;
-    const time = data.get("time") as string;
-    const returnDate = returnJourney ? (data.get("returnDate") as string) : "";
-    const returnTime = returnJourney ? (data.get("returnTime") as string) : "";
+    const date = tripDate;
+    const time = tripTime;
+    const returnDateValue = returnJourney ? returnDate : "";
+    const returnTimeValue = returnJourney ? returnTime : "";
 
     if (returnJourney) {
-      if (!returnDate || !returnTime) {
+      if (!returnDateValue || !returnTimeValue) {
         setReturnDateError("Please select a return date and time.");
         return;
       }
-      if (!isReturnAfterOutbound(date, time, returnDate, returnTime)) {
+      if (!isReturnAfterOutbound(date, time, returnDateValue, returnTimeValue)) {
         setReturnDateError("Return date and time must be after your outbound trip.");
         return;
       }
@@ -188,7 +202,10 @@ function QuoteCard() {
         `Return journey: ${returnJourney ? "Yes" : "No"}\n` +
         `${returnJourney ? "Outbound date" : "Date"}: ${date}\n` +
         `${returnJourney ? "Outbound time" : "Time"}: ${time}\n` +
-        (returnJourney ? `Return date: ${returnDate}\nReturn time: ${returnTime}\n` : "") +
+        (returnJourney ? `Return date: ${returnDateValue}\nReturn time: ${returnTimeValue}\n` : "") +
+        (!isAirportTrip && liveQuote?.premiumApplied
+          ? `Premium rate: 25% supplement (${liveQuote.premiumLabel})\n`
+          : "") +
         (isAirportTrip && flightNumber ? `Flight number: ${flightNumber}\n` : "") +
         `Passengers: ${passengers}\n` +
         `Suitcases: ${suitcases}\n` +
@@ -218,6 +235,13 @@ function QuoteCard() {
       : isAirportTrip
         ? "Select an airport and enter your address to see your fare"
         : "Enter pickup and drop-off addresses to see your fare";
+
+  const premiumHint =
+    !isAirportTrip && liveQuote?.premiumApplied
+      ? ` · Includes 25% supplement (${liveQuote.premiumLabel})`
+      : !isAirportTrip
+        ? " · 25% supplement after midnight Fri/Sat and on bank holidays"
+        : "";
 
   return (
     <div className="glass-card rounded-2xl p-6 sm:p-8 lg:animate-float">
@@ -463,6 +487,8 @@ function QuoteCard() {
               name="date"
               type="date"
               required
+              value={tripDate}
+              onChange={(e) => setTripDate(e.target.value)}
               className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30 [color-scheme:dark]"
             />
           </div>
@@ -478,6 +504,8 @@ function QuoteCard() {
               name="time"
               type="time"
               required
+              value={tripTime}
+              onChange={(e) => setTripTime(e.target.value)}
               className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30 [color-scheme:dark]"
             />
           </div>
@@ -497,6 +525,8 @@ function QuoteCard() {
                 name="returnDate"
                 type="date"
                 required
+                value={returnDate}
+                onChange={(e) => setReturnDate(e.target.value)}
                 className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30 [color-scheme:dark]"
               />
             </div>
@@ -512,6 +542,8 @@ function QuoteCard() {
                 name="returnTime"
                 type="time"
                 required
+                value={returnTime}
+                onChange={(e) => setReturnTime(e.target.value)}
                 className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30 [color-scheme:dark]"
               />
             </div>
@@ -616,6 +648,7 @@ function QuoteCard() {
               <p className="mt-2 text-xs text-white/60">
                 {vehicle.split(" (")[0]}
                 {quoteHint}
+                {premiumHint}
                 {returnJourney ? " · Return journey (both legs)" : ""}
                 {" · Final fare confirmed on WhatsApp"}
               </p>
