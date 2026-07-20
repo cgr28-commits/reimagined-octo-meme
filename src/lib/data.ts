@@ -252,8 +252,8 @@ export const VEHICLE_FLEET = [
 ] as const;
 
 export const VEHICLE_TYPES = [
-  "Estate Car (1–4 passengers)",
   "Standard Saloon (1–4 passengers)",
+  "Estate Car (1–4 passengers)",
   "Executive Saloon (1–4 passengers)",
   "Minibus (7–8 passengers)",
 ] as const;
