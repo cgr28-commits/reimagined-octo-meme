@@ -437,7 +437,8 @@ function QuoteCard() {
             </>
           )}
           <p className="mt-3 text-[11px] text-white/40">
-            Includes vehicle, driver, fuel, and tolls. Final price confirmed when you book.
+            Fixed estimate for your pickup area. Includes vehicle, driver, fuel, and tolls. Final
+            price confirmed on WhatsApp.
           </p>
         </div>
 
