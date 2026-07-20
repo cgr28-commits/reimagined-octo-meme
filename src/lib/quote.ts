@@ -79,6 +79,7 @@ const DUB_AREA_SURCHARGES: Partial<Record<Area, number>> & { default: number } =
   Carrickfergus: 62,
   Antrim: 50,
   Ballymena: 70,
+  Coleraine: 159,
   Newry: 75,
   "Derry / Londonderry": 90,
   default: 68,
@@ -307,6 +308,9 @@ export function matchAreaFromAddress(address: string): Area | null {
     }
     if (area === "Omagh") {
       aliases.push("tyrone", "county tyrone", "bt78", "bt79");
+    }
+    if (area === "Coleraine") {
+      aliases.push("portrush", "portstewart", "castlerock", "bt56", "bt57", "bt58");
     }
     if (area === "Antrim") {
       aliases.push("aldergrove", "belfast international", "bfs", "bt29");
