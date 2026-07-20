@@ -1,12 +1,15 @@
 "use client";
 
 import {
+  useCallback,
   useEffect,
   useId,
+  useLayoutEffect,
   useRef,
   useState,
   type ReactNode,
 } from "react";
+import { createPortal } from "react-dom";
 import {
   fetchAddressPredictions,
   fetchPlaceDetails,
@@ -30,6 +33,12 @@ type AddressInputProps = {
   airportCode?: string;
 };
 
+type DropdownPosition = {
+  top: number;
+  left: number;
+  width: number;
+};
+
 export default function AddressInput({
   id,
   name,
@@ -44,15 +53,33 @@ export default function AddressInput({
 }: AddressInputProps) {
   const autocompleteEnabled = isGooglePlacesEnabled();
   const containerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const [suggestions, setSuggestions] = useState<AddressPrediction[]>([]);
   const [suggestionsOpen, setSuggestionsOpen] = useState(false);
+  const [dropdownPosition, setDropdownPosition] = useState<DropdownPosition | null>(null);
   const [mapsReady, setMapsReady] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const debounceRef = useRef<number | null>(null);
+  const valueRef = useRef(value);
   const hintId = useId();
+
+  valueRef.current = value;
 
   const countries =
     airportCode === "DUB" ? (["gb", "ie"] as const) : (["gb"] as const);
+
+  const updateDropdownPosition = useCallback(() => {
+    if (!inputRef.current) {
+      return;
+    }
+
+    const rect = inputRef.current.getBoundingClientRect();
+    setDropdownPosition({
+      top: rect.bottom + 8,
+      left: rect.left,
+      width: rect.width,
+    });
+  }, []);
 
   useEffect(() => {
     if (!autocompleteEnabled) {
@@ -77,7 +104,10 @@ export default function AddressInput({
   useEffect(() => {
     function handlePointerDown(event: MouseEvent | TouchEvent) {
       if (!containerRef.current?.contains(event.target as Node)) {
-        setSuggestionsOpen(false);
+        const target = event.target as HTMLElement;
+        if (!target.closest(".address-suggestions-portal")) {
+          setSuggestionsOpen(false);
+        }
       }
     }
 
@@ -94,36 +124,67 @@ export default function AddressInput({
     setSuggestionsOpen(false);
   }, [airportCode]);
 
+  useLayoutEffect(() => {
+    if (!suggestionsOpen || suggestions.length === 0) {
+      return;
+    }
+
+    updateDropdownPosition();
+    window.addEventListener("resize", updateDropdownPosition);
+    window.addEventListener("scroll", updateDropdownPosition, true);
+    return () => {
+      window.removeEventListener("resize", updateDropdownPosition);
+      window.removeEventListener("scroll", updateDropdownPosition, true);
+    };
+  }, [suggestions.length, suggestionsOpen, updateDropdownPosition, value]);
+
+  const requestSuggestions = useCallback(
+    (query: string) => {
+      if (!autocompleteEnabled || !mapsReady) {
+        return;
+      }
+
+      const trimmed = query.trim();
+      if (trimmed.length < 3) {
+        setSuggestions([]);
+        setSuggestionsOpen(false);
+        return;
+      }
+
+      void fetchAddressPredictions(trimmed, countries)
+        .then((predictions) => {
+          setSuggestions(predictions);
+          setSuggestionsOpen(predictions.length > 0);
+          if (predictions.length === 0) {
+            setLoadError(null);
+          }
+        })
+        .catch(() => {
+          setSuggestions([]);
+          setSuggestionsOpen(false);
+          setLoadError("Address suggestions are unavailable right now. Enter your address manually.");
+        });
+    },
+    [autocompleteEnabled, countries, mapsReady],
+  );
+
+  useEffect(() => {
+    if (mapsReady && valueRef.current.trim().length >= 3) {
+      requestSuggestions(valueRef.current);
+    }
+  }, [mapsReady, requestSuggestions]);
+
   function handleChange(event: React.ChangeEvent<HTMLInputElement>) {
     const next = event.target.value;
     setLoadError(null);
     onChange(next);
 
-    if (!autocompleteEnabled || !mapsReady) {
-      return;
-    }
-
     if (debounceRef.current) {
       window.clearTimeout(debounceRef.current);
     }
 
-    const trimmed = next.trim();
-    if (trimmed.length < 3) {
-      setSuggestions([]);
-      setSuggestionsOpen(false);
-      return;
-    }
-
     debounceRef.current = window.setTimeout(() => {
-      void fetchAddressPredictions(trimmed, countries)
-        .then((predictions) => {
-          setSuggestions(predictions);
-          setSuggestionsOpen(predictions.length > 0);
-        })
-        .catch(() => {
-          setSuggestions([]);
-          setSuggestionsOpen(false);
-        });
+      requestSuggestions(next);
     }, 300);
   }
 
@@ -131,8 +192,8 @@ export default function AddressInput({
     setSuggestionsOpen(false);
     setSuggestions([]);
 
-    const place = await fetchPlaceDetails(prediction.placeId);
-    const formatted = place?.formatted_address?.trim();
+    const place = await fetchPlaceDetails(prediction.placePrediction);
+    const formatted = place?.formattedAddress?.trim();
     if (!formatted || !place) {
       onChange(prediction.description);
       return;
@@ -157,6 +218,37 @@ export default function AddressInput({
     onChange(formatted);
   }
 
+  const suggestionsPortal =
+    suggestionsOpen &&
+    suggestions.length > 0 &&
+    dropdownPosition &&
+    typeof document !== "undefined"
+      ? createPortal(
+          <ul
+            className="address-suggestions-portal fixed z-[100000] overflow-hidden rounded-xl border border-white/10 bg-white shadow-2xl"
+            style={{
+              top: dropdownPosition.top,
+              left: dropdownPosition.left,
+              width: dropdownPosition.width,
+            }}
+          >
+            {suggestions.map((prediction) => (
+              <li key={prediction.placeId}>
+                <button
+                  type="button"
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => void handleSelect(prediction)}
+                  className="block w-full px-4 py-3 text-left text-sm text-navy transition-colors hover:bg-emerald/15"
+                >
+                  {prediction.description}
+                </button>
+              </li>
+            ))}
+          </ul>,
+          document.body,
+        )
+      : null;
+
   return (
     <div ref={containerRef} className="relative">
       <div className="mb-1.5 flex items-center justify-between gap-3">
@@ -167,6 +259,7 @@ export default function AddressInput({
       </div>
 
       <input
+        ref={inputRef}
         id={id}
         name={name}
         type="text"
@@ -175,32 +268,17 @@ export default function AddressInput({
         value={value}
         onChange={handleChange}
         onFocus={() => {
+          updateDropdownPosition();
           if (suggestions.length > 0) {
             setSuggestionsOpen(true);
           }
         }}
         placeholder={placeholder}
         aria-describedby={hintId}
-        aria-expanded={suggestionsOpen}
         className="address-input w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/30 outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30"
       />
 
-      {suggestionsOpen && suggestions.length > 0 && (
-        <ul className="address-suggestions absolute left-0 right-0 top-full z-[10000] mt-2 overflow-hidden rounded-xl border border-white/10 bg-white shadow-2xl">
-          {suggestions.map((prediction) => (
-            <li key={prediction.placeId}>
-              <button
-                type="button"
-                onMouseDown={(event) => event.preventDefault()}
-                onClick={() => void handleSelect(prediction)}
-                className="block w-full px-4 py-3 text-left text-sm text-navy transition-colors hover:bg-emerald/15"
-              >
-                {prediction.description}
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
+      {suggestionsPortal}
 
       <p id={hintId} className="mt-1.5 text-xs text-white/40">
         {loadError ??
