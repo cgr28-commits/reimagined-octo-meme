@@ -419,6 +419,17 @@ function QuoteCard() {
               ? "Send your address-to-address trip details and we'll quote you personally"
               : "Send your address-to-address trip details and we'll reply by email"}
         </p>
+        {usesEmail && (
+          <p className="mt-3 text-sm text-white/80">
+            Send your booking to{" "}
+            <a
+              href={`mailto:${SITE.email}`}
+              className="font-semibold text-emerald transition-colors hover:text-emerald-light"
+            >
+              {SITE.email}
+            </a>
+          </p>
+        )}
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">

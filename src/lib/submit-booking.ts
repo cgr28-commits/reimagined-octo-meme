@@ -4,7 +4,13 @@ import { buildBookingMessage } from "@/lib/booking-message";
 
 const BOOKINGS_API_URL = process.env.NEXT_PUBLIC_BOOKINGS_API_URL?.trim() ?? "";
 
-async function submitViaWorker(message: string, details: BookingDetails): Promise<void> {
+export type EnquirySubmission = {
+  customerName: string;
+  message: string;
+  subject?: string;
+};
+
+async function submitViaWorker(submission: EnquirySubmission): Promise<void> {
   const response = await fetch(BOOKINGS_API_URL, {
     method: "POST",
     headers: {
@@ -12,8 +18,8 @@ async function submitViaWorker(message: string, details: BookingDetails): Promis
       Accept: "application/json",
     },
     body: JSON.stringify({
-      customerName: details.customerName,
-      message,
+      customerName: submission.customerName,
+      message: submission.message,
     }),
   });
 
@@ -22,7 +28,7 @@ async function submitViaWorker(message: string, details: BookingDetails): Promis
   }
 }
 
-async function submitViaFormSubmit(message: string, details: BookingDetails): Promise<void> {
+async function submitViaFormSubmit(submission: EnquirySubmission): Promise<void> {
   const response = await fetch(`https://formsubmit.co/ajax/${encodeURIComponent(SITE.email)}`, {
     method: "POST",
     headers: {
@@ -30,10 +36,10 @@ async function submitViaFormSubmit(message: string, details: BookingDetails): Pr
       Accept: "application/json",
     },
     body: JSON.stringify({
-      _subject: `New booking — ${details.customerName}`,
+      _subject: submission.subject ?? `New enquiry — ${submission.customerName}`,
       _captcha: "false",
       _template: "box",
-      message,
+      message: submission.message,
     }),
   });
 
@@ -47,13 +53,21 @@ async function submitViaFormSubmit(message: string, details: BookingDetails): Pr
   }
 }
 
-export async function submitBookingByEmail(details: BookingDetails): Promise<void> {
-  const message = buildBookingMessage(details);
-
+export async function submitEnquiryByEmail(submission: EnquirySubmission): Promise<void> {
   if (BOOKINGS_API_URL) {
-    await submitViaWorker(message, details);
+    await submitViaWorker(submission);
     return;
   }
 
-  await submitViaFormSubmit(message, details);
+  await submitViaFormSubmit(submission);
+}
+
+export async function submitBookingByEmail(details: BookingDetails): Promise<void> {
+  const message = buildBookingMessage(details);
+
+  await submitEnquiryByEmail({
+    customerName: details.customerName,
+    message,
+    subject: `New booking — ${details.customerName}`,
+  });
 }

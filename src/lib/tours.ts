@@ -184,6 +184,6 @@ export const TOUR_BENEFITS = [
   {
     title: "Clear upfront quotes",
     description:
-      "Get a personalised price via WhatsApp before you travel. All quotes include your vehicle, driver, fuel, and tolls.",
+      "Get a personalised price before you travel — via WhatsApp on mobile or by email on desktop. All quotes include your vehicle, driver, fuel, and tolls.",
   },
 ] as const;
