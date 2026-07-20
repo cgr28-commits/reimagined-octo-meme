@@ -96,8 +96,8 @@ export const AIRPORTS = [
   {
     code: "DUB",
     name: "Dublin Airport",
-    basePrice: 230,
-    distance: "From £230",
+    basePrice: 180,
+    distance: "From £180",
     duration: "~2 hrs from Belfast",
     mapLabel: "Dublin Airport, Ireland",
     mapLocation: { lat: 53.4213, lng: -6.2701 },

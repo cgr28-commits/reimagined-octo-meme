@@ -68,20 +68,20 @@ const BHD_AREA_SURCHARGES: Partial<Record<Area, number>> & { default: number } =
 };
 
 const DUB_AREA_SURCHARGES: Partial<Record<Area, number>> & { default: number } = {
-  "Belfast City Centre": 0,
-  Holywood: 8,
-  Newtownabbey: 10,
-  Dundonald: 10,
-  Lisburn: 10,
-  Bangor: 15,
-  Comber: 12,
-  Newtownards: 12,
-  Carrickfergus: 12,
-  Antrim: 0,
-  Ballymena: 20,
-  Newry: 25,
-  "Derry / Londonderry": 40,
-  default: 18,
+  "Belfast City Centre": 50,
+  Holywood: 58,
+  Newtownabbey: 60,
+  Dundonald: 60,
+  Lisburn: 60,
+  Bangor: 65,
+  Comber: 62,
+  Newtownards: 62,
+  Carrickfergus: 62,
+  Antrim: 50,
+  Ballymena: 70,
+  Newry: 75,
+  "Derry / Londonderry": 90,
+  default: 68,
 };
 
 const AREA_SURCHARGES_BY_AIRPORT: Record<
@@ -252,12 +252,12 @@ function getAirportVehiclePricingMeta(
 }
 
 function computeSaloonAirportOneWay(airportCode: string, basePlusSurcharge: number): number {
+  // Apply the airport minimum first, then distance/area surcharges can raise the fare above it.
   const fare = applyAirportMinimumFare(airportCode, basePlusSurcharge);
-  // Keep exact fares like £149; otherwise round to the nearest £5.
   return fare % 5 === 4 ? fare : roundToNearestFive(fare);
 }
 
-/** Minimum one-way saloon airport transfer fare by airport code. */
+/** Minimum one-way saloon airport transfer fare by airport code (the "from" price). */
 const AIRPORT_MINIMUM_FARE: Record<string, number> = {
   BFS: 45,
   BHD: 35,
