@@ -7,6 +7,8 @@ export type AddressSuggestion = {
   id: string;
   label: string;
   address: string;
+  mainText: string;
+  secondaryText: string;
 };
 
 type GoogleAutocompleteResponse = {
@@ -14,6 +16,10 @@ type GoogleAutocompleteResponse = {
     placePrediction?: {
       placeId?: string;
       text?: { text?: string };
+      structuredFormat?: {
+        mainText?: { text?: string };
+        secondaryText?: { text?: string };
+      };
     };
   }>;
 };
@@ -89,6 +95,52 @@ function parseLegacyGeocodeComponents(
   };
 }
 
+export function extractLeadingStreetNumber(input: string): string | null {
+  const match = input.trim().match(/^(\d+[a-zA-Z]?)\s+/);
+  return match ? match[1] : null;
+}
+
+function hasLeadingStreetNumber(text: string): boolean {
+  return /^\d+[a-zA-Z]?\s/.test(text.trim());
+}
+
+function withStreetNumber(number: string, addressLine: string): string {
+  const trimmed = addressLine.trim();
+  if (!trimmed || hasLeadingStreetNumber(trimmed)) {
+    return trimmed;
+  }
+  return `${number} ${trimmed}`;
+}
+
+function formatSuggestion(
+  prediction: NonNullable<GoogleAutocompleteResponse["suggestions"]>[number]["placePrediction"],
+  userNumber: string | null,
+): AddressSuggestion | null {
+  if (!prediction?.placeId) {
+    return null;
+  }
+
+  const mainText = prediction.structuredFormat?.mainText?.text ?? prediction.text?.text ?? "";
+  const secondaryText = prediction.structuredFormat?.secondaryText?.text ?? "";
+  if (!mainText) {
+    return null;
+  }
+
+  const displayMain =
+    userNumber && !hasLeadingStreetNumber(mainText)
+      ? withStreetNumber(userNumber, mainText)
+      : mainText;
+  const label = secondaryText ? `${displayMain}, ${secondaryText}` : displayMain;
+
+  return {
+    id: prediction.placeId,
+    label,
+    address: label,
+    mainText: displayMain,
+    secondaryText,
+  };
+}
+
 export async function searchGooglePlaces(
   apiKey: string,
   query: string,
@@ -100,6 +152,12 @@ export async function searchGooglePlaces(
     includedRegionCodes: getRegionCodes(normaliseAirportCode(airportCode)),
     regionCode: "gb",
     languageCode: "en-GB",
+    locationBias: {
+      rectangle: {
+        low: { latitude: 54.0, longitude: -8.2 },
+        high: { latitude: 55.4, longitude: -5.4 },
+      },
+    },
   };
 
   if (sessionToken) {
@@ -121,16 +179,20 @@ export async function searchGooglePlaces(
   }
 
   const data = (await response.json()) as GoogleAutocompleteResponse;
+  const userNumber = extractLeadingStreetNumber(query);
 
-  return (data.suggestions ?? [])
-    .map((item) => item.placePrediction)
-    .filter((prediction) => Boolean(prediction?.placeId && prediction.text?.text))
-    .slice(0, 6)
-    .map((prediction) => ({
-      id: prediction!.placeId!,
-      label: prediction!.text!.text!,
-      address: prediction!.text!.text!,
-    }));
+  const suggestions = (data.suggestions ?? [])
+    .map((item) => formatSuggestion(item.placePrediction, userNumber))
+    .filter((suggestion): suggestion is AddressSuggestion => suggestion !== null)
+    .sort((a, b) => {
+      const aHasNumber = hasLeadingStreetNumber(a.mainText);
+      const bHasNumber = hasLeadingStreetNumber(b.mainText);
+      if (aHasNumber && !bHasNumber) return -1;
+      if (!aHasNumber && bHasNumber) return 1;
+      return 0;
+    });
+
+  return suggestions.slice(0, 6);
 }
 
 export async function resolveGooglePlace(
@@ -138,6 +200,7 @@ export async function resolveGooglePlace(
   placeId: string,
   airportCode: string,
   sessionToken?: string,
+  userInput?: string,
 ): Promise<string | null> {
   const url = new URL(`https://places.googleapis.com/v1/places/${encodeURIComponent(placeId)}`);
   if (sessionToken) {
@@ -167,7 +230,15 @@ export async function resolveGooglePlace(
     return null;
   }
 
-  return data.formattedAddress?.trim() || null;
+  let formatted = data.formattedAddress?.trim() || null;
+  if (formatted && userInput) {
+    const userNumber = extractLeadingStreetNumber(userInput);
+    if (userNumber && !hasLeadingStreetNumber(formatted)) {
+      formatted = withStreetNumber(userNumber, formatted);
+    }
+  }
+
+  return formatted;
 }
 
 export async function reverseGeocodeGoogle(

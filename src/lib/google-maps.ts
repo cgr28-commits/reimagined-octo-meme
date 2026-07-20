@@ -10,6 +10,8 @@ let sessionToken = createSessionToken();
 export type AddressPrediction = {
   placeId: string;
   description: string;
+  mainText: string;
+  secondaryText: string;
 };
 
 function createSessionToken(): string {
@@ -36,18 +38,27 @@ export async function fetchAddressPredictions(
   return suggestions.map((suggestion) => ({
     placeId: suggestion.id,
     description: suggestion.label,
+    mainText: suggestion.mainText,
+    secondaryText: suggestion.secondaryText,
   }));
 }
 
 export async function fetchPlaceDetails(
   placeId: string,
   airportCode: string,
+  userInput?: string,
 ): Promise<string | null> {
   if (!API_KEY) {
     return null;
   }
 
-  const address = await resolveGooglePlace(API_KEY, placeId, airportCode, sessionToken);
+  const address = await resolveGooglePlace(
+    API_KEY,
+    placeId,
+    airportCode,
+    sessionToken,
+    userInput,
+  );
   sessionToken = createSessionToken();
   return address;
 }

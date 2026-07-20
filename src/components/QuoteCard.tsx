@@ -270,7 +270,7 @@ function QuoteCard() {
           airportCode={airportCode}
           label={isFromAirport ? "Your Drop-off Address" : "Your Pickup Address"}
           placeholder="e.g. 12 Donegall Square, Belfast BT1 5GS"
-          helperText="Start typing your address — suggestions appear for Northern Ireland and Dublin-area locations"
+          helperText="Start with your door number, e.g. 12 Donegall Square — then pick your address from the list"
         />
 
         <div className="grid gap-4 sm:grid-cols-2">

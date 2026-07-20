@@ -174,7 +174,7 @@ export default function AddressInput({
     setSuggestionsOpen(false);
     setSuggestions([]);
 
-    const formatted = await fetchPlaceDetails(prediction.placeId, airportCode);
+    const formatted = await fetchPlaceDetails(prediction.placeId, airportCode, value);
     onChange(formatted ?? prediction.description);
     setLoadError(null);
   }
@@ -202,9 +202,12 @@ export default function AddressInput({
                   type="button"
                   onMouseDown={(event) => event.preventDefault()}
                   onClick={() => void handleSelect(prediction)}
-                  className="block w-full px-4 py-3 text-left text-sm text-navy transition-colors hover:bg-emerald/15"
+                  className="block w-full px-4 py-3 text-left transition-colors hover:bg-emerald/15"
                 >
-                  {prediction.description}
+                  <span className="block text-sm font-semibold text-navy">{prediction.mainText}</span>
+                  {prediction.secondaryText ? (
+                    <span className="mt-0.5 block text-xs text-navy/70">{prediction.secondaryText}</span>
+                  ) : null}
                 </button>
               </li>
             ))}
