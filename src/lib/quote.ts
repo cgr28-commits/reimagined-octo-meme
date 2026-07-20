@@ -32,7 +32,7 @@ const BFS_AREA_SURCHARGES: Partial<Record<Area, number>> & { default: number } =
   Cookstown: 50,
   Coleraine: 55,
   Omagh: 120,
-  "Derry / Londonderry": 104,
+  "Derry / Londonderry": 124,
   Enniskillen: 150,
   default: 35,
 };
@@ -62,7 +62,7 @@ const BHD_AREA_SURCHARGES: Partial<Record<Area, number>> & { default: number } =
   Cookstown: 55,
   Coleraine: 60,
   Omagh: 130,
-  "Derry / Londonderry": 114,
+  "Derry / Londonderry": 134,
   Enniskillen: 165,
   default: 25,
 };
@@ -119,7 +119,7 @@ export const AREA_SURCHARGES: Record<Area, number> = {
   Coleraine: 55,
   Cookstown: 50,
   Omagh: 120,
-  "Derry / Londonderry": 104,
+  "Derry / Londonderry": 124,
   Enniskillen: 150,
 };
 
