@@ -153,7 +153,7 @@ export type QuoteResult = {
 };
 
 /** Local point-to-point base fare (Belfast-area short journeys). */
-const POINT_TO_POINT_BASE = 32;
+const POINT_TO_POINT_BASE = 43;
 
 /**
  * Address-to-address distance bands from Belfast — calibrated to market rates
