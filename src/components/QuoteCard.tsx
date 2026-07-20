@@ -634,6 +634,10 @@ function QuoteCard() {
                 </p>
                 <p className="mt-1 text-3xl font-bold text-white">{formatQuote(liveQuote.amount)}</p>
                 <p className="mt-2 text-xs text-white/60">{vehicle.split(" (")[0]}</p>
+                <p className="mt-3 text-xs leading-relaxed text-white/60">
+                  Includes express drop-off and pickup fees, and 60 minutes complimentary waiting
+                  time from when your plane lands.
+                </p>
               </>
             ) : (
               <>
