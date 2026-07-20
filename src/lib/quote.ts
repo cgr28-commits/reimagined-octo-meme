@@ -126,7 +126,7 @@ const VEHICLE_MULTIPLIERS: Record<(typeof VEHICLE_TYPES)[number], number> = {
 /** Flat one-way adjustment before rounding — estate is the baseline; saloon is cheaper. */
 const VEHICLE_ADJUSTMENTS: Record<(typeof VEHICLE_TYPES)[number], number> = {
   "Estate Car (1–4 passengers)": 0,
-  "Standard Saloon (1–4 passengers)": -5,
+  "Standard Saloon (1–4 passengers)": -10,
   "Executive Saloon (1–4 passengers)": 0,
   "Minibus (7–8 passengers)": 0,
 };
