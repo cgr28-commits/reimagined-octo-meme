@@ -248,7 +248,7 @@ function QuoteCard() {
       isAirportTrip && liveQuote ? formatQuote(liveQuote.amount) : null;
 
     const message = encodeURIComponent(
-      `Hi, I'd like a quote please.\n\n` +
+      `Hi, I would like to book the following. A payment link will follow shortly.\n\n` +
         `Name: ${customerName.trim()}\n` +
         `Trip: ${tripLabel}\n` +
         `Pickup: ${pickupLabel}\n` +
