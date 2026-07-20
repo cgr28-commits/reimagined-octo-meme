@@ -36,8 +36,21 @@ export default function AddressInput({
   const autocompleteEnabled = isGooglePlacesEnabled();
   const inputRef = useRef<HTMLInputElement>(null);
   const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
+  const onChangeRef = useRef(onChange);
   const [loadError, setLoadError] = useState<string | null>(null);
   const hintId = useId();
+
+  useEffect(() => {
+    onChangeRef.current = onChange;
+  }, [onChange]);
+
+  useEffect(() => {
+    if (!autocompleteEnabled || !inputRef.current || inputRef.current.value === value) {
+      return;
+    }
+
+    inputRef.current.value = value;
+  }, [autocompleteEnabled, value]);
 
   useEffect(() => {
     if (!autocompleteEnabled || !inputRef.current) {
@@ -82,7 +95,10 @@ export default function AddressInput({
           }
 
           setLoadError(null);
-          onChange(formatted);
+          if (inputRef.current) {
+            inputRef.current.value = formatted;
+          }
+          onChangeRef.current(formatted);
         });
 
         autocompleteRef.current = autocomplete;
@@ -100,7 +116,12 @@ export default function AddressInput({
         autocompleteRef.current = null;
       }
     };
-  }, [airportCode, autocompleteEnabled, onChange]);
+  }, [airportCode, autocompleteEnabled]);
+
+  function handleInput(event: React.ChangeEvent<HTMLInputElement> | React.FormEvent<HTMLInputElement>) {
+    setLoadError(null);
+    onChange(event.currentTarget.value);
+  }
 
   return (
     <div>
@@ -118,11 +139,9 @@ export default function AddressInput({
         type="text"
         required={required}
         autoComplete={autocompleteEnabled ? "off" : "street-address"}
-        value={value}
-        onChange={(event) => {
-          setLoadError(null);
-          onChange(event.target.value);
-        }}
+        {...(autocompleteEnabled
+          ? { defaultValue: value, onInput: handleInput }
+          : { value, onChange: handleInput })}
         placeholder={placeholder}
         aria-describedby={hintId}
         className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/30 outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30"
