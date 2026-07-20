@@ -131,13 +131,16 @@ const VEHICLE_MULTIPLIERS: Record<(typeof VEHICLE_TYPES)[number], number> = {
   "Minibus (7–8 passengers)": 1.55,
 };
 
-/** Flat one-way adjustment before rounding — estate is the baseline; saloon is cheaper. */
-const VEHICLE_ADJUSTMENTS: Record<(typeof VEHICLE_TYPES)[number], number> = {
+/** Point-to-point only — estate is the baseline; saloon is cheaper. */
+const POINT_TO_POINT_VEHICLE_ADJUSTMENTS: Record<(typeof VEHICLE_TYPES)[number], number> = {
   "Estate Car (1–4 passengers)": 0,
   "Standard Saloon (1–4 passengers)": -10,
   "Executive Saloon (1–4 passengers)": 0,
   "Minibus (7–8 passengers)": 0,
 };
+
+/** Estate is saloon + £10; executive and minibus scale from the estate tier. */
+const AIRPORT_ESTATE_PREMIUM = 10;
 
 export type QuoteResult = {
   amount: number;
@@ -196,10 +199,53 @@ function getPointToPointAreaRate(area: Area | null): number {
   return POINT_TO_POINT_AREA_RATES[area] ?? POINT_TO_POINT_AREA_RATES.default;
 }
 
-function applyVehiclePricing(subtotal: number, vehicleType: (typeof VEHICLE_TYPES)[number]): number {
+function applyPointToPointVehiclePricing(
+  subtotal: number,
+  vehicleType: (typeof VEHICLE_TYPES)[number],
+): number {
   const vehicleMultiplier = VEHICLE_MULTIPLIERS[vehicleType] ?? 1;
-  const vehicleAdjustment = VEHICLE_ADJUSTMENTS[vehicleType] ?? 0;
+  const vehicleAdjustment = POINT_TO_POINT_VEHICLE_ADJUSTMENTS[vehicleType] ?? 0;
   return subtotal * vehicleMultiplier + vehicleAdjustment;
+}
+
+function applyAirportVehiclePricing(
+  saloonOneWay: number,
+  vehicleType: (typeof VEHICLE_TYPES)[number],
+): number {
+  const estateTier = saloonOneWay + AIRPORT_ESTATE_PREMIUM;
+
+  switch (vehicleType) {
+    case "Standard Saloon (1–4 passengers)":
+      return saloonOneWay;
+    case "Estate Car (1–4 passengers)":
+      return estateTier;
+    case "Executive Saloon (1–4 passengers)":
+      return roundToNearestFive(estateTier * VEHICLE_MULTIPLIERS[vehicleType]);
+    case "Minibus (7–8 passengers)":
+      return roundToNearestFive(estateTier * VEHICLE_MULTIPLIERS[vehicleType]);
+    default:
+      return saloonOneWay;
+  }
+}
+
+function getAirportVehiclePricingMeta(
+  vehicleType: (typeof VEHICLE_TYPES)[number],
+): { vehicleMultiplier: number; vehicleAdjustment: number } {
+  if (vehicleType === "Standard Saloon (1–4 passengers)") {
+    return { vehicleMultiplier: 1, vehicleAdjustment: 0 };
+  }
+  if (vehicleType === "Estate Car (1–4 passengers)") {
+    return { vehicleMultiplier: 1, vehicleAdjustment: AIRPORT_ESTATE_PREMIUM };
+  }
+
+  return {
+    vehicleMultiplier: VEHICLE_MULTIPLIERS[vehicleType] ?? 1,
+    vehicleAdjustment: AIRPORT_ESTATE_PREMIUM,
+  };
+}
+
+function computeSaloonAirportOneWay(airportCode: string, basePlusSurcharge: number): number {
+  return applyAirportMinimumFare(airportCode, roundToNearestFive(basePlusSurcharge));
 }
 
 /** Minimum one-way airport transfer fare by airport code. */
@@ -290,8 +336,8 @@ export function calculatePointToPointQuote(
   }
 
   const vehicleMultiplier = VEHICLE_MULTIPLIERS[vehicleType] ?? 1;
-  const vehicleAdjustment = VEHICLE_ADJUSTMENTS[vehicleType] ?? 0;
-  const oneWay = applyVehiclePricing(oneWaySubtotal, vehicleType);
+  const vehicleAdjustment = POINT_TO_POINT_VEHICLE_ADJUSTMENTS[vehicleType] ?? 0;
+  const oneWay = applyPointToPointVehiclePricing(oneWaySubtotal, vehicleType);
   const baseSubtotal = returnJourney ? oneWay * 2 : oneWay;
   const premium = applyPointToPointPremium(oneWay, {
     ...schedule,
@@ -318,7 +364,7 @@ export function getPointToPointFromPrice(
   returnJourney = false,
 ): number {
   const vehicleMultiplier = VEHICLE_MULTIPLIERS[vehicleType] ?? 1;
-  const vehicleAdjustment = VEHICLE_ADJUSTMENTS[vehicleType] ?? 0;
+  const vehicleAdjustment = POINT_TO_POINT_VEHICLE_ADJUSTMENTS[vehicleType] ?? 0;
   const oneWay = roundToNearestFive(POINT_TO_POINT_BASE * vehicleMultiplier + vehicleAdjustment);
   return returnJourney ? roundToNearestFive(oneWay * 2) : oneWay;
 }
@@ -341,14 +387,12 @@ export function calculateQuote(
 
   const matchedArea = matchAreaFromAddress(trimmedAddress);
   const areaSurcharge = getAreaSurcharge(airportCode, matchedArea);
-  const vehicleMultiplier = VEHICLE_MULTIPLIERS[vehicleType] ?? 1;
-  const vehicleAdjustment = VEHICLE_ADJUSTMENTS[vehicleType] ?? 0;
-  const oneWaySubtotal =
-    (airport.basePrice + areaSurcharge) * vehicleMultiplier + vehicleAdjustment;
-  const oneWayFare = applyAirportMinimumFare(
+  const saloonOneWay = computeSaloonAirportOneWay(
     airportCode,
-    roundToNearestFive(oneWaySubtotal),
+    airport.basePrice + areaSurcharge,
   );
+  const { vehicleMultiplier, vehicleAdjustment } = getAirportVehiclePricingMeta(vehicleType);
+  const oneWayFare = applyAirportVehiclePricing(saloonOneWay, vehicleType);
   const subtotal = returnJourney ? oneWayFare * 2 : oneWayFare;
 
   return {
@@ -371,12 +415,8 @@ export function getAirportFromPrice(
     return null;
   }
 
-  const vehicleMultiplier = VEHICLE_MULTIPLIERS[vehicleType] ?? 1;
-  const vehicleAdjustment = VEHICLE_ADJUSTMENTS[vehicleType] ?? 0;
-  const oneWay = applyAirportMinimumFare(
-    airportCode,
-    roundToNearestFive(airport.basePrice * vehicleMultiplier + vehicleAdjustment),
-  );
+  const saloonOneWay = computeSaloonAirportOneWay(airportCode, airport.basePrice);
+  const oneWay = applyAirportVehiclePricing(saloonOneWay, vehicleType);
   return returnJourney ? oneWay * 2 : oneWay;
 }
 
