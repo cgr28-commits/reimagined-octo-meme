@@ -418,10 +418,10 @@ function QuoteCard() {
               </p>
               <p className="mt-1 text-3xl font-bold text-white">{formatQuote(liveQuote.amount)}</p>
               <p className="mt-2 text-xs text-white/60">
-                {liveQuote.area
-                  ? `Includes ${liveQuote.area} area rate`
-                  : "Estimate based on your address — final fare confirmed on WhatsApp"}
+                {vehicle.split(" (")[0]}
+                {liveQuote.area ? ` · ${liveQuote.area} area rate` : " · estimate based on your address"}
                 {returnJourney ? " · Return journey (both legs)" : ""}
+                {" · Final fare confirmed on WhatsApp"}
               </p>
             </>
           ) : fromPrice ? (
@@ -429,7 +429,8 @@ function QuoteCard() {
               <p className="text-xs font-medium uppercase tracking-wider text-emerald">From</p>
               <p className="mt-1 text-3xl font-bold text-white">{formatQuote(fromPrice)}</p>
               <p className="mt-2 text-xs text-white/60">
-                Enter your {isFromAirport ? "drop-off" : "pickup"} address for an exact live quote
+                {vehicle.split(" (")[0]} · Enter your {isFromAirport ? "drop-off" : "pickup"} address
+                for an exact live quote
                 {returnJourney ? " · Return pricing shown once address is added" : ""}
               </p>
             </>

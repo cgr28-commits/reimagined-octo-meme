@@ -123,12 +123,21 @@ const VEHICLE_MULTIPLIERS: Record<(typeof VEHICLE_TYPES)[number], number> = {
   "Minibus (7–8 passengers)": 1.55,
 };
 
+/** Flat one-way adjustment before rounding — estate is the baseline; saloon is cheaper. */
+const VEHICLE_ADJUSTMENTS: Record<(typeof VEHICLE_TYPES)[number], number> = {
+  "Estate Car (1–4 passengers)": 0,
+  "Standard Saloon (1–4 passengers)": -5,
+  "Executive Saloon (1–4 passengers)": 0,
+  "Minibus (7–8 passengers)": 0,
+};
+
 export type QuoteResult = {
   amount: number;
   area: string | null;
   areaSurcharge: number;
   airportBase: number;
   vehicleMultiplier: number;
+  vehicleAdjustment: number;
 };
 
 function roundToNearestFive(value: number): number {
@@ -188,7 +197,9 @@ export function calculateQuote(
   const matchedArea = matchAreaFromAddress(trimmedAddress);
   const areaSurcharge = getAreaSurcharge(airportCode, matchedArea);
   const vehicleMultiplier = VEHICLE_MULTIPLIERS[vehicleType] ?? 1;
-  const oneWaySubtotal = (airport.basePrice + areaSurcharge) * vehicleMultiplier;
+  const vehicleAdjustment = VEHICLE_ADJUSTMENTS[vehicleType] ?? 0;
+  const oneWaySubtotal =
+    (airport.basePrice + areaSurcharge) * vehicleMultiplier + vehicleAdjustment;
   const subtotal = returnJourney ? oneWaySubtotal * 2 : oneWaySubtotal;
 
   return {
@@ -197,6 +208,7 @@ export function calculateQuote(
     areaSurcharge,
     airportBase: airport.basePrice,
     vehicleMultiplier,
+    vehicleAdjustment,
   };
 }
 
@@ -211,7 +223,8 @@ export function getAirportFromPrice(
   }
 
   const vehicleMultiplier = VEHICLE_MULTIPLIERS[vehicleType] ?? 1;
-  const oneWay = roundToNearestFive(airport.basePrice * vehicleMultiplier);
+  const vehicleAdjustment = VEHICLE_ADJUSTMENTS[vehicleType] ?? 0;
+  const oneWay = roundToNearestFive(airport.basePrice * vehicleMultiplier + vehicleAdjustment);
   return returnJourney ? roundToNearestFive(oneWay * 2) : oneWay;
 }
 
