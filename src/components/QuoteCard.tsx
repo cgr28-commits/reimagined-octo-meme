@@ -31,6 +31,39 @@ function getAutoVehicle(passengers: number, suitcases: number): VehicleType | nu
   return null;
 }
 
+function formatDisplayDate(date: string): string {
+  if (!date) {
+    return "";
+  }
+
+  return new Date(`${date}T12:00:00`).toLocaleDateString("en-GB", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+function formatDisplayTime(time: string): string {
+  if (!time) {
+    return "";
+  }
+
+  const [hours, minutes] = time.split(":");
+  const parsed = new Date();
+  parsed.setHours(Number(hours), Number(minutes));
+  return parsed.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+}
+
+function PreviewRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex flex-col gap-0.5 border-b border-white/10 py-2.5 last:border-b-0 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+      <dt className="text-xs font-medium uppercase tracking-wider text-white/45">{label}</dt>
+      <dd className="text-sm text-white sm:max-w-[65%] sm:text-right">{value}</dd>
+    </div>
+  );
+}
+
 function parseDateTime(date: string, time: string): Date {
   return new Date(`${date}T${time}`);
 }
@@ -46,6 +79,8 @@ function isReturnAfterOutbound(
 
 function QuoteCard() {
   const [submitted, setSubmitted] = useState(false);
+  const [showBookingPreview, setShowBookingPreview] = useState(false);
+  const [customerName, setCustomerName] = useState("");
   const [tripMode, setTripMode] = useState<TripMode>("airport");
   const [tripDirection, setTripDirection] = useState<TripDirection>("to-airport");
   const [airportCode, setAirportCode] = useState("");
@@ -165,76 +200,69 @@ function QuoteCard() {
 
   const canBookAirport = !isAirportTrip || Boolean(flightNumber.trim());
 
-  function handleSubmit(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    const form = e.currentTarget;
-    const data = new FormData(form);
+  const airportName =
+    AIRPORTS.find((a) => a.code === airportCode)?.name ?? airportCode;
 
-    const pickup = (data.get("pickup") as string).trim();
-    const dropoff = (data.get("dropoff") as string).trim();
-    const airportCodeValue = (data.get("destination") as string).trim();
-    const airportName =
-      AIRPORTS.find((a) => a.code === airportCodeValue)?.name ?? airportCodeValue;
-    const date = tripDate;
-    const time = tripTime;
-    const returnDateValue = returnJourney ? returnDate : "";
-    const returnTimeValue = returnJourney ? returnTime : "";
+  const pickupLabel = isAirportTrip
+    ? isFromAirport
+      ? airportName
+      : pickupAddress.trim()
+    : pickupAddress.trim();
 
+  const dropoffLabel = isAirportTrip
+    ? isFromAirport
+      ? dropoffAddress.trim()
+      : airportName
+    : dropoffAddress.trim();
+
+  function validateBooking(): boolean {
     if (returnJourney) {
-      if (!returnDateValue || !returnTimeValue) {
+      if (!returnDate || !returnTime) {
         setReturnDateError("Please select a return date and time.");
-        return;
+        return false;
       }
-      if (!isReturnAfterOutbound(date, time, returnDateValue, returnTimeValue)) {
+      if (!isReturnAfterOutbound(tripDate, tripTime, returnDate, returnTime)) {
         setReturnDateError("Return date and time must be after your outbound trip.");
-        return;
+        return false;
       }
     }
     setReturnDateError("");
 
-    const passengers = data.get("passengers") as string;
-    const suitcases = data.get("suitcases") as string;
-    const vehicleType = data.get("vehicle") as string;
-    const flightNumberValue = flightNumber.trim();
-    const name = data.get("name") as string;
-
-    if (isAirportTrip && !flightNumberValue) {
+    if (isAirportTrip && !flightNumber.trim()) {
       setFlightNumberError("Please enter your flight number to book.");
-      return;
+      return false;
     }
     setFlightNumberError("");
 
-    let tripLabel: string;
-    let pickupLabel: string;
-    let destinationLabel: string;
+    return true;
+  }
 
-    if (isAirportTrip) {
-      tripLabel = isFromAirport ? "Airport pickup" : "Airport drop-off";
-      pickupLabel = isFromAirport ? airportName : pickup;
-      destinationLabel = isFromAirport ? dropoff : airportName;
-    } else {
-      tripLabel = "Address to address";
-      pickupLabel = pickup;
-      destinationLabel = dropoff;
-    }
+  function openWhatsAppBooking() {
+    const tripLabel = isAirportTrip
+      ? isFromAirport
+        ? "Airport pickup"
+        : "Airport drop-off"
+      : "Address to address";
 
     const estimatedPrice =
       isAirportTrip && liveQuote ? formatQuote(liveQuote.amount) : null;
 
     const message = encodeURIComponent(
       `Hi, I'd like a quote please.\n\n` +
-        `Name: ${name}\n` +
+        `Name: ${customerName.trim()}\n` +
         `Trip: ${tripLabel}\n` +
         `Pickup: ${pickupLabel}\n` +
-        `Drop-off: ${destinationLabel}\n` +
+        `Drop-off: ${dropoffLabel}\n` +
         `Return journey: ${returnJourney ? "Yes" : "No"}\n` +
-        `${returnJourney ? "Outbound date" : "Date"}: ${date}\n` +
-        `${returnJourney ? "Outbound time" : "Time"}: ${time}\n` +
-        (returnJourney ? `Return date: ${returnDateValue}\nReturn time: ${returnTimeValue}\n` : "") +
-        (isAirportTrip && flightNumberValue ? `Flight number: ${flightNumberValue}\n` : "") +
+        `${returnJourney ? "Outbound date" : "Date"}: ${tripDate}\n` +
+        `${returnJourney ? "Outbound time" : "Time"}: ${tripTime}\n` +
+        (returnJourney ? `Return date: ${returnDate}\nReturn time: ${returnTime}\n` : "") +
+        (isAirportTrip && flightNumber.trim()
+          ? `Flight number: ${flightNumber.trim()}\n`
+          : "") +
         `Passengers: ${passengers}\n` +
         `Suitcases: ${suitcases}\n` +
-        `Vehicle: ${vehicleType}\n` +
+        `Vehicle: ${quoteVehicle}\n` +
         (estimatedPrice
           ? `Estimated price: ${estimatedPrice}\n`
           : !isAirportTrip
@@ -244,7 +272,27 @@ function QuoteCard() {
 
     window.open(`https://wa.me/${SITE.whatsapp}?text=${message}`, "_blank");
     setSubmitted(true);
+    setShowBookingPreview(false);
     setTimeout(() => setSubmitted(false), 4000);
+  }
+
+  function handleSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+
+    if (!validateBooking()) {
+      return;
+    }
+
+    if (!showBookingPreview) {
+      setShowBookingPreview(true);
+      return;
+    }
+
+    openWhatsAppBooking();
+  }
+
+  function handleEditBooking() {
+    setShowBookingPreview(false);
   }
 
   const quoteHint = isAirportTrip
@@ -384,6 +432,11 @@ function QuoteCard() {
             name="name"
             type="text"
             required
+            value={customerName}
+            onChange={(e) => {
+              setCustomerName(e.target.value);
+              setShowBookingPreview(false);
+            }}
             placeholder="John Smith"
             className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/30 outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30"
           />
@@ -724,21 +777,97 @@ function QuoteCard() {
           </p>
         </div>
 
-        <button
-          type="submit"
-          disabled={isAirportTrip && liveQuote != null && !canBookAirport}
-          className="w-full rounded-xl bg-emerald py-3.5 text-sm font-bold text-navy transition-all hover:bg-emerald-light hover:shadow-lg hover:shadow-emerald/25 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {submitted
-            ? "Opening WhatsApp…"
-            : isAirportTrip && liveQuote && !canBookAirport
-              ? "Enter flight number to book"
-              : isAirportTrip && liveQuote
-                ? `Book for ${formatQuote(liveQuote.amount)} via WhatsApp`
-                : isAirportTrip
-                  ? "Send via WhatsApp"
-                  : "Send details for a quote via WhatsApp"}
-        </button>
+        {showBookingPreview && (
+          <div className="rounded-xl border border-white/15 bg-white/[0.04] px-4 py-4 sm:px-5">
+            <div className="mb-4">
+              <p className="text-xs font-medium uppercase tracking-wider text-emerald">
+                Review your booking
+              </p>
+              <p className="mt-1 text-sm text-white/60">
+                Please check everything is correct before booking — wrong details can change your
+                price.
+              </p>
+            </div>
+            <dl>
+              <PreviewRow label="Name" value={customerName.trim()} />
+              <PreviewRow
+                label="Trip"
+                value={
+                  isAirportTrip
+                    ? isFromAirport
+                      ? "Airport pickup"
+                      : "Airport drop-off"
+                    : "Address to address"
+                }
+              />
+              {isAirportTrip && airportName && (
+                <PreviewRow label="Airport" value={`${airportName} (${airportCode})`} />
+              )}
+              <PreviewRow label="Pickup" value={pickupLabel} />
+              <PreviewRow label="Drop-off" value={dropoffLabel} />
+              <PreviewRow
+                label={returnJourney ? "Outbound" : "Date & time"}
+                value={`${formatDisplayDate(tripDate)} at ${formatDisplayTime(tripTime)}`}
+              />
+              {returnJourney && (
+                <PreviewRow
+                  label="Return"
+                  value={`${formatDisplayDate(returnDate)} at ${formatDisplayTime(returnTime)}`}
+                />
+              )}
+              {isAirportTrip && (
+                <PreviewRow label="Flight number" value={flightNumber.trim().toUpperCase()} />
+              )}
+              <PreviewRow label="Passengers" value={String(passengers)} />
+              <PreviewRow label="Suitcases" value={String(suitcases)} />
+              <PreviewRow label="Vehicle" value={quoteVehicle} />
+              {isAirportTrip && liveQuote && (
+                <PreviewRow
+                  label={returnJourney ? "Estimated return price" : "Estimated price"}
+                  value={formatQuote(liveQuote.amount)}
+                />
+              )}
+            </dl>
+          </div>
+        )}
+
+        {showBookingPreview ? (
+          <div className="grid gap-3 sm:grid-cols-2">
+            <button
+              type="button"
+              onClick={handleEditBooking}
+              className="w-full rounded-xl border border-white/15 bg-white/5 py-3.5 text-sm font-semibold text-white transition-all hover:bg-white/10"
+            >
+              Edit details
+            </button>
+            <button
+              type="submit"
+              className="w-full rounded-xl bg-emerald py-3.5 text-sm font-bold text-navy transition-all hover:bg-emerald-light hover:shadow-lg hover:shadow-emerald/25"
+            >
+              {submitted
+                ? "Opening WhatsApp…"
+                : isAirportTrip && liveQuote
+                  ? `Confirm & book for ${formatQuote(liveQuote.amount)}`
+                  : "Confirm & send via WhatsApp"}
+            </button>
+          </div>
+        ) : (
+          <button
+            type="submit"
+            disabled={isAirportTrip && liveQuote != null && !canBookAirport}
+            className="w-full rounded-xl bg-emerald py-3.5 text-sm font-bold text-navy transition-all hover:bg-emerald-light hover:shadow-lg hover:shadow-emerald/25 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {submitted
+              ? "Opening WhatsApp…"
+              : isAirportTrip && liveQuote && !canBookAirport
+                ? "Enter flight number to book"
+                : isAirportTrip && liveQuote
+                  ? "Review booking"
+                  : isAirportTrip
+                    ? "Send via WhatsApp"
+                    : "Review & send via WhatsApp"}
+          </button>
+        )}
       </form>
     </div>
   );
