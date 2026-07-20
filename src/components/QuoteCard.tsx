@@ -93,8 +93,12 @@ function QuoteCard() {
     return () => window.removeEventListener("quote-prefill-airport", handlePrefill);
   }, []);
 
+  const isScheduleComplete =
+    Boolean(tripDate && tripTime) &&
+    (!returnJourney || Boolean(returnDate && returnTime));
+
   const liveQuote = useMemo(() => {
-    if (!isAirportTrip) {
+    if (!isAirportTrip || !isScheduleComplete) {
       return null;
     }
 
@@ -111,6 +115,7 @@ function QuoteCard() {
     dropoffAddress,
     isAirportTrip,
     isFromAirport,
+    isScheduleComplete,
     pickupAddress,
     returnDate,
     returnJourney,
@@ -121,12 +126,12 @@ function QuoteCard() {
   ]);
 
   const fromPrice = useMemo(() => {
-    if (!isAirportTrip) {
+    if (!isAirportTrip || !isScheduleComplete) {
       return null;
     }
 
     return airportCode ? getAirportFromPrice(airportCode, vehicle, returnJourney) : null;
-  }, [airportCode, isAirportTrip, returnJourney, vehicle]);
+  }, [airportCode, isAirportTrip, isScheduleComplete, returnJourney, vehicle]);
 
   function handlePickupChange(value: string) {
     setPickupAddress(value);
@@ -219,11 +224,15 @@ function QuoteCard() {
   }
 
   const quoteHint = isAirportTrip
-    ? fromPrice && !liveQuote
-      ? `Enter your ${isFromAirport ? "drop-off" : "pickup"} address to see your price`
-      : !fromPrice
-        ? "Select an airport and enter your address to see your price"
-        : ""
+    ? !isScheduleComplete
+      ? returnJourney && tripDate && tripTime && (!returnDate || !returnTime)
+        ? "Select your return date and time to see your estimated price"
+        : "Select your date and time to see your estimated price"
+      : fromPrice && !liveQuote
+        ? `Enter your ${isFromAirport ? "drop-off" : "pickup"} address to see your estimated price`
+        : !fromPrice
+          ? "Select an airport and enter your address to see your estimated price"
+          : ""
     : "Fill in your journey details and send via WhatsApp — we'll confirm your fare personally.";
 
   return (
