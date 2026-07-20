@@ -212,12 +212,15 @@ function applyPointToPointVehiclePricing(
 function applyAirportVehiclePricing(
   saloonOneWay: number,
   vehicleType: (typeof VEHICLE_TYPES)[number],
+  airportCode: string,
 ): number {
-  const estateTier = saloonOneWay + AIRPORT_ESTATE_PREMIUM;
+  const airportMinimum = AIRPORT_MINIMUM_FARE[airportCode] ?? 0;
+  const saloonFare = Math.max(saloonOneWay, airportMinimum);
+  const estateTier = saloonFare + AIRPORT_ESTATE_PREMIUM;
 
   switch (vehicleType) {
     case "Standard Saloon (1–4 passengers)":
-      return saloonOneWay;
+      return saloonFare;
     case "Estate Car (1–4 passengers)":
       return estateTier;
     case "Executive Saloon (1–4 passengers)":
@@ -228,7 +231,7 @@ function applyAirportVehiclePricing(
     case "Minibus (7–8 passengers)":
       return roundToNearestFive(estateTier * VEHICLE_MULTIPLIERS[vehicleType]);
     default:
-      return saloonOneWay;
+      return saloonFare;
   }
 }
 
@@ -254,11 +257,11 @@ function computeSaloonAirportOneWay(airportCode: string, basePlusSurcharge: numb
   return fare % 5 === 4 ? fare : roundToNearestFive(fare);
 }
 
-/** Minimum one-way airport transfer fare by airport code. */
+/** Minimum one-way saloon airport transfer fare by airport code. */
 const AIRPORT_MINIMUM_FARE: Record<string, number> = {
   BFS: 45,
   BHD: 35,
-  DUB: 230,
+  DUB: 180,
 };
 
 function applyAirportMinimumFare(airportCode: string, oneWayAmount: number): number {
@@ -412,7 +415,7 @@ export function calculateQuote(
     airport.basePrice + areaSurcharge,
   );
   const { vehicleMultiplier, vehicleAdjustment } = getAirportVehiclePricingMeta(vehicleType);
-  const oneWayFare = applyAirportVehiclePricing(saloonOneWay, vehicleType);
+  const oneWayFare = applyAirportVehiclePricing(saloonOneWay, vehicleType, airportCode);
   const premium = applyTripPremium(oneWayFare, { ...schedule, returnJourney });
 
   return {
@@ -437,7 +440,7 @@ export function getAirportFromPrice(
   }
 
   const saloonOneWay = computeSaloonAirportOneWay(airportCode, airport.basePrice);
-  const oneWay = applyAirportVehiclePricing(saloonOneWay, vehicleType);
+  const oneWay = applyAirportVehiclePricing(saloonOneWay, vehicleType, airportCode);
   return returnJourney ? oneWay * 2 : oneWay;
 }
 
