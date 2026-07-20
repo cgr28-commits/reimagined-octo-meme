@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, memo, useEffect, useState } from "react";
 import AddressInput from "@/components/AddressInput";
 import { AIRPORTS, SITE, VEHICLE_TYPES } from "@/lib/data";
 import { readPrefillAirport } from "@/lib/quote-prefill";
@@ -22,11 +22,12 @@ function isReturnAfterOutbound(
   return parseDateTime(returnDate, returnTime) > parseDateTime(outboundDate, outboundTime);
 }
 
-export default function QuoteCard() {
+function QuoteCard() {
   const [submitted, setSubmitted] = useState(false);
   const [tripDirection, setTripDirection] = useState<TripDirection>("to-airport");
   const [airportCode, setAirportCode] = useState("");
   const [address, setAddress] = useState("");
+  const [addressReady, setAddressReady] = useState(false);
   const [returnJourney, setReturnJourney] = useState(false);
   const [returnDateError, setReturnDateError] = useState("");
   const [vehicle, setVehicle] = useState<(typeof VEHICLE_TYPES)[number]>(
@@ -38,6 +39,7 @@ export default function QuoteCard() {
     if (saved) {
       setAddress(saved);
     }
+    setAddressReady(true);
   }, []);
 
   useEffect(() => {
@@ -142,7 +144,7 @@ export default function QuoteCard() {
   }
 
   return (
-    <div className="glass-card animate-float rounded-2xl p-6 sm:p-8">
+    <div className="glass-card rounded-2xl p-6 sm:p-8 lg:animate-float">
       <div className="mb-6">
         <h2 className="text-xl font-bold text-white sm:text-2xl">Request a Quote</h2>
         <p className="mt-1 text-sm text-white/60">
@@ -250,6 +252,7 @@ export default function QuoteCard() {
         </div>
 
         <AddressInput
+          key={addressReady ? "address-ready" : "address-loading"}
           id="pickup"
           name="pickup"
           value={address}
@@ -400,3 +403,5 @@ export default function QuoteCard() {
     </div>
   );
 }
+
+export default memo(QuoteCard);

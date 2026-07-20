@@ -45,14 +45,6 @@ export default function AddressInput({
   }, [onChange]);
 
   useEffect(() => {
-    if (!autocompleteEnabled || !inputRef.current || inputRef.current.value === value) {
-      return;
-    }
-
-    inputRef.current.value = value;
-  }, [autocompleteEnabled, value]);
-
-  useEffect(() => {
     if (!autocompleteEnabled || !inputRef.current) {
       return;
     }
@@ -65,11 +57,12 @@ export default function AddressInput({
           return;
         }
 
+        const input = inputRef.current;
         const countries = airportCode === "DUB" ? (["gb", "ie"] as const) : (["gb"] as const);
-        const autocomplete = new window.google.maps.places.Autocomplete(inputRef.current, {
+        const autocomplete = new window.google.maps.places.Autocomplete(input, {
           componentRestrictions: { country: [...countries] },
           fields: ["formatted_address", "address_components"],
-          types: ["address"],
+          types: ["geocode"],
         });
 
         autocomplete.addListener("place_changed", () => {
@@ -95,9 +88,7 @@ export default function AddressInput({
           }
 
           setLoadError(null);
-          if (inputRef.current) {
-            inputRef.current.value = formatted;
-          }
+          input.value = formatted;
           onChangeRef.current(formatted);
         });
 
@@ -118,9 +109,9 @@ export default function AddressInput({
     };
   }, [airportCode, autocompleteEnabled]);
 
-  function handleInput(event: React.ChangeEvent<HTMLInputElement> | React.FormEvent<HTMLInputElement>) {
+  function handleInput(event: React.FormEvent<HTMLInputElement>) {
     setLoadError(null);
-    onChange(event.currentTarget.value);
+    onChangeRef.current(event.currentTarget.value);
   }
 
   return (
@@ -139,12 +130,11 @@ export default function AddressInput({
         type="text"
         required={required}
         autoComplete={autocompleteEnabled ? "off" : "street-address"}
-        {...(autocompleteEnabled
-          ? { defaultValue: value, onInput: handleInput }
-          : { value, onChange: handleInput })}
+        defaultValue={value}
+        onInput={handleInput}
         placeholder={placeholder}
         aria-describedby={hintId}
-        className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/30 outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30"
+        className="address-input w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/30 outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30"
       />
 
       <p id={hintId} className="mt-1.5 text-xs text-white/40">
