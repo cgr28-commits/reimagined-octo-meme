@@ -30,12 +30,12 @@ const BFS_AREA_SURCHARGES: Partial<Record<Area, number>> & { default: number } =
   Portadown: 30,
   Armagh: 32,
   Newry: 35,
-  Cookstown: 35,
-  Coleraine: 40,
-  Omagh: 50,
-  "Derry / Londonderry": 55,
-  Enniskillen: 60,
-  default: 22,
+  Cookstown: 50,
+  Coleraine: 55,
+  Omagh: 120,
+  "Derry / Londonderry": 75,
+  Enniskillen: 150,
+  default: 35,
 };
 
 const BHD_AREA_SURCHARGES: Partial<Record<Area, number>> & { default: number } = {
@@ -60,12 +60,12 @@ const BHD_AREA_SURCHARGES: Partial<Record<Area, number>> & { default: number } =
   Portadown: 25,
   Armagh: 28,
   Newry: 30,
-  Cookstown: 32,
-  Coleraine: 38,
-  Omagh: 45,
-  "Derry / Londonderry": 50,
-  Enniskillen: 55,
-  default: 15,
+  Cookstown: 55,
+  Coleraine: 60,
+  Omagh: 130,
+  "Derry / Londonderry": 85,
+  Enniskillen: 165,
+  default: 25,
 };
 
 const DUB_AREA_SURCHARGES: Partial<Record<Area, number>> & { default: number } = {
@@ -117,11 +117,11 @@ export const AREA_SURCHARGES: Record<Area, number> = {
   Armagh: 32,
   Portadown: 30,
   Lurgan: 28,
-  Coleraine: 40,
-  Cookstown: 35,
-  Omagh: 50,
-  "Derry / Londonderry": 55,
-  Enniskillen: 60,
+  Coleraine: 55,
+  Cookstown: 50,
+  Omagh: 120,
+  "Derry / Londonderry": 75,
+  Enniskillen: 150,
 };
 
 const VEHICLE_MULTIPLIERS: Record<(typeof VEHICLE_TYPES)[number], number> = {
@@ -292,7 +292,13 @@ export function matchAreaFromAddress(address: string): Area | null {
 
     const aliases = [area.toLowerCase()];
     if (area === "Derry / Londonderry") {
-      aliases.push("derry", "londonderry");
+      aliases.push("derry", "londonderry", "bt47", "bt48");
+    }
+    if (area === "Enniskillen") {
+      aliases.push("fermanagh", "county fermanagh", "bt74", "bt92", "bt93", "bt94");
+    }
+    if (area === "Omagh") {
+      aliases.push("tyrone", "county tyrone", "bt78", "bt79");
     }
     if (area === "Newcastle") {
       aliases.push("newcastle, county down", "newcastle co down", "newcastle, co down");
