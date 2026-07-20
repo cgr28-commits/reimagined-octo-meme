@@ -207,7 +207,7 @@ function QuoteCard() {
         `Suitcases: ${suitcases}\n` +
         `Vehicle: ${vehicleType}\n` +
         (estimatedPrice
-          ? `Price: ${estimatedPrice}\n`
+          ? `Estimated price: ${estimatedPrice}\n`
           : !isAirportTrip
             ? "Please provide a personal quote for this journey.\n"
             : ""),
@@ -232,7 +232,7 @@ function QuoteCard() {
         <h2 className="text-xl font-bold text-white sm:text-2xl">Get a Live Quote</h2>
         <p className="mt-1 text-sm text-white/60">
           {isAirportTrip
-            ? "See your airport transfer price instantly, then book via WhatsApp"
+            ? "See your estimated price instantly, then book via WhatsApp"
             : "Send your address-to-address trip details and we'll quote you personally"}
         </p>
       </div>
@@ -627,7 +627,9 @@ function QuoteCard() {
           {isAirportTrip ? (
             liveQuote ? (
               <>
-                <p className="text-xs font-medium uppercase tracking-wider text-emerald">Price</p>
+                <p className="text-xs font-medium uppercase tracking-wider text-emerald">
+                  {returnJourney ? "Estimated return price" : "Estimated price"}
+                </p>
                 <p className="mt-1 text-3xl font-bold text-white">{formatQuote(liveQuote.amount)}</p>
                 <p className="mt-2 text-xs text-white/60">{vehicle.split(" (")[0]}</p>
               </>
@@ -645,7 +647,9 @@ function QuoteCard() {
               </>
             ) : (
               <>
-                <p className="text-xs font-medium uppercase tracking-wider text-white/50">Price</p>
+                <p className="text-xs font-medium uppercase tracking-wider text-white/50">
+                  Estimated price
+                </p>
                 <p className="mt-1 text-sm text-white/70">{quoteHint}</p>
               </>
             )
