@@ -123,6 +123,7 @@ export const AREAS = [
   "Portadown",
   "Lurgan",
   "Downpatrick",
+  "Newcastle",
   "Larne",
   "Banbridge",
   "Enniskillen",

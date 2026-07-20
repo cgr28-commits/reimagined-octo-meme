@@ -24,6 +24,7 @@ const BFS_AREA_SURCHARGES: Partial<Record<Area, number>> & { default: number } =
   Larne: 22,
   Ballymena: 25,
   Downpatrick: 25,
+  Newcastle: 30,
   Banbridge: 28,
   Lurgan: 28,
   Portadown: 30,
@@ -53,6 +54,7 @@ const BHD_AREA_SURCHARGES: Partial<Record<Area, number>> & { default: number } =
   Ballymena: 30,
   Larne: 20,
   Downpatrick: 22,
+  Newcastle: 28,
   Banbridge: 25,
   Lurgan: 22,
   Portadown: 25,
@@ -109,6 +111,7 @@ export const AREA_SURCHARGES: Record<Area, number> = {
   Ballymena: 25,
   Larne: 22,
   Downpatrick: 25,
+  Newcastle: 30,
   Banbridge: 28,
   Newry: 35,
   Armagh: 32,
@@ -190,6 +193,9 @@ export function matchAreaFromAddress(address: string): Area | null {
     if (area === "Derry / Londonderry") {
       aliases.push("derry", "londonderry");
     }
+    if (area === "Newcastle") {
+      aliases.push("newcastle, county down", "newcastle co down", "newcastle, co down");
+    }
 
     if (aliases.some((alias) => normalised.includes(alias))) {
       return area;
@@ -198,6 +204,10 @@ export function matchAreaFromAddress(address: string): Area | null {
 
   if (/\bbelfast\b/.test(normalised)) {
     return "Belfast City Centre";
+  }
+
+  if (/\bnewcastle\b/.test(normalised)) {
+    return "Newcastle";
   }
 
   return null;
@@ -225,10 +235,8 @@ export function calculatePointToPointQuote(
   if (pickupArea && dropoffArea && pickupArea === dropoffArea) {
     oneWaySubtotal = POINT_TO_POINT_BASE + pickupCharge * 0.55;
   } else {
-    oneWaySubtotal =
-      POINT_TO_POINT_BASE +
-      (pickupCharge + dropoffCharge) * 0.45 +
-      Math.abs(pickupCharge - dropoffCharge) * 0.35;
+    // Sum both area distance bands — better reflects cross-county journeys.
+    oneWaySubtotal = POINT_TO_POINT_BASE + pickupCharge + dropoffCharge;
   }
 
   const vehicleMultiplier = VEHICLE_MULTIPLIERS[vehicleType] ?? 1;
