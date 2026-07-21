@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, memo, useEffect, useMemo, useState } from "react";
+import { FormEvent, memo, useCallback, useEffect, useMemo, useState } from "react";
 import AddressInput from "@/components/AddressInput";
 import TripMap from "@/components/TripMap";
 import { buildBookingMessage, isValidEmailAddress, isValidMobileNumber, type BookingDetails } from "@/lib/booking-message";
@@ -13,6 +13,7 @@ import {
   formatQuote,
 } from "@/lib/quote";
 import { submitBookingByEmail } from "@/lib/submit-booking";
+import type { RouteSummary } from "@/lib/trip-route";
 
 type TripMode = "airport" | "address";
 type TripDirection = "to-airport" | "from-airport";
@@ -108,6 +109,11 @@ function QuoteCard() {
   const [vehicle, setVehicle] = useState<VehicleType>(VEHICLE_TYPES[0]);
   const [passengers, setPassengers] = useState(1);
   const [suitcases, setSuitcases] = useState(1);
+  const [routeSummary, setRouteSummary] = useState<RouteSummary | null>(null);
+
+  const handleRouteInfo = useCallback((summary: RouteSummary | null) => {
+    setRouteSummary(summary);
+  }, []);
 
   const autoVehicle = getAutoVehicle(passengers, suitcases);
   const quoteVehicle = autoVehicle ?? vehicle;
@@ -298,6 +304,7 @@ function QuoteCard() {
       : "Address to address";
 
     const estimatedPrice = liveQuote ? formatQuote(liveQuote.amount) : null;
+    const journeySuffix = returnJourney ? " (return)" : "";
 
     return {
       customerName: customerName.trim(),
@@ -316,6 +323,12 @@ function QuoteCard() {
       suitcases,
       vehicle: quoteVehicle,
       estimatedPrice,
+      journeyDistance: routeSummary
+        ? `${routeSummary.distanceLabel}${journeySuffix}`
+        : null,
+      journeyDuration: routeSummary
+        ? `${routeSummary.durationLabel}${journeySuffix}`
+        : null,
       isAirportTrip,
     };
   }
@@ -734,6 +747,8 @@ function QuoteCard() {
           }
           airportCode={airportCode}
           tripDirection={tripDirection}
+          returnJourney={returnJourney}
+          onRouteInfo={handleRouteInfo}
         />
 
         <div className="grid gap-4 sm:grid-cols-2">
@@ -991,6 +1006,18 @@ function QuoteCard() {
               )}
               <PreviewRow label="Pickup" value={pickupLabel} />
               <PreviewRow label="Drop-off" value={dropoffLabel} />
+              {routeSummary && (
+                <>
+                  <PreviewRow
+                    label={returnJourney ? "Journey distance (return)" : "Journey distance"}
+                    value={routeSummary.distanceLabel}
+                  />
+                  <PreviewRow
+                    label={returnJourney ? "Estimated journey time (return)" : "Estimated journey time"}
+                    value={routeSummary.durationLabel}
+                  />
+                </>
+              )}
               <PreviewRow
                 label={returnJourney ? "Outbound" : "Date & time"}
                 value={`${formatDisplayDate(tripDate)} at ${formatDisplayTime(tripTime)}`}
