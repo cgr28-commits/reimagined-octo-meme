@@ -138,7 +138,9 @@ export default function TourBookingForm({
       setShowPreview(false);
       setEnquirySent(true);
     } catch {
-      setSubmitError("We couldn't send your booking by email. Please try again or email us directly.");
+      setSubmitError(
+        `We couldn't confirm your booking automatically. Please email ${SITE.email} with your trip details and we'll confirm your booking.`,
+      );
     } finally {
       setSubmitted(false);
     }

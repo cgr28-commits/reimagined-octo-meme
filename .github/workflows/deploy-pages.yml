@@ -32,6 +32,7 @@ jobs:
           GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
           GETADDRESS_DOMAIN_TOKEN: ${{ secrets.GETADDRESS_DOMAIN_TOKEN }}
           BOOKINGS_API_URL: ${{ secrets.BOOKINGS_API_URL }}
+          WEB3FORMS_ACCESS_KEY: ${{ secrets.WEB3FORMS_ACCESS_KEY }}
         run: |
           KEY="${GOOGLE_PLACES_API_KEY:-${GOOGLE_API_KEY:-${GOOGLE_MAPS_API_KEY}}}"
           if [ -z "$KEY" ]; then
@@ -44,9 +45,14 @@ jobs:
           else
             echo "::notice::No GETADDRESS_DOMAIN_TOKEN — door numbers on street searches work best with getAddress.io (free tier available)."
           fi
+          if [ -n "$BOOKINGS_API_URL" ] && [[ "$BOOKINGS_API_URL" == *"myairporttaxini.co.uk"* ]]; then
+            echo "::warning::BOOKINGS_API_URL points at the static website and will be ignored. Use your Cloudflare Worker URL instead (e.g. https://your-worker.workers.dev/bookings)."
+            BOOKINGS_API_URL=""
+          fi
           NEXT_PUBLIC_GOOGLE_PLACES_API_KEY="$KEY" \
           NEXT_PUBLIC_GETADDRESS_API_KEY="$GETADDRESS_DOMAIN_TOKEN" \
           NEXT_PUBLIC_BOOKINGS_API_URL="$BOOKINGS_API_URL" \
+          NEXT_PUBLIC_WEB3FORMS_ACCESS_KEY="$WEB3FORMS_ACCESS_KEY" \
           GITHUB_PAGES=true npm run build
       - run: node scripts/fix-github-pages-paths.mjs
       - uses: actions/upload-pages-artifact@v3

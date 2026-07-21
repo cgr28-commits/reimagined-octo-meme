@@ -318,7 +318,9 @@ function QuoteCard() {
       setShowBookingPreview(false);
       setBookingSent(true);
     } catch {
-      setSubmitError("We couldn't confirm your booking. Please try again.");
+      setSubmitError(
+        `We couldn't confirm your booking automatically. Please email ${SITE.email} with your trip details and we'll confirm your booking.`,
+      );
     } finally {
       setSubmitted(false);
     }
