@@ -18,7 +18,7 @@ export default function TermsPage() {
   return (
     <>
       <Header />
-      <main className="min-h-screen bg-navy pt-24 pb-16">
+      <main className="min-h-screen bg-navy pt-24 pb-16 md:pt-28">
         <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
           <Link
             href="/"

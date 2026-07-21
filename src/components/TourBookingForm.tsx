@@ -66,9 +66,7 @@ export default function TourBookingForm({
 
   const defaultDescription = usesWhatsApp
     ? "Fill in your details, review them, then send your enquiry via WhatsApp."
-    : usesEmail
-      ? "Fill in your details and submit your booking by email. We'll reply with your payment link."
-      : "Fill in your details, review them, then confirm your day trip enquiry.";
+    : "Fill in your details, review them, then confirm your day trip booking.";
 
   function buildDetails(): TourEnquiryDetails {
     return {
@@ -175,13 +173,9 @@ export default function TourBookingForm({
     void confirmEnquiry();
   }
 
-  const submitInProgressLabel = usesWhatsApp
-    ? "Opening WhatsApp…"
-    : usesEmail
-      ? "Sending booking…"
-      : "Submitting…";
+  const submitInProgressLabel = usesWhatsApp ? "Opening WhatsApp…" : "Confirming booking…";
 
-  const confirmLabel = usesWhatsApp ? "Confirm & send via WhatsApp" : "Confirm & submit booking";
+  const confirmLabel = usesWhatsApp ? "Confirm & send via WhatsApp" : "Confirm & book";
   const reviewLabel = usesWhatsApp ? "Review & send via WhatsApp" : "Review booking";
 
   return (
@@ -195,18 +189,6 @@ export default function TourBookingForm({
       <p className={`mt-3 text-sm leading-relaxed text-white/65 ${centered ? "mx-auto max-w-2xl" : ""}`}>
         {description ?? defaultDescription}
       </p>
-
-      {usesEmail && (
-        <p className={`mt-4 text-sm text-white/80 ${centered ? "mx-auto max-w-2xl" : ""}`}>
-          Send your booking to{" "}
-          <a
-            href={`mailto:${SITE.email}`}
-            className="font-semibold text-emerald transition-colors hover:text-emerald-light"
-          >
-            {SITE.email}
-          </a>
-        </p>
-      )}
 
       <form onSubmit={handleSubmit} className={`mt-6 space-y-4 ${centered ? "text-left" : ""}`}>
         <div>
@@ -401,7 +383,7 @@ export default function TourBookingForm({
 
         {enquirySent && usesEmail && (
           <p className="rounded-xl border border-emerald/30 bg-emerald/10 px-4 py-3 text-sm text-white">
-            Booking sent to {SITE.email}. We&apos;ll reply shortly with your payment link.
+            Booking confirmed. We&apos;ll reply shortly with your payment link.
           </p>
         )}
 

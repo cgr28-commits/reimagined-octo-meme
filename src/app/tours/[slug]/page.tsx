@@ -64,7 +64,7 @@ export default async function TourDetailPage({ params }: TourPageProps) {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
       />
       <Header />
-      <main className="min-h-screen bg-navy pb-16">
+      <main className="min-h-screen bg-navy pb-16 pt-24 md:pt-28">
         <div className="relative h-64 overflow-hidden sm:h-80 lg:h-96">
           <Image
             src={tour.image}

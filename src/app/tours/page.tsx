@@ -36,7 +36,7 @@ export default function ToursPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
       />
       <Header />
-      <main className="min-h-screen bg-navy pt-24 pb-16">
+      <main className="min-h-screen bg-navy pt-24 pb-16 md:pt-28">
         <div className="relative overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-b from-navy-light/40 via-navy to-navy" />
           <div className="relative mx-auto max-w-7xl px-4 pb-20 sm:px-6 lg:px-8">

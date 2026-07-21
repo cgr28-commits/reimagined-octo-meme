@@ -318,7 +318,7 @@ function QuoteCard() {
       setShowBookingPreview(false);
       setBookingSent(true);
     } catch {
-      setSubmitError("We couldn't send your booking by email. Please try again or email us directly.");
+      setSubmitError("We couldn't confirm your booking. Please try again.");
     } finally {
       setSubmitted(false);
     }
@@ -364,18 +364,14 @@ function QuoteCard() {
 
   const submitInProgressLabel = usesWhatsApp
     ? "Opening WhatsApp…"
-    : usesEmail
-      ? "Sending booking…"
-      : "Submitting…";
+    : "Confirming booking…";
 
   const confirmButtonLabel =
     isAirportTrip && liveQuote
-      ? usesWhatsApp
-        ? `Confirm & book for ${formatQuote(liveQuote.amount)}`
-        : `Confirm & submit for ${formatQuote(liveQuote.amount)}`
+      ? `Confirm & book for ${formatQuote(liveQuote.amount)}`
       : usesWhatsApp
         ? "Confirm & send via WhatsApp"
-        : "Confirm & submit booking";
+        : "Confirm & book";
 
   const reviewButtonLabel = isAirportTrip && liveQuote ? "Review booking" : "Review booking details";
 
@@ -387,7 +383,7 @@ function QuoteCard() {
         : isAirportTrip
           ? usesWhatsApp
             ? "Send via WhatsApp"
-            : "Submit booking"
+            : reviewButtonLabel
           : reviewButtonLabel;
 
   const quoteHint = isAirportTrip
@@ -402,7 +398,7 @@ function QuoteCard() {
           : ""
     : usesWhatsApp
       ? "Fill in your journey details and send via WhatsApp — we'll confirm your fare personally."
-      : "Fill in your journey details and submit your booking — we'll reply by email with your payment link.";
+      : "Fill in your journey details — we'll confirm your fare and send your payment link.";
 
   return (
     <div className="glass-card rounded-2xl p-6 sm:p-8 lg:animate-float">
@@ -412,24 +408,11 @@ function QuoteCard() {
           {isAirportTrip
             ? usesWhatsApp
               ? "See your estimated price instantly, then book via WhatsApp"
-              : usesEmail
-                ? "See your estimated price instantly, then submit your booking by email"
-                : "See your estimated price instantly, then review and confirm your booking"
+              : "See your estimated price instantly, then review and confirm your booking"
             : usesWhatsApp
               ? "Send your address-to-address trip details and we'll quote you personally"
-              : "Send your address-to-address trip details and we'll reply by email"}
+              : "Send your trip details and we'll confirm your fare and payment link"}
         </p>
-        {usesEmail && (
-          <p className="mt-3 text-sm text-white/80">
-            Send your booking to{" "}
-            <a
-              href={`mailto:${SITE.email}`}
-              className="font-semibold text-emerald transition-colors hover:text-emerald-light"
-            >
-              {SITE.email}
-            </a>
-          </p>
-        )}
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
@@ -582,7 +565,7 @@ function QuoteCard() {
               className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/30 outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30"
             />
             <p className="mt-1.5 text-xs text-white/40">
-              Required for email bookings — we&apos;ll send your payment link here.
+              We&apos;ll send your payment link here.
             </p>
             {emailAddressError && (
               <p className="mt-1.5 text-xs text-red-300">{emailAddressError}</p>
@@ -615,7 +598,7 @@ function QuoteCard() {
               className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/30 outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30"
             />
             <p className="mt-1.5 text-xs text-white/40">
-              Required for email bookings so we can reach you with your payment link.
+              So we can contact you about your booking.
             </p>
             {mobileNumberError && (
               <p className="mt-1.5 text-xs text-red-300">{mobileNumberError}</p>
@@ -950,7 +933,7 @@ function QuoteCard() {
                 Address-to-address fares vary by route. Send your details below and we&apos;ll reply
                 {usesWhatsApp
                   ? " on WhatsApp with your exact price."
-                  : " by email with your exact price."}
+                  : " with your exact price and payment link."}
               </p>
               <p className="mt-2 text-xs text-white/60">{quoteHint}</p>
             </>
@@ -1035,7 +1018,7 @@ function QuoteCard() {
 
         {bookingSent && usesEmail && (
           <p className="rounded-xl border border-emerald/30 bg-emerald/10 px-4 py-3 text-sm text-white">
-            Booking sent to {SITE.email}. We&apos;ll reply shortly with your payment link.
+            Booking confirmed. We&apos;ll reply shortly with your payment link.
           </p>
         )}
 
