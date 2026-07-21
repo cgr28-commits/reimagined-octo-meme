@@ -1,4 +1,5 @@
-import { FLIGHT_AIRPORTS, SITE } from "@/lib/data";
+import { FLIGHT_AIRPORTS } from "@/lib/data";
+import DeviceBookingCta from "./DeviceBookingCta";
 import SectionHeading from "./SectionHeading";
 
 export default function FlightStatusSection() {
@@ -9,7 +10,7 @@ export default function FlightStatusSection() {
         <SectionHeading
           eyebrow="Plan Your Pickup"
           title="Check Your Flight"
-          description="View live arrivals and departures on each airport's official flight board. Share your flight number via WhatsApp and we'll monitor it for your pickup."
+          description="View live arrivals and departures on each airport's official flight board. Share your flight number when you book and we'll monitor it for your pickup."
         />
 
         <div className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
@@ -70,16 +71,12 @@ export default function FlightStatusSection() {
                 All flight information →
               </a>
 
-              <a
-                href={`https://wa.me/${SITE.whatsapp}?text=${encodeURIComponent(
-                  `Hi, I'd like to book an airport transfer. My flight is arriving at ${airport.name} (${airport.code}).`,
-                )}`}
-                target="_blank"
-                rel="noopener noreferrer"
+              <DeviceBookingCta
+                whatsappMessage={`Hi, I'd like to book an airport transfer. My flight is arriving at ${airport.name} (${airport.code}).`}
+                mobileLabel="Book transfer via WhatsApp"
+                desktopLabel="Book transfer online"
                 className="mt-6 inline-flex items-center justify-center gap-1.5 rounded-lg bg-emerald px-4 py-2.5 text-sm font-semibold text-navy transition-all hover:bg-emerald-light"
-              >
-                Book transfer via WhatsApp
-              </a>
+              />
             </article>
           ))}
         </div>

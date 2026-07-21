@@ -360,7 +360,7 @@ function QuoteCard() {
   }
 
   const usesWhatsApp = isMobileDevice === true;
-  const usesEmail = isMobileDevice === false;
+  const usesEmail = isMobileDevice !== true;
 
   const submitInProgressLabel = usesWhatsApp
     ? "Opening WhatsApp…"
@@ -948,7 +948,9 @@ function QuoteCard() {
               </p>
               <p className="mt-1 text-sm text-white/80">
                 Address-to-address fares vary by route. Send your details below and we&apos;ll reply
-                on WhatsApp with your exact price.
+                {usesWhatsApp
+                  ? " on WhatsApp with your exact price."
+                  : " by email with your exact price."}
               </p>
               <p className="mt-2 text-xs text-white/60">{quoteHint}</p>
             </>

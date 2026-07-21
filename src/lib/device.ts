@@ -2,30 +2,31 @@
 
 import { useEffect, useState } from "react";
 
+const DESKTOP_MEDIA_QUERY = "(min-width: 768px)";
+
 export function detectMobileDevice(): boolean {
   if (typeof window === "undefined") {
     return false;
   }
 
-  const narrowScreen = window.matchMedia("(max-width: 767px)").matches;
-  const coarsePointer = window.matchMedia("(pointer: coarse)").matches;
-  const mobileUserAgent = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
-    navigator.userAgent,
-  );
-
-  return narrowScreen || (coarsePointer && mobileUserAgent);
+  return !window.matchMedia(DESKTOP_MEDIA_QUERY).matches;
 }
 
 export function useIsMobileDevice(): boolean | null {
   const [isMobile, setIsMobile] = useState<boolean | null>(null);
 
   useEffect(() => {
-    const update = () => setIsMobile(detectMobileDevice());
+    const mediaQuery = window.matchMedia(DESKTOP_MEDIA_QUERY);
+    const update = () => setIsMobile(!mediaQuery.matches);
 
     update();
+    mediaQuery.addEventListener("change", update);
     window.addEventListener("resize", update);
 
-    return () => window.removeEventListener("resize", update);
+    return () => {
+      mediaQuery.removeEventListener("change", update);
+      window.removeEventListener("resize", update);
+    };
   }, []);
 
   return isMobile;

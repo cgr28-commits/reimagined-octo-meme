@@ -48,7 +48,7 @@ export default function TourBookingForm({
 }: TourBookingFormProps) {
   const isMobileDevice = useIsMobileDevice();
   const usesWhatsApp = isMobileDevice === true;
-  const usesEmail = isMobileDevice === false;
+  const usesEmail = isMobileDevice !== true;
 
   const [customerName, setCustomerName] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");

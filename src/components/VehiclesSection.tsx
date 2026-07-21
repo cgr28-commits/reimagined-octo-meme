@@ -1,6 +1,7 @@
 import Image from "next/image";
-import { VEHICLE_FLEET, SITE } from "@/lib/data";
+import { VEHICLE_FLEET } from "@/lib/data";
 import { withBasePath } from "@/lib/paths";
+import DeviceBookingCta from "./DeviceBookingCta";
 import SectionHeading from "./SectionHeading";
 
 const HERO_IMAGE = withBasePath("/images/vehicles/flyer-vehicle.jpg");
@@ -48,14 +49,12 @@ export default function VehiclesSection() {
               ))}
             </ul>
 
-            <a
-              href={`https://wa.me/${SITE.whatsapp}?text=${encodeURIComponent("Hi, I'd like a quote for an airport transfer. Please advise the best vehicle for my group and luggage.")}`}
-              target="_blank"
-              rel="noopener noreferrer"
+            <DeviceBookingCta
+              whatsappMessage="Hi, I'd like a quote for an airport transfer. Please advise the best vehicle for my group and luggage."
+              mobileLabel="Ask about vehicle options"
+              desktopLabel="Get a quote online"
               className="inline-flex items-center gap-2 rounded-full bg-emerald px-6 py-3 text-sm font-semibold text-navy transition-all hover:bg-emerald-light hover:shadow-lg hover:shadow-emerald/25"
-            >
-              Ask about vehicle options
-            </a>
+            />
           </div>
         </div>
       </div>

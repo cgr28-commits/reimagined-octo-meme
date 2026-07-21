@@ -20,18 +20,7 @@ type TourEnquireButtonProps = {
 export default function TourEnquireButton({ tour }: TourEnquireButtonProps) {
   const isMobileDevice = useIsMobileDevice();
 
-  if (isMobileDevice === null) {
-    return (
-      <Link
-        href={`/tours/${tour.slug}/#book`}
-        className="inline-flex items-center justify-center gap-2 rounded-full border border-emerald/30 px-4 py-2 text-sm font-semibold text-emerald transition-all hover:border-emerald hover:bg-emerald/10"
-      >
-        Enquire
-      </Link>
-    );
-  }
-
-  if (isMobileDevice) {
+  if (isMobileDevice === true) {
     return (
       <a
         href={getTourWhatsAppUrl(tour.whatsappMessage)}
