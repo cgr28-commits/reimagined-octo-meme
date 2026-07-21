@@ -57,8 +57,21 @@ export const metadata: Metadata = {
     images: ["/og-image.png"],
   },
   icons: {
-    icon: withBasePath("/favicon.png"),
+    icon: [
+      { url: withBasePath("/favicon.ico"), sizes: "any" },
+      {
+        url: withBasePath("/favicon.png"),
+        type: "image/png",
+        sizes: "256x256",
+      },
+      {
+        url: withBasePath("/favicon-32.png"),
+        type: "image/png",
+        sizes: "32x32",
+      },
+    ],
     apple: withBasePath("/favicon.png"),
+    shortcut: withBasePath("/favicon.ico"),
   },
 };
 
