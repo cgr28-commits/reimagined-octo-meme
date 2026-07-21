@@ -1,9 +1,10 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { AIRPORTS } from "@/lib/data";
-import { geocodePickupAddress, isGooglePlacesEnabled } from "@/lib/google-maps";
+import { isGooglePlacesEnabled } from "@/lib/google-maps";
+import { resolveMapPoint, type MapPoint, type RouteSummary } from "@/lib/trip-route";
 
 const TripMapView = dynamic(() => import("@/components/TripMapView"), {
   ssr: false,
@@ -23,46 +24,12 @@ type TripMapProps = {
   destinationAddress: string;
   airportCode?: string;
   tripDirection?: AirportTripDirection;
-};
-
-type MapPoint = {
-  lat: number;
-  lng: number;
-  label: string;
+  returnJourney?: boolean;
+  onRouteInfo?: (summary: RouteSummary | null) => void;
 };
 
 function buildGoogleMapsLink(origin: string, destination: string) {
   return `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}&travelmode=driving`;
-}
-
-async function resolveMapPoint(address: string, label: string, airportCode?: string): Promise<MapPoint | null> {
-  const trimmed = address.trim();
-  if (!trimmed) {
-    return null;
-  }
-
-  const airport = airportCode
-    ? AIRPORTS.find((item) => item.code === airportCode && item.mapLabel === trimmed)
-    : null;
-
-  if (airport) {
-    return {
-      lat: airport.mapLocation.lat,
-      lng: airport.mapLocation.lng,
-      label: airport.name,
-    };
-  }
-
-  const location = await geocodePickupAddress(trimmed);
-  if (!location) {
-    return null;
-  }
-
-  return {
-    lat: location.lat,
-    lng: location.lng,
-    label,
-  };
 }
 
 export default function TripMap({
@@ -71,12 +38,23 @@ export default function TripMap({
   destinationAddress,
   airportCode = "",
   tripDirection = "to-airport",
+  returnJourney = false,
+  onRouteInfo,
 }: TripMapProps) {
   const trimmedOrigin = originAddress.trim();
   const trimmedDestination = destinationAddress.trim();
   const [originPoint, setOriginPoint] = useState<MapPoint | null>(null);
   const [destinationPoint, setDestinationPoint] = useState<MapPoint | null>(null);
+  const [routeSummary, setRouteSummary] = useState<RouteSummary | null>(null);
   const [mapError, setMapError] = useState<string | null>(null);
+
+  const handleRouteInfo = useCallback(
+    (summary: RouteSummary | null) => {
+      setRouteSummary(summary);
+      onRouteInfo?.(summary);
+    },
+    [onRouteInfo],
+  );
 
   const airport = useMemo(
     () => AIRPORTS.find((item) => item.code === airportCode) ?? null,
@@ -103,6 +81,11 @@ export default function TripMap({
       routeLabel: "Pickup to drop-off",
     };
   }, [airport, tripDirection, tripMode, trimmedDestination, trimmedOrigin]);
+
+  useEffect(() => {
+    setRouteSummary(null);
+    onRouteInfo?.(null);
+  }, [trimmedDestination, trimmedOrigin, returnJourney, onRouteInfo]);
 
   useEffect(() => {
     if (!isGooglePlacesEnabled() || !trimmedOrigin || !trimmedDestination) {
@@ -167,10 +150,23 @@ export default function TripMap({
       <div className="border-b border-white/10 px-4 py-3">
         <p className="text-xs font-medium uppercase tracking-wider text-emerald">Your route</p>
         <p className="mt-1 text-sm text-white/70">{links.routeLabel}</p>
+        {routeSummary && (
+          <p className="mt-1 text-sm font-medium text-white">
+            {routeSummary.distanceLabel}
+            <span className="mx-2 text-white/30">·</span>
+            {routeSummary.durationLabel}
+            {returnJourney ? " (return)" : ""}
+          </p>
+        )}
       </div>
 
       {originPoint && destinationPoint ? (
-        <TripMapView pickup={originPoint} airport={destinationPoint} />
+        <TripMapView
+          pickup={originPoint}
+          airport={destinationPoint}
+          returnJourney={returnJourney}
+          onRouteInfo={handleRouteInfo}
+        />
       ) : (
         <div className="flex h-48 items-center justify-center px-4 text-center sm:h-56">
           <p className="text-sm text-white/60">

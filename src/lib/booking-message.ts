@@ -15,6 +15,8 @@ export type BookingDetails = {
   suitcases: number;
   vehicle: string;
   estimatedPrice: string | null;
+  journeyDistance: string | null;
+  journeyDuration: string | null;
   isAirportTrip: boolean;
 };
 
@@ -49,6 +51,8 @@ export function buildBookingMessage(details: BookingDetails): string {
     `Trip: ${details.tripLabel}\n` +
     `Pickup: ${details.pickupLabel}\n` +
     `Drop-off: ${details.dropoffLabel}\n` +
+    (details.journeyDistance ? `Journey distance: ${details.journeyDistance}\n` : "") +
+    (details.journeyDuration ? `Estimated journey time: ${details.journeyDuration}\n` : "") +
     `Return journey: ${details.returnJourney ? "Yes" : "No"}\n` +
     `${details.returnJourney ? "Outbound date" : "Date"}: ${details.tripDate}\n` +
     `${details.returnJourney ? "Outbound time" : "Time"}: ${details.tripTime}\n` +
