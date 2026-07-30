@@ -10,12 +10,18 @@ import {
   resolveGetAddress,
   searchGetAddress,
 } from "../../../shared/getaddress";
+import {
+  buildCheckoutReference,
+  createSumUpHostedCheckout,
+} from "../../../shared/sumup-checkout";
 
 type Env = {
   GOOGLE_PLACES_API_KEY: string;
   GETADDRESS_API_KEY?: string;
   BOOKING_TO_EMAIL?: string;
   BOOKING_FROM_EMAIL?: string;
+  SUMUP_API_KEY?: string;
+  SUMUP_MERCHANT_CODE?: string;
 };
 
 const DEFAULT_BOOKING_EMAIL = "bookings@myairporttaxini.co.uk";
@@ -30,7 +36,7 @@ function json(body: unknown, status: number, origin: string | null): Response {
   });
 }
 
-function routePath(pathname: string): "addresses" | "geocode" | "bookings" | null {
+function routePath(pathname: string): "addresses" | "geocode" | "bookings" | "payments" | null {
   if (pathname === "/addresses" || pathname === "/api/addresses") {
     return "addresses";
   }
@@ -41,6 +47,10 @@ function routePath(pathname: string): "addresses" | "geocode" | "bookings" | nul
 
   if (pathname === "/bookings" || pathname === "/api/bookings") {
     return "bookings";
+  }
+
+  if (pathname === "/payments" || pathname === "/api/payments") {
+    return "payments";
   }
 
   return null;
@@ -101,6 +111,71 @@ async function handleBookingRequest(
   }
 }
 
+async function handlePaymentRequest(
+  request: Request,
+  env: Env,
+  origin: string | null,
+): Promise<Response> {
+  const apiKey = env.SUMUP_API_KEY?.trim() ?? "";
+  const merchantCode = env.SUMUP_MERCHANT_CODE?.trim() ?? "";
+
+  if (!apiKey || !merchantCode) {
+    return json({ error: "SumUp payment is not configured" }, 503, origin);
+  }
+
+  let body: {
+    amount?: number;
+    description?: string;
+    checkoutReference?: string;
+    redirectUrl?: string;
+  };
+
+  try {
+    body = await request.json();
+  } catch {
+    return json({ error: "Invalid JSON" }, 400, origin);
+  }
+
+  const amount = Number(body.amount);
+  const description = body.description?.trim() ?? "";
+  const redirectUrl = body.redirectUrl?.trim() ?? "";
+
+  if (!Number.isFinite(amount) || amount < 1 || amount > 5000) {
+    return json({ error: "Invalid payment amount" }, 400, origin);
+  }
+
+  if (!description) {
+    return json({ error: "Missing payment description" }, 400, origin);
+  }
+
+  if (!redirectUrl) {
+    return json({ error: "Missing redirect URL" }, 400, origin);
+  }
+
+  try {
+    const checkoutReference = body.checkoutReference?.trim() || buildCheckoutReference();
+    const checkout = await createSumUpHostedCheckout(apiKey, merchantCode, {
+      amount: Math.round(amount * 100) / 100,
+      description,
+      checkoutReference,
+      redirectUrl,
+    });
+
+    return json(
+      {
+        ok: true,
+        paymentUrl: checkout.paymentUrl,
+        checkoutId: checkout.checkoutId,
+      },
+      200,
+      origin,
+    );
+  } catch (error) {
+    console.error("SumUp checkout failed", error);
+    return json({ error: "Could not create SumUp payment link" }, 502, origin);
+  }
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const origin = request.headers.get("Origin");
@@ -124,6 +199,14 @@ export default {
       }
 
       return handleBookingRequest(request, env, origin);
+    }
+
+    if (route === "payments") {
+      if (request.method !== "POST") {
+        return json({ error: "Method not allowed" }, 405, origin);
+      }
+
+      return handlePaymentRequest(request, env, origin);
     }
 
     if (request.method !== "GET") {

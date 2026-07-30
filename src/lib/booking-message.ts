@@ -44,7 +44,7 @@ export function isValidEmailAddress(value: string): boolean {
 
 export function buildBookingMessage(details: BookingDetails): string {
   return (
-    `Hi, I would like to book the following. A payment link will follow shortly.\n\n` +
+    `Hi, I would like to book the following.\n\n` +
     `Name: ${details.customerName}\n` +
     (details.customerEmail ? `Email: ${details.customerEmail}\n` : "") +
     (details.mobileNumber ? `Mobile: ${details.mobileNumber}\n` : "") +

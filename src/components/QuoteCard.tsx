@@ -18,6 +18,11 @@ import {
   type TripRouteMetrics,
 } from "@/lib/trip-route";
 import { submitBookingByEmail } from "@/lib/submit-booking";
+import {
+  buildPaymentRedirectUrl,
+  createPaymentCheckout,
+  isSumUpPaymentEnabled,
+} from "@/lib/create-payment";
 
 type TripMode = "airport" | "address";
 type TripDirection = "to-airport" | "from-airport";
@@ -114,6 +119,10 @@ function QuoteCard() {
   const [passengers, setPassengers] = useState(1);
   const [suitcases, setSuitcases] = useState(1);
   const [routeMetrics, setRouteMetrics] = useState<TripRouteMetrics | null>(null);
+  const [paymentLoading, setPaymentLoading] = useState(false);
+  const [paymentError, setPaymentError] = useState("");
+  const [paymentReturned, setPaymentReturned] = useState(false);
+  const sumUpEnabled = isSumUpPaymentEnabled();
 
   const handleRouteMetrics = useCallback((metrics: TripRouteMetrics | null) => {
     setRouteMetrics(metrics);
@@ -126,6 +135,21 @@ function QuoteCard() {
   const isAirportTrip = tripMode === "airport";
   const isFromAirport = tripDirection === "from-airport";
   const addressLookupCode = isAirportTrip ? airportCode : "BFS";
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("payment") === "return") {
+      setPaymentReturned(true);
+      params.delete("payment");
+      const nextSearch = params.toString();
+      const nextUrl = `${window.location.pathname}${nextSearch ? `?${nextSearch}` : ""}#quote`;
+      window.history.replaceState(null, "", nextUrl);
+    }
+  }, []);
 
   useEffect(() => {
     const savedPickup = localStorage.getItem(PICKUP_STORAGE_KEY);
@@ -340,6 +364,41 @@ function QuoteCard() {
       journeyDuration: journeyDurationLabel || undefined,
       isAirportTrip,
     };
+  }
+
+  function buildPaymentDescription(): string {
+    const vehicleLabel = quoteVehicle.split(" (")[0];
+    const tripSummary = isAirportTrip
+      ? `${isFromAirport ? "Pickup from" : "Transfer to"} ${airportName} (${airportCode})`
+      : "Address-to-address transfer";
+    const customer = customerName.trim();
+    const namePart = customer ? ` — ${customer}` : "";
+    return `${tripSummary} — ${vehicleLabel}${namePart}`.slice(0, 140);
+  }
+
+  async function handlePayNow() {
+    if (!liveQuote || paymentLoading) {
+      return;
+    }
+
+    setPaymentLoading(true);
+    setPaymentError("");
+
+    try {
+      const checkout = await createPaymentCheckout({
+        amount: liveQuote.amount,
+        description: buildPaymentDescription(),
+        redirectUrl: buildPaymentRedirectUrl(),
+      });
+      window.location.assign(checkout.paymentUrl);
+    } catch (error) {
+      setPaymentError(
+        error instanceof Error
+          ? error.message
+          : "We couldn't start payment. Please try again or contact us to pay.",
+      );
+      setPaymentLoading(false);
+    }
   }
 
   function openWhatsAppBooking(details: BookingDetails) {
@@ -970,6 +1029,18 @@ function QuoteCard() {
                   time from when your plane lands.
                 </p>
               )}
+              {sumUpEnabled && (
+                <button
+                  type="button"
+                  onClick={() => void handlePayNow()}
+                  disabled={paymentLoading}
+                  className="mt-4 w-full rounded-xl bg-white py-3.5 text-sm font-bold text-navy transition-all hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  {paymentLoading
+                    ? "Opening SumUp…"
+                    : `Pay ${formatQuote(liveQuote.amount)} now with SumUp`}
+                </button>
+              )}
             </>
           ) : (
             <>
@@ -981,8 +1052,22 @@ function QuoteCard() {
           )}
           <p className="mt-3 text-[11px] text-white/40">
             Includes vehicle, driver, fuel, and tolls.
+            {sumUpEnabled ? " Pay securely by card via SumUp." : ""}
           </p>
         </div>
+
+        {paymentError && (
+          <p className="rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-100">
+            {paymentError}
+          </p>
+        )}
+
+        {paymentReturned && (
+          <p className="rounded-xl border border-emerald/30 bg-emerald/10 px-4 py-3 text-sm text-white">
+            Thank you — if your SumUp payment completed, we&apos;ll confirm your booking shortly.
+            Please also send your trip details using the booking form if you haven&apos;t already.
+          </p>
+        )}
 
         {showBookingPreview && (
           <div className="rounded-xl border border-white/15 bg-white/[0.04] px-4 py-4 sm:px-5">
