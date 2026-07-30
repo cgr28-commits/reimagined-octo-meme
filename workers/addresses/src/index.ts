@@ -10,12 +10,30 @@ import {
   resolveGetAddress,
   searchGetAddress,
 } from "../../../shared/getaddress";
+import {
+  logBookingsToGoogleCalendar,
+  type TourBookingEvent,
+  type TransferBookingEvent,
+} from "./google-calendar";
 
 type Env = {
   GOOGLE_PLACES_API_KEY: string;
   GETADDRESS_API_KEY?: string;
   BOOKING_TO_EMAIL?: string;
   BOOKING_FROM_EMAIL?: string;
+  /** Full Google service account JSON (Calendar API enabled). */
+  GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON?: string;
+  /** Calendar ID to write into (usually your Gmail address). */
+  GOOGLE_CALENDAR_ID?: string;
+};
+
+type BookingRequestBody = {
+  customerName?: string;
+  message?: string;
+  /** When false, skip MailChannels email (used by WhatsApp booking path). */
+  sendEmail?: boolean;
+  booking?: TransferBookingEvent;
+  tour?: TourBookingEvent;
 };
 
 const DEFAULT_BOOKING_EMAIL = "bookings@myairporttaxini.co.uk";
@@ -73,12 +91,46 @@ async function sendBookingEmail(
   }
 }
 
+function calendarConfigured(env: Env): boolean {
+  return Boolean(
+    env.GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON?.trim() &&
+      env.GOOGLE_CALENDAR_ID?.trim(),
+  );
+}
+
+async function logBookingCalendar(
+  env: Env,
+  body: BookingRequestBody,
+  customerName: string,
+  message: string,
+): Promise<{ logged: boolean; events?: number; error?: string }> {
+  if (!calendarConfigured(env)) {
+    return { logged: false };
+  }
+
+  try {
+    const events = await logBookingsToGoogleCalendar({
+      serviceAccountJson: env.GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON!,
+      calendarId: env.GOOGLE_CALENDAR_ID!.trim(),
+      customerName,
+      message,
+      booking: body.booking ?? null,
+      tour: body.tour ?? null,
+    });
+    return { logged: true, events };
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : "Unknown calendar error";
+    console.error("Google Calendar booking log failed", detail);
+    return { logged: false, error: detail };
+  }
+}
+
 async function handleBookingRequest(
   request: Request,
   env: Env,
   origin: string | null,
 ): Promise<Response> {
-  let body: { customerName?: string; message?: string };
+  let body: BookingRequestBody;
 
   try {
     body = await request.json();
@@ -88,17 +140,59 @@ async function handleBookingRequest(
 
   const customerName = body.customerName?.trim() ?? "";
   const message = body.message?.trim() ?? "";
+  const sendEmail = body.sendEmail !== false;
 
   if (!customerName || !message) {
     return json({ error: "Missing required fields" }, 400, origin);
   }
 
-  try {
-    await sendBookingEmail(env, customerName, message);
-    return json({ ok: true }, 200, origin);
-  } catch {
-    return json({ error: "Failed to send booking email" }, 502, origin);
+  let emailSent = false;
+
+  if (sendEmail) {
+    try {
+      await sendBookingEmail(env, customerName, message);
+      emailSent = true;
+    } catch {
+      // Calendar-only requests can still succeed; email failures are fatal when required.
+      const calendar = await logBookingCalendar(env, body, customerName, message);
+      if (calendar.logged) {
+        return json(
+          {
+            ok: true,
+            emailSent: false,
+            calendarLogged: true,
+            calendarEvents: calendar.events,
+            warning: "Booking email failed but the trip was logged to Google Calendar",
+          },
+          200,
+          origin,
+        );
+      }
+
+      return json({ error: "Failed to send booking email" }, 502, origin);
+    }
   }
+
+  const calendar = await logBookingCalendar(env, body, customerName, message);
+
+  if (!sendEmail && !calendar.logged && calendarConfigured(env) && calendar.error) {
+    return json(
+      { error: "Failed to log booking to Google Calendar", detail: calendar.error },
+      502,
+      origin,
+    );
+  }
+
+  return json(
+    {
+      ok: true,
+      emailSent,
+      calendarLogged: calendar.logged,
+      calendarEvents: calendar.events ?? 0,
+    },
+    200,
+    origin,
+  );
 }
 
 export default {

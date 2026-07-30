@@ -11,7 +11,10 @@ import {
   calculateQuote,
   formatQuote,
 } from "@/lib/quote";
-import { submitBookingByEmail } from "@/lib/submit-booking";
+import {
+  logBookingToCalendarInBackground,
+  submitBookingByEmail,
+} from "@/lib/submit-booking";
 
 type TripMode = "airport" | "address";
 type TripDirection = "to-airport" | "from-airport";
@@ -301,6 +304,7 @@ function QuoteCard() {
   }
 
   function openWhatsAppBooking(details: BookingDetails) {
+    logBookingToCalendarInBackground(details, "booking");
     const message = encodeURIComponent(buildBookingMessage(details));
     window.open(`https://wa.me/${SITE.whatsapp}?text=${message}`, "_blank");
     setSubmitted(true);

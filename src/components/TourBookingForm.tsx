@@ -4,7 +4,10 @@ import { FormEvent, useState } from "react";
 import { detectMobileDevice, useIsMobileDevice } from "@/lib/device";
 import { isValidEmailAddress, isValidMobileNumber } from "@/lib/booking-message";
 import { SITE } from "@/lib/data";
-import { submitEnquiryByEmail } from "@/lib/submit-booking";
+import {
+  logBookingToCalendarInBackground,
+  submitEnquiryByEmail,
+} from "@/lib/submit-booking";
 import {
   buildTourEnquiryMessage,
   type TourEnquiryDetails,
@@ -118,6 +121,7 @@ export default function TourBookingForm({
   }
 
   function openWhatsAppEnquiry(details: TourEnquiryDetails) {
+    logBookingToCalendarInBackground(details, "tour");
     window.open(getTourWhatsAppUrl(buildTourEnquiryMessage(details)), "_blank");
     setSubmitted(true);
     setShowPreview(false);
@@ -134,6 +138,7 @@ export default function TourBookingForm({
         customerName: details.customerName,
         message: buildTourEnquiryMessage(details),
         subject: `New day trip booking — ${details.customerName}`,
+        tour: details,
       });
       setShowPreview(false);
       setEnquirySent(true);

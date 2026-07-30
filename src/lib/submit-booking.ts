@@ -1,11 +1,17 @@
 import { SITE } from "@/lib/data";
 import type { BookingDetails } from "@/lib/booking-message";
 import { buildBookingMessage } from "@/lib/booking-message";
+import type { TourEnquiryDetails } from "@/lib/tour-enquiry-message";
+import { buildTourEnquiryMessage } from "@/lib/tour-enquiry-message";
 
 export type EnquirySubmission = {
   customerName: string;
   message: string;
   subject?: string;
+  /** When false, skip email and only attempt Google Calendar logging via the worker. */
+  sendEmail?: boolean;
+  booking?: BookingDetails;
+  tour?: TourEnquiryDetails;
 };
 
 const WEB3FORMS_ACCESS_KEY =
@@ -53,6 +59,9 @@ async function submitViaWorker(submission: EnquirySubmission): Promise<void> {
     body: JSON.stringify({
       customerName: submission.customerName,
       message: submission.message,
+      sendEmail: submission.sendEmail !== false,
+      booking: submission.booking,
+      tour: submission.tour,
     }),
   });
 
@@ -209,11 +218,18 @@ export async function submitEnquiryByEmail(submission: EnquirySubmission): Promi
     attempts.push({ label: "worker", run: () => submitViaWorker(submission) });
   }
 
-  if (WEB3FORMS_ACCESS_KEY) {
-    attempts.push({ label: "web3forms", run: () => submitViaWeb3Forms(submission) });
+  // Email fallbacks are only useful when we actually need to send email.
+  if (submission.sendEmail !== false) {
+    if (WEB3FORMS_ACCESS_KEY) {
+      attempts.push({ label: "web3forms", run: () => submitViaWeb3Forms(submission) });
+    }
+
+    attempts.push({ label: "formsubmit", run: () => submitViaFormSubmit(submission) });
   }
 
-  attempts.push({ label: "formsubmit", run: () => submitViaFormSubmit(submission) });
+  if (attempts.length === 0) {
+    throw new Error("Booking API is not configured");
+  }
 
   let lastError: unknown = null;
 
@@ -239,5 +255,40 @@ export async function submitBookingByEmail(details: BookingDetails): Promise<voi
     customerName: details.customerName,
     message,
     subject: `New booking — ${details.customerName}`,
+    booking: details,
+  });
+}
+
+/**
+ * Fire-and-forget Google Calendar logging for WhatsApp bookings.
+ * Does not block the WhatsApp deep-link and never surfaces errors to the customer.
+ */
+export function logBookingToCalendarInBackground(
+  details: BookingDetails | TourEnquiryDetails,
+  kind: "booking" | "tour" = "booking",
+): void {
+  if (!BOOKINGS_API_URL) {
+    return;
+  }
+
+  const isTour = kind === "tour";
+  const submission: EnquirySubmission = isTour
+    ? {
+        customerName: (details as TourEnquiryDetails).customerName,
+        message: buildTourEnquiryMessage(details as TourEnquiryDetails),
+        subject: `New day trip booking — ${(details as TourEnquiryDetails).customerName}`,
+        sendEmail: false,
+        tour: details as TourEnquiryDetails,
+      }
+    : {
+        customerName: (details as BookingDetails).customerName,
+        message: buildBookingMessage(details as BookingDetails),
+        subject: `New booking — ${(details as BookingDetails).customerName}`,
+        sendEmail: false,
+        booking: details as BookingDetails,
+      };
+
+  void submitViaWorker(submission).catch((error) => {
+    console.error("Background Google Calendar booking log failed", error);
   });
 }
