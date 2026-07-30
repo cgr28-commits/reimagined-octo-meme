@@ -6,6 +6,7 @@
     "dev": "next dev",
     "dev:addresses": "npm --prefix workers/addresses run dev",
     "build": "node scripts/generate-sitemap.mjs && next build",
+    "sync:worker-shared": "node scripts/sync-worker-shared.mjs",
     "start": "next start",
     "lint": "next lint"
   },
