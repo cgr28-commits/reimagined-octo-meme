@@ -1,4 +1,10 @@
 import {
+  appendConflictNoticeToMessage,
+  syncBookingToGoogleCalendar,
+  type BookingCalendarConflict,
+  type StructuredBooking,
+} from "../../../shared/booking-calendar";
+import {
   corsHeaders,
   resolveGooglePlace,
   reverseGeocodeGoogle,
@@ -6,6 +12,7 @@ import {
   searchGoogleStreetAddresses,
   isStreetOnlyQuery,
 } from "../../../shared/google-places";
+import { parseGoogleServiceAccountJson } from "../../../shared/google-calendar";
 import {
   resolveGetAddress,
   searchGetAddress,
@@ -16,9 +23,26 @@ type Env = {
   GETADDRESS_API_KEY?: string;
   BOOKING_TO_EMAIL?: string;
   BOOKING_FROM_EMAIL?: string;
+  GOOGLE_SERVICE_ACCOUNT_JSON?: string;
+  GOOGLE_CALENDAR_ID?: string;
 };
 
 const DEFAULT_BOOKING_EMAIL = "bookings@myairporttaxini.co.uk";
+
+type BookingRequestBody = {
+  customerName?: string;
+  message?: string;
+  booking?: StructuredBooking;
+};
+
+type BookingResponseBody = {
+  ok: true;
+  calendar: {
+    configured: boolean;
+    eventsCreated: number;
+    conflicts: BookingCalendarConflict[];
+  };
+};
 
 function json(body: unknown, status: number, origin: string | null): Response {
   return new Response(JSON.stringify(body), {
@@ -50,6 +74,7 @@ async function sendBookingEmail(
   env: Env,
   customerName: string,
   message: string,
+  hasConflicts: boolean,
 ): Promise<void> {
   const toEmail = env.BOOKING_TO_EMAIL?.trim() || DEFAULT_BOOKING_EMAIL;
   const fromEmail = env.BOOKING_FROM_EMAIL?.trim() || DEFAULT_BOOKING_EMAIL;
@@ -63,7 +88,9 @@ async function sendBookingEmail(
         email: fromEmail,
         name: "My Airport Taxi NI Website",
       },
-      subject: `New booking — ${customerName}`,
+      subject: hasConflicts
+        ? `New booking — CONFLICT — ${customerName}`
+        : `New booking — ${customerName}`,
       content: [{ type: "text/plain", value: message }],
     }),
   });
@@ -73,12 +100,60 @@ async function sendBookingEmail(
   }
 }
 
+function isStructuredBooking(value: unknown): value is StructuredBooking {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const booking = value as Partial<StructuredBooking>;
+  return Boolean(
+    booking.customerName?.trim() &&
+      booking.tripLabel?.trim() &&
+      booking.pickupLabel?.trim() &&
+      booking.dropoffLabel?.trim() &&
+      booking.tripDate?.trim() &&
+      booking.tripTime?.trim(),
+  );
+}
+
+async function syncBookingCalendar(
+  env: Env,
+  booking: StructuredBooking,
+  message: string,
+): Promise<BookingResponseBody["calendar"]> {
+  const calendarId = env.GOOGLE_CALENDAR_ID?.trim() ?? "";
+  const serviceAccount = env.GOOGLE_SERVICE_ACCOUNT_JSON
+    ? parseGoogleServiceAccountJson(env.GOOGLE_SERVICE_ACCOUNT_JSON)
+    : null;
+
+  if (!calendarId || !serviceAccount) {
+    return {
+      configured: false,
+      eventsCreated: 0,
+      conflicts: [],
+    };
+  }
+
+  const result = await syncBookingToGoogleCalendar(
+    serviceAccount,
+    calendarId,
+    booking,
+    message,
+  );
+
+  return {
+    configured: true,
+    eventsCreated: result.eventsCreated.length,
+    conflicts: result.conflicts,
+  };
+}
+
 async function handleBookingRequest(
   request: Request,
   env: Env,
   origin: string | null,
 ): Promise<Response> {
-  let body: { customerName?: string; message?: string };
+  let body: BookingRequestBody;
 
   try {
     body = await request.json();
@@ -88,17 +163,50 @@ async function handleBookingRequest(
 
   const customerName = body.customerName?.trim() ?? "";
   const message = body.message?.trim() ?? "";
+  const booking = isStructuredBooking(body.booking) ? body.booking : null;
 
   if (!customerName || !message) {
     return json({ error: "Missing required fields" }, 400, origin);
   }
 
+  let calendarResult: BookingResponseBody["calendar"] = {
+    configured: false,
+    eventsCreated: 0,
+    conflicts: [],
+  };
+
+  if (booking) {
+    try {
+      calendarResult = await syncBookingCalendar(env, booking, message);
+    } catch (error) {
+      console.error("Google Calendar sync failed", error);
+      calendarResult = {
+        configured: Boolean(env.GOOGLE_CALENDAR_ID && env.GOOGLE_SERVICE_ACCOUNT_JSON),
+        eventsCreated: 0,
+        conflicts: [],
+      };
+    }
+  }
+
+  const emailMessage = appendConflictNoticeToMessage(message, calendarResult.conflicts);
+
   try {
-    await sendBookingEmail(env, customerName, message);
-    return json({ ok: true }, 200, origin);
+    await sendBookingEmail(
+      env,
+      customerName,
+      emailMessage,
+      calendarResult.conflicts.length > 0,
+    );
   } catch {
     return json({ error: "Failed to send booking email" }, 502, origin);
   }
+
+  const responseBody: BookingResponseBody = {
+    ok: true,
+    calendar: calendarResult,
+  };
+
+  return json(responseBody, 200, origin);
 }
 
 export default {

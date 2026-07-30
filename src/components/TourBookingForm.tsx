@@ -4,7 +4,10 @@ import { FormEvent, useState } from "react";
 import { detectMobileDevice, useIsMobileDevice } from "@/lib/device";
 import { isValidEmailAddress, isValidMobileNumber } from "@/lib/booking-message";
 import { SITE } from "@/lib/data";
-import { submitEnquiryByEmail } from "@/lib/submit-booking";
+import {
+  formatCalendarConflictWarning,
+  submitDayTripByEmail,
+} from "@/lib/submit-booking";
 import {
   buildTourEnquiryMessage,
   type TourEnquiryDetails,
@@ -61,6 +64,7 @@ export default function TourBookingForm({
   const [submitted, setSubmitted] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [enquirySent, setEnquirySent] = useState(false);
+  const [calendarWarning, setCalendarWarning] = useState("");
   const [emailAddressError, setEmailAddressError] = useState("");
   const [mobileNumberError, setMobileNumberError] = useState("");
 
@@ -119,22 +123,19 @@ export default function TourBookingForm({
 
   function openWhatsAppEnquiry(details: TourEnquiryDetails) {
     window.open(getTourWhatsAppUrl(buildTourEnquiryMessage(details)), "_blank");
-    setSubmitted(true);
-    setShowPreview(false);
-    setEnquirySent(true);
-    setTimeout(() => setSubmitted(false), 4000);
   }
 
   async function submitDesktopEnquiry(details: TourEnquiryDetails) {
     setSubmitted(true);
     setSubmitError("");
+    setCalendarWarning("");
 
     try {
-      await submitEnquiryByEmail({
-        customerName: details.customerName,
-        message: buildTourEnquiryMessage(details),
-        subject: `New day trip booking — ${details.customerName}`,
-      });
+      const result = await submitDayTripByEmail(details);
+      const warning = formatCalendarConflictWarning(result.calendar?.conflicts ?? []);
+      if (warning) {
+        setCalendarWarning(warning);
+      }
       setShowPreview(false);
       setEnquirySent(true);
     } catch {
@@ -151,7 +152,26 @@ export default function TourBookingForm({
     const mobile = isMobileDevice ?? detectMobileDevice();
 
     if (mobile) {
-      openWhatsAppEnquiry(details);
+      setSubmitted(true);
+      setSubmitError("");
+      setCalendarWarning("");
+
+      try {
+        const result = await submitDayTripByEmail(details);
+        const warning = formatCalendarConflictWarning(result.calendar?.conflicts ?? []);
+        if (warning) {
+          setCalendarWarning(warning);
+        }
+        openWhatsAppEnquiry(details);
+        setShowPreview(false);
+        setEnquirySent(true);
+      } catch {
+        openWhatsAppEnquiry(details);
+        setShowPreview(false);
+        setEnquirySent(true);
+      } finally {
+        setSubmitted(false);
+      }
       return;
     }
 
@@ -162,6 +182,7 @@ export default function TourBookingForm({
     e.preventDefault();
     setSubmitError("");
     setEnquirySent(false);
+    setCalendarWarning("");
 
     if (!validateForm()) {
       return;
@@ -376,6 +397,12 @@ export default function TourBookingForm({
           </p>
         )}
 
+        {calendarWarning && (
+          <p className="rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-50">
+            {calendarWarning}
+          </p>
+        )}
+
         {enquirySent && usesWhatsApp && (
           <p className="rounded-xl border border-[#25D366]/30 bg-[#25D366]/10 px-4 py-3 text-sm text-white">
             Your day trip enquiry should open in WhatsApp. If it didn&apos;t, tap the green chat
@@ -397,6 +424,7 @@ export default function TourBookingForm({
                 setShowPreview(false);
                 setSubmitError("");
                 setEnquirySent(false);
+                setCalendarWarning("");
               }}
               className="w-full rounded-xl border border-white/15 bg-white/5 py-3.5 text-sm font-semibold text-white transition-all hover:bg-white/10"
             >

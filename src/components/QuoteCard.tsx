@@ -11,7 +11,7 @@ import {
   calculateQuote,
   formatQuote,
 } from "@/lib/quote";
-import { submitBookingByEmail } from "@/lib/submit-booking";
+import { submitBookingByEmail, formatCalendarConflictWarning } from "@/lib/submit-booking";
 
 type TripMode = "airport" | "address";
 type TripDirection = "to-airport" | "from-airport";
@@ -85,6 +85,7 @@ function QuoteCard() {
   const [submitted, setSubmitted] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [bookingSent, setBookingSent] = useState(false);
+  const [calendarWarning, setCalendarWarning] = useState("");
   const [showBookingPreview, setShowBookingPreview] = useState(false);
   const [customerName, setCustomerName] = useState("");
   const [customerMobile, setCustomerMobile] = useState("");
@@ -303,18 +304,19 @@ function QuoteCard() {
   function openWhatsAppBooking(details: BookingDetails) {
     const message = encodeURIComponent(buildBookingMessage(details));
     window.open(`https://wa.me/${SITE.whatsapp}?text=${message}`, "_blank");
-    setSubmitted(true);
-    setShowBookingPreview(false);
-    setBookingSent(true);
-    setTimeout(() => setSubmitted(false), 4000);
   }
 
   async function submitDesktopBooking(details: BookingDetails) {
     setSubmitted(true);
     setSubmitError("");
+    setCalendarWarning("");
 
     try {
-      await submitBookingByEmail(details);
+      const result = await submitBookingByEmail(details);
+      const warning = formatCalendarConflictWarning(result.calendar?.conflicts ?? []);
+      if (warning) {
+        setCalendarWarning(warning);
+      }
       setShowBookingPreview(false);
       setBookingSent(true);
     } catch {
@@ -331,7 +333,26 @@ function QuoteCard() {
     const mobile = isMobileDevice ?? detectMobileDevice();
 
     if (mobile) {
-      openWhatsAppBooking(details);
+      setSubmitted(true);
+      setSubmitError("");
+      setCalendarWarning("");
+
+      try {
+        const result = await submitBookingByEmail(details);
+        const warning = formatCalendarConflictWarning(result.calendar?.conflicts ?? []);
+        if (warning) {
+          setCalendarWarning(warning);
+        }
+        openWhatsAppBooking(details);
+        setShowBookingPreview(false);
+        setBookingSent(true);
+      } catch {
+        openWhatsAppBooking(details);
+        setShowBookingPreview(false);
+        setBookingSent(true);
+      } finally {
+        setSubmitted(false);
+      }
       return;
     }
 
@@ -342,6 +363,7 @@ function QuoteCard() {
     e.preventDefault();
     setSubmitError("");
     setBookingSent(false);
+    setCalendarWarning("");
 
     if (!validateBooking()) {
       return;
@@ -359,6 +381,7 @@ function QuoteCard() {
     setShowBookingPreview(false);
     setSubmitError("");
     setBookingSent(false);
+    setCalendarWarning("");
   }
 
   const usesWhatsApp = isMobileDevice === true;
@@ -1008,6 +1031,12 @@ function QuoteCard() {
         {submitError && (
           <p className="rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-100">
             {submitError}
+          </p>
+        )}
+
+        {calendarWarning && (
+          <p className="rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-50">
+            {calendarWarning}
           </p>
         )}
 

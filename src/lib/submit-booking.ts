@@ -1,11 +1,56 @@
 import { SITE } from "@/lib/data";
 import type { BookingDetails } from "@/lib/booking-message";
 import { buildBookingMessage } from "@/lib/booking-message";
+import type { TourEnquiryDetails } from "@/lib/tour-enquiry-message";
+import { buildTourEnquiryMessage } from "@/lib/tour-enquiry-message";
+
+export type CalendarConflict = {
+  label: string;
+  start: string;
+  end: string;
+  overlappingEvents: Array<{
+    summary: string;
+    start: string;
+    end: string;
+  }>;
+};
+
+export type BookingSubmissionResult = {
+  calendar?: {
+    configured: boolean;
+    eventsCreated: number;
+    conflicts: CalendarConflict[];
+  };
+};
 
 export type EnquirySubmission = {
   customerName: string;
   message: string;
   subject?: string;
+  booking?: StructuredBookingPayload;
+};
+
+type StructuredBookingPayload = {
+  customerName: string;
+  customerEmail?: string;
+  mobileNumber?: string;
+  tripLabel: string;
+  pickupLabel: string;
+  dropoffLabel: string;
+  returnJourney?: boolean;
+  tripDate: string;
+  tripTime: string;
+  returnDate?: string;
+  returnTime?: string;
+  flightNumber?: string;
+  passengers?: number;
+  suitcases?: number;
+  vehicle?: string;
+  estimatedPrice?: string | null;
+  isAirportTrip?: boolean;
+  bookingType?: "transfer" | "day-trip";
+  tourTitle?: string;
+  notes?: string;
 };
 
 const WEB3FORMS_ACCESS_KEY =
@@ -43,7 +88,56 @@ function isSuccessfulPayload(payload: unknown): boolean {
   return success === true || success === "true";
 }
 
-async function submitViaWorker(submission: EnquirySubmission): Promise<void> {
+function parseCalendarConflicts(payload: unknown): CalendarConflict[] {
+  if (!payload || typeof payload !== "object") {
+    return [];
+  }
+
+  const calendar = (payload as { calendar?: { conflicts?: unknown } }).calendar;
+  if (!calendar || !Array.isArray(calendar.conflicts)) {
+    return [];
+  }
+
+  return calendar.conflicts.filter(
+    (conflict): conflict is CalendarConflict =>
+      Boolean(
+        conflict &&
+          typeof conflict === "object" &&
+          typeof (conflict as CalendarConflict).label === "string" &&
+          typeof (conflict as CalendarConflict).start === "string" &&
+          typeof (conflict as CalendarConflict).end === "string" &&
+          Array.isArray((conflict as CalendarConflict).overlappingEvents),
+      ),
+  );
+}
+
+function parseWorkerResult(payload: unknown): BookingSubmissionResult {
+  if (!payload || typeof payload !== "object") {
+    return {};
+  }
+
+  const calendar = (payload as {
+    calendar?: {
+      configured?: boolean;
+      eventsCreated?: number;
+      conflicts?: CalendarConflict[];
+    };
+  }).calendar;
+
+  if (!calendar) {
+    return {};
+  }
+
+  return {
+    calendar: {
+      configured: calendar.configured === true,
+      eventsCreated: Number(calendar.eventsCreated ?? 0),
+      conflicts: parseCalendarConflicts(payload),
+    },
+  };
+}
+
+async function submitViaWorker(submission: EnquirySubmission): Promise<BookingSubmissionResult> {
   const response = await fetch(BOOKINGS_API_URL, {
     method: "POST",
     headers: {
@@ -53,12 +147,17 @@ async function submitViaWorker(submission: EnquirySubmission): Promise<void> {
     body: JSON.stringify({
       customerName: submission.customerName,
       message: submission.message,
+      booking: submission.booking,
     }),
   });
+
+  const payload = await response.json().catch(() => null);
 
   if (!response.ok) {
     throw new Error(`Worker booking API failed (${response.status})`);
   }
+
+  return parseWorkerResult(payload);
 }
 
 async function submitViaWeb3Forms(submission: EnquirySubmission): Promise<void> {
@@ -202,8 +301,13 @@ async function submitViaFormSubmit(submission: EnquirySubmission): Promise<void>
   }
 }
 
-export async function submitEnquiryByEmail(submission: EnquirySubmission): Promise<void> {
-  const attempts: Array<{ label: string; run: () => Promise<void> }> = [];
+export async function submitEnquiryByEmail(
+  submission: EnquirySubmission,
+): Promise<BookingSubmissionResult> {
+  const attempts: Array<{
+    label: string;
+    run: () => Promise<BookingSubmissionResult | void>;
+  }> = [];
 
   if (BOOKINGS_API_URL) {
     attempts.push({ label: "worker", run: () => submitViaWorker(submission) });
@@ -216,11 +320,15 @@ export async function submitEnquiryByEmail(submission: EnquirySubmission): Promi
   attempts.push({ label: "formsubmit", run: () => submitViaFormSubmit(submission) });
 
   let lastError: unknown = null;
+  let calendarResult: BookingSubmissionResult = {};
 
   for (const attempt of attempts) {
     try {
-      await attempt.run();
-      return;
+      const result = await attempt.run();
+      if (result && typeof result === "object" && "calendar" in result) {
+        calendarResult = result;
+      }
+      return calendarResult;
     } catch (error) {
       lastError = error;
       console.error(`Booking submission via ${attempt.label} failed`, error);
@@ -232,12 +340,84 @@ export async function submitEnquiryByEmail(submission: EnquirySubmission): Promi
     : new Error("Booking email could not be sent");
 }
 
-export async function submitBookingByEmail(details: BookingDetails): Promise<void> {
+function toStructuredBooking(details: BookingDetails): StructuredBookingPayload {
+  return {
+    customerName: details.customerName,
+    customerEmail: details.customerEmail,
+    mobileNumber: details.mobileNumber,
+    tripLabel: details.tripLabel,
+    pickupLabel: details.pickupLabel,
+    dropoffLabel: details.dropoffLabel,
+    returnJourney: details.returnJourney,
+    tripDate: details.tripDate,
+    tripTime: details.tripTime,
+    returnDate: details.returnDate,
+    returnTime: details.returnTime,
+    flightNumber: details.flightNumber,
+    passengers: details.passengers,
+    suitcases: details.suitcases,
+    vehicle: details.vehicle,
+    estimatedPrice: details.estimatedPrice,
+    isAirportTrip: details.isAirportTrip,
+    bookingType: "transfer",
+  };
+}
+
+function toStructuredDayTrip(details: TourEnquiryDetails): StructuredBookingPayload {
+  return {
+    customerName: details.customerName,
+    customerEmail: details.customerEmail,
+    mobileNumber: details.mobileNumber,
+    tripLabel: "Day trip",
+    pickupLabel: details.pickupLocation,
+    dropoffLabel: details.pickupLocation,
+    tripDate: details.travelDate,
+    tripTime: "09:00",
+    passengers: details.groupSize,
+    bookingType: "day-trip",
+    tourTitle: details.tourTitle,
+    notes: details.notes,
+  };
+}
+
+export async function submitBookingByEmail(
+  details: BookingDetails,
+): Promise<BookingSubmissionResult> {
   const message = buildBookingMessage(details);
 
-  await submitEnquiryByEmail({
+  return submitEnquiryByEmail({
     customerName: details.customerName,
     message,
     subject: `New booking — ${details.customerName}`,
+    booking: toStructuredBooking(details),
   });
+}
+
+export async function submitDayTripByEmail(
+  details: TourEnquiryDetails,
+): Promise<BookingSubmissionResult> {
+  const message = buildTourEnquiryMessage(details);
+
+  return submitEnquiryByEmail({
+    customerName: details.customerName,
+    message,
+    subject: `New day trip booking — ${details.customerName}`,
+    booking: toStructuredDayTrip(details),
+  });
+}
+
+export function formatCalendarConflictWarning(conflicts: CalendarConflict[]): string {
+  if (conflicts.length === 0) {
+    return "";
+  }
+
+  const lines = conflicts.map((conflict) => {
+    const overlapText =
+      conflict.overlappingEvents.length > 0
+        ? conflict.overlappingEvents.map((event) => event.summary).join(", ")
+        : "another booking";
+    return `${conflict.label} overlaps with ${overlapText}.`;
+  });
+
+  return `Calendar note: ${lines.join(" ")} We'll review and confirm shortly.`;
 }
