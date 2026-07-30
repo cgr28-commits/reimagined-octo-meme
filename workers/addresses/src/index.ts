@@ -5,15 +5,15 @@ import {
   searchGooglePlaces,
   searchGoogleStreetAddresses,
   isStreetOnlyQuery,
-} from "../../../shared/google-places";
+} from "../shared/google-places";
 import {
   resolveGetAddress,
   searchGetAddress,
-} from "../../../shared/getaddress";
+} from "../shared/getaddress";
 import {
   buildCheckoutReference,
   createSumUpHostedCheckout,
-} from "../../../shared/sumup-checkout";
+} from "../shared/sumup-checkout";
 
 type Env = {
   GOOGLE_PLACES_API_KEY: string;
