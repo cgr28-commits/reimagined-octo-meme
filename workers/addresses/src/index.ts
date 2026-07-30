@@ -28,6 +28,7 @@ type Env = {
 };
 
 const DEFAULT_BOOKING_EMAIL = "bookings@myairporttaxini.co.uk";
+const DEFAULT_CALENDAR_ID = "colinrice876@gmail.com";
 
 type BookingRequestBody = {
   customerName?: string;
@@ -121,7 +122,7 @@ async function syncBookingCalendar(
   booking: StructuredBooking,
   message: string,
 ): Promise<BookingResponseBody["calendar"]> {
-  const calendarId = env.GOOGLE_CALENDAR_ID?.trim() ?? "";
+  const calendarId = env.GOOGLE_CALENDAR_ID?.trim() || DEFAULT_CALENDAR_ID;
   const serviceAccount = env.GOOGLE_SERVICE_ACCOUNT_JSON
     ? parseGoogleServiceAccountJson(env.GOOGLE_SERVICE_ACCOUNT_JSON)
     : null;
@@ -181,7 +182,7 @@ async function handleBookingRequest(
     } catch (error) {
       console.error("Google Calendar sync failed", error);
       calendarResult = {
-        configured: Boolean(env.GOOGLE_CALENDAR_ID && env.GOOGLE_SERVICE_ACCOUNT_JSON),
+        configured: Boolean(env.GOOGLE_SERVICE_ACCOUNT_JSON),
         eventsCreated: 0,
         conflicts: [],
       };
