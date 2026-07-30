@@ -14,7 +14,8 @@ type AirportCode = "BFS" | "BHD" | "DUB";
  * Calibrated to market rates (Fonacab benchmarks where provided).
  */
 const AREA_AIRPORT_SURCHARGES: Record<Area, Record<AirportCode, number>> = {
-  "Belfast City Centre": { BFS: 0, BHD: 0, DUB: 50 },
+  // BFS +£14 calibrates Belfast estate transfers to ~£69 (Onward Travel benchmark).
+  "Belfast City Centre": { BFS: 14, BHD: 0, DUB: 50 },
   Holywood: { BFS: 10, BHD: 5, DUB: 58 },
   Newtownabbey: { BFS: 12, BHD: 8, DUB: 60 },
   Lisburn: { BFS: 12, BHD: 12, DUB: 60 },
