@@ -15,33 +15,33 @@ type AirportCode = "BFS" | "BHD" | "DUB";
  * Calibrated against Onward Travel Solutions instant quotes (2026).
  */
 const AREA_AIRPORT_SURCHARGES: Record<Area, Record<AirportCode, number>> = {
-  // BFS +£9 → saloon £54, estate £64 for Belfast transfers.
-  "Belfast City Centre": { BFS: 9, BHD: 0, DUB: 50 },
-  Holywood: { BFS: 10, BHD: 2, DUB: 58 },
-  Newtownabbey: { BFS: 12, BHD: 8, DUB: 60 },
-  Lisburn: { BFS: 12, BHD: 12, DUB: 60 },
-  Dundonald: { BFS: 15, BHD: 5, DUB: 60 },
-  Antrim: { BFS: 5, BHD: 25, DUB: 50 },
-  Ballyclare: { BFS: 8, BHD: 20, DUB: 65 },
-  Hillsborough: { BFS: 15, BHD: 12, DUB: 65 },
-  Carrickfergus: { BFS: 15, BHD: 10, DUB: 62 },
-  Comber: { BFS: 25, BHD: 15, DUB: 62 },
-  Larne: { BFS: 22, BHD: 20, DUB: 72 },
-  Bangor: { BFS: 30, BHD: 22, DUB: 65 },
-  Newtownards: { BFS: 28, BHD: 18, DUB: 62 },
-  Ballymena: { BFS: 12, BHD: 22, DUB: 78 },
-  Downpatrick: { BFS: 25, BHD: 22, DUB: 75 },
-  Banbridge: { BFS: 28, BHD: 25, DUB: 75 },
-  Newcastle: { BFS: 30, BHD: 28, DUB: 80 },
-  Lurgan: { BFS: 28, BHD: 22, DUB: 82 },
-  Portadown: { BFS: 30, BHD: 25, DUB: 85 },
-  Armagh: { BFS: 32, BHD: 28, DUB: 88 },
-  Newry: { BFS: 35, BHD: 30, DUB: 40 },
-  Cookstown: { BFS: 37, BHD: 42, DUB: 95 },
-  Coleraine: { BFS: 50, BHD: 50, DUB: 159 },
-  Omagh: { BFS: 75, BHD: 65, DUB: 115 },
-  "Derry / Londonderry": { BFS: 71, BHD: 61, DUB: 105 },
-  Enniskillen: { BFS: 107, BHD: 97, DUB: 175 },
+  // BFS +£11 → saloon £56, estate £64 for Belfast transfers.
+  "Belfast City Centre": { BFS: 11, BHD: 0, DUB: 50 },
+  Holywood: { BFS: 8, BHD: 1, DUB: 58 },
+  Newtownabbey: { BFS: 10, BHD: 6, DUB: 60 },
+  Lisburn: { BFS: 10, BHD: 10, DUB: 60 },
+  Dundonald: { BFS: 13, BHD: 3, DUB: 60 },
+  Antrim: { BFS: 0, BHD: 23, DUB: 50 },
+  Ballyclare: { BFS: 6, BHD: 18, DUB: 65 },
+  Hillsborough: { BFS: 13, BHD: 10, DUB: 65 },
+  Carrickfergus: { BFS: 13, BHD: 8, DUB: 62 },
+  Comber: { BFS: 22, BHD: 13, DUB: 62 },
+  Larne: { BFS: 19, BHD: 18, DUB: 72 },
+  Bangor: { BFS: 28, BHD: 16, DUB: 65 },
+  Newtownards: { BFS: 25, BHD: 16, DUB: 62 },
+  Ballymena: { BFS: 10, BHD: 20, DUB: 78 },
+  Downpatrick: { BFS: 22, BHD: 20, DUB: 75 },
+  Banbridge: { BFS: 26, BHD: 23, DUB: 75 },
+  Newcastle: { BFS: 28, BHD: 26, DUB: 80 },
+  Lurgan: { BFS: 26, BHD: 20, DUB: 82 },
+  Portadown: { BFS: 27, BHD: 23, DUB: 85 },
+  Armagh: { BFS: 30, BHD: 26, DUB: 88 },
+  Newry: { BFS: 33, BHD: 28, DUB: 40 },
+  Cookstown: { BFS: 35, BHD: 40, DUB: 95 },
+  Coleraine: { BFS: 48, BHD: 48, DUB: 159 },
+  Omagh: { BFS: 72, BHD: 62, DUB: 115 },
+  "Derry / Londonderry": { BFS: 68, BHD: 58, DUB: 105 },
+  Enniskillen: { BFS: 104, BHD: 94, DUB: 175 },
 };
 
 /** Default surcharge when pickup area cannot be matched from the address. */
@@ -71,8 +71,8 @@ const POINT_TO_POINT_VEHICLE_ADJUSTMENTS: Record<(typeof VEHICLE_TYPES)[number],
   "Minibus (7–8 passengers)": 0,
 };
 
-/** Estate is saloon + £10; executive and minibus scale from the estate tier. */
-const AIRPORT_ESTATE_PREMIUM = 10;
+/** Estate is saloon + £8; calibrated to sit just under OTS estate fares. */
+const AIRPORT_ESTATE_PREMIUM = 8;
 
 /** Minimum one-way executive airport transfer fare (all airports). */
 const AIRPORT_EXECUTIVE_MINIMUM_FARE = 105;

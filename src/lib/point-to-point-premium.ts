@@ -1,8 +1,8 @@
-/** 20% supplement for address-to-address trips on premium dates. */
-export const TRIP_PREMIUM_RATE = 0.2;
+/** 5% supplement for address-to-address trips on premium dates. */
+export const TRIP_PREMIUM_RATE = 0.05;
 
-/** 5% supplement for airport transfers on premium dates — OTS does not apply a weekend uplift. */
-export const AIRPORT_TRIP_PREMIUM_RATE = 0.05;
+/** Airport transfers use no weekend uplift — OTS does not apply one. */
+export const AIRPORT_TRIP_PREMIUM_RATE = 0;
 
 /** @deprecated Use TRIP_PREMIUM_RATE */
 export const POINT_TO_POINT_PREMIUM_RATE = TRIP_PREMIUM_RATE;
