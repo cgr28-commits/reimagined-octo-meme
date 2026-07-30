@@ -1,6 +1,7 @@
 import { AIRPORTS, AREAS, VEHICLE_TYPES } from "@/lib/data";
 import {
   applyTripPremium,
+  AIRPORT_TRIP_PREMIUM_RATE,
   type TripSchedule,
 } from "@/lib/point-to-point-premium";
 
@@ -11,23 +12,24 @@ type AirportCode = "BFS" | "BHD" | "DUB";
 /**
  * Distance-based surcharges for every NI pickup area and airport.
  * Fare = airport base price + surcharge, with the airport minimum as the floor.
- * Calibrated to market rates (Fonacab benchmarks where provided).
+ * Calibrated against Onward Travel Solutions instant quotes (2026).
  */
 const AREA_AIRPORT_SURCHARGES: Record<Area, Record<AirportCode, number>> = {
-  "Belfast City Centre": { BFS: 0, BHD: 0, DUB: 50 },
-  Holywood: { BFS: 10, BHD: 5, DUB: 58 },
+  // BFS +£9 → saloon £54, estate £64 for Belfast transfers.
+  "Belfast City Centre": { BFS: 9, BHD: 0, DUB: 50 },
+  Holywood: { BFS: 10, BHD: 2, DUB: 58 },
   Newtownabbey: { BFS: 12, BHD: 8, DUB: 60 },
   Lisburn: { BFS: 12, BHD: 12, DUB: 60 },
   Dundonald: { BFS: 15, BHD: 5, DUB: 60 },
   Antrim: { BFS: 5, BHD: 25, DUB: 50 },
   Ballyclare: { BFS: 8, BHD: 20, DUB: 65 },
   Hillsborough: { BFS: 15, BHD: 12, DUB: 65 },
-  Carrickfergus: { BFS: 18, BHD: 10, DUB: 62 },
+  Carrickfergus: { BFS: 15, BHD: 10, DUB: 62 },
   Comber: { BFS: 25, BHD: 15, DUB: 62 },
   Larne: { BFS: 22, BHD: 20, DUB: 72 },
   Bangor: { BFS: 30, BHD: 22, DUB: 65 },
   Newtownards: { BFS: 28, BHD: 18, DUB: 62 },
-  Ballymena: { BFS: 25, BHD: 30, DUB: 78 },
+  Ballymena: { BFS: 12, BHD: 22, DUB: 78 },
   Downpatrick: { BFS: 25, BHD: 22, DUB: 75 },
   Banbridge: { BFS: 28, BHD: 25, DUB: 75 },
   Newcastle: { BFS: 30, BHD: 28, DUB: 80 },
@@ -35,11 +37,11 @@ const AREA_AIRPORT_SURCHARGES: Record<Area, Record<AirportCode, number>> = {
   Portadown: { BFS: 30, BHD: 25, DUB: 85 },
   Armagh: { BFS: 32, BHD: 28, DUB: 88 },
   Newry: { BFS: 35, BHD: 30, DUB: 40 },
-  Cookstown: { BFS: 50, BHD: 55, DUB: 95 },
-  Coleraine: { BFS: 55, BHD: 60, DUB: 159 },
-  Omagh: { BFS: 120, BHD: 130, DUB: 115 },
-  "Derry / Londonderry": { BFS: 124, BHD: 134, DUB: 105 },
-  Enniskillen: { BFS: 150, BHD: 165, DUB: 175 },
+  Cookstown: { BFS: 37, BHD: 42, DUB: 95 },
+  Coleraine: { BFS: 50, BHD: 50, DUB: 159 },
+  Omagh: { BFS: 75, BHD: 65, DUB: 115 },
+  "Derry / Londonderry": { BFS: 71, BHD: 61, DUB: 105 },
+  Enniskillen: { BFS: 107, BHD: 97, DUB: 175 },
 };
 
 /** Default surcharge when pickup area cannot be matched from the address. */
@@ -411,7 +413,7 @@ export function calculateQuote(
   );
   const { vehicleMultiplier, vehicleAdjustment } = getAirportVehiclePricingMeta(vehicleType);
   const oneWayFare = applyAirportVehiclePricing(saloonOneWay, vehicleType, airportCode);
-  const premium = applyTripPremium(oneWayFare, { ...schedule, returnJourney });
+  const premium = applyTripPremium(oneWayFare, { ...schedule, returnJourney }, AIRPORT_TRIP_PREMIUM_RATE);
 
   return {
     amount: roundFare(premium.total),

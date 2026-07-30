@@ -1,5 +1,8 @@
-/** 20% supplement for trips after midnight Friday through 6:30am Monday, and all day on bank holidays. */
+/** 20% supplement for address-to-address trips on premium dates. */
 export const TRIP_PREMIUM_RATE = 0.2;
+
+/** 5% supplement for airport transfers on premium dates — OTS does not apply a weekend uplift. */
+export const AIRPORT_TRIP_PREMIUM_RATE = 0.05;
 
 /** @deprecated Use TRIP_PREMIUM_RATE */
 export const POINT_TO_POINT_PREMIUM_RATE = TRIP_PREMIUM_RATE;
@@ -94,19 +97,20 @@ export function isPointToPointPremiumDateTime(date: string, time: string): boole
 export function applyTripPremium(
   oneWayFare: number,
   schedule: TripSchedule,
+  premiumRate: number = TRIP_PREMIUM_RATE,
 ): { total: number; premiumApplied: boolean; premiumAmount: number } {
   const baseTotal = schedule.returnJourney ? oneWayFare * 2 : oneWayFare;
   let premiumAmount = 0;
 
   if (schedule.outboundDate && schedule.outboundTime) {
     if (isTripPremiumDateTime(schedule.outboundDate, schedule.outboundTime)) {
-      premiumAmount += oneWayFare * TRIP_PREMIUM_RATE;
+      premiumAmount += oneWayFare * premiumRate;
     }
   }
 
   if (schedule.returnJourney && schedule.returnDate && schedule.returnTime) {
     if (isTripPremiumDateTime(schedule.returnDate, schedule.returnTime)) {
-      premiumAmount += oneWayFare * TRIP_PREMIUM_RATE;
+      premiumAmount += oneWayFare * premiumRate;
     }
   }
 
