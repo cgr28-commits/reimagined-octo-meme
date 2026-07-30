@@ -15,6 +15,8 @@ export type BookingDetails = {
   suitcases: number;
   vehicle: string;
   estimatedPrice: string | null;
+  journeyDistance?: string;
+  journeyDuration?: string;
   isAirportTrip: boolean;
 };
 
@@ -61,10 +63,9 @@ export function buildBookingMessage(details: BookingDetails): string {
     `Passengers: ${details.passengers}\n` +
     `Suitcases: ${details.suitcases}\n` +
     `Vehicle: ${details.vehicle}\n` +
-    (details.estimatedPrice
-      ? `Estimated price: ${details.estimatedPrice}\n`
-      : !details.isAirportTrip
-        ? "Please provide a personal quote for this journey.\n"
-        : "")
+    (details.journeyDistance && details.journeyDuration
+      ? `Journey: ${details.journeyDistance} · ${details.journeyDuration}\n`
+      : "") +
+    (details.estimatedPrice ? `Estimated price: ${details.estimatedPrice}\n` : "")
   );
 }

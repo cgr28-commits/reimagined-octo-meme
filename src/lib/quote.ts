@@ -4,6 +4,7 @@ import {
   AIRPORT_TRIP_PREMIUM_RATE,
   type TripSchedule,
 } from "@/lib/point-to-point-premium";
+import type { TripRouteMetrics } from "@/lib/trip-route";
 
 type Area = (typeof AREAS)[number];
 
@@ -89,12 +90,39 @@ export type QuoteResult = {
   premiumApplied?: boolean;
 };
 
-/** Local point-to-point base fare (Belfast-area short journeys). */
+/** Local point-to-point base fare — fallback when route distance is unavailable. */
 const POINT_TO_POINT_BASE = 43;
 
 /**
- * Address-to-address distance bands from Belfast — calibrated to market rates
- * (e.g. Belfast → Newcastle ≈ £75). Separate from airport transfer surcharges.
+ * Onward Travel Solutions address-to-address model (calibrated from 50 NI routes, 2026).
+ * Estate = base + tierMultiplier × (kmRate × km + minRate × minutes).
+ */
+const OTS_ESTATE_BASE = 40;
+const OTS_KM_RATE = 0.482;
+const OTS_MIN_RATE = 0.554;
+
+const OTS_VEHICLE_BASE: Record<(typeof VEHICLE_TYPES)[number], number> = {
+  "Standard Saloon (1–4 passengers)": 35,
+  "Estate Car (1–4 passengers)": 40,
+  "Executive Saloon (1–4 passengers)": 45,
+  "Minibus (7–8 passengers)": 60,
+};
+
+function calculateOtsPointToPointOneWay(
+  distanceKm: number,
+  durationMinutes: number,
+  vehicleType: (typeof VEHICLE_TYPES)[number],
+): number {
+  const vehicleBase = OTS_VEHICLE_BASE[vehicleType] ?? OTS_ESTATE_BASE;
+  const tierMultiplier = vehicleBase / OTS_ESTATE_BASE;
+  const variable =
+    tierMultiplier * (OTS_KM_RATE * distanceKm + OTS_MIN_RATE * durationMinutes);
+  const raw = vehicleBase + variable;
+  return raw % 5 === 4 ? Math.round(raw) : roundToNearestFive(raw);
+}
+
+/**
+ * Address-to-address distance bands from Belfast — fallback when OSRM route is unavailable.
  */
 const POINT_TO_POINT_AREA_RATES: Partial<Record<Area, number>> & { default: number } = {
   "Belfast City Centre": 0,
@@ -334,6 +362,7 @@ export function calculatePointToPointQuote(
   vehicleType: (typeof VEHICLE_TYPES)[number],
   returnJourney = false,
   schedule: TripSchedule = {},
+  routeMetrics?: TripRouteMetrics | null,
 ): QuoteResult | null {
   const pickup = pickupAddress.trim();
   const dropoff = dropoffAddress.trim();
@@ -343,33 +372,46 @@ export function calculatePointToPointQuote(
 
   const pickupArea = matchAreaFromAddress(pickup);
   const dropoffArea = matchAreaFromAddress(dropoff);
-  const pickupRate = getPointToPointAreaRate(pickupArea);
-  const dropoffRate = getPointToPointAreaRate(dropoffArea);
 
-  let oneWaySubtotal: number;
-  if (pickupArea && dropoffArea && pickupArea === dropoffArea) {
-    oneWaySubtotal = POINT_TO_POINT_BASE + Math.max(pickupRate, dropoffRate) * 0.55;
+  let oneWay: number;
+  let areaSurcharge: number;
+
+  if (routeMetrics) {
+    oneWay = calculateOtsPointToPointOneWay(
+      routeMetrics.distanceKm,
+      routeMetrics.durationMinutes,
+      vehicleType,
+    );
+    areaSurcharge = Math.round(routeMetrics.distanceKm);
   } else {
-    const maxRate = Math.max(pickupRate, dropoffRate);
-    const minRate = Math.min(pickupRate, dropoffRate);
-    oneWaySubtotal = POINT_TO_POINT_BASE + maxRate + minRate * 0.35;
+    const pickupRate = getPointToPointAreaRate(pickupArea);
+    const dropoffRate = getPointToPointAreaRate(dropoffArea);
+    areaSurcharge = Math.max(pickupRate, dropoffRate);
+
+    let oneWaySubtotal: number;
+    if (pickupArea && dropoffArea && pickupArea === dropoffArea) {
+      oneWaySubtotal = POINT_TO_POINT_BASE + Math.max(pickupRate, dropoffRate) * 0.55;
+    } else {
+      const maxRate = Math.max(pickupRate, dropoffRate);
+      const minRate = Math.min(pickupRate, dropoffRate);
+      oneWaySubtotal = POINT_TO_POINT_BASE + maxRate + minRate * 0.35;
+    }
+
+    oneWay = applyPointToPointVehiclePricing(oneWaySubtotal, vehicleType);
   }
 
   const vehicleMultiplier = VEHICLE_MULTIPLIERS[vehicleType] ?? 1;
   const vehicleAdjustment = POINT_TO_POINT_VEHICLE_ADJUSTMENTS[vehicleType] ?? 0;
-  const oneWay = applyPointToPointVehiclePricing(oneWaySubtotal, vehicleType);
-  const baseSubtotal = returnJourney ? oneWay * 2 : oneWay;
   const premium = applyTripPremium(oneWay, {
     ...schedule,
     returnJourney,
   });
-  const subtotal = premium.total;
 
   return {
-    amount: roundFare(subtotal),
+    amount: roundFare(premium.total),
     area: dropoffArea ?? pickupArea,
-    areaSurcharge: Math.max(pickupRate, dropoffRate),
-    airportBase: POINT_TO_POINT_BASE,
+    areaSurcharge,
+    airportBase: routeMetrics ? OTS_ESTATE_BASE : POINT_TO_POINT_BASE,
     vehicleMultiplier,
     vehicleAdjustment,
     pickupArea,

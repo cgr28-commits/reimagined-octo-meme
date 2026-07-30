@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, memo, useEffect, useMemo, useState } from "react";
+import { FormEvent, memo, useCallback, useEffect, useMemo, useState } from "react";
 import AddressInput from "@/components/AddressInput";
 import TripMap from "@/components/TripMap";
 import { buildBookingMessage, isValidEmailAddress, isValidMobileNumber, type BookingDetails } from "@/lib/booking-message";
@@ -8,9 +8,15 @@ import { detectMobileDevice, useIsMobileDevice } from "@/lib/device";
 import { AIRPORTS, SITE, VEHICLE_TYPES } from "@/lib/data";
 import { readPrefillAirport } from "@/lib/quote-prefill";
 import {
+  calculatePointToPointQuote,
   calculateQuote,
   formatQuote,
 } from "@/lib/quote";
+import {
+  formatJourneyDistance,
+  formatJourneyDuration,
+  type TripRouteMetrics,
+} from "@/lib/trip-route";
 import { submitBookingByEmail } from "@/lib/submit-booking";
 
 type TripMode = "airport" | "address";
@@ -107,6 +113,11 @@ function QuoteCard() {
   const [vehicle, setVehicle] = useState<VehicleType>(VEHICLE_TYPES[0]);
   const [passengers, setPassengers] = useState(1);
   const [suitcases, setSuitcases] = useState(1);
+  const [routeMetrics, setRouteMetrics] = useState<TripRouteMetrics | null>(null);
+
+  const handleRouteMetrics = useCallback((metrics: TripRouteMetrics | null) => {
+    setRouteMetrics(metrics);
+  }, []);
 
   const autoVehicle = getAutoVehicle(passengers, suitcases);
   const quoteVehicle = autoVehicle ?? vehicle;
@@ -165,34 +176,64 @@ function QuoteCard() {
     (!returnJourney || Boolean(returnDate && returnTime));
 
   const quoteAddress = isFromAirport ? dropoffAddress : pickupAddress;
-  const isAddressComplete = Boolean(airportCode && quoteAddress.trim());
+  const isAirportAddressComplete = Boolean(airportCode && quoteAddress.trim());
+  const isAddressPairComplete = Boolean(pickupAddress.trim() && dropoffAddress.trim());
 
-  const canShowPrice = isScheduleComplete && isAddressComplete;
+  const canShowPrice =
+    isScheduleComplete &&
+    (isAirportTrip ? isAirportAddressComplete : isAddressPairComplete);
 
   const liveQuote = useMemo(() => {
-    if (!isAirportTrip || !canShowPrice) {
+    if (!canShowPrice) {
       return null;
     }
 
-    return calculateQuote(quoteAddress, airportCode, quoteVehicle, returnJourney, {
+    const schedule = {
       outboundDate: tripDate,
       outboundTime: tripTime,
       returnDate,
       returnTime,
       returnJourney,
-    });
+    };
+
+    if (isAirportTrip) {
+      return calculateQuote(quoteAddress, airportCode, quoteVehicle, returnJourney, schedule);
+    }
+
+    if (!routeMetrics) {
+      return null;
+    }
+
+    return calculatePointToPointQuote(
+      pickupAddress,
+      dropoffAddress,
+      quoteVehicle,
+      returnJourney,
+      schedule,
+      routeMetrics,
+    );
   }, [
     airportCode,
     canShowPrice,
+    dropoffAddress,
     isAirportTrip,
+    pickupAddress,
     quoteAddress,
     returnDate,
     returnJourney,
     returnTime,
+    routeMetrics,
     tripDate,
     tripTime,
     quoteVehicle,
   ]);
+
+  const journeyDistanceLabel = routeMetrics
+    ? formatJourneyDistance(routeMetrics.distanceKm)
+    : "";
+  const journeyDurationLabel = routeMetrics
+    ? formatJourneyDuration(routeMetrics.durationMinutes)
+    : "";
 
   function handlePickupChange(value: string) {
     setPickupAddress(value);
@@ -276,8 +317,7 @@ function QuoteCard() {
         : "Airport drop-off"
       : "Address to address";
 
-    const estimatedPrice =
-      isAirportTrip && liveQuote ? formatQuote(liveQuote.amount) : null;
+    const estimatedPrice = liveQuote ? formatQuote(liveQuote.amount) : null;
 
     return {
       customerName: customerName.trim(),
@@ -296,6 +336,8 @@ function QuoteCard() {
       suitcases,
       vehicle: quoteVehicle,
       estimatedPrice,
+      journeyDistance: journeyDistanceLabel || undefined,
+      journeyDuration: journeyDurationLabel || undefined,
       isAirportTrip,
     };
   }
@@ -369,13 +411,13 @@ function QuoteCard() {
     : "Confirming booking…";
 
   const confirmButtonLabel =
-    isAirportTrip && liveQuote
+    liveQuote
       ? `Confirm & book for ${formatQuote(liveQuote.amount)}`
       : usesWhatsApp
         ? "Confirm & send via WhatsApp"
         : "Confirm & book";
 
-  const reviewButtonLabel = isAirportTrip && liveQuote ? "Review booking" : "Review booking details";
+  const reviewButtonLabel = liveQuote ? "Review booking" : "Review booking details";
 
   const initialButtonLabel =
     isAirportTrip && liveQuote && !canBookAirport
@@ -395,12 +437,16 @@ function QuoteCard() {
         ? returnJourney && tripDate && tripTime && (!returnDate || !returnTime)
           ? "Select your return date and time to see your estimated price"
           : "Select your date and time to see your estimated price"
-        : !isAddressComplete
+        : !isAirportAddressComplete
           ? `Enter your ${isFromAirport ? "drop-off" : "pickup"} address to see your estimated price`
           : ""
-    : usesWhatsApp
-      ? "Fill in your journey details and send via WhatsApp — we'll confirm your fare personally."
-      : "Fill in your journey details — we'll confirm your fare and send your payment link.";
+    : !isScheduleComplete
+      ? "Select your date and time to see your estimated price"
+      : !isAddressPairComplete
+        ? "Enter pickup and drop-off addresses to see your estimated price"
+        : !routeMetrics
+          ? "Calculating your route and price…"
+          : "";
 
   return (
     <div className="glass-card rounded-2xl p-6 sm:p-8 lg:animate-float">
@@ -412,8 +458,8 @@ function QuoteCard() {
               ? "See your estimated price instantly, then book via WhatsApp"
               : "See your estimated price instantly, then review and confirm your booking"
             : usesWhatsApp
-              ? "Send your address-to-address trip details and we'll quote you personally"
-              : "Send your trip details and we'll confirm your fare and payment link"}
+              ? "See your estimated price instantly, then book via WhatsApp"
+              : "See your estimated price instantly, then review and confirm your booking"}
         </p>
       </div>
 
@@ -709,6 +755,7 @@ function QuoteCard() {
           }
           airportCode={airportCode}
           tripDirection={tripDirection}
+          onRouteMetrics={isAirportTrip ? undefined : handleRouteMetrics}
         />
 
         <div className="grid gap-4 sm:grid-cols-2">
@@ -905,39 +952,31 @@ function QuoteCard() {
         </div>
 
         <div className="rounded-xl border border-emerald/30 bg-emerald/10 px-4 py-4">
-          {isAirportTrip ? (
-            liveQuote ? (
-              <>
-                <p className="text-xs font-medium uppercase tracking-wider text-emerald">
-                  {returnJourney ? "Estimated return price" : "Estimated price"}
+          {liveQuote ? (
+            <>
+              <p className="text-xs font-medium uppercase tracking-wider text-emerald">
+                {returnJourney ? "Estimated return price" : "Estimated price"}
+              </p>
+              <p className="mt-1 text-3xl font-bold text-white">{formatQuote(liveQuote.amount)}</p>
+              <p className="mt-2 text-xs text-white/60">{quoteVehicle.split(" (")[0]}</p>
+              {!isAirportTrip && journeyDistanceLabel && journeyDurationLabel && (
+                <p className="mt-2 text-xs text-white/60">
+                  Approx. {journeyDistanceLabel} · {journeyDurationLabel}
                 </p>
-                <p className="mt-1 text-3xl font-bold text-white">{formatQuote(liveQuote.amount)}</p>
-                <p className="mt-2 text-xs text-white/60">{quoteVehicle.split(" (")[0]}</p>
+              )}
+              {isAirportTrip && (
                 <p className="mt-3 text-xs leading-relaxed text-white/60">
                   Includes express drop-off and pickup fees, and 60 minutes complimentary waiting
                   time from when your plane lands.
                 </p>
-              </>
-            ) : (
-              <>
-                <p className="text-xs font-medium uppercase tracking-wider text-white/50">
-                  Estimated price
-                </p>
-                <p className="mt-1 text-sm text-white/70">{quoteHint}</p>
-              </>
-            )
+              )}
+            </>
           ) : (
             <>
-              <p className="text-xs font-medium uppercase tracking-wider text-emerald">
-                Personal quote
+              <p className="text-xs font-medium uppercase tracking-wider text-white/50">
+                Estimated price
               </p>
-              <p className="mt-1 text-sm text-white/80">
-                Address-to-address fares vary by route. Send your details below and we&apos;ll reply
-                {usesWhatsApp
-                  ? " on WhatsApp with your exact price."
-                  : " with your exact price and payment link."}
-              </p>
-              <p className="mt-2 text-xs text-white/60">{quoteHint}</p>
+              <p className="mt-1 text-sm text-white/70">{quoteHint}</p>
             </>
           )}
           <p className="mt-3 text-[11px] text-white/40">
@@ -995,10 +1034,16 @@ function QuoteCard() {
               <PreviewRow label="Passengers" value={String(passengers)} />
               <PreviewRow label="Suitcases" value={String(suitcases)} />
               <PreviewRow label="Vehicle" value={quoteVehicle} />
-              {isAirportTrip && liveQuote && (
+              {liveQuote && (
                 <PreviewRow
                   label={returnJourney ? "Estimated return price" : "Estimated price"}
                   value={formatQuote(liveQuote.amount)}
+                />
+              )}
+              {!isAirportTrip && journeyDistanceLabel && journeyDurationLabel && (
+                <PreviewRow
+                  label="Journey"
+                  value={`${journeyDistanceLabel} · ${journeyDurationLabel}`}
                 />
               )}
             </dl>
