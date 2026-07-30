@@ -3,5 +3,10 @@ name = "reimagined-octo-meme"
 main = "src/index.ts"
 compatibility_date = "2024-11-01"
 
+# Dashboard had WORKER_SELF_REFERENCE pointing at missing worker "my-airport-taxi-ni"
+[[services]]
+binding = "WORKER_SELF_REFERENCE"
+service = "reimagined-octo-meme"
+
 [observability]
 enabled = true
