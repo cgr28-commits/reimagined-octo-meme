@@ -93,21 +93,23 @@ export default function TourBookingForm({
     }
 
     const onDesktop = !(isMobileDevice ?? detectMobileDevice());
+
+    if (!customerMobile.trim()) {
+      setMobileNumberError("Please enter your mobile number so we can send your payment link by text.");
+      return false;
+    }
+    if (!isValidMobileNumber(customerMobile)) {
+      setMobileNumberError("Please enter a valid mobile number.");
+      return false;
+    }
+
     if (onDesktop) {
       if (!customerEmail.trim()) {
-        setEmailAddressError("Please enter your email address so we can send your payment link.");
+        setEmailAddressError("Please enter your email address so we can confirm your booking.");
         return false;
       }
       if (!isValidEmailAddress(customerEmail)) {
         setEmailAddressError("Please enter a valid email address.");
-        return false;
-      }
-      if (!customerMobile.trim()) {
-        setMobileNumberError("Please enter your mobile number so we can contact you.");
-        return false;
-      }
-      if (!isValidMobileNumber(customerMobile)) {
-        setMobileNumberError("Please enter a valid mobile number.");
         return false;
       }
     }
@@ -212,56 +214,60 @@ export default function TourBookingForm({
           />
         </div>
 
-        {isMobileDevice !== true && (
-          <>
-            <div>
-              <label htmlFor={`tour-email-${id ?? "form"}`} className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/50">
-                Email Address
-              </label>
-              <input
-                id={`tour-email-${id ?? "form"}`}
-                type="email"
-                required
-                autoComplete="email"
-                value={customerEmail}
-                onChange={(e) => {
-                  setCustomerEmail(e.target.value);
-                  setShowPreview(false);
-                  setEnquirySent(false);
-                  setEmailAddressError("");
-                }}
-                placeholder="you@example.com"
-                className={inputClassName}
-              />
-              {emailAddressError && (
-                <p className="mt-1.5 text-xs text-red-300">{emailAddressError}</p>
-              )}
-            </div>
+        <div>
+          <label htmlFor={`tour-mobile-${id ?? "form"}`} className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/50">
+            Mobile Number
+          </label>
+          <input
+            id={`tour-mobile-${id ?? "form"}`}
+            type="tel"
+            required
+            autoComplete="tel"
+            value={customerMobile}
+            onChange={(e) => {
+              setCustomerMobile(e.target.value);
+              setShowPreview(false);
+              setEnquirySent(false);
+              setMobileNumberError("");
+            }}
+            placeholder="07xxx xxxxxx"
+            className={inputClassName}
+          />
+          <p className="mt-1.5 text-xs text-white/40">
+            We&apos;ll send your payment link here by text or WhatsApp.
+          </p>
+          {mobileNumberError && (
+            <p className="mt-1.5 text-xs text-red-300">{mobileNumberError}</p>
+          )}
+        </div>
 
-            <div>
-              <label htmlFor={`tour-mobile-${id ?? "form"}`} className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/50">
-                Mobile Number
-              </label>
-              <input
-                id={`tour-mobile-${id ?? "form"}`}
-                type="tel"
-                required
-                autoComplete="tel"
-                value={customerMobile}
-                onChange={(e) => {
-                  setCustomerMobile(e.target.value);
-                  setShowPreview(false);
-                  setEnquirySent(false);
-                  setMobileNumberError("");
-                }}
-                placeholder="07xxx xxxxxx"
-                className={inputClassName}
-              />
-              {mobileNumberError && (
-                <p className="mt-1.5 text-xs text-red-300">{mobileNumberError}</p>
-              )}
-            </div>
-          </>
+        {isMobileDevice !== true && (
+          <div>
+            <label htmlFor={`tour-email-${id ?? "form"}`} className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/50">
+              Email Address
+            </label>
+            <input
+              id={`tour-email-${id ?? "form"}`}
+              type="email"
+              required
+              autoComplete="email"
+              value={customerEmail}
+              onChange={(e) => {
+                setCustomerEmail(e.target.value);
+                setShowPreview(false);
+                setEnquirySent(false);
+                setEmailAddressError("");
+              }}
+              placeholder="you@example.com"
+              className={inputClassName}
+            />
+            <p className="mt-1.5 text-xs text-white/40">
+              So we can email your booking confirmation if needed.
+            </p>
+            {emailAddressError && (
+              <p className="mt-1.5 text-xs text-red-300">{emailAddressError}</p>
+            )}
+          </div>
         )}
 
         <div className="grid gap-4 sm:grid-cols-2">
@@ -356,11 +362,9 @@ export default function TourBookingForm({
             <dl>
               <PreviewRow label="Day trip" value={tourTitle} />
               <PreviewRow label="Name" value={customerName.trim()} />
+              <PreviewRow label="Mobile" value={customerMobile.trim()} />
               {isMobileDevice !== true && customerEmail.trim() && (
                 <PreviewRow label="Email" value={customerEmail.trim()} />
-              )}
-              {isMobileDevice !== true && customerMobile.trim() && (
-                <PreviewRow label="Mobile" value={customerMobile.trim()} />
               )}
               <PreviewRow label="Preferred date" value={travelDate} />
               <PreviewRow label="Group size" value={String(groupSize)} />
@@ -387,8 +391,8 @@ export default function TourBookingForm({
           <p className="rounded-xl border border-emerald/30 bg-emerald/10 px-4 py-3 text-sm text-white">
             <p className="font-semibold">Booking sent</p>
             <p className="mt-2 text-white/80">
-              You will be sent a payment link shortly. Your booking is not confirmed until full
-              payment is made.
+              You will be sent a payment link shortly via text. Your booking is not confirmed until
+              full payment is made.
             </p>
           </p>
         )}
