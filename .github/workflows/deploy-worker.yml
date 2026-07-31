@@ -6,6 +6,8 @@ on:
     paths:
       - "workers/addresses/**"
       - "shared/**"
+      - "scripts/ensure-alias-worker.mjs"
+      - "scripts/sync-worker-shared.mjs"
       - ".github/workflows/deploy-worker.yml"
   workflow_dispatch:
 
@@ -25,6 +27,16 @@ jobs:
           cache: npm
           cache-dependency-path: workers/addresses/package-lock.json
 
+      - name: Require Cloudflare credentials
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "::error::Add CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID to GitHub → Settings → Secrets → Actions, then re-run this workflow."
+            exit 1
+          fi
+
       - name: Sync shared modules into worker
         run: node scripts/sync-worker-shared.mjs
 
@@ -32,7 +44,13 @@ jobs:
         working-directory: workers/addresses
         run: npm ci
 
-      - name: Deploy to Cloudflare Workers
+      - name: Deploy alias worker (my-airport-taxi-ni)
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: node scripts/ensure-alias-worker.mjs
+
+      - name: Deploy main worker (reimagined-octo-meme)
         working-directory: workers/addresses
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
