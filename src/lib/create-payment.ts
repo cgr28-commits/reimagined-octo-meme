@@ -60,7 +60,7 @@ const PAYMENTS_API_URL = resolvePaymentsApiUrl();
 const PAYMENTS_CONFIRM_API_URL = resolvePaymentsConfirmApiUrl();
 
 export function isSumUpPaymentEnabled(): boolean {
-  return Boolean(PAYMENTS_API_URL);
+  return false;
 }
 
 export function buildPaymentRedirectUrl(): string {

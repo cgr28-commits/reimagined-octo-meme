@@ -18,27 +18,12 @@ import {
   type TripRouteMetrics,
 } from "@/lib/trip-route";
 import { submitBookingByEmail } from "@/lib/submit-booking";
-import {
-  buildPaymentRedirectUrl,
-  confirmPaidBooking,
-  createPaymentCheckout,
-  isSumUpPaymentEnabled,
-} from "@/lib/create-payment";
-import {
-  hasConfirmedPayment,
-  markPaymentConfirmed,
-  readPendingPayment,
-  resolveCheckoutIdFromUrl,
-  savePendingPayment,
-} from "@/lib/pending-payment";
 
 type TripMode = "airport" | "address";
 type TripDirection = "to-airport" | "from-airport";
 
 const PICKUP_STORAGE_KEY = "my-airport-taxi-ni-pickup-address";
 const DROPOFF_STORAGE_KEY = "my-airport-taxi-ni-dropoff-address";
-const PAYMENT_CONFIRM_RETRY_MS = 2000;
-const PAYMENT_CONFIRM_MAX_ATTEMPTS = 5;
 
 const ESTATE = "Estate Car (1–4 passengers)" as const;
 const MINIBUS = "Minibus (7–8 passengers)" as const;
@@ -129,14 +114,6 @@ function QuoteCard() {
   const [passengers, setPassengers] = useState(1);
   const [suitcases, setSuitcases] = useState(1);
   const [routeMetrics, setRouteMetrics] = useState<TripRouteMetrics | null>(null);
-  const [paymentLoading, setPaymentLoading] = useState(false);
-  const [paymentError, setPaymentError] = useState("");
-  const [paymentReturned, setPaymentReturned] = useState(false);
-  const [paymentConfirming, setPaymentConfirming] = useState(false);
-  const [paymentConfirmed, setPaymentConfirmed] = useState(false);
-  const [paymentConfirmError, setPaymentConfirmError] = useState("");
-  const [paymentConfirmationSummary, setPaymentConfirmationSummary] = useState("");
-  const sumUpEnabled = isSumUpPaymentEnabled();
 
   const handleRouteMetrics = useCallback((metrics: TripRouteMetrics | null) => {
     setRouteMetrics(metrics);
@@ -149,86 +126,6 @@ function QuoteCard() {
   const isAirportTrip = tripMode === "airport";
   const isFromAirport = tripDirection === "from-airport";
   const addressLookupCode = isAirportTrip ? airportCode : "BFS";
-
-  useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("payment") !== "return") {
-      return;
-    }
-
-    setPaymentReturned(true);
-
-    const checkoutIdFromUrl = resolveCheckoutIdFromUrl(window.location.search);
-    const pending = readPendingPayment();
-    const checkoutId = checkoutIdFromUrl || pending?.checkoutId || "";
-
-    params.delete("payment");
-    params.delete("checkout_id");
-    params.delete("checkoutId");
-    const nextSearch = params.toString();
-    const nextUrl = `${window.location.pathname}${nextSearch ? `?${nextSearch}` : ""}#quote`;
-    window.history.replaceState(null, "", nextUrl);
-
-    if (!checkoutId || !pending?.booking || hasConfirmedPayment(checkoutId)) {
-      return;
-    }
-
-    let cancelled = false;
-
-    async function finalizePaidBooking() {
-      const booking = pending!.booking;
-      setPaymentConfirming(true);
-      setPaymentConfirmError("");
-
-      for (let attempt = 0; attempt < PAYMENT_CONFIRM_MAX_ATTEMPTS; attempt += 1) {
-        if (cancelled) {
-          return;
-        }
-
-        try {
-          const result = await confirmPaidBooking(checkoutId, booking);
-          if (cancelled) {
-            return;
-          }
-
-          markPaymentConfirmed(checkoutId);
-          setPaymentConfirmed(true);
-          setPaymentConfirmationSummary(
-            `Payment of ${result.amountPaid} received. A confirmation and receipt have been emailed to ${booking.customerEmail}.`,
-          );
-          setPaymentConfirming(false);
-          return;
-        } catch (error) {
-          const message =
-            error instanceof Error ? error.message : "Could not confirm your payment";
-
-          if (
-            message.includes("not been completed") &&
-            attempt < PAYMENT_CONFIRM_MAX_ATTEMPTS - 1
-          ) {
-            await new Promise((resolve) => window.setTimeout(resolve, PAYMENT_CONFIRM_RETRY_MS));
-            continue;
-          }
-
-          if (!cancelled) {
-            setPaymentConfirmError(message);
-            setPaymentConfirming(false);
-          }
-          return;
-        }
-      }
-    }
-
-    void finalizePaidBooking();
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   useEffect(() => {
     const savedPickup = localStorage.getItem(PICKUP_STORAGE_KEY);
@@ -443,54 +340,6 @@ function QuoteCard() {
       journeyDuration: journeyDurationLabel || undefined,
       isAirportTrip,
     };
-  }
-
-  function buildPaymentDescription(): string {
-    const vehicleLabel = quoteVehicle.split(" (")[0];
-    const tripSummary = isAirportTrip
-      ? `${isFromAirport ? "Pickup from" : "Transfer to"} ${airportName} (${airportCode})`
-      : "Address-to-address transfer";
-    const customer = customerName.trim();
-    const namePart = customer ? ` — ${customer}` : "";
-    return `${tripSummary} — ${vehicleLabel}${namePart}`.slice(0, 140);
-  }
-
-  async function handlePayNow() {
-    if (!liveQuote || paymentLoading) {
-      return;
-    }
-
-    if (!validateBooking()) {
-      return;
-    }
-
-    setPaymentLoading(true);
-    setPaymentError("");
-
-    try {
-      const checkout = await createPaymentCheckout({
-        amount: liveQuote.amount,
-        description: buildPaymentDescription(),
-        redirectUrl: buildPaymentRedirectUrl(),
-      });
-      savePendingPayment({
-        checkoutId: checkout.checkoutId,
-        booking: buildBookingDetails(),
-      });
-      const paymentWindow = window.open(checkout.paymentUrl, "_blank", "noopener,noreferrer");
-      if (!paymentWindow) {
-        window.location.assign(checkout.paymentUrl);
-        return;
-      }
-      setPaymentLoading(false);
-    } catch (error) {
-      setPaymentError(
-        error instanceof Error
-          ? error.message
-          : "We couldn't start payment. Please try again or contact us to pay.",
-      );
-      setPaymentLoading(false);
-    }
   }
 
   function openWhatsAppBooking(details: BookingDetails) {
@@ -1132,39 +981,20 @@ function QuoteCard() {
           )}
           <p className="mt-3 text-[11px] text-white/40">
             Includes vehicle, driver, fuel, and tolls.
-            {sumUpEnabled ? " Card payment is available after you review your booking." : ""}
           </p>
         </div>
 
-        {paymentError && (
-          <p className="rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-100">
-            {paymentError}
-          </p>
-        )}
-
-        {paymentReturned && (
-          <div className="space-y-3">
-            {paymentConfirming && (
-              <p className="rounded-xl border border-white/15 bg-white/[0.04] px-4 py-3 text-sm text-white">
-                Confirming your payment and sending your booking confirmation…
-              </p>
-            )}
-            {paymentConfirmed && paymentConfirmationSummary && (
-              <p className="rounded-xl border border-emerald/30 bg-emerald/10 px-4 py-3 text-sm text-white">
-                {paymentConfirmationSummary} We&apos;ve also sent the full booking details to our
-                team.
-              </p>
-            )}
-            {paymentConfirmError && (
-              <p className="rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-50">
-                {paymentConfirmError} If payment went through, email {SITE.email} and we&apos;ll
-                confirm your booking manually.
-              </p>
-            )}
-            {!paymentConfirming && !paymentConfirmed && !paymentConfirmError && (
-              <p className="rounded-xl border border-emerald/30 bg-emerald/10 px-4 py-3 text-sm text-white">
-                Thank you for returning from payment. If your SumUp payment completed, your
-                confirmation email will arrive shortly.
+        {bookingSent && (
+          <div className="rounded-xl border border-emerald/30 bg-emerald/10 px-4 py-4 text-sm text-white">
+            <p className="font-semibold">Booking sent</p>
+            <p className="mt-2 text-white/80">
+              You will be sent a payment link shortly. Your booking is not confirmed until full
+              payment is made.
+            </p>
+            {usesWhatsApp && (
+              <p className="mt-2 text-white/60">
+                Your booking message should open in WhatsApp. If it didn&apos;t, tap the green chat
+                button at the bottom of the screen.
               </p>
             )}
           </div>
@@ -1242,55 +1072,22 @@ function QuoteCard() {
           </p>
         )}
 
-        {bookingSent && usesWhatsApp && (
-          <p className="rounded-xl border border-[#25D366]/30 bg-[#25D366]/10 px-4 py-3 text-sm text-white">
-            Your booking message should open in WhatsApp. If it didn&apos;t, tap the green chat
-            button at the bottom of the screen.
-          </p>
-        )}
-
-        {bookingSent && usesEmail && (
-          <p className="rounded-xl border border-emerald/30 bg-emerald/10 px-4 py-3 text-sm text-white">
-            Booking confirmed. We&apos;ll reply shortly with your payment link.
-          </p>
-        )}
-
         {showBookingPreview ? (
-          <div className="space-y-3">
-            {sumUpEnabled && liveQuote && (
-              <div className="space-y-2">
-                <button
-                  type="button"
-                  onClick={() => void handlePayNow()}
-                  disabled={paymentLoading || submitted}
-                  className="w-full rounded-xl bg-white py-3.5 text-sm font-bold text-navy transition-all hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-70"
-                >
-                  {paymentLoading
-                    ? "Opening SumUp…"
-                    : `Pay ${formatQuote(liveQuote.amount)} now with SumUp`}
-                </button>
-                <p className="text-center text-xs text-white/50">
-                  Payment opens in a new tab. Close that tab to cancel — your quote stays on this
-                  page.
-                </p>
-              </div>
-            )}
-            <div className="grid gap-3 sm:grid-cols-2">
-              <button
-                type="button"
-                onClick={handleEditBooking}
-                className="w-full rounded-xl border border-white/15 bg-white/5 py-3.5 text-sm font-semibold text-white transition-all hover:bg-white/10"
-              >
-                Edit details
-              </button>
-              <button
-                type="submit"
-                disabled={submitted}
-                className="w-full rounded-xl bg-emerald py-3.5 text-sm font-bold text-navy transition-all hover:bg-emerald-light hover:shadow-lg hover:shadow-emerald/25 disabled:cursor-not-allowed disabled:opacity-70"
-              >
-                {submitted ? submitInProgressLabel : confirmButtonLabel}
-              </button>
-            </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <button
+              type="button"
+              onClick={handleEditBooking}
+              className="w-full rounded-xl border border-white/15 bg-white/5 py-3.5 text-sm font-semibold text-white transition-all hover:bg-white/10"
+            >
+              Edit details
+            </button>
+            <button
+              type="submit"
+              disabled={submitted}
+              className="w-full rounded-xl bg-emerald py-3.5 text-sm font-bold text-navy transition-all hover:bg-emerald-light hover:shadow-lg hover:shadow-emerald/25 disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              {submitted ? submitInProgressLabel : confirmButtonLabel}
+            </button>
           </div>
         ) : (
           <button
