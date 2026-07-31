@@ -381,6 +381,10 @@ function QuoteCard() {
       return;
     }
 
+    if (!validateBooking()) {
+      return;
+    }
+
     setPaymentLoading(true);
     setPaymentError("");
 
@@ -1029,18 +1033,6 @@ function QuoteCard() {
                   time from when your plane lands.
                 </p>
               )}
-              {sumUpEnabled && (
-                <button
-                  type="button"
-                  onClick={() => void handlePayNow()}
-                  disabled={paymentLoading}
-                  className="mt-4 w-full rounded-xl bg-white py-3.5 text-sm font-bold text-navy transition-all hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-70"
-                >
-                  {paymentLoading
-                    ? "Opening SumUp…"
-                    : `Pay ${formatQuote(liveQuote.amount)} now with SumUp`}
-                </button>
-              )}
             </>
           ) : (
             <>
@@ -1052,7 +1044,7 @@ function QuoteCard() {
           )}
           <p className="mt-3 text-[11px] text-white/40">
             Includes vehicle, driver, fuel, and tolls.
-            {sumUpEnabled ? " Pay securely by card via SumUp." : ""}
+            {sumUpEnabled ? " Card payment is available after you review your booking." : ""}
           </p>
         </div>
 
@@ -1155,21 +1147,35 @@ function QuoteCard() {
         )}
 
         {showBookingPreview ? (
-          <div className="grid gap-3 sm:grid-cols-2">
-            <button
-              type="button"
-              onClick={handleEditBooking}
-              className="w-full rounded-xl border border-white/15 bg-white/5 py-3.5 text-sm font-semibold text-white transition-all hover:bg-white/10"
-            >
-              Edit details
-            </button>
-            <button
-              type="submit"
-              disabled={submitted}
-              className="w-full rounded-xl bg-emerald py-3.5 text-sm font-bold text-navy transition-all hover:bg-emerald-light hover:shadow-lg hover:shadow-emerald/25 disabled:cursor-not-allowed disabled:opacity-70"
-            >
-              {submitted ? submitInProgressLabel : confirmButtonLabel}
-            </button>
+          <div className="space-y-3">
+            {sumUpEnabled && liveQuote && (
+              <button
+                type="button"
+                onClick={() => void handlePayNow()}
+                disabled={paymentLoading || submitted}
+                className="w-full rounded-xl bg-white py-3.5 text-sm font-bold text-navy transition-all hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {paymentLoading
+                  ? "Opening SumUp…"
+                  : `Pay ${formatQuote(liveQuote.amount)} now with SumUp`}
+              </button>
+            )}
+            <div className="grid gap-3 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={handleEditBooking}
+                className="w-full rounded-xl border border-white/15 bg-white/5 py-3.5 text-sm font-semibold text-white transition-all hover:bg-white/10"
+              >
+                Edit details
+              </button>
+              <button
+                type="submit"
+                disabled={submitted}
+                className="w-full rounded-xl bg-emerald py-3.5 text-sm font-bold text-navy transition-all hover:bg-emerald-light hover:shadow-lg hover:shadow-emerald/25 disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {submitted ? submitInProgressLabel : confirmButtonLabel}
+              </button>
+            </div>
           </div>
         ) : (
           <button
