@@ -61,6 +61,7 @@ export default function TourBookingForm({
   const [submitted, setSubmitted] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [enquirySent, setEnquirySent] = useState(false);
+  const [bookingReference, setBookingReference] = useState("");
   const [emailAddressError, setEmailAddressError] = useState("");
   const [mobileNumberError, setMobileNumberError] = useState("");
 
@@ -119,26 +120,25 @@ export default function TourBookingForm({
     return true;
   }
 
-  function openWhatsAppEnquiry(details: TourEnquiryDetails) {
-    window.open(getTourWhatsAppUrl(buildTourEnquiryMessage(details)), "_blank");
-    setSubmitted(true);
-    setShowPreview(false);
-    setEnquirySent(true);
-    setTimeout(() => setSubmitted(false), 4000);
-  }
-
-  async function submitDesktopEnquiry(details: TourEnquiryDetails) {
+  async function confirmEnquiry() {
+    const details = buildDetails();
     setSubmitted(true);
     setSubmitError("");
+              setBookingReference("");
 
     try {
-      await submitEnquiryByEmail({
+      const reference = await submitEnquiryByEmail({
         customerName: details.customerName,
         message: buildTourEnquiryMessage(details),
         subject: `New day trip booking — ${details.customerName}`,
       });
+      setBookingReference(reference);
       setShowPreview(false);
       setEnquirySent(true);
+
+      if (isMobileDevice ?? detectMobileDevice()) {
+        window.open(getTourWhatsAppUrl(buildTourEnquiryMessage(details, reference)), "_blank");
+      }
     } catch {
       setSubmitError(
         `We couldn't confirm your booking automatically. Please email ${SITE.email} with your trip details and we'll confirm your booking.`,
@@ -148,22 +148,11 @@ export default function TourBookingForm({
     }
   }
 
-  async function confirmEnquiry() {
-    const details = buildDetails();
-    const mobile = isMobileDevice ?? detectMobileDevice();
-
-    if (mobile) {
-      openWhatsAppEnquiry(details);
-      return;
-    }
-
-    await submitDesktopEnquiry(details);
-  }
-
   function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setSubmitError("");
     setEnquirySent(false);
+              setBookingReference("");
 
     if (!validateForm()) {
       return;
@@ -177,7 +166,7 @@ export default function TourBookingForm({
     void confirmEnquiry();
   }
 
-  const submitInProgressLabel = usesWhatsApp ? "Opening WhatsApp…" : "Confirming booking…";
+  const submitInProgressLabel = "Sending booking…";
 
   const confirmLabel = usesWhatsApp ? "Confirm & send via WhatsApp" : "Confirm & book";
   const reviewLabel = usesWhatsApp ? "Review & send via WhatsApp" : "Review booking";
@@ -208,6 +197,7 @@ export default function TourBookingForm({
               setCustomerName(e.target.value);
               setShowPreview(false);
               setEnquirySent(false);
+              setBookingReference("");
             }}
             placeholder="John Smith"
             className={inputClassName}
@@ -228,6 +218,7 @@ export default function TourBookingForm({
               setCustomerMobile(e.target.value);
               setShowPreview(false);
               setEnquirySent(false);
+              setBookingReference("");
               setMobileNumberError("");
             }}
             placeholder="07xxx xxxxxx"
@@ -256,6 +247,7 @@ export default function TourBookingForm({
                 setCustomerEmail(e.target.value);
                 setShowPreview(false);
                 setEnquirySent(false);
+              setBookingReference("");
                 setEmailAddressError("");
               }}
               placeholder="you@example.com"
@@ -284,6 +276,7 @@ export default function TourBookingForm({
                 setTravelDate(e.target.value);
                 setShowPreview(false);
                 setEnquirySent(false);
+              setBookingReference("");
               }}
               className={inputClassName}
             />
@@ -300,6 +293,7 @@ export default function TourBookingForm({
                 setGroupSize(Number(e.target.value));
                 setShowPreview(false);
                 setEnquirySent(false);
+              setBookingReference("");
               }}
               className={inputClassName}
             >
@@ -325,6 +319,7 @@ export default function TourBookingForm({
               setPickupLocation(e.target.value);
               setShowPreview(false);
               setEnquirySent(false);
+              setBookingReference("");
             }}
             placeholder="Hotel, address, or cruise terminal"
             className={inputClassName}
@@ -343,6 +338,7 @@ export default function TourBookingForm({
               setNotes(e.target.value);
               setShowPreview(false);
               setEnquirySent(false);
+              setBookingReference("");
             }}
             placeholder="Any special requests or places you'd like to visit"
             className={`${inputClassName} resize-y`}
@@ -380,21 +376,22 @@ export default function TourBookingForm({
           </p>
         )}
 
-        {enquirySent && usesWhatsApp && (
-          <p className="rounded-xl border border-[#25D366]/30 bg-[#25D366]/10 px-4 py-3 text-sm text-white">
-            Your day trip enquiry should open in WhatsApp. If it didn&apos;t, tap the green chat
-            button at the bottom of the screen.
-          </p>
-        )}
-
-        {enquirySent && usesEmail && (
-          <p className="rounded-xl border border-emerald/30 bg-emerald/10 px-4 py-3 text-sm text-white">
-            <p className="font-semibold">Booking sent</p>
+        {enquirySent && (
+          <div className="rounded-xl border border-emerald/30 bg-emerald/10 px-4 py-4 text-sm text-white">
+            <p className="font-semibold">
+              Booking sent{bookingReference ? ` — reference ${bookingReference}` : ""}
+            </p>
             <p className="mt-2 text-white/80">
               You will be sent a payment link shortly via text. Your booking is not confirmed until
               full payment is made.
             </p>
-          </p>
+            {usesWhatsApp && (
+              <p className="mt-2 text-white/60">
+                Your day trip enquiry should open in WhatsApp. If it didn&apos;t, tap the green chat
+                button at the bottom of the screen.
+              </p>
+            )}
+          </div>
         )}
 
         {showPreview ? (
@@ -405,6 +402,7 @@ export default function TourBookingForm({
                 setShowPreview(false);
                 setSubmitError("");
                 setEnquirySent(false);
+              setBookingReference("");
               }}
               className="w-full rounded-xl border border-white/15 bg-white/5 py-3.5 text-sm font-semibold text-white transition-all hover:bg-white/10"
             >

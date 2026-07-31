@@ -18,6 +18,7 @@ export type BookingDetails = {
   journeyDistance?: string;
   journeyDuration?: string;
   isAirportTrip: boolean;
+  bookingReference?: string;
 };
 
 export function isValidMobileNumber(value: string): boolean {
@@ -42,9 +43,12 @@ export function isValidEmailAddress(value: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
 }
 
-export function buildBookingMessage(details: BookingDetails): string {
+export function buildBookingMessage(details: BookingDetails, bookingReference?: string): string {
+  const reference = bookingReference ?? details.bookingReference;
+
   return (
     `Hi, I would like to book the following.\n\n` +
+    (reference ? `Booking reference: ${reference}\n` : "") +
     `Name: ${details.customerName}\n` +
     (details.customerEmail ? `Email: ${details.customerEmail}\n` : "") +
     (details.mobileNumber ? `Mobile: ${details.mobileNumber}\n` : "") +

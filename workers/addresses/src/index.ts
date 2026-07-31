@@ -11,6 +11,11 @@ import {
   searchGetAddress,
 } from "../shared/getaddress";
 import {
+  formatBookingReference,
+  prependBookingReference,
+  STARTING_BOOKING_REF,
+} from "../shared/booking-reference";
+import {
   buildCustomerConfirmationEmail,
   buildOwnerPaidBookingEmail,
   formatPaidAmount,
@@ -31,6 +36,7 @@ type Env = {
   BOOKING_FROM_EMAIL?: string;
   SUMUP_API_KEY?: string;
   SUMUP_MERCHANT_CODE?: string;
+  BOOKING_COUNTER?: KVNamespace;
 };
 
 const DEFAULT_BOOKING_EMAIL = "bookings@myairporttaxini.co.uk";
@@ -114,14 +120,32 @@ async function sendBookingEmail(
   env: Env,
   customerName: string,
   message: string,
+  bookingReference: string,
 ): Promise<void> {
   const toEmail = env.BOOKING_TO_EMAIL?.trim() || DEFAULT_BOOKING_EMAIL;
 
   await sendEmail(env, {
     to: toEmail,
-    subject: `New booking — ${customerName}`,
-    body: message,
+    subject: `New booking ${bookingReference} — ${customerName}`,
+    body: prependBookingReference(message, bookingReference),
   });
+}
+
+async function allocateBookingReference(env: Env): Promise<string> {
+  if (!env.BOOKING_COUNTER) {
+    throw new Error("Booking counter is not configured");
+  }
+
+  const counterKey = "next_booking_ref";
+  const stored = await env.BOOKING_COUNTER.get(counterKey);
+  let refNumber = stored ? Number(stored) : STARTING_BOOKING_REF;
+
+  if (!Number.isFinite(refNumber) || refNumber < STARTING_BOOKING_REF) {
+    refNumber = STARTING_BOOKING_REF;
+  }
+
+  await env.BOOKING_COUNTER.put(counterKey, String(refNumber + 1));
+  return formatBookingReference(refNumber);
 }
 
 function parsePaidBookingDetails(body: Record<string, unknown>): PaidBookingDetails | null {
@@ -181,9 +205,11 @@ async function handleBookingRequest(
   }
 
   try {
-    await sendBookingEmail(env, customerName, message);
-    return json({ ok: true }, 200, origin);
-  } catch {
+    const bookingReference = await allocateBookingReference(env);
+    await sendBookingEmail(env, customerName, message, bookingReference);
+    return json({ ok: true, bookingReference }, 200, origin);
+  } catch (error) {
+    console.error("Booking submission failed", error);
     return json({ error: "Failed to send booking email" }, 502, origin);
   }
 }
