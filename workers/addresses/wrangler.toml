@@ -1,11 +1,12 @@
 name = "reimagined-octo-meme"
 # Cloudflare Git builds use workers/addresses as root — shared code lives in ./shared/
-# Alias worker my-airport-taxi-ni is created automatically before deploy (see scripts/ensure-alias-worker.mjs)
+# Set Cloudflare deploy command to: npm run deploy
 main = "src/index.ts"
 compatibility_date = "2024-11-01"
+account_id = "36c5c88df4c1f0259413d555f2679f3c"
 
 [build]
-command = "node scripts/ensure-alias-worker.mjs"
+command = "bash scripts/ensure-alias-worker.sh"
 
 [observability]
 enabled = true
