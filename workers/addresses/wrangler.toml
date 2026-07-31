@@ -1,5 +1,6 @@
 name = "reimagined-octo-meme"
 # Cloudflare Git builds use workers/addresses as root — shared code lives in ./shared/
+# Alias worker my-airport-taxi-ni is created automatically before deploy (see scripts/ensure-alias-worker.mjs)
 main = "src/index.ts"
 compatibility_date = "2024-11-01"
 
