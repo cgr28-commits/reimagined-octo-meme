@@ -33,7 +33,8 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
-            echo "::error::Add CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID to GitHub → Settings → Secrets → Actions, then re-run this workflow."
+            echo "::error::Add CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID to GitHub → Settings → Secrets → Actions."
+            echo "::error::For first-time setup (KV namespace + worker secrets), run locally: npm run setup:worker"
             exit 1
           fi
 
