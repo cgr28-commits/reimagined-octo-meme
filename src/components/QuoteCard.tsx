@@ -394,7 +394,12 @@ function QuoteCard() {
         description: buildPaymentDescription(),
         redirectUrl: buildPaymentRedirectUrl(),
       });
-      window.location.assign(checkout.paymentUrl);
+      const paymentWindow = window.open(checkout.paymentUrl, "_blank", "noopener,noreferrer");
+      if (!paymentWindow) {
+        window.location.assign(checkout.paymentUrl);
+        return;
+      }
+      setPaymentLoading(false);
     } catch (error) {
       setPaymentError(
         error instanceof Error
@@ -1149,16 +1154,22 @@ function QuoteCard() {
         {showBookingPreview ? (
           <div className="space-y-3">
             {sumUpEnabled && liveQuote && (
-              <button
-                type="button"
-                onClick={() => void handlePayNow()}
-                disabled={paymentLoading || submitted}
-                className="w-full rounded-xl bg-white py-3.5 text-sm font-bold text-navy transition-all hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-70"
-              >
-                {paymentLoading
-                  ? "Opening SumUp…"
-                  : `Pay ${formatQuote(liveQuote.amount)} now with SumUp`}
-              </button>
+              <div className="space-y-2">
+                <button
+                  type="button"
+                  onClick={() => void handlePayNow()}
+                  disabled={paymentLoading || submitted}
+                  className="w-full rounded-xl bg-white py-3.5 text-sm font-bold text-navy transition-all hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  {paymentLoading
+                    ? "Opening SumUp…"
+                    : `Pay ${formatQuote(liveQuote.amount)} now with SumUp`}
+                </button>
+                <p className="text-center text-xs text-white/50">
+                  Payment opens in a new tab. Close that tab to cancel — your quote stays on this
+                  page.
+                </p>
+              </div>
             )}
             <div className="grid gap-3 sm:grid-cols-2">
               <button
