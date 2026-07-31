@@ -15,7 +15,7 @@ export default function AirportsSection() {
           description="Professional transfers to every major airport — with live flight tracking, meet & greet, and complimentary waiting time included."
         />
 
-        <div className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-14 grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
           {AIRPORTS.map((airport) => (
             <article
               key={airport.code}

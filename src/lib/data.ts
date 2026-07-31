@@ -44,6 +44,14 @@ export const FLIGHT_AIRPORTS = [
     arrivalsUrl: "https://www.dublinairport.com/flight-information/live-arrivals",
     departuresUrl: "https://www.dublinairport.com/flight-information/live-departures",
   },
+  {
+    code: "LDY",
+    name: "City of Derry",
+    subtitle: "Derry~Londonderry",
+    officialUrl: "https://www.cityofderryairport.com/flight-information/live-flight-information/",
+    arrivalsUrl: "https://www.cityofderryairport.com/flight-information/live-flight-information/",
+    departuresUrl: "https://www.cityofderryairport.com/flight-information/live-flight-information/",
+  },
 ] as const;
 
 export const HERO_SLIDES = [
@@ -67,6 +75,13 @@ export const HERO_SLIDES = [
       "Comfortable cross-border transfers to Dublin Airport (DUB) with experienced drivers from Northern Ireland.",
     image: withBasePath("/images/hero/dublin.jpg"),
     alt: "Dublin Airport Terminal 2 building",
+  },
+  {
+    title: "City of Derry Airport Transfers",
+    subtitle:
+      "Reliable transfers to and from Derry~Londonderry (LDY) — serving the North West with flight tracking and meet & greet.",
+    image: withBasePath("/images/tours/derry-londonderry.jpg"),
+    alt: "Derry~Londonderry city and riverfront",
   },
 ] as const;
 
@@ -103,6 +118,17 @@ export const AIRPORTS = [
     mapLocation: { lat: 53.4213, lng: -6.2701 },
     description:
       "Comfortable cross-border transfers with experienced drivers who know every route and checkpoint.",
+  },
+  {
+    code: "LDY",
+    name: "City of Derry",
+    basePrice: 35,
+    distance: "From £35",
+    duration: "~10 min from Derry",
+    mapLabel: "City of Derry Airport, Airport Road, Eglinton, UK",
+    mapLocation: { lat: 55.0428, lng: -7.1611 },
+    description:
+      "Direct transfers to and from Derry~Londonderry Airport with live flight monitoring and complimentary waiting time.",
   },
 ] as const;
 
