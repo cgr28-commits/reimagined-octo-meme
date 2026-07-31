@@ -1,12 +1,8 @@
 name = "reimagined-octo-meme"
 # Cloudflare Git builds use workers/addresses as root — shared code lives in ./shared/
-# Set Cloudflare deploy command to: npm run deploy
 main = "src/index.ts"
 compatibility_date = "2024-11-01"
 account_id = "36c5c88df4c1f0259413d555f2679f3c"
-
-[build]
-command = "bash scripts/ensure-alias-worker.sh"
 
 [observability]
 enabled = true
