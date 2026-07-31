@@ -1,6 +1,8 @@
 import {
   isAddressAllowedForAirport,
+  isAllowedAutocompleteLabel,
   isAllowedCoordinates,
+  normaliseAirportCode,
 } from "./address-validation";
 
 export type AddressSuggestion = {
@@ -47,12 +49,28 @@ type GoogleGeocodeResponse = {
   status?: string;
 };
 
-function normaliseAirportCode(value: string): string {
-  return value.trim().toUpperCase();
-}
-
 function getRegionCodes(airportCode: string): string[] {
   return airportCode === "DUB" ? ["gb", "ie"] : ["gb"];
+}
+
+function getLocationRestriction(airportCode: string) {
+  const code = normaliseAirportCode(airportCode);
+
+  if (code === "DUB") {
+    return {
+      rectangle: {
+        low: { latitude: 51.4, longitude: -10.8 },
+        high: { latitude: 55.5, longitude: -5.4 },
+      },
+    };
+  }
+
+  return {
+    rectangle: {
+      low: { latitude: 54.0, longitude: -8.2 },
+      high: { latitude: 55.4, longitude: -5.4 },
+    },
+  };
 }
 
 function getAddressComponent(
@@ -154,14 +172,9 @@ export async function searchGooglePlaces(
   const body: Record<string, unknown> = {
     input: query,
     includedRegionCodes: getRegionCodes(normaliseAirportCode(airportCode)),
-    regionCode: "gb",
+    regionCode: airportCode === "DUB" ? "ie" : "gb",
     languageCode: "en-GB",
-    locationBias: {
-      rectangle: {
-        low: { latitude: 54.0, longitude: -8.2 },
-        high: { latitude: 55.4, longitude: -5.4 },
-      },
-    },
+    locationRestriction: getLocationRestriction(airportCode),
   };
 
   if (sessionToken) {
@@ -184,9 +197,11 @@ export async function searchGooglePlaces(
   const data = (await response.json()) as GoogleAutocompleteResponse;
   const userNumber = extractLeadingStreetNumber(query);
 
+  const code = normaliseAirportCode(airportCode);
   const suggestions = (data.suggestions ?? [])
     .map((item) => formatSuggestion(item.placePrediction, userNumber))
     .filter((suggestion): suggestion is AddressSuggestion => suggestion !== null)
+    .filter((suggestion) => isAllowedAutocompleteLabel(suggestion.label, code))
     .sort((a, b) => {
       const aHasNumber = hasLeadingStreetNumber(a.mainText);
       const bHasNumber = hasLeadingStreetNumber(b.mainText);
