@@ -1,3 +1,8 @@
+import {
+  formatUkDateTime,
+  formatUkSubmissionTime,
+} from "@/lib/format-datetime";
+
 export type BookingDetails = {
   customerName: string;
   customerEmail: string;
@@ -56,10 +61,9 @@ export function buildBookingMessage(details: BookingDetails, bookingReference?: 
     `Pickup: ${details.pickupLabel}\n` +
     `Drop-off: ${details.dropoffLabel}\n` +
     `Return journey: ${details.returnJourney ? "Yes" : "No"}\n` +
-    `${details.returnJourney ? "Outbound date" : "Date"}: ${details.tripDate}\n` +
-    `${details.returnJourney ? "Outbound time" : "Time"}: ${details.tripTime}\n` +
+    `${details.returnJourney ? "Outbound date & time" : "Date & time"}: ${formatUkDateTime(details.tripDate, details.tripTime)}\n` +
     (details.returnJourney
-      ? `Return date: ${details.returnDate}\nReturn time: ${details.returnTime}\n`
+      ? `Return date & time: ${formatUkDateTime(details.returnDate, details.returnTime)}\n`
       : "") +
     (details.isAirportTrip && details.flightNumber
       ? `Flight number: ${details.flightNumber}\n`
@@ -70,6 +74,7 @@ export function buildBookingMessage(details: BookingDetails, bookingReference?: 
     (details.journeyDistance && details.journeyDuration
       ? `Journey: ${details.journeyDistance} · ${details.journeyDuration}\n`
       : "") +
-    (details.estimatedPrice ? `Estimated price: ${details.estimatedPrice}\n` : "")
+    (details.estimatedPrice ? `Estimated price: ${details.estimatedPrice}\n` : "") +
+    `Submitted: ${formatUkSubmissionTime()}\n`
   );
 }

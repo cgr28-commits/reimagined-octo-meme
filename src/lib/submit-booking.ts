@@ -117,7 +117,7 @@ async function submitViaFormSubmitAjax(submission: EnquirySubmission): Promise<s
       body: JSON.stringify({
         _subject: submission.subject ?? `New enquiry — ${submission.customerName}`,
         _captcha: "false",
-        _template: "table",
+        _template: "box",
         name: submission.customerName,
         message: submission.message,
       }),
@@ -158,7 +158,7 @@ function submitViaFormSubmitForm(submission: EnquirySubmission): Promise<string>
     const fields: Record<string, string> = {
       _subject: submission.subject ?? `New enquiry — ${submission.customerName}`,
       _captcha: "false",
-      _template: "table",
+      _template: "box",
       name: submission.customerName,
       message: submission.message,
     };
