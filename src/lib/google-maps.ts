@@ -5,8 +5,10 @@ import {
 } from "@/lib/addresses-api";
 import {
   geocodeAddress,
+  extractLeadingStreetNumber,
   isStreetOnlyQuery,
   resolveGooglePlace,
+  searchGoogleEstablishments,
   searchGooglePlaces,
   searchGoogleStreetAddresses,
 } from "../../shared/google-places";
@@ -137,6 +139,16 @@ async function fetchLocalAddressPredictions(
         searchGooglePlaces(GOOGLE_API_KEY, trimmed, airportCode, sessionToken).then(toPredictions),
       ),
     );
+
+    if (!extractLeadingStreetNumber(trimmed)) {
+      tasks.push(
+        safePredictions(
+          searchGoogleEstablishments(GOOGLE_API_KEY, trimmed, airportCode, sessionToken).then(
+            toPredictions,
+          ),
+        ),
+      );
+    }
 
     if (isStreetOnlyQuery(trimmed)) {
       tasks.push(

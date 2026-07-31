@@ -1,8 +1,10 @@
 import {
   corsHeaders,
+  extractLeadingStreetNumber,
   isStreetOnlyQuery,
   resolveGooglePlace,
   reverseGeocodeGoogle,
+  searchGoogleEstablishments,
   searchGooglePlaces,
   searchGoogleStreetAddresses,
 } from "../shared/google-places";
@@ -492,6 +494,17 @@ export default {
         tasks.push(
           searchGooglePlaces(env.GOOGLE_PLACES_API_KEY, query, airportCode, sessionToken),
         );
+
+        if (!extractLeadingStreetNumber(query)) {
+          tasks.push(
+            searchGoogleEstablishments(
+              env.GOOGLE_PLACES_API_KEY,
+              query,
+              airportCode,
+              sessionToken,
+            ),
+          );
+        }
 
         if (isStreetOnlyQuery(query)) {
           tasks.push(

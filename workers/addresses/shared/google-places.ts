@@ -294,6 +294,62 @@ export async function searchGoogleStreetAddresses(
   return sortSuggestionsByStreetNumber(suggestions).slice(0, 8);
 }
 
+const ESTABLISHMENT_PRIMARY_TYPES = [
+  "establishment",
+  "point_of_interest",
+  "lodging",
+  "store",
+  "restaurant",
+] as const;
+
+export async function searchGoogleEstablishments(
+  apiKey: string,
+  query: string,
+  airportCode: string,
+  sessionToken?: string,
+): Promise<AddressSuggestion[]> {
+  const trimmed = query.trim();
+  if (trimmed.length < 3 || extractLeadingStreetNumber(trimmed)) {
+    return [];
+  }
+
+  const body: Record<string, unknown> = {
+    input: trimmed,
+    includedRegionCodes: getRegionCodes(normaliseAirportCode(airportCode)),
+    regionCode: airportCode === "DUB" ? "ie" : "gb",
+    languageCode: "en-GB",
+    locationRestriction: getLocationRestriction(airportCode),
+    includedPrimaryTypes: [...ESTABLISHMENT_PRIMARY_TYPES],
+  };
+
+  if (sessionToken) {
+    body.sessionToken = sessionToken;
+  }
+
+  const response = await fetch("https://places.googleapis.com/v1/places:autocomplete", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Goog-Api-Key": apiKey,
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    return [];
+  }
+
+  const data = (await response.json()) as GoogleAutocompleteResponse;
+  const code = normaliseAirportCode(airportCode);
+
+  const suggestions = (data.suggestions ?? [])
+    .map((item) => formatSuggestion(item.placePrediction, null))
+    .filter((suggestion): suggestion is AddressSuggestion => suggestion !== null)
+    .filter((suggestion) => isAllowedAutocompleteLabel(suggestion.label, code));
+
+  return suggestions.slice(0, 6);
+}
+
 export async function geocodeAddress(
   apiKey: string,
   address: string,
