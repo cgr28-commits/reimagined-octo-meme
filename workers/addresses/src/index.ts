@@ -11,6 +11,15 @@ import {
   searchGetAddress,
 } from "../shared/getaddress";
 import {
+  buildCustomerConfirmationEmail,
+  buildOwnerPaidBookingEmail,
+  formatPaidAmount,
+  type PaidBookingDetails,
+} from "../shared/booking-notifications";
+import {
+  getSumUpCheckout,
+  getSuccessfulTransactionCode,
+  isSumUpCheckoutPaid,
   buildCheckoutReference,
   createSumUpHostedCheckout,
 } from "../shared/sumup-checkout";
@@ -25,6 +34,7 @@ type Env = {
 };
 
 const DEFAULT_BOOKING_EMAIL = "bookings@myairporttaxini.co.uk";
+const BUSINESS_NAME = "My Airport Taxi NI";
 
 function json(body: unknown, status: number, origin: string | null): Response {
   return new Response(JSON.stringify(body), {
@@ -36,7 +46,9 @@ function json(body: unknown, status: number, origin: string | null): Response {
   });
 }
 
-function routePath(pathname: string): "addresses" | "geocode" | "bookings" | "payments" | null {
+function routePath(
+  pathname: string,
+): "addresses" | "geocode" | "bookings" | "payments" | "payments-confirm" | null {
   if (pathname === "/addresses" || pathname === "/api/addresses") {
     return "addresses";
   }
@@ -49,11 +61,53 @@ function routePath(pathname: string): "addresses" | "geocode" | "bookings" | "pa
     return "bookings";
   }
 
+  if (pathname === "/payments/confirm" || pathname === "/api/payments/confirm") {
+    return "payments-confirm";
+  }
+
   if (pathname === "/payments" || pathname === "/api/payments") {
     return "payments";
   }
 
   return null;
+}
+
+async function sendEmail(
+  env: Env,
+  options: {
+    to: string;
+    subject: string;
+    body: string;
+    toName?: string;
+  },
+): Promise<void> {
+  const fromEmail = env.BOOKING_FROM_EMAIL?.trim() || DEFAULT_BOOKING_EMAIL;
+
+  const response = await fetch("https://api.mailchannels.net/tx/v1/send", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      personalizations: [
+        {
+          to: [{ email: options.to, name: options.toName ?? options.to }],
+        },
+      ],
+      from: {
+        email: fromEmail,
+        name: BUSINESS_NAME,
+      },
+      reply_to: {
+        email: fromEmail,
+        name: BUSINESS_NAME,
+      },
+      subject: options.subject,
+      content: [{ type: "text/plain", value: options.body }],
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error("Mailchannels request failed");
+  }
 }
 
 async function sendBookingEmail(
@@ -62,25 +116,48 @@ async function sendBookingEmail(
   message: string,
 ): Promise<void> {
   const toEmail = env.BOOKING_TO_EMAIL?.trim() || DEFAULT_BOOKING_EMAIL;
-  const fromEmail = env.BOOKING_FROM_EMAIL?.trim() || DEFAULT_BOOKING_EMAIL;
 
-  const response = await fetch("https://api.mailchannels.net/tx/v1/send", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      personalizations: [{ to: [{ email: toEmail }] }],
-      from: {
-        email: fromEmail,
-        name: "My Airport Taxi NI Website",
-      },
-      subject: `New booking — ${customerName}`,
-      content: [{ type: "text/plain", value: message }],
-    }),
+  await sendEmail(env, {
+    to: toEmail,
+    subject: `New booking — ${customerName}`,
+    body: message,
   });
+}
 
-  if (!response.ok) {
-    throw new Error("Mailchannels request failed");
+function parsePaidBookingDetails(body: Record<string, unknown>): PaidBookingDetails | null {
+  const booking = body.booking;
+  if (!booking || typeof booking !== "object") {
+    return null;
   }
+
+  const details = booking as Record<string, unknown>;
+  const customerName = String(details.customerName ?? "").trim();
+  const customerEmail = String(details.customerEmail ?? "").trim();
+
+  if (!customerName || !customerEmail) {
+    return null;
+  }
+
+  return {
+    customerName,
+    customerEmail,
+    mobileNumber: String(details.mobileNumber ?? "").trim(),
+    tripLabel: String(details.tripLabel ?? "").trim(),
+    pickupLabel: String(details.pickupLabel ?? "").trim(),
+    dropoffLabel: String(details.dropoffLabel ?? "").trim(),
+    returnJourney: Boolean(details.returnJourney),
+    tripDate: String(details.tripDate ?? "").trim(),
+    tripTime: String(details.tripTime ?? "").trim(),
+    returnDate: String(details.returnDate ?? "").trim(),
+    returnTime: String(details.returnTime ?? "").trim(),
+    flightNumber: String(details.flightNumber ?? "").trim(),
+    passengers: Number(details.passengers) || 0,
+    suitcases: Number(details.suitcases) || 0,
+    vehicle: String(details.vehicle ?? "").trim(),
+    journeyDistance: String(details.journeyDistance ?? "").trim() || undefined,
+    journeyDuration: String(details.journeyDuration ?? "").trim() || undefined,
+    isAirportTrip: Boolean(details.isAirportTrip),
+  };
 }
 
 async function handleBookingRequest(
@@ -166,6 +243,7 @@ async function handlePaymentRequest(
         ok: true,
         paymentUrl: checkout.paymentUrl,
         checkoutId: checkout.checkoutId,
+        checkoutReference: checkout.checkoutReference,
       },
       200,
       origin,
@@ -173,6 +251,83 @@ async function handlePaymentRequest(
   } catch (error) {
     console.error("SumUp checkout failed", error);
     return json({ error: "Could not create SumUp payment link" }, 502, origin);
+  }
+}
+
+async function handlePaymentConfirmRequest(
+  request: Request,
+  env: Env,
+  origin: string | null,
+): Promise<Response> {
+  const apiKey = env.SUMUP_API_KEY?.trim() ?? "";
+
+  if (!apiKey) {
+    return json({ error: "SumUp payment is not configured" }, 503, origin);
+  }
+
+  let body: Record<string, unknown>;
+
+  try {
+    body = await request.json();
+  } catch {
+    return json({ error: "Invalid JSON" }, 400, origin);
+  }
+
+  const checkoutId = String(body.checkoutId ?? "").trim();
+  const booking = parsePaidBookingDetails(body);
+
+  if (!checkoutId || !booking) {
+    return json({ error: "Missing checkout or booking details" }, 400, origin);
+  }
+
+  try {
+    const checkout = await getSumUpCheckout(apiKey, checkoutId);
+
+    if (!isSumUpCheckoutPaid(checkout)) {
+      return json({ error: "Payment has not been completed yet" }, 402, origin);
+    }
+
+    const amountPaid = formatPaidAmount(checkout.amount ?? 0, checkout.currency ?? "GBP");
+    const transactionCode = getSuccessfulTransactionCode(checkout);
+    const paymentReference = transactionCode ?? checkout.checkout_reference ?? checkout.id;
+
+    const receipt = {
+      ...booking,
+      amountPaid,
+      paymentReference,
+      transactionCode,
+      checkoutReference: checkout.checkout_reference,
+    };
+
+    const customerEmail = buildCustomerConfirmationEmail(receipt, BUSINESS_NAME);
+    const ownerEmail = buildOwnerPaidBookingEmail(receipt, BUSINESS_NAME);
+
+    await sendEmail(env, {
+      to: booking.customerEmail,
+      toName: booking.customerName,
+      subject: customerEmail.subject,
+      body: customerEmail.body,
+    });
+
+    await sendEmail(env, {
+      to: env.BOOKING_TO_EMAIL?.trim() || DEFAULT_BOOKING_EMAIL,
+      subject: ownerEmail.subject,
+      body: ownerEmail.body,
+    });
+
+    return json(
+      {
+        ok: true,
+        paid: true,
+        amountPaid,
+        paymentReference,
+      },
+      200,
+      origin,
+    );
+  } catch (error) {
+    console.error("Payment confirmation failed", error);
+    return json({ error: "Could not confirm payment and send booking emails" }, 502, origin);
   }
 }
 
@@ -207,6 +362,14 @@ export default {
       }
 
       return handlePaymentRequest(request, env, origin);
+    }
+
+    if (route === "payments-confirm") {
+      if (request.method !== "POST") {
+        return json({ error: "Method not allowed" }, 405, origin);
+      }
+
+      return handlePaymentConfirmRequest(request, env, origin);
     }
 
     if (request.method !== "GET") {

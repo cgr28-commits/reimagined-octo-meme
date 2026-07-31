@@ -20,15 +20,25 @@ import {
 import { submitBookingByEmail } from "@/lib/submit-booking";
 import {
   buildPaymentRedirectUrl,
+  confirmPaidBooking,
   createPaymentCheckout,
   isSumUpPaymentEnabled,
 } from "@/lib/create-payment";
+import {
+  hasConfirmedPayment,
+  markPaymentConfirmed,
+  readPendingPayment,
+  resolveCheckoutIdFromUrl,
+  savePendingPayment,
+} from "@/lib/pending-payment";
 
 type TripMode = "airport" | "address";
 type TripDirection = "to-airport" | "from-airport";
 
 const PICKUP_STORAGE_KEY = "my-airport-taxi-ni-pickup-address";
 const DROPOFF_STORAGE_KEY = "my-airport-taxi-ni-dropoff-address";
+const PAYMENT_CONFIRM_RETRY_MS = 2000;
+const PAYMENT_CONFIRM_MAX_ATTEMPTS = 5;
 
 const ESTATE = "Estate Car (1–4 passengers)" as const;
 const MINIBUS = "Minibus (7–8 passengers)" as const;
@@ -122,6 +132,10 @@ function QuoteCard() {
   const [paymentLoading, setPaymentLoading] = useState(false);
   const [paymentError, setPaymentError] = useState("");
   const [paymentReturned, setPaymentReturned] = useState(false);
+  const [paymentConfirming, setPaymentConfirming] = useState(false);
+  const [paymentConfirmed, setPaymentConfirmed] = useState(false);
+  const [paymentConfirmError, setPaymentConfirmError] = useState("");
+  const [paymentConfirmationSummary, setPaymentConfirmationSummary] = useState("");
   const sumUpEnabled = isSumUpPaymentEnabled();
 
   const handleRouteMetrics = useCallback((metrics: TripRouteMetrics | null) => {
@@ -142,13 +156,78 @@ function QuoteCard() {
     }
 
     const params = new URLSearchParams(window.location.search);
-    if (params.get("payment") === "return") {
-      setPaymentReturned(true);
-      params.delete("payment");
-      const nextSearch = params.toString();
-      const nextUrl = `${window.location.pathname}${nextSearch ? `?${nextSearch}` : ""}#quote`;
-      window.history.replaceState(null, "", nextUrl);
+    if (params.get("payment") !== "return") {
+      return;
     }
+
+    setPaymentReturned(true);
+
+    const checkoutIdFromUrl = resolveCheckoutIdFromUrl(window.location.search);
+    const pending = readPendingPayment();
+    const checkoutId = checkoutIdFromUrl || pending?.checkoutId || "";
+
+    params.delete("payment");
+    params.delete("checkout_id");
+    params.delete("checkoutId");
+    const nextSearch = params.toString();
+    const nextUrl = `${window.location.pathname}${nextSearch ? `?${nextSearch}` : ""}#quote`;
+    window.history.replaceState(null, "", nextUrl);
+
+    if (!checkoutId || !pending?.booking || hasConfirmedPayment(checkoutId)) {
+      return;
+    }
+
+    let cancelled = false;
+
+    async function finalizePaidBooking() {
+      const booking = pending!.booking;
+      setPaymentConfirming(true);
+      setPaymentConfirmError("");
+
+      for (let attempt = 0; attempt < PAYMENT_CONFIRM_MAX_ATTEMPTS; attempt += 1) {
+        if (cancelled) {
+          return;
+        }
+
+        try {
+          const result = await confirmPaidBooking(checkoutId, booking);
+          if (cancelled) {
+            return;
+          }
+
+          markPaymentConfirmed(checkoutId);
+          setPaymentConfirmed(true);
+          setPaymentConfirmationSummary(
+            `Payment of ${result.amountPaid} received. A confirmation and receipt have been emailed to ${booking.customerEmail}.`,
+          );
+          setPaymentConfirming(false);
+          return;
+        } catch (error) {
+          const message =
+            error instanceof Error ? error.message : "Could not confirm your payment";
+
+          if (
+            message.includes("not been completed") &&
+            attempt < PAYMENT_CONFIRM_MAX_ATTEMPTS - 1
+          ) {
+            await new Promise((resolve) => window.setTimeout(resolve, PAYMENT_CONFIRM_RETRY_MS));
+            continue;
+          }
+
+          if (!cancelled) {
+            setPaymentConfirmError(message);
+            setPaymentConfirming(false);
+          }
+          return;
+        }
+      }
+    }
+
+    void finalizePaidBooking();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -393,6 +472,10 @@ function QuoteCard() {
         amount: liveQuote.amount,
         description: buildPaymentDescription(),
         redirectUrl: buildPaymentRedirectUrl(),
+      });
+      savePendingPayment({
+        checkoutId: checkout.checkoutId,
+        booking: buildBookingDetails(),
       });
       const paymentWindow = window.open(checkout.paymentUrl, "_blank", "noopener,noreferrer");
       if (!paymentWindow) {
@@ -1060,10 +1143,31 @@ function QuoteCard() {
         )}
 
         {paymentReturned && (
-          <p className="rounded-xl border border-emerald/30 bg-emerald/10 px-4 py-3 text-sm text-white">
-            Thank you — if your SumUp payment completed, we&apos;ll confirm your booking shortly.
-            Please also send your trip details using the booking form if you haven&apos;t already.
-          </p>
+          <div className="space-y-3">
+            {paymentConfirming && (
+              <p className="rounded-xl border border-white/15 bg-white/[0.04] px-4 py-3 text-sm text-white">
+                Confirming your payment and sending your booking confirmation…
+              </p>
+            )}
+            {paymentConfirmed && paymentConfirmationSummary && (
+              <p className="rounded-xl border border-emerald/30 bg-emerald/10 px-4 py-3 text-sm text-white">
+                {paymentConfirmationSummary} We&apos;ve also sent the full booking details to our
+                team.
+              </p>
+            )}
+            {paymentConfirmError && (
+              <p className="rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-50">
+                {paymentConfirmError} If payment went through, email {SITE.email} and we&apos;ll
+                confirm your booking manually.
+              </p>
+            )}
+            {!paymentConfirming && !paymentConfirmed && !paymentConfirmError && (
+              <p className="rounded-xl border border-emerald/30 bg-emerald/10 px-4 py-3 text-sm text-white">
+                Thank you for returning from payment. If your SumUp payment completed, your
+                confirmation email will arrive shortly.
+              </p>
+            )}
+          </div>
         )}
 
         {showBookingPreview && (

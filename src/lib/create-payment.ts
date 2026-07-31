@@ -1,4 +1,5 @@
 import { SITE } from "@/lib/data";
+import type { BookingDetails } from "@/lib/booking-message";
 
 export type PaymentCheckoutRequest = {
   amount: number;
@@ -12,7 +13,12 @@ export type PaymentCheckoutResult = {
   checkoutId: string;
 };
 
-function resolvePaymentsApiUrl(): string {
+export type PaymentConfirmationResult = {
+  amountPaid: string;
+  paymentReference: string;
+};
+
+function resolveBookingsApiUrl(): string {
   const bookingsUrl = process.env.NEXT_PUBLIC_BOOKINGS_API_URL?.trim() ?? "";
   if (!bookingsUrl) {
     return "";
@@ -26,13 +32,32 @@ function resolvePaymentsApiUrl(): string {
       return "";
     }
 
-    return bookingsUrl.replace(/\/bookings\/?$/i, "/payments");
+    return bookingsUrl;
   } catch {
     return "";
   }
 }
 
+function resolvePaymentsApiUrl(): string {
+  const bookingsUrl = resolveBookingsApiUrl();
+  if (!bookingsUrl) {
+    return "";
+  }
+
+  return bookingsUrl.replace(/\/bookings\/?$/i, "/payments");
+}
+
+function resolvePaymentsConfirmApiUrl(): string {
+  const bookingsUrl = resolveBookingsApiUrl();
+  if (!bookingsUrl) {
+    return "";
+  }
+
+  return bookingsUrl.replace(/\/bookings\/?$/i, "/payments/confirm");
+}
+
 const PAYMENTS_API_URL = resolvePaymentsApiUrl();
+const PAYMENTS_CONFIRM_API_URL = resolvePaymentsConfirmApiUrl();
 
 export function isSumUpPaymentEnabled(): boolean {
   return Boolean(PAYMENTS_API_URL);
@@ -85,4 +110,45 @@ export async function createPaymentCheckout(
   }
 
   return payload as PaymentCheckoutResult;
+}
+
+export async function confirmPaidBooking(
+  checkoutId: string,
+  booking: BookingDetails,
+): Promise<PaymentConfirmationResult> {
+  if (!PAYMENTS_CONFIRM_API_URL) {
+    throw new Error("Online payment is not configured");
+  }
+
+  const response = await fetch(PAYMENTS_CONFIRM_API_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify({
+      checkoutId,
+      booking,
+    }),
+  });
+
+  const payload = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    const message =
+      payload && typeof payload === "object" && "error" in payload
+        ? String((payload as { error?: unknown }).error)
+        : "Could not confirm payment";
+    throw new Error(message);
+  }
+
+  if (
+    !payload ||
+    typeof payload !== "object" ||
+    typeof (payload as PaymentConfirmationResult).amountPaid !== "string"
+  ) {
+    throw new Error("Payment confirmation returned an invalid response");
+  }
+
+  return payload as PaymentConfirmationResult;
 }
