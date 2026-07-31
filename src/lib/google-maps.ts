@@ -1,4 +1,9 @@
 import {
+  fetchWorkerAddressDetails,
+  fetchWorkerAddressSuggestions,
+  resolveAddressesApiUrl,
+} from "@/lib/addresses-api";
+import {
   geocodeAddress,
   isStreetOnlyQuery,
   resolveGooglePlace,
@@ -13,6 +18,7 @@ import {
 
 const GOOGLE_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_PLACES_API_KEY?.trim() ?? "";
 const GETADDRESS_API_KEY = process.env.NEXT_PUBLIC_GETADDRESS_API_KEY?.trim() ?? "";
+const ADDRESSES_API_URL = resolveAddressesApiUrl();
 
 let sessionToken = createSessionToken();
 
@@ -30,6 +36,10 @@ function createSessionToken(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
+function hasLeadingStreetNumber(text: string): boolean {
+  return /^\d+[a-zA-Z]?\s/.test(text.trim());
+}
+
 function mergePredictions(predictions: AddressPrediction[]): AddressPrediction[] {
   const seen = new Set<string>();
   const merged: AddressPrediction[] = [];
@@ -44,7 +54,19 @@ function mergePredictions(predictions: AddressPrediction[]): AddressPrediction[]
     merged.push(prediction);
   }
 
-  return merged;
+  return merged
+    .sort((a, b) => {
+      const aHasNumber = hasLeadingStreetNumber(a.mainText);
+      const bHasNumber = hasLeadingStreetNumber(b.mainText);
+      if (aHasNumber && !bHasNumber) {
+        return -1;
+      }
+      if (!aHasNumber && bHasNumber) {
+        return 1;
+      }
+      return 0;
+    })
+    .slice(0, 8);
 }
 
 function toPrediction(suggestion: {
@@ -62,7 +84,7 @@ function toPrediction(suggestion: {
 }
 
 export function isGooglePlacesEnabled(): boolean {
-  return GOOGLE_API_KEY.length > 0 || GETADDRESS_API_KEY.length > 0;
+  return Boolean(ADDRESSES_API_URL || GOOGLE_API_KEY || GETADDRESS_API_KEY);
 }
 
 export async function geocodePickupAddress(
@@ -94,15 +116,11 @@ async function safePredictions(task: Promise<AddressPrediction[]>): Promise<Addr
   }
 }
 
-export async function fetchAddressPredictions(
+async function fetchLocalAddressPredictions(
   input: string,
   airportCode: string,
 ): Promise<AddressPrediction[]> {
   const trimmed = input.trim();
-  if (trimmed.length < 3) {
-    return [];
-  }
-
   const tasks: Promise<AddressPrediction[]>[] = [];
 
   if (GETADDRESS_API_KEY && airportCode !== "DUB") {
@@ -134,7 +152,26 @@ export async function fetchAddressPredictions(
   }
 
   const results = await Promise.all(tasks);
-  return mergePredictions(results.flat()).slice(0, 8);
+  return mergePredictions(results.flat());
+}
+
+export async function fetchAddressPredictions(
+  input: string,
+  airportCode: string,
+): Promise<AddressPrediction[]> {
+  const trimmed = input.trim();
+  if (trimmed.length < 3) {
+    return [];
+  }
+
+  if (ADDRESSES_API_URL) {
+    const workerSuggestions = await fetchWorkerAddressSuggestions(trimmed, airportCode);
+    if (workerSuggestions && workerSuggestions.length > 0) {
+      return mergePredictions(workerSuggestions.map(toPrediction));
+    }
+  }
+
+  return fetchLocalAddressPredictions(trimmed, airportCode);
 }
 
 export async function fetchPlaceDetails(
@@ -142,6 +179,13 @@ export async function fetchPlaceDetails(
   airportCode: string,
   userInput?: string,
 ): Promise<string | null> {
+  if (ADDRESSES_API_URL) {
+    const workerAddress = await fetchWorkerAddressDetails(placeId, airportCode);
+    if (workerAddress) {
+      return workerAddress;
+    }
+  }
+
   if (isGetAddressPlaceId(placeId)) {
     if (!GETADDRESS_API_KEY) {
       return null;

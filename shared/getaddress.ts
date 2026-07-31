@@ -1,4 +1,4 @@
-import { isAddressAllowedForAirport, isNorthernIrelandText } from "./address-validation";
+import { isAddressAllowedForAirport, isNorthernIrelandText, sortSuggestionsByStreetNumber } from "./address-validation";
 
 export const GETADDRESS_NI_FILTER = "postcode:BT";
 
@@ -63,28 +63,53 @@ export async function searchGetAddress(
     return [];
   }
 
-  const url = new URL(
-    `https://api.getAddress.io/autocomplete/${encodeURIComponent(trimmed)}`,
+  const response = await fetch(
+    `https://api.getAddress.io/autocomplete/${encodeURIComponent(trimmed)}?api-key=${encodeURIComponent(apiKey)}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        all: true,
+        top: 6,
+        show_postcode: true,
+        ...(airportCode !== "DUB" ? { filter: { postcode: "BT" } } : {}),
+      }),
+    },
   );
-  url.searchParams.set("api-key", apiKey);
-  url.searchParams.set("all", "true");
-  url.searchParams.set("top", "6");
-  url.searchParams.set("show-postcode", "true");
 
-  if (airportCode !== "DUB") {
-    url.searchParams.set("filter", GETADDRESS_NI_FILTER);
-  }
-
-  const response = await fetch(url.toString());
   if (!response.ok) {
-    return [];
+    // Fall back to GET for older API key formats.
+    const fallbackUrl = new URL(
+      `https://api.getAddress.io/autocomplete/${encodeURIComponent(trimmed)}`,
+    );
+    fallbackUrl.searchParams.set("api-key", apiKey);
+    fallbackUrl.searchParams.set("all", "true");
+    fallbackUrl.searchParams.set("top", "6");
+    fallbackUrl.searchParams.set("show-postcode", "true");
+    if (airportCode !== "DUB") {
+      fallbackUrl.searchParams.set("filter", GETADDRESS_NI_FILTER);
+    }
+
+    const fallbackResponse = await fetch(fallbackUrl.toString());
+    if (!fallbackResponse.ok) {
+      return [];
+    }
+
+    const fallbackData = (await fallbackResponse.json()) as GetAddressAutocompleteResponse;
+    return sortSuggestionsByStreetNumber(
+      (fallbackData.suggestions ?? [])
+        .filter((item) => isNorthernIrelandText(item.address))
+        .map(toGetAddressSuggestion),
+    ).slice(0, 6);
   }
 
   const data = (await response.json()) as GetAddressAutocompleteResponse;
 
-  return (data.suggestions ?? [])
-    .filter((item) => isNorthernIrelandText(item.address))
-    .map(toGetAddressSuggestion);
+  return sortSuggestionsByStreetNumber(
+    (data.suggestions ?? [])
+      .filter((item) => isNorthernIrelandText(item.address))
+      .map(toGetAddressSuggestion),
+  ).slice(0, 6);
 }
 
 export async function resolveGetAddress(

@@ -52,9 +52,12 @@ jobs:
             echo "::warning::BOOKINGS_API_URL points at the static website and will be ignored. Using the Cloudflare Worker URL instead."
             BOOKINGS_API_URL="https://reimagined-octo-meme.cgr28.workers.dev/bookings"
           fi
+          ADDRESSES_API_URL="${BOOKINGS_API_URL%/bookings}/addresses"
+          echo "Using ADDRESSES_API_URL ($ADDRESSES_API_URL)"
           NEXT_PUBLIC_GOOGLE_PLACES_API_KEY="$KEY" \
           NEXT_PUBLIC_GETADDRESS_API_KEY="$GETADDRESS_DOMAIN_TOKEN" \
           NEXT_PUBLIC_BOOKINGS_API_URL="$BOOKINGS_API_URL" \
+          NEXT_PUBLIC_ADDRESSES_API_URL="$ADDRESSES_API_URL" \
           NEXT_PUBLIC_WEB3FORMS_ACCESS_KEY="$WEB3FORMS_ACCESS_KEY" \
           GITHUB_PAGES=true npm run build
       - run: node scripts/fix-github-pages-paths.mjs

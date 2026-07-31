@@ -3,6 +3,7 @@ import {
   isAllowedAutocompleteLabel,
   isAllowedCoordinates,
   normaliseAirportCode,
+  sortSuggestionsByStreetNumber,
 } from "./address-validation";
 
 export type AddressSuggestion = {
@@ -181,6 +182,10 @@ export async function searchGooglePlaces(
     body.sessionToken = sessionToken;
   }
 
+  if (isStreetOnlyQuery(query)) {
+    body.includedPrimaryTypes = ["street_address", "premise", "subpremise"];
+  }
+
   const response = await fetch("https://places.googleapis.com/v1/places:autocomplete", {
     method: "POST",
     headers: {
@@ -201,16 +206,9 @@ export async function searchGooglePlaces(
   const suggestions = (data.suggestions ?? [])
     .map((item) => formatSuggestion(item.placePrediction, userNumber))
     .filter((suggestion): suggestion is AddressSuggestion => suggestion !== null)
-    .filter((suggestion) => isAllowedAutocompleteLabel(suggestion.label, code))
-    .sort((a, b) => {
-      const aHasNumber = hasLeadingStreetNumber(a.mainText);
-      const bHasNumber = hasLeadingStreetNumber(b.mainText);
-      if (aHasNumber && !bHasNumber) return -1;
-      if (!aHasNumber && bHasNumber) return 1;
-      return 0;
-    });
+    .filter((suggestion) => isAllowedAutocompleteLabel(suggestion.label, code));
 
-  return suggestions.slice(0, 8);
+  return sortSuggestionsByStreetNumber(suggestions).slice(0, 8);
 }
 
 export async function searchGoogleStreetAddresses(
@@ -293,7 +291,7 @@ export async function searchGoogleStreetAddresses(
     });
   }
 
-  return suggestions.slice(0, 8);
+  return sortSuggestionsByStreetNumber(suggestions).slice(0, 8);
 }
 
 export async function geocodeAddress(

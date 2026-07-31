@@ -1,11 +1,12 @@
 import {
   corsHeaders,
+  isStreetOnlyQuery,
   resolveGooglePlace,
   reverseGeocodeGoogle,
   searchGooglePlaces,
   searchGoogleStreetAddresses,
-  isStreetOnlyQuery,
 } from "../shared/google-places";
+import { sortSuggestionsByStreetNumber } from "../shared/address-validation";
 import {
   resolveGetAddress,
   searchGetAddress,
@@ -503,14 +504,16 @@ export default {
       const suggestions = results.flat();
 
       const seen = new Set<string>();
-      const merged = suggestions.filter((item) => {
-        const key = item.label.toLowerCase();
-        if (seen.has(key)) {
-          return false;
-        }
-        seen.add(key);
-        return true;
-      });
+      const merged = sortSuggestionsByStreetNumber(
+        suggestions.filter((item) => {
+          const key = item.label.toLowerCase();
+          if (seen.has(key)) {
+            return false;
+          }
+          seen.add(key);
+          return true;
+        }),
+      );
 
       return json(
         {
