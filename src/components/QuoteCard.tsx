@@ -743,7 +743,7 @@ function QuoteCard() {
           }
           airportCode={airportCode}
           tripDirection={tripDirection}
-          onRouteMetrics={isAirportTrip ? undefined : handleRouteMetrics}
+          onRouteMetrics={handleRouteMetrics}
         />
 
         <div className="grid gap-4 sm:grid-cols-2">
@@ -947,7 +947,7 @@ function QuoteCard() {
               </p>
               <p className="mt-1 text-3xl font-bold text-white">{formatQuote(liveQuote.amount)}</p>
               <p className="mt-2 text-xs text-white/60">{quoteVehicle.split(" (")[0]}</p>
-              {!isAirportTrip && journeyDistanceLabel && journeyDurationLabel && (
+              {journeyDistanceLabel && journeyDurationLabel && (
                 <p className="mt-2 text-xs text-white/60">
                   Approx. {journeyDistanceLabel} · {journeyDurationLabel}
                 </p>
@@ -1044,7 +1044,7 @@ function QuoteCard() {
                   value={formatQuote(liveQuote.amount)}
                 />
               )}
-              {!isAirportTrip && journeyDistanceLabel && journeyDurationLabel && (
+              {journeyDistanceLabel && journeyDurationLabel && (
                 <PreviewRow
                   label="Journey"
                   value={`${journeyDistanceLabel} · ${journeyDurationLabel}`}
