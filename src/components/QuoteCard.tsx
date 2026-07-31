@@ -681,7 +681,7 @@ function QuoteCard() {
                 airportCode={addressLookupCode}
                 label="Your Drop-off Address"
                 placeholder="e.g. Donegall Square, Belfast or 12 Donegall Square"
-                helperText="Type your street name or full address — numbered addresses appear in the list for you to pick"
+                helperText="Type a street name, business name, or full address — pick from the list"
               />
               <input type="hidden" name="pickup" value={airportCode ? AIRPORTS.find((a) => a.code === airportCode)?.name ?? "" : ""} />
             </>
@@ -695,7 +695,7 @@ function QuoteCard() {
                 airportCode={addressLookupCode}
                 label="Your Pickup Address"
                 placeholder="e.g. Donegall Square, Belfast or 12 Donegall Square"
-                helperText="Type your street name or full address — numbered addresses appear in the list for you to pick"
+                helperText="Type a street name, business name, or full address — pick from the list"
               />
               <input type="hidden" name="dropoff" value={airportCode ? AIRPORTS.find((a) => a.code === airportCode)?.name ?? "" : ""} />
             </>
