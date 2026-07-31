@@ -8,7 +8,7 @@ import type { TripRouteMetrics } from "@/lib/trip-route";
 
 type Area = (typeof AREAS)[number];
 
-type AirportCode = "BFS" | "BHD" | "DUB";
+type AirportCode = "BFS" | "BHD" | "DUB" | "LDY";
 
 /**
  * Distance-based surcharges for every NI pickup area and airport.
@@ -17,32 +17,32 @@ type AirportCode = "BFS" | "BHD" | "DUB";
  */
 const AREA_AIRPORT_SURCHARGES: Record<Area, Record<AirportCode, number>> = {
   // Calibrated ~£5 below OTS estate fares; Belfast BFS kept at £64.
-  "Belfast City Centre": { BFS: 11, BHD: 0, DUB: 50 },
-  Holywood: { BFS: 19, BHD: 0, DUB: 58 },
-  Newtownabbey: { BFS: 3, BHD: 8, DUB: 60 },
-  Lisburn: { BFS: 8, BHD: 13, DUB: 60 },
-  Dundonald: { BFS: 23, BHD: 3, DUB: 60 },
-  Antrim: { BFS: 0, BHD: 23, DUB: 50 },
-  Ballyclare: { BFS: 3, BHD: 13, DUB: 65 },
-  Hillsborough: { BFS: 19, BHD: 18, DUB: 65 },
-  Carrickfergus: { BFS: 19, BHD: 13, DUB: 62 },
-  Comber: { BFS: 28, BHD: 14, DUB: 62 },
-  Larne: { BFS: 18, BHD: 28, DUB: 72 },
-  Bangor: { BFS: 35, BHD: 13, DUB: 65 },
-  Newtownards: { BFS: 28, BHD: 14, DUB: 62 },
-  Ballymena: { BFS: 8, BHD: 33, DUB: 78 },
-  Downpatrick: { BFS: 56, BHD: 33, DUB: 75 },
-  Banbridge: { BFS: 33, BHD: 33, DUB: 75 },
-  Newcastle: { BFS: 64, BHD: 53, DUB: 80 },
-  Lurgan: { BFS: 18, BHD: 33, DUB: 82 },
-  Portadown: { BFS: 36, BHD: 38, DUB: 85 },
-  Armagh: { BFS: 44, BHD: 53, DUB: 88 },
-  Newry: { BFS: 53, BHD: 53, DUB: 40 },
-  Cookstown: { BFS: 33, BHD: 58, DUB: 95 },
-  Coleraine: { BFS: 43, BHD: 48, DUB: 159 },
-  Omagh: { BFS: 74, BHD: 62, DUB: 115 },
-  "Derry / Londonderry": { BFS: 68, BHD: 58, DUB: 105 },
-  Enniskillen: { BFS: 99, BHD: 94, DUB: 175 },
+  "Belfast City Centre": { BFS: 11, BHD: 0, DUB: 50, LDY: 68 },
+  Holywood: { BFS: 19, BHD: 0, DUB: 58, LDY: 70 },
+  Newtownabbey: { BFS: 3, BHD: 8, DUB: 60, LDY: 65 },
+  Lisburn: { BFS: 8, BHD: 13, DUB: 60, LDY: 68 },
+  Dundonald: { BFS: 23, BHD: 3, DUB: 60, LDY: 65 },
+  Antrim: { BFS: 0, BHD: 23, DUB: 50, LDY: 50 },
+  Ballyclare: { BFS: 3, BHD: 13, DUB: 65, LDY: 52 },
+  Hillsborough: { BFS: 19, BHD: 18, DUB: 65, LDY: 68 },
+  Carrickfergus: { BFS: 19, BHD: 13, DUB: 62, LDY: 68 },
+  Comber: { BFS: 28, BHD: 14, DUB: 62, LDY: 68 },
+  Larne: { BFS: 18, BHD: 28, DUB: 72, LDY: 72 },
+  Bangor: { BFS: 35, BHD: 13, DUB: 65, LDY: 78 },
+  Newtownards: { BFS: 28, BHD: 14, DUB: 62, LDY: 70 },
+  Ballymena: { BFS: 8, BHD: 33, DUB: 78, LDY: 28 },
+  Downpatrick: { BFS: 56, BHD: 33, DUB: 75, LDY: 85 },
+  Banbridge: { BFS: 33, BHD: 33, DUB: 75, LDY: 78 },
+  Newcastle: { BFS: 64, BHD: 53, DUB: 80, LDY: 90 },
+  Lurgan: { BFS: 18, BHD: 33, DUB: 82, LDY: 72 },
+  Portadown: { BFS: 36, BHD: 38, DUB: 85, LDY: 70 },
+  Armagh: { BFS: 44, BHD: 53, DUB: 88, LDY: 75 },
+  Newry: { BFS: 53, BHD: 53, DUB: 40, LDY: 88 },
+  Cookstown: { BFS: 33, BHD: 58, DUB: 95, LDY: 28 },
+  Coleraine: { BFS: 43, BHD: 48, DUB: 159, LDY: 18 },
+  Omagh: { BFS: 74, BHD: 62, DUB: 115, LDY: 22 },
+  "Derry / Londonderry": { BFS: 68, BHD: 58, DUB: 105, LDY: 0 },
+  Enniskillen: { BFS: 99, BHD: 94, DUB: 175, LDY: 55 },
 };
 
 /** Default surcharge when pickup area cannot be matched from the address. */
@@ -50,6 +50,7 @@ const DEFAULT_AREA_SURCHARGE: Record<AirportCode, number> = {
   BFS: 35,
   BHD: 25,
   DUB: 70,
+  LDY: 35,
 };
 
 /** @deprecated Use getAreaSurcharge instead. */
@@ -223,6 +224,7 @@ const AIRPORT_MINIMUM_FARE: Record<string, number> = {
   BFS: 45,
   BHD: 35,
   DUB: 180,
+  LDY: 35,
 };
 
 function applyAirportMinimumFare(airportCode: string, oneWayAmount: number): number {
@@ -298,7 +300,16 @@ export function matchAreaFromAddress(address: string): Area | null {
       aliases.push("portrush", "portstewart", "castlerock", "bt56", "bt57", "bt58", "bt51", "bt52");
     }
     if (area === "Derry / Londonderry") {
-      aliases.push("derry", "londonderry", "bt47", "bt48");
+      aliases.push(
+        "derry",
+        "londonderry",
+        "bt47",
+        "bt48",
+        "city of derry airport",
+        "derry airport",
+        "ldy",
+        "eglinton",
+      );
     }
     if (area === "Enniskillen") {
       aliases.push("fermanagh", "county fermanagh", "bt74", "bt92", "bt93", "bt94");
