@@ -385,7 +385,11 @@ export default function TourBookingForm({
 
         {enquirySent && usesEmail && (
           <p className="rounded-xl border border-emerald/30 bg-emerald/10 px-4 py-3 text-sm text-white">
-            Booking confirmed. We&apos;ll reply shortly with your payment link.
+            <p className="font-semibold">Booking sent</p>
+            <p className="mt-2 text-white/80">
+              You will be sent a payment link shortly. Your booking is not confirmed until full
+              payment is made.
+            </p>
           </p>
         )}
 
