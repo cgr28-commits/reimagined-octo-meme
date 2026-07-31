@@ -163,6 +163,24 @@ export function isAllowedAutocompleteLabel(label: string, airportCode: string): 
   return code !== "DUB";
 }
 
+export function hasLeadingStreetNumber(text: string): boolean {
+  return /^\d+[a-zA-Z]?\s/.test(text.trim());
+}
+
+export function sortSuggestionsByStreetNumber<T extends { mainText: string }>(items: T[]): T[] {
+  return [...items].sort((a, b) => {
+    const aHasNumber = hasLeadingStreetNumber(a.mainText);
+    const bHasNumber = hasLeadingStreetNumber(b.mainText);
+    if (aHasNumber && !bHasNumber) {
+      return -1;
+    }
+    if (!aHasNumber && bHasNumber) {
+      return 1;
+    }
+    return 0;
+  });
+}
+
 export function isNorthernIrelandCoordinates(lat: number, lon: number): boolean {
   return lat >= 54.0 && lat <= 55.5 && lon >= -8.2 && lon <= -5.4;
 }
