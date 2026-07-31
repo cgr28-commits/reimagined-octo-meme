@@ -124,7 +124,7 @@ export default function TourBookingForm({
     const details = buildDetails();
     setSubmitted(true);
     setSubmitError("");
-    setBookingReference("");
+              setBookingReference("");
 
     try {
       const reference = await submitEnquiryByEmail({
@@ -152,7 +152,7 @@ export default function TourBookingForm({
     e.preventDefault();
     setSubmitError("");
     setEnquirySent(false);
-    setBookingReference("");
+              setBookingReference("");
 
     if (!validateForm()) {
       return;
@@ -197,7 +197,7 @@ export default function TourBookingForm({
               setCustomerName(e.target.value);
               setShowPreview(false);
               setEnquirySent(false);
-    setBookingReference("");
+              setBookingReference("");
             }}
             placeholder="John Smith"
             className={inputClassName}
@@ -218,7 +218,7 @@ export default function TourBookingForm({
               setCustomerMobile(e.target.value);
               setShowPreview(false);
               setEnquirySent(false);
-    setBookingReference("");
+              setBookingReference("");
               setMobileNumberError("");
             }}
             placeholder="07xxx xxxxxx"
@@ -247,7 +247,7 @@ export default function TourBookingForm({
                 setCustomerEmail(e.target.value);
                 setShowPreview(false);
                 setEnquirySent(false);
-    setBookingReference("");
+              setBookingReference("");
                 setEmailAddressError("");
               }}
               placeholder="you@example.com"
@@ -276,7 +276,7 @@ export default function TourBookingForm({
                 setTravelDate(e.target.value);
                 setShowPreview(false);
                 setEnquirySent(false);
-    setBookingReference("");
+              setBookingReference("");
               }}
               className={inputClassName}
             />
@@ -293,7 +293,7 @@ export default function TourBookingForm({
                 setGroupSize(Number(e.target.value));
                 setShowPreview(false);
                 setEnquirySent(false);
-    setBookingReference("");
+              setBookingReference("");
               }}
               className={inputClassName}
             >
@@ -319,7 +319,7 @@ export default function TourBookingForm({
               setPickupLocation(e.target.value);
               setShowPreview(false);
               setEnquirySent(false);
-    setBookingReference("");
+              setBookingReference("");
             }}
             placeholder="Hotel, address, or cruise terminal"
             className={inputClassName}
@@ -338,7 +338,7 @@ export default function TourBookingForm({
               setNotes(e.target.value);
               setShowPreview(false);
               setEnquirySent(false);
-    setBookingReference("");
+              setBookingReference("");
             }}
             placeholder="Any special requests or places you'd like to visit"
             className={`${inputClassName} resize-y`}
@@ -402,7 +402,7 @@ export default function TourBookingForm({
                 setShowPreview(false);
                 setSubmitError("");
                 setEnquirySent(false);
-    setBookingReference("");
+              setBookingReference("");
               }}
               className="w-full rounded-xl border border-white/15 bg-white/5 py-3.5 text-sm font-semibold text-white transition-all hover:bg-white/10"
             >
