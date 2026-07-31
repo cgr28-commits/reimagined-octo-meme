@@ -7,11 +7,18 @@ export type TourEnquiryDetails = {
   groupSize: number;
   pickupLocation: string;
   notes: string;
+  bookingReference?: string;
 };
 
-export function buildTourEnquiryMessage(details: TourEnquiryDetails): string {
+export function buildTourEnquiryMessage(
+  details: TourEnquiryDetails,
+  bookingReference?: string,
+): string {
+  const reference = bookingReference ?? details.bookingReference;
+
   return (
     `Hi, I would like to book the following day trip. A payment link will follow shortly.\n\n` +
+    (reference ? `Booking reference: ${reference}\n` : "") +
     `Name: ${details.customerName}\n` +
     (details.customerEmail ? `Email: ${details.customerEmail}\n` : "") +
     (details.mobileNumber ? `Mobile: ${details.mobileNumber}\n` : "") +

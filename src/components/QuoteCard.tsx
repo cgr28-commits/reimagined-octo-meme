@@ -91,6 +91,7 @@ function QuoteCard() {
   const [submitted, setSubmitted] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [bookingSent, setBookingSent] = useState(false);
+  const [bookingReference, setBookingReference] = useState("");
   const [showBookingPreview, setShowBookingPreview] = useState(false);
   const [customerName, setCustomerName] = useState("");
   const [customerMobile, setCustomerMobile] = useState("");
@@ -344,23 +345,22 @@ function QuoteCard() {
     };
   }
 
-  function openWhatsAppBooking(details: BookingDetails) {
-    const message = encodeURIComponent(buildBookingMessage(details));
-    window.open(`https://wa.me/${SITE.whatsapp}?text=${message}`, "_blank");
-    setSubmitted(true);
-    setShowBookingPreview(false);
-    setBookingSent(true);
-    setTimeout(() => setSubmitted(false), 4000);
-  }
-
-  async function submitDesktopBooking(details: BookingDetails) {
+  async function confirmBooking() {
+    const details = buildBookingDetails();
     setSubmitted(true);
     setSubmitError("");
+    setBookingReference("");
 
     try {
-      await submitBookingByEmail(details);
+      const reference = await submitBookingByEmail(details);
+      setBookingReference(reference);
       setShowBookingPreview(false);
       setBookingSent(true);
+
+      if (isMobileDevice ?? detectMobileDevice()) {
+        const message = encodeURIComponent(buildBookingMessage(details, reference));
+        window.open(`https://wa.me/${SITE.whatsapp}?text=${message}`, "_blank");
+      }
     } catch {
       setSubmitError(
         `We couldn't confirm your booking automatically. Please email ${SITE.email} with your trip details and we'll confirm your booking.`,
@@ -370,22 +370,11 @@ function QuoteCard() {
     }
   }
 
-  async function confirmBooking() {
-    const details = buildBookingDetails();
-    const mobile = isMobileDevice ?? detectMobileDevice();
-
-    if (mobile) {
-      openWhatsAppBooking(details);
-      return;
-    }
-
-    await submitDesktopBooking(details);
-  }
-
   function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setSubmitError("");
     setBookingSent(false);
+    setBookingReference("");
 
     if (!validateBooking()) {
       return;
@@ -403,14 +392,13 @@ function QuoteCard() {
     setShowBookingPreview(false);
     setSubmitError("");
     setBookingSent(false);
+    setBookingReference("");
   }
 
   const usesWhatsApp = isMobileDevice === true;
   const usesEmail = isMobileDevice !== true;
 
-  const submitInProgressLabel = usesWhatsApp
-    ? "Opening WhatsApp…"
-    : "Confirming booking…";
+  const submitInProgressLabel = "Sending booking…";
 
   const confirmButtonLabel =
     liveQuote
@@ -986,7 +974,9 @@ function QuoteCard() {
 
         {bookingSent && (
           <div className="rounded-xl border border-emerald/30 bg-emerald/10 px-4 py-4 text-sm text-white">
-            <p className="font-semibold">Booking sent</p>
+            <p className="font-semibold">
+              Booking sent{bookingReference ? ` — reference ${bookingReference}` : ""}
+            </p>
             <p className="mt-2 text-white/80">
               You will be sent a payment link shortly via text. Your booking is not confirmed until
               full payment is made.

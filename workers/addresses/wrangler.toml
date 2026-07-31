@@ -6,3 +6,8 @@ account_id = "36c5c88df4c1f0259413d555f2679f3c"
 
 [observability]
 enabled = true
+
+# Create in Cloudflare dashboard (Workers & Pages → KV), then paste the namespace id below.
+[[kv_namespaces]]
+binding = "BOOKING_COUNTER"
+id = "REPLACE_WITH_KV_NAMESPACE_ID"
