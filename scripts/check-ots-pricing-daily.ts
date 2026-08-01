@@ -1,7 +1,8 @@
 /**
  * Daily OTS pricing monitor.
  *
- * Samples random NI routes (seeded by date), fetches live OTS estate quotes,
+ * Samples random NI routes (seeded by date), fetches live OTS estate quotes
+ * from https://www.airporttaxis-uk.co.uk/,
  * and compares them to our site pricing. Writes a JSON report.
  *
  * To auto-adjust surcharges, use: npm run calibrate:ots-pricing

@@ -1,4 +1,5 @@
-# Daily: sample 100 routes vs OTS, auto-adjust airport surcharges, commit to main.
+# Daily: sample 100 routes vs OTS (https://www.airporttaxis-uk.co.uk/),
+# auto-adjust airport surcharges, commit to main.
 
 name: OTS daily pricing check
 

@@ -1,7 +1,8 @@
 /**
  * Daily OTS auto-calibration.
  *
- * Samples random NI airport routes, fetches live OTS estate quotes, adjusts
+ * Samples random NI airport routes, fetches live OTS estate quotes from
+ * https://www.airporttaxis-uk.co.uk/, adjusts
  * AREA_AIRPORT_SURCHARGES in src/lib/quote.ts so our estate fares sit ~£5–£8
  * below OTS, then writes a report.
  */
