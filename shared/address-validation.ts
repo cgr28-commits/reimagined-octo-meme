@@ -4,6 +4,8 @@ import {
 } from "./ldy-service-area";
 
 const BT_POSTCODE_PATTERN = /\bBT\d{1,2}\s?\d[A-Z]{2}\b/i;
+const BT_OUTCODE_PATTERN = /\bBT\d{1,2}\b/i;
+const BT_POSTCODE_QUERY_PATTERN = /\bBT\d{1,2}(?:\s?\d[A-Z]{2})?\b/i;
 const NI_COUNTY_PATTERN =
   /\b(antrim|armagh|down|fermanagh|londonderry|derry|tyrone|belfast)\b/i;
 const EIRCODE_PATTERN = /\b[A-Z]\d{2}\s?[A-Z0-9]{4}\b/i;
@@ -18,10 +20,50 @@ export function isNorthernIrelandPostcode(postcode?: string | null): boolean {
   return /^BT\d/i.test(postcode.trim());
 }
 
+export function isNorthernIrelandPostcodeOutcode(value: string): boolean {
+  return BT_OUTCODE_PATTERN.test(value.trim());
+}
+
+export function isNorthernIrelandPostcodeQuery(query: string): boolean {
+  return BT_POSTCODE_QUERY_PATTERN.test(query.trim());
+}
+
+export function isFullNorthernIrelandPostcode(postcode: string): boolean {
+  return /^BT\d{1,2}\s?\d[A-Z]{2}$/i.test(postcode.trim());
+}
+
+export function extractNorthernIrelandPostcode(query: string): string | null {
+  const match = query.trim().match(/\b(BT\d{1,2}(?:\s?\d[A-Z]{2})?)\b/i);
+  if (!match?.[1]) {
+    return null;
+  }
+
+  const raw = match[1].replace(/\s+/g, "").toUpperCase();
+  const fullMatch = raw.match(/^(BT\d{1,2})(\d[A-Z]{2})$/);
+  if (fullMatch) {
+    return `${fullMatch[1]} ${fullMatch[2]}`;
+  }
+
+  return raw;
+}
+
+export function normaliseNorthernIrelandPostcode(postcode: string): string {
+  const extracted = extractNorthernIrelandPostcode(postcode);
+  if (extracted) {
+    return extracted;
+  }
+
+  return postcode.trim().toUpperCase();
+}
+
 export function isNorthernIrelandText(value: string): boolean {
   const normalised = value.toLowerCase();
 
   if (extractPostcode(value)) {
+    return true;
+  }
+
+  if (isNorthernIrelandPostcodeOutcode(value)) {
     return true;
   }
 
