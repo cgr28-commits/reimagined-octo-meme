@@ -5,7 +5,6 @@ import { detectMobileDevice, useIsMobileDevice } from "@/lib/device";
 import { isValidEmailAddress, isValidMobileNumber } from "@/lib/booking-message";
 import { SITE } from "@/lib/data";
 import {
-  logBookingToCalendarInBackground,
   submitEnquiryByEmail,
 } from "@/lib/submit-booking";
 import {
