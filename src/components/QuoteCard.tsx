@@ -1247,6 +1247,18 @@ function QuoteCard() {
               )}
               <PreviewRow label="Pickup" value={pickupLabel} />
               <PreviewRow label="Drop-off" value={dropoffLabel} />
+              {routeSummary && (
+                <>
+                  <PreviewRow
+                    label={returnJourney ? "Journey distance (return)" : "Journey distance"}
+                    value={routeSummary.distanceLabel}
+                  />
+                  <PreviewRow
+                    label={returnJourney ? "Estimated journey time (return)" : "Estimated journey time"}
+                    value={routeSummary.durationLabel}
+                  />
+                </>
+              )}
               <PreviewRow
                 label={returnJourney ? "Outbound" : "Date & time"}
                 value={`${formatDisplayDate(tripDate)} at ${formatDisplayTime(tripTime)}`}
