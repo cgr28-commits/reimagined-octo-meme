@@ -1,0 +1,67 @@
+name: OTS daily pricing check
+
+on:
+  schedule:
+    # 06:00 UTC every day
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+    inputs:
+      sample_size:
+        description: Number of routes to sample
+        required: false
+        default: "100"
+      check_date:
+        description: Seed date (YYYY-MM-DD) for reproducible sample
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  check-pricing:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Compare random sample against OTS
+        env:
+          OTS_SAMPLE_SIZE: ${{ github.event.inputs.sample_size || '100' }}
+          OTS_CHECK_DATE: ${{ github.event.inputs.check_date || '' }}
+          OTS_CHECK_STRICT: "1"
+        run: npm run check:ots-pricing
+
+      - name: Upload pricing report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ots-pricing-report-${{ github.run_id }}
+          path: reports/ots-pricing-*.json
+          retention-days: 30
+
+      - name: Summarise failures
+        if: failure()
+        run: |
+          REPORT=$(ls reports/ots-pricing-*.json | head -1)
+          echo "## OTS pricing check failed" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          node -e "
+            const report = require('./' + process.argv[1]);
+            const s = report.summary;
+            console.log('Total:', s.total, 'Pass:', s.pass, 'Fail:', s.fail, 'Error:', s.error);
+            console.log('');
+            console.log('Airport fails:', report.failures.filter(r => r.kind === 'airport').length);
+            console.log('P2P fails:', report.failures.filter(r => r.kind === 'point-to-point').length);
+            for (const row of report.failures.slice(0, 15)) {
+              console.log('- ' + row.id + ': OTS £' + row.otsEstate + ', ours £' + row.ourEstate + ' — ' + row.message);
+            }
+          " "$REPORT" >> "$GITHUB_STEP_SUMMARY"
