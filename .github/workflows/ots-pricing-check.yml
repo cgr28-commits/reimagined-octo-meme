@@ -1,5 +1,4 @@
-# Report-only: compares 100 random routes against OTS and uploads a JSON report.
-# Does NOT modify pricing, open PRs, or deploy — review failures manually.
+# Daily: sample 100 routes vs OTS, auto-adjust airport surcharges, commit to main.
 
 name: OTS daily pricing check
 
@@ -19,10 +18,10 @@ on:
         default: ""
 
 permissions:
-  contents: read # read-only — cannot commit or change repo files
+  contents: write
 
 jobs:
-  check-pricing:
+  auto-calibrate:
     runs-on: ubuntu-latest
     timeout-minutes: 45
 
@@ -36,37 +35,48 @@ jobs:
 
       - run: npm ci
 
-      - name: Compare random sample against OTS (report only)
+      - name: Auto-calibrate airport pricing from live OTS quotes
         env:
           OTS_SAMPLE_SIZE: ${{ github.event.inputs.sample_size || '100' }}
           OTS_CHECK_DATE: ${{ github.event.inputs.check_date || '' }}
-          OTS_CHECK_STRICT: "0"
-        run: npm run check:ots-pricing
+        run: npm run calibrate:ots-pricing
 
-      - name: Upload pricing report
+      - name: Upload calibration report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ots-pricing-report-${{ github.run_id }}
-          path: reports/ots-pricing-*.json
+          name: ots-calibration-report-${{ github.run_id }}
+          path: reports/ots-calibration-*.json
           retention-days: 30
 
-      - name: Summarise report
+      - name: Commit and push surcharge updates
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/lib/quote.ts
+          if git diff --staged --quiet; then
+            echo "No pricing changes to commit"
+          else
+            git commit -m "chore: auto-calibrate airport pricing from daily OTS check"
+            git pull --rebase origin main
+            git push
+          fi
+
+      - name: Summarise calibration report
         if: always()
         run: |
-          REPORT=$(ls reports/ots-pricing-*.json | head -1)
-          echo "## OTS daily pricing report (no changes applied)" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "Review routes outside the target band and update pricing manually if needed." >> "$GITHUB_STEP_SUMMARY"
+          REPORT=$(ls reports/ots-calibration-*.json | head -1)
+          echo "## OTS daily auto-calibration" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           node -e "
             const report = require('./' + process.argv[1]);
-            const s = report.summary;
-            console.log('Total:', s.total, 'Pass:', s.pass, 'Fail:', s.fail, 'Error:', s.error);
+            console.log('Routes sampled:', report.sampleSize);
+            console.log('Surcharge updates applied:', report.patchesApplied.length);
             console.log('');
-            console.log('Airport outside band:', report.failures.filter(r => r.kind === 'airport').length);
-            console.log('P2P outside band:', report.failures.filter(r => r.kind === 'point-to-point').length);
-            for (const row of report.failures.slice(0, 15)) {
-              console.log('- ' + row.id + ': OTS £' + row.otsEstate + ', ours £' + row.ourEstate + ' — ' + row.message);
+            for (const patch of report.patchesApplied.slice(0, 20)) {
+              console.log('- ' + patch.area + ' / ' + patch.airportCode + ': ' + (patch.previous ?? '?') + ' → ' + patch.surcharge);
+            }
+            if (report.patchesApplied.length > 20) {
+              console.log('… and ' + (report.patchesApplied.length - 20) + ' more');
             }
           " "$REPORT" >> "$GITHUB_STEP_SUMMARY"

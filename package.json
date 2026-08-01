@@ -9,7 +9,8 @@
     "sync:worker-shared": "node scripts/sync-worker-shared.mjs",
     "start": "next start",
     "lint": "next lint",
-    "check:ots-pricing": "npx tsx scripts/check-ots-pricing-daily.ts"
+    "check:ots-pricing": "npx tsx scripts/check-ots-pricing-daily.ts",
+    "calibrate:ots-pricing": "npx tsx scripts/auto-calibrate-ots-pricing.ts"
   },
   "dependencies": {
     "leaflet": "^1.9.4",
