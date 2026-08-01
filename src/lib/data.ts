@@ -4,8 +4,7 @@ export const SITE = {
   name: "My Airport Taxi NI",
   tagline: "Premium Airport Transfers Across Northern Ireland",
   whatsapp: "447549815538",
-  whatsappDefaultMessage:
-    "Hi, I'd like to get in touch about a booking, day trip, or transfer.",
+  whatsappDefaultMessage: "Hi, I'd like some help.",
   email: "bookings@myairporttaxini.co.uk",
   url: "https://www.myairporttaxini.co.uk",
 } as const;
