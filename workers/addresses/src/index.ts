@@ -8,7 +8,7 @@ import {
   searchGooglePlaces,
   searchGoogleStreetAddresses,
 } from "../shared/google-places";
-import { sortSuggestionsByStreetNumber } from "../shared/address-validation";
+import { isNorthernIrelandPostcodeQuery, sortSuggestionsByStreetNumber } from "../shared/address-validation";
 import {
   resolveGetAddress,
   searchGetAddress,
@@ -556,7 +556,11 @@ export default {
     try {
       const tasks: Promise<Awaited<ReturnType<typeof searchGooglePlaces>>>[] = [];
 
-      if (env.GETADDRESS_API_KEY && airportCode !== "DUB" && airportCode !== "LDY") {
+      if (
+        env.GETADDRESS_API_KEY &&
+        airportCode !== "DUB" &&
+        (airportCode !== "LDY" || isNorthernIrelandPostcodeQuery(query))
+      ) {
         tasks.push(searchGetAddress(env.GETADDRESS_API_KEY, query, airportCode));
       }
 

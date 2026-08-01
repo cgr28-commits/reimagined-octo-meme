@@ -2,6 +2,7 @@ import {
   isAddressAllowedForAirport,
   isAllowedAutocompleteLabel,
   isAllowedCoordinates,
+  isNorthernIrelandPostcodeQuery,
   normaliseAirportCode,
   sortSuggestionsByStreetNumber,
 } from "./address-validation";
@@ -129,6 +130,10 @@ function hasLeadingStreetNumber(text: string): boolean {
 }
 
 export function isStreetOnlyQuery(query: string): boolean {
+  if (isNorthernIrelandPostcodeQuery(query)) {
+    return false;
+  }
+
   return !extractLeadingStreetNumber(query) && query.trim().length >= 3;
 }
 

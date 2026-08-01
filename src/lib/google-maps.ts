@@ -17,6 +17,7 @@ import {
   resolveGetAddress,
   searchGetAddress,
 } from "../../shared/getaddress";
+import { isNorthernIrelandPostcodeQuery } from "../../shared/address-validation";
 
 const GOOGLE_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_PLACES_API_KEY?.trim() ?? "";
 const GETADDRESS_API_KEY = process.env.NEXT_PUBLIC_GETADDRESS_API_KEY?.trim() ?? "";
@@ -125,12 +126,17 @@ async function fetchLocalAddressPredictions(
   const trimmed = input.trim();
   const tasks: Promise<AddressPrediction[]>[] = [];
 
-  if (GETADDRESS_API_KEY && airportCode !== "DUB" && airportCode !== "LDY") {
-    tasks.push(
-      safePredictions(
-        searchGetAddress(GETADDRESS_API_KEY, trimmed, airportCode).then(toPredictions),
-      ),
-    );
+  if (GETADDRESS_API_KEY && airportCode !== "DUB") {
+    const allowGetAddress =
+      airportCode !== "LDY" || isNorthernIrelandPostcodeQuery(trimmed);
+
+    if (allowGetAddress) {
+      tasks.push(
+        safePredictions(
+          searchGetAddress(GETADDRESS_API_KEY, trimmed, airportCode).then(toPredictions),
+        ),
+      );
+    }
   }
 
   if (GOOGLE_API_KEY) {
@@ -176,14 +182,28 @@ export async function fetchAddressPredictions(
     return [];
   }
 
+  const tasks: Promise<AddressPrediction[]>[] = [];
+
   if (ADDRESSES_API_URL) {
-    const workerSuggestions = await fetchWorkerAddressSuggestions(trimmed, airportCode);
-    if (workerSuggestions && workerSuggestions.length > 0) {
-      return mergePredictions(workerSuggestions.map(toPrediction));
-    }
+    tasks.push(
+      safePredictions(
+        fetchWorkerAddressSuggestions(trimmed, airportCode).then((suggestions) =>
+          (suggestions ?? []).map(toPrediction),
+        ),
+      ),
+    );
   }
 
-  return fetchLocalAddressPredictions(trimmed, airportCode);
+  if (GOOGLE_API_KEY || GETADDRESS_API_KEY) {
+    tasks.push(safePredictions(fetchLocalAddressPredictions(trimmed, airportCode)));
+  }
+
+  if (tasks.length === 0) {
+    throw new Error("Address lookup is not configured");
+  }
+
+  const results = await Promise.all(tasks);
+  return mergePredictions(results.flat());
 }
 
 export async function fetchPlaceDetails(
