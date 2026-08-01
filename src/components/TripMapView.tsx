@@ -3,18 +3,21 @@
 import { useEffect, useRef } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import {
-  fetchDrivingRoute,
-  type MapPoint,
-  type RouteSummary,
-  summariseRoute,
-} from "@/lib/trip-route";
+
+type MapPoint = {
+  lat: number;
+  lng: number;
+  label: string;
+};
 
 type TripMapViewProps = {
   pickup: MapPoint;
   airport: MapPoint;
-  returnJourney?: boolean;
-  onRouteInfo?: (summary: RouteSummary | null) => void;
+};
+
+type RouteGeometry = {
+  type: "LineString";
+  coordinates: [number, number][];
 };
 
 function configureLeafletIcons() {
@@ -25,18 +28,31 @@ function configureLeafletIcons() {
   });
 }
 
-export default function TripMapView({
-  pickup,
-  airport,
-  returnJourney = false,
-  onRouteInfo,
-}: TripMapViewProps) {
+async function fetchRouteCoordinates(
+  pickup: MapPoint,
+  airport: MapPoint,
+): Promise<[number, number][]> {
+  const url = `https://router.project-osrm.org/route/v1/driving/${pickup.lng},${pickup.lat};${airport.lng},${airport.lat}?overview=full&geometries=geojson`;
+
+  try {
+    const response = await fetch(url);
+    if (!response.ok) {
+      return [];
+    }
+
+    const data = (await response.json()) as {
+      routes?: Array<{ geometry?: RouteGeometry }>;
+    };
+
+    return data.routes?.[0]?.geometry?.coordinates ?? [];
+  } catch {
+    return [];
+  }
+}
+
+export default function TripMapView({ pickup, airport }: TripMapViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
-
-  useEffect(() => {
-    onRouteInfo?.(null);
-  }, [onRouteInfo, pickup.lat, pickup.lng, airport.lat, airport.lng, returnJourney]);
 
   useEffect(() => {
     if (!containerRef.current) {
@@ -72,18 +88,11 @@ export default function TripMapView({
       [airport.lat, airport.lng],
     ]);
 
-    let cancelled = false;
-
-    void fetchDrivingRoute(pickup, airport).then((route) => {
-      if (cancelled) {
-        return;
-      }
-
-      if (route?.coordinates.length) {
-        const latLngs = route.coordinates.map(([lng, lat]) => [lat, lng] as [number, number]);
+    void fetchRouteCoordinates(pickup, airport).then((coordinates) => {
+      if (coordinates.length > 0) {
+        const latLngs = coordinates.map(([lng, lat]) => [lat, lng] as [number, number]);
         L.polyline(latLngs, { color: "#2fbf4a", weight: 4, opacity: 0.85 }).addTo(map);
         bounds.extend(latLngs);
-        onRouteInfo?.(summariseRoute(route, returnJourney));
       } else {
         L.polyline(
           [
@@ -92,18 +101,16 @@ export default function TripMapView({
           ],
           { color: "#2fbf4a", weight: 4, opacity: 0.85, dashArray: "8 8" },
         ).addTo(map);
-        onRouteInfo?.(null);
       }
 
       map.fitBounds(bounds, { padding: [24, 24] });
     });
 
     return () => {
-      cancelled = true;
       map.remove();
       mapRef.current = null;
     };
-  }, [airport, onRouteInfo, pickup, returnJourney]);
+  }, [airport, pickup]);
 
   return <div ref={containerRef} className="h-48 w-full sm:h-56" />;
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AIRPORTS } from "@/lib/data";
 import { geocodePickupAddress, isGooglePlacesEnabled } from "@/lib/google-maps";
 import { fetchTripRouteMetrics, formatJourneyDistance, formatJourneyDuration, type TripRouteMetrics } from "@/lib/trip-route";
@@ -37,6 +37,36 @@ function buildGoogleMapsLink(origin: string, destination: string) {
   return `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}&travelmode=driving`;
 }
 
+async function resolveMapPoint(address: string, label: string, airportCode?: string): Promise<MapPoint | null> {
+  const trimmed = address.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  const airport = airportCode
+    ? AIRPORTS.find((item) => item.code === airportCode && item.mapLabel === trimmed)
+    : null;
+
+  if (airport) {
+    return {
+      lat: airport.mapLocation.lat,
+      lng: airport.mapLocation.lng,
+      label: airport.name,
+    };
+  }
+
+  const location = await geocodePickupAddress(trimmed);
+  if (!location) {
+    return null;
+  }
+
+  return {
+    lat: location.lat,
+    lng: location.lng,
+    label,
+  };
+}
+
 export default function TripMap({
   tripMode,
   originAddress,
@@ -49,17 +79,8 @@ export default function TripMap({
   const trimmedDestination = destinationAddress.trim();
   const [originPoint, setOriginPoint] = useState<MapPoint | null>(null);
   const [destinationPoint, setDestinationPoint] = useState<MapPoint | null>(null);
-  const [routeSummary, setRouteSummary] = useState<RouteSummary | null>(null);
   const [mapError, setMapError] = useState<string | null>(null);
   const [routeMetrics, setRouteMetrics] = useState<TripRouteMetrics | null>(null);
-
-  const handleRouteInfo = useCallback(
-    (summary: RouteSummary | null) => {
-      setRouteSummary(summary);
-      onRouteInfo?.(summary);
-    },
-    [onRouteInfo],
-  );
 
   const airport = useMemo(
     () => AIRPORTS.find((item) => item.code === airportCode) ?? null,
@@ -86,11 +107,6 @@ export default function TripMap({
       routeLabel: "Pickup to drop-off",
     };
   }, [airport, tripDirection, tripMode, trimmedDestination, trimmedOrigin]);
-
-  useEffect(() => {
-    setRouteSummary(null);
-    onRouteInfo?.(null);
-  }, [trimmedDestination, trimmedOrigin, returnJourney, onRouteInfo]);
 
   useEffect(() => {
     if (!isGooglePlacesEnabled() || !trimmedOrigin || !trimmedDestination) {
@@ -187,12 +203,7 @@ export default function TripMap({
       </div>
 
       {originPoint && destinationPoint ? (
-        <TripMapView
-          pickup={originPoint}
-          airport={destinationPoint}
-          returnJourney={returnJourney}
-          onRouteInfo={handleRouteInfo}
-        />
+        <TripMapView pickup={originPoint} airport={destinationPoint} />
       ) : (
         <div className="flex h-48 items-center justify-center px-4 text-center sm:h-56">
           <p className="text-sm text-white/60">

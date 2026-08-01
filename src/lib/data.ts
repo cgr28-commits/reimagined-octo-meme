@@ -80,6 +80,7 @@ export const HERO_SLIDES = [
     alt: "Dublin Airport Terminal 2 building",
   },
   {
+    airportCode: "LDY",
     title: "City of Derry Airport Transfers",
     subtitle:
       "Transfers between City of Derry Airport (LDY) and the greater Belfast area — departures from Bangor and Belfast, or meet & greet at LDY arrivals.",

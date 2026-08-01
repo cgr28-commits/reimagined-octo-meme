@@ -5,8 +5,8 @@ import { detectMobileDevice, useIsMobileDevice } from "@/lib/device";
 import { isValidEmailAddress, isValidMobileNumber } from "@/lib/booking-message";
 import { SITE } from "@/lib/data";
 import {
-  formatCalendarConflictWarning,
-  submitDayTripByEmail,
+  logBookingToCalendarInBackground,
+  submitEnquiryByEmail,
 } from "@/lib/submit-booking";
 import {
   buildTourEnquiryMessage,
@@ -134,6 +134,7 @@ export default function TourBookingForm({
         customerName: details.customerName,
         message: buildTourEnquiryMessage(details),
         subject: `New day trip booking — ${details.customerName}`,
+        tour: details,
       });
       setBookingReference(reference);
       setShowPreview(false);
