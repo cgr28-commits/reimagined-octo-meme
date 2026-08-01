@@ -17,6 +17,7 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    environment: github-pages
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -24,9 +25,41 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
-      - run: npm run build
+      - name: Build site
         env:
-          GITHUB_PAGES: true
+          GOOGLE_PLACES_API_KEY: ${{ secrets.GOOGLE_PLACES_API_KEY }}
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
+          GETADDRESS_DOMAIN_TOKEN: ${{ secrets.GETADDRESS_DOMAIN_TOKEN }}
+          BOOKINGS_API_URL: ${{ secrets.BOOKINGS_API_URL }}
+          WEB3FORMS_ACCESS_KEY: ${{ secrets.WEB3FORMS_ACCESS_KEY }}
+        run: |
+          KEY="${GOOGLE_PLACES_API_KEY:-${GOOGLE_API_KEY:-${GOOGLE_MAPS_API_KEY}}}"
+          if [ -z "$KEY" ]; then
+            echo "::warning::No Google API key secret found. Add GOOGLE_PLACES_API_KEY under Settings → Secrets and variables → Actions (repository or github-pages environment)."
+          else
+            echo "Google API key configured (${#KEY} characters)"
+          fi
+          if [ -n "$GETADDRESS_DOMAIN_TOKEN" ]; then
+            echo "getAddress domain token configured (${#GETADDRESS_DOMAIN_TOKEN} characters)"
+          else
+            echo "::notice::No GETADDRESS_DOMAIN_TOKEN — door numbers on street searches work best with getAddress.io (free tier available)."
+          fi
+          if [ -z "$BOOKINGS_API_URL" ]; then
+            BOOKINGS_API_URL="https://reimagined-octo-meme.cgr28.workers.dev/bookings"
+            echo "Using default BOOKINGS_API_URL ($BOOKINGS_API_URL)"
+          elif [[ "$BOOKINGS_API_URL" == *"myairporttaxini.co.uk"* ]]; then
+            echo "::warning::BOOKINGS_API_URL points at the static website and will be ignored. Using the Cloudflare Worker URL instead."
+            BOOKINGS_API_URL="https://reimagined-octo-meme.cgr28.workers.dev/bookings"
+          fi
+          ADDRESSES_API_URL="${BOOKINGS_API_URL%/bookings}/addresses"
+          echo "Using ADDRESSES_API_URL ($ADDRESSES_API_URL)"
+          NEXT_PUBLIC_GOOGLE_PLACES_API_KEY="$KEY" \
+          NEXT_PUBLIC_GETADDRESS_API_KEY="$GETADDRESS_DOMAIN_TOKEN" \
+          NEXT_PUBLIC_BOOKINGS_API_URL="$BOOKINGS_API_URL" \
+          NEXT_PUBLIC_ADDRESSES_API_URL="$ADDRESSES_API_URL" \
+          NEXT_PUBLIC_WEB3FORMS_ACCESS_KEY="$WEB3FORMS_ACCESS_KEY" \
+          GITHUB_PAGES=true npm run build
       - run: node scripts/fix-github-pages-paths.mjs
       - uses: actions/upload-pages-artifact@v3
         with:

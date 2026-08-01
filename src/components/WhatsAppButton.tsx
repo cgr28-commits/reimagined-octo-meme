@@ -1,6 +1,15 @@
+"use client";
+
 import { SITE } from "@/lib/data";
+import { useIsMobileDevice } from "@/lib/device";
 
 export default function WhatsAppButton() {
+  const isMobile = useIsMobileDevice();
+
+  if (isMobile !== true) {
+    return null;
+  }
+
   return (
     <a
       href={`https://wa.me/${SITE.whatsapp}?text=${encodeURIComponent("Hi, I'd like to book an airport transfer.")}`}

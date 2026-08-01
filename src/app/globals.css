@@ -139,3 +139,13 @@ body {
 .faq-answer > div {
   overflow: hidden;
 }
+
+.address-input {
+  touch-action: manipulation;
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+.address-suggestions {
+  pointer-events: auto;
+}

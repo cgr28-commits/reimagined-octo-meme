@@ -1,10 +1,8 @@
-import { CHAUFFEUR_SERVICES, SITE } from "@/lib/data";
+import { CHAUFFEUR_SERVICES } from "@/lib/data";
+import ChauffeurBookingCta from "./ChauffeurBookingCta";
 import SectionHeading from "./SectionHeading";
 
 export default function ChauffeurSection() {
-  const whatsappMessage =
-    "Hi, I'd like a quote for chauffeur / executive private hire. Please let me know availability and price.";
-
   return (
     <section id="chauffeur" className="relative py-20 sm:py-28">
       <div className="absolute inset-0 bg-gradient-to-b from-navy via-navy-light/20 to-navy" />
@@ -27,21 +25,7 @@ export default function ChauffeurSection() {
           ))}
         </div>
 
-        <div className="mt-12 rounded-2xl border border-white/10 bg-white/[0.04] p-8 text-center sm:p-10">
-          <p className="mx-auto max-w-2xl text-base leading-relaxed text-white/70">
-            Your professional driver, your schedule, door to door. Get a personalised quote via
-            WhatsApp — hourly hire, point-to-point journeys, and executive airport transfers
-            available.
-          </p>
-          <a
-            href={`https://wa.me/${SITE.whatsapp}?text=${encodeURIComponent(whatsappMessage)}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mt-6 inline-flex items-center gap-2 rounded-full bg-emerald px-8 py-3.5 text-sm font-semibold text-navy transition-all hover:bg-emerald-light hover:shadow-lg hover:shadow-emerald/25"
-          >
-            Request chauffeur quote
-          </a>
-        </div>
+        <ChauffeurBookingCta />
       </div>
     </section>
   );
