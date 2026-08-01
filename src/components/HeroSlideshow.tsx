@@ -34,7 +34,7 @@ export default function HeroSlideshow() {
     "From £45";
 
   return (
-    <section className="relative min-h-screen overflow-hidden pt-20 md:pt-28">
+    <section className="relative min-h-screen overflow-hidden pt-44 md:pt-28">
       <div className="absolute inset-0">
         {HERO_SLIDES.map((s, i) => (
           <div
