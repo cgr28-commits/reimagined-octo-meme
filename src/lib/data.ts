@@ -123,7 +123,7 @@ export const AIRPORTS = [
     code: "LDY",
     name: "City of Derry",
     basePrice: 35,
-    distance: "From £103",
+    distance: "From £140",
     duration: "Derry Airport → Belfast area",
     mapLabel: "City of Derry Airport, Airport Road, Eglinton, UK",
     mapLocation: { lat: 55.0428, lng: -7.1611 },

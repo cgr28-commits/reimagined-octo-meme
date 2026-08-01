@@ -17,21 +17,21 @@ type AirportCode = "BFS" | "BHD" | "DUB" | "LDY";
  * Calibrated against Onward Travel Solutions instant quotes (2026).
  */
 const AREA_AIRPORT_SURCHARGES: Record<Area, Record<AirportCode, number>> = {
-  // Calibrated ~£5 below OTS estate fares; Belfast BFS kept at £64.
-  "Belfast City Centre": { BFS: 11, BHD: 0, DUB: 50, LDY: 68 },
-  Holywood: { BFS: 19, BHD: 0, DUB: 58, LDY: 70 },
-  Newtownabbey: { BFS: 3, BHD: 8, DUB: 60, LDY: 65 },
-  Lisburn: { BFS: 8, BHD: 13, DUB: 60, LDY: 68 },
-  Dundonald: { BFS: 23, BHD: 3, DUB: 60, LDY: 65 },
-  Antrim: { BFS: 0, BHD: 23, DUB: 50, LDY: 50 },
-  Ballyclare: { BFS: 3, BHD: 13, DUB: 65, LDY: 52 },
-  Hillsborough: { BFS: 19, BHD: 18, DUB: 65, LDY: 68 },
-  Carrickfergus: { BFS: 19, BHD: 13, DUB: 62, LDY: 68 },
-  Comber: { BFS: 28, BHD: 14, DUB: 62, LDY: 68 },
-  Larne: { BFS: 18, BHD: 28, DUB: 72, LDY: 72 },
-  Bangor: { BFS: 35, BHD: 13, DUB: 65, LDY: 78 },
-  Newtownards: { BFS: 28, BHD: 14, DUB: 62, LDY: 70 },
-  Ballymena: { BFS: 8, BHD: 33, DUB: 78, LDY: 28 },
+  // Calibrated ~£5 below OTS estate fares (Aug 2026). LDY from live OTS LDY→Belfast-area quotes.
+  "Belfast City Centre": { BFS: 11, BHD: 0, DUB: 50, LDY: 93 },
+  Holywood: { BFS: 19, BHD: 0, DUB: 58, LDY: 98 },
+  Newtownabbey: { BFS: 3, BHD: 8, DUB: 60, LDY: 88 },
+  Lisburn: { BFS: 8, BHD: 13, DUB: 60, LDY: 108 },
+  Dundonald: { BFS: 23, BHD: 3, DUB: 60, LDY: 103 },
+  Antrim: { BFS: 0, BHD: 23, DUB: 50, LDY: 73 },
+  Ballyclare: { BFS: 3, BHD: 13, DUB: 65, LDY: 83 },
+  Hillsborough: { BFS: 19, BHD: 18, DUB: 65, LDY: 108 },
+  Carrickfergus: { BFS: 19, BHD: 13, DUB: 62, LDY: 98 },
+  Comber: { BFS: 28, BHD: 14, DUB: 62, LDY: 113 },
+  Larne: { BFS: 18, BHD: 28, DUB: 72, LDY: 103 },
+  Bangor: { BFS: 35, BHD: 13, DUB: 65, LDY: 113 },
+  Newtownards: { BFS: 28, BHD: 14, DUB: 62, LDY: 113 },
+  Ballymena: { BFS: 8, BHD: 33, DUB: 78, LDY: 58 },
   Downpatrick: { BFS: 56, BHD: 33, DUB: 75, LDY: 85 },
   Banbridge: { BFS: 33, BHD: 33, DUB: 75, LDY: 78 },
   Newcastle: { BFS: 64, BHD: 53, DUB: 80, LDY: 90 },
@@ -51,7 +51,7 @@ const DEFAULT_AREA_SURCHARGE: Record<AirportCode, number> = {
   BFS: 35,
   BHD: 25,
   DUB: 70,
-  LDY: 35,
+  LDY: 93,
 };
 
 /** @deprecated Use getAreaSurcharge instead. */
