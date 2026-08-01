@@ -370,7 +370,6 @@ function QuoteCard() {
 
   function validateContactDetails(): boolean {
     let ok = true;
-    const onDesktop = !(isMobileDevice ?? detectMobileDevice());
 
     if (!customerName.trim()) {
       setCustomerNameError("Please enter your name.");
@@ -389,16 +388,12 @@ function QuoteCard() {
       setMobileNumberError("");
     }
 
-    if (onDesktop) {
-      if (!customerEmail.trim()) {
-        setEmailAddressError("Please enter your email address so we can confirm your booking.");
-        ok = false;
-      } else if (!isValidEmailAddress(customerEmail)) {
-        setEmailAddressError("Please enter a valid email address.");
-        ok = false;
-      } else {
-        setEmailAddressError("");
-      }
+    if (!customerEmail.trim()) {
+      setEmailAddressError("Please enter your email address so we can confirm your booking.");
+      ok = false;
+    } else if (!isValidEmailAddress(customerEmail)) {
+      setEmailAddressError("Please enter a valid email address.");
+      ok = false;
     } else {
       setEmailAddressError("");
     }
@@ -929,37 +924,35 @@ function QuoteCard() {
                 )}
               </div>
 
-              {isMobileDevice !== true && (
-                <div>
-                  <label
-                    htmlFor="email"
-                    className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/50"
-                  >
-                    Email Address
-                  </label>
-                  <input
-                    id="email"
-                    name="email"
-                    type="email"
-                    autoComplete="email"
-                    value={customerEmail}
-                    onChange={(e) => {
-                      setCustomerEmail(e.target.value);
-                      if (e.target.value.trim()) {
-                        setEmailAddressError("");
-                      }
-                    }}
-                    placeholder="you@example.com"
-                    className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/30 outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30"
-                  />
-                  <p className="mt-1.5 text-xs text-white/40">
-                    So we can email your booking confirmation if needed.
-                  </p>
-                  {emailAddressError && (
-                    <p className="mt-1.5 text-xs text-red-300">{emailAddressError}</p>
-                  )}
-                </div>
-              )}
+              <div>
+                <label
+                  htmlFor="email"
+                  className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/50"
+                >
+                  Email Address
+                </label>
+                <input
+                  id="email"
+                  name="email"
+                  type="email"
+                  autoComplete="email"
+                  value={customerEmail}
+                  onChange={(e) => {
+                    setCustomerEmail(e.target.value);
+                    if (e.target.value.trim()) {
+                      setEmailAddressError("");
+                    }
+                  }}
+                  placeholder="you@example.com"
+                  className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/30 outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30"
+                />
+                <p className="mt-1.5 text-xs text-white/40">
+                  So we can email your booking confirmation.
+                </p>
+                {emailAddressError && (
+                  <p className="mt-1.5 text-xs text-red-300">{emailAddressError}</p>
+                )}
+              </div>
 
               {isAirportTrip && (
                 <>
@@ -1179,9 +1172,7 @@ function QuoteCard() {
             <dl>
               <PreviewRow label="Name" value={customerName.trim()} />
               <PreviewRow label="Mobile" value={customerMobile.trim()} />
-              {isMobileDevice !== true && customerEmail.trim() && (
-                <PreviewRow label="Email" value={customerEmail.trim()} />
-              )}
+              <PreviewRow label="Email" value={customerEmail.trim()} />
               <PreviewRow
                 label="Trip"
                 value={
