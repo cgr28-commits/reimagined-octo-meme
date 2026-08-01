@@ -123,10 +123,10 @@ function QuoteCard() {
   const [goingFlightConfigured, setGoingFlightConfigured] = useState(true);
   const [collectionFlightConfigured, setCollectionFlightConfigured] = useState(true);
   const [goingFlightStatus, setGoingFlightStatus] = useState<
-    "idle" | "loading" | "verified" | "error"
+    "idle" | "loading" | "verified" | "error" | "unavailable"
   >("idle");
   const [collectionFlightStatus, setCollectionFlightStatus] = useState<
-    "idle" | "loading" | "verified" | "error"
+    "idle" | "loading" | "verified" | "error" | "unavailable"
   >("idle");
   const [tripDate, setTripDate] = useState("");
   const [tripTime, setTripTime] = useState("");

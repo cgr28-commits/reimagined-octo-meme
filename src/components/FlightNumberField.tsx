@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   isValidFlightNumberFormat,
   lookupFlightForBooking,
@@ -20,7 +20,7 @@ type FlightNumberFieldProps = {
   enabled: boolean;
   error?: string;
   onVerifiedChange?: (flight: VerifiedFlight | null, configured: boolean) => void;
-  onStatusChange?: (status: "idle" | "loading" | "verified" | "error") => void;
+  onStatusChange?: (status: "idle" | "loading" | "verified" | "error" | "unavailable") => void;
 };
 
 export default function FlightNumberField({
@@ -37,11 +37,22 @@ export default function FlightNumberField({
   onVerifiedChange,
   onStatusChange,
 }: FlightNumberFieldProps) {
-  const [lookupStatus, setLookupStatus] = useState<"idle" | "loading" | "verified" | "error">(
-    "idle",
-  );
+  const [lookupStatus, setLookupStatus] = useState<
+    "idle" | "loading" | "verified" | "error" | "unavailable"
+  >("idle");
   const [lookupMessage, setLookupMessage] = useState("");
   const [verifiedFlight, setVerifiedFlight] = useState<VerifiedFlight | null>(null);
+
+  const onVerifiedChangeRef = useRef(onVerifiedChange);
+  const onStatusChangeRef = useRef(onStatusChange);
+
+  useEffect(() => {
+    onVerifiedChangeRef.current = onVerifiedChange;
+  }, [onVerifiedChange]);
+
+  useEffect(() => {
+    onStatusChangeRef.current = onStatusChange;
+  }, [onStatusChange]);
 
   useEffect(() => {
     if (!enabled) {
@@ -53,8 +64,8 @@ export default function FlightNumberField({
       setVerifiedFlight(null);
       setLookupStatus("idle");
       setLookupMessage("");
-      onStatusChange?.("idle");
-      onVerifiedChange?.(null, true);
+      onStatusChangeRef.current?.("idle");
+      onVerifiedChangeRef.current?.(null, true);
       return;
     }
 
@@ -62,25 +73,38 @@ export default function FlightNumberField({
       setVerifiedFlight(null);
       setLookupStatus("error");
       setLookupMessage("Enter a valid flight number (e.g. BA1234 or EZY456).");
-      onStatusChange?.("error");
-      onVerifiedChange?.(null, true);
+      onStatusChangeRef.current?.("error");
+      onVerifiedChangeRef.current?.(null, true);
       return;
     }
 
     let cancelled = false;
     setLookupStatus("loading");
     setLookupMessage("");
-    onStatusChange?.("loading");
+    onStatusChangeRef.current?.("loading");
 
     const timer = window.setTimeout(async () => {
-      const result = await lookupFlightForBooking({
+      const lookupPromise = lookupFlightForBooking({
         flightNumber: trimmed,
         tripDate,
         airportCode,
         direction,
       });
+      const timeoutPromise = new Promise<null>((resolve) => {
+        window.setTimeout(() => resolve(null), 15000);
+      });
+      const result = await Promise.race([lookupPromise, timeoutPromise]);
 
       if (cancelled) {
+        return;
+      }
+
+      if (result === null) {
+        setVerifiedFlight(null);
+        setLookupStatus("error");
+        setLookupMessage("Flight lookup timed out. Please try again.");
+        onStatusChangeRef.current?.("error");
+        onVerifiedChangeRef.current?.(null, true);
         return;
       }
 
@@ -88,31 +112,34 @@ export default function FlightNumberField({
         setVerifiedFlight(result.flight);
         setLookupStatus("verified");
         setLookupMessage("");
-        onStatusChange?.("verified");
-        onVerifiedChange?.(result.flight, result.configured);
+        onStatusChangeRef.current?.("verified");
+        onVerifiedChangeRef.current?.(result.flight, result.configured);
         return;
       }
 
       setVerifiedFlight(null);
       if (!result.configured) {
-        setLookupStatus("idle");
-        setLookupMessage("");
-        onStatusChange?.("idle");
-        onVerifiedChange?.(null, false);
+        setLookupStatus("unavailable");
+        setLookupMessage(
+          result.error ||
+            "Flight verification is temporarily unavailable. You can still enter your flight number.",
+        );
+        onStatusChangeRef.current?.("unavailable");
+        onVerifiedChangeRef.current?.(null, false);
         return;
       }
 
       setLookupStatus("error");
       setLookupMessage(result.error);
-      onStatusChange?.("error");
-      onVerifiedChange?.(null, result.configured);
+      onStatusChangeRef.current?.("error");
+      onVerifiedChangeRef.current?.(null, result.configured);
     }, 600);
 
     return () => {
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [airportCode, direction, enabled, onStatusChange, onVerifiedChange, tripDate, value]);
+  }, [airportCode, direction, enabled, tripDate, value]);
 
   return (
     <div>
@@ -157,6 +184,9 @@ export default function FlightNumberField({
             {verifiedFlight.scheduledTime}
           </p>
         </div>
+      )}
+      {lookupStatus === "unavailable" && lookupMessage && (
+        <p className="mt-1.5 text-xs text-amber-200/90">{lookupMessage}</p>
       )}
       {lookupStatus === "error" && lookupMessage && (
         <p className="mt-1.5 text-xs text-red-300">{lookupMessage}</p>
