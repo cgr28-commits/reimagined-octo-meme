@@ -36,14 +36,26 @@ import {
   createSumUpHostedCheckout,
 } from "../shared/sumup-checkout";
 
+type EmailBinding = {
+  send(message: {
+    to: string;
+    from: string | { email: string; name?: string };
+    subject: string;
+    text?: string;
+    replyTo?: string | { email: string; name?: string };
+  }): Promise<{ messageId?: string }>;
+};
+
 type Env = {
   GOOGLE_PLACES_API_KEY: string;
   GETADDRESS_API_KEY?: string;
   BOOKING_TO_EMAIL?: string;
   BOOKING_FROM_EMAIL?: string;
+  WEB3FORMS_ACCESS_KEY?: string;
   SUMUP_API_KEY?: string;
   SUMUP_MERCHANT_CODE?: string;
   BOOKING_COUNTER?: KVNamespace;
+  EMAIL?: EmailBinding;
   AERODATABOX_RAPIDAPI_KEY?: string;
 };
 
@@ -90,15 +102,53 @@ function routePath(
   return null;
 }
 
-async function sendEmail(
-  env: Env,
-  options: {
-    to: string;
-    subject: string;
-    body: string;
-    toName?: string;
-  },
-): Promise<void> {
+type EmailPayload = {
+  to: string;
+  subject: string;
+  body: string;
+  toName?: string;
+};
+
+async function sendViaCloudflareEmail(env: Env, options: EmailPayload): Promise<void> {
+  if (!env.EMAIL) {
+    throw new Error("Cloudflare Email Service is not configured");
+  }
+
+  const fromEmail = env.BOOKING_FROM_EMAIL?.trim() || DEFAULT_BOOKING_EMAIL;
+
+  await env.EMAIL.send({
+    to: options.to,
+    from: { email: fromEmail, name: BUSINESS_NAME },
+    replyTo: { email: fromEmail, name: BUSINESS_NAME },
+    subject: options.subject,
+    text: options.body,
+  });
+}
+
+async function sendViaWeb3Forms(env: Env, options: EmailPayload): Promise<void> {
+  const accessKey = env.WEB3FORMS_ACCESS_KEY?.trim() ?? "";
+  if (!accessKey) {
+    throw new Error("Web3Forms is not configured");
+  }
+
+  const response = await fetch("https://api.web3forms.com/submit", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify({
+      access_key: accessKey,
+      subject: options.subject,
+      from_name: options.toName ?? BUSINESS_NAME,
+      message: options.body,
+    }),
+  });
+
+  const payload = (await response.json().catch(() => null)) as { success?: unknown } | null;
+  if (!response.ok || payload?.success !== true) {
+    throw new Error("Web3Forms request failed");
+  }
+}
+
+async function sendViaMailChannels(env: Env, options: EmailPayload): Promise<void> {
   const fromEmail = env.BOOKING_FROM_EMAIL?.trim() || DEFAULT_BOOKING_EMAIL;
 
   const response = await fetch("https://api.mailchannels.net/tx/v1/send", {
@@ -124,8 +174,36 @@ async function sendEmail(
   });
 
   if (!response.ok) {
-    throw new Error("Mailchannels request failed");
+    throw new Error("MailChannels request failed");
   }
+}
+
+async function sendEmail(env: Env, options: EmailPayload): Promise<void> {
+  const providers: Array<{ label: string; run: () => Promise<void> }> = [];
+
+  if (env.EMAIL) {
+    providers.push({ label: "cloudflare-email", run: () => sendViaCloudflareEmail(env, options) });
+  }
+
+  if (env.WEB3FORMS_ACCESS_KEY?.trim()) {
+    providers.push({ label: "web3forms", run: () => sendViaWeb3Forms(env, options) });
+  }
+
+  providers.push({ label: "mailchannels", run: () => sendViaMailChannels(env, options) });
+
+  let lastError: unknown = null;
+
+  for (const provider of providers) {
+    try {
+      await provider.run();
+      return;
+    } catch (error) {
+      lastError = error;
+      console.error(`Email via ${provider.label} failed`, error);
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error("All email providers failed");
 }
 
 async function sendBookingEmail(
