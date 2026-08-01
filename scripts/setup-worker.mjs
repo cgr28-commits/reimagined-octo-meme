@@ -76,10 +76,21 @@ function ensureKvNamespace() {
     throw new Error(`Could not parse KV namespace id from:\n${output}`);
   }
 
-  const updated = wrangler.replace(
-    /id = "REPLACE_WITH_KV_NAMESPACE_ID"/,
-    `id = "${idMatch[1]}"`,
-  );
+  const kvBlock = `\n[[kv_namespaces]]\nbinding = "BOOKING_COUNTER"\nid = "${idMatch[1]}"\n`;
+  let updated = wrangler;
+
+  if (wrangler.includes("REPLACE_WITH_KV_NAMESPACE_ID")) {
+    updated = wrangler.replace(
+      /id = "REPLACE_WITH_KV_NAMESPACE_ID"/,
+      `id = "${idMatch[1]}"`,
+    );
+  } else if (!/\[\[kv_namespaces\]\]/.test(wrangler)) {
+    updated = wrangler.replace(
+      /# Until then, bookings work without sequential references\.\n/,
+      `# Until then, bookings work without sequential references.\n${kvBlock}`,
+    );
+  }
+
   writeFileSync(wranglerPath, updated);
   console.log(`Updated wrangler.toml with KV id ${idMatch[1]}`);
 }

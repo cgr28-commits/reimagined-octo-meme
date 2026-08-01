@@ -2,7 +2,8 @@
   "private": true,
   "scripts": {
     "dev": "wrangler dev --port 8787",
-    "build": "wrangler deploy --dry-run",
+    "typecheck": "tsc --noEmit",
+    "build": "npm run typecheck && wrangler deploy --dry-run",
     "deploy": "npx wrangler deploy"
   },
   "devDependencies": {
