@@ -35,6 +35,11 @@ import {
   buildCheckoutReference,
   createSumUpHostedCheckout,
 } from "../shared/sumup-checkout";
+import {
+  logBookingsToGoogleCalendar,
+  type TourBookingEvent,
+  type TransferBookingEvent,
+} from "./google-calendar";
 
 type EmailBinding = {
   send(message: {
@@ -57,6 +62,15 @@ type Env = {
   BOOKING_COUNTER?: KVNamespace;
   EMAIL?: EmailBinding;
   AERODATABOX_RAPIDAPI_KEY?: string;
+  GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON?: string;
+  GOOGLE_CALENDAR_ID?: string;
+};
+
+type BookingRequestBody = {
+  customerName?: string;
+  message?: string;
+  booking?: TransferBookingEvent;
+  tour?: TourBookingEvent;
 };
 
 const DEFAULT_BOOKING_EMAIL = "bookings@myairporttaxini.co.uk";
@@ -238,6 +252,40 @@ async function allocateBookingReference(env: Env): Promise<string> {
   return formatBookingReference(refNumber);
 }
 
+function calendarConfigured(env: Env): boolean {
+  return Boolean(
+    env.GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON?.trim() &&
+      env.GOOGLE_CALENDAR_ID?.trim(),
+  );
+}
+
+async function logBookingCalendar(
+  env: Env,
+  body: BookingRequestBody,
+  customerName: string,
+  message: string,
+): Promise<{ logged: boolean; events?: number; error?: string }> {
+  if (!calendarConfigured(env)) {
+    return { logged: false };
+  }
+
+  try {
+    const events = await logBookingsToGoogleCalendar({
+      serviceAccountJson: env.GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON!,
+      calendarId: env.GOOGLE_CALENDAR_ID!.trim(),
+      customerName,
+      message,
+      booking: body.booking ?? null,
+      tour: body.tour ?? null,
+    });
+    return { logged: true, events };
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : "Unknown calendar error";
+    console.error("Google Calendar booking log failed", detail);
+    return { logged: false, error: detail };
+  }
+}
+
 function parsePaidBookingDetails(body: Record<string, unknown>): PaidBookingDetails | null {
   const booking = body.booking;
   if (!booking || typeof booking !== "object") {
@@ -280,7 +328,7 @@ async function handleBookingRequest(
   env: Env,
   origin: string | null,
 ): Promise<Response> {
-  let body: { customerName?: string; message?: string };
+  let body: BookingRequestBody;
 
   try {
     body = await request.json();
@@ -298,7 +346,17 @@ async function handleBookingRequest(
   try {
     const bookingReference = await allocateBookingReference(env);
     await sendBookingEmail(env, customerName, message, bookingReference);
-    return json({ ok: true, bookingReference }, 200, origin);
+    const calendar = await logBookingCalendar(env, body, customerName, message);
+    return json(
+      {
+        ok: true,
+        bookingReference,
+        calendarLogged: calendar.logged,
+        calendarEvents: calendar.events ?? 0,
+      },
+      200,
+      origin,
+    );
   } catch (error) {
     console.error("Booking submission failed", error);
     return json({ error: "Failed to send booking email" }, 502, origin);
