@@ -79,7 +79,7 @@ export const HERO_SLIDES = [
   {
     title: "City of Derry Airport Transfers",
     subtitle:
-      "Flying into Derry~Londonderry (LDY)? We meet you at arrivals and transfer you to Belfast and the greater Belfast area.",
+      "Transfers between City of Derry Airport (LDY) and the greater Belfast area — departures from Bangor and Belfast, or meet & greet at LDY arrivals.",
     image: withBasePath("/images/hero/derry-airport.jpg"),
     alt: "City of Derry Airport terminal building and control tower",
   },
@@ -124,11 +124,11 @@ export const AIRPORTS = [
     name: "City of Derry",
     basePrice: 35,
     distance: "From £140",
-    duration: "Derry Airport → Belfast area",
+    duration: "Belfast area ↔ Derry Airport",
     mapLabel: "City of Derry Airport, Airport Road, Eglinton, UK",
     mapLocation: { lat: 55.0428, lng: -7.1611 },
     description:
-      "Meet & greet at Derry~Londonderry Airport with transfers to Belfast and the surrounding area — ideal if you are flying into the North West and heading east.",
+      "Transfers between City of Derry Airport and the greater Belfast area — departures from Bangor, Belfast, Lisburn and surrounds, or meet & greet at LDY arrivals heading east.",
   },
 ] as const;
 
