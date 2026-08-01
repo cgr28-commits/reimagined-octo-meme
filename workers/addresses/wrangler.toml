@@ -6,6 +6,7 @@ compatibility_date = "2025-07-31"
 # - GOOGLE_PLACES_API_KEY
 # - GETADDRESS_API_KEY
 # - AERODATABOX_RAPIDAPI_KEY  (RapidAPI key for AeroDataBox flight verification)
+# Redeploy after changing flight lookup: wrangler deploy (or Cloudflare dashboard → Deploy)
 account_id = "36c5c88df4c1f0259413d555f2679f3c"
 
 [observability]

@@ -40,6 +40,16 @@ export async function lookupFlightForBooking(params: {
       configured?: boolean;
     };
 
+    if (response.status === 404 && payload.error === "Not found" && payload.code == null) {
+      return {
+        ok: false,
+        error:
+          "Flight verification is not live yet — the website worker needs redeploying in Cloudflare.",
+        code: "service_unavailable",
+        configured: false,
+      };
+    }
+
     if (payload.ok && payload.flight) {
       return { ok: true, flight: payload.flight, configured: payload.configured !== false };
     }
