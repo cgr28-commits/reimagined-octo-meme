@@ -59,8 +59,8 @@ export default function HeroSlideshow() {
             />
           </div>
         ))}
-        <div className="absolute inset-0 bg-gradient-to-b from-navy/80 via-navy/60 to-navy max-md:from-navy/90 max-md:via-navy/75" />
-        <div className="absolute inset-0 bg-gradient-to-r from-navy/85 via-navy/20 to-navy/50 max-md:from-navy/90 max-md:via-navy/40" />
+        <div className="absolute inset-0 bg-gradient-to-b from-navy/50 via-navy/35 to-navy/85 max-md:from-navy/55 max-md:via-navy/40 max-md:to-navy/90" />
+        <div className="absolute inset-0 bg-gradient-to-r from-navy/55 via-navy/10 to-navy/35 max-md:from-navy/60 max-md:via-navy/15 max-md:to-navy/40" />
       </div>
 
       <div className="relative mx-auto flex w-full min-w-0 max-w-7xl flex-col gap-12 px-4 py-16 sm:px-6 lg:flex-row lg:items-center lg:gap-16 lg:px-8 lg:py-24">
