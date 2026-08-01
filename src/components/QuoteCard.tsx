@@ -132,6 +132,8 @@ function isReturnAfterOutbound(
   return parseDateTime(returnDate, returnTime) > parseDateTime(outboundDate, outboundTime);
 }
 
+type BookingDelivery = "whatsapp" | "email";
+
 function QuoteCard() {
   const cardRef = useRef<HTMLDivElement>(null);
   const isMobileDevice = useIsMobileDevice();
@@ -139,6 +141,7 @@ function QuoteCard() {
   const [submitError, setSubmitError] = useState("");
   const [bookingSent, setBookingSent] = useState(false);
   const [bookingReference, setBookingReference] = useState("");
+  const [bookingDelivery, setBookingDelivery] = useState<BookingDelivery | null>(null);
   const [showBookingPreview, setShowBookingPreview] = useState(false);
   const [customerName, setCustomerName] = useState("");
   const [customerMobile, setCustomerMobile] = useState("");
@@ -522,7 +525,7 @@ function QuoteCard() {
     };
   }
 
-  async function confirmBooking() {
+  async function confirmBooking(delivery: BookingDelivery) {
     const details = buildBookingDetails();
     const isMobile = isMobileDevice ?? detectMobileDevice();
     setSubmitted(true);
@@ -531,26 +534,29 @@ function QuoteCard() {
 
     let reference = "";
     try {
-      reference = isMobile
-        ? await submitMobileWhatsAppBooking(details)
-        : await submitBookingByEmail(details);
+      if (!isMobile || delivery === "email") {
+        reference = await submitBookingByEmail(details);
+      } else {
+        reference = await submitMobileWhatsAppBooking(details);
+      }
       setBookingReference(reference);
     } catch (error) {
       console.error("Booking submission failed", error);
-      if (!isMobile) {
-        setSubmitError(
-          `We couldn't confirm your booking automatically. Please email ${SITE.email} with your trip details and we'll confirm your booking.`,
-        );
-        setSubmitted(false);
-        return;
-      }
+      setSubmitError(
+        delivery === "email" || !isMobile
+          ? `We couldn't send your booking by email. Please try WhatsApp or contact ${SITE.email} with your trip details.`
+          : `We couldn't log your booking. Please try email instead or contact ${SITE.email}.`,
+      );
+      setSubmitted(false);
+      return;
     }
 
+    setBookingDelivery(delivery);
     setShowBookingPreview(false);
     setBookingSent(true);
     setSubmitted(false);
 
-    if (isMobile) {
+    if (isMobile && delivery === "whatsapp") {
       openWhatsAppBookingMessage(buildBookingMessage(details, reference));
     }
   }
@@ -560,9 +566,12 @@ function QuoteCard() {
     setSubmitError("");
     setBookingSent(false);
     setBookingReference("");
+    setBookingDelivery(null);
 
     if (showBookingPreview) {
-      void confirmBooking();
+      if (!usesWhatsApp) {
+        void confirmBooking("email");
+      }
       return;
     }
 
@@ -591,6 +600,7 @@ function QuoteCard() {
     setSubmitError("");
     setBookingSent(false);
     setBookingReference("");
+    setBookingDelivery(null);
   }
 
   const usesWhatsApp = isMobileDevice === true;
@@ -606,9 +616,11 @@ function QuoteCard() {
   const confirmButtonLabel =
     liveQuote
       ? `Confirm & book for ${formatQuote(liveQuote.amount)}`
-      : usesWhatsApp
-        ? "Confirm & send via WhatsApp"
-        : "Confirm & book";
+      : "Confirm & book";
+
+  const whatsAppConfirmLabel = liveQuote
+    ? `Send via WhatsApp — ${formatQuote(liveQuote.amount)}`
+    : "Confirm & send via WhatsApp";
 
   const bookButtonLabel = liveQuote ? `Book for ${formatQuote(liveQuote.amount)}` : "Book";
 
@@ -652,10 +664,15 @@ function QuoteCard() {
           {bookingReference && (
             <p className="mt-4 text-sm text-white/60">Reference: {bookingReference}</p>
           )}
-          {usesWhatsApp && (
+          {bookingDelivery === "whatsapp" && (
             <p className="mx-auto mt-4 max-w-md text-sm text-white/60">
               Your booking message should open in WhatsApp. If it didn&apos;t, tap the green chat
               button at the bottom of the screen.
+            </p>
+          )}
+          {bookingDelivery === "email" && (
+            <p className="mx-auto mt-4 max-w-md text-sm text-white/60">
+              Your booking has been sent by email. We&apos;ll confirm at {customerEmail.trim()}.
             </p>
           )}
         </div>
@@ -1401,22 +1418,54 @@ function QuoteCard() {
         )}
 
         {showBookingPreview ? (
-          <div className="grid gap-3 sm:grid-cols-2">
-            <button
-              type="button"
-              onClick={handleEditBooking}
-              className="w-full rounded-xl border border-white/15 bg-white/5 py-3.5 text-sm font-semibold text-white transition-all hover:bg-white/10"
-            >
-              Edit details
-            </button>
-            <button
-              type="submit"
-              disabled={submitted}
-              className="w-full rounded-xl bg-emerald py-3.5 text-sm font-bold text-navy transition-all hover:bg-emerald-light hover:shadow-lg hover:shadow-emerald/25 disabled:cursor-not-allowed disabled:opacity-70"
-            >
-              {submitted ? submitInProgressLabel : confirmButtonLabel}
-            </button>
-          </div>
+          usesWhatsApp ? (
+            <div className="space-y-3">
+              <p className="text-xs text-white/55">Choose how to send your booking:</p>
+              <button
+                type="button"
+                onClick={handleEditBooking}
+                className="w-full rounded-xl border border-white/15 bg-white/5 py-3.5 text-sm font-semibold text-white transition-all hover:bg-white/10"
+              >
+                Edit details
+              </button>
+              <button
+                type="button"
+                disabled={submitted}
+                onClick={() => void confirmBooking("whatsapp")}
+                className="w-full rounded-xl bg-emerald py-3.5 text-sm font-bold text-navy transition-all hover:bg-emerald-light hover:shadow-lg hover:shadow-emerald/25 disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {submitted ? submitInProgressLabel : whatsAppConfirmLabel}
+              </button>
+              <button
+                type="button"
+                disabled={submitted}
+                onClick={() => void confirmBooking("email")}
+                className="w-full rounded-xl border border-white/20 bg-white/5 py-3.5 text-sm font-semibold text-white transition-all hover:border-emerald/40 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {submitted ? submitInProgressLabel : "Send booking via email"}
+              </button>
+              <p className="text-xs leading-relaxed text-white/45">
+                No WhatsApp? Email works too — we&apos;ll confirm at {customerEmail.trim()}.
+              </p>
+            </div>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={handleEditBooking}
+                className="w-full rounded-xl border border-white/15 bg-white/5 py-3.5 text-sm font-semibold text-white transition-all hover:bg-white/10"
+              >
+                Edit details
+              </button>
+              <button
+                type="submit"
+                disabled={submitted}
+                className="w-full rounded-xl bg-emerald py-3.5 text-sm font-bold text-navy transition-all hover:bg-emerald-light hover:shadow-lg hover:shadow-emerald/25 disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {submitted ? submitInProgressLabel : confirmButtonLabel}
+              </button>
+            </div>
+          )
         ) : showBookingDetailsStep ? (
           <div className="grid gap-3 sm:grid-cols-2">
             <button
