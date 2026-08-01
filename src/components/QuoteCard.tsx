@@ -29,6 +29,14 @@ type TripDirection = "to-airport" | "from-airport";
 const PICKUP_STORAGE_KEY = "my-airport-taxi-ni-pickup-address";
 const DROPOFF_STORAGE_KEY = "my-airport-taxi-ni-dropoff-address";
 
+const BOOKING_PANEL_CLASS =
+  "rounded-xl border border-white/25 bg-navy-light px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] sm:px-5 md:border-white/30 md:shadow-lg md:shadow-black/20";
+const BOOKING_LABEL_CLASS =
+  "mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/80";
+const BOOKING_INPUT_CLASS =
+  "w-full rounded-xl border border-white/25 bg-navy-dark px-4 py-3 text-sm text-white placeholder:text-white/45 outline-none transition-colors focus:border-emerald focus:ring-2 focus:ring-emerald/25 md:border-white/30";
+const BOOKING_HELPER_CLASS = "mt-1.5 text-xs text-white/55";
+
 const ESTATE = "Estate Car (1–4 passengers)" as const;
 const MINIBUS = "Minibus (7–8 passengers)" as const;
 
@@ -937,19 +945,16 @@ function QuoteCard() {
         )}
 
         {showBookingDetailsStep && !showBookingPreview && (
-          <div className="rounded-xl border border-white/15 bg-white/[0.04] px-4 py-4 sm:px-5">
+          <div className={BOOKING_PANEL_CLASS}>
             <p className="text-xs font-medium uppercase tracking-wider text-emerald">
               Your details
             </p>
-            <p className="mt-1 mb-4 text-sm text-white/60">
+            <p className="mt-1 mb-4 text-sm text-white/75">
               We need these details to confirm your booking and send your payment link.
             </p>
             <div className="space-y-4">
               <div>
-                <label
-                  htmlFor="name"
-                  className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/50"
-                >
+                <label htmlFor="name" className={BOOKING_LABEL_CLASS}>
                   Your Name
                 </label>
                 <input
@@ -964,7 +969,7 @@ function QuoteCard() {
                     }
                   }}
                   placeholder="John Smith"
-                  className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/30 outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30"
+                  className={BOOKING_INPUT_CLASS}
                 />
                 {customerNameError && (
                   <p className="mt-1.5 text-xs text-red-300">{customerNameError}</p>
@@ -972,10 +977,7 @@ function QuoteCard() {
               </div>
 
               <div>
-                <label
-                  htmlFor="mobile"
-                  className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/50"
-                >
+                <label htmlFor="mobile" className={BOOKING_LABEL_CLASS}>
                   Mobile Number
                 </label>
                 <input
@@ -991,9 +993,9 @@ function QuoteCard() {
                     }
                   }}
                   placeholder="07xxx xxxxxx"
-                  className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/30 outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30"
+                  className={BOOKING_INPUT_CLASS}
                 />
-                <p className="mt-1.5 text-xs text-white/40">
+                <p className={BOOKING_HELPER_CLASS}>
                   We&apos;ll send your payment link here by text or WhatsApp.
                 </p>
                 {mobileNumberError && (
@@ -1002,10 +1004,7 @@ function QuoteCard() {
               </div>
 
               <div>
-                <label
-                  htmlFor="email"
-                  className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/50"
-                >
+                <label htmlFor="email" className={BOOKING_LABEL_CLASS}>
                   Email Address
                 </label>
                 <input
@@ -1021,9 +1020,9 @@ function QuoteCard() {
                     }
                   }}
                   placeholder="you@example.com"
-                  className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/30 outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30"
+                  className={BOOKING_INPUT_CLASS}
                 />
-                <p className="mt-1.5 text-xs text-white/40">
+                <p className={BOOKING_HELPER_CLASS}>
                   So we can email your booking confirmation.
                 </p>
                 {emailAddressError && (
@@ -1033,7 +1032,7 @@ function QuoteCard() {
 
               {isAirportTrip && (
                 <>
-                  <div className="border-t border-white/10 pt-4">
+                  <div className="border-t border-white/20 pt-4">
                     <p className="text-xs font-medium uppercase tracking-wider text-emerald">
                       Flight numbers
                     </p>
@@ -1218,12 +1217,12 @@ function QuoteCard() {
         </div>
 
         {showBookingPreview && (
-          <div className="rounded-xl border border-white/15 bg-white/[0.04] px-4 py-4 sm:px-5">
+          <div className={BOOKING_PANEL_CLASS}>
             <div className="mb-4">
               <p className="text-xs font-medium uppercase tracking-wider text-emerald">
                 Review your booking
               </p>
-              <p className="mt-1 text-sm text-white/60">
+              <p className="mt-1 text-sm text-white/75">
                 Please check everything is correct before booking — wrong details can change your
                 price.
               </p>
