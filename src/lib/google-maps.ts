@@ -125,7 +125,7 @@ async function fetchLocalAddressPredictions(
   const trimmed = input.trim();
   const tasks: Promise<AddressPrediction[]>[] = [];
 
-  if (GETADDRESS_API_KEY && airportCode !== "DUB") {
+  if (GETADDRESS_API_KEY && airportCode !== "DUB" && airportCode !== "LDY") {
     tasks.push(
       safePredictions(
         searchGetAddress(GETADDRESS_API_KEY, trimmed, airportCode).then(toPredictions),

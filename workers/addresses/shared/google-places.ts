@@ -5,6 +5,7 @@ import {
   normaliseAirportCode,
   sortSuggestionsByStreetNumber,
 } from "./address-validation";
+import { getLdyLocationRestriction } from "./ldy-service-area";
 
 export type AddressSuggestion = {
   id: string;
@@ -56,6 +57,10 @@ function getRegionCodes(airportCode: string): string[] {
 
 function getLocationRestriction(airportCode: string) {
   const code = normaliseAirportCode(airportCode);
+
+  if (code === "LDY") {
+    return getLdyLocationRestriction();
+  }
 
   if (code === "DUB") {
     return {
