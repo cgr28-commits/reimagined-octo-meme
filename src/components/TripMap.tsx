@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import { useEffect, useMemo, useState } from "react";
 import { AIRPORTS } from "@/lib/data";
 import { geocodePickupAddress, isGooglePlacesEnabled } from "@/lib/google-maps";
+import { fetchTripRouteMetrics, formatJourneyDistance, formatJourneyDuration, type TripRouteMetrics } from "@/lib/trip-route";
 
 const TripMapView = dynamic(() => import("@/components/TripMapView"), {
   ssr: false,
@@ -23,6 +24,7 @@ type TripMapProps = {
   destinationAddress: string;
   airportCode?: string;
   tripDirection?: AirportTripDirection;
+  onRouteMetrics?: (metrics: TripRouteMetrics | null) => void;
 };
 
 type MapPoint = {
@@ -71,12 +73,14 @@ export default function TripMap({
   destinationAddress,
   airportCode = "",
   tripDirection = "to-airport",
+  onRouteMetrics,
 }: TripMapProps) {
   const trimmedOrigin = originAddress.trim();
   const trimmedDestination = destinationAddress.trim();
   const [originPoint, setOriginPoint] = useState<MapPoint | null>(null);
   const [destinationPoint, setDestinationPoint] = useState<MapPoint | null>(null);
   const [mapError, setMapError] = useState<string | null>(null);
+  const [routeMetrics, setRouteMetrics] = useState<TripRouteMetrics | null>(null);
 
   const airport = useMemo(
     () => AIRPORTS.find((item) => item.code === airportCode) ?? null,
@@ -109,6 +113,8 @@ export default function TripMap({
       setOriginPoint(null);
       setDestinationPoint(null);
       setMapError(null);
+      setRouteMetrics(null);
+      onRouteMetrics?.(null);
       return;
     }
 
@@ -118,6 +124,8 @@ export default function TripMap({
       setOriginPoint(null);
       setDestinationPoint(null);
       setMapError(null);
+      setRouteMetrics(null);
+      onRouteMetrics?.(null);
       return;
     }
 
@@ -127,7 +135,7 @@ export default function TripMap({
         resolveMapPoint(trimmedOrigin, "Pickup", airportCode),
         resolveMapPoint(trimmedDestination, "Drop-off", airportCode),
       ])
-        .then(([origin, destination]) => {
+        .then(async ([origin, destination]) => {
           if (cancelled) {
             return;
           }
@@ -136,18 +144,33 @@ export default function TripMap({
             setOriginPoint(origin);
             setDestinationPoint(destination);
             setMapError("Could not locate one or both addresses on the map yet.");
+            setRouteMetrics(null);
+            onRouteMetrics?.(null);
             return;
           }
 
           setOriginPoint(origin);
           setDestinationPoint(destination);
           setMapError(null);
+
+          const metrics = await fetchTripRouteMetrics(
+            origin.lat,
+            origin.lng,
+            destination.lat,
+            destination.lng,
+          );
+          if (!cancelled) {
+            setRouteMetrics(metrics);
+            onRouteMetrics?.(metrics);
+          }
         })
         .catch(() => {
           if (!cancelled) {
             setOriginPoint(null);
             setDestinationPoint(null);
             setMapError("Map preview unavailable right now.");
+            setRouteMetrics(null);
+            onRouteMetrics?.(null);
           }
         });
     }, 500);
@@ -156,7 +179,7 @@ export default function TripMap({
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [airportCode, trimmedDestination, trimmedOrigin]);
+  }, [airportCode, onRouteMetrics, trimmedDestination, trimmedOrigin]);
 
   if (!links || trimmedOrigin.length < 8 || trimmedDestination.length < 8) {
     return null;
@@ -167,6 +190,16 @@ export default function TripMap({
       <div className="border-b border-white/10 px-4 py-3">
         <p className="text-xs font-medium uppercase tracking-wider text-emerald">Your route</p>
         <p className="mt-1 text-sm text-white/70">{links.routeLabel}</p>
+        {routeMetrics ? (
+          <p className="mt-1.5 text-sm font-semibold text-white">
+            {formatJourneyDistance(routeMetrics.distanceKm)}
+            <span className="mx-2 font-normal text-white/40">·</span>
+            {formatJourneyDuration(routeMetrics.durationMinutes)}
+            <span className="ml-1.5 text-xs font-normal text-white/50">(approx.)</span>
+          </p>
+        ) : originPoint && destinationPoint ? (
+          <p className="mt-1.5 text-xs text-white/50">Calculating distance and time…</p>
+        ) : null}
       </div>
 
       {originPoint && destinationPoint ? (

@@ -11,14 +11,10 @@ import VehiclesSection from "@/components/VehiclesSection";
 import ChauffeurSection from "@/components/ChauffeurSection";
 import WhatsAppButton from "@/components/WhatsAppButton";
 import Footer from "@/components/Footer";
-import { SITE } from "@/lib/data";
 
 export const metadata: Metadata = {
   alternates: {
     canonical: "/",
-  },
-  openGraph: {
-    url: SITE.url,
   },
 };
 
