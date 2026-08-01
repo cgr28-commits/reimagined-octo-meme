@@ -42,6 +42,8 @@ type TourBookingFormProps = {
   centered?: boolean;
 };
 
+type EnquiryDelivery = "whatsapp" | "email";
+
 export default function TourBookingForm({
   tourTitle,
   heading = "Book this day trip",
@@ -65,12 +67,32 @@ export default function TourBookingForm({
   const [submitError, setSubmitError] = useState("");
   const [enquirySent, setEnquirySent] = useState(false);
   const [bookingReference, setBookingReference] = useState("");
+  const [enquiryDelivery, setEnquiryDelivery] = useState<EnquiryDelivery | null>(null);
   const [emailAddressError, setEmailAddressError] = useState("");
   const [mobileNumberError, setMobileNumberError] = useState("");
 
   const defaultDescription = usesWhatsApp
-    ? "Fill in your details, review them, then send your enquiry via WhatsApp."
+    ? "Fill in your details, review them, then send via WhatsApp or email."
     : "Fill in your details, review them, then confirm your day trip booking.";
+
+  function validateEmail(required: boolean): boolean {
+    if (!required && !customerEmail.trim()) {
+      setEmailAddressError("");
+      return true;
+    }
+
+    if (!customerEmail.trim()) {
+      setEmailAddressError("Please enter your email address so we can confirm your booking.");
+      return false;
+    }
+    if (!isValidEmailAddress(customerEmail)) {
+      setEmailAddressError("Please enter a valid email address.");
+      return false;
+    }
+
+    setEmailAddressError("");
+    return true;
+  }
 
   function buildDetails(): TourEnquiryDetails {
     return {
@@ -108,12 +130,7 @@ export default function TourBookingForm({
     }
 
     if (onDesktop) {
-      if (!customerEmail.trim()) {
-        setEmailAddressError("Please enter your email address so we can confirm your booking.");
-        return false;
-      }
-      if (!isValidEmailAddress(customerEmail)) {
-        setEmailAddressError("Please enter a valid email address.");
+      if (!validateEmail(true)) {
         return false;
       }
     }
@@ -123,9 +140,14 @@ export default function TourBookingForm({
     return true;
   }
 
-  async function confirmEnquiry() {
+  async function confirmEnquiry(delivery: EnquiryDelivery) {
     const details = buildDetails();
     const isMobile = isMobileDevice ?? detectMobileDevice();
+
+    if (delivery === "email" && !validateEmail(true)) {
+      return;
+    }
+
     setSubmitted(true);
     setSubmitError("");
     setBookingReference("");
@@ -138,26 +160,29 @@ export default function TourBookingForm({
         subject: `New day trip booking — ${details.customerName}`,
         tour: details,
       };
-      reference = isMobile
-        ? await submitMobileWhatsAppEnquiry(submission)
-        : await submitEnquiryByEmail(submission);
+      if (!isMobile || delivery === "email") {
+        reference = await submitEnquiryByEmail(submission);
+      } else {
+        reference = await submitMobileWhatsAppEnquiry(submission);
+      }
       setBookingReference(reference);
     } catch (error) {
       console.error("Tour enquiry submission failed", error);
-      if (!isMobile) {
-        setSubmitError(
-          `We couldn't confirm your booking automatically. Please email ${SITE.email} with your trip details and we'll confirm your booking.`,
-        );
-        setSubmitted(false);
-        return;
-      }
+      setSubmitError(
+        delivery === "email" || !isMobile
+          ? `We couldn't send your booking by email. Please try WhatsApp or contact ${SITE.email}.`
+          : `We couldn't log your booking. Please try email instead or contact ${SITE.email}.`,
+      );
+      setSubmitted(false);
+      return;
     }
 
+    setEnquiryDelivery(delivery);
     setShowPreview(false);
     setEnquirySent(true);
     setSubmitted(false);
 
-    if (isMobile) {
+    if (isMobile && delivery === "whatsapp") {
       openWhatsAppBookingMessage(buildTourEnquiryMessage(details, reference));
     }
   }
@@ -166,7 +191,8 @@ export default function TourBookingForm({
     e.preventDefault();
     setSubmitError("");
     setEnquirySent(false);
-              setBookingReference("");
+    setBookingReference("");
+    setEnquiryDelivery(null);
 
     if (!validateForm()) {
       return;
@@ -177,13 +203,16 @@ export default function TourBookingForm({
       return;
     }
 
-    void confirmEnquiry();
+    if (!usesWhatsApp) {
+      void confirmEnquiry("email");
+    }
   }
 
   const submitInProgressLabel = "Sending booking…";
 
-  const confirmLabel = usesWhatsApp ? "Confirm & send via WhatsApp" : "Confirm & book";
-  const reviewLabel = usesWhatsApp ? "Review & send via WhatsApp" : "Review booking";
+  const confirmLabel = "Confirm & book";
+  const whatsAppConfirmLabel = "Confirm & send via WhatsApp";
+  const reviewLabel = usesWhatsApp ? "Review booking" : "Review booking";
 
   return (
     <div
@@ -246,35 +275,35 @@ export default function TourBookingForm({
           )}
         </div>
 
-        {isMobileDevice !== true && (
-          <div>
-            <label htmlFor={`tour-email-${id ?? "form"}`} className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/50">
-              Email Address
-            </label>
-            <input
-              id={`tour-email-${id ?? "form"}`}
-              type="email"
-              required
-              autoComplete="email"
-              value={customerEmail}
-              onChange={(e) => {
-                setCustomerEmail(e.target.value);
-                setShowPreview(false);
-                setEnquirySent(false);
+        <div>
+          <label htmlFor={`tour-email-${id ?? "form"}`} className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/50">
+            Email Address
+          </label>
+          <input
+            id={`tour-email-${id ?? "form"}`}
+            type="email"
+            required={usesEmail}
+            autoComplete="email"
+            value={customerEmail}
+            onChange={(e) => {
+              setCustomerEmail(e.target.value);
+              setShowPreview(false);
+              setEnquirySent(false);
               setBookingReference("");
-                setEmailAddressError("");
-              }}
-              placeholder="you@example.com"
-              className={inputClassName}
-            />
-            <p className="mt-1.5 text-xs text-white/40">
-              So we can email your booking confirmation if needed.
-            </p>
-            {emailAddressError && (
-              <p className="mt-1.5 text-xs text-red-300">{emailAddressError}</p>
-            )}
-          </div>
-        )}
+              setEmailAddressError("");
+            }}
+            placeholder="you@example.com"
+            className={inputClassName}
+          />
+          <p className="mt-1.5 text-xs text-white/40">
+            {usesWhatsApp
+              ? "Required if you send your booking by email."
+              : "So we can email your booking confirmation."}
+          </p>
+          {emailAddressError && (
+            <p className="mt-1.5 text-xs text-red-300">{emailAddressError}</p>
+          )}
+        </div>
 
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
@@ -399,38 +428,83 @@ export default function TourBookingForm({
               You will be sent a payment link shortly via text. Your booking is not confirmed until
               full payment is made.
             </p>
-            {usesWhatsApp && (
+            {enquiryDelivery === "whatsapp" && (
               <p className="mt-2 text-white/60">
                 Your day trip enquiry should open in WhatsApp. If it didn&apos;t, tap the green chat
                 button at the bottom of the screen.
+              </p>
+            )}
+            {enquiryDelivery === "email" && customerEmail.trim() && (
+              <p className="mt-2 text-white/60">
+                Your booking has been sent by email. We&apos;ll confirm at {customerEmail.trim()}.
               </p>
             )}
           </div>
         )}
 
         {showPreview ? (
-          <div className="grid gap-3 sm:grid-cols-2">
-            <button
-              type="button"
-              onClick={() => {
-                setShowPreview(false);
-                setSubmitError("");
-                setEnquirySent(false);
-              setBookingReference("");
-              }}
-              className="w-full rounded-xl border border-white/15 bg-white/5 py-3.5 text-sm font-semibold text-white transition-all hover:bg-white/10"
-            >
-              Edit details
-            </button>
-            <button
-              type="submit"
-              disabled={submitted}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald py-3.5 text-sm font-bold text-navy transition-all hover:bg-emerald-light hover:shadow-lg hover:shadow-emerald/25 disabled:cursor-not-allowed disabled:opacity-70"
-            >
-              {usesWhatsApp && !submitted && <WhatsAppIcon className="h-5 w-5" />}
-              {submitted ? submitInProgressLabel : confirmLabel}
-            </button>
-          </div>
+          usesWhatsApp ? (
+            <div className="space-y-3">
+              <p className="text-xs text-white/55">Choose how to send your booking:</p>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowPreview(false);
+                  setSubmitError("");
+                  setEnquirySent(false);
+                  setBookingReference("");
+                  setEnquiryDelivery(null);
+                }}
+                className="w-full rounded-xl border border-white/15 bg-white/5 py-3.5 text-sm font-semibold text-white transition-all hover:bg-white/10"
+              >
+                Edit details
+              </button>
+              <button
+                type="button"
+                disabled={submitted}
+                onClick={() => void confirmEnquiry("whatsapp")}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald py-3.5 text-sm font-bold text-navy transition-all hover:bg-emerald-light hover:shadow-lg hover:shadow-emerald/25 disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {usesWhatsApp && !submitted && <WhatsAppIcon className="h-5 w-5" />}
+                {submitted ? submitInProgressLabel : whatsAppConfirmLabel}
+              </button>
+              <button
+                type="button"
+                disabled={submitted}
+                onClick={() => void confirmEnquiry("email")}
+                className="w-full rounded-xl border border-white/20 bg-white/5 py-3.5 text-sm font-semibold text-white transition-all hover:border-emerald/40 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {submitted ? submitInProgressLabel : "Send booking via email"}
+              </button>
+              <p className="text-xs leading-relaxed text-white/45">
+                No WhatsApp? Email works too
+                {customerEmail.trim() ? ` — we'll confirm at ${customerEmail.trim()}.` : " — enter your email above."}
+              </p>
+            </div>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowPreview(false);
+                  setSubmitError("");
+                  setEnquirySent(false);
+                  setBookingReference("");
+                  setEnquiryDelivery(null);
+                }}
+                className="w-full rounded-xl border border-white/15 bg-white/5 py-3.5 text-sm font-semibold text-white transition-all hover:bg-white/10"
+              >
+                Edit details
+              </button>
+              <button
+                type="submit"
+                disabled={submitted}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald py-3.5 text-sm font-bold text-navy transition-all hover:bg-emerald-light hover:shadow-lg hover:shadow-emerald/25 disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {submitted ? submitInProgressLabel : confirmLabel}
+              </button>
+            </div>
+          )
         ) : (
           <button
             type="submit"
