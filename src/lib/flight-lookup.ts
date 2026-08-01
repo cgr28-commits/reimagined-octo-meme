@@ -10,6 +10,17 @@ export type ClientFlightLookupResult =
   | { ok: true; flight: VerifiedFlight; configured: boolean }
   | { ok: false; error: string; code: string; configured: boolean };
 
+const SOFT_FAILURE_CODES = new Set([
+  "rate_limited",
+  "upstream_error",
+  "service_unavailable",
+  "network_error",
+]);
+
+export function isSoftFlightLookupFailure(code: string): boolean {
+  return SOFT_FAILURE_CODES.has(code);
+}
+
 export function resolveFlightsApiUrl(): string {
   const addressesUrl = resolveAddressesApiUrl();
   return addressesUrl.replace(/\/addresses\/?$/, "/flights");
@@ -32,13 +43,26 @@ export async function lookupFlightForBooking(params: {
       headers: { Accept: "application/json" },
     });
 
-    const payload = (await response.json()) as {
+    const raw = await response.text();
+    let payload: {
       ok?: boolean;
       flight?: VerifiedFlight;
       error?: string;
       code?: string;
       configured?: boolean;
     };
+
+    try {
+      payload = JSON.parse(raw) as typeof payload;
+    } catch {
+      return {
+        ok: false,
+        error:
+          "Flight verification is temporarily unavailable. You can still enter your flight number and continue.",
+        code: "upstream_error",
+        configured: false,
+      };
+    }
 
     if (response.status === 404 && payload.error === "Not found" && payload.code == null) {
       return {
@@ -54,21 +78,22 @@ export async function lookupFlightForBooking(params: {
       return { ok: true, flight: payload.flight, configured: payload.configured !== false };
     }
 
-    const configured =
-      payload.configured !== false && payload.code !== "rate_limited" && payload.code !== "upstream_error";
+    const code = payload.code ?? "unknown";
+    const configured = payload.configured !== false && !SOFT_FAILURE_CODES.has(code);
 
     return {
       ok: false,
       error: payload.error ?? "Could not verify this flight.",
-      code: payload.code ?? "unknown",
+      code,
       configured,
     };
   } catch {
     return {
       ok: false,
-      error: "Could not reach the flight lookup service. Please try again.",
+      error:
+        "Flight verification is temporarily unavailable. You can still enter your flight number and continue.",
       code: "network_error",
-      configured: true,
+      configured: false,
     };
   }
 }

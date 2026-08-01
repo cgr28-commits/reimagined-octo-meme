@@ -5,13 +5,14 @@ import { detectMobileDevice, useIsMobileDevice } from "@/lib/device";
 import { isValidEmailAddress, isValidMobileNumber } from "@/lib/booking-message";
 import { SITE } from "@/lib/data";
 import {
+  openWhatsAppBookingMessage,
   submitEnquiryByEmail,
+  submitMobileWhatsAppEnquiry,
 } from "@/lib/submit-booking";
 import {
   buildTourEnquiryMessage,
   type TourEnquiryDetails,
 } from "@/lib/tour-enquiry-message";
-import { getTourWhatsAppUrl } from "@/lib/tours";
 
 const inputClassName =
   "w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/30 outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30";
@@ -124,30 +125,40 @@ export default function TourBookingForm({
 
   async function confirmEnquiry() {
     const details = buildDetails();
+    const isMobile = isMobileDevice ?? detectMobileDevice();
     setSubmitted(true);
     setSubmitError("");
-              setBookingReference("");
+    setBookingReference("");
 
+    let reference = "";
     try {
-      const reference = await submitEnquiryByEmail({
+      const submission = {
         customerName: details.customerName,
         message: buildTourEnquiryMessage(details),
         subject: `New day trip booking — ${details.customerName}`,
         tour: details,
-      });
+      };
+      reference = isMobile
+        ? await submitMobileWhatsAppEnquiry(submission)
+        : await submitEnquiryByEmail(submission);
       setBookingReference(reference);
-      setShowPreview(false);
-      setEnquirySent(true);
-
-      if (isMobileDevice ?? detectMobileDevice()) {
-        window.open(getTourWhatsAppUrl(buildTourEnquiryMessage(details, reference)), "_blank");
+    } catch (error) {
+      console.error("Tour enquiry submission failed", error);
+      if (!isMobile) {
+        setSubmitError(
+          `We couldn't confirm your booking automatically. Please email ${SITE.email} with your trip details and we'll confirm your booking.`,
+        );
+        setSubmitted(false);
+        return;
       }
-    } catch {
-      setSubmitError(
-        `We couldn't confirm your booking automatically. Please email ${SITE.email} with your trip details and we'll confirm your booking.`,
-      );
-    } finally {
-      setSubmitted(false);
+    }
+
+    setShowPreview(false);
+    setEnquirySent(true);
+    setSubmitted(false);
+
+    if (isMobile) {
+      openWhatsAppBookingMessage(buildTourEnquiryMessage(details, reference));
     }
   }
 

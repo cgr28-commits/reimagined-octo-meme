@@ -72,13 +72,21 @@ async function submitViaWorker(submission: EnquirySubmission): Promise<string> {
     }),
   });
 
-  const payload = await response.json().catch(() => null);
+  const payload = (await response.json().catch(() => null)) as {
+    ok?: boolean;
+    bookingReference?: string;
+    error?: string;
+  } | null;
 
-  if (!response.ok) {
-    throw new Error(`Worker booking API failed (${response.status})`);
+  if (payload?.ok) {
+    return readBookingReference(payload);
   }
 
-  return readBookingReference(payload);
+  if (!response.ok) {
+    throw new Error(payload?.error ?? `Worker booking API failed (${response.status})`);
+  }
+
+  throw new Error(payload?.error ?? "Worker booking API rejected the submission");
 }
 
 async function submitViaWeb3Forms(submission: EnquirySubmission): Promise<string> {
@@ -275,4 +283,42 @@ export async function submitBookingByEmail(details: BookingDetails): Promise<str
     },
     { allowFormSubmitFallback: false },
   );
+}
+
+/** Mobile WhatsApp path — log to worker/calendar without requiring owner email. */
+export async function submitMobileWhatsAppBooking(details: BookingDetails): Promise<string> {
+  const submission: EnquirySubmission = {
+    customerName: details.customerName,
+    message: buildBookingMessage(details),
+    subject: `New booking — ${details.customerName}`,
+    booking: details,
+    sendEmail: false,
+  };
+
+  if (BOOKINGS_API_URL) {
+    try {
+      return await submitViaWorker(submission);
+    } catch (error) {
+      console.error("Mobile WhatsApp worker log failed", error);
+    }
+  }
+
+  return "";
+}
+
+export async function submitMobileWhatsAppEnquiry(submission: EnquirySubmission): Promise<string> {
+  if (BOOKINGS_API_URL) {
+    try {
+      return await submitViaWorker({ ...submission, sendEmail: false });
+    } catch (error) {
+      console.error("Mobile WhatsApp worker log failed", error);
+    }
+  }
+
+  return "";
+}
+
+export function openWhatsAppBookingMessage(message: string): void {
+  const url = `https://wa.me/${SITE.whatsapp}?text=${encodeURIComponent(message)}`;
+  window.location.assign(url);
 }

@@ -18,7 +18,7 @@ import {
   formatJourneyDuration,
   type TripRouteMetrics,
 } from "@/lib/trip-route";
-import { submitBookingByEmail } from "@/lib/submit-booking";
+import { submitBookingByEmail, submitMobileWhatsAppBooking, openWhatsAppBookingMessage } from "@/lib/submit-booking";
 import FlightNumberField, { formatVerifiedFlightSummary } from "@/components/FlightNumberField";
 import { isValidFlightNumberFormat } from "@/lib/flight-lookup";
 import type { VerifiedFlight } from "@/lib/flight-lookup";
@@ -441,26 +441,34 @@ function QuoteCard() {
 
   async function confirmBooking() {
     const details = buildBookingDetails();
+    const isMobile = isMobileDevice ?? detectMobileDevice();
     setSubmitted(true);
     setSubmitError("");
     setBookingReference("");
 
+    let reference = "";
     try {
-      const reference = await submitBookingByEmail(details);
+      reference = isMobile
+        ? await submitMobileWhatsAppBooking(details)
+        : await submitBookingByEmail(details);
       setBookingReference(reference);
-      setShowBookingPreview(false);
-      setBookingSent(true);
-
-      if (isMobileDevice ?? detectMobileDevice()) {
-        const message = encodeURIComponent(buildBookingMessage(details, reference));
-        window.open(`https://wa.me/${SITE.whatsapp}?text=${message}`, "_blank");
+    } catch (error) {
+      console.error("Booking submission failed", error);
+      if (!isMobile) {
+        setSubmitError(
+          `We couldn't confirm your booking automatically. Please email ${SITE.email} with your trip details and we'll confirm your booking.`,
+        );
+        setSubmitted(false);
+        return;
       }
-    } catch {
-      setSubmitError(
-        `We couldn't confirm your booking automatically. Please email ${SITE.email} with your trip details and we'll confirm your booking.`,
-      );
-    } finally {
-      setSubmitted(false);
+    }
+
+    setShowBookingPreview(false);
+    setBookingSent(true);
+    setSubmitted(false);
+
+    if (isMobile) {
+      openWhatsAppBookingMessage(buildBookingMessage(details, reference));
     }
   }
 

@@ -332,7 +332,8 @@ export async function lookupFlightViaAeroDataBox(
   if (result.status !== 200 && result.status !== 404) {
     return {
       ok: false,
-      error: "Flight lookup is temporarily unavailable. Please try again.",
+      error:
+        "Flight verification is temporarily unavailable. You can still enter your flight number and continue.",
       code: "upstream_error",
     };
   }
