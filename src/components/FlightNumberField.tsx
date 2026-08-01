@@ -145,7 +145,7 @@ export default function FlightNumberField({
     <div>
       <label
         htmlFor={id}
-        className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/50"
+        className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/80"
       >
         {label}
       </label>
@@ -156,9 +156,9 @@ export default function FlightNumberField({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder="e.g. BA1234"
-        className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm uppercase text-white placeholder:normal-case placeholder:text-white/30 outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30"
+        className="w-full rounded-xl border border-white/25 bg-navy-dark px-4 py-3 text-sm uppercase text-white placeholder:normal-case placeholder:text-white/45 outline-none transition-colors focus:border-emerald focus:ring-2 focus:ring-emerald/25 md:border-white/30"
       />
-      {helperText && <p className="mt-1.5 text-xs text-white/40">{helperText}</p>}
+      {helperText && <p className="mt-1.5 text-xs text-white/55">{helperText}</p>}
       {!tripDate && value.trim() && (
         <p className="mt-1.5 text-xs text-amber-200/90">
           Your trip date is required before we can verify this flight.
