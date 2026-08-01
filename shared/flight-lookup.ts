@@ -15,7 +15,17 @@ export type VerifiedFlight = {
 
 export type FlightLookupResult =
   | { ok: true; flight: VerifiedFlight }
-  | { ok: false; error: string; code: "invalid_format" | "not_found" | "airport_mismatch" | "api_unavailable" | "upstream_error" };
+  | {
+      ok: false;
+      error: string;
+      code:
+        | "invalid_format"
+        | "not_found"
+        | "airport_mismatch"
+        | "api_unavailable"
+        | "upstream_error"
+        | "rate_limited";
+    };
 
 /** IATA codes for airports we serve (includes common aliases). */
 export const SERVED_AIRPORT_IATA: Record<string, string[]> = {
@@ -205,6 +215,7 @@ async function fetchAeroDataBoxFlights(
   apiKey: string,
   flightNumber: string,
   tripDate?: string,
+  attempt = 0,
 ): Promise<{ status: number; flights: AeroFlight[]; message?: string }> {
   const encoded = encodeURIComponent(flightNumber);
   const query =
@@ -221,6 +232,11 @@ async function fetchAeroDataBoxFlights(
     },
   });
 
+  if (response.status === 429 && attempt < 1) {
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+    return fetchAeroDataBoxFlights(apiKey, flightNumber, tripDate, attempt + 1);
+  }
+
   if (response.status === 404) {
     return { status: 404, flights: [] };
   }
@@ -234,7 +250,13 @@ async function fetchAeroDataBoxFlights(
     };
   }
 
-  const payload = (await response.json()) as AeroFlight[] | { error?: string; message?: string };
+  let payload: AeroFlight[] | { error?: string; message?: string } | null = null;
+  try {
+    payload = (await response.json()) as AeroFlight[] | { error?: string; message?: string };
+  } catch {
+    return { status: 502, flights: [], message: "Invalid flight lookup response" };
+  }
+
   if (Array.isArray(payload)) {
     return { status: 200, flights: payload };
   }
@@ -242,7 +264,7 @@ async function fetchAeroDataBoxFlights(
   return {
     status: 200,
     flights: [],
-    message: payload.message ?? payload.error,
+    message: payload?.message ?? payload?.error,
   };
 }
 
@@ -276,10 +298,6 @@ export async function lookupFlightViaAeroDataBox(
 
   let result = await fetchAeroDataBoxFlights(apiKey, flightNumber, params.tripDate);
 
-  if (result.flights.length === 0 && (result.status === 404 || result.status === 200)) {
-    result = await fetchAeroDataBoxFlights(apiKey, flightNumber);
-  }
-
   if (result.status === 401 || result.status === 403) {
     return {
       ok: false,
@@ -292,9 +310,23 @@ export async function lookupFlightViaAeroDataBox(
   if (result.status === 429) {
     return {
       ok: false,
-      error: "Flight lookup is busy — please wait a moment and try again.",
-      code: "upstream_error",
+      error:
+        "Flight verification is temporarily busy. You can still enter your flight number and continue.",
+      code: "rate_limited",
     };
+  }
+
+  if (result.flights.length === 0 && (result.status === 404 || result.status === 200)) {
+    result = await fetchAeroDataBoxFlights(apiKey, flightNumber);
+
+    if (result.status === 429) {
+      return {
+        ok: false,
+        error:
+          "Flight verification is temporarily busy. You can still enter your flight number and continue.",
+        code: "rate_limited",
+      };
+    }
   }
 
   if (result.status !== 200 && result.status !== 404) {

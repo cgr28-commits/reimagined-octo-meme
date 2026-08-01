@@ -54,11 +54,14 @@ export async function lookupFlightForBooking(params: {
       return { ok: true, flight: payload.flight, configured: payload.configured !== false };
     }
 
+    const configured =
+      payload.configured !== false && payload.code !== "rate_limited" && payload.code !== "upstream_error";
+
     return {
       ok: false,
       error: payload.error ?? "Could not verify this flight.",
       code: payload.code ?? "unknown",
-      configured: payload.configured !== false,
+      configured,
     };
   } catch {
     return {
