@@ -76,6 +76,39 @@ function formatDisplayTime(time: string): string {
   return parsed.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
 }
 
+function getPriceInclusionNote(
+  isAirportTrip: boolean,
+  isFromAirport: boolean,
+  returnJourney: boolean,
+): string {
+  if (!isAirportTrip) {
+    return "Includes 10 minutes complimentary waiting time at pickup.";
+  }
+
+  if (returnJourney) {
+    if (isFromAirport) {
+      return "Includes express drop-off and pickup fees, and 60 minutes complimentary waiting time from when your plane lands.";
+    }
+    return "Includes express drop-off and pickup fees. 60 minutes complimentary waiting time applies when we collect you from the airport.";
+  }
+
+  if (isFromAirport) {
+    return "Includes express pickup fees and 60 minutes complimentary waiting time from when your plane lands.";
+  }
+
+  return "Includes express drop-off fees.";
+}
+
+function getFlightNumbersIntro(isFromAirport: boolean, returnJourney: boolean): string {
+  const includesAirportCollection = isFromAirport || (returnJourney && !isFromAirport);
+
+  if (includesAirportCollection) {
+    return "For flight monitoring and complimentary airport waiting time when we collect you.";
+  }
+
+  return "For flight monitoring.";
+}
+
 function PreviewRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex flex-col gap-0.5 border-b border-white/10 py-2.5 last:border-b-0 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
@@ -1045,7 +1078,7 @@ function QuoteCard() {
                       Flight numbers
                     </p>
                     <p className="mt-1 mb-4 text-sm text-white/60">
-                      For flight monitoring and complimentary airport waiting time.
+                      {getFlightNumbersIntro(isFromAirport, returnJourney)}
                     </p>
                   </div>
                   <FlightNumberField
@@ -1204,12 +1237,9 @@ function QuoteCard() {
                   Approx. {journeyDistanceLabel} · {journeyDurationLabel}
                 </p>
               )}
-              {isAirportTrip && (
-                <p className="mt-3 text-xs leading-relaxed text-white/60">
-                  Includes express drop-off and pickup fees, and 60 minutes complimentary waiting
-                  time from when your plane lands.
-                </p>
-              )}
+              <p className="mt-3 text-xs leading-relaxed text-white/60">
+                {getPriceInclusionNote(isAirportTrip, isFromAirport, returnJourney)}
+              </p>
             </>
           ) : (
             <>
