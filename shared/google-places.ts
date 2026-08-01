@@ -1,7 +1,12 @@
 import {
   isAddressAllowedForAirport,
+  isAllowedAutocompleteLabel,
   isAllowedCoordinates,
+  isNorthernIrelandPostcodeQuery,
+  normaliseAirportCode,
+  sortSuggestionsByStreetNumber,
 } from "./address-validation";
+import { getLdyLocationRestriction } from "./ldy-service-area";
 
 export type AddressSuggestion = {
   id: string;
@@ -47,12 +52,32 @@ type GoogleGeocodeResponse = {
   status?: string;
 };
 
-function normaliseAirportCode(value: string): string {
-  return value.trim().toUpperCase();
-}
-
 function getRegionCodes(airportCode: string): string[] {
   return airportCode === "DUB" ? ["gb", "ie"] : ["gb"];
+}
+
+function getLocationRestriction(airportCode: string) {
+  const code = normaliseAirportCode(airportCode);
+
+  if (code === "LDY") {
+    return getLdyLocationRestriction();
+  }
+
+  if (code === "DUB") {
+    return {
+      rectangle: {
+        low: { latitude: 51.4, longitude: -10.8 },
+        high: { latitude: 55.5, longitude: -5.4 },
+      },
+    };
+  }
+
+  return {
+    rectangle: {
+      low: { latitude: 54.0, longitude: -8.2 },
+      high: { latitude: 55.4, longitude: -5.4 },
+    },
+  };
 }
 
 function getAddressComponent(
@@ -105,6 +130,10 @@ function hasLeadingStreetNumber(text: string): boolean {
 }
 
 export function isStreetOnlyQuery(query: string): boolean {
+  if (isNorthernIrelandPostcodeQuery(query)) {
+    return false;
+  }
+
   return !extractLeadingStreetNumber(query) && query.trim().length >= 3;
 }
 
@@ -154,18 +183,17 @@ export async function searchGooglePlaces(
   const body: Record<string, unknown> = {
     input: query,
     includedRegionCodes: getRegionCodes(normaliseAirportCode(airportCode)),
-    regionCode: "gb",
+    regionCode: airportCode === "DUB" ? "ie" : "gb",
     languageCode: "en-GB",
-    locationBias: {
-      rectangle: {
-        low: { latitude: 54.0, longitude: -8.2 },
-        high: { latitude: 55.4, longitude: -5.4 },
-      },
-    },
+    locationRestriction: getLocationRestriction(airportCode),
   };
 
   if (sessionToken) {
     body.sessionToken = sessionToken;
+  }
+
+  if (isStreetOnlyQuery(query)) {
+    body.includedPrimaryTypes = ["street_address", "premise", "subpremise"];
   }
 
   const response = await fetch("https://places.googleapis.com/v1/places:autocomplete", {
@@ -184,18 +212,13 @@ export async function searchGooglePlaces(
   const data = (await response.json()) as GoogleAutocompleteResponse;
   const userNumber = extractLeadingStreetNumber(query);
 
+  const code = normaliseAirportCode(airportCode);
   const suggestions = (data.suggestions ?? [])
     .map((item) => formatSuggestion(item.placePrediction, userNumber))
     .filter((suggestion): suggestion is AddressSuggestion => suggestion !== null)
-    .sort((a, b) => {
-      const aHasNumber = hasLeadingStreetNumber(a.mainText);
-      const bHasNumber = hasLeadingStreetNumber(b.mainText);
-      if (aHasNumber && !bHasNumber) return -1;
-      if (!aHasNumber && bHasNumber) return 1;
-      return 0;
-    });
+    .filter((suggestion) => isAllowedAutocompleteLabel(suggestion.label, code));
 
-  return suggestions.slice(0, 8);
+  return sortSuggestionsByStreetNumber(suggestions).slice(0, 8);
 }
 
 export async function searchGoogleStreetAddresses(
@@ -278,7 +301,63 @@ export async function searchGoogleStreetAddresses(
     });
   }
 
-  return suggestions.slice(0, 8);
+  return sortSuggestionsByStreetNumber(suggestions).slice(0, 8);
+}
+
+const ESTABLISHMENT_PRIMARY_TYPES = [
+  "establishment",
+  "point_of_interest",
+  "lodging",
+  "store",
+  "restaurant",
+] as const;
+
+export async function searchGoogleEstablishments(
+  apiKey: string,
+  query: string,
+  airportCode: string,
+  sessionToken?: string,
+): Promise<AddressSuggestion[]> {
+  const trimmed = query.trim();
+  if (trimmed.length < 3 || extractLeadingStreetNumber(trimmed)) {
+    return [];
+  }
+
+  const body: Record<string, unknown> = {
+    input: trimmed,
+    includedRegionCodes: getRegionCodes(normaliseAirportCode(airportCode)),
+    regionCode: airportCode === "DUB" ? "ie" : "gb",
+    languageCode: "en-GB",
+    locationRestriction: getLocationRestriction(airportCode),
+    includedPrimaryTypes: [...ESTABLISHMENT_PRIMARY_TYPES],
+  };
+
+  if (sessionToken) {
+    body.sessionToken = sessionToken;
+  }
+
+  const response = await fetch("https://places.googleapis.com/v1/places:autocomplete", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Goog-Api-Key": apiKey,
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    return [];
+  }
+
+  const data = (await response.json()) as GoogleAutocompleteResponse;
+  const code = normaliseAirportCode(airportCode);
+
+  const suggestions = (data.suggestions ?? [])
+    .map((item) => formatSuggestion(item.placePrediction, null))
+    .filter((suggestion): suggestion is AddressSuggestion => suggestion !== null)
+    .filter((suggestion) => isAllowedAutocompleteLabel(suggestion.label, code));
+
+  return suggestions.slice(0, 6);
 }
 
 export async function geocodeAddress(

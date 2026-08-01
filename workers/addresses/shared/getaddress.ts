@@ -1,4 +1,12 @@
-import { isAddressAllowedForAirport, isNorthernIrelandText } from "./address-validation";
+import {
+  extractNorthernIrelandPostcode,
+  isAddressAllowedForAirport,
+  isFullNorthernIrelandPostcode,
+  isNorthernIrelandPostcodeQuery,
+  isNorthernIrelandText,
+  normaliseNorthernIrelandPostcode,
+  sortSuggestionsByStreetNumber,
+} from "./address-validation";
 
 export const GETADDRESS_NI_FILTER = "postcode:BT";
 
@@ -23,10 +31,33 @@ type GetAddressDetail = {
   postcode?: string;
 };
 
+type GetAddressFindResponse = {
+  postcode?: string;
+  addresses?: Array<string | GetAddressDetail>;
+};
+
 function formatGetAddressDetail(detail: GetAddressDetail): string {
   return [detail.line_1, detail.line_2, detail.line_3, detail.town_or_city, detail.county, detail.postcode]
     .filter(Boolean)
     .join(", ");
+}
+
+function formatGetAddressString(address: string, postcode?: string): string {
+  const cleaned = address
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .join(", ");
+
+  if (!cleaned) {
+    return postcode?.trim() ?? "";
+  }
+
+  if (postcode && !cleaned.toUpperCase().includes(postcode.trim().toUpperCase())) {
+    return `${cleaned}, ${postcode.trim()}`;
+  }
+
+  return cleaned;
 }
 
 function splitAddressLabel(label: string): { mainText: string; secondaryText: string } {
@@ -53,25 +84,45 @@ function toGetAddressSuggestion(item: { id: string; address: string }): AddressS
   };
 }
 
-export async function searchGetAddress(
+function toStaticGetAddressSuggestion(formatted: string): AddressSuggestion {
+  const { mainText, secondaryText } = splitAddressLabel(formatted);
+
+  return {
+    id: `ga:static:${encodeURIComponent(formatted)}`,
+    label: formatted,
+    address: formatted,
+    mainText,
+    secondaryText,
+  };
+}
+
+function shouldUseGetAddress(airportCode: string, query: string): boolean {
+  const code = airportCode.trim().toUpperCase();
+  if (code === "DUB") {
+    return false;
+  }
+
+  if (code !== "LDY") {
+    return true;
+  }
+
+  return isNorthernIrelandPostcodeQuery(query);
+}
+
+async function searchGetAddressAutocomplete(
   apiKey: string,
   query: string,
   airportCode: string,
 ): Promise<AddressSuggestion[]> {
-  const trimmed = query.trim();
-  if (trimmed.length < 3) {
-    return [];
-  }
-
   const url = new URL(
-    `https://api.getAddress.io/autocomplete/${encodeURIComponent(trimmed)}`,
+    `https://api.getAddress.io/autocomplete/${encodeURIComponent(query.trim())}`,
   );
   url.searchParams.set("api-key", apiKey);
   url.searchParams.set("all", "true");
   url.searchParams.set("top", "6");
   url.searchParams.set("show-postcode", "true");
 
-  if (airportCode !== "DUB") {
+  if (airportCode !== "DUB" && !isNorthernIrelandPostcodeQuery(query)) {
     url.searchParams.set("filter", GETADDRESS_NI_FILTER);
   }
 
@@ -82,9 +133,93 @@ export async function searchGetAddress(
 
   const data = (await response.json()) as GetAddressAutocompleteResponse;
 
-  return (data.suggestions ?? [])
-    .filter((item) => isNorthernIrelandText(item.address))
-    .map(toGetAddressSuggestion);
+  return sortSuggestionsByStreetNumber(
+    (data.suggestions ?? [])
+      .filter((item) => isNorthernIrelandText(item.address))
+      .map(toGetAddressSuggestion),
+  ).slice(0, 6);
+}
+
+async function searchGetAddressFind(
+  apiKey: string,
+  postcode: string,
+  airportCode: string,
+): Promise<AddressSuggestion[]> {
+  const normalised = normaliseNorthernIrelandPostcode(postcode);
+  if (!isFullNorthernIrelandPostcode(normalised)) {
+    return [];
+  }
+
+  const compactPostcode = normalised.replace(/\s+/g, "");
+  const response = await fetch(
+    `https://api.getAddress.io/find/${encodeURIComponent(compactPostcode)}?api-key=${encodeURIComponent(apiKey)}&expand=true&sort=true`,
+  );
+
+  if (!response.ok) {
+    return [];
+  }
+
+  const data = (await response.json()) as GetAddressFindResponse;
+  const suggestions: AddressSuggestion[] = [];
+
+  for (const entry of data.addresses ?? []) {
+    const detail =
+      typeof entry === "string"
+        ? {
+            line_1: entry.split(",")[0]?.trim(),
+            town_or_city: entry.split(",")[5]?.trim(),
+            county: entry.split(",")[6]?.trim(),
+            postcode: data.postcode,
+          }
+        : {
+            ...entry,
+            postcode: entry.postcode ?? data.postcode,
+          };
+
+    const formatted =
+      typeof entry === "string"
+        ? formatGetAddressString(entry, data.postcode)
+        : formatGetAddressDetail(detail);
+
+    if (
+      !formatted ||
+      !isAddressAllowedForAirport(airportCode.trim().toUpperCase(), {
+        postcode: detail.postcode,
+        county: detail.county,
+        city: detail.town_or_city,
+        displayName: formatted,
+      })
+    ) {
+      continue;
+    }
+
+    suggestions.push(toStaticGetAddressSuggestion(formatted));
+  }
+
+  return sortSuggestionsByStreetNumber(suggestions).slice(0, 8);
+}
+
+export async function searchGetAddress(
+  apiKey: string,
+  query: string,
+  airportCode: string,
+): Promise<AddressSuggestion[]> {
+  const trimmed = query.trim();
+  if (trimmed.length < 3 || !shouldUseGetAddress(airportCode, trimmed)) {
+    return [];
+  }
+
+  if (isNorthernIrelandPostcodeQuery(trimmed)) {
+    const extracted = extractNorthernIrelandPostcode(trimmed);
+    if (extracted && isFullNorthernIrelandPostcode(extracted)) {
+      const findResults = await searchGetAddressFind(apiKey, extracted, airportCode);
+      if (findResults.length > 0) {
+        return findResults;
+      }
+    }
+  }
+
+  return searchGetAddressAutocomplete(apiKey, trimmed, airportCode);
 }
 
 export async function resolveGetAddress(
@@ -92,6 +227,21 @@ export async function resolveGetAddress(
   placeId: string,
   airportCode: string,
 ): Promise<string | null> {
+  if (placeId.startsWith("ga:static:")) {
+    const formatted = decodeURIComponent(placeId.slice("ga:static:".length));
+    if (
+      !formatted ||
+      !isAddressAllowedForAirport(airportCode.trim().toUpperCase(), {
+        displayName: formatted,
+        postcode: extractNorthernIrelandPostcode(formatted) ?? undefined,
+      })
+    ) {
+      return null;
+    }
+
+    return formatted;
+  }
+
   const id = placeId.startsWith("ga:") ? placeId.slice(3) : placeId;
 
   const response = await fetch(

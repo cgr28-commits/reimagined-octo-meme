@@ -1,11 +1,14 @@
 import {
   corsHeaders,
+  extractLeadingStreetNumber,
+  isStreetOnlyQuery,
   resolveGooglePlace,
   reverseGeocodeGoogle,
+  searchGoogleEstablishments,
   searchGooglePlaces,
   searchGoogleStreetAddresses,
-  isStreetOnlyQuery,
 } from "../shared/google-places";
+import { isNorthernIrelandPostcodeQuery, sortSuggestionsByStreetNumber } from "../shared/address-validation";
 import {
   resolveGetAddress,
   searchGetAddress,
@@ -21,6 +24,10 @@ import {
   formatPaidAmount,
   type PaidBookingDetails,
 } from "../shared/booking-notifications";
+import {
+  lookupFlight,
+  type TripDirection,
+} from "../shared/flight-lookup";
 import {
   getSumUpCheckout,
   getSuccessfulTransactionCode,
@@ -49,6 +56,7 @@ type Env = {
   SUMUP_MERCHANT_CODE?: string;
   BOOKING_COUNTER?: KVNamespace;
   EMAIL?: EmailBinding;
+  AERODATABOX_RAPIDAPI_KEY?: string;
 };
 
 const DEFAULT_BOOKING_EMAIL = "bookings@myairporttaxini.co.uk";
@@ -66,7 +74,7 @@ function json(body: unknown, status: number, origin: string | null): Response {
 
 function routePath(
   pathname: string,
-): "addresses" | "geocode" | "bookings" | "payments" | "payments-confirm" | null {
+): "addresses" | "geocode" | "bookings" | "payments" | "payments-confirm" | "flights" | null {
   if (pathname === "/addresses" || pathname === "/api/addresses") {
     return "addresses";
   }
@@ -85,6 +93,10 @@ function routePath(
 
   if (pathname === "/payments" || pathname === "/api/payments") {
     return "payments";
+  }
+
+  if (pathname === "/flights" || pathname === "/api/flights") {
+    return "flights";
   }
 
   return null;
@@ -253,6 +265,7 @@ function parsePaidBookingDetails(body: Record<string, unknown>): PaidBookingDeta
     returnDate: String(details.returnDate ?? "").trim(),
     returnTime: String(details.returnTime ?? "").trim(),
     flightNumber: String(details.flightNumber ?? "").trim(),
+    returnFlightNumber: String(details.returnFlightNumber ?? "").trim() || undefined,
     passengers: Number(details.passengers) || 0,
     suitcases: Number(details.suitcases) || 0,
     vehicle: String(details.vehicle ?? "").trim(),
@@ -435,6 +448,58 @@ async function handlePaymentConfirmRequest(
   }
 }
 
+async function handleFlightLookupRequest(
+  url: URL,
+  env: Env,
+  origin: string | null,
+): Promise<Response> {
+  const flightNumber = url.searchParams.get("flight")?.trim() ?? "";
+  const tripDate = url.searchParams.get("date")?.trim() ?? "";
+  const airportCode = url.searchParams.get("airport")?.trim().toUpperCase() ?? "";
+  const directionParam = url.searchParams.get("direction")?.trim() ?? "from-airport";
+  const direction: TripDirection =
+    directionParam === "to-airport" ? "to-airport" : "from-airport";
+
+  const airportNames: Record<string, string> = {
+    BFS: "Belfast International",
+    BHD: "George Best Belfast City",
+    DUB: "Dublin Airport",
+    LDY: "City of Derry",
+  };
+
+  const configured = Boolean(env.AERODATABOX_RAPIDAPI_KEY?.trim());
+  const result = await lookupFlight(env.AERODATABOX_RAPIDAPI_KEY, {
+    flightNumber,
+    tripDate,
+    airportCode,
+    airportName: airportNames[airportCode] ?? airportCode,
+    direction,
+  });
+
+  if (!result.ok) {
+    return json(
+      {
+        ok: false,
+        error: result.error,
+        code: result.code,
+        configured,
+      },
+      result.code === "api_unavailable" ? 503 : 404,
+      origin,
+    );
+  }
+
+  return json(
+    {
+      ok: true,
+      flight: result.flight,
+      configured,
+    },
+    200,
+    origin,
+  );
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const origin = request.headers.get("Origin");
@@ -474,6 +539,14 @@ export default {
       }
 
       return handlePaymentConfirmRequest(request, env, origin);
+    }
+
+    if (route === "flights") {
+      if (request.method !== "GET") {
+        return json({ error: "Method not allowed" }, 405, origin);
+      }
+
+      return handleFlightLookupRequest(url, env, origin);
     }
 
     if (request.method !== "GET") {
@@ -561,7 +634,11 @@ export default {
     try {
       const tasks: Promise<Awaited<ReturnType<typeof searchGooglePlaces>>>[] = [];
 
-      if (env.GETADDRESS_API_KEY && airportCode !== "DUB") {
+      if (
+        env.GETADDRESS_API_KEY &&
+        airportCode !== "DUB" &&
+        (airportCode !== "LDY" || isNorthernIrelandPostcodeQuery(query))
+      ) {
         tasks.push(searchGetAddress(env.GETADDRESS_API_KEY, query, airportCode));
       }
 
@@ -569,6 +646,17 @@ export default {
         tasks.push(
           searchGooglePlaces(env.GOOGLE_PLACES_API_KEY, query, airportCode, sessionToken),
         );
+
+        if (!extractLeadingStreetNumber(query)) {
+          tasks.push(
+            searchGoogleEstablishments(
+              env.GOOGLE_PLACES_API_KEY,
+              query,
+              airportCode,
+              sessionToken,
+            ),
+          );
+        }
 
         if (isStreetOnlyQuery(query)) {
           tasks.push(
@@ -581,14 +669,16 @@ export default {
       const suggestions = results.flat();
 
       const seen = new Set<string>();
-      const merged = suggestions.filter((item) => {
-        const key = item.label.toLowerCase();
-        if (seen.has(key)) {
-          return false;
-        }
-        seen.add(key);
-        return true;
-      });
+      const merged = sortSuggestionsByStreetNumber(
+        suggestions.filter((item) => {
+          const key = item.label.toLowerCase();
+          if (seen.has(key)) {
+            return false;
+          }
+          seen.add(key);
+          return true;
+        }),
+      );
 
       return json(
         {
