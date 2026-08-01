@@ -1,8 +1,11 @@
 /**
- * Daily OTS pricing monitor.
+ * Daily OTS pricing monitor — REPORT ONLY.
  *
- * Samples 100 random NI routes (seeded by date), fetches live OTS estate quotes,
- * and compares them to our site pricing.
+ * Samples random NI routes (seeded by date), fetches live OTS estate quotes,
+ * and compares them to our site pricing. Writes a JSON report.
+ *
+ * This script NEVER modifies quote.ts, surcharges, or any live pricing.
+ * Any recalibration must be done manually and approved by the site owner.
  *
  * Airport transfers: target ~£5–£8 below OTS (with rounding tolerance).
  * Point-to-point: should track OTS closely (±£5), not necessarily below.
@@ -224,7 +227,7 @@ async function main() {
     ...sampleRoutes(p2pPool, p2pSampleSize, seed ^ 0x9e3779b9),
   ];
 
-  console.log(`OTS pricing check for ${runDate}`);
+  console.log(`OTS pricing check for ${runDate} (report-only — no pricing changes)`);
   console.log(
     `Sampling ${sampled.length} routes (${airportSampleSize} airport, ${p2pSampleSize} point-to-point)`,
   );
@@ -246,6 +249,8 @@ async function main() {
   const errors = results.filter((row) => row.status === "error");
 
   const report = {
+    mode: "report-only",
+    autoApplyPricing: false,
     runDate,
     seed,
     sampleSize: sampled.length,
@@ -271,7 +276,7 @@ async function main() {
   console.log(`\nReport written to ${reportPath}`);
 
   if (failures.length > 0) {
-    console.log("\nFailed routes:");
+    console.log("\nRoutes outside target band (for your review — no changes applied):");
     for (const row of failures.slice(0, 20)) {
       console.log(
         `- ${row.id}: OTS £${row.otsEstate}, ours £${row.ourEstate} — ${row.message}`,
@@ -280,6 +285,9 @@ async function main() {
     if (failures.length > 20) {
       console.log(`… and ${failures.length - 20} more (see report JSON)`);
     }
+    console.log(
+      "\nTo adjust pricing, update src/lib/quote.ts manually — this job will not do that for you.",
+    );
   }
 
   if (errors.length > 0) {

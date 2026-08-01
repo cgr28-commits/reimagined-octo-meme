@@ -1,3 +1,6 @@
+# Report-only: compares 100 random routes against OTS and uploads a JSON report.
+# Does NOT modify pricing, open PRs, or deploy — review failures manually.
+
 name: OTS daily pricing check
 
 on:
@@ -16,7 +19,7 @@ on:
         default: ""
 
 permissions:
-  contents: read
+  contents: read # read-only — cannot commit or change repo files
 
 jobs:
   check-pricing:
@@ -33,11 +36,11 @@ jobs:
 
       - run: npm ci
 
-      - name: Compare random sample against OTS
+      - name: Compare random sample against OTS (report only)
         env:
           OTS_SAMPLE_SIZE: ${{ github.event.inputs.sample_size || '100' }}
           OTS_CHECK_DATE: ${{ github.event.inputs.check_date || '' }}
-          OTS_CHECK_STRICT: "1"
+          OTS_CHECK_STRICT: "0"
         run: npm run check:ots-pricing
 
       - name: Upload pricing report
@@ -48,19 +51,21 @@ jobs:
           path: reports/ots-pricing-*.json
           retention-days: 30
 
-      - name: Summarise failures
-        if: failure()
+      - name: Summarise report
+        if: always()
         run: |
           REPORT=$(ls reports/ots-pricing-*.json | head -1)
-          echo "## OTS pricing check failed" >> "$GITHUB_STEP_SUMMARY"
+          echo "## OTS daily pricing report (no changes applied)" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Review routes outside the target band and update pricing manually if needed." >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           node -e "
             const report = require('./' + process.argv[1]);
             const s = report.summary;
             console.log('Total:', s.total, 'Pass:', s.pass, 'Fail:', s.fail, 'Error:', s.error);
             console.log('');
-            console.log('Airport fails:', report.failures.filter(r => r.kind === 'airport').length);
-            console.log('P2P fails:', report.failures.filter(r => r.kind === 'point-to-point').length);
+            console.log('Airport outside band:', report.failures.filter(r => r.kind === 'airport').length);
+            console.log('P2P outside band:', report.failures.filter(r => r.kind === 'point-to-point').length);
             for (const row of report.failures.slice(0, 15)) {
               console.log('- ' + row.id + ': OTS £' + row.otsEstate + ', ours £' + row.ourEstate + ' — ' + row.message);
             }
