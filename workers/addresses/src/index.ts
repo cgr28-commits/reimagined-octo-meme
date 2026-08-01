@@ -1,4 +1,10 @@
 import {
+  appendConflictNoticeToMessage,
+  syncBookingToGoogleCalendar,
+  type BookingCalendarConflict,
+  type StructuredBooking,
+} from "../../../shared/booking-calendar";
+import {
   corsHeaders,
   extractLeadingStreetNumber,
   isStreetOnlyQuery,
@@ -343,6 +349,27 @@ async function handleBookingRequest(
   if (!customerName || !message) {
     return json({ error: "Missing required fields" }, 400, origin);
   }
+
+  let calendarResult: BookingResponseBody["calendar"] = {
+    configured: false,
+    eventsCreated: 0,
+    conflicts: [],
+  };
+
+  if (booking) {
+    try {
+      calendarResult = await syncBookingCalendar(env, booking, message);
+    } catch (error) {
+      console.error("Google Calendar sync failed", error);
+      calendarResult = {
+        configured: Boolean(env.GOOGLE_SERVICE_ACCOUNT_JSON),
+        eventsCreated: 0,
+        conflicts: [],
+      };
+    }
+  }
+
+  const emailMessage = appendConflictNoticeToMessage(message, calendarResult.conflicts);
 
   try {
     const bookingReference = await allocateBookingReference(env);

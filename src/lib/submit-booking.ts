@@ -255,6 +255,7 @@ export async function submitEnquiryByEmail(
   }
 
   let lastError: unknown = null;
+  let calendarResult: BookingSubmissionResult = {};
 
   for (const attempt of attempts) {
     try {
@@ -281,4 +282,33 @@ export async function submitBookingByEmail(details: BookingDetails): Promise<str
     },
     { allowFormSubmitFallback: false },
   );
+}
+
+export async function submitDayTripByEmail(
+  details: TourEnquiryDetails,
+): Promise<BookingSubmissionResult> {
+  const message = buildTourEnquiryMessage(details);
+
+  return submitEnquiryByEmail({
+    customerName: details.customerName,
+    message,
+    subject: `New day trip booking — ${details.customerName}`,
+    booking: toStructuredDayTrip(details),
+  });
+}
+
+export function formatCalendarConflictWarning(conflicts: CalendarConflict[]): string {
+  if (conflicts.length === 0) {
+    return "";
+  }
+
+  const lines = conflicts.map((conflict) => {
+    const overlapText =
+      conflict.overlappingEvents.length > 0
+        ? conflict.overlappingEvents.map((event) => event.summary).join(", ")
+        : "another booking";
+    return `${conflict.label} overlaps with ${overlapText}.`;
+  });
+
+  return `Calendar note: ${lines.join(" ")} We'll review and confirm shortly.`;
 }
