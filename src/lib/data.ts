@@ -80,8 +80,8 @@ export const HERO_SLIDES = [
     title: "City of Derry Airport Transfers",
     subtitle:
       "Flying into Derry~Londonderry (LDY)? We meet you at arrivals and transfer you to Belfast and the greater Belfast area.",
-    image: withBasePath("/images/tours/derry-londonderry.jpg"),
-    alt: "Derry~Londonderry city and riverfront",
+    image: withBasePath("/images/hero/derry-airport.jpg"),
+    alt: "City of Derry Airport terminal building and control tower",
   },
 ] as const;
 
