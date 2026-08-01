@@ -2,7 +2,7 @@ import { FAQS, SITE } from "./data";
 import { TOURS } from "./tours";
 
 const DESCRIPTION =
-  "Professional airport taxi transfers across Northern Ireland. Flight tracking, meet & greet, and transfers from Belfast International, Dublin, and more.";
+  "Professional airport taxi transfers across Northern Ireland. Flight tracking, meet & greet, and transfers from Belfast International, City of Derry, Dublin, and more.";
 
 export function getWebSiteJsonLd() {
   return {
@@ -13,6 +13,11 @@ export function getWebSiteJsonLd() {
     url: SITE.url,
     description: DESCRIPTION,
     inLanguage: "en-GB",
+    publisher: {
+      "@type": "Organization",
+      name: SITE.name,
+      logo: `${SITE.url}/logo.png`,
+    },
   };
 }
 
@@ -51,6 +56,8 @@ export function getLocalBusinessJsonLd() {
     name: SITE.name,
     description: DESCRIPTION,
     url: SITE.url,
+    logo: `${SITE.url}/logo.png`,
+    image: `${SITE.url}/og-image.png`,
     email: SITE.email,
     telephone: `+${SITE.whatsapp}`,
     areaServed: {

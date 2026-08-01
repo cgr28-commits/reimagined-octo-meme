@@ -1,3 +1,8 @@
+import {
+  formatUkDateTime,
+  formatUkSubmissionTime,
+} from "@/lib/format-datetime";
+
 export type BookingDetails = {
   customerName: string;
   customerEmail: string;
@@ -11,11 +16,15 @@ export type BookingDetails = {
   returnDate: string;
   returnTime: string;
   flightNumber: string;
+  returnFlightNumber?: string;
   passengers: number;
   suitcases: number;
   vehicle: string;
   estimatedPrice: string | null;
+  journeyDistance?: string;
+  journeyDuration?: string;
   isAirportTrip: boolean;
+  bookingReference?: string;
 };
 
 export function isValidMobileNumber(value: string): boolean {
@@ -40,31 +49,38 @@ export function isValidEmailAddress(value: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
 }
 
-export function buildBookingMessage(details: BookingDetails): string {
+export function buildBookingMessage(details: BookingDetails, bookingReference?: string): string {
+  const reference = bookingReference ?? details.bookingReference;
+
   return (
-    `Hi, I would like to book the following. A payment link will follow shortly.\n\n` +
+    `Hi, I would like to book the following.\n\n` +
+    (reference ? `Booking reference: ${reference}\n` : "") +
     `Name: ${details.customerName}\n` +
     (details.customerEmail ? `Email: ${details.customerEmail}\n` : "") +
     (details.mobileNumber ? `Mobile: ${details.mobileNumber}\n` : "") +
     `Trip: ${details.tripLabel}\n` +
     `Pickup: ${details.pickupLabel}\n` +
     `Drop-off: ${details.dropoffLabel}\n` +
+    (details.journeyDistance ? `Journey distance: ${details.journeyDistance}\n` : "") +
+    (details.journeyDuration ? `Estimated journey time: ${details.journeyDuration}\n` : "") +
     `Return journey: ${details.returnJourney ? "Yes" : "No"}\n` +
-    `${details.returnJourney ? "Outbound date" : "Date"}: ${details.tripDate}\n` +
-    `${details.returnJourney ? "Outbound time" : "Time"}: ${details.tripTime}\n` +
+    `${details.returnJourney ? "Outbound date & time" : "Date & time"}: ${formatUkDateTime(details.tripDate, details.tripTime)}\n` +
     (details.returnJourney
-      ? `Return date: ${details.returnDate}\nReturn time: ${details.returnTime}\n`
+      ? `Return date & time: ${formatUkDateTime(details.returnDate, details.returnTime)}\n`
       : "") +
     (details.isAirportTrip && details.flightNumber
-      ? `Flight number: ${details.flightNumber}\n`
+      ? `Flight number for going: ${details.flightNumber}\n`
+      : "") +
+    (details.isAirportTrip && details.returnFlightNumber
+      ? `Flight number for collection: ${details.returnFlightNumber}\n`
       : "") +
     `Passengers: ${details.passengers}\n` +
     `Suitcases: ${details.suitcases}\n` +
     `Vehicle: ${details.vehicle}\n` +
-    (details.estimatedPrice
-      ? `Estimated price: ${details.estimatedPrice}\n`
-      : !details.isAirportTrip
-        ? "Please provide a personal quote for this journey.\n"
-        : "")
+    (details.journeyDistance && details.journeyDuration
+      ? `Journey: ${details.journeyDistance} · ${details.journeyDuration}\n`
+      : "") +
+    (details.estimatedPrice ? `Estimated price: ${details.estimatedPrice}\n` : "") +
+    `Submitted: ${formatUkSubmissionTime()}\n`
   );
 }

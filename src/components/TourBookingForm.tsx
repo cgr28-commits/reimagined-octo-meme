@@ -64,7 +64,7 @@ export default function TourBookingForm({
   const [submitted, setSubmitted] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [enquirySent, setEnquirySent] = useState(false);
-  const [calendarWarning, setCalendarWarning] = useState("");
+  const [bookingReference, setBookingReference] = useState("");
   const [emailAddressError, setEmailAddressError] = useState("");
   const [mobileNumberError, setMobileNumberError] = useState("");
 
@@ -97,21 +97,23 @@ export default function TourBookingForm({
     }
 
     const onDesktop = !(isMobileDevice ?? detectMobileDevice());
+
+    if (!customerMobile.trim()) {
+      setMobileNumberError("Please enter your mobile number so we can send your payment link by text.");
+      return false;
+    }
+    if (!isValidMobileNumber(customerMobile)) {
+      setMobileNumberError("Please enter a valid mobile number.");
+      return false;
+    }
+
     if (onDesktop) {
       if (!customerEmail.trim()) {
-        setEmailAddressError("Please enter your email address so we can send your payment link.");
+        setEmailAddressError("Please enter your email address so we can confirm your booking.");
         return false;
       }
       if (!isValidEmailAddress(customerEmail)) {
         setEmailAddressError("Please enter a valid email address.");
-        return false;
-      }
-      if (!customerMobile.trim()) {
-        setMobileNumberError("Please enter your mobile number so we can contact you.");
-        return false;
-      }
-      if (!isValidMobileNumber(customerMobile)) {
-        setMobileNumberError("Please enter a valid mobile number.");
         return false;
       }
     }
@@ -121,23 +123,25 @@ export default function TourBookingForm({
     return true;
   }
 
-  function openWhatsAppEnquiry(details: TourEnquiryDetails) {
-    window.open(getTourWhatsAppUrl(buildTourEnquiryMessage(details)), "_blank");
-  }
-
-  async function submitDesktopEnquiry(details: TourEnquiryDetails) {
+  async function confirmEnquiry() {
+    const details = buildDetails();
     setSubmitted(true);
     setSubmitError("");
-    setCalendarWarning("");
+              setBookingReference("");
 
     try {
-      const result = await submitDayTripByEmail(details);
-      const warning = formatCalendarConflictWarning(result.calendar?.conflicts ?? []);
-      if (warning) {
-        setCalendarWarning(warning);
-      }
+      const reference = await submitEnquiryByEmail({
+        customerName: details.customerName,
+        message: buildTourEnquiryMessage(details),
+        subject: `New day trip booking — ${details.customerName}`,
+      });
+      setBookingReference(reference);
       setShowPreview(false);
       setEnquirySent(true);
+
+      if (isMobileDevice ?? detectMobileDevice()) {
+        window.open(getTourWhatsAppUrl(buildTourEnquiryMessage(details, reference)), "_blank");
+      }
     } catch {
       setSubmitError(
         `We couldn't confirm your booking automatically. Please email ${SITE.email} with your trip details and we'll confirm your booking.`,
@@ -147,42 +151,11 @@ export default function TourBookingForm({
     }
   }
 
-  async function confirmEnquiry() {
-    const details = buildDetails();
-    const mobile = isMobileDevice ?? detectMobileDevice();
-
-    if (mobile) {
-      setSubmitted(true);
-      setSubmitError("");
-      setCalendarWarning("");
-
-      try {
-        const result = await submitDayTripByEmail(details);
-        const warning = formatCalendarConflictWarning(result.calendar?.conflicts ?? []);
-        if (warning) {
-          setCalendarWarning(warning);
-        }
-        openWhatsAppEnquiry(details);
-        setShowPreview(false);
-        setEnquirySent(true);
-      } catch {
-        openWhatsAppEnquiry(details);
-        setShowPreview(false);
-        setEnquirySent(true);
-      } finally {
-        setSubmitted(false);
-      }
-      return;
-    }
-
-    await submitDesktopEnquiry(details);
-  }
-
   function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setSubmitError("");
     setEnquirySent(false);
-    setCalendarWarning("");
+              setBookingReference("");
 
     if (!validateForm()) {
       return;
@@ -196,7 +169,7 @@ export default function TourBookingForm({
     void confirmEnquiry();
   }
 
-  const submitInProgressLabel = usesWhatsApp ? "Opening WhatsApp…" : "Confirming booking…";
+  const submitInProgressLabel = "Sending booking…";
 
   const confirmLabel = usesWhatsApp ? "Confirm & send via WhatsApp" : "Confirm & book";
   const reviewLabel = usesWhatsApp ? "Review & send via WhatsApp" : "Review booking";
@@ -227,62 +200,69 @@ export default function TourBookingForm({
               setCustomerName(e.target.value);
               setShowPreview(false);
               setEnquirySent(false);
+              setBookingReference("");
             }}
             placeholder="John Smith"
             className={inputClassName}
           />
         </div>
 
-        {isMobileDevice !== true && (
-          <>
-            <div>
-              <label htmlFor={`tour-email-${id ?? "form"}`} className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/50">
-                Email Address
-              </label>
-              <input
-                id={`tour-email-${id ?? "form"}`}
-                type="email"
-                required
-                autoComplete="email"
-                value={customerEmail}
-                onChange={(e) => {
-                  setCustomerEmail(e.target.value);
-                  setShowPreview(false);
-                  setEnquirySent(false);
-                  setEmailAddressError("");
-                }}
-                placeholder="you@example.com"
-                className={inputClassName}
-              />
-              {emailAddressError && (
-                <p className="mt-1.5 text-xs text-red-300">{emailAddressError}</p>
-              )}
-            </div>
+        <div>
+          <label htmlFor={`tour-mobile-${id ?? "form"}`} className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/50">
+            Mobile Number
+          </label>
+          <input
+            id={`tour-mobile-${id ?? "form"}`}
+            type="tel"
+            required
+            autoComplete="tel"
+            value={customerMobile}
+            onChange={(e) => {
+              setCustomerMobile(e.target.value);
+              setShowPreview(false);
+              setEnquirySent(false);
+              setBookingReference("");
+              setMobileNumberError("");
+            }}
+            placeholder="07xxx xxxxxx"
+            className={inputClassName}
+          />
+          <p className="mt-1.5 text-xs text-white/40">
+            We&apos;ll send your payment link here by text or WhatsApp.
+          </p>
+          {mobileNumberError && (
+            <p className="mt-1.5 text-xs text-red-300">{mobileNumberError}</p>
+          )}
+        </div>
 
-            <div>
-              <label htmlFor={`tour-mobile-${id ?? "form"}`} className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/50">
-                Mobile Number
-              </label>
-              <input
-                id={`tour-mobile-${id ?? "form"}`}
-                type="tel"
-                required
-                autoComplete="tel"
-                value={customerMobile}
-                onChange={(e) => {
-                  setCustomerMobile(e.target.value);
-                  setShowPreview(false);
-                  setEnquirySent(false);
-                  setMobileNumberError("");
-                }}
-                placeholder="07xxx xxxxxx"
-                className={inputClassName}
-              />
-              {mobileNumberError && (
-                <p className="mt-1.5 text-xs text-red-300">{mobileNumberError}</p>
-              )}
-            </div>
-          </>
+        {isMobileDevice !== true && (
+          <div>
+            <label htmlFor={`tour-email-${id ?? "form"}`} className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/50">
+              Email Address
+            </label>
+            <input
+              id={`tour-email-${id ?? "form"}`}
+              type="email"
+              required
+              autoComplete="email"
+              value={customerEmail}
+              onChange={(e) => {
+                setCustomerEmail(e.target.value);
+                setShowPreview(false);
+                setEnquirySent(false);
+              setBookingReference("");
+                setEmailAddressError("");
+              }}
+              placeholder="you@example.com"
+              className={inputClassName}
+            />
+            <p className="mt-1.5 text-xs text-white/40">
+              So we can email your booking confirmation if needed.
+            </p>
+            {emailAddressError && (
+              <p className="mt-1.5 text-xs text-red-300">{emailAddressError}</p>
+            )}
+          </div>
         )}
 
         <div className="grid gap-4 sm:grid-cols-2">
@@ -299,6 +279,7 @@ export default function TourBookingForm({
                 setTravelDate(e.target.value);
                 setShowPreview(false);
                 setEnquirySent(false);
+              setBookingReference("");
               }}
               className={inputClassName}
             />
@@ -315,6 +296,7 @@ export default function TourBookingForm({
                 setGroupSize(Number(e.target.value));
                 setShowPreview(false);
                 setEnquirySent(false);
+              setBookingReference("");
               }}
               className={inputClassName}
             >
@@ -340,6 +322,7 @@ export default function TourBookingForm({
               setPickupLocation(e.target.value);
               setShowPreview(false);
               setEnquirySent(false);
+              setBookingReference("");
             }}
             placeholder="Hotel, address, or cruise terminal"
             className={inputClassName}
@@ -358,6 +341,7 @@ export default function TourBookingForm({
               setNotes(e.target.value);
               setShowPreview(false);
               setEnquirySent(false);
+              setBookingReference("");
             }}
             placeholder="Any special requests or places you'd like to visit"
             className={`${inputClassName} resize-y`}
@@ -377,11 +361,9 @@ export default function TourBookingForm({
             <dl>
               <PreviewRow label="Day trip" value={tourTitle} />
               <PreviewRow label="Name" value={customerName.trim()} />
+              <PreviewRow label="Mobile" value={customerMobile.trim()} />
               {isMobileDevice !== true && customerEmail.trim() && (
                 <PreviewRow label="Email" value={customerEmail.trim()} />
-              )}
-              {isMobileDevice !== true && customerMobile.trim() && (
-                <PreviewRow label="Mobile" value={customerMobile.trim()} />
               )}
               <PreviewRow label="Preferred date" value={travelDate} />
               <PreviewRow label="Group size" value={String(groupSize)} />
@@ -397,23 +379,22 @@ export default function TourBookingForm({
           </p>
         )}
 
-        {calendarWarning && (
-          <p className="rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-50">
-            {calendarWarning}
-          </p>
-        )}
-
-        {enquirySent && usesWhatsApp && (
-          <p className="rounded-xl border border-[#25D366]/30 bg-[#25D366]/10 px-4 py-3 text-sm text-white">
-            Your day trip enquiry should open in WhatsApp. If it didn&apos;t, tap the green chat
-            button at the bottom of the screen.
-          </p>
-        )}
-
-        {enquirySent && usesEmail && (
-          <p className="rounded-xl border border-emerald/30 bg-emerald/10 px-4 py-3 text-sm text-white">
-            Booking confirmed. We&apos;ll reply shortly with your payment link.
-          </p>
+        {enquirySent && (
+          <div className="rounded-xl border border-emerald/30 bg-emerald/10 px-4 py-4 text-sm text-white">
+            <p className="font-semibold">
+              Booking sent{bookingReference ? ` — reference ${bookingReference}` : ""}
+            </p>
+            <p className="mt-2 text-white/80">
+              You will be sent a payment link shortly via text. Your booking is not confirmed until
+              full payment is made.
+            </p>
+            {usesWhatsApp && (
+              <p className="mt-2 text-white/60">
+                Your day trip enquiry should open in WhatsApp. If it didn&apos;t, tap the green chat
+                button at the bottom of the screen.
+              </p>
+            )}
+          </div>
         )}
 
         {showPreview ? (
@@ -424,7 +405,7 @@ export default function TourBookingForm({
                 setShowPreview(false);
                 setSubmitError("");
                 setEnquirySent(false);
-                setCalendarWarning("");
+              setBookingReference("");
               }}
               className="w-full rounded-xl border border-white/15 bg-white/5 py-3.5 text-sm font-semibold text-white transition-all hover:bg-white/10"
             >

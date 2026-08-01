@@ -1,8 +1,24 @@
-{
-  "name": "my-airport-taxi-addresses",
-  "main": "src/index.ts",
-  "compatibility_date": "2024-11-01",
-  "observability": {
-    "enabled": true
-  }
-}
+name = "reimagined-octo-meme"
+# Cloudflare Git builds use workers/addresses as root — shared code lives in ./shared/
+main = "src/index.ts"
+compatibility_date = "2025-08-01"
+# Secrets (set in Cloudflare dashboard, setup-worker.mjs, or wrangler secret put):
+# - GOOGLE_PLACES_API_KEY
+# - GETADDRESS_API_KEY
+# - AERODATABOX_RAPIDAPI_KEY  (RapidAPI key for AeroDataBox flight verification)
+# - WEB3FORMS_ACCESS_KEY
+# Redeploy after changing worker code: wrangler deploy (or Cloudflare dashboard → Deploy)
+account_id = "36c5c88df4c1f0259413d555f2679f3c"
+
+[observability]
+enabled = true
+
+# Booking reference counter (MATNI-1001+). Created by: node scripts/setup-worker.mjs
+[[kv_namespaces]]
+binding = "BOOKING_COUNTER"
+id = "REPLACE_WITH_KV_NAMESPACE_ID"
+
+# Cloudflare Email Service (optional — onboard myairporttaxini.co.uk in dashboard first).
+# Without this, bookings email via WEB3FORMS_ACCESS_KEY secret, then MailChannels.
+[[send_email]]
+name = "EMAIL"
