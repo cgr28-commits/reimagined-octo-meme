@@ -1,0 +1,502 @@
+[
+  {
+    "pickup": "5 Antrim Road, Newtownabbey, BT36 7QX",
+    "dropoff": "45 Lisburn Road, Belfast, BT9 7AB",
+    "km": 23.6,
+    "mins": 20.8,
+    "ots_estate": 53.95,
+    "ots_base": 40,
+    "ots_dist": 5.64,
+    "ots_time": 8.31
+  },
+  {
+    "pickup": "16 William Street, Portadown, BT62 3AB",
+    "dropoff": "4 Central Promenade, Newcastle, BT33 0AB",
+    "km": 51.7,
+    "mins": 51.6,
+    "ots_estate": 94.65,
+    "ots_base": 40,
+    "ots_dist": 26.12,
+    "ots_time": 28.53
+  },
+  {
+    "pickup": "11 Main Street, Downpatrick, BT30 6AB",
+    "dropoff": "10 Market Square, Lisburn, BT28 1AG",
+    "km": 42.7,
+    "mins": 40.8,
+    "ots_estate": 75.39,
+    "ots_base": 40,
+    "ots_dist": 16.8,
+    "ots_time": 18.59
+  },
+  {
+    "pickup": "22 High Street, Holywood, BT18 9AB",
+    "dropoff": "10 Castlereagh Road, Belfast, BT5 6AB",
+    "km": 9.2,
+    "mins": 10.8,
+    "ots_estate": 50.4,
+    "ots_base": 40,
+    "ots_dist": 4.23,
+    "ots_time": 6.17
+  },
+  {
+    "pickup": "9 Ballynahinch Road, Hillsborough, BT26 6AB",
+    "dropoff": "15 Jonesboro Park, Belfast, BT12 6HR",
+    "km": 24.5,
+    "mins": 21.9,
+    "ots_estate": 63.97,
+    "ots_base": 40,
+    "ots_dist": 12.09,
+    "ots_time": 11.88
+  },
+  {
+    "pickup": "9 Church Street, Newtownards, BT23 4AB",
+    "dropoff": "10 Castlereagh Road, Belfast, BT5 6AB",
+    "km": 16.2,
+    "mins": 16.0,
+    "ots_estate": 57.97,
+    "ots_base": 40,
+    "ots_dist": 7.72,
+    "ots_time": 10.25
+  },
+  {
+    "pickup": "16 William Street, Portadown, BT62 3AB",
+    "dropoff": "12 Donegall Square, Belfast, BT1 5GS",
+    "km": 47.9,
+    "mins": 36.3,
+    "ots_estate": 82.5,
+    "ots_base": 40,
+    "ots_dist": 24.19,
+    "ots_time": 18.31
+  },
+  {
+    "pickup": "7 Castle Street, Ballymena, BT42 3AB",
+    "dropoff": "9 Ballynahinch Road, Hillsborough, BT26 6AB",
+    "km": 53.9,
+    "mins": 48.1,
+    "ots_estate": 94.75,
+    "ots_base": 40,
+    "ots_dist": 31.72,
+    "ots_time": 23.03
+  },
+  {
+    "pickup": "2 Cliftonville Road, Belfast, BT14 6AB",
+    "dropoff": "13 Market Street, Lurgan, BT66 6AB",
+    "km": 41.2,
+    "mins": 31.7,
+    "ots_estate": 74.65,
+    "ots_base": 40,
+    "ots_dist": 18.57,
+    "ots_time": 16.08
+  },
+  {
+    "pickup": "9 Church Street, Newtownards, BT23 4AB",
+    "dropoff": "8 Holywood Road, Belfast, BT4 1NT",
+    "km": 14.2,
+    "mins": 15.8,
+    "ots_estate": 56,
+    "ots_base": 40,
+    "ots_dist": 7.09,
+    "ots_time": 8.92
+  },
+  {
+    "pickup": "15 Jonesboro Park, Belfast, BT12 6HR",
+    "dropoff": "11 Main Street, Downpatrick, BT30 6AB",
+    "km": 44.2,
+    "mins": 43.1,
+    "ots_estate": 76.88,
+    "ots_base": 40,
+    "ots_dist": 17.56,
+    "ots_time": 19.33
+  },
+  {
+    "pickup": "11 Main Street, Downpatrick, BT30 6AB",
+    "dropoff": "22 High Street, Holywood, BT18 9AB",
+    "km": 50.9,
+    "mins": 48.3,
+    "ots_estate": 82.7,
+    "ots_base": 40,
+    "ots_dist": 20.43,
+    "ots_time": 22.28
+  },
+  {
+    "pickup": "16 William Street, Portadown, BT62 3AB",
+    "dropoff": "8 Holywood Road, Belfast, BT4 1NT",
+    "km": 51.9,
+    "mins": 40.6,
+    "ots_estate": 86.01,
+    "ots_base": 40,
+    "ots_dist": 25.96,
+    "ots_time": 20.06
+  },
+  {
+    "pickup": "10 Castlereagh Road, Belfast, BT5 6AB",
+    "dropoff": "4 Central Promenade, Newcastle, BT33 0AB",
+    "km": 52.4,
+    "mins": 47.9,
+    "ots_estate": 91.28,
+    "ots_base": 40,
+    "ots_dist": 23.93,
+    "ots_time": 27.35
+  },
+  {
+    "pickup": "7 Castle Street, Ballymena, BT42 3AB",
+    "dropoff": "21 Upper Newtownards Road, Belfast, BT4 3AB",
+    "km": 45.5,
+    "mins": 35.2,
+    "ots_estate": 79.91,
+    "ots_base": 40,
+    "ots_dist": 22.69,
+    "ots_time": 17.22
+  },
+  {
+    "pickup": "2 Cliftonville Road, Belfast, BT14 6AB",
+    "dropoff": "11 Main Street, Downpatrick, BT30 6AB",
+    "km": 49.2,
+    "mins": 50.5,
+    "ots_estate": 84.69,
+    "ots_base": 40,
+    "ots_dist": 22.95,
+    "ots_time": 21.74
+  },
+  {
+    "pickup": "25 Hill Street, Newry, BT34 1AB",
+    "dropoff": "2 Stranmillis Road, Belfast, BT9 5AF",
+    "km": 60.6,
+    "mins": 47.4,
+    "ots_estate": 97.94,
+    "ots_base": 40,
+    "ots_dist": 31.46,
+    "ots_time": 26.48
+  },
+  {
+    "pickup": "11 Main Street, Downpatrick, BT30 6AB",
+    "dropoff": "15 Jonesboro Park, Belfast, BT12 6HR",
+    "km": 44.3,
+    "mins": 43.0,
+    "ots_estate": 76.84,
+    "ots_base": 40,
+    "ots_dist": 17.55,
+    "ots_time": 19.29
+  },
+  {
+    "pickup": "16 William Street, Portadown, BT62 3AB",
+    "dropoff": "8 Holywood Road, Belfast, BT4 1NT",
+    "km": 51.9,
+    "mins": 40.6,
+    "ots_estate": 86.01,
+    "ots_base": 40,
+    "ots_dist": 25.96,
+    "ots_time": 20.06
+  },
+  {
+    "pickup": "4 Central Promenade, Newcastle, BT33 0AB",
+    "dropoff": "2 Cliftonville Road, Belfast, BT14 6AB",
+    "km": 56.6,
+    "mins": 48.9,
+    "ots_estate": 94.17,
+    "ots_base": 40,
+    "ots_dist": 27.57,
+    "ots_time": 26.6
+  },
+  {
+    "pickup": "3 Ballygowan Road, Belfast, BT5 7AB",
+    "dropoff": "9 Ballynahinch Road, Hillsborough, BT26 6AB",
+    "km": 24.3,
+    "mins": 21.1,
+    "ots_estate": 63.19,
+    "ots_base": 40,
+    "ots_dist": 10.33,
+    "ots_time": 12.86
+  },
+  {
+    "pickup": "10 Market Square, Lisburn, BT28 1AG",
+    "dropoff": "14 Malone Road, Belfast, BT9 6AB",
+    "km": 14.2,
+    "mins": 13.7,
+    "ots_estate": 55.56,
+    "ots_base": 40,
+    "ots_dist": 6.14,
+    "ots_time": 9.42
+  },
+  {
+    "pickup": "2 Stranmillis Road, Belfast, BT9 5AF",
+    "dropoff": "5 Antrim Road, Newtownabbey, BT36 7QX",
+    "km": 22.8,
+    "mins": 19.6,
+    "ots_estate": 53.02,
+    "ots_base": 40,
+    "ots_dist": 5.03,
+    "ots_time": 7.98
+  },
+  {
+    "pickup": "2 Cliftonville Road, Belfast, BT14 6AB",
+    "dropoff": "12 Donegall Square, Belfast, BT1 5GS",
+    "km": 3.1,
+    "mins": 5.3,
+    "ots_estate": 45.13,
+    "ots_base": 40,
+    "ots_dist": 1.14,
+    "ots_time": 3.98
+  },
+  {
+    "pickup": "5 Antrim Road, Newtownabbey, BT36 7QX",
+    "dropoff": "10 Castlereagh Road, Belfast, BT5 6AB",
+    "km": 23.4,
+    "mins": 20.4,
+    "ots_estate": 50.96,
+    "ots_base": 40,
+    "ots_dist": 4.81,
+    "ots_time": 6.15
+  },
+  {
+    "pickup": "5 Antrim Road, Newtownabbey, BT36 7QX",
+    "dropoff": "13 Market Street, Lurgan, BT66 6AB",
+    "km": 42.5,
+    "mins": 34.3,
+    "ots_estate": 81.08,
+    "ots_base": 40,
+    "ots_dist": 22.04,
+    "ots_time": 19.04
+  },
+  {
+    "pickup": "9 Ballynahinch Road, Hillsborough, BT26 6AB",
+    "dropoff": "7 Castle Street, Ballymena, BT42 3AB",
+    "km": 65.5,
+    "mins": 47.8,
+    "ots_estate": 95.96,
+    "ots_base": 40,
+    "ots_dist": 32.55,
+    "ots_time": 23.41
+  },
+  {
+    "pickup": "21 Upper Newtownards Road, Belfast, BT4 3AB",
+    "dropoff": "12 Donegall Square, Belfast, BT1 5GS",
+    "km": 3.6,
+    "mins": 7.5,
+    "ots_estate": 48.21,
+    "ots_base": 40,
+    "ots_dist": 1.96,
+    "ots_time": 6.25
+  },
+  {
+    "pickup": "14 Main Street, Larne, BT40 1AB",
+    "dropoff": "14 Malone Road, Belfast, BT9 6AB",
+    "km": 38.1,
+    "mins": 30.3,
+    "ots_estate": 77.49,
+    "ots_base": 40,
+    "ots_dist": 19.43,
+    "ots_time": 18.06
+  },
+  {
+    "pickup": "22 High Street, Holywood, BT18 9AB",
+    "dropoff": "18 English Street, Armagh, BT61 7AB",
+    "km": 73.8,
+    "mins": 58.5,
+    "ots_estate": 112.85,
+    "ots_base": 40,
+    "ots_dist": 37.74,
+    "ots_time": 35.11
+  },
+  {
+    "pickup": "10 Castlereagh Road, Belfast, BT5 6AB",
+    "dropoff": "6 Shankill Road, Belfast, BT13 2AB",
+    "km": 5.4,
+    "mins": 9.2,
+    "ots_estate": 47.45,
+    "ots_base": 40,
+    "ots_dist": 1.74,
+    "ots_time": 5.71
+  },
+  {
+    "pickup": "4 Central Promenade, Newcastle, BT33 0AB",
+    "dropoff": "2 Stranmillis Road, Belfast, BT9 5AF",
+    "km": 52.1,
+    "mins": 47.4,
+    "ots_estate": 91.2,
+    "ots_base": 40,
+    "ots_dist": 24.03,
+    "ots_time": 27.17
+  },
+  {
+    "pickup": "4 Central Promenade, Newcastle, BT33 0AB",
+    "dropoff": "5 Saintfield Road, Belfast, BT8 8AB",
+    "km": 50.1,
+    "mins": 43.2,
+    "ots_estate": 86.75,
+    "ots_base": 40,
+    "ots_dist": 22.49,
+    "ots_time": 24.27
+  },
+  {
+    "pickup": "8 Holywood Road, Belfast, BT4 1NT",
+    "dropoff": "10 Castlereagh Road, Belfast, BT5 6AB",
+    "km": 2.3,
+    "mins": 4.2,
+    "ots_estate": 42.64,
+    "ots_base": 40,
+    "ots_dist": 0.66,
+    "ots_time": 1.98
+  },
+  {
+    "pickup": "10 Market Square, Lisburn, BT28 1AG",
+    "dropoff": "33 Falls Road, Belfast, BT12 6AB",
+    "km": 12.8,
+    "mins": 11.2,
+    "ots_estate": 55.05,
+    "ots_base": 40,
+    "ots_dist": 7.55,
+    "ots_time": 7.5
+  },
+  {
+    "pickup": "2 Cliftonville Road, Belfast, BT14 6AB",
+    "dropoff": "7 Castle Street, Ballymena, BT42 3AB",
+    "km": 46.3,
+    "mins": 34.1,
+    "ots_estate": 79.73,
+    "ots_base": 40,
+    "ots_dist": 22.77,
+    "ots_time": 16.96
+  },
+  {
+    "pickup": "9 Church Street, Newtownards, BT23 4AB",
+    "dropoff": "18 English Street, Armagh, BT61 7AB",
+    "km": 79.3,
+    "mins": 65.3,
+    "ots_estate": 123.72,
+    "ots_base": 40,
+    "ots_dist": 43.11,
+    "ots_time": 40.62
+  },
+  {
+    "pickup": "4 Central Promenade, Newcastle, BT33 0AB",
+    "dropoff": "11 Main Street, Downpatrick, BT30 6AB",
+    "km": 27.1,
+    "mins": 25.5,
+    "ots_estate": 62.86,
+    "ots_base": 40,
+    "ots_dist": 10.74,
+    "ots_time": 12.12
+  },
+  {
+    "pickup": "45 Lisburn Road, Belfast, BT9 7AB",
+    "dropoff": "3 Ballygowan Road, Belfast, BT5 7AB",
+    "km": 6.4,
+    "mins": 10.2,
+    "ots_estate": 50.52,
+    "ots_base": 40,
+    "ots_dist": 3.16,
+    "ots_time": 7.36
+  },
+  {
+    "pickup": "3 Ballygowan Road, Belfast, BT5 7AB",
+    "dropoff": "11 Main Street, Downpatrick, BT30 6AB",
+    "km": 41.6,
+    "mins": 38.2,
+    "ots_estate": 73.62,
+    "ots_base": 40,
+    "ots_dist": 16.37,
+    "ots_time": 17.26
+  },
+  {
+    "pickup": "12 Donegall Square, Belfast, BT1 5GS",
+    "dropoff": "8 Holywood Road, Belfast, BT4 1NT",
+    "km": 3.2,
+    "mins": 6.7,
+    "ots_estate": 46.64,
+    "ots_base": 40,
+    "ots_dist": 1.77,
+    "ots_time": 4.87
+  },
+  {
+    "pickup": "2 Stranmillis Road, Belfast, BT9 5AF",
+    "dropoff": "11 Main Street, Downpatrick, BT30 6AB",
+    "km": 43.4,
+    "mins": 45.3,
+    "ots_estate": 76.66,
+    "ots_base": 40,
+    "ots_dist": 16.84,
+    "ots_time": 19.83
+  },
+  {
+    "pickup": "8 Holywood Road, Belfast, BT4 1NT",
+    "dropoff": "15 Jonesboro Park, Belfast, BT12 6HR",
+    "km": 1.5,
+    "mins": 3.2,
+    "ots_estate": 42.45,
+    "ots_base": 40,
+    "ots_dist": 0.68,
+    "ots_time": 1.78
+  },
+  {
+    "pickup": "10 Castlereagh Road, Belfast, BT5 6AB",
+    "dropoff": "10 Market Square, Lisburn, BT28 1AG",
+    "km": 15.5,
+    "mins": 19.1,
+    "ots_estate": 60.91,
+    "ots_base": 40,
+    "ots_dist": 9.56,
+    "ots_time": 11.35
+  },
+  {
+    "pickup": "9 Church Street, Newtownards, BT23 4AB",
+    "dropoff": "22 High Street, Holywood, BT18 9AB",
+    "km": 11.5,
+    "mins": 12.2,
+    "ots_estate": 52.47,
+    "ots_base": 40,
+    "ots_dist": 5.63,
+    "ots_time": 6.84
+  },
+  {
+    "pickup": "22 High Street, Holywood, BT18 9AB",
+    "dropoff": "9 Ballynahinch Road, Hillsborough, BT26 6AB",
+    "km": 29.3,
+    "mins": 24.8,
+    "ots_estate": 67.49,
+    "ots_base": 40,
+    "ots_dist": 14.54,
+    "ots_time": 12.95
+  },
+  {
+    "pickup": "2 Stranmillis Road, Belfast, BT9 5AF",
+    "dropoff": "22 High Street, Holywood, BT18 9AB",
+    "km": 12.0,
+    "mins": 13.5,
+    "ots_estate": 55.96,
+    "ots_base": 40,
+    "ots_dist": 6.01,
+    "ots_time": 9.95
+  },
+  {
+    "pickup": "4 Central Promenade, Newcastle, BT33 0AB",
+    "dropoff": "9 Church Street, Newtownards, BT23 4AB",
+    "km": 58.7,
+    "mins": 50.5,
+    "ots_estate": 96.2,
+    "ots_base": 40,
+    "ots_dist": 27.07,
+    "ots_time": 29.13
+  },
+  {
+    "pickup": "9 Church Street, Newtownards, BT23 4AB",
+    "dropoff": "10 Castlereagh Road, Belfast, BT5 6AB",
+    "km": 16.2,
+    "mins": 16.0,
+    "ots_estate": 57.97,
+    "ots_base": 40,
+    "ots_dist": 7.72,
+    "ots_time": 10.25
+  },
+  {
+    "pickup": "9 Ballynahinch Road, Hillsborough, BT26 6AB",
+    "dropoff": "14 Main Street, Larne, BT40 1AB",
+    "km": 56.5,
+    "mins": 42.2,
+    "ots_estate": 89.8,
+    "ots_base": 40,
+    "ots_dist": 28.06,
+    "ots_time": 21.74
+  }
+]

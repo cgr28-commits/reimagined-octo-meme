@@ -1,0 +1,55 @@
+name: Deploy Cloudflare Worker
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "workers/addresses/**"
+      - "shared/**"
+      - "scripts/ensure-alias-worker.mjs"
+      - "scripts/sync-worker-shared.mjs"
+      - ".github/workflows/deploy-worker.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: cloudflare-worker
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: workers/addresses/package-lock.json
+
+      - name: Require Cloudflare credentials
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "::error::Add CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID to GitHub → Settings → Secrets → Actions."
+            echo "::error::For first-time setup (KV namespace + worker secrets), run locally: npm run setup:worker"
+            exit 1
+          fi
+
+      - name: Sync shared modules into worker
+        run: node scripts/sync-worker-shared.mjs
+
+      - name: Install worker dependencies
+        working-directory: workers/addresses
+        run: npm ci
+
+      - name: Deploy main worker (reimagined-octo-meme)
+        working-directory: workers/addresses
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CI: "true"
+          WORKERS_CI: "1"
+        run: npm run deploy

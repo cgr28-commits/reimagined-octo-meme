@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, memo, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import AddressInput from "@/components/AddressInput";
 import TripMap from "@/components/TripMap";
 import { buildBookingMessage, isValidEmailAddress, isValidMobileNumber, type BookingDetails } from "@/lib/booking-message";
@@ -8,11 +8,20 @@ import { detectMobileDevice, useIsMobileDevice } from "@/lib/device";
 import { AIRPORTS, SITE, VEHICLE_TYPES } from "@/lib/data";
 import { readPrefillAirport } from "@/lib/quote-prefill";
 import {
+  calculatePointToPointQuote,
   calculateQuote,
   formatQuote,
 } from "@/lib/quote";
+import { isLdyServiceAreaAddress } from "../../shared/ldy-service-area";
+import {
+  formatJourneyDistance,
+  formatJourneyDuration,
+  type TripRouteMetrics,
+} from "@/lib/trip-route";
 import { submitBookingByEmail } from "@/lib/submit-booking";
-import type { RouteSummary } from "@/lib/trip-route";
+import FlightNumberField, { formatVerifiedFlightSummary } from "@/components/FlightNumberField";
+import { isValidFlightNumberFormat } from "@/lib/flight-lookup";
+import type { VerifiedFlight } from "@/lib/flight-lookup";
 
 type TripMode = "airport" | "address";
 type TripDirection = "to-airport" | "from-airport";
@@ -82,10 +91,12 @@ function isReturnAfterOutbound(
 }
 
 function QuoteCard() {
+  const cardRef = useRef<HTMLDivElement>(null);
   const isMobileDevice = useIsMobileDevice();
   const [submitted, setSubmitted] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [bookingSent, setBookingSent] = useState(false);
+  const [bookingReference, setBookingReference] = useState("");
   const [showBookingPreview, setShowBookingPreview] = useState(false);
   const [customerName, setCustomerName] = useState("");
   const [customerMobile, setCustomerMobile] = useState("");
@@ -99,8 +110,24 @@ function QuoteCard() {
   const [dropoffAddress, setDropoffAddress] = useState("");
   const [returnJourney, setReturnJourney] = useState(false);
   const [returnDateError, setReturnDateError] = useState("");
-  const [flightNumberError, setFlightNumberError] = useState("");
-  const [flightNumber, setFlightNumber] = useState("");
+  const [showBookingDetailsStep, setShowBookingDetailsStep] = useState(false);
+  const [customerNameError, setCustomerNameError] = useState("");
+  const [goingFlightNumber, setGoingFlightNumber] = useState("");
+  const [collectionFlightNumber, setCollectionFlightNumber] = useState("");
+  const [goingFlightError, setGoingFlightError] = useState("");
+  const [collectionFlightError, setCollectionFlightError] = useState("");
+  const [verifiedGoingFlight, setVerifiedGoingFlight] = useState<VerifiedFlight | null>(null);
+  const [verifiedCollectionFlight, setVerifiedCollectionFlight] = useState<VerifiedFlight | null>(
+    null,
+  );
+  const [goingFlightConfigured, setGoingFlightConfigured] = useState(true);
+  const [collectionFlightConfigured, setCollectionFlightConfigured] = useState(true);
+  const [goingFlightStatus, setGoingFlightStatus] = useState<
+    "idle" | "loading" | "verified" | "error"
+  >("idle");
+  const [collectionFlightStatus, setCollectionFlightStatus] = useState<
+    "idle" | "loading" | "verified" | "error"
+  >("idle");
   const [tripDate, setTripDate] = useState("");
   const [tripTime, setTripTime] = useState("");
   const [returnDate, setReturnDate] = useState("");
@@ -108,10 +135,10 @@ function QuoteCard() {
   const [vehicle, setVehicle] = useState<VehicleType>(VEHICLE_TYPES[0]);
   const [passengers, setPassengers] = useState(1);
   const [suitcases, setSuitcases] = useState(1);
-  const [routeSummary, setRouteSummary] = useState<RouteSummary | null>(null);
+  const [routeMetrics, setRouteMetrics] = useState<TripRouteMetrics | null>(null);
 
-  const handleRouteInfo = useCallback((summary: RouteSummary | null) => {
-    setRouteSummary(summary);
+  const handleRouteMetrics = useCallback((metrics: TripRouteMetrics | null) => {
+    setRouteMetrics(metrics);
   }, []);
 
   const autoVehicle = getAutoVehicle(passengers, suitcases);
@@ -120,6 +147,7 @@ function QuoteCard() {
 
   const isAirportTrip = tripMode === "airport";
   const isFromAirport = tripDirection === "from-airport";
+  const returnTripDirection: TripDirection = isFromAirport ? "to-airport" : "from-airport";
   const addressLookupCode = isAirportTrip ? airportCode : "BFS";
 
   useEffect(() => {
@@ -132,6 +160,13 @@ function QuoteCard() {
       setDropoffAddress(savedDropoff);
     }
   }, []);
+
+  const isLdyTrip = airportCode === "LDY";
+  const ldyServiceAddress = isFromAirport ? dropoffAddress : pickupAddress;
+  const ldyServiceAreaInvalid =
+    isLdyTrip &&
+    ldyServiceAddress.trim().length > 0 &&
+    !isLdyServiceAreaAddress(ldyServiceAddress);
 
   useEffect(() => {
     function applyAirportPrefill(code: string) {
@@ -171,33 +206,65 @@ function QuoteCard() {
     (!returnJourney || Boolean(returnDate && returnTime));
 
   const quoteAddress = isFromAirport ? dropoffAddress : pickupAddress;
-  const isAddressComplete = Boolean(airportCode && quoteAddress.trim());
+  const isAirportAddressComplete = Boolean(airportCode && quoteAddress.trim());
+  const isAddressPairComplete = Boolean(pickupAddress.trim() && dropoffAddress.trim());
 
-  const canShowPrice = isAirportTrip && isScheduleComplete && isAddressComplete;
+  const canShowPrice =
+    isScheduleComplete &&
+    !ldyServiceAreaInvalid &&
+    (isAirportTrip ? isAirportAddressComplete : isAddressPairComplete);
 
   const liveQuote = useMemo(() => {
     if (!canShowPrice) {
       return null;
     }
 
-    return calculateQuote(quoteAddress, airportCode, quoteVehicle, returnJourney, {
+    const schedule = {
       outboundDate: tripDate,
       outboundTime: tripTime,
       returnDate,
       returnTime,
       returnJourney,
-    });
+    };
+
+    if (isAirportTrip) {
+      return calculateQuote(quoteAddress, airportCode, quoteVehicle, returnJourney, schedule);
+    }
+
+    if (!routeMetrics) {
+      return null;
+    }
+
+    return calculatePointToPointQuote(
+      pickupAddress,
+      dropoffAddress,
+      quoteVehicle,
+      returnJourney,
+      schedule,
+      routeMetrics,
+    );
   }, [
     airportCode,
     canShowPrice,
+    dropoffAddress,
+    isAirportTrip,
+    pickupAddress,
     quoteAddress,
     returnDate,
     returnJourney,
     returnTime,
+    routeMetrics,
     tripDate,
     tripTime,
     quoteVehicle,
   ]);
+
+  const journeyDistanceLabel = routeMetrics
+    ? formatJourneyDistance(routeMetrics.distanceKm)
+    : "";
+  const journeyDurationLabel = routeMetrics
+    ? formatJourneyDuration(routeMetrics.durationMinutes)
+    : "";
 
   function handlePickupChange(value: string) {
     setPickupAddress(value);
@@ -212,8 +279,6 @@ function QuoteCard() {
       localStorage.setItem(DROPOFF_STORAGE_KEY, value.trim());
     }
   }
-
-  const canBookAirport = !isAirportTrip || Boolean(flightNumber.trim());
 
   const airportName =
     AIRPORTS.find((a) => a.code === airportCode)?.name ?? airportCode;
@@ -230,7 +295,51 @@ function QuoteCard() {
       : airportName
     : dropoffAddress.trim();
 
-  function validateBooking(): boolean {
+  function validateFlightNumbers(): boolean {
+    let ok = true;
+
+    if (goingFlightStatus === "loading") {
+      setGoingFlightError("Checking your going flight — please wait a moment.");
+      ok = false;
+    } else if (!goingFlightNumber.trim()) {
+      setGoingFlightError("Please enter your flight number for going.");
+      ok = false;
+    } else if (!isValidFlightNumberFormat(goingFlightNumber)) {
+      setGoingFlightError("Enter a valid flight number for going (e.g. BA1234).");
+      ok = false;
+    } else if (goingFlightConfigured && goingFlightStatus !== "verified") {
+      setGoingFlightError("Please enter a valid going flight for your selected date and airport.");
+      ok = false;
+    } else {
+      setGoingFlightError("");
+    }
+
+    if (returnJourney) {
+      if (collectionFlightStatus === "loading") {
+        setCollectionFlightError("Checking your collection flight — please wait a moment.");
+        ok = false;
+      } else if (!collectionFlightNumber.trim()) {
+        setCollectionFlightError("Please enter your flight number for collection.");
+        ok = false;
+      } else if (!isValidFlightNumberFormat(collectionFlightNumber)) {
+        setCollectionFlightError("Enter a valid flight number for collection (e.g. BA1234).");
+        ok = false;
+      } else if (collectionFlightConfigured && collectionFlightStatus !== "verified") {
+        setCollectionFlightError(
+          "Please enter a valid collection flight for your return date and airport.",
+        );
+        ok = false;
+      } else {
+        setCollectionFlightError("");
+      }
+    } else {
+      setCollectionFlightError("");
+    }
+
+    return ok;
+  }
+
+  function validateTripForBooking(): boolean {
     if (returnJourney) {
       if (!returnDate || !returnTime) {
         setReturnDateError("Please select a return date and time.");
@@ -243,35 +352,48 @@ function QuoteCard() {
     }
     setReturnDateError("");
 
-    if (isAirportTrip && !flightNumber.trim()) {
-      setFlightNumberError("Please enter your flight number to book.");
+    if (ldyServiceAreaInvalid) {
       return false;
     }
-    setFlightNumberError("");
 
-    const onDesktop = !(isMobileDevice ?? detectMobileDevice());
-    if (onDesktop) {
-      if (!customerEmail.trim()) {
-        setEmailAddressError("Please enter your email address so we can send your payment link.");
-        return false;
-      }
-      if (!isValidEmailAddress(customerEmail)) {
-        setEmailAddressError("Please enter a valid email address.");
-        return false;
-      }
-      if (!customerMobile.trim()) {
-        setMobileNumberError("Please enter your mobile number so we can contact you.");
-        return false;
-      }
-      if (!isValidMobileNumber(customerMobile)) {
-        setMobileNumberError("Please enter a valid mobile number.");
-        return false;
-      }
+    if (!canShowPrice || !liveQuote) {
+      return false;
     }
-    setEmailAddressError("");
-    setMobileNumberError("");
 
     return true;
+  }
+
+  function validateContactDetails(): boolean {
+    let ok = true;
+
+    if (!customerName.trim()) {
+      setCustomerNameError("Please enter your name.");
+      ok = false;
+    } else {
+      setCustomerNameError("");
+    }
+
+    if (!customerMobile.trim()) {
+      setMobileNumberError("Please enter your mobile number so we can send your payment link by text.");
+      ok = false;
+    } else if (!isValidMobileNumber(customerMobile)) {
+      setMobileNumberError("Please enter a valid mobile number.");
+      ok = false;
+    } else {
+      setMobileNumberError("");
+    }
+
+    if (!customerEmail.trim()) {
+      setEmailAddressError("Please enter your email address so we can confirm your booking.");
+      ok = false;
+    } else if (!isValidEmailAddress(customerEmail)) {
+      setEmailAddressError("Please enter a valid email address.");
+      ok = false;
+    } else {
+      setEmailAddressError("");
+    }
+
+    return ok;
   }
 
   function buildBookingDetails(): BookingDetails {
@@ -281,9 +403,7 @@ function QuoteCard() {
         : "Airport drop-off"
       : "Address to address";
 
-    const estimatedPrice =
-      isAirportTrip && liveQuote ? formatQuote(liveQuote.amount) : null;
-    const journeySuffix = returnJourney ? " (return)" : "";
+    const estimatedPrice = liveQuote ? formatQuote(liveQuote.amount) : null;
 
     return {
       customerName: customerName.trim(),
@@ -297,38 +417,36 @@ function QuoteCard() {
       tripTime,
       returnDate,
       returnTime,
-      flightNumber: flightNumber.trim().toUpperCase(),
+      flightNumber: goingFlightNumber.trim().toUpperCase(),
+      returnFlightNumber: returnJourney
+        ? collectionFlightNumber.trim().toUpperCase()
+        : undefined,
       passengers,
       suitcases,
       vehicle: quoteVehicle,
       estimatedPrice,
-      journeyDistance: routeSummary
-        ? `${routeSummary.distanceLabel}${journeySuffix}`
-        : null,
-      journeyDuration: routeSummary
-        ? `${routeSummary.durationLabel}${journeySuffix}`
-        : null,
+      journeyDistance: journeyDistanceLabel || undefined,
+      journeyDuration: journeyDurationLabel || undefined,
       isAirportTrip,
     };
   }
 
-  function openWhatsAppBooking(details: BookingDetails) {
-    const message = encodeURIComponent(buildBookingMessage(details));
-    window.open(`https://wa.me/${SITE.whatsapp}?text=${message}`, "_blank");
-    setSubmitted(true);
-    setShowBookingPreview(false);
-    setBookingSent(true);
-    setTimeout(() => setSubmitted(false), 4000);
-  }
-
-  async function submitDesktopBooking(details: BookingDetails) {
+  async function confirmBooking() {
+    const details = buildBookingDetails();
     setSubmitted(true);
     setSubmitError("");
+    setBookingReference("");
 
     try {
-      await submitBookingByEmail(details);
+      const reference = await submitBookingByEmail(details);
+      setBookingReference(reference);
       setShowBookingPreview(false);
       setBookingSent(true);
+
+      if (isMobileDevice ?? detectMobileDevice()) {
+        const message = encodeURIComponent(buildBookingMessage(details, reference));
+        window.open(`https://wa.me/${SITE.whatsapp}?text=${message}`, "_blank");
+      }
     } catch {
       setSubmitError(
         `We couldn't confirm your booking automatically. Please email ${SITE.email} with your trip details and we'll confirm your booking.`,
@@ -338,95 +456,121 @@ function QuoteCard() {
     }
   }
 
-  async function confirmBooking() {
-    const details = buildBookingDetails();
-    const mobile = isMobileDevice ?? detectMobileDevice();
-
-    if (mobile) {
-      openWhatsAppBooking(details);
-      return;
-    }
-
-    await submitDesktopBooking(details);
-  }
-
   function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setSubmitError("");
     setBookingSent(false);
+    setBookingReference("");
 
-    if (!validateBooking()) {
+    if (showBookingPreview) {
+      void confirmBooking();
       return;
     }
 
-    if (!showBookingPreview) {
+    if (!validateTripForBooking()) {
+      return;
+    }
+
+    if (showBookingDetailsStep) {
+      if (!validateContactDetails()) {
+        return;
+      }
+      if (isAirportTrip && !validateFlightNumbers()) {
+        return;
+      }
+      setShowBookingDetailsStep(false);
       setShowBookingPreview(true);
       return;
     }
 
-    void confirmBooking();
+    setShowBookingDetailsStep(true);
   }
 
   function handleEditBooking() {
     setShowBookingPreview(false);
+    setShowBookingDetailsStep(true);
     setSubmitError("");
     setBookingSent(false);
+    setBookingReference("");
   }
 
   const usesWhatsApp = isMobileDevice === true;
-  const usesEmail = isMobileDevice !== true;
 
-  const submitInProgressLabel = usesWhatsApp
-    ? "Opening WhatsApp…"
-    : "Confirming booking…";
+  useEffect(() => {
+    if (bookingSent) {
+      cardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [bookingSent]);
+
+  const submitInProgressLabel = "Sending booking…";
 
   const confirmButtonLabel =
-    isAirportTrip && liveQuote
+    liveQuote
       ? `Confirm & book for ${formatQuote(liveQuote.amount)}`
       : usesWhatsApp
         ? "Confirm & send via WhatsApp"
         : "Confirm & book";
 
-  const reviewButtonLabel =
-    isAirportTrip && liveQuote ? "Review booking" : "Review booking details";
-
-  const initialButtonLabel =
-    isAirportTrip && liveQuote && !canBookAirport
-      ? "Enter flight number to book"
-      : isAirportTrip && liveQuote
-        ? reviewButtonLabel
-        : isAirportTrip
-          ? usesWhatsApp
-            ? "Send via WhatsApp"
-            : reviewButtonLabel
-          : reviewButtonLabel;
+  const bookButtonLabel = liveQuote ? `Book for ${formatQuote(liveQuote.amount)}` : "Book";
 
   const quoteHint = isAirportTrip
     ? !airportCode
       ? "Select an airport to see your estimated price"
+      : ldyServiceAreaInvalid
+        ? isFromAirport
+          ? "We transfer from Derry Airport to the greater Belfast area — enter a Belfast-area drop-off address"
+          : "Pickups for Derry Airport must be in the greater Belfast area — enter a Belfast-area pickup address"
       : !isScheduleComplete
         ? returnJourney && tripDate && tripTime && (!returnDate || !returnTime)
           ? "Select your return date and time to see your estimated price"
           : "Select your date and time to see your estimated price"
-        : !isAddressComplete
+        : !isAirportAddressComplete
           ? `Enter your ${isFromAirport ? "drop-off" : "pickup"} address to see your estimated price`
           : ""
-    : usesWhatsApp
-      ? "Fill in your journey details and send via WhatsApp — we'll confirm your fare personally."
-      : "Fill in your journey details — we'll confirm your fare and send your payment link.";
+    : !isScheduleComplete
+      ? "Select your date and time to see your estimated price"
+      : !isAddressPairComplete
+        ? "Enter pickup and drop-off addresses to see your estimated price"
+        : !routeMetrics
+          ? "Calculating your route and price…"
+          : "";
+
+  if (bookingSent) {
+    return (
+      <div
+        ref={cardRef}
+        className="glass-card rounded-2xl p-6 sm:p-8 lg:animate-float"
+      >
+        <div className="rounded-xl border border-emerald/30 bg-emerald/10 px-5 py-8 text-center sm:px-8 sm:py-10">
+          <p className="text-xs font-medium uppercase tracking-wider text-emerald">
+            Booking submitted
+          </p>
+          <h2 className="mt-2 text-2xl font-bold text-white sm:text-3xl">Thank you</h2>
+          <p className="mx-auto mt-4 max-w-md text-sm leading-relaxed text-white/80 sm:text-base">
+            A payment link will be sent shortly to confirm your booking. Your booking is not
+            confirmed until full payment is made.
+          </p>
+          {bookingReference && (
+            <p className="mt-4 text-sm text-white/60">Reference: {bookingReference}</p>
+          )}
+          {usesWhatsApp && (
+            <p className="mx-auto mt-4 max-w-md text-sm text-white/60">
+              Your booking message should open in WhatsApp. If it didn&apos;t, tap the green chat
+              button at the bottom of the screen.
+            </p>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="glass-card rounded-2xl p-6 sm:p-8 lg:animate-float">
+    <div ref={cardRef} className="glass-card rounded-2xl p-6 sm:p-8 lg:animate-float">
       <div className="mb-6">
         <h2 className="text-xl font-bold text-white sm:text-2xl">Get a Live Quote</h2>
         <p className="mt-1 text-sm text-white/60">
-          {isAirportTrip
-            ? usesWhatsApp
-              ? "See your estimated price instantly, then book via WhatsApp"
-              : "See your estimated price instantly, then review and confirm your booking"
-            : usesWhatsApp
-              ? "Send your address-to-address trip details and we'll quote you personally"
-              : "Send your trip details and we'll confirm your fare and payment link"}
+          Enter your trip details to see your price instantly — we&apos;ll ask for your contact
+          details and flight numbers when you book.
         </p>
       </div>
 
@@ -472,6 +616,38 @@ function QuoteCard() {
             <p className="mb-2 text-xs font-medium uppercase tracking-wider text-white/50">
               Trip Type
             </p>
+            {isLdyTrip ? (
+              <>
+                <div className="mb-2 rounded-xl border border-emerald/20 bg-emerald/10 px-4 py-3 text-sm text-white/80">
+                  Transfers between City of Derry Airport and the greater Belfast area — not
+                  Belfast City Airport (BHD).
+                </div>
+                <div className="grid grid-cols-2 gap-2 rounded-xl border border-white/10 bg-white/5 p-1">
+                  <button
+                    type="button"
+                    onClick={() => setTripDirection("to-airport")}
+                    className={`rounded-lg px-3 py-2.5 text-xs font-semibold transition-all sm:text-sm ${
+                      tripDirection === "to-airport"
+                        ? "bg-emerald text-navy shadow-sm"
+                        : "text-white/70 hover:text-white"
+                    }`}
+                  >
+                    To Derry Airport
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTripDirection("from-airport")}
+                    className={`rounded-lg px-3 py-2.5 text-xs font-semibold transition-all sm:text-sm ${
+                      tripDirection === "from-airport"
+                        ? "bg-emerald text-navy shadow-sm"
+                        : "text-white/70 hover:text-white"
+                    }`}
+                  >
+                    From Derry Airport
+                  </button>
+                </div>
+              </>
+            ) : (
             <div className="grid grid-cols-2 gap-2 rounded-xl border border-white/10 bg-white/5 p-1">
               <button
                 type="button"
@@ -496,6 +672,7 @@ function QuoteCard() {
                 From airport
               </button>
             </div>
+            )}
           </div>
         )}
 
@@ -532,95 +709,6 @@ function QuoteCard() {
           </div>
         </div>
 
-        <div>
-          <label
-            htmlFor="name"
-            className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/50"
-          >
-            Your Name
-          </label>
-          <input
-            id="name"
-            name="name"
-            type="text"
-            required
-            value={customerName}
-            onChange={(e) => {
-              setCustomerName(e.target.value);
-              setShowBookingPreview(false);
-              setBookingSent(false);
-            }}
-            placeholder="John Smith"
-            className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/30 outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30"
-          />
-        </div>
-
-        {isMobileDevice !== true && (
-          <div>
-            <label
-              htmlFor="email"
-              className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/50"
-            >
-              Email Address
-            </label>
-            <input
-              id="email"
-              name="email"
-              type="email"
-              required
-              autoComplete="email"
-              value={customerEmail}
-              onChange={(e) => {
-                setCustomerEmail(e.target.value);
-                setShowBookingPreview(false);
-                setBookingSent(false);
-                setEmailAddressError("");
-              }}
-              placeholder="you@example.com"
-              className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/30 outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30"
-            />
-            <p className="mt-1.5 text-xs text-white/40">
-              We&apos;ll send your payment link here.
-            </p>
-            {emailAddressError && (
-              <p className="mt-1.5 text-xs text-red-300">{emailAddressError}</p>
-            )}
-          </div>
-        )}
-
-        {isMobileDevice !== true && (
-          <div>
-            <label
-              htmlFor="mobile"
-              className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/50"
-            >
-              Mobile Number
-            </label>
-            <input
-              id="mobile"
-              name="mobile"
-              type="tel"
-              required
-              autoComplete="tel"
-              value={customerMobile}
-              onChange={(e) => {
-                setCustomerMobile(e.target.value);
-                setShowBookingPreview(false);
-                setBookingSent(false);
-                setMobileNumberError("");
-              }}
-              placeholder="07xxx xxxxxx"
-              className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/30 outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30"
-            />
-            <p className="mt-1.5 text-xs text-white/40">
-              So we can contact you about your booking.
-            </p>
-            {mobileNumberError && (
-              <p className="mt-1.5 text-xs text-red-300">{mobileNumberError}</p>
-            )}
-          </div>
-        )}
-
         {isAirportTrip && (
           <div>
             <label
@@ -629,18 +717,28 @@ function QuoteCard() {
             >
               {isFromAirport ? "Pickup Airport" : "Destination Airport"}
             </label>
+            {isLdyTrip && (
+              <p className="mb-2 text-xs text-white/45">
+                {isFromAirport
+                  ? "Drop-off must be in the greater Belfast area"
+                  : "Pickup must be in the greater Belfast area (e.g. Bangor, Belfast, Lisburn)"}
+              </p>
+            )}
             <select
               id="destination"
               name="destination"
               required
               value={airportCode}
-              onChange={(e) => setAirportCode(e.target.value)}
+              onChange={(e) => {
+                setAirportCode(e.target.value);
+              }}
               className="w-full rounded-xl border border-white/10 bg-navy-light px-4 py-3 text-sm text-white outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30"
             >
               <option value="">Select airport</option>
               {AIRPORTS.map((a) => (
                 <option key={a.code} value={a.code}>
                   {a.name} ({a.code}) — {a.distance}
+                  {a.code === "LDY" ? " · not Belfast City (BHD)" : ""}
                 </option>
               ))}
             </select>
@@ -658,10 +756,30 @@ function QuoteCard() {
                 value={dropoffAddress}
                 onChange={handleDropoffChange}
                 airportCode={addressLookupCode}
-                label="Your Drop-off Address"
-                placeholder="e.g. Donegall Square, Belfast or 12 Donegall Square"
-                helperText="Type your street name or full address — numbered addresses appear in the list for you to pick"
+                label={
+                  isLdyTrip
+                    ? isFromAirport
+                      ? "Your Belfast-area Drop-off Address"
+                      : "Your Belfast-area Pickup Address"
+                    : "Your Drop-off Address"
+                }
+                placeholder={
+                  isLdyTrip
+                    ? "e.g. Main Street, Bangor or Donegall Square, Belfast"
+                    : "e.g. Donegall Square, Belfast or 12 Donegall Square"
+                }
+                helperText={
+                  isLdyTrip
+                    ? "Bangor, Belfast, Lisburn, Newtownabbey, and surrounding towns only"
+                    : "Type a street name, business name, or full address — pick from the list"
+                }
               />
+              {ldyServiceAreaInvalid && isFromAirport && (
+                <p className="text-xs text-red-300">
+                  This address is outside our LDY service area. We transfer between Derry Airport
+                  and the greater Belfast area only.
+                </p>
+              )}
               <input type="hidden" name="pickup" value={airportCode ? AIRPORTS.find((a) => a.code === airportCode)?.name ?? "" : ""} />
             </>
           ) : (
@@ -672,10 +790,24 @@ function QuoteCard() {
                 value={pickupAddress}
                 onChange={handlePickupChange}
                 airportCode={addressLookupCode}
-                label="Your Pickup Address"
-                placeholder="e.g. Donegall Square, Belfast or 12 Donegall Square"
-                helperText="Type your street name or full address — numbered addresses appear in the list for you to pick"
+                label={isLdyTrip ? "Your Belfast-area Pickup Address" : "Your Pickup Address"}
+                placeholder={
+                  isLdyTrip
+                    ? "e.g. Main Street, Bangor or Donegall Square, Belfast"
+                    : "e.g. Donegall Square, Belfast or 12 Donegall Square"
+                }
+                helperText={
+                  isLdyTrip
+                    ? "Bangor, Belfast, Lisburn, Newtownabbey, and surrounding towns only"
+                    : "Type a street name, business name, or full address — pick from the list"
+                }
               />
+              {ldyServiceAreaInvalid && !isFromAirport && (
+                <p className="text-xs text-red-300">
+                  This address is outside our LDY service area. Pickups for Derry Airport must be
+                  in the greater Belfast area.
+                </p>
+              )}
               <input type="hidden" name="dropoff" value={airportCode ? AIRPORTS.find((a) => a.code === airportCode)?.name ?? "" : ""} />
             </>
           )
@@ -722,8 +854,7 @@ function QuoteCard() {
           }
           airportCode={airportCode}
           tripDirection={tripDirection}
-          returnJourney={returnJourney}
-          onRouteInfo={handleRouteInfo}
+          onRouteMetrics={handleRouteMetrics}
         />
 
         <div className="grid gap-4 sm:grid-cols-2">
@@ -805,34 +936,168 @@ function QuoteCard() {
           </div>
         )}
 
-        {isAirportTrip && (
-          <div>
-            <label
-              htmlFor="flightNumber"
-              className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/50"
-            >
-              Flight Number
-            </label>
-            <input
-              id="flightNumber"
-              name="flightNumber"
-              type="text"
-              value={flightNumber}
-              onChange={(e) => {
-                setFlightNumber(e.target.value);
-                if (e.target.value.trim()) {
-                  setFlightNumberError("");
-                }
-              }}
-              placeholder="e.g. BA1234"
-              className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm uppercase text-white placeholder:normal-case placeholder:text-white/30 outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30"
-            />
-            <p className="mt-1.5 text-xs text-white/40">
-              Required to book — used for flight monitoring and complimentary airport waiting time.
+        {showBookingDetailsStep && !showBookingPreview && (
+          <div className="rounded-xl border border-white/15 bg-white/[0.04] px-4 py-4 sm:px-5">
+            <p className="text-xs font-medium uppercase tracking-wider text-emerald">
+              Your details
             </p>
-            {flightNumberError && (
-              <p className="mt-1.5 text-xs text-red-400">{flightNumberError}</p>
-            )}
+            <p className="mt-1 mb-4 text-sm text-white/60">
+              We need these details to confirm your booking and send your payment link.
+            </p>
+            <div className="space-y-4">
+              <div>
+                <label
+                  htmlFor="name"
+                  className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/50"
+                >
+                  Your Name
+                </label>
+                <input
+                  id="name"
+                  name="name"
+                  type="text"
+                  value={customerName}
+                  onChange={(e) => {
+                    setCustomerName(e.target.value);
+                    if (e.target.value.trim()) {
+                      setCustomerNameError("");
+                    }
+                  }}
+                  placeholder="John Smith"
+                  className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/30 outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30"
+                />
+                {customerNameError && (
+                  <p className="mt-1.5 text-xs text-red-300">{customerNameError}</p>
+                )}
+              </div>
+
+              <div>
+                <label
+                  htmlFor="mobile"
+                  className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/50"
+                >
+                  Mobile Number
+                </label>
+                <input
+                  id="mobile"
+                  name="mobile"
+                  type="tel"
+                  autoComplete="tel"
+                  value={customerMobile}
+                  onChange={(e) => {
+                    setCustomerMobile(e.target.value);
+                    if (e.target.value.trim()) {
+                      setMobileNumberError("");
+                    }
+                  }}
+                  placeholder="07xxx xxxxxx"
+                  className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/30 outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30"
+                />
+                <p className="mt-1.5 text-xs text-white/40">
+                  We&apos;ll send your payment link here by text or WhatsApp.
+                </p>
+                {mobileNumberError && (
+                  <p className="mt-1.5 text-xs text-red-300">{mobileNumberError}</p>
+                )}
+              </div>
+
+              <div>
+                <label
+                  htmlFor="email"
+                  className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/50"
+                >
+                  Email Address
+                </label>
+                <input
+                  id="email"
+                  name="email"
+                  type="email"
+                  autoComplete="email"
+                  value={customerEmail}
+                  onChange={(e) => {
+                    setCustomerEmail(e.target.value);
+                    if (e.target.value.trim()) {
+                      setEmailAddressError("");
+                    }
+                  }}
+                  placeholder="you@example.com"
+                  className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/30 outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30"
+                />
+                <p className="mt-1.5 text-xs text-white/40">
+                  So we can email your booking confirmation.
+                </p>
+                {emailAddressError && (
+                  <p className="mt-1.5 text-xs text-red-300">{emailAddressError}</p>
+                )}
+              </div>
+
+              {isAirportTrip && (
+                <>
+                  <div className="border-t border-white/10 pt-4">
+                    <p className="text-xs font-medium uppercase tracking-wider text-emerald">
+                      Flight numbers
+                    </p>
+                    <p className="mt-1 mb-4 text-sm text-white/60">
+                      For flight monitoring and complimentary airport waiting time.
+                    </p>
+                  </div>
+                  <FlightNumberField
+                    id="goingFlightNumber"
+                    label="Flight number for going"
+                    helperText={
+                      isFromAirport
+                        ? "The flight you are arriving on"
+                        : "The flight you are departing on"
+                    }
+                    value={goingFlightNumber}
+                    onChange={(value) => {
+                      setGoingFlightNumber(value);
+                      if (value.trim()) {
+                        setGoingFlightError("");
+                      }
+                    }}
+                    tripDate={tripDate}
+                    airportCode={airportCode}
+                    direction={tripDirection}
+                    enabled={showBookingDetailsStep}
+                    error={goingFlightError}
+                    onStatusChange={setGoingFlightStatus}
+                    onVerifiedChange={(flight, configured) => {
+                      setVerifiedGoingFlight(flight);
+                      setGoingFlightConfigured(configured);
+                    }}
+                  />
+                  {returnJourney && (
+                    <FlightNumberField
+                      id="collectionFlightNumber"
+                      label="Flight number for collection"
+                      helperText={
+                        returnTripDirection === "from-airport"
+                          ? "The flight you are returning on — we collect you after it lands"
+                          : "The flight you are returning on — we take you to the airport"
+                      }
+                      value={collectionFlightNumber}
+                      onChange={(value) => {
+                        setCollectionFlightNumber(value);
+                        if (value.trim()) {
+                          setCollectionFlightError("");
+                        }
+                      }}
+                      tripDate={returnDate}
+                      airportCode={airportCode}
+                      direction={returnTripDirection}
+                      enabled={showBookingDetailsStep}
+                      error={collectionFlightError}
+                      onStatusChange={setCollectionFlightStatus}
+                      onVerifiedChange={(flight, configured) => {
+                        setVerifiedCollectionFlight(flight);
+                        setCollectionFlightConfigured(configured);
+                      }}
+                    />
+                  )}
+                </>
+              )}
+            </div>
           </div>
         )}
 
@@ -920,47 +1185,31 @@ function QuoteCard() {
         </div>
 
         <div className="rounded-xl border border-emerald/30 bg-emerald/10 px-4 py-4">
-          {isAirportTrip ? (
-            liveQuote ? (
-              <>
-                <p className="text-xs font-medium uppercase tracking-wider text-emerald">
-                  {returnJourney ? "Estimated return price" : "Estimated price"}
+          {liveQuote ? (
+            <>
+              <p className="text-xs font-medium uppercase tracking-wider text-emerald">
+                {returnJourney ? "Estimated return price" : "Estimated price"}
+              </p>
+              <p className="mt-1 text-3xl font-bold text-white">{formatQuote(liveQuote.amount)}</p>
+              <p className="mt-2 text-xs text-white/60">{quoteVehicle.split(" (")[0]}</p>
+              {journeyDistanceLabel && journeyDurationLabel && (
+                <p className="mt-2 text-xs text-white/60">
+                  Approx. {journeyDistanceLabel} · {journeyDurationLabel}
                 </p>
-                <p className="mt-1 text-3xl font-bold text-white">{formatQuote(liveQuote.amount)}</p>
-                <p className="mt-2 text-xs text-white/60">{quoteVehicle.split(" (")[0]}</p>
+              )}
+              {isAirportTrip && (
                 <p className="mt-3 text-xs leading-relaxed text-white/60">
                   Includes express drop-off and pickup fees, and 60 minutes complimentary waiting
                   time from when your plane lands.
                 </p>
-              </>
-            ) : (
-              <>
-                <p className="text-xs font-medium uppercase tracking-wider text-white/50">
-                  Estimated price
-                </p>
-                <p className="mt-1 text-sm text-white/70">{quoteHint}</p>
-              </>
-            )
+              )}
+            </>
           ) : (
             <>
-              <p className="text-xs font-medium uppercase tracking-wider text-emerald">
-                Personal quote
+              <p className="text-xs font-medium uppercase tracking-wider text-white/50">
+                Estimated price
               </p>
-              <p className="mt-1 text-sm text-white/80">
-                Address-to-address fares vary by route. Send your details below and we&apos;ll reply
-                {usesWhatsApp
-                  ? " on WhatsApp with your exact price."
-                  : " with your exact price and payment link."}
-              </p>
-              {routeSummary && (
-                <p className="mt-2 text-sm font-medium text-white">
-                  {routeSummary.distanceLabel}
-                  <span className="mx-2 text-white/30">·</span>
-                  {routeSummary.durationLabel}
-                  {returnJourney ? " (return)" : ""}
-                </p>
-              )}
-              <p className="mt-2 text-xs text-white/60">{quoteHint}</p>
+              <p className="mt-1 text-sm text-white/70">{quoteHint}</p>
             </>
           )}
           <p className="mt-3 text-[11px] text-white/40">
@@ -981,12 +1230,8 @@ function QuoteCard() {
             </div>
             <dl>
               <PreviewRow label="Name" value={customerName.trim()} />
-              {isMobileDevice !== true && customerEmail.trim() && (
-                <PreviewRow label="Email" value={customerEmail.trim()} />
-              )}
-              {isMobileDevice !== true && customerMobile.trim() && (
-                <PreviewRow label="Mobile" value={customerMobile.trim()} />
-              )}
+              <PreviewRow label="Mobile" value={customerMobile.trim()} />
+              <PreviewRow label="Email" value={customerEmail.trim()} />
               <PreviewRow
                 label="Trip"
                 value={
@@ -1025,15 +1270,38 @@ function QuoteCard() {
                 />
               )}
               {isAirportTrip && (
-                <PreviewRow label="Flight number" value={flightNumber.trim().toUpperCase()} />
+                <PreviewRow
+                  label="Flight for going"
+                  value={
+                    verifiedGoingFlight
+                      ? formatVerifiedFlightSummary(verifiedGoingFlight)
+                      : goingFlightNumber.trim().toUpperCase()
+                  }
+                />
+              )}
+              {isAirportTrip && returnJourney && (
+                <PreviewRow
+                  label="Flight for collection"
+                  value={
+                    verifiedCollectionFlight
+                      ? formatVerifiedFlightSummary(verifiedCollectionFlight)
+                      : collectionFlightNumber.trim().toUpperCase()
+                  }
+                />
               )}
               <PreviewRow label="Passengers" value={String(passengers)} />
               <PreviewRow label="Suitcases" value={String(suitcases)} />
               <PreviewRow label="Vehicle" value={quoteVehicle} />
-              {isAirportTrip && liveQuote && (
+              {liveQuote && (
                 <PreviewRow
                   label={returnJourney ? "Estimated return price" : "Estimated price"}
                   value={formatQuote(liveQuote.amount)}
+                />
+              )}
+              {journeyDistanceLabel && journeyDurationLabel && (
+                <PreviewRow
+                  label="Journey"
+                  value={`${journeyDistanceLabel} · ${journeyDurationLabel}`}
                 />
               )}
             </dl>
@@ -1043,19 +1311,6 @@ function QuoteCard() {
         {submitError && (
           <p className="rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-100">
             {submitError}
-          </p>
-        )}
-
-        {bookingSent && usesWhatsApp && (
-          <p className="rounded-xl border border-[#25D366]/30 bg-[#25D366]/10 px-4 py-3 text-sm text-white">
-            Your booking message should open in WhatsApp. If it didn&apos;t, tap the green chat
-            button at the bottom of the screen.
-          </p>
-        )}
-
-        {bookingSent && usesEmail && (
-          <p className="rounded-xl border border-emerald/30 bg-emerald/10 px-4 py-3 text-sm text-white">
-            Booking confirmed. We&apos;ll reply shortly with your payment link.
           </p>
         )}
 
@@ -1076,13 +1331,37 @@ function QuoteCard() {
               {submitted ? submitInProgressLabel : confirmButtonLabel}
             </button>
           </div>
+        ) : showBookingDetailsStep ? (
+          <div className="grid gap-3 sm:grid-cols-2">
+            <button
+              type="button"
+              onClick={() => {
+                setShowBookingDetailsStep(false);
+                setCustomerNameError("");
+                setMobileNumberError("");
+                setEmailAddressError("");
+                setGoingFlightError("");
+                setCollectionFlightError("");
+              }}
+              className="w-full rounded-xl border border-white/15 bg-white/5 py-3.5 text-sm font-semibold text-white transition-all hover:bg-white/10"
+            >
+              Back
+            </button>
+            <button
+              type="submit"
+              disabled={submitted}
+              className="w-full rounded-xl bg-emerald py-3.5 text-sm font-bold text-navy transition-all hover:bg-emerald-light hover:shadow-lg hover:shadow-emerald/25 disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              {submitted ? submitInProgressLabel : "Continue to review"}
+            </button>
+          </div>
         ) : (
           <button
             type="submit"
-            disabled={(isAirportTrip && liveQuote != null && !canBookAirport) || submitted}
+            disabled={submitted || !liveQuote}
             className="w-full rounded-xl bg-emerald py-3.5 text-sm font-bold text-navy transition-all hover:bg-emerald-light hover:shadow-lg hover:shadow-emerald/25 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {submitted ? submitInProgressLabel : initialButtonLabel}
+            {submitted ? submitInProgressLabel : bookButtonLabel}
           </button>
         )}
       </form>

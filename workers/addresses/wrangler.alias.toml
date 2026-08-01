@@ -1,0 +1,7 @@
+name = "my-airport-taxi-ni"
+main = "src/index.ts"
+compatibility_date = "2024-11-01"
+account_id = "36c5c88df4c1f0259413d555f2679f3c"
+
+[observability]
+enabled = true
