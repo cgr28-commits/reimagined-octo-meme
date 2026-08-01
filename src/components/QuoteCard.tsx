@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, memo, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import AddressInput from "@/components/AddressInput";
 import TripMap from "@/components/TripMap";
 import { buildBookingMessage, isValidEmailAddress, isValidMobileNumber, type BookingDetails } from "@/lib/booking-message";
@@ -93,6 +93,7 @@ function isReturnAfterOutbound(
 }
 
 function QuoteCard() {
+  const cardRef = useRef<HTMLDivElement>(null);
   const isMobileDevice = useIsMobileDevice();
   const [submitted, setSubmitted] = useState(false);
   const [submitError, setSubmitError] = useState("");
@@ -508,7 +509,12 @@ function QuoteCard() {
   }
 
   const usesWhatsApp = isMobileDevice === true;
-  const usesEmail = isMobileDevice !== true;
+
+  useEffect(() => {
+    if (bookingSent) {
+      cardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [bookingSent]);
 
   const submitInProgressLabel = "Sending booking…";
 
@@ -552,8 +558,37 @@ function QuoteCard() {
           ? "Calculating your route and price…"
           : "";
 
+  if (bookingSent) {
+    return (
+      <div
+        ref={cardRef}
+        className="glass-card rounded-2xl p-6 sm:p-8 lg:animate-float"
+      >
+        <div className="rounded-xl border border-emerald/30 bg-emerald/10 px-5 py-8 text-center sm:px-8 sm:py-10">
+          <p className="text-xs font-medium uppercase tracking-wider text-emerald">
+            Booking submitted
+          </p>
+          <h2 className="mt-2 text-2xl font-bold text-white sm:text-3xl">Thank you</h2>
+          <p className="mx-auto mt-4 max-w-md text-sm leading-relaxed text-white/80 sm:text-base">
+            A payment link will be sent shortly to confirm your booking. Your booking is not
+            confirmed until full payment is made.
+          </p>
+          {bookingReference && (
+            <p className="mt-4 text-sm text-white/60">Reference: {bookingReference}</p>
+          )}
+          {usesWhatsApp && (
+            <p className="mx-auto mt-4 max-w-md text-sm text-white/60">
+              Your booking message should open in WhatsApp. If it didn&apos;t, tap the green chat
+              button at the bottom of the screen.
+            </p>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="glass-card rounded-2xl p-6 sm:p-8 lg:animate-float">
+    <div ref={cardRef} className="glass-card rounded-2xl p-6 sm:p-8 lg:animate-float">
       <div className="mb-6">
         <h2 className="text-xl font-bold text-white sm:text-2xl">Get a Live Quote</h2>
         <p className="mt-1 text-sm text-white/60">
@@ -1150,24 +1185,6 @@ function QuoteCard() {
             Includes vehicle, driver, fuel, and tolls.
           </p>
         </div>
-
-        {bookingSent && (
-          <div className="rounded-xl border border-emerald/30 bg-emerald/10 px-4 py-4 text-sm text-white">
-            <p className="font-semibold">
-              Booking sent{bookingReference ? ` — reference ${bookingReference}` : ""}
-            </p>
-            <p className="mt-2 text-white/80">
-              You will be sent a payment link shortly via text. Your booking is not confirmed until
-              full payment is made.
-            </p>
-            {usesWhatsApp && (
-              <p className="mt-2 text-white/60">
-                Your booking message should open in WhatsApp. If it didn&apos;t, tap the green chat
-                button at the bottom of the screen.
-              </p>
-            )}
-          </div>
-        )}
 
         {showBookingPreview && (
           <div className="rounded-xl border border-white/15 bg-white/[0.04] px-4 py-4 sm:px-5">
