@@ -40,6 +40,11 @@ import {
   type TourBookingEvent,
   type TransferBookingEvent,
 } from "./google-calendar";
+import {
+  buildQuoteLeadMessage,
+  buildQuoteLeadSubject,
+  type QuoteLeadDetails,
+} from "../shared/quote-lead";
 
 type EmailBinding = {
   send(message: {
@@ -66,6 +71,10 @@ type Env = {
   GOOGLE_CALENDAR_ID?: string;
 };
 
+type QuoteLeadRequestBody = QuoteLeadDetails & {
+  fingerprint?: string;
+};
+
 type BookingRequestBody = {
   customerName?: string;
   message?: string;
@@ -90,7 +99,7 @@ function json(body: unknown, status: number, origin: string | null): Response {
 
 function routePath(
   pathname: string,
-): "addresses" | "geocode" | "bookings" | "payments" | "payments-confirm" | "flights" | null {
+): "addresses" | "geocode" | "bookings" | "quote-leads" | "payments" | "payments-confirm" | "flights" | null {
   if (pathname === "/addresses" || pathname === "/api/addresses") {
     return "addresses";
   }
@@ -101,6 +110,10 @@ function routePath(
 
   if (pathname === "/bookings" || pathname === "/api/bookings") {
     return "bookings";
+  }
+
+  if (pathname === "/quote-leads" || pathname === "/api/quote-leads") {
+    return "quote-leads";
   }
 
   if (pathname === "/payments/confirm" || pathname === "/api/payments/confirm") {
@@ -329,6 +342,106 @@ function parsePaidBookingDetails(body: Record<string, unknown>): PaidBookingDeta
     journeyDuration: String(details.journeyDuration ?? "").trim() || undefined,
     isAirportTrip: Boolean(details.isAirportTrip),
   };
+}
+
+async function isDuplicateQuoteLead(fingerprint: string): Promise<boolean> {
+  const cache = (caches as unknown as { default: Cache }).default;
+  const cacheKey = new Request(`https://quote-lead-dedup.internal/${encodeURIComponent(fingerprint)}`);
+  const cached = await cache.match(cacheKey);
+  if (cached) {
+    return true;
+  }
+
+  await cache.put(
+    cacheKey,
+    new Response("1", {
+      headers: { "Cache-Control": "private, max-age=3600" },
+    }),
+  );
+
+  return false;
+}
+
+function parseQuoteLeadBody(body: QuoteLeadRequestBody): QuoteLeadDetails | null {
+  const tripLabel = body.tripLabel?.trim() ?? "";
+  const pickupLabel = body.pickupLabel?.trim() ?? "";
+  const dropoffLabel = body.dropoffLabel?.trim() ?? "";
+  const tripDate = body.tripDate?.trim() ?? "";
+  const tripTime = body.tripTime?.trim() ?? "";
+  const vehicle = body.vehicle?.trim() ?? "";
+  const estimatedPrice = body.estimatedPrice?.trim() ?? "";
+
+  if (!tripLabel || !pickupLabel || !dropoffLabel || !tripDate || !tripTime || !vehicle || !estimatedPrice) {
+    return null;
+  }
+
+  const passengers = Number(body.passengers);
+  const suitcases = Number(body.suitcases);
+
+  if (!Number.isFinite(passengers) || passengers < 1 || !Number.isFinite(suitcases) || suitcases < 0) {
+    return null;
+  }
+
+  return {
+    tripLabel,
+    pickupLabel,
+    dropoffLabel,
+    returnJourney: Boolean(body.returnJourney),
+    tripDate,
+    tripTime,
+    returnDate: body.returnDate?.trim() || undefined,
+    returnTime: body.returnTime?.trim() || undefined,
+    passengers,
+    suitcases,
+    vehicle,
+    estimatedPrice,
+    journeyDistance: body.journeyDistance?.trim() || undefined,
+    journeyDuration: body.journeyDuration?.trim() || undefined,
+    isAirportTrip: Boolean(body.isAirportTrip),
+  };
+}
+
+async function handleQuoteLeadRequest(
+  request: Request,
+  env: Env,
+  origin: string | null,
+): Promise<Response> {
+  let body: QuoteLeadRequestBody;
+
+  try {
+    body = await request.json();
+  } catch {
+    return json({ error: "Invalid JSON" }, 400, origin);
+  }
+
+  const details = parseQuoteLeadBody(body);
+  if (!details) {
+    return json({ error: "Missing required fields" }, 400, origin);
+  }
+
+  const fingerprint = body.fingerprint?.trim() ?? "";
+  if (!fingerprint || fingerprint.length > 512) {
+    return json({ error: "Missing quote fingerprint" }, 400, origin);
+  }
+
+  if (await isDuplicateQuoteLead(fingerprint)) {
+    return json({ ok: true, emailed: false, deduplicated: true }, 200, origin);
+  }
+
+  const toEmail = env.BOOKING_TO_EMAIL?.trim() || DEFAULT_BOOKING_EMAIL;
+
+  try {
+    await sendEmail(env, {
+      to: toEmail,
+      subject: buildQuoteLeadSubject(details),
+      body: buildQuoteLeadMessage(details),
+    });
+  } catch (error) {
+    console.error("Quote lead email failed", error);
+    return json({ error: "Failed to send quote alert email" }, 502, origin);
+  }
+
+  return json({ ok: true, emailed: true }, 200, origin);
 }
 
 async function handleBookingRequest(
@@ -670,6 +783,14 @@ export default {
       }
 
       return handleBookingRequest(request, env, origin);
+    }
+
+    if (route === "quote-leads") {
+      if (request.method !== "POST") {
+        return json({ error: "Method not allowed" }, 405, origin);
+      }
+
+      return handleQuoteLeadRequest(request, env, origin);
     }
 
     if (route === "payments") {

@@ -19,6 +19,7 @@ import {
   type TripRouteMetrics,
 } from "@/lib/trip-route";
 import { submitBookingByEmail, submitMobileWhatsAppBooking, openWhatsAppBookingMessage } from "@/lib/submit-booking";
+import { scheduleQuoteLeadAlert } from "@/lib/submit-quote-lead";
 import FlightNumberField, { formatVerifiedFlightSummary } from "@/components/FlightNumberField";
 import { isValidFlightNumberFormat } from "@/lib/flight-lookup";
 import type { VerifiedFlight } from "@/lib/flight-lookup";
@@ -335,6 +336,55 @@ function QuoteCard() {
       ? dropoffAddress.trim()
       : airportName
     : dropoffAddress.trim();
+
+  useEffect(() => {
+    if (!liveQuote || bookingSent || showBookingDetailsStep || showBookingPreview) {
+      return;
+    }
+
+    const tripLabel = isAirportTrip
+      ? isFromAirport
+        ? "Airport pickup"
+        : "Airport drop-off"
+      : "Address to address";
+
+    return scheduleQuoteLeadAlert({
+      tripLabel,
+      pickupLabel,
+      dropoffLabel,
+      returnJourney,
+      tripDate,
+      tripTime,
+      returnDate: returnJourney ? returnDate : undefined,
+      returnTime: returnJourney ? returnTime : undefined,
+      passengers,
+      suitcases,
+      vehicle: quoteVehicle,
+      estimatedPrice: formatQuote(liveQuote.amount),
+      journeyDistance: journeyDistanceLabel || undefined,
+      journeyDuration: journeyDurationLabel || undefined,
+      isAirportTrip,
+    });
+  }, [
+    bookingSent,
+    dropoffLabel,
+    isAirportTrip,
+    isFromAirport,
+    journeyDistanceLabel,
+    journeyDurationLabel,
+    liveQuote,
+    passengers,
+    pickupLabel,
+    quoteVehicle,
+    returnDate,
+    returnJourney,
+    returnTime,
+    showBookingDetailsStep,
+    showBookingPreview,
+    suitcases,
+    tripDate,
+    tripTime,
+  ]);
 
   function validateFlightNumbers(): boolean {
     let ok = true;
