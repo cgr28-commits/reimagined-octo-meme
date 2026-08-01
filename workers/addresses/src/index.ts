@@ -486,7 +486,7 @@ export default {
     try {
       const tasks: Promise<Awaited<ReturnType<typeof searchGooglePlaces>>>[] = [];
 
-      if (env.GETADDRESS_API_KEY && airportCode !== "DUB") {
+      if (env.GETADDRESS_API_KEY && airportCode !== "DUB" && airportCode !== "LDY") {
         tasks.push(searchGetAddress(env.GETADDRESS_API_KEY, query, airportCode));
       }
 

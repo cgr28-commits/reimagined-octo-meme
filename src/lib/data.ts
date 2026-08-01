@@ -79,7 +79,7 @@ export const HERO_SLIDES = [
   {
     title: "City of Derry Airport Transfers",
     subtitle:
-      "Reliable transfers to and from Derry~Londonderry (LDY) — serving the North West with flight tracking and meet & greet.",
+      "Flying into Derry~Londonderry (LDY)? We meet you at arrivals and transfer you to Belfast and the greater Belfast area.",
     image: withBasePath("/images/tours/derry-londonderry.jpg"),
     alt: "Derry~Londonderry city and riverfront",
   },
@@ -123,12 +123,12 @@ export const AIRPORTS = [
     code: "LDY",
     name: "City of Derry",
     basePrice: 35,
-    distance: "From £35",
-    duration: "~10 min from Derry",
+    distance: "From £103",
+    duration: "Derry Airport → Belfast area",
     mapLabel: "City of Derry Airport, Airport Road, Eglinton, UK",
     mapLocation: { lat: 55.0428, lng: -7.1611 },
     description:
-      "Direct transfers to and from Derry~Londonderry Airport with live flight monitoring and complimentary waiting time.",
+      "Meet & greet at Derry~Londonderry Airport with transfers to Belfast and the surrounding area — ideal if you are flying into the North West and heading east.",
   },
 ] as const;
 

@@ -1,3 +1,8 @@
+import {
+  isGreaterBelfastServiceAddress,
+  isLdyDropOffAddress,
+} from "./ldy-service-area";
+
 const BT_POSTCODE_PATTERN = /\bBT\d{1,2}\s?\d[A-Z]{2}\b/i;
 const NI_COUNTY_PATTERN =
   /\b(antrim|armagh|down|fermanagh|londonderry|derry|tyrone|belfast)\b/i;
@@ -109,11 +114,20 @@ export function isAddressAllowedForAirport(
     displayName?: string;
   },
 ): boolean {
+  const code = normaliseAirportCode(airportCode);
+
+  if (code === "LDY") {
+    const combined = [parts.postcode, parts.county, parts.city, parts.town, parts.displayName]
+      .filter(Boolean)
+      .join(", ");
+    return isLdyDropOffAddress(combined);
+  }
+
   if (isNorthernIrelandAddressParts(parts)) {
     return true;
   }
 
-  if (airportCode === "DUB" && isRepublicOfIrelandAddressParts(parts)) {
+  if (code === "DUB" && isRepublicOfIrelandAddressParts(parts)) {
     return true;
   }
 
@@ -137,6 +151,10 @@ export function isAllowedAutocompleteLabel(label: string, airportCode: string): 
   }
 
   const code = normaliseAirportCode(airportCode);
+
+  if (code === "LDY") {
+    return isGreaterBelfastServiceAddress(text);
+  }
 
   if (NON_NI_UK_REGION_PATTERN.test(text)) {
     return false;

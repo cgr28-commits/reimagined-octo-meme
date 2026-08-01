@@ -1,4 +1,5 @@
 import { AIRPORTS, AREAS, VEHICLE_TYPES } from "@/lib/data";
+import { isLdyDropOffAddress } from "../../shared/ldy-service-area";
 import {
   applyTripPremium,
   AIRPORT_TRIP_PREMIUM_RATE,
@@ -450,6 +451,10 @@ export function calculateQuote(
 ): QuoteResult | null {
   const trimmedAddress = address.trim();
   if (!trimmedAddress || !airportCode) {
+    return null;
+  }
+
+  if (airportCode === "LDY" && !isLdyDropOffAddress(trimmedAddress)) {
     return null;
   }
 
