@@ -81,6 +81,7 @@ export function buildBookingMessage(details: BookingDetails, bookingReference?: 
       ? `Journey: ${details.journeyDistance} · ${details.journeyDuration}\n`
       : "") +
     (details.estimatedPrice ? `Estimated price: ${details.estimatedPrice}\n` : "") +
+    (details.returnJourney ? "Return booking discount: 5% applied\n" : "") +
     `Submitted: ${formatUkSubmissionTime()}\n`
   );
 }

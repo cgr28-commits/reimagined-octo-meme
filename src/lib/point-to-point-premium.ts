@@ -1,6 +1,9 @@
 /** 5% supplement for address-to-address trips on premium dates. */
 export const TRIP_PREMIUM_RATE = 0.05;
 
+/** 5% discount when booking a return journey (both legs). */
+export const RETURN_JOURNEY_DISCOUNT_RATE = 0.05;
+
 /** Airport transfers use no weekend uplift — OTS does not apply one. */
 export const AIRPORT_TRIP_PREMIUM_RATE = 0;
 
@@ -94,12 +97,22 @@ export function isPointToPointPremiumDateTime(date: string, time: string): boole
   return isTripPremiumDateTime(date, time);
 }
 
+export function applyReturnJourneyDiscount(amount: number): number {
+  return amount * (1 - RETURN_JOURNEY_DISCOUNT_RATE);
+}
+
+export function getReturnJourneyFare(oneWayFare: number): number {
+  return applyReturnJourneyDiscount(oneWayFare * 2);
+}
+
 export function applyTripPremium(
   oneWayFare: number,
   schedule: TripSchedule,
   premiumRate: number = TRIP_PREMIUM_RATE,
-): { total: number; premiumApplied: boolean; premiumAmount: number } {
-  const baseTotal = schedule.returnJourney ? oneWayFare * 2 : oneWayFare;
+): { total: number; premiumApplied: boolean; premiumAmount: number; returnDiscountApplied: boolean } {
+  const baseTotal = schedule.returnJourney
+    ? getReturnJourneyFare(oneWayFare)
+    : oneWayFare;
   let premiumAmount = 0;
 
   if (schedule.outboundDate && schedule.outboundTime) {
@@ -118,6 +131,7 @@ export function applyTripPremium(
     total: baseTotal + premiumAmount,
     premiumApplied: premiumAmount > 0,
     premiumAmount,
+    returnDiscountApplied: Boolean(schedule.returnJourney),
   };
 }
 

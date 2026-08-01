@@ -753,7 +753,7 @@ function QuoteCard() {
                   : "text-white/70 hover:text-white"
               }`}
             >
-              Return journey
+              Return · 5% off
             </button>
           </div>
         </div>
@@ -1240,6 +1240,11 @@ function QuoteCard() {
               <p className="mt-3 text-xs leading-relaxed text-white/60">
                 {getPriceInclusionNote(isAirportTrip, isFromAirport, returnJourney)}
               </p>
+              {returnJourney && (
+                <p className="mt-2 text-xs font-medium text-emerald/90">
+                  Includes 5% return booking discount.
+                </p>
+              )}
             </>
           ) : (
             <>

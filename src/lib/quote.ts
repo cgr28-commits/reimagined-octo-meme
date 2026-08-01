@@ -3,6 +3,7 @@ import { isLdyServiceAreaAddress } from "../../shared/ldy-service-area";
 import {
   applyTripPremium,
   AIRPORT_TRIP_PREMIUM_RATE,
+  getReturnJourneyFare,
   type TripSchedule,
 } from "@/lib/point-to-point-premium";
 import type { TripRouteMetrics } from "@/lib/trip-route";
@@ -493,7 +494,7 @@ export function getPointToPointFromPrice(
   const vehicleMultiplier = VEHICLE_MULTIPLIERS[vehicleType] ?? 1;
   const vehicleAdjustment = POINT_TO_POINT_VEHICLE_ADJUSTMENTS[vehicleType] ?? 0;
   const oneWay = roundToNearestFive(POINT_TO_POINT_BASE * vehicleMultiplier + vehicleAdjustment);
-  return returnJourney ? roundToNearestFive(oneWay * 2) : oneWay;
+  return returnJourney ? roundToNearestFive(getReturnJourneyFare(oneWay)) : oneWay;
 }
 
 export function calculateQuote(
@@ -550,7 +551,7 @@ export function getAirportFromPrice(
 
   const saloonOneWay = computeSaloonAirportOneWay(airportCode, airport.basePrice);
   const oneWay = applyAirportVehiclePricing(saloonOneWay, vehicleType, airportCode);
-  return returnJourney ? oneWay * 2 : oneWay;
+  return returnJourney ? roundToNearestFive(getReturnJourneyFare(oneWay)) : oneWay;
 }
 
 export function formatQuote(amount: number): string {
