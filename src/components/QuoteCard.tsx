@@ -109,7 +109,8 @@ function QuoteCard() {
   const [dropoffAddress, setDropoffAddress] = useState("");
   const [returnJourney, setReturnJourney] = useState(false);
   const [returnDateError, setReturnDateError] = useState("");
-  const [showFlightNumberStep, setShowFlightNumberStep] = useState(false);
+  const [showBookingDetailsStep, setShowBookingDetailsStep] = useState(false);
+  const [customerNameError, setCustomerNameError] = useState("");
   const [goingFlightNumber, setGoingFlightNumber] = useState("");
   const [collectionFlightNumber, setCollectionFlightNumber] = useState("");
   const [goingFlightError, setGoingFlightError] = useState("");
@@ -343,7 +344,7 @@ function QuoteCard() {
     return ok;
   }
 
-  function validateBooking(): boolean {
+  function validateTripForBooking(): boolean {
     if (returnJourney) {
       if (!returnDate || !returnTime) {
         setReturnDateError("Please select a return date and time.");
@@ -360,31 +361,49 @@ function QuoteCard() {
       return false;
     }
 
+    if (!canShowPrice || !liveQuote) {
+      return false;
+    }
+
+    return true;
+  }
+
+  function validateContactDetails(): boolean {
+    let ok = true;
     const onDesktop = !(isMobileDevice ?? detectMobileDevice());
+
+    if (!customerName.trim()) {
+      setCustomerNameError("Please enter your name.");
+      ok = false;
+    } else {
+      setCustomerNameError("");
+    }
 
     if (!customerMobile.trim()) {
       setMobileNumberError("Please enter your mobile number so we can send your payment link by text.");
-      return false;
-    }
-    if (!isValidMobileNumber(customerMobile)) {
+      ok = false;
+    } else if (!isValidMobileNumber(customerMobile)) {
       setMobileNumberError("Please enter a valid mobile number.");
-      return false;
+      ok = false;
+    } else {
+      setMobileNumberError("");
     }
 
     if (onDesktop) {
       if (!customerEmail.trim()) {
         setEmailAddressError("Please enter your email address so we can confirm your booking.");
-        return false;
-      }
-      if (!isValidEmailAddress(customerEmail)) {
+        ok = false;
+      } else if (!isValidEmailAddress(customerEmail)) {
         setEmailAddressError("Please enter a valid email address.");
-        return false;
+        ok = false;
+      } else {
+        setEmailAddressError("");
       }
+    } else {
+      setEmailAddressError("");
     }
-    setEmailAddressError("");
-    setMobileNumberError("");
 
-    return true;
+    return ok;
   }
 
   function buildBookingDetails(): BookingDetails {
@@ -453,42 +472,39 @@ function QuoteCard() {
     setBookingSent(false);
     setBookingReference("");
 
-    if (!validateBooking()) {
+    if (showBookingPreview) {
+      void confirmBooking();
       return;
     }
 
-    if (isAirportTrip && showFlightNumberStep) {
-      if (!validateFlightNumbers()) {
+    if (!validateTripForBooking()) {
+      return;
+    }
+
+    if (showBookingDetailsStep) {
+      if (!validateContactDetails()) {
         return;
       }
-      setShowFlightNumberStep(false);
+      if (isAirportTrip && !validateFlightNumbers()) {
+        return;
+      }
+      setShowBookingDetailsStep(false);
       setShowBookingPreview(true);
       return;
     }
 
-    if (isAirportTrip && !showFlightNumberStep) {
-      setShowFlightNumberStep(true);
-      return;
-    }
-
-    if (!showBookingPreview) {
-      setShowBookingPreview(true);
-      return;
-    }
-
-    void confirmBooking();
+    setShowBookingDetailsStep(true);
   }
 
   function handleEditBooking() {
     setShowBookingPreview(false);
-    setShowFlightNumberStep(false);
+    setShowBookingDetailsStep(true);
     setSubmitError("");
     setBookingSent(false);
     setBookingReference("");
   }
 
   const usesWhatsApp = isMobileDevice === true;
-  const usesEmail = isMobileDevice !== true;
 
   const submitInProgressLabel = "Sending booking…";
 
@@ -499,9 +515,7 @@ function QuoteCard() {
         ? "Confirm & send via WhatsApp"
         : "Confirm & book";
 
-  const reviewButtonLabel = liveQuote ? "Review booking" : "Review booking details";
-
-  const initialButtonLabel = liveQuote ? reviewButtonLabel : reviewButtonLabel;
+  const bookButtonLabel = liveQuote ? `Book for ${formatQuote(liveQuote.amount)}` : "Book";
 
   const quoteHint = isAirportTrip
     ? !airportCode
@@ -528,13 +542,8 @@ function QuoteCard() {
       <div className="mb-6">
         <h2 className="text-xl font-bold text-white sm:text-2xl">Get a Live Quote</h2>
         <p className="mt-1 text-sm text-white/60">
-          {isAirportTrip
-            ? usesWhatsApp
-              ? "See your estimated price instantly, then book via WhatsApp"
-              : "See your estimated price instantly, then review and confirm your booking"
-            : usesWhatsApp
-              ? "See your estimated price instantly, then book via WhatsApp"
-              : "See your estimated price instantly, then review and confirm your booking"}
+          Enter your trip details to see your price instantly — we&apos;ll ask for your contact
+          details and flight numbers when you book.
         </p>
       </div>
 
@@ -646,93 +655,6 @@ function QuoteCard() {
             </button>
           </div>
         </div>
-
-        <div>
-          <label
-            htmlFor="name"
-            className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/50"
-          >
-            Your Name
-          </label>
-          <input
-            id="name"
-            name="name"
-            type="text"
-            required
-            value={customerName}
-            onChange={(e) => {
-              setCustomerName(e.target.value);
-              setShowBookingPreview(false);
-              setBookingSent(false);
-            }}
-            placeholder="John Smith"
-            className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/30 outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30"
-          />
-        </div>
-
-        <div>
-          <label
-            htmlFor="mobile"
-            className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/50"
-          >
-            Mobile Number
-          </label>
-          <input
-            id="mobile"
-            name="mobile"
-            type="tel"
-            required
-            autoComplete="tel"
-            value={customerMobile}
-            onChange={(e) => {
-              setCustomerMobile(e.target.value);
-              setShowBookingPreview(false);
-              setBookingSent(false);
-              setMobileNumberError("");
-            }}
-            placeholder="07xxx xxxxxx"
-            className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/30 outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30"
-          />
-          <p className="mt-1.5 text-xs text-white/40">
-            We&apos;ll send your payment link here by text or WhatsApp.
-          </p>
-          {mobileNumberError && (
-            <p className="mt-1.5 text-xs text-red-300">{mobileNumberError}</p>
-          )}
-        </div>
-
-        {isMobileDevice !== true && (
-          <div>
-            <label
-              htmlFor="email"
-              className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/50"
-            >
-              Email Address
-            </label>
-            <input
-              id="email"
-              name="email"
-              type="email"
-              required
-              autoComplete="email"
-              value={customerEmail}
-              onChange={(e) => {
-                setCustomerEmail(e.target.value);
-                setShowBookingPreview(false);
-                setBookingSent(false);
-                setEmailAddressError("");
-              }}
-              placeholder="you@example.com"
-              className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/30 outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30"
-            />
-            <p className="mt-1.5 text-xs text-white/40">
-              So we can email your booking confirmation if needed.
-            </p>
-            {emailAddressError && (
-              <p className="mt-1.5 text-xs text-red-300">{emailAddressError}</p>
-            )}
-          </div>
-        )}
 
         {isAirportTrip && (
           <div>
@@ -942,68 +864,168 @@ function QuoteCard() {
           </div>
         )}
 
-        {showFlightNumberStep && isAirportTrip && !showBookingPreview && (
+        {showBookingDetailsStep && !showBookingPreview && (
           <div className="rounded-xl border border-white/15 bg-white/[0.04] px-4 py-4 sm:px-5">
             <p className="text-xs font-medium uppercase tracking-wider text-emerald">
-              Flight numbers
+              Your details
             </p>
             <p className="mt-1 mb-4 text-sm text-white/60">
-              We need your flight details for monitoring and complimentary airport waiting time.
+              We need these details to confirm your booking and send your payment link.
             </p>
             <div className="space-y-4">
-              <FlightNumberField
-                id="goingFlightNumber"
-                label="Flight number for going"
-                helperText={
-                  isFromAirport
-                    ? "The flight you are arriving on"
-                    : "The flight you are departing on"
-                }
-                value={goingFlightNumber}
-                onChange={(value) => {
-                  setGoingFlightNumber(value);
-                  if (value.trim()) {
-                    setGoingFlightError("");
-                  }
-                }}
-                tripDate={tripDate}
-                airportCode={airportCode}
-                direction={tripDirection}
-                enabled={showFlightNumberStep}
-                error={goingFlightError}
-                onStatusChange={setGoingFlightStatus}
-                onVerifiedChange={(flight, configured) => {
-                  setVerifiedGoingFlight(flight);
-                  setGoingFlightConfigured(configured);
-                }}
-              />
-              {returnJourney && (
-                <FlightNumberField
-                  id="collectionFlightNumber"
-                  label="Flight number for collection"
-                  helperText={
-                    returnTripDirection === "from-airport"
-                      ? "The flight you are returning on — we collect you after it lands"
-                      : "The flight you are returning on — we take you to the airport"
-                  }
-                  value={collectionFlightNumber}
-                  onChange={(value) => {
-                    setCollectionFlightNumber(value);
-                    if (value.trim()) {
-                      setCollectionFlightError("");
+              <div>
+                <label
+                  htmlFor="name"
+                  className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/50"
+                >
+                  Your Name
+                </label>
+                <input
+                  id="name"
+                  name="name"
+                  type="text"
+                  value={customerName}
+                  onChange={(e) => {
+                    setCustomerName(e.target.value);
+                    if (e.target.value.trim()) {
+                      setCustomerNameError("");
                     }
                   }}
-                  tripDate={returnDate}
-                  airportCode={airportCode}
-                  direction={returnTripDirection}
-                  enabled={showFlightNumberStep}
-                  error={collectionFlightError}
-                  onStatusChange={setCollectionFlightStatus}
-                  onVerifiedChange={(flight, configured) => {
-                    setVerifiedCollectionFlight(flight);
-                    setCollectionFlightConfigured(configured);
-                  }}
+                  placeholder="John Smith"
+                  className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/30 outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30"
                 />
+                {customerNameError && (
+                  <p className="mt-1.5 text-xs text-red-300">{customerNameError}</p>
+                )}
+              </div>
+
+              <div>
+                <label
+                  htmlFor="mobile"
+                  className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/50"
+                >
+                  Mobile Number
+                </label>
+                <input
+                  id="mobile"
+                  name="mobile"
+                  type="tel"
+                  autoComplete="tel"
+                  value={customerMobile}
+                  onChange={(e) => {
+                    setCustomerMobile(e.target.value);
+                    if (e.target.value.trim()) {
+                      setMobileNumberError("");
+                    }
+                  }}
+                  placeholder="07xxx xxxxxx"
+                  className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/30 outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30"
+                />
+                <p className="mt-1.5 text-xs text-white/40">
+                  We&apos;ll send your payment link here by text or WhatsApp.
+                </p>
+                {mobileNumberError && (
+                  <p className="mt-1.5 text-xs text-red-300">{mobileNumberError}</p>
+                )}
+              </div>
+
+              {isMobileDevice !== true && (
+                <div>
+                  <label
+                    htmlFor="email"
+                    className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/50"
+                  >
+                    Email Address
+                  </label>
+                  <input
+                    id="email"
+                    name="email"
+                    type="email"
+                    autoComplete="email"
+                    value={customerEmail}
+                    onChange={(e) => {
+                      setCustomerEmail(e.target.value);
+                      if (e.target.value.trim()) {
+                        setEmailAddressError("");
+                      }
+                    }}
+                    placeholder="you@example.com"
+                    className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/30 outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30"
+                  />
+                  <p className="mt-1.5 text-xs text-white/40">
+                    So we can email your booking confirmation if needed.
+                  </p>
+                  {emailAddressError && (
+                    <p className="mt-1.5 text-xs text-red-300">{emailAddressError}</p>
+                  )}
+                </div>
+              )}
+
+              {isAirportTrip && (
+                <>
+                  <div className="border-t border-white/10 pt-4">
+                    <p className="text-xs font-medium uppercase tracking-wider text-emerald">
+                      Flight numbers
+                    </p>
+                    <p className="mt-1 mb-4 text-sm text-white/60">
+                      For flight monitoring and complimentary airport waiting time.
+                    </p>
+                  </div>
+                  <FlightNumberField
+                    id="goingFlightNumber"
+                    label="Flight number for going"
+                    helperText={
+                      isFromAirport
+                        ? "The flight you are arriving on"
+                        : "The flight you are departing on"
+                    }
+                    value={goingFlightNumber}
+                    onChange={(value) => {
+                      setGoingFlightNumber(value);
+                      if (value.trim()) {
+                        setGoingFlightError("");
+                      }
+                    }}
+                    tripDate={tripDate}
+                    airportCode={airportCode}
+                    direction={tripDirection}
+                    enabled={showBookingDetailsStep}
+                    error={goingFlightError}
+                    onStatusChange={setGoingFlightStatus}
+                    onVerifiedChange={(flight, configured) => {
+                      setVerifiedGoingFlight(flight);
+                      setGoingFlightConfigured(configured);
+                    }}
+                  />
+                  {returnJourney && (
+                    <FlightNumberField
+                      id="collectionFlightNumber"
+                      label="Flight number for collection"
+                      helperText={
+                        returnTripDirection === "from-airport"
+                          ? "The flight you are returning on — we collect you after it lands"
+                          : "The flight you are returning on — we take you to the airport"
+                      }
+                      value={collectionFlightNumber}
+                      onChange={(value) => {
+                        setCollectionFlightNumber(value);
+                        if (value.trim()) {
+                          setCollectionFlightError("");
+                        }
+                      }}
+                      tripDate={returnDate}
+                      airportCode={airportCode}
+                      direction={returnTripDirection}
+                      enabled={showBookingDetailsStep}
+                      error={collectionFlightError}
+                      onStatusChange={setCollectionFlightStatus}
+                      onVerifiedChange={(flight, configured) => {
+                        setVerifiedCollectionFlight(flight);
+                        setCollectionFlightConfigured(configured);
+                      }}
+                    />
+                  )}
+                </>
               )}
             </div>
           </div>
@@ -1247,12 +1269,15 @@ function QuoteCard() {
               {submitted ? submitInProgressLabel : confirmButtonLabel}
             </button>
           </div>
-        ) : showFlightNumberStep && isAirportTrip ? (
+        ) : showBookingDetailsStep ? (
           <div className="grid gap-3 sm:grid-cols-2">
             <button
               type="button"
               onClick={() => {
-                setShowFlightNumberStep(false);
+                setShowBookingDetailsStep(false);
+                setCustomerNameError("");
+                setMobileNumberError("");
+                setEmailAddressError("");
                 setGoingFlightError("");
                 setCollectionFlightError("");
               }}
@@ -1271,10 +1296,10 @@ function QuoteCard() {
         ) : (
           <button
             type="submit"
-            disabled={submitted}
+            disabled={submitted || !liveQuote}
             className="w-full rounded-xl bg-emerald py-3.5 text-sm font-bold text-navy transition-all hover:bg-emerald-light hover:shadow-lg hover:shadow-emerald/25 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {submitted ? submitInProgressLabel : initialButtonLabel}
+            {submitted ? submitInProgressLabel : bookButtonLabel}
           </button>
         )}
       </form>
