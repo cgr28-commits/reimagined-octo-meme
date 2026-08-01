@@ -118,7 +118,7 @@ export default function FlightNumberField({
       }
 
       setVerifiedFlight(null);
-      if (!result.configured) {
+      if (!result.configured || result.code === "rate_limited") {
         setLookupStatus("unavailable");
         setLookupMessage(
           result.error ||
@@ -133,7 +133,7 @@ export default function FlightNumberField({
       setLookupMessage(result.error);
       onStatusChangeRef.current?.("error");
       onVerifiedChangeRef.current?.(null, result.configured);
-    }, 600);
+    }, 1200);
 
     return () => {
       cancelled = true;

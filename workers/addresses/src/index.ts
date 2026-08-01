@@ -558,51 +558,93 @@ async function handleFlightLookupRequest(
   env: Env,
   origin: string | null,
 ): Promise<Response> {
-  const flightNumber = url.searchParams.get("flight")?.trim() ?? "";
-  const tripDate = url.searchParams.get("date")?.trim() ?? "";
-  const airportCode = url.searchParams.get("airport")?.trim().toUpperCase() ?? "";
-  const directionParam = url.searchParams.get("direction")?.trim() ?? "from-airport";
-  const direction: TripDirection =
-    directionParam === "to-airport" ? "to-airport" : "from-airport";
+  try {
+    const flightNumber = url.searchParams.get("flight")?.trim() ?? "";
+    const tripDate = url.searchParams.get("date")?.trim() ?? "";
+    const airportCode = url.searchParams.get("airport")?.trim().toUpperCase() ?? "";
+    const directionParam = url.searchParams.get("direction")?.trim() ?? "from-airport";
+    const direction: TripDirection =
+      directionParam === "to-airport" ? "to-airport" : "from-airport";
 
-  const airportNames: Record<string, string> = {
-    BFS: "Belfast International",
-    BHD: "George Best Belfast City",
-    DUB: "Dublin Airport",
-    LDY: "City of Derry",
-  };
+    const airportNames: Record<string, string> = {
+      BFS: "Belfast International",
+      BHD: "George Best Belfast City",
+      DUB: "Dublin Airport",
+      LDY: "City of Derry",
+    };
 
-  const configured = Boolean(env.AERODATABOX_RAPIDAPI_KEY?.trim());
-  const result = await lookupFlight(env.AERODATABOX_RAPIDAPI_KEY, {
-    flightNumber,
-    tripDate,
-    airportCode,
-    airportName: airportNames[airportCode] ?? airportCode,
-    direction,
-  });
+    const configured = Boolean(env.AERODATABOX_RAPIDAPI_KEY?.trim());
+    const flightCache = (caches as unknown as { default: Cache }).default;
+    const cacheKey = new Request(url.toString(), { method: "GET" });
+    const cached = await flightCache.match(cacheKey);
+    if (cached) {
+      const cachedBody = (await cached.json()) as { code?: string; ok?: boolean };
+      if (cachedBody.code !== "rate_limited") {
+        return json(cachedBody, cached.status, origin);
+      }
+    }
 
-  if (!result.ok) {
-    return json(
-      {
+    const result = await lookupFlight(env.AERODATABOX_RAPIDAPI_KEY, {
+      flightNumber,
+      tripDate,
+      airportCode,
+      airportName: airportNames[airportCode] ?? airportCode,
+      direction,
+    });
+
+    if (!result.ok) {
+      const status =
+        result.code === "api_unavailable" || result.code === "rate_limited" ? 503 : 404;
+      const responseBody = {
         ok: false,
         error: result.error,
         code: result.code,
-        configured,
-      },
-      result.code === "api_unavailable" ? 503 : 404,
-      origin,
-    );
-  }
+        configured: result.code === "rate_limited" ? false : configured,
+      };
 
-  return json(
-    {
+      if (result.code !== "rate_limited") {
+        const response = json(responseBody, status, origin);
+        await flightCache.put(
+          cacheKey,
+          new Response(JSON.stringify(responseBody), {
+            status,
+            headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=600" },
+          }),
+        );
+        return response;
+      }
+
+      return json(responseBody, status, origin);
+    }
+
+    const responseBody = {
       ok: true,
       flight: result.flight,
       configured,
-    },
-    200,
-    origin,
-  );
+    };
+    const response = json(responseBody, 200, origin);
+    await flightCache.put(
+      cacheKey,
+      new Response(JSON.stringify(responseBody), {
+        status: 200,
+        headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=600" },
+      }),
+    );
+    return response;
+  } catch (error) {
+    console.error("Flight lookup failed", error);
+    return json(
+      {
+        ok: false,
+        error:
+          "Flight verification hit a temporary error. You can still enter your flight number and continue.",
+        code: "upstream_error",
+        configured: false,
+      },
+      503,
+      origin,
+    );
+  }
 }
 
 export default {
