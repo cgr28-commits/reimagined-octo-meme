@@ -219,7 +219,11 @@ async function submitViaFormSubmit(submission: EnquirySubmission): Promise<strin
   }
 }
 
-export async function submitEnquiryByEmail(submission: EnquirySubmission): Promise<string> {
+export async function submitEnquiryByEmail(
+  submission: EnquirySubmission,
+  options?: { allowFormSubmitFallback?: boolean },
+): Promise<string> {
+  const allowFormSubmitFallback = options?.allowFormSubmitFallback ?? true;
   const attempts: Array<{ label: string; run: () => Promise<string> }> = [];
 
   if (BOOKINGS_API_URL) {
@@ -230,7 +234,11 @@ export async function submitEnquiryByEmail(submission: EnquirySubmission): Promi
     attempts.push({ label: "web3forms", run: () => submitViaWeb3Forms(submission) });
   }
 
-  attempts.push({ label: "formsubmit", run: () => submitViaFormSubmit(submission) });
+  if (allowFormSubmitFallback) {
+    attempts.push({ label: "formsubmit", run: () => submitViaFormSubmit(submission) });
+  } else {
+    attempts.push({ label: "formsubmit-ajax", run: () => submitViaFormSubmitAjax(submission) });
+  }
 
   let lastError: unknown = null;
 
@@ -251,9 +259,12 @@ export async function submitEnquiryByEmail(submission: EnquirySubmission): Promi
 export async function submitBookingByEmail(details: BookingDetails): Promise<string> {
   const message = buildBookingMessage(details);
 
-  return submitEnquiryByEmail({
-    customerName: details.customerName,
-    message,
-    subject: `New booking — ${details.customerName}`,
-  });
+  return submitEnquiryByEmail(
+    {
+      customerName: details.customerName,
+      message,
+      subject: `New booking — ${details.customerName}`,
+    },
+    { allowFormSubmitFallback: false },
+  );
 }
