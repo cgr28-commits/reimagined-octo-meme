@@ -21,13 +21,13 @@ const AREA_AIRPORT_SURCHARGES: Record<Area, Record<AirportCode, number>> = {
   "Belfast City Centre": { BFS: 11, BHD: 0, DUB: 50, LDY: 93 },
   Holywood: { BFS: 19, BHD: 0, DUB: 58, LDY: 98 },
   Newtownabbey: { BFS: 3, BHD: 8, DUB: 60, LDY: 88 },
-  Lisburn: { BFS: 8, BHD: 13, DUB: 60, LDY: 108 },
+  Lisburn: { BFS: 19, BHD: 13, DUB: 60, LDY: 108 },
   Dundonald: { BFS: 23, BHD: 3, DUB: 60, LDY: 103 },
   Antrim: { BFS: 0, BHD: 23, DUB: 50, LDY: 73 },
   Ballyclare: { BFS: 3, BHD: 13, DUB: 65, LDY: 83 },
   Hillsborough: { BFS: 19, BHD: 18, DUB: 65, LDY: 108 },
   Carrickfergus: { BFS: 19, BHD: 13, DUB: 62, LDY: 98 },
-  Comber: { BFS: 28, BHD: 14, DUB: 62, LDY: 113 },
+  Comber: { BFS: 28, BHD: 14, DUB: 62, LDY: 114 },
   Larne: { BFS: 18, BHD: 28, DUB: 72, LDY: 103 },
   Bangor: { BFS: 35, BHD: 13, DUB: 65, LDY: 113 },
   Newtownards: { BFS: 28, BHD: 14, DUB: 62, LDY: 113 },
@@ -243,6 +243,60 @@ function roundToNearestFive(value: number): number {
 function roundFare(value: number): number {
   const rounded = Math.round(value);
   return rounded % 5 === 4 ? rounded : roundToNearestFive(rounded);
+}
+
+/** Estate one-way fare for calibration scripts (OTS daily auto-fix). */
+export function computeAirportEstateForSurcharge(
+  airportCode: string,
+  areaSurcharge: number,
+): number {
+  const airport = AIRPORTS.find((item) => item.code === airportCode);
+  if (!airport) {
+    return 0;
+  }
+
+  const saloonOneWay = computeSaloonAirportOneWay(airportCode, airport.basePrice + areaSurcharge);
+  return applyAirportVehiclePricing(saloonOneWay, "Estate Car (1–4 passengers)", airportCode);
+}
+
+/** Surcharge that places our estate fare ~£5–£8 below live OTS (for auto-calibration). */
+export function findAirportSurchargeForOtsEstate(
+  airportCode: string,
+  otsEstate: number,
+  minDiscount = 5,
+  maxDiscount = 8,
+): number | null {
+  const airport = AIRPORTS.find((item) => item.code === airportCode);
+  if (!airport) {
+    return null;
+  }
+
+  const targetDiscount = (minDiscount + maxDiscount) / 2;
+  const targetEstate = roundFare(Math.round(otsEstate - targetDiscount));
+
+  for (let surcharge = 0; surcharge <= 200; surcharge++) {
+    if (computeAirportEstateForSurcharge(airportCode, surcharge) === targetEstate) {
+      return surcharge;
+    }
+  }
+
+  for (let surcharge = 0; surcharge <= 200; surcharge++) {
+    const estate = computeAirportEstateForSurcharge(airportCode, surcharge);
+    const discount = otsEstate - estate;
+    if (discount >= minDiscount && discount <= maxDiscount) {
+      return surcharge;
+    }
+  }
+
+  for (let surcharge = 0; surcharge <= 200; surcharge++) {
+    const estate = computeAirportEstateForSurcharge(airportCode, surcharge);
+    const discount = otsEstate - estate;
+    if (discount >= minDiscount - 2 && discount <= maxDiscount + 2) {
+      return surcharge;
+    }
+  }
+
+  return null;
 }
 
 function getAreaSurcharge(airportCode: string, area: Area | null): number {

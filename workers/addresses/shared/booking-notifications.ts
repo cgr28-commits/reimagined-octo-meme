@@ -11,6 +11,7 @@ export type PaidBookingDetails = {
   returnDate: string;
   returnTime: string;
   flightNumber: string;
+  returnFlightNumber?: string;
   passengers: number;
   suitcases: number;
   vehicle: string;
@@ -41,7 +42,11 @@ function formatTripSchedule(details: PaidBookingDetails): string {
   }
 
   if (details.isAirportTrip && details.flightNumber) {
-    lines.push(`Flight number: ${details.flightNumber}`);
+    lines.push(`Flight number for going: ${details.flightNumber}`);
+  }
+
+  if (details.isAirportTrip && details.returnFlightNumber) {
+    lines.push(`Flight number for collection: ${details.returnFlightNumber}`);
   }
 
   lines.push(

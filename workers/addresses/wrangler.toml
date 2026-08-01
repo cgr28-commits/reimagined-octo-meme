@@ -2,7 +2,11 @@ name = "reimagined-octo-meme"
 # Cloudflare Git builds use workers/addresses as root — shared code lives in ./shared/
 main = "src/index.ts"
 compatibility_date = "2025-07-31"
-# Redeploy trigger: pick up GETADDRESS_API_KEY and latest shared modules
+# Secrets (set in Cloudflare dashboard or via wrangler secret put):
+# - GOOGLE_PLACES_API_KEY
+# - GETADDRESS_API_KEY
+# - AERODATABOX_RAPIDAPI_KEY  (RapidAPI key for AeroDataBox flight verification)
+# Redeploy after changing flight lookup: wrangler deploy (or Cloudflare dashboard → Deploy)
 account_id = "36c5c88df4c1f0259413d555f2679f3c"
 
 [observability]

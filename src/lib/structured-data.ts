@@ -13,6 +13,11 @@ export function getWebSiteJsonLd() {
     url: SITE.url,
     description: DESCRIPTION,
     inLanguage: "en-GB",
+    publisher: {
+      "@type": "Organization",
+      name: SITE.name,
+      logo: `${SITE.url}/logo.png`,
+    },
   };
 }
 
@@ -51,6 +56,8 @@ export function getLocalBusinessJsonLd() {
     name: SITE.name,
     description: DESCRIPTION,
     url: SITE.url,
+    logo: `${SITE.url}/logo.png`,
+    image: `${SITE.url}/og-image.png`,
     email: SITE.email,
     telephone: `+${SITE.whatsapp}`,
     areaServed: {
