@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { SITE } from "@/lib/data";
-import { withBasePath } from "@/lib/paths";
+import { absoluteSiteUrl } from "@/lib/paths";
 import { getFaqPageJsonLd, getLocalBusinessJsonLd, getWebSiteJsonLd } from "@/lib/structured-data";
 
 const inter = Inter({
@@ -11,7 +11,14 @@ const inter = Inter({
 });
 
 const description =
-  "Professional airport taxi transfers across Northern Ireland. Flight tracking, meet & greet, and transfers from Belfast International, Dublin, and more. Book via WhatsApp.";
+  "Professional airport taxi transfers across Northern Ireland. Belfast International from £45, Belfast City from £35, and Dublin Airport transfers. Flight tracking, meet & greet. Book via WhatsApp.";
+
+const ogImage = {
+  url: absoluteSiteUrl("/og-image.png"),
+  width: 1200,
+  height: 630,
+  alt: `${SITE.name} — Premium Airport Transfers`,
+};
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE.url),
@@ -41,37 +48,35 @@ export const metadata: Metadata = {
     locale: "en_GB",
     url: SITE.url,
     siteName: SITE.name,
-    images: [
-      {
-        url: "/og-image.png",
-        width: 1200,
-        height: 630,
-        alt: `${SITE.name} — Premium Airport Transfers`,
-      },
-    ],
+    images: [ogImage],
   },
   twitter: {
     card: "summary_large_image",
     title: SITE.name,
     description: SITE.tagline,
-    images: ["/og-image.png"],
+    images: [ogImage.url],
   },
   icons: {
     icon: [
-      { url: withBasePath("/favicon.ico"), sizes: "any" },
+      { url: absoluteSiteUrl("/favicon.ico"), sizes: "any" },
       {
-        url: withBasePath("/favicon.png"),
+        url: absoluteSiteUrl("/favicon.png"),
         type: "image/png",
         sizes: "256x256",
       },
       {
-        url: withBasePath("/favicon-32.png"),
+        url: absoluteSiteUrl("/favicon-32.png"),
         type: "image/png",
         sizes: "32x32",
       },
+      {
+        url: absoluteSiteUrl("/icon.png"),
+        type: "image/png",
+        sizes: "512x512",
+      },
     ],
-    apple: withBasePath("/favicon.png"),
-    shortcut: withBasePath("/favicon.ico"),
+    apple: absoluteSiteUrl("/favicon.png"),
+    shortcut: absoluteSiteUrl("/favicon.ico"),
   },
 };
 

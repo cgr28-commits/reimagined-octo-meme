@@ -1,5 +1,5 @@
 import { FLIGHT_AIRPORTS } from "@/lib/data";
-import DeviceBookingCta from "./DeviceBookingCta";
+import AirportBookNowLink from "./AirportBookNowLink";
 import SectionHeading from "./SectionHeading";
 
 export default function FlightStatusSection() {
@@ -13,7 +13,7 @@ export default function FlightStatusSection() {
           description="View live arrivals and departures on each airport's official flight board. Share your flight number when you book and we'll monitor it for your pickup."
         />
 
-        <div className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-14 grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
           {FLIGHT_AIRPORTS.map((airport) => (
             <article
               key={airport.code}
@@ -71,10 +71,8 @@ export default function FlightStatusSection() {
                 All flight information →
               </a>
 
-              <DeviceBookingCta
-                whatsappMessage={`Hi, I'd like to book an airport transfer. My flight is arriving at ${airport.name} (${airport.code}).`}
-                mobileLabel="Book transfer via WhatsApp"
-                desktopLabel="Book transfer online"
+              <AirportBookNowLink
+                airportCode={airport.code}
                 className="mt-6 inline-flex items-center justify-center gap-1.5 rounded-lg bg-emerald px-4 py-2.5 text-sm font-semibold text-navy transition-all hover:bg-emerald-light"
               />
             </article>

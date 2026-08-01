@@ -49,7 +49,16 @@ function isSuccessfulPayload(payload: unknown): boolean {
   return success === true || success === "true";
 }
 
-async function submitViaWorker(submission: EnquirySubmission): Promise<void> {
+function readBookingReference(payload: unknown): string {
+  if (!payload || typeof payload !== "object") {
+    return "";
+  }
+
+  const bookingReference = (payload as { bookingReference?: unknown }).bookingReference;
+  return typeof bookingReference === "string" ? bookingReference.trim() : "";
+}
+
+async function submitViaWorker(submission: EnquirySubmission): Promise<string> {
   const response = await fetch(BOOKINGS_API_URL, {
     method: "POST",
     headers: {
@@ -65,12 +74,16 @@ async function submitViaWorker(submission: EnquirySubmission): Promise<void> {
     }),
   });
 
+  const payload = await response.json().catch(() => null);
+
   if (!response.ok) {
     throw new Error(`Worker booking API failed (${response.status})`);
   }
+
+  return readBookingReference(payload);
 }
 
-async function submitViaWeb3Forms(submission: EnquirySubmission): Promise<void> {
+async function submitViaWeb3Forms(submission: EnquirySubmission): Promise<string> {
   if (!WEB3FORMS_ACCESS_KEY) {
     throw new Error("Web3Forms is not configured");
   }
@@ -97,9 +110,11 @@ async function submitViaWeb3Forms(submission: EnquirySubmission): Promise<void> 
   if (!isSuccessfulPayload(payload)) {
     throw new Error("Web3Forms rejected the submission");
   }
+
+  return "";
 }
 
-async function submitViaFormSubmitAjax(submission: EnquirySubmission): Promise<void> {
+async function submitViaFormSubmitAjax(submission: EnquirySubmission): Promise<string> {
   const response = await fetch(
     `https://formsubmit.co/ajax/${encodeURIComponent(SITE.email)}`,
     {
@@ -111,7 +126,7 @@ async function submitViaFormSubmitAjax(submission: EnquirySubmission): Promise<v
       body: JSON.stringify({
         _subject: submission.subject ?? `New enquiry — ${submission.customerName}`,
         _captcha: "false",
-        _template: "table",
+        _template: "box",
         name: submission.customerName,
         message: submission.message,
       }),
@@ -131,9 +146,11 @@ async function submitViaFormSubmitAjax(submission: EnquirySubmission): Promise<v
         : "FormSubmit rejected the submission";
     throw new Error(message);
   }
+
+  return "";
 }
 
-function submitViaFormSubmitForm(submission: EnquirySubmission): Promise<void> {
+function submitViaFormSubmitForm(submission: EnquirySubmission): Promise<string> {
   return new Promise((resolve, reject) => {
     const iframeName = `formsubmit-${Date.now()}`;
     const iframe = document.createElement("iframe");
@@ -150,7 +167,7 @@ function submitViaFormSubmitForm(submission: EnquirySubmission): Promise<void> {
     const fields: Record<string, string> = {
       _subject: submission.subject ?? `New enquiry — ${submission.customerName}`,
       _captcha: "false",
-      _template: "table",
+      _template: "box",
       name: submission.customerName,
       message: submission.message,
     };
@@ -170,7 +187,7 @@ function submitViaFormSubmitForm(submission: EnquirySubmission): Promise<void> {
       }
       settled = true;
       cleanup();
-      resolve();
+      resolve("");
     }, 2500);
 
     function cleanup() {
@@ -185,7 +202,7 @@ function submitViaFormSubmitForm(submission: EnquirySubmission): Promise<void> {
       }
       settled = true;
       cleanup();
-      resolve();
+      resolve("");
     });
 
     document.body.appendChild(iframe);
@@ -203,16 +220,20 @@ function submitViaFormSubmitForm(submission: EnquirySubmission): Promise<void> {
   });
 }
 
-async function submitViaFormSubmit(submission: EnquirySubmission): Promise<void> {
+async function submitViaFormSubmit(submission: EnquirySubmission): Promise<string> {
   try {
-    await submitViaFormSubmitAjax(submission);
+    return await submitViaFormSubmitAjax(submission);
   } catch {
-    await submitViaFormSubmitForm(submission);
+    return submitViaFormSubmitForm(submission);
   }
 }
 
-export async function submitEnquiryByEmail(submission: EnquirySubmission): Promise<void> {
-  const attempts: Array<{ label: string; run: () => Promise<void> }> = [];
+export async function submitEnquiryByEmail(
+  submission: EnquirySubmission,
+  options?: { allowFormSubmitFallback?: boolean },
+): Promise<string> {
+  const allowFormSubmitFallback = options?.allowFormSubmitFallback ?? true;
+  const attempts: Array<{ label: string; run: () => Promise<string> }> = [];
 
   if (BOOKINGS_API_URL) {
     attempts.push({ label: "worker", run: () => submitViaWorker(submission) });
@@ -227,16 +248,17 @@ export async function submitEnquiryByEmail(submission: EnquirySubmission): Promi
     attempts.push({ label: "formsubmit", run: () => submitViaFormSubmit(submission) });
   }
 
-  if (attempts.length === 0) {
-    throw new Error("Booking API is not configured");
+  if (allowFormSubmitFallback) {
+    attempts.push({ label: "formsubmit", run: () => submitViaFormSubmit(submission) });
+  } else {
+    attempts.push({ label: "formsubmit-ajax", run: () => submitViaFormSubmitAjax(submission) });
   }
 
   let lastError: unknown = null;
 
   for (const attempt of attempts) {
     try {
-      await attempt.run();
-      return;
+      return await attempt.run();
     } catch (error) {
       lastError = error;
       console.error(`Booking submission via ${attempt.label} failed`, error);
@@ -248,47 +270,15 @@ export async function submitEnquiryByEmail(submission: EnquirySubmission): Promi
     : new Error("Booking email could not be sent");
 }
 
-export async function submitBookingByEmail(details: BookingDetails): Promise<void> {
+export async function submitBookingByEmail(details: BookingDetails): Promise<string> {
   const message = buildBookingMessage(details);
 
-  await submitEnquiryByEmail({
-    customerName: details.customerName,
-    message,
-    subject: `New booking — ${details.customerName}`,
-    booking: details,
-  });
-}
-
-/**
- * Fire-and-forget Google Calendar logging for WhatsApp bookings.
- * Does not block the WhatsApp deep-link and never surfaces errors to the customer.
- */
-export function logBookingToCalendarInBackground(
-  details: BookingDetails | TourEnquiryDetails,
-  kind: "booking" | "tour" = "booking",
-): void {
-  if (!BOOKINGS_API_URL) {
-    return;
-  }
-
-  const isTour = kind === "tour";
-  const submission: EnquirySubmission = isTour
-    ? {
-        customerName: (details as TourEnquiryDetails).customerName,
-        message: buildTourEnquiryMessage(details as TourEnquiryDetails),
-        subject: `New day trip booking — ${(details as TourEnquiryDetails).customerName}`,
-        sendEmail: false,
-        tour: details as TourEnquiryDetails,
-      }
-    : {
-        customerName: (details as BookingDetails).customerName,
-        message: buildBookingMessage(details as BookingDetails),
-        subject: `New booking — ${(details as BookingDetails).customerName}`,
-        sendEmail: false,
-        booking: details as BookingDetails,
-      };
-
-  void submitViaWorker(submission).catch((error) => {
-    console.error("Background Google Calendar booking log failed", error);
-  });
+  return submitEnquiryByEmail(
+    {
+      customerName: details.customerName,
+      message,
+      subject: `New booking — ${details.customerName}`,
+    },
+    { allowFormSubmitFallback: false },
+  );
 }

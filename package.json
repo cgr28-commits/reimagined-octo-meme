@@ -6,8 +6,12 @@
     "dev": "next dev",
     "dev:addresses": "npm --prefix workers/addresses run dev",
     "build": "node scripts/generate-sitemap.mjs && next build",
+    "sync:worker-shared": "node scripts/sync-worker-shared.mjs",
+    "setup:worker": "node scripts/setup-worker.mjs",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "check:ots-pricing": "npx tsx scripts/check-ots-pricing-daily.ts",
+    "calibrate:ots-pricing": "npx tsx scripts/auto-calibrate-ots-pricing.ts"
   },
   "dependencies": {
     "leaflet": "^1.9.4",
@@ -26,6 +30,7 @@
     "eslint": "^9.27.0",
     "eslint-config-next": "^15.3.3",
     "tailwindcss": "^4.1.8",
+    "tsx": "^4.23.1",
     "typescript": "^5.8.3"
   }
 }
