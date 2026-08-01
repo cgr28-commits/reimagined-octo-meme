@@ -25,6 +25,10 @@ import {
   type PaidBookingDetails,
 } from "../shared/booking-notifications";
 import {
+  lookupFlight,
+  type TripDirection,
+} from "../shared/flight-lookup";
+import {
   getSumUpCheckout,
   getSuccessfulTransactionCode,
   isSumUpCheckoutPaid,
@@ -40,6 +44,7 @@ type Env = {
   SUMUP_API_KEY?: string;
   SUMUP_MERCHANT_CODE?: string;
   BOOKING_COUNTER?: KVNamespace;
+  AERODATABOX_RAPIDAPI_KEY?: string;
 };
 
 const DEFAULT_BOOKING_EMAIL = "bookings@myairporttaxini.co.uk";
@@ -57,7 +62,7 @@ function json(body: unknown, status: number, origin: string | null): Response {
 
 function routePath(
   pathname: string,
-): "addresses" | "geocode" | "bookings" | "payments" | "payments-confirm" | null {
+): "addresses" | "geocode" | "bookings" | "payments" | "payments-confirm" | "flights" | null {
   if (pathname === "/addresses" || pathname === "/api/addresses") {
     return "addresses";
   }
@@ -76,6 +81,10 @@ function routePath(
 
   if (pathname === "/payments" || pathname === "/api/payments") {
     return "payments";
+  }
+
+  if (pathname === "/flights" || pathname === "/api/flights") {
+    return "flights";
   }
 
   return null;
@@ -360,6 +369,58 @@ async function handlePaymentConfirmRequest(
   }
 }
 
+async function handleFlightLookupRequest(
+  url: URL,
+  env: Env,
+  origin: string | null,
+): Promise<Response> {
+  const flightNumber = url.searchParams.get("flight")?.trim() ?? "";
+  const tripDate = url.searchParams.get("date")?.trim() ?? "";
+  const airportCode = url.searchParams.get("airport")?.trim().toUpperCase() ?? "";
+  const directionParam = url.searchParams.get("direction")?.trim() ?? "from-airport";
+  const direction: TripDirection =
+    directionParam === "to-airport" ? "to-airport" : "from-airport";
+
+  const airportNames: Record<string, string> = {
+    BFS: "Belfast International",
+    BHD: "George Best Belfast City",
+    DUB: "Dublin Airport",
+    LDY: "City of Derry",
+  };
+
+  const configured = Boolean(env.AERODATABOX_RAPIDAPI_KEY?.trim());
+  const result = await lookupFlight(env.AERODATABOX_RAPIDAPI_KEY, {
+    flightNumber,
+    tripDate,
+    airportCode,
+    airportName: airportNames[airportCode] ?? airportCode,
+    direction,
+  });
+
+  if (!result.ok) {
+    return json(
+      {
+        ok: false,
+        error: result.error,
+        code: result.code,
+        configured,
+      },
+      result.code === "api_unavailable" ? 503 : 404,
+      origin,
+    );
+  }
+
+  return json(
+    {
+      ok: true,
+      flight: result.flight,
+      configured,
+    },
+    200,
+    origin,
+  );
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const origin = request.headers.get("Origin");
@@ -399,6 +460,14 @@ export default {
       }
 
       return handlePaymentConfirmRequest(request, env, origin);
+    }
+
+    if (route === "flights") {
+      if (request.method !== "GET") {
+        return json({ error: "Method not allowed" }, 405, origin);
+      }
+
+      return handleFlightLookupRequest(url, env, origin);
     }
 
     if (request.method !== "GET") {
