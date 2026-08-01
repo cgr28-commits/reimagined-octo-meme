@@ -20,6 +20,14 @@ export const NAV_LINKS = [
   { label: "FAQ", href: "/#faq" },
 ] as const;
 
+/** Always visible on mobile — key services beyond airport transfers. */
+export const MOBILE_QUICK_LINKS = [
+  { label: "Day Trips", href: "/tours/" },
+  { label: "Chauffeur Hire", href: "/#chauffeur" },
+  { label: "Airports", href: "/#airports" },
+  { label: "Get a Quote", href: "/#quote", highlight: true },
+] as const;
+
 export const FLIGHT_AIRPORTS = [
   {
     code: "BFS",
