@@ -22,7 +22,7 @@ export default function Home() {
   return (
     <>
       <Header />
-      <main>
+      <main className="overflow-x-clip">
         <HeroSlideshow />
         <AirportsSection />
         <FlightStatusSection />

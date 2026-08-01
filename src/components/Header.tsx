@@ -69,13 +69,13 @@ export default function Header() {
       </div>
 
       <nav
-        className="border-t border-white/10 bg-navy-light/95 px-4 py-2.5 backdrop-blur-xl md:hidden"
+        className="overflow-x-clip border-t border-white/10 bg-navy-light/95 px-4 py-2.5 backdrop-blur-xl md:hidden"
         aria-label="Quick services"
       >
         <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-white/45">
           Transfers · Day trips · Chauffeur
         </p>
-        <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="flex gap-2 overflow-x-auto overscroll-x-contain pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {MOBILE_QUICK_LINKS.map((link) => (
             <a
               key={link.href}

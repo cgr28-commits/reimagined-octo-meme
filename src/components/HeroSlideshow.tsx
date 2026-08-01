@@ -39,7 +39,7 @@ export default function HeroSlideshow() {
         {HERO_SLIDES.map((s, i) => (
           <div
             key={s.image}
-            className={`absolute inset-0 transition-opacity duration-700 ${
+            className={`absolute inset-0 overflow-hidden transition-opacity duration-700 ${
               i === current ? "opacity-100" : "opacity-0"
             }`}
           >
@@ -57,8 +57,8 @@ export default function HeroSlideshow() {
         <div className="absolute inset-0 bg-gradient-to-r from-navy/80 via-transparent to-navy/40" />
       </div>
 
-      <div className="relative mx-auto flex max-w-7xl flex-col gap-12 px-4 py-16 sm:px-6 lg:flex-row lg:items-center lg:gap-16 lg:px-8 lg:py-24">
-        <div className="flex-1 lg:max-w-xl">
+      <div className="relative mx-auto flex w-full min-w-0 max-w-7xl flex-col gap-12 px-4 py-16 sm:px-6 lg:flex-row lg:items-center lg:gap-16 lg:px-8 lg:py-24">
+        <div className="min-w-0 flex-1 lg:max-w-xl">
           <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-emerald/30 bg-emerald/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-emerald">
             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald" />
             24/7 Premium Transfers
@@ -137,7 +137,7 @@ export default function HeroSlideshow() {
           </div>
         </div>
 
-        <div className="flex-1 scroll-mt-28 lg:max-w-md" id="quote">
+        <div className="min-w-0 w-full flex-1 scroll-mt-28 lg:max-w-md" id="quote">
           <QuoteCard />
         </div>
       </div>
