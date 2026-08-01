@@ -1,14 +1,13 @@
 import { SITE } from "@/lib/data";
 import type { BookingDetails } from "@/lib/booking-message";
 import { buildBookingMessage } from "@/lib/booking-message";
+
 import type { TourEnquiryDetails } from "@/lib/tour-enquiry-message";
-import { buildTourEnquiryMessage } from "@/lib/tour-enquiry-message";
 
 export type EnquirySubmission = {
   customerName: string;
   message: string;
   subject?: string;
-  /** When false, skip email and only attempt Google Calendar logging via the worker. */
   sendEmail?: boolean;
   booking?: BookingDetails;
   tour?: TourEnquiryDetails;
@@ -27,7 +26,6 @@ function resolveBookingsApiUrl(): string {
     const parsed = new URL(url);
     const host = parsed.hostname.toLowerCase();
 
-    // GitHub Pages is static — POST routes like /api/bookings return 405.
     if (host === "www.myairporttaxini.co.uk" || host === "myairporttaxini.co.uk") {
       return "";
     }
@@ -239,23 +237,19 @@ export async function submitEnquiryByEmail(
     attempts.push({ label: "worker", run: () => submitViaWorker(submission) });
   }
 
-  // Email fallbacks are only useful when we actually need to send email.
   if (submission.sendEmail !== false) {
     if (WEB3FORMS_ACCESS_KEY) {
       attempts.push({ label: "web3forms", run: () => submitViaWeb3Forms(submission) });
     }
 
-    attempts.push({ label: "formsubmit", run: () => submitViaFormSubmit(submission) });
-  }
-
-  if (allowFormSubmitFallback) {
-    attempts.push({ label: "formsubmit", run: () => submitViaFormSubmit(submission) });
-  } else {
-    attempts.push({ label: "formsubmit-ajax", run: () => submitViaFormSubmitAjax(submission) });
+    if (allowFormSubmitFallback) {
+      attempts.push({ label: "formsubmit", run: () => submitViaFormSubmit(submission) });
+    } else {
+      attempts.push({ label: "formsubmit-ajax", run: () => submitViaFormSubmitAjax(submission) });
+    }
   }
 
   let lastError: unknown = null;
-  let calendarResult: BookingSubmissionResult = {};
 
   for (const attempt of attempts) {
     try {
@@ -272,43 +266,13 @@ export async function submitEnquiryByEmail(
 }
 
 export async function submitBookingByEmail(details: BookingDetails): Promise<string> {
-  const message = buildBookingMessage(details);
-
   return submitEnquiryByEmail(
     {
       customerName: details.customerName,
-      message,
+      message: buildBookingMessage(details),
       subject: `New booking — ${details.customerName}`,
+      booking: details,
     },
     { allowFormSubmitFallback: false },
   );
-}
-
-export async function submitDayTripByEmail(
-  details: TourEnquiryDetails,
-): Promise<BookingSubmissionResult> {
-  const message = buildTourEnquiryMessage(details);
-
-  return submitEnquiryByEmail({
-    customerName: details.customerName,
-    message,
-    subject: `New day trip booking — ${details.customerName}`,
-    booking: toStructuredDayTrip(details),
-  });
-}
-
-export function formatCalendarConflictWarning(conflicts: CalendarConflict[]): string {
-  if (conflicts.length === 0) {
-    return "";
-  }
-
-  const lines = conflicts.map((conflict) => {
-    const overlapText =
-      conflict.overlappingEvents.length > 0
-        ? conflict.overlappingEvents.map((event) => event.summary).join(", ")
-        : "another booking";
-    return `${conflict.label} overlaps with ${overlapText}.`;
-  });
-
-  return `Calendar note: ${lines.join(" ")} We'll review and confirm shortly.`;
 }
