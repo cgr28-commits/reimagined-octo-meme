@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Logo from "./Logo";
+import FooterContact from "./FooterContact";
 import { NAV_LINKS, SITE } from "@/lib/data";
 import { TOURS } from "@/lib/tours";
 
@@ -63,23 +64,7 @@ export default function Footer() {
             <h3 className="text-sm font-semibold uppercase tracking-wider text-white">
               Contact
             </h3>
-            <ul className="mt-4 space-y-3 text-sm text-white/50">
-              <li>
-                <a href={`mailto:${SITE.email}`} className="transition-colors hover:text-emerald">
-                  {SITE.email}
-                </a>
-              </li>
-              <li>
-                <a
-                  href={`https://wa.me/${SITE.whatsapp}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="transition-colors hover:text-emerald"
-                >
-                  WhatsApp Us
-                </a>
-              </li>
-            </ul>
+            <FooterContact />
           </div>
 
           <div>

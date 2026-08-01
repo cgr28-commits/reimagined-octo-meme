@@ -1,7 +1,5 @@
-"use client";
-
 import { AIRPORTS } from "@/lib/data";
-import { prefillQuoteAirport } from "@/lib/quote-prefill";
+import AirportBookNowLink from "./AirportBookNowLink";
 import SectionHeading from "./SectionHeading";
 
 export default function AirportsSection() {
@@ -15,7 +13,7 @@ export default function AirportsSection() {
           description="Professional transfers to every major airport — with live flight tracking, meet & greet, and complimentary waiting time included."
         />
 
-        <div className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-14 grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
           {AIRPORTS.map((airport) => (
             <article
               key={airport.code}
@@ -32,19 +30,7 @@ export default function AirportsSection() {
               <p className="mt-3 text-sm leading-relaxed text-white/65">
                 {airport.description}
               </p>
-              <a
-                href="#quote"
-                onClick={(event) => {
-                  event.preventDefault();
-                  prefillQuoteAirport(airport.code);
-                }}
-                className="mt-5 inline-flex items-center gap-1 text-sm font-semibold text-emerald transition-colors hover:text-emerald-light"
-              >
-                Book this route
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
-                </svg>
-              </a>
+              <AirportBookNowLink airportCode={airport.code} />
             </article>
           ))}
         </div>

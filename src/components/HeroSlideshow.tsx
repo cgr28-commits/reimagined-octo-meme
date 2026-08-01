@@ -31,7 +31,7 @@ export default function HeroSlideshow() {
   const slide = HERO_SLIDES[current];
 
   return (
-    <section className="relative min-h-screen overflow-hidden pt-16">
+    <section className="relative min-h-screen overflow-hidden pt-20 md:pt-28">
       <div className="absolute inset-0">
         {HERO_SLIDES.map((s, i) => (
           <div
