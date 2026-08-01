@@ -72,6 +72,16 @@ body {
   }
 }
 
+.hero-photo {
+  filter: saturate(1.2) contrast(1.05) brightness(1.06);
+}
+
+@media (max-width: 767px) {
+  .hero-photo {
+    filter: saturate(1.28) contrast(1.08) brightness(1.1);
+  }
+}
+
 @keyframes float {
   0%,
   100% {
