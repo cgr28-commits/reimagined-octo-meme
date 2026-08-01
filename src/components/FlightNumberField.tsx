@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import {
   isValidFlightNumberFormat,
+  isSoftFlightLookupFailure,
   lookupFlightForBooking,
   type TripDirection,
   type VerifiedFlight,
@@ -118,7 +119,7 @@ export default function FlightNumberField({
       }
 
       setVerifiedFlight(null);
-      if (!result.configured || result.code === "rate_limited") {
+      if (!result.configured || isSoftFlightLookupFailure(result.code)) {
         setLookupStatus("unavailable");
         setLookupMessage(
           result.error ||
