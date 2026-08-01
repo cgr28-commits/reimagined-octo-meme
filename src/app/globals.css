@@ -12,12 +12,15 @@
 
 html {
   scroll-behavior: smooth;
+  overflow-x: clip;
 }
 
 body {
   background-color: var(--color-navy);
   color: #e8edf5;
   font-family: var(--font-sans), system-ui, sans-serif;
+  overflow-x: clip;
+  max-width: 100%;
 }
 
 ::selection {
@@ -148,4 +151,9 @@ body {
 
 .address-suggestions {
   pointer-events: auto;
+}
+
+.leaflet-container {
+  max-width: 100%;
+  overflow: hidden;
 }

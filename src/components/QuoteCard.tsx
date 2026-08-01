@@ -588,7 +588,7 @@ function QuoteCard() {
     return (
       <div
         ref={cardRef}
-        className="glass-card rounded-2xl p-6 sm:p-8 lg:animate-float"
+        className="glass-card min-w-0 rounded-2xl p-6 sm:p-8 lg:animate-float"
       >
         <div className="rounded-xl border border-emerald/30 bg-emerald/10 px-5 py-8 text-center sm:px-8 sm:py-10">
           <p className="text-xs font-medium uppercase tracking-wider text-emerald">
@@ -614,7 +614,7 @@ function QuoteCard() {
   }
 
   return (
-    <div ref={cardRef} className="glass-card rounded-2xl p-6 sm:p-8 lg:animate-float">
+    <div ref={cardRef} className="glass-card min-w-0 rounded-2xl p-6 sm:p-8 lg:animate-float">
       <div className="mb-6">
         <h2 className="text-xl font-bold text-white sm:text-2xl">Get a Live Quote</h2>
         <p className="mt-1 text-sm text-white/60">
