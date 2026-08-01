@@ -57,6 +57,21 @@ body {
   }
 }
 
+@media (max-width: 767px) {
+  .hero-slide {
+    animation: heroFadeMobile 1.2s ease-in-out;
+  }
+}
+
+@keyframes heroFadeMobile {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
 @keyframes float {
   0%,
   100% {

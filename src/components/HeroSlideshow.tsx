@@ -33,6 +33,12 @@ export default function HeroSlideshow() {
     AIRPORTS.find((airport) => airport.code === slide.airportCode)?.distance ??
     "From £45";
 
+  function getHeroImageClassName(slideConfig: (typeof HERO_SLIDES)[number], animated: boolean): string {
+    return ["h-full w-full object-cover", slideConfig.imageClass, animated ? "hero-slide" : ""]
+      .filter(Boolean)
+      .join(" ");
+  }
+
   return (
     <section className="relative min-h-screen overflow-hidden pt-44 md:pt-28">
       <div className="absolute inset-0">
@@ -48,13 +54,13 @@ export default function HeroSlideshow() {
               alt={s.alt}
               fill
               priority={i === 0}
-              className={`object-cover ${i === current && !isTransitioning ? "hero-slide" : ""}`}
+              className={getHeroImageClassName(s, i === current && !isTransitioning)}
               sizes="100vw"
             />
           </div>
         ))}
-        <div className="absolute inset-0 bg-gradient-to-b from-navy/70 via-navy/50 to-navy" />
-        <div className="absolute inset-0 bg-gradient-to-r from-navy/80 via-transparent to-navy/40" />
+        <div className="absolute inset-0 bg-gradient-to-b from-navy/80 via-navy/60 to-navy max-md:from-navy/90 max-md:via-navy/75" />
+        <div className="absolute inset-0 bg-gradient-to-r from-navy/85 via-navy/20 to-navy/50 max-md:from-navy/90 max-md:via-navy/40" />
       </div>
 
       <div className="relative mx-auto flex w-full min-w-0 max-w-7xl flex-col gap-12 px-4 py-16 sm:px-6 lg:flex-row lg:items-center lg:gap-16 lg:px-8 lg:py-24">

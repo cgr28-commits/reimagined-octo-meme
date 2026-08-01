@@ -71,14 +71,28 @@ export const HERO_SLIDES = [
       "Reliable transfers to and from Aldergrove (BFS) with flight tracking, meet & greet, and 60 minutes complimentary waiting time.",
     image: withBasePath("/images/hero/belfast-international-arrivals-2025.jpg"),
     alt: "Belfast International Airport new Arrivals terminal exterior",
+    imageClass:
+      "max-md:scale-[0.9] max-md:origin-center max-md:[object-position:center_28%] md:[object-position:center_40%]",
   },
   {
     airportCode: "BHD",
     title: "Belfast City Airport Transfers",
     subtitle:
       "Quick transfers to George Best Belfast City Airport (BHD) — ideal for business trips and short-haul flights.",
-    image: withBasePath("/images/hero/belfast-city.jpg"),
-    alt: "Entrance to George Best Belfast City Airport terminal",
+    image: withBasePath("/images/hero/titanic-belfast.jpg"),
+    alt: "Titanic Belfast museum in the Titanic Quarter",
+    imageClass:
+      "max-md:scale-[0.88] max-md:origin-center max-md:[object-position:center_35%] md:[object-position:center_center]",
+  },
+  {
+    airportCode: "BHD",
+    title: "Belfast City Airport Transfers",
+    subtitle:
+      "Quick transfers to George Best Belfast City Airport (BHD) — ideal for business trips and short-haul flights.",
+    image: withBasePath("/images/hero/harland-wolff-cranes.jpg"),
+    alt: "Harland and Wolff Samson and Goliath cranes, Belfast",
+    imageClass:
+      "max-md:scale-[0.9] max-md:origin-center max-md:[object-position:center_45%] md:[object-position:center_center]",
   },
   {
     airportCode: "DUB",
@@ -87,6 +101,8 @@ export const HERO_SLIDES = [
       "Comfortable cross-border transfers to Dublin Airport (DUB) with experienced drivers from Northern Ireland.",
     image: withBasePath("/images/hero/dublin.jpg"),
     alt: "Dublin Airport Terminal 2 building",
+    imageClass:
+      "max-md:scale-[0.9] max-md:origin-center max-md:[object-position:center_25%] md:[object-position:center_35%]",
   },
   {
     airportCode: "LDY",
@@ -95,6 +111,8 @@ export const HERO_SLIDES = [
       "Transfers between City of Derry Airport (LDY) and the greater Belfast area — departures from Bangor and Belfast, or meet & greet at LDY arrivals.",
     image: withBasePath("/images/hero/derry-airport.jpg"),
     alt: "City of Derry Airport terminal building and control tower",
+    imageClass:
+      "max-md:scale-[0.92] max-md:origin-center max-md:[object-position:center_30%] md:[object-position:center_40%]",
   },
 ] as const;
 
