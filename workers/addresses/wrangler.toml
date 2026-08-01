@@ -10,13 +10,15 @@ compatibility_date = "2025-08-01"
 # Redeploy after changing worker code: wrangler deploy (or Cloudflare dashboard → Deploy)
 account_id = "36c5c88df4c1f0259413d555f2679f3c"
 
+[build]
+command = "npm run typecheck"
+
 [observability]
 enabled = true
 
-# Booking reference counter (MATNI-1001+). Created by: node scripts/setup-worker.mjs
-[[kv_namespaces]]
-binding = "BOOKING_COUNTER"
-id = "REPLACE_WITH_KV_NAMESPACE_ID"
+# Booking reference counter (MATNI-1001+). Run `npm run setup:worker` to create the
+# BOOKING_COUNTER KV namespace and add the [[kv_namespaces]] block here automatically.
+# Until then, bookings work without sequential references.
 
 # Cloudflare Email Service (optional — onboard myairporttaxini.co.uk in dashboard first).
 # Without this, bookings email via WEB3FORMS_ACCESS_KEY secret, then MailChannels.

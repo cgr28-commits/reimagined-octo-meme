@@ -69,6 +69,8 @@ type Env = {
 type BookingRequestBody = {
   customerName?: string;
   message?: string;
+  /** When false, skip owner notification email (e.g. WhatsApp-only path). */
+  sendEmail?: boolean;
   booking?: TransferBookingEvent;
   tour?: TourBookingEvent;
 };
@@ -224,20 +226,26 @@ async function sendBookingEmail(
   env: Env,
   customerName: string,
   message: string,
-  bookingReference: string,
+  bookingReference: string | null,
 ): Promise<void> {
   const toEmail = env.BOOKING_TO_EMAIL?.trim() || DEFAULT_BOOKING_EMAIL;
+  const body = bookingReference
+    ? prependBookingReference(message, bookingReference)
+    : message;
+  const subject = bookingReference
+    ? `New booking ${bookingReference} — ${customerName}`
+    : `New booking — ${customerName}`;
 
   await sendEmail(env, {
     to: toEmail,
-    subject: `New booking ${bookingReference} — ${customerName}`,
-    body: prependBookingReference(message, bookingReference),
+    subject,
+    body,
   });
 }
 
-async function allocateBookingReference(env: Env): Promise<string> {
+async function allocateBookingReference(env: Env): Promise<string | null> {
   if (!env.BOOKING_COUNTER) {
-    throw new Error("Booking counter is not configured");
+    return null;
   }
 
   const counterKey = "next_booking_ref";
@@ -338,34 +346,50 @@ async function handleBookingRequest(
 
   const customerName = body.customerName?.trim() ?? "";
   const message = body.message?.trim() ?? "";
-  const sendEmail = body.sendEmail !== false;
+  const shouldSendEmail = body.sendEmail !== false;
 
   if (!customerName || !message) {
     return json({ error: "Missing required fields" }, 400, origin);
   }
 
+  let bookingReference: string | null = null;
   try {
-    const bookingReference = await allocateBookingReference(env);
-    await sendBookingEmail(env, customerName, message, bookingReference);
-    const calendar = await logBookingCalendar(env, body, customerName, message);
-    return json(
-      {
-        ok: true,
-        bookingReference,
-        calendarLogged: calendar.logged,
-        calendarEvents: calendar.events ?? 0,
-      },
-      200,
-      origin,
-    );
+    bookingReference = await allocateBookingReference(env);
   } catch (error) {
-    console.error("Booking submission failed", error);
-    return json({ error: "Failed to send booking email" }, 502, origin);
+    console.error("Booking reference allocation failed", error);
+  }
+
+  let emailSent = false;
+
+  if (shouldSendEmail) {
+    try {
+      await sendBookingEmail(env, customerName, message, bookingReference);
+      emailSent = true;
+    } catch (error) {
+      console.error("Booking email failed", error);
+      const calendar = await logBookingCalendar(env, body, customerName, message);
+      if (calendar.logged) {
+        return json(
+          {
+            ok: true,
+            bookingReference: bookingReference ?? undefined,
+            emailSent: false,
+            calendarLogged: true,
+            calendarEvents: calendar.events,
+            warning: "Booking email failed but the trip was logged to Google Calendar",
+          },
+          200,
+          origin,
+        );
+      }
+
+      return json({ error: "Failed to send booking email" }, 502, origin);
+    }
   }
 
   const calendar = await logBookingCalendar(env, body, customerName, message);
 
-  if (!sendEmail && !calendar.logged && calendarConfigured(env) && calendar.error) {
+  if (!shouldSendEmail && !calendar.logged && calendarConfigured(env) && calendar.error) {
     return json(
       { error: "Failed to log booking to Google Calendar", detail: calendar.error },
       502,
@@ -376,6 +400,7 @@ async function handleBookingRequest(
   return json(
     {
       ok: true,
+      bookingReference: bookingReference ?? undefined,
       emailSent,
       calendarLogged: calendar.logged,
       calendarEvents: calendar.events ?? 0,
