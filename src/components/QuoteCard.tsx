@@ -12,7 +12,7 @@ import {
   calculateQuote,
   formatQuote,
 } from "@/lib/quote";
-import { isLdyDropOffAddress } from "../../shared/ldy-service-area";
+import { isLdyServiceAreaAddress } from "../../shared/ldy-service-area";
 import {
   formatJourneyDistance,
   formatJourneyDuration,
@@ -141,24 +141,18 @@ function QuoteCard() {
   }, []);
 
   const isLdyTrip = airportCode === "LDY";
-  const ldyDropOffInvalid =
+  const ldyServiceAddress = isFromAirport ? dropoffAddress : pickupAddress;
+  const ldyServiceAreaInvalid =
     isLdyTrip &&
-    isFromAirport &&
-    dropoffAddress.trim().length > 0 &&
-    !isLdyDropOffAddress(dropoffAddress);
-
-  useEffect(() => {
-    if (airportCode === "LDY" && tripDirection !== "from-airport") {
-      setTripDirection("from-airport");
-    }
-  }, [airportCode, tripDirection]);
+    ldyServiceAddress.trim().length > 0 &&
+    !isLdyServiceAreaAddress(ldyServiceAddress);
 
   useEffect(() => {
     function applyAirportPrefill(code: string) {
       if (AIRPORTS.some((airport) => airport.code === code)) {
         setTripMode("airport");
         setAirportCode(code);
-        setTripDirection(code === "LDY" ? "from-airport" : "to-airport");
+        setTripDirection("to-airport");
       }
     }
 
@@ -196,7 +190,7 @@ function QuoteCard() {
 
   const canShowPrice =
     isScheduleComplete &&
-    !ldyDropOffInvalid &&
+    !ldyServiceAreaInvalid &&
     (isAirportTrip ? isAirportAddressComplete : isAddressPairComplete);
 
   const liveQuote = useMemo(() => {
@@ -301,7 +295,7 @@ function QuoteCard() {
     }
     setFlightNumberError("");
 
-    if (ldyDropOffInvalid) {
+    if (ldyServiceAreaInvalid) {
       return false;
     }
 
@@ -442,8 +436,10 @@ function QuoteCard() {
   const quoteHint = isAirportTrip
     ? !airportCode
       ? "Select an airport to see your estimated price"
-      : ldyDropOffInvalid
-        ? "We transfer from Derry Airport to the greater Belfast area — enter a Belfast-area drop-off address"
+      : ldyServiceAreaInvalid
+        ? isFromAirport
+          ? "We transfer from Derry Airport to the greater Belfast area — enter a Belfast-area drop-off address"
+          : "Pickups for Derry Airport must be in the greater Belfast area — enter a Belfast-area pickup address"
       : !isScheduleComplete
         ? returnJourney && tripDate && tripTime && (!returnDate || !returnTime)
           ? "Select your return date and time to see your estimated price"
@@ -517,10 +513,36 @@ function QuoteCard() {
               Trip Type
             </p>
             {isLdyTrip ? (
-              <div className="rounded-xl border border-emerald/20 bg-emerald/10 px-4 py-3 text-sm text-white/80">
-                From Derry Airport to the greater Belfast area — we meet you at LDY arrivals
-                and transfer you east to Belfast, Lisburn, Bangor, and surrounding towns.
-              </div>
+              <>
+                <div className="mb-2 rounded-xl border border-emerald/20 bg-emerald/10 px-4 py-3 text-sm text-white/80">
+                  Transfers between City of Derry Airport and the greater Belfast area — not
+                  Belfast City Airport (BHD).
+                </div>
+                <div className="grid grid-cols-2 gap-2 rounded-xl border border-white/10 bg-white/5 p-1">
+                  <button
+                    type="button"
+                    onClick={() => setTripDirection("to-airport")}
+                    className={`rounded-lg px-3 py-2.5 text-xs font-semibold transition-all sm:text-sm ${
+                      tripDirection === "to-airport"
+                        ? "bg-emerald text-navy shadow-sm"
+                        : "text-white/70 hover:text-white"
+                    }`}
+                  >
+                    To Derry Airport
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTripDirection("from-airport")}
+                    className={`rounded-lg px-3 py-2.5 text-xs font-semibold transition-all sm:text-sm ${
+                      tripDirection === "from-airport"
+                        ? "bg-emerald text-navy shadow-sm"
+                        : "text-white/70 hover:text-white"
+                    }`}
+                  >
+                    From Derry Airport
+                  </button>
+                </div>
+              </>
             ) : (
             <div className="grid grid-cols-2 gap-2 rounded-xl border border-white/10 bg-white/5 p-1">
               <button
@@ -680,7 +702,9 @@ function QuoteCard() {
             </label>
             {isLdyTrip && (
               <p className="mb-2 text-xs text-white/45">
-                Drop-off must be in the greater Belfast area
+                {isFromAirport
+                  ? "Drop-off must be in the greater Belfast area"
+                  : "Pickup must be in the greater Belfast area (e.g. Bangor, Belfast, Lisburn)"}
               </p>
             )}
             <select
@@ -689,11 +713,7 @@ function QuoteCard() {
               required
               value={airportCode}
               onChange={(e) => {
-                const code = e.target.value;
-                setAirportCode(code);
-                if (code === "LDY") {
-                  setTripDirection("from-airport");
-                }
+                setAirportCode(e.target.value);
               }}
               className="w-full rounded-xl border border-white/10 bg-navy-light px-4 py-3 text-sm text-white outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30"
             >
@@ -701,6 +721,7 @@ function QuoteCard() {
               {AIRPORTS.map((a) => (
                 <option key={a.code} value={a.code}>
                   {a.name} ({a.code}) — {a.distance}
+                  {a.code === "LDY" ? " · not Belfast City (BHD)" : ""}
                 </option>
               ))}
             </select>
@@ -718,22 +739,28 @@ function QuoteCard() {
                 value={dropoffAddress}
                 onChange={handleDropoffChange}
                 airportCode={addressLookupCode}
-                label={isLdyTrip ? "Your Belfast-area Drop-off Address" : "Your Drop-off Address"}
+                label={
+                  isLdyTrip
+                    ? isFromAirport
+                      ? "Your Belfast-area Drop-off Address"
+                      : "Your Belfast-area Pickup Address"
+                    : "Your Drop-off Address"
+                }
                 placeholder={
                   isLdyTrip
-                    ? "e.g. Donegall Square, Belfast or 12 Lisburn Road, Belfast"
+                    ? "e.g. Main Street, Bangor or Donegall Square, Belfast"
                     : "e.g. Donegall Square, Belfast or 12 Donegall Square"
                 }
                 helperText={
                   isLdyTrip
-                    ? "Belfast, Lisburn, Bangor, Newtownabbey, and surrounding towns only"
+                    ? "Bangor, Belfast, Lisburn, Newtownabbey, and surrounding towns only"
                     : "Type a street name, business name, or full address — pick from the list"
                 }
               />
-              {ldyDropOffInvalid && (
+              {ldyServiceAreaInvalid && isFromAirport && (
                 <p className="text-xs text-red-300">
-                  This address is outside our LDY service area. We transfer from Derry Airport to
-                  the greater Belfast area only.
+                  This address is outside our LDY service area. We transfer between Derry Airport
+                  and the greater Belfast area only.
                 </p>
               )}
               <input type="hidden" name="pickup" value={airportCode ? AIRPORTS.find((a) => a.code === airportCode)?.name ?? "" : ""} />
@@ -746,10 +773,24 @@ function QuoteCard() {
                 value={pickupAddress}
                 onChange={handlePickupChange}
                 airportCode={addressLookupCode}
-                label="Your Pickup Address"
-                placeholder="e.g. Donegall Square, Belfast or 12 Donegall Square"
-                helperText="Type a street name, business name, or full address — pick from the list"
+                label={isLdyTrip ? "Your Belfast-area Pickup Address" : "Your Pickup Address"}
+                placeholder={
+                  isLdyTrip
+                    ? "e.g. Main Street, Bangor or Donegall Square, Belfast"
+                    : "e.g. Donegall Square, Belfast or 12 Donegall Square"
+                }
+                helperText={
+                  isLdyTrip
+                    ? "Bangor, Belfast, Lisburn, Newtownabbey, and surrounding towns only"
+                    : "Type a street name, business name, or full address — pick from the list"
+                }
               />
+              {ldyServiceAreaInvalid && !isFromAirport && (
+                <p className="text-xs text-red-300">
+                  This address is outside our LDY service area. Pickups for Derry Airport must be
+                  in the greater Belfast area.
+                </p>
+              )}
               <input type="hidden" name="dropoff" value={airportCode ? AIRPORTS.find((a) => a.code === airportCode)?.name ?? "" : ""} />
             </>
           )

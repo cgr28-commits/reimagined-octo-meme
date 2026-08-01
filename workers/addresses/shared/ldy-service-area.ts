@@ -74,9 +74,14 @@ export function isGreaterBelfastServiceAddress(address: string): boolean {
   return GREATER_BELFAST_PATTERN.test(text);
 }
 
-/** LDY transfers are from Derry Airport to the greater Belfast area only. */
-export function isLdyDropOffAddress(address: string): boolean {
+/** Greater Belfast pickup/drop-off for LDY transfers (both directions). */
+export function isLdyServiceAreaAddress(address: string): boolean {
   return isGreaterBelfastServiceAddress(address);
+}
+
+/** @deprecated Use isLdyServiceAreaAddress — kept for existing imports. */
+export function isLdyDropOffAddress(address: string): boolean {
+  return isLdyServiceAreaAddress(address);
 }
 
 export function getLdyLocationRestriction() {
