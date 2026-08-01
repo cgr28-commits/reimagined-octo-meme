@@ -338,6 +338,7 @@ async function handleBookingRequest(
 
   const customerName = body.customerName?.trim() ?? "";
   const message = body.message?.trim() ?? "";
+  const sendEmail = body.sendEmail !== false;
 
   if (!customerName || !message) {
     return json({ error: "Missing required fields" }, 400, origin);
@@ -361,6 +362,27 @@ async function handleBookingRequest(
     console.error("Booking submission failed", error);
     return json({ error: "Failed to send booking email" }, 502, origin);
   }
+
+  const calendar = await logBookingCalendar(env, body, customerName, message);
+
+  if (!sendEmail && !calendar.logged && calendarConfigured(env) && calendar.error) {
+    return json(
+      { error: "Failed to log booking to Google Calendar", detail: calendar.error },
+      502,
+      origin,
+    );
+  }
+
+  return json(
+    {
+      ok: true,
+      emailSent,
+      calendarLogged: calendar.logged,
+      calendarEvents: calendar.events ?? 0,
+    },
+    200,
+    origin,
+  );
 }
 
 async function handlePaymentRequest(

@@ -1,11 +1,17 @@
 import { SITE } from "@/lib/data";
 import type { BookingDetails } from "@/lib/booking-message";
 import { buildBookingMessage } from "@/lib/booking-message";
+import type { TourEnquiryDetails } from "@/lib/tour-enquiry-message";
+import { buildTourEnquiryMessage } from "@/lib/tour-enquiry-message";
 
 export type EnquirySubmission = {
   customerName: string;
   message: string;
   subject?: string;
+  /** When false, skip email and only attempt Google Calendar logging via the worker. */
+  sendEmail?: boolean;
+  booking?: BookingDetails;
+  tour?: TourEnquiryDetails;
 };
 
 const WEB3FORMS_ACCESS_KEY =
@@ -62,6 +68,9 @@ async function submitViaWorker(submission: EnquirySubmission): Promise<string> {
     body: JSON.stringify({
       customerName: submission.customerName,
       message: submission.message,
+      sendEmail: submission.sendEmail !== false,
+      booking: submission.booking,
+      tour: submission.tour,
     }),
   });
 
@@ -230,8 +239,13 @@ export async function submitEnquiryByEmail(
     attempts.push({ label: "worker", run: () => submitViaWorker(submission) });
   }
 
-  if (WEB3FORMS_ACCESS_KEY) {
-    attempts.push({ label: "web3forms", run: () => submitViaWeb3Forms(submission) });
+  // Email fallbacks are only useful when we actually need to send email.
+  if (submission.sendEmail !== false) {
+    if (WEB3FORMS_ACCESS_KEY) {
+      attempts.push({ label: "web3forms", run: () => submitViaWeb3Forms(submission) });
+    }
+
+    attempts.push({ label: "formsubmit", run: () => submitViaFormSubmit(submission) });
   }
 
   if (allowFormSubmitFallback) {
