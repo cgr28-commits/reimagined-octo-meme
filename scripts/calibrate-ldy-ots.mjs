@@ -1,6 +1,6 @@
 /**
  * Fetches OTS quotes for LDY → Belfast-area routes and computes surcharges
- * targeting ~£5 below OTS estate fares (same approach as BFS/BHD table).
+ * targeting ~£8–£10 below OTS estate fares (same approach as BFS/BHD table).
  *
  * Uses live quotes from https://www.airporttaxis-uk.co.uk/
  */
@@ -61,7 +61,7 @@ const results = [];
 
 for (const [area, dropoff] of Object.entries(AREAS)) {
   const otsEstate = await fetchOtsEstateQuote(LDY_PICKUP, dropoff, { delayMs: 250 });
-  const targetEstate = roundToNearestFive(Math.round(otsEstate - 5));
+  const targetEstate = roundToNearestFive(Math.round(otsEstate - 9));
   const surcharge = findSurchargeForTargetEstate(targetEstate);
   const ourEstate = surcharge != null ? computeEstateFare(surcharge) : null;
   const ourSaloon = surcharge != null ? computeSaloonOneWay(LDY_BASE + surcharge) : null;

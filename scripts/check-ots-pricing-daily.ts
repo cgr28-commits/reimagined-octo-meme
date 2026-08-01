@@ -7,8 +7,8 @@
  *
  * To auto-adjust surcharges, use: npm run calibrate:ots-pricing
  *
- * Airport transfers: target ~£5–£8 below OTS (with rounding tolerance).
- * Point-to-point: should track OTS closely (±£5), not necessarily below.
+ * Airport transfers: target ~£8–£10 below OTS (with rounding tolerance).
+ * Point-to-point: same £8–£10 below OTS target.
  */
 
 import { mkdirSync, writeFileSync } from "node:fs";
@@ -22,10 +22,9 @@ import { sampleRoutes, seedFromDate } from "./lib/seeded-sample.mjs";
 const ESTATE = "Estate Car (1–4 passengers)" as const;
 
 const SAMPLE_SIZE = Number(process.env.OTS_SAMPLE_SIZE ?? "100");
-const MIN_DISCOUNT = Number(process.env.OTS_MIN_DISCOUNT ?? "5");
-const MAX_DISCOUNT = Number(process.env.OTS_MAX_DISCOUNT ?? "8");
+const MIN_DISCOUNT = Number(process.env.OTS_MIN_DISCOUNT ?? "8");
+const MAX_DISCOUNT = Number(process.env.OTS_MAX_DISCOUNT ?? "10");
 const DISCOUNT_TOLERANCE = Number(process.env.OTS_DISCOUNT_TOLERANCE ?? "2");
-const P2P_TOLERANCE = Number(process.env.OTS_P2P_TOLERANCE ?? "5");
 const REQUEST_DELAY_MS = Number(process.env.OTS_REQUEST_DELAY_MS ?? "250");
 
 type Route =
@@ -119,19 +118,7 @@ function evaluatePointToPoint(
   otsEstate: number,
   ourEstate: number,
 ): { status: "pass" | "fail"; message: string } {
-  const diff = +(ourEstate - otsEstate).toFixed(2);
-
-  if (Math.abs(diff) <= P2P_TOLERANCE) {
-    return {
-      status: "pass",
-      message: `Within £${P2P_TOLERANCE} of OTS (${diff >= 0 ? "+" : ""}£${diff.toFixed(2)})`,
-    };
-  }
-
-  return {
-    status: "fail",
-    message: `${diff >= 0 ? "+" : ""}£${diff.toFixed(2)} vs OTS — outside ±£${P2P_TOLERANCE} tracking band`,
-  };
+  return evaluateAirport(otsEstate, ourEstate);
 }
 
 async function checkRoute(route: Route): Promise<CheckResult> {
@@ -234,7 +221,7 @@ async function main() {
   console.log(
     `Airport target: £${MIN_DISCOUNT}–£${MAX_DISCOUNT} below OTS (±£${DISCOUNT_TOLERANCE} tolerance)`,
   );
-  console.log(`Point-to-point target: within ±£${P2P_TOLERANCE} of OTS\n`);
+  console.log(`Point-to-point target: £${MIN_DISCOUNT}–£${MAX_DISCOUNT} below OTS\n`);
 
   const results: CheckResult[] = [];
   for (const [index, route] of sampled.entries()) {
@@ -258,7 +245,7 @@ async function main() {
       airportMinDiscount: MIN_DISCOUNT,
       airportMaxDiscount: MAX_DISCOUNT,
       airportTolerance: DISCOUNT_TOLERANCE,
-      pointToPointTolerance: P2P_TOLERANCE,
+      pointToPointTolerance: MAX_DISCOUNT,
     },
     summary,
     failures,
