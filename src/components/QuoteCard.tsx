@@ -19,11 +19,9 @@ import {
   type TripRouteMetrics,
 } from "@/lib/trip-route";
 import { submitBookingByEmail } from "@/lib/submit-booking";
-import {
-  isValidFlightNumberFormat,
-  lookupFlightForBooking,
-  type VerifiedFlight,
-} from "@/lib/flight-lookup";
+import FlightNumberField, { formatVerifiedFlightSummary } from "@/components/FlightNumberField";
+import { isValidFlightNumberFormat } from "@/lib/flight-lookup";
+import type { VerifiedFlight } from "@/lib/flight-lookup";
 
 type TripMode = "airport" | "address";
 type TripDirection = "to-airport" | "from-airport";
@@ -111,14 +109,23 @@ function QuoteCard() {
   const [dropoffAddress, setDropoffAddress] = useState("");
   const [returnJourney, setReturnJourney] = useState(false);
   const [returnDateError, setReturnDateError] = useState("");
-  const [flightNumberError, setFlightNumberError] = useState("");
-  const [flightNumber, setFlightNumber] = useState("");
-  const [verifiedFlight, setVerifiedFlight] = useState<VerifiedFlight | null>(null);
-  const [flightLookupStatus, setFlightLookupStatus] = useState<
+  const [showFlightNumberStep, setShowFlightNumberStep] = useState(false);
+  const [goingFlightNumber, setGoingFlightNumber] = useState("");
+  const [collectionFlightNumber, setCollectionFlightNumber] = useState("");
+  const [goingFlightError, setGoingFlightError] = useState("");
+  const [collectionFlightError, setCollectionFlightError] = useState("");
+  const [verifiedGoingFlight, setVerifiedGoingFlight] = useState<VerifiedFlight | null>(null);
+  const [verifiedCollectionFlight, setVerifiedCollectionFlight] = useState<VerifiedFlight | null>(
+    null,
+  );
+  const [goingFlightConfigured, setGoingFlightConfigured] = useState(true);
+  const [collectionFlightConfigured, setCollectionFlightConfigured] = useState(true);
+  const [goingFlightStatus, setGoingFlightStatus] = useState<
     "idle" | "loading" | "verified" | "error"
   >("idle");
-  const [flightLookupConfigured, setFlightLookupConfigured] = useState(true);
-  const [flightLookupMessage, setFlightLookupMessage] = useState("");
+  const [collectionFlightStatus, setCollectionFlightStatus] = useState<
+    "idle" | "loading" | "verified" | "error"
+  >("idle");
   const [tripDate, setTripDate] = useState("");
   const [tripTime, setTripTime] = useState("");
   const [returnDate, setReturnDate] = useState("");
@@ -138,6 +145,7 @@ function QuoteCard() {
 
   const isAirportTrip = tripMode === "airport";
   const isFromAirport = tripDirection === "from-airport";
+  const returnTripDirection: TripDirection = isFromAirport ? "to-airport" : "from-airport";
   const addressLookupCode = isAirportTrip ? airportCode : "BFS";
 
   useEffect(() => {
@@ -196,69 +204,6 @@ function QuoteCard() {
     window.addEventListener("quote-prefill-airport", handlePrefill);
     return () => window.removeEventListener("quote-prefill-airport", handlePrefill);
   }, []);
-
-  useEffect(() => {
-    if (!isAirportTrip) {
-      return;
-    }
-
-    const trimmed = flightNumber.trim();
-    if (!trimmed || !tripDate || !airportCode) {
-      setVerifiedFlight(null);
-      setFlightLookupStatus("idle");
-      setFlightLookupMessage("");
-      return;
-    }
-
-    if (!isValidFlightNumberFormat(trimmed)) {
-      setVerifiedFlight(null);
-      setFlightLookupStatus("error");
-      setFlightLookupMessage("Enter a valid flight number (e.g. BA1234 or EZY456).");
-      return;
-    }
-
-    let cancelled = false;
-    setFlightLookupStatus("loading");
-    setFlightLookupMessage("");
-
-    const timer = window.setTimeout(async () => {
-      const result = await lookupFlightForBooking({
-        flightNumber: trimmed,
-        tripDate,
-        airportCode,
-        direction: tripDirection,
-      });
-
-      if (cancelled) {
-        return;
-      }
-
-      setFlightLookupConfigured(result.configured);
-
-      if (result.ok) {
-        setVerifiedFlight(result.flight);
-        setFlightLookupStatus("verified");
-        setFlightLookupMessage("");
-        setFlightNumberError("");
-        return;
-      }
-
-      setVerifiedFlight(null);
-      if (!result.configured) {
-        setFlightLookupStatus("idle");
-        setFlightLookupMessage("");
-        return;
-      }
-
-      setFlightLookupStatus("error");
-      setFlightLookupMessage(result.error);
-    }, 600);
-
-    return () => {
-      cancelled = true;
-      window.clearTimeout(timer);
-    };
-  }, [airportCode, flightNumber, isAirportTrip, tripDate, tripDirection]);
 
   const isScheduleComplete =
     Boolean(tripDate && tripTime) &&
@@ -339,8 +284,6 @@ function QuoteCard() {
     }
   }
 
-  const canBookAirport = !isAirportTrip || Boolean(flightNumber.trim());
-
   const airportName =
     AIRPORTS.find((a) => a.code === airportCode)?.name ?? airportCode;
 
@@ -356,6 +299,50 @@ function QuoteCard() {
       : airportName
     : dropoffAddress.trim();
 
+  function validateFlightNumbers(): boolean {
+    let ok = true;
+
+    if (goingFlightStatus === "loading") {
+      setGoingFlightError("Checking your going flight — please wait a moment.");
+      ok = false;
+    } else if (!goingFlightNumber.trim()) {
+      setGoingFlightError("Please enter your flight number for going.");
+      ok = false;
+    } else if (!isValidFlightNumberFormat(goingFlightNumber)) {
+      setGoingFlightError("Enter a valid flight number for going (e.g. BA1234).");
+      ok = false;
+    } else if (goingFlightConfigured && goingFlightStatus !== "verified") {
+      setGoingFlightError("Please enter a valid going flight for your selected date and airport.");
+      ok = false;
+    } else {
+      setGoingFlightError("");
+    }
+
+    if (returnJourney) {
+      if (collectionFlightStatus === "loading") {
+        setCollectionFlightError("Checking your collection flight — please wait a moment.");
+        ok = false;
+      } else if (!collectionFlightNumber.trim()) {
+        setCollectionFlightError("Please enter your flight number for collection.");
+        ok = false;
+      } else if (!isValidFlightNumberFormat(collectionFlightNumber)) {
+        setCollectionFlightError("Enter a valid flight number for collection (e.g. BA1234).");
+        ok = false;
+      } else if (collectionFlightConfigured && collectionFlightStatus !== "verified") {
+        setCollectionFlightError(
+          "Please enter a valid collection flight for your return date and airport.",
+        );
+        ok = false;
+      } else {
+        setCollectionFlightError("");
+      }
+    } else {
+      setCollectionFlightError("");
+    }
+
+    return ok;
+  }
+
   function validateBooking(): boolean {
     if (returnJourney) {
       if (!returnDate || !returnTime) {
@@ -368,31 +355,6 @@ function QuoteCard() {
       }
     }
     setReturnDateError("");
-
-    if (isAirportTrip && !flightNumber.trim()) {
-      setFlightNumberError("Please enter your flight number to book.");
-      return false;
-    }
-
-    if (isAirportTrip && flightLookupStatus === "loading") {
-      setFlightNumberError("Checking your flight details — please wait a moment.");
-      return false;
-    }
-
-    if (isAirportTrip && flightLookupConfigured) {
-      if (flightLookupStatus !== "verified") {
-        setFlightNumberError(
-          flightLookupMessage ||
-            "Please enter a valid flight number for your selected date and airport.",
-        );
-        return false;
-      }
-    } else if (isAirportTrip && !isValidFlightNumberFormat(flightNumber)) {
-      setFlightNumberError("Enter a valid flight number (e.g. BA1234 or EZY456).");
-      return false;
-    }
-
-    setFlightNumberError("");
 
     if (ldyDropOffInvalid) {
       return false;
@@ -446,7 +408,10 @@ function QuoteCard() {
       tripTime,
       returnDate,
       returnTime,
-      flightNumber: flightNumber.trim().toUpperCase(),
+      flightNumber: goingFlightNumber.trim().toUpperCase(),
+      returnFlightNumber: returnJourney
+        ? collectionFlightNumber.trim().toUpperCase()
+        : undefined,
       passengers,
       suitcases,
       vehicle: quoteVehicle,
@@ -492,6 +457,20 @@ function QuoteCard() {
       return;
     }
 
+    if (isAirportTrip && showFlightNumberStep) {
+      if (!validateFlightNumbers()) {
+        return;
+      }
+      setShowFlightNumberStep(false);
+      setShowBookingPreview(true);
+      return;
+    }
+
+    if (isAirportTrip && !showFlightNumberStep) {
+      setShowFlightNumberStep(true);
+      return;
+    }
+
     if (!showBookingPreview) {
       setShowBookingPreview(true);
       return;
@@ -502,6 +481,7 @@ function QuoteCard() {
 
   function handleEditBooking() {
     setShowBookingPreview(false);
+    setShowFlightNumberStep(false);
     setSubmitError("");
     setBookingSent(false);
     setBookingReference("");
@@ -521,16 +501,7 @@ function QuoteCard() {
 
   const reviewButtonLabel = liveQuote ? "Review booking" : "Review booking details";
 
-  const initialButtonLabel =
-    isAirportTrip && liveQuote && !canBookAirport
-      ? "Enter flight number to book"
-      : isAirportTrip && liveQuote
-        ? reviewButtonLabel
-        : isAirportTrip
-          ? usesWhatsApp
-            ? "Send via WhatsApp"
-            : reviewButtonLabel
-          : reviewButtonLabel;
+  const initialButtonLabel = liveQuote ? reviewButtonLabel : reviewButtonLabel;
 
   const quoteHint = isAirportTrip
     ? !airportCode
@@ -971,67 +942,70 @@ function QuoteCard() {
           </div>
         )}
 
-        {isAirportTrip && (
-          <div>
-            <label
-              htmlFor="flightNumber"
-              className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/50"
-            >
-              Flight Number
-            </label>
-            <input
-              id="flightNumber"
-              name="flightNumber"
-              type="text"
-              value={flightNumber}
-              onChange={(e) => {
-                setFlightNumber(e.target.value);
-                if (e.target.value.trim()) {
-                  setFlightNumberError("");
-                }
-              }}
-              placeholder="e.g. BA1234"
-              className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm uppercase text-white placeholder:normal-case placeholder:text-white/30 outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30"
-            />
-            <p className="mt-1.5 text-xs text-white/40">
-              Required to book — we verify your flight and use it for monitoring and complimentary
-              waiting time.
+        {showFlightNumberStep && isAirportTrip && !showBookingPreview && (
+          <div className="rounded-xl border border-white/15 bg-white/[0.04] px-4 py-4 sm:px-5">
+            <p className="text-xs font-medium uppercase tracking-wider text-emerald">
+              Flight numbers
             </p>
-            {!tripDate && flightNumber.trim() && (
-              <p className="mt-1.5 text-xs text-amber-200/90">
-                Select your trip date above so we can verify this flight.
-              </p>
-            )}
-            {flightLookupStatus === "loading" && (
-              <p className="mt-1.5 text-xs text-white/60">Checking flight details…</p>
-            )}
-            {flightLookupStatus === "verified" && verifiedFlight && (
-              <div className="mt-2 rounded-xl border border-emerald/30 bg-emerald/10 px-4 py-3 text-sm text-white/90">
-                <p className="font-semibold text-emerald">{verifiedFlight.airline}</p>
-                <p className="mt-1">
-                  {verifiedFlight.flightNumber} ·{" "}
-                  {new Date(`${verifiedFlight.date}T12:00:00`).toLocaleDateString("en-GB", {
-                    weekday: "short",
-                    day: "numeric",
-                    month: "short",
-                    year: "numeric",
-                  })}
-                </p>
-                <p className="mt-0.5 text-white/80">
-                  {verifiedFlight.scheduledTimeLabel} {verifiedFlight.airportName} at{" "}
-                  {verifiedFlight.scheduledTime}
-                </p>
-                <p className="mt-1 text-xs text-white/55">
-                  {verifiedFlight.departureAirport} → {verifiedFlight.arrivalAirport}
-                </p>
-              </div>
-            )}
-            {flightLookupStatus === "error" && flightLookupMessage && (
-              <p className="mt-1.5 text-xs text-red-300">{flightLookupMessage}</p>
-            )}
-            {flightNumberError && (
-              <p className="mt-1.5 text-xs text-red-400">{flightNumberError}</p>
-            )}
+            <p className="mt-1 mb-4 text-sm text-white/60">
+              We need your flight details for monitoring and complimentary airport waiting time.
+            </p>
+            <div className="space-y-4">
+              <FlightNumberField
+                id="goingFlightNumber"
+                label="Flight number for going"
+                helperText={
+                  isFromAirport
+                    ? "The flight you are arriving on"
+                    : "The flight you are departing on"
+                }
+                value={goingFlightNumber}
+                onChange={(value) => {
+                  setGoingFlightNumber(value);
+                  if (value.trim()) {
+                    setGoingFlightError("");
+                  }
+                }}
+                tripDate={tripDate}
+                airportCode={airportCode}
+                direction={tripDirection}
+                enabled={showFlightNumberStep}
+                error={goingFlightError}
+                onStatusChange={setGoingFlightStatus}
+                onVerifiedChange={(flight, configured) => {
+                  setVerifiedGoingFlight(flight);
+                  setGoingFlightConfigured(configured);
+                }}
+              />
+              {returnJourney && (
+                <FlightNumberField
+                  id="collectionFlightNumber"
+                  label="Flight number for collection"
+                  helperText={
+                    returnTripDirection === "from-airport"
+                      ? "The flight you are returning on — we collect you after it lands"
+                      : "The flight you are returning on — we take you to the airport"
+                  }
+                  value={collectionFlightNumber}
+                  onChange={(value) => {
+                    setCollectionFlightNumber(value);
+                    if (value.trim()) {
+                      setCollectionFlightError("");
+                    }
+                  }}
+                  tripDate={returnDate}
+                  airportCode={airportCode}
+                  direction={returnTripDirection}
+                  enabled={showFlightNumberStep}
+                  error={collectionFlightError}
+                  onStatusChange={setCollectionFlightStatus}
+                  onVerifiedChange={(flight, configured) => {
+                    setVerifiedCollectionFlight(flight);
+                    setCollectionFlightConfigured(configured);
+                  }}
+                />
+              )}
+            </div>
           </div>
         )}
 
@@ -1213,11 +1187,21 @@ function QuoteCard() {
               )}
               {isAirportTrip && (
                 <PreviewRow
-                  label="Flight"
+                  label="Flight for going"
                   value={
-                    verifiedFlight
-                      ? `${verifiedFlight.airline} ${verifiedFlight.flightNumber} · ${verifiedFlight.scheduledTimeLabel.toLowerCase()} ${verifiedFlight.scheduledTime}`
-                      : flightNumber.trim().toUpperCase()
+                    verifiedGoingFlight
+                      ? formatVerifiedFlightSummary(verifiedGoingFlight)
+                      : goingFlightNumber.trim().toUpperCase()
+                  }
+                />
+              )}
+              {isAirportTrip && returnJourney && (
+                <PreviewRow
+                  label="Flight for collection"
+                  value={
+                    verifiedCollectionFlight
+                      ? formatVerifiedFlightSummary(verifiedCollectionFlight)
+                      : collectionFlightNumber.trim().toUpperCase()
                   }
                 />
               )}
@@ -1263,10 +1247,31 @@ function QuoteCard() {
               {submitted ? submitInProgressLabel : confirmButtonLabel}
             </button>
           </div>
+        ) : showFlightNumberStep && isAirportTrip ? (
+          <div className="grid gap-3 sm:grid-cols-2">
+            <button
+              type="button"
+              onClick={() => {
+                setShowFlightNumberStep(false);
+                setGoingFlightError("");
+                setCollectionFlightError("");
+              }}
+              className="w-full rounded-xl border border-white/15 bg-white/5 py-3.5 text-sm font-semibold text-white transition-all hover:bg-white/10"
+            >
+              Back
+            </button>
+            <button
+              type="submit"
+              disabled={submitted}
+              className="w-full rounded-xl bg-emerald py-3.5 text-sm font-bold text-navy transition-all hover:bg-emerald-light hover:shadow-lg hover:shadow-emerald/25 disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              {submitted ? submitInProgressLabel : "Continue to review"}
+            </button>
+          </div>
         ) : (
           <button
             type="submit"
-            disabled={(isAirportTrip && liveQuote != null && !canBookAirport) || submitted}
+            disabled={submitted}
             className="w-full rounded-xl bg-emerald py-3.5 text-sm font-bold text-navy transition-all hover:bg-emerald-light hover:shadow-lg hover:shadow-emerald/25 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {submitted ? submitInProgressLabel : initialButtonLabel}

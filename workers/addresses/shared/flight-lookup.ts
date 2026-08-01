@@ -60,7 +60,7 @@ function airportMatches(code: string | undefined, servedCode: string): boolean {
 type AeroFlight = {
   number?: string;
   status?: string;
-  airline?: { name?: string };
+  airline?: { name?: string; iata?: string; icao?: string };
   departure?: {
     airport?: { iata?: string; name?: string; icao?: string };
     scheduledTime?: { local?: string; utc?: string };
@@ -104,24 +104,58 @@ function formatIsoDate(isoLocal: string): string {
   return match?.[1] ?? isoLocal.slice(0, 10);
 }
 
+function readAirlineName(flight: AeroFlight): string {
+  return flight.airline?.name?.trim() || flight.airline?.iata?.trim() || "Airline";
+}
+
+function flightMatchesAirport(
+  flight: AeroFlight,
+  airportCode: string,
+  direction: TripDirection,
+): boolean {
+  const dep = flight.departure?.airport?.iata;
+  const arr = flight.arrival?.airport?.iata;
+
+  if (direction === "from-airport") {
+    return airportMatches(arr, airportCode);
+  }
+  return airportMatches(dep, airportCode);
+}
+
+function flightMatchesTripDate(
+  flight: AeroFlight,
+  tripDate: string,
+  direction: TripDirection,
+): boolean {
+  const leg =
+    direction === "from-airport"
+      ? flight.arrival?.scheduledTime
+      : flight.departure?.scheduledTime;
+  const scheduledRaw = readScheduledLocal(leg);
+  if (!scheduledRaw) {
+    return false;
+  }
+  return formatIsoDate(scheduledRaw) === tripDate;
+}
+
 function pickMatchingFlight(
   flights: AeroFlight[],
   airportCode: string,
   direction: TripDirection,
+  tripDate: string,
 ): AeroFlight | null {
-  for (const flight of flights) {
-    const dep = flight.departure?.airport?.iata;
-    const arr = flight.arrival?.airport?.iata;
+  const airportMatches = flights.filter((flight) =>
+    flightMatchesAirport(flight, airportCode, direction),
+  );
+  const pool = airportMatches.length > 0 ? airportMatches : flights;
 
-    if (direction === "from-airport" && airportMatches(arr, airportCode)) {
-      return flight;
-    }
-    if (direction === "to-airport" && airportMatches(dep, airportCode)) {
+  for (const flight of pool) {
+    if (flightMatchesTripDate(flight, tripDate, direction)) {
       return flight;
     }
   }
 
-  return flights[0] ?? null;
+  return pool[0] ?? null;
 }
 
 function mapAeroFlight(
@@ -153,7 +187,7 @@ function mapAeroFlight(
 
   return {
     flightNumber: formatFlightNumberForDisplay(flight.number ?? params.flightNumber),
-    airline: flight.airline?.name?.trim() || "Airline",
+    airline: readAirlineName(flight),
     date: formatIsoDate(scheduledRaw) || params.fallbackDate,
     scheduledTime: formatLocalTime(scheduledRaw),
     scheduledTimeLabel: params.direction === "from-airport" ? "Arrives" : "Departs",
@@ -164,6 +198,51 @@ function mapAeroFlight(
     arrivalAirport:
       [arrAirport?.iata, arrAirport?.name].filter(Boolean).join(" · ") || "—",
     status: flight.status,
+  };
+}
+
+async function fetchAeroDataBoxFlights(
+  apiKey: string,
+  flightNumber: string,
+  tripDate?: string,
+): Promise<{ status: number; flights: AeroFlight[]; message?: string }> {
+  const encoded = encodeURIComponent(flightNumber);
+  const query =
+    "withAircraftImage=false&withLocation=false&withFlightPlan=false&dateLocalRole=Both";
+  const url = tripDate
+    ? `https://aerodatabox.p.rapidapi.com/flights/number/${encoded}/${tripDate}?${query}`
+    : `https://aerodatabox.p.rapidapi.com/flights/number/${encoded}?${query}`;
+
+  const response = await fetch(url, {
+    headers: {
+      Accept: "application/json",
+      "X-RapidAPI-Key": apiKey,
+      "X-RapidAPI-Host": "aerodatabox.p.rapidapi.com",
+    },
+  });
+
+  if (response.status === 404) {
+    return { status: 404, flights: [] };
+  }
+
+  if (!response.ok) {
+    const body = (await response.json().catch(() => null)) as { message?: string } | null;
+    return {
+      status: response.status,
+      flights: [],
+      message: body?.message ?? response.statusText,
+    };
+  }
+
+  const payload = (await response.json()) as AeroFlight[] | { error?: string; message?: string };
+  if (Array.isArray(payload)) {
+    return { status: 200, flights: payload };
+  }
+
+  return {
+    status: 200,
+    flights: [],
+    message: payload.message ?? payload.error,
   };
 }
 
@@ -180,39 +259,45 @@ export async function lookupFlightViaAeroDataBox(
   const flightNumber = normalizeFlightNumber(params.flightNumber);
 
   if (!isValidFlightNumberFormat(flightNumber)) {
-    return { ok: false, error: "Enter a valid flight number (e.g. BA1234 or EZY456).", code: "invalid_format" };
-  }
-
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(params.tripDate)) {
-    return { ok: false, error: "Select your trip date before entering a flight number.", code: "invalid_format" };
-  }
-
-  const dateLocalRole = params.direction === "from-airport" ? "Arrival" : "Departure";
-  const url = new URL(
-    `https://aerodatabox.p.rapidapi.com/flights/number/${encodeURIComponent(flightNumber)}/${params.tripDate}`,
-  );
-  url.searchParams.set("dateLocalRole", dateLocalRole);
-  url.searchParams.set("withAircraftImage", "false");
-  url.searchParams.set("withLocation", "false");
-  url.searchParams.set("withFlightPlan", "false");
-
-  const response = await fetch(url.toString(), {
-    headers: {
-      Accept: "application/json",
-      "X-RapidAPI-Key": apiKey,
-      "X-RapidAPI-Host": "aerodatabox.p.rapidapi.com",
-    },
-  });
-
-  if (response.status === 404) {
     return {
       ok: false,
-      error: "No flight found for that number on your selected date. Check the flight number and date.",
-      code: "not_found",
+      error: "Enter a valid flight number (e.g. BA1234 or EZY456).",
+      code: "invalid_format",
     };
   }
 
-  if (!response.ok) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(params.tripDate)) {
+    return {
+      ok: false,
+      error: "Select your trip date before entering a flight number.",
+      code: "invalid_format",
+    };
+  }
+
+  let result = await fetchAeroDataBoxFlights(apiKey, flightNumber, params.tripDate);
+
+  if (result.flights.length === 0 && (result.status === 404 || result.status === 200)) {
+    result = await fetchAeroDataBoxFlights(apiKey, flightNumber);
+  }
+
+  if (result.status === 401 || result.status === 403) {
+    return {
+      ok: false,
+      error:
+        "Flight lookup API key was rejected. Check your RapidAPI AeroDataBox subscription and secret.",
+      code: "upstream_error",
+    };
+  }
+
+  if (result.status === 429) {
+    return {
+      ok: false,
+      error: "Flight lookup is busy — please wait a moment and try again.",
+      code: "upstream_error",
+    };
+  }
+
+  if (result.status !== 200 && result.status !== 404) {
     return {
       ok: false,
       error: "Flight lookup is temporarily unavailable. Please try again.",
@@ -220,23 +305,56 @@ export async function lookupFlightViaAeroDataBox(
     };
   }
 
-  const payload = (await response.json()) as AeroFlight[] | { error?: string };
-  const flights = Array.isArray(payload) ? payload : [];
-
-  if (flights.length === 0) {
+  if (result.flights.length === 0) {
     return {
       ok: false,
-      error: "No flight found for that number on your selected date. Check the flight number and date.",
+      error:
+        "No flight found for that number on your selected date. Check the flight number, airport, and date match your ticket.",
       code: "not_found",
     };
   }
 
-  const matched = pickMatchingFlight(flights, params.airportCode, params.direction);
+  const matched = pickMatchingFlight(
+    result.flights,
+    params.airportCode,
+    params.direction,
+    params.tripDate,
+  );
+
   if (!matched) {
     return {
       ok: false,
       error: `That flight does not ${params.direction === "from-airport" ? "arrive at" : "depart from"} ${params.airportName} on this date.`,
       code: "airport_mismatch",
+    };
+  }
+
+  if (!flightMatchesAirport(matched, params.airportCode, params.direction)) {
+    return {
+      ok: false,
+      error: `That flight does not ${params.direction === "from-airport" ? "arrive at" : "depart from"} ${params.airportName} on this date.`,
+      code: "airport_mismatch",
+    };
+  }
+
+  if (!flightMatchesTripDate(matched, params.tripDate, params.direction)) {
+    const leg =
+      params.direction === "from-airport"
+        ? matched.arrival?.scheduledTime
+        : matched.departure?.scheduledTime;
+    const actualDate = readScheduledLocal(leg);
+    const formatted = actualDate
+      ? new Date(`${formatIsoDate(actualDate)}T12:00:00`).toLocaleDateString("en-GB", {
+          weekday: "short",
+          day: "numeric",
+          month: "short",
+        })
+      : "another date";
+
+    return {
+      ok: false,
+      error: `That flight operates on ${formatted}, not your selected trip date. Please update your trip date.`,
+      code: "not_found",
     };
   }
 
@@ -253,21 +371,6 @@ export async function lookupFlightViaAeroDataBox(
       ok: false,
       error: "Flight found but schedule time was unavailable. Please double-check your flight details.",
       code: "upstream_error",
-    };
-  }
-
-  const dep = matched.departure?.airport?.iata;
-  const arr = matched.arrival?.airport?.iata;
-  const airportOk =
-    params.direction === "from-airport"
-      ? airportMatches(arr, params.airportCode)
-      : airportMatches(dep, params.airportCode);
-
-  if (!airportOk) {
-    return {
-      ok: false,
-      error: `That flight does not ${params.direction === "from-airport" ? "arrive at" : "depart from"} ${params.airportName} on this date.`,
-      code: "airport_mismatch",
     };
   }
 

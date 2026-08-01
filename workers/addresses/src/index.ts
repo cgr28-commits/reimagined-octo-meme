@@ -187,6 +187,7 @@ function parsePaidBookingDetails(body: Record<string, unknown>): PaidBookingDeta
     returnDate: String(details.returnDate ?? "").trim(),
     returnTime: String(details.returnTime ?? "").trim(),
     flightNumber: String(details.flightNumber ?? "").trim(),
+    returnFlightNumber: String(details.returnFlightNumber ?? "").trim() || undefined,
     passengers: Number(details.passengers) || 0,
     suitcases: Number(details.suitcases) || 0,
     vehicle: String(details.vehicle ?? "").trim(),

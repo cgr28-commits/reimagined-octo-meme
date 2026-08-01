@@ -16,6 +16,7 @@ export type BookingDetails = {
   returnDate: string;
   returnTime: string;
   flightNumber: string;
+  returnFlightNumber?: string;
   passengers: number;
   suitcases: number;
   vehicle: string;
@@ -66,7 +67,10 @@ export function buildBookingMessage(details: BookingDetails, bookingReference?: 
       ? `Return date & time: ${formatUkDateTime(details.returnDate, details.returnTime)}\n`
       : "") +
     (details.isAirportTrip && details.flightNumber
-      ? `Flight number: ${details.flightNumber}\n`
+      ? `Flight number for going: ${details.flightNumber}\n`
+      : "") +
+    (details.isAirportTrip && details.returnFlightNumber
+      ? `Flight number for collection: ${details.returnFlightNumber}\n`
       : "") +
     `Passengers: ${details.passengers}\n` +
     `Suitcases: ${details.suitcases}\n` +
