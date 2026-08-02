@@ -33,5 +33,6 @@ id = "869e2c2e02004d4a88c9cfbf563f1d6a"
 
 # Cloudflare Email Service (optional — onboard myairporttaxini.co.uk in dashboard first).
 # Without this, bookings email via WEB3FORMS_ACCESS_KEY secret, then MailChannels.
+# Set WEB3FORMS_ACCESS_KEY in GitHub Actions secrets — deploy-worker syncs it automatically.
 [[send_email]]
 name = "EMAIL"
