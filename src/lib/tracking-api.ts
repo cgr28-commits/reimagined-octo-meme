@@ -29,6 +29,39 @@ function resolveWorkerBaseUrl(): string {
 
 const WORKER_BASE = resolveWorkerBaseUrl();
 
+function driverRequestHeaders(driverKey: string): HeadersInit {
+  const trimmed = driverKey.trim();
+  return {
+    Accept: "application/json",
+    "X-Driver-Key": trimmed,
+  };
+}
+
+export async function verifyDriverAccessKey(driverKey: string): Promise<boolean> {
+  if (driverKey === DEMO_DRIVER_KEY) {
+    return true;
+  }
+
+  const url = new URL(`${WORKER_BASE}/driver/jobs`);
+  url.searchParams.set("key", driverKey.trim());
+
+  const response = await fetch(url.toString(), {
+    method: "GET",
+    headers: driverRequestHeaders(driverKey),
+    cache: "no-store",
+  });
+
+  if (response.status === 401) {
+    return false;
+  }
+
+  if (!response.ok) {
+    throw new Error(`Driver access check failed (${response.status})`);
+  }
+
+  return true;
+}
+
 export type TrackingWindow = {
   open: boolean;
   opensAt: string;
@@ -165,7 +198,7 @@ export async function fetchDriverJobs(
 
   const response = await fetch(url.toString(), {
     method: "GET",
-    headers: { Accept: "application/json" },
+    headers: driverRequestHeaders(driverKey),
     cache: "no-store",
   });
 

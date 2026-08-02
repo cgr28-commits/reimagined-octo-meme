@@ -18,11 +18,13 @@ import {
 import type { PaidBookingDetails } from "../shared/booking-notifications";
 import { corsHeaders } from "../shared/google-places";
 import { getPaidBookingRecord, paidBookingStoreConfigured } from "./paid-booking-store";
+import { driverAuthorized } from "./driver-auth";
 import { trySendEmail, type WorkerEmailEnv } from "./worker-email";
 
 type Env = WorkerEmailEnv & {
   TRACKING_STORE?: KVNamespace;
   DRIVER_ACCESS_KEY?: string;
+  OWNER_ACCESS_KEY?: string;
   AERODATABOX_RAPIDAPI_KEY?: string;
 };
 
@@ -75,17 +77,6 @@ function jsonResponse(body: unknown, status: number, origin: string | null) {
       ...corsHeaders(origin),
     },
   });
-}
-
-function driverAuthorized(request: Request, env: Env): boolean {
-  const expected = env.DRIVER_ACCESS_KEY?.trim() ?? "";
-  if (!expected) {
-    return false;
-  }
-
-  const headerKey = request.headers.get("X-Driver-Key")?.trim() ?? "";
-  const urlKey = new URL(request.url).searchParams.get("key")?.trim() ?? "";
-  return headerKey === expected || urlKey === expected;
 }
 
 function liveDriverLocation(record: TrackingJobRecord, windowOpen: boolean) {
@@ -255,7 +246,14 @@ export async function handleDriverJobsRequest(
   }
 
   if (!driverAuthorized(request, env)) {
-    return jsonResponse({ error: "Unauthorized" }, 401, origin);
+    return jsonResponse(
+      {
+        error:
+          "Unauthorized — check your driver access key. Sign out and enter the key from Cloudflare (DRIVER_ACCESS_KEY).",
+      },
+      401,
+      origin,
+    );
   }
 
   const url = new URL(request.url);

@@ -65,6 +65,8 @@ jobs:
           GOOGLE_CALENDAR_ID: ${{ secrets.GOOGLE_CALENDAR_ID }}
           GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON }}
           WEB3FORMS_ACCESS_KEY: ${{ secrets.WEB3FORMS_ACCESS_KEY }}
+          DRIVER_ACCESS_KEY: ${{ secrets.DRIVER_ACCESS_KEY }}
+          OWNER_ACCESS_KEY: ${{ secrets.OWNER_ACCESS_KEY }}
           CI: "true"
           WORKERS_CI: "1"
         run: |
@@ -87,5 +89,15 @@ jobs:
             printf '%s' "$WEB3FORMS_ACCESS_KEY" | npx wrangler secret put WEB3FORMS_ACCESS_KEY
           else
             echo "::notice::WEB3FORMS_ACCESS_KEY not set — paid booking emails may fail until configured."
+          fi
+          if [ -n "$DRIVER_ACCESS_KEY" ]; then
+            echo "Syncing DRIVER_ACCESS_KEY secret…"
+            printf '%s' "$DRIVER_ACCESS_KEY" | npx wrangler secret put DRIVER_ACCESS_KEY
+          else
+            echo "::notice::DRIVER_ACCESS_KEY not set — add it to GitHub Actions secrets or run npm run setup:worker locally."
+          fi
+          if [ -n "$OWNER_ACCESS_KEY" ]; then
+            echo "Syncing OWNER_ACCESS_KEY secret…"
+            printf '%s' "$OWNER_ACCESS_KEY" | npx wrangler secret put OWNER_ACCESS_KEY
           fi
           npm run deploy

@@ -20,10 +20,12 @@ import {
 } from "./tracking-store";
 import { publicTrackPayload } from "./tracking-handlers";
 import { corsHeaders } from "../shared/google-places";
+import { driverAuthorized } from "./driver-auth";
 
 type Env = {
   TRACKING_STORE?: KVNamespace;
   DRIVER_ACCESS_KEY?: string;
+  OWNER_ACCESS_KEY?: string;
   GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON?: string;
   GOOGLE_CALENDAR_ID?: string;
   AERODATABOX_RAPIDAPI_KEY?: string;
@@ -35,17 +37,6 @@ const AIRPORT_NAMES: Record<string, string> = {
   DUB: "Dublin Airport",
   LDY: "City of Derry",
 };
-
-function driverAuthorized(request: Request, env: Env): boolean {
-  const expected = env.DRIVER_ACCESS_KEY?.trim() ?? "";
-  if (!expected) {
-    return false;
-  }
-
-  const headerKey = request.headers.get("X-Driver-Key")?.trim() ?? "";
-  const urlKey = new URL(request.url).searchParams.get("key")?.trim() ?? "";
-  return headerKey === expected || urlKey === expected;
-}
 
 function calendarConfigured(env: Env): boolean {
   return Boolean(

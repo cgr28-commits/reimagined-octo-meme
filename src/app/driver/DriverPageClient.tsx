@@ -11,6 +11,7 @@ import {
   postDriverLocation,
   setDriverSharing,
   updateDriverBooking,
+  verifyDriverAccessKey,
   type DriverJob,
 } from "@/lib/tracking-api";
 import { issueBookingRefund } from "@/lib/refund-api";
@@ -599,7 +600,12 @@ export default function DriverPageClient() {
               });
         setJobs(response.jobs);
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Could not load jobs");
+        const message = err instanceof Error ? err.message : "Could not load jobs";
+        setError(
+          message.toLowerCase().includes("unauthorized")
+            ? "Your driver key was not accepted. Sign out and enter the correct key from Cloudflare (DRIVER_ACCESS_KEY), or use demo-driver-key to preview."
+            : message,
+        );
         setJobs([]);
       } finally {
         setLoading(false);
@@ -670,15 +676,32 @@ export default function DriverPageClient() {
     };
   }, [activeToken, savedKey]);
 
-  const unlock = () => {
+  const unlock = async () => {
     const trimmed = driverKey.trim();
     if (!trimmed) {
       return;
     }
 
-    window.sessionStorage.setItem(DRIVER_KEY_STORAGE, trimmed);
-    setSavedKey(trimmed);
-    void loadJobs(trimmed);
+    setLoading(true);
+    setError(null);
+
+    try {
+      const valid = await verifyDriverAccessKey(trimmed);
+      if (!valid) {
+        setError(
+          "That driver key was not accepted. Sign in with the key set as DRIVER_ACCESS_KEY in Cloudflare, or use demo-driver-key to preview the dashboard.",
+        );
+        return;
+      }
+
+      window.sessionStorage.setItem(DRIVER_KEY_STORAGE, trimmed);
+      setSavedKey(trimmed);
+      await loadJobs(trimmed);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not verify driver key");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -713,10 +736,11 @@ export default function DriverPageClient() {
               />
               <button
                 type="button"
-                onClick={unlock}
-                className="mt-4 rounded-xl bg-emerald px-5 py-3 text-sm font-semibold text-navy transition-colors hover:bg-emerald/90"
+                onClick={() => void unlock()}
+                disabled={loading}
+                className="mt-4 rounded-xl bg-emerald px-5 py-3 text-sm font-semibold text-navy transition-colors hover:bg-emerald/90 disabled:opacity-60"
               >
-                Open dashboard
+                {loading ? "Checking key…" : "Open dashboard"}
               </button>
             </section>
           ) : (
