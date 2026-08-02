@@ -1,16 +1,16 @@
 #!/usr/bin/env node
 /**
- * Set Gary's driver dashboard access key on the production worker.
+ * Set the owner/admin dashboard access key on the production worker.
  *
- * Gary uses DRIVER_ACCESS_KEY — jobs and live tracking only (no refunds or amounts).
- * Keep OWNER_ACCESS_KEY separate for admin (see set-owner-access-key.mjs).
+ * Owner uses OWNER_ACCESS_KEY — full access (refunds, amounts, track drivers live).
+ * Do not share with drivers. Set Gary's key via set-driver-access-key.mjs.
  *
  * Usage:
  *   CLOUDFLARE_API_TOKEN=your_token \
- *   DRIVER_ACCESS_KEY="choose-a-long-password" \
- *   node scripts/set-driver-access-key.mjs
+ *   OWNER_ACCESS_KEY="choose-a-long-password" \
+ *   node scripts/set-owner-access-key.mjs
  *
- * If DRIVER_ACCESS_KEY is omitted, a random key is generated and printed.
+ * If OWNER_ACCESS_KEY is omitted, a random key is generated and printed.
  */
 import { execSync, spawnSync } from "node:child_process";
 import { join } from "node:path";
@@ -24,7 +24,7 @@ const accountId =
 const token =
   process.env.CLOUDFLARE_API_TOKEN?.trim() || process.env.CF_API_TOKEN?.trim();
 
-function generateDriverAccessKey(): string {
+function generateOwnerAccessKey(): string {
   return execSync("openssl rand -hex 24", { encoding: "utf8" }).trim();
 }
 
@@ -37,21 +37,19 @@ Missing CLOUDFLARE_API_TOKEN.
 
 2. Run:
    CLOUDFLARE_API_TOKEN=your_token \\
-   DRIVER_ACCESS_KEY="garys-password" \\
-   node scripts/set-driver-access-key.mjs
-
-Give Gary this key only. Use set-owner-access-key.mjs for your admin key.
+   OWNER_ACCESS_KEY="your-admin-password" \\
+   node scripts/set-owner-access-key.mjs
 `);
   process.exit(1);
 }
 
-const driverKey = process.env.DRIVER_ACCESS_KEY?.trim() || generateDriverAccessKey();
-const generated = !process.env.DRIVER_ACCESS_KEY?.trim();
+const ownerKey = process.env.OWNER_ACCESS_KEY?.trim() || generateOwnerAccessKey();
+const generated = !process.env.OWNER_ACCESS_KEY?.trim();
 
-console.log("Setting DRIVER_ACCESS_KEY (Gary) on worker reimagined-octo-meme…");
+console.log("Setting OWNER_ACCESS_KEY (admin) on worker reimagined-octo-meme…");
 
-const result = spawnSync("npx", ["wrangler", "secret", "put", "DRIVER_ACCESS_KEY"], {
-  input: driverKey,
+const result = spawnSync("npx", ["wrangler", "secret", "put", "OWNER_ACCESS_KEY"], {
+  input: ownerKey,
   cwd: workerDir,
   stdio: ["pipe", "inherit", "inherit"],
   env: {
@@ -65,17 +63,14 @@ if (result.status !== 0) {
   process.exit(result.status ?? 1);
 }
 
-console.log("\nGary's driver access key updated.\n");
+console.log("\nOwner access key updated.\n");
 console.log("Sign in at https://www.myairporttaxini.co.uk/driver/ with this key:\n");
-console.log(driverKey);
+console.log(ownerKey);
 console.log(
   generated
     ? "\n(Saved above — Cloudflare cannot show this value again after you close the terminal.)"
-    : "\n(Using the DRIVER_ACCESS_KEY value you provided.)",
+    : "\n(Using the OWNER_ACCESS_KEY value you provided.)",
 );
 console.log(
-  "\nGary can view jobs and share live location. He cannot see amounts or issue refunds.",
-);
-console.log(
-  "Optional: add the same value to GitHub → Settings → Secrets → Actions as DRIVER_ACCESS_KEY.",
+  "\nYou can issue refunds, see payment amounts, and track Gary when he shares live location.",
 );

@@ -35,6 +35,8 @@ export type TrackingJobRecord = {
   /** Set when a refund is issued — job stays visible on the driver dashboard */
   refundedAt?: string;
   refundAmountLabel?: string;
+  /** Name of the driver sharing live location (e.g. Gary) */
+  activeDriverName?: string;
 };
 
 export const LOCATION_STALE_MS = 5 * 60 * 1000;

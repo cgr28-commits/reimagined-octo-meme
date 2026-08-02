@@ -19,13 +19,14 @@ import {
 import type { PaidBookingDetails } from "../shared/booking-notifications";
 import { corsHeaders } from "../shared/google-places";
 import { getPaidBookingRecord, paidBookingStoreConfigured } from "./paid-booking-store";
-import { driverAuthorized, driverAuthStatus, isDriverAuthConfigured } from "./driver-auth";
+import { driverAuthorized, driverAuthStatus, isDriverAuthConfigured, resolveDriverSession, sanitizeDriverJobForRole, type DashboardRole } from "./driver-auth";
 import { trySendBrandedCustomerEmail, type WorkerEmailEnv } from "./worker-email";
 
 type Env = WorkerEmailEnv & {
   TRACKING_STORE?: KVNamespace;
   DRIVER_ACCESS_KEY?: string;
   OWNER_ACCESS_KEY?: string;
+  DRIVER_NAME?: string;
   AERODATABOX_RAPIDAPI_KEY?: string;
 };
 
@@ -289,12 +290,15 @@ export async function handleDriverJobsRequest(
     return jsonResponse(
       {
         error:
-          "Unauthorized — check your driver access key. Sign out and enter the key from Cloudflare (DRIVER_ACCESS_KEY).",
+          "Unauthorized — check your access key. Sign out and enter the key from Cloudflare (OWNER_ACCESS_KEY or DRIVER_ACCESS_KEY).",
       },
       401,
       origin,
     );
   }
+
+  const session = resolveDriverSession(request, env);
+  const role: DashboardRole = session.authorized ? session.role : "driver";
 
   const url = new URL(request.url);
   const scope = url.searchParams.get("scope")?.trim().toLowerCase() ?? "date";
@@ -342,19 +346,23 @@ export async function handleDriverJobsRequest(
 
       const refundAmountLabel = paidRecord?.refundAmountLabel ?? job.refundAmountLabel;
 
-      return {
-        ...publicTrackPayload(job, origin, { includeCustomerLocation: true }),
-        token: job.token,
-        customerMobile: job.customerMobile,
-        paymentReference: job.paymentReference,
-        amountPaidLabel,
-        bookingStatus,
-        refundAmountLabel,
-        isAirportPickup: Boolean(job.isAirportTrip && job.isFromAirport),
-        flightNumber: job.flightNumber ?? null,
-        airportCode: job.airportCode ?? null,
-        flight,
-      };
+      return sanitizeDriverJobForRole(
+        {
+          ...publicTrackPayload(job, origin, { includeCustomerLocation: true }),
+          token: job.token,
+          customerMobile: job.customerMobile,
+          paymentReference: job.paymentReference,
+          amountPaidLabel,
+          bookingStatus,
+          refundAmountLabel,
+          activeDriverName: job.activeDriverName,
+          isAirportPickup: Boolean(job.isAirportTrip && job.isFromAirport),
+          flightNumber: job.flightNumber ?? null,
+          airportCode: job.airportCode ?? null,
+          flight,
+        },
+        role,
+      );
     }),
   );
 
@@ -363,6 +371,8 @@ export async function handleDriverJobsRequest(
       ok: true,
       scope,
       date: responseDate,
+      role,
+      ...(session.authorized && session.role === "driver" ? { driverName: session.driverName } : {}),
       jobs: enrichedJobs,
     },
     200,
@@ -376,7 +386,8 @@ export async function handleDriverStatusRequest(
   origin: string | null,
 ): Promise<Response> {
   const authConfigured = isDriverAuthConfigured(env);
-  const authorized = driverAuthorized(request, env);
+  const session = resolveDriverSession(request, env);
+  const authorized = session.authorized;
   const keys = driverAuthStatus(env);
 
   return jsonResponse(
@@ -384,17 +395,23 @@ export async function handleDriverStatusRequest(
       ok: authorized,
       authConfigured,
       ...keys,
+      ...(authorized
+        ? {
+            role: session.role,
+            ...(session.role === "driver" ? { driverName: session.driverName } : {}),
+          }
+        : {}),
       worker: "reimagined-octo-meme",
       ...(authorized
         ? {}
         : {
             error: authConfigured
               ? keys.hasDriverKey && keys.hasOwnerKey
-                ? "Driver key did not match. Use the exact DRIVER_ACCESS_KEY or OWNER_ACCESS_KEY value from reimagined-octo-meme worker secrets."
+                ? "Access key did not match. Use OWNER_ACCESS_KEY (admin) or DRIVER_ACCESS_KEY (driver) from reimagined-octo-meme worker secrets."
                 : keys.hasOwnerKey
-                  ? "Driver key did not match. Use the exact OWNER_ACCESS_KEY secret value from reimagined-octo-meme."
-                  : "Driver key did not match. Use the exact DRIVER_ACCESS_KEY secret value from reimagined-octo-meme."
-              : "Driver access is not configured on reimagined-octo-meme. Add DRIVER_ACCESS_KEY under that worker's encrypted secrets (not my-airport-taxi-ni).",
+                  ? "Access key did not match. Use the exact OWNER_ACCESS_KEY secret value from reimagined-octo-meme."
+                  : "Access key did not match. Use the exact DRIVER_ACCESS_KEY secret value from reimagined-octo-meme."
+              : "Driver access is not configured on reimagined-octo-meme. Add DRIVER_ACCESS_KEY and/or OWNER_ACCESS_KEY under that worker's encrypted secrets (not my-airport-taxi-ni).",
           }),
     },
     authorized ? 200 : authConfigured ? 401 : 503,
@@ -441,10 +458,16 @@ export async function handleDriverSharingRequest(
 
   const wasSharing = record.sharingActive;
   record.sharingActive = active;
-  if (!active) {
+  if (active) {
+    const session = resolveDriverSession(request, env);
+    if (session.authorized && session.role === "driver" && session.driverName) {
+      record.activeDriverName = session.driverName;
+    }
+  } else {
     delete record.driverLat;
     delete record.driverLng;
     delete record.driverUpdatedAt;
+    delete record.activeDriverName;
   }
 
   await saveTrackingJob(env.TRACKING_STORE, record);

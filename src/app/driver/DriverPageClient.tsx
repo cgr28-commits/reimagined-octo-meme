@@ -12,6 +12,7 @@ import {
   setDriverSharing,
   updateDriverBooking,
   verifyDriverAccessKey,
+  fetchDriverStatus,
   type DriverJob,
 } from "@/lib/tracking-api";
 import { issueBookingRefund } from "@/lib/refund-api";
@@ -73,15 +74,26 @@ function groupJobsByDate(jobs: DriverJob[]): Array<{ date: string; jobs: DriverJ
     }));
 }
 
-function jobMapMarkers(job: DriverJob, isActive: boolean): MapMarker[] {
+function jobMapMarkers(
+  job: DriverJob,
+  options: { isActiveDriver: boolean; isOwner: boolean },
+): MapMarker[] {
   const markers: MapMarker[] = [];
 
-  if (isActive && job.driver) {
-    markers.push({
-      lat: job.driver.lat,
-      lng: job.driver.lng,
-      label: "You (driver)",
-    });
+  if (job.driver) {
+    if (options.isActiveDriver) {
+      markers.push({
+        lat: job.driver.lat,
+        lng: job.driver.lng,
+        label: "You (driver)",
+      });
+    } else if (options.isOwner) {
+      markers.push({
+        lat: job.driver.lat,
+        lng: job.driver.lng,
+        label: `${job.activeDriverName ?? "Driver"} (driver)`,
+      });
+    }
   }
 
   if (job.customer) {
@@ -177,6 +189,7 @@ function DriverJobCard({
   onRefunded,
   onUpdated,
   compactTracking = false,
+  isOwner = false,
 }: {
   job: DriverJob;
   driverKey: string;
@@ -185,6 +198,7 @@ function DriverJobCard({
   onRefunded: (token: string, refundAmount?: string) => void;
   onUpdated: (job: DriverJob) => void;
   compactTracking?: boolean;
+  isOwner?: boolean;
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -203,12 +217,13 @@ function DriverJobCard({
     flightNumber: job.flightNumber ?? "",
   });
   const isActive = activeToken === job.token;
-  const mapMarkers = jobMapMarkers(job, isActive);
+  const mapMarkers = jobMapMarkers(job, { isActiveDriver: isActive, isOwner });
   const isDemoDriver = driverKey === DEMO_DRIVER_KEY;
   const isRefunded = job.bookingStatus === "refunded";
-  const canRefund = Boolean(job.paymentReference?.trim()) && !isDemoDriver && !isRefunded;
+  const canRefund = isOwner && Boolean(job.paymentReference?.trim()) && !isDemoDriver && !isRefunded;
   const canEdit = !isRefunded;
   const trackingAvailable = !compactTracking && job.trackingWindow.open && !isRefunded;
+  const driverSharingLive = Boolean(job.sharingActive && job.driver);
 
   const toggleSharing = async () => {
     setBusy(true);
@@ -348,16 +363,21 @@ function DriverJobCard({
           {job.customerMobile && (
             <p className="mt-2 text-sm text-emerald">{job.customerMobile}</p>
           )}
-          {job.amountPaidLabel && (
+          {isOwner && job.amountPaidLabel && (
             <p className="mt-1 text-sm text-white/70">Paid: {job.amountPaidLabel}</p>
           )}
-          {isRefunded && (job.refundAmountLabel || job.amountPaidLabel) && (
+          {isOwner && isRefunded && (job.refundAmountLabel || job.amountPaidLabel) && (
             <p className="mt-1 text-sm font-semibold text-red-200">
               Refunded: {job.refundAmountLabel ?? job.amountPaidLabel}
             </p>
           )}
-          {job.paymentReference && (
+          {isOwner && job.paymentReference && (
             <p className="mt-1 text-xs text-white/40">Ref: {job.paymentReference}</p>
+          )}
+          {isOwner && job.sharingActive && job.activeDriverName && (
+            <p className="mt-2 text-sm font-semibold text-emerald">
+              {job.activeDriverName} is sharing live location
+            </p>
           )}
         </div>
         {isRefunded ? (
@@ -368,11 +388,19 @@ function DriverJobCard({
           <span
             className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wider ${
               job.trackingWindow.open
-                ? "bg-emerald/15 text-emerald"
+                ? job.sharingActive
+                  ? "bg-emerald/15 text-emerald"
+                  : "bg-emerald/15 text-emerald"
                 : "bg-white/10 text-white/50"
             }`}
           >
-            {job.trackingWindow.open ? "Window open" : compactTracking ? "Upcoming" : "Not yet open"}
+            {job.sharingActive && job.activeDriverName
+              ? `${job.activeDriverName} live`
+              : job.trackingWindow.open
+                ? "Window open"
+                : compactTracking
+                  ? "Upcoming"
+                  : "Not yet open"}
           </span>
         )}
       </div>
@@ -380,7 +408,7 @@ function DriverJobCard({
       <DriverFlightPanel job={job} />
 
       <div className="mt-5 flex flex-wrap gap-3">
-        {!compactTracking && !isRefunded && (
+        {!compactTracking && !isRefunded && !isOwner && (
           <button
             type="button"
             disabled={busy}
@@ -567,9 +595,15 @@ function DriverJobCard({
         </p>
       )}
 
-      {isActive && (
+      {isActive && !isOwner && (
         <p className="mt-4 text-sm text-emerald">
           Sharing live location for this job. Keep this page open while driving.
+        </p>
+      )}
+
+      {isOwner && driverSharingLive && (
+        <p className="mt-4 text-sm text-emerald">
+          {job.activeDriverName ?? "Driver"}&apos;s live location is on the map below.
         </p>
       )}
 
@@ -599,6 +633,8 @@ function DriverJobCard({
 export default function DriverPageClient() {
   const [driverKey, setDriverKey] = useState("");
   const [savedKey, setSavedKey] = useState<string | null>(null);
+  const [sessionRole, setSessionRole] = useState<"owner" | "driver" | null>(null);
+  const [driverName, setDriverName] = useState<string | null>(null);
   const [jobs, setJobs] = useState<DriverJob[]>([]);
   const [activeToken, setActiveToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -623,6 +659,12 @@ export default function DriverPageClient() {
                 date: view === "today" ? today : selectedDate,
               });
         setJobs(response.jobs);
+        if (response.role) {
+          setSessionRole(response.role);
+        }
+        if (response.driverName) {
+          setDriverName(response.driverName);
+        }
       } catch (err) {
         const message = err instanceof Error ? err.message : "Could not load jobs";
         setError(
@@ -672,7 +714,7 @@ export default function DriverPageClient() {
   }, [loadJobs, savedKey, view]);
 
   useEffect(() => {
-    if (!savedKey || !activeToken || !navigator.geolocation) {
+    if (!savedKey || !activeToken || !navigator.geolocation || sessionRole === "owner") {
       return;
     }
 
@@ -699,7 +741,7 @@ export default function DriverPageClient() {
         watchIdRef.current = null;
       }
     };
-  }, [activeToken, savedKey]);
+  }, [activeToken, savedKey, sessionRole]);
 
   const unlock = async () => {
     const trimmed = driverKey.trim();
@@ -715,9 +757,17 @@ export default function DriverPageClient() {
       if (!result.ok) {
         setError(
           result.message ??
-            "That driver key was not accepted. Check DRIVER_ACCESS_KEY on the reimagined-octo-meme worker in Cloudflare.",
+            "That access key was not accepted. Check OWNER_ACCESS_KEY or DRIVER_ACCESS_KEY on the reimagined-octo-meme worker in Cloudflare.",
         );
         return;
+      }
+
+      const status = await fetchDriverStatus(trimmed);
+      if (status.role) {
+        setSessionRole(status.role);
+      }
+      if (status.driverName) {
+        setDriverName(status.driverName);
       }
 
       window.sessionStorage.setItem(DRIVER_KEY_STORAGE, trimmed);
@@ -737,20 +787,29 @@ export default function DriverPageClient() {
         <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
           <header className="mb-8">
             <p className="text-sm font-semibold uppercase tracking-widest text-emerald">
-              Driver dashboard
+              {sessionRole === "owner" ? "Owner dashboard" : "Driver dashboard"}
             </p>
             <h1 className="mt-2 text-3xl font-bold text-white sm:text-4xl">Bookings</h1>
             <p className="mt-3 text-white/70">
-              View today&apos;s jobs, browse upcoming bookings, or pick any date. You can edit
-              details, issue refunds, and start live tracking on the day of travel from about 2 hours
-              before pickup.
+              {sessionRole === "owner" ? (
+                <>
+                  View today&apos;s jobs, browse upcoming bookings, issue refunds, and track drivers
+                  (e.g. Gary) live when they start sharing on the day of travel.
+                </>
+              ) : (
+                <>
+                  View today&apos;s jobs and upcoming bookings. Start live tracking on the day of
+                  travel from about 2 hours before pickup — the owner can follow your location on
+                  their dashboard.
+                </>
+              )}
             </p>
           </header>
 
           {!savedKey ? (
             <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
               <label htmlFor="driver-key" className="block text-sm font-medium text-white/70">
-                Driver access key
+                Access key
               </label>
               <input
                 id="driver-key"
@@ -758,11 +817,11 @@ export default function DriverPageClient() {
                 value={driverKey}
                 onChange={(event) => setDriverKey(event.target.value)}
                 className="mt-2 w-full rounded-xl border border-white/15 bg-navy px-4 py-3 text-white outline-none focus:border-emerald"
-                placeholder="Enter your driver key"
+                placeholder="Enter your access key"
               />
               <p className="mt-3 text-sm text-white/55">
-                Use encrypted secret <span className="text-white/75">DRIVER_ACCESS_KEY</span> or{" "}
-                <span className="text-white/75">OWNER_ACCESS_KEY</span> from Cloudflare → Workers →{" "}
+                Owners: <span className="text-white/75">OWNER_ACCESS_KEY</span>. Drivers (Gary):{" "}
+                <span className="text-white/75">DRIVER_ACCESS_KEY</span> from Cloudflare → Workers →{" "}
                 <span className="text-white/75">reimagined-octo-meme</span>. Preview:{" "}
                 <span className="text-white/75">demo-driver-key</span>.
               </p>
@@ -785,6 +844,11 @@ export default function DriverPageClient() {
               <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
                 <p className="text-sm text-white/60">
                   {SITE.name}
+                  {sessionRole === "owner"
+                    ? " · Owner"
+                    : driverName
+                      ? ` · ${driverName}`
+                      : " · Driver"}
                 </p>
                 <button
                   type="button"
@@ -793,6 +857,8 @@ export default function DriverPageClient() {
                     setSavedKey(null);
                     setJobs([]);
                     setActiveToken(null);
+                    setSessionRole(null);
+                    setDriverName(null);
                   }}
                   className="text-sm text-white/50 transition-colors hover:text-white"
                 >
@@ -911,6 +977,7 @@ export default function DriverPageClient() {
                             }}
                             onUpdated={handleJobUpdated}
                             compactTracking
+                            isOwner={sessionRole === "owner"}
                           />
                         ))}
                       </div>
@@ -943,6 +1010,7 @@ export default function DriverPageClient() {
                         }
                       }}
                       onUpdated={handleJobUpdated}
+                      isOwner={sessionRole === "owner"}
                     />
                   ))}
                 </div>

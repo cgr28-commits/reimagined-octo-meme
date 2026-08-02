@@ -20,12 +20,13 @@ import {
 } from "./tracking-store";
 import { publicTrackPayload } from "./tracking-handlers";
 import { corsHeaders } from "../shared/google-places";
-import { driverAuthorized } from "./driver-auth";
+import { driverAuthorized, resolveDriverSession, sanitizeDriverJobForRole, type DashboardRole } from "./driver-auth";
 
 type Env = {
   TRACKING_STORE?: KVNamespace;
   DRIVER_ACCESS_KEY?: string;
   OWNER_ACCESS_KEY?: string;
+  DRIVER_NAME?: string;
   GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON?: string;
   GOOGLE_CALENDAR_ID?: string;
   AERODATABOX_RAPIDAPI_KEY?: string;
@@ -82,6 +83,7 @@ export async function enrichDriverJob(
   job: TrackingJobRecord,
   env: Env,
   origin: string | null,
+  role: DashboardRole = "owner",
 ) {
   const flight = await resolveDriverFlight(job, env);
   const paidRecord =
@@ -92,19 +94,23 @@ export async function enrichDriverJob(
   const bookingStatus =
     paidRecord?.status === "refunded" || job.refundedAt ? "refunded" : "confirmed";
 
-  return {
-    ...publicTrackPayload(job, origin, { includeCustomerLocation: true }),
-    token: job.token,
-    customerMobile: job.customerMobile,
-    paymentReference: job.paymentReference,
-    amountPaidLabel: paidRecord?.amountPaidLabel,
-    bookingStatus,
-    refundAmountLabel: paidRecord?.refundAmountLabel ?? job.refundAmountLabel,
-    isAirportPickup: Boolean(job.isAirportTrip && job.isFromAirport),
-    flightNumber: job.flightNumber ?? null,
-    airportCode: job.airportCode ?? null,
-    flight,
-  };
+  return sanitizeDriverJobForRole(
+    {
+      ...publicTrackPayload(job, origin, { includeCustomerLocation: true }),
+      token: job.token,
+      customerMobile: job.customerMobile,
+      paymentReference: job.paymentReference,
+      amountPaidLabel: paidRecord?.amountPaidLabel,
+      bookingStatus,
+      refundAmountLabel: paidRecord?.refundAmountLabel ?? job.refundAmountLabel,
+      activeDriverName: job.activeDriverName,
+      isAirportPickup: Boolean(job.isAirportTrip && job.isFromAirport),
+      flightNumber: job.flightNumber ?? null,
+      airportCode: job.airportCode ?? null,
+      flight,
+    },
+    role,
+  );
 }
 
 export type DriverBookingUpdateBody = {
@@ -289,7 +295,10 @@ export async function handleDriverUpdateBookingRequest(
     }
   }
 
-  const job = await enrichDriverJob(record, env, origin);
+  const session = resolveDriverSession(request, env);
+  const role: DashboardRole = session.authorized ? session.role : "driver";
+
+  const job = await enrichDriverJob(record, env, origin, role);
 
   return jsonResponse(
     {

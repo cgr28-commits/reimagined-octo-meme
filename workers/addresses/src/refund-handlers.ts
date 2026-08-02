@@ -29,33 +29,20 @@ import {
   trackingStoreConfigured,
 } from "./tracking-store";
 import { trySendBrandedCustomerEmail, trySendEmail, type WorkerEmailEnv } from "./worker-email";
+import { ownerAuthorized, type DriverAuthEnv } from "./driver-auth";
 
-type RefundEnv = WorkerEmailEnv & {
+type RefundEnv = WorkerEmailEnv &
+  DriverAuthEnv & {
   SUMUP_API_KEY?: string;
   SUMUP_MERCHANT_CODE?: string;
   TRACKING_STORE?: KVNamespace;
   BOOKING_TO_EMAIL?: string;
   GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON?: string;
   GOOGLE_CALENDAR_ID?: string;
-  OWNER_ACCESS_KEY?: string;
-  DRIVER_ACCESS_KEY?: string;
 };
 
 const DEFAULT_BOOKING_EMAIL = "bookings@myairporttaxini.co.uk";
 const BUSINESS_NAME = "My Airport Taxi NI";
-
-export function ownerAuthorized(request: Request, env: RefundEnv): boolean {
-  const expected = env.OWNER_ACCESS_KEY?.trim() || env.DRIVER_ACCESS_KEY?.trim() || "";
-  if (!expected) {
-    return false;
-  }
-
-  const headerKey = request.headers.get("X-Owner-Key")?.trim() ?? "";
-  const driverKey = request.headers.get("X-Driver-Key")?.trim() ?? "";
-  const urlKey = new URL(request.url).searchParams.get("key")?.trim() ?? "";
-  const provided = headerKey || driverKey || urlKey;
-  return provided === expected;
-}
 
 function isKnownRefundAmount(label: string | undefined): boolean {
   const trimmed = label?.trim() ?? "";
@@ -486,7 +473,11 @@ export async function handleRefundRequest(
   origin: string | null,
 ): Promise<Response> {
   if (!ownerAuthorized(request, env)) {
-    return json({ error: "Unauthorized" }, 401, origin);
+    return json(
+      { error: "Unauthorized — refunds require the owner access key (OWNER_ACCESS_KEY)." },
+      401,
+      origin,
+    );
   }
 
   let body: Record<string, unknown>;

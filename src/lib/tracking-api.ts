@@ -47,6 +47,8 @@ export type DriverStatusResponse = {
   authConfigured: boolean;
   hasDriverKey?: boolean;
   hasOwnerKey?: boolean;
+  role?: "owner" | "driver";
+  driverName?: string;
   worker: string;
   error?: string;
 };
@@ -144,6 +146,7 @@ export type DriverJob = PublicTrackResponse & {
   amountPaidLabel?: string;
   bookingStatus?: "confirmed" | "refunded";
   refundAmountLabel?: string;
+  activeDriverName?: string;
   isAirportPickup?: boolean;
   flightNumber?: string | null;
   airportCode?: string | null;
@@ -154,6 +157,8 @@ export type DriverJobsResponse = {
   ok: true;
   scope?: string;
   date: string;
+  role?: "owner" | "driver";
+  driverName?: string;
   jobs: DriverJob[];
 };
 
