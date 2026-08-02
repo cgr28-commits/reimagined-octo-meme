@@ -566,7 +566,7 @@ export function buildOwnerRefundConfirmationEmail(
     (when ? `Journey: ${when}\n` : "") +
     `Pickup: ${details.pickupLabel}\n` +
     `Drop-off: ${details.dropoffLabel}\n\n` +
-    `Calendar events removed and tracking job cancelled where applicable.`;
+    `Calendar events marked as cancelled and tracking job removed where applicable.`;
 
   return { subject, body };
 }

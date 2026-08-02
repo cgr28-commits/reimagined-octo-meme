@@ -11,7 +11,7 @@ import {
   refundSumUpTransaction,
 } from "../shared/sumup-checkout";
 import {
-  deleteCalendarEvents,
+  cancelCalendarEvents,
   getGoogleAccessToken,
   parseServiceAccountJson,
 } from "./google-calendar";
@@ -66,6 +66,8 @@ export type RefundIssueResult = {
   paymentReference: string;
   refundAmount?: string;
   sumUpRefunded?: boolean;
+  calendarCancelled?: number;
+  /** @deprecated Use calendarCancelled */
   calendarDeleted?: number;
   trackingRemoved?: boolean;
   customerEmailSent?: boolean;
@@ -145,23 +147,28 @@ export async function issueBookingRefund(
     warnings.push("SumUp refund was not attempted — missing API key or transaction id");
   }
 
-  let calendarDeleted = 0;
+  let calendarCancelled = 0;
   if (calendarConfigured(env) && record.calendarEventIds.length > 0) {
     try {
       const serviceAccount = parseServiceAccountJson(env.GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON!);
       const accessToken = await getGoogleAccessToken(serviceAccount);
-      const result = await deleteCalendarEvents(
+      const refundNote =
+        `Refunded: ${refundAmountLabel}\n` +
+        `Reference: ${paymentReference}\n` +
+        `Cancelled at: ${new Date().toISOString()}`;
+      const result = await cancelCalendarEvents(
         accessToken,
         env.GOOGLE_CALENDAR_ID!.trim(),
         record.calendarEventIds,
+        { refundNote },
       );
-      calendarDeleted = result.deleted;
+      calendarCancelled = result.cancelled;
       if (result.errors.length > 0) {
         warnings.push(...result.errors.map((message) => `Calendar: ${message}`));
       }
     } catch (error) {
       warnings.push(
-        error instanceof Error ? error.message : "Calendar deletion failed",
+        error instanceof Error ? error.message : "Calendar cancellation failed",
       );
     }
   } else if (calendarConfigured(env)) {
@@ -229,7 +236,8 @@ export async function issueBookingRefund(
     paymentReference,
     refundAmount: refundAmountLabel,
     sumUpRefunded: Boolean(record.transactionId || record.checkoutId),
-    calendarDeleted,
+    calendarCancelled,
+    calendarDeleted: calendarCancelled,
     trackingRemoved,
     customerEmailSent: customerEmailResult.sent,
     ownerEmailSent: ownerEmailResult.sent,

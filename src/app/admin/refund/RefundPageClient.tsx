@@ -115,7 +115,10 @@ export default function RefundPageClient() {
                     <ul className="mt-2 space-y-1 text-white/75">
                       <li>Customer email: {result.customerEmailSent ? "sent" : "failed"}</li>
                       <li>Owner email: {result.ownerEmailSent ? "sent" : "failed"}</li>
-                      <li>Calendar events removed: {result.calendarDeleted ?? 0}</li>
+                      <li>
+                        Calendar events cancelled:{" "}
+                        {result.calendarCancelled ?? result.calendarDeleted ?? 0}
+                      </li>
                       <li>Tracking job removed: {result.trackingRemoved ? "yes" : "no"}</li>
                     </ul>
                   </>

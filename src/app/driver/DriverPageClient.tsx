@@ -308,8 +308,8 @@ function DriverJobCard({
         <div className="mt-4 rounded-xl border border-red-400/30 bg-red-500/10 p-4">
           <p className="text-sm font-semibold text-red-100">Confirm full refund</p>
           <p className="mt-2 text-sm leading-relaxed text-red-100/85">
-            This will refund the customer via SumUp, email them a confirmation, remove the job from
-            your calendar, and delete it from this dashboard. This cannot be undone.
+            This will refund the customer via SumUp, email them a confirmation, mark the job as
+            cancelled in your calendar, and remove it from this dashboard. This cannot be undone.
           </p>
           <div className="mt-4 flex flex-wrap gap-3">
             <button

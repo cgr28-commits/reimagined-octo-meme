@@ -513,49 +513,99 @@ async function createCalendarEvent(
   return payload.id;
 }
 
-export async function deleteCalendarEvent(
+const CANCELLED_SUMMARY_PREFIX = "CANCELLED — ";
+
+type CalendarEventPayload = {
+  status?: string;
+  summary?: string;
+  description?: string;
+};
+
+function buildCancelledEventPatch(
+  event: CalendarEventPayload,
+  refundNote?: string,
+): Record<string, unknown> {
+  const summary = event.summary?.startsWith(CANCELLED_SUMMARY_PREFIX)
+    ? event.summary
+    : `${CANCELLED_SUMMARY_PREFIX}${event.summary ?? "Booking"}`;
+
+  const refundSection = refundNote?.trim()
+    ? `\n\n--- REFUND ---\n${refundNote.trim()}`
+    : "";
+  const description = `${event.description ?? ""}${refundSection}`.trim();
+
+  return {
+    status: "cancelled",
+    summary,
+    ...(description ? { description } : {}),
+    colorId: "11",
+  };
+}
+
+export async function cancelCalendarEvent(
   accessToken: string,
   calendarId: string,
   eventId: string,
+  options?: { refundNote?: string },
 ): Promise<void> {
-  const response = await fetch(
-    `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(eventId)}`,
-    {
-      method: "DELETE",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
-    },
-  );
+  const eventUrl =
+    `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}` +
+    `/events/${encodeURIComponent(eventId)}`;
 
-  if (response.status === 404 || response.status === 410) {
+  const getResponse = await fetch(eventUrl, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  if (getResponse.status === 404 || getResponse.status === 410) {
     return;
   }
 
+  if (!getResponse.ok) {
+    const detail = await getResponse.text().catch(() => "");
+    throw new Error(`Calendar fetch failed (${getResponse.status}): ${detail.slice(0, 200)}`);
+  }
+
+  const event = (await getResponse.json()) as CalendarEventPayload;
+  if (event.status === "cancelled") {
+    return;
+  }
+
+  const response = await fetch(eventUrl, {
+    method: "PATCH",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(buildCancelledEventPatch(event, options?.refundNote)),
+  });
+
   if (!response.ok) {
     const detail = await response.text().catch(() => "");
-    throw new Error(`Calendar delete failed (${response.status}): ${detail.slice(0, 200)}`);
+    throw new Error(`Calendar cancel failed (${response.status}): ${detail.slice(0, 200)}`);
   }
 }
 
-export async function deleteCalendarEvents(
+export async function cancelCalendarEvents(
   accessToken: string,
   calendarId: string,
   eventIds: string[],
-): Promise<{ deleted: number; errors: string[] }> {
-  let deleted = 0;
+  options?: { refundNote?: string },
+): Promise<{ cancelled: number; errors: string[] }> {
+  let cancelled = 0;
   const errors: string[] = [];
 
   for (const eventId of eventIds) {
     try {
-      await deleteCalendarEvent(accessToken, calendarId, eventId);
-      deleted += 1;
+      await cancelCalendarEvent(accessToken, calendarId, eventId, options);
+      cancelled += 1;
     } catch (error) {
-      errors.push(error instanceof Error ? error.message : "Unknown calendar delete error");
+      errors.push(error instanceof Error ? error.message : "Unknown calendar cancel error");
     }
   }
 
-  return { deleted, errors };
+  return { cancelled, errors };
 }
 
 export async function logBookingsToGoogleCalendar(options: {

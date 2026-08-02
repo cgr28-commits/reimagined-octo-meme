@@ -26,6 +26,8 @@ export type RefundIssueResponse = {
   paymentReference: string;
   refundAmount?: string;
   sumUpRefunded?: boolean;
+  calendarCancelled?: number;
+  /** @deprecated Use calendarCancelled */
   calendarDeleted?: number;
   trackingRemoved?: boolean;
   customerEmailSent?: boolean;
