@@ -1,0 +1,97 @@
+import type { BookingDetails } from "@/lib/booking-message";
+import type { PaymentConfirmationResult } from "@/lib/create-payment";
+import {
+  buildCustomerConfirmationEmail,
+  buildOwnerPaidBookingEmail,
+  type PaidBookingReceipt,
+} from "../../shared/booking-notifications";
+
+const WEB3FORMS_ACCESS_KEY =
+  process.env.NEXT_PUBLIC_WEB3FORMS_ACCESS_KEY?.trim() ?? "";
+
+export function isBrowserBookingEmailAvailable(): boolean {
+  return Boolean(WEB3FORMS_ACCESS_KEY);
+}
+
+function toReceipt(booking: BookingDetails, payment: PaymentConfirmationResult): PaidBookingReceipt {
+  return {
+    customerName: booking.customerName,
+    customerEmail: booking.customerEmail,
+    mobileNumber: booking.mobileNumber,
+    tripLabel: booking.tripLabel,
+    pickupLabel: booking.pickupLabel,
+    dropoffLabel: booking.dropoffLabel,
+    returnJourney: booking.returnJourney,
+    tripDate: booking.tripDate,
+    tripTime: booking.tripTime,
+    returnDate: booking.returnDate ?? "",
+    returnTime: booking.returnTime ?? "",
+    flightNumber: booking.flightNumber,
+    returnFlightNumber: booking.returnFlightNumber,
+    passengers: booking.passengers,
+    suitcases: booking.suitcases,
+    vehicle: booking.vehicle,
+    journeyDistance: booking.journeyDistance,
+    journeyDuration: booking.journeyDuration,
+    isAirportTrip: booking.isAirportTrip,
+    amountPaid: payment.amountPaid,
+    paymentReference: payment.paymentReference,
+  };
+}
+
+async function submitWeb3Forms(payload: Record<string, unknown>): Promise<boolean> {
+  if (!WEB3FORMS_ACCESS_KEY) {
+    return false;
+  }
+
+  const response = await fetch("https://api.web3forms.com/submit", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify({
+      access_key: WEB3FORMS_ACCESS_KEY,
+      ...payload,
+    }),
+  });
+
+  const body = (await response.json().catch(() => null)) as { success?: unknown } | null;
+  return response.ok && body?.success === true;
+}
+
+/** Sends customer invoice + owner notification via Web3Forms from the browser. */
+export async function sendPaidBookingEmailsFromBrowser(
+  booking: BookingDetails,
+  payment: PaymentConfirmationResult,
+): Promise<{ customerEmailSent: boolean; ownerEmailSent: boolean }> {
+  if (!WEB3FORMS_ACCESS_KEY) {
+    return { customerEmailSent: false, ownerEmailSent: false };
+  }
+
+  const receipt = toReceipt(booking, payment);
+  const customerEmail = buildCustomerConfirmationEmail(receipt, "My Airport Taxi NI", {
+    trackUrl: payment.trackUrl,
+  });
+  const ownerEmail = buildOwnerPaidBookingEmail(receipt, "My Airport Taxi NI", {
+    trackUrl: payment.trackUrl,
+  });
+
+  const customerEmailSent = await submitWeb3Forms({
+    subject: customerEmail.subject,
+    name: booking.customerName,
+    email: booking.customerEmail,
+    from_name: booking.customerName,
+    message: customerEmail.text,
+    autoresponse: {
+      subject: customerEmail.subject,
+      message: customerEmail.text,
+    },
+  });
+
+  const ownerEmailSent = await submitWeb3Forms({
+    subject: ownerEmail.subject,
+    name: booking.customerName,
+    from_name: "My Airport Taxi NI",
+    message: ownerEmail.body,
+  });
+
+  return { customerEmailSent, ownerEmailSent };
+}
