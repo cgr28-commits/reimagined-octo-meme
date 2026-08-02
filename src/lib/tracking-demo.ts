@@ -571,6 +571,14 @@ export function getDemoOwnerVehicle(profile?: string) {
   };
 }
 
+export function getDemoDriverVehicleProfiles() {
+  return [{ profileKey: DEMO_DRIVER_NAME.toLowerCase(), displayName: DEMO_DRIVER_NAME }];
+}
+
+export function getDemoDriverVehicle() {
+  return getDemoOwnerVehicle(DEMO_DRIVER_NAME);
+}
+
 export const DEMO_SCENARIOS = [
   {
     token: "demo-early" as const,
