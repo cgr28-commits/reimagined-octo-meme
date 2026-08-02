@@ -41,6 +41,8 @@ function buildReplacements(prefix) {
     [/='\/track\//g, `='${prefix}track/`],
     [/="\/driver\//g, `="${prefix}driver/`],
     [/='\/driver\//g, `='${prefix}driver/`],
+    [/="\/owner\//g, `="${prefix}owner/`],
+    [/='\/owner\//g, `='${prefix}owner/`],
     [/="\/tours\//g, `="${prefix}tours/`],
     [/='\/tours\//g, `='${prefix}tours/`],
     [/url\(\/_next\//g, `url(${prefix}_next/`],
