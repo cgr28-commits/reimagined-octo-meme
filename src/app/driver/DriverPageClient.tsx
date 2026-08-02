@@ -1049,8 +1049,8 @@ function DriverJobCard({
 
       {isPendingForDriver && (
         <p className="mt-4 rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
-          You&apos;ve been assigned this job. Accept it to add it to your dashboard and start live
-          tracking on the day.
+          You&apos;ve been assigned this job. Accept or decline at any time — live tracking opens on
+          the day of travel.
         </p>
       )}
 
@@ -1102,6 +1102,7 @@ export default function DriverPageClient() {
   const [driverName, setDriverName] = useState<string | null>(null);
   const [availableDrivers, setAvailableDrivers] = useState<string[]>(["Gary"]);
   const [jobs, setJobs] = useState<DriverJob[]>([]);
+  const [pendingJobs, setPendingJobs] = useState<DriverJob[]>([]);
   const [activeToken, setActiveToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -1111,6 +1112,18 @@ export default function DriverPageClient() {
 
   const today = useMemo(() => todayLondonDate(), []);
   const groupedUpcoming = useMemo(() => groupJobsByDate(jobs), [jobs]);
+  const pendingTokens = useMemo(
+    () => new Set(pendingJobs.map((job) => job.token)),
+    [pendingJobs],
+  );
+  const visibleJobs = useMemo(() => {
+    if (sessionRole !== "driver" || pendingTokens.size === 0) {
+      return jobs;
+    }
+
+    return jobs.filter((job) => !pendingTokens.has(job.token));
+  }, [jobs, pendingTokens, sessionRole]);
+  const groupedVisibleUpcoming = useMemo(() => groupJobsByDate(visibleJobs), [visibleJobs]);
 
   const loadJobs = useCallback(
     async (key: string) => {
@@ -1118,18 +1131,21 @@ export default function DriverPageClient() {
       setError(null);
 
       try {
-        const response =
+        const [mainResponse, pendingResponse] = await Promise.all([
           view === "upcoming"
-            ? await fetchDriverJobs(key, { scope: "upcoming", days: 60 })
-            : await fetchDriverJobs(key, {
+            ? fetchDriverJobs(key, { scope: "upcoming", days: 60 })
+            : fetchDriverJobs(key, {
                 date: view === "today" ? today : selectedDate,
-              });
-        setJobs(response.jobs);
-        if (response.role) {
-          setSessionRole(response.role);
+              }),
+          fetchDriverJobs(key, { scope: "pending", days: 60 }),
+        ]);
+        setJobs(mainResponse.jobs);
+        setPendingJobs(pendingResponse.jobs);
+        if (mainResponse.role) {
+          setSessionRole(mainResponse.role);
         }
-        if (response.driverName) {
-          setDriverName(response.driverName);
+        if (mainResponse.driverName) {
+          setDriverName(mainResponse.driverName);
         }
       } catch (err) {
         const message = err instanceof Error ? err.message : "Could not load jobs";
@@ -1140,6 +1156,7 @@ export default function DriverPageClient() {
             : message,
         );
         setJobs([]);
+        setPendingJobs([]);
       } finally {
         setLoading(false);
       }
@@ -1156,6 +1173,18 @@ export default function DriverPageClient() {
 
   const handleAssignmentUpdated = useCallback(
     (updatedJob: DriverJob) => {
+      setPendingJobs((current) => {
+        if (updatedJob.assignmentStatus === "pending") {
+          const exists = current.some((entry) => entry.token === updatedJob.token);
+          const next = exists
+            ? current.map((entry) => (entry.token === updatedJob.token ? updatedJob : entry))
+            : [...current, updatedJob];
+          return next.sort((a, b) => a.pickupAt.localeCompare(b.pickupAt));
+        }
+
+        return current.filter((entry) => entry.token !== updatedJob.token);
+      });
+
       setJobs((current) => {
         if (
           sessionRole === "driver" &&
@@ -1201,8 +1230,10 @@ export default function DriverPageClient() {
       return;
     }
 
-    if (view !== "today") {
-      void loadJobs(savedKey);
+    void loadJobs(savedKey);
+
+    const shouldPoll = sessionRole === "driver" || view === "today";
+    if (!shouldPoll) {
       return;
     }
 
@@ -1211,7 +1242,7 @@ export default function DriverPageClient() {
     }, 10_000);
 
     return () => window.clearInterval(interval);
-  }, [loadJobs, savedKey, view]);
+  }, [loadJobs, savedKey, sessionRole, view]);
 
   useEffect(() => {
     if (!savedKey || !activeToken || !navigator.geolocation || sessionRole === "owner") {
@@ -1305,8 +1336,8 @@ export default function DriverPageClient() {
                 </>
               ) : (
                 <>
-                  Accept assigned jobs to add them to your dashboard. Once accepted, start live
-                  tracking on the day of travel from about 2 hours before pickup.
+                  Accept assigned jobs at any time — live tracking starts on the day of travel,
+                  from about 2 hours before pickup.
                 </>
               )}
             </p>
@@ -1368,6 +1399,7 @@ export default function DriverPageClient() {
                     window.sessionStorage.removeItem(DRIVER_KEY_STORAGE);
                     setSavedKey(null);
                     setJobs([]);
+                    setPendingJobs([]);
                     setActiveToken(null);
                     setSessionRole(null);
                     setDriverName(null);
@@ -1448,11 +1480,11 @@ export default function DriverPageClient() {
                 </div>
               )}
 
-              {!loading && !error && jobs.length === 0 && (
+              {!loading && !error && visibleJobs.length === 0 && pendingJobs.length === 0 && (
                 <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-8 text-white/70">
                   {sessionRole === "driver"
                     ? view === "upcoming"
-                      ? "No jobs assigned to you in the next 60 days. The owner will assign jobs here — you'll need to accept them."
+                      ? "No jobs assigned to you in the next 60 days. When the owner assigns a job, it will appear at the top for you to accept."
                       : "No jobs assigned to you for this date yet."
                     : view === "upcoming"
                       ? "No upcoming paid bookings with tracking in the next 60 days."
@@ -1460,9 +1492,57 @@ export default function DriverPageClient() {
                 </div>
               )}
 
+              {pendingJobs.length > 0 && (
+                <section className="mb-8">
+                  <h2 className="mb-2 text-lg font-semibold text-white">
+                    {sessionRole === "driver" ? "Awaiting your acceptance" : "Awaiting driver acceptance"}
+                  </h2>
+                  <p className="mb-4 text-sm text-white/60">
+                    {sessionRole === "driver"
+                      ? "You can accept or decline these jobs at any time. Live tracking opens on the day of travel."
+                      : "These jobs are assigned but not yet accepted by the driver."}
+                  </p>
+                  <div className="space-y-4">
+                    {pendingJobs.map((job) => (
+                      <DriverJobCard
+                        key={job.token}
+                        job={job}
+                        driverKey={savedKey}
+                        activeToken={activeToken}
+                        onSharingChange={setActiveToken}
+                        onRefunded={(token, refundAmount) => {
+                          setJobs((current) =>
+                            current.map((entry) =>
+                              entry.token === token
+                                ? {
+                                    ...entry,
+                                    bookingStatus: "refunded",
+                                    refundAmountLabel: refundAmount ?? entry.refundAmountLabel,
+                                  }
+                                : entry,
+                            ),
+                          );
+                          setPendingJobs((current) =>
+                            current.filter((entry) => entry.token !== token),
+                          );
+                          if (activeToken === token) {
+                            setActiveToken(null);
+                          }
+                        }}
+                        onUpdated={handleJobUpdated}
+                        onAssignmentUpdated={handleAssignmentUpdated}
+                        compactTracking={view === "upcoming"}
+                        isOwner={sessionRole === "owner"}
+                        availableDrivers={availableDrivers}
+                      />
+                    ))}
+                  </div>
+                </section>
+              )}
+
               {view === "upcoming" ? (
                 <div className="space-y-8">
-                  {groupedUpcoming.map((group) => (
+                  {groupedVisibleUpcoming.map((group) => (
                     <section key={group.date}>
                       <h2 className="mb-4 text-lg font-semibold text-white">
                         {formatDateHeading(group.date)}
@@ -1505,7 +1585,7 @@ export default function DriverPageClient() {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {jobs.map((job) => (
+                  {visibleJobs.map((job) => (
                     <DriverJobCard
                       key={job.token}
                       job={job}

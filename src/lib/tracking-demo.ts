@@ -284,6 +284,56 @@ export function getDemoDriverUpcomingJobs(): DriverJobsResponse {
   };
 }
 
+export function getDemoDriverPendingJobs(): DriverJobsResponse {
+  const futurePickup = addMinutes(new Date(), 5 * 24 * 60);
+  const schedule = londonParts(futurePickup);
+  const opensAt = addMinutes(futurePickup, -120);
+  const closesAt = addMinutes(futurePickup, 90);
+
+  const pendingJob = buildDemoDriverJob("demo-waiting", {
+    token: "demo-pending",
+    customerName: "Jordan Demo",
+    customerMobile: "+447700900321",
+    paymentReference: "DEMO-MATNI-1004",
+    pickupLabel: "Grand Central Hotel, Belfast",
+    dropoffLabel: "George Best Belfast City Airport (BHD)",
+    tripDate: schedule.tripDate,
+    tripTime: schedule.tripTime,
+    pickupAt: schedule.pickupAt,
+    pickupDisplay: schedule.pickupDisplay,
+    assignedDriverName: "Gary",
+    assignmentStatus: "pending",
+    assignedAt: new Date().toISOString(),
+    isAirportPickup: false,
+    flightNumber: null,
+    airportCode: null,
+    flight: null,
+    trackingWindow: {
+      open: false,
+      opensAt: opensAt.toISOString(),
+      closesAt: closesAt.toISOString(),
+      pickupAt: schedule.pickupAt,
+      reason: "too_early",
+      opensAtDisplay: formatWindowDisplay(opensAt.toISOString()),
+      closesAtDisplay: formatWindowDisplay(closesAt.toISOString()),
+    },
+    sharingActive: false,
+    customerSharingActive: false,
+    driver: null,
+    customer: null,
+    trackUrl: `${SITE.url}/track/?id=demo-pending`,
+  });
+
+  return {
+    ok: true,
+    scope: "pending",
+    date: "pending",
+    role: "driver",
+    driverName: "Gary",
+    jobs: [pendingJob],
+  };
+}
+
 export const DEMO_SCENARIOS = [
   {
     token: "demo-early" as const,

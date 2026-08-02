@@ -1,6 +1,7 @@
 import {
   DEMO_DRIVER_KEY,
   getDemoDriverJobs,
+  getDemoDriverPendingJobs,
   getDemoDriverUpcomingJobs,
   getDemoTrackResponse,
   isDemoTrackToken,
@@ -248,7 +249,7 @@ export async function fetchDriverJobs(
   driverKey: string,
   options?: {
     date?: string;
-    scope?: "date" | "upcoming";
+    scope?: "date" | "upcoming" | "pending";
     days?: number;
   },
 ): Promise<DriverJobsResponse> {
@@ -256,13 +257,16 @@ export async function fetchDriverJobs(
     if (options?.scope === "upcoming") {
       return getDemoDriverUpcomingJobs();
     }
+    if (options?.scope === "pending") {
+      return getDemoDriverPendingJobs();
+    }
     return getDemoDriverJobs(options?.date);
   }
 
   const url = new URL(`${WORKER_BASE}/driver/jobs`);
   driverQueryKey(url, driverKey);
-  if (options?.scope === "upcoming") {
-    url.searchParams.set("scope", "upcoming");
+  if (options?.scope === "upcoming" || options?.scope === "pending") {
+    url.searchParams.set("scope", options.scope);
     if (options.days) {
       url.searchParams.set("days", String(options.days));
     }

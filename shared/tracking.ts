@@ -98,6 +98,13 @@ export function driverCanOperateJob(
   return jobAssignmentStatus(job) === "accepted" && driverNamesMatch(job.assignedDriverName, driverName);
 }
 
+export function jobPendingForDriver(
+  job: Pick<TrackingJobRecord, "assignedDriverName" | "assignmentStatus">,
+  driverName: string,
+): boolean {
+  return jobAssignmentStatus(job) === "pending" && driverNamesMatch(job.assignedDriverName, driverName);
+}
+
 export const LOCATION_STALE_MS = 5 * 60 * 1000;
 
 export function isLocationFresh(

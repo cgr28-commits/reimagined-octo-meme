@@ -369,7 +369,11 @@ export async function handleDriverJobsRequest(
   let jobs: TrackingJobRecord[];
   let responseDate = tripDate;
 
-  if (scope === "upcoming") {
+  if (scope === "pending") {
+    jobs = await listUpcomingTrackingJobs(env.TRACKING_STORE, daysAhead);
+    jobs = jobs.filter((job) => jobAssignmentStatus(job) === "pending");
+    responseDate = "pending";
+  } else if (scope === "upcoming") {
     jobs = await listUpcomingTrackingJobs(env.TRACKING_STORE, daysAhead);
     responseDate = "upcoming";
   } else {
