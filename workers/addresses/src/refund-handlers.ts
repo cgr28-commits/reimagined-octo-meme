@@ -57,6 +57,44 @@ export function ownerAuthorized(request: Request, env: RefundEnv): boolean {
   return provided === expected;
 }
 
+function isKnownRefundAmount(label: string | undefined): boolean {
+  const trimmed = label?.trim() ?? "";
+  return Boolean(trimmed) && trimmed.toLowerCase() !== "unknown";
+}
+
+function resolveRefundAmountLabel(
+  record: PaidBookingRecord,
+  preferred?: string,
+): string | null {
+  if (isKnownRefundAmount(preferred)) {
+    return preferred!.trim();
+  }
+
+  if (isKnownRefundAmount(record.amountPaidLabel)) {
+    return record.amountPaidLabel.trim();
+  }
+
+  if (record.amount > 0) {
+    return formatPaidAmount(record.amount, record.currency);
+  }
+
+  return null;
+}
+
+function applyCheckoutAmount(
+  record: PaidBookingRecord,
+  checkout: { amount?: number; currency?: string },
+): string | null {
+  if (typeof checkout.amount !== "number" || checkout.amount <= 0) {
+    return null;
+  }
+
+  record.amount = checkout.amount;
+  record.currency = checkout.currency ?? record.currency;
+  record.amountPaidLabel = formatPaidAmount(record.amount, record.currency);
+  return record.amountPaidLabel;
+}
+
 function calendarConfigured(env: RefundEnv): boolean {
   return Boolean(
     env.GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON?.trim() && env.GOOGLE_CALENDAR_ID?.trim(),
@@ -122,7 +160,7 @@ export async function issueBookingRefund(
   const sumUpMerchantCode = env.SUMUP_MERCHANT_CODE?.trim() ?? "";
 
   if (sumUpApiKey) {
-    if (!record.transactionId) {
+    if (!record.transactionId || !resolveRefundAmountLabel(record, refundAmountLabel)) {
       const resolved = await resolveSumUpTransactionForRefund(
         sumUpApiKey,
         sumUpMerchantCode,
@@ -131,10 +169,7 @@ export async function issueBookingRefund(
       );
       if (resolved?.id) {
         record.transactionId = resolved.id;
-        if (
-          typeof resolved.amount === "number" &&
-          (!record.amount || record.amountPaidLabel === "Unknown")
-        ) {
+        if (typeof resolved.amount === "number" && resolved.amount > 0) {
           record.amount = resolved.amount;
           record.currency = resolved.currency ?? record.currency;
           record.amountPaidLabel = formatPaidAmount(record.amount, record.currency);
@@ -143,12 +178,16 @@ export async function issueBookingRefund(
       }
     }
 
-    if (!record.transactionId && record.checkoutId) {
+    if (!resolveRefundAmountLabel(record, refundAmountLabel) && record.checkoutId) {
       try {
         const checkout = await getSumUpCheckout(sumUpApiKey, record.checkoutId);
         const transactionId = getSuccessfulTransactionId(checkout);
         if (transactionId) {
           record.transactionId = transactionId;
+        }
+        const checkoutAmount = applyCheckoutAmount(record, checkout);
+        if (checkoutAmount) {
+          refundAmountLabel = checkoutAmount;
         }
       } catch {
         // resolveSumUpTransactionForRefund already attempted checkout lookup.
@@ -163,6 +202,16 @@ export async function issueBookingRefund(
       };
     }
 
+    const resolvedBeforeRefund = resolveRefundAmountLabel(record, refundAmountLabel);
+    if (!resolvedBeforeRefund) {
+      return {
+        ok: false,
+        paymentReference,
+        error: "Could not determine refund amount for this booking",
+      };
+    }
+    refundAmountLabel = resolvedBeforeRefund;
+
     try {
       const refund = await refundSumUpTransaction(
         sumUpApiKey,
@@ -171,7 +220,7 @@ export async function issueBookingRefund(
         sumUpMerchantCode || undefined,
       );
       sumUpRefunded = true;
-      if (typeof refund.refundedAmount === "number") {
+      if (typeof refund.refundedAmount === "number" && refund.refundedAmount > 0) {
         refundAmountLabel = formatPaidAmount(refund.refundedAmount, refund.currency ?? record.currency);
       }
     } catch (error) {
@@ -180,6 +229,15 @@ export async function issueBookingRefund(
     }
   } else {
     warnings.push("SumUp refund was not attempted — missing API key");
+    const resolvedRefundAmount = resolveRefundAmountLabel(record, refundAmountLabel);
+    if (!resolvedRefundAmount) {
+      return {
+        ok: false,
+        paymentReference,
+        error: "Could not determine refund amount for this booking",
+      };
+    }
+    refundAmountLabel = resolvedRefundAmount;
   }
 
   let calendarCancelled = 0;

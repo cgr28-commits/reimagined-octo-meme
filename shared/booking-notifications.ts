@@ -481,7 +481,7 @@ function buildRefundConfirmationHtml(
           </tr>
           <tr>
             <td style="padding:28px 32px 8px;font-size:15px;line-height:1.7;color:#334155;">
-              <p style="margin:0 0 16px;">We've processed a refund for your booking with ${escapeHtml(businessName)}. The amount should return to your original payment method within a few working days, depending on your bank or card provider.</p>
+              <p style="margin:0 0 16px;">We've processed a refund of <strong style="color:#0b1f33;font-size:17px;">${escapeHtml(details.refundAmount)}</strong> for your booking with ${escapeHtml(businessName)}. The amount should return to your original payment method within a few working days, depending on your bank or card provider.</p>
             </td>
           </tr>
           <tr>
@@ -532,6 +532,7 @@ export function buildCustomerRefundConfirmationEmail(
 
   const text =
     `Hi ${details.customerName},\n\n` +
+    `Refund amount: ${details.refundAmount}\n\n` +
     `We've processed a refund of ${details.refundAmount} for your booking with ${businessName}.\n\n` +
     `Original reference: ${details.paymentReference}\n` +
     `Trip: ${details.tripLabel}\n` +
