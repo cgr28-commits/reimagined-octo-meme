@@ -118,6 +118,62 @@ export type SumUpRefundResult = {
   currency?: string;
 };
 
+export type SumUpTransactionSummary = {
+  id: string;
+  transaction_code?: string;
+  amount?: number;
+  currency?: string;
+  status?: string;
+};
+
+type SumUpTransactionsListResponse = {
+  items?: SumUpTransactionSummary[];
+  error_message?: string;
+};
+
+export async function findSumUpTransactionByCode(
+  apiKey: string,
+  merchantCode: string,
+  transactionCode: string,
+): Promise<SumUpTransactionSummary | null> {
+  const trimmed = transactionCode.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  const url = new URL(
+    `https://api.sumup.com/v2.1/merchants/${encodeURIComponent(merchantCode)}/transactions`,
+  );
+  url.searchParams.set("transaction_code", trimmed);
+
+  const response = await fetch(url.toString(), {
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+    },
+  });
+
+  const payload = (await response.json().catch(() => null)) as
+    | SumUpTransactionsListResponse
+    | null;
+
+  if (!response.ok) {
+    const message =
+      payload && typeof payload === "object" && payload.error_message
+        ? String(payload.error_message)
+        : `Could not look up SumUp transaction (${response.status})`;
+    throw new Error(message);
+  }
+
+  const match =
+    payload?.items?.find(
+      (item) =>
+        item.transaction_code?.trim() === trimmed ||
+        item.id?.trim() === trimmed,
+    ) ?? payload?.items?.[0];
+
+  return match?.id ? match : null;
+}
+
 export async function refundSumUpTransaction(
   apiKey: string,
   transactionId: string,
