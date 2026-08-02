@@ -1202,7 +1202,12 @@ function DriverJobCard({
   );
 }
 
-export default function DriverPageClient() {
+export default function DriverPageClient({
+  portal = "driver",
+}: {
+  portal?: "owner" | "driver";
+} = {}) {
+  const isOwnerPortal = portal === "owner";
   const [driverKey, setDriverKey] = useState("");
   const [savedKey, setSavedKey] = useState<string | null>(null);
   const [sessionRole, setSessionRole] = useState<"owner" | "driver" | null>(null);
@@ -1217,6 +1222,7 @@ export default function DriverPageClient() {
   const [selectedDate, setSelectedDate] = useState(() => todayLondonDate());
   const watchIdRef = useRef<number | null>(null);
   const demoQueryHandledRef = useRef(false);
+  const portalBootstrappedRef = useRef(false);
 
   const isDemoDriverSession = savedKey === DEMO_DRIVER_KEY;
   const isDemoOwnerSession = savedKey === DEMO_OWNER_KEY;
@@ -1346,71 +1352,6 @@ export default function DriverPageClient() {
     }
   }, []);
 
-  useEffect(() => {
-    const stored = window.sessionStorage.getItem(DRIVER_KEY_STORAGE)?.trim();
-    if (stored) {
-      if (stored === DEMO_DRIVER_KEY) {
-        setSessionRole("driver");
-        setDriverName(DEMO_DRIVER_NAME);
-      } else if (stored === DEMO_OWNER_KEY) {
-        setSessionRole("owner");
-        setDriverName(null);
-        setAvailableDrivers([...DEMO_ROSTER]);
-      }
-      setSavedKey(stored);
-      void loadJobs(stored);
-    }
-  }, [loadJobs]);
-
-  useEffect(() => {
-    if (!savedKey) {
-      return;
-    }
-
-    void loadJobs(savedKey);
-
-    const shouldPoll = viewRole === "driver" || view === "today";
-    if (!shouldPoll) {
-      return;
-    }
-
-    const interval = window.setInterval(() => {
-      void loadJobs(savedKey);
-    }, 10_000);
-
-    return () => window.clearInterval(interval);
-  }, [loadJobs, savedKey, viewRole, view]);
-
-  useEffect(() => {
-    if (!savedKey || !activeToken || !navigator.geolocation || isOwnerView) {
-      return;
-    }
-
-    const sendPosition = (position: GeolocationPosition) => {
-      void postDriverLocation(
-        savedKey,
-        activeToken,
-        position.coords.latitude,
-        position.coords.longitude,
-      ).catch(() => {
-        // Ignore transient GPS upload errors; next tick will retry.
-      });
-    };
-
-    watchIdRef.current = navigator.geolocation.watchPosition(sendPosition, undefined, {
-      enableHighAccuracy: true,
-      maximumAge: 15_000,
-      timeout: 20_000,
-    });
-
-    return () => {
-      if (watchIdRef.current !== null) {
-        navigator.geolocation.clearWatch(watchIdRef.current);
-        watchIdRef.current = null;
-      }
-    };
-  }, [activeToken, isOwnerView, savedKey]);
-
   const unlockWithKey = useCallback(
     async (rawKey: string) => {
       const trimmed = rawKey.trim();
@@ -1486,7 +1427,107 @@ export default function DriverPageClient() {
   };
 
   useEffect(() => {
-    if (demoQueryHandledRef.current) {
+    if (portalBootstrappedRef.current) {
+      return;
+    }
+    portalBootstrappedRef.current = true;
+
+    const stored = window.sessionStorage.getItem(DRIVER_KEY_STORAGE)?.trim() ?? "";
+
+    // /owner/ opens the owner dashboard immediately.
+    if (isOwnerPortal) {
+      const isLiveNonDemoKey =
+        Boolean(stored) && stored !== DEMO_DRIVER_KEY && stored !== DEMO_OWNER_KEY;
+
+      if (!isLiveNonDemoKey) {
+        void unlockWithKey(DEMO_OWNER_KEY);
+        return;
+      }
+
+      void fetchDriverStatus(stored)
+        .then((status) => {
+          if (status.role === "owner") {
+            setSessionRole("owner");
+            setSavedKey(stored);
+            if (status.availableDrivers?.length) {
+              setAvailableDrivers(status.availableDrivers);
+            }
+            void loadJobs(stored);
+            return;
+          }
+          void unlockWithKey(DEMO_OWNER_KEY);
+        })
+        .catch(() => {
+          void unlockWithKey(DEMO_OWNER_KEY);
+        });
+      return;
+    }
+
+    if (stored) {
+      if (stored === DEMO_DRIVER_KEY) {
+        setSessionRole("driver");
+        setDriverName(DEMO_DRIVER_NAME);
+      } else if (stored === DEMO_OWNER_KEY) {
+        setSessionRole("owner");
+        setDriverName(null);
+        setAvailableDrivers([...DEMO_ROSTER]);
+      }
+      setSavedKey(stored);
+      void loadJobs(stored);
+    }
+  }, [isOwnerPortal, loadJobs, unlockWithKey]);
+
+  useEffect(() => {
+    if (!savedKey) {
+      return;
+    }
+
+    void loadJobs(savedKey);
+
+    const shouldPoll = viewRole === "driver" || view === "today";
+    if (!shouldPoll) {
+      return;
+    }
+
+    const interval = window.setInterval(() => {
+      void loadJobs(savedKey);
+    }, 10_000);
+
+    return () => window.clearInterval(interval);
+  }, [loadJobs, savedKey, viewRole, view]);
+
+  useEffect(() => {
+    if (!savedKey || !activeToken || !navigator.geolocation || isOwnerView) {
+      return;
+    }
+
+    const sendPosition = (position: GeolocationPosition) => {
+      void postDriverLocation(
+        savedKey,
+        activeToken,
+        position.coords.latitude,
+        position.coords.longitude,
+      ).catch(() => {
+        // Ignore transient GPS upload errors; next tick will retry.
+      });
+    };
+
+    watchIdRef.current = navigator.geolocation.watchPosition(sendPosition, undefined, {
+      enableHighAccuracy: true,
+      maximumAge: 15_000,
+      timeout: 20_000,
+    });
+
+    return () => {
+      if (watchIdRef.current !== null) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
+        watchIdRef.current = null;
+      }
+    };
+  }, [activeToken, isOwnerView, savedKey]);
+
+  useEffect(() => {
+    if (isOwnerPortal || demoQueryHandledRef.current) {
       return;
     }
 
@@ -1511,7 +1552,7 @@ export default function DriverPageClient() {
     setPendingJobs([]);
     setActiveToken(null);
     void unlockWithKey(wantedKey);
-  }, [unlockWithKey]);
+  }, [isOwnerPortal, unlockWithKey]);
 
   useEffect(() => {
     if (!savedKey) {
@@ -1540,24 +1581,27 @@ export default function DriverPageClient() {
         <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
           <header className="mb-8">
             <p className="text-sm font-semibold uppercase tracking-widest text-emerald">
-              {!savedKey
-                ? "Owner & driver login"
-                : isOwnerView
-                  ? "Owner dashboard"
+              {isOwnerPortal || isOwnerView
+                ? "Owner dashboard"
+                : !savedKey
+                  ? "Owner & driver login"
                   : "Driver dashboard"}
             </p>
             <h1 className="mt-2 text-3xl font-bold text-white sm:text-4xl">Bookings</h1>
             <p className="mt-3 text-white/70">
-              {!savedKey ? (
-                <>
-                  Choose owner or driver below. Owner preview uses{" "}
-                  <span className="text-white/90">demo-owner-key</span>. Gary&apos;s preview uses{" "}
-                  <span className="text-white/90">demo-driver-key</span>.
-                </>
-              ) : isOwnerView ? (
+              {isOwnerPortal || isOwnerView ? (
                 <>
                   Assign jobs to drivers such as Gary — they must accept before the job appears on
                   their dashboard. Issue refunds, track live location, and manage all bookings here.
+                </>
+              ) : !savedKey ? (
+                <>
+                  Choose owner or driver below. Owner dashboard:{" "}
+                  <a href="/owner/" className="text-emerald underline-offset-2 hover:underline">
+                    /owner/
+                  </a>
+                  . Gary&apos;s preview uses{" "}
+                  <span className="text-white/90">demo-driver-key</span>.
                 </>
               ) : (
                 <>
@@ -1571,33 +1615,37 @@ export default function DriverPageClient() {
 
           {!savedKey ? (
             <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className={`grid gap-3 ${isOwnerPortal ? "" : "sm:grid-cols-2"}`}>
+                {!isOwnerPortal && (
+                  <a
+                    href="/owner/"
+                    className="rounded-2xl border border-emerald/40 bg-emerald/10 px-5 py-5 text-left transition-colors hover:border-emerald hover:bg-emerald/15"
+                  >
+                    <p className="text-xs font-semibold uppercase tracking-wider text-emerald">
+                      Owner dashboard
+                    </p>
+                    <p className="mt-2 text-lg font-bold text-white">Go to /owner/</p>
+                    <p className="mt-2 text-sm text-white/65">
+                      Assign jobs, payments, refunds, GPS audit
+                    </p>
+                  </a>
+                )}
                 <button
                   type="button"
                   disabled={loading}
-                  onClick={() => void unlockWithKey(DEMO_OWNER_KEY)}
-                  className="rounded-2xl border border-emerald/40 bg-emerald/10 px-5 py-5 text-left transition-colors hover:border-emerald hover:bg-emerald/15 disabled:opacity-60"
-                >
-                  <p className="text-xs font-semibold uppercase tracking-wider text-emerald">
-                    Owner preview
-                  </p>
-                  <p className="mt-2 text-lg font-bold text-white">Open owner dashboard</p>
-                  <p className="mt-2 text-sm text-white/65">
-                    Assign jobs, payments, refunds, GPS audit — uses demo-owner-key
-                  </p>
-                </button>
-                <button
-                  type="button"
-                  disabled={loading}
-                  onClick={() => void unlockWithKey(DEMO_DRIVER_KEY)}
+                  onClick={() => void unlockWithKey(isOwnerPortal ? DEMO_OWNER_KEY : DEMO_DRIVER_KEY)}
                   className="rounded-2xl border border-white/15 bg-white/[0.02] px-5 py-5 text-left transition-colors hover:border-white/30 hover:bg-white/[0.04] disabled:opacity-60"
                 >
                   <p className="text-xs font-semibold uppercase tracking-wider text-white/50">
-                    Driver preview
+                    {isOwnerPortal ? "Owner preview" : "Driver preview"}
                   </p>
-                  <p className="mt-2 text-lg font-bold text-white">Open Gary&apos;s dashboard</p>
+                  <p className="mt-2 text-lg font-bold text-white">
+                    {isOwnerPortal ? "Open owner dashboard" : "Open Gary's dashboard"}
+                  </p>
                   <p className="mt-2 text-sm text-white/65">
-                    Accept jobs and share live location — uses demo-driver-key
+                    {isOwnerPortal
+                      ? "Assign jobs, payments, refunds, GPS audit — uses demo-owner-key"
+                      : "Accept jobs and share live location — uses demo-driver-key"}
                   </p>
                 </button>
               </div>
@@ -1645,51 +1693,29 @@ export default function DriverPageClient() {
               {isDemoOwnerSession && (
                 <div className="mb-6 rounded-xl border border-emerald/30 bg-emerald/10 px-4 py-3 text-sm text-emerald-light">
                   <p>
-                    Owner preview mode — signed in with <strong>demo-owner-key</strong>.
+                    Owner preview — <strong>/owner/</strong> with <strong>demo-owner-key</strong>.
                   </p>
-                  <button
-                    type="button"
-                    disabled={loading}
-                    onClick={() => {
-                      window.sessionStorage.removeItem(DRIVER_KEY_STORAGE);
-                      setSavedKey(null);
-                      setJobs([]);
-                      setPendingJobs([]);
-                      setActiveToken(null);
-                      setSessionRole(null);
-                      setDriverName(null);
-                      void unlockWithKey(DEMO_DRIVER_KEY);
-                    }}
-                    className="mt-3 rounded-xl border border-emerald/40 px-4 py-2 text-sm font-semibold text-emerald transition-colors hover:bg-emerald/10 disabled:opacity-60"
+                  <a
+                    href="/driver/"
+                    className="mt-3 inline-flex rounded-xl border border-emerald/40 px-4 py-2 text-sm font-semibold text-emerald transition-colors hover:bg-emerald/10"
                   >
-                    Switch to Gary&apos;s driver preview
-                  </button>
+                    Open Gary&apos;s driver dashboard
+                  </a>
                 </div>
               )}
 
               {isDemoDriverSession && (
                 <div className="mb-6 rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
                   <p>
-                    You&apos;re in <strong>Gary&apos;s driver preview</strong> (demo-driver-key) — this is
-                    not the owner dashboard.
+                    You&apos;re on the <strong>driver</strong> dashboard — for the owner view use{" "}
+                    <strong>/owner/</strong>.
                   </p>
-                  <button
-                    type="button"
-                    disabled={loading}
-                    onClick={() => {
-                      window.sessionStorage.removeItem(DRIVER_KEY_STORAGE);
-                      setSavedKey(null);
-                      setJobs([]);
-                      setPendingJobs([]);
-                      setActiveToken(null);
-                      setSessionRole(null);
-                      setDriverName(null);
-                      void unlockWithKey(DEMO_OWNER_KEY);
-                    }}
-                    className="mt-3 rounded-xl bg-emerald px-4 py-2 text-sm font-semibold text-navy transition-colors hover:bg-emerald/90 disabled:opacity-60"
+                  <a
+                    href="/owner/"
+                    className="mt-3 inline-flex rounded-xl bg-emerald px-4 py-2 text-sm font-semibold text-navy transition-colors hover:bg-emerald/90"
                   >
-                    Switch to owner dashboard
-                  </button>
+                    Go to owner dashboard
+                  </a>
                 </div>
               )}
 

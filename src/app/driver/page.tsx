@@ -3,8 +3,8 @@ import DriverPageClient from "./DriverPageClient";
 import { SITE } from "@/lib/data";
 
 export const metadata: Metadata = {
-  title: `Bookings dashboard | ${SITE.name}`,
-  description: "Manage airport transfer bookings, assign drivers, and share live location.",
+  title: `Driver dashboard | ${SITE.name}`,
+  description: "Driver bookings dashboard — accept jobs and share live location.",
   robots: {
     index: false,
     follow: false,
@@ -15,5 +15,5 @@ export const metadata: Metadata = {
 };
 
 export default function DriverPage() {
-  return <DriverPageClient />;
+  return <DriverPageClient portal="driver" />;
 }

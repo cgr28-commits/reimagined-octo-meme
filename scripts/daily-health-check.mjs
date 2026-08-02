@@ -189,6 +189,7 @@ function tryFixSitemap() {
   const requiredPaths = [
     "/privacy/",
     "/driver/",
+    "/owner/",
     "/track/",
     "/track/demo/",
     "/track/demo/early/",
@@ -327,7 +328,8 @@ async function checkLiveWebsite() {
     ["Homepage", "/"],
     ["Terms page", "/terms/"],
     ["Privacy page", "/privacy/"],
-    ["Driver / owner dashboard", "/driver/"],
+    ["Driver dashboard", "/driver/"],
+    ["Owner dashboard", "/owner/"],
     ["Track page", "/track/"],
     ["Track demo hub", "/track/demo/"],
     ["Track demo early", "/track/demo/early/"],
@@ -350,10 +352,14 @@ async function checkLiveWebsite() {
     "WhatsApp",
   ]);
 
-  await pageContentCheck("Driver page demo keys", `${SITE_URL}/driver/`, [
-    "demo-owner-key",
+  await pageContentCheck("Driver page links", `${SITE_URL}/driver/`, [
+    "/owner/",
     "demo-driver-key",
-    "Access key",
+  ]);
+
+  await pageContentCheck("Owner page markers", `${SITE_URL}/owner/`, [
+    "Owner dashboard",
+    "demo-owner-key",
   ]);
 
   await pageContentCheck("Track demo scenarios", `${SITE_URL}/track/demo/`, [
