@@ -55,6 +55,7 @@ import {
   handleDriverJobsRequest,
   handleDriverLocationRequest,
   handleDriverSharingRequest,
+  handleDriverStatusRequest,
   handlePublicTrackRequest,
   parseTrackSubRoute,
   parseTrackTokenFromPath,
@@ -124,9 +125,13 @@ function json(body: unknown, status: number, origin: string | null): Response {
   });
 }
 
-function parseDriverRoute(pathname: string): "jobs" | "sharing" | "location" | "bookings-update" | null {
+function parseDriverRoute(pathname: string): "jobs" | "sharing" | "location" | "bookings-update" | "status" | null {
   if (pathname === "/driver/jobs" || pathname === "/api/driver/jobs") {
     return "jobs";
+  }
+
+  if (pathname === "/driver/status" || pathname === "/api/driver/status") {
+    return "status";
   }
 
   if (pathname === "/driver/bookings/update" || pathname === "/api/driver/bookings/update") {
@@ -913,6 +918,10 @@ export default {
     const driverRoute = parseDriverRoute(url.pathname);
     if (driverRoute === "jobs" && request.method === "GET") {
       return handleDriverJobsRequest(request, env, origin);
+    }
+
+    if (driverRoute === "status" && request.method === "GET") {
+      return handleDriverStatusRequest(request, env, origin);
     }
 
     if (driverRoute === "bookings-update" && request.method === "POST") {

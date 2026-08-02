@@ -22,3 +22,7 @@ export function driverAuthorized(request: Request, env: DriverAuthEnv): boolean 
 
   return readProvidedDriverKey(request) === expected;
 }
+
+export function isDriverAuthConfigured(env: DriverAuthEnv): boolean {
+  return Boolean(resolveDriverAccessKey(env));
+}
