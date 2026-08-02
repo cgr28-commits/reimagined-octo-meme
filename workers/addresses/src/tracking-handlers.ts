@@ -5,6 +5,7 @@ import {
   isLocationFresh,
   type TrackingJobRecord,
 } from "../shared/tracking";
+import { lookupFlight, type VerifiedFlight } from "../shared/flight-lookup";
 import { buildTrackingReminderEmail } from "../shared/booking-notifications";
 import {
   createTrackingJobFromBooking,
@@ -20,7 +21,49 @@ import { trySendEmail, type WorkerEmailEnv } from "./worker-email";
 type Env = WorkerEmailEnv & {
   TRACKING_STORE?: KVNamespace;
   DRIVER_ACCESS_KEY?: string;
+  AERODATABOX_RAPIDAPI_KEY?: string;
 };
+
+const AIRPORT_NAMES: Record<string, string> = {
+  BFS: "Belfast International",
+  BHD: "George Best Belfast City",
+  DUB: "Dublin Airport",
+  LDY: "City of Derry",
+};
+
+async function resolveDriverFlight(
+  record: TrackingJobRecord,
+  env: Env,
+): Promise<VerifiedFlight | null> {
+  if (
+    !record.isAirportTrip ||
+    !record.isFromAirport ||
+    !record.flightNumber?.trim() ||
+    !record.airportCode?.trim()
+  ) {
+    return null;
+  }
+
+  const apiKey = env.AERODATABOX_RAPIDAPI_KEY?.trim();
+  if (!apiKey) {
+    return null;
+  }
+
+  try {
+    const result = await lookupFlight(apiKey, {
+      flightNumber: record.flightNumber,
+      tripDate: record.tripDate,
+      airportCode: record.airportCode,
+      airportName: AIRPORT_NAMES[record.airportCode] ?? record.airportCode,
+      direction: "from-airport",
+    });
+
+    return result.ok ? result.flight : null;
+  } catch (error) {
+    console.error("Driver flight lookup failed", error);
+    return null;
+  }
+}
 
 function jsonResponse(body: unknown, status: number, origin: string | null) {
   return new Response(JSON.stringify(body), {
@@ -224,17 +267,27 @@ export async function handleDriverJobsRequest(
     }).format(new Date());
 
   const jobs = await listTrackingJobsForDate(env.TRACKING_STORE, tripDate);
+  const enrichedJobs = await Promise.all(
+    jobs.map(async (job) => {
+      const flight = await resolveDriverFlight(job, env);
+      return {
+        ...publicTrackPayload(job, origin, { includeCustomerLocation: true }),
+        token: job.token,
+        customerMobile: job.customerMobile,
+        paymentReference: job.paymentReference,
+        isAirportPickup: Boolean(job.isAirportTrip && job.isFromAirport),
+        flightNumber: job.flightNumber ?? null,
+        airportCode: job.airportCode ?? null,
+        flight,
+      };
+    }),
+  );
 
   return jsonResponse(
     {
       ok: true,
       date: tripDate,
-      jobs: jobs.map((job) => ({
-        ...publicTrackPayload(job, origin, { includeCustomerLocation: true }),
-        token: job.token,
-        customerMobile: job.customerMobile,
-        paymentReference: job.paymentReference,
-      })),
+      jobs: enrichedJobs,
     },
     200,
     origin,

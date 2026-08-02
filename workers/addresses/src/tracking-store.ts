@@ -46,6 +46,26 @@ export async function createTrackingJobFromBooking(
     sharingActive: false,
   };
 
+  if (booking.isAirportTrip) {
+    record.isAirportTrip = true;
+    if (booking.airportCode?.trim()) {
+      record.airportCode = booking.airportCode.trim().toUpperCase();
+    }
+    if (typeof booking.isFromAirport === "boolean") {
+      record.isFromAirport = booking.isFromAirport;
+    }
+    if (booking.flightNumber?.trim()) {
+      record.flightNumber = booking.flightNumber.trim().toUpperCase();
+    }
+  }
+
+  if (booking.termsAcceptedAt?.trim()) {
+    record.termsAcceptedAt = booking.termsAcceptedAt.trim();
+  }
+  if (booking.termsVersion?.trim()) {
+    record.termsVersion = booking.termsVersion.trim();
+  }
+
   await store.put(jobKey(token), JSON.stringify(record), {
     expirationTtl: 60 * 60 * 24 * 45,
   });

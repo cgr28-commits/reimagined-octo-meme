@@ -61,10 +61,27 @@ export type PublicTrackResponse = {
   trackUrl: string;
 };
 
+export type DriverFlight = {
+  flightNumber: string;
+  airline: string;
+  date: string;
+  scheduledTime: string;
+  scheduledTimeLabel: string;
+  airportCode: string;
+  airportName: string;
+  departureAirport: string;
+  arrivalAirport: string;
+  status?: string;
+};
+
 export type DriverJob = PublicTrackResponse & {
   token: string;
   customerMobile: string;
   paymentReference?: string;
+  isAirportPickup?: boolean;
+  flightNumber?: string | null;
+  airportCode?: string | null;
+  flight?: DriverFlight | null;
 };
 
 export type DriverJobsResponse = {

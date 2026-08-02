@@ -143,8 +143,8 @@ export function getDemoTrackResponse(token: DemoTrackToken): PublicTrackResponse
 
     return buildDemoResponse(token, {
       customerName: "Jamie Demo",
-      pickupLabel: "Holiday Inn Express, Belfast",
-      dropoffLabel: "George Best Belfast City Airport (BHD)",
+      pickupLabel: "Belfast International Airport (BFS)",
+      dropoffLabel: "Holiday Inn Express, Belfast",
       pickupDate: pickup,
       sharingActive: false,
       window: { open: true, reason: "open", opensAt, closesAt },
@@ -181,12 +181,31 @@ export function getDemoDriverJobs(): DriverJobsResponse {
         token: "demo-live",
         customerMobile: "+447700900123",
         paymentReference: "DEMO-MATNI-1001",
+        isAirportPickup: false,
+        flightNumber: null,
+        airportCode: null,
+        flight: null,
       },
       {
         ...waiting,
         token: "demo-waiting",
-        customerMobile: "+447700900123",
-        paymentReference: "DEMO-MATNI-1001",
+        customerMobile: "+447700900456",
+        paymentReference: "DEMO-MATNI-1002",
+        isAirportPickup: true,
+        flightNumber: "EZY123",
+        airportCode: "BFS",
+        flight: {
+          flightNumber: "EZY123",
+          airline: "easyJet",
+          date: waiting.tripDate,
+          scheduledTime: "14:30",
+          scheduledTimeLabel: "14:30",
+          airportCode: "BFS",
+          airportName: "Belfast International",
+          departureAirport: "London Gatwick",
+          arrivalAirport: "Belfast International",
+          status: "Estimated arrival",
+        },
       },
     ],
   };
@@ -201,7 +220,7 @@ export const DEMO_SCENARIOS = [
   {
     token: "demo-waiting" as const,
     title: "Waiting for driver",
-    description: "Tracking window is open; driver has not started sharing yet.",
+    description: "Airport pickup with live flight status — tracking window open.",
   },
   {
     token: "demo-live" as const,

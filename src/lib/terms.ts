@@ -169,7 +169,7 @@ export const TERMS_SECTIONS = [
   {
     title: "Privacy",
     content: [
-      "Personal information is processed in accordance with our Privacy Policy.",
+      "Personal information is processed in accordance with our Privacy Policy at myairporttaxini.co.uk/privacy/.",
     ],
   },
   {
