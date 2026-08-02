@@ -4,6 +4,7 @@ import {
   getTrackingWindow,
   type TrackingJobRecord,
 } from "../shared/tracking";
+import { buildTrackingReminderEmail } from "../shared/booking-notifications";
 import {
   createTrackingJobFromBooking,
   getTrackingJob,
@@ -13,8 +14,9 @@ import {
 } from "./tracking-store";
 import type { PaidBookingDetails } from "../shared/booking-notifications";
 import { corsHeaders } from "../shared/google-places";
+import { trySendEmail, type WorkerEmailEnv } from "./worker-email";
 
-type Env = {
+type Env = WorkerEmailEnv & {
   TRACKING_STORE?: KVNamespace;
   DRIVER_ACCESS_KEY?: string;
 };
@@ -128,6 +130,42 @@ export async function handlePublicTrackRequest(
   return jsonResponse(publicTrackPayload(record, origin), 200, origin);
 }
 
+async function sendSharingReminderEmail(
+  env: Env,
+  record: TrackingJobRecord,
+  trackUrl: string,
+): Promise<boolean> {
+  const customerEmail = record.customerEmail?.trim() ?? "";
+  if (!customerEmail) {
+    return false;
+  }
+
+  const reminder = buildTrackingReminderEmail(
+    {
+      customerName: record.customerName,
+      pickupLabel: record.pickupLabel,
+      dropoffLabel: record.dropoffLabel,
+      tripDate: record.tripDate,
+      tripTime: record.tripTime,
+    },
+    trackUrl,
+  );
+
+  const result = await trySendEmail(env, {
+    to: customerEmail,
+    toName: record.customerName,
+    subject: reminder.subject,
+    body: reminder.text,
+    htmlBody: reminder.html,
+  });
+
+  if (!result.sent) {
+    console.error("Sharing reminder email failed", result.error);
+  }
+
+  return result.sent;
+}
+
 export async function handleDriverJobsRequest(
   request: Request,
   env: Env,
@@ -201,6 +239,7 @@ export async function handleDriverSharingRequest(
     return jsonResponse({ error: "Job not found" }, 404, origin);
   }
 
+  const wasSharing = record.sharingActive;
   record.sharingActive = active;
   if (!active) {
     delete record.driverLat;
@@ -210,12 +249,28 @@ export async function handleDriverSharingRequest(
 
   await saveTrackingJob(env.TRACKING_STORE, record);
 
+  const trackUrl = buildPublicTrackUrl(record.token);
+
+  if (
+    active &&
+    !wasSharing &&
+    !record.sharingReminderSentAt &&
+    record.customerEmail?.trim()
+  ) {
+    const sent = await sendSharingReminderEmail(env, record, trackUrl);
+    if (sent) {
+      record.sharingReminderSentAt = new Date().toISOString();
+      await saveTrackingJob(env.TRACKING_STORE, record);
+    }
+  }
+
   return jsonResponse(
     {
       ok: true,
       token,
       sharingActive: record.sharingActive,
-      trackUrl: buildPublicTrackUrl(record.token),
+      trackUrl,
+      sharingReminderSent: Boolean(record.sharingReminderSentAt),
     },
     200,
     origin,

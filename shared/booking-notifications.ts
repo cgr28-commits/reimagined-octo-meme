@@ -311,3 +311,115 @@ export function buildOwnerPaidBookingEmail(
 export function formatPaidAmount(amount: number, currency = "GBP"): string {
   return new Intl.NumberFormat("en-GB", { style: "currency", currency }).format(amount);
 }
+
+export type TrackingReminderDetails = {
+  customerName: string;
+  pickupLabel: string;
+  dropoffLabel: string;
+  tripDate: string;
+  tripTime: string;
+};
+
+function formatTripDateTime(tripDate: string, tripTime: string): string {
+  if (!tripDate || !tripTime) {
+    return "";
+  }
+
+  return new Date(`${tripDate}T${tripTime}:00`).toLocaleString("en-GB", {
+    timeZone: "Europe/London",
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function buildTrackingReminderHtml(
+  details: TrackingReminderDetails,
+  trackUrl: string,
+  businessName: string,
+): string {
+  const customerName = escapeHtml(details.customerName);
+  const pickup = escapeHtml(details.pickupLabel);
+  const dropoff = escapeHtml(details.dropoffLabel);
+  const when = escapeHtml(formatTripDateTime(details.tripDate, details.tripTime));
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Live tracking — ${escapeHtml(businessName)}</title>
+</head>
+<body style="margin:0;padding:0;background:#f4f6f8;font-family:Arial,Helvetica,sans-serif;color:#1a2b3c;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f4f6f8;padding:32px 16px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="640" cellspacing="0" cellpadding="0" style="max-width:640px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.08);">
+          <tr>
+            <td style="background:#0b1f33;padding:28px 32px;text-align:center;">
+              <img src="${LOGO_URL}" alt="${escapeHtml(businessName)}" height="72" style="display:block;margin:0 auto;height:72px;width:auto;max-width:100%;" />
+              <div style="margin-top:16px;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:#c9a227;font-weight:bold;">Live driver tracking</div>
+              <div style="margin-top:8px;font-size:22px;line-height:1.35;color:#ffffff;font-weight:bold;">Your driver is on the way</div>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:28px 32px 8px;font-size:15px;line-height:1.7;color:#334155;">
+              <p style="margin:0 0 16px;">Hi ${customerName}, your driver has started sharing their live location. Open the link below to follow them on the map.</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:8px 32px 8px;">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;">
+                <tr>
+                  <td style="padding:20px 24px;font-size:14px;line-height:1.8;color:#475569;">
+                    ${when ? `<strong>Pickup time:</strong> ${when}<br />` : ""}
+                    <strong>Pickup:</strong> ${pickup}<br />
+                    <strong>Drop-off:</strong> ${dropoff}
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:16px 32px 28px;text-align:center;">
+              <a href="${escapeHtml(trackUrl)}" style="display:inline-block;background:#0b1f33;color:#ffffff;text-decoration:none;font-size:16px;font-weight:bold;padding:14px 28px;border-radius:8px;">Follow your driver live</a>
+              <p style="margin:16px 0 0;font-size:13px;line-height:1.6;color:#64748b;">Or copy this link:<br /><a href="${escapeHtml(trackUrl)}" style="color:#0b1f33;word-break:break-all;">${escapeHtml(trackUrl)}</a></p>
+            </td>
+          </tr>
+          <tr>
+            <td style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:20px 32px;font-size:13px;line-height:1.7;color:#64748b;">
+              <strong style="color:#0b1f33;">${escapeHtml(businessName)}</strong><br />
+              Questions? <a href="mailto:${BUSINESS_EMAIL}" style="color:#0b1f33;">${BUSINESS_EMAIL}</a>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+}
+
+export function buildTrackingReminderEmail(
+  details: TrackingReminderDetails,
+  trackUrl: string,
+  businessName = "My Airport Taxi NI",
+): CustomerPaidBookingEmail {
+  const when = formatTripDateTime(details.tripDate, details.tripTime);
+  const subject = `Your driver is on the way — follow live | ${businessName}`;
+
+  const text =
+    `Hi ${details.customerName},\n\n` +
+    `Your driver has started sharing their live location for your transfer today.\n\n` +
+    (when ? `Pickup time: ${when}\n` : "") +
+    `Pickup: ${details.pickupLabel}\n` +
+    `Drop-off: ${details.dropoffLabel}\n\n` +
+    `Follow your driver live:\n${trackUrl}\n\n` +
+    `${businessName}\n${BUSINESS_WEBSITE}`;
+
+  const html = buildTrackingReminderHtml(details, trackUrl, businessName);
+
+  return { subject, text, html };
+}

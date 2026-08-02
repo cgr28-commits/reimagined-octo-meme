@@ -35,6 +35,7 @@ export async function createTrackingJobFromBooking(
     token,
     createdAt: new Date().toISOString(),
     customerName: booking.customerName,
+    customerEmail: booking.customerEmail,
     customerMobile: booking.mobileNumber,
     pickupLabel: booking.pickupLabel,
     dropoffLabel: booking.dropoffLabel,
