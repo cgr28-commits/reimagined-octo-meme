@@ -50,6 +50,11 @@ const LiveTrackMap = dynamic(() => import("@/components/LiveTrackMap"), {
 });
 
 const DRIVER_KEY_STORAGE = "matni-driver-key";
+const OWNER_KEY_STORAGE = "matni-owner-key";
+
+function portalKeyStorage(portal: "owner" | "driver"): string {
+  return portal === "owner" ? OWNER_KEY_STORAGE : DRIVER_KEY_STORAGE;
+}
 
 type DashboardView = "today" | "upcoming" | "date";
 
@@ -1208,15 +1213,18 @@ export default function DriverPageClient({
   portal?: "owner" | "driver";
 } = {}) {
   const isOwnerPortal = portal === "owner";
+  const keyStorage = portalKeyStorage(portal);
   const [driverKey, setDriverKey] = useState("");
   const [savedKey, setSavedKey] = useState<string | null>(null);
-  const [sessionRole, setSessionRole] = useState<"owner" | "driver" | null>(null);
+  const [sessionRole, setSessionRole] = useState<"owner" | "driver" | null>(
+    isOwnerPortal ? "owner" : null,
+  );
   const [driverName, setDriverName] = useState<string | null>(null);
-  const [availableDrivers, setAvailableDrivers] = useState<string[]>(["Gary"]);
+  const [availableDrivers, setAvailableDrivers] = useState<string[]>([...DEMO_ROSTER]);
   const [jobs, setJobs] = useState<DriverJob[]>([]);
   const [pendingJobs, setPendingJobs] = useState<DriverJob[]>([]);
   const [activeToken, setActiveToken] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(isOwnerPortal);
   const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState<DashboardView>("today");
   const [selectedDate, setSelectedDate] = useState(() => todayLondonDate());
@@ -1226,8 +1234,19 @@ export default function DriverPageClient({
 
   const isDemoDriverSession = savedKey === DEMO_DRIVER_KEY;
   const isDemoOwnerSession = savedKey === DEMO_OWNER_KEY;
-  const viewRole = isDemoDriverSession ? "driver" : isDemoOwnerSession ? "owner" : sessionRole;
-  const viewDriverName = isDemoDriverSession ? DEMO_DRIVER_NAME : driverName;
+  // Owner portal can never render as Gary/driver — force owner role for this page.
+  const viewRole = isOwnerPortal
+    ? "owner"
+    : isDemoDriverSession
+      ? "driver"
+      : isDemoOwnerSession
+        ? "owner"
+        : sessionRole;
+  const viewDriverName = isOwnerPortal
+    ? null
+    : isDemoDriverSession
+      ? DEMO_DRIVER_NAME
+      : driverName;
   const isOwnerView = viewRole === "owner";
 
   const today = useMemo(() => todayLondonDate(), []);
@@ -1364,44 +1383,68 @@ export default function DriverPageClient({
       setDriverKey(trimmed);
 
       try {
-        const result = await verifyDriverAccessKey(trimmed);
+        let keyToUse = trimmed;
+
+        if (isOwnerPortal) {
+          // Owner page: only demo-owner-key or a live OWNER_ACCESS_KEY.
+          if (keyToUse === DEMO_DRIVER_KEY) {
+            keyToUse = DEMO_OWNER_KEY;
+          } else if (keyToUse !== DEMO_OWNER_KEY) {
+            const liveStatus = await fetchDriverStatus(keyToUse);
+            if (liveStatus.role !== "owner") {
+              keyToUse = DEMO_OWNER_KEY;
+            }
+          }
+        }
+
+        const result = await verifyDriverAccessKey(keyToUse);
         if (!result.ok) {
           setError(
             result.message ??
-              "That access key was not accepted. For the owner preview use demo-owner-key. For live owner access, set OWNER_ACCESS_KEY on the reimagined-octo-meme worker in Cloudflare.",
+              "That access key was not accepted. Check OWNER_ACCESS_KEY or DRIVER_ACCESS_KEY on the reimagined-octo-meme worker in Cloudflare.",
           );
           return;
         }
 
-        const status = await fetchDriverStatus(trimmed);
-        if (trimmed === DEMO_DRIVER_KEY) {
+        const status = await fetchDriverStatus(keyToUse);
+
+        if (keyToUse === DEMO_DRIVER_KEY) {
           setSessionRole("driver");
           setDriverName(DEMO_DRIVER_NAME);
-        } else if (trimmed === DEMO_OWNER_KEY) {
+        } else if (keyToUse === DEMO_OWNER_KEY) {
           setSessionRole("owner");
           setDriverName(null);
           setAvailableDrivers([...DEMO_ROSTER]);
         } else if (status.role) {
           setSessionRole(status.role);
+          if (status.role === "owner") {
+            setDriverName(null);
+          }
         } else if (!status.ok && status.hasOwnerKey === false && !status.hasDriverKey) {
           setError(
-            "No access keys are configured on the worker. Use demo-owner-key for owner preview, or set OWNER_ACCESS_KEY / DRIVER_ACCESS_KEY in Cloudflare.",
+            "No access keys are configured on the worker. Open /owner/ for the owner preview, or set OWNER_ACCESS_KEY / DRIVER_ACCESS_KEY in Cloudflare.",
           );
           return;
         }
 
-        if (trimmed !== DEMO_DRIVER_KEY && trimmed !== DEMO_OWNER_KEY && status.driverName) {
+        if (
+          !isOwnerPortal &&
+          keyToUse !== DEMO_DRIVER_KEY &&
+          keyToUse !== DEMO_OWNER_KEY &&
+          status.driverName
+        ) {
           setDriverName(status.driverName);
         }
-        if (status.role === "owner" && trimmed !== DEMO_OWNER_KEY) {
+        if (keyToUse === DEMO_OWNER_KEY || status.role === "owner") {
           if (status.availableDrivers?.length) {
             setAvailableDrivers(status.availableDrivers);
+          } else if (keyToUse !== DEMO_OWNER_KEY) {
+            await loadDriverRoster(keyToUse);
           } else {
-            await loadDriverRoster(trimmed);
+            setAvailableDrivers([...DEMO_ROSTER]);
           }
         }
 
-        // Clear demo query from the URL once signed in so refresh keeps the session.
         if (typeof window !== "undefined") {
           const url = new URL(window.location.href);
           if (url.searchParams.has("demo")) {
@@ -1410,16 +1453,17 @@ export default function DriverPageClient({
           }
         }
 
-        window.sessionStorage.setItem(DRIVER_KEY_STORAGE, trimmed);
-        setSavedKey(trimmed);
-        await loadJobs(trimmed);
+        window.sessionStorage.setItem(keyStorage, keyToUse);
+        setDriverKey(keyToUse);
+        setSavedKey(keyToUse);
+        await loadJobs(keyToUse);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Could not verify access key");
       } finally {
         setLoading(false);
       }
     },
-    [loadDriverRoster, loadJobs],
+    [isOwnerPortal, keyStorage, loadDriverRoster, loadJobs],
   );
 
   const unlock = async () => {
@@ -1432,50 +1476,53 @@ export default function DriverPageClient({
     }
     portalBootstrappedRef.current = true;
 
-    const stored = window.sessionStorage.getItem(DRIVER_KEY_STORAGE)?.trim() ?? "";
+    const stored = window.sessionStorage.getItem(keyStorage)?.trim() ?? "";
 
-    // /owner/ opens the owner dashboard immediately.
+    // /owner/ always boots as owner — never reuse Gary's /driver/ session.
     if (isOwnerPortal) {
-      const isLiveNonDemoKey =
-        Boolean(stored) && stored !== DEMO_DRIVER_KEY && stored !== DEMO_OWNER_KEY;
-
-      if (!isLiveNonDemoKey) {
-        void unlockWithKey(DEMO_OWNER_KEY);
-        return;
-      }
-
-      void fetchDriverStatus(stored)
-        .then((status) => {
-          if (status.role === "owner") {
-            setSessionRole("owner");
-            setSavedKey(stored);
-            if (status.availableDrivers?.length) {
-              setAvailableDrivers(status.availableDrivers);
-            }
-            void loadJobs(stored);
-            return;
-          }
-          void unlockWithKey(DEMO_OWNER_KEY);
-        })
-        .catch(() => {
-          void unlockWithKey(DEMO_OWNER_KEY);
-        });
-      return;
-    }
-
-    if (stored) {
-      if (stored === DEMO_DRIVER_KEY) {
-        setSessionRole("driver");
-        setDriverName(DEMO_DRIVER_NAME);
-      } else if (stored === DEMO_OWNER_KEY) {
+      if (stored === DEMO_OWNER_KEY) {
         setSessionRole("owner");
         setDriverName(null);
         setAvailableDrivers([...DEMO_ROSTER]);
+        setSavedKey(DEMO_OWNER_KEY);
+        void loadJobs(DEMO_OWNER_KEY);
+        return;
+      }
+
+      if (stored && stored !== DEMO_DRIVER_KEY) {
+        void fetchDriverStatus(stored)
+          .then((status) => {
+            if (status.role === "owner") {
+              setSessionRole("owner");
+              setDriverName(null);
+              setSavedKey(stored);
+              if (status.availableDrivers?.length) {
+                setAvailableDrivers(status.availableDrivers);
+              }
+              void loadJobs(stored);
+              return;
+            }
+            void unlockWithKey(DEMO_OWNER_KEY);
+          })
+          .catch(() => {
+            void unlockWithKey(DEMO_OWNER_KEY);
+          });
+        return;
+      }
+
+      void unlockWithKey(DEMO_OWNER_KEY);
+      return;
+    }
+
+    if (stored && stored !== DEMO_OWNER_KEY) {
+      if (stored === DEMO_DRIVER_KEY) {
+        setSessionRole("driver");
+        setDriverName(DEMO_DRIVER_NAME);
       }
       setSavedKey(stored);
       void loadJobs(stored);
     }
-  }, [isOwnerPortal, loadJobs, unlockWithKey]);
+  }, [isOwnerPortal, keyStorage, loadJobs, unlockWithKey]);
 
   useEffect(() => {
     if (!savedKey) {
@@ -1538,12 +1585,16 @@ export default function DriverPageClient({
 
     demoQueryHandledRef.current = true;
     const wantedKey = demoRole === "owner" ? DEMO_OWNER_KEY : DEMO_DRIVER_KEY;
+    if (demoRole === "owner") {
+      window.location.replace("/owner/");
+      return;
+    }
+
     const stored = window.sessionStorage.getItem(DRIVER_KEY_STORAGE)?.trim();
     if (stored === wantedKey) {
       return;
     }
 
-    // Switching demo roles via ?demo=owner|driver should replace any existing session.
     window.sessionStorage.removeItem(DRIVER_KEY_STORAGE);
     setSavedKey(null);
     setSessionRole(null);
@@ -1581,27 +1632,26 @@ export default function DriverPageClient({
         <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
           <header className="mb-8">
             <p className="text-sm font-semibold uppercase tracking-widest text-emerald">
-              {isOwnerPortal || isOwnerView
+              {isOwnerView
                 ? "Owner dashboard"
                 : !savedKey
-                  ? "Owner & driver login"
+                  ? "Driver login"
                   : "Driver dashboard"}
             </p>
             <h1 className="mt-2 text-3xl font-bold text-white sm:text-4xl">Bookings</h1>
             <p className="mt-3 text-white/70">
-              {isOwnerPortal || isOwnerView ? (
+              {isOwnerView ? (
                 <>
                   Assign jobs to drivers such as Gary — they must accept before the job appears on
                   their dashboard. Issue refunds, track live location, and manage all bookings here.
                 </>
               ) : !savedKey ? (
                 <>
-                  Choose owner or driver below. Owner dashboard:{" "}
+                  Gary&apos;s driver dashboard. For the owner view go to{" "}
                   <a href="/owner/" className="text-emerald underline-offset-2 hover:underline">
                     /owner/
                   </a>
-                  . Gary&apos;s preview uses{" "}
-                  <span className="text-white/90">demo-driver-key</span>.
+                  .
                 </>
               ) : (
                 <>
@@ -1614,6 +1664,11 @@ export default function DriverPageClient({
           </header>
 
           {!savedKey ? (
+            isOwnerPortal && loading ? (
+              <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-8 text-white/70">
+                Loading owner dashboard…
+              </div>
+            ) : (
             <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
               <div className={`grid gap-3 ${isOwnerPortal ? "" : "sm:grid-cols-2"}`}>
                 {!isOwnerPortal && (
@@ -1688,9 +1743,10 @@ export default function DriverPageClient({
                 {loading ? "Checking key…" : "Open with access key"}
               </button>
             </section>
+            )
           ) : (
             <>
-              {isDemoOwnerSession && (
+              {(isDemoOwnerSession || isOwnerPortal) && (
                 <div className="mb-6 rounded-xl border border-emerald/30 bg-emerald/10 px-4 py-3 text-sm text-emerald-light">
                   <p>
                     Owner preview — <strong>/owner/</strong> with <strong>demo-owner-key</strong>.
@@ -1731,14 +1787,17 @@ export default function DriverPageClient({
                 <button
                   type="button"
                   onClick={() => {
-                    window.sessionStorage.removeItem(DRIVER_KEY_STORAGE);
+                    window.sessionStorage.removeItem(keyStorage);
                     setSavedKey(null);
                     setJobs([]);
                     setPendingJobs([]);
                     setActiveToken(null);
-                    setSessionRole(null);
+                    setSessionRole(isOwnerPortal ? "owner" : null);
                     setDriverName(null);
-                    setAvailableDrivers(["Gary"]);
+                    setAvailableDrivers([...DEMO_ROSTER]);
+                    if (isOwnerPortal) {
+                      void unlockWithKey(DEMO_OWNER_KEY);
+                    }
                   }}
                   className="text-sm text-white/50 transition-colors hover:text-white"
                 >
