@@ -366,10 +366,14 @@ function DriverProfilePanel({
       });
       setMessage(
         result.emailSent
-          ? `Driver profile saved and emailed to ${result.profile.email}. Customers see vehicle details on the job day when live tracking starts.`
+          ? isOwner
+            ? `Driver profile saved and emailed to ${result.profile.email}.`
+            : `Your profile was saved and emailed to ${result.profile.email}.`
           : result.emailWarning
             ? `Profile saved, but the confirmation email could not be sent: ${result.emailWarning}`
-            : "Driver profile saved. Customers see vehicle details on the job day when live tracking starts.",
+            : isOwner
+              ? "Driver profile saved."
+              : "Your profile was saved.",
       );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save driver profile");
@@ -382,11 +386,13 @@ function DriverProfilePanel({
     <section className="mb-8 rounded-2xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-lg font-bold text-white">Driver profile</h2>
+          <h2 className="text-lg font-bold text-white">
+            {isOwner ? "Manage driver profiles" : "Your profile"}
+          </h2>
           <p className="mt-2 text-sm text-white/60">
-            Save the driver&apos;s name, email, and vehicle details here. A confirmation email is
-            sent to the driver, and customers only see the car details on the job day when live
-            tracking is active.
+            {isOwner
+              ? "Set each driver\u2019s contact details and vehicle. Customers only see the car on the job day when live tracking is active."
+              : "Save your name, email, and vehicle details. A confirmation email is sent when you save."}
           </p>
         </div>
         {isOwner && profiles.length > 1 && (
@@ -481,7 +487,7 @@ function DriverProfilePanel({
           onClick={() => void saveProfile()}
           className="rounded-xl bg-emerald px-5 py-3 text-sm font-semibold text-navy transition-colors hover:bg-emerald/90 disabled:opacity-60"
         >
-          {saving ? "Saving…" : "Save profile & email driver"}
+          {saving ? "Saving…" : isOwner ? "Save driver profile & email driver" : "Save your profile"}
         </button>
       </div>
 
@@ -1402,6 +1408,25 @@ export default function DriverPageClient() {
     }
   };
 
+  useEffect(() => {
+    if (!savedKey) {
+      document.title = `Bookings dashboard | ${SITE.name}`;
+      return;
+    }
+
+    document.title = isOwnerView
+      ? `Owner dashboard | ${SITE.name}`
+      : `Driver dashboard | ${SITE.name}`;
+  }, [isOwnerView, savedKey]);
+
+  const profilePanel = savedKey ? (
+    <DriverProfilePanel
+      accessKey={savedKey}
+      isOwner={isOwnerView}
+      driverName={viewDriverName}
+    />
+  ) : null;
+
   return (
     <>
       <Header />
@@ -1464,11 +1489,21 @@ export default function DriverPageClient() {
             </section>
           ) : (
             <>
-              <DriverProfilePanel
-                accessKey={savedKey}
-                isOwner={isOwnerView}
-                driverName={viewDriverName}
-              />
+              {isDemoOwnerSession && (
+                <div className="mb-6 rounded-xl border border-emerald/30 bg-emerald/10 px-4 py-3 text-sm text-emerald-light">
+                  Owner preview mode — you&apos;re signed in with <strong>demo-owner-key</strong>.
+                  Sign out and use <strong>demo-driver-key</strong> to preview Gary&apos;s view.
+                </div>
+              )}
+
+              {isDemoDriverSession && (
+                <div className="mb-6 rounded-xl border border-white/15 bg-white/[0.03] px-4 py-3 text-sm text-white/70">
+                  Driver preview mode — signed in as <strong>Gary</strong> with{" "}
+                  <strong>demo-driver-key</strong>.
+                </div>
+              )}
+
+              {!isOwnerView && profilePanel}
 
               <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
                 <p className="text-sm text-white/60">
@@ -1702,12 +1737,14 @@ export default function DriverPageClient() {
                       onAssignmentUpdated={handleAssignmentUpdated}
                       onRefreshJob={job.isAirportPickup ? refreshJobs : undefined}
                       refreshingJob={loading}
-                            isOwner={isOwnerView}
+                      isOwner={isOwnerView}
                       availableDrivers={availableDrivers}
                     />
                   ))}
                 </div>
               )}
+
+              {isOwnerView && profilePanel}
             </>
           )}
         </div>
