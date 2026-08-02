@@ -26,7 +26,7 @@ export type TrackingWindow = {
 
 const TIME_ZONE = "Europe/London";
 const OPEN_BEFORE_MS = 2 * 60 * 60 * 1000;
-const CLOSE_AFTER_MS = 3 * 60 * 60 * 1000;
+const CLOSE_AFTER_MS = 90 * 60 * 1000;
 
 export function buildPickupDateTimeLocal(tripDate: string, tripTime: string): string | null {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(tripDate) || !/^\d{2}:\d{2}$/.test(tripTime)) {
