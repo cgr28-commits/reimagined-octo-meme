@@ -122,3 +122,71 @@ export async function listTrackingJobsForDate(
     .filter((job): job is TrackingJobRecord => Boolean(job))
     .sort((a, b) => a.pickupAt.localeCompare(b.pickupAt));
 }
+
+function londonDateString(date: Date): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/London",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date);
+}
+
+function shiftDateString(dateStr: string, days: number): string {
+  const base = new Date(`${dateStr}T12:00:00Z`);
+  base.setUTCDate(base.getUTCDate() + days);
+  return base.toISOString().slice(0, 10);
+}
+
+export async function listTrackingJobsForRecentDays(
+  store: KVNamespace,
+  daysBack: number,
+): Promise<TrackingJobRecord[]> {
+  const today = londonDateString(new Date());
+  const jobs: TrackingJobRecord[] = [];
+
+  for (let offset = 0; offset <= daysBack; offset += 1) {
+    const tripDate = shiftDateString(today, -offset);
+    const dayJobs = await listTrackingJobsForDate(store, tripDate);
+    jobs.push(...dayJobs);
+  }
+
+  return jobs;
+}
+
+export async function findTrackingJobByPaymentReference(
+  store: KVNamespace,
+  paymentReference: string,
+): Promise<TrackingJobRecord | null> {
+  const trimmed = paymentReference.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  const jobs = await listTrackingJobsForRecentDays(store, 45);
+  return jobs.find((job) => job.paymentReference?.trim() === trimmed) ?? null;
+}
+
+export async function cancelTrackingJob(store: KVNamespace, token: string): Promise<boolean> {
+  const record = await getTrackingJob(store, token);
+  if (!record) {
+    return false;
+  }
+
+  await store.delete(jobKey(token));
+
+  const indexKey = dayIndexKey(record.tripDate);
+  const existing = await store.get<string[]>(indexKey, "json");
+  if (Array.isArray(existing)) {
+    const tokens = existing.filter((entry) => entry !== token);
+    if (tokens.length === 0) {
+      await store.delete(indexKey);
+    } else {
+      await store.put(indexKey, JSON.stringify(tokens), {
+        expirationTtl: 60 * 60 * 24 * 45,
+      });
+    }
+  }
+
+  return true;
+}

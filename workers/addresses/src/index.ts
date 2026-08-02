@@ -36,6 +36,7 @@ import {
 import {
   getSumUpCheckout,
   getSuccessfulTransactionCode,
+  getSuccessfulTransactionId,
   isSumUpCheckoutPaid,
   buildCheckoutReference,
   createSumUpHostedCheckout,
@@ -58,6 +59,10 @@ import {
   parseTrackSubRoute,
   parseTrackTokenFromPath,
 } from "./tracking-handlers";
+import {
+  handleRefundRequest,
+  savePaidBookingRecordFromConfirm,
+} from "./refund-handlers";
 import {
   sendEmail,
   trySendEmail,
@@ -89,6 +94,7 @@ type Env = {
   GOOGLE_CALENDAR_ID?: string;
   TRACKING_STORE?: KVNamespace;
   DRIVER_ACCESS_KEY?: string;
+  OWNER_ACCESS_KEY?: string;
 };
 
 type QuoteLeadRequestBody = QuoteLeadDetails & {
@@ -135,7 +141,7 @@ function parseDriverRoute(pathname: string): "jobs" | "sharing" | "location" | n
 
 function routePath(
   pathname: string,
-): "addresses" | "geocode" | "bookings" | "quote-leads" | "payments" | "payments-confirm" | "flights" | "calendar-status" | null {
+): "addresses" | "geocode" | "bookings" | "quote-leads" | "payments" | "payments-confirm" | "bookings-refund" | "flights" | "calendar-status" | null {
   if (pathname === "/addresses" || pathname === "/api/addresses") {
     return "addresses";
   }
@@ -158,6 +164,10 @@ function routePath(
 
   if (pathname === "/payments" || pathname === "/api/payments") {
     return "payments";
+  }
+
+  if (pathname === "/bookings/refund" || pathname === "/api/bookings/refund") {
+    return "bookings-refund";
   }
 
   if (pathname === "/flights" || pathname === "/api/flights") {
@@ -221,13 +231,13 @@ async function logBookingCalendar(
   body: BookingRequestBody,
   customerName: string,
   message: string,
-): Promise<{ logged: boolean; events?: number; error?: string }> {
+): Promise<{ logged: boolean; events?: number; eventIds?: string[]; error?: string }> {
   if (!calendarConfigured(env)) {
     return { logged: false };
   }
 
   try {
-    const events = await logBookingsToGoogleCalendar({
+    const eventIds = await logBookingsToGoogleCalendar({
       serviceAccountJson: env.GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON!,
       calendarId: env.GOOGLE_CALENDAR_ID!.trim(),
       customerName,
@@ -235,7 +245,7 @@ async function logBookingCalendar(
       booking: body.booking ?? null,
       tour: body.tour ?? null,
     });
-    return { logged: true, events };
+    return { logged: true, events: eventIds.length, eventIds };
   } catch (error) {
     const detail = error instanceof Error ? error.message : "Unknown calendar error";
     console.error("Google Calendar booking log failed", detail);
@@ -248,13 +258,13 @@ async function logPaidBookingCalendar(
   booking: PaidBookingDetails,
   amountPaid: string,
   paymentReference: string,
-): Promise<{ logged: boolean; events?: number; error?: string }> {
+): Promise<{ logged: boolean; events?: number; eventIds?: string[]; error?: string }> {
   if (!calendarConfigured(env)) {
-    return { logged: false };
+    return { logged: false, eventIds: [] };
   }
 
   try {
-    const events = await logBookingsToGoogleCalendar({
+    const eventIds = await logBookingsToGoogleCalendar({
       serviceAccountJson: env.GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON!,
       calendarId: env.GOOGLE_CALENDAR_ID!.trim(),
       customerName: booking.customerName,
@@ -283,7 +293,7 @@ async function logPaidBookingCalendar(
         paid: true,
       },
     });
-    return { logged: true, events };
+    return { logged: true, events: eventIds.length, eventIds };
   } catch (error) {
     const detail = error instanceof Error ? error.message : "Unknown calendar error";
     console.error("Google Calendar paid booking log failed", detail);
@@ -672,6 +682,7 @@ async function handlePaymentConfirmRequest(
 
     const amountPaid = formatPaidAmount(checkout.amount ?? 0, checkout.currency ?? "GBP");
     const transactionCode = getSuccessfulTransactionCode(checkout);
+    const transactionId = getSuccessfulTransactionId(checkout);
     const paymentReference = transactionCode ?? checkout.checkout_reference ?? checkout.id;
 
     const receipt = {
@@ -706,6 +717,20 @@ async function handlePaymentConfirmRequest(
     });
 
     const calendar = await logPaidBookingCalendar(env, booking, amountPaid, paymentReference);
+
+    await savePaidBookingRecordFromConfirm({
+      env,
+      booking,
+      checkoutId,
+      transactionId,
+      transactionCode,
+      amount: checkout.amount ?? 0,
+      currency: checkout.currency ?? "GBP",
+      amountPaidLabel: amountPaid,
+      paymentReference,
+      trackingToken: tracking.token,
+      calendarEventIds: calendar.eventIds ?? [],
+    });
 
     const emailSent = customerEmailResult.sent && ownerEmailResult.sent;
     const emailWarnings: string[] = [];
@@ -903,6 +928,14 @@ export default {
       }
 
       return handleBookingRequest(request, env, origin);
+    }
+
+    if (route === "bookings-refund") {
+      if (request.method !== "POST") {
+        return json({ error: "Method not allowed" }, 405, origin);
+      }
+
+      return handleRefundRequest(request, env, origin);
     }
 
     if (route === "quote-leads") {

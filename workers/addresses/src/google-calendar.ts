@@ -465,7 +465,7 @@ async function createCalendarEvent(
   accessToken: string,
   calendarId: string,
   event: CalendarEventInput,
-): Promise<void> {
+): Promise<string> {
   const body: Record<string, unknown> = {
     summary: event.summary,
     description: event.description,
@@ -488,7 +488,7 @@ async function createCalendarEvent(
   // Do not invite customers automatically — this is an owner-facing log only.
   void event.attendeeEmail;
 
-  let response = await fetch(
+  const response = await fetch(
     `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events`,
     {
       method: "POST",
@@ -504,6 +504,58 @@ async function createCalendarEvent(
     const detail = await response.text().catch(() => "");
     throw new Error(`Calendar create failed (${response.status}): ${detail.slice(0, 200)}`);
   }
+
+  const payload = (await response.json()) as { id?: string };
+  if (!payload.id) {
+    throw new Error("Calendar create returned no event id");
+  }
+
+  return payload.id;
+}
+
+export async function deleteCalendarEvent(
+  accessToken: string,
+  calendarId: string,
+  eventId: string,
+): Promise<void> {
+  const response = await fetch(
+    `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(eventId)}`,
+    {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    },
+  );
+
+  if (response.status === 404 || response.status === 410) {
+    return;
+  }
+
+  if (!response.ok) {
+    const detail = await response.text().catch(() => "");
+    throw new Error(`Calendar delete failed (${response.status}): ${detail.slice(0, 200)}`);
+  }
+}
+
+export async function deleteCalendarEvents(
+  accessToken: string,
+  calendarId: string,
+  eventIds: string[],
+): Promise<{ deleted: number; errors: string[] }> {
+  let deleted = 0;
+  const errors: string[] = [];
+
+  for (const eventId of eventIds) {
+    try {
+      await deleteCalendarEvent(accessToken, calendarId, eventId);
+      deleted += 1;
+    } catch (error) {
+      errors.push(error instanceof Error ? error.message : "Unknown calendar delete error");
+    }
+  }
+
+  return { deleted, errors };
 }
 
 export async function logBookingsToGoogleCalendar(options: {
@@ -513,7 +565,7 @@ export async function logBookingsToGoogleCalendar(options: {
   message: string;
   booking?: TransferBookingEvent | null;
   tour?: TourBookingEvent | null;
-}): Promise<number> {
+}): Promise<string[]> {
   const serviceAccount = parseServiceAccountJson(options.serviceAccountJson);
   const accessToken = await getGoogleAccessToken(serviceAccount);
 
@@ -527,9 +579,11 @@ export async function logBookingsToGoogleCalendar(options: {
     events = buildEventsFromBookingMessage(options.customerName, options.message);
   }
 
+  const eventIds: string[] = [];
   for (const event of events) {
-    await createCalendarEvent(accessToken, options.calendarId, event);
+    const eventId = await createCalendarEvent(accessToken, options.calendarId, event);
+    eventIds.push(eventId);
   }
 
-  return events.length;
+  return eventIds;
 }
