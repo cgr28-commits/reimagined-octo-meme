@@ -1,5 +1,6 @@
 import { buildPickupDateTimeLocal } from "../shared/tracking";
 import type { TrackingJobRecord } from "../shared/tracking";
+import { isAirportPickupJob } from "../shared/tracking";
 import { lookupFlight, type VerifiedFlight } from "../shared/flight-lookup";
 import {
   getGoogleAccessToken,
@@ -20,12 +21,15 @@ import {
 } from "./tracking-store";
 import { publicTrackPayload } from "./tracking-handlers";
 import { corsHeaders } from "../shared/google-places";
-import { driverAuthorized } from "./driver-auth";
+import { assertDriverCanViewJob } from "./driver-assignment-utils";
+import { driverAuthorized, resolveDriverSession, sanitizeDriverJobForRole, type DashboardRole } from "./driver-auth";
 
 type Env = {
   TRACKING_STORE?: KVNamespace;
   DRIVER_ACCESS_KEY?: string;
   OWNER_ACCESS_KEY?: string;
+  DRIVER_NAME?: string;
+  DRIVER_ROSTER?: string;
   GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON?: string;
   GOOGLE_CALENDAR_ID?: string;
   AERODATABOX_RAPIDAPI_KEY?: string;
@@ -82,6 +86,7 @@ export async function enrichDriverJob(
   job: TrackingJobRecord,
   env: Env,
   origin: string | null,
+  role: DashboardRole = "owner",
 ) {
   const flight = await resolveDriverFlight(job, env);
   const paidRecord =
@@ -92,19 +97,31 @@ export async function enrichDriverJob(
   const bookingStatus =
     paidRecord?.status === "refunded" || job.refundedAt ? "refunded" : "confirmed";
 
-  return {
-    ...publicTrackPayload(job, origin, { includeCustomerLocation: true }),
-    token: job.token,
-    customerMobile: job.customerMobile,
-    paymentReference: job.paymentReference,
-    amountPaidLabel: paidRecord?.amountPaidLabel,
-    bookingStatus,
-    refundAmountLabel: paidRecord?.refundAmountLabel ?? job.refundAmountLabel,
-    isAirportPickup: Boolean(job.isAirportTrip && job.isFromAirport),
-    flightNumber: job.flightNumber ?? null,
-    airportCode: job.airportCode ?? null,
-    flight,
-  };
+  return sanitizeDriverJobForRole(
+    {
+      ...publicTrackPayload(job, origin, { includeCustomerLocation: true }),
+      token: job.token,
+      customerMobile: job.customerMobile,
+      paymentReference: job.paymentReference,
+      amountPaidLabel: paidRecord?.amountPaidLabel,
+      bookingStatus,
+      refundAmountLabel: paidRecord?.refundAmountLabel ?? job.refundAmountLabel,
+      activeDriverName: job.activeDriverName,
+      assignedDriverName: job.assignedDriverName,
+      assignmentStatus: job.assignmentStatus ?? "unassigned",
+      assignedAt: job.assignedAt,
+      acceptedAt: job.acceptedAt,
+      declinedAt: job.declinedAt,
+      driverLocationPointCount: job.driverLocationPointCount,
+      driverLocationRecordedFrom: job.driverLocationRecordedFrom,
+      driverLocationRecordedTo: job.driverLocationRecordedTo,
+      isAirportPickup: isAirportPickupJob(job),
+      flightNumber: job.flightNumber ?? null,
+      airportCode: job.airportCode ?? null,
+      flight,
+    },
+    role,
+  );
 }
 
 export type DriverBookingUpdateBody = {
@@ -148,6 +165,9 @@ export async function handleDriverUpdateBookingRequest(
     return jsonResponse({ error: "Unauthorized" }, 401, origin);
   }
 
+  const session = resolveDriverSession(request, env);
+  const role: DashboardRole = session.authorized ? session.role : "driver";
+
   let body: DriverBookingUpdateBody;
   try {
     body = (await request.json()) as DriverBookingUpdateBody;
@@ -169,6 +189,13 @@ export async function handleDriverUpdateBookingRequest(
     const paidRecord = await getPaidBookingRecord(env.TRACKING_STORE, record.paymentReference);
     if (paidRecord?.status === "refunded") {
       return jsonResponse({ error: "This booking has been refunded" }, 409, origin);
+    }
+  }
+
+  if (role === "driver") {
+    const viewError = assertDriverCanViewJob(record, session);
+    if (viewError) {
+      return jsonResponse({ error: viewError }, 403, origin);
     }
   }
 
@@ -204,7 +231,9 @@ export async function handleDriverUpdateBookingRequest(
   }
 
   if (body.customerMobile !== undefined) {
-    record.customerMobile = String(body.customerMobile).trim();
+    if (role === "owner") {
+      record.customerMobile = String(body.customerMobile).trim();
+    }
   }
 
   if (body.flightNumber !== undefined) {
@@ -226,7 +255,7 @@ export async function handleDriverUpdateBookingRequest(
     (record.flightNumber ?? "") !== previousFlight;
 
   if (!changed) {
-    return jsonResponse({ ok: true, job: await enrichDriverJob(record, env, origin) }, 200, origin);
+    return jsonResponse({ ok: true, job: await enrichDriverJob(record, env, origin, role) }, 200, origin);
   }
 
   record.pickupAt = pickupAt;
@@ -289,7 +318,7 @@ export async function handleDriverUpdateBookingRequest(
     }
   }
 
-  const job = await enrichDriverJob(record, env, origin);
+  const job = await enrichDriverJob(record, env, origin, role);
 
   return jsonResponse(
     {

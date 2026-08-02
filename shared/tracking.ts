@@ -35,7 +35,91 @@ export type TrackingJobRecord = {
   /** Set when a refund is issued — job stays visible on the driver dashboard */
   refundedAt?: string;
   refundAmountLabel?: string;
+  /** Name of the driver sharing live location (e.g. Gary) */
+  activeDriverName?: string;
+  /** Driver the job is assigned to (must accept before it appears on their dashboard) */
+  assignedDriverName?: string;
+  assignmentStatus?: JobAssignmentStatus;
+  assignedAt?: string;
+  acceptedAt?: string;
+  declinedAt?: string;
+  /** Count of GPS points retained for audit (owner only in API responses) */
+  driverLocationPointCount?: number;
+  driverLocationRecordedFrom?: string;
+  driverLocationRecordedTo?: string;
 };
+
+export type DriverLocationPoint = {
+  lat: number;
+  lng: number;
+  recordedAt: string;
+  driverName?: string;
+};
+
+export type JobAssignmentStatus = "unassigned" | "pending" | "accepted" | "declined";
+
+export function normalizeDriverName(name: string): string {
+  return name.trim();
+}
+
+export function driverNamesMatch(
+  left: string | undefined,
+  right: string | undefined,
+): boolean {
+  if (!left?.trim() || !right?.trim()) {
+    return false;
+  }
+
+  return left.trim().toLowerCase() === right.trim().toLowerCase();
+}
+
+export function jobAssignmentStatus(
+  job: Pick<TrackingJobRecord, "assignmentStatus">,
+): JobAssignmentStatus {
+  return job.assignmentStatus ?? "unassigned";
+}
+
+export function jobVisibleToDriver(
+  job: Pick<TrackingJobRecord, "assignedDriverName" | "assignmentStatus">,
+  driverName: string,
+): boolean {
+  const status = jobAssignmentStatus(job);
+  if (status !== "pending" && status !== "accepted") {
+    return false;
+  }
+
+  return driverNamesMatch(job.assignedDriverName, driverName);
+}
+
+export function driverCanOperateJob(
+  job: Pick<TrackingJobRecord, "assignedDriverName" | "assignmentStatus">,
+  driverName: string,
+): boolean {
+  return jobAssignmentStatus(job) === "accepted" && driverNamesMatch(job.assignedDriverName, driverName);
+}
+
+export function jobPendingForDriver(
+  job: Pick<TrackingJobRecord, "assignedDriverName" | "assignmentStatus">,
+  driverName: string,
+): boolean {
+  return jobAssignmentStatus(job) === "pending" && driverNamesMatch(job.assignedDriverName, driverName);
+}
+
+export function isAirportPickupJob(
+  job: Pick<TrackingJobRecord, "isAirportTrip" | "isFromAirport">,
+): boolean {
+  return Boolean(job.isAirportTrip && job.isFromAirport);
+}
+
+export function driverCanViewFlightInfo(
+  job: Pick<
+    TrackingJobRecord,
+    "assignedDriverName" | "assignmentStatus" | "isAirportTrip" | "isFromAirport"
+  >,
+  driverName: string,
+): boolean {
+  return isAirportPickupJob(job) && jobVisibleToDriver(job, driverName);
+}
 
 export const LOCATION_STALE_MS = 5 * 60 * 1000;
 

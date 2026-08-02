@@ -54,6 +54,7 @@ import {
   handleCustomerSharingRequest,
   handleDriverJobsRequest,
   handleDriverLocationRequest,
+  handleDriverLocationHistoryRequest,
   handleDriverSharingRequest,
   handleDriverStatusRequest,
   handlePublicTrackRequest,
@@ -62,6 +63,17 @@ import {
 } from "./tracking-handlers";
 import { processDueReviewRequests } from "./review-request-handlers";
 import { handleDriverUpdateBookingRequest } from "./driver-booking-handlers";
+import {
+  handleDriverAssignRequest,
+  handleDriverDeassignRequest,
+  handleDriverAssignmentResponseRequest,
+  handleDriverRosterRequest,
+} from "./driver-assignment-handlers";
+import {
+  handleDriverVehicleGetRequest,
+  handleDriverVehicleProfilesRequest,
+  handleDriverVehicleSaveRequest,
+} from "./driver-vehicle-handlers";
 import {
   handleRefundRequest,
   savePaidBookingRecordFromConfirm,
@@ -133,7 +145,9 @@ function json(body: unknown, status: number, origin: string | null): Response {
   });
 }
 
-function parseDriverRoute(pathname: string): "jobs" | "sharing" | "location" | "bookings-update" | "status" | null {
+function parseDriverRoute(
+  pathname: string,
+): "jobs" | "sharing" | "location" | "location-history" | "bookings-update" | "status" | "assign" | "deassign" | "assignment-response" | "roster" | "vehicle" | "vehicle-profiles" | null {
   if (pathname === "/driver/jobs" || pathname === "/api/driver/jobs") {
     return "jobs";
   }
@@ -142,8 +156,32 @@ function parseDriverRoute(pathname: string): "jobs" | "sharing" | "location" | "
     return "status";
   }
 
+  if (pathname === "/driver/roster" || pathname === "/api/driver/roster") {
+    return "roster";
+  }
+
+  if (pathname === "/driver/vehicle/profiles" || pathname === "/api/driver/vehicle/profiles") {
+    return "vehicle-profiles";
+  }
+
+  if (pathname === "/driver/vehicle" || pathname === "/api/driver/vehicle") {
+    return "vehicle";
+  }
+
   if (pathname === "/driver/bookings/update" || pathname === "/api/driver/bookings/update") {
     return "bookings-update";
+  }
+
+  if (pathname === "/driver/assign" || pathname === "/api/driver/assign") {
+    return "assign";
+  }
+
+  if (pathname === "/driver/deassign" || pathname === "/api/driver/deassign") {
+    return "deassign";
+  }
+
+  if (pathname === "/driver/assignment" || pathname === "/api/driver/assignment") {
+    return "assignment-response";
   }
 
   if (pathname === "/driver/sharing" || pathname === "/api/driver/sharing") {
@@ -152,6 +190,10 @@ function parseDriverRoute(pathname: string): "jobs" | "sharing" | "location" | "
 
   if (pathname === "/driver/location" || pathname === "/api/driver/location") {
     return "location";
+  }
+
+  if (pathname === "/driver/location-history" || pathname === "/api/driver/location-history") {
+    return "location-history";
   }
 
   return null;
@@ -967,12 +1009,44 @@ export default {
       return handleDriverUpdateBookingRequest(request, env, origin);
     }
 
+    if (driverRoute === "assign" && request.method === "POST") {
+      return handleDriverAssignRequest(request, env, origin);
+    }
+
+    if (driverRoute === "deassign" && request.method === "POST") {
+      return handleDriverDeassignRequest(request, env, origin);
+    }
+
+    if (driverRoute === "assignment-response" && request.method === "POST") {
+      return handleDriverAssignmentResponseRequest(request, env, origin);
+    }
+
+    if (driverRoute === "roster" && request.method === "GET") {
+      return handleDriverRosterRequest(request, env, origin);
+    }
+
+    if (driverRoute === "vehicle-profiles" && request.method === "GET") {
+      return handleDriverVehicleProfilesRequest(request, env, origin);
+    }
+
+    if (driverRoute === "vehicle" && request.method === "GET") {
+      return handleDriverVehicleGetRequest(request, env, origin);
+    }
+
+    if (driverRoute === "vehicle" && request.method === "POST") {
+      return handleDriverVehicleSaveRequest(request, env, origin);
+    }
+
     if (driverRoute === "sharing" && request.method === "POST") {
       return handleDriverSharingRequest(request, env, origin);
     }
 
     if (driverRoute === "location" && request.method === "POST") {
       return handleDriverLocationRequest(request, env, origin);
+    }
+
+    if (driverRoute === "location-history" && request.method === "GET") {
+      return handleDriverLocationHistoryRequest(request, env, origin);
     }
 
     if (!route) {

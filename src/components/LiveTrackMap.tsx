@@ -10,8 +10,14 @@ export type MapMarker = {
   label: string;
 };
 
+export type MapRoutePoint = {
+  lat: number;
+  lng: number;
+};
+
 type LiveTrackMapProps = {
   markers: MapMarker[];
+  route?: MapRoutePoint[];
 };
 
 function configureLeafletIcons() {
@@ -31,10 +37,11 @@ function createCustomerIcon() {
   });
 }
 
-export default function LiveTrackMap({ markers }: LiveTrackMapProps) {
+export default function LiveTrackMap({ markers, route = [] }: LiveTrackMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const markerRefs = useRef<Map<string, L.Marker>>(new Map());
+  const routeRef = useRef<L.Polyline | null>(null);
 
   useEffect(() => {
     if (!containerRef.current) {
@@ -58,16 +65,41 @@ export default function LiveTrackMap({ markers }: LiveTrackMapProps) {
 
     return () => {
       const map = mapRef.current;
-      const markers = markerRefs.current;
+      const markersMap = markerRefs.current;
+      routeRef.current?.remove();
+      routeRef.current = null;
       map?.remove();
       mapRef.current = null;
-      markers.clear();
+      markersMap.clear();
     };
   }, []);
 
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || markers.length === 0) {
+    if (!map) {
+      return;
+    }
+
+    if (route.length >= 2) {
+      const latLngs = route.map((point) => [point.lat, point.lng] as L.LatLngTuple);
+      if (!routeRef.current) {
+        routeRef.current = L.polyline(latLngs, {
+          color: "#34d399",
+          weight: 4,
+          opacity: 0.85,
+        }).addTo(map);
+      } else {
+        routeRef.current.setLatLngs(latLngs);
+      }
+    } else {
+      routeRef.current?.remove();
+      routeRef.current = null;
+    }
+  }, [route]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) {
       return;
     }
 
@@ -99,14 +131,23 @@ export default function LiveTrackMap({ markers }: LiveTrackMapProps) {
       }
     }
 
-    if (markers.length === 1) {
-      map.setView([markers[0].lat, markers[0].lng], 14, { animate: true });
+    const fitPoints: L.LatLngTuple[] = [
+      ...markers.map((marker) => [marker.lat, marker.lng] as L.LatLngTuple),
+      ...route.map((point) => [point.lat, point.lng] as L.LatLngTuple),
+    ];
+
+    if (fitPoints.length === 0) {
       return;
     }
 
-    const bounds = L.latLngBounds(markers.map((marker) => [marker.lat, marker.lng] as L.LatLngTuple));
+    if (fitPoints.length === 1) {
+      map.setView(fitPoints[0], 14, { animate: true });
+      return;
+    }
+
+    const bounds = L.latLngBounds(fitPoints);
     map.fitBounds(bounds, { padding: [48, 48], maxZoom: 15, animate: true });
-  }, [markers]);
+  }, [markers, route]);
 
   return <div ref={containerRef} className="h-64 w-full rounded-xl sm:h-80" />;
 }

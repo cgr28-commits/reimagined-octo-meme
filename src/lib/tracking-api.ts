@@ -1,9 +1,13 @@
 import {
   DEMO_DRIVER_KEY,
+  DEMO_DRIVER_NAME,
   getDemoDriverJobs,
+  getDemoDriverPendingJobs,
+  getDemoDriverStatus,
   getDemoDriverUpcomingJobs,
   getDemoTrackResponse,
   isDemoTrackToken,
+  sanitizeDemoJobForDriver,
 } from "@/lib/tracking-demo";
 
 const DEFAULT_WORKER_BASE = "https://reimagined-octo-meme.cgr28.workers.dev";
@@ -47,13 +51,16 @@ export type DriverStatusResponse = {
   authConfigured: boolean;
   hasDriverKey?: boolean;
   hasOwnerKey?: boolean;
+  role?: "owner" | "driver";
+  driverName?: string;
+  availableDrivers?: string[];
   worker: string;
   error?: string;
 };
 
 export async function fetchDriverStatus(driverKey: string): Promise<DriverStatusResponse> {
   if (driverKey === DEMO_DRIVER_KEY) {
-    return { ok: true, authConfigured: true, worker: "demo" };
+    return getDemoDriverStatus();
   }
 
   const url = new URL(`${WORKER_BASE}/driver/status`);
@@ -107,6 +114,25 @@ export type TrackLocation = {
   updatedAt: string;
 };
 
+export type CustomerVehicleDetails = {
+  make: string;
+  model: string;
+  colour: string;
+  registration: string;
+  driverName?: string;
+};
+
+export type DriverVehicleProfile = {
+  profileKey: string;
+  displayName: string;
+  email: string;
+  make: string;
+  model: string;
+  colour: string;
+  registration: string;
+  updatedAt: string;
+};
+
 export type PublicTrackResponse = {
   ok: true;
   customerName: string;
@@ -121,6 +147,7 @@ export type PublicTrackResponse = {
   customerSharingActive: boolean;
   driver: TrackLocation | null;
   customer?: TrackLocation | null;
+  vehicle?: CustomerVehicleDetails;
   trackUrl: string;
 };
 
@@ -137,13 +164,32 @@ export type DriverFlight = {
   status?: string;
 };
 
+export type JobAssignmentStatus = "unassigned" | "pending" | "accepted" | "declined";
+
+export type DriverLocationPoint = {
+  lat: number;
+  lng: number;
+  recordedAt: string;
+  driverName?: string;
+};
+
 export type DriverJob = PublicTrackResponse & {
   token: string;
-  customerMobile: string;
+  customerMobile?: string;
+  customerEmail?: string;
   paymentReference?: string;
   amountPaidLabel?: string;
   bookingStatus?: "confirmed" | "refunded";
   refundAmountLabel?: string;
+  activeDriverName?: string;
+  assignedDriverName?: string;
+  assignmentStatus?: JobAssignmentStatus;
+  assignedAt?: string;
+  acceptedAt?: string;
+  declinedAt?: string;
+  driverLocationPointCount?: number;
+  driverLocationRecordedFrom?: string;
+  driverLocationRecordedTo?: string;
   isAirportPickup?: boolean;
   flightNumber?: string | null;
   airportCode?: string | null;
@@ -154,6 +200,8 @@ export type DriverJobsResponse = {
   ok: true;
   scope?: string;
   date: string;
+  role?: "owner" | "driver";
+  driverName?: string;
   jobs: DriverJob[];
 };
 
@@ -204,7 +252,7 @@ export async function fetchDriverJobs(
   driverKey: string,
   options?: {
     date?: string;
-    scope?: "date" | "upcoming";
+    scope?: "date" | "upcoming" | "pending";
     days?: number;
   },
 ): Promise<DriverJobsResponse> {
@@ -212,13 +260,16 @@ export async function fetchDriverJobs(
     if (options?.scope === "upcoming") {
       return getDemoDriverUpcomingJobs();
     }
+    if (options?.scope === "pending") {
+      return getDemoDriverPendingJobs();
+    }
     return getDemoDriverJobs(options?.date);
   }
 
   const url = new URL(`${WORKER_BASE}/driver/jobs`);
   driverQueryKey(url, driverKey);
-  if (options?.scope === "upcoming") {
-    url.searchParams.set("scope", "upcoming");
+  if (options?.scope === "upcoming" || options?.scope === "pending") {
+    url.searchParams.set("scope", options.scope);
     if (options.days) {
       url.searchParams.set("days", String(options.days));
     }
@@ -248,15 +299,14 @@ export async function updateDriverBooking(
 
     return {
       ok: true,
-      job: {
+      job: sanitizeDemoJobForDriver({
         ...job,
         tripDate: input.tripDate ?? job.tripDate,
         tripTime: input.tripTime ?? job.tripTime,
         pickupLabel: input.pickupLabel ?? job.pickupLabel,
         dropoffLabel: input.dropoffLabel ?? job.dropoffLabel,
-        customerMobile: input.customerMobile ?? job.customerMobile,
         flightNumber: input.flightNumber ?? job.flightNumber,
-      },
+      }),
     };
   }
 
@@ -293,6 +343,187 @@ export async function setDriverSharing(
   });
 
   return parseJsonResponse<{ ok: true; trackUrl: string }>(response);
+}
+
+export async function fetchDriverVehicleProfiles(
+  accessKey: string,
+): Promise<Array<{ profileKey: string; displayName: string }>> {
+  const url = new URL(`${WORKER_BASE}/driver/vehicle/profiles`);
+  driverQueryKey(url, accessKey);
+
+  const response = await fetch(url.toString(), {
+    method: "GET",
+    headers: { Accept: "application/json" },
+    cache: "no-store",
+  });
+
+  const payload = await parseJsonResponse<{ ok: true; profiles: Array<{ profileKey: string; displayName: string }> }>(
+    response,
+  );
+  return payload.profiles;
+}
+
+export async function fetchDriverVehicle(
+  accessKey: string,
+  profile?: string,
+): Promise<DriverVehicleProfile | null> {
+  const url = new URL(`${WORKER_BASE}/driver/vehicle`);
+  driverQueryKey(url, accessKey);
+  if (profile?.trim()) {
+    url.searchParams.set("profile", profile.trim());
+  }
+
+  const response = await fetch(url.toString(), {
+    method: "GET",
+    headers: { Accept: "application/json" },
+    cache: "no-store",
+  });
+
+  const payload = await parseJsonResponse<{ ok: true; profile: DriverVehicleProfile | null }>(response);
+  return payload.profile;
+}
+
+export async function saveDriverVehicle(
+  accessKey: string,
+  input: {
+    profile?: string;
+    displayName?: string;
+    email: string;
+    make: string;
+    model: string;
+    colour: string;
+    registration: string;
+  },
+): Promise<{ profile: DriverVehicleProfile; emailSent?: boolean; emailWarning?: string }> {
+  const response = await fetch(`${WORKER_BASE}/driver/vehicle?key=${encodeURIComponent(accessKey.trim())}`, {
+    method: "POST",
+    headers: driverPostHeaders(accessKey),
+    body: JSON.stringify(input),
+  });
+
+  const payload = await parseJsonResponse<{
+    ok: true;
+    profile: DriverVehicleProfile;
+    emailSent?: boolean;
+    emailWarning?: string;
+  }>(response);
+  return payload;
+}
+
+export async function fetchDriverRoster(ownerKey: string): Promise<string[]> {
+  const url = new URL(`${WORKER_BASE}/driver/roster`);
+  driverQueryKey(url, ownerKey);
+
+  const response = await fetch(url.toString(), {
+    method: "GET",
+    headers: { Accept: "application/json" },
+    cache: "no-store",
+  });
+
+  const payload = await parseJsonResponse<{ ok: true; drivers: string[] }>(response);
+  return payload.drivers;
+}
+
+export async function assignJobToDriver(
+  ownerKey: string,
+  token: string,
+  driverName: string,
+): Promise<{ ok: true; job: DriverJob }> {
+  const response = await fetch(`${WORKER_BASE}/driver/assign?key=${encodeURIComponent(ownerKey.trim())}`, {
+    method: "POST",
+    headers: driverPostHeaders(ownerKey),
+    body: JSON.stringify({ token, driverName }),
+  });
+
+  return parseJsonResponse<{ ok: true; job: DriverJob }>(response);
+}
+
+export async function deassignJob(
+  ownerKey: string,
+  token: string,
+): Promise<{ ok: true; job: DriverJob }> {
+  const response = await fetch(`${WORKER_BASE}/driver/deassign?key=${encodeURIComponent(ownerKey.trim())}`, {
+    method: "POST",
+    headers: driverPostHeaders(ownerKey),
+    body: JSON.stringify({ token }),
+  });
+
+  return parseJsonResponse<{ ok: true; job: DriverJob }>(response);
+}
+
+export async function respondToJobAssignment(
+  driverKey: string,
+  token: string,
+  action: "accept" | "decline",
+): Promise<{ ok: true; job: DriverJob }> {
+  if (driverKey === DEMO_DRIVER_KEY) {
+    const pending = getDemoDriverPendingJobs().jobs.find((entry) => entry.token === token);
+    if (!pending) {
+      throw new Error("This job is not awaiting your response");
+    }
+
+    if (action === "decline") {
+      return {
+        ok: true,
+        job: sanitizeDemoJobForDriver({
+          ...pending,
+          assignmentStatus: "declined",
+          declinedAt: new Date().toISOString(),
+        }),
+      };
+    }
+
+    return {
+      ok: true,
+      job: sanitizeDemoJobForDriver({
+        ...pending,
+        assignmentStatus: "accepted",
+        acceptedAt: new Date().toISOString(),
+      }),
+    };
+  }
+
+  const response = await fetch(
+    `${WORKER_BASE}/driver/assignment?key=${encodeURIComponent(driverKey.trim())}`,
+    {
+      method: "POST",
+      headers: driverPostHeaders(driverKey),
+      body: JSON.stringify({ token, action }),
+    },
+  );
+
+  return parseJsonResponse<{ ok: true; job: DriverJob }>(response);
+}
+
+export async function fetchDriverLocationHistory(
+  ownerKey: string,
+  token: string,
+): Promise<{
+  ok: true;
+  token: string;
+  count: number;
+  recordedFrom?: string;
+  recordedTo?: string;
+  points: DriverLocationPoint[];
+}> {
+  const url = new URL(`${WORKER_BASE}/driver/location-history`);
+  driverQueryKey(url, ownerKey);
+  url.searchParams.set("token", token);
+
+  const response = await fetch(url.toString(), {
+    method: "GET",
+    headers: { Accept: "application/json" },
+    cache: "no-store",
+  });
+
+  return parseJsonResponse<{
+    ok: true;
+    token: string;
+    count: number;
+    recordedFrom?: string;
+    recordedTo?: string;
+    points: DriverLocationPoint[];
+  }>(response);
 }
 
 export async function postDriverLocation(

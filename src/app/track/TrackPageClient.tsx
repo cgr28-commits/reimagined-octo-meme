@@ -204,6 +204,20 @@ export default function TrackPageClient({ token }: TrackPageClientProps) {
                   </div>
                 </dl>
 
+                {data.vehicle && data.trackingWindow.open && data.sharingActive && (
+                  <div className="mt-6 rounded-xl border border-emerald/20 bg-emerald/5 px-4 py-4">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-emerald">
+                      Your driver&apos;s vehicle
+                    </p>
+                    <p className="mt-2 text-lg font-bold text-white">
+                      {data.vehicle.colour} {data.vehicle.make} {data.vehicle.model}
+                    </p>
+                    <p className="mt-1 text-sm text-white/70">
+                      Registration <span className="font-semibold text-white">{data.vehicle.registration}</span>
+                    </p>
+                  </div>
+                )}
+
                 {data.trackingWindow.open && (
                   <div className="mt-6 rounded-xl border border-white/10 bg-navy/40 p-4">
                     <div className="flex flex-wrap items-center justify-between gap-3">

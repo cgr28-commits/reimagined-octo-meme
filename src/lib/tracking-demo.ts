@@ -1,13 +1,24 @@
-import type { DriverJobsResponse, PublicTrackResponse } from "@/lib/tracking-api";
+import type { DriverJob, DriverJobsResponse, PublicTrackResponse } from "@/lib/tracking-api";
 import { SITE } from "@/lib/data";
 
 export const DEMO_TRACK_TOKENS = ["demo-early", "demo-waiting", "demo-live"] as const;
 export type DemoTrackToken = (typeof DEMO_TRACK_TOKENS)[number];
 
 export const DEMO_DRIVER_KEY = "demo-driver-key";
+export const DEMO_DRIVER_NAME = "Gary";
 
 export function isDemoTrackToken(token: string): token is DemoTrackToken {
   return (DEMO_TRACK_TOKENS as readonly string[]).includes(token);
+}
+
+export function getDemoDriverStatus() {
+  return {
+    ok: true as const,
+    authConfigured: true,
+    role: "driver" as const,
+    driverName: DEMO_DRIVER_NAME,
+    worker: "demo",
+  };
 }
 
 function londonParts(date: Date) {
@@ -107,6 +118,16 @@ function buildDemoResponse(
           updatedAt,
         }
       : null,
+    vehicle:
+      config.sharingActive && config.window.open
+        ? {
+            make: "Mercedes-Benz",
+            model: "E-Class",
+            colour: "Black",
+            registration: "ABC 1234",
+            driverName: DEMO_DRIVER_NAME,
+          }
+        : undefined,
     customer: config.customer
       ? {
           lat: config.customer.lat,
@@ -168,19 +189,55 @@ export function getDemoTrackResponse(token: DemoTrackToken): PublicTrackResponse
   });
 }
 
+/** Strip owner-only fields so demo matches Gary's live driver API responses. */
+export function sanitizeDemoJobForDriver(job: DriverJob): DriverJob {
+  const sanitized = { ...job };
+  delete sanitized.paymentReference;
+  delete sanitized.amountPaidLabel;
+  delete sanitized.refundAmountLabel;
+  delete sanitized.customerMobile;
+  delete sanitized.driverLocationPointCount;
+  delete sanitized.driverLocationRecordedFrom;
+  delete sanitized.driverLocationRecordedTo;
+  return sanitized;
+}
+
+function demoDriverJobsResponse(
+  jobs: DriverJob[],
+  scope: DriverJobsResponse["scope"],
+  date: string,
+): DriverJobsResponse {
+  return {
+    ok: true,
+    scope,
+    date,
+    role: "driver",
+    driverName: DEMO_DRIVER_NAME,
+    jobs: jobs.map(sanitizeDemoJobForDriver),
+  };
+}
+
+function acceptedAssignmentFields() {
+  return {
+    assignedDriverName: DEMO_DRIVER_NAME,
+    assignmentStatus: "accepted" as const,
+    assignedAt: new Date().toISOString(),
+    acceptedAt: new Date().toISOString(),
+  };
+}
+
 function buildDemoDriverJob(
   token: DemoTrackToken,
-  extras: Partial<DriverJobsResponse["jobs"][number]> & {
+  extras: Partial<DriverJob> & {
     token: string;
-    customerMobile: string;
   },
-): DriverJobsResponse["jobs"][number] {
+): DriverJob {
   const base = getDemoTrackResponse(token);
   return {
     ...base,
-    ...extras,
+    ...acceptedAssignmentFields(),
     bookingStatus: "confirmed",
-    amountPaidLabel: "£85.00",
+    ...extras,
   };
 }
 
@@ -191,8 +248,7 @@ export function getDemoDriverJobs(date?: string): DriverJobsResponse {
   const jobs = [
     buildDemoDriverJob("demo-live", {
       token: "demo-live",
-      customerMobile: "+447700900123",
-      paymentReference: "DEMO-MATNI-1001",
+      activeDriverName: DEMO_DRIVER_NAME,
       isAirportPickup: false,
       flightNumber: null,
       airportCode: null,
@@ -200,8 +256,6 @@ export function getDemoDriverJobs(date?: string): DriverJobsResponse {
     }),
     buildDemoDriverJob("demo-waiting", {
       token: "demo-waiting",
-      customerMobile: "+447700900456",
-      paymentReference: "DEMO-MATNI-1002",
       isAirportPickup: true,
       flightNumber: "EZY123",
       airportCode: "BFS",
@@ -220,12 +274,7 @@ export function getDemoDriverJobs(date?: string): DriverJobsResponse {
     }),
   ].filter((job) => !date || job.tripDate === date);
 
-  return {
-    ok: true,
-    scope: "date",
-    date: responseDate,
-    jobs,
-  };
+  return demoDriverJobsResponse(jobs, "date", responseDate);
 }
 
 export function getDemoDriverUpcomingJobs(): DriverJobsResponse {
@@ -238,8 +287,6 @@ export function getDemoDriverUpcomingJobs(): DriverJobsResponse {
   const futureJob = buildDemoDriverJob("demo-waiting", {
     token: "demo-future",
     customerName: "Taylor Demo",
-    customerMobile: "+447700900789",
-    paymentReference: "DEMO-MATNI-1003",
     pickupLabel: "Holiday Inn Express, Belfast",
     dropoffLabel: "Belfast International Airport (BFS)",
     tripDate: schedule.tripDate,
@@ -266,12 +313,65 @@ export function getDemoDriverUpcomingJobs(): DriverJobsResponse {
     trackUrl: `${SITE.url}/track/?id=demo-future`,
   });
 
-  return {
-    ok: true,
-    scope: "upcoming",
-    date: "upcoming",
-    jobs: [...todayJobs, futureJob].sort((a, b) => a.pickupAt.localeCompare(b.pickupAt)),
+  return demoDriverJobsResponse(
+    [...todayJobs, futureJob].sort((a, b) => a.pickupAt.localeCompare(b.pickupAt)),
+    "upcoming",
+    "upcoming",
+  );
+}
+
+export function getDemoDriverPendingJobs(): DriverJobsResponse {
+  const futurePickup = addMinutes(new Date(), 5 * 24 * 60);
+  const schedule = londonParts(futurePickup);
+  const opensAt = addMinutes(futurePickup, -120);
+  const closesAt = addMinutes(futurePickup, 90);
+
+  const pendingJob: DriverJob = {
+    ...getDemoTrackResponse("demo-waiting"),
+    token: "demo-pending",
+    customerName: "Jordan Demo",
+    pickupLabel: "George Best Belfast City Airport (BHD)",
+    dropoffLabel: "Grand Central Hotel, Belfast",
+    tripDate: schedule.tripDate,
+    tripTime: schedule.tripTime,
+    pickupAt: schedule.pickupAt,
+    pickupDisplay: schedule.pickupDisplay,
+    assignedDriverName: DEMO_DRIVER_NAME,
+    assignmentStatus: "pending",
+    assignedAt: new Date().toISOString(),
+    bookingStatus: "confirmed",
+    isAirportPickup: true,
+    flightNumber: "BA1234",
+    airportCode: "BHD",
+    flight: {
+      flightNumber: "BA1234",
+      airline: "British Airways",
+      date: schedule.tripDate,
+      scheduledTime: "11:20",
+      scheduledTimeLabel: "11:20",
+      airportCode: "BHD",
+      airportName: "George Best Belfast City",
+      departureAirport: "London Heathrow",
+      arrivalAirport: "George Best Belfast City",
+      status: "On time",
+    },
+    trackingWindow: {
+      open: false,
+      opensAt: opensAt.toISOString(),
+      closesAt: closesAt.toISOString(),
+      pickupAt: schedule.pickupAt,
+      reason: "too_early",
+      opensAtDisplay: formatWindowDisplay(opensAt.toISOString()),
+      closesAtDisplay: formatWindowDisplay(closesAt.toISOString()),
+    },
+    sharingActive: false,
+    customerSharingActive: false,
+    driver: null,
+    customer: null,
+    trackUrl: `${SITE.url}/track/?id=demo-pending`,
   };
+
+  return demoDriverJobsResponse([pendingJob], "pending", "pending");
 }
 
 export const DEMO_SCENARIOS = [

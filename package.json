@@ -9,6 +9,7 @@
     "sync:worker-shared": "node scripts/sync-worker-shared.mjs",
     "setup:worker": "node scripts/setup-worker.mjs",
     "set:driver-key": "node scripts/set-driver-access-key.mjs",
+    "set:owner-key": "node scripts/set-owner-access-key.mjs",
     "setup:calendar": "node scripts/setup-google-calendar.mjs",
     "start": "next start",
     "lint": "next lint",
