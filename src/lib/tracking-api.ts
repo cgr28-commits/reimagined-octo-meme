@@ -1,10 +1,13 @@
 import {
   DEMO_DRIVER_KEY,
+  DEMO_DRIVER_NAME,
   getDemoDriverJobs,
   getDemoDriverPendingJobs,
+  getDemoDriverStatus,
   getDemoDriverUpcomingJobs,
   getDemoTrackResponse,
   isDemoTrackToken,
+  sanitizeDemoJobForDriver,
 } from "@/lib/tracking-demo";
 
 const DEFAULT_WORKER_BASE = "https://reimagined-octo-meme.cgr28.workers.dev";
@@ -57,7 +60,7 @@ export type DriverStatusResponse = {
 
 export async function fetchDriverStatus(driverKey: string): Promise<DriverStatusResponse> {
   if (driverKey === DEMO_DRIVER_KEY) {
-    return { ok: true, authConfigured: true, worker: "demo" };
+    return getDemoDriverStatus();
   }
 
   const url = new URL(`${WORKER_BASE}/driver/status`);
@@ -296,15 +299,14 @@ export async function updateDriverBooking(
 
     return {
       ok: true,
-      job: {
+      job: sanitizeDemoJobForDriver({
         ...job,
         tripDate: input.tripDate ?? job.tripDate,
         tripTime: input.tripTime ?? job.tripTime,
         pickupLabel: input.pickupLabel ?? job.pickupLabel,
         dropoffLabel: input.dropoffLabel ?? job.dropoffLabel,
-        customerMobile: input.customerMobile ?? job.customerMobile,
         flightNumber: input.flightNumber ?? job.flightNumber,
-      },
+      }),
     };
   }
 
@@ -454,6 +456,33 @@ export async function respondToJobAssignment(
   token: string,
   action: "accept" | "decline",
 ): Promise<{ ok: true; job: DriverJob }> {
+  if (driverKey === DEMO_DRIVER_KEY) {
+    const pending = getDemoDriverPendingJobs().jobs.find((entry) => entry.token === token);
+    if (!pending) {
+      throw new Error("This job is not awaiting your response");
+    }
+
+    if (action === "decline") {
+      return {
+        ok: true,
+        job: sanitizeDemoJobForDriver({
+          ...pending,
+          assignmentStatus: "declined",
+          declinedAt: new Date().toISOString(),
+        }),
+      };
+    }
+
+    return {
+      ok: true,
+      job: sanitizeDemoJobForDriver({
+        ...pending,
+        assignmentStatus: "accepted",
+        acceptedAt: new Date().toISOString(),
+      }),
+    };
+  }
+
   const response = await fetch(
     `${WORKER_BASE}/driver/assignment?key=${encodeURIComponent(driverKey.trim())}`,
     {

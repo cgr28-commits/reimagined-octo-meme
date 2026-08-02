@@ -24,7 +24,7 @@ import {
   type DriverJob,
 } from "@/lib/tracking-api";
 import { issueBookingRefund } from "@/lib/refund-api";
-import { DEMO_DRIVER_KEY } from "@/lib/tracking-demo";
+import { DEMO_DRIVER_KEY, DEMO_DRIVER_NAME } from "@/lib/tracking-demo";
 import { SITE } from "@/lib/data";
 
 const LiveTrackMap = dynamic(() => import("@/components/LiveTrackMap"), {
@@ -1273,6 +1273,10 @@ export default function DriverPageClient() {
   useEffect(() => {
     const stored = window.sessionStorage.getItem(DRIVER_KEY_STORAGE)?.trim();
     if (stored) {
+      if (stored === DEMO_DRIVER_KEY) {
+        setSessionRole("driver");
+        setDriverName(DEMO_DRIVER_NAME);
+      }
       setSavedKey(stored);
       void loadJobs(stored);
     }
@@ -1347,10 +1351,13 @@ export default function DriverPageClient() {
       }
 
       const status = await fetchDriverStatus(trimmed);
-      if (status.role) {
+      if (trimmed === DEMO_DRIVER_KEY) {
+        setSessionRole("driver");
+        setDriverName(DEMO_DRIVER_NAME);
+      } else if (status.role) {
         setSessionRole(status.role);
       }
-      if (status.driverName) {
+      if (trimmed !== DEMO_DRIVER_KEY && status.driverName) {
         setDriverName(status.driverName);
       }
       if (status.role === "owner") {
@@ -1413,7 +1420,7 @@ export default function DriverPageClient() {
               <p className="mt-3 text-sm text-white/55">
                 Owners: <span className="text-white/75">OWNER_ACCESS_KEY</span>. Drivers (Gary):{" "}
                 <span className="text-white/75">DRIVER_ACCESS_KEY</span> from Cloudflare → Workers →{" "}
-                <span className="text-white/75">reimagined-octo-meme</span>. Preview:{" "}
+                <span className="text-white/75">reimagined-octo-meme</span>. Preview Gary&apos;s view:{" "}
                 <span className="text-white/75">demo-driver-key</span>.
               </p>
               {error && (
