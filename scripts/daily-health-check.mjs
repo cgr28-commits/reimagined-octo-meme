@@ -1,6 +1,9 @@
 /**
  * Daily site + worker health check for My Airport Taxi NI.
  *
+ * Covers live pages, Cloudflare Worker APIs, dashboard/demo features from
+ * recent builds, demo data integrity, build/typecheck, and sitemap auto-fix.
+ *
  * Exits 0 when healthy (or only warnings). Exits 1 when critical checks fail.
  * Writes reports/daily-health-YYYY-MM-DD.json
  *
@@ -40,28 +43,31 @@ function record(name, status, detail) {
   console.log(`${icon} ${name}: ${detail}`);
 }
 
-async function fetchCheck(name, url, options = {}) {
-  const {
-    expectStatus = 200,
-    expectStatuses,
-    method = "GET",
-    body,
-    headers,
-    timeoutMs = 20_000,
-  } = options;
-  const allowed = expectStatuses ?? [expectStatus];
-
+async function fetchRaw(url, options = {}) {
+  const { method = "GET", body, headers, timeoutMs = 20_000, redirect = "follow" } = options;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
     const response = await fetch(url, {
       method,
       headers,
       body,
       signal: controller.signal,
-      redirect: "follow",
+      redirect,
     });
+    return response;
+  } finally {
     clearTimeout(timer);
+  }
+}
+
+async function fetchCheck(name, url, options = {}) {
+  const { expectStatus = 200, expectStatuses, method = "GET", body, headers, timeoutMs = 20_000 } =
+    options;
+  const allowed = expectStatuses ?? [expectStatus];
+
+  try {
+    const response = await fetchRaw(url, { method, body, headers, timeoutMs });
 
     if (!allowed.includes(response.status)) {
       record(
@@ -81,6 +87,84 @@ async function fetchCheck(name, url, options = {}) {
   }
 }
 
+/**
+ * @param {string} name
+ * @param {string} url
+ * @param {string[]} mustInclude
+ * @param {{ critical?: boolean }} [opts]
+ */
+async function pageContentCheck(name, url, mustInclude, opts = {}) {
+  const critical = opts.critical !== false;
+  try {
+    const response = await fetchRaw(url);
+    if (response.status !== 200) {
+      record(name, critical ? "fail" : "warn", `HTTP ${response.status} — ${url}`);
+      return;
+    }
+
+    const html = await response.text();
+    const missing = mustInclude.filter((snippet) => !html.includes(snippet));
+    if (missing.length > 0) {
+      record(
+        name,
+        critical ? "fail" : "warn",
+        `Missing content: ${missing.join(", ")} — ${url}`,
+      );
+      return;
+    }
+
+    record(name, "pass", `Found ${mustInclude.length} marker(s) — ${url}`);
+  } catch (error) {
+    record(
+      name,
+      critical ? "fail" : "warn",
+      `${error instanceof Error ? error.message : String(error)} — ${url}`,
+    );
+  }
+}
+
+async function jsonCheck(name, url, options = {}) {
+  const {
+    expectStatuses = [200],
+    method = "GET",
+    body,
+    headers,
+    assert,
+    critical = true,
+  } = options;
+
+  try {
+    const response = await fetchRaw(url, { method, body, headers });
+    if (!expectStatuses.includes(response.status)) {
+      record(
+        name,
+        critical ? "fail" : "warn",
+        `HTTP ${response.status} (expected ${expectStatuses.join(" or ")}) — ${url}`,
+      );
+      return null;
+    }
+
+    const data = await response.json().catch(() => null);
+    if (assert) {
+      const result = assert(data, response.status);
+      if (result !== true) {
+        record(name, critical ? "fail" : "warn", `${result || "Assertion failed"} — ${url}`);
+        return data;
+      }
+    }
+
+    record(name, "pass", `HTTP ${response.status} — ${url}`);
+    return data;
+  } catch (error) {
+    record(
+      name,
+      critical ? "fail" : "warn",
+      `${error instanceof Error ? error.message : String(error)} — ${url}`,
+    );
+    return null;
+  }
+}
+
 function runCommand(name, command, { allowFail = false } = {}) {
   try {
     execSync(command, { stdio: "pipe", encoding: "utf8" });
@@ -92,21 +176,33 @@ function runCommand(name, command, { allowFail = false } = {}) {
       (error instanceof Error && "stderr" in error ? error.stderr : "") ||
       (error instanceof Error ? error.message : String(error));
     if (allowFail) {
-      record(name, "warn", output.slice(0, 300));
+      record(name, "warn", String(output).slice(0, 300));
       return false;
     }
-    record(name, "fail", output.slice(0, 500));
+    record(name, "fail", String(output).slice(0, 500));
     return false;
   }
 }
 
 function tryFixSitemap() {
   const sitemapPath = join(process.cwd(), "public", "sitemap.xml");
-  const requiredPaths = ["/privacy/", "/driver/", "/track/demo/", "/terms/"];
+  const requiredPaths = [
+    "/privacy/",
+    "/driver/",
+    "/track/",
+    "/track/demo/",
+    "/track/demo/early/",
+    "/track/demo/waiting/",
+    "/track/demo/live/",
+    "/terms/",
+    "/tours/",
+    "/unsubscribe/",
+  ];
   let content = existsSync(sitemapPath) ? readFileSync(sitemapPath, "utf8") : "";
   const missing = requiredPaths.filter((path) => !content.includes(`${SITE_URL}${path}`));
 
   if (missing.length === 0) {
+    record("Sitemap coverage", "pass", `All ${requiredPaths.length} required paths present`);
     return false;
   }
 
@@ -116,7 +212,6 @@ function tryFixSitemap() {
     const stillMissing = requiredPaths.filter((path) => !content.includes(`${SITE_URL}${path}`));
 
     if (stillMissing.length > 0) {
-      // Patch sitemap directly if generator is behind
       for (const path of stillMissing) {
         const block = `  <url>
     <loc>${SITE_URL}${path}</loc>
@@ -145,14 +240,32 @@ function tryFixSitemap() {
   }
 }
 
-async function sendNotificationEmail(report) {
+function checkDemoDataIntegrity() {
+  try {
+    const output = execSync("npx tsx scripts/check-demo-features.ts", {
+      stdio: "pipe",
+      encoding: "utf8",
+    });
+    const summary = output.trim().split("\n").filter(Boolean).at(-1) ?? "Demo features OK";
+    record("Demo feature integrity", "pass", summary);
+    return true;
+  } catch (error) {
+    const output =
+      (error instanceof Error && "stdout" in error ? error.stdout : "") ||
+      (error instanceof Error && "stderr" in error ? error.stderr : "") ||
+      (error instanceof Error ? error.message : String(error));
+    record("Demo feature integrity", "fail", String(output).slice(0, 600));
+    return false;
+  }
+}
+
+async function sendNotificationEmail() {
   if (!WEB3FORMS_KEY) {
     record("Email notification", "warn", "WEB3FORMS_ACCESS_KEY not set — skipped email");
     return;
   }
 
   const failed = checks.filter((c) => c.status === "fail");
-  const fixed = checks.filter((c) => c.status === "fixed");
   const subject =
     failed.length === 0
       ? `Daily health check OK — ${SITE_URL.replace("https://", "")} (${RUN_DATE})`
@@ -207,33 +320,149 @@ async function sendNotificationEmail(report) {
   }
 }
 
-async function main() {
-  mkdirSync(REPORT_DIR, { recursive: true });
+async function checkLiveWebsite() {
+  console.log("\n— Live website pages —");
 
-  console.log(`Daily health check — ${RUN_DATE}\n`);
+  const pages = [
+    ["Homepage", "/"],
+    ["Terms page", "/terms/"],
+    ["Privacy page", "/privacy/"],
+    ["Driver / owner dashboard", "/driver/"],
+    ["Track page", "/track/"],
+    ["Track demo hub", "/track/demo/"],
+    ["Track demo early", "/track/demo/early/"],
+    ["Track demo waiting", "/track/demo/waiting/"],
+    ["Track demo live", "/track/demo/live/"],
+    ["Tours", "/tours/"],
+    ["Admin refund", "/admin/refund/"],
+    ["Unsubscribe", "/unsubscribe/"],
+    ["Favicon", "/favicon.ico"],
+  ];
 
-  // --- Website ---
-  await fetchCheck("Homepage", `${SITE_URL}/`);
-  await fetchCheck("Terms page", `${SITE_URL}/terms/`);
-  await fetchCheck("Privacy page", `${SITE_URL}/privacy/`);
-  await fetchCheck("Driver page", `${SITE_URL}/driver/`);
-  await fetchCheck("Track demo", `${SITE_URL}/track/demo/live/`);
-  await fetchCheck("Favicon", `${SITE_URL}/favicon.ico`);
+  for (const [name, path] of pages) {
+    await fetchCheck(name, `${SITE_URL}${path}`);
+  }
 
-  // --- Worker API ---
-  const calendar = await fetchCheck("Worker calendar-status", `${WORKER_URL}/calendar-status`);
+  console.log("\n— Live page feature markers —");
+
+  await pageContentCheck("Homepage branding", `${SITE_URL}/`, [
+    "My Airport Taxi",
+    "WhatsApp",
+  ]);
+
+  await pageContentCheck("Driver page demo keys", `${SITE_URL}/driver/`, [
+    "demo-owner-key",
+    "demo-driver-key",
+    "Access key",
+  ]);
+
+  await pageContentCheck("Track demo scenarios", `${SITE_URL}/track/demo/`, [
+    "Too early",
+    "Waiting for driver",
+    "Live map",
+    "demo-early",
+    "demo-waiting",
+    "demo-live",
+  ]);
+
+  // Customer names load client-side from demo data; assert shell + token markers.
+  await pageContentCheck("Live track demo markers", `${SITE_URL}/track/demo/live/`, [
+    "demo-live",
+    "Demo preview",
+    "Belfast",
+  ]);
+
+  await pageContentCheck("Airport track demo markers", `${SITE_URL}/track/demo/waiting/`, [
+    "demo-waiting",
+    "Demo preview",
+    "flight",
+  ]);
+
+  await pageContentCheck(
+    "Refund admin page",
+    `${SITE_URL}/admin/refund/`,
+    ["refund", "payment"],
+    { critical: false },
+  );
+}
+
+async function checkWorkerApis() {
+  console.log("\n— Cloudflare Worker APIs —");
+
+  const calendar = await jsonCheck(
+    "Worker calendar-status",
+    `${WORKER_URL}/calendar-status`,
+    {
+      assert: (data) => (data && typeof data === "object" ? true : "Expected JSON object"),
+    },
+  );
+
   if (calendar) {
-    const data = await calendar.json().catch(() => null);
-    if (data && data.configured && !data.connected) {
-      record("Google Calendar", "warn", data.reason ?? "Calendar configured but not connected");
-    } else if (data?.connected) {
+    if (calendar.configured && !calendar.connected) {
+      record("Google Calendar", "warn", calendar.reason ?? "Configured but not connected");
+    } else if (calendar.connected) {
       record("Google Calendar", "pass", "Connected");
-    } else if (data && !data.configured) {
+    } else if (!calendar.configured) {
       record("Google Calendar", "warn", "Calendar secrets not configured on worker");
     }
   }
 
-  await fetchCheck("Worker tracking API", `${WORKER_URL}/track/sharing`, {
+  const driverStatus = await jsonCheck(
+    "Worker driver/status",
+    `${WORKER_URL}/driver/status?key=health-check-invalid`,
+    {
+      expectStatuses: [200, 401, 403],
+      assert: (data) => {
+        if (!data || typeof data !== "object") {
+          return "Expected JSON status payload";
+        }
+        if (data.authConfigured !== true) {
+          return "authConfigured is not true — DRIVER_ACCESS_KEY may be missing";
+        }
+        return true;
+      },
+    },
+  );
+
+  if (driverStatus) {
+    if (driverStatus.hasDriverKey) {
+      record("Driver access key secret", "pass", "DRIVER_ACCESS_KEY configured on worker");
+    } else {
+      record("Driver access key secret", "fail", "hasDriverKey=false — set DRIVER_ACCESS_KEY");
+    }
+
+    if (driverStatus.hasOwnerKey) {
+      record("Owner access key secret", "pass", "OWNER_ACCESS_KEY configured on worker");
+    } else {
+      record(
+        "Owner access key secret",
+        "warn",
+        "hasOwnerKey=false — set OWNER_ACCESS_KEY in Cloudflare for owner dashboard / refunds",
+      );
+    }
+  }
+
+  await fetchCheck("Worker driver jobs auth", `${WORKER_URL}/driver/jobs?scope=today&key=invalid`, {
+    expectStatuses: [401, 403],
+  });
+
+  await fetchCheck("Worker driver roster auth", `${WORKER_URL}/driver/roster?key=invalid`, {
+    expectStatuses: [401, 403],
+  });
+
+  await fetchCheck(
+    "Worker driver vehicle profiles auth",
+    `${WORKER_URL}/driver/vehicle/profiles?key=invalid`,
+    { expectStatuses: [401, 403] },
+  );
+
+  await fetchCheck(
+    "Worker location-history auth",
+    `${WORKER_URL}/driver/location-history?token=x&key=invalid`,
+    { expectStatuses: [401, 403] },
+  );
+
+  await fetchCheck("Worker tracking sharing API", `${WORKER_URL}/track/sharing`, {
     method: "POST",
     expectStatuses: [400, 404],
     headers: { "Content-Type": "application/json" },
@@ -244,7 +473,94 @@ async function main() {
     expectStatus: 404,
   });
 
-  // --- Repo / build ---
+  await jsonCheck("Worker addresses API", `${WORKER_URL}/addresses?q=BT20`, {
+    assert: (data) => {
+      if (!data || typeof data !== "object") {
+        return "Expected addresses JSON";
+      }
+      if (!("suggestions" in data) && !("error" in data)) {
+        return "Missing suggestions/error field";
+      }
+      return true;
+    },
+  });
+
+  await jsonCheck(
+    "Worker flights API",
+    `${WORKER_URL}/flights?flight=BA1234&date=${RUN_DATE}&airport=BHD&direction=from-airport`,
+    {
+      expectStatuses: [200, 404, 503],
+      assert: (data, status) => {
+        if (!data || typeof data !== "object") {
+          return "Expected flight JSON";
+        }
+        if (data.configured === false && status === 503) {
+          return true;
+        }
+        if ("ok" in data || "error" in data || "flight" in data) {
+          return true;
+        }
+        return "Unexpected flight response shape";
+      },
+    },
+  );
+
+  await jsonCheck("Worker bookings validation", `${WORKER_URL}/bookings`, {
+    method: "POST",
+    expectStatuses: [400],
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({}),
+    assert: (data) =>
+      data && typeof data === "object" && data.error
+        ? true
+        : "Expected validation error for empty booking",
+  });
+
+  await jsonCheck("Worker quote-leads validation", `${WORKER_URL}/quote-leads`, {
+    method: "POST",
+    expectStatuses: [400],
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({}),
+    assert: (data) =>
+      data && typeof data === "object" && data.error
+        ? true
+        : "Expected validation error for empty quote lead",
+  });
+
+  await jsonCheck("Worker refund auth gate", `${WORKER_URL}/bookings/refund`, {
+    method: "POST",
+    expectStatuses: [401, 403],
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({}),
+    assert: (data) =>
+      data && typeof data === "object" && /owner|unauthorized|access key/i.test(String(data.error))
+        ? true
+        : `Unexpected refund auth response: ${JSON.stringify(data)}`,
+  });
+
+  await jsonCheck("Worker marketing opt-in validation", `${WORKER_URL}/marketing/opt-in`, {
+    method: "POST",
+    expectStatuses: [400, 405],
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({}),
+    critical: false,
+  });
+}
+
+async function main() {
+  mkdirSync(REPORT_DIR, { recursive: true });
+
+  console.log(`Daily health check — ${RUN_DATE}`);
+  console.log(`Site: ${SITE_URL}`);
+  console.log(`Worker: ${WORKER_URL}`);
+
+  await checkLiveWebsite();
+  await checkWorkerApis();
+
+  console.log("\n— Demo / feature integrity —");
+  checkDemoDataIntegrity();
+
+  console.log("\n— Build / typecheck —");
   if (process.env.HEALTH_CHECK_SKIP_BUILD !== "1") {
     runCommand("Worker typecheck", "npm --prefix workers/addresses run typecheck");
     runCommand("Site build", "npm run build");
@@ -252,7 +568,7 @@ async function main() {
     record("Site build", "warn", "Skipped (HEALTH_CHECK_SKIP_BUILD=1)");
   }
 
-  // --- Auto-fixes ---
+  console.log("\n— Auto-fixes —");
   tryFixSitemap();
 
   const failures = checks.filter((c) => c.status === "fail");
@@ -275,7 +591,7 @@ async function main() {
   writeFileSync(reportPath, `${JSON.stringify(report, null, 2)}\n`);
   console.log(`\nReport: ${reportPath}`);
 
-  await sendNotificationEmail(report);
+  await sendNotificationEmail();
 
   if (failures.length > 0) {
     console.error(`\n${failures.length} check(s) failed.`);
