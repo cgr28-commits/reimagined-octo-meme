@@ -42,14 +42,28 @@ Each calendar event is branded with **My Airport Taxi NI** in the title, your lo
 1. Enable **Google Calendar API** in Google Cloud.
 2. Create a **service account** and download its JSON key.
 3. Share **colinrice876@gmail.com** with the service account email (`…@….iam.gserviceaccount.com`) using **Make changes to events**.
-4. Set Worker secrets:
+4. Set Worker secrets (choose one):
+
+**Option A — GitHub Actions (recommended):** add repository secrets:
+- `GOOGLE_CALENDAR_ID` = `colinrice876@gmail.com`
+- `GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON` = full JSON key contents
+
+The deploy workflow syncs these to Cloudflare automatically on each worker deploy.
+
+**Option B — local script:**
 
 ```bash
-cd workers/addresses
-npx wrangler secret put GOOGLE_CALENDAR_ID          # colinrice876@gmail.com
-npx wrangler secret put GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON
+CLOUDFLARE_API_TOKEN=... \
+GOOGLE_CALENDAR_SERVICE_ACCOUNT_FILE=./service-account.json \
+npm run setup:calendar
 ```
 
-Paste the full service account JSON when prompted for `GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON`.
+**Verify connection:**
+
+```bash
+curl https://reimagined-octo-meme.cgr28.workers.dev/calendar-status
+```
+
+Look for `"connected": true`.
 
 Transfer bookings create a 90-minute calendar event at the requested pickup time (`Europe/London`). Return journeys create a second event. Paid SumUp jobs show `[PAID £…]` in the event title. Day-trip enquiries create an 8-hour event from 09:00 on the preferred date.
