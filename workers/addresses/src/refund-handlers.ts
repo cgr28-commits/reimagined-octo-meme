@@ -8,7 +8,7 @@ import type { PaidBookingRecord } from "../shared/paid-booking-record";
 import {
   getSumUpCheckout,
   getSuccessfulTransactionId,
-  findSumUpTransactionByCode,
+  resolveSumUpTransactionForRefund,
   refundSumUpTransaction,
 } from "../shared/sumup-checkout";
 import {
@@ -116,30 +116,61 @@ export async function issueBookingRefund(
 
   const warnings: string[] = [];
   let refundAmountLabel = record.amountPaidLabel;
+  let sumUpRefunded = false;
 
-  if (env.SUMUP_API_KEY?.trim() && record.transactionId) {
-    try {
-      const refund = await refundSumUpTransaction(env.SUMUP_API_KEY.trim(), record.transactionId);
-      if (typeof refund.refundedAmount === "number") {
-        refundAmountLabel = formatPaidAmount(refund.refundedAmount, refund.currency ?? record.currency);
+  const sumUpApiKey = env.SUMUP_API_KEY?.trim() ?? "";
+  const sumUpMerchantCode = env.SUMUP_MERCHANT_CODE?.trim() ?? "";
+
+  if (sumUpApiKey) {
+    if (!record.transactionId) {
+      const resolved = await resolveSumUpTransactionForRefund(
+        sumUpApiKey,
+        sumUpMerchantCode,
+        record.paymentReference,
+        record.checkoutId || undefined,
+      );
+      if (resolved?.id) {
+        record.transactionId = resolved.id;
+        if (
+          typeof resolved.amount === "number" &&
+          (!record.amount || record.amountPaidLabel === "Unknown")
+        ) {
+          record.amount = resolved.amount;
+          record.currency = resolved.currency ?? record.currency;
+          record.amountPaidLabel = formatPaidAmount(record.amount, record.currency);
+          refundAmountLabel = record.amountPaidLabel;
+        }
       }
-    } catch (error) {
-      const detail = error instanceof Error ? error.message : "SumUp refund failed";
-      return { ok: false, paymentReference, error: detail };
     }
-  } else if (env.SUMUP_API_KEY?.trim() && record.checkoutId) {
-    try {
-      const checkout = await getSumUpCheckout(env.SUMUP_API_KEY.trim(), record.checkoutId);
-      const transactionId = getSuccessfulTransactionId(checkout);
-      if (!transactionId) {
-        return {
-          ok: false,
-          paymentReference,
-          error: "Could not find SumUp transaction for this booking",
-        };
+
+    if (!record.transactionId && record.checkoutId) {
+      try {
+        const checkout = await getSumUpCheckout(sumUpApiKey, record.checkoutId);
+        const transactionId = getSuccessfulTransactionId(checkout);
+        if (transactionId) {
+          record.transactionId = transactionId;
+        }
+      } catch {
+        // resolveSumUpTransactionForRefund already attempted checkout lookup.
       }
-      record.transactionId = transactionId;
-      const refund = await refundSumUpTransaction(env.SUMUP_API_KEY.trim(), transactionId);
+    }
+
+    if (!record.transactionId) {
+      return {
+        ok: false,
+        paymentReference,
+        error: "Could not find SumUp transaction for this booking",
+      };
+    }
+
+    try {
+      const refund = await refundSumUpTransaction(
+        sumUpApiKey,
+        record.transactionId,
+        undefined,
+        sumUpMerchantCode || undefined,
+      );
+      sumUpRefunded = true;
       if (typeof refund.refundedAmount === "number") {
         refundAmountLabel = formatPaidAmount(refund.refundedAmount, refund.currency ?? record.currency);
       }
@@ -148,7 +179,7 @@ export async function issueBookingRefund(
       return { ok: false, paymentReference, error: detail };
     }
   } else {
-    warnings.push("SumUp refund was not attempted — missing API key or transaction id");
+    warnings.push("SumUp refund was not attempted — missing API key");
   }
 
   let calendarCancelled = 0;
@@ -239,7 +270,7 @@ export async function issueBookingRefund(
     ok: true,
     paymentReference,
     refundAmount: refundAmountLabel,
-    sumUpRefunded: Boolean(record.transactionId || record.checkoutId),
+    sumUpRefunded,
     calendarCancelled,
     calendarDeleted: calendarCancelled,
     trackingRemoved,
@@ -288,7 +319,7 @@ async function buildLegacyPaidBookingRecord(
 
   if (env.SUMUP_API_KEY?.trim() && env.SUMUP_MERCHANT_CODE?.trim()) {
     try {
-      const transaction = await findSumUpTransactionByCode(
+      const transaction = await resolveSumUpTransactionForRefund(
         env.SUMUP_API_KEY.trim(),
         env.SUMUP_MERCHANT_CODE.trim(),
         resolvedReference,
@@ -302,7 +333,7 @@ async function buildLegacyPaidBookingRecord(
         }
       }
     } catch {
-      // SumUp lookup is best-effort for legacy bookings.
+      // SumUp lookup is best-effort when building the legacy record.
     }
   }
 
