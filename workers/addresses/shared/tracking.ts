@@ -29,6 +29,9 @@ export type TrackingJobRecord = {
   flightNumber?: string;
   termsAcceptedAt?: string;
   termsVersion?: string;
+  marketingOptIn?: boolean;
+  marketingOptInAt?: string;
+  marketingConsentVersion?: string;
   /** Set when a refund is issued — job stays visible on the driver dashboard */
   refundedAt?: string;
   refundAmountLabel?: string;

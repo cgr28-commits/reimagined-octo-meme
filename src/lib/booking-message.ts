@@ -2,6 +2,7 @@ import {
   formatUkDateTime,
   formatUkSubmissionTime,
 } from "@/lib/format-datetime";
+import { formatMarketingOptInLine } from "../../shared/marketing";
 
 export type BookingDetails = {
   customerName: string;
@@ -29,6 +30,9 @@ export type BookingDetails = {
   bookingReference?: string;
   termsAcceptedAt?: string;
   termsVersion?: string;
+  marketingOptIn?: boolean;
+  marketingOptInAt?: string;
+  marketingConsentVersion?: string;
 };
 
 export function isValidMobileNumber(value: string): boolean {
@@ -89,6 +93,10 @@ export function buildBookingMessage(details: BookingDetails, bookingReference?: 
     (details.termsAcceptedAt
       ? `Terms accepted: ${details.termsAcceptedAt}${details.termsVersion ? ` (${details.termsVersion})` : ""}\n`
       : "") +
+    (() => {
+      const marketingLine = formatMarketingOptInLine(details);
+      return marketingLine ? `${marketingLine}\n` : "";
+    })() +
     `Submitted: ${formatUkSubmissionTime()}\n`
   );
 }

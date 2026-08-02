@@ -71,6 +71,11 @@ import {
   trySendEmail,
   type EmailPayload,
 } from "./worker-email";
+import {
+  handleMarketingOptInRequest,
+  handleMarketingUnsubscribeRequest,
+  maybeRecordMarketingFromPayload,
+} from "./marketing-handlers";
 
 type EmailBinding = {
   send(message: {
@@ -153,7 +158,7 @@ function parseDriverRoute(pathname: string): "jobs" | "sharing" | "location" | "
 
 function routePath(
   pathname: string,
-): "addresses" | "geocode" | "bookings" | "quote-leads" | "payments" | "payments-confirm" | "bookings-refund" | "flights" | "calendar-status" | null {
+): "addresses" | "geocode" | "bookings" | "quote-leads" | "payments" | "payments-confirm" | "bookings-refund" | "flights" | "calendar-status" | "marketing-opt-in" | "marketing-unsubscribe" | null {
   if (pathname === "/addresses" || pathname === "/api/addresses") {
     return "addresses";
   }
@@ -188,6 +193,14 @@ function routePath(
 
   if (pathname === "/calendar-status" || pathname === "/api/calendar-status") {
     return "calendar-status";
+  }
+
+  if (pathname === "/marketing/opt-in" || pathname === "/api/marketing/opt-in") {
+    return "marketing-opt-in";
+  }
+
+  if (pathname === "/marketing/unsubscribe" || pathname === "/api/marketing/unsubscribe") {
+    return "marketing-unsubscribe";
   }
 
   return null;
@@ -351,6 +364,9 @@ function parsePaidBookingDetails(body: Record<string, unknown>): PaidBookingDeta
     isFromAirport: details.isFromAirport === undefined ? undefined : Boolean(details.isFromAirport),
     termsAcceptedAt: String(details.termsAcceptedAt ?? "").trim() || undefined,
     termsVersion: String(details.termsVersion ?? "").trim() || undefined,
+    marketingOptIn: details.marketingOptIn === true ? true : undefined,
+    marketingOptInAt: String(details.marketingOptInAt ?? "").trim() || undefined,
+    marketingConsentVersion: String(details.marketingConsentVersion ?? "").trim() || undefined,
   };
 }
 
@@ -511,6 +527,17 @@ async function handleBookingRequest(
   }
 
   const calendar = await logBookingCalendar(env, body, customerName, message);
+
+  await maybeRecordMarketingFromPayload(env.TRACKING_STORE, {
+    email: body.booking?.customerEmail ?? body.tour?.customerEmail,
+    name: customerName,
+    source: body.tour ? "tour-enquiry" : "booking-request",
+    marketingOptIn:
+      body.booking?.marketingOptIn === true || body.tour?.marketingOptIn === true,
+    marketingOptInAt: body.booking?.marketingOptInAt ?? body.tour?.marketingOptInAt,
+    marketingConsentVersion:
+      body.booking?.marketingConsentVersion ?? body.tour?.marketingConsentVersion,
+  });
 
   if (!shouldSendEmail && !calendar.logged && calendarConfigured(env) && calendar.error) {
     return json(
@@ -742,6 +769,15 @@ async function handlePaymentConfirmRequest(
       paymentReference,
       trackingToken: tracking.token,
       calendarEventIds: calendar.eventIds ?? [],
+    });
+
+    await maybeRecordMarketingFromPayload(env.TRACKING_STORE, {
+      email: booking.customerEmail,
+      name: booking.customerName,
+      source: "paid-booking",
+      marketingOptIn: booking.marketingOptIn,
+      marketingOptInAt: booking.marketingOptInAt,
+      marketingConsentVersion: booking.marketingConsentVersion,
     });
 
     const emailSent = customerEmailResult.sent && ownerEmailResult.sent;
@@ -996,6 +1032,22 @@ export default {
       }
 
       return handleCalendarStatusRequest(env, origin);
+    }
+
+    if (route === "marketing-opt-in") {
+      if (request.method !== "POST") {
+        return json({ error: "Method not allowed" }, 405, origin);
+      }
+
+      return handleMarketingOptInRequest(request, env, origin);
+    }
+
+    if (route === "marketing-unsubscribe") {
+      if (request.method !== "POST") {
+        return json({ error: "Method not allowed" }, 405, origin);
+      }
+
+      return handleMarketingUnsubscribeRequest(request, env, origin);
     }
 
     if (request.method !== "GET") {

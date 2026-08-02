@@ -3,8 +3,10 @@
 import { FormEvent, memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import AddressInput from "@/components/AddressInput";
 import BookingTermsConsent from "@/components/BookingTermsConsent";
+import MarketingOptIn from "@/components/MarketingOptIn";
 import TripMap from "@/components/TripMap";
 import { buildBookingMessage, isValidEmailAddress, isValidMobileNumber, type BookingDetails } from "@/lib/booking-message";
+import { buildMarketingOptInFields, recordMarketingOptIn } from "@/lib/marketing-api";
 import { TERMS_LAST_UPDATED } from "@/lib/terms";
 import { detectMobileDevice, useIsMobileDevice } from "@/lib/device";
 import { AIRPORTS, SITE, VEHICLE_TYPES } from "@/lib/data";
@@ -266,6 +268,7 @@ function QuoteCard() {
     useState<PaymentConfirmationResult | null>(null);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [termsError, setTermsError] = useState("");
+  const [marketingOptIn, setMarketingOptIn] = useState(false);
   const [testChargeAmount, setTestChargeAmount] = useState<number | null>(null);
   const [testBookingLabel, setTestBookingLabel] = useState<string | null>(null);
   const sumUpEnabled = isSumUpPaymentEnabled();
@@ -764,6 +767,7 @@ function QuoteCard() {
       ...buildBookingDetails(),
       termsAcceptedAt: new Date().toISOString(),
       termsVersion: TERMS_LAST_UPDATED,
+      ...buildMarketingOptInFields(marketingOptIn),
     };
   }
 
@@ -877,6 +881,15 @@ function QuoteCard() {
     setBookingSent(true);
     setSubmitted(false);
 
+    if (details.marketingOptIn) {
+      void recordMarketingOptIn({
+        email: details.customerEmail,
+        name: details.customerName,
+        source: "booking-request",
+        fields: details,
+      });
+    }
+
     if (isMobile && delivery === "whatsapp") {
       openWhatsAppBookingMessage(buildBookingMessage(details, reference));
     }
@@ -927,6 +940,7 @@ function QuoteCard() {
     setBookingDelivery(null);
     setTermsAccepted(false);
     setTermsError("");
+    setMarketingOptIn(false);
   }
 
   const usesWhatsApp = isMobileDevice === true;
@@ -1835,6 +1849,8 @@ function QuoteCard() {
                     : undefined
               }
             />
+
+            <MarketingOptIn checked={marketingOptIn} onCheckedChange={setMarketingOptIn} />
 
             {sumUpEnabled && liveQuote && (
               <div className="space-y-3">

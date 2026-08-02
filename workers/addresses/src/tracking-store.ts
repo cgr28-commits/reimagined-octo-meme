@@ -89,6 +89,16 @@ export async function createTrackingJobFromBooking(
     record.termsVersion = booking.termsVersion.trim();
   }
 
+  if (booking.marketingOptIn) {
+    record.marketingOptIn = true;
+    if (booking.marketingOptInAt?.trim()) {
+      record.marketingOptInAt = booking.marketingOptInAt.trim();
+    }
+    if (booking.marketingConsentVersion?.trim()) {
+      record.marketingConsentVersion = booking.marketingConsentVersion.trim();
+    }
+  }
+
   await store.put(jobKey(token), JSON.stringify(record), {
     expirationTtl: DAY_INDEX_TTL,
   });

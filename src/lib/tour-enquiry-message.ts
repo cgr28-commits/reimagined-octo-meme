@@ -1,4 +1,5 @@
 import { formatUkDate, formatUkSubmissionTime } from "@/lib/format-datetime";
+import { formatMarketingOptInLine } from "../../shared/marketing";
 
 export type TourEnquiryDetails = {
   customerName: string;
@@ -12,6 +13,9 @@ export type TourEnquiryDetails = {
   bookingReference?: string;
   termsAcceptedAt?: string;
   termsVersion?: string;
+  marketingOptIn?: boolean;
+  marketingOptInAt?: string;
+  marketingConsentVersion?: string;
 };
 
 export function buildTourEnquiryMessage(
@@ -34,6 +38,10 @@ export function buildTourEnquiryMessage(
     (details.termsAcceptedAt
       ? `Terms accepted: ${details.termsAcceptedAt}${details.termsVersion ? ` (${details.termsVersion})` : ""}\n`
       : "") +
+    (() => {
+      const marketingLine = formatMarketingOptInLine(details);
+      return marketingLine ? `${marketingLine}\n` : "";
+    })() +
     `Submitted: ${formatUkSubmissionTime()}\n`
   );
 }
