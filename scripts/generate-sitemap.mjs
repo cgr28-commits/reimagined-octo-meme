@@ -21,6 +21,10 @@ const pages = [
     priority: "0.8",
   })),
   { path: "/terms/", changefreq: "yearly", priority: "0.5" },
+  { path: "/privacy/", changefreq: "yearly", priority: "0.5" },
+  { path: "/driver/", changefreq: "monthly", priority: "0.7" },
+  { path: "/track/demo/", changefreq: "monthly", priority: "0.6" },
+  { path: "/test-booking/", changefreq: "monthly", priority: "0.4" },
 ];
 
 const lastmod = new Date().toISOString().split("T")[0];

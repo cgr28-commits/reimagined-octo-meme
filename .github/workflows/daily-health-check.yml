@@ -1,0 +1,144 @@
+# Daily health check: site, worker API, build. Auto-fixes sitemap gaps and emails a summary.
+
+name: Daily health check
+
+on:
+  schedule:
+    # 07:00 UTC every day (after OTS pricing check at 06:00)
+    - cron: "0 7 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: daily-health-check
+  cancel-in-progress: false
+
+jobs:
+  health-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            workers/addresses/package-lock.json
+
+      - run: npm ci
+      - run: npm --prefix workers/addresses ci
+
+      - name: Run daily health check
+        env:
+          WEB3FORMS_ACCESS_KEY: ${{ secrets.WEB3FORMS_ACCESS_KEY }}
+          HEALTH_CHECK_NOTIFY_EMAIL: ${{ secrets.HEALTH_CHECK_NOTIFY_EMAIL || 'bookings@myairporttaxini.co.uk' }}
+          GOOGLE_PLACES_API_KEY: ${{ secrets.GOOGLE_PLACES_API_KEY }}
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
+          NEXT_PUBLIC_GOOGLE_PLACES_API_KEY: ${{ secrets.GOOGLE_PLACES_API_KEY || secrets.GOOGLE_API_KEY || secrets.GOOGLE_MAPS_API_KEY }}
+          NEXT_PUBLIC_BOOKINGS_API_URL: https://reimagined-octo-meme.cgr28.workers.dev/bookings
+          GITHUB_SERVER_URL: ${{ github.server_url }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+        run: node scripts/daily-health-check.mjs
+
+      - name: Upload health report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: daily-health-report-${{ github.run_id }}
+          path: reports/daily-health-*.json
+          retention-days: 30
+
+      - name: Commit sitemap auto-fix
+        if: always()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/sitemap.xml
+          if git diff --staged --quiet; then
+            echo "No sitemap changes"
+          else
+            git commit -m "chore: daily health check sitemap auto-fix"
+            git pull --rebase origin main
+            git push
+          fi
+
+      - name: Redeploy worker if API unhealthy
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          REPORT=$(ls reports/daily-health-*.json | head -1)
+          if node -e "
+            const r = require('./' + process.argv[1]);
+            const workerFails = r.checks.filter(c => c.status === 'fail' && /worker/i.test(c.name));
+            process.exit(workerFails.length > 0 ? 0 : 1);
+          " "$REPORT"; then
+            echo "Worker checks failed — triggering redeploy"
+            gh workflow run deploy-worker.yml --ref main
+          else
+            echo "Worker OK or failure unrelated — skip redeploy"
+          fi
+
+      - name: Summarise for Actions log
+        if: always()
+        run: |
+          REPORT=$(ls reports/daily-health-*.json | head -1)
+          echo "## Daily health check" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          node -e "
+            const r = require('./' + process.argv[1]);
+            const icon = r.ok ? '✅' : '❌';
+            console.log(icon + ' **Overall:** ' + (r.ok ? 'All critical checks passed' : r.summary.fail + ' failure(s)'));
+            console.log('');
+            console.log('| Status | Check | Detail |');
+            console.log('|--------|-------|--------|');
+            for (const c of r.checks) {
+              console.log('| ' + c.status + ' | ' + c.name + ' | ' + c.detail.replace(/\\|/g, '/') + ' |');
+            }
+            if (r.fixes.length) {
+              console.log('');
+              console.log('**Auto-fixes:**');
+              for (const f of r.fixes) console.log('- ' + f.action + ': ' + f.detail);
+            }
+          " "$REPORT" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Open or update GitHub issue on failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          REPORT=$(ls reports/daily-health-*.json | head -1)
+          TITLE="Daily health check failed — $(date -u +%Y-%m-%d)"
+          BODY=$(node -e "
+            const r = require('./' + process.argv[1]);
+            const fails = r.checks.filter(c => c.status === 'fail');
+            let md = 'Automated daily health check found **' + fails.length + '** failure(s).\\n\\n';
+            md += '[View workflow run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})\\n\\n';
+            md += '### Failures\\n';
+            for (const f of fails) md += '- **' + f.name + '**: ' + f.detail + '\\n';
+            if (r.fixes.length) {
+              md += '\\n### Auto-fixes applied\\n';
+              for (const x of r.fixes) md += '- ' + x.action + ': ' + x.detail + '\\n';
+            }
+            console.log(md);
+          " "$REPORT")
+
+          EXISTING=$(gh issue list --label "health-check" --state open --limit 1 --json number --jq '.[0].number' || true)
+          if [ -n "$EXISTING" ] && [ "$EXISTING" != "null" ]; then
+            gh issue comment "$EXISTING" --body "$BODY"
+            echo "Commented on issue #$EXISTING"
+          else
+            gh issue create --title "$TITLE" --body "$BODY" || true
+          fi

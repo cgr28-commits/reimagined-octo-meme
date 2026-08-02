@@ -67,3 +67,18 @@ curl https://reimagined-octo-meme.cgr28.workers.dev/calendar-status
 Look for `"connected": true`.
 
 Transfer bookings create a 90-minute calendar event at the requested pickup time (`Europe/London`). Return journeys create a second event. Paid SumUp jobs show `[PAID £…]` in the event title. Day-trip enquiries create an 8-hour event from 09:00 on the preferred date.
+
+## Daily automated health check
+
+GitHub Actions runs **every day at 07:00 UTC** (`.github/workflows/daily-health-check.yml`):
+
+- Checks the live website (homepage, terms, privacy, driver, tracking demo, favicon)
+- Checks the Cloudflare Worker (calendar, tracking API)
+- Runs worker typecheck + site build
+- **Auto-fixes** missing sitemap entries and commits if needed
+- **Auto-redeploys** the worker if worker API checks fail
+- Emails a daily summary via Web3Forms (uses existing `WEB3FORMS_ACCESS_KEY` secret)
+
+Optional: set `HEALTH_CHECK_NOTIFY_EMAIL` in GitHub Actions secrets (e.g. `colinrice876@gmail.com`) to choose where summaries are sent. Default: `bookings@myairporttaxini.co.uk`.
+
+Run manually: `npm run health-check` (set `HEALTH_CHECK_SKIP_BUILD=1` for a quick check without building).
