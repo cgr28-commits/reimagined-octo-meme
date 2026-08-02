@@ -1,7 +1,9 @@
 import {
   OWNER_VEHICLE_PROFILE_KEY,
+  driverProfileComplete,
   vehicleProfileComplete,
   vehicleProfileKey,
+  buildDriverProfileConfirmationEmail,
   type DriverVehicleProfile,
 } from "../shared/driver-vehicle";
 
@@ -48,6 +50,8 @@ export async function saveDriverVehicleProfile(
 ): Promise<DriverVehicleProfile> {
   const saved: DriverVehicleProfile = {
     ...profile,
+    displayName: profile.displayName.trim(),
+    email: profile.email.trim().toLowerCase(),
     make: profile.make.trim(),
     model: profile.model.trim(),
     colour: profile.colour.trim(),

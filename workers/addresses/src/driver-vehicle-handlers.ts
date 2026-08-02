@@ -1,6 +1,7 @@
 import {
   OWNER_VEHICLE_PROFILE_KEY,
-  vehicleProfileComplete,
+  driverProfileComplete,
+  buildDriverProfileConfirmationEmail,
   type DriverVehicleProfile,
 } from "../shared/driver-vehicle";
 import {
@@ -17,10 +18,15 @@ import {
   saveDriverVehicleProfile,
 } from "./driver-vehicle-store";
 import { trackingStoreConfigured } from "./tracking-store";
+import { trySendBrandedCustomerEmail, type WorkerEmailEnv } from "./worker-email";
 
-type Env = DriverAuthEnv & {
-  TRACKING_STORE?: KVNamespace;
-};
+type Env = DriverAuthEnv &
+  WorkerEmailEnv & {
+    TRACKING_STORE?: KVNamespace;
+  };
+
+const BUSINESS_NAME = "My Airport Taxi NI";
+const DRIVER_DASHBOARD_URL = "https://www.myairporttaxini.co.uk/driver/";
 
 function jsonResponse(body: unknown, status: number, origin: string | null) {
   return new Response(JSON.stringify(body), {
@@ -30,6 +36,10 @@ function jsonResponse(body: unknown, status: number, origin: string | null) {
       ...corsHeaders(origin),
     },
   });
+}
+
+function isValidEmail(value: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
 }
 
 function ownerProfileOptions(env: Env): Array<{ profileKey: string; displayName: string }> {
@@ -97,6 +107,20 @@ function resolveRequestedProfileKey(
   return normalizeVehicleProfileKey(session.driverName);
 }
 
+async function sendDriverProfileEmail(
+  env: Env,
+  profile: DriverVehicleProfile,
+): Promise<{ sent: boolean; error?: string }> {
+  const email = buildDriverProfileConfirmationEmail(profile, BUSINESS_NAME, DRIVER_DASHBOARD_URL);
+  return trySendBrandedCustomerEmail(env, {
+    to: profile.email,
+    toName: profile.displayName,
+    subject: email.subject,
+    body: email.text,
+    htmlBody: email.html,
+  });
+}
+
 export async function handleDriverVehicleProfilesRequest(
   request: Request,
   env: Env,
@@ -155,7 +179,7 @@ export async function handleDriverVehicleGetRequest(
   const profileKey = resolveRequestedProfileKey(env, session, url.searchParams.get("profile") ?? undefined);
 
   if (!profileKey || !canAccessVehicleProfile(env, session, profileKey)) {
-    return jsonResponse({ error: "Unauthorized for this vehicle profile" }, 403, origin);
+    return jsonResponse({ error: "Unauthorized for this driver profile" }, 403, origin);
   }
 
   const profile = await getDriverVehicleProfile(env.TRACKING_STORE, profileKey);
@@ -200,32 +224,40 @@ export async function handleDriverVehicleSaveRequest(
   );
 
   if (!profileKey || !canAccessVehicleProfile(env, session, profileKey)) {
-    return jsonResponse({ error: "Unauthorized for this vehicle profile" }, 403, origin);
+    return jsonResponse({ error: "Unauthorized for this driver profile" }, 403, origin);
   }
 
+  const displayName = String(body.displayName ?? body.name ?? "").trim();
+  const email = String(body.email ?? "").trim();
   const make = String(body.make ?? "").trim();
   const model = String(body.model ?? "").trim();
   const colour = String(body.colour ?? "").trim();
   const registration = String(body.registration ?? "").trim();
 
+  const resolvedDisplayName =
+    displayName ||
+    (profileKey === OWNER_VEHICLE_PROFILE_KEY
+      ? "Owner"
+      : listConfiguredDrivers(env).find(
+          (name) => normalizeVehicleProfileKey(name) === profileKey,
+        ) ?? profileKey);
+
+  if (!email || !isValidEmail(email)) {
+    return jsonResponse({ error: "A valid driver email address is required" }, 400, origin);
+  }
+
   if (!make || !model || !colour || !registration) {
     return jsonResponse(
-      { error: "Make, model, colour, and registration are all required" },
+      { error: "Name, email, make, model, colour, and registration are all required" },
       400,
       origin,
     );
   }
 
-  const displayName =
-    profileKey === OWNER_VEHICLE_PROFILE_KEY
-      ? "Owner"
-      : listConfiguredDrivers(env).find(
-          (name) => normalizeVehicleProfileKey(name) === profileKey,
-        ) ?? String(body.displayName ?? profileKey);
-
   const saved = await saveDriverVehicleProfile(env.TRACKING_STORE, {
     profileKey,
-    displayName,
+    displayName: resolvedDisplayName,
+    email,
     make,
     model,
     colour,
@@ -233,9 +265,20 @@ export async function handleDriverVehicleSaveRequest(
     updatedAt: new Date().toISOString(),
   });
 
-  if (!vehicleProfileComplete(saved)) {
-    return jsonResponse({ error: "Vehicle details could not be saved" }, 502, origin);
+  if (!driverProfileComplete(saved)) {
+    return jsonResponse({ error: "Driver profile could not be saved" }, 502, origin);
   }
 
-  return jsonResponse({ ok: true, profile: saved }, 200, origin);
+  const emailResult = await sendDriverProfileEmail(env, saved);
+
+  return jsonResponse(
+    {
+      ok: true,
+      profile: saved,
+      emailSent: emailResult.sent,
+      ...(emailResult.error ? { emailWarning: emailResult.error } : {}),
+    },
+    200,
+    origin,
+  );
 }

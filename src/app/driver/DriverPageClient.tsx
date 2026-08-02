@@ -215,7 +215,7 @@ function assignmentBadgeClass(status: DriverJob["assignmentStatus"]): string {
   }
 }
 
-function VehicleDetailsPanel({
+function DriverProfilePanel({
   accessKey,
   isOwner,
   driverName,
@@ -227,6 +227,8 @@ function VehicleDetailsPanel({
   const [profiles, setProfiles] = useState<Array<{ profileKey: string; displayName: string }>>([]);
   const [selectedProfile, setSelectedProfile] = useState(isOwner ? "owner" : driverName ?? "");
   const [form, setForm] = useState({
+    displayName: "",
+    email: "",
     make: "",
     model: "",
     colour: "",
@@ -280,6 +282,16 @@ function VehicleDetailsPanel({
         }
 
         setForm({
+          displayName:
+            profile?.displayName ??
+            (selectedProfile === "owner"
+              ? "Owner"
+              : profiles.find(
+                  (entry) =>
+                    entry.profileKey === selectedProfile ||
+                    entry.displayName === selectedProfile,
+                )?.displayName ?? selectedProfile),
+          email: profile?.email ?? "",
           make: profile?.make ?? "",
           model: profile?.model ?? "",
           colour: profile?.colour ?? "",
@@ -300,24 +312,32 @@ function VehicleDetailsPanel({
     return () => {
       cancelled = true;
     };
-  }, [accessKey, selectedProfile]);
+  }, [accessKey, selectedProfile, profiles]);
 
-  const saveVehicle = async () => {
+  const saveProfile = async () => {
     setSaving(true);
     setMessage(null);
     setError(null);
 
     try {
-      await saveDriverVehicle(accessKey, {
+      const result = await saveDriverVehicle(accessKey, {
         profile: selectedProfile,
+        displayName: form.displayName,
+        email: form.email,
         make: form.make,
         model: form.model,
         colour: form.colour,
         registration: form.registration,
       });
-      setMessage("Vehicle details saved. Customers see them on the job day when live tracking starts.");
+      setMessage(
+        result.emailSent
+          ? `Driver profile saved and emailed to ${result.profile.email}. Customers see vehicle details on the job day when live tracking starts.`
+          : result.emailWarning
+            ? `Profile saved, but the confirmation email could not be sent: ${result.emailWarning}`
+            : "Driver profile saved. Customers see vehicle details on the job day when live tracking starts.",
+      );
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not save vehicle details");
+      setError(err instanceof Error ? err.message : "Could not save driver profile");
     } finally {
       setSaving(false);
     }
@@ -327,10 +347,11 @@ function VehicleDetailsPanel({
     <section className="mb-8 rounded-2xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-lg font-bold text-white">Vehicle details</h2>
+          <h2 className="text-lg font-bold text-white">Driver profile</h2>
           <p className="mt-2 text-sm text-white/60">
-            Saved here for your dashboard. Customers only see make, model, colour, and registration
-            on the day of travel when live driver tracking is active.
+            Save the driver&apos;s name, email, and vehicle details here. A confirmation email is
+            sent to the driver, and customers only see the car details on the job day when live
+            tracking is active.
           </p>
         </div>
         {isOwner && profiles.length > 1 && (
@@ -352,6 +373,28 @@ function VehicleDetailsPanel({
       </div>
 
       <div className="mt-5 grid gap-4 sm:grid-cols-2">
+        <label className="block text-sm text-white/70">
+          Name
+          <input
+            type="text"
+            value={form.displayName}
+            onChange={(event) =>
+              setForm((current) => ({ ...current, displayName: event.target.value }))
+            }
+            className="mt-2 w-full rounded-xl border border-white/15 bg-navy px-4 py-3 text-white outline-none focus:border-emerald"
+            placeholder="e.g. Gary"
+          />
+        </label>
+        <label className="block text-sm text-white/70">
+          Email
+          <input
+            type="email"
+            value={form.email}
+            onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))}
+            className="mt-2 w-full rounded-xl border border-white/15 bg-navy px-4 py-3 text-white outline-none focus:border-emerald"
+            placeholder="driver@example.com"
+          />
+        </label>
         <label className="block text-sm text-white/70">
           Make
           <input
@@ -400,10 +443,10 @@ function VehicleDetailsPanel({
         <button
           type="button"
           disabled={saving || loading}
-          onClick={() => void saveVehicle()}
+          onClick={() => void saveProfile()}
           className="rounded-xl bg-emerald px-5 py-3 text-sm font-semibold text-navy transition-colors hover:bg-emerald/90 disabled:opacity-60"
         >
-          {saving ? "Saving…" : "Save vehicle details"}
+          {saving ? "Saving…" : "Save profile & email driver"}
         </button>
       </div>
 
@@ -1304,7 +1347,7 @@ export default function DriverPageClient() {
             </section>
           ) : (
             <>
-              <VehicleDetailsPanel
+              <DriverProfilePanel
                 accessKey={savedKey}
                 isOwner={sessionRole === "owner"}
                 driverName={driverName}

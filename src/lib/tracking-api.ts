@@ -121,6 +121,7 @@ export type CustomerVehicleDetails = {
 export type DriverVehicleProfile = {
   profileKey: string;
   displayName: string;
+  email: string;
   make: string;
   model: string;
   colour: string;
@@ -380,20 +381,27 @@ export async function saveDriverVehicle(
   accessKey: string,
   input: {
     profile?: string;
+    displayName?: string;
+    email: string;
     make: string;
     model: string;
     colour: string;
     registration: string;
   },
-): Promise<DriverVehicleProfile> {
+): Promise<{ profile: DriverVehicleProfile; emailSent?: boolean; emailWarning?: string }> {
   const response = await fetch(`${WORKER_BASE}/driver/vehicle?key=${encodeURIComponent(accessKey.trim())}`, {
     method: "POST",
     headers: driverPostHeaders(accessKey),
     body: JSON.stringify(input),
   });
 
-  const payload = await parseJsonResponse<{ ok: true; profile: DriverVehicleProfile }>(response);
-  return payload.profile;
+  const payload = await parseJsonResponse<{
+    ok: true;
+    profile: DriverVehicleProfile;
+    emailSent?: boolean;
+    emailWarning?: string;
+  }>(response);
+  return payload;
 }
 
 export async function fetchDriverRoster(ownerKey: string): Promise<string[]> {
