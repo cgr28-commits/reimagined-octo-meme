@@ -1,10 +1,13 @@
 /**
  * Fetches OTS quotes for LDY → Belfast-area routes and computes surcharges
- * targeting ~£5 below OTS estate fares (same approach as BFS/BHD table).
+ * targeting ~£8–£10 below OTS estate fares (same approach as BFS/BHD table).
+ *
+ * Uses live quotes from https://www.airporttaxis-uk.co.uk/
  */
 
+import { fetchOtsEstateQuote } from "./lib/ots-client.mjs";
+
 const LDY_PICKUP = "City of Derry Airport, BT47 3GY";
-const OTS_AJAX = "https://onwardtravelsolutions.com/wp-admin/admin-ajax.php";
 const LDY_BASE = 35;
 const ESTATE_PREMIUM = 8;
 
@@ -54,53 +57,11 @@ function findSurchargeForTargetEstate(targetEstate) {
   return null;
 }
 
-async function refreshNonce() {
-  const body = new URLSearchParams({ action: "otb_refresh_nonce" });
-  const res = await fetch(OTS_AJAX, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body,
-  });
-  const json = await res.json();
-  return json.data.nonce;
-}
-
-async function fetchOtsQuote(nonce, dropoff) {
-  const body = new URLSearchParams({
-    action: "otb_get_quote",
-    nonce,
-    pickup: LDY_PICKUP,
-    dropoff,
-    pickup_datetime: "2026-08-15T10:00",
-    passengers: "2",
-    luggage: "2",
-    hand_luggage: "0",
-    is_return: "0",
-    extra_stops_count: "0",
-    extra_stops: "[]",
-  });
-
-  const res = await fetch(OTS_AJAX, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body,
-  });
-  const json = await res.json();
-  if (!json.success) {
-    throw new Error(json.data?.message ?? "OTS quote failed");
-  }
-
-  const estate = json.data.vehicles.find((v) => /estate/i.test(v.name));
-  const saloon = json.data.vehicles.find((v) => /saloon/i.test(v.name));
-  return { otsEstate: estate?.price ?? null, otsSaloon: saloon?.price ?? null };
-}
-
-const nonce = await refreshNonce();
 const results = [];
 
 for (const [area, dropoff] of Object.entries(AREAS)) {
-  const { otsEstate, otsSaloon } = await fetchOtsQuote(nonce, dropoff);
-  const targetEstate = roundToNearestFive(Math.round(otsEstate - 5));
+  const otsEstate = await fetchOtsEstateQuote(LDY_PICKUP, dropoff, { delayMs: 250 });
+  const targetEstate = roundToNearestFive(Math.round(otsEstate - 9));
   const surcharge = findSurchargeForTargetEstate(targetEstate);
   const ourEstate = surcharge != null ? computeEstateFare(surcharge) : null;
   const ourSaloon = surcharge != null ? computeSaloonOneWay(LDY_BASE + surcharge) : null;
@@ -108,20 +69,19 @@ for (const [area, dropoff] of Object.entries(AREAS)) {
   results.push({
     area,
     otsEstate,
-    otsSaloon,
     targetEstate,
     surcharge,
     ourEstate,
     ourSaloon,
     diff: ourEstate != null ? +(ourEstate - otsEstate).toFixed(2) : null,
   });
-
-  await new Promise((r) => setTimeout(r, 200));
 }
 
 console.log(JSON.stringify(results, null, 2));
 
 console.log("\n// LDY column for AREA_AIRPORT_SURCHARGES:");
 for (const r of results) {
-  console.log(`  ${JSON.stringify(r.area)}: surcharge ${r.surcharge} → estate £${r.ourEstate} (OTS £${r.otsEstate}, diff £${r.diff})`);
+  console.log(
+    `  ${JSON.stringify(r.area)}: surcharge ${r.surcharge} → estate £${r.ourEstate} (OTS £${r.otsEstate}, diff £${r.diff})`,
+  );
 }

@@ -1,8 +1,9 @@
 /**
  * Daily OTS auto-calibration.
  *
- * Samples random NI airport routes, fetches live OTS estate quotes, adjusts
- * AREA_AIRPORT_SURCHARGES in src/lib/quote.ts so our estate fares sit ~£5–£8
+ * Samples random NI airport routes, fetches live OTS estate quotes from
+ * https://www.airporttaxis-uk.co.uk/, adjusts
+ * AREA_AIRPORT_SURCHARGES in src/lib/quote.ts so our estate fares sit ~£8–£10
  * below OTS, then writes a report.
  */
 
@@ -24,8 +25,8 @@ const ESTATE = "Estate Car (1–4 passengers)" as const;
 const QUOTE_PATH = join(process.cwd(), "src/lib/quote.ts");
 
 const SAMPLE_SIZE = Number(process.env.OTS_SAMPLE_SIZE ?? "100");
-const MIN_DISCOUNT = Number(process.env.OTS_MIN_DISCOUNT ?? "5");
-const MAX_DISCOUNT = Number(process.env.OTS_MAX_DISCOUNT ?? "8");
+const MIN_DISCOUNT = Number(process.env.OTS_MIN_DISCOUNT ?? "8");
+const MAX_DISCOUNT = Number(process.env.OTS_MAX_DISCOUNT ?? "10");
 const REQUEST_DELAY_MS = Number(process.env.OTS_REQUEST_DELAY_MS ?? "250");
 
 type AirportRoute = {
