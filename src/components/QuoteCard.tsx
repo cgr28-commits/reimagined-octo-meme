@@ -1,7 +1,6 @@
 "use client";
 
 import { FormEvent, memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
 import AddressInput from "@/components/AddressInput";
 import BookingTermsConsent from "@/components/BookingTermsConsent";
 import TripMap from "@/components/TripMap";
