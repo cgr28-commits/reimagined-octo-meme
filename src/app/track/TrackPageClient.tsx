@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import Footer from "@/components/Footer";
 import Header from "@/components/Header";
 import { fetchPublicTrack, type PublicTrackResponse } from "@/lib/tracking-api";
+import { isDemoTrackToken } from "@/lib/tracking-demo";
 
 const LiveTrackMap = dynamic(() => import("@/components/LiveTrackMap"), {
   ssr: false,
@@ -95,6 +96,16 @@ export default function TrackPageClient({ token }: TrackPageClientProps) {
               </p>
             )}
           </header>
+
+          {isDemoTrackToken(token) && (
+            <div className="mb-6 rounded-2xl border border-amber-400/30 bg-amber-500/10 px-5 py-4 text-sm text-amber-100">
+              Demo preview — this is sample data so you can see what customers experience.
+              {" "}
+              <a href="/track/demo/" className="font-semibold text-white underline">
+                View all demos
+              </a>
+            </div>
+          )}
 
           {loading && !data && (
             <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-8 text-white/70">
