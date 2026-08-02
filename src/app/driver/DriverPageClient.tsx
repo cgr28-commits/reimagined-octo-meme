@@ -1157,6 +1157,11 @@ export default function DriverPageClient() {
   const [selectedDate, setSelectedDate] = useState(() => todayLondonDate());
   const watchIdRef = useRef<number | null>(null);
 
+  const isDemoSession = savedKey === DEMO_DRIVER_KEY;
+  const viewRole = isDemoSession ? "driver" : sessionRole;
+  const viewDriverName = isDemoSession ? DEMO_DRIVER_NAME : driverName;
+  const isOwnerView = viewRole === "owner";
+
   const today = useMemo(() => todayLondonDate(), []);
   const groupedUpcoming = useMemo(() => groupJobsByDate(jobs), [jobs]);
   const pendingTokens = useMemo(
@@ -1164,12 +1169,12 @@ export default function DriverPageClient() {
     [pendingJobs],
   );
   const visibleJobs = useMemo(() => {
-    if (sessionRole !== "driver" || pendingTokens.size === 0) {
+    if (viewRole !== "driver" || pendingTokens.size === 0) {
       return jobs;
     }
 
     return jobs.filter((job) => !pendingTokens.has(job.token));
-  }, [jobs, pendingTokens, sessionRole]);
+  }, [jobs, pendingTokens, viewRole]);
   const groupedVisibleUpcoming = useMemo(() => groupJobsByDate(visibleJobs), [visibleJobs]);
 
   const loadJobs = useCallback(
@@ -1188,11 +1193,16 @@ export default function DriverPageClient() {
         ]);
         setJobs(mainResponse.jobs);
         setPendingJobs(pendingResponse.jobs);
-        if (mainResponse.role) {
-          setSessionRole(mainResponse.role);
-        }
-        if (mainResponse.driverName) {
-          setDriverName(mainResponse.driverName);
+        if (key === DEMO_DRIVER_KEY) {
+          setSessionRole("driver");
+          setDriverName(DEMO_DRIVER_NAME);
+        } else {
+          if (mainResponse.role) {
+            setSessionRole(mainResponse.role);
+          }
+          if (mainResponse.driverName) {
+            setDriverName(mainResponse.driverName);
+          }
         }
       } catch (err) {
         const message = err instanceof Error ? err.message : "Could not load jobs";
@@ -1240,7 +1250,7 @@ export default function DriverPageClient() {
 
       setJobs((current) => {
         if (
-          sessionRole === "driver" &&
+          viewRole === "driver" &&
           (updatedJob.assignmentStatus === "declined" ||
             updatedJob.assignmentStatus === "unassigned" ||
             !updatedJob.assignmentStatus)
@@ -1256,7 +1266,7 @@ export default function DriverPageClient() {
         return next.sort((a, b) => a.pickupAt.localeCompare(b.pickupAt));
       });
     },
-    [sessionRole],
+    [viewRole],
   );
 
   const loadDriverRoster = useCallback(async (key: string) => {
@@ -1289,7 +1299,7 @@ export default function DriverPageClient() {
 
     void loadJobs(savedKey);
 
-    const shouldPoll = sessionRole === "driver" || view === "today";
+    const shouldPoll = viewRole === "driver" || view === "today";
     if (!shouldPoll) {
       return;
     }
@@ -1299,10 +1309,10 @@ export default function DriverPageClient() {
     }, 10_000);
 
     return () => window.clearInterval(interval);
-  }, [loadJobs, savedKey, sessionRole, view]);
+  }, [loadJobs, savedKey, viewRole, view]);
 
   useEffect(() => {
-    if (!savedKey || !activeToken || !navigator.geolocation || sessionRole === "owner") {
+    if (!savedKey || !activeToken || !navigator.geolocation || isOwnerView) {
       return;
     }
 
@@ -1329,7 +1339,7 @@ export default function DriverPageClient() {
         watchIdRef.current = null;
       }
     };
-  }, [activeToken, savedKey, sessionRole]);
+  }, [activeToken, isOwnerView, savedKey]);
 
   const unlock = async () => {
     const trimmed = driverKey.trim();
@@ -1385,11 +1395,11 @@ export default function DriverPageClient() {
         <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
           <header className="mb-8">
             <p className="text-sm font-semibold uppercase tracking-widest text-emerald">
-              {sessionRole === "owner" ? "Owner dashboard" : "Driver dashboard"}
+              {isOwnerView ? "Owner dashboard" : "Driver dashboard"}
             </p>
             <h1 className="mt-2 text-3xl font-bold text-white sm:text-4xl">Bookings</h1>
             <p className="mt-3 text-white/70">
-              {sessionRole === "owner" ? (
+              {isOwnerView ? (
                 <>
                   Assign jobs to drivers such as Gary — they must accept before the job appears on
                   their dashboard. Issue refunds, track live location, and manage all bookings here.
@@ -1441,17 +1451,17 @@ export default function DriverPageClient() {
             <>
               <DriverProfilePanel
                 accessKey={savedKey}
-                isOwner={sessionRole === "owner"}
-                driverName={driverName}
+                isOwner={isOwnerView}
+                driverName={viewDriverName}
               />
 
               <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
                 <p className="text-sm text-white/60">
                   {SITE.name}
-                  {sessionRole === "owner"
+                  {isOwnerView
                     ? " · Owner"
-                    : driverName
-                      ? ` · ${driverName}`
+                    : viewDriverName
+                      ? ` · ${viewDriverName}`
                       : " · Driver"}
                 </p>
                 <button
@@ -1543,7 +1553,7 @@ export default function DriverPageClient() {
 
               {!loading && !error && visibleJobs.length === 0 && pendingJobs.length === 0 && (
                 <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-8 text-white/70">
-                  {sessionRole === "driver"
+                  {viewRole === "driver"
                     ? view === "upcoming"
                       ? "No jobs assigned to you in the next 60 days. When the owner assigns a job, it will appear at the top for you to accept."
                       : "No jobs assigned to you for this date yet."
@@ -1556,10 +1566,10 @@ export default function DriverPageClient() {
               {pendingJobs.length > 0 && (
                 <section className="mb-8">
                   <h2 className="mb-2 text-lg font-semibold text-white">
-                    {sessionRole === "driver" ? "Awaiting your acceptance" : "Awaiting driver acceptance"}
+                    {viewRole === "driver" ? "Awaiting your acceptance" : "Awaiting driver acceptance"}
                   </h2>
                   <p className="mb-4 text-sm text-white/60">
-                    {sessionRole === "driver"
+                    {viewRole === "driver"
                       ? "You can accept or decline these jobs at any time. Live tracking opens on the day of travel."
                       : "These jobs are assigned but not yet accepted by the driver."}
                   </p>
@@ -1595,7 +1605,7 @@ export default function DriverPageClient() {
                         onRefreshJob={job.isAirportPickup ? refreshJobs : undefined}
                         refreshingJob={loading}
                         compactTracking={view === "upcoming"}
-                        isOwner={sessionRole === "owner"}
+                        isOwner={isOwnerView}
                         availableDrivers={availableDrivers}
                       />
                     ))}
@@ -1640,7 +1650,7 @@ export default function DriverPageClient() {
                             onRefreshJob={job.isAirportPickup ? refreshJobs : undefined}
                             refreshingJob={loading}
                             compactTracking
-                            isOwner={sessionRole === "owner"}
+                            isOwner={isOwnerView}
                             availableDrivers={availableDrivers}
                           />
                         ))}
@@ -1677,7 +1687,7 @@ export default function DriverPageClient() {
                       onAssignmentUpdated={handleAssignmentUpdated}
                       onRefreshJob={job.isAirportPickup ? refreshJobs : undefined}
                       refreshingJob={loading}
-                      isOwner={sessionRole === "owner"}
+                            isOwner={isOwnerView}
                       availableDrivers={availableDrivers}
                     />
                   ))}
