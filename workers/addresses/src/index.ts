@@ -58,6 +58,7 @@ import {
   parseTrackSubRoute,
   parseTrackTokenFromPath,
 } from "./tracking-handlers";
+import { processDueReviewRequests } from "./review-request-handlers";
 import {
   sendEmail,
   trySendEmail,
@@ -89,6 +90,7 @@ type Env = {
   GOOGLE_CALENDAR_ID?: string;
   TRACKING_STORE?: KVNamespace;
   DRIVER_ACCESS_KEY?: string;
+  GOOGLE_REVIEW_URL?: string;
 };
 
 type QuoteLeadRequestBody = QuoteLeadDetails & {
@@ -1087,5 +1089,15 @@ export default {
     } catch {
       return json({ error: "Address lookup failed" }, 502, origin);
     }
+  },
+
+  async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
+    ctx.waitUntil(
+      processDueReviewRequests(env).then((result) => {
+        if (result.sent > 0 || result.errors > 0) {
+          console.log("Review request cron", JSON.stringify(result));
+        }
+      }),
+    );
   },
 };

@@ -122,3 +122,34 @@ export async function listTrackingJobsForDate(
     .filter((job): job is TrackingJobRecord => Boolean(job))
     .sort((a, b) => a.pickupAt.localeCompare(b.pickupAt));
 }
+
+function londonDateString(date: Date): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/London",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date);
+}
+
+function shiftDateString(dateStr: string, days: number): string {
+  const base = new Date(`${dateStr}T12:00:00Z`);
+  base.setUTCDate(base.getUTCDate() + days);
+  return base.toISOString().slice(0, 10);
+}
+
+export async function listTrackingJobsForRecentDays(
+  store: KVNamespace,
+  daysBack: number,
+): Promise<TrackingJobRecord[]> {
+  const today = londonDateString(new Date());
+  const jobs: TrackingJobRecord[] = [];
+
+  for (let offset = 0; offset <= daysBack; offset += 1) {
+    const tripDate = shiftDateString(today, -offset);
+    const dayJobs = await listTrackingJobsForDate(store, tripDate);
+    jobs.push(...dayJobs);
+  }
+
+  return jobs;
+}

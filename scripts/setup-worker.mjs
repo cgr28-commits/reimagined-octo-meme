@@ -176,6 +176,9 @@ putSecret(
   "DRIVER_ACCESS_KEY",
   process.env.DRIVER_ACCESS_KEY ?? generateDriverAccessKey(),
 );
+if (process.env.GOOGLE_REVIEW_URL?.trim()) {
+  putSecret("GOOGLE_REVIEW_URL", process.env.GOOGLE_REVIEW_URL.trim());
+}
 
 console.log("\nDeploying worker…");
 run("npx wrangler deploy", { cwd: workerDir });
