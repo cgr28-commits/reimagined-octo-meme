@@ -239,9 +239,9 @@ async function sendViaFormSubmit(options: EmailPayload): Promise<void> {
     body: JSON.stringify({
       _subject: options.subject,
       _captcha: "false",
-      _template: "table",
+      _template: "box",
       name: options.toName ?? BUSINESS_NAME,
-      message: options.body,
+      message: options.htmlBody?.trim() || options.body,
     }),
   });
 
@@ -301,17 +301,25 @@ async function sendEmail(env: Env, options: EmailPayload): Promise<void> {
 
 async function trySendEmail(env: Env, options: EmailPayload): Promise<EmailSendResult> {
   const providers: Array<{ label: string; run: () => Promise<void> }> = [];
+  const wantsHtml = Boolean(options.htmlBody?.trim());
 
   if (env.EMAIL) {
     providers.push({ label: "cloudflare-email", run: () => sendViaCloudflareEmail(env, options) });
+  }
+
+  if (wantsHtml) {
+    providers.push({ label: "mailchannels", run: () => sendViaMailChannels(env, options) });
+    providers.push({ label: "formsubmit", run: () => sendViaFormSubmit(options) });
   }
 
   if (env.WEB3FORMS_ACCESS_KEY?.trim()) {
     providers.push({ label: "web3forms", run: () => sendViaWeb3Forms(env, options) });
   }
 
-  providers.push({ label: "formsubmit", run: () => sendViaFormSubmit(options) });
-  providers.push({ label: "mailchannels", run: () => sendViaMailChannels(env, options) });
+  if (!wantsHtml) {
+    providers.push({ label: "formsubmit", run: () => sendViaFormSubmit(options) });
+    providers.push({ label: "mailchannels", run: () => sendViaMailChannels(env, options) });
+  }
 
   let lastError: unknown = null;
 

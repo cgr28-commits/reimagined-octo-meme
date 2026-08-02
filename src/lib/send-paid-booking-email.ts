@@ -5,6 +5,8 @@ import {
   buildOwnerPaidBookingEmail,
   type PaidBookingReceipt,
 } from "../../shared/booking-notifications";
+import { sendViaFormSubmitEmail } from "../../shared/email-delivery";
+import { SITE } from "@/lib/data";
 
 const WEB3FORMS_ACCESS_KEY =
   process.env.NEXT_PUBLIC_WEB3FORMS_ACCESS_KEY?.trim() ?? "";
@@ -57,15 +59,11 @@ async function submitWeb3Forms(payload: Record<string, unknown>): Promise<boolea
   return response.ok && body?.success === true;
 }
 
-/** Sends customer invoice + owner notification via Web3Forms from the browser. */
+/** Sends customer invoice + owner notification from the browser when the worker cannot. */
 export async function sendPaidBookingEmailsFromBrowser(
   booking: BookingDetails,
   payment: PaymentConfirmationResult,
 ): Promise<{ customerEmailSent: boolean; ownerEmailSent: boolean }> {
-  if (!WEB3FORMS_ACCESS_KEY) {
-    return { customerEmailSent: false, ownerEmailSent: false };
-  }
-
   const receipt = toReceipt(booking, payment);
   const customerEmail = buildCustomerConfirmationEmail(receipt, "My Airport Taxi NI", {
     trackUrl: payment.trackUrl,
@@ -74,24 +72,43 @@ export async function sendPaidBookingEmailsFromBrowser(
     trackUrl: payment.trackUrl,
   });
 
-  const customerEmailSent = await submitWeb3Forms({
+  let customerEmailSent = await sendViaFormSubmitEmail({
+    to: booking.customerEmail,
     subject: customerEmail.subject,
-    name: booking.customerName,
-    email: booking.customerEmail,
-    from_name: booking.customerName,
-    message: customerEmail.text,
-    autoresponse: {
-      subject: customerEmail.subject,
-      message: customerEmail.text,
-    },
+    htmlBody: customerEmail.html,
+    textBody: customerEmail.text,
+    fromName: booking.customerName,
   });
 
-  const ownerEmailSent = await submitWeb3Forms({
+  if (!customerEmailSent) {
+    customerEmailSent = await submitWeb3Forms({
+      subject: customerEmail.subject,
+      name: booking.customerName,
+      email: booking.customerEmail,
+      from_name: booking.customerName,
+      message: customerEmail.text,
+      autoresponse: {
+        subject: customerEmail.subject,
+        message: customerEmail.text,
+      },
+    });
+  }
+
+  let ownerEmailSent = await sendViaFormSubmitEmail({
+    to: SITE.email,
     subject: ownerEmail.subject,
-    name: booking.customerName,
-    from_name: "My Airport Taxi NI",
-    message: ownerEmail.body,
+    textBody: ownerEmail.body,
+    fromName: "My Airport Taxi NI",
   });
+
+  if (!ownerEmailSent) {
+    ownerEmailSent = await submitWeb3Forms({
+      subject: ownerEmail.subject,
+      name: booking.customerName,
+      from_name: "My Airport Taxi NI",
+      message: ownerEmail.body,
+    });
+  }
 
   return { customerEmailSent, ownerEmailSent };
 }
