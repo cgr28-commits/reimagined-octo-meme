@@ -42,6 +42,7 @@ import {
   savePendingPayment,
 } from "@/lib/pending-payment";
 import { scheduleQuoteLeadAlert } from "@/lib/submit-quote-lead";
+import { sendPaidBookingEmailsFromBrowser } from "@/lib/send-paid-booking-email";
 import FlightNumberField, { formatVerifiedFlightSummary } from "@/components/FlightNumberField";
 import { isValidFlightNumberFormat } from "@/lib/flight-lookup";
 import type { VerifiedFlight } from "@/lib/flight-lookup";
@@ -346,9 +347,25 @@ function QuoteCard() {
         }
 
         try {
-          const result = await confirmPaidBooking(checkoutId, booking);
+          let result = await confirmPaidBooking(checkoutId, booking);
           if (cancelled) {
             return;
+          }
+
+          if (result.customerEmailSent !== true || result.ownerEmailSent !== true) {
+            try {
+              const fallback = await sendPaidBookingEmailsFromBrowser(booking, result);
+              result = {
+                ...result,
+                customerEmailSent: result.customerEmailSent === true || fallback.customerEmailSent,
+                ownerEmailSent: result.ownerEmailSent === true || fallback.ownerEmailSent,
+                emailSent:
+                  (result.customerEmailSent === true || fallback.customerEmailSent) &&
+                  (result.ownerEmailSent === true || fallback.ownerEmailSent),
+              };
+            } catch (fallbackError) {
+              console.error("Browser booking email fallback failed", fallbackError);
+            }
           }
 
           const summary = buildPaymentConfirmationSummary(result, booking.customerEmail);
