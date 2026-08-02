@@ -481,7 +481,7 @@ function buildRefundConfirmationHtml(
           </tr>
           <tr>
             <td style="padding:28px 32px 8px;font-size:15px;line-height:1.7;color:#334155;">
-              <p style="margin:0 0 16px;">We've processed a refund of <strong style="color:#0b1f33;font-size:17px;">${escapeHtml(details.refundAmount)}</strong> for your booking with ${escapeHtml(businessName)}. The amount should return to your original payment method within a few working days, depending on your bank or card provider.</p>
+              <p style="margin:0 0 16px;">We've processed a refund of <strong style="color:#0b1f33;font-size:17px;">${escapeHtml(details.refundAmount)}</strong> for your booking with ${escapeHtml(businessName)}. The amount should return to your original payment method within <strong>5&ndash;7 working days</strong>, depending on your bank or card provider.</p>
             </td>
           </tr>
           <tr>
@@ -539,7 +539,7 @@ export function buildCustomerRefundConfirmationEmail(
     (when ? `Journey: ${when}\n` : "") +
     `Pickup: ${details.pickupLabel}\n` +
     `Drop-off: ${details.dropoffLabel}\n\n` +
-    `The refund should appear on your original payment method within a few working days.\n\n` +
+    `The refund should appear on your original payment method within 5-7 working days.\n\n` +
     `Questions? Contact us at ${BUSINESS_EMAIL}.\n\n` +
     `${businessName}\n${BUSINESS_WEBSITE}`;
 
@@ -567,7 +567,7 @@ export function buildOwnerRefundConfirmationEmail(
     (when ? `Journey: ${when}\n` : "") +
     `Pickup: ${details.pickupLabel}\n` +
     `Drop-off: ${details.dropoffLabel}\n\n` +
-    `Calendar events marked as cancelled and tracking job removed where applicable.`;
+    `Calendar events marked as cancelled and the booking marked as refunded on the driver dashboard.`;
 
   return { subject, body };
 }

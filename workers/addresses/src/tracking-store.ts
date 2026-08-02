@@ -308,3 +308,25 @@ export async function cancelTrackingJob(store: KVNamespace, token: string): Prom
 
   return true;
 }
+
+export async function markTrackingJobRefunded(
+  store: KVNamespace,
+  token: string,
+  refundAmountLabel?: string,
+): Promise<boolean> {
+  const record = await getTrackingJob(store, token);
+  if (!record) {
+    return false;
+  }
+
+  const updated: TrackingJobRecord = {
+    ...record,
+    sharingActive: false,
+    customerSharingActive: false,
+    refundedAt: new Date().toISOString(),
+    ...(refundAmountLabel?.trim() ? { refundAmountLabel: refundAmountLabel.trim() } : {}),
+  };
+
+  await saveTrackingJob(store, updated);
+  return true;
+}

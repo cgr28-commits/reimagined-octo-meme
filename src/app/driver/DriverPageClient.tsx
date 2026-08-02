@@ -182,7 +182,7 @@ function DriverJobCard({
   driverKey: string;
   activeToken: string | null;
   onSharingChange: (token: string | null) => void;
-  onRefunded: (token: string) => void;
+  onRefunded: (token: string, refundAmount?: string) => void;
   onUpdated: (job: DriverJob) => void;
   compactTracking?: boolean;
 }) {
@@ -205,9 +205,10 @@ function DriverJobCard({
   const isActive = activeToken === job.token;
   const mapMarkers = jobMapMarkers(job, isActive);
   const isDemoDriver = driverKey === DEMO_DRIVER_KEY;
-  const canRefund = Boolean(job.paymentReference?.trim()) && !isDemoDriver;
-  const canEdit = job.bookingStatus !== "refunded";
-  const trackingAvailable = !compactTracking && job.trackingWindow.open;
+  const isRefunded = job.bookingStatus === "refunded";
+  const canRefund = Boolean(job.paymentReference?.trim()) && !isDemoDriver && !isRefunded;
+  const canEdit = !isRefunded;
+  const trackingAvailable = !compactTracking && job.trackingWindow.open && !isRefunded;
 
   const toggleSharing = async () => {
     setBusy(true);
@@ -321,7 +322,7 @@ function DriverJobCard({
           ? `Already refunded (${result.refundAmount ?? "paid amount"}).`
           : `Refund issued: ${result.refundAmount ?? "paid amount"}. Customer emailed, calendar updated.`,
       );
-      onRefunded(job.token);
+      onRefunded(job.token, result.refundAmount);
     } catch (err) {
       setRefundMessage(err instanceof Error ? err.message : "Refund could not be completed.");
     } finally {
@@ -330,7 +331,13 @@ function DriverJobCard({
   };
 
   return (
-    <article className="rounded-2xl border border-white/10 bg-white/[0.03] p-6">
+    <article
+      className={`rounded-2xl border p-6 ${
+        isRefunded
+          ? "border-red-400/20 bg-red-500/[0.04] opacity-90"
+          : "border-white/10 bg-white/[0.03]"
+      }`}
+    >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-lg font-bold text-white">{job.customerName}</h2>
@@ -344,25 +351,36 @@ function DriverJobCard({
           {job.amountPaidLabel && (
             <p className="mt-1 text-sm text-white/70">Paid: {job.amountPaidLabel}</p>
           )}
+          {isRefunded && (job.refundAmountLabel || job.amountPaidLabel) && (
+            <p className="mt-1 text-sm font-semibold text-red-200">
+              Refunded: {job.refundAmountLabel ?? job.amountPaidLabel}
+            </p>
+          )}
           {job.paymentReference && (
             <p className="mt-1 text-xs text-white/40">Ref: {job.paymentReference}</p>
           )}
         </div>
-        <span
-          className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wider ${
-            job.trackingWindow.open
-              ? "bg-emerald/15 text-emerald"
-              : "bg-white/10 text-white/50"
-          }`}
-        >
-          {job.trackingWindow.open ? "Window open" : compactTracking ? "Upcoming" : "Not yet open"}
-        </span>
+        {isRefunded ? (
+          <span className="rounded-full bg-red-500/15 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-red-200">
+            Refunded · Job cancelled
+          </span>
+        ) : (
+          <span
+            className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wider ${
+              job.trackingWindow.open
+                ? "bg-emerald/15 text-emerald"
+                : "bg-white/10 text-white/50"
+            }`}
+          >
+            {job.trackingWindow.open ? "Window open" : compactTracking ? "Upcoming" : "Not yet open"}
+          </span>
+        )}
       </div>
 
       <DriverFlightPanel job={job} />
 
       <div className="mt-5 flex flex-wrap gap-3">
-        {!compactTracking && (
+        {!compactTracking && !isRefunded && (
           <button
             type="button"
             disabled={busy}
@@ -515,7 +533,8 @@ function DriverJobCard({
           <p className="text-sm font-semibold text-red-100">Confirm full refund</p>
           <p className="mt-2 text-sm leading-relaxed text-red-100/85">
             This will refund the customer via SumUp, email them a confirmation, mark the job as
-            cancelled in your calendar, and remove it from this dashboard. This cannot be undone.
+            cancelled in your calendar, and show it as refunded on this dashboard. This cannot be
+            undone.
           </p>
           <div className="mt-4 flex flex-wrap gap-3">
             <button
@@ -869,8 +888,19 @@ export default function DriverPageClient() {
                             driverKey={savedKey}
                             activeToken={activeToken}
                             onSharingChange={setActiveToken}
-                            onRefunded={(token) => {
-                              setJobs((current) => current.filter((entry) => entry.token !== token));
+                            onRefunded={(token, refundAmount) => {
+                              setJobs((current) =>
+                                current.map((entry) =>
+                                  entry.token === token
+                                    ? {
+                                        ...entry,
+                                        bookingStatus: "refunded",
+                                        refundAmountLabel:
+                                          refundAmount ?? entry.refundAmountLabel,
+                                      }
+                                    : entry,
+                                ),
+                              );
                               if (activeToken === token) {
                                 setActiveToken(null);
                               }
@@ -892,8 +922,18 @@ export default function DriverPageClient() {
                       driverKey={savedKey}
                       activeToken={activeToken}
                       onSharingChange={setActiveToken}
-                      onRefunded={(token) => {
-                        setJobs((current) => current.filter((entry) => entry.token !== token));
+                      onRefunded={(token, refundAmount) => {
+                        setJobs((current) =>
+                          current.map((entry) =>
+                            entry.token === token
+                              ? {
+                                  ...entry,
+                                  bookingStatus: "refunded",
+                                  refundAmountLabel: refundAmount ?? entry.refundAmountLabel,
+                                }
+                              : entry,
+                          ),
+                        );
                         if (activeToken === token) {
                           setActiveToken(null);
                         }

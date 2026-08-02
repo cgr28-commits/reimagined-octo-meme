@@ -23,9 +23,9 @@ import {
   savePaidBookingRecord,
 } from "./paid-booking-store";
 import {
-  cancelTrackingJob,
   findTrackingJobByPaymentReference,
   getTrackingJob,
+  markTrackingJobRefunded,
   trackingStoreConfigured,
 } from "./tracking-store";
 import { trySendEmail, type WorkerEmailEnv } from "./worker-email";
@@ -111,6 +111,7 @@ export type RefundIssueResult = {
   /** @deprecated Use calendarCancelled */
   calendarDeleted?: number;
   trackingRemoved?: boolean;
+  trackingMarkedRefunded?: boolean;
   customerEmailSent?: boolean;
   ownerEmailSent?: boolean;
   warnings?: string[];
@@ -268,13 +269,17 @@ export async function issueBookingRefund(
     warnings.push("No stored calendar event ids — calendar entry may remain");
   }
 
-  let trackingRemoved = false;
+  let trackingMarkedRefunded = false;
   if (trackingStoreConfigured(env.TRACKING_STORE)) {
     const token =
       record.trackingToken ??
       (await findTrackingJobByPaymentReference(env.TRACKING_STORE, paymentReference))?.token;
     if (token) {
-      trackingRemoved = await cancelTrackingJob(env.TRACKING_STORE, token);
+      trackingMarkedRefunded = await markTrackingJobRefunded(
+        env.TRACKING_STORE,
+        token,
+        refundAmountLabel,
+      );
     }
   }
 
@@ -322,7 +327,17 @@ export async function issueBookingRefund(
     );
   }
 
-  await markPaidBookingRefunded(env.TRACKING_STORE, paymentReference, refundAmountLabel);
+  const existingPaidRecord = await getPaidBookingRecord(env.TRACKING_STORE!, paymentReference);
+  if (existingPaidRecord) {
+    await markPaidBookingRefunded(env.TRACKING_STORE!, paymentReference, refundAmountLabel);
+  } else {
+    await savePaidBookingRecord(env.TRACKING_STORE!, {
+      ...record,
+      status: "refunded",
+      refundedAt: new Date().toISOString(),
+      refundAmountLabel,
+    });
+  }
 
   return {
     ok: true,
@@ -331,7 +346,8 @@ export async function issueBookingRefund(
     sumUpRefunded,
     calendarCancelled,
     calendarDeleted: calendarCancelled,
-    trackingRemoved,
+    trackingRemoved: trackingMarkedRefunded,
+    trackingMarkedRefunded,
     customerEmailSent: customerEmailResult.sent,
     ownerEmailSent: ownerEmailResult.sent,
     ...(warnings.length > 0 ? { warnings } : {}),
