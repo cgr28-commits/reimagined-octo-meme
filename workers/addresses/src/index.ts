@@ -705,6 +705,7 @@ async function handleCalendarStatusRequest(
     );
   } catch (error) {
     const detail = error instanceof Error ? error.message : "Unknown calendar error";
+    const trimmed = serviceAccountJson.trim();
     return json(
       {
         connected: false,
@@ -712,6 +713,10 @@ async function handleCalendarStatusRequest(
         calendarId,
         reason: "auth_failed",
         detail,
+        secretLength: trimmed.length,
+        secretStartsWithBrace: trimmed.startsWith("{"),
+        secretContainsClientEmail: trimmed.includes("client_email"),
+        secretContainsPrivateKey: trimmed.includes("private_key"),
         message:
           "Calendar secrets are set but authentication failed. Check the service account JSON key.",
       },
