@@ -328,7 +328,17 @@ export const FAQS = [
   {
     question: "Can I pay by card?",
     answer:
-      "We accept cash, card, and bank transfer. Corporate accounts are available for regular business travellers — contact us to set up invoicing.",
+      "Yes — you can pay securely online by card when you book through our quote form (SumUp checkout). We also accept cash, bank transfer, and payment links sent by text or WhatsApp. Corporate accounts are available for regular business travellers.",
+  },
+  {
+    question: "What is your cancellation and refund policy?",
+    answer:
+      "Cancellations more than 24 hours before your scheduled pickup receive a full refund. Cancellations within 24 hours of pickup are non-refundable. No-shows are not eligible for a refund. Full details are in our Terms & Conditions.",
+  },
+  {
+    question: "When is my booking confirmed?",
+    answer:
+      "For online card payments, your booking is confirmed once payment is completed and you receive your invoice email. For WhatsApp or email bookings, your booking is not confirmed until full payment has been received and we have acknowledged your reservation.",
   },
   {
     question: "What vehicle types do you offer?",

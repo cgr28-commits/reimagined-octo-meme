@@ -86,6 +86,9 @@ export function buildBookingMessage(details: BookingDetails, bookingReference?: 
       : "") +
     (details.estimatedPrice ? `Estimated price: ${details.estimatedPrice}\n` : "") +
     (details.returnJourney ? "Return booking discount: 5% applied\n" : "") +
+    (details.termsAcceptedAt
+      ? `Terms accepted: ${details.termsAcceptedAt}${details.termsVersion ? ` (${details.termsVersion})` : ""}\n`
+      : "") +
     `Submitted: ${formatUkSubmissionTime()}\n`
   );
 }

@@ -1,9 +1,11 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import BookingTermsConsent from "@/components/BookingTermsConsent";
 import { detectMobileDevice, useIsMobileDevice } from "@/lib/device";
 import { isValidEmailAddress, isValidMobileNumber } from "@/lib/booking-message";
 import { SITE } from "@/lib/data";
+import { TERMS_LAST_UPDATED } from "@/lib/terms";
 import {
   openWhatsAppBookingMessage,
   submitEnquiryByEmail,
@@ -70,6 +72,8 @@ export default function TourBookingForm({
   const [enquiryDelivery, setEnquiryDelivery] = useState<EnquiryDelivery | null>(null);
   const [emailAddressError, setEmailAddressError] = useState("");
   const [mobileNumberError, setMobileNumberError] = useState("");
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [termsError, setTermsError] = useState("");
 
   const defaultDescription = usesWhatsApp
     ? "Fill in your details, review them, then send via WhatsApp or email."
@@ -107,6 +111,24 @@ export default function TourBookingForm({
     };
   }
 
+  function buildConfirmedDetails(): TourEnquiryDetails {
+    return {
+      ...buildDetails(),
+      termsAcceptedAt: new Date().toISOString(),
+      termsVersion: TERMS_LAST_UPDATED,
+    };
+  }
+
+  function requireTermsAccepted(): boolean {
+    if (!termsAccepted) {
+      setTermsError("Please accept the Terms & Conditions before continuing.");
+      return false;
+    }
+
+    setTermsError("");
+    return true;
+  }
+
   function validateForm(): boolean {
     if (!customerName.trim()) {
       return false;
@@ -141,7 +163,11 @@ export default function TourBookingForm({
   }
 
   async function confirmEnquiry(delivery: EnquiryDelivery) {
-    const details = buildDetails();
+    if (!requireTermsAccepted()) {
+      return;
+    }
+
+    const details = buildConfirmedDetails();
     const isMobile = isMobileDevice ?? detectMobileDevice();
 
     if (delivery === "email" && !validateEmail(true)) {
@@ -200,6 +226,10 @@ export default function TourBookingForm({
 
     if (!showPreview) {
       setShowPreview(true);
+      return;
+    }
+
+    if (!requireTermsAccepted()) {
       return;
     }
 
@@ -445,6 +475,17 @@ export default function TourBookingForm({
         {showPreview ? (
           usesWhatsApp ? (
             <div className="space-y-3">
+              <BookingTermsConsent
+                accepted={termsAccepted}
+                onAcceptedChange={(checked) => {
+                  setTermsAccepted(checked);
+                  if (checked) {
+                    setTermsError("");
+                  }
+                }}
+                error={termsError}
+                mode="booking-request"
+              />
               <p className="text-xs text-white/55">Choose how to send your booking:</p>
               <button
                 type="button"
@@ -454,6 +495,8 @@ export default function TourBookingForm({
                   setEnquirySent(false);
                   setBookingReference("");
                   setEnquiryDelivery(null);
+                  setTermsAccepted(false);
+                  setTermsError("");
                 }}
                 className="w-full rounded-xl border border-white/15 bg-white/5 py-3.5 text-sm font-semibold text-white transition-all hover:bg-white/10"
               >
@@ -461,7 +504,7 @@ export default function TourBookingForm({
               </button>
               <button
                 type="button"
-                disabled={submitted}
+                disabled={submitted || !termsAccepted}
                 onClick={() => void confirmEnquiry("whatsapp")}
                 className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald py-3.5 text-sm font-bold text-navy transition-all hover:bg-emerald-light hover:shadow-lg hover:shadow-emerald/25 disabled:cursor-not-allowed disabled:opacity-70"
               >
@@ -470,7 +513,7 @@ export default function TourBookingForm({
               </button>
               <button
                 type="button"
-                disabled={submitted}
+                disabled={submitted || !termsAccepted}
                 onClick={() => void confirmEnquiry("email")}
                 className="w-full rounded-xl border border-white/20 bg-white/5 py-3.5 text-sm font-semibold text-white transition-all hover:border-emerald/40 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-70"
               >
@@ -482,27 +525,42 @@ export default function TourBookingForm({
               </p>
             </div>
           ) : (
-            <div className="grid gap-3 sm:grid-cols-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setShowPreview(false);
-                  setSubmitError("");
-                  setEnquirySent(false);
-                  setBookingReference("");
-                  setEnquiryDelivery(null);
+            <div className="space-y-3">
+              <BookingTermsConsent
+                accepted={termsAccepted}
+                onAcceptedChange={(checked) => {
+                  setTermsAccepted(checked);
+                  if (checked) {
+                    setTermsError("");
+                  }
                 }}
-                className="w-full rounded-xl border border-white/15 bg-white/5 py-3.5 text-sm font-semibold text-white transition-all hover:bg-white/10"
-              >
-                Edit details
-              </button>
-              <button
-                type="submit"
-                disabled={submitted}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald py-3.5 text-sm font-bold text-navy transition-all hover:bg-emerald-light hover:shadow-lg hover:shadow-emerald/25 disabled:cursor-not-allowed disabled:opacity-70"
-              >
-                {submitted ? submitInProgressLabel : confirmLabel}
-              </button>
+                error={termsError}
+                mode="booking-request"
+              />
+              <div className="grid gap-3 sm:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowPreview(false);
+                    setSubmitError("");
+                    setEnquirySent(false);
+                    setBookingReference("");
+                    setEnquiryDelivery(null);
+                    setTermsAccepted(false);
+                    setTermsError("");
+                  }}
+                  className="w-full rounded-xl border border-white/15 bg-white/5 py-3.5 text-sm font-semibold text-white transition-all hover:bg-white/10"
+                >
+                  Edit details
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitted || !termsAccepted}
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald py-3.5 text-sm font-bold text-navy transition-all hover:bg-emerald-light hover:shadow-lg hover:shadow-emerald/25 disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  {submitted ? submitInProgressLabel : confirmLabel}
+                </button>
+              </div>
             </div>
           )
         ) : (

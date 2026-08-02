@@ -1,4 +1,4 @@
-export const TERMS_LAST_UPDATED = "July 2026";
+export const TERMS_LAST_UPDATED = "August 2026";
 
 export const TERMS_SECTIONS = [
   {
@@ -6,6 +6,22 @@ export const TERMS_SECTIONS = [
     content: [
       "Welcome to My Airport Taxi NI. By requesting a quotation, making a booking or using our services, you agree to these Terms & Conditions.",
     ],
+  },
+  {
+    title: "Operator & contact details",
+    content: [
+      "My Airport Taxi NI is a fully licensed and insured private hire operator providing pre-booked airport transfers and chauffeur services in Northern Ireland.",
+    ],
+    list: [
+      "Trading name: My Airport Taxi NI",
+      "Email: bookings@myairporttaxini.co.uk",
+      "Telephone: 028 9602 2952",
+      "Website: www.myairporttaxini.co.uk",
+      "Service area: Greater Belfast and across Northern Ireland",
+      "Complaints & legal enquiries: bookings@myairporttaxini.co.uk",
+    ],
+    footer:
+      "Registered business details are available on request. Please contact us if you require written confirmation of our operator status for corporate or legal purposes.",
   },
   {
     title: "Our Service",

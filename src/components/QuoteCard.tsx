@@ -3,6 +3,7 @@
 import { FormEvent, memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import AddressInput from "@/components/AddressInput";
+import BookingTermsConsent from "@/components/BookingTermsConsent";
 import TripMap from "@/components/TripMap";
 import { buildBookingMessage, isValidEmailAddress, isValidMobileNumber, type BookingDetails } from "@/lib/booking-message";
 import { TERMS_LAST_UPDATED } from "@/lib/terms";
@@ -759,6 +760,24 @@ function QuoteCard() {
     };
   }
 
+  function buildConfirmedBookingDetails(): BookingDetails {
+    return {
+      ...buildBookingDetails(),
+      termsAcceptedAt: new Date().toISOString(),
+      termsVersion: TERMS_LAST_UPDATED,
+    };
+  }
+
+  function requireTermsAccepted(): boolean {
+    if (!termsAccepted) {
+      setTermsError("Please accept the Terms & Conditions before continuing.");
+      return false;
+    }
+
+    setTermsError("");
+    return true;
+  }
+
   function buildPaymentDescription(): string {
     const vehicleLabel = quoteVehicle.split(" (")[0];
     const tripSummary = isAirportTrip
@@ -785,12 +804,10 @@ function QuoteCard() {
       return;
     }
 
-    if (!termsAccepted) {
-      setTermsError("Please accept the Terms & Conditions before paying.");
+    if (!requireTermsAccepted()) {
       return;
     }
 
-    setTermsError("");
     setPaymentLoading(true);
     setPaymentError("");
 
@@ -805,9 +822,7 @@ function QuoteCard() {
         {
           checkoutId: checkout.checkoutId,
           booking: {
-            ...buildBookingDetails(),
-            termsAcceptedAt: new Date().toISOString(),
-            termsVersion: TERMS_LAST_UPDATED,
+            ...buildConfirmedBookingDetails(),
           },
         },
         returnToken,
@@ -829,7 +844,11 @@ function QuoteCard() {
   }
 
   async function confirmBooking(delivery: BookingDelivery) {
-    const details = buildBookingDetails();
+    if (!requireTermsAccepted()) {
+      return;
+    }
+
+    const details = buildConfirmedBookingDetails();
     const isMobile = isMobileDevice ?? detectMobileDevice();
     setSubmitted(true);
     setSubmitError("");
@@ -873,6 +892,9 @@ function QuoteCard() {
 
     if (showBookingPreview) {
       if (!usesWhatsApp) {
+        if (!requireTermsAccepted()) {
+          return;
+        }
         void confirmBooking("email");
       }
       return;
@@ -1796,51 +1818,27 @@ function QuoteCard() {
 
         {showBookingPreview ? (
           <div className="space-y-3">
+            <BookingTermsConsent
+              accepted={termsAccepted}
+              onAcceptedChange={(checked) => {
+                setTermsAccepted(checked);
+                if (checked) {
+                  setTermsError("");
+                }
+              }}
+              error={termsError}
+              mode={sumUpEnabled && liveQuote ? "card-payment" : "booking-request"}
+              paymentAmountLabel={
+                testChargeAmount !== null
+                  ? "£1.00"
+                  : liveQuote
+                    ? formatQuote(liveQuote.amount)
+                    : undefined
+              }
+            />
+
             {sumUpEnabled && liveQuote && (
               <div className="space-y-3">
-                <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-white/15 bg-white/[0.04] px-4 py-3 text-left">
-                  <input
-                    type="checkbox"
-                    checked={termsAccepted}
-                    onChange={(event) => {
-                      setTermsAccepted(event.target.checked);
-                      if (event.target.checked) {
-                        setTermsError("");
-                      }
-                    }}
-                    className="mt-0.5 h-4 w-4 shrink-0 rounded border-white/30 bg-navy-dark text-emerald focus:ring-emerald/30"
-                  />
-                  <span className="text-sm leading-relaxed text-white/80">
-                    I agree to the{" "}
-                    <Link
-                      href="/terms/"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="font-medium text-emerald underline decoration-emerald/40 underline-offset-2 hover:text-emerald-light"
-                    >
-                      Terms &amp; Conditions
-                    </Link>{" "}
-                    and{" "}
-                    <Link
-                      href="/privacy/"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="font-medium text-emerald underline decoration-emerald/40 underline-offset-2 hover:text-emerald-light"
-                    >
-                      Privacy Policy
-                    </Link>
-                    , including the cancellation policy (free cancellation more than 24 hours before
-                    pickup; non-refundable within 24 hours), and I authorise payment of{" "}
-                    {testChargeAmount !== null
-                      ? "£1.00"
-                      : liveQuote
-                        ? formatQuote(liveQuote.amount)
-                        : "the quoted fare"}{" "}
-                    for the service described above. My booking is confirmed once payment is
-                    completed.
-                  </span>
-                </label>
-                {termsError && <p className="text-xs text-red-300">{termsError}</p>}
                 <p className="text-xs leading-relaxed text-white/50">
                   Card payments are processed securely by SumUp. Keep your confirmation email as
                   proof of booking and payment.
@@ -1873,7 +1871,7 @@ function QuoteCard() {
               </button>
             ) : usesWhatsApp ? (
               <>
-                <p className="text-xs text-white/55">Or choose how to send your booking:</p>
+                <p className="text-xs text-white/55">Choose how to send your booking:</p>
                 <button
                   type="button"
                   onClick={handleEditBooking}
@@ -1883,7 +1881,7 @@ function QuoteCard() {
                 </button>
                 <button
                   type="button"
-                  disabled={submitted}
+                  disabled={submitted || !termsAccepted}
                   onClick={() => void confirmBooking("whatsapp")}
                   className="w-full rounded-xl bg-emerald py-3.5 text-sm font-bold text-navy transition-all hover:bg-emerald-light hover:shadow-lg hover:shadow-emerald/25 disabled:cursor-not-allowed disabled:opacity-70"
                 >
@@ -1891,7 +1889,7 @@ function QuoteCard() {
                 </button>
                 <button
                   type="button"
-                  disabled={submitted}
+                  disabled={submitted || !termsAccepted}
                   onClick={() => void confirmBooking("email")}
                   className="w-full rounded-xl border border-white/20 bg-white/5 py-3.5 text-sm font-semibold text-white transition-all hover:border-emerald/40 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-70"
                 >
@@ -1912,7 +1910,7 @@ function QuoteCard() {
                 </button>
                 <button
                   type="submit"
-                  disabled={submitted}
+                  disabled={submitted || !termsAccepted}
                   className="w-full rounded-xl bg-emerald py-3.5 text-sm font-bold text-navy transition-all hover:bg-emerald-light hover:shadow-lg hover:shadow-emerald/25 disabled:cursor-not-allowed disabled:opacity-70"
                 >
                   {submitted ? submitInProgressLabel : confirmButtonLabel}

@@ -10,6 +10,8 @@ export type TourEnquiryDetails = {
   pickupLocation: string;
   notes: string;
   bookingReference?: string;
+  termsAcceptedAt?: string;
+  termsVersion?: string;
 };
 
 export function buildTourEnquiryMessage(
@@ -29,6 +31,9 @@ export function buildTourEnquiryMessage(
     `Group size: ${details.groupSize}\n` +
     `Pickup location: ${details.pickupLocation}\n` +
     (details.notes ? `Notes: ${details.notes}\n` : "") +
+    (details.termsAcceptedAt
+      ? `Terms accepted: ${details.termsAcceptedAt}${details.termsVersion ? ` (${details.termsVersion})` : ""}\n`
+      : "") +
     `Submitted: ${formatUkSubmissionTime()}\n`
   );
 }
