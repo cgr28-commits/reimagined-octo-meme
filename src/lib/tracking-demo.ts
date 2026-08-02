@@ -107,6 +107,16 @@ function buildDemoResponse(
           updatedAt,
         }
       : null,
+    vehicle:
+      config.sharingActive && config.window.open
+        ? {
+            make: "Mercedes-Benz",
+            model: "E-Class",
+            colour: "Black",
+            registration: "ABC 1234",
+            driverName: "Gary",
+          }
+        : undefined,
     customer: config.customer
       ? {
           lat: config.customer.lat,

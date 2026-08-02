@@ -110,6 +110,24 @@ export type TrackLocation = {
   updatedAt: string;
 };
 
+export type CustomerVehicleDetails = {
+  make: string;
+  model: string;
+  colour: string;
+  registration: string;
+  driverName?: string;
+};
+
+export type DriverVehicleProfile = {
+  profileKey: string;
+  displayName: string;
+  make: string;
+  model: string;
+  colour: string;
+  registration: string;
+  updatedAt: string;
+};
+
 export type PublicTrackResponse = {
   ok: true;
   customerName: string;
@@ -124,6 +142,7 @@ export type PublicTrackResponse = {
   customerSharingActive: boolean;
   driver: TrackLocation | null;
   customer?: TrackLocation | null;
+  vehicle?: CustomerVehicleDetails;
   trackUrl: string;
 };
 
@@ -317,6 +336,64 @@ export async function setDriverSharing(
   });
 
   return parseJsonResponse<{ ok: true; trackUrl: string }>(response);
+}
+
+export async function fetchDriverVehicleProfiles(
+  accessKey: string,
+): Promise<Array<{ profileKey: string; displayName: string }>> {
+  const url = new URL(`${WORKER_BASE}/driver/vehicle/profiles`);
+  driverQueryKey(url, accessKey);
+
+  const response = await fetch(url.toString(), {
+    method: "GET",
+    headers: { Accept: "application/json" },
+    cache: "no-store",
+  });
+
+  const payload = await parseJsonResponse<{ ok: true; profiles: Array<{ profileKey: string; displayName: string }> }>(
+    response,
+  );
+  return payload.profiles;
+}
+
+export async function fetchDriverVehicle(
+  accessKey: string,
+  profile?: string,
+): Promise<DriverVehicleProfile | null> {
+  const url = new URL(`${WORKER_BASE}/driver/vehicle`);
+  driverQueryKey(url, accessKey);
+  if (profile?.trim()) {
+    url.searchParams.set("profile", profile.trim());
+  }
+
+  const response = await fetch(url.toString(), {
+    method: "GET",
+    headers: { Accept: "application/json" },
+    cache: "no-store",
+  });
+
+  const payload = await parseJsonResponse<{ ok: true; profile: DriverVehicleProfile | null }>(response);
+  return payload.profile;
+}
+
+export async function saveDriverVehicle(
+  accessKey: string,
+  input: {
+    profile?: string;
+    make: string;
+    model: string;
+    colour: string;
+    registration: string;
+  },
+): Promise<DriverVehicleProfile> {
+  const response = await fetch(`${WORKER_BASE}/driver/vehicle?key=${encodeURIComponent(accessKey.trim())}`, {
+    method: "POST",
+    headers: driverPostHeaders(accessKey),
+    body: JSON.stringify(input),
+  });
+
+  const payload = await parseJsonResponse<{ ok: true; profile: DriverVehicleProfile }>(response);
+  return payload.profile;
 }
 
 export async function fetchDriverRoster(ownerKey: string): Promise<string[]> {

@@ -18,6 +18,9 @@ import {
   respondToJobAssignment,
   fetchDriverRoster,
   fetchDriverLocationHistory,
+  fetchDriverVehicleProfiles,
+  fetchDriverVehicle,
+  saveDriverVehicle,
   type DriverJob,
 } from "@/lib/tracking-api";
 import { issueBookingRefund } from "@/lib/refund-api";
@@ -210,6 +213,212 @@ function assignmentBadgeClass(status: DriverJob["assignmentStatus"]): string {
     default:
       return "bg-white/10 text-white/50";
   }
+}
+
+function VehicleDetailsPanel({
+  accessKey,
+  isOwner,
+  driverName,
+}: {
+  accessKey: string;
+  isOwner: boolean;
+  driverName: string | null;
+}) {
+  const [profiles, setProfiles] = useState<Array<{ profileKey: string; displayName: string }>>([]);
+  const [selectedProfile, setSelectedProfile] = useState(isOwner ? "owner" : driverName ?? "");
+  const [form, setForm] = useState({
+    make: "",
+    model: "",
+    colour: "",
+    registration: "",
+  });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void fetchDriverVehicleProfiles(accessKey)
+      .then((nextProfiles) => {
+        if (cancelled) {
+          return;
+        }
+
+        setProfiles(nextProfiles);
+        if (!isOwner && driverName) {
+          setSelectedProfile(driverName);
+        } else if (isOwner && nextProfiles.length > 0) {
+          setSelectedProfile(nextProfiles[0]?.profileKey === "owner" ? "owner" : nextProfiles[0]?.displayName ?? "owner");
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setError("Could not load vehicle profiles.");
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [accessKey, driverName, isOwner]);
+
+  useEffect(() => {
+    if (!selectedProfile) {
+      return;
+    }
+
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+
+    void fetchDriverVehicle(accessKey, selectedProfile)
+      .then((profile) => {
+        if (cancelled) {
+          return;
+        }
+
+        setForm({
+          make: profile?.make ?? "",
+          model: profile?.model ?? "",
+          colour: profile?.colour ?? "",
+          registration: profile?.registration ?? "",
+        });
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setError("Could not load saved vehicle details.");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [accessKey, selectedProfile]);
+
+  const saveVehicle = async () => {
+    setSaving(true);
+    setMessage(null);
+    setError(null);
+
+    try {
+      await saveDriverVehicle(accessKey, {
+        profile: selectedProfile,
+        make: form.make,
+        model: form.model,
+        colour: form.colour,
+        registration: form.registration,
+      });
+      setMessage("Vehicle details saved. Customers see them on the job day when live tracking starts.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not save vehicle details");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <section className="mb-8 rounded-2xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-bold text-white">Vehicle details</h2>
+          <p className="mt-2 text-sm text-white/60">
+            Saved here for your dashboard. Customers only see make, model, colour, and registration
+            on the day of travel when live driver tracking is active.
+          </p>
+        </div>
+        {isOwner && profiles.length > 1 && (
+          <select
+            value={selectedProfile}
+            onChange={(event) => setSelectedProfile(event.target.value)}
+            className="rounded-xl border border-white/15 bg-navy px-4 py-2.5 text-sm text-white outline-none focus:border-emerald"
+          >
+            {profiles.map((profile) => (
+              <option
+                key={profile.profileKey}
+                value={profile.profileKey === "owner" ? "owner" : profile.displayName}
+              >
+                {profile.displayName}
+              </option>
+            ))}
+          </select>
+        )}
+      </div>
+
+      <div className="mt-5 grid gap-4 sm:grid-cols-2">
+        <label className="block text-sm text-white/70">
+          Make
+          <input
+            type="text"
+            value={form.make}
+            onChange={(event) => setForm((current) => ({ ...current, make: event.target.value }))}
+            className="mt-2 w-full rounded-xl border border-white/15 bg-navy px-4 py-3 text-white outline-none focus:border-emerald"
+            placeholder="e.g. Mercedes-Benz"
+          />
+        </label>
+        <label className="block text-sm text-white/70">
+          Model
+          <input
+            type="text"
+            value={form.model}
+            onChange={(event) => setForm((current) => ({ ...current, model: event.target.value }))}
+            className="mt-2 w-full rounded-xl border border-white/15 bg-navy px-4 py-3 text-white outline-none focus:border-emerald"
+            placeholder="e.g. E-Class"
+          />
+        </label>
+        <label className="block text-sm text-white/70">
+          Colour
+          <input
+            type="text"
+            value={form.colour}
+            onChange={(event) => setForm((current) => ({ ...current, colour: event.target.value }))}
+            className="mt-2 w-full rounded-xl border border-white/15 bg-navy px-4 py-3 text-white outline-none focus:border-emerald"
+            placeholder="e.g. Black"
+          />
+        </label>
+        <label className="block text-sm text-white/70">
+          Registration
+          <input
+            type="text"
+            value={form.registration}
+            onChange={(event) =>
+              setForm((current) => ({ ...current, registration: event.target.value.toUpperCase() }))
+            }
+            className="mt-2 w-full rounded-xl border border-white/15 bg-navy px-4 py-3 uppercase text-white outline-none focus:border-emerald"
+            placeholder="e.g. ABC 1234"
+          />
+        </label>
+      </div>
+
+      <div className="mt-5 flex flex-wrap gap-3">
+        <button
+          type="button"
+          disabled={saving || loading}
+          onClick={() => void saveVehicle()}
+          className="rounded-xl bg-emerald px-5 py-3 text-sm font-semibold text-navy transition-colors hover:bg-emerald/90 disabled:opacity-60"
+        >
+          {saving ? "Saving…" : "Save vehicle details"}
+        </button>
+      </div>
+
+      {message && (
+        <p className="mt-4 rounded-xl border border-emerald/30 bg-emerald/10 px-4 py-3 text-sm text-emerald-light">
+          {message}
+        </p>
+      )}
+      {error && (
+        <p className="mt-4 rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-100">
+          {error}
+        </p>
+      )}
+    </section>
+  );
 }
 
 function DriverJobCard({
@@ -1095,6 +1304,12 @@ export default function DriverPageClient() {
             </section>
           ) : (
             <>
+              <VehicleDetailsPanel
+                accessKey={savedKey}
+                isOwner={sessionRole === "owner"}
+                driverName={driverName}
+              />
+
               <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
                 <p className="text-sm text-white/60">
                   {SITE.name}

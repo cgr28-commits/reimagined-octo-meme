@@ -37,6 +37,8 @@ import {
   type DashboardRole,
 } from "./driver-auth";
 import { trySendBrandedCustomerEmail, type WorkerEmailEnv } from "./worker-email";
+import { resolveCustomerVisibleVehicle } from "./driver-vehicle-store";
+import { toCustomerVehicleDetails } from "../shared/driver-vehicle";
 
 type Env = WorkerEmailEnv & {
   TRACKING_STORE?: KVNamespace;
@@ -255,7 +257,39 @@ export async function handlePublicTrackRequest(
     return cancelled;
   }
 
-  return jsonResponse(publicTrackPayload(record, origin), 200, origin);
+  return jsonResponse(
+    await buildPublicTrackResponse(record, env, origin),
+    200,
+    origin,
+  );
+}
+
+export async function buildPublicTrackResponse(
+  record: TrackingJobRecord,
+  env: Env,
+  origin: string | null,
+): Promise<ReturnType<typeof publicTrackPayload> & { vehicle?: ReturnType<typeof toCustomerVehicleDetails> }> {
+  const payload = publicTrackPayload(record, origin);
+  const window = getTrackingWindow(record.pickupAt);
+
+  if (!trackingStoreConfigured(env.TRACKING_STORE)) {
+    return payload;
+  }
+
+  const profile = await resolveCustomerVisibleVehicle(env.TRACKING_STORE, {
+    trackingWindowOpen: window.open,
+    sharingActive: record.sharingActive,
+    driverName: record.activeDriverName ?? record.assignedDriverName,
+  });
+
+  if (!profile) {
+    return payload;
+  }
+
+  return {
+    ...payload,
+    vehicle: toCustomerVehicleDetails(profile),
+  };
 }
 
 async function sendSharingReminderEmail(

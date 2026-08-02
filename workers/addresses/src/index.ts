@@ -70,6 +70,11 @@ import {
   handleDriverRosterRequest,
 } from "./driver-assignment-handlers";
 import {
+  handleDriverVehicleGetRequest,
+  handleDriverVehicleProfilesRequest,
+  handleDriverVehicleSaveRequest,
+} from "./driver-vehicle-handlers";
+import {
   handleRefundRequest,
   savePaidBookingRecordFromConfirm,
 } from "./refund-handlers";
@@ -142,7 +147,7 @@ function json(body: unknown, status: number, origin: string | null): Response {
 
 function parseDriverRoute(
   pathname: string,
-): "jobs" | "sharing" | "location" | "location-history" | "bookings-update" | "status" | "assign" | "deassign" | "assignment-response" | "roster" | null {
+): "jobs" | "sharing" | "location" | "location-history" | "bookings-update" | "status" | "assign" | "deassign" | "assignment-response" | "roster" | "vehicle" | "vehicle-profiles" | null {
   if (pathname === "/driver/jobs" || pathname === "/api/driver/jobs") {
     return "jobs";
   }
@@ -153,6 +158,14 @@ function parseDriverRoute(
 
   if (pathname === "/driver/roster" || pathname === "/api/driver/roster") {
     return "roster";
+  }
+
+  if (pathname === "/driver/vehicle/profiles" || pathname === "/api/driver/vehicle/profiles") {
+    return "vehicle-profiles";
+  }
+
+  if (pathname === "/driver/vehicle" || pathname === "/api/driver/vehicle") {
+    return "vehicle";
   }
 
   if (pathname === "/driver/bookings/update" || pathname === "/api/driver/bookings/update") {
@@ -1010,6 +1023,18 @@ export default {
 
     if (driverRoute === "roster" && request.method === "GET") {
       return handleDriverRosterRequest(request, env, origin);
+    }
+
+    if (driverRoute === "vehicle-profiles" && request.method === "GET") {
+      return handleDriverVehicleProfilesRequest(request, env, origin);
+    }
+
+    if (driverRoute === "vehicle" && request.method === "GET") {
+      return handleDriverVehicleGetRequest(request, env, origin);
+    }
+
+    if (driverRoute === "vehicle" && request.method === "POST") {
+      return handleDriverVehicleSaveRequest(request, env, origin);
     }
 
     if (driverRoute === "sharing" && request.method === "POST") {
