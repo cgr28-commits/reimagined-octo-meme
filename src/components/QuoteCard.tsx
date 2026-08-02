@@ -26,12 +26,17 @@ import {
   confirmPaidBooking,
   createPaymentCheckout,
   isSumUpPaymentEnabled,
+  type PaymentConfirmationResult,
 } from "@/lib/create-payment";
 import {
+  createPaymentReturnToken,
   hasConfirmedPayment,
   markPaymentConfirmed,
+  readPaymentConfirmationSummary,
   readPendingPayment,
+  readPendingPaymentByToken,
   resolveCheckoutIdFromUrl,
+  resolveReturnTokenFromUrl,
   savePendingPayment,
 } from "@/lib/pending-payment";
 import { scheduleQuoteLeadAlert } from "@/lib/submit-quote-lead";
@@ -46,6 +51,36 @@ const PICKUP_STORAGE_KEY = "my-airport-taxi-ni-pickup-address";
 const DROPOFF_STORAGE_KEY = "my-airport-taxi-ni-dropoff-address";
 const PAYMENT_CONFIRM_RETRY_MS = 2000;
 const PAYMENT_CONFIRM_MAX_ATTEMPTS = 5;
+
+function buildPaymentConfirmationSummary(
+  result: PaymentConfirmationResult,
+  customerEmail: string,
+): string {
+  if (result.emailSent === false) {
+    return `Payment of ${result.amountPaid} received. We could not send confirmation emails automatically — our team will confirm your booking manually. If you do not hear from us within an hour, email ${SITE.email}.`;
+  }
+
+  if (result.customerEmailSent === false) {
+    return `Payment of ${result.amountPaid} received. We notified our team but could not email your confirmation to ${customerEmail}. Contact us at ${SITE.email} if you need a copy.`;
+  }
+
+  return `Payment of ${result.amountPaid} received. Your invoice and booking confirmation have been emailed to ${customerEmail}.`;
+}
+
+function buildPaymentSuccessSubtext(summary: string, calendarLogged?: boolean): string {
+  if (
+    summary.includes("could not send confirmation emails") ||
+    summary.includes("could not email your confirmation")
+  ) {
+    return "Your payment is confirmed. We will follow up shortly.";
+  }
+
+  if (calendarLogged) {
+    return "Your booking is in our diary and we've sent the full details to our team.";
+  }
+
+  return "We've also sent the full booking details to our team.";
+}
 
 const BOOKING_PANEL_CLASS =
   "rounded-xl border border-white/25 bg-navy-light px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] sm:px-5 md:border-white/30 md:shadow-lg md:shadow-black/20";
@@ -237,17 +272,30 @@ function QuoteCard() {
     setPaymentReturned(true);
 
     const checkoutIdFromUrl = resolveCheckoutIdFromUrl(window.location.search);
-    const pending = readPendingPayment();
+    const returnToken = resolveReturnTokenFromUrl(window.location.search);
+    const pending =
+      readPendingPayment() ||
+      (returnToken ? readPendingPaymentByToken(returnToken) : null);
     const checkoutId = checkoutIdFromUrl || pending?.checkoutId || "";
 
     params.delete("payment");
     params.delete("checkout_id");
     params.delete("checkoutId");
+    params.delete("return_token");
     const nextSearch = params.toString();
     const nextUrl = `${window.location.pathname}${nextSearch ? `?${nextSearch}` : ""}#quote`;
     window.history.replaceState(null, "", nextUrl);
 
-    if (!checkoutId || !pending?.booking || hasConfirmedPayment(checkoutId)) {
+    if (checkoutId && hasConfirmedPayment(checkoutId)) {
+      const savedSummary =
+        readPaymentConfirmationSummary(checkoutId) ||
+        "Your booking is confirmed. Thank you for your payment.";
+      setPaymentConfirmed(true);
+      setPaymentConfirmationSummary(savedSummary);
+      return;
+    }
+
+    if (!checkoutId || !pending?.booking) {
       return;
     }
 
@@ -269,11 +317,10 @@ function QuoteCard() {
             return;
           }
 
-          markPaymentConfirmed(checkoutId);
+          const summary = buildPaymentConfirmationSummary(result, booking.customerEmail);
+          markPaymentConfirmed(checkoutId, summary, returnToken || undefined);
           setPaymentConfirmed(true);
-          setPaymentConfirmationSummary(
-            `Payment of ${result.amountPaid} received. Your invoice and booking confirmation have been emailed to ${booking.customerEmail}.`,
-          );
+          setPaymentConfirmationSummary(summary);
           setPaymentConfirming(false);
           return;
         } catch (error) {
@@ -687,15 +734,19 @@ function QuoteCard() {
     setPaymentError("");
 
     try {
+      const returnToken = createPaymentReturnToken();
       const checkout = await createPaymentCheckout({
         amount: paymentAmount ?? liveQuote.amount,
         description: buildPaymentDescription(),
-        redirectUrl: buildPaymentRedirectUrl(),
+        redirectUrl: buildPaymentRedirectUrl(returnToken),
       });
-      savePendingPayment({
-        checkoutId: checkout.checkoutId,
-        booking: buildBookingDetails(),
-      });
+      savePendingPayment(
+        {
+          checkoutId: checkout.checkoutId,
+          booking: buildBookingDetails(),
+        },
+        returnToken,
+      );
       const paymentWindow = window.open(checkout.paymentUrl, "_blank", "noopener,noreferrer");
       if (!paymentWindow) {
         window.location.assign(checkout.paymentUrl);
@@ -843,14 +894,14 @@ function QuoteCard() {
       >
         <div className="rounded-xl border border-emerald/30 bg-emerald/10 px-5 py-8 text-center sm:px-8 sm:py-10">
           <p className="text-xs font-medium uppercase tracking-wider text-emerald">
-            Payment confirmed
+            Payment received
           </p>
-          <h2 className="mt-2 text-2xl font-bold text-white sm:text-3xl">Thank you</h2>
+          <h2 className="mt-2 text-2xl font-bold text-white sm:text-3xl">Booking successful</h2>
           <p className="mx-auto mt-4 max-w-md text-sm leading-relaxed text-white/80 sm:text-base">
             {paymentConfirmationSummary}
           </p>
           <p className="mx-auto mt-4 max-w-md text-sm text-white/60">
-            We&apos;ve also sent the full booking details to our team.
+            {buildPaymentSuccessSubtext(paymentConfirmationSummary)}
           </p>
         </div>
       </div>
@@ -1567,7 +1618,7 @@ function QuoteCard() {
           <div className="space-y-3">
             {paymentConfirming && (
               <p className="rounded-xl border border-white/15 bg-white/[0.04] px-4 py-3 text-sm text-white">
-                Confirming your payment and sending your booking confirmation…
+                Confirming your payment and completing your booking…
               </p>
             )}
             {paymentConfirmError && (
