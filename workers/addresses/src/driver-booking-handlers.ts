@@ -160,6 +160,9 @@ export async function handleDriverUpdateBookingRequest(
     return jsonResponse({ error: "Unauthorized" }, 401, origin);
   }
 
+  const session = resolveDriverSession(request, env);
+  const role: DashboardRole = session.authorized ? session.role : "driver";
+
   let body: DriverBookingUpdateBody;
   try {
     body = (await request.json()) as DriverBookingUpdateBody;
@@ -216,7 +219,9 @@ export async function handleDriverUpdateBookingRequest(
   }
 
   if (body.customerMobile !== undefined) {
-    record.customerMobile = String(body.customerMobile).trim();
+    if (role === "owner") {
+      record.customerMobile = String(body.customerMobile).trim();
+    }
   }
 
   if (body.flightNumber !== undefined) {
@@ -238,7 +243,7 @@ export async function handleDriverUpdateBookingRequest(
     (record.flightNumber ?? "") !== previousFlight;
 
   if (!changed) {
-    return jsonResponse({ ok: true, job: await enrichDriverJob(record, env, origin) }, 200, origin);
+    return jsonResponse({ ok: true, job: await enrichDriverJob(record, env, origin, role) }, 200, origin);
   }
 
   record.pickupAt = pickupAt;
@@ -300,9 +305,6 @@ export async function handleDriverUpdateBookingRequest(
       }
     }
   }
-
-  const session = resolveDriverSession(request, env);
-  const role: DashboardRole = session.authorized ? session.role : "driver";
 
   const job = await enrichDriverJob(record, env, origin, role);
 

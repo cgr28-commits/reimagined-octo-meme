@@ -451,7 +451,7 @@ function DriverJobCard({
             {job.pickupDisplay} · {job.pickupLabel}
           </p>
           <p className="mt-1 text-sm text-white/60">To {job.dropoffLabel}</p>
-          {job.customerMobile && (
+          {isOwner && job.customerMobile && (
             <p className="mt-2 text-sm text-emerald">{job.customerMobile}</p>
           )}
           {isOwner && job.amountPaidLabel && (
@@ -671,18 +671,20 @@ function DriverJobCard({
                 className="mt-2 w-full rounded-xl border border-white/15 bg-navy px-4 py-3 text-white outline-none focus:border-emerald"
               />
             </label>
-            <label className="block text-sm text-white/70">
-              Mobile
-              <input
-                type="tel"
-                value={editForm.customerMobile}
-                onChange={(event) =>
-                  setEditForm((current) => ({ ...current, customerMobile: event.target.value }))
-                }
-                className="mt-2 w-full rounded-xl border border-white/15 bg-navy px-4 py-3 text-white outline-none focus:border-emerald"
-              />
-            </label>
-            <label className="block text-sm text-white/70">
+            {isOwner && (
+              <label className="block text-sm text-white/70">
+                Mobile
+                <input
+                  type="tel"
+                  value={editForm.customerMobile}
+                  onChange={(event) =>
+                    setEditForm((current) => ({ ...current, customerMobile: event.target.value }))
+                  }
+                  className="mt-2 w-full rounded-xl border border-white/15 bg-navy px-4 py-3 text-white outline-none focus:border-emerald"
+                />
+              </label>
+            )}
+            <label className={`block text-sm text-white/70 ${isOwner ? "" : "sm:col-span-2"}`}>
               Flight number
               <input
                 type="text"

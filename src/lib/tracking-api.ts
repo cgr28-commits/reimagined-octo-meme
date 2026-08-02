@@ -144,7 +144,8 @@ export type JobAssignmentStatus = "unassigned" | "pending" | "accepted" | "decli
 
 export type DriverJob = PublicTrackResponse & {
   token: string;
-  customerMobile: string;
+  customerMobile?: string;
+  customerEmail?: string;
   paymentReference?: string;
   amountPaidLabel?: string;
   bookingStatus?: "confirmed" | "refunded";
