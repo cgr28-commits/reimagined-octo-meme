@@ -336,6 +336,19 @@ export async function assignJobToDriver(
   return parseJsonResponse<{ ok: true; job: DriverJob }>(response);
 }
 
+export async function deassignJob(
+  ownerKey: string,
+  token: string,
+): Promise<{ ok: true; job: DriverJob }> {
+  const response = await fetch(`${WORKER_BASE}/driver/deassign?key=${encodeURIComponent(ownerKey.trim())}`, {
+    method: "POST",
+    headers: driverPostHeaders(ownerKey),
+    body: JSON.stringify({ token }),
+  });
+
+  return parseJsonResponse<{ ok: true; job: DriverJob }>(response);
+}
+
 export async function respondToJobAssignment(
   driverKey: string,
   token: string,

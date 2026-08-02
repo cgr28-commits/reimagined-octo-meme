@@ -64,6 +64,7 @@ import { processDueReviewRequests } from "./review-request-handlers";
 import { handleDriverUpdateBookingRequest } from "./driver-booking-handlers";
 import {
   handleDriverAssignRequest,
+  handleDriverDeassignRequest,
   handleDriverAssignmentResponseRequest,
   handleDriverRosterRequest,
 } from "./driver-assignment-handlers";
@@ -140,7 +141,7 @@ function json(body: unknown, status: number, origin: string | null): Response {
 
 function parseDriverRoute(
   pathname: string,
-): "jobs" | "sharing" | "location" | "bookings-update" | "status" | "assign" | "assignment-response" | "roster" | null {
+): "jobs" | "sharing" | "location" | "bookings-update" | "status" | "assign" | "deassign" | "assignment-response" | "roster" | null {
   if (pathname === "/driver/jobs" || pathname === "/api/driver/jobs") {
     return "jobs";
   }
@@ -159,6 +160,10 @@ function parseDriverRoute(
 
   if (pathname === "/driver/assign" || pathname === "/api/driver/assign") {
     return "assign";
+  }
+
+  if (pathname === "/driver/deassign" || pathname === "/api/driver/deassign") {
+    return "deassign";
   }
 
   if (pathname === "/driver/assignment" || pathname === "/api/driver/assignment") {
@@ -988,6 +993,10 @@ export default {
 
     if (driverRoute === "assign" && request.method === "POST") {
       return handleDriverAssignRequest(request, env, origin);
+    }
+
+    if (driverRoute === "deassign" && request.method === "POST") {
+      return handleDriverDeassignRequest(request, env, origin);
     }
 
     if (driverRoute === "assignment-response" && request.method === "POST") {

@@ -14,6 +14,7 @@ import {
   verifyDriverAccessKey,
   fetchDriverStatus,
   assignJobToDriver,
+  deassignJob,
   respondToJobAssignment,
   fetchDriverRoster,
   type DriverJob,
@@ -259,6 +260,8 @@ function DriverJobCard({
   const assignmentStatus = job.assignmentStatus ?? "unassigned";
   const isPendingForDriver = !isOwner && assignmentStatus === "pending";
   const isAcceptedAssignment = assignmentStatus === "accepted";
+  const isAssigned =
+    assignmentStatus === "pending" || assignmentStatus === "accepted" || assignmentStatus === "declined";
   const canRefund = isOwner && Boolean(job.paymentReference?.trim()) && !isDemoDriver && !isRefunded;
   const canEdit = !isRefunded && (isOwner || isAcceptedAssignment);
   const canShare =
@@ -310,6 +313,20 @@ function DriverJobCard({
       onAssignmentUpdated(result.job);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not assign job");
+    } finally {
+      setAssignBusy(false);
+    }
+  };
+
+  const deassignFromDriver = async () => {
+    setAssignBusy(true);
+    setError(null);
+
+    try {
+      const result = await deassignJob(driverKey, job.token);
+      onAssignmentUpdated(result.job);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not deassign job");
     } finally {
       setAssignBusy(false);
     }
@@ -518,6 +535,16 @@ function DriverJobCard({
                   ? "Reassign job"
                   : "Assign job"}
             </button>
+            {isAssigned && (
+              <button
+                type="button"
+                disabled={assignBusy}
+                onClick={() => void deassignFromDriver()}
+                className="rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:border-white/30 disabled:opacity-60"
+              >
+                {assignBusy ? "Removing…" : "Deassign"}
+              </button>
+            )}
           </>
         )}
 
@@ -833,7 +860,12 @@ export default function DriverPageClient() {
   const handleAssignmentUpdated = useCallback(
     (updatedJob: DriverJob) => {
       setJobs((current) => {
-        if (sessionRole === "driver" && updatedJob.assignmentStatus === "declined") {
+        if (
+          sessionRole === "driver" &&
+          (updatedJob.assignmentStatus === "declined" ||
+            updatedJob.assignmentStatus === "unassigned" ||
+            !updatedJob.assignmentStatus)
+        ) {
           return current.filter((entry) => entry.token !== updatedJob.token);
         }
 

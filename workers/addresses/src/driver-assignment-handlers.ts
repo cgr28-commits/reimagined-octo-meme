@@ -44,6 +44,15 @@ function stopDriverSharing(record: TrackingJobRecord): void {
   delete record.activeDriverName;
 }
 
+function clearJobAssignment(record: TrackingJobRecord): void {
+  delete record.assignedDriverName;
+  delete record.assignmentStatus;
+  delete record.assignedAt;
+  delete record.acceptedAt;
+  delete record.declinedAt;
+  stopDriverSharing(record);
+}
+
 function assignmentFields(record: TrackingJobRecord) {
   return {
     assignedDriverName: record.assignedDriverName,
@@ -125,6 +134,60 @@ export async function handleDriverAssignRequest(
 
   const role: DashboardRole = "owner";
   const job = await enrichDriverJob(record, env, origin, role);
+
+  return jsonResponse(
+    {
+      ok: true,
+      job,
+      ...assignmentFields(record),
+    },
+    200,
+    origin,
+  );
+}
+
+export async function handleDriverDeassignRequest(
+  request: Request,
+  env: Env,
+  origin: string | null,
+): Promise<Response> {
+  if (!trackingStoreConfigured(env.TRACKING_STORE)) {
+    return jsonResponse({ error: "Live tracking is not configured" }, 503, origin);
+  }
+
+  if (!ownerAuthorized(request, env)) {
+    return jsonResponse({ error: "Unauthorized — owner access required" }, 401, origin);
+  }
+
+  let body: Record<string, unknown>;
+  try {
+    body = await request.json();
+  } catch {
+    return jsonResponse({ error: "Invalid JSON" }, 400, origin);
+  }
+
+  const token = String(body.token ?? "").trim();
+  if (!token) {
+    return jsonResponse({ error: "Missing token" }, 400, origin);
+  }
+
+  const record = await getTrackingJob(env.TRACKING_STORE, token);
+  if (!record) {
+    return jsonResponse({ error: "Job not found" }, 404, origin);
+  }
+
+  if (isTrackingJobCancelled(record)) {
+    return jsonResponse({ error: "This booking has been cancelled" }, 409, origin);
+  }
+
+  if (jobAssignmentStatus(record) === "unassigned") {
+    return jsonResponse({ error: "This job is not assigned to a driver" }, 409, origin);
+  }
+
+  clearJobAssignment(record);
+  await saveTrackingJob(env.TRACKING_STORE, record);
+
+  const job = await enrichDriverJob(record, env, origin, "owner");
 
   return jsonResponse(
     {
