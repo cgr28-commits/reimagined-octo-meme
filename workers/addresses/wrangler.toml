@@ -12,7 +12,7 @@ compatibility_date = "2025-08-01"
 account_id = "36c5c88df4c1f0259413d555f2679f3c"
 
 [build]
-command = "npm run typecheck"
+command = "node ../../scripts/sync-worker-shared.mjs && npm run typecheck"
 
 [observability]
 enabled = true
