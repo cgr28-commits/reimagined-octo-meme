@@ -249,6 +249,8 @@ export function buildCustomerConfirmationEmail(
   const text =
     `Dear ${details.customerName},\n\n` +
     `Thank you for your booking with ${businessName}. Your card payment has been received and your transfer is confirmed.\n\n` +
+    `Logo: ${LOGO_URL}\n` +
+    `${BUSINESS_WEBSITE}\n\n` +
     `Please find your invoice details below.\n\n` +
     `BOOKING DETAILS\n` +
     `${"=".repeat(40)}\n` +
