@@ -22,6 +22,7 @@ export const PRIVACY_SECTIONS = [
       "Passenger and luggage details",
       "Payment confirmation details from SumUp (amount, transaction reference)",
       "Optional live location if you choose to share it on your tracking link",
+      "Marketing preferences if you opt in to receive updates (optional)",
     ],
   },
   {
@@ -35,12 +36,23 @@ export const PRIVACY_SECTIONS = [
       "Share live driver tracking links when applicable",
       "Log bookings in our business calendar",
       "Respond to enquiries and complaints",
+      "Send occasional marketing emails if you have opted in (offers, travel tips and service news)",
+    ],
+  },
+  {
+    title: "Marketing emails",
+    content: [
+      "We only send marketing emails if you tick the optional marketing checkbox when booking or enquiring. This is separate from the terms you must accept to complete a booking.",
+      "Marketing emails may include special offers, travel tips and news about our airport transfer and day trip services.",
+      "You can withdraw consent at any time using our unsubscribe page or by emailing bookings@myairporttaxini.co.uk with the address you wish to remove.",
+      "We do not sell your email address to third parties for their marketing.",
     ],
   },
   {
     title: "Legal basis",
     content: [
       "We process personal data to perform our contract with you (your booking), for legitimate business interests (operating our service safely and efficiently), and where required to comply with law.",
+      "Marketing emails are sent only with your consent. You may withdraw consent at any time without affecting your booking.",
     ],
   },
   {

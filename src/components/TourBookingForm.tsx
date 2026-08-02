@@ -2,8 +2,10 @@
 
 import { FormEvent, useState } from "react";
 import BookingTermsConsent from "@/components/BookingTermsConsent";
+import MarketingOptIn from "@/components/MarketingOptIn";
 import { detectMobileDevice, useIsMobileDevice } from "@/lib/device";
 import { isValidEmailAddress, isValidMobileNumber } from "@/lib/booking-message";
+import { buildMarketingOptInFields, recordMarketingOptIn } from "@/lib/marketing-api";
 import { SITE } from "@/lib/data";
 import { TERMS_LAST_UPDATED } from "@/lib/terms";
 import {
@@ -74,6 +76,7 @@ export default function TourBookingForm({
   const [mobileNumberError, setMobileNumberError] = useState("");
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [termsError, setTermsError] = useState("");
+  const [marketingOptIn, setMarketingOptIn] = useState(false);
 
   const defaultDescription = usesWhatsApp
     ? "Fill in your details, review them, then send via WhatsApp or email."
@@ -116,6 +119,7 @@ export default function TourBookingForm({
       ...buildDetails(),
       termsAcceptedAt: new Date().toISOString(),
       termsVersion: TERMS_LAST_UPDATED,
+      ...buildMarketingOptInFields(marketingOptIn),
     };
   }
 
@@ -207,6 +211,15 @@ export default function TourBookingForm({
     setShowPreview(false);
     setEnquirySent(true);
     setSubmitted(false);
+
+    if (details.marketingOptIn) {
+      void recordMarketingOptIn({
+        email: details.customerEmail,
+        name: details.customerName,
+        source: "tour-enquiry",
+        fields: details,
+      });
+    }
 
     if (isMobile && delivery === "whatsapp") {
       openWhatsAppBookingMessage(buildTourEnquiryMessage(details, reference));
@@ -486,6 +499,7 @@ export default function TourBookingForm({
                 error={termsError}
                 mode="booking-request"
               />
+              <MarketingOptIn checked={marketingOptIn} onCheckedChange={setMarketingOptIn} />
               <p className="text-xs text-white/55">Choose how to send your booking:</p>
               <button
                 type="button"
@@ -497,6 +511,7 @@ export default function TourBookingForm({
                   setEnquiryDelivery(null);
                   setTermsAccepted(false);
                   setTermsError("");
+                  setMarketingOptIn(false);
                 }}
                 className="w-full rounded-xl border border-white/15 bg-white/5 py-3.5 text-sm font-semibold text-white transition-all hover:bg-white/10"
               >
@@ -537,6 +552,7 @@ export default function TourBookingForm({
                 error={termsError}
                 mode="booking-request"
               />
+              <MarketingOptIn checked={marketingOptIn} onCheckedChange={setMarketingOptIn} />
               <div className="grid gap-3 sm:grid-cols-2">
                 <button
                   type="button"
@@ -548,6 +564,7 @@ export default function TourBookingForm({
                     setEnquiryDelivery(null);
                     setTermsAccepted(false);
                     setTermsError("");
+                    setMarketingOptIn(false);
                   }}
                   className="w-full rounded-xl border border-white/15 bg-white/5 py-3.5 text-sm font-semibold text-white transition-all hover:bg-white/10"
                 >

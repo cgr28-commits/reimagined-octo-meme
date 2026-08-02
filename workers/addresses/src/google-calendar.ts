@@ -29,6 +29,9 @@ export type TransferBookingEvent = {
   paymentReference?: string;
   paid?: boolean;
   returnFlightNumber?: string;
+  marketingOptIn?: boolean;
+  marketingOptInAt?: string;
+  marketingConsentVersion?: string;
 };
 
 export type TourBookingEvent = {
@@ -40,6 +43,9 @@ export type TourBookingEvent = {
   groupSize?: number;
   pickupLocation?: string;
   notes?: string;
+  marketingOptIn?: boolean;
+  marketingOptInAt?: string;
+  marketingConsentVersion?: string;
 };
 
 export type GoogleServiceAccount = {

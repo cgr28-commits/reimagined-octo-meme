@@ -27,6 +27,9 @@ export type TrackingJobRecord = {
   flightNumber?: string;
   termsAcceptedAt?: string;
   termsVersion?: string;
+  marketingOptIn?: boolean;
+  marketingOptInAt?: string;
+  marketingConsentVersion?: string;
 };
 
 export const LOCATION_STALE_MS = 5 * 60 * 1000;

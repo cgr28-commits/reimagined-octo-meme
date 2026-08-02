@@ -1,3 +1,5 @@
+import { formatMarketingOptInLine } from "./marketing";
+
 export type PaidBookingDetails = {
   customerName: string;
   customerEmail: string;
@@ -22,6 +24,9 @@ export type PaidBookingDetails = {
   isFromAirport?: boolean;
   termsAcceptedAt?: string;
   termsVersion?: string;
+  marketingOptIn?: boolean;
+  marketingOptInAt?: string;
+  marketingConsentVersion?: string;
 };
 
 export type PaidBookingReceipt = PaidBookingDetails & {
@@ -321,6 +326,10 @@ export function buildOwnerPaidBookingEmail(
     (details.termsAcceptedAt
       ? `\nTerms accepted: ${details.termsAcceptedAt}${details.termsVersion ? ` (${details.termsVersion})` : ""}`
       : "") +
+    (() => {
+      const marketingLine = formatMarketingOptInLine(details);
+      return marketingLine ? `\n${marketingLine}` : "";
+    })() +
     (trackUrl ? `\n\nDRIVER TRACK LINK\n${"=".repeat(40)}\n${trackUrl}` : "");
 
   return { subject, body };
