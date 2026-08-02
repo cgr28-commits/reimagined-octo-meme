@@ -5,6 +5,12 @@ import Header from "@/components/Header";
 import { SITE } from "@/lib/data";
 import { DEMO_DRIVER_KEY, DEMO_SCENARIOS } from "@/lib/tracking-demo";
 
+const DEMO_PATHS: Record<(typeof DEMO_SCENARIOS)[number]["token"], string> = {
+  "demo-early": "/track/demo/early/",
+  "demo-waiting": "/track/demo/waiting/",
+  "demo-live": "/track/demo/live/",
+};
+
 export const metadata: Metadata = {
   title: `Tracking demo | ${SITE.name}`,
   description: "Preview what customers see at each stage of live driver tracking.",
@@ -40,7 +46,7 @@ export default function TrackDemoPage() {
             {DEMO_SCENARIOS.map((scenario) => (
               <Link
                 key={scenario.token}
-                href={`/track/?id=${scenario.token}`}
+                href={DEMO_PATHS[scenario.token]}
                 className="block rounded-2xl border border-white/10 bg-white/[0.03] p-6 transition-colors hover:border-emerald/40 hover:bg-white/[0.05]"
               >
                 <h2 className="text-lg font-bold text-white">{scenario.title}</h2>

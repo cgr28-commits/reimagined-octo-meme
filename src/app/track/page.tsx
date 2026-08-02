@@ -1,12 +1,28 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import TrackPageClient from "./TrackPageClient";
 
+function readTokenFromLocation(): string {
+  if (typeof window === "undefined") {
+    return "";
+  }
+
+  return new URLSearchParams(window.location.search).get("id")?.trim() ?? "";
+}
+
 function TrackPageContent() {
   const searchParams = useSearchParams();
-  const token = searchParams.get("id")?.trim() ?? "";
+  const [token, setToken] = useState(() => searchParams.get("id")?.trim() ?? "");
+
+  useEffect(() => {
+    const fromUrl = searchParams.get("id")?.trim() ?? readTokenFromLocation();
+    if (fromUrl) {
+      setToken(fromUrl);
+    }
+  }, [searchParams]);
 
   if (!token) {
     return (
