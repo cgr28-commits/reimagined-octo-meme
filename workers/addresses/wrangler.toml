@@ -19,6 +19,9 @@ enabled = true
 # Booking reference counter (MATNI-1001+). Run `npm run setup:worker` to create the
 # BOOKING_COUNTER KV namespace and add the [[kv_namespaces]] block here automatically.
 # Until then, bookings work without sequential references.
+#
+# Live driver tracking (paid bookings). setup-worker.mjs creates TRACKING_STORE KV and
+# sets DRIVER_ACCESS_KEY secret for the /driver/ dashboard.
 
 # Cloudflare Email Service (optional — onboard myairporttaxini.co.uk in dashboard first).
 # Without this, bookings email via WEB3FORMS_ACCESS_KEY secret, then MailChannels.

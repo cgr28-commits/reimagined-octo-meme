@@ -131,6 +131,7 @@ function invoiceRows(details: PaidBookingReceipt): Array<{ label: string; value:
 function buildInvoiceHtml(
   details: PaidBookingReceipt,
   businessName: string,
+  trackUrl?: string,
 ): string {
   const invoiceNumber = escapeHtml(details.paymentReference);
   const customerName = escapeHtml(details.customerName);
@@ -189,6 +190,28 @@ function buildInvoiceHtml(
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0">${rowsHtml}</table>
             </td>
           </tr>
+          ${
+            trackUrl
+              ? `<tr>
+            <td style="padding:8px 32px 8px;">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;">
+                <tr>
+                  <td style="padding:20px 24px;">
+                    <div style="font-size:12px;letter-spacing:0.1em;text-transform:uppercase;color:#15803d;font-weight:bold;margin-bottom:12px;">Live driver tracking</div>
+                    <div style="font-size:14px;line-height:1.8;color:#475569;">
+                      On the day of travel, your driver can share their live location around pickup time.
+                      Save this link — it activates about 2 hours before your scheduled pickup.
+                    </div>
+                    <div style="margin-top:12px;">
+                      <a href="${escapeHtml(trackUrl)}" style="display:inline-block;background:#0b1f33;color:#ffffff;text-decoration:none;font-size:14px;font-weight:bold;padding:12px 20px;border-radius:8px;">Open tracking page</a>
+                    </div>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>`
+              : ""
+          }
           <tr>
             <td style="padding:16px 32px 28px;font-size:14px;line-height:1.7;color:#475569;">
               <p style="margin:0 0 12px;">We will contact you if we need any further information before your journey.</p>
@@ -218,7 +241,9 @@ function buildInvoiceHtml(
 export function buildCustomerConfirmationEmail(
   details: PaidBookingReceipt,
   businessName = "My Airport Taxi NI",
+  options?: { trackUrl?: string },
 ): CustomerPaidBookingEmail {
+  const trackUrl = options?.trackUrl?.trim();
   const subject = `Invoice & booking confirmed — ${businessName}`;
 
   const text =
@@ -234,13 +259,19 @@ export function buildCustomerConfirmationEmail(
     `Invoice / reference: ${details.paymentReference}\n` +
     (details.transactionCode ? `Transaction code: ${details.transactionCode}\n` : "") +
     `Payment method: Card (SumUp)\n` +
-    `Status: Paid in full\n\n` +
-    `We will contact you if we need any further information before your journey.\n\n` +
+    `Status: Paid in full\n` +
+    (trackUrl
+      ? `\nLIVE DRIVER TRACKING\n${"=".repeat(40)}\n` +
+        `On the day of travel, your driver can share their live location around pickup time.\n` +
+        `Save this link — it activates about 2 hours before your scheduled pickup:\n` +
+        `${trackUrl}\n`
+      : "") +
+    `\nWe will contact you if we need any further information before your journey.\n\n` +
     `If you have questions, reply to this email or contact us at ${BUSINESS_EMAIL}.\n\n` +
     `${businessName}\n` +
     `${BUSINESS_WEBSITE}`;
 
-  const html = buildInvoiceHtml(details, businessName);
+  const html = buildInvoiceHtml(details, businessName, trackUrl);
 
   return { subject, text, html };
 }
@@ -248,7 +279,9 @@ export function buildCustomerConfirmationEmail(
 export function buildOwnerPaidBookingEmail(
   details: PaidBookingReceipt,
   businessName = "My Airport Taxi NI",
+  options?: { trackUrl?: string },
 ): { subject: string; body: string } {
+  const trackUrl = options?.trackUrl?.trim();
   const subject = `Paid booking — ${details.customerName} — ${details.amountPaid}`;
 
   const body =
@@ -267,7 +300,8 @@ export function buildOwnerPaidBookingEmail(
     `Payment reference: ${details.paymentReference}\n` +
     (details.transactionCode ? `Transaction code: ${details.transactionCode}\n` : "") +
     (details.checkoutReference ? `Checkout reference: ${details.checkoutReference}\n` : "") +
-    `Status: PAID (verified via SumUp)`;
+    `Status: PAID (verified via SumUp)` +
+    (trackUrl ? `\n\nDRIVER TRACK LINK\n${"=".repeat(40)}\n${trackUrl}` : "");
 
   return { subject, body };
 }

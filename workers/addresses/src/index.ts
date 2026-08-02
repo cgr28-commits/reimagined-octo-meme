@@ -1,4 +1,9 @@
 import {
+  buildQuoteLeadMessage,
+  buildQuoteLeadSubject,
+  type QuoteLeadDetails,
+} from "../shared/quote-lead";
+import {
   corsHeaders,
   extractLeadingStreetNumber,
   isStreetOnlyQuery,
@@ -43,10 +48,13 @@ import {
   type TransferBookingEvent,
 } from "./google-calendar";
 import {
-  buildQuoteLeadMessage,
-  buildQuoteLeadSubject,
-  type QuoteLeadDetails,
-} from "../shared/quote-lead";
+  createTrackingJobForPaidBooking,
+  handleDriverJobsRequest,
+  handleDriverLocationRequest,
+  handleDriverSharingRequest,
+  handlePublicTrackRequest,
+  parseTrackTokenFromPath,
+} from "./tracking-handlers";
 
 type EmailBinding = {
   send(message: {
@@ -71,6 +79,8 @@ type Env = {
   AERODATABOX_RAPIDAPI_KEY?: string;
   GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON?: string;
   GOOGLE_CALENDAR_ID?: string;
+  TRACKING_STORE?: KVNamespace;
+  DRIVER_ACCESS_KEY?: string;
 };
 
 type QuoteLeadRequestBody = QuoteLeadDetails & {
@@ -97,6 +107,22 @@ function json(body: unknown, status: number, origin: string | null): Response {
       ...corsHeaders(origin),
     },
   });
+}
+
+function parseDriverRoute(pathname: string): "jobs" | "sharing" | "location" | null {
+  if (pathname === "/driver/jobs" || pathname === "/api/driver/jobs") {
+    return "jobs";
+  }
+
+  if (pathname === "/driver/sharing" || pathname === "/api/driver/sharing") {
+    return "sharing";
+  }
+
+  if (pathname === "/driver/location" || pathname === "/api/driver/location") {
+    return "location";
+  }
+
+  return null;
 }
 
 function routePath(
@@ -748,8 +774,14 @@ async function handlePaymentConfirmRequest(
       checkoutReference: checkout.checkout_reference,
     };
 
-    const customerEmail = buildCustomerConfirmationEmail(receipt, BUSINESS_NAME);
-    const ownerEmail = buildOwnerPaidBookingEmail(receipt, BUSINESS_NAME);
+    const tracking = await createTrackingJobForPaidBooking(env, booking, paymentReference);
+
+    const customerEmail = buildCustomerConfirmationEmail(receipt, BUSINESS_NAME, {
+      trackUrl: tracking.trackUrl,
+    });
+    const ownerEmail = buildOwnerPaidBookingEmail(receipt, BUSINESS_NAME, {
+      trackUrl: tracking.trackUrl,
+    });
 
     await sendEmail(env, {
       to: booking.customerEmail,
@@ -776,6 +808,8 @@ async function handlePaymentConfirmRequest(
         calendarLogged: calendar.logged,
         calendarEvents: calendar.events ?? 0,
         ...(calendar.error ? { calendarWarning: calendar.error } : {}),
+        trackingCreated: tracking.created,
+        ...(tracking.trackUrl ? { trackUrl: tracking.trackUrl } : {}),
       },
       200,
       origin,
@@ -891,6 +925,24 @@ export default {
         status: 204,
         headers: corsHeaders(origin),
       });
+    }
+
+    const trackToken = parseTrackTokenFromPath(url.pathname);
+    if (trackToken && request.method === "GET") {
+      return handlePublicTrackRequest(trackToken, env, origin);
+    }
+
+    const driverRoute = parseDriverRoute(url.pathname);
+    if (driverRoute === "jobs" && request.method === "GET") {
+      return handleDriverJobsRequest(request, env, origin);
+    }
+
+    if (driverRoute === "sharing" && request.method === "POST") {
+      return handleDriverSharingRequest(request, env, origin);
+    }
+
+    if (driverRoute === "location" && request.method === "POST") {
+      return handleDriverLocationRequest(request, env, origin);
     }
 
     if (!route) {
