@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import Footer from "@/components/Footer";
 import Header from "@/components/Header";
 import {
@@ -9,11 +11,34 @@ import {
 } from "@/lib/test-booking";
 
 export default function TestBookingPageClient() {
+  const searchParams = useSearchParams();
   const prefill = buildTestBookingPrefill();
+  const autoStart = searchParams.get("start") === "1";
 
   function startTestBooking() {
     activateTestBooking();
     window.location.href = "/#quote";
+  }
+
+  useEffect(() => {
+    if (!autoStart) {
+      return;
+    }
+
+    activateTestBooking();
+    window.location.href = "/#quote";
+  }, [autoStart]);
+
+  if (autoStart) {
+    return (
+      <>
+        <Header />
+        <main className="flex min-h-screen items-center justify-center bg-navy px-4 pt-28 pb-16">
+          <p className="text-sm text-white/70">Opening £1 test booking…</p>
+        </main>
+        <Footer />
+      </>
+    );
   }
 
   return (
