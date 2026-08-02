@@ -19,6 +19,14 @@ enabled = true
 # Booking reference counter (MATNI-1001+). Run `npm run setup:worker` to create the
 # BOOKING_COUNTER KV namespace and add the [[kv_namespaces]] block here automatically.
 # Until then, bookings work without sequential references.
+
+[[kv_namespaces]]
+binding = "TRACKING_STORE"
+id = "53fa3cc2bd46436f90ae19200e599ea1"
+
+[[kv_namespaces]]
+binding = "BOOKING_COUNTER"
+id = "869e2c2e02004d4a88c9cfbf563f1d6a"
 #
 # Live driver tracking (paid bookings). setup-worker.mjs creates TRACKING_STORE KV and
 # sets DRIVER_ACCESS_KEY secret for the /driver/ dashboard.
