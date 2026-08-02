@@ -12,6 +12,8 @@ import {
   setDriverSharing,
   type DriverJob,
 } from "@/lib/tracking-api";
+import { issueBookingRefund } from "@/lib/refund-api";
+import { DEMO_DRIVER_KEY } from "@/lib/tracking-demo";
 import { SITE } from "@/lib/data";
 
 const LiveTrackMap = dynamic(() => import("@/components/LiveTrackMap"), {
@@ -135,16 +137,23 @@ function DriverJobCard({
   driverKey,
   activeToken,
   onSharingChange,
+  onRefunded,
 }: {
   job: DriverJob;
   driverKey: string;
   activeToken: string | null;
   onSharingChange: (token: string | null) => void;
+  onRefunded: (token: string) => void;
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [refundConfirmOpen, setRefundConfirmOpen] = useState(false);
+  const [refundBusy, setRefundBusy] = useState(false);
+  const [refundMessage, setRefundMessage] = useState<string | null>(null);
   const isActive = activeToken === job.token;
   const mapMarkers = jobMapMarkers(job, isActive);
+  const isDemoDriver = driverKey === DEMO_DRIVER_KEY;
+  const canRefund = Boolean(job.paymentReference?.trim()) && !isDemoDriver;
 
   const toggleSharing = async () => {
     setBusy(true);
@@ -176,6 +185,56 @@ function DriverJobCard({
     }
   };
 
+  const startRefund = () => {
+    setRefundMessage(null);
+    setRefundConfirmOpen(true);
+  };
+
+  const cancelRefund = () => {
+    setRefundConfirmOpen(false);
+    setRefundMessage(null);
+  };
+
+  const confirmRefund = async () => {
+    const paymentReference = job.paymentReference?.trim();
+    if (!paymentReference) {
+      setRefundMessage("This job has no payment reference.");
+      return;
+    }
+
+    setRefundBusy(true);
+    setRefundMessage(null);
+
+    try {
+      if (isActive) {
+        await setDriverSharing(driverKey, job.token, false);
+        onSharingChange(null);
+      }
+
+      const result = await issueBookingRefund({
+        ownerKey: driverKey,
+        paymentReference,
+      });
+
+      if (!result.ok) {
+        setRefundMessage(result.error ?? "Refund could not be completed.");
+        return;
+      }
+
+      setRefundConfirmOpen(false);
+      setRefundMessage(
+        result.alreadyRefunded
+          ? `Already refunded (${result.refundAmount ?? "paid amount"}).`
+          : `Refund issued: ${result.refundAmount ?? "paid amount"}. Customer emailed, calendar updated.`,
+      );
+      onRefunded(job.token);
+    } catch (err) {
+      setRefundMessage(err instanceof Error ? err.message : "Refund could not be completed.");
+    } finally {
+      setRefundBusy(false);
+    }
+  };
+
   return (
     <article className="rounded-2xl border border-white/10 bg-white/[0.03] p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -187,6 +246,9 @@ function DriverJobCard({
           <p className="mt-1 text-sm text-white/60">To {job.dropoffLabel}</p>
           {job.customerMobile && (
             <p className="mt-2 text-sm text-emerald">{job.customerMobile}</p>
+          )}
+          {job.paymentReference && (
+            <p className="mt-1 text-xs text-white/40">Ref: {job.paymentReference}</p>
           )}
         </div>
         <span
@@ -230,7 +292,51 @@ function DriverJobCard({
         >
           Send via WhatsApp
         </a>
+        {canRefund && !refundConfirmOpen && (
+          <button
+            type="button"
+            disabled={refundBusy}
+            onClick={startRefund}
+            className="rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-2.5 text-sm font-semibold text-red-200 transition-colors hover:bg-red-500/20 disabled:opacity-60"
+          >
+            Issue refund
+          </button>
+        )}
       </div>
+
+      {canRefund && refundConfirmOpen && (
+        <div className="mt-4 rounded-xl border border-red-400/30 bg-red-500/10 p-4">
+          <p className="text-sm font-semibold text-red-100">Confirm full refund</p>
+          <p className="mt-2 text-sm leading-relaxed text-red-100/85">
+            This will refund the customer via SumUp, email them a confirmation, remove the job from
+            your calendar, and delete it from this dashboard. This cannot be undone.
+          </p>
+          <div className="mt-4 flex flex-wrap gap-3">
+            <button
+              type="button"
+              disabled={refundBusy}
+              onClick={() => void confirmRefund()}
+              className="rounded-xl bg-red-500 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-red-600 disabled:opacity-60"
+            >
+              {refundBusy ? "Processing refund…" : "Confirm refund"}
+            </button>
+            <button
+              type="button"
+              disabled={refundBusy}
+              onClick={cancelRefund}
+              className="rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:border-white/30 disabled:opacity-60"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {refundMessage && (
+        <p className="mt-4 rounded-xl border border-emerald/30 bg-emerald/10 px-4 py-3 text-sm text-emerald-light">
+          {refundMessage}
+        </p>
+      )}
 
       {isActive && (
         <p className="mt-4 text-sm text-emerald">
@@ -433,6 +539,12 @@ export default function DriverPageClient() {
                     driverKey={savedKey}
                     activeToken={activeToken}
                     onSharingChange={setActiveToken}
+                    onRefunded={(token) => {
+                      setJobs((current) => current.filter((entry) => entry.token !== token));
+                      if (activeToken === token) {
+                        setActiveToken(null);
+                      }
+                    }}
                   />
                 ))}
               </div>

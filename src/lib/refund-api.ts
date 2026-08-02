@@ -44,6 +44,7 @@ export async function issueBookingRefund(input: {
       "Content-Type": "application/json",
       Accept: "application/json",
       "X-Owner-Key": input.ownerKey.trim(),
+      "X-Driver-Key": input.ownerKey.trim(),
     },
     body: JSON.stringify({
       paymentReference: input.paymentReference.trim(),

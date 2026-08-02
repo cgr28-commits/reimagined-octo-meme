@@ -48,8 +48,10 @@ export function ownerAuthorized(request: Request, env: RefundEnv): boolean {
   }
 
   const headerKey = request.headers.get("X-Owner-Key")?.trim() ?? "";
+  const driverKey = request.headers.get("X-Driver-Key")?.trim() ?? "";
   const urlKey = new URL(request.url).searchParams.get("key")?.trim() ?? "";
-  return headerKey === expected || urlKey === expected;
+  const provided = headerKey || driverKey || urlKey;
+  return provided === expected;
 }
 
 function calendarConfigured(env: RefundEnv): boolean {
