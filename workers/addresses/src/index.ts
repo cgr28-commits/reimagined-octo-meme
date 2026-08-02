@@ -49,10 +49,13 @@ import {
 } from "./google-calendar";
 import {
   createTrackingJobForPaidBooking,
+  handleCustomerLocationRequest,
+  handleCustomerSharingRequest,
   handleDriverJobsRequest,
   handleDriverLocationRequest,
   handleDriverSharingRequest,
   handlePublicTrackRequest,
+  parseTrackSubRoute,
   parseTrackTokenFromPath,
 } from "./tracking-handlers";
 import {
@@ -857,6 +860,15 @@ export default {
         status: 204,
         headers: corsHeaders(origin),
       });
+    }
+
+    const trackSubRoute = parseTrackSubRoute(url.pathname);
+    if (trackSubRoute === "sharing" && request.method === "POST") {
+      return handleCustomerSharingRequest(request, env, origin);
+    }
+
+    if (trackSubRoute === "location" && request.method === "POST") {
+      return handleCustomerLocationRequest(request, env, origin);
     }
 
     const trackToken = parseTrackTokenFromPath(url.pathname);

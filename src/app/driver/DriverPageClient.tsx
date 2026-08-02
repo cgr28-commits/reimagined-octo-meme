@@ -1,8 +1,10 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Footer from "@/components/Footer";
 import Header from "@/components/Header";
+import type { MapMarker } from "@/components/LiveTrackMap";
 import {
   buildWhatsAppTrackLink,
   fetchDriverJobs,
@@ -11,6 +13,15 @@ import {
   type DriverJob,
 } from "@/lib/tracking-api";
 import { SITE } from "@/lib/data";
+
+const LiveTrackMap = dynamic(() => import("@/components/LiveTrackMap"), {
+  ssr: false,
+  loading: () => (
+    <div className="flex h-64 items-center justify-center rounded-xl bg-white/[0.03] text-white/60 sm:h-80">
+      Loading map…
+    </div>
+  ),
+});
 
 const DRIVER_KEY_STORAGE = "matni-driver-key";
 
@@ -21,6 +32,28 @@ function todayLondonDate(): string {
     month: "2-digit",
     day: "2-digit",
   }).format(new Date());
+}
+
+function jobMapMarkers(job: DriverJob, isActive: boolean): MapMarker[] {
+  const markers: MapMarker[] = [];
+
+  if (isActive && job.driver) {
+    markers.push({
+      lat: job.driver.lat,
+      lng: job.driver.lng,
+      label: "You (driver)",
+    });
+  }
+
+  if (job.customer) {
+    markers.push({
+      lat: job.customer.lat,
+      lng: job.customer.lng,
+      label: `${job.customerName} (customer)`,
+    });
+  }
+
+  return markers;
 }
 
 function DriverJobCard({
@@ -37,6 +70,7 @@ function DriverJobCard({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const isActive = activeToken === job.token;
+  const mapMarkers = jobMapMarkers(job, isActive);
 
   const toggleSharing = async () => {
     setBusy(true);
@@ -128,6 +162,24 @@ function DriverJobCard({
         </p>
       )}
 
+      {job.customerSharingActive && !job.customer && (
+        <p className="mt-4 text-sm text-white/60">
+          Customer has opted in to share location — waiting for their GPS update.
+        </p>
+      )}
+
+      {job.customer && (
+        <p className="mt-4 text-sm text-emerald">
+          Customer location is live on the map below.
+        </p>
+      )}
+
+      {mapMarkers.length > 0 && job.trackingWindow.open && (
+        <div className="mt-5 overflow-hidden rounded-xl border border-white/10">
+          <LiveTrackMap markers={mapMarkers} />
+        </div>
+      )}
+
       {error && <p className="mt-3 text-sm text-red-300">{error}</p>}
     </article>
   );
@@ -166,6 +218,18 @@ export default function DriverPageClient() {
       void loadJobs(stored);
     }
   }, [loadJobs]);
+
+  useEffect(() => {
+    if (!savedKey) {
+      return;
+    }
+
+    const interval = window.setInterval(() => {
+      void loadJobs(savedKey);
+    }, 10_000);
+
+    return () => window.clearInterval(interval);
+  }, [loadJobs, savedKey]);
 
   useEffect(() => {
     if (!savedKey || !activeToken || !navigator.geolocation) {
@@ -219,8 +283,9 @@ export default function DriverPageClient() {
             </p>
             <h1 className="mt-2 text-3xl font-bold text-white sm:text-4xl">Today&apos;s jobs</h1>
             <p className="mt-3 text-white/70">
-              Start sharing your location when you are on the way. Customers can only see live
-              tracking on the day of travel, from about 2 hours before pickup.
+              Start sharing your location when you are on the way. Customers can share their
+              location too so you can see them on the map. Live tracking is available on the day
+              of travel, from about 2 hours before pickup.
             </p>
           </header>
 

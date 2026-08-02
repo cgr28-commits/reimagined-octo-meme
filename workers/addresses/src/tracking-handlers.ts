@@ -2,6 +2,7 @@ import {
   buildPublicTrackUrl,
   formatLondonDateTime,
   getTrackingWindow,
+  isLocationFresh,
   type TrackingJobRecord,
 } from "../shared/tracking";
 import { buildTrackingReminderEmail } from "../shared/booking-notifications";
@@ -42,15 +43,52 @@ function driverAuthorized(request: Request, env: Env): boolean {
   return headerKey === expected || urlKey === expected;
 }
 
-function publicTrackPayload(record: TrackingJobRecord, origin: string | null) {
+function liveDriverLocation(record: TrackingJobRecord, windowOpen: boolean) {
+  if (
+    !windowOpen ||
+    !record.sharingActive ||
+    typeof record.driverLat !== "number" ||
+    typeof record.driverLng !== "number" ||
+    !isLocationFresh(record.driverUpdatedAt)
+  ) {
+    return null;
+  }
+
+  return {
+    lat: record.driverLat,
+    lng: record.driverLng,
+    updatedAt: record.driverUpdatedAt!,
+  };
+}
+
+function liveCustomerLocation(record: TrackingJobRecord, windowOpen: boolean) {
+  if (
+    !windowOpen ||
+    !record.customerSharingActive ||
+    typeof record.customerLat !== "number" ||
+    typeof record.customerLng !== "number" ||
+    !isLocationFresh(record.customerUpdatedAt)
+  ) {
+    return null;
+  }
+
+  return {
+    lat: record.customerLat,
+    lng: record.customerLng,
+    updatedAt: record.customerUpdatedAt!,
+  };
+}
+
+function publicTrackPayload(
+  record: TrackingJobRecord,
+  origin: string | null,
+  options: { includeCustomerLocation?: boolean } = {},
+) {
   const window = getTrackingWindow(record.pickupAt);
-  const driverLive =
-    window.open &&
-    record.sharingActive &&
-    typeof record.driverLat === "number" &&
-    typeof record.driverLng === "number" &&
-    record.driverUpdatedAt &&
-    Date.now() - new Date(record.driverUpdatedAt).getTime() < 5 * 60 * 1000;
+  const driver = liveDriverLocation(record, window.open);
+  const customer = options.includeCustomerLocation
+    ? liveCustomerLocation(record, window.open)
+    : null;
 
   return {
     ok: true,
@@ -67,13 +105,9 @@ function publicTrackPayload(record: TrackingJobRecord, origin: string | null) {
       closesAtDisplay: formatLondonDateTime(window.closesAt),
     },
     sharingActive: record.sharingActive,
-    driver: driverLive
-      ? {
-          lat: record.driverLat,
-          lng: record.driverLng,
-          updatedAt: record.driverUpdatedAt,
-        }
-      : null,
+    customerSharingActive: Boolean(record.customerSharingActive),
+    driver,
+    customer,
     trackUrl: buildPublicTrackUrl(record.token),
   };
 }
@@ -196,7 +230,7 @@ export async function handleDriverJobsRequest(
       ok: true,
       date: tripDate,
       jobs: jobs.map((job) => ({
-        ...publicTrackPayload(job, origin),
+        ...publicTrackPayload(job, origin, { includeCustomerLocation: true }),
         token: job.token,
         customerMobile: job.customerMobile,
         paymentReference: job.paymentReference,
@@ -322,7 +356,124 @@ export async function handleDriverLocationRequest(
   return jsonResponse({ ok: true }, 200, origin);
 }
 
+const RESERVED_TRACK_PATHS = new Set(["sharing", "location"]);
+
+export function parseTrackSubRoute(pathname: string): "sharing" | "location" | null {
+  if (pathname === "/track/sharing" || pathname === "/api/track/sharing") {
+    return "sharing";
+  }
+
+  if (pathname === "/track/location" || pathname === "/api/track/location") {
+    return "location";
+  }
+
+  return null;
+}
+
 export function parseTrackTokenFromPath(pathname: string): string | null {
   const match = pathname.match(/^\/(?:api\/)?track\/([^/]+)\/?$/);
-  return match?.[1] ? decodeURIComponent(match[1]) : null;
+  const token = match?.[1] ? decodeURIComponent(match[1]) : null;
+  if (!token || RESERVED_TRACK_PATHS.has(token)) {
+    return null;
+  }
+
+  return token;
+}
+
+export async function handleCustomerSharingRequest(
+  request: Request,
+  env: Env,
+  origin: string | null,
+): Promise<Response> {
+  if (!trackingStoreConfigured(env.TRACKING_STORE)) {
+    return jsonResponse({ error: "Live tracking is not configured" }, 503, origin);
+  }
+
+  let body: Record<string, unknown>;
+  try {
+    body = await request.json();
+  } catch {
+    return jsonResponse({ error: "Invalid JSON" }, 400, origin);
+  }
+
+  const token = String(body.token ?? "").trim();
+  const active = Boolean(body.active);
+
+  if (!token) {
+    return jsonResponse({ error: "Missing token" }, 400, origin);
+  }
+
+  const record = await getTrackingJob(env.TRACKING_STORE, token);
+  if (!record) {
+    return jsonResponse({ error: "Tracking link not found" }, 404, origin);
+  }
+
+  const window = getTrackingWindow(record.pickupAt);
+  if (!window.open) {
+    return jsonResponse({ error: "Tracking window is not open" }, 403, origin);
+  }
+
+  record.customerSharingActive = active;
+  if (!active) {
+    delete record.customerLat;
+    delete record.customerLng;
+    delete record.customerUpdatedAt;
+  }
+
+  await saveTrackingJob(env.TRACKING_STORE, record);
+
+  return jsonResponse(
+    {
+      ok: true,
+      customerSharingActive: record.customerSharingActive,
+    },
+    200,
+    origin,
+  );
+}
+
+export async function handleCustomerLocationRequest(
+  request: Request,
+  env: Env,
+  origin: string | null,
+): Promise<Response> {
+  if (!trackingStoreConfigured(env.TRACKING_STORE)) {
+    return jsonResponse({ error: "Live tracking is not configured" }, 503, origin);
+  }
+
+  let body: Record<string, unknown>;
+  try {
+    body = await request.json();
+  } catch {
+    return jsonResponse({ error: "Invalid JSON" }, 400, origin);
+  }
+
+  const token = String(body.token ?? "").trim();
+  const lat = Number(body.lat);
+  const lng = Number(body.lng);
+
+  if (!token || !Number.isFinite(lat) || !Number.isFinite(lng)) {
+    return jsonResponse({ error: "Missing token or coordinates" }, 400, origin);
+  }
+
+  const record = await getTrackingJob(env.TRACKING_STORE, token);
+  if (!record) {
+    return jsonResponse({ error: "Tracking link not found" }, 404, origin);
+  }
+
+  const window = getTrackingWindow(record.pickupAt);
+  if (!window.open) {
+    return jsonResponse({ error: "Tracking window is not open" }, 403, origin);
+  }
+
+  if (!record.customerSharingActive) {
+    return jsonResponse({ error: "Customer sharing is not active" }, 409, origin);
+  }
+
+  record.customerLat = lat;
+  record.customerLng = lng;
+  record.customerUpdatedAt = new Date().toISOString();
+  await saveTrackingJob(env.TRACKING_STORE, record);
+
+  return jsonResponse({ ok: true }, 200, origin);
 }

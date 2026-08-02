@@ -70,12 +70,15 @@ function buildDemoResponse(
     dropoffLabel: string;
     pickupDate: Date;
     sharingActive: boolean;
+    customerSharingActive?: boolean;
     driver?: { lat: number; lng: number };
+    customer?: { lat: number; lng: number };
     window: { open: boolean; reason: "too_early" | "too_late" | "open"; opensAt: Date; closesAt: Date };
   },
 ): PublicTrackResponse {
   const schedule = londonParts(config.pickupDate);
   const trackUrl = `${SITE.url}/track/?id=${encodeURIComponent(token)}`;
+  const updatedAt = new Date().toISOString();
 
   return {
     ok: true,
@@ -96,11 +99,19 @@ function buildDemoResponse(
       closesAtDisplay: formatWindowDisplay(config.window.closesAt.toISOString()),
     },
     sharingActive: config.sharingActive,
+    customerSharingActive: Boolean(config.customerSharingActive),
     driver: config.driver
       ? {
           lat: config.driver.lat,
           lng: config.driver.lng,
-          updatedAt: new Date().toISOString(),
+          updatedAt,
+        }
+      : null,
+    customer: config.customer
+      ? {
+          lat: config.customer.lat,
+          lng: config.customer.lng,
+          updatedAt,
         }
       : null,
     trackUrl,
@@ -150,7 +161,9 @@ export function getDemoTrackResponse(token: DemoTrackToken): PublicTrackResponse
     dropoffLabel: "Belfast International Airport (BFS)",
     pickupDate: pickup,
     sharingActive: true,
+    customerSharingActive: true,
     driver: { lat: 54.5973, lng: -5.9301 },
+    customer: { lat: 54.6035, lng: -5.9264 },
     window: { open: true, reason: "open", opensAt, closesAt },
   });
 }
