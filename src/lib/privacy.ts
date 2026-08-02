@@ -1,11 +1,14 @@
+import { BUSINESS_LEGAL } from "@/lib/business-legal";
+
 export const PRIVACY_LAST_UPDATED = "August 2026";
 
 export const PRIVACY_SECTIONS = [
   {
     title: "Who we are",
     content: [
-      "My Airport Taxi NI provides pre-booked private airport transfers in Northern Ireland.",
-      "Contact: bookings@myairporttaxini.co.uk · 028 9602 2952",
+      `${BUSINESS_LEGAL.tradingName} provides pre-booked private airport transfers in ${BUSINESS_LEGAL.serviceArea}.`,
+      `Contact: ${BUSINESS_LEGAL.email} · ${BUSINESS_LEGAL.phoneDisplay}`,
+      `${BUSINESS_LEGAL.operatorNote}.`,
     ],
   },
   {

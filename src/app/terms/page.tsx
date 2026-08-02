@@ -3,6 +3,7 @@ import Link from "next/link";
 import Footer from "@/components/Footer";
 import Header from "@/components/Header";
 import WhatsAppButton from "@/components/WhatsAppButton";
+import { BUSINESS_LEGAL } from "@/lib/business-legal";
 import { SITE } from "@/lib/data";
 import { TERMS_LAST_UPDATED, TERMS_SECTIONS } from "@/lib/terms";
 
@@ -44,6 +45,24 @@ export default function TermsPage() {
             </h1>
             <p className="mt-3 text-lg text-white/70">{SITE.name}</p>
             <p className="mt-1 text-sm text-white/40">Last updated: {TERMS_LAST_UPDATED}</p>
+            <div className="mt-6 rounded-2xl border border-white/10 bg-white/[0.03] p-5 text-sm leading-relaxed text-white/65">
+              <p className="font-semibold text-white">{BUSINESS_LEGAL.tradingName}</p>
+              <p className="mt-2">{BUSINESS_LEGAL.operatorNote}</p>
+              <p className="mt-2">
+                Email:{" "}
+                <a href={`mailto:${BUSINESS_LEGAL.email}`} className="text-emerald hover:underline">
+                  {BUSINESS_LEGAL.email}
+                </a>
+                {" · "}
+                Tel:{" "}
+                <a href={`tel:${BUSINESS_LEGAL.phoneTel}`} className="text-emerald hover:underline">
+                  {BUSINESS_LEGAL.phoneDisplay}
+                </a>
+              </p>
+              <p className="mt-2">
+                {BUSINESS_LEGAL.serviceArea} · Governed by the laws of {BUSINESS_LEGAL.jurisdiction}
+              </p>
+            </div>
           </header>
 
           <div className="mt-12 space-y-10">
