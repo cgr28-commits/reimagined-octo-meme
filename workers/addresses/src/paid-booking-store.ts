@@ -48,3 +48,37 @@ export async function markPaidBookingRefunded(
   await savePaidBookingRecord(store, updated);
   return updated;
 }
+
+export type PaidBookingUpdateFields = Partial<
+  Pick<
+    PaidBookingRecord,
+    "tripDate" | "tripTime" | "pickupLabel" | "dropoffLabel" | "mobileNumber" | "tripLabel"
+  >
+>;
+
+export async function updatePaidBookingFields(
+  store: KVNamespace,
+  paymentReference: string,
+  fields: PaidBookingUpdateFields,
+): Promise<PaidBookingRecord | null> {
+  const record = await getPaidBookingRecord(store, paymentReference);
+  if (!record || record.status === "refunded") {
+    return null;
+  }
+
+  const cleaned = Object.fromEntries(
+    Object.entries(fields).filter(([, value]) => value !== undefined),
+  ) as PaidBookingUpdateFields;
+
+  if (Object.keys(cleaned).length === 0) {
+    return record;
+  }
+
+  const updated: PaidBookingRecord = {
+    ...record,
+    ...cleaned,
+  };
+
+  await savePaidBookingRecord(store, updated);
+  return updated;
+}

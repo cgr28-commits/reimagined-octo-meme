@@ -11,11 +11,13 @@ import {
   createTrackingJobFromBooking,
   getTrackingJob,
   listTrackingJobsForDate,
+  listUpcomingTrackingJobs,
   saveTrackingJob,
   trackingStoreConfigured,
 } from "./tracking-store";
 import type { PaidBookingDetails } from "../shared/booking-notifications";
 import { corsHeaders } from "../shared/google-places";
+import { getPaidBookingRecord, paidBookingStoreConfigured } from "./paid-booking-store";
 import { trySendEmail, type WorkerEmailEnv } from "./worker-email";
 
 type Env = WorkerEmailEnv & {
@@ -122,7 +124,7 @@ function liveCustomerLocation(record: TrackingJobRecord, windowOpen: boolean) {
   };
 }
 
-function publicTrackPayload(
+export function publicTrackPayload(
   record: TrackingJobRecord,
   origin: string | null,
   options: { includeCustomerLocation?: boolean } = {},
@@ -257,6 +259,11 @@ export async function handleDriverJobsRequest(
   }
 
   const url = new URL(request.url);
+  const scope = url.searchParams.get("scope")?.trim().toLowerCase() ?? "date";
+  const daysAhead = Math.min(
+    90,
+    Math.max(1, Number.parseInt(url.searchParams.get("days") ?? "60", 10) || 60),
+  );
   const tripDate =
     url.searchParams.get("date")?.trim() ??
     new Intl.DateTimeFormat("en-CA", {
@@ -266,15 +273,37 @@ export async function handleDriverJobsRequest(
       day: "2-digit",
     }).format(new Date());
 
-  const jobs = await listTrackingJobsForDate(env.TRACKING_STORE, tripDate);
+  let jobs: TrackingJobRecord[];
+  let responseDate = tripDate;
+
+  if (scope === "upcoming") {
+    jobs = await listUpcomingTrackingJobs(env.TRACKING_STORE, daysAhead);
+    responseDate = "upcoming";
+  } else {
+    jobs = await listTrackingJobsForDate(env.TRACKING_STORE, tripDate);
+  }
+
   const enrichedJobs = await Promise.all(
     jobs.map(async (job) => {
       const flight = await resolveDriverFlight(job, env);
+      let amountPaidLabel: string | undefined;
+      let bookingStatus: "confirmed" | "refunded" = "confirmed";
+
+      if (job.paymentReference && paidBookingStoreConfigured(env.TRACKING_STORE)) {
+        const paidRecord = await getPaidBookingRecord(env.TRACKING_STORE, job.paymentReference);
+        if (paidRecord) {
+          amountPaidLabel = paidRecord.amountPaidLabel;
+          bookingStatus = paidRecord.status;
+        }
+      }
+
       return {
         ...publicTrackPayload(job, origin, { includeCustomerLocation: true }),
         token: job.token,
         customerMobile: job.customerMobile,
         paymentReference: job.paymentReference,
+        amountPaidLabel,
+        bookingStatus,
         isAirportPickup: Boolean(job.isAirportTrip && job.isFromAirport),
         flightNumber: job.flightNumber ?? null,
         airportCode: job.airportCode ?? null,
@@ -286,7 +315,8 @@ export async function handleDriverJobsRequest(
   return jsonResponse(
     {
       ok: true,
-      date: tripDate,
+      scope,
+      date: responseDate,
       jobs: enrichedJobs,
     },
     200,

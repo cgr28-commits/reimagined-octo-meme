@@ -608,6 +608,110 @@ export async function cancelCalendarEvents(
   return { cancelled, errors };
 }
 
+type CalendarEventDetails = CalendarEventPayload & {
+  location?: string;
+  start?: { dateTime?: string; timeZone?: string };
+  end?: { dateTime?: string; timeZone?: string };
+};
+
+export async function rescheduleCalendarEvent(
+  accessToken: string,
+  calendarId: string,
+  eventId: string,
+  options: {
+    startDateTime: string;
+    endDateTime: string;
+    location?: string;
+    updateNote?: string;
+  },
+): Promise<void> {
+  const eventUrl =
+    `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}` +
+    `/events/${encodeURIComponent(eventId)}`;
+
+  const getResponse = await fetch(eventUrl, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  if (getResponse.status === 404 || getResponse.status === 410) {
+    return;
+  }
+
+  if (!getResponse.ok) {
+    const detail = await getResponse.text().catch(() => "");
+    throw new Error(`Calendar fetch failed (${getResponse.status}): ${detail.slice(0, 200)}`);
+  }
+
+  const event = (await getResponse.json()) as CalendarEventDetails;
+  if (event.status === "cancelled") {
+    return;
+  }
+
+  const updateSection = options.updateNote?.trim()
+    ? `\n\n--- UPDATED ---\n${options.updateNote.trim()}`
+    : "";
+  const description = `${event.description ?? ""}${updateSection}`.trim();
+
+  const body: Record<string, unknown> = {
+    start: {
+      dateTime: `${options.startDateTime}:00`,
+      timeZone: TIME_ZONE,
+    },
+    end: {
+      dateTime: `${options.endDateTime}:00`,
+      timeZone: TIME_ZONE,
+    },
+    ...(options.location ? { location: options.location } : {}),
+    ...(description ? { description } : {}),
+  };
+
+  const response = await fetch(eventUrl, {
+    method: "PATCH",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    const detail = await response.text().catch(() => "");
+    throw new Error(`Calendar reschedule failed (${response.status}): ${detail.slice(0, 200)}`);
+  }
+}
+
+export async function rescheduleCalendarEvents(
+  accessToken: string,
+  calendarId: string,
+  eventIds: string[],
+  options: {
+    startDateTime: string;
+    endDateTime: string;
+    location?: string;
+    updateNote?: string;
+  },
+): Promise<{ updated: number; errors: string[] }> {
+  let updated = 0;
+  const errors: string[] = [];
+
+  for (const eventId of eventIds) {
+    try {
+      await rescheduleCalendarEvent(accessToken, calendarId, eventId, options);
+      updated += 1;
+    } catch (error) {
+      errors.push(error instanceof Error ? error.message : "Unknown calendar update error");
+    }
+  }
+
+  return { updated, errors };
+}
+
+export function transferEventEndDateTime(startDateTime: string): string {
+  return addMinutes(startDateTime, DEFAULT_TRANSFER_DURATION_MINUTES);
+}
+
 export async function logBookingsToGoogleCalendar(options: {
   serviceAccountJson: string;
   calendarId: string;
