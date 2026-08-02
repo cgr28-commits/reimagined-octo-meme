@@ -27,7 +27,25 @@ export type PaidBookingReceipt = PaidBookingDetails & {
   checkoutReference?: string;
 };
 
-function formatTripSchedule(details: PaidBookingDetails): string {
+export type CustomerPaidBookingEmail = {
+  subject: string;
+  text: string;
+  html: string;
+};
+
+const BUSINESS_WEBSITE = "https://www.myairporttaxini.co.uk";
+const BUSINESS_EMAIL = "bookings@myairporttaxini.co.uk";
+const LOGO_URL = `${BUSINESS_WEBSITE}/google-business-logo.png`;
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function formatTripScheduleLines(details: PaidBookingDetails): string[] {
   const lines = [
     `Trip: ${details.tripLabel}`,
     `Pickup: ${details.pickupLabel}`,
@@ -59,32 +77,172 @@ function formatTripSchedule(details: PaidBookingDetails): string {
     lines.push(`Journey: ${details.journeyDistance} · ${details.journeyDuration}`);
   }
 
-  return lines.join("\n");
+  return lines;
+}
+
+function formatTripSchedule(details: PaidBookingDetails): string {
+  return formatTripScheduleLines(details).join("\n");
+}
+
+function invoiceRows(details: PaidBookingReceipt): Array<{ label: string; value: string }> {
+  const rows: Array<{ label: string; value: string }> = [
+    { label: "Trip", value: details.tripLabel },
+    { label: "Pickup", value: details.pickupLabel },
+    { label: "Drop-off", value: details.dropoffLabel },
+    {
+      label: details.returnJourney ? "Outbound date" : "Date",
+      value: details.tripDate,
+    },
+    {
+      label: details.returnJourney ? "Outbound time" : "Time",
+      value: details.tripTime,
+    },
+  ];
+
+  if (details.returnJourney) {
+    rows.push({ label: "Return date", value: details.returnDate });
+    rows.push({ label: "Return time", value: details.returnTime });
+  }
+
+  if (details.isAirportTrip && details.flightNumber) {
+    rows.push({ label: "Flight for going", value: details.flightNumber });
+  }
+
+  if (details.isAirportTrip && details.returnFlightNumber) {
+    rows.push({ label: "Flight for collection", value: details.returnFlightNumber });
+  }
+
+  rows.push(
+    { label: "Passengers", value: String(details.passengers) },
+    { label: "Suitcases", value: String(details.suitcases) },
+    { label: "Vehicle", value: details.vehicle },
+  );
+
+  if (details.journeyDistance && details.journeyDuration) {
+    rows.push({
+      label: "Journey",
+      value: `${details.journeyDistance} · ${details.journeyDuration}`,
+    });
+  }
+
+  return rows;
+}
+
+function buildInvoiceHtml(
+  details: PaidBookingReceipt,
+  businessName: string,
+): string {
+  const invoiceNumber = escapeHtml(details.paymentReference);
+  const customerName = escapeHtml(details.customerName);
+  const rowsHtml = invoiceRows(details)
+    .map(
+      (row) =>
+        `<tr><td style="padding:10px 0;border-bottom:1px solid #e2e8f0;color:#64748b;font-size:14px;width:38%;vertical-align:top;">${escapeHtml(row.label)}</td><td style="padding:10px 0;border-bottom:1px solid #e2e8f0;color:#0b1f33;font-size:14px;font-weight:600;vertical-align:top;">${escapeHtml(row.value)}</td></tr>`,
+    )
+    .join("");
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Invoice — ${escapeHtml(businessName)}</title>
+</head>
+<body style="margin:0;padding:0;background:#f4f6f8;font-family:Arial,Helvetica,sans-serif;color:#1a2b3c;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f4f6f8;padding:32px 16px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="640" cellspacing="0" cellpadding="0" style="max-width:640px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.08);">
+          <tr>
+            <td style="background:#0b1f33;padding:28px 32px;text-align:center;">
+              <img src="${LOGO_URL}" alt="${escapeHtml(businessName)}" height="72" style="display:block;margin:0 auto;height:72px;width:auto;max-width:100%;" />
+              <div style="margin-top:16px;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:#c9a227;font-weight:bold;">Invoice &amp; booking confirmation</div>
+              <div style="margin-top:8px;font-size:22px;line-height:1.35;color:#ffffff;font-weight:bold;">Thank you, ${customerName}</div>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:28px 32px 8px;font-size:15px;line-height:1.7;color:#334155;">
+              <p style="margin:0 0 16px;">Your card payment has been received and your airport transfer is confirmed. Please keep this invoice for your records.</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:8px 32px 8px;">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;">
+                <tr>
+                  <td style="padding:20px 24px;">
+                    <div style="font-size:12px;letter-spacing:0.1em;text-transform:uppercase;color:#c9a227;font-weight:bold;margin-bottom:12px;">Payment summary</div>
+                    <div style="font-size:28px;font-weight:bold;color:#0b1f33;line-height:1.2;margin-bottom:12px;">${escapeHtml(details.amountPaid)}</div>
+                    <div style="font-size:14px;line-height:1.8;color:#475569;">
+                      <strong>Invoice / reference:</strong> ${invoiceNumber}<br />
+                      <strong>Payment method:</strong> Card (SumUp)<br />
+                      ${details.transactionCode ? `<strong>Transaction code:</strong> ${escapeHtml(details.transactionCode)}<br />` : ""}
+                      <strong>Status:</strong> Paid in full
+                    </div>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:16px 32px 8px;">
+              <div style="font-size:12px;letter-spacing:0.1em;text-transform:uppercase;color:#c9a227;font-weight:bold;margin-bottom:12px;">Booking details</div>
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0">${rowsHtml}</table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:16px 32px 28px;font-size:14px;line-height:1.7;color:#475569;">
+              <p style="margin:0 0 12px;">We will contact you if we need any further information before your journey.</p>
+              <p style="margin:0;">Questions? Reply to this email or contact us at <a href="mailto:${BUSINESS_EMAIL}" style="color:#0b1f33;">${BUSINESS_EMAIL}</a>.</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:20px 32px;font-size:13px;line-height:1.7;color:#64748b;">
+              <strong style="color:#0b1f33;">${escapeHtml(businessName)}</strong><br />
+              <a href="${BUSINESS_WEBSITE}" style="color:#0b1f33;">${BUSINESS_WEBSITE.replace("https://", "")}</a> ·
+              <a href="${BUSINESS_WEBSITE}/terms/" style="color:#0b1f33;">Terms &amp; Conditions</a>
+            </td>
+          </tr>
+          <tr>
+            <td style="background:#0b1f33;padding:16px 32px;text-align:center;font-size:12px;line-height:1.6;color:#94a3b8;">
+              Premium airport transfers across Northern Ireland · Belfast · Dublin · Derry
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
 }
 
 export function buildCustomerConfirmationEmail(
   details: PaidBookingReceipt,
   businessName = "My Airport Taxi NI",
-): { subject: string; body: string } {
-  const subject = `Booking confirmed — ${businessName}`;
+): CustomerPaidBookingEmail {
+  const subject = `Invoice & booking confirmed — ${businessName}`;
 
-  const body =
+  const text =
     `Dear ${details.customerName},\n\n` +
     `Thank you for your booking with ${businessName}. Your card payment has been received and your transfer is confirmed.\n\n` +
+    `Please find your invoice details below.\n\n` +
     `BOOKING DETAILS\n` +
     `${"=".repeat(40)}\n` +
     `${formatTripSchedule(details)}\n\n` +
-    `PAYMENT RECEIPT\n` +
+    `PAYMENT / INVOICE\n` +
     `${"=".repeat(40)}\n` +
     `Amount paid: ${details.amountPaid}\n` +
-    `Payment reference: ${details.paymentReference}\n` +
+    `Invoice / reference: ${details.paymentReference}\n` +
     (details.transactionCode ? `Transaction code: ${details.transactionCode}\n` : "") +
-    `Payment method: Card (SumUp)\n\n` +
+    `Payment method: Card (SumUp)\n` +
+    `Status: Paid in full\n\n` +
     `We will contact you if we need any further information before your journey.\n\n` +
-    `If you have questions, reply to this email or contact us at bookings@myairporttaxini.co.uk.\n\n` +
-    `${businessName}`;
+    `If you have questions, reply to this email or contact us at ${BUSINESS_EMAIL}.\n\n` +
+    `${businessName}\n` +
+    `${BUSINESS_WEBSITE}`;
 
-  return { subject, body };
+  const html = buildInvoiceHtml(details, businessName);
+
+  return { subject, text, html };
 }
 
 export function buildOwnerPaidBookingEmail(

@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import AddressInput from "@/components/AddressInput";
 import TripMap from "@/components/TripMap";
 import { buildBookingMessage, isValidEmailAddress, isValidMobileNumber, type BookingDetails } from "@/lib/booking-message";
@@ -203,6 +204,8 @@ function QuoteCard() {
   const [paymentConfirmed, setPaymentConfirmed] = useState(false);
   const [paymentConfirmError, setPaymentConfirmError] = useState("");
   const [paymentConfirmationSummary, setPaymentConfirmationSummary] = useState("");
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [termsError, setTermsError] = useState("");
   const sumUpEnabled = isSumUpPaymentEnabled();
 
   const handleRouteMetrics = useCallback((metrics: TripRouteMetrics | null) => {
@@ -266,7 +269,7 @@ function QuoteCard() {
           markPaymentConfirmed(checkoutId);
           setPaymentConfirmed(true);
           setPaymentConfirmationSummary(
-            `Payment of ${result.amountPaid} received. A confirmation and receipt have been emailed to ${booking.customerEmail}.`,
+            `Payment of ${result.amountPaid} received. Your invoice and booking confirmation have been emailed to ${booking.customerEmail}.`,
           );
           setPaymentConfirming(false);
           return;
@@ -651,6 +654,12 @@ function QuoteCard() {
       return;
     }
 
+    if (!termsAccepted) {
+      setTermsError("Please accept the Terms & Conditions before paying.");
+      return;
+    }
+
+    setTermsError("");
     setPaymentLoading(true);
     setPaymentError("");
 
@@ -756,6 +765,8 @@ function QuoteCard() {
     setBookingSent(false);
     setBookingReference("");
     setBookingDelivery(null);
+    setTermsAccepted(false);
+    setTermsError("");
   }
 
   const usesWhatsApp = isMobileDevice === true;
@@ -1626,11 +1637,37 @@ function QuoteCard() {
         {showBookingPreview ? (
           <div className="space-y-3">
             {sumUpEnabled && liveQuote && (
-              <div className="space-y-2">
+              <div className="space-y-3">
+                <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-white/15 bg-white/[0.04] px-4 py-3 text-left">
+                  <input
+                    type="checkbox"
+                    checked={termsAccepted}
+                    onChange={(event) => {
+                      setTermsAccepted(event.target.checked);
+                      if (event.target.checked) {
+                        setTermsError("");
+                      }
+                    }}
+                    className="mt-0.5 h-4 w-4 shrink-0 rounded border-white/30 bg-navy-dark text-emerald focus:ring-emerald/30"
+                  />
+                  <span className="text-sm leading-relaxed text-white/80">
+                    I agree to the{" "}
+                    <Link
+                      href="/terms/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-medium text-emerald underline decoration-emerald/40 underline-offset-2 hover:text-emerald-light"
+                    >
+                      Terms &amp; Conditions
+                    </Link>{" "}
+                    and understand that my booking is confirmed once payment is completed.
+                  </span>
+                </label>
+                {termsError && <p className="text-xs text-red-300">{termsError}</p>}
                 <button
                   type="button"
                   onClick={() => void handlePayNow()}
-                  disabled={paymentLoading || submitted}
+                  disabled={paymentLoading || submitted || !termsAccepted}
                   className="w-full rounded-xl bg-white py-3.5 text-sm font-bold text-navy transition-all hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-70"
                 >
                   {paymentLoading
@@ -1639,7 +1676,7 @@ function QuoteCard() {
                 </button>
                 <p className="text-center text-xs text-white/50">
                   Payment opens in a new tab. Close that tab to cancel — your quote stays on this
-                  page.
+                  page. You&apos;ll receive a branded invoice by email after payment.
                 </p>
               </div>
             )}

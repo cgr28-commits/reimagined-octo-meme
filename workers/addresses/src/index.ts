@@ -135,6 +135,7 @@ type EmailPayload = {
   to: string;
   subject: string;
   body: string;
+  htmlBody?: string;
   toName?: string;
 };
 
@@ -151,6 +152,7 @@ async function sendViaCloudflareEmail(env: Env, options: EmailPayload): Promise<
     replyTo: { email: fromEmail, name: BUSINESS_NAME },
     subject: options.subject,
     text: options.body,
+    ...(options.htmlBody ? { html: options.htmlBody } : {}),
   });
 }
 
@@ -198,7 +200,10 @@ async function sendViaMailChannels(env: Env, options: EmailPayload): Promise<voi
         name: BUSINESS_NAME,
       },
       subject: options.subject,
-      content: [{ type: "text/plain", value: options.body }],
+      content: [
+        { type: "text/plain", value: options.body },
+        ...(options.htmlBody ? [{ type: "text/html", value: options.htmlBody }] : []),
+      ],
     }),
   });
 
@@ -641,7 +646,8 @@ async function handlePaymentConfirmRequest(
       to: booking.customerEmail,
       toName: booking.customerName,
       subject: customerEmail.subject,
-      body: customerEmail.body,
+      body: customerEmail.text,
+      htmlBody: customerEmail.html,
     });
 
     await sendEmail(env, {
