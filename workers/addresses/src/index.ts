@@ -312,6 +312,54 @@ async function logBookingCalendar(
   }
 }
 
+async function logPaidBookingCalendar(
+  env: Env,
+  booking: PaidBookingDetails,
+  amountPaid: string,
+  paymentReference: string,
+): Promise<{ logged: boolean; events?: number; error?: string }> {
+  if (!calendarConfigured(env)) {
+    return { logged: false };
+  }
+
+  try {
+    const events = await logBookingsToGoogleCalendar({
+      serviceAccountJson: env.GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON!,
+      calendarId: env.GOOGLE_CALENDAR_ID!.trim(),
+      customerName: booking.customerName,
+      message: "",
+      booking: {
+        customerName: booking.customerName,
+        customerEmail: booking.customerEmail,
+        mobileNumber: booking.mobileNumber,
+        tripLabel: booking.tripLabel,
+        pickupLabel: booking.pickupLabel,
+        dropoffLabel: booking.dropoffLabel,
+        returnJourney: booking.returnJourney,
+        tripDate: booking.tripDate,
+        tripTime: booking.tripTime,
+        returnDate: booking.returnDate,
+        returnTime: booking.returnTime,
+        flightNumber: booking.flightNumber,
+        returnFlightNumber: booking.returnFlightNumber,
+        passengers: booking.passengers,
+        suitcases: booking.suitcases,
+        vehicle: booking.vehicle,
+        estimatedPrice: amountPaid,
+        isAirportTrip: booking.isAirportTrip,
+        amountPaid,
+        paymentReference,
+        paid: true,
+      },
+    });
+    return { logged: true, events };
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : "Unknown calendar error";
+    console.error("Google Calendar paid booking log failed", detail);
+    return { logged: false, error: detail };
+  }
+}
+
 function parsePaidBookingDetails(body: Record<string, unknown>): PaidBookingDetails | null {
   const booking = body.booking;
   if (!booking || typeof booking !== "object") {
@@ -656,12 +704,17 @@ async function handlePaymentConfirmRequest(
       body: ownerEmail.body,
     });
 
+    const calendar = await logPaidBookingCalendar(env, booking, amountPaid, paymentReference);
+
     return json(
       {
         ok: true,
         paid: true,
         amountPaid,
         paymentReference,
+        calendarLogged: calendar.logged,
+        calendarEvents: calendar.events ?? 0,
+        ...(calendar.error ? { calendarWarning: calendar.error } : {}),
       },
       200,
       origin,

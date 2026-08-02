@@ -32,19 +32,24 @@ npm start
 
 ## Google Calendar booking log
 
-Confirmed website bookings (desktop email and mobile WhatsApp) are logged to your Google Calendar by the Cloudflare Worker at `POST /bookings`.
+Confirmed website bookings are logged to **colinrice876@gmail.com** (or whichever calendar you set in `GOOGLE_CALENDAR_ID`) by the Cloudflare Worker:
+
+- WhatsApp / email bookings via `POST /bookings`
+- **SumUp paid bookings** via `POST /payments/confirm` after payment is verified
+
+Each calendar event is branded with **My Airport Taxi NI** in the title, your logo as an attachment, payment status for paid jobs, and full trip details in the description.
 
 1. Enable **Google Calendar API** in Google Cloud.
 2. Create a **service account** and download its JSON key.
-3. Share your Google Calendar with the service account email (`…@….iam.gserviceaccount.com`) using **Make changes to events**.
+3. Share **colinrice876@gmail.com** with the service account email (`…@….iam.gserviceaccount.com`) using **Make changes to events**.
 4. Set Worker secrets:
 
 ```bash
 cd workers/addresses
-npx wrangler secret put GOOGLE_CALENDAR_ID
+npx wrangler secret put GOOGLE_CALENDAR_ID          # colinrice876@gmail.com
 npx wrangler secret put GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON
 ```
 
-`GOOGLE_CALENDAR_ID` is usually your Gmail address. Paste the full service account JSON when prompted for `GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON`.
+Paste the full service account JSON when prompted for `GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON`.
 
-Transfer bookings create a 90-minute calendar event at the requested pickup time (`Europe/London`). Return journeys create a second event. Day-trip enquiries create an 8-hour event from 09:00 on the preferred date.
+Transfer bookings create a 90-minute calendar event at the requested pickup time (`Europe/London`). Return journeys create a second event. Paid SumUp jobs show `[PAID £…]` in the event title. Day-trip enquiries create an 8-hour event from 09:00 on the preferred date.
