@@ -394,21 +394,25 @@ function DriverJobCard({
             {isActive ? "Stop sharing location" : "Start sharing location"}
           </button>
         )}
-        <button
-          type="button"
-          onClick={() => void copyTrackLink()}
-          className="rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:border-white/30"
-        >
-          Copy track link
-        </button>
-        <a
-          href={buildWhatsAppTrackLink(job.trackUrl, job.customerName)}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:border-white/30"
-        >
-          Send via WhatsApp
-        </a>
+        {!isRefunded && (
+          <>
+            <button
+              type="button"
+              onClick={() => void copyTrackLink()}
+              className="rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:border-white/30"
+            >
+              Copy track link
+            </button>
+            <a
+              href={buildWhatsAppTrackLink(job.trackUrl, job.customerName)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:border-white/30"
+            >
+              Send via WhatsApp
+            </a>
+          </>
+        )}
         {canEdit && !editOpen && (
           <button
             type="button"

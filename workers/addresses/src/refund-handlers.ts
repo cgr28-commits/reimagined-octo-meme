@@ -28,7 +28,7 @@ import {
   markTrackingJobRefunded,
   trackingStoreConfigured,
 } from "./tracking-store";
-import { trySendEmail, type WorkerEmailEnv } from "./worker-email";
+import { trySendBrandedCustomerEmail, trySendEmail, type WorkerEmailEnv } from "./worker-email";
 
 type RefundEnv = WorkerEmailEnv & {
   SUMUP_API_KEY?: string;
@@ -297,7 +297,7 @@ export async function issueBookingRefund(
   const customerEmail = buildCustomerRefundConfirmationEmail(emailDetails, BUSINESS_NAME);
   const ownerEmail = buildOwnerRefundConfirmationEmail(emailDetails, BUSINESS_NAME);
 
-  const customerEmailResult = await trySendEmail(env, {
+  const customerEmailResult = await trySendBrandedCustomerEmail(env, {
     to: record.customerEmail,
     toName: record.customerName,
     subject: customerEmail.subject,

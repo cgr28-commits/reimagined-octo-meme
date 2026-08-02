@@ -10,6 +10,7 @@ import { buildTrackingReminderEmail } from "../shared/booking-notifications";
 import {
   createTrackingJobFromBooking,
   getTrackingJob,
+  isTrackingJobCancelled,
   listTrackingJobsForDate,
   listUpcomingTrackingJobs,
   saveTrackingJob,
@@ -19,7 +20,7 @@ import type { PaidBookingDetails } from "../shared/booking-notifications";
 import { corsHeaders } from "../shared/google-places";
 import { getPaidBookingRecord, paidBookingStoreConfigured } from "./paid-booking-store";
 import { driverAuthorized, driverAuthStatus, isDriverAuthConfigured } from "./driver-auth";
-import { trySendEmail, type WorkerEmailEnv } from "./worker-email";
+import { trySendBrandedCustomerEmail, type WorkerEmailEnv } from "./worker-email";
 
 type Env = WorkerEmailEnv & {
   TRACKING_STORE?: KVNamespace;
@@ -77,6 +78,40 @@ function jsonResponse(body: unknown, status: number, origin: string | null) {
       ...corsHeaders(origin),
     },
   });
+}
+
+async function isJobCancelled(record: TrackingJobRecord, env: Env): Promise<boolean> {
+  if (isTrackingJobCancelled(record)) {
+    return true;
+  }
+
+  if (record.paymentReference && paidBookingStoreConfigured(env.TRACKING_STORE)) {
+    const paidRecord = await getPaidBookingRecord(env.TRACKING_STORE, record.paymentReference);
+    if (paidRecord?.status === "refunded") {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+async function cancelledJobResponse(
+  record: TrackingJobRecord,
+  env: Env,
+  origin: string | null,
+): Promise<Response | null> {
+  if (!(await isJobCancelled(record, env))) {
+    return null;
+  }
+
+  return jsonResponse(
+    {
+      error: "This booking has been cancelled",
+      cancelled: true,
+    },
+    410,
+    origin,
+  );
 }
 
 function liveDriverLocation(record: TrackingJobRecord, windowOpen: boolean) {
@@ -197,6 +232,11 @@ export async function handlePublicTrackRequest(
     return jsonResponse({ error: "Tracking link not found" }, 404, origin);
   }
 
+  const cancelled = await cancelledJobResponse(record, env, origin);
+  if (cancelled) {
+    return cancelled;
+  }
+
   return jsonResponse(publicTrackPayload(record, origin), 200, origin);
 }
 
@@ -221,7 +261,7 @@ async function sendSharingReminderEmail(
     trackUrl,
   );
 
-  const result = await trySendEmail(env, {
+  const result = await trySendBrandedCustomerEmail(env, {
     to: customerEmail,
     toName: record.customerName,
     subject: reminder.subject,
@@ -394,6 +434,11 @@ export async function handleDriverSharingRequest(
     return jsonResponse({ error: "Job not found" }, 404, origin);
   }
 
+  const cancelled = await cancelledJobResponse(record, env, origin);
+  if (cancelled) {
+    return cancelled;
+  }
+
   const wasSharing = record.sharingActive;
   record.sharingActive = active;
   if (!active) {
@@ -465,6 +510,11 @@ export async function handleDriverLocationRequest(
     return jsonResponse({ error: "Job not found" }, 404, origin);
   }
 
+  const cancelled = await cancelledJobResponse(record, env, origin);
+  if (cancelled) {
+    return cancelled;
+  }
+
   if (!record.sharingActive) {
     return jsonResponse({ error: "Sharing is not active for this job" }, 409, origin);
   }
@@ -529,6 +579,11 @@ export async function handleCustomerSharingRequest(
     return jsonResponse({ error: "Tracking link not found" }, 404, origin);
   }
 
+  const cancelled = await cancelledJobResponse(record, env, origin);
+  if (cancelled) {
+    return cancelled;
+  }
+
   const window = getTrackingWindow(record.pickupAt);
   if (!window.open) {
     return jsonResponse({ error: "Tracking window is not open" }, 403, origin);
@@ -580,6 +635,11 @@ export async function handleCustomerLocationRequest(
   const record = await getTrackingJob(env.TRACKING_STORE, token);
   if (!record) {
     return jsonResponse({ error: "Tracking link not found" }, 404, origin);
+  }
+
+  const cancelled = await cancelledJobResponse(record, env, origin);
+  if (cancelled) {
+    return cancelled;
   }
 
   const window = getTrackingWindow(record.pickupAt);

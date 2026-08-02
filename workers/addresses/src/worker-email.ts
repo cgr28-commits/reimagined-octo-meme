@@ -22,6 +22,8 @@ export type EmailPayload = {
   body: string;
   htmlBody?: string;
   toName?: string;
+  /** When true, do not fall back to plain-text-only providers for customer emails. */
+  requireHtml?: boolean;
 };
 
 export type EmailSendResult = {
@@ -69,10 +71,10 @@ async function sendViaWeb3Forms(env: WorkerEmailEnv, options: EmailPayload): Pro
 
   if (sendAutoresponse) {
     payload.email = options.to;
+    const autoresponseMessage = options.htmlBody?.trim() || options.body;
     payload.autoresponse = {
       subject: options.subject,
-      message: options.body,
-      ...(options.htmlBody?.trim() ? { html: options.htmlBody } : {}),
+      message: autoresponseMessage,
     };
   }
 
@@ -89,15 +91,17 @@ async function sendViaWeb3Forms(env: WorkerEmailEnv, options: EmailPayload): Pro
 }
 
 async function sendViaFormSubmit(options: EmailPayload): Promise<void> {
+  const html = options.htmlBody?.trim();
   const response = await fetch(`https://formsubmit.co/ajax/${encodeURIComponent(options.to)}`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Accept: "application/json" },
     body: JSON.stringify({
       _subject: options.subject,
       _captcha: "false",
-      _template: "box",
+      _template: html ? "box" : "box",
       name: options.toName ?? BUSINESS_NAME,
-      message: options.htmlBody?.trim() || options.body,
+      message: html || options.body,
+      ...(html ? { _replyto: DEFAULT_BOOKING_EMAIL } : {}),
     }),
   });
 
@@ -154,6 +158,9 @@ export async function trySendEmail(
 ): Promise<EmailSendResult> {
   const providers: Array<{ label: string; run: () => Promise<void> }> = [];
   const wantsHtml = Boolean(options.htmlBody?.trim());
+  const ownerEmail = env.BOOKING_TO_EMAIL?.trim() || DEFAULT_BOOKING_EMAIL;
+  const isCustomerEmail = options.to.toLowerCase() !== ownerEmail.toLowerCase();
+  const skipPlainTextFallback = Boolean(options.requireHtml && wantsHtml && isCustomerEmail);
 
   if (env.EMAIL) {
     providers.push({ label: "cloudflare-email", run: () => sendViaCloudflareEmail(env, options) });
@@ -164,8 +171,13 @@ export async function trySendEmail(
     providers.push({ label: "mailchannels", run: () => sendViaMailChannels(env, options) });
   }
 
-  if (env.WEB3FORMS_ACCESS_KEY?.trim()) {
+  if (!skipPlainTextFallback && env.WEB3FORMS_ACCESS_KEY?.trim()) {
     providers.push({ label: "web3forms", run: () => sendViaWeb3Forms(env, options) });
+  } else if (wantsHtml && isCustomerEmail && env.WEB3FORMS_ACCESS_KEY?.trim()) {
+    providers.push({
+      label: "web3forms-html-autoresponse",
+      run: () => sendViaWeb3Forms(env, { ...options, body: options.htmlBody!.trim() }),
+    });
   }
 
   if (!wantsHtml) {
@@ -188,6 +200,18 @@ export async function trySendEmail(
   const detail =
     lastError instanceof Error ? lastError.message : "All email providers failed";
   return { sent: false, error: detail };
+}
+
+/** Sends a branded HTML email to a customer — never falls back to plain-text-only delivery. */
+export async function trySendBrandedCustomerEmail(
+  env: WorkerEmailEnv,
+  options: EmailPayload,
+): Promise<EmailSendResult> {
+  if (!options.htmlBody?.trim()) {
+    return { sent: false, error: "Missing HTML email body" };
+  }
+
+  return trySendEmail(env, { ...options, requireHtml: true });
 }
 
 export async function sendEmail(env: WorkerEmailEnv, options: EmailPayload): Promise<void> {
