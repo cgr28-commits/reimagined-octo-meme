@@ -236,7 +236,8 @@ function buildInvoiceHtml(
               <strong style="color:#0b1f33;">${escapeHtml(businessName)}</strong><br />
               <a href="${BUSINESS_WEBSITE}" style="color:#0b1f33;">${BUSINESS_WEBSITE.replace("https://", "")}</a> ·
               <a href="${BUSINESS_WEBSITE}/terms/" style="color:#0b1f33;">Terms &amp; Conditions</a> ·
-              <a href="${BUSINESS_WEBSITE}/privacy/" style="color:#0b1f33;">Privacy Policy</a>
+              <a href="${BUSINESS_WEBSITE}/privacy/" style="color:#0b1f33;">Privacy Policy</a><br />
+              Business address available on request — ${BUSINESS_EMAIL}
             </td>
           </tr>
           <tr>

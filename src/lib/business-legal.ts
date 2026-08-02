@@ -11,4 +11,6 @@ export const BUSINESS_LEGAL = {
   serviceArea: "Greater Belfast and across Northern Ireland",
   operatorNote: "Fully licensed and insured private hire operator",
   complaintsEmail: SITE.email,
+  addressOnRequestNote:
+    "Business address available on request — email bookings@myairporttaxini.co.uk for legal, corporate, or booking enquiries.",
 } as const;

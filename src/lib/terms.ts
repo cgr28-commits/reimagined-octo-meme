@@ -18,10 +18,11 @@ export const TERMS_SECTIONS = [
       "Telephone: 028 9602 2952",
       "Website: www.myairporttaxini.co.uk",
       "Service area: Greater Belfast and across Northern Ireland",
+      "Business address: Available on request (email bookings@myairporttaxini.co.uk)",
       "Complaints & legal enquiries: bookings@myairporttaxini.co.uk",
     ],
     footer:
-      "Registered business details are available on request. Please contact us if you require written confirmation of our operator status for corporate or legal purposes.",
+      "My Airport Taxi NI operates as a sole trader. Our business address is not published on this website for privacy reasons but will be provided promptly on request for legal, corporate, or booking enquiries. Please contact us if you require written confirmation of our operator status.",
   },
   {
     title: "Our Service",
