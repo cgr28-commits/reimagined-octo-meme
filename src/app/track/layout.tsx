@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import TrackPageShell from "./page";
 import { SITE } from "@/lib/data";
 
 export const metadata: Metadata = {
@@ -9,11 +8,8 @@ export const metadata: Metadata = {
     index: false,
     follow: false,
   },
-  alternates: {
-    canonical: "/track/",
-  },
 };
 
-export default function TrackPage() {
-  return <TrackPageShell />;
+export default function TrackLayout({ children }: { children: React.ReactNode }) {
+  return children;
 }
