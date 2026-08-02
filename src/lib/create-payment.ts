@@ -22,6 +22,7 @@ export type PaymentConfirmationResult = {
   emailWarning?: string;
   trackUrl?: string;
   calendarLogged?: boolean;
+  calendarWarning?: string;
 };
 
 function resolveBookingsApiUrl(): string {

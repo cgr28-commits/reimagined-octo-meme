@@ -311,11 +311,22 @@ export function buildTransferCalendarEvents(
   booking: TransferBookingEvent,
   message?: string,
 ): CalendarEventInput[] {
+  const description = buildTransferDescription(booking, message);
+
   if (!isValidDate(booking.tripDate) || !isValidTime(booking.tripTime)) {
-    throw new Error("Transfer booking is missing a valid trip date/time");
+    const startDateTime = formatLondonDateTime(new Date(Date.now() + 60 * 60 * 1000));
+    return [
+      {
+        summary: buildTransferSummary(booking, " (Confirm date/time)"),
+        description,
+        location: booking.pickupLabel || undefined,
+        startDateTime,
+        endDateTime: addMinutes(startDateTime, DEFAULT_TRANSFER_DURATION_MINUTES),
+        attendeeEmail: booking.customerEmail?.trim() || undefined,
+      },
+    ];
   }
 
-  const description = buildTransferDescription(booking, message);
   const outboundStart = `${booking.tripDate}T${booking.tripTime}`;
   const events: CalendarEventInput[] = [
     {
@@ -472,21 +483,13 @@ async function createCalendarEvent(
       url: BUSINESS_WEBSITE,
     },
     colorId: "9",
-    attachments: [
-      {
-        fileUrl: BUSINESS_LOGO_URL,
-        title: BUSINESS_NAME,
-        mimeType: "image/png",
-        iconLink: BUSINESS_LOGO_URL,
-      },
-    ],
   };
 
   // Do not invite customers automatically — this is an owner-facing log only.
   void event.attendeeEmail;
 
-  const response = await fetch(
-    `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?supportsAttachments=true`,
+  let response = await fetch(
+    `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events`,
     {
       method: "POST",
       headers: {

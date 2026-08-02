@@ -1,9 +1,11 @@
 import type { BookingDetails } from "@/lib/booking-message";
+import type { PaymentConfirmationResult } from "@/lib/create-payment";
 
 const PENDING_PAYMENT_KEY = "matni-pending-payment";
 const PENDING_BY_TOKEN_PREFIX = "matni-pending-token-";
 const PAYMENT_CONFIRMED_PREFIX = "matni-payment-confirmed-";
 const PAYMENT_SUMMARY_PREFIX = "matni-payment-summary-";
+const PAYMENT_RESULT_PREFIX = "matni-payment-result-";
 
 export type PendingPayment = {
   checkoutId: string;
@@ -60,10 +62,44 @@ export function hasConfirmedPayment(checkoutId: string): boolean {
   return localStorage.getItem(`${PAYMENT_CONFIRMED_PREFIX}${checkoutId}`) === "1";
 }
 
-export function markPaymentConfirmed(checkoutId: string, summary?: string, returnToken?: string): void {
+export function savePaymentConfirmationResult(
+  checkoutId: string,
+  result: PaymentConfirmationResult,
+): void {
+  localStorage.setItem(`${PAYMENT_RESULT_PREFIX}${checkoutId}`, JSON.stringify(result));
+}
+
+export function readPaymentConfirmationResult(
+  checkoutId: string,
+): PaymentConfirmationResult | null {
+  const raw = localStorage.getItem(`${PAYMENT_RESULT_PREFIX}${checkoutId}`);
+  if (!raw) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(raw) as PaymentConfirmationResult;
+  } catch {
+    return null;
+  }
+}
+
+export function paymentNeedsFollowUp(result: PaymentConfirmationResult): boolean {
+  return result.emailSent === false || result.calendarLogged === false;
+}
+
+export function markPaymentConfirmed(
+  checkoutId: string,
+  summary?: string,
+  returnToken?: string,
+  result?: PaymentConfirmationResult,
+): void {
   localStorage.setItem(`${PAYMENT_CONFIRMED_PREFIX}${checkoutId}`, "1");
   if (summary) {
     localStorage.setItem(`${PAYMENT_SUMMARY_PREFIX}${checkoutId}`, summary);
+  }
+  if (result) {
+    savePaymentConfirmationResult(checkoutId, result);
   }
   clearPendingPayment(returnToken);
 }

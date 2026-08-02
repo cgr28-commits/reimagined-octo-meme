@@ -32,6 +32,8 @@ import {
   createPaymentReturnToken,
   hasConfirmedPayment,
   markPaymentConfirmed,
+  paymentNeedsFollowUp,
+  readPaymentConfirmationResult,
   readPaymentConfirmationSummary,
   readPendingPayment,
   readPendingPaymentByToken,
@@ -56,18 +58,32 @@ function buildPaymentConfirmationSummary(
   result: PaymentConfirmationResult,
   customerEmail: string,
 ): string {
+  const parts: string[] = [];
+
   if (result.emailSent === false) {
-    return `Payment of ${result.amountPaid} received. We could not send confirmation emails automatically — our team will confirm your booking manually. If you do not hear from us within an hour, email ${SITE.email}.`;
+    parts.push(
+      `Payment of ${result.amountPaid} received. We could not send confirmation emails automatically — our team will confirm your booking manually. If you do not hear from us within an hour, email ${SITE.email}.`,
+    );
+  } else if (result.customerEmailSent === false) {
+    parts.push(
+      `Payment of ${result.amountPaid} received. We notified our team but could not email your confirmation to ${customerEmail}. Contact us at ${SITE.email} if you need a copy.`,
+    );
+  } else {
+    parts.push(
+      `Payment of ${result.amountPaid} received. Your invoice and booking confirmation have been emailed to ${customerEmail}.`,
+    );
   }
 
-  if (result.customerEmailSent === false) {
-    return `Payment of ${result.amountPaid} received. We notified our team but could not email your confirmation to ${customerEmail}. Contact us at ${SITE.email} if you need a copy.`;
+  if (result.calendarLogged === false) {
+    parts.push(
+      "Your booking was not added to our diary automatically — we will add it manually shortly.",
+    );
   }
 
-  return `Payment of ${result.amountPaid} received. Your invoice and booking confirmation have been emailed to ${customerEmail}.`;
+  return parts.join(" ");
 }
 
-function buildPaymentSuccessSubtext(summary: string, calendarLogged?: boolean): string {
+function buildPaymentSuccessSubtext(result: PaymentConfirmationResult, summary: string): string {
   if (
     summary.includes("could not send confirmation emails") ||
     summary.includes("could not email your confirmation")
@@ -75,8 +91,12 @@ function buildPaymentSuccessSubtext(summary: string, calendarLogged?: boolean): 
     return "Your payment is confirmed. We will follow up shortly.";
   }
 
-  if (calendarLogged) {
+  if (result.calendarLogged && result.emailSent !== false) {
     return "Your booking is in our diary and we've sent the full details to our team.";
+  }
+
+  if (result.calendarLogged) {
+    return "Your booking is in our diary.";
   }
 
   return "We've also sent the full booking details to our team.";
@@ -240,6 +260,8 @@ function QuoteCard() {
   const [paymentConfirmed, setPaymentConfirmed] = useState(false);
   const [paymentConfirmError, setPaymentConfirmError] = useState("");
   const [paymentConfirmationSummary, setPaymentConfirmationSummary] = useState("");
+  const [paymentConfirmationResult, setPaymentConfirmationResult] =
+    useState<PaymentConfirmationResult | null>(null);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [termsError, setTermsError] = useState("");
   const [testChargeAmount, setTestChargeAmount] = useState<number | null>(null);
@@ -287,15 +309,27 @@ function QuoteCard() {
     window.history.replaceState(null, "", nextUrl);
 
     if (checkoutId && hasConfirmedPayment(checkoutId)) {
+      const storedResult = readPaymentConfirmationResult(checkoutId);
       const savedSummary =
         readPaymentConfirmationSummary(checkoutId) ||
         "Your booking is confirmed. Thank you for your payment.";
-      setPaymentConfirmed(true);
-      setPaymentConfirmationSummary(savedSummary);
-      return;
-    }
 
-    if (!checkoutId || !pending?.booking) {
+      if (storedResult && !paymentNeedsFollowUp(storedResult)) {
+        setPaymentConfirmed(true);
+        setPaymentConfirmationSummary(savedSummary);
+        setPaymentConfirmationResult(storedResult);
+        return;
+      }
+
+      if (!pending?.booking) {
+        setPaymentConfirmed(true);
+        setPaymentConfirmationSummary(savedSummary);
+        if (storedResult) {
+          setPaymentConfirmationResult(storedResult);
+        }
+        return;
+      }
+    } else if (!checkoutId || !pending?.booking) {
       return;
     }
 
@@ -318,10 +352,17 @@ function QuoteCard() {
           }
 
           const summary = buildPaymentConfirmationSummary(result, booking.customerEmail);
-          markPaymentConfirmed(checkoutId, summary, returnToken || undefined);
+          markPaymentConfirmed(checkoutId, summary, returnToken || undefined, result);
           setPaymentConfirmed(true);
           setPaymentConfirmationSummary(summary);
+          setPaymentConfirmationResult(result);
           setPaymentConfirming(false);
+
+          if (paymentNeedsFollowUp(result) && attempt < PAYMENT_CONFIRM_MAX_ATTEMPTS - 1) {
+            await new Promise((resolve) => window.setTimeout(resolve, PAYMENT_CONFIRM_RETRY_MS));
+            continue;
+          }
+
           return;
         } catch (error) {
           const message =
@@ -901,7 +942,9 @@ function QuoteCard() {
             {paymentConfirmationSummary}
           </p>
           <p className="mx-auto mt-4 max-w-md text-sm text-white/60">
-            {buildPaymentSuccessSubtext(paymentConfirmationSummary)}
+            {paymentConfirmationResult
+              ? buildPaymentSuccessSubtext(paymentConfirmationResult, paymentConfirmationSummary)
+              : "We've also sent the full booking details to our team."}
           </p>
         </div>
       </div>
