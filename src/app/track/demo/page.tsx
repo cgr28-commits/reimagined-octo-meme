@@ -56,19 +56,33 @@ export default function TrackDemoPage() {
             ))}
           </div>
 
-          <section className="mt-10 rounded-2xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
-            <h2 className="text-lg font-bold text-white">Driver dashboard demo</h2>
-            <p className="mt-2 text-sm text-white/65">
-              Open the driver page and use access key{" "}
-              <code className="rounded bg-white/10 px-2 py-0.5 text-emerald">{DEMO_DRIVER_KEY}</code>{" "}
-              to preview today&apos;s demo jobs.
-            </p>
-            <Link
-              href="/driver/"
-              className="mt-4 inline-flex rounded-xl bg-emerald px-5 py-3 text-sm font-semibold text-navy transition-colors hover:bg-emerald/90"
-            >
-              Open driver dashboard
-            </Link>
+          <section className="mt-10 grid gap-4 sm:grid-cols-2">
+            <div className="rounded-2xl border border-emerald/30 bg-emerald/10 p-6 sm:p-8">
+              <h2 className="text-lg font-bold text-white">Owner dashboard</h2>
+              <p className="mt-2 text-sm text-white/65">
+                Assign jobs, payments, refunds, and live GPS — opens at{" "}
+                <code className="rounded bg-white/10 px-2 py-0.5 text-emerald">/owner/</code>.
+              </p>
+              <Link
+                href="/owner/"
+                className="mt-4 inline-flex rounded-xl bg-emerald px-5 py-3 text-sm font-semibold text-navy transition-colors hover:bg-emerald/90"
+              >
+                Open owner dashboard
+              </Link>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
+              <h2 className="text-lg font-bold text-white">Driver dashboard</h2>
+              <p className="mt-2 text-sm text-white/65">
+                Gary&apos;s view — accept jobs and share location. Preview key{" "}
+                <code className="rounded bg-white/10 px-2 py-0.5 text-emerald">{DEMO_DRIVER_KEY}</code>.
+              </p>
+              <Link
+                href="/driver/"
+                className="mt-4 inline-flex rounded-xl border border-white/15 px-5 py-3 text-sm font-semibold text-white transition-colors hover:border-white/30"
+              >
+                Open driver dashboard
+              </Link>
+            </div>
           </section>
         </div>
       </main>
