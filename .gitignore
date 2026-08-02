@@ -23,6 +23,8 @@
 .DS_Store
 *.pem
 /reports/
+tmp-*.html
+**/.wrangler/
 
 # debug
 npm-debug.log*
