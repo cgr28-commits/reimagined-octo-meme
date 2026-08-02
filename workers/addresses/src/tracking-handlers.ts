@@ -18,7 +18,7 @@ import {
 import type { PaidBookingDetails } from "../shared/booking-notifications";
 import { corsHeaders } from "../shared/google-places";
 import { getPaidBookingRecord, paidBookingStoreConfigured } from "./paid-booking-store";
-import { driverAuthorized, isDriverAuthConfigured } from "./driver-auth";
+import { driverAuthorized, driverAuthStatus, isDriverAuthConfigured } from "./driver-auth";
 import { trySendEmail, type WorkerEmailEnv } from "./worker-email";
 
 type Env = WorkerEmailEnv & {
@@ -329,18 +329,24 @@ export async function handleDriverStatusRequest(
 ): Promise<Response> {
   const authConfigured = isDriverAuthConfigured(env);
   const authorized = driverAuthorized(request, env);
+  const keys = driverAuthStatus(env);
 
   return jsonResponse(
     {
       ok: authorized,
       authConfigured,
+      ...keys,
       worker: "reimagined-octo-meme",
       ...(authorized
         ? {}
         : {
             error: authConfigured
-              ? "Driver key did not match. Use the exact DRIVER_ACCESS_KEY value from the reimagined-octo-meme worker secrets."
-              : "Driver access is not configured on reimagined-octo-meme. Add DRIVER_ACCESS_KEY under that worker's secrets (not my-airport-taxi-ni).",
+              ? keys.hasDriverKey && keys.hasOwnerKey
+                ? "Driver key did not match. Use the exact DRIVER_ACCESS_KEY or OWNER_ACCESS_KEY value from reimagined-octo-meme worker secrets."
+                : keys.hasOwnerKey
+                  ? "Driver key did not match. Use the exact OWNER_ACCESS_KEY secret value from reimagined-octo-meme."
+                  : "Driver key did not match. Use the exact DRIVER_ACCESS_KEY secret value from reimagined-octo-meme."
+              : "Driver access is not configured on reimagined-octo-meme. Add DRIVER_ACCESS_KEY under that worker's encrypted secrets (not my-airport-taxi-ni).",
           }),
     },
     authorized ? 200 : authConfigured ? 401 : 503,
