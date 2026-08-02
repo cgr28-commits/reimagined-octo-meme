@@ -736,6 +736,17 @@ export default function DriverPageClient() {
                 className="mt-2 w-full rounded-xl border border-white/15 bg-navy px-4 py-3 text-white outline-none focus:border-emerald"
                 placeholder="Enter your driver key"
               />
+              <p className="mt-3 text-sm text-white/55">
+                Use encrypted secret <span className="text-white/75">DRIVER_ACCESS_KEY</span> or{" "}
+                <span className="text-white/75">OWNER_ACCESS_KEY</span> from Cloudflare → Workers →{" "}
+                <span className="text-white/75">reimagined-octo-meme</span>. Preview:{" "}
+                <span className="text-white/75">demo-driver-key</span>.
+              </p>
+              {error && (
+                <p className="mt-4 rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-100">
+                  {error}
+                </p>
+              )}
               <button
                 type="button"
                 onClick={() => void unlock()}

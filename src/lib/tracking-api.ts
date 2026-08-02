@@ -45,6 +45,8 @@ function driverPostHeaders(driverKey: string): HeadersInit {
 export type DriverStatusResponse = {
   ok: boolean;
   authConfigured: boolean;
+  hasDriverKey?: boolean;
+  hasOwnerKey?: boolean;
   worker: string;
   error?: string;
 };
