@@ -27,6 +27,7 @@ type Env = {
   DRIVER_ACCESS_KEY?: string;
   OWNER_ACCESS_KEY?: string;
   DRIVER_NAME?: string;
+  DRIVER_ROSTER?: string;
   GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON?: string;
   GOOGLE_CALENDAR_ID?: string;
   AERODATABOX_RAPIDAPI_KEY?: string;
@@ -104,6 +105,11 @@ export async function enrichDriverJob(
       bookingStatus,
       refundAmountLabel: paidRecord?.refundAmountLabel ?? job.refundAmountLabel,
       activeDriverName: job.activeDriverName,
+      assignedDriverName: job.assignedDriverName,
+      assignmentStatus: job.assignmentStatus ?? "unassigned",
+      assignedAt: job.assignedAt,
+      acceptedAt: job.acceptedAt,
+      declinedAt: job.declinedAt,
       isAirportPickup: Boolean(job.isAirportTrip && job.isFromAirport),
       flightNumber: job.flightNumber ?? null,
       airportCode: job.airportCode ?? null,

@@ -37,7 +37,55 @@ export type TrackingJobRecord = {
   refundAmountLabel?: string;
   /** Name of the driver sharing live location (e.g. Gary) */
   activeDriverName?: string;
+  /** Driver the job is assigned to (must accept before it appears on their dashboard) */
+  assignedDriverName?: string;
+  assignmentStatus?: JobAssignmentStatus;
+  assignedAt?: string;
+  acceptedAt?: string;
+  declinedAt?: string;
 };
+
+export type JobAssignmentStatus = "unassigned" | "pending" | "accepted" | "declined";
+
+export function normalizeDriverName(name: string): string {
+  return name.trim();
+}
+
+export function driverNamesMatch(
+  left: string | undefined,
+  right: string | undefined,
+): boolean {
+  if (!left?.trim() || !right?.trim()) {
+    return false;
+  }
+
+  return left.trim().toLowerCase() === right.trim().toLowerCase();
+}
+
+export function jobAssignmentStatus(
+  job: Pick<TrackingJobRecord, "assignmentStatus">,
+): JobAssignmentStatus {
+  return job.assignmentStatus ?? "unassigned";
+}
+
+export function jobVisibleToDriver(
+  job: Pick<TrackingJobRecord, "assignedDriverName" | "assignmentStatus">,
+  driverName: string,
+): boolean {
+  const status = jobAssignmentStatus(job);
+  if (status !== "pending" && status !== "accepted") {
+    return false;
+  }
+
+  return driverNamesMatch(job.assignedDriverName, driverName);
+}
+
+export function driverCanOperateJob(
+  job: Pick<TrackingJobRecord, "assignedDriverName" | "assignmentStatus">,
+  driverName: string,
+): boolean {
+  return jobAssignmentStatus(job) === "accepted" && driverNamesMatch(job.assignedDriverName, driverName);
+}
 
 export const LOCATION_STALE_MS = 5 * 60 * 1000;
 

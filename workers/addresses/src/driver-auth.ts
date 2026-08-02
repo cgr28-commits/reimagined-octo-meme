@@ -3,6 +3,8 @@ export type DriverAuthEnv = {
   OWNER_ACCESS_KEY?: string;
   /** Display name for the driver key holder (default Gary). */
   DRIVER_NAME?: string;
+  /** Comma-separated driver names available for assignment (default: DRIVER_NAME). */
+  DRIVER_ROSTER?: string;
 };
 
 export type DriverAuthStatus = {
@@ -37,6 +39,30 @@ function driverKey(env: DriverAuthEnv): string {
 
 function driverDisplayName(env: DriverAuthEnv): string {
   return env.DRIVER_NAME?.trim() || "Gary";
+}
+
+export function listConfiguredDrivers(env: DriverAuthEnv): string[] {
+  const roster = env.DRIVER_ROSTER?.trim();
+  if (roster) {
+    const names = roster
+      .split(",")
+      .map((name) => name.trim())
+      .filter(Boolean);
+    if (names.length > 0) {
+      return [...new Set(names)];
+    }
+  }
+
+  return [driverDisplayName(env)];
+}
+
+export function isConfiguredDriver(env: DriverAuthEnv, driverName: string): boolean {
+  const normalized = driverName.trim().toLowerCase();
+  if (!normalized) {
+    return false;
+  }
+
+  return listConfiguredDrivers(env).some((name) => name.toLowerCase() === normalized);
 }
 
 /** @deprecated Prefer ownerKey / driverKey */

@@ -19,7 +19,20 @@ import {
 import type { PaidBookingDetails } from "../shared/booking-notifications";
 import { corsHeaders } from "../shared/google-places";
 import { getPaidBookingRecord, paidBookingStoreConfigured } from "./paid-booking-store";
-import { driverAuthorized, driverAuthStatus, isDriverAuthConfigured, resolveDriverSession, sanitizeDriverJobForRole, type DashboardRole } from "./driver-auth";
+import {
+  filterJobsForSession,
+  assertDriverCanOperateJob,
+} from "./driver-assignment-utils";
+import { jobAssignmentStatus } from "../shared/tracking";
+import {
+  driverAuthorized,
+  driverAuthStatus,
+  isDriverAuthConfigured,
+  listConfiguredDrivers,
+  resolveDriverSession,
+  sanitizeDriverJobForRole,
+  type DashboardRole,
+} from "./driver-auth";
 import { trySendBrandedCustomerEmail, type WorkerEmailEnv } from "./worker-email";
 
 type Env = WorkerEmailEnv & {
@@ -27,6 +40,7 @@ type Env = WorkerEmailEnv & {
   DRIVER_ACCESS_KEY?: string;
   OWNER_ACCESS_KEY?: string;
   DRIVER_NAME?: string;
+  DRIVER_ROSTER?: string;
   AERODATABOX_RAPIDAPI_KEY?: string;
 };
 
@@ -325,6 +339,8 @@ export async function handleDriverJobsRequest(
     jobs = await listTrackingJobsForDate(env.TRACKING_STORE, tripDate);
   }
 
+  jobs = filterJobsForSession(jobs, session);
+
   const enrichedJobs = await Promise.all(
     jobs.map(async (job) => {
       const flight = await resolveDriverFlight(job, env);
@@ -356,6 +372,11 @@ export async function handleDriverJobsRequest(
           bookingStatus,
           refundAmountLabel,
           activeDriverName: job.activeDriverName,
+          assignedDriverName: job.assignedDriverName,
+          assignmentStatus: jobAssignmentStatus(job),
+          assignedAt: job.assignedAt,
+          acceptedAt: job.acceptedAt,
+          declinedAt: job.declinedAt,
           isAirportPickup: Boolean(job.isAirportTrip && job.isFromAirport),
           flightNumber: job.flightNumber ?? null,
           airportCode: job.airportCode ?? null,
@@ -398,7 +419,9 @@ export async function handleDriverStatusRequest(
       ...(authorized
         ? {
             role: session.role,
-            ...(session.role === "driver" ? { driverName: session.driverName } : {}),
+            ...(session.role === "driver"
+              ? { driverName: session.driverName }
+              : { availableDrivers: listConfiguredDrivers(env) }),
           }
         : {}),
       worker: "reimagined-octo-meme",
@@ -456,10 +479,15 @@ export async function handleDriverSharingRequest(
     return cancelled;
   }
 
+  const session = resolveDriverSession(request, env);
+  const operateError = assertDriverCanOperateJob(record, session);
+  if (operateError && Boolean(active)) {
+    return jsonResponse({ error: operateError }, 409, origin);
+  }
+
   const wasSharing = record.sharingActive;
   record.sharingActive = active;
   if (active) {
-    const session = resolveDriverSession(request, env);
     if (session.authorized && session.role === "driver" && session.driverName) {
       record.activeDriverName = session.driverName;
     }
@@ -536,6 +564,12 @@ export async function handleDriverLocationRequest(
   const cancelled = await cancelledJobResponse(record, env, origin);
   if (cancelled) {
     return cancelled;
+  }
+
+  const session = resolveDriverSession(request, env);
+  const operateError = assertDriverCanOperateJob(record, session);
+  if (operateError) {
+    return jsonResponse({ error: operateError }, 409, origin);
   }
 
   if (!record.sharingActive) {

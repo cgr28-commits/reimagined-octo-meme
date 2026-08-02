@@ -13,6 +13,9 @@ import {
   updateDriverBooking,
   verifyDriverAccessKey,
   fetchDriverStatus,
+  assignJobToDriver,
+  respondToJobAssignment,
+  fetchDriverRoster,
   type DriverJob,
 } from "@/lib/tracking-api";
 import { issueBookingRefund } from "@/lib/refund-api";
@@ -181,6 +184,32 @@ function DriverFlightPanel({ job }: { job: DriverJob }) {
   );
 }
 
+function assignmentSummary(job: DriverJob): string {
+  switch (job.assignmentStatus ?? "unassigned") {
+    case "pending":
+      return `Awaiting ${job.assignedDriverName ?? "driver"} to accept`;
+    case "accepted":
+      return `Assigned to ${job.assignedDriverName ?? "driver"}`;
+    case "declined":
+      return `${job.assignedDriverName ?? "Driver"} declined`;
+    default:
+      return "Unassigned";
+  }
+}
+
+function assignmentBadgeClass(status: DriverJob["assignmentStatus"]): string {
+  switch (status ?? "unassigned") {
+    case "pending":
+      return "bg-amber-500/15 text-amber-200";
+    case "accepted":
+      return "bg-emerald/15 text-emerald";
+    case "declined":
+      return "bg-red-500/15 text-red-200";
+    default:
+      return "bg-white/10 text-white/50";
+  }
+}
+
 function DriverJobCard({
   job,
   driverKey,
@@ -188,8 +217,10 @@ function DriverJobCard({
   onSharingChange,
   onRefunded,
   onUpdated,
+  onAssignmentUpdated,
   compactTracking = false,
   isOwner = false,
+  availableDrivers = [],
 }: {
   job: DriverJob;
   driverKey: string;
@@ -197,8 +228,10 @@ function DriverJobCard({
   onSharingChange: (token: string | null) => void;
   onRefunded: (token: string, refundAmount?: string) => void;
   onUpdated: (job: DriverJob) => void;
+  onAssignmentUpdated: (job: DriverJob) => void;
   compactTracking?: boolean;
   isOwner?: boolean;
+  availableDrivers?: string[];
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -216,12 +249,20 @@ function DriverJobCard({
     customerMobile: job.customerMobile,
     flightNumber: job.flightNumber ?? "",
   });
+  const [assignBusy, setAssignBusy] = useState(false);
+  const [assignDriver, setAssignDriver] = useState(availableDrivers[0] ?? "Gary");
+  const [assignmentBusy, setAssignmentBusy] = useState(false);
   const isActive = activeToken === job.token;
   const mapMarkers = jobMapMarkers(job, { isActiveDriver: isActive, isOwner });
   const isDemoDriver = driverKey === DEMO_DRIVER_KEY;
   const isRefunded = job.bookingStatus === "refunded";
+  const assignmentStatus = job.assignmentStatus ?? "unassigned";
+  const isPendingForDriver = !isOwner && assignmentStatus === "pending";
+  const isAcceptedAssignment = assignmentStatus === "accepted";
   const canRefund = isOwner && Boolean(job.paymentReference?.trim()) && !isDemoDriver && !isRefunded;
-  const canEdit = !isRefunded;
+  const canEdit = !isRefunded && (isOwner || isAcceptedAssignment);
+  const canShare =
+    !isOwner && !isRefunded && isAcceptedAssignment && !compactTracking && job.trackingWindow.open;
   const trackingAvailable = !compactTracking && job.trackingWindow.open && !isRefunded;
   const driverSharingLive = Boolean(job.sharingActive && job.driver);
 
@@ -252,6 +293,39 @@ function DriverJobCard({
       await navigator.clipboard.writeText(job.trackUrl);
     } catch {
       setError("Could not copy link");
+    }
+  };
+
+  const assignToDriver = async () => {
+    const driverName = assignDriver.trim();
+    if (!driverName) {
+      return;
+    }
+
+    setAssignBusy(true);
+    setError(null);
+
+    try {
+      const result = await assignJobToDriver(driverKey, job.token, driverName);
+      onAssignmentUpdated(result.job);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not assign job");
+    } finally {
+      setAssignBusy(false);
+    }
+  };
+
+  const respondToAssignment = async (action: "accept" | "decline") => {
+    setAssignmentBusy(true);
+    setError(null);
+
+    try {
+      const result = await respondToJobAssignment(driverKey, job.token, action);
+      onAssignmentUpdated(result.job);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not update assignment");
+    } finally {
+      setAssignmentBusy(false);
     }
   };
 
@@ -379,36 +453,96 @@ function DriverJobCard({
               {job.activeDriverName} is sharing live location
             </p>
           )}
+          {!isRefunded && (
+            <p className="mt-2 text-sm text-white/55">{assignmentSummary(job)}</p>
+          )}
         </div>
         {isRefunded ? (
           <span className="rounded-full bg-red-500/15 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-red-200">
             Refunded · Job cancelled
           </span>
         ) : (
-          <span
-            className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wider ${
-              job.trackingWindow.open
-                ? job.sharingActive
-                  ? "bg-emerald/15 text-emerald"
-                  : "bg-emerald/15 text-emerald"
-                : "bg-white/10 text-white/50"
-            }`}
-          >
-            {job.sharingActive && job.activeDriverName
-              ? `${job.activeDriverName} live`
-              : job.trackingWindow.open
-                ? "Window open"
-                : compactTracking
-                  ? "Upcoming"
-                  : "Not yet open"}
-          </span>
+          <div className="flex flex-col items-end gap-2">
+            {!isOwner && isPendingForDriver && (
+              <span className="rounded-full bg-amber-500/15 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-amber-200">
+                Action required
+              </span>
+            )}
+            <span
+              className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wider ${assignmentBadgeClass(job.assignmentStatus)}`}
+            >
+              {assignmentSummary(job)}
+            </span>
+            <span
+              className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wider ${
+                job.trackingWindow.open ? "bg-emerald/15 text-emerald" : "bg-white/10 text-white/50"
+              }`}
+            >
+              {job.sharingActive && job.activeDriverName
+                ? `${job.activeDriverName} live`
+                : job.trackingWindow.open
+                  ? "Window open"
+                  : compactTracking
+                    ? "Upcoming"
+                    : "Not yet open"}
+            </span>
+          </div>
         )}
       </div>
 
       <DriverFlightPanel job={job} />
 
       <div className="mt-5 flex flex-wrap gap-3">
-        {!compactTracking && !isRefunded && !isOwner && (
+        {isOwner && !isRefunded && availableDrivers.length > 0 && (
+          <>
+            <select
+              value={assignDriver}
+              onChange={(event) => setAssignDriver(event.target.value)}
+              className="rounded-xl border border-white/15 bg-navy px-4 py-2.5 text-sm text-white outline-none focus:border-emerald"
+            >
+              {availableDrivers.map((name) => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              disabled={assignBusy}
+              onClick={() => void assignToDriver()}
+              className="rounded-xl bg-emerald px-4 py-2.5 text-sm font-semibold text-navy transition-colors hover:bg-emerald/90 disabled:opacity-60"
+            >
+              {assignBusy
+                ? "Assigning…"
+                : assignmentStatus === "pending" || assignmentStatus === "accepted"
+                  ? "Reassign job"
+                  : "Assign job"}
+            </button>
+          </>
+        )}
+
+        {isPendingForDriver && (
+          <>
+            <button
+              type="button"
+              disabled={assignmentBusy}
+              onClick={() => void respondToAssignment("accept")}
+              className="rounded-xl bg-emerald px-4 py-2.5 text-sm font-bold text-navy transition-colors hover:bg-emerald/90 disabled:opacity-60"
+            >
+              {assignmentBusy ? "Saving…" : "Accept job"}
+            </button>
+            <button
+              type="button"
+              disabled={assignmentBusy}
+              onClick={() => void respondToAssignment("decline")}
+              className="rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-2.5 text-sm font-semibold text-red-200 transition-colors hover:bg-red-500/20 disabled:opacity-60"
+            >
+              Decline
+            </button>
+          </>
+        )}
+
+        {canShare && (
           <button
             type="button"
             disabled={busy}
@@ -422,7 +556,7 @@ function DriverJobCard({
             {isActive ? "Stop sharing location" : "Start sharing location"}
           </button>
         )}
-        {!isRefunded && (
+        {!isRefunded && (isOwner || isAcceptedAssignment) && (
           <>
             <button
               type="button"
@@ -595,6 +729,13 @@ function DriverJobCard({
         </p>
       )}
 
+      {isPendingForDriver && (
+        <p className="mt-4 rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+          You&apos;ve been assigned this job. Accept it to add it to your dashboard and start live
+          tracking on the day.
+        </p>
+      )}
+
       {isActive && !isOwner && (
         <p className="mt-4 text-sm text-emerald">
           Sharing live location for this job. Keep this page open while driving.
@@ -635,6 +776,7 @@ export default function DriverPageClient() {
   const [savedKey, setSavedKey] = useState<string | null>(null);
   const [sessionRole, setSessionRole] = useState<"owner" | "driver" | null>(null);
   const [driverName, setDriverName] = useState<string | null>(null);
+  const [availableDrivers, setAvailableDrivers] = useState<string[]>(["Gary"]);
   const [jobs, setJobs] = useState<DriverJob[]>([]);
   const [activeToken, setActiveToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -686,6 +828,35 @@ export default function DriverPageClient() {
       const next = current.map((entry) => (entry.token === updatedJob.token ? updatedJob : entry));
       return next.sort((a, b) => a.pickupAt.localeCompare(b.pickupAt));
     });
+  }, []);
+
+  const handleAssignmentUpdated = useCallback(
+    (updatedJob: DriverJob) => {
+      setJobs((current) => {
+        if (sessionRole === "driver" && updatedJob.assignmentStatus === "declined") {
+          return current.filter((entry) => entry.token !== updatedJob.token);
+        }
+
+        const exists = current.some((entry) => entry.token === updatedJob.token);
+        const next = exists
+          ? current.map((entry) => (entry.token === updatedJob.token ? updatedJob : entry))
+          : [...current, updatedJob];
+
+        return next.sort((a, b) => a.pickupAt.localeCompare(b.pickupAt));
+      });
+    },
+    [sessionRole],
+  );
+
+  const loadDriverRoster = useCallback(async (key: string) => {
+    try {
+      const roster = await fetchDriverRoster(key);
+      if (roster.length > 0) {
+        setAvailableDrivers(roster);
+      }
+    } catch {
+      // Keep default roster if fetch fails.
+    }
   }, []);
 
   useEffect(() => {
@@ -769,6 +940,13 @@ export default function DriverPageClient() {
       if (status.driverName) {
         setDriverName(status.driverName);
       }
+      if (status.role === "owner") {
+        if (status.availableDrivers?.length) {
+          setAvailableDrivers(status.availableDrivers);
+        } else {
+          await loadDriverRoster(trimmed);
+        }
+      }
 
       window.sessionStorage.setItem(DRIVER_KEY_STORAGE, trimmed);
       setSavedKey(trimmed);
@@ -793,14 +971,13 @@ export default function DriverPageClient() {
             <p className="mt-3 text-white/70">
               {sessionRole === "owner" ? (
                 <>
-                  View today&apos;s jobs, browse upcoming bookings, issue refunds, and track drivers
-                  (e.g. Gary) live when they start sharing on the day of travel.
+                  Assign jobs to drivers such as Gary — they must accept before the job appears on
+                  their dashboard. Issue refunds, track live location, and manage all bookings here.
                 </>
               ) : (
                 <>
-                  View today&apos;s jobs and upcoming bookings. Start live tracking on the day of
-                  travel from about 2 hours before pickup — the owner can follow your location on
-                  their dashboard.
+                  Accept assigned jobs to add them to your dashboard. Once accepted, start live
+                  tracking on the day of travel from about 2 hours before pickup.
                 </>
               )}
             </p>
@@ -859,6 +1036,7 @@ export default function DriverPageClient() {
                     setActiveToken(null);
                     setSessionRole(null);
                     setDriverName(null);
+                    setAvailableDrivers(["Gary"]);
                   }}
                   className="text-sm text-white/50 transition-colors hover:text-white"
                 >
@@ -937,9 +1115,13 @@ export default function DriverPageClient() {
 
               {!loading && !error && jobs.length === 0 && (
                 <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-8 text-white/70">
-                  {view === "upcoming"
-                    ? "No upcoming paid bookings with tracking in the next 60 days."
-                    : "No paid bookings with tracking for this date yet."}
+                  {sessionRole === "driver"
+                    ? view === "upcoming"
+                      ? "No jobs assigned to you in the next 60 days. The owner will assign jobs here — you'll need to accept them."
+                      : "No jobs assigned to you for this date yet."
+                    : view === "upcoming"
+                      ? "No upcoming paid bookings with tracking in the next 60 days."
+                      : "No paid bookings with tracking for this date yet."}
                 </div>
               )}
 
@@ -976,8 +1158,10 @@ export default function DriverPageClient() {
                               }
                             }}
                             onUpdated={handleJobUpdated}
+                            onAssignmentUpdated={handleAssignmentUpdated}
                             compactTracking
                             isOwner={sessionRole === "owner"}
+                            availableDrivers={availableDrivers}
                           />
                         ))}
                       </div>
@@ -1010,7 +1194,9 @@ export default function DriverPageClient() {
                         }
                       }}
                       onUpdated={handleJobUpdated}
+                      onAssignmentUpdated={handleAssignmentUpdated}
                       isOwner={sessionRole === "owner"}
+                      availableDrivers={availableDrivers}
                     />
                   ))}
                 </div>

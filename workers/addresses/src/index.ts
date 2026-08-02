@@ -63,6 +63,11 @@ import {
 import { processDueReviewRequests } from "./review-request-handlers";
 import { handleDriverUpdateBookingRequest } from "./driver-booking-handlers";
 import {
+  handleDriverAssignRequest,
+  handleDriverAssignmentResponseRequest,
+  handleDriverRosterRequest,
+} from "./driver-assignment-handlers";
+import {
   handleRefundRequest,
   savePaidBookingRecordFromConfirm,
 } from "./refund-handlers";
@@ -133,7 +138,9 @@ function json(body: unknown, status: number, origin: string | null): Response {
   });
 }
 
-function parseDriverRoute(pathname: string): "jobs" | "sharing" | "location" | "bookings-update" | "status" | null {
+function parseDriverRoute(
+  pathname: string,
+): "jobs" | "sharing" | "location" | "bookings-update" | "status" | "assign" | "assignment-response" | "roster" | null {
   if (pathname === "/driver/jobs" || pathname === "/api/driver/jobs") {
     return "jobs";
   }
@@ -142,8 +149,20 @@ function parseDriverRoute(pathname: string): "jobs" | "sharing" | "location" | "
     return "status";
   }
 
+  if (pathname === "/driver/roster" || pathname === "/api/driver/roster") {
+    return "roster";
+  }
+
   if (pathname === "/driver/bookings/update" || pathname === "/api/driver/bookings/update") {
     return "bookings-update";
+  }
+
+  if (pathname === "/driver/assign" || pathname === "/api/driver/assign") {
+    return "assign";
+  }
+
+  if (pathname === "/driver/assignment" || pathname === "/api/driver/assignment") {
+    return "assignment-response";
   }
 
   if (pathname === "/driver/sharing" || pathname === "/api/driver/sharing") {
@@ -965,6 +984,18 @@ export default {
 
     if (driverRoute === "bookings-update" && request.method === "POST") {
       return handleDriverUpdateBookingRequest(request, env, origin);
+    }
+
+    if (driverRoute === "assign" && request.method === "POST") {
+      return handleDriverAssignRequest(request, env, origin);
+    }
+
+    if (driverRoute === "assignment-response" && request.method === "POST") {
+      return handleDriverAssignmentResponseRequest(request, env, origin);
+    }
+
+    if (driverRoute === "roster" && request.method === "GET") {
+      return handleDriverRosterRequest(request, env, origin);
     }
 
     if (driverRoute === "sharing" && request.method === "POST") {

@@ -49,6 +49,7 @@ export type DriverStatusResponse = {
   hasOwnerKey?: boolean;
   role?: "owner" | "driver";
   driverName?: string;
+  availableDrivers?: string[];
   worker: string;
   error?: string;
 };
@@ -139,6 +140,8 @@ export type DriverFlight = {
   status?: string;
 };
 
+export type JobAssignmentStatus = "unassigned" | "pending" | "accepted" | "declined";
+
 export type DriverJob = PublicTrackResponse & {
   token: string;
   customerMobile: string;
@@ -147,6 +150,11 @@ export type DriverJob = PublicTrackResponse & {
   bookingStatus?: "confirmed" | "refunded";
   refundAmountLabel?: string;
   activeDriverName?: string;
+  assignedDriverName?: string;
+  assignmentStatus?: JobAssignmentStatus;
+  assignedAt?: string;
+  acceptedAt?: string;
+  declinedAt?: string;
   isAirportPickup?: boolean;
   flightNumber?: string | null;
   airportCode?: string | null;
@@ -298,6 +306,51 @@ export async function setDriverSharing(
   });
 
   return parseJsonResponse<{ ok: true; trackUrl: string }>(response);
+}
+
+export async function fetchDriverRoster(ownerKey: string): Promise<string[]> {
+  const url = new URL(`${WORKER_BASE}/driver/roster`);
+  driverQueryKey(url, ownerKey);
+
+  const response = await fetch(url.toString(), {
+    method: "GET",
+    headers: { Accept: "application/json" },
+    cache: "no-store",
+  });
+
+  const payload = await parseJsonResponse<{ ok: true; drivers: string[] }>(response);
+  return payload.drivers;
+}
+
+export async function assignJobToDriver(
+  ownerKey: string,
+  token: string,
+  driverName: string,
+): Promise<{ ok: true; job: DriverJob }> {
+  const response = await fetch(`${WORKER_BASE}/driver/assign?key=${encodeURIComponent(ownerKey.trim())}`, {
+    method: "POST",
+    headers: driverPostHeaders(ownerKey),
+    body: JSON.stringify({ token, driverName }),
+  });
+
+  return parseJsonResponse<{ ok: true; job: DriverJob }>(response);
+}
+
+export async function respondToJobAssignment(
+  driverKey: string,
+  token: string,
+  action: "accept" | "decline",
+): Promise<{ ok: true; job: DriverJob }> {
+  const response = await fetch(
+    `${WORKER_BASE}/driver/assignment?key=${encodeURIComponent(driverKey.trim())}`,
+    {
+      method: "POST",
+      headers: driverPostHeaders(driverKey),
+      body: JSON.stringify({ token, action }),
+    },
+  );
+
+  return parseJsonResponse<{ ok: true; job: DriverJob }>(response);
 }
 
 export async function postDriverLocation(
