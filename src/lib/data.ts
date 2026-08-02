@@ -3,6 +3,8 @@ import { withBasePath } from "./paths";
 export const SITE = {
   name: "My Airport Taxi NI",
   tagline: "Premium Airport Transfers Across Northern Ireland",
+  landline: "+442896022952",
+  landlineDisplay: "028 9602 2952",
   whatsapp: "447549815538",
   whatsappDefaultMessage: "Hi, I'd like some help.",
   email: "bookings@myairporttaxini.co.uk",

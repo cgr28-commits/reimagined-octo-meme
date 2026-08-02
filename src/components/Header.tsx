@@ -14,7 +14,13 @@ export default function Header() {
   return (
     <header className="fixed inset-x-0 top-0 z-50 border-b border-white/10 bg-navy/80 backdrop-blur-xl">
       <div className="hidden border-b border-white/10 bg-navy-dark/90 md:block">
-        <div className="mx-auto flex max-w-7xl items-center justify-end px-4 py-2 sm:px-6 lg:px-8">
+        <div className="mx-auto flex max-w-7xl items-center justify-end gap-6 px-4 py-2 sm:px-6 lg:px-8">
+          <a
+            href={`tel:${SITE.landline}`}
+            className="text-sm font-medium text-white/70 transition-colors hover:text-emerald"
+          >
+            {SITE.landlineDisplay}
+          </a>
           <a
             href={`mailto:${SITE.email}`}
             className="text-sm font-medium text-white/70 transition-colors hover:text-emerald"

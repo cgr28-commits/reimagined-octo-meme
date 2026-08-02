@@ -59,7 +59,7 @@ export function getLocalBusinessJsonLd() {
     logo: `${SITE.url}/logo.png`,
     image: `${SITE.url}/og-image.png`,
     email: SITE.email,
-    telephone: `+${SITE.whatsapp}`,
+    telephone: SITE.landline,
     areaServed: {
       "@type": "AdministrativeArea",
       name: "Northern Ireland",
@@ -68,7 +68,7 @@ export function getLocalBusinessJsonLd() {
     priceRange: "££",
     contactPoint: {
       "@type": "ContactPoint",
-      telephone: `+${SITE.whatsapp}`,
+      telephone: SITE.landline,
       email: SITE.email,
       contactType: "customer service",
       availableLanguage: "English",

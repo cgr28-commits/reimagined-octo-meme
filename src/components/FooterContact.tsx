@@ -13,6 +13,13 @@ export default function FooterContact() {
           {SITE.email}
         </a>
       </li>
+      {isMobile === false && (
+        <li>
+          <a href={`tel:${SITE.landline}`} className="transition-colors hover:text-emerald">
+            {SITE.landlineDisplay}
+          </a>
+        </li>
+      )}
       {isMobile === true && (
         <li>
           <a
