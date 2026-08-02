@@ -1,3 +1,10 @@
+import {
+  DEMO_DRIVER_KEY,
+  getDemoDriverJobs,
+  getDemoTrackResponse,
+  isDemoTrackToken,
+} from "@/lib/tracking-demo";
+
 const DEFAULT_WORKER_BASE = "https://reimagined-octo-meme.cgr28.workers.dev";
 
 function resolveWorkerBaseUrl(): string {
@@ -76,6 +83,10 @@ async function parseJsonResponse<T>(response: Response): Promise<T> {
 }
 
 export async function fetchPublicTrack(token: string): Promise<PublicTrackResponse> {
+  if (isDemoTrackToken(token)) {
+    return getDemoTrackResponse(token);
+  }
+
   const response = await fetch(`${WORKER_BASE}/track/${encodeURIComponent(token)}`, {
     method: "GET",
     headers: { Accept: "application/json" },
@@ -89,6 +100,10 @@ export async function fetchDriverJobs(
   driverKey: string,
   date?: string,
 ): Promise<DriverJobsResponse> {
+  if (driverKey === DEMO_DRIVER_KEY) {
+    return getDemoDriverJobs();
+  }
+
   const url = new URL(`${WORKER_BASE}/driver/jobs`);
   url.searchParams.set("key", driverKey);
   if (date) {
@@ -109,6 +124,11 @@ export async function setDriverSharing(
   token: string,
   active: boolean,
 ): Promise<{ ok: true; trackUrl: string }> {
+  if (driverKey === DEMO_DRIVER_KEY && isDemoTrackToken(token)) {
+    const trackUrl = getDemoTrackResponse(token).trackUrl;
+    return { ok: true, trackUrl };
+  }
+
   const response = await fetch(`${WORKER_BASE}/driver/sharing?key=${encodeURIComponent(driverKey)}`, {
     method: "POST",
     headers: {
@@ -128,6 +148,10 @@ export async function postDriverLocation(
   lat: number,
   lng: number,
 ): Promise<void> {
+  if (driverKey === DEMO_DRIVER_KEY) {
+    return;
+  }
+
   const response = await fetch(`${WORKER_BASE}/driver/location?key=${encodeURIComponent(driverKey)}`, {
     method: "POST",
     headers: {

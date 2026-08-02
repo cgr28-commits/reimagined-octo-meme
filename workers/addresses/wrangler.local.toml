@@ -1,0 +1,12 @@
+name = "reimagined-octo-meme"
+main = "src/index.ts"
+compatibility_date = "2025-08-01"
+
+# Local demo only — not used for production deploy.
+[[kv_namespaces]]
+binding = "TRACKING_STORE"
+id = "local-tracking-demo-store"
+
+[vars]
+DRIVER_ACCESS_KEY = "demo-driver-key"
+GOOGLE_PLACES_API_KEY = "local-demo"
