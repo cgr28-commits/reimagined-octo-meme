@@ -471,7 +471,7 @@ async function createCalendarEvent(
   accessToken: string,
   calendarId: string,
   event: CalendarEventInput,
-): Promise<void> {
+): Promise<string> {
   const body: Record<string, unknown> = {
     summary: event.summary,
     description: event.description,
@@ -494,7 +494,7 @@ async function createCalendarEvent(
   // Do not invite customers automatically — this is an owner-facing log only.
   void event.attendeeEmail;
 
-  let response = await fetch(
+  const response = await fetch(
     `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events`,
     {
       method: "POST",
@@ -510,6 +510,212 @@ async function createCalendarEvent(
     const detail = await response.text().catch(() => "");
     throw new Error(`Calendar create failed (${response.status}): ${detail.slice(0, 200)}`);
   }
+
+  const payload = (await response.json()) as { id?: string };
+  if (!payload.id) {
+    throw new Error("Calendar create returned no event id");
+  }
+
+  return payload.id;
+}
+
+const CANCELLED_SUMMARY_PREFIX = "CANCELLED — ";
+
+type CalendarEventPayload = {
+  status?: string;
+  summary?: string;
+  description?: string;
+};
+
+function buildCancelledEventPatch(
+  event: CalendarEventPayload,
+  refundNote?: string,
+): Record<string, unknown> {
+  const summary = event.summary?.startsWith(CANCELLED_SUMMARY_PREFIX)
+    ? event.summary
+    : `${CANCELLED_SUMMARY_PREFIX}${event.summary ?? "Booking"}`;
+
+  const refundSection = refundNote?.trim()
+    ? `\n\n--- REFUND ---\n${refundNote.trim()}`
+    : "";
+  const description = `${event.description ?? ""}${refundSection}`.trim();
+
+  return {
+    status: "cancelled",
+    summary,
+    ...(description ? { description } : {}),
+    colorId: "11",
+  };
+}
+
+export async function cancelCalendarEvent(
+  accessToken: string,
+  calendarId: string,
+  eventId: string,
+  options?: { refundNote?: string },
+): Promise<void> {
+  const eventUrl =
+    `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}` +
+    `/events/${encodeURIComponent(eventId)}`;
+
+  const getResponse = await fetch(eventUrl, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  if (getResponse.status === 404 || getResponse.status === 410) {
+    return;
+  }
+
+  if (!getResponse.ok) {
+    const detail = await getResponse.text().catch(() => "");
+    throw new Error(`Calendar fetch failed (${getResponse.status}): ${detail.slice(0, 200)}`);
+  }
+
+  const event = (await getResponse.json()) as CalendarEventPayload;
+  if (event.status === "cancelled") {
+    return;
+  }
+
+  const response = await fetch(eventUrl, {
+    method: "PATCH",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(buildCancelledEventPatch(event, options?.refundNote)),
+  });
+
+  if (!response.ok) {
+    const detail = await response.text().catch(() => "");
+    throw new Error(`Calendar cancel failed (${response.status}): ${detail.slice(0, 200)}`);
+  }
+}
+
+export async function cancelCalendarEvents(
+  accessToken: string,
+  calendarId: string,
+  eventIds: string[],
+  options?: { refundNote?: string },
+): Promise<{ cancelled: number; errors: string[] }> {
+  let cancelled = 0;
+  const errors: string[] = [];
+
+  for (const eventId of eventIds) {
+    try {
+      await cancelCalendarEvent(accessToken, calendarId, eventId, options);
+      cancelled += 1;
+    } catch (error) {
+      errors.push(error instanceof Error ? error.message : "Unknown calendar cancel error");
+    }
+  }
+
+  return { cancelled, errors };
+}
+
+type CalendarEventDetails = CalendarEventPayload & {
+  location?: string;
+  start?: { dateTime?: string; timeZone?: string };
+  end?: { dateTime?: string; timeZone?: string };
+};
+
+export async function rescheduleCalendarEvent(
+  accessToken: string,
+  calendarId: string,
+  eventId: string,
+  options: {
+    startDateTime: string;
+    endDateTime: string;
+    location?: string;
+    updateNote?: string;
+  },
+): Promise<void> {
+  const eventUrl =
+    `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}` +
+    `/events/${encodeURIComponent(eventId)}`;
+
+  const getResponse = await fetch(eventUrl, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  if (getResponse.status === 404 || getResponse.status === 410) {
+    return;
+  }
+
+  if (!getResponse.ok) {
+    const detail = await getResponse.text().catch(() => "");
+    throw new Error(`Calendar fetch failed (${getResponse.status}): ${detail.slice(0, 200)}`);
+  }
+
+  const event = (await getResponse.json()) as CalendarEventDetails;
+  if (event.status === "cancelled") {
+    return;
+  }
+
+  const updateSection = options.updateNote?.trim()
+    ? `\n\n--- UPDATED ---\n${options.updateNote.trim()}`
+    : "";
+  const description = `${event.description ?? ""}${updateSection}`.trim();
+
+  const body: Record<string, unknown> = {
+    start: {
+      dateTime: `${options.startDateTime}:00`,
+      timeZone: TIME_ZONE,
+    },
+    end: {
+      dateTime: `${options.endDateTime}:00`,
+      timeZone: TIME_ZONE,
+    },
+    ...(options.location ? { location: options.location } : {}),
+    ...(description ? { description } : {}),
+  };
+
+  const response = await fetch(eventUrl, {
+    method: "PATCH",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    const detail = await response.text().catch(() => "");
+    throw new Error(`Calendar reschedule failed (${response.status}): ${detail.slice(0, 200)}`);
+  }
+}
+
+export async function rescheduleCalendarEvents(
+  accessToken: string,
+  calendarId: string,
+  eventIds: string[],
+  options: {
+    startDateTime: string;
+    endDateTime: string;
+    location?: string;
+    updateNote?: string;
+  },
+): Promise<{ updated: number; errors: string[] }> {
+  let updated = 0;
+  const errors: string[] = [];
+
+  for (const eventId of eventIds) {
+    try {
+      await rescheduleCalendarEvent(accessToken, calendarId, eventId, options);
+      updated += 1;
+    } catch (error) {
+      errors.push(error instanceof Error ? error.message : "Unknown calendar update error");
+    }
+  }
+
+  return { updated, errors };
+}
+
+export function transferEventEndDateTime(startDateTime: string): string {
+  return addMinutes(startDateTime, DEFAULT_TRANSFER_DURATION_MINUTES);
 }
 
 export async function logBookingsToGoogleCalendar(options: {
@@ -519,7 +725,7 @@ export async function logBookingsToGoogleCalendar(options: {
   message: string;
   booking?: TransferBookingEvent | null;
   tour?: TourBookingEvent | null;
-}): Promise<number> {
+}): Promise<string[]> {
   const serviceAccount = parseServiceAccountJson(options.serviceAccountJson);
   const accessToken = await getGoogleAccessToken(serviceAccount);
 
@@ -533,9 +739,11 @@ export async function logBookingsToGoogleCalendar(options: {
     events = buildEventsFromBookingMessage(options.customerName, options.message);
   }
 
+  const eventIds: string[] = [];
   for (const event of events) {
-    await createCalendarEvent(accessToken, options.calendarId, event);
+    const eventId = await createCalendarEvent(accessToken, options.calendarId, event);
+    eventIds.push(eventId);
   }
 
-  return events.length;
+  return eventIds;
 }

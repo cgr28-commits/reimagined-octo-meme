@@ -30,6 +30,9 @@ export type TrackingJobRecord = {
   marketingOptIn?: boolean;
   marketingOptInAt?: string;
   marketingConsentVersion?: string;
+  /** Set when a refund is issued — job stays visible on the driver dashboard */
+  refundedAt?: string;
+  refundAmountLabel?: string;
 };
 
 export const LOCATION_STALE_MS = 5 * 60 * 1000;

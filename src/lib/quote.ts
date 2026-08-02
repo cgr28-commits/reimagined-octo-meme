@@ -18,32 +18,32 @@ type AirportCode = "BFS" | "BHD" | "DUB" | "LDY";
  * Calibrated against Onward Travel Solutions instant quotes (2026).
  */
 const AREA_AIRPORT_SURCHARGES: Record<Area, Record<AirportCode, number>> = {
-  // Calibrated ~£5 below OTS estate fares (Aug 2026). LDY from live OTS LDY→Belfast-area quotes.
-  "Belfast City Centre": { BFS: 11, BHD: 0, DUB: 50, LDY: 93 },
-  Holywood: { BFS: 19, BHD: 0, DUB: 58, LDY: 98 },
-  Newtownabbey: { BFS: 3, BHD: 8, DUB: 60, LDY: 88 },
-  Lisburn: { BFS: 19, BHD: 13, DUB: 60, LDY: 108 },
+  // Calibrated ~£8–£10 below OTS estate fares. LDY from live OTS LDY→Belfast-area quotes.
+  "Belfast City Centre": { BFS: 8, BHD: 0, DUB: 50, LDY: 98 },
+  Holywood: { BFS: 8, BHD: 0, DUB: 58, LDY: 98 },
+  Newtownabbey: { BFS: 3, BHD: 8, DUB: 60, LDY: 89 },
+  Lisburn: { BFS: 0, BHD: 13, DUB: 60, LDY: 98 },
   Dundonald: { BFS: 23, BHD: 3, DUB: 60, LDY: 103 },
-  Antrim: { BFS: 0, BHD: 23, DUB: 50, LDY: 73 },
+  Antrim: { BFS: 0, BHD: 29, DUB: 50, LDY: 73 },
   Ballyclare: { BFS: 3, BHD: 13, DUB: 65, LDY: 83 },
   Hillsborough: { BFS: 19, BHD: 18, DUB: 65, LDY: 108 },
   Carrickfergus: { BFS: 19, BHD: 13, DUB: 62, LDY: 98 },
-  Comber: { BFS: 28, BHD: 14, DUB: 62, LDY: 114 },
-  Larne: { BFS: 18, BHD: 28, DUB: 72, LDY: 103 },
-  Bangor: { BFS: 35, BHD: 13, DUB: 65, LDY: 113 },
+  Comber: { BFS: 28, BHD: 14, DUB: 62, LDY: 113 },
+  Larne: { BFS: 13, BHD: 38, DUB: 72, LDY: 98 },
+  Bangor: { BFS: 35, BHD: 3, DUB: 65, LDY: 118 },
   Newtownards: { BFS: 28, BHD: 14, DUB: 62, LDY: 113 },
-  Ballymena: { BFS: 8, BHD: 33, DUB: 78, LDY: 58 },
-  Downpatrick: { BFS: 56, BHD: 33, DUB: 75, LDY: 85 },
+  Ballymena: { BFS: 0, BHD: 33, DUB: 78, LDY: 58 },
+  Downpatrick: { BFS: 39, BHD: 43, DUB: 75, LDY: 85 },
   Banbridge: { BFS: 33, BHD: 33, DUB: 75, LDY: 78 },
-  Newcastle: { BFS: 64, BHD: 53, DUB: 80, LDY: 90 },
+  Newcastle: { BFS: 58, BHD: 58, DUB: 80, LDY: 90 },
   Lurgan: { BFS: 18, BHD: 33, DUB: 82, LDY: 72 },
-  Portadown: { BFS: 36, BHD: 38, DUB: 85, LDY: 70 },
+  Portadown: { BFS: 23, BHD: 56, DUB: 85, LDY: 70 },
   Armagh: { BFS: 44, BHD: 53, DUB: 88, LDY: 75 },
-  Newry: { BFS: 53, BHD: 53, DUB: 40, LDY: 88 },
-  Cookstown: { BFS: 33, BHD: 58, DUB: 95, LDY: 28 },
+  Newry: { BFS: 58, BHD: 53, DUB: 40, LDY: 88 },
+  Cookstown: { BFS: 33, BHD: 78, DUB: 95, LDY: 28 },
   Coleraine: { BFS: 43, BHD: 48, DUB: 159, LDY: 18 },
   Omagh: { BFS: 74, BHD: 62, DUB: 115, LDY: 22 },
-  "Derry / Londonderry": { BFS: 68, BHD: 58, DUB: 105, LDY: 0 },
+  "Derry / Londonderry": { BFS: 68, BHD: 123, DUB: 105, LDY: 0 },
   Enniskillen: { BFS: 99, BHD: 94, DUB: 175, LDY: 55 },
 };
 
@@ -75,8 +75,13 @@ const POINT_TO_POINT_VEHICLE_ADJUSTMENTS: Record<(typeof VEHICLE_TYPES)[number],
   "Minibus (7–8 passengers)": 0,
 };
 
-/** Estate is saloon + £8; calibrated to sit just under OTS estate fares. */
+/** Estate is saloon + £8; calibrated to sit £8–£10 under OTS estate fares. */
 const AIRPORT_ESTATE_PREMIUM = 8;
+
+/** Target band: our estate fare should sit this many pounds below live OTS. */
+export const OTS_UNDERCUT_MIN = 8;
+export const OTS_UNDERCUT_MAX = 10;
+const OTS_UNDERCUT_MID = (OTS_UNDERCUT_MIN + OTS_UNDERCUT_MAX) / 2;
 
 /** Minimum one-way executive airport transfer fare (all airports). */
 const AIRPORT_EXECUTIVE_MINIMUM_FARE = 105;
@@ -122,6 +127,11 @@ function calculateOtsPointToPointOneWay(
     tierMultiplier * (OTS_KM_RATE * distanceKm + OTS_MIN_RATE * durationMinutes);
   const raw = vehicleBase + variable;
   return raw % 5 === 4 ? Math.round(raw) : roundToNearestFive(raw);
+}
+
+function undercutOtsEstateFare(otsEstateFare: number, floor = POINT_TO_POINT_BASE): number {
+  const target = otsEstateFare - OTS_UNDERCUT_MID;
+  return roundFare(Math.max(floor, target));
 }
 
 /**
@@ -260,12 +270,12 @@ export function computeAirportEstateForSurcharge(
   return applyAirportVehiclePricing(saloonOneWay, "Estate Car (1–4 passengers)", airportCode);
 }
 
-/** Surcharge that places our estate fare ~£5–£8 below live OTS (for auto-calibration). */
+/** Surcharge that places our estate fare ~£8–£10 below live OTS (for auto-calibration). */
 export function findAirportSurchargeForOtsEstate(
   airportCode: string,
   otsEstate: number,
-  minDiscount = 5,
-  maxDiscount = 8,
+  minDiscount = OTS_UNDERCUT_MIN,
+  maxDiscount = OTS_UNDERCUT_MAX,
 ): number | null {
   const airport = AIRPORTS.find((item) => item.code === airportCode);
   if (!airport) {
@@ -444,10 +454,12 @@ export function calculatePointToPointQuote(
   let areaSurcharge: number;
 
   if (routeMetrics) {
-    oneWay = calculateOtsPointToPointOneWay(
-      routeMetrics.distanceKm,
-      routeMetrics.durationMinutes,
-      vehicleType,
+    oneWay = undercutOtsEstateFare(
+      calculateOtsPointToPointOneWay(
+        routeMetrics.distanceKm,
+        routeMetrics.durationMinutes,
+        vehicleType,
+      ),
     );
     areaSurcharge = Math.round(routeMetrics.distanceKm);
   } else {
@@ -464,7 +476,10 @@ export function calculatePointToPointQuote(
       oneWaySubtotal = POINT_TO_POINT_BASE + maxRate + minRate * 0.35;
     }
 
-    oneWay = applyPointToPointVehiclePricing(oneWaySubtotal, vehicleType);
+    oneWay = applyPointToPointVehiclePricing(
+      undercutOtsEstateFare(oneWaySubtotal, POINT_TO_POINT_BASE - OTS_UNDERCUT_MID),
+      vehicleType,
+    );
   }
 
   const vehicleMultiplier = VEHICLE_MULTIPLIERS[vehicleType] ?? 1;

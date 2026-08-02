@@ -57,7 +57,7 @@ export function getLocalBusinessJsonLd() {
     description: DESCRIPTION,
     url: SITE.url,
     logo: `${SITE.url}/logo.png`,
-    image: `${SITE.url}/og-image.png`,
+    image: `${SITE.url}/og-image-square.png`,
     email: SITE.email,
     telephone: SITE.landline,
     areaServed: {

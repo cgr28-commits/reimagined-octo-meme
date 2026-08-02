@@ -11,16 +11,20 @@ import {
   createTrackingJobFromBooking,
   getTrackingJob,
   listTrackingJobsForDate,
+  listUpcomingTrackingJobs,
   saveTrackingJob,
   trackingStoreConfigured,
 } from "./tracking-store";
 import type { PaidBookingDetails } from "../shared/booking-notifications";
 import { corsHeaders } from "../shared/google-places";
+import { getPaidBookingRecord, paidBookingStoreConfigured } from "./paid-booking-store";
+import { driverAuthorized, driverAuthStatus, isDriverAuthConfigured } from "./driver-auth";
 import { trySendEmail, type WorkerEmailEnv } from "./worker-email";
 
 type Env = WorkerEmailEnv & {
   TRACKING_STORE?: KVNamespace;
   DRIVER_ACCESS_KEY?: string;
+  OWNER_ACCESS_KEY?: string;
   AERODATABOX_RAPIDAPI_KEY?: string;
 };
 
@@ -75,17 +79,6 @@ function jsonResponse(body: unknown, status: number, origin: string | null) {
   });
 }
 
-function driverAuthorized(request: Request, env: Env): boolean {
-  const expected = env.DRIVER_ACCESS_KEY?.trim() ?? "";
-  if (!expected) {
-    return false;
-  }
-
-  const headerKey = request.headers.get("X-Driver-Key")?.trim() ?? "";
-  const urlKey = new URL(request.url).searchParams.get("key")?.trim() ?? "";
-  return headerKey === expected || urlKey === expected;
-}
-
 function liveDriverLocation(record: TrackingJobRecord, windowOpen: boolean) {
   if (
     !windowOpen ||
@@ -122,7 +115,7 @@ function liveCustomerLocation(record: TrackingJobRecord, windowOpen: boolean) {
   };
 }
 
-function publicTrackPayload(
+export function publicTrackPayload(
   record: TrackingJobRecord,
   origin: string | null,
   options: { includeCustomerLocation?: boolean } = {},
@@ -253,10 +246,22 @@ export async function handleDriverJobsRequest(
   }
 
   if (!driverAuthorized(request, env)) {
-    return jsonResponse({ error: "Unauthorized" }, 401, origin);
+    return jsonResponse(
+      {
+        error:
+          "Unauthorized — check your driver access key. Sign out and enter the key from Cloudflare (DRIVER_ACCESS_KEY).",
+      },
+      401,
+      origin,
+    );
   }
 
   const url = new URL(request.url);
+  const scope = url.searchParams.get("scope")?.trim().toLowerCase() ?? "date";
+  const daysAhead = Math.min(
+    90,
+    Math.max(1, Number.parseInt(url.searchParams.get("days") ?? "60", 10) || 60),
+  );
   const tripDate =
     url.searchParams.get("date")?.trim() ??
     new Intl.DateTimeFormat("en-CA", {
@@ -266,15 +271,45 @@ export async function handleDriverJobsRequest(
       day: "2-digit",
     }).format(new Date());
 
-  const jobs = await listTrackingJobsForDate(env.TRACKING_STORE, tripDate);
+  let jobs: TrackingJobRecord[];
+  let responseDate = tripDate;
+
+  if (scope === "upcoming") {
+    jobs = await listUpcomingTrackingJobs(env.TRACKING_STORE, daysAhead);
+    responseDate = "upcoming";
+  } else {
+    jobs = await listTrackingJobsForDate(env.TRACKING_STORE, tripDate);
+  }
+
   const enrichedJobs = await Promise.all(
     jobs.map(async (job) => {
       const flight = await resolveDriverFlight(job, env);
+      let amountPaidLabel: string | undefined;
+      let bookingStatus: "confirmed" | "refunded" = "confirmed";
+      let paidRecord = null;
+
+      if (job.paymentReference && paidBookingStoreConfigured(env.TRACKING_STORE)) {
+        paidRecord = await getPaidBookingRecord(env.TRACKING_STORE, job.paymentReference);
+        if (paidRecord) {
+          amountPaidLabel = paidRecord.amountPaidLabel;
+          bookingStatus = paidRecord.status;
+        }
+      }
+
+      if (bookingStatus !== "refunded" && job.refundedAt) {
+        bookingStatus = "refunded";
+      }
+
+      const refundAmountLabel = paidRecord?.refundAmountLabel ?? job.refundAmountLabel;
+
       return {
         ...publicTrackPayload(job, origin, { includeCustomerLocation: true }),
         token: job.token,
         customerMobile: job.customerMobile,
         paymentReference: job.paymentReference,
+        amountPaidLabel,
+        bookingStatus,
+        refundAmountLabel,
         isAirportPickup: Boolean(job.isAirportTrip && job.isFromAirport),
         flightNumber: job.flightNumber ?? null,
         airportCode: job.airportCode ?? null,
@@ -286,10 +321,43 @@ export async function handleDriverJobsRequest(
   return jsonResponse(
     {
       ok: true,
-      date: tripDate,
+      scope,
+      date: responseDate,
       jobs: enrichedJobs,
     },
     200,
+    origin,
+  );
+}
+
+export async function handleDriverStatusRequest(
+  request: Request,
+  env: Env,
+  origin: string | null,
+): Promise<Response> {
+  const authConfigured = isDriverAuthConfigured(env);
+  const authorized = driverAuthorized(request, env);
+  const keys = driverAuthStatus(env);
+
+  return jsonResponse(
+    {
+      ok: authorized,
+      authConfigured,
+      ...keys,
+      worker: "reimagined-octo-meme",
+      ...(authorized
+        ? {}
+        : {
+            error: authConfigured
+              ? keys.hasDriverKey && keys.hasOwnerKey
+                ? "Driver key did not match. Use the exact DRIVER_ACCESS_KEY or OWNER_ACCESS_KEY value from reimagined-octo-meme worker secrets."
+                : keys.hasOwnerKey
+                  ? "Driver key did not match. Use the exact OWNER_ACCESS_KEY secret value from reimagined-octo-meme."
+                  : "Driver key did not match. Use the exact DRIVER_ACCESS_KEY secret value from reimagined-octo-meme."
+              : "Driver access is not configured on reimagined-octo-meme. Add DRIVER_ACCESS_KEY under that worker's encrypted secrets (not my-airport-taxi-ni).",
+          }),
+    },
+    authorized ? 200 : authConfigured ? 401 : 503,
     origin,
   );
 }
