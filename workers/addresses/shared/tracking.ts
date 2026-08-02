@@ -17,6 +17,8 @@ export type TrackingJobRecord = {
   sharingActive: boolean;
   /** ISO timestamp when the live-tracking reminder email was sent */
   sharingReminderSentAt?: string;
+  /** ISO timestamp when the post-trip Google review request email was sent */
+  reviewRequestSentAt?: string;
   customerSharingActive?: boolean;
   customerLat?: number;
   customerLng?: number;
@@ -62,6 +64,8 @@ export type TrackingWindow = {
 const TIME_ZONE = "Europe/London";
 const OPEN_BEFORE_MS = 2 * 60 * 60 * 1000;
 const CLOSE_AFTER_MS = 90 * 60 * 1000;
+/** Send review request 24 hours after the job completion window (pickup + 90 min). */
+export const REVIEW_REQUEST_DELAY_MS = 24 * 60 * 60 * 1000;
 
 export function buildPickupDateTimeLocal(tripDate: string, tripTime: string): string | null {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(tripDate) || !/^\d{2}:\d{2}$/.test(tripTime)) {
@@ -109,6 +113,29 @@ function parseLondonLocal(isoLocal: string): Date | null {
   }
 
   return new Date(utcGuess);
+}
+
+export function getJobCompletionAt(pickupAt: string): Date | null {
+  const pickup = parseLondonLocal(pickupAt);
+  if (!pickup) {
+    return null;
+  }
+
+  return new Date(pickup.getTime() + CLOSE_AFTER_MS);
+}
+
+export function getReviewRequestEligibleAt(pickupAt: string): Date | null {
+  const completedAt = getJobCompletionAt(pickupAt);
+  if (!completedAt) {
+    return null;
+  }
+
+  return new Date(completedAt.getTime() + REVIEW_REQUEST_DELAY_MS);
+}
+
+export function isReviewRequestDue(pickupAt: string, now = Date.now()): boolean {
+  const eligibleAt = getReviewRequestEligibleAt(pickupAt);
+  return eligibleAt !== null && now >= eligibleAt.getTime();
 }
 
 export function getTrackingWindow(pickupAt: string, now = new Date()): TrackingWindow {

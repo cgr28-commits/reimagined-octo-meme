@@ -7,6 +7,7 @@ compatibility_date = "2025-08-01"
 # - GETADDRESS_API_KEY
 # - AERODATABOX_RAPIDAPI_KEY  (RapidAPI key for AeroDataBox flight verification)
 # - WEB3FORMS_ACCESS_KEY
+# - GOOGLE_REVIEW_URL  (Google Business "Write a review" link for post-trip emails)
 # - OWNER_ACCESS_KEY   (optional — defaults to DRIVER_ACCESS_KEY for /admin/refund/)
 # Redeploy after changing worker code: wrangler deploy (or Cloudflare dashboard → Deploy)
 account_id = "36c5c88df4c1f0259413d555f2679f3c"
@@ -37,3 +38,6 @@ id = "869e2c2e02004d4a88c9cfbf563f1d6a"
 # Set WEB3FORMS_ACCESS_KEY in GitHub Actions secrets — deploy-worker syncs it automatically.
 [[send_email]]
 name = "EMAIL"
+
+[triggers]
+crons = ["0 * * * *"]
