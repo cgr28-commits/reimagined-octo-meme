@@ -6,7 +6,7 @@ import {
   saveTrackingJob,
   trackingStoreConfigured,
 } from "./tracking-store";
-import { trySendEmail, type WorkerEmailEnv } from "./worker-email";
+import { trySendBrandedCustomerEmail, type WorkerEmailEnv } from "./worker-email";
 
 type Env = WorkerEmailEnv & {
   TRACKING_STORE?: KVNamespace;
@@ -88,7 +88,7 @@ async function maybeSendReviewRequestEmail(
     reviewUrl,
   );
 
-  const sendResult = await trySendEmail(env, {
+  const sendResult = await trySendBrandedCustomerEmail(env, {
     to: job.customerEmail.trim(),
     toName: job.customerName,
     subject: email.subject,

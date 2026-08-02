@@ -68,6 +68,7 @@ import {
 } from "./refund-handlers";
 import {
   sendEmail,
+  trySendBrandedCustomerEmail,
   trySendEmail,
   type EmailPayload,
 } from "./worker-email";
@@ -741,7 +742,7 @@ async function handlePaymentConfirmRequest(
       trackUrl: tracking.trackUrl,
     });
 
-    const customerEmailResult = await trySendEmail(env, {
+    const customerEmailResult = await trySendBrandedCustomerEmail(env, {
       to: booking.customerEmail,
       toName: booking.customerName,
       subject: customerEmail.subject,

@@ -319,6 +319,10 @@ export async function cancelTrackingJob(store: KVNamespace, token: string): Prom
   return true;
 }
 
+export function isTrackingJobCancelled(record: TrackingJobRecord): boolean {
+  return Boolean(record.refundedAt?.trim());
+}
+
 export async function markTrackingJobRefunded(
   store: KVNamespace,
   token: string,
