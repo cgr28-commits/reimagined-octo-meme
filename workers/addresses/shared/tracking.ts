@@ -21,6 +21,12 @@ export type TrackingJobRecord = {
   customerLat?: number;
   customerLng?: number;
   customerUpdatedAt?: string;
+  isAirportTrip?: boolean;
+  isFromAirport?: boolean;
+  airportCode?: string;
+  flightNumber?: string;
+  termsAcceptedAt?: string;
+  termsVersion?: string;
 };
 
 export const LOCATION_STALE_MS = 5 * 60 * 1000;

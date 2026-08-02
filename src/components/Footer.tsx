@@ -89,6 +89,10 @@ export default function Footer() {
             <Link href="/terms/" className="transition-colors hover:text-emerald">
               Terms &amp; Conditions
             </Link>
+            <span className="text-white/20">|</span>
+            <Link href="/privacy/" className="transition-colors hover:text-emerald">
+              Privacy Policy
+            </Link>
             <span className="hidden text-white/20 sm:inline">|</span>
             <span className="text-white/30">Fully licensed &amp; insured private hire operator</span>
           </div>

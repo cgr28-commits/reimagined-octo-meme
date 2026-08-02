@@ -5,6 +5,7 @@ import Link from "next/link";
 import AddressInput from "@/components/AddressInput";
 import TripMap from "@/components/TripMap";
 import { buildBookingMessage, isValidEmailAddress, isValidMobileNumber, type BookingDetails } from "@/lib/booking-message";
+import { TERMS_LAST_UPDATED } from "@/lib/terms";
 import { detectMobileDevice, useIsMobileDevice } from "@/lib/device";
 import { AIRPORTS, SITE, VEHICLE_TYPES } from "@/lib/data";
 import { readPrefillAirport } from "@/lib/quote-prefill";
@@ -753,6 +754,8 @@ function QuoteCard() {
       journeyDistance: journeyDistanceLabel || undefined,
       journeyDuration: journeyDurationLabel || undefined,
       isAirportTrip,
+      airportCode: isAirportTrip ? airportCode : undefined,
+      isFromAirport: isAirportTrip ? isFromAirport : undefined,
     };
   }
 
@@ -801,7 +804,11 @@ function QuoteCard() {
       savePendingPayment(
         {
           checkoutId: checkout.checkoutId,
-          booking: buildBookingDetails(),
+          booking: {
+            ...buildBookingDetails(),
+            termsAcceptedAt: new Date().toISOString(),
+            termsVersion: TERMS_LAST_UPDATED,
+          },
         },
         returnToken,
       );
@@ -1813,10 +1820,31 @@ function QuoteCard() {
                     >
                       Terms &amp; Conditions
                     </Link>{" "}
-                    and understand that my booking is confirmed once payment is completed.
+                    and{" "}
+                    <Link
+                      href="/privacy/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-medium text-emerald underline decoration-emerald/40 underline-offset-2 hover:text-emerald-light"
+                    >
+                      Privacy Policy
+                    </Link>
+                    , including the cancellation policy (free cancellation more than 24 hours before
+                    pickup; non-refundable within 24 hours), and I authorise payment of{" "}
+                    {testChargeAmount !== null
+                      ? "£1.00"
+                      : liveQuote
+                        ? formatQuote(liveQuote.amount)
+                        : "the quoted fare"}{" "}
+                    for the service described above. My booking is confirmed once payment is
+                    completed.
                   </span>
                 </label>
                 {termsError && <p className="text-xs text-red-300">{termsError}</p>}
+                <p className="text-xs leading-relaxed text-white/50">
+                  Card payments are processed securely by SumUp. Keep your confirmation email as
+                  proof of booking and payment.
+                </p>
                 <button
                   type="button"
                   onClick={() => void handlePayNow()}

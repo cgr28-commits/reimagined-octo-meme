@@ -325,6 +325,10 @@ function parsePaidBookingDetails(body: Record<string, unknown>): PaidBookingDeta
     journeyDistance: String(details.journeyDistance ?? "").trim() || undefined,
     journeyDuration: String(details.journeyDuration ?? "").trim() || undefined,
     isAirportTrip: Boolean(details.isAirportTrip),
+    airportCode: String(details.airportCode ?? "").trim().toUpperCase() || undefined,
+    isFromAirport: details.isFromAirport === undefined ? undefined : Boolean(details.isFromAirport),
+    termsAcceptedAt: String(details.termsAcceptedAt ?? "").trim() || undefined,
+    termsVersion: String(details.termsVersion ?? "").trim() || undefined,
   };
 }
 

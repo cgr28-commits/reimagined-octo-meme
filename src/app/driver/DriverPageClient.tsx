@@ -56,6 +56,80 @@ function jobMapMarkers(job: DriverJob, isActive: boolean): MapMarker[] {
   return markers;
 }
 
+function flightStatusClass(status?: string): string {
+  const normalised = status?.toLowerCase() ?? "";
+  if (normalised.includes("land") || normalised.includes("arriv")) {
+    return "bg-emerald/15 text-emerald";
+  }
+  if (normalised.includes("delay") || normalised.includes("late")) {
+    return "bg-amber-500/15 text-amber-200";
+  }
+  if (normalised.includes("cancel")) {
+    return "bg-red-500/15 text-red-200";
+  }
+  return "bg-white/10 text-white/70";
+}
+
+function DriverFlightPanel({ job }: { job: DriverJob }) {
+  if (!job.isAirportPickup) {
+    return null;
+  }
+
+  if (!job.flightNumber) {
+    return (
+      <div className="mt-4 rounded-xl border border-white/10 bg-navy/40 px-4 py-3 text-sm text-white/60">
+        Airport pickup — no flight number was provided for this booking.
+      </div>
+    );
+  }
+
+  if (!job.flight) {
+    return (
+      <div className="mt-4 rounded-xl border border-white/10 bg-navy/40 px-4 py-3">
+        <p className="text-sm font-semibold text-white">Flight {job.flightNumber}</p>
+        <p className="mt-1 text-sm text-white/60">
+          Live flight status is not available right now. Check the airport arrivals board before
+          pickup.
+        </p>
+      </div>
+    );
+  }
+
+  const { flight } = job;
+
+  return (
+    <div className="mt-4 rounded-xl border border-emerald/20 bg-emerald/5 px-4 py-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wider text-emerald">Incoming flight</p>
+          <p className="mt-1 text-lg font-bold text-white">
+            {flight.flightNumber} · {flight.airline}
+          </p>
+          <p className="mt-1 text-sm text-white/70">
+            {flight.departureAirport} → {flight.arrivalAirport}
+          </p>
+        </div>
+        {flight.status && (
+          <span
+            className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wider ${flightStatusClass(flight.status)}`}
+          >
+            {flight.status}
+          </span>
+        )}
+      </div>
+      <p className="mt-3 text-sm text-white/80">
+        Scheduled arrival:{" "}
+        <span className="font-semibold text-white">{flight.scheduledTimeLabel}</span>
+        {" · "}
+        {flight.airportName} ({flight.airportCode})
+      </p>
+      <p className="mt-2 text-xs text-white/50">
+        60 minutes complimentary waiting applies from actual landing time.
+      </p>
+    </div>
+  );
+}
+
 function DriverJobCard({
   job,
   driverKey,
@@ -125,6 +199,8 @@ function DriverJobCard({
           {job.trackingWindow.open ? "Window open" : "Not yet open"}
         </span>
       </div>
+
+      <DriverFlightPanel job={job} />
 
       <div className="mt-5 flex flex-wrap gap-3">
         <button
@@ -283,9 +359,10 @@ export default function DriverPageClient() {
             </p>
             <h1 className="mt-2 text-3xl font-bold text-white sm:text-4xl">Today&apos;s jobs</h1>
             <p className="mt-3 text-white/70">
-              Start sharing your location when you are on the way. Customers can share their
-              location too so you can see them on the map. Live tracking is available on the day
-              of travel, from about 2 hours before pickup.
+              Start sharing your location when you are on the way. For airport pickups, live flight
+              status is shown when the customer provided a flight number. Customers can share their
+              location too so you can see them on the map. Live tracking is available on the day of
+              travel, from about 2 hours before pickup.
             </p>
           </header>
 

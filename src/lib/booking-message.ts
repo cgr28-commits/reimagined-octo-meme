@@ -24,7 +24,11 @@ export type BookingDetails = {
   journeyDistance?: string;
   journeyDuration?: string;
   isAirportTrip: boolean;
+  airportCode?: string;
+  isFromAirport?: boolean;
   bookingReference?: string;
+  termsAcceptedAt?: string;
+  termsVersion?: string;
 };
 
 export function isValidMobileNumber(value: string): boolean {

@@ -18,6 +18,10 @@ export type PaidBookingDetails = {
   journeyDistance?: string;
   journeyDuration?: string;
   isAirportTrip: boolean;
+  airportCode?: string;
+  isFromAirport?: boolean;
+  termsAcceptedAt?: string;
+  termsVersion?: string;
 };
 
 export type PaidBookingReceipt = PaidBookingDetails & {
@@ -213,6 +217,15 @@ function buildInvoiceHtml(
               : ""
           }
           <tr>
+            <td style="padding:8px 32px 8px;">
+              <div style="font-size:13px;line-height:1.7;color:#64748b;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:16px 20px;">
+                <strong style="color:#92400e;">Cancellation policy:</strong>
+                Free cancellation more than 24 hours before pickup. Bookings cancelled within 24 hours of pickup are non-refundable.
+                See our <a href="${BUSINESS_WEBSITE}/terms/" style="color:#0b1f33;">Terms &amp; Conditions</a> for full details.
+              </div>
+            </td>
+          </tr>
+          <tr>
             <td style="padding:16px 32px 28px;font-size:14px;line-height:1.7;color:#475569;">
               <p style="margin:0 0 12px;">We will contact you if we need any further information before your journey.</p>
               <p style="margin:0;">Questions? Reply to this email or contact us at <a href="mailto:${BUSINESS_EMAIL}" style="color:#0b1f33;">${BUSINESS_EMAIL}</a>.</p>
@@ -222,7 +235,8 @@ function buildInvoiceHtml(
             <td style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:20px 32px;font-size:13px;line-height:1.7;color:#64748b;">
               <strong style="color:#0b1f33;">${escapeHtml(businessName)}</strong><br />
               <a href="${BUSINESS_WEBSITE}" style="color:#0b1f33;">${BUSINESS_WEBSITE.replace("https://", "")}</a> ·
-              <a href="${BUSINESS_WEBSITE}/terms/" style="color:#0b1f33;">Terms &amp; Conditions</a>
+              <a href="${BUSINESS_WEBSITE}/terms/" style="color:#0b1f33;">Terms &amp; Conditions</a> ·
+              <a href="${BUSINESS_WEBSITE}/privacy/" style="color:#0b1f33;">Privacy Policy</a>
             </td>
           </tr>
           <tr>
@@ -303,6 +317,9 @@ export function buildOwnerPaidBookingEmail(
     (details.transactionCode ? `Transaction code: ${details.transactionCode}\n` : "") +
     (details.checkoutReference ? `Checkout reference: ${details.checkoutReference}\n` : "") +
     `Status: PAID (verified via SumUp)` +
+    (details.termsAcceptedAt
+      ? `\nTerms accepted: ${details.termsAcceptedAt}${details.termsVersion ? ` (${details.termsVersion})` : ""}`
+      : "") +
     (trackUrl ? `\n\nDRIVER TRACK LINK\n${"=".repeat(40)}\n${trackUrl}` : "");
 
   return { subject, body };
