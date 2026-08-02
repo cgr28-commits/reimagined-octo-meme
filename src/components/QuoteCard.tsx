@@ -1644,8 +1644,7 @@ function QuoteCard() {
               </div>
             )}
             {usesWhatsApp ? (
-              <>
-                <p className="text-xs text-white/55">Or choose how to send your booking:</p>
+              sumUpEnabled && liveQuote ? (
                 <button
                   type="button"
                   onClick={handleEditBooking}
@@ -1653,26 +1652,37 @@ function QuoteCard() {
                 >
                   Edit details
                 </button>
-                <button
-                  type="button"
-                  disabled={submitted}
-                  onClick={() => void confirmBooking("whatsapp")}
-                  className="w-full rounded-xl bg-emerald py-3.5 text-sm font-bold text-navy transition-all hover:bg-emerald-light hover:shadow-lg hover:shadow-emerald/25 disabled:cursor-not-allowed disabled:opacity-70"
-                >
-                  {submitted ? submitInProgressLabel : whatsAppConfirmLabel}
-                </button>
-                <button
-                  type="button"
-                  disabled={submitted}
-                  onClick={() => void confirmBooking("email")}
-                  className="w-full rounded-xl border border-white/20 bg-white/5 py-3.5 text-sm font-semibold text-white transition-all hover:border-emerald/40 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-70"
-                >
-                  {submitted ? submitInProgressLabel : "Send booking via email"}
-                </button>
-                <p className="text-xs leading-relaxed text-white/45">
-                  No WhatsApp? Email works too — we&apos;ll confirm at {customerEmail.trim()}.
-                </p>
-              </>
+              ) : (
+                <>
+                  <p className="text-xs text-white/55">Or choose how to send your booking:</p>
+                  <button
+                    type="button"
+                    onClick={handleEditBooking}
+                    className="w-full rounded-xl border border-white/15 bg-white/5 py-3.5 text-sm font-semibold text-white transition-all hover:bg-white/10"
+                  >
+                    Edit details
+                  </button>
+                  <button
+                    type="button"
+                    disabled={submitted}
+                    onClick={() => void confirmBooking("whatsapp")}
+                    className="w-full rounded-xl bg-emerald py-3.5 text-sm font-bold text-navy transition-all hover:bg-emerald-light hover:shadow-lg hover:shadow-emerald/25 disabled:cursor-not-allowed disabled:opacity-70"
+                  >
+                    {submitted ? submitInProgressLabel : whatsAppConfirmLabel}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={submitted}
+                    onClick={() => void confirmBooking("email")}
+                    className="w-full rounded-xl border border-white/20 bg-white/5 py-3.5 text-sm font-semibold text-white transition-all hover:border-emerald/40 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-70"
+                  >
+                    {submitted ? submitInProgressLabel : "Send booking via email"}
+                  </button>
+                  <p className="text-xs leading-relaxed text-white/45">
+                    No WhatsApp? Email works too — we&apos;ll confirm at {customerEmail.trim()}.
+                  </p>
+                </>
+              )
             ) : (
               <div className="grid gap-3 sm:grid-cols-2">
                 <button
