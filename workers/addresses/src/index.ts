@@ -171,6 +171,13 @@ type EmailPayload = {
   toName?: string;
 };
 
+type EmailSendResult = {
+  sent: boolean;
+  error?: string;
+};
+
+const WORKER_PUBLIC_HOST = "reimagined-octo-meme.cgr28.workers.dev";
+
 async function sendViaCloudflareEmail(env: Env, options: EmailPayload): Promise<void> {
   if (!env.EMAIL) {
     throw new Error("Cloudflare Email Service is not configured");
@@ -194,20 +201,58 @@ async function sendViaWeb3Forms(env: Env, options: EmailPayload): Promise<void> 
     throw new Error("Web3Forms is not configured");
   }
 
+  const ownerEmail = env.BOOKING_TO_EMAIL?.trim() || DEFAULT_BOOKING_EMAIL;
+  const sendAutoresponse = options.to.toLowerCase() !== ownerEmail.toLowerCase();
+
+  const payload: Record<string, unknown> = {
+    access_key: accessKey,
+    subject: sendAutoresponse ? `[Paid booking copy] ${options.subject}` : options.subject,
+    name: options.toName ?? options.to,
+    from_name: options.toName ?? BUSINESS_NAME,
+    message: options.body,
+  };
+
+  if (sendAutoresponse) {
+    payload.email = options.to;
+    payload.autoresponse = {
+      subject: options.subject,
+      message: options.body,
+    };
+  }
+
   const response = await fetch("https://api.web3forms.com/submit", {
     method: "POST",
     headers: { "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  const body = (await response.json().catch(() => null)) as { success?: unknown } | null;
+  if (!response.ok || body?.success !== true) {
+    throw new Error("Web3Forms request failed");
+  }
+}
+
+async function sendViaFormSubmit(options: EmailPayload): Promise<void> {
+  const response = await fetch(`https://formsubmit.co/ajax/${encodeURIComponent(options.to)}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
     body: JSON.stringify({
-      access_key: accessKey,
-      subject: options.subject,
-      from_name: options.toName ?? BUSINESS_NAME,
+      _subject: options.subject,
+      _captcha: "false",
+      _template: "table",
+      name: options.toName ?? BUSINESS_NAME,
       message: options.body,
     }),
   });
 
+  const contentType = response.headers.get("content-type") ?? "";
+  if (!contentType.includes("application/json")) {
+    throw new Error("FormSubmit returned an unexpected response");
+  }
+
   const payload = (await response.json().catch(() => null)) as { success?: unknown } | null;
-  if (!response.ok || payload?.success !== true) {
-    throw new Error("Web3Forms request failed");
+  if (!response.ok || (payload?.success !== "true" && payload?.success !== true)) {
+    throw new Error("FormSubmit request failed");
   }
 }
 
@@ -216,7 +261,10 @@ async function sendViaMailChannels(env: Env, options: EmailPayload): Promise<voi
 
   const response = await fetch("https://api.mailchannels.net/tx/v1/send", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      "CF-Worker": WORKER_PUBLIC_HOST,
+    },
     body: JSON.stringify({
       personalizations: [
         {
@@ -245,6 +293,13 @@ async function sendViaMailChannels(env: Env, options: EmailPayload): Promise<voi
 }
 
 async function sendEmail(env: Env, options: EmailPayload): Promise<void> {
+  const result = await trySendEmail(env, options);
+  if (!result.sent) {
+    throw new Error(result.error ?? "All email providers failed");
+  }
+}
+
+async function trySendEmail(env: Env, options: EmailPayload): Promise<EmailSendResult> {
   const providers: Array<{ label: string; run: () => Promise<void> }> = [];
 
   if (env.EMAIL) {
@@ -255,6 +310,7 @@ async function sendEmail(env: Env, options: EmailPayload): Promise<void> {
     providers.push({ label: "web3forms", run: () => sendViaWeb3Forms(env, options) });
   }
 
+  providers.push({ label: "formsubmit", run: () => sendViaFormSubmit(options) });
   providers.push({ label: "mailchannels", run: () => sendViaMailChannels(env, options) });
 
   let lastError: unknown = null;
@@ -262,14 +318,16 @@ async function sendEmail(env: Env, options: EmailPayload): Promise<void> {
   for (const provider of providers) {
     try {
       await provider.run();
-      return;
+      return { sent: true };
     } catch (error) {
       lastError = error;
       console.error(`Email via ${provider.label} failed`, error);
     }
   }
 
-  throw lastError instanceof Error ? lastError : new Error("All email providers failed");
+  const detail =
+    lastError instanceof Error ? lastError.message : "All email providers failed";
+  return { sent: false, error: detail };
 }
 
 async function sendBookingEmail(
@@ -783,7 +841,7 @@ async function handlePaymentConfirmRequest(
       trackUrl: tracking.trackUrl,
     });
 
-    await sendEmail(env, {
+    const customerEmailResult = await trySendEmail(env, {
       to: booking.customerEmail,
       toName: booking.customerName,
       subject: customerEmail.subject,
@@ -791,7 +849,7 @@ async function handlePaymentConfirmRequest(
       htmlBody: customerEmail.html,
     });
 
-    await sendEmail(env, {
+    const ownerEmailResult = await trySendEmail(env, {
       to: env.BOOKING_TO_EMAIL?.trim() || DEFAULT_BOOKING_EMAIL,
       subject: ownerEmail.subject,
       body: ownerEmail.body,
@@ -799,12 +857,35 @@ async function handlePaymentConfirmRequest(
 
     const calendar = await logPaidBookingCalendar(env, booking, amountPaid, paymentReference);
 
+    const emailSent = customerEmailResult.sent && ownerEmailResult.sent;
+    const emailWarnings: string[] = [];
+
+    if (!customerEmailResult.sent) {
+      emailWarnings.push(
+        customerEmailResult.error
+          ? `Customer confirmation email failed: ${customerEmailResult.error}`
+          : "Customer confirmation email failed",
+      );
+    }
+
+    if (!ownerEmailResult.sent) {
+      emailWarnings.push(
+        ownerEmailResult.error
+          ? `Owner notification email failed: ${ownerEmailResult.error}`
+          : "Owner notification email failed",
+      );
+    }
+
     return json(
       {
         ok: true,
         paid: true,
         amountPaid,
         paymentReference,
+        emailSent,
+        customerEmailSent: customerEmailResult.sent,
+        ownerEmailSent: ownerEmailResult.sent,
+        ...(emailWarnings.length > 0 ? { emailWarning: emailWarnings.join("; ") } : {}),
         calendarLogged: calendar.logged,
         calendarEvents: calendar.events ?? 0,
         ...(calendar.error ? { calendarWarning: calendar.error } : {}),
@@ -816,7 +897,15 @@ async function handlePaymentConfirmRequest(
     );
   } catch (error) {
     console.error("Payment confirmation failed", error);
-    return json({ error: "Could not confirm payment and send booking emails" }, 502, origin);
+    const detail = error instanceof Error ? error.message : "Unknown payment confirmation error";
+    return json(
+      {
+        error: "Could not confirm payment",
+        detail,
+      },
+      502,
+      origin,
+    );
   }
 }
 

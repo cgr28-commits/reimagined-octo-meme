@@ -271,9 +271,21 @@ function QuoteCard() {
 
           markPaymentConfirmed(checkoutId);
           setPaymentConfirmed(true);
-          setPaymentConfirmationSummary(
-            `Payment of ${result.amountPaid} received. Your invoice and booking confirmation have been emailed to ${booking.customerEmail}.`,
-          );
+
+          if (result.emailSent === false) {
+            setPaymentConfirmationSummary(
+              `Payment of ${result.amountPaid} received. We could not send confirmation emails automatically — our team will confirm your booking manually. If you do not hear from us within an hour, email ${SITE.email}.`,
+            );
+          } else if (result.customerEmailSent === false) {
+            setPaymentConfirmationSummary(
+              `Payment of ${result.amountPaid} received. We notified our team but could not email your confirmation to ${booking.customerEmail}. Contact us at ${SITE.email} if you need a copy.`,
+            );
+          } else {
+            setPaymentConfirmationSummary(
+              `Payment of ${result.amountPaid} received. Your invoice and booking confirmation have been emailed to ${booking.customerEmail}.`,
+            );
+          }
+
           setPaymentConfirming(false);
           return;
         } catch (error) {
@@ -850,7 +862,10 @@ function QuoteCard() {
             {paymentConfirmationSummary}
           </p>
           <p className="mx-auto mt-4 max-w-md text-sm text-white/60">
-            We&apos;ve also sent the full booking details to our team.
+            {paymentConfirmationSummary.includes("could not send confirmation emails") ||
+            paymentConfirmationSummary.includes("could not email your confirmation")
+              ? "Your payment is confirmed. We will follow up shortly."
+              : "We've also sent the full booking details to our team."}
           </p>
         </div>
       </div>

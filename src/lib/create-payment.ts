@@ -16,6 +16,11 @@ export type PaymentCheckoutResult = {
 export type PaymentConfirmationResult = {
   amountPaid: string;
   paymentReference: string;
+  emailSent?: boolean;
+  customerEmailSent?: boolean;
+  ownerEmailSent?: boolean;
+  emailWarning?: string;
+  trackUrl?: string;
 };
 
 function resolveBookingsApiUrl(): string {
