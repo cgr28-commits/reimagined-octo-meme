@@ -8,6 +8,7 @@ import { buildBookingMessage, isValidEmailAddress, isValidMobileNumber, type Boo
 import { detectMobileDevice, useIsMobileDevice } from "@/lib/device";
 import { AIRPORTS, SITE, VEHICLE_TYPES } from "@/lib/data";
 import { readPrefillAirport } from "@/lib/quote-prefill";
+import { readTestBookingPrefill } from "@/lib/test-booking";
 import {
   calculatePointToPointQuote,
   calculateQuote,
@@ -206,6 +207,8 @@ function QuoteCard() {
   const [paymentConfirmationSummary, setPaymentConfirmationSummary] = useState("");
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [termsError, setTermsError] = useState("");
+  const [testChargeAmount, setTestChargeAmount] = useState<number | null>(null);
+  const [testBookingLabel, setTestBookingLabel] = useState<string | null>(null);
   const sumUpEnabled = isSumUpPaymentEnabled();
 
   const handleRouteMetrics = useCallback((metrics: TripRouteMetrics | null) => {
@@ -302,6 +305,23 @@ function QuoteCard() {
   }, []);
 
   useEffect(() => {
+    const testBooking = readTestBookingPrefill();
+    if (testBooking) {
+      setTestChargeAmount(testBooking.chargeAmount);
+      setTestBookingLabel(testBooking.routeLabel);
+      setTripMode(testBooking.tripMode);
+      setTripDirection(testBooking.tripDirection);
+      setAirportCode(testBooking.airportCode);
+      setPickupAddress(testBooking.pickupAddress);
+      setTripDate(testBooking.tripDate);
+      setTripTime(testBooking.tripTime);
+      setPassengers(testBooking.passengers);
+      setSuitcases(testBooking.suitcases);
+      setVehicle(testBooking.vehicle);
+      setGoingFlightNumber(testBooking.flightNumber);
+      return;
+    }
+
     const savedPickup = localStorage.getItem(PICKUP_STORAGE_KEY);
     const savedDropoff = localStorage.getItem(DROPOFF_STORAGE_KEY);
     if (savedPickup) {
@@ -638,8 +658,11 @@ function QuoteCard() {
       : "Address-to-address transfer";
     const customer = customerName.trim();
     const namePart = customer ? ` — ${customer}` : "";
-    return `${tripSummary} — ${vehicleLabel}${namePart}`.slice(0, 140);
+    const prefix = testChargeAmount ? "[TEST £1] " : "";
+    return `${prefix}${tripSummary} — ${vehicleLabel}${namePart}`.slice(0, 140);
   }
+
+  const paymentAmount = testChargeAmount ?? liveQuote?.amount ?? null;
 
   async function handlePayNow() {
     if (!liveQuote || paymentLoading) {
@@ -665,7 +688,7 @@ function QuoteCard() {
 
     try {
       const checkout = await createPaymentCheckout({
-        amount: liveQuote.amount,
+        amount: paymentAmount ?? liveQuote.amount,
         description: buildPaymentDescription(),
         redirectUrl: buildPaymentRedirectUrl(),
       });
@@ -879,6 +902,14 @@ function QuoteCard() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
+        {testChargeAmount !== null && (
+          <div className="rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+            <strong className="text-white">Test booking mode.</strong> SumUp will charge{" "}
+            <strong className="text-white">£1.00</strong> only
+            {testBookingLabel ? ` for ${testBookingLabel}` : ""}. You will still receive the full
+            invoice email and live tracking link.
+          </div>
+        )}
         <div>
           <p className="mb-2 text-xs font-medium uppercase tracking-wider text-white/50">
             Service Type
@@ -1483,9 +1514,20 @@ function QuoteCard() {
           {liveQuote ? (
             <>
               <p className="text-xs font-medium uppercase tracking-wider text-emerald">
-                {returnJourney ? "Estimated return price" : "Estimated price"}
+                {testChargeAmount !== null
+                  ? "Test SumUp charge"
+                  : returnJourney
+                    ? "Estimated return price"
+                    : "Estimated price"}
               </p>
-              <p className="mt-1 text-3xl font-bold text-white">{formatQuote(liveQuote.amount)}</p>
+              <p className="mt-1 text-3xl font-bold text-white">
+                {formatQuote(testChargeAmount ?? liveQuote.amount)}
+              </p>
+              {testChargeAmount !== null && (
+                <p className="mt-2 text-xs text-white/60">
+                  Route price would be {formatQuote(liveQuote.amount)} — not charged in test mode.
+                </p>
+              )}
               <p className="mt-2 text-xs text-white/60">{quoteVehicle.split(" (")[0]}</p>
               {journeyDistanceLabel && journeyDurationLabel && (
                 <p className="mt-2 text-xs text-white/60">
@@ -1672,7 +1714,9 @@ function QuoteCard() {
                 >
                   {paymentLoading
                     ? "Opening SumUp…"
-                    : `Pay ${formatQuote(liveQuote.amount)} now with SumUp`}
+                    : testChargeAmount !== null
+                      ? "Pay £1.00 test charge with SumUp"
+                      : `Pay ${formatQuote(liveQuote.amount)} now with SumUp`}
                 </button>
                 <p className="text-center text-xs text-white/50">
                   Payment opens in a new tab. Close that tab to cancel — your quote stays on this
