@@ -128,15 +128,21 @@ def icon_bbox(img: Image.Image) -> tuple[int, int, int, int]:
 
 
 def make_favicon(icon: Image.Image, size: int = 256) -> Image.Image:
-    square = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    """Navy circular favicon with centred car/plane mark (reads clearly in Google/Bing)."""
+    canvas = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(canvas)
+    inset = max(2, size // 32)
+    draw.ellipse((inset, inset, size - inset - 1, size - inset - 1), fill=(*NAVY, 255))
+
     icon_w, icon_h = icon.size
-    scale = min((size - 24) / icon_w, (size - 24) / icon_h)
+    inner = size - inset * 2
+    scale = min((inner - inner // 6) / icon_w, (inner - inner // 6) / icon_h)
     new_w = max(1, int(icon_w * scale))
     new_h = max(1, int(icon_h * scale))
     resized = icon.resize((new_w, new_h), Image.Resampling.LANCZOS)
-    offset = ((size - new_w) // 2, (size - new_h) // 2)
-    square.paste(resized, offset, resized)
-    return square
+    offset = ((size - new_w) // 2, (size - new_h) // 2 - size // 32)
+    canvas.paste(resized, offset, resized)
+    return canvas
 
 
 def main() -> None:
