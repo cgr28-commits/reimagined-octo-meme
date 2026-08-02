@@ -9,6 +9,8 @@ import { lookupFlight, type VerifiedFlight } from "../shared/flight-lookup";
 import { buildTrackingReminderEmail } from "../shared/booking-notifications";
 import {
   createTrackingJobFromBooking,
+  appendDriverLocationPoint,
+  getDriverLocationHistory,
   getTrackingJob,
   isTrackingJobCancelled,
   listTrackingJobsForDate,
@@ -29,6 +31,7 @@ import {
   driverAuthStatus,
   isDriverAuthConfigured,
   listConfiguredDrivers,
+  ownerAuthorized,
   resolveDriverSession,
   sanitizeDriverJobForRole,
   type DashboardRole,
@@ -377,6 +380,9 @@ export async function handleDriverJobsRequest(
           assignedAt: job.assignedAt,
           acceptedAt: job.acceptedAt,
           declinedAt: job.declinedAt,
+          driverLocationPointCount: job.driverLocationPointCount,
+          driverLocationRecordedFrom: job.driverLocationRecordedFrom,
+          driverLocationRecordedTo: job.driverLocationRecordedTo,
           isAirportPickup: Boolean(job.isAirportTrip && job.isFromAirport),
           flightNumber: job.flightNumber ?? null,
           airportCode: job.airportCode ?? null,
@@ -576,12 +582,70 @@ export async function handleDriverLocationRequest(
     return jsonResponse({ error: "Sharing is not active for this job" }, 409, origin);
   }
 
+  const recordedAt = new Date().toISOString();
+  const driverName =
+    session.authorized && session.role === "driver"
+      ? session.driverName
+      : record.activeDriverName;
+
+  const pointCount = await appendDriverLocationPoint(env.TRACKING_STORE, token, {
+    lat,
+    lng,
+    recordedAt,
+    ...(driverName ? { driverName } : {}),
+  });
+
   record.driverLat = lat;
   record.driverLng = lng;
-  record.driverUpdatedAt = new Date().toISOString();
+  record.driverUpdatedAt = recordedAt;
+  record.driverLocationPointCount = pointCount;
+  if (!record.driverLocationRecordedFrom) {
+    record.driverLocationRecordedFrom = recordedAt;
+  }
+  record.driverLocationRecordedTo = recordedAt;
   await saveTrackingJob(env.TRACKING_STORE, record);
 
-  return jsonResponse({ ok: true }, 200, origin);
+  return jsonResponse({ ok: true, pointCount }, 200, origin);
+}
+
+export async function handleDriverLocationHistoryRequest(
+  request: Request,
+  env: Env,
+  origin: string | null,
+): Promise<Response> {
+  if (!trackingStoreConfigured(env.TRACKING_STORE)) {
+    return jsonResponse({ error: "Live tracking is not configured" }, 503, origin);
+  }
+
+  if (!ownerAuthorized(request, env)) {
+    return jsonResponse({ error: "Unauthorized — owner access required" }, 401, origin);
+  }
+
+  const url = new URL(request.url);
+  const token = url.searchParams.get("token")?.trim() ?? "";
+  if (!token) {
+    return jsonResponse({ error: "Missing token" }, 400, origin);
+  }
+
+  const record = await getTrackingJob(env.TRACKING_STORE, token);
+  if (!record) {
+    return jsonResponse({ error: "Job not found" }, 404, origin);
+  }
+
+  const points = await getDriverLocationHistory(env.TRACKING_STORE, token);
+
+  return jsonResponse(
+    {
+      ok: true,
+      token,
+      count: points.length,
+      recordedFrom: record.driverLocationRecordedFrom ?? points[0]?.recordedAt,
+      recordedTo: record.driverLocationRecordedTo ?? points.at(-1)?.recordedAt,
+      points,
+    },
+    200,
+    origin,
+  );
 }
 
 const RESERVED_TRACK_PATHS = new Set(["sharing", "location"]);

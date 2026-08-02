@@ -54,6 +54,7 @@ import {
   handleCustomerSharingRequest,
   handleDriverJobsRequest,
   handleDriverLocationRequest,
+  handleDriverLocationHistoryRequest,
   handleDriverSharingRequest,
   handleDriverStatusRequest,
   handlePublicTrackRequest,
@@ -141,7 +142,7 @@ function json(body: unknown, status: number, origin: string | null): Response {
 
 function parseDriverRoute(
   pathname: string,
-): "jobs" | "sharing" | "location" | "bookings-update" | "status" | "assign" | "deassign" | "assignment-response" | "roster" | null {
+): "jobs" | "sharing" | "location" | "location-history" | "bookings-update" | "status" | "assign" | "deassign" | "assignment-response" | "roster" | null {
   if (pathname === "/driver/jobs" || pathname === "/api/driver/jobs") {
     return "jobs";
   }
@@ -176,6 +177,10 @@ function parseDriverRoute(
 
   if (pathname === "/driver/location" || pathname === "/api/driver/location") {
     return "location";
+  }
+
+  if (pathname === "/driver/location-history" || pathname === "/api/driver/location-history") {
+    return "location-history";
   }
 
   return null;
@@ -1013,6 +1018,10 @@ export default {
 
     if (driverRoute === "location" && request.method === "POST") {
       return handleDriverLocationRequest(request, env, origin);
+    }
+
+    if (driverRoute === "location-history" && request.method === "GET") {
+      return handleDriverLocationHistoryRequest(request, env, origin);
     }
 
     if (!route) {

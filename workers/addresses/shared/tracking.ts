@@ -43,6 +43,17 @@ export type TrackingJobRecord = {
   assignedAt?: string;
   acceptedAt?: string;
   declinedAt?: string;
+  /** Count of GPS points retained for audit (owner only in API responses) */
+  driverLocationPointCount?: number;
+  driverLocationRecordedFrom?: string;
+  driverLocationRecordedTo?: string;
+};
+
+export type DriverLocationPoint = {
+  lat: number;
+  lng: number;
+  recordedAt: string;
+  driverName?: string;
 };
 
 export type JobAssignmentStatus = "unassigned" | "pending" | "accepted" | "declined";

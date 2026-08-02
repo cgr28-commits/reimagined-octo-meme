@@ -142,6 +142,13 @@ export type DriverFlight = {
 
 export type JobAssignmentStatus = "unassigned" | "pending" | "accepted" | "declined";
 
+export type DriverLocationPoint = {
+  lat: number;
+  lng: number;
+  recordedAt: string;
+  driverName?: string;
+};
+
 export type DriverJob = PublicTrackResponse & {
   token: string;
   customerMobile?: string;
@@ -156,6 +163,9 @@ export type DriverJob = PublicTrackResponse & {
   assignedAt?: string;
   acceptedAt?: string;
   declinedAt?: string;
+  driverLocationPointCount?: number;
+  driverLocationRecordedFrom?: string;
+  driverLocationRecordedTo?: string;
   isAirportPickup?: boolean;
   flightNumber?: string | null;
   airportCode?: string | null;
@@ -365,6 +375,37 @@ export async function respondToJobAssignment(
   );
 
   return parseJsonResponse<{ ok: true; job: DriverJob }>(response);
+}
+
+export async function fetchDriverLocationHistory(
+  ownerKey: string,
+  token: string,
+): Promise<{
+  ok: true;
+  token: string;
+  count: number;
+  recordedFrom?: string;
+  recordedTo?: string;
+  points: DriverLocationPoint[];
+}> {
+  const url = new URL(`${WORKER_BASE}/driver/location-history`);
+  driverQueryKey(url, ownerKey);
+  url.searchParams.set("token", token);
+
+  const response = await fetch(url.toString(), {
+    method: "GET",
+    headers: { Accept: "application/json" },
+    cache: "no-store",
+  });
+
+  return parseJsonResponse<{
+    ok: true;
+    token: string;
+    count: number;
+    recordedFrom?: string;
+    recordedTo?: string;
+    points: DriverLocationPoint[];
+  }>(response);
 }
 
 export async function postDriverLocation(

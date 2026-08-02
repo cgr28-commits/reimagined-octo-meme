@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Footer from "@/components/Footer";
 import Header from "@/components/Header";
-import type { MapMarker } from "@/components/LiveTrackMap";
+import type { MapMarker, MapRoutePoint } from "@/components/LiveTrackMap";
 import {
   buildWhatsAppTrackLink,
   fetchDriverJobs,
@@ -17,6 +17,7 @@ import {
   deassignJob,
   respondToJobAssignment,
   fetchDriverRoster,
+  fetchDriverLocationHistory,
   type DriverJob,
 } from "@/lib/tracking-api";
 import { issueBookingRefund } from "@/lib/refund-api";
@@ -253,6 +254,7 @@ function DriverJobCard({
   const [assignBusy, setAssignBusy] = useState(false);
   const [assignDriver, setAssignDriver] = useState(availableDrivers[0] ?? "Gary");
   const [assignmentBusy, setAssignmentBusy] = useState(false);
+  const [recordedRoute, setRecordedRoute] = useState<MapRoutePoint[]>([]);
   const isActive = activeToken === job.token;
   const mapMarkers = jobMapMarkers(job, { isActiveDriver: isActive, isOwner });
   const isDemoDriver = driverKey === DEMO_DRIVER_KEY;
@@ -268,6 +270,36 @@ function DriverJobCard({
     !isOwner && !isRefunded && isAcceptedAssignment && !compactTracking && job.trackingWindow.open;
   const trackingAvailable = !compactTracking && job.trackingWindow.open && !isRefunded;
   const driverSharingLive = Boolean(job.sharingActive && job.driver);
+  const showRecordedRoute = isOwner && (job.driverLocationPointCount ?? 0) > 0;
+  const showMap =
+    mapMarkers.length > 0 || (showRecordedRoute && recordedRoute.length > 0);
+
+  useEffect(() => {
+    if (!showRecordedRoute) {
+      setRecordedRoute([]);
+      return;
+    }
+
+    let cancelled = false;
+
+    void fetchDriverLocationHistory(driverKey, job.token)
+      .then((result) => {
+        if (cancelled) {
+          return;
+        }
+
+        setRecordedRoute(result.points.map((point) => ({ lat: point.lat, lng: point.lng })));
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setRecordedRoute([]);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [driverKey, job.token, job.driverLocationPointCount, showRecordedRoute]);
 
   const toggleSharing = async () => {
     setBusy(true);
@@ -381,7 +413,7 @@ function DriverJobCard({
         tripTime: editForm.tripTime,
         pickupLabel: editForm.pickupLabel,
         dropoffLabel: editForm.dropoffLabel,
-        customerMobile: editForm.customerMobile,
+        ...(isOwner ? { customerMobile: editForm.customerMobile } : {}),
         flightNumber: editForm.flightNumber,
       });
 
@@ -472,6 +504,11 @@ function DriverJobCard({
           )}
           {!isRefunded && (
             <p className="mt-2 text-sm text-white/55">{assignmentSummary(job)}</p>
+          )}
+          {isOwner && (job.driverLocationPointCount ?? 0) > 0 && (
+            <p className="mt-2 text-xs text-white/50">
+              {job.driverLocationPointCount} GPS points recorded for audit (retained 1 year)
+            </p>
           )}
         </div>
         {isRefunded ? (
@@ -789,9 +826,15 @@ function DriverJobCard({
         </p>
       )}
 
-      {mapMarkers.length > 0 && trackingAvailable && (
+      {isOwner && showRecordedRoute && recordedRoute.length > 0 && !driverSharingLive && (
+        <p className="mt-4 text-sm text-white/60">
+          Recorded driver route shown below — retained for audit purposes.
+        </p>
+      )}
+
+      {showMap && (
         <div className="mt-5 overflow-hidden rounded-xl border border-white/10">
-          <LiveTrackMap markers={mapMarkers} />
+          <LiveTrackMap markers={mapMarkers} route={recordedRoute} />
         </div>
       )}
 

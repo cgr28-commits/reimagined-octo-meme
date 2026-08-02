@@ -1,6 +1,7 @@
 import {
   buildPickupDateTimeLocal,
   generateTrackingToken,
+  type DriverLocationPoint,
   type TrackingJobRecord,
 } from "../shared/tracking";
 import type { PaidBookingDetails } from "../shared/booking-notifications";
@@ -8,7 +9,10 @@ import type { PaidBookingDetails } from "../shared/booking-notifications";
 const JOB_PREFIX = "track:job:";
 const DAY_INDEX_PREFIX = "track:day:";
 const REF_INDEX_PREFIX = "track:ref:";
+const DRIVER_HISTORY_PREFIX = "track:driver-history:";
 const DAY_INDEX_TTL = 60 * 60 * 24 * 45;
+/** Retain driver GPS audit trail for 1 year */
+const DRIVER_HISTORY_TTL = 60 * 60 * 24 * 365;
 const PAYMENT_REF_SEARCH_DAYS_BACK = 45;
 const PAYMENT_REF_SEARCH_DAYS_AHEAD = 60;
 
@@ -343,4 +347,31 @@ export async function markTrackingJobRefunded(
 
   await saveTrackingJob(store, updated);
   return true;
+}
+
+function driverHistoryKey(token: string): string {
+  return `${DRIVER_HISTORY_PREFIX}${token}`;
+}
+
+export async function appendDriverLocationPoint(
+  store: KVNamespace,
+  token: string,
+  point: DriverLocationPoint,
+): Promise<number> {
+  const key = driverHistoryKey(token);
+  const existing = await store.get<DriverLocationPoint[]>(key, "json");
+  const history = Array.isArray(existing) ? existing : [];
+  history.push(point);
+  await store.put(key, JSON.stringify(history), {
+    expirationTtl: DRIVER_HISTORY_TTL,
+  });
+  return history.length;
+}
+
+export async function getDriverLocationHistory(
+  store: KVNamespace,
+  token: string,
+): Promise<DriverLocationPoint[]> {
+  const history = await store.get<DriverLocationPoint[]>(driverHistoryKey(token), "json");
+  return Array.isArray(history) ? history : [];
 }

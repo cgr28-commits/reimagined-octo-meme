@@ -123,5 +123,8 @@ export function sanitizeDriverJobForRole<T extends Record<string, unknown>>(
   delete sanitized.refundAmountLabel;
   delete sanitized.customerMobile;
   delete sanitized.customerEmail;
+  delete sanitized.driverLocationPointCount;
+  delete sanitized.driverLocationRecordedFrom;
+  delete sanitized.driverLocationRecordedTo;
   return sanitized as T;
 }
