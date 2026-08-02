@@ -3,8 +3,8 @@ import DriverPageClient from "./DriverPageClient";
 import { SITE } from "@/lib/data";
 
 export const metadata: Metadata = {
-  title: `Driver dashboard | ${SITE.name}`,
-  description: "Share live location with customers on the day of their airport transfer.",
+  title: `Bookings dashboard | ${SITE.name}`,
+  description: "Manage airport transfer bookings, assign drivers, and share live location.",
   robots: {
     index: false,
     follow: false,
