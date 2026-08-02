@@ -109,6 +109,246 @@ export function getSuccessfulTransactionCode(checkout: SumUpCheckoutDetails): st
     ?.transaction_code;
 }
 
+export function getSuccessfulTransactionId(checkout: SumUpCheckoutDetails): string | undefined {
+  return checkout.transactions?.find((transaction) => transaction.status === "SUCCESSFUL")?.id;
+}
+
+export type SumUpRefundResult = {
+  refundedAmount?: number;
+  currency?: string;
+};
+
+export type SumUpTransactionSummary = {
+  id: string;
+  transaction_code?: string;
+  amount?: number;
+  currency?: string;
+  status?: string;
+};
+
+type SumUpTransactionHistoryItem = {
+  transaction_id?: string;
+  transaction_code?: string;
+  amount?: number;
+  currency?: string;
+  status?: string;
+};
+
+type SumUpTransactionsHistoryResponse = {
+  items?: SumUpTransactionHistoryItem[];
+  error_message?: string;
+  message?: string;
+};
+
+function mapHistoryItem(item: SumUpTransactionHistoryItem): SumUpTransactionSummary | null {
+  const id = item.transaction_id?.trim();
+  if (!id) {
+    return null;
+  }
+
+  return {
+    id,
+    transaction_code: item.transaction_code,
+    amount: item.amount,
+    currency: item.currency,
+    status: item.status,
+  };
+}
+
+export async function findSumUpTransactionByCode(
+  apiKey: string,
+  merchantCode: string,
+  transactionCode: string,
+): Promise<SumUpTransactionSummary | null> {
+  const trimmed = transactionCode.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  const url = new URL(
+    `https://api.sumup.com/v2.1/merchants/${encodeURIComponent(merchantCode)}/transactions/history`,
+  );
+  url.searchParams.set("transaction_code", trimmed);
+
+  const response = await fetch(url.toString(), {
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+    },
+  });
+
+  const payload = (await response.json().catch(() => null)) as
+    | SumUpTransactionsHistoryResponse
+    | null;
+
+  if (!response.ok) {
+    const message =
+      payload && typeof payload === "object" && (payload.error_message || payload.message)
+        ? String(payload.error_message ?? payload.message)
+        : `Could not look up SumUp transaction (${response.status})`;
+    throw new Error(message);
+  }
+
+  const match =
+    payload?.items
+      ?.map(mapHistoryItem)
+      .find(
+        (item): item is SumUpTransactionSummary =>
+          Boolean(item) &&
+          (item!.transaction_code?.trim() === trimmed || item!.id.trim() === trimmed),
+      ) ??
+    payload?.items?.map(mapHistoryItem).find((item): item is SumUpTransactionSummary => Boolean(item));
+
+  return match ?? null;
+}
+
+export async function listSumUpCheckoutsByReference(
+  apiKey: string,
+  checkoutReference: string,
+): Promise<SumUpCheckoutDetails[]> {
+  const trimmed = checkoutReference.trim();
+  if (!trimmed) {
+    return [];
+  }
+
+  const url = new URL("https://api.sumup.com/v0.1/checkouts");
+  url.searchParams.set("checkout_reference", trimmed);
+
+  const response = await fetch(url.toString(), {
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+    },
+  });
+
+  const payload = (await response.json().catch(() => null)) as SumUpCheckoutDetails[] | null;
+  if (!response.ok || !Array.isArray(payload)) {
+    return [];
+  }
+
+  return payload.filter((checkout) => Boolean(checkout?.id));
+}
+
+function transactionFromCheckout(checkout: SumUpCheckoutDetails): SumUpTransactionSummary | null {
+  const transactionId = getSuccessfulTransactionId(checkout);
+  if (!transactionId) {
+    return null;
+  }
+
+  return {
+    id: transactionId,
+    transaction_code: getSuccessfulTransactionCode(checkout),
+    amount: checkout.amount,
+    currency: checkout.currency,
+    status: "SUCCESSFUL",
+  };
+}
+
+export async function resolveSumUpTransactionForRefund(
+  apiKey: string,
+  merchantCode: string,
+  paymentReference: string,
+  checkoutId?: string,
+): Promise<SumUpTransactionSummary | null> {
+  const trimmed = paymentReference.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  if (checkoutId?.trim()) {
+    try {
+      const checkout = await getSumUpCheckout(apiKey, checkoutId.trim());
+      const fromCheckout = transactionFromCheckout(checkout);
+      if (fromCheckout) {
+        return fromCheckout;
+      }
+    } catch {
+      // Fall through to other lookup strategies.
+    }
+  }
+
+  if (merchantCode.trim()) {
+    try {
+      const byCode = await findSumUpTransactionByCode(apiKey, merchantCode.trim(), trimmed);
+      if (byCode) {
+        return byCode;
+      }
+    } catch {
+      // Fall through to checkout reference lookup.
+    }
+  }
+
+  const checkouts = await listSumUpCheckoutsByReference(apiKey, trimmed);
+  for (const checkout of checkouts) {
+    const fromCheckout = transactionFromCheckout(checkout);
+    if (fromCheckout) {
+      return fromCheckout;
+    }
+  }
+
+  return null;
+}
+
+export async function refundSumUpTransaction(
+  apiKey: string,
+  transactionId: string,
+  amount?: number,
+  merchantCode?: string,
+): Promise<SumUpRefundResult> {
+  const body = JSON.stringify(amount !== undefined ? { amount } : {});
+
+  if (merchantCode?.trim()) {
+    const modernResponse = await fetch(
+      `https://api.sumup.com/v1.0/merchants/${encodeURIComponent(merchantCode.trim())}/payments/${encodeURIComponent(transactionId)}/refunds`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body,
+      },
+    );
+
+    if (modernResponse.ok) {
+      const modernPayload = (await modernResponse.json().catch(() => null)) as
+        | { amount?: number; currency?: string }
+        | null;
+      return {
+        refundedAmount: modernPayload?.amount ?? amount,
+        currency: modernPayload?.currency,
+      };
+    }
+  }
+
+  const response = await fetch(
+    `https://api.sumup.com/v0.1/me/refund/${encodeURIComponent(transactionId)}`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body,
+    },
+  );
+
+  const payload = (await response.json().catch(() => null)) as
+    | { amount?: number; currency?: string; error_message?: string }
+    | null;
+
+  if (!response.ok) {
+    const message =
+      payload && typeof payload === "object" && payload.error_message
+        ? String(payload.error_message)
+        : `SumUp refund failed (${response.status})`;
+    throw new Error(message);
+  }
+
+  return {
+    refundedAmount: payload?.amount,
+    currency: payload?.currency,
+  };
+}
+
 export function buildCheckoutReference(prefix = "matni"): string {
   const random = crypto.randomUUID().replace(/-/g, "").slice(0, 12);
   return `${prefix}-${Date.now()}-${random}`;

@@ -14,9 +14,9 @@ const description =
   "Professional airport taxi transfers across Northern Ireland. Belfast International from £45, Belfast City from £35, and Dublin Airport transfers. Flight tracking, meet & greet. Book via WhatsApp.";
 
 const ogImage = {
-  url: absoluteSiteUrl("/og-image.png"),
+  url: absoluteSiteUrl("/og-image-square.png"),
   width: 1200,
-  height: 630,
+  height: 1200,
   alt: `${SITE.name} — Premium Airport Transfers`,
 };
 

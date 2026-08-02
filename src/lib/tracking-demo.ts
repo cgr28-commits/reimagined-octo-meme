@@ -168,46 +168,109 @@ export function getDemoTrackResponse(token: DemoTrackToken): PublicTrackResponse
   });
 }
 
-export function getDemoDriverJobs(): DriverJobsResponse {
+function buildDemoDriverJob(
+  token: DemoTrackToken,
+  extras: Partial<DriverJobsResponse["jobs"][number]> & {
+    token: string;
+    customerMobile: string;
+  },
+): DriverJobsResponse["jobs"][number] {
+  const base = getDemoTrackResponse(token);
+  return {
+    ...base,
+    ...extras,
+    bookingStatus: "confirmed",
+    amountPaidLabel: "£85.00",
+  };
+}
+
+export function getDemoDriverJobs(date?: string): DriverJobsResponse {
   const waiting = getDemoTrackResponse("demo-waiting");
-  const live = getDemoTrackResponse("demo-live");
+  const responseDate = date ?? waiting.tripDate;
+
+  const jobs = [
+    buildDemoDriverJob("demo-live", {
+      token: "demo-live",
+      customerMobile: "+447700900123",
+      paymentReference: "DEMO-MATNI-1001",
+      isAirportPickup: false,
+      flightNumber: null,
+      airportCode: null,
+      flight: null,
+    }),
+    buildDemoDriverJob("demo-waiting", {
+      token: "demo-waiting",
+      customerMobile: "+447700900456",
+      paymentReference: "DEMO-MATNI-1002",
+      isAirportPickup: true,
+      flightNumber: "EZY123",
+      airportCode: "BFS",
+      flight: {
+        flightNumber: "EZY123",
+        airline: "easyJet",
+        date: waiting.tripDate,
+        scheduledTime: "14:30",
+        scheduledTimeLabel: "14:30",
+        airportCode: "BFS",
+        airportName: "Belfast International",
+        departureAirport: "London Gatwick",
+        arrivalAirport: "Belfast International",
+        status: "Estimated arrival",
+      },
+    }),
+  ].filter((job) => !date || job.tripDate === date);
 
   return {
     ok: true,
-    date: waiting.tripDate,
-    jobs: [
-      {
-        ...live,
-        token: "demo-live",
-        customerMobile: "+447700900123",
-        paymentReference: "DEMO-MATNI-1001",
-        isAirportPickup: false,
-        flightNumber: null,
-        airportCode: null,
-        flight: null,
-      },
-      {
-        ...waiting,
-        token: "demo-waiting",
-        customerMobile: "+447700900456",
-        paymentReference: "DEMO-MATNI-1002",
-        isAirportPickup: true,
-        flightNumber: "EZY123",
-        airportCode: "BFS",
-        flight: {
-          flightNumber: "EZY123",
-          airline: "easyJet",
-          date: waiting.tripDate,
-          scheduledTime: "14:30",
-          scheduledTimeLabel: "14:30",
-          airportCode: "BFS",
-          airportName: "Belfast International",
-          departureAirport: "London Gatwick",
-          arrivalAirport: "Belfast International",
-          status: "Estimated arrival",
-        },
-      },
-    ],
+    scope: "date",
+    date: responseDate,
+    jobs,
+  };
+}
+
+export function getDemoDriverUpcomingJobs(): DriverJobsResponse {
+  const todayJobs = getDemoDriverJobs().jobs;
+  const futurePickup = addMinutes(new Date(), 3 * 24 * 60);
+  const schedule = londonParts(futurePickup);
+  const opensAt = addMinutes(futurePickup, -120);
+  const closesAt = addMinutes(futurePickup, 90);
+
+  const futureJob = buildDemoDriverJob("demo-waiting", {
+    token: "demo-future",
+    customerName: "Taylor Demo",
+    customerMobile: "+447700900789",
+    paymentReference: "DEMO-MATNI-1003",
+    pickupLabel: "Holiday Inn Express, Belfast",
+    dropoffLabel: "Belfast International Airport (BFS)",
+    tripDate: schedule.tripDate,
+    tripTime: schedule.tripTime,
+    pickupAt: schedule.pickupAt,
+    pickupDisplay: schedule.pickupDisplay,
+    isAirportPickup: false,
+    flightNumber: null,
+    airportCode: null,
+    flight: null,
+    trackingWindow: {
+      open: false,
+      opensAt: opensAt.toISOString(),
+      closesAt: closesAt.toISOString(),
+      pickupAt: schedule.pickupAt,
+      reason: "too_early",
+      opensAtDisplay: formatWindowDisplay(opensAt.toISOString()),
+      closesAtDisplay: formatWindowDisplay(closesAt.toISOString()),
+    },
+    sharingActive: false,
+    customerSharingActive: false,
+    driver: null,
+    customer: null,
+    trackUrl: `${SITE.url}/track/?id=demo-future`,
+  });
+
+  return {
+    ok: true,
+    scope: "upcoming",
+    date: "upcoming",
+    jobs: [...todayJobs, futureJob].sort((a, b) => a.pickupAt.localeCompare(b.pickupAt)),
   };
 }
 
