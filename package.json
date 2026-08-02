@@ -15,7 +15,8 @@
     "lint": "next lint",
     "check:ots-pricing": "npx tsx scripts/check-ots-pricing-daily.ts",
     "calibrate:ots-pricing": "npx tsx scripts/auto-calibrate-ots-pricing.ts",
-    "health-check": "node scripts/daily-health-check.mjs"
+    "health-check": "node scripts/daily-health-check.mjs",
+    "check:demo-features": "npx tsx scripts/check-demo-features.ts"
   },
   "dependencies": {
     "leaflet": "^1.9.4",
