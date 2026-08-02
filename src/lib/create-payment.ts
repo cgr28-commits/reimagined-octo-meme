@@ -21,6 +21,7 @@ export type PaymentConfirmationResult = {
   ownerEmailSent?: boolean;
   emailWarning?: string;
   trackUrl?: string;
+  calendarLogged?: boolean;
 };
 
 function resolveBookingsApiUrl(): string {
@@ -68,10 +69,17 @@ export function isSumUpPaymentEnabled(): boolean {
   return Boolean(PAYMENTS_API_URL);
 }
 
-export function buildPaymentRedirectUrl(): string {
-  const url = new URL(`${SITE.url}/`);
+export function buildPaymentRedirectUrl(returnToken?: string): string {
+  const base =
+    typeof window !== "undefined"
+      ? `${window.location.origin}${window.location.pathname}`
+      : `${SITE.url}/`;
+  const url = new URL(base);
   url.hash = "quote";
   url.searchParams.set("payment", "return");
+  if (returnToken) {
+    url.searchParams.set("return_token", returnToken);
+  }
   return url.toString();
 }
 

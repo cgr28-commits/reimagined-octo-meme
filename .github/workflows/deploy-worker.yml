@@ -64,6 +64,7 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           GOOGLE_CALENDAR_ID: ${{ secrets.GOOGLE_CALENDAR_ID }}
           GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON }}
+          WEB3FORMS_ACCESS_KEY: ${{ secrets.WEB3FORMS_ACCESS_KEY }}
           CI: "true"
           WORKERS_CI: "1"
         run: |
@@ -78,5 +79,11 @@ jobs:
             printf '%s' "$GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON" | npx wrangler secret put GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON
           else
             echo "::notice::Google Calendar not configured — add GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON to GitHub Actions secrets."
+          fi
+          if [ -n "$WEB3FORMS_ACCESS_KEY" ]; then
+            echo "Syncing Web3Forms secret…"
+            printf '%s' "$WEB3FORMS_ACCESS_KEY" | npx wrangler secret put WEB3FORMS_ACCESS_KEY
+          else
+            echo "::notice::WEB3FORMS_ACCESS_KEY not set — paid booking emails may fail until configured."
           fi
           npm run deploy
