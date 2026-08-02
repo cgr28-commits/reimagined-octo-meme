@@ -3,6 +3,9 @@ const TOKEN_URL = "https://oauth2.googleapis.com/token";
 const TIME_ZONE = "Europe/London";
 const DEFAULT_TRANSFER_DURATION_MINUTES = 90;
 const DEFAULT_TOUR_DURATION_HOURS = 8;
+const BUSINESS_NAME = "My Airport Taxi NI";
+const BUSINESS_WEBSITE = "https://www.myairporttaxini.co.uk";
+const BUSINESS_LOGO_URL = `${BUSINESS_WEBSITE}/google-business-logo.png`;
 
 export type TransferBookingEvent = {
   customerName: string;
@@ -22,6 +25,10 @@ export type TransferBookingEvent = {
   vehicle?: string;
   estimatedPrice?: string | null;
   isAirportTrip?: boolean;
+  amountPaid?: string;
+  paymentReference?: string;
+  paid?: boolean;
+  returnFlightNumber?: string;
 };
 
 export type TourBookingEvent = {
@@ -193,34 +200,56 @@ function addMinutes(dateTimeLocal: string, minutes: number): string {
 }
 
 function buildTransferDescription(booking: TransferBookingEvent, message?: string): string {
+  const header = [
+    BUSINESS_NAME,
+    BUSINESS_WEBSITE,
+    `Logo: ${BUSINESS_LOGO_URL}`,
+    "",
+  ];
+
   if (message?.trim()) {
-    return message.trim();
+    return [...header, message.trim()].join("\n");
   }
 
   const lines = [
+    ...header,
     `Trip: ${booking.tripLabel}`,
     `Pickup: ${booking.pickupLabel}`,
     `Drop-off: ${booking.dropoffLabel}`,
     booking.customerEmail ? `Email: ${booking.customerEmail}` : "",
     booking.mobileNumber ? `Mobile: ${booking.mobileNumber}` : "",
-    booking.flightNumber ? `Flight: ${booking.flightNumber}` : "",
+    booking.flightNumber ? `Flight for going: ${booking.flightNumber}` : "",
+    booking.returnFlightNumber ? `Flight for collection: ${booking.returnFlightNumber}` : "",
     typeof booking.passengers === "number" ? `Passengers: ${booking.passengers}` : "",
     typeof booking.suitcases === "number" ? `Suitcases: ${booking.suitcases}` : "",
     booking.vehicle ? `Vehicle: ${booking.vehicle}` : "",
     booking.estimatedPrice ? `Estimated price: ${booking.estimatedPrice}` : "",
+    booking.paid && booking.amountPaid ? `Amount paid: ${booking.amountPaid}` : "",
+    booking.paid && booking.paymentReference
+      ? `Payment reference: ${booking.paymentReference}`
+      : "",
+    booking.paid ? "Status: PAID (SumUp)" : "",
     "",
-    "Source: My Airport Taxi NI website booking",
+    `Source: ${BUSINESS_NAME} website booking`,
   ];
 
   return lines.filter(Boolean).join("\n");
 }
 
 function buildTourDescription(tour: TourBookingEvent, message?: string): string {
+  const header = [
+    BUSINESS_NAME,
+    BUSINESS_WEBSITE,
+    `Logo: ${BUSINESS_LOGO_URL}`,
+    "",
+  ];
+
   if (message?.trim()) {
-    return message.trim();
+    return [...header, message.trim()].join("\n");
   }
 
   const lines = [
+    ...header,
     `Day trip: ${tour.tourTitle}`,
     tour.pickupLocation ? `Pickup: ${tour.pickupLocation}` : "",
     typeof tour.groupSize === "number" ? `Group size: ${tour.groupSize}` : "",
@@ -228,10 +257,16 @@ function buildTourDescription(tour: TourBookingEvent, message?: string): string 
     tour.mobileNumber ? `Mobile: ${tour.mobileNumber}` : "",
     tour.notes ? `Notes: ${tour.notes}` : "",
     "",
-    "Source: My Airport Taxi NI website booking",
+    `Source: ${BUSINESS_NAME} website booking`,
   ];
 
   return lines.filter(Boolean).join("\n");
+}
+
+function buildTransferSummary(booking: TransferBookingEvent, suffix = ""): string {
+  const paidTag =
+    booking.paid && booking.amountPaid ? ` [PAID ${booking.amountPaid}]` : "";
+  return `${BUSINESS_NAME} — ${booking.tripLabel} — ${booking.customerName}${paidTag}${suffix}`;
 }
 
 export function buildTransferCalendarEvents(
@@ -246,7 +281,7 @@ export function buildTransferCalendarEvents(
   const outboundStart = `${booking.tripDate}T${booking.tripTime}`;
   const events: CalendarEventInput[] = [
     {
-      summary: `${booking.tripLabel} — ${booking.customerName}`,
+      summary: buildTransferSummary(booking),
       description,
       location: booking.pickupLabel,
       startDateTime: outboundStart,
@@ -264,7 +299,7 @@ export function buildTransferCalendarEvents(
   ) {
     const returnStart = `${booking.returnDate}T${booking.returnTime}`;
     events.push({
-      summary: `Return — ${booking.tripLabel} — ${booking.customerName}`,
+      summary: buildTransferSummary(booking, " (Return)"),
       description,
       location: booking.dropoffLabel,
       startDateTime: returnStart,
@@ -287,7 +322,7 @@ export function buildTourCalendarEvents(
   const startDateTime = `${tour.travelDate}T09:00`;
   return [
     {
-      summary: `${tour.tourTitle} — ${tour.customerName}`,
+      summary: `${BUSINESS_NAME} — ${tour.tourTitle} — ${tour.customerName}`,
       description: buildTourDescription(tour, message),
       location: tour.pickupLocation?.trim() || undefined,
       startDateTime,
@@ -369,7 +404,7 @@ export function buildEventsFromBookingMessage(
 
   return [
     {
-      summary: `Website booking — ${customerName}`,
+      summary: `${BUSINESS_NAME} — Website booking — ${customerName}`,
       description: message,
       startDateTime,
       endDateTime: addMinutes(startDateTime, DEFAULT_TRANSFER_DURATION_MINUTES),
@@ -395,16 +430,25 @@ async function createCalendarEvent(
       timeZone: TIME_ZONE,
     },
     source: {
-      title: "My Airport Taxi NI",
-      url: "https://www.myairporttaxini.co.uk",
+      title: BUSINESS_NAME,
+      url: BUSINESS_WEBSITE,
     },
+    colorId: "9",
+    attachments: [
+      {
+        fileUrl: BUSINESS_LOGO_URL,
+        title: BUSINESS_NAME,
+        mimeType: "image/png",
+        iconLink: BUSINESS_LOGO_URL,
+      },
+    ],
   };
 
   // Do not invite customers automatically — this is an owner-facing log only.
   void event.attendeeEmail;
 
   const response = await fetch(
-    `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events`,
+    `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?supportsAttachments=true`,
     {
       method: "POST",
       headers: {
