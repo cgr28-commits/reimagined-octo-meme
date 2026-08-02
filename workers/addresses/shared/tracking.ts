@@ -17,7 +17,30 @@ export type TrackingJobRecord = {
   sharingActive: boolean;
   /** ISO timestamp when the live-tracking reminder email was sent */
   sharingReminderSentAt?: string;
+  customerSharingActive?: boolean;
+  customerLat?: number;
+  customerLng?: number;
+  customerUpdatedAt?: string;
 };
+
+export const LOCATION_STALE_MS = 5 * 60 * 1000;
+
+export function isLocationFresh(
+  updatedAt: string | undefined,
+  now = Date.now(),
+  maxAgeMs = LOCATION_STALE_MS,
+): boolean {
+  if (!updatedAt) {
+    return false;
+  }
+
+  const updated = new Date(updatedAt).getTime();
+  if (Number.isNaN(updated)) {
+    return false;
+  }
+
+  return now - updated < maxAgeMs;
+}
 
 export type TrackingWindow = {
   open: boolean;

@@ -38,6 +38,12 @@ export type TrackingWindow = {
   closesAtDisplay?: string;
 };
 
+export type TrackLocation = {
+  lat: number;
+  lng: number;
+  updatedAt: string;
+};
+
 export type PublicTrackResponse = {
   ok: true;
   customerName: string;
@@ -49,11 +55,9 @@ export type PublicTrackResponse = {
   pickupDisplay: string;
   trackingWindow: TrackingWindow;
   sharingActive: boolean;
-  driver: {
-    lat: number;
-    lng: number;
-    updatedAt: string;
-  } | null;
+  customerSharingActive: boolean;
+  driver: TrackLocation | null;
+  customer?: TrackLocation | null;
   trackUrl: string;
 };
 
@@ -158,6 +162,47 @@ export async function postDriverLocation(
       Accept: "application/json",
       "Content-Type": "application/json",
       "X-Driver-Key": driverKey,
+    },
+    body: JSON.stringify({ token, lat, lng }),
+  });
+
+  await parseJsonResponse<{ ok: true }>(response);
+}
+
+export async function setCustomerSharing(
+  token: string,
+  active: boolean,
+): Promise<{ ok: true; customerSharingActive: boolean }> {
+  if (isDemoTrackToken(token)) {
+    return { ok: true, customerSharingActive: active };
+  }
+
+  const response = await fetch(`${WORKER_BASE}/track/sharing`, {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ token, active }),
+  });
+
+  return parseJsonResponse<{ ok: true; customerSharingActive: boolean }>(response);
+}
+
+export async function postCustomerLocation(
+  token: string,
+  lat: number,
+  lng: number,
+): Promise<void> {
+  if (isDemoTrackToken(token)) {
+    return;
+  }
+
+  const response = await fetch(`${WORKER_BASE}/track/location`, {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
     },
     body: JSON.stringify({ token, lat, lng }),
   });

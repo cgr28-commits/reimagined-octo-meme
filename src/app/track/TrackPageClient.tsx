@@ -1,10 +1,16 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Footer from "@/components/Footer";
 import Header from "@/components/Header";
-import { fetchPublicTrack, type PublicTrackResponse } from "@/lib/tracking-api";
+import type { MapMarker } from "@/components/LiveTrackMap";
+import {
+  fetchPublicTrack,
+  postCustomerLocation,
+  setCustomerSharing as updateCustomerSharing,
+  type PublicTrackResponse,
+} from "@/lib/tracking-api";
 import { isDemoTrackToken } from "@/lib/tracking-demo";
 
 const LiveTrackMap = dynamic(() => import("@/components/LiveTrackMap"), {
@@ -54,11 +60,16 @@ export default function TrackPageClient({ token }: TrackPageClientProps) {
   const [data, setData] = useState<PublicTrackResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [sharingBusy, setSharingBusy] = useState(false);
+  const [sharingError, setSharingError] = useState<string | null>(null);
+  const [customerSharing, setCustomerSharing] = useState(false);
+  const watchIdRef = useRef<number | null>(null);
 
   const refresh = useCallback(async () => {
     try {
       const next = await fetchPublicTrack(token);
       setData(next);
+      setCustomerSharing(next.customerSharingActive);
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load tracking");
@@ -76,7 +87,55 @@ export default function TrackPageClient({ token }: TrackPageClientProps) {
     return () => window.clearInterval(interval);
   }, [refresh]);
 
+  useEffect(() => {
+    if (!customerSharing || !data?.trackingWindow.open || !navigator.geolocation) {
+      return;
+    }
+
+    const sendPosition = (position: GeolocationPosition) => {
+      void postCustomerLocation(
+        token,
+        position.coords.latitude,
+        position.coords.longitude,
+      ).catch(() => {
+        // Ignore transient upload errors; next tick will retry.
+      });
+    };
+
+    watchIdRef.current = navigator.geolocation.watchPosition(sendPosition, undefined, {
+      enableHighAccuracy: true,
+      maximumAge: 15_000,
+      timeout: 20_000,
+    });
+
+    return () => {
+      if (watchIdRef.current !== null) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
+        watchIdRef.current = null;
+      }
+    };
+  }, [customerSharing, data?.trackingWindow.open, token]);
+
+  const toggleCustomerSharing = async () => {
+    setSharingBusy(true);
+    setSharingError(null);
+
+    try {
+      const nextActive = !customerSharing;
+      const result = await updateCustomerSharing(token, nextActive);
+      setCustomerSharing(result.customerSharingActive);
+    } catch (err) {
+      setSharingError(err instanceof Error ? err.message : "Could not update location sharing");
+    } finally {
+      setSharingBusy(false);
+    }
+  };
+
   const status = data ? statusMessage(data) : null;
+  const mapMarkers: MapMarker[] =
+    data?.driver && data.trackingWindow.open
+      ? [{ lat: data.driver.lat, lng: data.driver.lng, label: "Your driver" }]
+      : [];
 
   return (
     <>
@@ -139,15 +198,42 @@ export default function TrackPageClient({ token }: TrackPageClientProps) {
                     <dd className="mt-1 text-sm text-white">{data.pickupDisplay}</dd>
                   </div>
                 </dl>
+
+                {data.trackingWindow.open && (
+                  <div className="mt-6 rounded-xl border border-white/10 bg-navy/40 p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold text-white">Share my location</p>
+                        <p className="mt-1 text-sm text-white/60">
+                          Optional — helps your driver find you at pickup.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        disabled={sharingBusy}
+                        onClick={() => void toggleCustomerSharing()}
+                        className={`rounded-xl px-4 py-2.5 text-sm font-semibold transition-colors disabled:opacity-60 ${
+                          customerSharing
+                            ? "bg-red-500/20 text-red-200 hover:bg-red-500/30"
+                            : "bg-emerald text-navy hover:bg-emerald/90"
+                        }`}
+                      >
+                        {customerSharing ? "Stop sharing" : "Share location"}
+                      </button>
+                    </div>
+                    {customerSharing && (
+                      <p className="mt-3 text-sm text-emerald">
+                        Your location is being shared with your driver.
+                      </p>
+                    )}
+                    {sharingError && <p className="mt-3 text-sm text-red-300">{sharingError}</p>}
+                  </div>
+                )}
               </section>
 
-              {data.driver && data.trackingWindow.open && (
+              {mapMarkers.length > 0 && (
                 <section className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]">
-                  <LiveTrackMap
-                    lat={data.driver.lat}
-                    lng={data.driver.lng}
-                    label="Your driver"
-                  />
+                  <LiveTrackMap markers={mapMarkers} />
                 </section>
               )}
             </div>
