@@ -7,6 +7,8 @@ import {
   getDemoDriverPendingJobs,
   getDemoDriverStatus,
   getDemoDriverUpcomingJobs,
+  getDemoDriverVehicle,
+  getDemoDriverVehicleProfiles,
   getDemoOwnerJobs,
   getDemoOwnerLocationHistory,
   getDemoOwnerPendingJobs,
@@ -398,6 +400,10 @@ export async function fetchDriverVehicleProfiles(
     return getDemoOwnerVehicleProfiles();
   }
 
+  if (isDemoDriverKey(accessKey)) {
+    return getDemoDriverVehicleProfiles();
+  }
+
   const url = new URL(`${WORKER_BASE}/driver/vehicle/profiles`);
   driverQueryKey(url, accessKey);
 
@@ -419,6 +425,10 @@ export async function fetchDriverVehicle(
 ): Promise<DriverVehicleProfile | null> {
   if (isDemoOwnerKey(accessKey)) {
     return getDemoOwnerVehicle(profile);
+  }
+
+  if (isDemoDriverKey(accessKey)) {
+    return getDemoDriverVehicle();
   }
 
   const url = new URL(`${WORKER_BASE}/driver/vehicle`);
@@ -459,6 +469,22 @@ export async function saveDriverVehicle(
         colour: input.colour,
         registration: input.registration,
         displayName: input.displayName ?? getDemoOwnerVehicle(input.profile).displayName,
+      },
+      emailSent: false,
+      emailWarning: "Demo mode — no email sent.",
+    };
+  }
+
+  if (isDemoDriverKey(accessKey)) {
+    return {
+      profile: {
+        ...getDemoDriverVehicle(),
+        email: input.email,
+        make: input.make,
+        model: input.model,
+        colour: input.colour,
+        registration: input.registration,
+        displayName: input.displayName ?? DEMO_DRIVER_NAME,
       },
       emailSent: false,
       emailWarning: "Demo mode — no email sent.",

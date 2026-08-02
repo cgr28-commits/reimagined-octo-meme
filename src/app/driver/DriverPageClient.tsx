@@ -254,11 +254,14 @@ function DriverProfilePanel({
   accessKey,
   isOwner,
   driverName,
+  defaultCollapsed = false,
 }: {
   accessKey: string;
   isOwner: boolean;
   driverName: string | null;
+  defaultCollapsed?: boolean;
 }) {
+  const [collapsed, setCollapsed] = useState(defaultCollapsed);
   const [profiles, setProfiles] = useState<Array<{ profileKey: string; displayName: string }>>([]);
   const [selectedProfile, setSelectedProfile] = useState(isOwner ? "owner" : driverName ?? "");
   const [form, setForm] = useState({
@@ -385,7 +388,7 @@ function DriverProfilePanel({
   return (
     <section className="mb-8 rounded-2xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
+        <div className="min-w-0 flex-1">
           <h2 className="text-lg font-bold text-white">
             {isOwner ? "Manage driver profiles" : "Your profile"}
           </h2>
@@ -394,7 +397,22 @@ function DriverProfilePanel({
               ? "Set each driver\u2019s contact details and vehicle. Customers only see the car on the job day when live tracking is active."
               : "Save your name, email, and vehicle details. A confirmation email is sent when you save."}
           </p>
+          {!isOwner && collapsed && form.displayName && form.registration && (
+            <p className="mt-3 text-sm text-emerald">
+              {form.displayName} · {form.make} {form.model} ({form.colour}) · {form.registration}
+            </p>
+          )}
         </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {!isOwner && (
+            <button
+              type="button"
+              onClick={() => setCollapsed((current) => !current)}
+              className="rounded-xl border border-white/15 px-4 py-2 text-sm font-semibold text-white transition-colors hover:border-white/30"
+            >
+              {collapsed ? "Edit profile" : "Collapse"}
+            </button>
+          )}
         {isOwner && profiles.length > 1 && (
           <select
             value={selectedProfile}
@@ -411,8 +429,11 @@ function DriverProfilePanel({
             ))}
           </select>
         )}
+        </div>
       </div>
 
+      {(!collapsed || isOwner) && (
+        <>
       <div className="mt-5 grid gap-4 sm:grid-cols-2">
         <label className="block text-sm text-white/70">
           Name
@@ -501,6 +522,8 @@ function DriverProfilePanel({
           {error}
         </p>
       )}
+        </>
+      )}
     </section>
   );
 }
@@ -516,6 +539,7 @@ function DriverJobCard({
   onRefreshJob,
   refreshingJob = false,
   compactTracking = false,
+  highlightPending = false,
   isOwner = false,
   availableDrivers = [],
 }: {
@@ -529,6 +553,7 @@ function DriverJobCard({
   onRefreshJob?: () => void;
   refreshingJob?: boolean;
   compactTracking?: boolean;
+  highlightPending?: boolean;
   isOwner?: boolean;
   availableDrivers?: string[];
 }) {
@@ -773,7 +798,9 @@ function DriverJobCard({
       className={`rounded-2xl border p-6 ${
         isRefunded
           ? "border-red-400/20 bg-red-500/[0.04] opacity-90"
-          : "border-white/10 bg-white/[0.03]"
+          : highlightPending
+            ? "border-amber-400/35 bg-amber-500/[0.05] shadow-[0_0_0_1px_rgba(251,191,36,0.08)]"
+            : "border-white/10 bg-white/[0.03]"
       }`}
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -808,7 +835,7 @@ function DriverJobCard({
               {job.activeDriverName} is sharing live location
             </p>
           )}
-          {!isRefunded && (
+          {!isRefunded && !isOwner && !isPendingForDriver && (
             <p className="mt-2 text-sm text-white/55">{assignmentSummary(job)}</p>
           )}
           {isOwner && (job.driverLocationPointCount ?? 0) > 0 && (
@@ -850,6 +877,27 @@ function DriverJobCard({
         )}
       </div>
 
+      {isPendingForDriver && (
+        <div className="mt-4 flex flex-wrap gap-3">
+          <button
+            type="button"
+            disabled={assignmentBusy}
+            onClick={() => void respondToAssignment("accept")}
+            className="rounded-xl bg-emerald px-5 py-3 text-sm font-bold text-navy transition-colors hover:bg-emerald/90 disabled:opacity-60"
+          >
+            {assignmentBusy ? "Saving…" : "Accept job"}
+          </button>
+          <button
+            type="button"
+            disabled={assignmentBusy}
+            onClick={() => void respondToAssignment("decline")}
+            className="rounded-xl border border-red-400/30 bg-red-500/10 px-5 py-3 text-sm font-semibold text-red-200 transition-colors hover:bg-red-500/20 disabled:opacity-60"
+          >
+            Decline
+          </button>
+        </div>
+      )}
+
       <DriverFlightPanel job={job} onRefresh={onRefreshJob} refreshing={refreshingJob} />
 
       <div className="mt-5 flex flex-wrap gap-3">
@@ -888,27 +936,6 @@ function DriverJobCard({
                 {assignBusy ? "Removing…" : "Deassign"}
               </button>
             )}
-          </>
-        )}
-
-        {isPendingForDriver && (
-          <>
-            <button
-              type="button"
-              disabled={assignmentBusy}
-              onClick={() => void respondToAssignment("accept")}
-              className="rounded-xl bg-emerald px-4 py-2.5 text-sm font-bold text-navy transition-colors hover:bg-emerald/90 disabled:opacity-60"
-            >
-              {assignmentBusy ? "Saving…" : "Accept job"}
-            </button>
-            <button
-              type="button"
-              disabled={assignmentBusy}
-              onClick={() => void respondToAssignment("decline")}
-              className="rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-2.5 text-sm font-semibold text-red-200 transition-colors hover:bg-red-500/20 disabled:opacity-60"
-            >
-              Decline
-            </button>
           </>
         )}
 
@@ -1424,6 +1451,7 @@ export default function DriverPageClient() {
       accessKey={savedKey}
       isOwner={isOwnerView}
       driverName={viewDriverName}
+      defaultCollapsed={isDemoDriverSession}
     />
   ) : null;
 
@@ -1497,13 +1525,11 @@ export default function DriverPageClient() {
               )}
 
               {isDemoDriverSession && (
-                <div className="mb-6 rounded-xl border border-white/15 bg-white/[0.03] px-4 py-3 text-sm text-white/70">
-                  Driver preview mode — signed in as <strong>Gary</strong> with{" "}
-                  <strong>demo-driver-key</strong>.
+                <div className="mb-6 rounded-xl border border-emerald/25 bg-emerald/10 px-4 py-3 text-sm text-emerald-light">
+                  Driver preview — signed in as <strong>Gary</strong>. Accept the airport job below, then
+                  review today&apos;s bookings.
                 </div>
               )}
-
-              {!isOwnerView && profilePanel}
 
               <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
                 <p className="text-sm text-white/60">
@@ -1614,13 +1640,19 @@ export default function DriverPageClient() {
               )}
 
               {pendingJobs.length > 0 && (
-                <section className="mb-8">
+                <section
+                  className={`mb-8 ${
+                    viewRole === "driver"
+                      ? "rounded-2xl border border-amber-400/25 bg-amber-500/[0.04] p-4 sm:p-6"
+                      : ""
+                  }`}
+                >
                   <h2 className="mb-2 text-lg font-semibold text-white">
                     {viewRole === "driver" ? "Awaiting your acceptance" : "Awaiting driver acceptance"}
                   </h2>
                   <p className="mb-4 text-sm text-white/60">
                     {viewRole === "driver"
-                      ? "You can accept or decline these jobs at any time. Live tracking opens on the day of travel."
+                      ? "Accept or decline at any time — live tracking opens on the day of travel."
                       : "These jobs are assigned but not yet accepted by the driver."}
                   </p>
                   <div className="space-y-4">
@@ -1654,6 +1686,7 @@ export default function DriverPageClient() {
                         onAssignmentUpdated={handleAssignmentUpdated}
                         onRefreshJob={job.isAirportPickup ? refreshJobs : undefined}
                         refreshingJob={loading}
+                        highlightPending={viewRole === "driver"}
                         compactTracking={view === "upcoming"}
                         isOwner={isOwnerView}
                         availableDrivers={availableDrivers}
@@ -1661,6 +1694,10 @@ export default function DriverPageClient() {
                     ))}
                   </div>
                 </section>
+              )}
+
+              {!isOwnerView && view === "today" && visibleJobs.length > 0 && (
+                <h2 className="mb-4 text-lg font-semibold text-white">Today&apos;s bookings</h2>
               )}
 
               {view === "upcoming" ? (
@@ -1744,6 +1781,7 @@ export default function DriverPageClient() {
                 </div>
               )}
 
+              {!isOwnerView && profilePanel}
               {isOwnerView && profilePanel}
             </>
           )}
