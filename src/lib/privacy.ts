@@ -9,6 +9,7 @@ export const PRIVACY_SECTIONS = [
       `${BUSINESS_LEGAL.tradingName} provides pre-booked private airport transfers in ${BUSINESS_LEGAL.serviceArea}.`,
       `Contact: ${BUSINESS_LEGAL.email} · ${BUSINESS_LEGAL.phoneDisplay}`,
       `${BUSINESS_LEGAL.operatorNote}.`,
+      BUSINESS_LEGAL.addressOnRequestNote,
     ],
   },
   {

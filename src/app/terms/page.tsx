@@ -62,6 +62,7 @@ export default function TermsPage() {
               <p className="mt-2">
                 {BUSINESS_LEGAL.serviceArea} · Governed by the laws of {BUSINESS_LEGAL.jurisdiction}
               </p>
+              <p className="mt-2 text-white/55">{BUSINESS_LEGAL.addressOnRequestNote}</p>
             </div>
           </header>
 
