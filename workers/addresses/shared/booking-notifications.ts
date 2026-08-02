@@ -441,3 +441,132 @@ export function buildTrackingReminderEmail(
 
   return { subject, text, html };
 }
+
+export type RefundConfirmationDetails = {
+  customerName: string;
+  paymentReference: string;
+  refundAmount: string;
+  tripLabel: string;
+  pickupLabel: string;
+  dropoffLabel: string;
+  tripDate: string;
+  tripTime: string;
+};
+
+function buildRefundConfirmationHtml(
+  details: RefundConfirmationDetails,
+  businessName: string,
+): string {
+  const customerName = escapeHtml(details.customerName);
+  const when = escapeHtml(formatTripDateTime(details.tripDate, details.tripTime));
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Refund confirmation — ${escapeHtml(businessName)}</title>
+</head>
+<body style="margin:0;padding:0;background:#f4f6f8;font-family:Arial,Helvetica,sans-serif;color:#1a2b3c;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f4f6f8;padding:32px 16px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="640" cellspacing="0" cellpadding="0" style="max-width:640px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.08);">
+          <tr>
+            <td style="background:#0b1f33;padding:28px 32px;text-align:center;">
+              <img src="${LOGO_URL}" alt="${escapeHtml(businessName)}" height="72" style="display:block;margin:0 auto;height:72px;width:auto;max-width:100%;" />
+              <div style="margin-top:16px;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:#c9a227;font-weight:bold;">Refund confirmation</div>
+              <div style="margin-top:8px;font-size:22px;line-height:1.35;color:#ffffff;font-weight:bold;">Your refund is on its way, ${customerName}</div>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:28px 32px 8px;font-size:15px;line-height:1.7;color:#334155;">
+              <p style="margin:0 0 16px;">We've processed a refund for your booking with ${escapeHtml(businessName)}. The amount should return to your original payment method within a few working days, depending on your bank or card provider.</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:8px 32px 8px;">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;">
+                <tr>
+                  <td style="padding:20px 24px;">
+                    <div style="font-size:12px;letter-spacing:0.1em;text-transform:uppercase;color:#c9a227;font-weight:bold;margin-bottom:12px;">Refund summary</div>
+                    <div style="font-size:28px;font-weight:bold;color:#0b1f33;line-height:1.2;margin-bottom:12px;">${escapeHtml(details.refundAmount)}</div>
+                    <div style="font-size:14px;line-height:1.8;color:#475569;">
+                      <strong>Original reference:</strong> ${escapeHtml(details.paymentReference)}<br />
+                      <strong>Trip:</strong> ${escapeHtml(details.tripLabel)}<br />
+                      ${when ? `<strong>Journey:</strong> ${when}<br />` : ""}
+                      <strong>Pickup:</strong> ${escapeHtml(details.pickupLabel)}<br />
+                      <strong>Drop-off:</strong> ${escapeHtml(details.dropoffLabel)}<br />
+                      <strong>Status:</strong> Cancelled and refunded
+                    </div>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:16px 32px 28px;font-size:14px;line-height:1.7;color:#475569;">
+              <p style="margin:0;">If you have any questions about this refund, reply to this email or contact us at <a href="mailto:${BUSINESS_EMAIL}" style="color:#0b1f33;">${BUSINESS_EMAIL}</a>.</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:20px 32px;font-size:13px;line-height:1.7;color:#64748b;">
+              <strong style="color:#0b1f33;">${escapeHtml(businessName)}</strong><br />
+              <a href="${BUSINESS_WEBSITE}" style="color:#0b1f33;">${BUSINESS_WEBSITE.replace(/^https:\/\//, "")}</a>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+}
+
+export function buildCustomerRefundConfirmationEmail(
+  details: RefundConfirmationDetails,
+  businessName = "My Airport Taxi NI",
+): CustomerPaidBookingEmail {
+  const when = formatTripDateTime(details.tripDate, details.tripTime);
+  const subject = `Refund confirmation — ${details.refundAmount} — ${businessName}`;
+
+  const text =
+    `Hi ${details.customerName},\n\n` +
+    `We've processed a refund of ${details.refundAmount} for your booking with ${businessName}.\n\n` +
+    `Original reference: ${details.paymentReference}\n` +
+    `Trip: ${details.tripLabel}\n` +
+    (when ? `Journey: ${when}\n` : "") +
+    `Pickup: ${details.pickupLabel}\n` +
+    `Drop-off: ${details.dropoffLabel}\n\n` +
+    `The refund should appear on your original payment method within a few working days.\n\n` +
+    `Questions? Contact us at ${BUSINESS_EMAIL}.\n\n` +
+    `${businessName}\n${BUSINESS_WEBSITE}`;
+
+  const html = buildRefundConfirmationHtml(details, businessName);
+
+  return { subject, text, html };
+}
+
+export function buildOwnerRefundConfirmationEmail(
+  details: RefundConfirmationDetails,
+  businessName = "My Airport Taxi NI",
+): { subject: string; body: string } {
+  const when = formatTripDateTime(details.tripDate, details.tripTime);
+  const subject = `Refund issued — ${details.customerName} — ${details.refundAmount}`;
+
+  const body =
+    `A refund was issued via ${businessName}.\n\n` +
+    `CUSTOMER\n${"=".repeat(40)}\n` +
+    `Name: ${details.customerName}\n\n` +
+    `REFUND\n${"=".repeat(40)}\n` +
+    `Amount refunded: ${details.refundAmount}\n` +
+    `Original reference: ${details.paymentReference}\n\n` +
+    `TRIP\n${"=".repeat(40)}\n` +
+    `Trip: ${details.tripLabel}\n` +
+    (when ? `Journey: ${when}\n` : "") +
+    `Pickup: ${details.pickupLabel}\n` +
+    `Drop-off: ${details.dropoffLabel}\n\n` +
+    `Calendar events marked as cancelled and tracking job removed where applicable.`;
+
+  return { subject, body };
+}

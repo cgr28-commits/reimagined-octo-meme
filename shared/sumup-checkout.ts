@@ -109,6 +109,50 @@ export function getSuccessfulTransactionCode(checkout: SumUpCheckoutDetails): st
     ?.transaction_code;
 }
 
+export function getSuccessfulTransactionId(checkout: SumUpCheckoutDetails): string | undefined {
+  return checkout.transactions?.find((transaction) => transaction.status === "SUCCESSFUL")?.id;
+}
+
+export type SumUpRefundResult = {
+  refundedAmount?: number;
+  currency?: string;
+};
+
+export async function refundSumUpTransaction(
+  apiKey: string,
+  transactionId: string,
+  amount?: number,
+): Promise<SumUpRefundResult> {
+  const response = await fetch(
+    `https://api.sumup.com/v0.1/me/refund/${encodeURIComponent(transactionId)}`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(amount !== undefined ? { amount } : {}),
+    },
+  );
+
+  const payload = (await response.json().catch(() => null)) as
+    | { amount?: number; currency?: string; error_message?: string }
+    | null;
+
+  if (!response.ok) {
+    const message =
+      payload && typeof payload === "object" && payload.error_message
+        ? String(payload.error_message)
+        : `SumUp refund failed (${response.status})`;
+    throw new Error(message);
+  }
+
+  return {
+    refundedAmount: payload?.amount,
+    currency: payload?.currency,
+  };
+}
+
 export function buildCheckoutReference(prefix = "matni"): string {
   const random = crypto.randomUUID().replace(/-/g, "").slice(0, 12);
   return `${prefix}-${Date.now()}-${random}`;

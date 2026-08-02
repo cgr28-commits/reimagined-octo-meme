@@ -1,6 +1,7 @@
 import {
   DEMO_DRIVER_KEY,
   getDemoDriverJobs,
+  getDemoDriverUpcomingJobs,
   getDemoTrackResponse,
   isDemoTrackToken,
 } from "@/lib/tracking-demo";
@@ -78,6 +79,8 @@ export type DriverJob = PublicTrackResponse & {
   token: string;
   customerMobile: string;
   paymentReference?: string;
+  amountPaidLabel?: string;
+  bookingStatus?: "confirmed" | "refunded";
   isAirportPickup?: boolean;
   flightNumber?: string | null;
   airportCode?: string | null;
@@ -86,8 +89,25 @@ export type DriverJob = PublicTrackResponse & {
 
 export type DriverJobsResponse = {
   ok: true;
+  scope?: string;
   date: string;
   jobs: DriverJob[];
+};
+
+export type DriverBookingUpdateInput = {
+  token: string;
+  tripDate?: string;
+  tripTime?: string;
+  pickupLabel?: string;
+  dropoffLabel?: string;
+  customerMobile?: string;
+  flightNumber?: string;
+};
+
+export type DriverBookingUpdateResponse = {
+  ok: true;
+  job: DriverJob;
+  warnings?: string[];
 };
 
 async function parseJsonResponse<T>(response: Response): Promise<T> {
@@ -119,16 +139,28 @@ export async function fetchPublicTrack(token: string): Promise<PublicTrackRespon
 
 export async function fetchDriverJobs(
   driverKey: string,
-  date?: string,
+  options?: {
+    date?: string;
+    scope?: "date" | "upcoming";
+    days?: number;
+  },
 ): Promise<DriverJobsResponse> {
   if (driverKey === DEMO_DRIVER_KEY) {
-    return getDemoDriverJobs();
+    if (options?.scope === "upcoming") {
+      return getDemoDriverUpcomingJobs();
+    }
+    return getDemoDriverJobs(options?.date);
   }
 
   const url = new URL(`${WORKER_BASE}/driver/jobs`);
   url.searchParams.set("key", driverKey);
-  if (date) {
-    url.searchParams.set("date", date);
+  if (options?.scope === "upcoming") {
+    url.searchParams.set("scope", "upcoming");
+    if (options.days) {
+      url.searchParams.set("days", String(options.days));
+    }
+  } else if (options?.date) {
+    url.searchParams.set("date", options.date);
   }
 
   const response = await fetch(url.toString(), {
@@ -138,6 +170,47 @@ export async function fetchDriverJobs(
   });
 
   return parseJsonResponse<DriverJobsResponse>(response);
+}
+
+export async function updateDriverBooking(
+  driverKey: string,
+  input: DriverBookingUpdateInput,
+): Promise<DriverBookingUpdateResponse> {
+  if (driverKey === DEMO_DRIVER_KEY) {
+    const jobs = getDemoDriverUpcomingJobs().jobs;
+    const job = jobs.find((entry) => entry.token === input.token);
+    if (!job) {
+      throw new Error("Job not found");
+    }
+
+    return {
+      ok: true,
+      job: {
+        ...job,
+        tripDate: input.tripDate ?? job.tripDate,
+        tripTime: input.tripTime ?? job.tripTime,
+        pickupLabel: input.pickupLabel ?? job.pickupLabel,
+        dropoffLabel: input.dropoffLabel ?? job.dropoffLabel,
+        customerMobile: input.customerMobile ?? job.customerMobile,
+        flightNumber: input.flightNumber ?? job.flightNumber,
+      },
+    };
+  }
+
+  const response = await fetch(
+    `${WORKER_BASE}/driver/bookings/update?key=${encodeURIComponent(driverKey)}`,
+    {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        "X-Driver-Key": driverKey,
+      },
+      body: JSON.stringify(input),
+    },
+  );
+
+  return parseJsonResponse<DriverBookingUpdateResponse>(response);
 }
 
 export async function setDriverSharing(

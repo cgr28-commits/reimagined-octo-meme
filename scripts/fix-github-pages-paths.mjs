@@ -31,6 +31,7 @@ function buildReplacements(prefix) {
     [/="\/logo\.png"/g, `="${prefix}logo.png"`],
     [/="\/icon\.png"/g, `="${prefix}icon.png"`],
     [/="\/og-image\.png"/g, `="${prefix}og-image.png"`],
+    [/="\/og-image-square\.png"/g, `="${prefix}og-image-square.png"`],
     [/="\/favicon\.png"/g, `="${prefix}favicon.png"`],
     [/="\/favicon\.ico"/g, `="${prefix}favicon.ico"`],
     [/="\/favicon-32\.png"/g, `="${prefix}favicon-32.png"`],
