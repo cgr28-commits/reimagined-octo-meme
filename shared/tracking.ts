@@ -105,6 +105,22 @@ export function jobPendingForDriver(
   return jobAssignmentStatus(job) === "pending" && driverNamesMatch(job.assignedDriverName, driverName);
 }
 
+export function isAirportPickupJob(
+  job: Pick<TrackingJobRecord, "isAirportTrip" | "isFromAirport">,
+): boolean {
+  return Boolean(job.isAirportTrip && job.isFromAirport);
+}
+
+export function driverCanViewFlightInfo(
+  job: Pick<
+    TrackingJobRecord,
+    "assignedDriverName" | "assignmentStatus" | "isAirportTrip" | "isFromAirport"
+  >,
+  driverName: string,
+): boolean {
+  return isAirportPickupJob(job) && jobVisibleToDriver(job, driverName);
+}
+
 export const LOCATION_STALE_MS = 5 * 60 * 1000;
 
 export function isLocationFresh(

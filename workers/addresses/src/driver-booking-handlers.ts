@@ -1,5 +1,6 @@
 import { buildPickupDateTimeLocal } from "../shared/tracking";
 import type { TrackingJobRecord } from "../shared/tracking";
+import { isAirportPickupJob } from "../shared/tracking";
 import { lookupFlight, type VerifiedFlight } from "../shared/flight-lookup";
 import {
   getGoogleAccessToken,
@@ -20,6 +21,7 @@ import {
 } from "./tracking-store";
 import { publicTrackPayload } from "./tracking-handlers";
 import { corsHeaders } from "../shared/google-places";
+import { assertDriverCanViewJob } from "./driver-assignment-utils";
 import { driverAuthorized, resolveDriverSession, sanitizeDriverJobForRole, type DashboardRole } from "./driver-auth";
 
 type Env = {
@@ -113,7 +115,7 @@ export async function enrichDriverJob(
       driverLocationPointCount: job.driverLocationPointCount,
       driverLocationRecordedFrom: job.driverLocationRecordedFrom,
       driverLocationRecordedTo: job.driverLocationRecordedTo,
-      isAirportPickup: Boolean(job.isAirportTrip && job.isFromAirport),
+      isAirportPickup: isAirportPickupJob(job),
       flightNumber: job.flightNumber ?? null,
       airportCode: job.airportCode ?? null,
       flight,
@@ -187,6 +189,13 @@ export async function handleDriverUpdateBookingRequest(
     const paidRecord = await getPaidBookingRecord(env.TRACKING_STORE, record.paymentReference);
     if (paidRecord?.status === "refunded") {
       return jsonResponse({ error: "This booking has been refunded" }, 409, origin);
+    }
+  }
+
+  if (role === "driver") {
+    const viewError = assertDriverCanViewJob(record, session);
+    if (viewError) {
+      return jsonResponse({ error: viewError }, 403, origin);
     }
   }
 

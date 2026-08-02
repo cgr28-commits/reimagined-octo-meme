@@ -2,6 +2,7 @@ import {
   buildPublicTrackUrl,
   formatLondonDateTime,
   getTrackingWindow,
+  isAirportPickupJob,
   isLocationFresh,
   type TrackingJobRecord,
 } from "../shared/tracking";
@@ -421,7 +422,7 @@ export async function handleDriverJobsRequest(
           driverLocationPointCount: job.driverLocationPointCount,
           driverLocationRecordedFrom: job.driverLocationRecordedFrom,
           driverLocationRecordedTo: job.driverLocationRecordedTo,
-          isAirportPickup: Boolean(job.isAirportTrip && job.isFromAirport),
+          isAirportPickup: isAirportPickupJob(job),
           flightNumber: job.flightNumber ?? null,
           airportCode: job.airportCode ?? null,
           flight,

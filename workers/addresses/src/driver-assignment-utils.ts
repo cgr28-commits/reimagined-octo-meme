@@ -48,3 +48,26 @@ export function assertDriverCanOperateJob(
 
   return null;
 }
+
+export function assertDriverCanViewJob(
+  record: TrackingJobRecord,
+  session: ReturnType<typeof resolveDriverSession>,
+): string | null {
+  if (!session.authorized) {
+    return "Unauthorized";
+  }
+
+  if (session.role === "owner") {
+    return null;
+  }
+
+  if (!session.driverName) {
+    return "Driver identity is not configured";
+  }
+
+  if (!jobVisibleToDriver(record, session.driverName)) {
+    return "This job is not assigned to you";
+  }
+
+  return null;
+}

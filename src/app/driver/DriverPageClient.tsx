@@ -129,7 +129,15 @@ function flightStatusClass(status?: string): string {
   return "bg-white/10 text-white/70";
 }
 
-function DriverFlightPanel({ job }: { job: DriverJob }) {
+function DriverFlightPanel({
+  job,
+  onRefresh,
+  refreshing,
+}: {
+  job: DriverJob;
+  onRefresh?: () => void;
+  refreshing?: boolean;
+}) {
   if (!job.isAirportPickup) {
     return null;
   }
@@ -145,11 +153,26 @@ function DriverFlightPanel({ job }: { job: DriverJob }) {
   if (!job.flight) {
     return (
       <div className="mt-4 rounded-xl border border-white/10 bg-navy/40 px-4 py-3">
-        <p className="text-sm font-semibold text-white">Flight {job.flightNumber}</p>
-        <p className="mt-1 text-sm text-white/60">
-          Live flight status is not available right now. Check the airport arrivals board before
-          pickup.
-        </p>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wider text-emerald">Incoming flight</p>
+            <p className="mt-1 text-lg font-bold text-white">{job.flightNumber}</p>
+            <p className="mt-1 text-sm text-white/60">
+              Live flight status is not available right now. Check the airport arrivals board before
+              pickup.
+            </p>
+          </div>
+          {onRefresh && (
+            <button
+              type="button"
+              disabled={refreshing}
+              onClick={onRefresh}
+              className="rounded-xl border border-white/15 px-3 py-2 text-xs font-semibold text-white transition-colors hover:border-white/30 disabled:opacity-60"
+            >
+              {refreshing ? "Refreshing…" : "Refresh flight"}
+            </button>
+          )}
+        </div>
       </div>
     );
   }
@@ -168,13 +191,25 @@ function DriverFlightPanel({ job }: { job: DriverJob }) {
             {flight.departureAirport} → {flight.arrivalAirport}
           </p>
         </div>
-        {flight.status && (
-          <span
-            className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wider ${flightStatusClass(flight.status)}`}
-          >
-            {flight.status}
-          </span>
-        )}
+        <div className="flex flex-col items-end gap-2">
+          {flight.status && (
+            <span
+              className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wider ${flightStatusClass(flight.status)}`}
+            >
+              {flight.status}
+            </span>
+          )}
+          {onRefresh && (
+            <button
+              type="button"
+              disabled={refreshing}
+              onClick={onRefresh}
+              className="rounded-xl border border-white/15 px-3 py-2 text-xs font-semibold text-white transition-colors hover:border-white/30 disabled:opacity-60"
+            >
+              {refreshing ? "Refreshing…" : "Refresh flight"}
+            </button>
+          )}
+        </div>
       </div>
       <p className="mt-3 text-sm text-white/80">
         Scheduled arrival:{" "}
@@ -472,6 +507,8 @@ function DriverJobCard({
   onRefunded,
   onUpdated,
   onAssignmentUpdated,
+  onRefreshJob,
+  refreshingJob = false,
   compactTracking = false,
   isOwner = false,
   availableDrivers = [],
@@ -483,6 +520,8 @@ function DriverJobCard({
   onRefunded: (token: string, refundAmount?: string) => void;
   onUpdated: (job: DriverJob) => void;
   onAssignmentUpdated: (job: DriverJob) => void;
+  onRefreshJob?: () => void;
+  refreshingJob?: boolean;
   compactTracking?: boolean;
   isOwner?: boolean;
   availableDrivers?: string[];
@@ -517,7 +556,9 @@ function DriverJobCard({
   const isAssigned =
     assignmentStatus === "pending" || assignmentStatus === "accepted" || assignmentStatus === "declined";
   const canRefund = isOwner && Boolean(job.paymentReference?.trim()) && !isDemoDriver && !isRefunded;
-  const canEdit = !isRefunded && (isOwner || isAcceptedAssignment);
+  const canEdit =
+    !isRefunded &&
+    (isOwner || isAcceptedAssignment || (isPendingForDriver && job.isAirportPickup));
   const canShare =
     !isOwner && !isRefunded && isAcceptedAssignment && !compactTracking && job.trackingWindow.open;
   const trackingAvailable = !compactTracking && job.trackingWindow.open && !isRefunded;
@@ -735,6 +776,12 @@ function DriverJobCard({
             {job.pickupDisplay} · {job.pickupLabel}
           </p>
           <p className="mt-1 text-sm text-white/60">To {job.dropoffLabel}</p>
+          {job.isAirportPickup && job.flightNumber && (
+            <p className="mt-2 text-sm font-semibold text-emerald">
+              Flight {job.flightNumber}
+              {job.airportCode ? ` · ${job.airportCode}` : ""}
+            </p>
+          )}
           {isOwner && job.customerMobile && (
             <p className="mt-2 text-sm text-emerald">{job.customerMobile}</p>
           )}
@@ -796,7 +843,7 @@ function DriverJobCard({
         )}
       </div>
 
-      <DriverFlightPanel job={job} />
+      <DriverFlightPanel job={job} onRefresh={onRefreshJob} refreshing={refreshingJob} />
 
       <div className="mt-5 flex flex-wrap gap-3">
         {isOwner && !isRefunded && availableDrivers.length > 0 && (
@@ -1164,6 +1211,12 @@ export default function DriverPageClient() {
     [selectedDate, today, view],
   );
 
+  const refreshJobs = useCallback(() => {
+    if (savedKey) {
+      void loadJobs(savedKey);
+    }
+  }, [loadJobs, savedKey]);
+
   const handleJobUpdated = useCallback((updatedJob: DriverJob) => {
     setJobs((current) => {
       const next = current.map((entry) => (entry.token === updatedJob.token ? updatedJob : entry));
@@ -1337,7 +1390,8 @@ export default function DriverPageClient() {
               ) : (
                 <>
                   Accept assigned jobs at any time — live tracking starts on the day of travel,
-                  from about 2 hours before pickup.
+                  from about 2 hours before pickup. For airport pickups, your flight number and
+                  live arrival status are shown on each job.
                 </>
               )}
             </p>
@@ -1531,6 +1585,8 @@ export default function DriverPageClient() {
                         }}
                         onUpdated={handleJobUpdated}
                         onAssignmentUpdated={handleAssignmentUpdated}
+                        onRefreshJob={job.isAirportPickup ? refreshJobs : undefined}
+                        refreshingJob={loading}
                         compactTracking={view === "upcoming"}
                         isOwner={sessionRole === "owner"}
                         availableDrivers={availableDrivers}
@@ -1574,6 +1630,8 @@ export default function DriverPageClient() {
                             }}
                             onUpdated={handleJobUpdated}
                             onAssignmentUpdated={handleAssignmentUpdated}
+                            onRefreshJob={job.isAirportPickup ? refreshJobs : undefined}
+                            refreshingJob={loading}
                             compactTracking
                             isOwner={sessionRole === "owner"}
                             availableDrivers={availableDrivers}
@@ -1610,6 +1668,8 @@ export default function DriverPageClient() {
                       }}
                       onUpdated={handleJobUpdated}
                       onAssignmentUpdated={handleAssignmentUpdated}
+                      onRefreshJob={job.isAirportPickup ? refreshJobs : undefined}
+                      refreshingJob={loading}
                       isOwner={sessionRole === "owner"}
                       availableDrivers={availableDrivers}
                     />
