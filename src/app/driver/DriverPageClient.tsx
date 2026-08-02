@@ -587,7 +587,10 @@ function DriverJobCard({
   const isAcceptedAssignment = assignmentStatus === "accepted";
   const isAssigned =
     assignmentStatus === "pending" || assignmentStatus === "accepted" || assignmentStatus === "declined";
-  const canRefund = isOwner && Boolean(job.paymentReference?.trim()) && !isDemoKey && !isRefunded;
+  const canIssueRefund =
+    isOwner && Boolean(job.paymentReference?.trim()) && !isRefunded;
+  const canRefund = canIssueRefund && !isDemoKey;
+  const showDemoRefund = canIssueRefund && isDemoKey;
   const canEdit =
     !isRefunded &&
     (isOwner || isAcceptedAssignment || (isPendingForDriver && job.isAirportPickup));
@@ -987,6 +990,16 @@ function DriverJobCard({
             disabled={refundBusy}
             onClick={startRefund}
             className="rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-2.5 text-sm font-semibold text-red-200 transition-colors hover:bg-red-500/20 disabled:opacity-60"
+          >
+            Issue refund
+          </button>
+        )}
+        {showDemoRefund && (
+          <button
+            type="button"
+            disabled
+            title="Refunds are disabled in preview mode"
+            className="cursor-not-allowed rounded-xl border border-red-400/20 bg-red-500/5 px-4 py-2.5 text-sm font-semibold text-red-200/60"
           >
             Issue refund
           </button>
@@ -1558,6 +1571,8 @@ export default function DriverPageClient() {
                 </button>
               </div>
 
+              {isOwnerView && profilePanel}
+
               <div className="mb-6 flex flex-wrap gap-2">
                 {([
                   ["today", "Today"],
@@ -1640,13 +1655,7 @@ export default function DriverPageClient() {
               )}
 
               {pendingJobs.length > 0 && (
-                <section
-                  className={`mb-8 ${
-                    viewRole === "driver"
-                      ? "rounded-2xl border border-amber-400/25 bg-amber-500/[0.04] p-4 sm:p-6"
-                      : ""
-                  }`}
-                >
+                <section className="mb-8 rounded-2xl border border-amber-400/25 bg-amber-500/[0.04] p-4 sm:p-6">
                   <h2 className="mb-2 text-lg font-semibold text-white">
                     {viewRole === "driver" ? "Awaiting your acceptance" : "Awaiting driver acceptance"}
                   </h2>
@@ -1686,7 +1695,7 @@ export default function DriverPageClient() {
                         onAssignmentUpdated={handleAssignmentUpdated}
                         onRefreshJob={job.isAirportPickup ? refreshJobs : undefined}
                         refreshingJob={loading}
-                        highlightPending={viewRole === "driver"}
+                        highlightPending
                         compactTracking={view === "upcoming"}
                         isOwner={isOwnerView}
                         availableDrivers={availableDrivers}
@@ -1696,7 +1705,7 @@ export default function DriverPageClient() {
                 </section>
               )}
 
-              {!isOwnerView && view === "today" && visibleJobs.length > 0 && (
+              {view === "today" && visibleJobs.length > 0 && (
                 <h2 className="mb-4 text-lg font-semibold text-white">Today&apos;s bookings</h2>
               )}
 
@@ -1782,7 +1791,6 @@ export default function DriverPageClient() {
               )}
 
               {!isOwnerView && profilePanel}
-              {isOwnerView && profilePanel}
             </>
           )}
         </div>
