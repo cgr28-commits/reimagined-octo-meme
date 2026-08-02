@@ -16,14 +16,13 @@ export type TestBookingPrefill = {
   routeLabel: string;
 };
 
-function tomorrowLondonDate(): string {
-  const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
+function todayLondonDate(): string {
   return new Intl.DateTimeFormat("en-CA", {
     timeZone: "Europe/London",
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
-  }).format(tomorrow);
+  }).format(new Date());
 }
 
 export function buildTestBookingPrefill(): TestBookingPrefill {
@@ -34,8 +33,8 @@ export function buildTestBookingPrefill(): TestBookingPrefill {
     tripDirection: "to-airport",
     airportCode: "BFS",
     pickupAddress: "249 Rashee Road, Ballyclare, BT39 9JN",
-    tripDate: tomorrowLondonDate(),
-    tripTime: "06:00",
+    tripDate: todayLondonDate(),
+    tripTime: "22:00",
     passengers: 2,
     suitcases: 2,
     vehicle: "Estate Car (1–4 passengers)",
