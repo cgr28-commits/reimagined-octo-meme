@@ -1216,6 +1216,7 @@ export default function DriverPageClient() {
   const [view, setView] = useState<DashboardView>("today");
   const [selectedDate, setSelectedDate] = useState(() => todayLondonDate());
   const watchIdRef = useRef<number | null>(null);
+  const demoQueryHandledRef = useRef(false);
 
   const isDemoDriverSession = savedKey === DEMO_DRIVER_KEY;
   const isDemoOwnerSession = savedKey === DEMO_OWNER_KEY;
@@ -1485,13 +1486,18 @@ export default function DriverPageClient() {
   };
 
   useEffect(() => {
+    if (demoQueryHandledRef.current) {
+      return;
+    }
+
     const demoRole = readDemoQueryParam();
     if (!demoRole) {
       return;
     }
 
-    const stored = window.sessionStorage.getItem(DRIVER_KEY_STORAGE)?.trim();
+    demoQueryHandledRef.current = true;
     const wantedKey = demoRole === "owner" ? DEMO_OWNER_KEY : DEMO_DRIVER_KEY;
+    const stored = window.sessionStorage.getItem(DRIVER_KEY_STORAGE)?.trim();
     if (stored === wantedKey) {
       return;
     }
