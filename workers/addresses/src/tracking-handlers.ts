@@ -18,7 +18,7 @@ import {
 import type { PaidBookingDetails } from "../shared/booking-notifications";
 import { corsHeaders } from "../shared/google-places";
 import { getPaidBookingRecord, paidBookingStoreConfigured } from "./paid-booking-store";
-import { driverAuthorized } from "./driver-auth";
+import { driverAuthorized, isDriverAuthConfigured } from "./driver-auth";
 import { trySendEmail, type WorkerEmailEnv } from "./worker-email";
 
 type Env = WorkerEmailEnv & {
@@ -318,6 +318,32 @@ export async function handleDriverJobsRequest(
       jobs: enrichedJobs,
     },
     200,
+    origin,
+  );
+}
+
+export async function handleDriverStatusRequest(
+  request: Request,
+  env: Env,
+  origin: string | null,
+): Promise<Response> {
+  const authConfigured = isDriverAuthConfigured(env);
+  const authorized = driverAuthorized(request, env);
+
+  return jsonResponse(
+    {
+      ok: authorized,
+      authConfigured,
+      worker: "reimagined-octo-meme",
+      ...(authorized
+        ? {}
+        : {
+            error: authConfigured
+              ? "Driver key did not match. Use the exact DRIVER_ACCESS_KEY value from the reimagined-octo-meme worker secrets."
+              : "Driver access is not configured on reimagined-octo-meme. Add DRIVER_ACCESS_KEY under that worker's secrets (not my-airport-taxi-ni).",
+          }),
+    },
+    authorized ? 200 : authConfigured ? 401 : 503,
     origin,
   );
 }

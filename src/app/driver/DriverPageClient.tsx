@@ -602,8 +602,9 @@ export default function DriverPageClient() {
       } catch (err) {
         const message = err instanceof Error ? err.message : "Could not load jobs";
         setError(
-          message.toLowerCase().includes("unauthorized")
-            ? "Your driver key was not accepted. Sign out and enter the correct key from Cloudflare (DRIVER_ACCESS_KEY), or use demo-driver-key to preview."
+          message.toLowerCase().includes("unauthorized") ||
+            message.toLowerCase().includes("did not match")
+            ? "Your driver key was not accepted. Sign out and re-enter the exact DRIVER_ACCESS_KEY from Cloudflare → Workers → reimagined-octo-meme → Secrets."
             : message,
         );
         setJobs([]);
@@ -686,10 +687,11 @@ export default function DriverPageClient() {
     setError(null);
 
     try {
-      const valid = await verifyDriverAccessKey(trimmed);
-      if (!valid) {
+      const result = await verifyDriverAccessKey(trimmed);
+      if (!result.ok) {
         setError(
-          "That driver key was not accepted. Sign in with the key set as DRIVER_ACCESS_KEY in Cloudflare, or use demo-driver-key to preview the dashboard.",
+          result.message ??
+            "That driver key was not accepted. Check DRIVER_ACCESS_KEY on the reimagined-octo-meme worker in Cloudflare.",
         );
         return;
       }

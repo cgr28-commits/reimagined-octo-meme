@@ -29,37 +29,64 @@ function resolveWorkerBaseUrl(): string {
 
 const WORKER_BASE = resolveWorkerBaseUrl();
 
-function driverRequestHeaders(driverKey: string): HeadersInit {
+function driverQueryKey(url: URL, driverKey: string): void {
+  url.searchParams.set("key", driverKey.trim());
+}
+
+function driverPostHeaders(driverKey: string): HeadersInit {
   const trimmed = driverKey.trim();
   return {
     Accept: "application/json",
+    "Content-Type": "application/json",
     "X-Driver-Key": trimmed,
   };
 }
 
-export async function verifyDriverAccessKey(driverKey: string): Promise<boolean> {
+export type DriverStatusResponse = {
+  ok: boolean;
+  authConfigured: boolean;
+  worker: string;
+  error?: string;
+};
+
+export async function fetchDriverStatus(driverKey: string): Promise<DriverStatusResponse> {
   if (driverKey === DEMO_DRIVER_KEY) {
-    return true;
+    return { ok: true, authConfigured: true, worker: "demo" };
   }
 
-  const url = new URL(`${WORKER_BASE}/driver/jobs`);
-  url.searchParams.set("key", driverKey.trim());
+  const url = new URL(`${WORKER_BASE}/driver/status`);
+  driverQueryKey(url, driverKey);
 
   const response = await fetch(url.toString(), {
     method: "GET",
-    headers: driverRequestHeaders(driverKey),
+    headers: { Accept: "application/json" },
     cache: "no-store",
   });
 
-  if (response.status === 401) {
-    return false;
-  }
-
-  if (!response.ok) {
+  const payload = (await response.json().catch(() => null)) as DriverStatusResponse | null;
+  if (!payload) {
     throw new Error(`Driver access check failed (${response.status})`);
   }
 
-  return true;
+  return payload;
+}
+
+export async function verifyDriverAccessKey(
+  driverKey: string,
+): Promise<{ ok: boolean; message?: string }> {
+  if (driverKey === DEMO_DRIVER_KEY) {
+    return { ok: true };
+  }
+
+  const status = await fetchDriverStatus(driverKey);
+  if (status.ok) {
+    return { ok: true };
+  }
+
+  return {
+    ok: false,
+    message: status.error ?? "Driver key was not accepted.",
+  };
 }
 
 export type TrackingWindow = {
@@ -186,7 +213,7 @@ export async function fetchDriverJobs(
   }
 
   const url = new URL(`${WORKER_BASE}/driver/jobs`);
-  url.searchParams.set("key", driverKey);
+  driverQueryKey(url, driverKey);
   if (options?.scope === "upcoming") {
     url.searchParams.set("scope", "upcoming");
     if (options.days) {
@@ -198,7 +225,7 @@ export async function fetchDriverJobs(
 
   const response = await fetch(url.toString(), {
     method: "GET",
-    headers: driverRequestHeaders(driverKey),
+    headers: { Accept: "application/json" },
     cache: "no-store",
   });
 
@@ -231,14 +258,10 @@ export async function updateDriverBooking(
   }
 
   const response = await fetch(
-    `${WORKER_BASE}/driver/bookings/update?key=${encodeURIComponent(driverKey)}`,
+    `${WORKER_BASE}/driver/bookings/update?key=${encodeURIComponent(driverKey.trim())}`,
     {
       method: "POST",
-      headers: {
-        Accept: "application/json",
-        "Content-Type": "application/json",
-        "X-Driver-Key": driverKey,
-      },
+      headers: driverPostHeaders(driverKey),
       body: JSON.stringify(input),
     },
   );
