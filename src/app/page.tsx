@@ -5,6 +5,7 @@ import AirportsSection from "@/components/AirportsSection";
 import FlightStatusSection from "@/components/FlightStatusSection";
 import AreasSection from "@/components/AreasSection";
 import WhyChooseUsSection from "@/components/WhyChooseUsSection";
+import DriverTrackingSection from "@/components/DriverTrackingSection";
 import FAQSection from "@/components/FAQSection";
 import ToursTeaserSection from "@/components/ToursTeaserSection";
 import VehiclesSection from "@/components/VehiclesSection";
@@ -31,6 +32,7 @@ export default function Home() {
         <VehiclesSection />
         <ChauffeurSection />
         <WhyChooseUsSection />
+        <DriverTrackingSection />
         <FAQSection />
       </main>
       <Footer />

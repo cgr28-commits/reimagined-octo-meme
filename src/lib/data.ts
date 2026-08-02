@@ -17,6 +17,7 @@ export const NAV_LINKS = [
   { label: "Our Fleet", href: "/#vehicles" },
   { label: "Chauffeur", href: "/#chauffeur" },
   { label: "Check Flights", href: "/#flight-status" },
+  { label: "Driver Tracking", href: "/#driver-tracking" },
   { label: "Areas We Cover", href: "/#areas" },
   { label: "Why Us", href: "/#why-us" },
   { label: "FAQ", href: "/#faq" },
@@ -231,6 +232,11 @@ export const WHY_CHOOSE_US = [
       "We monitor your flight in real time and adjust pickup times for delays or early arrivals at no extra cost.",
   },
   {
+    title: "Live driver tracking",
+    description:
+      "Pay online and receive a tracking link with your invoice. On travel day, follow your driver's live location when they're on the way to you.",
+  },
+  {
     title: "Meet & greet included",
     description:
       "Your driver meets you at arrivals with a name board — no searching for a taxi rank after a long flight.",
@@ -254,6 +260,24 @@ export const WHY_CHOOSE_US = [
     title: "Licensed & insured fleet",
     description:
       "Saloon, estate, executive, and minibus options — all fully licensed and insured for airport transfers.",
+  },
+] as const;
+
+export const DRIVER_TRACKING_HIGHLIGHTS = [
+  {
+    title: "Included with online payment",
+    description:
+      "When you pay by card through our website, your invoice email includes a personal tracking link — at no extra charge.",
+  },
+  {
+    title: "Active on travel day",
+    description:
+      "The link is ready when you book, but live tracking opens on the day of your transfer, from about two hours before pickup.",
+  },
+  {
+    title: "See your driver en route",
+    description:
+      "Once your driver starts sharing their location, you can follow them on a map — ideal for airport pickups and early-morning transfers.",
   },
 ] as const;
 
@@ -290,6 +314,11 @@ export const FAQS = [
     question: "Do you track my flight?",
     answer:
       "Yes. We monitor your flight in real time and adjust pickup times for delays or early arrivals at no extra cost. Just provide your flight number when booking.",
+  },
+  {
+    question: "Can I track my driver on the day of travel?",
+    answer:
+      "Yes — when you pay online by card, your invoice includes a live tracking link. On the day of your transfer, the page opens about two hours before your scheduled pickup. When your driver is on the way, you can follow their location on a map. There is no extra charge for this service.",
   },
   {
     question: "What is included in the price?",
