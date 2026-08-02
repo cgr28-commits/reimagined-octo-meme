@@ -76,7 +76,9 @@ jobs:
           if [ -n "$GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON" ]; then
             echo "Syncing Google Calendar secrets…"
             printf '%s' "${GOOGLE_CALENDAR_ID:-colinrice876@gmail.com}" | npx wrangler secret put GOOGLE_CALENDAR_ID
-            printf '%s' "$GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON" | npx wrangler secret put GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON
+            printf '%s' "$GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON" > /tmp/gcal-service-account.json
+            npx wrangler secret put GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON < /tmp/gcal-service-account.json
+            rm -f /tmp/gcal-service-account.json
           else
             echo "::notice::Google Calendar not configured — add GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON to GitHub Actions secrets."
           fi

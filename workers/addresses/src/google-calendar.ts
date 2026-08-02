@@ -105,7 +105,45 @@ async function importPrivateKey(pem: string): Promise<CryptoKey> {
 }
 
 export function parseServiceAccountJson(raw: string): GoogleServiceAccount {
-  const parsed = JSON.parse(raw) as Partial<GoogleServiceAccount>;
+  let cleaned = raw.trim().replace(/^\uFEFF/, "");
+
+  if (cleaned.startsWith("```")) {
+    cleaned = cleaned.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
+  }
+
+  const envPrefix = cleaned.match(/^GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON\s*=\s*/i);
+  if (envPrefix) {
+    cleaned = cleaned.slice(envPrefix[0].length).trim();
+  }
+
+  if (
+    (cleaned.startsWith('"') && cleaned.endsWith('"')) ||
+    (cleaned.startsWith("'") && cleaned.endsWith("'"))
+  ) {
+    try {
+      const unquoted = JSON.parse(cleaned);
+      if (typeof unquoted === "string") {
+        cleaned = unquoted.trim();
+      }
+    } catch {
+      // Keep original string and try parsing as JSON below.
+    }
+  }
+
+  cleaned = cleaned.replace(/^(?:false|null|true)\s*/i, "").trim();
+
+  let parsed: Partial<GoogleServiceAccount>;
+  try {
+    parsed = JSON.parse(cleaned) as Partial<GoogleServiceAccount>;
+  } catch (firstError) {
+    const start = cleaned.indexOf("{");
+    const end = cleaned.lastIndexOf("}");
+    if (start >= 0 && end > start) {
+      parsed = JSON.parse(cleaned.slice(start, end + 1)) as Partial<GoogleServiceAccount>;
+    } else {
+      throw firstError;
+    }
+  }
 
   if (!parsed.client_email?.trim() || !parsed.private_key?.trim()) {
     throw new Error("Invalid Google service account JSON");
