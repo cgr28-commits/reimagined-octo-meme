@@ -2,6 +2,7 @@ export type TrackingJobRecord = {
   token: string;
   createdAt: string;
   customerName: string;
+  customerEmail?: string;
   customerMobile: string;
   pickupLabel: string;
   dropoffLabel: string;
@@ -14,6 +15,8 @@ export type TrackingJobRecord = {
   driverLng?: number;
   driverUpdatedAt?: string;
   sharingActive: boolean;
+  /** ISO timestamp when the live-tracking reminder email was sent */
+  sharingReminderSentAt?: string;
 };
 
 export type TrackingWindow = {
