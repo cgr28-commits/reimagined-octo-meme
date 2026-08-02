@@ -39,6 +39,7 @@ export type RefundIssueResponse = {
 export async function issueBookingRefund(input: {
   ownerKey: string;
   paymentReference: string;
+  trackingToken?: string;
 }): Promise<RefundIssueResponse> {
   const response = await fetch(`${WORKER_BASE}/bookings/refund`, {
     method: "POST",
@@ -50,6 +51,7 @@ export async function issueBookingRefund(input: {
     },
     body: JSON.stringify({
       paymentReference: input.paymentReference.trim(),
+      ...(input.trackingToken?.trim() ? { trackingToken: input.trackingToken.trim() } : {}),
     }),
   });
 

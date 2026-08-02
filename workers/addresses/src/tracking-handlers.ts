@@ -286,14 +286,21 @@ export async function handleDriverJobsRequest(
       const flight = await resolveDriverFlight(job, env);
       let amountPaidLabel: string | undefined;
       let bookingStatus: "confirmed" | "refunded" = "confirmed";
+      let paidRecord = null;
 
       if (job.paymentReference && paidBookingStoreConfigured(env.TRACKING_STORE)) {
-        const paidRecord = await getPaidBookingRecord(env.TRACKING_STORE, job.paymentReference);
+        paidRecord = await getPaidBookingRecord(env.TRACKING_STORE, job.paymentReference);
         if (paidRecord) {
           amountPaidLabel = paidRecord.amountPaidLabel;
           bookingStatus = paidRecord.status;
         }
       }
+
+      if (bookingStatus !== "refunded" && job.refundedAt) {
+        bookingStatus = "refunded";
+      }
+
+      const refundAmountLabel = paidRecord?.refundAmountLabel ?? job.refundAmountLabel;
 
       return {
         ...publicTrackPayload(job, origin, { includeCustomerLocation: true }),
@@ -302,6 +309,7 @@ export async function handleDriverJobsRequest(
         paymentReference: job.paymentReference,
         amountPaidLabel,
         bookingStatus,
+        refundAmountLabel,
         isAirportPickup: Boolean(job.isAirportTrip && job.isFromAirport),
         flightNumber: job.flightNumber ?? null,
         airportCode: job.airportCode ?? null,

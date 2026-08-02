@@ -7,7 +7,10 @@ import type { PaidBookingDetails } from "../shared/booking-notifications";
 
 const JOB_PREFIX = "track:job:";
 const DAY_INDEX_PREFIX = "track:day:";
+const REF_INDEX_PREFIX = "track:ref:";
 const DAY_INDEX_TTL = 60 * 60 * 24 * 45;
+const PAYMENT_REF_SEARCH_DAYS_BACK = 45;
+const PAYMENT_REF_SEARCH_DAYS_AHEAD = 60;
 
 function jobKey(token: string): string {
   return `${JOB_PREFIX}${token}`;
@@ -15,6 +18,25 @@ function jobKey(token: string): string {
 
 function dayIndexKey(tripDate: string): string {
   return `${DAY_INDEX_PREFIX}${tripDate}`;
+}
+
+function refIndexKey(paymentReference: string): string {
+  return `${REF_INDEX_PREFIX}${paymentReference.trim()}`;
+}
+
+async function indexTrackingJobPaymentReference(
+  store: KVNamespace,
+  paymentReference: string,
+  token: string,
+): Promise<void> {
+  const trimmed = paymentReference.trim();
+  if (!trimmed) {
+    return;
+  }
+
+  await store.put(refIndexKey(trimmed), token, {
+    expirationTtl: DAY_INDEX_TTL,
+  });
 }
 
 export function trackingStoreConfigured(store?: KVNamespace): store is KVNamespace {
@@ -81,6 +103,10 @@ export async function createTrackingJobFromBooking(
     });
   }
 
+  if (paymentReference?.trim()) {
+    await indexTrackingJobPaymentReference(store, paymentReference, token);
+  }
+
   return record;
 }
 
@@ -103,6 +129,10 @@ export async function saveTrackingJob(
   await store.put(jobKey(record.token), JSON.stringify(record), {
     expirationTtl: DAY_INDEX_TTL,
   });
+
+  if (record.paymentReference?.trim()) {
+    await indexTrackingJobPaymentReference(store, record.paymentReference, record.token);
+  }
 }
 
 export async function reindexTrackingJobDate(
@@ -230,8 +260,25 @@ export async function findTrackingJobByPaymentReference(
     return null;
   }
 
-  const jobs = await listTrackingJobsForRecentDays(store, 45);
-  return jobs.find((job) => job.paymentReference?.trim() === trimmed) ?? null;
+  const indexedToken = await store.get(refIndexKey(trimmed));
+  if (indexedToken) {
+    const indexedJob = await getTrackingJob(store, indexedToken);
+    if (indexedJob?.paymentReference?.trim() === trimmed) {
+      return indexedJob;
+    }
+  }
+
+  const today = londonDateString(new Date());
+  const fromDate = shiftDateString(today, -PAYMENT_REF_SEARCH_DAYS_BACK);
+  const toDate = shiftDateString(today, PAYMENT_REF_SEARCH_DAYS_AHEAD);
+  const jobs = await listTrackingJobsForDateRange(store, fromDate, toDate);
+  const match = jobs.find((job) => job.paymentReference?.trim() === trimmed) ?? null;
+
+  if (match) {
+    await indexTrackingJobPaymentReference(store, trimmed, match.token);
+  }
+
+  return match;
 }
 
 export async function cancelTrackingJob(store: KVNamespace, token: string): Promise<boolean> {
@@ -241,6 +288,10 @@ export async function cancelTrackingJob(store: KVNamespace, token: string): Prom
   }
 
   await store.delete(jobKey(token));
+
+  if (record.paymentReference?.trim()) {
+    await store.delete(refIndexKey(record.paymentReference));
+  }
 
   const indexKey = dayIndexKey(record.tripDate);
   const existing = await store.get<string[]>(indexKey, "json");
@@ -255,5 +306,27 @@ export async function cancelTrackingJob(store: KVNamespace, token: string): Prom
     }
   }
 
+  return true;
+}
+
+export async function markTrackingJobRefunded(
+  store: KVNamespace,
+  token: string,
+  refundAmountLabel?: string,
+): Promise<boolean> {
+  const record = await getTrackingJob(store, token);
+  if (!record) {
+    return false;
+  }
+
+  const updated: TrackingJobRecord = {
+    ...record,
+    sharingActive: false,
+    customerSharingActive: false,
+    refundedAt: new Date().toISOString(),
+    ...(refundAmountLabel?.trim() ? { refundAmountLabel: refundAmountLabel.trim() } : {}),
+  };
+
+  await saveTrackingJob(store, updated);
   return true;
 }

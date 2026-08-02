@@ -8,6 +8,7 @@ import type { PaidBookingRecord } from "../shared/paid-booking-record";
 import {
   getSumUpCheckout,
   getSuccessfulTransactionId,
+  resolveSumUpTransactionForRefund,
   refundSumUpTransaction,
 } from "../shared/sumup-checkout";
 import {
@@ -22,14 +23,16 @@ import {
   savePaidBookingRecord,
 } from "./paid-booking-store";
 import {
-  cancelTrackingJob,
   findTrackingJobByPaymentReference,
+  getTrackingJob,
+  markTrackingJobRefunded,
   trackingStoreConfigured,
 } from "./tracking-store";
 import { trySendEmail, type WorkerEmailEnv } from "./worker-email";
 
 type RefundEnv = WorkerEmailEnv & {
   SUMUP_API_KEY?: string;
+  SUMUP_MERCHANT_CODE?: string;
   TRACKING_STORE?: KVNamespace;
   BOOKING_TO_EMAIL?: string;
   GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON?: string;
@@ -54,6 +57,44 @@ export function ownerAuthorized(request: Request, env: RefundEnv): boolean {
   return provided === expected;
 }
 
+function isKnownRefundAmount(label: string | undefined): boolean {
+  const trimmed = label?.trim() ?? "";
+  return Boolean(trimmed) && trimmed.toLowerCase() !== "unknown";
+}
+
+function resolveRefundAmountLabel(
+  record: PaidBookingRecord,
+  preferred?: string,
+): string | null {
+  if (isKnownRefundAmount(preferred)) {
+    return preferred!.trim();
+  }
+
+  if (isKnownRefundAmount(record.amountPaidLabel)) {
+    return record.amountPaidLabel.trim();
+  }
+
+  if (record.amount > 0) {
+    return formatPaidAmount(record.amount, record.currency);
+  }
+
+  return null;
+}
+
+function applyCheckoutAmount(
+  record: PaidBookingRecord,
+  checkout: { amount?: number; currency?: string },
+): string | null {
+  if (typeof checkout.amount !== "number" || checkout.amount <= 0) {
+    return null;
+  }
+
+  record.amount = checkout.amount;
+  record.currency = checkout.currency ?? record.currency;
+  record.amountPaidLabel = formatPaidAmount(record.amount, record.currency);
+  return record.amountPaidLabel;
+}
+
 function calendarConfigured(env: RefundEnv): boolean {
   return Boolean(
     env.GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON?.trim() && env.GOOGLE_CALENDAR_ID?.trim(),
@@ -70,6 +111,7 @@ export type RefundIssueResult = {
   /** @deprecated Use calendarCancelled */
   calendarDeleted?: number;
   trackingRemoved?: boolean;
+  trackingMarkedRefunded?: boolean;
   customerEmailSent?: boolean;
   ownerEmailSent?: boolean;
   warnings?: string[];
@@ -79,6 +121,7 @@ export type RefundIssueResult = {
 export async function issueBookingRefund(
   env: RefundEnv,
   paymentReferenceInput: string,
+  options?: { trackingToken?: string },
 ): Promise<RefundIssueResult> {
   const paymentReference = paymentReferenceInput.trim();
   if (!paymentReference) {
@@ -91,7 +134,7 @@ export async function issueBookingRefund(
 
   let record =
     (await getPaidBookingRecord(env.TRACKING_STORE, paymentReference)) ??
-    (await buildLegacyPaidBookingRecord(env, paymentReference));
+    (await buildLegacyPaidBookingRecord(env, paymentReference, options?.trackingToken));
 
   if (!record) {
     return {
@@ -112,31 +155,73 @@ export async function issueBookingRefund(
 
   const warnings: string[] = [];
   let refundAmountLabel = record.amountPaidLabel;
+  let sumUpRefunded = false;
 
-  if (env.SUMUP_API_KEY?.trim() && record.transactionId) {
-    try {
-      const refund = await refundSumUpTransaction(env.SUMUP_API_KEY.trim(), record.transactionId);
-      if (typeof refund.refundedAmount === "number") {
-        refundAmountLabel = formatPaidAmount(refund.refundedAmount, refund.currency ?? record.currency);
+  const sumUpApiKey = env.SUMUP_API_KEY?.trim() ?? "";
+  const sumUpMerchantCode = env.SUMUP_MERCHANT_CODE?.trim() ?? "";
+
+  if (sumUpApiKey) {
+    if (!record.transactionId || !resolveRefundAmountLabel(record, refundAmountLabel)) {
+      const resolved = await resolveSumUpTransactionForRefund(
+        sumUpApiKey,
+        sumUpMerchantCode,
+        record.paymentReference,
+        record.checkoutId || undefined,
+      );
+      if (resolved?.id) {
+        record.transactionId = resolved.id;
+        if (typeof resolved.amount === "number" && resolved.amount > 0) {
+          record.amount = resolved.amount;
+          record.currency = resolved.currency ?? record.currency;
+          record.amountPaidLabel = formatPaidAmount(record.amount, record.currency);
+          refundAmountLabel = record.amountPaidLabel;
+        }
       }
-    } catch (error) {
-      const detail = error instanceof Error ? error.message : "SumUp refund failed";
-      return { ok: false, paymentReference, error: detail };
     }
-  } else if (env.SUMUP_API_KEY?.trim() && record.checkoutId) {
-    try {
-      const checkout = await getSumUpCheckout(env.SUMUP_API_KEY.trim(), record.checkoutId);
-      const transactionId = getSuccessfulTransactionId(checkout);
-      if (!transactionId) {
-        return {
-          ok: false,
-          paymentReference,
-          error: "Could not find SumUp transaction for this booking",
-        };
+
+    if (!resolveRefundAmountLabel(record, refundAmountLabel) && record.checkoutId) {
+      try {
+        const checkout = await getSumUpCheckout(sumUpApiKey, record.checkoutId);
+        const transactionId = getSuccessfulTransactionId(checkout);
+        if (transactionId) {
+          record.transactionId = transactionId;
+        }
+        const checkoutAmount = applyCheckoutAmount(record, checkout);
+        if (checkoutAmount) {
+          refundAmountLabel = checkoutAmount;
+        }
+      } catch {
+        // resolveSumUpTransactionForRefund already attempted checkout lookup.
       }
-      record.transactionId = transactionId;
-      const refund = await refundSumUpTransaction(env.SUMUP_API_KEY.trim(), transactionId);
-      if (typeof refund.refundedAmount === "number") {
+    }
+
+    if (!record.transactionId) {
+      return {
+        ok: false,
+        paymentReference,
+        error: "Could not find SumUp transaction for this booking",
+      };
+    }
+
+    const resolvedBeforeRefund = resolveRefundAmountLabel(record, refundAmountLabel);
+    if (!resolvedBeforeRefund) {
+      return {
+        ok: false,
+        paymentReference,
+        error: "Could not determine refund amount for this booking",
+      };
+    }
+    refundAmountLabel = resolvedBeforeRefund;
+
+    try {
+      const refund = await refundSumUpTransaction(
+        sumUpApiKey,
+        record.transactionId,
+        undefined,
+        sumUpMerchantCode || undefined,
+      );
+      sumUpRefunded = true;
+      if (typeof refund.refundedAmount === "number" && refund.refundedAmount > 0) {
         refundAmountLabel = formatPaidAmount(refund.refundedAmount, refund.currency ?? record.currency);
       }
     } catch (error) {
@@ -144,7 +229,16 @@ export async function issueBookingRefund(
       return { ok: false, paymentReference, error: detail };
     }
   } else {
-    warnings.push("SumUp refund was not attempted — missing API key or transaction id");
+    warnings.push("SumUp refund was not attempted — missing API key");
+    const resolvedRefundAmount = resolveRefundAmountLabel(record, refundAmountLabel);
+    if (!resolvedRefundAmount) {
+      return {
+        ok: false,
+        paymentReference,
+        error: "Could not determine refund amount for this booking",
+      };
+    }
+    refundAmountLabel = resolvedRefundAmount;
   }
 
   let calendarCancelled = 0;
@@ -175,13 +269,17 @@ export async function issueBookingRefund(
     warnings.push("No stored calendar event ids — calendar entry may remain");
   }
 
-  let trackingRemoved = false;
+  let trackingMarkedRefunded = false;
   if (trackingStoreConfigured(env.TRACKING_STORE)) {
     const token =
       record.trackingToken ??
       (await findTrackingJobByPaymentReference(env.TRACKING_STORE, paymentReference))?.token;
     if (token) {
-      trackingRemoved = await cancelTrackingJob(env.TRACKING_STORE, token);
+      trackingMarkedRefunded = await markTrackingJobRefunded(
+        env.TRACKING_STORE,
+        token,
+        refundAmountLabel,
+      );
     }
   }
 
@@ -229,16 +327,27 @@ export async function issueBookingRefund(
     );
   }
 
-  await markPaidBookingRefunded(env.TRACKING_STORE, paymentReference, refundAmountLabel);
+  const existingPaidRecord = await getPaidBookingRecord(env.TRACKING_STORE!, paymentReference);
+  if (existingPaidRecord) {
+    await markPaidBookingRefunded(env.TRACKING_STORE!, paymentReference, refundAmountLabel);
+  } else {
+    await savePaidBookingRecord(env.TRACKING_STORE!, {
+      ...record,
+      status: "refunded",
+      refundedAt: new Date().toISOString(),
+      refundAmountLabel,
+    });
+  }
 
   return {
     ok: true,
     paymentReference,
     refundAmount: refundAmountLabel,
-    sumUpRefunded: Boolean(record.transactionId || record.checkoutId),
+    sumUpRefunded,
     calendarCancelled,
     calendarDeleted: calendarCancelled,
-    trackingRemoved,
+    trackingRemoved: trackingMarkedRefunded,
+    trackingMarkedRefunded,
     customerEmailSent: customerEmailResult.sent,
     ownerEmailSent: ownerEmailResult.sent,
     ...(warnings.length > 0 ? { warnings } : {}),
@@ -248,23 +357,68 @@ export async function issueBookingRefund(
 async function buildLegacyPaidBookingRecord(
   env: RefundEnv,
   paymentReference: string,
+  trackingToken?: string,
 ): Promise<PaidBookingRecord | null> {
   if (!trackingStoreConfigured(env.TRACKING_STORE)) {
     return null;
   }
 
-  const trackingJob = await findTrackingJobByPaymentReference(env.TRACKING_STORE, paymentReference);
+  let trackingJob =
+    trackingToken?.trim()
+      ? await getTrackingJob(env.TRACKING_STORE, trackingToken.trim())
+      : null;
+
+  if (
+    trackingJob &&
+    paymentReference &&
+    trackingJob.paymentReference?.trim() &&
+    trackingJob.paymentReference.trim() !== paymentReference.trim()
+  ) {
+    trackingJob = null;
+  }
+
+  if (!trackingJob) {
+    trackingJob = await findTrackingJobByPaymentReference(env.TRACKING_STORE, paymentReference);
+  }
+
   if (!trackingJob) {
     return null;
   }
 
+  const resolvedReference = trackingJob.paymentReference?.trim() || paymentReference;
+  let transactionId: string | undefined;
+  let amount = 0;
+  let currency = "GBP";
+  let amountPaidLabel = "Unknown";
+
+  if (env.SUMUP_API_KEY?.trim() && env.SUMUP_MERCHANT_CODE?.trim()) {
+    try {
+      const transaction = await resolveSumUpTransactionForRefund(
+        env.SUMUP_API_KEY.trim(),
+        env.SUMUP_MERCHANT_CODE.trim(),
+        resolvedReference,
+      );
+      if (transaction?.id) {
+        transactionId = transaction.id;
+        if (typeof transaction.amount === "number") {
+          amount = transaction.amount;
+          currency = transaction.currency ?? "GBP";
+          amountPaidLabel = formatPaidAmount(amount, currency);
+        }
+      }
+    } catch {
+      // SumUp lookup is best-effort when building the legacy record.
+    }
+  }
+
   return {
-    paymentReference,
+    paymentReference: resolvedReference,
     checkoutId: "",
-    transactionCode: paymentReference,
-    amount: 0,
-    currency: "GBP",
-    amountPaidLabel: "Unknown",
+    transactionId,
+    transactionCode: resolvedReference,
+    amount,
+    currency,
+    amountPaidLabel,
     customerName: trackingJob.customerName,
     customerEmail: trackingJob.customerEmail ?? "",
     mobileNumber: trackingJob.customerMobile,
@@ -347,7 +501,8 @@ export async function handleRefundRequest(
     return json({ error: "Missing paymentReference" }, 400, origin);
   }
 
-  const result = await issueBookingRefund(env, paymentReference);
+  const trackingToken = String(body.trackingToken ?? "").trim() || undefined;
+  const result = await issueBookingRefund(env, paymentReference, { trackingToken });
   return json(result, result.ok ? 200 : 502, origin);
 }
 
@@ -364,7 +519,8 @@ function json(body: unknown, status: number, origin: string | null): Response {
   }
 
   headers["Access-Control-Allow-Methods"] = "POST, OPTIONS";
-  headers["Access-Control-Allow-Headers"] = "Content-Type, Accept, X-Owner-Key";
+  headers["Access-Control-Allow-Headers"] =
+    "Content-Type, Accept, X-Owner-Key, X-Driver-Key";
 
   return new Response(JSON.stringify(body), { status, headers });
 }

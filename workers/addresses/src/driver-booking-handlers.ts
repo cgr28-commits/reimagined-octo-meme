@@ -89,13 +89,17 @@ export async function enrichDriverJob(
       ? await getPaidBookingRecord(env.TRACKING_STORE, job.paymentReference)
       : null;
 
+  const bookingStatus =
+    paidRecord?.status === "refunded" || job.refundedAt ? "refunded" : "confirmed";
+
   return {
     ...publicTrackPayload(job, origin, { includeCustomerLocation: true }),
     token: job.token,
     customerMobile: job.customerMobile,
     paymentReference: job.paymentReference,
     amountPaidLabel: paidRecord?.amountPaidLabel,
-    bookingStatus: paidRecord?.status ?? "confirmed",
+    bookingStatus,
+    refundAmountLabel: paidRecord?.refundAmountLabel ?? job.refundAmountLabel,
     isAirportPickup: Boolean(job.isAirportTrip && job.isFromAirport),
     flightNumber: job.flightNumber ?? null,
     airportCode: job.airportCode ?? null,

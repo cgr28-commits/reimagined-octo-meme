@@ -143,6 +143,7 @@ export type DriverJob = PublicTrackResponse & {
   paymentReference?: string;
   amountPaidLabel?: string;
   bookingStatus?: "confirmed" | "refunded";
+  refundAmountLabel?: string;
   isAirportPickup?: boolean;
   flightNumber?: string | null;
   airportCode?: string | null;

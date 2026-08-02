@@ -72,6 +72,7 @@ async function sendViaWeb3Forms(env: WorkerEmailEnv, options: EmailPayload): Pro
     payload.autoresponse = {
       subject: options.subject,
       message: options.body,
+      ...(options.htmlBody?.trim() ? { html: options.htmlBody } : {}),
     };
   }
 
@@ -159,8 +160,8 @@ export async function trySendEmail(
   }
 
   if (wantsHtml) {
-    providers.push({ label: "mailchannels", run: () => sendViaMailChannels(env, options) });
     providers.push({ label: "formsubmit", run: () => sendViaFormSubmit(options) });
+    providers.push({ label: "mailchannels", run: () => sendViaMailChannels(env, options) });
   }
 
   if (env.WEB3FORMS_ACCESS_KEY?.trim()) {
