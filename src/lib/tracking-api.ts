@@ -1,11 +1,22 @@
 import {
   DEMO_DRIVER_KEY,
   DEMO_DRIVER_NAME,
+  DEMO_OWNER_KEY,
+  enrichDemoJobForOwner,
   getDemoDriverJobs,
   getDemoDriverPendingJobs,
   getDemoDriverStatus,
   getDemoDriverUpcomingJobs,
+  getDemoOwnerJobs,
+  getDemoOwnerLocationHistory,
+  getDemoOwnerPendingJobs,
+  getDemoOwnerStatus,
+  getDemoOwnerUpcomingJobs,
+  getDemoOwnerVehicle,
+  getDemoOwnerVehicleProfiles,
   getDemoTrackResponse,
+  isDemoDriverKey,
+  isDemoOwnerKey,
   isDemoTrackToken,
   sanitizeDemoJobForDriver,
 } from "@/lib/tracking-demo";
@@ -59,8 +70,12 @@ export type DriverStatusResponse = {
 };
 
 export async function fetchDriverStatus(driverKey: string): Promise<DriverStatusResponse> {
-  if (driverKey === DEMO_DRIVER_KEY) {
+  if (isDemoDriverKey(driverKey)) {
     return getDemoDriverStatus();
+  }
+
+  if (isDemoOwnerKey(driverKey)) {
+    return getDemoOwnerStatus();
   }
 
   const url = new URL(`${WORKER_BASE}/driver/status`);
@@ -83,7 +98,7 @@ export async function fetchDriverStatus(driverKey: string): Promise<DriverStatus
 export async function verifyDriverAccessKey(
   driverKey: string,
 ): Promise<{ ok: boolean; message?: string }> {
-  if (driverKey === DEMO_DRIVER_KEY) {
+  if (isDemoDriverKey(driverKey) || isDemoOwnerKey(driverKey)) {
     return { ok: true };
   }
 
@@ -256,7 +271,7 @@ export async function fetchDriverJobs(
     days?: number;
   },
 ): Promise<DriverJobsResponse> {
-  if (driverKey === DEMO_DRIVER_KEY) {
+  if (isDemoDriverKey(driverKey)) {
     if (options?.scope === "upcoming") {
       return getDemoDriverUpcomingJobs();
     }
@@ -264,6 +279,16 @@ export async function fetchDriverJobs(
       return getDemoDriverPendingJobs();
     }
     return getDemoDriverJobs(options?.date);
+  }
+
+  if (isDemoOwnerKey(driverKey)) {
+    if (options?.scope === "upcoming") {
+      return getDemoOwnerUpcomingJobs();
+    }
+    if (options?.scope === "pending") {
+      return getDemoOwnerPendingJobs();
+    }
+    return getDemoOwnerJobs(options?.date);
   }
 
   const url = new URL(`${WORKER_BASE}/driver/jobs`);
@@ -290,7 +315,7 @@ export async function updateDriverBooking(
   driverKey: string,
   input: DriverBookingUpdateInput,
 ): Promise<DriverBookingUpdateResponse> {
-  if (driverKey === DEMO_DRIVER_KEY) {
+  if (isDemoDriverKey(driverKey)) {
     const jobs = getDemoDriverUpcomingJobs().jobs;
     const job = jobs.find((entry) => entry.token === input.token);
     if (!job) {
@@ -305,6 +330,27 @@ export async function updateDriverBooking(
         tripTime: input.tripTime ?? job.tripTime,
         pickupLabel: input.pickupLabel ?? job.pickupLabel,
         dropoffLabel: input.dropoffLabel ?? job.dropoffLabel,
+        flightNumber: input.flightNumber ?? job.flightNumber,
+      }),
+    };
+  }
+
+  if (isDemoOwnerKey(driverKey)) {
+    const jobs = getDemoOwnerUpcomingJobs().jobs;
+    const job = jobs.find((entry) => entry.token === input.token);
+    if (!job) {
+      throw new Error("Job not found");
+    }
+
+    return {
+      ok: true,
+      job: enrichDemoJobForOwner({
+        ...job,
+        tripDate: input.tripDate ?? job.tripDate,
+        tripTime: input.tripTime ?? job.tripTime,
+        pickupLabel: input.pickupLabel ?? job.pickupLabel,
+        dropoffLabel: input.dropoffLabel ?? job.dropoffLabel,
+        customerMobile: input.customerMobile ?? job.customerMobile,
         flightNumber: input.flightNumber ?? job.flightNumber,
       }),
     };
@@ -327,7 +373,7 @@ export async function setDriverSharing(
   token: string,
   active: boolean,
 ): Promise<{ ok: true; trackUrl: string }> {
-  if (driverKey === DEMO_DRIVER_KEY && isDemoTrackToken(token)) {
+  if (isDemoDriverKey(driverKey) && isDemoTrackToken(token)) {
     const trackUrl = getDemoTrackResponse(token).trackUrl;
     return { ok: true, trackUrl };
   }
@@ -348,6 +394,10 @@ export async function setDriverSharing(
 export async function fetchDriverVehicleProfiles(
   accessKey: string,
 ): Promise<Array<{ profileKey: string; displayName: string }>> {
+  if (isDemoOwnerKey(accessKey)) {
+    return getDemoOwnerVehicleProfiles();
+  }
+
   const url = new URL(`${WORKER_BASE}/driver/vehicle/profiles`);
   driverQueryKey(url, accessKey);
 
@@ -367,6 +417,10 @@ export async function fetchDriverVehicle(
   accessKey: string,
   profile?: string,
 ): Promise<DriverVehicleProfile | null> {
+  if (isDemoOwnerKey(accessKey)) {
+    return getDemoOwnerVehicle(profile);
+  }
+
   const url = new URL(`${WORKER_BASE}/driver/vehicle`);
   driverQueryKey(url, accessKey);
   if (profile?.trim()) {
@@ -395,6 +449,22 @@ export async function saveDriverVehicle(
     registration: string;
   },
 ): Promise<{ profile: DriverVehicleProfile; emailSent?: boolean; emailWarning?: string }> {
+  if (isDemoOwnerKey(accessKey)) {
+    return {
+      profile: {
+        ...getDemoOwnerVehicle(input.profile),
+        email: input.email,
+        make: input.make,
+        model: input.model,
+        colour: input.colour,
+        registration: input.registration,
+        displayName: input.displayName ?? getDemoOwnerVehicle(input.profile).displayName,
+      },
+      emailSent: false,
+      emailWarning: "Demo mode — no email sent.",
+    };
+  }
+
   const response = await fetch(`${WORKER_BASE}/driver/vehicle?key=${encodeURIComponent(accessKey.trim())}`, {
     method: "POST",
     headers: driverPostHeaders(accessKey),
@@ -411,6 +481,10 @@ export async function saveDriverVehicle(
 }
 
 export async function fetchDriverRoster(ownerKey: string): Promise<string[]> {
+  if (isDemoOwnerKey(ownerKey)) {
+    return [...getDemoOwnerStatus().availableDrivers ?? []];
+  }
+
   const url = new URL(`${WORKER_BASE}/driver/roster`);
   driverQueryKey(url, ownerKey);
 
@@ -429,6 +503,27 @@ export async function assignJobToDriver(
   token: string,
   driverName: string,
 ): Promise<{ ok: true; job: DriverJob }> {
+  if (isDemoOwnerKey(ownerKey)) {
+    const job =
+      getDemoOwnerUpcomingJobs().jobs.find((entry) => entry.token === token) ??
+      getDemoOwnerPendingJobs().jobs.find((entry) => entry.token === token) ??
+      getDemoOwnerJobs().jobs.find((entry) => entry.token === token);
+
+    if (!job) {
+      throw new Error("Job not found");
+    }
+
+    return {
+      ok: true,
+      job: enrichDemoJobForOwner({
+        ...job,
+        assignedDriverName: driverName,
+        assignmentStatus: "pending",
+        assignedAt: new Date().toISOString(),
+      }),
+    };
+  }
+
   const response = await fetch(`${WORKER_BASE}/driver/assign?key=${encodeURIComponent(ownerKey.trim())}`, {
     method: "POST",
     headers: driverPostHeaders(ownerKey),
@@ -442,6 +537,31 @@ export async function deassignJob(
   ownerKey: string,
   token: string,
 ): Promise<{ ok: true; job: DriverJob }> {
+  if (isDemoOwnerKey(ownerKey)) {
+    const job =
+      getDemoOwnerUpcomingJobs().jobs.find((entry) => entry.token === token) ??
+      getDemoOwnerPendingJobs().jobs.find((entry) => entry.token === token) ??
+      getDemoOwnerJobs().jobs.find((entry) => entry.token === token);
+
+    if (!job) {
+      throw new Error("Job not found");
+    }
+
+    const cleared = { ...job };
+    delete cleared.assignedDriverName;
+    delete cleared.assignedAt;
+    delete cleared.acceptedAt;
+    delete cleared.declinedAt;
+
+    return {
+      ok: true,
+      job: enrichDemoJobForOwner({
+        ...cleared,
+        assignmentStatus: "unassigned",
+      }),
+    };
+  }
+
   const response = await fetch(`${WORKER_BASE}/driver/deassign?key=${encodeURIComponent(ownerKey.trim())}`, {
     method: "POST",
     headers: driverPostHeaders(ownerKey),
@@ -456,7 +576,7 @@ export async function respondToJobAssignment(
   token: string,
   action: "accept" | "decline",
 ): Promise<{ ok: true; job: DriverJob }> {
-  if (driverKey === DEMO_DRIVER_KEY) {
+  if (isDemoDriverKey(driverKey)) {
     const pending = getDemoDriverPendingJobs().jobs.find((entry) => entry.token === token);
     if (!pending) {
       throw new Error("This job is not awaiting your response");
@@ -506,6 +626,10 @@ export async function fetchDriverLocationHistory(
   recordedTo?: string;
   points: DriverLocationPoint[];
 }> {
+  if (isDemoOwnerKey(ownerKey)) {
+    return getDemoOwnerLocationHistory(token);
+  }
+
   const url = new URL(`${WORKER_BASE}/driver/location-history`);
   driverQueryKey(url, ownerKey);
   url.searchParams.set("token", token);
@@ -532,7 +656,7 @@ export async function postDriverLocation(
   lat: number,
   lng: number,
 ): Promise<void> {
-  if (driverKey === DEMO_DRIVER_KEY) {
+  if (isDemoDriverKey(driverKey)) {
     return;
   }
 

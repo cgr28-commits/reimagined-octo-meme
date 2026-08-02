@@ -24,7 +24,7 @@ import {
   type DriverJob,
 } from "@/lib/tracking-api";
 import { issueBookingRefund } from "@/lib/refund-api";
-import { DEMO_DRIVER_KEY, DEMO_DRIVER_NAME } from "@/lib/tracking-demo";
+import { DEMO_DRIVER_KEY, DEMO_DRIVER_NAME, DEMO_OWNER_KEY, DEMO_ROSTER } from "@/lib/tracking-demo";
 import { SITE } from "@/lib/data";
 
 const LiveTrackMap = dynamic(() => import("@/components/LiveTrackMap"), {
@@ -548,6 +548,7 @@ function DriverJobCard({
   const [recordedRoute, setRecordedRoute] = useState<MapRoutePoint[]>([]);
   const isActive = activeToken === job.token;
   const mapMarkers = jobMapMarkers(job, { isActiveDriver: isActive, isOwner });
+  const isDemoKey = driverKey === DEMO_DRIVER_KEY || driverKey === DEMO_OWNER_KEY;
   const isDemoDriver = driverKey === DEMO_DRIVER_KEY;
   const isRefunded = job.bookingStatus === "refunded";
   const assignmentStatus = job.assignmentStatus ?? "unassigned";
@@ -555,7 +556,7 @@ function DriverJobCard({
   const isAcceptedAssignment = assignmentStatus === "accepted";
   const isAssigned =
     assignmentStatus === "pending" || assignmentStatus === "accepted" || assignmentStatus === "declined";
-  const canRefund = isOwner && Boolean(job.paymentReference?.trim()) && !isDemoDriver && !isRefunded;
+  const canRefund = isOwner && Boolean(job.paymentReference?.trim()) && !isDemoKey && !isRefunded;
   const canEdit =
     !isRefunded &&
     (isOwner || isAcceptedAssignment || (isPendingForDriver && job.isAirportPickup));
@@ -1157,9 +1158,10 @@ export default function DriverPageClient() {
   const [selectedDate, setSelectedDate] = useState(() => todayLondonDate());
   const watchIdRef = useRef<number | null>(null);
 
-  const isDemoSession = savedKey === DEMO_DRIVER_KEY;
-  const viewRole = isDemoSession ? "driver" : sessionRole;
-  const viewDriverName = isDemoSession ? DEMO_DRIVER_NAME : driverName;
+  const isDemoDriverSession = savedKey === DEMO_DRIVER_KEY;
+  const isDemoOwnerSession = savedKey === DEMO_OWNER_KEY;
+  const viewRole = isDemoDriverSession ? "driver" : isDemoOwnerSession ? "owner" : sessionRole;
+  const viewDriverName = isDemoDriverSession ? DEMO_DRIVER_NAME : driverName;
   const isOwnerView = viewRole === "owner";
 
   const today = useMemo(() => todayLondonDate(), []);
@@ -1196,6 +1198,10 @@ export default function DriverPageClient() {
         if (key === DEMO_DRIVER_KEY) {
           setSessionRole("driver");
           setDriverName(DEMO_DRIVER_NAME);
+        } else if (key === DEMO_OWNER_KEY) {
+          setSessionRole("owner");
+          setDriverName(null);
+          setAvailableDrivers([...DEMO_ROSTER]);
         } else {
           if (mainResponse.role) {
             setSessionRole(mainResponse.role);
@@ -1286,6 +1292,10 @@ export default function DriverPageClient() {
       if (stored === DEMO_DRIVER_KEY) {
         setSessionRole("driver");
         setDriverName(DEMO_DRIVER_NAME);
+      } else if (stored === DEMO_OWNER_KEY) {
+        setSessionRole("owner");
+        setDriverName(null);
+        setAvailableDrivers([...DEMO_ROSTER]);
       }
       setSavedKey(stored);
       void loadJobs(stored);
@@ -1364,13 +1374,17 @@ export default function DriverPageClient() {
       if (trimmed === DEMO_DRIVER_KEY) {
         setSessionRole("driver");
         setDriverName(DEMO_DRIVER_NAME);
+      } else if (trimmed === DEMO_OWNER_KEY) {
+        setSessionRole("owner");
+        setDriverName(null);
+        setAvailableDrivers([...DEMO_ROSTER]);
       } else if (status.role) {
         setSessionRole(status.role);
       }
-      if (trimmed !== DEMO_DRIVER_KEY && status.driverName) {
+      if (trimmed !== DEMO_DRIVER_KEY && trimmed !== DEMO_OWNER_KEY && status.driverName) {
         setDriverName(status.driverName);
       }
-      if (status.role === "owner") {
+      if (status.role === "owner" && trimmed !== DEMO_OWNER_KEY) {
         if (status.availableDrivers?.length) {
           setAvailableDrivers(status.availableDrivers);
         } else {
@@ -1428,7 +1442,8 @@ export default function DriverPageClient() {
                 placeholder="Enter your access key"
               />
               <p className="mt-3 text-sm text-white/55">
-                Owners: <span className="text-white/75">OWNER_ACCESS_KEY</span>. Drivers (Gary):{" "}
+                Owners: <span className="text-white/75">OWNER_ACCESS_KEY</span> — preview:{" "}
+                <span className="text-white/75">demo-owner-key</span>. Drivers (Gary):{" "}
                 <span className="text-white/75">DRIVER_ACCESS_KEY</span> from Cloudflare → Workers →{" "}
                 <span className="text-white/75">reimagined-octo-meme</span>. Preview Gary&apos;s view:{" "}
                 <span className="text-white/75">demo-driver-key</span>.

@@ -5,10 +5,16 @@ export const DEMO_TRACK_TOKENS = ["demo-early", "demo-waiting", "demo-live"] as 
 export type DemoTrackToken = (typeof DEMO_TRACK_TOKENS)[number];
 
 export const DEMO_DRIVER_KEY = "demo-driver-key";
+export const DEMO_OWNER_KEY = "demo-owner-key";
 export const DEMO_DRIVER_NAME = "Gary";
+export const DEMO_ROSTER = ["Gary", "Colin"] as const;
 
-export function isDemoTrackToken(token: string): token is DemoTrackToken {
-  return (DEMO_TRACK_TOKENS as readonly string[]).includes(token);
+export function isDemoDriverKey(key: string): boolean {
+  return key.trim() === DEMO_DRIVER_KEY;
+}
+
+export function isDemoOwnerKey(key: string): boolean {
+  return key.trim() === DEMO_OWNER_KEY;
 }
 
 export function getDemoDriverStatus() {
@@ -19,6 +25,20 @@ export function getDemoDriverStatus() {
     driverName: DEMO_DRIVER_NAME,
     worker: "demo",
   };
+}
+
+export function getDemoOwnerStatus() {
+  return {
+    ok: true as const,
+    authConfigured: true,
+    role: "owner" as const,
+    availableDrivers: [...DEMO_ROSTER],
+    worker: "demo",
+  };
+}
+
+export function isDemoTrackToken(token: string): token is DemoTrackToken {
+  return (DEMO_TRACK_TOKENS as readonly string[]).includes(token);
 }
 
 function londonParts(date: Date) {
@@ -202,6 +222,69 @@ export function sanitizeDemoJobForDriver(job: DriverJob): DriverJob {
   return sanitized;
 }
 
+const DEMO_OWNER_FIELDS: Record<
+  string,
+  Pick<
+    DriverJob,
+    | "customerMobile"
+    | "paymentReference"
+    | "amountPaidLabel"
+    | "driverLocationPointCount"
+    | "driverLocationRecordedFrom"
+    | "driverLocationRecordedTo"
+  >
+> = {
+  "demo-live": {
+    customerMobile: "+447700900123",
+    paymentReference: "DEMO-MATNI-1001",
+    amountPaidLabel: "£85.00",
+    driverLocationPointCount: 142,
+    driverLocationRecordedFrom: new Date(Date.now() - 45 * 60 * 1000).toISOString(),
+    driverLocationRecordedTo: new Date().toISOString(),
+  },
+  "demo-waiting": {
+    customerMobile: "+447700900456",
+    paymentReference: "DEMO-MATNI-1002",
+    amountPaidLabel: "£85.00",
+  },
+  "demo-future": {
+    customerMobile: "+447700900789",
+    paymentReference: "DEMO-MATNI-1003",
+    amountPaidLabel: "£92.00",
+  },
+  "demo-pending": {
+    customerMobile: "+447700900321",
+    paymentReference: "DEMO-MATNI-1004",
+    amountPaidLabel: "£78.00",
+  },
+  "demo-unassigned": {
+    customerMobile: "+447700900111",
+    paymentReference: "DEMO-MATNI-1005",
+    amountPaidLabel: "£65.00",
+  },
+};
+
+export function enrichDemoJobForOwner(job: DriverJob): DriverJob {
+  return {
+    ...job,
+    ...(DEMO_OWNER_FIELDS[job.token] ?? {}),
+  };
+}
+
+function demoOwnerJobsResponse(
+  jobs: DriverJob[],
+  scope: DriverJobsResponse["scope"],
+  date: string,
+): DriverJobsResponse {
+  return {
+    ok: true,
+    scope,
+    date,
+    role: "owner",
+    jobs: jobs.map(enrichDemoJobForOwner),
+  };
+}
+
 function demoDriverJobsResponse(
   jobs: DriverJob[],
   scope: DriverJobsResponse["scope"],
@@ -321,12 +404,56 @@ export function getDemoDriverUpcomingJobs(): DriverJobsResponse {
 }
 
 export function getDemoDriverPendingJobs(): DriverJobsResponse {
+  return demoDriverJobsResponse([buildDemoPendingJobRaw()], "pending", "pending");
+}
+
+function buildDemoUnassignedJob(): DriverJob {
+  const pickup = addMinutes(new Date(), 90);
+  const schedule = londonParts(pickup);
+  const opensAt = addMinutes(pickup, -120);
+  const closesAt = addMinutes(pickup, 90);
+  const early = getDemoTrackResponse("demo-early");
+
+  return {
+    ...early,
+    token: "demo-unassigned",
+    customerName: "Alex Demo",
+    pickupLabel: "249 Rashee Road, Ballyclare",
+    dropoffLabel: "Belfast International Airport (BFS)",
+    tripDate: schedule.tripDate,
+    tripTime: schedule.tripTime,
+    pickupAt: schedule.pickupAt,
+    pickupDisplay: schedule.pickupDisplay,
+    assignmentStatus: "unassigned",
+    bookingStatus: "confirmed",
+    isAirportPickup: false,
+    flightNumber: null,
+    airportCode: null,
+    flight: null,
+    trackingWindow: {
+      open: false,
+      opensAt: opensAt.toISOString(),
+      closesAt: closesAt.toISOString(),
+      pickupAt: schedule.pickupAt,
+      reason: "too_early",
+      opensAtDisplay: formatWindowDisplay(opensAt.toISOString()),
+      closesAtDisplay: formatWindowDisplay(closesAt.toISOString()),
+    },
+    sharingActive: false,
+    customerSharingActive: false,
+    driver: null,
+    customer: null,
+    trackUrl: `${SITE.url}/track/?id=demo-unassigned`,
+  };
+}
+
+function buildDemoPendingJobRaw(): DriverJob {
   const futurePickup = addMinutes(new Date(), 5 * 24 * 60);
   const schedule = londonParts(futurePickup);
   const opensAt = addMinutes(futurePickup, -120);
   const closesAt = addMinutes(futurePickup, 90);
 
-  const pendingJob: DriverJob = {
+  return {
     ...getDemoTrackResponse("demo-waiting"),
     token: "demo-pending",
     customerName: "Jordan Demo",
@@ -370,8 +497,78 @@ export function getDemoDriverPendingJobs(): DriverJobsResponse {
     customer: null,
     trackUrl: `${SITE.url}/track/?id=demo-pending`,
   };
+}
 
-  return demoDriverJobsResponse([pendingJob], "pending", "pending");
+export function getDemoOwnerJobs(date?: string): DriverJobsResponse {
+  const driverResponse = getDemoDriverJobs(date);
+  const jobs = [...driverResponse.jobs, buildDemoUnassignedJob()].filter(
+    (job) => !date || job.tripDate === date,
+  );
+
+  return demoOwnerJobsResponse(jobs, "date", driverResponse.date);
+}
+
+export function getDemoOwnerUpcomingJobs(): DriverJobsResponse {
+  const driverResponse = getDemoDriverUpcomingJobs();
+  return demoOwnerJobsResponse(driverResponse.jobs, "upcoming", "upcoming");
+}
+
+export function getDemoOwnerPendingJobs(): DriverJobsResponse {
+  return demoOwnerJobsResponse([buildDemoPendingJobRaw()], "pending", "pending");
+}
+
+export function getDemoOwnerLocationHistory(token: string) {
+  if (token !== "demo-live") {
+    return { ok: true as const, token, count: 0, points: [] };
+  }
+
+  const coords = [
+    { lat: 54.5973, lng: -5.9301 },
+    { lat: 54.5981, lng: -5.9254 },
+    { lat: 54.5992, lng: -5.9188 },
+    { lat: 54.6015, lng: -5.9122 },
+    { lat: 54.6035, lng: -5.9264 },
+  ];
+
+  const points = coords.map((point, index) => ({
+    ...point,
+    recordedAt: new Date(Date.now() - (coords.length - index) * 5 * 60 * 1000).toISOString(),
+    driverName: DEMO_DRIVER_NAME,
+  }));
+
+  return {
+    ok: true as const,
+    token,
+    count: points.length,
+    recordedFrom: points[0]?.recordedAt,
+    recordedTo: points[points.length - 1]?.recordedAt,
+    points,
+  };
+}
+
+export function getDemoOwnerVehicleProfiles() {
+  return DEMO_ROSTER.map((name) => ({
+    profileKey: name.toLowerCase(),
+    displayName: name,
+  }));
+}
+
+export function getDemoOwnerVehicle(profile?: string) {
+  const displayName =
+    profile && profile !== "owner"
+      ? DEMO_ROSTER.find((name) => name.toLowerCase() === profile.toLowerCase()) ?? profile
+      : DEMO_DRIVER_NAME;
+
+  return {
+    profileKey: displayName.toLowerCase(),
+    displayName,
+    email: `${displayName.toLowerCase()}@example.com`,
+    make: "Mercedes-Benz",
+    model: "E-Class",
+    colour: "Black",
+    registration: "ABC 1234",
+    updatedAt: new Date().toISOString(),
+  };
 }
 
 export const DEMO_SCENARIOS = [
