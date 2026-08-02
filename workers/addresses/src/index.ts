@@ -36,7 +36,9 @@ import {
   createSumUpHostedCheckout,
 } from "../shared/sumup-checkout";
 import {
+  getGoogleAccessToken,
   logBookingsToGoogleCalendar,
+  parseServiceAccountJson,
   type TourBookingEvent,
   type TransferBookingEvent,
 } from "./google-calendar";
@@ -99,7 +101,7 @@ function json(body: unknown, status: number, origin: string | null): Response {
 
 function routePath(
   pathname: string,
-): "addresses" | "geocode" | "bookings" | "quote-leads" | "payments" | "payments-confirm" | "flights" | null {
+): "addresses" | "geocode" | "bookings" | "quote-leads" | "payments" | "payments-confirm" | "flights" | "calendar-status" | null {
   if (pathname === "/addresses" || pathname === "/api/addresses") {
     return "addresses";
   }
@@ -126,6 +128,10 @@ function routePath(
 
   if (pathname === "/flights" || pathname === "/api/flights") {
     return "flights";
+  }
+
+  if (pathname === "/calendar-status" || pathname === "/api/calendar-status") {
+    return "calendar-status";
   }
 
   return null;
@@ -576,6 +582,61 @@ async function handleBookingRequest(
   );
 }
 
+async function handleCalendarStatusRequest(
+  env: Env,
+  origin: string | null,
+): Promise<Response> {
+  const calendarId = env.GOOGLE_CALENDAR_ID?.trim() ?? "";
+  const serviceAccountJson = env.GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON?.trim() ?? "";
+
+  if (!calendarId || !serviceAccountJson) {
+    return json(
+      {
+        connected: false,
+        configured: false,
+        calendarId: calendarId || null,
+        reason: "missing_secrets",
+        message:
+          "Google Calendar secrets are not set on the worker. Add GOOGLE_CALENDAR_ID and GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON.",
+      },
+      200,
+      origin,
+    );
+  }
+
+  try {
+    const serviceAccount = parseServiceAccountJson(serviceAccountJson);
+    await getGoogleAccessToken(serviceAccount);
+
+    return json(
+      {
+        connected: true,
+        configured: true,
+        calendarId,
+        serviceAccountEmail: serviceAccount.client_email,
+        message: `Calendar API authentication succeeded for ${calendarId}.`,
+      },
+      200,
+      origin,
+    );
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : "Unknown calendar error";
+    return json(
+      {
+        connected: false,
+        configured: true,
+        calendarId,
+        reason: "auth_failed",
+        detail,
+        message:
+          "Calendar secrets are set but authentication failed. Check the service account JSON key.",
+      },
+      200,
+      origin,
+    );
+  }
+}
+
 async function handlePaymentRequest(
   request: Request,
   env: Env,
@@ -874,6 +935,14 @@ export default {
       }
 
       return handleFlightLookupRequest(url, env, origin);
+    }
+
+    if (route === "calendar-status") {
+      if (request.method !== "GET") {
+        return json({ error: "Method not allowed" }, 405, origin);
+      }
+
+      return handleCalendarStatusRequest(env, origin);
     }
 
     if (request.method !== "GET") {

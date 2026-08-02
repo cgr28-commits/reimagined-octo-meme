@@ -8,6 +8,7 @@
     "build": "node scripts/generate-sitemap.mjs && next build",
     "sync:worker-shared": "node scripts/sync-worker-shared.mjs",
     "setup:worker": "node scripts/setup-worker.mjs",
+    "setup:calendar": "node scripts/setup-google-calendar.mjs",
     "start": "next start",
     "lint": "next lint",
     "check:ots-pricing": "npx tsx scripts/check-ots-pricing-daily.ts",

@@ -62,6 +62,8 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          GOOGLE_CALENDAR_ID: ${{ secrets.GOOGLE_CALENDAR_ID }}
+          GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON }}
           CI: "true"
           WORKERS_CI: "1"
         run: |
@@ -69,5 +71,12 @@ jobs:
             echo "::warning::Skipping deploy — add CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID to GitHub → Settings → Secrets → Actions."
             echo "::warning::For first-time setup (KV namespace + worker secrets), run locally: npm run setup:worker"
             exit 0
+          fi
+          if [ -n "$GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON" ]; then
+            echo "Syncing Google Calendar secrets…"
+            printf '%s' "${GOOGLE_CALENDAR_ID:-colinrice876@gmail.com}" | npx wrangler secret put GOOGLE_CALENDAR_ID
+            printf '%s' "$GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON" | npx wrangler secret put GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON
+          else
+            echo "::notice::Google Calendar not configured — add GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON to GitHub Actions secrets."
           fi
           npm run deploy
