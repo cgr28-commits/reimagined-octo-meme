@@ -59,16 +59,19 @@ function putSecret(name, value) {
   }
 }
 
-function ensureKvNamespace() {
+function ensureKvNamespace(binding, title) {
   const wrangler = readFileSync(wranglerPath, "utf8");
-  const existingMatch = wrangler.match(/id = "([a-f0-9]{32})"/);
-  if (existingMatch && !existingMatch[1].startsWith("REPLACE")) {
-    console.log(`KV namespace already configured (${existingMatch[1]})`);
-    return;
+  const bindingPattern = new RegExp(
+    `\\[\\[kv_namespaces\\]\\][\\s\\S]*?binding = "${binding}"\\s*\\nid = "([a-f0-9]{32})"`,
+  );
+  const existingMatch = wrangler.match(bindingPattern);
+  if (existingMatch) {
+    console.log(`${title} KV namespace already configured (${existingMatch[1]})`);
+    return wrangler;
   }
 
-  console.log("\nCreating BOOKING_COUNTER KV namespace…");
-  const output = runCapture("npx wrangler kv namespace create BOOKING_COUNTER", {
+  console.log(`\nCreating ${title} KV namespace…`);
+  const output = runCapture(`npx wrangler kv namespace create ${title}`, {
     cwd: workerDir,
   });
   const idMatch = output.match(/id = "([a-f0-9]{32})"/);
@@ -76,23 +79,36 @@ function ensureKvNamespace() {
     throw new Error(`Could not parse KV namespace id from:\n${output}`);
   }
 
-  const kvBlock = `\n[[kv_namespaces]]\nbinding = "BOOKING_COUNTER"\nid = "${idMatch[1]}"\n`;
+  const kvBlock = `\n[[kv_namespaces]]\nbinding = "${binding}"\nid = "${idMatch[1]}"\n`;
   let updated = wrangler;
 
-  if (wrangler.includes("REPLACE_WITH_KV_NAMESPACE_ID")) {
+  if (binding === "BOOKING_COUNTER" && wrangler.includes("REPLACE_WITH_KV_NAMESPACE_ID")) {
     updated = wrangler.replace(
       /id = "REPLACE_WITH_KV_NAMESPACE_ID"/,
       `id = "${idMatch[1]}"`,
     );
-  } else if (!/\[\[kv_namespaces\]\]/.test(wrangler)) {
+  } else if (!bindingPattern.test(wrangler)) {
     updated = wrangler.replace(
       /# Until then, bookings work without sequential references\.\n/,
       `# Until then, bookings work without sequential references.\n${kvBlock}`,
     );
+    if (updated === wrangler) {
+      updated = `${wrangler.trimEnd()}\n${kvBlock}`;
+    }
   }
 
   writeFileSync(wranglerPath, updated);
-  console.log(`Updated wrangler.toml with KV id ${idMatch[1]}`);
+  console.log(`Updated wrangler.toml with ${binding} KV id ${idMatch[1]}`);
+  return updated;
+}
+
+function ensureKvNamespaces() {
+  ensureKvNamespace("BOOKING_COUNTER", "BOOKING_COUNTER");
+  ensureKvNamespace("TRACKING_STORE", "TRACKING_STORE");
+}
+
+function generateDriverAccessKey() {
+  return execSync("openssl rand -hex 24", { encoding: "utf8" }).trim();
 }
 
 function printPostSetupSteps() {
@@ -108,6 +124,10 @@ For best email deliverability (optional, replaces Web3Forms fallback):
   1. Cloudflare dashboard → Compute → Email Service → Email Sending → Onboard Domain
   2. Choose myairporttaxini.co.uk and add the DNS records Cloudflare suggests
   3. Redeploy the worker (this script or GitHub Actions)
+
+For live driver tracking (optional):
+  Driver dashboard: https://www.myairporttaxini.co.uk/driver/
+  Set DRIVER_ACCESS_KEY when running setup-worker.mjs (auto-generated if omitted).
 
 GitHub Actions deploy: add repository secrets
   CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID
@@ -139,7 +159,7 @@ console.log(`Account: ${accountId}`);
 run("node scripts/sync-worker-shared.mjs");
 run("npm ci", { cwd: workerDir });
 
-ensureKvNamespace();
+ensureKvNamespaces();
 
 console.log("\nSetting worker secrets…");
 putSecret("GOOGLE_PLACES_API_KEY", process.env.GOOGLE_PLACES_API_KEY);
@@ -151,6 +171,10 @@ putSecret("GOOGLE_CALENDAR_ID", process.env.GOOGLE_CALENDAR_ID ?? "colinrice876@
 putSecret(
   "GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON",
   process.env.GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON,
+);
+putSecret(
+  "DRIVER_ACCESS_KEY",
+  process.env.DRIVER_ACCESS_KEY ?? generateDriverAccessKey(),
 );
 
 console.log("\nDeploying worker…");
