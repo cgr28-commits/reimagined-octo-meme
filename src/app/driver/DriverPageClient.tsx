@@ -27,6 +27,19 @@ import { issueBookingRefund } from "@/lib/refund-api";
 import { DEMO_DRIVER_KEY, DEMO_DRIVER_NAME, DEMO_OWNER_KEY, DEMO_ROSTER } from "@/lib/tracking-demo";
 import { SITE } from "@/lib/data";
 
+function readDemoQueryParam(): "owner" | "driver" | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  const value = new URLSearchParams(window.location.search).get("demo")?.trim().toLowerCase();
+  if (value === "owner" || value === "driver") {
+    return value;
+  }
+
+  return null;
+}
+
 const LiveTrackMap = dynamic(() => import("@/components/LiveTrackMap"), {
   ssr: false,
   loading: () => (
@@ -1397,56 +1410,102 @@ export default function DriverPageClient() {
     };
   }, [activeToken, isOwnerView, savedKey]);
 
-  const unlock = async () => {
-    const trimmed = driverKey.trim();
-    if (!trimmed) {
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      const result = await verifyDriverAccessKey(trimmed);
-      if (!result.ok) {
-        setError(
-          result.message ??
-            "That access key was not accepted. Check OWNER_ACCESS_KEY or DRIVER_ACCESS_KEY on the reimagined-octo-meme worker in Cloudflare.",
-        );
+  const unlockWithKey = useCallback(
+    async (rawKey: string) => {
+      const trimmed = rawKey.trim();
+      if (!trimmed) {
         return;
       }
 
-      const status = await fetchDriverStatus(trimmed);
-      if (trimmed === DEMO_DRIVER_KEY) {
-        setSessionRole("driver");
-        setDriverName(DEMO_DRIVER_NAME);
-      } else if (trimmed === DEMO_OWNER_KEY) {
-        setSessionRole("owner");
-        setDriverName(null);
-        setAvailableDrivers([...DEMO_ROSTER]);
-      } else if (status.role) {
-        setSessionRole(status.role);
-      }
-      if (trimmed !== DEMO_DRIVER_KEY && trimmed !== DEMO_OWNER_KEY && status.driverName) {
-        setDriverName(status.driverName);
-      }
-      if (status.role === "owner" && trimmed !== DEMO_OWNER_KEY) {
-        if (status.availableDrivers?.length) {
-          setAvailableDrivers(status.availableDrivers);
-        } else {
-          await loadDriverRoster(trimmed);
-        }
-      }
+      setLoading(true);
+      setError(null);
+      setDriverKey(trimmed);
 
-      window.sessionStorage.setItem(DRIVER_KEY_STORAGE, trimmed);
-      setSavedKey(trimmed);
-      await loadJobs(trimmed);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not verify driver key");
-    } finally {
-      setLoading(false);
-    }
+      try {
+        const result = await verifyDriverAccessKey(trimmed);
+        if (!result.ok) {
+          setError(
+            result.message ??
+              "That access key was not accepted. For the owner preview use demo-owner-key. For live owner access, set OWNER_ACCESS_KEY on the reimagined-octo-meme worker in Cloudflare.",
+          );
+          return;
+        }
+
+        const status = await fetchDriverStatus(trimmed);
+        if (trimmed === DEMO_DRIVER_KEY) {
+          setSessionRole("driver");
+          setDriverName(DEMO_DRIVER_NAME);
+        } else if (trimmed === DEMO_OWNER_KEY) {
+          setSessionRole("owner");
+          setDriverName(null);
+          setAvailableDrivers([...DEMO_ROSTER]);
+        } else if (status.role) {
+          setSessionRole(status.role);
+        } else if (!status.ok && status.hasOwnerKey === false && !status.hasDriverKey) {
+          setError(
+            "No access keys are configured on the worker. Use demo-owner-key for owner preview, or set OWNER_ACCESS_KEY / DRIVER_ACCESS_KEY in Cloudflare.",
+          );
+          return;
+        }
+
+        if (trimmed !== DEMO_DRIVER_KEY && trimmed !== DEMO_OWNER_KEY && status.driverName) {
+          setDriverName(status.driverName);
+        }
+        if (status.role === "owner" && trimmed !== DEMO_OWNER_KEY) {
+          if (status.availableDrivers?.length) {
+            setAvailableDrivers(status.availableDrivers);
+          } else {
+            await loadDriverRoster(trimmed);
+          }
+        }
+
+        // Clear demo query from the URL once signed in so refresh keeps the session.
+        if (typeof window !== "undefined") {
+          const url = new URL(window.location.href);
+          if (url.searchParams.has("demo")) {
+            url.searchParams.delete("demo");
+            window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+          }
+        }
+
+        window.sessionStorage.setItem(DRIVER_KEY_STORAGE, trimmed);
+        setSavedKey(trimmed);
+        await loadJobs(trimmed);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Could not verify access key");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [loadDriverRoster, loadJobs],
+  );
+
+  const unlock = async () => {
+    await unlockWithKey(driverKey);
   };
+
+  useEffect(() => {
+    const demoRole = readDemoQueryParam();
+    if (!demoRole) {
+      return;
+    }
+
+    const stored = window.sessionStorage.getItem(DRIVER_KEY_STORAGE)?.trim();
+    const wantedKey = demoRole === "owner" ? DEMO_OWNER_KEY : DEMO_DRIVER_KEY;
+    if (stored === wantedKey) {
+      return;
+    }
+
+    // Switching demo roles via ?demo=owner|driver should replace any existing session.
+    window.sessionStorage.removeItem(DRIVER_KEY_STORAGE);
+    setSavedKey(null);
+    setSessionRole(null);
+    setDriverName(null);
+    setJobs([]);
+    setPendingJobs([]);
+    setActiveToken(null);
+    void unlockWithKey(wantedKey);
+  }, [unlockWithKey]);
 
   useEffect(() => {
     if (!savedKey) {
@@ -1475,11 +1534,21 @@ export default function DriverPageClient() {
         <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
           <header className="mb-8">
             <p className="text-sm font-semibold uppercase tracking-widest text-emerald">
-              {isOwnerView ? "Owner dashboard" : "Driver dashboard"}
+              {!savedKey
+                ? "Owner & driver login"
+                : isOwnerView
+                  ? "Owner dashboard"
+                  : "Driver dashboard"}
             </p>
             <h1 className="mt-2 text-3xl font-bold text-white sm:text-4xl">Bookings</h1>
             <p className="mt-3 text-white/70">
-              {isOwnerView ? (
+              {!savedKey ? (
+                <>
+                  Choose owner or driver below. Owner preview uses{" "}
+                  <span className="text-white/90">demo-owner-key</span>. Gary&apos;s preview uses{" "}
+                  <span className="text-white/90">demo-driver-key</span>.
+                </>
+              ) : isOwnerView ? (
                 <>
                   Assign jobs to drivers such as Gary — they must accept before the job appears on
                   their dashboard. Issue refunds, track live location, and manage all bookings here.
@@ -1496,23 +1565,60 @@ export default function DriverPageClient() {
 
           {!savedKey ? (
             <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <button
+                  type="button"
+                  disabled={loading}
+                  onClick={() => void unlockWithKey(DEMO_OWNER_KEY)}
+                  className="rounded-2xl border border-emerald/40 bg-emerald/10 px-5 py-5 text-left transition-colors hover:border-emerald hover:bg-emerald/15 disabled:opacity-60"
+                >
+                  <p className="text-xs font-semibold uppercase tracking-wider text-emerald">
+                    Owner preview
+                  </p>
+                  <p className="mt-2 text-lg font-bold text-white">Open owner dashboard</p>
+                  <p className="mt-2 text-sm text-white/65">
+                    Assign jobs, payments, refunds, GPS audit — uses demo-owner-key
+                  </p>
+                </button>
+                <button
+                  type="button"
+                  disabled={loading}
+                  onClick={() => void unlockWithKey(DEMO_DRIVER_KEY)}
+                  className="rounded-2xl border border-white/15 bg-white/[0.02] px-5 py-5 text-left transition-colors hover:border-white/30 hover:bg-white/[0.04] disabled:opacity-60"
+                >
+                  <p className="text-xs font-semibold uppercase tracking-wider text-white/50">
+                    Driver preview
+                  </p>
+                  <p className="mt-2 text-lg font-bold text-white">Open Gary&apos;s dashboard</p>
+                  <p className="mt-2 text-sm text-white/65">
+                    Accept jobs and share live location — uses demo-driver-key
+                  </p>
+                </button>
+              </div>
+
+              <div className="my-6 border-t border-white/10" />
+
               <label htmlFor="driver-key" className="block text-sm font-medium text-white/70">
-                Access key
+                Or enter a live access key
               </label>
               <input
                 id="driver-key"
                 type="password"
                 value={driverKey}
                 onChange={(event) => setDriverKey(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    void unlock();
+                  }
+                }}
                 className="mt-2 w-full rounded-xl border border-white/15 bg-navy px-4 py-3 text-white outline-none focus:border-emerald"
-                placeholder="Enter your access key"
+                placeholder="OWNER_ACCESS_KEY or DRIVER_ACCESS_KEY"
               />
               <p className="mt-3 text-sm text-white/55">
-                Owners: <span className="text-white/75">OWNER_ACCESS_KEY</span> — preview:{" "}
-                <span className="text-white/75">demo-owner-key</span>. Drivers (Gary):{" "}
-                <span className="text-white/75">DRIVER_ACCESS_KEY</span> from Cloudflare → Workers →{" "}
-                <span className="text-white/75">reimagined-octo-meme</span>. Preview Gary&apos;s view:{" "}
-                <span className="text-white/75">demo-driver-key</span>.
+                Live owner access needs <span className="text-white/75">OWNER_ACCESS_KEY</span> set
+                on Cloudflare → Workers → <span className="text-white/75">reimagined-octo-meme</span>.
+                Until that secret is set, use the owner preview button above.
               </p>
               {error && (
                 <p className="mt-4 rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-100">
@@ -1522,25 +1628,62 @@ export default function DriverPageClient() {
               <button
                 type="button"
                 onClick={() => void unlock()}
-                disabled={loading}
+                disabled={loading || !driverKey.trim()}
                 className="mt-4 rounded-xl bg-emerald px-5 py-3 text-sm font-semibold text-navy transition-colors hover:bg-emerald/90 disabled:opacity-60"
               >
-                {loading ? "Checking key…" : "Open dashboard"}
+                {loading ? "Checking key…" : "Open with access key"}
               </button>
             </section>
           ) : (
             <>
               {isDemoOwnerSession && (
                 <div className="mb-6 rounded-xl border border-emerald/30 bg-emerald/10 px-4 py-3 text-sm text-emerald-light">
-                  Owner preview mode — you&apos;re signed in with <strong>demo-owner-key</strong>.
-                  Sign out and use <strong>demo-driver-key</strong> to preview Gary&apos;s view.
+                  <p>
+                    Owner preview mode — signed in with <strong>demo-owner-key</strong>.
+                  </p>
+                  <button
+                    type="button"
+                    disabled={loading}
+                    onClick={() => {
+                      window.sessionStorage.removeItem(DRIVER_KEY_STORAGE);
+                      setSavedKey(null);
+                      setJobs([]);
+                      setPendingJobs([]);
+                      setActiveToken(null);
+                      setSessionRole(null);
+                      setDriverName(null);
+                      void unlockWithKey(DEMO_DRIVER_KEY);
+                    }}
+                    className="mt-3 rounded-xl border border-emerald/40 px-4 py-2 text-sm font-semibold text-emerald transition-colors hover:bg-emerald/10 disabled:opacity-60"
+                  >
+                    Switch to Gary&apos;s driver preview
+                  </button>
                 </div>
               )}
 
               {isDemoDriverSession && (
-                <div className="mb-6 rounded-xl border border-emerald/25 bg-emerald/10 px-4 py-3 text-sm text-emerald-light">
-                  Driver preview — signed in as <strong>Gary</strong>. Accept the airport job below, then
-                  review today&apos;s bookings.
+                <div className="mb-6 rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+                  <p>
+                    You&apos;re in <strong>Gary&apos;s driver preview</strong> (demo-driver-key) — this is
+                    not the owner dashboard.
+                  </p>
+                  <button
+                    type="button"
+                    disabled={loading}
+                    onClick={() => {
+                      window.sessionStorage.removeItem(DRIVER_KEY_STORAGE);
+                      setSavedKey(null);
+                      setJobs([]);
+                      setPendingJobs([]);
+                      setActiveToken(null);
+                      setSessionRole(null);
+                      setDriverName(null);
+                      void unlockWithKey(DEMO_OWNER_KEY);
+                    }}
+                    className="mt-3 rounded-xl bg-emerald px-4 py-2 text-sm font-semibold text-navy transition-colors hover:bg-emerald/90 disabled:opacity-60"
+                  >
+                    Switch to owner dashboard
+                  </button>
                 </div>
               )}
 
