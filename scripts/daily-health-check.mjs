@@ -359,8 +359,13 @@ async function checkLiveWebsite() {
     "@belfasttaxi",
     "Get a quote & book",
     "Save to contacts",
+    "Scan QR code",
+    "Download QR image",
     "028 9602 2952",
   ]);
+
+  await fetchCheck("Contact QR image", `${SITE_URL}/contact-qr.png`);
+  await fetchCheck("Contact vCard file", `${SITE_URL}/my-airport-taxi-ni.vcf`);
 
   await pageContentCheck("Driver page links", `${SITE_URL}/driver/`, [
     "/owner/",

@@ -2,8 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState, type ReactNode } from "react";
-import QRCode from "qrcode";
+import type { ReactNode } from "react";
 import { SITE } from "@/lib/data";
 import { withBasePath } from "@/lib/paths";
 import {
@@ -31,35 +30,8 @@ function ActionIcon({
 }
 
 export default function ContactCardClient() {
-  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
   const cardUrl = contactCardUrl();
-
-  useEffect(() => {
-    let cancelled = false;
-
-    void QRCode.toDataURL(cardUrl, {
-      width: 220,
-      margin: 1,
-      color: {
-        dark: "#071c38",
-        light: "#ffffff",
-      },
-    })
-      .then((url) => {
-        if (!cancelled) {
-          setQrDataUrl(url);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setQrDataUrl(null);
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [cardUrl]);
+  const qrSrc = withBasePath("/contact-qr.png");
 
   return (
     <main className="relative min-h-screen overflow-x-clip bg-navy">
@@ -213,25 +185,31 @@ export default function ContactCardClient() {
             www.myairporttaxini.co.uk
           </a>
 
-          <div className="contact-fade-up-delay-3 mt-10 flex items-end justify-between gap-4 rounded-2xl border border-white/10 bg-white/[0.03] px-5 py-5">
-            <div className="min-w-0">
-              <p className="text-xs font-semibold uppercase tracking-wider text-emerald">
-                Digital card
-              </p>
-              <p className="mt-2 text-sm leading-relaxed text-white/65">
-                Scan to open this page on another phone, then tap Save to contacts.
-              </p>
+          <div className="contact-fade-up-delay-3 mt-10 rounded-2xl border border-white/10 bg-white/[0.03] px-5 py-6 text-center">
+            <p className="text-xs font-semibold uppercase tracking-wider text-emerald">
+              Scan QR code
+            </p>
+            <p className="mt-2 text-sm leading-relaxed text-white/65">
+              Opens this contact card — book, call, WhatsApp, or save to contacts.
+            </p>
+            <div className="mx-auto mt-5 inline-flex rounded-2xl bg-white p-3 shadow-lg">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={qrSrc}
+                alt={`QR code linking to ${cardUrl}`}
+                width={220}
+                height={220}
+                className="h-48 w-48 sm:h-52 sm:w-52"
+              />
             </div>
-            <div className="shrink-0 rounded-xl bg-white p-2 shadow-lg">
-              {qrDataUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={qrDataUrl} alt="QR code for contact card" className="h-28 w-28" />
-              ) : (
-                <div className="flex h-28 w-28 items-center justify-center text-xs text-navy/50">
-                  QR…
-                </div>
-              )}
-            </div>
+            <p className="mt-4 break-all text-xs text-white/45">{cardUrl}</p>
+            <a
+              href={qrSrc}
+              download="my-airport-taxi-ni-contact-qr.png"
+              className="mt-5 inline-flex items-center justify-center gap-2 rounded-xl bg-emerald/15 px-4 py-2.5 text-sm font-semibold text-emerald transition-colors hover:bg-emerald/25"
+            >
+              Download QR image
+            </a>
           </div>
         </div>
       </div>
