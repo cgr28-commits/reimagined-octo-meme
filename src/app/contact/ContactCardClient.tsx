@@ -95,11 +95,33 @@ export default function ContactCardClient() {
           </p>
 
           <div className="contact-fade-up-delay-2 mt-10 flex flex-col gap-3">
-            <a
-              href={`tel:${SITE.landline}`}
+            <Link
+              href="/#quote"
               className="flex items-center gap-4 rounded-2xl bg-emerald px-5 py-4 text-navy shadow-[0_12px_40px_rgba(47,191,74,0.22)] transition-transform duration-300 hover:scale-[1.02] active:scale-[0.99]"
             >
               <ActionIcon tone="onEmerald">
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                  />
+                </svg>
+              </ActionIcon>
+              <span className="min-w-0">
+                <span className="block text-xs font-semibold uppercase tracking-wider text-navy/70">
+                  Book
+                </span>
+                <span className="mt-0.5 block text-lg font-bold">Get a quote &amp; book</span>
+              </span>
+            </Link>
+
+            <a
+              href={`tel:${SITE.landline}`}
+              className="flex items-center gap-4 rounded-2xl border border-emerald/40 bg-emerald/10 px-5 py-4 text-white transition-colors hover:border-emerald hover:bg-emerald/15"
+            >
+              <ActionIcon>
                 <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path
                     strokeLinecap="round"
@@ -110,7 +132,7 @@ export default function ContactCardClient() {
                 </svg>
               </ActionIcon>
               <span className="min-w-0">
-                <span className="block text-xs font-semibold uppercase tracking-wider text-navy/70">
+                <span className="block text-xs font-semibold uppercase tracking-wider text-emerald">
                   Call
                 </span>
                 <span className="mt-0.5 block text-lg font-bold">{SITE.landlineDisplay}</span>
@@ -121,7 +143,7 @@ export default function ContactCardClient() {
               href={whatsAppChatUrl()}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-4 rounded-2xl border border-emerald/40 bg-emerald/10 px-5 py-4 text-white transition-colors hover:border-emerald hover:bg-emerald/15"
+              className="flex items-center gap-4 rounded-2xl border border-white/15 bg-white/[0.03] px-5 py-4 text-white transition-colors hover:border-white/30 hover:bg-white/[0.06]"
             >
               <ActionIcon>
                 <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
@@ -129,7 +151,7 @@ export default function ContactCardClient() {
                 </svg>
               </ActionIcon>
               <span className="min-w-0">
-                <span className="block text-xs font-semibold uppercase tracking-wider text-emerald">
+                <span className="block text-xs font-semibold uppercase tracking-wider text-white/50">
                   WhatsApp
                 </span>
                 <span className="mt-0.5 block text-lg font-bold">@{SITE.whatsappUsername}</span>
@@ -199,12 +221,6 @@ export default function ContactCardClient() {
               <p className="mt-2 text-sm leading-relaxed text-white/65">
                 Scan to open this page on another phone, then tap Save to contacts.
               </p>
-              <Link
-                href="/#quote"
-                className="mt-4 inline-flex rounded-xl bg-emerald/15 px-4 py-2 text-sm font-semibold text-emerald transition-colors hover:bg-emerald/25"
-              >
-                Get a quote
-              </Link>
             </div>
             <div className="shrink-0 rounded-xl bg-white p-2 shadow-lg">
               {qrDataUrl ? (

@@ -357,6 +357,7 @@ async function checkLiveWebsite() {
   await pageContentCheck("Contact card markers", `${SITE_URL}/contact/`, [
     "My Airport Taxi",
     "@belfasttaxi",
+    "Get a quote & book",
     "Save to contacts",
     "028 9602 2952",
   ]);
