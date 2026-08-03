@@ -2,7 +2,10 @@ export type SumUpCheckoutRequest = {
   amount: number;
   description: string;
   checkoutReference: string;
+  /** Browser return URL after hosted checkout / 3DS. */
   redirectUrl: string;
+  /** Server webhook URL SumUp POSTs when checkout status changes. */
+  returnUrl?: string;
 };
 
 export type SumUpCheckoutResult = {
@@ -51,6 +54,7 @@ export async function createSumUpHostedCheckout(
       checkout_reference: request.checkoutReference,
       description: request.description.slice(0, 140),
       redirect_url: request.redirectUrl,
+      ...(request.returnUrl ? { return_url: request.returnUrl } : {}),
       hosted_checkout: {
         enabled: true,
       },

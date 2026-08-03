@@ -533,6 +533,14 @@ async function checkWorkerApis() {
         : "Expected validation error for empty quote lead",
   });
 
+  await jsonCheck("Worker SumUp webhook", `${WORKER_URL}/payments/webhook`, {
+    method: "POST",
+    expectStatuses: [200],
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ event_type: "CHECKOUT_STATUS_CHANGED", id: "health-check" }),
+    assert: (data) => (data && data.ok === true ? true : "Webhook did not acknowledge"),
+  });
+
   await jsonCheck("Worker refund auth gate", `${WORKER_URL}/bookings/refund`, {
     method: "POST",
     expectStatuses: [401, 403],
