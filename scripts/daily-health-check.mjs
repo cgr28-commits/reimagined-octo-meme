@@ -373,15 +373,20 @@ async function checkLiveWebsite() {
   );
   if (vcardResponse) {
     const vcardText = await vcardResponse.text();
-    const hasApplePhoto =
-      vcardText.includes("PHOTO;TYPE=JPEG;ENCODING=b:") &&
-      vcardText.includes("\n /9j/");
-    if (hasApplePhoto) {
-      record("Contact vCard logo photo", "pass", "vCard embeds Apple-style JPEG PHOTO");
+    const hasPhoto =
+      vcardText.includes("PHOTO;ENCODING=b;TYPE=JPG:") ||
+      vcardText.includes("PHOTO;TYPE=JPEG;ENCODING=b:");
+    if (hasPhoto) {
+      record("Contact vCard logo photo", "pass", "vCard embeds JPEG/JPG PHOTO");
     } else {
-      record("Contact vCard logo photo", "fail", "vCard missing Apple-style embedded PHOTO");
+      record("Contact vCard logo photo", "fail", "vCard missing embedded PHOTO");
     }
   }
+
+  await fetchCheck(
+    "Worker contact vCard MIME",
+    "https://reimagined-octo-meme.cgr28.workers.dev/contact.vcf",
+  );
 
   await pageContentCheck("Driver page links", `${SITE_URL}/driver/`, [
     "/owner/",

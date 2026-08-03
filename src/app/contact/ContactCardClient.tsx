@@ -2,12 +2,12 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { SITE } from "@/lib/data";
 import { withBasePath } from "@/lib/paths";
 import {
   contactCardUrl,
-  contactVCardUrl,
+  saveContactToDevice,
   whatsAppChatUrl,
 } from "@/lib/contact-card";
 
@@ -32,6 +32,32 @@ function ActionIcon({
 export default function ContactCardClient() {
   const cardUrl = contactCardUrl();
   const qrSrc = withBasePath("/contact-qr.png");
+  const [savingContact, setSavingContact] = useState(false);
+  const [saveHint, setSaveHint] = useState<string | null>(null);
+
+  async function handleSaveContact() {
+    if (savingContact) return;
+    setSavingContact(true);
+    setSaveHint(null);
+    try {
+      const result = await saveContactToDevice();
+      setSaveHint(
+        result === "shared"
+          ? "On iPhone: choose Contacts in the share sheet to keep the logo."
+          : "Opening contact file…",
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Could not save contact";
+      // User cancelled the share sheet — not an error to surface harshly.
+      if (/AbortError|canceled|cancelled/i.test(message) || (error instanceof DOMException && error.name === "AbortError")) {
+        setSaveHint(null);
+      } else {
+        setSaveHint(message);
+      }
+    } finally {
+      setSavingContact(false);
+    }
+  }
 
   return (
     <main className="relative min-h-screen overflow-x-clip bg-navy">
@@ -154,10 +180,11 @@ export default function ContactCardClient() {
               </span>
             </a>
 
-            <a
-              href={contactVCardUrl()}
-              download="my-airport-taxi-ni.vcf"
-              className="flex items-center gap-4 rounded-2xl border border-white/15 bg-white/[0.03] px-5 py-4 text-left text-white transition-colors hover:border-white/30 hover:bg-white/[0.06]"
+            <button
+              type="button"
+              onClick={() => void handleSaveContact()}
+              disabled={savingContact}
+              className="flex items-center gap-4 rounded-2xl border border-white/15 bg-white/[0.03] px-5 py-4 text-left text-white transition-colors hover:border-white/30 hover:bg-white/[0.06] disabled:opacity-70"
             >
               <ActionIcon>
                 <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -173,12 +200,19 @@ export default function ContactCardClient() {
                 <span className="block text-xs font-semibold uppercase tracking-wider text-white/50">
                   Save
                 </span>
-                <span className="mt-0.5 block text-lg font-bold">Save to contacts</span>
+                <span className="mt-0.5 block text-lg font-bold">
+                  {savingContact ? "Preparing…" : "Save to contacts"}
+                </span>
                 <span className="mt-0.5 block text-xs text-white/45">
-                  Includes logo, phone, WhatsApp &amp; email
+                  Includes logo — on iPhone, choose Contacts
                 </span>
               </span>
-            </a>
+            </button>
+            {saveHint ? (
+              <p className="rounded-xl border border-emerald/30 bg-emerald/10 px-4 py-3 text-sm text-emerald">
+                {saveHint}
+              </p>
+            ) : null}
           </div>
 
           <a
