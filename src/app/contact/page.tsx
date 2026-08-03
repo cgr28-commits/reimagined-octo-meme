@@ -5,13 +5,13 @@ import { absoluteSiteUrl } from "@/lib/paths";
 
 export const metadata: Metadata = {
   title: `Contact card | ${SITE.name}`,
-  description: `Save ${SITE.name} to your phone — call, WhatsApp @${SITE.whatsappUsername}, email, or add to contacts.`,
+  description: `Book, call, WhatsApp @${SITE.whatsappUsername}, email, or save ${SITE.name} to your phone.`,
   alternates: {
     canonical: "/contact/",
   },
   openGraph: {
     title: `${SITE.name} — Digital contact card`,
-    description: `Call ${SITE.landlineDisplay} · WhatsApp @${SITE.whatsappUsername} · ${SITE.email}`,
+    description: `Book online · Call ${SITE.landlineDisplay} · WhatsApp @${SITE.whatsappUsername}`,
     url: absoluteSiteUrl("/contact/"),
     images: [
       {
