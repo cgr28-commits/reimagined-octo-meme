@@ -7,7 +7,7 @@ import { SITE } from "@/lib/data";
 import { withBasePath } from "@/lib/paths";
 import {
   contactCardUrl,
-  downloadContactVCard,
+  contactVCardUrl,
   whatsAppChatUrl,
 } from "@/lib/contact-card";
 
@@ -154,9 +154,9 @@ export default function ContactCardClient() {
               </span>
             </a>
 
-            <button
-              type="button"
-              onClick={() => downloadContactVCard()}
+            <a
+              href={contactVCardUrl()}
+              download="my-airport-taxi-ni.vcf"
               className="flex items-center gap-4 rounded-2xl border border-white/15 bg-white/[0.03] px-5 py-4 text-left text-white transition-colors hover:border-white/30 hover:bg-white/[0.06]"
             >
               <ActionIcon>
@@ -178,7 +178,7 @@ export default function ContactCardClient() {
                   Includes logo, phone, WhatsApp &amp; email
                 </span>
               </span>
-            </button>
+            </a>
           </div>
 
           <a

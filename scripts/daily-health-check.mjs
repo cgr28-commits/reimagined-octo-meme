@@ -373,10 +373,13 @@ async function checkLiveWebsite() {
   );
   if (vcardResponse) {
     const vcardText = await vcardResponse.text();
-    if (vcardText.includes("PHOTO;") && vcardText.includes("TYPE=JPEG")) {
-      record("Contact vCard logo photo", "pass", "vCard embeds JPEG PHOTO");
+    const hasApplePhoto =
+      vcardText.includes("PHOTO;TYPE=JPEG;ENCODING=b:") &&
+      vcardText.includes("\n /9j/");
+    if (hasApplePhoto) {
+      record("Contact vCard logo photo", "pass", "vCard embeds Apple-style JPEG PHOTO");
     } else {
-      record("Contact vCard logo photo", "fail", "vCard missing embedded PHOTO");
+      record("Contact vCard logo photo", "fail", "vCard missing Apple-style embedded PHOTO");
     }
   }
 
