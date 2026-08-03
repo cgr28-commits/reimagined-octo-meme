@@ -7,6 +7,7 @@ import { SITE } from "@/lib/data";
 import { withBasePath } from "@/lib/paths";
 import {
   contactCardUrl,
+  contactEmailLink,
   saveContactToDevice,
   whatsAppChatUrl,
 } from "@/lib/contact-card";
@@ -34,6 +35,7 @@ export default function ContactCardClient() {
   const qrSrc = withBasePath("/contact-qr.png");
   const [savingContact, setSavingContact] = useState(false);
   const [saveHint, setSaveHint] = useState<string | null>(null);
+  const [showIosSteps, setShowIosSteps] = useState(false);
 
   async function handleSaveContact() {
     if (savingContact) return;
@@ -41,15 +43,20 @@ export default function ContactCardClient() {
     setSaveHint(null);
     try {
       const result = await saveContactToDevice();
-      setSaveHint(
-        result === "shared"
-          ? "Share sheet opened — tap Contacts (not Create New Contact in Safari) to keep the logo."
-          : "Opening contact file…",
-      );
+      if (result === "ios-download") {
+        setShowIosSteps(true);
+        setSaveHint(null);
+      } else if (result === "shared") {
+        setSaveHint("Share sheet opened — choose Contacts to save with the logo.");
+      } else {
+        setSaveHint("Opening contact file…");
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : "Could not save contact";
-      // User cancelled the share sheet — not an error to surface harshly.
-      if (/AbortError|canceled|cancelled/i.test(message) || (error instanceof DOMException && error.name === "AbortError")) {
+      if (
+        /AbortError|canceled|cancelled/i.test(message) ||
+        (error instanceof DOMException && error.name === "AbortError")
+      ) {
         setSaveHint(null);
       } else {
         setSaveHint(message);
@@ -201,13 +208,32 @@ export default function ContactCardClient() {
                   Save
                 </span>
                 <span className="mt-0.5 block text-lg font-bold">
-                  {savingContact ? "Preparing…" : "Save to contacts"}
+                  {savingContact ? "Downloading…" : "Save to contacts"}
                 </span>
                 <span className="mt-0.5 block text-xs text-white/45">
-                  iPhone: choose Contacts in the share sheet
+                  Includes logo — downloads a contact file
                 </span>
               </span>
             </button>
+            {showIosSteps ? (
+              <div className="rounded-2xl border border-emerald/35 bg-emerald/10 px-4 py-4 text-sm text-white">
+                <p className="font-semibold text-emerald">iPhone — keep the logo</p>
+                <ol className="mt-3 list-decimal space-y-2 pl-5 text-white/80">
+                  <li>Allow the download of <span className="text-white">My-Airport-Taxi-NI.vcf</span></li>
+                  <li>Open the <span className="text-white">Files</span> app → Downloads</li>
+                  <li>Tap the file → <span className="text-white">Create New Contact</span></li>
+                </ol>
+                <p className="mt-3 text-xs text-white/55">
+                  Safari’s own contact preview removes the logo. Opening from Files keeps it.
+                </p>
+                <a
+                  href={contactEmailLink()}
+                  className="mt-4 inline-flex text-sm font-semibold text-emerald underline-offset-2 hover:underline"
+                >
+                  Or email the file link to yourself
+                </a>
+              </div>
+            ) : null}
             {saveHint ? (
               <p className="rounded-xl border border-emerald/30 bg-emerald/10 px-4 py-3 text-sm text-emerald">
                 {saveHint}
