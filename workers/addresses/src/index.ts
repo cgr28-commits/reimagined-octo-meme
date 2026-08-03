@@ -200,11 +200,21 @@ function parseDriverRoute(
   return null;
 }
 
-function handleContactVCardRequest(origin: string | null): Response {
+function handleContactVCardRequest(request: Request, origin: string | null): Response {
+  if (request.method !== "GET" && request.method !== "HEAD") {
+    return new Response("Method not allowed", { status: 405 });
+  }
+
   const headers = new Headers(corsHeaders(origin));
   headers.set("Content-Type", "text/vcard; charset=utf-8");
   headers.set("Content-Disposition", 'inline; filename="My-Airport-Taxi-NI.vcf"');
   headers.set("Cache-Control", "public, max-age=300");
+  headers.set("Content-Length", String(new TextEncoder().encode(CONTACT_VCARD).length));
+
+  if (request.method === "HEAD") {
+    return new Response(null, { status: 200, headers });
+  }
+
   return new Response(CONTACT_VCARD, { status: 200, headers });
 }
 
@@ -1031,9 +1041,9 @@ export default {
 
     if (
       (url.pathname === "/contact.vcf" || url.pathname === "/api/contact.vcf") &&
-      request.method === "GET"
+      (request.method === "GET" || request.method === "HEAD")
     ) {
-      return handleContactVCardRequest(origin);
+      return handleContactVCardRequest(request, origin);
     }
 
     const trackSubRoute = parseTrackSubRoute(url.pathname);
