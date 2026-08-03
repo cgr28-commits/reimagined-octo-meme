@@ -21,12 +21,18 @@ export function whatsAppChatUrl(message = SITE.whatsappDefaultMessage): string {
   return `https://wa.me/${SITE.whatsapp}?text=${text}`;
 }
 
+function isAppleMobile(): boolean {
+  if (typeof navigator === "undefined") return false;
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+}
+
 /**
  * Save the branded contact (with logo) to the device address book.
  *
- * On iPhone, Safari's built-in "Create New Contact" preview often strips photos.
- * Sharing the .vcf file via the system share sheet preserves the logo — user
- * should choose Contacts / Save to Contacts.
+ * Important: Safari’s built-in “Create New Contact” preview strips photos.
+ * On iPhone we only use the system share sheet so Contacts receives the full
+ * .vcf (including the logo). Choose “Contacts” in that sheet.
  */
 export async function saveContactToDevice(): Promise<"shared" | "downloaded"> {
   const response = await fetch(contactVCardUrl(), { cache: "no-store" });
@@ -35,7 +41,7 @@ export async function saveContactToDevice(): Promise<"shared" | "downloaded"> {
   }
 
   const text = await response.text();
-  if (!text.includes("BEGIN:VCARD") || !text.includes("PHOTO")) {
+  if (!text.includes("BEGIN:VCARD") || !/PHOTO;ENCODING=b;TYPE=JP(E)?G:/i.test(text)) {
     throw new Error("Contact card file is missing the logo photo");
   }
 
@@ -49,12 +55,23 @@ export async function saveContactToDevice(): Promise<"shared" | "downloaded"> {
     text: `${SITE.name} contact card`,
   };
 
-  if (typeof navigator !== "undefined" && navigator.canShare?.(shareData)) {
+  const canShareFiles =
+    typeof navigator !== "undefined" &&
+    typeof navigator.share === "function" &&
+    (typeof navigator.canShare !== "function" || navigator.canShare(shareData));
+
+  if (canShareFiles) {
     await navigator.share(shareData);
     return "shared";
   }
 
-  // Fallback: open the worker URL so MIME is text/vcard (better than GH Pages).
+  // Do not open the .vcf in Safari on iPhone — that preview drops the logo.
+  if (isAppleMobile()) {
+    throw new Error(
+      "On iPhone, tap Save again and choose Contacts in the share sheet so the logo is kept.",
+    );
+  }
+
   window.location.href = CONTACT_VCARD_WORKER_URL;
   return "downloaded";
 }

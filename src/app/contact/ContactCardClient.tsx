@@ -43,7 +43,7 @@ export default function ContactCardClient() {
       const result = await saveContactToDevice();
       setSaveHint(
         result === "shared"
-          ? "On iPhone: choose Contacts in the share sheet to keep the logo."
+          ? "Share sheet opened — tap Contacts (not Create New Contact in Safari) to keep the logo."
           : "Opening contact file…",
       );
     } catch (error) {
@@ -204,7 +204,7 @@ export default function ContactCardClient() {
                   {savingContact ? "Preparing…" : "Save to contacts"}
                 </span>
                 <span className="mt-0.5 block text-xs text-white/45">
-                  Includes logo — on iPhone, choose Contacts
+                  iPhone: choose Contacts in the share sheet
                 </span>
               </span>
             </button>
