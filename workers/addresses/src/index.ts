@@ -89,6 +89,7 @@ import {
   handleMarketingUnsubscribeRequest,
   maybeRecordMarketingFromPayload,
 } from "./marketing-handlers";
+import { CONTACT_VCARD } from "../shared/contact-vcard";
 
 type EmailBinding = {
   send(message: {
@@ -197,6 +198,14 @@ function parseDriverRoute(
   }
 
   return null;
+}
+
+function handleContactVCardRequest(origin: string | null): Response {
+  const headers = new Headers(corsHeaders(origin));
+  headers.set("Content-Type", "text/vcard; charset=utf-8");
+  headers.set("Content-Disposition", 'inline; filename="My-Airport-Taxi-NI.vcf"');
+  headers.set("Cache-Control", "public, max-age=300");
+  return new Response(CONTACT_VCARD, { status: 200, headers });
 }
 
 function routePath(
@@ -1018,6 +1027,13 @@ export default {
         status: 204,
         headers: corsHeaders(origin),
       });
+    }
+
+    if (
+      (url.pathname === "/contact.vcf" || url.pathname === "/api/contact.vcf") &&
+      request.method === "GET"
+    ) {
+      return handleContactVCardRequest(origin);
     }
 
     const trackSubRoute = parseTrackSubRoute(url.pathname);
