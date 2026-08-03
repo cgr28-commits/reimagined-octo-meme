@@ -205,10 +205,24 @@ function handleContactVCardRequest(request: Request, origin: string | null): Res
     return new Response("Method not allowed", { status: 405 });
   }
 
+  const url = new URL(request.url);
+  const forceDownload =
+    url.searchParams.get("download") === "1" || url.searchParams.get("dl") === "1";
+
   const headers = new Headers(corsHeaders(origin));
-  headers.set("Content-Type", "text/vcard; charset=utf-8");
-  headers.set("Content-Disposition", 'inline; filename="My-Airport-Taxi-NI.vcf"');
-  headers.set("Cache-Control", "public, max-age=300");
+  // iPhone Safari opens text/vcard inline and strips the photo. Forcing a file
+  // download (octet-stream + attachment) keeps the logo when opened from Files.
+  if (forceDownload) {
+    headers.set("Content-Type", "application/octet-stream");
+    headers.set(
+      "Content-Disposition",
+      'attachment; filename="My-Airport-Taxi-NI.vcf"',
+    );
+  } else {
+    headers.set("Content-Type", "text/vcard; charset=utf-8");
+    headers.set("Content-Disposition", 'inline; filename="My-Airport-Taxi-NI.vcf"');
+  }
+  headers.set("Cache-Control", "public, max-age=60");
   headers.set("Content-Length", String(new TextEncoder().encode(CONTACT_VCARD).length));
 
   if (request.method === "HEAD") {
