@@ -201,7 +201,20 @@ function parseDriverRoute(
 
 function routePath(
   pathname: string,
-): "addresses" | "geocode" | "bookings" | "quote-leads" | "payments" | "payments-confirm" | "bookings-refund" | "flights" | "calendar-status" | "marketing-opt-in" | "marketing-unsubscribe" | null {
+):
+  | "addresses"
+  | "geocode"
+  | "bookings"
+  | "quote-leads"
+  | "payments"
+  | "payments-confirm"
+  | "payments-webhook"
+  | "bookings-refund"
+  | "flights"
+  | "calendar-status"
+  | "marketing-opt-in"
+  | "marketing-unsubscribe"
+  | null {
   if (pathname === "/addresses" || pathname === "/api/addresses") {
     return "addresses";
   }
@@ -220,6 +233,10 @@ function routePath(
 
   if (pathname === "/payments/confirm" || pathname === "/api/payments/confirm") {
     return "payments-confirm";
+  }
+
+  if (pathname === "/payments/webhook" || pathname === "/api/payments/webhook") {
+    return "payments-webhook";
   }
 
   if (pathname === "/payments" || pathname === "/api/payments") {
@@ -706,11 +723,13 @@ async function handlePaymentRequest(
 
   try {
     const checkoutReference = body.checkoutReference?.trim() || buildCheckoutReference();
+    const returnUrl = new URL("/payments/webhook", request.url).toString();
     const checkout = await createSumUpHostedCheckout(apiKey, merchantCode, {
       amount: Math.round(amount * 100) / 100,
       description,
       checkoutReference,
       redirectUrl,
+      returnUrl,
     });
 
     return json(
@@ -727,6 +746,25 @@ async function handlePaymentRequest(
     console.error("SumUp checkout failed", error);
     return json({ error: "Could not create SumUp payment link" }, 502, origin);
   }
+}
+
+/**
+ * SumUp server-to-server callback (return_url).
+ * Must acknowledge quickly with 2xx — heavy work stays on /payments/confirm
+ * when the customer returns to the website.
+ */
+async function handlePaymentWebhookRequest(
+  request: Request,
+  origin: string | null,
+): Promise<Response> {
+  try {
+    const payload = await request.json().catch(() => null);
+    console.log("SumUp payment webhook", payload);
+  } catch {
+    // Ignore malformed bodies — still acknowledge so SumUp does not retry/timeout.
+  }
+
+  return json({ ok: true }, 200, origin);
 }
 
 async function handlePaymentConfirmRequest(
@@ -1083,6 +1121,14 @@ export default {
       }
 
       return handlePaymentRequest(request, env, origin);
+    }
+
+    if (route === "payments-webhook") {
+      if (request.method !== "POST" && request.method !== "GET") {
+        return json({ error: "Method not allowed" }, 405, origin);
+      }
+
+      return handlePaymentWebhookRequest(request, origin);
     }
 
     if (route === "payments-confirm") {

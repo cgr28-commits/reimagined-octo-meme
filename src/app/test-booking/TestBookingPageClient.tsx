@@ -98,12 +98,20 @@ export default function TestBookingPageClient() {
               <li>Check your email for the branded invoice and live tracking link.</li>
               <li>
                 Open the{" "}
-                <a href="/driver/" className="text-emerald underline">
-                  driver dashboard
+                <a href="/owner/" className="text-emerald underline">
+                  owner dashboard
                 </a>{" "}
-                with Colin&apos;s access key to see the job listed.
+                to see the paid job listed.
               </li>
             </ol>
+            <p className="mt-6 rounded-xl border border-amber-400/25 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+              Do not forward a raw <strong>checkout.sumup.com</strong> link — those expire in about
+              30 minutes and show a timeout/expired page. Send this page (
+              <a href="/test-booking/" className="underline">
+                /test-booking/
+              </a>
+              ) or a tracking demo link instead.
+            </p>
           </section>
         </div>
       </main>
