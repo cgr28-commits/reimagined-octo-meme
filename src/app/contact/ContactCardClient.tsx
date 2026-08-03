@@ -174,6 +174,9 @@ export default function ContactCardClient() {
                   Save
                 </span>
                 <span className="mt-0.5 block text-lg font-bold">Save to contacts</span>
+                <span className="mt-0.5 block text-xs text-white/45">
+                  Includes logo, phone, WhatsApp &amp; email
+                </span>
               </span>
             </button>
           </div>

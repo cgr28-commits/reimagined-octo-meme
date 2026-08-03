@@ -365,7 +365,20 @@ async function checkLiveWebsite() {
   ]);
 
   await fetchCheck("Contact QR image", `${SITE_URL}/contact-qr.png`);
-  await fetchCheck("Contact vCard file", `${SITE_URL}/my-airport-taxi-ni.vcf`);
+  await fetchCheck("Contact photo image", `${SITE_URL}/contact-photo.jpg`);
+
+  const vcardResponse = await fetchCheck(
+    "Contact vCard file",
+    `${SITE_URL}/my-airport-taxi-ni.vcf`,
+  );
+  if (vcardResponse) {
+    const vcardText = await vcardResponse.text();
+    if (vcardText.includes("PHOTO;") && vcardText.includes("TYPE=JPEG")) {
+      record("Contact vCard logo photo", "pass", "vCard embeds JPEG PHOTO");
+    } else {
+      record("Contact vCard logo photo", "fail", "vCard missing embedded PHOTO");
+    }
+  }
 
   await pageContentCheck("Driver page links", `${SITE_URL}/driver/`, [
     "/owner/",
