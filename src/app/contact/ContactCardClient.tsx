@@ -2,13 +2,12 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { SITE } from "@/lib/data";
 import { withBasePath } from "@/lib/paths";
 import {
   contactCardUrl,
-  contactEmailLink,
-  saveContactToDevice,
+  CONTACT_VCARD_WORKER_URL,
   whatsAppChatUrl,
 } from "@/lib/contact-card";
 
@@ -33,38 +32,6 @@ function ActionIcon({
 export default function ContactCardClient() {
   const cardUrl = contactCardUrl();
   const qrSrc = withBasePath("/contact-qr.png");
-  const [savingContact, setSavingContact] = useState(false);
-  const [saveHint, setSaveHint] = useState<string | null>(null);
-  const [showIosSteps, setShowIosSteps] = useState(false);
-
-  async function handleSaveContact() {
-    if (savingContact) return;
-    setSavingContact(true);
-    setSaveHint(null);
-    try {
-      const result = await saveContactToDevice();
-      if (result === "ios-download") {
-        setShowIosSteps(true);
-        setSaveHint(null);
-      } else if (result === "shared") {
-        setSaveHint("Share sheet opened — choose Contacts to save with the logo.");
-      } else {
-        setSaveHint("Opening contact file…");
-      }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Could not save contact";
-      if (
-        /AbortError|canceled|cancelled/i.test(message) ||
-        (error instanceof DOMException && error.name === "AbortError")
-      ) {
-        setSaveHint(null);
-      } else {
-        setSaveHint(message);
-      }
-    } finally {
-      setSavingContact(false);
-    }
-  }
 
   return (
     <main className="relative min-h-screen overflow-x-clip bg-navy">
@@ -187,11 +154,9 @@ export default function ContactCardClient() {
               </span>
             </a>
 
-            <button
-              type="button"
-              onClick={() => void handleSaveContact()}
-              disabled={savingContact}
-              className="flex items-center gap-4 rounded-2xl border border-white/15 bg-white/[0.03] px-5 py-4 text-left text-white transition-colors hover:border-white/30 hover:bg-white/[0.06] disabled:opacity-70"
+            <a
+              href={CONTACT_VCARD_WORKER_URL}
+              className="flex items-center gap-4 rounded-2xl border border-white/15 bg-white/[0.03] px-5 py-4 text-left text-white transition-colors hover:border-white/30 hover:bg-white/[0.06]"
             >
               <ActionIcon>
                 <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -207,38 +172,12 @@ export default function ContactCardClient() {
                 <span className="block text-xs font-semibold uppercase tracking-wider text-white/50">
                   Save
                 </span>
-                <span className="mt-0.5 block text-lg font-bold">
-                  {savingContact ? "Downloading…" : "Save to contacts"}
-                </span>
+                <span className="mt-0.5 block text-lg font-bold">Save to contacts</span>
                 <span className="mt-0.5 block text-xs text-white/45">
-                  Includes logo — downloads a contact file
+                  Phone, WhatsApp &amp; email — one tap
                 </span>
               </span>
-            </button>
-            {showIosSteps ? (
-              <div className="rounded-2xl border border-emerald/35 bg-emerald/10 px-4 py-4 text-sm text-white">
-                <p className="font-semibold text-emerald">iPhone — keep the logo</p>
-                <ol className="mt-3 list-decimal space-y-2 pl-5 text-white/80">
-                  <li>Allow the download of <span className="text-white">My-Airport-Taxi-NI.vcf</span></li>
-                  <li>Open the <span className="text-white">Files</span> app → Downloads</li>
-                  <li>Tap the file → <span className="text-white">Create New Contact</span></li>
-                </ol>
-                <p className="mt-3 text-xs text-white/55">
-                  Safari’s own contact preview removes the logo. Opening from Files keeps it.
-                </p>
-                <a
-                  href={contactEmailLink()}
-                  className="mt-4 inline-flex text-sm font-semibold text-emerald underline-offset-2 hover:underline"
-                >
-                  Or email the file link to yourself
-                </a>
-              </div>
-            ) : null}
-            {saveHint ? (
-              <p className="rounded-xl border border-emerald/30 bg-emerald/10 px-4 py-3 text-sm text-emerald">
-                {saveHint}
-              </p>
-            ) : null}
+            </a>
           </div>
 
           <a

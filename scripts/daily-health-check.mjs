@@ -359,7 +359,6 @@ async function checkLiveWebsite() {
     "@belfasttaxi",
     "Get a quote & book",
     "Save to contacts",
-    "Includes logo",
     "Scan QR code",
     "Download QR image",
     "028 9602 2952",
