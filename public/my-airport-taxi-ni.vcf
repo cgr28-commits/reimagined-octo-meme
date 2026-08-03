@@ -1,0 +1,13 @@
+BEGIN:VCARD
+VERSION:3.0
+FN:My Airport Taxi NI
+N:Taxi NI;My Airport;;;
+ORG:My Airport Taxi NI
+TITLE:Airport Transfers
+TEL;TYPE=VOICE,WORK:+442896022952
+TEL;TYPE=CELL,WHATSAPP:+447549815538
+EMAIL;TYPE=INTERNET,WORK:bookings@myairporttaxini.co.uk
+URL:https://www.myairporttaxini.co.uk
+X-SOCIALPROFILE;TYPE=whatsapp:https://wa.me/447549815538
+NOTE:WhatsApp @belfasttaxi · Premium airport transfers across Northern Ireland
+END:VCARD

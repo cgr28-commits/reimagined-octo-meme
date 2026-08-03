@@ -6,6 +6,7 @@ export const SITE = {
   landline: "+442896022952",
   landlineDisplay: "028 9602 2952",
   whatsapp: "447549815538",
+  whatsappUsername: "belfasttaxi",
   whatsappDefaultMessage: "Hi, I'd like some help.",
   email: "bookings@myairporttaxini.co.uk",
   url: "https://www.myairporttaxini.co.uk",

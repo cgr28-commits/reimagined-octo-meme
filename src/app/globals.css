@@ -28,6 +28,33 @@ body {
   color: white;
 }
 
+@keyframes contact-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.contact-fade-up {
+  animation: contact-fade-up 0.7s ease-out both;
+}
+
+.contact-fade-up-delay-1 {
+  animation: contact-fade-up 0.7s ease-out 0.12s both;
+}
+
+.contact-fade-up-delay-2 {
+  animation: contact-fade-up 0.7s ease-out 0.22s both;
+}
+
+.contact-fade-up-delay-3 {
+  animation: contact-fade-up 0.7s ease-out 0.34s both;
+}
+
 .glass-card {
   background: linear-gradient(
     135deg,

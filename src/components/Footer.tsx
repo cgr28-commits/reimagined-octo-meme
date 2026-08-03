@@ -86,6 +86,10 @@ export default function Footer() {
             &copy; {year} {SITE.name}. All rights reserved.
           </p>
           <div className="flex flex-wrap items-center justify-center gap-4 text-xs text-white/40">
+            <Link href="/contact/" className="transition-colors hover:text-emerald">
+              Contact card
+            </Link>
+            <span className="text-white/20">|</span>
             <Link href="/terms/" className="transition-colors hover:text-emerald">
               Terms &amp; Conditions
             </Link>

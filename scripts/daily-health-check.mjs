@@ -188,6 +188,7 @@ function tryFixSitemap() {
   const sitemapPath = join(process.cwd(), "public", "sitemap.xml");
   const requiredPaths = [
     "/privacy/",
+    "/contact/",
     "/driver/",
     "/owner/",
     "/track/",
@@ -328,6 +329,7 @@ async function checkLiveWebsite() {
     ["Homepage", "/"],
     ["Terms page", "/terms/"],
     ["Privacy page", "/privacy/"],
+    ["Contact card", "/contact/"],
     ["Driver dashboard", "/driver/"],
     ["Owner dashboard", "/owner/"],
     ["Track page", "/track/"],
@@ -350,6 +352,13 @@ async function checkLiveWebsite() {
   await pageContentCheck("Homepage branding", `${SITE_URL}/`, [
     "My Airport Taxi",
     "WhatsApp",
+  ]);
+
+  await pageContentCheck("Contact card markers", `${SITE_URL}/contact/`, [
+    "My Airport Taxi",
+    "@belfasttaxi",
+    "Save to contacts",
+    "028 9602 2952",
   ]);
 
   await pageContentCheck("Driver page links", `${SITE_URL}/driver/`, [
