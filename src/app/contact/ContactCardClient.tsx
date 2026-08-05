@@ -6,6 +6,7 @@ import { useState, type ReactNode } from "react";
 import {
   contactCardUrl,
   contactEmailLink,
+  downloadContactVCardForFiles,
   saveContactToDevice,
   whatsAppChatUrl,
 } from "@/lib/contact-card";
@@ -37,7 +38,7 @@ export default function ContactCardClient() {
   const qrSrc = withBasePath("/contact-qr.png");
   const [savingContact, setSavingContact] = useState(false);
   const [saveHint, setSaveHint] = useState<string | null>(null);
-  const [showIosSteps, setShowIosSteps] = useState(false);
+  const [showSaveHelp, setShowSaveHelp] = useState(false);
 
   async function handleSaveContact() {
     if (savingContact) return;
@@ -45,13 +46,13 @@ export default function ContactCardClient() {
     setSaveHint(null);
     try {
       const result = await saveContactToDevice();
-      if (result === "ios-download") {
-        setShowIosSteps(true);
-        setSaveHint(null);
+      if (result === "opened") {
+        setShowSaveHelp(true);
+        setSaveHint("Your phone should offer Create New Contact / Add to Contacts — tap that to save us.");
       } else if (result === "shared") {
         setSaveHint("Share sheet opened — choose Contacts to save with the logo.");
       } else {
-        setSaveHint("Opening contact file…");
+        setSaveHint("Contact file ready — open it to add a new contact.");
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : "Could not save contact";
@@ -130,7 +131,7 @@ export default function ContactCardClient() {
                   Quote · Book · Call
                 </p>
                 <p className="mt-2 text-sm leading-relaxed text-white/65">
-                  Save our contact card to your phone — includes our logo — then book, call, or WhatsApp us.
+                  Add us as a new contact on your phone — then book, call, or WhatsApp us.
                 </p>
                 <button
                   type="button"
@@ -138,7 +139,7 @@ export default function ContactCardClient() {
                   disabled={savingContact}
                   className="mt-5 w-full rounded-xl bg-emerald px-4 py-3 text-sm font-bold text-navy transition-colors hover:bg-emerald-light disabled:opacity-70"
                 >
-                  {savingContact ? "Preparing…" : "Save our contact details"}
+                  {savingContact ? "Opening…" : "Add to my contacts"}
                 </button>
               </>
             )}
@@ -250,39 +251,42 @@ export default function ContactCardClient() {
               </ActionIcon>
               <span className="min-w-0">
                 <span className="block text-xs font-semibold uppercase tracking-wider text-white/50">
-                  Save
+                  Contacts
                 </span>
                 <span className="mt-0.5 block text-lg font-bold">
-                  {savingContact ? "Downloading…" : "Save our contact details"}
+                  {savingContact ? "Opening…" : "Add to my contacts"}
                 </span>
                 <span className="mt-0.5 block text-xs text-white/45">
-                  Includes logo — downloads a contact file
+                  Opens your phone’s Create New Contact screen
                 </span>
               </span>
             </button>
-            {showIosSteps ? (
+            {showSaveHelp ? (
               <div className="min-w-0 rounded-2xl border border-emerald/35 bg-emerald/10 px-4 py-4 text-sm text-white">
-                <p className="font-semibold text-emerald">iPhone — keep the logo</p>
+                <p className="font-semibold text-emerald">Save as a new contact</p>
                 <ol className="mt-3 list-decimal space-y-2 pl-5 text-white/80">
                   <li>
-                    Allow the download of{" "}
-                    <span className="text-white">My-Airport-Taxi-NI.vcf</span>
+                    When the contact preview opens, tap{" "}
+                    <span className="text-white">Create New Contact</span> /{" "}
+                    <span className="text-white">Add to Contacts</span>
                   </li>
-                  <li>
-                    Open the <span className="text-white">Files</span> app → Downloads
-                  </li>
-                  <li>
-                    Tap the file → <span className="text-white">Create New Contact</span>
-                  </li>
+                  <li>Confirm Save so we appear in your phone contacts</li>
                 </ol>
                 <p className="mt-3 text-xs text-white/55">
-                  Safari’s own contact preview removes the logo. Opening from Files keeps it.
+                  If your phone only downloaded a file, open that file and choose Create New Contact.
                 </p>
-                <a
-                  href={contactEmailLink()}
+                <button
+                  type="button"
+                  onClick={() => downloadContactVCardForFiles()}
                   className="mt-4 inline-flex text-sm font-semibold text-emerald underline-offset-2 hover:underline"
                 >
-                  Or email the file link to yourself
+                  Download contact file instead
+                </button>
+                <a
+                  href={contactEmailLink()}
+                  className="mt-3 block text-sm font-semibold text-emerald underline-offset-2 hover:underline"
+                >
+                  Or email the contact link to yourself
                 </a>
               </div>
             ) : null}

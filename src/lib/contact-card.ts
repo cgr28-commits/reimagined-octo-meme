@@ -4,10 +4,11 @@ import { withBasePath } from "@/lib/paths";
 export const CONTACT_CARD_PATH = "/contact/";
 export const CONTACT_VCARD_PATH = "/my-airport-taxi-ni.vcf";
 
-/** Worker URL — use ?download=1 so iPhone saves to Files instead of Safari preview. */
+/** Worker vCard — serve as text/vcard so phones open Add/Create Contact. */
 export const CONTACT_VCARD_WORKER_URL =
   "https://reimagined-octo-meme.cgr28.workers.dev/contact.vcf";
 
+/** Optional download for Files (keeps logo on some iPhones after Safari strip). */
 export const CONTACT_VCARD_DOWNLOAD_URL = `${CONTACT_VCARD_WORKER_URL}?download=1`;
 
 export function contactCardUrl(): string {
@@ -31,18 +32,27 @@ export function isAppleMobile(): boolean {
   );
 }
 
+export function isAndroidMobile(): boolean {
+  if (typeof navigator === "undefined") return false;
+  return /Android/i.test(navigator.userAgent);
+}
+
 /**
- * Save the branded contact (with logo).
+ * Open the branded contact so the phone can save it as a new contact.
  *
- * iPhone/Safari’s built-in vCard preview strips photos. The reliable path is:
- * download the .vcf to Files, then open it from the Files app.
+ * Mobile: navigate to the inline text/vcard URL — Safari/Chrome show the
+ * system “Create New Contact” / import UI instead of a raw download.
+ * Desktop: share sheet when available, otherwise download the .vcf.
  */
-export async function saveContactToDevice(): Promise<"shared" | "downloaded" | "ios-download"> {
-  if (isAppleMobile()) {
-    // Force a real file download (octet-stream + attachment). Opening inline
-    // in Safari drops the logo.
-    window.location.href = CONTACT_VCARD_DOWNLOAD_URL;
-    return "ios-download";
+export async function saveContactToDevice(): Promise<
+  "opened" | "shared" | "downloaded"
+> {
+  const mobile = isAppleMobile() || isAndroidMobile();
+
+  if (mobile) {
+    // Inline Content-Type: text/vcard (no ?download=1) → Add Contact UI.
+    window.location.assign(CONTACT_VCARD_WORKER_URL);
+    return "opened";
   }
 
   const response = await fetch(contactVCardUrl(), { cache: "no-store" });
@@ -70,14 +80,19 @@ export async function saveContactToDevice(): Promise<"shared" | "downloaded" | "
     return "shared";
   }
 
-  window.location.href = CONTACT_VCARD_DOWNLOAD_URL;
+  window.location.assign(CONTACT_VCARD_DOWNLOAD_URL);
   return "downloaded";
+}
+
+/** Fallback download that keeps the logo when opened from the Files app. */
+export function downloadContactVCardForFiles(): void {
+  window.location.assign(CONTACT_VCARD_DOWNLOAD_URL);
 }
 
 export function contactEmailLink(): string {
   const subject = encodeURIComponent(`${SITE.name} — save this contact`);
   const body = encodeURIComponent(
-    `Open this link on your iPhone, then open the downloaded file to save ${SITE.name} (with logo) to Contacts:\n\n${CONTACT_VCARD_DOWNLOAD_URL}\n`,
+    `Open this link on your phone to save ${SITE.name} as a contact:\n\n${CONTACT_VCARD_WORKER_URL}\n`,
   );
   return `mailto:?subject=${subject}&body=${body}`;
 }
