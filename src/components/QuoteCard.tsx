@@ -1110,7 +1110,7 @@ function QuoteCard() {
           <p className="mx-auto mt-4 max-w-md text-sm leading-relaxed text-white/80 sm:text-base">
             {isEnquiryOnly
               ? "We’ve received your enquiry. We’ll confirm availability and send your personal quote shortly. When you’re ready to book, we’ll send a SumUp payment link — your trip is confirmed after payment."
-              : "We’ve received your booking request. Once we confirm the job, we’ll send a SumUp payment link by email. Your booking is confirmed after payment, and only then is it added to our calendar."}
+              : "We’ve received your booking request. Once we confirm the job, we’ll send a SumUp payment link by email. Your booking is confirmed after payment."}
           </p>
           {bookingReference && (
             <p className="mt-4 text-sm text-white/60">Reference: {bookingReference}</p>
