@@ -59,6 +59,11 @@ export function bookingJobDayIndexKey(tripDate: string): string {
   return `booking-job-day:${tripDate.trim()}`;
 }
 
+/** Index by London calendar day the enquiry was created (YYYY-MM-DD). */
+export function bookingJobCreatedDayIndexKey(createdDate: string): string {
+  return `booking-job-created:${createdDate.trim()}`;
+}
+
 export function driverAcceptKey(token: string): string {
   return `driver-accept:${token.trim()}`;
 }
