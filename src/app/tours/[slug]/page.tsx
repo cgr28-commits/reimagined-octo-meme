@@ -16,10 +16,8 @@ type TourPageProps = {
 };
 
 export function generateStaticParams() {
-  // Soft-hidden via SERVICE_FLAGS.dayTrips — code retained for restore
-  if (!SERVICE_FLAGS.dayTrips) {
-    return [];
-  }
+  // Always emit params for `output: export` (empty array breaks the GitHub Pages build).
+  // Soft-hide is enforced in the page via notFound() when SERVICE_FLAGS.dayTrips is false.
   return TOURS.map((tour) => ({ slug: tour.slug }));
 }
 
