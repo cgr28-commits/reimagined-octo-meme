@@ -15,6 +15,7 @@ import {
   listBookingJobsForDateRange,
   saveBookingJob,
 } from "./booking-job-store";
+import { createTrackingJobFromBooking } from "./tracking-store";
 import { trySendEmail, type WorkerEmailEnv } from "./worker-email";
 
 type Env = DriverAuthEnv &
@@ -142,9 +143,15 @@ export async function handleBookingJobsListRequest(
   }
 
   const url = new URL(request.url);
-  const from = url.searchParams.get("from")?.trim() || addDays(todayLondon(), -7);
-  const to = url.searchParams.get("to")?.trim() || addDays(todayLondon(), 45);
-  const jobs = await listBookingJobsForDateRange(env.TRACKING_STORE, from, to);
+  const today = todayLondon();
+  const from = url.searchParams.get("from")?.trim() || addDays(today, -7);
+  const to = url.searchParams.get("to")?.trim() || addDays(today, 45);
+  // Include enquiries created in the last 21 days even when their trip date is
+  // outside the trip-date window (so “booking from yesterday” always appears).
+  const jobs = await listBookingJobsForDateRange(env.TRACKING_STORE, from, to, {
+    createdFrom: addDays(today, -21),
+    createdTo: today,
+  });
 
   return jsonResponse({ ok: true, jobs }, 200, origin);
 }
@@ -234,6 +241,40 @@ export async function handleBookingJobMarkPaidRequest(
     calendarLogged,
   };
   await saveBookingJob(env.TRACKING_STORE, updated);
+
+  // Also create a tracking/upcoming job so the owner Paid jobs list shows it.
+  // Customer-facing track links stay soft-hidden separately on the website.
+  try {
+    if (job.status !== "paid") {
+      await createTrackingJobFromBooking(
+        env.TRACKING_STORE,
+        {
+          customerName: job.customerName,
+          customerEmail: job.customerEmail,
+          mobileNumber: job.customerMobile,
+          tripLabel: job.tripLabel,
+          pickupLabel: job.pickupLabel,
+          dropoffLabel: job.dropoffLabel,
+          returnJourney: job.returnJourney,
+          tripDate: job.tripDate,
+          tripTime: job.tripTime,
+          returnDate: job.returnDate ?? "",
+          returnTime: job.returnTime ?? "",
+          flightNumber: job.flightNumber ?? "",
+          returnFlightNumber: job.returnFlightNumber,
+          passengers: job.passengers,
+          suitcases: job.suitcases,
+          vehicle: job.vehicle,
+          isAirportTrip: job.isAirportTrip,
+          airportCode: job.airportCode,
+          isFromAirport: job.isFromAirport,
+        },
+        updated.paymentReference,
+      );
+    }
+  } catch (error) {
+    console.error("Mark-paid tracking job create failed", error);
+  }
 
   return jsonResponse(
     {

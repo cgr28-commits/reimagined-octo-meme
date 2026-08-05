@@ -1227,7 +1227,11 @@ export default function DriverPageClient({
   const [activeToken, setActiveToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+<<<<<<< HEAD
   // Owner defaults to Upcoming so paid jobs with future trip dates show first.
+=======
+  // Owner defaults to Upcoming so paid jobs booked yesterday (future trip dates) show.
+>>>>>>> origin/main
   const [view, setView] = useState<DashboardView>(isOwnerPortal ? "upcoming" : "today");
   const [selectedDate, setSelectedDate] = useState(() => todayLondonDate());
   const watchIdRef = useRef<number | null>(null);
@@ -1861,8 +1865,14 @@ export default function DriverPageClient({
 
               {/*
                 Paid / tracking job list:
+<<<<<<< HEAD
                 - Always shown for the owner so upcoming paid bookings stay visible
                 - Soft-hidden for drivers until SERVICE_FLAGS.liveDriverTracking
+=======
+                - Always shown for the owner (Upcoming / Today / Pick date) so existing
+                  paid bookings remain visible while customer live-tracking is soft-hidden.
+                - Drivers only see it when SERVICE_FLAGS.liveDriverTracking is on.
+>>>>>>> origin/main
               */}
               {SERVICE_FLAGS.liveDriverTracking || isOwnerView ? (
               <>
@@ -1872,8 +1882,13 @@ export default function DriverPageClient({
                     Paid jobs coming up
                   </p>
                   <p className="mt-1 text-sm text-white/60">
+<<<<<<< HEAD
                     Paid bookings with a trip date ahead. Customer live-tracking links stay
                     soft-hidden while testing continues.
+=======
+                    Paid bookings with a trip date ahead (including ones booked yesterday). Customer
+                    live-tracking links stay soft-hidden while testing continues.
+>>>>>>> origin/main
                   </p>
                 </div>
               ) : null}

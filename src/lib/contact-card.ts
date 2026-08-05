@@ -4,7 +4,7 @@ import { withBasePath } from "@/lib/paths";
 export const CONTACT_CARD_PATH = "/contact/";
 export const CONTACT_VCARD_PATH = "/my-airport-taxi-ni.vcf";
 
-/** Worker vCard — serve as text/vcard so phones open Add/Create Contact. */
+/** Worker vCard — used for optional Files download that keeps the logo. */
 export const CONTACT_VCARD_WORKER_URL =
   "https://reimagined-octo-meme.cgr28.workers.dev/contact.vcf";
 
@@ -15,8 +15,14 @@ export function contactCardUrl(): string {
   return `${SITE.url}${CONTACT_CARD_PATH}`;
 }
 
+/** Same-origin vCard — phones open Create/Add Contact when opened via a real link. */
 export function contactVCardUrl(): string {
   return withBasePath(CONTACT_VCARD_PATH);
+}
+
+/** Absolute same-origin vCard URL (for email / share text). */
+export function contactVCardAbsoluteUrl(): string {
+  return `${SITE.url}${CONTACT_VCARD_PATH}`;
 }
 
 export function whatsAppChatUrl(message = SITE.whatsappDefaultMessage): string {
@@ -38,11 +44,11 @@ export function isAndroidMobile(): boolean {
 }
 
 /**
- * Open the branded contact so the phone can save it as a new contact.
+ * Open the branded contact so the phone can save it.
  *
- * Mobile: navigate to the inline text/vcard URL — Safari/Chrome show the
- * system “Create New Contact” / import UI instead of a raw download.
- * Desktop: share sheet when available, otherwise download the .vcf.
+ * Prefer a real `<a href={contactVCardUrl()}>` in the UI (same-origin
+ * text/x-vcard, no download attribute). This helper is a fallback for
+ * desktop share / download flows.
  */
 export async function saveContactToDevice(): Promise<
   "opened" | "shared" | "downloaded"
@@ -50,8 +56,8 @@ export async function saveContactToDevice(): Promise<
   const mobile = isAppleMobile() || isAndroidMobile();
 
   if (mobile) {
-    // Inline Content-Type: text/vcard (no ?download=1) → Add Contact UI.
-    window.location.assign(CONTACT_VCARD_WORKER_URL);
+    // Same-origin static vCard (text/x-vcard, no Content-Disposition).
+    window.location.assign(contactVCardUrl());
     return "opened";
   }
 
@@ -92,7 +98,7 @@ export function downloadContactVCardForFiles(): void {
 export function contactEmailLink(): string {
   const subject = encodeURIComponent(`${SITE.name} — save this contact`);
   const body = encodeURIComponent(
-    `Open this link on your phone to save ${SITE.name} as a contact:\n\n${CONTACT_VCARD_WORKER_URL}\n`,
+    `Open this link on your phone to save ${SITE.name} as a contact:\n\n${contactVCardAbsoluteUrl()}\n`,
   );
   return `mailto:?subject=${subject}&body=${body}`;
 }
