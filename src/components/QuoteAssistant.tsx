@@ -4,8 +4,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { playBotOpenSound, playBotReplySound, playBotWorkingSound } from "@/lib/bot-sounds";
-import { contactCardUrl, saveContactToDevice } from "@/lib/contact-card";
-import { useIsMobileDevice } from "@/lib/device";
+import { contactCardUrl } from "@/lib/contact-card";
+import { detectMobileDevice, useIsMobileDevice } from "@/lib/device";
 import { withBasePath } from "@/lib/paths";
 import { prefillQuoteFromAssistant } from "@/lib/quote-prefill";
 import {
@@ -29,8 +29,6 @@ export default function QuoteAssistant() {
   ]);
   const [draft, setDraft] = useState<QuoteDraft>({});
   const [showContactOffer, setShowContactOffer] = useState(false);
-  const [savingContact, setSavingContact] = useState(false);
-  const [saveHint, setSaveHint] = useState<string | null>(null);
   const [isWorking, setIsWorking] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
   const contactOfferRef = useRef<HTMLDivElement>(null);
@@ -69,24 +67,10 @@ export default function QuoteAssistant() {
     });
   }
 
-  async function handleSaveContact() {
-    if (savingContact) return;
-    setSavingContact(true);
-    setSaveHint(null);
-    try {
-      const result = await saveContactToDevice();
-      if (result === "ios-download") {
-        setSaveHint("Contact file downloading — open it to save with our logo.");
-      } else if (result === "shared") {
-        setSaveHint("Share sheet opened — choose Contacts to save with the logo.");
-      } else {
-        setSaveHint("Opening contact file…");
-      }
-    } catch (error) {
-      setSaveHint(error instanceof Error ? error.message : "Could not save contact");
-    } finally {
-      setSavingContact(false);
-    }
+  function openContactCardOnMobile() {
+    setShowContactOffer(false);
+    setOpen(false);
+    window.location.assign(withBasePath("/contact/"));
   }
 
   function sendText(raw: string) {
@@ -108,17 +92,30 @@ export default function QuoteAssistant() {
       setDraft(nextDraft);
       draftRef.current = nextDraft;
       setQuickReplies(result.quickReplies ?? []);
-      // Only show the QR when the customer asked to save contact details.
-      setShowContactOffer(result.showContactOffer === true);
       setMessages((prev) => [...prev, { role: "bot", text: result.reply }]);
       setIsWorking(false);
       playBotReplySound();
       workingTimerRef.current = null;
 
       if (result.openQuoteForm) {
+        setShowContactOffer(false);
         prefillQuoteFromAssistant(nextDraft);
         setOpen(false);
+        return;
       }
+
+      if (result.showContactOffer === true) {
+        const mobile = isMobile ?? detectMobileDevice();
+        if (mobile) {
+          // Mobile: minimise the bot and open the contact card (no QR needed).
+          openContactCardOnMobile();
+          return;
+        }
+        setShowContactOffer(true);
+        return;
+      }
+
+      setShowContactOffer(false);
     }, BOT_WORKING_MS);
   }
 
@@ -127,7 +124,6 @@ export default function QuoteAssistant() {
     setDraft(emptyQuoteDraft());
     setQuickReplies(["Get a quote", "Save contact details"]);
     setShowContactOffer(false);
-    setSaveHint(null);
     setInput("");
   }
 
@@ -194,7 +190,7 @@ export default function QuoteAssistant() {
               </div>
               <div className="min-w-0">
                 <p className="text-sm font-bold text-white">Ask a question</p>
-                <p className="text-xs text-white/55">Quotes · help · scan &amp; save contact</p>
+                <p className="text-xs text-white/55">Quotes · help · contact</p>
               </div>
             </div>
             <button
@@ -234,7 +230,8 @@ export default function QuoteAssistant() {
               </div>
             ) : null}
 
-            {showContactOffer && !isWorking ? (
+            {/* Desktop only: QR to scan and save. Mobile opens /contact/ instead. */}
+            {showContactOffer && !isWorking && isMobile === false ? (
               <div
                 ref={contactOfferRef}
                 className="rounded-2xl border border-emerald/35 bg-emerald/10 px-3 py-3"
@@ -264,21 +261,6 @@ export default function QuoteAssistant() {
                     Open contact card
                   </Link>
                 </div>
-
-                {isMobile ? (
-                  <div className="mt-3 space-y-2 border-t border-white/10 pt-3">
-                    <p className="text-[11px] text-white/50">Already on your phone? Save the card directly:</p>
-                    <button
-                      type="button"
-                      disabled={savingContact}
-                      onClick={() => void handleSaveContact()}
-                      className="w-full rounded-xl border border-emerald/40 bg-emerald/15 px-3 py-2.5 text-sm font-semibold text-emerald transition-colors hover:bg-emerald/25 disabled:opacity-60"
-                    >
-                      {savingContact ? "Preparing…" : "Save contact card"}
-                    </button>
-                    {saveHint ? <p className="text-xs text-emerald">{saveHint}</p> : null}
-                  </div>
-                ) : null}
 
                 <button
                   type="button"
