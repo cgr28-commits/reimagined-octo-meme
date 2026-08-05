@@ -27,7 +27,7 @@ export default function QuoteAssistant() {
     "Save contact details",
   ]);
   const [draft, setDraft] = useState<QuoteDraft>({});
-  const [showContactOffer, setShowContactOffer] = useState(true);
+  const [showContactOffer, setShowContactOffer] = useState(false);
   const [savingContact, setSavingContact] = useState(false);
   const [saveHint, setSaveHint] = useState<string | null>(null);
   const [isWorking, setIsWorking] = useState(false);
@@ -109,9 +109,8 @@ export default function QuoteAssistant() {
       const result = respondToAssistantMessage(text, draftRef.current);
       setDraft(result.resetDraft ? emptyQuoteDraft() : result.draft);
       setQuickReplies(result.quickReplies ?? []);
-      if (result.showContactOffer) {
-        setShowContactOffer(true);
-      }
+      // Only show the QR when the customer asked to save contact details.
+      setShowContactOffer(result.showContactOffer === true);
       setMessages((prev) => [...prev, { role: "bot", text: result.reply }]);
       setIsWorking(false);
       playBotReplySound();
@@ -123,7 +122,7 @@ export default function QuoteAssistant() {
     setMessages(createWelcomeMessages());
     setDraft(emptyQuoteDraft());
     setQuickReplies(["Get a quote", "Save contact details"]);
-    setShowContactOffer(true);
+    setShowContactOffer(false);
     setSaveHint(null);
     setInput("");
   }
@@ -202,7 +201,34 @@ export default function QuoteAssistant() {
           </div>
 
           <div ref={listRef} className="max-h-[45vh] space-y-3 overflow-y-auto overscroll-contain px-3 py-3">
-            {showContactOffer ? (
+            {messages.map((message, index) => (
+              <div
+                key={`${message.role}-${index}`}
+                className={`max-w-[92%] whitespace-pre-wrap rounded-2xl px-3 py-2 text-sm leading-relaxed ${
+                  message.role === "user"
+                    ? "ml-auto bg-emerald text-navy"
+                    : "mr-auto bg-white/10 text-white/90"
+                }`}
+              >
+                {message.text}
+              </div>
+            ))}
+
+            {isWorking ? (
+              <div
+                className="mr-auto flex max-w-[92%] items-center gap-2 rounded-2xl bg-white/10 px-3 py-2 text-sm text-white/70"
+                aria-live="polite"
+              >
+                <span className="inline-flex gap-1" aria-hidden>
+                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald" />
+                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald [animation-delay:120ms]" />
+                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald [animation-delay:240ms]" />
+                </span>
+                Working on your answer…
+              </div>
+            ) : null}
+
+            {showContactOffer && !isWorking ? (
               <div
                 ref={contactOfferRef}
                 className="rounded-2xl border border-emerald/35 bg-emerald/10 px-3 py-3"
@@ -255,33 +281,6 @@ export default function QuoteAssistant() {
                 >
                   Hide for now
                 </button>
-              </div>
-            ) : null}
-
-            {messages.map((message, index) => (
-              <div
-                key={`${message.role}-${index}`}
-                className={`max-w-[92%] whitespace-pre-wrap rounded-2xl px-3 py-2 text-sm leading-relaxed ${
-                  message.role === "user"
-                    ? "ml-auto bg-emerald text-navy"
-                    : "mr-auto bg-white/10 text-white/90"
-                }`}
-              >
-                {message.text}
-              </div>
-            ))}
-
-            {isWorking ? (
-              <div
-                className="mr-auto flex max-w-[92%] items-center gap-2 rounded-2xl bg-white/10 px-3 py-2 text-sm text-white/70"
-                aria-live="polite"
-              >
-                <span className="inline-flex gap-1" aria-hidden>
-                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald" />
-                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald [animation-delay:120ms]" />
-                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald [animation-delay:240ms]" />
-                </span>
-                Working on your answer…
               </div>
             ) : null}
           </div>

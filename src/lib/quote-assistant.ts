@@ -316,7 +316,7 @@ export function respondToAssistantMessage(
   if (/save contact|add contact|contact details|contact card|qr code|save (your|our) (number|details)/.test(lower)) {
     return {
       reply:
-        "Would you like to add our contact details? Scan and save with the QR code above — it opens our contact card with our logo.",
+        "Would you like to add our contact details? Scan and save with the QR code below — it opens our contact card with our logo.",
       draft: nextDraft,
       showContactOffer: true,
       quickReplies: ["Get a quote"],
@@ -328,7 +328,6 @@ export function respondToAssistantMessage(
       reply: "Hello! I can answer questions about our service or work out a fixed airport transfer price.",
       draft: nextDraft,
       quickReplies: ["Get a quote", "Save contact details"],
-      showContactOffer: true,
     };
   }
 
@@ -343,9 +342,8 @@ export function respondToAssistantMessage(
 
   if (/whatsapp|call|phone|email|contact you/.test(lower) && !/quote|price|how much/.test(lower)) {
     return {
-      reply: `You can call ${SITE.landlineDisplay}, WhatsApp @${SITE.whatsappUsername}, or email ${SITE.email}. Or scan and save our contact QR code in this chat.`,
+      reply: `You can call ${SITE.landlineDisplay}, WhatsApp @${SITE.whatsappUsername}, or email ${SITE.email}. Tap “Save contact details” if you’d like the QR code to scan and save.`,
       draft: nextDraft,
-      showContactOffer: true,
       quickReplies: ["Save contact details", "Get a quote"],
     };
   }
@@ -423,7 +421,6 @@ export function respondToAssistantMessage(
         draft: {},
         resetDraft: true,
         quickReplies: ["Another quote", "Request to book", "Save contact details"],
-        showContactOffer: true,
       };
     }
   }
