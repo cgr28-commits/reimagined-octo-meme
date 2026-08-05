@@ -190,8 +190,16 @@ function matchKnowledge(text: string): string | null {
 function extractNumber(text: string, kind: "passenger" | "suitcase"): number | undefined {
   const patterns =
     kind === "passenger"
-      ? [/(\d+)\s*(passengers?|people|adults?|pax)/i, /passengers?\s*[:=]?\s*(\d+)/i]
-      : [/(\d+)\s*(suitcases?|cases?|bags?|luggage)/i, /suitcases?\s*[:=]?\s*(\d+)/i];
+      ? [
+          /(\d+)\s*(passengers?|people|adults?|pax)/i,
+          /passengers?\s*[:=]?\s*(\d+)/i,
+          /\b(?:for|with)\s+(\d+)\s*(?:passengers?|people|adults?|pax)\b/i,
+        ]
+      : [
+          /(\d+)\s*(suitcases?|cases?|bags?|luggage)/i,
+          /suitcases?\s*[:=]?\s*(\d+)/i,
+          /\b(?:with|and|had|have|got)\s+(\d+)\s*(suitcases?|cases?|bags?|luggage)\b/i,
+        ];
 
   for (const pattern of patterns) {
     const match = text.match(pattern);
@@ -205,6 +213,14 @@ function extractNumber(text: string, kind: "passenger" | "suitcase"): number | u
   return undefined;
 }
 
+function extractBareCount(text: string): number | undefined {
+  const match = text.trim().match(/^(\d+)$/);
+  if (!match) return undefined;
+  const value = Number(match[1]);
+  if (!Number.isFinite(value) || value <= 0 || value > 16) return undefined;
+  return value;
+}
+
 function pickVehicle(passengers: number, suitcases: number): (typeof VEHICLE_TYPES)[number] {
   if (passengers >= 8 || suitcases >= 5) {
     return "Minibus (7–8 passengers)";
@@ -215,13 +231,23 @@ function pickVehicle(passengers: number, suitcases: number): (typeof VEHICLE_TYP
   return "Standard Saloon (1–4 passengers)";
 }
 
+function matchExplicitVehicle(text: string): (typeof VEHICLE_TYPES)[number] | undefined {
+  const lower = text.toLowerCase();
+  if (/\bminibus\b/.test(lower)) return "Minibus (7–8 passengers)";
+  if (/\bexecutive\b/.test(lower)) return "Executive Saloon (1–4 passengers)";
+  if (/\bestate\b/.test(lower)) return "Estate Car (1–4 passengers)";
+  if (/\bsaloon\b/.test(lower)) return "Standard Saloon (1–4 passengers)";
+  return undefined;
+}
+
 function tryBuildQuote(draft: QuoteDraft): { text: string; enquiryOnly: boolean } | null {
-  if (!draft.airportCode || !draft.address) {
+  if (!draft.airportCode || !draft.address || draft.suitcases === undefined) {
     return null;
   }
 
   const passengers = draft.passengers ?? 2;
-  const suitcases = draft.suitcases ?? 2;
+  const suitcases = draft.suitcases;
+  // Always size the vehicle from passengers + luggage unless the customer named one.
   const vehicle = draft.vehicle ?? pickVehicle(passengers, suitcases);
   const enquiryOnly = isVehicleEnquiryOnly(vehicle);
 
@@ -376,8 +402,24 @@ export function respondToAssistantMessage(
   if (suitcases) {
     nextDraft.suitcases = suitcases;
   }
-  if (passengers || suitcases) {
-    nextDraft.vehicle = pickVehicle(nextDraft.passengers ?? 2, nextDraft.suitcases ?? 2);
+
+  // If we already have the trip and the customer replies with just "3", treat it as suitcase count.
+  const bareCount = extractBareCount(text);
+  if (
+    bareCount !== undefined &&
+    nextDraft.airportCode &&
+    nextDraft.address &&
+    nextDraft.suitcases === undefined &&
+    !passengers
+  ) {
+    nextDraft.suitcases = bareCount;
+  }
+
+  const explicitVehicle = matchExplicitVehicle(text);
+  if (explicitVehicle) {
+    nextDraft.vehicle = explicitVehicle;
+  } else if (nextDraft.suitcases !== undefined || nextDraft.passengers !== undefined) {
+    nextDraft.vehicle = pickVehicle(nextDraft.passengers ?? 2, nextDraft.suitcases ?? 0);
   }
 
   const areaMention = matchAreaMention(text);
@@ -399,6 +441,8 @@ export function respondToAssistantMessage(
   }
 
   const wantsQuote = /get a quote|quote|price|how much|fare|cost|estimate/.test(lower);
+  const luggageUpdated = suitcases !== undefined || (bareCount !== undefined && nextDraft.suitcases !== undefined);
+  const partyUpdated = passengers !== undefined || luggageUpdated || Boolean(explicitVehicle);
 
   if (wantsQuote && !nextDraft.airportCode) {
     return {
@@ -418,13 +462,41 @@ export function respondToAssistantMessage(
     };
   }
 
-  if (nextDraft.airportCode && nextDraft.address && (wantsQuote || Boolean(airport) || Boolean(areaMention))) {
+  // Ask for luggage before pricing — 3+ cases need the estate car fare.
+  if (
+    nextDraft.airportCode &&
+    nextDraft.address &&
+    nextDraft.suitcases === undefined &&
+    (wantsQuote || Boolean(airport) || Boolean(areaMention))
+  ) {
+    const airportName =
+      AIRPORTS.find((item) => item.code === nextDraft.airportCode)?.name ?? nextDraft.airportCode;
+    return {
+      reply:
+        `Got it — ${nextDraft.address} and ${airportName}. How many suitcases / cases will you have? ` +
+        `(3 or more usually needs an Estate Car.)`,
+      draft: nextDraft,
+      quickReplies: ["1 suitcase", "2 suitcases", "3 suitcases", "4 suitcases"],
+    };
+  }
+
+  const shouldPrice =
+    Boolean(nextDraft.airportCode) &&
+    Boolean(nextDraft.address) &&
+    nextDraft.suitcases !== undefined &&
+    (wantsQuote || Boolean(airport) || Boolean(areaMention) || partyUpdated);
+
+  if (shouldPrice) {
+    // Recompute vehicle from the latest passenger/luggage counts.
+    if (!explicitVehicle) {
+      nextDraft.vehicle = pickVehicle(nextDraft.passengers ?? 2, nextDraft.suitcases ?? 0);
+    }
     const built = tryBuildQuote(nextDraft);
     if (built) {
       return {
         reply: built.text,
-        draft: {},
-        resetDraft: true,
+        // Keep the trip so “3 suitcases” / vehicle changes can update the price.
+        draft: nextDraft,
         quickReplies: ["Another quote", "Request to book", "Save contact details"],
       };
     }
@@ -437,18 +509,6 @@ export function respondToAssistantMessage(
       draft: nextDraft,
       quickReplies: ["Get a quote", "Save contact details"],
     };
-  }
-
-  if (nextDraft.airportCode && nextDraft.address) {
-    const built = tryBuildQuote(nextDraft);
-    if (built) {
-      return {
-        reply: built.text,
-        draft: {},
-        resetDraft: true,
-        quickReplies: ["Another quote", "Request to book", "Save contact details"],
-      };
-    }
   }
 
   return {
