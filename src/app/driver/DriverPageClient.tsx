@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Footer from "@/components/Footer";
 import Header from "@/components/Header";
+import OwnerBookingJobsPanel from "@/components/OwnerBookingJobsPanel";
 import type { MapMarker, MapRoutePoint } from "@/components/LiveTrackMap";
 import {
   buildWhatsAppTrackLink,
@@ -25,7 +26,7 @@ import {
 } from "@/lib/tracking-api";
 import { issueBookingRefund } from "@/lib/refund-api";
 import { DEMO_DRIVER_KEY, DEMO_DRIVER_NAME, DEMO_OWNER_KEY, DEMO_ROSTER } from "@/lib/tracking-demo";
-import { SITE } from "@/lib/data";
+import { SERVICE_FLAGS, SITE } from "@/lib/data";
 
 function readDemoQueryParam(): "owner" | "driver" | null {
   if (typeof window === "undefined") {
@@ -1574,7 +1575,8 @@ export default function DriverPageClient({
   }, [activeToken, isOwnerView, savedKey]);
 
   useEffect(() => {
-    if (isOwnerPortal || demoQueryHandledRef.current) {
+    // Soft-hidden via SERVICE_FLAGS.trackingDemo — public ?demo= links disabled when false
+    if (!SERVICE_FLAGS.trackingDemo || isOwnerPortal || demoQueryHandledRef.current) {
       return;
     }
 
@@ -1642,17 +1644,22 @@ export default function DriverPageClient({
             <p className="mt-3 text-white/70">
               {isOwnerView ? (
                 <>
-                  Assign jobs to drivers such as Gary — they must accept before the job appears on
-                  their dashboard. Issue refunds, track live location, and manage all bookings here.
+                  Confirm customer enquiries, mark SumUp payments (adds to calendar), then assign a
+                  driver by email with their pay for the journey. Drivers confirm via email — no
+                  driver dashboard for now.
                 </>
               ) : !savedKey ? (
-                <>
-                  Gary&apos;s driver dashboard. For the owner view go to{" "}
-                  <a href="/owner/" className="text-emerald underline-offset-2 hover:underline">
-                    /owner/
-                  </a>
-                  .
-                </>
+                SERVICE_FLAGS.trackingDemo ? (
+                  <>
+                    Gary&apos;s driver dashboard. For the owner view go to{" "}
+                    <a href="/owner/" className="text-emerald underline-offset-2 hover:underline">
+                      /owner/
+                    </a>
+                    .
+                  </>
+                ) : (
+                  <>Enter your driver access key to open today&apos;s jobs and live tracking.</>
+                )
               ) : (
                 <>
                   Accept assigned jobs at any time — live tracking starts on the day of travel,
@@ -1670,45 +1677,51 @@ export default function DriverPageClient({
               </div>
             ) : (
             <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
-              <div className={`grid gap-3 ${isOwnerPortal ? "" : "sm:grid-cols-2"}`}>
-                {!isOwnerPortal && (
-                  <a
-                    href="/owner/"
-                    className="rounded-2xl border border-emerald/40 bg-emerald/10 px-5 py-5 text-left transition-colors hover:border-emerald hover:bg-emerald/15"
-                  >
-                    <p className="text-xs font-semibold uppercase tracking-wider text-emerald">
-                      Owner dashboard
-                    </p>
-                    <p className="mt-2 text-lg font-bold text-white">Go to /owner/</p>
-                    <p className="mt-2 text-sm text-white/65">
-                      Assign jobs, payments, refunds, GPS audit
-                    </p>
-                  </a>
-                )}
-                <button
-                  type="button"
-                  disabled={loading}
-                  onClick={() => void unlockWithKey(isOwnerPortal ? DEMO_OWNER_KEY : DEMO_DRIVER_KEY)}
-                  className="rounded-2xl border border-white/15 bg-white/[0.02] px-5 py-5 text-left transition-colors hover:border-white/30 hover:bg-white/[0.04] disabled:opacity-60"
-                >
-                  <p className="text-xs font-semibold uppercase tracking-wider text-white/50">
-                    {isOwnerPortal ? "Owner preview" : "Driver preview"}
-                  </p>
-                  <p className="mt-2 text-lg font-bold text-white">
-                    {isOwnerPortal ? "Open owner dashboard" : "Open Gary's dashboard"}
-                  </p>
-                  <p className="mt-2 text-sm text-white/65">
-                    {isOwnerPortal
-                      ? "Assign jobs, payments, refunds, GPS audit — uses demo-owner-key"
-                      : "Accept jobs and share live location — uses demo-driver-key"}
-                  </p>
-                </button>
-              </div>
-
-              <div className="my-6 border-t border-white/10" />
+              {/* Soft-hidden via SERVICE_FLAGS.trackingDemo — set true in data.ts to restore */}
+              {SERVICE_FLAGS.trackingDemo ? (
+                <>
+                  <div className={`grid gap-3 ${isOwnerPortal ? "" : "sm:grid-cols-2"}`}>
+                    {!isOwnerPortal && (
+                      <a
+                        href="/owner/"
+                        className="rounded-2xl border border-emerald/40 bg-emerald/10 px-5 py-5 text-left transition-colors hover:border-emerald hover:bg-emerald/15"
+                      >
+                        <p className="text-xs font-semibold uppercase tracking-wider text-emerald">
+                          Owner dashboard
+                        </p>
+                        <p className="mt-2 text-lg font-bold text-white">Go to /owner/</p>
+                        <p className="mt-2 text-sm text-white/65">
+                          Assign jobs, payments, refunds, GPS audit
+                        </p>
+                      </a>
+                    )}
+                    <button
+                      type="button"
+                      disabled={loading}
+                      onClick={() =>
+                        void unlockWithKey(isOwnerPortal ? DEMO_OWNER_KEY : DEMO_DRIVER_KEY)
+                      }
+                      className="rounded-2xl border border-white/15 bg-white/[0.02] px-5 py-5 text-left transition-colors hover:border-white/30 hover:bg-white/[0.04] disabled:opacity-60"
+                    >
+                      <p className="text-xs font-semibold uppercase tracking-wider text-white/50">
+                        {isOwnerPortal ? "Owner preview" : "Driver preview"}
+                      </p>
+                      <p className="mt-2 text-lg font-bold text-white">
+                        {isOwnerPortal ? "Open owner dashboard" : "Open Gary's dashboard"}
+                      </p>
+                      <p className="mt-2 text-sm text-white/65">
+                        {isOwnerPortal
+                          ? "Assign jobs, payments, refunds, GPS audit — uses demo-owner-key"
+                          : "Accept jobs and share live location — uses demo-driver-key"}
+                      </p>
+                    </button>
+                  </div>
+                  <div className="my-6 border-t border-white/10" />
+                </>
+              ) : null}
 
               <label htmlFor="driver-key" className="block text-sm font-medium text-white/70">
-                Or enter a live access key
+                {SERVICE_FLAGS.trackingDemo ? "Or enter a live access key" : "Enter your access key"}
               </label>
               <input
                 id="driver-key"
@@ -1807,6 +1820,11 @@ export default function DriverPageClient({
 
               {isOwnerView && profilePanel}
 
+              {isOwnerView && savedKey ? <OwnerBookingJobsPanel ownerKey={savedKey} /> : null}
+
+              {/* Legacy live-tracking job list — soft-hidden until SERVICE_FLAGS.liveDriverTracking */}
+              {SERVICE_FLAGS.liveDriverTracking ? (
+              <>
               <div className="mb-6 flex flex-wrap gap-2">
                 {([
                   ["today", "Today"],
@@ -2023,6 +2041,13 @@ export default function DriverPageClient({
                   ))}
                 </div>
               )}
+              </>
+              ) : isOwnerView ? (
+                <p className="mt-2 text-sm text-white/45">
+                  Live driver tracking is soft-hidden while testing continues. Booking requests and
+                  email driver assignment above are the active workflow.
+                </p>
+              ) : null}
 
               {!isOwnerView && profilePanel}
             </>

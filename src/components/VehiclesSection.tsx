@@ -42,7 +42,14 @@ export default function VehiclesSection() {
                   key={vehicle.name}
                   className="rounded-xl border border-white/10 bg-white/[0.03] p-4 transition-colors hover:border-emerald/20"
                 >
-                  <p className="font-semibold text-white">{vehicle.name}</p>
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="font-semibold text-white">{vehicle.name}</p>
+                    {vehicle.enquiryOnly ? (
+                      <span className="shrink-0 rounded-md border border-emerald/30 bg-emerald/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-emerald">
+                        Enquire
+                      </span>
+                    ) : null}
+                  </div>
                   <p className="mt-1 text-sm text-emerald">{vehicle.capacity}</p>
                   <p className="mt-2 text-sm leading-relaxed text-white/60">{vehicle.description}</p>
                 </li>

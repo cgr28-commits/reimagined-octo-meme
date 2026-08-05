@@ -1,6 +1,6 @@
 import Link from "next/link";
 import SectionHeading from "./SectionHeading";
-import { DRIVER_TRACKING_HIGHLIGHTS } from "@/lib/data";
+import { DRIVER_TRACKING_HIGHLIGHTS, SERVICE_FLAGS } from "@/lib/data";
 
 export default function DriverTrackingSection() {
   return (
@@ -51,12 +51,15 @@ export default function DriverTrackingSection() {
               Tracking is included at no extra cost for card payments made through our website.
               Your driver may also send the link via WhatsApp on the day.
             </p>
-            <Link
-              href="/track/demo/"
-              className="mt-8 inline-flex w-fit rounded-full bg-emerald px-6 py-3 text-sm font-semibold text-navy transition-all hover:bg-emerald-light hover:shadow-lg hover:shadow-emerald/25"
-            >
-              See a demo
-            </Link>
+            {/* Soft-hidden via SERVICE_FLAGS.trackingDemo — set true in data.ts to restore */}
+            {SERVICE_FLAGS.trackingDemo ? (
+              <Link
+                href="/track/demo/"
+                className="mt-8 inline-flex w-fit rounded-full bg-emerald px-6 py-3 text-sm font-semibold text-navy transition-all hover:bg-emerald-light hover:shadow-lg hover:shadow-emerald/25"
+              >
+                See a demo
+              </Link>
+            ) : null}
           </div>
         </div>
       </div>

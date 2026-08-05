@@ -79,7 +79,7 @@ export default function Header() {
         aria-label="Quick services"
       >
         <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-white/45">
-          Transfers · Day trips · Chauffeur
+          Airport transfers · Get a quote
         </p>
         <div className="flex gap-2 overflow-x-auto overscroll-x-contain pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {MOBILE_QUICK_LINKS.map((link) => (

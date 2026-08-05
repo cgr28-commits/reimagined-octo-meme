@@ -1,11 +1,20 @@
 "use client";
 
 import { useState } from "react";
-import { FAQS } from "@/lib/data";
+import { FAQS, SERVICE_FLAGS } from "@/lib/data";
 import SectionHeading from "./SectionHeading";
 
 export default function FAQSection() {
   const [openIndex, setOpenIndex] = useState<number | null>(0);
+  const faqs = FAQS.filter((faq) => {
+    if (!SERVICE_FLAGS.chauffeur && /chauffeur/i.test(faq.question)) {
+      return false;
+    }
+    if (!SERVICE_FLAGS.dayTrips && /day trip/i.test(faq.question)) {
+      return false;
+    }
+    return true;
+  });
 
   return (
     <section id="faq" className="relative py-20 sm:py-28">
@@ -18,7 +27,7 @@ export default function FAQSection() {
         />
 
         <div className="mt-12 space-y-3">
-          {FAQS.map((faq, index) => {
+          {faqs.map((faq, index) => {
             const isOpen = openIndex === index;
             return (
               <div

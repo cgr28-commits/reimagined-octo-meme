@@ -31,8 +31,8 @@ export const TERMS_SECTIONS = [
     ],
     list: [
       "Belfast International Airport",
-      "Belfast City Airport",
       "Dublin Airport",
+      "City of Derry Airport",
     ],
     footer: "All journeys are subject to vehicle availability.",
   },
@@ -104,8 +104,10 @@ export const TERMS_SECTIONS = [
     title: "Cancellations & Refunds",
     subsections: [
       {
-        subtitle: "More than 24 hours before pickup",
-        content: ["A full refund will be provided."],
+        subtitle: "At least 24 hours’ notice",
+        content: [
+          "We will accept the cancellation and refund the fare, minus an administration/transaction charge of £5 or 10% of the booking price, whichever is higher.",
+        ],
       },
       {
         subtitle: "Less than 24 hours before pickup",

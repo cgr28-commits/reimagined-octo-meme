@@ -3,7 +3,8 @@ export const MARKETING_CONSENT_VERSION = "August 2026";
 export type MarketingOptInSource =
   | "paid-booking"
   | "booking-request"
-  | "tour-enquiry";
+  | "tour-enquiry"
+  | "vehicle-enquiry";
 
 export type MarketingSubscriber = {
   email: string;

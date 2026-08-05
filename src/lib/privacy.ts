@@ -64,8 +64,10 @@ export const PRIVACY_SECTIONS = [
       "Email delivery providers — sending confirmations",
       "Google — address lookup, maps and calendar logging where configured",
       "Flight data providers — verifying flight numbers you enter",
+      "Meta Platforms, Inc. / WhatsApp — when you contact us or send booking messages via WhatsApp, message content and related contact details may be processed through Meta’s WhatsApp Business Platform and our WhatsApp Business provider",
     ],
-    footer: "We do not sell your personal data.",
+    footer:
+      "When our automated booking or messaging systems are connected to WhatsApp, booking and message information may be processed through Meta’s WhatsApp Business Platform and whichever WhatsApp Business provider we use. We do not sell your personal data.",
   },
   {
     title: "Retention",

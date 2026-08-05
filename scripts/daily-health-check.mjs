@@ -189,15 +189,9 @@ function tryFixSitemap() {
   const requiredPaths = [
     "/privacy/",
     "/contact/",
-    "/driver/",
-    "/owner/",
-    "/track/",
-    "/track/demo/",
-    "/track/demo/early/",
-    "/track/demo/waiting/",
-    "/track/demo/live/",
     "/terms/",
-    "/tours/",
+    // "/tours/" soft-hidden via SERVICE_FLAGS.dayTrips — restore when re-enabled
+    // /driver/, /owner/, /track/demo/* soft-hidden from public sitemap via SERVICE_FLAGS.trackingDemo
     "/unsubscribe/",
   ];
   let content = existsSync(sitemapPath) ? readFileSync(sitemapPath, "utf8") : "";
@@ -333,11 +327,8 @@ async function checkLiveWebsite() {
     ["Driver dashboard", "/driver/"],
     ["Owner dashboard", "/owner/"],
     ["Track page", "/track/"],
-    ["Track demo hub", "/track/demo/"],
-    ["Track demo early", "/track/demo/early/"],
-    ["Track demo waiting", "/track/demo/waiting/"],
-    ["Track demo live", "/track/demo/live/"],
-    ["Tours", "/tours/"],
+    // Track demo soft-hidden via SERVICE_FLAGS.trackingDemo — expect 404
+    // Tours soft-hidden via SERVICE_FLAGS.dayTrips
     ["Admin refund", "/admin/refund/"],
     ["Unsubscribe", "/unsubscribe/"],
     ["Favicon", "/favicon.ico"],
@@ -358,9 +349,8 @@ async function checkLiveWebsite() {
     "My Airport Taxi",
     "@belfasttaxi",
     "Get a quote & book",
-    "Save to contacts",
-    "Includes logo",
-    "Scan QR code",
+    "Save our contact details",
+    "Scan · Quote · Book",
     "Download QR image",
     "028 9602 2952",
   ]);
@@ -389,38 +379,17 @@ async function checkLiveWebsite() {
     "https://reimagined-octo-meme.cgr28.workers.dev/contact.vcf",
   );
 
-  await pageContentCheck("Driver page links", `${SITE_URL}/driver/`, [
-    "/owner/",
-    "demo-driver-key",
-  ]);
-
-  await pageContentCheck("Owner page markers", `${SITE_URL}/owner/`, [
-    "Owner dashboard",
-    "demo-owner-key",
-  ]);
-
-  await pageContentCheck("Track demo scenarios", `${SITE_URL}/track/demo/`, [
-    "Too early",
-    "Waiting for driver",
-    "Live map",
-    "demo-early",
-    "demo-waiting",
-    "demo-live",
-  ]);
-
+  // Soft-hidden tracking demo / public dashboard previews — skipped
+  // await pageContentCheck("Driver page links"...
+  // Soft-hidden tracking demo / public dashboard previews — skipped
+  // await pageContentCheck("Owner page markers"...
+  // Soft-hidden tracking demo / public dashboard previews — skipped
+  // await pageContentCheck("Track demo scenarios"...
   // Customer names load client-side from demo data; assert shell + token markers.
-  await pageContentCheck("Live track demo markers", `${SITE_URL}/track/demo/live/`, [
-    "demo-live",
-    "Demo preview",
-    "Belfast",
-  ]);
-
-  await pageContentCheck("Airport track demo markers", `${SITE_URL}/track/demo/waiting/`, [
-    "demo-waiting",
-    "Demo preview",
-    "flight",
-  ]);
-
+  // Soft-hidden tracking demo / public dashboard previews — skipped
+  // await pageContentCheck("Live track demo markers"...
+  // Soft-hidden tracking demo / public dashboard previews — skipped
+  // await pageContentCheck("Airport track demo markers"...
   await pageContentCheck(
     "Refund admin page",
     `${SITE_URL}/admin/refund/`,

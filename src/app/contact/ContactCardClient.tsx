@@ -67,42 +67,64 @@ export default function ContactCardClient() {
   }
 
   return (
-    <main className="relative min-h-screen overflow-x-clip bg-navy">
+    <main className="relative min-h-dvh w-full max-w-[100vw] overflow-x-hidden bg-navy">
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,_rgba(47,191,74,0.14),_transparent_55%),radial-gradient(ellipse_at_bottom,_rgba(12,42,82,0.9),_transparent_60%)]"
-      />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 opacity-[0.07]"
-        style={{
-          backgroundImage:
-            "linear-gradient(rgba(255,255,255,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.08) 1px, transparent 1px)",
-          backgroundSize: "48px 48px",
-        }}
+        className="pointer-events-none absolute inset-0 overflow-hidden bg-[radial-gradient(ellipse_at_top,_rgba(47,191,74,0.14),_transparent_55%),radial-gradient(ellipse_at_bottom,_rgba(12,42,82,0.9),_transparent_60%)]"
       />
 
-      <div className="relative mx-auto flex min-h-screen max-w-md flex-col px-5 pb-12 pt-10 sm:px-6">
-        <div className="contact-fade-up flex flex-1 flex-col">
+      <div className="relative mx-auto flex min-h-dvh w-full max-w-md flex-col px-4 pb-12 pt-8 sm:px-6">
+        <div className="contact-fade-up flex min-w-0 flex-1 flex-col">
           <div className="flex justify-center">
-            <Image
-              src={withBasePath("/logo.png")}
-              alt={SITE.name}
-              width={697}
-              height={541}
-              priority
-              className="h-28 w-auto object-contain sm:h-32"
-            />
+            <div className="flex h-36 w-36 items-center justify-center rounded-full border-[3px] border-emerald bg-navy/40 p-3 shadow-[0_0_0_6px_rgba(47,191,74,0.12)] sm:h-40 sm:w-40">
+              <Image
+                src={withBasePath("/logo.png")}
+                alt={SITE.name}
+                width={697}
+                height={541}
+                priority
+                className="h-auto w-full object-contain"
+              />
+            </div>
           </div>
 
-          <p className="contact-fade-up-delay-1 mt-6 text-center text-sm leading-relaxed text-white/70 sm:text-base">
+          <p className="contact-fade-up-delay-1 mt-5 text-center text-sm leading-relaxed text-white/70 sm:text-base">
             {SITE.tagline}
           </p>
 
-          <div className="contact-fade-up-delay-2 mt-10 flex flex-col gap-3">
+          <div className="contact-fade-up-delay-2 mt-8 min-w-0 rounded-2xl border border-emerald/35 bg-emerald/10 px-4 py-6 text-center sm:px-5">
+            <p className="text-xs font-semibold uppercase tracking-wider text-emerald">
+              Save our contact details
+            </p>
+            <p className="mt-2 text-lg font-bold tracking-wide text-white sm:text-xl">
+              Scan · Quote · Book
+            </p>
+            <p className="mt-2 text-sm leading-relaxed text-white/65">
+              Scan the QR code to open this card — get a quote, book, call, or WhatsApp us.
+            </p>
+            <div className="mx-auto mt-5 inline-flex max-w-full rounded-2xl bg-white p-3 shadow-lg">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={qrSrc}
+                alt={`QR code — scan, quote, book — ${cardUrl}`}
+                width={220}
+                height={220}
+                className="h-44 w-44 max-w-full sm:h-52 sm:w-52"
+              />
+            </div>
+            <a
+              href={qrSrc}
+              download="my-airport-taxi-ni-contact-qr.png"
+              className="mt-4 inline-flex items-center justify-center gap-2 rounded-xl bg-emerald px-4 py-2.5 text-sm font-semibold text-navy transition-colors hover:bg-emerald-light"
+            >
+              Download QR image
+            </a>
+          </div>
+
+          <div className="contact-fade-up-delay-2 mt-6 flex min-w-0 flex-col gap-3">
             <Link
               href="/#quote"
-              className="flex items-center gap-4 rounded-2xl bg-emerald px-5 py-4 text-navy shadow-[0_12px_40px_rgba(47,191,74,0.22)] transition-transform duration-300 hover:scale-[1.02] active:scale-[0.99]"
+              className="flex min-w-0 items-center gap-4 rounded-2xl bg-emerald px-5 py-4 text-navy shadow-[0_12px_40px_rgba(47,191,74,0.22)] transition-colors hover:bg-emerald-light active:opacity-95"
             >
               <ActionIcon tone="onEmerald">
                 <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -124,7 +146,7 @@ export default function ContactCardClient() {
 
             <a
               href={`tel:${SITE.landline}`}
-              className="flex items-center gap-4 rounded-2xl border border-emerald/40 bg-emerald/10 px-5 py-4 text-white transition-colors hover:border-emerald hover:bg-emerald/15"
+              className="flex min-w-0 items-center gap-4 rounded-2xl border border-emerald/40 bg-emerald/10 px-5 py-4 text-white transition-colors hover:border-emerald hover:bg-emerald/15"
             >
               <ActionIcon>
                 <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -148,7 +170,7 @@ export default function ContactCardClient() {
               href={whatsAppChatUrl()}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-4 rounded-2xl border border-white/15 bg-white/[0.03] px-5 py-4 text-white transition-colors hover:border-white/30 hover:bg-white/[0.06]"
+              className="flex min-w-0 items-center gap-4 rounded-2xl border border-white/15 bg-white/[0.03] px-5 py-4 text-white transition-colors hover:border-white/30 hover:bg-white/[0.06]"
             >
               <ActionIcon>
                 <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
@@ -165,7 +187,7 @@ export default function ContactCardClient() {
 
             <a
               href={`mailto:${SITE.email}`}
-              className="flex items-center gap-4 rounded-2xl border border-white/15 bg-white/[0.03] px-5 py-4 text-white transition-colors hover:border-white/30 hover:bg-white/[0.06]"
+              className="flex min-w-0 items-center gap-4 rounded-2xl border border-white/15 bg-white/[0.03] px-5 py-4 text-white transition-colors hover:border-white/30 hover:bg-white/[0.06]"
             >
               <ActionIcon>
                 <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -191,7 +213,7 @@ export default function ContactCardClient() {
               type="button"
               onClick={() => void handleSaveContact()}
               disabled={savingContact}
-              className="flex items-center gap-4 rounded-2xl border border-white/15 bg-white/[0.03] px-5 py-4 text-left text-white transition-colors hover:border-white/30 hover:bg-white/[0.06] disabled:opacity-70"
+              className="flex min-w-0 items-center gap-4 rounded-2xl border border-white/15 bg-white/[0.03] px-5 py-4 text-left text-white transition-colors hover:border-white/30 hover:bg-white/[0.06] disabled:opacity-70"
             >
               <ActionIcon>
                 <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -208,7 +230,7 @@ export default function ContactCardClient() {
                   Save
                 </span>
                 <span className="mt-0.5 block text-lg font-bold">
-                  {savingContact ? "Downloading…" : "Save to contacts"}
+                  {savingContact ? "Downloading…" : "Save our contact details"}
                 </span>
                 <span className="mt-0.5 block text-xs text-white/45">
                   Includes logo — downloads a contact file
@@ -216,12 +238,19 @@ export default function ContactCardClient() {
               </span>
             </button>
             {showIosSteps ? (
-              <div className="rounded-2xl border border-emerald/35 bg-emerald/10 px-4 py-4 text-sm text-white">
+              <div className="min-w-0 rounded-2xl border border-emerald/35 bg-emerald/10 px-4 py-4 text-sm text-white">
                 <p className="font-semibold text-emerald">iPhone — keep the logo</p>
                 <ol className="mt-3 list-decimal space-y-2 pl-5 text-white/80">
-                  <li>Allow the download of <span className="text-white">My-Airport-Taxi-NI.vcf</span></li>
-                  <li>Open the <span className="text-white">Files</span> app → Downloads</li>
-                  <li>Tap the file → <span className="text-white">Create New Contact</span></li>
+                  <li>
+                    Allow the download of{" "}
+                    <span className="text-white">My-Airport-Taxi-NI.vcf</span>
+                  </li>
+                  <li>
+                    Open the <span className="text-white">Files</span> app → Downloads
+                  </li>
+                  <li>
+                    Tap the file → <span className="text-white">Create New Contact</span>
+                  </li>
                 </ol>
                 <p className="mt-3 text-xs text-white/55">
                   Safari’s own contact preview removes the logo. Opening from Files keeps it.
@@ -243,37 +272,10 @@ export default function ContactCardClient() {
 
           <a
             href={SITE.url}
-            className="contact-fade-up-delay-3 mt-6 text-center text-sm font-semibold text-emerald transition-colors hover:text-emerald-light"
+            className="contact-fade-up-delay-3 mt-6 break-all text-center text-sm font-semibold text-emerald transition-colors hover:text-emerald-light"
           >
             www.myairporttaxini.co.uk
           </a>
-
-          <div className="contact-fade-up-delay-3 mt-10 rounded-2xl border border-white/10 bg-white/[0.03] px-5 py-6 text-center">
-            <p className="text-xs font-semibold uppercase tracking-wider text-emerald">
-              Scan QR code
-            </p>
-            <p className="mt-2 text-sm leading-relaxed text-white/65">
-              Opens this contact card — book, call, WhatsApp, or save to contacts.
-            </p>
-            <div className="mx-auto mt-5 inline-flex rounded-2xl bg-white p-3 shadow-lg">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={qrSrc}
-                alt={`QR code linking to ${cardUrl}`}
-                width={220}
-                height={220}
-                className="h-48 w-48 sm:h-52 sm:w-52"
-              />
-            </div>
-            <p className="mt-4 break-all text-xs text-white/45">{cardUrl}</p>
-            <a
-              href={qrSrc}
-              download="my-airport-taxi-ni-contact-qr.png"
-              className="mt-5 inline-flex items-center justify-center gap-2 rounded-xl bg-emerald/15 px-4 py-2.5 text-sm font-semibold text-emerald transition-colors hover:bg-emerald/25"
-            >
-              Download QR image
-            </a>
-          </div>
         </div>
       </div>
     </main>

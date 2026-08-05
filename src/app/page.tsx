@@ -12,6 +12,7 @@ import VehiclesSection from "@/components/VehiclesSection";
 import ChauffeurSection from "@/components/ChauffeurSection";
 import WhatsAppButton from "@/components/WhatsAppButton";
 import Footer from "@/components/Footer";
+import { SERVICE_FLAGS } from "@/lib/data";
 
 export const metadata: Metadata = {
   alternates: {
@@ -28,11 +29,14 @@ export default function Home() {
         <AirportsSection />
         <FlightStatusSection />
         <AreasSection />
-        <ToursTeaserSection />
+        {/* Soft-hidden via SERVICE_FLAGS — set dayTrips: true in data.ts to restore */}
+        {SERVICE_FLAGS.dayTrips ? <ToursTeaserSection /> : null}
         <VehiclesSection />
-        <ChauffeurSection />
+        {/* Soft-hidden via SERVICE_FLAGS — set chauffeur: true in data.ts to restore */}
+        {SERVICE_FLAGS.chauffeur ? <ChauffeurSection /> : null}
         <WhyChooseUsSection />
-        <DriverTrackingSection />
+        {/* Soft-hidden via SERVICE_FLAGS.liveDriverTracking — set true in data.ts to restore */}
+        {SERVICE_FLAGS.liveDriverTracking ? <DriverTrackingSection /> : null}
         <FAQSection />
       </main>
       <Footer />

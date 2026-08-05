@@ -9,7 +9,7 @@ import { buildBookingMessage, isValidEmailAddress, isValidMobileNumber, type Boo
 import { buildMarketingOptInFields, recordMarketingOptIn } from "@/lib/marketing-api";
 import { TERMS_LAST_UPDATED } from "@/lib/terms";
 import { detectMobileDevice, useIsMobileDevice } from "@/lib/device";
-import { AIRPORTS, SITE, VEHICLE_TYPES } from "@/lib/data";
+import { AIRPORTS, isVehicleEnquiryOnly, SERVICE_FLAGS, SITE, VEHICLE_TYPES } from "@/lib/data";
 import { readPrefillAirport } from "@/lib/quote-prefill";
 import { readTestBookingPrefill } from "@/lib/test-booking";
 import {
@@ -23,7 +23,14 @@ import {
   formatJourneyDuration,
   type TripRouteMetrics,
 } from "@/lib/trip-route";
-import { submitBookingByEmail, submitMobileWhatsAppBooking, openWhatsAppBookingMessage } from "@/lib/submit-booking";
+import {
+  openWhatsAppBookingMessage,
+  submitBookingByEmail,
+  submitEnquiryByEmail,
+  submitMobileWhatsAppBooking,
+  submitMobileWhatsAppEnquiry,
+} from "@/lib/submit-booking";
+import { buildEnquiryBookingMessage } from "@/lib/booking-message";
 import {
   buildPaymentRedirectUrl,
   confirmPaidBooking,
@@ -123,7 +130,7 @@ function getAutoVehicle(passengers: number, suitcases: number): VehicleType | nu
   if (passengers >= 8 || suitcases >= 5) {
     return MINIBUS;
   }
-  if (suitcases === 4) {
+  if (suitcases >= 3) {
     return ESTATE;
   }
   return null;
@@ -271,7 +278,8 @@ function QuoteCard() {
   const [marketingOptIn, setMarketingOptIn] = useState(false);
   const [testChargeAmount, setTestChargeAmount] = useState<number | null>(null);
   const [testBookingLabel, setTestBookingLabel] = useState<string | null>(null);
-  const sumUpEnabled = isSumUpPaymentEnabled();
+  // Soft-hidden via SERVICE_FLAGS.customerSumUpPay — customers enquire; owner sends SumUp link.
+  const sumUpEnabled = SERVICE_FLAGS.customerSumUpPay && isSumUpPaymentEnabled();
 
   const handleRouteMetrics = useCallback((metrics: TripRouteMetrics | null) => {
     setRouteMetrics(metrics);
@@ -279,12 +287,20 @@ function QuoteCard() {
 
   const autoVehicle = getAutoVehicle(passengers, suitcases);
   const quoteVehicle = autoVehicle ?? vehicle;
+  const isEnquiryOnly = isVehicleEnquiryOnly(quoteVehicle);
   const isVehicleAutoSelected = autoVehicle != null;
 
   const isAirportTrip = tripMode === "airport";
   const isFromAirport = tripDirection === "from-airport";
   const returnTripDirection: TripDirection = isFromAirport ? "to-airport" : "from-airport";
   const addressLookupCode = isAirportTrip ? airportCode : "BFS";
+
+  useEffect(() => {
+    // Soft-hide address-to-address: keep quoting locked to airport transfers.
+    if (!SERVICE_FLAGS.addressToAddress && tripMode !== "airport") {
+      setTripMode("airport");
+    }
+  }, [tripMode]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -494,8 +510,14 @@ function QuoteCard() {
     !ldyServiceAreaInvalid &&
     (isAirportTrip ? isAirportAddressComplete : isAddressPairComplete);
 
+  const tripDetailsReady =
+    isScheduleComplete &&
+    !ldyServiceAreaInvalid &&
+    (isAirportTrip ? isAirportAddressComplete : isAddressPairComplete);
+
   const liveQuote = useMemo(() => {
-    if (!canShowPrice) {
+    // Executive / Minibus: no online price — enquiry only
+    if (!canShowPrice || isEnquiryOnly) {
       return null;
     }
 
@@ -528,6 +550,7 @@ function QuoteCard() {
     canShowPrice,
     dropoffAddress,
     isAirportTrip,
+    isEnquiryOnly,
     pickupAddress,
     quoteAddress,
     returnDate,
@@ -685,6 +708,10 @@ function QuoteCard() {
       return false;
     }
 
+    if (isEnquiryOnly) {
+      return tripDetailsReady;
+    }
+
     if (!canShowPrice || !liveQuote) {
       return false;
     }
@@ -703,7 +730,11 @@ function QuoteCard() {
     }
 
     if (!customerMobile.trim()) {
-      setMobileNumberError("Please enter your mobile number so we can send your payment link by text.");
+      setMobileNumberError(
+        isEnquiryOnly
+          ? "Please enter your mobile number so we can contact you about your enquiry."
+          : "Please enter your mobile number so we can send your payment link by text.",
+      );
       ok = false;
     } else if (!isValidMobileNumber(customerMobile)) {
       setMobileNumberError("Please enter a valid mobile number.");
@@ -713,7 +744,11 @@ function QuoteCard() {
     }
 
     if (!customerEmail.trim()) {
-      setEmailAddressError("Please enter your email address so we can confirm your booking.");
+      setEmailAddressError(
+        isEnquiryOnly
+          ? "Please enter your email address so we can send your quote."
+          : "Please enter your email address so we can confirm your booking.",
+      );
       ok = false;
     } else if (!isValidEmailAddress(customerEmail)) {
       setEmailAddressError("Please enter a valid email address.");
@@ -732,7 +767,8 @@ function QuoteCard() {
         : "Airport drop-off"
       : "Address to address";
 
-    const estimatedPrice = liveQuote ? formatQuote(liveQuote.amount) : null;
+    const estimatedPrice =
+      !isEnquiryOnly && liveQuote ? formatQuote(liveQuote.amount) : null;
 
     return {
       customerName: customerName.trim(),
@@ -859,7 +895,24 @@ function QuoteCard() {
 
     let reference = "";
     try {
-      if (!isMobile || delivery === "email") {
+      if (isEnquiryOnly) {
+        const enquiryMessage = buildEnquiryBookingMessage(details);
+        if (!isMobile || delivery === "email") {
+          reference = await submitEnquiryByEmail({
+            customerName: details.customerName,
+            message: enquiryMessage,
+            subject: `New vehicle enquiry — ${details.customerName}`,
+            booking: details,
+          });
+        } else {
+          reference = await submitMobileWhatsAppEnquiry({
+            customerName: details.customerName,
+            message: enquiryMessage,
+            subject: `New vehicle enquiry — ${details.customerName}`,
+            booking: details,
+          });
+        }
+      } else if (!isMobile || delivery === "email") {
         reference = await submitBookingByEmail(details);
       } else {
         reference = await submitMobileWhatsAppBooking(details);
@@ -869,8 +922,8 @@ function QuoteCard() {
       console.error("Booking submission failed", error);
       setSubmitError(
         delivery === "email" || !isMobile
-          ? `We couldn't send your booking by email. Please try WhatsApp or contact ${SITE.email} with your trip details.`
-          : `We couldn't log your booking. Please try email instead or contact ${SITE.email}.`,
+          ? `We couldn't send your ${isEnquiryOnly ? "enquiry" : "booking"} by email. Please try WhatsApp or contact ${SITE.email} with your trip details.`
+          : `We couldn't log your ${isEnquiryOnly ? "enquiry" : "booking"}. Please try email instead or contact ${SITE.email}.`,
       );
       setSubmitted(false);
       return;
@@ -885,13 +938,17 @@ function QuoteCard() {
       void recordMarketingOptIn({
         email: details.customerEmail,
         name: details.customerName,
-        source: "booking-request",
+        source: isEnquiryOnly ? "vehicle-enquiry" : "booking-request",
         fields: details,
       });
     }
 
     if (isMobile && delivery === "whatsapp") {
-      openWhatsAppBookingMessage(buildBookingMessage(details, reference));
+      openWhatsAppBookingMessage(
+        isEnquiryOnly
+          ? buildEnquiryBookingMessage(details, reference)
+          : buildBookingMessage(details, reference),
+      );
     }
   }
 
@@ -951,40 +1008,69 @@ function QuoteCard() {
     }
   }, [bookingSent]);
 
-  const submitInProgressLabel = "Sending booking…";
+  const submitInProgressLabel = isEnquiryOnly ? "Sending enquiry…" : "Sending booking…";
 
-  const confirmButtonLabel =
-    liveQuote
+  const confirmButtonLabel = isEnquiryOnly
+    ? "Send enquiry"
+    : liveQuote
       ? `Confirm & book for ${formatQuote(liveQuote.amount)}`
       : "Confirm & book";
 
-  const whatsAppConfirmLabel = liveQuote
-    ? `Send via WhatsApp — ${formatQuote(liveQuote.amount)}`
-    : "Confirm & send via WhatsApp";
+  const whatsAppConfirmLabel = isEnquiryOnly
+    ? "Send enquiry via WhatsApp"
+    : liveQuote
+      ? `Send via WhatsApp — ${formatQuote(liveQuote.amount)}`
+      : "Confirm & send via WhatsApp";
 
-  const bookButtonLabel = liveQuote ? `Book for ${formatQuote(liveQuote.amount)}` : "Book";
+  const bookButtonLabel = isEnquiryOnly
+    ? "Enquire to book"
+    : liveQuote
+      ? sumUpEnabled
+        ? `Book for ${formatQuote(liveQuote.amount)}`
+        : `Request to book · ${formatQuote(liveQuote.amount)}`
+      : "Request to book";
 
-  const quoteHint = isAirportTrip
-    ? !airportCode
-      ? "Select an airport to see your estimated price"
-      : ldyServiceAreaInvalid
-        ? isFromAirport
-          ? "We transfer from Derry Airport to the greater Belfast area — enter a Belfast-area drop-off address"
-          : "Pickups for Derry Airport must be in the greater Belfast area — enter a Belfast-area pickup address"
+  const quoteHint = isEnquiryOnly
+    ? tripDetailsReady
+      ? `${quoteVehicle.split(" (")[0]} is enquiry only — continue to send your trip details and we’ll quote you.`
+      : isAirportTrip
+        ? !airportCode
+          ? "Select an airport to continue your enquiry"
+          : ldyServiceAreaInvalid
+            ? isFromAirport
+              ? "We transfer from Derry Airport to the greater Belfast area — enter a Belfast-area drop-off address"
+              : "Pickups for Derry Airport must be in the greater Belfast area — enter a Belfast-area pickup address"
+            : !isScheduleComplete
+              ? "Select your date and time to continue your enquiry"
+              : !isAirportAddressComplete
+                ? `Enter your ${isFromAirport ? "drop-off" : "pickup"} address to continue your enquiry`
+                : ""
+        : !isScheduleComplete
+          ? "Select your date and time to continue your enquiry"
+          : !isAddressPairComplete
+            ? "Enter pickup and drop-off addresses to continue your enquiry"
+            : ""
+    : isAirportTrip
+      ? !airportCode
+        ? "Select an airport to see your fixed journey price"
+        : ldyServiceAreaInvalid
+          ? isFromAirport
+            ? "We transfer from Derry Airport to the greater Belfast area — enter a Belfast-area drop-off address"
+            : "Pickups for Derry Airport must be in the greater Belfast area — enter a Belfast-area pickup address"
+          : !isScheduleComplete
+            ? returnJourney && tripDate && tripTime && (!returnDate || !returnTime)
+              ? "Select your return date and time to see your fixed journey price"
+              : "Select your date and time to see your fixed journey price"
+            : !isAirportAddressComplete
+              ? `Enter your ${isFromAirport ? "drop-off" : "pickup"} address to see your fixed journey price`
+              : ""
       : !isScheduleComplete
-        ? returnJourney && tripDate && tripTime && (!returnDate || !returnTime)
-          ? "Select your return date and time to see your estimated price"
-          : "Select your date and time to see your estimated price"
-        : !isAirportAddressComplete
-          ? `Enter your ${isFromAirport ? "drop-off" : "pickup"} address to see your estimated price`
-          : ""
-    : !isScheduleComplete
-      ? "Select your date and time to see your estimated price"
-      : !isAddressPairComplete
-        ? "Enter pickup and drop-off addresses to see your estimated price"
-        : !routeMetrics
-          ? "Calculating your route and price…"
-          : "";
+        ? "Select your date and time to see your fixed journey price"
+        : !isAddressPairComplete
+          ? "Enter pickup and drop-off addresses to see your fixed journey price"
+          : !routeMetrics
+            ? "Calculating your route and price…"
+            : "";
 
   if (paymentConfirmed && paymentConfirmationSummary) {
     return (
@@ -1018,25 +1104,27 @@ function QuoteCard() {
       >
         <div className="rounded-xl border border-emerald/30 bg-emerald/10 px-5 py-8 text-center sm:px-8 sm:py-10">
           <p className="text-xs font-medium uppercase tracking-wider text-emerald">
-            Booking submitted
+            {isEnquiryOnly ? "Enquiry submitted" : "Booking submitted"}
           </p>
           <h2 className="mt-2 text-2xl font-bold text-white sm:text-3xl">Thank you</h2>
           <p className="mx-auto mt-4 max-w-md text-sm leading-relaxed text-white/80 sm:text-base">
-            A payment link will be sent shortly to confirm your booking. Your booking is not
-            confirmed until full payment is made.
+            {isEnquiryOnly
+              ? "We’ve received your enquiry. We’ll confirm availability and send your personal quote shortly. When you’re ready to book, we’ll send a SumUp payment link — your trip is confirmed after payment."
+              : "We’ve received your booking request. Once we confirm the job, we’ll send a SumUp payment link by email. Your booking is confirmed after payment, and only then is it added to our calendar."}
           </p>
           {bookingReference && (
             <p className="mt-4 text-sm text-white/60">Reference: {bookingReference}</p>
           )}
           {bookingDelivery === "whatsapp" && (
             <p className="mx-auto mt-4 max-w-md text-sm text-white/60">
-              Your booking message should open in WhatsApp. If it didn&apos;t, tap the green chat
-              button at the bottom of the screen.
+              Your {isEnquiryOnly ? "enquiry" : "booking"} message should open in WhatsApp. If it
+              didn&apos;t, tap the green chat button at the bottom of the screen.
             </p>
           )}
           {bookingDelivery === "email" && (
             <p className="mx-auto mt-4 max-w-md text-sm text-white/60">
-              Your booking has been sent by email. We&apos;ll confirm at {customerEmail.trim()}.
+              Your {isEnquiryOnly ? "enquiry" : "booking"} has been sent by email. We&apos;ll
+              confirm at {customerEmail.trim()}.
             </p>
           )}
         </div>
@@ -1049,8 +1137,9 @@ function QuoteCard() {
       <div className="mb-6">
         <h2 className="text-xl font-bold text-white sm:text-2xl">Get a Live Quote</h2>
         <p className="mt-1 text-sm text-white/60">
-          Enter your trip details to see your price instantly — we&apos;ll ask for your contact
-          details and flight numbers when you book.
+          Get an instant price online or through WhatsApp. Send your enquiry to book — once we
+          confirm your job, we&apos;ll email a SumUp payment link. Your booking is confirmed after
+          payment.
         </p>
       </div>
 
@@ -1063,41 +1152,44 @@ function QuoteCard() {
             invoice email and live tracking link.
           </div>
         )}
-        <div>
-          <p className="mb-2 text-xs font-medium uppercase tracking-wider text-white/50">
-            Service Type
-          </p>
-          <div className="grid grid-cols-2 gap-2 rounded-xl border border-white/10 bg-white/5 p-1">
-            <button
-              type="button"
-              onClick={() => {
-                setTripMode("airport");
-                setReturnDateError("");
-              }}
-              className={`rounded-lg px-3 py-2.5 text-xs font-semibold transition-all sm:text-sm ${
-                isAirportTrip
-                  ? "bg-emerald text-navy shadow-sm"
-                  : "text-white/70 hover:text-white"
-              }`}
-            >
-              Airport transfer
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setTripMode("address");
-                setReturnDateError("");
-              }}
-              className={`rounded-lg px-3 py-2.5 text-xs font-semibold transition-all sm:text-sm ${
-                !isAirportTrip
-                  ? "bg-emerald text-navy shadow-sm"
-                  : "text-white/70 hover:text-white"
-              }`}
-            >
-              Address to address
-            </button>
+        {/* Soft-hidden via SERVICE_FLAGS.addressToAddress — set true in data.ts to restore */}
+        {SERVICE_FLAGS.addressToAddress ? (
+          <div>
+            <p className="mb-2 text-xs font-medium uppercase tracking-wider text-white/50">
+              Service Type
+            </p>
+            <div className="grid grid-cols-2 gap-2 rounded-xl border border-white/10 bg-white/5 p-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setTripMode("airport");
+                  setReturnDateError("");
+                }}
+                className={`rounded-lg px-3 py-2.5 text-xs font-semibold transition-all sm:text-sm ${
+                  isAirportTrip
+                    ? "bg-emerald text-navy shadow-sm"
+                    : "text-white/70 hover:text-white"
+                }`}
+              >
+                Airport transfer
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setTripMode("address");
+                  setReturnDateError("");
+                }}
+                className={`rounded-lg px-3 py-2.5 text-xs font-semibold transition-all sm:text-sm ${
+                  !isAirportTrip
+                    ? "bg-emerald text-navy shadow-sm"
+                    : "text-white/70 hover:text-white"
+                }`}
+              >
+                Address to address
+              </button>
+            </div>
           </div>
-        </div>
+        ) : null}
 
         {isAirportTrip && (
           <div>
@@ -1107,8 +1199,7 @@ function QuoteCard() {
             {isLdyTrip ? (
               <>
                 <div className="mb-2 rounded-xl border border-emerald/20 bg-emerald/10 px-4 py-3 text-sm text-white/80">
-                  Transfers between City of Derry Airport and the greater Belfast area — not
-                  Belfast City Airport (BHD).
+                  Transfers between City of Derry Airport and the greater Belfast area only.
                 </div>
                 <div className="grid grid-cols-2 gap-2 rounded-xl border border-white/10 bg-white/5 p-1">
                   <button
@@ -1226,7 +1317,7 @@ function QuoteCard() {
               {AIRPORTS.map((a) => (
                 <option key={a.code} value={a.code}>
                   {a.name} ({a.code}) — {a.distance}
-                  {a.code === "LDY" ? " · not Belfast City (BHD)" : ""}
+                  
                 </option>
               ))}
             </select>
@@ -1368,7 +1459,7 @@ function QuoteCard() {
               htmlFor="time"
               className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/50"
             >
-              {returnJourney ? "Outbound Time" : "Time"}
+              {returnJourney ? "Outbound pick up time" : "Pick up time"}
             </label>
             <input
               id="time"
@@ -1406,7 +1497,7 @@ function QuoteCard() {
                 htmlFor="returnTime"
                 className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/50"
               >
-                Return Time
+                Return pick up time
               </label>
               <input
                 id="returnTime"
@@ -1643,7 +1734,7 @@ function QuoteCard() {
             >
               {VEHICLE_TYPES.map((v) => (
                 <option key={v} value={v}>
-                  {v}
+                  {isVehicleEnquiryOnly(v) ? `${v} — enquire to book` : v}
                 </option>
               ))}
             </select>
@@ -1655,23 +1746,44 @@ function QuoteCard() {
               <p className="mt-1.5 text-xs text-white/40">
                 Minibus selected automatically for 5 or more suitcases.
               </p>
-            ) : suitcases === 4 ? (
+            ) : suitcases >= 3 ? (
               <p className="mt-1.5 text-xs text-white/40">
-                Estate car selected automatically for 4 suitcases.
+                Estate car selected automatically for 3 or more suitcases.
               </p>
             ) : null}
           </div>
         </div>
 
         <div className="rounded-xl border border-emerald/30 bg-emerald/10 px-4 py-4">
-          {liveQuote ? (
+          {isEnquiryOnly ? (
+            <>
+              <p className="text-xs font-medium uppercase tracking-wider text-emerald">
+                Enquiry to book
+              </p>
+              <p className="mt-1 text-xl font-bold text-white sm:text-2xl">
+                {quoteVehicle.split(" (")[0]}
+              </p>
+              <p className="mt-2 text-sm leading-relaxed text-white/70">
+                No online price for this vehicle. Send an enquiry with your trip details and
+                we&apos;ll confirm availability and quote you personally.
+              </p>
+              {journeyDistanceLabel && journeyDurationLabel && (
+                <p className="mt-2 text-xs text-white/60">
+                  Approx. {journeyDistanceLabel} · {journeyDurationLabel}
+                </p>
+              )}
+              {!tripDetailsReady && quoteHint ? (
+                <p className="mt-3 text-sm text-white/70">{quoteHint}</p>
+              ) : null}
+            </>
+          ) : liveQuote ? (
             <>
               <p className="text-xs font-medium uppercase tracking-wider text-emerald">
                 {testChargeAmount !== null
                   ? "Test SumUp charge"
                   : returnJourney
-                    ? "Estimated return price"
-                    : "Estimated price"}
+                    ? "Your fixed return journey price"
+                    : "Your fixed journey price"}
               </p>
               <p className="mt-1 text-3xl font-bold text-white">
                 {formatQuote(testChargeAmount ?? liveQuote.amount)}
@@ -1699,14 +1811,15 @@ function QuoteCard() {
           ) : (
             <>
               <p className="text-xs font-medium uppercase tracking-wider text-white/50">
-                Estimated price
+                Your fixed journey price
               </p>
               <p className="mt-1 text-sm text-white/70">{quoteHint}</p>
             </>
           )}
           <p className="mt-3 text-[11px] text-white/40">
-            Includes vehicle, driver, fuel, and tolls.
-            {sumUpEnabled ? " Card payment is available after you review your booking." : ""}
+            {isEnquiryOnly
+              ? "We’ll reply with your quote — no online payment until you confirm."
+              : "Includes vehicle, driver, fuel, and tolls. After we confirm your job, we’ll send a SumUp payment link by email."}
           </p>
         </div>
 
@@ -1742,11 +1855,12 @@ function QuoteCard() {
           <div className={BOOKING_PANEL_CLASS}>
             <div className="mb-4">
               <p className="text-xs font-medium uppercase tracking-wider text-emerald">
-                Review your booking
+                {isEnquiryOnly ? "Review your enquiry" : "Review your booking"}
               </p>
               <p className="mt-1 text-sm text-white/75">
-                Please check everything is correct before booking — wrong details can change your
-                price.
+                {isEnquiryOnly
+                  ? "Check your details, then send an enquiry — we’ll quote you and confirm availability."
+                  : "Please check everything is correct before booking — wrong details can change your price."}
               </p>
             </div>
             <dl>
@@ -1807,18 +1921,14 @@ function QuoteCard() {
               <PreviewRow label="Passengers" value={String(passengers)} />
               <PreviewRow label="Suitcases" value={String(suitcases)} />
               <PreviewRow label="Vehicle" value={quoteVehicle} />
-              {liveQuote && (
+              {isEnquiryOnly ? (
+                <PreviewRow label="Pricing" value="Enquiry — we’ll quote you" />
+              ) : liveQuote ? (
                 <PreviewRow
-                  label={returnJourney ? "Estimated return price" : "Estimated price"}
+                  label={returnJourney ? "Your fixed return journey price" : "Your fixed journey price"}
                   value={formatQuote(liveQuote.amount)}
                 />
-              )}
-              {journeyDistanceLabel && journeyDurationLabel && (
-                <PreviewRow
-                  label="Journey"
-                  value={`${journeyDistanceLabel} · ${journeyDurationLabel}`}
-                />
-              )}
+              ) : null}
             </dl>
           </div>
         )}
@@ -1840,19 +1950,23 @@ function QuoteCard() {
                 }
               }}
               error={termsError}
-              mode={sumUpEnabled && liveQuote ? "card-payment" : "booking-request"}
+              mode={
+                !isEnquiryOnly && sumUpEnabled && liveQuote ? "card-payment" : "booking-request"
+              }
               paymentAmountLabel={
-                testChargeAmount !== null
-                  ? "£1.00"
-                  : liveQuote
-                    ? formatQuote(liveQuote.amount)
-                    : undefined
+                isEnquiryOnly
+                  ? undefined
+                  : testChargeAmount !== null
+                    ? "£1.00"
+                    : liveQuote
+                      ? formatQuote(liveQuote.amount)
+                      : undefined
               }
             />
 
             <MarketingOptIn checked={marketingOptIn} onCheckedChange={setMarketingOptIn} />
 
-            {sumUpEnabled && liveQuote && (
+            {!isEnquiryOnly && sumUpEnabled && liveQuote && (
               <div className="space-y-3">
                 <p className="text-xs leading-relaxed text-white/50">
                   Card payments are processed securely by SumUp. Keep your confirmation email as
@@ -1876,7 +1990,7 @@ function QuoteCard() {
                 </p>
               </div>
             )}
-            {sumUpEnabled && liveQuote ? (
+            {!isEnquiryOnly && sumUpEnabled && liveQuote ? (
               <button
                 type="button"
                 onClick={handleEditBooking}
@@ -1886,7 +2000,11 @@ function QuoteCard() {
               </button>
             ) : usesWhatsApp ? (
               <>
-                <p className="text-xs text-white/55">Choose how to send your booking:</p>
+                <p className="text-xs text-white/55">
+                  {isEnquiryOnly
+                    ? "Choose how to send your enquiry:"
+                    : "Choose how to send your booking:"}
+                </p>
                 <button
                   type="button"
                   onClick={handleEditBooking}
@@ -1908,7 +2026,11 @@ function QuoteCard() {
                   onClick={() => void confirmBooking("email")}
                   className="w-full rounded-xl border border-white/20 bg-white/5 py-3.5 text-sm font-semibold text-white transition-all hover:border-emerald/40 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-70"
                 >
-                  {submitted ? submitInProgressLabel : "Send booking via email"}
+                  {submitted
+                    ? submitInProgressLabel
+                    : isEnquiryOnly
+                      ? "Send enquiry via email"
+                      : "Send booking via email"}
                 </button>
                 <p className="text-xs leading-relaxed text-white/45">
                   No WhatsApp? Email works too — we&apos;ll confirm at {customerEmail.trim()}.
@@ -1960,7 +2082,7 @@ function QuoteCard() {
         ) : (
           <button
             type="submit"
-            disabled={submitted || !liveQuote}
+            disabled={submitted || (isEnquiryOnly ? !tripDetailsReady : !liveQuote)}
             className="w-full rounded-xl bg-emerald py-3.5 text-sm font-bold text-navy transition-all hover:bg-emerald-light hover:shadow-lg hover:shadow-emerald/25 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {submitted ? submitInProgressLabel : bookButtonLabel}

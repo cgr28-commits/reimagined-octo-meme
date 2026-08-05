@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import Footer from "@/components/Footer";
 import Header from "@/components/Header";
 import SectionHeading from "@/components/SectionHeading";
 import TourCard from "@/components/TourCard";
 import TourBookingForm from "@/components/TourBookingForm";
 import WhatsAppButton from "@/components/WhatsAppButton";
-import { SITE } from "@/lib/data";
+import { SERVICE_FLAGS, SITE } from "@/lib/data";
 import { TOUR_BENEFITS, TOURS } from "@/lib/tours";
 import { getTourItemListJsonLd } from "@/lib/structured-data";
 
@@ -27,6 +28,11 @@ export const metadata: Metadata = {
 };
 
 export default function ToursPage() {
+  // Soft-hidden via SERVICE_FLAGS.dayTrips — code retained for restore
+  if (!SERVICE_FLAGS.dayTrips) {
+    notFound();
+  }
+
   const structuredData = getTourItemListJsonLd();
 
   return (

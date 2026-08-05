@@ -34,6 +34,8 @@ type DropdownPosition = {
   top: number;
   left: number;
   width: number;
+  maxHeight: number;
+  placement: "above" | "below";
 };
 
 export default function AddressInput({
@@ -64,10 +66,20 @@ export default function AddressInput({
     }
 
     const rect = inputRef.current.getBoundingClientRect();
+    const viewportHeight =
+      window.visualViewport?.height ?? window.innerHeight;
+    const viewportOffsetTop = window.visualViewport?.offsetTop ?? 0;
+    const spaceBelow = viewportOffsetTop + viewportHeight - rect.bottom - 12;
+    const spaceAbove = rect.top - viewportOffsetTop - 12;
+    const preferAbove = spaceBelow < 180 && spaceAbove > spaceBelow;
+    const available = Math.max(120, preferAbove ? spaceAbove : spaceBelow);
+
     setDropdownPosition({
-      top: rect.bottom + 8,
-      left: rect.left,
-      width: rect.width,
+      top: preferAbove ? rect.top - 8 : rect.bottom + 8,
+      left: Math.max(8, Math.min(rect.left, window.innerWidth - rect.width - 8)),
+      width: Math.min(rect.width, window.innerWidth - 16),
+      maxHeight: Math.min(256, available),
+      placement: preferAbove ? "above" : "below",
     });
   }, []);
 
@@ -108,11 +120,18 @@ export default function AddressInput({
     }
 
     updateDropdownPosition();
-    window.addEventListener("resize", updateDropdownPosition);
-    window.addEventListener("scroll", updateDropdownPosition, true);
+    inputRef.current?.scrollIntoView({ block: "center", behavior: "smooth" });
+
+    const onViewportChange = () => updateDropdownPosition();
+    window.addEventListener("resize", onViewportChange);
+    window.addEventListener("scroll", onViewportChange, true);
+    window.visualViewport?.addEventListener("resize", onViewportChange);
+    window.visualViewport?.addEventListener("scroll", onViewportChange);
     return () => {
-      window.removeEventListener("resize", updateDropdownPosition);
-      window.removeEventListener("scroll", updateDropdownPosition, true);
+      window.removeEventListener("resize", onViewportChange);
+      window.removeEventListener("scroll", onViewportChange, true);
+      window.visualViewport?.removeEventListener("resize", onViewportChange);
+      window.visualViewport?.removeEventListener("scroll", onViewportChange);
     };
   }, [suggestions.length, suggestionsOpen, updateDropdownPosition, value]);
 
@@ -131,14 +150,7 @@ export default function AddressInput({
 
       void fetchAddressPredictions(trimmed, airportCode)
         .then((predictions) => {
-          if (inputRef.current) {
-            const rect = inputRef.current.getBoundingClientRect();
-            setDropdownPosition({
-              top: rect.bottom + 8,
-              left: rect.left,
-              width: rect.width,
-            });
-          }
+          updateDropdownPosition();
           setSuggestions(predictions);
           setSuggestionsOpen(predictions.length > 0);
           setLoadError(
@@ -153,7 +165,7 @@ export default function AddressInput({
           setLoadError("Address suggestions are unavailable right now. Enter your address manually.");
         });
     },
-    [airportCode, autocompleteEnabled],
+    [airportCode, autocompleteEnabled, updateDropdownPosition],
   );
 
   function handleChange(event: React.ChangeEvent<HTMLInputElement>) {
@@ -168,6 +180,17 @@ export default function AddressInput({
     debounceRef.current = window.setTimeout(() => {
       requestSuggestions(next);
     }, 300);
+  }
+
+  function handleClear() {
+    if (debounceRef.current) {
+      window.clearTimeout(debounceRef.current);
+    }
+    onChange("");
+    setSuggestions([]);
+    setSuggestionsOpen(false);
+    setLoadError(null);
+    inputRef.current?.focus();
   }
 
   async function handleSelect(prediction: AddressPrediction) {
@@ -185,13 +208,21 @@ export default function AddressInput({
     typeof document !== "undefined"
       ? createPortal(
           <ul
-            className="address-suggestions-portal fixed z-[100000] max-h-64 overflow-y-auto rounded-xl border border-white/10 bg-white shadow-2xl"
+            className="address-suggestions-portal fixed z-[100000] overflow-y-auto overscroll-contain rounded-xl border border-white/10 bg-white shadow-2xl"
             style={
               dropdownPosition
                 ? {
-                    top: dropdownPosition.top,
+                    top:
+                      dropdownPosition.placement === "above"
+                        ? undefined
+                        : dropdownPosition.top,
+                    bottom:
+                      dropdownPosition.placement === "above"
+                        ? window.innerHeight - dropdownPosition.top
+                        : undefined,
                     left: dropdownPosition.left,
                     width: dropdownPosition.width,
+                    maxHeight: dropdownPosition.maxHeight,
                   }
                 : { visibility: "hidden" }
             }
@@ -217,7 +248,7 @@ export default function AddressInput({
       : null;
 
   return (
-    <div ref={containerRef} className="relative">
+    <div ref={containerRef} className="relative min-w-0">
       <div className="mb-1.5 flex items-center justify-between gap-3">
         <label htmlFor={id} className="text-xs font-medium uppercase tracking-wider text-white/50">
           {label}
@@ -225,27 +256,41 @@ export default function AddressInput({
         {action}
       </div>
 
-      <input
-        ref={inputRef}
-        id={id}
-        name={name}
-        type="text"
-        required={required}
-        autoComplete="street-address"
-        value={value}
-        onChange={handleChange}
-        onFocus={() => {
-          updateDropdownPosition();
-          if (suggestions.length > 0) {
-            setSuggestionsOpen(true);
-          } else if (value.trim().length >= 3) {
-            requestSuggestions(value);
-          }
-        }}
-        placeholder={placeholder}
-        aria-describedby={hintId}
-        className="address-input w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/30 outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30"
-      />
+      <div className="relative">
+        <input
+          ref={inputRef}
+          id={id}
+          name={name}
+          type="text"
+          required={required}
+          autoComplete="street-address"
+          value={value}
+          onChange={handleChange}
+          onFocus={() => {
+            updateDropdownPosition();
+            if (suggestions.length > 0) {
+              setSuggestionsOpen(true);
+            } else if (value.trim().length >= 3) {
+              requestSuggestions(value);
+            }
+          }}
+          placeholder={placeholder}
+          aria-describedby={hintId}
+          className="address-input w-full rounded-xl border border-white/10 bg-white/5 py-3 pl-4 pr-11 text-sm text-white placeholder:text-white/30 outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30"
+        />
+        {value ? (
+          <button
+            type="button"
+            onClick={handleClear}
+            aria-label="Clear address"
+            className="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-white/55 transition-colors hover:bg-white/10 hover:text-white"
+          >
+            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden>
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 6l12 12M18 6L6 18" />
+            </svg>
+          </button>
+        ) : null}
+      </div>
 
       {suggestionsPortal}
 

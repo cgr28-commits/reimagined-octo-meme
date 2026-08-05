@@ -225,7 +225,7 @@ function buildInvoiceHtml(
             <td style="padding:8px 32px 8px;">
               <div style="font-size:13px;line-height:1.7;color:#64748b;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:16px 20px;">
                 <strong style="color:#92400e;">Cancellation policy:</strong>
-                Free cancellation more than 24 hours before pickup. Bookings cancelled within 24 hours of pickup are non-refundable.
+                With at least 24 hours’ notice we refund the fare minus £5 or 10% of the booking price (whichever is higher). Bookings cancelled within 24 hours of pickup are non-refundable.
                 See our <a href="${BUSINESS_WEBSITE}/terms/" style="color:#0b1f33;">Terms &amp; Conditions</a> for full details.
               </div>
             </td>
