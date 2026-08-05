@@ -1227,7 +1227,8 @@ export default function DriverPageClient({
   const [activeToken, setActiveToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(isOwnerPortal);
   const [error, setError] = useState<string | null>(null);
-  const [view, setView] = useState<DashboardView>("today");
+  // Owner defaults to Upcoming so paid jobs booked yesterday (future trip dates) show.
+  const [view, setView] = useState<DashboardView>(isOwnerPortal ? "upcoming" : "today");
   const [selectedDate, setSelectedDate] = useState(() => todayLondonDate());
   const watchIdRef = useRef<number | null>(null);
   const demoQueryHandledRef = useRef(false);
@@ -1843,9 +1844,25 @@ export default function DriverPageClient({
 
               {isOwnerView && savedKey ? <OwnerBookingJobsPanel ownerKey={savedKey} /> : null}
 
-              {/* Legacy live-tracking job list — soft-hidden until SERVICE_FLAGS.liveDriverTracking */}
-              {SERVICE_FLAGS.liveDriverTracking ? (
+              {/*
+                Paid / tracking job list:
+                - Always shown for the owner (Upcoming / Today / Pick date) so existing
+                  paid bookings remain visible while customer live-tracking is soft-hidden.
+                - Drivers only see it when SERVICE_FLAGS.liveDriverTracking is on.
+              */}
+              {SERVICE_FLAGS.liveDriverTracking || isOwnerView ? (
               <>
+              {isOwnerView && !SERVICE_FLAGS.liveDriverTracking ? (
+                <div className="mb-4">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-emerald">
+                    Paid jobs coming up
+                  </p>
+                  <p className="mt-1 text-sm text-white/60">
+                    Paid bookings with a trip date ahead (including ones booked yesterday). Customer
+                    live-tracking links stay soft-hidden while testing continues.
+                  </p>
+                </div>
+              ) : null}
               <div className="mb-6 flex flex-wrap gap-2">
                 {([
                   ["today", "Today"],
@@ -2063,11 +2080,6 @@ export default function DriverPageClient({
                 </div>
               )}
               </>
-              ) : isOwnerView ? (
-                <p className="mt-2 text-sm text-white/45">
-                  Live driver tracking is soft-hidden while testing continues. Booking requests and
-                  email driver assignment above are the active workflow.
-                </p>
               ) : null}
 
               {!isOwnerView && profilePanel}
