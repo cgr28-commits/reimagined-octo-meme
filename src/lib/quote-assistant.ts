@@ -277,7 +277,7 @@ export function createWelcomeMessages(): AssistantMessage[] {
     {
       role: "bot",
       text:
-        `Hi — I’m the ${SITE.name} assistant. Ask me anything about airport transfers, waiting time, cancellations, vehicles, or get a fixed journey price.\n\n` +
+        `Hi — I’m the ${SITE.name} assistant. Ask me anything about airport transfers, waiting time, vehicles, or get a fixed journey price.\n\n` +
         "Example: “Quote from Bangor to Belfast International for 2 passengers and 3 cases”.",
     },
   ];
@@ -299,7 +299,7 @@ export function respondToAssistantMessage(
     return {
       reply: "Type a question, or ask for a quote with your airport and town/address.",
       draft: nextDraft,
-      quickReplies: ["Get a quote", "Cancellation policy", "Save contact details"],
+      quickReplies: ["Get a quote", "Save contact details"],
     };
   }
 
@@ -319,7 +319,7 @@ export function respondToAssistantMessage(
         "Would you like to add our contact details? Scan and save with the QR code above — it opens our contact card with our logo.",
       draft: nextDraft,
       showContactOffer: true,
-      quickReplies: ["Get a quote", "Cancellation policy"],
+      quickReplies: ["Get a quote"],
     };
   }
 
@@ -327,7 +327,7 @@ export function respondToAssistantMessage(
     return {
       reply: "Hello! I can answer questions about our service or work out a fixed airport transfer price.",
       draft: nextDraft,
-      quickReplies: ["Get a quote", "Cancellation policy", "Save contact details"],
+      quickReplies: ["Get a quote", "Save contact details"],
       showContactOffer: true,
     };
   }
@@ -422,7 +422,7 @@ export function respondToAssistantMessage(
         reply: built.text,
         draft: {},
         resetDraft: true,
-        quickReplies: ["Another quote", "Request to book", "Save contact details", "Cancellation policy"],
+        quickReplies: ["Another quote", "Request to book", "Save contact details"],
         showContactOffer: true,
       };
     }
@@ -433,7 +433,7 @@ export function respondToAssistantMessage(
     return {
       reply: knowledge,
       draft: nextDraft,
-      quickReplies: ["Get a quote", "Save contact details", "Cancellation policy"],
+      quickReplies: ["Get a quote", "Save contact details"],
     };
   }
 
@@ -451,9 +451,9 @@ export function respondToAssistantMessage(
 
   return {
     reply:
-      "I can answer questions from our site (booking, cancellations, waiting time, vehicles, airports) and work out a fixed journey price with the same pricing as the quote tool.\n\n" +
-      "Try: “Quote from Bangor to Belfast International for 2 passengers and 3 cases”, or ask “What’s your cancellation policy?”",
+      "I can answer questions from our site (booking, waiting time, vehicles, airports) and work out a fixed journey price with the same pricing as the quote tool.\n\n" +
+      "Try: “Quote from Bangor to Belfast International for 2 passengers and 3 cases”.",
     draft: nextDraft,
-    quickReplies: ["Get a quote", "Cancellation policy", "Save contact details"],
+    quickReplies: ["Get a quote", "Save contact details"],
   };
 }

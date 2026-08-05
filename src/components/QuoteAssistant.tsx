@@ -24,7 +24,6 @@ export default function QuoteAssistant() {
   const [messages, setMessages] = useState<AssistantMessage[]>(() => createWelcomeMessages());
   const [quickReplies, setQuickReplies] = useState<string[]>([
     "Get a quote",
-    "Cancellation policy",
     "Save contact details",
   ]);
   const [draft, setDraft] = useState<QuoteDraft>({});
@@ -123,7 +122,7 @@ export default function QuoteAssistant() {
   function resetChat() {
     setMessages(createWelcomeMessages());
     setDraft(emptyQuoteDraft());
-    setQuickReplies(["Get a quote", "Cancellation policy", "Save contact details"]);
+    setQuickReplies(["Get a quote", "Save contact details"]);
     setShowContactOffer(true);
     setSaveHint(null);
     setInput("");
