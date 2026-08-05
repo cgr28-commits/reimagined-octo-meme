@@ -12,25 +12,54 @@ export const SITE = {
   url: "https://www.myairporttaxini.co.uk",
 } as const;
 
-export const NAV_LINKS = [
-  { label: "Airports", href: "/#airports" },
-  { label: "Day Trips", href: "/tours/" },
-  { label: "Our Fleet", href: "/#vehicles" },
-  { label: "Chauffeur", href: "/#chauffeur" },
-  { label: "Check Flights", href: "/#flight-status" },
-  { label: "Driver Tracking", href: "/#driver-tracking" },
-  { label: "Areas We Cover", href: "/#areas" },
-  { label: "Why Us", href: "/#why-us" },
-  { label: "FAQ", href: "/#faq" },
+/**
+ * Soft-disable public services without deleting code.
+ * Set a flag back to true to restore nav, homepage sections, and routes.
+ */
+export const SERVICE_FLAGS = {
+  dayTrips: false,
+  chauffeur: false,
+} as const;
+
+export const ALL_NAV_LINKS = [
+  { label: "Airports", href: "/#airports", service: null },
+  { label: "Day Trips", href: "/tours/", service: "dayTrips" as const },
+  { label: "Our Fleet", href: "/#vehicles", service: null },
+  { label: "Chauffeur", href: "/#chauffeur", service: "chauffeur" as const },
+  { label: "Check Flights", href: "/#flight-status", service: null },
+  { label: "Driver Tracking", href: "/#driver-tracking", service: null },
+  { label: "Areas We Cover", href: "/#areas", service: null },
+  { label: "Why Us", href: "/#why-us", service: null },
+  { label: "FAQ", href: "/#faq", service: null },
 ] as const;
 
+function isServiceEnabled(service: "dayTrips" | "chauffeur" | null): boolean {
+  if (!service) {
+    return true;
+  }
+  return SERVICE_FLAGS[service];
+}
+
+/** Public nav — filtered by SERVICE_FLAGS (code for hidden services is retained). */
+export const NAV_LINKS = ALL_NAV_LINKS.filter((link) => isServiceEnabled(link.service)).map(
+  ({ label, href }) => ({ label, href }),
+);
+
 /** Always visible on mobile — key services beyond airport transfers. */
-export const MOBILE_QUICK_LINKS = [
-  { label: "Day Trips", href: "/tours/" },
-  { label: "Chauffeur Hire", href: "/#chauffeur" },
-  { label: "Airports", href: "/#airports" },
-  { label: "Get a Quote", href: "/#quote", highlight: true },
+export const ALL_MOBILE_QUICK_LINKS = [
+  { label: "Day Trips", href: "/tours/", service: "dayTrips" as const },
+  { label: "Chauffeur Hire", href: "/#chauffeur", service: "chauffeur" as const },
+  { label: "Airports", href: "/#airports", service: null },
+  { label: "Get a Quote", href: "/#quote", highlight: true, service: null },
 ] as const;
+
+export const MOBILE_QUICK_LINKS = ALL_MOBILE_QUICK_LINKS.filter((link) =>
+  isServiceEnabled(link.service),
+).map(({ label, href, ...rest }) => ({
+  label,
+  href,
+  ...("highlight" in rest ? { highlight: rest.highlight } : {}),
+}));
 
 export const FLIGHT_AIRPORTS = [
   {
@@ -363,21 +392,25 @@ export const VEHICLE_FLEET = [
     name: "Estate Car",
     capacity: "1–4 passengers",
     description: "Our most popular option — a spacious estate with a large boot for family holidays and airport luggage.",
+    enquiryOnly: false,
   },
   {
     name: "Standard Saloon",
     capacity: "1–4 passengers",
     description: "Ideal for solo travellers and couples with light luggage.",
+    enquiryOnly: false,
   },
   {
     name: "Executive Saloon",
     capacity: "1–4 passengers",
-    description: "Premium comfort for business travel and airport runs.",
+    description: "Premium comfort for business travel — enquire to book and we’ll confirm availability and price.",
+    enquiryOnly: true,
   },
   {
     name: "Minibus",
     capacity: "7–8 passengers",
-    description: "Available for larger groups heading to the airport together.",
+    description: "For larger groups travelling together — enquire to book and we’ll confirm availability and price.",
+    enquiryOnly: true,
   },
 ] as const;
 
@@ -387,3 +420,15 @@ export const VEHICLE_TYPES = [
   "Executive Saloon (1–4 passengers)",
   "Minibus (7–8 passengers)",
 ] as const;
+
+export type VehicleType = (typeof VEHICLE_TYPES)[number];
+
+/** Executive and Minibus: enquiry to book — no online price, pay, or instant booking. */
+export const ENQUIRY_ONLY_VEHICLE_TYPES: readonly VehicleType[] = [
+  "Executive Saloon (1–4 passengers)",
+  "Minibus (7–8 passengers)",
+];
+
+export function isVehicleEnquiryOnly(vehicleType: string): boolean {
+  return (ENQUIRY_ONLY_VEHICLE_TYPES as readonly string[]).includes(vehicleType);
+}

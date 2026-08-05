@@ -3,6 +3,9 @@ import { join } from "node:path";
 
 const SITE_URL = "https://www.myairporttaxini.co.uk";
 
+// Keep in sync with SERVICE_FLAGS.dayTrips in src/lib/data.ts
+const DAY_TRIPS_ENABLED = false;
+
 const tourSlugs = [
   "giants-causeway",
   "belfast-city",
@@ -14,12 +17,16 @@ const tourSlugs = [
 
 const pages = [
   { path: "/", changefreq: "monthly", priority: "1.0" },
-  { path: "/tours/", changefreq: "monthly", priority: "0.9" },
-  ...tourSlugs.map((slug) => ({
-    path: `/tours/${slug}/`,
-    changefreq: "monthly",
-    priority: "0.8",
-  })),
+  ...(DAY_TRIPS_ENABLED
+    ? [
+        { path: "/tours/", changefreq: "monthly", priority: "0.9" },
+        ...tourSlugs.map((slug) => ({
+          path: `/tours/${slug}/`,
+          changefreq: "monthly",
+          priority: "0.8",
+        })),
+      ]
+    : []),
   { path: "/terms/", changefreq: "yearly", priority: "0.5" },
   { path: "/privacy/", changefreq: "yearly", priority: "0.5" },
   { path: "/contact/", changefreq: "monthly", priority: "0.8" },
@@ -48,5 +55,5 @@ ${urls}
 </urlset>
 `;
 
-writeFileSync(join("public", "sitemap.xml"), xml, "utf8");
-console.log("Generated public/sitemap.xml");
+writeFileSync(join(process.cwd(), "public", "sitemap.xml"), xml);
+console.log(`Wrote sitemap with ${pages.length} URLs (day trips ${DAY_TRIPS_ENABLED ? "on" : "off"})`);

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import Logo from "./Logo";
 import FooterContact from "./FooterContact";
-import { NAV_LINKS, SITE } from "@/lib/data";
+import { NAV_LINKS, SERVICE_FLAGS, SITE } from "@/lib/data";
 import { TOURS } from "@/lib/tours";
 
 export default function Footer() {
@@ -10,7 +10,11 @@ export default function Footer() {
   return (
     <footer className="relative border-t border-white/10 bg-navy-dark">
       <div className="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
-        <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-5">
+        <div
+          className={`grid gap-10 sm:grid-cols-2 ${
+            SERVICE_FLAGS.dayTrips ? "lg:grid-cols-5" : "lg:grid-cols-4"
+          }`}
+        >
           <div className="sm:col-span-2 lg:col-span-1">
             <Logo className="h-16" />
             <p className="mt-4 max-w-xs text-sm leading-relaxed text-white/50">
@@ -37,28 +41,30 @@ export default function Footer() {
             </ul>
           </div>
 
-          <div>
-            <h3 className="text-sm font-semibold uppercase tracking-wider text-white">
-              Day Trips
-            </h3>
-            <ul className="mt-4 space-y-2">
-              <li>
-                <Link href="/tours/" className="text-sm text-white/50 transition-colors hover:text-emerald">
-                  All day trips
-                </Link>
-              </li>
-              {TOURS.map((tour) => (
-                <li key={tour.slug}>
-                  <Link
-                    href={`/tours/${tour.slug}/`}
-                    className="text-sm text-white/50 transition-colors hover:text-emerald"
-                  >
-                    {tour.title}
+          {SERVICE_FLAGS.dayTrips ? (
+            <div>
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-white">
+                Day Trips
+              </h3>
+              <ul className="mt-4 space-y-2">
+                <li>
+                  <Link href="/tours/" className="text-sm text-white/50 transition-colors hover:text-emerald">
+                    All day trips
                   </Link>
                 </li>
-              ))}
-            </ul>
-          </div>
+                {TOURS.map((tour) => (
+                  <li key={tour.slug}>
+                    <Link
+                      href={`/tours/${tour.slug}/`}
+                      className="text-sm text-white/50 transition-colors hover:text-emerald"
+                    >
+                      {tour.title}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
 
           <div>
             <h3 className="text-sm font-semibold uppercase tracking-wider text-white">

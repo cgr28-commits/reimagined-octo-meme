@@ -7,7 +7,7 @@ import Header from "@/components/Header";
 import TourCard from "@/components/TourCard";
 import TourBookingForm from "@/components/TourBookingForm";
 import WhatsAppButton from "@/components/WhatsAppButton";
-import { SITE } from "@/lib/data";
+import { SERVICE_FLAGS, SITE } from "@/lib/data";
 import { getBreadcrumbJsonLd } from "@/lib/structured-data";
 import { getTourBySlug, TOURS } from "@/lib/tours";
 
@@ -16,6 +16,10 @@ type TourPageProps = {
 };
 
 export function generateStaticParams() {
+  // Soft-hidden via SERVICE_FLAGS.dayTrips — code retained for restore
+  if (!SERVICE_FLAGS.dayTrips) {
+    return [];
+  }
   return TOURS.map((tour) => ({ slug: tour.slug }));
 }
 
@@ -43,6 +47,11 @@ export async function generateMetadata({ params }: TourPageProps): Promise<Metad
 }
 
 export default async function TourDetailPage({ params }: TourPageProps) {
+  // Soft-hidden via SERVICE_FLAGS.dayTrips — code retained for restore
+  if (!SERVICE_FLAGS.dayTrips) {
+    notFound();
+  }
+
   const { slug } = await params;
   const tour = getTourBySlug(slug);
 

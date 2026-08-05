@@ -57,11 +57,10 @@ export function isValidEmailAddress(value: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
 }
 
-export function buildBookingMessage(details: BookingDetails, bookingReference?: string): string {
+function buildTripDetailsBlock(details: BookingDetails, bookingReference?: string): string {
   const reference = bookingReference ?? details.bookingReference;
 
   return (
-    `Hi, I would like to book the following.\n\n` +
     (reference ? `Booking reference: ${reference}\n` : "") +
     `Name: ${details.customerName}\n` +
     (details.customerEmail ? `Email: ${details.customerEmail}\n` : "") +
@@ -89,7 +88,7 @@ export function buildBookingMessage(details: BookingDetails, bookingReference?: 
       ? `Journey: ${details.journeyDistance} · ${details.journeyDuration}\n`
       : "") +
     (details.estimatedPrice ? `Estimated price: ${details.estimatedPrice}\n` : "") +
-    (details.returnJourney ? "Return booking discount: 5% applied\n" : "") +
+    (details.returnJourney && details.estimatedPrice ? "Return booking discount: 5% applied\n" : "") +
     (details.termsAcceptedAt
       ? `Terms accepted: ${details.termsAcceptedAt}${details.termsVersion ? ` (${details.termsVersion})` : ""}\n`
       : "") +
@@ -98,5 +97,21 @@ export function buildBookingMessage(details: BookingDetails, bookingReference?: 
       return marketingLine ? `${marketingLine}\n` : "";
     })() +
     `Submitted: ${formatUkSubmissionTime()}\n`
+  );
+}
+
+export function buildBookingMessage(details: BookingDetails, bookingReference?: string): string {
+  return `Hi, I would like to book the following.\n\n` + buildTripDetailsBlock(details, bookingReference);
+}
+
+/** Executive / Minibus enquiry — no online price; ask the team to quote and confirm. */
+export function buildEnquiryBookingMessage(
+  details: BookingDetails,
+  bookingReference?: string,
+): string {
+  return (
+    `Hi, I would like to enquire about booking the following.\n\n` +
+    buildTripDetailsBlock({ ...details, estimatedPrice: null }, bookingReference) +
+    `\nPlease send me a quote and confirm availability.\n`
   );
 }

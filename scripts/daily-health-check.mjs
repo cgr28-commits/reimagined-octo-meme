@@ -197,7 +197,7 @@ function tryFixSitemap() {
     "/track/demo/waiting/",
     "/track/demo/live/",
     "/terms/",
-    "/tours/",
+    // "/tours/" soft-hidden via SERVICE_FLAGS.dayTrips — restore when re-enabled
     "/unsubscribe/",
   ];
   let content = existsSync(sitemapPath) ? readFileSync(sitemapPath, "utf8") : "";
@@ -337,7 +337,7 @@ async function checkLiveWebsite() {
     ["Track demo early", "/track/demo/early/"],
     ["Track demo waiting", "/track/demo/waiting/"],
     ["Track demo live", "/track/demo/live/"],
-    ["Tours", "/tours/"],
+    // Tours soft-hidden via SERVICE_FLAGS.dayTrips
     ["Admin refund", "/admin/refund/"],
     ["Unsubscribe", "/unsubscribe/"],
     ["Favicon", "/favicon.ico"],
