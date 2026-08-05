@@ -2,12 +2,14 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   contactCardUrl,
   contactEmailLink,
   contactVCardUrl,
   downloadContactVCardForFiles,
+  isAndroidMobile,
+  saveToContactsHref,
   whatsAppChatUrl,
 } from "@/lib/contact-card";
 import { SITE } from "@/lib/data";
@@ -41,6 +43,13 @@ export default function ContactCardClient() {
   const vcardUrl = contactVCardUrl();
   const qrSrc = withBasePath("/contact-qr.png");
   const [showSaveHelp, setShowSaveHelp] = useState(false);
+  const [saveHref, setSaveHref] = useState(vcardUrl);
+  const [android, setAndroid] = useState(false);
+
+  useEffect(() => {
+    setAndroid(isAndroidMobile());
+    setSaveHref(saveToContactsHref());
+  }, []);
 
   function onSaveToContactsClick() {
     setShowSaveHelp(true);
@@ -108,16 +117,25 @@ export default function ContactCardClient() {
                   Quote · Book · Call
                 </p>
                 <p className="mt-2 text-sm leading-relaxed text-white/65">
-                  Save us to your phone contacts — then book, call, or WhatsApp us.
+                  {android
+                    ? "Opens Add contact on your phone — no file download."
+                    : "Save us to your phone contacts — then book, call, or WhatsApp us."}
                 </p>
-                {/* Real same-origin <a> (no download attr) so iOS/Android open Add Contact. */}
                 <a
-                  href={vcardUrl}
+                  href={saveHref}
                   onClick={onSaveToContactsClick}
                   className={saveLinkClassName}
                 >
                   Save to contacts
                 </a>
+                {android ? (
+                  <a
+                    href={vcardUrl}
+                    className="mt-3 inline-flex text-sm font-semibold text-emerald underline-offset-2 hover:underline"
+                  >
+                    Or save contact file with logo
+                  </a>
+                ) : null}
               </>
             )}
           </div>
@@ -211,7 +229,7 @@ export default function ContactCardClient() {
             </a>
 
             <a
-              href={vcardUrl}
+              href={saveHref}
               onClick={onSaveToContactsClick}
               className="flex min-w-0 items-center gap-4 rounded-2xl border border-white/15 bg-white/[0.03] px-5 py-4 text-left text-white transition-colors hover:border-white/30 hover:bg-white/[0.06]"
             >
@@ -231,30 +249,44 @@ export default function ContactCardClient() {
                 </span>
                 <span className="mt-0.5 block text-lg font-bold">Save to contacts</span>
                 <span className="mt-0.5 block text-xs text-white/45">
-                  Opens Create New Contact / Add to Contacts on your phone
+                  {android
+                    ? "Opens Add contact — no download"
+                    : "Opens Create New Contact with our logo"}
                 </span>
               </span>
             </a>
             {showSaveHelp ? (
               <div className="min-w-0 rounded-2xl border border-emerald/35 bg-emerald/10 px-4 py-4 text-sm text-white">
                 <p className="font-semibold text-emerald">Save to contacts</p>
-                <ol className="mt-3 list-decimal space-y-2 pl-5 text-white/80">
-                  <li>
-                    When the contact preview opens, tap{" "}
-                    <span className="text-white">Create New Contact</span> /{" "}
-                    <span className="text-white">Add to Contacts</span>
-                  </li>
-                  <li>Confirm Save so we appear in your phone contacts</li>
-                </ol>
+                {android ? (
+                  <ol className="mt-3 list-decimal space-y-2 pl-5 text-white/80">
+                    <li>
+                      Tap <span className="text-white">Save</span> on the Add contact screen
+                    </li>
+                    <li>
+                      Optional: use <span className="text-white">Save contact file with logo</span>{" "}
+                      below the green button if you want our logo on the contact
+                    </li>
+                  </ol>
+                ) : (
+                  <ol className="mt-3 list-decimal space-y-2 pl-5 text-white/80">
+                    <li>
+                      When the contact preview opens, tap{" "}
+                      <span className="text-white">Create New Contact</span>
+                    </li>
+                    <li>Confirm Save — our logo with the green circle should appear</li>
+                  </ol>
+                )}
                 <p className="mt-3 text-xs text-white/55">
-                  If your phone only downloaded a file, open that file and choose Create New Contact.
+                  If your phone only downloaded a file, open that file and choose Create New Contact /
+                  Import.
                 </p>
                 <button
                   type="button"
                   onClick={() => downloadContactVCardForFiles()}
                   className="mt-4 inline-flex text-sm font-semibold text-emerald underline-offset-2 hover:underline"
                 >
-                  Download contact file instead
+                  Download contact file with logo
                 </button>
                 <a
                   href={contactEmailLink()}
