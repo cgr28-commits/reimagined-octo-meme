@@ -94,8 +94,12 @@ export default function QuoteAssistant() {
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
-        className="fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center overflow-hidden rounded-full border-2 border-emerald bg-navy shadow-lg shadow-emerald/30 transition-all hover:bg-navy-light sm:bottom-8 sm:right-8 sm:h-16 sm:w-16"
-        aria-label={open ? "Close quote assistant" : "Open quote assistant"}
+        className={`fixed bottom-6 right-4 z-50 flex items-center border-2 border-emerald bg-navy shadow-lg shadow-emerald/30 transition-all hover:bg-navy-light sm:bottom-8 sm:right-8 ${
+          open
+            ? "h-14 w-14 justify-center rounded-full sm:h-16 sm:w-16"
+            : "gap-2.5 rounded-2xl py-2 pl-2 pr-3.5 sm:gap-3 sm:py-2.5 sm:pl-2.5 sm:pr-4"
+        }`}
+        aria-label={open ? "Close ask-a-question chat" : "Ask a question — get quotes and help"}
         aria-expanded={open}
       >
         {open ? (
@@ -103,13 +107,31 @@ export default function QuoteAssistant() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 6l12 12M18 6L6 18" />
           </svg>
         ) : (
-          <Image
-            src={withBasePath("/logo.png")}
-            alt=""
-            width={64}
-            height={64}
-            className="h-full w-full object-contain p-1.5"
-          />
+          <>
+            <span className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-navy-dark sm:h-12 sm:w-12">
+              <Image
+                src={withBasePath("/logo.png")}
+                alt=""
+                width={48}
+                height={48}
+                className="h-full w-full object-contain p-1"
+              />
+              <span
+                className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-md bg-emerald text-navy"
+                aria-hidden
+              >
+                <svg className="h-2.5 w-2.5" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z" />
+                </svg>
+              </span>
+            </span>
+            <span className="min-w-0 text-left">
+              <span className="block text-sm font-bold leading-tight text-white sm:text-base">Ask a question</span>
+              <span className="block text-[11px] font-medium leading-tight text-emerald sm:text-xs">
+                Quotes · help · contact
+              </span>
+            </span>
+          </>
         )}
       </button>
 
@@ -127,8 +149,8 @@ export default function QuoteAssistant() {
                 />
               </div>
               <div className="min-w-0">
-                <p className="text-sm font-bold text-white">Quote assistant</p>
-                <p className="text-xs text-white/55">Questions · fixed prices · scan &amp; save</p>
+                <p className="text-sm font-bold text-white">Ask a question</p>
+                <p className="text-xs text-white/55">Quotes · help · scan &amp; save contact</p>
               </div>
             </div>
             <button
