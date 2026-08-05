@@ -1387,13 +1387,21 @@ export default function DriverPageClient({
         let keyToUse = trimmed;
 
         if (isOwnerPortal) {
-          // Owner page: only demo-owner-key or a live OWNER_ACCESS_KEY.
+          // Owner page: live OWNER_ACCESS_KEY, or explicit demo preview key only.
           if (keyToUse === DEMO_DRIVER_KEY) {
-            keyToUse = DEMO_OWNER_KEY;
-          } else if (keyToUse !== DEMO_OWNER_KEY) {
+            setError(
+              "That is the driver key. Enter your live OWNER_ACCESS_KEY for the owner dashboard.",
+            );
+            return;
+          }
+          if (keyToUse !== DEMO_OWNER_KEY) {
             const liveStatus = await fetchDriverStatus(keyToUse);
-            if (liveStatus.role !== "owner") {
-              keyToUse = DEMO_OWNER_KEY;
+            if (!liveStatus.ok || liveStatus.role !== "owner") {
+              setError(
+                liveStatus.error ??
+                  "That key is not the live owner key. Enter OWNER_ACCESS_KEY from Cloudflare → Workers → reimagined-octo-meme → Settings → Variables and Secrets.",
+              );
+              return;
             }
           }
         }
@@ -1479,21 +1487,17 @@ export default function DriverPageClient({
 
     const stored = window.sessionStorage.getItem(keyStorage)?.trim() ?? "";
 
-    // /owner/ always boots as owner — never reuse Gary's /driver/ session.
+    // /owner/ — restore a live owner session only. Never auto-open the demo.
     if (isOwnerPortal) {
-      if (stored === DEMO_OWNER_KEY) {
-        setSessionRole("owner");
-        setDriverName(null);
-        setAvailableDrivers([...DEMO_ROSTER]);
-        setSavedKey(DEMO_OWNER_KEY);
-        void loadJobs(DEMO_OWNER_KEY);
+      if (stored === DEMO_OWNER_KEY || stored === DEMO_DRIVER_KEY) {
+        window.sessionStorage.removeItem(keyStorage);
         return;
       }
 
-      if (stored && stored !== DEMO_DRIVER_KEY) {
+      if (stored) {
         void fetchDriverStatus(stored)
           .then((status) => {
-            if (status.role === "owner") {
+            if (status.ok && status.role === "owner") {
               setSessionRole("owner");
               setDriverName(null);
               setSavedKey(stored);
@@ -1503,15 +1507,12 @@ export default function DriverPageClient({
               void loadJobs(stored);
               return;
             }
-            void unlockWithKey(DEMO_OWNER_KEY);
+            window.sessionStorage.removeItem(keyStorage);
           })
           .catch(() => {
-            void unlockWithKey(DEMO_OWNER_KEY);
+            window.sessionStorage.removeItem(keyStorage);
           });
-        return;
       }
-
-      void unlockWithKey(DEMO_OWNER_KEY);
       return;
     }
 
@@ -1721,7 +1722,11 @@ export default function DriverPageClient({
               ) : null}
 
               <label htmlFor="driver-key" className="block text-sm font-medium text-white/70">
-                {SERVICE_FLAGS.trackingDemo ? "Or enter a live access key" : "Enter your access key"}
+                {isOwnerPortal
+                  ? "Live owner access key"
+                  : SERVICE_FLAGS.trackingDemo
+                    ? "Or enter a live access key"
+                    : "Enter your access key"}
               </label>
               <input
                 id="driver-key"
@@ -1735,12 +1740,26 @@ export default function DriverPageClient({
                   }
                 }}
                 className="mt-2 w-full rounded-xl border border-white/15 bg-navy px-4 py-3 text-white outline-none focus:border-emerald"
-                placeholder="OWNER_ACCESS_KEY or DRIVER_ACCESS_KEY"
+                placeholder={isOwnerPortal ? "OWNER_ACCESS_KEY" : "OWNER_ACCESS_KEY or DRIVER_ACCESS_KEY"}
               />
               <p className="mt-3 text-sm text-white/55">
-                Live owner access needs <span className="text-white/75">OWNER_ACCESS_KEY</span> set
-                on Cloudflare → Workers → <span className="text-white/75">reimagined-octo-meme</span>.
-                Until that secret is set, use the owner preview button above.
+                {isOwnerPortal ? (
+                  <>
+                    Enter your live <span className="text-white/75">OWNER_ACCESS_KEY</span> from
+                    Cloudflare → Workers →{" "}
+                    <span className="text-white/75">reimagined-octo-meme</span> → Settings →
+                    Variables and Secrets. This opens real customer bookings (not the demo).
+                  </>
+                ) : (
+                  <>
+                    Live owner access needs <span className="text-white/75">OWNER_ACCESS_KEY</span>{" "}
+                    set on Cloudflare → Workers →{" "}
+                    <span className="text-white/75">reimagined-octo-meme</span>.
+                    {SERVICE_FLAGS.trackingDemo
+                      ? " Until that secret is set, use the owner preview button above."
+                      : null}
+                  </>
+                )}
               </p>
               {error && (
                 <p className="mt-4 rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-100">
@@ -1759,17 +1778,20 @@ export default function DriverPageClient({
             )
           ) : (
             <>
-              {(isDemoOwnerSession || isOwnerPortal) && (
+              {isDemoOwnerSession && (
+                <div className="mb-6 rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+                  <p>
+                    You&apos;re on the <strong>demo</strong> owner preview (sample jobs only). Sign
+                    out and enter your live <strong>OWNER_ACCESS_KEY</strong> for real bookings.
+                  </p>
+                </div>
+              )}
+
+              {isOwnerPortal && !isDemoOwnerSession && (
                 <div className="mb-6 rounded-xl border border-emerald/30 bg-emerald/10 px-4 py-3 text-sm text-emerald-light">
                   <p>
-                    Owner preview — <strong>/owner/</strong> with <strong>demo-owner-key</strong>.
+                    Live owner dashboard — real customer bookings from the website.
                   </p>
-                  <a
-                    href="/driver/"
-                    className="mt-3 inline-flex rounded-xl border border-emerald/40 px-4 py-2 text-sm font-semibold text-emerald transition-colors hover:bg-emerald/10"
-                  >
-                    Open Gary&apos;s driver dashboard
-                  </a>
                 </div>
               )}
 
@@ -1805,12 +1827,11 @@ export default function DriverPageClient({
                     setJobs([]);
                     setPendingJobs([]);
                     setActiveToken(null);
-                    setSessionRole(isOwnerPortal ? "owner" : null);
+                    setSessionRole(null);
                     setDriverName(null);
-                    setAvailableDrivers([...DEMO_ROSTER]);
-                    if (isOwnerPortal) {
-                      void unlockWithKey(DEMO_OWNER_KEY);
-                    }
+                    setAvailableDrivers([]);
+                    setDriverKey("");
+                    setError(null);
                   }}
                   className="text-sm text-white/50 transition-colors hover:text-white"
                 >
