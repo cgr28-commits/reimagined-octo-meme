@@ -49,6 +49,15 @@ import {
   type TransferBookingEvent,
 } from "./google-calendar";
 import {
+  createBookingJobFromSubmission,
+  handleBookingJobAssignDriverRequest,
+  handleBookingJobMarkPaidRequest,
+  handleBookingJobsListRequest,
+  handleDriverAcceptConfirmRequest,
+  handleDriverAcceptLookupRequest,
+} from "./booking-job-handlers";
+import { bookingJobStoreConfigured } from "./booking-job-store";
+import {
   createTrackingJobForPaidBooking,
   handleCustomerLocationRequest,
   handleCustomerSharingRequest,
@@ -243,6 +252,11 @@ function routePath(
   | "payments-confirm"
   | "payments-webhook"
   | "bookings-refund"
+  | "booking-jobs"
+  | "booking-jobs-mark-paid"
+  | "booking-jobs-assign-driver"
+  | "driver-accept"
+  | "driver-accept-confirm"
   | "flights"
   | "calendar-status"
   | "marketing-opt-in"
@@ -278,6 +292,29 @@ function routePath(
 
   if (pathname === "/bookings/refund" || pathname === "/api/bookings/refund") {
     return "bookings-refund";
+  }
+
+  if (pathname === "/booking-jobs/mark-paid" || pathname === "/api/booking-jobs/mark-paid") {
+    return "booking-jobs-mark-paid";
+  }
+
+  if (
+    pathname === "/booking-jobs/assign-driver" ||
+    pathname === "/api/booking-jobs/assign-driver"
+  ) {
+    return "booking-jobs-assign-driver";
+  }
+
+  if (pathname === "/booking-jobs" || pathname === "/api/booking-jobs") {
+    return "booking-jobs";
+  }
+
+  if (pathname === "/driver-accept/confirm" || pathname === "/api/driver-accept/confirm") {
+    return "driver-accept-confirm";
+  }
+
+  if (pathname === "/driver-accept" || pathname === "/api/driver-accept") {
+    return "driver-accept";
   }
 
   if (pathname === "/flights" || pathname === "/api/flights") {
@@ -599,27 +636,38 @@ async function handleBookingRequest(
       emailSent = true;
     } catch (error) {
       console.error("Booking email failed", error);
-      const calendar = await logBookingCalendar(env, body, customerName, message);
-      if (calendar.logged) {
-        return json(
-          {
-            ok: true,
-            bookingReference: bookingReference ?? undefined,
-            emailSent: false,
-            calendarLogged: true,
-            calendarEvents: calendar.events,
-            warning: "Booking email failed but the trip was logged to Google Calendar",
-          },
-          200,
-          origin,
-        );
-      }
-
       return json({ error: "Failed to send booking email" }, 502, origin);
     }
   }
 
-  const calendar = await logBookingCalendar(env, body, customerName, message);
+  // Calendar is created only after the owner marks the booking as paid.
+  let bookingJobId: string | undefined;
+  if (
+    bookingReference &&
+    body.booking &&
+    bookingJobStoreConfigured(env.TRACKING_STORE)
+  ) {
+    try {
+      const kind =
+        typeof body.booking.estimatedPrice === "string" && body.booking.estimatedPrice.trim()
+          ? "booking-request"
+          : "vehicle-enquiry";
+      // Prefer vehicle-enquiry when executive/minibus style messages are used
+      const enquiryKind =
+        /enquire about booking|enquiry only|Please send me a quote/i.test(message)
+          ? "vehicle-enquiry"
+          : kind;
+      const job = await createBookingJobFromSubmission(env.TRACKING_STORE, {
+        bookingReference,
+        kind: enquiryKind,
+        booking: body.booking as unknown as Record<string, unknown>,
+        message,
+      });
+      bookingJobId = job?.id;
+    } catch (error) {
+      console.error("Failed to create booking job", error);
+    }
+  }
 
   await maybeRecordMarketingFromPayload(env.TRACKING_STORE, {
     email: body.booking?.customerEmail ?? body.tour?.customerEmail,
@@ -632,21 +680,14 @@ async function handleBookingRequest(
       body.booking?.marketingConsentVersion ?? body.tour?.marketingConsentVersion,
   });
 
-  if (!shouldSendEmail && !calendar.logged && calendarConfigured(env) && calendar.error) {
-    return json(
-      { error: "Failed to log booking to Google Calendar", detail: calendar.error },
-      502,
-      origin,
-    );
-  }
-
   return json(
     {
       ok: true,
       bookingReference: bookingReference ?? undefined,
+      bookingJobId,
       emailSent,
-      calendarLogged: calendar.logged,
-      calendarEvents: calendar.events ?? 0,
+      calendarLogged: false,
+      calendarEvents: 0,
     },
     200,
     origin,
@@ -846,7 +887,11 @@ async function handlePaymentConfirmRequest(
       checkoutReference: checkout.checkout_reference,
     };
 
-    const tracking = await createTrackingJobForPaidBooking(env, booking, paymentReference);
+    // Live driver tracking soft-hidden until more testing — do not create track jobs/links.
+    const LIVE_DRIVER_TRACKING_ENABLED = false;
+    const tracking = LIVE_DRIVER_TRACKING_ENABLED
+      ? await createTrackingJobForPaidBooking(env, booking, paymentReference)
+      : { created: false, trackUrl: undefined as string | undefined, token: undefined as string | undefined };
 
     const customerEmail = buildCustomerConfirmationEmail(receipt, BUSINESS_NAME, {
       trackUrl: tracking.trackUrl,
@@ -1145,6 +1190,41 @@ export default {
       }
 
       return handleRefundRequest(request, env, origin);
+    }
+
+    if (route === "booking-jobs") {
+      if (request.method !== "GET") {
+        return json({ error: "Method not allowed" }, 405, origin);
+      }
+      return handleBookingJobsListRequest(request, env, origin);
+    }
+
+    if (route === "booking-jobs-mark-paid") {
+      if (request.method !== "POST") {
+        return json({ error: "Method not allowed" }, 405, origin);
+      }
+      return handleBookingJobMarkPaidRequest(request, env, origin);
+    }
+
+    if (route === "booking-jobs-assign-driver") {
+      if (request.method !== "POST") {
+        return json({ error: "Method not allowed" }, 405, origin);
+      }
+      return handleBookingJobAssignDriverRequest(request, env, origin);
+    }
+
+    if (route === "driver-accept") {
+      if (request.method !== "GET") {
+        return json({ error: "Method not allowed" }, 405, origin);
+      }
+      return handleDriverAcceptLookupRequest(request, env, origin);
+    }
+
+    if (route === "driver-accept-confirm") {
+      if (request.method !== "POST") {
+        return json({ error: "Method not allowed" }, 405, origin);
+      }
+      return handleDriverAcceptConfirmRequest(request, env, origin);
     }
 
     if (route === "quote-leads") {

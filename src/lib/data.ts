@@ -25,6 +25,15 @@ export const SERVICE_FLAGS = {
   belfastCityAirport: false,
   /** Public tracking demo hub + owner/driver demo links. */
   trackingDemo: false,
+  /**
+   * Customer SumUp “Pay now” on the website.
+   * Off: customers request/enquire; owner sends SumUp link after confirming, then marks paid.
+   */
+  customerSumUpPay: false,
+  /** Live driver tracking marketing + customer track links — soft-hidden until more testing. */
+  liveDriverTracking: false,
+  /** Public driver dashboard — soft-hidden; drivers confirm jobs by email instead. */
+  driverDashboard: false,
 } as const;
 
 export type ServiceFlagKey = keyof typeof SERVICE_FLAGS;
@@ -35,7 +44,7 @@ export const ALL_NAV_LINKS = [
   { label: "Our Fleet", href: "/#vehicles", service: null },
   { label: "Chauffeur", href: "/#chauffeur", service: "chauffeur" as const },
   { label: "Check Flights", href: "/#flight-status", service: null },
-  { label: "Driver Tracking", href: "/#driver-tracking", service: null },
+  { label: "Driver Tracking", href: "/#driver-tracking", service: "liveDriverTracking" as const },
   { label: "Areas We Cover", href: "/#areas", service: null },
   { label: "Why Us", href: "/#why-us", service: null },
   { label: "FAQ", href: "/#faq", service: null },

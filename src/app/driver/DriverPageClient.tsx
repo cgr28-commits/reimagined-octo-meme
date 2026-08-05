@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Footer from "@/components/Footer";
 import Header from "@/components/Header";
+import OwnerBookingJobsPanel from "@/components/OwnerBookingJobsPanel";
 import type { MapMarker, MapRoutePoint } from "@/components/LiveTrackMap";
 import {
   buildWhatsAppTrackLink,
@@ -1643,8 +1644,9 @@ export default function DriverPageClient({
             <p className="mt-3 text-white/70">
               {isOwnerView ? (
                 <>
-                  Assign jobs to drivers such as Gary — they must accept before the job appears on
-                  their dashboard. Issue refunds, track live location, and manage all bookings here.
+                  Confirm customer enquiries, mark SumUp payments (adds to calendar), then assign a
+                  driver by email with their pay for the journey. Drivers confirm via email — no
+                  driver dashboard for now.
                 </>
               ) : !savedKey ? (
                 SERVICE_FLAGS.trackingDemo ? (
@@ -1818,6 +1820,11 @@ export default function DriverPageClient({
 
               {isOwnerView && profilePanel}
 
+              {isOwnerView && savedKey ? <OwnerBookingJobsPanel ownerKey={savedKey} /> : null}
+
+              {/* Legacy live-tracking job list — soft-hidden until SERVICE_FLAGS.liveDriverTracking */}
+              {SERVICE_FLAGS.liveDriverTracking ? (
+              <>
               <div className="mb-6 flex flex-wrap gap-2">
                 {([
                   ["today", "Today"],
@@ -2034,6 +2041,13 @@ export default function DriverPageClient({
                   ))}
                 </div>
               )}
+              </>
+              ) : isOwnerView ? (
+                <p className="mt-2 text-sm text-white/45">
+                  Live driver tracking is soft-hidden while testing continues. Booking requests and
+                  email driver assignment above are the active workflow.
+                </p>
+              ) : null}
 
               {!isOwnerView && profilePanel}
             </>

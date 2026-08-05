@@ -278,7 +278,8 @@ function QuoteCard() {
   const [marketingOptIn, setMarketingOptIn] = useState(false);
   const [testChargeAmount, setTestChargeAmount] = useState<number | null>(null);
   const [testBookingLabel, setTestBookingLabel] = useState<string | null>(null);
-  const sumUpEnabled = isSumUpPaymentEnabled();
+  // Soft-hidden via SERVICE_FLAGS.customerSumUpPay — customers enquire; owner sends SumUp link.
+  const sumUpEnabled = SERVICE_FLAGS.customerSumUpPay && isSumUpPaymentEnabled();
 
   const handleRouteMetrics = useCallback((metrics: TripRouteMetrics | null) => {
     setRouteMetrics(metrics);
@@ -1024,8 +1025,10 @@ function QuoteCard() {
   const bookButtonLabel = isEnquiryOnly
     ? "Enquire to book"
     : liveQuote
-      ? `Book for ${formatQuote(liveQuote.amount)}`
-      : "Book";
+      ? sumUpEnabled
+        ? `Book for ${formatQuote(liveQuote.amount)}`
+        : `Request to book · ${formatQuote(liveQuote.amount)}`
+      : "Request to book";
 
   const quoteHint = isEnquiryOnly
     ? tripDetailsReady
@@ -1106,8 +1109,8 @@ function QuoteCard() {
           <h2 className="mt-2 text-2xl font-bold text-white sm:text-3xl">Thank you</h2>
           <p className="mx-auto mt-4 max-w-md text-sm leading-relaxed text-white/80 sm:text-base">
             {isEnquiryOnly
-              ? "We’ve received your enquiry. We’ll confirm availability and send your personal quote shortly."
-              : "A payment link will be sent shortly to confirm your booking. Your booking is not confirmed until full payment is made."}
+              ? "We’ve received your enquiry. We’ll confirm availability and send your personal quote shortly. When you’re ready to book, we’ll send a SumUp payment link — your trip is confirmed after payment."
+              : "We’ve received your booking request. Once we confirm the job, we’ll send a SumUp payment link by email. Your booking is confirmed after payment, and only then is it added to our calendar."}
           </p>
           {bookingReference && (
             <p className="mt-4 text-sm text-white/60">Reference: {bookingReference}</p>
@@ -1134,8 +1137,9 @@ function QuoteCard() {
       <div className="mb-6">
         <h2 className="text-xl font-bold text-white sm:text-2xl">Get a Live Quote</h2>
         <p className="mt-1 text-sm text-white/60">
-          Get an instant price online or through WhatsApp. Complete your booking securely online
-          and receive confirmation after payment.
+          Get an instant price online or through WhatsApp. Send your enquiry to book — once we
+          confirm your job, we&apos;ll email a SumUp payment link. Your booking is confirmed after
+          payment.
         </p>
       </div>
 
@@ -1815,9 +1819,7 @@ function QuoteCard() {
           <p className="mt-3 text-[11px] text-white/40">
             {isEnquiryOnly
               ? "We’ll reply with your quote — no online payment until you confirm."
-              : `Includes vehicle, driver, fuel, and tolls.${
-                  sumUpEnabled ? " Card payment is available after you review your booking." : ""
-                }`}
+              : "Includes vehicle, driver, fuel, and tolls. After we confirm your job, we’ll send a SumUp payment link by email."}
           </p>
         </div>
 

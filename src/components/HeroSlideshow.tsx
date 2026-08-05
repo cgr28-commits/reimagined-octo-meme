@@ -86,8 +86,8 @@ export default function HeroSlideshow() {
             {slide.subtitle}
           </p>
           <p className="mt-3 max-w-lg text-sm leading-relaxed text-white/65 sm:text-base">
-            Get an instant price online or through WhatsApp. Complete your booking securely online
-            and receive confirmation after payment.
+            Get an instant price online or through WhatsApp. Enquire to book — once confirmed,
+            we&apos;ll send a SumUp payment link. Your booking is confirmed after payment.
           </p>
 
           <div className="mt-8 flex flex-wrap items-center gap-4">
@@ -144,14 +144,7 @@ export default function HeroSlideshow() {
               </svg>
               Meet &amp; Greet
             </div>
-            <div className="flex items-center gap-2">
-              <svg className="h-5 w-5 text-emerald" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-              <a href="#driver-tracking" className="transition-colors hover:text-emerald">
-                Driver Tracking
-              </a>
-            </div>
+            {/* Soft-hidden via SERVICE_FLAGS.liveDriverTracking */}
           </div>
         </div>
 

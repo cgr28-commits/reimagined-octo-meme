@@ -35,7 +35,8 @@ export default function Home() {
         {/* Soft-hidden via SERVICE_FLAGS — set chauffeur: true in data.ts to restore */}
         {SERVICE_FLAGS.chauffeur ? <ChauffeurSection /> : null}
         <WhyChooseUsSection />
-        <DriverTrackingSection />
+        {/* Soft-hidden via SERVICE_FLAGS.liveDriverTracking — set true in data.ts to restore */}
+        {SERVICE_FLAGS.liveDriverTracking ? <DriverTrackingSection /> : null}
         <FAQSection />
       </main>
       <Footer />
