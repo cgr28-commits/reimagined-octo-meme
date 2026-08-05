@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
- * Set Gary's driver dashboard access key on the production worker.
+ * Set the driver dashboard access key on the production worker.
  *
- * Gary uses DRIVER_ACCESS_KEY — jobs and live tracking only (no refunds or amounts).
+ * Drivers use DRIVER_ACCESS_KEY — jobs and live tracking only (no refunds or amounts).
  * Keep OWNER_ACCESS_KEY separate for admin (see set-owner-access-key.mjs).
  *
  * Usage:
@@ -37,10 +37,10 @@ Missing CLOUDFLARE_API_TOKEN.
 
 2. Run:
    CLOUDFLARE_API_TOKEN=your_token \\
-   DRIVER_ACCESS_KEY="garys-password" \\
+   DRIVER_ACCESS_KEY="driver-password" \\
    node scripts/set-driver-access-key.mjs
 
-Give Gary this key only. Use set-owner-access-key.mjs for your admin key.
+Give this key to drivers only. Use set-owner-access-key.mjs for your admin key.
 `);
   process.exit(1);
 }
@@ -48,7 +48,7 @@ Give Gary this key only. Use set-owner-access-key.mjs for your admin key.
 const driverKey = process.env.DRIVER_ACCESS_KEY?.trim() || generateDriverAccessKey();
 const generated = !process.env.DRIVER_ACCESS_KEY?.trim();
 
-console.log("Setting DRIVER_ACCESS_KEY (Gary) on worker reimagined-octo-meme…");
+console.log("Setting DRIVER_ACCESS_KEY on worker reimagined-octo-meme…");
 
 const result = spawnSync("npx", ["wrangler", "secret", "put", "DRIVER_ACCESS_KEY"], {
   input: driverKey,
@@ -65,7 +65,7 @@ if (result.status !== 0) {
   process.exit(result.status ?? 1);
 }
 
-console.log("\nGary's driver access key updated.\n");
+console.log("\nDriver access key updated.\n");
 console.log("Sign in at https://www.myairporttaxini.co.uk/driver/ with this key:\n");
 console.log(driverKey);
 console.log(
@@ -74,7 +74,7 @@ console.log(
     : "\n(Using the DRIVER_ACCESS_KEY value you provided.)",
 );
 console.log(
-  "\nGary can view jobs and share live location. He cannot see amounts or issue refunds.",
+  "\nDrivers can view jobs and share live location. They cannot see amounts or issue refunds.",
 );
 console.log(
   "Optional: add the same value to GitHub → Settings → Secrets → Actions as DRIVER_ACCESS_KEY.",

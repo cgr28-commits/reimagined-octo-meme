@@ -6,8 +6,8 @@ export type DemoTrackToken = (typeof DEMO_TRACK_TOKENS)[number];
 
 export const DEMO_DRIVER_KEY = "demo-driver-key";
 export const DEMO_OWNER_KEY = "demo-owner-key";
-export const DEMO_DRIVER_NAME = "Gary";
-export const DEMO_ROSTER = ["Gary", "Colin"] as const;
+export const DEMO_DRIVER_NAME = "Driver";
+export const DEMO_ROSTER = ["Driver"] as const;
 
 export function isDemoDriverKey(key: string): boolean {
   return key.trim() === DEMO_DRIVER_KEY;
@@ -209,7 +209,7 @@ export function getDemoTrackResponse(token: DemoTrackToken): PublicTrackResponse
   });
 }
 
-/** Strip owner-only fields so demo matches Gary's live driver API responses. */
+/** Strip owner-only fields so demo matches live driver API responses. */
 export function sanitizeDemoJobForDriver(job: DriverJob): DriverJob {
   const sanitized = { ...job };
   delete sanitized.paymentReference;

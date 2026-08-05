@@ -35,7 +35,7 @@ export type TrackingJobRecord = {
   /** Set when a refund is issued — job stays visible on the driver dashboard */
   refundedAt?: string;
   refundAmountLabel?: string;
-  /** Name of the driver sharing live location (e.g. Gary) */
+  /** Name of the driver sharing live location */
   activeDriverName?: string;
   /** Driver the job is assigned to (must accept before it appears on their dashboard) */
   assignedDriverName?: string;

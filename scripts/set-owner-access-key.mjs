@@ -3,7 +3,7 @@
  * Set the owner/admin dashboard access key on the production worker.
  *
  * Owner uses OWNER_ACCESS_KEY — full access (refunds, amounts, track drivers live).
- * Do not share with drivers. Set Gary's key via set-driver-access-key.mjs.
+ * Do not share with drivers. Set the driver key via set-driver-access-key.mjs.
  *
  * Usage:
  *   CLOUDFLARE_API_TOKEN=your_token \
@@ -64,7 +64,7 @@ if (result.status !== 0) {
 }
 
 console.log("\nOwner access key updated.\n");
-console.log("Sign in at https://www.myairporttaxini.co.uk/driver/ with this key:\n");
+console.log("Sign in at https://www.myairporttaxini.co.uk/owner/ with this key:\n");
 console.log(ownerKey);
 console.log(
   generated
@@ -72,5 +72,5 @@ console.log(
     : "\n(Using the OWNER_ACCESS_KEY value you provided.)",
 );
 console.log(
-  "\nYou can issue refunds, see payment amounts, and track Gary when he shares live location.",
+  "\nYou can manage booking requests, mark jobs paid, assign drivers, and issue refunds.",
 );
