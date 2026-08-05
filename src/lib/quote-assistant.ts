@@ -549,7 +549,7 @@ export function respondToAssistantMessage(
     return {
       reply: "Type a question, or say “Get a quote” to follow the same steps as the quote tool.",
       draft: nextDraft,
-      quickReplies: ["Get a quote", "Save contact details"],
+      quickReplies: ["Get a quote", "Save to contacts"],
     };
   }
 
@@ -562,7 +562,11 @@ export function respondToAssistantMessage(
     };
   }
 
-  if (/save contact|add contact|contact details|contact card|qr code|save (your|our) (number|details)/.test(lower)) {
+  if (
+    /save (to )?contact|add contact|contact details|contact card|qr code|save (your|our) (number|details)/.test(
+      lower,
+    )
+  ) {
     return {
       reply:
         "Opening our contact card so you can save our details with the logo. On desktop you can also scan the QR code.",
@@ -592,7 +596,7 @@ export function respondToAssistantMessage(
         "Opening the live quote tool with your trip details. Complete your name, mobile, email, flight number(s) and accept the terms to send your booking request — we’ll email a SumUp payment link once we confirm the job.",
       draft: nextDraft,
       openQuoteForm: true,
-      quickReplies: ["Another quote", "Save contact details"],
+      quickReplies: ["Another quote", "Save to contacts"],
     };
   }
 
@@ -600,15 +604,15 @@ export function respondToAssistantMessage(
     return {
       reply: "Hello! Ask me anything about our service, or say “Get a quote” and I’ll follow the same quote-tool steps for an accurate price.",
       draft: nextDraft,
-      quickReplies: ["Get a quote", "Save contact details"],
+      quickReplies: ["Get a quote", "Save to contacts"],
     };
   }
 
   if (/whatsapp|call|phone|email|contact you/.test(lower) && !/quote|price|how much/.test(lower)) {
     return {
-      reply: `You can call ${SITE.landlineDisplay}, WhatsApp @${SITE.whatsappUsername}, or email ${SITE.email}. Tap “Save contact details” to open our contact card.`,
+      reply: `You can call ${SITE.landlineDisplay}, WhatsApp @${SITE.whatsappUsername}, or email ${SITE.email}. Tap “Save to contacts” to open our contact card.`,
       draft: nextDraft,
-      quickReplies: ["Save contact details", "Get a quote"],
+      quickReplies: ["Save to contacts", "Get a quote"],
     };
   }
 
@@ -754,7 +758,7 @@ export function respondToAssistantMessage(
       return {
         reply: knowledge,
         draft: nextDraft,
-        quickReplies: ["Get a quote", "Save contact details"],
+        quickReplies: ["Get a quote", "Save to contacts"],
       };
     }
   }
@@ -774,7 +778,7 @@ export function respondToAssistantMessage(
       return {
         reply: built.text,
         draft: nextDraft,
-        quickReplies: ["Request to book", "Another quote", "Save contact details"],
+        quickReplies: ["Request to book", "Another quote", "Save to contacts"],
       };
     }
   }
@@ -784,7 +788,7 @@ export function respondToAssistantMessage(
     return {
       reply: knowledge,
       draft: nextDraft,
-      quickReplies: ["Get a quote", "Save contact details"],
+      quickReplies: ["Get a quote", "Save to contacts"],
     };
   }
 
@@ -793,6 +797,6 @@ export function respondToAssistantMessage(
       "I can answer questions from our website (booking, waiting time, vehicles, privacy, airports) and price transfers using the same quote-tool steps.\n\n" +
       "Say “Get a quote” to start, or ask something like “Do you track my flight?”",
     draft: nextDraft,
-    quickReplies: ["Get a quote", "Save contact details"],
+    quickReplies: ["Get a quote", "Save to contacts"],
   };
 }

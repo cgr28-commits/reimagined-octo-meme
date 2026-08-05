@@ -45,7 +45,7 @@ export default function QuoteAssistant() {
   const [messages, setMessages] = useState<AssistantMessage[]>(() => createWelcomeMessages());
   const [quickReplies, setQuickReplies] = useState<string[]>([
     "Get a quote",
-    "Save contact details",
+    "Save to contacts",
   ]);
   const [draft, setDraft] = useState<QuoteDraft>({});
   const [showContactOffer, setShowContactOffer] = useState(false);
@@ -177,7 +177,7 @@ export default function QuoteAssistant() {
   function resetChat() {
     setMessages(createWelcomeMessages());
     setDraft(emptyQuoteDraft());
-    setQuickReplies(["Get a quote", "Save contact details"]);
+    setQuickReplies(["Get a quote", "Save to contacts"]);
     setShowContactOffer(false);
     setPickerDate("");
     setPickerTime("");
@@ -293,7 +293,7 @@ export default function QuoteAssistant() {
                 ref={contactOfferRef}
                 className="rounded-2xl border border-emerald/35 bg-emerald/10 px-3 py-3"
               >
-                <p className="text-sm font-semibold text-white">Would you like to add our contact details?</p>
+                <p className="text-sm font-semibold text-white">Would you like to save to contacts?</p>
                 <p className="mt-1 text-xs text-white/65">
                   Scan and save — point your phone camera at the QR code to open our contact card (includes our logo).
                 </p>

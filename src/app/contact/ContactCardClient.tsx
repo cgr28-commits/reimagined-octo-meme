@@ -6,8 +6,8 @@ import { useState, type ReactNode } from "react";
 import {
   contactCardUrl,
   contactEmailLink,
+  contactVCardUrl,
   downloadContactVCardForFiles,
-  saveContactToDevice,
   whatsAppChatUrl,
 } from "@/lib/contact-card";
 import { SITE } from "@/lib/data";
@@ -32,41 +32,18 @@ function ActionIcon({
   );
 }
 
+const saveLinkClassName =
+  "mt-5 flex w-full items-center justify-center rounded-xl bg-emerald px-4 py-3 text-sm font-bold text-navy transition-colors hover:bg-emerald-light";
+
 export default function ContactCardClient() {
   const isMobile = useIsMobileDevice();
   const cardUrl = contactCardUrl();
+  const vcardUrl = contactVCardUrl();
   const qrSrc = withBasePath("/contact-qr.png");
-  const [savingContact, setSavingContact] = useState(false);
-  const [saveHint, setSaveHint] = useState<string | null>(null);
   const [showSaveHelp, setShowSaveHelp] = useState(false);
 
-  async function handleSaveContact() {
-    if (savingContact) return;
-    setSavingContact(true);
-    setSaveHint(null);
-    try {
-      const result = await saveContactToDevice();
-      if (result === "opened") {
-        setShowSaveHelp(true);
-        setSaveHint("Your phone should offer Create New Contact / Add to Contacts — tap that to save us.");
-      } else if (result === "shared") {
-        setSaveHint("Share sheet opened — choose Contacts to save with the logo.");
-      } else {
-        setSaveHint("Contact file ready — open it to add a new contact.");
-      }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Could not save contact";
-      if (
-        /AbortError|canceled|cancelled/i.test(message) ||
-        (error instanceof DOMException && error.name === "AbortError")
-      ) {
-        setSaveHint(null);
-      } else {
-        setSaveHint(message);
-      }
-    } finally {
-      setSavingContact(false);
-    }
+  function onSaveToContactsClick() {
+    setShowSaveHelp(true);
   }
 
   return (
@@ -97,7 +74,7 @@ export default function ContactCardClient() {
 
           <div className="contact-fade-up-delay-2 mt-8 min-w-0 rounded-2xl border border-emerald/35 bg-emerald/10 px-4 py-6 text-center sm:px-5">
             <p className="text-xs font-semibold uppercase tracking-wider text-emerald">
-              Save our contact details
+              Save to contacts
             </p>
             {isMobile === false ? (
               <>
@@ -131,16 +108,16 @@ export default function ContactCardClient() {
                   Quote · Book · Call
                 </p>
                 <p className="mt-2 text-sm leading-relaxed text-white/65">
-                  Add us as a new contact on your phone — then book, call, or WhatsApp us.
+                  Save us to your phone contacts — then book, call, or WhatsApp us.
                 </p>
-                <button
-                  type="button"
-                  onClick={() => void handleSaveContact()}
-                  disabled={savingContact}
-                  className="mt-5 w-full rounded-xl bg-emerald px-4 py-3 text-sm font-bold text-navy transition-colors hover:bg-emerald-light disabled:opacity-70"
+                {/* Real same-origin <a> (no download attr) so iOS/Android open Add Contact. */}
+                <a
+                  href={vcardUrl}
+                  onClick={onSaveToContactsClick}
+                  className={saveLinkClassName}
                 >
-                  {savingContact ? "Opening…" : "Add to my contacts"}
-                </button>
+                  Save to contacts
+                </a>
               </>
             )}
           </div>
@@ -233,11 +210,10 @@ export default function ContactCardClient() {
               </span>
             </a>
 
-            <button
-              type="button"
-              onClick={() => void handleSaveContact()}
-              disabled={savingContact}
-              className="flex min-w-0 items-center gap-4 rounded-2xl border border-white/15 bg-white/[0.03] px-5 py-4 text-left text-white transition-colors hover:border-white/30 hover:bg-white/[0.06] disabled:opacity-70"
+            <a
+              href={vcardUrl}
+              onClick={onSaveToContactsClick}
+              className="flex min-w-0 items-center gap-4 rounded-2xl border border-white/15 bg-white/[0.03] px-5 py-4 text-left text-white transition-colors hover:border-white/30 hover:bg-white/[0.06]"
             >
               <ActionIcon>
                 <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -245,7 +221,7 @@ export default function ContactCardClient() {
                     strokeLinecap="round"
                     strokeLinejoin="round"
                     strokeWidth={2}
-                    d="M12 4v12m0 0l-4-4m4 4l4-4M4 20h16"
+                    d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
                   />
                 </svg>
               </ActionIcon>
@@ -253,17 +229,15 @@ export default function ContactCardClient() {
                 <span className="block text-xs font-semibold uppercase tracking-wider text-white/50">
                   Contacts
                 </span>
-                <span className="mt-0.5 block text-lg font-bold">
-                  {savingContact ? "Opening…" : "Add to my contacts"}
-                </span>
+                <span className="mt-0.5 block text-lg font-bold">Save to contacts</span>
                 <span className="mt-0.5 block text-xs text-white/45">
-                  Opens your phone’s Create New Contact screen
+                  Opens Create New Contact / Add to Contacts on your phone
                 </span>
               </span>
-            </button>
+            </a>
             {showSaveHelp ? (
               <div className="min-w-0 rounded-2xl border border-emerald/35 bg-emerald/10 px-4 py-4 text-sm text-white">
-                <p className="font-semibold text-emerald">Save as a new contact</p>
+                <p className="font-semibold text-emerald">Save to contacts</p>
                 <ol className="mt-3 list-decimal space-y-2 pl-5 text-white/80">
                   <li>
                     When the contact preview opens, tap{" "}
@@ -289,11 +263,6 @@ export default function ContactCardClient() {
                   Or email the contact link to yourself
                 </a>
               </div>
-            ) : null}
-            {saveHint ? (
-              <p className="rounded-xl border border-emerald/30 bg-emerald/10 px-4 py-3 text-sm text-emerald">
-                {saveHint}
-              </p>
             ) : null}
           </div>
 
