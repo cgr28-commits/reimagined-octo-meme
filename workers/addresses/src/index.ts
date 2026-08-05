@@ -219,10 +219,10 @@ function handleContactVCardRequest(request: Request, origin: string | null): Res
     url.searchParams.get("download") === "1" || url.searchParams.get("dl") === "1";
 
   const headers = new Headers(corsHeaders(origin));
-  // iPhone Safari opens text/x-vcard and may strip the photo. Forcing a file
-  // download (octet-stream + attachment) keeps the logo when opened from Files.
+  // iPhone Safari: text/vcard (no Content-Disposition) opens Create New Contact.
+  // Forcing a file download (octet-stream + attachment) keeps the logo from Files.
   // Do not send Content-Disposition for the inline case — even "inline; filename="
-  // makes many phones download instead of opening Create/Add Contact.
+  // makes many phones show a file preview / download instead of Create New Contact.
   if (forceDownload) {
     headers.set("Content-Type", "application/octet-stream");
     headers.set(
@@ -230,7 +230,7 @@ function handleContactVCardRequest(request: Request, origin: string | null): Res
       'attachment; filename="My-Airport-Taxi-NI.vcf"',
     );
   } else {
-    headers.set("Content-Type", "text/x-vcard; charset=utf-8");
+    headers.set("Content-Type", "text/vcard; charset=utf-8");
   }
   headers.set("Cache-Control", "public, max-age=60");
   headers.set("Content-Length", String(new TextEncoder().encode(CONTACT_VCARD).length));

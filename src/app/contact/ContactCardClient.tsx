@@ -6,10 +6,11 @@ import { useEffect, useState, type ReactNode } from "react";
 import {
   contactCardUrl,
   contactEmailLink,
-  contactVCardUrl,
   downloadContactVCardForFiles,
   isAndroidMobile,
-  saveToContactsHref,
+  isAppleMobile,
+  prefetchContactVCard,
+  saveContactToDevice,
   whatsAppChatUrl,
 } from "@/lib/contact-card";
 import { SITE } from "@/lib/data";
@@ -34,25 +35,53 @@ function ActionIcon({
   );
 }
 
-const saveLinkClassName =
-  "mt-5 flex w-full items-center justify-center rounded-xl bg-emerald px-4 py-3 text-sm font-bold text-navy transition-colors hover:bg-emerald-light";
+const saveButtonClassName =
+  "mt-5 flex w-full items-center justify-center rounded-xl bg-emerald px-4 py-3 text-sm font-bold text-navy transition-colors hover:bg-emerald-light disabled:opacity-70";
 
 export default function ContactCardClient() {
   const isMobile = useIsMobileDevice();
   const cardUrl = contactCardUrl();
-  const vcardUrl = contactVCardUrl();
   const qrSrc = withBasePath("/contact-qr.png");
   const [showSaveHelp, setShowSaveHelp] = useState(false);
-  const [saveHref, setSaveHref] = useState(vcardUrl);
+  const [saving, setSaving] = useState(false);
+  const [saveHint, setSaveHint] = useState<string | null>(null);
   const [android, setAndroid] = useState(false);
+  const [iphone, setIphone] = useState(false);
 
   useEffect(() => {
     setAndroid(isAndroidMobile());
-    setSaveHref(saveToContactsHref());
+    setIphone(isAppleMobile());
+    prefetchContactVCard();
   }, []);
 
-  function onSaveToContactsClick() {
+  async function handleSaveToContacts() {
+    if (saving) return;
+    setSaving(true);
+    setSaveHint(null);
     setShowSaveHelp(true);
+    try {
+      const result = await saveContactToDevice();
+      if (result === "shared") {
+        setSaveHint(
+          iphone
+            ? "Share sheet opened — tap Contacts or Create New Contact, then Save."
+            : "Share sheet opened — choose Contacts to save us.",
+        );
+      } else if (result === "opened") {
+        setSaveHint("Tap Create New Contact, then Save — our logo with the green circle should show.");
+      } else if (result === "android-intent") {
+        setSaveHint("Add contact opened — tap Save.");
+      } else if (result === "cancelled") {
+        setSaveHint(null);
+        setShowSaveHelp(false);
+      } else {
+        setSaveHint("Contact file ready — open it and choose Create New Contact.");
+      }
+    } catch (error) {
+      setSaveHint(error instanceof Error ? error.message : "Could not save contact");
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -117,25 +146,20 @@ export default function ContactCardClient() {
                   Quote · Book · Call
                 </p>
                 <p className="mt-2 text-sm leading-relaxed text-white/65">
-                  {android
-                    ? "Opens Add contact on your phone — no file download."
-                    : "Save us to your phone contacts — then book, call, or WhatsApp us."}
+                  {iphone
+                    ? "Opens your iPhone share sheet — choose Contacts or Create New Contact."
+                    : android
+                      ? "Opens Add contact on your phone — no file download."
+                      : "Save us to your phone contacts — then book, call, or WhatsApp us."}
                 </p>
-                <a
-                  href={saveHref}
-                  onClick={onSaveToContactsClick}
-                  className={saveLinkClassName}
+                <button
+                  type="button"
+                  onClick={() => void handleSaveToContacts()}
+                  disabled={saving}
+                  className={saveButtonClassName}
                 >
-                  Save to contacts
-                </a>
-                {android ? (
-                  <a
-                    href={vcardUrl}
-                    className="mt-3 inline-flex text-sm font-semibold text-emerald underline-offset-2 hover:underline"
-                  >
-                    Or save contact file with logo
-                  </a>
-                ) : null}
+                  {saving ? "Opening…" : "Save to contacts"}
+                </button>
               </>
             )}
           </div>
@@ -228,10 +252,11 @@ export default function ContactCardClient() {
               </span>
             </a>
 
-            <a
-              href={saveHref}
-              onClick={onSaveToContactsClick}
-              className="flex min-w-0 items-center gap-4 rounded-2xl border border-white/15 bg-white/[0.03] px-5 py-4 text-left text-white transition-colors hover:border-white/30 hover:bg-white/[0.06]"
+            <button
+              type="button"
+              onClick={() => void handleSaveToContacts()}
+              disabled={saving}
+              className="flex min-w-0 items-center gap-4 rounded-2xl border border-white/15 bg-white/[0.03] px-5 py-4 text-left text-white transition-colors hover:border-white/30 hover:bg-white/[0.06] disabled:opacity-70"
             >
               <ActionIcon>
                 <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -247,39 +272,43 @@ export default function ContactCardClient() {
                 <span className="block text-xs font-semibold uppercase tracking-wider text-white/50">
                   Contacts
                 </span>
-                <span className="mt-0.5 block text-lg font-bold">Save to contacts</span>
+                <span className="mt-0.5 block text-lg font-bold">
+                  {saving ? "Opening…" : "Save to contacts"}
+                </span>
                 <span className="mt-0.5 block text-xs text-white/45">
-                  {android
-                    ? "Opens Add contact — no download"
-                    : "Opens Create New Contact with our logo"}
+                  {iphone
+                    ? "Share → Contacts / Create New Contact"
+                    : android
+                      ? "Opens Add contact — no download"
+                      : "Opens Create New Contact with our logo"}
                 </span>
               </span>
-            </a>
+            </button>
             {showSaveHelp ? (
               <div className="min-w-0 rounded-2xl border border-emerald/35 bg-emerald/10 px-4 py-4 text-sm text-white">
-                <p className="font-semibold text-emerald">Save to contacts</p>
+                <p className="font-semibold text-emerald">Save to contacts on iPhone</p>
                 {android ? (
                   <ol className="mt-3 list-decimal space-y-2 pl-5 text-white/80">
                     <li>
                       Tap <span className="text-white">Save</span> on the Add contact screen
                     </li>
-                    <li>
-                      Optional: use <span className="text-white">Save contact file with logo</span>{" "}
-                      below the green button if you want our logo on the contact
-                    </li>
+                    <li>Optional: download the contact file below if you want our logo</li>
                   </ol>
                 ) : (
                   <ol className="mt-3 list-decimal space-y-2 pl-5 text-white/80">
                     <li>
-                      When the contact preview opens, tap{" "}
+                      In the share sheet, tap <span className="text-white">Contacts</span> or{" "}
                       <span className="text-white">Create New Contact</span>
                     </li>
-                    <li>Confirm Save — our logo with the green circle should appear</li>
+                    <li>
+                      Tap <span className="text-white">Save</span> — you should see our logo with the
+                      green circle and MY AIRPORT TAXI NI wording
+                    </li>
                   </ol>
                 )}
                 <p className="mt-3 text-xs text-white/55">
-                  If your phone only downloaded a file, open that file and choose Create New Contact /
-                  Import.
+                  If you only see a file preview with Done, tap the Share icon and choose Contacts /
+                  Create New Contact.
                 </p>
                 <button
                   type="button"
@@ -295,6 +324,11 @@ export default function ContactCardClient() {
                   Or email the contact link to yourself
                 </a>
               </div>
+            ) : null}
+            {saveHint ? (
+              <p className="rounded-xl border border-emerald/30 bg-emerald/10 px-4 py-3 text-sm text-emerald">
+                {saveHint}
+              </p>
             ) : null}
           </div>
 
