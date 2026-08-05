@@ -10,7 +10,11 @@ import { buildMarketingOptInFields, recordMarketingOptIn } from "@/lib/marketing
 import { TERMS_LAST_UPDATED } from "@/lib/terms";
 import { detectMobileDevice, useIsMobileDevice } from "@/lib/device";
 import { AIRPORTS, isVehicleEnquiryOnly, SERVICE_FLAGS, SITE, VEHICLE_TYPES } from "@/lib/data";
-import { readPrefillAirport } from "@/lib/quote-prefill";
+import {
+  readPrefillAirport,
+  readPrefillQuoteDraft,
+  type QuoteDraftPrefill,
+} from "@/lib/quote-prefill";
 import { readTestBookingPrefill } from "@/lib/test-booking";
 import {
   calculatePointToPointQuote,
@@ -473,6 +477,45 @@ function QuoteCard() {
       }
     }
 
+    function applyDraftPrefill(draft: QuoteDraftPrefill) {
+      setTripMode("airport");
+      if (draft.direction === "from-airport" || draft.direction === "to-airport") {
+        setTripDirection(draft.direction);
+      }
+      if (draft.airportCode && AIRPORTS.some((airport) => airport.code === draft.airportCode)) {
+        setAirportCode(draft.airportCode);
+      }
+      if (draft.address?.trim()) {
+        if (draft.direction === "from-airport") {
+          setDropoffAddress(draft.address.trim());
+        } else {
+          setPickupAddress(draft.address.trim());
+        }
+      }
+      if (typeof draft.returnJourney === "boolean") {
+        setReturnJourney(draft.returnJourney);
+      }
+      if (draft.tripDate) setTripDate(draft.tripDate);
+      if (draft.tripTime) setTripTime(draft.tripTime);
+      if (draft.returnDate) setReturnDate(draft.returnDate);
+      if (draft.returnTime) setReturnTime(draft.returnTime);
+      if (typeof draft.passengers === "number" && draft.passengers > 0) {
+        setPassengers(draft.passengers);
+      }
+      if (typeof draft.suitcases === "number" && draft.suitcases >= 0) {
+        setSuitcases(draft.suitcases);
+      }
+      if (
+        draft.vehicle &&
+        (VEHICLE_TYPES as readonly string[]).includes(draft.vehicle)
+      ) {
+        setVehicle(draft.vehicle as VehicleType);
+      }
+      setBookingSent(false);
+      setShowBookingDetailsStep(false);
+      setShowBookingPreview(false);
+    }
+
     if (window.location.hash === "#quote") {
       const params = new URLSearchParams(window.location.search);
       const airportFromQuery = params.get("airport")?.trim().toUpperCase();
@@ -481,9 +524,14 @@ function QuoteCard() {
       }
     }
 
-    const stored = readPrefillAirport();
-    if (stored) {
-      applyAirportPrefill(stored);
+    const draftPrefill = readPrefillQuoteDraft();
+    if (draftPrefill) {
+      applyDraftPrefill(draftPrefill);
+    } else {
+      const stored = readPrefillAirport();
+      if (stored) {
+        applyAirportPrefill(stored);
+      }
     }
 
     function handlePrefill(event: Event) {
@@ -493,8 +541,19 @@ function QuoteCard() {
       }
     }
 
+    function handleDraftPrefill(event: Event) {
+      const draft = (event as CustomEvent<QuoteDraftPrefill>).detail;
+      if (draft) {
+        applyDraftPrefill(draft);
+      }
+    }
+
     window.addEventListener("quote-prefill-airport", handlePrefill);
-    return () => window.removeEventListener("quote-prefill-airport", handlePrefill);
+    window.addEventListener("quote-prefill-draft", handleDraftPrefill);
+    return () => {
+      window.removeEventListener("quote-prefill-airport", handlePrefill);
+      window.removeEventListener("quote-prefill-draft", handleDraftPrefill);
+    };
   }, []);
 
   const isScheduleComplete =

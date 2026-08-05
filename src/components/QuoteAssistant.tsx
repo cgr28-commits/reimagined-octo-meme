@@ -4,9 +4,10 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { playBotOpenSound, playBotReplySound, playBotWorkingSound } from "@/lib/bot-sounds";
+import { contactCardUrl, saveContactToDevice } from "@/lib/contact-card";
 import { useIsMobileDevice } from "@/lib/device";
 import { withBasePath } from "@/lib/paths";
-import { contactCardUrl, saveContactToDevice } from "@/lib/contact-card";
+import { prefillQuoteFromAssistant } from "@/lib/quote-prefill";
 import {
   createWelcomeMessages,
   emptyQuoteDraft,
@@ -92,10 +93,6 @@ export default function QuoteAssistant() {
     const text = raw.trim();
     if (!text || isWorking) return;
 
-    if (/^request to book$/i.test(text)) {
-      window.location.href = "/#quote";
-    }
-
     setMessages((prev) => [...prev, { role: "user", text }]);
     setInput("");
     setIsWorking(true);
@@ -107,7 +104,9 @@ export default function QuoteAssistant() {
 
     workingTimerRef.current = setTimeout(() => {
       const result = respondToAssistantMessage(text, draftRef.current);
-      setDraft(result.resetDraft ? emptyQuoteDraft() : result.draft);
+      const nextDraft = result.resetDraft ? emptyQuoteDraft() : result.draft;
+      setDraft(nextDraft);
+      draftRef.current = nextDraft;
       setQuickReplies(result.quickReplies ?? []);
       // Only show the QR when the customer asked to save contact details.
       setShowContactOffer(result.showContactOffer === true);
@@ -115,6 +114,11 @@ export default function QuoteAssistant() {
       setIsWorking(false);
       playBotReplySound();
       workingTimerRef.current = null;
+
+      if (result.openQuoteForm) {
+        prefillQuoteFromAssistant(nextDraft);
+        setOpen(false);
+      }
     }, BOT_WORKING_MS);
   }
 
