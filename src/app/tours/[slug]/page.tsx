@@ -6,7 +6,6 @@ import Footer from "@/components/Footer";
 import Header from "@/components/Header";
 import TourCard from "@/components/TourCard";
 import TourBookingForm from "@/components/TourBookingForm";
-import WhatsAppButton from "@/components/WhatsAppButton";
 import { SERVICE_FLAGS, SITE } from "@/lib/data";
 import { getBreadcrumbJsonLd } from "@/lib/structured-data";
 import { getTourBySlug, TOURS } from "@/lib/tours";
@@ -138,7 +137,6 @@ export default async function TourDetailPage({ params }: TourPageProps) {
         </section>
       </main>
       <Footer />
-      <WhatsAppButton />
     </>
   );
 }

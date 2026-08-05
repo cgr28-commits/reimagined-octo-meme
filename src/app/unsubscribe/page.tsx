@@ -3,7 +3,6 @@ import Link from "next/link";
 import { Suspense } from "react";
 import Footer from "@/components/Footer";
 import Header from "@/components/Header";
-import WhatsAppButton from "@/components/WhatsAppButton";
 import { SITE } from "@/lib/data";
 import UnsubscribeForm from "./UnsubscribeForm";
 
@@ -63,7 +62,6 @@ export default function UnsubscribePage() {
         </div>
       </main>
       <Footer />
-      <WhatsAppButton />
     </>
   );
 }

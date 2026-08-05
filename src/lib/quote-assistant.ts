@@ -1,36 +1,60 @@
-import { AIRPORTS, FAQS, SITE, VEHICLE_TYPES } from "@/lib/data";
-import { calculateQuote, formatQuote } from "@/lib/quote";
+import {
+  AIRPORTS,
+  AREAS,
+  FAQS,
+  SITE,
+  VEHICLE_FLEET,
+  VEHICLE_TYPES,
+  isVehicleEnquiryOnly,
+} from "@/lib/data";
+import { TERMS_SECTIONS } from "@/lib/terms";
+import { calculateQuote, formatQuote, matchAreaFromAddress } from "@/lib/quote";
 
 export type AssistantMessage = {
   role: "bot" | "user";
   text: string;
 };
 
-type QuoteDraft = {
+export type QuoteDraft = {
   airportCode?: string;
   direction?: "to-airport" | "from-airport";
   address?: string;
   passengers?: number;
   suitcases?: number;
   vehicle?: (typeof VEHICLE_TYPES)[number];
+  returnJourney?: boolean;
+};
+
+export type AssistantResponse = {
+  reply: string;
+  draft: QuoteDraft;
+  quickReplies?: string[];
+  /** Clear draft after this reply (e.g. finished quote) so another quote can start cleanly */
+  resetDraft?: boolean;
+  showContactOffer?: boolean;
 };
 
 const AIRPORT_ALIASES: Record<string, string> = {
   bfs: "BFS",
   aldergrove: "BFS",
   "belfast international": "BFS",
+  "belfast airport": "BFS",
   international: "BFS",
   dub: "DUB",
   dublin: "DUB",
+  "dublin airport": "DUB",
   ldy: "LDY",
   derry: "LDY",
   "city of derry": "LDY",
   londonderry: "LDY",
+  "derry airport": "LDY",
 };
 
 function matchAirport(text: string): string | undefined {
   const lower = text.toLowerCase();
-  for (const [alias, code] of Object.entries(AIRPORT_ALIASES)) {
+  // Prefer longer aliases first
+  const aliases = Object.entries(AIRPORT_ALIASES).sort((a, b) => b[0].length - a[0].length);
+  for (const [alias, code] of aliases) {
     if (lower.includes(alias)) {
       return code;
     }
@@ -38,36 +62,124 @@ function matchAirport(text: string): string | undefined {
   return undefined;
 }
 
-function matchFaq(text: string): string | null {
+function matchAreaMention(text: string): string | undefined {
+  const matched = matchAreaFromAddress(text);
+  if (matched) {
+    return matched;
+  }
+
+  const lower = text.toLowerCase();
+  const sorted = [...AREAS].sort((a, b) => b.length - a.length);
+  for (const area of sorted) {
+    if (lower.includes(area.toLowerCase())) {
+      return area;
+    }
+  }
+  return undefined;
+}
+
+function knowledgeChunks(): Array<{ title: string; body: string }> {
+  const chunks: Array<{ title: string; body: string }> = FAQS.map((faq) => ({
+    title: faq.question,
+    body: faq.answer,
+  }));
+
+  for (const section of TERMS_SECTIONS) {
+    const parts: string[] = [];
+    if ("content" in section && Array.isArray(section.content)) {
+      parts.push(...section.content);
+    }
+    if ("list" in section && Array.isArray(section.list)) {
+      parts.push(...section.list);
+    }
+    if ("footer" in section && typeof section.footer === "string") {
+      parts.push(section.footer);
+    }
+    if ("subsections" in section && Array.isArray(section.subsections)) {
+      for (const sub of section.subsections) {
+        parts.push(sub.subtitle, ...sub.content);
+      }
+    }
+    chunks.push({ title: section.title, body: parts.join(" ") });
+  }
+
+  chunks.push(
+    {
+      title: "How booking works now",
+      body:
+        "Get your fixed journey price on the website or in this chat. Send an enquiry to book. Once we confirm your job, we email a SumUp payment link. Your booking is confirmed after payment. Executive Saloon and Minibus are enquiry-only — we quote you personally.",
+    },
+    {
+      title: "Airports we cover",
+      body: `We cover ${AIRPORTS.map((a) => a.name).join(", ")}. Prices include vehicle, driver, fuel, tolls, and up to 60 minutes complimentary waiting time after landing for airport pickups.`,
+    },
+    {
+      title: "Fleet and vehicles",
+      body: VEHICLE_FLEET.map(
+        (v) => `${v.name} (${v.capacity}): ${v.description}`,
+      ).join(" "),
+    },
+    {
+      title: "Contact details",
+      body: `Call ${SITE.landlineDisplay}, WhatsApp @${SITE.whatsappUsername}, email ${SITE.email}, or save our contact card from this chat or ${SITE.url}/contact/.`,
+    },
+  );
+
+  return chunks;
+}
+
+function matchKnowledge(text: string): string | null {
   const lower = text.toLowerCase();
   const keywords = lower
-    .split(/[^a-z0-9£]+/)
-    .filter((word) => word.length > 3);
+    .split(/[^a-z0-9£%]+/i)
+    .filter((word) => word.length > 2);
 
-  let best: { score: number; answer: string } | null = null;
-  for (const faq of FAQS) {
-    const haystack = `${faq.question} ${faq.answer}`.toLowerCase();
+  let best: { score: number; body: string; title: string } | null = null;
+
+  for (const chunk of knowledgeChunks()) {
+    const haystack = `${chunk.title} ${chunk.body}`.toLowerCase();
     let score = 0;
     for (const word of keywords) {
       if (haystack.includes(word)) {
-        score += 1;
+        score += word.length > 5 ? 2 : 1;
       }
     }
-    if (/cancel|refund|money back/.test(lower) && /cancel|refund/.test(haystack)) {
+
+    if (/cancel|refund|money back|admin/.test(lower) && /cancel|refund/.test(haystack)) {
+      score += 5;
+    }
+    if (/wait|flight delay|meet.?greet/.test(lower) && /wait|flight|meet/.test(haystack)) {
+      score += 4;
+    }
+    if (/child.?seat|booster|baby seat/.test(lower) && /child/.test(haystack)) {
+      score += 5;
+    }
+    if (/vehicle|minibus|estate|saloon|executive|fleet/.test(lower) && /vehicle|fleet|saloon|estate|minibus/.test(haystack)) {
       score += 3;
     }
-    if (/price|cost|how much|quote|fare/.test(lower) && /price|cost|quote|fare/.test(haystack)) {
+    if (/book|confirm|payment|sumup|pay/.test(lower) && /book|confirm|payment|sumup|pay/.test(haystack)) {
+      score += 3;
+    }
+    if (/hour|24\/7|christmas|bank holiday|night/.test(lower) && /24|365|christmas|bank/.test(haystack)) {
+      score += 4;
+    }
+    if (/contact|phone|email|whatsapp|number/.test(lower) && /contact|whatsapp|email|call/.test(haystack)) {
+      score += 3;
+    }
+    if (/airport|cover|areas?/.test(lower) && /airport|cover|belfast|dublin|derry/.test(haystack)) {
       score += 2;
     }
-    if (/wait|flight delay|meet/.test(lower) && /wait|flight|meet/.test(haystack)) {
-      score += 2;
-    }
+
     if (score > 0 && (!best || score > best.score)) {
-      best = { score, answer: faq.answer };
+      best = { score, body: chunk.body, title: chunk.title };
     }
   }
 
-  return best && best.score >= 2 ? best.answer : null;
+  if (!best || best.score < 3) {
+    return null;
+  }
+
+  return best.body;
 }
 
 function extractNumber(text: string, kind: "passenger" | "suitcase"): number | undefined {
@@ -98,7 +210,7 @@ function pickVehicle(passengers: number, suitcases: number): (typeof VEHICLE_TYP
   return "Standard Saloon (1–4 passengers)";
 }
 
-function tryBuildQuote(draft: QuoteDraft): string | null {
+function tryBuildQuote(draft: QuoteDraft): { text: string; enquiryOnly: boolean } | null {
   if (!draft.airportCode || !draft.address) {
     return null;
   }
@@ -106,23 +218,58 @@ function tryBuildQuote(draft: QuoteDraft): string | null {
   const passengers = draft.passengers ?? 2;
   const suitcases = draft.suitcases ?? 2;
   const vehicle = draft.vehicle ?? pickVehicle(passengers, suitcases);
-  const quote = calculateQuote(draft.address, draft.airportCode, vehicle, false);
+  const enquiryOnly = isVehicleEnquiryOnly(vehicle);
+
+  if (enquiryOnly) {
+    const airportName =
+      AIRPORTS.find((airport) => airport.code === draft.airportCode)?.name ?? draft.airportCode;
+    return {
+      enquiryOnly: true,
+      text:
+        `${vehicle.split(" (")[0]} is enquiry only for ${airportName}. ` +
+        `Send an enquiry on the quote form with your trip details and we’ll confirm availability and price. ` +
+        `Or call ${SITE.landlineDisplay}.`,
+    };
+  }
+
+  const quote = calculateQuote(
+    draft.address,
+    draft.airportCode,
+    vehicle,
+    draft.returnJourney === true,
+  );
 
   if (!quote) {
-    return null;
+    if (draft.airportCode === "LDY") {
+      return {
+        enquiryOnly: false,
+        text:
+          "City of Derry Airport transfers are between LDY and the greater Belfast area only. " +
+          "Please give a Belfast-area town or postcode (for example Bangor, Lisburn, or BT20).",
+      };
+    }
+    return {
+      enquiryOnly: false,
+      text:
+        "I couldn’t price that address yet. Try a Northern Ireland town we cover (Bangor, Lisburn, Holywood…) or use the quote form with your full address.",
+    };
   }
 
   const airportName =
     AIRPORTS.find((airport) => airport.code === draft.airportCode)?.name ?? draft.airportCode;
   const directionLabel =
     draft.direction === "from-airport" ? `from ${airportName}` : `to ${airportName}`;
+  const areaNote = quote.area ? ` (priced via ${quote.area})` : "";
 
-  return (
-    `Your fixed journey price for ${directionLabel} is ${formatQuote(quote.amount)} ` +
-    `(${vehicle.split(" (")[0]}, ${passengers} passengers, ${suitcases} suitcases).\n\n` +
-    `Get an instant price online or through WhatsApp. Complete your booking securely online and receive confirmation after payment.\n\n` +
-    `Continue on the quote form, or WhatsApp us on ${SITE.landlineDisplay}.`
-  );
+  return {
+    enquiryOnly: false,
+    text:
+      `Your fixed journey price ${directionLabel} is ${formatQuote(quote.amount)}${areaNote}.\n` +
+      `${vehicle.split(" (")[0]} · ${passengers} passengers · ${suitcases} suitcases` +
+      `${draft.returnJourney ? " · return journey" : ""}.\n\n` +
+      `Includes vehicle, driver, fuel, tolls, and up to 60 minutes waiting after landing for airport pickups.\n\n` +
+      `To book: use Request to book on the quote form. Once we confirm, we’ll email a SumUp payment link — your booking is confirmed after payment.`,
+  };
 }
 
 export function createWelcomeMessages(): AssistantMessage[] {
@@ -130,46 +277,76 @@ export function createWelcomeMessages(): AssistantMessage[] {
     {
       role: "bot",
       text:
-        `Hi — I’m the ${SITE.name} assistant. I can answer common questions and work out an airport transfer quote.\n\n` +
-        "Ask anything, or say something like: “Quote to Belfast International from Bangor for 2 passengers and 3 cases”.",
+        `Hi — I’m the ${SITE.name} assistant. Ask me anything about airport transfers, waiting time, cancellations, vehicles, or get a fixed journey price.\n\n` +
+        "Example: “Quote from Bangor to Belfast International for 2 passengers and 3 cases”.",
     },
   ];
+}
+
+export function emptyQuoteDraft(): QuoteDraft {
+  return {};
 }
 
 export function respondToAssistantMessage(
   userText: string,
   draft: QuoteDraft,
-): { reply: string; draft: QuoteDraft; quickReplies?: string[] } {
+): AssistantResponse {
   const text = userText.trim();
   const lower = text.toLowerCase();
-  const nextDraft: QuoteDraft = { ...draft };
+  let nextDraft: QuoteDraft = { ...draft };
 
   if (!text) {
     return {
-      reply: "Type a question, or ask for a quote with your airport and address.",
+      reply: "Type a question, or ask for a quote with your airport and town/address.",
       draft: nextDraft,
+      quickReplies: ["Get a quote", "Cancellation policy", "Save contact details"],
+    };
+  }
+
+  if (/another quote|new quote|start again|reset quote|different quote/.test(lower)) {
+    nextDraft = {};
+    return {
+      reply: "No problem — which airport is the transfer for?",
+      draft: nextDraft,
+      resetDraft: true,
+      quickReplies: ["Belfast International", "Dublin", "City of Derry"],
+    };
+  }
+
+  if (/save contact|add contact|contact details|contact card|qr code|save (your|our) (number|details)/.test(lower)) {
+    return {
+      reply:
+        "Would you like to add our contact details? On desktop you’ll see a QR code to scan. On mobile you can save our contact card (includes our logo).",
+      draft: nextDraft,
+      showContactOffer: true,
+      quickReplies: ["Get a quote", "Cancellation policy"],
     };
   }
 
   if (/^(hi|hello|hey)\b/.test(lower)) {
     return {
-      reply: "Hello! Ask a question, or tell me which airport and address you need a quote for.",
+      reply: "Hello! I can answer questions about our service or work out a fixed airport transfer price.",
       draft: nextDraft,
-      quickReplies: ["Get a quote", "Cancellation policy", "WhatsApp"],
+      quickReplies: ["Get a quote", "Cancellation policy", "Save contact details"],
+      showContactOffer: true,
     };
   }
 
-  if (/whatsapp|chat with (a )?human|speak to/.test(lower)) {
+  if (/book online|quote form|#quote|request to book/.test(lower)) {
     return {
-      reply: `You can message us on WhatsApp at @${SITE.whatsappUsername} or call ${SITE.landlineDisplay}.`,
+      reply:
+        "Open Get a Live Quote on this page, enter your trip, then Request to book / Enquire to book. We’ll confirm and email a SumUp payment link.",
       draft: nextDraft,
+      quickReplies: ["Get a quote", "Save contact details"],
     };
   }
 
-  if (/book online|quote form|#quote/.test(lower)) {
+  if (/whatsapp|call|phone|email|contact you/.test(lower) && !/quote|price|how much/.test(lower)) {
     return {
-      reply: "Open the quote form on this page (Get a Quote) to complete your booking securely online.",
+      reply: `You can call ${SITE.landlineDisplay}, WhatsApp @${SITE.whatsappUsername}, or email ${SITE.email}. You can also save our contact details in this chat.`,
       draft: nextDraft,
+      showContactOffer: true,
+      quickReplies: ["Save contact details", "Get a quote"],
     };
   }
 
@@ -178,10 +355,14 @@ export function respondToAssistantMessage(
     nextDraft.airportCode = airport;
   }
 
-  if (/\bfrom airport\b|\barriving\b|\bpick.?up from\b/.test(lower)) {
+  if (/\bfrom airport\b|\barriving\b|\bpick.?up from (the )?airport\b|\bcollection from\b/.test(lower)) {
     nextDraft.direction = "from-airport";
-  } else if (/\bto airport\b|\bgoing to\b|\bdeparting\b/.test(lower)) {
+  } else if (/\bto airport\b|\bgoing to\b|\bdeparting\b|\bdrop.?off at\b/.test(lower)) {
     nextDraft.direction = "to-airport";
+  }
+
+  if (/\breturn\b/.test(lower)) {
+    nextDraft.returnJourney = true;
   }
 
   const passengers = extractNumber(text, "passenger");
@@ -196,56 +377,83 @@ export function respondToAssistantMessage(
     nextDraft.vehicle = pickVehicle(nextDraft.passengers ?? 2, nextDraft.suitcases ?? 2);
   }
 
-  // Capture a likely NI address/area after "from" / "to" when not an airport phrase.
-  const addressMatch =
-    text.match(/\bfrom\s+(.+?)(?:\s+to\s+(?:the\s+)?airport|\s+for\s+\d|\s*$)/i) ||
-    text.match(/\bto\s+(.+?)(?:\s+from\s+(?:the\s+)?airport|\s+for\s+\d|\s*$)/i) ||
-    text.match(/\b(?:in|at)\s+([A-Za-z][A-Za-z\s,'-]{2,60})/i);
-  if (addressMatch?.[1] && !matchAirport(addressMatch[1])) {
-    const candidate = addressMatch[1].replace(/[?.!]+$/, "").trim();
-    if (candidate.length >= 3 && !/^(a quote|quote|airport)$/i.test(candidate)) {
-      nextDraft.address = candidate;
+  const areaMention = matchAreaMention(text);
+  if (areaMention && !matchAirport(areaMention)) {
+    nextDraft.address = areaMention;
+  }
+
+  // Capture address phrases when area matcher missed
+  if (!nextDraft.address) {
+    const addressMatch =
+      text.match(/\bfrom\s+(.+?)(?:\s+to\s+(?:the\s+)?(?:airport|belfast|dublin|derry)|\s+for\s+\d|\s*$)/i) ||
+      text.match(/\bto\s+(.+?)(?:\s+from\s+(?:the\s+)?(?:airport|belfast|dublin|derry)|\s+for\s+\d|\s*$)/i);
+    if (addressMatch?.[1] && !matchAirport(addressMatch[1])) {
+      const candidate = addressMatch[1].replace(/[?.!]+$/, "").trim();
+      if (candidate.length >= 3 && !/^(a quote|quote|airport|belfast international|dublin|city of derry)$/i.test(candidate)) {
+        nextDraft.address = candidate;
+      }
     }
   }
 
-  if (/get a quote|price|how much|fare|cost/.test(lower) && !nextDraft.airportCode) {
+  const wantsQuote = /get a quote|quote|price|how much|fare|cost|estimate/.test(lower);
+
+  if (wantsQuote && !nextDraft.airportCode) {
     return {
-      reply: "Which airport is your transfer for — Belfast International, Dublin, or City of Derry?",
+      reply: "Which airport is your transfer for?",
       draft: nextDraft,
       quickReplies: ["Belfast International", "Dublin", "City of Derry"],
     };
   }
 
-  if (nextDraft.airportCode && !nextDraft.address) {
+  if (nextDraft.airportCode && !nextDraft.address && (wantsQuote || Boolean(airport))) {
     const airportName =
       AIRPORTS.find((item) => item.code === nextDraft.airportCode)?.name ?? nextDraft.airportCode;
     return {
-      reply: `Got it — ${airportName}. What’s the pickup or drop-off address / town (for example Bangor or BT20 3AA)?`,
+      reply: `Got it — ${airportName}. What’s the pickup or drop-off town / address? (e.g. Bangor, Lisburn, Holywood, or a BT postcode)`,
       draft: nextDraft,
+      quickReplies: ["Bangor", "Lisburn", "Holywood", "Belfast City Centre"],
     };
   }
 
-  const built = tryBuildQuote(nextDraft);
-  if (built && (/quote|price|how much|fare|cost/.test(lower) || (airport && nextDraft.address))) {
-    return { reply: built, draft: nextDraft, quickReplies: ["Book online", "WhatsApp"] };
+  if (nextDraft.airportCode && nextDraft.address && (wantsQuote || Boolean(airport) || Boolean(areaMention))) {
+    const built = tryBuildQuote(nextDraft);
+    if (built) {
+      return {
+        reply: built.text,
+        draft: {},
+        resetDraft: true,
+        quickReplies: ["Another quote", "Request to book", "Save contact details", "Cancellation policy"],
+        showContactOffer: true,
+      };
+    }
   }
 
-  const faqAnswer = matchFaq(text);
-  if (faqAnswer) {
-    return { reply: faqAnswer, draft: nextDraft };
+  const knowledge = matchKnowledge(text);
+  if (knowledge) {
+    return {
+      reply: knowledge,
+      draft: nextDraft,
+      quickReplies: ["Get a quote", "Save contact details", "Cancellation policy"],
+    };
   }
 
   if (nextDraft.airportCode && nextDraft.address) {
-    const retry = tryBuildQuote(nextDraft);
-    if (retry) {
-      return { reply: retry, draft: nextDraft, quickReplies: ["Book online", "WhatsApp"] };
+    const built = tryBuildQuote(nextDraft);
+    if (built) {
+      return {
+        reply: built.text,
+        draft: {},
+        resetDraft: true,
+        quickReplies: ["Another quote", "Request to book", "Save contact details"],
+      };
     }
   }
 
   return {
     reply:
-      "I can help with airport transfer quotes and common questions. Try: “Quote from Lisburn to Belfast International for 3 passengers and 3 cases”, or ask about waiting time, cancellations, or vehicle options.",
+      "I can answer questions from our site (booking, cancellations, waiting time, vehicles, airports) and work out a fixed journey price with the same pricing as the quote tool.\n\n" +
+      "Try: “Quote from Bangor to Belfast International for 2 passengers and 3 cases”, or ask “What’s your cancellation policy?”",
     draft: nextDraft,
-    quickReplies: ["Get a quote", "Cancellation policy", "WhatsApp"],
+    quickReplies: ["Get a quote", "Cancellation policy", "Save contact details"],
   };
 }
