@@ -346,6 +346,13 @@ function nextMissingField(draft: QuoteDraft): MissingField | null {
   return null;
 }
 
+/** Exported so the chat UI can show calendar/clock pickers for date/time steps. */
+export function getNextQuoteField(draft: QuoteDraft): MissingField | null {
+  return nextMissingField(draft);
+}
+
+export type QuoteMissingField = MissingField;
+
 function promptForField(field: MissingField, draft: QuoteDraft): AssistantResponse {
   const airportName =
     AIRPORTS.find((item) => item.code === draft.airportCode)?.name ?? draft.airportCode;
@@ -380,25 +387,25 @@ function promptForField(field: MissingField, draft: QuoteDraft): AssistantRespon
       };
     case "tripDate":
       return {
-        reply: "What date is the outbound journey? (e.g. tomorrow, 15/08/2026, or 15 August)",
+        reply: "What date is the outbound journey? Use the calendar below to choose a date.",
         draft,
         quickReplies: ["Today", "Tomorrow"],
       };
     case "tripTime":
       return {
-        reply: "What pickup time do you need? (e.g. 10:30 or 6:45pm)",
+        reply: "What pickup time do you need? Use the clock below to choose a time.",
         draft,
         quickReplies: ["06:00", "09:00", "12:00", "18:00"],
       };
     case "returnDate":
       return {
-        reply: "What date is the return journey?",
+        reply: "What date is the return journey? Use the calendar below to choose a date.",
         draft,
         quickReplies: ["Tomorrow"],
       };
     case "returnTime":
       return {
-        reply: "What pickup time for the return journey?",
+        reply: "What pickup time for the return journey? Use the clock below to choose a time.",
         draft,
         quickReplies: ["09:00", "12:00", "18:00"],
       };

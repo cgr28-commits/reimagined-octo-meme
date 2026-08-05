@@ -11,12 +11,32 @@ import { prefillQuoteFromAssistant } from "@/lib/quote-prefill";
 import {
   createWelcomeMessages,
   emptyQuoteDraft,
+  getNextQuoteField,
   respondToAssistantMessage,
   type AssistantMessage,
   type QuoteDraft,
 } from "@/lib/quote-assistant";
 
 const BOT_WORKING_MS = 450;
+
+function todayLondonDate(): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/London",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+}
+
+function formatPickerDateLabel(value: string): string {
+  if (!value) return "";
+  return new Date(`${value}T12:00:00`).toLocaleDateString("en-GB", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
 
 export default function QuoteAssistant() {
   const isMobile = useIsMobileDevice();
@@ -30,11 +50,20 @@ export default function QuoteAssistant() {
   const [draft, setDraft] = useState<QuoteDraft>({});
   const [showContactOffer, setShowContactOffer] = useState(false);
   const [isWorking, setIsWorking] = useState(false);
+  const [pickerDate, setPickerDate] = useState("");
+  const [pickerTime, setPickerTime] = useState("");
   const listRef = useRef<HTMLDivElement>(null);
   const contactOfferRef = useRef<HTMLDivElement>(null);
+  const dateInputRef = useRef<HTMLInputElement>(null);
+  const timeInputRef = useRef<HTMLInputElement>(null);
   const workingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const draftRef = useRef(draft);
   const qrSrc = withBasePath("/contact-qr.png");
+  const awaitingField = !isWorking ? getNextQuoteField(draft) : null;
+  const showDatePicker = awaitingField === "tripDate" || awaitingField === "returnDate";
+  const showTimePicker = awaitingField === "tripTime" || awaitingField === "returnTime";
+  const minDate =
+    awaitingField === "returnDate" && draft.tripDate ? draft.tripDate : todayLondonDate();
 
   useEffect(() => {
     draftRef.current = draft;
@@ -55,7 +84,23 @@ export default function QuoteAssistant() {
       return;
     }
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
-  }, [messages, open, showContactOffer, isWorking]);
+  }, [messages, open, showContactOffer, isWorking, showDatePicker, showTimePicker]);
+
+  useEffect(() => {
+    if (!showDatePicker) {
+      setPickerDate("");
+      return;
+    }
+    setPickerDate(awaitingField === "returnDate" && draft.tripDate ? draft.tripDate : todayLondonDate());
+  }, [showDatePicker, awaitingField, draft.tripDate]);
+
+  useEffect(() => {
+    if (!showTimePicker) {
+      setPickerTime("");
+      return;
+    }
+    setPickerTime("09:00");
+  }, [showTimePicker]);
 
   function toggleOpen() {
     setOpen((value) => {
@@ -119,11 +164,23 @@ export default function QuoteAssistant() {
     }, BOT_WORKING_MS);
   }
 
+  function confirmPickerDate() {
+    if (!pickerDate || isWorking) return;
+    sendText(pickerDate);
+  }
+
+  function confirmPickerTime() {
+    if (!pickerTime || isWorking) return;
+    sendText(pickerTime);
+  }
+
   function resetChat() {
     setMessages(createWelcomeMessages());
     setDraft(emptyQuoteDraft());
     setQuickReplies(["Get a quote", "Save contact details"]);
     setShowContactOffer(false);
+    setPickerDate("");
+    setPickerTime("");
     setInput("");
   }
 
@@ -271,6 +328,78 @@ export default function QuoteAssistant() {
                 </button>
               </div>
             ) : null}
+
+            {showDatePicker ? (
+              <div className="rounded-2xl border border-emerald/35 bg-emerald/10 px-3 py-3">
+                <p className="text-sm font-semibold text-white">
+                  {awaitingField === "returnDate" ? "Return date" : "Outbound date"}
+                </p>
+                <p className="mt-1 text-xs text-white/65">Open the calendar and choose your travel date.</p>
+                <label className="mt-3 block">
+                  <span className="sr-only">Choose date</span>
+                  <input
+                    ref={dateInputRef}
+                    type="date"
+                    min={minDate}
+                    value={pickerDate}
+                    onChange={(event) => setPickerDate(event.target.value)}
+                    onClick={() => {
+                      try {
+                        dateInputRef.current?.showPicker?.();
+                      } catch {
+                        // Older browsers open the calendar from the native control.
+                      }
+                    }}
+                    className="w-full rounded-xl border border-white/20 bg-navy px-3 py-2.5 text-sm text-white outline-none [color-scheme:dark] focus:border-emerald/50"
+                  />
+                </label>
+                {pickerDate ? (
+                  <p className="mt-2 text-xs text-emerald">{formatPickerDateLabel(pickerDate)}</p>
+                ) : null}
+                <button
+                  type="button"
+                  disabled={!pickerDate || isWorking}
+                  onClick={confirmPickerDate}
+                  className="mt-3 w-full rounded-xl bg-emerald px-3 py-2.5 text-sm font-bold text-navy transition-colors hover:bg-emerald-light disabled:opacity-60"
+                >
+                  Use this date
+                </button>
+              </div>
+            ) : null}
+
+            {showTimePicker ? (
+              <div className="rounded-2xl border border-emerald/35 bg-emerald/10 px-3 py-3">
+                <p className="text-sm font-semibold text-white">
+                  {awaitingField === "returnTime" ? "Return pickup time" : "Pickup time"}
+                </p>
+                <p className="mt-1 text-xs text-white/65">Open the clock and choose your pickup time.</p>
+                <label className="mt-3 block">
+                  <span className="sr-only">Choose time</span>
+                  <input
+                    ref={timeInputRef}
+                    type="time"
+                    value={pickerTime}
+                    onChange={(event) => setPickerTime(event.target.value)}
+                    onClick={() => {
+                      try {
+                        timeInputRef.current?.showPicker?.();
+                      } catch {
+                        // Older browsers open the clock from the native control.
+                      }
+                    }}
+                    className="w-full rounded-xl border border-white/20 bg-navy px-3 py-2.5 text-sm text-white outline-none [color-scheme:dark] focus:border-emerald/50"
+                  />
+                </label>
+                <button
+                  type="button"
+                  disabled={!pickerTime || isWorking}
+                  onClick={confirmPickerTime}
+                  className="mt-3 w-full rounded-xl bg-emerald px-3 py-2.5 text-sm font-bold text-navy transition-colors hover:bg-emerald-light disabled:opacity-60"
+                >
+                  Use this time
+                </button>
+              </div>
+            ) : null}
           </div>
 
           {quickReplies.length > 0 && !isWorking ? (
@@ -298,7 +427,13 @@ export default function QuoteAssistant() {
             <input
               value={input}
               onChange={(event) => setInput(event.target.value)}
-              placeholder="Ask a question or get a quote…"
+              placeholder={
+                showDatePicker
+                  ? "Or type a date…"
+                  : showTimePicker
+                    ? "Or type a time…"
+                    : "Ask a question or get a quote…"
+              }
               className="min-w-0 flex-1 rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm text-white outline-none placeholder:text-white/35 focus:border-emerald/50"
             />
             <button
