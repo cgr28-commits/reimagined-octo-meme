@@ -136,10 +136,10 @@ export default function QuoteAssistant() {
       <button
         type="button"
         onClick={toggleOpen}
-        className={`fixed bottom-6 right-4 z-50 flex items-center border-2 border-emerald bg-navy shadow-lg shadow-emerald/30 transition-all hover:bg-navy-light sm:bottom-8 sm:right-8 ${
+        className={`fixed bottom-6 right-3 z-50 flex max-w-[calc(100%-1.5rem)] items-center border-2 border-emerald bg-navy shadow-lg shadow-emerald/30 transition-all hover:bg-navy-light sm:bottom-8 sm:right-8 ${
           open
             ? "h-14 w-14 justify-center rounded-full sm:h-16 sm:w-16"
-            : "gap-2.5 rounded-2xl py-2 pl-2 pr-3.5 sm:gap-3 sm:py-2.5 sm:pl-2.5 sm:pr-4"
+            : "gap-2 rounded-2xl py-2 pl-2 pr-3 sm:gap-3 sm:py-2.5 sm:pl-2.5 sm:pr-4"
         }`}
         aria-label={open ? "Close ask-a-question chat" : "Ask a question — get quotes and help"}
         aria-expanded={open}
@@ -150,7 +150,7 @@ export default function QuoteAssistant() {
           </svg>
         ) : (
           <>
-            <span className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-navy-dark sm:h-12 sm:w-12">
+            <span className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-navy-dark sm:h-12 sm:w-12">
               <Image
                 src={withBasePath("/logo.png")}
                 alt=""
@@ -159,7 +159,7 @@ export default function QuoteAssistant() {
                 className="h-full w-full object-contain p-1"
               />
               <span
-                className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-md bg-emerald text-navy"
+                className="absolute right-0 top-0 flex h-3.5 w-3.5 items-center justify-center rounded-md bg-emerald text-navy"
                 aria-hidden
               >
                 <svg className="h-2.5 w-2.5" viewBox="0 0 24 24" fill="currentColor">
@@ -167,9 +167,11 @@ export default function QuoteAssistant() {
                 </svg>
               </span>
             </span>
-            <span className="min-w-0 text-left">
-              <span className="block text-sm font-bold leading-tight text-white sm:text-base">Ask a question</span>
-              <span className="block text-[11px] font-medium leading-tight text-emerald sm:text-xs">
+            <span className="min-w-0 max-w-[9.5rem] text-left sm:max-w-none">
+              <span className="block truncate text-sm font-bold leading-tight text-white sm:text-base">
+                Ask a question
+              </span>
+              <span className="block truncate text-[11px] font-medium leading-tight text-emerald sm:text-xs">
                 Quotes · help · contact
               </span>
             </span>
@@ -178,7 +180,7 @@ export default function QuoteAssistant() {
       </button>
 
       {open ? (
-        <div className="fixed bottom-24 right-4 z-50 flex w-[min(100vw-2rem,24rem)] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-2xl border border-white/15 bg-navy-dark shadow-2xl sm:bottom-28 sm:right-8">
+        <div className="fixed bottom-24 left-3 right-3 z-50 flex max-h-[min(70dvh,32rem)] flex-col overflow-hidden rounded-2xl border border-white/15 bg-navy-dark shadow-2xl sm:bottom-28 sm:left-auto sm:right-8 sm:w-[24rem] sm:max-w-[calc(100%-4rem)]">
           <div className="flex items-start justify-between gap-3 border-b border-white/10 bg-navy px-4 py-3">
             <div className="flex min-w-0 items-center gap-3">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-emerald/50 bg-navy">
