@@ -29,10 +29,15 @@ export default function QuoteAssistant() {
   const [savingContact, setSavingContact] = useState(false);
   const [saveHint, setSaveHint] = useState<string | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const contactOfferRef = useRef<HTMLDivElement>(null);
   const qrSrc = withBasePath("/contact-qr.png");
 
   useEffect(() => {
     if (!open) return;
+    if (showContactOffer) {
+      contactOfferRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, open, showContactOffer]);
 
@@ -123,7 +128,7 @@ export default function QuoteAssistant() {
               </div>
               <div className="min-w-0">
                 <p className="text-sm font-bold text-white">Quote assistant</p>
-                <p className="text-xs text-white/55">Questions · fixed prices · save our contact</p>
+                <p className="text-xs text-white/55">Questions · fixed prices · scan &amp; save</p>
               </div>
             </div>
             <button
@@ -137,53 +142,50 @@ export default function QuoteAssistant() {
 
           <div ref={listRef} className="max-h-[45vh] space-y-3 overflow-y-auto overscroll-contain px-3 py-3">
             {showContactOffer ? (
-              <div className="rounded-2xl border border-emerald/35 bg-emerald/10 px-3 py-3">
+              <div
+                ref={contactOfferRef}
+                className="rounded-2xl border border-emerald/35 bg-emerald/10 px-3 py-3"
+              >
                 <p className="text-sm font-semibold text-white">Would you like to add our contact details?</p>
                 <p className="mt-1 text-xs text-white/65">
-                  {isMobile
-                    ? "Save our contact card to your phone — includes our logo."
-                    : "Scan the QR code with your phone to open our contact card."}
+                  Scan and save — point your phone camera at the QR code to open our contact card (includes our logo).
                 </p>
 
-                {isMobile === false ? (
-                  <div className="mt-3 flex flex-col items-center">
-                    <div className="rounded-xl bg-white p-2">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={qrSrc}
-                        alt={`QR code for ${contactCardUrl()}`}
-                        width={160}
-                        height={160}
-                        className="h-36 w-36"
-                      />
-                    </div>
-                    <p className="mt-2 text-center text-[11px] text-white/50">Scan · Quote · Book</p>
-                    <Link
-                      href="/contact/"
-                      className="mt-2 text-xs font-semibold text-emerald hover:text-emerald-light"
-                    >
-                      Open contact card
-                    </Link>
+                <div className="mt-3 flex flex-col items-center">
+                  <div className="rounded-xl bg-white p-2">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={qrSrc}
+                      alt={`Scan and save QR code for ${contactCardUrl()}`}
+                      width={180}
+                      height={180}
+                      className="h-40 w-40"
+                    />
                   </div>
-                ) : (
-                  <div className="mt-3 space-y-2">
+                  <p className="mt-2 text-center text-xs font-semibold text-emerald">Scan and save</p>
+                  <p className="mt-0.5 text-center text-[11px] text-white/50">Scan · Quote · Book</p>
+                  <Link
+                    href="/contact/"
+                    className="mt-2 text-xs font-semibold text-emerald hover:text-emerald-light"
+                  >
+                    Open contact card
+                  </Link>
+                </div>
+
+                {isMobile ? (
+                  <div className="mt-3 space-y-2 border-t border-white/10 pt-3">
+                    <p className="text-[11px] text-white/50">Already on your phone? Save the card directly:</p>
                     <button
                       type="button"
                       disabled={savingContact}
                       onClick={() => void handleSaveContact()}
-                      className="w-full rounded-xl bg-emerald px-3 py-2.5 text-sm font-bold text-navy transition-colors hover:bg-emerald-light disabled:opacity-60"
+                      className="w-full rounded-xl border border-emerald/40 bg-emerald/15 px-3 py-2.5 text-sm font-semibold text-emerald transition-colors hover:bg-emerald/25 disabled:opacity-60"
                     >
-                      {savingContact ? "Preparing…" : "Save our contact details"}
+                      {savingContact ? "Preparing…" : "Save contact card"}
                     </button>
-                    <Link
-                      href="/contact/"
-                      className="block w-full rounded-xl border border-white/15 px-3 py-2.5 text-center text-sm font-semibold text-white transition-colors hover:border-white/30"
-                    >
-                      Open full contact card
-                    </Link>
                     {saveHint ? <p className="text-xs text-emerald">{saveHint}</p> : null}
                   </div>
-                )}
+                ) : null}
 
                 <button
                   type="button"

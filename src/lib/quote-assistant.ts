@@ -316,7 +316,7 @@ export function respondToAssistantMessage(
   if (/save contact|add contact|contact details|contact card|qr code|save (your|our) (number|details)/.test(lower)) {
     return {
       reply:
-        "Would you like to add our contact details? On desktop you’ll see a QR code to scan. On mobile you can save our contact card (includes our logo).",
+        "Would you like to add our contact details? Scan and save with the QR code above — it opens our contact card with our logo.",
       draft: nextDraft,
       showContactOffer: true,
       quickReplies: ["Get a quote", "Cancellation policy"],
@@ -343,7 +343,7 @@ export function respondToAssistantMessage(
 
   if (/whatsapp|call|phone|email|contact you/.test(lower) && !/quote|price|how much/.test(lower)) {
     return {
-      reply: `You can call ${SITE.landlineDisplay}, WhatsApp @${SITE.whatsappUsername}, or email ${SITE.email}. You can also save our contact details in this chat.`,
+      reply: `You can call ${SITE.landlineDisplay}, WhatsApp @${SITE.whatsappUsername}, or email ${SITE.email}. Or scan and save our contact QR code in this chat.`,
       draft: nextDraft,
       showContactOffer: true,
       quickReplies: ["Save contact details", "Get a quote"],
