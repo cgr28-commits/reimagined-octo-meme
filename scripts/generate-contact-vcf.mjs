@@ -5,6 +5,8 @@
  * - PHOTO only (no LOGO) — dual image fields confuse some importers
  * - TYPE=JPEG with ENCODING=b
  * - PHOTO placed near the top after the name fields
+ * - Rebuild contact-photo.jpg first: python3 scripts/create-contact-photo.py
+ *   (full wordmark + emerald ring so circular contact crops keep the brand)
  *
  * Usage: node scripts/generate-contact-vcf.mjs
  */

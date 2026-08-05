@@ -15,7 +15,7 @@ export function contactCardUrl(): string {
   return `${SITE.url}${CONTACT_CARD_PATH}`;
 }
 
-/** Same-origin vCard — phones open Create/Add Contact when opened via a real link. */
+/** Same-origin vCard — iPhone Safari opens Create New Contact with logo. */
 export function contactVCardUrl(): string {
   return withBasePath(CONTACT_VCARD_PATH);
 }
@@ -23,6 +23,42 @@ export function contactVCardUrl(): string {
 /** Absolute same-origin vCard URL (for email / share text). */
 export function contactVCardAbsoluteUrl(): string {
   return `${SITE.url}${CONTACT_VCARD_PATH}`;
+}
+
+function whatsAppE164(): string {
+  const raw = SITE.whatsapp.trim();
+  return raw.startsWith("+") ? raw : `+${raw}`;
+}
+
+/**
+ * Android Intent that opens the native “Add contact” screen (no .vcf download).
+ * Logo photo is not supported by this intent — offer the vCard as a second step.
+ */
+export function androidAddContactIntentUrl(): string {
+  const name = encodeURIComponent(SITE.name);
+  const phone = encodeURIComponent(SITE.landline);
+  const mobile = encodeURIComponent(whatsAppE164());
+  const email = encodeURIComponent(SITE.email);
+  const company = encodeURIComponent(SITE.name);
+  return (
+    `intent:#Intent;` +
+    `action=android.intent.action.INSERT;` +
+    `type=vnd.android.cursor.dir/contact;` +
+    `S.name=${name};` +
+    `S.phone=${phone};` +
+    `S.secondary_phone=${mobile};` +
+    `S.email=${email};` +
+    `S.company=${company};` +
+    `end`
+  );
+}
+
+/** Best primary href for Save to contacts on the current device. */
+export function saveToContactsHref(): string {
+  if (typeof navigator !== "undefined" && isAndroidMobile()) {
+    return androidAddContactIntentUrl();
+  }
+  return contactVCardUrl();
 }
 
 export function whatsAppChatUrl(message = SITE.whatsappDefaultMessage): string {
@@ -44,19 +80,20 @@ export function isAndroidMobile(): boolean {
 }
 
 /**
- * Open the branded contact so the phone can save it.
- *
- * Prefer a real `<a href={contactVCardUrl()}>` in the UI (same-origin
- * text/x-vcard, no download attribute). This helper is a fallback for
- * desktop share / download flows.
+ * Save contact with the best path per platform:
+ * - iPhone: open same-origin vCard → Create New Contact (with logo)
+ * - Android: open native Add Contact intent (no download)
+ * - Desktop: share sheet or download
  */
 export async function saveContactToDevice(): Promise<
-  "opened" | "shared" | "downloaded"
+  "opened" | "android-intent" | "shared" | "downloaded"
 > {
-  const mobile = isAppleMobile() || isAndroidMobile();
+  if (isAndroidMobile()) {
+    window.location.assign(androidAddContactIntentUrl());
+    return "android-intent";
+  }
 
-  if (mobile) {
-    // Same-origin static vCard (text/x-vcard, no Content-Disposition).
+  if (isAppleMobile()) {
     window.location.assign(contactVCardUrl());
     return "opened";
   }
