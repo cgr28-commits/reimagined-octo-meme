@@ -1384,7 +1384,7 @@ export default function DriverPageClient({
       setDriverKey(trimmed);
 
       try {
-        let keyToUse = trimmed;
+        const keyToUse = trimmed;
 
         if (isOwnerPortal) {
           // Owner page: live OWNER_ACCESS_KEY, or explicit demo preview key only.
