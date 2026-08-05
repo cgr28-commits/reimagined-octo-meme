@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { playBotOpenSound, playBotReplySound, playBotWorkingSound } from "@/lib/bot-sounds";
 import { useIsMobileDevice } from "@/lib/device";
 import { withBasePath } from "@/lib/paths";
 import { contactCardUrl, saveContactToDevice } from "@/lib/contact-card";
@@ -13,6 +14,8 @@ import {
   type AssistantMessage,
   type QuoteDraft,
 } from "@/lib/quote-assistant";
+
+const BOT_WORKING_MS = 450;
 
 export default function QuoteAssistant() {
   const isMobile = useIsMobileDevice();
@@ -28,18 +31,43 @@ export default function QuoteAssistant() {
   const [showContactOffer, setShowContactOffer] = useState(true);
   const [savingContact, setSavingContact] = useState(false);
   const [saveHint, setSaveHint] = useState<string | null>(null);
+  const [isWorking, setIsWorking] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
   const contactOfferRef = useRef<HTMLDivElement>(null);
+  const workingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const draftRef = useRef(draft);
   const qrSrc = withBasePath("/contact-qr.png");
 
   useEffect(() => {
+    draftRef.current = draft;
+  }, [draft]);
+
+  useEffect(() => {
+    return () => {
+      if (workingTimerRef.current) {
+        clearTimeout(workingTimerRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
     if (!open) return;
-    if (showContactOffer) {
+    if (showContactOffer && !isWorking) {
       contactOfferRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
       return;
     }
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
-  }, [messages, open, showContactOffer]);
+  }, [messages, open, showContactOffer, isWorking]);
+
+  function toggleOpen() {
+    setOpen((value) => {
+      const next = !value;
+      if (next) {
+        playBotOpenSound();
+      }
+      return next;
+    });
+  }
 
   async function handleSaveContact() {
     if (savingContact) return;
@@ -63,21 +91,33 @@ export default function QuoteAssistant() {
 
   function sendText(raw: string) {
     const text = raw.trim();
-    if (!text) return;
+    if (!text || isWorking) return;
 
     if (/^request to book$/i.test(text)) {
       window.location.href = "/#quote";
     }
 
     setMessages((prev) => [...prev, { role: "user", text }]);
-    const result = respondToAssistantMessage(text, draft);
-    setDraft(result.resetDraft ? emptyQuoteDraft() : result.draft);
-    setQuickReplies(result.quickReplies ?? []);
-    if (result.showContactOffer) {
-      setShowContactOffer(true);
-    }
-    setMessages((prev) => [...prev, { role: "bot", text: result.reply }]);
     setInput("");
+    setIsWorking(true);
+    playBotWorkingSound();
+
+    if (workingTimerRef.current) {
+      clearTimeout(workingTimerRef.current);
+    }
+
+    workingTimerRef.current = setTimeout(() => {
+      const result = respondToAssistantMessage(text, draftRef.current);
+      setDraft(result.resetDraft ? emptyQuoteDraft() : result.draft);
+      setQuickReplies(result.quickReplies ?? []);
+      if (result.showContactOffer) {
+        setShowContactOffer(true);
+      }
+      setMessages((prev) => [...prev, { role: "bot", text: result.reply }]);
+      setIsWorking(false);
+      playBotReplySound();
+      workingTimerRef.current = null;
+    }, BOT_WORKING_MS);
   }
 
   function resetChat() {
@@ -93,7 +133,7 @@ export default function QuoteAssistant() {
     <>
       <button
         type="button"
-        onClick={() => setOpen((value) => !value)}
+        onClick={toggleOpen}
         className={`fixed bottom-6 right-4 z-50 flex items-center border-2 border-emerald bg-navy shadow-lg shadow-emerald/30 transition-all hover:bg-navy-light sm:bottom-8 sm:right-8 ${
           open
             ? "h-14 w-14 justify-center rounded-full sm:h-16 sm:w-16"
@@ -231,9 +271,23 @@ export default function QuoteAssistant() {
                 {message.text}
               </div>
             ))}
+
+            {isWorking ? (
+              <div
+                className="mr-auto flex max-w-[92%] items-center gap-2 rounded-2xl bg-white/10 px-3 py-2 text-sm text-white/70"
+                aria-live="polite"
+              >
+                <span className="inline-flex gap-1" aria-hidden>
+                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald" />
+                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald [animation-delay:120ms]" />
+                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald [animation-delay:240ms]" />
+                </span>
+                Working on your answer…
+              </div>
+            ) : null}
           </div>
 
-          {quickReplies.length > 0 ? (
+          {quickReplies.length > 0 && !isWorking ? (
             <div className="flex flex-wrap gap-2 border-t border-white/10 px-3 py-2">
               {quickReplies.map((reply) => (
                 <button
@@ -263,7 +317,8 @@ export default function QuoteAssistant() {
             />
             <button
               type="submit"
-              className="shrink-0 rounded-xl bg-emerald px-3 py-2 text-sm font-bold text-navy transition-colors hover:bg-emerald-light"
+              disabled={isWorking}
+              className="shrink-0 rounded-xl bg-emerald px-3 py-2 text-sm font-bold text-navy transition-colors hover:bg-emerald-light disabled:opacity-60"
             >
               Send
             </button>
