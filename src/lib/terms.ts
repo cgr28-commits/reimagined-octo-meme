@@ -129,9 +129,9 @@ export const TERMS_SECTIONS = [
   {
     title: "Child Seats",
     content: [
-      "Child seats are available where requested during booking.",
-      "Customers must request child seats in advance.",
-      "Failure to request a child seat may prevent us from carrying the journey if legally required.",
+      "Booster seats and child seats can be requested during booking, but availability is not guaranteed.",
+      "Customers must request child or booster seats in advance so we can check what we can provide.",
+      "If a legally required child seat cannot be provided, we may be unable to carry the journey.",
     ],
   },
   {
