@@ -4,13 +4,13 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState, type ReactNode } from "react";
 import {
+  CONTACT_VCARD_WORKER_URL,
   contactCardUrl,
   contactEmailLink,
   downloadContactVCardForFiles,
   isAndroidMobile,
   isAppleMobile,
-  prefetchContactVCard,
-  saveContactToDevice,
+  saveToContactsHref,
   whatsAppChatUrl,
 } from "@/lib/contact-card";
 import { SITE } from "@/lib/data";
@@ -35,53 +35,26 @@ function ActionIcon({
   );
 }
 
-const saveButtonClassName =
-  "mt-5 flex w-full items-center justify-center rounded-xl bg-emerald px-4 py-3 text-sm font-bold text-navy transition-colors hover:bg-emerald-light disabled:opacity-70";
+const saveLinkClassName =
+  "mt-5 flex w-full items-center justify-center rounded-xl bg-emerald px-4 py-3 text-sm font-bold text-navy transition-colors hover:bg-emerald-light";
 
 export default function ContactCardClient() {
   const isMobile = useIsMobileDevice();
   const cardUrl = contactCardUrl();
   const qrSrc = withBasePath("/contact-qr.png");
   const [showSaveHelp, setShowSaveHelp] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [saveHint, setSaveHint] = useState<string | null>(null);
+  const [saveHref, setSaveHref] = useState(CONTACT_VCARD_WORKER_URL);
   const [android, setAndroid] = useState(false);
   const [iphone, setIphone] = useState(false);
 
   useEffect(() => {
     setAndroid(isAndroidMobile());
     setIphone(isAppleMobile());
-    prefetchContactVCard();
+    setSaveHref(saveToContactsHref());
   }, []);
 
-  async function handleSaveToContacts() {
-    if (saving) return;
-    setSaving(true);
-    setSaveHint(null);
+  function onSaveToContactsClick() {
     setShowSaveHelp(true);
-    try {
-      const result = await saveContactToDevice();
-      if (result === "shared") {
-        setSaveHint(
-          iphone
-            ? "Share sheet opened — tap Contacts or Create New Contact, then Save."
-            : "Share sheet opened — choose Contacts to save us.",
-        );
-      } else if (result === "opened") {
-        setSaveHint("Tap Create New Contact, then Save — our logo with the green circle should show.");
-      } else if (result === "android-intent") {
-        setSaveHint("Add contact opened — tap Save.");
-      } else if (result === "cancelled") {
-        setSaveHint(null);
-        setShowSaveHelp(false);
-      } else {
-        setSaveHint("Contact file ready — open it and choose Create New Contact.");
-      }
-    } catch (error) {
-      setSaveHint(error instanceof Error ? error.message : "Could not save contact");
-    } finally {
-      setSaving(false);
-    }
   }
 
   return (
@@ -147,19 +120,19 @@ export default function ContactCardClient() {
                 </p>
                 <p className="mt-2 text-sm leading-relaxed text-white/65">
                   {iphone
-                    ? "Opens your iPhone share sheet — choose Contacts or Create New Contact."
+                    ? "Opens the contact card — tap Create New Contact at the top, then Save."
                     : android
                       ? "Opens Add contact on your phone — no file download."
                       : "Save us to your phone contacts — then book, call, or WhatsApp us."}
                 </p>
-                <button
-                  type="button"
-                  onClick={() => void handleSaveToContacts()}
-                  disabled={saving}
-                  className={saveButtonClassName}
+                {/* Real link (not Web Share) so iPhone Safari shows Create New Contact. */}
+                <a
+                  href={saveHref}
+                  onClick={onSaveToContactsClick}
+                  className={saveLinkClassName}
                 >
-                  {saving ? "Opening…" : "Save to contacts"}
-                </button>
+                  Save to contacts
+                </a>
               </>
             )}
           </div>
@@ -252,11 +225,10 @@ export default function ContactCardClient() {
               </span>
             </a>
 
-            <button
-              type="button"
-              onClick={() => void handleSaveToContacts()}
-              disabled={saving}
-              className="flex min-w-0 items-center gap-4 rounded-2xl border border-white/15 bg-white/[0.03] px-5 py-4 text-left text-white transition-colors hover:border-white/30 hover:bg-white/[0.06] disabled:opacity-70"
+            <a
+              href={saveHref}
+              onClick={onSaveToContactsClick}
+              className="flex min-w-0 items-center gap-4 rounded-2xl border border-white/15 bg-white/[0.03] px-5 py-4 text-left text-white transition-colors hover:border-white/30 hover:bg-white/[0.06]"
             >
               <ActionIcon>
                 <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -272,21 +244,21 @@ export default function ContactCardClient() {
                 <span className="block text-xs font-semibold uppercase tracking-wider text-white/50">
                   Contacts
                 </span>
-                <span className="mt-0.5 block text-lg font-bold">
-                  {saving ? "Opening…" : "Save to contacts"}
-                </span>
+                <span className="mt-0.5 block text-lg font-bold">Save to contacts</span>
                 <span className="mt-0.5 block text-xs text-white/45">
                   {iphone
-                    ? "Share → Contacts / Create New Contact"
+                    ? "Opens Create New Contact — not the share sheet"
                     : android
                       ? "Opens Add contact — no download"
                       : "Opens Create New Contact with our logo"}
                 </span>
               </span>
-            </button>
+            </a>
             {showSaveHelp ? (
               <div className="min-w-0 rounded-2xl border border-emerald/35 bg-emerald/10 px-4 py-4 text-sm text-white">
-                <p className="font-semibold text-emerald">Save to contacts on iPhone</p>
+                <p className="font-semibold text-emerald">
+                  {iphone ? "On iPhone" : android ? "On Android" : "Save to contacts"}
+                </p>
                 {android ? (
                   <ol className="mt-3 list-decimal space-y-2 pl-5 text-white/80">
                     <li>
@@ -297,18 +269,20 @@ export default function ContactCardClient() {
                 ) : (
                   <ol className="mt-3 list-decimal space-y-2 pl-5 text-white/80">
                     <li>
-                      In the share sheet, tap <span className="text-white">Contacts</span> or{" "}
-                      <span className="text-white">Create New Contact</span>
+                      When the contact opens, tap{" "}
+                      <span className="text-white">Create New Contact</span> at the top
                     </li>
                     <li>
-                      Tap <span className="text-white">Save</span> — you should see our logo with the
-                      green circle and MY AIRPORT TAXI NI wording
+                      Tap <span className="text-white">Done</span> /{" "}
+                      <span className="text-white">Save</span> — logo should show MY AIRPORT TAXI NI
+                      with the green circle
                     </li>
                   </ol>
                 )}
                 <p className="mt-3 text-xs text-white/55">
-                  If you only see a file preview with Done, tap the Share icon and choose Contacts /
-                  Create New Contact.
+                  {iphone
+                    ? "You should see the full contact card with Create New Contact — not AirDrop / Messages / Save to Files. Use Safari if you’re in another browser."
+                    : "If your phone only downloaded a file, open that file and choose Create New Contact."}
                 </p>
                 <button
                   type="button"
@@ -324,11 +298,6 @@ export default function ContactCardClient() {
                   Or email the contact link to yourself
                 </a>
               </div>
-            ) : null}
-            {saveHint ? (
-              <p className="rounded-xl border border-emerald/30 bg-emerald/10 px-4 py-3 text-sm text-emerald">
-                {saveHint}
-              </p>
             ) : null}
           </div>
 
