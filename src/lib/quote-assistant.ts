@@ -123,6 +123,11 @@ function knowledgeChunks(): Array<{ title: string; body: string }> {
       title: "Contact details",
       body: `Call ${SITE.landlineDisplay}, WhatsApp @${SITE.whatsappUsername}, email ${SITE.email}, or save our contact card from this chat or ${SITE.url}/contact/.`,
     },
+    {
+      title: "Booster seats and child seats",
+      body:
+        "Booster seats and child seats can be requested during booking, but they are not guaranteed. Please request them in advance so we can check availability. If a legally required child seat cannot be provided, we may be unable to carry the journey.",
+    },
   );
 
   return chunks;
