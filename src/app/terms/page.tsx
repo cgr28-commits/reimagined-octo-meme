@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import Footer from "@/components/Footer";
 import Header from "@/components/Header";
-import WhatsAppButton from "@/components/WhatsAppButton";
 import { BUSINESS_LEGAL } from "@/lib/business-legal";
 import { SITE } from "@/lib/data";
 import { TERMS_LAST_UPDATED, TERMS_SECTIONS } from "@/lib/terms";
@@ -117,7 +116,6 @@ export default function TermsPage() {
         </div>
       </main>
       <Footer />
-      <WhatsAppButton />
     </>
   );
 }

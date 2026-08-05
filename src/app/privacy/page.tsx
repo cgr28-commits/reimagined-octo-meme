@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import Footer from "@/components/Footer";
 import Header from "@/components/Header";
-import WhatsAppButton from "@/components/WhatsAppButton";
 import { SITE } from "@/lib/data";
 import { PRIVACY_LAST_UPDATED, PRIVACY_SECTIONS } from "@/lib/privacy";
 
@@ -75,7 +74,6 @@ export default function PrivacyPage() {
         </div>
       </main>
       <Footer />
-      <WhatsAppButton />
     </>
   );
 }

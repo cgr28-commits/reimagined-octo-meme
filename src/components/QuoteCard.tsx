@@ -1091,6 +1091,29 @@ function QuoteCard() {
               ? buildPaymentSuccessSubtext(paymentConfirmationResult, paymentConfirmationSummary)
               : "We've also sent the full booking details to our team."}
           </p>
+          <button
+            type="button"
+            onClick={() => {
+              setPaymentConfirmed(false);
+              setPaymentConfirmationSummary("");
+              setPaymentConfirmationResult(null);
+              setPaymentConfirmError("");
+              setBookingSent(false);
+              setBookingReference("");
+              setBookingDelivery(null);
+              setShowBookingPreview(false);
+              setShowBookingDetailsStep(false);
+              setSubmitError("");
+              setTermsAccepted(false);
+              setTermsError("");
+              setMarketingOptIn(false);
+              setSubmitted(false);
+              cardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+            }}
+            className="mt-6 w-full rounded-xl bg-emerald px-4 py-3 text-sm font-bold text-navy transition-colors hover:bg-emerald-light sm:w-auto sm:px-8"
+          >
+            Get another quote
+          </button>
         </div>
       </div>
     );
@@ -1118,7 +1141,7 @@ function QuoteCard() {
           {bookingDelivery === "whatsapp" && (
             <p className="mx-auto mt-4 max-w-md text-sm text-white/60">
               Your {isEnquiryOnly ? "enquiry" : "booking"} message should open in WhatsApp. If it
-              didn&apos;t, tap the green chat button at the bottom of the screen.
+              didn&apos;t, open WhatsApp and message @{SITE.whatsappUsername}.
             </p>
           )}
           {bookingDelivery === "email" && (
@@ -1127,6 +1150,25 @@ function QuoteCard() {
               confirm at {customerEmail.trim()}.
             </p>
           )}
+          <button
+            type="button"
+            onClick={() => {
+              setBookingSent(false);
+              setBookingReference("");
+              setBookingDelivery(null);
+              setShowBookingPreview(false);
+              setShowBookingDetailsStep(false);
+              setSubmitError("");
+              setTermsAccepted(false);
+              setTermsError("");
+              setMarketingOptIn(false);
+              setSubmitted(false);
+              cardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+            }}
+            className="mt-6 w-full rounded-xl bg-emerald px-4 py-3 text-sm font-bold text-navy transition-colors hover:bg-emerald-light sm:w-auto sm:px-8"
+          >
+            Get another quote
+          </button>
         </div>
       </div>
     );

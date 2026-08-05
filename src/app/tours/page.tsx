@@ -6,7 +6,6 @@ import Header from "@/components/Header";
 import SectionHeading from "@/components/SectionHeading";
 import TourCard from "@/components/TourCard";
 import TourBookingForm from "@/components/TourBookingForm";
-import WhatsAppButton from "@/components/WhatsAppButton";
 import { SERVICE_FLAGS, SITE } from "@/lib/data";
 import { TOUR_BENEFITS, TOURS } from "@/lib/tours";
 import { getTourItemListJsonLd } from "@/lib/structured-data";
@@ -108,7 +107,6 @@ export default function ToursPage() {
         </section>
       </main>
       <Footer />
-      <WhatsAppButton />
     </>
   );
 }

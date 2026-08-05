@@ -10,7 +10,6 @@ import FAQSection from "@/components/FAQSection";
 import ToursTeaserSection from "@/components/ToursTeaserSection";
 import VehiclesSection from "@/components/VehiclesSection";
 import ChauffeurSection from "@/components/ChauffeurSection";
-import WhatsAppButton from "@/components/WhatsAppButton";
 import Footer from "@/components/Footer";
 import { SERVICE_FLAGS } from "@/lib/data";
 
@@ -40,7 +39,6 @@ export default function Home() {
         <FAQSection />
       </main>
       <Footer />
-      <WhatsAppButton />
     </>
   );
 }
