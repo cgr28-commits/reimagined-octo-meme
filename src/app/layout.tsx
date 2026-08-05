@@ -90,7 +90,7 @@ export default function RootLayout({
 
   return (
     <html lang="en-GB" className={inter.variable}>
-      <body className="antialiased">
+      <body className="overflow-x-hidden antialiased">
         {structuredData.map((schema) => (
           <script
             key={schema["@type"]}
@@ -98,8 +98,10 @@ export default function RootLayout({
             dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
           />
         ))}
-        {children}
-        <QuoteAssistant />
+        <div className="relative w-full max-w-full overflow-x-hidden">
+          {children}
+          <QuoteAssistant />
+        </div>
       </body>
     </html>
   );
