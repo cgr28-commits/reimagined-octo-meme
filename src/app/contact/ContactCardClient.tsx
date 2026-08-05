@@ -3,14 +3,15 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useState, type ReactNode } from "react";
-import { SITE } from "@/lib/data";
-import { withBasePath } from "@/lib/paths";
 import {
   contactCardUrl,
   contactEmailLink,
   saveContactToDevice,
   whatsAppChatUrl,
 } from "@/lib/contact-card";
+import { SITE } from "@/lib/data";
+import { useIsMobileDevice } from "@/lib/device";
+import { withBasePath } from "@/lib/paths";
 
 function ActionIcon({
   children,
@@ -31,6 +32,7 @@ function ActionIcon({
 }
 
 export default function ContactCardClient() {
+  const isMobile = useIsMobileDevice();
   const cardUrl = contactCardUrl();
   const qrSrc = withBasePath("/contact-qr.png");
   const [savingContact, setSavingContact] = useState(false);
@@ -96,29 +98,50 @@ export default function ContactCardClient() {
             <p className="text-xs font-semibold uppercase tracking-wider text-emerald">
               Save our contact details
             </p>
-            <p className="mt-2 text-lg font-bold tracking-wide text-white sm:text-xl">
-              Scan · Quote · Book
-            </p>
-            <p className="mt-2 text-sm leading-relaxed text-white/65">
-              Scan the QR code to open this card — get a quote, book, call, or WhatsApp us.
-            </p>
-            <div className="mx-auto mt-5 inline-flex max-w-full rounded-2xl bg-white p-3 shadow-lg">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={qrSrc}
-                alt={`QR code — scan, quote, book — ${cardUrl}`}
-                width={220}
-                height={220}
-                className="h-44 w-44 max-w-full sm:h-52 sm:w-52"
-              />
-            </div>
-            <a
-              href={qrSrc}
-              download="my-airport-taxi-ni-contact-qr.png"
-              className="mt-4 inline-flex items-center justify-center gap-2 rounded-xl bg-emerald px-4 py-2.5 text-sm font-semibold text-navy transition-colors hover:bg-emerald-light"
-            >
-              Download QR image
-            </a>
+            {isMobile === false ? (
+              <>
+                <p className="mt-2 text-lg font-bold tracking-wide text-white sm:text-xl">
+                  Scan · Quote · Book
+                </p>
+                <p className="mt-2 text-sm leading-relaxed text-white/65">
+                  Scan the QR code to open this card — get a quote, book, call, or WhatsApp us.
+                </p>
+                <div className="mx-auto mt-5 inline-flex max-w-full rounded-2xl bg-white p-3 shadow-lg">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={qrSrc}
+                    alt={`QR code — scan, quote, book — ${cardUrl}`}
+                    width={220}
+                    height={220}
+                    className="h-44 w-44 max-w-full sm:h-52 sm:w-52"
+                  />
+                </div>
+                <a
+                  href={qrSrc}
+                  download="my-airport-taxi-ni-contact-qr.png"
+                  className="mt-4 inline-flex items-center justify-center gap-2 rounded-xl bg-emerald px-4 py-2.5 text-sm font-semibold text-navy transition-colors hover:bg-emerald-light"
+                >
+                  Download QR image
+                </a>
+              </>
+            ) : (
+              <>
+                <p className="mt-2 text-lg font-bold tracking-wide text-white sm:text-xl">
+                  Quote · Book · Call
+                </p>
+                <p className="mt-2 text-sm leading-relaxed text-white/65">
+                  Save our contact card to your phone — includes our logo — then book, call, or WhatsApp us.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => void handleSaveContact()}
+                  disabled={savingContact}
+                  className="mt-5 w-full rounded-xl bg-emerald px-4 py-3 text-sm font-bold text-navy transition-colors hover:bg-emerald-light disabled:opacity-70"
+                >
+                  {savingContact ? "Preparing…" : "Save our contact details"}
+                </button>
+              </>
+            )}
           </div>
 
           <div className="contact-fade-up-delay-2 mt-6 flex min-w-0 flex-col gap-3">
