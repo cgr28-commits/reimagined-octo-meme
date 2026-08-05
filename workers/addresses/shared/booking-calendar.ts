@@ -183,7 +183,7 @@ function buildEventDescription(booking: StructuredBooking, message: string): str
   }
 
   if (booking.estimatedPrice) {
-    lines.push(`Estimated price: ${booking.estimatedPrice}`);
+    lines.push(`Your fixed journey price: ${booking.estimatedPrice}`);
   }
 
   if (booking.notes) {

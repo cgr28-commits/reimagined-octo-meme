@@ -19,7 +19,15 @@ export const SITE = {
 export const SERVICE_FLAGS = {
   dayTrips: false,
   chauffeur: false,
+  /** Address-to-address quoting UI — code retained in QuoteCard. */
+  addressToAddress: false,
+  /** George Best Belfast City Airport (BHD) — data retained for restore. */
+  belfastCityAirport: false,
+  /** Public tracking demo hub + owner/driver demo links. */
+  trackingDemo: false,
 } as const;
+
+export type ServiceFlagKey = keyof typeof SERVICE_FLAGS;
 
 export const ALL_NAV_LINKS = [
   { label: "Airports", href: "/#airports", service: null },
@@ -33,7 +41,7 @@ export const ALL_NAV_LINKS = [
   { label: "FAQ", href: "/#faq", service: null },
 ] as const;
 
-function isServiceEnabled(service: "dayTrips" | "chauffeur" | null): boolean {
+function isServiceEnabled(service: ServiceFlagKey | null): boolean {
   if (!service) {
     return true;
   }
@@ -61,7 +69,7 @@ export const MOBILE_QUICK_LINKS = ALL_MOBILE_QUICK_LINKS.filter((link) =>
   ...("highlight" in rest ? { highlight: rest.highlight } : {}),
 }));
 
-export const FLIGHT_AIRPORTS = [
+export const ALL_FLIGHT_AIRPORTS = [
   {
     code: "BFS",
     name: "Belfast International",
@@ -96,7 +104,12 @@ export const FLIGHT_AIRPORTS = [
   },
 ] as const;
 
-export const HERO_SLIDES = [
+/** Public flight-status airports — BHD soft-hidden via SERVICE_FLAGS.belfastCityAirport. */
+export const FLIGHT_AIRPORTS = ALL_FLIGHT_AIRPORTS.filter(
+  (airport) => SERVICE_FLAGS.belfastCityAirport || airport.code !== "BHD",
+);
+
+export const ALL_HERO_SLIDES = [
   {
     airportCode: "BFS",
     title: "Belfast International Airport Transfers",
@@ -179,7 +192,13 @@ export const HERO_SLIDES = [
   },
 ] as const;
 
-export const AIRPORTS = [
+/** Public hero slides — BHD soft-hidden via SERVICE_FLAGS.belfastCityAirport. */
+export const HERO_SLIDES = ALL_HERO_SLIDES.filter(
+  (slide) => SERVICE_FLAGS.belfastCityAirport || slide.airportCode !== "BHD",
+);
+
+/** Full airport catalogue (includes BHD for restore / pricing engine). */
+export const ALL_AIRPORTS = [
   {
     code: "BFS",
     name: "Belfast International",
@@ -225,6 +244,11 @@ export const AIRPORTS = [
       "Transfers between City of Derry Airport and the greater Belfast area — departures from Bangor, Belfast, Lisburn and surrounds, or meet & greet at LDY arrivals heading east.",
   },
 ] as const;
+
+/** Public airports — BHD soft-hidden via SERVICE_FLAGS.belfastCityAirport. */
+export const AIRPORTS = ALL_AIRPORTS.filter(
+  (airport) => SERVICE_FLAGS.belfastCityAirport || airport.code !== "BHD",
+);
 
 export const AREAS = [
   "Belfast City Centre",
@@ -363,7 +387,7 @@ export const FAQS = [
   {
     question: "What is your cancellation and refund policy?",
     answer:
-      "Cancellations more than 24 hours before your scheduled pickup receive a full refund. Cancellations within 24 hours of pickup are non-refundable. No-shows are not eligible for a refund. Full details are in our Terms & Conditions.",
+      "With at least 24 hours’ notice we accept the cancellation and refund the fare, minus an administration/transaction charge of £5 or 10% of the booking price, whichever is higher. Cancellations with less than 24 hours’ notice and no-shows are not eligible for a refund. Full details are in our Terms & Conditions.",
   },
   {
     question: "When is my booking confirmed?",

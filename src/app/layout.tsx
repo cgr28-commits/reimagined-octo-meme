@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
+import QuoteAssistant from "@/components/QuoteAssistant";
 import { SITE } from "@/lib/data";
 import { absoluteSiteUrl } from "@/lib/paths";
 import { getFaqPageJsonLd, getLocalBusinessJsonLd, getWebSiteJsonLd } from "@/lib/structured-data";
@@ -11,7 +12,7 @@ const inter = Inter({
 });
 
 const description =
-  "Professional airport taxi transfers across Northern Ireland. Belfast International from £45, Belfast City from £35, and Dublin Airport transfers. Flight tracking, meet & greet. Book via WhatsApp.";
+  "Professional airport taxi transfers across Northern Ireland. Belfast International from £45, Dublin Airport, and City of Derry Airport transfers. Flight tracking, meet & greet. Get an instant price online or through WhatsApp.";
 
 const ogImage = {
   url: absoluteSiteUrl("/og-image-square.png"),
@@ -98,6 +99,7 @@ export default function RootLayout({
           />
         ))}
         {children}
+        <QuoteAssistant />
       </body>
     </html>
   );

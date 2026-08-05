@@ -3,8 +3,9 @@ import { join } from "node:path";
 
 const SITE_URL = "https://www.myairporttaxini.co.uk";
 
-// Keep in sync with SERVICE_FLAGS.dayTrips in src/lib/data.ts
+// Keep in sync with SERVICE_FLAGS in src/lib/data.ts
 const DAY_TRIPS_ENABLED = false;
+const TRACKING_DEMO_ENABLED = false;
 
 const tourSlugs = [
   "giants-causeway",
@@ -30,10 +31,10 @@ const pages = [
   { path: "/terms/", changefreq: "yearly", priority: "0.5" },
   { path: "/privacy/", changefreq: "yearly", priority: "0.5" },
   { path: "/contact/", changefreq: "monthly", priority: "0.8" },
-  { path: "/driver/", changefreq: "monthly", priority: "0.7" },
-  { path: "/owner/", changefreq: "monthly", priority: "0.7" },
-  { path: "/track/demo/", changefreq: "monthly", priority: "0.6" },
-  { path: "/test-booking/", changefreq: "monthly", priority: "0.4" },
+  // /driver/, /owner/, /track/demo/, /test-booking/ intentionally omitted from public sitemap
+  ...(TRACKING_DEMO_ENABLED
+    ? [{ path: "/track/demo/", changefreq: "monthly", priority: "0.4" }]
+    : []),
 ];
 
 const lastmod = new Date().toISOString().split("T")[0];
@@ -56,4 +57,6 @@ ${urls}
 `;
 
 writeFileSync(join(process.cwd(), "public", "sitemap.xml"), xml);
-console.log(`Wrote sitemap with ${pages.length} URLs (day trips ${DAY_TRIPS_ENABLED ? "on" : "off"})`);
+console.log(
+  `Wrote sitemap with ${pages.length} URLs (day trips ${DAY_TRIPS_ENABLED ? "on" : "off"}, tracking demo ${TRACKING_DEMO_ENABLED ? "on" : "off"})`,
+);

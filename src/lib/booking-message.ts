@@ -87,7 +87,7 @@ function buildTripDetailsBlock(details: BookingDetails, bookingReference?: strin
     (details.journeyDistance && details.journeyDuration
       ? `Journey: ${details.journeyDistance} · ${details.journeyDuration}\n`
       : "") +
-    (details.estimatedPrice ? `Estimated price: ${details.estimatedPrice}\n` : "") +
+    (details.estimatedPrice ? `Your fixed journey price: ${details.estimatedPrice}\n` : "") +
     (details.returnJourney && details.estimatedPrice ? "Return booking discount: 5% applied\n" : "") +
     (details.termsAcceptedAt
       ? `Terms accepted: ${details.termsAcceptedAt}${details.termsVersion ? ` (${details.termsVersion})` : ""}\n`

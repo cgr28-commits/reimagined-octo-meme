@@ -1,9 +1,10 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 import Footer from "@/components/Footer";
 import Header from "@/components/Header";
-import { SITE } from "@/lib/data";
-import { DEMO_DRIVER_KEY, DEMO_SCENARIOS } from "@/lib/tracking-demo";
+import { SERVICE_FLAGS, SITE } from "@/lib/data";
+import { DEMO_SCENARIOS } from "@/lib/tracking-demo";
 
 const DEMO_PATHS: Record<(typeof DEMO_SCENARIOS)[number]["token"], string> = {
   "demo-early": "/track/demo/early/",
@@ -24,6 +25,11 @@ export const metadata: Metadata = {
 };
 
 export default function TrackDemoPage() {
+  // Soft-hidden via SERVICE_FLAGS.trackingDemo — set true in data.ts to restore
+  if (!SERVICE_FLAGS.trackingDemo) {
+    notFound();
+  }
+
   return (
     <>
       <Header />
@@ -38,7 +44,7 @@ export default function TrackDemoPage() {
             </h1>
             <p className="mt-3 text-white/70">
               These examples show what a customer sees at each stage. No real booking or driver
-              location is used.
+              location is used. Owner and driver dashboards are not linked here.
             </p>
           </header>
 
@@ -55,35 +61,6 @@ export default function TrackDemoPage() {
               </Link>
             ))}
           </div>
-
-          <section className="mt-10 grid gap-4 sm:grid-cols-2">
-            <div className="rounded-2xl border border-emerald/30 bg-emerald/10 p-6 sm:p-8">
-              <h2 className="text-lg font-bold text-white">Owner dashboard</h2>
-              <p className="mt-2 text-sm text-white/65">
-                Assign jobs, payments, refunds, and live GPS — opens at{" "}
-                <code className="rounded bg-white/10 px-2 py-0.5 text-emerald">/owner/</code>.
-              </p>
-              <Link
-                href="/owner/"
-                className="mt-4 inline-flex rounded-xl bg-emerald px-5 py-3 text-sm font-semibold text-navy transition-colors hover:bg-emerald/90"
-              >
-                Open owner dashboard
-              </Link>
-            </div>
-            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
-              <h2 className="text-lg font-bold text-white">Driver dashboard</h2>
-              <p className="mt-2 text-sm text-white/65">
-                Gary&apos;s view — accept jobs and share location. Preview key{" "}
-                <code className="rounded bg-white/10 px-2 py-0.5 text-emerald">{DEMO_DRIVER_KEY}</code>.
-              </p>
-              <Link
-                href="/driver/"
-                className="mt-4 inline-flex rounded-xl border border-white/15 px-5 py-3 text-sm font-semibold text-white transition-colors hover:border-white/30"
-              >
-                Open driver dashboard
-              </Link>
-            </div>
-          </section>
         </div>
       </main>
       <Footer />

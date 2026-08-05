@@ -9,7 +9,7 @@ import { buildBookingMessage, isValidEmailAddress, isValidMobileNumber, type Boo
 import { buildMarketingOptInFields, recordMarketingOptIn } from "@/lib/marketing-api";
 import { TERMS_LAST_UPDATED } from "@/lib/terms";
 import { detectMobileDevice, useIsMobileDevice } from "@/lib/device";
-import { AIRPORTS, isVehicleEnquiryOnly, SITE, VEHICLE_TYPES } from "@/lib/data";
+import { AIRPORTS, isVehicleEnquiryOnly, SERVICE_FLAGS, SITE, VEHICLE_TYPES } from "@/lib/data";
 import { readPrefillAirport } from "@/lib/quote-prefill";
 import { readTestBookingPrefill } from "@/lib/test-booking";
 import {
@@ -130,7 +130,7 @@ function getAutoVehicle(passengers: number, suitcases: number): VehicleType | nu
   if (passengers >= 8 || suitcases >= 5) {
     return MINIBUS;
   }
-  if (suitcases === 4) {
+  if (suitcases >= 3) {
     return ESTATE;
   }
   return null;
@@ -293,6 +293,13 @@ function QuoteCard() {
   const isFromAirport = tripDirection === "from-airport";
   const returnTripDirection: TripDirection = isFromAirport ? "to-airport" : "from-airport";
   const addressLookupCode = isAirportTrip ? airportCode : "BFS";
+
+  useEffect(() => {
+    // Soft-hide address-to-address: keep quoting locked to airport transfers.
+    if (!SERVICE_FLAGS.addressToAddress && tripMode !== "airport") {
+      setTripMode("airport");
+    }
+  }, [tripMode]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -1042,22 +1049,22 @@ function QuoteCard() {
             : ""
     : isAirportTrip
       ? !airportCode
-        ? "Select an airport to see your estimated price"
+        ? "Select an airport to see your fixed journey price"
         : ldyServiceAreaInvalid
           ? isFromAirport
             ? "We transfer from Derry Airport to the greater Belfast area — enter a Belfast-area drop-off address"
             : "Pickups for Derry Airport must be in the greater Belfast area — enter a Belfast-area pickup address"
           : !isScheduleComplete
             ? returnJourney && tripDate && tripTime && (!returnDate || !returnTime)
-              ? "Select your return date and time to see your estimated price"
-              : "Select your date and time to see your estimated price"
+              ? "Select your return date and time to see your fixed journey price"
+              : "Select your date and time to see your fixed journey price"
             : !isAirportAddressComplete
-              ? `Enter your ${isFromAirport ? "drop-off" : "pickup"} address to see your estimated price`
+              ? `Enter your ${isFromAirport ? "drop-off" : "pickup"} address to see your fixed journey price`
               : ""
       : !isScheduleComplete
-        ? "Select your date and time to see your estimated price"
+        ? "Select your date and time to see your fixed journey price"
         : !isAddressPairComplete
-          ? "Enter pickup and drop-off addresses to see your estimated price"
+          ? "Enter pickup and drop-off addresses to see your fixed journey price"
           : !routeMetrics
             ? "Calculating your route and price…"
             : "";
@@ -1127,8 +1134,8 @@ function QuoteCard() {
       <div className="mb-6">
         <h2 className="text-xl font-bold text-white sm:text-2xl">Get a Live Quote</h2>
         <p className="mt-1 text-sm text-white/60">
-          Enter your trip details to see your price instantly — we&apos;ll ask for your contact
-          details and flight numbers when you book.
+          Get an instant price online or through WhatsApp. Complete your booking securely online
+          and receive confirmation after payment.
         </p>
       </div>
 
@@ -1141,41 +1148,44 @@ function QuoteCard() {
             invoice email and live tracking link.
           </div>
         )}
-        <div>
-          <p className="mb-2 text-xs font-medium uppercase tracking-wider text-white/50">
-            Service Type
-          </p>
-          <div className="grid grid-cols-2 gap-2 rounded-xl border border-white/10 bg-white/5 p-1">
-            <button
-              type="button"
-              onClick={() => {
-                setTripMode("airport");
-                setReturnDateError("");
-              }}
-              className={`rounded-lg px-3 py-2.5 text-xs font-semibold transition-all sm:text-sm ${
-                isAirportTrip
-                  ? "bg-emerald text-navy shadow-sm"
-                  : "text-white/70 hover:text-white"
-              }`}
-            >
-              Airport transfer
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setTripMode("address");
-                setReturnDateError("");
-              }}
-              className={`rounded-lg px-3 py-2.5 text-xs font-semibold transition-all sm:text-sm ${
-                !isAirportTrip
-                  ? "bg-emerald text-navy shadow-sm"
-                  : "text-white/70 hover:text-white"
-              }`}
-            >
-              Address to address
-            </button>
+        {/* Soft-hidden via SERVICE_FLAGS.addressToAddress — set true in data.ts to restore */}
+        {SERVICE_FLAGS.addressToAddress ? (
+          <div>
+            <p className="mb-2 text-xs font-medium uppercase tracking-wider text-white/50">
+              Service Type
+            </p>
+            <div className="grid grid-cols-2 gap-2 rounded-xl border border-white/10 bg-white/5 p-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setTripMode("airport");
+                  setReturnDateError("");
+                }}
+                className={`rounded-lg px-3 py-2.5 text-xs font-semibold transition-all sm:text-sm ${
+                  isAirportTrip
+                    ? "bg-emerald text-navy shadow-sm"
+                    : "text-white/70 hover:text-white"
+                }`}
+              >
+                Airport transfer
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setTripMode("address");
+                  setReturnDateError("");
+                }}
+                className={`rounded-lg px-3 py-2.5 text-xs font-semibold transition-all sm:text-sm ${
+                  !isAirportTrip
+                    ? "bg-emerald text-navy shadow-sm"
+                    : "text-white/70 hover:text-white"
+                }`}
+              >
+                Address to address
+              </button>
+            </div>
           </div>
-        </div>
+        ) : null}
 
         {isAirportTrip && (
           <div>
@@ -1185,8 +1195,7 @@ function QuoteCard() {
             {isLdyTrip ? (
               <>
                 <div className="mb-2 rounded-xl border border-emerald/20 bg-emerald/10 px-4 py-3 text-sm text-white/80">
-                  Transfers between City of Derry Airport and the greater Belfast area — not
-                  Belfast City Airport (BHD).
+                  Transfers between City of Derry Airport and the greater Belfast area only.
                 </div>
                 <div className="grid grid-cols-2 gap-2 rounded-xl border border-white/10 bg-white/5 p-1">
                   <button
@@ -1304,7 +1313,7 @@ function QuoteCard() {
               {AIRPORTS.map((a) => (
                 <option key={a.code} value={a.code}>
                   {a.name} ({a.code}) — {a.distance}
-                  {a.code === "LDY" ? " · not Belfast City (BHD)" : ""}
+                  
                 </option>
               ))}
             </select>
@@ -1446,7 +1455,7 @@ function QuoteCard() {
               htmlFor="time"
               className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/50"
             >
-              {returnJourney ? "Outbound Time" : "Time"}
+              {returnJourney ? "Outbound pick up time" : "Pick up time"}
             </label>
             <input
               id="time"
@@ -1484,7 +1493,7 @@ function QuoteCard() {
                 htmlFor="returnTime"
                 className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/50"
               >
-                Return Time
+                Return pick up time
               </label>
               <input
                 id="returnTime"
@@ -1733,9 +1742,9 @@ function QuoteCard() {
               <p className="mt-1.5 text-xs text-white/40">
                 Minibus selected automatically for 5 or more suitcases.
               </p>
-            ) : suitcases === 4 ? (
+            ) : suitcases >= 3 ? (
               <p className="mt-1.5 text-xs text-white/40">
-                Estate car selected automatically for 4 suitcases.
+                Estate car selected automatically for 3 or more suitcases.
               </p>
             ) : null}
           </div>
@@ -1769,8 +1778,8 @@ function QuoteCard() {
                 {testChargeAmount !== null
                   ? "Test SumUp charge"
                   : returnJourney
-                    ? "Estimated return price"
-                    : "Estimated price"}
+                    ? "Your fixed return journey price"
+                    : "Your fixed journey price"}
               </p>
               <p className="mt-1 text-3xl font-bold text-white">
                 {formatQuote(testChargeAmount ?? liveQuote.amount)}
@@ -1798,7 +1807,7 @@ function QuoteCard() {
           ) : (
             <>
               <p className="text-xs font-medium uppercase tracking-wider text-white/50">
-                Estimated price
+                Your fixed journey price
               </p>
               <p className="mt-1 text-sm text-white/70">{quoteHint}</p>
             </>
@@ -1914,7 +1923,7 @@ function QuoteCard() {
                 <PreviewRow label="Pricing" value="Enquiry — we’ll quote you" />
               ) : liveQuote ? (
                 <PreviewRow
-                  label={returnJourney ? "Estimated return price" : "Estimated price"}
+                  label={returnJourney ? "Your fixed return journey price" : "Your fixed journey price"}
                   value={formatQuote(liveQuote.amount)}
                 />
               ) : null}

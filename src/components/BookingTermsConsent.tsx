@@ -44,8 +44,8 @@ export default function BookingTermsConsent({
           >
             Privacy Policy
           </Link>
-          , including the cancellation policy (free cancellation more than 24 hours before pickup;
-          non-refundable within 24 hours).
+          , including the cancellation policy (with at least 24 hours’ notice: refund minus £5 or
+          10% of the booking price, whichever is higher; non-refundable within 24 hours).
           {mode === "card-payment" ? (
             <>
               {" "}

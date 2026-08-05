@@ -85,6 +85,10 @@ export default function HeroSlideshow() {
           >
             {slide.subtitle}
           </p>
+          <p className="mt-3 max-w-lg text-sm leading-relaxed text-white/65 sm:text-base">
+            Get an instant price online or through WhatsApp. Complete your booking securely online
+            and receive confirmation after payment.
+          </p>
 
           <div className="mt-8 flex flex-wrap items-center gap-4">
             <a

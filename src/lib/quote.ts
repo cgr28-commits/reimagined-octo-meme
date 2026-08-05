@@ -1,4 +1,4 @@
-import { AIRPORTS, AREAS, VEHICLE_TYPES } from "@/lib/data";
+import { ALL_AIRPORTS as AIRPORTS, AREAS, VEHICLE_TYPES } from "@/lib/data";
 import { isLdyServiceAreaAddress } from "../../shared/ldy-service-area";
 import {
   applyTripPremium,

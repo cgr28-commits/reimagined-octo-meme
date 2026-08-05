@@ -119,7 +119,7 @@ export function buildQuoteLeadMessage(details: QuoteLeadDetails): string {
     `Passengers: ${details.passengers}`,
     `Suitcases: ${details.suitcases}`,
     `Vehicle: ${details.vehicle}`,
-    `Estimated price: ${details.estimatedPrice}`,
+    `Your fixed journey price: ${details.estimatedPrice}`,
   );
 
   if (details.journeyDistance && details.journeyDuration) {

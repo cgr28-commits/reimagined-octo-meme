@@ -267,7 +267,7 @@ function buildTransferDescription(booking: TransferBookingEvent, message?: strin
     typeof booking.passengers === "number" ? `Passengers: ${booking.passengers}` : "",
     typeof booking.suitcases === "number" ? `Suitcases: ${booking.suitcases}` : "",
     booking.vehicle ? `Vehicle: ${booking.vehicle}` : "",
-    booking.estimatedPrice ? `Estimated price: ${booking.estimatedPrice}` : "",
+    booking.estimatedPrice ? `Your fixed journey price: ${booking.estimatedPrice}` : "",
     booking.paid && booking.amountPaid ? `Amount paid: ${booking.amountPaid}` : "",
     booking.paid && booking.paymentReference
       ? `Payment reference: ${booking.paymentReference}`
