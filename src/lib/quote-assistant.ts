@@ -536,7 +536,7 @@ export function respondToAssistantMessage(
 ): AssistantResponse {
   const text = userText.trim();
   const lower = text.toLowerCase();
-  let nextDraft: QuoteDraft = { ...draft };
+  const nextDraft: QuoteDraft = { ...draft };
 
   if (!text) {
     return {
