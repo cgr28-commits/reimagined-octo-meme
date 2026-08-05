@@ -463,7 +463,7 @@ function DriverProfilePanel({
               setForm((current) => ({ ...current, displayName: event.target.value }))
             }
             className="mt-2 w-full rounded-xl border border-white/15 bg-navy px-4 py-3 text-white outline-none focus:border-emerald"
-            placeholder="e.g. Gary"
+            placeholder="e.g. Driver name"
           />
         </label>
         <label className="block text-sm text-white/70">
@@ -593,7 +593,7 @@ function DriverJobCard({
     flightNumber: job.flightNumber ?? "",
   });
   const [assignBusy, setAssignBusy] = useState(false);
-  const [assignDriver, setAssignDriver] = useState(availableDrivers[0] ?? "Gary");
+  const [assignDriver, setAssignDriver] = useState(availableDrivers[0] ?? "");
   const [assignmentBusy, setAssignmentBusy] = useState(false);
   const [recordedRoute, setRecordedRoute] = useState<MapRoutePoint[]>([]);
   const isActive = activeToken === job.token;
@@ -1225,9 +1225,9 @@ export default function DriverPageClient({
   const [jobs, setJobs] = useState<DriverJob[]>([]);
   const [pendingJobs, setPendingJobs] = useState<DriverJob[]>([]);
   const [activeToken, setActiveToken] = useState<string | null>(null);
-  const [loading, setLoading] = useState(isOwnerPortal);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // Owner defaults to Upcoming so paid jobs booked yesterday (future trip dates) show.
+  // Owner defaults to Upcoming so paid jobs with future trip dates show first.
   const [view, setView] = useState<DashboardView>(isOwnerPortal ? "upcoming" : "today");
   const [selectedDate, setSelectedDate] = useState(() => todayLondonDate());
   const watchIdRef = useRef<number | null>(null);
@@ -1236,7 +1236,7 @@ export default function DriverPageClient({
 
   const isDemoDriverSession = savedKey === DEMO_DRIVER_KEY;
   const isDemoOwnerSession = savedKey === DEMO_OWNER_KEY;
-  // Owner portal can never render as Gary/driver — force owner role for this page.
+  // Owner portal can never render as the driver role — force owner for this page.
   const viewRole = isOwnerPortal
     ? "owner"
     : isDemoDriverSession
@@ -1489,13 +1489,16 @@ export default function DriverPageClient({
     const stored = window.sessionStorage.getItem(keyStorage)?.trim() ?? "";
 
     // /owner/ — restore a live owner session only. Never auto-open the demo.
+    // Always clear loading when there is no valid session so the key form shows.
     if (isOwnerPortal) {
       if (stored === DEMO_OWNER_KEY || stored === DEMO_DRIVER_KEY) {
         window.sessionStorage.removeItem(keyStorage);
+        setLoading(false);
         return;
       }
 
       if (stored) {
+        setLoading(true);
         void fetchDriverStatus(stored)
           .then((status) => {
             if (status.ok && status.role === "owner") {
@@ -1509,11 +1512,16 @@ export default function DriverPageClient({
               return;
             }
             window.sessionStorage.removeItem(keyStorage);
+            setLoading(false);
           })
           .catch(() => {
             window.sessionStorage.removeItem(keyStorage);
+            setLoading(false);
           });
+        return;
       }
+
+      setLoading(false);
       return;
     }
 
@@ -1653,7 +1661,7 @@ export default function DriverPageClient({
               ) : !savedKey ? (
                 SERVICE_FLAGS.trackingDemo ? (
                   <>
-                    Gary&apos;s driver dashboard. For the owner view go to{" "}
+                    Driver dashboard. For the owner view go to{" "}
                     <a href="/owner/" className="text-emerald underline-offset-2 hover:underline">
                       /owner/
                     </a>
@@ -1675,10 +1683,10 @@ export default function DriverPageClient({
           {!savedKey ? (
             isOwnerPortal && loading ? (
               <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-8 text-white/70">
-                Loading owner dashboard…
+                Checking saved owner session…
               </div>
             ) : (
-            <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
+            <section className="rounded-2xl border border-emerald/35 bg-emerald/5 p-6 sm:p-8">
               {/* Soft-hidden via SERVICE_FLAGS.trackingDemo — set true in data.ts to restore */}
               {SERVICE_FLAGS.trackingDemo ? (
                 <>
@@ -1709,12 +1717,12 @@ export default function DriverPageClient({
                         {isOwnerPortal ? "Owner preview" : "Driver preview"}
                       </p>
                       <p className="mt-2 text-lg font-bold text-white">
-                        {isOwnerPortal ? "Open owner dashboard" : "Open Gary's dashboard"}
+                        {isOwnerPortal ? "Open owner preview" : "Open driver preview"}
                       </p>
                       <p className="mt-2 text-sm text-white/65">
                         {isOwnerPortal
-                          ? "Assign jobs, payments, refunds, GPS audit — uses demo-owner-key"
-                          : "Accept jobs and share live location — uses demo-driver-key"}
+                          ? "Sample jobs only — uses demo-owner-key"
+                          : "Sample jobs only — uses demo-driver-key"}
                       </p>
                     </button>
                   </div>
@@ -1722,16 +1730,25 @@ export default function DriverPageClient({
                 </>
               ) : null}
 
-              <label htmlFor="driver-key" className="block text-sm font-medium text-white/70">
+              <p className="text-xs font-semibold uppercase tracking-wider text-emerald">
+                {isOwnerPortal ? "Sign in" : "Access key"}
+              </p>
+              <h2 className="mt-1 text-xl font-bold text-white">
+                {isOwnerPortal ? "Enter your owner access key" : "Enter your access key"}
+              </h2>
+              <label htmlFor="owner-access-key" className="mt-5 block text-sm font-medium text-white/70">
                 {isOwnerPortal
-                  ? "Live owner access key"
+                  ? "Owner access key"
                   : SERVICE_FLAGS.trackingDemo
                     ? "Or enter a live access key"
-                    : "Enter your access key"}
+                    : "Access key"}
               </label>
               <input
-                id="driver-key"
+                id="owner-access-key"
+                name="owner-access-key"
                 type="password"
+                autoComplete="current-password"
+                autoFocus={isOwnerPortal}
                 value={driverKey}
                 onChange={(event) => setDriverKey(event.target.value)}
                 onKeyDown={(event) => {
@@ -1741,23 +1758,21 @@ export default function DriverPageClient({
                   }
                 }}
                 className="mt-2 w-full rounded-xl border border-white/15 bg-navy px-4 py-3 text-white outline-none focus:border-emerald"
-                placeholder={isOwnerPortal ? "OWNER_ACCESS_KEY" : "OWNER_ACCESS_KEY or DRIVER_ACCESS_KEY"}
+                placeholder={isOwnerPortal ? "Paste your owner key" : "Paste your access key"}
               />
               <p className="mt-3 text-sm text-white/55">
                 {isOwnerPortal ? (
                   <>
-                    Enter your live <span className="text-white/75">OWNER_ACCESS_KEY</span> from
-                    Cloudflare → Workers →{" "}
-                    <span className="text-white/75">reimagined-octo-meme</span> → Settings →
-                    Variables and Secrets. This opens real customer bookings (not the demo).
+                    Paste the <span className="text-white/75">OWNER_ACCESS_KEY</span> from Cloudflare
+                    → Workers → <span className="text-white/75">reimagined-octo-meme</span> →
+                    Settings → Variables and Secrets, then tap Open dashboard.
                   </>
                 ) : (
                   <>
-                    Live owner access needs <span className="text-white/75">OWNER_ACCESS_KEY</span>{" "}
-                    set on Cloudflare → Workers →{" "}
+                    Use the driver access key from Cloudflare → Workers →{" "}
                     <span className="text-white/75">reimagined-octo-meme</span>.
                     {SERVICE_FLAGS.trackingDemo
-                      ? " Until that secret is set, use the owner preview button above."
+                      ? " Until that secret is set, use the preview button above."
                       : null}
                   </>
                 )}
@@ -1771,9 +1786,9 @@ export default function DriverPageClient({
                 type="button"
                 onClick={() => void unlock()}
                 disabled={loading || !driverKey.trim()}
-                className="mt-4 rounded-xl bg-emerald px-5 py-3 text-sm font-semibold text-navy transition-colors hover:bg-emerald/90 disabled:opacity-60"
+                className="mt-5 w-full rounded-xl bg-emerald px-5 py-3.5 text-sm font-bold text-navy transition-colors hover:bg-emerald/90 disabled:opacity-60 sm:w-auto"
               >
-                {loading ? "Checking key…" : "Open with access key"}
+                {loading ? "Checking key…" : isOwnerPortal ? "Open dashboard" : "Open with access key"}
               </button>
             </section>
             )
@@ -1846,9 +1861,8 @@ export default function DriverPageClient({
 
               {/*
                 Paid / tracking job list:
-                - Always shown for the owner (Upcoming / Today / Pick date) so existing
-                  paid bookings remain visible while customer live-tracking is soft-hidden.
-                - Drivers only see it when SERVICE_FLAGS.liveDriverTracking is on.
+                - Always shown for the owner so upcoming paid bookings stay visible
+                - Soft-hidden for drivers until SERVICE_FLAGS.liveDriverTracking
               */}
               {SERVICE_FLAGS.liveDriverTracking || isOwnerView ? (
               <>

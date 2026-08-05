@@ -47,8 +47,7 @@ check("owner status role + roster", () => {
   const status = getDemoOwnerStatus();
   assert.equal(status.role, "owner");
   assert.deepEqual(status.availableDrivers, [...DEMO_ROSTER]);
-  assert.ok(status.availableDrivers.includes("Gary"));
-  assert.ok(status.availableDrivers.includes("Colin"));
+  assert.ok(status.availableDrivers.includes(DEMO_DRIVER_NAME));
 });
 
 check("driver today jobs are sanitized", () => {

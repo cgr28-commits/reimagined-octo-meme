@@ -1,7 +1,7 @@
 export type DriverAuthEnv = {
   DRIVER_ACCESS_KEY?: string;
   OWNER_ACCESS_KEY?: string;
-  /** Display name for the driver key holder (default Gary). */
+  /** Display name for the driver key holder (default Driver). */
   DRIVER_NAME?: string;
   /** Comma-separated driver names available for assignment (default: DRIVER_NAME). */
   DRIVER_ROSTER?: string;
@@ -38,7 +38,7 @@ function driverKey(env: DriverAuthEnv): string {
 }
 
 function driverDisplayName(env: DriverAuthEnv): string {
-  return env.DRIVER_NAME?.trim() || "Gary";
+  return env.DRIVER_NAME?.trim() || "Driver";
 }
 
 export function listConfiguredDrivers(env: DriverAuthEnv): string[] {
