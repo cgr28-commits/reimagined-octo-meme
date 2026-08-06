@@ -51,33 +51,15 @@ function sampleJob(): BookingJobRecord {
   };
 }
 
-type TestEmailEnv = WorkerEmailEnv & {
-  OWNER_ACCESS_KEY?: string;
-  DRIVER_ACCESS_KEY?: string;
-  TEST_EMAIL_TOKEN?: string;
-};
-
-function authorizedForTestEmails(request: Request, env: TestEmailEnv): boolean {
-  const session = resolveDriverSession(request, env);
-  if (session.authorized && session.role === "owner") return true;
-
-  const expected = env.TEST_EMAIL_TOKEN?.trim() ?? "";
-  if (!expected || expected === "cleared") return false;
-  const provided =
-    request.headers.get("X-Test-Email-Token")?.trim() ||
-    new URL(request.url).searchParams.get("token")?.trim() ||
-    "";
-  return Boolean(provided) && provided === expected;
-}
-
-/** Owner key or one-shot CI token: send sample driver + customer driver-details emails. */
+/** Owner-only: send sample driver assignment + customer driver-details emails. */
 export async function handleTestDriverDetailEmails(
   request: Request,
-  env: TestEmailEnv,
+  env: WorkerEmailEnv & { OWNER_ACCESS_KEY?: string; DRIVER_ACCESS_KEY?: string },
   origin: string | null,
 ): Promise<Response> {
-  if (!authorizedForTestEmails(request, env)) {
-    return jsonResponse({ ok: false, error: "Owner key or test token required" }, 401, origin);
+  const session = resolveDriverSession(request, env);
+  if (!session.authorized || session.role !== "owner") {
+    return jsonResponse({ ok: false, error: "Owner key required" }, 401, origin);
   }
 
   let to = "cgr28@hotmail.co.uk";
@@ -94,42 +76,6 @@ export async function handleTestDriverDetailEmails(
     acceptUrl: "https://www.myairporttaxini.co.uk/driver?accept=TEST-TOKEN",
   });
   const customerEmail = buildCustomerDriverDetailsEmail({ job });
-
-  const hasEmailBinding = Boolean(env.EMAIL);
-  let emailBindingError: string | undefined;
-  if (env.EMAIL) {
-    try {
-      await env.EMAIL.send({
-        to,
-        from: { email: "bookings@myairporttaxini.co.uk", name: "My Airport Taxi NI" },
-        replyTo: { email: "bookings@myairporttaxini.co.uk", name: "My Airport Taxi NI" },
-        subject: `[TEST] ${driverEmail.subject}`,
-        text: driverEmail.text,
-        html: driverEmail.html,
-      });
-      // Cloudflare Email delivered the driver preview — send customer next
-      await env.EMAIL.send({
-        to,
-        from: { email: "bookings@myairporttaxini.co.uk", name: "My Airport Taxi NI" },
-        replyTo: { email: "bookings@myairporttaxini.co.uk", name: "My Airport Taxi NI" },
-        subject: `[TEST] ${customerEmail.subject}`,
-        text: customerEmail.text,
-        html: customerEmail.html,
-      });
-      return jsonResponse(
-        {
-          ok: true,
-          to,
-          via: "cloudflare-email",
-          note: "Customer email uses first name only (no surname).",
-        },
-        200,
-        origin,
-      );
-    } catch (error) {
-      emailBindingError = error instanceof Error ? error.message : String(error);
-    }
-  }
 
   const driverResult = await trySendEmail(env, {
     to,
@@ -151,8 +97,6 @@ export async function handleTestDriverDetailEmails(
     {
       ok: driverResult.sent && customerResult.sent,
       to,
-      hasEmailBinding,
-      emailBindingError,
       driver: driverResult,
       customer: customerResult,
       note: "Customer email uses first name only (no surname).",

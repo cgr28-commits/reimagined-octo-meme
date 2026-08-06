@@ -1,9 +1,0 @@
-name = "matni-test-mailer"
-main = "src/index.ts"
-compatibility_date = "2026-08-06"
-workers_dev = true
-account_id = "36c5c88df4c1f0259413d555f2679f3c"
-
-# Same Email Workers binding as the main booking worker
-[[send_email]]
-name = "EMAIL"
