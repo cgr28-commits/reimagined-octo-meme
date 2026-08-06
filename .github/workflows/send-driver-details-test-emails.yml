@@ -32,6 +32,7 @@ jobs:
         run: npx tsx scripts/send-driver-details-test-emails.ts
 
       - name: Install + deploy edge mailer
+        id: deploy
         working-directory: workers/test-mailer
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -43,58 +44,72 @@ jobs:
             exit 1
           fi
           npm install
-          npx wrangler deploy
+          # Pass key as plain var in one deploy (avoid secret-put redeploy race → 404)
           if [ -n "$WEB3FORMS_ACCESS_KEY" ]; then
-            printf '%s' "$WEB3FORMS_ACCESS_KEY" | npx wrangler secret put WEB3FORMS_ACCESS_KEY
+            npx wrangler deploy --var "WEB3FORMS_ACCESS_KEY:${WEB3FORMS_ACCESS_KEY}"
+          else
+            npx wrangler deploy
           fi
+          echo "mailer=https://matni-test-mailer.cgr28.workers.dev" >> "$GITHUB_OUTPUT"
 
-      - name: Resolve mailer URL
-        id: url
+      - name: Wait for mailer to become ready
         env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          MAILER_URL: ${{ steps.deploy.outputs.mailer }}
         run: |
-          SUB=$(curl -sS -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
-            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/subdomain" \
-            | node -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{try{console.log(JSON.parse(s).result?.subdomain||"")}catch{console.log("")}})')
-          if [ -z "$SUB" ]; then
-            echo "::error::Could not resolve workers.dev subdomain"
-            exit 1
-          fi
-          echo "mailer=https://matni-test-mailer.${SUB}.workers.dev" >> "$GITHUB_OUTPUT"
-          echo "Mailer URL: https://matni-test-mailer.${SUB}.workers.dev"
+          for i in 1 2 3 4 5 6 7 8 9 10; do
+            CODE=$(curl -sS -o /tmp/mailer-health.txt -w '%{http_code}' "$MAILER_URL" || echo 000)
+            echo "attempt $i → HTTP $CODE $(head -c 80 /tmp/mailer-health.txt)"
+            if [ "$CODE" = "200" ]; then
+              exit 0
+            fi
+            sleep 3
+          done
+          echo "::error::Mailer never became ready at $MAILER_URL"
+          exit 1
 
       - name: Send both test emails via edge mailer
         env:
-          MAILER_URL: ${{ steps.url.outputs.mailer }}
+          MAILER_URL: ${{ steps.deploy.outputs.mailer }}
         run: |
           node <<'NODE'
           const fs = require("fs");
           const to = "cgr28@hotmail.co.uk";
           const mailer = process.env.MAILER_URL;
-          const driver = {
-            subject: "[TEST] Job assignment — what the driver sees",
-            text: fs.readFileSync("artifacts/email-previews/driver-assignment.txt", "utf8"),
-            html: fs.readFileSync("artifacts/email-previews/driver-assignment.html", "utf8"),
-          };
-          const customer = {
-            subject: "[TEST] Customer driver details — first name only (no surname)",
-            text: fs.readFileSync("artifacts/email-previews/customer-driver-details.txt", "utf8"),
-            html: fs.readFileSync("artifacts/email-previews/customer-driver-details.html", "utf8"),
-          };
-          async function send(label, payload) {
-            const response = await fetch(mailer, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ to, ...payload }),
-            });
-            const body = await response.text();
-            console.log(label, response.status, body.slice(0, 800));
-            if (!response.ok) process.exitCode = 1;
+          const emails = [
+            {
+              label: "DRIVER",
+              subject: "[TEST] Job assignment — what the driver sees",
+              text: fs.readFileSync("artifacts/email-previews/driver-assignment.txt", "utf8"),
+              html: fs.readFileSync("artifacts/email-previews/driver-assignment.html", "utf8"),
+            },
+            {
+              label: "CUSTOMER",
+              subject: "[TEST] Customer driver details — first name only (no surname)",
+              text: fs.readFileSync("artifacts/email-previews/customer-driver-details.txt", "utf8"),
+              html: fs.readFileSync("artifacts/email-previews/customer-driver-details.html", "utf8"),
+            },
+          ];
+          async function send(email) {
+            for (let attempt = 1; attempt <= 4; attempt++) {
+              const response = await fetch(mailer, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  to,
+                  subject: email.subject,
+                  text: email.text,
+                  html: email.html,
+                }),
+              });
+              const body = await response.text();
+              console.log(email.label, `attempt ${attempt}`, response.status, body.slice(0, 800));
+              if (response.ok) return;
+              await new Promise((r) => setTimeout(r, 2000));
+            }
+            process.exitCode = 1;
           }
           (async () => {
-            await send("DRIVER", driver);
-            await send("CUSTOMER", customer);
+            for (const email of emails) await send(email);
           })();
           NODE
 
