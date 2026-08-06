@@ -29,6 +29,8 @@ export type EmailPayload = {
 export type EmailSendResult = {
   sent: boolean;
   error?: string;
+  /** Provider labels tried when send failed (for diagnostics). */
+  providersTried?: string[];
 };
 
 const DEFAULT_BOOKING_EMAIL = "bookings@myairporttaxini.co.uk";
@@ -186,8 +188,10 @@ export async function trySendEmail(
   }
 
   let lastError: unknown = null;
+  const providersTried: string[] = [];
 
   for (const provider of providers) {
+    providersTried.push(provider.label);
     try {
       await provider.run();
       return { sent: true };
@@ -199,7 +203,7 @@ export async function trySendEmail(
 
   const detail =
     lastError instanceof Error ? lastError.message : "All email providers failed";
-  return { sent: false, error: detail };
+  return { sent: false, error: `${detail} (tried: ${providersTried.join(", ")})`, providersTried };
 }
 
 /** Sends a branded HTML email to a customer — never falls back to plain-text-only delivery. */
