@@ -11,6 +11,10 @@ export type TrackingJobRecord = {
   /** Wall-clock pickup in Europe/London as ISO-like local string YYYY-MM-DDTHH:mm */
   pickupAt: string;
   paymentReference?: string;
+  /** Outbound vs return leg for round-trip bookings */
+  journeyLeg?: "outbound" | "return";
+  /** Token of the paired leg (outbound ↔ return) */
+  pairedToken?: string;
   driverLat?: number;
   driverLng?: number;
   driverUpdatedAt?: string;
