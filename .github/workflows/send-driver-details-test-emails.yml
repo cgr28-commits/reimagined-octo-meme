@@ -8,7 +8,6 @@ on:
       - "scripts/send-driver-details-test-emails.ts"
       - "shared/booking-job.ts"
       - "workers/addresses/**"
-      - "workers/test-mailer/**"
       - ".github/workflows/send-driver-details-test-emails.yml"
   workflow_dispatch:
 
@@ -33,6 +32,7 @@ jobs:
         run: npx tsx scripts/send-driver-details-test-emails.ts
 
       - name: Sync + build + deploy production worker
+        id: deploy
         working-directory: workers/addresses
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -45,24 +45,32 @@ jobs:
           npm ci
           npm run build
           npx wrangler deploy
+          TOKEN=$(openssl rand -hex 24)
+          printf '%s' "$TOKEN" | npx wrangler secret put TEST_EMAIL_TOKEN
+          echo "::add-mask::$TOKEN"
+          echo "token=$TOKEN" >> "$GITHUB_OUTPUT"
 
       - name: Send both test emails via production worker
         env:
-          OWNER_ACCESS_KEY: ${{ secrets.OWNER_ACCESS_KEY }}
+          TEST_EMAIL_TOKEN: ${{ steps.deploy.outputs.token }}
         run: |
-          if [ -z "$OWNER_ACCESS_KEY" ]; then
-            echo "::error::OWNER_ACCESS_KEY secret required"
-            exit 1
-          fi
-          # brief settle after deploy
-          sleep 5
+          sleep 8
           RESPONSE=$(curl -sS -X POST \
             "https://reimagined-octo-meme.cgr28.workers.dev/test/driver-detail-emails" \
             -H "Content-Type: application/json" \
-            -H "X-Owner-Key: $OWNER_ACCESS_KEY" \
+            -H "X-Test-Email-Token: $TEST_EMAIL_TOKEN" \
             -d '{"to":"cgr28@hotmail.co.uk"}')
           echo "$RESPONSE"
           echo "$RESPONSE" | node -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{const j=JSON.parse(s); if(!j.ok){console.error(j); process.exit(1)} console.log("sent ok", j.to)})'
+
+      - name: Clear one-shot test token
+        if: always()
+        working-directory: workers/addresses
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          printf 'cleared' | npx wrangler secret put TEST_EMAIL_TOKEN || true
 
       - name: Upload email HTML previews
         if: always()
