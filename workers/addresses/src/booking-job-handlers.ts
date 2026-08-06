@@ -17,7 +17,7 @@ import {
 } from "./booking-job-store";
 import {
   createTrackingJobFromBooking,
-  findTrackingJobByPaymentReference,
+  findTrackingJobsByPaymentReference,
   getTrackingJob,
   saveTrackingJob,
 } from "./tracking-store";
@@ -28,47 +28,48 @@ async function syncTrackingAssignmentFromBooking(
   job: BookingJobRecord,
 ): Promise<void> {
   const paymentRef = job.paymentReference?.trim() || job.id;
-  let tracking =
-    (await findTrackingJobByPaymentReference(store, paymentRef)) ||
-    (await findTrackingJobByPaymentReference(store, job.id));
-
-  // Some older jobs may still use the booking id as the tracking token.
-  if (!tracking) {
-    tracking = await getTrackingJob(store, job.id);
+  const tracked = await findTrackingJobsByPaymentReference(store, paymentRef);
+  const byId = await findTrackingJobsByPaymentReference(store, job.id);
+  const legacy = await getTrackingJob(store, job.id);
+  const jobs = [...tracked, ...byId];
+  if (legacy && !jobs.some((entry) => entry.token === legacy.token)) {
+    jobs.push(legacy);
   }
-  if (!tracking) {
+  if (jobs.length === 0) {
     return;
   }
 
   const status = job.driverAssignmentStatus ?? "unassigned";
-  if (status === "unassigned") {
-    delete tracking.assignedDriverName;
-    delete tracking.assignmentStatus;
-    delete tracking.assignedAt;
-    delete tracking.acceptedAt;
-    delete tracking.declinedAt;
-  } else {
-    tracking.assignedDriverName = job.driverFirstName?.trim() || tracking.assignedDriverName;
-    tracking.assignmentStatus = status;
-    tracking.assignedAt = job.assignedAt || tracking.assignedAt || new Date().toISOString();
-    if (status === "accepted") {
-      tracking.acceptedAt = job.driverAcceptedAt || new Date().toISOString();
-      delete tracking.declinedAt;
-    } else if (status === "declined") {
-      tracking.declinedAt = job.driverDeclinedAt || new Date().toISOString();
+  for (const tracking of jobs) {
+    if (status === "unassigned") {
+      delete tracking.assignedDriverName;
+      delete tracking.assignmentStatus;
+      delete tracking.assignedAt;
       delete tracking.acceptedAt;
+      delete tracking.declinedAt;
     } else {
-      delete tracking.acceptedAt;
-      delete tracking.declinedAt;
+      tracking.assignedDriverName = job.driverFirstName?.trim() || tracking.assignedDriverName;
+      tracking.assignmentStatus = status;
+      tracking.assignedAt = job.assignedAt || tracking.assignedAt || new Date().toISOString();
+      if (status === "accepted") {
+        tracking.acceptedAt = job.driverAcceptedAt || new Date().toISOString();
+        delete tracking.declinedAt;
+      } else if (status === "declined") {
+        tracking.declinedAt = job.driverDeclinedAt || new Date().toISOString();
+        delete tracking.acceptedAt;
+      } else {
+        delete tracking.acceptedAt;
+        delete tracking.declinedAt;
+      }
+      tracking.sharingActive = false;
+      delete tracking.driverLat;
+      delete tracking.driverLng;
+      delete tracking.driverUpdatedAt;
+      delete tracking.activeDriverName;
     }
-    tracking.sharingActive = false;
-    delete tracking.driverLat;
-    delete tracking.driverLng;
-    delete tracking.driverUpdatedAt;
-    delete tracking.activeDriverName;
-  }
 
-  await saveTrackingJob(store, tracking);
+    await saveTrackingJob(store, tracking);
+  }
 }
 
 type Env = DriverAuthEnv &
@@ -295,36 +296,34 @@ export async function handleBookingJobMarkPaidRequest(
   };
   await saveBookingJob(env.TRACKING_STORE, updated);
 
-  // Also create a tracking/upcoming job so the owner Paid jobs list shows it.
-  // Customer-facing track links stay soft-hidden separately on the website.
+  // Create outbound (+ return) tracking jobs so Paid jobs / Pick date show both legs.
+  // Idempotent — also backfills a missing return leg if mark-paid is run again.
   try {
-    if (job.status !== "paid") {
-      await createTrackingJobFromBooking(
-        env.TRACKING_STORE,
-        {
-          customerName: job.customerName,
-          customerEmail: job.customerEmail,
-          mobileNumber: job.customerMobile,
-          tripLabel: job.tripLabel,
-          pickupLabel: job.pickupLabel,
-          dropoffLabel: job.dropoffLabel,
-          returnJourney: job.returnJourney,
-          tripDate: job.tripDate,
-          tripTime: job.tripTime,
-          returnDate: job.returnDate ?? "",
-          returnTime: job.returnTime ?? "",
-          flightNumber: job.flightNumber ?? "",
-          returnFlightNumber: job.returnFlightNumber,
-          passengers: job.passengers,
-          suitcases: job.suitcases,
-          vehicle: job.vehicle,
-          isAirportTrip: job.isAirportTrip,
-          airportCode: job.airportCode,
-          isFromAirport: job.isFromAirport,
-        },
-        updated.paymentReference,
-      );
-    }
+    await createTrackingJobFromBooking(
+      env.TRACKING_STORE,
+      {
+        customerName: job.customerName,
+        customerEmail: job.customerEmail,
+        mobileNumber: job.customerMobile,
+        tripLabel: job.tripLabel,
+        pickupLabel: job.pickupLabel,
+        dropoffLabel: job.dropoffLabel,
+        returnJourney: job.returnJourney,
+        tripDate: job.tripDate,
+        tripTime: job.tripTime,
+        returnDate: job.returnDate ?? "",
+        returnTime: job.returnTime ?? "",
+        flightNumber: job.flightNumber ?? "",
+        returnFlightNumber: job.returnFlightNumber,
+        passengers: job.passengers,
+        suitcases: job.suitcases,
+        vehicle: job.vehicle,
+        isAirportTrip: job.isAirportTrip,
+        airportCode: job.airportCode,
+        isFromAirport: job.isFromAirport,
+      },
+      updated.paymentReference,
+    );
   } catch (error) {
     console.error("Mark-paid tracking job create failed", error);
   }

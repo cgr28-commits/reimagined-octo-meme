@@ -985,6 +985,15 @@ function DriverJobCard({
                 Action required
               </span>
             )}
+            {job.journeyLeg === "return" ? (
+              <span className="rounded-full border border-sky-400/30 bg-sky-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-sky-100">
+                Return journey
+              </span>
+            ) : job.journeyLeg === "outbound" ? (
+              <span className="rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-white/60">
+                Outbound
+              </span>
+            ) : null}
             <span
               className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wider ${assignmentBadgeClass(job.assignmentStatus)}`}
             >

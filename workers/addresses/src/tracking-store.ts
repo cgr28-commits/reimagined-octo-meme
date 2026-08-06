@@ -28,31 +28,90 @@ function refIndexKey(paymentReference: string): string {
   return `${REF_INDEX_PREFIX}${paymentReference.trim()}`;
 }
 
+async function readPaymentReferenceTokens(
+  store: KVNamespace,
+  paymentReference: string,
+): Promise<string[]> {
+  const trimmed = paymentReference.trim();
+  if (!trimmed) {
+    return [];
+  }
+
+  const existing = await store.get(refIndexKey(trimmed));
+  if (!existing?.trim()) {
+    return [];
+  }
+
+  try {
+    const parsed = JSON.parse(existing) as unknown;
+    if (Array.isArray(parsed)) {
+      return parsed.map((token) => String(token).trim()).filter(Boolean);
+    }
+  } catch {
+    // Legacy single-token string index
+  }
+
+  return [existing.trim()];
+}
+
 async function indexTrackingJobPaymentReference(
   store: KVNamespace,
   paymentReference: string,
   token: string,
 ): Promise<void> {
   const trimmed = paymentReference.trim();
-  if (!trimmed) {
+  if (!trimmed || !token.trim()) {
     return;
   }
 
-  await store.put(refIndexKey(trimmed), token, {
+  const tokens = await readPaymentReferenceTokens(store, trimmed);
+  if (!tokens.includes(token)) {
+    tokens.push(token);
+  }
+
+  await store.put(refIndexKey(trimmed), JSON.stringify(tokens), {
     expirationTtl: DAY_INDEX_TTL,
   });
+}
+
+async function indexTrackingJobOnDay(
+  store: KVNamespace,
+  tripDate: string,
+  token: string,
+): Promise<void> {
+  const indexKey = dayIndexKey(tripDate);
+  const existing = await store.get<string[]>(indexKey, "json");
+  const tokens = Array.isArray(existing) ? existing : [];
+  if (!tokens.includes(token)) {
+    tokens.push(token);
+    await store.put(indexKey, JSON.stringify(tokens), {
+      expirationTtl: DAY_INDEX_TTL,
+    });
+  }
 }
 
 export function trackingStoreConfigured(store?: KVNamespace): store is KVNamespace {
   return Boolean(store);
 }
 
-export async function createTrackingJobFromBooking(
+type TrackingLegOptions = {
+  tripDate: string;
+  tripTime: string;
+  pickupLabel: string;
+  dropoffLabel: string;
+  flightNumber?: string;
+  isFromAirport?: boolean;
+  journeyLeg: "outbound" | "return";
+  pairedToken?: string;
+};
+
+async function createTrackingLegRecord(
   store: KVNamespace,
   booking: PaidBookingDetails,
-  paymentReference?: string,
+  paymentReference: string | undefined,
+  leg: TrackingLegOptions,
 ): Promise<TrackingJobRecord | null> {
-  const pickupAt = buildPickupDateTimeLocal(booking.tripDate, booking.tripTime);
+  const pickupAt = buildPickupDateTimeLocal(leg.tripDate, leg.tripTime);
   if (!pickupAt) {
     return null;
   }
@@ -64,12 +123,14 @@ export async function createTrackingJobFromBooking(
     customerName: booking.customerName,
     customerEmail: booking.customerEmail,
     customerMobile: booking.mobileNumber,
-    pickupLabel: booking.pickupLabel,
-    dropoffLabel: booking.dropoffLabel,
-    tripDate: booking.tripDate,
-    tripTime: booking.tripTime,
+    pickupLabel: leg.pickupLabel,
+    dropoffLabel: leg.dropoffLabel,
+    tripDate: leg.tripDate,
+    tripTime: leg.tripTime,
     pickupAt,
     paymentReference,
+    journeyLeg: leg.journeyLeg,
+    pairedToken: leg.pairedToken,
     sharingActive: false,
   };
 
@@ -78,11 +139,13 @@ export async function createTrackingJobFromBooking(
     if (booking.airportCode?.trim()) {
       record.airportCode = booking.airportCode.trim().toUpperCase();
     }
-    if (typeof booking.isFromAirport === "boolean") {
+    if (typeof leg.isFromAirport === "boolean") {
+      record.isFromAirport = leg.isFromAirport;
+    } else if (typeof booking.isFromAirport === "boolean") {
       record.isFromAirport = booking.isFromAirport;
     }
-    if (booking.flightNumber?.trim()) {
-      record.flightNumber = booking.flightNumber.trim().toUpperCase();
+    if (leg.flightNumber?.trim()) {
+      record.flightNumber = leg.flightNumber.trim().toUpperCase();
     }
   }
 
@@ -106,22 +169,124 @@ export async function createTrackingJobFromBooking(
   await store.put(jobKey(token), JSON.stringify(record), {
     expirationTtl: DAY_INDEX_TTL,
   });
-
-  const indexKey = dayIndexKey(booking.tripDate);
-  const existing = await store.get<string[]>(indexKey, "json");
-  const tokens = Array.isArray(existing) ? existing : [];
-  if (!tokens.includes(token)) {
-    tokens.push(token);
-    await store.put(indexKey, JSON.stringify(tokens), {
-      expirationTtl: DAY_INDEX_TTL,
-    });
-  }
+  await indexTrackingJobOnDay(store, leg.tripDate, token);
 
   if (paymentReference?.trim()) {
     await indexTrackingJobPaymentReference(store, paymentReference, token);
   }
 
   return record;
+}
+
+function isReturnLegJob(job: TrackingJobRecord, booking: PaidBookingDetails): boolean {
+  if (job.journeyLeg === "return") {
+    return true;
+  }
+  if (job.journeyLeg === "outbound") {
+    return false;
+  }
+  // Legacy jobs: treat a same-day match on the return date with swapped addresses as return.
+  return (
+    Boolean(booking.returnDate?.trim()) &&
+    job.tripDate === booking.returnDate?.trim() &&
+    job.pickupLabel.trim().toLowerCase() === booking.dropoffLabel.trim().toLowerCase()
+  );
+}
+
+/**
+ * Create outbound (+ return) tracking jobs for a paid booking.
+ * Idempotent: skips legs that already exist for the payment reference.
+ */
+export async function createTrackingJobFromBooking(
+  store: KVNamespace,
+  booking: PaidBookingDetails,
+  paymentReference?: string,
+): Promise<TrackingJobRecord | null> {
+  const paymentRef = paymentReference?.trim() || undefined;
+  const existing = paymentRef
+    ? await findTrackingJobsByPaymentReference(store, paymentRef)
+    : [];
+
+  let outbound =
+    existing.find((job) => !isReturnLegJob(job, booking)) ??
+    null;
+
+  if (!outbound) {
+    outbound = await createTrackingLegRecord(store, booking, paymentRef, {
+      tripDate: booking.tripDate,
+      tripTime: booking.tripTime,
+      pickupLabel: booking.pickupLabel,
+      dropoffLabel: booking.dropoffLabel,
+      flightNumber: booking.flightNumber,
+      isFromAirport: booking.isFromAirport,
+      journeyLeg: "outbound",
+    });
+  } else if (!outbound.journeyLeg) {
+    outbound.journeyLeg = "outbound";
+    await saveTrackingJob(store, outbound);
+  }
+
+  if (!outbound) {
+    return null;
+  }
+
+  const returnDate = booking.returnDate?.trim() || "";
+  const returnTime = booking.returnTime?.trim() || "";
+  if (booking.returnJourney && returnDate && returnTime) {
+    let returnJob =
+      existing.find((job) => isReturnLegJob(job, booking)) ??
+      null;
+
+    if (!returnJob) {
+      const dayJobs = await listTrackingJobsForDate(store, returnDate);
+      returnJob =
+        dayJobs.find(
+          (job) =>
+            (paymentRef && job.paymentReference?.trim() === paymentRef) ||
+            (job.customerName.trim().toLowerCase() === booking.customerName.trim().toLowerCase() &&
+              job.pickupLabel.trim().toLowerCase() === booking.dropoffLabel.trim().toLowerCase() &&
+              job.tripTime === returnTime),
+        ) ?? null;
+    }
+
+    if (!returnJob) {
+      const returnIsFromAirport =
+        typeof booking.isFromAirport === "boolean" ? !booking.isFromAirport : undefined;
+      returnJob = await createTrackingLegRecord(store, booking, paymentRef, {
+        tripDate: returnDate,
+        tripTime: returnTime,
+        pickupLabel: booking.dropoffLabel,
+        dropoffLabel: booking.pickupLabel,
+        flightNumber: booking.returnFlightNumber || undefined,
+        isFromAirport: returnIsFromAirport,
+        journeyLeg: "return",
+        pairedToken: outbound.token,
+      });
+    }
+
+    if (returnJob) {
+      let dirty = false;
+      if (returnJob.journeyLeg !== "return") {
+        returnJob.journeyLeg = "return";
+        dirty = true;
+      }
+      if (returnJob.pairedToken !== outbound.token) {
+        returnJob.pairedToken = outbound.token;
+        dirty = true;
+      }
+      if (dirty) {
+        await saveTrackingJob(store, returnJob);
+      }
+
+      if (outbound.pairedToken !== returnJob.token || outbound.journeyLeg !== "outbound") {
+        outbound.pairedToken = returnJob.token;
+        outbound.journeyLeg = "outbound";
+        await saveTrackingJob(store, outbound);
+      }
+    }
+  }
+
+  return outbound;
 }
 
 export async function getTrackingJob(
@@ -265,34 +430,55 @@ export async function listTrackingJobsForRecentDays(
   return jobs;
 }
 
-export async function findTrackingJobByPaymentReference(
+export async function findTrackingJobsByPaymentReference(
   store: KVNamespace,
   paymentReference: string,
-): Promise<TrackingJobRecord | null> {
+): Promise<TrackingJobRecord[]> {
   const trimmed = paymentReference.trim();
   if (!trimmed) {
-    return null;
+    return [];
   }
 
-  const indexedToken = await store.get(refIndexKey(trimmed));
-  if (indexedToken) {
-    const indexedJob = await getTrackingJob(store, indexedToken);
-    if (indexedJob?.paymentReference?.trim() === trimmed) {
-      return indexedJob;
+  const tokens = await readPaymentReferenceTokens(store, trimmed);
+  const fromIndex: TrackingJobRecord[] = [];
+  for (const token of tokens) {
+    const job = await getTrackingJob(store, token);
+    if (job?.paymentReference?.trim() === trimmed) {
+      fromIndex.push(job);
     }
+  }
+
+  if (fromIndex.length > 0) {
+    return fromIndex;
   }
 
   const today = londonDateString(new Date());
   const fromDate = shiftDateString(today, -PAYMENT_REF_SEARCH_DAYS_BACK);
   const toDate = shiftDateString(today, PAYMENT_REF_SEARCH_DAYS_AHEAD);
   const jobs = await listTrackingJobsForDateRange(store, fromDate, toDate);
-  const match = jobs.find((job) => job.paymentReference?.trim() === trimmed) ?? null;
+  const matches = jobs.filter((job) => job.paymentReference?.trim() === trimmed);
 
-  if (match) {
+  for (const match of matches) {
     await indexTrackingJobPaymentReference(store, trimmed, match.token);
   }
 
-  return match;
+  return matches;
+}
+
+export async function findTrackingJobByPaymentReference(
+  store: KVNamespace,
+  paymentReference: string,
+): Promise<TrackingJobRecord | null> {
+  const matches = await findTrackingJobsByPaymentReference(store, paymentReference);
+  if (matches.length === 0) {
+    return null;
+  }
+
+  return (
+    matches.find((job) => job.journeyLeg !== "return") ??
+    matches[0] ??
+    null
+  );
 }
 
 export async function cancelTrackingJob(store: KVNamespace, token: string): Promise<boolean> {
@@ -304,7 +490,16 @@ export async function cancelTrackingJob(store: KVNamespace, token: string): Prom
   await store.delete(jobKey(token));
 
   if (record.paymentReference?.trim()) {
-    await store.delete(refIndexKey(record.paymentReference));
+    const remaining = (await readPaymentReferenceTokens(store, record.paymentReference)).filter(
+      (entry) => entry !== token,
+    );
+    if (remaining.length === 0) {
+      await store.delete(refIndexKey(record.paymentReference));
+    } else {
+      await store.put(refIndexKey(record.paymentReference), JSON.stringify(remaining), {
+        expirationTtl: DAY_INDEX_TTL,
+      });
+    }
   }
 
   const indexKey = dayIndexKey(record.tripDate);
@@ -337,16 +532,34 @@ export async function markTrackingJobRefunded(
     return false;
   }
 
-  const updated: TrackingJobRecord = {
-    ...record,
-    sharingActive: false,
-    customerSharingActive: false,
-    refundedAt: new Date().toISOString(),
-    ...(refundAmountLabel?.trim() ? { refundAmountLabel: refundAmountLabel.trim() } : {}),
-  };
+  const related = record.paymentReference?.trim()
+    ? await findTrackingJobsByPaymentReference(store, record.paymentReference)
+    : [record];
 
-  await saveTrackingJob(store, updated);
-  return true;
+  const tokens = new Set<string>([token, ...related.map((job) => job.token)]);
+  if (record.pairedToken?.trim()) {
+    tokens.add(record.pairedToken.trim());
+  }
+
+  let marked = false;
+  const refundedAt = new Date().toISOString();
+  for (const relatedToken of tokens) {
+    const job = await getTrackingJob(store, relatedToken);
+    if (!job) {
+      continue;
+    }
+    const updated: TrackingJobRecord = {
+      ...job,
+      sharingActive: false,
+      customerSharingActive: false,
+      refundedAt,
+      ...(refundAmountLabel?.trim() ? { refundAmountLabel: refundAmountLabel.trim() } : {}),
+    };
+    await saveTrackingJob(store, updated);
+    marked = true;
+  }
+
+  return marked;
 }
 
 function driverHistoryKey(token: string): string {

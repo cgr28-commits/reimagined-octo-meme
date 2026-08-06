@@ -15,12 +15,17 @@ import {
   getTrackingJob,
   isTrackingJobCancelled,
   listTrackingJobsForDate,
+  listTrackingJobsForRecentDays,
   listUpcomingTrackingJobs,
   saveTrackingJob,
   trackingStoreConfigured,
 } from "./tracking-store";
 import type { PaidBookingDetails } from "../shared/booking-notifications";
 import { corsHeaders } from "../shared/google-places";
+import {
+  bookingJobStoreConfigured,
+  getBookingJob,
+} from "./booking-job-store";
 import { getPaidBookingRecord, paidBookingStoreConfigured } from "./paid-booking-store";
 import {
   filterJobsForSession,
@@ -329,6 +334,62 @@ async function sendSharingReminderEmail(
   return result.sent;
 }
 
+async function backfillReturnTrackingLegs(
+  store: KVNamespace,
+  seedJobs: TrackingJobRecord[],
+): Promise<void> {
+  if (!bookingJobStoreConfigured(store)) {
+    return;
+  }
+
+  const seen = new Set<string>();
+  for (const job of seedJobs) {
+    const paymentRef = job.paymentReference?.trim();
+    if (!paymentRef || seen.has(paymentRef)) {
+      continue;
+    }
+    seen.add(paymentRef);
+
+    const booking = await getBookingJob(store, paymentRef);
+    if (!booking || booking.status !== "paid") {
+      continue;
+    }
+    if (!booking.returnJourney || !booking.returnDate?.trim() || !booking.returnTime?.trim()) {
+      continue;
+    }
+
+    try {
+      await createTrackingJobFromBooking(
+        store,
+        {
+          customerName: booking.customerName,
+          customerEmail: booking.customerEmail,
+          mobileNumber: booking.customerMobile,
+          tripLabel: booking.tripLabel,
+          pickupLabel: booking.pickupLabel,
+          dropoffLabel: booking.dropoffLabel,
+          returnJourney: true,
+          tripDate: booking.tripDate,
+          tripTime: booking.tripTime,
+          returnDate: booking.returnDate,
+          returnTime: booking.returnTime,
+          flightNumber: booking.flightNumber ?? "",
+          returnFlightNumber: booking.returnFlightNumber,
+          passengers: booking.passengers,
+          suitcases: booking.suitcases,
+          vehicle: booking.vehicle,
+          isAirportTrip: booking.isAirportTrip,
+          airportCode: booking.airportCode,
+          isFromAirport: booking.isFromAirport,
+        },
+        paymentRef,
+      );
+    } catch (error) {
+      console.error("Return tracking leg backfill failed", paymentRef, error);
+    }
+  }
+}
+
 export async function handleDriverJobsRequest(
   request: Request,
   env: Env,
@@ -366,6 +427,16 @@ export async function handleDriverJobsRequest(
       month: "2-digit",
       day: "2-digit",
     }).format(new Date());
+
+  // Owner dashboard: create missing return-leg jobs from paid booking records
+  // so Pick date / Upcoming show the return on its own day (e.g. 19 Aug).
+  if (role === "owner") {
+    const seed = [
+      ...(await listUpcomingTrackingJobs(env.TRACKING_STORE, daysAhead)),
+      ...(await listTrackingJobsForRecentDays(env.TRACKING_STORE, 45)),
+    ];
+    await backfillReturnTrackingLegs(env.TRACKING_STORE, seed);
+  }
 
   let jobs: TrackingJobRecord[];
   let responseDate = tripDate;
@@ -425,6 +496,7 @@ export async function handleDriverJobsRequest(
           isAirportPickup: isAirportPickupJob(job),
           flightNumber: job.flightNumber ?? null,
           airportCode: job.airportCode ?? null,
+          journeyLeg: job.journeyLeg ?? null,
           flight,
         },
         role,
