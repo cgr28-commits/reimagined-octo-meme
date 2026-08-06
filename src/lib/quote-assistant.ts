@@ -16,6 +16,21 @@ import { calculateQuote, formatQuote, matchAreaFromAddress } from "@/lib/quote";
 export type AssistantMessage = {
   role: "bot" | "user";
   text: string;
+  quoteCard?: QuoteCardSummary;
+};
+
+export type QuoteCardSummary = {
+  amount: number;
+  amountLabel: string;
+  directionLabel: string;
+  airportName: string;
+  vehicle: string;
+  passengers: number;
+  suitcases: number;
+  returnJourney: boolean;
+  address: string;
+  area: string | null;
+  waitingNote: string;
 };
 
 export type QuoteDraft = {
@@ -40,6 +55,7 @@ export type AssistantResponse = {
   showContactOffer?: boolean;
   /** Open the live quote tool with this draft for booking */
   openQuoteForm?: boolean;
+  quoteCard?: QuoteCardSummary;
 };
 
 type MissingField =
@@ -202,21 +218,40 @@ function matchAreaMention(text: string): string | undefined {
   return undefined;
 }
 
-/** Full street address with door / house number — towns-only replies are not enough. */
+/** Full street address with door / house number AND town or BT postcode — required before pricing. */
 export function isCompleteStreetAddress(address: string): boolean {
   const trimmed = address.trim().replace(/[?.!]+$/, "");
-  if (trimmed.length < 8) return false;
+  if (trimmed.length < 10) return false;
 
   const lower = trimmed.toLowerCase();
   if (AREAS.some((area) => area.toLowerCase() === lower)) return false;
   // Postcode alone is not enough.
   if (/^bt\d{1,2}\s*\d[a-z]{2}$/i.test(trimmed)) return false;
 
-  // Door / house / flat number required (e.g. 12, 12A, Flat 2).
-  if (/\b(?:flat|apt|apartment|unit|suite)\s*\d+[a-z]?\b/i.test(trimmed)) return true;
-  if (/\b\d+[a-z]?\b/i.test(trimmed)) return true;
+  // Must include a Northern Ireland town or BT district so the fare area is known.
+  const hasTown =
+    AREAS.some((area) => lower.includes(area.toLowerCase())) || /\bbelfast\b/i.test(lower);
+  const hasPostcodeDistrict = /\bbt\d{1,2}\b/i.test(trimmed);
+  if (!hasTown && !hasPostcodeDistrict) return false;
+
+  // Door / house / flat number — ignore digits that only appear in the postcode.
+  const withoutPostcode = trimmed
+    .replace(/\bbt\d{1,2}\s*\d[a-z]{2}\b/gi, " ")
+    .replace(/\bbt\d{1,2}\b/gi, " ");
+  if (/\b(?:flat|apt|apartment|unit|suite)\s*\d+[a-z]?\b/i.test(withoutPostcode)) return true;
+  if (/\b\d+[a-z]?\b/i.test(withoutPostcode)) return true;
 
   return false;
+}
+
+/** Address is complete and matches a priced area (avoids default “unknown area” fares). */
+export function isPricableStreetAddress(address: string, airportCode?: string): boolean {
+  if (!isCompleteStreetAddress(address)) return false;
+  if (airportCode === "LDY") {
+    // LDY uses its own Belfast-area gate inside calculateQuote.
+    return Boolean(matchAreaFromAddress(address));
+  }
+  return matchAreaFromAddress(address) !== null;
 }
 
 function incompleteAddressPrompt(draft: QuoteDraft): AssistantResponse {
@@ -229,10 +264,14 @@ function incompleteAddressPrompt(draft: QuoteDraft): AssistantResponse {
 
   return {
     reply:
-      `Please enter your full ${place} address including the door / house number` +
-      `${airportName ? ` (for your ${airportName} transfer)` : ""}.\n\n` +
+      `I need your full ${place} address before I can quote a price` +
+      `${airportName ? ` for ${airportName}` : ""}.\n\n` +
+      `Include:\n` +
+      `• door / house number\n` +
+      `• street\n` +
+      `• town (or BT postcode)\n\n` +
       `Example: 12 High Street, Bangor, BT20.\n` +
-      `Type below — suggestions appear as you type. A town name alone is not enough.`,
+      `Pick a suggestion from the list so the address is complete — a street name alone is not enough.`,
     draft,
     quickReplies: [],
   };
@@ -411,8 +450,8 @@ function promptForField(field: MissingField, draft: QuoteDraft): AssistantRespon
       return {
         reply:
           draft.direction === "from-airport"
-            ? `Got it — collection from ${airportName}. Type your full drop-off address below, including the door / house number — suggestions appear as you type. Pick the matching address.`
-            : `Got it — drop-off at ${airportName}. Type your full pickup address below, including the door / house number — suggestions appear as you type. Pick the matching address.`,
+            ? `Got it — collection from ${airportName}. Type your full drop-off address below — door / house number, street, and town or BT postcode. I’ll only quote once the address is complete.`
+            : `Got it — drop-off at ${airportName}. Type your full pickup address below — door / house number, street, and town or BT postcode. I’ll only quote once the address is complete.`,
         draft,
         quickReplies: [],
       };
@@ -455,16 +494,9 @@ function promptForField(field: MissingField, draft: QuoteDraft): AssistantRespon
   }
 }
 
-function formatDisplayDate(date: string): string {
-  return new Date(`${date}T12:00:00`).toLocaleDateString("en-GB", {
-    weekday: "short",
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
-}
-
-function tryBuildQuote(draft: QuoteDraft): { text: string; enquiryOnly: boolean } | null {
+function tryBuildQuote(
+  draft: QuoteDraft,
+): { text: string; enquiryOnly: boolean; quoteCard?: QuoteCardSummary } | null {
   if (
     !draft.airportCode ||
     !draft.address ||
@@ -473,6 +505,12 @@ function tryBuildQuote(draft: QuoteDraft): { text: string; enquiryOnly: boolean 
     draft.passengers === undefined ||
     draft.suitcases === undefined
   ) {
+    return null;
+  }
+
+  // Never price a partial address — incomplete locality falls back to a default
+  // surcharge and shows the wrong (usually higher) fare until the town is added.
+  if (!isPricableStreetAddress(draft.address, draft.airportCode)) {
     return null;
   }
 
@@ -521,38 +559,42 @@ function tryBuildQuote(draft: QuoteDraft): { text: string; enquiryOnly: boolean 
     return {
       enquiryOnly: false,
       text:
-        "I couldn’t price that address yet. Please pick a full Northern Ireland address from the suggestions, or use the quote form on the website.",
+        "I couldn’t price that address yet. Please pick a full Northern Ireland address from the suggestions, including town or postcode.",
     };
+  }
+
+  // Still refuse if the engine fell back to an unmatched area.
+  if (!quote.area) {
+    return null;
   }
 
   const directionLabel =
     draft.direction === "from-airport" ? `from ${airportName}` : `to ${airportName}`;
-  const areaNote = quote.area ? ` (priced via ${quote.area})` : "";
+  const vehicleLabel = vehicle.split(" (")[0];
   const waitingNote =
     draft.direction === "from-airport" || draft.returnJourney
       ? "Includes vehicle, driver, fuel, tolls, and up to 60 minutes waiting after landing for airport pickups."
       : "Includes vehicle, driver, fuel and tolls.";
 
-  const scheduleLines = [
-    draft.tripDate && draft.tripTime
-      ? `Outbound: ${formatDisplayDate(draft.tripDate)} at ${draft.tripTime}`
-      : null,
-    draft.returnJourney && draft.returnDate && draft.returnTime
-      ? `Return: ${formatDisplayDate(draft.returnDate)} at ${draft.returnTime}`
-      : null,
-  ]
-    .filter(Boolean)
-    .join("\n");
+  const quoteCard: QuoteCardSummary = {
+    amount: quote.amount,
+    amountLabel: formatQuote(quote.amount),
+    directionLabel,
+    airportName,
+    vehicle: vehicleLabel,
+    passengers,
+    suitcases,
+    returnJourney: Boolean(draft.returnJourney),
+    address: draft.address,
+    area: quote.area,
+    waitingNote,
+  };
 
   return {
     enquiryOnly: false,
+    quoteCard,
     text:
-      `Your fixed journey price ${directionLabel} is ${formatQuote(quote.amount)}${areaNote}.\n` +
-      `${vehicle.split(" (")[0]} · ${passengers} passengers · ${suitcases} suitcases` +
-      `${draft.returnJourney ? " · return (5% off)" : " · one way"}` +
-      `${draft.address ? `\nAddress: ${draft.address}` : ""}.` +
-      `${scheduleLines ? `\n${scheduleLines}` : ""}\n\n` +
-      `${waitingNote}\n\n` +
+      `Here’s your fixed journey price ${directionLabel}.\n\n` +
       `Would you like to book? If yes, I’ll open the quote form with these details so you can add pickup date & time, your name, mobile, email, flight number(s) and accept the terms.`,
   };
 }
@@ -760,21 +802,21 @@ export function respondToAssistantMessage(
 
     if (looksLikeAddressReply) {
       const candidate = text.replace(/[?.!]+$/, "").trim();
-      if (isCompleteStreetAddress(candidate)) {
+      if (isPricableStreetAddress(candidate, nextDraft.airportCode)) {
         nextDraft.address = candidate;
       } else {
-        // Town-only / no door number — keep asking for a full address (no town chips).
+        // Partial / no town — keep asking for a full address before pricing.
         return incompleteAddressPrompt(nextDraft);
       }
     } else if (nextField !== "address") {
-      // Only accept an address extracted from free text when it includes a door number.
+      // Only accept an address extracted from free text when it is fully pricable.
       const addressMatch =
         text.match(/\bfrom\s+(.+?)(?:\s+to\s+(?:the\s+)?(?:airport|belfast|dublin|derry)|\s+for\s+\d|\s*$)/i) ||
         text.match(/\bto\s+(.+?)(?:\s+from\s+(?:the\s+)?(?:airport|belfast|dublin|derry)|\s+for\s+\d|\s*$)/i);
       if (addressMatch?.[1] && !matchAirport(addressMatch[1])) {
         const candidate = addressMatch[1].replace(/[?.!]+$/, "").trim();
         if (
-          isCompleteStreetAddress(candidate) &&
+          isPricableStreetAddress(candidate, nextDraft.airportCode) &&
           !/^(a quote|quote|airport|belfast international|dublin|city of derry|the airport)$/i.test(
             candidate,
           )
@@ -785,8 +827,8 @@ export function respondToAssistantMessage(
     }
   }
 
-  // Never keep a town-only address on the draft.
-  if (nextDraft.address && !isCompleteStreetAddress(nextDraft.address)) {
+  // Never keep a partial address on the draft (wrong default fare until completed).
+  if (nextDraft.address && !isPricableStreetAddress(nextDraft.address, nextDraft.airportCode)) {
     delete nextDraft.address;
     if (nextField === "address" || getNextQuoteField(nextDraft) === "address") {
       return incompleteAddressPrompt(nextDraft);
@@ -833,7 +875,14 @@ export function respondToAssistantMessage(
         reply: built.text,
         draft: nextDraft,
         quickReplies: ["Yes, book", "No thanks", "Another quote"],
+        quoteCard: built.quoteCard,
       };
+    }
+
+    // All fields present but address still not pricable (or LDY out of area handled above).
+    if (nextDraft.address && !isPricableStreetAddress(nextDraft.address, nextDraft.airportCode)) {
+      delete nextDraft.address;
+      return incompleteAddressPrompt(nextDraft);
     }
   }
 
