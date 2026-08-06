@@ -1066,7 +1066,7 @@ function QuoteCard() {
 
   useEffect(() => {
     if (bookingSent) {
-      cardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      cardRef.current?.scrollIntoView({ behavior: "smooth", block: "start", inline: "nearest" });
     }
   }, [bookingSent]);
 
@@ -1166,7 +1166,7 @@ function QuoteCard() {
               setTermsError("");
               setMarketingOptIn(false);
               setSubmitted(false);
-              cardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+              cardRef.current?.scrollIntoView({ behavior: "smooth", block: "start", inline: "nearest" });
             }}
             className="mt-6 w-full rounded-xl bg-emerald px-4 py-3 text-sm font-bold text-navy transition-colors hover:bg-emerald-light sm:w-auto sm:px-8"
           >
@@ -1221,7 +1221,7 @@ function QuoteCard() {
               setTermsError("");
               setMarketingOptIn(false);
               setSubmitted(false);
-              cardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+              cardRef.current?.scrollIntoView({ behavior: "smooth", block: "start", inline: "nearest" });
             }}
             className="mt-6 w-full rounded-xl bg-emerald px-4 py-3 text-sm font-bold text-navy transition-colors hover:bg-emerald-light sm:w-auto sm:px-8"
           >

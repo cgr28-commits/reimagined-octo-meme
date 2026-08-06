@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
+import PreventHorizontalScroll from "@/components/PreventHorizontalScroll";
 import QuoteAssistant from "@/components/QuoteAssistant";
 import { SITE } from "@/lib/data";
 import { absoluteSiteUrl } from "@/lib/paths";
@@ -90,7 +91,7 @@ export default function RootLayout({
 
   return (
     <html lang="en-GB" className={inter.variable}>
-      <body className="overflow-x-hidden antialiased">
+      <body className="overflow-x-clip antialiased">
         {structuredData.map((schema) => (
           <script
             key={schema["@type"]}
@@ -98,10 +99,12 @@ export default function RootLayout({
             dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
           />
         ))}
-        <div className="relative w-full max-w-full overflow-x-hidden">
+        <div className="relative w-full max-w-full overflow-x-clip">
           {children}
-          <QuoteAssistant />
         </div>
+        {/* Outside the overflow clip so position:fixed is viewport-relative on mobile */}
+        <QuoteAssistant />
+        <PreventHorizontalScroll />
       </body>
     </html>
   );

@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import AddressInput from "@/components/AddressInput";
 import { playBotOpenSound, playBotReplySound, playBotWorkingSound } from "@/lib/bot-sounds";
 import { contactCardUrl } from "@/lib/contact-card";
@@ -33,6 +34,9 @@ export default function QuoteAssistant() {
   const [showContactOffer, setShowContactOffer] = useState(false);
   const [isWorking, setIsWorking] = useState(false);
   const [addressValue, setAddressValue] = useState("");
+  const [mounted, setMounted] = useState(false);
+  const launcherRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const contactOfferRef = useRef<HTMLDivElement>(null);
   const workingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -42,6 +46,10 @@ export default function QuoteAssistant() {
   const showAddressPicker = awaitingField === "address";
   const addressLabel =
     draft.direction === "from-airport" ? "Drop-off address" : "Pickup address";
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     draftRef.current = draft;
@@ -54,6 +62,59 @@ export default function QuoteAssistant() {
       }
     };
   }, []);
+
+  // Keep the page from sliding sideways while the chat is open.
+  useEffect(() => {
+    if (!open) return;
+
+    const html = document.documentElement;
+    const body = document.body;
+    const prevHtmlOverflow = html.style.overflow;
+    const prevBodyOverflow = body.style.overflow;
+    const prevHtmlOverscroll = html.style.overscrollBehaviorX;
+    const prevBodyOverscroll = body.style.overscrollBehaviorX;
+
+    html.style.overflow = "hidden";
+    body.style.overflow = "hidden";
+    html.style.overscrollBehaviorX = "none";
+    body.style.overscrollBehaviorX = "none";
+
+    if (window.scrollX !== 0) {
+      window.scrollTo(0, window.scrollY);
+    }
+
+    const keepHorizontalOrigin = () => {
+      if (window.scrollX !== 0) {
+        window.scrollTo(0, window.scrollY);
+      }
+    };
+
+    const preventBackgroundTouchScroll = (event: TouchEvent) => {
+      const target = event.target as Node | null;
+      if (
+        target &&
+        (panelRef.current?.contains(target) || launcherRef.current?.contains(target))
+      ) {
+        return;
+      }
+      event.preventDefault();
+    };
+
+    window.addEventListener("scroll", keepHorizontalOrigin, { passive: true });
+    document.addEventListener("touchmove", preventBackgroundTouchScroll, { passive: false });
+
+    return () => {
+      html.style.overflow = prevHtmlOverflow;
+      body.style.overflow = prevBodyOverflow;
+      html.style.overscrollBehaviorX = prevHtmlOverscroll;
+      body.style.overscrollBehaviorX = prevBodyOverscroll;
+      window.removeEventListener("scroll", keepHorizontalOrigin);
+      document.removeEventListener("touchmove", preventBackgroundTouchScroll);
+      if (window.scrollX !== 0) {
+        window.scrollTo(0, window.scrollY);
+      }
+    };
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -151,9 +212,10 @@ export default function QuoteAssistant() {
     setInput("");
   }
 
-  return (
+  const ui = (
     <>
       <button
+        ref={launcherRef}
         type="button"
         onClick={toggleOpen}
         className={`fixed bottom-6 right-3 z-50 flex max-w-[calc(100%-1.5rem)] items-center border-2 border-emerald bg-navy shadow-lg shadow-emerald/30 transition-all hover:bg-navy-light sm:bottom-8 sm:right-8 ${
@@ -200,7 +262,10 @@ export default function QuoteAssistant() {
       </button>
 
       {open ? (
-        <div className="fixed bottom-24 left-3 right-3 z-50 flex max-h-[min(70dvh,32rem)] min-w-0 flex-col overflow-hidden rounded-2xl border border-white/15 bg-navy-dark shadow-2xl sm:bottom-28 sm:left-auto sm:right-8 sm:w-[24rem] sm:max-w-[calc(100%-4rem)]">
+        <div
+          ref={panelRef}
+          className="fixed bottom-24 left-3 right-3 z-50 flex max-h-[min(70dvh,32rem)] min-w-0 max-w-full touch-pan-y flex-col overflow-hidden overscroll-x-none rounded-2xl border border-white/15 bg-navy-dark shadow-2xl sm:bottom-28 sm:left-auto sm:right-8 sm:w-[24rem] sm:max-w-[min(24rem,calc(100%-4rem))]"
+        >
           <div className="flex min-w-0 items-start justify-between gap-3 border-b border-white/10 bg-navy px-4 py-3">
             <div className="flex min-w-0 items-center gap-3">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-emerald/50 bg-navy">
@@ -228,7 +293,7 @@ export default function QuoteAssistant() {
 
           <div
             ref={listRef}
-            className="max-h-[45vh] min-w-0 space-y-3 overflow-x-hidden overflow-y-auto overscroll-contain px-3 py-3"
+            className="max-h-[45vh] min-w-0 space-y-3 overflow-x-hidden overflow-y-auto overscroll-contain overscroll-x-none px-3 py-3 touch-pan-y"
           >
             {messages.map((message, index) => (
               <div
@@ -379,4 +444,7 @@ export default function QuoteAssistant() {
       ) : null}
     </>
   );
+
+  if (!mounted) return null;
+  return createPortal(ui, document.body);
 }
