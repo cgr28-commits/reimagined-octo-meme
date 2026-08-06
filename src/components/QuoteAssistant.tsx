@@ -14,12 +14,53 @@ import {
   createWelcomeMessages,
   emptyQuoteDraft,
   getNextQuoteField,
+  isPricableStreetAddress,
   respondToAssistantMessage,
   type AssistantMessage,
+  type QuoteCardSummary,
   type QuoteDraft,
 } from "@/lib/quote-assistant";
 
 const BOT_WORKING_MS = 450;
+
+function QuotePriceCard({ card, note }: { card: QuoteCardSummary; note: string }) {
+  return (
+    <div className="overflow-hidden rounded-2xl border border-emerald/40 bg-emerald/10 shadow-lg shadow-emerald/10">
+      <div className="border-b border-emerald/25 bg-emerald px-4 py-4 text-navy">
+        <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-navy/70">
+          Your fixed journey price
+        </p>
+        <p className="mt-1 text-4xl font-black tracking-tight">{card.amountLabel}</p>
+        <p className="mt-1 text-sm font-semibold text-navy/80">{card.directionLabel}</p>
+      </div>
+      <div className="space-y-2 px-4 py-3 text-sm text-white/90">
+        <p>
+          <span className="text-white/55">Vehicle · </span>
+          {card.vehicle}
+          {card.returnJourney ? " · return (5% off)" : " · one way"}
+        </p>
+        <p>
+          <span className="text-white/55">Passengers · </span>
+          {card.passengers}
+          <span className="text-white/55"> · Suitcases · </span>
+          {card.suitcases}
+        </p>
+        {card.area ? (
+          <p>
+            <span className="text-white/55">Priced for · </span>
+            {card.area}
+          </p>
+        ) : null}
+        <p className="break-words">
+          <span className="text-white/55">Address · </span>
+          {card.address}
+        </p>
+        <p className="text-xs leading-relaxed text-white/60">{card.waitingNote}</p>
+        <p className="whitespace-pre-wrap pt-1 text-sm leading-relaxed text-white/85">{note}</p>
+      </div>
+    </div>
+  );
+}
 
 export default function QuoteAssistant() {
   const isMobile = useIsMobileDevice();
@@ -171,7 +212,14 @@ export default function QuoteAssistant() {
       setDraft(nextDraft);
       draftRef.current = nextDraft;
       setQuickReplies(result.quickReplies ?? []);
-      setMessages((prev) => [...prev, { role: "bot", text: result.reply }]);
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "bot",
+          text: result.reply,
+          ...(result.quoteCard ? { quoteCard: result.quoteCard } : {}),
+        },
+      ]);
       setIsWorking(false);
       playBotReplySound();
       workingTimerRef.current = null;
@@ -298,13 +346,23 @@ export default function QuoteAssistant() {
             {messages.map((message, index) => (
               <div
                 key={`${message.role}-${index}`}
-                className={`max-w-[92%] break-words whitespace-pre-wrap rounded-2xl px-3 py-2 text-sm leading-relaxed [overflow-wrap:anywhere] ${
-                  message.role === "user"
-                    ? "ml-auto bg-emerald text-navy"
-                    : "mr-auto bg-white/10 text-white/90"
+                className={`max-w-[92%] break-words [overflow-wrap:anywhere] ${
+                  message.role === "user" ? "ml-auto" : "mr-auto"
                 }`}
               >
-                {message.text}
+                {message.quoteCard ? (
+                  <QuotePriceCard card={message.quoteCard} note={message.text} />
+                ) : (
+                  <div
+                    className={`whitespace-pre-wrap rounded-2xl px-3 py-2 text-sm leading-relaxed ${
+                      message.role === "user"
+                        ? "bg-emerald text-navy"
+                        : "bg-white/10 text-white/90"
+                    }`}
+                  >
+                    {message.text}
+                  </div>
+                )}
               </div>
             ))}
 
@@ -368,8 +426,8 @@ export default function QuoteAssistant() {
               <div className="min-w-0 rounded-2xl border border-emerald/35 bg-emerald/10 px-3 py-2.5">
                 <p className="text-sm font-semibold text-white">{addressLabel}</p>
                 <p className="mt-1 text-xs text-white/65">
-                  Type your full address with door / house number in the bar below — suggestions
-                  stay in that bar as you type. Town-only answers are not accepted.
+                  Type your full address with door number, street, and town or BT postcode — I’ll
+                  only quote once it’s complete. Town-only answers are not accepted.
                 </p>
               </div>
             ) : null}
@@ -403,12 +461,17 @@ export default function QuoteAssistant() {
                 name="bot-quote-address"
                 value={addressValue}
                 onChange={setAddressValue}
-                onSelectAddress={(address) => sendText(address)}
+                onSelectAddress={(address) => {
+                  setAddressValue(address);
+                  if (isPricableStreetAddress(address, draft.airportCode)) {
+                    sendText(address);
+                  }
+                }}
                 airportCode={draft.airportCode ?? ""}
                 label={addressLabel}
                 hideLabel
                 placeholder="e.g. 12 High Street, Bangor, BT20"
-                helperText="Suggestions stay in this bar — include your door number"
+                helperText="Include door number, street, and town or postcode before we quote"
                 required={false}
                 disableAutoScroll
                 suggestionsPlacement="above"
@@ -416,9 +479,7 @@ export default function QuoteAssistant() {
               <button
                 type="submit"
                 disabled={
-                  isWorking ||
-                  addressValue.trim().length < 8 ||
-                  !/\d/.test(addressValue)
+                  isWorking || !isPricableStreetAddress(addressValue, draft.airportCode)
                 }
                 className="mt-2 w-full rounded-xl bg-emerald px-3 py-2.5 text-sm font-bold text-navy transition-colors hover:bg-emerald-light disabled:opacity-60"
               >
