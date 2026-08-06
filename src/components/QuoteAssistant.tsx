@@ -303,7 +303,8 @@ export default function QuoteAssistant() {
               <div className="min-w-0 rounded-2xl border border-emerald/35 bg-emerald/10 px-3 py-3">
                 <p className="text-sm font-semibold text-white">{addressLabel}</p>
                 <p className="mt-1 text-xs text-white/65">
-                  Start typing your full address — pick a suggestion so we price the right place.
+                  Enter the full address with door / house number — pick a suggestion as you type.
+                  Town-only answers are not accepted.
                 </p>
                 <div className="mt-3">
                   <AddressInput
@@ -315,14 +316,18 @@ export default function QuoteAssistant() {
                     airportCode={draft.airportCode ?? ""}
                     label={addressLabel}
                     placeholder="e.g. 12 High Street, Bangor, BT20"
-                    helperText="Suggestions appear as you type"
+                    helperText="Include door number — suggestions appear as you type"
                     required={false}
                     disableAutoScroll
                   />
                 </div>
                 <button
                   type="button"
-                  disabled={addressValue.trim().length < 5 || isWorking}
+                  disabled={
+                    isWorking ||
+                    addressValue.trim().length < 8 ||
+                    !/\d/.test(addressValue)
+                  }
                   onClick={confirmAddress}
                   className="mt-3 w-full rounded-xl bg-emerald px-3 py-2.5 text-sm font-bold text-navy transition-colors hover:bg-emerald-light disabled:opacity-60"
                 >

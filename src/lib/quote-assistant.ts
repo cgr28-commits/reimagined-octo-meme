@@ -202,6 +202,41 @@ function matchAreaMention(text: string): string | undefined {
   return undefined;
 }
 
+/** Full street address with door / house number — towns-only replies are not enough. */
+export function isCompleteStreetAddress(address: string): boolean {
+  const trimmed = address.trim().replace(/[?.!]+$/, "");
+  if (trimmed.length < 8) return false;
+
+  const lower = trimmed.toLowerCase();
+  if (AREAS.some((area) => area.toLowerCase() === lower)) return false;
+  // Postcode alone is not enough.
+  if (/^bt\d{1,2}\s*\d[a-z]{2}$/i.test(trimmed)) return false;
+
+  // Door / house / flat number required (e.g. 12, 12A, Flat 2).
+  if (/\b(?:flat|apt|apartment|unit|suite)\s*\d+[a-z]?\b/i.test(trimmed)) return true;
+  if (/\b\d+[a-z]?\b/i.test(trimmed)) return true;
+
+  return false;
+}
+
+function incompleteAddressPrompt(draft: QuoteDraft): AssistantResponse {
+  const airportName =
+    AIRPORTS.find((item) => item.code === draft.airportCode)?.name ?? draft.airportCode;
+  const place =
+    draft.direction === "from-airport"
+      ? "drop-off"
+      : "pickup";
+
+  return {
+    reply:
+      `Please enter your full ${place} address including the door / house number` +
+      `${airportName ? ` (for your ${airportName} transfer)` : ""}.\n\n` +
+      `Example: 12 High Street, Bangor, BT20.\n` +
+      `Type below — suggestions appear as you type. A town name alone is not enough.`,
+    draft,
+    quickReplies: [],
+  };
+
 function extractNumber(text: string, kind: "passenger" | "suitcase"): number | undefined {
   if (kind === "suitcase" && /\b(no|zero)\s+(suitcases?|cases?|bags?|luggage)\b/i.test(text)) {
     return 0;
@@ -375,8 +410,8 @@ function promptForField(field: MissingField, draft: QuoteDraft): AssistantRespon
       return {
         reply:
           draft.direction === "from-airport"
-            ? `Got it — collection from ${airportName}. Type your full drop-off address below — suggestions appear as you type. Pick the matching address.`
-            : `Got it — drop-off at ${airportName}. Type your full pickup address below — suggestions appear as you type. Pick the matching address.`,
+            ? `Got it — collection from ${airportName}. Type your full drop-off address below, including the door / house number — suggestions appear as you type. Pick the matching address.`
+            : `Got it — drop-off at ${airportName}. Type your full pickup address below, including the door / house number — suggestions appear as you type. Pick the matching address.`,
         draft,
         quickReplies: [],
       };
@@ -722,31 +757,38 @@ export function respondToAssistantMessage(
       !/^(get a quote|quote|price|book|yes|no thanks)$/i.test(text) &&
       !/passenger|suitcase|case|bag/i.test(text);
 
-    // Prefer the full typed/selected address over extracting a town name only.
     if (looksLikeAddressReply) {
-      nextDraft.address = text.replace(/[?.!]+$/, "").trim();
-    } else {
-      const areaMention = matchAreaMention(text);
-      if (areaMention && !matchAirport(areaMention)) {
-        nextDraft.address = areaMention;
+      const candidate = text.replace(/[?.!]+$/, "").trim();
+      if (isCompleteStreetAddress(candidate)) {
+        nextDraft.address = candidate;
+      } else {
+        // Town-only / no door number — keep asking for a full address (no town chips).
+        return incompleteAddressPrompt(nextDraft);
       }
-
-      if (!nextDraft.address) {
-        const addressMatch =
-          text.match(/\bfrom\s+(.+?)(?:\s+to\s+(?:the\s+)?(?:airport|belfast|dublin|derry)|\s+for\s+\d|\s*$)/i) ||
-          text.match(/\bto\s+(.+?)(?:\s+from\s+(?:the\s+)?(?:airport|belfast|dublin|derry)|\s+for\s+\d|\s*$)/i);
-        if (addressMatch?.[1] && !matchAirport(addressMatch[1])) {
-          const candidate = addressMatch[1].replace(/[?.!]+$/, "").trim();
-          if (
-            candidate.length >= 3 &&
-            !/^(a quote|quote|airport|belfast international|dublin|city of derry|the airport)$/i.test(
-              candidate,
-            )
-          ) {
-            nextDraft.address = candidate;
-          }
+    } else if (nextField !== "address") {
+      // Only accept an address extracted from free text when it includes a door number.
+      const addressMatch =
+        text.match(/\bfrom\s+(.+?)(?:\s+to\s+(?:the\s+)?(?:airport|belfast|dublin|derry)|\s+for\s+\d|\s*$)/i) ||
+        text.match(/\bto\s+(.+?)(?:\s+from\s+(?:the\s+)?(?:airport|belfast|dublin|derry)|\s+for\s+\d|\s*$)/i);
+      if (addressMatch?.[1] && !matchAirport(addressMatch[1])) {
+        const candidate = addressMatch[1].replace(/[?.!]+$/, "").trim();
+        if (
+          isCompleteStreetAddress(candidate) &&
+          !/^(a quote|quote|airport|belfast international|dublin|city of derry|the airport)$/i.test(
+            candidate,
+          )
+        ) {
+          nextDraft.address = candidate;
         }
       }
+    }
+  }
+
+  // Never keep a town-only address on the draft.
+  if (nextDraft.address && !isCompleteStreetAddress(nextDraft.address)) {
+    delete nextDraft.address;
+    if (nextField === "address" || getNextQuoteField(nextDraft) === "address") {
+      return incompleteAddressPrompt(nextDraft);
     }
   }
 
