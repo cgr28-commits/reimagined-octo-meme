@@ -105,10 +105,42 @@ export function saveToContactsHref(): string {
 export function openContactPageInSafari(): void {
   const safariUrl = openContactInSafariUrl();
   try {
-    window.location.assign(safariUrl);
+    window.location.href = safariUrl;
   } catch {
-    // Fall through — UI shows manual … → Open in Safari steps.
+    // Fall through — UI shows share / copy / manual steps.
   }
+}
+
+/**
+ * Opens the iOS share sheet with this contact page URL.
+ * In the Google app this is the reliable way out — users can tap Safari
+ * (or “Open in Safari”) in the share menu. Custom URL schemes often do nothing.
+ */
+export async function shareContactPageLink(): Promise<"shared" | "copied" | "failed"> {
+  const url = contactCardUrl();
+  const shareData: ShareData = {
+    title: SITE.name,
+    text: `Save ${SITE.name} to your contacts`,
+    url,
+  };
+
+  if (typeof navigator.share === "function") {
+    try {
+      // Prefer URL-only share when possible (cleaner Safari option on iOS).
+      if (!navigator.canShare || navigator.canShare(shareData)) {
+        await navigator.share(shareData);
+        return "shared";
+      }
+    } catch (error) {
+      // User cancelled share sheet — not a failure worth escalating.
+      if (error instanceof DOMException && error.name === "AbortError") {
+        return "failed";
+      }
+    }
+  }
+
+  const copied = await copyContactPageLink();
+  return copied ? "copied" : "failed";
 }
 
 export async function copyContactPageLink(): Promise<boolean> {
