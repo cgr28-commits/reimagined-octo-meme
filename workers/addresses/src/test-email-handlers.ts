@@ -95,6 +95,42 @@ export async function handleTestDriverDetailEmails(
   });
   const customerEmail = buildCustomerDriverDetailsEmail({ job });
 
+  const hasEmailBinding = Boolean(env.EMAIL);
+  let emailBindingError: string | undefined;
+  if (env.EMAIL) {
+    try {
+      await env.EMAIL.send({
+        to,
+        from: { email: "bookings@myairporttaxini.co.uk", name: "My Airport Taxi NI" },
+        replyTo: { email: "bookings@myairporttaxini.co.uk", name: "My Airport Taxi NI" },
+        subject: `[TEST] ${driverEmail.subject}`,
+        text: driverEmail.text,
+        html: driverEmail.html,
+      });
+      // Cloudflare Email delivered the driver preview — send customer next
+      await env.EMAIL.send({
+        to,
+        from: { email: "bookings@myairporttaxini.co.uk", name: "My Airport Taxi NI" },
+        replyTo: { email: "bookings@myairporttaxini.co.uk", name: "My Airport Taxi NI" },
+        subject: `[TEST] ${customerEmail.subject}`,
+        text: customerEmail.text,
+        html: customerEmail.html,
+      });
+      return jsonResponse(
+        {
+          ok: true,
+          to,
+          via: "cloudflare-email",
+          note: "Customer email uses first name only (no surname).",
+        },
+        200,
+        origin,
+      );
+    } catch (error) {
+      emailBindingError = error instanceof Error ? error.message : String(error);
+    }
+  }
+
   const driverResult = await trySendEmail(env, {
     to,
     toName: "Colin",
@@ -109,13 +145,14 @@ export async function handleTestDriverDetailEmails(
     subject: `[TEST] ${customerEmail.subject}`,
     body: customerEmail.text,
     htmlBody: customerEmail.html,
-    requireHtml: true,
   });
 
   return jsonResponse(
     {
       ok: driverResult.sent && customerResult.sent,
       to,
+      hasEmailBinding,
+      emailBindingError,
       driver: driverResult,
       customer: customerResult,
       note: "Customer email uses first name only (no surname).",

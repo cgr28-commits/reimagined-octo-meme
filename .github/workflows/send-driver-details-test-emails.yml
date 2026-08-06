@@ -54,14 +54,23 @@ jobs:
         env:
           TEST_EMAIL_TOKEN: ${{ steps.deploy.outputs.token }}
         run: |
-          sleep 8
-          RESPONSE=$(curl -sS -X POST \
-            "https://reimagined-octo-meme.cgr28.workers.dev/test/driver-detail-emails" \
-            -H "Content-Type: application/json" \
-            -H "X-Test-Email-Token: $TEST_EMAIL_TOKEN" \
-            -d '{"to":"cgr28@hotmail.co.uk"}')
-          echo "$RESPONSE"
-          echo "$RESPONSE" | node -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{const j=JSON.parse(s); if(!j.ok){console.error(j); process.exit(1)} console.log("sent ok", j.to)})'
+          # Cooldown — earlier CI attempts rate-limited FormSubmit/Web3Forms for this edge IP
+          sleep 90
+          for attempt in 1 2 3; do
+            echo "Send attempt $attempt"
+            RESPONSE=$(curl -sS -X POST \
+              "https://reimagined-octo-meme.cgr28.workers.dev/test/driver-detail-emails" \
+              -H "Content-Type: application/json" \
+              -H "X-Test-Email-Token: $TEST_EMAIL_TOKEN" \
+              -d '{"to":"cgr28@hotmail.co.uk"}')
+            echo "$RESPONSE"
+            if echo "$RESPONSE" | node -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{try{const j=JSON.parse(s); process.exit(j.ok?0:1)}catch{process.exit(1)}})'; then
+              echo "sent ok"
+              exit 0
+            fi
+            sleep 45
+          done
+          exit 1
 
       - name: Clear one-shot test token
         if: always()
