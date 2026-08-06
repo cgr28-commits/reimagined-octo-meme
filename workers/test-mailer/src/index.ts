@@ -1,9 +1,17 @@
-/**
- * One-shot Cloudflare Worker used by CI to deliver test emails from an
- * edge IP (FormSubmit / MailChannels / Web3Forms work here; GitHub runner IPs do not).
- */
+type EmailBinding = {
+  send(message: {
+    to: string;
+    from: string | { email: string; name?: string };
+    subject: string;
+    text?: string;
+    html?: string;
+    replyTo?: string | { email: string; name?: string };
+  }): Promise<{ messageId?: string }>;
+};
+
 type Env = {
   WEB3FORMS_ACCESS_KEY?: string;
+  EMAIL?: EmailBinding;
 };
 
 type SendBody = {
@@ -13,6 +21,29 @@ type SendBody = {
   html: string;
 };
 
+const FROM = "bookings@myairporttaxini.co.uk";
+const BUSINESS = "My Airport Taxi NI";
+
+async function sendViaCloudflareEmail(
+  env: Env,
+  body: SendBody,
+): Promise<{ ok: boolean; detail: string }> {
+  if (!env.EMAIL) return { ok: false, detail: "EMAIL binding missing" };
+  try {
+    const result = await env.EMAIL.send({
+      to: body.to,
+      from: { email: FROM, name: BUSINESS },
+      replyTo: { email: FROM, name: BUSINESS },
+      subject: body.subject,
+      text: body.text,
+      html: body.html,
+    });
+    return { ok: true, detail: `messageId=${result.messageId ?? "ok"}` };
+  } catch (error) {
+    return { ok: false, detail: error instanceof Error ? error.message : String(error) };
+  }
+}
+
 async function sendViaFormSubmit(body: SendBody): Promise<{ ok: boolean; detail: string }> {
   const response = await fetch(`https://formsubmit.co/ajax/${encodeURIComponent(body.to)}`, {
     method: "POST",
@@ -21,9 +52,9 @@ async function sendViaFormSubmit(body: SendBody): Promise<{ ok: boolean; detail:
       _subject: body.subject,
       _captcha: "false",
       _template: "box",
-      name: "My Airport Taxi NI",
+      name: BUSINESS,
       message: body.html || body.text,
-      _replyto: "bookings@myairporttaxini.co.uk",
+      _replyto: FROM,
     }),
   });
   const text = await response.text();
@@ -40,28 +71,6 @@ async function sendViaFormSubmit(body: SendBody): Promise<{ ok: boolean; detail:
   }
 }
 
-async function sendViaMailChannels(body: SendBody): Promise<{ ok: boolean; detail: string }> {
-  const response = await fetch("https://api.mailchannels.net/tx/v1/send", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "CF-Worker": "matni-test-mailer",
-    },
-    body: JSON.stringify({
-      personalizations: [{ to: [{ email: body.to }] }],
-      from: { email: "bookings@myairporttaxini.co.uk", name: "My Airport Taxi NI" },
-      reply_to: { email: "bookings@myairporttaxini.co.uk", name: "My Airport Taxi NI" },
-      subject: body.subject,
-      content: [
-        { type: "text/plain", value: body.text },
-        { type: "text/html", value: body.html },
-      ],
-    }),
-  });
-  const text = await response.text();
-  return { ok: response.ok, detail: `${response.status} ${text.slice(0, 200)}` };
-}
-
 async function sendViaWeb3Forms(
   env: Env,
   body: SendBody,
@@ -75,7 +84,7 @@ async function sendViaWeb3Forms(
       access_key: accessKey,
       subject: `[Paid booking copy] ${body.subject}`,
       name: body.to,
-      from_name: "My Airport Taxi NI",
+      from_name: BUSINESS,
       message: body.text,
       email: body.to,
       autoresponse: { subject: body.subject, message: body.html },
@@ -94,7 +103,9 @@ async function sendViaWeb3Forms(
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     if (request.method === "GET") {
-      return new Response("matni-test-mailer ok — POST JSON {to,subject,text,html}");
+      return new Response(
+        `matni-test-mailer ok — EMAIL=${Boolean(env.EMAIL)} WEB3=${Boolean(env.WEB3FORMS_ACCESS_KEY?.trim())}`,
+      );
     }
     if (request.method !== "POST") {
       return new Response("Method not allowed", { status: 405 });
@@ -107,8 +118,8 @@ export default {
 
     const attempts: Array<{ provider: string; ok: boolean; detail: string }> = [];
     for (const [provider, run] of [
+      ["cloudflare-email", () => sendViaCloudflareEmail(env, body)],
       ["formsubmit", () => sendViaFormSubmit(body)],
-      ["mailchannels", () => sendViaMailChannels(body)],
       ["web3forms", () => sendViaWeb3Forms(env, body)],
     ] as const) {
       const result = await run();
