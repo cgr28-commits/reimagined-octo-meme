@@ -293,7 +293,7 @@ export async function issueBookingRefund(
   });
 
   const ownerEmailResult = await trySendEmail(env, {
-    to: env.BOOKING_TO_EMAIL?.trim() || DEFAULT_BOOKING_EMAIL,
+    to: "bookings@myairporttaxini.co.uk",
     subject: ownerEmail.subject,
     body: ownerEmail.body,
   });

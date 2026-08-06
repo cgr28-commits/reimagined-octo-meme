@@ -165,8 +165,8 @@ console.log("\nSetting worker secrets…");
 putSecret("GOOGLE_PLACES_API_KEY", process.env.GOOGLE_PLACES_API_KEY);
 putSecret("GETADDRESS_API_KEY", process.env.GETADDRESS_API_KEY);
 putSecret("WEB3FORMS_ACCESS_KEY", process.env.WEB3FORMS_ACCESS_KEY);
-putSecret("BOOKING_TO_EMAIL", process.env.BOOKING_TO_EMAIL ?? "bookings@myairporttaxini.co.uk");
-putSecret("BOOKING_FROM_EMAIL", process.env.BOOKING_FROM_EMAIL ?? "bookings@myairporttaxini.co.uk");
+putSecret("BOOKING_TO_EMAIL", "bookings@myairporttaxini.co.uk");
+putSecret("BOOKING_FROM_EMAIL", "bookings@myairporttaxini.co.uk");
 putSecret("GOOGLE_CALENDAR_ID", process.env.GOOGLE_CALENDAR_ID ?? "colinrice876@gmail.com");
 putSecret(
   "GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON",

@@ -5,7 +5,7 @@ import {
   type BookingJobRecord,
 } from "../shared/booking-job";
 
-const TO = process.env.TEST_EMAIL_TO?.trim() || "cgr28@hotmail.co.uk";
+const TO = process.env.TEST_EMAIL_TO?.trim() || "bookings@myairporttaxini.co.uk";
 const PREVIEW_DIR = process.env.EMAIL_PREVIEW_DIR?.trim() || "/tmp/email-previews";
 
 const sampleJob: BookingJobRecord = {

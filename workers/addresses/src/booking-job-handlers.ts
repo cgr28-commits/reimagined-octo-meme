@@ -448,7 +448,7 @@ export async function handleBookingJobAssignDriverRequest(
     );
   }
 
-  const ownerTo = env.BOOKING_TO_EMAIL?.trim() || "bookings@myairporttaxini.co.uk";
+  const ownerTo = "bookings@myairporttaxini.co.uk";
   const ownerCopy = await trySendEmail(env, {
     to: ownerTo,
     toName: BUSINESS_NAME,

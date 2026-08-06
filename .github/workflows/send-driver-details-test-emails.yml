@@ -50,30 +50,18 @@ jobs:
           echo "::add-mask::$TOKEN"
           echo "token=$TOKEN" >> "$GITHUB_OUTPUT"
 
-      - name: Send test emails to hotmail + bookings inbox
+      - name: Send test emails to bookings inbox
         env:
           TEST_EMAIL_TOKEN: ${{ steps.deploy.outputs.token }}
         run: |
           sleep 10
-          ok=0
-          for to in "cgr28@hotmail.co.uk" "bookings@myairporttaxini.co.uk"; do
-            echo "=== Sending to $to ==="
-            RESPONSE=$(curl -sS -X POST \
-              "https://reimagined-octo-meme.cgr28.workers.dev/test/driver-detail-emails" \
-              -H "Content-Type: application/json" \
-              -H "X-Test-Email-Token: $TEST_EMAIL_TOKEN" \
-              -d "{\"to\":\"$to\"}")
-            echo "$RESPONSE"
-            if echo "$RESPONSE" | node -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{try{process.exit(JSON.parse(s).ok?0:1)}catch{process.exit(1)}})'; then
-              echo "OK $to"
-              ok=1
-            else
-              echo "FAIL $to"
-            fi
-          done
-          if [ "$ok" != "1" ]; then
-            exit 1
-          fi
+          RESPONSE=$(curl -sS -X POST \
+            "https://reimagined-octo-meme.cgr28.workers.dev/test/driver-detail-emails" \
+            -H "Content-Type: application/json" \
+            -H "X-Test-Email-Token: $TEST_EMAIL_TOKEN" \
+            -d '{"to":"bookings@myairporttaxini.co.uk"}')
+          echo "$RESPONSE"
+          echo "$RESPONSE" | node -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{try{const j=JSON.parse(s); if(!j.ok){console.error(j); process.exit(1)} console.log("sent ok", j.to)})'
 
       - name: Clear one-shot test token
         if: always()

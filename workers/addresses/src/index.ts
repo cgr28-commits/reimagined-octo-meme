@@ -149,6 +149,10 @@ type BookingRequestBody = {
 const DEFAULT_BOOKING_EMAIL = "bookings@myairporttaxini.co.uk";
 const BUSINESS_NAME = "My Airport Taxi NI";
 
+function ownerInbox(_env?: { BOOKING_TO_EMAIL?: string }): string {
+  return DEFAULT_BOOKING_EMAIL;
+}
+
 function json(body: unknown, status: number, origin: string | null): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -355,7 +359,7 @@ async function sendBookingEmail(
   message: string,
   bookingReference: string | null,
 ): Promise<void> {
-  const toEmail = env.BOOKING_TO_EMAIL?.trim() || DEFAULT_BOOKING_EMAIL;
+  const toEmail = ownerInbox(env);
   const body = bookingReference
     ? prependBookingReference(message, bookingReference)
     : message;
@@ -597,7 +601,7 @@ async function handleQuoteLeadRequest(
     return json({ ok: true, emailed: false, deduplicated: true }, 200, origin);
   }
 
-  const toEmail = env.BOOKING_TO_EMAIL?.trim() || DEFAULT_BOOKING_EMAIL;
+  const toEmail = ownerInbox(env);
 
   try {
     await sendEmail(env, {
@@ -922,7 +926,7 @@ async function handlePaymentConfirmRequest(
     });
 
     const ownerEmailResult = await trySendEmail(env, {
-      to: env.BOOKING_TO_EMAIL?.trim() || DEFAULT_BOOKING_EMAIL,
+      to: ownerInbox(env),
       subject: ownerEmail.subject,
       body: ownerEmail.body,
     });

@@ -103,7 +103,9 @@ async function submitViaWeb3Forms(submission: EnquirySubmission): Promise<string
     body: JSON.stringify({
       access_key: WEB3FORMS_ACCESS_KEY,
       subject: submission.subject ?? `New enquiry — ${submission.customerName}`,
-      from_name: submission.customerName,
+      from_name: "My Airport Taxi NI",
+      replyto: SITE.email,
+      name: submission.customerName,
       message: submission.message,
     }),
   });
@@ -133,8 +135,9 @@ async function submitViaFormSubmitAjax(submission: EnquirySubmission): Promise<s
         _subject: submission.subject ?? `New enquiry — ${submission.customerName}`,
         _captcha: "false",
         _template: "box",
-        name: submission.customerName,
+        name: "My Airport Taxi NI",
         message: submission.message,
+        _replyto: SITE.email,
       }),
     },
   );
@@ -174,8 +177,9 @@ function submitViaFormSubmitForm(submission: EnquirySubmission): Promise<string>
       _subject: submission.subject ?? `New enquiry — ${submission.customerName}`,
       _captcha: "false",
       _template: "box",
-      name: submission.customerName,
+      name: "My Airport Taxi NI",
       message: submission.message,
+      _replyto: SITE.email,
     };
 
     for (const [name, value] of Object.entries(fields)) {

@@ -1,4 +1,5 @@
 import { formatMarketingOptInLine } from "./marketing";
+import { BUSINESS_MAILBOX } from "./business-email";
 
 export type PaidBookingDetails = {
   customerName: string;
@@ -43,7 +44,7 @@ export type CustomerPaidBookingEmail = {
 };
 
 const BUSINESS_WEBSITE = "https://www.myairporttaxini.co.uk";
-const BUSINESS_EMAIL = "bookings@myairporttaxini.co.uk";
+const BUSINESS_EMAIL = BUSINESS_MAILBOX;
 const LOGO_URL = `${BUSINESS_WEBSITE}/google-business-logo.png`;
 
 function escapeHtml(value: string): string {

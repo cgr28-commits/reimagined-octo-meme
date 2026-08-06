@@ -276,7 +276,7 @@ export async function handleDriverAssignRequest(
       emailError = sendResult.error || "Failed to email driver";
     } else {
       // Always keep an owner copy of exactly what the driver was emailed.
-      const ownerTo = env.BOOKING_TO_EMAIL?.trim() || "bookings@myairporttaxini.co.uk";
+      const ownerTo = "bookings@myairporttaxini.co.uk";
       const ownerCopy = await trySendEmail(env, {
         to: ownerTo,
         toName: BUSINESS_NAME,

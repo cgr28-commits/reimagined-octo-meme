@@ -1,3 +1,10 @@
+import {
+  BUSINESS_MAILBOX,
+  BUSINESS_NAME,
+  businessMailbox,
+  isBusinessMailbox,
+} from "../shared/business-email";
+
 type EmailBinding = {
   send(message: {
     to: string;
@@ -33,8 +40,8 @@ export type EmailSendResult = {
   providersTried?: string[];
 };
 
-const DEFAULT_BOOKING_EMAIL = "bookings@myairporttaxini.co.uk";
-const BUSINESS_NAME = "My Airport Taxi NI";
+/** @deprecated Use BUSINESS_MAILBOX — kept for existing imports. */
+const DEFAULT_BOOKING_EMAIL = BUSINESS_MAILBOX;
 const WORKER_PUBLIC_HOST = "reimagined-octo-meme.cgr28.workers.dev";
 
 async function sendViaCloudflareEmail(env: WorkerEmailEnv, options: EmailPayload): Promise<void> {
@@ -42,7 +49,7 @@ async function sendViaCloudflareEmail(env: WorkerEmailEnv, options: EmailPayload
     throw new Error("Cloudflare Email Service is not configured");
   }
 
-  const fromEmail = env.BOOKING_FROM_EMAIL?.trim() || DEFAULT_BOOKING_EMAIL;
+  const fromEmail = businessMailbox(env.BOOKING_FROM_EMAIL);
 
   await env.EMAIL.send({
     to: options.to,
@@ -60,14 +67,15 @@ async function sendViaWeb3Forms(env: WorkerEmailEnv, options: EmailPayload): Pro
     throw new Error("Web3Forms is not configured");
   }
 
-  const ownerEmail = env.BOOKING_TO_EMAIL?.trim() || DEFAULT_BOOKING_EMAIL;
-  const sendAutoresponse = options.to.toLowerCase() !== ownerEmail.toLowerCase();
+  const ownerEmail = businessMailbox(env.BOOKING_TO_EMAIL);
+  const sendAutoresponse = !isBusinessMailbox(options.to);
 
   const payload: Record<string, unknown> = {
     access_key: accessKey,
     subject: sendAutoresponse ? `[Paid booking copy] ${options.subject}` : options.subject,
-    name: options.toName ?? options.to,
-    from_name: options.toName ?? BUSINESS_NAME,
+    name: options.toName ?? BUSINESS_NAME,
+    from_name: BUSINESS_NAME,
+    replyto: BUSINESS_MAILBOX,
     message: options.body,
   };
 
@@ -86,9 +94,12 @@ async function sendViaWeb3Forms(env: WorkerEmailEnv, options: EmailPayload): Pro
     body: JSON.stringify(payload),
   });
 
-  const body = (await response.json().catch(() => null)) as { success?: unknown } | null;
+  const body = (await response.json().catch(() => null)) as {
+    success?: unknown;
+    message?: string;
+  } | null;
   if (!response.ok || body?.success !== true) {
-    throw new Error("Web3Forms request failed");
+    throw new Error(body?.message ? `Web3Forms: ${body.message}` : "Web3Forms request failed");
   }
 }
 
@@ -100,10 +111,10 @@ async function sendViaFormSubmit(options: EmailPayload): Promise<void> {
     body: JSON.stringify({
       _subject: options.subject,
       _captcha: "false",
-      _template: html ? "box" : "box",
-      name: options.toName ?? BUSINESS_NAME,
+      _template: "box",
+      name: BUSINESS_NAME,
       message: html || options.body,
-      ...(html ? { _replyto: DEFAULT_BOOKING_EMAIL } : {}),
+      _replyto: BUSINESS_MAILBOX,
     }),
   });
 
@@ -119,7 +130,7 @@ async function sendViaFormSubmit(options: EmailPayload): Promise<void> {
 }
 
 async function sendViaMailChannels(env: WorkerEmailEnv, options: EmailPayload): Promise<void> {
-  const fromEmail = env.BOOKING_FROM_EMAIL?.trim() || DEFAULT_BOOKING_EMAIL;
+  const fromEmail = businessMailbox(env.BOOKING_FROM_EMAIL);
 
   const response = await fetch("https://api.mailchannels.net/tx/v1/send", {
     method: "POST",
@@ -160,8 +171,8 @@ export async function trySendEmail(
 ): Promise<EmailSendResult> {
   const providers: Array<{ label: string; run: () => Promise<void> }> = [];
   const wantsHtml = Boolean(options.htmlBody?.trim());
-  const ownerEmail = env.BOOKING_TO_EMAIL?.trim() || DEFAULT_BOOKING_EMAIL;
-  const isCustomerEmail = options.to.toLowerCase() !== ownerEmail.toLowerCase();
+  const ownerEmail = businessMailbox(env.BOOKING_TO_EMAIL);
+  const isCustomerEmail = !isBusinessMailbox(options.to);
   const skipPlainTextFallback = Boolean(options.requireHtml && wantsHtml && isCustomerEmail);
 
   if (env.EMAIL) {
@@ -225,4 +236,4 @@ export async function sendEmail(env: WorkerEmailEnv, options: EmailPayload): Pro
   }
 }
 
-export { BUSINESS_NAME, DEFAULT_BOOKING_EMAIL };
+export { BUSINESS_NAME, DEFAULT_BOOKING_EMAIL, BUSINESS_MAILBOX, businessMailbox, isBusinessMailbox };

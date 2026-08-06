@@ -70,7 +70,7 @@ function authorizedForTestEmails(request: Request, env: TestEmailEnv): boolean {
   return Boolean(provided) && provided === expected;
 }
 
-/** Owner key or one-shot CI token: send sample driver + customer driver-details emails. */
+/** Owner key or one-shot CI token: send sample driver + customer emails to bookings@. */
 export async function handleTestDriverDetailEmails(
   request: Request,
   env: TestEmailEnv,
@@ -80,13 +80,9 @@ export async function handleTestDriverDetailEmails(
     return jsonResponse({ ok: false, error: "Owner key or test token required" }, 401, origin);
   }
 
-  let to = "cgr28@hotmail.co.uk";
-  try {
-    const body = (await request.json().catch(() => null)) as { to?: string } | null;
-    if (body?.to?.trim()) to = body.to.trim();
-  } catch {
-    // keep default
-  }
+  // Consume body if present (destination is always the business mailbox).
+  await request.json().catch(() => null);
+  const to = "bookings@myairporttaxini.co.uk";
 
   const job = sampleJob();
   const driverEmail = buildDriverAssignmentEmail({
@@ -106,11 +102,10 @@ export async function handleTestDriverDetailEmails(
     return result.sent;
   }
 
-  // Prefer plain-text-capable path for hotmail (autoresponse providers are flaky)
   const driverOk = await attempt("driver", () =>
     trySendEmail(env, {
       to,
-      toName: "Colin",
+      toName: "Bookings",
       subject: `[TEST] ${driverEmail.subject}`,
       body: driverEmail.text,
       htmlBody: driverEmail.html,
@@ -119,7 +114,7 @@ export async function handleTestDriverDetailEmails(
   const customerOk = await attempt("customer", () =>
     trySendEmail(env, {
       to,
-      toName: "Colin",
+      toName: "Bookings",
       subject: `[TEST] ${customerEmail.subject}`,
       body: customerEmail.text,
       htmlBody: customerEmail.html,
@@ -130,8 +125,9 @@ export async function handleTestDriverDetailEmails(
     {
       ok: driverOk && customerOk,
       to,
+      from: to,
       attempts,
-      note: "Customer email uses first name only (no surname). No driver login/key.",
+      note: "All site mail uses bookings@myairporttaxini.co.uk. Customer preview is first-name only.",
       previews: {
         driverSubject: `[TEST] ${driverEmail.subject}`,
         customerSubject: `[TEST] ${customerEmail.subject}`,
