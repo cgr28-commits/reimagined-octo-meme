@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { playBotOpenSound, playBotReplySound, playBotWorkingSound } from "@/lib/bot-sounds";
 import { contactCardUrl } from "@/lib/contact-card";
 import { detectMobileDevice, useIsMobileDevice } from "@/lib/device";
@@ -52,18 +53,25 @@ export default function QuoteAssistant() {
   const [isWorking, setIsWorking] = useState(false);
   const [pickerDate, setPickerDate] = useState("");
   const [pickerTime, setPickerTime] = useState("");
+  const launcherRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const contactOfferRef = useRef<HTMLDivElement>(null);
   const dateInputRef = useRef<HTMLInputElement>(null);
   const timeInputRef = useRef<HTMLInputElement>(null);
   const workingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const draftRef = useRef(draft);
+  const [mounted, setMounted] = useState(false);
   const qrSrc = withBasePath("/contact-qr.png");
   const awaitingField = !isWorking ? getNextQuoteField(draft) : null;
   const showDatePicker = awaitingField === "tripDate" || awaitingField === "returnDate";
   const showTimePicker = awaitingField === "tripTime" || awaitingField === "returnTime";
   const minDate =
     awaitingField === "returnDate" && draft.tripDate ? draft.tripDate : todayLondonDate();
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     draftRef.current = draft;
@@ -77,10 +85,68 @@ export default function QuoteAssistant() {
     };
   }, []);
 
+  // Keep the page from sliding sideways while the chat is open (common on iOS
+  // when a fixed panel sits inside an overflow-x clip ancestor).
+  useEffect(() => {
+    if (!open) return;
+
+    const html = document.documentElement;
+    const body = document.body;
+    const prevHtmlOverflow = html.style.overflow;
+    const prevBodyOverflow = body.style.overflow;
+    const prevHtmlOverscroll = html.style.overscrollBehaviorX;
+    const prevBodyOverscroll = body.style.overscrollBehaviorX;
+
+    html.style.overflow = "hidden";
+    body.style.overflow = "hidden";
+    html.style.overscrollBehaviorX = "none";
+    body.style.overscrollBehaviorX = "none";
+
+    if (window.scrollX !== 0) {
+      window.scrollTo(0, window.scrollY);
+    }
+
+    const keepHorizontalOrigin = () => {
+      if (window.scrollX !== 0) {
+        window.scrollTo(0, window.scrollY);
+      }
+    };
+
+    const preventBackgroundTouchScroll = (event: TouchEvent) => {
+      const target = event.target as Node | null;
+      if (
+        target &&
+        (panelRef.current?.contains(target) || launcherRef.current?.contains(target))
+      ) {
+        return;
+      }
+      event.preventDefault();
+    };
+
+    window.addEventListener("scroll", keepHorizontalOrigin, { passive: true });
+    document.addEventListener("touchmove", preventBackgroundTouchScroll, { passive: false });
+
+    return () => {
+      html.style.overflow = prevHtmlOverflow;
+      body.style.overflow = prevBodyOverflow;
+      html.style.overscrollBehaviorX = prevHtmlOverscroll;
+      body.style.overscrollBehaviorX = prevBodyOverscroll;
+      window.removeEventListener("scroll", keepHorizontalOrigin);
+      document.removeEventListener("touchmove", preventBackgroundTouchScroll);
+      if (window.scrollX !== 0) {
+        window.scrollTo(0, window.scrollY);
+      }
+    };
+  }, [open]);
+
   useEffect(() => {
     if (!open) return;
     if (showContactOffer && !isWorking) {
-      contactOfferRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      contactOfferRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "nearest",
+        inline: "nearest",
+      });
       return;
     }
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
@@ -184,9 +250,10 @@ export default function QuoteAssistant() {
     setInput("");
   }
 
-  return (
+  const ui = (
     <>
       <button
+        ref={launcherRef}
         type="button"
         onClick={toggleOpen}
         className={`fixed bottom-6 right-3 z-50 flex max-w-[calc(100%-1.5rem)] items-center border-2 border-emerald bg-navy shadow-lg shadow-emerald/30 transition-all hover:bg-navy-light sm:bottom-8 sm:right-8 ${
@@ -233,8 +300,11 @@ export default function QuoteAssistant() {
       </button>
 
       {open ? (
-        <div className="fixed bottom-24 left-3 right-3 z-50 flex max-h-[min(70dvh,32rem)] flex-col overflow-hidden rounded-2xl border border-white/15 bg-navy-dark shadow-2xl sm:bottom-28 sm:left-auto sm:right-8 sm:w-[24rem] sm:max-w-[calc(100%-4rem)]">
-          <div className="flex items-start justify-between gap-3 border-b border-white/10 bg-navy px-4 py-3">
+        <div
+          ref={panelRef}
+          className="fixed bottom-24 left-3 right-3 z-50 flex max-h-[min(70dvh,32rem)] min-w-0 max-w-full touch-pan-y flex-col overflow-hidden overscroll-x-none rounded-2xl border border-white/15 bg-navy-dark shadow-2xl sm:bottom-28 sm:left-auto sm:right-8 sm:w-[24rem] sm:max-w-[min(24rem,calc(100%-4rem))]"
+        >
+          <div className="flex min-w-0 items-start justify-between gap-3 border-b border-white/10 bg-navy px-4 py-3">
             <div className="flex min-w-0 items-center gap-3">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-emerald/50 bg-navy">
                 <Image
@@ -246,8 +316,8 @@ export default function QuoteAssistant() {
                 />
               </div>
               <div className="min-w-0">
-                <p className="text-sm font-bold text-white">Ask a question</p>
-                <p className="text-xs text-white/55">Quotes · help · contact</p>
+                <p className="truncate text-sm font-bold text-white">Ask a question</p>
+                <p className="truncate text-xs text-white/55">Quotes · help · contact</p>
               </div>
             </div>
             <button
@@ -259,11 +329,14 @@ export default function QuoteAssistant() {
             </button>
           </div>
 
-          <div ref={listRef} className="max-h-[45vh] space-y-3 overflow-y-auto overscroll-contain px-3 py-3">
+          <div
+            ref={listRef}
+            className="max-h-[45vh] min-w-0 space-y-3 overflow-x-hidden overflow-y-auto overscroll-contain overscroll-x-none px-3 py-3 touch-pan-y"
+          >
             {messages.map((message, index) => (
               <div
                 key={`${message.role}-${index}`}
-                className={`max-w-[92%] whitespace-pre-wrap rounded-2xl px-3 py-2 text-sm leading-relaxed ${
+                className={`max-w-[92%] break-words whitespace-pre-wrap rounded-2xl px-3 py-2 text-sm leading-relaxed [overflow-wrap:anywhere] ${
                   message.role === "user"
                     ? "ml-auto bg-emerald text-navy"
                     : "mr-auto bg-white/10 text-white/90"
@@ -275,7 +348,7 @@ export default function QuoteAssistant() {
 
             {isWorking ? (
               <div
-                className="mr-auto flex max-w-[92%] items-center gap-2 rounded-2xl bg-white/10 px-3 py-2 text-sm text-white/70"
+                className="mr-auto flex max-w-[92%] items-center gap-2 break-words rounded-2xl bg-white/10 px-3 py-2 text-sm text-white/70"
                 aria-live="polite"
               >
                 <span className="inline-flex gap-1" aria-hidden>
@@ -291,7 +364,7 @@ export default function QuoteAssistant() {
             {showContactOffer && !isWorking && isMobile === false ? (
               <div
                 ref={contactOfferRef}
-                className="rounded-2xl border border-emerald/35 bg-emerald/10 px-3 py-3"
+                className="min-w-0 rounded-2xl border border-emerald/35 bg-emerald/10 px-3 py-3"
               >
                 <p className="text-sm font-semibold text-white">Would you like to save to contacts?</p>
                 <p className="mt-1 text-xs text-white/65">
@@ -306,7 +379,7 @@ export default function QuoteAssistant() {
                       alt={`Scan and save QR code for ${contactCardUrl()}`}
                       width={180}
                       height={180}
-                      className="h-40 w-40"
+                      className="h-40 w-40 max-w-full"
                     />
                   </div>
                   <p className="mt-2 text-center text-xs font-semibold text-emerald">Scan and save</p>
@@ -330,12 +403,12 @@ export default function QuoteAssistant() {
             ) : null}
 
             {showDatePicker ? (
-              <div className="rounded-2xl border border-emerald/35 bg-emerald/10 px-3 py-3">
+              <div className="min-w-0 rounded-2xl border border-emerald/35 bg-emerald/10 px-3 py-3">
                 <p className="text-sm font-semibold text-white">
                   {awaitingField === "returnDate" ? "Return date" : "Outbound date"}
                 </p>
                 <p className="mt-1 text-xs text-white/65">Open the calendar and choose your travel date.</p>
-                <label className="mt-3 block">
+                <label className="mt-3 block min-w-0">
                   <span className="sr-only">Choose date</span>
                   <input
                     ref={dateInputRef}
@@ -350,11 +423,11 @@ export default function QuoteAssistant() {
                         // Older browsers open the calendar from the native control.
                       }
                     }}
-                    className="w-full rounded-xl border border-white/20 bg-navy px-3 py-2.5 text-sm text-white outline-none [color-scheme:dark] focus:border-emerald/50"
+                    className="w-full max-w-full rounded-xl border border-white/20 bg-navy px-3 py-2.5 text-sm text-white outline-none [color-scheme:dark] focus:border-emerald/50"
                   />
                 </label>
                 {pickerDate ? (
-                  <p className="mt-2 text-xs text-emerald">{formatPickerDateLabel(pickerDate)}</p>
+                  <p className="mt-2 break-words text-xs text-emerald">{formatPickerDateLabel(pickerDate)}</p>
                 ) : null}
                 <button
                   type="button"
@@ -368,12 +441,12 @@ export default function QuoteAssistant() {
             ) : null}
 
             {showTimePicker ? (
-              <div className="rounded-2xl border border-emerald/35 bg-emerald/10 px-3 py-3">
+              <div className="min-w-0 rounded-2xl border border-emerald/35 bg-emerald/10 px-3 py-3">
                 <p className="text-sm font-semibold text-white">
                   {awaitingField === "returnTime" ? "Return pickup time" : "Pickup time"}
                 </p>
                 <p className="mt-1 text-xs text-white/65">Open the clock and choose your pickup time.</p>
-                <label className="mt-3 block">
+                <label className="mt-3 block min-w-0">
                   <span className="sr-only">Choose time</span>
                   <input
                     ref={timeInputRef}
@@ -387,7 +460,7 @@ export default function QuoteAssistant() {
                         // Older browsers open the clock from the native control.
                       }
                     }}
-                    className="w-full rounded-xl border border-white/20 bg-navy px-3 py-2.5 text-sm text-white outline-none [color-scheme:dark] focus:border-emerald/50"
+                    className="w-full max-w-full rounded-xl border border-white/20 bg-navy px-3 py-2.5 text-sm text-white outline-none [color-scheme:dark] focus:border-emerald/50"
                   />
                 </label>
                 <button
@@ -403,13 +476,13 @@ export default function QuoteAssistant() {
           </div>
 
           {quickReplies.length > 0 && !isWorking ? (
-            <div className="flex flex-wrap gap-2 border-t border-white/10 px-3 py-2">
+            <div className="flex min-w-0 flex-wrap gap-2 border-t border-white/10 px-3 py-2">
               {quickReplies.map((reply) => (
                 <button
                   key={reply}
                   type="button"
                   onClick={() => sendText(reply)}
-                  className="rounded-full border border-emerald/40 bg-emerald/10 px-3 py-1 text-xs font-semibold text-emerald transition-colors hover:bg-emerald/20"
+                  className="max-w-full break-words rounded-full border border-emerald/40 bg-emerald/10 px-3 py-1 text-xs font-semibold text-emerald transition-colors hover:bg-emerald/20"
                 >
                   {reply}
                 </button>
@@ -418,7 +491,7 @@ export default function QuoteAssistant() {
           ) : null}
 
           <form
-            className="flex gap-2 border-t border-white/10 p-3"
+            className="flex min-w-0 gap-2 border-t border-white/10 p-3"
             onSubmit={(event) => {
               event.preventDefault();
               sendText(input);
@@ -448,4 +521,7 @@ export default function QuoteAssistant() {
       ) : null}
     </>
   );
+
+  if (!mounted) return null;
+  return createPortal(ui, document.body);
 }

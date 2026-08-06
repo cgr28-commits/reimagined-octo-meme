@@ -100,8 +100,9 @@ export default function RootLayout({
         ))}
         <div className="relative w-full max-w-full overflow-x-hidden">
           {children}
-          <QuoteAssistant />
         </div>
+        {/* Outside the overflow clip so position:fixed is viewport-relative on mobile */}
+        <QuoteAssistant />
       </body>
     </html>
   );
