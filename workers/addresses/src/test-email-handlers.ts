@@ -51,15 +51,33 @@ function sampleJob(): BookingJobRecord {
   };
 }
 
-/** Owner-only: send sample driver assignment + customer driver-details emails. */
+type TestEmailEnv = WorkerEmailEnv & {
+  OWNER_ACCESS_KEY?: string;
+  DRIVER_ACCESS_KEY?: string;
+  TEST_EMAIL_TOKEN?: string;
+};
+
+function authorizedForTestEmails(request: Request, env: TestEmailEnv): boolean {
+  const session = resolveDriverSession(request, env);
+  if (session.authorized && session.role === "owner") return true;
+
+  const expected = env.TEST_EMAIL_TOKEN?.trim() ?? "";
+  if (!expected || expected === "cleared") return false;
+  const provided =
+    request.headers.get("X-Test-Email-Token")?.trim() ||
+    new URL(request.url).searchParams.get("token")?.trim() ||
+    "";
+  return Boolean(provided) && provided === expected;
+}
+
+/** Owner key or one-shot CI token: send sample driver + customer driver-details emails. */
 export async function handleTestDriverDetailEmails(
   request: Request,
-  env: WorkerEmailEnv & { OWNER_ACCESS_KEY?: string; DRIVER_ACCESS_KEY?: string },
+  env: TestEmailEnv,
   origin: string | null,
 ): Promise<Response> {
-  const session = resolveDriverSession(request, env);
-  if (!session.authorized || session.role !== "owner") {
-    return jsonResponse({ ok: false, error: "Owner key required" }, 401, origin);
+  if (!authorizedForTestEmails(request, env)) {
+    return jsonResponse({ ok: false, error: "Owner key or test token required" }, 401, origin);
   }
 
   let to = "cgr28@hotmail.co.uk";
