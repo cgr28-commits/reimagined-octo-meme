@@ -32,6 +32,14 @@ type AddressInputProps = {
   disableAutoScroll?: boolean;
   /** Called after a suggestion is chosen (full formatted address). */
   onSelectAddress?: (address: string) => void;
+  /**
+   * portal = dropdown below/above based on space (quote form).
+   * inline = always attached just above the typing field (quote bot bar).
+   */
+  suggestionsMode?: "portal" | "inline";
+  /** Hide the visible label (still available to screen readers). */
+  hideLabel?: boolean;
+  className?: string;
 };
 
 type DropdownPosition = {
@@ -55,6 +63,9 @@ export default function AddressInput({
   airportCode = "",
   disableAutoScroll = false,
   onSelectAddress,
+  suggestionsMode = "portal",
+  hideLabel = false,
+  className = "",
 }: AddressInputProps) {
   const autocompleteEnabled = isGooglePlacesEnabled();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -65,6 +76,7 @@ export default function AddressInput({
   const [loadError, setLoadError] = useState<string | null>(null);
   const debounceRef = useRef<number | null>(null);
   const hintId = useId();
+  const useInlineSuggestions = suggestionsMode === "inline";
 
   const updateDropdownPosition = useCallback(() => {
     if (!inputRef.current) {
@@ -77,17 +89,19 @@ export default function AddressInput({
     const viewportOffsetTop = window.visualViewport?.offsetTop ?? 0;
     const spaceBelow = viewportOffsetTop + viewportHeight - rect.bottom - 12;
     const spaceAbove = rect.top - viewportOffsetTop - 12;
-    const preferAbove = spaceBelow < 180 && spaceAbove > spaceBelow;
+    // Bot typing bar: keep suggestions glued above the field the customer is using.
+    const preferAbove =
+      suggestionsMode === "inline" || (spaceBelow < 180 && spaceAbove > spaceBelow);
     const available = Math.max(120, preferAbove ? spaceAbove : spaceBelow);
 
     setDropdownPosition({
       top: preferAbove ? rect.top - 8 : rect.bottom + 8,
       left: Math.max(8, Math.min(rect.left, window.innerWidth - rect.width - 8)),
       width: Math.min(rect.width, window.innerWidth - 16),
-      maxHeight: Math.min(256, available),
+      maxHeight: Math.min(suggestionsMode === "inline" ? 220 : 256, available),
       placement: preferAbove ? "above" : "below",
     });
-  }, []);
+  }, [suggestionsMode]);
 
   useEffect(() => {
     return () => {
@@ -126,7 +140,7 @@ export default function AddressInput({
     }
 
     updateDropdownPosition();
-    if (!disableAutoScroll) {
+    if (!disableAutoScroll && !useInlineSuggestions) {
       inputRef.current?.scrollIntoView({
         block: "nearest",
         inline: "nearest",
@@ -145,7 +159,14 @@ export default function AddressInput({
       window.visualViewport?.removeEventListener("resize", onViewportChange);
       window.visualViewport?.removeEventListener("scroll", onViewportChange);
     };
-  }, [disableAutoScroll, suggestions.length, suggestionsOpen, updateDropdownPosition, value]);
+  }, [
+    disableAutoScroll,
+    suggestions.length,
+    suggestionsOpen,
+    updateDropdownPosition,
+    useInlineSuggestions,
+    value,
+  ]);
 
   const requestSuggestions = useCallback(
     (query: string) => {
@@ -191,7 +212,7 @@ export default function AddressInput({
 
     debounceRef.current = window.setTimeout(() => {
       requestSuggestions(next);
-    }, 300);
+    }, useInlineSuggestions ? 220 : 300);
   }
 
   function handleClear() {
@@ -216,13 +237,31 @@ export default function AddressInput({
     setLoadError(null);
   }
 
+  const suggestionItems = suggestions.map((prediction) => (
+    <li key={prediction.placeId}>
+      <button
+        type="button"
+        onMouseDown={(event) => event.preventDefault()}
+        onClick={() => void handleSelect(prediction)}
+        className="block w-full px-4 py-3 text-left transition-colors hover:bg-emerald/15"
+      >
+        <span className="block text-sm font-semibold text-navy">{prediction.mainText}</span>
+        {prediction.secondaryText ? (
+          <span className="mt-0.5 block text-xs text-navy/70">{prediction.secondaryText}</span>
+        ) : null}
+      </button>
+    </li>
+  ));
+
+  const showSuggestions = suggestionsOpen && suggestions.length > 0;
+
   const suggestionsPortal =
-    suggestionsOpen &&
-    suggestions.length > 0 &&
-    typeof document !== "undefined"
+    showSuggestions && typeof document !== "undefined"
       ? createPortal(
           <ul
-            className="address-suggestions-portal fixed z-[100000] overflow-y-auto overscroll-contain rounded-xl border border-white/10 bg-white shadow-2xl"
+            className={`address-suggestions-portal fixed z-[100000] overflow-y-auto overscroll-contain rounded-xl border border-white/10 bg-white shadow-2xl ${
+              useInlineSuggestions ? "ring-2 ring-emerald/35" : ""
+            }`}
             style={
               dropdownPosition
                 ? {
@@ -241,34 +280,26 @@ export default function AddressInput({
                 : { visibility: "hidden" }
             }
           >
-            {suggestions.map((prediction) => (
-              <li key={prediction.placeId}>
-                <button
-                  type="button"
-                  onMouseDown={(event) => event.preventDefault()}
-                  onClick={() => void handleSelect(prediction)}
-                  className="block w-full px-4 py-3 text-left transition-colors hover:bg-emerald/15"
-                >
-                  <span className="block text-sm font-semibold text-navy">{prediction.mainText}</span>
-                  {prediction.secondaryText ? (
-                    <span className="mt-0.5 block text-xs text-navy/70">{prediction.secondaryText}</span>
-                  ) : null}
-                </button>
-              </li>
-            ))}
+            {suggestionItems}
           </ul>,
           document.body,
         )
       : null;
 
   return (
-    <div ref={containerRef} className="relative min-w-0">
-      <div className="mb-1.5 flex items-center justify-between gap-3">
-        <label htmlFor={id} className="text-xs font-medium uppercase tracking-wider text-white/50">
+    <div ref={containerRef} className={`relative min-w-0 ${className}`}>
+      {hideLabel ? (
+        <label htmlFor={id} className="sr-only">
           {label}
         </label>
-        {action}
-      </div>
+      ) : (
+        <div className="mb-1.5 flex items-center justify-between gap-3">
+          <label htmlFor={id} className="text-xs font-medium uppercase tracking-wider text-white/50">
+            {label}
+          </label>
+          {action}
+        </div>
+      )}
 
       <div className="relative">
         <input
@@ -290,6 +321,8 @@ export default function AddressInput({
           }}
           placeholder={placeholder}
           aria-describedby={hintId}
+          aria-expanded={showSuggestions}
+          aria-autocomplete="list"
           className="address-input w-full rounded-xl border border-white/10 bg-white/5 py-3 pl-4 pr-11 text-sm text-white placeholder:text-white/30 outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30"
         />
         {value ? (

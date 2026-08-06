@@ -365,44 +365,17 @@ export default function QuoteAssistant() {
             ) : null}
 
             {showAddressPicker && !isWorking ? (
-              <div className="min-w-0 rounded-2xl border border-emerald/35 bg-emerald/10 px-3 py-3">
+              <div className="min-w-0 rounded-2xl border border-emerald/35 bg-emerald/10 px-3 py-2.5">
                 <p className="text-sm font-semibold text-white">{addressLabel}</p>
                 <p className="mt-1 text-xs text-white/65">
-                  Enter the full address with door / house number — pick a suggestion as you type.
-                  Town-only answers are not accepted.
+                  Type your full address with door / house number in the bar below — suggestions
+                  appear as you type. Town-only answers are not accepted.
                 </p>
-                <div className="mt-3">
-                  <AddressInput
-                    id="bot-quote-address"
-                    name="bot-quote-address"
-                    value={addressValue}
-                    onChange={setAddressValue}
-                    onSelectAddress={(address) => sendText(address)}
-                    airportCode={draft.airportCode ?? ""}
-                    label={addressLabel}
-                    placeholder="e.g. 12 High Street, Bangor, BT20"
-                    helperText="Include door number — suggestions appear as you type"
-                    required={false}
-                    disableAutoScroll
-                  />
-                </div>
-                <button
-                  type="button"
-                  disabled={
-                    isWorking ||
-                    addressValue.trim().length < 8 ||
-                    !/\d/.test(addressValue)
-                  }
-                  onClick={confirmAddress}
-                  className="mt-3 w-full rounded-xl bg-emerald px-3 py-2.5 text-sm font-bold text-navy transition-colors hover:bg-emerald-light disabled:opacity-60"
-                >
-                  Use this address
-                </button>
               </div>
             ) : null}
           </div>
 
-          {quickReplies.length > 0 && !isWorking ? (
+          {quickReplies.length > 0 && !isWorking && !showAddressPicker ? (
             <div className="flex min-w-0 flex-wrap gap-2 border-t border-white/10 px-3 py-2">
               {quickReplies.map((reply) => (
                 <button
@@ -417,7 +390,42 @@ export default function QuoteAssistant() {
             </div>
           ) : null}
 
-          {showAddressPicker ? null : (
+          {showAddressPicker ? (
+            <form
+              className="relative z-20 min-w-0 border-t border-white/10 p-3"
+              onSubmit={(event) => {
+                event.preventDefault();
+                confirmAddress();
+              }}
+            >
+              <AddressInput
+                id="bot-quote-address"
+                name="bot-quote-address"
+                value={addressValue}
+                onChange={setAddressValue}
+                onSelectAddress={(address) => sendText(address)}
+                airportCode={draft.airportCode ?? ""}
+                label={addressLabel}
+                hideLabel
+                placeholder="e.g. 12 High Street, Bangor, BT20"
+                helperText="Suggestions appear above as you type — include your door number"
+                required={false}
+                disableAutoScroll
+                suggestionsMode="inline"
+              />
+              <button
+                type="submit"
+                disabled={
+                  isWorking ||
+                  addressValue.trim().length < 8 ||
+                  !/\d/.test(addressValue)
+                }
+                className="mt-2 w-full rounded-xl bg-emerald px-3 py-2.5 text-sm font-bold text-navy transition-colors hover:bg-emerald-light disabled:opacity-60"
+              >
+                Use this address
+              </button>
+            </form>
+          ) : (
             <form
               className="flex min-w-0 gap-2 border-t border-white/10 p-3"
               onSubmit={(event) => {
