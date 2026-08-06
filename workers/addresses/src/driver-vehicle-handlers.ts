@@ -229,6 +229,7 @@ export async function handleDriverVehicleSaveRequest(
 
   const displayName = String(body.displayName ?? body.name ?? "").trim();
   const email = String(body.email ?? "").trim();
+  const mobile = String(body.mobile ?? body.phone ?? "").trim();
   const make = String(body.make ?? "").trim();
   const model = String(body.model ?? "").trim();
   const colour = String(body.colour ?? "").trim();
@@ -258,6 +259,7 @@ export async function handleDriverVehicleSaveRequest(
     profileKey,
     displayName: resolvedDisplayName,
     email,
+    mobile: mobile || undefined,
     make,
     model,
     colour,

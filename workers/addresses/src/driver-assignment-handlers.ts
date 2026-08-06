@@ -155,8 +155,10 @@ export async function handleDriverAssignRequest(
   const token = String(body.token ?? "").trim();
   const driverFirstName = String(body.driverFirstName ?? body.driverName ?? "").trim();
   const driverEmail = String(body.driverEmail ?? "").trim().toLowerCase();
+  const driverMobile = String(body.driverMobile ?? body.driverPhone ?? "").trim();
   const driverCarMake = String(body.driverCarMake ?? "").trim();
   const driverCarModel = String(body.driverCarModel ?? "").trim();
+  const driverCarColour = String(body.driverCarColour ?? "").trim();
   const driverReg = String(body.driverReg ?? "").trim().toUpperCase();
   const driverPayAmount = String(body.driverPayAmount ?? "").trim();
   const emailAssign = Boolean(driverEmail || driverPayAmount);
@@ -172,6 +174,9 @@ export async function handleDriverAssignRequest(
         400,
         origin,
       );
+    }
+    if (!driverMobile) {
+      return jsonResponse({ error: "Enter the driver’s mobile number" }, 400, origin);
     }
     if (!driverEmail.includes("@")) {
       return jsonResponse({ error: "Enter a valid driver email" }, 400, origin);
@@ -235,8 +240,10 @@ export async function handleDriverAssignRequest(
       ...bookingJob,
       driverFirstName,
       driverEmail,
+      driverMobile: driverMobile || undefined,
       driverCarMake: driverCarMake || undefined,
       driverCarModel: driverCarModel || undefined,
+      driverCarColour: driverCarColour || undefined,
       driverReg: driverReg || undefined,
       driverPayAmount,
       driverAssignmentStatus: "pending",
@@ -267,6 +274,22 @@ export async function handleDriverAssignRequest(
     emailed = sendResult.sent;
     if (!sendResult.sent) {
       emailError = sendResult.error || "Failed to email driver";
+    } else {
+      // Always keep an owner copy of exactly what the driver was emailed.
+      const ownerTo = env.BOOKING_TO_EMAIL?.trim() || "bookings@myairporttaxini.co.uk";
+      const ownerCopy = await trySendEmail(env, {
+        to: ownerTo,
+        toName: BUSINESS_NAME,
+        subject: `[Driver assignment copy] ${email.subject}`,
+        body:
+          `This is a copy of the assignment email sent to ${driverFirstName} <${driverEmail}>.\n\n` +
+          email.text,
+        htmlBody: email.html,
+        requireHtml: true,
+      });
+      if (!ownerCopy.sent) {
+        console.warn("Owner driver-assignment copy failed", ownerCopy.error);
+      }
     }
   }
 

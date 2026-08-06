@@ -143,6 +143,7 @@ export type DriverVehicleProfile = {
   profileKey: string;
   displayName: string;
   email: string;
+  mobile?: string;
   make: string;
   model: string;
   colour: string;
@@ -200,6 +201,12 @@ export type DriverJob = PublicTrackResponse & {
   refundAmountLabel?: string;
   activeDriverName?: string;
   assignedDriverName?: string;
+  assignedDriverMobile?: string;
+  assignedDriverCarMake?: string;
+  assignedDriverCarModel?: string;
+  assignedDriverCarColour?: string;
+  assignedDriverReg?: string;
+  driverPayAmount?: string;
   assignmentStatus?: JobAssignmentStatus;
   assignedAt?: string;
   acceptedAt?: string;
@@ -454,6 +461,7 @@ export async function saveDriverVehicle(
     profile?: string;
     displayName?: string;
     email: string;
+    mobile?: string;
     make: string;
     model: string;
     colour: string;
@@ -465,6 +473,7 @@ export async function saveDriverVehicle(
       profile: {
         ...getDemoOwnerVehicle(input.profile),
         email: input.email,
+        mobile: input.mobile,
         make: input.make,
         model: input.model,
         colour: input.colour,
@@ -481,6 +490,7 @@ export async function saveDriverVehicle(
       profile: {
         ...getDemoDriverVehicle(),
         email: input.email,
+        mobile: input.mobile,
         make: input.make,
         model: input.model,
         colour: input.colour,
@@ -528,8 +538,10 @@ export async function fetchDriverRoster(ownerKey: string): Promise<string[]> {
 export type AssignDriverDetails = {
   driverFirstName: string;
   driverEmail?: string;
+  driverMobile?: string;
   driverCarMake?: string;
   driverCarModel?: string;
+  driverCarColour?: string;
   driverReg?: string;
   driverPayAmount?: string;
 };
@@ -575,8 +587,10 @@ export async function assignJobToDriver(
       driverName,
       driverFirstName: driverName,
       driverEmail: details.driverEmail?.trim() || undefined,
+      driverMobile: details.driverMobile?.trim() || undefined,
       driverCarMake: details.driverCarMake?.trim() || undefined,
       driverCarModel: details.driverCarModel?.trim() || undefined,
+      driverCarColour: details.driverCarColour?.trim() || undefined,
       driverReg: details.driverReg?.trim() || undefined,
       driverPayAmount: details.driverPayAmount?.trim() || undefined,
     }),
@@ -769,4 +783,50 @@ export async function postCustomerLocation(
 export function buildWhatsAppTrackLink(trackUrl: string, customerName: string): string {
   const message = `Hi ${customerName}, you can follow your driver's live location here when they are on the way: ${trackUrl}`;
   return `https://wa.me/?text=${encodeURIComponent(message)}`;
+}
+
+/** Customer-facing driver details for WhatsApp — never includes driver email. */
+export function buildWhatsAppDriverDetailsLink(options: {
+  customerName: string;
+  customerMobile?: string;
+  tripDate?: string;
+  tripTime?: string;
+  driverName?: string;
+  driverMobile?: string;
+  carMake?: string;
+  carModel?: string;
+  carColour?: string;
+  reg?: string;
+}): string {
+  const vehicle = [options.carColour, options.carMake, options.carModel]
+    .map((part) => part?.trim())
+    .filter(Boolean)
+    .join(" ");
+  const when = [options.tripDate, options.tripTime].filter(Boolean).join(" ");
+  const lines = [
+    `Hi ${options.customerName.trim() || "there"},`,
+    "",
+    when
+      ? `Here are your driver details for ${when}:`
+      : "Here are your driver details for your airport transfer:",
+    options.driverName?.trim() ? `Driver: ${options.driverName.trim()}` : null,
+    options.driverMobile?.trim() ? `Mobile: ${options.driverMobile.trim()}` : null,
+    vehicle ? `Vehicle: ${vehicle}` : null,
+    options.reg?.trim() ? `Registration: ${options.reg.trim().toUpperCase()}` : null,
+    "",
+    "My Airport Taxi NI",
+  ].filter((line): line is string => line !== null);
+
+  const digits = (options.customerMobile ?? "").replace(/\D/g, "");
+  const waNumber =
+    digits.length >= 10
+      ? digits.startsWith("44")
+        ? digits
+        : digits.startsWith("0")
+          ? `44${digits.slice(1)}`
+          : digits
+      : "";
+
+  const text = encodeURIComponent(lines.join("\n"));
+  return waNumber ? `https://wa.me/${waNumber}?text=${text}` : `https://wa.me/?text=${text}`;
 }

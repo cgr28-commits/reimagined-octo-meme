@@ -362,8 +362,10 @@ export async function handleBookingJobAssignDriverRequest(
   const id = String(body.id ?? "").trim();
   const driverFirstName = String(body.driverFirstName ?? "").trim();
   const driverEmail = String(body.driverEmail ?? "").trim().toLowerCase();
+  const driverMobile = String(body.driverMobile ?? body.driverPhone ?? "").trim();
   const driverCarMake = String(body.driverCarMake ?? "").trim();
   const driverCarModel = String(body.driverCarModel ?? "").trim();
+  const driverCarColour = String(body.driverCarColour ?? "").trim();
   const driverReg = String(body.driverReg ?? "").trim().toUpperCase();
   const driverPayAmount = String(body.driverPayAmount ?? "").trim();
 
@@ -377,6 +379,10 @@ export async function handleBookingJobAssignDriverRequest(
 
   if (!driverEmail.includes("@")) {
     return jsonResponse({ error: "Enter a valid driver email" }, 400, origin);
+  }
+
+  if (!driverMobile) {
+    return jsonResponse({ error: "Enter the driver’s mobile number" }, 400, origin);
   }
 
   const job = await getBookingJob(env.TRACKING_STORE, id);
@@ -397,8 +403,10 @@ export async function handleBookingJobAssignDriverRequest(
     ...job,
     driverFirstName,
     driverEmail,
+    driverMobile,
     driverCarMake: driverCarMake || undefined,
     driverCarModel: driverCarModel || undefined,
+    driverCarColour: driverCarColour || undefined,
     driverReg: driverReg || undefined,
     driverPayAmount,
     driverAssignmentStatus: "pending",
@@ -438,6 +446,21 @@ export async function handleBookingJobAssignDriverRequest(
       502,
       origin,
     );
+  }
+
+  const ownerTo = env.BOOKING_TO_EMAIL?.trim() || "bookings@myairporttaxini.co.uk";
+  const ownerCopy = await trySendEmail(env, {
+    to: ownerTo,
+    toName: BUSINESS_NAME,
+    subject: `[Driver assignment copy] ${email.subject}`,
+    body:
+      `This is a copy of the assignment email sent to ${driverFirstName} <${driverEmail}>.\n\n` +
+      email.text,
+    htmlBody: email.html,
+    requireHtml: true,
+  });
+  if (!ownerCopy.sent) {
+    console.warn("Owner driver-assignment copy failed", ownerCopy.error);
   }
 
   return jsonResponse(

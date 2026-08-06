@@ -10,6 +10,7 @@ import {
   fetchOwnerBookingJobs,
   markBookingJobPaid,
 } from "@/lib/booking-jobs-api";
+import { buildWhatsAppDriverDetailsLink } from "@/lib/tracking-api";
 
 type OwnerBookingJobsPanelProps = {
   ownerKey: string;
@@ -59,8 +60,10 @@ export default function OwnerBookingJobsPanel({ ownerKey }: OwnerBookingJobsPane
       {
         driverFirstName: string;
         driverEmail: string;
+        driverMobile: string;
         driverCarMake: string;
         driverCarModel: string;
+        driverCarColour: string;
         driverReg: string;
         driverPayAmount: string;
       }
@@ -89,8 +92,10 @@ export default function OwnerBookingJobsPanel({ ownerKey }: OwnerBookingJobsPane
       assignDraftById[job.id] ?? {
         driverFirstName: job.driverFirstName ?? "",
         driverEmail: job.driverEmail ?? "",
+        driverMobile: job.driverMobile ?? "",
         driverCarMake: job.driverCarMake ?? "",
         driverCarModel: job.driverCarModel ?? "",
+        driverCarColour: job.driverCarColour ?? "",
         driverReg: job.driverReg ?? "",
         driverPayAmount: job.driverPayAmount ?? "",
       }
@@ -104,8 +109,10 @@ export default function OwnerBookingJobsPanel({ ownerKey }: OwnerBookingJobsPane
         ...(prev[jobId] ?? {
           driverFirstName: "",
           driverEmail: "",
+          driverMobile: "",
           driverCarMake: "",
           driverCarModel: "",
+          driverCarColour: "",
           driverReg: "",
           driverPayAmount: "",
         }),
@@ -141,6 +148,9 @@ export default function OwnerBookingJobsPanel({ ownerKey }: OwnerBookingJobsPane
     setError("");
     try {
       const draft = draftFor(job);
+      if (!draft.driverMobile.trim()) {
+        throw new Error("Enter the driver’s mobile number");
+      }
       const updated = await assignBookingJobDriver(ownerKey, {
         id: job.id,
         ...draft,
@@ -279,17 +289,20 @@ export default function OwnerBookingJobsPanel({ ownerKey }: OwnerBookingJobsPane
                     </p>
                     <p className="text-xs text-white/50">
                       Drivers are paid after each journey, usually the next day. Enter how much you
-                      are paying them for this job.
+                      are paying them for this job — not what the customer paid. You will receive an
+                      email copy of the assignment.
                     </p>
                     <div className="grid gap-3 sm:grid-cols-2">
                       {(
                         [
                           ["driverFirstName", "Driver first name"],
                           ["driverEmail", "Driver email"],
+                          ["driverMobile", "Driver mobile"],
                           ["driverCarMake", "Car make"],
                           ["driverCarModel", "Car model"],
+                          ["driverCarColour", "Car colour"],
                           ["driverReg", "Registration"],
-                          ["driverPayAmount", "Driver pay for this journey"],
+                          ["driverPayAmount", "Amount to pay driver (not customer price)"],
                         ] as const
                       ).map(([key, label]) => (
                         <label key={key} className="text-xs text-white/50">
@@ -324,6 +337,28 @@ export default function OwnerBookingJobsPanel({ ownerKey }: OwnerBookingJobsPane
                           ? ` · ${new Date(job.driverAcceptedAt).toLocaleString("en-GB")}`
                           : ""}
                       </p>
+                    ) : null}
+                    {job.driverAssignmentStatus === "pending" ||
+                    job.driverAssignmentStatus === "accepted" ? (
+                      <a
+                        href={buildWhatsAppDriverDetailsLink({
+                          customerName: job.customerName,
+                          customerMobile: job.customerMobile,
+                          tripDate: job.tripDate,
+                          tripTime: job.tripTime,
+                          driverName: job.driverFirstName,
+                          driverMobile: job.driverMobile,
+                          carMake: job.driverCarMake,
+                          carModel: job.driverCarModel,
+                          carColour: job.driverCarColour,
+                          reg: job.driverReg,
+                        })}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:border-white/30"
+                      >
+                        Send via WhatsApp
+                      </a>
                     ) : null}
                   </div>
                 ) : null}

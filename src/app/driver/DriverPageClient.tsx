@@ -7,7 +7,7 @@ import Header from "@/components/Header";
 import OwnerBookingJobsPanel from "@/components/OwnerBookingJobsPanel";
 import type { MapMarker, MapRoutePoint } from "@/components/LiveTrackMap";
 import {
-  buildWhatsAppTrackLink,
+  buildWhatsAppDriverDetailsLink,
   fetchDriverJobs,
   postDriverLocation,
   setDriverSharing,
@@ -286,6 +286,7 @@ function DriverProfilePanel({
   const [form, setForm] = useState({
     displayName: "",
     email: "",
+    mobile: "",
     make: "",
     model: "",
     colour: "",
@@ -349,6 +350,7 @@ function DriverProfilePanel({
                     entry.displayName === selectedProfile,
                 )?.displayName ?? selectedProfile),
           email: profile?.email ?? "",
+          mobile: profile?.mobile ?? "",
           make: profile?.make ?? "",
           model: profile?.model ?? "",
           colour: profile?.colour ?? "",
@@ -381,6 +383,7 @@ function DriverProfilePanel({
         profile: selectedProfile,
         displayName: form.displayName,
         email: form.email,
+        mobile: form.mobile,
         make: form.make,
         model: form.model,
         colour: form.colour,
@@ -413,8 +416,8 @@ function DriverProfilePanel({
           </h2>
           <p className="mt-2 text-sm text-white/60">
             {isOwner
-              ? "Set each driver\u2019s contact details and vehicle. Customers only see the car on the job day when live tracking is active."
-              : "Save your name, email, and vehicle details. A confirmation email is sent when you save."}
+              ? "Set each driver’s name, email, mobile, and vehicle. You can send the mobile and car details to customers on WhatsApp."
+              : "Save your name, email, mobile, and vehicle details. A confirmation email is sent when you save."}
           </p>
           {!isOwner && collapsed && form.displayName && form.registration && (
             <p className="mt-3 text-sm text-emerald">
@@ -474,6 +477,16 @@ function DriverProfilePanel({
             onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))}
             className="mt-2 w-full rounded-xl border border-white/15 bg-navy px-4 py-3 text-white outline-none focus:border-emerald"
             placeholder="driver@example.com"
+          />
+        </label>
+        <label className="block text-sm text-white/70">
+          Mobile
+          <input
+            type="tel"
+            value={form.mobile}
+            onChange={(event) => setForm((current) => ({ ...current, mobile: event.target.value }))}
+            className="mt-2 w-full rounded-xl border border-white/15 bg-navy px-4 py-3 text-white outline-none focus:border-emerald"
+            placeholder="e.g. 07700 900123"
           />
         </label>
         <label className="block text-sm text-white/70">
@@ -602,8 +615,10 @@ function DriverJobCard({
   const [assignForm, setAssignForm] = useState({
     driverFirstName: "",
     driverEmail: "",
+    driverMobile: "",
     driverCarMake: "",
     driverCarModel: "",
+    driverCarColour: "",
     driverReg: "",
     driverPayAmount: "",
   });
@@ -706,8 +721,10 @@ function DriverJobCard({
           ...prev,
           driverFirstName: profile.displayName || prev.driverFirstName,
           driverEmail: profile.email || prev.driverEmail,
+          driverMobile: profile.mobile || prev.driverMobile,
           driverCarMake: profile.make || prev.driverCarMake,
           driverCarModel: profile.model || prev.driverCarModel,
+          driverCarColour: profile.colour || prev.driverCarColour,
           driverReg: profile.registration || prev.driverReg,
         }));
       })
@@ -752,17 +769,10 @@ function DriverJobCard({
     }
   };
 
-  const copyTrackLink = async () => {
-    try {
-      await navigator.clipboard.writeText(job.trackUrl);
-    } catch {
-      setError("Could not copy link");
-    }
-  };
-
   const assignToDriver = async () => {
     const driverFirstName = assignForm.driverFirstName.trim();
     const driverEmail = assignForm.driverEmail.trim();
+    const driverMobile = assignForm.driverMobile.trim();
     const driverPayAmount = assignForm.driverPayAmount.trim();
 
     if (!driverFirstName) {
@@ -771,6 +781,10 @@ function DriverJobCard({
     }
     if (!driverEmail || !driverEmail.includes("@")) {
       setError("Enter a valid driver email");
+      return;
+    }
+    if (!driverMobile) {
+      setError("Enter the driver’s mobile number");
       return;
     }
     if (!driverPayAmount) {
@@ -786,16 +800,28 @@ function DriverJobCard({
       const result = await assignJobToDriver(driverKey, job.token, {
         driverFirstName,
         driverEmail,
+        driverMobile,
         driverCarMake: assignForm.driverCarMake,
         driverCarModel: assignForm.driverCarModel,
+        driverCarColour: assignForm.driverCarColour,
         driverReg: assignForm.driverReg,
         driverPayAmount,
       });
-      onAssignmentUpdated(result.job);
+      onAssignmentUpdated({
+        ...result.job,
+        assignedDriverName: driverFirstName,
+        assignedDriverMobile: driverMobile,
+        assignedDriverCarMake: assignForm.driverCarMake.trim() || result.job.assignedDriverCarMake,
+        assignedDriverCarModel: assignForm.driverCarModel.trim() || result.job.assignedDriverCarModel,
+        assignedDriverCarColour:
+          assignForm.driverCarColour.trim() || result.job.assignedDriverCarColour,
+        assignedDriverReg: assignForm.driverReg.trim() || result.job.assignedDriverReg,
+        driverPayAmount,
+      });
       setAssignMessage(
         result.emailed === false
           ? "Driver assigned. Email may not have been sent — check worker email settings."
-          : `Assignment emailed to ${driverEmail}. Waiting for them to confirm.`,
+          : `Assignment emailed to ${driverEmail}. A copy was sent to you. Waiting for them to confirm.`,
       );
       setAssignFormOpen(false);
     } catch (err) {
@@ -1049,8 +1075,9 @@ function DriverJobCard({
                   : "Assign driver"}
               </p>
               <p className="mt-1 text-xs text-white/55">
-                Enter driver details, car details, and what you are paying them. They get an email to
-                confirm the job.
+                Enter driver details (including mobile), car details, and what you are paying them
+                for this journey — not what the customer paid. They get an email to confirm; you get
+                a copy.
               </p>
             </div>
             <button
@@ -1085,10 +1112,12 @@ function DriverJobCard({
               [
                 ["driverFirstName", "Driver first name"],
                 ["driverEmail", "Driver email"],
+                ["driverMobile", "Driver mobile"],
                 ["driverCarMake", "Car make"],
                 ["driverCarModel", "Car model"],
+                ["driverCarColour", "Car colour"],
                 ["driverReg", "Registration"],
-                ["driverPayAmount", "Driver pay for this journey"],
+                ["driverPayAmount", "Amount to pay driver (not customer price)"],
               ] as const
             ).map(([key, label]) => (
               <label key={key} className="text-xs text-white/50">
@@ -1098,7 +1127,13 @@ function DriverJobCard({
                   onChange={(event) =>
                     setAssignForm((prev) => ({ ...prev, [key]: event.target.value }))
                   }
-                  placeholder={key === "driverPayAmount" ? "e.g. £80" : undefined}
+                  placeholder={
+                    key === "driverPayAmount"
+                      ? "e.g. £80"
+                      : key === "driverMobile"
+                        ? "e.g. 07700 900123"
+                        : undefined
+                  }
                   className="mt-1 w-full rounded-xl border border-white/15 bg-navy px-3 py-2 text-sm text-white outline-none focus:border-emerald"
                 />
               </label>
@@ -1145,7 +1180,7 @@ function DriverJobCard({
           </>
         )}
 
-        {canShare && (
+        {canShare && SERVICE_FLAGS.liveDriverTracking && (
           <button
             type="button"
             disabled={busy}
@@ -1159,25 +1194,27 @@ function DriverJobCard({
             {isActive ? "Stop sharing location" : "Start sharing location"}
           </button>
         )}
-        {!isRefunded && (isOwner || isAcceptedAssignment) && (
-          <>
-            <button
-              type="button"
-              onClick={() => void copyTrackLink()}
-              className="rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:border-white/30"
-            >
-              Copy track link
-            </button>
-            <a
-              href={buildWhatsAppTrackLink(job.trackUrl, job.customerName)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:border-white/30"
-            >
-              Send via WhatsApp
-            </a>
-          </>
-        )}
+        {!isRefunded && isOwner && (assignmentStatus === "pending" || assignmentStatus === "accepted") ? (
+          <a
+            href={buildWhatsAppDriverDetailsLink({
+              customerName: job.customerName,
+              customerMobile: job.customerMobile,
+              tripDate: job.tripDate,
+              tripTime: job.tripTime,
+              driverName: job.assignedDriverName || assignForm.driverFirstName,
+              driverMobile: job.assignedDriverMobile || assignForm.driverMobile,
+              carMake: job.assignedDriverCarMake || assignForm.driverCarMake,
+              carModel: job.assignedDriverCarModel || assignForm.driverCarModel,
+              carColour: job.assignedDriverCarColour || assignForm.driverCarColour,
+              reg: job.assignedDriverReg || assignForm.driverReg,
+            })}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:border-white/30"
+          >
+            Send via WhatsApp
+          </a>
+        ) : null}
         {canEdit && !editOpen && (
           <button
             type="button"

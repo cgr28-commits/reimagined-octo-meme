@@ -39,10 +39,12 @@ export type BookingJobRecord = {
   calendarLogged?: boolean;
   driverFirstName?: string;
   driverEmail?: string;
+  driverMobile?: string;
   driverCarMake?: string;
   driverCarModel?: string;
+  driverCarColour?: string;
   driverReg?: string;
-  /** Manual amount the owner will pay the driver after the journey */
+  /** Manual amount the owner will pay the driver after the journey (never the customer fare). */
   driverPayAmount?: string;
   driverAssignmentStatus?: DriverAssignmentStatus;
   driverAcceptToken?: string;
@@ -118,6 +120,7 @@ export function buildDriverAssignmentEmail(options: {
     `Suitcases: ${job.suitcases}`,
     `Vehicle type booked: ${job.vehicle}`,
     vehicleLine ? `Your vehicle on this job: ${vehicleLine}` : null,
+    job.driverMobile?.trim() ? `Your mobile on file: ${job.driverMobile.trim()}` : null,
     "",
     `Your pay for this journey: ${pay}`,
     "You will be paid after each journey (usually the next day).",

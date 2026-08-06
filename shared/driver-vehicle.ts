@@ -2,6 +2,8 @@ export type DriverVehicleProfile = {
   profileKey: string;
   displayName: string;
   email: string;
+  /** Driver mobile for customer WhatsApp details (not shown as email to customers). */
+  mobile?: string;
   make: string;
   model: string;
   colour: string;
@@ -60,10 +62,10 @@ export function buildDriverProfileConfirmationEmail(
     `Your driver profile for ${businessName} has been saved:\n\n` +
     `Name: ${name}\n` +
     `Email: ${profile.email.trim()}\n` +
+    (profile.mobile?.trim() ? `Mobile: ${profile.mobile.trim()}\n` : "") +
     `Vehicle: ${profile.colour.trim()} ${profile.make.trim()} ${profile.model.trim()}\n` +
     `Registration: ${profile.registration.trim().toUpperCase()}\n\n` +
     `Sign in to the driver dashboard here:\n${dashboardUrl}\n\n` +
-    `Customers will only see your vehicle details on the day of travel when live tracking is active.\n\n` +
     `${businessName}`;
 
   const html = `<!DOCTYPE html>
@@ -95,6 +97,11 @@ export function buildDriverProfileConfirmationEmail(
                 <tr><td style="padding:16px 24px;font-size:14px;line-height:1.8;color:#475569;">
                   <strong>Name:</strong> ${escapeHtml(name)}<br />
                   <strong>Email:</strong> ${escapeHtml(profile.email.trim())}<br />
+                  ${
+                    profile.mobile?.trim()
+                      ? `<strong>Mobile:</strong> ${escapeHtml(profile.mobile.trim())}<br />`
+                      : ""
+                  }
                   <strong>Vehicle:</strong> ${escapeHtml(profile.colour.trim())} ${escapeHtml(profile.make.trim())} ${escapeHtml(profile.model.trim())}<br />
                   <strong>Registration:</strong> ${escapeHtml(profile.registration.trim().toUpperCase())}
                 </td></tr>
@@ -104,7 +111,6 @@ export function buildDriverProfileConfirmationEmail(
           <tr>
             <td style="padding:16px 32px 28px;">
               <a href="${escapeHtml(dashboardUrl)}" style="display:inline-block;background:#15803d;color:#ffffff;text-decoration:none;font-weight:bold;padding:14px 22px;border-radius:8px;">Open driver dashboard</a>
-              <p style="margin:16px 0 0;font-size:14px;line-height:1.7;color:#64748b;">Customers only see your vehicle details on the day of travel when live tracking is active.</p>
             </td>
           </tr>
         </table>

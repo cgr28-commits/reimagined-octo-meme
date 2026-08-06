@@ -52,6 +52,7 @@ export async function saveDriverVehicleProfile(
     ...profile,
     displayName: profile.displayName.trim(),
     email: profile.email.trim().toLowerCase(),
+    mobile: profile.mobile?.trim() || undefined,
     make: profile.make.trim(),
     model: profile.model.trim(),
     colour: profile.colour.trim(),
