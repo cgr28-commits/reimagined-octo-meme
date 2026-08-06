@@ -12,7 +12,9 @@ permissions:
 
 concurrency:
   group: pages
-  cancel-in-progress: false
+  # Cancel stuck/queued deploys so a new push is not blocked behind
+  # GitHub Pages "deployment_queued" timeouts.
+  cancel-in-progress: true
 
 jobs:
   build:
