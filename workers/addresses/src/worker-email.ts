@@ -113,7 +113,11 @@ async function sendViaWeb3Forms(env: WorkerEmailEnv, options: EmailPayload): Pro
     message?: string;
   } | null;
   if (!response.ok || body?.success !== true) {
-    throw new Error(body?.message ? `Web3Forms: ${body.message}` : "Web3Forms request failed");
+    throw new Error(
+      body?.message
+        ? `Web3Forms (${response.status}): ${body.message}`
+        : `Web3Forms request failed (${response.status})`,
+    );
   }
 }
 
