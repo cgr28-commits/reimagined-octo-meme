@@ -4,12 +4,10 @@ import {
   useCallback,
   useEffect,
   useId,
-  useLayoutEffect,
   useRef,
   useState,
   type ReactNode,
 } from "react";
-import { createPortal } from "react-dom";
 import {
   fetchAddressPredictions,
   fetchPlaceDetails,
@@ -32,14 +30,14 @@ type AddressInputProps = {
   disableAutoScroll?: boolean;
   /** Called after a suggestion is chosen (full formatted address). */
   onSelectAddress?: (address: string) => void;
-};
-
-type DropdownPosition = {
-  top: number;
-  left: number;
-  width: number;
-  maxHeight: number;
-  placement: "above" | "below";
+  /**
+   * below = suggestions expand under the field inside the same control (quote form / OTS-style).
+   * above = suggestions expand above the field (quote bot typing bar).
+   */
+  suggestionsPlacement?: "below" | "above";
+  /** Hide the visible label (still available to screen readers). */
+  hideLabel?: boolean;
+  className?: string;
 };
 
 export default function AddressInput({
@@ -55,39 +53,20 @@ export default function AddressInput({
   airportCode = "",
   disableAutoScroll = false,
   onSelectAddress,
+  suggestionsPlacement = "below",
+  hideLabel = false,
+  className = "",
 }: AddressInputProps) {
   const autocompleteEnabled = isGooglePlacesEnabled();
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const [suggestions, setSuggestions] = useState<AddressPrediction[]>([]);
   const [suggestionsOpen, setSuggestionsOpen] = useState(false);
-  const [dropdownPosition, setDropdownPosition] = useState<DropdownPosition | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const debounceRef = useRef<number | null>(null);
   const hintId = useId();
-
-  const updateDropdownPosition = useCallback(() => {
-    if (!inputRef.current) {
-      return;
-    }
-
-    const rect = inputRef.current.getBoundingClientRect();
-    const viewportHeight =
-      window.visualViewport?.height ?? window.innerHeight;
-    const viewportOffsetTop = window.visualViewport?.offsetTop ?? 0;
-    const spaceBelow = viewportOffsetTop + viewportHeight - rect.bottom - 12;
-    const spaceAbove = rect.top - viewportOffsetTop - 12;
-    const preferAbove = spaceBelow < 180 && spaceAbove > spaceBelow;
-    const available = Math.max(120, preferAbove ? spaceAbove : spaceBelow);
-
-    setDropdownPosition({
-      top: preferAbove ? rect.top - 8 : rect.bottom + 8,
-      left: Math.max(8, Math.min(rect.left, window.innerWidth - rect.width - 8)),
-      width: Math.min(rect.width, window.innerWidth - 16),
-      maxHeight: Math.min(256, available),
-      placement: preferAbove ? "above" : "below",
-    });
-  }, []);
+  const listboxId = useId();
+  const showAbove = suggestionsPlacement === "above";
 
   useEffect(() => {
     return () => {
@@ -100,10 +79,7 @@ export default function AddressInput({
   useEffect(() => {
     function handlePointerDown(event: MouseEvent | TouchEvent) {
       if (!containerRef.current?.contains(event.target as Node)) {
-        const target = event.target as HTMLElement;
-        if (!target.closest(".address-suggestions-portal")) {
-          setSuggestionsOpen(false);
-        }
+        setSuggestionsOpen(false);
       }
     }
 
@@ -120,33 +96,6 @@ export default function AddressInput({
     setSuggestionsOpen(false);
   }, [airportCode]);
 
-  useLayoutEffect(() => {
-    if (!suggestionsOpen || suggestions.length === 0) {
-      return;
-    }
-
-    updateDropdownPosition();
-    if (!disableAutoScroll) {
-      inputRef.current?.scrollIntoView({
-        block: "nearest",
-        inline: "nearest",
-        behavior: "smooth",
-      });
-    }
-
-    const onViewportChange = () => updateDropdownPosition();
-    window.addEventListener("resize", onViewportChange);
-    window.addEventListener("scroll", onViewportChange, true);
-    window.visualViewport?.addEventListener("resize", onViewportChange);
-    window.visualViewport?.addEventListener("scroll", onViewportChange);
-    return () => {
-      window.removeEventListener("resize", onViewportChange);
-      window.removeEventListener("scroll", onViewportChange, true);
-      window.visualViewport?.removeEventListener("resize", onViewportChange);
-      window.visualViewport?.removeEventListener("scroll", onViewportChange);
-    };
-  }, [disableAutoScroll, suggestions.length, suggestionsOpen, updateDropdownPosition, value]);
-
   const requestSuggestions = useCallback(
     (query: string) => {
       if (!autocompleteEnabled) {
@@ -162,7 +111,6 @@ export default function AddressInput({
 
       void fetchAddressPredictions(trimmed, airportCode)
         .then((predictions) => {
-          updateDropdownPosition();
           setSuggestions(predictions);
           setSuggestionsOpen(predictions.length > 0);
           setLoadError(
@@ -170,6 +118,16 @@ export default function AddressInput({
               ? "No matching addresses found — keep typing or enter your full address manually."
               : null,
           );
+
+          if (predictions.length > 0 && !disableAutoScroll && !showAbove) {
+            window.requestAnimationFrame(() => {
+              containerRef.current?.scrollIntoView({
+                block: "nearest",
+                inline: "nearest",
+                behavior: "smooth",
+              });
+            });
+          }
         })
         .catch(() => {
           setSuggestions([]);
@@ -177,7 +135,7 @@ export default function AddressInput({
           setLoadError("Address suggestions are unavailable right now. Enter your address manually.");
         });
     },
-    [airportCode, autocompleteEnabled, updateDropdownPosition],
+    [airportCode, autocompleteEnabled, disableAutoScroll, showAbove],
   );
 
   function handleChange(event: React.ChangeEvent<HTMLInputElement>) {
@@ -191,7 +149,7 @@ export default function AddressInput({
 
     debounceRef.current = window.setTimeout(() => {
       requestSuggestions(next);
-    }, 300);
+    }, 220);
   }
 
   function handleClear() {
@@ -216,97 +174,98 @@ export default function AddressInput({
     setLoadError(null);
   }
 
-  const suggestionsPortal =
-    suggestionsOpen &&
-    suggestions.length > 0 &&
-    typeof document !== "undefined"
-      ? createPortal(
-          <ul
-            className="address-suggestions-portal fixed z-[100000] overflow-y-auto overscroll-contain rounded-xl border border-white/10 bg-white shadow-2xl"
-            style={
-              dropdownPosition
-                ? {
-                    top:
-                      dropdownPosition.placement === "above"
-                        ? undefined
-                        : dropdownPosition.top,
-                    bottom:
-                      dropdownPosition.placement === "above"
-                        ? window.innerHeight - dropdownPosition.top
-                        : undefined,
-                    left: dropdownPosition.left,
-                    width: dropdownPosition.width,
-                    maxHeight: dropdownPosition.maxHeight,
-                  }
-                : { visibility: "hidden" }
-            }
-          >
-            {suggestions.map((prediction) => (
-              <li key={prediction.placeId}>
-                <button
-                  type="button"
-                  onMouseDown={(event) => event.preventDefault()}
-                  onClick={() => void handleSelect(prediction)}
-                  className="block w-full px-4 py-3 text-left transition-colors hover:bg-emerald/15"
-                >
-                  <span className="block text-sm font-semibold text-navy">{prediction.mainText}</span>
-                  {prediction.secondaryText ? (
-                    <span className="mt-0.5 block text-xs text-navy/70">{prediction.secondaryText}</span>
-                  ) : null}
-                </button>
-              </li>
-            ))}
-          </ul>,
-          document.body,
-        )
-      : null;
+  const showSuggestions = suggestionsOpen && suggestions.length > 0;
 
-  return (
-    <div ref={containerRef} className="relative min-w-0">
-      <div className="mb-1.5 flex items-center justify-between gap-3">
-        <label htmlFor={id} className="text-xs font-medium uppercase tracking-wider text-white/50">
-          {label}
-        </label>
-        {action}
-      </div>
-
-      <div className="relative">
-        <input
-          ref={inputRef}
-          id={id}
-          name={name}
-          type="text"
-          required={required}
-          autoComplete="street-address"
-          value={value}
-          onChange={handleChange}
-          onFocus={() => {
-            updateDropdownPosition();
-            if (suggestions.length > 0) {
-              setSuggestionsOpen(true);
-            } else if (value.trim().length >= 3) {
-              requestSuggestions(value);
-            }
-          }}
-          placeholder={placeholder}
-          aria-describedby={hintId}
-          className="address-input w-full rounded-xl border border-white/10 bg-white/5 py-3 pl-4 pr-11 text-sm text-white placeholder:text-white/30 outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30"
-        />
-        {value ? (
+  const suggestionList = showSuggestions ? (
+    <ul
+      id={listboxId}
+      role="listbox"
+      className="address-suggestions max-h-48 overflow-y-auto overscroll-contain border-t border-[#d7e0ec] bg-white"
+    >
+      {suggestions.map((prediction) => (
+        <li key={prediction.placeId} role="option">
           <button
             type="button"
-            onClick={handleClear}
-            aria-label="Clear address"
-            className="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-white/55 transition-colors hover:bg-white/10 hover:text-white"
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => void handleSelect(prediction)}
+            className="block w-full px-4 py-3 text-left transition-colors hover:bg-emerald/15"
           >
-            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden>
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 6l12 12M18 6L6 18" />
-            </svg>
+            <span className="block text-sm font-semibold text-navy">{prediction.mainText}</span>
+            {prediction.secondaryText ? (
+              <span className="mt-0.5 block text-xs text-navy/70">{prediction.secondaryText}</span>
+            ) : null}
           </button>
-        ) : null}
-      </div>
+        </li>
+      ))}
+    </ul>
+  ) : null;
 
-      {suggestionsPortal}
+  return (
+    <div ref={containerRef} className={`relative min-w-0 ${className}`}>
+      {hideLabel ? (
+        <label htmlFor={id} className="sr-only">
+          {label}
+        </label>
+      ) : (
+        <div className="mb-1.5 flex items-center justify-between gap-3">
+          <label htmlFor={id} className="text-xs font-medium uppercase tracking-wider text-white/50">
+            {label}
+          </label>
+          {action}
+        </div>
+      )}
+
+      {/* One control: typed value stays visible; suggestions expand inside the same bar. */}
+      <div
+        className={`overflow-hidden rounded-xl border bg-white/5 transition-colors ${
+          showSuggestions
+            ? "border-emerald/50 ring-1 ring-emerald/30"
+            : "border-white/10 focus-within:border-emerald/50 focus-within:ring-1 focus-within:ring-emerald/30"
+        }`}
+      >
+        {showAbove ? suggestionList : null}
+
+        <div className="relative">
+          <input
+            ref={inputRef}
+            id={id}
+            name={name}
+            type="text"
+            required={required}
+            autoComplete="street-address"
+            value={value}
+            onChange={handleChange}
+            onFocus={() => {
+              if (suggestions.length > 0) {
+                setSuggestionsOpen(true);
+              } else if (value.trim().length >= 3) {
+                requestSuggestions(value);
+              }
+            }}
+            placeholder={placeholder}
+            aria-describedby={hintId}
+            aria-expanded={showSuggestions}
+            aria-controls={listboxId}
+            aria-autocomplete="list"
+            role="combobox"
+            className="address-input w-full border-0 bg-transparent py-3 pl-4 pr-11 text-sm text-white placeholder:text-white/30 outline-none"
+          />
+          {value ? (
+            <button
+              type="button"
+              onClick={handleClear}
+              aria-label="Clear address"
+              className="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-white/55 transition-colors hover:bg-white/10 hover:text-white"
+            >
+              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 6l12 12M18 6L6 18" />
+              </svg>
+            </button>
+          ) : null}
+        </div>
+
+        {!showAbove ? suggestionList : null}
+      </div>
 
       <p id={hintId} className="mt-1.5 text-xs text-white/40">
         {loadError ??
