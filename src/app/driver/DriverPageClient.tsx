@@ -593,7 +593,20 @@ function DriverJobCard({
     flightNumber: job.flightNumber ?? "",
   });
   const [assignBusy, setAssignBusy] = useState(false);
-  const [assignDriver, setAssignDriver] = useState(availableDrivers[0] ?? "");
+  const [assignFormOpen, setAssignFormOpen] = useState(false);
+  const [assignMessage, setAssignMessage] = useState<string | null>(null);
+  const [assignProfiles, setAssignProfiles] = useState<
+    Array<{ profileKey: string; displayName: string }>
+  >([]);
+  const [assignProfileKey, setAssignProfileKey] = useState("");
+  const [assignForm, setAssignForm] = useState({
+    driverFirstName: "",
+    driverEmail: "",
+    driverCarMake: "",
+    driverCarModel: "",
+    driverReg: "",
+    driverPayAmount: "",
+  });
   const [assignmentBusy, setAssignmentBusy] = useState(false);
   const [recordedRoute, setRecordedRoute] = useState<MapRoutePoint[]>([]);
   const isActive = activeToken === job.token;
@@ -648,6 +661,75 @@ function DriverJobCard({
     };
   }, [driverKey, job.token, job.driverLocationPointCount, showRecordedRoute]);
 
+  useEffect(() => {
+    if (!isOwner || !assignFormOpen) {
+      return;
+    }
+
+    let cancelled = false;
+    void fetchDriverVehicleProfiles(driverKey)
+      .then((profiles) => {
+        if (cancelled) {
+          return;
+        }
+        setAssignProfiles(profiles);
+        if (!assignProfileKey && profiles.length > 0) {
+          const first = profiles[0];
+          setAssignProfileKey(
+            first.profileKey === "owner" ? "owner" : first.displayName || first.profileKey,
+          );
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setAssignProfiles([]);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isOwner, assignFormOpen, driverKey, assignProfileKey]);
+
+  useEffect(() => {
+    if (!isOwner || !assignFormOpen || !assignProfileKey) {
+      return;
+    }
+
+    let cancelled = false;
+    void fetchDriverVehicle(driverKey, assignProfileKey)
+      .then((profile) => {
+        if (cancelled || !profile) {
+          return;
+        }
+        setAssignForm((prev) => ({
+          ...prev,
+          driverFirstName: profile.displayName || prev.driverFirstName,
+          driverEmail: profile.email || prev.driverEmail,
+          driverCarMake: profile.make || prev.driverCarMake,
+          driverCarModel: profile.model || prev.driverCarModel,
+          driverReg: profile.registration || prev.driverReg,
+        }));
+      })
+      .catch(() => {
+        /* keep manual values */
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isOwner, assignFormOpen, driverKey, assignProfileKey]);
+
+  const openAssignForm = () => {
+    setAssignMessage(null);
+    setError(null);
+    setAssignForm((prev) => ({
+      ...prev,
+      driverFirstName: prev.driverFirstName || job.assignedDriverName || availableDrivers[0] || "",
+    }));
+    setAssignFormOpen(true);
+  };
+
   const toggleSharing = async () => {
     setBusy(true);
     setError(null);
@@ -679,17 +761,43 @@ function DriverJobCard({
   };
 
   const assignToDriver = async () => {
-    const driverName = assignDriver.trim();
-    if (!driverName) {
+    const driverFirstName = assignForm.driverFirstName.trim();
+    const driverEmail = assignForm.driverEmail.trim();
+    const driverPayAmount = assignForm.driverPayAmount.trim();
+
+    if (!driverFirstName) {
+      setError("Enter the driver’s first name");
+      return;
+    }
+    if (!driverEmail || !driverEmail.includes("@")) {
+      setError("Enter a valid driver email");
+      return;
+    }
+    if (!driverPayAmount) {
+      setError("Enter how much you are paying the driver for this journey");
       return;
     }
 
     setAssignBusy(true);
     setError(null);
+    setAssignMessage(null);
 
     try {
-      const result = await assignJobToDriver(driverKey, job.token, driverName);
+      const result = await assignJobToDriver(driverKey, job.token, {
+        driverFirstName,
+        driverEmail,
+        driverCarMake: assignForm.driverCarMake,
+        driverCarModel: assignForm.driverCarModel,
+        driverReg: assignForm.driverReg,
+        driverPayAmount,
+      });
       onAssignmentUpdated(result.job);
+      setAssignMessage(
+        result.emailed === false
+          ? "Driver assigned. Email may not have been sent — check worker email settings."
+          : `Assignment emailed to ${driverEmail}. Waiting for them to confirm.`,
+      );
+      setAssignFormOpen(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not assign job");
     } finally {
@@ -922,31 +1030,98 @@ function DriverJobCard({
 
       <DriverFlightPanel job={job} onRefresh={onRefreshJob} refreshing={refreshingJob} />
 
-      <div className="mt-5 flex flex-wrap gap-3">
-        {isOwner && !isRefunded && availableDrivers.length > 0 && (
-          <>
-            <select
-              value={assignDriver}
-              onChange={(event) => setAssignDriver(event.target.value)}
-              className="rounded-xl border border-white/15 bg-navy px-4 py-2.5 text-sm text-white outline-none focus:border-emerald"
+      {isOwner && !isRefunded && assignFormOpen ? (
+        <div className="mt-5 space-y-3 rounded-xl border border-emerald/30 bg-emerald/5 p-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold text-white">
+                {assignmentStatus === "pending" || assignmentStatus === "accepted"
+                  ? "Reassign driver"
+                  : "Assign driver"}
+              </p>
+              <p className="mt-1 text-xs text-white/55">
+                Enter driver details, car details, and what you are paying them. They get an email to
+                confirm the job.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setAssignFormOpen(false)}
+              className="rounded-xl border border-white/15 px-3 py-1.5 text-xs font-semibold text-white/70 transition-colors hover:border-white/30"
             >
-              {availableDrivers.map((name) => (
-                <option key={name} value={name}>
-                  {name}
-                </option>
-              ))}
-            </select>
+              Close
+            </button>
+          </div>
+          {assignProfiles.length > 0 ? (
+            <label className="block text-xs text-white/50">
+              Prefill from saved driver profile
+              <select
+                value={assignProfileKey}
+                onChange={(event) => setAssignProfileKey(event.target.value)}
+                className="mt-1 w-full rounded-xl border border-white/15 bg-navy px-3 py-2 text-sm text-white outline-none focus:border-emerald"
+              >
+                {assignProfiles.map((profile) => (
+                  <option
+                    key={profile.profileKey}
+                    value={profile.profileKey === "owner" ? "owner" : profile.displayName}
+                  >
+                    {profile.displayName}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+          <div className="grid gap-3 sm:grid-cols-2">
+            {(
+              [
+                ["driverFirstName", "Driver first name"],
+                ["driverEmail", "Driver email"],
+                ["driverCarMake", "Car make"],
+                ["driverCarModel", "Car model"],
+                ["driverReg", "Registration"],
+                ["driverPayAmount", "Driver pay for this journey"],
+              ] as const
+            ).map(([key, label]) => (
+              <label key={key} className="text-xs text-white/50">
+                {label}
+                <input
+                  value={assignForm[key]}
+                  onChange={(event) =>
+                    setAssignForm((prev) => ({ ...prev, [key]: event.target.value }))
+                  }
+                  placeholder={key === "driverPayAmount" ? "e.g. £80" : undefined}
+                  className="mt-1 w-full rounded-xl border border-white/15 bg-navy px-3 py-2 text-sm text-white outline-none focus:border-emerald"
+                />
+              </label>
+            ))}
+          </div>
+          <button
+            type="button"
+            disabled={assignBusy}
+            onClick={() => void assignToDriver()}
+            className="rounded-xl bg-emerald px-4 py-2.5 text-sm font-bold text-navy transition-colors hover:bg-emerald/90 disabled:opacity-60"
+          >
+            {assignBusy
+              ? "Sending…"
+              : assignmentStatus === "pending" || assignmentStatus === "accepted"
+                ? "Email reassignment to driver"
+                : "Email driver to confirm job"}
+          </button>
+        </div>
+      ) : null}
+
+      <div className="mt-5 flex flex-wrap gap-3">
+        {isOwner && !isRefunded && (
+          <>
             <button
               type="button"
               disabled={assignBusy}
-              onClick={() => void assignToDriver()}
+              onClick={() => (assignFormOpen ? setAssignFormOpen(false) : openAssignForm())}
               className="rounded-xl bg-emerald px-4 py-2.5 text-sm font-semibold text-navy transition-colors hover:bg-emerald/90 disabled:opacity-60"
             >
-              {assignBusy
-                ? "Assigning…"
-                : assignmentStatus === "pending" || assignmentStatus === "accepted"
-                  ? "Reassign job"
-                  : "Assign job"}
+              {assignmentStatus === "pending" || assignmentStatus === "accepted"
+                ? "Reassign job"
+                : "Assign job"}
             </button>
             {isAssigned && (
               <button
@@ -1203,6 +1378,7 @@ function DriverJobCard({
         </div>
       )}
 
+      {assignMessage && <p className="mt-3 text-sm text-emerald">{assignMessage}</p>}
       {error && <p className="mt-3 text-sm text-red-300">{error}</p>}
     </article>
   );

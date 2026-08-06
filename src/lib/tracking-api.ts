@@ -524,11 +524,26 @@ export async function fetchDriverRoster(ownerKey: string): Promise<string[]> {
   return payload.drivers;
 }
 
+export type AssignDriverDetails = {
+  driverFirstName: string;
+  driverEmail?: string;
+  driverCarMake?: string;
+  driverCarModel?: string;
+  driverReg?: string;
+  driverPayAmount?: string;
+};
+
 export async function assignJobToDriver(
   ownerKey: string,
   token: string,
-  driverName: string,
-): Promise<{ ok: true; job: DriverJob }> {
+  driverNameOrDetails: string | AssignDriverDetails,
+): Promise<{ ok: true; job: DriverJob; emailed?: boolean }> {
+  const details: AssignDriverDetails =
+    typeof driverNameOrDetails === "string"
+      ? { driverFirstName: driverNameOrDetails }
+      : driverNameOrDetails;
+  const driverName = details.driverFirstName.trim();
+
   if (isDemoOwnerKey(ownerKey)) {
     const job =
       getDemoOwnerUpcomingJobs().jobs.find((entry) => entry.token === token) ??
@@ -541,6 +556,7 @@ export async function assignJobToDriver(
 
     return {
       ok: true,
+      emailed: Boolean(details.driverEmail && details.driverPayAmount),
       job: enrichDemoJobForOwner({
         ...job,
         assignedDriverName: driverName,
@@ -553,10 +569,19 @@ export async function assignJobToDriver(
   const response = await fetch(`${WORKER_BASE}/driver/assign?key=${encodeURIComponent(ownerKey.trim())}`, {
     method: "POST",
     headers: driverPostHeaders(ownerKey),
-    body: JSON.stringify({ token, driverName }),
+    body: JSON.stringify({
+      token,
+      driverName,
+      driverFirstName: driverName,
+      driverEmail: details.driverEmail?.trim() || undefined,
+      driverCarMake: details.driverCarMake?.trim() || undefined,
+      driverCarModel: details.driverCarModel?.trim() || undefined,
+      driverReg: details.driverReg?.trim() || undefined,
+      driverPayAmount: details.driverPayAmount?.trim() || undefined,
+    }),
   });
 
-  return parseJsonResponse<{ ok: true; job: DriverJob }>(response);
+  return parseJsonResponse<{ ok: true; job: DriverJob; emailed?: boolean }>(response);
 }
 
 export async function deassignJob(
