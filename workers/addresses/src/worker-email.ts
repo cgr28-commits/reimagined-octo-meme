@@ -162,13 +162,11 @@ export async function trySendEmail(
   const isCustomerEmail = options.to.toLowerCase() !== ownerEmail.toLowerCase();
   const skipPlainTextFallback = Boolean(options.requireHtml && wantsHtml && isCustomerEmail);
 
-  if (env.EMAIL) {
-    providers.push({ label: "cloudflare-email", run: () => sendViaCloudflareEmail(env, options) });
-  }
-
+  // Cloudflare Email binding is present but the domain is not verified yet
+  // ("myairporttaxini.co.uk not found"). Skip it so FormSubmit/Web3Forms —
+  // the path that historically delivered mail — run first.
   if (wantsHtml) {
     providers.push({ label: "formsubmit", run: () => sendViaFormSubmit(options) });
-    providers.push({ label: "mailchannels", run: () => sendViaMailChannels(env, options) });
   }
 
   if (!skipPlainTextFallback && env.WEB3FORMS_ACCESS_KEY?.trim()) {
@@ -182,8 +180,9 @@ export async function trySendEmail(
 
   if (!wantsHtml) {
     providers.push({ label: "formsubmit", run: () => sendViaFormSubmit(options) });
-    providers.push({ label: "mailchannels", run: () => sendViaMailChannels(env, options) });
   }
+
+  providers.push({ label: "mailchannels", run: () => sendViaMailChannels(env, options) });
 
   let lastError: unknown = null;
 

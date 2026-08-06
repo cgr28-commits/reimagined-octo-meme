@@ -646,17 +646,25 @@ async function handleBookingRequest(
   }
 
   let emailSent = false;
-  let emailError: string | undefined;
 
   if (shouldSendEmail) {
     try {
       await sendBookingEmail(env, customerName, message, bookingReference);
       emailSent = true;
     } catch (error) {
-      // Soft-fail: keep the booking/job so the browser can still deliver
-      // mail via FormSubmit/Web3Forms (customer IP) if worker providers are rate-limited.
+      // Keep 502 so the live site falls through to browser FormSubmit/Web3Forms
+      // (customer IP), which is how email kept working when the worker path failed.
       console.error("Booking email failed", error);
-      emailError = error instanceof Error ? error.message : "Unknown email error";
+      const detail = error instanceof Error ? error.message : "Unknown email error";
+      return json(
+        {
+          error: "Failed to send booking email",
+          detail,
+          web3formsConfigured: Boolean(env.WEB3FORMS_ACCESS_KEY?.trim()),
+        },
+        502,
+        origin,
+      );
     }
   }
 
@@ -706,7 +714,6 @@ async function handleBookingRequest(
       bookingReference: bookingReference ?? undefined,
       bookingJobId,
       emailSent,
-      ...(emailError ? { emailError } : {}),
       calendarLogged: false,
       calendarEvents: 0,
     },
