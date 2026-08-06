@@ -20,6 +20,12 @@ export type WorkerEmailEnv = {
   BOOKING_TO_EMAIL?: string;
   BOOKING_FROM_EMAIL?: string;
   WEB3FORMS_ACCESS_KEY?: string;
+  /**
+   * Set to "1" only after Cloudflare Email Sending is verified for
+   * myairporttaxini.co.uk. Until then the EMAIL binding fails with
+   * "domain was not found" and must not block FormSubmit/Web3Forms.
+   */
+  CLOUDFLARE_EMAIL_SENDING_ENABLED?: string;
   EMAIL?: EmailBinding;
 };
 
@@ -44,6 +50,10 @@ export type EmailSendResult = {
 const DEFAULT_BOOKING_EMAIL = BUSINESS_MAILBOX;
 const WORKER_PUBLIC_HOST = "reimagined-octo-meme.cgr28.workers.dev";
 
+function cloudflareEmailSendingEnabled(env: WorkerEmailEnv): boolean {
+  return env.CLOUDFLARE_EMAIL_SENDING_ENABLED?.trim() === "1";
+}
+
 async function sendViaCloudflareEmail(env: WorkerEmailEnv, options: EmailPayload): Promise<void> {
   if (!env.EMAIL) {
     throw new Error("Cloudflare Email Service is not configured");
@@ -67,8 +77,8 @@ async function sendViaWeb3Forms(env: WorkerEmailEnv, options: EmailPayload): Pro
     throw new Error("Web3Forms is not configured");
   }
 
-  const ownerEmail = businessMailbox(env.BOOKING_TO_EMAIL);
-  const sendAutoresponse = !isBusinessMailbox(options.to);
+  const toBusiness = isBusinessMailbox(options.to);
+  const sendAutoresponse = !toBusiness;
 
   const payload: Record<string, unknown> = {
     access_key: accessKey,
@@ -80,12 +90,16 @@ async function sendViaWeb3Forms(env: WorkerEmailEnv, options: EmailPayload): Pro
   };
 
   if (sendAutoresponse) {
+    // Customer / driver receive the autoresponse; bookings@ also gets a copy via Web3Forms inbox.
     payload.email = options.to;
     const autoresponseMessage = options.htmlBody?.trim() || options.body;
     payload.autoresponse = {
       subject: options.subject,
       message: autoresponseMessage,
     };
+  } else {
+    // Owner/business notification — always land in bookings@.
+    payload.email = BUSINESS_MAILBOX;
   }
 
   const response = await fetch("https://api.web3forms.com/submit", {
@@ -123,9 +137,14 @@ async function sendViaFormSubmit(options: EmailPayload): Promise<void> {
     throw new Error("FormSubmit returned an unexpected response");
   }
 
-  const payload = (await response.json().catch(() => null)) as { success?: unknown } | null;
+  const payload = (await response.json().catch(() => null)) as {
+    success?: unknown;
+    message?: string;
+  } | null;
   if (!response.ok || (payload?.success !== "true" && payload?.success !== true)) {
-    throw new Error("FormSubmit request failed");
+    throw new Error(
+      payload?.message ? `FormSubmit: ${payload.message}` : "FormSubmit request failed",
+    );
   }
 }
 
@@ -165,23 +184,23 @@ async function sendViaMailChannels(env: WorkerEmailEnv, options: EmailPayload): 
   }
 }
 
+/**
+ * Provider order matches how this site actually delivered mail before:
+ * FormSubmit + Web3Forms first. Cloudflare Email is opt-in only (domain
+ * not verified yet). MailChannels last (often 401).
+ */
 export async function trySendEmail(
   env: WorkerEmailEnv,
   options: EmailPayload,
 ): Promise<EmailSendResult> {
   const providers: Array<{ label: string; run: () => Promise<void> }> = [];
   const wantsHtml = Boolean(options.htmlBody?.trim());
-  const ownerEmail = businessMailbox(env.BOOKING_TO_EMAIL);
   const isCustomerEmail = !isBusinessMailbox(options.to);
   const skipPlainTextFallback = Boolean(options.requireHtml && wantsHtml && isCustomerEmail);
 
-  if (env.EMAIL) {
-    providers.push({ label: "cloudflare-email", run: () => sendViaCloudflareEmail(env, options) });
-  }
-
+  // Historical working path first.
   if (wantsHtml) {
     providers.push({ label: "formsubmit", run: () => sendViaFormSubmit(options) });
-    providers.push({ label: "mailchannels", run: () => sendViaMailChannels(env, options) });
   }
 
   if (!skipPlainTextFallback && env.WEB3FORMS_ACCESS_KEY?.trim()) {
@@ -195,8 +214,13 @@ export async function trySendEmail(
 
   if (!wantsHtml) {
     providers.push({ label: "formsubmit", run: () => sendViaFormSubmit(options) });
-    providers.push({ label: "mailchannels", run: () => sendViaMailChannels(env, options) });
   }
+
+  if (cloudflareEmailSendingEnabled(env) && env.EMAIL) {
+    providers.push({ label: "cloudflare-email", run: () => sendViaCloudflareEmail(env, options) });
+  }
+
+  providers.push({ label: "mailchannels", run: () => sendViaMailChannels(env, options) });
 
   let lastError: unknown = null;
   const providersTried: string[] = [];
@@ -205,7 +229,7 @@ export async function trySendEmail(
     providersTried.push(provider.label);
     try {
       await provider.run();
-      return { sent: true };
+      return { sent: true, providersTried };
     } catch (error) {
       lastError = error;
       console.error(`Email via ${provider.label} failed`, error);

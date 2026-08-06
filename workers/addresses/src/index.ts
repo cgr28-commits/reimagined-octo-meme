@@ -120,6 +120,7 @@ type Env = {
   BOOKING_TO_EMAIL?: string;
   BOOKING_FROM_EMAIL?: string;
   WEB3FORMS_ACCESS_KEY?: string;
+  CLOUDFLARE_EMAIL_SENDING_ENABLED?: string;
   SUMUP_API_KEY?: string;
   SUMUP_MERCHANT_CODE?: string;
   BOOKING_COUNTER?: KVNamespace;

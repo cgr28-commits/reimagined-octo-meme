@@ -21,7 +21,7 @@
  * Env:
  *   HEALTH_CHECK_SITE_URL     default https://www.myairporttaxini.co.uk
  *   HEALTH_CHECK_WORKER_URL   default https://reimagined-octo-meme.cgr28.workers.dev
- *   HEALTH_CHECK_NOTIFY_EMAIL default bookings@myairporttaxini.co.uk
+ *   HEALTH_CHECK_NOTIFY_EMAIL ignored — always bookings@myairporttaxini.co.uk
  *   WEB3FORMS_ACCESS_KEY      optional — sends daily summary email when set
  */
 
@@ -314,7 +314,9 @@ async function sendNotificationEmail() {
         access_key: WEB3FORMS_KEY,
         subject,
         email: NOTIFY_EMAIL,
-        name: "MATNI Health Monitor",
+        name: "My Airport Taxi NI",
+        from_name: "My Airport Taxi NI",
+        replyto: NOTIFY_EMAIL,
         message: body,
       }),
     });
