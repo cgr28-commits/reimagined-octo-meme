@@ -1,10 +1,3 @@
-import {
-  BUSINESS_MAILBOX,
-  BUSINESS_NAME,
-  businessMailbox,
-  isBusinessMailbox,
-} from "../shared/business-email";
-
 type EmailBinding = {
   send(message: {
     to: string;
@@ -20,12 +13,6 @@ export type WorkerEmailEnv = {
   BOOKING_TO_EMAIL?: string;
   BOOKING_FROM_EMAIL?: string;
   WEB3FORMS_ACCESS_KEY?: string;
-  /**
-   * Set to "1" only after Cloudflare Email Sending is verified for
-   * myairporttaxini.co.uk. Until then the EMAIL binding fails with
-   * "domain was not found" and must not block FormSubmit/Web3Forms.
-   */
-  CLOUDFLARE_EMAIL_SENDING_ENABLED?: string;
   EMAIL?: EmailBinding;
 };
 
@@ -42,24 +29,18 @@ export type EmailPayload = {
 export type EmailSendResult = {
   sent: boolean;
   error?: string;
-  /** Provider labels tried when send failed (for diagnostics). */
-  providersTried?: string[];
 };
 
-/** @deprecated Use BUSINESS_MAILBOX — kept for existing imports. */
-const DEFAULT_BOOKING_EMAIL = BUSINESS_MAILBOX;
+const DEFAULT_BOOKING_EMAIL = "bookings@myairporttaxini.co.uk";
+const BUSINESS_NAME = "My Airport Taxi NI";
 const WORKER_PUBLIC_HOST = "reimagined-octo-meme.cgr28.workers.dev";
-
-function cloudflareEmailSendingEnabled(env: WorkerEmailEnv): boolean {
-  return env.CLOUDFLARE_EMAIL_SENDING_ENABLED?.trim() === "1";
-}
 
 async function sendViaCloudflareEmail(env: WorkerEmailEnv, options: EmailPayload): Promise<void> {
   if (!env.EMAIL) {
     throw new Error("Cloudflare Email Service is not configured");
   }
 
-  const fromEmail = businessMailbox(env.BOOKING_FROM_EMAIL);
+  const fromEmail = env.BOOKING_FROM_EMAIL?.trim() || DEFAULT_BOOKING_EMAIL;
 
   await env.EMAIL.send({
     to: options.to,
@@ -77,29 +58,24 @@ async function sendViaWeb3Forms(env: WorkerEmailEnv, options: EmailPayload): Pro
     throw new Error("Web3Forms is not configured");
   }
 
-  const toBusiness = isBusinessMailbox(options.to);
-  const sendAutoresponse = !toBusiness;
+  const ownerEmail = env.BOOKING_TO_EMAIL?.trim() || DEFAULT_BOOKING_EMAIL;
+  const sendAutoresponse = options.to.toLowerCase() !== ownerEmail.toLowerCase();
 
   const payload: Record<string, unknown> = {
     access_key: accessKey,
     subject: sendAutoresponse ? `[Paid booking copy] ${options.subject}` : options.subject,
-    name: options.toName ?? BUSINESS_NAME,
-    from_name: BUSINESS_NAME,
-    replyto: BUSINESS_MAILBOX,
+    name: options.toName ?? options.to,
+    from_name: options.toName ?? BUSINESS_NAME,
     message: options.body,
   };
 
   if (sendAutoresponse) {
-    // Customer / driver receive the autoresponse; bookings@ also gets a copy via Web3Forms inbox.
     payload.email = options.to;
     const autoresponseMessage = options.htmlBody?.trim() || options.body;
     payload.autoresponse = {
       subject: options.subject,
       message: autoresponseMessage,
     };
-  } else {
-    // Owner/business notification — always land in bookings@.
-    payload.email = BUSINESS_MAILBOX;
   }
 
   const response = await fetch("https://api.web3forms.com/submit", {
@@ -108,16 +84,9 @@ async function sendViaWeb3Forms(env: WorkerEmailEnv, options: EmailPayload): Pro
     body: JSON.stringify(payload),
   });
 
-  const body = (await response.json().catch(() => null)) as {
-    success?: unknown;
-    message?: string;
-  } | null;
+  const body = (await response.json().catch(() => null)) as { success?: unknown } | null;
   if (!response.ok || body?.success !== true) {
-    throw new Error(
-      body?.message
-        ? `Web3Forms (${response.status}): ${body.message}`
-        : `Web3Forms request failed (${response.status})`,
-    );
+    throw new Error("Web3Forms request failed");
   }
 }
 
@@ -129,10 +98,10 @@ async function sendViaFormSubmit(options: EmailPayload): Promise<void> {
     body: JSON.stringify({
       _subject: options.subject,
       _captcha: "false",
-      _template: "box",
-      name: BUSINESS_NAME,
+      _template: html ? "box" : "box",
+      name: options.toName ?? BUSINESS_NAME,
       message: html || options.body,
-      _replyto: BUSINESS_MAILBOX,
+      ...(html ? { _replyto: DEFAULT_BOOKING_EMAIL } : {}),
     }),
   });
 
@@ -141,21 +110,14 @@ async function sendViaFormSubmit(options: EmailPayload): Promise<void> {
     throw new Error("FormSubmit returned an unexpected response");
   }
 
-  const payload = (await response.json().catch(() => null)) as {
-    success?: unknown;
-    message?: string;
-  } | null;
+  const payload = (await response.json().catch(() => null)) as { success?: unknown } | null;
   if (!response.ok || (payload?.success !== "true" && payload?.success !== true)) {
-    throw new Error(
-      payload?.message
-        ? `FormSubmit (${response.status}): ${payload.message}`
-        : `FormSubmit request failed (${response.status})`,
-    );
+    throw new Error("FormSubmit request failed");
   }
 }
 
 async function sendViaMailChannels(env: WorkerEmailEnv, options: EmailPayload): Promise<void> {
-  const fromEmail = businessMailbox(env.BOOKING_FROM_EMAIL);
+  const fromEmail = env.BOOKING_FROM_EMAIL?.trim() || DEFAULT_BOOKING_EMAIL;
 
   const response = await fetch("https://api.mailchannels.net/tx/v1/send", {
     method: "POST",
@@ -190,23 +152,23 @@ async function sendViaMailChannels(env: WorkerEmailEnv, options: EmailPayload): 
   }
 }
 
-/**
- * Provider order matches how this site actually delivered mail before:
- * FormSubmit + Web3Forms first. Cloudflare Email is opt-in only (domain
- * not verified yet). MailChannels last (often 401).
- */
 export async function trySendEmail(
   env: WorkerEmailEnv,
   options: EmailPayload,
 ): Promise<EmailSendResult> {
   const providers: Array<{ label: string; run: () => Promise<void> }> = [];
   const wantsHtml = Boolean(options.htmlBody?.trim());
-  const isCustomerEmail = !isBusinessMailbox(options.to);
+  const ownerEmail = env.BOOKING_TO_EMAIL?.trim() || DEFAULT_BOOKING_EMAIL;
+  const isCustomerEmail = options.to.toLowerCase() !== ownerEmail.toLowerCase();
   const skipPlainTextFallback = Boolean(options.requireHtml && wantsHtml && isCustomerEmail);
 
-  // Historical working path first.
+  if (env.EMAIL) {
+    providers.push({ label: "cloudflare-email", run: () => sendViaCloudflareEmail(env, options) });
+  }
+
   if (wantsHtml) {
     providers.push({ label: "formsubmit", run: () => sendViaFormSubmit(options) });
+    providers.push({ label: "mailchannels", run: () => sendViaMailChannels(env, options) });
   }
 
   if (!skipPlainTextFallback && env.WEB3FORMS_ACCESS_KEY?.trim()) {
@@ -220,36 +182,24 @@ export async function trySendEmail(
 
   if (!wantsHtml) {
     providers.push({ label: "formsubmit", run: () => sendViaFormSubmit(options) });
+    providers.push({ label: "mailchannels", run: () => sendViaMailChannels(env, options) });
   }
-
-  if (cloudflareEmailSendingEnabled(env) && env.EMAIL) {
-    providers.push({ label: "cloudflare-email", run: () => sendViaCloudflareEmail(env, options) });
-  }
-
-  providers.push({ label: "mailchannels", run: () => sendViaMailChannels(env, options) });
 
   let lastError: unknown = null;
-  const providersTried: string[] = [];
-  const providerErrors: string[] = [];
 
   for (const provider of providers) {
-    providersTried.push(provider.label);
     try {
       await provider.run();
-      return { sent: true, providersTried };
+      return { sent: true };
     } catch (error) {
       lastError = error;
-      const msg = error instanceof Error ? error.message : String(error);
-      providerErrors.push(`${provider.label}: ${msg}`);
       console.error(`Email via ${provider.label} failed`, error);
     }
   }
 
-  return {
-    sent: false,
-    error: providerErrors.join(" | ") || "All email providers failed",
-    providersTried,
-  };
+  const detail =
+    lastError instanceof Error ? lastError.message : "All email providers failed";
+  return { sent: false, error: detail };
 }
 
 /** Sends a branded HTML email to a customer — never falls back to plain-text-only delivery. */
@@ -271,4 +221,4 @@ export async function sendEmail(env: WorkerEmailEnv, options: EmailPayload): Pro
   }
 }
 
-export { BUSINESS_NAME, DEFAULT_BOOKING_EMAIL, BUSINESS_MAILBOX, businessMailbox, isBusinessMailbox };
+export { BUSINESS_NAME, DEFAULT_BOOKING_EMAIL };

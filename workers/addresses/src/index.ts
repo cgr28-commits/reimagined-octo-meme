@@ -120,7 +120,6 @@ type Env = {
   BOOKING_TO_EMAIL?: string;
   BOOKING_FROM_EMAIL?: string;
   WEB3FORMS_ACCESS_KEY?: string;
-  CLOUDFLARE_EMAIL_SENDING_ENABLED?: string;
   SUMUP_API_KEY?: string;
   SUMUP_MERCHANT_CODE?: string;
   BOOKING_COUNTER?: KVNamespace;
@@ -647,23 +646,17 @@ async function handleBookingRequest(
   }
 
   let emailSent = false;
+  let emailError: string | undefined;
 
   if (shouldSendEmail) {
     try {
       await sendBookingEmail(env, customerName, message, bookingReference);
       emailSent = true;
     } catch (error) {
+      // Soft-fail: keep the booking/job so the browser can still deliver
+      // mail via FormSubmit/Web3Forms (customer IP) if worker providers are rate-limited.
       console.error("Booking email failed", error);
-      const detail = error instanceof Error ? error.message : "Unknown email error";
-      return json(
-        {
-          error: "Failed to send booking email",
-          detail,
-          web3formsConfigured: Boolean(env.WEB3FORMS_ACCESS_KEY?.trim()),
-        },
-        502,
-        origin,
-      );
+      emailError = error instanceof Error ? error.message : "Unknown email error";
     }
   }
 
@@ -713,6 +706,7 @@ async function handleBookingRequest(
       bookingReference: bookingReference ?? undefined,
       bookingJobId,
       emailSent,
+      ...(emailError ? { emailError } : {}),
       calendarLogged: false,
       calendarEvents: 0,
     },

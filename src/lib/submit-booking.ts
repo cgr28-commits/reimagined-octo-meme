@@ -56,7 +56,12 @@ function readBookingReference(payload: unknown): string {
   return typeof bookingReference === "string" ? bookingReference.trim() : "";
 }
 
-async function submitViaWorker(submission: EnquirySubmission): Promise<string> {
+type WorkerSubmitResult = {
+  bookingReference: string;
+  emailSent: boolean;
+};
+
+async function submitViaWorker(submission: EnquirySubmission): Promise<WorkerSubmitResult> {
   const response = await fetch(BOOKINGS_API_URL, {
     method: "POST",
     headers: {
@@ -75,11 +80,15 @@ async function submitViaWorker(submission: EnquirySubmission): Promise<string> {
   const payload = (await response.json().catch(() => null)) as {
     ok?: boolean;
     bookingReference?: string;
+    emailSent?: boolean;
     error?: string;
   } | null;
 
   if (payload?.ok) {
-    return readBookingReference(payload);
+    return {
+      bookingReference: readBookingReference(payload),
+      emailSent: payload.emailSent === true || submission.sendEmail === false,
+    };
   }
 
   if (!response.ok) {
@@ -103,9 +112,7 @@ async function submitViaWeb3Forms(submission: EnquirySubmission): Promise<string
     body: JSON.stringify({
       access_key: WEB3FORMS_ACCESS_KEY,
       subject: submission.subject ?? `New enquiry — ${submission.customerName}`,
-      from_name: "My Airport Taxi NI",
-      replyto: SITE.email,
-      name: submission.customerName,
+      from_name: submission.customerName,
       message: submission.message,
     }),
   });
@@ -135,9 +142,8 @@ async function submitViaFormSubmitAjax(submission: EnquirySubmission): Promise<s
         _subject: submission.subject ?? `New enquiry — ${submission.customerName}`,
         _captcha: "false",
         _template: "box",
-        name: "My Airport Taxi NI",
+        name: submission.customerName,
         message: submission.message,
-        _replyto: SITE.email,
       }),
     },
   );
@@ -177,9 +183,8 @@ function submitViaFormSubmitForm(submission: EnquirySubmission): Promise<string>
       _subject: submission.subject ?? `New enquiry — ${submission.customerName}`,
       _captcha: "false",
       _template: "box",
-      name: "My Airport Taxi NI",
+      name: submission.customerName,
       message: submission.message,
-      _replyto: SITE.email,
     };
 
     for (const [name, value] of Object.entries(fields)) {
@@ -243,33 +248,51 @@ export async function submitEnquiryByEmail(
   options?: { allowFormSubmitFallback?: boolean },
 ): Promise<string> {
   const allowFormSubmitFallback = options?.allowFormSubmitFallback ?? true;
-  const attempts: Array<{ label: string; run: () => Promise<string> }> = [];
+  let bookingReference = "";
+  let lastError: unknown = null;
 
   if (BOOKINGS_API_URL) {
-    attempts.push({ label: "worker", run: () => submitViaWorker(submission) });
+    try {
+      const workerResult = await submitViaWorker(submission);
+      bookingReference = workerResult.bookingReference;
+      if (workerResult.emailSent) {
+        return bookingReference;
+      }
+      // Worker saved the booking but could not email — fall through to browser providers.
+      console.error("Worker accepted booking without sending email; trying browser email providers");
+    } catch (error) {
+      lastError = error;
+      console.error("Booking submission via worker failed", error);
+    }
   }
 
   if (submission.sendEmail !== false) {
+    const emailAttempts: Array<{ label: string; run: () => Promise<string> }> = [];
+
     if (WEB3FORMS_ACCESS_KEY) {
-      attempts.push({ label: "web3forms", run: () => submitViaWeb3Forms(submission) });
+      emailAttempts.push({ label: "web3forms", run: () => submitViaWeb3Forms(submission) });
     }
 
     if (allowFormSubmitFallback) {
-      attempts.push({ label: "formsubmit", run: () => submitViaFormSubmit(submission) });
+      emailAttempts.push({ label: "formsubmit", run: () => submitViaFormSubmit(submission) });
     } else {
-      attempts.push({ label: "formsubmit-ajax", run: () => submitViaFormSubmitAjax(submission) });
+      emailAttempts.push({ label: "formsubmit-ajax", run: () => submitViaFormSubmitAjax(submission) });
+    }
+
+    for (const attempt of emailAttempts) {
+      try {
+        await attempt.run();
+        return bookingReference;
+      } catch (error) {
+        lastError = error;
+        console.error(`Booking submission via ${attempt.label} failed`, error);
+      }
     }
   }
 
-  let lastError: unknown = null;
-
-  for (const attempt of attempts) {
-    try {
-      return await attempt.run();
-    } catch (error) {
-      lastError = error;
-      console.error(`Booking submission via ${attempt.label} failed`, error);
-    }
+  // Booking may already be stored on the worker even if every email path failed.
+  if (bookingReference) {
+    return bookingReference;
   }
 
   throw lastError instanceof Error
@@ -285,7 +308,8 @@ export async function submitBookingByEmail(details: BookingDetails): Promise<str
       subject: `New booking — ${details.customerName}`,
       booking: details,
     },
-    { allowFormSubmitFallback: false },
+    // Prefer browser FormSubmit when the worker IP is rate-limited.
+    { allowFormSubmitFallback: true },
   );
 }
 
@@ -301,7 +325,8 @@ export async function submitMobileWhatsAppBooking(details: BookingDetails): Prom
 
   if (BOOKINGS_API_URL) {
     try {
-      return await submitViaWorker(submission);
+      const result = await submitViaWorker(submission);
+      return result.bookingReference;
     } catch (error) {
       console.error("Mobile WhatsApp worker log failed", error);
     }
@@ -313,7 +338,8 @@ export async function submitMobileWhatsAppBooking(details: BookingDetails): Prom
 export async function submitMobileWhatsAppEnquiry(submission: EnquirySubmission): Promise<string> {
   if (BOOKINGS_API_URL) {
     try {
-      return await submitViaWorker({ ...submission, sendEmail: false });
+      const result = await submitViaWorker({ ...submission, sendEmail: false });
+      return result.bookingReference;
     } catch (error) {
       console.error("Mobile WhatsApp worker log failed", error);
     }

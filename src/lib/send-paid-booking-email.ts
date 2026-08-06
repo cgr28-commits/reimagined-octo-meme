@@ -77,7 +77,7 @@ export async function sendPaidBookingEmailsFromBrowser(
     subject: customerEmail.subject,
     htmlBody: customerEmail.html,
     textBody: customerEmail.text,
-    fromName: "My Airport Taxi NI",
+    fromName: booking.customerName,
   });
 
   if (!customerEmailSent) {
@@ -85,8 +85,7 @@ export async function sendPaidBookingEmailsFromBrowser(
       subject: customerEmail.subject,
       name: booking.customerName,
       email: booking.customerEmail,
-      from_name: "My Airport Taxi NI",
-      replyto: SITE.email,
+      from_name: booking.customerName,
       message: customerEmail.text,
       autoresponse: {
         subject: customerEmail.subject,
@@ -107,7 +106,6 @@ export async function sendPaidBookingEmailsFromBrowser(
       subject: ownerEmail.subject,
       name: booking.customerName,
       from_name: "My Airport Taxi NI",
-      replyto: SITE.email,
       message: ownerEmail.body,
     });
   }

@@ -1,13 +1,15 @@
 name: Restore production worker email
 
-# Deploys this branch's worker so booking email works again after test deploys.
+# Deploys the restored worker email path. Does NOT probe send
+# (probing caused FormSubmit/Web3Forms 429 on the shared worker IP).
 on:
   push:
     branches:
       - "cursor/owner-driver-details-514b"
     paths:
-      - "workers/addresses/**"
-      - "shared/business-email.ts"
+      - "workers/addresses/src/worker-email.ts"
+      - "workers/addresses/src/index.ts"
+      - "workers/addresses/src/test-email-handlers.ts"
       - "shared/email-delivery.ts"
       - ".github/workflows/restore-worker-email.yml"
   workflow_dispatch:
@@ -37,16 +39,5 @@ jobs:
           npm ci
           npm run build
           npx wrangler deploy
-          # Clear one-shot test token left by earlier email experiments
           printf 'cleared' | npx wrangler secret put TEST_EMAIL_TOKEN || true
-
-      - name: Verify booking email path
-        run: |
-          sleep 8
-          RESPONSE=$(curl -sS -X POST \
-            "https://reimagined-octo-meme.cgr28.workers.dev/bookings" \
-            -H "Content-Type: application/json" \
-            -H "Origin: https://www.myairporttaxini.co.uk" \
-            -d '{"customerName":"Email Restore Check","message":"[RESTORE CHECK] Ignore — verifying bookings@ email delivery is working again after provider order fix.","sendEmail":true}')
-          echo "$RESPONSE"
-          echo "$RESPONSE" | node -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{const j=JSON.parse(s); if(j.error){console.error(j); process.exit(1)} console.log("booking email ok", j)})'
+          echo "::notice::Worker deployed with restored main email path. Do not probe sends while rate limits clear."

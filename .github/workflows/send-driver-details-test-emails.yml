@@ -1,18 +1,11 @@
 name: Send driver/customer test emails
 
+# Manual only — automated probes rate-limited FormSubmit/Web3Forms on the worker IP.
 on:
-  push:
-    branches:
-      - "cursor/owner-driver-details-514b"
-    paths:
-      - ".github/workflows/send-driver-details-test-emails.yml"
-      - "workers/addresses/src/test-email-handlers.ts"
-      - "scripts/send-driver-details-test-emails.ts"
-      - "shared/booking-job.ts"
   workflow_dispatch:
 
 jobs:
-  send:
+  preview:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -25,54 +18,13 @@ jobs:
       - name: Install repo dependencies
         run: npm ci
 
-      - name: Build email payloads
+      - name: Build email payloads only
         env:
           EMAIL_PREVIEW_DIR: artifacts/email-previews
           SKIP_SEND: "1"
         run: npx tsx scripts/send-driver-details-test-emails.ts
 
-      - name: Deploy worker + one-shot test token
-        id: deploy
-        working-directory: workers/addresses
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: |
-          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
-            echo "::error::CLOUDFLARE credentials required"
-            exit 1
-          fi
-          npm ci
-          npm run build
-          npx wrangler deploy
-          TOKEN=$(openssl rand -hex 24)
-          printf '%s' "$TOKEN" | npx wrangler secret put TEST_EMAIL_TOKEN
-          echo "::add-mask::$TOKEN"
-          echo "token=$TOKEN" >> "$GITHUB_OUTPUT"
-
-      - name: Send test emails to bookings inbox
-        env:
-          TEST_EMAIL_TOKEN: ${{ steps.deploy.outputs.token }}
-        run: |
-          sleep 10
-          RESPONSE=$(curl -sS -X POST \
-            "https://reimagined-octo-meme.cgr28.workers.dev/test/driver-detail-emails" \
-            -H "Content-Type: application/json" \
-            -H "X-Test-Email-Token: $TEST_EMAIL_TOKEN" \
-            -d '{"to":"bookings@myairporttaxini.co.uk"}')
-          echo "$RESPONSE"
-          echo "$RESPONSE" | node -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{try{const j=JSON.parse(s); if(!j.ok){console.error(j); process.exit(1)} console.log("sent ok", j.to)})'
-
-      - name: Clear one-shot test token
-        if: always()
-        working-directory: workers/addresses
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: printf 'cleared' | npx wrangler secret put TEST_EMAIL_TOKEN || true
-
       - name: Upload email HTML previews
-        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: driver-customer-email-previews

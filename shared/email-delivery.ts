@@ -6,9 +6,6 @@ export type FormSubmitEmailOptions = {
   fromName?: string;
 };
 
-const BUSINESS_MAILBOX = "bookings@myairporttaxini.co.uk";
-const BUSINESS_NAME = "My Airport Taxi NI";
-
 export async function sendViaFormSubmitEmail(
   options: FormSubmitEmailOptions,
 ): Promise<boolean> {
@@ -19,9 +16,8 @@ export async function sendViaFormSubmitEmail(
       _subject: options.subject,
       _captcha: "false",
       _template: "box",
-      name: options.fromName?.trim() || BUSINESS_NAME,
+      name: options.fromName ?? options.to,
       message: options.htmlBody?.trim() || options.textBody,
-      _replyto: BUSINESS_MAILBOX,
     }),
   });
 
