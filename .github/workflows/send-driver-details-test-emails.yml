@@ -7,6 +7,7 @@ on:
     paths:
       - "scripts/send-driver-details-test-emails.ts"
       - "shared/booking-job.ts"
+      - "workers/addresses/**"
       - "workers/test-mailer/**"
       - ".github/workflows/send-driver-details-test-emails.yml"
   workflow_dispatch:
@@ -31,95 +32,37 @@ jobs:
           SKIP_SEND: "1"
         run: npx tsx scripts/send-driver-details-test-emails.ts
 
-      - name: Install + deploy edge mailer
-        id: deploy
-        working-directory: workers/test-mailer
+      - name: Sync + build + deploy production worker
+        working-directory: workers/addresses
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          WEB3FORMS_ACCESS_KEY: ${{ secrets.WEB3FORMS_ACCESS_KEY }}
         run: |
           if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
-            echo "::error::CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID required to send from edge"
+            echo "::error::CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID required"
             exit 1
           fi
-          npm install
-          # Pass key as plain var in one deploy (avoid secret-put redeploy race → 404)
-          if [ -n "$WEB3FORMS_ACCESS_KEY" ]; then
-            npx wrangler deploy --var "WEB3FORMS_ACCESS_KEY:${WEB3FORMS_ACCESS_KEY}"
-          else
-            npx wrangler deploy
+          npm ci
+          npm run build
+          npx wrangler deploy
+
+      - name: Send both test emails via production worker
+        env:
+          OWNER_ACCESS_KEY: ${{ secrets.OWNER_ACCESS_KEY }}
+        run: |
+          if [ -z "$OWNER_ACCESS_KEY" ]; then
+            echo "::error::OWNER_ACCESS_KEY secret required"
+            exit 1
           fi
-          echo "mailer=https://matni-test-mailer.cgr28.workers.dev" >> "$GITHUB_OUTPUT"
-
-      - name: Wait for mailer to become ready
-        env:
-          MAILER_URL: ${{ steps.deploy.outputs.mailer }}
-        run: |
-          for i in 1 2 3 4 5 6 7 8 9 10; do
-            CODE=$(curl -sS -o /tmp/mailer-health.txt -w '%{http_code}' "$MAILER_URL" || echo 000)
-            echo "attempt $i → HTTP $CODE $(head -c 80 /tmp/mailer-health.txt)"
-            if [ "$CODE" = "200" ]; then
-              exit 0
-            fi
-            sleep 3
-          done
-          echo "::error::Mailer never became ready at $MAILER_URL"
-          exit 1
-
-      - name: Send both test emails via edge mailer
-        env:
-          MAILER_URL: ${{ steps.deploy.outputs.mailer }}
-        run: |
-          node <<'NODE'
-          const fs = require("fs");
-          const to = "cgr28@hotmail.co.uk";
-          const mailer = process.env.MAILER_URL;
-          const emails = [
-            {
-              label: "DRIVER",
-              subject: "[TEST] Job assignment — what the driver sees",
-              text: fs.readFileSync("artifacts/email-previews/driver-assignment.txt", "utf8"),
-              html: fs.readFileSync("artifacts/email-previews/driver-assignment.html", "utf8"),
-            },
-            {
-              label: "CUSTOMER",
-              subject: "[TEST] Customer driver details — first name only (no surname)",
-              text: fs.readFileSync("artifacts/email-previews/customer-driver-details.txt", "utf8"),
-              html: fs.readFileSync("artifacts/email-previews/customer-driver-details.html", "utf8"),
-            },
-          ];
-          async function send(email) {
-            for (let attempt = 1; attempt <= 4; attempt++) {
-              const response = await fetch(mailer, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  to,
-                  subject: email.subject,
-                  text: email.text,
-                  html: email.html,
-                }),
-              });
-              const body = await response.text();
-              console.log(email.label, `attempt ${attempt}`, response.status, body.slice(0, 800));
-              if (response.ok) return;
-              await new Promise((r) => setTimeout(r, 2000));
-            }
-            process.exitCode = 1;
-          }
-          (async () => {
-            for (const email of emails) await send(email);
-          })();
-          NODE
-
-      - name: Remove edge mailer
-        if: always()
-        working-directory: workers/test-mailer
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: npx wrangler delete --force || true
+          # brief settle after deploy
+          sleep 5
+          RESPONSE=$(curl -sS -X POST \
+            "https://reimagined-octo-meme.cgr28.workers.dev/test/driver-detail-emails" \
+            -H "Content-Type: application/json" \
+            -H "X-Owner-Key: $OWNER_ACCESS_KEY" \
+            -d '{"to":"cgr28@hotmail.co.uk"}')
+          echo "$RESPONSE"
+          echo "$RESPONSE" | node -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{const j=JSON.parse(s); if(!j.ok){console.error(j); process.exit(1)} console.log("sent ok", j.to)})'
 
       - name: Upload email HTML previews
         if: always()

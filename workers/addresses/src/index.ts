@@ -98,6 +98,10 @@ import {
   handleMarketingUnsubscribeRequest,
   maybeRecordMarketingFromPayload,
 } from "./marketing-handlers";
+import {
+  handleTestDriverDetailEmails,
+  isTestDriverDetailEmailsPath,
+} from "./test-email-handlers";
 import { CONTACT_VCARD } from "../shared/contact-vcard";
 
 type EmailBinding = {
@@ -1121,6 +1125,10 @@ export default {
 
     if (trackSubRoute === "location" && request.method === "POST") {
       return handleCustomerLocationRequest(request, env, origin);
+    }
+
+    if (isTestDriverDetailEmailsPath(url.pathname) && request.method === "POST") {
+      return handleTestDriverDetailEmails(request, env, origin);
     }
 
     const trackToken = parseTrackTokenFromPath(url.pathname);
