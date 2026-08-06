@@ -4,12 +4,13 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState, type ReactNode } from "react";
 import {
-  CONTACT_VCARD_WORKER_URL,
   contactCardUrl,
   contactEmailLink,
+  contactVCardWorkerUrl,
   downloadContactVCardForFiles,
   isAndroidMobile,
   isAppleMobile,
+  isChromeIos,
   saveToContactsHref,
   whatsAppChatUrl,
 } from "@/lib/contact-card";
@@ -43,13 +44,15 @@ export default function ContactCardClient() {
   const cardUrl = contactCardUrl();
   const qrSrc = withBasePath("/contact-qr.png");
   const [showSaveHelp, setShowSaveHelp] = useState(false);
-  const [saveHref, setSaveHref] = useState(CONTACT_VCARD_WORKER_URL);
+  const [saveHref, setSaveHref] = useState(contactVCardWorkerUrl());
   const [android, setAndroid] = useState(false);
   const [iphone, setIphone] = useState(false);
+  const [chromeIos, setChromeIos] = useState(false);
 
   useEffect(() => {
     setAndroid(isAndroidMobile());
     setIphone(isAppleMobile());
+    setChromeIos(isChromeIos());
     setSaveHref(saveToContactsHref());
   }, []);
 
@@ -119,11 +122,13 @@ export default function ContactCardClient() {
                   Quote · Book · Call
                 </p>
                 <p className="mt-2 text-sm leading-relaxed text-white/65">
-                  {iphone
-                    ? "Opens the contact card — tap Create New Contact at the top, then Save."
-                    : android
-                      ? "Opens Add contact on your phone — no file download."
-                      : "Save us to your phone contacts — then book, call, or WhatsApp us."}
+                  {chromeIos
+                    ? "Opens the contact card in Chrome — tap Create New Contact, then Done. Delete any old My Airport Taxi NI contact first so the new logo appears."
+                    : iphone
+                      ? "Opens the contact card — tap Create New Contact at the top, then Done. Delete any old contact first if the logo looks wrong."
+                      : android
+                        ? "Opens Add contact on your phone — no file download."
+                        : "Save us to your phone contacts — then book, call, or WhatsApp us."}
                 </p>
                 {/* Real link (not Web Share) so iPhone Safari shows Create New Contact. */}
                 <a
@@ -246,18 +251,26 @@ export default function ContactCardClient() {
                 </span>
                 <span className="mt-0.5 block text-lg font-bold">Save to contacts</span>
                 <span className="mt-0.5 block text-xs text-white/45">
-                  {iphone
-                    ? "Opens Create New Contact — not the share sheet"
-                    : android
-                      ? "Opens Add contact — no download"
-                      : "Opens Create New Contact with our logo"}
+                  {chromeIos
+                    ? "Chrome: Create New Contact with logo + green ring"
+                    : iphone
+                      ? "Opens Create New Contact — not the share sheet"
+                      : android
+                        ? "Opens Add contact — no download"
+                        : "Opens Create New Contact with our logo"}
                 </span>
               </span>
             </a>
             {showSaveHelp ? (
               <div className="min-w-0 rounded-2xl border border-emerald/35 bg-emerald/10 px-4 py-4 text-sm text-white">
                 <p className="font-semibold text-emerald">
-                  {iphone ? "On iPhone" : android ? "On Android" : "Save to contacts"}
+                  {chromeIos
+                    ? "On Chrome (iPhone)"
+                    : iphone
+                      ? "On iPhone (Safari)"
+                      : android
+                        ? "On Android"
+                        : "Save to contacts"}
                 </p>
                 {android ? (
                   <ol className="mt-3 list-decimal space-y-2 pl-5 text-white/80">
@@ -269,20 +282,25 @@ export default function ContactCardClient() {
                 ) : (
                   <ol className="mt-3 list-decimal space-y-2 pl-5 text-white/80">
                     <li>
-                      When the contact opens, tap{" "}
-                      <span className="text-white">Create New Contact</span> at the top
+                      Delete any old <span className="text-white">My Airport Taxi NI</span> contact
+                      first (old photo can stick)
                     </li>
                     <li>
-                      Tap <span className="text-white">Done</span> /{" "}
-                      <span className="text-white">Save</span> — logo should show MY AIRPORT TAXI NI
-                      with the green circle
+                      Tap <span className="text-white">Save to contacts</span> again, then{" "}
+                      <span className="text-white">Create New Contact</span>
+                    </li>
+                    <li>
+                      Tap <span className="text-white">Done</span> — photo should show MY AIRPORT
+                      TAXI NI inside the green ring
                     </li>
                   </ol>
                 )}
                 <p className="mt-3 text-xs text-white/55">
-                  {iphone
-                    ? "You should see the full contact card with Create New Contact — not AirDrop / Messages / Save to Files. Use Safari if you’re in another browser."
-                    : "If your phone only downloaded a file, open that file and choose Create New Contact."}
+                  {chromeIos
+                    ? "Chrome should open Create New Contact directly. If it only downloads a file, open that file, or switch to Safari and try again."
+                    : iphone
+                      ? "You should see Create New Contact — not AirDrop / Messages / Files. If the logo is still wrong, use the download link below and open the file from Files."
+                      : "If your phone only downloaded a file, open that file and choose Create New Contact."}
                 </p>
                 <button
                   type="button"

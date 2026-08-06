@@ -14,35 +14,56 @@ export const CONTACT_VCARD_WORKER_URL =
 /** Optional download for Files (keeps logo when Safari strips PHOTO). */
 export const CONTACT_VCARD_DOWNLOAD_URL = `${CONTACT_VCARD_WORKER_URL}?download=1`;
 
+/** Cache-bust so phones pick up the regenerated branded PHOTO. */
+const VCARD_CACHE_BUST = "v=20260806";
+
 export function contactCardUrl(): string {
   return `${SITE.url}${CONTACT_CARD_PATH}`;
 }
 
 /** Same-origin vCard (GitHub Pages serves text/x-vcard). */
 export function contactVCardUrl(): string {
-  return withBasePath(CONTACT_VCARD_PATH);
+  return `${withBasePath(CONTACT_VCARD_PATH)}?${VCARD_CACHE_BUST}`;
 }
 
 /** Absolute same-origin vCard URL (for email / share text). */
 export function contactVCardAbsoluteUrl(): string {
-  return `${SITE.url}${CONTACT_VCARD_PATH}`;
+  return `${SITE.url}${CONTACT_VCARD_PATH}?${VCARD_CACHE_BUST}`;
+}
+
+/** Safari-friendly worker URL (text/vcard). */
+export function contactVCardWorkerUrl(): string {
+  return `${CONTACT_VCARD_WORKER_URL}?${VCARD_CACHE_BUST}`;
+}
+
+/**
+ * Chrome for iPhone (CriOS). Cross-origin worker links often download a file
+ * instead of opening Create New Contact — use same-origin text/x-vcard instead.
+ */
+export function isChromeIos(): boolean {
+  if (typeof navigator === "undefined") return false;
+  return /CriOS/i.test(navigator.userAgent);
 }
 
 /**
  * Best URL for the Save to contacts control.
- * iPhone: worker text/vcard (Create New Contact screen — not the share sheet).
- * Android: native Add contact intent.
- * Other: same-origin vCard.
+ * - Chrome iPhone: same-origin text/x-vcard (Create New Contact)
+ * - Safari iPhone: worker text/vcard (Create New Contact)
+ * - Android: native Add contact intent
+ * - Other: same-origin vCard
  */
 export function saveToContactsHref(): string {
   if (typeof navigator === "undefined") {
-    return CONTACT_VCARD_WORKER_URL;
+    return contactVCardWorkerUrl();
   }
   if (isAndroidMobile()) {
     return androidAddContactIntentUrl();
   }
   if (isAppleMobile()) {
-    return CONTACT_VCARD_WORKER_URL;
+    if (isChromeIos()) {
+      return contactVCardUrl();
+    }
+    return contactVCardWorkerUrl();
   }
   return contactVCardUrl();
 }
@@ -107,7 +128,7 @@ export async function saveContactToDevice(): Promise<
 
   if (isAppleMobile()) {
     // Direct open — do NOT use Web Share (that only shows AirDrop/Messages/Files).
-    window.location.assign(CONTACT_VCARD_WORKER_URL);
+    window.location.assign(saveToContactsHref());
     return "opened";
   }
 
@@ -142,13 +163,13 @@ export async function saveContactToDevice(): Promise<
 
 /** Fallback download that keeps the logo when opened from the Files app. */
 export function downloadContactVCardForFiles(): void {
-  window.location.assign(CONTACT_VCARD_DOWNLOAD_URL);
+  window.location.assign(`${CONTACT_VCARD_DOWNLOAD_URL}&${VCARD_CACHE_BUST}`);
 }
 
 export function contactEmailLink(): string {
   const subject = encodeURIComponent(`${SITE.name} — save this contact`);
   const body = encodeURIComponent(
-    `Open this link on your iPhone (Safari) to save ${SITE.name} as a contact:\n\n${CONTACT_VCARD_WORKER_URL}\n\nThen tap Create New Contact.`,
+    `Open this link on your iPhone (Safari) to save ${SITE.name} as a contact:\n\n${contactVCardWorkerUrl()}\n\nThen tap Create New Contact.\n\nIf the logo is missing, delete the old contact first, then use “Download contact file with logo” on the contact page and open the file from Downloads/Files.`,
   );
   return `mailto:?subject=${subject}&body=${body}`;
 }
