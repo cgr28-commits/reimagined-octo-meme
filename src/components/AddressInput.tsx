@@ -120,7 +120,7 @@ export default function AddressInput({
     }
 
     updateDropdownPosition();
-    inputRef.current?.scrollIntoView({ block: "center", behavior: "smooth" });
+    inputRef.current?.scrollIntoView({ block: "center", inline: "nearest", behavior: "smooth" });
 
     const onViewportChange = () => updateDropdownPosition();
     window.addEventListener("resize", onViewportChange);
