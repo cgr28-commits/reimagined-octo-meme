@@ -217,9 +217,13 @@ function handleContactVCardRequest(request: Request, origin: string | null): Res
   const url = new URL(request.url);
   const forceDownload =
     url.searchParams.get("download") === "1" || url.searchParams.get("dl") === "1";
+  const ua = request.headers.get("User-Agent") || "";
+  const preferXVcard =
+    url.searchParams.get("mime") === "x-vcard" || /CriOS/i.test(ua);
 
   const headers = new Headers(corsHeaders(origin));
   // iPhone Safari: text/vcard (no Content-Disposition) opens Create New Contact.
+  // Chrome for iPhone also accepts text/vcard; text/x-vcard helps older CriOS builds.
   // Forcing a file download (octet-stream + attachment) keeps the logo from Files.
   // Do not send Content-Disposition for the inline case — even "inline; filename="
   // makes many phones show a file preview / download instead of Create New Contact.
@@ -229,6 +233,8 @@ function handleContactVCardRequest(request: Request, origin: string | null): Res
       "Content-Disposition",
       'attachment; filename="My-Airport-Taxi-NI.vcf"',
     );
+  } else if (preferXVcard) {
+    headers.set("Content-Type", "text/x-vcard; charset=utf-8");
   } else {
     headers.set("Content-Type", "text/vcard; charset=utf-8");
   }
