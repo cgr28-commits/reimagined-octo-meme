@@ -12,7 +12,7 @@
 
 html {
   scroll-behavior: smooth;
-  overflow-x: hidden;
+  overflow-x: clip;
   overscroll-behavior-x: none;
   width: 100%;
   max-width: 100%;
@@ -22,11 +22,17 @@ body {
   background-color: var(--color-navy);
   color: #e8edf5;
   font-family: var(--font-sans), system-ui, sans-serif;
-  overflow-x: hidden;
+  overflow-x: clip;
   overscroll-behavior-x: none;
   width: 100%;
   max-width: 100%;
   position: relative;
+}
+
+/* Contain sideways rubber-banding without blocking intentional horizontal carousels. */
+main {
+  max-width: 100%;
+  overflow-x: clip;
 }
 
 ::selection {
@@ -82,7 +88,7 @@ body {
 @keyframes heroFade {
   from {
     opacity: 0;
-    transform: scale(1.02);
+    transform: scale(1.01);
   }
   to {
     opacity: 1;

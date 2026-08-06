@@ -40,8 +40,8 @@ export default function HeroSlideshow() {
   }
 
   return (
-    <section className="relative min-h-screen overflow-hidden pt-44 md:pt-28">
-      <div className="absolute inset-0">
+    <section className="relative min-h-screen max-w-full overflow-x-clip overflow-y-hidden pt-44 md:pt-28">
+      <div className="absolute inset-0 overflow-hidden">
         {HERO_SLIDES.map((s, i) => (
           <div
             key={s.image}
