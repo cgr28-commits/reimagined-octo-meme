@@ -15,7 +15,7 @@ export const CONTACT_VCARD_WORKER_URL =
 export const CONTACT_VCARD_DOWNLOAD_URL = `${CONTACT_VCARD_WORKER_URL}?download=1`;
 
 /** Cache-bust so phones pick up the regenerated branded PHOTO. */
-const VCARD_CACHE_BUST = "v=20260806";
+const VCARD_CACHE_BUST = "v=20260806gsa";
 
 export function contactCardUrl(): string {
   return `${SITE.url}${CONTACT_CARD_PATH}`;
@@ -36,6 +36,12 @@ export function contactVCardWorkerUrl(): string {
   return `${CONTACT_VCARD_WORKER_URL}?${VCARD_CACHE_BUST}`;
 }
 
+/** Opens the contact page in Safari from in-app browsers (GSA, etc.). */
+export function openContactInSafariUrl(): string {
+  // Undocumented but widely used on iOS to jump out of Google/WebViews into Safari.
+  return `x-safari-https://www.myairporttaxini.co.uk${CONTACT_CARD_PATH}`;
+}
+
 /**
  * Chrome for iPhone (CriOS). Cross-origin worker links often download a file
  * instead of opening Create New Contact — use same-origin text/x-vcard instead.
@@ -45,10 +51,33 @@ export function isChromeIos(): boolean {
   return /CriOS/i.test(navigator.userAgent);
 }
 
+/** Google Search / Google app in-app browser on iOS (`GSA/` in the UA). */
+export function isGoogleSearchAppIos(): boolean {
+  if (typeof navigator === "undefined") return false;
+  return isAppleMobile() && /GSA\//i.test(navigator.userAgent);
+}
+
+/**
+ * True Safari on iPhone/iPad (not Chrome, Firefox, Edge, Google app, etc.).
+ */
+export function isSafariIos(): boolean {
+  if (typeof navigator === "undefined") return false;
+  if (!isAppleMobile()) return false;
+  return !/CriOS|FxiOS|EdgiOS|OPiOS|GSA\//i.test(navigator.userAgent);
+}
+
+/**
+ * In-app / non-Safari iOS browsers that need the same-origin vCard
+ * (and often an “Open in Safari” fallback).
+ */
+export function isRestrictedIosBrowser(): boolean {
+  return isAppleMobile() && !isSafariIos();
+}
+
 /**
  * Best URL for the Save to contacts control.
- * - Chrome iPhone: same-origin text/x-vcard (Create New Contact)
  * - Safari iPhone: worker text/vcard (Create New Contact)
+ * - Chrome / Google app / other iOS browsers: same-origin text/x-vcard
  * - Android: native Add contact intent
  * - Other: same-origin vCard
  */
@@ -60,10 +89,11 @@ export function saveToContactsHref(): string {
     return androidAddContactIntentUrl();
   }
   if (isAppleMobile()) {
-    if (isChromeIos()) {
-      return contactVCardUrl();
+    if (isSafariIos()) {
+      return contactVCardWorkerUrl();
     }
-    return contactVCardWorkerUrl();
+    // Chrome, Google Search app (GSA), Firefox, Edge, etc.
+    return contactVCardUrl();
   }
   return contactVCardUrl();
 }
