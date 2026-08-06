@@ -52,7 +52,7 @@ function escapeHtml(value: string): string {
 export function buildDriverProfileConfirmationEmail(
   profile: DriverVehicleProfile,
   businessName: string,
-  dashboardUrl: string,
+  _dashboardUrl?: string,
 ): { subject: string; text: string; html: string } {
   const name = profile.displayName.trim();
   const subject = `Your ${businessName} driver profile`;
@@ -65,7 +65,7 @@ export function buildDriverProfileConfirmationEmail(
     (profile.mobile?.trim() ? `Mobile: ${profile.mobile.trim()}\n` : "") +
     `Vehicle: ${profile.colour.trim()} ${profile.make.trim()} ${profile.model.trim()}\n` +
     `Registration: ${profile.registration.trim().toUpperCase()}\n\n` +
-    `Sign in to the driver dashboard here:\n${dashboardUrl}\n\n` +
+    `You do not need a login or access key. When you are assigned a job, we will email you the trip details and your pay for that journey.\n\n` +
     `${businessName}`;
 
   const html = `<!DOCTYPE html>
@@ -89,10 +89,11 @@ export function buildDriverProfileConfirmationEmail(
           <tr>
             <td style="padding:28px 32px 8px;font-size:15px;line-height:1.7;color:#334155;">
               <p style="margin:0 0 16px;">Your driver profile for ${escapeHtml(businessName)} has been saved with the details below.</p>
+              <p style="margin:0 0 16px;">You do not need a login or access key. When you are assigned a job, we will email you the trip details and your pay for that journey.</p>
             </td>
           </tr>
           <tr>
-            <td style="padding:8px 32px 8px;">
+            <td style="padding:8px 32px 28px;">
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;">
                 <tr><td style="padding:16px 24px;font-size:14px;line-height:1.8;color:#475569;">
                   <strong>Name:</strong> ${escapeHtml(name)}<br />
@@ -106,11 +107,6 @@ export function buildDriverProfileConfirmationEmail(
                   <strong>Registration:</strong> ${escapeHtml(profile.registration.trim().toUpperCase())}
                 </td></tr>
               </table>
-            </td>
-          </tr>
-          <tr>
-            <td style="padding:16px 32px 28px;">
-              <a href="${escapeHtml(dashboardUrl)}" style="display:inline-block;background:#15803d;color:#ffffff;text-decoration:none;font-weight:bold;padding:14px 22px;border-radius:8px;">Open driver dashboard</a>
             </td>
           </tr>
         </table>

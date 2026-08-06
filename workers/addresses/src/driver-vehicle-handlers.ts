@@ -26,7 +26,6 @@ type Env = DriverAuthEnv &
   };
 
 const BUSINESS_NAME = "My Airport Taxi NI";
-const DRIVER_DASHBOARD_URL = "https://www.myairporttaxini.co.uk/driver/";
 
 function jsonResponse(body: unknown, status: number, origin: string | null) {
   return new Response(JSON.stringify(body), {
@@ -111,7 +110,7 @@ async function sendDriverProfileEmail(
   env: Env,
   profile: DriverVehicleProfile,
 ): Promise<{ sent: boolean; error?: string }> {
-  const email = buildDriverProfileConfirmationEmail(profile, BUSINESS_NAME, DRIVER_DASHBOARD_URL);
+  const email = buildDriverProfileConfirmationEmail(profile, BUSINESS_NAME);
   return trySendBrandedCustomerEmail(env, {
     to: profile.email,
     toName: profile.displayName,

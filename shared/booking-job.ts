@@ -132,6 +132,7 @@ export function buildDriverAssignmentEmail(options: {
     `Your pay for this journey: ${pay}`,
     "You will be paid after each journey (usually the next day).",
     "",
+    "You do not need a login or access key — everything is in this email.",
     "Please confirm you accept this job:",
     options.acceptUrl,
     "",
@@ -165,6 +166,7 @@ export function buildDriverAssignmentEmail(options: {
       <p style="margin:0;"><strong>Your pay for this journey:</strong> ${escapeHtml(pay)}</p>
     </div>
     <p style="color:#c5d0e0;font-size:14px;">You will be paid after each journey (usually the next day).</p>
+    <p style="color:#c5d0e0;font-size:14px;">You do not need a login or access key — everything is in this email.</p>
     <p style="margin:28px 0;">
       <a href="${escapeHtml(options.acceptUrl)}" style="display:inline-block;background:#2fbf4a;color:#071c38;text-decoration:none;font-weight:700;padding:14px 22px;border-radius:10px;">
         Confirm I accept this job

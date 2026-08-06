@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 /**
- * Set the driver dashboard access key on the production worker.
- *
- * Drivers use DRIVER_ACCESS_KEY — jobs and live tracking only (no refunds or amounts).
- * Keep OWNER_ACCESS_KEY separate for admin (see set-owner-access-key.mjs).
+ * Optional: set DRIVER_ACCESS_KEY if you re-enable the driver dashboard
+ * (SERVICE_FLAGS.driverDashboard). Drivers normally only receive jobs by email —
+ * they do not log in. Keep OWNER_ACCESS_KEY separate for admin
+ * (see set-owner-access-key.mjs).
  *
  * Usage:
  *   CLOUDFLARE_API_TOKEN=your_token \
@@ -65,8 +65,7 @@ if (result.status !== 0) {
   process.exit(result.status ?? 1);
 }
 
-console.log("\nDriver access key updated.\n");
-console.log("Sign in at https://www.myairporttaxini.co.uk/driver/ with this key:\n");
+console.log("\nDRIVER_ACCESS_KEY updated (only needed if driver dashboard is re-enabled).\n");
 console.log(driverKey);
 console.log(
   generated
@@ -74,7 +73,7 @@ console.log(
     : "\n(Using the DRIVER_ACCESS_KEY value you provided.)",
 );
 console.log(
-  "\nDrivers can view jobs and share live location. They cannot see amounts or issue refunds.",
+  "\nNote: Drivers normally receive job details by email only — no dashboard login.",
 );
 console.log(
   "Optional: add the same value to GitHub → Settings → Secrets → Actions as DRIVER_ACCESS_KEY.",

@@ -109,7 +109,7 @@ async function main() {
 
   const driverEmail = buildDriverAssignmentEmail({
     job: sampleJob,
-    acceptUrl: "https://www.myairporttaxini.co.uk/driver?accept=TEST-TOKEN",
+    acceptUrl: "https://www.myairporttaxini.co.uk/driver-accept/?token=TEST-TOKEN",
   });
   const customerEmail = buildCustomerDriverDetailsEmail({ job: sampleJob });
 

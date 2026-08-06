@@ -285,12 +285,12 @@ export default function OwnerBookingJobsPanel({ ownerKey }: OwnerBookingJobsPane
                 {job.status === "paid" ? (
                   <div className="mt-4 space-y-3 rounded-xl border border-white/10 bg-white/[0.03] p-4">
                     <p className="text-sm font-semibold text-white">
-                      Assign driver (email confirmation — no driver dashboard)
+                      Assign driver (email only — no driver login)
                     </p>
                     <p className="text-xs text-white/50">
-                      Drivers are paid after each journey, usually the next day. Enter how much you
-                      are paying them for this job — not what the customer paid. You will receive an
-                      email copy of the assignment.
+                      Drivers have no dashboard or access key. They get the job details and a
+                      confirm link by email. Enter how much you are paying them for this job — not
+                      what the customer paid. You will receive an email copy of the assignment.
                     </p>
                     <div className="grid gap-3 sm:grid-cols-2">
                       {(

@@ -1877,8 +1877,8 @@ export default function DriverPageClient({
               {isOwnerView ? (
                 <>
                   Confirm customer enquiries, mark SumUp payments (adds to calendar), then assign a
-                  driver by email with their pay for the journey. Drivers confirm via email — no
-                  driver dashboard for now.
+                  driver by email with their pay for the journey. Drivers have no login — they only
+                  receive the job by email and confirm from that link.
                 </>
               ) : !savedKey ? (
                 SERVICE_FLAGS.trackingDemo ? (
