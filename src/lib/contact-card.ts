@@ -15,7 +15,7 @@ export const CONTACT_VCARD_WORKER_URL =
 export const CONTACT_VCARD_DOWNLOAD_URL = `${CONTACT_VCARD_WORKER_URL}?download=1`;
 
 /** Cache-bust so phones pick up the regenerated branded PHOTO. */
-const VCARD_CACHE_BUST = "v=20260806gsa";
+const VCARD_CACHE_BUST = "v=20260806gsa2";
 
 export function contactCardUrl(): string {
   return `${SITE.url}${CONTACT_CARD_PATH}`;
@@ -36,9 +36,8 @@ export function contactVCardWorkerUrl(): string {
   return `${CONTACT_VCARD_WORKER_URL}?${VCARD_CACHE_BUST}`;
 }
 
-/** Opens the contact page in Safari from in-app browsers (GSA, etc.). */
+/** Opens the contact page in Safari from in-app browsers (best-effort). */
 export function openContactInSafariUrl(): string {
-  // Undocumented but widely used on iOS to jump out of Google/WebViews into Safari.
   return `x-safari-https://www.myairporttaxini.co.uk${CONTACT_CARD_PATH}`;
 }
 
@@ -77,7 +76,8 @@ export function isRestrictedIosBrowser(): boolean {
 /**
  * Best URL for the Save to contacts control.
  * - Safari iPhone: worker text/vcard (Create New Contact)
- * - Chrome / Google app / other iOS browsers: same-origin text/x-vcard
+ * - Chrome / other iOS browsers: same-origin text/x-vcard
+ * - Google app: do NOT return a .vcf URL — it only downloads. Use Safari handoff UI.
  * - Android: native Add contact intent
  * - Other: same-origin vCard
  */
@@ -89,13 +89,35 @@ export function saveToContactsHref(): string {
     return androidAddContactIntentUrl();
   }
   if (isAppleMobile()) {
+    if (isGoogleSearchAppIos()) {
+      // Never point GSA at a .vcf — it shows Download / Save to Drive.
+      return contactCardUrl();
+    }
     if (isSafariIos()) {
       return contactVCardWorkerUrl();
     }
-    // Chrome, Google Search app (GSA), Firefox, Edge, etc.
     return contactVCardUrl();
   }
   return contactVCardUrl();
+}
+
+/** Best-effort: jump from Google/WebView into Safari on a user tap. */
+export function openContactPageInSafari(): void {
+  const safariUrl = openContactInSafariUrl();
+  try {
+    window.location.assign(safariUrl);
+  } catch {
+    // Fall through — UI shows manual … → Open in Safari steps.
+  }
+}
+
+export async function copyContactPageLink(): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(contactCardUrl());
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function whatsAppE164(): string {
@@ -149,11 +171,16 @@ export function isAndroidMobile(): boolean {
  * iPhone/Android should prefer a real `<a href={saveToContactsHref()}>` tap.
  */
 export async function saveContactToDevice(): Promise<
-  "opened" | "android-intent" | "shared" | "downloaded"
+  "opened" | "android-intent" | "shared" | "downloaded" | "safari"
 > {
   if (isAndroidMobile()) {
     window.location.assign(androidAddContactIntentUrl());
     return "android-intent";
+  }
+
+  if (isGoogleSearchAppIos()) {
+    openContactPageInSafari();
+    return "safari";
   }
 
   if (isAppleMobile()) {
