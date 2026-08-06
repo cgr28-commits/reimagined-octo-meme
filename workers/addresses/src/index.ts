@@ -654,7 +654,16 @@ async function handleBookingRequest(
       emailSent = true;
     } catch (error) {
       console.error("Booking email failed", error);
-      return json({ error: "Failed to send booking email" }, 502, origin);
+      const detail = error instanceof Error ? error.message : "Unknown email error";
+      return json(
+        {
+          error: "Failed to send booking email",
+          detail,
+          web3formsConfigured: Boolean(env.WEB3FORMS_ACCESS_KEY?.trim()),
+        },
+        502,
+        origin,
+      );
     }
   }
 
