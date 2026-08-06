@@ -147,7 +147,9 @@ async function sendViaFormSubmit(options: EmailPayload): Promise<void> {
   } | null;
   if (!response.ok || (payload?.success !== "true" && payload?.success !== true)) {
     throw new Error(
-      payload?.message ? `FormSubmit: ${payload.message}` : "FormSubmit request failed",
+      payload?.message
+        ? `FormSubmit (${response.status}): ${payload.message}`
+        : `FormSubmit request failed (${response.status})`,
     );
   }
 }
@@ -228,6 +230,7 @@ export async function trySendEmail(
 
   let lastError: unknown = null;
   const providersTried: string[] = [];
+  const providerErrors: string[] = [];
 
   for (const provider of providers) {
     providersTried.push(provider.label);
@@ -236,13 +239,17 @@ export async function trySendEmail(
       return { sent: true, providersTried };
     } catch (error) {
       lastError = error;
+      const msg = error instanceof Error ? error.message : String(error);
+      providerErrors.push(`${provider.label}: ${msg}`);
       console.error(`Email via ${provider.label} failed`, error);
     }
   }
 
-  const detail =
-    lastError instanceof Error ? lastError.message : "All email providers failed";
-  return { sent: false, error: `${detail} (tried: ${providersTried.join(", ")})`, providersTried };
+  return {
+    sent: false,
+    error: providerErrors.join(" | ") || "All email providers failed",
+    providersTried,
+  };
 }
 
 /** Sends a branded HTML email to a customer — never falls back to plain-text-only delivery. */
