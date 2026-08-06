@@ -28,6 +28,10 @@ type AddressInputProps = {
   required?: boolean;
   action?: ReactNode;
   airportCode?: string;
+  /** Skip scrolling the page when suggestions open (e.g. inside the quote bot). */
+  disableAutoScroll?: boolean;
+  /** Called after a suggestion is chosen (full formatted address). */
+  onSelectAddress?: (address: string) => void;
 };
 
 type DropdownPosition = {
@@ -49,6 +53,8 @@ export default function AddressInput({
   required = true,
   action,
   airportCode = "",
+  disableAutoScroll = false,
+  onSelectAddress,
 }: AddressInputProps) {
   const autocompleteEnabled = isGooglePlacesEnabled();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -120,7 +126,13 @@ export default function AddressInput({
     }
 
     updateDropdownPosition();
-    inputRef.current?.scrollIntoView({ block: "center", behavior: "smooth" });
+    if (!disableAutoScroll) {
+      inputRef.current?.scrollIntoView({
+        block: "nearest",
+        inline: "nearest",
+        behavior: "smooth",
+      });
+    }
 
     const onViewportChange = () => updateDropdownPosition();
     window.addEventListener("resize", onViewportChange);
@@ -133,7 +145,7 @@ export default function AddressInput({
       window.visualViewport?.removeEventListener("resize", onViewportChange);
       window.visualViewport?.removeEventListener("scroll", onViewportChange);
     };
-  }, [suggestions.length, suggestionsOpen, updateDropdownPosition, value]);
+  }, [disableAutoScroll, suggestions.length, suggestionsOpen, updateDropdownPosition, value]);
 
   const requestSuggestions = useCallback(
     (query: string) => {
@@ -198,7 +210,9 @@ export default function AddressInput({
     setSuggestions([]);
 
     const formatted = await fetchPlaceDetails(prediction.placeId, airportCode, value);
-    onChange(formatted ?? prediction.description);
+    const nextAddress = formatted ?? prediction.description;
+    onChange(nextAddress);
+    onSelectAddress?.(nextAddress);
     setLoadError(null);
   }
 

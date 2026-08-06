@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import AddressInput from "@/components/AddressInput";
 import { playBotOpenSound, playBotReplySound, playBotWorkingSound } from "@/lib/bot-sounds";
 import { contactCardUrl } from "@/lib/contact-card";
 import { detectMobileDevice, useIsMobileDevice } from "@/lib/device";
@@ -19,25 +20,6 @@ import {
 
 const BOT_WORKING_MS = 450;
 
-function todayLondonDate(): string {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Europe/London",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date());
-}
-
-function formatPickerDateLabel(value: string): string {
-  if (!value) return "";
-  return new Date(`${value}T12:00:00`).toLocaleDateString("en-GB", {
-    weekday: "short",
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
-}
-
 export default function QuoteAssistant() {
   const isMobile = useIsMobileDevice();
   const [open, setOpen] = useState(false);
@@ -50,20 +32,16 @@ export default function QuoteAssistant() {
   const [draft, setDraft] = useState<QuoteDraft>({});
   const [showContactOffer, setShowContactOffer] = useState(false);
   const [isWorking, setIsWorking] = useState(false);
-  const [pickerDate, setPickerDate] = useState("");
-  const [pickerTime, setPickerTime] = useState("");
+  const [addressValue, setAddressValue] = useState("");
   const listRef = useRef<HTMLDivElement>(null);
   const contactOfferRef = useRef<HTMLDivElement>(null);
-  const dateInputRef = useRef<HTMLInputElement>(null);
-  const timeInputRef = useRef<HTMLInputElement>(null);
   const workingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const draftRef = useRef(draft);
   const qrSrc = withBasePath("/contact-qr.png");
   const awaitingField = !isWorking ? getNextQuoteField(draft) : null;
-  const showDatePicker = awaitingField === "tripDate" || awaitingField === "returnDate";
-  const showTimePicker = awaitingField === "tripTime" || awaitingField === "returnTime";
-  const minDate =
-    awaitingField === "returnDate" && draft.tripDate ? draft.tripDate : todayLondonDate();
+  const showAddressPicker = awaitingField === "address";
+  const addressLabel =
+    draft.direction === "from-airport" ? "Drop-off address" : "Pickup address";
 
   useEffect(() => {
     draftRef.current = draft;
@@ -80,27 +58,21 @@ export default function QuoteAssistant() {
   useEffect(() => {
     if (!open) return;
     if (showContactOffer && !isWorking) {
-      contactOfferRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      contactOfferRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "nearest",
+        inline: "nearest",
+      });
       return;
     }
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
-  }, [messages, open, showContactOffer, isWorking, showDatePicker, showTimePicker]);
+  }, [messages, open, showContactOffer, isWorking, showAddressPicker]);
 
   useEffect(() => {
-    if (!showDatePicker) {
-      setPickerDate("");
-      return;
+    if (!showAddressPicker) {
+      setAddressValue("");
     }
-    setPickerDate(awaitingField === "returnDate" && draft.tripDate ? draft.tripDate : todayLondonDate());
-  }, [showDatePicker, awaitingField, draft.tripDate]);
-
-  useEffect(() => {
-    if (!showTimePicker) {
-      setPickerTime("");
-      return;
-    }
-    setPickerTime("09:00");
-  }, [showTimePicker]);
+  }, [showAddressPicker]);
 
   function toggleOpen() {
     setOpen((value) => {
@@ -124,6 +96,7 @@ export default function QuoteAssistant() {
 
     setMessages((prev) => [...prev, { role: "user", text }]);
     setInput("");
+    setAddressValue("");
     setIsWorking(true);
     playBotWorkingSound();
 
@@ -164,14 +137,9 @@ export default function QuoteAssistant() {
     }, BOT_WORKING_MS);
   }
 
-  function confirmPickerDate() {
-    if (!pickerDate || isWorking) return;
-    sendText(pickerDate);
-  }
-
-  function confirmPickerTime() {
-    if (!pickerTime || isWorking) return;
-    sendText(pickerTime);
+  function confirmAddress() {
+    if (!addressValue.trim() || isWorking) return;
+    sendText(addressValue);
   }
 
   function resetChat() {
@@ -179,8 +147,7 @@ export default function QuoteAssistant() {
     setDraft(emptyQuoteDraft());
     setQuickReplies(["Get a quote", "Save to contacts"]);
     setShowContactOffer(false);
-    setPickerDate("");
-    setPickerTime("");
+    setAddressValue("");
     setInput("");
   }
 
@@ -233,8 +200,8 @@ export default function QuoteAssistant() {
       </button>
 
       {open ? (
-        <div className="fixed bottom-24 left-3 right-3 z-50 flex max-h-[min(70dvh,32rem)] flex-col overflow-hidden rounded-2xl border border-white/15 bg-navy-dark shadow-2xl sm:bottom-28 sm:left-auto sm:right-8 sm:w-[24rem] sm:max-w-[calc(100%-4rem)]">
-          <div className="flex items-start justify-between gap-3 border-b border-white/10 bg-navy px-4 py-3">
+        <div className="fixed bottom-24 left-3 right-3 z-50 flex max-h-[min(70dvh,32rem)] min-w-0 flex-col overflow-hidden rounded-2xl border border-white/15 bg-navy-dark shadow-2xl sm:bottom-28 sm:left-auto sm:right-8 sm:w-[24rem] sm:max-w-[calc(100%-4rem)]">
+          <div className="flex min-w-0 items-start justify-between gap-3 border-b border-white/10 bg-navy px-4 py-3">
             <div className="flex min-w-0 items-center gap-3">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-emerald/50 bg-navy">
                 <Image
@@ -246,8 +213,8 @@ export default function QuoteAssistant() {
                 />
               </div>
               <div className="min-w-0">
-                <p className="text-sm font-bold text-white">Ask a question</p>
-                <p className="text-xs text-white/55">Quotes · help · contact</p>
+                <p className="truncate text-sm font-bold text-white">Ask a question</p>
+                <p className="truncate text-xs text-white/55">Quotes · help · contact</p>
               </div>
             </div>
             <button
@@ -259,11 +226,14 @@ export default function QuoteAssistant() {
             </button>
           </div>
 
-          <div ref={listRef} className="max-h-[45vh] space-y-3 overflow-y-auto overscroll-contain px-3 py-3">
+          <div
+            ref={listRef}
+            className="max-h-[45vh] min-w-0 space-y-3 overflow-x-hidden overflow-y-auto overscroll-contain px-3 py-3"
+          >
             {messages.map((message, index) => (
               <div
                 key={`${message.role}-${index}`}
-                className={`max-w-[92%] whitespace-pre-wrap rounded-2xl px-3 py-2 text-sm leading-relaxed ${
+                className={`max-w-[92%] break-words whitespace-pre-wrap rounded-2xl px-3 py-2 text-sm leading-relaxed [overflow-wrap:anywhere] ${
                   message.role === "user"
                     ? "ml-auto bg-emerald text-navy"
                     : "mr-auto bg-white/10 text-white/90"
@@ -291,7 +261,7 @@ export default function QuoteAssistant() {
             {showContactOffer && !isWorking && isMobile === false ? (
               <div
                 ref={contactOfferRef}
-                className="rounded-2xl border border-emerald/35 bg-emerald/10 px-3 py-3"
+                className="min-w-0 rounded-2xl border border-emerald/35 bg-emerald/10 px-3 py-3"
               >
                 <p className="text-sm font-semibold text-white">Would you like to save to contacts?</p>
                 <p className="mt-1 text-xs text-white/65">
@@ -306,7 +276,7 @@ export default function QuoteAssistant() {
                       alt={`Scan and save QR code for ${contactCardUrl()}`}
                       width={180}
                       height={180}
-                      className="h-40 w-40"
+                      className="h-40 w-40 max-w-full"
                     />
                   </div>
                   <p className="mt-2 text-center text-xs font-semibold text-emerald">Scan and save</p>
@@ -329,87 +299,52 @@ export default function QuoteAssistant() {
               </div>
             ) : null}
 
-            {showDatePicker ? (
-              <div className="rounded-2xl border border-emerald/35 bg-emerald/10 px-3 py-3">
-                <p className="text-sm font-semibold text-white">
-                  {awaitingField === "returnDate" ? "Return date" : "Outbound date"}
+            {showAddressPicker && !isWorking ? (
+              <div className="min-w-0 rounded-2xl border border-emerald/35 bg-emerald/10 px-3 py-3">
+                <p className="text-sm font-semibold text-white">{addressLabel}</p>
+                <p className="mt-1 text-xs text-white/65">
+                  Enter the full address with door / house number — pick a suggestion as you type.
+                  Town-only answers are not accepted.
                 </p>
-                <p className="mt-1 text-xs text-white/65">Open the calendar and choose your travel date.</p>
-                <label className="mt-3 block">
-                  <span className="sr-only">Choose date</span>
-                  <input
-                    ref={dateInputRef}
-                    type="date"
-                    min={minDate}
-                    value={pickerDate}
-                    onChange={(event) => setPickerDate(event.target.value)}
-                    onClick={() => {
-                      try {
-                        dateInputRef.current?.showPicker?.();
-                      } catch {
-                        // Older browsers open the calendar from the native control.
-                      }
-                    }}
-                    className="w-full rounded-xl border border-white/20 bg-navy px-3 py-2.5 text-sm text-white outline-none [color-scheme:dark] focus:border-emerald/50"
+                <div className="mt-3">
+                  <AddressInput
+                    id="bot-quote-address"
+                    name="bot-quote-address"
+                    value={addressValue}
+                    onChange={setAddressValue}
+                    onSelectAddress={(address) => sendText(address)}
+                    airportCode={draft.airportCode ?? ""}
+                    label={addressLabel}
+                    placeholder="e.g. 12 High Street, Bangor, BT20"
+                    helperText="Include door number — suggestions appear as you type"
+                    required={false}
+                    disableAutoScroll
                   />
-                </label>
-                {pickerDate ? (
-                  <p className="mt-2 text-xs text-emerald">{formatPickerDateLabel(pickerDate)}</p>
-                ) : null}
+                </div>
                 <button
                   type="button"
-                  disabled={!pickerDate || isWorking}
-                  onClick={confirmPickerDate}
+                  disabled={
+                    isWorking ||
+                    addressValue.trim().length < 8 ||
+                    !/\d/.test(addressValue)
+                  }
+                  onClick={confirmAddress}
                   className="mt-3 w-full rounded-xl bg-emerald px-3 py-2.5 text-sm font-bold text-navy transition-colors hover:bg-emerald-light disabled:opacity-60"
                 >
-                  Use this date
-                </button>
-              </div>
-            ) : null}
-
-            {showTimePicker ? (
-              <div className="rounded-2xl border border-emerald/35 bg-emerald/10 px-3 py-3">
-                <p className="text-sm font-semibold text-white">
-                  {awaitingField === "returnTime" ? "Return pickup time" : "Pickup time"}
-                </p>
-                <p className="mt-1 text-xs text-white/65">Open the clock and choose your pickup time.</p>
-                <label className="mt-3 block">
-                  <span className="sr-only">Choose time</span>
-                  <input
-                    ref={timeInputRef}
-                    type="time"
-                    value={pickerTime}
-                    onChange={(event) => setPickerTime(event.target.value)}
-                    onClick={() => {
-                      try {
-                        timeInputRef.current?.showPicker?.();
-                      } catch {
-                        // Older browsers open the clock from the native control.
-                      }
-                    }}
-                    className="w-full rounded-xl border border-white/20 bg-navy px-3 py-2.5 text-sm text-white outline-none [color-scheme:dark] focus:border-emerald/50"
-                  />
-                </label>
-                <button
-                  type="button"
-                  disabled={!pickerTime || isWorking}
-                  onClick={confirmPickerTime}
-                  className="mt-3 w-full rounded-xl bg-emerald px-3 py-2.5 text-sm font-bold text-navy transition-colors hover:bg-emerald-light disabled:opacity-60"
-                >
-                  Use this time
+                  Use this address
                 </button>
               </div>
             ) : null}
           </div>
 
           {quickReplies.length > 0 && !isWorking ? (
-            <div className="flex flex-wrap gap-2 border-t border-white/10 px-3 py-2">
+            <div className="flex min-w-0 flex-wrap gap-2 border-t border-white/10 px-3 py-2">
               {quickReplies.map((reply) => (
                 <button
                   key={reply}
                   type="button"
                   onClick={() => sendText(reply)}
-                  className="rounded-full border border-emerald/40 bg-emerald/10 px-3 py-1 text-xs font-semibold text-emerald transition-colors hover:bg-emerald/20"
+                  className="max-w-full break-words rounded-full border border-emerald/40 bg-emerald/10 px-3 py-1 text-xs font-semibold text-emerald transition-colors hover:bg-emerald/20"
                 >
                   {reply}
                 </button>
@@ -417,33 +352,29 @@ export default function QuoteAssistant() {
             </div>
           ) : null}
 
-          <form
-            className="flex gap-2 border-t border-white/10 p-3"
-            onSubmit={(event) => {
-              event.preventDefault();
-              sendText(input);
-            }}
-          >
-            <input
-              value={input}
-              onChange={(event) => setInput(event.target.value)}
-              placeholder={
-                showDatePicker
-                  ? "Or type a date…"
-                  : showTimePicker
-                    ? "Or type a time…"
-                    : "Ask a question or get a quote…"
-              }
-              className="min-w-0 flex-1 rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm text-white outline-none placeholder:text-white/35 focus:border-emerald/50"
-            />
-            <button
-              type="submit"
-              disabled={isWorking}
-              className="shrink-0 rounded-xl bg-emerald px-3 py-2 text-sm font-bold text-navy transition-colors hover:bg-emerald-light disabled:opacity-60"
+          {showAddressPicker ? null : (
+            <form
+              className="flex min-w-0 gap-2 border-t border-white/10 p-3"
+              onSubmit={(event) => {
+                event.preventDefault();
+                sendText(input);
+              }}
             >
-              Send
-            </button>
-          </form>
+              <input
+                value={input}
+                onChange={(event) => setInput(event.target.value)}
+                placeholder="Ask a question or get a quote…"
+                className="min-w-0 flex-1 rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm text-white outline-none placeholder:text-white/35 focus:border-emerald/50"
+              />
+              <button
+                type="submit"
+                disabled={isWorking}
+                className="shrink-0 rounded-xl bg-emerald px-3 py-2 text-sm font-bold text-navy transition-colors hover:bg-emerald-light disabled:opacity-60"
+              >
+                Send
+              </button>
+            </form>
+          )}
         </div>
       ) : null}
     </>

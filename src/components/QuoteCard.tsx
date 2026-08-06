@@ -563,16 +563,14 @@ function QuoteCard() {
   const quoteAddress = isFromAirport ? dropoffAddress : pickupAddress;
   const isAirportAddressComplete = Boolean(airportCode && quoteAddress.trim());
   const isAddressPairComplete = Boolean(pickupAddress.trim() && dropoffAddress.trim());
-
-  const canShowPrice =
-    isScheduleComplete &&
+  const hasQuoteRoute =
     !ldyServiceAreaInvalid &&
     (isAirportTrip ? isAirportAddressComplete : isAddressPairComplete);
 
-  const tripDetailsReady =
-    isScheduleComplete &&
-    !ldyServiceAreaInvalid &&
-    (isAirportTrip ? isAirportAddressComplete : isAddressPairComplete);
+  // Quick quote: show price once the route is known. Date/time are asked when booking.
+  const canShowPrice = hasQuoteRoute;
+
+  const tripDetailsReady = hasQuoteRoute && isScheduleComplete;
 
   const liveQuote = useMemo(() => {
     // Executive / Minibus: no online price — enquiry only
@@ -751,6 +749,11 @@ function QuoteCard() {
   }
 
   function validateTripForBooking(): boolean {
+    if (!tripDate || !tripTime) {
+      setReturnDateError("Please select your pickup date and time to book.");
+      return false;
+    }
+
     if (returnJourney) {
       if (!returnDate || !returnTime) {
         setReturnDateError("Please select a return date and time.");
@@ -1090,8 +1093,10 @@ function QuoteCard() {
       : "Request to book";
 
   const quoteHint = isEnquiryOnly
-    ? tripDetailsReady
-      ? `${quoteVehicle.split(" (")[0]} is enquiry only — continue to send your trip details and we’ll quote you.`
+    ? hasQuoteRoute
+      ? !isScheduleComplete
+        ? `${quoteVehicle.split(" (")[0]} is enquiry only — add your date and time, then continue to book.`
+        : `${quoteVehicle.split(" (")[0]} is enquiry only — continue to send your trip details and we’ll quote you.`
       : isAirportTrip
         ? !airportCode
           ? "Select an airport to continue your enquiry"
@@ -1099,16 +1104,12 @@ function QuoteCard() {
             ? isFromAirport
               ? "We transfer from Derry Airport to the greater Belfast area — enter a Belfast-area drop-off address"
               : "Pickups for Derry Airport must be in the greater Belfast area — enter a Belfast-area pickup address"
-            : !isScheduleComplete
-              ? "Select your date and time to continue your enquiry"
-              : !isAirportAddressComplete
-                ? `Enter your ${isFromAirport ? "drop-off" : "pickup"} address to continue your enquiry`
-                : ""
-        : !isScheduleComplete
-          ? "Select your date and time to continue your enquiry"
-          : !isAddressPairComplete
-            ? "Enter pickup and drop-off addresses to continue your enquiry"
-            : ""
+            : !isAirportAddressComplete
+              ? `Enter your ${isFromAirport ? "drop-off" : "pickup"} address to continue your enquiry`
+              : ""
+        : !isAddressPairComplete
+          ? "Enter pickup and drop-off addresses to continue your enquiry"
+          : ""
     : isAirportTrip
       ? !airportCode
         ? "Select an airport to see your fixed journey price"
@@ -1116,19 +1117,17 @@ function QuoteCard() {
           ? isFromAirport
             ? "We transfer from Derry Airport to the greater Belfast area — enter a Belfast-area drop-off address"
             : "Pickups for Derry Airport must be in the greater Belfast area — enter a Belfast-area pickup address"
-          : !isScheduleComplete
-            ? returnJourney && tripDate && tripTime && (!returnDate || !returnTime)
-              ? "Select your return date and time to see your fixed journey price"
-              : "Select your date and time to see your fixed journey price"
-            : !isAirportAddressComplete
-              ? `Enter your ${isFromAirport ? "drop-off" : "pickup"} address to see your fixed journey price`
+          : !isAirportAddressComplete
+            ? `Enter your ${isFromAirport ? "drop-off" : "pickup"} address to see your fixed journey price`
+            : !isScheduleComplete
+              ? "Price ready — add your date and time when you’re ready to book"
               : ""
-      : !isScheduleComplete
-        ? "Select your date and time to see your fixed journey price"
-        : !isAddressPairComplete
-          ? "Enter pickup and drop-off addresses to see your fixed journey price"
-          : !routeMetrics
-            ? "Calculating your route and price…"
+      : !isAddressPairComplete
+        ? "Enter pickup and drop-off addresses to see your fixed journey price"
+        : !routeMetrics
+          ? "Calculating your route and price…"
+          : !isScheduleComplete
+            ? "Price ready — add your date and time when you’re ready to book"
             : "";
 
   if (paymentConfirmed && paymentConfirmationSummary) {
@@ -1549,9 +1548,11 @@ function QuoteCard() {
               id="date"
               name="date"
               type="date"
-              required
               value={tripDate}
-              onChange={(e) => setTripDate(e.target.value)}
+              onChange={(e) => {
+                setTripDate(e.target.value);
+                setReturnDateError("");
+              }}
               className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30 [color-scheme:dark]"
             />
           </div>
@@ -1561,14 +1562,17 @@ function QuoteCard() {
               className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/50"
             >
               {returnJourney ? "Outbound pick up time" : "Pick up time"}
+              <span className="ml-1 normal-case tracking-normal text-white/35">(for booking)</span>
             </label>
             <input
               id="time"
               name="time"
               type="time"
-              required
               value={tripTime}
-              onChange={(e) => setTripTime(e.target.value)}
+              onChange={(e) => {
+                setTripTime(e.target.value);
+                setReturnDateError("");
+              }}
               className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30 [color-scheme:dark]"
             />
           </div>
@@ -1587,9 +1591,11 @@ function QuoteCard() {
                 id="returnDate"
                 name="returnDate"
                 type="date"
-                required
                 value={returnDate}
-                onChange={(e) => setReturnDate(e.target.value)}
+                onChange={(e) => {
+                  setReturnDate(e.target.value);
+                  setReturnDateError("");
+                }}
                 className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30 [color-scheme:dark]"
               />
             </div>
@@ -1599,14 +1605,17 @@ function QuoteCard() {
                 className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/50"
               >
                 Return pick up time
+                <span className="ml-1 normal-case tracking-normal text-white/35">(for booking)</span>
               </label>
               <input
                 id="returnTime"
                 name="returnTime"
                 type="time"
-                required
                 value={returnTime}
-                onChange={(e) => setReturnTime(e.target.value)}
+                onChange={(e) => {
+                  setReturnTime(e.target.value);
+                  setReturnDateError("");
+                }}
                 className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30 [color-scheme:dark]"
               />
             </div>
@@ -1615,6 +1624,9 @@ function QuoteCard() {
             )}
           </div>
         )}
+        {!returnJourney && returnDateError ? (
+          <p className="text-xs text-red-400">{returnDateError}</p>
+        ) : null}
 
         {showBookingDetailsStep && !showBookingPreview && (
           <div className={BOOKING_PANEL_CLASS}>
