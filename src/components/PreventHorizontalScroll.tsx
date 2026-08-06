@@ -3,9 +3,9 @@
 import { useEffect } from "react";
 
 /**
- * Keeps the document pinned to scrollX = 0 on mobile.
- * Fixed chat widgets, suggestion portals, and wide elements can otherwise
- * let iOS / Android rubber-band the page sideways.
+ * Soft pin against sideways page drift on mobile.
+ * Avoids listening to visualViewport scroll/resize — those fire constantly on
+ * iOS (URL bar / keyboard) and made the page feel jerky.
  */
 export default function PreventHorizontalScroll() {
   useEffect(() => {
@@ -13,26 +13,18 @@ export default function PreventHorizontalScroll() {
       if (window.scrollX !== 0) {
         window.scrollTo(0, window.scrollY);
       }
-      if (document.documentElement.scrollLeft !== 0) {
-        document.documentElement.scrollLeft = 0;
-      }
-      if (document.body.scrollLeft !== 0) {
-        document.body.scrollLeft = 0;
-      }
     };
 
     pin();
 
+    // Only correct after a real document scroll or orientation change — not every
+    // visualViewport tick (that was snapping the page sideways and felt jerky).
     window.addEventListener("scroll", pin, { passive: true });
-    window.addEventListener("resize", pin, { passive: true });
-    window.visualViewport?.addEventListener("resize", pin);
-    window.visualViewport?.addEventListener("scroll", pin);
+    window.addEventListener("orientationchange", pin);
 
     return () => {
       window.removeEventListener("scroll", pin);
-      window.removeEventListener("resize", pin);
-      window.visualViewport?.removeEventListener("resize", pin);
-      window.visualViewport?.removeEventListener("scroll", pin);
+      window.removeEventListener("orientationchange", pin);
     };
   }, []);
 
