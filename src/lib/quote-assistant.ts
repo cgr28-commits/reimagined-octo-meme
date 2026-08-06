@@ -236,6 +236,7 @@ function incompleteAddressPrompt(draft: QuoteDraft): AssistantResponse {
     draft,
     quickReplies: [],
   };
+}
 
 function extractNumber(text: string, kind: "passenger" | "suitcase"): number | undefined {
   if (kind === "suitcase" && /\b(no|zero)\s+(suitcases?|cases?|bags?|luggage)\b/i.test(text)) {
