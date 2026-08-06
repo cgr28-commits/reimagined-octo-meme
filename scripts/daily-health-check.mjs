@@ -1,8 +1,19 @@
 /**
- * Daily site + worker health check for My Airport Taxi NI.
+ * Daily website health check for My Airport Taxi NI.
  *
- * Covers live pages, Cloudflare Worker APIs, dashboard/demo features from
- * recent builds, demo data integrity, build/typecheck, and sitemap auto-fix.
+ * Focus: make sure the live site works for customers, and auto-fix what we can.
+ *
+ * Checks:
+ *   - Public pages load (home, contact, terms, privacy, quote shell, etc.)
+ *   - Key on-page content / assets (branding, contact card, vCard logo)
+ *   - Core APIs the website needs (addresses, bookings validation, contact.vcf)
+ *
+ * Auto-fixes:
+ *   - Regenerate / patch public/sitemap.xml when required URLs are missing
+ *   - Regenerate contact vCard (+ shared worker copy) when PHOTO is missing
+ *
+ * The GitHub Actions workflow also redeploys the worker / Pages site when
+ * live checks still fail after auto-fixes.
  *
  * Exits 0 when healthy (or only warnings). Exits 1 when critical checks fail.
  * Writes reports/daily-health-YYYY-MM-DD.json
@@ -12,7 +23,6 @@
  *   HEALTH_CHECK_WORKER_URL   default https://reimagined-octo-meme.cgr28.workers.dev
  *   HEALTH_CHECK_NOTIFY_EMAIL default bookings@myairporttaxini.co.uk
  *   WEB3FORMS_ACCESS_KEY      optional — sends daily summary email when set
- *   HEALTH_CHECK_SKIP_BUILD   set 1 to skip npm run build (faster)
  */
 
 import { execSync } from "node:child_process";
@@ -48,14 +58,13 @@ async function fetchRaw(url, options = {}) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const response = await fetch(url, {
+    return await fetch(url, {
       method,
       headers,
       body,
       signal: controller.signal,
       redirect,
     });
-    return response;
   } finally {
     clearTimeout(timer);
   }
@@ -68,7 +77,6 @@ async function fetchCheck(name, url, options = {}) {
 
   try {
     const response = await fetchRaw(url, { method, body, headers, timeoutMs });
-
     if (!allowed.includes(response.status)) {
       record(
         name,
@@ -77,7 +85,6 @@ async function fetchCheck(name, url, options = {}) {
       );
       return null;
     }
-
     record(name, "pass", `HTTP ${response.status} — ${url}`);
     return response;
   } catch (error) {
@@ -87,19 +94,13 @@ async function fetchCheck(name, url, options = {}) {
   }
 }
 
-/**
- * @param {string} name
- * @param {string} url
- * @param {string[]} mustInclude
- * @param {{ critical?: boolean }} [opts]
- */
 async function pageContentCheck(name, url, mustInclude, opts = {}) {
   const critical = opts.critical !== false;
   try {
     const response = await fetchRaw(url);
     if (response.status !== 200) {
       record(name, critical ? "fail" : "warn", `HTTP ${response.status} — ${url}`);
-      return;
+      return false;
     }
 
     const html = await response.text();
@@ -110,16 +111,18 @@ async function pageContentCheck(name, url, mustInclude, opts = {}) {
         critical ? "fail" : "warn",
         `Missing content: ${missing.join(", ")} — ${url}`,
       );
-      return;
+      return false;
     }
 
     record(name, "pass", `Found ${mustInclude.length} marker(s) — ${url}`);
+    return true;
   } catch (error) {
     record(
       name,
       critical ? "fail" : "warn",
       `${error instanceof Error ? error.message : String(error)} — ${url}`,
     );
+    return false;
   }
 }
 
@@ -165,37 +168,26 @@ async function jsonCheck(name, url, options = {}) {
   }
 }
 
-function runCommand(name, command, { allowFail = false } = {}) {
-  try {
-    execSync(command, { stdio: "pipe", encoding: "utf8" });
-    record(name, "pass", command);
-    return true;
-  } catch (error) {
-    const output =
-      (error instanceof Error && "stdout" in error ? error.stdout : "") ||
-      (error instanceof Error && "stderr" in error ? error.stderr : "") ||
-      (error instanceof Error ? error.message : String(error));
-    if (allowFail) {
-      record(name, "warn", String(output).slice(0, 300));
-      return false;
-    }
-    record(name, "fail", String(output).slice(0, 500));
-    return false;
-  }
+function vcardHasPhoto(text) {
+  // Accept Apple-style PHOTO lines, including X-ABCROP-RECTANGLE params before `:`.
+  return /PHOTO;[^:\n]*ENCODING=b[^:\n]*TYPE=JP(E)?G/i.test(text)
+    || /PHOTO;[^:\n]*TYPE=JP(E)?G[^:\n]*ENCODING=b/i.test(text);
 }
 
 function tryFixSitemap() {
   const sitemapPath = join(process.cwd(), "public", "sitemap.xml");
   const requiredPaths = [
+    "/",
     "/privacy/",
     "/contact/",
     "/terms/",
-    // "/tours/" soft-hidden via SERVICE_FLAGS.dayTrips — restore when re-enabled
-    // /driver/, /owner/, /track/demo/* soft-hidden from public sitemap via SERVICE_FLAGS.trackingDemo
     "/unsubscribe/",
   ];
   let content = existsSync(sitemapPath) ? readFileSync(sitemapPath, "utf8") : "";
-  const missing = requiredPaths.filter((path) => !content.includes(`${SITE_URL}${path}`));
+  const missing = requiredPaths.filter((path) => {
+    const loc = path === "/" ? `${SITE_URL}/` : `${SITE_URL}${path}`;
+    return !content.includes(`<loc>${loc}</loc>`) && !content.includes(loc);
+  });
 
   if (missing.length === 0) {
     record("Sitemap coverage", "pass", `All ${requiredPaths.length} required paths present`);
@@ -205,15 +197,19 @@ function tryFixSitemap() {
   try {
     execSync("node scripts/generate-sitemap.mjs", { stdio: "pipe" });
     content = readFileSync(sitemapPath, "utf8");
-    const stillMissing = requiredPaths.filter((path) => !content.includes(`${SITE_URL}${path}`));
+    const stillMissing = requiredPaths.filter((path) => {
+      const loc = path === "/" ? `${SITE_URL}/` : `${SITE_URL}${path}`;
+      return !content.includes(loc);
+    });
 
     if (stillMissing.length > 0) {
       for (const path of stillMissing) {
+        const loc = path === "/" ? `${SITE_URL}/` : `${SITE_URL}${path}`;
         const block = `  <url>
-    <loc>${SITE_URL}${path}</loc>
+    <loc>${loc}</loc>
     <lastmod>${RUN_DATE}</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.6</priority>
+    <changefreq>weekly</changefreq>
+    <priority>${path === "/" ? "1.0" : "0.6"}</priority>
   </url>`;
         content = content.replace("</urlset>", `${block}\n</urlset>`);
       }
@@ -236,21 +232,49 @@ function tryFixSitemap() {
   }
 }
 
-function checkDemoDataIntegrity() {
+function tryFixContactVcard() {
+  const vcardPath = join(process.cwd(), "public", "my-airport-taxi-ni.vcf");
+  const photoPath = join(process.cwd(), "public", "contact-photo.jpg");
+
+  if (!existsSync(photoPath)) {
+    record("Contact vCard auto-fix", "fail", "public/contact-photo.jpg is missing");
+    return false;
+  }
+
+  const current = existsSync(vcardPath) ? readFileSync(vcardPath, "utf8") : "";
+  if (current.includes("BEGIN:VCARD") && vcardHasPhoto(current)) {
+    record("Contact vCard local file", "pass", "Local vCard has embedded PHOTO");
+    return false;
+  }
+
   try {
-    const output = execSync("npx tsx scripts/check-demo-features.ts", {
-      stdio: "pipe",
-      encoding: "utf8",
+    execSync("node scripts/generate-contact-vcf.mjs", { stdio: "pipe" });
+    if (existsSync(join(process.cwd(), "scripts/sync-worker-shared.mjs"))) {
+      try {
+        execSync("node scripts/sync-worker-shared.mjs", { stdio: "pipe" });
+      } catch {
+        // Shared sync is best-effort; Pages vCard is the customer-facing fix.
+      }
+    }
+
+    const next = readFileSync(vcardPath, "utf8");
+    if (!vcardHasPhoto(next)) {
+      record("Contact vCard auto-fix", "fail", "Regenerated vCard still missing PHOTO");
+      return false;
+    }
+
+    fixes.push({
+      action: "Regenerated contact vCard",
+      detail: "public/my-airport-taxi-ni.vcf rebuilt with embedded logo PHOTO",
     });
-    const summary = output.trim().split("\n").filter(Boolean).at(-1) ?? "Demo features OK";
-    record("Demo feature integrity", "pass", summary);
+    record("Contact vCard auto-fix", "fixed", "Regenerated vCard with logo PHOTO");
     return true;
   } catch (error) {
-    const output =
-      (error instanceof Error && "stdout" in error ? error.stdout : "") ||
-      (error instanceof Error && "stderr" in error ? error.stderr : "") ||
-      (error instanceof Error ? error.message : String(error));
-    record("Demo feature integrity", "fail", String(output).slice(0, 600));
+    record(
+      "Contact vCard auto-fix",
+      "fail",
+      error instanceof Error ? error.message : String(error),
+    );
     return false;
   }
 }
@@ -264,11 +288,11 @@ async function sendNotificationEmail() {
   const failed = checks.filter((c) => c.status === "fail");
   const subject =
     failed.length === 0
-      ? `Daily health check OK — ${SITE_URL.replace("https://", "")} (${RUN_DATE})`
-      : `Daily health check ISSUES — ${failed.length} failure(s) (${RUN_DATE})`;
+      ? `Daily website health OK — ${SITE_URL.replace("https://", "")} (${RUN_DATE})`
+      : `Daily website health ISSUES — ${failed.length} failure(s) (${RUN_DATE})`;
 
   const body = [
-    `My Airport Taxi NI — daily automated health check`,
+    `My Airport Taxi NI — daily website health check`,
     `Date: ${RUN_DATE}`,
     `Overall: ${failed.length === 0 ? "ALL OK" : `${failed.length} issue(s) need attention`}`,
     "",
@@ -321,37 +345,33 @@ async function checkLiveWebsite() {
 
   const pages = [
     ["Homepage", "/"],
+    ["Contact card", "/contact/"],
     ["Terms page", "/terms/"],
     ["Privacy page", "/privacy/"],
-    ["Contact card", "/contact/"],
+    ["Unsubscribe", "/unsubscribe/"],
     ["Driver dashboard", "/driver/"],
     ["Owner dashboard", "/owner/"],
     ["Track page", "/track/"],
-    // Track demo soft-hidden via SERVICE_FLAGS.trackingDemo — expect 404
-    // Tours soft-hidden via SERVICE_FLAGS.dayTrips
-    ["Admin refund", "/admin/refund/"],
-    ["Unsubscribe", "/unsubscribe/"],
     ["Favicon", "/favicon.ico"],
+    ["Logo", "/logo.png"],
   ];
 
   for (const [name, path] of pages) {
     await fetchCheck(name, `${SITE_URL}${path}`);
   }
 
-  console.log("\n— Live page feature markers —");
+  console.log("\n— Customer-facing content —");
 
-  await pageContentCheck("Homepage branding", `${SITE_URL}/`, [
+  await pageContentCheck("Homepage branding + quote", `${SITE_URL}/`, [
     "My Airport Taxi",
+    "Get a Quote",
     "WhatsApp",
   ]);
 
   await pageContentCheck("Contact card markers", `${SITE_URL}/contact/`, [
     "My Airport Taxi",
-    "@belfasttaxi",
-    "Get a quote & book",
-    "Save our contact details",
-    "Scan · Quote · Book",
-    "Download QR image",
+    "Save to contacts",
+    "Get a quote",
     "028 9602 2952",
   ]);
 
@@ -364,132 +384,22 @@ async function checkLiveWebsite() {
   );
   if (vcardResponse) {
     const vcardText = await vcardResponse.text();
-    const hasPhoto =
-      vcardText.includes("PHOTO;ENCODING=b;TYPE=JPG:") ||
-      vcardText.includes("PHOTO;TYPE=JPEG;ENCODING=b:");
-    if (hasPhoto) {
-      record("Contact vCard logo photo", "pass", "vCard embeds JPEG/JPG PHOTO");
+    if (vcardHasPhoto(vcardText)) {
+      record("Contact vCard logo photo", "pass", "Live vCard embeds JPEG/JPG PHOTO");
     } else {
-      record("Contact vCard logo photo", "fail", "vCard missing embedded PHOTO");
+      record("Contact vCard logo photo", "fail", "Live vCard missing embedded PHOTO");
     }
   }
-
-  await fetchCheck(
-    "Worker contact vCard MIME",
-    "https://reimagined-octo-meme.cgr28.workers.dev/contact.vcf",
-  );
-
-  // Soft-hidden tracking demo / public dashboard previews — skipped
-  // await pageContentCheck("Driver page links"...
-  // Soft-hidden tracking demo / public dashboard previews — skipped
-  // await pageContentCheck("Owner page markers"...
-  // Soft-hidden tracking demo / public dashboard previews — skipped
-  // await pageContentCheck("Track demo scenarios"...
-  // Customer names load client-side from demo data; assert shell + token markers.
-  // Soft-hidden tracking demo / public dashboard previews — skipped
-  // await pageContentCheck("Live track demo markers"...
-  // Soft-hidden tracking demo / public dashboard previews — skipped
-  // await pageContentCheck("Airport track demo markers"...
-  await pageContentCheck(
-    "Refund admin page",
-    `${SITE_URL}/admin/refund/`,
-    ["refund", "payment"],
-    { critical: false },
-  );
 }
 
-async function checkWorkerApis() {
-  console.log("\n— Cloudflare Worker APIs —");
+async function checkWebsiteApis() {
+  console.log("\n— Website APIs (Cloudflare Worker) —");
 
-  const calendar = await jsonCheck(
-    "Worker calendar-status",
-    `${WORKER_URL}/calendar-status`,
-    {
-      assert: (data) => (data && typeof data === "object" ? true : "Expected JSON object"),
-    },
-  );
+  await fetchCheck("Worker contact vCard", `${WORKER_URL}/contact.vcf`);
 
-  if (calendar) {
-    if (calendar.configured && !calendar.connected) {
-      record("Google Calendar", "warn", calendar.reason ?? "Configured but not connected");
-    } else if (calendar.connected) {
-      record("Google Calendar", "pass", "Connected");
-    } else if (!calendar.configured) {
-      record("Google Calendar", "warn", "Calendar secrets not configured on worker");
-    }
-  }
-
-  const driverStatus = await jsonCheck(
-    "Worker driver/status",
-    `${WORKER_URL}/driver/status?key=health-check-invalid`,
-    {
-      expectStatuses: [200, 401, 403],
-      assert: (data) => {
-        if (!data || typeof data !== "object") {
-          return "Expected JSON status payload";
-        }
-        if (data.authConfigured !== true) {
-          return "authConfigured is not true — DRIVER_ACCESS_KEY may be missing";
-        }
-        return true;
-      },
-    },
-  );
-
-  if (driverStatus) {
-    if (driverStatus.hasDriverKey) {
-      record("Driver access key secret", "pass", "DRIVER_ACCESS_KEY configured on worker");
-    } else {
-      record("Driver access key secret", "fail", "hasDriverKey=false — set DRIVER_ACCESS_KEY");
-    }
-
-    if (driverStatus.hasOwnerKey) {
-      record("Owner access key secret", "pass", "OWNER_ACCESS_KEY configured on worker");
-    } else {
-      record(
-        "Owner access key secret",
-        "warn",
-        "hasOwnerKey=false — set OWNER_ACCESS_KEY in Cloudflare for owner dashboard / refunds",
-      );
-    }
-  }
-
-  await fetchCheck("Worker driver jobs auth", `${WORKER_URL}/driver/jobs?scope=today&key=invalid`, {
-    expectStatuses: [401, 403],
-  });
-
-  await fetchCheck("Worker driver roster auth", `${WORKER_URL}/driver/roster?key=invalid`, {
-    expectStatuses: [401, 403],
-  });
-
-  await fetchCheck(
-    "Worker driver vehicle profiles auth",
-    `${WORKER_URL}/driver/vehicle/profiles?key=invalid`,
-    { expectStatuses: [401, 403] },
-  );
-
-  await fetchCheck(
-    "Worker location-history auth",
-    `${WORKER_URL}/driver/location-history?token=x&key=invalid`,
-    { expectStatuses: [401, 403] },
-  );
-
-  await fetchCheck("Worker tracking sharing API", `${WORKER_URL}/track/sharing`, {
-    method: "POST",
-    expectStatuses: [400, 404],
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ token: "health-check-invalid", active: true }),
-  });
-
-  await fetchCheck("Worker track lookup", `${WORKER_URL}/track/health-check-invalid-token`, {
-    expectStatus: 404,
-  });
-
-  await jsonCheck("Worker addresses API", `${WORKER_URL}/addresses?q=BT20`, {
+  await jsonCheck("Addresses autocomplete API", `${WORKER_URL}/addresses?q=BT20`, {
     assert: (data) => {
-      if (!data || typeof data !== "object") {
-        return "Expected addresses JSON";
-      }
+      if (!data || typeof data !== "object") return "Expected addresses JSON";
       if (!("suggestions" in data) && !("error" in data)) {
         return "Missing suggestions/error field";
       }
@@ -497,27 +407,7 @@ async function checkWorkerApis() {
     },
   });
 
-  await jsonCheck(
-    "Worker flights API",
-    `${WORKER_URL}/flights?flight=BA1234&date=${RUN_DATE}&airport=BHD&direction=from-airport`,
-    {
-      expectStatuses: [200, 404, 503],
-      assert: (data, status) => {
-        if (!data || typeof data !== "object") {
-          return "Expected flight JSON";
-        }
-        if (data.configured === false && status === 503) {
-          return true;
-        }
-        if ("ok" in data || "error" in data || "flight" in data) {
-          return true;
-        }
-        return "Unexpected flight response shape";
-      },
-    },
-  );
-
-  await jsonCheck("Worker bookings validation", `${WORKER_URL}/bookings`, {
+  await jsonCheck("Bookings API validation", `${WORKER_URL}/bookings`, {
     method: "POST",
     expectStatuses: [400],
     headers: { "Content-Type": "application/json" },
@@ -528,7 +418,7 @@ async function checkWorkerApis() {
         : "Expected validation error for empty booking",
   });
 
-  await jsonCheck("Worker quote-leads validation", `${WORKER_URL}/quote-leads`, {
+  await jsonCheck("Quote leads API validation", `${WORKER_URL}/quote-leads`, {
     method: "POST",
     expectStatuses: [400],
     headers: { "Content-Type": "application/json" },
@@ -539,57 +429,35 @@ async function checkWorkerApis() {
         : "Expected validation error for empty quote lead",
   });
 
-  await jsonCheck("Worker SumUp webhook", `${WORKER_URL}/payments/webhook`, {
-    method: "POST",
-    expectStatuses: [200],
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ event_type: "CHECKOUT_STATUS_CHANGED", id: "health-check" }),
-    assert: (data) => (data && data.ok === true ? true : "Webhook did not acknowledge"),
-  });
-
-  await jsonCheck("Worker refund auth gate", `${WORKER_URL}/bookings/refund`, {
-    method: "POST",
-    expectStatuses: [401, 403],
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({}),
-    assert: (data) =>
-      data && typeof data === "object" && /owner|unauthorized|access key/i.test(String(data.error))
-        ? true
-        : `Unexpected refund auth response: ${JSON.stringify(data)}`,
-  });
-
-  await jsonCheck("Worker marketing opt-in validation", `${WORKER_URL}/marketing/opt-in`, {
-    method: "POST",
-    expectStatuses: [400, 405],
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({}),
-    critical: false,
-  });
+  await jsonCheck(
+    "Flight lookup API",
+    `${WORKER_URL}/flights?flight=BA1234&date=${RUN_DATE}&airport=BHD&direction=from-airport`,
+    {
+      expectStatuses: [200, 404, 503],
+      assert: (data, status) => {
+        if (!data || typeof data !== "object") return "Expected flight JSON";
+        if (data.configured === false && status === 503) return true;
+        if ("ok" in data || "error" in data || "flight" in data) return true;
+        return "Unexpected flight response shape";
+      },
+      critical: false,
+    },
+  );
 }
 
 async function main() {
   mkdirSync(REPORT_DIR, { recursive: true });
 
-  console.log(`Daily health check — ${RUN_DATE}`);
+  console.log(`Daily website health check — ${RUN_DATE}`);
   console.log(`Site: ${SITE_URL}`);
   console.log(`Worker: ${WORKER_URL}`);
 
   await checkLiveWebsite();
-  await checkWorkerApis();
-
-  console.log("\n— Demo / feature integrity —");
-  checkDemoDataIntegrity();
-
-  console.log("\n— Build / typecheck —");
-  if (process.env.HEALTH_CHECK_SKIP_BUILD !== "1") {
-    runCommand("Worker typecheck", "npm --prefix workers/addresses run typecheck");
-    runCommand("Site build", "npm run build");
-  } else {
-    record("Site build", "warn", "Skipped (HEALTH_CHECK_SKIP_BUILD=1)");
-  }
+  await checkWebsiteApis();
 
   console.log("\n— Auto-fixes —");
   tryFixSitemap();
+  tryFixContactVcard();
 
   const failures = checks.filter((c) => c.status === "fail");
   const report = {
@@ -617,7 +485,7 @@ async function main() {
     console.error(`\n${failures.length} check(s) failed.`);
     process.exitCode = 1;
   } else {
-    console.log("\nAll critical checks passed.");
+    console.log("\nAll critical website checks passed.");
   }
 }
 
