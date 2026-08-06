@@ -218,8 +218,10 @@ function handleContactVCardRequest(request: Request, origin: string | null): Res
   const forceDownload =
     url.searchParams.get("download") === "1" || url.searchParams.get("dl") === "1";
   const ua = request.headers.get("User-Agent") || "";
+  // Chrome (CriOS) + Google Search app (GSA) prefer / also accept text/x-vcard.
   const preferXVcard =
-    url.searchParams.get("mime") === "x-vcard" || /CriOS/i.test(ua);
+    url.searchParams.get("mime") === "x-vcard" ||
+    /CriOS|GSA\//i.test(ua);
 
   const headers = new Headers(corsHeaders(origin));
   // iPhone Safari: text/vcard (no Content-Disposition) opens Create New Contact.

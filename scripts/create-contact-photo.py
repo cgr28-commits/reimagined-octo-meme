@@ -1,17 +1,18 @@
 """Build public/contact-photo.jpg for the phone contact card.
 
-Matches the /contact/ page look: navy disc, emerald ring, full logo with
-“MY AIRPORT TAXI NI” wording.
+Full-bleed emerald square + navy disc + wordmark logo.
 
-Sized for iOS/Android circular + subject crop: keep ring and wordmark inside
-the centre ~70% so Contacts does not zoom onto the car icon alone.
+Why full-bleed green: iPhone Contacts shows a circular crop of the square.
+When the square’s corners are emerald, the circular avatar always keeps a
+green rim. Pair with X-ABCROP-RECTANGLE=full in the vCard so iOS does not
+auto-zoom onto the car icon and cut off the wording.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
 
-from PIL import Image, ImageDraw, ImageFilter
+from PIL import Image, ImageDraw
 
 ROOT = Path(__file__).resolve().parents[1]
 PUBLIC = ROOT / "public"
@@ -21,7 +22,7 @@ EMERALD = (47, 191, 74)
 SIZE = 720
 
 
-def trim_transparent(img: Image.Image, padding: int = 4) -> Image.Image:
+def trim_transparent(img: Image.Image, padding: int = 2) -> Image.Image:
     bbox = img.getbbox()
     if not bbox:
         return img
@@ -36,40 +37,23 @@ def trim_transparent(img: Image.Image, padding: int = 4) -> Image.Image:
 def main() -> None:
     logo = trim_transparent(Image.open(PUBLIC / "logo.png").convert("RGBA"))
 
-    canvas = Image.new("RGBA", (SIZE, SIZE), (*NAVY, 255))
-
-    cx = cy = SIZE // 2
-    # Keep ring well inside the circular crop (iOS clips near the edge).
-    outer_r = int(SIZE * 0.42)
-    ring_width = max(18, int(SIZE * 0.045))
-
-    # Soft emerald glow outside the ring
-    glow = Image.new("RGBA", (SIZE, SIZE), (0, 0, 0, 0))
-    glow_draw = ImageDraw.Draw(glow)
-    for i in range(1, 16):
-        glow_draw.ellipse(
-            (
-                cx - outer_r - i,
-                cy - outer_r - i,
-                cx + outer_r + i,
-                cy + outer_r + i,
-            ),
-            outline=(*EMERALD, max(8, 48 - i * 3)),
-            width=2,
-        )
-    canvas = Image.alpha_composite(canvas, glow.filter(ImageFilter.GaussianBlur(2)))
+    # Emerald fills the entire square → circular contact crop keeps a green band.
+    canvas = Image.new("RGBA", (SIZE, SIZE), (*EMERALD, 255))
     draw = ImageDraw.Draw(canvas)
 
-    # Inner navy disc first
-    inner_r = outer_r - ring_width - 2
+    cx = cy = SIZE // 2
+    # Thick green band = area between square edge and navy disc (~8% of size).
+    band = max(28, int(SIZE * 0.08))
+    inner_r = SIZE // 2 - band
+
     draw.ellipse(
         (cx - inner_r, cy - inner_r, cx + inner_r, cy + inner_r),
         fill=(*NAVY, 255),
     )
 
-    # Compact wordmark — larger, centred — so circular/subject crop keeps text
-    max_w = int(inner_r * 2 * 0.86)
-    max_h = int(inner_r * 2 * 0.86)
+    # Wordmark fills most of the navy disc (icons + MY AIRPORT TAXI NI).
+    max_w = int(inner_r * 2 * 0.92)
+    max_h = int(inner_r * 2 * 0.92)
     scale = min(max_w / logo.width, max_h / logo.height)
     new_w = max(1, int(logo.width * scale))
     new_h = max(1, int(logo.height * scale))
@@ -77,17 +61,9 @@ def main() -> None:
     offset = ((SIZE - new_w) // 2, (SIZE - new_h) // 2)
     canvas.paste(resized, offset, resized)
 
-    # Thick emerald ring on top so logo never covers it
-    draw = ImageDraw.Draw(canvas)
-    draw.ellipse(
-        (cx - outer_r, cy - outer_r, cx + outer_r, cy + outer_r),
-        outline=(*EMERALD, 255),
-        width=ring_width,
-    )
-
     out = PUBLIC / "contact-photo.jpg"
     canvas.convert("RGB").save(out, "JPEG", quality=94, optimize=True)
-    print(f"Wrote {out} ({SIZE}x{SIZE})")
+    print(f"Wrote {out} ({SIZE}x{SIZE}, green band={band}px)")
 
 
 if __name__ == "__main__":

@@ -11,6 +11,8 @@ import {
   isAndroidMobile,
   isAppleMobile,
   isChromeIos,
+  isGoogleSearchAppIos,
+  openContactInSafariUrl,
   saveToContactsHref,
   whatsAppChatUrl,
 } from "@/lib/contact-card";
@@ -48,12 +50,16 @@ export default function ContactCardClient() {
   const [android, setAndroid] = useState(false);
   const [iphone, setIphone] = useState(false);
   const [chromeIos, setChromeIos] = useState(false);
+  const [googleApp, setGoogleApp] = useState(false);
+  const [safariOpenHref, setSafariOpenHref] = useState(openContactInSafariUrl());
 
   useEffect(() => {
     setAndroid(isAndroidMobile());
     setIphone(isAppleMobile());
     setChromeIos(isChromeIos());
+    setGoogleApp(isGoogleSearchAppIos());
     setSaveHref(saveToContactsHref());
+    setSafariOpenHref(openContactInSafariUrl());
   }, []);
 
   function onSaveToContactsClick() {
@@ -122,21 +128,32 @@ export default function ContactCardClient() {
                   Quote · Book · Call
                 </p>
                 <p className="mt-2 text-sm leading-relaxed text-white/65">
-                  {chromeIos
-                    ? "Opens the contact card in Chrome — tap Create New Contact, then Done. Delete any old My Airport Taxi NI contact first so the new logo appears."
-                    : iphone
-                      ? "Opens the contact card — tap Create New Contact at the top, then Done. Delete any old contact first if the logo looks wrong."
-                      : android
-                        ? "Opens Add contact on your phone — no file download."
-                        : "Save us to your phone contacts — then book, call, or WhatsApp us."}
+                  {googleApp
+                    ? "The Google app often blocks Create New Contact. Tap Open in Safari below, then Save to contacts — logo shows MY AIRPORT TAXI NI with the green ring."
+                    : chromeIos
+                      ? "Opens the contact card in Chrome — tap Create New Contact, then Done. Delete any old My Airport Taxi NI contact first so the new logo appears."
+                      : iphone
+                        ? "Opens the contact card — tap Create New Contact at the top, then Done. Delete any old contact first if the logo looks wrong."
+                        : android
+                          ? "Opens Add contact on your phone — no file download."
+                          : "Save us to your phone contacts — then book, call, or WhatsApp us."}
                 </p>
+                {googleApp ? (
+                  <a href={safariOpenHref} className={saveLinkClassName}>
+                    Open in Safari
+                  </a>
+                ) : null}
                 {/* Real link (not Web Share) so iPhone Safari shows Create New Contact. */}
                 <a
                   href={saveHref}
                   onClick={onSaveToContactsClick}
-                  className={saveLinkClassName}
+                  className={
+                    googleApp
+                      ? "mt-3 flex w-full items-center justify-center rounded-xl border border-emerald/50 bg-transparent px-4 py-3 text-sm font-bold text-emerald transition-colors hover:bg-emerald/10"
+                      : saveLinkClassName
+                  }
                 >
-                  Save to contacts
+                  {googleApp ? "Try Save to contacts here" : "Save to contacts"}
                 </a>
               </>
             )}
@@ -251,26 +268,56 @@ export default function ContactCardClient() {
                 </span>
                 <span className="mt-0.5 block text-lg font-bold">Save to contacts</span>
                 <span className="mt-0.5 block text-xs text-white/45">
-                  {chromeIos
-                    ? "Chrome: Create New Contact with logo + green ring"
-                    : iphone
-                      ? "Opens Create New Contact — not the share sheet"
-                      : android
-                        ? "Opens Add contact — no download"
-                        : "Opens Create New Contact with our logo"}
+                  {googleApp
+                    ? "Best in Safari — Google app often blocks this"
+                    : chromeIos
+                      ? "Chrome: Create New Contact with logo + green ring"
+                      : iphone
+                        ? "Opens Create New Contact — not the share sheet"
+                        : android
+                          ? "Opens Add contact — no download"
+                          : "Opens Create New Contact with our logo"}
                 </span>
               </span>
             </a>
+            {googleApp ? (
+              <a
+                href={safariOpenHref}
+                className="flex min-w-0 items-center gap-4 rounded-2xl border border-emerald/40 bg-emerald/10 px-5 py-4 text-white transition-colors hover:border-emerald hover:bg-emerald/15"
+              >
+                <ActionIcon>
+                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                    />
+                  </svg>
+                </ActionIcon>
+                <span className="min-w-0">
+                  <span className="block text-xs font-semibold uppercase tracking-wider text-emerald">
+                    Recommended
+                  </span>
+                  <span className="mt-0.5 block text-lg font-bold">Open in Safari</span>
+                  <span className="mt-0.5 block text-xs text-white/45">
+                    Then tap Save to contacts for the full logo
+                  </span>
+                </span>
+              </a>
+            ) : null}
             {showSaveHelp ? (
               <div className="min-w-0 rounded-2xl border border-emerald/35 bg-emerald/10 px-4 py-4 text-sm text-white">
                 <p className="font-semibold text-emerald">
-                  {chromeIos
-                    ? "On Chrome (iPhone)"
-                    : iphone
-                      ? "On iPhone (Safari)"
-                      : android
-                        ? "On Android"
-                        : "Save to contacts"}
+                  {googleApp
+                    ? "On the Google app (iPhone)"
+                    : chromeIos
+                      ? "On Chrome (iPhone)"
+                      : iphone
+                        ? "On iPhone (Safari)"
+                        : android
+                          ? "On Android"
+                          : "Save to contacts"}
                 </p>
                 {android ? (
                   <ol className="mt-3 list-decimal space-y-2 pl-5 text-white/80">
@@ -278,6 +325,21 @@ export default function ContactCardClient() {
                       Tap <span className="text-white">Save</span> on the Add contact screen
                     </li>
                     <li>Optional: download the contact file below if you want our logo</li>
+                  </ol>
+                ) : googleApp ? (
+                  <ol className="mt-3 list-decimal space-y-2 pl-5 text-white/80">
+                    <li>
+                      Tap <span className="text-white">Open in Safari</span> (Google’s browser
+                      often cannot open Create New Contact)
+                    </li>
+                    <li>
+                      Delete any old <span className="text-white">My Airport Taxi NI</span> contact
+                    </li>
+                    <li>
+                      In Safari, tap <span className="text-white">Save to contacts</span> →{" "}
+                      <span className="text-white">Create New Contact</span> →{" "}
+                      <span className="text-white">Done</span>
+                    </li>
                   </ol>
                 ) : (
                   <ol className="mt-3 list-decimal space-y-2 pl-5 text-white/80">
@@ -296,11 +358,13 @@ export default function ContactCardClient() {
                   </ol>
                 )}
                 <p className="mt-3 text-xs text-white/55">
-                  {chromeIos
-                    ? "Chrome should open Create New Contact directly. If it only downloads a file, open that file, or switch to Safari and try again."
-                    : iphone
-                      ? "You should see Create New Contact — not AirDrop / Messages / Files. If the logo is still wrong, use the download link below and open the file from Files."
-                      : "If your phone only downloaded a file, open that file and choose Create New Contact."}
+                  {googleApp
+                    ? "If Open in Safari does nothing, tap … / Share in the Google app and choose Open in Safari, then save the contact there."
+                    : chromeIos
+                      ? "Chrome should open Create New Contact directly. If it only downloads a file, open that file, or switch to Safari and try again."
+                      : iphone
+                        ? "You should see Create New Contact — not AirDrop / Messages / Files. If the logo is still wrong, use the download link below and open the file from Files."
+                        : "If your phone only downloaded a file, open that file and choose Create New Contact."}
                 </p>
                 <button
                   type="button"

@@ -4,12 +4,13 @@
  * Notes for iPhone:
  * - PHOTO only (no LOGO) — dual image fields confuse some importers
  * - TYPE=JPEG with ENCODING=b
- * - PHOTO placed near the top after the name fields
+ * - X-ABCROP-RECTANGLE covers the full square so Contacts does not
+ *   auto-zoom onto the car icon and strip the wordmark / green band
  * - Rebuild contact-photo.jpg first: python3 scripts/create-contact-photo.py
- *   (full wordmark + emerald ring so circular contact crops keep the brand)
  *
  * Usage: node scripts/generate-contact-vcf.mjs
  */
+import { createHash } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -20,6 +21,30 @@ const sharedOutPath = join(root, "shared", "contact-vcard.ts");
 
 const photo = readFileSync(photoPath);
 const b64 = photo.toString("base64");
+
+/** Read JPEG SOF dimensions (baseline / progressive). */
+function jpegSize(buf) {
+  let i = 2;
+  while (i < buf.length - 8) {
+    if (buf[i] !== 0xff) {
+      i += 1;
+      continue;
+    }
+    const marker = buf[i + 1];
+    if (marker === 0xc0 || marker === 0xc2) {
+      const height = buf.readUInt16BE(i + 5);
+      const width = buf.readUInt16BE(i + 7);
+      return { width, height };
+    }
+    if (marker === 0xd8 || marker === 0xd9) {
+      i += 2;
+      continue;
+    }
+    const len = buf.readUInt16BE(i + 2);
+    i += 2 + len;
+  }
+  return { width: 720, height: 720 };
+}
 
 function foldLine(line) {
   const max = 75;
@@ -42,9 +67,14 @@ function foldLine(line) {
   return out;
 }
 
-function photoProperty(base64) {
-  // Keep value on the header line (vcards-js / many iOS samples do this), then fold.
-  return foldLine(`PHOTO;ENCODING=b;TYPE=JPEG:${base64}`);
+function photoProperty(photoBuf, base64) {
+  const { width, height } = jpegSize(photoBuf);
+  // Apple crop: x, y-from-bottom, width, height, base64(md5(image bytes))
+  const digest = createHash("md5").update(photoBuf).digest("base64");
+  const crop = `ABClipRect_1&0&0&${width}&${height}&${digest}`;
+  return foldLine(
+    `PHOTO;ENCODING=b;TYPE=JPEG;X-ABCROP-RECTANGLE=${crop}:${base64}`,
+  );
 }
 
 const lines = [
@@ -55,7 +85,7 @@ const lines = [
   "N:;My Airport Taxi NI;;;",
   "ORG:My Airport Taxi NI;",
   "TITLE:Airport Transfers",
-  ...photoProperty(b64),
+  ...photoProperty(photo, b64),
   "TEL;type=WORK;type=VOICE;type=pref:+442896022952",
   "TEL;type=CELL;type=VOICE:+447549815538",
   "EMAIL;type=INTERNET;type=WORK;type=pref:bookings@myairporttaxini.co.uk",
@@ -72,5 +102,8 @@ const sharedModule =
   `export const CONTACT_VCARD = ${JSON.stringify(content)};\n`;
 writeFileSync(sharedOutPath, sharedModule);
 
-console.log(`Wrote ${outPath} (${content.length} bytes, photo ${photo.length} bytes)`);
+const { width, height } = jpegSize(photo);
+console.log(
+  `Wrote ${outPath} (${content.length} bytes, photo ${photo.length} bytes, ${width}x${height}, full ABCROP)`,
+);
 console.log(`Wrote ${sharedOutPath}`);
