@@ -80,8 +80,10 @@ export async function assignBookingJobDriver(
     id: string;
     driverFirstName: string;
     driverEmail: string;
+    driverMobile: string;
     driverCarMake: string;
     driverCarModel: string;
+    driverCarColour?: string;
     driverReg: string;
     driverPayAmount: string;
   },

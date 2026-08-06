@@ -39,10 +39,12 @@ export type BookingJobRecord = {
   calendarLogged?: boolean;
   driverFirstName?: string;
   driverEmail?: string;
+  driverMobile?: string;
   driverCarMake?: string;
   driverCarModel?: string;
+  driverCarColour?: string;
   driverReg?: string;
-  /** Manual amount the owner will pay the driver after the journey */
+  /** Manual amount the owner will pay the driver after the journey (never the customer fare). */
   driverPayAmount?: string;
   driverAssignmentStatus?: DriverAssignmentStatus;
   driverAcceptToken?: string;
@@ -83,6 +85,13 @@ export function bookingJobAssignmentLabel(
   }
 }
 
+/** Customer-facing first name only — never include surname. */
+export function driverDisplayFirstName(fullName: string | undefined | null): string {
+  const trimmed = fullName?.trim() ?? "";
+  if (!trimmed) return "";
+  return trimmed.split(/\s+/)[0] ?? "";
+}
+
 export function buildDriverAssignmentEmail(options: {
   job: BookingJobRecord;
   acceptUrl: string;
@@ -90,7 +99,7 @@ export function buildDriverAssignmentEmail(options: {
 }): { subject: string; text: string; html: string } {
   const businessName = options.businessName ?? "My Airport Taxi NI";
   const job = options.job;
-  const driverName = job.driverFirstName?.trim() || "Driver";
+  const driverName = driverDisplayFirstName(job.driverFirstName) || "Driver";
   const pay = job.driverPayAmount?.trim() || "TBC";
   const vehicleLine = [job.driverCarMake, job.driverCarModel, job.driverReg]
     .filter(Boolean)
@@ -118,10 +127,12 @@ export function buildDriverAssignmentEmail(options: {
     `Suitcases: ${job.suitcases}`,
     `Vehicle type booked: ${job.vehicle}`,
     vehicleLine ? `Your vehicle on this job: ${vehicleLine}` : null,
+    job.driverMobile?.trim() ? `Your mobile on file: ${job.driverMobile.trim()}` : null,
     "",
     `Your pay for this journey: ${pay}`,
     "You will be paid after each journey (usually the next day).",
     "",
+    "You do not need a login or access key — everything is in this email.",
     "Please confirm you accept this job:",
     options.acceptUrl,
     "",
@@ -155,12 +166,90 @@ export function buildDriverAssignmentEmail(options: {
       <p style="margin:0;"><strong>Your pay for this journey:</strong> ${escapeHtml(pay)}</p>
     </div>
     <p style="color:#c5d0e0;font-size:14px;">You will be paid after each journey (usually the next day).</p>
+    <p style="color:#c5d0e0;font-size:14px;">You do not need a login or access key — everything is in this email.</p>
     <p style="margin:28px 0;">
       <a href="${escapeHtml(options.acceptUrl)}" style="display:inline-block;background:#2fbf4a;color:#071c38;text-decoration:none;font-weight:700;padding:14px 22px;border-radius:10px;">
         Confirm I accept this job
       </a>
     </p>
     <p style="font-size:12px;color:#8a97ab;">Reference: ${escapeHtml(job.id)}</p>
+  </div>
+</body>
+</html>`;
+
+  return { subject, text, html };
+}
+
+/** Customer-facing driver details — first name only, never surname or driver email. */
+export function buildCustomerDriverDetailsEmail(options: {
+  job: BookingJobRecord;
+  businessName?: string;
+}): { subject: string; text: string; html: string } {
+  const businessName = options.businessName ?? "My Airport Taxi NI";
+  const job = options.job;
+  const driverFirst = driverDisplayFirstName(job.driverFirstName) || "your driver";
+  const vehicle = [job.driverCarColour, job.driverCarMake, job.driverCarModel]
+    .map((part) => part?.trim())
+    .filter(Boolean)
+    .join(" ");
+  const when = [job.tripDate, job.tripTime].filter(Boolean).join(" ");
+  const customerName = job.customerName?.trim() || "there";
+
+  const subject = when
+    ? `Your driver details — ${when} — ${businessName}`
+    : `Your driver details — ${businessName}`;
+
+  const lines = [
+    `Hi ${customerName},`,
+    "",
+    when
+      ? `Here are your driver details for ${when}:`
+      : "Here are your driver details for your airport transfer:",
+    "",
+    `Driver: ${driverFirst}`,
+    job.driverMobile?.trim() ? `Mobile: ${job.driverMobile.trim()}` : null,
+    vehicle ? `Vehicle: ${vehicle}` : null,
+    job.driverReg?.trim() ? `Registration: ${job.driverReg.trim().toUpperCase()}` : null,
+    "",
+    `Pickup: ${job.pickupLabel}`,
+    `Drop-off: ${job.dropoffLabel}`,
+    "",
+    "If you need to change anything, reply to this email or WhatsApp us.",
+    "",
+    businessName,
+  ].filter((line): line is string => line !== null);
+
+  const text = lines.join("\n");
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<body style="margin:0;padding:0;background:#071c38;font-family:Arial,sans-serif;color:#e8edf5;">
+  <div style="max-width:560px;margin:0 auto;padding:24px;">
+    <h1 style="color:#2fbf4a;font-size:22px;">Your driver details</h1>
+    <p>Hi ${escapeHtml(customerName)},</p>
+    <p>${
+      when
+        ? `Here are your driver details for <strong>${escapeHtml(when)}</strong>:`
+        : "Here are your driver details for your airport transfer:"
+    }</p>
+    <div style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:12px;padding:16px;margin:20px 0;">
+      <p style="margin:0 0 8px;"><strong>Driver:</strong> ${escapeHtml(driverFirst)}</p>
+      ${
+        job.driverMobile?.trim()
+          ? `<p style="margin:0 0 8px;"><strong>Mobile:</strong> ${escapeHtml(job.driverMobile.trim())}</p>`
+          : ""
+      }
+      ${vehicle ? `<p style="margin:0 0 8px;"><strong>Vehicle:</strong> ${escapeHtml(vehicle)}</p>` : ""}
+      ${
+        job.driverReg?.trim()
+          ? `<p style="margin:0 0 8px;"><strong>Registration:</strong> ${escapeHtml(job.driverReg.trim().toUpperCase())}</p>`
+          : ""
+      }
+      <p style="margin:0 0 8px;"><strong>Pickup:</strong> ${escapeHtml(job.pickupLabel)}</p>
+      <p style="margin:0;"><strong>Drop-off:</strong> ${escapeHtml(job.dropoffLabel)}</p>
+    </div>
+    <p style="color:#c5d0e0;font-size:14px;">If you need to change anything, reply to this email or WhatsApp us.</p>
+    <p style="font-size:12px;color:#8a97ab;">${escapeHtml(businessName)}</p>
   </div>
 </body>
 </html>`;

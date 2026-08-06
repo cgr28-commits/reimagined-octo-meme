@@ -13,6 +13,7 @@ import {
   paidBookingStoreConfigured,
   updatePaidBookingFields,
 } from "./paid-booking-store";
+import { getBookingJob } from "./booking-job-store";
 import {
   getTrackingJob,
   reindexTrackingJobDate,
@@ -94,6 +95,12 @@ export async function enrichDriverJob(
       ? await getPaidBookingRecord(env.TRACKING_STORE, job.paymentReference)
       : null;
 
+  const bookingJob =
+    job.paymentReference && env.TRACKING_STORE
+      ? (await getBookingJob(env.TRACKING_STORE, job.paymentReference)) ??
+        (await getBookingJob(env.TRACKING_STORE, job.token))
+      : null;
+
   const bookingStatus =
     paidRecord?.status === "refunded" || job.refundedAt ? "refunded" : "confirmed";
 
@@ -107,11 +114,17 @@ export async function enrichDriverJob(
       bookingStatus,
       refundAmountLabel: paidRecord?.refundAmountLabel ?? job.refundAmountLabel,
       activeDriverName: job.activeDriverName,
-      assignedDriverName: job.assignedDriverName,
-      assignmentStatus: job.assignmentStatus ?? "unassigned",
-      assignedAt: job.assignedAt,
-      acceptedAt: job.acceptedAt,
-      declinedAt: job.declinedAt,
+      assignedDriverName: job.assignedDriverName ?? bookingJob?.driverFirstName,
+      assignmentStatus: job.assignmentStatus ?? bookingJob?.driverAssignmentStatus ?? "unassigned",
+      assignedAt: job.assignedAt ?? bookingJob?.assignedAt,
+      acceptedAt: job.acceptedAt ?? bookingJob?.driverAcceptedAt,
+      declinedAt: job.declinedAt ?? bookingJob?.driverDeclinedAt,
+      assignedDriverMobile: bookingJob?.driverMobile,
+      assignedDriverCarMake: bookingJob?.driverCarMake,
+      assignedDriverCarModel: bookingJob?.driverCarModel,
+      assignedDriverCarColour: bookingJob?.driverCarColour,
+      assignedDriverReg: bookingJob?.driverReg,
+      driverPayAmount: bookingJob?.driverPayAmount,
       driverLocationPointCount: job.driverLocationPointCount,
       driverLocationRecordedFrom: job.driverLocationRecordedFrom,
       driverLocationRecordedTo: job.driverLocationRecordedTo,

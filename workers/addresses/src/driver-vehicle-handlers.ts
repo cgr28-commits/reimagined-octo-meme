@@ -26,7 +26,6 @@ type Env = DriverAuthEnv &
   };
 
 const BUSINESS_NAME = "My Airport Taxi NI";
-const DRIVER_DASHBOARD_URL = "https://www.myairporttaxini.co.uk/driver/";
 
 function jsonResponse(body: unknown, status: number, origin: string | null) {
   return new Response(JSON.stringify(body), {
@@ -111,7 +110,7 @@ async function sendDriverProfileEmail(
   env: Env,
   profile: DriverVehicleProfile,
 ): Promise<{ sent: boolean; error?: string }> {
-  const email = buildDriverProfileConfirmationEmail(profile, BUSINESS_NAME, DRIVER_DASHBOARD_URL);
+  const email = buildDriverProfileConfirmationEmail(profile, BUSINESS_NAME);
   return trySendBrandedCustomerEmail(env, {
     to: profile.email,
     toName: profile.displayName,
@@ -229,6 +228,7 @@ export async function handleDriverVehicleSaveRequest(
 
   const displayName = String(body.displayName ?? body.name ?? "").trim();
   const email = String(body.email ?? "").trim();
+  const mobile = String(body.mobile ?? body.phone ?? "").trim();
   const make = String(body.make ?? "").trim();
   const model = String(body.model ?? "").trim();
   const colour = String(body.colour ?? "").trim();
@@ -258,6 +258,7 @@ export async function handleDriverVehicleSaveRequest(
     profileKey,
     displayName: resolvedDisplayName,
     email,
+    mobile: mobile || undefined,
     make,
     model,
     colour,

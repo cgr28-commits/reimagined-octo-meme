@@ -126,6 +126,7 @@ export function sanitizeDriverJobForRole<T extends Record<string, unknown>>(
   delete sanitized.driverLocationPointCount;
   delete sanitized.driverLocationRecordedFrom;
   delete sanitized.driverLocationRecordedTo;
+  // Drivers must never see what the customer paid.
   // Flight fields (flightNumber, flight, isAirportPickup, airportCode) are retained for drivers.
   return sanitized as T;
 }

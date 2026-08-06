@@ -98,6 +98,10 @@ import {
   handleMarketingUnsubscribeRequest,
   maybeRecordMarketingFromPayload,
 } from "./marketing-handlers";
+import {
+  handleTestDriverDetailEmails,
+  isTestDriverDetailEmailsPath,
+} from "./test-email-handlers";
 import { CONTACT_VCARD } from "../shared/contact-vcard";
 
 type EmailBinding = {
@@ -144,6 +148,10 @@ type BookingRequestBody = {
 
 const DEFAULT_BOOKING_EMAIL = "bookings@myairporttaxini.co.uk";
 const BUSINESS_NAME = "My Airport Taxi NI";
+
+function ownerInbox(_env?: { BOOKING_TO_EMAIL?: string }): string {
+  return DEFAULT_BOOKING_EMAIL;
+}
 
 function json(body: unknown, status: number, origin: string | null): Response {
   return new Response(JSON.stringify(body), {
@@ -351,7 +359,7 @@ async function sendBookingEmail(
   message: string,
   bookingReference: string | null,
 ): Promise<void> {
-  const toEmail = env.BOOKING_TO_EMAIL?.trim() || DEFAULT_BOOKING_EMAIL;
+  const toEmail = ownerInbox(env);
   const body = bookingReference
     ? prependBookingReference(message, bookingReference)
     : message;
@@ -593,7 +601,7 @@ async function handleQuoteLeadRequest(
     return json({ ok: true, emailed: false, deduplicated: true }, 200, origin);
   }
 
-  const toEmail = env.BOOKING_TO_EMAIL?.trim() || DEFAULT_BOOKING_EMAIL;
+  const toEmail = ownerInbox(env);
 
   try {
     await sendEmail(env, {
@@ -644,8 +652,19 @@ async function handleBookingRequest(
       await sendBookingEmail(env, customerName, message, bookingReference);
       emailSent = true;
     } catch (error) {
+      // Keep 502 so the live site falls through to browser FormSubmit/Web3Forms
+      // (customer IP), which is how email kept working when the worker path failed.
       console.error("Booking email failed", error);
-      return json({ error: "Failed to send booking email" }, 502, origin);
+      const detail = error instanceof Error ? error.message : "Unknown email error";
+      return json(
+        {
+          error: "Failed to send booking email",
+          detail,
+          web3formsConfigured: Boolean(env.WEB3FORMS_ACCESS_KEY?.trim()),
+        },
+        502,
+        origin,
+      );
     }
   }
 
@@ -918,7 +937,7 @@ async function handlePaymentConfirmRequest(
     });
 
     const ownerEmailResult = await trySendEmail(env, {
-      to: env.BOOKING_TO_EMAIL?.trim() || DEFAULT_BOOKING_EMAIL,
+      to: ownerInbox(env),
       subject: ownerEmail.subject,
       body: ownerEmail.body,
     });
@@ -1121,6 +1140,10 @@ export default {
 
     if (trackSubRoute === "location" && request.method === "POST") {
       return handleCustomerLocationRequest(request, env, origin);
+    }
+
+    if (isTestDriverDetailEmailsPath(url.pathname) && request.method === "POST") {
+      return handleTestDriverDetailEmails(request, env, origin);
     }
 
     const trackToken = parseTrackTokenFromPath(url.pathname);

@@ -1,0 +1,43 @@
+name: Restore production worker email
+
+# Deploys the restored worker email path. Does NOT probe send
+# (probing caused FormSubmit/Web3Forms 429 on the shared worker IP).
+on:
+  push:
+    branches:
+      - "cursor/owner-driver-details-514b"
+    paths:
+      - "workers/addresses/src/worker-email.ts"
+      - "workers/addresses/src/index.ts"
+      - "workers/addresses/src/test-email-handlers.ts"
+      - "shared/email-delivery.ts"
+      - ".github/workflows/restore-worker-email.yml"
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: workers/addresses/package-lock.json
+
+      - name: Sync shared + build + deploy
+        working-directory: workers/addresses
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "::error::Missing Cloudflare credentials"
+            exit 1
+          fi
+          npm ci
+          npm run build
+          npx wrangler deploy
+          printf 'cleared' | npx wrangler secret put TEST_EMAIL_TOKEN || true
+          echo "::notice::Worker deployed with restored main email path. Do not probe sends while rate limits clear."

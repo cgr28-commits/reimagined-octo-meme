@@ -21,7 +21,7 @@
  * Env:
  *   HEALTH_CHECK_SITE_URL     default https://www.myairporttaxini.co.uk
  *   HEALTH_CHECK_WORKER_URL   default https://reimagined-octo-meme.cgr28.workers.dev
- *   HEALTH_CHECK_NOTIFY_EMAIL default bookings@myairporttaxini.co.uk
+ *   HEALTH_CHECK_NOTIFY_EMAIL ignored — always bookings@myairporttaxini.co.uk
  *   WEB3FORMS_ACCESS_KEY      optional — sends daily summary email when set
  */
 
@@ -36,8 +36,7 @@ const SITE_URL = (process.env.HEALTH_CHECK_SITE_URL ?? "https://www.myairporttax
 const WORKER_URL = (
   process.env.HEALTH_CHECK_WORKER_URL ?? "https://reimagined-octo-meme.cgr28.workers.dev"
 ).replace(/\/$/, "");
-const NOTIFY_EMAIL =
-  process.env.HEALTH_CHECK_NOTIFY_EMAIL ?? "bookings@myairporttaxini.co.uk";
+const NOTIFY_EMAIL = "bookings@myairporttaxini.co.uk";
 const WEB3FORMS_KEY = process.env.WEB3FORMS_ACCESS_KEY?.trim() ?? "";
 const RUN_DATE = new Date().toISOString().slice(0, 10);
 const REPORT_DIR = join(process.cwd(), "reports");
@@ -315,7 +314,9 @@ async function sendNotificationEmail() {
         access_key: WEB3FORMS_KEY,
         subject,
         email: NOTIFY_EMAIL,
-        name: "MATNI Health Monitor",
+        name: "My Airport Taxi NI",
+        from_name: "My Airport Taxi NI",
+        replyto: NOTIFY_EMAIL,
         message: body,
       }),
     });

@@ -1,0 +1,31 @@
+name: Send driver/customer test emails
+
+# Manual only — automated probes rate-limited FormSubmit/Web3Forms on the worker IP.
+on:
+  workflow_dispatch:
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install repo dependencies
+        run: npm ci
+
+      - name: Build email payloads only
+        env:
+          EMAIL_PREVIEW_DIR: artifacts/email-previews
+          SKIP_SEND: "1"
+        run: npx tsx scripts/send-driver-details-test-emails.ts
+
+      - name: Upload email HTML previews
+        uses: actions/upload-artifact@v4
+        with:
+          name: driver-customer-email-previews
+          path: artifacts/email-previews
