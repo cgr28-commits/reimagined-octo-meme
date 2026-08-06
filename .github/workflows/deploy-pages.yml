@@ -17,9 +17,11 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Only the deploy job should use the github-pages environment.
+  # Putting it on build creates an extra environment deployment and can
+  # leave GitHub Pages stuck in deployment_queued / in_progress.
   build:
     runs-on: ubuntu-latest
-    environment: github-pages
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
