@@ -30,12 +30,8 @@ export default function DriverPage() {
             <p className="text-sm font-semibold uppercase tracking-widest text-emerald">Drivers</p>
             <h1 className="mt-2 text-3xl font-bold text-white sm:text-4xl">Jobs by email</h1>
             <p className="mt-4 text-white/70">
-              There is no driver login or access key. When you are assigned a job,{" "}
-              <strong className="font-semibold text-white">
-                {SITE.name}
-              </strong>{" "}
-              emails you the trip details, your pay for that journey, and a link to confirm you can
-              take it.
+              There is no driver login or access key. When you are assigned a job, {SITE.name} emails
+              you the trip details, your pay for that journey, and a link to confirm you can take it.
             </p>
             <p className="mt-4 text-white/55">
               Check your inbox (and spam) for messages from{" "}
