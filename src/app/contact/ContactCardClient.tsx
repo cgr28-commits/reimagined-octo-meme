@@ -14,8 +14,8 @@ import {
   isChromeIos,
   isGoogleSearchAppIos,
   openContactInSafariUrl,
-  openContactPageInSafari,
   saveToContactsHref,
+  shareContactPageLink,
   whatsAppChatUrl,
 } from "@/lib/contact-card";
 import { SITE } from "@/lib/data";
@@ -55,6 +55,8 @@ export default function ContactCardClient() {
   const [googleApp, setGoogleApp] = useState(false);
   const [safariOpenHref, setSafariOpenHref] = useState(openContactInSafariUrl());
   const [copied, setCopied] = useState(false);
+  const [shareBusy, setShareBusy] = useState(false);
+  const [shareHint, setShareHint] = useState<string | null>(null);
 
   useEffect(() => {
     const inGoogleApp = isGoogleSearchAppIos();
@@ -74,15 +76,32 @@ export default function ContactCardClient() {
     setShowSaveHelp(true);
   }
 
-  function onOpenInSafariClick(event: MouseEvent<HTMLAnchorElement | HTMLButtonElement>) {
-    event.preventDefault();
+  async function onShareToSafariClick() {
     setShowSaveHelp(true);
-    openContactPageInSafari();
+    setShareBusy(true);
+    setShareHint(null);
+    try {
+      const result = await shareContactPageLink();
+      if (result === "shared") {
+        setShareHint("In the share menu, tap Safari (or Open in Safari).");
+      } else if (result === "copied") {
+        setCopied(true);
+        setShareHint("Link copied — open the Safari app and paste in the address bar.");
+        window.setTimeout(() => setCopied(false), 2500);
+      } else {
+        setShareHint("Share was cancelled. Use Copy page link, then paste into Safari.");
+      }
+    } finally {
+      setShareBusy(false);
+    }
   }
 
   async function onCopyLinkClick() {
     const ok = await copyContactPageLink();
     setCopied(ok);
+    setShareHint(
+      ok ? "Link copied — open the Safari app and paste in the address bar." : "Could not copy — use Email link below.",
+    );
     if (ok) {
       window.setTimeout(() => setCopied(false), 2500);
     }
@@ -150,36 +169,46 @@ export default function ContactCardClient() {
                   Finish in Safari
                 </p>
                 <p className="mt-2 text-sm leading-relaxed text-white/65">
-                  The Google app cannot add contacts — it only downloads a file. Open this page in
-                  Safari, then tap Save to contacts.
+                  The Google app cannot add contacts. Tap the green button to open the share menu,
+                  choose <span className="text-white">Safari</span>, then Save to contacts there.
                 </p>
-                <a
-                  href={safariOpenHref}
-                  onClick={onOpenInSafariClick}
+                <button
+                  type="button"
+                  disabled={shareBusy}
+                  onClick={() => void onShareToSafariClick()}
                   className={saveLinkClassName}
                 >
-                  Open in Safari
-                </a>
+                  {shareBusy ? "Opening…" : "Share → open in Safari"}
+                </button>
                 <ol className="mt-4 list-decimal space-y-2 pl-5 text-left text-sm text-white/75">
                   <li>
-                    Tap <span className="text-white">Open in Safari</span> above
+                    Tap <span className="text-white">Share → open in Safari</span>
                   </li>
                   <li>
-                    If nothing happens: tap <span className="text-white">···</span> at the top of
-                    Google → <span className="text-white">Open in Safari</span>
+                    In the share menu tap <span className="text-white">Safari</span> (or Open in
+                    Safari)
                   </li>
                   <li>
                     In Safari tap <span className="text-white">Save to contacts</span> →{" "}
                     <span className="text-white">Create New Contact</span>
                   </li>
                 </ol>
+                {shareHint ? (
+                  <p className="mt-3 text-sm font-semibold text-emerald">{shareHint}</p>
+                ) : null}
                 <button
                   type="button"
                   onClick={() => void onCopyLinkClick()}
                   className="mt-4 w-full rounded-xl border border-emerald/50 px-4 py-3 text-sm font-bold text-emerald transition-colors hover:bg-emerald/10"
                 >
-                  {copied ? "Link copied" : "Copy page link"}
+                  {copied ? "Link copied — paste in Safari" : "Copy page link"}
                 </button>
+                <a
+                  href={safariOpenHref}
+                  className="mt-3 inline-flex text-sm font-semibold text-emerald/80 underline-offset-2 hover:underline"
+                >
+                  Or try direct Safari link
+                </a>
               </>
             ) : (
               <>
@@ -298,8 +327,9 @@ export default function ContactCardClient() {
             {googleApp ? (
               <button
                 type="button"
-                onClick={onOpenInSafariClick}
-                className="flex min-w-0 items-center gap-4 rounded-2xl border border-emerald/40 bg-emerald/10 px-5 py-4 text-left text-white transition-colors hover:border-emerald hover:bg-emerald/15"
+                disabled={shareBusy}
+                onClick={() => void onShareToSafariClick()}
+                className="flex min-w-0 items-center gap-4 rounded-2xl border border-emerald/40 bg-emerald/10 px-5 py-4 text-left text-white transition-colors hover:border-emerald hover:bg-emerald/15 disabled:opacity-60"
               >
                 <ActionIcon>
                   <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -307,7 +337,7 @@ export default function ContactCardClient() {
                       strokeLinecap="round"
                       strokeLinejoin="round"
                       strokeWidth={2}
-                      d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                      d="M8.684 13.342A3 3 0 0010 12c0-1.657-1.343-3-3-3S4 10.343 4 12s1.343 3 3 3a3 3 0 002.316-1.158m6.368 0A3 3 0 0017 12c0-1.657-1.343-3-3-3s-3 1.343-3 3 1.343 3 3 3a3 3 0 002.316-1.158M8.684 13.342l6.632 0"
                     />
                   </svg>
                 </ActionIcon>
@@ -315,9 +345,9 @@ export default function ContactCardClient() {
                   <span className="block text-xs font-semibold uppercase tracking-wider text-emerald">
                     Contacts
                   </span>
-                  <span className="mt-0.5 block text-lg font-bold">Open in Safari to save</span>
+                  <span className="mt-0.5 block text-lg font-bold">Share → open in Safari</span>
                   <span className="mt-0.5 block text-xs text-white/45">
-                    Google app cannot create contacts — Safari can
+                    Then Save to contacts in Safari
                   </span>
                 </span>
               </button>
@@ -378,11 +408,10 @@ export default function ContactCardClient() {
                 ) : googleApp ? (
                   <ol className="mt-3 list-decimal space-y-2 pl-5 text-white/80">
                     <li>
-                      Tap <span className="text-white">···</span> (top of Google) →{" "}
-                      <span className="text-white">Open in Safari</span>
+                      Tap <span className="text-white">Share → open in Safari</span>
                     </li>
                     <li>
-                      Delete any old <span className="text-white">My Airport Taxi NI</span> contact
+                      Choose <span className="text-white">Safari</span> in the share menu
                     </li>
                     <li>
                       In Safari tap <span className="text-white">Save to contacts</span> →{" "}
@@ -408,13 +437,13 @@ export default function ContactCardClient() {
                 )}
                 {googleApp ? (
                   <div className="mt-4 flex flex-col gap-2">
-                    <a
-                      href={safariOpenHref}
-                      onClick={onOpenInSafariClick}
-                      className="inline-flex text-sm font-semibold text-emerald underline-offset-2 hover:underline"
+                    <button
+                      type="button"
+                      onClick={() => void onShareToSafariClick()}
+                      className="inline-flex text-left text-sm font-semibold text-emerald underline-offset-2 hover:underline"
                     >
-                      Try Open in Safari again
-                    </a>
+                      Share again
+                    </button>
                     <button
                       type="button"
                       onClick={() => void onCopyLinkClick()}
@@ -422,6 +451,12 @@ export default function ContactCardClient() {
                     >
                       {copied ? "Link copied — paste into Safari" : "Copy page link for Safari"}
                     </button>
+                    <a
+                      href={contactEmailLink()}
+                      className="inline-flex text-sm font-semibold text-emerald underline-offset-2 hover:underline"
+                    >
+                      Email yourself the Safari contact link
+                    </a>
                   </div>
                 ) : (
                   <>
