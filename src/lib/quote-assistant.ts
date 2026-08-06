@@ -117,7 +117,7 @@ function knowledgeChunks(): Array<{ title: string; body: string }> {
     {
       title: "Quote tool flow",
       body:
-        "The quote tool asks: trip type (to or from airport), one way or return, airport, address, date and time (plus return date/time if return), passengers, suitcases, then shows the fixed journey price and vehicle. Booking continues on the quote form with contact details, flight numbers and terms.",
+        "The quote tool asks: trip type (to or from airport), one way or return, airport, full pickup or drop-off address, passengers, and suitcases, then shows the fixed journey price and vehicle. Pickup date and time are collected when you choose to book. Booking continues on the quote form with date/time, contact details, flight numbers and terms.",
     },
     {
       title: "Airports we cover",
@@ -335,12 +335,7 @@ function nextMissingField(draft: QuoteDraft): MissingField | null {
   if (draft.returnJourney === undefined) return "returnJourney";
   if (!draft.airportCode) return "airport";
   if (!draft.address) return "address";
-  if (!draft.tripDate) return "tripDate";
-  if (!draft.tripTime) return "tripTime";
-  if (draft.returnJourney) {
-    if (!draft.returnDate) return "returnDate";
-    if (!draft.returnTime) return "returnTime";
-  }
+  // Date/time are collected on the booking form after the customer chooses to book.
   if (draft.passengers === undefined) return "passengers";
   if (draft.suitcases === undefined) return "suitcases";
   return null;
@@ -380,32 +375,32 @@ function promptForField(field: MissingField, draft: QuoteDraft): AssistantRespon
       return {
         reply:
           draft.direction === "from-airport"
-            ? `Got it — collection from ${airportName}. What’s the drop-off town / address?`
-            : `Got it — drop-off at ${airportName}. What’s the pickup town / address?`,
+            ? `Got it — collection from ${airportName}. Type your full drop-off address below — suggestions appear as you type. Pick the matching address.`
+            : `Got it — drop-off at ${airportName}. Type your full pickup address below — suggestions appear as you type. Pick the matching address.`,
         draft,
-        quickReplies: ["Bangor", "Lisburn", "Holywood", "Belfast City Centre"],
+        quickReplies: [],
       };
     case "tripDate":
       return {
-        reply: "What date is the outbound journey? Use the calendar below to choose a date.",
+        reply: "What date is the outbound journey?",
         draft,
         quickReplies: ["Today", "Tomorrow"],
       };
     case "tripTime":
       return {
-        reply: "What pickup time do you need? Use the clock below to choose a time.",
+        reply: "What pickup time do you need?",
         draft,
         quickReplies: ["06:00", "09:00", "12:00", "18:00"],
       };
     case "returnDate":
       return {
-        reply: "What date is the return journey? Use the calendar below to choose a date.",
+        reply: "What date is the return journey?",
         draft,
         quickReplies: ["Tomorrow"],
       };
     case "returnTime":
       return {
-        reply: "What pickup time for the return journey? Use the clock below to choose a time.",
+        reply: "What pickup time for the return journey?",
         draft,
         quickReplies: ["09:00", "12:00", "18:00"],
       };
@@ -439,11 +434,8 @@ function tryBuildQuote(draft: QuoteDraft): { text: string; enquiryOnly: boolean 
     !draft.address ||
     !draft.direction ||
     draft.returnJourney === undefined ||
-    !draft.tripDate ||
-    !draft.tripTime ||
     draft.passengers === undefined ||
-    draft.suitcases === undefined ||
-    (draft.returnJourney && (!draft.returnDate || !draft.returnTime))
+    draft.suitcases === undefined
   ) {
     return null;
   }
@@ -460,7 +452,7 @@ function tryBuildQuote(draft: QuoteDraft): { text: string; enquiryOnly: boolean 
       enquiryOnly: true,
       text:
         `${vehicle.split(" (")[0]} is enquiry only for ${airportName}. ` +
-        `Tap Request to book to open the quote form with your trip details and we’ll confirm availability and price. ` +
+        `Would you like to book? I’ll open the quote form so you can add date, time, and your details — then we’ll confirm availability and price. ` +
         `Or call ${SITE.landlineDisplay}.`,
     };
   }
@@ -487,13 +479,13 @@ function tryBuildQuote(draft: QuoteDraft): { text: string; enquiryOnly: boolean 
         enquiryOnly: false,
         text:
           "City of Derry Airport transfers are between LDY and the greater Belfast area only. " +
-          "Please give a Belfast-area town or postcode (for example Bangor, Lisburn, or BT20).",
+          "Please enter a full Belfast-area address (for example a street in Bangor, Lisburn, or BT20).",
       };
     }
     return {
       enquiryOnly: false,
       text:
-        "I couldn’t price that address yet. Try a Northern Ireland town we cover (Bangor, Lisburn, Holywood…) or use the quote form with your full address.",
+        "I couldn’t price that address yet. Please pick a full Northern Ireland address from the suggestions, or use the quote form on the website.",
     };
   }
 
@@ -505,20 +497,27 @@ function tryBuildQuote(draft: QuoteDraft): { text: string; enquiryOnly: boolean 
       ? "Includes vehicle, driver, fuel, tolls, and up to 60 minutes waiting after landing for airport pickups."
       : "Includes vehicle, driver, fuel and tolls.";
 
+  const scheduleLines = [
+    draft.tripDate && draft.tripTime
+      ? `Outbound: ${formatDisplayDate(draft.tripDate)} at ${draft.tripTime}`
+      : null,
+    draft.returnJourney && draft.returnDate && draft.returnTime
+      ? `Return: ${formatDisplayDate(draft.returnDate)} at ${draft.returnTime}`
+      : null,
+  ]
+    .filter(Boolean)
+    .join("\n");
+
   return {
     enquiryOnly: false,
     text:
       `Your fixed journey price ${directionLabel} is ${formatQuote(quote.amount)}${areaNote}.\n` +
       `${vehicle.split(" (")[0]} · ${passengers} passengers · ${suitcases} suitcases` +
-      `${draft.returnJourney ? " · return (5% off)" : " · one way"}.\n` +
-      `Outbound: ${formatDisplayDate(draft.tripDate)} at ${draft.tripTime}` +
-      `${
-        draft.returnJourney && draft.returnDate && draft.returnTime
-          ? `\nReturn: ${formatDisplayDate(draft.returnDate)} at ${draft.returnTime}`
-          : ""
-      }.\n\n` +
+      `${draft.returnJourney ? " · return (5% off)" : " · one way"}` +
+      `${draft.address ? `\nAddress: ${draft.address}` : ""}.` +
+      `${scheduleLines ? `\n${scheduleLines}` : ""}\n\n` +
       `${waitingNote}\n\n` +
-      `To book, tap Request to book — I’ll open the quote tool with these details so you can add your name, mobile, email, flight number(s) and accept the terms (same booking flow as the website).`,
+      `Would you like to book? If yes, I’ll open the quote form with these details so you can add pickup date & time, your name, mobile, email, flight number(s) and accept the terms.`,
   };
 }
 
@@ -577,7 +576,18 @@ export function respondToAssistantMessage(
   }
 
   if (
-    /^(request to book|enquire to book|book now|book this|yes book|i('?| would )?like to book)\b/.test(
+    /^(no thanks|no thank you|not now|no book|maybe later)\b/.test(lower)
+  ) {
+    return {
+      reply:
+        "No problem — your quote is ready whenever you are. Say “Get a quote” for another trip, or ask me anything else.",
+      draft: nextDraft,
+      quickReplies: ["Get a quote", "Save to contacts"],
+    };
+  }
+
+  if (
+    /^(request to book|enquire to book|book now|book this|yes,? book|yes book|yes,? please|yes$|i('?| would )?like to book)\b/.test(
       lower,
     ) ||
     /^book\b/.test(lower)
@@ -586,14 +596,14 @@ export function respondToAssistantMessage(
     if (missing) {
       const prompt = promptForField(missing, nextDraft);
       return {
-        reply: `Let’s finish the quote details first — same steps as the quote tool — then I’ll open the booking form.\n\n${prompt.reply}`,
+        reply: `Let’s finish the quote details first — then I’ll open the booking form.\n\n${prompt.reply}`,
         draft: nextDraft,
         quickReplies: prompt.quickReplies,
       };
     }
     return {
       reply:
-        "Opening the live quote tool with your trip details. Complete your name, mobile, email, flight number(s) and accept the terms to send your booking request — we’ll email a SumUp payment link once we confirm the job.",
+        "Opening the live quote tool with your trip details. Add your pickup date & time, name, mobile, email, flight number(s) and accept the terms to send your booking request — we’ll email a SumUp payment link once we confirm the job.",
       draft: nextDraft,
       openQuoteForm: true,
       quickReplies: ["Another quote", "Save to contacts"],
@@ -703,39 +713,40 @@ export function respondToAssistantMessage(
   }
 
   if (!isAirportOnlyReply) {
-    const areaMention = matchAreaMention(text);
-    if (areaMention && !matchAirport(areaMention)) {
-      nextDraft.address = areaMention;
-    }
-
-    if (!nextDraft.address) {
-      const addressMatch =
-        text.match(/\bfrom\s+(.+?)(?:\s+to\s+(?:the\s+)?(?:airport|belfast|dublin|derry)|\s+for\s+\d|\s*$)/i) ||
-        text.match(/\bto\s+(.+?)(?:\s+from\s+(?:the\s+)?(?:airport|belfast|dublin|derry)|\s+for\s+\d|\s*$)/i);
-      if (addressMatch?.[1] && !matchAirport(addressMatch[1])) {
-        const candidate = addressMatch[1].replace(/[?.!]+$/, "").trim();
-        if (
-          candidate.length >= 3 &&
-          !/^(a quote|quote|airport|belfast international|dublin|city of derry|the airport)$/i.test(
-            candidate,
-          )
-        ) {
-          nextDraft.address = candidate;
-        }
-      }
-    }
-
-    // Plain town reply while waiting for address.
-    if (
-      !nextDraft.address &&
+    const looksLikeAddressReply =
       nextField === "address" &&
       text.length >= 3 &&
-      text.length <= 60 &&
+      text.length <= 200 &&
       !airport &&
       !extractTime(text) &&
-      !/quote|price|book|passenger|suitcase|case|bag/i.test(text)
-    ) {
+      !/^(get a quote|quote|price|book|yes|no thanks)$/i.test(text) &&
+      !/passenger|suitcase|case|bag/i.test(text);
+
+    // Prefer the full typed/selected address over extracting a town name only.
+    if (looksLikeAddressReply) {
       nextDraft.address = text.replace(/[?.!]+$/, "").trim();
+    } else {
+      const areaMention = matchAreaMention(text);
+      if (areaMention && !matchAirport(areaMention)) {
+        nextDraft.address = areaMention;
+      }
+
+      if (!nextDraft.address) {
+        const addressMatch =
+          text.match(/\bfrom\s+(.+?)(?:\s+to\s+(?:the\s+)?(?:airport|belfast|dublin|derry)|\s+for\s+\d|\s*$)/i) ||
+          text.match(/\bto\s+(.+?)(?:\s+from\s+(?:the\s+)?(?:airport|belfast|dublin|derry)|\s+for\s+\d|\s*$)/i);
+        if (addressMatch?.[1] && !matchAirport(addressMatch[1])) {
+          const candidate = addressMatch[1].replace(/[?.!]+$/, "").trim();
+          if (
+            candidate.length >= 3 &&
+            !/^(a quote|quote|airport|belfast international|dublin|city of derry|the airport)$/i.test(
+              candidate,
+            )
+          ) {
+            nextDraft.address = candidate;
+          }
+        }
+      }
     }
   }
 
@@ -778,7 +789,7 @@ export function respondToAssistantMessage(
       return {
         reply: built.text,
         draft: nextDraft,
-        quickReplies: ["Request to book", "Another quote", "Save to contacts"],
+        quickReplies: ["Yes, book", "No thanks", "Another quote"],
       };
     }
   }
