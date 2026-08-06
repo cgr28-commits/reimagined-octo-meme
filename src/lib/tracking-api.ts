@@ -785,7 +785,10 @@ export function buildWhatsAppTrackLink(trackUrl: string, customerName: string): 
   return `https://wa.me/?text=${encodeURIComponent(message)}`;
 }
 
-/** Customer-facing driver details for WhatsApp — never includes driver email. */
+import { driverDisplayFirstName } from "../../shared/booking-job";
+export { driverDisplayFirstName };
+
+/** Customer-facing driver details for WhatsApp — first name only, never email. */
 export function buildWhatsAppDriverDetailsLink(options: {
   customerName: string;
   customerMobile?: string;
@@ -803,13 +806,14 @@ export function buildWhatsAppDriverDetailsLink(options: {
     .filter(Boolean)
     .join(" ");
   const when = [options.tripDate, options.tripTime].filter(Boolean).join(" ");
+  const driverFirst = driverDisplayFirstName(options.driverName);
   const lines = [
     `Hi ${options.customerName.trim() || "there"},`,
     "",
     when
       ? `Here are your driver details for ${when}:`
       : "Here are your driver details for your airport transfer:",
-    options.driverName?.trim() ? `Driver: ${options.driverName.trim()}` : null,
+    driverFirst ? `Driver: ${driverFirst}` : null,
     options.driverMobile?.trim() ? `Mobile: ${options.driverMobile.trim()}` : null,
     vehicle ? `Vehicle: ${vehicle}` : null,
     options.reg?.trim() ? `Registration: ${options.reg.trim().toUpperCase()}` : null,

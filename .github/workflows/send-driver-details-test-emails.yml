@@ -1,0 +1,39 @@
+name: Send driver/customer test emails
+
+on:
+  push:
+    branches:
+      - "cursor/owner-driver-details-514b"
+    paths:
+      - "scripts/send-driver-details-test-emails.ts"
+      - "shared/booking-job.ts"
+      - ".github/workflows/send-driver-details-test-emails.yml"
+  workflow_dispatch:
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Send driver + customer test emails
+        env:
+          WEB3FORMS_ACCESS_KEY: ${{ secrets.WEB3FORMS_ACCESS_KEY }}
+          TEST_EMAIL_TO: cgr28@hotmail.co.uk
+          EMAIL_PREVIEW_DIR: artifacts/email-previews
+        run: npx tsx scripts/send-driver-details-test-emails.ts
+
+      - name: Upload email HTML previews
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: driver-customer-email-previews
+          path: artifacts/email-previews
