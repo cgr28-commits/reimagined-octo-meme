@@ -7,6 +7,7 @@ on:
     paths:
       - "scripts/send-driver-details-test-emails.ts"
       - "shared/booking-job.ts"
+      - "workers/test-mailer/**"
       - ".github/workflows/send-driver-details-test-emails.yml"
   workflow_dispatch:
 
@@ -21,15 +22,89 @@ jobs:
           node-version: 20
           cache: npm
 
-      - name: Install dependencies
+      - name: Install repo dependencies
         run: npm ci
 
-      - name: Send driver + customer test emails
+      - name: Build email payloads
         env:
-          WEB3FORMS_ACCESS_KEY: ${{ secrets.WEB3FORMS_ACCESS_KEY }}
-          TEST_EMAIL_TO: cgr28@hotmail.co.uk
           EMAIL_PREVIEW_DIR: artifacts/email-previews
+          SKIP_SEND: "1"
         run: npx tsx scripts/send-driver-details-test-emails.ts
+
+      - name: Install + deploy edge mailer
+        working-directory: workers/test-mailer
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          WEB3FORMS_ACCESS_KEY: ${{ secrets.WEB3FORMS_ACCESS_KEY }}
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "::error::CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID required to send from edge"
+            exit 1
+          fi
+          npm install
+          npx wrangler deploy
+          if [ -n "$WEB3FORMS_ACCESS_KEY" ]; then
+            printf '%s' "$WEB3FORMS_ACCESS_KEY" | npx wrangler secret put WEB3FORMS_ACCESS_KEY
+          fi
+
+      - name: Resolve mailer URL
+        id: url
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          SUB=$(curl -sS -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/subdomain" \
+            | node -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{try{console.log(JSON.parse(s).result?.subdomain||"")}catch{console.log("")}})')
+          if [ -z "$SUB" ]; then
+            echo "::error::Could not resolve workers.dev subdomain"
+            exit 1
+          fi
+          echo "mailer=https://matni-test-mailer.${SUB}.workers.dev" >> "$GITHUB_OUTPUT"
+          echo "Mailer URL: https://matni-test-mailer.${SUB}.workers.dev"
+
+      - name: Send both test emails via edge mailer
+        env:
+          MAILER_URL: ${{ steps.url.outputs.mailer }}
+        run: |
+          node <<'NODE'
+          const fs = require("fs");
+          const to = "cgr28@hotmail.co.uk";
+          const mailer = process.env.MAILER_URL;
+          const driver = {
+            subject: "[TEST] Job assignment — what the driver sees",
+            text: fs.readFileSync("artifacts/email-previews/driver-assignment.txt", "utf8"),
+            html: fs.readFileSync("artifacts/email-previews/driver-assignment.html", "utf8"),
+          };
+          const customer = {
+            subject: "[TEST] Customer driver details — first name only (no surname)",
+            text: fs.readFileSync("artifacts/email-previews/customer-driver-details.txt", "utf8"),
+            html: fs.readFileSync("artifacts/email-previews/customer-driver-details.html", "utf8"),
+          };
+          async function send(label, payload) {
+            const response = await fetch(mailer, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ to, ...payload }),
+            });
+            const body = await response.text();
+            console.log(label, response.status, body.slice(0, 800));
+            if (!response.ok) process.exitCode = 1;
+          }
+          (async () => {
+            await send("DRIVER", driver);
+            await send("CUSTOMER", customer);
+          })();
+          NODE
+
+      - name: Remove edge mailer
+        if: always()
+        working-directory: workers/test-mailer
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx wrangler delete --force || true
 
       - name: Upload email HTML previews
         if: always()

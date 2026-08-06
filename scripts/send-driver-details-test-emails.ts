@@ -123,6 +123,11 @@ async function main() {
   console.log("--- CUSTOMER (driver details, first name only) ---");
   console.log(customerEmail.text);
 
+  if (process.env.SKIP_SEND === "1") {
+    console.log(JSON.stringify({ to: TO, skippedSend: true, previewDir: PREVIEW_DIR }));
+    return;
+  }
+
   const driverSent = await sendOne("DRIVER", driverEmail.subject, driverEmail.html, driverEmail.text);
   const customerSent = await sendOne(
     "CUSTOMER",
