@@ -1,4 +1,8 @@
 import {
+  buildDriverAssignmentEmail,
+  type BookingJobRecord,
+} from "../shared/booking-job";
+import {
   driverNamesMatch,
   jobAssignmentStatus,
   type JobAssignmentStatus,
@@ -15,16 +19,27 @@ import {
 } from "./driver-auth";
 import { corsHeaders } from "../shared/google-places";
 import {
+  generateDriverAcceptToken,
+  getBookingJob,
+  saveBookingJob,
+} from "./booking-job-store";
+import {
   getTrackingJob,
   isTrackingJobCancelled,
   saveTrackingJob,
   trackingStoreConfigured,
 } from "./tracking-store";
+import { trySendEmail, type WorkerEmailEnv } from "./worker-email";
 
-type Env = DriverAuthEnv & {
-  TRACKING_STORE?: KVNamespace;
-  AERODATABOX_RAPIDAPI_KEY?: string;
-};
+type Env = DriverAuthEnv &
+  WorkerEmailEnv & {
+    TRACKING_STORE?: KVNamespace;
+    AERODATABOX_RAPIDAPI_KEY?: string;
+    SITE_URL?: string;
+  };
+
+const BUSINESS_NAME = "My Airport Taxi NI";
+const DEFAULT_SITE_URL = "https://www.myairporttaxini.co.uk";
 
 function jsonResponse(body: unknown, status: number, origin: string | null) {
   return new Response(JSON.stringify(body), {
@@ -34,6 +49,10 @@ function jsonResponse(body: unknown, status: number, origin: string | null) {
       ...corsHeaders(origin),
     },
   });
+}
+
+function siteUrl(env: Env): string {
+  return env.SITE_URL?.trim() || DEFAULT_SITE_URL;
 }
 
 function stopDriverSharing(record: TrackingJobRecord): void {
@@ -60,6 +79,37 @@ function assignmentFields(record: TrackingJobRecord) {
     assignedAt: record.assignedAt,
     acceptedAt: record.acceptedAt,
     declinedAt: record.declinedAt,
+  };
+}
+
+function bookingJobFromTracking(
+  record: TrackingJobRecord,
+  id: string,
+): BookingJobRecord {
+  return {
+    id,
+    createdAt: record.createdAt || new Date().toISOString(),
+    status: "paid",
+    kind: "booking-request",
+    customerName: record.customerName,
+    customerEmail: record.customerEmail ?? "",
+    customerMobile: record.customerMobile,
+    tripLabel: "Airport transfer",
+    pickupLabel: record.pickupLabel,
+    dropoffLabel: record.dropoffLabel,
+    returnJourney: false,
+    tripDate: record.tripDate,
+    tripTime: record.tripTime,
+    flightNumber: record.flightNumber,
+    passengers: 1,
+    suitcases: 0,
+    vehicle: "",
+    isAirportTrip: Boolean(record.isAirportTrip),
+    airportCode: record.airportCode,
+    isFromAirport: record.isFromAirport,
+    paymentReference: record.paymentReference || id,
+    paidAt: new Date().toISOString(),
+    amountPaidLabel: undefined,
   };
 }
 
@@ -103,14 +153,35 @@ export async function handleDriverAssignRequest(
   }
 
   const token = String(body.token ?? "").trim();
-  const driverName = String(body.driverName ?? "").trim();
+  const driverFirstName = String(body.driverFirstName ?? body.driverName ?? "").trim();
+  const driverEmail = String(body.driverEmail ?? "").trim().toLowerCase();
+  const driverCarMake = String(body.driverCarMake ?? "").trim();
+  const driverCarModel = String(body.driverCarModel ?? "").trim();
+  const driverReg = String(body.driverReg ?? "").trim().toUpperCase();
+  const driverPayAmount = String(body.driverPayAmount ?? "").trim();
+  const emailAssign = Boolean(driverEmail || driverPayAmount);
 
-  if (!token || !driverName) {
-    return jsonResponse({ error: "Missing token or driverName" }, 400, origin);
+  if (!token || !driverFirstName) {
+    return jsonResponse({ error: "Missing token or driver name" }, 400, origin);
   }
 
-  if (!isConfiguredDriver(env, driverName)) {
-    return jsonResponse({ error: "Unknown driver — check DRIVER_ROSTER or DRIVER_NAME" }, 400, origin);
+  if (emailAssign) {
+    if (!driverEmail || !driverPayAmount) {
+      return jsonResponse(
+        { error: "Enter driver email and the amount you are paying them" },
+        400,
+        origin,
+      );
+    }
+    if (!driverEmail.includes("@")) {
+      return jsonResponse({ error: "Enter a valid driver email" }, 400, origin);
+    }
+  } else if (!isConfiguredDriver(env, driverFirstName)) {
+    return jsonResponse(
+      { error: "Unknown driver — check DRIVER_ROSTER or DRIVER_NAME" },
+      400,
+      origin,
+    );
   }
 
   const record = await getTrackingJob(env.TRACKING_STORE, token);
@@ -123,7 +194,7 @@ export async function handleDriverAssignRequest(
   }
 
   const now = new Date().toISOString();
-  record.assignedDriverName = driverName;
+  record.assignedDriverName = driverFirstName;
   record.assignmentStatus = "pending";
   record.assignedAt = now;
   delete record.acceptedAt;
@@ -132,13 +203,96 @@ export async function handleDriverAssignRequest(
 
   await saveTrackingJob(env.TRACKING_STORE, record);
 
+  let emailed = false;
+  let acceptUrl: string | undefined;
+  let emailError: string | undefined;
+
+  if (emailAssign) {
+    const bookingId =
+      record.paymentReference?.trim() ||
+      String(body.bookingJobId ?? "").trim() ||
+      `track-${token}`;
+
+    let bookingJob = await getBookingJob(env.TRACKING_STORE, bookingId);
+    if (!bookingJob && record.paymentReference?.trim()) {
+      bookingJob = await getBookingJob(env.TRACKING_STORE, record.paymentReference.trim());
+    }
+    if (!bookingJob) {
+      bookingJob = bookingJobFromTracking(record, bookingId);
+    }
+
+    if (bookingJob.status === "awaiting_payment") {
+      bookingJob = {
+        ...bookingJob,
+        status: "paid",
+        paidAt: now,
+        paymentReference: bookingJob.paymentReference || record.paymentReference || bookingJob.id,
+      };
+    }
+
+    const acceptToken = generateDriverAcceptToken();
+    const updatedBooking: BookingJobRecord = {
+      ...bookingJob,
+      driverFirstName,
+      driverEmail,
+      driverCarMake: driverCarMake || undefined,
+      driverCarModel: driverCarModel || undefined,
+      driverReg: driverReg || undefined,
+      driverPayAmount,
+      driverAssignmentStatus: "pending",
+      driverAcceptToken: acceptToken,
+      assignedAt: now,
+      driverAcceptedAt: undefined,
+      driverDeclinedAt: undefined,
+    };
+
+    await saveBookingJob(env.TRACKING_STORE, updatedBooking);
+
+    acceptUrl = `${siteUrl(env).replace(/\/$/, "")}/driver-accept/?token=${encodeURIComponent(acceptToken)}`;
+    const email = buildDriverAssignmentEmail({
+      job: updatedBooking,
+      acceptUrl,
+      businessName: BUSINESS_NAME,
+    });
+
+    const sendResult = await trySendEmail(env, {
+      to: driverEmail,
+      toName: driverFirstName,
+      subject: email.subject,
+      body: email.text,
+      htmlBody: email.html,
+      requireHtml: true,
+    });
+
+    emailed = sendResult.sent;
+    if (!sendResult.sent) {
+      emailError = sendResult.error || "Failed to email driver";
+    }
+  }
+
   const role: DashboardRole = "owner";
   const job = await enrichDriverJob(record, env, origin, role);
+
+  if (emailAssign && !emailed) {
+    return jsonResponse(
+      {
+        ok: false,
+        error: emailError || "Failed to email driver",
+        job,
+        acceptUrl,
+        ...assignmentFields(record),
+      },
+      502,
+      origin,
+    );
+  }
 
   return jsonResponse(
     {
       ok: true,
       job,
+      emailed,
+      acceptUrl,
       ...assignmentFields(record),
     },
     200,

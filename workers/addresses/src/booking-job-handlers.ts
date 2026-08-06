@@ -15,8 +15,61 @@ import {
   listBookingJobsForDateRange,
   saveBookingJob,
 } from "./booking-job-store";
-import { createTrackingJobFromBooking } from "./tracking-store";
+import {
+  createTrackingJobFromBooking,
+  findTrackingJobByPaymentReference,
+  getTrackingJob,
+  saveTrackingJob,
+} from "./tracking-store";
 import { trySendEmail, type WorkerEmailEnv } from "./worker-email";
+
+async function syncTrackingAssignmentFromBooking(
+  store: KVNamespace,
+  job: BookingJobRecord,
+): Promise<void> {
+  const paymentRef = job.paymentReference?.trim() || job.id;
+  let tracking =
+    (await findTrackingJobByPaymentReference(store, paymentRef)) ||
+    (await findTrackingJobByPaymentReference(store, job.id));
+
+  // Some older jobs may still use the booking id as the tracking token.
+  if (!tracking) {
+    tracking = await getTrackingJob(store, job.id);
+  }
+  if (!tracking) {
+    return;
+  }
+
+  const status = job.driverAssignmentStatus ?? "unassigned";
+  if (status === "unassigned") {
+    delete tracking.assignedDriverName;
+    delete tracking.assignmentStatus;
+    delete tracking.assignedAt;
+    delete tracking.acceptedAt;
+    delete tracking.declinedAt;
+  } else {
+    tracking.assignedDriverName = job.driverFirstName?.trim() || tracking.assignedDriverName;
+    tracking.assignmentStatus = status;
+    tracking.assignedAt = job.assignedAt || tracking.assignedAt || new Date().toISOString();
+    if (status === "accepted") {
+      tracking.acceptedAt = job.driverAcceptedAt || new Date().toISOString();
+      delete tracking.declinedAt;
+    } else if (status === "declined") {
+      tracking.declinedAt = job.driverDeclinedAt || new Date().toISOString();
+      delete tracking.acceptedAt;
+    } else {
+      delete tracking.acceptedAt;
+      delete tracking.declinedAt;
+    }
+    tracking.sharingActive = false;
+    delete tracking.driverLat;
+    delete tracking.driverLng;
+    delete tracking.driverUpdatedAt;
+    delete tracking.activeDriverName;
+  }
+
+  await saveTrackingJob(store, tracking);
+}
 
 type Env = DriverAuthEnv &
   WorkerEmailEnv & {
@@ -357,6 +410,7 @@ export async function handleBookingJobAssignDriverRequest(
   };
 
   await saveBookingJob(env.TRACKING_STORE, updated);
+  await syncTrackingAssignmentFromBooking(env.TRACKING_STORE, updated);
 
   const acceptUrl = `${siteUrl(env).replace(/\/$/, "")}/driver-accept/?token=${encodeURIComponent(acceptToken)}`;
   const email = buildDriverAssignmentEmail({
@@ -482,6 +536,7 @@ export async function handleDriverAcceptConfirmRequest(
     driverDeclinedAt: action === "decline" ? new Date().toISOString() : undefined,
   };
   await saveBookingJob(env.TRACKING_STORE, updated);
+  await syncTrackingAssignmentFromBooking(env.TRACKING_STORE, updated);
 
   return jsonResponse({ ok: true, job: updated }, 200, origin);
 }
