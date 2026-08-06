@@ -1,10 +1,10 @@
-# Daily health check: site, worker API, build. Auto-fixes sitemap gaps and emails a summary.
+# Daily website health check: verify the live site works, auto-fix what we can.
 
 name: Daily health check
 
 on:
   schedule:
-    # 07:00 UTC every day (after OTS pricing check at 06:00)
+    # 07:00 UTC every day
     - cron: "0 7 * * *"
   workflow_dispatch:
 
@@ -20,7 +20,7 @@ concurrency:
 jobs:
   health-check:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 15
 
     steps:
       - uses: actions/checkout@v4
@@ -32,22 +32,13 @@ jobs:
         with:
           node-version: 20
           cache: npm
-          cache-dependency-path: |
-            package-lock.json
-            workers/addresses/package-lock.json
 
       - run: npm ci
-      - run: npm --prefix workers/addresses ci
 
-      - name: Run daily health check
+      - name: Run website health check
         env:
           WEB3FORMS_ACCESS_KEY: ${{ secrets.WEB3FORMS_ACCESS_KEY }}
           HEALTH_CHECK_NOTIFY_EMAIL: ${{ secrets.HEALTH_CHECK_NOTIFY_EMAIL || 'bookings@myairporttaxini.co.uk' }}
-          GOOGLE_PLACES_API_KEY: ${{ secrets.GOOGLE_PLACES_API_KEY }}
-          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
-          GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
-          NEXT_PUBLIC_GOOGLE_PLACES_API_KEY: ${{ secrets.GOOGLE_PLACES_API_KEY || secrets.GOOGLE_API_KEY || secrets.GOOGLE_MAPS_API_KEY }}
-          NEXT_PUBLIC_BOOKINGS_API_URL: https://reimagined-octo-meme.cgr28.workers.dev/bookings
           GITHUB_SERVER_URL: ${{ github.server_url }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           GITHUB_RUN_ID: ${{ github.run_id }}
@@ -61,47 +52,62 @@ jobs:
           path: reports/daily-health-*.json
           retention-days: 30
 
-      - name: Commit sitemap auto-fix
+      - name: Commit auto-fixes
         if: always()
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add public/sitemap.xml
+          git add public/sitemap.xml public/my-airport-taxi-ni.vcf shared/contact-vcard.ts workers/addresses/shared/contact-vcard.ts || true
           if git diff --staged --quiet; then
-            echo "No sitemap changes"
+            echo "No auto-fix file changes"
           else
-            git commit -m "chore: daily health check sitemap auto-fix"
+            git commit -m "chore: daily health check auto-fix"
             git pull --rebase origin main
             git push
           fi
 
-      - name: Redeploy worker if API unhealthy
+      - name: Redeploy after remaining failures
         if: failure()
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           REPORT=$(ls reports/daily-health-*.json | head -1)
-          if node -e "
-            const r = require('./' + process.argv[1]);
-            const workerFails = r.checks.filter(c => c.status === 'fail' && /worker/i.test(c.name));
-            process.exit(workerFails.length > 0 ? 0 : 1);
-          " "$REPORT"; then
-            echo "Worker checks failed — triggering redeploy"
+          node <<'NODE'
+          const fs = require("fs");
+          const reportPath = fs.readdirSync("reports").find((f) => f.startsWith("daily-health-"));
+          const r = JSON.parse(fs.readFileSync(`reports/${reportPath}`, "utf8"));
+          const fails = r.checks.filter((c) => c.status === "fail");
+          const workerFails = fails.some((c) => /worker|api|addresses|bookings|quote leads|flight|contact vcard/i.test(c.name));
+          const siteFails = fails.some((c) => /homepage|contact|terms|privacy|favicon|logo|page|branding|qr|photo/i.test(c.name));
+          fs.writeFileSync("/tmp/health-redeploy.json", JSON.stringify({ workerFails, siteFails }));
+          console.log(JSON.stringify({ workerFails, siteFails, failCount: fails.length }));
+          NODE
+
+          WORKER_FAIL=$(node -e "console.log(JSON.parse(require('fs').readFileSync('/tmp/health-redeploy.json','utf8')).workerFails)")
+          SITE_FAIL=$(node -e "console.log(JSON.parse(require('fs').readFileSync('/tmp/health-redeploy.json','utf8')).siteFails)")
+
+          if [ "$WORKER_FAIL" = "true" ]; then
+            echo "Worker/API checks failed — triggering worker redeploy"
             gh workflow run deploy-worker.yml --ref main
-          else
-            echo "Worker OK or failure unrelated — skip redeploy"
+          fi
+          if [ "$SITE_FAIL" = "true" ]; then
+            echo "Website checks failed — triggering Pages redeploy"
+            gh workflow run deploy-pages.yml --ref main || true
+          fi
+          if [ "$WORKER_FAIL" != "true" ] && [ "$SITE_FAIL" != "true" ]; then
+            echo "No redeploy trigger matched"
           fi
 
       - name: Summarise for Actions log
         if: always()
         run: |
           REPORT=$(ls reports/daily-health-*.json | head -1)
-          echo "## Daily health check" >> "$GITHUB_STEP_SUMMARY"
+          echo "## Daily website health check" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           node -e "
             const r = require('./' + process.argv[1]);
             const icon = r.ok ? '✅' : '❌';
-            console.log(icon + ' **Overall:** ' + (r.ok ? 'All critical checks passed' : r.summary.fail + ' failure(s)'));
+            console.log(icon + ' **Overall:** ' + (r.ok ? 'Website healthy' : r.summary.fail + ' failure(s)'));
             console.log('');
             console.log('| Status | Check | Detail |');
             console.log('|--------|-------|--------|');
@@ -121,11 +127,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           REPORT=$(ls reports/daily-health-*.json | head -1)
-          TITLE="Daily health check failed — $(date -u +%Y-%m-%d)"
+          TITLE="Website health check failed — $(date -u +%Y-%m-%d)"
           BODY=$(node -e "
             const r = require('./' + process.argv[1]);
             const fails = r.checks.filter(c => c.status === 'fail');
-            let md = 'Automated daily health check found **' + fails.length + '** failure(s).\\n\\n';
+            let md = 'Automated website health check found **' + fails.length + '** failure(s).\\n\\n';
             md += '[View workflow run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})\\n\\n';
             md += '### Failures\\n';
             for (const f of fails) md += '- **' + f.name + '**: ' + f.detail + '\\n';
@@ -141,5 +147,5 @@ jobs:
             gh issue comment "$EXISTING" --body "$BODY"
             echo "Commented on issue #$EXISTING"
           else
-            gh issue create --title "$TITLE" --body "$BODY" || true
+            gh issue create --title "$TITLE" --body "$BODY" --label "health-check" || gh issue create --title "$TITLE" --body "$BODY" || true
           fi

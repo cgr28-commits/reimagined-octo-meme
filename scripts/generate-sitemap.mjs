@@ -31,6 +31,7 @@ const pages = [
   { path: "/terms/", changefreq: "yearly", priority: "0.5" },
   { path: "/privacy/", changefreq: "yearly", priority: "0.5" },
   { path: "/contact/", changefreq: "monthly", priority: "0.8" },
+  { path: "/unsubscribe/", changefreq: "yearly", priority: "0.3" },
   // /driver/, /owner/, /track/demo/, /test-booking/ intentionally omitted from public sitemap
   ...(TRACKING_DEMO_ENABLED
     ? [{ path: "/track/demo/", changefreq: "monthly", priority: "0.4" }]

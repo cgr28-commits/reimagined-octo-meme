@@ -72,17 +72,14 @@ Transfer bookings create a 90-minute calendar event at the requested pickup time
 
 GitHub Actions runs **every day at 07:00 UTC** (`.github/workflows/daily-health-check.yml`) and emails a summary:
 
-- **Live pages:** homepage, terms, privacy, driver/owner dashboard, track + all track demos, tours, refund admin, unsubscribe, favicon
-- **Feature markers:** branding, `demo-owner-key` / `demo-driver-key`, track demo scenarios (early / waiting / live)
-- **Worker APIs:** calendar, driver auth/jobs/roster/vehicle/GPS history gates, track sharing, addresses, flights, bookings validation, quote-leads, refund auth
-- **Secrets presence:** warns if `OWNER_ACCESS_KEY` is missing; fails if `DRIVER_ACCESS_KEY` is missing
-- **Demo integrity:** owner vs driver sanitisation, pending jobs, payments, GPS audit, vehicle profiles (`npm run check:demo-features`)
-- **Build:** worker typecheck + site build
-- **Auto-fix:** missing sitemap entries (commit + push)
-- **Auto-redeploy:** worker redeploy if worker API checks fail
+- **Live website:** homepage, contact, terms, privacy, unsubscribe, driver/owner/track shells, logo/favicon
+- **Customer content:** branding, quote CTA, WhatsApp, contact-card markers, QR/photo/vCard (with logo)
+- **Website APIs:** addresses autocomplete, bookings + quote-lead validation, worker contact vCard, flight lookup
+- **Auto-fix:** regenerate sitemap gaps; rebuild contact vCard if the logo PHOTO is missing (commit + push)
+- **Auto-redeploy:** worker and/or GitHub Pages when live checks still fail
 - **Alerts:** Web3Forms email + GitHub issue on failure
 
-Optional: set `HEALTH_CHECK_NOTIFY_EMAIL` in GitHub Actions secrets (e.g. `colinrice876@gmail.com`) to choose where summaries are sent. Default: `bookings@myairporttaxini.co.uk`.
+Optional: set `HEALTH_CHECK_NOTIFY_EMAIL` in GitHub Actions secrets to choose where summaries are sent. Default: `bookings@myairporttaxini.co.uk`.
 
-Run manually: `npm run health-check` (set `HEALTH_CHECK_SKIP_BUILD=1` for a quick check without building).  
+Run manually: `npm run health-check`  
 Trigger now: GitHub → Actions → **Daily health check** → Run workflow.
