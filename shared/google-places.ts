@@ -1,7 +1,9 @@
 import {
+  extractNorthernIrelandPostcode,
   isAddressAllowedForAirport,
   isAllowedAutocompleteLabel,
   isAllowedCoordinates,
+  isFullNorthernIrelandPostcode,
   isNorthernIrelandPostcodeQuery,
   normaliseAirportCode,
   sortSuggestionsByStreetNumber,
@@ -286,6 +288,84 @@ export async function searchGoogleStreetAddresses(
     const parts = parseGoogleAddressComponents(place.addressComponents);
     if (
       !isAddressAllowedForAirport(normaliseAirportCode(airportCode), {
+        ...parts,
+        displayName: formatted,
+      })
+    ) {
+      continue;
+    }
+
+    const commaIndex = formatted.indexOf(",");
+    const mainText = commaIndex === -1 ? formatted : formatted.slice(0, commaIndex);
+    const secondaryText = commaIndex === -1 ? "" : formatted.slice(commaIndex + 1).trim();
+
+    suggestions.push({
+      id: place.id,
+      label: formatted,
+      address: formatted,
+      mainText,
+      secondaryText,
+    });
+  }
+
+  return sortSuggestionsByStreetNumber(suggestions).slice(0, 8);
+}
+
+/** Fallback when getAddress Find is unavailable — resolve a full NI postcode via Google text search. */
+export async function searchGooglePostcodeAddresses(
+  apiKey: string,
+  query: string,
+  airportCode: string,
+): Promise<AddressSuggestion[]> {
+  const extracted = extractNorthernIrelandPostcode(query);
+  if (!extracted || !isFullNorthernIrelandPostcode(extracted)) {
+    return [];
+  }
+
+  const response = await fetch("https://places.googleapis.com/v1/places:searchText", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Goog-Api-Key": apiKey,
+      "X-Goog-FieldMask": "places.id,places.formattedAddress,places.addressComponents",
+    },
+    body: JSON.stringify({
+      textQuery: `${extracted}, Northern Ireland`,
+      regionCode: "gb",
+      languageCode: "en-GB",
+      pageSize: 12,
+    }),
+  });
+
+  if (!response.ok) {
+    const detail = await response.text().catch(() => "");
+    console.error(
+      `Google Places postcode search failed (${response.status})`,
+      detail.slice(0, 300),
+    );
+    return [];
+  }
+
+  const data = (await response.json()) as {
+    places?: Array<{
+      id?: string;
+      formattedAddress?: string;
+      addressComponents?: GoogleAddressComponent[];
+    }>;
+  };
+
+  const suggestions: AddressSuggestion[] = [];
+  const code = normaliseAirportCode(airportCode);
+
+  for (const place of data.places ?? []) {
+    if (!place.id || !place.formattedAddress) {
+      continue;
+    }
+
+    const formatted = place.formattedAddress.trim();
+    const parts = parseGoogleAddressComponents(place.addressComponents);
+    if (
+      !isAddressAllowedForAirport(code, {
         ...parts,
         displayName: formatted,
       })

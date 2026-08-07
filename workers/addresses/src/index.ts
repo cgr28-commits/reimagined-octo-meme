@@ -11,9 +11,15 @@ import {
   reverseGeocodeGoogle,
   searchGoogleEstablishments,
   searchGooglePlaces,
+  searchGooglePostcodeAddresses,
   searchGoogleStreetAddresses,
 } from "../shared/google-places";
-import { isNorthernIrelandPostcodeQuery, sortSuggestionsByStreetNumber } from "../shared/address-validation";
+import {
+  extractNorthernIrelandPostcode,
+  isFullNorthernIrelandPostcode,
+  isNorthernIrelandPostcodeQuery,
+  sortSuggestionsByStreetNumber,
+} from "../shared/address-validation";
 import {
   resolveGetAddress,
   searchGetAddress,
@@ -1435,6 +1441,13 @@ export default {
         if (isStreetOnlyQuery(query)) {
           tasks.push(
             searchGoogleStreetAddresses(env.GOOGLE_PLACES_API_KEY, query, airportCode),
+          );
+        }
+
+        const postcode = extractNorthernIrelandPostcode(query);
+        if (postcode && isFullNorthernIrelandPostcode(postcode)) {
+          tasks.push(
+            searchGooglePostcodeAddresses(env.GOOGLE_PLACES_API_KEY, query, airportCode),
           );
         }
       }
