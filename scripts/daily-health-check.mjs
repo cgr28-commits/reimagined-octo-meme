@@ -398,11 +398,16 @@ async function checkWebsiteApis() {
 
   await fetchCheck("Worker contact vCard", `${WORKER_URL}/contact.vcf`);
 
-  await jsonCheck("Addresses autocomplete API", `${WORKER_URL}/addresses?q=BT20`, {
+  await jsonCheck("Addresses autocomplete API", `${WORKER_URL}/addresses?q=BT20%201AA`, {
     assert: (data) => {
       if (!data || typeof data !== "object") return "Expected addresses JSON";
-      if (!("suggestions" in data) && !("error" in data)) {
-        return "Missing suggestions/error field";
+      if (data.error) return `Addresses API error: ${data.error}`;
+      if (!Array.isArray(data.suggestions)) return "Missing suggestions array";
+      if (data.suggestions.length === 0) {
+        const configured = data.configured
+          ? ` configured=${JSON.stringify(data.configured)}`
+          : "";
+        return `No address suggestions returned${configured}`;
       }
       return true;
     },

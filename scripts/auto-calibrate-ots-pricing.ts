@@ -75,7 +75,8 @@ function readCurrentSurcharge(source: string, area: string, airportCode: string)
 }
 
 async function main() {
-  const runDate = process.env.OTS_CHECK_DATE ?? new Date().toISOString().slice(0, 10);
+  const runDate =
+    process.env.OTS_CHECK_DATE?.trim() || new Date().toISOString().slice(0, 10);
   const seed = seedFromDate(new Date(`${runDate}T12:00:00Z`));
   const pool = buildRoutePool().filter((route) => route.kind === "airport") as AirportRoute[];
 

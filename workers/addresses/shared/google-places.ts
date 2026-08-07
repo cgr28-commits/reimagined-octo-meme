@@ -192,9 +192,9 @@ export async function searchGooglePlaces(
     body.sessionToken = sessionToken;
   }
 
-  if (isStreetOnlyQuery(query)) {
-    body.includedPrimaryTypes = ["street_address", "premise", "subpremise"];
-  }
+  // Do not restrict primary types for street-name / town queries.
+  // Restricting to street_address/premise excludes route/locality matches
+  // (e.g. "Donegall Place", "Belfast") and returns empty suggestions.
 
   const response = await fetch("https://places.googleapis.com/v1/places:autocomplete", {
     method: "POST",
@@ -206,6 +206,11 @@ export async function searchGooglePlaces(
   });
 
   if (!response.ok) {
+    const detail = await response.text().catch(() => "");
+    console.error(
+      `Google Places autocomplete failed (${response.status})`,
+      detail.slice(0, 300),
+    );
     return [];
   }
 
