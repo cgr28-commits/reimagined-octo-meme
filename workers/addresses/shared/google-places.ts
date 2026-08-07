@@ -356,6 +356,7 @@ export async function searchGooglePostcodeAddresses(
 
   const suggestions: AddressSuggestion[] = [];
   const code = normaliseAirportCode(airportCode);
+  const wantedCompact = extracted.replace(/\s+/g, "").toUpperCase();
 
   for (const place of data.places ?? []) {
     if (!place.id || !place.formattedAddress) {
@@ -364,6 +365,15 @@ export async function searchGooglePostcodeAddresses(
 
     const formatted = place.formattedAddress.trim();
     const parts = parseGoogleAddressComponents(place.addressComponents);
+    const resultPostcode = (parts.postcode ?? extractNorthernIrelandPostcode(formatted) ?? "")
+      .replace(/\s+/g, "")
+      .toUpperCase();
+
+    // Google text search is fuzzy — reject wrong postcodes (e.g. BT64 for BT20).
+    if (resultPostcode !== wantedCompact) {
+      continue;
+    }
+
     if (
       !isAddressAllowedForAirport(code, {
         ...parts,
