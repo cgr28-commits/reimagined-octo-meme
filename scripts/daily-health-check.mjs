@@ -398,7 +398,7 @@ async function checkWebsiteApis() {
 
   await fetchCheck("Worker contact vCard", `${WORKER_URL}/contact.vcf`);
 
-  await jsonCheck("Addresses autocomplete API", `${WORKER_URL}/addresses?q=BT20%201AA`, {
+  await jsonCheck("Addresses autocomplete API", `${WORKER_URL}/addresses?q=Donegall%20Place&airport=BFS`, {
     assert: (data) => {
       if (!data || typeof data !== "object") return "Expected addresses JSON";
       if (data.error) return `Addresses API error: ${data.error}`;
