@@ -11,9 +11,15 @@ import {
   reverseGeocodeGoogle,
   searchGoogleEstablishments,
   searchGooglePlaces,
+  searchGooglePostcodeAddresses,
   searchGoogleStreetAddresses,
 } from "../shared/google-places";
-import { isNorthernIrelandPostcodeQuery, sortSuggestionsByStreetNumber } from "../shared/address-validation";
+import {
+  extractNorthernIrelandPostcode,
+  isFullNorthernIrelandPostcode,
+  isNorthernIrelandPostcodeQuery,
+  sortSuggestionsByStreetNumber,
+} from "../shared/address-validation";
 import {
   resolveGetAddress,
   searchGetAddress,
@@ -1437,9 +1443,25 @@ export default {
             searchGoogleStreetAddresses(env.GOOGLE_PLACES_API_KEY, query, airportCode),
           );
         }
+
+        const postcode = extractNorthernIrelandPostcode(query);
+        if (postcode && isFullNorthernIrelandPostcode(postcode)) {
+          tasks.push(
+            searchGooglePostcodeAddresses(env.GOOGLE_PLACES_API_KEY, query, airportCode),
+          );
+        }
       }
 
-      const results = await Promise.all(tasks.map((task) => task.catch(() => [])));
+      const results = await Promise.all(
+        tasks.map(async (task, index) => {
+          try {
+            return await task;
+          } catch (error) {
+            console.error(`Address provider task ${index} failed`, error);
+            return [];
+          }
+        }),
+      );
       const suggestions = results.flat();
 
       const seen = new Set<string>();
@@ -1454,10 +1476,18 @@ export default {
         }),
       );
 
+      const providers: string[] = [];
+      if (env.GETADDRESS_API_KEY?.trim()) providers.push("getaddress");
+      if (env.GOOGLE_PLACES_API_KEY?.trim()) providers.push("google");
+
       return json(
         {
           suggestions: merged.slice(0, 8),
-          provider: env.GETADDRESS_API_KEY ? "getaddress+google" : "google",
+          provider: providers.join("+") || "none",
+          configured: {
+            getaddress: Boolean(env.GETADDRESS_API_KEY?.trim()),
+            google: Boolean(env.GOOGLE_PLACES_API_KEY?.trim()),
+          },
         },
         200,
         origin,

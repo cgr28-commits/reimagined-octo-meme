@@ -67,6 +67,8 @@ jobs:
           WEB3FORMS_ACCESS_KEY: ${{ secrets.WEB3FORMS_ACCESS_KEY }}
           DRIVER_ACCESS_KEY: ${{ secrets.DRIVER_ACCESS_KEY }}
           OWNER_ACCESS_KEY: ${{ secrets.OWNER_ACCESS_KEY }}
+          GOOGLE_PLACES_API_KEY: ${{ secrets.GOOGLE_PLACES_API_KEY || secrets.GOOGLE_API_KEY || secrets.GOOGLE_MAPS_API_KEY }}
+          GETADDRESS_API_KEY: ${{ secrets.GETADDRESS_API_KEY }}
           CI: "true"
           WORKERS_CI: "1"
         run: |
@@ -83,6 +85,18 @@ jobs:
             rm -f /tmp/gcal-service-account.json
           else
             echo "::notice::Google Calendar not configured — add GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON to GitHub Actions secrets."
+          fi
+          if [ -n "$GOOGLE_PLACES_API_KEY" ]; then
+            echo "Syncing GOOGLE_PLACES_API_KEY secret…"
+            printf '%s' "$GOOGLE_PLACES_API_KEY" | npx wrangler secret put GOOGLE_PLACES_API_KEY
+          else
+            echo "::error::GOOGLE_PLACES_API_KEY missing — address autocomplete will return empty suggestions."
+          fi
+          if [ -n "$GETADDRESS_API_KEY" ]; then
+            echo "Syncing GETADDRESS_API_KEY secret…"
+            printf '%s' "$GETADDRESS_API_KEY" | npx wrangler secret put GETADDRESS_API_KEY
+          else
+            echo "::notice::GETADDRESS_API_KEY not set — door-number suggestions rely on Google only."
           fi
           if [ -n "$WEB3FORMS_ACCESS_KEY" ]; then
             echo "Syncing Web3Forms secret…"

@@ -128,6 +128,8 @@ async function searchGetAddressAutocomplete(
 
   const response = await fetch(url.toString());
   if (!response.ok) {
+    const detail = await response.text().catch(() => "");
+    console.error(`getAddress request failed (${response.status})`, detail.slice(0, 300));
     return [];
   }
 
@@ -156,6 +158,8 @@ async function searchGetAddressFind(
   );
 
   if (!response.ok) {
+    const detail = await response.text().catch(() => "");
+    console.error(`getAddress request failed (${response.status})`, detail.slice(0, 300));
     return [];
   }
 

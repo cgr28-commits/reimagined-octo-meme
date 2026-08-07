@@ -69,9 +69,13 @@ jobs:
       - name: Summarise calibration report
         if: always()
         run: |
-          REPORT=$(ls reports/ots-calibration-*.json | head -1)
+          REPORT=$(ls reports/ots-calibration-*.json 2>/dev/null | head -1 || true)
           echo "## OTS daily auto-calibration" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
+          if [ -z "$REPORT" ]; then
+            echo "No calibration report generated." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
           node -e "
             const report = require('./' + process.argv[1]);
             console.log('Routes sampled:', report.sampleSize);
