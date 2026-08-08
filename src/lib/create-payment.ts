@@ -70,13 +70,11 @@ export function isSumUpPaymentEnabled(): boolean {
   return Boolean(PAYMENTS_API_URL);
 }
 
+/** SumUp returns customers here — dedicated thank-you URL for Google Ads conversion. */
 export function buildPaymentRedirectUrl(returnToken?: string): string {
-  const base =
-    typeof window !== "undefined"
-      ? `${window.location.origin}${window.location.pathname}`
-      : `${SITE.url}/`;
-  const url = new URL(base);
-  url.hash = "quote";
+  const origin =
+    typeof window !== "undefined" ? window.location.origin : SITE.url.replace(/\/$/, "");
+  const url = new URL("/booking-confirmed/", `${origin}/`);
   url.searchParams.set("payment", "return");
   if (returnToken) {
     url.searchParams.set("return_token", returnToken);
