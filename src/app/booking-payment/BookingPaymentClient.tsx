@@ -39,12 +39,13 @@ export default function BookingPaymentClient() {
         if (cancelled) return;
         setReference(result.job?.id || result.paymentReference || "");
         if (result.alreadyPaid || result.ok) {
-          setStatus("success");
-          setMessage(
-            result.alreadyPaid
-              ? "This payment was already confirmed. You’re all set — check your email for the booking confirmation."
-              : `Payment received${result.amountPaid ? ` (${result.amountPaid})` : ""}. We’ve emailed your confirmation and added the trip to our calendar.`,
-          );
+          // Land on the stable Google Ads thank-you URL after payment is confirmed.
+          const confirmed = new URL("/booking-confirmed/", window.location.origin);
+          const ref = result.job?.id || result.paymentReference || "";
+          if (ref) confirmed.searchParams.set("ref", ref);
+          if (result.amountPaid) confirmed.searchParams.set("amount", result.amountPaid);
+          confirmed.searchParams.set("paid", "1");
+          window.location.replace(confirmed.toString());
           return;
         }
         setStatus("pending");
