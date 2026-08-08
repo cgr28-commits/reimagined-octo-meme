@@ -448,7 +448,7 @@ export default function QuoteAssistant() {
             ? "h-14 w-14 justify-center rounded-full sm:h-16 sm:w-16"
             : "gap-2 rounded-2xl py-2 pl-2 pr-3 sm:gap-3 sm:py-2.5 sm:pl-2.5 sm:pr-4"
         }`}
-        aria-label={open ? "Close ask-a-question chat" : "Ask a question — get quotes and help"}
+        aria-label={open ? "Close chat" : "Can I help? — get quotes and help"}
         aria-expanded={open}
       >
         {open ? (
@@ -476,7 +476,7 @@ export default function QuoteAssistant() {
             </span>
             <span className="min-w-0 max-w-[9.5rem] text-left sm:max-w-none">
               <span className="block truncate text-sm font-bold leading-tight text-white sm:text-base">
-                Ask a question
+                Can I help ?
               </span>
               <span className="block truncate text-[11px] font-medium leading-tight text-emerald sm:text-xs">
                 Quotes · help · contact
@@ -503,7 +503,7 @@ export default function QuoteAssistant() {
                 />
               </div>
               <div className="min-w-0">
-                <p className="truncate text-sm font-bold text-white">Ask a question</p>
+                <p className="truncate text-sm font-bold text-white">Can I help ?</p>
                 <p className="truncate text-xs text-white/55">Quotes · help · contact</p>
               </div>
             </div>
