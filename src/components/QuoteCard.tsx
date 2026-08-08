@@ -1932,7 +1932,7 @@ function QuoteCard() {
           <p className="mt-3 text-[11px] text-white/40">
             {isEnquiryOnly
               ? "We’ll reply with your quote — no online payment until you confirm."
-              : "Includes vehicle, driver, fuel, and tolls. After we confirm your job, we’ll send a SumUp payment link by email."}
+              : "Prices include express drop-off and up to 60 minutes complimentary waiting time after landing for airport pickups. After we confirm your job, we’ll send a SumUp payment link by email."}
           </p>
         </div>
 
