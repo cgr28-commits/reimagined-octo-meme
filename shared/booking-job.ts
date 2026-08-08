@@ -8,7 +8,11 @@ function formatJobDateDmy(date: string): string {
   return date;
 }
 
-export type BookingJobStatus = "awaiting_payment" | "paid" | "cancelled";
+export type BookingJobStatus =
+  | "awaiting_approval"
+  | "awaiting_payment"
+  | "paid"
+  | "cancelled";
 
 export type DriverAssignmentStatus = "unassigned" | "pending" | "accepted" | "declined";
 
@@ -43,6 +47,10 @@ export type BookingJobRecord = {
   amountPaidLabel?: string;
   paymentReference?: string;
   paidAt?: string;
+  /** SumUp hosted checkout created when the owner approves the job. */
+  sumUpCheckoutId?: string;
+  sumUpPaymentUrl?: string;
+  paymentLinkSentAt?: string;
   calendarEventIds?: string[];
   calendarLogged?: boolean;
   driverFirstName?: string;

@@ -49,6 +49,67 @@ export async function fetchOwnerBookingJobs(ownerKey: string): Promise<BookingJo
   return Array.isArray(payload.jobs) ? (payload.jobs as BookingJobRecord[]) : [];
 }
 
+export async function approveBookingJob(
+  ownerKey: string,
+  input: { id: string; amountLabel?: string },
+): Promise<BookingJobRecord> {
+  const base = workerBaseUrl();
+  if (!base) {
+    throw new Error("Bookings API is not configured");
+  }
+
+  const response = await fetch(`${base}/booking-jobs/approve`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      "X-Driver-Key": ownerKey.trim(),
+    },
+    body: JSON.stringify(input),
+  });
+  const payload = await parseJson(response);
+  if (!response.ok || !payload.job) {
+    throw new Error(String(payload.error ?? "Failed to approve booking and send payment link"));
+  }
+  return payload.job as BookingJobRecord;
+}
+
+export async function confirmBookingJobPayment(input: {
+  checkoutId: string;
+  jobId?: string;
+}): Promise<{
+  ok: boolean;
+  alreadyPaid?: boolean;
+  amountPaid?: string;
+  paymentReference?: string;
+  job?: BookingJobRecord;
+}> {
+  const base = workerBaseUrl();
+  if (!base) {
+    throw new Error("Bookings API is not configured");
+  }
+
+  const response = await fetch(`${base}/booking-jobs/confirm-payment`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify(input),
+  });
+  const payload = await parseJson(response);
+  if (!response.ok) {
+    throw new Error(String(payload.error ?? "Failed to confirm payment"));
+  }
+  return payload as {
+    ok: boolean;
+    alreadyPaid?: boolean;
+    amountPaid?: string;
+    paymentReference?: string;
+    job?: BookingJobRecord;
+  };
+}
+
 export async function markBookingJobPaid(
   ownerKey: string,
   input: { id: string; amountPaidLabel: string; paymentReference?: string },
