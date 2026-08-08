@@ -10,6 +10,7 @@ import { contactCardUrl } from "@/lib/contact-card";
 import { detectMobileDevice, useIsMobileDevice } from "@/lib/device";
 import { withBasePath } from "@/lib/paths";
 import { prefillQuoteFromAssistant } from "@/lib/quote-prefill";
+import { SITE } from "@/lib/data";
 import {
   createWelcomeMessages,
   emptyQuoteDraft,
@@ -22,6 +23,50 @@ import {
 } from "@/lib/quote-assistant";
 
 const BOT_WORKING_MS = 450;
+const SESSION_KEY = "matni-quote-assistant-v1";
+
+type PersistedChat = {
+  messages: AssistantMessage[];
+  draft: QuoteDraft;
+  quickReplies: string[];
+  consecutiveMisses: number;
+};
+
+function loadPersistedChat(): PersistedChat | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = sessionStorage.getItem(SESSION_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as PersistedChat;
+    if (!parsed || !Array.isArray(parsed.messages) || parsed.messages.length === 0) {
+      return null;
+    }
+    return {
+      messages: parsed.messages,
+      draft: parsed.draft ?? {},
+      quickReplies: parsed.quickReplies ?? ["Get a quote", "Save to contacts"],
+      consecutiveMisses: Number(parsed.consecutiveMisses) || 0,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function persistChat(state: PersistedChat) {
+  if (typeof window === "undefined") return;
+  try {
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify(state));
+  } catch {
+    // Ignore quota / private mode failures.
+  }
+}
+
+function openWhatsAppHandoff() {
+  const message = encodeURIComponent(
+    "Hi — I was using the website chat and would like help with a quote/booking.",
+  );
+  window.open(`https://wa.me/${SITE.whatsapp}?text=${message}`, "_blank", "noopener,noreferrer");
+}
 
 function QuotePriceCard({ card, note }: { card: QuoteCardSummary; note: string }) {
   return (
@@ -76,12 +121,14 @@ export default function QuoteAssistant() {
   const [isWorking, setIsWorking] = useState(false);
   const [addressValue, setAddressValue] = useState("");
   const [mounted, setMounted] = useState(false);
+  const [consecutiveMisses, setConsecutiveMisses] = useState(0);
   const launcherRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const contactOfferRef = useRef<HTMLDivElement>(null);
   const workingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const draftRef = useRef(draft);
+  const missesRef = useRef(0);
   const qrSrc = withBasePath("/contact-qr.png");
   const awaitingField = !isWorking ? getNextQuoteField(draft) : null;
   const showAddressPicker = awaitingField === "address";
@@ -90,11 +137,33 @@ export default function QuoteAssistant() {
 
   useEffect(() => {
     setMounted(true);
+    const saved = loadPersistedChat();
+    if (!saved) return;
+    setMessages(saved.messages);
+    setDraft(saved.draft);
+    draftRef.current = saved.draft;
+    setQuickReplies(saved.quickReplies);
+    setConsecutiveMisses(saved.consecutiveMisses);
+    missesRef.current = saved.consecutiveMisses;
   }, []);
 
   useEffect(() => {
     draftRef.current = draft;
   }, [draft]);
+
+  useEffect(() => {
+    missesRef.current = consecutiveMisses;
+  }, [consecutiveMisses]);
+
+  useEffect(() => {
+    if (!mounted) return;
+    persistChat({
+      messages,
+      draft,
+      quickReplies,
+      consecutiveMisses,
+    });
+  }, [mounted, messages, draft, quickReplies, consecutiveMisses]);
 
   useEffect(() => {
     return () => {
@@ -207,10 +276,15 @@ export default function QuoteAssistant() {
     }
 
     workingTimerRef.current = setTimeout(() => {
-      const result = respondToAssistantMessage(text, draftRef.current);
+      const result = respondToAssistantMessage(text, draftRef.current, {
+        consecutiveMisses: missesRef.current,
+      });
       const nextDraft = result.resetDraft ? emptyQuoteDraft() : result.draft;
+      const nextMisses = result.consecutiveMisses ?? 0;
       setDraft(nextDraft);
       draftRef.current = nextDraft;
+      setConsecutiveMisses(nextMisses);
+      missesRef.current = nextMisses;
       setQuickReplies(result.quickReplies ?? []);
       setMessages((prev) => [
         ...prev,
@@ -223,6 +297,11 @@ export default function QuoteAssistant() {
       setIsWorking(false);
       playBotReplySound();
       workingTimerRef.current = null;
+
+      if (result.openWhatsAppHandoff) {
+        setShowContactOffer(false);
+        openWhatsAppHandoff();
+      }
 
       if (result.openQuoteForm) {
         setShowContactOffer(false);
@@ -242,7 +321,9 @@ export default function QuoteAssistant() {
         return;
       }
 
-      setShowContactOffer(false);
+      if (!result.openWhatsAppHandoff) {
+        setShowContactOffer(false);
+      }
     }, BOT_WORKING_MS);
   }
 
@@ -254,10 +335,18 @@ export default function QuoteAssistant() {
   function resetChat() {
     setMessages(createWelcomeMessages());
     setDraft(emptyQuoteDraft());
+    draftRef.current = {};
     setQuickReplies(["Get a quote", "Save to contacts"]);
     setShowContactOffer(false);
     setAddressValue("");
     setInput("");
+    setConsecutiveMisses(0);
+    missesRef.current = 0;
+    try {
+      sessionStorage.removeItem(SESSION_KEY);
+    } catch {
+      // ignore
+    }
   }
 
   const ui = (

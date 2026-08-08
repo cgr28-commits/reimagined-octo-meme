@@ -418,6 +418,41 @@ export const FAQS = [
     answer:
       "Absolutely. We operate 24/7, 365 days a year — including bank holidays and Christmas. Early morning and late-night transfers are our speciality.",
   },
+  {
+    question: "Do you offer meet and greet?",
+    answer:
+      "Yes. For arrivals we can meet you in the arrivals hall with a name board when requested. Tell us when you book if you want meet and greet, and share your flight number so we can track delays.",
+  },
+  {
+    question: "What if my flight is delayed?",
+    answer:
+      "We track your flight and adjust the pickup time for delays or early landings at no extra charge. Airport pickups include up to 60 minutes complimentary waiting after landing.",
+  },
+  {
+    question: "Do you provide child seats or booster seats?",
+    answer:
+      "Booster seats and child seats can be requested when you book, but they are not guaranteed. Please ask in advance so we can check availability. If a legally required child seat cannot be provided, we may be unable to carry the journey.",
+  },
+  {
+    question: "Is parking included at the airport?",
+    answer:
+      "Yes — parking charges at the airport are included in the quoted price for airport transfers, along with the vehicle, driver, fuel, tolls, and waiting time where applicable.",
+  },
+  {
+    question: "Can I pay with cash?",
+    answer:
+      "Yes. You can pay by cash to the driver, by bank transfer, by payment link (text or WhatsApp), or securely online by card through SumUp when you book on the website. Corporate accounts are available for regular travellers.",
+  },
+  {
+    question: "Where do you pick up at the airport?",
+    answer:
+      "For arrivals we collect from the designated pickup point for your airport (and can meet in arrivals with a name board if you request meet and greet). Share your flight number when booking so we know when you land.",
+  },
+  {
+    question: "How early should I book?",
+    answer:
+      "As early as you can — especially for early-morning departures, bank holidays, and busy travel days. Same-day transfers are often possible subject to availability; use Get a Live Quote or WhatsApp us to check.",
+  },
 ] as const;
 
 export const VEHICLE_FLEET = [
