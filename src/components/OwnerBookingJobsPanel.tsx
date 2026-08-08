@@ -6,6 +6,7 @@ import {
   type BookingJobRecord,
 } from "../../shared/booking-job";
 import {
+  approveBookingJob,
   assignBookingJobDriver,
   fetchOwnerBookingJobs,
   markBookingJobPaid,
@@ -17,9 +18,15 @@ type OwnerBookingJobsPanelProps = {
 };
 
 function statusBadge(job: BookingJobRecord): { label: string; className: string } {
+  if (job.status === "awaiting_approval") {
+    return {
+      label: "Needs approval",
+      className: "border-sky-400/30 bg-sky-500/10 text-sky-100",
+    };
+  }
   if (job.status === "awaiting_payment") {
     return {
-      label: "Awaiting payment",
+      label: job.paymentLinkSentAt ? "Payment link sent" : "Awaiting payment",
       className: "border-amber-400/30 bg-amber-500/10 text-amber-100",
     };
   }
@@ -121,6 +128,24 @@ export default function OwnerBookingJobsPanel({ ownerKey }: OwnerBookingJobsPane
     }));
   }
 
+  async function handleApprove(job: BookingJobRecord) {
+    setBusyId(job.id);
+    setError("");
+    try {
+      const amountLabel =
+        paidAmountById[job.id]?.trim() || job.quotedPrice?.trim() || undefined;
+      const updated = await approveBookingJob(ownerKey, {
+        id: job.id,
+        amountLabel,
+      });
+      setJobs((prev) => prev.map((item) => (item.id === job.id ? updated : item)));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not approve booking");
+    } finally {
+      setBusyId("");
+    }
+  }
+
   async function handleMarkPaid(job: BookingJobRecord) {
     setBusyId(job.id);
     setError("");
@@ -172,9 +197,9 @@ export default function OwnerBookingJobsPanel({ ownerKey }: OwnerBookingJobsPane
           </p>
           <h2 className="mt-1 text-xl font-bold text-white">Quotes &amp; confirmed jobs</h2>
           <p className="mt-2 max-w-2xl text-sm text-white/65">
-            Customers enquire online. After you confirm and they pay via your SumUp link, mark the
-            job paid (adds it to the calendar), then assign a driver by email with their pay for
-            the journey.
+            Website bookings land here for approval. Approve to email the customer a SumUp payment
+            link. When they pay, confirmation email and Google Calendar update automatically — then
+            assign a driver by email.
           </p>
         </div>
         <button
@@ -245,10 +270,10 @@ export default function OwnerBookingJobsPanel({ ownerKey }: OwnerBookingJobsPane
                   </div>
                 </dl>
 
-                {job.status === "awaiting_payment" ? (
-                  <div className="mt-4 grid gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-4 sm:grid-cols-3">
-                    <label className="text-xs text-white/50 sm:col-span-1">
-                      Amount paid
+                {job.status === "awaiting_approval" ? (
+                  <div className="mt-4 grid gap-3 rounded-xl border border-sky-400/20 bg-sky-500/5 p-4 sm:grid-cols-3">
+                    <label className="text-xs text-white/50 sm:col-span-2">
+                      Amount to charge (SumUp)
                       <input
                         value={paidAmountById[job.id] ?? job.quotedPrice ?? ""}
                         onChange={(event) =>
@@ -258,26 +283,75 @@ export default function OwnerBookingJobsPanel({ ownerKey }: OwnerBookingJobsPane
                         className="mt-1 w-full rounded-xl border border-white/15 bg-navy px-3 py-2 text-sm text-white outline-none focus:border-emerald"
                       />
                     </label>
-                    <label className="text-xs text-white/50 sm:col-span-1">
-                      SumUp / payment ref (optional)
-                      <input
-                        value={paymentRefById[job.id] ?? ""}
-                        onChange={(event) =>
-                          setPaymentRefById((prev) => ({ ...prev, [job.id]: event.target.value }))
-                        }
-                        placeholder="Optional"
-                        className="mt-1 w-full rounded-xl border border-white/15 bg-navy px-3 py-2 text-sm text-white outline-none focus:border-emerald"
-                      />
-                    </label>
                     <div className="flex items-end">
                       <button
                         type="button"
                         disabled={busyId === job.id}
-                        onClick={() => void handleMarkPaid(job)}
+                        onClick={() => void handleApprove(job)}
                         className="w-full rounded-xl bg-emerald px-4 py-2.5 text-sm font-bold text-navy transition-colors hover:bg-emerald-light disabled:opacity-60"
                       >
-                        {busyId === job.id ? "Saving…" : "Mark paid & add to calendar"}
+                        {busyId === job.id ? "Sending…" : "Approve & send SumUp link"}
                       </button>
+                    </div>
+                    <p className="text-xs text-white/45 sm:col-span-3">
+                      Emails the customer a secure SumUp payment link for this amount. After they
+                      pay, confirmation email and calendar update automatically.
+                    </p>
+                  </div>
+                ) : null}
+
+                {job.status === "awaiting_payment" ? (
+                  <div className="mt-4 space-y-3 rounded-xl border border-white/10 bg-white/[0.03] p-4">
+                    {job.sumUpPaymentUrl ? (
+                      <p className="text-sm text-white/70">
+                        Payment link emailed
+                        {job.paymentLinkSentAt
+                          ? ` · ${new Date(job.paymentLinkSentAt).toLocaleString("en-GB")}`
+                          : ""}
+                        .{" "}
+                        <a
+                          href={job.sumUpPaymentUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-semibold text-emerald hover:text-emerald-light"
+                        >
+                          Open SumUp link
+                        </a>
+                      </p>
+                    ) : null}
+                    <div className="grid gap-3 sm:grid-cols-3">
+                      <label className="text-xs text-white/50 sm:col-span-1">
+                        Amount paid (manual)
+                        <input
+                          value={paidAmountById[job.id] ?? job.quotedPrice ?? ""}
+                          onChange={(event) =>
+                            setPaidAmountById((prev) => ({ ...prev, [job.id]: event.target.value }))
+                          }
+                          placeholder="£85"
+                          className="mt-1 w-full rounded-xl border border-white/15 bg-navy px-3 py-2 text-sm text-white outline-none focus:border-emerald"
+                        />
+                      </label>
+                      <label className="text-xs text-white/50 sm:col-span-1">
+                        SumUp / payment ref (optional)
+                        <input
+                          value={paymentRefById[job.id] ?? ""}
+                          onChange={(event) =>
+                            setPaymentRefById((prev) => ({ ...prev, [job.id]: event.target.value }))
+                          }
+                          placeholder="Optional"
+                          className="mt-1 w-full rounded-xl border border-white/15 bg-navy px-3 py-2 text-sm text-white outline-none focus:border-emerald"
+                        />
+                      </label>
+                      <div className="flex items-end">
+                        <button
+                          type="button"
+                          disabled={busyId === job.id}
+                          onClick={() => void handleMarkPaid(job)}
+                          className="w-full rounded-xl border border-white/20 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:border-white/40 disabled:opacity-60"
+                        >
+                          {busyId === job.id ? "Saving…" : "Mark paid manually"}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ) : null}

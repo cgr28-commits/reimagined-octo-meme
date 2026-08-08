@@ -4,7 +4,19 @@ import {
   type BookingJobKind,
   type BookingJobRecord,
 } from "../shared/booking-job";
+import {
+  buildCustomerConfirmationEmail,
+  buildOwnerPaidBookingEmail,
+  formatPaidAmount,
+} from "../shared/booking-notifications";
 import { corsHeaders } from "../shared/google-places";
+import {
+  buildCheckoutReference,
+  createSumUpHostedCheckout,
+  getSumUpCheckout,
+  getSuccessfulTransactionCode,
+  isSumUpCheckoutPaid,
+} from "../shared/sumup-checkout";
 import { ownerAuthorized, type DriverAuthEnv } from "./driver-auth";
 import { logBookingsToGoogleCalendar } from "./google-calendar";
 import {
@@ -12,8 +24,10 @@ import {
   generateDriverAcceptToken,
   getBookingJob,
   getBookingJobByAcceptToken,
+  getBookingJobByCheckoutId,
   listBookingJobsForDateRange,
   saveBookingJob,
+  saveBookingJobCheckoutIndex,
 } from "./booking-job-store";
 import {
   createTrackingJobFromBooking,
@@ -21,7 +35,11 @@ import {
   getTrackingJob,
   saveTrackingJob,
 } from "./tracking-store";
-import { trySendEmail, type WorkerEmailEnv } from "./worker-email";
+import {
+  trySendBrandedCustomerEmail,
+  trySendEmail,
+  type WorkerEmailEnv,
+} from "./worker-email";
 
 async function syncTrackingAssignmentFromBooking(
   store: KVNamespace,
@@ -78,6 +96,8 @@ type Env = DriverAuthEnv &
     GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON?: string;
     GOOGLE_CALENDAR_ID?: string;
     SITE_URL?: string;
+    SUMUP_API_KEY?: string;
+    SUMUP_MERCHANT_CODE?: string;
   };
 
 const BUSINESS_NAME = "My Airport Taxi NI";
@@ -135,10 +155,20 @@ export async function createBookingJobFromSubmission(
     return null;
   }
 
+  const quotedPrice =
+    typeof b.estimatedPrice === "string" || b.estimatedPrice === null
+      ? (b.estimatedPrice as string | null)
+      : null;
+  // Priced booking requests need owner approval before the SumUp link is sent.
+  const initialStatus =
+    options.kind === "booking-request" && Boolean(quotedPrice?.trim())
+      ? "awaiting_approval"
+      : "awaiting_payment";
+
   const job: BookingJobRecord = {
     id: options.bookingReference,
     createdAt: new Date().toISOString(),
-    status: "awaiting_payment",
+    status: initialStatus,
     kind: options.kind,
     customerName,
     customerEmail: String(b.customerEmail ?? "").trim(),
@@ -152,10 +182,7 @@ export async function createBookingJobFromSubmission(
     passengers: Number(b.passengers ?? 1) || 1,
     suitcases: Number(b.suitcases ?? 0) || 0,
     vehicle: String(b.vehicle ?? "").trim(),
-    quotedPrice:
-      typeof b.estimatedPrice === "string" || b.estimatedPrice === null
-        ? (b.estimatedPrice as string | null)
-        : null,
+    quotedPrice,
     isAirportTrip: b.isAirportTrip === true,
     message: options.message?.trim() || undefined,
     driverAssignmentStatus: "unassigned",
@@ -561,4 +588,387 @@ export async function handleDriverAcceptConfirmRequest(
   await syncTrackingAssignmentFromBooking(env.TRACKING_STORE, updated);
 
   return jsonResponse({ ok: true, job: updated }, 200, origin);
+}
+
+function parseQuotedPounds(label: string | null | undefined): number | null {
+  if (!label?.trim()) {
+    return null;
+  }
+  const match = label.replace(/,/g, "").match(/(\d+(?:\.\d{1,2})?)/);
+  if (!match) {
+    return null;
+  }
+  const amount = Number(match[1]);
+  return Number.isFinite(amount) && amount >= 1 ? amount : null;
+}
+
+function formatJobDateDmy(date: string): string {
+  const iso = date.trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (iso) {
+    return `${iso[3]}-${iso[2]}-${iso[1]}`;
+  }
+  return date;
+}
+
+function jobToPaidBookingDetails(job: BookingJobRecord) {
+  return {
+    customerName: job.customerName,
+    customerEmail: job.customerEmail,
+    mobileNumber: job.customerMobile,
+    tripLabel: job.tripLabel,
+    pickupLabel: job.pickupLabel,
+    dropoffLabel: job.dropoffLabel,
+    returnJourney: job.returnJourney,
+    tripDate: job.tripDate,
+    tripTime: job.tripTime,
+    returnDate: job.returnDate ?? "",
+    returnTime: job.returnTime ?? "",
+    flightNumber: job.flightNumber ?? "",
+    returnFlightNumber: job.returnFlightNumber,
+    passengers: job.passengers,
+    suitcases: job.suitcases,
+    vehicle: job.vehicle,
+    estimatedPrice: job.quotedPrice ?? null,
+    isAirportTrip: job.isAirportTrip,
+    airportCode: job.airportCode,
+    isFromAirport: job.isFromAirport,
+  };
+}
+
+/** Owner approves a priced booking and emails the customer a SumUp payment link. */
+export async function handleBookingJobApproveRequest(
+  request: Request,
+  env: Env,
+  origin: string | null,
+): Promise<Response> {
+  if (!bookingJobStoreConfigured(env.TRACKING_STORE)) {
+    return jsonResponse({ error: "Booking store is not configured" }, 503, origin);
+  }
+  if (!ownerAuthorized(request, env)) {
+    return jsonResponse({ error: "Unauthorized — owner access required" }, 401, origin);
+  }
+
+  const apiKey = env.SUMUP_API_KEY?.trim() ?? "";
+  const merchantCode = env.SUMUP_MERCHANT_CODE?.trim() ?? "";
+  if (!apiKey || !merchantCode) {
+    return jsonResponse({ error: "SumUp payment is not configured" }, 503, origin);
+  }
+
+  let body: Record<string, unknown>;
+  try {
+    body = await request.json();
+  } catch {
+    return jsonResponse({ error: "Invalid JSON" }, 400, origin);
+  }
+
+  const id = String(body.id ?? "").trim();
+  if (!id) {
+    return jsonResponse({ error: "Missing booking id" }, 400, origin);
+  }
+
+  const job = await getBookingJob(env.TRACKING_STORE, id);
+  if (!job) {
+    return jsonResponse({ error: "Booking not found" }, 404, origin);
+  }
+
+  if (job.status === "paid") {
+    return jsonResponse({ error: "Booking is already paid" }, 400, origin);
+  }
+
+  if (job.kind === "vehicle-enquiry") {
+    return jsonResponse(
+      { error: "Vehicle enquiries need a manual quote before payment" },
+      400,
+      origin,
+    );
+  }
+
+  const overrideAmount = parseQuotedPounds(String(body.amountLabel ?? "").trim());
+  const amount = overrideAmount ?? parseQuotedPounds(job.quotedPrice);
+  if (!amount) {
+    return jsonResponse(
+      { error: "Add a quoted price before approving (e.g. £85)" },
+      400,
+      origin,
+    );
+  }
+
+  const amountLabel = `£${amount.toFixed(amount % 1 === 0 ? 0 : 2)}`;
+  const checkoutReference = buildCheckoutReference(`matni-${job.id}`);
+  const redirectUrl = `${siteUrl(env)}/booking-payment/?job=${encodeURIComponent(job.id)}`;
+  const returnUrl = new URL("/payments/webhook", request.url).toString();
+
+  let checkout: { checkoutId: string; paymentUrl: string; checkoutReference: string };
+  try {
+    checkout = await createSumUpHostedCheckout(apiKey, merchantCode, {
+      amount: Math.round(amount * 100) / 100,
+      description: `${BUSINESS_NAME} — ${job.tripLabel} — ${job.id}`,
+      checkoutReference,
+      redirectUrl,
+      returnUrl,
+    });
+  } catch (error) {
+    console.error("Approve SumUp checkout failed", error);
+    return jsonResponse({ error: "Could not create SumUp payment link" }, 502, origin);
+  }
+
+  const when = `${formatJobDateDmy(job.tripDate)} at ${job.tripTime}`;
+  const paymentEmailText = [
+    `Hi ${job.customerName},`,
+    "",
+    `Great news — we’ve confirmed your transfer with ${BUSINESS_NAME}.`,
+    "",
+    `Reference: ${job.id}`,
+    `Trip: ${job.pickupLabel} → ${job.dropoffLabel}`,
+    `When: ${when}`,
+    `Amount: ${amountLabel}`,
+    "",
+    "Please pay securely online using this SumUp link:",
+    checkout.paymentUrl,
+    "",
+    "Your booking is confirmed after payment. We’ll email your confirmation and add the trip to our calendar once paid.",
+    "",
+    `Questions? Call us or email ${env.BOOKING_TO_EMAIL?.trim() || "bookings@myairporttaxini.co.uk"}.`,
+    "",
+    BUSINESS_NAME,
+  ].join("\n");
+
+  const paymentEmailHtml = `
+    <div style="font-family:Arial,sans-serif;line-height:1.5;color:#0b1b33">
+      <p>Hi ${job.customerName},</p>
+      <p>Great news — we’ve confirmed your transfer with <strong>${BUSINESS_NAME}</strong>.</p>
+      <p><strong>Reference:</strong> ${job.id}<br/>
+      <strong>Trip:</strong> ${job.pickupLabel} → ${job.dropoffLabel}<br/>
+      <strong>When:</strong> ${when}<br/>
+      <strong>Amount:</strong> ${amountLabel}</p>
+      <p style="margin:24px 0">
+        <a href="${checkout.paymentUrl}" style="display:inline-block;background:#2fbf4a;color:#071c38;text-decoration:none;font-weight:700;padding:14px 22px;border-radius:10px">
+          Pay ${amountLabel} securely
+        </a>
+      </p>
+      <p>Your booking is confirmed after payment. We’ll email your confirmation once paid.</p>
+    </div>
+  `.trim();
+
+  const emailResult = await trySendBrandedCustomerEmail(env, {
+    to: job.customerEmail,
+    toName: job.customerName,
+    subject: `Payment link — ${amountLabel} — ${BUSINESS_NAME}`,
+    body: paymentEmailText,
+    htmlBody: paymentEmailHtml,
+  });
+
+  if (!emailResult.sent) {
+    console.error("Payment link email failed", emailResult.error);
+    return jsonResponse(
+      {
+        error: emailResult.error
+          ? `SumUp link created but email failed: ${emailResult.error}`
+          : "SumUp link created but email failed",
+        paymentUrl: checkout.paymentUrl,
+        checkoutId: checkout.checkoutId,
+      },
+      502,
+      origin,
+    );
+  }
+
+  const updated: BookingJobRecord = {
+    ...job,
+    status: "awaiting_payment",
+    quotedPrice: amountLabel,
+    sumUpCheckoutId: checkout.checkoutId,
+    sumUpPaymentUrl: checkout.paymentUrl,
+    paymentLinkSentAt: new Date().toISOString(),
+  };
+  await saveBookingJob(env.TRACKING_STORE, updated);
+  await saveBookingJobCheckoutIndex(env.TRACKING_STORE, checkout.checkoutId, job.id);
+
+  return jsonResponse(
+    {
+      ok: true,
+      job: updated,
+      paymentUrl: checkout.paymentUrl,
+      checkoutId: checkout.checkoutId,
+      emailSent: true,
+    },
+    200,
+    origin,
+  );
+}
+
+/**
+ * After the customer pays via the emailed SumUp link: verify payment, confirm by email,
+ * add to Google Calendar, and mark the dashboard job paid.
+ */
+export async function handleBookingJobConfirmPaymentRequest(
+  request: Request,
+  env: Env,
+  origin: string | null,
+): Promise<Response> {
+  if (!bookingJobStoreConfigured(env.TRACKING_STORE)) {
+    return jsonResponse({ error: "Booking store is not configured" }, 503, origin);
+  }
+
+  const apiKey = env.SUMUP_API_KEY?.trim() ?? "";
+  if (!apiKey) {
+    return jsonResponse({ error: "SumUp payment is not configured" }, 503, origin);
+  }
+
+  let body: Record<string, unknown>;
+  try {
+    body = await request.json();
+  } catch {
+    return jsonResponse({ error: "Invalid JSON" }, 400, origin);
+  }
+
+  const checkoutIdHint = String(body.checkoutId ?? "").trim();
+  const jobIdHint = String(body.jobId ?? "").trim();
+
+  let job =
+    (checkoutIdHint && checkoutIdHint !== "from-job"
+      ? await getBookingJobByCheckoutId(env.TRACKING_STORE, checkoutIdHint)
+      : null) ||
+    (jobIdHint ? await getBookingJob(env.TRACKING_STORE, jobIdHint) : null);
+
+  if (!job) {
+    return jsonResponse({ error: "Booking not found for this payment" }, 404, origin);
+  }
+
+  const checkoutId =
+    (checkoutIdHint && checkoutIdHint !== "from-job" ? checkoutIdHint : "") ||
+    job.sumUpCheckoutId?.trim() ||
+    "";
+
+  if (!checkoutId) {
+    return jsonResponse({ error: "Missing checkout id for this booking" }, 400, origin);
+  }
+
+  if (job.status === "paid") {
+    return jsonResponse({ ok: true, alreadyPaid: true, job }, 200, origin);
+  }
+
+  try {
+    const checkout = await getSumUpCheckout(apiKey, checkoutId);
+    if (!isSumUpCheckoutPaid(checkout)) {
+      return jsonResponse({ error: "Payment has not been completed yet" }, 402, origin);
+    }
+
+    const amountPaid = formatPaidAmount(checkout.amount ?? 0, checkout.currency ?? "GBP");
+    const paymentReference =
+      getSuccessfulTransactionCode(checkout) ?? checkout.checkout_reference ?? checkout.id;
+
+    const booking = jobToPaidBookingDetails(job);
+    const receipt = {
+      ...booking,
+      amountPaid,
+      paymentReference,
+      checkoutReference: checkout.checkout_reference,
+    };
+
+    const customerEmail = buildCustomerConfirmationEmail(receipt, BUSINESS_NAME, {});
+    const ownerEmail = buildOwnerPaidBookingEmail(receipt, BUSINESS_NAME, {});
+
+    const customerEmailResult = await trySendBrandedCustomerEmail(env, {
+      to: job.customerEmail,
+      toName: job.customerName,
+      subject: customerEmail.subject,
+      body: customerEmail.text,
+      htmlBody: customerEmail.html,
+    });
+
+    await trySendEmail(env, {
+      to: env.BOOKING_TO_EMAIL?.trim() || "bookings@myairporttaxini.co.uk",
+      subject: ownerEmail.subject,
+      body: ownerEmail.body,
+    });
+
+    let calendarEventIds = job.calendarEventIds ?? [];
+    let calendarLogged = Boolean(job.calendarLogged);
+    let calendarError: string | undefined;
+
+    if (!calendarLogged && calendarConfigured(env)) {
+      try {
+        calendarEventIds = await logBookingsToGoogleCalendar({
+          serviceAccountJson: env.GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON!,
+          calendarId: env.GOOGLE_CALENDAR_ID!.trim(),
+          customerName: job.customerName,
+          message: job.message ?? "",
+          booking: {
+            ...booking,
+            estimatedPrice: amountPaid,
+            amountPaid,
+            paymentReference,
+            paid: true,
+          },
+          tour: null,
+        });
+        calendarLogged = true;
+      } catch (error) {
+        calendarError = error instanceof Error ? error.message : "Calendar error";
+        console.error("Confirm-payment calendar failed", calendarError);
+      }
+    }
+
+    const updated: BookingJobRecord = {
+      ...job,
+      status: "paid",
+      amountPaidLabel: amountPaid,
+      paymentReference,
+      paidAt: new Date().toISOString(),
+      sumUpCheckoutId: checkoutId,
+      calendarEventIds,
+      calendarLogged,
+    };
+    await saveBookingJob(env.TRACKING_STORE, updated);
+    await saveBookingJobCheckoutIndex(env.TRACKING_STORE, checkoutId, job.id);
+
+    try {
+      await createTrackingJobFromBooking(
+        env.TRACKING_STORE,
+        {
+          customerName: job.customerName,
+          customerEmail: job.customerEmail,
+          mobileNumber: job.customerMobile,
+          tripLabel: job.tripLabel,
+          pickupLabel: job.pickupLabel,
+          dropoffLabel: job.dropoffLabel,
+          returnJourney: job.returnJourney,
+          tripDate: job.tripDate,
+          tripTime: job.tripTime,
+          returnDate: job.returnDate ?? "",
+          returnTime: job.returnTime ?? "",
+          flightNumber: job.flightNumber ?? "",
+          returnFlightNumber: job.returnFlightNumber,
+          passengers: job.passengers,
+          suitcases: job.suitcases,
+          vehicle: job.vehicle,
+          isAirportTrip: job.isAirportTrip,
+          airportCode: job.airportCode,
+          isFromAirport: job.isFromAirport,
+        },
+        updated.paymentReference,
+      );
+    } catch (error) {
+      console.error("Confirm-payment tracking create failed", error);
+    }
+
+    return jsonResponse(
+      {
+        ok: true,
+        paid: true,
+        job: updated,
+        amountPaid,
+        paymentReference,
+        customerEmailSent: customerEmailResult.sent,
+        calendarLogged,
+        ...(calendarError ? { calendarWarning: calendarError } : {}),
+      },
+      200,
+      origin,
+    );
+  } catch (error) {
+    console.error("Booking job payment confirm failed", error);
+    return jsonResponse({ error: "Could not confirm payment" }, 502, origin);
+  }
 }

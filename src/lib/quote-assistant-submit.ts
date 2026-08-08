@@ -4,17 +4,10 @@ import {
   isValidMobileNumber,
   type BookingDetails,
 } from "@/lib/booking-message";
-import { detectMobileDevice } from "@/lib/device";
 import { buildMarketingOptInFields, recordMarketingOptIn } from "@/lib/marketing-api";
 import type { QuoteDraft } from "@/lib/quote-assistant";
-import {
-  openWhatsAppBookingMessage,
-  submitBookingByEmail,
-  submitEnquiryByEmail,
-  submitMobileWhatsAppBooking,
-  submitMobileWhatsAppEnquiry,
-} from "@/lib/submit-booking";
-import { buildBookingMessage, buildEnquiryBookingMessage } from "@/lib/booking-message";
+import { submitBookingByEmail, submitEnquiryByEmail } from "@/lib/submit-booking";
+import { buildEnquiryBookingMessage } from "@/lib/booking-message";
 import { sendViaFormSubmitEmail } from "../../shared/email-delivery";
 import { TERMS_LAST_UPDATED } from "@/lib/terms";
 
@@ -186,34 +179,16 @@ export async function submitAssistantBooking(draft: QuoteDraft): Promise<{
   }
 
   const enquiryOnly = isVehicleEnquiryOnly(details.vehicle);
-  const mobile = detectMobileDevice();
 
   try {
-    let reference = "";
-
-    if (mobile) {
-      reference = enquiryOnly
-        ? await submitMobileWhatsAppEnquiry({
-            customerName: details.customerName,
-            message: buildEnquiryBookingMessage(details),
-            subject: `New enquiry — ${details.customerName}`,
-            booking: details,
-          })
-        : await submitMobileWhatsAppBooking(details);
-
-      openWhatsAppBookingMessage(
-        enquiryOnly ? buildEnquiryBookingMessage(details) : buildBookingMessage(details),
-      );
-    } else {
-      reference = enquiryOnly
-        ? await submitEnquiryByEmail({
-            customerName: details.customerName,
-            message: buildEnquiryBookingMessage(details),
-            subject: `New enquiry — ${details.customerName}`,
-            booking: details,
-          })
-        : await submitBookingByEmail(details);
-    }
+    const reference = enquiryOnly
+      ? await submitEnquiryByEmail({
+          customerName: details.customerName,
+          message: buildEnquiryBookingMessage(details),
+          subject: `New enquiry — ${details.customerName}`,
+          booking: details,
+        })
+      : await submitBookingByEmail(details);
 
     if (details.marketingOptIn) {
       void recordMarketingOptIn({
@@ -224,22 +199,16 @@ export async function submitAssistantBooking(draft: QuoteDraft): Promise<{
       });
     }
 
-    if (mobile) {
-      return {
-        ok: true,
-        bookingReference: reference || undefined,
-        message: reference
-          ? `Thanks — your ${enquiryOnly ? "enquiry" : "booking"} ${reference} is logged. WhatsApp should open so you can send us the details.`
-          : `Thanks — your ${enquiryOnly ? "enquiry" : "booking"} is logged. WhatsApp should open so you can send us the details.`,
-      };
-    }
-
     return {
       ok: true,
       bookingReference: reference || undefined,
       message: reference
-        ? `Thanks — your ${enquiryOnly ? "enquiry" : "booking request"} ${reference} has been sent. We’ll confirm by email${enquiryOnly ? "" : " and send a SumUp payment link once the job is confirmed"}.`
-        : `Thanks — your ${enquiryOnly ? "enquiry" : "booking request"} has been sent. We’ll confirm by email${enquiryOnly ? "" : " and send a SumUp payment link once the job is confirmed"}.`,
+        ? enquiryOnly
+          ? `Thanks — your enquiry ${reference} has been sent. We’ll confirm availability by email and send a quote.`
+          : `Thanks — your booking request ${reference} has been sent. We’ll review it on our dashboard, then email you a SumUp payment link. Your trip is confirmed after payment.`
+        : enquiryOnly
+          ? "Thanks — your enquiry has been sent. We’ll confirm availability by email and send a quote."
+          : "Thanks — your booking request has been sent. We’ll review it on our dashboard, then email you a SumUp payment link. Your trip is confirmed after payment.",
     };
   } catch (error) {
     const detail = error instanceof Error ? error.message : "Booking could not be sent.";
@@ -278,7 +247,6 @@ export async function emailAssistantQuote(draft: QuoteDraft): Promise<{
       sent = await submitQuoteViaWeb3Forms(toEmail, email.subject, email.text, email.html);
     }
 
-    // Also notify the bookings inbox (best effort).
     void sendViaFormSubmitEmail({
       to: SITE.email,
       subject: `Quote emailed to customer — ${draft.quotedAmountLabel}`,
