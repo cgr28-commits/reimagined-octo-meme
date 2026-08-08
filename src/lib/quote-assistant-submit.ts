@@ -5,7 +5,7 @@ import {
   type BookingDetails,
 } from "@/lib/booking-message";
 import { detectMobileDevice } from "@/lib/device";
-import { buildMarketingOptInFields } from "@/lib/marketing-api";
+import { buildMarketingOptInFields, recordMarketingOptIn } from "@/lib/marketing-api";
 import type { QuoteDraft } from "@/lib/quote-assistant";
 import {
   openWhatsAppBookingMessage,
@@ -121,7 +121,8 @@ export function buildBookingDetailsFromDraft(draft: QuoteDraft): BookingDetails 
     !draft.mobileNumber?.trim() ||
     !draft.customerEmail?.trim() ||
     !draft.flightNumber?.trim() ||
-    !draft.termsAccepted
+    !draft.termsAccepted ||
+    !draft.marketingOptIn
   ) {
     return null;
   }
@@ -188,8 +189,10 @@ export async function submitAssistantBooking(draft: QuoteDraft): Promise<{
   const mobile = detectMobileDevice();
 
   try {
+    let reference = "";
+
     if (mobile) {
-      const reference = enquiryOnly
+      reference = enquiryOnly
         ? await submitMobileWhatsAppEnquiry({
             customerName: details.customerName,
             message: buildEnquiryBookingMessage(details),
@@ -201,7 +204,27 @@ export async function submitAssistantBooking(draft: QuoteDraft): Promise<{
       openWhatsAppBookingMessage(
         enquiryOnly ? buildEnquiryBookingMessage(details) : buildBookingMessage(details),
       );
+    } else {
+      reference = enquiryOnly
+        ? await submitEnquiryByEmail({
+            customerName: details.customerName,
+            message: buildEnquiryBookingMessage(details),
+            subject: `New enquiry — ${details.customerName}`,
+            booking: details,
+          })
+        : await submitBookingByEmail(details);
+    }
 
+    if (details.marketingOptIn) {
+      void recordMarketingOptIn({
+        email: details.customerEmail,
+        name: details.customerName,
+        source: enquiryOnly ? "vehicle-enquiry" : "booking-request",
+        fields: details,
+      });
+    }
+
+    if (mobile) {
       return {
         ok: true,
         bookingReference: reference || undefined,
@@ -210,15 +233,6 @@ export async function submitAssistantBooking(draft: QuoteDraft): Promise<{
           : `Thanks — your ${enquiryOnly ? "enquiry" : "booking"} is logged. WhatsApp should open so you can send us the details.`,
       };
     }
-
-    const reference = enquiryOnly
-      ? await submitEnquiryByEmail({
-          customerName: details.customerName,
-          message: buildEnquiryBookingMessage(details),
-          subject: `New enquiry — ${details.customerName}`,
-          booking: details,
-        })
-      : await submitBookingByEmail(details);
 
     return {
       ok: true,

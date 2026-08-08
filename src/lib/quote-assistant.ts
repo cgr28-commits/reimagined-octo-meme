@@ -113,6 +113,7 @@ type MissingField =
   | "flightNumber"
   | "returnFlightNumber"
   | "termsAccepted"
+  | "marketingOptIn"
   | "confirmBooking";
 
 const AIRPORT_ALIASES: Record<string, string> = {
@@ -618,6 +619,7 @@ function nextBookingField(draft: QuoteDraft): MissingField | null {
   if (!draft.flightNumber?.trim()) return "flightNumber";
   if (draft.returnJourney && !draft.returnFlightNumber?.trim()) return "returnFlightNumber";
   if (!draft.termsAccepted) return "termsAccepted";
+  if (!draft.marketingOptIn) return "marketingOptIn";
   return "confirmBooking";
 }
 
@@ -700,7 +702,13 @@ function extractFlightNumberToken(text: string): string | undefined {
 }
 
 function acceptsTerms(text: string): boolean {
-  return /\b(accept|agree|i agree|i accept|yes|ok|okay|sure)\b/i.test(text);
+  return /\b(i accept|accept( the)? terms|yes,? i accept|yes)\b/i.test(text) ||
+    /^(accept|ok|okay|sure)$/i.test(text.trim());
+}
+
+function acceptsMarketing(text: string): boolean {
+  return /\b(i agree|i accept|agree|yes,? i agree|yes|opt in|subscribe)\b/i.test(text) ||
+    /^(agree|accept|ok|okay|sure)$/i.test(text.trim());
 }
 
 function confirmsBooking(text: string): boolean {
@@ -732,6 +740,8 @@ function bookingSummary(draft: QuoteDraft): string {
   if (draft.quotedAmountLabel) {
     lines.push(`Quoted price: ${draft.quotedAmountLabel}`);
   }
+  lines.push(`Terms accepted: ${draft.termsAccepted ? "Yes" : "No"}`);
+  lines.push(`Marketing emails: ${draft.marketingOptIn ? "Opted in" : "Not opted in"}`);
   return lines.join("\n");
 }
 
@@ -899,9 +909,16 @@ function promptForField(field: MissingField, draft: QuoteDraft): AssistantRespon
     case "termsAccepted":
       return {
         reply:
-          `Please confirm you accept our terms (${SITE.name} terms, last updated ${TERMS_LAST_UPDATED}). Reply “I accept” to continue — you can also read them at /terms/.`,
+          `Please confirm you accept our terms and conditions (${SITE.name} terms, last updated ${TERMS_LAST_UPDATED}). Reply “I accept” to continue — you can also read them at /terms/.`,
         draft,
         quickReplies: ["I accept", "Open terms"],
+      };
+    case "marketingOptIn":
+      return {
+        reply:
+          `Please confirm you’re happy to receive occasional offers, travel tips and news by email from ${SITE.name}. You can unsubscribe any time. Reply “I agree” to continue — or read our privacy policy at /privacy/.`,
+        draft,
+        quickReplies: ["I agree", "Open privacy"],
       };
     case "confirmBooking":
       return {
@@ -1105,6 +1122,16 @@ async function handleBookingTurn(
     };
   }
 
+  if (/open privacy|read privacy|privacy policy|\/privacy/.test(lower)) {
+    return {
+      reply:
+        "Our privacy policy is at /privacy/ on the website. When you’re ready, reply “I agree” to opt in to marketing emails and continue.",
+      draft: nextDraft,
+      quickReplies: awaiting === "marketingOptIn" ? ["I agree", "Speak to someone"] : ["I accept", "I agree"],
+      inputMode: "text",
+    };
+  }
+
   if (awaiting === "tripDate" || awaiting === "returnDate") {
     const date = extractDate(text);
     if (!date) {
@@ -1248,13 +1275,26 @@ async function handleBookingTurn(
   if (awaiting === "termsAccepted") {
     if (!acceptsTerms(text)) {
       return {
-        reply: 'Please reply “I accept” to accept the terms and continue, or say “Open terms” to read them.',
+        reply: 'Please reply “I accept” to accept the terms and conditions and continue, or say “Open terms” to read them.',
         draft: nextDraft,
         quickReplies: ["I accept", "Open terms"],
       };
     }
     nextDraft.termsAccepted = true;
-    return continueBookingPrompt(nextDraft, "Terms accepted.");
+    return continueBookingPrompt(nextDraft, "Terms and conditions accepted.");
+  }
+
+  if (awaiting === "marketingOptIn") {
+    if (!acceptsMarketing(text)) {
+      return {
+        reply:
+          'To complete a booking in this chat, please reply “I agree” to receive occasional marketing emails (you can unsubscribe any time), or say “Open privacy” to read our privacy policy. You can also say “Speak to someone” for WhatsApp help.',
+        draft: nextDraft,
+        quickReplies: ["I agree", "Open privacy", "Speak to someone"],
+      };
+    }
+    nextDraft.marketingOptIn = true;
+    return continueBookingPrompt(nextDraft, "Thanks — you’re opted in to marketing emails.");
   }
 
   if (awaiting === "confirmBooking") {

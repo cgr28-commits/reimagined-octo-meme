@@ -579,6 +579,10 @@ export default function QuoteAssistant() {
                       window.open(withBasePath("/terms/"), "_blank", "noopener,noreferrer");
                       return;
                     }
+                    if (reply === "Open privacy") {
+                      window.open(withBasePath("/privacy/"), "_blank", "noopener,noreferrer");
+                      return;
+                    }
                     sendText(reply);
                   }}
                   className="max-w-full break-words rounded-full border border-emerald/40 bg-emerald/10 px-3 py-1 text-xs font-semibold text-emerald transition-colors hover:bg-emerald/20"
