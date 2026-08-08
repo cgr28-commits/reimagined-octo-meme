@@ -18,6 +18,7 @@ import {
 } from "@/lib/flight-lookup";
 import { PRIVACY_SECTIONS } from "@/lib/privacy";
 import { TERMS_LAST_UPDATED, TERMS_SECTIONS } from "@/lib/terms";
+import { formatUkDate, formatUkDateTime } from "@/lib/format-datetime";
 import { calculateQuote, formatQuote, matchAreaFromAddress } from "@/lib/quote";
 
 export type AssistantMessage = {
@@ -722,10 +723,12 @@ function bookingSummary(draft: QuoteDraft): string {
   const lines = [
     `Trip: ${direction}${draft.returnJourney ? " (return)" : " (one way)"}`,
     `Address: ${draft.address}`,
-    `Outbound: ${draft.tripDate} at ${draft.tripTime}`,
+    `Outbound: ${formatUkDateTime(draft.tripDate ?? "", draft.tripTime ?? "")}`,
   ];
   if (draft.returnJourney) {
-    lines.push(`Return: ${draft.returnDate} at ${draft.returnTime}`);
+    lines.push(
+      `Return: ${formatUkDateTime(draft.returnDate ?? "", draft.returnTime ?? "")}`,
+    );
   }
   lines.push(`Name: ${draft.customerName}`);
   lines.push(`Mobile: ${draft.mobileNumber}`);
@@ -840,7 +843,7 @@ function promptForField(field: MissingField, draft: QuoteDraft): AssistantRespon
       return {
         reply: "What pickup time do you need?",
         draft,
-        quickReplies: ["06:00", "09:00", "12:00", "18:00"],
+        quickReplies: ["Choose time"],
         inputMode: mode,
       };
     case "returnDate":
@@ -854,7 +857,7 @@ function promptForField(field: MissingField, draft: QuoteDraft): AssistantRespon
       return {
         reply: "What pickup time for the return journey?",
         draft,
-        quickReplies: ["09:00", "12:00", "18:00"],
+        quickReplies: ["Choose time"],
         inputMode: mode,
       };
     case "passengers":
@@ -1141,7 +1144,7 @@ async function handleBookingTurn(
     const date = extractDate(text);
     if (!date) {
       return {
-        reply: "Please choose a date with the picker below, or type it as YYYY-MM-DD.",
+        reply: "Please choose a date with the picker below, or type it as DD-MM-YYYY.",
         draft: nextDraft,
         quickReplies: ["Choose date"],
         inputMode: "date",
@@ -1154,16 +1157,24 @@ async function handleBookingTurn(
       if (awaiting === "tripDate") nextDraft.tripTime = time;
       else nextDraft.returnTime = time;
     }
-    return continueBookingPrompt(nextDraft, `Got it — ${date}.`);
+    return continueBookingPrompt(nextDraft, `Got it — ${formatUkDate(date)}.`);
   }
 
   if (awaiting === "tripTime" || awaiting === "returnTime") {
+    if (/^choose time$/i.test(text.trim())) {
+      return {
+        reply: "Use the time picker below to choose your pickup time, then tap Send.",
+        draft: nextDraft,
+        quickReplies: ["Choose time"],
+        inputMode: "time",
+      };
+    }
     const time = extractTime(text);
     if (!time) {
       return {
-        reply: "Please enter the pickup time as HH:MM (24-hour), for example 06:30.",
+        reply: "Please choose a time with the picker below, or type it as HH:MM (24-hour).",
         draft: nextDraft,
-        quickReplies: ["06:00", "09:00", "12:00", "18:00"],
+        quickReplies: ["Choose time"],
         inputMode: "time",
       };
     }
@@ -1186,7 +1197,7 @@ async function handleBookingTurn(
         return {
           reply: "The return pickup needs to be after the outbound pickup. Please enter a later return time or date.",
           draft: nextDraft,
-          quickReplies: ["09:00", "12:00", "18:00"],
+          quickReplies: ["Choose time"],
           inputMode: "time",
         };
       }

@@ -145,12 +145,16 @@ function formatDisplayDate(date: string): string {
     return "";
   }
 
+  const iso = date.trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (iso) {
+    return `${iso[3]}-${iso[2]}-${iso[1]}`;
+  }
+
   return new Date(`${date}T12:00:00`).toLocaleDateString("en-GB", {
-    weekday: "short",
-    day: "numeric",
-    month: "short",
+    day: "2-digit",
+    month: "2-digit",
     year: "numeric",
-  });
+  }).replace(/\//g, "-");
 }
 
 function formatDisplayTime(time: string): string {

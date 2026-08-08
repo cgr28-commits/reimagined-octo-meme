@@ -1,17 +1,36 @@
 const UK_TIME_ZONE = "Europe/London";
 
+/** Display dates as day-month-year (DD-MM-YYYY). */
 export function formatUkDate(date: string): string {
   if (!date) {
     return "";
   }
 
-  return new Date(`${date}T12:00:00`).toLocaleDateString("en-GB", {
+  const iso = date.trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (iso) {
+    return `${iso[3]}-${iso[2]}-${iso[1]}`;
+  }
+
+  const parsed = new Date(`${date}T12:00:00`);
+  if (Number.isNaN(parsed.getTime())) {
+    return date;
+  }
+
+  const parts = new Intl.DateTimeFormat("en-GB", {
     timeZone: UK_TIME_ZONE,
-    weekday: "short",
-    day: "numeric",
-    month: "short",
+    day: "2-digit",
+    month: "2-digit",
     year: "numeric",
-  });
+  }).formatToParts(parsed);
+
+  const day = parts.find((part) => part.type === "day")?.value;
+  const month = parts.find((part) => part.type === "month")?.value;
+  const year = parts.find((part) => part.type === "year")?.value;
+  if (!day || !month || !year) {
+    return date;
+  }
+
+  return `${day}-${month}-${year}`;
 }
 
 export function formatUkTime(time: string): string {

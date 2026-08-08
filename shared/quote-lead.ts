@@ -23,13 +23,19 @@ function formatUkDate(date: string): string {
     return "";
   }
 
-  return new Date(`${date}T12:00:00`).toLocaleDateString("en-GB", {
-    timeZone: UK_TIME_ZONE,
-    weekday: "short",
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
+  const iso = date.trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (iso) {
+    return `${iso[3]}-${iso[2]}-${iso[1]}`;
+  }
+
+  return new Date(`${date}T12:00:00`)
+    .toLocaleDateString("en-GB", {
+      timeZone: UK_TIME_ZONE,
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    })
+    .replace(/\//g, "-");
 }
 
 function formatUkTime(time: string): string {
