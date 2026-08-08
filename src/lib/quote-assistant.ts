@@ -833,7 +833,7 @@ function promptForField(field: MissingField, draft: QuoteDraft): AssistantRespon
       return {
         reply: "What date is the outbound journey?",
         draft,
-        quickReplies: ["Today", "Tomorrow"],
+        quickReplies: ["Choose date"],
         inputMode: mode,
       };
     case "tripTime":
@@ -847,7 +847,7 @@ function promptForField(field: MissingField, draft: QuoteDraft): AssistantRespon
       return {
         reply: "What date is the return journey?",
         draft,
-        quickReplies: ["Tomorrow"],
+        quickReplies: ["Choose date"],
         inputMode: mode,
       };
     case "returnTime":
@@ -1130,12 +1130,20 @@ async function handleBookingTurn(
   }
 
   if (awaiting === "tripDate" || awaiting === "returnDate") {
+    if (/^choose date$/i.test(text.trim())) {
+      return {
+        reply: "Use the date picker below to choose your travel date, then tap Send.",
+        draft: nextDraft,
+        quickReplies: ["Choose date"],
+        inputMode: "date",
+      };
+    }
     const date = extractDate(text);
     if (!date) {
       return {
-        reply: "Please enter the date as YYYY-MM-DD, or say Today / Tomorrow.",
+        reply: "Please choose a date with the picker below, or type it as YYYY-MM-DD.",
         draft: nextDraft,
-        quickReplies: ["Today", "Tomorrow"],
+        quickReplies: ["Choose date"],
         inputMode: "date",
       };
     }

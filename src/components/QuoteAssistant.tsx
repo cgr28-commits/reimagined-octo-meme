@@ -132,6 +132,7 @@ export default function QuoteAssistant() {
   const listRef = useRef<HTMLDivElement>(null);
   const latestQuoteCardRef = useRef<HTMLDivElement>(null);
   const contactOfferRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const workingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const draftRef = useRef(draft);
   const missesRef = useRef(0);
@@ -145,7 +146,7 @@ export default function QuoteAssistant() {
   const addressLabel =
     draft.direction === "from-airport" ? "Drop-off address" : "Pickup address";
   const inputPlaceholder = showDatePicker
-    ? "YYYY-MM-DD or Today / Tomorrow"
+    ? "Choose a date"
     : showTimePicker
       ? "HH:MM pickup time"
       : draft.awaitingQuoteEmailAddress
@@ -159,6 +160,21 @@ export default function QuoteAssistant() {
               : awaitingField === "customerName"
                 ? "Your full name"
                 : "Ask a question or get a quote…";
+
+  function openDatePicker() {
+    const el = inputRef.current;
+    if (!el) return;
+    el.focus();
+    try {
+      (
+        el as HTMLInputElement & {
+          showPicker?: () => void;
+        }
+      ).showPicker?.();
+    } catch {
+      // Native picker may be blocked until a direct gesture; focus still helps.
+    }
+  }
 
   useEffect(() => {
     setMounted(true);
@@ -197,6 +213,16 @@ export default function QuoteAssistant() {
       }
     };
   }, []);
+
+  // Hide the floating WhatsApp button while chat is open (it covers the right edge).
+  useEffect(() => {
+    document.body.dataset.matniChatOpen = open ? "true" : "false";
+    window.dispatchEvent(new Event("matni-chat-open-change"));
+    return () => {
+      document.body.dataset.matniChatOpen = "false";
+      window.dispatchEvent(new Event("matni-chat-open-change"));
+    };
+  }, [open]);
 
   // Keep the page from sliding sideways while the chat is open.
   useEffect(() => {
@@ -417,7 +443,7 @@ export default function QuoteAssistant() {
         ref={launcherRef}
         type="button"
         onClick={toggleOpen}
-        className={`fixed bottom-6 right-3 z-50 flex max-w-[calc(100%-1.5rem)] items-center border-2 border-emerald bg-navy shadow-lg shadow-emerald/30 transition-all hover:bg-navy-light sm:bottom-8 sm:right-8 ${
+        className={`fixed bottom-6 right-3 z-[60] flex max-w-[calc(100%-1.5rem)] items-center border-2 border-emerald bg-navy shadow-lg shadow-emerald/30 transition-all hover:bg-navy-light sm:bottom-8 sm:right-8 ${
           open
             ? "h-14 w-14 justify-center rounded-full sm:h-16 sm:w-16"
             : "gap-2 rounded-2xl py-2 pl-2 pr-3 sm:gap-3 sm:py-2.5 sm:pl-2.5 sm:pr-4"
@@ -463,7 +489,7 @@ export default function QuoteAssistant() {
       {open ? (
         <div
           ref={panelRef}
-          className="fixed bottom-24 left-3 right-3 z-50 flex h-[min(78dvh,36rem)] max-h-[min(78dvh,36rem)] min-w-0 max-w-full touch-pan-y flex-col overflow-hidden overscroll-x-none rounded-2xl border border-white/15 bg-navy-dark shadow-2xl sm:bottom-28 sm:left-auto sm:right-8 sm:w-[24rem] sm:max-w-[min(24rem,calc(100%-4rem))]"
+          className="fixed bottom-24 left-3 right-3 z-[60] box-border flex h-[min(78dvh,36rem)] max-h-[min(78dvh,36rem)] w-auto min-w-0 max-w-[calc(100vw-1.5rem)] touch-pan-y flex-col overflow-hidden overscroll-x-none rounded-2xl border border-white/15 bg-navy-dark shadow-2xl sm:bottom-28 sm:left-auto sm:right-8 sm:w-[24rem] sm:max-w-[min(24rem,calc(100%-4rem))]"
         >
           <div className="flex min-w-0 items-start justify-between gap-3 border-b border-white/10 bg-navy px-4 py-3">
             <div className="flex min-w-0 items-center gap-3">
@@ -497,9 +523,9 @@ export default function QuoteAssistant() {
             {messages.map((message, index) => (
               <div
                 key={`${message.role}-${index}`}
-                className={`max-w-[92%] break-words [overflow-wrap:anywhere] ${
+                className={`box-border max-w-[min(92%,100%)] break-words [overflow-wrap:anywhere] ${
                   message.role === "user" ? "ml-auto" : "mr-auto"
-                } ${message.quoteCard ? "max-w-full" : ""}`}
+                } ${message.quoteCard ? "w-full max-w-full" : ""}`}
               >
                 {message.quoteCard ? (
                   <QuotePriceCard
@@ -589,7 +615,7 @@ export default function QuoteAssistant() {
           </div>
 
           {quickReplies.length > 0 && !isWorking && !showAddressPicker ? (
-            <div className="flex min-w-0 flex-wrap gap-2 border-t border-white/10 px-3 py-2">
+            <div className="flex min-w-0 flex-wrap gap-2 overflow-x-hidden border-t border-white/10 px-3 py-2">
               {quickReplies.map((reply) => (
                 <button
                   key={reply}
@@ -603,9 +629,13 @@ export default function QuoteAssistant() {
                       window.open(withBasePath("/privacy/"), "_blank", "noopener,noreferrer");
                       return;
                     }
+                    if (reply === "Choose date") {
+                      openDatePicker();
+                      return;
+                    }
                     sendText(reply);
                   }}
-                  className="max-w-full break-words rounded-full border border-emerald/40 bg-emerald/10 px-3 py-1 text-xs font-semibold text-emerald transition-colors hover:bg-emerald/20"
+                  className="max-w-full shrink break-words rounded-full border border-emerald/40 bg-emerald/10 px-3 py-1 text-xs font-semibold text-emerald transition-colors hover:bg-emerald/20"
                 >
                   {reply}
                 </button>
@@ -660,11 +690,12 @@ export default function QuoteAssistant() {
               }}
             >
               <input
+                ref={inputRef}
                 value={input}
                 onChange={(event) => setInput(event.target.value)}
                 type={showDatePicker ? "date" : showTimePicker ? "time" : "text"}
                 placeholder={inputPlaceholder}
-                className="min-w-0 flex-1 rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm text-white outline-none placeholder:text-white/35 focus:border-emerald/50"
+                className="min-w-0 flex-1 rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm text-white outline-none placeholder:text-white/35 focus:border-emerald/50 [color-scheme:dark]"
               />
               <button
                 type="submit"
