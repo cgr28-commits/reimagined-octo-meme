@@ -36,6 +36,25 @@ export default function BookingConfirmedClient() {
     let cancelled = false;
 
     void (async () => {
+      // Arrival from owner-approved SumUp flow (/booking-payment → here after pay).
+      if (params.get("paid") === "1") {
+        if (!cancelled) {
+          const amount = params.get("amount")?.trim() || undefined;
+          const ref = params.get("ref")?.trim() || undefined;
+          setAmountPaid(amount);
+          setPaymentReference(ref);
+          setStatus("confirmed");
+          setSummary(
+            amount
+              ? `Payment of ${amount} received. Your booking is confirmed — we’ve emailed your confirmation.`
+              : "Thank you — your booking payment is complete. We’ve emailed your confirmation.",
+          );
+          setFireConversion(true);
+          window.history.replaceState(null, "", "/booking-confirmed/");
+        }
+        return;
+      }
+
       // Direct visits keep the thank-you URL for Ads destination goals, but we only
       // fire the event tag after a real payment confirmation.
       if (!hasPaymentReturn) {
