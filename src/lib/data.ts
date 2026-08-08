@@ -386,7 +386,7 @@ export const FAQS = [
   {
     question: "What is included in the price?",
     answer:
-      "All quotes include the vehicle, professional driver, fuel, tolls, and up to 60 minutes complimentary waiting time after landing. Parking charges at the airport are also covered.",
+      "Prices include express drop-off and up to 60 minutes complimentary waiting time after landing for airport pickups. Parking charges at the airport are also covered.",
   },
   {
     question: "Can I pay by card?",
