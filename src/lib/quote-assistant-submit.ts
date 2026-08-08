@@ -245,7 +245,7 @@ export async function submitAssistantBooking(draft: QuoteDraft): Promise<{
     const detail = error instanceof Error ? error.message : "Booking could not be sent.";
     return {
       ok: false,
-      message: `${detail} You can try again, or say “Speak to someone” for WhatsApp help.`,
+      message: `${detail} You can try again here in chat, or call ${SITE.landlineDisplay}.`,
     };
   }
 }
@@ -290,7 +290,7 @@ export async function emailAssistantQuote(draft: QuoteDraft): Promise<{
       return {
         ok: false,
         message:
-          "I couldn’t send the quote email just now. You can try again, book here in chat, or say “Speak to someone”.",
+          "I couldn’t send the quote email just now. You can try again or book here in chat.",
       };
     }
 
@@ -302,7 +302,7 @@ export async function emailAssistantQuote(draft: QuoteDraft): Promise<{
     const detail = error instanceof Error ? error.message : "Could not send the quote email.";
     return {
       ok: false,
-      message: `${detail} You can try again, or say “Speak to someone” for WhatsApp help.`,
+      message: `${detail} You can try again here in chat, or call ${SITE.landlineDisplay}.`,
     };
   }
 }

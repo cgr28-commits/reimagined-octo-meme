@@ -9,7 +9,6 @@ import { playBotOpenSound, playBotReplySound, playBotWorkingSound } from "@/lib/
 import { contactCardUrl } from "@/lib/contact-card";
 import { detectMobileDevice, useIsMobileDevice } from "@/lib/device";
 import { withBasePath } from "@/lib/paths";
-import { SITE } from "@/lib/data";
 import {
   createWelcomeMessages,
   emptyQuoteDraft,
@@ -59,13 +58,6 @@ function persistChat(state: PersistedChat) {
   } catch {
     // Ignore quota / private mode failures.
   }
-}
-
-function openWhatsAppHandoff() {
-  const message = encodeURIComponent(
-    "Hi — I was using the website chat and would like help with a quote/booking.",
-  );
-  window.open(`https://wa.me/${SITE.whatsapp}?text=${message}`, "_blank", "noopener,noreferrer");
 }
 
 function QuotePriceCard({
@@ -360,8 +352,8 @@ export default function QuoteAssistant() {
           playBotReplySound();
           setQuickReplies(
             emailed.ok
-              ? ["Yes, book", "Change details", "Another quote", "Speak to someone"]
-              : ["Try again", "Yes, book", "Speak to someone"],
+              ? ["Yes, book", "Change details", "Another quote"]
+              : ["Try again", "Yes, book", "Another quote"],
           );
         }
 
@@ -373,19 +365,14 @@ export default function QuoteAssistant() {
             nextDraft = emptyQuoteDraft();
             setDraft(nextDraft);
             draftRef.current = nextDraft;
-            setQuickReplies(["Get a quote", "Save to contacts", "Speak to someone"]);
+            setQuickReplies(["Get a quote", "Save to contacts"]);
           } else {
-            setQuickReplies(["Confirm booking", "Speak to someone", "Another quote"]);
+            setQuickReplies(["Confirm booking", "Another quote"]);
           }
         }
 
         setIsWorking(false);
         workingTimerRef.current = null;
-
-        if (result.openWhatsAppHandoff) {
-          setShowContactOffer(false);
-          openWhatsAppHandoff();
-        }
 
         if (result.showContactOffer === true) {
           const mobile = isMobile ?? detectMobileDevice();
@@ -397,9 +384,7 @@ export default function QuoteAssistant() {
           return;
         }
 
-        if (!result.openWhatsAppHandoff) {
-          setShowContactOffer(false);
-        }
+        setShowContactOffer(false);
       })();
     }, BOT_WORKING_MS);
   }

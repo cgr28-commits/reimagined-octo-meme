@@ -82,8 +82,6 @@ export type AssistantResponse = {
   quoteCard?: QuoteCardSummary;
   /** Consecutive unanswered / misunderstood turns — UI should pass this back in. */
   consecutiveMisses?: number;
-  /** Open WhatsApp to a human (site WhatsApp number). */
-  openWhatsAppHandoff?: boolean;
   /** Hint for the chat input control (date/time pickers). */
   inputMode?: "text" | "date" | "time";
   /** UI should submit the completed booking draft. */
@@ -358,7 +356,7 @@ function unpricedAreaPrompt(draft: QuoteDraft, address: string): AssistantRespon
         `I can see “${address}”, but City of Derry Airport transfers are priced for the greater Belfast area only.\n\n` +
         `Please enter a full Belfast-area address (for example Bangor, Lisburn, or BT20), or speak to us for a custom quote.`,
       draft: { ...draft, address: undefined },
-      quickReplies: ["Speak to someone", "Get a quote", "Save to contacts"],
+      quickReplies: ["Get a quote", "Save to contacts"],
       consecutiveMisses: 0,
     };
   }
@@ -368,7 +366,7 @@ function unpricedAreaPrompt(draft: QuoteDraft, address: string): AssistantRespon
       `I can see “${address}”, but it isn’t in an area I can auto-price for ${airportName} yet.\n\n` +
       `Try a full street address with town or BT postcode from our usual coverage (for example Bangor, Lisburn, Newtownabbey), or speak to us and we’ll quote you manually.`,
     draft: { ...draft, address: undefined },
-    quickReplies: ["Speak to someone", "Get a quote", "Save to contacts"],
+    quickReplies: ["Get a quote", "Save to contacts"],
     consecutiveMisses: 0,
   };
 }
@@ -376,12 +374,11 @@ function unpricedAreaPrompt(draft: QuoteDraft, address: string): AssistantRespon
 function humanHandoffReply(draft: QuoteDraft): AssistantResponse {
   return {
     reply:
-      `No problem — you can talk to us directly.\n\n` +
-      `Call ${SITE.landlineDisplay}, WhatsApp @${SITE.whatsappUsername}, or email ${SITE.email}.\n\n` +
-      `Tap below to open WhatsApp with a short message ready, or save our contact card.`,
+      `No problem — you can reach us directly.\n\n` +
+      `Call ${SITE.landlineDisplay} or email ${SITE.email}.\n\n` +
+      `Or save our contact card below — for quotes and bookings, this chat is the fastest way.`,
     draft,
-    quickReplies: ["Open WhatsApp", "Save to contacts", "Get a quote"],
-    openWhatsAppHandoff: true,
+    quickReplies: ["Save to contacts", "Get a quote"],
     consecutiveMisses: 0,
   };
 }
@@ -925,7 +922,7 @@ function promptForField(field: MissingField, draft: QuoteDraft): AssistantRespon
         reply:
           `Please confirm these booking details:\n\n${bookingSummary(draft)}\n\nReply “Confirm booking” to send your request.`,
         draft,
-        quickReplies: ["Confirm booking", "Change details", "Speak to someone"],
+        quickReplies: ["Confirm booking", "Change details"],
       };
   }
 }
@@ -999,7 +996,7 @@ function handleQuoteEmailTurn(text: string, draft: QuoteDraft): AssistantRespons
       return {
         reply: "No problem. Would you like to book this trip, or change any details?",
         draft: nextDraft,
-        quickReplies: ["Yes, book", "Change details", "Another quote", "Speak to someone"],
+        quickReplies: ["Yes, book", "Change details", "Another quote"],
       };
     }
 
@@ -1051,7 +1048,7 @@ function handleQuoteEmailTurn(text: string, draft: QuoteDraft): AssistantRespons
     return {
       reply: "No problem. Would you like to book this trip, or change any details?",
       draft: nextDraft,
-      quickReplies: ["Yes, book", "Change details", "Another quote", "Speak to someone"],
+      quickReplies: ["Yes, book", "Change details", "Another quote"],
     };
   }
 
@@ -1117,7 +1114,7 @@ async function handleBookingTurn(
       reply:
         "Our terms are at /terms/ on the website. When you’re ready, reply “I accept” to continue the booking here in chat.",
       draft: nextDraft,
-      quickReplies: ["I accept", "Speak to someone"],
+      quickReplies: ["I accept"],
       inputMode: "text",
     };
   }
@@ -1127,7 +1124,7 @@ async function handleBookingTurn(
       reply:
         "Our privacy policy is at /privacy/ on the website. When you’re ready, reply “I agree” to opt in to marketing emails and continue.",
       draft: nextDraft,
-      quickReplies: awaiting === "marketingOptIn" ? ["I agree", "Speak to someone"] : ["I accept", "I agree"],
+      quickReplies: awaiting === "marketingOptIn" ? ["I agree"] : ["I accept", "I agree"],
       inputMode: "text",
     };
   }
@@ -1288,9 +1285,9 @@ async function handleBookingTurn(
     if (!acceptsMarketing(text)) {
       return {
         reply:
-          'To complete a booking in this chat, please reply “I agree” to receive occasional marketing emails (you can unsubscribe any time), or say “Open privacy” to read our privacy policy. You can also say “Speak to someone” for WhatsApp help.',
+          'To complete a booking in this chat, please reply “I agree” to receive occasional marketing emails (you can unsubscribe any time), or say “Open privacy” to read our privacy policy.',
         draft: nextDraft,
-        quickReplies: ["I agree", "Open privacy", "Speak to someone"],
+        quickReplies: ["I agree", "Open privacy"],
       };
     }
     nextDraft.marketingOptIn = true;
@@ -1303,14 +1300,14 @@ async function handleBookingTurn(
         reply:
           "No problem — tell me what to change (date, time, name, mobile, email, or flight), or say “Another quote” to start over.",
         draft: nextDraft,
-        quickReplies: ["Another quote", "Speak to someone"],
+        quickReplies: ["Another quote", "Change details"],
       };
     }
     if (!confirmsBooking(text)) {
       return {
         reply: 'Reply “Confirm booking” to send your request, or “Change details” to edit something.',
         draft: nextDraft,
-        quickReplies: ["Confirm booking", "Change details", "Speak to someone"],
+        quickReplies: ["Confirm booking", "Change details"],
       };
     }
     return {
@@ -1475,11 +1472,10 @@ export async function respondToAssistantMessage(
       consecutiveMisses,
       reply:
         `${response.reply}\n\n` +
-        `If you’d rather talk to us, say “Speak to someone” or WhatsApp @${SITE.whatsappUsername}.`,
-      quickReplies: [
-        ...(response.quickReplies ?? ["Get a quote"]),
-        "Speak to someone",
-      ].filter((item, index, all) => all.indexOf(item) === index),
+        `You can also call ${SITE.landlineDisplay} or email ${SITE.email}, or say “Get a quote” to price a trip here.`,
+      quickReplies: (response.quickReplies ?? ["Get a quote", "Save to contacts"]).filter(
+        (item, index, all) => all.indexOf(item) === index,
+      ),
     };
   };
 
@@ -1539,7 +1535,7 @@ export async function respondToAssistantMessage(
       reply:
         "No problem — what do you want to change? You can start a fresh quote, or tell me the new airport, address, passengers, or cases.",
       draft: nextDraft,
-      quickReplies: ["Another quote", "To the airport", "From the airport", "Speak to someone"],
+      quickReplies: ["Another quote", "To the airport", "From the airport"],
     });
   }
 
@@ -1564,7 +1560,7 @@ export async function respondToAssistantMessage(
       reply:
         "No problem — your quote is ready whenever you are. Say “Get a quote” for another trip, or ask me anything else.",
       draft: nextDraft,
-      quickReplies: ["Get a quote", "Save to contacts", "Speak to someone"],
+      quickReplies: ["Get a quote", "Save to contacts"],
     });
   }
 
@@ -1609,10 +1605,9 @@ export async function respondToAssistantMessage(
 
   if (/whatsapp|call|phone|email|contact you|landline/.test(lower) && !/quote|price|how much/.test(lower)) {
     return understood({
-      reply: `You can call ${SITE.landlineDisplay}, WhatsApp @${SITE.whatsappUsername}, or email ${SITE.email}. Tap “Save to contacts” to open our contact card, or “Open WhatsApp” to message us now.`,
+      reply: `You can call ${SITE.landlineDisplay} or email ${SITE.email}. Tap “Save to contacts” to open our contact card. For quotes and bookings, continue here in chat — it’s the fastest way.`,
       draft: nextDraft,
-      quickReplies: ["Open WhatsApp", "Save to contacts", "Get a quote"],
-      openWhatsAppHandoff: /whatsapp|open whatsapp/.test(lower),
+      quickReplies: ["Save to contacts", "Get a quote"],
     });
   }
 
@@ -1800,7 +1795,7 @@ export async function respondToAssistantMessage(
       return understood({
         reply: knowledge,
         draft: nextDraft,
-        quickReplies: ["Get a quote", "Save to contacts", "Speak to someone"],
+        quickReplies: ["Get a quote", "Save to contacts"],
       });
     }
   }
@@ -1830,7 +1825,7 @@ export async function respondToAssistantMessage(
         reply: built.text,
         draft: nextDraft,
         quickReplies: built.enquiryOnly
-          ? ["Yes, book", "Change details", "Speak to someone", "Another quote"]
+          ? ["Yes, book", "Change details", "Another quote"]
           : ["Yes, email quote", "No thanks", "Yes, book", "Change details"],
         quoteCard: built.quoteCard,
       });
@@ -1852,7 +1847,7 @@ export async function respondToAssistantMessage(
     return understood({
       reply: knowledge,
       draft: nextDraft,
-      quickReplies: ["Get a quote", "Save to contacts", "Speak to someone"],
+      quickReplies: ["Get a quote", "Save to contacts"],
     });
   }
 
@@ -1861,7 +1856,7 @@ export async function respondToAssistantMessage(
       "I can answer questions from our website (booking, waiting time, vehicles, privacy, airports) and price transfers using the same quote-tool steps.\n\n" +
       "Try something like “BFS tomorrow 6am from 12 High Street, Bangor BT20, 2 people” or say “Get a quote”.",
     draft: nextDraft,
-    quickReplies: ["Get a quote", "Save to contacts", "Speak to someone"],
+    quickReplies: ["Get a quote", "Save to contacts"],
   });
 }
 
