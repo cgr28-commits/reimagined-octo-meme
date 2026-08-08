@@ -1,5 +1,13 @@
 /** Owner-managed booking jobs: request → paid → assign driver by email. */
 
+
+function formatJobDateDmy(date: string): string {
+  if (!date) return "";
+  const iso = date.trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (iso) return `${iso[3]}-${iso[2]}-${iso[1]}`;
+  return date;
+}
+
 export type BookingJobStatus = "awaiting_payment" | "paid" | "cancelled";
 
 export type DriverAssignmentStatus = "unassigned" | "pending" | "accepted" | "declined";
@@ -105,7 +113,7 @@ export function buildDriverAssignmentEmail(options: {
     .filter(Boolean)
     .join(" ");
 
-  const subject = `Job assignment — ${job.tripDate} ${job.tripTime} — please confirm`;
+  const subject = `Job assignment — ${formatJobDateDmy(job.tripDate)} ${job.tripTime} — please confirm`;
 
   const lines = [
     `Hi ${driverName},`,
@@ -117,10 +125,10 @@ export function buildDriverAssignmentEmail(options: {
     `Mobile: ${job.customerMobile}`,
     `Pickup: ${job.pickupLabel}`,
     `Drop-off: ${job.dropoffLabel}`,
-    `Date: ${job.tripDate}`,
+    `Date: ${formatJobDateDmy(job.tripDate)}`,
     `Pick up time: ${job.tripTime}`,
     job.returnJourney && job.returnDate
-      ? `Return: ${job.returnDate} at ${job.returnTime ?? ""}`
+      ? `Return: ${formatJobDateDmy(job.returnDate)} at ${job.returnTime ?? ""}`
       : null,
     job.flightNumber ? `Flight: ${job.flightNumber}` : null,
     `Passengers: ${job.passengers}`,

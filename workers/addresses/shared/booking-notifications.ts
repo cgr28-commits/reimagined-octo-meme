@@ -55,18 +55,39 @@ function escapeHtml(value: string): string {
     .replace(/"/g, "&quot;");
 }
 
+
+function formatDisplayDateDmy(date: string): string {
+  if (!date) {
+    return "";
+  }
+  const iso = date.trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (iso) {
+    return `${iso[3]}-${iso[2]}-${iso[1]}`;
+  }
+  const parsed = new Date(`${date}T12:00:00`);
+  if (Number.isNaN(parsed.getTime())) {
+    return date;
+  }
+  return parsed
+    .toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" })
+    .replace(/\//g, "-");
+}
+
 function formatTripScheduleLines(details: PaidBookingDetails): string[] {
   const lines = [
     `Trip: ${details.tripLabel}`,
     `Pickup: ${details.pickupLabel}`,
     `Drop-off: ${details.dropoffLabel}`,
     `Return journey: ${details.returnJourney ? "Yes" : "No"}`,
-    `${details.returnJourney ? "Outbound date" : "Date"}: ${details.tripDate}`,
+    `${details.returnJourney ? "Outbound date" : "Date"}: ${formatDisplayDateDmy(details.tripDate)}`,
     `${details.returnJourney ? "Outbound time" : "Time"}: ${details.tripTime}`,
   ];
 
   if (details.returnJourney) {
-    lines.push(`Return date: ${details.returnDate}`, `Return time: ${details.returnTime}`);
+    lines.push(
+      `Return date: ${formatDisplayDateDmy(details.returnDate)}`,
+      `Return time: ${details.returnTime}`,
+    );
   }
 
   if (details.isAirportTrip && details.flightNumber) {
@@ -101,7 +122,7 @@ function invoiceRows(details: PaidBookingReceipt): Array<{ label: string; value:
     { label: "Drop-off", value: details.dropoffLabel },
     {
       label: details.returnJourney ? "Outbound date" : "Date",
-      value: details.tripDate,
+      value: formatDisplayDateDmy(details.tripDate),
     },
     {
       label: details.returnJourney ? "Outbound time" : "Time",
@@ -110,7 +131,7 @@ function invoiceRows(details: PaidBookingReceipt): Array<{ label: string; value:
   ];
 
   if (details.returnJourney) {
-    rows.push({ label: "Return date", value: details.returnDate });
+    rows.push({ label: "Return date", value: formatDisplayDateDmy(details.returnDate) });
     rows.push({ label: "Return time", value: details.returnTime });
   }
 
@@ -353,14 +374,8 @@ function formatTripDateTime(tripDate: string, tripTime: string): string {
     return "";
   }
 
-  return new Date(`${tripDate}T${tripTime}:00`).toLocaleString("en-GB", {
-    timeZone: "Europe/London",
-    weekday: "short",
-    day: "numeric",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  const date = formatDisplayDateDmy(tripDate);
+  return date ? `${date} at ${tripTime}` : "";
 }
 
 function buildTrackingReminderHtml(

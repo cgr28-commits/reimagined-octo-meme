@@ -148,7 +148,7 @@ export default function QuoteAssistant() {
   const inputPlaceholder = showDatePicker
     ? "Choose a date"
     : showTimePicker
-      ? "HH:MM pickup time"
+      ? "Choose a time"
       : draft.awaitingQuoteEmailAddress
         ? "name@example.com"
         : awaitingField === "flightNumber" || awaitingField === "returnFlightNumber"
@@ -161,7 +161,7 @@ export default function QuoteAssistant() {
                 ? "Your full name"
                 : "Ask a question or get a quote…";
 
-  function openDatePicker() {
+  function openNativePicker() {
     const el = inputRef.current;
     if (!el) return;
     el.focus();
@@ -629,8 +629,8 @@ export default function QuoteAssistant() {
                       window.open(withBasePath("/privacy/"), "_blank", "noopener,noreferrer");
                       return;
                     }
-                    if (reply === "Choose date") {
-                      openDatePicker();
+                    if (reply === "Choose date" || reply === "Choose time") {
+                      openNativePicker();
                       return;
                     }
                     sendText(reply);
