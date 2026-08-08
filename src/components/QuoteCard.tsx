@@ -37,26 +37,14 @@ import {
 import { buildEnquiryBookingMessage } from "@/lib/booking-message";
 import {
   buildPaymentRedirectUrl,
-  confirmPaidBooking,
   createPaymentCheckout,
   isSumUpPaymentEnabled,
-  type PaymentConfirmationResult,
 } from "@/lib/create-payment";
 import {
   createPaymentReturnToken,
-  hasConfirmedPayment,
-  markPaymentConfirmed,
-  paymentNeedsFollowUp,
-  readPaymentConfirmationResult,
-  readPaymentConfirmationSummary,
-  readPendingPayment,
-  readPendingPaymentByToken,
-  resolveCheckoutIdFromUrl,
-  resolveReturnTokenFromUrl,
   savePendingPayment,
 } from "@/lib/pending-payment";
 import { scheduleQuoteLeadAlert } from "@/lib/submit-quote-lead";
-import { sendPaidBookingEmailsFromBrowser } from "@/lib/send-paid-booking-email";
 import FlightNumberField, { formatVerifiedFlightSummary } from "@/components/FlightNumberField";
 import { isValidFlightNumberFormat } from "@/lib/flight-lookup";
 import type { VerifiedFlight } from "@/lib/flight-lookup";
@@ -66,56 +54,6 @@ type TripDirection = "to-airport" | "from-airport";
 
 const PICKUP_STORAGE_KEY = "my-airport-taxi-ni-pickup-address";
 const DROPOFF_STORAGE_KEY = "my-airport-taxi-ni-dropoff-address";
-const PAYMENT_CONFIRM_RETRY_MS = 2000;
-const PAYMENT_CONFIRM_MAX_ATTEMPTS = 5;
-
-function buildPaymentConfirmationSummary(
-  result: PaymentConfirmationResult,
-  customerEmail: string,
-): string {
-  const parts: string[] = [];
-
-  if (result.emailSent === false) {
-    parts.push(
-      `Payment of ${result.amountPaid} received. We could not send confirmation emails automatically — our team will confirm your booking manually. If you do not hear from us within an hour, email ${SITE.email}.`,
-    );
-  } else if (result.customerEmailSent === false) {
-    parts.push(
-      `Payment of ${result.amountPaid} received. We notified our team but could not email your confirmation to ${customerEmail}. Contact us at ${SITE.email} if you need a copy.`,
-    );
-  } else {
-    parts.push(
-      `Payment of ${result.amountPaid} received. Your invoice and booking confirmation have been emailed to ${customerEmail}.`,
-    );
-  }
-
-  if (result.calendarLogged === false) {
-    parts.push(
-      "Your booking was not added to our diary automatically — we will add it manually shortly.",
-    );
-  }
-
-  return parts.join(" ");
-}
-
-function buildPaymentSuccessSubtext(result: PaymentConfirmationResult, summary: string): string {
-  if (
-    summary.includes("could not send confirmation emails") ||
-    summary.includes("could not email your confirmation")
-  ) {
-    return "Your payment is confirmed. We will follow up shortly.";
-  }
-
-  if (result.calendarLogged && result.emailSent !== false) {
-    return "Your booking is in our diary and we've sent the full details to our team.";
-  }
-
-  if (result.calendarLogged) {
-    return "Your booking is in our diary.";
-  }
-
-  return "We've also sent the full booking details to our team.";
-}
 
 const BOOKING_PANEL_CLASS =
   "rounded-xl border border-white/25 bg-navy-light px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] sm:px-5 md:border-white/30 md:shadow-lg md:shadow-black/20";
@@ -274,13 +212,6 @@ function QuoteCard() {
   const [routeMetrics, setRouteMetrics] = useState<TripRouteMetrics | null>(null);
   const [paymentLoading, setPaymentLoading] = useState(false);
   const [paymentError, setPaymentError] = useState("");
-  const [paymentReturned, setPaymentReturned] = useState(false);
-  const [paymentConfirming, setPaymentConfirming] = useState(false);
-  const [paymentConfirmed, setPaymentConfirmed] = useState(false);
-  const [paymentConfirmError, setPaymentConfirmError] = useState("");
-  const [paymentConfirmationSummary, setPaymentConfirmationSummary] = useState("");
-  const [paymentConfirmationResult, setPaymentConfirmationResult] =
-    useState<PaymentConfirmationResult | null>(null);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [termsError, setTermsError] = useState("");
   const [marketingOptIn, setMarketingOptIn] = useState(false);
@@ -320,121 +251,12 @@ function QuoteCard() {
       return;
     }
 
-    setPaymentReturned(true);
-
-    const checkoutIdFromUrl = resolveCheckoutIdFromUrl(window.location.search);
-    const returnToken = resolveReturnTokenFromUrl(window.location.search);
-    const pending =
-      readPendingPayment() ||
-      (returnToken ? readPendingPaymentByToken(returnToken) : null);
-    const checkoutId = checkoutIdFromUrl || pending?.checkoutId || "";
-
-    params.delete("payment");
-    params.delete("checkout_id");
-    params.delete("checkoutId");
-    params.delete("return_token");
-    const nextSearch = params.toString();
-    const nextUrl = `${window.location.pathname}${nextSearch ? `?${nextSearch}` : ""}#quote`;
-    window.history.replaceState(null, "", nextUrl);
-
-    if (checkoutId && hasConfirmedPayment(checkoutId)) {
-      const storedResult = readPaymentConfirmationResult(checkoutId);
-      const savedSummary =
-        readPaymentConfirmationSummary(checkoutId) ||
-        "Your booking is confirmed. Thank you for your payment.";
-
-      if (storedResult && !paymentNeedsFollowUp(storedResult)) {
-        setPaymentConfirmed(true);
-        setPaymentConfirmationSummary(savedSummary);
-        setPaymentConfirmationResult(storedResult);
-        return;
-      }
-
-      if (!pending?.booking) {
-        setPaymentConfirmed(true);
-        setPaymentConfirmationSummary(savedSummary);
-        if (storedResult) {
-          setPaymentConfirmationResult(storedResult);
-        }
-        return;
-      }
-    } else if (!checkoutId || !pending?.booking) {
-      return;
-    }
-
-    let cancelled = false;
-
-    async function finalizePaidBooking() {
-      const booking = pending!.booking;
-      setPaymentConfirming(true);
-      setPaymentConfirmError("");
-
-      for (let attempt = 0; attempt < PAYMENT_CONFIRM_MAX_ATTEMPTS; attempt += 1) {
-        if (cancelled) {
-          return;
-        }
-
-        try {
-          let result = await confirmPaidBooking(checkoutId, booking);
-          if (cancelled) {
-            return;
-          }
-
-          if (result.customerEmailSent !== true || result.ownerEmailSent !== true) {
-            try {
-              const fallback = await sendPaidBookingEmailsFromBrowser(booking, result);
-              result = {
-                ...result,
-                customerEmailSent: result.customerEmailSent === true || fallback.customerEmailSent,
-                ownerEmailSent: result.ownerEmailSent === true || fallback.ownerEmailSent,
-                emailSent:
-                  (result.customerEmailSent === true || fallback.customerEmailSent) &&
-                  (result.ownerEmailSent === true || fallback.ownerEmailSent),
-              };
-            } catch (fallbackError) {
-              console.error("Browser booking email fallback failed", fallbackError);
-            }
-          }
-
-          const summary = buildPaymentConfirmationSummary(result, booking.customerEmail);
-          markPaymentConfirmed(checkoutId, summary, returnToken || undefined, result);
-          setPaymentConfirmed(true);
-          setPaymentConfirmationSummary(summary);
-          setPaymentConfirmationResult(result);
-          setPaymentConfirming(false);
-
-          if (paymentNeedsFollowUp(result) && attempt < PAYMENT_CONFIRM_MAX_ATTEMPTS - 1) {
-            await new Promise((resolve) => window.setTimeout(resolve, PAYMENT_CONFIRM_RETRY_MS));
-            continue;
-          }
-
-          return;
-        } catch (error) {
-          const message =
-            error instanceof Error ? error.message : "Could not confirm your payment";
-
-          if (
-            message.includes("not been completed") &&
-            attempt < PAYMENT_CONFIRM_MAX_ATTEMPTS - 1
-          ) {
-            await new Promise((resolve) => window.setTimeout(resolve, PAYMENT_CONFIRM_RETRY_MS));
-            continue;
-          }
-
-          if (!cancelled) {
-            setPaymentConfirmError(message);
-            setPaymentConfirming(false);
-          }
-          return;
-        }
-      }
-    }
-
-    void finalizePaidBooking();
-
-    return () => {
-      cancelled = true;
-    };
+    // Paid checkout lands on the dedicated thank-you URL for Google Ads.
+    const confirmedUrl = new URL("/booking-confirmed/", window.location.origin);
+    params.forEach((value, key) => {
+      confirmedUrl.searchParams.set(key, value);
+    });
+    window.location.replace(confirmedUrl.toString());
   }, []);
 
   useEffect(() => {
@@ -1133,53 +955,6 @@ function QuoteCard() {
           : !isScheduleComplete
             ? "Price ready — add your date and time when you’re ready to book"
             : "";
-
-  if (paymentConfirmed && paymentConfirmationSummary) {
-    return (
-      <div
-        ref={cardRef}
-        className="glass-card min-w-0 rounded-2xl p-6 sm:p-8 lg:animate-float"
-      >
-        <div className="rounded-xl border border-emerald/30 bg-emerald/10 px-5 py-8 text-center sm:px-8 sm:py-10">
-          <p className="text-xs font-medium uppercase tracking-wider text-emerald">
-            Payment received
-          </p>
-          <h2 className="mt-2 text-2xl font-bold text-white sm:text-3xl">Booking successful</h2>
-          <p className="mx-auto mt-4 max-w-md text-sm leading-relaxed text-white/80 sm:text-base">
-            {paymentConfirmationSummary}
-          </p>
-          <p className="mx-auto mt-4 max-w-md text-sm text-white/60">
-            {paymentConfirmationResult
-              ? buildPaymentSuccessSubtext(paymentConfirmationResult, paymentConfirmationSummary)
-              : "We've also sent the full booking details to our team."}
-          </p>
-          <button
-            type="button"
-            onClick={() => {
-              setPaymentConfirmed(false);
-              setPaymentConfirmationSummary("");
-              setPaymentConfirmationResult(null);
-              setPaymentConfirmError("");
-              setBookingSent(false);
-              setBookingReference("");
-              setBookingDelivery(null);
-              setShowBookingPreview(false);
-              setShowBookingDetailsStep(false);
-              setSubmitError("");
-              setTermsAccepted(false);
-              setTermsError("");
-              setMarketingOptIn(false);
-              setSubmitted(false);
-              cardRef.current?.scrollIntoView({ behavior: "smooth", block: "start", inline: "nearest" });
-            }}
-            className="mt-6 w-full rounded-xl bg-emerald px-4 py-3 text-sm font-bold text-navy transition-colors hover:bg-emerald-light sm:w-auto sm:px-8"
-          >
-            Get another quote
-          </button>
-        </div>
-      </div>
-    );
-  }
 
   if (bookingSent) {
     return (
@@ -1944,28 +1719,6 @@ function QuoteCard() {
           <p className="rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-100">
             {paymentError}
           </p>
-        )}
-
-        {paymentReturned && (
-          <div className="space-y-3">
-            {paymentConfirming && (
-              <p className="rounded-xl border border-white/15 bg-white/[0.04] px-4 py-3 text-sm text-white">
-                Confirming your payment and completing your booking…
-              </p>
-            )}
-            {paymentConfirmError && (
-              <p className="rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-50">
-                {paymentConfirmError} If payment went through, email {SITE.email} and we&apos;ll
-                confirm your booking manually.
-              </p>
-            )}
-            {!paymentConfirming && !paymentConfirmed && !paymentConfirmError && (
-              <p className="rounded-xl border border-emerald/30 bg-emerald/10 px-4 py-3 text-sm text-white">
-                Thank you for returning from payment. If your SumUp payment completed, your
-                confirmation email will arrive shortly.
-              </p>
-            )}
-          </div>
         )}
 
         {showBookingPreview && (
