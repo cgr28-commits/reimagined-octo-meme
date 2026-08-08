@@ -163,7 +163,7 @@ export function buildDriverAssignmentEmail(options: {
       <p style="margin:0 0 8px;"><strong>Mobile:</strong> ${escapeHtml(job.customerMobile)}</p>
       <p style="margin:0 0 8px;"><strong>Pickup:</strong> ${escapeHtml(job.pickupLabel)}</p>
       <p style="margin:0 0 8px;"><strong>Drop-off:</strong> ${escapeHtml(job.dropoffLabel)}</p>
-      <p style="margin:0 0 8px;"><strong>Date:</strong> ${escapeHtml(job.tripDate)}</p>
+      <p style="margin:0 0 8px;"><strong>Date:</strong> ${escapeHtml(formatJobDateDmy(job.tripDate))}</p>
       <p style="margin:0 0 8px;"><strong>Pick up time:</strong> ${escapeHtml(job.tripTime)}</p>
       ${
         job.flightNumber
