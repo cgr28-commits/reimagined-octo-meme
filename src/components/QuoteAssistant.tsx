@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type Ref } from "react";
 import { createPortal } from "react-dom";
 import AddressInput from "@/components/AddressInput";
 import { playBotOpenSound, playBotReplySound, playBotWorkingSound } from "@/lib/bot-sounds";
@@ -68,27 +68,36 @@ function openWhatsAppHandoff() {
   window.open(`https://wa.me/${SITE.whatsapp}?text=${message}`, "_blank", "noopener,noreferrer");
 }
 
-function QuotePriceCard({ card, note }: { card: QuoteCardSummary; note: string }) {
+function QuotePriceCard({
+  card,
+  note,
+  cardRef,
+}: {
+  card: QuoteCardSummary;
+  note: string;
+  cardRef?: Ref<HTMLDivElement>;
+}) {
   return (
-    <div className="overflow-hidden rounded-2xl border border-emerald/40 bg-emerald/10 shadow-lg shadow-emerald/10">
-      <div className="border-b border-emerald/25 bg-emerald px-4 py-4 text-navy">
-        <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-navy/70">
+    <div
+      ref={cardRef}
+      className="overflow-hidden rounded-2xl border border-emerald/40 bg-emerald/10 shadow-lg shadow-emerald/10"
+    >
+      <div className="border-b border-emerald/25 bg-emerald px-3 py-3 text-navy">
+        <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-navy/70">
           Your fixed journey price
         </p>
-        <p className="mt-1 text-4xl font-black tracking-tight">{card.amountLabel}</p>
-        <p className="mt-1 text-sm font-semibold text-navy/80">{card.directionLabel}</p>
+        <p className="mt-0.5 text-3xl font-black tracking-tight sm:text-4xl">{card.amountLabel}</p>
+        <p className="mt-0.5 text-sm font-semibold text-navy/80">{card.directionLabel}</p>
       </div>
-      <div className="space-y-2 px-4 py-3 text-sm text-white/90">
+      <div className="space-y-1.5 px-3 py-2.5 text-sm text-white/90">
         <p>
           <span className="text-white/55">Vehicle · </span>
           {card.vehicle}
           {card.returnJourney ? " · return (5% off)" : " · one way"}
-        </p>
-        <p>
-          <span className="text-white/55">Passengers · </span>
-          {card.passengers}
-          <span className="text-white/55"> · Suitcases · </span>
-          {card.suitcases}
+          <span className="text-white/55"> · </span>
+          {card.passengers} pax
+          <span className="text-white/55"> · </span>
+          {card.suitcases} cases
         </p>
         {card.area ? (
           <p>
@@ -96,12 +105,16 @@ function QuotePriceCard({ card, note }: { card: QuoteCardSummary; note: string }
             {card.area}
           </p>
         ) : null}
-        <p className="break-words">
+        <p className="break-words text-xs">
           <span className="text-white/55">Address · </span>
           {card.address}
         </p>
-        <p className="text-xs leading-relaxed text-white/60">{card.waitingNote}</p>
-        <p className="whitespace-pre-wrap pt-1 text-sm leading-relaxed text-white/85">{note}</p>
+        <p className="text-[11px] leading-snug text-white/55">{card.waitingNote}</p>
+        {note.trim() ? (
+          <p className="whitespace-pre-wrap border-t border-white/10 pt-2 text-sm font-medium leading-relaxed text-white/90">
+            {note}
+          </p>
+        ) : null}
       </div>
     </div>
   );
@@ -125,6 +138,7 @@ export default function QuoteAssistant() {
   const launcherRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const latestQuoteCardRef = useRef<HTMLDivElement>(null);
   const contactOfferRef = useRef<HTMLDivElement>(null);
   const workingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const draftRef = useRef(draft);
@@ -245,6 +259,15 @@ export default function QuoteAssistant() {
     };
   }, [open]);
 
+  const latestQuoteIndex = (() => {
+    for (let i = messages.length - 1; i >= 0; i -= 1) {
+      if (messages[i]?.quoteCard) return i;
+    }
+    return -1;
+  })();
+  const latestMessageHasQuote =
+    latestQuoteIndex >= 0 && latestQuoteIndex === messages.length - 1 && !isWorking;
+
   useEffect(() => {
     if (!open) return;
     if (showContactOffer && !isWorking) {
@@ -255,8 +278,16 @@ export default function QuoteAssistant() {
       });
       return;
     }
+    // Keep the quote price in view — scrolling to the list bottom hides the amount.
+    if (latestMessageHasQuote && latestQuoteCardRef.current && listRef.current) {
+      const list = listRef.current;
+      const card = latestQuoteCardRef.current;
+      const top = card.offsetTop - 8;
+      list.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+      return;
+    }
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
-  }, [messages, open, showContactOffer, isWorking, showAddressPicker]);
+  }, [messages, open, showContactOffer, isWorking, showAddressPicker, latestMessageHasQuote]);
 
   useEffect(() => {
     if (!showAddressPicker) {
@@ -447,7 +478,7 @@ export default function QuoteAssistant() {
       {open ? (
         <div
           ref={panelRef}
-          className="fixed bottom-24 left-3 right-3 z-50 flex max-h-[min(70dvh,32rem)] min-w-0 max-w-full touch-pan-y flex-col overflow-hidden overscroll-x-none rounded-2xl border border-white/15 bg-navy-dark shadow-2xl sm:bottom-28 sm:left-auto sm:right-8 sm:w-[24rem] sm:max-w-[min(24rem,calc(100%-4rem))]"
+          className="fixed bottom-24 left-3 right-3 z-50 flex h-[min(78dvh,36rem)] max-h-[min(78dvh,36rem)] min-w-0 max-w-full touch-pan-y flex-col overflow-hidden overscroll-x-none rounded-2xl border border-white/15 bg-navy-dark shadow-2xl sm:bottom-28 sm:left-auto sm:right-8 sm:w-[24rem] sm:max-w-[min(24rem,calc(100%-4rem))]"
         >
           <div className="flex min-w-0 items-start justify-between gap-3 border-b border-white/10 bg-navy px-4 py-3">
             <div className="flex min-w-0 items-center gap-3">
@@ -476,17 +507,21 @@ export default function QuoteAssistant() {
 
           <div
             ref={listRef}
-            className="max-h-[45vh] min-w-0 space-y-3 overflow-x-hidden overflow-y-auto overscroll-contain overscroll-x-none px-3 py-3 touch-pan-y"
+            className="min-h-0 min-w-0 flex-1 space-y-3 overflow-x-hidden overflow-y-auto overscroll-contain overscroll-x-none px-3 py-3 touch-pan-y"
           >
             {messages.map((message, index) => (
               <div
                 key={`${message.role}-${index}`}
                 className={`max-w-[92%] break-words [overflow-wrap:anywhere] ${
                   message.role === "user" ? "ml-auto" : "mr-auto"
-                }`}
+                } ${message.quoteCard ? "max-w-full" : ""}`}
               >
                 {message.quoteCard ? (
-                  <QuotePriceCard card={message.quoteCard} note={message.text} />
+                  <QuotePriceCard
+                    card={message.quoteCard}
+                    note={message.text}
+                    cardRef={index === latestQuoteIndex ? latestQuoteCardRef : undefined}
+                  />
                 ) : (
                   <div
                     className={`whitespace-pre-wrap rounded-2xl px-3 py-2 text-sm leading-relaxed ${

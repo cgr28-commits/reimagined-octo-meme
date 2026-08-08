@@ -1431,10 +1431,7 @@ function tryBuildQuote(
   return {
     enquiryOnly: false,
     quoteCard,
-    text:
-      `Here’s your fixed journey price ${directionLabel}.\n` +
-      `${vehicleNote}\n\n` +
-      `Would you like this quote emailed to you?`,
+    text: `${vehicleNote}\n\nWould you like this quote emailed to you?`,
   };
 }
 
