@@ -8,7 +8,6 @@ import TripMap from "@/components/TripMap";
 import { buildBookingMessage, isValidEmailAddress, isValidMobileNumber, type BookingDetails } from "@/lib/booking-message";
 import { buildMarketingOptInFields, recordMarketingOptIn } from "@/lib/marketing-api";
 import { TERMS_LAST_UPDATED } from "@/lib/terms";
-import { detectMobileDevice, useIsMobileDevice } from "@/lib/device";
 import { AIRPORTS, isVehicleEnquiryOnly, SERVICE_FLAGS, SITE, VEHICLE_TYPES } from "@/lib/data";
 import {
   readPrefillAirport,
@@ -27,13 +26,7 @@ import {
   formatJourneyDuration,
   type TripRouteMetrics,
 } from "@/lib/trip-route";
-import {
-  openWhatsAppBookingMessage,
-  submitBookingByEmail,
-  submitEnquiryByEmail,
-  submitMobileWhatsAppBooking,
-  submitMobileWhatsAppEnquiry,
-} from "@/lib/submit-booking";
+import { submitBookingByEmail, submitEnquiryByEmail } from "@/lib/submit-booking";
 import { buildEnquiryBookingMessage } from "@/lib/booking-message";
 import {
   buildPaymentRedirectUrl,
@@ -223,16 +216,12 @@ function isReturnAfterOutbound(
   return parseDateTime(returnDate, returnTime) > parseDateTime(outboundDate, outboundTime);
 }
 
-type BookingDelivery = "whatsapp" | "email";
-
 function QuoteCard() {
   const cardRef = useRef<HTMLDivElement>(null);
-  const isMobileDevice = useIsMobileDevice();
   const [submitted, setSubmitted] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [bookingSent, setBookingSent] = useState(false);
   const [bookingReference, setBookingReference] = useState("");
-  const [bookingDelivery, setBookingDelivery] = useState<BookingDelivery | null>(null);
   const [showBookingPreview, setShowBookingPreview] = useState(false);
   const [customerName, setCustomerName] = useState("");
   const [customerMobile, setCustomerMobile] = useState("");
@@ -948,13 +937,12 @@ function QuoteCard() {
     }
   }
 
-  async function confirmBooking(delivery: BookingDelivery) {
+  async function confirmBooking() {
     if (!requireTermsAccepted()) {
       return;
     }
 
     const details = buildConfirmedBookingDetails();
-    const isMobile = isMobileDevice ?? detectMobileDevice();
     setSubmitted(true);
     setSubmitError("");
     setBookingReference("");
@@ -962,40 +950,25 @@ function QuoteCard() {
     let reference = "";
     try {
       if (isEnquiryOnly) {
-        const enquiryMessage = buildEnquiryBookingMessage(details);
-        if (!isMobile || delivery === "email") {
-          reference = await submitEnquiryByEmail({
-            customerName: details.customerName,
-            message: enquiryMessage,
-            subject: `New vehicle enquiry — ${details.customerName}`,
-            booking: details,
-          });
-        } else {
-          reference = await submitMobileWhatsAppEnquiry({
-            customerName: details.customerName,
-            message: enquiryMessage,
-            subject: `New vehicle enquiry — ${details.customerName}`,
-            booking: details,
-          });
-        }
-      } else if (!isMobile || delivery === "email") {
-        reference = await submitBookingByEmail(details);
+        reference = await submitEnquiryByEmail({
+          customerName: details.customerName,
+          message: buildEnquiryBookingMessage(details),
+          subject: `New vehicle enquiry — ${details.customerName}`,
+          booking: details,
+        });
       } else {
-        reference = await submitMobileWhatsAppBooking(details);
+        reference = await submitBookingByEmail(details);
       }
       setBookingReference(reference);
     } catch (error) {
       console.error("Booking submission failed", error);
       setSubmitError(
-        delivery === "email" || !isMobile
-          ? `We couldn't send your ${isEnquiryOnly ? "enquiry" : "booking"} by email. Please try WhatsApp or contact ${SITE.email} with your trip details.`
-          : `We couldn't log your ${isEnquiryOnly ? "enquiry" : "booking"}. Please try email instead or contact ${SITE.email}.`,
+        `We couldn't send your ${isEnquiryOnly ? "enquiry" : "booking"} online. Please try again or contact ${SITE.email}.`,
       );
       setSubmitted(false);
       return;
     }
 
-    setBookingDelivery(delivery);
     setShowBookingPreview(false);
     setBookingSent(true);
     setSubmitted(false);
@@ -1008,14 +981,6 @@ function QuoteCard() {
         fields: details,
       });
     }
-
-    if (isMobile && delivery === "whatsapp") {
-      openWhatsAppBookingMessage(
-        isEnquiryOnly
-          ? buildEnquiryBookingMessage(details, reference)
-          : buildBookingMessage(details, reference),
-      );
-    }
   }
 
   function handleSubmit(e: FormEvent<HTMLFormElement>) {
@@ -1023,15 +988,12 @@ function QuoteCard() {
     setSubmitError("");
     setBookingSent(false);
     setBookingReference("");
-    setBookingDelivery(null);
 
     if (showBookingPreview) {
-      if (!usesWhatsApp) {
-        if (!requireTermsAccepted()) {
-          return;
-        }
-        void confirmBooking("email");
+      if (!requireTermsAccepted()) {
+        return;
       }
+      void confirmBooking();
       return;
     }
 
@@ -1060,13 +1022,10 @@ function QuoteCard() {
     setSubmitError("");
     setBookingSent(false);
     setBookingReference("");
-    setBookingDelivery(null);
     setTermsAccepted(false);
     setTermsError("");
     setMarketingOptIn(false);
   }
-
-  const usesWhatsApp = isMobileDevice === true;
 
   useEffect(() => {
     if (bookingSent) {
@@ -1081,12 +1040,6 @@ function QuoteCard() {
     : liveQuote
       ? `Confirm & book for ${formatQuote(liveQuote.amount)}`
       : "Confirm & book";
-
-  const whatsAppConfirmLabel = isEnquiryOnly
-    ? "Send enquiry via WhatsApp"
-    : liveQuote
-      ? `Send via WhatsApp — ${formatQuote(liveQuote.amount)}`
-      : "Confirm & send via WhatsApp";
 
   const bookButtonLabel = isEnquiryOnly
     ? "Enquire to book"
@@ -1162,7 +1115,6 @@ function QuoteCard() {
               setPaymentConfirmError("");
               setBookingSent(false);
               setBookingReference("");
-              setBookingDelivery(null);
               setShowBookingPreview(false);
               setShowBookingDetailsStep(false);
               setSubmitError("");
@@ -1194,30 +1146,20 @@ function QuoteCard() {
           <h2 className="mt-2 text-2xl font-bold text-white sm:text-3xl">Thank you</h2>
           <p className="mx-auto mt-4 max-w-md text-sm leading-relaxed text-white/80 sm:text-base">
             {isEnquiryOnly
-              ? "We’ve received your enquiry. We’ll confirm availability and send your personal quote shortly. When you’re ready to book, we’ll send a SumUp payment link — your trip is confirmed after payment."
-              : "We’ve received your booking request. Once we confirm the job, we’ll send a SumUp payment link by email. Your booking is confirmed after payment."}
+              ? "We’ve received your enquiry. We’ll confirm availability and send your personal quote shortly. When you’re ready to book, we’ll email a SumUp payment link — your trip is confirmed after payment."
+              : "We’ve received your booking request online. Once we approve the job, we’ll email you a SumUp payment link. Your booking is confirmed after payment (and added to our calendar)."}
           </p>
           {bookingReference && (
             <p className="mt-4 text-sm text-white/60">Reference: {bookingReference}</p>
           )}
-          {bookingDelivery === "whatsapp" && (
-            <p className="mx-auto mt-4 max-w-md text-sm text-white/60">
-              Your {isEnquiryOnly ? "enquiry" : "booking"} message should open in WhatsApp. If it
-              didn&apos;t, open WhatsApp and message @{SITE.whatsappUsername}.
-            </p>
-          )}
-          {bookingDelivery === "email" && (
-            <p className="mx-auto mt-4 max-w-md text-sm text-white/60">
-              Your {isEnquiryOnly ? "enquiry" : "booking"} has been sent by email. We&apos;ll
-              confirm at {customerEmail.trim()}.
-            </p>
-          )}
+          <p className="mx-auto mt-4 max-w-md text-sm text-white/60">
+            We&apos;ll update you at {customerEmail.trim()}.
+          </p>
           <button
             type="button"
             onClick={() => {
               setBookingSent(false);
               setBookingReference("");
-              setBookingDelivery(null);
               setShowBookingPreview(false);
               setShowBookingDetailsStep(false);
               setSubmitError("");
@@ -1241,9 +1183,8 @@ function QuoteCard() {
       <div className="mb-6">
         <h2 className="text-xl font-bold text-white sm:text-2xl">Get a Live Quote</h2>
         <p className="mt-1 text-sm text-white/60">
-          Get an instant price online or through WhatsApp. Send your enquiry to book — once we
-          confirm your job, we&apos;ll email a SumUp payment link. Your booking is confirmed after
-          payment.
+          Get an instant price and book online. Once we approve your job, we&apos;ll email a SumUp
+          payment link. Your booking is confirmed after payment.
         </p>
       </div>
 
@@ -1684,7 +1625,7 @@ function QuoteCard() {
                   className={BOOKING_INPUT_CLASS}
                 />
                 <p className={BOOKING_HELPER_CLASS}>
-                  We&apos;ll send your payment link here by text or WhatsApp.
+                  We&apos;ll use this number if we need to reach you about your trip.
                 </p>
                 {mobileNumberError && (
                   <p className="mt-1.5 text-xs text-red-300">{mobileNumberError}</p>
@@ -2115,44 +2056,6 @@ function QuoteCard() {
               >
                 Edit details
               </button>
-            ) : usesWhatsApp ? (
-              <>
-                <p className="text-xs text-white/55">
-                  {isEnquiryOnly
-                    ? "Choose how to send your enquiry:"
-                    : "Choose how to send your booking:"}
-                </p>
-                <button
-                  type="button"
-                  onClick={handleEditBooking}
-                  className="w-full rounded-xl border border-white/15 bg-white/5 py-3.5 text-sm font-semibold text-white transition-all hover:bg-white/10"
-                >
-                  Edit details
-                </button>
-                <button
-                  type="button"
-                  disabled={submitted || !termsAccepted}
-                  onClick={() => void confirmBooking("whatsapp")}
-                  className="w-full rounded-xl bg-emerald py-3.5 text-sm font-bold text-navy transition-all hover:bg-emerald-light hover:shadow-lg hover:shadow-emerald/25 disabled:cursor-not-allowed disabled:opacity-70"
-                >
-                  {submitted ? submitInProgressLabel : whatsAppConfirmLabel}
-                </button>
-                <button
-                  type="button"
-                  disabled={submitted || !termsAccepted}
-                  onClick={() => void confirmBooking("email")}
-                  className="w-full rounded-xl border border-white/20 bg-white/5 py-3.5 text-sm font-semibold text-white transition-all hover:border-emerald/40 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-70"
-                >
-                  {submitted
-                    ? submitInProgressLabel
-                    : isEnquiryOnly
-                      ? "Send enquiry via email"
-                      : "Send booking via email"}
-                </button>
-                <p className="text-xs leading-relaxed text-white/45">
-                  No WhatsApp? Email works too — we&apos;ll confirm at {customerEmail.trim()}.
-                </p>
-              </>
             ) : (
               <div className="grid gap-3 sm:grid-cols-2">
                 <button

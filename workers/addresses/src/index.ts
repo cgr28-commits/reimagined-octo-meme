@@ -56,7 +56,9 @@ import {
 } from "./google-calendar";
 import {
   createBookingJobFromSubmission,
+  handleBookingJobApproveRequest,
   handleBookingJobAssignDriverRequest,
+  handleBookingJobConfirmPaymentRequest,
   handleBookingJobMarkPaidRequest,
   handleBookingJobsListRequest,
   handleDriverAcceptConfirmRequest,
@@ -277,6 +279,8 @@ function routePath(
   | "bookings-refund"
   | "booking-jobs"
   | "booking-jobs-mark-paid"
+  | "booking-jobs-approve"
+  | "booking-jobs-confirm-payment"
   | "booking-jobs-assign-driver"
   | "driver-accept"
   | "driver-accept-confirm"
@@ -319,6 +323,17 @@ function routePath(
 
   if (pathname === "/booking-jobs/mark-paid" || pathname === "/api/booking-jobs/mark-paid") {
     return "booking-jobs-mark-paid";
+  }
+
+  if (pathname === "/booking-jobs/approve" || pathname === "/api/booking-jobs/approve") {
+    return "booking-jobs-approve";
+  }
+
+  if (
+    pathname === "/booking-jobs/confirm-payment" ||
+    pathname === "/api/booking-jobs/confirm-payment"
+  ) {
+    return "booking-jobs-confirm-payment";
   }
 
   if (
@@ -1242,6 +1257,20 @@ export default {
         return json({ error: "Method not allowed" }, 405, origin);
       }
       return handleBookingJobMarkPaidRequest(request, env, origin);
+    }
+
+    if (route === "booking-jobs-approve") {
+      if (request.method !== "POST") {
+        return json({ error: "Method not allowed" }, 405, origin);
+      }
+      return handleBookingJobApproveRequest(request, env, origin);
+    }
+
+    if (route === "booking-jobs-confirm-payment") {
+      if (request.method !== "POST") {
+        return json({ error: "Method not allowed" }, 405, origin);
+      }
+      return handleBookingJobConfirmPaymentRequest(request, env, origin);
     }
 
     if (route === "booking-jobs-assign-driver") {

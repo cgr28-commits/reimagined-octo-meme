@@ -76,6 +76,34 @@ export async function getBookingJob(
   return job && typeof job === "object" ? job : null;
 }
 
+function bookingJobCheckoutKey(checkoutId: string): string {
+  return `booking-job-checkout:${checkoutId.trim()}`;
+}
+
+export async function saveBookingJobCheckoutIndex(
+  store: KVNamespace,
+  checkoutId: string,
+  jobId: string,
+): Promise<void> {
+  if (!checkoutId.trim() || !jobId.trim()) {
+    return;
+  }
+  await store.put(bookingJobCheckoutKey(checkoutId), jobId.trim(), {
+    expirationTtl: DAY_INDEX_TTL,
+  });
+}
+
+export async function getBookingJobByCheckoutId(
+  store: KVNamespace,
+  checkoutId: string,
+): Promise<BookingJobRecord | null> {
+  const jobId = await store.get(bookingJobCheckoutKey(checkoutId));
+  if (!jobId?.trim()) {
+    return null;
+  }
+  return getBookingJob(store, jobId.trim());
+}
+
 export async function getBookingJobByAcceptToken(
   store: KVNamespace,
   token: string,

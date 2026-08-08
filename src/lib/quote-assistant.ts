@@ -179,7 +179,7 @@ function knowledgeChunks(): Array<{ title: string; body: string }> {
     {
       title: "How booking works",
       body:
-        "Use Get a Live Quote on the website (or this chat) to get your fixed journey price with the same pricing as the quote tool. Then Request to book / Enquire to book. Enter your name, mobile, email and flight number(s), accept the terms, and send. Once we confirm your job, we email a SumUp payment link. Your booking is confirmed after payment. Executive Saloon and Minibus are enquiry-only.",
+        "Use Get a Live Quote on the website (or this chat) to get your fixed journey price with the same pricing as the quote tool. Then book in chat or on the quote form — enter your name, mobile, email and flight number(s), accept the terms, and send. We review the job on our dashboard, email a SumUp payment link, and after payment your booking is confirmed by email and added to our calendar. Executive Saloon and Minibus are enquiry-only.",
     },
     {
       title: "Quote tool flow",
