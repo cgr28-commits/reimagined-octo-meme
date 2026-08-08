@@ -64,6 +64,11 @@ export type QuoteDraft = {
   flightValidated?: boolean;
   returnFlightValidated?: boolean;
   marketingOptIn?: boolean;
+  /** After a quote, ask whether to email it before booking. */
+  awaitingQuoteEmailDecision?: boolean;
+  /** Collecting the address to email the quote to. */
+  awaitingQuoteEmailAddress?: boolean;
+  quoteEmailSent?: boolean;
 };
 
 export type AssistantResponse = {
@@ -83,6 +88,8 @@ export type AssistantResponse = {
   inputMode?: "text" | "date" | "time";
   /** UI should submit the completed booking draft. */
   submitBooking?: boolean;
+  /** UI should email the current quote to draft.customerEmail. */
+  emailQuote?: boolean;
 };
 
 export type AssistantContext = {
@@ -935,7 +942,138 @@ function resetBookingFields(draft: QuoteDraft): QuoteDraft {
     vehicle: draft.vehicle,
     returnJourney: draft.returnJourney,
     quotedAmountLabel: draft.quotedAmountLabel,
+    customerEmail: draft.customerEmail,
     bookingStarted: true,
+  };
+}
+
+function wantsQuoteEmailed(text: string): boolean {
+  const lower = text.toLowerCase().trim();
+  return (
+    /^(yes,? email( quote)?|email (me )?(this )?quote|email it|send (me )?(the )?quote|yes$|yes please|yeah|yep)\b/.test(
+      lower,
+    ) || /\bemail (me )?(this )?quote\b/.test(lower)
+  );
+}
+
+function declinesQuoteEmail(text: string): boolean {
+  const lower = text.toLowerCase().trim();
+  return /^(no|no thanks|no thank you|not now|no email|skip|maybe later)\b/.test(lower);
+}
+
+function hasQuotedTrip(draft: QuoteDraft): boolean {
+  return Boolean(
+    draft.quotedAmountLabel &&
+      draft.airportCode &&
+      draft.address &&
+      draft.direction &&
+      draft.passengers !== undefined,
+  );
+}
+
+function handleQuoteEmailTurn(text: string, draft: QuoteDraft): AssistantResponse | null {
+  const nextDraft: QuoteDraft = { ...draft };
+  const lower = text.toLowerCase().trim();
+
+  if (nextDraft.awaitingQuoteEmailAddress) {
+    if (declinesQuoteEmail(text)) {
+      nextDraft.awaitingQuoteEmailAddress = false;
+      nextDraft.awaitingQuoteEmailDecision = false;
+      return {
+        reply: "No problem. Would you like to book this trip, or change any details?",
+        draft: nextDraft,
+        quickReplies: ["Yes, book", "Change details", "Another quote", "Speak to someone"],
+      };
+    }
+
+    if (/^(yes,? book|book now|book this)\b/.test(lower) || /^book\b/.test(lower)) {
+      nextDraft.awaitingQuoteEmailAddress = false;
+      return null;
+    }
+
+    if (
+      /^(try again|resend|send again)\b/.test(lower) &&
+      nextDraft.customerEmail &&
+      isValidEmailAddress(nextDraft.customerEmail)
+    ) {
+      return {
+        reply: `Sending your quote to ${nextDraft.customerEmail}…`,
+        draft: nextDraft,
+        emailQuote: true,
+        quickReplies: [],
+      };
+    }
+
+    const email = extractEmail(text) ?? text.trim();
+    if (!isValidEmailAddress(email)) {
+      return {
+        reply: "Please enter a valid email address so I can send your quote.",
+        draft: nextDraft,
+        quickReplies: ["No thanks", "Yes, book"],
+      };
+    }
+
+    nextDraft.customerEmail = email;
+    nextDraft.awaitingQuoteEmailAddress = false;
+    nextDraft.awaitingQuoteEmailDecision = false;
+    return {
+      reply: `Sending your quote to ${email}…`,
+      draft: nextDraft,
+      emailQuote: true,
+      quickReplies: [],
+    };
+  }
+
+  if (!nextDraft.awaitingQuoteEmailDecision && !wantsQuoteEmailed(text)) {
+    return null;
+  }
+
+  if (declinesQuoteEmail(text)) {
+    nextDraft.awaitingQuoteEmailDecision = false;
+    nextDraft.awaitingQuoteEmailAddress = false;
+    return {
+      reply: "No problem. Would you like to book this trip, or change any details?",
+      draft: nextDraft,
+      quickReplies: ["Yes, book", "Change details", "Another quote", "Speak to someone"],
+    };
+  }
+
+  // Prefer booking if they clearly chose book over email.
+  if (
+    /^(yes,? book|book now|book this|request to book|enquire to book)\b/.test(lower) ||
+    /^book\b/.test(lower)
+  ) {
+    nextDraft.awaitingQuoteEmailDecision = false;
+    return null;
+  }
+
+  if (!wantsQuoteEmailed(text)) {
+    // Still waiting on the email offer — leave other intents (change details, etc.) alone.
+    return null;
+  }
+
+  if (!hasQuotedTrip(nextDraft)) {
+    return {
+      reply: "Let’s get your quote first — say “Get a quote”, then I can email it to you.",
+      draft: nextDraft,
+      quickReplies: ["Get a quote"],
+    };
+  }
+
+  nextDraft.awaitingQuoteEmailDecision = false;
+  nextDraft.awaitingQuoteEmailAddress = true;
+  if (nextDraft.customerEmail && isValidEmailAddress(nextDraft.customerEmail)) {
+    return {
+      reply: `Shall I send it to ${nextDraft.customerEmail}? Reply with that address, or type a different email.`,
+      draft: nextDraft,
+      quickReplies: [nextDraft.customerEmail, "No thanks", "Yes, book"],
+    };
+  }
+
+  return {
+    reply: "What email address should I send the quote to?",
+    draft: nextDraft,
+    quickReplies: ["No thanks", "Yes, book"],
   };
 }
 
@@ -1256,7 +1394,7 @@ function tryBuildQuote(
     text:
       `Here’s your fixed journey price ${directionLabel}.\n` +
       `${vehicleNote}\n\n` +
-      `What would you like to do next?`,
+      `Would you like this quote emailed to you?`,
   };
 }
 
@@ -1333,6 +1471,20 @@ export async function respondToAssistantMessage(
     });
   }
 
+  // Offer / send quote by email before booking starts.
+  if (
+    nextDraft.awaitingQuoteEmailDecision ||
+    nextDraft.awaitingQuoteEmailAddress ||
+    /^(yes,? email( quote)?|email (me )?(this )?quote|email it|send (me )?(the )?quote)\b/.test(
+      lower,
+    )
+  ) {
+    const emailReply = handleQuoteEmailTurn(text, nextDraft);
+    if (emailReply) {
+      return understood(emailReply);
+    }
+  }
+
   // In-chat booking collects date/time/contact/flights here (not the quote tool).
   if (nextDraft.bookingStarted) {
     const bookingReply = await handleBookingTurn(text, nextDraft);
@@ -1397,6 +1549,8 @@ export async function respondToAssistantMessage(
 
     const built = tryBuildQuote(nextDraft);
     nextDraft.bookingStarted = true;
+    nextDraft.awaitingQuoteEmailDecision = false;
+    nextDraft.awaitingQuoteEmailAddress = false;
     if (built?.quoteCard?.amountLabel) {
       nextDraft.quotedAmountLabel = built.quoteCard.amountLabel;
     }
@@ -1630,10 +1784,17 @@ export async function respondToAssistantMessage(
 
     const built = tryBuildQuote(nextDraft);
     if (built) {
+      if (built.quoteCard?.amountLabel) {
+        nextDraft.quotedAmountLabel = built.quoteCard.amountLabel;
+      }
+      nextDraft.awaitingQuoteEmailDecision = !built.enquiryOnly;
+      nextDraft.awaitingQuoteEmailAddress = false;
       return understood({
         reply: built.text,
         draft: nextDraft,
-        quickReplies: ["Yes, book", "Change details", "Speak to someone", "Another quote"],
+        quickReplies: built.enquiryOnly
+          ? ["Yes, book", "Change details", "Speak to someone", "Another quote"]
+          : ["Yes, email quote", "No thanks", "Yes, book", "Change details"],
         quoteCard: built.quoteCard,
       });
     }

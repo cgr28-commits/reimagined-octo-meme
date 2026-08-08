@@ -20,7 +20,7 @@ import {
   type QuoteCardSummary,
   type QuoteDraft,
 } from "@/lib/quote-assistant";
-import { submitAssistantBooking } from "@/lib/quote-assistant-submit";
+import { emailAssistantQuote, submitAssistantBooking } from "@/lib/quote-assistant-submit";
 
 const BOT_WORKING_MS = 450;
 const SESSION_KEY = "matni-quote-assistant-v1";
@@ -142,15 +142,17 @@ export default function QuoteAssistant() {
     ? "YYYY-MM-DD or Today / Tomorrow"
     : showTimePicker
       ? "HH:MM pickup time"
-      : awaitingField === "flightNumber" || awaitingField === "returnFlightNumber"
-        ? "e.g. BA1234"
-        : awaitingField === "customerEmail"
-          ? "name@example.com"
-          : awaitingField === "mobileNumber"
-            ? "07… or +44…"
-            : awaitingField === "customerName"
-              ? "Your full name"
-              : "Ask a question or get a quote…";
+      : draft.awaitingQuoteEmailAddress
+        ? "name@example.com"
+        : awaitingField === "flightNumber" || awaitingField === "returnFlightNumber"
+          ? "e.g. BA1234"
+          : awaitingField === "customerEmail"
+            ? "name@example.com"
+            : awaitingField === "mobileNumber"
+              ? "07… or +44…"
+              : awaitingField === "customerName"
+                ? "Your full name"
+                : "Ask a question or get a quote…";
 
   useEffect(() => {
     setMounted(true);
@@ -313,6 +315,24 @@ export default function QuoteAssistant() {
           },
         ]);
         playBotReplySound();
+
+        if (result.emailQuote) {
+          const emailed = await emailAssistantQuote(nextDraft);
+          nextDraft = {
+            ...nextDraft,
+            quoteEmailSent: emailed.ok ? true : nextDraft.quoteEmailSent,
+            awaitingQuoteEmailAddress: emailed.ok ? false : true,
+          };
+          setDraft(nextDraft);
+          draftRef.current = nextDraft;
+          setMessages((prev) => [...prev, { role: "bot", text: emailed.message }]);
+          playBotReplySound();
+          setQuickReplies(
+            emailed.ok
+              ? ["Yes, book", "Change details", "Another quote", "Speak to someone"]
+              : ["Try again", "Yes, book", "Speak to someone"],
+          );
+        }
 
         if (result.submitBooking) {
           const submission = await submitAssistantBooking(nextDraft);
