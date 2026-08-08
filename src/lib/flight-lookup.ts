@@ -4,6 +4,7 @@ export type { TripDirection, VerifiedFlight } from "../../shared/flight-lookup";
 export {
   formatFlightNumberForDisplay,
   isValidFlightNumberFormat,
+  normalizeFlightNumber,
 } from "../../shared/flight-lookup";
 
 export type ClientFlightLookupResult =

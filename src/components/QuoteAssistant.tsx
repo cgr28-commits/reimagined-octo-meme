@@ -9,7 +9,6 @@ import { playBotOpenSound, playBotReplySound, playBotWorkingSound } from "@/lib/
 import { contactCardUrl } from "@/lib/contact-card";
 import { detectMobileDevice, useIsMobileDevice } from "@/lib/device";
 import { withBasePath } from "@/lib/paths";
-import { prefillQuoteFromAssistant } from "@/lib/quote-prefill";
 import { SITE } from "@/lib/data";
 import {
   createWelcomeMessages,
@@ -21,6 +20,7 @@ import {
   type QuoteCardSummary,
   type QuoteDraft,
 } from "@/lib/quote-assistant";
+import { emailAssistantQuote, submitAssistantBooking } from "@/lib/quote-assistant-submit";
 
 const BOT_WORKING_MS = 450;
 const SESSION_KEY = "matni-quote-assistant-v1";
@@ -132,8 +132,27 @@ export default function QuoteAssistant() {
   const qrSrc = withBasePath("/contact-qr.png");
   const awaitingField = !isWorking ? getNextQuoteField(draft) : null;
   const showAddressPicker = awaitingField === "address";
+  const showDatePicker =
+    awaitingField === "tripDate" || awaitingField === "returnDate";
+  const showTimePicker =
+    awaitingField === "tripTime" || awaitingField === "returnTime";
   const addressLabel =
     draft.direction === "from-airport" ? "Drop-off address" : "Pickup address";
+  const inputPlaceholder = showDatePicker
+    ? "YYYY-MM-DD or Today / Tomorrow"
+    : showTimePicker
+      ? "HH:MM pickup time"
+      : draft.awaitingQuoteEmailAddress
+        ? "name@example.com"
+        : awaitingField === "flightNumber" || awaitingField === "returnFlightNumber"
+          ? "e.g. BA1234"
+          : awaitingField === "customerEmail"
+            ? "name@example.com"
+            : awaitingField === "mobileNumber"
+              ? "07… or +44…"
+              : awaitingField === "customerName"
+                ? "Your full name"
+                : "Ask a question or get a quote…";
 
   useEffect(() => {
     setMounted(true);
@@ -276,54 +295,81 @@ export default function QuoteAssistant() {
     }
 
     workingTimerRef.current = setTimeout(() => {
-      const result = respondToAssistantMessage(text, draftRef.current, {
-        consecutiveMisses: missesRef.current,
-      });
-      const nextDraft = result.resetDraft ? emptyQuoteDraft() : result.draft;
-      const nextMisses = result.consecutiveMisses ?? 0;
-      setDraft(nextDraft);
-      draftRef.current = nextDraft;
-      setConsecutiveMisses(nextMisses);
-      missesRef.current = nextMisses;
-      setQuickReplies(result.quickReplies ?? []);
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "bot",
-          text: result.reply,
-          ...(result.quoteCard ? { quoteCard: result.quoteCard } : {}),
-        },
-      ]);
-      setIsWorking(false);
-      playBotReplySound();
-      workingTimerRef.current = null;
+      void (async () => {
+        const result = await respondToAssistantMessage(text, draftRef.current, {
+          consecutiveMisses: missesRef.current,
+        });
+        let nextDraft = result.resetDraft ? emptyQuoteDraft() : result.draft;
+        const nextMisses = result.consecutiveMisses ?? 0;
+        setDraft(nextDraft);
+        draftRef.current = nextDraft;
+        setConsecutiveMisses(nextMisses);
+        missesRef.current = nextMisses;
+        setQuickReplies(result.quickReplies ?? []);
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: "bot",
+            text: result.reply,
+            ...(result.quoteCard ? { quoteCard: result.quoteCard } : {}),
+          },
+        ]);
+        playBotReplySound();
 
-      if (result.openWhatsAppHandoff) {
-        setShowContactOffer(false);
-        openWhatsAppHandoff();
-      }
+        if (result.emailQuote) {
+          const emailed = await emailAssistantQuote(nextDraft);
+          nextDraft = {
+            ...nextDraft,
+            quoteEmailSent: emailed.ok ? true : nextDraft.quoteEmailSent,
+            awaitingQuoteEmailAddress: emailed.ok ? false : true,
+          };
+          setDraft(nextDraft);
+          draftRef.current = nextDraft;
+          setMessages((prev) => [...prev, { role: "bot", text: emailed.message }]);
+          playBotReplySound();
+          setQuickReplies(
+            emailed.ok
+              ? ["Yes, book", "Change details", "Another quote", "Speak to someone"]
+              : ["Try again", "Yes, book", "Speak to someone"],
+          );
+        }
 
-      if (result.openQuoteForm) {
-        setShowContactOffer(false);
-        prefillQuoteFromAssistant(nextDraft);
-        setOpen(false);
-        return;
-      }
+        if (result.submitBooking) {
+          const submission = await submitAssistantBooking(nextDraft);
+          setMessages((prev) => [...prev, { role: "bot", text: submission.message }]);
+          playBotReplySound();
+          if (submission.ok) {
+            nextDraft = emptyQuoteDraft();
+            setDraft(nextDraft);
+            draftRef.current = nextDraft;
+            setQuickReplies(["Get a quote", "Save to contacts", "Speak to someone"]);
+          } else {
+            setQuickReplies(["Confirm booking", "Speak to someone", "Another quote"]);
+          }
+        }
 
-      if (result.showContactOffer === true) {
-        const mobile = isMobile ?? detectMobileDevice();
-        if (mobile) {
-          // Mobile: minimise the bot and open the contact card (no QR needed).
-          openContactCardOnMobile();
+        setIsWorking(false);
+        workingTimerRef.current = null;
+
+        if (result.openWhatsAppHandoff) {
+          setShowContactOffer(false);
+          openWhatsAppHandoff();
+        }
+
+        if (result.showContactOffer === true) {
+          const mobile = isMobile ?? detectMobileDevice();
+          if (mobile) {
+            openContactCardOnMobile();
+            return;
+          }
+          setShowContactOffer(true);
           return;
         }
-        setShowContactOffer(true);
-        return;
-      }
 
-      if (!result.openWhatsAppHandoff) {
-        setShowContactOffer(false);
-      }
+        if (!result.openWhatsAppHandoff) {
+          setShowContactOffer(false);
+        }
+      })();
     }, BOT_WORKING_MS);
   }
 
@@ -528,7 +574,17 @@ export default function QuoteAssistant() {
                 <button
                   key={reply}
                   type="button"
-                  onClick={() => sendText(reply)}
+                  onClick={() => {
+                    if (reply === "Open terms") {
+                      window.open(withBasePath("/terms/"), "_blank", "noopener,noreferrer");
+                      return;
+                    }
+                    if (reply === "Open privacy") {
+                      window.open(withBasePath("/privacy/"), "_blank", "noopener,noreferrer");
+                      return;
+                    }
+                    sendText(reply);
+                  }}
                   className="max-w-full break-words rounded-full border border-emerald/40 bg-emerald/10 px-3 py-1 text-xs font-semibold text-emerald transition-colors hover:bg-emerald/20"
                 >
                   {reply}
@@ -586,7 +642,8 @@ export default function QuoteAssistant() {
               <input
                 value={input}
                 onChange={(event) => setInput(event.target.value)}
-                placeholder="Ask a question or get a quote…"
+                type={showDatePicker ? "date" : showTimePicker ? "time" : "text"}
+                placeholder={inputPlaceholder}
                 className="min-w-0 flex-1 rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm text-white outline-none placeholder:text-white/35 focus:border-emerald/50"
               />
               <button

@@ -9,8 +9,15 @@ import {
   WHY_CHOOSE_US,
   isVehicleEnquiryOnly,
 } from "@/lib/data";
+import { isValidEmailAddress, isValidMobileNumber } from "@/lib/booking-message";
+import {
+  isSoftFlightLookupFailure,
+  isValidFlightNumberFormat,
+  lookupFlightForBooking,
+  normalizeFlightNumber,
+} from "@/lib/flight-lookup";
 import { PRIVACY_SECTIONS } from "@/lib/privacy";
-import { TERMS_SECTIONS } from "@/lib/terms";
+import { TERMS_LAST_UPDATED, TERMS_SECTIONS } from "@/lib/terms";
 import { calculateQuote, formatQuote, matchAreaFromAddress } from "@/lib/quote";
 
 export type AssistantMessage = {
@@ -45,6 +52,23 @@ export type QuoteDraft = {
   tripTime?: string;
   returnDate?: string;
   returnTime?: string;
+  /** In-chat booking started after a quote (do not open the quote tool). */
+  bookingStarted?: boolean;
+  customerName?: string;
+  customerEmail?: string;
+  mobileNumber?: string;
+  flightNumber?: string;
+  returnFlightNumber?: string;
+  termsAccepted?: boolean;
+  quotedAmountLabel?: string;
+  flightValidated?: boolean;
+  returnFlightValidated?: boolean;
+  marketingOptIn?: boolean;
+  /** After a quote, ask whether to email it before booking. */
+  awaitingQuoteEmailDecision?: boolean;
+  /** Collecting the address to email the quote to. */
+  awaitingQuoteEmailAddress?: boolean;
+  quoteEmailSent?: boolean;
 };
 
 export type AssistantResponse = {
@@ -53,13 +77,19 @@ export type AssistantResponse = {
   quickReplies?: string[];
   resetDraft?: boolean;
   showContactOffer?: boolean;
-  /** Open the live quote tool with this draft for booking */
+  /** @deprecated Prefer in-chat booking; kept for rare fallbacks */
   openQuoteForm?: boolean;
   quoteCard?: QuoteCardSummary;
   /** Consecutive unanswered / misunderstood turns — UI should pass this back in. */
   consecutiveMisses?: number;
   /** Open WhatsApp to a human (site WhatsApp number). */
   openWhatsAppHandoff?: boolean;
+  /** Hint for the chat input control (date/time pickers). */
+  inputMode?: "text" | "date" | "time";
+  /** UI should submit the completed booking draft. */
+  submitBooking?: boolean;
+  /** UI should email the current quote to draft.customerEmail. */
+  emailQuote?: boolean;
 };
 
 export type AssistantContext = {
@@ -71,12 +101,20 @@ type MissingField =
   | "returnJourney"
   | "airport"
   | "address"
+  | "passengers"
+  | "suitcases"
   | "tripDate"
   | "tripTime"
   | "returnDate"
   | "returnTime"
-  | "passengers"
-  | "suitcases";
+  | "customerName"
+  | "mobileNumber"
+  | "customerEmail"
+  | "flightNumber"
+  | "returnFlightNumber"
+  | "termsAccepted"
+  | "marketingOptIn"
+  | "confirmBooking";
 
 const AIRPORT_ALIASES: Record<string, string> = {
   bfs: "BFS",
@@ -147,7 +185,7 @@ function knowledgeChunks(): Array<{ title: string; body: string }> {
     {
       title: "Quote tool flow",
       body:
-        "The quote tool asks: trip type (to or from airport), one way or return, airport, full pickup or drop-off address, passengers, and suitcases, then shows the fixed journey price and vehicle. Pickup date and time are collected when you choose to book. Booking continues on the quote form with date/time, contact details, flight numbers and terms.",
+        "The quote tool asks: trip type (to or from airport), one way or return, airport, full pickup or drop-off address, passengers, and suitcases, then shows the fixed journey price and vehicle. Pickup date and time are collected when you choose to book. You can finish booking in this chat with date/time, contact details, flight numbers and terms — flight numbers are checked before we send the request.",
     },
     {
       title: "Airports we cover",
@@ -558,15 +596,38 @@ function extractTime(text: string): string | undefined {
   return undefined;
 }
 
-function nextMissingField(draft: QuoteDraft): MissingField | null {
+function nextQuoteField(draft: QuoteDraft): MissingField | null {
   if (!draft.direction) return "direction";
   if (draft.returnJourney === undefined) return "returnJourney";
   if (!draft.airportCode) return "airport";
   if (!draft.address) return "address";
-  // Date/time are collected on the booking form after the customer chooses to book.
   if (draft.passengers === undefined) return "passengers";
   if (draft.suitcases === undefined) return "suitcases";
   return null;
+}
+
+function nextBookingField(draft: QuoteDraft): MissingField | null {
+  if (!draft.tripDate) return "tripDate";
+  if (!draft.tripTime) return "tripTime";
+  if (draft.returnJourney) {
+    if (!draft.returnDate) return "returnDate";
+    if (!draft.returnTime) return "returnTime";
+  }
+  if (!draft.customerName?.trim()) return "customerName";
+  if (!draft.mobileNumber?.trim()) return "mobileNumber";
+  if (!draft.customerEmail?.trim()) return "customerEmail";
+  if (!draft.flightNumber?.trim()) return "flightNumber";
+  if (draft.returnJourney && !draft.returnFlightNumber?.trim()) return "returnFlightNumber";
+  if (!draft.termsAccepted) return "termsAccepted";
+  if (!draft.marketingOptIn) return "marketingOptIn";
+  return "confirmBooking";
+}
+
+function nextMissingField(draft: QuoteDraft): MissingField | null {
+  if (draft.bookingStarted) {
+    return nextBookingField(draft);
+  }
+  return nextQuoteField(draft);
 }
 
 /** Exported so the chat UI can show calendar/clock pickers for date/time steps. */
@@ -576,9 +637,172 @@ export function getNextQuoteField(draft: QuoteDraft): MissingField | null {
 
 export type QuoteMissingField = MissingField;
 
+function inputModeForField(field: MissingField): "text" | "date" | "time" | undefined {
+  if (field === "tripDate" || field === "returnDate") return "date";
+  if (field === "tripTime" || field === "returnTime") return "time";
+  return undefined;
+}
+
+function parseDateTimeValue(date: string, time: string): number {
+  return new Date(`${date}T${time}`).getTime();
+}
+
+function isReturnAfterOutbound(
+  outboundDate: string,
+  outboundTime: string,
+  returnDate: string,
+  returnTime: string,
+): boolean {
+  return parseDateTimeValue(returnDate, returnTime) > parseDateTimeValue(outboundDate, outboundTime);
+}
+
+function extractPersonName(text: string): string | undefined {
+  const cleaned = text.trim().replace(/\s+/g, " ");
+  const labeled = cleaned.match(
+    /^(?:my name is|i'?m|i am|name(?:\s*is)?)\s+([a-z][a-z'’.\-]+(?:\s+[a-z][a-z'’.\-]+){0,3})$/i,
+  );
+  if (labeled?.[1]) {
+    return labeled[1].replace(/\b\w/g, (c) => c.toUpperCase());
+  }
+  if (
+    /^[a-z][a-z'’.\-]+(?:\s+[a-z][a-z'’.\-]+){0,3}$/i.test(cleaned) &&
+    cleaned.split(/\s+/).length <= 4 &&
+    !/\b(yes|no|book|quote|airport|saloon|estate|minibus|today|tomorrow|accept|confirm|skip)\b/i.test(
+      cleaned,
+    )
+  ) {
+    return cleaned.replace(/\b\w/g, (c) => c.toUpperCase());
+  }
+  return undefined;
+}
+
+function extractEmail(text: string): string | undefined {
+  const match = text.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+  return match?.[0]?.toLowerCase();
+}
+
+function extractMobile(text: string): string | undefined {
+  const match = text.match(/(?:\+?44|0)\s*\d(?:[\s-]?\d){8,13}/);
+  if (!match) return undefined;
+  return match[0].replace(/[^\d+]/g, "");
+}
+
+function extractFlightNumberToken(text: string): string | undefined {
+  const cleaned = text.trim();
+  if (!cleaned) return undefined;
+  const labeled = cleaned.match(
+    /\b(?:flight(?:\s*number)?|flt)\s*[:=]?\s*([a-z0-9]{2,3}\s*\d{1,4}[a-z]?)\b/i,
+  );
+  if (labeled?.[1]) return normalizeFlightNumber(labeled[1]);
+  const bare = cleaned.match(/^([a-z0-9]{2,3}\s*\d{1,4}[a-z]?)$/i);
+  if (bare?.[1]) return normalizeFlightNumber(bare[1]);
+  const embedded = cleaned.match(/\b([a-z]{2,3}\s*\d{1,4}[a-z]?)\b/i);
+  if (embedded?.[1]) return normalizeFlightNumber(embedded[1]);
+  return undefined;
+}
+
+function acceptsTerms(text: string): boolean {
+  return /\b(i accept|accept( the)? terms|yes,? i accept|yes)\b/i.test(text) ||
+    /^(accept|ok|okay|sure)$/i.test(text.trim());
+}
+
+function acceptsMarketing(text: string): boolean {
+  return /\b(i agree|i accept|agree|yes,? i agree|yes|opt in|subscribe)\b/i.test(text) ||
+    /^(agree|accept|ok|okay|sure)$/i.test(text.trim());
+}
+
+function confirmsBooking(text: string): boolean {
+  return /\b(confirm|yes|book it|place (the )?booking|go ahead|submit|that'?s correct|looks good|ok|okay|send)\b/i.test(
+    text,
+  );
+}
+
+function bookingSummary(draft: QuoteDraft): string {
+  const airportName =
+    AIRPORTS.find((item) => item.code === draft.airportCode)?.name ?? draft.airportCode;
+  const direction =
+    draft.direction === "from-airport" ? `from ${airportName}` : `to ${airportName}`;
+  const lines = [
+    `Trip: ${direction}${draft.returnJourney ? " (return)" : " (one way)"}`,
+    `Address: ${draft.address}`,
+    `Outbound: ${draft.tripDate} at ${draft.tripTime}`,
+  ];
+  if (draft.returnJourney) {
+    lines.push(`Return: ${draft.returnDate} at ${draft.returnTime}`);
+  }
+  lines.push(`Name: ${draft.customerName}`);
+  lines.push(`Mobile: ${draft.mobileNumber}`);
+  lines.push(`Email: ${draft.customerEmail}`);
+  lines.push(`Flight: ${draft.flightNumber}`);
+  if (draft.returnJourney && draft.returnFlightNumber) {
+    lines.push(`Return flight: ${draft.returnFlightNumber}`);
+  }
+  if (draft.quotedAmountLabel) {
+    lines.push(`Quoted price: ${draft.quotedAmountLabel}`);
+  }
+  lines.push(`Terms accepted: ${draft.termsAccepted ? "Yes" : "No"}`);
+  lines.push(`Marketing emails: ${draft.marketingOptIn ? "Opted in" : "Not opted in"}`);
+  return lines.join("\n");
+}
+
+async function verifyFlightForDraft(
+  flightNumber: string,
+  tripDate: string,
+  airportCode: string,
+  direction: "to-airport" | "from-airport",
+): Promise<{ accept: boolean; hardFail: boolean; message: string }> {
+  if (!isValidFlightNumberFormat(flightNumber)) {
+    return {
+      accept: false,
+      hardFail: true,
+      message: `“${flightNumber}” doesn’t look like a valid flight number. Please use a format like BA1234 or EI335.`,
+    };
+  }
+
+  const result = await lookupFlightForBooking({
+    flightNumber,
+    tripDate,
+    airportCode,
+    direction,
+  });
+
+  if (result.ok) {
+    const flight = result.flight;
+    const route =
+      flight.departureAirport && flight.arrivalAirport
+        ? `${flight.departureAirport} → ${flight.arrivalAirport}`
+        : "";
+    const when = flight.scheduledTimeLabel ? ` · ${flight.scheduledTimeLabel}` : "";
+    return {
+      accept: true,
+      hardFail: false,
+      message: `Flight ${flight.flightNumber || flightNumber} verified${route ? ` (${route}${when})` : ""}.`,
+    };
+  }
+
+  if (!result.configured || isSoftFlightLookupFailure(result.code)) {
+    return {
+      accept: true,
+      hardFail: false,
+      message:
+        result.error ||
+        `I couldn’t reach live flight data just now, so I’ll take ${flightNumber} as entered.`,
+    };
+  }
+
+  return {
+    accept: false,
+    hardFail: true,
+    message:
+      result.error ||
+      `I couldn’t verify flight ${flightNumber} for that date and airport. Please check the number and try again.`,
+  };
+}
+
 function promptForField(field: MissingField, draft: QuoteDraft): AssistantResponse {
   const airportName =
     AIRPORTS.find((item) => item.code === draft.airportCode)?.name ?? draft.airportCode;
+  const mode = inputModeForField(field);
 
   switch (field) {
     case "direction":
@@ -613,24 +837,28 @@ function promptForField(field: MissingField, draft: QuoteDraft): AssistantRespon
         reply: "What date is the outbound journey?",
         draft,
         quickReplies: ["Today", "Tomorrow"],
+        inputMode: mode,
       };
     case "tripTime":
       return {
         reply: "What pickup time do you need?",
         draft,
         quickReplies: ["06:00", "09:00", "12:00", "18:00"],
+        inputMode: mode,
       };
     case "returnDate":
       return {
         reply: "What date is the return journey?",
         draft,
         quickReplies: ["Tomorrow"],
+        inputMode: mode,
       };
     case "returnTime":
       return {
         reply: "What pickup time for the return journey?",
         draft,
         quickReplies: ["09:00", "12:00", "18:00"],
+        inputMode: mode,
       };
     case "passengers":
       return {
@@ -644,7 +872,456 @@ function promptForField(field: MissingField, draft: QuoteDraft): AssistantRespon
         draft,
         quickReplies: ["1 suitcase", "2 suitcases", "3 suitcases", "4 suitcases"],
       };
+    case "customerName":
+      return {
+        reply: "What’s your full name for the booking?",
+        draft,
+        quickReplies: [],
+      };
+    case "mobileNumber":
+      return {
+        reply: "What’s the best mobile number for the driver to reach you?",
+        draft,
+        quickReplies: [],
+      };
+    case "customerEmail":
+      return {
+        reply: "And your email address for the booking confirmation?",
+        draft,
+        quickReplies: [],
+      };
+    case "flightNumber":
+      return {
+        reply:
+          draft.direction === "from-airport"
+            ? "What’s your flight number for arrival? I’ll check it’s correct for that date."
+            : "What’s your flight number for going? I’ll check it’s correct for that date.",
+        draft,
+        quickReplies: [],
+      };
+    case "returnFlightNumber":
+      return {
+        reply:
+          "What’s your return / collection flight number? I’ll check it’s correct for the return date.",
+        draft,
+        quickReplies: [],
+      };
+    case "termsAccepted":
+      return {
+        reply:
+          `Please confirm you accept our terms and conditions (${SITE.name} terms, last updated ${TERMS_LAST_UPDATED}). Reply “I accept” to continue — you can also read them at /terms/.`,
+        draft,
+        quickReplies: ["I accept", "Open terms"],
+      };
+    case "marketingOptIn":
+      return {
+        reply:
+          `Please confirm you’re happy to receive occasional offers, travel tips and news by email from ${SITE.name}. You can unsubscribe any time. Reply “I agree” to continue — or read our privacy policy at /privacy/.`,
+        draft,
+        quickReplies: ["I agree", "Open privacy"],
+      };
+    case "confirmBooking":
+      return {
+        reply:
+          `Please confirm these booking details:\n\n${bookingSummary(draft)}\n\nReply “Confirm booking” to send your request.`,
+        draft,
+        quickReplies: ["Confirm booking", "Change details", "Speak to someone"],
+      };
   }
+}
+
+async function continueBookingPrompt(
+  draft: QuoteDraft,
+  prefix = "",
+): Promise<AssistantResponse> {
+  const field = nextBookingField(draft);
+  if (!field) {
+    return {
+      reply: prefix || "Your booking details look complete.",
+      draft,
+      quickReplies: ["Confirm booking"],
+    };
+  }
+  const prompt = promptForField(field, draft);
+  return {
+    ...prompt,
+    reply: prefix ? `${prefix}\n\n${prompt.reply}` : prompt.reply,
+  };
+}
+
+function resetBookingFields(draft: QuoteDraft): QuoteDraft {
+  return {
+    airportCode: draft.airportCode,
+    direction: draft.direction,
+    address: draft.address,
+    passengers: draft.passengers,
+    suitcases: draft.suitcases,
+    vehicle: draft.vehicle,
+    returnJourney: draft.returnJourney,
+    quotedAmountLabel: draft.quotedAmountLabel,
+    customerEmail: draft.customerEmail,
+    bookingStarted: true,
+  };
+}
+
+function wantsQuoteEmailed(text: string): boolean {
+  const lower = text.toLowerCase().trim();
+  return (
+    /^(yes,? email( quote)?|email (me )?(this )?quote|email it|send (me )?(the )?quote|yes$|yes please|yeah|yep)\b/.test(
+      lower,
+    ) || /\bemail (me )?(this )?quote\b/.test(lower)
+  );
+}
+
+function declinesQuoteEmail(text: string): boolean {
+  const lower = text.toLowerCase().trim();
+  return /^(no|no thanks|no thank you|not now|no email|skip|maybe later)\b/.test(lower);
+}
+
+function hasQuotedTrip(draft: QuoteDraft): boolean {
+  return Boolean(
+    draft.quotedAmountLabel &&
+      draft.airportCode &&
+      draft.address &&
+      draft.direction &&
+      draft.passengers !== undefined,
+  );
+}
+
+function handleQuoteEmailTurn(text: string, draft: QuoteDraft): AssistantResponse | null {
+  const nextDraft: QuoteDraft = { ...draft };
+  const lower = text.toLowerCase().trim();
+
+  if (nextDraft.awaitingQuoteEmailAddress) {
+    if (declinesQuoteEmail(text)) {
+      nextDraft.awaitingQuoteEmailAddress = false;
+      nextDraft.awaitingQuoteEmailDecision = false;
+      return {
+        reply: "No problem. Would you like to book this trip, or change any details?",
+        draft: nextDraft,
+        quickReplies: ["Yes, book", "Change details", "Another quote", "Speak to someone"],
+      };
+    }
+
+    if (/^(yes,? book|book now|book this)\b/.test(lower) || /^book\b/.test(lower)) {
+      nextDraft.awaitingQuoteEmailAddress = false;
+      return null;
+    }
+
+    if (
+      /^(try again|resend|send again)\b/.test(lower) &&
+      nextDraft.customerEmail &&
+      isValidEmailAddress(nextDraft.customerEmail)
+    ) {
+      return {
+        reply: `Sending your quote to ${nextDraft.customerEmail}…`,
+        draft: nextDraft,
+        emailQuote: true,
+        quickReplies: [],
+      };
+    }
+
+    const email = extractEmail(text) ?? text.trim();
+    if (!isValidEmailAddress(email)) {
+      return {
+        reply: "Please enter a valid email address so I can send your quote.",
+        draft: nextDraft,
+        quickReplies: ["No thanks", "Yes, book"],
+      };
+    }
+
+    nextDraft.customerEmail = email;
+    nextDraft.awaitingQuoteEmailAddress = false;
+    nextDraft.awaitingQuoteEmailDecision = false;
+    return {
+      reply: `Sending your quote to ${email}…`,
+      draft: nextDraft,
+      emailQuote: true,
+      quickReplies: [],
+    };
+  }
+
+  if (!nextDraft.awaitingQuoteEmailDecision && !wantsQuoteEmailed(text)) {
+    return null;
+  }
+
+  if (declinesQuoteEmail(text)) {
+    nextDraft.awaitingQuoteEmailDecision = false;
+    nextDraft.awaitingQuoteEmailAddress = false;
+    return {
+      reply: "No problem. Would you like to book this trip, or change any details?",
+      draft: nextDraft,
+      quickReplies: ["Yes, book", "Change details", "Another quote", "Speak to someone"],
+    };
+  }
+
+  // Prefer booking if they clearly chose book over email.
+  if (
+    /^(yes,? book|book now|book this|request to book|enquire to book)\b/.test(lower) ||
+    /^book\b/.test(lower)
+  ) {
+    nextDraft.awaitingQuoteEmailDecision = false;
+    return null;
+  }
+
+  if (!wantsQuoteEmailed(text)) {
+    // Still waiting on the email offer — leave other intents (change details, etc.) alone.
+    return null;
+  }
+
+  if (!hasQuotedTrip(nextDraft)) {
+    return {
+      reply: "Let’s get your quote first — say “Get a quote”, then I can email it to you.",
+      draft: nextDraft,
+      quickReplies: ["Get a quote"],
+    };
+  }
+
+  nextDraft.awaitingQuoteEmailDecision = false;
+  nextDraft.awaitingQuoteEmailAddress = true;
+  if (nextDraft.customerEmail && isValidEmailAddress(nextDraft.customerEmail)) {
+    return {
+      reply: `Shall I send it to ${nextDraft.customerEmail}? Reply with that address, or type a different email.`,
+      draft: nextDraft,
+      quickReplies: [nextDraft.customerEmail, "No thanks", "Yes, book"],
+    };
+  }
+
+  return {
+    reply: "What email address should I send the quote to?",
+    draft: nextDraft,
+    quickReplies: ["No thanks", "Yes, book"],
+  };
+}
+
+async function handleBookingTurn(
+  text: string,
+  draft: QuoteDraft,
+): Promise<AssistantResponse | null> {
+  if (!draft.bookingStarted) return null;
+
+  const lower = text.toLowerCase().trim();
+  const nextDraft: QuoteDraft = { ...draft };
+  const awaiting = nextBookingField(nextDraft);
+
+  if (/change (the )?details|change (my )?trip|edit (the )?booking|wrong (date|time|name|mobile|email|flight|details)/.test(lower)) {
+    const cleared = resetBookingFields(nextDraft);
+    return continueBookingPrompt(
+      cleared,
+      "No problem — let’s re-enter the booking details. We’ll keep your quote.",
+    );
+  }
+
+  if (/open terms|read terms|terms and conditions|\/terms/.test(lower)) {
+    return {
+      reply:
+        "Our terms are at /terms/ on the website. When you’re ready, reply “I accept” to continue the booking here in chat.",
+      draft: nextDraft,
+      quickReplies: ["I accept", "Speak to someone"],
+      inputMode: "text",
+    };
+  }
+
+  if (/open privacy|read privacy|privacy policy|\/privacy/.test(lower)) {
+    return {
+      reply:
+        "Our privacy policy is at /privacy/ on the website. When you’re ready, reply “I agree” to opt in to marketing emails and continue.",
+      draft: nextDraft,
+      quickReplies: awaiting === "marketingOptIn" ? ["I agree", "Speak to someone"] : ["I accept", "I agree"],
+      inputMode: "text",
+    };
+  }
+
+  if (awaiting === "tripDate" || awaiting === "returnDate") {
+    const date = extractDate(text);
+    if (!date) {
+      return {
+        reply: "Please enter the date as YYYY-MM-DD, or say Today / Tomorrow.",
+        draft: nextDraft,
+        quickReplies: ["Today", "Tomorrow"],
+        inputMode: "date",
+      };
+    }
+    if (awaiting === "tripDate") nextDraft.tripDate = date;
+    else nextDraft.returnDate = date;
+    const time = extractTime(text);
+    if (time) {
+      if (awaiting === "tripDate") nextDraft.tripTime = time;
+      else nextDraft.returnTime = time;
+    }
+    return continueBookingPrompt(nextDraft, `Got it — ${date}.`);
+  }
+
+  if (awaiting === "tripTime" || awaiting === "returnTime") {
+    const time = extractTime(text);
+    if (!time) {
+      return {
+        reply: "Please enter the pickup time as HH:MM (24-hour), for example 06:30.",
+        draft: nextDraft,
+        quickReplies: ["06:00", "09:00", "12:00", "18:00"],
+        inputMode: "time",
+      };
+    }
+    if (awaiting === "tripTime") {
+      nextDraft.tripTime = time;
+    } else {
+      nextDraft.returnTime = time;
+      if (
+        nextDraft.tripDate &&
+        nextDraft.tripTime &&
+        nextDraft.returnDate &&
+        !isReturnAfterOutbound(
+          nextDraft.tripDate,
+          nextDraft.tripTime,
+          nextDraft.returnDate,
+          time,
+        )
+      ) {
+        delete nextDraft.returnTime;
+        return {
+          reply: "The return pickup needs to be after the outbound pickup. Please enter a later return time or date.",
+          draft: nextDraft,
+          quickReplies: ["09:00", "12:00", "18:00"],
+          inputMode: "time",
+        };
+      }
+    }
+    return continueBookingPrompt(nextDraft, `Pickup time set to ${time}.`);
+  }
+
+  if (awaiting === "customerName") {
+    const name = extractPersonName(text) ?? (text.trim().length >= 2 && text.trim().length <= 60 ? text.trim() : undefined);
+    if (!name || /\d/.test(name)) {
+      return {
+        reply: "Please type your full name (for example Jane Smith).",
+        draft: nextDraft,
+        quickReplies: [],
+      };
+    }
+    nextDraft.customerName = name.replace(/\b\w/g, (c) => c.toUpperCase());
+    return continueBookingPrompt(nextDraft, `Thanks, ${nextDraft.customerName}.`);
+  }
+
+  if (awaiting === "mobileNumber") {
+    const mobile = extractMobile(text) ?? text.trim();
+    if (!isValidMobileNumber(mobile)) {
+      return {
+        reply: "Please enter a valid UK mobile number (for example 07… or +44…).",
+        draft: nextDraft,
+        quickReplies: [],
+      };
+    }
+    nextDraft.mobileNumber = mobile;
+    return continueBookingPrompt(nextDraft, "Mobile saved.");
+  }
+
+  if (awaiting === "customerEmail") {
+    const email = extractEmail(text) ?? text.trim();
+    if (!isValidEmailAddress(email)) {
+      return {
+        reply: "Please enter a valid email address.",
+        draft: nextDraft,
+        quickReplies: [],
+      };
+    }
+    nextDraft.customerEmail = email;
+    return continueBookingPrompt(nextDraft, "Email saved.");
+  }
+
+  if (awaiting === "flightNumber" || awaiting === "returnFlightNumber") {
+    const flight = extractFlightNumberToken(text);
+    if (!flight) {
+      return {
+        reply: "Please enter the flight number (for example BA1234 or EI335).",
+        draft: nextDraft,
+        quickReplies: [],
+      };
+    }
+
+    const isReturn = awaiting === "returnFlightNumber";
+    const tripDate = isReturn ? nextDraft.returnDate! : nextDraft.tripDate!;
+    const direction = isReturn
+      ? nextDraft.direction === "from-airport"
+        ? "to-airport"
+        : "from-airport"
+      : nextDraft.direction!;
+
+    const verification = await verifyFlightForDraft(
+      flight,
+      tripDate,
+      nextDraft.airportCode!,
+      direction,
+    );
+
+    if (!verification.accept) {
+      return {
+        reply: verification.message,
+        draft: nextDraft,
+        quickReplies: [],
+      };
+    }
+
+    if (isReturn) {
+      nextDraft.returnFlightNumber = flight;
+      nextDraft.returnFlightValidated = !verification.hardFail;
+    } else {
+      nextDraft.flightNumber = flight;
+      nextDraft.flightValidated = !verification.hardFail;
+    }
+
+    return continueBookingPrompt(nextDraft, verification.message);
+  }
+
+  if (awaiting === "termsAccepted") {
+    if (!acceptsTerms(text)) {
+      return {
+        reply: 'Please reply “I accept” to accept the terms and conditions and continue, or say “Open terms” to read them.',
+        draft: nextDraft,
+        quickReplies: ["I accept", "Open terms"],
+      };
+    }
+    nextDraft.termsAccepted = true;
+    return continueBookingPrompt(nextDraft, "Terms and conditions accepted.");
+  }
+
+  if (awaiting === "marketingOptIn") {
+    if (!acceptsMarketing(text)) {
+      return {
+        reply:
+          'To complete a booking in this chat, please reply “I agree” to receive occasional marketing emails (you can unsubscribe any time), or say “Open privacy” to read our privacy policy. You can also say “Speak to someone” for WhatsApp help.',
+        draft: nextDraft,
+        quickReplies: ["I agree", "Open privacy", "Speak to someone"],
+      };
+    }
+    nextDraft.marketingOptIn = true;
+    return continueBookingPrompt(nextDraft, "Thanks — you’re opted in to marketing emails.");
+  }
+
+  if (awaiting === "confirmBooking") {
+    if (/\bchange (the )?details\b/.test(lower)) {
+      return {
+        reply:
+          "No problem — tell me what to change (date, time, name, mobile, email, or flight), or say “Another quote” to start over.",
+        draft: nextDraft,
+        quickReplies: ["Another quote", "Speak to someone"],
+      };
+    }
+    if (!confirmsBooking(text)) {
+      return {
+        reply: 'Reply “Confirm booking” to send your request, or “Change details” to edit something.',
+        draft: nextDraft,
+        quickReplies: ["Confirm booking", "Change details", "Speak to someone"],
+      };
+    }
+    return {
+      reply: "Sending your booking request now…",
+      draft: nextDraft,
+      submitBooking: true,
+      quickReplies: [],
+    };
+  }
+
+  return continueBookingPrompt(nextDraft);
 }
 
 function tryBuildQuote(
@@ -679,7 +1356,7 @@ function tryBuildQuote(
       enquiryOnly: true,
       text:
         `${vehicle.split(" (")[0]} is enquiry only for ${airportName}. ` +
-        `Would you like to book? I’ll open the quote form so you can add date, time, and your details — then we’ll confirm availability and price. ` +
+        `Would you like to book? I can take the date, time, and your details here in chat — then we’ll confirm availability and price. ` +
         `Or call ${SITE.landlineDisplay}.`,
     };
   }
@@ -757,7 +1434,7 @@ function tryBuildQuote(
     text:
       `Here’s your fixed journey price ${directionLabel}.\n` +
       `${vehicleNote}\n\n` +
-      `What would you like to do next?`,
+      `Would you like this quote emailed to you?`,
   };
 }
 
@@ -776,11 +1453,11 @@ export function emptyQuoteDraft(): QuoteDraft {
   return {};
 }
 
-export function respondToAssistantMessage(
+export async function respondToAssistantMessage(
   userText: string,
   draft: QuoteDraft,
   context: AssistantContext = {},
-): AssistantResponse {
+): Promise<AssistantResponse> {
   const text = userText.trim();
   const lower = text.toLowerCase();
   const nextDraft: QuoteDraft = { ...draft };
@@ -825,6 +1502,37 @@ export function respondToAssistantMessage(
     return humanHandoffReply(nextDraft);
   }
 
+  if (/another quote|new quote|start again|reset quote|different quote/.test(lower)) {
+    return understood({
+      reply: "No problem — let’s start again. Are you going to the airport or being collected from the airport?",
+      draft: {},
+      resetDraft: true,
+      quickReplies: ["To the airport", "From the airport"],
+    });
+  }
+
+  // Offer / send quote by email before booking starts.
+  if (
+    nextDraft.awaitingQuoteEmailDecision ||
+    nextDraft.awaitingQuoteEmailAddress ||
+    /^(yes,? email( quote)?|email (me )?(this )?quote|email it|send (me )?(the )?quote)\b/.test(
+      lower,
+    )
+  ) {
+    const emailReply = handleQuoteEmailTurn(text, nextDraft);
+    if (emailReply) {
+      return understood(emailReply);
+    }
+  }
+
+  // In-chat booking collects date/time/contact/flights here (not the quote tool).
+  if (nextDraft.bookingStarted) {
+    const bookingReply = await handleBookingTurn(text, nextDraft);
+    if (bookingReply) {
+      return understood(bookingReply);
+    }
+  }
+
   if (
     /change (the )?details|change (my )?trip|edit (the )?quote|wrong (address|airport|details)/.test(
       lower,
@@ -835,15 +1543,6 @@ export function respondToAssistantMessage(
         "No problem — what do you want to change? You can start a fresh quote, or tell me the new airport, address, passengers, or cases.",
       draft: nextDraft,
       quickReplies: ["Another quote", "To the airport", "From the airport", "Speak to someone"],
-    });
-  }
-
-  if (/another quote|new quote|start again|reset quote|different quote/.test(lower)) {
-    return understood({
-      reply: "No problem — let’s start again. Are you going to the airport or being collected from the airport?",
-      draft: {},
-      resetDraft: true,
-      quickReplies: ["To the airport", "From the airport"],
     });
   }
 
@@ -878,22 +1577,29 @@ export function respondToAssistantMessage(
     ) ||
     /^book\b/.test(lower)
   ) {
-    const missing = nextMissingField(nextDraft);
-    if (missing) {
-      const prompt = promptForField(missing, nextDraft);
+    const missingQuote = nextQuoteField(nextDraft);
+    if (missingQuote) {
+      const prompt = promptForField(missingQuote, nextDraft);
       return understood({
-        reply: `Let’s finish the quote details first — then I’ll open the booking form.\n\n${prompt.reply}`,
+        reply: `Let’s finish the quote details first — then I’ll take the booking details here in chat.\n\n${prompt.reply}`,
         draft: nextDraft,
         quickReplies: prompt.quickReplies,
       });
     }
-    return understood({
-      reply:
-        "Opening the live quote tool with your trip details. Add your pickup date & time, name, mobile, email, flight number(s) and accept the terms to send your booking request — we’ll email a SumUp payment link once we confirm the job.",
-      draft: nextDraft,
-      openQuoteForm: true,
-      quickReplies: ["Another quote", "Save to contacts"],
-    });
+
+    const built = tryBuildQuote(nextDraft);
+    nextDraft.bookingStarted = true;
+    nextDraft.awaitingQuoteEmailDecision = false;
+    nextDraft.awaitingQuoteEmailAddress = false;
+    if (built?.quoteCard?.amountLabel) {
+      nextDraft.quotedAmountLabel = built.quoteCard.amountLabel;
+    }
+
+    const bookingPrompt = await continueBookingPrompt(
+      nextDraft,
+      "Great — I’ll take the booking details here in chat (no need to open the quote tool). First, the travel date and time, then your contact details and flight number(s). I’ll check flight numbers are correct.",
+    );
+    return understood(bookingPrompt);
   }
 
   if (/^(hi|hello|hey)\b/.test(lower)) {
@@ -1118,10 +1824,17 @@ export function respondToAssistantMessage(
 
     const built = tryBuildQuote(nextDraft);
     if (built) {
+      if (built.quoteCard?.amountLabel) {
+        nextDraft.quotedAmountLabel = built.quoteCard.amountLabel;
+      }
+      nextDraft.awaitingQuoteEmailDecision = !built.enquiryOnly;
+      nextDraft.awaitingQuoteEmailAddress = false;
       return understood({
         reply: built.text,
         draft: nextDraft,
-        quickReplies: ["Yes, book", "Change details", "Speak to someone", "Another quote"],
+        quickReplies: built.enquiryOnly
+          ? ["Yes, book", "Change details", "Speak to someone", "Another quote"]
+          : ["Yes, email quote", "No thanks", "Yes, book", "Change details"],
         quoteCard: built.quoteCard,
       });
     }
