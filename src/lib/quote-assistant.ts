@@ -188,7 +188,7 @@ function knowledgeChunks(): Array<{ title: string; body: string }> {
     },
     {
       title: "Airports we cover",
-      body: `We cover ${AIRPORTS.map((a) => a.name).join(", ")}. Prices include vehicle, driver, fuel, tolls, and up to 60 minutes complimentary waiting time after landing for airport pickups.`,
+      body: `We cover ${AIRPORTS.map((a) => a.name).join(", ")}. Prices include express drop-off and up to 60 minutes complimentary waiting time after landing for airport pickups.`,
     },
     {
       title: "Areas we cover",
@@ -1419,8 +1419,8 @@ function tryBuildQuote(
   const vehicleLabel = vehicle.split(" (")[0];
   const waitingNote =
     draft.direction === "from-airport" || draft.returnJourney
-      ? "Includes vehicle, driver, fuel, tolls, and up to 60 minutes waiting after landing for airport pickups."
-      : "Includes vehicle, driver, fuel and tolls.";
+      ? "Prices include express drop-off and up to 60 minutes complimentary waiting time after landing for airport pickups."
+      : "Prices include express drop-off.";
 
   const quoteCard: QuoteCardSummary = {
     amount: quote.amount,
