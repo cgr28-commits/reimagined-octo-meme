@@ -399,7 +399,7 @@ function QuoteCard() {
   const tripDetailsReady = hasQuoteRoute && isScheduleComplete;
 
   const liveQuote = useMemo(() => {
-    // Executive / Minibus: no online price — enquiry only
+    // Executive: no online price — enquiry only. Minibus quotes online.
     if (!canShowPrice || isEnquiryOnly) {
       return null;
     }

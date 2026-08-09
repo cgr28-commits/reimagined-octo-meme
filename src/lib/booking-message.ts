@@ -104,7 +104,7 @@ export function buildBookingMessage(details: BookingDetails, bookingReference?: 
   return `Hi, I would like to book the following.\n\n` + buildTripDetailsBlock(details, bookingReference);
 }
 
-/** Executive / Minibus enquiry — no online price; ask the team to quote and confirm. */
+/** Executive (and any other enquiry-only vehicle) — no online price; ask the team to quote and confirm. */
 export function buildEnquiryBookingMessage(
   details: BookingDetails,
   bookingReference?: string,

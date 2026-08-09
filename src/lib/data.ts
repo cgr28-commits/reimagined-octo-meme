@@ -477,8 +477,8 @@ export const VEHICLE_FLEET = [
   {
     name: "Minibus",
     capacity: "7–8 passengers",
-    description: "For larger groups travelling together — enquire to book and we’ll confirm availability and price.",
-    enquiryOnly: true,
+    description: "For larger groups travelling together — get an instant online price and book.",
+    enquiryOnly: false,
   },
 ] as const;
 
@@ -491,10 +491,9 @@ export const VEHICLE_TYPES = [
 
 export type VehicleType = (typeof VEHICLE_TYPES)[number];
 
-/** Executive and Minibus: enquiry to book — no online price, pay, or instant booking. */
+/** Executive: enquiry to book — no online price, pay, or instant booking. Minibus quotes online. */
 export const ENQUIRY_ONLY_VEHICLE_TYPES: readonly VehicleType[] = [
   "Executive Saloon (1–4 passengers)",
-  "Minibus (7–8 passengers)",
 ];
 
 export function isVehicleEnquiryOnly(vehicleType: string): boolean {
