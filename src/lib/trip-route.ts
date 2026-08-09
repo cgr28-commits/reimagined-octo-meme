@@ -66,3 +66,22 @@ export function formatJourneyDuration(durationMinutes: number): string {
 
   return `${hours} hr ${minutes} min`;
 }
+
+/** Longer copy for route summaries, e.g. "approximately 25 minutes". */
+export function formatJourneyDurationApprox(durationMinutes: number): string {
+  const totalMinutes = Math.max(1, Math.round(durationMinutes));
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+
+  if (hours === 0) {
+    return `approximately ${totalMinutes} ${totalMinutes === 1 ? "minute" : "minutes"}`;
+  }
+
+  if (minutes === 0) {
+    return `approximately ${hours} ${hours === 1 ? "hour" : "hours"}`;
+  }
+
+  return `approximately ${hours} ${hours === 1 ? "hour" : "hours"} ${minutes} ${
+    minutes === 1 ? "minute" : "minutes"
+  }`;
+}
