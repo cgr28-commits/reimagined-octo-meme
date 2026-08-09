@@ -172,6 +172,23 @@ function isReturnAfterOutbound(
   return parseDateTime(returnDate, returnTime) > parseDateTime(outboundDate, outboundTime);
 }
 
+/** YYYY-MM-DD for date inputs, using Europe/London (site operates in Northern Ireland). */
+function todayDateInputValue(): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/London",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+}
+
+function isTripDateOnOrAfterToday(tripDate: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(tripDate)) {
+    return false;
+  }
+  return tripDate >= todayDateInputValue();
+}
+
 type BookingDelivery = "whatsapp" | "email";
 
 function QuoteCard() {
@@ -194,6 +211,7 @@ function QuoteCard() {
   const [pickupAddress, setPickupAddress] = useState("");
   const [dropoffAddress, setDropoffAddress] = useState("");
   const [returnJourney, setReturnJourney] = useState(false);
+  const [tripDateError, setTripDateError] = useState("");
   const [returnDateError, setReturnDateError] = useState("");
   const [customerNameError, setCustomerNameError] = useState("");
   const [goingFlightNumber, setGoingFlightNumber] = useState("");
@@ -216,6 +234,8 @@ function QuoteCard() {
   const [tripTime, setTripTime] = useState("");
   const [returnDate, setReturnDate] = useState("");
   const [returnTime, setReturnTime] = useState("");
+  const minTripDate = todayDateInputValue();
+  const minReturnDate = tripDate && tripDate >= minTripDate ? tripDate : minTripDate;
   const [vehicle, setVehicle] = useState<VehicleType>(VEHICLE_TYPES[0]);
   const [passengers, setPassengers] = useState(1);
   const [suitcases, setSuitcases] = useState(1);
@@ -511,6 +531,19 @@ function QuoteCard() {
       return;
     }
 
+    // Quote-lead API requires a complete schedule — never call with empty date/time.
+    if (!tripDate || !tripTime || !isTripDateOnOrAfterToday(tripDate)) {
+      return;
+    }
+    if (returnJourney) {
+      if (!returnDate || !returnTime) {
+        return;
+      }
+      if (!isReturnAfterOutbound(tripDate, tripTime, returnDate, returnTime)) {
+        return;
+      }
+    }
+
     const tripLabel = isAirportTrip
       ? isFromAirport
         ? "Airport pickup"
@@ -599,22 +632,38 @@ function QuoteCard() {
   }
 
   function validateTripForBooking(): boolean {
-    if (!tripDate || !tripTime) {
-      setReturnDateError("Please select your pickup date and time to book.");
-      return false;
+    let ok = true;
+
+    if (!tripDate) {
+      setTripDateError("Please select your pickup date.");
+      ok = false;
+    } else if (!isTripDateOnOrAfterToday(tripDate)) {
+      setTripDateError("Pickup date cannot be in the past.");
+      ok = false;
+    } else if (!tripTime) {
+      setTripDateError("Please select your pickup time.");
+      ok = false;
+    } else {
+      setTripDateError("");
     }
 
     if (returnJourney) {
       if (!returnDate || !returnTime) {
         setReturnDateError("Please select a return date and time.");
-        return false;
-      }
-      if (!isReturnAfterOutbound(tripDate, tripTime, returnDate, returnTime)) {
+        ok = false;
+      } else if (tripDate && tripTime && !isReturnAfterOutbound(tripDate, tripTime, returnDate, returnTime)) {
         setReturnDateError("Return date and time must be after your outbound trip.");
-        return false;
+        ok = false;
+      } else {
+        setReturnDateError("");
       }
+    } else {
+      setReturnDateError("");
     }
-    setReturnDateError("");
+
+    if (!ok) {
+      return false;
+    }
 
     if (ldyServiceAreaInvalid) {
       return false;
@@ -645,7 +694,7 @@ function QuoteCard() {
       setMobileNumberError(
         isEnquiryOnly
           ? "Please enter your mobile number so we can contact you about your enquiry."
-          : "Please enter your mobile number so we can send your payment link by text.",
+          : "Please enter your mobile number so we can contact you about your booking.",
       );
       ok = false;
     } else if (!isValidMobileNumber(customerMobile)) {
@@ -1441,15 +1490,19 @@ function QuoteCard() {
               htmlFor="date"
               className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/50"
             >
-              {returnJourney ? "Outbound Date" : "Date"}
+              {returnJourney ? "Outbound Date" : "Date"}{" "}
+              <span className="text-emerald/80">*</span>
             </label>
             <input
               id="date"
               name="date"
               type="date"
+              required
+              min={minTripDate}
               value={tripDate}
               onChange={(e) => {
                 setTripDate(e.target.value);
+                setTripDateError("");
                 setReturnDateError("");
               }}
               className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30 [color-scheme:dark]"
@@ -1460,21 +1513,26 @@ function QuoteCard() {
               htmlFor="time"
               className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/50"
             >
-              {returnJourney ? "Outbound pick up time" : "Pick up time"}
-              <span className="ml-1 normal-case tracking-normal text-white/35">(for booking)</span>
+              {returnJourney ? "Outbound pick up time" : "Pick up time"}{" "}
+              <span className="text-emerald/80">*</span>
             </label>
             <input
               id="time"
               name="time"
               type="time"
+              required
               value={tripTime}
               onChange={(e) => {
                 setTripTime(e.target.value);
+                setTripDateError("");
                 setReturnDateError("");
               }}
               className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30 [color-scheme:dark]"
             />
           </div>
+          {tripDateError ? (
+            <p className="sm:col-span-2 text-xs text-red-400">{tripDateError}</p>
+          ) : null}
         </div>
 
         {returnJourney && (
@@ -1484,12 +1542,14 @@ function QuoteCard() {
                 htmlFor="returnDate"
                 className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/50"
               >
-                Return Date
+                Return Date <span className="text-emerald/80">*</span>
               </label>
               <input
                 id="returnDate"
                 name="returnDate"
                 type="date"
+                required
+                min={minReturnDate}
                 value={returnDate}
                 onChange={(e) => {
                   setReturnDate(e.target.value);
@@ -1503,13 +1563,13 @@ function QuoteCard() {
                 htmlFor="returnTime"
                 className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/50"
               >
-                Return pick up time
-                <span className="ml-1 normal-case tracking-normal text-white/35">(for booking)</span>
+                Return pick up time <span className="text-emerald/80">*</span>
               </label>
               <input
                 id="returnTime"
                 name="returnTime"
                 type="time"
+                required
                 value={returnTime}
                 onChange={(e) => {
                   setReturnTime(e.target.value);
@@ -1523,9 +1583,6 @@ function QuoteCard() {
             )}
           </div>
         )}
-        {!returnJourney && returnDateError ? (
-          <p className="text-xs text-red-400">{returnDateError}</p>
-        ) : null}
 
         {isAirportTrip && (
           <div className="space-y-4 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-4">

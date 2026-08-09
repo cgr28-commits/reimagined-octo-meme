@@ -44,8 +44,8 @@ export default function BookingTermsConsent({
           >
             Privacy Policy
           </Link>
-          , including the cancellation policy (with at least 24 hours’ notice: refund minus £5 or
-          10% of the booking price, whichever is higher; non-refundable within 24 hours).
+          , including the cancellation policy (full refund with at least 24 hours’ notice;
+          non-refundable within 24 hours or for no-shows).
           {mode === "card-payment" ? (
             <>
               {" "}
@@ -55,8 +55,8 @@ export default function BookingTermsConsent({
           ) : (
             <>
               {" "}
-              I understand my booking is not confirmed until full payment is received and I have
-              reviewed the fare quoted above.
+              I understand this is a booking request — once you confirm the job, you will email a
+              SumUp payment link, and my booking is confirmed only after payment is received.
             </>
           )}
         </span>

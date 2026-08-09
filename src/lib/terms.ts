@@ -76,11 +76,20 @@ export const TERMS_SECTIONS = [
     ],
   },
   {
-    title: "Payment",
-    content: ["Payment may be made:"],
-    list: ["Online (where available)", "By card", "By cash", "By any other accepted payment method"],
+    title: "Booking & Payment",
+    content: [
+      "Standard booking process: get a live quote on our website, submit a booking request, and wait for us to confirm the job. Once confirmed, we email a SumUp payment link. Your booking is confirmed after payment is received.",
+      "Minibus transfers and executive vehicles may require a quote request or enquiry first; payment still follows the same SumUp payment link process once accepted.",
+      "Payment may be made:",
+    ],
+    list: [
+      "By card via the SumUp payment link we email after confirming your booking",
+      "By cash to the driver (where agreed)",
+      "By bank transfer (where agreed)",
+      "By any other accepted payment method we confirm in writing",
+    ],
     footer:
-      "Payment must be made before or at the start of the journey unless a credit account has been agreed.",
+      "Payment must be made before or at the start of the journey unless a credit account has been agreed. A booking request alone does not confirm the journey.",
   },
   {
     title: "Waiting Time",
@@ -115,7 +124,7 @@ export const TERMS_SECTIONS = [
       {
         subtitle: "At least 24 hours’ notice",
         content: [
-          "We will accept the cancellation and refund the fare, minus an administration/transaction charge of £5 or 10% of the booking price, whichever is higher.",
+          "We will accept the cancellation and issue a full refund of the fare paid.",
         ],
       },
       {

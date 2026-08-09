@@ -1,7 +1,7 @@
 import Link from "next/link";
 import Logo from "./Logo";
 import FooterContact from "./FooterContact";
-import { NAV_LINKS, SERVICE_FLAGS, SITE } from "@/lib/data";
+import { LOWEST_AIRPORT_FROM_PRICE, NAV_LINKS, SERVICE_FLAGS, SITE } from "@/lib/data";
 import { TOURS } from "@/lib/tours";
 
 export default function Footer() {
@@ -19,7 +19,7 @@ export default function Footer() {
             <Logo className="h-16" />
             <p className="mt-4 max-w-xs text-sm leading-relaxed text-white/50">
               Northern Ireland&apos;s trusted airport transfer service. Professional
-              drivers, prices from £35, and 24/7 availability.
+              drivers, prices from £{LOWEST_AIRPORT_FROM_PRICE}, and 24/7 availability.
             </p>
           </div>
 

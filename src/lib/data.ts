@@ -298,6 +298,17 @@ export const AIRPORTS = ALL_AIRPORTS.filter(
   (airport) => SERVICE_FLAGS.belfastCityAirport || airport.code !== "BHD",
 );
 
+/** Lowest public “From £X” marketing price (keeps footer / meta aligned with the quote tool). */
+export function getLowestAirportFromPrice(): number {
+  const prices = AIRPORTS.map((airport) => {
+    const match = /£(\d+)/.exec(airport.distance);
+    return match ? Number(match[1]) : airport.basePrice;
+  });
+  return Math.min(...prices);
+}
+
+export const LOWEST_AIRPORT_FROM_PRICE = getLowestAirportFromPrice();
+
 export const AREAS = [
   "Belfast City Centre",
   "Lisburn",
@@ -410,7 +421,7 @@ export const FAQS = [
   {
     question: "How do I book an airport transfer?",
     answer:
-      "You can book via our WhatsApp button or fill in the quote form on this page. We confirm your booking within minutes via WhatsApp with your personalised quote.",
+      "Use Get a Live Quote on this page for your fixed price, then Request to book. We review your request and, once the job is confirmed, email a SumUp payment link. Your booking is confirmed after payment. You can also message us on WhatsApp if you need help.",
   },
   {
     question: "Do you track my flight?",
@@ -430,17 +441,17 @@ export const FAQS = [
   {
     question: "Can I pay by card?",
     answer:
-      "Yes — you can pay securely online by card when you book through our quote form (SumUp checkout). We also accept cash, bank transfer, and payment links sent by text or WhatsApp. Corporate accounts are available for regular business travellers.",
+      "Yes. After you Request to book and we confirm the job, we email a SumUp payment link so you can pay securely by card. Cash and bank transfer can be arranged where agreed. Corporate accounts are available for regular business travellers.",
   },
   {
     question: "What is your cancellation and refund policy?",
     answer:
-      "With at least 24 hours’ notice we accept the cancellation and refund the fare, minus an administration/transaction charge of £5 or 10% of the booking price, whichever is higher. Cancellations with less than 24 hours’ notice and no-shows are not eligible for a refund. Full details are in our Terms & Conditions.",
+      "With at least 24 hours’ notice we accept the cancellation and issue a full refund of the fare paid. Cancellations with less than 24 hours’ notice and no-shows are not eligible for a refund. Full details are in our Terms & Conditions.",
   },
   {
     question: "When is my booking confirmed?",
     answer:
-      "For online card payments, your booking is confirmed once payment is completed and you receive your invoice email. For WhatsApp or email bookings, your booking is not confirmed until full payment has been received and we have acknowledged your reservation.",
+      "Submitting a booking request does not confirm the journey. Once we confirm the job, we email a SumUp payment link — your booking is confirmed after payment is received and you get your confirmation email.",
   },
   {
     question: "What vehicle types do you offer?",
@@ -480,7 +491,7 @@ export const FAQS = [
   {
     question: "Can I pay with cash?",
     answer:
-      "Yes. You can pay by cash to the driver, by bank transfer, by payment link (text or WhatsApp), or securely online by card through SumUp when you book on the website. Corporate accounts are available for regular travellers.",
+      "Yes — cash to the driver or bank transfer can be arranged where agreed. The standard process is Request to book, then pay by card via the SumUp payment link we email after we confirm your job. Corporate accounts are available for regular travellers.",
   },
   {
     question: "Where do you pick up at the airport?",

@@ -56,7 +56,7 @@ export default function Header() {
               className="absolute inset-x-0 top-0 flex max-h-[100dvh] flex-col overflow-y-auto overscroll-contain border-b border-white/10 bg-navy shadow-2xl"
             >
               <div className="flex items-center justify-between gap-3 px-4 py-3">
-                <a href="#" aria-label={`${SITE.name} home`} className="shrink-0" onClick={closeMenu}>
+                <a href="/" aria-label={`${SITE.name} home`} className="shrink-0" onClick={closeMenu}>
                   <Logo className="h-14" />
                 </a>
                 <button
@@ -87,7 +87,7 @@ export default function Header() {
                   ))}
                   <hr className="my-3 border-white/10" />
                   <a
-                    href="#quote"
+                    href="/#quote"
                     onClick={closeMenu}
                     className="rounded-full bg-emerald px-5 py-3.5 text-center text-sm font-semibold text-navy"
                   >
@@ -129,7 +129,7 @@ export default function Header() {
         </div>
 
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
-          <a href="#" aria-label={`${SITE.name} home`} className="shrink-0">
+          <a href="/" aria-label={`${SITE.name} home`} className="shrink-0">
             <Logo className="h-16 sm:h-20" />
           </a>
 
@@ -147,7 +147,7 @@ export default function Header() {
 
           <div className="hidden items-center gap-4 md:flex">
             <a
-              href="#quote"
+              href="/#quote"
               className="rounded-full bg-emerald px-5 py-2 text-sm font-semibold text-navy transition-all hover:bg-emerald-light hover:shadow-lg hover:shadow-emerald/25"
             >
               Get a Quote
