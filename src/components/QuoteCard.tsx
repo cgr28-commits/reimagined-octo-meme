@@ -1020,18 +1020,6 @@ function QuoteCard() {
         ? `Send via WhatsApp — ${formatQuote(liveQuote.amount)}`
         : "Confirm & send via WhatsApp";
 
-  const bookButtonLabel = isRequestQuote
-    ? liveQuote
-      ? `Request a quote · ${formatQuote(liveQuote.amount)}`
-      : "Request a quote"
-    : isEnquiryOnly
-      ? "Enquire to book"
-      : liveQuote
-        ? sumUpEnabled
-          ? `Book for ${formatQuote(liveQuote.amount)}`
-          : `Request to book · ${formatQuote(liveQuote.amount)}`
-        : "Request to book";
-
   const quoteHint = isRequestQuote
     ? hasQuoteRoute
       ? !isScheduleComplete
