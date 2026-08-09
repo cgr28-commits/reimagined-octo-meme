@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   automerge:
-    # Always auto-merge Cursor agent branches (including drafts) once checks pass.
+    # Always auto-merge Cursor agent branches once checks pass (drafts are undrafted first).
     if: startsWith(github.head_ref, 'cursor/')
     runs-on: ubuntu-latest
     steps:
@@ -25,42 +25,71 @@ jobs:
               return;
             }
 
-            const { data: prDetails } = await github.rest.pulls.get({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              pull_number: pr.number,
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const pull_number = pr.number;
+
+            let { data: prDetails } = await github.rest.pulls.get({
+              owner,
+              repo,
+              pull_number,
             });
 
-            if (prDetails.merged || prDetails.mergeable !== true) {
+            if (prDetails.merged) {
+              return;
+            }
+
+            // GitHub cannot merge draft PRs — mark ready first.
+            if (prDetails.draft) {
+              await github.rest.pulls.update({
+                owner,
+                repo,
+                pull_number,
+                draft: false,
+              });
+              ({ data: prDetails } = await github.rest.pulls.get({
+                owner,
+                repo,
+                pull_number,
+              }));
+            }
+
+            if (prDetails.mergeable !== true) {
               return;
             }
 
             const { data: checks } = await github.rest.checks.listForRef({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
+              owner,
+              repo,
               ref: prDetails.head.sha,
             });
 
-            const runs = checks.check_runs.filter((run) => run.name !== "Auto-merge Cursor PRs");
-            if (runs.length === 0) {
-              return;
-            }
+            const ignored = new Set(["Auto-merge Cursor PRs", "automerge"]);
+            const runs = checks.check_runs.filter((run) => !ignored.has(run.name));
 
-            // Ignore skipped/neutral checks; fail only on explicit failures or incomplete runs.
-            const blocking = runs.filter(
+            const blockingRuns = runs.filter(
               (run) =>
                 run.status !== "completed" ||
                 (run.conclusion &&
                   !["success", "skipped", "neutral", "stale"].includes(run.conclusion)),
             );
+            if (blockingRuns.length > 0) {
+              return;
+            }
 
-            if (blocking.length > 0) {
+            // Also honour commit status contexts (e.g. Vercel).
+            const { data: combined } = await github.rest.repos.getCombinedStatusForRef({
+              owner,
+              repo,
+              ref: prDetails.head.sha,
+            });
+            if (combined.state === "pending" || combined.state === "failure") {
               return;
             }
 
             await github.rest.pulls.merge({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              pull_number: pr.number,
+              owner,
+              repo,
+              pull_number,
               merge_method: "merge",
             });
