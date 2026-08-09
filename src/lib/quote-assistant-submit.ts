@@ -1,4 +1,4 @@
-import { AIRPORTS, SITE, isVehicleEnquiryOnly } from "@/lib/data";
+import { AIRPORTS, SITE, isVehicleEnquiryOnly, isVehicleRequestQuote } from "@/lib/data";
 import {
   isValidEmailAddress,
   isValidMobileNumber,
@@ -136,6 +136,13 @@ export function buildBookingDetailsFromDraft(draft: QuoteDraft): BookingDetails 
   const isFromAirport = draft.direction === "from-airport";
   const vehicle = draft.vehicle ?? "Estate Car (1–4 passengers)";
   const enquiryOnly = isVehicleEnquiryOnly(vehicle);
+  const requestQuote = isVehicleRequestQuote(vehicle);
+  const estimatedPrice =
+    draft.quotedAmountLabel && (requestQuote || !enquiryOnly)
+      ? requestQuote
+        ? `Guide price ${draft.quotedAmountLabel} (subject to availability)`
+        : draft.quotedAmountLabel
+      : null;
 
   return {
     customerName: draft.customerName.trim(),
@@ -156,7 +163,7 @@ export function buildBookingDetailsFromDraft(draft: QuoteDraft): BookingDetails 
     passengers: draft.passengers,
     suitcases: draft.suitcases,
     vehicle,
-    estimatedPrice: enquiryOnly ? null : draft.quotedAmountLabel ?? null,
+    estimatedPrice,
     isAirportTrip: true,
     airportCode: draft.airportCode,
     isFromAirport,

@@ -320,9 +320,9 @@ export const WHY_CHOOSE_US = [
       "Early morning and late-night transfers are our speciality — including bank holidays and Christmas.",
   },
   {
-    title: "Licensed & insured fleet",
+    title: "Licensed & insured transport",
     description:
-      "Saloon, estate, executive, and minibus options — all fully licensed and insured for airport transfers.",
+      "Saloon and estate cars from our licensed fleet, with executive and minibus options available — including minibus transfers through our licensed transport partners where needed.",
   },
 ] as const;
 
@@ -406,7 +406,7 @@ export const FAQS = [
   {
     question: "What vehicle types do you offer?",
     answer:
-      "Our fleet includes estate cars and saloons (up to 4 passengers), executive saloons, and 8-seater minibuses for larger groups. All vehicles are fully licensed and insured.",
+      "For 1–4 passengers we use standard or estate cars with an instant online price. For 5–8 passengers, minibus transfers are available through our licensed transport partners (request a quote — subject to availability). Executive saloons are enquire-to-book.",
   },
   {
     question: "Do you offer chauffeur and executive private hire?",
@@ -459,26 +459,36 @@ export const VEHICLE_FLEET = [
   {
     name: "Estate Car",
     capacity: "1–4 passengers",
-    description: "Our most popular option — a spacious estate with a large boot for family holidays and airport luggage.",
+    description:
+      "1–4 passengers — spacious estate with a large boot for family holidays and airport luggage. Instant online price.",
     enquiryOnly: false,
+    requestQuote: false,
+    partnerOperated: false,
   },
   {
     name: "Standard Saloon",
     capacity: "1–4 passengers",
-    description: "Ideal for solo travellers and couples with light luggage.",
+    description: "1–4 passengers — ideal for solo travellers and couples with light luggage. Instant online price.",
     enquiryOnly: false,
+    requestQuote: false,
+    partnerOperated: false,
   },
   {
     name: "Executive Saloon",
     capacity: "1–4 passengers",
     description: "Premium comfort for business travel — enquire to book and we’ll confirm availability and price.",
     enquiryOnly: true,
+    requestQuote: false,
+    partnerOperated: false,
   },
   {
     name: "Minibus",
-    capacity: "7–8 passengers",
-    description: "For larger groups travelling together — enquire to book and we’ll confirm availability and price.",
+    capacity: "5–8 passengers",
+    description:
+      "Minibus transfers available through our licensed transport partners. Subject to availability — request a quote (guide price shown online).",
     enquiryOnly: true,
+    requestQuote: true,
+    partnerOperated: true,
   },
 ] as const;
 
@@ -491,12 +501,37 @@ export const VEHICLE_TYPES = [
 
 export type VehicleType = (typeof VEHICLE_TYPES)[number];
 
-/** Executive and Minibus: enquiry to book — no online price, pay, or instant booking. */
+/** Vehicles that cannot be instantly confirmed — enquiry / request-a-quote flow. */
 export const ENQUIRY_ONLY_VEHICLE_TYPES: readonly VehicleType[] = [
   "Executive Saloon (1–4 passengers)",
   "Minibus (7–8 passengers)",
 ];
 
+/** Minibus: show a guide price online, but require “Request a quote” (not instant confirmation). */
+export const REQUEST_QUOTE_VEHICLE_TYPES: readonly VehicleType[] = [
+  "Minibus (7–8 passengers)",
+];
+
+export const MINIBUS_PARTNER_NOTE =
+  "Minibus transfers available through our licensed transport partners.";
+
+/** 8 passengers with 8 large cases needs manual capacity confirmation before we can accept. */
+export function needsLuggageCapacityConfirmation(
+  passengers: number,
+  suitcases: number,
+): boolean {
+  return passengers >= 8 && suitcases >= 8;
+}
+
 export function isVehicleEnquiryOnly(vehicleType: string): boolean {
   return (ENQUIRY_ONLY_VEHICLE_TYPES as readonly string[]).includes(vehicleType);
+}
+
+export function isVehicleRequestQuote(vehicleType: string): boolean {
+  return (REQUEST_QUOTE_VEHICLE_TYPES as readonly string[]).includes(vehicleType);
+}
+
+/** Minibus shows an indicative online price; Executive does not. */
+export function showsOnlineGuidePrice(vehicleType: string): boolean {
+  return isVehicleRequestQuote(vehicleType);
 }

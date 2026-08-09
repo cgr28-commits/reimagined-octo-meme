@@ -3,11 +3,15 @@ import {
   AREAS,
   DRIVER_TRACKING_HIGHLIGHTS,
   FAQS,
+  MINIBUS_PARTNER_NOTE,
   SITE,
   VEHICLE_FLEET,
   VEHICLE_TYPES,
   WHY_CHOOSE_US,
   isVehicleEnquiryOnly,
+  isVehicleRequestQuote,
+  needsLuggageCapacityConfirmation,
+  showsOnlineGuidePrice,
 } from "@/lib/data";
 import { isValidEmailAddress, isValidMobileNumber } from "@/lib/booking-message";
 import {
@@ -179,7 +183,7 @@ function knowledgeChunks(): Array<{ title: string; body: string }> {
     {
       title: "How booking works",
       body:
-        "Use Get a Live Quote on the website (or this chat) to get your fixed journey price with the same pricing as the quote tool. Then Request to book / Enquire to book. Enter your name, mobile, email and flight number(s), accept the terms, and send. Once we confirm your job, we email a SumUp payment link. Your booking is confirmed after payment. Executive Saloon and Minibus are enquiry-only.",
+        "Use Get a Live Quote on the website (or this chat) to get your fixed journey price with the same pricing as the quote tool. 1–4 passengers: standard or estate car with an instant online price. 5–8 passengers: minibus (guide price, request a quote, subject to availability — including licensed transport partners). Executive Saloon is enquire-only. Once we confirm a job, we email a SumUp payment link. Your booking is confirmed after payment.",
     },
     {
       title: "Quote tool flow",
@@ -504,7 +508,7 @@ function extractBareCount(text: string): number | undefined {
 }
 
 function pickVehicle(passengers: number, suitcases: number): (typeof VEHICLE_TYPES)[number] {
-  if (passengers >= 8 || suitcases >= 5) return "Minibus (7–8 passengers)";
+  if (passengers > 4 || suitcases >= 5) return "Minibus (7–8 passengers)";
   if (suitcases >= 3) return "Estate Car (1–4 passengers)";
   return "Standard Saloon (1–4 passengers)";
 }
@@ -864,7 +868,14 @@ function promptForField(field: MissingField, draft: QuoteDraft): AssistantRespon
       return {
         reply: "How many passengers?",
         draft,
-        quickReplies: ["1 passenger", "2 passengers", "3 passengers", "4 passengers"],
+        quickReplies: [
+          "1 passenger",
+          "2 passengers",
+          "3 passengers",
+          "4 passengers",
+          "5 passengers",
+          "6 passengers",
+        ],
       };
     case "suitcases":
       return {
@@ -1364,10 +1375,15 @@ function tryBuildQuote(
   const suitcases = draft.suitcases;
   const vehicle = draft.vehicle ?? pickVehicle(passengers, suitcases);
   const enquiryOnly = isVehicleEnquiryOnly(vehicle);
+  const requestQuote = isVehicleRequestQuote(vehicle);
+  const guidePrice = showsOnlineGuidePrice(vehicle);
   const airportName =
     AIRPORTS.find((airport) => airport.code === draft.airportCode)?.name ?? draft.airportCode;
+  const capacityNote = needsLuggageCapacityConfirmation(passengers, suitcases)
+    ? " Note: 8 passengers with 8 large suitcases needs a luggage-capacity check before we can confirm."
+    : "";
 
-  if (enquiryOnly) {
+  if (enquiryOnly && !guidePrice) {
     return {
       enquiryOnly: true,
       text:
@@ -1443,6 +1459,17 @@ function tryBuildQuote(
     suitcases,
     vehicle !== autoVehicle,
   );
+
+  if (requestQuote) {
+    return {
+      enquiryOnly: true,
+      quoteCard,
+      text:
+        `${vehicleNote} Guide price ${formatQuote(quote.amount)} for ${airportName} — subject to availability. ` +
+        `${MINIBUS_PARTNER_NOTE}${capacityNote}\n\n` +
+        `This is not an instant confirmation. Would you like to request this quote (I can take date, time and your details here)?`,
+    };
+  }
 
   return {
     enquiryOnly: false,

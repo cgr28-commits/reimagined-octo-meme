@@ -37,6 +37,15 @@ export const TERMS_SECTIONS = [
     footer: "All journeys are subject to vehicle availability.",
   },
   {
+    title: "Licensed partner operators",
+    content: [
+      "Most saloon and estate car transfers are fulfilled by My Airport Taxi NI using our own licensed vehicles and drivers.",
+      "Where a larger vehicle is required (including minibus transfers for groups), or where operational needs require it, your journey may be fulfilled by another fully licensed and insured private hire / PSV operator working as our transport partner.",
+      "By requesting a quotation or making a booking, you agree that we may arrange for a suitable licensed partner operator to carry out all or part of the transfer.",
+      "Partner-operated journeys remain subject to these Terms & Conditions. We remain your point of contact for booking, payment (where applicable), and customer service, and we will only use operators who hold the licences and insurance required for the journey.",
+    ],
+  },
+  {
     title: "Booking",
     content: ["Customers are responsible for providing accurate information including:"],
     list: [
@@ -51,7 +60,7 @@ export const TERMS_SECTIONS = [
       "Child seat requirements",
     ],
     footer:
-      "Incorrect or incomplete information may result in delays, additional charges, cancellation, or the booking being treated as a no-show without refund.",
+      "Incorrect or incomplete information may result in delays, additional charges, cancellation, or the booking being treated as a no-show without refund. Minibus and group bookings are subject to vehicle availability and are not confirmed until we accept the booking in writing (including by email).",
   },
   {
     title: "Quotations & Fares",
@@ -149,12 +158,15 @@ export const TERMS_SECTIONS = [
   },
   {
     title: "Luggage",
-    content: ["Customers must ensure:"],
+    content: [
+      "Customers must ensure:",
+    ],
     list: [
       "All luggage is declared during booking.",
       "Oversized luggage is advised in advance.",
+      "Groups of 8 passengers with 8 large suitcases (or similar heavy luggage loads) cannot be confirmed until we have checked vehicle capacity — these bookings are accepted only after we confirm in writing.",
     ],
-    footer: "We reserve the right to refuse luggage that cannot safely be accommodated.",
+    footer: "We reserve the right to refuse luggage that cannot safely be accommodated, or to require a larger vehicle (which may change the fare).",
   },
   {
     title: "Lost Property",

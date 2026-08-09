@@ -12,9 +12,9 @@ export default function VehiclesSection() {
       <div className="absolute inset-0 bg-gradient-to-b from-navy via-navy-light/15 to-navy" />
       <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <SectionHeading
-          eyebrow="Our Fleet"
-          title="Spacious vehicles for every journey"
-          description="From solo business trips to family holidays — our licensed estate cars and saloons have room for passengers and luggage, with minibus options for larger groups."
+          eyebrow="Vehicles"
+          title="The right vehicle for every group"
+          description="1–4 passengers travel in a standard or estate car with an instant online price. For 5–8 passengers, minibus transfers are available through our licensed transport partners — subject to availability, with a request-a-quote booking."
         />
 
         <div className="mt-12 grid items-center gap-10 lg:grid-cols-2 lg:gap-14">
@@ -44,11 +44,19 @@ export default function VehiclesSection() {
                 >
                   <div className="flex items-start justify-between gap-2">
                     <p className="font-semibold text-white">{vehicle.name}</p>
-                    {vehicle.enquiryOnly ? (
+                    {vehicle.requestQuote ? (
+                      <span className="shrink-0 rounded-md border border-emerald/30 bg-emerald/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-emerald">
+                        Request a quote
+                      </span>
+                    ) : vehicle.enquiryOnly ? (
                       <span className="shrink-0 rounded-md border border-emerald/30 bg-emerald/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-emerald">
                         Enquire
                       </span>
-                    ) : null}
+                    ) : (
+                      <span className="shrink-0 rounded-md border border-white/15 bg-white/5 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-white/70">
+                        Instant price
+                      </span>
+                    )}
                   </div>
                   <p className="mt-1 text-sm text-emerald">{vehicle.capacity}</p>
                   <p className="mt-2 text-sm leading-relaxed text-white/60">{vehicle.description}</p>
