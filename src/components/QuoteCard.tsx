@@ -184,11 +184,39 @@ function todayDateInputValue(): string {
   }).format(new Date());
 }
 
+/** HH:mm in Europe/London for time inputs. */
+function nowTimeInputValue(): string {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/London",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date());
+  const hour = parts.find((part) => part.type === "hour")?.value ?? "00";
+  const minute = parts.find((part) => part.type === "minute")?.value ?? "00";
+  return `${hour.padStart(2, "0")}:${minute.padStart(2, "0")}`;
+}
+
 function isTripDateOnOrAfterToday(tripDate: string): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(tripDate)) {
     return false;
   }
   return tripDate >= todayDateInputValue();
+}
+
+/** Reject pickup times that have already passed in Europe/London when the date is today. */
+function isTripDateTimeNotInPast(tripDate: string, tripTime: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(tripDate) || !/^\d{2}:\d{2}/.test(tripTime)) {
+    return false;
+  }
+  const today = todayDateInputValue();
+  if (tripDate > today) {
+    return true;
+  }
+  if (tripDate < today) {
+    return false;
+  }
+  return tripTime.slice(0, 5) >= nowTimeInputValue();
 }
 
 type BookingDelivery = "whatsapp" | "email";
@@ -252,8 +280,19 @@ function QuoteCard({
   const [tripTime, setTripTime] = useState("");
   const [returnDate, setReturnDate] = useState("");
   const [returnTime, setReturnTime] = useState("");
+  const tripDateInputRef = useRef<HTMLInputElement>(null);
+  const tripTimeInputRef = useRef<HTMLInputElement>(null);
+  const returnDateInputRef = useRef<HTMLInputElement>(null);
+  const returnTimeInputRef = useRef<HTMLInputElement>(null);
   const minTripDate = todayDateInputValue();
   const minReturnDate = tripDate && tripDate >= minTripDate ? tripDate : minTripDate;
+  const minTripTime = tripDate === minTripDate ? nowTimeInputValue() : undefined;
+  const minReturnTime =
+    returnDate && tripDate && returnDate === tripDate && tripTime
+      ? tripTime.slice(0, 5)
+      : returnDate === minTripDate
+        ? nowTimeInputValue()
+        : undefined;
   const [vehicle, setVehicle] = useState<VehicleType>(VEHICLE_TYPES[0]);
   const [passengers, setPassengers] = useState(1);
   const [suitcases, setSuitcases] = useState(1);
@@ -439,7 +478,32 @@ function QuoteCard({
 
   const isScheduleComplete =
     Boolean(tripDate && tripTime) &&
-    (!returnJourney || Boolean(returnDate && returnTime));
+    isTripDateOnOrAfterToday(tripDate) &&
+    isTripDateTimeNotInPast(tripDate, tripTime) &&
+    (!returnJourney ||
+      (Boolean(returnDate && returnTime) &&
+        isReturnAfterOutbound(tripDate, tripTime, returnDate, returnTime)));
+
+  const hasCompatibleVehicle = Boolean(quoteVehicle) && passengers >= 1 && suitcases >= 0;
+
+  const travelDetailsBlocker = !tripDate
+    ? "Select your pickup date to continue."
+    : !isTripDateOnOrAfterToday(tripDate)
+      ? "Pickup date cannot be in the past."
+      : !tripTime
+        ? "Select your pickup time to continue."
+        : !isTripDateTimeNotInPast(tripDate, tripTime)
+          ? "Pickup time cannot be in the past. Choose a later time."
+          : returnJourney && (!returnDate || !returnTime)
+            ? "Select your return date and time to continue."
+            : returnJourney &&
+                returnDate &&
+                returnTime &&
+                !isReturnAfterOutbound(tripDate, tripTime, returnDate, returnTime)
+              ? "Return date and time must be after your outbound trip."
+              : !hasCompatibleVehicle
+                ? "Select passengers, luggage, and a compatible vehicle to continue."
+                : "";
 
   const quoteAddress = isFromAirport ? dropoffAddress : pickupAddress;
   const isAirportAddressComplete = Boolean(airportCode && quoteAddress.trim());
@@ -452,6 +516,31 @@ function QuoteCard({
   const canShowPrice = hasQuoteRoute;
 
   const tripDetailsReady = hasQuoteRoute && isScheduleComplete;
+
+  function syncScheduleFieldsFromInputs() {
+    const nextDate = tripDateInputRef.current?.value?.trim() || "";
+    const nextTime = tripTimeInputRef.current?.value?.trim() || "";
+    const nextReturnDate = returnDateInputRef.current?.value?.trim() || "";
+    const nextReturnTime = returnTimeInputRef.current?.value?.trim() || "";
+    if (nextDate && nextDate !== tripDate) {
+      setTripDate(nextDate);
+    }
+    if (nextTime && nextTime !== tripTime) {
+      setTripTime(nextTime);
+    }
+    if (returnJourney && nextReturnDate && nextReturnDate !== returnDate) {
+      setReturnDate(nextReturnDate);
+    }
+    if (returnJourney && nextReturnTime && nextReturnTime !== returnTime) {
+      setReturnTime(nextReturnTime);
+    }
+    return {
+      tripDate: nextDate || tripDate,
+      tripTime: nextTime || tripTime,
+      returnDate: nextReturnDate || returnDate,
+      returnTime: nextReturnTime || returnTime,
+    };
+  }
 
   useEffect(() => {
     if (!capacityNeedsConfirm) {
@@ -608,38 +697,43 @@ function QuoteCard({
     tripTime,
   ]);
 
+  /** Flight numbers are optional — only validate format/lookup when the customer entered one. */
   function validateFlightNumbers(): boolean {
     let ok = true;
+    const going = goingFlightNumber.trim();
 
-    if (goingFlightStatus === "loading") {
+    if (!going) {
+      setGoingFlightError("");
+    } else if (goingFlightStatus === "loading") {
       setGoingFlightError("Checking your going flight — please wait a moment.");
       ok = false;
-    } else if (!goingFlightNumber.trim()) {
-      setGoingFlightError("Please enter your flight number for going.");
+    } else if (!isValidFlightNumberFormat(going)) {
+      setGoingFlightError("Enter a valid flight number for going (e.g. BA1234), or leave it blank.");
       ok = false;
-    } else if (!isValidFlightNumberFormat(goingFlightNumber)) {
-      setGoingFlightError("Enter a valid flight number for going (e.g. BA1234).");
-      ok = false;
-    } else if (goingFlightConfigured && goingFlightStatus !== "verified") {
-      setGoingFlightError("Please enter a valid going flight for your selected date and airport.");
+    } else if (goingFlightConfigured && goingFlightStatus === "error") {
+      setGoingFlightError(
+        "We couldn’t verify that going flight. Check the number, or leave it blank to continue.",
+      );
       ok = false;
     } else {
       setGoingFlightError("");
     }
 
     if (returnJourney) {
-      if (collectionFlightStatus === "loading") {
+      const collection = collectionFlightNumber.trim();
+      if (!collection) {
+        setCollectionFlightError("");
+      } else if (collectionFlightStatus === "loading") {
         setCollectionFlightError("Checking your collection flight — please wait a moment.");
         ok = false;
-      } else if (!collectionFlightNumber.trim()) {
-        setCollectionFlightError("Please enter your flight number for collection.");
-        ok = false;
-      } else if (!isValidFlightNumberFormat(collectionFlightNumber)) {
-        setCollectionFlightError("Enter a valid flight number for collection (e.g. BA1234).");
-        ok = false;
-      } else if (collectionFlightConfigured && collectionFlightStatus !== "verified") {
+      } else if (!isValidFlightNumberFormat(collection)) {
         setCollectionFlightError(
-          "Please enter a valid collection flight for your return date and airport.",
+          "Enter a valid flight number for collection (e.g. BA1234), or leave it blank.",
+        );
+        ok = false;
+      } else if (collectionFlightConfigured && collectionFlightStatus === "error") {
+        setCollectionFlightError(
+          "We couldn’t verify that collection flight. Check the number, or leave it blank to continue.",
         );
         ok = false;
       } else {
@@ -652,27 +746,39 @@ function QuoteCard({
     return ok;
   }
 
-  function validateTripForBooking(): boolean {
+  function validateTripForBooking(schedule?: {
+    tripDate: string;
+    tripTime: string;
+    returnDate: string;
+    returnTime: string;
+  }): boolean {
+    const date = schedule?.tripDate || tripDate;
+    const time = schedule?.tripTime || tripTime;
+    const retDate = schedule?.returnDate || returnDate;
+    const retTime = schedule?.returnTime || returnTime;
     let ok = true;
 
-    if (!tripDate) {
+    if (!date) {
       setTripDateError("Please select your pickup date.");
       ok = false;
-    } else if (!isTripDateOnOrAfterToday(tripDate)) {
+    } else if (!isTripDateOnOrAfterToday(date)) {
       setTripDateError("Pickup date cannot be in the past.");
       ok = false;
-    } else if (!tripTime) {
+    } else if (!time) {
       setTripDateError("Please select your pickup time.");
+      ok = false;
+    } else if (!isTripDateTimeNotInPast(date, time)) {
+      setTripDateError("Pickup time cannot be in the past. Choose a later time.");
       ok = false;
     } else {
       setTripDateError("");
     }
 
     if (returnJourney) {
-      if (!returnDate || !returnTime) {
+      if (!retDate || !retTime) {
         setReturnDateError("Please select a return date and time.");
         ok = false;
-      } else if (tripDate && tripTime && !isReturnAfterOutbound(tripDate, tripTime, returnDate, returnTime)) {
+      } else if (date && time && !isReturnAfterOutbound(date, time, retDate, retTime)) {
         setReturnDateError("Return date and time must be after your outbound trip.");
         ok = false;
       } else {
@@ -690,8 +796,12 @@ function QuoteCard({
       return false;
     }
 
+    if (!hasCompatibleVehicle) {
+      return false;
+    }
+
     if (isEnquiryOnly) {
-      return tripDetailsReady;
+      return hasQuoteRoute;
     }
 
     if (!canShowPrice || !liveQuote) {
@@ -975,13 +1085,7 @@ function QuoteCard({
     }
 
     if (quoteStep === 2) {
-      if (!validateTripForBooking()) {
-        return;
-      }
-      if (isAirportTrip && !validateFlightNumbers()) {
-        return;
-      }
-      setQuoteStep(3);
+      // Step 2 uses an explicit Continue handler so date/time DOM values are synced first.
       return;
     }
 
@@ -1005,6 +1109,18 @@ function QuoteCard({
     setTermsAccepted(false);
     setTermsError("");
     setMarketingOptIn(false);
+  }
+
+  function handleContinueTravelDetails() {
+    setSubmitError("");
+    const schedule = syncScheduleFieldsFromInputs();
+    if (!validateTripForBooking(schedule)) {
+      return;
+    }
+    if (isAirportTrip && !validateFlightNumbers()) {
+      return;
+    }
+    setQuoteStep(3);
   }
 
   const usesWhatsApp = isMobileDevice === true;
@@ -1162,13 +1278,14 @@ function QuoteCard({
       <div className="mb-6">
         <h2 className="text-xl font-bold text-white sm:text-2xl">Get a Live Quote</h2>
         <p className="mt-1 text-sm text-white/60">
-          Three quick steps — airport and address, travel details, then your details and payment.
+          Three quick steps — airport and address, travel details, then your details and request.
+          Payment is by SumUp link after we confirm your job.
         </p>
         <ol className="mt-4 grid grid-cols-3 gap-2" aria-label="Booking steps">
           {[
             { step: 1 as const, label: "Airport & address" },
             { step: 2 as const, label: "Travel details" },
-            { step: 3 as const, label: "Pay & confirm" },
+            { step: 3 as const, label: "Your details & request" },
           ].map((item) => {
             const active = quoteStep === item.step;
             const done = quoteStep > item.step;
@@ -1213,6 +1330,7 @@ function QuoteCard({
             <div className="grid grid-cols-2 gap-2 rounded-xl border border-white/10 bg-white/5 p-1">
               <button
                 type="button"
+                aria-pressed={isAirportTrip}
                 onClick={() => {
                   setTripMode("airport");
                   setReturnDateError("");
@@ -1227,6 +1345,7 @@ function QuoteCard({
               </button>
               <button
                 type="button"
+                aria-pressed={!isAirportTrip}
                 onClick={() => {
                   setTripMode("address");
                   setReturnDateError("");
@@ -1256,6 +1375,7 @@ function QuoteCard({
                 <div className="grid grid-cols-2 gap-2 rounded-xl border border-white/10 bg-white/5 p-1">
                   <button
                     type="button"
+                    aria-pressed={tripDirection === "to-airport"}
                     onClick={() => setTripDirection("to-airport")}
                     className={`rounded-lg px-3 py-2.5 text-xs font-semibold transition-all sm:text-sm ${
                       tripDirection === "to-airport"
@@ -1267,6 +1387,7 @@ function QuoteCard({
                   </button>
                   <button
                     type="button"
+                    aria-pressed={tripDirection === "from-airport"}
                     onClick={() => setTripDirection("from-airport")}
                     className={`rounded-lg px-3 py-2.5 text-xs font-semibold transition-all sm:text-sm ${
                       tripDirection === "from-airport"
@@ -1282,6 +1403,7 @@ function QuoteCard({
             <div className="grid grid-cols-2 gap-2 rounded-xl border border-white/10 bg-white/5 p-1">
               <button
                 type="button"
+                aria-pressed={tripDirection === "to-airport"}
                 onClick={() => setTripDirection("to-airport")}
                 className={`rounded-lg px-3 py-2.5 text-xs font-semibold transition-all sm:text-sm ${
                   tripDirection === "to-airport"
@@ -1293,6 +1415,7 @@ function QuoteCard({
               </button>
               <button
                 type="button"
+                aria-pressed={tripDirection === "from-airport"}
                 onClick={() => setTripDirection("from-airport")}
                 className={`rounded-lg px-3 py-2.5 text-xs font-semibold transition-all sm:text-sm ${
                   tripDirection === "from-airport"
@@ -1314,6 +1437,7 @@ function QuoteCard({
           <div className="grid grid-cols-2 gap-2 rounded-xl border border-white/10 bg-white/5 p-1">
             <button
               type="button"
+              aria-pressed={!returnJourney}
               onClick={() => {
                 setReturnJourney(false);
                 setReturnDateError("");
@@ -1328,6 +1452,7 @@ function QuoteCard({
             </button>
             <button
               type="button"
+              aria-pressed={returnJourney}
               onClick={() => setReturnJourney(true)}
               className={`rounded-lg px-3 py-2.5 text-xs font-semibold transition-all sm:text-sm ${
                 returnJourney
@@ -1504,6 +1629,7 @@ function QuoteCard({
             </label>
             <input
               id="date"
+              ref={tripDateInputRef}
               name="date"
               type="date"
               required
@@ -1511,6 +1637,11 @@ function QuoteCard({
               value={tripDate}
               onChange={(e) => {
                 setTripDate(e.target.value);
+                setTripDateError("");
+                setReturnDateError("");
+              }}
+              onInput={(e) => {
+                setTripDate((e.target as HTMLInputElement).value);
                 setTripDateError("");
                 setReturnDateError("");
               }}
@@ -1527,12 +1658,19 @@ function QuoteCard({
             </label>
             <input
               id="time"
+              ref={tripTimeInputRef}
               name="time"
               type="time"
               required
+              min={minTripTime}
               value={tripTime}
               onChange={(e) => {
                 setTripTime(e.target.value);
+                setTripDateError("");
+                setReturnDateError("");
+              }}
+              onInput={(e) => {
+                setTripTime((e.target as HTMLInputElement).value);
                 setTripDateError("");
                 setReturnDateError("");
               }}
@@ -1555,6 +1693,7 @@ function QuoteCard({
               </label>
               <input
                 id="returnDate"
+                ref={returnDateInputRef}
                 name="returnDate"
                 type="date"
                 required
@@ -1562,6 +1701,10 @@ function QuoteCard({
                 value={returnDate}
                 onChange={(e) => {
                   setReturnDate(e.target.value);
+                  setReturnDateError("");
+                }}
+                onInput={(e) => {
+                  setReturnDate((e.target as HTMLInputElement).value);
                   setReturnDateError("");
                 }}
                 className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30 [color-scheme:dark]"
@@ -1576,12 +1719,18 @@ function QuoteCard({
               </label>
               <input
                 id="returnTime"
+                ref={returnTimeInputRef}
                 name="returnTime"
                 type="time"
                 required
+                min={minReturnTime}
                 value={returnTime}
                 onChange={(e) => {
                   setReturnTime(e.target.value);
+                  setReturnDateError("");
+                }}
+                onInput={(e) => {
+                  setReturnTime((e.target as HTMLInputElement).value);
                   setReturnDateError("");
                 }}
                 className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30 [color-scheme:dark]"
@@ -1597,15 +1746,16 @@ function QuoteCard({
           <div className="space-y-4 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-4">
             <div>
               <p className="text-xs font-medium uppercase tracking-wider text-emerald">
-                Flight numbers
+                Flight numbers <span className="font-normal text-white/45">(optional)</span>
               </p>
               <p className="mt-1 text-sm text-white/60">
-                {getFlightNumbersIntro(isFromAirport, returnJourney)}
+                {getFlightNumbersIntro(isFromAirport, returnJourney)} You can continue without a
+                flight number.
               </p>
             </div>
             <FlightNumberField
               id="goingFlightNumber"
-              label="Flight number for going"
+              label="Flight number for going (optional)"
               helperText={
                 isFromAirport
                   ? "The flight you are arriving on"
@@ -1632,7 +1782,7 @@ function QuoteCard({
             {returnJourney && (
               <FlightNumberField
                 id="collectionFlightNumber"
-                label="Flight number for collection"
+                label="Flight number for collection (optional)"
                 helperText={
                   returnTripDirection === "from-airport"
                     ? "The flight you are returning on — we collect you after it lands"
@@ -2213,26 +2363,38 @@ function QuoteCard({
           </div>
           </>
         ) : quoteStep === 2 ? (
-          <div className="grid gap-3 sm:grid-cols-2">
-            <button
-              type="button"
-              onClick={() => {
-                setQuoteStep(1);
-                setGoingFlightError("");
-                setCollectionFlightError("");
-                setReturnDateError("");
-              }}
-              className="w-full rounded-xl border border-white/15 bg-white/5 py-3.5 text-sm font-semibold text-white transition-all hover:bg-white/10"
-            >
-              Back
-            </button>
-            <button
-              type="submit"
-              disabled={submitted || !isScheduleComplete}
-              className="w-full rounded-xl bg-emerald py-3.5 text-sm font-bold text-navy transition-all hover:bg-emerald-light hover:shadow-lg hover:shadow-emerald/25 disabled:cursor-not-allowed disabled:opacity-70"
-            >
-              Continue to your details
-            </button>
+          <div className="space-y-3">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setQuoteStep(1);
+                  setGoingFlightError("");
+                  setCollectionFlightError("");
+                  setReturnDateError("");
+                }}
+                className="w-full rounded-xl border border-white/15 bg-white/5 py-3.5 text-sm font-semibold text-white transition-all hover:bg-white/10"
+              >
+                Back
+              </button>
+              <button
+                type="button"
+                disabled={submitted}
+                onClick={handleContinueTravelDetails}
+                className="w-full rounded-xl bg-emerald py-3.5 text-sm font-bold text-navy transition-all hover:bg-emerald-light hover:shadow-lg hover:shadow-emerald/25 disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                Continue to your details
+              </button>
+            </div>
+            {travelDetailsBlocker ? (
+              <p className="text-center text-xs text-white/55" role="status">
+                {travelDetailsBlocker}
+              </p>
+            ) : (
+              <p className="text-center text-xs text-white/45">
+                Flight number is optional — you can continue without one.
+              </p>
+            )}
           </div>
         ) : (
           <button
