@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import PreventHorizontalScroll from "@/components/PreventHorizontalScroll";
 import QuoteAssistant from "@/components/QuoteAssistant";
+import WhatsAppButton from "@/components/WhatsAppButton";
 import { SITE } from "@/lib/data";
 import { absoluteSiteUrl } from "@/lib/paths";
 import { getFaqPageJsonLd, getLocalBusinessJsonLd, getWebSiteJsonLd } from "@/lib/structured-data";
@@ -104,6 +105,7 @@ export default function RootLayout({
         </div>
         {/* Outside the overflow clip so position:fixed is viewport-relative on mobile */}
         <QuoteAssistant />
+        <WhatsAppButton />
         <PreventHorizontalScroll />
       </body>
     </html>
