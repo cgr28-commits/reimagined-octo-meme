@@ -24,8 +24,8 @@ export const SERVICE_FLAGS = {
   chauffeur: false,
   /** Address-to-address quoting UI — code retained in QuoteCard. */
   addressToAddress: false,
-  /** George Best Belfast City Airport (BHD) — data retained for restore. */
-  belfastCityAirport: false,
+  /** George Best Belfast City Airport (BHD). */
+  belfastCityAirport: true,
   /** Public tracking demo hub + owner/driver demo links. */
   trackingDemo: false,
   /**

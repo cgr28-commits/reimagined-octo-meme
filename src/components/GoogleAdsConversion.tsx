@@ -1,7 +1,12 @@
 "use client";
 
 import Script from "next/script";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import {
+  COOKIE_CONSENT_EVENT,
+  hasMarketingCookieConsent,
+  type CookieConsentChoice,
+} from "@/lib/cookie-consent";
 import { getGoogleAdsConfig } from "@/lib/google-ads";
 
 declare global {
@@ -56,9 +61,21 @@ export default function GoogleAdsConversion({
 }: GoogleAdsConversionProps) {
   const config = getGoogleAdsConfig();
   const firedRef = useRef(false);
+  const [marketingAllowed, setMarketingAllowed] = useState(false);
 
   useEffect(() => {
-    if (!fire || !config.enabled || firedRef.current) {
+    const sync = () => setMarketingAllowed(hasMarketingCookieConsent());
+    sync();
+    const onChange = (event: Event) => {
+      const detail = (event as CustomEvent<CookieConsentChoice>).detail;
+      setMarketingAllowed(detail === "accepted");
+    };
+    window.addEventListener(COOKIE_CONSENT_EVENT, onChange);
+    return () => window.removeEventListener(COOKIE_CONSENT_EVENT, onChange);
+  }, []);
+
+  useEffect(() => {
+    if (!fire || !config.enabled || !marketingAllowed || firedRef.current) {
       return;
     }
 
@@ -80,9 +97,9 @@ export default function GoogleAdsConversion({
     }, 250);
 
     return () => window.clearInterval(timer);
-  }, [fire, config.enabled, config.sendTo, value, currency, transactionId]);
+  }, [fire, marketingAllowed, config.enabled, config.sendTo, value, currency, transactionId]);
 
-  if (!config.enabled) {
+  if (!config.enabled || !marketingAllowed) {
     return null;
   }
 

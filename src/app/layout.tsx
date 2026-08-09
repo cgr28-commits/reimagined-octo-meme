@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import PreventHorizontalScroll from "@/components/PreventHorizontalScroll";
+import CookieConsent from "@/components/CookieConsent";
 import QuoteAssistant from "@/components/QuoteAssistant";
 import WhatsAppButton from "@/components/WhatsAppButton";
 import { SITE } from "@/lib/data";
@@ -93,9 +94,9 @@ export default function RootLayout({
   return (
     <html lang="en-GB" className={inter.variable}>
       <body className="overflow-x-clip antialiased">
-        {structuredData.map((schema) => (
+        {structuredData.map((schema, index) => (
           <script
-            key={schema["@type"]}
+            key={Array.isArray(schema["@type"]) ? schema["@type"].join("-") : schema["@type"] ?? index}
             type="application/ld+json"
             dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
           />
@@ -106,6 +107,7 @@ export default function RootLayout({
         {/* Outside the overflow clip so position:fixed is viewport-relative on mobile */}
         <QuoteAssistant />
         <WhatsAppButton />
+        <CookieConsent />
         <PreventHorizontalScroll />
       </body>
     </html>
