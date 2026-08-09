@@ -58,7 +58,6 @@ import {
 } from "@/lib/pending-payment";
 import { scheduleQuoteLeadAlert } from "@/lib/submit-quote-lead";
 import FlightNumberField, { formatVerifiedFlightSummary } from "@/components/FlightNumberField";
-import { isValidFlightNumberFormat } from "@/lib/flight-lookup";
 import type { VerifiedFlight } from "@/lib/flight-lookup";
 
 type TripMode = "airport" | "address";
@@ -268,14 +267,6 @@ function QuoteCard({
   const [verifiedCollectionFlight, setVerifiedCollectionFlight] = useState<VerifiedFlight | null>(
     null,
   );
-  const [goingFlightConfigured, setGoingFlightConfigured] = useState(true);
-  const [collectionFlightConfigured, setCollectionFlightConfigured] = useState(true);
-  const [goingFlightStatus, setGoingFlightStatus] = useState<
-    "idle" | "loading" | "verified" | "error" | "unavailable"
-  >("idle");
-  const [collectionFlightStatus, setCollectionFlightStatus] = useState<
-    "idle" | "loading" | "verified" | "error" | "unavailable"
-  >("idle");
   const [tripDate, setTripDate] = useState("");
   const [tripTime, setTripTime] = useState("");
   const [returnDate, setReturnDate] = useState("");
@@ -697,53 +688,13 @@ function QuoteCard({
     tripTime,
   ]);
 
-  /** Flight numbers are optional — only validate format/lookup when the customer entered one. */
-  function validateFlightNumbers(): boolean {
-    let ok = true;
-    const going = goingFlightNumber.trim();
-
-    if (!going) {
-      setGoingFlightError("");
-    } else if (goingFlightStatus === "loading") {
-      setGoingFlightError("Checking your going flight — please wait a moment.");
-      ok = false;
-    } else if (!isValidFlightNumberFormat(going)) {
-      setGoingFlightError("Enter a valid flight number for going (e.g. BA1234), or leave it blank.");
-      ok = false;
-    } else if (goingFlightConfigured && goingFlightStatus === "error") {
-      setGoingFlightError(
-        "We couldn’t verify that going flight. Check the number, or leave it blank to continue.",
-      );
-      ok = false;
-    } else {
-      setGoingFlightError("");
-    }
-
-    if (returnJourney) {
-      const collection = collectionFlightNumber.trim();
-      if (!collection) {
-        setCollectionFlightError("");
-      } else if (collectionFlightStatus === "loading") {
-        setCollectionFlightError("Checking your collection flight — please wait a moment.");
-        ok = false;
-      } else if (!isValidFlightNumberFormat(collection)) {
-        setCollectionFlightError(
-          "Enter a valid flight number for collection (e.g. BA1234), or leave it blank.",
-        );
-        ok = false;
-      } else if (collectionFlightConfigured && collectionFlightStatus === "error") {
-        setCollectionFlightError(
-          "We couldn’t verify that collection flight. Check the number, or leave it blank to continue.",
-        );
-        ok = false;
-      } else {
-        setCollectionFlightError("");
-      }
-    } else {
-      setCollectionFlightError("");
-    }
-
-    return ok;
+  /**
+   * Flight numbers are optional and must never block Step 2 continue.
+   * Verification loading / unavailable / soft failures are informational only.
+   */
+  function clearFlightBlockingErrors(): void {
+    setGoingFlightError("");
+    setCollectionFlightError("");
   }
 
   function validateTripForBooking(schedule?: {
@@ -951,9 +902,7 @@ function QuoteCard({
       return;
     }
 
-    if (isAirportTrip && !validateFlightNumbers()) {
-      return;
-    }
+    clearFlightBlockingErrors();
 
     if (!requireTermsAccepted()) {
       return;
@@ -1117,9 +1066,8 @@ function QuoteCard({
     if (!validateTripForBooking(schedule)) {
       return;
     }
-    if (isAirportTrip && !validateFlightNumbers()) {
-      return;
-    }
+    // Do not wait on flight lookup — unavailable/loading must not require a second click.
+    clearFlightBlockingErrors();
     setQuoteStep(3);
   }
 
@@ -1773,10 +1721,8 @@ function QuoteCard({
               direction={tripDirection}
               enabled={quoteStep === 2}
               error={goingFlightError}
-              onStatusChange={setGoingFlightStatus}
-              onVerifiedChange={(flight, configured) => {
+              onVerifiedChange={(flight) => {
                 setVerifiedGoingFlight(flight);
-                setGoingFlightConfigured(configured);
               }}
             />
             {returnJourney && (
@@ -1800,10 +1746,8 @@ function QuoteCard({
                 direction={returnTripDirection}
                 enabled={quoteStep === 2}
                 error={collectionFlightError}
-                onStatusChange={setCollectionFlightStatus}
-                onVerifiedChange={(flight, configured) => {
+                onVerifiedChange={(flight) => {
                   setVerifiedCollectionFlight(flight);
-                  setCollectionFlightConfigured(configured);
                 }}
               />
             )}
