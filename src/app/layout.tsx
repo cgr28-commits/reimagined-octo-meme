@@ -13,7 +13,7 @@ const inter = Inter({
 });
 
 const description =
-  "Professional airport taxi transfers across Northern Ireland. Belfast International from £45, Dublin Airport, and City of Derry Airport transfers. Flight tracking, meet & greet. Get an instant price online or through WhatsApp.";
+  "Professional airport taxi transfers across Northern Ireland. Belfast International from £45, George Best Belfast City from £35, Dublin Airport, and City of Derry Airport transfers. Flight tracking, meet & greet. Get an instant price online or through WhatsApp.";
 
 const ogImage = {
   url: absoluteSiteUrl("/og-image-square.png"),

@@ -201,7 +201,7 @@ export const ALL_HERO_SLIDES = [
   },
 ] as const;
 
-/** Public hero slides — BHD soft-hidden via SERVICE_FLAGS.belfastCityAirport. */
+/** Public hero slides — filtered by SERVICE_FLAGS.belfastCityAirport. */
 export const HERO_SLIDES = ALL_HERO_SLIDES.filter(
   (slide) => SERVICE_FLAGS.belfastCityAirport || slide.airportCode !== "BHD",
 );
@@ -254,7 +254,7 @@ export const ALL_AIRPORTS = [
   },
 ] as const;
 
-/** Public airports — BHD soft-hidden via SERVICE_FLAGS.belfastCityAirport. */
+/** Public airports — filtered by SERVICE_FLAGS.belfastCityAirport. */
 export const AIRPORTS = ALL_AIRPORTS.filter(
   (airport) => SERVICE_FLAGS.belfastCityAirport || airport.code !== "BHD",
 );
