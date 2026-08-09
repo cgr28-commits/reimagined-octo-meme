@@ -80,11 +80,12 @@ export const TERMS_SECTIONS = [
   {
     title: "Booking & Payment",
     content: [
-      "Standard booking process: get a live quote on our website, submit a booking request, and wait for us to confirm the job. Once confirmed, we email a SumUp payment link. Your booking is confirmed after payment is received.",
-      "Minibus transfers and executive vehicles may require a quote request or enquiry first; payment still follows the same SumUp payment link process once accepted.",
+      "For standard saloon and estate car transfers with pickup at least 12 hours from the time of booking, you may pay online by card via SumUp at the end of the website quote. Your booking is confirmed once payment is completed.",
+      "For pickups with less than 12 hours’ notice, and for minibus or executive bookings, the process is: get a live quote (or request a quote / enquiry), submit a booking request, wait for us to confirm the job, then pay via the SumUp payment link we email. Your booking is confirmed after payment is received.",
       "Payment may be made:",
     ],
     list: [
+      "By card via SumUp on the website (standard/estate cars with at least 12 hours’ notice)",
       "By card via the SumUp payment link we email after confirming your booking",
       "By cash to the driver (where agreed)",
       "By bank transfer (where agreed)",

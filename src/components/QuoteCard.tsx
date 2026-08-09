@@ -11,10 +11,12 @@ import { TERMS_LAST_UPDATED } from "@/lib/terms";
 import { detectMobileDevice, useIsMobileDevice } from "@/lib/device";
 import {
   AIRPORTS,
+  isInstantPayVehicle,
   isVehicleEnquiryOnly,
   isVehicleRequestQuote,
   MINIBUS_PARTNER_NOTE,
   MINIBUS_VEHICLE_TYPE,
+  PAY_NOW_MIN_HOURS_AHEAD,
   VEHICLE_BOOKING_GUIDANCE,
   needsLuggageCapacityConfirmation,
   SERVICE_FLAGS,
@@ -22,6 +24,7 @@ import {
   SITE,
   VEHICLE_TYPES,
 } from "@/lib/data";
+import { isPickupAtLeastHoursAhead } from "@/lib/london-time";
 import {
   readPrefillAirport,
   readPrefillQuoteDraft,
@@ -295,9 +298,6 @@ function QuoteCard({
   const [marketingOptIn, setMarketingOptIn] = useState(false);
   const [testChargeAmount, setTestChargeAmount] = useState<number | null>(null);
   const [testBookingLabel, setTestBookingLabel] = useState<string | null>(null);
-  // Soft-hidden via SERVICE_FLAGS.customerSumUpPay — customers enquire; owner sends SumUp link.
-  const sumUpEnabled = SERVICE_FLAGS.customerSumUpPay && isSumUpPaymentEnabled();
-
   const handleRouteMetrics = useCallback((metrics: TripRouteMetrics | null) => {
     setRouteMetrics(metrics);
   }, []);
@@ -598,6 +598,30 @@ function QuoteCard({
     ? formatJourneyDuration(routeMetrics.durationMinutes)
     : "";
 
+  const pickupFarEnoughForPayNow = isPickupAtLeastHoursAhead(
+    tripDate,
+    tripTime,
+    PAY_NOW_MIN_HOURS_AHEAD,
+  );
+
+  /** Pay online at quote time — saloon/estate only, ≥12h ahead, SumUp enabled. */
+  const canPayNowOnline =
+    SERVICE_FLAGS.customerSumUpPay &&
+    isSumUpPaymentEnabled() &&
+    !isEnquiryOnly &&
+    isInstantPayVehicle(quoteVehicle) &&
+    Boolean(liveQuote) &&
+    pickupFarEnoughForPayNow;
+
+  const showPayNowUnavailableNote =
+    SERVICE_FLAGS.customerSumUpPay &&
+    isSumUpPaymentEnabled() &&
+    !isEnquiryOnly &&
+    isInstantPayVehicle(quoteVehicle) &&
+    Boolean(liveQuote) &&
+    Boolean(tripDate && tripTime) &&
+    !pickupFarEnoughForPayNow;
+
   function handlePickupChange(value: string) {
     setPickupAddress(value);
     if (value.trim()) {
@@ -894,7 +918,12 @@ function QuoteCard({
   const paymentAmount = testChargeAmount ?? liveQuote?.amount ?? null;
 
   async function handlePayNow() {
-    if (!liveQuote || paymentLoading) {
+    if (!liveQuote || paymentLoading || !canPayNowOnline) {
+      if (!canPayNowOnline) {
+        setPaymentError(
+          `Online payment is available for standard and estate cars when pickup is at least ${PAY_NOW_MIN_HOURS_AHEAD} hours ahead. Request to book instead and we’ll email a SumUp link once confirmed.`,
+        );
+      }
       return;
     }
 
@@ -1226,14 +1255,16 @@ function QuoteCard({
       <div className="mb-6">
         <h2 className="text-xl font-bold text-white sm:text-2xl">Get a Live Quote</h2>
         <p className="mt-1 text-sm text-white/60">
-          Three quick steps — airport and address, travel details, then your details and request.
-          Payment is by SumUp link after we confirm your job.
+          Three quick steps — airport and address, travel details, then your details.
+          Standard and estate cars can pay online when pickup is at least{" "}
+          {PAY_NOW_MIN_HOURS_AHEAD} hours ahead; otherwise Request to book and we&apos;ll email a
+          SumUp link after we confirm.
         </p>
         <ol className="mt-4 grid grid-cols-3 gap-2" aria-label="Booking steps">
           {[
             { step: 1 as const, label: "Airport & address" },
             { step: 2 as const, label: "Travel details" },
-            { step: 3 as const, label: "Your details & request" },
+            { step: 3 as const, label: canPayNowOnline ? "Pay & confirm" : "Your details & request" },
           ].map((item) => {
             const active = quoteStep === item.step;
             const done = quoteStep > item.step;
@@ -1978,8 +2009,11 @@ function QuoteCard({
             Your details
           </p>
           <p className="mt-1 mb-4 text-sm text-white/75">
-            We need these details for your booking request. After we confirm the job, we&apos;ll
-            email your SumUp payment link.
+            {canPayNowOnline
+              ? "Enter your details, accept the terms, then pay securely with SumUp to confirm your booking."
+              : showPayNowUnavailableNote
+                ? `Online payment needs at least ${PAY_NOW_MIN_HOURS_AHEAD} hours’ notice. Request to book below — once we confirm the job, we’ll email a SumUp payment link.`
+                : "We need these details for your booking request. After we confirm the job, we’ll email your SumUp payment link."}
           </p>
           <div className="space-y-4">
             <div>
@@ -2200,9 +2234,7 @@ function QuoteCard({
                 }
               }}
               error={termsError}
-              mode={
-                !isEnquiryOnly && sumUpEnabled && liveQuote ? "card-payment" : "booking-request"
-              }
+              mode={canPayNowOnline ? "card-payment" : "booking-request"}
               paymentAmountLabel={
                 isEnquiryOnly
                   ? undefined
@@ -2216,7 +2248,7 @@ function QuoteCard({
 
             <MarketingOptIn checked={marketingOptIn} onCheckedChange={setMarketingOptIn} />
 
-            {!isEnquiryOnly && sumUpEnabled && liveQuote && (
+            {canPayNowOnline && liveQuote && (
               <div className="space-y-3">
                 <p className="text-xs leading-relaxed text-white/50">
                   Card payments are processed securely by SumUp. Keep your confirmation email as
@@ -2240,7 +2272,7 @@ function QuoteCard({
                 </p>
               </div>
             )}
-            {!isEnquiryOnly && sumUpEnabled && liveQuote ? (
+            {canPayNowOnline ? (
               <button
                 type="button"
                 onClick={handleEditBooking}

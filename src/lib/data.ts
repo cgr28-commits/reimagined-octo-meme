@@ -26,10 +26,11 @@ export const SERVICE_FLAGS = {
   /** Public tracking demo hub + owner/driver demo links. */
   trackingDemo: false,
   /**
-   * Customer SumUp “Pay now” on the website.
-   * Off: customers request/enquire; owner sends SumUp link after confirming, then marks paid.
+   * Customer SumUp “Pay now” on the website for instant-price vehicles
+   * (Standard Saloon / Estate) when pickup is at least 12 hours ahead.
+   * Nearer trips and enquiry/request-quote vehicles still use Request to book.
    */
-  customerSumUpPay: false,
+  customerSumUpPay: true,
   /** Live driver tracking marketing + customer track links — soft-hidden until more testing. */
   liveDriverTracking: false,
   /** Public driver dashboard — soft-hidden; drivers confirm jobs by email instead. */
@@ -393,7 +394,7 @@ export const FAQS = [
   {
     question: "How do I book an airport transfer?",
     answer:
-      "Use Get a Live Quote on this page for your fixed price, then Request to book. We review your request and, once the job is confirmed, email a SumUp payment link. Your booking is confirmed after payment. You can also message us on WhatsApp if you need help.",
+      "Use Get a Live Quote on this page for your fixed price. For a standard or estate car with pickup at least 12 hours ahead, you can pay securely online with SumUp to confirm. For nearer pickups, minibuses, or executive cars, Request to book / enquire — once we confirm the job, we email a SumUp payment link. Your booking is confirmed after payment.",
   },
   {
     question: "Do you track my flight?",
@@ -413,7 +414,7 @@ export const FAQS = [
   {
     question: "Can I pay by card?",
     answer:
-      "Yes. After you Request to book and we confirm the job, we email a SumUp payment link so you can pay securely by card. Cash and bank transfer can be arranged where agreed. Corporate accounts are available for regular business travellers.",
+      "Yes. Standard and estate car transfers with at least 12 hours’ notice can be paid online by card via SumUp at the end of the quote. For nearer pickups or other vehicles, Request to book and we’ll email a SumUp payment link after we confirm the job. Cash and bank transfer can be arranged where agreed.",
   },
   {
     question: "What is your cancellation and refund policy?",
@@ -423,7 +424,7 @@ export const FAQS = [
   {
     question: "When is my booking confirmed?",
     answer:
-      "Submitting a booking request does not confirm the journey. Once we confirm the job, we email a SumUp payment link — your booking is confirmed after payment is received and you get your confirmation email.",
+      "If you pay online at quote time, your booking is confirmed once SumUp payment completes and you receive your confirmation email. If you Request to book, submitting the request does not confirm the journey — once we confirm the job and you pay via the SumUp link we email, your booking is confirmed.",
   },
   {
     question: "What vehicle types do you offer?",
@@ -463,7 +464,7 @@ export const FAQS = [
   {
     question: "Can I pay with cash?",
     answer:
-      "Yes — cash to the driver or bank transfer can be arranged where agreed. The standard process is Request to book, then pay by card via the SumUp payment link we email after we confirm your job. Corporate accounts are available for regular travellers.",
+      "Yes — cash to the driver or bank transfer can be arranged where agreed. Many customers pay by card via SumUp (online at quote time when pickup is 12+ hours ahead, or via the payment link we email after confirming a booking request). Corporate accounts are available for regular travellers.",
   },
   {
     question: "Where do you pick up at the airport?",
@@ -534,12 +535,21 @@ export const ENQUIRY_ONLY_VEHICLE_TYPES: readonly VehicleType[] = [
 /** Minibus: show a guide price online, but require “Request a quote” (not instant confirmation). */
 export const REQUEST_QUOTE_VEHICLE_TYPES: readonly VehicleType[] = [MINIBUS_VEHICLE_TYPE];
 
+/** Saloon/estate can pay online at quote time when far enough ahead. */
+export const INSTANT_PAY_VEHICLE_TYPES: readonly VehicleType[] = [
+  "Standard Saloon (1–4 passengers)",
+  "Estate Car (1–4 passengers)",
+];
+
+/** Minimum notice (hours) before pickup for customer SumUp “Pay now”. */
+export const PAY_NOW_MIN_HOURS_AHEAD = 12;
+
 export const MINIBUS_PARTNER_NOTE =
   "Minibus transfers available through our licensed transport partners.";
 
 /** Short guidance shown in the quote tool above vehicle selection. */
 export const VEHICLE_BOOKING_GUIDANCE = [
-  "1–4 passengers: Standard or estate car — instant online price.",
+  "1–4 passengers: Standard or estate car — instant online price. Pay online when pickup is at least 12 hours ahead.",
   "5–8 passengers: Minibus, subject to availability — Request a quote (not instant confirmation). Selected automatically when more than four passengers are chosen.",
 ] as const;
 
@@ -557,6 +567,10 @@ export function isVehicleEnquiryOnly(vehicleType: string): boolean {
 
 export function isVehicleRequestQuote(vehicleType: string): boolean {
   return (REQUEST_QUOTE_VEHICLE_TYPES as readonly string[]).includes(vehicleType);
+}
+
+export function isInstantPayVehicle(vehicleType: string): boolean {
+  return (INSTANT_PAY_VEHICLE_TYPES as readonly string[]).includes(vehicleType);
 }
 
 /** Minibus shows an indicative online price; Executive does not. */
