@@ -10,9 +10,6 @@ export const SITE = {
   whatsappDefaultMessage: "Hi, I'd like some help.",
   email: "bookings@myairporttaxini.co.uk",
   url: "https://www.myairporttaxini.co.uk",
-  /** Google Maps search until a Place ID / review URL secret is configured. */
-  googleMapsUrl:
-    "https://www.google.com/maps/search/?api=1&query=My+Airport+Taxi+NI+Northern+Ireland",
 } as const;
 
 /**
