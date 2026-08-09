@@ -31,6 +31,7 @@ export const TERMS_SECTIONS = [
     ],
     list: [
       "Belfast International Airport",
+      "George Best Belfast City Airport",
       "Dublin Airport",
       "City of Derry Airport",
     ],

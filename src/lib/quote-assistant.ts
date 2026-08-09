@@ -128,6 +128,14 @@ const AIRPORT_ALIASES: Record<string, string> = {
   "international airport": "BFS",
   international: "BFS",
   "the international": "BFS",
+  bhd: "BHD",
+  "george best belfast city airport": "BHD",
+  "george best belfast city": "BHD",
+  "george best airport": "BHD",
+  "george best": "BHD",
+  "belfast city airport": "BHD",
+  "belfast city": "BHD",
+  "city airport": "BHD",
   dub: "DUB",
   "dublin airport ireland": "DUB",
   "dublin airport": "DUB",
@@ -825,7 +833,12 @@ function promptForField(field: MissingField, draft: QuoteDraft): AssistantRespon
       return {
         reply: "Which airport is the transfer for?",
         draft,
-        quickReplies: ["Belfast International", "Dublin", "City of Derry"],
+        quickReplies: [
+          "Belfast International",
+          "Belfast City",
+          "Dublin",
+          "City of Derry",
+        ],
       };
     case "address":
       return {
