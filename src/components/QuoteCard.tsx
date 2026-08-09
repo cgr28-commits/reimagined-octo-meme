@@ -199,7 +199,7 @@ function QuoteCard() {
   const [bookingSent, setBookingSent] = useState(false);
   const [bookingReference, setBookingReference] = useState("");
   const [bookingDelivery, setBookingDelivery] = useState<BookingDelivery | null>(null);
-  const [showBookingPreview, setShowBookingPreview] = useState(false);
+  const [quoteStep, setQuoteStep] = useState<1 | 2 | 3>(1);
   const [customerName, setCustomerName] = useState("");
   const [customerMobile, setCustomerMobile] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
@@ -213,7 +213,6 @@ function QuoteCard() {
   const [returnJourney, setReturnJourney] = useState(false);
   const [tripDateError, setTripDateError] = useState("");
   const [returnDateError, setReturnDateError] = useState("");
-  const [showBookingDetailsStep, setShowBookingDetailsStep] = useState(false);
   const [customerNameError, setCustomerNameError] = useState("");
   const [goingFlightNumber, setGoingFlightNumber] = useState("");
   const [collectionFlightNumber, setCollectionFlightNumber] = useState("");
@@ -374,8 +373,7 @@ function QuoteCard() {
         setVehicle(draft.vehicle as VehicleType);
       }
       setBookingSent(false);
-      setShowBookingDetailsStep(false);
-      setShowBookingPreview(false);
+      setQuoteStep(1);
     }
 
     if (window.location.hash === "#quote") {
@@ -529,7 +527,7 @@ function QuoteCard() {
     : dropoffAddress.trim();
 
   useEffect(() => {
-    if (!liveQuote || bookingSent || showBookingDetailsStep || showBookingPreview) {
+    if (!liveQuote || bookingSent || quoteStep !== 1) {
       return;
     }
 
@@ -583,8 +581,7 @@ function QuoteCard() {
     returnDate,
     returnJourney,
     returnTime,
-    showBookingDetailsStep,
-    showBookingPreview,
+    quoteStep,
     suitcases,
     tripDate,
     tripTime,
@@ -917,7 +914,6 @@ function QuoteCard() {
     }
 
     setBookingDelivery(delivery);
-    setShowBookingPreview(false);
     setBookingSent(true);
     setSubmitted(false);
 
@@ -946,38 +942,41 @@ function QuoteCard() {
     setBookingReference("");
     setBookingDelivery(null);
 
-    if (showBookingPreview) {
-      if (!usesWhatsApp) {
-        if (!requireTermsAccepted()) {
-          return;
-        }
-        void confirmBooking("email");
+    if (quoteStep === 1) {
+      if (!hasQuoteRoute) {
+        return;
       }
+      if (!isEnquiryOnly && !liveQuote) {
+        return;
+      }
+      setQuoteStep(2);
       return;
     }
 
-    if (!validateTripForBooking()) {
-      return;
-    }
-
-    if (showBookingDetailsStep) {
-      if (!validateContactDetails()) {
+    if (quoteStep === 2) {
+      if (!validateTripForBooking()) {
         return;
       }
       if (isAirportTrip && !validateFlightNumbers()) {
         return;
       }
-      setShowBookingDetailsStep(false);
-      setShowBookingPreview(true);
+      setQuoteStep(3);
       return;
     }
 
-    setShowBookingDetailsStep(true);
+    if (!validateContactDetails()) {
+      return;
+    }
+    if (!usesWhatsApp) {
+      if (!requireTermsAccepted()) {
+        return;
+      }
+      void confirmBooking("email");
+    }
   }
 
   function handleEditBooking() {
-    setShowBookingPreview(false);
-    setShowBookingDetailsStep(true);
+    setQuoteStep(2);
     setSubmitError("");
     setBookingSent(false);
     setBookingReference("");
@@ -1132,8 +1131,7 @@ function QuoteCard() {
               setBookingSent(false);
               setBookingReference("");
               setBookingDelivery(null);
-              setShowBookingPreview(false);
-              setShowBookingDetailsStep(false);
+              setQuoteStep(1);
               setSubmitError("");
               setTermsAccepted(false);
               setTermsError("");
@@ -1155,9 +1153,35 @@ function QuoteCard() {
       <div className="mb-6">
         <h2 className="text-xl font-bold text-white sm:text-2xl">Get a Live Quote</h2>
         <p className="mt-1 text-sm text-white/60">
-          Get a live quote, then Request to book. Once we confirm your job, we email a SumUp
-          payment link — your booking is confirmed after payment.
+          Three quick steps — airport and address, travel details, then your details and payment.
         </p>
+        <ol className="mt-4 grid grid-cols-3 gap-2" aria-label="Booking steps">
+          {[
+            { step: 1 as const, label: "Airport & address" },
+            { step: 2 as const, label: "Travel details" },
+            { step: 3 as const, label: "Pay & confirm" },
+          ].map((item) => {
+            const active = quoteStep === item.step;
+            const done = quoteStep > item.step;
+            return (
+              <li
+                key={item.step}
+                className={`rounded-lg border px-2 py-2 text-center ${
+                  active
+                    ? "border-emerald/50 bg-emerald/15 text-emerald"
+                    : done
+                      ? "border-white/15 bg-white/5 text-white/70"
+                      : "border-white/10 text-white/40"
+                }`}
+              >
+                <span className="block text-[10px] font-semibold uppercase tracking-wider">
+                  Step {item.step}
+                </span>
+                <span className="mt-0.5 block text-xs font-semibold">{item.label}</span>
+              </li>
+            );
+          })}
+        </ol>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
@@ -1169,6 +1193,8 @@ function QuoteCard() {
             invoice email and live tracking link.
           </div>
         )}
+        {quoteStep === 1 ? (
+          <>
         {/* Soft-hidden via SERVICE_FLAGS.addressToAddress — set true in data.ts to restore */}
         {SERVICE_FLAGS.addressToAddress ? (
           <div>
@@ -1451,8 +1477,13 @@ function QuoteCard() {
           airportCode={airportCode}
           tripDirection={tripDirection}
           onRouteMetrics={handleRouteMetrics}
+          variant="summary"
         />
+          </>
+        ) : null}
 
+        {quoteStep === 2 ? (
+          <>
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
             <label
@@ -1553,160 +1584,70 @@ function QuoteCard() {
           </div>
         )}
 
-        {showBookingDetailsStep && !showBookingPreview && (
-          <div className={BOOKING_PANEL_CLASS}>
-            <p className="text-xs font-medium uppercase tracking-wider text-emerald">
-              Your details
-            </p>
-            <p className="mt-1 mb-4 text-sm text-white/75">
-              We need these details for your booking request. After we confirm the job, we&apos;ll
-              email your SumUp payment link.
-            </p>
-            <div className="space-y-4">
-              <div>
-                <label htmlFor="name" className={BOOKING_LABEL_CLASS}>
-                  Your Name
-                </label>
-                <input
-                  id="name"
-                  name="name"
-                  type="text"
-                  value={customerName}
-                  onChange={(e) => {
-                    setCustomerName(e.target.value);
-                    if (e.target.value.trim()) {
-                      setCustomerNameError("");
-                    }
-                  }}
-                  placeholder="John Smith"
-                  className={BOOKING_INPUT_CLASS}
-                />
-                {customerNameError && (
-                  <p className="mt-1.5 text-xs text-red-300">{customerNameError}</p>
-                )}
-              </div>
-
-              <div>
-                <label htmlFor="mobile" className={BOOKING_LABEL_CLASS}>
-                  Mobile Number
-                </label>
-                <input
-                  id="mobile"
-                  name="mobile"
-                  type="tel"
-                  autoComplete="tel"
-                  value={customerMobile}
-                  onChange={(e) => {
-                    setCustomerMobile(e.target.value);
-                    if (e.target.value.trim()) {
-                      setMobileNumberError("");
-                    }
-                  }}
-                  placeholder="07xxx xxxxxx"
-                  className={BOOKING_INPUT_CLASS}
-                />
-                <p className={BOOKING_HELPER_CLASS}>
-                  So we can call or text if we need to reach you about your booking.
-                </p>
-                {mobileNumberError && (
-                  <p className="mt-1.5 text-xs text-red-300">{mobileNumberError}</p>
-                )}
-              </div>
-
-              <div>
-                <label htmlFor="email" className={BOOKING_LABEL_CLASS}>
-                  Email Address
-                </label>
-                <input
-                  id="email"
-                  name="email"
-                  type="email"
-                  autoComplete="email"
-                  value={customerEmail}
-                  onChange={(e) => {
-                    setCustomerEmail(e.target.value);
-                    if (e.target.value.trim()) {
-                      setEmailAddressError("");
-                    }
-                  }}
-                  placeholder="you@example.com"
-                  className={BOOKING_INPUT_CLASS}
-                />
-                <p className={BOOKING_HELPER_CLASS}>
-                  So we can email your booking confirmation.
-                </p>
-                {emailAddressError && (
-                  <p className="mt-1.5 text-xs text-red-300">{emailAddressError}</p>
-                )}
-              </div>
-
-              {isAirportTrip && (
-                <>
-                  <div className="border-t border-white/20 pt-4">
-                    <p className="text-xs font-medium uppercase tracking-wider text-emerald">
-                      Flight numbers
-                    </p>
-                    <p className="mt-1 mb-4 text-sm text-white/60">
-                      {getFlightNumbersIntro(isFromAirport, returnJourney)}
-                    </p>
-                  </div>
-                  <FlightNumberField
-                    id="goingFlightNumber"
-                    label="Flight number for going"
-                    helperText={
-                      isFromAirport
-                        ? "The flight you are arriving on"
-                        : "The flight you are departing on"
-                    }
-                    value={goingFlightNumber}
-                    onChange={(value) => {
-                      setGoingFlightNumber(value);
-                      if (value.trim()) {
-                        setGoingFlightError("");
-                      }
-                    }}
-                    tripDate={tripDate}
-                    airportCode={airportCode}
-                    direction={tripDirection}
-                    enabled={showBookingDetailsStep}
-                    error={goingFlightError}
-                    onStatusChange={setGoingFlightStatus}
-                    onVerifiedChange={(flight, configured) => {
-                      setVerifiedGoingFlight(flight);
-                      setGoingFlightConfigured(configured);
-                    }}
-                  />
-                  {returnJourney && (
-                    <FlightNumberField
-                      id="collectionFlightNumber"
-                      label="Flight number for collection"
-                      helperText={
-                        returnTripDirection === "from-airport"
-                          ? "The flight you are returning on — we collect you after it lands"
-                          : "The flight you are returning on — we take you to the airport"
-                      }
-                      value={collectionFlightNumber}
-                      onChange={(value) => {
-                        setCollectionFlightNumber(value);
-                        if (value.trim()) {
-                          setCollectionFlightError("");
-                        }
-                      }}
-                      tripDate={returnDate}
-                      airportCode={airportCode}
-                      direction={returnTripDirection}
-                      enabled={showBookingDetailsStep}
-                      error={collectionFlightError}
-                      onStatusChange={setCollectionFlightStatus}
-                      onVerifiedChange={(flight, configured) => {
-                        setVerifiedCollectionFlight(flight);
-                        setCollectionFlightConfigured(configured);
-                      }}
-                    />
-                  )}
-                </>
-              )}
+        {isAirportTrip && (
+          <div className="space-y-4 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-4">
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wider text-emerald">
+                Flight numbers
+              </p>
+              <p className="mt-1 text-sm text-white/60">
+                {getFlightNumbersIntro(isFromAirport, returnJourney)}
+              </p>
             </div>
+            <FlightNumberField
+              id="goingFlightNumber"
+              label="Flight number for going"
+              helperText={
+                isFromAirport
+                  ? "The flight you are arriving on"
+                  : "The flight you are departing on"
+              }
+              value={goingFlightNumber}
+              onChange={(value) => {
+                setGoingFlightNumber(value);
+                if (value.trim()) {
+                  setGoingFlightError("");
+                }
+              }}
+              tripDate={tripDate}
+              airportCode={airportCode}
+              direction={tripDirection}
+              enabled={quoteStep === 2}
+              error={goingFlightError}
+              onStatusChange={setGoingFlightStatus}
+              onVerifiedChange={(flight, configured) => {
+                setVerifiedGoingFlight(flight);
+                setGoingFlightConfigured(configured);
+              }}
+            />
+            {returnJourney && (
+              <FlightNumberField
+                id="collectionFlightNumber"
+                label="Flight number for collection"
+                helperText={
+                  returnTripDirection === "from-airport"
+                    ? "The flight you are returning on — we collect you after it lands"
+                    : "The flight you are returning on — we take you to the airport"
+                }
+                value={collectionFlightNumber}
+                onChange={(value) => {
+                  setCollectionFlightNumber(value);
+                  if (value.trim()) {
+                    setCollectionFlightError("");
+                  }
+                }}
+                tripDate={returnDate}
+                airportCode={airportCode}
+                direction={returnTripDirection}
+                enabled={quoteStep === 2}
+                error={collectionFlightError}
+                onStatusChange={setCollectionFlightStatus}
+                onVerifiedChange={(flight, configured) => {
+                  setVerifiedCollectionFlight(flight);
+                  setCollectionFlightConfigured(configured);
+                }}
+              />
+            )}
           </div>
         )}
 
@@ -1810,7 +1751,10 @@ function QuoteCard() {
             </p>
           </div>
         ) : null}
+          </>
+        ) : null}
 
+        {(quoteStep === 1 || quoteStep === 2) && (
         <div className="rounded-xl border border-emerald/30 bg-emerald/10 px-4 py-4">
           {isRequestQuote && liveQuote ? (
             <>
@@ -1904,6 +1848,97 @@ function QuoteCard() {
                 : "Includes vehicle, driver, fuel, and tolls. After we confirm your job, we’ll send a SumUp payment link by email."}
           </p>
         </div>
+        )}
+
+        {quoteStep === 3 ? (
+          <>
+        <div className={BOOKING_PANEL_CLASS}>
+          <p className="text-xs font-medium uppercase tracking-wider text-emerald">
+            Your details
+          </p>
+          <p className="mt-1 mb-4 text-sm text-white/75">
+            We need these details for your booking request. After we confirm the job, we&apos;ll
+            email your SumUp payment link.
+          </p>
+          <div className="space-y-4">
+            <div>
+              <label htmlFor="name" className={BOOKING_LABEL_CLASS}>
+                Your Name
+              </label>
+              <input
+                id="name"
+                name="name"
+                type="text"
+                value={customerName}
+                onChange={(e) => {
+                  setCustomerName(e.target.value);
+                  if (e.target.value.trim()) {
+                    setCustomerNameError("");
+                  }
+                }}
+                placeholder="John Smith"
+                className={BOOKING_INPUT_CLASS}
+              />
+              {customerNameError && (
+                <p className="mt-1.5 text-xs text-red-300">{customerNameError}</p>
+              )}
+            </div>
+
+            <div>
+              <label htmlFor="mobile" className={BOOKING_LABEL_CLASS}>
+                Mobile Number
+              </label>
+              <input
+                id="mobile"
+                name="mobile"
+                type="tel"
+                autoComplete="tel"
+                value={customerMobile}
+                onChange={(e) => {
+                  setCustomerMobile(e.target.value);
+                  if (e.target.value.trim()) {
+                    setMobileNumberError("");
+                  }
+                }}
+                placeholder="07xxx xxxxxx"
+                className={BOOKING_INPUT_CLASS}
+              />
+              <p className={BOOKING_HELPER_CLASS}>
+                So we can call or text if we need to reach you about your booking.
+              </p>
+              {mobileNumberError && (
+                <p className="mt-1.5 text-xs text-red-300">{mobileNumberError}</p>
+              )}
+            </div>
+
+            <div>
+              <label htmlFor="email" className={BOOKING_LABEL_CLASS}>
+                Email Address
+              </label>
+              <input
+                id="email"
+                name="email"
+                type="email"
+                autoComplete="email"
+                value={customerEmail}
+                onChange={(e) => {
+                  setCustomerEmail(e.target.value);
+                  if (e.target.value.trim()) {
+                    setEmailAddressError("");
+                  }
+                }}
+                placeholder="you@example.com"
+                className={BOOKING_INPUT_CLASS}
+              />
+              <p className={BOOKING_HELPER_CLASS}>
+                So we can email your SumUp payment link and booking confirmation.
+              </p>
+              {emailAddressError && (
+                <p className="mt-1.5 text-xs text-red-300">{emailAddressError}</p>
+              )}
+            </div>
+          </div>
+        </div>
 
         {paymentError && (
           <p className="rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-100">
@@ -1911,8 +1946,7 @@ function QuoteCard() {
           </p>
         )}
 
-        {showBookingPreview && (
-          <div className={BOOKING_PANEL_CLASS}>
+                  <div className={BOOKING_PANEL_CLASS}>
             <div className="mb-4">
               <p className="text-xs font-medium uppercase tracking-wider text-emerald">
                 {isRequestQuote
@@ -2005,7 +2039,6 @@ function QuoteCard() {
               ) : null}
             </dl>
           </div>
-        )}
 
         {submitError && (
           <p className="rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-100">
@@ -2013,8 +2046,7 @@ function QuoteCard() {
           </p>
         )}
 
-        {showBookingPreview ? (
-          <div className="space-y-3">
+        <div className="space-y-3">
             {capacityNeedsConfirm ? (
               <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-50">
                 <input
@@ -2093,7 +2125,7 @@ function QuoteCard() {
                 onClick={handleEditBooking}
                 className="w-full rounded-xl border border-white/15 bg-white/5 py-3.5 text-sm font-semibold text-white transition-all hover:bg-white/10"
               >
-                Edit details
+                Back to travel details
               </button>
             ) : usesWhatsApp ? (
               <>
@@ -2107,7 +2139,7 @@ function QuoteCard() {
                   onClick={handleEditBooking}
                   className="w-full rounded-xl border border-white/15 bg-white/5 py-3.5 text-sm font-semibold text-white transition-all hover:bg-white/10"
                 >
-                  Edit details
+                  Back to travel details
                 </button>
                 <button
                   type="button"
@@ -2140,7 +2172,7 @@ function QuoteCard() {
                   onClick={handleEditBooking}
                   className="w-full rounded-xl border border-white/15 bg-white/5 py-3.5 text-sm font-semibold text-white transition-all hover:bg-white/10"
                 >
-                  Edit details
+                  Back to travel details
                 </button>
                 <button
                   type="submit"
@@ -2152,17 +2184,16 @@ function QuoteCard() {
               </div>
             )}
           </div>
-        ) : showBookingDetailsStep ? (
+          </>
+        ) : quoteStep === 2 ? (
           <div className="grid gap-3 sm:grid-cols-2">
             <button
               type="button"
               onClick={() => {
-                setShowBookingDetailsStep(false);
-                setCustomerNameError("");
-                setMobileNumberError("");
-                setEmailAddressError("");
+                setQuoteStep(1);
                 setGoingFlightError("");
                 setCollectionFlightError("");
+                setReturnDateError("");
               }}
               className="w-full rounded-xl border border-white/15 bg-white/5 py-3.5 text-sm font-semibold text-white transition-all hover:bg-white/10"
             >
@@ -2170,19 +2201,19 @@ function QuoteCard() {
             </button>
             <button
               type="submit"
-              disabled={submitted}
+              disabled={submitted || !isScheduleComplete}
               className="w-full rounded-xl bg-emerald py-3.5 text-sm font-bold text-navy transition-all hover:bg-emerald-light hover:shadow-lg hover:shadow-emerald/25 disabled:cursor-not-allowed disabled:opacity-70"
             >
-              {submitted ? submitInProgressLabel : "Continue to review"}
+              Continue to your details
             </button>
           </div>
         ) : (
           <button
             type="submit"
-            disabled={submitted || (isEnquiryOnly ? !tripDetailsReady : !liveQuote)}
+            disabled={submitted || (isEnquiryOnly ? !hasQuoteRoute : !liveQuote)}
             className="w-full rounded-xl bg-emerald py-3.5 text-sm font-bold text-navy transition-all hover:bg-emerald-light hover:shadow-lg hover:shadow-emerald/25 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {submitted ? submitInProgressLabel : bookButtonLabel}
+            {submitted ? submitInProgressLabel : "Continue to travel details"}
           </button>
         )}
       </form>

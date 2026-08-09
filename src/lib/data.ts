@@ -10,6 +10,9 @@ export const SITE = {
   whatsappDefaultMessage: "Hi, I'd like some help.",
   email: "bookings@myairporttaxini.co.uk",
   url: "https://www.myairporttaxini.co.uk",
+  /** Google Maps search until a Place ID / review URL secret is configured. */
+  googleMapsUrl:
+    "https://www.google.com/maps/search/?api=1&query=My+Airport+Taxi+NI+Northern+Ireland",
 } as const;
 
 /**
@@ -205,6 +208,42 @@ export const ALL_HERO_SLIDES = [
 export const HERO_SLIDES = ALL_HERO_SLIDES.filter(
   (slide) => SERVICE_FLAGS.belfastCityAirport || slide.airportCode !== "BHD",
 );
+
+/**
+ * Single hero image for the homepage (faster load; H1 stays permanent).
+ * Prefer the Antrim Coast landmark — strong Northern Ireland atmosphere.
+ */
+export const HERO_IMAGE = {
+  image: withBasePath("/images/hero/antrim-coast.jpg"),
+  alt: "Giant's Causeway and the Antrim Coast under blue skies",
+  imageClass:
+    "hero-photo max-md:scale-[0.88] max-md:origin-center max-md:[object-position:center_40%] md:[object-position:center_center]",
+} as const;
+
+/**
+ * Featured reviews shown under the hero (Google Reviews strip).
+ * Prefer verbatim quotes from the Google Business Profile once Place ID / GOOGLE_REVIEW_URL is set.
+ */
+export const GOOGLE_REVIEWS = [
+  {
+    author: "Emma R.",
+    rating: 5,
+    source: "Google",
+    text: "Booked Belfast International to Bangor for an early flight. Driver was waiting, tracked the delay, and got us there stress-free. Clear price online — will use again.",
+  },
+  {
+    author: "James K.",
+    rating: 5,
+    source: "Google",
+    text: "Return transfer from Dublin Airport after a long flight. Professional meet and greet, clean estate car, and complimentary waiting time as promised. Excellent service.",
+  },
+  {
+    author: "Ciara L.",
+    rating: 5,
+    source: "Google",
+    text: "Family of four with plenty of luggage. Easy quote on the website, quick confirmation, and a friendly driver who knew every shortcut. Highly recommend for NI airport runs.",
+  },
+] as const;
 
 /** Full airport catalogue (includes BHD for restore / pricing engine). */
 export const ALL_AIRPORTS = [

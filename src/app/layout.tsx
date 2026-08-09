@@ -14,7 +14,7 @@ const inter = Inter({
 });
 
 const description =
-  "Professional airport taxi transfers across Northern Ireland. Belfast International from £45, Dublin Airport, and City of Derry Airport transfers. Flight tracking, meet & greet. Get a live quote online, request to book, then pay via the SumUp link we email.";
+  "Airport transfers across Northern Ireland. Belfast International from £45, Dublin Airport, and City of Derry Airport. Flight tracking, meet & greet. Get a live quote online, request to book, then pay via the SumUp link we email.";
 
 const ogImage = {
   url: absoluteSiteUrl("/og-image-square.png"),

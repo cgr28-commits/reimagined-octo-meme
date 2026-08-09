@@ -4,7 +4,13 @@ import dynamic from "next/dynamic";
 import { useEffect, useMemo, useState } from "react";
 import { AIRPORTS } from "@/lib/data";
 import { geocodePickupAddress, isGooglePlacesEnabled } from "@/lib/google-maps";
-import { fetchTripRouteMetrics, formatJourneyDistance, formatJourneyDuration, type TripRouteMetrics } from "@/lib/trip-route";
+import {
+  fetchTripRouteMetrics,
+  formatJourneyDistance,
+  formatJourneyDuration,
+  formatJourneyDurationApprox,
+  type TripRouteMetrics,
+} from "@/lib/trip-route";
 
 const TripMapView = dynamic(() => import("@/components/TripMapView"), {
   ssr: false,
@@ -25,6 +31,8 @@ type TripMapProps = {
   airportCode?: string;
   tripDirection?: AirportTripDirection;
   onRouteMetrics?: (metrics: TripRouteMetrics | null) => void;
+  /** Compact distance/time line with optional map expand (default for quote form). */
+  variant?: "full" | "summary";
 };
 
 type MapPoint = {
@@ -74,6 +82,7 @@ export default function TripMap({
   airportCode = "",
   tripDirection = "to-airport",
   onRouteMetrics,
+  variant = "full",
 }: TripMapProps) {
   const trimmedOrigin = originAddress.trim();
   const trimmedDestination = destinationAddress.trim();
@@ -81,6 +90,7 @@ export default function TripMap({
   const [destinationPoint, setDestinationPoint] = useState<MapPoint | null>(null);
   const [mapError, setMapError] = useState<string | null>(null);
   const [routeMetrics, setRouteMetrics] = useState<TripRouteMetrics | null>(null);
+  const [showMap, setShowMap] = useState(false);
 
   const airport = useMemo(
     () => AIRPORTS.find((item) => item.code === airportCode) ?? null,
@@ -183,6 +193,60 @@ export default function TripMap({
 
   if (!links || trimmedOrigin.length < 8 || trimmedDestination.length < 8) {
     return null;
+  }
+
+  if (variant === "summary") {
+    return (
+      <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3">
+        <p className="text-xs font-medium uppercase tracking-wider text-emerald">Your route</p>
+        <p className="mt-1 text-sm text-white/70">{links.routeLabel}</p>
+        {routeMetrics ? (
+          <p className="mt-1.5 text-sm font-semibold text-white">
+            {formatJourneyDistance(routeMetrics.distanceKm)}
+            <span className="mx-2 font-normal text-white/40">·</span>
+            {formatJourneyDurationApprox(routeMetrics.durationMinutes)}
+          </p>
+        ) : originPoint && destinationPoint ? (
+          <p className="mt-1.5 text-xs text-white/50">Calculating distance and time…</p>
+        ) : mapError ? (
+          <p className="mt-1.5 text-xs text-white/50">{mapError}</p>
+        ) : (
+          <p className="mt-1.5 text-xs text-white/50">Finding your addresses…</p>
+        )}
+
+        <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
+          <button
+            type="button"
+            onClick={() => setShowMap((open) => !open)}
+            className="text-sm font-medium text-emerald transition-colors hover:text-emerald-light"
+          >
+            {showMap ? "Hide route" : "View route"}
+          </button>
+          <a
+            href={links.mapsLink}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sm font-medium text-white/55 transition-colors hover:text-emerald"
+          >
+            Open in Google Maps
+          </a>
+        </div>
+
+        {showMap ? (
+          <div className="mt-3 overflow-hidden rounded-lg border border-white/10">
+            {originPoint && destinationPoint ? (
+              <TripMapView pickup={originPoint} airport={destinationPoint} />
+            ) : (
+              <div className="flex h-40 items-center justify-center px-4 text-center">
+                <p className="text-sm text-white/60">
+                  {mapError ?? "Finding your addresses on the map…"}
+                </p>
+              </div>
+            )}
+          </div>
+        ) : null}
+      </div>
+    );
   }
 
   return (
