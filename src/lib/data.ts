@@ -21,8 +21,8 @@ export const SERVICE_FLAGS = {
   chauffeur: false,
   /** Address-to-address quoting UI — code retained in QuoteCard. */
   addressToAddress: false,
-  /** George Best Belfast City Airport (BHD) — data retained for restore. */
-  belfastCityAirport: false,
+  /** George Best Belfast City Airport (BHD). */
+  belfastCityAirport: true,
   /** Public tracking demo hub + owner/driver demo links. */
   trackingDemo: false,
   /**
@@ -113,7 +113,7 @@ export const ALL_FLIGHT_AIRPORTS = [
   },
 ] as const;
 
-/** Public flight-status airports — BHD soft-hidden via SERVICE_FLAGS.belfastCityAirport. */
+/** Public flight-status airports — filtered by SERVICE_FLAGS.belfastCityAirport. */
 export const FLIGHT_AIRPORTS = ALL_FLIGHT_AIRPORTS.filter(
   (airport) => SERVICE_FLAGS.belfastCityAirport || airport.code !== "BHD",
 );
