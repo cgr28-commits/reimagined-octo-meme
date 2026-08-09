@@ -508,14 +508,14 @@ function extractBareCount(text: string): number | undefined {
 }
 
 function pickVehicle(passengers: number, suitcases: number): (typeof VEHICLE_TYPES)[number] {
-  if (passengers > 4 || suitcases >= 5) return "Minibus (7–8 passengers)";
+  if (passengers > 4 || suitcases >= 5) return "Minibus (5–8 passengers)";
   if (suitcases >= 3) return "Estate Car (1–4 passengers)";
   return "Standard Saloon (1–4 passengers)";
 }
 
 function matchExplicitVehicle(text: string): (typeof VEHICLE_TYPES)[number] | undefined {
   const lower = text.toLowerCase();
-  if (/\bminibus\b/.test(lower)) return "Minibus (7–8 passengers)";
+  if (/\bminibus\b/.test(lower)) return "Minibus (5–8 passengers)";
   if (/\bexecutive\b/.test(lower)) return "Executive Saloon (1–4 passengers)";
   if (/\bestate\b/.test(lower)) return "Estate Car (1–4 passengers)";
   if (/\bsaloon\b/.test(lower)) return "Standard Saloon (1–4 passengers)";

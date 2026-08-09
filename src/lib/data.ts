@@ -44,7 +44,7 @@ export type ServiceFlagKey = keyof typeof SERVICE_FLAGS;
 export const ALL_NAV_LINKS = [
   { label: "Airports", href: "/#airports", service: null },
   { label: "Day Trips", href: "/tours/", service: "dayTrips" as const },
-  { label: "Our Fleet", href: "/#vehicles", service: null },
+  { label: "Vehicles", href: "/#vehicles", service: null },
   { label: "Chauffeur", href: "/#chauffeur", service: "chauffeur" as const },
   { label: "Check Flights", href: "/#flight-status", service: null },
   { label: "Driver Tracking", href: "/#driver-tracking", service: "liveDriverTracking" as const },
@@ -372,7 +372,7 @@ export const WHY_CHOOSE_US = [
   {
     title: "Licensed & insured transport",
     description:
-      "Saloon and estate cars from our licensed fleet, with executive and minibus options available — including minibus transfers through our licensed transport partners where needed.",
+      "Saloon and estate cars from our licensed vehicles for 1–4 passengers. Minibus transfers for larger groups are available through our licensed transport partners.",
   },
 ] as const;
 
@@ -456,7 +456,7 @@ export const FAQS = [
   {
     question: "What vehicle types do you offer?",
     answer:
-      "For 1–4 passengers we use standard or estate cars with an instant online price. For 5–8 passengers, minibus transfers are available through our licensed transport partners (request a quote — subject to availability). Executive saloons are enquire-to-book.",
+      "For 1–4 passengers we use standard or estate cars with an instant online price. For 5–8 passengers, minibus transfers are available through our licensed transport partners (request a quote — subject to availability; the quote tool selects minibus automatically when more than four passengers are chosen). Executive saloons are enquire-to-book. Eight passengers with eight large suitcases need a luggage-capacity check before we can confirm.",
   },
   {
     question: "Do you offer chauffeur and executive private hire?",
@@ -546,24 +546,30 @@ export const VEHICLE_TYPES = [
   "Standard Saloon (1–4 passengers)",
   "Estate Car (1–4 passengers)",
   "Executive Saloon (1–4 passengers)",
-  "Minibus (7–8 passengers)",
+  "Minibus (5–8 passengers)",
 ] as const;
 
 export type VehicleType = (typeof VEHICLE_TYPES)[number];
 
+export const MINIBUS_VEHICLE_TYPE: VehicleType = "Minibus (5–8 passengers)";
+
 /** Vehicles that cannot be instantly confirmed — enquiry / request-a-quote flow. */
 export const ENQUIRY_ONLY_VEHICLE_TYPES: readonly VehicleType[] = [
   "Executive Saloon (1–4 passengers)",
-  "Minibus (7–8 passengers)",
+  MINIBUS_VEHICLE_TYPE,
 ];
 
 /** Minibus: show a guide price online, but require “Request a quote” (not instant confirmation). */
-export const REQUEST_QUOTE_VEHICLE_TYPES: readonly VehicleType[] = [
-  "Minibus (7–8 passengers)",
-];
+export const REQUEST_QUOTE_VEHICLE_TYPES: readonly VehicleType[] = [MINIBUS_VEHICLE_TYPE];
 
 export const MINIBUS_PARTNER_NOTE =
   "Minibus transfers available through our licensed transport partners.";
+
+/** Short guidance shown in the quote tool above vehicle selection. */
+export const VEHICLE_BOOKING_GUIDANCE = [
+  "1–4 passengers: Standard or estate car — instant online price.",
+  "5–8 passengers: Minibus, subject to availability — Request a quote (not instant confirmation). Selected automatically when more than four passengers are chosen.",
+] as const;
 
 /** 8 passengers with 8 large cases needs manual capacity confirmation before we can accept. */
 export function needsLuggageCapacityConfirmation(

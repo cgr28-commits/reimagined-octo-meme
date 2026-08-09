@@ -5,7 +5,7 @@ import PreventHorizontalScroll from "@/components/PreventHorizontalScroll";
 import CookieConsent from "@/components/CookieConsent";
 import QuoteAssistant from "@/components/QuoteAssistant";
 import WhatsAppButton from "@/components/WhatsAppButton";
-import { SITE } from "@/lib/data";
+import { LOWEST_AIRPORT_FROM_PRICE, SERVICE_FLAGS, SITE } from "@/lib/data";
 import { absoluteSiteUrl } from "@/lib/paths";
 import { getFaqPageJsonLd, getLocalBusinessJsonLd, getWebSiteJsonLd } from "@/lib/structured-data";
 
@@ -14,8 +14,9 @@ const inter = Inter({
   variable: "--font-inter",
 });
 
-const description =
-  "Airport transfers across Northern Ireland. Belfast International from £45, Dublin Airport, and City of Derry Airport. Flight tracking, meet & greet. Get a live quote online, request to book, then pay via the SumUp link we email.";
+const description = SERVICE_FLAGS.belfastCityAirport
+  ? `Airport transfers across Northern Ireland. From £${LOWEST_AIRPORT_FROM_PRICE} to Belfast City Airport and from £45 to Belfast International, plus Dublin and City of Derry. Flight tracking, meet & greet. Get a live quote online, request to book, then pay via the SumUp link we email.`
+  : "Airport transfers across Northern Ireland. Belfast International from £45, Dublin Airport, and City of Derry Airport. Flight tracking, meet & greet. Get a live quote online, request to book, then pay via the SumUp link we email.";
 
 const ogImage = {
   url: absoluteSiteUrl("/og-image-square.png"),
@@ -39,6 +40,8 @@ export const metadata: Metadata = {
   keywords: [
     "airport taxi",
     "Belfast airport transfer",
+    "Belfast City Airport taxi",
+    "Belfast International Airport transfer",
     "Northern Ireland taxi",
     "Dublin airport taxi",
     "airport shuttle NI",

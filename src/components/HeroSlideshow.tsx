@@ -1,46 +1,21 @@
 "use client";
 
-import { AIRPORTS, HERO_IMAGE } from "@/lib/data";
-import { withBasePath } from "@/lib/paths";
+import { LOWEST_AIRPORT_FROM_PRICE, SERVICE_FLAGS } from "@/lib/data";
 import QuoteCard from "./QuoteCard";
 
-const HERO_WIDTHS = [960, 1920] as const;
-
-function heroSrcSet(ext: "avif" | "webp" | "jpg"): string {
-  return HERO_WIDTHS.map(
-    (width) => `${withBasePath(`/images/hero/optimized/antrim-coast-${width}.${ext}`)} ${width}w`,
-  ).join(", ");
-}
-
 export default function HeroSlideshow() {
-  const fromPrice = AIRPORTS.find((airport) => airport.code === "BFS")?.distance ?? "From £45";
+  const fromPrice = `From £${LOWEST_AIRPORT_FROM_PRICE}`;
+  const airportList = SERVICE_FLAGS.belfastCityAirport
+    ? "Belfast International, Belfast City, Dublin, and City of Derry airports"
+    : "Belfast International, Dublin, and City of Derry airports";
 
   return (
     <section className="relative min-h-screen max-w-full overflow-x-clip overflow-y-hidden pt-44 md:pt-28">
-      <div className="absolute inset-0 overflow-hidden">
-        <picture>
-          <source type="image/avif" srcSet={heroSrcSet("avif")} sizes="100vw" />
-          <source type="image/webp" srcSet={heroSrcSet("webp")} sizes="100vw" />
-          <img
-            src={withBasePath("/images/hero/optimized/antrim-coast-1920.jpg")}
-            srcSet={heroSrcSet("jpg")}
-            sizes="100vw"
-            width={1920}
-            height={1280}
-            alt={HERO_IMAGE.alt}
-            fetchPriority="high"
-            decoding="async"
-            className={[
-              "absolute inset-0 h-full w-full object-cover",
-              HERO_IMAGE.imageClass,
-              "hero-slide",
-            ]
-              .filter(Boolean)
-              .join(" ")}
-          />
-        </picture>
-        <div className="absolute inset-0 bg-gradient-to-b from-navy/50 via-navy/35 to-navy/85 max-md:from-navy/55 max-md:via-navy/40 max-md:to-navy/90" />
-        <div className="absolute inset-0 bg-gradient-to-r from-navy/55 via-navy/10 to-navy/35 max-md:from-navy/60 max-md:via-navy/15 max-md:to-navy/40" />
+      <div className="absolute inset-0 overflow-hidden bg-navy" aria-hidden="true">
+        <div className="absolute inset-0 bg-gradient-to-b from-navy-light/40 via-navy to-navy-dark" />
+        <div className="absolute inset-0 bg-gradient-to-r from-navy-dark/80 via-transparent to-navy-light/30" />
+        <div className="absolute -left-24 top-16 h-72 w-72 rounded-full bg-emerald/10 blur-3xl" />
+        <div className="absolute -right-16 bottom-10 h-80 w-80 rounded-full bg-navy-light/40 blur-3xl" />
       </div>
 
       <div className="relative mx-auto flex w-full min-w-0 max-w-7xl flex-col gap-12 px-4 py-16 sm:px-6 lg:flex-row lg:items-center lg:gap-16 lg:px-8 lg:py-24">
@@ -55,8 +30,8 @@ export default function HeroSlideshow() {
           </h1>
 
           <p className="mt-5 max-w-lg text-lg leading-relaxed text-white/75 sm:text-xl">
-            Fixed prices to Belfast International, Dublin, and City of Derry airports — with flight
-            tracking, meet &amp; greet, and complimentary waiting time.
+            Fixed prices to {airportList} — with flight tracking, meet &amp; greet, and
+            complimentary waiting time.
           </p>
           <p className="mt-3 max-w-lg text-sm leading-relaxed text-white/65 sm:text-base">
             Get a live quote, then Request to book. Once we confirm your job, we email a SumUp

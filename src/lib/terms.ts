@@ -31,6 +31,7 @@ export const TERMS_SECTIONS = [
     ],
     list: [
       "Belfast International Airport",
+      "George Best Belfast City Airport",
       "Dublin Airport",
       "City of Derry Airport",
     ],
@@ -39,10 +40,11 @@ export const TERMS_SECTIONS = [
   {
     title: "Licensed partner operators",
     content: [
-      "Most saloon and estate car transfers are fulfilled by My Airport Taxi NI using our own licensed vehicles and drivers.",
-      "Where a larger vehicle is required (including minibus transfers for groups), or where operational needs require it, your journey may be fulfilled by another fully licensed and insured private hire / PSV operator working as our transport partner.",
+      "Most saloon and estate car transfers (typically 1–4 passengers) are fulfilled by My Airport Taxi NI using our own licensed vehicles and drivers.",
+      "Where a larger vehicle is required (including minibus transfers for 5–8 passengers), or where operational needs require it, your journey may be fulfilled by another fully licensed and insured private hire / PSV operator working as our transport partner (subcontracted fulfilment).",
       "By requesting a quotation or making a booking, you agree that we may arrange for a suitable licensed partner operator to carry out all or part of the transfer.",
       "Partner-operated journeys remain subject to these Terms & Conditions. We remain your point of contact for booking, payment (where applicable), and customer service, and we will only use operators who hold the licences and insurance required for the journey.",
+      "Minibus transfers are subject to partner availability and are not instantly confirmed online — a booking is confirmed only when we accept it in writing (including by email).",
     ],
   },
   {
