@@ -86,8 +86,8 @@ export default function HeroSlideshow() {
             {slide.subtitle}
           </p>
           <p className="mt-3 max-w-lg text-sm leading-relaxed text-white/65 sm:text-base">
-            Get an instant price online or through WhatsApp. Enquire to book — once confirmed,
-            we&apos;ll send a SumUp payment link. Your booking is confirmed after payment.
+            Get a live quote online, then Request to book. Once we confirm your job, we email a
+            SumUp payment link — your booking is confirmed after payment.
           </p>
 
           <div className="mt-8 flex flex-wrap items-center gap-4">

@@ -183,12 +183,12 @@ function knowledgeChunks(): Array<{ title: string; body: string }> {
     {
       title: "How booking works",
       body:
-        "Use Get a Live Quote on the website (or this chat) to get your fixed journey price with the same pricing as the quote tool. 1–4 passengers: standard or estate car with an instant online price. 5–8 passengers: minibus (guide price, request a quote, subject to availability — including licensed transport partners). Executive Saloon is enquire-only. Once we confirm a job, we email a SumUp payment link. Your booking is confirmed after payment.",
+        "Standard process: (1) Get a Live Quote on the website or in this chat for your fixed journey price. (2) Request to book with your date, time, and contact details. (3) We review and confirm the job. (4) We email a SumUp payment link. (5) Your booking is confirmed after payment. 1–4 passengers: standard or estate car with an instant online price. 5–8 passengers: minibus (guide price, request a quote, subject to availability — including licensed transport partners). Executive Saloon is enquire-only, then the same SumUp payment link once accepted.",
     },
     {
       title: "Quote tool flow",
       body:
-        "The quote tool asks: trip type (to or from airport), one way or return, airport, full pickup or drop-off address, passengers, and suitcases, then shows the fixed journey price and vehicle. Pickup date and time are collected when you choose to book. You can finish booking in this chat with date/time, contact details, flight numbers and terms — flight numbers are checked before we send the request.",
+        "The quote tool asks: trip type (to or from airport), one way or return, airport, full pickup or drop-off address, passengers, and suitcases, then shows the fixed journey price and vehicle. Pickup date and time are required before you can Request to book — return trips must be after the outbound journey. You can finish booking in this chat with date/time, contact details, flight numbers and terms — flight numbers are checked before we send the request.",
     },
     {
       title: "Airports we cover",
@@ -224,7 +224,7 @@ function knowledgeChunks(): Array<{ title: string; body: string }> {
     {
       title: "Cash and payment options",
       body:
-        "You can pay by cash to the driver, bank transfer, payment link (text or WhatsApp), or securely online by card through SumUp. Corporate accounts are available for regular travellers.",
+        "After you Request to book and we confirm the job, we email a SumUp payment link for secure card payment. Cash to the driver or bank transfer can be arranged where agreed. Corporate accounts are available for regular travellers.",
     },
   );
 
