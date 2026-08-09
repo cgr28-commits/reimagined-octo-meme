@@ -14,6 +14,8 @@ import {
   isVehicleEnquiryOnly,
   isVehicleRequestQuote,
   MINIBUS_PARTNER_NOTE,
+  MINIBUS_VEHICLE_TYPE,
+  VEHICLE_BOOKING_GUIDANCE,
   needsLuggageCapacityConfirmation,
   SERVICE_FLAGS,
   showsOnlineGuidePrice,
@@ -74,7 +76,7 @@ const BOOKING_INPUT_CLASS =
 const BOOKING_HELPER_CLASS = "mt-1.5 text-xs text-white/55";
 
 const ESTATE = "Estate Car (1–4 passengers)" as const;
-const MINIBUS = "Minibus (7–8 passengers)" as const;
+const MINIBUS = MINIBUS_VEHICLE_TYPE;
 
 type VehicleType = (typeof VEHICLE_TYPES)[number];
 
@@ -1658,6 +1660,18 @@ function QuoteCard({
           </div>
         )}
 
+        <div className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3">
+          <p className="text-xs font-semibold uppercase tracking-wider text-white/55">Vehicle options</p>
+          <ul className="mt-2 space-y-1.5 text-xs leading-relaxed text-white/65">
+            {VEHICLE_BOOKING_GUIDANCE.map((line) => (
+              <li key={line} className="flex gap-2">
+                <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-emerald" aria-hidden />
+                <span>{line}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
             <label
@@ -1731,17 +1745,23 @@ function QuoteCard({
             </select>
             {passengers > 4 ? (
               <p className="mt-1.5 text-xs text-white/40">
-                Minibus selected automatically for more than 4 passengers — subject to availability.
+                Minibus selected automatically for more than 4 passengers — Request a quote (subject
+                to availability).
               </p>
             ) : suitcases >= 5 ? (
               <p className="mt-1.5 text-xs text-white/40">
-                Minibus selected automatically for 5 or more suitcases — subject to availability.
+                Minibus selected automatically for 5 or more suitcases — Request a quote (subject to
+                availability).
               </p>
             ) : suitcases >= 3 ? (
               <p className="mt-1.5 text-xs text-white/40">
-                Estate car selected automatically for 3 or more suitcases.
+                Estate car selected automatically for 3 or more suitcases — instant online price.
               </p>
-            ) : null}
+            ) : (
+              <p className="mt-1.5 text-xs text-white/40">
+                Choose Standard or Estate for 1–4 passengers — instant online price.
+              </p>
+            )}
             {isRequestQuote ? (
               <p className="mt-1.5 text-xs text-white/50">{MINIBUS_PARTNER_NOTE}</p>
             ) : null}

@@ -1,6 +1,6 @@
 "use client";
 
-import { AIRPORTS, HERO_IMAGE } from "@/lib/data";
+import { HERO_IMAGE, LOWEST_AIRPORT_FROM_PRICE, SERVICE_FLAGS } from "@/lib/data";
 import { withBasePath } from "@/lib/paths";
 import QuoteCard from "./QuoteCard";
 
@@ -13,7 +13,10 @@ function heroSrcSet(ext: "avif" | "webp" | "jpg"): string {
 }
 
 export default function HeroSlideshow() {
-  const fromPrice = AIRPORTS.find((airport) => airport.code === "BFS")?.distance ?? "From £45";
+  const fromPrice = `From £${LOWEST_AIRPORT_FROM_PRICE}`;
+  const airportList = SERVICE_FLAGS.belfastCityAirport
+    ? "Belfast International, Belfast City, Dublin, and City of Derry airports"
+    : "Belfast International, Dublin, and City of Derry airports";
 
   return (
     <section className="relative min-h-screen max-w-full overflow-x-clip overflow-y-hidden pt-44 md:pt-28">
@@ -55,8 +58,8 @@ export default function HeroSlideshow() {
           </h1>
 
           <p className="mt-5 max-w-lg text-lg leading-relaxed text-white/75 sm:text-xl">
-            Fixed prices to Belfast International, Dublin, and City of Derry airports — with flight
-            tracking, meet &amp; greet, and complimentary waiting time.
+            Fixed prices to {airportList} — with flight tracking, meet &amp; greet, and
+            complimentary waiting time.
           </p>
           <p className="mt-3 max-w-lg text-sm leading-relaxed text-white/65 sm:text-base">
             Get a live quote, then Request to book. Once we confirm your job, we email a SumUp
