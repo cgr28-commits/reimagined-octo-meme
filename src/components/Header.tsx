@@ -111,21 +111,21 @@ export default function Header() {
 
   return (
     <>
-      <header className="fixed inset-x-0 top-0 z-[60] max-w-[100%] border-b border-white/10 bg-navy/80 backdrop-blur-xl">
-        <div className="hidden border-b border-white/10 bg-navy-dark/90 md:block">
-          <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-x-6 gap-y-1 px-4 py-2 text-xs font-medium text-white/70 sm:justify-between sm:px-6 sm:text-sm lg:px-8">
+      <header className="fixed inset-x-0 top-0 z-[60] max-w-[100%] bg-gradient-to-b from-navy via-navy/70 to-transparent">
+        <div className="hidden md:block">
+          <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-x-6 gap-y-1 px-4 py-2 text-xs font-medium text-white/55 sm:justify-between sm:px-6 sm:text-sm lg:px-8">
             <p className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1">
-              <span className="text-emerald">Licensed &amp; insured</span>
-              <span className="text-white/25" aria-hidden>
+              <span className="text-emerald/90">Licensed &amp; insured</span>
+              <span className="text-white/20" aria-hidden>
                 ·
               </span>
-              <span className="text-emerald">Flight tracking</span>
-              <span className="text-white/25" aria-hidden>
+              <span className="text-emerald/90">Flight tracking</span>
+              <span className="text-white/20" aria-hidden>
                 ·
               </span>
-              <span className="text-emerald">Secure SumUp payment</span>
+              <span className="text-emerald/90">Secure SumUp payment</span>
             </p>
-            <p className="hidden text-white/45 lg:block">24/7 airport transfers across Northern Ireland</p>
+            <p className="hidden text-white/40 lg:block">24/7 airport transfers across Northern Ireland</p>
           </div>
         </div>
 
@@ -157,7 +157,7 @@ export default function Header() {
 
           <button
             type="button"
-            className="flex items-center gap-2 rounded-lg border border-white/15 bg-white/5 px-3 py-2 md:hidden"
+            className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 md:hidden"
             onClick={() => setMenuOpen((open) => !open)}
             aria-expanded={menuOpen}
             aria-controls={menuId}
@@ -175,10 +175,10 @@ export default function Header() {
         </div>
 
         <nav
-          className="max-w-full overflow-x-clip border-t border-white/10 bg-navy-light/95 px-4 py-2.5 backdrop-blur-xl md:hidden"
+          className="max-w-full overflow-x-clip px-4 py-2.5 md:hidden"
           aria-label="Quick services"
         >
-          <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-white/45">
+          <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-white/40">
             Airport transfers · Get a quote
           </p>
           <div className="flex max-w-full flex-wrap gap-2">
@@ -190,7 +190,7 @@ export default function Header() {
                 className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors ${
                   "highlight" in link && link.highlight
                     ? "bg-emerald text-navy"
-                    : "border border-white/20 bg-white/5 text-white/85 hover:border-emerald/40 hover:text-emerald"
+                    : "border border-white/15 bg-white/[0.04] text-white/80 hover:border-emerald/40 hover:text-emerald"
                 }`}
               >
                 {link.label}
