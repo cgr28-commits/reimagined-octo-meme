@@ -34,8 +34,9 @@ export default function HeroSlideshow() {
             complimentary waiting time.
           </p>
           <p className="mt-3 max-w-lg text-sm leading-relaxed text-white/65 sm:text-base">
-            Get a live quote, then Request to book. Once we confirm your job, we email a SumUp
-            payment link — your booking is confirmed after payment.
+            Get a live quote for a standard or estate car and pay online when pickup is at least 12
+            hours ahead — or Request to book and we&apos;ll email a SumUp payment link once
+            confirmed.
           </p>
 
           <div className="mt-8 flex flex-wrap items-center gap-4">

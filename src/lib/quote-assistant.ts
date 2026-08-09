@@ -183,7 +183,7 @@ function knowledgeChunks(): Array<{ title: string; body: string }> {
     {
       title: "How booking works",
       body:
-        "Standard process: (1) Get a Live Quote on the website or in this chat for your fixed journey price. (2) Request to book with your date, time, and contact details. (3) We review and confirm the job. (4) We email a SumUp payment link. (5) Your booking is confirmed after payment. 1–4 passengers: standard or estate car with an instant online price. 5–8 passengers: minibus (guide price, request a quote, subject to availability — including licensed transport partners). Executive Saloon is enquire-only, then the same SumUp payment link once accepted.",
+        "Standard process: (1) Get a Live Quote on the website or in this chat for your fixed journey price. (2) For a standard or estate car with pickup at least 12 hours ahead, you can pay online with SumUp to confirm. Otherwise Request to book / enquire with your date, time, and contact details — we confirm the job and email a SumUp payment link; booking is confirmed after payment. 1–4 passengers: standard or estate car with an instant online price. 5–8 passengers: minibus (guide price, request a quote, subject to availability — including licensed transport partners). Executive Saloon is enquire-only.",
     },
     {
       title: "Quote tool flow",
@@ -224,7 +224,7 @@ function knowledgeChunks(): Array<{ title: string; body: string }> {
     {
       title: "Cash and payment options",
       body:
-        "After you Request to book and we confirm the job, we email a SumUp payment link for secure card payment. Cash to the driver or bank transfer can be arranged where agreed. Corporate accounts are available for regular travellers.",
+        "Standard and estate cars with at least 12 hours’ notice can pay by card online via SumUp at the end of the website quote. Otherwise, after you Request to book and we confirm the job, we email a SumUp payment link. Cash to the driver or bank transfer can be arranged where agreed.",
     },
   );
 
