@@ -9,7 +9,17 @@ import { buildBookingMessage, isValidEmailAddress, isValidMobileNumber, type Boo
 import { buildMarketingOptInFields, recordMarketingOptIn } from "@/lib/marketing-api";
 import { TERMS_LAST_UPDATED } from "@/lib/terms";
 import { detectMobileDevice, useIsMobileDevice } from "@/lib/device";
-import { AIRPORTS, isVehicleEnquiryOnly, SERVICE_FLAGS, SITE, VEHICLE_TYPES } from "@/lib/data";
+import {
+  AIRPORTS,
+  isVehicleEnquiryOnly,
+  isVehicleRequestQuote,
+  MINIBUS_PARTNER_NOTE,
+  needsLuggageCapacityConfirmation,
+  SERVICE_FLAGS,
+  showsOnlineGuidePrice,
+  SITE,
+  VEHICLE_TYPES,
+} from "@/lib/data";
 import {
   readPrefillAirport,
   readPrefillQuoteDraft,
@@ -69,7 +79,8 @@ const MINIBUS = "Minibus (7–8 passengers)" as const;
 type VehicleType = (typeof VEHICLE_TYPES)[number];
 
 function getAutoVehicle(passengers: number, suitcases: number): VehicleType | null {
-  if (passengers >= 8 || suitcases >= 5) {
+  // More than 4 passengers → minibus (request a quote / subject to availability).
+  if (passengers > 4 || suitcases >= 5) {
     return MINIBUS;
   }
   if (suitcases >= 3) {
@@ -227,7 +238,12 @@ function QuoteCard() {
   const autoVehicle = getAutoVehicle(passengers, suitcases);
   const quoteVehicle = autoVehicle ?? vehicle;
   const isEnquiryOnly = isVehicleEnquiryOnly(quoteVehicle);
+  const isRequestQuote = isVehicleRequestQuote(quoteVehicle);
+  const showGuidePrice = showsOnlineGuidePrice(quoteVehicle);
+  const capacityNeedsConfirm = needsLuggageCapacityConfirmation(passengers, suitcases);
   const isVehicleAutoSelected = autoVehicle != null;
+  const [capacityConfirmed, setCapacityConfirmed] = useState(false);
+  const [capacityError, setCapacityError] = useState("");
 
   const isAirportTrip = tripMode === "airport";
   const isFromAirport = tripDirection === "from-airport";
@@ -398,9 +414,19 @@ function QuoteCard() {
 
   const tripDetailsReady = hasQuoteRoute && isScheduleComplete;
 
+  useEffect(() => {
+    if (!capacityNeedsConfirm) {
+      setCapacityConfirmed(false);
+      setCapacityError("");
+    }
+  }, [capacityNeedsConfirm]);
+
   const liveQuote = useMemo(() => {
-    // Executive / Minibus: no online price — enquiry only
-    if (!canShowPrice || isEnquiryOnly) {
+    // Executive: no online price. Minibus: show guide price, but still request-a-quote.
+    if (!canShowPrice) {
+      return null;
+    }
+    if (isEnquiryOnly && !showGuidePrice) {
       return null;
     }
 
@@ -434,6 +460,7 @@ function QuoteCard() {
     dropoffAddress,
     isAirportTrip,
     isEnquiryOnly,
+    showGuidePrice,
     pickupAddress,
     quoteAddress,
     returnDate,
@@ -655,8 +682,13 @@ function QuoteCard() {
         : "Airport drop-off"
       : "Address to address";
 
-    const estimatedPrice =
-      !isEnquiryOnly && liveQuote ? formatQuote(liveQuote.amount) : null;
+    const estimatedPrice = liveQuote
+      ? isRequestQuote
+        ? `Guide price ${formatQuote(liveQuote.amount)} (subject to availability)`
+        : !isEnquiryOnly
+          ? formatQuote(liveQuote.amount)
+          : null
+      : null;
 
     return {
       customerName: customerName.trim(),
@@ -693,6 +725,21 @@ function QuoteCard() {
       termsVersion: TERMS_LAST_UPDATED,
       ...buildMarketingOptInFields(marketingOptIn),
     };
+  }
+
+  function requireCapacityConfirmed(): boolean {
+    if (!capacityNeedsConfirm) {
+      setCapacityError("");
+      return true;
+    }
+    if (!capacityConfirmed) {
+      setCapacityError(
+        "Please confirm you understand we must check luggage capacity before we can accept this booking.",
+      );
+      return false;
+    }
+    setCapacityError("");
+    return true;
   }
 
   function requireTermsAccepted(): boolean {
@@ -771,6 +818,9 @@ function QuoteCard() {
   }
 
   async function confirmBooking(delivery: BookingDelivery) {
+    if (!requireCapacityConfirmed()) {
+      return;
+    }
     if (!requireTermsAccepted()) {
       return;
     }
@@ -896,29 +946,63 @@ function QuoteCard() {
     }
   }, [bookingSent]);
 
-  const submitInProgressLabel = isEnquiryOnly ? "Sending enquiry…" : "Sending booking…";
+  const submitInProgressLabel = isRequestQuote
+    ? "Sending quote request…"
+    : isEnquiryOnly
+      ? "Sending enquiry…"
+      : "Sending booking…";
 
-  const confirmButtonLabel = isEnquiryOnly
-    ? "Send enquiry"
-    : liveQuote
-      ? `Confirm & book for ${formatQuote(liveQuote.amount)}`
-      : "Confirm & book";
+  const confirmButtonLabel = isRequestQuote
+    ? liveQuote
+      ? `Request quote · ${formatQuote(liveQuote.amount)}`
+      : "Request a quote"
+    : isEnquiryOnly
+      ? "Send enquiry"
+      : liveQuote
+        ? `Confirm & book for ${formatQuote(liveQuote.amount)}`
+        : "Confirm & book";
 
-  const whatsAppConfirmLabel = isEnquiryOnly
-    ? "Send enquiry via WhatsApp"
-    : liveQuote
-      ? `Send via WhatsApp — ${formatQuote(liveQuote.amount)}`
-      : "Confirm & send via WhatsApp";
+  const whatsAppConfirmLabel = isRequestQuote
+    ? liveQuote
+      ? `Request quote via WhatsApp — ${formatQuote(liveQuote.amount)}`
+      : "Request quote via WhatsApp"
+    : isEnquiryOnly
+      ? "Send enquiry via WhatsApp"
+      : liveQuote
+        ? `Send via WhatsApp — ${formatQuote(liveQuote.amount)}`
+        : "Confirm & send via WhatsApp";
 
-  const bookButtonLabel = isEnquiryOnly
-    ? "Enquire to book"
-    : liveQuote
-      ? sumUpEnabled
-        ? `Book for ${formatQuote(liveQuote.amount)}`
-        : `Request to book · ${formatQuote(liveQuote.amount)}`
-      : "Request to book";
+  const bookButtonLabel = isRequestQuote
+    ? liveQuote
+      ? `Request a quote · ${formatQuote(liveQuote.amount)}`
+      : "Request a quote"
+    : isEnquiryOnly
+      ? "Enquire to book"
+      : liveQuote
+        ? sumUpEnabled
+          ? `Book for ${formatQuote(liveQuote.amount)}`
+          : `Request to book · ${formatQuote(liveQuote.amount)}`
+        : "Request to book";
 
-  const quoteHint = isEnquiryOnly
+  const quoteHint = isRequestQuote
+    ? hasQuoteRoute
+      ? !isScheduleComplete
+        ? "Minibus guide price ready — add your date and time, then request a quote (subject to availability)."
+        : "Minibus transfers are subject to availability — continue to request a quote."
+      : isAirportTrip
+        ? !airportCode
+          ? "Select an airport to see a minibus guide price"
+          : ldyServiceAreaInvalid
+            ? isFromAirport
+              ? "We transfer from Derry Airport to the greater Belfast area — enter a Belfast-area drop-off address"
+              : "Pickups for Derry Airport must be in the greater Belfast area — enter a Belfast-area pickup address"
+            : !isAirportAddressComplete
+              ? `Enter your ${isFromAirport ? "drop-off" : "pickup"} address to see a minibus guide price`
+              : ""
+        : !isAddressPairComplete
+          ? "Enter pickup and drop-off addresses to see a minibus guide price"
+          : ""
+    : isEnquiryOnly
     ? hasQuoteRoute
       ? !isScheduleComplete
         ? `${quoteVehicle.split(" (")[0]} is enquiry only — add your date and time, then continue to book.`
@@ -964,13 +1048,19 @@ function QuoteCard() {
       >
         <div className="rounded-xl border border-emerald/30 bg-emerald/10 px-5 py-8 text-center sm:px-8 sm:py-10">
           <p className="text-xs font-medium uppercase tracking-wider text-emerald">
-            {isEnquiryOnly ? "Enquiry submitted" : "Booking submitted"}
+            {isRequestQuote
+              ? "Quote request submitted"
+              : isEnquiryOnly
+                ? "Enquiry submitted"
+                : "Booking submitted"}
           </p>
           <h2 className="mt-2 text-2xl font-bold text-white sm:text-3xl">Thank you</h2>
           <p className="mx-auto mt-4 max-w-md text-sm leading-relaxed text-white/80 sm:text-base">
-            {isEnquiryOnly
-              ? "We’ve received your enquiry. We’ll confirm availability and send your personal quote shortly. When you’re ready to book, we’ll send a SumUp payment link — your trip is confirmed after payment."
-              : "We’ve received your booking request. Once we confirm the job, we’ll send a SumUp payment link by email. Your booking is confirmed after payment."}
+            {isRequestQuote
+              ? "We’ve received your minibus quote request. These transfers are subject to availability (including licensed partner operators) — we’ll confirm capacity and send your personal quote shortly."
+              : isEnquiryOnly
+                ? "We’ve received your enquiry. We’ll confirm availability and send your personal quote shortly. When you’re ready to book, we’ll send a SumUp payment link — your trip is confirmed after payment."
+                : "We’ve received your booking request. Once we confirm the job, we’ll send a SumUp payment link by email. Your booking is confirmed after payment."}
           </p>
           {bookingReference && (
             <p className="mt-4 text-sm text-white/60">Reference: {bookingReference}</p>
@@ -1626,28 +1716,69 @@ function QuoteCard() {
             >
               {VEHICLE_TYPES.map((v) => (
                 <option key={v} value={v}>
-                  {isVehicleEnquiryOnly(v) ? `${v} — enquire to book` : v}
+                  {isVehicleRequestQuote(v)
+                    ? `${v} — request a quote`
+                    : isVehicleEnquiryOnly(v)
+                      ? `${v} — enquire to book`
+                      : v}
                 </option>
               ))}
             </select>
-            {passengers >= 8 ? (
+            {passengers > 4 ? (
               <p className="mt-1.5 text-xs text-white/40">
-                Minibus selected automatically for 8 passengers.
+                Minibus selected automatically for more than 4 passengers — subject to availability.
               </p>
             ) : suitcases >= 5 ? (
               <p className="mt-1.5 text-xs text-white/40">
-                Minibus selected automatically for 5 or more suitcases.
+                Minibus selected automatically for 5 or more suitcases — subject to availability.
               </p>
             ) : suitcases >= 3 ? (
               <p className="mt-1.5 text-xs text-white/40">
                 Estate car selected automatically for 3 or more suitcases.
               </p>
             ) : null}
+            {isRequestQuote ? (
+              <p className="mt-1.5 text-xs text-white/50">{MINIBUS_PARTNER_NOTE}</p>
+            ) : null}
           </div>
         </div>
 
+        {capacityNeedsConfirm ? (
+          <div className="rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-50">
+            <p className="font-semibold text-amber-100">Luggage capacity check required</p>
+            <p className="mt-1 text-xs leading-relaxed text-amber-50/90">
+              8 passengers with 8 large suitcases cannot be confirmed until we check vehicle
+              capacity. You can still request a quote — we&apos;ll confirm whether we can take the
+              booking.
+            </p>
+          </div>
+        ) : null}
+
         <div className="rounded-xl border border-emerald/30 bg-emerald/10 px-4 py-4">
-          {isEnquiryOnly ? (
+          {isRequestQuote && liveQuote ? (
+            <>
+              <p className="text-xs font-medium uppercase tracking-wider text-emerald">
+                {returnJourney ? "Guide return price · request a quote" : "Guide price · request a quote"}
+              </p>
+              <p className="mt-1 text-3xl font-bold text-white">{formatQuote(liveQuote.amount)}</p>
+              <p className="mt-2 text-xs text-white/60">Minibus · subject to availability</p>
+              <p className="mt-2 text-xs leading-relaxed text-white/65">{MINIBUS_PARTNER_NOTE}</p>
+              {journeyDistanceLabel && journeyDurationLabel && (
+                <p className="mt-2 text-xs text-white/60">
+                  Approx. {journeyDistanceLabel} · {journeyDurationLabel}
+                </p>
+              )}
+              <p className="mt-3 text-xs leading-relaxed text-white/60">
+                {getPriceInclusionNote(isAirportTrip, isFromAirport, returnJourney)} This is a guide
+                price only — not an instant confirmation.
+              </p>
+              {returnJourney && (
+                <p className="mt-2 text-xs font-medium text-emerald/90">
+                  Includes 5% return booking discount on the guide price.
+                </p>
+              )}
+            </>
+          ) : isEnquiryOnly ? (
             <>
               <p className="text-xs font-medium uppercase tracking-wider text-emerald">
                 Enquiry to book
@@ -1709,9 +1840,11 @@ function QuoteCard() {
             </>
           )}
           <p className="mt-3 text-[11px] text-white/40">
-            {isEnquiryOnly
-              ? "We’ll reply with your quote — no online payment until you confirm."
-              : "Includes vehicle, driver, fuel, and tolls. After we confirm your job, we’ll send a SumUp payment link by email."}
+            {isRequestQuote
+              ? "Request a quote — we’ll confirm availability before the booking is accepted. No online payment until confirmed."
+              : isEnquiryOnly
+                ? "We’ll reply with your quote — no online payment until you confirm."
+                : "Includes vehicle, driver, fuel, and tolls. After we confirm your job, we’ll send a SumUp payment link by email."}
           </p>
         </div>
 
@@ -1725,12 +1858,18 @@ function QuoteCard() {
           <div className={BOOKING_PANEL_CLASS}>
             <div className="mb-4">
               <p className="text-xs font-medium uppercase tracking-wider text-emerald">
-                {isEnquiryOnly ? "Review your enquiry" : "Review your booking"}
+                {isRequestQuote
+                  ? "Review your quote request"
+                  : isEnquiryOnly
+                    ? "Review your enquiry"
+                    : "Review your booking"}
               </p>
               <p className="mt-1 text-sm text-white/75">
-                {isEnquiryOnly
-                  ? "Check your details, then send an enquiry — we’ll quote you and confirm availability."
-                  : "Please check everything is correct before booking — wrong details can change your price."}
+                {isRequestQuote
+                  ? "Check your details, then request a quote — minibus transfers are subject to availability and are not instantly confirmed."
+                  : isEnquiryOnly
+                    ? "Check your details, then send an enquiry — we’ll quote you and confirm availability."
+                    : "Please check everything is correct before booking — wrong details can change your price."}
               </p>
             </div>
             <dl>
@@ -1791,13 +1930,21 @@ function QuoteCard() {
               <PreviewRow label="Passengers" value={String(passengers)} />
               <PreviewRow label="Suitcases" value={String(suitcases)} />
               <PreviewRow label="Vehicle" value={quoteVehicle} />
-              {isEnquiryOnly ? (
+              {isRequestQuote && liveQuote ? (
+                <PreviewRow
+                  label="Guide price"
+                  value={`${formatQuote(liveQuote.amount)} — request a quote`}
+                />
+              ) : isEnquiryOnly ? (
                 <PreviewRow label="Pricing" value="Enquiry — we’ll quote you" />
               ) : liveQuote ? (
                 <PreviewRow
                   label={returnJourney ? "Your fixed return journey price" : "Your fixed journey price"}
                   value={formatQuote(liveQuote.amount)}
                 />
+              ) : null}
+              {isRequestQuote ? (
+                <PreviewRow label="Fulfilment" value={MINIBUS_PARTNER_NOTE} />
               ) : null}
             </dl>
           </div>
@@ -1811,6 +1958,29 @@ function QuoteCard() {
 
         {showBookingPreview ? (
           <div className="space-y-3">
+            {capacityNeedsConfirm ? (
+              <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-50">
+                <input
+                  type="checkbox"
+                  checked={capacityConfirmed}
+                  onChange={(event) => {
+                    setCapacityConfirmed(event.target.checked);
+                    if (event.target.checked) {
+                      setCapacityError("");
+                    }
+                  }}
+                  className="mt-1 h-4 w-4 shrink-0 rounded border-white/30 bg-navy text-emerald focus:ring-emerald"
+                />
+                <span>
+                  I understand that 8 passengers with 8 large suitcases cannot be booked until you
+                  confirm vehicle capacity in writing.
+                  {capacityError ? (
+                    <span className="mt-1 block text-xs text-red-200">{capacityError}</span>
+                  ) : null}
+                </span>
+              </label>
+            ) : null}
+
             <BookingTermsConsent
               accepted={termsAccepted}
               onAcceptedChange={(checked) => {
