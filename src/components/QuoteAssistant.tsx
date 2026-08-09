@@ -712,5 +712,7 @@ export default function QuoteAssistant() {
   );
 
   if (!mounted) return null;
+  // Mobile uses a floating WhatsApp button instead — the chat panel covers the quote form.
+  if (isMobile === true) return null;
   return createPortal(ui, document.body);
 }
