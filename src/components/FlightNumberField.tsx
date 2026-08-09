@@ -102,10 +102,12 @@ export default function FlightNumberField({
 
       if (result === null) {
         setVerifiedFlight(null);
-        setLookupStatus("error");
-        setLookupMessage("Flight lookup timed out. Please try again.");
-        onStatusChangeRef.current?.("error");
-        onVerifiedChangeRef.current?.(null, true);
+        setLookupStatus("unavailable");
+        setLookupMessage(
+          "Flight verification timed out. You can still continue — we’ll use the flight number you entered.",
+        );
+        onStatusChangeRef.current?.("unavailable");
+        onVerifiedChangeRef.current?.(null, false);
         return;
       }
 
@@ -123,7 +125,7 @@ export default function FlightNumberField({
         setLookupStatus("unavailable");
         setLookupMessage(
           result.error ||
-            "Flight verification is temporarily unavailable. You can still enter your flight number.",
+            "Flight verification is temporarily unavailable. You can still continue with the flight number you entered.",
         );
         onStatusChangeRef.current?.("unavailable");
         onVerifiedChangeRef.current?.(null, false);
