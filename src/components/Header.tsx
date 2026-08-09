@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useId, useState } from "react";
 import { createPortal } from "react-dom";
 import Logo from "./Logo";
@@ -56,9 +57,9 @@ export default function Header() {
               className="absolute inset-x-0 top-0 flex max-h-[100dvh] flex-col overflow-y-auto overscroll-contain border-b border-white/10 bg-navy shadow-2xl"
             >
               <div className="flex items-center justify-between gap-3 px-4 py-3">
-                <a href="/" aria-label={`${SITE.name} home`} className="shrink-0" onClick={closeMenu}>
+                <Link href="/" aria-label={`${SITE.name} home`} className="shrink-0" onClick={closeMenu}>
                   <Logo className="h-14" />
-                </a>
+                </Link>
                 <button
                   type="button"
                   className="flex items-center gap-2 rounded-lg border border-white/15 bg-white/5 px-3 py-2"
@@ -76,23 +77,23 @@ export default function Header() {
                 <p className="mb-3 text-sm text-white/60">Airport transfers across Northern Ireland.</p>
                 <div className="flex flex-col gap-1">
                   {NAV_LINKS.map((link) => (
-                    <a
+                    <Link
                       key={link.href}
                       href={link.href}
                       onClick={closeMenu}
                       className="rounded-lg px-3 py-3 text-base font-medium text-white/90 transition-colors hover:bg-white/5 hover:text-emerald"
                     >
                       {link.label}
-                    </a>
+                    </Link>
                   ))}
                   <hr className="my-3 border-white/10" />
-                  <a
+                  <Link
                     href="/#quote"
                     onClick={closeMenu}
                     className="rounded-full bg-emerald px-5 py-3.5 text-center text-sm font-semibold text-navy"
                   >
                     Get a Quote
-                  </a>
+                  </Link>
                   <a
                     href={`tel:${SITE.landline}`}
                     onClick={closeMenu}
@@ -129,29 +130,29 @@ export default function Header() {
         </div>
 
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
-          <a href="/" aria-label={`${SITE.name} home`} className="shrink-0">
+          <Link href="/" aria-label={`${SITE.name} home`} className="shrink-0">
             <Logo className="h-16 sm:h-20" />
-          </a>
+          </Link>
 
           <nav className="hidden items-center gap-8 md:flex" aria-label="Main navigation">
             {NAV_LINKS.map((link) => (
-              <a
+              <Link
                 key={link.href}
                 href={link.href}
                 className="text-sm font-medium text-white/70 transition-colors hover:text-emerald"
               >
                 {link.label}
-              </a>
+              </Link>
             ))}
           </nav>
 
           <div className="hidden items-center gap-4 md:flex">
-            <a
+            <Link
               href="/#quote"
               className="rounded-full bg-emerald px-5 py-2 text-sm font-semibold text-navy transition-all hover:bg-emerald-light hover:shadow-lg hover:shadow-emerald/25"
             >
               Get a Quote
-            </a>
+            </Link>
           </div>
 
           <button
@@ -182,7 +183,7 @@ export default function Header() {
           </p>
           <div className="flex max-w-full flex-wrap gap-2">
             {MOBILE_QUICK_LINKS.map((link) => (
-              <a
+              <Link
                 key={link.href}
                 href={link.href}
                 onClick={closeMenu}
@@ -193,7 +194,7 @@ export default function Header() {
                 }`}
               >
                 {link.label}
-              </a>
+              </Link>
             ))}
           </div>
         </nav>
