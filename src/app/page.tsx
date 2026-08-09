@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Header from "@/components/Header";
 import HeroSlideshow from "@/components/HeroSlideshow";
-import GoogleReviewsSection from "@/components/GoogleReviewsSection";
 import AirportsSection from "@/components/AirportsSection";
 import FlightStatusSection from "@/components/FlightStatusSection";
 import AreasSection from "@/components/AreasSection";
@@ -26,7 +25,6 @@ export default function Home() {
       <Header />
       <main className="overflow-x-clip">
         <HeroSlideshow />
-        <GoogleReviewsSection />
         <AirportsSection />
         <FlightStatusSection />
         <AreasSection />
