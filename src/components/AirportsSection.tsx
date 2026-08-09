@@ -1,6 +1,13 @@
+import Link from "next/link";
 import { AIRPORTS } from "@/lib/data";
+import { AIRPORT_PAGES } from "@/lib/location-pages";
 import AirportBookNowLink from "./AirportBookNowLink";
 import SectionHeading from "./SectionHeading";
+
+function airportPageHref(code: string): string | null {
+  const page = AIRPORT_PAGES.find((item) => item.code === code);
+  return page ? `/airports/${page.slug}/` : null;
+}
 
 export default function AirportsSection() {
   return (
@@ -14,25 +21,49 @@ export default function AirportsSection() {
         />
 
         <div className="mt-14 grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
-          {AIRPORTS.map((airport) => (
-            <article
-              key={airport.code}
-              className="group rounded-2xl border border-white/10 bg-white/[0.03] p-6 transition-all hover:border-emerald/30 hover:bg-white/[0.06] hover:shadow-xl hover:shadow-emerald/5"
-            >
-              <div className="flex items-start justify-between">
-                <span className="rounded-lg bg-emerald/15 px-3 py-1 text-xs font-bold tracking-wider text-emerald">
-                  {airport.code}
-                </span>
-                <span className="text-lg font-bold text-emerald">{airport.distance}</span>
-              </div>
-              <h3 className="mt-4 text-lg font-bold text-white">{airport.name}</h3>
-              <p className="mt-1 text-sm text-white/50">{airport.duration}</p>
-              <p className="mt-3 text-sm leading-relaxed text-white/65">
-                {airport.description}
-              </p>
-              <AirportBookNowLink airportCode={airport.code} />
-            </article>
-          ))}
+          {AIRPORTS.map((airport) => {
+            const href = airportPageHref(airport.code);
+            return (
+              <article
+                key={airport.code}
+                className="group rounded-2xl border border-white/10 bg-white/[0.03] p-6 transition-all hover:border-emerald/30 hover:bg-white/[0.06] hover:shadow-xl hover:shadow-emerald/5"
+              >
+                <div className="flex items-start justify-between">
+                  <span className="rounded-lg bg-emerald/15 px-3 py-1 text-xs font-bold tracking-wider text-emerald">
+                    {airport.code}
+                  </span>
+                  <span className="text-lg font-bold text-emerald">{airport.distance}</span>
+                </div>
+                <h3 className="mt-4 text-lg font-bold text-white">
+                  {href ? (
+                    <Link href={href} className="transition-colors hover:text-emerald">
+                      {airport.name}
+                    </Link>
+                  ) : (
+                    airport.name
+                  )}
+                </h3>
+                <p className="mt-1 text-sm text-white/50">{airport.duration}</p>
+                <p className="mt-3 text-sm leading-relaxed text-white/65">
+                  {airport.description}
+                </p>
+                <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-2">
+                  <AirportBookNowLink
+                    airportCode={airport.code}
+                    className="inline-flex items-center gap-1 text-sm font-semibold text-emerald transition-colors hover:text-emerald-light"
+                  />
+                  {href ? (
+                    <Link
+                      href={href}
+                      className="text-sm font-semibold text-white/55 transition-colors hover:text-emerald"
+                    >
+                      Transfer guide →
+                    </Link>
+                  ) : null}
+                </div>
+              </article>
+            );
+          })}
         </div>
       </div>
     </section>

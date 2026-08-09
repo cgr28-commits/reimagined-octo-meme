@@ -6,6 +6,7 @@ const SITE_URL = "https://www.myairporttaxini.co.uk";
 // Keep in sync with SERVICE_FLAGS in src/lib/data.ts
 const DAY_TRIPS_ENABLED = false;
 const TRACKING_DEMO_ENABLED = false;
+const BELFAST_CITY_AIRPORT_ENABLED = true;
 
 const tourSlugs = [
   "giants-causeway",
@@ -16,8 +17,32 @@ const tourSlugs = [
   "derry-londonderry",
 ];
 
+const airportSlugs = [
+  "belfast-international",
+  ...(BELFAST_CITY_AIRPORT_ENABLED ? ["belfast-city"] : []),
+  "dublin",
+  "city-of-derry",
+];
+
+const townSlugs = ["belfast", "newtownabbey", "lisburn", "bangor"];
+
+const transferSlugs = townSlugs.flatMap((town) =>
+  airportSlugs.map((airport) => `${town}-to-${airport}`),
+);
+
 const pages = [
   { path: "/", changefreq: "monthly", priority: "1.0" },
+  { path: "/airports/", changefreq: "monthly", priority: "0.9" },
+  ...airportSlugs.map((slug) => ({
+    path: `/airports/${slug}/`,
+    changefreq: "monthly",
+    priority: "0.85",
+  })),
+  ...transferSlugs.map((slug) => ({
+    path: `/transfers/${slug}/`,
+    changefreq: "monthly",
+    priority: "0.8",
+  })),
   ...(DAY_TRIPS_ENABLED
     ? [
         { path: "/tours/", changefreq: "monthly", priority: "0.9" },
@@ -59,5 +84,5 @@ ${urls}
 
 writeFileSync(join(process.cwd(), "public", "sitemap.xml"), xml);
 console.log(
-  `Wrote sitemap with ${pages.length} URLs (day trips ${DAY_TRIPS_ENABLED ? "on" : "off"}, tracking demo ${TRACKING_DEMO_ENABLED ? "on" : "off"})`,
+  `Wrote sitemap with ${pages.length} URLs (airports ${airportSlugs.length}, transfers ${transferSlugs.length}, day trips ${DAY_TRIPS_ENABLED ? "on" : "off"})`,
 );

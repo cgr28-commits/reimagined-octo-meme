@@ -1,8 +1,16 @@
 "use client";
 
-import Image from "next/image";
 import { AIRPORTS, HERO_IMAGE } from "@/lib/data";
+import { withBasePath } from "@/lib/paths";
 import QuoteCard from "./QuoteCard";
+
+const HERO_WIDTHS = [960, 1920] as const;
+
+function heroSrcSet(ext: "avif" | "webp" | "jpg"): string {
+  return HERO_WIDTHS.map(
+    (width) => `${withBasePath(`/images/hero/optimized/antrim-coast-${width}.${ext}`)} ${width}w`,
+  ).join(", ");
+}
 
 export default function HeroSlideshow() {
   const fromPrice = AIRPORTS.find((airport) => airport.code === "BFS")?.distance ?? "From £45";
@@ -10,16 +18,27 @@ export default function HeroSlideshow() {
   return (
     <section className="relative min-h-screen max-w-full overflow-x-clip overflow-y-hidden pt-44 md:pt-28">
       <div className="absolute inset-0 overflow-hidden">
-        <Image
-          src={HERO_IMAGE.image}
-          alt={HERO_IMAGE.alt}
-          fill
-          priority
-          className={["h-full w-full object-cover", HERO_IMAGE.imageClass, "hero-slide"]
-            .filter(Boolean)
-            .join(" ")}
-          sizes="100vw"
-        />
+        <picture>
+          <source type="image/avif" srcSet={heroSrcSet("avif")} sizes="100vw" />
+          <source type="image/webp" srcSet={heroSrcSet("webp")} sizes="100vw" />
+          <img
+            src={withBasePath("/images/hero/optimized/antrim-coast-1920.jpg")}
+            srcSet={heroSrcSet("jpg")}
+            sizes="100vw"
+            width={1920}
+            height={1280}
+            alt={HERO_IMAGE.alt}
+            fetchPriority="high"
+            decoding="async"
+            className={[
+              "absolute inset-0 h-full w-full object-cover",
+              HERO_IMAGE.imageClass,
+              "hero-slide",
+            ]
+              .filter(Boolean)
+              .join(" ")}
+          />
+        </picture>
         <div className="absolute inset-0 bg-gradient-to-b from-navy/50 via-navy/35 to-navy/85 max-md:from-navy/55 max-md:via-navy/40 max-md:to-navy/90" />
         <div className="absolute inset-0 bg-gradient-to-r from-navy/55 via-navy/10 to-navy/35 max-md:from-navy/60 max-md:via-navy/15 max-md:to-navy/40" />
       </div>

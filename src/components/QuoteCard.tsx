@@ -191,7 +191,19 @@ function isTripDateOnOrAfterToday(tripDate: string): boolean {
 
 type BookingDelivery = "whatsapp" | "email";
 
-function QuoteCard() {
+type QuoteCardProps = {
+  /** Preselect airport on dedicated landing pages. */
+  initialAirportCode?: string;
+  initialDirection?: TripDirection;
+  /** Optional address hint (town/area) for route pages. */
+  initialAddressHint?: string;
+};
+
+function QuoteCard({
+  initialAirportCode = "",
+  initialDirection = "to-airport",
+  initialAddressHint = "",
+}: QuoteCardProps) {
   const cardRef = useRef<HTMLDivElement>(null);
   const isMobileDevice = useIsMobileDevice();
   const [submitted, setSubmitted] = useState(false);
@@ -206,10 +218,14 @@ function QuoteCard() {
   const [mobileNumberError, setMobileNumberError] = useState("");
   const [emailAddressError, setEmailAddressError] = useState("");
   const [tripMode, setTripMode] = useState<TripMode>("airport");
-  const [tripDirection, setTripDirection] = useState<TripDirection>("to-airport");
-  const [airportCode, setAirportCode] = useState("");
-  const [pickupAddress, setPickupAddress] = useState("");
-  const [dropoffAddress, setDropoffAddress] = useState("");
+  const [tripDirection, setTripDirection] = useState<TripDirection>(initialDirection);
+  const [airportCode, setAirportCode] = useState(initialAirportCode);
+  const [pickupAddress, setPickupAddress] = useState(
+    initialDirection === "to-airport" ? initialAddressHint : "",
+  );
+  const [dropoffAddress, setDropoffAddress] = useState(
+    initialDirection === "from-airport" ? initialAddressHint : "",
+  );
   const [returnJourney, setReturnJourney] = useState(false);
   const [tripDateError, setTripDateError] = useState("");
   const [returnDateError, setReturnDateError] = useState("");
@@ -314,13 +330,16 @@ function QuoteCard() {
 
     const savedPickup = localStorage.getItem(PICKUP_STORAGE_KEY);
     const savedDropoff = localStorage.getItem(DROPOFF_STORAGE_KEY);
-    if (savedPickup) {
+    // Keep dedicated landing-page address hints (e.g. Bangor) over stale localStorage.
+    const keepInitialPickup = initialDirection === "to-airport" && Boolean(initialAddressHint);
+    const keepInitialDropoff = initialDirection === "from-airport" && Boolean(initialAddressHint);
+    if (savedPickup && !keepInitialPickup) {
       setPickupAddress(savedPickup);
     }
-    if (savedDropoff) {
+    if (savedDropoff && !keepInitialDropoff) {
       setDropoffAddress(savedDropoff);
     }
-  }, []);
+  }, [initialAddressHint, initialDirection]);
 
   const isLdyTrip = airportCode === "LDY";
   const ldyServiceAddress = isFromAirport ? dropoffAddress : pickupAddress;

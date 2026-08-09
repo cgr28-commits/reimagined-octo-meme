@@ -51,7 +51,7 @@ export function getBreadcrumbJsonLd(items: Array<{ name: string; path: string }>
 export function getLocalBusinessJsonLd() {
   return {
     "@context": "https://schema.org",
-    "@type": "TaxiService",
+    "@type": ["TaxiService", "LocalBusiness"],
     "@id": `${SITE.url}/#business`,
     name: SITE.name,
     description: DESCRIPTION,
@@ -66,12 +66,93 @@ export function getLocalBusinessJsonLd() {
     },
     serviceType: "Airport Transfer",
     priceRange: "££",
+    openingHoursSpecification: {
+      "@type": "OpeningHoursSpecification",
+      dayOfWeek: [
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday",
+        "Saturday",
+        "Sunday",
+      ],
+      opens: "00:00",
+      closes: "23:59",
+    },
     contactPoint: {
       "@type": "ContactPoint",
       telephone: SITE.landline,
       email: SITE.email,
       contactType: "customer service",
       availableLanguage: "English",
+      areaServed: "GB-NIR",
+      hoursAvailable: {
+        "@type": "OpeningHoursSpecification",
+        dayOfWeek: [
+          "Monday",
+          "Tuesday",
+          "Wednesday",
+          "Thursday",
+          "Friday",
+          "Saturday",
+          "Sunday",
+        ],
+        opens: "00:00",
+        closes: "23:59",
+      },
+    },
+  };
+}
+
+/** Airport / route landing pages — TaxiService + LocalBusiness with specific areaServed. */
+export function getServiceAreaJsonLd(opts: {
+  name: string;
+  description: string;
+  path: string;
+  areaServed: string[];
+}) {
+  const openingHours = {
+    "@type": "OpeningHoursSpecification",
+    dayOfWeek: [
+      "Monday",
+      "Tuesday",
+      "Wednesday",
+      "Thursday",
+      "Friday",
+      "Saturday",
+      "Sunday",
+    ],
+    opens: "00:00",
+    closes: "23:59",
+  };
+
+  return {
+    "@context": "https://schema.org",
+    "@type": ["TaxiService", "LocalBusiness"],
+    name: opts.name,
+    description: opts.description,
+    url: `${SITE.url}${opts.path}`,
+    provider: {
+      "@id": `${SITE.url}/#business`,
+    },
+    email: SITE.email,
+    telephone: SITE.landline,
+    priceRange: "££",
+    serviceType: "Airport Transfer",
+    openingHoursSpecification: openingHours,
+    areaServed: opts.areaServed.map((name) => ({
+      "@type": "Place",
+      name,
+    })),
+    contactPoint: {
+      "@type": "ContactPoint",
+      telephone: SITE.landline,
+      email: SITE.email,
+      contactType: "customer service",
+      availableLanguage: "English",
+      areaServed: "GB-NIR",
+      hoursAvailable: openingHours,
     },
   };
 }

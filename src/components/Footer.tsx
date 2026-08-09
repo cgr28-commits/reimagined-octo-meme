@@ -2,6 +2,7 @@ import Link from "next/link";
 import Logo from "./Logo";
 import FooterContact from "./FooterContact";
 import { LOWEST_AIRPORT_FROM_PRICE, NAV_LINKS, SERVICE_FLAGS, SITE } from "@/lib/data";
+import { AIRPORT_PAGES } from "@/lib/location-pages";
 import { TOURS } from "@/lib/tours";
 
 export default function Footer() {
@@ -12,7 +13,7 @@ export default function Footer() {
       <div className="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
         <div
           className={`grid gap-10 sm:grid-cols-2 ${
-            SERVICE_FLAGS.dayTrips ? "lg:grid-cols-5" : "lg:grid-cols-4"
+            SERVICE_FLAGS.dayTrips ? "lg:grid-cols-6" : "lg:grid-cols-5"
           }`}
         >
           <div className="sm:col-span-2 lg:col-span-1">
@@ -36,6 +37,32 @@ export default function Footer() {
                   >
                     {link.label}
                   </a>
+                </li>
+              ))}
+              <li>
+                <Link
+                  href="/airports/"
+                  className="text-sm text-white/50 transition-colors hover:text-emerald"
+                >
+                  Airport guides
+                </Link>
+              </li>
+            </ul>
+          </div>
+
+          <div>
+            <h3 className="text-sm font-semibold uppercase tracking-wider text-white">
+              Airports
+            </h3>
+            <ul className="mt-4 space-y-2">
+              {AIRPORT_PAGES.map((page) => (
+                <li key={page.slug}>
+                  <Link
+                    href={`/airports/${page.slug}/`}
+                    className="text-sm text-white/50 transition-colors hover:text-emerald"
+                  >
+                    {page.shortName}
+                  </Link>
                 </li>
               ))}
             </ul>

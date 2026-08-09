@@ -86,8 +86,9 @@ export const PRIVACY_SECTIONS = [
   {
     title: "Cookies",
     content: [
-      "This website uses essential browser storage to remember payment return state during checkout.",
-      "When you complete a paid booking, we may load a Google Ads conversion tag on the booking confirmation page so we can measure advertising performance. That tag may set Google cookies used for conversion measurement. It is not used for site analytics browsing tracking.",
+      "This website uses essential browser storage to remember payment return state during checkout and to store your cookie preference.",
+      "Optional Google Ads conversion cookies are used only if you choose “Accept measurement cookies” on our consent banner. When accepted, we may load a Google Ads conversion tag on the booking confirmation page so we can measure advertising performance. That tag may set Google cookies used for conversion measurement. It is not used for general site analytics browsing tracking.",
+      "You can change your mind later by clearing site data for this website in your browser settings; the consent banner will appear again if no preference is stored.",
     ],
   },
   {
