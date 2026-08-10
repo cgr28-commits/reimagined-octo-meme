@@ -1,10 +1,22 @@
-/** Optional Google Ads measurement (set via GitHub Actions secrets → NEXT_PUBLIC_*). */
+/**
+ * Google Ads measurement (public tag ID + conversion labels).
+ * Override via GitHub Actions secrets → NEXT_PUBLIC_* at build time.
+ *
+ * These values appear in the client bundle by design (same as Google’s tag snippet).
+ * Booking complete stays disabled until GOOGLE_ADS_BOOKING_CONVERSION_LABEL is set.
+ */
+
+/** My Airport Taxi NI Google Ads account tag. */
+const DEFAULT_GOOGLE_ADS_ID = "AW-10303631278";
+
+/** Request quote conversion label from Google Ads. */
+const DEFAULT_QUOTE_CONVERSION_LABEL = "_hcXCP5z7cscEK7_73dE";
 
 export type GoogleAdsConfig = {
   adsId: string;
   /** Conversion label for successful quote / enquiry requests. */
   quoteConversionLabel: string;
-  /** Conversion label for confirmed paid bookings. */
+  /** Conversion label for confirmed paid bookings (empty until created in Ads). */
   bookingConversionLabel: string;
   quoteSendTo: string;
   bookingSendTo: string;
@@ -19,15 +31,15 @@ function env(name: string): string {
 }
 
 /**
- * Reads public Ads config baked in at build time.
- * Booking label falls back to the legacy GOOGLE_ADS_CONVERSION_LABEL secret.
+ * Reads Ads config. Env/secrets win; otherwise the account defaults above are used
+ * for the tag + request_quote. booking_complete send_to stays off until a booking label is provided.
  */
 export function getGoogleAdsConfig(): GoogleAdsConfig {
-  const adsId = env("NEXT_PUBLIC_GOOGLE_ADS_ID");
-  const quoteConversionLabel = env("NEXT_PUBLIC_GOOGLE_ADS_QUOTE_CONVERSION_LABEL");
-  const bookingConversionLabel =
-    env("NEXT_PUBLIC_GOOGLE_ADS_BOOKING_CONVERSION_LABEL") ||
-    env("NEXT_PUBLIC_GOOGLE_ADS_CONVERSION_LABEL");
+  const adsId = env("NEXT_PUBLIC_GOOGLE_ADS_ID") || DEFAULT_GOOGLE_ADS_ID;
+  const quoteConversionLabel =
+    env("NEXT_PUBLIC_GOOGLE_ADS_QUOTE_CONVERSION_LABEL") || DEFAULT_QUOTE_CONVERSION_LABEL;
+  // Do not fall back to the legacy single conversion label — that would invent a booking conversion.
+  const bookingConversionLabel = env("NEXT_PUBLIC_GOOGLE_ADS_BOOKING_CONVERSION_LABEL");
 
   const quoteSendTo =
     adsId && quoteConversionLabel ? `${adsId}/${quoteConversionLabel}` : "";
