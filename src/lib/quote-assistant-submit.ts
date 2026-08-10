@@ -5,6 +5,7 @@ import {
   type BookingDetails,
 } from "@/lib/booking-message";
 import { detectMobileDevice } from "@/lib/device";
+import { trackRequestQuote } from "@/lib/google-ads-client";
 import { buildMarketingOptInFields, recordMarketingOptIn } from "@/lib/marketing-api";
 import type { QuoteDraft } from "@/lib/quote-assistant";
 import {
@@ -15,6 +16,7 @@ import {
   submitMobileWhatsAppEnquiry,
 } from "@/lib/submit-booking";
 import { buildBookingMessage, buildEnquiryBookingMessage } from "@/lib/booking-message";
+import { parseAmountValue } from "@/lib/finalize-paid-booking";
 import { sendViaFormSubmitEmail } from "../../shared/email-delivery";
 import { TERMS_LAST_UPDATED } from "@/lib/terms";
 
@@ -193,6 +195,7 @@ export async function submitAssistantBooking(draft: QuoteDraft): Promise<{
   }
 
   const enquiryOnly = isVehicleEnquiryOnly(details.vehicle);
+  const requestQuote = isVehicleRequestQuote(details.vehicle);
   const mobile = detectMobileDevice();
 
   try {
@@ -228,6 +231,18 @@ export async function submitAssistantBooking(draft: QuoteDraft): Promise<{
         name: details.customerName,
         source: enquiryOnly ? "vehicle-enquiry" : "booking-request",
         fields: details,
+      });
+    }
+
+    if (requestQuote || enquiryOnly) {
+      trackRequestQuote({
+        value: parseAmountValue(details.estimatedPrice ?? undefined),
+        currency: "GBP",
+        transactionId: reference || undefined,
+        userData: {
+          email: details.customerEmail,
+          phone: details.mobileNumber,
+        },
       });
     }
 

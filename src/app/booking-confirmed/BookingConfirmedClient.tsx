@@ -10,6 +10,7 @@ import {
   parseAmountValue,
   type FinalizePaidBookingResult,
 } from "@/lib/finalize-paid-booking";
+import { readPendingPayment } from "@/lib/pending-payment";
 
 type ViewStatus = "loading" | "confirmed" | "pending" | "missing" | "error";
 
@@ -18,7 +19,10 @@ export default function BookingConfirmedClient() {
   const [summary, setSummary] = useState("Confirming your payment…");
   const [amountPaid, setAmountPaid] = useState<string | undefined>();
   const [paymentReference, setPaymentReference] = useState<string | undefined>();
+  const [transactionId, setTransactionId] = useState<string | undefined>();
   const [fireConversion, setFireConversion] = useState(false);
+  const [customerEmail, setCustomerEmail] = useState<string | undefined>();
+  const [customerPhone, setCustomerPhone] = useState<string | undefined>();
 
   useEffect(() => {
     const search = window.location.search;
@@ -33,6 +37,12 @@ export default function BookingConfirmedClient() {
       window.history.replaceState(null, "", "/booking-confirmed/");
     }
 
+    const pending = readPendingPayment();
+    if (pending?.booking) {
+      setCustomerEmail(pending.booking.customerEmail?.trim() || undefined);
+      setCustomerPhone(pending.booking.mobileNumber?.trim() || undefined);
+    }
+
     let cancelled = false;
 
     void (async () => {
@@ -43,13 +53,17 @@ export default function BookingConfirmedClient() {
           const ref = params.get("ref")?.trim() || undefined;
           setAmountPaid(amount);
           setPaymentReference(ref);
+          setTransactionId(ref);
           setStatus("confirmed");
           setSummary(
             amount
               ? `Payment of ${amount} received. Your booking is confirmed — we’ve emailed your confirmation.`
               : "Thank you — your booking payment is complete. We’ve emailed your confirmation.",
           );
-          setFireConversion(true);
+          // Only fire Ads when we have a unique order id (prevents refresh double-count).
+          if (ref) {
+            setFireConversion(true);
+          }
           window.history.replaceState(null, "", "/booking-confirmed/");
         }
         return;
@@ -73,8 +87,10 @@ export default function BookingConfirmedClient() {
       setSummary(result.summary);
       setAmountPaid(result.amountPaid);
       setPaymentReference(result.paymentReference);
+      const orderId = result.paymentReference?.trim() || result.checkoutId?.trim();
+      setTransactionId(orderId);
       setStatus(result.status === "confirmed" ? "confirmed" : result.status);
-      if (result.status === "confirmed") {
+      if (result.status === "confirmed" && orderId) {
         setFireConversion(true);
       }
     })();
@@ -91,7 +107,11 @@ export default function BookingConfirmedClient() {
       <GoogleAdsConversion
         fire={fireConversion}
         value={conversionValue}
-        transactionId={paymentReference}
+        transactionId={transactionId}
+        userData={{
+          email: customerEmail,
+          phone: customerPhone,
+        }}
       />
 
       <div className="rounded-2xl border border-white/10 bg-navy/70 p-6 sm:p-8">
