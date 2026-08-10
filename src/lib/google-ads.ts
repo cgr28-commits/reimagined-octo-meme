@@ -32,14 +32,25 @@ function env(name: string): string {
 
 /**
  * Reads Ads config. Env/secrets win; otherwise the account defaults above are used
- * for the tag + request_quote. booking_complete send_to stays off until a booking label is provided.
+ * for the tag + request_quote.
+ *
+ * Important: the account currently has Calls + Request quote only. Never reuse the
+ * quote label for bookings — that would mix quotes with completed bookings in Ads.
+ * booking_complete stays fully disabled until a distinct booking label is set.
  */
 export function getGoogleAdsConfig(): GoogleAdsConfig {
   const adsId = env("NEXT_PUBLIC_GOOGLE_ADS_ID") || DEFAULT_GOOGLE_ADS_ID;
   const quoteConversionLabel =
     env("NEXT_PUBLIC_GOOGLE_ADS_QUOTE_CONVERSION_LABEL") || DEFAULT_QUOTE_CONVERSION_LABEL;
-  // Do not fall back to the legacy single conversion label — that would invent a booking conversion.
-  const bookingConversionLabel = env("NEXT_PUBLIC_GOOGLE_ADS_BOOKING_CONVERSION_LABEL");
+  // Distinct booking label only — no legacy fallback, no quote-label reuse.
+  let bookingConversionLabel = env("NEXT_PUBLIC_GOOGLE_ADS_BOOKING_CONVERSION_LABEL");
+  if (
+    bookingConversionLabel &&
+    quoteConversionLabel &&
+    bookingConversionLabel === quoteConversionLabel
+  ) {
+    bookingConversionLabel = "";
+  }
 
   const quoteSendTo =
     adsId && quoteConversionLabel ? `${adsId}/${quoteConversionLabel}` : "";
@@ -54,6 +65,7 @@ export function getGoogleAdsConfig(): GoogleAdsConfig {
     bookingSendTo,
     tagEnabled: Boolean(adsId),
     quoteEnabled: Boolean(quoteSendTo),
+    // Requires its own label — tag ID alone is not enough.
     bookingEnabled: Boolean(bookingSendTo),
   };
 }

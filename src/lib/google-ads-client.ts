@@ -197,12 +197,22 @@ export function trackRequestQuote(options: AdsConversionPayload = {}): boolean {
 }
 
 /**
- * Fire booking_complete only after a genuinely confirmed paid booking.
+ * Fire booking_complete only after a genuinely confirmed paid booking,
+ * and only when a dedicated Booking complete conversion label exists.
+ * Never falls back to the Request quote label.
  * Requires transaction_id for deduplication across refreshes.
  */
 export function trackBookingComplete(options: AdsConversionPayload): boolean {
   const config = getGoogleAdsConfig();
-  if (!config.tagEnabled && !config.bookingEnabled) {
+  // Stay completely silent until Ads has a separate booking conversion action.
+  if (!config.bookingEnabled || !config.bookingSendTo) {
+    return false;
+  }
+  // Belt-and-braces: never send booking conversions to the quote label.
+  if (
+    config.quoteSendTo &&
+    config.bookingSendTo === config.quoteSendTo
+  ) {
     return false;
   }
   if (!hasMarketingCookieConsent()) {
