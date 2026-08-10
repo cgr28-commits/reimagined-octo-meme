@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
 import PreventHorizontalScroll from "@/components/PreventHorizontalScroll";
 import CookieConsent from "@/components/CookieConsent";
+import GoogleAdsTag from "@/components/GoogleAdsTag";
 import QuoteAssistant from "@/components/QuoteAssistant";
 import WhatsAppButton from "@/components/WhatsAppButton";
 import { LOWEST_AIRPORT_FROM_PRICE, SERVICE_FLAGS, SITE } from "@/lib/data";
@@ -94,9 +96,26 @@ export default function RootLayout({
 }>) {
   const structuredData = [getWebSiteJsonLd(), getLocalBusinessJsonLd(), getFaqPageJsonLd()];
 
+  const googleAdsId = process.env.NEXT_PUBLIC_GOOGLE_ADS_ID?.trim() ?? "";
+
   return (
     <html lang="en-GB" className={inter.variable}>
       <body className="overflow-x-clip antialiased">
+        {googleAdsId ? (
+          <Script id="google-consent-default" strategy="beforeInteractive">
+            {`
+              window.dataLayer = window.dataLayer || [];
+              function gtag(){dataLayer.push(arguments);}
+              gtag('consent', 'default', {
+                ad_storage: 'denied',
+                ad_user_data: 'denied',
+                ad_personalization: 'denied',
+                analytics_storage: 'denied',
+                wait_for_update: 500
+              });
+            `}
+          </Script>
+        ) : null}
         {structuredData.map((schema, index) => (
           <script
             key={Array.isArray(schema["@type"]) ? schema["@type"].join("-") : schema["@type"] ?? index}
@@ -108,6 +127,7 @@ export default function RootLayout({
           {children}
         </div>
         {/* Outside the overflow clip so position:fixed is viewport-relative on mobile */}
+        <GoogleAdsTag />
         <QuoteAssistant />
         <WhatsAppButton />
         <CookieConsent />

@@ -9,32 +9,29 @@ import {
 import { getGoogleAdsConfig } from "@/lib/google-ads";
 import {
   isGtagReady,
-  trackBookingComplete,
+  trackRequestQuote,
   type AdsUserData,
 } from "@/lib/google-ads-client";
 
-type GoogleAdsConversionProps = {
-  /** Fire booking_complete once this becomes true (paid booking confirmed). */
+type GoogleAdsRequestQuoteProps = {
+  /** Fire request_quote once this becomes true (quote/enquiry successfully submitted). */
   fire: boolean;
   value?: number;
   currency?: string;
-  /** Unique booking / payment reference — required to prevent refresh double-counting. */
   transactionId?: string;
-  /** Optional enhanced-conversion fields (hashed by gtag when consented). */
   userData?: AdsUserData;
 };
 
 /**
- * Fires the booking_complete / Ads conversion event after a genuine paid booking.
- * Relies on the sitewide GoogleAdsTag for gtag.js — does not load scripts itself.
+ * Fires the request_quote conversion after a successful quote request — not on form open.
  */
-export default function GoogleAdsConversion({
+export default function GoogleAdsRequestQuote({
   fire,
   value,
   currency = "GBP",
   transactionId,
   userData,
-}: GoogleAdsConversionProps) {
+}: GoogleAdsRequestQuoteProps) {
   const config = getGoogleAdsConfig();
   const firedRef = useRef(false);
   const [marketingAllowed, setMarketingAllowed] = useState(false);
@@ -56,10 +53,9 @@ export default function GoogleAdsConversion({
   useEffect(() => {
     if (
       !fire ||
-      (!config.tagEnabled && !config.bookingEnabled) ||
+      (!config.tagEnabled && !config.quoteEnabled) ||
       !marketingAllowed ||
-      firedRef.current ||
-      !transactionId?.trim()
+      firedRef.current
     ) {
       return;
     }
@@ -70,7 +66,7 @@ export default function GoogleAdsConversion({
       if (!isGtagReady() && attempts < 20) {
         return;
       }
-      const ok = trackBookingComplete({
+      const ok = trackRequestQuote({
         value,
         currency,
         transactionId,
@@ -89,7 +85,7 @@ export default function GoogleAdsConversion({
     fire,
     marketingAllowed,
     config.tagEnabled,
-    config.bookingEnabled,
+    config.quoteEnabled,
     value,
     currency,
     transactionId,

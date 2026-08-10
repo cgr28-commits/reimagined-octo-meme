@@ -61,7 +61,9 @@ import {
 } from "@/lib/pending-payment";
 import { scheduleQuoteLeadAlert } from "@/lib/submit-quote-lead";
 import FlightNumberField, { formatVerifiedFlightSummary } from "@/components/FlightNumberField";
+import GoogleAdsRequestQuote from "@/components/GoogleAdsRequestQuote";
 import type { VerifiedFlight } from "@/lib/flight-lookup";
+import { parseAmountValue } from "@/lib/finalize-paid-booking";
 
 type TripMode = "airport" | "address";
 type TripDirection = "to-airport" | "from-airport";
@@ -1191,11 +1193,27 @@ function QuoteCard({
             : "";
 
   if (bookingSent) {
+    const quoteConversionValue =
+      typeof liveQuote?.amount === "number"
+        ? liveQuote.amount
+        : parseAmountValue(liveQuote ? formatQuote(liveQuote.amount) : undefined);
+
     return (
       <div
         ref={cardRef}
         className="glass-card min-w-0 rounded-2xl p-6 sm:p-8 lg:animate-float"
       >
+        {(isRequestQuote || isEnquiryOnly) && (
+          <GoogleAdsRequestQuote
+            fire
+            value={quoteConversionValue}
+            transactionId={bookingReference || undefined}
+            userData={{
+              email: customerEmail.trim() || undefined,
+              phone: customerMobile.trim() || undefined,
+            }}
+          />
+        )}
         <div className="rounded-xl border border-emerald/30 bg-emerald/10 px-5 py-8 text-center sm:px-8 sm:py-10">
           <p className="text-xs font-medium uppercase tracking-wider text-emerald">
             {isRequestQuote
