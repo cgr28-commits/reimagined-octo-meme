@@ -65,29 +65,28 @@ export const metadata: Metadata = {
     description: SITE.tagline,
     images: [ogImage.url],
   },
-  // Single source: public/google-business-logo-1024.png → favicon.ico / favicon.png / favicon-32.png
+  // Navy circle brand mark (white car + green plane). ?v= busts sticky crawler/browser caches.
   icons: {
     icon: [
-      { url: absoluteSiteUrl("/favicon.ico"), sizes: "any" },
+      { url: absoluteSiteUrl("/favicon.ico?v=20260811navy"), sizes: "any" },
       {
-        url: absoluteSiteUrl("/favicon-32.png"),
+        url: absoluteSiteUrl("/favicon-32.png?v=20260811navy"),
         type: "image/png",
         sizes: "32x32",
       },
       {
-        url: absoluteSiteUrl("/favicon.png"),
+        url: absoluteSiteUrl("/favicon.png?v=20260811navy"),
         type: "image/png",
         sizes: "256x256",
       },
-    ],
-    apple: [
       {
-        url: absoluteSiteUrl("/google-business-logo-1024.png"),
+        url: absoluteSiteUrl("/icon.png?v=20260811navy"),
         type: "image/png",
-        sizes: "1024x1024",
+        sizes: "512x512",
       },
     ],
-    shortcut: absoluteSiteUrl("/favicon.ico"),
+    apple: absoluteSiteUrl("/icon.png?v=20260811navy"),
+    shortcut: absoluteSiteUrl("/favicon.ico?v=20260811navy"),
   },
 };
 
