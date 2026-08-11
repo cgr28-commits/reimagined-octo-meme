@@ -65,26 +65,28 @@ export const metadata: Metadata = {
     description: SITE.tagline,
     images: [ogImage.url],
   },
+  // Single source: public/google-business-logo-1024.png → favicon.ico / favicon.png / favicon-32.png
   icons: {
     icon: [
       { url: absoluteSiteUrl("/favicon.ico"), sizes: "any" },
-      {
-        url: absoluteSiteUrl("/favicon.png"),
-        type: "image/png",
-        sizes: "256x256",
-      },
       {
         url: absoluteSiteUrl("/favicon-32.png"),
         type: "image/png",
         sizes: "32x32",
       },
       {
-        url: absoluteSiteUrl("/icon.png"),
+        url: absoluteSiteUrl("/favicon.png"),
         type: "image/png",
-        sizes: "512x512",
+        sizes: "256x256",
       },
     ],
-    apple: absoluteSiteUrl("/favicon.png"),
+    apple: [
+      {
+        url: absoluteSiteUrl("/google-business-logo-1024.png"),
+        type: "image/png",
+        sizes: "1024x1024",
+      },
+    ],
     shortcut: absoluteSiteUrl("/favicon.ico"),
   },
 };

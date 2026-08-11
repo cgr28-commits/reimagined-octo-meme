@@ -29,7 +29,7 @@ function buildReplacements(prefix) {
     [/="\/images\//g, `="${prefix}images/`],
     [/='\/images\//g, `='${prefix}images/`],
     [/="\/logo\.png"/g, `="${prefix}logo.png"`],
-    [/="\/icon\.png"/g, `="${prefix}icon.png"`],
+    [/="\/google-business-logo-1024\.png"/g, `="${prefix}google-business-logo-1024.png"`],
     [/="\/og-image\.png"/g, `="${prefix}og-image.png"`],
     [/="\/og-image-square\.png"/g, `="${prefix}og-image-square.png"`],
     [/="\/favicon\.png"/g, `="${prefix}favicon.png"`],
