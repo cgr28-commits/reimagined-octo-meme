@@ -347,7 +347,7 @@ export const WHY_CHOOSE_US = [
   {
     title: "Licensed & insured transport",
     description:
-      "Licensed and insured private hire in saloon and estate cars for up to four passengers — with an executive saloon option available on enquiry.",
+      "Saloon and estate cars from our licensed vehicles for 1–4 passengers. Minibus transfers for larger groups (5 or more) are available through our licensed transport partners.",
   },
 ] as const;
 
@@ -396,7 +396,7 @@ export const FAQS = [
   {
     question: "How do I book an airport transfer?",
     answer:
-      "Use Get a Live Quote on this page for your fixed price. For a standard or estate car with pickup at least 12 hours ahead, you can pay securely online with SumUp to confirm. For nearer pickups or executive cars, Request to book / enquire — once we confirm the job, we email a SumUp payment link. Your booking is confirmed after payment.",
+      "Use Get a Live Quote on this page for your fixed price. For a standard or estate car with pickup at least 12 hours ahead, you can pay securely online with SumUp to confirm. For nearer pickups, minibuses, or executive cars, Request to book / enquire — once we confirm the job, we email a SumUp payment link. Your booking is confirmed after payment.",
   },
   {
     question: "Do you track my flight?",
@@ -431,7 +431,7 @@ export const FAQS = [
   {
     question: "What vehicle types do you offer?",
     answer:
-      "Online bookings are for up to four passengers in a standard or estate car with an instant online price where shown. Executive saloons are enquire-to-book. Larger group vehicles are not available through this website.",
+      "For 1–4 passengers we use standard or estate cars with an instant online price where shown. For 5–8 passengers, minibus transfers are arranged through our licensed transport partners (request a quote — subject to availability; the quote tool selects minibus automatically when more than four passengers are chosen). Executive saloons are enquire-to-book. Eight passengers with eight large suitcases need a luggage-capacity check before we can confirm.",
   },
   {
     question: "Do you offer chauffeur and executive private hire?",
@@ -536,29 +536,39 @@ export const VEHICLE_FLEET = [
     requestQuote: false,
     partnerOperated: false,
   },
+  {
+    name: "Minibus",
+    capacity: "5–8 passengers",
+    description:
+      "For 5 or more passengers, minibus transfers are arranged through our licensed transport partners. Subject to availability — request a quote (guide price shown online).",
+    enquiryOnly: true,
+    requestQuote: true,
+    partnerOperated: true,
+  },
 ] as const;
 
 export const VEHICLE_TYPES = [
   "Standard Saloon (1–4 passengers)",
   "Estate Car (1–4 passengers)",
   "Executive Saloon (1–4 passengers)",
+  "Minibus (5–8 passengers)",
 ] as const;
 
 export type VehicleType = (typeof VEHICLE_TYPES)[number];
 
-/** Maximum passengers accepted on the online quote and booking form. */
-export const MAX_ONLINE_PASSENGERS = 4;
+export const MINIBUS_VEHICLE_TYPE: VehicleType = "Minibus (5–8 passengers)";
 
-/** Vehicles that cannot be instantly confirmed — enquiry flow. */
+/** Maximum passengers accepted on the online quote and booking form. */
+export const MAX_ONLINE_PASSENGERS = 8;
+
+/** Vehicles that cannot be instantly confirmed — enquiry / request-a-quote flow. */
 export const ENQUIRY_ONLY_VEHICLE_TYPES: readonly VehicleType[] = [
   "Executive Saloon (1–4 passengers)",
+  MINIBUS_VEHICLE_TYPE,
 ];
 
-/**
- * Vehicles that show a guide price but require “Request a quote”.
- * Kept for type compatibility — currently empty (no minibus online).
- */
-export const REQUEST_QUOTE_VEHICLE_TYPES: readonly VehicleType[] = [];
+/** Minibus: show a guide price online, but require “Request a quote” (not instant confirmation). */
+export const REQUEST_QUOTE_VEHICLE_TYPES: readonly VehicleType[] = [MINIBUS_VEHICLE_TYPE];
 
 /** Saloon/estate can pay online at quote time when far enough ahead. */
 export const INSTANT_PAY_VEHICLE_TYPES: readonly VehicleType[] = [
@@ -569,20 +579,21 @@ export const INSTANT_PAY_VEHICLE_TYPES: readonly VehicleType[] = [
 /** Minimum notice (hours) before pickup for customer SumUp “Pay now”. */
 export const PAY_NOW_MIN_HOURS_AHEAD = 12;
 
+export const MINIBUS_PARTNER_NOTE =
+  "Minibus transfers for 5 or more passengers are arranged through our licensed transport partners.";
+
 /** Short guidance shown in the quote tool above vehicle selection. */
 export const VEHICLE_BOOKING_GUIDANCE = [
-  "Up to 4 passengers: Standard or estate car — instant online price where shown. Pay online when pickup is at least 12 hours ahead.",
-  "Executive saloon: enquire to book — we’ll confirm availability and price.",
+  "1–4 passengers: Standard or estate car — instant online price where shown. Pay online when pickup is at least 12 hours ahead.",
+  "5–8 passengers: Minibus via licensed transport partners — Request a quote (not instant confirmation). Selected automatically when more than four passengers are chosen.",
 ] as const;
 
-/** @deprecated Online bookings are capped at four passengers; always false. */
+/** 8 passengers with 8 large cases needs manual capacity confirmation before we can accept. */
 export function needsLuggageCapacityConfirmation(
   passengers: number,
   suitcases: number,
 ): boolean {
-  void passengers;
-  void suitcases;
-  return false;
+  return passengers >= 8 && suitcases >= 8;
 }
 
 export function isVehicleEnquiryOnly(vehicleType: string): boolean {

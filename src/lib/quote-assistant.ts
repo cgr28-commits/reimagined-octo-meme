@@ -4,12 +4,14 @@ import {
   DRIVER_TRACKING_HIGHLIGHTS,
   FAQS,
   MAX_ONLINE_PASSENGERS,
+  MINIBUS_PARTNER_NOTE,
   SITE,
   VEHICLE_FLEET,
   VEHICLE_TYPES,
   WHY_CHOOSE_US,
   isVehicleEnquiryOnly,
   isVehicleRequestQuote,
+  needsLuggageCapacityConfirmation,
   showsOnlineGuidePrice,
 } from "@/lib/data";
 import { isValidEmailAddress, isValidMobileNumber } from "@/lib/booking-message";
@@ -182,7 +184,7 @@ function knowledgeChunks(): Array<{ title: string; body: string }> {
     {
       title: "How booking works",
       body:
-        "Standard process: (1) Get a Live Quote on the website or in this chat for your fixed journey price. (2) For a standard or estate car with pickup at least 12 hours ahead, you can pay online with SumUp to confirm. Otherwise Request to book / enquire with your date, time, and contact details — we confirm the job and email a SumUp payment link; booking is confirmed after payment. Online bookings are for up to four passengers in a standard or estate car. Executive Saloon is enquire-only. Larger group vehicles are not available through this website.",
+        "Standard process: (1) Get a Live Quote on the website or in this chat for your fixed journey price. (2) For a standard or estate car with pickup at least 12 hours ahead, you can pay online with SumUp to confirm. Otherwise Request to book / enquire with your date, time, and contact details — we confirm the job and email a SumUp payment link; booking is confirmed after payment. 1–4 passengers: standard or estate car with an instant online price. 5–8 passengers: minibus via licensed transport partners (guide price, request a quote, subject to availability). Executive Saloon is enquire-only.",
     },
     {
       title: "Quote tool flow",
@@ -460,6 +462,9 @@ function vehicleSuggestionNote(
   if (explicit) {
     return `Vehicle: ${short}.`;
   }
+  if (vehicle.startsWith("Minibus")) {
+    return `I’ve suggested a ${short} for ${passengers} passengers / ${suitcases} cases (arranged via a licensed transport partner).`;
+  }
   if (vehicle.startsWith("Estate")) {
     return `I’ve suggested an ${short} — better boot space for ${suitcases} cases.`;
   }
@@ -489,7 +494,7 @@ function extractNumber(text: string, kind: "passenger" | "suitcase"): number | u
     if (match?.[1]) {
       const value = Number(match[1]);
       const min = kind === "suitcase" ? 0 : 1;
-      const max = kind === "passenger" ? MAX_ONLINE_PASSENGERS : 6;
+      const max = kind === "passenger" ? MAX_ONLINE_PASSENGERS : 16;
       if (Number.isFinite(value) && value >= min && value <= max) return value;
     }
   }
@@ -500,21 +505,19 @@ function extractBareCount(text: string): number | undefined {
   const match = text.trim().match(/^(\d+)$/);
   if (!match) return undefined;
   const value = Number(match[1]);
-  if (!Number.isFinite(value) || value < 0 || value > MAX_ONLINE_PASSENGERS) return undefined;
+  if (!Number.isFinite(value) || value < 0 || value > 16) return undefined;
   return value;
 }
 
-function pickVehicle(_passengers: number, suitcases: number): (typeof VEHICLE_TYPES)[number] {
+function pickVehicle(passengers: number, suitcases: number): (typeof VEHICLE_TYPES)[number] {
+  if (passengers > 4 || suitcases >= 5) return "Minibus (5–8 passengers)";
   if (suitcases >= 3) return "Estate Car (1–4 passengers)";
   return "Standard Saloon (1–4 passengers)";
 }
 
 function matchExplicitVehicle(text: string): (typeof VEHICLE_TYPES)[number] | undefined {
   const lower = text.toLowerCase();
-  if (/\bminibus\b|\bpeople carrier\b/.test(lower)) {
-    // Online service is capped at four passengers — map group wording to estate.
-    return "Estate Car (1–4 passengers)";
-  }
+  if (/\bminibus\b/.test(lower)) return "Minibus (5–8 passengers)";
   if (/\bexecutive\b/.test(lower)) return "Executive Saloon (1–4 passengers)";
   if (/\bestate\b/.test(lower)) return "Estate Car (1–4 passengers)";
   if (/\bsaloon\b/.test(lower)) return "Standard Saloon (1–4 passengers)";
@@ -1378,6 +1381,10 @@ function tryBuildQuote(
   const guidePrice = showsOnlineGuidePrice(vehicle);
   const airportName =
     AIRPORTS.find((airport) => airport.code === draft.airportCode)?.name ?? draft.airportCode;
+  const capacityNote = needsLuggageCapacityConfirmation(passengers, suitcases)
+    ? " Note: 8 passengers with 8 large suitcases needs a luggage-capacity check before we can confirm."
+    : "";
+
   if (enquiryOnly && !guidePrice) {
     return {
       enquiryOnly: true,
@@ -1460,7 +1467,8 @@ function tryBuildQuote(
       enquiryOnly: true,
       quoteCard,
       text:
-        `${vehicleNote} Guide price ${formatQuote(quote.amount)} for ${airportName}. ` +
+        `${vehicleNote} Guide price ${formatQuote(quote.amount)} for ${airportName} — subject to partner availability. ` +
+        `${MINIBUS_PARTNER_NOTE}${capacityNote}\n\n` +
         `This is not an instant confirmation. Would you like to request this quote (I can take date, time and your details here)?`,
     };
   }

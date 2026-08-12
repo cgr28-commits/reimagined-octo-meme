@@ -15,6 +15,8 @@ import {
   isVehicleEnquiryOnly,
   isVehicleRequestQuote,
   MAX_ONLINE_PASSENGERS,
+  MINIBUS_PARTNER_NOTE,
+  MINIBUS_VEHICLE_TYPE,
   PAY_NOW_MIN_HOURS_AHEAD,
   VEHICLE_BOOKING_GUIDANCE,
   needsLuggageCapacityConfirmation,
@@ -98,13 +100,16 @@ const BOOKING_INPUT_CLASS =
 const BOOKING_HELPER_CLASS = "mt-1.5 text-xs text-white/55";
 
 const ESTATE = "Estate Car (1–4 passengers)" as const;
+const MINIBUS = MINIBUS_VEHICLE_TYPE;
 
 type VehicleType = (typeof VEHICLE_TYPES)[number];
 
-function getAutoVehicle(passengers: number, suitcases: number, a2aPrimary = false): VehicleType | null {
-  void passengers;
-  void a2aPrimary;
-  // Online bookings are saloon/estate/executive only (max 4 passengers).
+function getAutoVehicle(passengers: number, suitcases: number, _a2aPrimary = false): VehicleType | null {
+  void _a2aPrimary;
+  // 5+ passengers → partner minibus (request a quote / subject to availability).
+  if (passengers > 4 || suitcases >= 5) {
+    return MINIBUS;
+  }
   if (suitcases >= 3) {
     return ESTATE;
   }
@@ -1367,20 +1372,20 @@ function QuoteCard({
       : isRequestQuote
     ? hasQuoteRoute
       ? !isScheduleComplete
-        ? "Guide price ready — add your date and time, then request a quote."
-        : "Continue to request a quote."
+        ? "Minibus guide price ready — add your date and time, then request a quote (subject to partner availability)."
+        : "Minibus transfers via licensed partners — continue to request a quote."
       : isAirportTrip
         ? !airportCode
-          ? "Select an airport to see a guide price"
+          ? "Select an airport to see a minibus guide price"
           : ldyServiceAreaInvalid
             ? isFromAirport
               ? "We transfer from Derry Airport to the greater Belfast area — enter a Belfast-area drop-off address"
               : "Pickups for Derry Airport must be in the greater Belfast area — enter a Belfast-area pickup address"
             : !isAirportAddressComplete
-              ? `Enter your ${isFromAirport ? "drop-off" : "pickup"} address to see a guide price`
+              ? `Enter your ${isFromAirport ? "drop-off" : "pickup"} address to see a minibus guide price`
               : ""
         : !isAddressPairComplete
-          ? "Enter pickup and drop-off addresses to see a guide price"
+          ? "Enter pickup and drop-off addresses to see a minibus guide price"
           : ""
     : isEnquiryOnly
     ? hasQuoteRoute
@@ -1457,7 +1462,7 @@ function QuoteCard({
                 ? "We’ve received your out-of-area pickup request. We’ll review it manually, confirm availability, and send your personal fixed quote shortly. No payment is taken until the fare is confirmed."
                 : isRoiJourney
                   ? "We’ve received your Republic of Ireland long-distance transfer request. We’ll confirm your fixed price and send your personal quote shortly."
-                  : "We’ve received your quote request. We’ll confirm availability and send your personal quote shortly."
+                  : "We’ve received your minibus quote request. These transfers are subject to partner availability — we’ll confirm capacity and send your personal quote shortly."
               : isEnquiryOnly
                 ? "We’ve received your enquiry. We’ll confirm availability and send your personal quote shortly. When you’re ready to book, we’ll send a SumUp payment link — your trip is confirmed after payment."
                 : "We’ve received your booking request. Once we confirm the job, we’ll send a SumUp payment link by email. Your booking is confirmed after payment."}
@@ -2173,7 +2178,7 @@ function QuoteCard({
               onChange={(e) => setSuitcases(Number(e.target.value))}
               className="w-full rounded-xl border border-white/10 bg-navy-light px-4 py-3 text-sm text-white outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30"
             >
-              {Array.from({ length: 7 }, (_, index) => index).map((count) => (
+              {Array.from({ length: 9 }, (_, index) => index).map((count) => (
                 <option key={count} value={count}>
                   {count}
                 </option>
@@ -2206,18 +2211,42 @@ function QuoteCard({
                 </option>
               ))}
             </select>
-            {suitcases >= 3 ? (
+            {passengers > 4 ? (
+              <p className="mt-1.5 text-xs text-white/40">
+                Minibus selected automatically for more than 4 passengers — Request a quote via our
+                licensed transport partners (subject to availability).
+              </p>
+            ) : suitcases >= 5 ? (
+              <p className="mt-1.5 text-xs text-white/40">
+                Minibus selected automatically for 5 or more suitcases — Request a quote via our
+                licensed transport partners (subject to availability).
+              </p>
+            ) : suitcases >= 3 ? (
               <p className="mt-1.5 text-xs text-white/40">
                 Estate car selected automatically for 3 or more suitcases — instant online price where
                 shown.
               </p>
             ) : (
               <p className="mt-1.5 text-xs text-white/40">
-                Choose Standard or Estate for up to 4 passengers — instant online price where shown.
+                Choose Standard or Estate for 1–4 passengers — instant online price where shown.
               </p>
             )}
+            {isRequestQuote ? (
+              <p className="mt-1.5 text-xs text-white/50">{MINIBUS_PARTNER_NOTE}</p>
+            ) : null}
           </div>
         </div>
+
+        {capacityNeedsConfirm ? (
+          <div className="rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-50">
+            <p className="font-semibold text-amber-100">Luggage capacity check required</p>
+            <p className="mt-1 text-xs leading-relaxed text-amber-50/90">
+              8 passengers with 8 large suitcases cannot be confirmed until we check vehicle
+              capacity with our transport partner. You can still request a quote — we&apos;ll confirm
+              whether we can take the booking.
+            </p>
+          </div>
+        ) : null}
           </>
         ) : null}
 
@@ -2248,6 +2277,8 @@ function QuoteCard({
                 {returnJourney ? "Guide return price · request a quote" : "Guide price · request a quote"}
               </p>
               <p className="mt-1 text-3xl font-bold text-white">{formatQuote(liveQuote.amount)}</p>
+              <p className="mt-2 text-xs text-white/60">Minibus · subject to partner availability</p>
+              <p className="mt-2 text-xs leading-relaxed text-white/65">{MINIBUS_PARTNER_NOTE}</p>
               {journeyDistanceLabel && journeyDurationLabel && (
                 <p className="mt-2 text-xs text-white/60">
                   Approx. {journeyDistanceLabel} · {journeyDurationLabel}
@@ -2452,7 +2483,7 @@ function QuoteCard({
                     ? "Check your details, then request your fixed price — out-of-area pickups need manual approval."
                     : isRoiJourney
                       ? "Check your details, then request your fixed Republic of Ireland price."
-                      : "Check your details, then request a quote — we’ll confirm your personal price."
+                      : "Check your details, then request a quote — minibus transfers via licensed partners are subject to availability and are not instantly confirmed."
                   : isEnquiryOnly
                     ? "Check your details, then send an enquiry — we’ll quote you and confirm availability."
                     : "Please check everything is correct before booking — wrong details can change your price."}
@@ -2539,6 +2570,9 @@ function QuoteCard({
                   label={returnJourney ? "Your fixed return journey price" : "Your fixed journey price"}
                   value={formatQuote(liveQuote.amount)}
                 />
+              ) : null}
+              {isRequestQuote && !isManualQuoteJourney ? (
+                <PreviewRow label="Fulfilment" value={MINIBUS_PARTNER_NOTE} />
               ) : null}
             </dl>
           </div>
