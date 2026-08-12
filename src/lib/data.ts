@@ -431,7 +431,7 @@ export const FAQS = [
   {
     question: "What vehicle types do you offer?",
     answer:
-      "Online bookings are for up to four passengers in a standard or estate car with an instant online price where shown. Executive saloons are enquire-to-book. We do not offer minibuses or people carriers through this website.",
+      "Online bookings are for up to four passengers in a standard or estate car with an instant online price where shown. Executive saloons are enquire-to-book. Larger group vehicles are not available through this website.",
   },
   {
     question: "Do you offer chauffeur and executive private hire?",
