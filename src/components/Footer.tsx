@@ -54,7 +54,7 @@ export default function Footer() {
                       href="/long-distance-transfers/"
                       className="text-sm text-white/50 transition-colors hover:text-emerald"
                     >
-                      Long-distance transfers
+                      Long-Distance Transfers
                     </Link>
                   </li>
                   <li>

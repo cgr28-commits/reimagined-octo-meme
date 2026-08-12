@@ -87,17 +87,27 @@ function getLocationRestriction(airportCode: string) {
   };
 }
 
-/** Soft bias toward Belfast for A2A — does not exclude ROI results. */
+/**
+ * Soft bias for A2A — must not exclude ROI results.
+ * Places Autocomplete circle radius max is 50,000m; an oversized circle
+ * causes Google to reject the request and return zero suggestions.
+ * Use an island-wide rectangle bias instead (covers NI + ROI).
+ */
 function getLocationBias(airportCode: string) {
   if (normaliseAirportCode(airportCode) !== "A2A") {
     return undefined;
   }
   return {
-    circle: {
-      center: { latitude: 54.5973, longitude: -5.9301 },
-      radius: 180000.0,
+    rectangle: {
+      low: { latitude: 51.4, longitude: -10.8 },
+      high: { latitude: 55.5, longitude: -5.4 },
     },
   };
+}
+
+/** Exported for regression tests — A2A bias must stay Places-API valid. */
+export function getPlacesLocationBiasForTests(airportCode: string) {
+  return getLocationBias(airportCode);
 }
 
 function getAddressComponent(
@@ -204,11 +214,12 @@ export async function searchGooglePlaces(
   const body: Record<string, unknown> = {
     input: query,
     includedRegionCodes: getRegionCodes(code),
-    regionCode: code === "DUB" || code === "A2A" ? "ie" : "gb",
+    // Prefer GB ranking for Greater Belfast pickups; IE still allowed via includedRegionCodes.
+    regionCode: code === "DUB" ? "ie" : "gb",
     languageCode: "en-GB",
   };
 
-  // A2A: bias toward Belfast without a hard fence that blocks ROI.
+  // A2A: island-wide bias without a hard fence that blocks ROI.
   const bias = getLocationBias(code);
   if (bias) {
     body.locationBias = bias;
@@ -263,8 +274,9 @@ export async function searchGoogleStreetAddresses(
     return [];
   }
 
+  const code = normaliseAirportCode(airportCode);
   const scopedQuery =
-    airportCode === "DUB"
+    code === "DUB" || code === "A2A"
       ? trimmed
       : /northern ireland|,\s*bt/i.test(trimmed)
         ? trimmed
@@ -280,7 +292,7 @@ export async function searchGoogleStreetAddresses(
     body: JSON.stringify({
       textQuery: scopedQuery,
       includedType: "street_address",
-      regionCode: airportCode === "DUB" ? "ie" : "gb",
+      regionCode: code === "DUB" ? "ie" : "gb",
       languageCode: "en-GB",
       pageSize: 15,
     }),
@@ -447,7 +459,7 @@ export async function searchGoogleEstablishments(
   const body: Record<string, unknown> = {
     input: trimmed,
     includedRegionCodes: getRegionCodes(code),
-    regionCode: code === "DUB" || code === "A2A" ? "ie" : "gb",
+    regionCode: code === "DUB" ? "ie" : "gb",
     languageCode: "en-GB",
     includedPrimaryTypes: [...ESTABLISHMENT_PRIMARY_TYPES],
   };

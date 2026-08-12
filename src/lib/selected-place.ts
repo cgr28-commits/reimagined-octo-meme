@@ -3,6 +3,8 @@
  * Customers must pick a Google suggestion — free-typed text alone is invalid.
  */
 
+import { isGreaterBelfastServiceAddress } from "../../shared/ldy-service-area";
+
 export type SelectedPlace = {
   placeId: string;
   formattedAddress: string;
@@ -181,6 +183,49 @@ export function isRepublicOfIrelandJourney(
   dropoff: SelectedPlace,
 ): boolean {
   return isRoiNonAirportLeg(pickup) || isRoiNonAirportLeg(dropoff);
+}
+
+/** Airports allowed as standard/instant pickups (with Greater Belfast addresses).
+ * Long-distance marketing lists BFS, BHD and DUB; LDY stays for LDY↔Greater Belfast pricing. */
+const STANDARD_INSTANT_PICKUP_AIRPORTS = new Set(["BFS", "BHD", "DUB", "LDY"]);
+
+/**
+ * Standard pickups: Greater Belfast addresses, or BFS / BHD / DUB / LDY airports.
+ * Everything else is out-of-area and needs manual approval (no auto price / SumUp).
+ */
+export function isStandardInstantPickup(place: SelectedPlace): boolean {
+  if (!isPlaceSelected(place)) {
+    return false;
+  }
+  const airportCode = detectAirportCodeFromPlace(place);
+  if (airportCode && STANDARD_INSTANT_PICKUP_AIRPORTS.has(airportCode)) {
+    return true;
+  }
+  return isGreaterBelfastServiceAddress(place.formattedAddress);
+}
+
+export function isOutOfAreaPickup(place: SelectedPlace): boolean {
+  if (!isPlaceSelected(place)) {
+    return false;
+  }
+  return !isStandardInstantPickup(place);
+}
+
+/**
+ * Journeys that must not show an automatic fare or immediate payment —
+ * ROI city destinations (not DUB) or out-of-area pickups.
+ */
+export function needsManualQuoteApproval(
+  pickup: SelectedPlace,
+  dropoff: SelectedPlace,
+): boolean {
+  if (!isPlaceSelected(pickup) || !isPlaceSelected(dropoff)) {
+    return false;
+  }
+  if (isOutOfAreaPickup(pickup)) {
+    return true;
+  }
+  return isRepublicOfIrelandJourney(pickup, dropoff);
 }
 
 /** IE address that is not Dublin Airport — triggers fixed-quote request. */
