@@ -7,9 +7,9 @@ import { SERVICE_FLAGS, SITE } from "@/lib/data";
 import { notFound } from "next/navigation";
 
 export const metadata: Metadata = {
-  title: `Long-Distance & Republic of Ireland Transfers | ${SITE.name}`,
+  title: `Long-Distance Transfers from Greater Belfast Across Ireland | ${SITE.name}`,
   description:
-    "Door-to-door transfers across Northern Ireland and the Republic of Ireland. Airport, hotel, home and business pickups. Up to four passengers. Request a fixed-price quote for cross-border journeys.",
+    "Pre-booked, door-to-door private transfers from anywhere in Greater Belfast to destinations throughout Northern Ireland and the Republic of Ireland. Airport pickups from Belfast International, Belfast City and Dublin Airport.",
   alternates: {
     canonical: "/long-distance-transfers/",
   },
@@ -17,34 +17,34 @@ export const metadata: Metadata = {
 
 const HIGHLIGHTS = [
   {
-    title: "Door to door",
+    title: "Greater Belfast pickups",
     description:
-      "Enter your pickup and destination — home, hotel, business address, or airport — and we collect you at the agreed time.",
+      "Standard pickups are from anywhere in Greater Belfast — home, hotel or business address.",
   },
   {
-    title: "Fixed prices where available",
+    title: "Destinations across Ireland",
     description:
-      "Northern Ireland routes and Dublin Airport transfers show an instant online price where available. Other Republic of Ireland city destinations are quoted individually.",
+      "Travel to destinations throughout Northern Ireland and the Republic of Ireland. Enter any supported address on the quote form.",
   },
   {
-    title: "Cross-border experience",
+    title: "Airport pickups",
     description:
-      "Experienced drivers for Belfast–Dublin Airport and other cross-border routes, with tolls included in your quoted fare.",
+      "Pre-booked pickups are also available from Belfast International Airport, Belfast City Airport and Dublin Airport.",
   },
   {
-    title: "24/7 availability",
+    title: "Fixed quotes where needed",
     description:
-      "Early-morning departures, late-night arrivals, and bank holidays — pre-booked private transfers when you need them.",
+      "Dublin Airport and many Greater Belfast routes show an online price where available. Out-of-area pickups and other Republic of Ireland city destinations use Request Fixed Quote.",
   },
 ] as const;
 
 const EXAMPLE_ROUTES = [
   "Belfast city centre to Dublin Airport",
-  "Bangor to Belfast International Airport",
-  "Lisburn to Cork city",
-  "Newry to Dublin city centre",
-  "Belfast to Galway",
-  "Derry / Londonderry to Belfast",
+  "Bangor to Cork city",
+  "Lisburn to Galway",
+  "Newtownabbey to Dublin city centre",
+  "Holywood to Donegal",
+  "Belfast International Airport to Dublin city",
 ] as const;
 
 export default function LongDistanceTransfersPage() {
@@ -72,9 +72,9 @@ export default function LongDistanceTransfersPage() {
             <div className="mt-8 max-w-3xl">
               <SectionHeading
                 align="left"
-                eyebrow="Long-distance & Republic of Ireland"
-                title="Long-Distance & Republic of Ireland Transfers"
-                description="My Airport Taxi NI provides pre-booked, door-to-door transfers between addresses, hotels, businesses and airports throughout Northern Ireland and the Republic of Ireland. Destinations such as Dublin, Cork, Galway and Donegal are examples — you can request any supported address. Dublin Airport keeps a live online quote and book-online flow; other Republic of Ireland city journeys use Request Fixed Quote (no payment until the fare is confirmed)."
+                eyebrow="Long-distance transfers"
+                title="Private Long-Distance Transfers from Anywhere in Greater Belfast"
+                description="Pre-booked, door-to-door private transfers from anywhere in Greater Belfast to destinations throughout Northern Ireland and the Republic of Ireland. Airport pickups are also available from Belfast International Airport, Belfast City Airport and Dublin Airport."
               />
             </div>
 
@@ -93,8 +93,9 @@ export default function LongDistanceTransfersPage() {
             <section className="mt-16">
               <h2 className="text-xl font-bold text-white sm:text-2xl">Example routes</h2>
               <p className="mt-2 max-w-2xl text-sm leading-relaxed text-white/60">
-                These are examples only — enter your exact pickup and destination on the quote form
-                for your personal price.
+                These are examples only — enter your exact pickup and destination on the quote form.
+                We do not offer general pickups throughout Ireland; standard pickups are from Greater
+                Belfast (plus the airports listed above).
               </p>
               <ul className="mt-6 grid gap-3 sm:grid-cols-2">
                 {EXAMPLE_ROUTES.map((route) => (
@@ -111,15 +112,15 @@ export default function LongDistanceTransfersPage() {
             <div className="mt-14 rounded-2xl border border-emerald/30 bg-emerald/10 px-6 py-8 text-center sm:px-10">
               <p className="text-sm font-medium uppercase tracking-wider text-emerald">Get a quote</p>
               <p className="mx-auto mt-3 max-w-lg text-sm leading-relaxed text-white/75">
-                Use our live quote tool for your pickup and destination. Dublin Airport and
-                Northern Ireland routes show an online price where available; other Republic of
-                Ireland city destinations use Request Fixed Quote.
+                Use our live quote tool for Greater Belfast pickups and airport collections. Online
+                prices apply where available; out-of-area pickups need Request Fixed Quote for manual
+                approval.
               </p>
               <Link
                 href="/#quote"
                 className="mt-6 inline-flex rounded-full bg-emerald px-8 py-3.5 text-sm font-bold text-navy shadow-lg shadow-emerald/25 transition-all hover:bg-emerald-light"
               >
-                Get a live quote
+                Request a Fixed Quote
               </Link>
             </div>
           </div>

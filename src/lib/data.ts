@@ -41,7 +41,7 @@ export type ServiceFlagKey = keyof typeof SERVICE_FLAGS;
 
 export const ALL_NAV_LINKS = [
   { label: "Airports", href: "/#airports", service: null },
-  { label: "Long Distance", href: "/long-distance-transfers/", service: "addressToAddress" as const },
+  { label: "Long-Distance Transfers", href: "/long-distance-transfers/", service: "addressToAddress" as const },
   { label: "Locations", href: "/locations/", service: "addressToAddress" as const },
   { label: "Day Trips", href: "/tours/", service: "dayTrips" as const },
   { label: "Vehicles", href: "/#vehicles", service: null },
@@ -481,7 +481,7 @@ export const FAQS = [
   {
     question: "Do you cover journeys in the Republic of Ireland?",
     answer:
-      "Yes. Dublin Airport transfers keep a live online quote and you can book/pay online where eligible. Other Republic of Ireland destinations (for example Dublin city, Cork, or Galway) use Request Fixed Quote — we’ll confirm your personal price by email before any payment.",
+      "Yes. Standard pickups are from Greater Belfast (or Belfast International, Belfast City, or Dublin Airport). Destinations can be throughout Northern Ireland and the Republic of Ireland. Dublin Airport keeps a live online quote and book-online flow where eligible. Other Republic of Ireland city destinations, and any out-of-area pickup, use Request Fixed Quote for manual approval — no automatic price or immediate payment until confirmed.",
   },
   {
     question: "What currency are prices quoted in?",

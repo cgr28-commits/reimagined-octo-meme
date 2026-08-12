@@ -7,8 +7,11 @@ import assert from "node:assert/strict";
 import {
   detectAirportCodeFromPlace,
   detectJourneyKind,
+  isOutOfAreaPickup,
   isPlaceSelected,
   isRepublicOfIrelandJourney,
+  isStandardInstantPickup,
+  needsManualQuoteApproval,
   placesEqual,
   quickSelectToPlace,
   type SelectedPlace,
@@ -52,6 +55,24 @@ const bangorHome = place({
   formattedAddress: "12 Main Street, Bangor BT20 5AF, Northern Ireland",
   countryCode: "GB",
   postalCode: "BT20 5AF",
+});
+
+const newryPickup = place({
+  placeId: "newry-home",
+  formattedAddress: "12 Hill Street, Newry BT34 1AR, Northern Ireland",
+  countryCode: "GB",
+  postalCode: "BT34 1AR",
+  lat: 54.175,
+  lng: -6.34,
+});
+
+const derryCityPickup = place({
+  placeId: "derry-home",
+  formattedAddress: "1 Guildhall Square, Derry BT48 6BJ, Northern Ireland",
+  countryCode: "GB",
+  postalCode: "BT48 6BJ",
+  lat: 54.997,
+  lng: -7.321,
 });
 
 const dublinCity = place({
@@ -129,10 +150,47 @@ check("Dublin Airport keeps instant quote (not ROI fixed-quote)", () => {
   assert.equal(isRepublicOfIrelandJourney(belfastHome, dub!), false);
   assert.equal(isRepublicOfIrelandJourney(dub!, belfastHome), false);
   assert.equal(detectJourneyKind(belfastHome, dub!), "address-to-airport");
+  assert.equal(needsManualQuoteApproval(belfastHome, dub!), false);
+  assert.equal(needsManualQuoteApproval(dub!, belfastHome), false);
 });
 
 check("Dublin city still uses ROI fixed-quote", () => {
   assert.equal(isRepublicOfIrelandJourney(belfastHome, dublinCity), true);
+  assert.equal(needsManualQuoteApproval(belfastHome, dublinCity), true);
+});
+
+check("Greater Belfast address is a standard instant pickup", () => {
+  assert.equal(isStandardInstantPickup(belfastHome), true);
+  assert.equal(isStandardInstantPickup(bangorHome), true);
+  assert.equal(isOutOfAreaPickup(belfastHome), false);
+});
+
+check("BFS, BHD and DUB airports are standard instant pickups", () => {
+  assert.equal(isStandardInstantPickup(bfs!), true);
+  assert.equal(isStandardInstantPickup(bhd!), true);
+  assert.equal(isStandardInstantPickup(dub!), true);
+});
+
+check("Out-of-area pickup (Newry) needs manual approval — no auto price", () => {
+  assert.equal(isOutOfAreaPickup(newryPickup), true);
+  assert.equal(isStandardInstantPickup(newryPickup), false);
+  assert.equal(needsManualQuoteApproval(newryPickup, bangorHome), true);
+  assert.equal(needsManualQuoteApproval(newryPickup, dublinCity), true);
+});
+
+check("Out-of-area pickup (Derry city) needs manual approval", () => {
+  assert.equal(isOutOfAreaPickup(derryCityPickup), true);
+  assert.equal(needsManualQuoteApproval(derryCityPickup, belfastHome), true);
+});
+
+check("Bangor to Cork is ROI manual quote (standard Greater Belfast pickup)", () => {
+  assert.equal(isOutOfAreaPickup(bangorHome), false);
+  assert.equal(isRepublicOfIrelandJourney(bangorHome, corkCity), true);
+  assert.equal(needsManualQuoteApproval(bangorHome, corkCity), true);
+});
+
+check("Belfast to Bangor keeps instant quote (NI A2A, standard pickup)", () => {
+  assert.equal(needsManualQuoteApproval(belfastHome, bangorHome), false);
 });
 
 check("A2A Places mode allows NI and ROI labels", () => {

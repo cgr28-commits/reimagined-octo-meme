@@ -67,9 +67,11 @@ import {
   detectAirportCodeFromPlace,
   detectJourneyKind,
   emptySelectedPlace,
+  isOutOfAreaPickup,
   isPlaceSelected,
   isRepublicOfIrelandJourney,
   journeyKindLabel,
+  needsManualQuoteApproval,
   PLACES_LOOKUP_A2A,
   placesEqual,
   quickSelectToPlace,
@@ -357,7 +359,14 @@ function QuoteCard({
     isPlaceSelected(pickupPlace) &&
     isPlaceSelected(dropoffPlace) &&
     isRepublicOfIrelandJourney(pickupPlace, dropoffPlace);
-  const showsRequestQuoteFlow = isRequestQuote || isRoiJourney;
+  const isOutOfAreaPickupJourney =
+    isA2AFlow && isPlaceSelected(pickupPlace) && isOutOfAreaPickup(pickupPlace);
+  const isManualQuoteJourney =
+    isA2AFlow &&
+    isPlaceSelected(pickupPlace) &&
+    isPlaceSelected(dropoffPlace) &&
+    needsManualQuoteApproval(pickupPlace, dropoffPlace);
+  const showsRequestQuoteFlow = isRequestQuote || isManualQuoteJourney;
   const effectiveAirportCode = isA2AFlow
     ? pickupAirportCode || dropoffAirportCode || ""
     : airportCode;
@@ -631,7 +640,7 @@ function QuoteCard({
   }, [capacityNeedsConfirm]);
 
   const liveQuote = useMemo(() => {
-    if (!canShowPrice || isRoiJourney) {
+    if (!canShowPrice || isManualQuoteJourney) {
       return null;
     }
     // Executive: no online price. Minibus: show guide price, but still request-a-quote.
@@ -703,7 +712,7 @@ function QuoteCard({
     isA2AFlow,
     isAirportTrip,
     isEnquiryOnly,
-    isRoiJourney,
+    isManualQuoteJourney,
     journeyKind,
     pickupAddress,
     pickupAirportCode,
@@ -736,7 +745,7 @@ function QuoteCard({
     SERVICE_FLAGS.customerSumUpPay &&
     isSumUpPaymentEnabled() &&
     !isEnquiryOnly &&
-    !isRoiJourney &&
+    !isManualQuoteJourney &&
     isInstantPayVehicle(quoteVehicle) &&
     Boolean(liveQuote) &&
     pickupFarEnoughForPayNow;
@@ -866,15 +875,17 @@ function QuoteCard({
       }
     }
 
-    const tripLabel = isRoiJourney
-      ? "Republic of Ireland long-distance transfer"
-      : isA2AFlow && journeyKind
-        ? journeyKindLabel(journeyKind)
-        : isAirportTrip
-          ? isFromAirport
-            ? "Airport pickup"
-            : "Airport drop-off"
-          : "Address to address";
+    const tripLabel = isOutOfAreaPickupJourney
+      ? "Out-of-area pickup — manual quote request"
+      : isRoiJourney
+        ? "Republic of Ireland long-distance transfer"
+        : isA2AFlow && journeyKind
+          ? journeyKindLabel(journeyKind)
+          : isAirportTrip
+            ? isFromAirport
+              ? "Airport pickup"
+              : "Airport drop-off"
+            : "Address to address";
 
     return scheduleQuoteLeadAlert({
       tripLabel,
@@ -976,7 +987,7 @@ function QuoteCard({
       return false;
     }
 
-    if (isEnquiryOnly || isRoiJourney) {
+    if (isEnquiryOnly || isManualQuoteJourney) {
       return hasQuoteRoute;
     }
 
@@ -1029,23 +1040,25 @@ function QuoteCard({
   }
 
   function buildBookingDetails(): BookingDetails {
-    const tripLabel = isRoiJourney
-      ? "Republic of Ireland long-distance transfer"
-      : isA2AFlow && journeyKind
-        ? journeyKindLabel(journeyKind)
-        : isAirportTrip
-          ? isFromAirport
-            ? "Airport pickup"
-            : "Airport drop-off"
-          : "Address to address";
+    const tripLabel = isOutOfAreaPickupJourney
+      ? "Out-of-area pickup — manual quote request"
+      : isRoiJourney
+        ? "Republic of Ireland long-distance transfer"
+        : isA2AFlow && journeyKind
+          ? journeyKindLabel(journeyKind)
+          : isAirportTrip
+            ? isFromAirport
+              ? "Airport pickup"
+              : "Airport drop-off"
+            : "Address to address";
 
     const estimatedPrice = liveQuote
       ? isRequestQuote
         ? `Guide price ${formatQuote(liveQuote.amount)} (subject to availability)`
-        : !isEnquiryOnly && !isRoiJourney
+        : !isEnquiryOnly && !isManualQuoteJourney
           ? formatQuote(liveQuote.amount)
           : null
-      : isRoiJourney
+      : isManualQuoteJourney
         ? "Request fixed quote"
         : null;
 
@@ -1195,11 +1208,13 @@ function QuoteCard({
 
     let reference = "";
     try {
-      if (isEnquiryOnly || isRoiJourney) {
+      if (isEnquiryOnly || isManualQuoteJourney) {
         const enquiryMessage = buildEnquiryBookingMessage(details);
-        const subject = isRoiJourney
-          ? `ROI long-distance quote request — ${details.customerName}`
-          : `New vehicle enquiry — ${details.customerName}`;
+        const subject = isOutOfAreaPickupJourney
+          ? `Out-of-area pickup quote request — ${details.customerName}`
+          : isRoiJourney
+            ? `ROI long-distance quote request — ${details.customerName}`
+            : `New vehicle enquiry — ${details.customerName}`;
         if (!isMobile || delivery === "email") {
           reference = await submitEnquiryByEmail({
             customerName: details.customerName,
@@ -1240,7 +1255,7 @@ function QuoteCard({
       void recordMarketingOptIn({
         email: details.customerEmail,
         name: details.customerName,
-        source: isRoiJourney || isEnquiryOnly ? "vehicle-enquiry" : "booking-request",
+        source: isManualQuoteJourney || isEnquiryOnly ? "vehicle-enquiry" : "booking-request",
         fields: details,
       });
     }
@@ -1268,7 +1283,7 @@ function QuoteCard({
       if (!hasQuoteRoute) {
         return;
       }
-      if (!isEnquiryOnly && !isRoiJourney && !liveQuote) {
+      if (!isEnquiryOnly && !isManualQuoteJourney && !liveQuote) {
         return;
       }
       setQuoteStep(2);
@@ -1322,15 +1337,13 @@ function QuoteCard({
   }, [bookingSent]);
 
   const submitInProgressLabel = showsRequestQuoteFlow
-    ? isRoiJourney
-      ? "Sending quote request…"
-      : "Sending quote request…"
+    ? "Sending quote request…"
     : isEnquiryOnly
       ? "Sending enquiry…"
       : "Sending booking…";
 
   const confirmButtonLabel = showsRequestQuoteFlow
-    ? isRoiJourney
+    ? isManualQuoteJourney
       ? "Request Fixed Quote"
       : liveQuote
         ? `Request quote · ${formatQuote(liveQuote.amount)}`
@@ -1342,7 +1355,7 @@ function QuoteCard({
         : "Confirm & book";
 
   const whatsAppConfirmLabel = showsRequestQuoteFlow
-    ? isRoiJourney
+    ? isManualQuoteJourney
       ? "Request Fixed Quote via WhatsApp"
       : liveQuote
         ? `Request quote via WhatsApp — ${formatQuote(liveQuote.amount)}`
@@ -1353,9 +1366,11 @@ function QuoteCard({
         ? `Send via WhatsApp — ${formatQuote(liveQuote.amount)}`
         : "Confirm & send via WhatsApp";
 
-  const quoteHint = isRoiJourney
+  const quoteHint = isManualQuoteJourney
     ? hasQuoteRoute
-      ? "Continue to request your fixed Republic of Ireland price."
+      ? isOutOfAreaPickupJourney
+        ? "Continue to request your fixed price — out-of-area pickups need manual approval."
+        : "Continue to request your fixed Republic of Ireland price."
       : "Select pickup and drop-off addresses from the suggestions."
     : isA2AFlow && !isAddressPairComplete
       ? "Select pickup and drop-off addresses from the suggestions to see your price."
@@ -1440,9 +1455,7 @@ function QuoteCard({
         <div className="rounded-xl border border-emerald/30 bg-emerald/10 px-5 py-8 text-center sm:px-8 sm:py-10">
           <p className="text-xs font-medium uppercase tracking-wider text-emerald">
             {showsRequestQuoteFlow
-              ? isRoiJourney
-                ? "Quote request submitted"
-                : "Quote request submitted"
+              ? "Quote request submitted"
               : isEnquiryOnly
                 ? "Enquiry submitted"
                 : "Booking submitted"}
@@ -1450,9 +1463,11 @@ function QuoteCard({
           <h2 className="mt-2 text-2xl font-bold text-white sm:text-3xl">Thank you</h2>
           <p className="mx-auto mt-4 max-w-md text-sm leading-relaxed text-white/80 sm:text-base">
             {showsRequestQuoteFlow
-              ? isRoiJourney
-                ? "We’ve received your Republic of Ireland long-distance transfer request. We’ll confirm your fixed price and send your personal quote shortly."
-                : "We’ve received your minibus quote request. These transfers are subject to availability (including licensed partner operators) — we’ll confirm capacity and send your personal quote shortly."
+              ? isOutOfAreaPickupJourney
+                ? "We’ve received your out-of-area pickup request. We’ll review it manually, confirm availability, and send your personal fixed quote shortly. No payment is taken until the fare is confirmed."
+                : isRoiJourney
+                  ? "We’ve received your Republic of Ireland long-distance transfer request. We’ll confirm your fixed price and send your personal quote shortly."
+                  : "We’ve received your minibus quote request. These transfers are subject to availability (including licensed partner operators) — we’ll confirm capacity and send your personal quote shortly."
               : isEnquiryOnly
                 ? "We’ve received your enquiry. We’ll confirm availability and send your personal quote shortly. When you’re ready to book, we’ll send a SumUp payment link — your trip is confirmed after payment."
                 : "We’ve received your booking request. Once we confirm the job, we’ll send a SumUp payment link by email. Your booking is confirmed after payment."}
@@ -1636,12 +1651,21 @@ function QuoteCard({
               </div>
             </div>
 
-            {isRoiJourney ? (
+            {isOutOfAreaPickupJourney ? (
+              <div className="rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-white/85">
+                <p className="font-semibold text-amber-200">Out-of-area pickup – request your fixed price</p>
+                <p className="mt-1 text-xs leading-relaxed text-white/70">
+                  Standard pickups are from Greater Belfast (or Belfast International, Belfast City,
+                  or Dublin Airport). This pickup needs manual approval — we&apos;ll confirm your
+                  personal fixed price by email. No automatic online fare or immediate payment.
+                </p>
+              </div>
+            ) : isRoiJourney ? (
               <div className="rounded-xl border border-emerald/30 bg-emerald/10 px-4 py-3 text-sm text-white/85">
                 <p className="font-semibold text-emerald">Republic of Ireland journey – request your fixed price</p>
                 <p className="mt-1 text-xs leading-relaxed text-white/70">
-                  Republic of Ireland long-distance transfer — we&apos;ll confirm your personal fixed
-                  price by email. No instant online fare for cross-border routes.
+                  Republic of Ireland city destinations (outside Dublin Airport) are quoted
+                  individually — we&apos;ll confirm your personal fixed price by email.
                 </p>
               </div>
             ) : null}
@@ -2236,15 +2260,18 @@ function QuoteCard({
 
         {(quoteStep === 1 || quoteStep === 2) && (
         <div className="rounded-xl border border-emerald/30 bg-emerald/10 px-4 py-4">
-          {isRoiJourney ? (
+          {isManualQuoteJourney ? (
             <>
               <p className="text-xs font-medium uppercase tracking-wider text-emerald">
-                Republic of Ireland long-distance transfer
+                {isOutOfAreaPickupJourney
+                  ? "Out-of-area pickup"
+                  : "Republic of Ireland long-distance transfer"}
               </p>
               <p className="mt-1 text-xl font-bold text-white sm:text-2xl">Request your fixed price</p>
               <p className="mt-2 text-sm leading-relaxed text-white/70">
-                Cross-border and Republic of Ireland routes are quoted individually. Continue to
-                send your trip details and we&apos;ll email your personal fixed price.
+                {isOutOfAreaPickupJourney
+                  ? "This pickup is outside our standard Greater Belfast area and needs manual approval. Continue to send your trip details — we’ll email your personal fixed price. No automatic fare or online payment until confirmed."
+                  : "Republic of Ireland city destinations are quoted individually. Continue to send your trip details and we’ll email your personal fixed price."}
               </p>
               {journeyDistanceLabel && journeyDurationLabel && (
                 <p className="mt-2 text-xs text-white/60">
@@ -2337,7 +2364,7 @@ function QuoteCard({
             </>
           )}
           <p className="mt-3 text-[11px] text-white/40">
-            {isRoiJourney
+            {isManualQuoteJourney
               ? "Request Fixed Quote — we’ll confirm your personal price before any payment is taken."
               : showsRequestQuoteFlow
               ? "Request a quote — we’ll confirm availability before the booking is accepted. No online payment until confirmed."
@@ -2451,7 +2478,7 @@ function QuoteCard({
             <div className="mb-4">
               <p className="text-xs font-medium uppercase tracking-wider text-emerald">
                 {showsRequestQuoteFlow
-                  ? isRoiJourney
+                  ? isManualQuoteJourney
                     ? "Review your fixed quote request"
                     : "Review your quote request"
                   : isEnquiryOnly
@@ -2460,9 +2487,11 @@ function QuoteCard({
               </p>
               <p className="mt-1 text-sm text-white/75">
                 {showsRequestQuoteFlow
-                  ? isRoiJourney
-                    ? "Check your details, then request your fixed Republic of Ireland price."
-                    : "Check your details, then request a quote — minibus transfers are subject to availability and are not instantly confirmed."
+                  ? isOutOfAreaPickupJourney
+                    ? "Check your details, then request your fixed price — out-of-area pickups need manual approval."
+                    : isRoiJourney
+                      ? "Check your details, then request your fixed Republic of Ireland price."
+                      : "Check your details, then request a quote — minibus transfers are subject to availability and are not instantly confirmed."
                   : isEnquiryOnly
                     ? "Check your details, then send an enquiry — we’ll quote you and confirm availability."
                     : "Please check everything is correct before booking — wrong details can change your price."}
@@ -2528,8 +2557,15 @@ function QuoteCard({
               <PreviewRow label="Passengers" value={String(passengers)} />
               <PreviewRow label="Suitcases" value={String(suitcases)} />
               <PreviewRow label="Vehicle" value={quoteVehicle} />
-              {isRoiJourney ? (
-                <PreviewRow label="Pricing" value="Request fixed quote — we’ll email your price" />
+              {isManualQuoteJourney ? (
+                <PreviewRow
+                  label="Pricing"
+                  value={
+                    isOutOfAreaPickupJourney
+                      ? "Out-of-area pickup — request fixed quote (manual approval)"
+                      : "Request fixed quote — we’ll email your price"
+                  }
+                />
               ) : showsRequestQuoteFlow && liveQuote ? (
                 <PreviewRow
                   label="Guide price"
@@ -2543,7 +2579,7 @@ function QuoteCard({
                   value={formatQuote(liveQuote.amount)}
                 />
               ) : null}
-              {isRequestQuote && !isRoiJourney ? (
+              {isRequestQuote && !isManualQuoteJourney ? (
                 <PreviewRow label="Fulfilment" value={MINIBUS_PARTNER_NOTE} />
               ) : null}
             </dl>
@@ -2729,7 +2765,7 @@ function QuoteCard({
         ) : (
           <button
             type="submit"
-            disabled={submitted || ((isEnquiryOnly || isRoiJourney) ? !hasQuoteRoute : !liveQuote)}
+            disabled={submitted || ((isEnquiryOnly || isManualQuoteJourney) ? !hasQuoteRoute : !liveQuote)}
             className="w-full rounded-xl bg-emerald py-3.5 text-sm font-bold text-navy transition-all hover:bg-emerald-light hover:shadow-lg hover:shadow-emerald/25 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {submitted ? submitInProgressLabel : "Continue to travel details"}

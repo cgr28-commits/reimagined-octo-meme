@@ -68,15 +68,15 @@ export default function LocationsPage() {
                 align="left"
                 eyebrow="Locations"
                 title="Where we travel"
-                description="We arrange private transfers across Northern Ireland, to major airports, and on long-distance cross-border routes. The lists below are examples only — enter your exact addresses on the quote form for your personal price."
+                description="Standard long-distance pickups are from Greater Belfast (plus Belfast International, Belfast City, and Dublin Airport). Destinations can be anywhere in Northern Ireland or the Republic of Ireland. Lists below are examples only — enter exact addresses on the quote form."
               />
             </div>
 
             <div className="mt-14 grid gap-10 lg:grid-cols-2">
               <section>
-                <h2 className="text-xl font-bold text-white">Northern Ireland</h2>
+                <h2 className="text-xl font-bold text-white">Northern Ireland destinations</h2>
                 <p className="mt-2 text-sm leading-relaxed text-white/60">
-                  Door-to-door transfers from towns and cities across NI, including:
+                  Door-to-door drop-offs across NI from Greater Belfast pickups, including:
                 </p>
                 <ul className="mt-4 flex flex-wrap gap-2">
                   {AREAS.map((area) => (
@@ -111,8 +111,9 @@ export default function LocationsPage() {
               <section>
                 <h2 className="text-xl font-bold text-white">Airports</h2>
                 <p className="mt-2 text-sm leading-relaxed text-white/60">
-                  Airport pickups and drop-offs — select from the quick buttons on the quote form or
-                  type the airport address:
+                  Pre-booked airport pickups for long-distance transfers are available from Belfast
+                  International, Belfast City and Dublin Airport. City of Derry (LDY) remains available
+                  for Greater Belfast connections:
                 </p>
                 <ul className="mt-4 space-y-2">
                   {AIRPORT_EXAMPLES.map((airport) => (
