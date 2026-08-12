@@ -4,6 +4,13 @@ import Footer from "@/components/Footer";
 import Header from "@/components/Header";
 import SectionHeading from "@/components/SectionHeading";
 import { AREAS, SERVICE_FLAGS, SITE } from "@/lib/data";
+import {
+  LOCATIONS_AIRPORT_EXAMPLES,
+  LOCATIONS_LONG_DISTANCE_EXAMPLES,
+  LOCATIONS_PAGE_INTRO,
+  LOCATIONS_ROI_EXAMPLES,
+  LOCATIONS_ROUTE_NOTE,
+} from "@/lib/locations-content";
 import { notFound } from "next/navigation";
 
 export const metadata: Metadata = {
@@ -14,30 +21,6 @@ export const metadata: Metadata = {
     canonical: "/locations/",
   },
 };
-
-const ROI_EXAMPLES = [
-  "Dublin city centre",
-  "Dublin Airport (DUB)",
-  "Cork",
-  "Galway",
-  "Limerick",
-  "Donegal",
-  "Sligo",
-] as const;
-
-const AIRPORT_EXAMPLES = [
-  "Belfast International (BFS)",
-  "George Best Belfast City (BHD)",
-  "Dublin Airport (DUB)",
-  "City of Derry (LDY)",
-] as const;
-
-const LONG_DISTANCE_EXAMPLES = [
-  "Belfast to Dublin city",
-  "Bangor to Cork",
-  "Lisburn to Galway",
-  "Newtownabbey to Donegal",
-] as const;
 
 export default function LocationsPage() {
   if (!SERVICE_FLAGS.addressToAddress) {
@@ -66,7 +49,7 @@ export default function LocationsPage() {
                 align="left"
                 eyebrow="Locations"
                 title="Where we travel"
-                description="Standard long-distance pickups are from Greater Belfast (plus Belfast International, Belfast City, and Dublin Airport). Destinations can be anywhere in Northern Ireland or the Republic of Ireland. Lists below are examples only — enter exact addresses on the quote form."
+                description={LOCATIONS_PAGE_INTRO}
               />
             </div>
 
@@ -95,7 +78,7 @@ export default function LocationsPage() {
                   destinations:
                 </p>
                 <ul className="mt-4 space-y-2">
-                  {ROI_EXAMPLES.map((place) => (
+                  {LOCATIONS_ROI_EXAMPLES.map((place) => (
                     <li
                       key={place}
                       className="rounded-xl border border-white/10 bg-navy-light/50 px-4 py-2.5 text-sm text-white/80"
@@ -114,7 +97,7 @@ export default function LocationsPage() {
                   for Greater Belfast connections:
                 </p>
                 <ul className="mt-4 space-y-2">
-                  {AIRPORT_EXAMPLES.map((airport) => (
+                  {LOCATIONS_AIRPORT_EXAMPLES.map((airport) => (
                     <li
                       key={airport}
                       className="rounded-xl border border-white/10 bg-navy-light/50 px-4 py-2.5 text-sm text-white/80"
@@ -127,12 +110,9 @@ export default function LocationsPage() {
 
               <section>
                 <h2 className="text-xl font-bold text-white">Popular long-distance routes</h2>
-                <p className="mt-2 text-sm leading-relaxed text-white/60">
-                  Example journeys from Greater Belfast pickups — not an exhaustive list, and not an
-                  offer of standalone pickups from the destination cities:
-                </p>
+                <p className="mt-2 text-sm leading-relaxed text-white/60">{LOCATIONS_ROUTE_NOTE}</p>
                 <ul className="mt-4 space-y-2">
-                  {LONG_DISTANCE_EXAMPLES.map((route) => (
+                  {LOCATIONS_LONG_DISTANCE_EXAMPLES.map((route) => (
                     <li
                       key={route}
                       className="rounded-xl border border-white/10 bg-navy-light/50 px-4 py-2.5 text-sm text-white/80"

@@ -1,11 +1,15 @@
 import {
   AIRPORTS,
+  ALL_AIRPORTS,
   AREAS,
+  CHAUFFEUR_SERVICES,
   DRIVER_TRACKING_HIGHLIGHTS,
   FAQS,
   MAX_ONLINE_PASSENGERS,
   MINIBUS_PARTNER_NOTE,
+  SERVICE_FLAGS,
   SITE,
+  VEHICLE_BOOKING_GUIDANCE,
   VEHICLE_FLEET,
   VEHICLE_TYPES,
   WHY_CHOOSE_US,
@@ -14,6 +18,29 @@ import {
   needsLuggageCapacityConfirmation,
   showsOnlineGuidePrice,
 } from "@/lib/data";
+import { BUSINESS_LEGAL } from "@/lib/business-legal";
+import {
+  LONG_DISTANCE_EXAMPLE_ROUTES,
+  LONG_DISTANCE_HIGHLIGHTS,
+  LONG_DISTANCE_INTRO,
+  LONG_DISTANCE_PAGE_TITLE,
+  LONG_DISTANCE_SERVICE_NOTES,
+} from "@/lib/long-distance-content";
+import {
+  LOCATIONS_AIRPORT_EXAMPLES,
+  LOCATIONS_LONG_DISTANCE_EXAMPLES,
+  LOCATIONS_PAGE_INTRO,
+  LOCATIONS_ROI_EXAMPLES,
+  LOCATIONS_ROUTE_NOTE,
+} from "@/lib/locations-content";
+import {
+  AIRPORT_PAGES,
+  TOWN_AREAS,
+  TRANSFER_ROUTE_PAGES,
+} from "@/lib/location-pages";
+import { TOUR_BENEFITS, TOURS } from "@/lib/tours";
+import { TERMS_LAST_UPDATED, TERMS_SECTIONS } from "@/lib/terms";
+import { PRIVACY_SECTIONS } from "@/lib/privacy";
 import { isValidEmailAddress, isValidMobileNumber } from "@/lib/booking-message";
 import {
   isSoftFlightLookupFailure,
@@ -21,8 +48,6 @@ import {
   lookupFlightForBooking,
   normalizeFlightNumber,
 } from "@/lib/flight-lookup";
-import { PRIVACY_SECTIONS } from "@/lib/privacy";
-import { TERMS_LAST_UPDATED, TERMS_SECTIONS } from "@/lib/terms";
 import { formatUkDate, formatUkDateTime } from "@/lib/format-datetime";
 import { calculateQuote, formatQuote, matchAreaFromAddress } from "@/lib/quote";
 
@@ -161,6 +186,17 @@ function sectionText(section: {
   return parts.join(" ");
 }
 
+let cachedKnowledgeChunks: Array<{ title: string; body: string }> | null = null;
+
+/** Full site knowledge corpus for the quote bot (memoised). Exported for coverage tests. */
+export function getAssistantKnowledgeChunks(): Array<{ title: string; body: string }> {
+  if (cachedKnowledgeChunks) {
+    return cachedKnowledgeChunks;
+  }
+  cachedKnowledgeChunks = knowledgeChunks();
+  return cachedKnowledgeChunks;
+}
+
 function knowledgeChunks(): Array<{ title: string; body: string }> {
   const chunks: Array<{ title: string; body: string }> = FAQS.map((faq) => ({
     title: faq.question,
@@ -168,7 +204,7 @@ function knowledgeChunks(): Array<{ title: string; body: string }> {
   }));
 
   for (const section of TERMS_SECTIONS) {
-    chunks.push({ title: section.title, body: sectionText(section) });
+    chunks.push({ title: `Terms — ${section.title}`, body: sectionText(section) });
   }
   for (const section of PRIVACY_SECTIONS) {
     chunks.push({ title: `Privacy — ${section.title}`, body: sectionText(section) });
@@ -176,8 +212,11 @@ function knowledgeChunks(): Array<{ title: string; body: string }> {
   for (const item of WHY_CHOOSE_US) {
     chunks.push({ title: item.title, body: item.description });
   }
-  for (const item of DRIVER_TRACKING_HIGHLIGHTS) {
-    chunks.push({ title: item.title, body: item.description });
+
+  if (SERVICE_FLAGS.liveDriverTracking) {
+    for (const item of DRIVER_TRACKING_HIGHLIGHTS) {
+      chunks.push({ title: item.title, body: item.description });
+    }
   }
 
   chunks.push(
@@ -189,11 +228,11 @@ function knowledgeChunks(): Array<{ title: string; body: string }> {
     {
       title: "Quote tool flow",
       body:
-        "The quote tool asks: trip type (to or from airport), one way or return, airport, full pickup or drop-off address, passengers, and suitcases, then shows the fixed journey price and vehicle. Pickup date and time are required before you can Request to book — return trips must be after the outbound journey. You can finish booking in this chat with date/time, contact details, flight numbers and terms — flight numbers are checked before we send the request.",
+        "The quote tool asks for pickup and drop-off addresses (selected from Google Places suggestions), passengers, and suitcases, then shows the fixed journey price and vehicle where available. Pickup date and time are required before you can Request to book — return trips must be after the outbound journey. You can finish booking in this chat with date/time, contact details, flight numbers and terms — flight numbers are checked before we send the request. Typed addresses that are not selected from suggestions are not accepted.",
     },
     {
       title: "Airports we cover",
-      body: `We cover ${AIRPORTS.map((a) => a.name).join(", ")}. Prices include vehicle, driver, fuel, tolls, and up to 60 minutes complimentary waiting time after landing for airport pickups.`,
+      body: `We cover ${AIRPORTS.map((a) => `${a.name} (${a.code}): ${a.description} ${a.distance}, ${a.duration}`).join(" ")} Prices include vehicle, driver, fuel, tolls, and up to 60 minutes complimentary waiting time after landing for airport pickups.`,
     },
     {
       title: "Areas we cover",
@@ -202,6 +241,18 @@ function knowledgeChunks(): Array<{ title: string; body: string }> {
     {
       title: "Fleet and vehicles",
       body: VEHICLE_FLEET.map((v) => `${v.name} (${v.capacity}): ${v.description}`).join(" "),
+    },
+    {
+      title: "Vehicle booking guidance",
+      body: VEHICLE_BOOKING_GUIDANCE.join(" "),
+    },
+    {
+      title: "Minibus partners",
+      body: MINIBUS_PARTNER_NOTE,
+    },
+    {
+      title: "Operator and business details",
+      body: `${BUSINESS_LEGAL.tradingName} — ${BUSINESS_LEGAL.operatorNote}. Service area: ${BUSINESS_LEGAL.serviceArea}. Jurisdiction: ${BUSINESS_LEGAL.jurisdiction}. Email ${BUSINESS_LEGAL.email}, telephone ${BUSINESS_LEGAL.phoneDisplay}. ${BUSINESS_LEGAL.addressOnRequestNote} Website ${BUSINESS_LEGAL.website}.`,
     },
     {
       title: "Contact details",
@@ -220,14 +271,112 @@ function knowledgeChunks(): Array<{ title: string; body: string }> {
     {
       title: "Flight delays and waiting time",
       body:
-        "We track your flight and adjust pickup for delays or early landings at no extra charge. Airport pickups include up to 60 minutes complimentary waiting after landing. Parking at the airport is included in the price.",
+        "We track your flight and adjust pickup for delays or early landings at no extra charge. Airport pickups include up to 60 minutes complimentary waiting after landing. Other pickups include 10 minutes complimentary waiting. Parking at the airport is included in the price.",
     },
     {
       title: "Cash and payment options",
       body:
-        "Standard and estate cars with at least 12 hours’ notice can pay by card online via SumUp at the end of the website quote. Otherwise, after you Request to book and we confirm the job, we email a SumUp payment link. Cash to the driver or bank transfer can be arranged where agreed.",
+        "Standard and estate cars with at least 12 hours’ notice can pay by card online via SumUp at the end of the website quote where an instant fare is shown. Otherwise, after you Request to book and we confirm the job, we email a SumUp payment link. Cash to the driver or bank transfer can be arranged where agreed.",
+    },
+    {
+      title: "Terms last updated",
+      body: `Our Terms & Conditions were last updated ${TERMS_LAST_UPDATED}. Full details are on ${SITE.url}/terms/.`,
     },
   );
+
+  // Long-distance transfers page
+  if (SERVICE_FLAGS.addressToAddress) {
+    chunks.push({
+      title: LONG_DISTANCE_PAGE_TITLE,
+      body: [LONG_DISTANCE_INTRO, ...LONG_DISTANCE_SERVICE_NOTES].join(" "),
+    });
+    for (const item of LONG_DISTANCE_HIGHLIGHTS) {
+      chunks.push({ title: `Long-distance — ${item.title}`, body: item.description });
+    }
+    chunks.push({
+      title: "Long-distance example routes",
+      body: `Example long-distance routes from Greater Belfast: ${LONG_DISTANCE_EXAMPLE_ROUTES.join("; ")}.`,
+    });
+    chunks.push({
+      title: "Locations we cover",
+      body: [
+        LOCATIONS_PAGE_INTRO,
+        `Republic of Ireland example destinations: ${LOCATIONS_ROI_EXAMPLES.join(", ")}.`,
+        `Airports: ${LOCATIONS_AIRPORT_EXAMPLES.join(", ")}.`,
+        LOCATIONS_ROUTE_NOTE,
+        `Popular routes: ${LOCATIONS_LONG_DISTANCE_EXAMPLES.join("; ")}.`,
+      ].join(" "),
+    });
+  }
+
+  // Airport guide pages
+  for (const airport of AIRPORT_PAGES) {
+    chunks.push({
+      title: airport.title,
+      body: [
+        airport.intro,
+        ...airport.highlights,
+        ...airport.localTips,
+        airport.fromPriceLabel,
+        airport.durationNote,
+        `Areas often served: ${airport.areaServed.join(", ")}.`,
+      ].join(" "),
+    });
+  }
+
+  // Catalogue airport descriptions (including soft-hidden ones still in pricing)
+  for (const airport of ALL_AIRPORTS) {
+    chunks.push({
+      title: `${airport.name} airport summary`,
+      body: `${airport.name} (${airport.code}): ${airport.description} ${airport.distance}. Typical timing: ${airport.duration}.`,
+    });
+  }
+
+  // Town pickup areas
+  for (const town of TOWN_AREAS) {
+    chunks.push({
+      title: `${town.name} airport transfers`,
+      body: `${town.blurb} Quote address hint: ${town.addressHint}.`,
+    });
+  }
+
+  // Popular town ↔ airport route notes
+  for (const route of TRANSFER_ROUTE_PAGES) {
+    chunks.push({
+      title: route.title,
+      body: [route.intro, ...route.journeyNotes].join(" "),
+    });
+  }
+
+  if (SERVICE_FLAGS.chauffeur) {
+    for (const item of CHAUFFEUR_SERVICES) {
+      chunks.push({ title: `Chauffeur — ${item.title}`, body: item.description });
+    }
+  } else {
+    chunks.push({
+      title: "Chauffeur and executive private hire",
+      body: "We provide chauffeur and executive private hire across Northern Ireland for business travel, events, and as-directed journeys — as well as our airport transfer service. Contact us via WhatsApp for a personalised quote.",
+    });
+  }
+
+  if (SERVICE_FLAGS.dayTrips) {
+    for (const tour of TOURS) {
+      chunks.push({
+        title: tour.title,
+        body: [
+          tour.shortDescription,
+          tour.description,
+          `Duration: ${tour.duration}.`,
+          `Price: ${tour.price}. ${tour.priceNote}`,
+          `Highlights: ${tour.highlights.join("; ")}.`,
+        ].join(" "),
+      });
+    }
+    chunks.push({
+      title: "Day trip benefits",
+      body: TOUR_BENEFITS.map((item) => `${item.title}: ${item.description}`).join(" "),
+    });
+  }
 
   return chunks;
 }
@@ -238,9 +387,9 @@ function matchKnowledge(text: string): string | null {
     .split(/[^a-z0-9£%]+/i)
     .filter((word) => word.length > 2);
 
-  let best: { score: number; body: string } | null = null;
+  let best: { score: number; body: string; title: string } | null = null;
 
-  for (const chunk of knowledgeChunks()) {
+  for (const chunk of getAssistantKnowledgeChunks()) {
     const haystack = `${chunk.title} ${chunk.body}`.toLowerCase();
     let score = 0;
     for (const word of keywords) {
@@ -255,16 +404,46 @@ function matchKnowledge(text: string): string | null {
     if (/child.?seat|booster|baby seat|car seat/.test(lower) && /child|booster|seat/.test(haystack)) score += 5;
     if (/parking|park at (the )?airport/.test(lower) && /parking|airport/.test(haystack)) score += 5;
     if (/cash|pay (by |with )?cash|card or cash/.test(lower) && /cash|pay|card|sumup|payment/.test(haystack)) score += 5;
-    if (/vehicle|minibus|estate|saloon|executive|fleet/.test(lower) && /vehicle|fleet|saloon|estate|minibus/.test(haystack)) score += 3;
+    if (/vehicle|minibus|estate|saloon|executive|fleet|partner/.test(lower) && /vehicle|fleet|saloon|estate|minibus|partner/.test(haystack)) score += 3;
     if (/book|confirm|payment|sumup|pay/.test(lower) && /book|confirm|payment|sumup|pay/.test(haystack)) score += 3;
-    if (/privacy|data|gdpr|marketing email/.test(lower) && /privacy|data|marketing|personal/.test(haystack)) score += 5;
+    if (/privacy|data|gdpr|marketing email|cookie|google places|google ads/.test(lower) && /privacy|data|marketing|personal|cookie|places|ads/.test(haystack)) score += 5;
     if (/track|driver location|live track/.test(lower) && /track|driver|location/.test(haystack)) score += 4;
     if (/hour|24\/7|christmas|bank holiday|night|early morning/.test(lower) && /24|365|christmas|bank|early/.test(haystack)) score += 4;
-    if (/contact|phone|email|whatsapp|number|landline/.test(lower) && /contact|whatsapp|email|call|landline/.test(haystack)) score += 3;
+    if (/contact|phone|email|whatsapp|number|landline|business address/.test(lower) && /contact|whatsapp|email|call|landline|address/.test(haystack)) score += 3;
     if (/airport|cover|areas?|pickup point|where do you pick/.test(lower) && /airport|cover|belfast|dublin|derry|areas|pickup|arrivals/.test(haystack)) score += 2;
+    if (
+      /long.?distance|cross.?border|republic|roi|eircode|cork|galway|limerick|donegal|out.?of.?area|greater belfast/.test(
+        lower,
+      ) &&
+      /long|distance|cross|border|ireland|cork|galway|out-of-area|greater belfast|roi|republic/.test(haystack)
+    ) {
+      score += 6;
+    }
+    if (
+      /belfast city|bhd|aldergrove|belfast international|bfs|city of derry|ldy|dublin airport|dub/.test(lower) &&
+      /belfast|aldergrove|derry|dublin|bfs|bhd|ldy|dub/.test(haystack)
+    ) {
+      score += 4;
+    }
+    if (/partner|subcontract|psv|minibus|5.?8|five|group/.test(lower) && /partner|minibus|5–8|group/.test(haystack)) {
+      score += 4;
+    }
+    if (
+      SERVICE_FLAGS.dayTrips &&
+      /tour|day trip|causeway|game of thrones/.test(lower) &&
+      /tour|day|causeway|thrones/.test(haystack)
+    ) {
+      score += 5;
+    }
+    if (/toll|gbp|currency|sterling|pound/.test(lower) && /toll|gbp|sterling|pound|currency/.test(haystack)) {
+      score += 4;
+    }
+    if (/terms|condition|policy|liability|no.?show/.test(lower) && /terms|condition|liability|no show|cancel/.test(haystack)) {
+      score += 3;
+    }
 
     if (score > 0 && (!best || score > best.score)) {
-      best = { score, body: chunk.body };
+      best = { score, body: chunk.body, title: chunk.title };
     }
   }
 
@@ -1485,7 +1664,7 @@ export function createWelcomeMessages(): AssistantMessage[] {
     {
       role: "bot",
       text:
-        `Hi — I’m the ${SITE.name} assistant. I answer questions from our website and can price airport transfers using the same steps and pricing as the live quote tool.\n\n` +
+        `Hi — I’m the ${SITE.name} assistant. I answer questions using the information on our website (airports, long-distance transfers, vehicles, terms, privacy, and more) and can price airport transfers using the same steps and pricing as the live quote tool.\n\n` +
         "Ask anything, or say “Get a quote” to start.",
     },
   ];
@@ -1823,6 +2002,20 @@ export async function respondToAssistantMessage(
   }
 
   const wantsQuote = /get a quote|quote|price|how much|fare|cost|estimate/.test(lower);
+  // Only treat as mid-quote when the *incoming* draft already has trip fields,
+  // or the user clearly asked for a price / packed one-shot quote. Parsing an
+  // airport name from an info question must not steal the turn into quote flow.
+  const incomingQuoteInProgress = Boolean(
+    draft.direction ||
+      draft.airportCode ||
+      draft.address ||
+      draft.tripDate ||
+      draft.passengers !== undefined ||
+      draft.suitcases !== undefined ||
+      draft.bookingStarted ||
+      wantsQuote ||
+      wantsOneShotQuote(lower),
+  );
   const quoteInProgress = Boolean(
     nextDraft.direction ||
       nextDraft.airportCode ||
@@ -1833,16 +2026,22 @@ export async function respondToAssistantMessage(
       wantsOneShotQuote(lower),
   );
 
-  // Knowledge answers when not mid-quote (or when clearly a FAQ question).
+  // Knowledge answers for FAQ / “tell me about…” questions from the full site corpus.
   const clearlyQuestion =
-    /^(what|when|where|who|how|do you|can you|is there|are there)\b/.test(lower) ||
+    /^(what|when|where|who|how|do you|can you|is there|are there|tell me|explain|describe)\b/.test(
+      lower,
+    ) ||
+    /\b(tell me about|information about|more about|what about|info on|details on|learn about)\b/.test(
+      lower,
+    ) ||
     /\?$/.test(text);
-  if (clearlyQuestion && !wantsQuote && !quoteInProgress) {
+  if (clearlyQuestion && !wantsQuote && !incomingQuoteInProgress) {
     const knowledge = matchKnowledge(text);
     if (knowledge) {
       return understood({
         reply: knowledge,
-        draft: nextDraft,
+        // Keep the prior draft — do not stick airport/direction from an info Q.
+        draft: { ...draft },
         quickReplies: ["Get a quote", "Save to contacts"],
       });
     }
