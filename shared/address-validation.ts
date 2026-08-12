@@ -158,6 +158,28 @@ export function isAddressAllowedForAirport(
 ): boolean {
   const code = normaliseAirportCode(airportCode);
 
+  // Universal address-to-address / ROI mode — NI + Republic of Ireland.
+  if (code === "A2A") {
+    if (isNorthernIrelandAddressParts(parts)) {
+      return true;
+    }
+    if (isRepublicOfIrelandAddressParts(parts)) {
+      return true;
+    }
+    // Allow GB country label when the text still looks NI (Places sometimes omits NI).
+    const country = parts.country?.toLowerCase() ?? "";
+    if ((country === "united kingdom" || country === "uk" || country === "gb") &&
+      isNorthernIrelandText(
+        [parts.postcode, parts.county, parts.city, parts.town, parts.displayName]
+          .filter(Boolean)
+          .join(" "),
+      )
+    ) {
+      return true;
+    }
+    return false;
+  }
+
   if (code === "LDY") {
     const combined = [parts.postcode, parts.county, parts.city, parts.town, parts.displayName]
       .filter(Boolean)
@@ -196,6 +218,24 @@ export function isAllowedAutocompleteLabel(label: string, airportCode: string): 
 
   if (code === "LDY") {
     return isGreaterBelfastServiceAddress(text);
+  }
+
+  if (code === "A2A") {
+    if (NON_NI_UK_REGION_PATTERN.test(text) && !isRepublicOfIrelandText(text)) {
+      // Allow Scotland/England only when clearly Ireland? No — block GB mainland.
+      if (!isNorthernIrelandText(text) && !isRepublicOfIrelandText(text)) {
+        return false;
+      }
+    }
+    if (isNorthernIrelandText(text) || isRepublicOfIrelandText(text)) {
+      return true;
+    }
+    const postcodeMatch = text.match(NON_NI_UK_POSTCODE_PATTERN);
+    if (postcodeMatch) {
+      return false;
+    }
+    // With island-wide bias, allow short NI/IE place names without county.
+    return true;
   }
 
   if (NON_NI_UK_REGION_PATTERN.test(text)) {
@@ -250,7 +290,8 @@ export function isAllowedCoordinates(airportCode: string, lat: number, lon: numb
     return true;
   }
 
-  if (airportCode !== "DUB") {
+  const code = normaliseAirportCode(airportCode);
+  if (code !== "DUB" && code !== "A2A") {
     return false;
   }
 

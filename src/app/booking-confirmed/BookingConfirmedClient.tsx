@@ -143,6 +143,10 @@ export default function BookingConfirmedClient() {
         ) : null}
         {amountPaid ? (
           <p className="mt-1 text-sm text-white/50">Amount paid: {amountPaid}</p>
+        ) : status === "confirmed" ? (
+          <p className="mt-1 text-sm text-white/50">
+            If you requested a fixed quote, we&apos;ll email your personal price shortly.
+          </p>
         ) : null}
 
         <div className="mt-8 flex flex-wrap gap-3">

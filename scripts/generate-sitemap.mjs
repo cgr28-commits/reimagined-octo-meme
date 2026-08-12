@@ -5,6 +5,7 @@ const SITE_URL = "https://www.myairporttaxini.co.uk";
 
 // Keep in sync with SERVICE_FLAGS in src/lib/data.ts
 const DAY_TRIPS_ENABLED = false;
+const ADDRESS_TO_ADDRESS_ENABLED = true;
 const TRACKING_DEMO_ENABLED = false;
 const BELFAST_CITY_AIRPORT_ENABLED = true;
 
@@ -51,6 +52,12 @@ const pages = [
           changefreq: "monthly",
           priority: "0.8",
         })),
+      ]
+    : []),
+  ...(ADDRESS_TO_ADDRESS_ENABLED
+    ? [
+        { path: "/long-distance-transfers/", changefreq: "monthly", priority: "0.85" },
+        { path: "/locations/", changefreq: "monthly", priority: "0.8" },
       ]
     : []),
   { path: "/terms/", changefreq: "yearly", priority: "0.5" },

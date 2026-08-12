@@ -28,6 +28,7 @@ export const TERMS_SECTIONS = [
     title: "Our Service",
     content: [
       "My Airport Taxi NI provides pre-booked private airport transfers throughout Greater Belfast and surrounding areas, including transfers to and from:",
+      "We also arrange address-to-address and long-distance private transfers across Northern Ireland, and cross-border journeys into the Republic of Ireland where quoted individually.",
     ],
     list: [
       "Belfast International Airport",
@@ -35,7 +36,16 @@ export const TERMS_SECTIONS = [
       "Dublin Airport",
       "City of Derry Airport",
     ],
-    footer: "All journeys are subject to vehicle availability.",
+    footer: "All journeys are subject to vehicle availability. Republic of Ireland and cross-border routes require a confirmed fixed quote before travel.",
+  },
+  {
+    title: "Cross-border & Republic of Ireland journeys",
+    content: [
+      "Journeys with a pickup or drop-off in the Republic of Ireland (including Dublin city, Eircode addresses, and Dublin Airport from Northern Ireland) are quoted individually.",
+      "Prices for these routes are confirmed in writing before you travel. Online instant fares and website card payment apply to qualifying Northern Ireland routes only, unless we agree otherwise.",
+      "All cross-border fares are quoted in pounds sterling (GBP) unless otherwise agreed in writing.",
+      "Quoted fares include applicable tolls for the agreed route. Customers must select complete pickup and drop-off addresses from the Google Places suggestions on our quote form.",
+    ],
   },
   {
     title: "Licensed partner operators",
@@ -53,6 +63,7 @@ export const TERMS_SECTIONS = [
     list: [
       "Pickup address",
       "Destination",
+      "Complete addresses selected from Google Places suggestions (where the quote form requires this)",
       "Date",
       "Time",
       "Flight number (where applicable)",

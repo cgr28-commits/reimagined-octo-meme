@@ -2,7 +2,7 @@ import { withBasePath } from "./paths";
 
 export const SITE = {
   name: "My Airport Taxi NI",
-  tagline: "Premium Airport Transfers Across Northern Ireland",
+  tagline: "Airport and long-distance private transfers across Northern Ireland",
   landline: "+442896022952",
   landlineDisplay: "028 9602 2952",
   whatsapp: "447549815538",
@@ -20,7 +20,7 @@ export const SERVICE_FLAGS = {
   dayTrips: false,
   chauffeur: false,
   /** Address-to-address quoting UI — code retained in QuoteCard. */
-  addressToAddress: false,
+  addressToAddress: true,
   /** George Best Belfast City Airport (BHD). */
   belfastCityAirport: true,
   /** Public tracking demo hub + owner/driver demo links. */
@@ -41,6 +41,8 @@ export type ServiceFlagKey = keyof typeof SERVICE_FLAGS;
 
 export const ALL_NAV_LINKS = [
   { label: "Airports", href: "/#airports", service: null },
+  { label: "Long Distance", href: "/long-distance-transfers/", service: "addressToAddress" as const },
+  { label: "Locations", href: "/locations/", service: "addressToAddress" as const },
   { label: "Day Trips", href: "/tours/", service: "dayTrips" as const },
   { label: "Vehicles", href: "/#vehicles", service: null },
   { label: "Chauffeur", href: "/#chauffeur", service: "chauffeur" as const },
@@ -475,6 +477,36 @@ export const FAQS = [
     question: "How early should I book?",
     answer:
       "As early as you can — especially for early-morning departures, bank holidays, and busy travel days. Same-day transfers are often possible subject to availability; use Get a Live Quote or WhatsApp us to check.",
+  },
+  {
+    question: "Do you cover journeys in the Republic of Ireland?",
+    answer:
+      "Yes — we arrange cross-border and Republic of Ireland long-distance transfers (for example Belfast to Dublin city, Cork, Galway, or Dublin Airport). These routes are quoted individually: use Request Fixed Quote on the booking form and we’ll confirm your price by email.",
+  },
+  {
+    question: "What currency are prices quoted in?",
+    answer:
+      "All prices on this website are quoted in pounds sterling (GBP). Cross-border journeys are still billed in GBP unless we agree otherwise in writing before you travel.",
+  },
+  {
+    question: "Are tolls included in the price?",
+    answer:
+      "Yes — quoted fares include applicable road tolls for your route (including cross-border tolls where relevant), along with the vehicle, professional driver, and fuel.",
+  },
+  {
+    question: "How much waiting time is included?",
+    answer:
+      "Airport collections include 60 minutes complimentary waiting from when your flight lands (with flight tracking when you provide a flight number). All other pickups include 10 minutes complimentary waiting at the agreed collection point.",
+  },
+  {
+    question: "Can I book a return journey?",
+    answer:
+      "Yes — choose Return on the quote form for a 5% discount on the combined fare where an instant online price is shown. For Republic of Ireland or bespoke long-distance routes, tell us your return date and we’ll include it in your fixed quote.",
+  },
+  {
+    question: "What is your cancellation policy for long-distance transfers?",
+    answer:
+      "Long-distance and cross-border transfers follow the same 24-hour cancellation rule: cancel at least 24 hours before your scheduled pickup for a full refund of the fare paid. Cancellations with less than 24 hours’ notice and no-shows are not eligible for a refund. Full details are in our Terms & Conditions.",
   },
 ] as const;
 

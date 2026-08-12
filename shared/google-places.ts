@@ -55,7 +55,11 @@ type GoogleGeocodeResponse = {
 };
 
 function getRegionCodes(airportCode: string): string[] {
-  return airportCode === "DUB" ? ["gb", "ie"] : ["gb"];
+  const code = normaliseAirportCode(airportCode);
+  if (code === "DUB" || code === "A2A") {
+    return ["gb", "ie"];
+  }
+  return ["gb"];
 }
 
 function getLocationRestriction(airportCode: string) {
@@ -65,7 +69,8 @@ function getLocationRestriction(airportCode: string) {
     return getLdyLocationRestriction();
   }
 
-  if (code === "DUB") {
+  if (code === "DUB" || code === "A2A") {
+    // Island-wide rectangle (NI + ROI). Bias toward Belfast is applied separately for A2A.
     return {
       rectangle: {
         low: { latitude: 51.4, longitude: -10.8 },
@@ -78,6 +83,19 @@ function getLocationRestriction(airportCode: string) {
     rectangle: {
       low: { latitude: 54.0, longitude: -8.2 },
       high: { latitude: 55.4, longitude: -5.4 },
+    },
+  };
+}
+
+/** Soft bias toward Belfast for A2A — does not exclude ROI results. */
+function getLocationBias(airportCode: string) {
+  if (normaliseAirportCode(airportCode) !== "A2A") {
+    return undefined;
+  }
+  return {
+    circle: {
+      center: { latitude: 54.5973, longitude: -5.9301 },
+      radius: 180000.0,
     },
   };
 }
@@ -182,13 +200,21 @@ export async function searchGooglePlaces(
   airportCode: string,
   sessionToken?: string,
 ): Promise<AddressSuggestion[]> {
+  const code = normaliseAirportCode(airportCode);
   const body: Record<string, unknown> = {
     input: query,
-    includedRegionCodes: getRegionCodes(normaliseAirportCode(airportCode)),
-    regionCode: airportCode === "DUB" ? "ie" : "gb",
+    includedRegionCodes: getRegionCodes(code),
+    regionCode: code === "DUB" || code === "A2A" ? "ie" : "gb",
     languageCode: "en-GB",
-    locationRestriction: getLocationRestriction(airportCode),
   };
+
+  // A2A: bias toward Belfast without a hard fence that blocks ROI.
+  const bias = getLocationBias(code);
+  if (bias) {
+    body.locationBias = bias;
+  } else {
+    body.locationRestriction = getLocationRestriction(code);
+  }
 
   if (sessionToken) {
     body.sessionToken = sessionToken;
@@ -219,7 +245,6 @@ export async function searchGooglePlaces(
   const data = (await response.json()) as GoogleAutocompleteResponse;
   const userNumber = extractLeadingStreetNumber(query);
 
-  const code = normaliseAirportCode(airportCode);
   const suggestions = (data.suggestions ?? [])
     .map((item) => formatSuggestion(item.placePrediction, userNumber))
     .filter((suggestion): suggestion is AddressSuggestion => suggestion !== null)
@@ -418,14 +443,21 @@ export async function searchGoogleEstablishments(
     return [];
   }
 
+  const code = normaliseAirportCode(airportCode);
   const body: Record<string, unknown> = {
     input: trimmed,
-    includedRegionCodes: getRegionCodes(normaliseAirportCode(airportCode)),
-    regionCode: airportCode === "DUB" ? "ie" : "gb",
+    includedRegionCodes: getRegionCodes(code),
+    regionCode: code === "DUB" || code === "A2A" ? "ie" : "gb",
     languageCode: "en-GB",
-    locationRestriction: getLocationRestriction(airportCode),
     includedPrimaryTypes: [...ESTABLISHMENT_PRIMARY_TYPES],
   };
+
+  const bias = getLocationBias(code);
+  if (bias) {
+    body.locationBias = bias;
+  } else {
+    body.locationRestriction = getLocationRestriction(code);
+  }
 
   if (sessionToken) {
     body.sessionToken = sessionToken;
@@ -445,7 +477,6 @@ export async function searchGoogleEstablishments(
   }
 
   const data = (await response.json()) as GoogleAutocompleteResponse;
-  const code = normaliseAirportCode(airportCode);
 
   const suggestions = (data.suggestions ?? [])
     .map((item) => formatSuggestion(item.placePrediction, null))
@@ -489,13 +520,22 @@ export async function geocodeAddress(
   return { lat: location.latitude, lng: location.longitude };
 }
 
-export async function resolveGooglePlace(
+export type ResolvedGooglePlace = {
+  formattedAddress: string;
+  placeId: string;
+  lat: number | null;
+  lng: number | null;
+  countryCode: string | null;
+  postalCode: string | null;
+};
+
+export async function resolveGooglePlaceDetails(
   apiKey: string,
   placeId: string,
   airportCode: string,
   sessionToken?: string,
   userInput?: string,
-): Promise<string | null> {
+): Promise<ResolvedGooglePlace | null> {
   const url = new URL(`https://places.googleapis.com/v1/places/${encodeURIComponent(placeId)}`);
   if (sessionToken) {
     url.searchParams.set("sessionToken", sessionToken);
@@ -504,7 +544,8 @@ export async function resolveGooglePlace(
   const response = await fetch(url, {
     headers: {
       "X-Goog-Api-Key": apiKey,
-      "X-Goog-FieldMask": "formattedAddress,addressComponents",
+      "X-Goog-FieldMask":
+        "id,formattedAddress,addressComponents,location",
     },
   });
 
@@ -512,7 +553,10 @@ export async function resolveGooglePlace(
     return null;
   }
 
-  const data = (await response.json()) as GooglePlaceDetails;
+  const data = (await response.json()) as GooglePlaceDetails & {
+    id?: string;
+    location?: { latitude?: number; longitude?: number };
+  };
   const parts = parseGoogleAddressComponents(data.addressComponents);
 
   if (
@@ -525,14 +569,45 @@ export async function resolveGooglePlace(
   }
 
   let formatted = data.formattedAddress?.trim() || null;
-  if (formatted && userInput) {
+  if (!formatted) {
+    return null;
+  }
+  if (userInput) {
     const userNumber = extractLeadingStreetNumber(userInput);
     if (userNumber && !hasLeadingStreetNumber(formatted)) {
       formatted = withStreetNumber(userNumber, formatted);
     }
   }
 
-  return formatted;
+  const countryShort =
+    data.addressComponents?.find((component) => component.types?.includes("country"))?.shortText ??
+    parts.country;
+
+  return {
+    placeId: data.id || placeId,
+    formattedAddress: formatted,
+    lat: data.location?.latitude ?? null,
+    lng: data.location?.longitude ?? null,
+    countryCode: countryShort?.trim().toUpperCase() === "UK" ? "GB" : countryShort?.trim().toUpperCase() ?? null,
+    postalCode: parts.postcode ?? null,
+  };
+}
+
+export async function resolveGooglePlace(
+  apiKey: string,
+  placeId: string,
+  airportCode: string,
+  sessionToken?: string,
+  userInput?: string,
+): Promise<string | null> {
+  const details = await resolveGooglePlaceDetails(
+    apiKey,
+    placeId,
+    airportCode,
+    sessionToken,
+    userInput,
+  );
+  return details?.formattedAddress ?? null;
 }
 
 export async function reverseGeocodeGoogle(

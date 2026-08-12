@@ -47,6 +47,26 @@ export default function Footer() {
                   Airport guides
                 </Link>
               </li>
+              {SERVICE_FLAGS.addressToAddress ? (
+                <>
+                  <li>
+                    <Link
+                      href="/long-distance-transfers/"
+                      className="text-sm text-white/50 transition-colors hover:text-emerald"
+                    >
+                      Long-distance transfers
+                    </Link>
+                  </li>
+                  <li>
+                    <Link
+                      href="/locations/"
+                      className="text-sm text-white/50 transition-colors hover:text-emerald"
+                    >
+                      Locations
+                    </Link>
+                  </li>
+                </>
+              ) : null}
             </ul>
           </div>
 

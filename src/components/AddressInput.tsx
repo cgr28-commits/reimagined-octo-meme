@@ -11,9 +11,11 @@ import {
 import {
   fetchAddressPredictions,
   fetchPlaceDetails,
+  fetchSelectedPlaceDetails,
   isGooglePlacesEnabled,
   type AddressPrediction,
 } from "@/lib/google-maps";
+import type { SelectedPlace } from "@/lib/selected-place";
 
 type AddressInputProps = {
   id: string;
@@ -30,6 +32,14 @@ type AddressInputProps = {
   disableAutoScroll?: boolean;
   /** Called after a suggestion is chosen (full formatted address). */
   onSelectAddress?: (address: string) => void;
+  /** Structured place (Place ID, lat/lng, country) when a suggestion is chosen. */
+  onSelectPlace?: (place: SelectedPlace) => void;
+  /**
+   * When true, typing clears the previous Place ID selection and shows a hint
+   * until a suggestion is chosen again.
+   */
+  requireSuggestion?: boolean;
+  selectionError?: string;
   /**
    * below = suggestions expand under the field inside the same control (quote form / OTS-style).
    * above = suggestions expand above the field (quote bot typing bar).
@@ -53,6 +63,9 @@ export default function AddressInput({
   airportCode = "",
   disableAutoScroll = false,
   onSelectAddress,
+  onSelectPlace,
+  requireSuggestion = false,
+  selectionError,
   suggestionsPlacement = "below",
   hideLabel = false,
   className = "",
@@ -115,7 +128,9 @@ export default function AddressInput({
           setSuggestionsOpen(predictions.length > 0);
           setLoadError(
             predictions.length === 0
-              ? "No matching addresses found — keep typing or enter your full address manually."
+              ? requireSuggestion
+                ? "No matching addresses found — try a fuller street, hotel or airport name."
+                : "No matching addresses found — keep typing or enter your full address manually."
               : null,
           );
 
@@ -132,16 +147,31 @@ export default function AddressInput({
         .catch(() => {
           setSuggestions([]);
           setSuggestionsOpen(false);
-          setLoadError("Address suggestions are unavailable right now. Enter your address manually.");
+          setLoadError(
+            requireSuggestion
+              ? "Address suggestions are unavailable right now. Please try again shortly."
+              : "Address suggestions are unavailable right now. Enter your address manually.",
+          );
         });
     },
-    [airportCode, autocompleteEnabled, disableAutoScroll, showAbove],
+    [airportCode, autocompleteEnabled, disableAutoScroll, requireSuggestion, showAbove],
   );
 
   function handleChange(event: React.ChangeEvent<HTMLInputElement>) {
     const next = event.target.value;
     setLoadError(null);
     onChange(next);
+    if (requireSuggestion) {
+      // Typing invalidates the previous Place ID selection.
+      onSelectPlace?.({
+        placeId: "",
+        formattedAddress: next,
+        lat: null,
+        lng: null,
+        countryCode: null,
+        postalCode: null,
+      });
+    }
 
     if (debounceRef.current) {
       window.clearTimeout(debounceRef.current);
@@ -157,6 +187,16 @@ export default function AddressInput({
       window.clearTimeout(debounceRef.current);
     }
     onChange("");
+    if (requireSuggestion) {
+      onSelectPlace?.({
+        placeId: "",
+        formattedAddress: "",
+        lat: null,
+        lng: null,
+        countryCode: null,
+        postalCode: null,
+      });
+    }
     setSuggestions([]);
     setSuggestionsOpen(false);
     setLoadError(null);
@@ -167,10 +207,27 @@ export default function AddressInput({
     setSuggestionsOpen(false);
     setSuggestions([]);
 
+    const place = await fetchSelectedPlaceDetails(prediction.placeId, airportCode, value);
+    if (place) {
+      onChange(place.formattedAddress);
+      onSelectAddress?.(place.formattedAddress);
+      onSelectPlace?.(place);
+      setLoadError(null);
+      return;
+    }
+
     const formatted = await fetchPlaceDetails(prediction.placeId, airportCode, value);
     const nextAddress = formatted ?? prediction.description;
     onChange(nextAddress);
     onSelectAddress?.(nextAddress);
+    onSelectPlace?.({
+      placeId: prediction.placeId,
+      formattedAddress: nextAddress,
+      lat: null,
+      lng: null,
+      countryCode: null,
+      postalCode: null,
+    });
     setLoadError(null);
   }
 
@@ -267,8 +324,14 @@ export default function AddressInput({
         {!showAbove ? suggestionList : null}
       </div>
 
-      <p id={hintId} className="mt-1.5 text-xs text-white/40">
-        {loadError ??
+      <p
+        id={hintId}
+        className={`mt-1.5 text-xs ${
+          selectionError || loadError ? "text-red-300" : "text-white/40"
+        }`}
+      >
+        {selectionError ??
+          loadError ??
           (autocompleteEnabled
             ? helperText
             : "Enter your full address including town and postcode")}
