@@ -1417,7 +1417,8 @@ export default {
       if (
         env.GETADDRESS_API_KEY &&
         airportCode !== "DUB" &&
-        (airportCode !== "LDY" || isNorthernIrelandPostcodeQuery(query))
+        (airportCode !== "LDY" || isNorthernIrelandPostcodeQuery(query)) &&
+        (airportCode !== "A2A" || isNorthernIrelandPostcodeQuery(query))
       ) {
         tasks.push(searchGetAddress(env.GETADDRESS_API_KEY, query, airportCode));
       }

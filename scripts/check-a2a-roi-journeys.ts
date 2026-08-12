@@ -18,6 +18,7 @@ import {
   isAllowedAutocompleteLabel,
   isAllowedCoordinates,
 } from "../shared/address-validation";
+import { getPlacesLocationBiasForTests } from "../shared/google-places";
 
 let passed = 0;
 
@@ -173,6 +174,22 @@ check("A2A address parts allow ROI", () => {
     }),
     false,
   );
+});
+
+check("A2A Places locationBias stays within API limits", () => {
+  const bias = getPlacesLocationBiasForTests("A2A") as
+    | { rectangle?: unknown; circle?: { radius?: number } }
+    | undefined;
+  assert.ok(bias, "A2A must set a location bias");
+  if (bias.circle) {
+    assert.ok(
+      typeof bias.circle.radius === "number" && bias.circle.radius <= 50000,
+      "Places Autocomplete circle radius must be ≤ 50000m",
+    );
+  } else {
+    assert.ok(bias.rectangle, "A2A bias should use an island rectangle (or valid circle)");
+  }
+  assert.equal(getPlacesLocationBiasForTests("BFS"), undefined);
 });
 
 check("SERVICE_FLAGS.addressToAddress is enabled", async () => {
