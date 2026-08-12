@@ -1,5 +1,8 @@
+import { londonWeekday, wallClockMinutes } from "../../shared/uk-time";
+
 /** 5% supplement for address-to-address trips on premium dates. */
 export const TRIP_PREMIUM_RATE = 0.05;
+
 
 /** 5% discount when booking a return journey (both legs). */
 export const RETURN_JOURNEY_DISCOUNT_RATE = 0.05;
@@ -57,13 +60,18 @@ export type TripSchedule = {
   returnJourney?: boolean;
 };
 
-function parseLocalDateTime(date: string, time: string): Date | null {
+function parseLocalDateTime(date: string, time: string): { day: number; minutes: number } | null {
   if (!date || !time) {
     return null;
   }
 
-  const parsed = new Date(`${date}T${time}`);
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
+  const day = londonWeekday(date);
+  const minutes = wallClockMinutes(time);
+  if (day === null || minutes === null) {
+    return null;
+  }
+
+  return { day, minutes };
 }
 
 /** Premium window: after midnight Friday (Sat 00:00) through 6:30am Monday, plus all bank holidays. */
@@ -77,8 +85,7 @@ export function isTripPremiumDateTime(date: string, time: string): boolean {
     return false;
   }
 
-  const day = parsed.getDay();
-  const minutes = parsed.getHours() * 60 + parsed.getMinutes();
+  const { day, minutes } = parsed;
   const mondayCutoff = 6 * 60 + 30;
 
   if (day === 6 || day === 0) {

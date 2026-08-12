@@ -75,7 +75,7 @@ function shiftLondonDate(dateStr: string, days: number): string {
 }
 
 function formatDateHeading(dateStr: string): string {
-  return new Date(`${dateStr}T12:00:00`).toLocaleDateString("en-GB", {
+  return new Date(`${dateStr}T12:00:00Z`).toLocaleDateString("en-GB", {
     timeZone: "Europe/London",
     weekday: "long",
     day: "numeric",

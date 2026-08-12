@@ -1,5 +1,6 @@
 import type { DriverJob, DriverJobsResponse, PublicTrackResponse } from "@/lib/tracking-api";
 import { SITE } from "@/lib/data";
+import { formatUkInstant } from "../../shared/uk-time";
 
 export const DEMO_TRACK_TOKENS = ["demo-early", "demo-waiting", "demo-live"] as const;
 export type DemoTrackToken = (typeof DEMO_TRACK_TOKENS)[number];
@@ -62,14 +63,7 @@ function londonParts(date: Date) {
     tripDate,
     tripTime,
     pickupAt: `${tripDate}T${tripTime}`,
-    pickupDisplay: date.toLocaleString("en-GB", {
-      timeZone: "Europe/London",
-      weekday: "short",
-      day: "numeric",
-      month: "short",
-      hour: "2-digit",
-      minute: "2-digit",
-    }),
+    pickupDisplay: formatUkInstant(date, { withZoneLabel: true, includeYear: false }),
   };
 }
 
@@ -78,19 +72,7 @@ function addMinutes(date: Date, minutes: number) {
 }
 
 function formatWindowDisplay(iso: string): string {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) {
-    return iso;
-  }
-
-  return date.toLocaleString("en-GB", {
-    timeZone: "Europe/London",
-    weekday: "short",
-    day: "numeric",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  return formatUkInstant(iso, { withZoneLabel: true, includeYear: false });
 }
 
 function buildDemoResponse(

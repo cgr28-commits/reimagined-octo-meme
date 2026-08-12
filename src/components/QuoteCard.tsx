@@ -25,7 +25,9 @@ import {
   SITE,
   VEHICLE_TYPES,
 } from "@/lib/data";
-import { isPickupAtLeastHoursAhead } from "@/lib/london-time";
+import { isPickupAtLeastHoursAhead, parseLondonLocalDateTime } from "@/lib/london-time";
+import { formatUkDate, formatUkTime, todayLondonDate, nowLondonTime } from "@/lib/format-datetime";
+
 import {
   readPrefillAirport,
   readPrefillQuoteDraft,
@@ -117,31 +119,11 @@ function getAutoVehicle(passengers: number, suitcases: number, _a2aPrimary = fal
 }
 
 function formatDisplayDate(date: string): string {
-  if (!date) {
-    return "";
-  }
-
-  const iso = date.trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (iso) {
-    return `${iso[3]}-${iso[2]}-${iso[1]}`;
-  }
-
-  return new Date(`${date}T12:00:00`).toLocaleDateString("en-GB", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  }).replace(/\//g, "-");
+  return formatUkDate(date);
 }
 
 function formatDisplayTime(time: string): string {
-  if (!time) {
-    return "";
-  }
-
-  const [hours, minutes] = time.split(":");
-  const parsed = new Date();
-  parsed.setHours(Number(hours), Number(minutes));
-  return parsed.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+  return formatUkTime(time);
 }
 
 function getPriceInclusionNote(
@@ -187,7 +169,7 @@ function PreviewRow({ label, value }: { label: string; value: string }) {
 }
 
 function parseDateTime(date: string, time: string): Date {
-  return new Date(`${date}T${time}`);
+  return parseLondonLocalDateTime(date, time) ?? new Date(0);
 }
 
 function isReturnAfterOutbound(
@@ -201,25 +183,12 @@ function isReturnAfterOutbound(
 
 /** YYYY-MM-DD for date inputs, using Europe/London (site operates in Northern Ireland). */
 function todayDateInputValue(): string {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Europe/London",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date());
+  return todayLondonDate();
 }
 
 /** HH:mm in Europe/London for time inputs. */
 function nowTimeInputValue(): string {
-  const parts = new Intl.DateTimeFormat("en-GB", {
-    timeZone: "Europe/London",
-    hour: "2-digit",
-    minute: "2-digit",
-    hourCycle: "h23",
-  }).formatToParts(new Date());
-  const hour = parts.find((part) => part.type === "hour")?.value ?? "00";
-  const minute = parts.find((part) => part.type === "minute")?.value ?? "00";
-  return `${hour.padStart(2, "0")}:${minute.padStart(2, "0")}`;
+  return nowLondonTime();
 }
 
 function isTripDateOnOrAfterToday(tripDate: string): boolean {
@@ -2518,12 +2487,12 @@ function QuoteCard({
               )}
               <PreviewRow
                 label={returnJourney ? "Outbound" : "Date & time"}
-                value={`${formatDisplayDate(tripDate)} at ${formatDisplayTime(tripTime)}`}
+                value={`${formatDisplayDate(tripDate)} at ${formatDisplayTime(tripTime)} (UK local time)`}
               />
               {returnJourney && (
                 <PreviewRow
                   label="Return"
-                  value={`${formatDisplayDate(returnDate)} at ${formatDisplayTime(returnTime)}`}
+                  value={`${formatDisplayDate(returnDate)} at ${formatDisplayTime(returnTime)} (UK local time)`}
                 />
               )}
               {(isAirportTrip || (isA2AFlow && pickupAirportCode)) && (

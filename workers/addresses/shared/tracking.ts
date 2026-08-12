@@ -1,3 +1,5 @@
+import { formatUkDateTimeValue, parseLondonLocalIso } from "./uk-time";
+
 export type TrackingJobRecord = {
   token: string;
   createdAt: string;
@@ -152,7 +154,6 @@ export type TrackingWindow = {
   reason?: "too_early" | "too_late" | "open";
 };
 
-const TIME_ZONE = "Europe/London";
 const OPEN_BEFORE_MS = 2 * 60 * 60 * 1000;
 const CLOSE_AFTER_MS = 90 * 60 * 1000;
 /** Send review request 24 hours after the job completion window (pickup + 90 min). */
@@ -167,43 +168,11 @@ export function buildPickupDateTimeLocal(tripDate: string, tripTime: string): st
 }
 
 function parseLondonLocal(isoLocal: string): Date | null {
-  const match = isoLocal.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/);
-  if (!match) {
-    return null;
+  const trimmed = isoLocal.trim();
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(trimmed)) {
+    return parseLondonLocalIso(`${trimmed}:00`);
   }
-
-  const [, year, month, day, hour, minute] = match;
-  const utcGuess = Date.UTC(
-    Number(year),
-    Number(month) - 1,
-    Number(day),
-    Number(hour),
-    Number(minute),
-  );
-
-  const formatter = new Intl.DateTimeFormat("en-GB", {
-    timeZone: TIME_ZONE,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hourCycle: "h23",
-  });
-
-  for (let offsetMinutes = -90; offsetMinutes <= 90; offsetMinutes += 15) {
-    const candidate = new Date(utcGuess + offsetMinutes * 60 * 1000);
-    const parts = formatter.formatToParts(candidate);
-    const get = (type: Intl.DateTimeFormatPartTypes) =>
-      parts.find((part) => part.type === type)?.value ?? "";
-
-    const formatted = `${get("year")}-${get("month")}-${get("day")}T${get("hour")}:${get("minute")}`;
-    if (formatted === isoLocal) {
-      return candidate;
-    }
-  }
-
-  return new Date(utcGuess);
+  return parseLondonLocalIso(trimmed);
 }
 
 export function getJobCompletionAt(pickupAt: string): Date | null {
@@ -255,19 +224,7 @@ export function getTrackingWindow(pickupAt: string, now = new Date()): TrackingW
 }
 
 export function formatLondonDateTime(iso: string): string {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) {
-    return iso;
-  }
-
-  return date.toLocaleString("en-GB", {
-    timeZone: TIME_ZONE,
-    weekday: "short",
-    day: "numeric",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  return formatUkDateTimeValue(iso, { withZoneLabel: true, includeYear: false });
 }
 
 export function buildPublicTrackUrl(token: string, siteUrl = "https://www.myairporttaxini.co.uk"): string {
