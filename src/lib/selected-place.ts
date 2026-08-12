@@ -186,7 +186,7 @@ export function isRepublicOfIrelandJourney(
 }
 
 /** Airports allowed as standard/instant pickups (with Greater Belfast addresses).
- * Marketing copy highlights BFS, BHD and DUB; LDY stays for LDY↔Greater Belfast pricing. */
+ * Long-distance marketing lists BFS, BHD and DUB; LDY stays for LDY↔Greater Belfast pricing. */
 const STANDARD_INSTANT_PICKUP_AIRPORTS = new Set(["BFS", "BHD", "DUB", "LDY"]);
 
 /**

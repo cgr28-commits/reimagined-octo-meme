@@ -9,7 +9,7 @@ import { notFound } from "next/navigation";
 export const metadata: Metadata = {
   title: `Long-Distance Transfers from Greater Belfast Across Ireland | ${SITE.name}`,
   description:
-    "Pre-booked, door-to-door private transfers from anywhere in Greater Belfast to destinations throughout Northern Ireland and the Republic of Ireland. Airport pickups from Belfast International, Belfast City and Dublin Airport.",
+    "Pre-booked, door-to-door private transfers from anywhere in Greater Belfast to destinations throughout Northern Ireland and the Republic of Ireland. Airport pickups are also available from Belfast International Airport, Belfast City Airport and Dublin Airport.",
   alternates: {
     canonical: "/long-distance-transfers/",
   },
