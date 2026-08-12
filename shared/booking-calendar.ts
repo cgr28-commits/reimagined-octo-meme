@@ -7,6 +7,11 @@ import {
   getGoogleCalendarAccessToken,
   queryCalendarBusyPeriods,
 } from "./google-calendar";
+import {
+  formatUkInstant,
+  parseLondonLocalDateTime,
+  UK_TIME_ZONE,
+} from "./uk-time";
 
 export type StructuredBooking = {
   customerName: string;
@@ -54,7 +59,7 @@ export type BookingCalendarResult = {
   conflicts: BookingCalendarConflict[];
 };
 
-const TIMEZONE = "Europe/London";
+const TIMEZONE = UK_TIME_ZONE;
 const TRANSFER_DURATION_MINUTES = 90;
 const DAY_TRIP_DURATION_HOURS = 10;
 
@@ -62,41 +67,8 @@ function toLocalDateTime(date: string, time: string): string {
   return `${date}T${time}:00`;
 }
 
-function localDateTimeToUtc(date: string, time: string, timeZone: string): Date {
-  const [year, month, day] = date.split("-").map(Number);
-  const [hour, minute] = time.split(":").map(Number);
-  const utcGuess = Date.UTC(year, month - 1, day, hour, minute, 0);
-
-  for (let adjustment = -12; adjustment <= 12; adjustment++) {
-    const candidate = new Date(utcGuess + adjustment * 60 * 60 * 1000);
-    const parts = new Intl.DateTimeFormat("en-GB", {
-      timeZone,
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      hourCycle: "h23",
-    }).formatToParts(candidate);
-
-    const values = Object.fromEntries(
-      parts
-        .filter((part) => part.type !== "literal")
-        .map((part) => [part.type, part.value]),
-    );
-
-    if (
-      Number(values.year) === year &&
-      Number(values.month) === month &&
-      Number(values.day) === day &&
-      Number(values.hour) === hour &&
-      Number(values.minute) === minute
-    ) {
-      return candidate;
-    }
-  }
-
-  return new Date(utcGuess);
+function localDateTimeToUtc(date: string, time: string, _timeZone: string): Date {
+  return parseLondonLocalDateTime(date, time) ?? new Date(`${date}T${time}:00Z`);
 }
 
 function addMinutesLocal(date: string, time: string, minutes: number): string {
@@ -121,16 +93,11 @@ function addMinutesLocal(date: string, time: string, minutes: number): string {
 }
 
 function formatSlotLabel(date: string, time: string): string {
-  const parsed = new Date(`${date}T${time}:00`);
-  return parsed.toLocaleString("en-GB", {
-    weekday: "short",
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    timeZone: TIMEZONE,
-  });
+  const parsed = parseLondonLocalDateTime(date, time);
+  if (!parsed) {
+    return `${date} ${time}`;
+  }
+  return formatUkInstant(parsed, { withZoneLabel: true, includeYear: true });
 }
 
 export function buildBookingCalendarSlots(booking: StructuredBooking): BookingCalendarSlot[] {
@@ -248,15 +215,7 @@ function formatConflictNotice(conflicts: BookingCalendarConflict[]): string {
 }
 
 function formatInstantLabel(iso: string): string {
-  return new Date(iso).toLocaleString("en-GB", {
-    weekday: "short",
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    timeZone: TIMEZONE,
-  });
+  return formatUkInstant(iso, { withZoneLabel: true, includeYear: true });
 }
 
 function slotToInstant(localDateTime: string): Date {

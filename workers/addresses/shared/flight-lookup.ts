@@ -100,6 +100,7 @@ function formatLocalTime(isoLocal: string): string {
   const parsed = new Date(isoLocal);
   if (!Number.isNaN(parsed.getTime())) {
     return parsed.toLocaleTimeString("en-GB", {
+      timeZone: "Europe/London",
       hour: "2-digit",
       minute: "2-digit",
       hour12: false,
@@ -377,7 +378,8 @@ export async function lookupFlightViaAeroDataBox(
         : matched.departure?.scheduledTime;
     const actualDate = readScheduledLocal(leg);
     const formatted = actualDate
-      ? new Date(`${formatIsoDate(actualDate)}T12:00:00`).toLocaleDateString("en-GB", {
+      ? new Date(`${formatIsoDate(actualDate)}T12:00:00Z`).toLocaleDateString("en-GB", {
+          timeZone: "Europe/London",
           weekday: "short",
           day: "numeric",
           month: "short",

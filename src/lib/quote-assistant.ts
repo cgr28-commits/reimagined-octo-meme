@@ -49,6 +49,7 @@ import {
   normalizeFlightNumber,
 } from "@/lib/flight-lookup";
 import { formatUkDate, formatUkDateTime } from "@/lib/format-datetime";
+import { parseLondonLocalDateTime } from "@/lib/london-time";
 import { calculateQuote, formatQuote, matchAreaFromAddress } from "@/lib/quote";
 
 export type AssistantMessage = {
@@ -827,7 +828,7 @@ function inputModeForField(field: MissingField): "text" | "date" | "time" | unde
 }
 
 function parseDateTimeValue(date: string, time: string): number {
-  return new Date(`${date}T${time}`).getTime();
+  return parseLondonLocalDateTime(date, time)?.getTime() ?? Number.NaN;
 }
 
 function isReturnAfterOutbound(

@@ -1,5 +1,6 @@
 import { formatMarketingOptInLine } from "./marketing";
 import { BUSINESS_MAILBOX } from "./business-email";
+import { formatUkDate, formatUkTime, UK_LOCAL_TIME_LABEL } from "./uk-time";
 
 export type PaidBookingDetails = {
   customerName: string;
@@ -57,20 +58,11 @@ function escapeHtml(value: string): string {
 
 
 function formatDisplayDateDmy(date: string): string {
-  if (!date) {
-    return "";
-  }
-  const iso = date.trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (iso) {
-    return `${iso[3]}-${iso[2]}-${iso[1]}`;
-  }
-  const parsed = new Date(`${date}T12:00:00`);
-  if (Number.isNaN(parsed.getTime())) {
-    return date;
-  }
-  return parsed
-    .toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" })
-    .replace(/\//g, "-");
+  return formatUkDate(date);
+}
+
+function formatDisplayTime(time: string): string {
+  return formatUkTime(time);
 }
 
 function formatTripScheduleLines(details: PaidBookingDetails): string[] {
@@ -80,13 +72,13 @@ function formatTripScheduleLines(details: PaidBookingDetails): string[] {
     `Drop-off: ${details.dropoffLabel}`,
     `Return journey: ${details.returnJourney ? "Yes" : "No"}`,
     `${details.returnJourney ? "Outbound date" : "Date"}: ${formatDisplayDateDmy(details.tripDate)}`,
-    `${details.returnJourney ? "Outbound time" : "Time"}: ${details.tripTime}`,
+    `${details.returnJourney ? "Outbound time" : "Time"}: ${formatDisplayTime(details.tripTime)} (${UK_LOCAL_TIME_LABEL})`,
   ];
 
   if (details.returnJourney) {
     lines.push(
       `Return date: ${formatDisplayDateDmy(details.returnDate)}`,
-      `Return time: ${details.returnTime}`,
+      `Return time: ${formatDisplayTime(details.returnTime)} (${UK_LOCAL_TIME_LABEL})`,
     );
   }
 
@@ -126,13 +118,16 @@ function invoiceRows(details: PaidBookingReceipt): Array<{ label: string; value:
     },
     {
       label: details.returnJourney ? "Outbound time" : "Time",
-      value: details.tripTime,
+      value: `${formatDisplayTime(details.tripTime)} (${UK_LOCAL_TIME_LABEL})`,
     },
   ];
 
   if (details.returnJourney) {
     rows.push({ label: "Return date", value: formatDisplayDateDmy(details.returnDate) });
-    rows.push({ label: "Return time", value: details.returnTime });
+    rows.push({
+      label: "Return time",
+      value: `${formatDisplayTime(details.returnTime)} (${UK_LOCAL_TIME_LABEL})`,
+    });
   }
 
   if (details.isAirportTrip && details.flightNumber) {
@@ -375,7 +370,8 @@ function formatTripDateTime(tripDate: string, tripTime: string): string {
   }
 
   const date = formatDisplayDateDmy(tripDate);
-  return date ? `${date} at ${tripTime}` : "";
+  const time = formatDisplayTime(tripTime);
+  return date ? `${date} at ${time} (${UK_LOCAL_TIME_LABEL})` : "";
 }
 
 function buildTrackingReminderHtml(

@@ -5,6 +5,7 @@ import {
   bookingJobAssignmentLabel,
   type BookingJobRecord,
 } from "../../shared/booking-job";
+import { formatUkInstant } from "../../shared/uk-time";
 import {
   assignBookingJobDriver,
   fetchOwnerBookingJobs,
@@ -334,7 +335,7 @@ export default function OwnerBookingJobsPanel({ ownerKey }: OwnerBookingJobsPane
                       <p className="text-sm font-semibold text-emerald">
                         {job.driverFirstName} confirmed this job
                         {job.driverAcceptedAt
-                          ? ` · ${new Date(job.driverAcceptedAt).toLocaleString("en-GB")}`
+                          ? ` · ${formatUkInstant(job.driverAcceptedAt)}`
                           : ""}
                       </p>
                     ) : null}

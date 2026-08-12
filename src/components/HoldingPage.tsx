@@ -1,18 +1,10 @@
 import Logo from "./Logo";
 import { SITE, SITE_OFFLINE } from "@/lib/data";
+import { formatUkInstant } from "@/lib/format-datetime";
 
 function formatReturnLabel(untilIso: string): string {
   try {
-    return new Intl.DateTimeFormat("en-GB", {
-      timeZone: "Europe/London",
-      weekday: "long",
-      day: "numeric",
-      month: "long",
-      hour: "numeric",
-      minute: "2-digit",
-      hourCycle: "h12",
-      timeZoneName: "short",
-    }).format(new Date(untilIso));
+    return formatUkInstant(untilIso, { withZoneLabel: true, includeYear: false, includeWeekday: true });
   } catch {
     return "soon";
   }

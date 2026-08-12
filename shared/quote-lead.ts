@@ -1,4 +1,4 @@
-const UK_TIME_ZONE = "Europe/London";
+import { formatUkDateTime, formatUkSubmissionTime } from "./uk-time";
 
 export type QuoteLeadDetails = {
   tripLabel: string;
@@ -17,65 +17,6 @@ export type QuoteLeadDetails = {
   journeyDuration?: string;
   isAirportTrip: boolean;
 };
-
-function formatUkDate(date: string): string {
-  if (!date) {
-    return "";
-  }
-
-  const iso = date.trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (iso) {
-    return `${iso[3]}-${iso[2]}-${iso[1]}`;
-  }
-
-  return new Date(`${date}T12:00:00`)
-    .toLocaleDateString("en-GB", {
-      timeZone: UK_TIME_ZONE,
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-    })
-    .replace(/\//g, "-");
-}
-
-function formatUkTime(time: string): string {
-  if (!time) {
-    return "";
-  }
-
-  const [hours, minutes] = time.split(":");
-  const parsed = new Date();
-  parsed.setHours(Number(hours), Number(minutes), 0, 0);
-
-  return parsed.toLocaleTimeString("en-GB", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
-function formatUkDateTime(date: string, time: string): string {
-  const formattedDate = formatUkDate(date);
-  const formattedTime = formatUkTime(time);
-
-  if (!formattedDate || !formattedTime) {
-    return "";
-  }
-
-  return `${formattedDate} at ${formattedTime}`;
-}
-
-function formatUkSubmissionTime(date = new Date()): string {
-  return new Intl.DateTimeFormat("en-GB", {
-    timeZone: UK_TIME_ZONE,
-    weekday: "short",
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    timeZoneName: "short",
-  }).format(date);
-}
 
 export function buildQuoteLeadFingerprint(details: QuoteLeadDetails): string {
   return [
