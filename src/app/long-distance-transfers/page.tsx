@@ -4,48 +4,23 @@ import Footer from "@/components/Footer";
 import Header from "@/components/Header";
 import SectionHeading from "@/components/SectionHeading";
 import { SERVICE_FLAGS, SITE } from "@/lib/data";
+import {
+  LONG_DISTANCE_EXAMPLE_ROUTES,
+  LONG_DISTANCE_HIGHLIGHTS,
+  LONG_DISTANCE_INTRO,
+  LONG_DISTANCE_PAGE_TITLE,
+  LONG_DISTANCE_SEO_TITLE,
+  LONG_DISTANCE_SERVICE_NOTES,
+} from "@/lib/long-distance-content";
 import { notFound } from "next/navigation";
 
 export const metadata: Metadata = {
-  title: `Long-Distance Transfers from Greater Belfast Across Ireland | ${SITE.name}`,
-  description:
-    "Pre-booked, door-to-door private transfers from anywhere in Greater Belfast to destinations throughout Northern Ireland and the Republic of Ireland. Airport pickups are also available from Belfast International Airport, Belfast City Airport and Dublin Airport.",
+  title: `${LONG_DISTANCE_SEO_TITLE} | ${SITE.name}`,
+  description: LONG_DISTANCE_INTRO,
   alternates: {
     canonical: "/long-distance-transfers/",
   },
 };
-
-const HIGHLIGHTS = [
-  {
-    title: "Greater Belfast pickups",
-    description:
-      "Standard pickups are from anywhere in Greater Belfast — home, hotel or business address.",
-  },
-  {
-    title: "Destinations across Ireland",
-    description:
-      "Travel to destinations throughout Northern Ireland and the Republic of Ireland. Enter any supported address on the quote form.",
-  },
-  {
-    title: "Airport pickups",
-    description:
-      "Pre-booked pickups are also available from Belfast International Airport, Belfast City Airport and Dublin Airport.",
-  },
-  {
-    title: "Fixed quotes where needed",
-    description:
-      "Dublin Airport and many Greater Belfast routes show an online price where available. Out-of-area pickups and other Republic of Ireland city destinations use Request Fixed Quote.",
-  },
-] as const;
-
-const EXAMPLE_ROUTES = [
-  "Belfast city centre to Dublin Airport",
-  "Bangor to Cork city",
-  "Lisburn to Galway",
-  "Newtownabbey to Dublin city centre",
-  "Holywood to Donegal",
-  "Belfast International Airport to Dublin city",
-] as const;
 
 export default function LongDistanceTransfersPage() {
   if (!SERVICE_FLAGS.addressToAddress) {
@@ -74,13 +49,13 @@ export default function LongDistanceTransfersPage() {
                 as="h1"
                 align="left"
                 eyebrow="Long-distance transfers"
-                title="Private Long-Distance Transfers from Anywhere in Greater Belfast"
-                description="Pre-booked, door-to-door private transfers from anywhere in Greater Belfast to destinations throughout Northern Ireland and the Republic of Ireland. Airport pickups are also available from Belfast International Airport, Belfast City Airport and Dublin Airport."
+                title={LONG_DISTANCE_PAGE_TITLE}
+                description={LONG_DISTANCE_INTRO}
               />
             </div>
 
             <div className="mt-14 grid gap-6 sm:grid-cols-2">
-              {HIGHLIGHTS.map((item) => (
+              {LONG_DISTANCE_HIGHLIGHTS.map((item) => (
                 <div
                   key={item.title}
                   className="rounded-2xl border border-white/10 bg-white/[0.03] p-6"
@@ -94,12 +69,11 @@ export default function LongDistanceTransfersPage() {
             <section className="mt-16">
               <h2 className="text-xl font-bold text-white sm:text-2xl">Example routes</h2>
               <p className="mt-2 max-w-2xl text-sm leading-relaxed text-white/60">
-                These are examples only — enter your exact pickup and destination on the quote form.
-                We do not offer general pickups throughout Ireland; standard pickups are from Greater
-                Belfast (plus the airports listed above).
+                These are examples only — enter your exact pickup and destination on the quote form.{" "}
+                {LONG_DISTANCE_SERVICE_NOTES[0]}
               </p>
               <ul className="mt-6 grid gap-3 sm:grid-cols-2">
-                {EXAMPLE_ROUTES.map((route) => (
+                {LONG_DISTANCE_EXAMPLE_ROUTES.map((route) => (
                   <li
                     key={route}
                     className="rounded-xl border border-white/10 bg-navy-light/50 px-4 py-3 text-sm text-white/80"

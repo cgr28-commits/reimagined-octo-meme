@@ -248,30 +248,22 @@ async function main() {
   });
 
   await check("Locations examples are directional Greater Belfast departures", async () => {
-    const mod = await import("../src/app/locations/page");
-    // Page is a React component — read source file instead.
     const fs = await import("node:fs");
-    const source = fs.readFileSync("src/app/locations/page.tsx", "utf8");
+    const source = fs.readFileSync("src/lib/locations-content.ts", "utf8");
     assert.match(source, /Belfast to Dublin city/);
     assert.match(source, /Bangor to Cork/);
     assert.match(source, /Lisburn to Galway/);
     assert.match(source, /Newtownabbey to Donegal/);
     assert.equal(/Newry|Derry ↔|↔/.test(source), false);
-    void mod;
   });
 
   await check("Long-distance page uses H1 for the approved title", async () => {
     const fs = await import("node:fs");
-    const source = fs.readFileSync("src/app/long-distance-transfers/page.tsx", "utf8");
-    assert.match(source, /as="h1"/);
-    assert.match(
-      source,
-      /Private Long-Distance Transfers from Anywhere in Greater Belfast/,
-    );
-    assert.match(
-      source,
-      /Long-Distance Transfers from Greater Belfast Across Ireland/,
-    );
+    const page = fs.readFileSync("src/app/long-distance-transfers/page.tsx", "utf8");
+    const content = fs.readFileSync("src/lib/long-distance-content.ts", "utf8");
+    assert.match(page, /as="h1"/);
+    assert.match(content, /Private Long-Distance Transfers from Anywhere in Greater Belfast/);
+    assert.match(content, /Long-Distance Transfers from Greater Belfast Across Ireland/);
   });
 
   console.log(`\n${passed} correction-pass checks passed`);
