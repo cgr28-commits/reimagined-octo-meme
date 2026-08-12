@@ -124,10 +124,15 @@ check("Same pickup and destination are equal", () => {
   assert.equal(placesEqual(belfastHome, bangorHome), false);
 });
 
-check("Dublin Airport quick-select is ROI (airport in IE)", () => {
+check("Dublin Airport keeps instant quote (not ROI fixed-quote)", () => {
   assert.equal(detectAirportCodeFromPlace(dub!), "DUB");
-  assert.equal(isRepublicOfIrelandJourney(belfastHome, dub!), true);
+  assert.equal(isRepublicOfIrelandJourney(belfastHome, dub!), false);
+  assert.equal(isRepublicOfIrelandJourney(dub!, belfastHome), false);
   assert.equal(detectJourneyKind(belfastHome, dub!), "address-to-airport");
+});
+
+check("Dublin city still uses ROI fixed-quote", () => {
+  assert.equal(isRepublicOfIrelandJourney(belfastHome, dublinCity), true);
 });
 
 check("A2A Places mode allows NI and ROI labels", () => {

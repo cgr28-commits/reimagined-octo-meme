@@ -481,7 +481,7 @@ export const FAQS = [
   {
     question: "Do you cover journeys in the Republic of Ireland?",
     answer:
-      "Yes — we arrange cross-border and Republic of Ireland long-distance transfers (for example Belfast to Dublin city, Cork, Galway, or Dublin Airport). These routes are quoted individually: use Request Fixed Quote on the booking form and we’ll confirm your price by email.",
+      "Yes. Dublin Airport transfers keep a live online quote and you can book/pay online where eligible. Other Republic of Ireland destinations (for example Dublin city, Cork, or Galway) use Request Fixed Quote — we’ll confirm your personal price by email before any payment.",
   },
   {
     question: "What currency are prices quoted in?",

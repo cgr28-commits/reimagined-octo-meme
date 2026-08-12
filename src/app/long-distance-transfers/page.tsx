@@ -22,14 +22,14 @@ const HIGHLIGHTS = [
       "Enter your pickup and destination — home, hotel, business address, or airport — and we collect you at the agreed time.",
   },
   {
-    title: "Fixed prices in Northern Ireland",
+    title: "Fixed prices where available",
     description:
-      "Many NI routes show an instant online price. Cross-border and Republic of Ireland journeys are quoted individually.",
+      "Northern Ireland routes and Dublin Airport transfers show an instant online price where available. Other Republic of Ireland city destinations are quoted individually.",
   },
   {
     title: "Cross-border experience",
     description:
-      "Experienced drivers for Belfast–Dublin and other cross-border routes, with tolls included in your quoted fare.",
+      "Experienced drivers for Belfast–Dublin Airport and other cross-border routes, with tolls included in your quoted fare.",
   },
   {
     title: "24/7 availability",
@@ -74,7 +74,7 @@ export default function LongDistanceTransfersPage() {
                 align="left"
                 eyebrow="Long-distance & Republic of Ireland"
                 title="Long-Distance & Republic of Ireland Transfers"
-                description="My Airport Taxi NI provides pre-booked, door-to-door transfers between addresses, hotels, businesses and airports throughout Northern Ireland and the Republic of Ireland. Destinations such as Dublin, Cork, Galway and Donegal are examples — you can request any supported address. Republic of Ireland journeys are quoted as a fixed price after you submit your request (no online payment until the fare is confirmed)."
+                description="My Airport Taxi NI provides pre-booked, door-to-door transfers between addresses, hotels, businesses and airports throughout Northern Ireland and the Republic of Ireland. Destinations such as Dublin, Cork, Galway and Donegal are examples — you can request any supported address. Dublin Airport keeps a live online quote and book-online flow; other Republic of Ireland city journeys use Request Fixed Quote (no payment until the fare is confirmed)."
               />
             </div>
 
@@ -111,8 +111,9 @@ export default function LongDistanceTransfersPage() {
             <div className="mt-14 rounded-2xl border border-emerald/30 bg-emerald/10 px-6 py-8 text-center sm:px-10">
               <p className="text-sm font-medium uppercase tracking-wider text-emerald">Get a quote</p>
               <p className="mx-auto mt-3 max-w-lg text-sm leading-relaxed text-white/75">
-                Use our live quote tool for your pickup and destination. Republic of Ireland and
-                cross-border routes use Request Fixed Quote — we&apos;ll email your personal price.
+                Use our live quote tool for your pickup and destination. Dublin Airport and
+                Northern Ireland routes show an online price where available; other Republic of
+                Ireland city destinations use Request Fixed Quote.
               </p>
               <Link
                 href="/#quote"

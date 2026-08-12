@@ -170,30 +170,38 @@ export function normaliseCountryCode(country?: string | null): string | null {
 }
 
 /**
- * Republic of Ireland long-distance — any leg with country IE
- * (including Dublin city / Eircode destinations, not only Dublin Airport).
+ * Republic of Ireland long-distance (Request Fixed Quote).
+ * True when a non–Dublin-Airport leg is in the Republic of Ireland
+ * (Dublin city, Cork, Galway, Eircode addresses, etc.).
+ *
+ * Dublin Airport (DUB) keeps the existing instant quote + online book flow.
  */
 export function isRepublicOfIrelandJourney(
   pickup: SelectedPlace,
   dropoff: SelectedPlace,
 ): boolean {
-  const pickupCountry = normaliseCountryCode(pickup.countryCode);
-  const dropoffCountry = normaliseCountryCode(dropoff.countryCode);
-  if (pickupCountry === "IE" || dropoffCountry === "IE") {
+  return isRoiNonAirportLeg(pickup) || isRoiNonAirportLeg(dropoff);
+}
+
+/** IE address that is not Dublin Airport — triggers fixed-quote request. */
+function isRoiNonAirportLeg(place: SelectedPlace): boolean {
+  if (detectAirportCodeFromPlace(place) === "DUB") {
+    return false;
+  }
+
+  const country = normaliseCountryCode(place.countryCode);
+  if (country === "IE") {
     return true;
   }
 
-  // Fallback when country code missing: Eircode / Ireland text (not Northern Ireland).
-  const haystack = `${pickup.formattedAddress} ${dropoff.formattedAddress}`;
-  if (/\bnorthern ireland\b/i.test(haystack) && !/\beircode\b|\b[A-Z]\d{2}\s?[A-Z0-9]{4}\b/i.test(haystack)) {
-    // Still check each side for IE markers
-  }
-  return isIrelandAddressText(pickup.formattedAddress) || isIrelandAddressText(dropoff.formattedAddress);
+  return isIrelandAddressText(place.formattedAddress);
 }
 
 function isIrelandAddressText(value: string): boolean {
   const text = value.toLowerCase();
   if (text.includes("northern ireland")) return false;
+  // Dublin Airport is priced online — do not treat the string as a long-distance ROI city.
+  if (/dublin airport|\bdub\b/i.test(value)) return false;
   if (/\b[a-z]\d{2}\s?[a-z0-9]{4}\b/i.test(value) && !/\bbt\d/i.test(value)) {
     return true;
   }
