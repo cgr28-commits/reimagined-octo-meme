@@ -363,18 +363,66 @@ async function checkLiveWebsite() {
 
   console.log("\n— Customer-facing content —");
 
-  await pageContentCheck("Homepage branding + quote", `${SITE_URL}/`, [
-    "My Airport Taxi",
-    "Get a Quote",
-    "WhatsApp",
-  ]);
+  // Holding page mode (SITE_OFFLINE) — accept either full homepage or offline page.
+  let siteOffline = false;
+  try {
+    const homeResponse = await fetchRaw(`${SITE_URL}/`);
+    if (homeResponse.status !== 200) {
+      record("Homepage branding + quote", "fail", `HTTP ${homeResponse.status} — ${SITE_URL}/`);
+    } else {
+      const homeHtml = await homeResponse.text();
+      siteOffline =
+        homeHtml.includes("Temporarily offline") ||
+        homeHtml.includes("temporarily offline for a short break");
+      if (siteOffline) {
+        const markers = ["My Airport Taxi", "Temporarily offline", "WhatsApp", "028 9602 2952"];
+        const missing = markers.filter((snippet) => !homeHtml.includes(snippet));
+        if (missing.length > 0) {
+          record(
+            "Homepage branding + quote",
+            "fail",
+            `Holding page missing: ${missing.join(", ")} — ${SITE_URL}/`,
+          );
+        } else {
+          record(
+            "Homepage branding + quote",
+            "pass",
+            `Holding page active (SITE_OFFLINE) — ${SITE_URL}/`,
+          );
+        }
+      } else {
+        const markers = ["My Airport Taxi", "Get a Quote", "WhatsApp"];
+        const missing = markers.filter((snippet) => !homeHtml.includes(snippet));
+        if (missing.length > 0) {
+          record(
+            "Homepage branding + quote",
+            "fail",
+            `Missing content: ${missing.join(", ")} — ${SITE_URL}/`,
+          );
+        } else {
+          record("Homepage branding + quote", "pass", `Found ${markers.length} marker(s) — ${SITE_URL}/`);
+        }
+      }
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    record("Homepage branding + quote", "fail", `${message} — ${SITE_URL}/`);
+  }
 
-  await pageContentCheck("Contact card markers", `${SITE_URL}/contact/`, [
-    "My Airport Taxi",
-    "Save to contacts",
-    "Get a quote",
-    "028 9602 2952",
-  ]);
+  if (siteOffline) {
+    record(
+      "Contact card markers",
+      "pass",
+      "Skipped while SITE_OFFLINE holding page is active",
+    );
+  } else {
+    await pageContentCheck("Contact card markers", `${SITE_URL}/contact/`, [
+      "My Airport Taxi",
+      "Save to contacts",
+      "Get a quote",
+      "028 9602 2952",
+    ]);
+  }
 
   await fetchCheck("Contact QR image", `${SITE_URL}/contact-qr.png`);
   await fetchCheck("Contact photo image", `${SITE_URL}/contact-photo.jpg`);

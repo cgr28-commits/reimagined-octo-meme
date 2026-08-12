@@ -1,9 +1,21 @@
 import type { MetadataRoute } from "next";
-import { SITE } from "@/lib/data";
+import { SITE, SITE_OFFLINE } from "@/lib/data";
 
 export const dynamic = "force-static";
 
 export default function robots(): MetadataRoute.Robots {
+  const offlineActive =
+    SITE_OFFLINE.enabled && Date.parse(SITE_OFFLINE.until) > Date.now();
+
+  if (offlineActive) {
+    return {
+      rules: {
+        userAgent: "*",
+        disallow: "/",
+      },
+    };
+  }
+
   return {
     rules: {
       userAgent: "*",
