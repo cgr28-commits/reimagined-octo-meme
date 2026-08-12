@@ -7,11 +7,13 @@ import {
   geocodeAddress,
   extractLeadingStreetNumber,
   isStreetOnlyQuery,
-  resolveGooglePlace,
+  resolveGooglePlaceDetails,
   searchGoogleEstablishments,
   searchGooglePlaces,
   searchGoogleStreetAddresses,
 } from "../../shared/google-places";
+import type { SelectedPlace } from "@/lib/selected-place";
+import { selectedPlaceFromParts } from "@/lib/selected-place";
 import {
   isGetAddressPlaceId,
   resolveGetAddress,
@@ -128,7 +130,8 @@ async function fetchLocalAddressPredictions(
 
   if (GETADDRESS_API_KEY && airportCode !== "DUB") {
     const allowGetAddress =
-      airportCode !== "LDY" || isNorthernIrelandPostcodeQuery(trimmed);
+      (airportCode !== "LDY" || isNorthernIrelandPostcodeQuery(trimmed)) &&
+      (airportCode !== "A2A" || isNorthernIrelandPostcodeQuery(trimmed));
 
     if (allowGetAddress) {
       tasks.push(
@@ -211,10 +214,22 @@ export async function fetchPlaceDetails(
   airportCode: string,
   userInput?: string,
 ): Promise<string | null> {
+  const place = await fetchSelectedPlaceDetails(placeId, airportCode, userInput);
+  return place?.formattedAddress ?? null;
+}
+
+export async function fetchSelectedPlaceDetails(
+  placeId: string,
+  airportCode: string,
+  userInput?: string,
+): Promise<SelectedPlace | null> {
   if (ADDRESSES_API_URL) {
     const workerAddress = await fetchWorkerAddressDetails(placeId, airportCode);
     if (workerAddress) {
-      return workerAddress;
+      return selectedPlaceFromParts({
+        placeId,
+        formattedAddress: workerAddress,
+      });
     }
   }
 
@@ -223,14 +238,22 @@ export async function fetchPlaceDetails(
       return null;
     }
 
-    return resolveGetAddress(GETADDRESS_API_KEY, placeId, airportCode);
+    const address = await resolveGetAddress(GETADDRESS_API_KEY, placeId, airportCode);
+    if (!address) {
+      return null;
+    }
+    return selectedPlaceFromParts({
+      placeId,
+      formattedAddress: address,
+      countryCode: "GB",
+    });
   }
 
   if (!GOOGLE_API_KEY) {
     return null;
   }
 
-  const address = await resolveGooglePlace(
+  const details = await resolveGooglePlaceDetails(
     GOOGLE_API_KEY,
     placeId,
     airportCode,
@@ -238,5 +261,16 @@ export async function fetchPlaceDetails(
     userInput,
   );
   sessionToken = createSessionToken();
-  return address;
+  if (!details) {
+    return null;
+  }
+
+  return selectedPlaceFromParts({
+    placeId: details.placeId,
+    formattedAddress: details.formattedAddress,
+    lat: details.lat,
+    lng: details.lng,
+    countryCode: details.countryCode,
+    postalCode: details.postalCode,
+  });
 }

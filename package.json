@@ -16,7 +16,8 @@
     "check:ots-pricing": "npx tsx scripts/check-ots-pricing-daily.ts",
     "calibrate:ots-pricing": "npx tsx scripts/auto-calibrate-ots-pricing.ts",
     "health-check": "node scripts/daily-health-check.mjs",
-    "check:demo-features": "npx tsx scripts/check-demo-features.ts"
+    "check:demo-features": "npx tsx scripts/check-demo-features.ts",
+    "check:a2a-roi": "npx tsx scripts/check-a2a-roi-journeys.ts"
   },
   "dependencies": {
     "leaflet": "^1.9.4",

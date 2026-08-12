@@ -17,7 +17,7 @@ export const PRIVACY_SECTIONS = [
     content: ["When you request a quote or make a booking, we may collect:"],
     list: [
       "Name, email address and mobile number",
-      "Pickup and drop-off addresses",
+      "Pickup and drop-off addresses (including addresses you select via Google Places on our quote form)",
       "Travel date, time and flight numbers (for airport journeys)",
       "Passenger and luggage details",
       "Payment confirmation details from SumUp (amount, transaction reference)",
@@ -62,12 +62,19 @@ export const PRIVACY_SECTIONS = [
       "SumUp — card payment processing",
       "Cloudflare — website hosting and booking API",
       "Email delivery providers — sending confirmations",
-      "Google — address lookup, maps and calendar logging where configured",
+      "Google — address autocomplete (Google Places), maps, directions, and calendar logging where configured",
       "Flight data providers — verifying flight numbers you enter",
       "Meta Platforms, Inc. / WhatsApp — when you contact us or send booking messages via WhatsApp, message content and related contact details may be processed through Meta’s WhatsApp Business Platform and our WhatsApp Business provider",
     ],
     footer:
       "When our automated booking or messaging systems are connected to WhatsApp, booking and message information may be processed through Meta’s WhatsApp Business Platform and whichever WhatsApp Business provider we use. We do not sell your personal data.",
+  },
+  {
+    title: "Cross-border journeys",
+    content: [
+      "When you book a cross-border or Republic of Ireland transfer, we process the pickup and drop-off details you provide (including place identifiers from Google Places) to quote and fulfil your journey.",
+      "We do not control Google’s processing of place search data — see Google’s privacy policy for how they handle autocomplete queries.",
+    ],
   },
   {
     title: "Retention",

@@ -26,12 +26,12 @@ export default function HeroSlideshow() {
           </div>
 
           <h1 className="text-4xl font-bold leading-tight tracking-tight text-white sm:text-5xl lg:text-6xl">
-            Airport Transfers Across Northern Ireland
+            Airport and long-distance private transfers
           </h1>
 
           <p className="mt-5 max-w-lg text-lg leading-relaxed text-white/75 sm:text-xl">
-            Fixed prices to {airportList} — with flight tracking, meet &amp; greet, and
-            complimentary waiting time.
+            Fixed prices to {airportList} and long-distance routes across Northern Ireland — with
+            flight tracking, meet &amp; greet, and complimentary waiting time.
           </p>
           <p className="mt-3 max-w-lg text-sm leading-relaxed text-white/65 sm:text-base">
             Get a live quote for a standard or estate car and pay online when pickup is at least 12
