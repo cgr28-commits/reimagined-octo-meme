@@ -7,9 +7,9 @@ import { SERVICE_FLAGS, SITE } from "@/lib/data";
 import { notFound } from "next/navigation";
 
 export const metadata: Metadata = {
-  title: `Long-Distance Private Transfers | ${SITE.name}`,
+  title: `Long-Distance & Republic of Ireland Transfers | ${SITE.name}`,
   description:
-    "Door-to-door long-distance private transfers across Northern Ireland and cross-border routes. Fixed online prices for NI journeys; personal quotes for Republic of Ireland routes.",
+    "Door-to-door transfers across Northern Ireland and the Republic of Ireland. Airport, hotel, home and business pickups. Up to four passengers. Request a fixed-price quote for cross-border journeys.",
   alternates: {
     canonical: "/long-distance-transfers/",
   },
@@ -72,9 +72,9 @@ export default function LongDistanceTransfersPage() {
             <div className="mt-8 max-w-3xl">
               <SectionHeading
                 align="left"
-                eyebrow="Long-distance transfers"
-                title="Private transfers beyond the airport run"
-                description="My Airport Taxi NI arranges pre-booked private transfers across Northern Ireland, to and from airports, and on cross-border routes into the Republic of Ireland. Get a live quote on our homepage — instant online prices where available, or request a fixed quote for bespoke long-distance journeys."
+                eyebrow="Long-distance & Republic of Ireland"
+                title="Long-Distance & Republic of Ireland Transfers"
+                description="My Airport Taxi NI provides pre-booked, door-to-door transfers between addresses, hotels, businesses and airports throughout Northern Ireland and the Republic of Ireland. Destinations such as Dublin, Cork, Galway and Donegal are examples — you can request any supported address. Republic of Ireland journeys are quoted as a fixed price after you submit your request (no online payment until the fare is confirmed)."
               />
             </div>
 
