@@ -13,6 +13,30 @@ export const SITE = {
 } as const;
 
 /**
+ * Temporary public holding page. When enabled and before `until`, the site shows
+ * a branded offline page (ops routes stay available). After `until`, the full
+ * site returns automatically — set enabled back to false when you tidy up.
+ */
+export const SITE_OFFLINE = {
+  enabled: true,
+  /** ISO UTC — ~48 hours from going offline (Fri 14 Aug 2026, 16:00 UTC). */
+  until: "2026-08-14T16:00:00.000Z",
+  message:
+    "We're temporarily offline for a short break and will be back within 48 hours.",
+} as const;
+
+/** Paths that stay live while SITE_OFFLINE is active (bookings ops / legal). */
+export const SITE_OFFLINE_ALLOWLIST = [
+  "/driver-accept",
+  "/driver",
+  "/owner",
+  "/admin",
+  "/track",
+  "/unsubscribe",
+  "/booking-confirmed",
+] as const;
+
+/**
  * Soft-disable public services without deleting code.
  * Set a flag back to true to restore nav, homepage sections, and routes.
  */

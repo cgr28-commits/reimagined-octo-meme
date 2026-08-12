@@ -6,8 +6,9 @@ import PreventHorizontalScroll from "@/components/PreventHorizontalScroll";
 import CookieConsent from "@/components/CookieConsent";
 import GoogleAdsTag from "@/components/GoogleAdsTag";
 import QuoteAssistant from "@/components/QuoteAssistant";
+import SiteOfflineGate from "@/components/SiteOfflineGate";
 import WhatsAppButton from "@/components/WhatsAppButton";
-import { LOWEST_AIRPORT_FROM_PRICE, SERVICE_FLAGS, SITE } from "@/lib/data";
+import { LOWEST_AIRPORT_FROM_PRICE, SERVICE_FLAGS, SITE, SITE_OFFLINE } from "@/lib/data";
 import { absoluteSiteUrl } from "@/lib/paths";
 import { getFaqPageJsonLd, getLocalBusinessJsonLd, getWebSiteJsonLd } from "@/lib/structured-data";
 
@@ -16,9 +17,13 @@ const inter = Inter({
   variable: "--font-inter",
 });
 
-const description = SERVICE_FLAGS.belfastCityAirport
-  ? `Airport transfers across Northern Ireland. From £${LOWEST_AIRPORT_FROM_PRICE} to Belfast City Airport and from £45 to Belfast International, plus Dublin and City of Derry. Flight tracking, meet & greet. Get a live quote online — pay by SumUp when pickup is 12+ hours ahead, or request to book.`
-  : "Airport transfers across Northern Ireland. Belfast International from £45, Dublin Airport, and City of Derry Airport. Flight tracking, meet & greet. Get a live quote online — pay by SumUp when pickup is 12+ hours ahead, or request to book.";
+const offlineActive = SITE_OFFLINE.enabled && Date.parse(SITE_OFFLINE.until) > Date.now();
+
+const description = offlineActive
+  ? `${SITE.name} is temporarily offline. Call ${SITE.landlineDisplay} or WhatsApp @${SITE.whatsappUsername} for bookings.`
+  : SERVICE_FLAGS.belfastCityAirport
+    ? `Airport transfers across Northern Ireland. From £${LOWEST_AIRPORT_FROM_PRICE} to Belfast City Airport and from £45 to Belfast International, plus Dublin and City of Derry. Flight tracking, meet & greet. Get a live quote online — pay by SumUp when pickup is 12+ hours ahead, or request to book.`
+    : "Airport transfers across Northern Ireland. Belfast International from £45, Dublin Airport, and City of Derry Airport. Flight tracking, meet & greet. Get a live quote online — pay by SumUp when pickup is 12+ hours ahead, or request to book.";
 
 const ogImage = {
   url: absoluteSiteUrl("/og-image-square.png"),
@@ -29,16 +34,27 @@ const ogImage = {
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE.url),
-  title: `${SITE.name} | Premium Airport Transfers Northern Ireland`,
+  title: offlineActive
+    ? `${SITE.name} | Temporarily offline`
+    : `${SITE.name} | Premium Airport Transfers Northern Ireland`,
   description,
-  robots: {
-    index: true,
-    follow: true,
-    googleBot: {
-      index: true,
-      follow: true,
-    },
-  },
+  robots: offlineActive
+    ? {
+        index: false,
+        follow: false,
+        googleBot: {
+          index: false,
+          follow: false,
+        },
+      }
+    : {
+        index: true,
+        follow: true,
+        googleBot: {
+          index: true,
+          follow: true,
+        },
+      },
   keywords: [
     "airport taxi",
     "Belfast airport transfer",
@@ -124,14 +140,16 @@ export default function RootLayout({
             dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
           />
         ))}
-        <div className="relative w-full max-w-full overflow-x-clip">
-          {children}
-        </div>
-        {/* Outside the overflow clip so position:fixed is viewport-relative on mobile */}
-        <GoogleAdsTag />
-        <QuoteAssistant />
-        <WhatsAppButton />
-        <CookieConsent />
+        <SiteOfflineGate>
+          <div className="relative w-full max-w-full overflow-x-clip">
+            {children}
+          </div>
+          {/* Outside the overflow clip so position:fixed is viewport-relative on mobile */}
+          <GoogleAdsTag />
+          <QuoteAssistant />
+          <WhatsAppButton />
+          <CookieConsent />
+        </SiteOfflineGate>
         <PreventHorizontalScroll />
       </body>
     </html>

@@ -70,6 +70,33 @@ main {
   animation: contact-fade-up 0.7s ease-out 0.34s both;
 }
 
+@keyframes holding-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.holding-fade-up {
+  animation: holding-fade-up 0.75s ease-out both;
+}
+
+.holding-fade-up-delay-1 {
+  animation: holding-fade-up 0.75s ease-out 0.1s both;
+}
+
+.holding-fade-up-delay-2 {
+  animation: holding-fade-up 0.75s ease-out 0.22s both;
+}
+
+.holding-fade-up-delay-3 {
+  animation: holding-fade-up 0.75s ease-out 0.34s both;
+}
+
 .glass-card {
   background: linear-gradient(
     135deg,
