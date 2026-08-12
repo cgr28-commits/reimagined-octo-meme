@@ -113,23 +113,24 @@ async function workerSuggestions(query: string, airport = "A2A") {
 }
 
 async function main() {
-  await check("Max online passengers is 4", () => {
-    assert.equal(MAX_ONLINE_PASSENGERS, 4);
+  await check("Max online passengers is 8 (partner minibus for 5+)", () => {
+    assert.equal(MAX_ONLINE_PASSENGERS, 8);
   });
 
-  await check("No minibus or people-carrier vehicle types", () => {
+  await check("Partner minibus vehicle type is available for 5–8", () => {
     const joined = [...VEHICLE_TYPES, ...VEHICLE_FLEET.map((v) => `${v.name} ${v.description}`)].join(
       " ",
     );
-    assert.equal(/minibus|people carrier|5–8|transport partner/i.test(joined), false);
-    assert.equal(REQUEST_QUOTE_VEHICLE_TYPES.length, 0);
+    assert.match(joined, /Minibus \(5–8 passengers\)/);
+    assert.match(joined, /licensed transport partners/i);
+    assert.equal(REQUEST_QUOTE_VEHICLE_TYPES.length, 1);
+    assert.equal(/people carrier/i.test(joined), false);
   });
 
-  await check("FAQs have no minibus / partner / 5–8 upsell", () => {
+  await check("FAQs retain partner minibus for 5–8 and 24h cancel", () => {
     const text = FAQS.map((f) => `${f.question} ${f.answer}`).join("\n");
-    assert.equal(/transport partners?/i.test(text), false);
-    assert.equal(/5–8 passengers/i.test(text), false);
-    assert.match(text, /up to four passengers/i);
+    assert.match(text, /transport partners?/i);
+    assert.match(text, /5–8 passengers/i);
     assert.match(text, /more than 24 hours/i);
   });
 
@@ -161,7 +162,9 @@ async function main() {
     assert.match(text, /more than 24 hours/i);
     assert.match(text, /non-refundable/i);
     assert.equal(/administration charge of|10%|£5 .*cancel/i.test(text), false);
-    assert.equal(/minibus|transport partner|people carrier|5–8 passengers/i.test(text), false);
+    assert.match(text, /licensed partner operators|transport partner/i);
+    assert.match(text, /5–8 passengers/i);
+    assert.equal(/people carrier/i.test(text), false);
   });
 
   await check("Privacy explains Google Places and Ads quote + paid booking measurement", () => {

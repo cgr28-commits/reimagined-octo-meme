@@ -39,7 +39,7 @@ export const TERMS_SECTIONS = [
       "City of Derry Airport",
     ],
     footer:
-      "All journeys are subject to vehicle availability. Online bookings are for up to four passengers in a saloon or estate car (or executive saloon where enquired).",
+      "All journeys are subject to vehicle availability. Saloon and estate cars (and executive on enquiry) cover up to four passengers. Larger groups of 5–8 passengers may be fulfilled by a licensed transport partner minibus subject to availability.",
   },
   {
     title: "Cross-border & Republic of Ireland journeys",
@@ -49,6 +49,16 @@ export const TERMS_SECTIONS = [
       "All cross-border journeys are quoted and charged in pounds sterling (GBP) unless otherwise agreed in writing.",
       "Applicable tolls for the agreed route are included in an accepted fixed quote.",
       "Customers must select complete pickup and drop-off addresses from the Google Places suggestions on our quote form. Typed addresses that are not selected from suggestions are not accepted.",
+    ],
+  },
+  {
+    title: "Licensed partner operators",
+    content: [
+      "Most saloon and estate car transfers (typically 1–4 passengers) are fulfilled by My Airport Taxi NI using our own licensed vehicles and drivers.",
+      "Where a larger vehicle is required for 5 or more passengers (including minibus transfers for 5–8 passengers), or where operational needs require it, your journey may be fulfilled by another fully licensed and insured private hire / PSV operator working as our transport partner (subcontracted fulfilment).",
+      "By requesting a quotation or making a booking, you agree that we may arrange for a suitable licensed partner operator to carry out all or part of the transfer.",
+      "Partner-operated journeys remain subject to these Terms & Conditions. We remain your point of contact for booking, payment (where applicable), and customer service, and we will only use operators who hold the licences and insurance required for the journey.",
+      "Minibus transfers are subject to partner availability and are not instantly confirmed online — a booking is confirmed only when we accept it in writing (including by email).",
     ],
   },
   {
@@ -62,12 +72,12 @@ export const TERMS_SECTIONS = [
       "Time",
       "Flight number (where applicable)",
       "Contact telephone number",
-      "Number of passengers (maximum four for online bookings)",
+      "Number of passengers",
       "Number of suitcases",
       "Child seat requirements",
     ],
     footer:
-      "Incorrect or incomplete information may result in delays, additional charges, cancellation, or the booking being treated as a no-show without refund. Executive bookings are subject to vehicle availability and are not confirmed until we accept the booking in writing (including by email).",
+      "Incorrect or incomplete information may result in delays, additional charges, cancellation, or the booking being treated as a no-show without refund. Minibus and group bookings are subject to vehicle availability and are not confirmed until we accept the booking in writing (including by email).",
   },
   {
     title: "Quotations & Fares",
@@ -86,7 +96,7 @@ export const TERMS_SECTIONS = [
     title: "Booking & Payment",
     content: [
       "For standard saloon and estate car transfers with pickup at least 12 hours from the time of booking, you may pay online by card via SumUp at the end of the website quote where an instant fare is shown. Your booking is confirmed once payment is completed.",
-      "For pickups with less than 12 hours’ notice, executive bookings, out-of-area pickup requests, and Republic of Ireland city destinations that require a fixed quote, the process is: request a quote or booking, wait for us to confirm the fare and job, then pay via the SumUp payment link we email. Your booking is confirmed after payment is received.",
+      "For pickups with less than 12 hours’ notice, minibus or executive bookings, out-of-area pickup requests, and Republic of Ireland city destinations that require a fixed quote, the process is: request a quote or booking, wait for us to confirm the fare and job, then pay via the SumUp payment link we email. Your booking is confirmed after payment is received.",
       "Payment may be made:",
     ],
     list: [
@@ -186,9 +196,10 @@ export const TERMS_SECTIONS = [
     list: [
       "All luggage is declared during booking.",
       "Oversized luggage is advised in advance.",
+      "Groups of 8 passengers with 8 large suitcases (or similar heavy luggage loads) cannot be confirmed until we have checked vehicle capacity — these bookings are accepted only after we confirm in writing.",
     ],
     footer:
-      "We reserve the right to refuse luggage that cannot safely be accommodated in a saloon or estate car, or to require a different vehicle arrangement (which may change the fare).",
+      "We reserve the right to refuse luggage that cannot safely be accommodated, or to require a larger partner vehicle (which may change the fare).",
   },
   {
     title: "Lost Property",
