@@ -70,10 +70,11 @@ export const PRIVACY_SECTIONS = [
       "When our automated booking or messaging systems are connected to WhatsApp, booking and message information may be processed through Meta’s WhatsApp Business Platform and whichever WhatsApp Business provider we use. We do not sell your personal data.",
   },
   {
-    title: "Cross-border journeys",
+    title: "Google Places address search",
     content: [
-      "When you book a cross-border or Republic of Ireland transfer, we process the pickup and drop-off details you provide (including place identifiers from Google Places) to quote and fulfil your journey.",
-      "We do not control Google’s processing of place search data — see Google’s privacy policy for how they handle autocomplete queries.",
+      "When you type a pickup or drop-off address on our quote form, your search text is sent to Google Places so we can show address suggestions. If you select a suggestion, Google also returns place details (such as the formatted address and place identifier) that we use to quote and book your journey.",
+      "Google processes those address searches under Google’s privacy policy. We only accept addresses you select from Google’s suggestions — free-typed text alone is not used as a confirmed booking address.",
+      "When you book a cross-border or Republic of Ireland transfer, we process the selected place details to quote and fulfil your journey.",
     ],
   },
   {
@@ -94,7 +95,8 @@ export const PRIVACY_SECTIONS = [
     title: "Cookies",
     content: [
       "This website uses essential browser storage to remember payment return state during checkout and to store your cookie preference.",
-      "Optional Google Ads cookies are used only if you choose “Accept measurement cookies” on our consent banner. When accepted, we load the Google tag sitewide (with Google Consent Mode) so we can measure advertising performance for quote requests and confirmed bookings. That tag may set Google cookies used for conversion measurement. It is not used for general site analytics browsing tracking.",
+      "Optional Google Ads cookies are used only if you choose “Accept measurement cookies” on our consent banner. When accepted, we load the Google tag sitewide with Google Consent Mode so Google Ads may measure both successful quote requests and completed paid bookings, subject to that consent choice.",
+      "The Google tag may set Google cookies used for conversion measurement. It is not used for general site analytics browsing tracking.",
       "With your consent, we may also send securely hashed booking contact details (such as email or phone) to Google as enhanced conversions to improve measurement accuracy. These details are hashed in the browser before they are sent.",
       "You can change your mind later by clearing site data for this website in your browser settings; the consent banner will appear again if no preference is stored.",
     ],

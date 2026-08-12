@@ -36,8 +36,9 @@ export default function CookieConsent() {
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold text-white">Cookies &amp; advertising measurement</p>
           <p className="mt-1.5 text-sm leading-relaxed text-white/70">
-            We use essential storage for booking checkout. Optional Google Ads cookies help us
-            measure quote requests and confirmed bookings — only if you accept. See our{" "}
+            We use essential storage for booking checkout. Optional Google Ads cookies may measure
+            successful quote requests and completed paid bookings — only if you accept. Address
+            suggestions use Google Places. See our{" "}
             <Link href="/privacy/" className="font-medium text-emerald underline-offset-2 hover:underline">
               Privacy Policy
             </Link>

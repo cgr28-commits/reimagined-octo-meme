@@ -64,7 +64,6 @@ const VEHICLE_MULTIPLIERS: Record<(typeof VEHICLE_TYPES)[number], number> = {
   "Estate Car (1–4 passengers)": 1,
   "Standard Saloon (1–4 passengers)": 1,
   "Executive Saloon (1–4 passengers)": 1.2,
-  "Minibus (5–8 passengers)": 1.55,
 };
 
 /** Point-to-point only — estate is the baseline; saloon is cheaper. */
@@ -72,7 +71,6 @@ const POINT_TO_POINT_VEHICLE_ADJUSTMENTS: Record<(typeof VEHICLE_TYPES)[number],
   "Estate Car (1–4 passengers)": 0,
   "Standard Saloon (1–4 passengers)": -10,
   "Executive Saloon (1–4 passengers)": 0,
-  "Minibus (5–8 passengers)": 0,
 };
 
 /** Estate is saloon + £8; calibrated to sit £8–£10 under OTS estate fares. */
@@ -113,7 +111,6 @@ const OTS_VEHICLE_BASE: Record<(typeof VEHICLE_TYPES)[number], number> = {
   "Standard Saloon (1–4 passengers)": 35,
   "Estate Car (1–4 passengers)": 40,
   "Executive Saloon (1–4 passengers)": 45,
-  "Minibus (5–8 passengers)": 60,
 };
 
 function calculateOtsPointToPointOneWay(
@@ -202,8 +199,6 @@ function applyAirportVehiclePricing(
         AIRPORT_EXECUTIVE_MINIMUM_FARE,
         roundToNearestFive(estateTier * VEHICLE_MULTIPLIERS[vehicleType]),
       );
-    case "Minibus (5–8 passengers)":
-      return roundToNearestFive(estateTier * VEHICLE_MULTIPLIERS[vehicleType]);
     default:
       return saloonFare;
   }

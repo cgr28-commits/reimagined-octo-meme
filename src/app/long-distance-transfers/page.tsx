@@ -71,6 +71,7 @@ export default function LongDistanceTransfersPage() {
 
             <div className="mt-8 max-w-3xl">
               <SectionHeading
+                as="h1"
                 align="left"
                 eyebrow="Long-distance transfers"
                 title="Private Long-Distance Transfers from Anywhere in Greater Belfast"
@@ -84,7 +85,7 @@ export default function LongDistanceTransfersPage() {
                   key={item.title}
                   className="rounded-2xl border border-white/10 bg-white/[0.03] p-6"
                 >
-                  <h2 className="text-lg font-semibold text-white">{item.title}</h2>
+                  <h3 className="text-lg font-semibold text-white">{item.title}</h3>
                   <p className="mt-2 text-sm leading-relaxed text-white/65">{item.description}</p>
                 </div>
               ))}

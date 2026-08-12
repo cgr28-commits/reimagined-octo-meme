@@ -13,8 +13,8 @@ export default function VehiclesSection() {
       <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <SectionHeading
           eyebrow="Vehicles"
-          title="The right vehicle for every group"
-          description="1–4 passengers travel in a standard or estate car with an instant online price. For 5–8 passengers, minibus transfers are available through our licensed transport partners — subject to availability, with a request-a-quote booking."
+          title="Saloon and estate cars for up to four passengers"
+          description="Online bookings are for up to four passengers in a modern saloon or estate car with an instant online price where shown. Executive saloons are available on enquiry."
         />
 
         <div className="mt-12 grid items-center gap-10 lg:grid-cols-2 lg:gap-14">
