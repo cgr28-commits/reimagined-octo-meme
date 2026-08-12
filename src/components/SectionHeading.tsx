@@ -4,6 +4,8 @@ type SectionHeadingProps = {
   description?: string;
   align?: "center" | "left";
   className?: string;
+  /** Page heroes should use h1; section blocks keep the default h2. */
+  as?: "h1" | "h2";
 };
 
 export default function SectionHeading({
@@ -12,15 +14,17 @@ export default function SectionHeading({
   description,
   align = "center",
   className = "",
+  as = "h2",
 }: SectionHeadingProps) {
   const alignClass = align === "center" ? "mx-auto text-center" : "text-left";
+  const HeadingTag = as;
 
   return (
     <div className={`section-header max-w-2xl ${alignClass} ${className}`}>
       <p className="section-eyebrow">{eyebrow}</p>
-      <h2 className="section-heading mt-4 text-3xl font-bold tracking-tight text-white sm:text-4xl lg:text-[2.75rem] lg:leading-tight">
+      <HeadingTag className="section-heading mt-4 text-3xl font-bold tracking-tight text-white sm:text-4xl lg:text-[2.75rem] lg:leading-tight">
         {title}
-      </h2>
+      </HeadingTag>
       {description ? (
         <p className="section-description mt-5 text-base leading-relaxed text-white/60">
           {description}

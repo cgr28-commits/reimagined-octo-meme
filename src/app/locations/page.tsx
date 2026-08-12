@@ -33,12 +33,10 @@ const AIRPORT_EXAMPLES = [
 ] as const;
 
 const LONG_DISTANCE_EXAMPLES = [
-  "Belfast ↔ Dublin Airport",
-  "Bangor ↔ Belfast International",
-  "Belfast ↔ Cork",
-  "Newry ↔ Dublin city",
-  "Lisburn ↔ Galway",
-  "Derry ↔ Belfast city centre",
+  "Belfast to Dublin city",
+  "Bangor to Cork",
+  "Lisburn to Galway",
+  "Newtownabbey to Donegal",
 ] as const;
 
 export default function LocationsPage() {
@@ -130,7 +128,8 @@ export default function LocationsPage() {
               <section>
                 <h2 className="text-xl font-bold text-white">Popular long-distance routes</h2>
                 <p className="mt-2 text-sm leading-relaxed text-white/60">
-                  Examples of journeys customers often book — not an exhaustive list:
+                  Example journeys from Greater Belfast pickups — not an exhaustive list, and not an
+                  offer of standalone pickups from the destination cities:
                 </p>
                 <ul className="mt-4 space-y-2">
                   {LONG_DISTANCE_EXAMPLES.map((route) => (

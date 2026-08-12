@@ -347,7 +347,7 @@ export const WHY_CHOOSE_US = [
   {
     title: "Licensed & insured transport",
     description:
-      "Saloon and estate cars from our licensed vehicles for 1–4 passengers. Minibus transfers for larger groups are available through our licensed transport partners.",
+      "Licensed and insured private hire in saloon and estate cars for up to four passengers — with an executive saloon option available on enquiry.",
   },
 ] as const;
 
@@ -396,7 +396,7 @@ export const FAQS = [
   {
     question: "How do I book an airport transfer?",
     answer:
-      "Use Get a Live Quote on this page for your fixed price. For a standard or estate car with pickup at least 12 hours ahead, you can pay securely online with SumUp to confirm. For nearer pickups, minibuses, or executive cars, Request to book / enquire — once we confirm the job, we email a SumUp payment link. Your booking is confirmed after payment.",
+      "Use Get a Live Quote on this page for your fixed price. For a standard or estate car with pickup at least 12 hours ahead, you can pay securely online with SumUp to confirm. For nearer pickups or executive cars, Request to book / enquire — once we confirm the job, we email a SumUp payment link. Your booking is confirmed after payment.",
   },
   {
     question: "Do you track my flight?",
@@ -421,7 +421,7 @@ export const FAQS = [
   {
     question: "What is your cancellation and refund policy?",
     answer:
-      "With at least 24 hours’ notice we accept the cancellation and issue a full refund of the fare paid. Cancellations with less than 24 hours’ notice and no-shows are not eligible for a refund. Full details are in our Terms & Conditions.",
+      "Cancel more than 24 hours before pickup for a full refund of the fare paid. Cancellations with less than 24 hours’ notice and no-shows are non-refundable. There is no separate cancellation administration charge. Full details are in our Terms & Conditions.",
   },
   {
     question: "When is my booking confirmed?",
@@ -431,7 +431,7 @@ export const FAQS = [
   {
     question: "What vehicle types do you offer?",
     answer:
-      "For 1–4 passengers we use standard or estate cars with an instant online price. For 5–8 passengers, minibus transfers are available through our licensed transport partners (request a quote — subject to availability; the quote tool selects minibus automatically when more than four passengers are chosen). Executive saloons are enquire-to-book. Eight passengers with eight large suitcases need a luggage-capacity check before we can confirm.",
+      "Online bookings are for up to four passengers in a standard or estate car with an instant online price where shown. Executive saloons are enquire-to-book. We do not offer minibuses or people carriers through this website.",
   },
   {
     question: "Do you offer chauffeur and executive private hire?",
@@ -506,7 +506,7 @@ export const FAQS = [
   {
     question: "What is your cancellation policy for long-distance transfers?",
     answer:
-      "Long-distance and cross-border transfers follow the same 24-hour cancellation rule: cancel at least 24 hours before your scheduled pickup for a full refund of the fare paid. Cancellations with less than 24 hours’ notice and no-shows are not eligible for a refund. Full details are in our Terms & Conditions.",
+      "Long-distance and cross-border transfers follow the same rule: cancel more than 24 hours before pickup for a full refund of the fare paid. Less than 24 hours’ notice is non-refundable. Full details are in our Terms & Conditions.",
   },
 ] as const;
 
@@ -536,36 +536,29 @@ export const VEHICLE_FLEET = [
     requestQuote: false,
     partnerOperated: false,
   },
-  {
-    name: "Minibus",
-    capacity: "5–8 passengers",
-    description:
-      "Minibus transfers available through our licensed transport partners. Subject to availability — request a quote (guide price shown online).",
-    enquiryOnly: true,
-    requestQuote: true,
-    partnerOperated: true,
-  },
 ] as const;
 
 export const VEHICLE_TYPES = [
   "Standard Saloon (1–4 passengers)",
   "Estate Car (1–4 passengers)",
   "Executive Saloon (1–4 passengers)",
-  "Minibus (5–8 passengers)",
 ] as const;
 
 export type VehicleType = (typeof VEHICLE_TYPES)[number];
 
-export const MINIBUS_VEHICLE_TYPE: VehicleType = "Minibus (5–8 passengers)";
+/** Maximum passengers accepted on the online quote and booking form. */
+export const MAX_ONLINE_PASSENGERS = 4;
 
-/** Vehicles that cannot be instantly confirmed — enquiry / request-a-quote flow. */
+/** Vehicles that cannot be instantly confirmed — enquiry flow. */
 export const ENQUIRY_ONLY_VEHICLE_TYPES: readonly VehicleType[] = [
   "Executive Saloon (1–4 passengers)",
-  MINIBUS_VEHICLE_TYPE,
 ];
 
-/** Minibus: show a guide price online, but require “Request a quote” (not instant confirmation). */
-export const REQUEST_QUOTE_VEHICLE_TYPES: readonly VehicleType[] = [MINIBUS_VEHICLE_TYPE];
+/**
+ * Vehicles that show a guide price but require “Request a quote”.
+ * Kept for type compatibility — currently empty (no minibus online).
+ */
+export const REQUEST_QUOTE_VEHICLE_TYPES: readonly VehicleType[] = [];
 
 /** Saloon/estate can pay online at quote time when far enough ahead. */
 export const INSTANT_PAY_VEHICLE_TYPES: readonly VehicleType[] = [
@@ -576,21 +569,20 @@ export const INSTANT_PAY_VEHICLE_TYPES: readonly VehicleType[] = [
 /** Minimum notice (hours) before pickup for customer SumUp “Pay now”. */
 export const PAY_NOW_MIN_HOURS_AHEAD = 12;
 
-export const MINIBUS_PARTNER_NOTE =
-  "Minibus transfers available through our licensed transport partners.";
-
 /** Short guidance shown in the quote tool above vehicle selection. */
 export const VEHICLE_BOOKING_GUIDANCE = [
-  "1–4 passengers: Standard or estate car — instant online price. Pay online when pickup is at least 12 hours ahead.",
-  "5–8 passengers: Minibus, subject to availability — Request a quote (not instant confirmation). Selected automatically when more than four passengers are chosen.",
+  "Up to 4 passengers: Standard or estate car — instant online price where shown. Pay online when pickup is at least 12 hours ahead.",
+  "Executive saloon: enquire to book — we’ll confirm availability and price.",
 ] as const;
 
-/** 8 passengers with 8 large cases needs manual capacity confirmation before we can accept. */
+/** @deprecated Online bookings are capped at four passengers; always false. */
 export function needsLuggageCapacityConfirmation(
   passengers: number,
   suitcases: number,
 ): boolean {
-  return passengers >= 8 && suitcases >= 8;
+  void passengers;
+  void suitcases;
+  return false;
 }
 
 export function isVehicleEnquiryOnly(vehicleType: string): boolean {
@@ -605,7 +597,7 @@ export function isInstantPayVehicle(vehicleType: string): boolean {
   return (INSTANT_PAY_VEHICLE_TYPES as readonly string[]).includes(vehicleType);
 }
 
-/** Minibus shows an indicative online price; Executive does not. */
+/** Request-quote vehicles may show an indicative online price; Executive does not. */
 export function showsOnlineGuidePrice(vehicleType: string): boolean {
   return isVehicleRequestQuote(vehicleType);
 }
