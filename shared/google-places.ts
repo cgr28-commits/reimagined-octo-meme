@@ -105,6 +105,7 @@ function getLocationBias(airportCode: string) {
   };
 }
 
+/** Deploy note: shared changes on main trigger the Cloudflare Worker workflow. */
 /** Exported for regression tests — A2A bias must stay Places-API valid. */
 export function getPlacesLocationBiasForTests(airportCode: string) {
   return getLocationBias(airportCode);
