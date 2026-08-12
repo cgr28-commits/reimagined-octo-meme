@@ -182,7 +182,7 @@ function knowledgeChunks(): Array<{ title: string; body: string }> {
     {
       title: "How booking works",
       body:
-        "Standard process: (1) Get a Live Quote on the website or in this chat for your fixed journey price. (2) For a standard or estate car with pickup at least 12 hours ahead, you can pay online with SumUp to confirm. Otherwise Request to book / enquire with your date, time, and contact details — we confirm the job and email a SumUp payment link; booking is confirmed after payment. Online bookings are for up to four passengers in a standard or estate car. Executive Saloon is enquire-only. We do not offer minibuses through this website.",
+        "Standard process: (1) Get a Live Quote on the website or in this chat for your fixed journey price. (2) For a standard or estate car with pickup at least 12 hours ahead, you can pay online with SumUp to confirm. Otherwise Request to book / enquire with your date, time, and contact details — we confirm the job and email a SumUp payment link; booking is confirmed after payment. Online bookings are for up to four passengers in a standard or estate car. Executive Saloon is enquire-only. Larger group vehicles are not available through this website.",
     },
     {
       title: "Quote tool flow",
