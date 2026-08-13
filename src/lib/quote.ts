@@ -20,7 +20,7 @@ type AirportCode = "BFS" | "BHD" | "DUB" | "LDY";
 const AREA_AIRPORT_SURCHARGES: Record<Area, Record<AirportCode, number>> = {
   // Calibrated ~£8–£10 below OTS estate fares. LDY from live OTS LDY→Belfast-area quotes.
   "Belfast City Centre": { BFS: 6, BHD: 0, DUB: 50, LDY: 99 },
-  Holywood: { BFS: 13, BHD: 0, DUB: 58, LDY: 103 },
+  Holywood: { BFS: 3, BHD: 0, DUB: 58, LDY: 103 },
   Newtownabbey: { BFS: 3, BHD: 8, DUB: 60, LDY: 89 },
   Lisburn: { BFS: 0, BHD: 8, DUB: 60, LDY: 98 },
   Dundonald: { BFS: 23, BHD: 3, DUB: 60, LDY: 103 },
