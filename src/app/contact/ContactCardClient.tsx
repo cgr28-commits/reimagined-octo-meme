@@ -5,9 +5,7 @@ import Link from "next/link";
 import { useEffect, useState, type ReactNode } from "react";
 import {
   contactCardUrl,
-  contactEmailLink,
   contactVCardWorkerUrl,
-  downloadContactVCardForFiles,
   isAndroidMobile,
   isAppleMobile,
   isChromeIos,
@@ -45,7 +43,6 @@ export default function ContactCardClient() {
   const isMobile = useIsMobileDevice();
   const cardUrl = contactCardUrl();
   const qrSrc = withBasePath("/contact-qr.png");
-  const [showSaveHelp, setShowSaveHelp] = useState(false);
   const [saveHref, setSaveHref] = useState(contactVCardWorkerUrl());
   const [android, setAndroid] = useState(false);
   const [iphone, setIphone] = useState(false);
@@ -61,10 +58,6 @@ export default function ContactCardClient() {
     setRestrictedIos(isRestrictedIosBrowser());
     setSaveHref(saveToContactsHref());
   }, []);
-
-  function onSaveToContactsClick() {
-    setShowSaveHelp(true);
-  }
 
   const iosInAppBrowser = chromeIos || googleApp || restrictedIos;
 
@@ -130,20 +123,14 @@ export default function ContactCardClient() {
                   Quote · Book · Call
                 </p>
                 <p className="mt-2 text-sm leading-relaxed text-white/65">
-                  {iosInAppBrowser
-                    ? "Opens the contact card — tap Create New Contact, then Done. Delete any old My Airport Taxi NI contact first so the new logo appears."
-                    : iphone
-                      ? "Opens the contact card — tap Create New Contact at the top, then Done. Delete any old contact first if the logo looks wrong."
-                      : android
-                        ? "Opens Add contact on your phone — no file download."
-                        : "Save us to your phone contacts — then book, call, or WhatsApp us."}
+                  {iosInAppBrowser || iphone
+                    ? "Opens the contact card — tap Create New Contact, then Done."
+                    : android
+                      ? "Opens Add contact on your phone — no file download."
+                      : "Save us to your phone contacts — then book, call, or WhatsApp us."}
                 </p>
                 {/* Real link (not Web Share) so phones show Create New Contact / Add contact. */}
-                <a
-                  href={saveHref}
-                  onClick={onSaveToContactsClick}
-                  className={saveLinkClassName}
-                >
+                <a href={saveHref} className={saveLinkClassName}>
                   Save to contacts
                 </a>
               </>
@@ -240,7 +227,6 @@ export default function ContactCardClient() {
 
             <a
               href={saveHref}
-              onClick={onSaveToContactsClick}
               className="flex min-w-0 items-center gap-4 rounded-2xl border border-white/15 bg-white/[0.03] px-5 py-4 text-left text-white transition-colors hover:border-white/30 hover:bg-white/[0.06]"
             >
               <ActionIcon>
@@ -271,70 +257,7 @@ export default function ContactCardClient() {
                 </span>
               </span>
             </a>
-
-            {showSaveHelp ? (
-              <div className="min-w-0 rounded-2xl border border-emerald/35 bg-emerald/10 px-4 py-4 text-sm text-white">
-                <p className="font-semibold text-emerald">
-                  {googleApp
-                    ? "On Google (iPhone)"
-                    : chromeIos
-                      ? "On Chrome (iPhone)"
-                      : iphone
-                        ? "On iPhone (Safari)"
-                        : android
-                          ? "On Android"
-                          : "Save to contacts"}
-                </p>
-                {android ? (
-                  <ol className="mt-3 list-decimal space-y-2 pl-5 text-white/80">
-                    <li>
-                      Tap <span className="text-white">Save</span> on the Add contact screen
-                    </li>
-                    <li>Optional: open the contact file below if you want our logo</li>
-                  </ol>
-                ) : (
-                  <ol className="mt-3 list-decimal space-y-2 pl-5 text-white/80">
-                    <li>
-                      Delete any old <span className="text-white">My Airport Taxi NI</span> contact
-                      first (old photo can stick)
-                    </li>
-                    <li>
-                      Tap <span className="text-white">Save to contacts</span> again, then{" "}
-                      <span className="text-white">Create New Contact</span>
-                    </li>
-                    <li>
-                      Tap <span className="text-white">Done</span> — photo should show MY AIRPORT
-                      TAXI NI inside the green ring
-                    </li>
-                  </ol>
-                )}
-                <p className="mt-3 text-xs text-white/55">
-                  {iosInAppBrowser
-                    ? "You should see Create New Contact — not a file download. If a download appears, open that file and choose Create New Contact."
-                    : iphone
-                      ? "You should see Create New Contact — not AirDrop / Messages / Files. If the logo is still wrong, email the contact link to yourself below."
-                      : "If your phone only downloaded a file, open that file and choose Create New Contact."}
-                </p>
-                {/* Keep download as a quiet last resort for Safari logo issues — not for Google primary path. */}
-                {!googleApp ? (
-                  <button
-                    type="button"
-                    onClick={() => downloadContactVCardForFiles()}
-                    className="mt-4 inline-flex text-sm font-semibold text-emerald underline-offset-2 hover:underline"
-                  >
-                    Download contact file with logo
-                  </button>
-                ) : null}
-                <a
-                  href={contactEmailLink()}
-                  className="mt-3 block text-sm font-semibold text-emerald underline-offset-2 hover:underline"
-                >
-                  Or email the contact link to yourself
-                </a>
-              </div>
-            ) : null}
           </div>
-
           <a
             href={SITE.url}
             className="contact-fade-up-delay-3 mt-6 break-all text-center text-sm font-semibold text-emerald transition-colors hover:text-emerald-light"
