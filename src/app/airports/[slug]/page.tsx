@@ -145,6 +145,24 @@ export default async function AirportTransferPage({ params }: Props) {
               </ul>
             </section>
           ) : null}
+
+          {page.slug === "belfast-international" ||
+          page.slug === "belfast-city" ||
+          page.slug === "dublin" ? (
+            <section className="mt-8 rounded-2xl border border-emerald/25 bg-emerald/5 p-5 sm:p-6">
+              <h2 className="text-lg font-bold text-white">Going to EMERGE Belfast?</h2>
+              <p className="mt-2 text-sm leading-relaxed text-white/65">
+                Pre-book an airport, hotel or return transfer for 29–30 August 2026 at Boucher
+                Playing Fields.
+              </p>
+              <Link
+                href="/events/emerge-belfast-taxi/"
+                className="mt-4 inline-flex text-sm font-semibold text-emerald hover:text-emerald-light"
+              >
+                View EMERGE Transfers
+              </Link>
+            </section>
+          ) : null}
         </div>
 
         <LocationQuoteSection

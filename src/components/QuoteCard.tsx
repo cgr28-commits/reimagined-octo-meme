@@ -221,12 +221,15 @@ type QuoteCardProps = {
   initialDirection?: TripDirection;
   /** Optional address hint (town/area) for route pages. */
   initialAddressHint?: string;
+  /** Optional A2A drop-off hint (e.g. event venue). User should still pick a Places suggestion. */
+  initialDropoffHint?: string;
 };
 
 function QuoteCard({
   initialAirportCode = "",
   initialDirection = "to-airport",
   initialAddressHint = "",
+  initialDropoffHint = "",
 }: QuoteCardProps) {
   const cardRef = useRef<HTMLDivElement>(null);
   const isMobileDevice = useIsMobileDevice();
@@ -248,7 +251,7 @@ function QuoteCard({
     initialDirection === "to-airport" ? initialAddressHint : "",
   );
   const [dropoffAddress, setDropoffAddress] = useState(
-    initialDirection === "from-airport" ? initialAddressHint : "",
+    initialDropoffHint || (initialDirection === "from-airport" ? initialAddressHint : ""),
   );
   const [pickupPlace, setPickupPlace] = useState<SelectedPlace>(emptySelectedPlace());
   const [dropoffPlace, setDropoffPlace] = useState<SelectedPlace>(emptySelectedPlace());
@@ -395,16 +398,18 @@ function QuoteCard({
 
     const savedPickup = localStorage.getItem(PICKUP_STORAGE_KEY);
     const savedDropoff = localStorage.getItem(DROPOFF_STORAGE_KEY);
-    // Keep dedicated landing-page address hints (e.g. Bangor) over stale localStorage.
+    // Keep dedicated landing-page address hints (e.g. Bangor / event venues) over stale localStorage.
     const keepInitialPickup = initialDirection === "to-airport" && Boolean(initialAddressHint);
-    const keepInitialDropoff = initialDirection === "from-airport" && Boolean(initialAddressHint);
+    const keepInitialDropoff =
+      Boolean(initialDropoffHint) ||
+      (initialDirection === "from-airport" && Boolean(initialAddressHint));
     if (savedPickup && !keepInitialPickup) {
       setPickupAddress(savedPickup);
     }
     if (savedDropoff && !keepInitialDropoff) {
       setDropoffAddress(savedDropoff);
     }
-  }, [initialAddressHint, initialDirection]);
+  }, [initialAddressHint, initialDirection, initialDropoffHint]);
 
   const isLdyTrip = effectiveAirportCode === "LDY";
   const ldyServiceAddress = isFromAirport ? dropoffAddress : pickupAddress;

@@ -10,6 +10,7 @@ import FAQSection from "@/components/FAQSection";
 import ToursTeaserSection from "@/components/ToursTeaserSection";
 import VehiclesSection from "@/components/VehiclesSection";
 import ChauffeurSection from "@/components/ChauffeurSection";
+import EmergePromoCard from "@/components/EmergePromoCard";
 import Footer from "@/components/Footer";
 import { SERVICE_FLAGS } from "@/lib/data";
 
@@ -36,6 +37,7 @@ export default function Home() {
         <WhyChooseUsSection />
         {/* Soft-hidden via SERVICE_FLAGS.liveDriverTracking — set true in data.ts to restore */}
         {SERVICE_FLAGS.liveDriverTracking ? <DriverTrackingSection /> : null}
+        <EmergePromoCard />
         <FAQSection />
       </main>
       <Footer />
