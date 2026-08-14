@@ -20,7 +20,8 @@
     "check:a2a-roi": "npx tsx scripts/check-a2a-roi-journeys.ts",
     "check:final-correction": "npx tsx scripts/check-final-correction-pass.ts",
     "check:bot-knowledge": "npx tsx scripts/check-bot-site-knowledge.ts",
-    "check:uk-time": "npx tsx scripts/check-uk-time.ts"
+    "check:uk-time": "npx tsx scripts/check-uk-time.ts",
+    "check:google-ads": "npx tsx scripts/check-google-ads-request-quote.ts"
   },
   "dependencies": {
     "leaflet": "^1.9.4",

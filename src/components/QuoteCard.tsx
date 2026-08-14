@@ -64,6 +64,7 @@ import {
 import { scheduleQuoteLeadAlert } from "@/lib/submit-quote-lead";
 import FlightNumberField, { formatVerifiedFlightSummary } from "@/components/FlightNumberField";
 import GoogleAdsRequestQuote from "@/components/GoogleAdsRequestQuote";
+import { resetRequestQuoteConversion } from "@/lib/google-ads-client";
 import type { VerifiedFlight } from "@/lib/flight-lookup";
 import {
   detectAirportCodeFromPlace,
@@ -1386,19 +1387,18 @@ function QuoteCard({
     return (
       <div
         ref={cardRef}
+        id="quoteResult"
         className="glass-card min-w-0 rounded-2xl p-6 sm:p-8 lg:animate-float"
       >
-        {(showsRequestQuoteFlow || isEnquiryOnly) && (
-          <GoogleAdsRequestQuote
-            fire
-            value={quoteConversionValue}
-            transactionId={bookingReference || undefined}
-            userData={{
-              email: customerEmail.trim() || undefined,
-              phone: customerMobile.trim() || undefined,
-            }}
-          />
-        )}
+        <GoogleAdsRequestQuote
+          fire
+          value={quoteConversionValue}
+          transactionId={bookingReference || undefined}
+          userData={{
+            email: customerEmail.trim() || undefined,
+            phone: customerMobile.trim() || undefined,
+          }}
+        />
         <div className="rounded-xl border border-emerald/30 bg-emerald/10 px-5 py-8 text-center sm:px-8 sm:py-10">
           <p className="text-xs font-medium uppercase tracking-wider text-emerald">
             {showsRequestQuoteFlow
@@ -1437,6 +1437,7 @@ function QuoteCard({
           <button
             type="button"
             onClick={() => {
+              resetRequestQuoteConversion();
               setBookingSent(false);
               setBookingReference("");
               setBookingDelivery(null);
@@ -1495,7 +1496,7 @@ function QuoteCard({
         </ol>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form id="quoteForm" onSubmit={handleSubmit} className="space-y-4">
         {testChargeAmount !== null && (
           <div className="rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
             <strong className="text-white">Test booking mode.</strong> SumUp will charge{" "}

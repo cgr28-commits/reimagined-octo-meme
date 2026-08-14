@@ -9,6 +9,7 @@ import QuoteAssistant from "@/components/QuoteAssistant";
 import SiteOfflineGate from "@/components/SiteOfflineGate";
 import WhatsAppButton from "@/components/WhatsAppButton";
 import { LOWEST_AIRPORT_FROM_PRICE, SERVICE_FLAGS, SITE, SITE_OFFLINE } from "@/lib/data";
+import { getGoogleAdsConfig } from "@/lib/google-ads";
 import { absoluteSiteUrl } from "@/lib/paths";
 import { getFaqPageJsonLd, getLocalBusinessJsonLd, getWebSiteJsonLd } from "@/lib/structured-data";
 
@@ -113,12 +114,12 @@ export default function RootLayout({
 }>) {
   const structuredData = [getWebSiteJsonLd(), getLocalBusinessJsonLd(), getFaqPageJsonLd()];
 
-  const googleAdsId = process.env.NEXT_PUBLIC_GOOGLE_ADS_ID?.trim() ?? "";
+  const googleAdsConfig = getGoogleAdsConfig();
 
   return (
     <html lang="en-GB" className={inter.variable}>
       <body className="overflow-x-clip antialiased">
-        {googleAdsId ? (
+        {googleAdsConfig.tagEnabled ? (
           <Script id="google-consent-default" strategy="beforeInteractive">
             {`
               window.dataLayer = window.dataLayer || [];

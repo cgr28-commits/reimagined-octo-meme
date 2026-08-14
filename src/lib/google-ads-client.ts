@@ -20,6 +20,9 @@ declare global {
 const FIRED_QUOTE_PREFIX = "matni-ads-fired-quote:";
 const FIRED_BOOKING_PREFIX = "matni-ads-fired-booking:";
 
+/** Once-per successful quote interaction (module scope, as required by Ads setup). */
+let requestQuoteConversionSent = false;
+
 export type AdsUserData = {
   email?: string;
   phone?: string;
@@ -163,12 +166,20 @@ function fireAdsConversion(options: {
 }
 
 /**
- * Fire request_quote after a successful quote/enquiry submission.
- * Uses transaction_id (booking reference) so refreshes do not double-count.
+ * Google Ads “Request quote” conversion.
+ * Call only after validation + successful quote/confirmation UI (`#quoteResult`).
+ * Never call on page load, button click alone, validation failure, or WhatsApp/mail open.
  */
-export function trackRequestQuote(options: AdsConversionPayload = {}): boolean {
+export function trackRequestQuoteConversion(options: AdsConversionPayload = {}): boolean {
+  if (requestQuoteConversionSent) {
+    return true;
+  }
+  if (typeof window === "undefined" || typeof window.gtag !== "function") {
+    return false;
+  }
+
   const config = getGoogleAdsConfig();
-  if (!config.tagEnabled && !config.quoteEnabled) {
+  if (!config.quoteEnabled || !config.quoteSendTo) {
     return false;
   }
   if (!hasMarketingCookieConsent()) {
@@ -178,22 +189,47 @@ export function trackRequestQuote(options: AdsConversionPayload = {}): boolean {
   const transactionId = options.transactionId?.trim();
   const dedupeKey = `${FIRED_QUOTE_PREFIX}${transactionId || "anonymous"}`;
   if (transactionId && alreadyFired(dedupeKey)) {
+    requestQuoteConversionSent = true;
     return true;
   }
 
-  const ok = fireAdsConversion({
-    sendTo: config.quoteSendTo,
-    eventName: ADS_EVENT_REQUEST_QUOTE,
-    value: options.value,
-    currency: options.currency ?? "GBP",
-    transactionId,
-    userData: options.userData,
+  setEnhancedConversionUserData(options.userData);
+
+  window.gtag("event", "conversion", {
+    send_to: config.quoteSendTo,
+    ...(typeof options.value === "number" && Number.isFinite(options.value)
+      ? { value: options.value, currency: options.currency ?? "GBP" }
+      : {}),
+    ...(transactionId ? { transaction_id: transactionId } : {}),
   });
 
-  if (ok && transactionId) {
+  // Keep the named event for any Ads/GA4 configs that listen for it.
+  window.gtag("event", ADS_EVENT_REQUEST_QUOTE, {
+    send_to: config.quoteSendTo,
+    currency: options.currency ?? "GBP",
+    ...(typeof options.value === "number" && Number.isFinite(options.value)
+      ? { value: options.value }
+      : {}),
+    ...(transactionId ? { transaction_id: transactionId } : {}),
+  });
+
+  requestQuoteConversionSent = true;
+  if (transactionId) {
     markFired(dedupeKey);
   }
-  return ok;
+  return true;
+}
+
+/** Allow a fresh quote interaction (e.g. “Get another quote”) to convert once. */
+export function resetRequestQuoteConversion(): void {
+  requestQuoteConversionSent = false;
+}
+
+/**
+ * @deprecated Prefer trackRequestQuoteConversion — kept for callers during transition.
+ */
+export function trackRequestQuote(options: AdsConversionPayload = {}): boolean {
+  return trackRequestQuoteConversion(options);
 }
 
 /**
@@ -247,4 +283,9 @@ export function trackBookingComplete(options: AdsConversionPayload): boolean {
 
 export function isGtagReady(): boolean {
   return typeof window !== "undefined" && typeof window.gtag === "function";
+}
+
+/** Test helper — current once-per-interaction latch. */
+export function hasRequestQuoteConversionBeenSent(): boolean {
+  return requestQuoteConversionSent;
 }

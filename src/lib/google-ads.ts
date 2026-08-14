@@ -6,11 +6,15 @@
  * Booking complete stays disabled until GOOGLE_ADS_BOOKING_CONVERSION_LABEL is set.
  */
 
-/** My Airport Taxi NI Google Ads account tag. */
-const DEFAULT_GOOGLE_ADS_ID = "AW-10303631278";
+/** My Airport Taxi NI Google Ads account tag (Request quote conversion lives here). */
+export const DEFAULT_GOOGLE_ADS_ID = "AW-18303631278";
 
 /** Request quote conversion label from Google Ads. */
-const DEFAULT_QUOTE_CONVERSION_LABEL = "_hcXCP5z7cscEK7_73dE";
+export const DEFAULT_QUOTE_CONVERSION_LABEL = "_hcXCPSz7cscEK7_7JdE";
+
+/** Known incorrect historical values — never use even if present in env/secrets. */
+const KNOWN_BAD_ADS_IDS = new Set(["AW-10303631278"]);
+const KNOWN_BAD_QUOTE_LABELS = new Set(["_hcXCP5z7cscEK7_73dE"]);
 
 export type GoogleAdsConfig = {
   adsId: string;
@@ -30,18 +34,33 @@ function env(name: string): string {
   return process.env[name]?.trim() ?? "";
 }
 
+function resolveAdsId(raw: string): string {
+  if (!raw || KNOWN_BAD_ADS_IDS.has(raw)) {
+    return DEFAULT_GOOGLE_ADS_ID;
+  }
+  return raw;
+}
+
+function resolveQuoteLabel(raw: string): string {
+  if (!raw || KNOWN_BAD_QUOTE_LABELS.has(raw)) {
+    return DEFAULT_QUOTE_CONVERSION_LABEL;
+  }
+  return raw;
+}
+
 /**
- * Reads Ads config. Env/secrets win; otherwise the account defaults above are used
- * for the tag + request_quote.
+ * Reads Ads config. Env/secrets win unless they contain known-bad typo values;
+ * otherwise the account defaults above are used for the tag + request_quote.
  *
  * Important: the account currently has Calls + Request quote only. Never reuse the
  * quote label for bookings — that would mix quotes with completed bookings in Ads.
  * booking_complete stays fully disabled until a distinct booking label is set.
  */
 export function getGoogleAdsConfig(): GoogleAdsConfig {
-  const adsId = env("NEXT_PUBLIC_GOOGLE_ADS_ID") || DEFAULT_GOOGLE_ADS_ID;
-  const quoteConversionLabel =
-    env("NEXT_PUBLIC_GOOGLE_ADS_QUOTE_CONVERSION_LABEL") || DEFAULT_QUOTE_CONVERSION_LABEL;
+  const adsId = resolveAdsId(env("NEXT_PUBLIC_GOOGLE_ADS_ID") || DEFAULT_GOOGLE_ADS_ID);
+  const quoteConversionLabel = resolveQuoteLabel(
+    env("NEXT_PUBLIC_GOOGLE_ADS_QUOTE_CONVERSION_LABEL") || DEFAULT_QUOTE_CONVERSION_LABEL,
+  );
   // Distinct booking label only — no legacy fallback, no quote-label reuse.
   let bookingConversionLabel = env("NEXT_PUBLIC_GOOGLE_ADS_BOOKING_CONVERSION_LABEL");
   if (
