@@ -1,0 +1,67 @@
+/* EMERGE Belfast landing — namespaced so other pages stay untouched */
+.emerge-page .emerge-hero-beams,
+.emerge-page .emerge-promo-beams {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 70% 50% at 15% 10%, rgba(47, 191, 74, 0.22), transparent 55%),
+    radial-gradient(ellipse 55% 45% at 90% 20%, rgba(12, 42, 82, 0.95), transparent 50%),
+    linear-gradient(115deg, transparent 35%, rgba(47, 191, 74, 0.08) 48%, transparent 62%),
+    linear-gradient(250deg, transparent 40%, rgba(77, 217, 100, 0.06) 55%, transparent 70%);
+  opacity: 0.95;
+}
+
+.emerge-page .emerge-card {
+  backdrop-filter: blur(6px);
+  transition: border-color 0.2s ease, transform 0.2s ease;
+}
+
+.emerge-page .emerge-card:hover {
+  border-color: rgba(47, 191, 74, 0.35);
+  transform: translateY(-2px);
+}
+
+.emerge-page .emerge-final-cta {
+  background: linear-gradient(145deg, rgba(12, 42, 82, 0.95), rgba(7, 28, 56, 0.98));
+}
+
+.emerge-page .emerge-final-glow {
+  pointer-events: none;
+  position: absolute;
+  inset: -20%;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(47, 191, 74, 0.2), transparent 45%),
+    radial-gradient(circle at 80% 100%, rgba(12, 42, 82, 0.6), transparent 40%);
+}
+
+.emerge-page .emerge-sticky-quote {
+  position: fixed;
+  left: 50%;
+  bottom: 1.25rem;
+  z-index: 55;
+  display: none;
+  transform: translateX(-50%);
+  border-radius: 9999px;
+  background: #2fbf4a;
+  color: #071c38;
+  padding: 0.85rem 1.4rem;
+  font-size: 0.875rem;
+  font-weight: 700;
+  box-shadow: 0 12px 32px rgba(47, 191, 74, 0.35);
+}
+
+@media (max-width: 767px) {
+  .emerge-page .emerge-sticky-quote {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    /* Sit above the floating WhatsApp chip so both stay tappable */
+    left: 1rem;
+    right: 1rem;
+    bottom: 5.75rem;
+    width: auto;
+    max-width: none;
+    transform: none;
+  }
+}

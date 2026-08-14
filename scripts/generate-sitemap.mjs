@@ -1,4 +1,4 @@
-import { writeFileSync } from "node:fs";
+import { writeFileSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 const SITE_URL = "https://www.myairporttaxini.co.uk";
@@ -8,6 +8,16 @@ const DAY_TRIPS_ENABLED = false;
 const ADDRESS_TO_ADDRESS_ENABLED = true;
 const TRACKING_DEMO_ENABLED = false;
 const BELFAST_CITY_AIRPORT_ENABLED = true;
+
+/** Europe/London civil date YYYY-MM-DD — matches shared/uk-time todayLondonDate. */
+function todayLondonDate(now = new Date()) {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/London" }).format(now);
+}
+
+const emergeConfig = JSON.parse(
+  readFileSync(join(process.cwd(), "src/lib/emerge-belfast-config.json"), "utf8"),
+);
+const EMERGE_CAMPAIGN_ACTIVE = todayLondonDate() <= emergeConfig.expiresOn;
 
 const tourSlugs = [
   "giants-causeway",
@@ -64,7 +74,10 @@ const pages = [
   { path: "/privacy/", changefreq: "yearly", priority: "0.5" },
   { path: "/contact/", changefreq: "monthly", priority: "0.8" },
   { path: "/unsubscribe/", changefreq: "yearly", priority: "0.3" },
-  { path: "/events/emerge-belfast-taxi/", changefreq: "weekly", priority: "0.85" },
+  // EMERGE landing stays at the same URL year to year — omit from sitemap when expired (no 301).
+  ...(EMERGE_CAMPAIGN_ACTIVE
+    ? [{ path: emergeConfig.path, changefreq: "weekly", priority: "0.85" }]
+    : []),
   // /driver/, /owner/, /track/demo/, /test-booking/ intentionally omitted from public sitemap
   ...(TRACKING_DEMO_ENABLED
     ? [{ path: "/track/demo/", changefreq: "monthly", priority: "0.4" }]
