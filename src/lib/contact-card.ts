@@ -193,7 +193,7 @@ export function downloadContactVCardForFiles(): void {
 export function contactEmailLink(): string {
   const subject = encodeURIComponent(`${SITE.name} — save this contact`);
   const body = encodeURIComponent(
-    `Open this link on your iPhone to save ${SITE.name} as a contact:\n\n${contactVCardWorkerUrl()}\n\nThen tap Create New Contact.\n\nIf the logo is missing, delete the old contact first, then use “Download contact file with logo” on the contact page and open the file from Downloads/Files.`,
+    `Open this link on your iPhone to save ${SITE.name} as a contact:\n\n${contactVCardWorkerUrl()}\n\nThen tap Create New Contact.`,
   );
   return `mailto:?subject=${subject}&body=${body}`;
 }
