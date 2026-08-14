@@ -17,7 +17,6 @@ import {
   MAX_ONLINE_PASSENGERS,
   MINIBUS_PARTNER_NOTE,
   MINIBUS_VEHICLE_TYPE,
-  PAY_NOW_MIN_HOURS_AHEAD,
   VEHICLE_BOOKING_GUIDANCE,
   needsLuggageCapacityConfirmation,
   SERVICE_FLAGS,
@@ -25,7 +24,7 @@ import {
   SITE,
   VEHICLE_TYPES,
 } from "@/lib/data";
-import { isPickupAtLeastHoursAhead, parseLondonLocalDateTime } from "@/lib/london-time";
+import { parseLondonLocalDateTime } from "@/lib/london-time";
 import { formatUkDate, formatUkTime, todayLondonDate, nowLondonTime } from "@/lib/format-datetime";
 
 import {
@@ -698,30 +697,14 @@ function QuoteCard({
     ? formatJourneyDuration(routeMetrics.durationMinutes)
     : "";
 
-  const pickupFarEnoughForPayNow = isPickupAtLeastHoursAhead(
-    tripDate,
-    tripTime,
-    PAY_NOW_MIN_HOURS_AHEAD,
-  );
-
-  /** Pay online at quote time — saloon/estate only, ≥12h ahead, SumUp enabled. */
+  /** Pay online at quote time — saloon/estate only, SumUp enabled. */
   const canPayNowOnline =
     SERVICE_FLAGS.customerSumUpPay &&
     isSumUpPaymentEnabled() &&
     !isEnquiryOnly &&
     !isManualQuoteJourney &&
     isInstantPayVehicle(quoteVehicle) &&
-    Boolean(liveQuote) &&
-    pickupFarEnoughForPayNow;
-
-  const showPayNowUnavailableNote =
-    SERVICE_FLAGS.customerSumUpPay &&
-    isSumUpPaymentEnabled() &&
-    !isEnquiryOnly &&
-    isInstantPayVehicle(quoteVehicle) &&
-    Boolean(liveQuote) &&
-    Boolean(tripDate && tripTime) &&
-    !pickupFarEnoughForPayNow;
+    Boolean(liveQuote);
 
   function handlePickupChange(value: string) {
     setPickupAddress(value);
@@ -1105,7 +1088,7 @@ function QuoteCard({
     if (!liveQuote || paymentLoading || !canPayNowOnline) {
       if (!canPayNowOnline) {
         setPaymentError(
-          `Online payment is available for standard and estate cars when pickup is at least ${PAY_NOW_MIN_HOURS_AHEAD} hours ahead. Request to book instead and we’ll email a SumUp link once confirmed.`,
+          "Online payment is available for standard and estate cars with an instant fare. Request to book instead and we’ll email a SumUp link once confirmed.",
         );
       }
       return;
@@ -1480,9 +1463,8 @@ function QuoteCard({
         <h2 className="text-xl font-bold text-white sm:text-2xl">Get a Live Quote</h2>
         <p className="mt-1 text-sm text-white/60">
           Three quick steps — where you&apos;re travelling, travel details, then your details.
-          Standard and estate cars can pay online when pickup is at least{" "}
-          {PAY_NOW_MIN_HOURS_AHEAD} hours ahead; otherwise Request to book and we&apos;ll email a
-          SumUp link after we confirm.
+          Standard and estate cars can pay online by card to confirm; otherwise Request to book and
+          we&apos;ll email a SumUp link after we confirm.
         </p>
         <ol className="mt-4 grid grid-cols-3 gap-2" aria-label="Booking steps">
           {[
@@ -2345,9 +2327,7 @@ function QuoteCard({
           <p className="mt-1 mb-4 text-sm text-white/75">
             {canPayNowOnline
               ? "Enter your details, accept the terms, then pay securely with SumUp to confirm your booking."
-              : showPayNowUnavailableNote
-                ? `Online payment needs at least ${PAY_NOW_MIN_HOURS_AHEAD} hours’ notice. Request to book below — once we confirm the job, we’ll email a SumUp payment link.`
-                : "We need these details for your booking request. After we confirm the job, we’ll email your SumUp payment link."}
+              : "We need these details for your booking request. After we confirm the job, we’ll email your SumUp payment link."}
           </p>
           <div className="space-y-4">
             <div>

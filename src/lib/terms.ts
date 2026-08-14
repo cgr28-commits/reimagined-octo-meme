@@ -95,12 +95,12 @@ export const TERMS_SECTIONS = [
   {
     title: "Booking & Payment",
     content: [
-      "For standard saloon and estate car transfers with pickup at least 12 hours from the time of booking, you may pay online by card via SumUp at the end of the website quote where an instant fare is shown. Your booking is confirmed once payment is completed.",
-      "For pickups with less than 12 hours’ notice, minibus or executive bookings, out-of-area pickup requests, and Republic of Ireland city destinations that require a fixed quote, the process is: request a quote or booking, wait for us to confirm the fare and job, then pay via the SumUp payment link we email. Your booking is confirmed after payment is received.",
+      "For standard saloon and estate car transfers where an instant fare is shown, you may pay online by card via SumUp at the end of the website quote. Your booking is confirmed once payment is completed.",
+      "For minibus or executive bookings, out-of-area pickup requests, and Republic of Ireland city destinations that require a fixed quote, the process is: request a quote or booking, wait for us to confirm the fare and job, then pay via the SumUp payment link we email. Your booking is confirmed after payment is received.",
       "Payment may be made:",
     ],
     list: [
-      "By card via SumUp on the website (standard/estate cars with at least 12 hours’ notice and an instant fare)",
+      "By card via SumUp on the website (standard/estate cars with an instant fare)",
       "By card via the SumUp payment link we email after confirming your booking",
       "By cash to the driver (where agreed)",
       "By bank transfer (where agreed)",
