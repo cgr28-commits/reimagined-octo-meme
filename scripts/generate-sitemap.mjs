@@ -64,6 +64,7 @@ const pages = [
   { path: "/privacy/", changefreq: "yearly", priority: "0.5" },
   { path: "/contact/", changefreq: "monthly", priority: "0.8" },
   { path: "/unsubscribe/", changefreq: "yearly", priority: "0.3" },
+  { path: "/events/emerge-belfast-taxi/", changefreq: "weekly", priority: "0.85" },
   // /driver/, /owner/, /track/demo/, /test-booking/ intentionally omitted from public sitemap
   ...(TRACKING_DEMO_ENABLED
     ? [{ path: "/track/demo/", changefreq: "monthly", priority: "0.4" }]
