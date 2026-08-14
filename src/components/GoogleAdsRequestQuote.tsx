@@ -9,12 +9,15 @@ import {
 import { getGoogleAdsConfig } from "@/lib/google-ads";
 import {
   isGtagReady,
-  trackRequestQuote,
+  trackRequestQuoteConversion,
   type AdsUserData,
 } from "@/lib/google-ads-client";
 
 type GoogleAdsRequestQuoteProps = {
-  /** Fire request_quote once this becomes true (quote/enquiry successfully submitted). */
+  /**
+   * Fire Request quote conversion once this becomes true —
+   * only when `#quoteResult` confirmation is shown after a successful submit.
+   */
   fire: boolean;
   value?: number;
   currency?: string;
@@ -23,7 +26,8 @@ type GoogleAdsRequestQuoteProps = {
 };
 
 /**
- * Fires the request_quote conversion after a successful quote request — not on form open.
+ * Fires the Request quote Ads conversion after a successful quote request
+ * confirmation is on screen — not on form open, click, or validation failure.
  */
 export default function GoogleAdsRequestQuote({
   fire,
@@ -51,12 +55,12 @@ export default function GoogleAdsRequestQuote({
   const userPhone = userData?.phone;
 
   useEffect(() => {
-    if (
-      !fire ||
-      (!config.tagEnabled && !config.quoteEnabled) ||
-      !marketingAllowed ||
-      firedRef.current
-    ) {
+    if (!fire || !config.quoteEnabled || !marketingAllowed || firedRef.current) {
+      return;
+    }
+
+    // Only fire when the success panel (#quoteResult) is in the document.
+    if (typeof document !== "undefined" && !document.getElementById("quoteResult")) {
       return;
     }
 
@@ -66,7 +70,7 @@ export default function GoogleAdsRequestQuote({
       if (!isGtagReady() && attempts < 20) {
         return;
       }
-      const ok = trackRequestQuote({
+      const ok = trackRequestQuoteConversion({
         value,
         currency,
         transactionId,
@@ -84,7 +88,6 @@ export default function GoogleAdsRequestQuote({
   }, [
     fire,
     marketingAllowed,
-    config.tagEnabled,
     config.quoteEnabled,
     value,
     currency,

@@ -15,7 +15,7 @@ import {
 
 /**
  * Sitewide Google tag (gtag.js) with Consent Mode v2.
- * Loads on every page when NEXT_PUBLIC_GOOGLE_ADS_ID is set.
+ * Loads on every page when the Google Ads ID is configured (code default or env).
  * Ads cookies stay denied until the visitor accepts measurement cookies.
  */
 export default function GoogleAdsTag() {
