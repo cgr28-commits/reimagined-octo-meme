@@ -50,7 +50,7 @@ import {
 } from "@/lib/flight-lookup";
 import { formatUkDate, formatUkDateTime } from "@/lib/format-datetime";
 import { parseLondonLocalDateTime } from "@/lib/london-time";
-import { calculateQuote, formatQuote, matchAreaFromAddress } from "@/lib/quote";
+import { calculateQuote, formatQuote, matchAreaFromAddress, arePublicLivePricesEnabled, getPublicUnapprovedPriceLabel } from "@/lib/quote";
 
 export type AssistantMessage = {
   role: "bot" | "user";
@@ -1569,9 +1569,19 @@ function tryBuildQuote(
     return {
       enquiryOnly: true,
       text:
-        `${vehicle.split(" (")[0]} is enquiry only for ${airportName}. ` +
+        `This journey is enquiry only for ${airportName}. ` +
         `Would you like to book? I can take the date, time, and your details here in chat — then we’ll confirm availability and price. ` +
         `Or call ${SITE.landlineDisplay}.`,
+    };
+  }
+
+  if (!arePublicLivePricesEnabled()) {
+    return {
+      enquiryOnly: true,
+      text:
+        `${getPublicUnapprovedPriceLabel()} for ${airportName}. ` +
+        `I can take your trip details here and we’ll confirm the fare before any payment. ` +
+        `Or call ${SITE.landlineDisplay}.${capacityNote}`,
     };
   }
 

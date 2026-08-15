@@ -1,10 +1,11 @@
-"use client";
-
 import { LOWEST_AIRPORT_FROM_PRICE, SERVICE_FLAGS } from "@/lib/data";
+import { arePublicLivePricesEnabled, getPublicUnapprovedPriceLabel } from "@/lib/pricing-config";
 import QuoteCard from "./QuoteCard";
 
 export default function HeroSlideshow() {
-  const fromPrice = `From £${LOWEST_AIRPORT_FROM_PRICE}`;
+  const fromPrice = arePublicLivePricesEnabled()
+    ? `From £${LOWEST_AIRPORT_FROM_PRICE}`
+    : null;
   const airportList = SERVICE_FLAGS.belfastCityAirport
     ? "Belfast International, Belfast City, Dublin, and City of Derry airports"
     : "Belfast International, Dublin, and City of Derry airports";
@@ -28,7 +29,9 @@ export default function HeroSlideshow() {
             flight tracking, meet &amp; greet, and complimentary waiting time.
           </p>
           <p className="mt-4 max-w-lg text-base leading-relaxed text-white/55">
-            Enter your journey details for a live quote, then pay securely online to confirm.
+            {arePublicLivePricesEnabled()
+              ? "Enter your journey details for a live quote, then pay securely online to confirm."
+              : `${getPublicUnapprovedPriceLabel()} — enter your journey details and we’ll confirm your fare before payment.`}
           </p>
 
           <div className="mt-10 flex flex-wrap items-center gap-3">
@@ -47,7 +50,7 @@ export default function HeroSlideshow() {
           </div>
 
           <ul className="mt-12 flex flex-wrap gap-x-8 gap-y-3 text-sm text-white/55">
-            <li>{fromPrice}</li>
+            {fromPrice ? <li>{fromPrice}</li> : <li>{getPublicUnapprovedPriceLabel()}</li>}
             <li>Flight tracking</li>
             <li>Meet &amp; greet</li>
           </ul>

@@ -1,0 +1,266 @@
+{
+  "$schemaComment": "Single editable pricing configuration for My Airport Taxi NI. Set pricingRulesApproved to true only after owner approval. Until then, the public site shows Price confirmation required and never invents live fares.",
+  "pricingRulesApproved": false,
+  "publicUnapprovedPriceLabel": "Price confirmation required",
+  "currency": "GBP",
+  "operational": {
+    "description": "Total cost model: loaded trip + likely empty return, driver time, tolls, airport charges, weekday vs weekend. Fill rates before approving \u2014 do not invent public fares.",
+    "emptyReturnMileageFactor": 1.0,
+    "emptyReturnTimeFactor": 1.0,
+    "weekday": {
+      "baseFeeGbp": null,
+      "perKmGbp": null,
+      "perMinuteGbp": null
+    },
+    "weekendAndBankHoliday": {
+      "baseFeeGbp": null,
+      "perKmGbp": null,
+      "perMinuteGbp": null,
+      "premiumRate": 0.05
+    },
+    "defaultTollsGbp": null,
+    "airportChargesGbp": {
+      "BFS": null,
+      "BHD": null,
+      "DUB": null,
+      "LDY": null
+    }
+  },
+  "airportMinimumFaresGbp": {
+    "BFS": 45,
+    "BHD": 35,
+    "DUB": 180,
+    "LDY": 35
+  },
+  "airportBasePricesGbp": {
+    "BFS": 45,
+    "BHD": 35,
+    "DUB": 180,
+    "LDY": 35
+  },
+  "airportEstatePremiumGbp": 8,
+  "airportExecutiveMinimumFareGbp": 105,
+  "areaAirportSurchargesGbp": {
+    "Belfast City Centre": {
+      "BFS": 3,
+      "BHD": 0,
+      "DUB": 50,
+      "LDY": 99
+    },
+    "Holywood": {
+      "BFS": 8,
+      "BHD": 0,
+      "DUB": 58,
+      "LDY": 103
+    },
+    "Newtownabbey": {
+      "BFS": 3,
+      "BHD": 8,
+      "DUB": 60,
+      "LDY": 89
+    },
+    "Lisburn": {
+      "BFS": 0,
+      "BHD": 8,
+      "DUB": 60,
+      "LDY": 98
+    },
+    "Dundonald": {
+      "BFS": 23,
+      "BHD": 3,
+      "DUB": 60,
+      "LDY": 103
+    },
+    "Antrim": {
+      "BFS": 0,
+      "BHD": 29,
+      "DUB": 50,
+      "LDY": 68
+    },
+    "Ballyclare": {
+      "BFS": 3,
+      "BHD": 13,
+      "DUB": 65,
+      "LDY": 83
+    },
+    "Hillsborough": {
+      "BFS": 3,
+      "BHD": 19,
+      "DUB": 65,
+      "LDY": 118
+    },
+    "Carrickfergus": {
+      "BFS": 14,
+      "BHD": 8,
+      "DUB": 62,
+      "LDY": 103
+    },
+    "Comber": {
+      "BFS": 23,
+      "BHD": 0,
+      "DUB": 62,
+      "LDY": 113
+    },
+    "Larne": {
+      "BFS": 13,
+      "BHD": 38,
+      "DUB": 72,
+      "LDY": 98
+    },
+    "Bangor": {
+      "BFS": 29,
+      "BHD": 3,
+      "DUB": 65,
+      "LDY": 118
+    },
+    "Newtownards": {
+      "BFS": 23,
+      "BHD": 0,
+      "DUB": 62,
+      "LDY": 113
+    },
+    "Ballymena": {
+      "BFS": 0,
+      "BHD": 49,
+      "DUB": 78,
+      "LDY": 58
+    },
+    "Downpatrick": {
+      "BFS": 38,
+      "BHD": 43,
+      "DUB": 75,
+      "LDY": 85
+    },
+    "Banbridge": {
+      "BFS": 38,
+      "BHD": 43,
+      "DUB": 75,
+      "LDY": 78
+    },
+    "Newcastle": {
+      "BFS": 64,
+      "BHD": 58,
+      "DUB": 80,
+      "LDY": 90
+    },
+    "Lurgan": {
+      "BFS": 18,
+      "BHD": 33,
+      "DUB": 82,
+      "LDY": 72
+    },
+    "Portadown": {
+      "BFS": 23,
+      "BHD": 53,
+      "DUB": 85,
+      "LDY": 70
+    },
+    "Armagh": {
+      "BFS": 44,
+      "BHD": 53,
+      "DUB": 88,
+      "LDY": 75
+    },
+    "Newry": {
+      "BFS": 63,
+      "BHD": 63,
+      "DUB": 40,
+      "LDY": 88
+    },
+    "Cookstown": {
+      "BFS": 28,
+      "BHD": 78,
+      "DUB": 95,
+      "LDY": 28
+    },
+    "Coleraine": {
+      "BFS": 43,
+      "BHD": 48,
+      "DUB": 159,
+      "LDY": 18
+    },
+    "Omagh": {
+      "BFS": 74,
+      "BHD": 62,
+      "DUB": 115,
+      "LDY": 22
+    },
+    "Derry / Londonderry": {
+      "BFS": 83,
+      "BHD": 128,
+      "DUB": 105,
+      "LDY": 0
+    },
+    "Enniskillen": {
+      "BFS": 99,
+      "BHD": 94,
+      "DUB": 175,
+      "LDY": 55
+    }
+  },
+  "defaultAreaSurchargeGbp": {
+    "BFS": 35,
+    "BHD": 25,
+    "DUB": 70,
+    "LDY": 93
+  },
+  "vehicleMultipliers": {
+    "Estate Car (1\u20134 passengers)": 1,
+    "Standard Saloon (1\u20134 passengers)": 1,
+    "Executive Saloon (1\u20134 passengers)": 1.2,
+    "Minibus (5\u20138 passengers)": 1.55
+  },
+  "pointToPointVehicleAdjustmentsGbp": {
+    "Estate Car (1\u20134 passengers)": 0,
+    "Standard Saloon (1\u20134 passengers)": -10,
+    "Executive Saloon (1\u20134 passengers)": 0,
+    "Minibus (5\u20138 passengers)": 0
+  },
+  "pointToPointBaseGbp": 43,
+  "pointToPointAreaRatesGbp": {
+    "Belfast City Centre": 0,
+    "Holywood": 8,
+    "Newtownabbey": 10,
+    "Dundonald": 12,
+    "Lisburn": 12,
+    "Hillsborough": 14,
+    "Carrickfergus": 18,
+    "Antrim": 10,
+    "Ballyclare": 12,
+    "Bangor": 22,
+    "Comber": 18,
+    "Newtownards": 20,
+    "Larne": 22,
+    "Ballymena": 28,
+    "Downpatrick": 32,
+    "Newcastle": 42,
+    "Banbridge": 34,
+    "Newry": 38,
+    "Armagh": 36,
+    "Portadown": 34,
+    "Lurgan": 32,
+    "Coleraine": 48,
+    "Cookstown": 42,
+    "Omagh": 52,
+    "Derry / Londonderry": 136,
+    "Enniskillen": 62,
+    "default": 20
+  },
+  "otsReferenceModel": {
+    "note": "Draft reference model retained for calibration scripts only. Not shown publicly until pricingRulesApproved is true.",
+    "estateBaseGbp": 40,
+    "perKmGbp": 0.482,
+    "perMinuteGbp": 0.554,
+    "vehicleBaseGbp": {
+      "Standard Saloon (1\u20134 passengers)": 35,
+      "Estate Car (1\u20134 passengers)": 40,
+      "Executive Saloon (1\u20134 passengers)": 45,
+      "Minibus (5\u20138 passengers)": 60
+    },
+    "undercutMinGbp": 8,
+    "undercutMaxGbp": 10
+  },
+  "returnJourneyDiscountRate": 0.05,
+  "airportTripPremiumRate": 0,
+  "addressToAddressTripPremiumRate": 0.05
+}

@@ -36,6 +36,8 @@ import {
   calculatePointToPointQuote,
   calculateQuote,
   formatQuote,
+  arePublicLivePricesEnabled,
+  getPublicUnapprovedPriceLabel,
 } from "@/lib/quote";
 import { isLdyServiceAreaAddress } from "../../shared/ldy-service-area";
 import {
@@ -348,10 +350,14 @@ function QuoteCard({
     isPlaceSelected(pickupPlace) &&
     isPlaceSelected(dropoffPlace) &&
     needsManualQuoteApproval(pickupPlace, dropoffPlace);
+  /** Owner gate in pricing-config.json — no live £ until rules are approved. */
+  const pricingConfirmationRequired = !arePublicLivePricesEnabled();
+  const priceConfirmationLabel = getPublicUnapprovedPriceLabel();
   /** Amber banner only when an out-of-area pickup still needs manual approval. */
   const isOutOfAreaPickupJourney =
     isManualQuoteJourney && isOutOfAreaPickup(pickupPlace);
-  const showsRequestQuoteFlow = isRequestQuote || isManualQuoteJourney;
+  const showsRequestQuoteFlow =
+    isRequestQuote || isManualQuoteJourney || pricingConfirmationRequired;
   const effectiveAirportCode = isA2AFlow
     ? pickupAirportCode || dropoffAirportCode || ""
     : airportCode;
@@ -627,7 +633,8 @@ function QuoteCard({
   }, [capacityNeedsConfirm]);
 
   const liveQuote = useMemo(() => {
-    if (!canShowPrice || isManualQuoteJourney) {
+    // Do not invent or show live fares until pricing rules are owner-approved.
+    if (!canShowPrice || isManualQuoteJourney || pricingConfirmationRequired) {
       return null;
     }
     // Executive: no online price. Request-quote vehicles (if any) may show a guide price.
@@ -700,6 +707,7 @@ function QuoteCard({
     isAirportTrip,
     isEnquiryOnly,
     isManualQuoteJourney,
+    pricingConfirmationRequired,
     journeyKind,
     pickupAddress,
     pickupAirportCode,
@@ -727,6 +735,7 @@ function QuoteCard({
     isSumUpPaymentEnabled() &&
     !isEnquiryOnly &&
     !isManualQuoteJourney &&
+    !pricingConfirmationRequired &&
     isInstantPayVehicle(quoteVehicle) &&
     Boolean(liveQuote);
 
@@ -958,7 +967,7 @@ function QuoteCard({
       return false;
     }
 
-    if (isEnquiryOnly || isManualQuoteJourney) {
+    if (isEnquiryOnly || isManualQuoteJourney || pricingConfirmationRequired) {
       return hasQuoteRoute;
     }
 
@@ -1023,7 +1032,9 @@ function QuoteCard({
               : "Airport drop-off"
             : "Address to address";
 
-    const estimatedPrice = liveQuote
+    const estimatedPrice = pricingConfirmationRequired
+      ? priceConfirmationLabel
+      : liveQuote
       ? isRequestQuote
         ? `Guide price ${formatQuote(liveQuote.amount)} (subject to availability)`
         : !isEnquiryOnly && !isManualQuoteJourney
@@ -1182,9 +1193,11 @@ function QuoteCard({
 
     let reference = "";
     try {
-      if (isEnquiryOnly || isManualQuoteJourney) {
+      if (isEnquiryOnly || isManualQuoteJourney || pricingConfirmationRequired) {
         const enquiryMessage = buildEnquiryBookingMessage(details);
-        const subject = isOutOfAreaPickupJourney
+        const subject = pricingConfirmationRequired
+          ? `Price confirmation request — ${details.customerName}`
+          : isOutOfAreaPickupJourney
           ? `Out-of-area pickup quote request — ${details.customerName}`
           : isRoiJourney
             ? `ROI long-distance quote request — ${details.customerName}`
@@ -1234,7 +1247,7 @@ function QuoteCard({
       void recordMarketingOptIn({
         email: details.customerEmail,
         name: details.customerName,
-        source: isManualQuoteJourney || isEnquiryOnly ? "vehicle-enquiry" : "booking-request",
+        source: isManualQuoteJourney || isEnquiryOnly || pricingConfirmationRequired ? "vehicle-enquiry" : "booking-request",
         fields: details,
       });
     }
@@ -1262,7 +1275,7 @@ function QuoteCard({
       if (!hasQuoteRoute) {
         return;
       }
-      if (!isEnquiryOnly && !isManualQuoteJourney && !liveQuote) {
+      if (!isEnquiryOnly && !isManualQuoteJourney && !pricingConfirmationRequired && !liveQuote) {
         return;
       }
       setQuoteStep(2);
@@ -1322,7 +1335,7 @@ function QuoteCard({
       : "Sending booking…";
 
   const confirmButtonLabel = showsRequestQuoteFlow
-    ? isManualQuoteJourney
+    ? pricingConfirmationRequired || isManualQuoteJourney
       ? "Request Fixed Quote"
       : liveQuote
         ? `Request quote · ${formatQuote(liveQuote.amount)}`
@@ -1334,7 +1347,7 @@ function QuoteCard({
         : "Confirm & book";
 
   const whatsAppConfirmLabel = showsRequestQuoteFlow
-    ? isManualQuoteJourney
+    ? pricingConfirmationRequired || isManualQuoteJourney
       ? "Request Fixed Quote via WhatsApp"
       : liveQuote
         ? `Request quote via WhatsApp — ${formatQuote(liveQuote.amount)}`
@@ -1345,7 +1358,13 @@ function QuoteCard({
         ? `Send via WhatsApp — ${formatQuote(liveQuote.amount)}`
         : "Confirm & send via WhatsApp";
 
-  const quoteHint = isManualQuoteJourney
+  const quoteHint = pricingConfirmationRequired
+    ? hasQuoteRoute
+      ? "Continue to request your price — we’ll confirm the fare before payment."
+      : isA2AFlow && !isAddressPairComplete
+        ? "Select pickup and drop-off addresses from the suggestions."
+        : "Enter your journey details to request a confirmed price."
+    : isManualQuoteJourney
     ? hasQuoteRoute
       ? isOutOfAreaPickupJourney
         ? "Continue to request your fixed price — out-of-area pickups need manual approval."
@@ -1503,9 +1522,9 @@ function QuoteCard({
       <div className="mb-6">
         <h2 className="text-xl font-semibold tracking-tight text-white sm:text-2xl">Get a Live Quote</h2>
         <p className="mt-2 text-sm leading-relaxed text-white/60">
-          Three quick steps — your journey, travel details, then your details. Instant fares can be
-          paid online by card to confirm; otherwise Request to book and we&apos;ll email a SumUp
-          link after we confirm.
+          {pricingConfirmationRequired
+            ? "Three quick steps — your journey, travel details, then your details. We’ll confirm your fare before any payment."
+            : "Three quick steps — your journey, travel details, then your details. Instant fares can be paid online by card to confirm; otherwise Request to book and we’ll email a SumUp link after we confirm."}
         </p>
         <ol className="mt-4 grid grid-cols-3 gap-2" aria-label="Booking steps">
           {[
@@ -2192,7 +2211,25 @@ function QuoteCard({
 
         {(quoteStep === 1 || quoteStep === 2) && (
         <div className="rounded-xl border border-white/10 bg-navy-dark/40 px-4 py-5">
-          {isManualQuoteJourney ? (
+          {pricingConfirmationRequired ? (
+            <>
+              <p className="text-xs font-medium uppercase tracking-wider text-emerald">
+                Pricing
+              </p>
+              <p className="mt-1 text-xl font-semibold tracking-tight text-white sm:text-2xl">
+                {priceConfirmationLabel}
+              </p>
+              <p className="mt-2 text-sm leading-relaxed text-white/70">
+                We’ll confirm your fare once journey details are reviewed. Continue to send your
+                trip details — no online payment until the price is confirmed.
+              </p>
+              {journeyDistanceLabel && journeyDurationLabel && (
+                <p className="mt-2 text-xs text-white/60">
+                  Approx. {journeyDistanceLabel} · {journeyDurationLabel}
+                </p>
+              )}
+            </>
+          ) : isManualQuoteJourney ? (
             <>
               <p className="text-xs font-medium uppercase tracking-wider text-emerald">
                 {isOutOfAreaPickupJourney
@@ -2294,7 +2331,7 @@ function QuoteCard({
             </>
           )}
           <p className="mt-3 text-[11px] text-white/40">
-            {isManualQuoteJourney
+            {pricingConfirmationRequired || isManualQuoteJourney
               ? "Request Fixed Quote — we’ll confirm your personal price before any payment is taken."
               : showsRequestQuoteFlow
               ? "Request a quote — we’ll confirm availability before the booking is accepted. No online payment until confirmed."
@@ -2484,7 +2521,9 @@ function QuoteCard({
               )}
               <PreviewRow label="Passengers" value={String(passengers)} />
               <PreviewRow label="Suitcases" value={String(suitcases)} />
-              {isManualQuoteJourney ? (
+              {pricingConfirmationRequired ? (
+                <PreviewRow label="Pricing" value={priceConfirmationLabel} />
+              ) : isManualQuoteJourney ? (
                 <PreviewRow
                   label="Pricing"
                   value={
