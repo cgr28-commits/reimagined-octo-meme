@@ -26,7 +26,7 @@ function QuoteCta({
   return (
     <a
       href="#quote"
-      className={`inline-flex items-center justify-center rounded-full bg-emerald px-7 py-3.5 text-sm font-bold text-navy shadow-lg shadow-emerald/25 transition-all hover:bg-emerald-light hover:shadow-emerald/40 ${className}`}
+      className={`inline-flex items-center justify-center rounded-full bg-emerald px-7 py-3.5 text-sm font-bold text-navy transition-colors hover:bg-emerald-light ${className}`}
     >
       {label}
     </a>

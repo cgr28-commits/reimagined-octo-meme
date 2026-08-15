@@ -72,9 +72,9 @@ function QuotePriceCard({
   return (
     <div
       ref={cardRef}
-      className="overflow-hidden rounded-2xl border border-emerald/40 bg-emerald/10 shadow-lg shadow-emerald/10"
+      className="overflow-hidden rounded-2xl border border-white/10 bg-navy-light"
     >
-      <div className="border-b border-emerald/25 bg-emerald px-3 py-3 text-navy">
+      <div className="border-b border-white/10 bg-emerald px-3 py-3 text-navy">
         <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-navy/70">
           Your fixed journey price
         </p>
@@ -83,11 +83,9 @@ function QuotePriceCard({
       </div>
       <div className="space-y-1.5 px-3 py-2.5 text-sm text-white/90">
         <p>
-          <span className="text-white/55">Vehicle · </span>
-          {card.vehicle}
-          {card.returnJourney ? " · return (5% off)" : " · one way"}
+          {card.returnJourney ? "Return (5% off)" : "One way"}
           <span className="text-white/55"> · </span>
-          {card.passengers} pax
+          {card.passengers} passengers
           <span className="text-white/55"> · </span>
           {card.suitcases} cases
         </p>
@@ -443,7 +441,7 @@ export default function QuoteAssistant() {
         ref={launcherRef}
         type="button"
         onClick={toggleOpen}
-        className={`fixed bottom-6 right-3 z-[60] flex max-w-[calc(100%-1.5rem)] items-center border-2 border-emerald bg-navy shadow-lg shadow-emerald/30 transition-all hover:bg-navy-light sm:bottom-8 sm:right-8 ${
+        className={`fixed bottom-6 right-3 z-[60] flex max-w-[calc(100%-1.5rem)] items-center border border-white/15 bg-navy shadow-lg transition-colors hover:bg-navy-light sm:bottom-8 sm:right-8 ${
           open
             ? "h-14 w-14 justify-center rounded-full sm:h-16 sm:w-16"
             : "gap-2 rounded-2xl py-2 pl-2 pr-3 sm:gap-3 sm:py-2.5 sm:pl-2.5 sm:pr-4"

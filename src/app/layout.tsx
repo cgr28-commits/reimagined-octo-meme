@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Manrope } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
 import PreventHorizontalScroll from "@/components/PreventHorizontalScroll";
@@ -14,9 +14,9 @@ import { getGoogleAdsConfig } from "@/lib/google-ads";
 import { absoluteSiteUrl } from "@/lib/paths";
 import { getFaqPageJsonLd, getLocalBusinessJsonLd, getWebSiteJsonLd } from "@/lib/structured-data";
 
-const inter = Inter({
+const displayFont = Manrope({
   subsets: ["latin"],
-  variable: "--font-inter",
+  variable: "--font-display",
 });
 
 const offlineActive = SITE_OFFLINE.enabled && Date.parse(SITE_OFFLINE.until) > Date.now();
@@ -118,7 +118,7 @@ export default function RootLayout({
   const googleAdsConfig = getGoogleAdsConfig();
 
   return (
-    <html lang="en-GB" className={inter.variable}>
+    <html lang="en-GB" className={displayFont.variable}>
       <body className="overflow-x-clip antialiased">
         {googleAdsConfig.tagEnabled ? (
           <Script id="google-consent-default" strategy="beforeInteractive">

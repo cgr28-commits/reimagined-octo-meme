@@ -63,17 +63,16 @@ export const SERVICE_FLAGS = {
 export type ServiceFlagKey = keyof typeof SERVICE_FLAGS;
 
 export const ALL_NAV_LINKS = [
-  { label: "Airports", href: "/#airports", service: null },
-  { label: "Long-Distance Transfers", href: "/long-distance-transfers/", service: "addressToAddress" as const },
-  { label: "Locations", href: "/locations/", service: "addressToAddress" as const },
-  { label: "Day Trips", href: "/tours/", service: "dayTrips" as const },
-  { label: "Vehicles", href: "/#vehicles", service: null },
-  { label: "Chauffeur", href: "/#chauffeur", service: "chauffeur" as const },
-  { label: "Check Flights", href: "/#flight-status", service: null },
-  { label: "Driver Tracking", href: "/#driver-tracking", service: "liveDriverTracking" as const },
-  { label: "Areas We Cover", href: "/#areas", service: null },
-  { label: "Why Us", href: "/#why-us", service: null },
-  { label: "FAQ", href: "/#faq", service: null },
+  { label: "Airports", href: "/#airports", service: null, primary: true },
+  { label: "Long-Distance Transfers", href: "/long-distance-transfers/", service: "addressToAddress" as const, primary: true },
+  { label: "Locations", href: "/locations/", service: "addressToAddress" as const, primary: true },
+  { label: "Day Trips", href: "/tours/", service: "dayTrips" as const, primary: false },
+  { label: "Chauffeur", href: "/#chauffeur", service: "chauffeur" as const, primary: false },
+  { label: "Check Flights", href: "/#flight-status", service: null, primary: false },
+  { label: "Driver Tracking", href: "/#driver-tracking", service: "liveDriverTracking" as const, primary: false },
+  { label: "Areas We Cover", href: "/#areas", service: null, primary: false },
+  { label: "Why Us", href: "/#why-us", service: null, primary: false },
+  { label: "FAQ", href: "/#faq", service: null, primary: true },
 ] as const;
 
 function isServiceEnabled(service: ServiceFlagKey | null): boolean {
@@ -87,6 +86,11 @@ function isServiceEnabled(service: ServiceFlagKey | null): boolean {
 export const NAV_LINKS = ALL_NAV_LINKS.filter((link) => isServiceEnabled(link.service)).map(
   ({ label, href }) => ({ label, href }),
 );
+
+/** Compact desktop header links — full list remains in the mobile menu. */
+export const PRIMARY_NAV_LINKS = ALL_NAV_LINKS.filter(
+  (link) => link.primary && isServiceEnabled(link.service),
+).map(({ label, href }) => ({ label, href }));
 
 /** Always visible on mobile — key services beyond airport transfers. */
 export const ALL_MOBILE_QUICK_LINKS = [
@@ -370,7 +374,7 @@ export const WHY_CHOOSE_US = [
   {
     title: "Licensed & insured transport",
     description:
-      "Saloon and estate cars from our licensed vehicles for 1–4 passengers. Minibus transfers for larger groups (5 or more) are available through our licensed transport partners.",
+      "Licensed, insured private transfers for 1–4 passengers. Larger groups (5 or more) are available through our licensed transport partners.",
   },
 ] as const;
 
@@ -439,7 +443,7 @@ export const FAQS = [
   {
     question: "Can I pay by card?",
     answer:
-      "Yes. Standard and estate car transfers with an instant fare can be paid online by card via SumUp at the end of the quote. For minibuses, executive cars, or journeys that need a fixed quote, Request to book and we’ll email a SumUp payment link after we confirm the job. Cash and bank transfer can be arranged where agreed.",
+      "Yes. Transfers with an instant fare can be paid online by card via SumUp at the end of the quote. For larger groups or journeys that need a fixed quote, Request to book and we’ll email a SumUp payment link after we confirm the job. Cash and bank transfer can be arranged where agreed.",
   },
   {
     question: "What is your cancellation and refund policy?",
@@ -452,9 +456,9 @@ export const FAQS = [
       "If you pay online at quote time, your booking is confirmed once SumUp payment completes and you receive your confirmation email. If you Request to book, submitting the request does not confirm the journey — once we confirm the job and you pay via the SumUp link we email, your booking is confirmed.",
   },
   {
-    question: "What vehicle types do you offer?",
+    question: "What size of group can you transfer?",
     answer:
-      "For 1–4 passengers we use standard or estate cars with an instant online price where shown. For 5–8 passengers, minibus transfers are arranged through our licensed transport partners (request a quote — subject to availability; the quote tool selects minibus automatically when more than four passengers are chosen). Executive saloons are enquire-to-book. Eight passengers with eight large suitcases need a luggage-capacity check before we can confirm.",
+      "Online quotes cover 1–8 passengers. For 1–4 passengers with light luggage you’ll usually see an instant fare. Larger groups (5–8) are arranged through our licensed transport partners — request a quote online (subject to availability). Eight passengers with eight large suitcases need a luggage-capacity check before we can confirm.",
   },
   {
     question: "Do you offer chauffeur and executive private hire?",

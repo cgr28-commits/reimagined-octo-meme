@@ -17,7 +17,6 @@ import {
   MAX_ONLINE_PASSENGERS,
   MINIBUS_PARTNER_NOTE,
   MINIBUS_VEHICLE_TYPE,
-  VEHICLE_BOOKING_GUIDANCE,
   needsLuggageCapacityConfirmation,
   SERVICE_FLAGS,
   showsOnlineGuidePrice,
@@ -110,7 +109,7 @@ const MINIBUS = MINIBUS_VEHICLE_TYPE;
 
 type VehicleType = (typeof VEHICLE_TYPES)[number];
 
-function getAutoVehicle(passengers: number, suitcases: number, _a2aPrimary = false): VehicleType | null {
+function getAutoVehicle(passengers: number, suitcases: number, _a2aPrimary = false): VehicleType {
   void _a2aPrimary;
   // 5+ passengers → partner minibus (request a quote / subject to availability).
   if (passengers > 4 || suitcases >= 5) {
@@ -119,7 +118,8 @@ function getAutoVehicle(passengers: number, suitcases: number, _a2aPrimary = fal
   if (suitcases >= 3) {
     return ESTATE;
   }
-  return null;
+  // Default private transfer for light luggage — kept internal (no customer vehicle picker).
+  return VEHICLE_TYPES[0];
 }
 
 function formatDisplayDate(date: string): string {
@@ -316,14 +316,16 @@ function QuoteCard({
     setRouteMetrics(metrics);
   }, []);
 
-  const autoVehicle = getAutoVehicle(passengers, suitcases, IS_A2A_PRIMARY);
-  const quoteVehicle = autoVehicle ?? vehicle;
+  const quoteVehicle = vehicle;
   const isEnquiryOnly = isVehicleEnquiryOnly(quoteVehicle);
   const isRequestQuote = isVehicleRequestQuote(quoteVehicle);
   const showGuidePrice = showsOnlineGuidePrice(quoteVehicle);
   const capacityNeedsConfirm = needsLuggageCapacityConfirmation(passengers, suitcases);
-  const isVehicleAutoSelected = autoVehicle != null;
   const [capacityConfirmed, setCapacityConfirmed] = useState(false);
+
+  useEffect(() => {
+    setVehicle(getAutoVehicle(passengers, suitcases, IS_A2A_PRIMARY));
+  }, [passengers, suitcases]);
   const [capacityError, setCapacityError] = useState("");
 
   const isA2AFlow = IS_A2A_PRIMARY;
@@ -559,7 +561,7 @@ function QuoteCard({
                 !isReturnAfterOutbound(tripDate, tripTime, returnDate, returnTime)
               ? "Return date and time must be after your outbound trip."
               : !hasCompatibleVehicle
-                ? "Select passengers, luggage, and a compatible vehicle to continue."
+                ? "Select passengers and luggage to continue."
                 : "";
 
   const quoteAddress = isA2AFlow
@@ -1371,9 +1373,9 @@ function QuoteCard({
           : ""
     : isEnquiryOnly
     ? hasQuoteRoute
-      ? !isScheduleComplete
-        ? `${quoteVehicle.split(" (")[0]} is enquiry only — add your date and time, then continue to book.`
-        : `${quoteVehicle.split(" (")[0]} is enquiry only — continue to send your trip details and we’ll quote you.`
+        ? !isScheduleComplete
+        ? "This journey is enquiry only — add your date and time, then continue to book."
+        : "This journey is enquiry only — continue to send your trip details and we’ll quote you."
       : isAirportTrip
         ? !airportCode
           ? "Select an airport to continue your enquiry"
@@ -1419,7 +1421,7 @@ function QuoteCard({
       <div
         ref={cardRef}
         id="quoteResult"
-        className="glass-card min-w-0 rounded-2xl p-6 sm:p-8 lg:animate-float"
+        className="glass-card min-w-0 rounded-2xl p-6 sm:p-8"
       >
         <GoogleAdsRequestQuote
           fire={canFireQuoteConversion}
@@ -1429,7 +1431,7 @@ function QuoteCard({
           pageType={pageType}
           includeUserData={false}
         />
-        <div className="rounded-xl border border-emerald/30 bg-emerald/10 px-5 py-8 text-center sm:px-8 sm:py-10">
+        <div className="rounded-xl border border-white/10 bg-navy-dark/50 px-5 py-8 text-center sm:px-8 sm:py-10">
           <p className="text-xs font-medium uppercase tracking-wider text-emerald">
             {showsRequestQuoteFlow
               ? "Quote request submitted"
@@ -1437,7 +1439,7 @@ function QuoteCard({
                 ? "Enquiry submitted"
                 : "Booking submitted"}
           </p>
-          <h2 className="mt-2 text-2xl font-bold text-white sm:text-3xl">Thank you</h2>
+          <h2 className="mt-2 text-2xl font-semibold tracking-tight text-white sm:text-3xl">Thank you</h2>
           {quoteConversionValue ? (
             <p className="mt-4 text-3xl font-bold text-white sm:text-4xl">
               {formatQuote(quoteConversionValue)}
@@ -1497,13 +1499,13 @@ function QuoteCard({
   }
 
   return (
-    <div ref={cardRef} className="glass-card min-w-0 rounded-2xl p-6 sm:p-8 lg:animate-float">
+    <div ref={cardRef} className="glass-card min-w-0 rounded-2xl p-6 sm:p-8">
       <div className="mb-6">
-        <h2 className="text-xl font-bold text-white sm:text-2xl">Get a Live Quote</h2>
-        <p className="mt-1 text-sm text-white/60">
-          Three quick steps — where you&apos;re travelling, travel details, then your details.
-          Standard and estate cars can pay online by card to confirm; otherwise Request to book and
-          we&apos;ll email a SumUp link after we confirm.
+        <h2 className="text-xl font-semibold tracking-tight text-white sm:text-2xl">Get a Live Quote</h2>
+        <p className="mt-2 text-sm leading-relaxed text-white/60">
+          Three quick steps — your journey, travel details, then your details. Instant fares can be
+          paid online by card to confirm; otherwise Request to book and we&apos;ll email a SumUp
+          link after we confirm.
         </p>
         <ol className="mt-4 grid grid-cols-3 gap-2" aria-label="Booking steps">
           {[
@@ -2118,18 +2120,6 @@ function QuoteCard({
           </div>
         )}
 
-        <div className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3">
-          <p className="text-xs font-semibold uppercase tracking-wider text-white/55">Vehicle options</p>
-          <ul className="mt-2 space-y-1.5 text-xs leading-relaxed text-white/65">
-            {VEHICLE_BOOKING_GUIDANCE.map((line) => (
-              <li key={line} className="flex gap-2">
-                <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-emerald" aria-hidden />
-                <span>{line}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
             <label
@@ -2175,65 +2165,25 @@ function QuoteCard({
               ))}
             </select>
           </div>
-          <div className="sm:col-span-2">
-            <label
-              htmlFor="vehicle"
-              className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/50"
-            >
-              Vehicle Type
-            </label>
-            <input type="hidden" name="vehicle" value={quoteVehicle} />
-            <select
-              id="vehicle"
-              required
-              value={quoteVehicle}
-              onChange={(e) => setVehicle(e.target.value as VehicleType)}
-              disabled={isVehicleAutoSelected}
-              className="w-full rounded-xl border border-white/10 bg-navy-light px-4 py-3 text-sm text-white outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30 disabled:cursor-not-allowed disabled:opacity-70"
-            >
-              {VEHICLE_TYPES.map((v) => (
-                <option key={v} value={v}>
-                  {isVehicleRequestQuote(v)
-                    ? `${v} — request a quote`
-                    : isVehicleEnquiryOnly(v)
-                      ? `${v} — enquire to book`
-                      : v}
-                </option>
-              ))}
-            </select>
-            {passengers > 4 ? (
-              <p className="mt-1.5 text-xs text-white/40">
-                Minibus selected automatically for more than 4 passengers — Request a quote via our
-                licensed transport partners (subject to availability).
-              </p>
-            ) : suitcases >= 5 ? (
-              <p className="mt-1.5 text-xs text-white/40">
-                Minibus selected automatically for 5 or more suitcases — Request a quote via our
-                licensed transport partners (subject to availability).
-              </p>
-            ) : suitcases >= 3 ? (
-              <p className="mt-1.5 text-xs text-white/40">
-                Estate car selected automatically for 3 or more suitcases — instant online price where
-                shown.
-              </p>
-            ) : (
-              <p className="mt-1.5 text-xs text-white/40">
-                Choose Standard or Estate for 1–4 passengers — instant online price where shown.
-              </p>
-            )}
-            {isRequestQuote ? (
-              <p className="mt-1.5 text-xs text-white/50">{MINIBUS_PARTNER_NOTE}</p>
-            ) : null}
-          </div>
+          <input type="hidden" name="vehicle" value={quoteVehicle} />
+          {passengers > 4 || suitcases >= 5 ? (
+            <p className="sm:col-span-2 text-xs leading-relaxed text-white/45">
+              Larger groups are arranged through our licensed transport partners — request a quote
+              (subject to availability).
+            </p>
+          ) : null}
+          {isRequestQuote ? (
+            <p className="sm:col-span-2 text-xs text-white/50">{MINIBUS_PARTNER_NOTE}</p>
+          ) : null}
         </div>
 
         {capacityNeedsConfirm ? (
           <div className="rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-50">
             <p className="font-semibold text-amber-100">Luggage capacity check required</p>
             <p className="mt-1 text-xs leading-relaxed text-amber-50/90">
-              8 passengers with 8 large suitcases cannot be confirmed until we check vehicle
-              capacity with our transport partner. You can still request a quote — we&apos;ll confirm
-              whether we can take the booking.
+              8 passengers with 8 large suitcases cannot be confirmed until we check capacity with
+              our transport partner. You can still request a quote — we&apos;ll confirm whether we
+              can take the booking.
             </p>
           </div>
         ) : null}
@@ -2241,7 +2191,7 @@ function QuoteCard({
         ) : null}
 
         {(quoteStep === 1 || quoteStep === 2) && (
-        <div className="rounded-xl border border-emerald/30 bg-emerald/10 px-4 py-4">
+        <div className="rounded-xl border border-white/10 bg-navy-dark/40 px-4 py-5">
           {isManualQuoteJourney ? (
             <>
               <p className="text-xs font-medium uppercase tracking-wider text-emerald">
@@ -2249,7 +2199,7 @@ function QuoteCard({
                   ? "Out-of-area pickup"
                   : "Republic of Ireland long-distance transfer"}
               </p>
-              <p className="mt-1 text-xl font-bold text-white sm:text-2xl">Request your fixed price</p>
+              <p className="mt-1 text-xl font-semibold tracking-tight text-white sm:text-2xl">Request your fixed price</p>
               <p className="mt-2 text-sm leading-relaxed text-white/70">
                 {isOutOfAreaPickupJourney
                   ? "This pickup is outside our standard Greater Belfast area and needs manual approval. Continue to send your trip details — we’ll email your personal fixed price. No automatic fare or online payment until confirmed."
@@ -2266,8 +2216,7 @@ function QuoteCard({
               <p className="text-xs font-medium uppercase tracking-wider text-emerald">
                 {returnJourney ? "Guide return price · request a quote" : "Guide price · request a quote"}
               </p>
-              <p className="mt-1 text-3xl font-bold text-white">{formatQuote(liveQuote.amount)}</p>
-              <p className="mt-2 text-xs text-white/60">Minibus · subject to partner availability</p>
+              <p className="mt-1 text-3xl font-semibold tracking-tight text-white">{formatQuote(liveQuote.amount)}</p>
               <p className="mt-2 text-xs leading-relaxed text-white/65">{MINIBUS_PARTNER_NOTE}</p>
               {journeyDistanceLabel && journeyDurationLabel && (
                 <p className="mt-2 text-xs text-white/60">
@@ -2289,12 +2238,12 @@ function QuoteCard({
               <p className="text-xs font-medium uppercase tracking-wider text-emerald">
                 Enquiry to book
               </p>
-              <p className="mt-1 text-xl font-bold text-white sm:text-2xl">
-                {quoteVehicle.split(" (")[0]}
+              <p className="mt-1 text-xl font-semibold tracking-tight text-white sm:text-2xl">
+                Personal quote
               </p>
               <p className="mt-2 text-sm leading-relaxed text-white/70">
-                No online price for this vehicle. Send an enquiry with your trip details and
-                we&apos;ll confirm availability and quote you personally.
+                Send an enquiry with your trip details and we&apos;ll confirm availability and quote
+                you personally.
               </p>
               {journeyDistanceLabel && journeyDurationLabel && (
                 <p className="mt-2 text-xs text-white/60">
@@ -2314,7 +2263,7 @@ function QuoteCard({
                     ? "Your fixed return journey price"
                     : "Your fixed journey price"}
               </p>
-              <p className="mt-1 text-3xl font-bold text-white">
+              <p className="mt-1 text-3xl font-semibold tracking-tight text-white">
                 {formatQuote(testChargeAmount ?? liveQuote.amount)}
               </p>
               {testChargeAmount !== null && (
@@ -2322,7 +2271,6 @@ function QuoteCard({
                   Route price would be {formatQuote(liveQuote.amount)} — not charged in test mode.
                 </p>
               )}
-              <p className="mt-2 text-xs text-white/60">{quoteVehicle.split(" (")[0]}</p>
               {journeyDistanceLabel && journeyDurationLabel && (
                 <p className="mt-2 text-xs text-white/60">
                   Approx. {journeyDistanceLabel} · {journeyDurationLabel}
@@ -2352,7 +2300,7 @@ function QuoteCard({
               ? "Request a quote — we’ll confirm availability before the booking is accepted. No online payment until confirmed."
               : isEnquiryOnly
                 ? "We’ll reply with your quote — no online payment until you confirm."
-                : "Includes vehicle, driver, fuel, and tolls. After we confirm your job, we’ll send a SumUp payment link by email."}
+                : "Includes driver, fuel, and tolls. After we confirm your job, we’ll send a SumUp payment link by email."}
           </p>
         </div>
         )}
@@ -2536,7 +2484,6 @@ function QuoteCard({
               )}
               <PreviewRow label="Passengers" value={String(passengers)} />
               <PreviewRow label="Suitcases" value={String(suitcases)} />
-              <PreviewRow label="Vehicle" value={quoteVehicle} />
               {isManualQuoteJourney ? (
                 <PreviewRow
                   label="Pricing"
@@ -2587,7 +2534,7 @@ function QuoteCard({
                 />
                 <span>
                   I understand that 8 passengers with 8 large suitcases cannot be booked until you
-                  confirm vehicle capacity in writing.
+                  confirm capacity in writing.
                   {capacityError ? (
                     <span className="mt-1 block text-xs text-red-200">{capacityError}</span>
                   ) : null}
@@ -2668,7 +2615,7 @@ function QuoteCard({
                   type="button"
                   disabled={submitted || !termsAccepted}
                   onClick={() => void confirmBooking("whatsapp")}
-                  className="w-full rounded-xl bg-emerald py-3.5 text-sm font-bold text-navy transition-all hover:bg-emerald-light hover:shadow-lg hover:shadow-emerald/25 disabled:cursor-not-allowed disabled:opacity-70"
+                  className="w-full rounded-xl bg-emerald py-3.5 text-sm font-bold text-navy transition-all hover:bg-emerald-light disabled:cursor-not-allowed disabled:opacity-70"
                 >
                   {submitted ? submitInProgressLabel : whatsAppConfirmLabel}
                 </button>
@@ -2700,7 +2647,7 @@ function QuoteCard({
                 <button
                   type="submit"
                   disabled={submitted || !termsAccepted}
-                  className="w-full rounded-xl bg-emerald py-3.5 text-sm font-bold text-navy transition-all hover:bg-emerald-light hover:shadow-lg hover:shadow-emerald/25 disabled:cursor-not-allowed disabled:opacity-70"
+                  className="w-full rounded-xl bg-emerald py-3.5 text-sm font-bold text-navy transition-all hover:bg-emerald-light disabled:cursor-not-allowed disabled:opacity-70"
                 >
                   {submitted ? submitInProgressLabel : confirmButtonLabel}
                 </button>
@@ -2727,7 +2674,7 @@ function QuoteCard({
                 type="button"
                 disabled={submitted}
                 onClick={handleContinueTravelDetails}
-                className="w-full rounded-xl bg-emerald py-3.5 text-sm font-bold text-navy transition-all hover:bg-emerald-light hover:shadow-lg hover:shadow-emerald/25 disabled:cursor-not-allowed disabled:opacity-70"
+                className="w-full rounded-xl bg-emerald py-3.5 text-sm font-bold text-navy transition-all hover:bg-emerald-light disabled:cursor-not-allowed disabled:opacity-70"
               >
                 Continue to your details
               </button>
@@ -2746,7 +2693,7 @@ function QuoteCard({
           <button
             type="submit"
             disabled={submitted || ((isEnquiryOnly || isManualQuoteJourney) ? !hasQuoteRoute : !liveQuote)}
-            className="w-full rounded-xl bg-emerald py-3.5 text-sm font-bold text-navy transition-all hover:bg-emerald-light hover:shadow-lg hover:shadow-emerald/25 disabled:cursor-not-allowed disabled:opacity-50"
+            className="w-full rounded-xl bg-emerald py-3.5 text-sm font-bold text-navy transition-all hover:bg-emerald-light disabled:cursor-not-allowed disabled:opacity-50"
           >
             {submitted ? submitInProgressLabel : "Continue to travel details"}
           </button>

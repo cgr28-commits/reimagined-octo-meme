@@ -11,8 +11,7 @@ function airportPageHref(code: string): string | null {
 
 export default function AirportsSection() {
   return (
-    <section id="airports" className="relative py-20 sm:py-28">
-      <div className="absolute inset-0 bg-gradient-to-b from-navy via-navy-light/30 to-navy" />
+    <section id="airports" className="relative py-24 sm:py-32">
       <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <SectionHeading
           eyebrow="Destinations"
@@ -20,21 +19,21 @@ export default function AirportsSection() {
           description="Professional transfers to every major airport — with live flight tracking, meet & greet, and complimentary waiting time included."
         />
 
-        <div className="mt-14 grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="mt-16 grid gap-8 sm:grid-cols-2 xl:grid-cols-4">
           {AIRPORTS.map((airport) => {
             const href = airportPageHref(airport.code);
             return (
               <article
                 key={airport.code}
-                className="group rounded-2xl border border-white/10 bg-white/[0.03] p-6 transition-all hover:border-emerald/30 hover:bg-white/[0.06] hover:shadow-xl hover:shadow-emerald/5"
+                className="group border-t border-white/10 pt-6 transition-colors hover:border-emerald/40"
               >
-                <div className="flex items-start justify-between">
-                  <span className="rounded-lg bg-emerald/15 px-3 py-1 text-xs font-bold tracking-wider text-emerald">
+                <div className="flex items-start justify-between gap-3">
+                  <span className="text-xs font-semibold tracking-[0.14em] text-emerald">
                     {airport.code}
                   </span>
-                  <span className="text-lg font-bold text-emerald">{airport.distance}</span>
+                  <span className="text-sm font-semibold text-white/70">{airport.distance}</span>
                 </div>
-                <h3 className="mt-4 text-lg font-bold text-white">
+                <h3 className="mt-4 text-lg font-semibold tracking-tight text-white">
                   {href ? (
                     <Link href={href} className="transition-colors hover:text-emerald">
                       {airport.name}
@@ -43,7 +42,7 @@ export default function AirportsSection() {
                     airport.name
                   )}
                 </h3>
-                <p className="mt-1 text-sm text-white/50">{airport.duration}</p>
+                <p className="mt-1 text-sm text-white/45">{airport.duration}</p>
                 <p className="mt-3 text-sm leading-relaxed text-white/65">
                   {airport.description}
                 </p>
