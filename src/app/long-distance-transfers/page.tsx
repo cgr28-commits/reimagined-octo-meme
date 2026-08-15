@@ -87,9 +87,9 @@ export default function LongDistanceTransfersPage() {
             <div className="mt-14 rounded-2xl border border-emerald/30 bg-emerald/10 px-6 py-8 text-center sm:px-10">
               <p className="text-sm font-medium uppercase tracking-wider text-emerald">Get a quote</p>
               <p className="mx-auto mt-3 max-w-lg text-sm leading-relaxed text-white/75">
-                Use our live quote tool for Greater Belfast pickups and airport collections. Online
-                prices apply where available; out-of-area pickups need Request Fixed Quote for manual
-                approval.
+                Use our live quote tool for Greater Belfast pickups, airport collections, and
+                Northern Ireland pickups into Greater Belfast. Online prices apply where available;
+                other out-of-area requests use Request Fixed Quote for manual approval.
               </p>
               <Link
                 href="/#quote"

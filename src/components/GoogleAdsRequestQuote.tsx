@@ -6,7 +6,7 @@ import {
   hasMarketingCookieConsent,
   type CookieConsentChoice,
 } from "@/lib/cookie-consent";
-import { getGoogleAdsConfig } from "@/lib/google-ads";
+import { getGoogleAdsConfig, type AdsQuotePageType } from "@/lib/google-ads";
 import {
   isGtagReady,
   trackRequestQuoteConversion,
@@ -15,25 +15,32 @@ import {
 
 type GoogleAdsRequestQuoteProps = {
   /**
-   * Fire Request quote conversion once this becomes true —
-   * only when `#quoteResult` confirmation is shown after a successful submit.
+   * Fire quote_generated / Request quote conversion once this becomes true —
+   * only when `#quoteResult` confirmation is shown after a successful priced quote.
    */
   fire: boolean;
+  /** Required — conversion is skipped without a positive numeric quote amount. */
   value?: number;
   currency?: string;
+  /** Required — unique quote / booking reference for deduplication. */
   transactionId?: string;
+  pageType?: AdsQuotePageType;
+  /** Off by default; never enabled for emerge_belfast. */
+  includeUserData?: boolean;
   userData?: AdsUserData;
 };
 
 /**
- * Fires the Request quote Ads conversion after a successful quote request
- * confirmation is on screen — not on form open, click, or validation failure.
+ * Fires the quote Ads conversion after a successful priced quote confirmation
+ * is on screen — not on form open, click, validation failure, or API failure.
  */
 export default function GoogleAdsRequestQuote({
   fire,
   value,
   currency = "GBP",
   transactionId,
+  pageType,
+  includeUserData = false,
   userData,
 }: GoogleAdsRequestQuoteProps) {
   const config = getGoogleAdsConfig();
@@ -53,9 +60,17 @@ export default function GoogleAdsRequestQuote({
 
   const userEmail = userData?.email;
   const userPhone = userData?.phone;
+  const allowPii = includeUserData === true && pageType !== "emerge_belfast";
 
   useEffect(() => {
     if (!fire || !config.quoteEnabled || !marketingAllowed || firedRef.current) {
+      return;
+    }
+
+    if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) {
+      return;
+    }
+    if (!transactionId?.trim()) {
       return;
     }
 
@@ -74,7 +89,9 @@ export default function GoogleAdsRequestQuote({
         value,
         currency,
         transactionId,
-        userData: { email: userEmail, phone: userPhone },
+        pageType,
+        includeUserData: allowPii,
+        userData: allowPii ? { email: userEmail, phone: userPhone } : undefined,
       });
       if (ok || attempts >= 20) {
         if (ok) {
@@ -92,6 +109,8 @@ export default function GoogleAdsRequestQuote({
     value,
     currency,
     transactionId,
+    pageType,
+    allowPii,
     userEmail,
     userPhone,
   ]);

@@ -5,8 +5,10 @@
 
 import {
   ADS_EVENT_BOOKING_COMPLETE,
+  ADS_EVENT_QUOTE_GENERATED,
   ADS_EVENT_REQUEST_QUOTE,
   getGoogleAdsConfig,
+  type AdsQuotePageType,
 } from "@/lib/google-ads";
 import { hasMarketingCookieConsent } from "@/lib/cookie-consent";
 
@@ -20,7 +22,7 @@ declare global {
 const FIRED_QUOTE_PREFIX = "matni-ads-fired-quote:";
 const FIRED_BOOKING_PREFIX = "matni-ads-fired-booking:";
 
-/** Once-per successful quote interaction (module scope, as required by Ads setup). */
+/** Once-per successful quote interaction (module scope). */
 let requestQuoteConversionSent = false;
 
 export type AdsUserData = {
@@ -32,6 +34,13 @@ export type AdsConversionPayload = {
   value?: number;
   currency?: string;
   transactionId?: string;
+  /** Custom page context — e.g. emerge_belfast. Never send PII here. */
+  pageType?: AdsQuotePageType;
+  /**
+   * Enhanced conversions (email/phone). Off by default for quote_generated /
+   * EMERGE so Ads events stay free of personal information unless explicitly enabled.
+   */
+  includeUserData?: boolean;
   userData?: AdsUserData;
 };
 
@@ -151,10 +160,8 @@ function fireAdsConversion(options: {
     shared.transaction_id = options.transactionId.trim();
   }
 
-  // Named event for Ads/GA4 conversion configuration (request_quote / booking_complete).
   window.gtag("event", options.eventName, { ...shared });
 
-  // Standard Google Ads conversion hit when a conversion label is configured.
   if (options.sendTo) {
     window.gtag("event", "conversion", {
       ...shared,
@@ -165,16 +172,26 @@ function fireAdsConversion(options: {
   return true;
 }
 
+function isValidQuoteValue(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value > 0;
+}
+
 /**
- * Google Ads “Request quote” conversion.
- * Call only after validation + successful quote/confirmation UI (`#quoteResult`).
- * Never call on page load, button click alone, validation failure, or WhatsApp/mail open.
+ * Google Ads quote conversion (`quote_generated` + conversion send_to).
+ * Call only after a successful priced quote is confirmed (`#quoteResult`).
+ * Requires a positive numeric value and a unique transaction/quote ID.
+ * Never call on page load, button click alone, validation failure, or API failure.
  */
 export function trackRequestQuoteConversion(options: AdsConversionPayload = {}): boolean {
   if (requestQuoteConversionSent) {
     return true;
   }
-  if (typeof window === "undefined" || typeof window.gtag !== "function") {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  ensureGtagStub();
+  if (typeof window.gtag !== "function") {
     return false;
   }
 
@@ -186,37 +203,66 @@ export function trackRequestQuoteConversion(options: AdsConversionPayload = {}):
     return false;
   }
 
+  // Genuine priced quote only — no fire without a valid amount.
+  if (!isValidQuoteValue(options.value)) {
+    return false;
+  }
+
   const transactionId = options.transactionId?.trim();
-  const dedupeKey = `${FIRED_QUOTE_PREFIX}${transactionId || "anonymous"}`;
-  if (transactionId && alreadyFired(dedupeKey)) {
+  if (!transactionId) {
+    // Without a unique ID, refreshes / double-clicks can double-count.
+    return false;
+  }
+
+  const currency = options.currency?.trim() || "GBP";
+  const pageType = options.pageType?.trim() || undefined;
+  const dedupeKey = `${FIRED_QUOTE_PREFIX}${transactionId}`;
+  if (alreadyFired(dedupeKey)) {
     requestQuoteConversionSent = true;
     return true;
   }
 
-  setEnhancedConversionUserData(options.userData);
+  const allowUserData = options.includeUserData === true && pageType !== "emerge_belfast";
+  if (allowUserData) {
+    setEnhancedConversionUserData(options.userData);
+  }
 
-  window.gtag("event", "conversion", {
-    send_to: config.quoteSendTo,
-    ...(typeof options.value === "number" && Number.isFinite(options.value)
-      ? { value: options.value, currency: options.currency ?? "GBP" }
-      : {}),
-    ...(transactionId ? { transaction_id: transactionId } : {}),
+  const shared: Record<string, unknown> = {
+    value: options.value,
+    currency,
+    transaction_id: transactionId,
+  };
+  if (pageType) {
+    shared.page_type = pageType;
+  }
+
+  // dataLayer push for GTM (and debugging) — no PII fields.
+  window.dataLayer = window.dataLayer || [];
+  window.dataLayer.push({
+    event: ADS_EVENT_QUOTE_GENERATED,
+    ...shared,
   });
 
-  // Keep the named event for any Ads/GA4 configs that listen for it.
+  // Preferred named event.
+  window.gtag("event", ADS_EVENT_QUOTE_GENERATED, {
+    send_to: config.quoteSendTo,
+    ...shared,
+  });
+
+  // Keep legacy request_quote listeners working without a second conversion hit.
   window.gtag("event", ADS_EVENT_REQUEST_QUOTE, {
     send_to: config.quoteSendTo,
-    currency: options.currency ?? "GBP",
-    ...(typeof options.value === "number" && Number.isFinite(options.value)
-      ? { value: options.value }
-      : {}),
-    ...(transactionId ? { transaction_id: transactionId } : {}),
+    ...shared,
+  });
+
+  // Standard Google Ads conversion (counts once toward the Request quote action).
+  window.gtag("event", "conversion", {
+    send_to: config.quoteSendTo,
+    ...shared,
   });
 
   requestQuoteConversionSent = true;
-  if (transactionId) {
-    markFired(dedupeKey);
-  }
+  markFired(dedupeKey);
   return true;
 }
 
@@ -240,15 +286,10 @@ export function trackRequestQuote(options: AdsConversionPayload = {}): boolean {
  */
 export function trackBookingComplete(options: AdsConversionPayload): boolean {
   const config = getGoogleAdsConfig();
-  // Stay completely silent until Ads has a separate booking conversion action.
   if (!config.bookingEnabled || !config.bookingSendTo) {
     return false;
   }
-  // Belt-and-braces: never send booking conversions to the quote label.
-  if (
-    config.quoteSendTo &&
-    config.bookingSendTo === config.quoteSendTo
-  ) {
+  if (config.quoteSendTo && config.bookingSendTo === config.quoteSendTo) {
     return false;
   }
   if (!hasMarketingCookieConsent()) {
@@ -257,7 +298,6 @@ export function trackBookingComplete(options: AdsConversionPayload): boolean {
 
   const transactionId = options.transactionId?.trim();
   if (!transactionId) {
-    // Without a unique ID, a refresh can double-count — skip Ads conversion.
     return false;
   }
 
@@ -272,7 +312,7 @@ export function trackBookingComplete(options: AdsConversionPayload): boolean {
     value: options.value,
     currency: options.currency ?? "GBP",
     transactionId,
-    userData: options.userData,
+    userData: options.includeUserData === true ? options.userData : undefined,
   });
 
   if (ok) {
@@ -288,4 +328,13 @@ export function isGtagReady(): boolean {
 /** Test helper — current once-per-interaction latch. */
 export function hasRequestQuoteConversionBeenSent(): boolean {
   return requestQuoteConversionSent;
+}
+
+/** Stable client-side quote ID for Ads deduplication when no booking reference yet. */
+export function createQuoteTransactionId(prefix = "quote"): string {
+  const rand =
+    typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+      ? crypto.randomUUID().replace(/-/g, "").slice(0, 12)
+      : `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+  return `${prefix}_${rand}`;
 }

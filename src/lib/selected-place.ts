@@ -4,6 +4,11 @@
  */
 
 import { isGreaterBelfastServiceAddress } from "../../shared/ldy-service-area";
+import {
+  isNorthernIrelandCoordinates,
+  isNorthernIrelandPostcode,
+  isNorthernIrelandText,
+} from "@/lib/northern-ireland";
 
 export type SelectedPlace = {
   placeId: string;
@@ -189,9 +194,13 @@ export function isRepublicOfIrelandJourney(
  * Long-distance marketing lists BFS, BHD and DUB; LDY stays for LDY↔Greater Belfast pricing. */
 const STANDARD_INSTANT_PICKUP_AIRPORTS = new Set(["BFS", "BHD", "DUB", "LDY"]);
 
+/** Belfast-area airport drop-offs that count as Greater Belfast destinations for live NI pickups. */
+const GREATER_BELFAST_DESTINATION_AIRPORTS = new Set(["BFS", "BHD"]);
+
 /**
  * Standard pickups: Greater Belfast addresses, or BFS / BHD / DUB / LDY airports.
- * Everything else is out-of-area and needs manual approval (no auto price / SumUp).
+ * Other NI addresses are not “standard” pickups, but may still receive a live quote
+ * when the destination is within Greater Belfast (see needsManualQuoteApproval).
  */
 export function isStandardInstantPickup(place: SelectedPlace): boolean {
   if (!isPlaceSelected(place)) {
@@ -211,9 +220,51 @@ export function isOutOfAreaPickup(place: SelectedPlace): boolean {
   return !isStandardInstantPickup(place);
 }
 
+/** True when the place is in Northern Ireland (BT postcode / NI text / coords). */
+export function isNorthernIrelandPlace(place: SelectedPlace): boolean {
+  if (!isPlaceSelected(place)) {
+    return false;
+  }
+  if (isNorthernIrelandPostcode(place.postalCode)) {
+    return true;
+  }
+  if (isNorthernIrelandText(place.formattedAddress)) {
+    return true;
+  }
+  if (
+    typeof place.lat === "number" &&
+    typeof place.lng === "number" &&
+    isNorthernIrelandCoordinates(place.lat, place.lng)
+  ) {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Destinations that unlock live online quotes for pickups from elsewhere in NI:
+ * Greater Belfast addresses, plus Belfast International / Belfast City airports.
+ */
+export function isGreaterBelfastDestination(place: SelectedPlace): boolean {
+  if (!isPlaceSelected(place)) {
+    return false;
+  }
+  const airportCode = detectAirportCodeFromPlace(place);
+  if (airportCode && GREATER_BELFAST_DESTINATION_AIRPORTS.has(airportCode)) {
+    return true;
+  }
+  if (airportCode) {
+    return false;
+  }
+  return isGreaterBelfastServiceAddress(place.formattedAddress);
+}
+
 /**
  * Journeys that must not show an automatic fare or immediate payment —
- * ROI city destinations (not DUB) or out-of-area pickups.
+ * ROI city destinations (not DUB), or pickups outside NI / not into Greater Belfast.
+ *
+ * Live quotes are allowed for Northern Ireland pickups (anywhere in NI) when the
+ * destination is within Greater Belfast — priced via the existing A2A / airport path.
  */
 export function needsManualQuoteApproval(
   pickup: SelectedPlace,
@@ -223,6 +274,9 @@ export function needsManualQuoteApproval(
     return false;
   }
   if (isOutOfAreaPickup(pickup)) {
+    if (isNorthernIrelandPlace(pickup) && isGreaterBelfastDestination(dropoff)) {
+      return false;
+    }
     return true;
   }
   return isRepublicOfIrelandJourney(pickup, dropoff);

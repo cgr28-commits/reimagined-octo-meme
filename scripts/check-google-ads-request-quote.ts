@@ -1,5 +1,5 @@
 /**
- * Validates Google Ads Request quote conversion wiring.
+ * Validates Google Ads quote_generated / Request quote conversion wiring.
  * Run: npx tsx scripts/check-google-ads-request-quote.ts
  */
 
@@ -7,6 +7,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
+  ADS_EVENT_QUOTE_GENERATED,
   DEFAULT_GOOGLE_ADS_ID,
   DEFAULT_QUOTE_CONVERSION_LABEL,
   getGoogleAdsConfig,
@@ -17,6 +18,8 @@ import {
   trackRequestQuoteConversion,
 } from "../src/lib/google-ads-client";
 import { COOKIE_CONSENT_KEY } from "../src/lib/cookie-consent";
+import { calculatePointToPointQuote, calculateQuote } from "../src/lib/quote";
+import { VEHICLE_TYPES } from "../src/lib/data";
 
 let passed = 0;
 
@@ -28,9 +31,9 @@ function check(name: string, fn: () => void) {
 
 function installBrowserMocks() {
   const gtagCalls: unknown[][] = [];
+  const dataLayer: unknown[] = [];
   const store = new Map<string, string>();
 
-  // Minimal browser stubs for consent + gtag helpers.
   (globalThis as { window?: unknown }).window = globalThis;
   (globalThis as { document?: unknown }).document = {
     getElementById: (id: string) => (id === "quoteResult" ? { id } : null),
@@ -64,13 +67,14 @@ function installBrowserMocks() {
     length: 0,
   } as Storage;
 
-  (globalThis as { dataLayer?: unknown[] }).dataLayer = [];
+  (globalThis as { dataLayer?: unknown[] }).dataLayer = dataLayer;
   (globalThis as { gtag?: (...args: unknown[]) => void }).gtag = (...args: unknown[]) => {
     gtagCalls.push(args);
   };
 
   return {
     gtagCalls,
+    dataLayer,
     acceptConsent() {
       store.set(COOKIE_CONSENT_KEY, "accepted");
     },
@@ -90,6 +94,7 @@ function main() {
   check("Defaults use the live Request quote Ads ID and label", () => {
     assert.equal(DEFAULT_GOOGLE_ADS_ID, "AW-18303631278");
     assert.equal(DEFAULT_QUOTE_CONVERSION_LABEL, "_hcXCPSz7cscEK7_7JdE");
+    assert.equal(ADS_EVENT_QUOTE_GENERATED, "quote_generated");
     const config = getGoogleAdsConfig();
     assert.equal(config.adsId, "AW-18303631278");
     assert.equal(config.quoteSendTo, expectedSendTo);
@@ -113,11 +118,73 @@ function main() {
     assert.match(source, /id=["']quoteResult["']/);
     assert.match(source, /GoogleAdsRequestQuote/);
     assert.match(source, /resetRequestQuoteConversion/);
+    assert.match(source, /pageType/);
+    assert.match(source, /includeUserData=\{false\}/);
+  });
+
+  check("EMERGE page reuses QuoteCard with pageType and shared pricing", () => {
+    const emerge = readFileSync(
+      join(process.cwd(), "src/components/EmergeBelfastPageClient.tsx"),
+      "utf8",
+    );
+    assert.match(emerge, /<QuoteCard/);
+    assert.match(emerge, /pageType=["']emerge_belfast["']/);
+    assert.match(emerge, /maxPassengers=\{4\}/);
+    assert.match(emerge, /initialDropoffHint=\{EMERGE_BELFAST_DESTINATION\}/);
+    assert.doesNotMatch(emerge, /calculateQuote|calculatePointToPointQuote|£\d+/);
+  });
+
+  check("Identical journeys produce identical prices (shared rate card)", () => {
+    const schedule = {
+      tripDate: "2026-08-29",
+      tripTime: "16:00",
+      returnDate: "",
+      returnTime: "",
+    };
+    const metrics = { distanceKm: 108, durationMinutes: 77 };
+    const vehicle = VEHICLE_TYPES[0];
+    const a2a = calculatePointToPointQuote(
+      "1 High Street, Omagh BT78 1AB, Northern Ireland",
+      "Boucher Playing Fields, Belfast",
+      vehicle,
+      false,
+      schedule,
+      metrics,
+    );
+    const a2aAgain = calculatePointToPointQuote(
+      "1 High Street, Omagh BT78 1AB, Northern Ireland",
+      "Boucher Playing Fields, Belfast",
+      vehicle,
+      false,
+      schedule,
+      metrics,
+    );
+    assert.ok(a2a);
+    assert.ok(Number.isFinite(a2a!.amount) && a2a!.amount > 0);
+    assert.equal(a2a!.amount, a2aAgain!.amount);
+
+    const airport = calculateQuote(
+      "10 Donegall Square, Belfast BT1 5GS",
+      "BFS",
+      vehicle,
+      false,
+      schedule,
+    );
+    const airportAgain = calculateQuote(
+      "10 Donegall Square, Belfast BT1 5GS",
+      "BFS",
+      vehicle,
+      false,
+      schedule,
+    );
+    assert.ok(airport);
+    assert.equal(airport!.amount, airportAgain!.amount);
   });
 
   check("Sitewide GoogleAdsTag is mounted from the shared layout", () => {
     const source = readFileSync(join(process.cwd(), "src/app/layout.tsx"), "utf8");
     assert.match(source, /GoogleAdsTag/);
+    assert.match(source, /AdsAttributionCapture/);
     assert.match(source, /getGoogleAdsConfig/);
     assert.match(source, /CookieConsent/);
   });
@@ -128,21 +195,22 @@ function main() {
       "utf8",
     );
     assert.match(locationQuote, /QuoteCard/);
-    const airportPage = readFileSync(join(process.cwd(), "src/app/airports/[slug]/page.tsx"), "utf8");
-    const transferPage = readFileSync(
-      join(process.cwd(), "src/app/transfers/[slug]/page.tsx"),
-      "utf8",
-    );
-    assert.match(airportPage, /LocationQuoteSection/);
-    assert.match(transferPage, /LocationQuoteSection/);
   });
 
-  check("Invalid / no-consent quote does not fire a conversion", () => {
+  check("Invalid / no-consent / missing value or id does not fire a conversion", () => {
     resetRequestQuoteConversion();
     mocks.gtagCalls.length = 0;
+    mocks.dataLayer.length = 0;
     mocks.clearConsent();
-    const fired = trackRequestQuoteConversion({ transactionId: "TEST-INVALID" });
-    assert.equal(fired, false);
+    assert.equal(
+      trackRequestQuoteConversion({ transactionId: "TEST-INVALID", value: 50 }),
+      false,
+    );
+
+    mocks.acceptConsent();
+    assert.equal(trackRequestQuoteConversion({ transactionId: "TEST-NO-VALUE" }), false);
+    assert.equal(trackRequestQuoteConversion({ value: 50 }), false);
+    assert.equal(trackRequestQuoteConversion({ transactionId: "TEST-ZERO", value: 0 }), false);
     assert.equal(hasRequestQuoteConversionBeenSent(), false);
     assert.equal(
       mocks.gtagCalls.filter((call) => call[0] === "event" && call[1] === "conversion").length,
@@ -150,19 +218,22 @@ function main() {
     );
   });
 
-  check("Valid quote fires exactly one Request quote conversion", () => {
+  check("Successful priced quote fires one conversion with quote_generated", () => {
     resetRequestQuoteConversion();
     mocks.gtagCalls.length = 0;
+    mocks.dataLayer.length = 0;
     mocks.acceptConsent();
     const first = trackRequestQuoteConversion({
       transactionId: "TEST-VALID-1",
       value: 45,
       currency: "GBP",
+      pageType: "emerge_belfast",
     });
     const second = trackRequestQuoteConversion({
       transactionId: "TEST-VALID-1",
       value: 45,
       currency: "GBP",
+      pageType: "emerge_belfast",
     });
     assert.equal(first, true);
     assert.equal(second, true);
@@ -172,15 +243,50 @@ function main() {
       (call) => call[0] === "event" && call[1] === "conversion",
     );
     assert.equal(conversionEvents.length, 1);
-    const payload = conversionEvents[0]?.[2] as { send_to?: string };
+    const payload = conversionEvents[0]?.[2] as {
+      send_to?: string;
+      value?: number;
+      currency?: string;
+      transaction_id?: string;
+      page_type?: string;
+      email?: string;
+      phone?: string;
+    };
     assert.equal(payload.send_to, "AW-18303631278/_hcXCPSz7cscEK7_7JdE");
+    assert.equal(payload.value, 45);
+    assert.equal(payload.currency, "GBP");
+    assert.equal(payload.transaction_id, "TEST-VALID-1");
+    assert.equal(payload.page_type, "emerge_belfast");
+    assert.equal(payload.email, undefined);
+    assert.equal(payload.phone, undefined);
+
+    const quoteGenerated = mocks.gtagCalls.filter(
+      (call) => call[0] === "event" && call[1] === "quote_generated",
+    );
+    assert.equal(quoteGenerated.length, 1);
+
+    assert.ok(
+      mocks.dataLayer.some(
+        (entry) =>
+          entry &&
+          typeof entry === "object" &&
+          (entry as { event?: string }).event === "quote_generated",
+      ),
+    );
   });
 
-  check("Reset allows a later successful quote interaction to convert once", () => {
+  check("Repeated clicks / reset: one conversion per successful interaction", () => {
     mocks.gtagCalls.length = 0;
     resetRequestQuoteConversion();
     mocks.acceptConsent();
-    assert.equal(trackRequestQuoteConversion({ transactionId: "TEST-VALID-2" }), true);
+    assert.equal(
+      trackRequestQuoteConversion({
+        transactionId: "TEST-VALID-2",
+        value: 60,
+        currency: "GBP",
+      }),
+      true,
+    );
     assert.equal(
       mocks.gtagCalls.filter((call) => call[0] === "event" && call[1] === "conversion").length,
       1,

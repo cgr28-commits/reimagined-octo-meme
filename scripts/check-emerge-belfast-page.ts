@@ -73,7 +73,10 @@ function main() {
     assert.match(page, /<Header/);
     assert.match(page, /<Footer/);
     assert.match(client, /QuoteCard/);
+    assert.match(client, /pageType=["']emerge_belfast["']/);
+    assert.match(client, /maxPassengers=\{4\}/);
     assert.match(quoteCard, /initialDropoffHint/);
+    assert.match(quoteCard, /pageType/);
   });
 
   check("After expiry: noindex ended page, no 301, runtime switch", () => {

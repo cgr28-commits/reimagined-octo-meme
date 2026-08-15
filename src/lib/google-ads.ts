@@ -91,5 +91,12 @@ export function getGoogleAdsConfig(): GoogleAdsConfig {
 
 export const BOOKING_CONFIRMED_PATH = "/booking-confirmed/";
 
+/** Legacy / Ads named event for successful priced quote requests. */
 export const ADS_EVENT_REQUEST_QUOTE = "request_quote";
+/** Preferred named event for a successful priced quote (value + GBP + quote ID). */
+export const ADS_EVENT_QUOTE_GENERATED = "quote_generated";
 export const ADS_EVENT_BOOKING_COMPLETE = "booking_complete";
+
+/** Page context for Ads custom parameters (e.g. EMERGE landing). */
+export type AdsQuotePageType = "main" | "emerge_belfast" | (string & {});
+
