@@ -50,7 +50,7 @@ import {
 } from "@/lib/flight-lookup";
 import { formatUkDate, formatUkDateTime } from "@/lib/format-datetime";
 import { parseLondonLocalDateTime } from "@/lib/london-time";
-import { calculateQuote, formatQuote, matchAreaFromAddress } from "@/lib/quote";
+import { calculateQuote, formatQuote, matchAreaFromAddress, arePublicLivePricesEnabled, getPublicUnapprovedPriceLabel } from "@/lib/quote";
 
 export type AssistantMessage = {
   role: "bot" | "user";
@@ -224,7 +224,7 @@ function knowledgeChunks(): Array<{ title: string; body: string }> {
     {
       title: "How booking works",
       body:
-        "Standard process: (1) Get a Live Quote on the website or in this chat for your fixed journey price. (2) For a standard or estate car with an instant fare, you can pay online with SumUp to confirm. Otherwise Request to book / enquire with your date, time, and contact details — we confirm the job and email a SumUp payment link; booking is confirmed after payment. 1–4 passengers: standard or estate car with an instant online price. 5–8 passengers: minibus via licensed transport partners (guide price, request a quote, subject to availability). Executive Saloon is enquire-only.",
+        "Standard process: (1) Get a Live Quote on the website or in this chat for your fixed journey price. (2) When an instant fare is shown, you can pay online with SumUp to confirm. Otherwise Request to book / enquire with your date, time, and contact details — we confirm the job and email a SumUp payment link; booking is confirmed after payment. Online quotes cover 1–8 passengers. Larger groups are arranged via licensed transport partners (guide price, request a quote, subject to availability).",
     },
     {
       title: "Quote tool flow",
@@ -277,7 +277,7 @@ function knowledgeChunks(): Array<{ title: string; body: string }> {
     {
       title: "Cash and payment options",
       body:
-        "Standard and estate cars with an instant fare can pay by card online via SumUp at the end of the website quote. Otherwise, after you Request to book and we confirm the job, we email a SumUp payment link. Cash to the driver or bank transfer can be arranged where agreed.",
+        "Transfers with an instant fare can pay by card online via SumUp at the end of the website quote. Otherwise, after you Request to book and we confirm the job, we email a SumUp payment link. Cash to the driver or bank transfer can be arranged where agreed.",
     },
     {
       title: "Terms last updated",
@@ -1061,7 +1061,7 @@ function promptForField(field: MissingField, draft: QuoteDraft): AssistantRespon
       };
     case "suitcases":
       return {
-        reply: "How many suitcases / cases? (3 or more usually needs an Estate Car.)",
+        reply: "How many suitcases / cases?",
         draft,
         quickReplies: ["1 suitcase", "2 suitcases", "3 suitcases", "4 suitcases"],
       };
@@ -1569,9 +1569,19 @@ function tryBuildQuote(
     return {
       enquiryOnly: true,
       text:
-        `${vehicle.split(" (")[0]} is enquiry only for ${airportName}. ` +
+        `This journey is enquiry only for ${airportName}. ` +
         `Would you like to book? I can take the date, time, and your details here in chat — then we’ll confirm availability and price. ` +
         `Or call ${SITE.landlineDisplay}.`,
+    };
+  }
+
+  if (!arePublicLivePricesEnabled()) {
+    return {
+      enquiryOnly: true,
+      text:
+        `${getPublicUnapprovedPriceLabel()} for ${airportName}. ` +
+        `I can take your trip details here and we’ll confirm the fare before any payment. ` +
+        `Or call ${SITE.landlineDisplay}.${capacityNote}`,
     };
   }
 

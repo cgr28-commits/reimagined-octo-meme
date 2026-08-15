@@ -14,7 +14,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { calculatePointToPointQuote, calculateQuote } from "../src/lib/quote";
+import { calculatePointToPointQuote, calculateQuote, computeAirportEstateForSurcharge } from "../src/lib/quote";
 import { fetchOtsEstateQuote } from "./lib/ots-client.mjs";
 import { buildRoutePool } from "./lib/ots-route-pool.mjs";
 import { sampleRoutes, seedFromDate } from "./lib/seeded-sample.mjs";
@@ -83,7 +83,11 @@ function ourPointToPointEstate(route: Extract<Route, { kind: "point-to-point" }>
   return quote?.amount ?? null;
 }
 
-function evaluateAirport(otsEstate: number, ourEstate: number): { status: "pass" | "fail"; message: string } {
+function evaluateAirport(
+  otsEstate: number,
+  ourEstate: number,
+  airportCode?: string,
+): { status: "pass" | "fail"; message: string } {
   const discount = +(otsEstate - ourEstate).toFixed(2);
   const band = airportDiscountBand();
 
@@ -92,6 +96,20 @@ function evaluateAirport(otsEstate: number, ourEstate: number): { status: "pass"
       status: "pass",
       message: `£${discount.toFixed(2)} below OTS (target £${MIN_DISCOUNT}–£${MAX_DISCOUNT})`,
     };
+  }
+
+  // Short hops: OTS can sit under our published airport estate minimum — stay at the floor.
+  if (airportCode && discount < 0) {
+    const estateFloorRaw = computeAirportEstateForSurcharge(airportCode, 0);
+    // Match public rounding (e.g. £43 → £45) used by calculateQuote.
+    const estateFloor =
+      estateFloorRaw % 5 === 4 ? Math.round(estateFloorRaw) : Math.round(estateFloorRaw / 5) * 5;
+    if (estateFloor > 0 && ourEstate <= estateFloor) {
+      return {
+        status: "pass",
+        message: `At airport estate minimum £${estateFloor} (OTS £${otsEstate} is lower on this short hop)`,
+      };
+    }
   }
 
   if (discount < 0) {
@@ -151,7 +169,7 @@ async function checkRoute(route: Route): Promise<CheckResult> {
     const discount = +(otsEstate - ourEstate).toFixed(2);
     const evaluation =
       route.kind === "airport"
-        ? evaluateAirport(otsEstate, ourEstate)
+        ? evaluateAirport(otsEstate, ourEstate, route.airportCode)
         : evaluatePointToPoint(otsEstate, ourEstate);
 
     return {

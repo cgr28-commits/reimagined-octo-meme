@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Manrope } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
 import PreventHorizontalScroll from "@/components/PreventHorizontalScroll";
@@ -10,22 +10,29 @@ import QuoteAssistant from "@/components/QuoteAssistant";
 import SiteOfflineGate from "@/components/SiteOfflineGate";
 import WhatsAppButton from "@/components/WhatsAppButton";
 import { LOWEST_AIRPORT_FROM_PRICE, SERVICE_FLAGS, SITE, SITE_OFFLINE } from "@/lib/data";
+import {
+  arePublicLivePricesEnabled,
+  getPublicUnapprovedPriceLabel,
+} from "@/lib/pricing-config";
 import { getGoogleAdsConfig } from "@/lib/google-ads";
 import { absoluteSiteUrl } from "@/lib/paths";
 import { getFaqPageJsonLd, getLocalBusinessJsonLd, getWebSiteJsonLd } from "@/lib/structured-data";
 
-const inter = Inter({
+const displayFont = Manrope({
   subsets: ["latin"],
-  variable: "--font-inter",
+  variable: "--font-display",
 });
 
 const offlineActive = SITE_OFFLINE.enabled && Date.parse(SITE_OFFLINE.until) > Date.now();
 
+const livePrices = arePublicLivePricesEnabled();
 const description = offlineActive
   ? `${SITE.name} is temporarily offline. Call ${SITE.landlineDisplay} or WhatsApp @${SITE.whatsappUsername} for bookings.`
-  : SERVICE_FLAGS.belfastCityAirport
-    ? `Airport transfers across Northern Ireland. From £${LOWEST_AIRPORT_FROM_PRICE} to Belfast City Airport and from £45 to Belfast International, plus Dublin and City of Derry. Flight tracking, meet & greet. Get a live quote online — pay by SumUp to confirm, or request to book.`
-    : "Airport transfers across Northern Ireland. Belfast International from £45, Dublin Airport, and City of Derry Airport. Flight tracking, meet & greet. Get a live quote online — pay by SumUp to confirm, or request to book.";
+  : livePrices
+    ? SERVICE_FLAGS.belfastCityAirport
+      ? `Airport transfers across Northern Ireland. From £${LOWEST_AIRPORT_FROM_PRICE} to Belfast City Airport and from £45 to Belfast International, plus Dublin and City of Derry. Flight tracking, meet & greet. Get a live quote online — pay by SumUp to confirm, or request to book.`
+      : "Airport transfers across Northern Ireland. Belfast International from £45, Dublin Airport, and City of Derry Airport. Flight tracking, meet & greet. Get a live quote online — pay by SumUp to confirm, or request to book."
+    : `Airport transfers across Northern Ireland to Belfast International, Belfast City, Dublin, and City of Derry. Flight tracking, meet & greet. ${getPublicUnapprovedPriceLabel()} — request a quote online.`;
 
 const ogImage = {
   url: absoluteSiteUrl("/og-image-square.png"),
@@ -118,7 +125,7 @@ export default function RootLayout({
   const googleAdsConfig = getGoogleAdsConfig();
 
   return (
-    <html lang="en-GB" className={inter.variable}>
+    <html lang="en-GB" className={displayFont.variable}>
       <body className="overflow-x-clip antialiased">
         {googleAdsConfig.tagEnabled ? (
           <Script id="google-consent-default" strategy="beforeInteractive">

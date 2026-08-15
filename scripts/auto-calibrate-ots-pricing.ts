@@ -3,7 +3,7 @@
  *
  * Samples random NI airport routes, fetches live OTS estate quotes from
  * https://www.airporttaxis-uk.co.uk/, adjusts
- * AREA_AIRPORT_SURCHARGES in src/lib/quote.ts so our estate fares sit ~£8–£10
+ * AREA_AIRPORT_SURCHARGES in src/lib/pricing-config.json so our estate fares sit ~£8–£10
  * below OTS, then writes a report.
  */
 
@@ -22,7 +22,7 @@ import { buildRoutePool } from "./lib/ots-route-pool.mjs";
 import { sampleRoutes, seedFromDate } from "./lib/seeded-sample.mjs";
 
 const ESTATE = "Estate Car (1–4 passengers)" as const;
-const QUOTE_PATH = join(process.cwd(), "src/lib/quote.ts");
+const QUOTE_PATH = join(process.cwd(), "src/lib/pricing-config.json");
 
 const SAMPLE_SIZE = Number(process.env.OTS_SAMPLE_SIZE ?? "100");
 const MIN_DISCOUNT = Number(process.env.OTS_MIN_DISCOUNT ?? "8");
@@ -65,13 +65,15 @@ function median(values: number[]): number {
 }
 
 function readCurrentSurcharge(source: string, area: string, airportCode: string): number | null {
-  const areaKey = area.includes(" ") || area.includes("/") ? `"${area}"` : area;
-  const lineRegex = new RegExp(
-    `^\\s*${areaKey.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}:\\s*\\{[^\\n]*?\\b${airportCode}:\\s*(\\d+)`,
-    "m",
-  );
-  const match = source.match(lineRegex);
-  return match ? Number(match[1]) : null;
+  const areaKey = `"${area.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}"`;
+  const airportKey = `"${airportCode.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}"`;
+  const blockRegex = new RegExp(`${areaKey}\\s*:\\s*\\{([\\s\\S]*?)\\n\\s*\\}`, "m");
+  const block = source.match(blockRegex);
+  if (!block) {
+    return null;
+  }
+  const valueMatch = block[1].match(new RegExp(`${airportKey}\\s*:\\s*(\\d+)`));
+  return valueMatch ? Number(valueMatch[1]) : null;
 }
 
 async function main() {
@@ -190,7 +192,7 @@ async function main() {
   if (patches.length > 0) {
     quoteSource = applySurchargePatches(quoteSource, patches);
     writeFileSync(QUOTE_PATH, quoteSource);
-    console.log(`\nApplied ${patches.length} surcharge update(s) to src/lib/quote.ts`);
+    console.log(`\nApplied ${patches.length} surcharge update(s) to src/lib/pricing-config.json`);
     for (const patch of patches) {
       console.log(
         `- ${patch.area} / ${patch.airportCode}: ${patch.previous ?? "?"} → ${patch.surcharge}`,

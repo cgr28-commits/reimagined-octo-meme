@@ -1,14 +1,14 @@
 import { londonWeekday, wallClockMinutes } from "../../shared/uk-time";
+import { PRICING_CONFIG } from "@/lib/pricing-config";
 
 /** 5% supplement for address-to-address trips on premium dates. */
-export const TRIP_PREMIUM_RATE = 0.05;
-
+export const TRIP_PREMIUM_RATE = PRICING_CONFIG.addressToAddressTripPremiumRate;
 
 /** 5% discount when booking a return journey (both legs). */
-export const RETURN_JOURNEY_DISCOUNT_RATE = 0.05;
+export const RETURN_JOURNEY_DISCOUNT_RATE = PRICING_CONFIG.returnJourneyDiscountRate;
 
 /** Airport transfers use no weekend uplift — OTS does not apply one. */
-export const AIRPORT_TRIP_PREMIUM_RATE = 0;
+export const AIRPORT_TRIP_PREMIUM_RATE = PRICING_CONFIG.airportTripPremiumRate;
 
 /** @deprecated Use TRIP_PREMIUM_RATE */
 export const POINT_TO_POINT_PREMIUM_RATE = TRIP_PREMIUM_RATE;
