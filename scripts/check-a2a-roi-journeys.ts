@@ -172,16 +172,31 @@ check("BFS, BHD and DUB airports are standard instant pickups", () => {
   assert.equal(isStandardInstantPickup(dub!), true);
 });
 
-check("Out-of-area pickup (Newry) needs manual approval — no auto price", () => {
+check("NI pickup outside Greater Belfast → Greater Belfast gets a live quote", () => {
   assert.equal(isOutOfAreaPickup(newryPickup), true);
   assert.equal(isStandardInstantPickup(newryPickup), false);
-  assert.equal(needsManualQuoteApproval(newryPickup, bangorHome), true);
+  assert.equal(needsManualQuoteApproval(newryPickup, bangorHome), false);
   assert.equal(needsManualQuoteApproval(newryPickup, dublinCity), true);
 });
 
-check("Out-of-area pickup (Derry city) needs manual approval", () => {
+check("NI pickup (Derry city) → Belfast gets a live quote", () => {
   assert.equal(isOutOfAreaPickup(derryCityPickup), true);
-  assert.equal(needsManualQuoteApproval(derryCityPickup, belfastHome), true);
+  assert.equal(needsManualQuoteApproval(derryCityPickup, belfastHome), false);
+});
+
+check("Omagh / short NI label → Boucher Playing Fields gets a live quote", () => {
+  const omaghUk = place({
+    placeId: "omagh-uk",
+    formattedAddress: "Omagh, UK",
+    countryCode: "GB",
+  });
+  const boucher = place({
+    placeId: "boucher",
+    formattedAddress: "Boucher Playing Fields, Belfast",
+    countryCode: "GB",
+  });
+  assert.equal(isOutOfAreaPickup(omaghUk), true);
+  assert.equal(needsManualQuoteApproval(omaghUk, boucher), false);
 });
 
 check("Bangor to Cork is ROI manual quote (standard Greater Belfast pickup)", () => {
