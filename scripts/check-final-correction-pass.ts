@@ -197,9 +197,9 @@ async function main() {
     assert.equal(needsManualQuoteApproval(dub!, belfast), false);
   });
 
-  await check("Omagh pickup is out-of-area manual approval", () => {
+  await check("Omagh → Greater Belfast gets a live quote; Omagh remains non-standard pickup", () => {
     assert.equal(isOutOfAreaPickup(omagh), true);
-    assert.equal(needsManualQuoteApproval(omagh, belfast), true);
+    assert.equal(needsManualQuoteApproval(omagh, belfast), false);
   });
 
   await check("Typed address without suggestion is not selected", () => {

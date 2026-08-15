@@ -30,7 +30,7 @@ export const TERMS_SECTIONS = [
       "My Airport Taxi NI provides pre-booked private airport transfers throughout Greater Belfast and surrounding areas, including transfers to and from:",
       "We also provide pre-booked long-distance private transfers from Greater Belfast to destinations throughout Northern Ireland and the Republic of Ireland.",
       "Standard pickups are from anywhere within Greater Belfast. Pre-booked airport pickups are also available from Belfast International Airport, Belfast City Airport and Dublin Airport.",
-      "Pickups outside Greater Belfast (and outside those airports) are out-of-area requests. They require manual approval, do not receive an automatic online price, and cannot be paid for immediately online until we confirm a fixed quote.",
+      "Pickups from elsewhere in Northern Ireland to a Greater Belfast destination receive a live online quote where route pricing is available. Other out-of-area pickups (for example outside Northern Ireland, or NI pickups to destinations outside Greater Belfast) require manual approval, do not receive an automatic online price, and cannot be paid for immediately online until we confirm a fixed quote.",
     ],
     list: [
       "Belfast International Airport",
