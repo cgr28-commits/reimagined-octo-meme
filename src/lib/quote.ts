@@ -1,5 +1,5 @@
 import { ALL_AIRPORTS as AIRPORTS, AREAS, VEHICLE_TYPES } from "@/lib/data";
-import { isLdyServiceAreaAddress } from "../../shared/ldy-service-area";
+import { isGreaterBelfastServiceAddress, isLdyServiceAreaAddress } from "../../shared/ldy-service-area";
 import {
   applyTripPremium,
   AIRPORT_TRIP_PREMIUM_RATE,
@@ -482,6 +482,17 @@ export function calculatePointToPointQuote(
     );
   }
 
+  // Long NI ↔ Greater Belfast A2A must not undercut the airport rate card for the
+  // out-of-area leg (BFS/BHD table). Reuses existing surcharges — no invented fares.
+  const airportParityFloor = getAirportParityFloorForGreaterBelfastA2A(
+    pickup,
+    dropoff,
+    vehicleType,
+  );
+  if (airportParityFloor != null) {
+    oneWay = Math.max(oneWay, airportParityFloor);
+  }
+
   const vehicleMultiplier = VEHICLE_MULTIPLIERS[vehicleType] ?? 1;
   const vehicleAdjustment = POINT_TO_POINT_VEHICLE_ADJUSTMENTS[vehicleType] ?? 0;
   const premium = applyTripPremium(oneWay, {
@@ -500,6 +511,33 @@ export function calculatePointToPointQuote(
     dropoffArea,
     premiumApplied: premium.premiumApplied,
   };
+}
+
+/**
+ * When one end is Greater Belfast and the other is not, floor the A2A one-way fare
+ * at the higher of the existing BFS/BHD airport-table fares for the out-of-area address.
+ */
+function getAirportParityFloorForGreaterBelfastA2A(
+  pickupAddress: string,
+  dropoffAddress: string,
+  vehicleType: (typeof VEHICLE_TYPES)[number],
+): number | null {
+  const pickupInGb = isGreaterBelfastServiceAddress(pickupAddress);
+  const dropoffInGb = isGreaterBelfastServiceAddress(dropoffAddress);
+  if (pickupInGb === dropoffInGb) {
+    return null;
+  }
+
+  const outOfAreaAddress = pickupInGb ? dropoffAddress : pickupAddress;
+  const bfs = calculateQuote(outOfAreaAddress, "BFS", vehicleType, false, {});
+  const bhd = calculateQuote(outOfAreaAddress, "BHD", vehicleType, false, {});
+  const candidates = [bfs?.amount, bhd?.amount].filter(
+    (amount): amount is number => typeof amount === "number" && Number.isFinite(amount) && amount > 0,
+  );
+  if (candidates.length === 0) {
+    return null;
+  }
+  return Math.max(...candidates);
 }
 
 export function getPointToPointFromPrice(

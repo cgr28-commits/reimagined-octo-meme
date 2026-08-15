@@ -18,6 +18,7 @@
     "health-check": "node scripts/daily-health-check.mjs",
     "check:demo-features": "npx tsx scripts/check-demo-features.ts",
     "check:a2a-roi": "npx tsx scripts/check-a2a-roi-journeys.ts",
+    "check:a2a-parity": "npx tsx scripts/check-a2a-airport-parity.ts",
     "check:final-correction": "npx tsx scripts/check-final-correction-pass.ts",
     "check:bot-knowledge": "npx tsx scripts/check-bot-site-knowledge.ts",
     "check:uk-time": "npx tsx scripts/check-uk-time.ts",
