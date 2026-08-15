@@ -187,7 +187,11 @@ export default function EmergeBelfastPageClient() {
               the matching address suggestion, then continue to see your fixed quote.
             </p>
           </div>
-          <QuoteCard initialDropoffHint={EMERGE_BELFAST_DESTINATION} />
+          <QuoteCard
+            initialDropoffHint={EMERGE_BELFAST_DESTINATION}
+            pageType="emerge_belfast"
+            maxPassengers={4}
+          />
         </div>
       </section>
 

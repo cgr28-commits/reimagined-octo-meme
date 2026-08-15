@@ -64,7 +64,12 @@ import {
 import { scheduleQuoteLeadAlert } from "@/lib/submit-quote-lead";
 import FlightNumberField, { formatVerifiedFlightSummary } from "@/components/FlightNumberField";
 import GoogleAdsRequestQuote from "@/components/GoogleAdsRequestQuote";
-import { resetRequestQuoteConversion } from "@/lib/google-ads-client";
+import type { AdsQuotePageType } from "@/lib/google-ads";
+import {
+  createQuoteTransactionId,
+  resetRequestQuoteConversion,
+} from "@/lib/google-ads-client";
+import { withAdsAttribution } from "@/lib/ads-attribution";
 import type { VerifiedFlight } from "@/lib/flight-lookup";
 import {
   detectAirportCodeFromPlace,
@@ -83,7 +88,6 @@ import {
   type QuickSelectAirportCode,
   type SelectedPlace,
 } from "@/lib/selected-place";
-import { parseAmountValue } from "@/lib/finalize-paid-booking";
 
 const IS_A2A_PRIMARY = SERVICE_FLAGS.addressToAddress;
 
@@ -223,6 +227,10 @@ type QuoteCardProps = {
   initialAddressHint?: string;
   /** Optional A2A drop-off hint (e.g. event venue). User should still pick a Places suggestion. */
   initialDropoffHint?: string;
+  /** Ads page_type custom parameter (e.g. emerge_belfast). */
+  pageType?: AdsQuotePageType;
+  /** Cap passenger selector (EMERGE online capacity is 4). */
+  maxPassengers?: number;
 };
 
 function QuoteCard({
@@ -230,13 +238,20 @@ function QuoteCard({
   initialDirection = "to-airport",
   initialAddressHint = "",
   initialDropoffHint = "",
+  pageType = "main",
+  maxPassengers = MAX_ONLINE_PASSENGERS,
 }: QuoteCardProps) {
   const cardRef = useRef<HTMLDivElement>(null);
+  const passengerLimit = Math.min(
+    Math.max(1, maxPassengers),
+    MAX_ONLINE_PASSENGERS,
+  );
   const isMobileDevice = useIsMobileDevice();
   const [submitted, setSubmitted] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [bookingSent, setBookingSent] = useState(false);
   const [bookingReference, setBookingReference] = useState("");
+  const [quoteTransactionId, setQuoteTransactionId] = useState("");
   const [bookingDelivery, setBookingDelivery] = useState<BookingDelivery | null>(null);
   const [quoteStep, setQuoteStep] = useState<1 | 2 | 3>(1);
   const [customerName, setCustomerName] = useState("");
@@ -349,10 +364,10 @@ function QuoteCard({
       : "BFS";
 
   useEffect(() => {
-    if (passengers > MAX_ONLINE_PASSENGERS) {
-      setPassengers(MAX_ONLINE_PASSENGERS);
+    if (passengers > passengerLimit) {
+      setPassengers(passengerLimit);
     }
-  }, [isA2AFlow, passengers]);
+  }, [passengerLimit, passengers]);
 
   useEffect(() => {
     // Legacy: soft-hide address-to-address when flag is off.
@@ -376,7 +391,7 @@ function QuoteCard({
     params.forEach((value, key) => {
       confirmedUrl.searchParams.set(key, value);
     });
-    window.location.replace(confirmedUrl.toString());
+    window.location.replace(withAdsAttribution(confirmedUrl.toString()));
   }, []);
 
   useEffect(() => {
@@ -1147,6 +1162,9 @@ function QuoteCard({
   }
 
   async function confirmBooking(delivery: BookingDelivery) {
+    if (submitted || bookingSent) {
+      return;
+    }
     if (!requireCapacityConfirmed()) {
       return;
     }
@@ -1201,6 +1219,11 @@ function QuoteCard({
       return;
     }
 
+    const adsQuoteId =
+      reference?.trim() ||
+      quoteTransactionId ||
+      createQuoteTransactionId(pageType === "emerge_belfast" ? "emerge" : "quote");
+    setQuoteTransactionId(adsQuoteId);
     setBookingDelivery(delivery);
     setBookingSent(true);
     setSubmitted(false);
@@ -1386,9 +1409,11 @@ function QuoteCard({
 
   if (bookingSent) {
     const quoteConversionValue =
-      typeof liveQuote?.amount === "number"
+      typeof liveQuote?.amount === "number" && Number.isFinite(liveQuote.amount) && liveQuote.amount > 0
         ? liveQuote.amount
-        : parseAmountValue(liveQuote ? formatQuote(liveQuote.amount) : undefined);
+        : undefined;
+    const adsTransactionId = (bookingReference || quoteTransactionId).trim();
+    const canFireQuoteConversion = Boolean(quoteConversionValue && adsTransactionId);
 
     return (
       <div
@@ -1397,13 +1422,12 @@ function QuoteCard({
         className="glass-card min-w-0 rounded-2xl p-6 sm:p-8 lg:animate-float"
       >
         <GoogleAdsRequestQuote
-          fire
+          fire={canFireQuoteConversion}
           value={quoteConversionValue}
-          transactionId={bookingReference || undefined}
-          userData={{
-            email: customerEmail.trim() || undefined,
-            phone: customerMobile.trim() || undefined,
-          }}
+          currency="GBP"
+          transactionId={adsTransactionId || undefined}
+          pageType={pageType}
+          includeUserData={false}
         />
         <div className="rounded-xl border border-emerald/30 bg-emerald/10 px-5 py-8 text-center sm:px-8 sm:py-10">
           <p className="text-xs font-medium uppercase tracking-wider text-emerald">
@@ -1414,6 +1438,11 @@ function QuoteCard({
                 : "Booking submitted"}
           </p>
           <h2 className="mt-2 text-2xl font-bold text-white sm:text-3xl">Thank you</h2>
+          {quoteConversionValue ? (
+            <p className="mt-4 text-3xl font-bold text-white sm:text-4xl">
+              {formatQuote(quoteConversionValue)}
+            </p>
+          ) : null}
           <p className="mx-auto mt-4 max-w-md text-sm leading-relaxed text-white/80 sm:text-base">
             {showsRequestQuoteFlow
               ? isOutOfAreaPickupJourney
@@ -1425,8 +1454,10 @@ function QuoteCard({
                 ? "We’ve received your enquiry. We’ll confirm availability and send your personal quote shortly. When you’re ready to book, we’ll send a SumUp payment link — your trip is confirmed after payment."
                 : "We’ve received your booking request. Once we confirm the job, we’ll send a SumUp payment link by email. Your booking is confirmed after payment."}
           </p>
-          {bookingReference && (
-            <p className="mt-4 text-sm text-white/60">Reference: {bookingReference}</p>
+          {(bookingReference || quoteTransactionId) && (
+            <p className="mt-4 text-sm text-white/60">
+              Reference: {bookingReference || quoteTransactionId}
+            </p>
           )}
           {bookingDelivery === "whatsapp" && (
             <p className="mx-auto mt-4 max-w-md text-sm text-white/60">
@@ -1446,6 +1477,7 @@ function QuoteCard({
               resetRequestQuoteConversion();
               setBookingSent(false);
               setBookingReference("");
+              setQuoteTransactionId("");
               setBookingDelivery(null);
               setQuoteStep(1);
               setSubmitError("");
@@ -2114,7 +2146,7 @@ function QuoteCard({
               onChange={(e) => setPassengers(Number(e.target.value))}
               className="w-full rounded-xl border border-white/10 bg-navy-light px-4 py-3 text-sm text-white outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30"
             >
-              {Array.from({ length: MAX_ONLINE_PASSENGERS }, (_, index) => index + 1).map((count) => (
+              {Array.from({ length: passengerLimit }, (_, index) => index + 1).map((count) => (
                 <option key={count} value={count}>
                   {count}
                 </option>

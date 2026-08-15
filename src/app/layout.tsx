@@ -5,6 +5,7 @@ import "./globals.css";
 import PreventHorizontalScroll from "@/components/PreventHorizontalScroll";
 import CookieConsent from "@/components/CookieConsent";
 import GoogleAdsTag from "@/components/GoogleAdsTag";
+import AdsAttributionCapture from "@/components/AdsAttributionCapture";
 import QuoteAssistant from "@/components/QuoteAssistant";
 import SiteOfflineGate from "@/components/SiteOfflineGate";
 import WhatsAppButton from "@/components/WhatsAppButton";
@@ -147,6 +148,7 @@ export default function RootLayout({
           </div>
           {/* Outside the overflow clip so position:fixed is viewport-relative on mobile */}
           <GoogleAdsTag />
+          <AdsAttributionCapture />
           <QuoteAssistant />
           <WhatsAppButton />
           <CookieConsent />
