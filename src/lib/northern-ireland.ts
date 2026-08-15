@@ -3,6 +3,10 @@ const BT_POSTCODE_PATTERN = /\bBT\d{1,2}\s?\d[A-Z]{2}\b/i;
 const NI_COUNTY_PATTERN =
   /\b(antrim|armagh|down|fermanagh|londonderry|derry|tyrone|belfast)\b/i;
 
+/** Major NI towns so short Google labels like "Omagh, UK" still count as NI. */
+const NI_TOWN_PATTERN =
+  /\b(omagh|newry|armagh|craigavon|portadown|lurgan|banbridge|dungannon|enniskillen|eniskillen|cookstown|strabane|magherafelt|coleraine|limavady|portrush|portstewart|newcastle|downpatrick|warrenpoint|ballymoney|ballycastle|larne|antrim|ballymena|lisburn|bangor|newtownabbey|holywood|carrickfergus|newtownards|comber|dundonald|hillsborough|belfast|derry|londonderry|castlederg|coalisland|moy|ahoghill|broughshane|greenisland|whiteabbey|jordanstown|carryduff|moneyreagh|saintfield|ballynahinch|kilkeel|rosslea|irvinestown|fivemiletown|augher|clogher|aughnacloy)\b/i;
+
 export function extractPostcode(value: string): string | null {
   const match = value.match(BT_POSTCODE_PATTERN);
   return match ? match[0].replace(/\s+/g, " ").toUpperCase() : null;
@@ -24,7 +28,16 @@ export function isNorthernIrelandText(value: string): boolean {
     return true;
   }
 
-  return NI_COUNTY_PATTERN.test(normalised);
+  if (NI_COUNTY_PATTERN.test(normalised)) {
+    return true;
+  }
+
+  return NI_TOWN_PATTERN.test(normalised);
+}
+
+/** Approximate Northern Ireland geographic bounds (WGS84). */
+export function isNorthernIrelandCoordinates(lat: number, lon: number): boolean {
+  return lat >= 54.0 && lat <= 55.5 && lon >= -8.2 && lon <= -5.4;
 }
 
 export function isNorthernIrelandAddressParts(parts: {
@@ -120,10 +133,6 @@ export function isAddressAllowedForAirport(
   }
 
   return false;
-}
-
-function isNorthernIrelandCoordinates(lat: number, lon: number): boolean {
-  return lat >= 54.0 && lat <= 55.5 && lon >= -8.2 && lon <= -5.4;
 }
 
 export function isAllowedCoordinates(airportCode: string, lat: number, lon: number): boolean {

@@ -504,7 +504,7 @@ export const FAQS = [
   {
     question: "Do you cover journeys in the Republic of Ireland?",
     answer:
-      "Yes. Standard pickups are from Greater Belfast (or Belfast International, Belfast City, or Dublin Airport). Destinations can be throughout Northern Ireland and the Republic of Ireland. Dublin Airport keeps a live online quote and book-online flow where eligible. Other Republic of Ireland city destinations, and any out-of-area pickup, use Request Fixed Quote for manual approval — no automatic price or immediate payment until confirmed.",
+      "Yes. Standard pickups are from Greater Belfast (or Belfast International, Belfast City, or Dublin Airport). Pickups from elsewhere in Northern Ireland to a Greater Belfast destination can receive a live online quote where available. Destinations can also be throughout Northern Ireland and the Republic of Ireland. Dublin Airport keeps a live online quote and book-online flow where eligible. Other Republic of Ireland city destinations, and out-of-area pickups that are not NI-to-Greater-Belfast, use Request Fixed Quote for manual approval — no automatic price or immediate payment until confirmed.",
   },
   {
     question: "What currency are prices quoted in?",

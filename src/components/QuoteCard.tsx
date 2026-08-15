@@ -326,13 +326,14 @@ function QuoteCard({
     isPlaceSelected(pickupPlace) &&
     isPlaceSelected(dropoffPlace) &&
     isRepublicOfIrelandJourney(pickupPlace, dropoffPlace);
-  const isOutOfAreaPickupJourney =
-    isA2AFlow && isPlaceSelected(pickupPlace) && isOutOfAreaPickup(pickupPlace);
   const isManualQuoteJourney =
     isA2AFlow &&
     isPlaceSelected(pickupPlace) &&
     isPlaceSelected(dropoffPlace) &&
     needsManualQuoteApproval(pickupPlace, dropoffPlace);
+  /** Amber banner only when an out-of-area pickup still needs manual approval. */
+  const isOutOfAreaPickupJourney =
+    isManualQuoteJourney && isOutOfAreaPickup(pickupPlace);
   const showsRequestQuoteFlow = isRequestQuote || isManualQuoteJourney;
   const effectiveAirportCode = isA2AFlow
     ? pickupAirportCode || dropoffAirportCode || ""
