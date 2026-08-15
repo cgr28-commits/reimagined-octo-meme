@@ -423,7 +423,7 @@ export const FAQS = [
   {
     question: "How do I book an airport transfer?",
     answer:
-      "Use Get a Live Quote on this page for your fixed price. For a standard or estate car with an instant fare, you can pay securely online with SumUp to confirm. For minibuses, executive cars, or journeys that need a fixed quote, Request to book / enquire — once we confirm the job, we email a SumUp payment link. Your booking is confirmed after payment.",
+      "Use Get a Live Quote on this page for your fixed price. When an instant fare is shown, you can pay securely online with SumUp to confirm. For larger groups or journeys that need a fixed quote, Request to book / enquire — once we confirm the job, we email a SumUp payment link. Your booking is confirmed after payment.",
   },
   {
     question: "Do you track my flight?",
@@ -606,10 +606,10 @@ export const INSTANT_PAY_VEHICLE_TYPES: readonly VehicleType[] = [
 export const MINIBUS_PARTNER_NOTE =
   "Minibus transfers for 5 or more passengers are arranged through our licensed transport partners.";
 
-/** Short guidance shown in the quote tool above vehicle selection. */
+/** Short guidance kept for ops/docs — not shown in the public quote UI. */
 export const VEHICLE_BOOKING_GUIDANCE = [
-  "1–4 passengers: Standard or estate car — instant online price where shown. Pay online by card to confirm.",
-  "5–8 passengers: Minibus via licensed transport partners — Request a quote (not instant confirmation). Selected automatically when more than four passengers are chosen.",
+  "1–4 passengers with light luggage: instant online price where shown. Pay online by card to confirm.",
+  "5–8 passengers: arranged via licensed transport partners — Request a quote (not instant confirmation).",
 ] as const;
 
 /** 8 passengers with 8 large cases needs manual capacity confirmation before we can accept. */

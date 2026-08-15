@@ -1112,7 +1112,7 @@ function QuoteCard({
     if (!liveQuote || paymentLoading || !canPayNowOnline) {
       if (!canPayNowOnline) {
         setPaymentError(
-          "Online payment is available for standard and estate cars with an instant fare. Request to book instead and we’ll email a SumUp link once confirmed.",
+          "Online payment is available when an instant fare is shown. Request to book instead and we’ll email a SumUp link once confirmed.",
         );
       }
       return;
@@ -1520,9 +1520,9 @@ function QuoteCard({
                 key={item.step}
                 className={`rounded-lg border px-2 py-2 text-center ${
                   active
-                    ? "border-emerald/50 bg-emerald/15 text-emerald"
+                    ? "border-white/25 bg-white/[0.06] text-white"
                     : done
-                      ? "border-white/15 bg-white/5 text-white/70"
+                      ? "border-white/15 bg-white/[0.03] text-white/70"
                       : "border-white/10 text-white/40"
                 }`}
               >
@@ -1648,7 +1648,7 @@ function QuoteCard({
                 </p>
               </div>
             ) : isRoiJourney ? (
-              <div className="rounded-xl border border-emerald/30 bg-emerald/10 px-4 py-3 text-sm text-white/85">
+              <div className="rounded-xl border border-white/10 bg-navy-dark/40 px-4 py-3 text-sm text-white/85">
                 <p className="font-semibold text-emerald">Republic of Ireland journey – request your fixed price</p>
                 <p className="mt-1 text-xs leading-relaxed text-white/70">
                   Republic of Ireland city destinations (outside Dublin Airport) are quoted
@@ -1716,7 +1716,7 @@ function QuoteCard({
             </p>
             {isLdyTrip ? (
               <>
-                <div className="mb-2 rounded-xl border border-emerald/20 bg-emerald/10 px-4 py-3 text-sm text-white/80">
+                <div className="mb-2 rounded-xl border border-white/10 bg-navy-dark/40 px-4 py-3 text-sm text-white/80">
                   Transfers between City of Derry Airport and the greater Belfast area only.
                 </div>
                 <div className="grid grid-cols-2 gap-2 rounded-xl border border-white/10 bg-white/5 p-1">

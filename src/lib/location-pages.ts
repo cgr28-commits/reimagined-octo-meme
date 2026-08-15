@@ -48,7 +48,7 @@ const AIRPORT_PAGES_ALL: AirportPage[] = [
     intro:
       "Belfast International (Aldergrove) is Northern Ireland’s main long-haul and holiday airport. We provide door-to-door private transfers across Greater Belfast and beyond, with live flight monitoring so pickup adjusts if your flight is early or delayed.",
     highlights: [
-      "Fixed online prices for standard and estate cars (1–4 passengers)",
+      "Fixed online prices for 1–4 passengers",
       "Flight tracking with up to 60 minutes complimentary waiting after landing",
       "Meet & greet available in arrivals on request",
       "24/7 coverage including early-morning charters and late arrivals",
@@ -56,7 +56,7 @@ const AIRPORT_PAGES_ALL: AirportPage[] = [
     localTips: [
       "For departures, allow extra time for the M2/M22 corridor in peak morning traffic — we’ll quote a pickup time that suits your flight.",
       "Arrivals pickups use the airport’s designated private-hire meeting points; share your flight number so we can track landing time.",
-      "Estate cars are ideal for family holidays with multiple large suitcases from BFS.",
+      "Spacious private transfers are ideal for family holidays with multiple large suitcases from BFS.",
     ],
     fromPriceLabel: "From £45",
     durationNote: "Around 30 minutes from Belfast city centre in normal traffic",
@@ -104,7 +104,7 @@ const AIRPORT_PAGES_ALL: AirportPage[] = [
     highlights: [
       "Fixed prices for NI ↔ Dublin Airport journeys",
       "Flight tracking for arrivals into Dublin",
-      "Estate and saloon options for luggage-heavy trips",
+      "Suitable options for luggage-heavy trips",
       "Return bookings available with a 5% discount online",
     ],
     localTips: [
@@ -190,7 +190,7 @@ function buildRouteNotes(town: TownArea, airport: AirportPage): string[] {
   if (airport.code === "BFS") {
     return [
       `${town.name} to Belfast International typically uses the M2/M22 corridor — we time pickups around your check-in window.`,
-      `Estate cars are popular from ${town.name} for family holidays with multiple suitcases.`,
+      `Private transfers from ${town.name} suit family holidays with multiple suitcases.`,
       "Share your flight number for arrivals so waiting time starts from the actual landing.",
     ];
   }
