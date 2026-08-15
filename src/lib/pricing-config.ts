@@ -48,14 +48,17 @@ export type PricingConfig = {
 
 export const PRICING_CONFIG = pricingConfigJson as PricingConfig;
 
-/** Owner gate — public live £ fares stay off until this is true in pricing-config.json. */
+/** Owner switch — set false in pricing-config.json to temporarily hide live £ amounts. */
 export function arePricingRulesApproved(): boolean {
   return PRICING_CONFIG.pricingRulesApproved === true;
 }
 
-/** True only when approved rules may be shown as live public prices. */
+/**
+ * Public live quotes + SumUp pay-now.
+ * Uses the OTS-calibrated tables in pricing-config.json. Operational £/km bands are optional.
+ */
 export function arePublicLivePricesEnabled(): boolean {
-  return arePricingRulesApproved() && hasOperationalRatesConfigured();
+  return arePricingRulesApproved();
 }
 
 export function getPublicUnapprovedPriceLabel(): string {

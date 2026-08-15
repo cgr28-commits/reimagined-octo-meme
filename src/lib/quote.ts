@@ -262,6 +262,13 @@ export function matchAreaFromAddress(address: string): Area | null {
 
     const aliases = [area.toLowerCase()];
     if (area === "Lisburn") {
+      // "Lisburn Road" in Belfast (e.g. BT7/BT9) is not the town of Lisburn.
+      if (
+        /\blisburn\s+(road|rd|avenue|ave|street|st)\b/.test(normalised) &&
+        (/\bbelfast\b/.test(normalised) || /\bbt[79]\b/.test(normalised))
+      ) {
+        continue;
+      }
       aliases.push("bt27", "bt28");
     }
     if (area === "Bangor") {
@@ -417,13 +424,15 @@ export function calculatePointToPointQuote(
       band: ops.band,
     };
   } else if (routeMetrics) {
-    // Draft OTS reference path (calibration / until operational rates are filled).
+    // OTS reference path — undercut live-equivalent estimate, floored at saloon base.
+    const saloonFloor = OTS_VEHICLE_BASE["Standard Saloon (1–4 passengers)"] ?? 35;
     oneWay = undercutOtsEstateFare(
       calculateOtsPointToPointOneWay(
         routeMetrics.distanceKm,
         routeMetrics.durationMinutes,
         vehicleType,
       ),
+      saloonFloor,
     );
     areaSurcharge = Math.round(routeMetrics.distanceKm);
   } else {

@@ -66,12 +66,14 @@ function median(values: number[]): number {
 
 function readCurrentSurcharge(source: string, area: string, airportCode: string): number | null {
   const areaKey = `"${area.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}"`;
-  const lineRegex = new RegExp(
-    `^\\s*${areaKey}:\\s*\\{[^\\n]*?\\b"${airportCode}":\\s*(\\d+)`,
-    "m",
-  );
-  const match = source.match(lineRegex);
-  return match ? Number(match[1]) : null;
+  const airportKey = `"${airportCode.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}"`;
+  const blockRegex = new RegExp(`${areaKey}\\s*:\\s*\\{([\\s\\S]*?)\\n\\s*\\}`, "m");
+  const block = source.match(blockRegex);
+  if (!block) {
+    return null;
+  }
+  const valueMatch = block[1].match(new RegExp(`${airportKey}\\s*:\\s*(\\d+)`));
+  return valueMatch ? Number(valueMatch[1]) : null;
 }
 
 async function main() {
