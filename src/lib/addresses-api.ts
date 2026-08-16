@@ -32,6 +32,19 @@ export type WorkerAddressSuggestion = {
   secondaryText: string;
 };
 
+export type WorkerResolvedAddress = {
+  address: string;
+  placeId: string;
+  lat: number | null;
+  lng: number | null;
+  countryCode: string | null;
+  postalCode: string | null;
+  streetNumber: string | null;
+  route: string | null;
+  locality: string | null;
+  provider?: string;
+};
+
 export async function fetchWorkerAddressSuggestions(
   query: string,
   airportCode: string,
@@ -65,12 +78,16 @@ export async function fetchWorkerAddressSuggestions(
 export async function fetchWorkerAddressDetails(
   placeId: string,
   airportCode: string,
-): Promise<string | null> {
+  userInput?: string,
+): Promise<WorkerResolvedAddress | null> {
   const baseUrl = resolveAddressesApiUrl();
   const url = new URL(baseUrl);
   url.searchParams.set("id", placeId);
   if (airportCode) {
     url.searchParams.set("airport", airportCode);
+  }
+  if (userInput?.trim()) {
+    url.searchParams.set("userInput", userInput.trim());
   }
 
   try {
@@ -82,8 +99,26 @@ export async function fetchWorkerAddressDetails(
       return null;
     }
 
-    const payload = (await response.json()) as { address?: string };
-    return payload.address?.trim() || null;
+    const payload = (await response.json()) as Partial<WorkerResolvedAddress> & {
+      address?: string;
+    };
+    const address = payload.address?.trim();
+    if (!address) {
+      return null;
+    }
+
+    return {
+      address,
+      placeId: payload.placeId?.trim() || placeId,
+      lat: typeof payload.lat === "number" ? payload.lat : null,
+      lng: typeof payload.lng === "number" ? payload.lng : null,
+      countryCode: payload.countryCode?.trim() || null,
+      postalCode: payload.postalCode?.trim() || null,
+      streetNumber: payload.streetNumber?.trim() || null,
+      route: payload.route?.trim() || null,
+      locality: payload.locality?.trim() || null,
+      provider: payload.provider,
+    };
   } catch {
     return null;
   }

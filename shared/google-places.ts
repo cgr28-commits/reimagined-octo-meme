@@ -120,6 +120,8 @@ function getAddressComponent(
 
 function parseGoogleAddressComponents(components: GoogleAddressComponent[] | undefined) {
   return {
+    streetNumber: getAddressComponent(components, "street_number"),
+    route: getAddressComponent(components, "route"),
     postcode: getAddressComponent(components, "postal_code"),
     county:
       getAddressComponent(components, "administrative_area_level_2") ??
@@ -156,7 +158,7 @@ export function extractLeadingStreetNumber(input: string): string | null {
   return match ? match[1] : null;
 }
 
-function hasLeadingStreetNumber(text: string): boolean {
+export function hasLeadingStreetNumber(text: string): boolean {
   return /^\d+[a-zA-Z]?\s/.test(text.trim());
 }
 
@@ -168,7 +170,12 @@ export function isStreetOnlyQuery(query: string): boolean {
   return !extractLeadingStreetNumber(query) && query.trim().length >= 3;
 }
 
-function withStreetNumber(number: string, addressLine: string): string {
+/** True when the customer typed a house/flat number before the street. */
+export function isNumberedAddressQuery(query: string): boolean {
+  return Boolean(extractLeadingStreetNumber(query));
+}
+
+export function withStreetNumber(number: string, addressLine: string): string {
   const trimmed = addressLine.trim();
   if (!trimmed || hasLeadingStreetNumber(trimmed)) {
     return trimmed;
@@ -212,6 +219,7 @@ export async function searchGooglePlaces(
   sessionToken?: string,
 ): Promise<AddressSuggestion[]> {
   const code = normaliseAirportCode(airportCode);
+  const userNumber = extractLeadingStreetNumber(query);
   const body: Record<string, unknown> = {
     input: query,
     includedRegionCodes: getRegionCodes(code),
@@ -232,9 +240,11 @@ export async function searchGooglePlaces(
     body.sessionToken = sessionToken;
   }
 
-  // Do not restrict primary types for street-name / town queries.
-  // Restricting to street_address/premise excludes route/locality matches
-  // (e.g. "Donegall Place", "Belfast") and returns empty suggestions.
+  // When the customer typed a house number, prefer premises-level predictions.
+  // Street-name / town queries stay untyped so route/locality matches still work.
+  if (userNumber) {
+    body.includedPrimaryTypes = ["street_address", "premise", "subpremise"];
+  }
 
   const response = await fetch("https://places.googleapis.com/v1/places:autocomplete", {
     method: "POST",
@@ -251,18 +261,75 @@ export async function searchGooglePlaces(
       `Google Places autocomplete failed (${response.status})`,
       detail.slice(0, 300),
     );
+    // If premises-restricted autocomplete fails/empty, fall back without type filter.
+    if (userNumber) {
+      return searchGooglePlacesUntyped(apiKey, query, airportCode, sessionToken);
+    }
     return [];
   }
 
   const data = (await response.json()) as GoogleAutocompleteResponse;
-  const userNumber = extractLeadingStreetNumber(query);
 
   const suggestions = (data.suggestions ?? [])
     .map((item) => formatSuggestion(item.placePrediction, userNumber))
     .filter((suggestion): suggestion is AddressSuggestion => suggestion !== null)
     .filter((suggestion) => isAllowedAutocompleteLabel(suggestion.label, code));
 
-  return sortSuggestionsByStreetNumber(suggestions).slice(0, 8);
+  const sorted = sortSuggestionsByStreetNumber(suggestions).slice(0, 8);
+  if (sorted.length === 0 && userNumber) {
+    return searchGooglePlacesUntyped(apiKey, query, airportCode, sessionToken);
+  }
+  return sorted;
+}
+
+/** Untyped autocomplete fallback (routes/localities) — used when premises filter is empty. */
+async function searchGooglePlacesUntyped(
+  apiKey: string,
+  query: string,
+  airportCode: string,
+  sessionToken?: string,
+): Promise<AddressSuggestion[]> {
+  const code = normaliseAirportCode(airportCode);
+  const body: Record<string, unknown> = {
+    input: query,
+    includedRegionCodes: getRegionCodes(code),
+    regionCode: code === "DUB" ? "ie" : "gb",
+    languageCode: "en-GB",
+  };
+
+  const bias = getLocationBias(code);
+  if (bias) {
+    body.locationBias = bias;
+  } else {
+    body.locationRestriction = getLocationRestriction(code);
+  }
+
+  if (sessionToken) {
+    body.sessionToken = sessionToken;
+  }
+
+  const response = await fetch("https://places.googleapis.com/v1/places:autocomplete", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Goog-Api-Key": apiKey,
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    return [];
+  }
+
+  const data = (await response.json()) as GoogleAutocompleteResponse;
+  const userNumber = extractLeadingStreetNumber(query);
+
+  return sortSuggestionsByStreetNumber(
+    (data.suggestions ?? [])
+      .map((item) => formatSuggestion(item.placePrediction, userNumber))
+      .filter((suggestion): suggestion is AddressSuggestion => suggestion !== null)
+      .filter((suggestion) => isAllowedAutocompleteLabel(suggestion.label, code)),
+  ).slice(0, 8);
 }
 
 export async function searchGoogleStreetAddresses(
@@ -271,11 +338,12 @@ export async function searchGoogleStreetAddresses(
   airportCode: string,
 ): Promise<AddressSuggestion[]> {
   const trimmed = query.trim();
-  if (trimmed.length < 3 || !isStreetOnlyQuery(trimmed)) {
+  if (trimmed.length < 3 || isNorthernIrelandPostcodeQuery(trimmed)) {
     return [];
   }
 
   const code = normaliseAirportCode(airportCode);
+  const userNumber = extractLeadingStreetNumber(trimmed);
   const scopedQuery =
     code === "DUB" || code === "A2A"
       ? trimmed
@@ -288,7 +356,7 @@ export async function searchGoogleStreetAddresses(
     headers: {
       "Content-Type": "application/json",
       "X-Goog-Api-Key": apiKey,
-      "X-Goog-FieldMask": "places.id,places.formattedAddress,places.addressComponents",
+      "X-Goog-FieldMask": "places.id,places.formattedAddress,places.addressComponents,places.location",
     },
     body: JSON.stringify({
       textQuery: scopedQuery,
@@ -318,9 +386,15 @@ export async function searchGoogleStreetAddresses(
       continue;
     }
 
-    const formatted = place.formattedAddress.trim();
+    let formatted = place.formattedAddress.trim();
+    // Prefer results that already include a door number; if the user typed one
+    // and Google returned a route-only match, keep their number visible.
     if (!hasLeadingStreetNumber(formatted)) {
-      continue;
+      if (userNumber) {
+        formatted = withStreetNumber(userNumber, formatted);
+      } else {
+        continue;
+      }
     }
 
     const parts = parseGoogleAddressComponents(place.addressComponents);
@@ -540,6 +614,9 @@ export type ResolvedGooglePlace = {
   lng: number | null;
   countryCode: string | null;
   postalCode: string | null;
+  streetNumber: string | null;
+  route: string | null;
+  locality: string | null;
 };
 
 export async function resolveGooglePlaceDetails(
@@ -585,11 +662,15 @@ export async function resolveGooglePlaceDetails(
   if (!formatted) {
     return null;
   }
-  if (userInput) {
-    const userNumber = extractLeadingStreetNumber(userInput);
-    if (userNumber && !hasLeadingStreetNumber(formatted)) {
-      formatted = withStreetNumber(userNumber, formatted);
-    }
+
+  const userNumber = userInput ? extractLeadingStreetNumber(userInput) : null;
+  let streetNumber = parts.streetNumber?.trim() || null;
+  if (userNumber && !hasLeadingStreetNumber(formatted)) {
+    // Never silently drop the customer's typed house number for a route-only place.
+    formatted = withStreetNumber(userNumber, formatted);
+    streetNumber = streetNumber || userNumber;
+  } else if (userNumber && !streetNumber) {
+    streetNumber = userNumber;
   }
 
   const countryShort =
@@ -603,6 +684,9 @@ export async function resolveGooglePlaceDetails(
     lng: data.location?.longitude ?? null,
     countryCode: countryShort?.trim().toUpperCase() === "UK" ? "GB" : countryShort?.trim().toUpperCase() ?? null,
     postalCode: parts.postcode ?? null,
+    streetNumber,
+    route: parts.route?.trim() || null,
+    locality: (parts.town ?? parts.city)?.trim() || null,
   };
 }
 

@@ -6,8 +6,9 @@ import {
 import {
   corsHeaders,
   extractLeadingStreetNumber,
+  isNumberedAddressQuery,
   isStreetOnlyQuery,
-  resolveGooglePlace,
+  resolveGooglePlaceDetails,
   reverseGeocodeGoogle,
   searchGoogleEstablishments,
   searchGooglePlaces,
@@ -17,12 +18,12 @@ import {
 import {
   extractNorthernIrelandPostcode,
   isFullNorthernIrelandPostcode,
-  isNorthernIrelandPostcodeQuery,
   sortSuggestionsByStreetNumber,
 } from "../shared/address-validation";
 import {
-  resolveGetAddress,
+  resolveGetAddressDetails,
   searchGetAddress,
+  shouldUseGetAddress,
 } from "../shared/getaddress";
 import {
   formatBookingReference,
@@ -1437,30 +1438,67 @@ export default {
 
     if (id) {
       try {
+        const userInput = url.searchParams.get("userInput")?.trim() || undefined;
+
         if (id.startsWith("ga:") && env.GETADDRESS_API_KEY) {
-          const address = await resolveGetAddress(env.GETADDRESS_API_KEY, id, airportCode);
-          if (!address) {
+          const details = await resolveGetAddressDetails(
+            env.GETADDRESS_API_KEY,
+            id,
+            airportCode,
+          );
+          if (!details) {
             return json({ error: "Address not found" }, 404, origin);
           }
-          return json({ address, provider: "getaddress" }, 200, origin);
+          return json(
+            {
+              address: details.formattedAddress,
+              placeId: details.placeId,
+              lat: details.lat,
+              lng: details.lng,
+              countryCode: details.countryCode,
+              postalCode: details.postalCode,
+              streetNumber: details.streetNumber,
+              route: details.route,
+              locality: details.locality,
+              provider: "getaddress",
+            },
+            200,
+            origin,
+          );
         }
 
         if (!env.GOOGLE_PLACES_API_KEY) {
           return json({ error: "Address lookup is not configured" }, 503, origin);
         }
 
-        const address = await resolveGooglePlace(
+        const details = await resolveGooglePlaceDetails(
           env.GOOGLE_PLACES_API_KEY,
           id,
           airportCode,
           sessionToken,
+          userInput,
         );
 
-        if (!address) {
+        if (!details) {
           return json({ error: "Address not found" }, 404, origin);
         }
 
-        return json({ address, provider: "google" }, 200, origin);
+        return json(
+          {
+            address: details.formattedAddress,
+            placeId: details.placeId,
+            lat: details.lat,
+            lng: details.lng,
+            countryCode: details.countryCode,
+            postalCode: details.postalCode,
+            streetNumber: details.streetNumber,
+            route: details.route,
+            locality: details.locality,
+            provider: "google",
+          },
+          200,
+          origin,
+        );
       } catch {
         return json({ error: "Address lookup failed" }, 502, origin);
       }
@@ -1473,12 +1511,7 @@ export default {
     try {
       const tasks: Promise<Awaited<ReturnType<typeof searchGooglePlaces>>>[] = [];
 
-      if (
-        env.GETADDRESS_API_KEY &&
-        airportCode !== "DUB" &&
-        (airportCode !== "LDY" || isNorthernIrelandPostcodeQuery(query)) &&
-        (airportCode !== "A2A" || isNorthernIrelandPostcodeQuery(query))
-      ) {
+      if (env.GETADDRESS_API_KEY && shouldUseGetAddress(airportCode, query)) {
         tasks.push(searchGetAddress(env.GETADDRESS_API_KEY, query, airportCode));
       }
 
@@ -1498,7 +1531,7 @@ export default {
           );
         }
 
-        if (isStreetOnlyQuery(query)) {
+        if (isStreetOnlyQuery(query) || isNumberedAddressQuery(query)) {
           tasks.push(
             searchGoogleStreetAddresses(env.GOOGLE_PLACES_API_KEY, query, airportCode),
           );

@@ -7,7 +7,7 @@ import {
   normaliseNorthernIrelandPostcode,
   sortSuggestionsByStreetNumber,
 } from "./address-validation";
-
+import { extractLeadingStreetNumber } from "./google-places";
 export const GETADDRESS_NI_FILTER = "postcode:BT";
 
 export type AddressSuggestion = {
@@ -29,6 +29,11 @@ type GetAddressDetail = {
   town_or_city?: string;
   county?: string;
   postcode?: string;
+  latitude?: number;
+  longitude?: number;
+  building_number?: string;
+  thoroughfare?: string;
+  locality?: string;
 };
 
 type GetAddressFindResponse = {
@@ -102,12 +107,17 @@ function shouldUseGetAddress(airportCode: string, query: string): boolean {
     return false;
   }
 
-  if (code !== "LDY") {
-    return true;
+  // LDY: allow door-number / BT postcode lookups (NI filter still applied).
+  if (code === "LDY") {
+    return (
+      isNorthernIrelandPostcodeQuery(query) || Boolean(extractLeadingStreetNumber(query))
+    );
   }
 
-  return isNorthernIrelandPostcodeQuery(query);
+  return true;
 }
+
+export { shouldUseGetAddress };
 
 async function searchGetAddressAutocomplete(
   apiKey: string,
@@ -226,11 +236,23 @@ export async function searchGetAddress(
   return searchGetAddressAutocomplete(apiKey, trimmed, airportCode);
 }
 
-export async function resolveGetAddress(
+export type ResolvedGetAddressPlace = {
+  formattedAddress: string;
+  placeId: string;
+  lat: number | null;
+  lng: number | null;
+  countryCode: string;
+  postalCode: string | null;
+  streetNumber: string | null;
+  route: string | null;
+  locality: string | null;
+};
+
+export async function resolveGetAddressDetails(
   apiKey: string,
   placeId: string,
   airportCode: string,
-): Promise<string | null> {
+): Promise<ResolvedGetAddressPlace | null> {
   if (placeId.startsWith("ga:static:")) {
     const formatted = decodeURIComponent(placeId.slice("ga:static:".length));
     if (
@@ -243,7 +265,18 @@ export async function resolveGetAddress(
       return null;
     }
 
-    return formatted;
+    const numberMatch = formatted.trim().match(/^(\d+[a-zA-Z]?)\b/);
+    return {
+      placeId,
+      formattedAddress: formatted,
+      lat: null,
+      lng: null,
+      countryCode: "GB",
+      postalCode: extractNorthernIrelandPostcode(formatted),
+      streetNumber: numberMatch?.[1] ?? null,
+      route: null,
+      locality: null,
+    };
   }
 
   const id = placeId.startsWith("ga:") ? placeId.slice(3) : placeId;
@@ -271,7 +304,26 @@ export async function resolveGetAddress(
     return null;
   }
 
-  return formatted;
+  return {
+    placeId: placeId.startsWith("ga:") ? placeId : `ga:${placeId}`,
+    formattedAddress: formatted,
+    lat: typeof detail.latitude === "number" ? detail.latitude : null,
+    lng: typeof detail.longitude === "number" ? detail.longitude : null,
+    countryCode: "GB",
+    postalCode: detail.postcode?.trim() || extractNorthernIrelandPostcode(formatted),
+    streetNumber: detail.building_number?.trim() || null,
+    route: detail.thoroughfare?.trim() || null,
+    locality: detail.town_or_city?.trim() || detail.locality?.trim() || null,
+  };
+}
+
+export async function resolveGetAddress(
+  apiKey: string,
+  placeId: string,
+  airportCode: string,
+): Promise<string | null> {
+  const details = await resolveGetAddressDetails(apiKey, placeId, airportCode);
+  return details?.formattedAddress ?? null;
 }
 
 export function isGetAddressPlaceId(placeId: string): boolean {
