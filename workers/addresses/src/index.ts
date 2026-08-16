@@ -120,6 +120,7 @@ import {
 import {
   sendEmail,
   trySendEmail,
+  trySendOwnerOperationalEmail,
   type EmailPayload,
 } from "./worker-email";
 import {
@@ -1015,7 +1016,7 @@ async function handlePaymentRequest(
       checkoutId: checkout.checkoutId,
       checkoutReference: checkout.checkoutReference,
     });
-    const attemptSend = await trySendEmail(env, {
+    const attemptSend = await trySendOwnerOperationalEmail(env, {
       to: ownerInbox(env),
       subject: attemptEmail.subject,
       body: attemptEmail.body,
@@ -1100,7 +1101,7 @@ async function handlePaymentWebhookRequest(
                     checkoutReference: pending?.checkoutReference ?? checkout.checkout_reference,
                     sumUpStatus: status,
                   });
-                  const send = await trySendEmail(env, {
+                  const send = await trySendOwnerOperationalEmail(env, {
                     to: ownerInbox(env),
                     subject: unsuccessful.subject,
                     body: unsuccessful.body,

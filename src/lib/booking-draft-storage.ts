@@ -1,0 +1,138 @@
+/**
+ * Persist quote + customer details while SumUp is open in another tab.
+ * Session storage keeps the original booking page recoverable after tab switches.
+ */
+
+import type { SelectedPlace } from "@/lib/selected-place";
+import type { QuoteJourneyIntent, CustomerAirportCode } from "@/lib/quote-journey-intent";
+import type { VehicleType } from "@/lib/data";
+
+const BOOKING_DRAFT_KEY = "matni-booking-draft-v1";
+const OPEN_CHECKOUT_KEY = "matni-open-checkout-v1";
+
+export type BookingFormDraft = {
+  quoteStep?: 1 | 2 | 3;
+  pickupAddress?: string;
+  dropoffAddress?: string;
+  pickupPlace?: SelectedPlace | null;
+  dropoffPlace?: SelectedPlace | null;
+  tripDate?: string;
+  tripTime?: string;
+  returnJourney?: boolean;
+  returnDate?: string;
+  returnTime?: string;
+  passengers?: number;
+  suitcases?: number;
+  exactPassengers?: number | null;
+  childSeats?: number;
+  childSeatNotes?: string;
+  vehicle?: VehicleType | string;
+  customerName?: string;
+  customerEmail?: string;
+  customerMobile?: string;
+  goingFlightNumber?: string;
+  collectionFlightNumber?: string;
+  journeyIntent?: QuoteJourneyIntent | null;
+  intentAirportCode?: CustomerAirportCode | "";
+  termsAccepted?: boolean;
+  marketingOptIn?: boolean;
+  savedAt?: string;
+};
+
+export type OpenCheckoutSession = {
+  paymentUrl: string;
+  checkoutId: string;
+  checkoutReference?: string;
+  amountLabel: string;
+  returnToken?: string;
+  openedAt: string;
+};
+
+function canUseStorage(): boolean {
+  return typeof window !== "undefined" && typeof sessionStorage !== "undefined";
+}
+
+export function saveBookingFormDraft(draft: BookingFormDraft): void {
+  if (!canUseStorage()) {
+    return;
+  }
+  try {
+    sessionStorage.setItem(
+      BOOKING_DRAFT_KEY,
+      JSON.stringify({ ...draft, savedAt: new Date().toISOString() }),
+    );
+  } catch {
+    // Ignore quota / private mode failures — in-memory React state still holds the form.
+  }
+}
+
+export function readBookingFormDraft(): BookingFormDraft | null {
+  if (!canUseStorage()) {
+    return null;
+  }
+  try {
+    const raw = sessionStorage.getItem(BOOKING_DRAFT_KEY);
+    if (!raw) {
+      return null;
+    }
+    const parsed = JSON.parse(raw) as BookingFormDraft;
+    if (!parsed || typeof parsed !== "object") {
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+export function clearBookingFormDraft(): void {
+  if (!canUseStorage()) {
+    return;
+  }
+  try {
+    sessionStorage.removeItem(BOOKING_DRAFT_KEY);
+  } catch {
+    // ignore
+  }
+}
+
+export function saveOpenCheckoutSession(session: OpenCheckoutSession): void {
+  if (!canUseStorage()) {
+    return;
+  }
+  try {
+    sessionStorage.setItem(OPEN_CHECKOUT_KEY, JSON.stringify(session));
+  } catch {
+    // ignore
+  }
+}
+
+export function readOpenCheckoutSession(): OpenCheckoutSession | null {
+  if (!canUseStorage()) {
+    return null;
+  }
+  try {
+    const raw = sessionStorage.getItem(OPEN_CHECKOUT_KEY);
+    if (!raw) {
+      return null;
+    }
+    const parsed = JSON.parse(raw) as OpenCheckoutSession;
+    if (!parsed?.paymentUrl || !parsed?.checkoutId) {
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+export function clearOpenCheckoutSession(): void {
+  if (!canUseStorage()) {
+    return;
+  }
+  try {
+    sessionStorage.removeItem(OPEN_CHECKOUT_KEY);
+  } catch {
+    // ignore
+  }
+}
