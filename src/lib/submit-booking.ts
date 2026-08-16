@@ -1,6 +1,7 @@
 import { SITE } from "@/lib/data";
 import type { BookingDetails } from "@/lib/booking-message";
 import { buildBookingMessage } from "@/lib/booking-message";
+import { resolveBookingsApiUrl } from "@/lib/worker-api";
 import { isValidPassengerCount, PASSENGER_LIMIT_ERROR } from "../../shared/passenger-limits";
 
 import type { TourEnquiryDetails } from "@/lib/tour-enquiry-message";
@@ -16,26 +17,6 @@ export type EnquirySubmission = {
 
 const WEB3FORMS_ACCESS_KEY =
   process.env.NEXT_PUBLIC_WEB3FORMS_ACCESS_KEY?.trim() ?? "";
-
-function resolveBookingsApiUrl(): string {
-  const url = process.env.NEXT_PUBLIC_BOOKINGS_API_URL?.trim() ?? "";
-  if (!url) {
-    return "";
-  }
-
-  try {
-    const parsed = new URL(url);
-    const host = parsed.hostname.toLowerCase();
-
-    if (host === "www.myairporttaxini.co.uk" || host === "myairporttaxini.co.uk") {
-      return "";
-    }
-  } catch {
-    return "";
-  }
-
-  return url;
-}
 
 const BOOKINGS_API_URL = resolveBookingsApiUrl();
 

@@ -922,6 +922,8 @@ export async function reverseGeocodeGoogle(
 export const ALLOWED_ORIGINS = [
   "https://www.myairporttaxini.co.uk",
   "https://myairporttaxini.co.uk",
+  // Current Vercel production hostname (custom domain DNS cutover is separate).
+  "https://my-airport-taxi-ni-quote.vercel.app",
   "http://localhost:3000",
   "http://127.0.0.1:3000",
 ];

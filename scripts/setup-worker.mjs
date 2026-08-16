@@ -177,6 +177,13 @@ putSecret(
   "DRIVER_ACCESS_KEY",
   process.env.DRIVER_ACCESS_KEY ?? generateDriverAccessKey(),
 );
+if (process.env.RESEND_API_KEY?.trim()) {
+  putSecret("RESEND_API_KEY", process.env.RESEND_API_KEY.trim());
+}
+if (process.env.SUMUP_API_KEY?.trim() && process.env.SUMUP_MERCHANT_CODE?.trim()) {
+  putSecret("SUMUP_API_KEY", process.env.SUMUP_API_KEY.trim());
+  putSecret("SUMUP_MERCHANT_CODE", process.env.SUMUP_MERCHANT_CODE.trim());
+}
 if (process.env.GOOGLE_REVIEW_URL?.trim()) {
   putSecret("GOOGLE_REVIEW_URL", process.env.GOOGLE_REVIEW_URL.trim());
 }

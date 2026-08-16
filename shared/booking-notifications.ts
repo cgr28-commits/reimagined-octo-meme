@@ -1,5 +1,12 @@
 import { formatMarketingOptInLine } from "./marketing";
-import { BUSINESS_MAILBOX } from "./business-email";
+import {
+  BRAND_EMERALD,
+  BRAND_NAVY,
+  BUSINESS_MAILBOX,
+  BUSINESS_PHONE_DISPLAY,
+  BUSINESS_PHONE_TEL,
+  BUSINESS_WEBSITE as CANONICAL_BUSINESS_WEBSITE,
+} from "./business-email";
 import { formatUkDate, formatUkTime, UK_LOCAL_TIME_LABEL } from "./uk-time";
 import {
   formatEmailFareIncludesBlock,
@@ -49,9 +56,12 @@ export type CustomerPaidBookingEmail = {
   html: string;
 };
 
-const BUSINESS_WEBSITE = "https://www.myairporttaxini.co.uk";
+const BUSINESS_WEBSITE = CANONICAL_BUSINESS_WEBSITE;
 const BUSINESS_EMAIL = BUSINESS_MAILBOX;
+/** Official logo already hosted on the live site (same asset as Google Business). */
 const LOGO_URL = `${BUSINESS_WEBSITE}/google-business-logo.png`;
+const ACCENT = BRAND_EMERALD;
+const NAVY = BRAND_NAVY;
 
 function escapeHtml(value: string): string {
   return value
@@ -114,6 +124,9 @@ function formatTripSchedule(details: PaidBookingDetails): string {
 
 function invoiceRows(details: PaidBookingReceipt): Array<{ label: string; value: string }> {
   const rows: Array<{ label: string; value: string }> = [
+    { label: "Customer", value: details.customerName },
+    { label: "Email", value: details.customerEmail },
+    { label: "Mobile", value: details.mobileNumber || "Not provided" },
     { label: "Trip", value: details.tripLabel },
     { label: "Pickup", value: details.pickupLabel },
     { label: "Drop-off", value: details.dropoffLabel },
@@ -156,7 +169,29 @@ function invoiceRows(details: PaidBookingReceipt): Array<{ label: string; value:
     });
   }
 
+  if (details.checkoutReference) {
+    rows.push({ label: "Booking reference", value: details.checkoutReference });
+  }
+
   return rows;
+}
+
+function brandFooterHtml(businessName: string): string {
+  return `<tr>
+            <td style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:20px 32px;font-size:13px;line-height:1.7;color:#64748b;">
+              <strong style="color:${NAVY};">${escapeHtml(businessName)}</strong><br />
+              <a href="${BUSINESS_WEBSITE}" style="color:${NAVY};">${BUSINESS_WEBSITE.replace("https://", "")}</a> ·
+              <a href="tel:${BUSINESS_PHONE_TEL}" style="color:${NAVY};">${BUSINESS_PHONE_DISPLAY}</a> ·
+              <a href="mailto:${BUSINESS_EMAIL}" style="color:${NAVY};">${BUSINESS_EMAIL}</a><br />
+              <a href="${BUSINESS_WEBSITE}/terms/" style="color:${NAVY};">Terms &amp; Conditions</a> ·
+              <a href="${BUSINESS_WEBSITE}/privacy/" style="color:${NAVY};">Privacy Policy</a>
+            </td>
+          </tr>
+          <tr>
+            <td style="background:${NAVY};padding:16px 32px;text-align:center;font-size:12px;line-height:1.6;color:#94a3b8;">
+              Premium airport transfers across Northern Ireland · Belfast · Dublin · Derry
+            </td>
+          </tr>`;
 }
 
 function buildInvoiceHtml(
@@ -169,7 +204,7 @@ function buildInvoiceHtml(
   const rowsHtml = invoiceRows(details)
     .map(
       (row) =>
-        `<tr><td style="padding:10px 0;border-bottom:1px solid #e2e8f0;color:#64748b;font-size:14px;width:38%;vertical-align:top;">${escapeHtml(row.label)}</td><td style="padding:10px 0;border-bottom:1px solid #e2e8f0;color:#0b1f33;font-size:14px;font-weight:600;vertical-align:top;">${escapeHtml(row.value)}</td></tr>`,
+        `<tr><td style="padding:10px 0;border-bottom:1px solid #e2e8f0;color:#64748b;font-size:14px;width:38%;vertical-align:top;">${escapeHtml(row.label)}</td><td style="padding:10px 0;border-bottom:1px solid #e2e8f0;color:${NAVY};font-size:14px;font-weight:600;vertical-align:top;">${escapeHtml(row.value)}</td></tr>`,
     )
     .join("");
 
@@ -186,29 +221,31 @@ function buildInvoiceHtml(
       <td align="center">
         <table role="presentation" width="640" cellspacing="0" cellpadding="0" style="max-width:640px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.08);">
           <tr>
-            <td style="background:#0b1f33;padding:28px 32px;text-align:center;">
+            <td style="background:${NAVY};padding:28px 32px;text-align:center;">
               <img src="${LOGO_URL}" alt="${escapeHtml(businessName)}" height="72" style="display:block;margin:0 auto;height:72px;width:auto;max-width:100%;" />
-              <div style="margin-top:16px;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:#c9a227;font-weight:bold;">Invoice &amp; booking confirmation</div>
+              <div style="margin-top:16px;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:${ACCENT};font-weight:bold;">Invoice &amp; booking confirmation</div>
               <div style="margin-top:8px;font-size:22px;line-height:1.35;color:#ffffff;font-weight:bold;">Thank you, ${customerName}</div>
             </td>
           </tr>
           <tr>
             <td style="padding:28px 32px 8px;font-size:15px;line-height:1.7;color:#334155;">
-              <p style="margin:0 0 16px;">Your card payment has been received and your airport transfer is confirmed. Please keep this invoice for your records.</p>
+              <p style="margin:0 0 16px;">Your card payment has been received and your airport transfer with <strong style="color:${NAVY};">${escapeHtml(businessName)}</strong> is confirmed. Please keep this invoice for your records.</p>
             </td>
           </tr>
           <tr>
             <td style="padding:8px 32px 8px;">
-              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f0fdf4;border:1px solid #bbf7d0;border-left:4px solid ${ACCENT};border-radius:10px;">
                 <tr>
                   <td style="padding:20px 24px;">
-                    <div style="font-size:12px;letter-spacing:0.1em;text-transform:uppercase;color:#c9a227;font-weight:bold;margin-bottom:12px;">Payment summary</div>
-                    <div style="font-size:28px;font-weight:bold;color:#0b1f33;line-height:1.2;margin-bottom:12px;">${escapeHtml(details.amountPaid)}</div>
+                    <div style="font-size:12px;letter-spacing:0.1em;text-transform:uppercase;color:${ACCENT};font-weight:bold;margin-bottom:12px;">Payment summary</div>
+                    <div style="font-size:28px;font-weight:bold;color:${NAVY};line-height:1.2;margin-bottom:12px;">${escapeHtml(details.amountPaid)}</div>
+                    <div style="display:inline-block;background:${ACCENT};color:${NAVY};font-size:12px;font-weight:bold;letter-spacing:0.06em;text-transform:uppercase;padding:6px 12px;border-radius:999px;margin-bottom:12px;">Paid in full</div>
                     <div style="font-size:14px;line-height:1.8;color:#475569;">
-                      <strong>Invoice / reference:</strong> ${invoiceNumber}<br />
+                      <strong>Invoice / payment reference:</strong> ${invoiceNumber}<br />
+                      ${details.checkoutReference ? `<strong>Booking reference:</strong> ${escapeHtml(details.checkoutReference)}<br />` : ""}
                       <strong>Payment method:</strong> Card (SumUp)<br />
                       ${details.transactionCode ? `<strong>Transaction code:</strong> ${escapeHtml(details.transactionCode)}<br />` : ""}
-                      <strong>Status:</strong> Paid in full
+                      <strong>Status:</strong> Paid &amp; confirmed
                     </div>
                   </td>
                 </tr>
@@ -217,7 +254,7 @@ function buildInvoiceHtml(
           </tr>
           <tr>
             <td style="padding:16px 32px 8px;">
-              <div style="font-size:12px;letter-spacing:0.1em;text-transform:uppercase;color:#c9a227;font-weight:bold;margin-bottom:12px;">Booking details</div>
+              <div style="font-size:12px;letter-spacing:0.1em;text-transform:uppercase;color:${ACCENT};font-weight:bold;margin-bottom:12px;">Booking details</div>
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0">${rowsHtml}</table>
             </td>
           </tr>
@@ -254,7 +291,7 @@ function buildInvoiceHtml(
                       Save this link — it activates about 2 hours before your scheduled pickup.
                     </div>
                     <div style="margin-top:12px;">
-                      <a href="${escapeHtml(trackUrl)}" style="display:inline-block;background:#0b1f33;color:#ffffff;text-decoration:none;font-size:14px;font-weight:bold;padding:12px 20px;border-radius:8px;">Open tracking page</a>
+                      <a href="${escapeHtml(trackUrl)}" style="display:inline-block;background:${NAVY};color:#ffffff;text-decoration:none;font-size:14px;font-weight:bold;padding:12px 20px;border-radius:8px;">Open tracking page</a>
                     </div>
                   </td>
                 </tr>
@@ -268,30 +305,17 @@ function buildInvoiceHtml(
               <div style="font-size:13px;line-height:1.7;color:#64748b;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:16px 20px;">
                 <strong style="color:#92400e;">Cancellation policy:</strong>
                 With at least 24 hours’ notice we issue a full refund of the fare paid. Bookings cancelled within 24 hours of pickup are non-refundable.
-                See our <a href="${BUSINESS_WEBSITE}/terms/" style="color:#0b1f33;">Terms &amp; Conditions</a> for full details.
+                See our <a href="${BUSINESS_WEBSITE}/terms/" style="color:${NAVY};">Terms &amp; Conditions</a> for full details.
               </div>
             </td>
           </tr>
           <tr>
             <td style="padding:16px 32px 28px;font-size:14px;line-height:1.7;color:#475569;">
               <p style="margin:0 0 12px;">We will contact you if we need any further information before your journey.</p>
-              <p style="margin:0;">Questions? Reply to this email or contact us at <a href="mailto:${BUSINESS_EMAIL}" style="color:#0b1f33;">${BUSINESS_EMAIL}</a>.</p>
+              <p style="margin:0;">Questions? Reply to this email, call <a href="tel:${BUSINESS_PHONE_TEL}" style="color:${NAVY};">${BUSINESS_PHONE_DISPLAY}</a>, or email <a href="mailto:${BUSINESS_EMAIL}" style="color:${NAVY};">${BUSINESS_EMAIL}</a>.</p>
             </td>
           </tr>
-          <tr>
-            <td style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:20px 32px;font-size:13px;line-height:1.7;color:#64748b;">
-              <strong style="color:#0b1f33;">${escapeHtml(businessName)}</strong><br />
-              <a href="${BUSINESS_WEBSITE}" style="color:#0b1f33;">${BUSINESS_WEBSITE.replace("https://", "")}</a> ·
-              <a href="${BUSINESS_WEBSITE}/terms/" style="color:#0b1f33;">Terms &amp; Conditions</a> ·
-              <a href="${BUSINESS_WEBSITE}/privacy/" style="color:#0b1f33;">Privacy Policy</a><br />
-              Business address available on request — ${BUSINESS_EMAIL}
-            </td>
-          </tr>
-          <tr>
-            <td style="background:#0b1f33;padding:16px 32px;text-align:center;font-size:12px;line-height:1.6;color:#94a3b8;">
-              Premium airport transfers across Northern Ireland · Belfast · Dublin · Derry
-            </td>
-          </tr>
+          ${brandFooterHtml(businessName)}
         </table>
       </td>
     </tr>
@@ -311,12 +335,18 @@ export function buildCustomerConfirmationEmail(
   const text =
     `Dear ${details.customerName},\n\n` +
     `Thank you for your booking with ${businessName}. Your card payment has been received and your transfer is confirmed.\n\n` +
-    `Logo: ${LOGO_URL}\n` +
-    `${BUSINESS_WEBSITE}\n\n` +
+    `${BUSINESS_WEBSITE}\n` +
+    `Phone: ${BUSINESS_PHONE_DISPLAY}\n` +
+    `Email: ${BUSINESS_EMAIL}\n\n` +
     `Please find your invoice details below.\n\n` +
     `BOOKING DETAILS\n` +
     `${"=".repeat(40)}\n` +
-    `${formatTripSchedule(details)}\n\n` +
+    `Customer: ${details.customerName}\n` +
+    `Email: ${details.customerEmail}\n` +
+    `Mobile: ${details.mobileNumber || "Not provided"}\n` +
+    `${formatTripSchedule(details)}\n` +
+    (details.checkoutReference ? `Booking reference: ${details.checkoutReference}\n` : "") +
+    `\n` +
     `${formatEmailFareIncludesBlock(
       resolveJourneyInclusions({
         isAirportTrip: details.isAirportTrip,
@@ -330,10 +360,10 @@ export function buildCustomerConfirmationEmail(
     `PAYMENT / INVOICE\n` +
     `${"=".repeat(40)}\n` +
     `Amount paid: ${details.amountPaid}\n` +
-    `Invoice / reference: ${details.paymentReference}\n` +
+    `Invoice / payment reference: ${details.paymentReference}\n` +
     (details.transactionCode ? `Transaction code: ${details.transactionCode}\n` : "") +
     `Payment method: Card (SumUp)\n` +
-    `Status: Paid in full\n` +
+    `Status: Paid & confirmed\n` +
     (trackUrl
       ? `\nLIVE DRIVER TRACKING\n${"=".repeat(40)}\n` +
         `On the day of travel, your driver can share their live location around pickup time.\n` +
@@ -341,7 +371,7 @@ export function buildCustomerConfirmationEmail(
         `${trackUrl}\n`
       : "") +
     `\nWe will contact you if we need any further information before your journey.\n\n` +
-    `If you have questions, reply to this email or contact us at ${BUSINESS_EMAIL}.\n\n` +
+    `If you have questions, reply to this email, call ${BUSINESS_PHONE_DISPLAY}, or contact us at ${BUSINESS_EMAIL}.\n\n` +
     `${businessName}\n` +
     `${BUSINESS_WEBSITE}`;
 
@@ -504,9 +534,9 @@ function buildTrackingReminderHtml(
       <td align="center">
         <table role="presentation" width="640" cellspacing="0" cellpadding="0" style="max-width:640px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.08);">
           <tr>
-            <td style="background:#0b1f33;padding:28px 32px;text-align:center;">
+            <td style="background:${NAVY};padding:28px 32px;text-align:center;">
               <img src="${LOGO_URL}" alt="${escapeHtml(businessName)}" height="72" style="display:block;margin:0 auto;height:72px;width:auto;max-width:100%;" />
-              <div style="margin-top:16px;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:#c9a227;font-weight:bold;">Live driver tracking</div>
+              <div style="margin-top:16px;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:${ACCENT};font-weight:bold;">Live driver tracking</div>
               <div style="margin-top:8px;font-size:22px;line-height:1.35;color:#ffffff;font-weight:bold;">Your driver is on the way</div>
             </td>
           </tr>
@@ -530,14 +560,14 @@ function buildTrackingReminderHtml(
           </tr>
           <tr>
             <td style="padding:16px 32px 28px;text-align:center;">
-              <a href="${escapeHtml(trackUrl)}" style="display:inline-block;background:#0b1f33;color:#ffffff;text-decoration:none;font-size:16px;font-weight:bold;padding:14px 28px;border-radius:8px;">Follow your driver live</a>
-              <p style="margin:16px 0 0;font-size:13px;line-height:1.6;color:#64748b;">Or copy this link:<br /><a href="${escapeHtml(trackUrl)}" style="color:#0b1f33;word-break:break-all;">${escapeHtml(trackUrl)}</a></p>
+              <a href="${escapeHtml(trackUrl)}" style="display:inline-block;background:${NAVY};color:#ffffff;text-decoration:none;font-size:16px;font-weight:bold;padding:14px 28px;border-radius:8px;">Follow your driver live</a>
+              <p style="margin:16px 0 0;font-size:13px;line-height:1.6;color:#64748b;">Or copy this link:<br /><a href="${escapeHtml(trackUrl)}" style="color:${NAVY};word-break:break-all;">${escapeHtml(trackUrl)}</a></p>
             </td>
           </tr>
           <tr>
             <td style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:20px 32px;font-size:13px;line-height:1.7;color:#64748b;">
-              <strong style="color:#0b1f33;">${escapeHtml(businessName)}</strong><br />
-              Questions? <a href="mailto:${BUSINESS_EMAIL}" style="color:#0b1f33;">${BUSINESS_EMAIL}</a>
+              <strong style="color:${NAVY};">${escapeHtml(businessName)}</strong><br />
+              Questions? <a href="mailto:${BUSINESS_EMAIL}" style="color:${NAVY};">${BUSINESS_EMAIL}</a>
             </td>
           </tr>
         </table>
@@ -601,15 +631,15 @@ function buildRefundConfirmationHtml(
       <td align="center">
         <table role="presentation" width="640" cellspacing="0" cellpadding="0" style="max-width:640px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.08);">
           <tr>
-            <td style="background:#0b1f33;padding:28px 32px;text-align:center;">
+            <td style="background:${NAVY};padding:28px 32px;text-align:center;">
               <img src="${LOGO_URL}" alt="${escapeHtml(businessName)}" height="72" style="display:block;margin:0 auto;height:72px;width:auto;max-width:100%;" />
-              <div style="margin-top:16px;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:#c9a227;font-weight:bold;">Refund confirmation</div>
+              <div style="margin-top:16px;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:${ACCENT};font-weight:bold;">Refund confirmation</div>
               <div style="margin-top:8px;font-size:22px;line-height:1.35;color:#ffffff;font-weight:bold;">Your refund is on its way, ${customerName}</div>
             </td>
           </tr>
           <tr>
             <td style="padding:28px 32px 8px;font-size:15px;line-height:1.7;color:#334155;">
-              <p style="margin:0 0 16px;">We've processed a refund of <strong style="color:#0b1f33;font-size:17px;">${escapeHtml(details.refundAmount)}</strong> for your booking with ${escapeHtml(businessName)}. The amount should return to your original payment method within <strong>5&ndash;7 working days</strong>, depending on your bank or card provider.</p>
+              <p style="margin:0 0 16px;">We've processed a refund of <strong style="color:${NAVY};font-size:17px;">${escapeHtml(details.refundAmount)}</strong> for your booking with ${escapeHtml(businessName)}. The amount should return to your original payment method within <strong>5&ndash;7 working days</strong>, depending on your bank or card provider.</p>
             </td>
           </tr>
           <tr>
@@ -617,8 +647,8 @@ function buildRefundConfirmationHtml(
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;">
                 <tr>
                   <td style="padding:20px 24px;">
-                    <div style="font-size:12px;letter-spacing:0.1em;text-transform:uppercase;color:#c9a227;font-weight:bold;margin-bottom:12px;">Refund summary</div>
-                    <div style="font-size:28px;font-weight:bold;color:#0b1f33;line-height:1.2;margin-bottom:12px;">${escapeHtml(details.refundAmount)}</div>
+                    <div style="font-size:12px;letter-spacing:0.1em;text-transform:uppercase;color:${ACCENT};font-weight:bold;margin-bottom:12px;">Refund summary</div>
+                    <div style="font-size:28px;font-weight:bold;color:${NAVY};line-height:1.2;margin-bottom:12px;">${escapeHtml(details.refundAmount)}</div>
                     <div style="font-size:14px;line-height:1.8;color:#475569;">
                       <strong>Original reference:</strong> ${escapeHtml(details.paymentReference)}<br />
                       <strong>Trip:</strong> ${escapeHtml(details.tripLabel)}<br />
@@ -634,13 +664,13 @@ function buildRefundConfirmationHtml(
           </tr>
           <tr>
             <td style="padding:16px 32px 28px;font-size:14px;line-height:1.7;color:#475569;">
-              <p style="margin:0;">If you have any questions about this refund, reply to this email or contact us at <a href="mailto:${BUSINESS_EMAIL}" style="color:#0b1f33;">${BUSINESS_EMAIL}</a>.</p>
+              <p style="margin:0;">If you have any questions about this refund, reply to this email or contact us at <a href="mailto:${BUSINESS_EMAIL}" style="color:${NAVY};">${BUSINESS_EMAIL}</a>.</p>
             </td>
           </tr>
           <tr>
             <td style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:20px 32px;font-size:13px;line-height:1.7;color:#64748b;">
-              <strong style="color:#0b1f33;">${escapeHtml(businessName)}</strong><br />
-              <a href="${BUSINESS_WEBSITE}" style="color:#0b1f33;">${BUSINESS_WEBSITE.replace(/^https:\/\//, "")}</a>
+              <strong style="color:${NAVY};">${escapeHtml(businessName)}</strong><br />
+              <a href="${BUSINESS_WEBSITE}" style="color:${NAVY};">${BUSINESS_WEBSITE.replace(/^https:\/\//, "")}</a>
             </td>
           </tr>
         </table>
@@ -732,9 +762,9 @@ function buildGoogleReviewRequestHtml(
       <td align="center">
         <table role="presentation" width="640" cellspacing="0" cellpadding="0" style="max-width:640px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.08);">
           <tr>
-            <td style="background:#0b1f33;padding:28px 32px;text-align:center;">
+            <td style="background:${NAVY};padding:28px 32px;text-align:center;">
               <img src="${LOGO_URL}" alt="${escapeHtml(businessName)}" height="72" style="display:block;margin:0 auto;height:72px;width:auto;max-width:100%;" />
-              <div style="margin-top:16px;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:#c9a227;font-weight:bold;">Thank you for travelling with us</div>
+              <div style="margin-top:16px;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:${ACCENT};font-weight:bold;">Thank you for travelling with us</div>
               <div style="margin-top:8px;font-size:22px;line-height:1.35;color:#ffffff;font-weight:bold;">We hope you enjoyed your journey, ${customerName}</div>
             </td>
           </tr>
@@ -760,23 +790,23 @@ function buildGoogleReviewRequestHtml(
           <tr>
             <td style="padding:16px 32px 28px;text-align:center;">
               <a href="${safeReviewUrl}" style="display:inline-block;background:#34a853;color:#ffffff;text-decoration:none;font-size:16px;font-weight:bold;padding:14px 28px;border-radius:8px;">Leave a Google review</a>
-              <p style="margin:16px 0 0;font-size:13px;line-height:1.6;color:#64748b;">Or copy this link:<br /><a href="${safeReviewUrl}" style="color:#0b1f33;word-break:break-all;">${safeReviewUrl}</a></p>
+              <p style="margin:16px 0 0;font-size:13px;line-height:1.6;color:#64748b;">Or copy this link:<br /><a href="${safeReviewUrl}" style="color:${NAVY};word-break:break-all;">${safeReviewUrl}</a></p>
             </td>
           </tr>
           <tr>
             <td style="padding:0 32px 24px;font-size:14px;line-height:1.7;color:#475569;text-align:center;">
-              <p style="margin:0;">Had an issue with your journey? Reply to this email or contact us at <a href="mailto:${BUSINESS_EMAIL}" style="color:#0b1f33;">${BUSINESS_EMAIL}</a> — we'll put it right.</p>
+              <p style="margin:0;">Had an issue with your journey? Reply to this email or contact us at <a href="mailto:${BUSINESS_EMAIL}" style="color:${NAVY};">${BUSINESS_EMAIL}</a> — we'll put it right.</p>
             </td>
           </tr>
           <tr>
             <td style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:20px 32px;font-size:13px;line-height:1.7;color:#64748b;">
-              <strong style="color:#0b1f33;">${escapeHtml(businessName)}</strong><br />
-              <a href="${BUSINESS_WEBSITE}" style="color:#0b1f33;">${BUSINESS_WEBSITE.replace(/^https:\/\//, "")}</a> ·
-              <a href="tel:+442896022952" style="color:#0b1f33;">028 9602 2952</a>
+              <strong style="color:${NAVY};">${escapeHtml(businessName)}</strong><br />
+              <a href="${BUSINESS_WEBSITE}" style="color:${NAVY};">${BUSINESS_WEBSITE.replace(/^https:\/\//, "")}</a> ·
+              <a href="tel:+442896022952" style="color:${NAVY};">028 9602 2952</a>
             </td>
           </tr>
           <tr>
-            <td style="background:#0b1f33;padding:16px 32px;text-align:center;font-size:12px;line-height:1.6;color:#94a3b8;">
+            <td style="background:${NAVY};padding:16px 32px;text-align:center;font-size:12px;line-height:1.6;color:#94a3b8;">
               Premium airport transfers across Northern Ireland · Belfast · Dublin · Derry
             </td>
           </tr>

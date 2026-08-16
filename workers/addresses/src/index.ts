@@ -162,6 +162,7 @@ type Env = {
   BOOKING_TO_EMAIL?: string;
   BOOKING_FROM_EMAIL?: string;
   WEB3FORMS_ACCESS_KEY?: string;
+  RESEND_API_KEY?: string;
   SUMUP_API_KEY?: string;
   SUMUP_MERCHANT_CODE?: string;
   BOOKING_COUNTER?: KVNamespace;
@@ -321,6 +322,8 @@ function routePath(
   | "driver-accept-confirm"
   | "flights"
   | "calendar-status"
+  | "email-status"
+  | "payment-status"
   | "marketing-opt-in"
   | "marketing-unsubscribe"
   | null {
@@ -397,6 +400,14 @@ function routePath(
 
   if (pathname === "/calendar-status" || pathname === "/api/calendar-status") {
     return "calendar-status";
+  }
+
+  if (pathname === "/email-status" || pathname === "/api/email-status") {
+    return "email-status";
+  }
+
+  if (pathname === "/payment-status" || pathname === "/api/payment-status") {
+    return "payment-status";
   }
 
   if (pathname === "/marketing/opt-in" || pathname === "/api/marketing/opt-in") {
@@ -871,6 +882,68 @@ async function handleBookingRequest(
       emailSent,
       calendarLogged: false,
       calendarEvents: 0,
+    },
+    200,
+    origin,
+  );
+}
+
+async function handleEmailStatusRequest(
+  env: Env,
+  origin: string | null,
+): Promise<Response> {
+  const resendConfigured = Boolean(env.RESEND_API_KEY?.trim());
+  const cloudflareEmailConfigured = Boolean(env.EMAIL);
+  const web3formsConfigured = Boolean(env.WEB3FORMS_ACCESS_KEY?.trim());
+  const preferredCustomerProviders = [
+    ...(resendConfigured ? ["resend"] : []),
+    ...(cloudflareEmailConfigured ? ["cloudflare-email"] : []),
+    ...(web3formsConfigured ? ["web3forms"] : []),
+    "mailchannels",
+  ];
+
+  return json(
+    {
+      configured: resendConfigured || cloudflareEmailConfigured || web3formsConfigured,
+      resendConfigured,
+      cloudflareEmailConfigured,
+      web3formsConfigured,
+      mailchannelsAvailable: true,
+      fromEmail: env.BOOKING_FROM_EMAIL?.trim() || DEFAULT_BOOKING_EMAIL,
+      ownerInbox: ownerInbox(env),
+      preferredCustomerProviders,
+      message: resendConfigured
+        ? "Resend is configured for branded customer invoices."
+        : cloudflareEmailConfigured
+          ? "Cloudflare Email is configured; add RESEND_API_KEY for preferred Resend delivery."
+          : web3formsConfigured
+            ? "Only Web3Forms/MailChannels fallbacks are available — add RESEND_API_KEY for reliable customer invoices."
+            : "No primary email provider configured — set RESEND_API_KEY (recommended) or onboard Cloudflare Email.",
+    },
+    200,
+    origin,
+  );
+}
+
+async function handlePaymentStatusRequest(
+  env: Env,
+  origin: string | null,
+): Promise<Response> {
+  const sumUpConfigured = Boolean(env.SUMUP_API_KEY?.trim() && env.SUMUP_MERCHANT_CODE?.trim());
+  const pendingStore = pendingCheckoutStoreConfigured(env.TRACKING_STORE);
+  const paidStore = Boolean(env.TRACKING_STORE);
+
+  return json(
+    {
+      sumUpConfigured,
+      pendingCheckoutStore: pendingStore,
+      paidBookingStore: paidStore,
+      webhookPath: "/payments/webhook",
+      confirmPath: "/payments/confirm",
+      createPath: "/payments",
+      message: sumUpConfigured
+        ? "SumUp hosted checkout is configured on this Worker."
+        : "SumUp is not configured — set SUMUP_API_KEY and SUMUP_MERCHANT_CODE Worker secrets.",
     },
     200,
     origin,
@@ -1542,6 +1615,22 @@ export default {
       }
 
       return handleCalendarStatusRequest(env, origin);
+    }
+
+    if (route === "email-status") {
+      if (request.method !== "GET") {
+        return json({ error: "Method not allowed" }, 405, origin);
+      }
+
+      return handleEmailStatusRequest(env, origin);
+    }
+
+    if (route === "payment-status") {
+      if (request.method !== "GET") {
+        return json({ error: "Method not allowed" }, 405, origin);
+      }
+
+      return handlePaymentStatusRequest(env, origin);
     }
 
     if (route === "marketing-opt-in") {

@@ -1,5 +1,9 @@
 import { SITE } from "@/lib/data";
 import type { BookingDetails } from "@/lib/booking-message";
+import {
+  resolvePaymentsApiUrl,
+  resolvePaymentsConfirmApiUrl,
+} from "@/lib/worker-api";
 import { isValidPassengerCount, PASSENGER_LIMIT_ERROR } from "../../shared/passenger-limits";
 import { getPaymentBookingBlockers } from "../../shared/paid-booking-gate";
 
@@ -30,44 +34,6 @@ export type PaymentConfirmationResult = {
   calendarLogged?: boolean;
   calendarWarning?: string;
 };
-
-function resolveBookingsApiUrl(): string {
-  const bookingsUrl = process.env.NEXT_PUBLIC_BOOKINGS_API_URL?.trim() ?? "";
-  if (!bookingsUrl) {
-    return "";
-  }
-
-  try {
-    const parsed = new URL(bookingsUrl);
-    const host = parsed.hostname.toLowerCase();
-
-    if (host === "www.myairporttaxini.co.uk" || host === "myairporttaxini.co.uk") {
-      return "";
-    }
-
-    return bookingsUrl;
-  } catch {
-    return "";
-  }
-}
-
-function resolvePaymentsApiUrl(): string {
-  const bookingsUrl = resolveBookingsApiUrl();
-  if (!bookingsUrl) {
-    return "";
-  }
-
-  return bookingsUrl.replace(/\/bookings\/?$/i, "/payments");
-}
-
-function resolvePaymentsConfirmApiUrl(): string {
-  const bookingsUrl = resolveBookingsApiUrl();
-  if (!bookingsUrl) {
-    return "";
-  }
-
-  return bookingsUrl.replace(/\/bookings\/?$/i, "/payments/confirm");
-}
 
 const PAYMENTS_API_URL = resolvePaymentsApiUrl();
 const PAYMENTS_CONFIRM_API_URL = resolvePaymentsConfirmApiUrl();

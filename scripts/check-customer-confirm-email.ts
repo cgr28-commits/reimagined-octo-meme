@@ -6,6 +6,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { buildCustomerConfirmationEmail } from "../shared/booking-notifications";
 
 const root = process.cwd();
 
@@ -49,6 +50,41 @@ assert.doesNotMatch(
   /ownerEmailResult = await trySendEmail\(/,
 );
 console.log("OK  paid finalize uses branded customer + bookings@ invoice copy + owner alert");
+
+console.log("\n=== Invoice branding ===");
+const email = buildCustomerConfirmationEmail({
+  customerName: "Alex Example",
+  customerEmail: "alex@example.com",
+  mobileNumber: "07123456789",
+  tripLabel: "Ballyclare → Belfast International (BFS)",
+  pickupLabel: "249 Rashee Road, Ballyclare",
+  dropoffLabel: "Belfast International Airport (BFS)",
+  returnJourney: false,
+  tripDate: "2026-09-01",
+  tripTime: "10:00",
+  returnDate: "",
+  returnTime: "",
+  flightNumber: "EZY123",
+  passengers: 2,
+  suitcases: 2,
+  vehicle: "Estate Car (1–4 passengers)",
+  isAirportTrip: true,
+  airportCode: "BFS",
+  amountPaid: "£45.00",
+  paymentReference: "T3TESTREF",
+  checkoutReference: "matni-test-ref",
+});
+assert.match(email.html, /google-business-logo\.png/);
+assert.match(email.html, /#071c38/);
+assert.match(email.html, /#2fbf4a/);
+assert.match(email.html, /Paid in full/);
+assert.match(email.html, /alex@example\.com/);
+assert.match(email.html, /07123456789/);
+assert.match(email.html, /028 9602 2952/);
+assert.match(email.html, /bookings@myairporttaxini\.co\.uk/);
+assert.doesNotMatch(email.html, /#c9a227/);
+assert.match(email.subject, /Invoice & booking confirmed/);
+console.log("OK  invoice uses official logo, navy/emerald brand, contacts, and paid status");
 
 console.log("\n=== Browser fallback ===");
 const browserEmail = read("src/lib/send-paid-booking-email.ts");

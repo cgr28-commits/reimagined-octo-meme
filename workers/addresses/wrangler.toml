@@ -8,6 +8,8 @@ compatibility_date = "2025-08-01"
 # - GETADDRESS_API_KEY       (legacy; getAddress.io shut down Feb 2026)
 # - AERODATABOX_RAPIDAPI_KEY  (RapidAPI key for AeroDataBox flight verification)
 # - WEB3FORMS_ACCESS_KEY
+# - RESEND_API_KEY           (preferred branded HTML invoices — never expose to the browser)
+# - SUMUP_API_KEY / SUMUP_MERCHANT_CODE  (hosted checkout — Worker-only secrets)
 # - GOOGLE_REVIEW_URL  (Google Business "Write a review" link for post-trip emails)
 # - OWNER_ACCESS_KEY   (optional — defaults to DRIVER_ACCESS_KEY for /admin/refund/)
 # Redeploy after changing worker code: wrangler deploy (or Cloudflare dashboard → Deploy)
