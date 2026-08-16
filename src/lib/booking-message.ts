@@ -31,6 +31,9 @@ export type BookingDetails = {
   isAirportTrip: boolean;
   airportCode?: string;
   isFromAirport?: boolean;
+  /** Number of child / booster seats requested (0–2). */
+  childSeats?: number;
+  childSeatNotes?: string;
   bookingReference?: string;
   termsAcceptedAt?: string;
   termsVersion?: string;
@@ -99,6 +102,9 @@ function buildTripDetailsBlock(details: BookingDetails, bookingReference?: strin
       : "") +
     `Passengers: ${details.passengers}\n` +
     `Suitcases: ${details.suitcases}\n` +
+    (typeof details.childSeats === "number" && details.childSeats > 0
+      ? `Child seats: ${details.childSeats}${details.childSeatNotes ? ` (${details.childSeatNotes})` : ""}\n`
+      : "") +
     `Vehicle: ${details.vehicle}\n` +
     (details.journeyDistance && details.journeyDuration
       ? `Journey: ${details.journeyDistance} · ${details.journeyDuration}\n`
@@ -130,5 +136,60 @@ export function buildEnquiryBookingMessage(
     `Hi, I would like to enquire about booking the following.\n\n` +
     buildTripDetailsBlock({ ...details, estimatedPrice: null }, bookingReference) +
     `\nPlease send me a quote and confirm availability.\n`
+  );
+}
+
+/**
+ * Business-facing 5+ / larger-vehicle quote request.
+ * Scannable on mobile — no invented price, no false "fee included" claims.
+ */
+export function buildGroupQuoteRequestMessage(
+  details: BookingDetails,
+  bookingReference?: string,
+): string {
+  const reference = bookingReference ?? details.bookingReference;
+  const waitingNote = details.isFromAirport
+    ? "Airport pickup waiting policy: 60 minutes complimentary (when a flight number is provided where possible)."
+    : "Non-airport pickup waiting policy: 10 minutes complimentary from the agreed pickup time.";
+
+  return (
+    `MINIBUS / 5+ PASSENGER QUOTE REQUEST\n` +
+    `${"=".repeat(36)}\n` +
+    (reference ? `Reference: ${reference}\n` : "") +
+    `Passengers: ${details.passengers}\n` +
+    `Luggage (large bags): ${details.suitcases}\n` +
+    (typeof details.childSeats === "number" && details.childSeats > 0
+      ? `Child seats: ${details.childSeats}${details.childSeatNotes ? ` (${details.childSeatNotes})` : ""}\n`
+      : "") +
+    `Pickup: ${details.pickupLabel}\n` +
+    `Destination: ${details.dropoffLabel}\n` +
+    (details.airportCode ? `Airport: ${details.airportCode}\n` : "") +
+    `${details.returnJourney ? "Outbound" : "Travel"}: ${formatUkDateTime(details.tripDate, details.tripTime)}\n` +
+    `Return: ${details.returnJourney ? "Yes" : "No"}\n` +
+    (details.returnJourney
+      ? `Return date & time: ${formatUkDateTime(details.returnDate, details.returnTime)}\n`
+      : "") +
+    (details.flightNumber ? `Flight number: ${details.flightNumber}\n` : "") +
+    (details.returnFlightNumber ? `Return flight number: ${details.returnFlightNumber}\n` : "") +
+    `Customer: ${details.customerName}\n` +
+    `Mobile: ${details.mobileNumber}\n` +
+    `Email: ${details.customerEmail}\n` +
+    `\n${waitingNote}\n` +
+    `Note: Any applicable airport access fees and tolls will be included in the tailored quote.\n` +
+    `Submitted: ${formatUkSubmissionTime()}\n` +
+    `\n--- Customer copy ---\n` +
+    `Quote Request Received\n\n` +
+    `Dear ${details.customerName},\n\n` +
+    `Thank you — we’ve received your journey details for a larger vehicle / group transfer.\n` +
+    `This is a quote request only. A tailored fixed price will be provided shortly. ` +
+    `Nothing is confirmed until you accept the quote.\n\n` +
+    `Pickup: ${details.pickupLabel}\n` +
+    `Destination: ${details.dropoffLabel}\n` +
+    `Passengers: ${details.passengers}\n` +
+    `Luggage: ${details.suitcases}\n` +
+    `${details.returnJourney ? "Outbound" : "Travel"}: ${formatUkDateTime(details.tripDate, details.tripTime)}\n` +
+    (details.returnJourney
+      ? `Return: ${formatUkDateTime(details.returnDate, details.returnTime)}\n`
+      : "")
   );
 }

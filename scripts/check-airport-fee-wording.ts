@@ -57,10 +57,11 @@ check("Dublin Airport drop-off includes tolls + drop-off (no waiting)", () => {
   assert.ok(!inc.bullets.some((b) => /pickup fee/i.test(b)));
 });
 
-check("Address-to-address: fixed price only, no airport fees/tolls", () => {
+check("Address-to-address: fixed price + 10 min waiting, no airport fees/tolls", () => {
   const inc = getAddressToAddressInclusions();
   assert.equal(inc.summary, "Fixed price for your journey.");
-  assert.equal(inc.bullets.length, 0);
+  assert.ok(inc.bullets.some((b) => /10 minutes complimentary waiting/.test(b)));
+  assert.ok(!inc.bullets.some((b) => /airport|toll|express/i.test(b)));
   assert.equal(inc.mentionsTolls, false);
   assert.equal(inc.complimentaryWaitingMinutes, 10);
 });

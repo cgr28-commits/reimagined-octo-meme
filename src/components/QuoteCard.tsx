@@ -2,10 +2,11 @@
 
 import { FormEvent, memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import AddressInput from "@/components/AddressInput";
+import QuoteProgressiveRoute from "@/components/QuoteProgressiveRoute";
 import BookingTermsConsent from "@/components/BookingTermsConsent";
 import MarketingOptIn from "@/components/MarketingOptIn";
 import TripMap from "@/components/TripMap";
-import { buildBookingMessage, isValidEmailAddress, isValidMobileNumber, type BookingDetails } from "@/lib/booking-message";
+import { buildBookingMessage, buildEnquiryBookingMessage, buildGroupQuoteRequestMessage, isValidEmailAddress, isValidMobileNumber, type BookingDetails } from "@/lib/booking-message";
 import { buildMarketingOptInFields, recordMarketingOptIn } from "@/lib/marketing-api";
 import { TERMS_LAST_UPDATED } from "@/lib/terms";
 import { detectMobileDevice, useIsMobileDevice } from "@/lib/device";
@@ -17,7 +18,6 @@ import {
   isVehicleRequestQuote,
   MAX_ONLINE_PASSENGERS,
   MINIBUS_PARTNER_NOTE,
-  MINIBUS_VEHICLE_TYPE,
   needsLuggageCapacityConfirmation,
   SERVICE_FLAGS,
   showsOnlineGuidePrice,
@@ -36,6 +36,11 @@ import {
 import { parseLondonLocalDateTime } from "@/lib/london-time";
 import { formatUkDate, formatUkTime, todayLondonDate, nowLondonTime } from "@/lib/format-datetime";
 import { resolveJourneyInclusions } from "@/lib/journey-inclusions";
+import {
+  intentFromDirection,
+  type CustomerAirportCode,
+  type QuoteJourneyIntent,
+} from "@/lib/quote-journey-intent";
 
 import {
   readPrefillAirport,
@@ -64,7 +69,6 @@ import {
   submitMobileWhatsAppBooking,
   submitMobileWhatsAppEnquiry,
 } from "@/lib/submit-booking";
-import { buildEnquiryBookingMessage } from "@/lib/booking-message";
 import {
   buildPaymentRedirectUrl,
   createPaymentCheckout,
@@ -99,7 +103,6 @@ import {
   needsManualQuoteApproval,
   PLACES_LOOKUP_A2A,
   quickSelectToPlace,
-  QUICK_SELECT_AIRPORTS,
   type JourneyKind,
   type QuickSelectAirportCode,
   type SelectedPlace,
@@ -122,18 +125,14 @@ const BOOKING_INPUT_CLASS =
 const BOOKING_HELPER_CLASS = "mt-1.5 text-xs text-white/55";
 
 const ESTATE = "Estate Car (1–4 passengers)" as const;
-const MINIBUS = MINIBUS_VEHICLE_TYPE;
-const SALOON = "Standard Saloon (1–4 passengers)" as const;
 
 /** Instant online booking (SumUp) covers saloon/estate only — never invent a minibus fare. */
-const ONLINE_BOOKABLE_MAX_PASSENGERS = 4;
-const ONLINE_BOOKABLE_MAX_SUITCASES = 4;
 /** Quote form “5+” taps use sentinel value 5. */
 const SELECTOR_MAX_PASSENGERS = FIVE_PLUS_PASSENGERS;
 const SELECTOR_MAX_SUITCASES = FIVE_PLUS_SUITCASES;
 
 const CAPACITY_WHATSAPP_MESSAGE =
-  "Hi, I need a minibus quote for more than 4 passengers or more than 4 large suitcases.";
+  "Hi, I need a tailored quote for a larger vehicle / group transfer (5+ passengers or extra luggage).";
 
 type VehicleType = (typeof VEHICLE_TYPES)[number];
 
@@ -226,25 +225,36 @@ function PriceInclusionBlock({
         {inclusions.summary}
         {guideSuffix ? ` ${guideSuffix}` : ""}
       </p>
-      {inclusions.bullets.length > 0 && (
+      {returnJourney && inclusions.outboundBullets.length > 0 ? (
+        <div className="mt-2 space-y-2">
+          <div>
+            <p className="font-semibold text-white/70">Outbound</p>
+            <ul className="mt-1 space-y-1">
+              {inclusions.outboundBullets.map((bullet) => (
+                <li key={`out-${bullet}`}>{bullet}</li>
+              ))}
+            </ul>
+          </div>
+          {inclusions.returnBullets.length > 0 && (
+            <div>
+              <p className="font-semibold text-white/70">Return</p>
+              <ul className="mt-1 space-y-1">
+                {inclusions.returnBullets.map((bullet) => (
+                  <li key={`ret-${bullet}`}>{bullet}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      ) : inclusions.bullets.length > 0 ? (
         <ul className="mt-2 space-y-1">
           {inclusions.bullets.map((bullet) => (
             <li key={bullet}>{bullet}</li>
           ))}
         </ul>
-      )}
+      ) : null}
     </div>
   );
-}
-
-function getFlightNumbersIntro(isFromAirport: boolean, returnJourney: boolean): string {
-  const includesAirportCollection = isFromAirport || (returnJourney && !isFromAirport);
-
-  if (includesAirportCollection) {
-    return "For flight monitoring and complimentary airport waiting time when we collect you.";
-  }
-
-  return "For flight monitoring.";
 }
 
 function PreviewRow({ label, value }: { label: string; value: string }) {
@@ -389,6 +399,26 @@ function QuoteCard({
   const [vehicle, setVehicle] = useState<VehicleType>(VEHICLE_TYPES[0]);
   const [passengers, setPassengers] = useState(1);
   const [suitcases, setSuitcases] = useState(0);
+  const [exactPassengers, setExactPassengers] = useState<number | null>(null);
+  const [childSeats, setChildSeats] = useState(0);
+  const [childSeatNotes, setChildSeatNotes] = useState("");
+  const [journeyIntent, setJourneyIntent] = useState<QuoteJourneyIntent | null>(() => {
+    if (initialAirportCode === "BFS" || initialAirportCode === "BHD" || initialAirportCode === "DUB") {
+      return intentFromDirection(initialDirection);
+    }
+    if (initialAddressHint || initialDropoffHint) {
+      return initialDirection === "from-airport" || initialDirection === "to-airport"
+        ? intentFromDirection(initialDirection)
+        : "address-to-address";
+    }
+    return null;
+  });
+  const [intentAirportCode, setIntentAirportCode] = useState<CustomerAirportCode | "">(() => {
+    if (initialAirportCode === "BFS" || initialAirportCode === "BHD" || initialAirportCode === "DUB") {
+      return initialAirportCode;
+    }
+    return "";
+  });
   const [routeMetrics, setRouteMetrics] = useState<TripRouteMetrics | null>(null);
   const [paymentLoading, setPaymentLoading] = useState(false);
   const [paymentError, setPaymentError] = useState("");
@@ -460,7 +490,6 @@ function QuoteCard({
     journeyKind === "airport-to-address" ||
     Boolean(pickupAirportCode || dropoffAirportCode);
   const isAddressToAddressInclusions = !isAirportLegForInclusions;
-  const returnTripDirection: TripDirection = isFromAirport ? "to-airport" : "from-airport";
   const addressLookupCode = isA2AFlow
     ? PLACES_LOOKUP_A2A
     : isAirportTrip
@@ -468,6 +497,13 @@ function QuoteCard({
       : "BFS";
 
   useEffect(() => {
+    // Instant online path is 1–4. Group / 5+ uses exact passenger counts (up to 50).
+    if (passengers >= FIVE_PLUS_PASSENGERS) {
+      if (passengers > 50) {
+        setPassengers(50);
+      }
+      return;
+    }
     if (passengers > passengerLimit) {
       setPassengers(passengerLimit);
     }
@@ -918,17 +954,56 @@ function QuoteCard({
     }
   }
 
-  function handleQuickSelectAirport(code: QuickSelectAirportCode) {
+  function applyJourneyIntent(intent: QuoteJourneyIntent) {
+    setJourneyIntent(intent);
+    setTripMode("address");
+    if (intent === "to-airport") {
+      setTripDirection("to-airport");
+      if (intentAirportCode) {
+        const place = quickSelectToPlace(intentAirportCode);
+        if (place) {
+          handleDropoffPlaceSelect(place);
+          setAirportCode(intentAirportCode);
+        }
+      }
+    } else if (intent === "from-airport") {
+      setTripDirection("from-airport");
+      if (intentAirportCode) {
+        const place = quickSelectToPlace(intentAirportCode);
+        if (place) {
+          handlePickupPlaceSelect(place);
+          setAirportCode(intentAirportCode);
+        }
+      }
+    } else {
+      setIntentAirportCode("");
+      if (detectAirportCodeFromPlace(pickupPlace)) {
+        setPickupPlace(emptySelectedPlace());
+        setPickupAddress("");
+      }
+      if (detectAirportCodeFromPlace(dropoffPlace)) {
+        setDropoffPlace(emptySelectedPlace());
+        setDropoffAddress("");
+      }
+    }
+  }
+
+  function applyIntentAirport(code: CustomerAirportCode) {
     const place = quickSelectToPlace(code);
     if (!place) {
       return;
     }
-    const targetDropoff =
-      isPlaceSelected(pickupPlace) && !isPlaceSelected(dropoffPlace);
-    if (targetDropoff) {
-      handleDropoffPlaceSelect(place);
-    } else {
+    setIntentAirportCode(code);
+    setAirportCode(code);
+    const intent = journeyIntent ?? (tripDirection === "from-airport" ? "from-airport" : "to-airport");
+    if (intent === "from-airport") {
       handlePickupPlaceSelect(place);
+      setTripDirection("from-airport");
+      setJourneyIntent("from-airport");
+    } else {
+      handleDropoffPlaceSelect(place);
+      setTripDirection("to-airport");
+      setJourneyIntent("to-airport");
     }
   }
 
@@ -1156,7 +1231,9 @@ function QuoteCard({
   }
 
   function buildBookingDetails(): BookingDetails {
-    const tripLabel = isOutOfAreaPickupJourney
+    const tripLabel = exceedsOnlineCapacity
+      ? "Minibus / 5+ passenger quote request"
+      : isOutOfAreaPickupJourney
       ? "Out-of-area pickup — manual quote request"
       : isRoiJourney
         ? "Republic of Ireland long-distance transfer"
@@ -1168,7 +1245,9 @@ function QuoteCard({
               : "Airport drop-off"
             : "Address to address";
 
-    const estimatedPrice = pricingConfirmationRequired
+    const estimatedPrice = exceedsOnlineCapacity
+      ? null
+      : pricingConfirmationRequired
       ? priceConfirmationLabel
       : liveQuote
       ? isRequestQuote
@@ -1196,8 +1275,10 @@ function QuoteCard({
       returnFlightNumber: returnJourney
         ? collectionFlightNumber.trim().toUpperCase()
         : undefined,
-      passengers,
+      passengers: exactPassengers && exactPassengers > 4 ? exactPassengers : passengers,
       suitcases,
+      childSeats: childSeats > 0 ? childSeats : undefined,
+      childSeatNotes: childSeats > 0 && childSeatNotes.trim() ? childSeatNotes.trim() : undefined,
       vehicle: quoteVehicle,
       estimatedPrice,
       journeyDistance: journeyDistanceLabel || undefined,
@@ -1329,9 +1410,13 @@ function QuoteCard({
 
     let reference = "";
     try {
-      if (isEnquiryOnly || isManualQuoteJourney || pricingConfirmationRequired) {
-        const enquiryMessage = buildEnquiryBookingMessage(details);
-        const subject = pricingConfirmationRequired
+      if (isEnquiryOnly || isManualQuoteJourney || pricingConfirmationRequired || exceedsOnlineCapacity) {
+        const enquiryMessage = exceedsOnlineCapacity
+          ? buildGroupQuoteRequestMessage(details)
+          : buildEnquiryBookingMessage(details);
+        const subject = exceedsOnlineCapacity
+          ? `MINIBUS / 5+ PASSENGER QUOTE REQUEST — ${details.customerName}`
+          : pricingConfirmationRequired
           ? `Price confirmation request — ${details.customerName}`
           : isOutOfAreaPickupJourney
           ? `Out-of-area pickup quote request — ${details.customerName}`
@@ -1390,9 +1475,11 @@ function QuoteCard({
 
     if (isMobile && delivery === "whatsapp") {
       openWhatsAppBookingMessage(
-        isEnquiryOnly
-          ? buildEnquiryBookingMessage(details, reference)
-          : buildBookingMessage(details, reference),
+        exceedsOnlineCapacity
+          ? buildGroupQuoteRequestMessage(details, reference)
+          : isEnquiryOnly
+            ? buildEnquiryBookingMessage(details, reference)
+            : buildBookingMessage(details, reference),
       );
     }
   }
@@ -1405,21 +1492,44 @@ function QuoteCard({
     setBookingDelivery(null);
 
     if (quoteStep === 1) {
-      if (isA2AFlow && !validateA2APlaces()) {
+      if (isA2AFlow) {
+        if (!journeyIntent) {
+          setSubmitError("Please choose where you are travelling.");
+          return;
+        }
+        if (
+          (journeyIntent === "to-airport" || journeyIntent === "from-airport") &&
+          !intentAirportCode
+        ) {
+          setSubmitError("Please choose an airport.");
+          return;
+        }
+        if (!validateA2APlaces()) {
+          return;
+        }
+      }
+      if (passengers >= FIVE_PLUS_PASSENGERS && !exactPassengers) {
+        setExactPassengers(5);
+      }
+      if (passengers >= 10 && (!exactPassengers || exactPassengers < 10)) {
+        setSubmitError("Please enter your exact passenger number.");
         return;
       }
       if (!hasQuoteRoute) {
-        return;
-      }
-      if (exceedsOnlineCapacity) {
         setSubmitError(
-          "This party size needs a manual quote. Please contact us on WhatsApp — we don’t show an automatic online fare for it.",
+          isA2AFlow && journeyIntent === "to-airport"
+            ? "Please select your pickup address."
+            : isA2AFlow && journeyIntent === "from-airport"
+              ? "Please select your destination."
+              : "Please complete your journey details.",
         );
         return;
       }
-      if (!isEnquiryOnly && !isManualQuoteJourney && !pricingConfirmationRequired && !liveQuote) {
+      // 5+ continues into the tailored quote request path (no invented price).
+      if (!exceedsOnlineCapacity && !isEnquiryOnly && !isManualQuoteJourney && !pricingConfirmationRequired && !liveQuote) {
         return;
       }
+      setSubmitError("");
       setQuoteStep(2);
       return;
     }
@@ -1476,7 +1586,9 @@ function QuoteCard({
       ? "Sending enquiry…"
       : "Sending booking…";
 
-  const confirmButtonLabel = showsRequestQuoteFlow
+  const confirmButtonLabel = exceedsOnlineCapacity
+    ? "Request Larger Vehicle Quote"
+    : showsRequestQuoteFlow
     ? pricingConfirmationRequired || isManualQuoteJourney
       ? "Request Fixed Quote"
       : liveQuote
@@ -1488,7 +1600,9 @@ function QuoteCard({
         ? `Confirm & book for ${formatQuote(liveQuote.amount)}`
         : "Confirm & book";
 
-  const whatsAppConfirmLabel = showsRequestQuoteFlow
+  const whatsAppConfirmLabel = exceedsOnlineCapacity
+    ? "Request Larger Vehicle Quote via WhatsApp"
+    : showsRequestQuoteFlow
     ? pricingConfirmationRequired || isManualQuoteJourney
       ? "Request Fixed Quote via WhatsApp"
       : liveQuote
@@ -1501,7 +1615,7 @@ function QuoteCard({
         : "Confirm & send via WhatsApp";
 
   const quoteHint = exceedsOnlineCapacity
-    ? "This party size needs a WhatsApp manual quote — we don’t show an automatic online fare for it."
+    ? "This party size needs a tailored larger-vehicle quote — we don’t show an automatic online fare."
     : pricingConfirmationRequired
     ? hasQuoteRoute
       ? "Continue to request your price — we’ll confirm the fare before payment."
@@ -1596,7 +1710,9 @@ function QuoteCard({
         />
         <div className="rounded-xl border border-white/10 bg-navy-dark/50 px-5 py-8 text-center sm:px-8 sm:py-10">
           <p className="text-xs font-medium uppercase tracking-wider text-emerald">
-            {showsRequestQuoteFlow
+            {exceedsOnlineCapacity
+              ? "Quote Request Received"
+              : showsRequestQuoteFlow
               ? "Quote request submitted"
               : isEnquiryOnly
                 ? "Enquiry submitted"
@@ -1609,12 +1725,14 @@ function QuoteCard({
             </p>
           ) : null}
           <p className="mx-auto mt-4 max-w-md text-sm leading-relaxed text-white/80 sm:text-base">
-            {showsRequestQuoteFlow
+            {exceedsOnlineCapacity
+              ? "We’ve received your journey details for a larger vehicle / group transfer. This is a quote request only — a tailored fixed price will be provided shortly. Nothing is confirmed until you accept the quote."
+              : showsRequestQuoteFlow
               ? isOutOfAreaPickupJourney
                 ? "We’ve received your out-of-area pickup request. We’ll review it manually, confirm availability, and send your personal fixed quote shortly. No payment is taken until the fare is confirmed."
                 : isRoiJourney
                   ? "We’ve received your Republic of Ireland long-distance transfer request. We’ll confirm your fixed price and send your personal quote shortly."
-                  : "We’ve received your minibus quote request. These transfers are subject to partner availability — we’ll confirm capacity and send your personal quote shortly."
+                  : "We’ve received your larger vehicle quote request. These transfers are subject to partner availability — we’ll confirm capacity and send your personal quote shortly."
               : isEnquiryOnly
                 ? "We’ve received your enquiry. We’ll confirm availability and send your personal quote shortly. When you’re ready to book, we’ll send a SumUp payment link — your trip is confirmed after payment."
                 : "We’ve received your booking request. If you paid online with SumUp, your booking is confirmed. Otherwise we’ll confirm the job and email a SumUp payment link — your trip is confirmed after payment."}
@@ -1672,9 +1790,9 @@ function QuoteCard({
         </p>
         <ol className="mt-4 grid grid-cols-3 gap-2" aria-label="Booking steps">
           {[
-            { step: 1 as const, label: isA2AFlow ? "Where & when" : "Airport & address" },
-            { step: 2 as const, label: "Travel details" },
-            { step: 3 as const, label: canPayNowOnline ? "Pay & confirm" : "Your details & request" },
+            { step: 1 as const, label: isA2AFlow ? "Your journey" : "Airport & address" },
+            { step: 2 as const, label: exceedsOnlineCapacity ? "Request quote" : "Price & travel" },
+            { step: 3 as const, label: canPayNowOnline ? "Pay & confirm" : "Your details" },
           ].map((item) => {
             const active = quoteStep === item.step;
             const done = quoteStep > item.step;
@@ -1712,94 +1830,48 @@ function QuoteCard({
           <>
         {isA2AFlow ? (
           <>
-            <div className="min-h-[3.25rem]">
-              <h3 className="text-base font-semibold text-white sm:text-lg">
-                Where are you travelling?
-              </h3>
-              <p className="mt-1 min-h-[1rem] text-xs text-white/55">
-                {journeyKind ? journeyKindLabel(journeyKind) : "\u00a0"}
-              </p>
-            </div>
-
-            <div>
-              <p className="mb-2 text-xs font-medium uppercase tracking-wider text-white/50">
-                Journey
-              </p>
-              <div className="grid grid-cols-2 gap-2 rounded-xl border border-white/10 bg-white/5 p-1">
-                <button
-                  type="button"
-                  aria-pressed={!returnJourney}
-                  onClick={() => {
-                    setReturnJourney(false);
-                    setReturnDateError("");
-                  }}
-                  className={`rounded-lg px-3 py-2.5 text-xs font-semibold transition-all sm:text-sm ${
-                    !returnJourney
-                      ? "bg-emerald text-navy shadow-sm"
-                      : "text-white/70 hover:text-white"
-                  }`}
-                >
-                  One way
-                </button>
-                <button
-                  type="button"
-                  aria-pressed={returnJourney}
-                  onClick={() => setReturnJourney(true)}
-                  className={`rounded-lg px-3 py-2.5 text-xs font-semibold transition-all sm:text-sm ${
-                    returnJourney
-                      ? "bg-emerald text-navy shadow-sm"
-                      : "text-white/70 hover:text-white"
-                  }`}
-                >
-                  Return · 5% off
-                </button>
-              </div>
-            </div>
-
-            <AddressInput
-              id="pickup"
-              name="pickup"
-              value={pickupAddress}
-              onChange={handlePickupChange}
-              onSelectPlace={handlePickupPlaceSelect}
-              requireSuggestion
-              selectionError={pickupPlaceError}
-              airportCode={addressLookupCode}
-              label="Pickup"
-              placeholder="Enter pickup address, hotel or airport"
-              helperText="Pick a complete address from the suggestions"
+            <QuoteProgressiveRoute
+              journeyIntent={journeyIntent}
+              onJourneyIntentChange={applyJourneyIntent}
+              selectedAirportCode={intentAirportCode}
+              onAirportSelect={applyIntentAirport}
+              pickupAddress={pickupAddress}
+              dropoffAddress={dropoffAddress}
+              onPickupChange={handlePickupChange}
+              onDropoffChange={handleDropoffChange}
+              onPickupPlaceSelect={handlePickupPlaceSelect}
+              onDropoffPlaceSelect={handleDropoffPlaceSelect}
+              pickupPlaceError={pickupPlaceError}
+              dropoffPlaceError={dropoffPlaceError}
+              addressLookupCode={addressLookupCode}
+              returnJourney={returnJourney}
+              onReturnJourneyChange={(value) => {
+                setReturnJourney(value);
+                if (!value) setReturnDateError("");
+              }}
+              passengers={passengers}
+              onPassengersChange={setPassengers}
+              exactPassengers={exactPassengers}
+              onExactPassengersChange={setExactPassengers}
+              suitcases={suitcases}
+              onSuitcasesChange={setSuitcases}
+              childSeats={childSeats}
+              onChildSeatsChange={setChildSeats}
+              childSeatNotes={childSeatNotes}
+              onChildSeatNotesChange={setChildSeatNotes}
+              isGroupQuote={exceedsOnlineCapacity}
+              showRouteFields={Boolean(journeyIntent)}
+              showPartyFields={
+                journeyIntent === "address-to-address"
+                  ? isPlaceSelected(pickupPlace) && isPlaceSelected(dropoffPlace)
+                  : journeyIntent === "to-airport"
+                    ? Boolean(intentAirportCode) && isPlaceSelected(pickupPlace)
+                    : journeyIntent === "from-airport"
+                      ? Boolean(intentAirportCode) && isPlaceSelected(dropoffPlace)
+                      : false
+              }
+              journeyKindLabel={journeyKind ? journeyKindLabel(journeyKind) : undefined}
             />
-            <AddressInput
-              id="dropoff"
-              name="dropoff"
-              value={dropoffAddress}
-              onChange={handleDropoffChange}
-              onSelectPlace={handleDropoffPlaceSelect}
-              requireSuggestion
-              selectionError={dropoffPlaceError}
-              airportCode={addressLookupCode}
-              label="Drop-off"
-              placeholder="Enter destination address, hotel or airport"
-              helperText="Pick a complete address from the suggestions"
-            />
-
-            <div>
-              <p className="mb-2 text-xs font-medium uppercase tracking-wider text-white/50">
-                Quick select airports
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {QUICK_SELECT_AIRPORTS.map((airport) => (
-                  <button
-                    key={airport.code}
-                    type="button"
-                    onClick={() => handleQuickSelectAirport(airport.code)}
-                    className="rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-xs font-semibold text-white/80 transition-colors hover:border-emerald/40 hover:bg-emerald/10 hover:text-white"
-                  >
-                    {airport.label}
-                  </button>
-                ))}
-              </div>
-            </div>
 
             <div
               className={`grid transition-[grid-template-rows] duration-200 ease-out ${
@@ -1836,17 +1908,36 @@ function QuoteCard({
                 : "\u00a0"}
             </p>
 
-            <TripMap
-              tripMode="address"
-              originAddress={pickupAddress}
-              destinationAddress={dropoffAddress}
-              originLat={pickupPlace.lat}
-              originLng={pickupPlace.lng}
-              destinationLat={dropoffPlace.lat}
-              destinationLng={dropoffPlace.lng}
-              onRouteMetrics={handleRouteMetrics}
-              variant="summary"
-            />
+            {isPlaceSelected(pickupPlace) && isPlaceSelected(dropoffPlace) && (
+              <TripMap
+                tripMode="address"
+                originAddress={pickupAddress}
+                destinationAddress={dropoffAddress}
+                originLat={pickupPlace.lat}
+                originLng={pickupPlace.lng}
+                destinationLat={dropoffPlace.lat}
+                destinationLng={dropoffPlace.lng}
+                onRouteMetrics={handleRouteMetrics}
+                variant="summary"
+              />
+            )}
+
+            {!exceedsOnlineCapacity && isPlaceSelected(pickupPlace) && isPlaceSelected(dropoffPlace) && (
+              <div className="rounded-xl border border-emerald/30 bg-emerald/10 px-4 py-3">
+                <p className="text-xs font-medium uppercase tracking-wider text-emerald">
+                  Vehicle for this journey
+                </p>
+                <p className="mt-1 text-xl font-semibold tracking-tight text-white">
+                  {vehicleShortLabel(quoteVehicle)}
+                </p>
+                <p className="mt-2 text-xs leading-relaxed text-white/70">
+                  Selected automatically from your passengers and luggage.
+                </p>
+              </div>
+            )}
+            <input type="hidden" name="vehicle" value={quoteVehicle} />
+            <input type="hidden" name="passengers" value={exactPassengers ?? passengers} />
+            <input type="hidden" name="suitcases" value={suitcases} />
           </>
         ) : (
           <>
@@ -2109,6 +2200,7 @@ function QuoteCard({
           </>
         )}
 
+        {!isA2AFlow && (
         <div className="space-y-4 rounded-xl border border-white/10 bg-white/5 px-4 py-4">
           <TapChoiceRow
             label="Passengers"
@@ -2133,8 +2225,8 @@ function QuoteCard({
             </p>
             {exceedsOnlineCapacity ? (
               <p className="mt-2 text-xs leading-relaxed text-white/70">
-                A minibus is required for this party size. We don&apos;t show an automatic online
-                fare — request a manual quote via WhatsApp.
+                A larger vehicle is required for this party size. We don&apos;t show an automatic
+                online fare — request a tailored group transfer quote via WhatsApp.
               </p>
             ) : quoteVehicle === ESTATE ? (
               <p className="mt-2 text-xs leading-relaxed text-white/70">
@@ -2160,24 +2252,15 @@ function QuoteCard({
               >
                 Message us on WhatsApp
               </a>{" "}
-              for a minibus quote.
+              for a tailored group transfer quote.
             </p>
           ) : (
             <p className="text-xs leading-relaxed text-white/55">
-              Saloon and estate are chosen automatically from your party size. Need a larger vehicle
-              than shown?{" "}
-              <a
-                href={whatsAppChatUrl(CAPACITY_WHATSAPP_MESSAGE)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="font-semibold text-emerald underline-offset-2 hover:underline"
-              >
-                WhatsApp us
-              </a>
-              .
+              Saloon and estate are chosen automatically from your party size.
             </p>
           )}
         </div>
+        )}
           </>
         ) : null}
 
@@ -2313,50 +2396,48 @@ function QuoteCard({
           </div>
         </div>
 
-        {(isAirportTrip || (isA2AFlow && pickupAirportCode)) && (
+        {(isAirportTrip && isFromAirport) ||
+        (isA2AFlow && Boolean(pickupAirportCode)) ||
+        (returnJourney &&
+          ((isAirportTrip && !isFromAirport) || (isA2AFlow && Boolean(dropoffAirportCode)))) ? (
           <div className="space-y-4 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-4">
             <div>
               <p className="text-xs font-medium uppercase tracking-wider text-emerald">
-                Flight numbers <span className="font-normal text-white/45">(optional)</span>
+                Flight number <span className="font-normal text-white/45">(optional)</span>
               </p>
               <p className="mt-1 text-sm text-white/60">
-                {getFlightNumbersIntro(isFromAirport, returnJourney)} You can continue without a
-                flight number.
+                Providing your flight number helps us monitor your arrival. You can continue without
+                one.
               </p>
             </div>
-            <FlightNumberField
-              id="goingFlightNumber"
-              label="Flight number for going (optional)"
-              helperText={
-                isFromAirport
-                  ? "The flight you are arriving on"
-                  : "The flight you are departing on"
-              }
-              value={goingFlightNumber}
-              onChange={(value) => {
-                setGoingFlightNumber(value);
-                if (value.trim()) {
-                  setGoingFlightError("");
-                }
-              }}
-              tripDate={tripDate}
-              airportCode={effectiveAirportCode}
-              direction={isA2AFlow ? "from-airport" : tripDirection}
-              enabled={quoteStep === 2}
-              error={goingFlightError}
-              onVerifiedChange={(flight) => {
-                setVerifiedGoingFlight(flight);
-              }}
-            />
-            {returnJourney && (
+            {((isAirportTrip && isFromAirport) || (isA2AFlow && Boolean(pickupAirportCode))) && (
+              <FlightNumberField
+                id="goingFlightNumber"
+                label="Flight number"
+                helperText="The flight you are arriving on"
+                value={goingFlightNumber}
+                onChange={(value) => {
+                  setGoingFlightNumber(value);
+                  if (value.trim()) {
+                    setGoingFlightError("");
+                  }
+                }}
+                tripDate={tripDate}
+                airportCode={effectiveAirportCode}
+                direction={isA2AFlow ? "from-airport" : tripDirection}
+                enabled={quoteStep === 2}
+                error={goingFlightError}
+                onVerifiedChange={(flight) => {
+                  setVerifiedGoingFlight(flight);
+                }}
+              />
+            )}
+            {returnJourney &&
+              ((isAirportTrip && !isFromAirport) || (isA2AFlow && Boolean(dropoffAirportCode))) && (
               <FlightNumberField
                 id="collectionFlightNumber"
-                label="Flight number for collection (optional)"
-                helperText={
-                  returnTripDirection === "from-airport"
-                    ? "The flight you are returning on — we collect you after it lands"
-                    : "The flight you are returning on — we take you to the airport"
-                }
+                label="Return flight number"
+                helperText="The flight you are returning on — we collect you after it lands"
                 value={collectionFlightNumber}
                 onChange={(value) => {
                   setCollectionFlightNumber(value);
@@ -2366,7 +2447,7 @@ function QuoteCard({
                 }}
                 tripDate={returnDate}
                 airportCode={effectiveAirportCode}
-                direction={isA2AFlow ? "to-airport" : returnTripDirection}
+                direction="from-airport"
                 enabled={quoteStep === 2}
                 error={collectionFlightError}
                 onVerifiedChange={(flight) => {
@@ -2375,21 +2456,48 @@ function QuoteCard({
               />
             )}
           </div>
-        )}
+        ) : null}
 
         <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3">
-          <p className="text-xs font-medium uppercase tracking-wider text-white/50">Your party</p>
-          <p className="mt-1 text-sm text-white/85">
-            {formatPassengerChoice(passengers)} passenger
-            {passengers === 1 ? "" : "s"} · {formatSuitcaseChoice(suitcases)} large suitcase
-            {suitcases === 1 ? "" : "s"} · {vehicleShortLabel(quoteVehicle)}
+          <p className="text-xs font-medium uppercase tracking-wider text-white/50">Your Journey</p>
+          <p className="mt-2 text-sm font-semibold text-white">
+            {pickupLabel || "Pickup"}
+          </p>
+          <p className="my-1 text-center text-emerald" aria-hidden>
+            ↓
+          </p>
+          <p className="text-sm font-semibold text-white">
+            {dropoffLabel || "Destination"}
+          </p>
+          {returnJourney && (
+            <p className="mt-3 text-xs leading-relaxed text-white/65">
+              Return inferred as {dropoffLabel || "destination"} → {pickupLabel || "pickup"}. Only
+              the return date and time are needed below.
+            </p>
+          )}
+          {(tripDate || tripTime) && (
+            <p className="mt-3 text-sm text-white/80">
+              {tripDate ? formatDisplayDate(tripDate) : "Date TBC"}
+              {tripTime ? ` · ${formatDisplayTime(tripTime)}` : ""}
+              {returnJourney && returnDate
+                ? ` · Return ${formatDisplayDate(returnDate)}${returnTime ? ` · ${formatDisplayTime(returnTime)}` : ""}`
+                : ""}
+            </p>
+          )}
+          <p className="mt-2 text-sm text-white/85">
+            {formatPassengerChoice(exactPassengers && exactPassengers > 4 ? exactPassengers : passengers)}{" "}
+            passenger
+            {(exactPassengers && exactPassengers > 4 ? exactPassengers : passengers) === 1 ? "" : "s"}{" "}
+            · {formatSuitcaseChoice(suitcases)} suitcase
+            {suitcases === 1 ? "" : "s"}
+            {!exceedsOnlineCapacity ? ` · ${vehicleShortLabel(quoteVehicle)}` : ""}
           </p>
           <button
             type="button"
             onClick={() => setQuoteStep(1)}
             className="mt-2 text-xs font-semibold text-emerald underline-offset-2 hover:underline"
           >
-            Edit passengers or luggage
+            Edit journey details
           </button>
         </div>
           </>
@@ -2418,31 +2526,53 @@ function QuoteCard({
           ) : exceedsOnlineCapacity ? (
             <>
               <p className="text-xs font-medium uppercase tracking-wider text-emerald">
-                Minibus required
+                Tailored Quote Required
               </p>
               <p className="mt-1 text-xl font-semibold tracking-tight text-white sm:text-2xl">
-                Contact us for this journey
+                Larger vehicle / group transfer
               </p>
-              <p className="mt-2 text-sm leading-relaxed text-white/70">
-                Your party needs a minibus (more than 4 passengers or more than 4 large suitcases).
-                Online instant fares cover saloon and estate only — we won&apos;t invent a minibus
-                price. Message us and we&apos;ll confirm availability and your fare.
+              <div className="mt-3 space-y-1 text-sm text-white/80">
+                <p>
+                  <span className="text-white/45">Journey:</span> {pickupLabel} → {dropoffLabel}
+                </p>
+                {(exactPassengers ?? passengers) > 0 && (
+                  <p>
+                    <span className="text-white/45">Passengers:</span>{" "}
+                    {exactPassengers && exactPassengers > 4
+                      ? exactPassengers
+                      : formatPassengerChoice(passengers)}
+                    <span className="mx-2 text-white/35">·</span>
+                    <span className="text-white/45">Large bags:</span>{" "}
+                    {formatSuitcaseChoice(suitcases)}
+                  </p>
+                )}
+                {effectiveAirportCode && (
+                  <p>
+                    <span className="text-white/45">Airport:</span> {airportName || effectiveAirportCode}
+                  </p>
+                )}
+                {returnJourney && (
+                  <p>
+                    <span className="text-white/45">Return:</span> Yes
+                  </p>
+                )}
+              </div>
+              <p className="mt-3 text-xs leading-relaxed text-white/65">
+                We don&apos;t show an automatic online fare for 5+ passengers. Continue to request a
+                tailored fixed-price quote — any applicable airport access fees and tolls will be
+                included in that quote.
               </p>
-              <p className="mt-3 text-sm text-white/75">
-                Vehicle: Minibus
-                <span className="mx-2 text-white/35">·</span>
-                Passengers: {formatPassengerChoice(passengers)}
-                <span className="mx-2 text-white/35">·</span>
-                Large suitcases: {formatSuitcaseChoice(suitcases)}
+              <p className="mt-3 text-xs leading-relaxed text-white/55">
+                Prefer WhatsApp?{" "}
+                <a
+                  href={whatsAppChatUrl(CAPACITY_WHATSAPP_MESSAGE)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-semibold text-emerald underline-offset-2 hover:underline"
+                >
+                  Message us for a larger vehicle quote
+                </a>
               </p>
-              <a
-                href={whatsAppChatUrl(CAPACITY_WHATSAPP_MESSAGE)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mt-4 inline-flex min-h-12 items-center justify-center rounded-xl bg-emerald px-4 text-sm font-semibold text-navy"
-              >
-                WhatsApp for a minibus quote
-              </a>
             </>
           ) : isManualQuoteJourney ? (
             <>
@@ -2967,9 +3097,19 @@ function QuoteCard({
               <p className="text-center text-xs text-white/55" role="status">
                 {travelDetailsBlocker}
               </p>
-            ) : (
+            ) : (isAirportTrip && isFromAirport) ||
+              (isA2AFlow && Boolean(pickupAirportCode)) ||
+              (returnJourney &&
+                ((isAirportTrip && !isFromAirport) ||
+                  (isA2AFlow && Boolean(dropoffAirportCode)))) ? (
               <p className="text-center text-xs text-white/45">
                 Flight number is optional — you can continue without one.
+              </p>
+            ) : (
+              <p className="text-center text-xs text-white/45">
+                {exceedsOnlineCapacity
+                  ? "Next: your contact details for the tailored quote request."
+                  : "Next: your contact details to confirm the booking."}
               </p>
             )}
           </div>
@@ -2978,12 +3118,17 @@ function QuoteCard({
             type="submit"
             disabled={
               submitted ||
-              exceedsOnlineCapacity ||
-              ((isEnquiryOnly || isManualQuoteJourney) ? !hasQuoteRoute : !liveQuote)
+              (exceedsOnlineCapacity || isEnquiryOnly || isManualQuoteJourney || pricingConfirmationRequired
+                ? !hasQuoteRoute
+                : !liveQuote)
             }
             className="w-full rounded-xl bg-emerald py-3.5 text-sm font-bold text-navy transition-all hover:bg-emerald-light disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {submitted ? submitInProgressLabel : "Continue to travel details"}
+            {submitted
+              ? submitInProgressLabel
+              : exceedsOnlineCapacity
+                ? "Continue to request quote"
+                : "Continue to travel details"}
           </button>
         )}
       </form>

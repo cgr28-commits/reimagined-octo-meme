@@ -112,11 +112,12 @@ export function getJourneyInclusions(context: JourneyInclusionContext): JourneyI
 
   // Address ↔ address (no airport ends)
   if (!pickupIsAirport && !dropoffIsAirport) {
+    const waitingBullet = withChecks(["10 minutes complimentary waiting time"]);
     return {
       summary: "Fixed price for your journey.",
-      bullets: [],
-      emailIncludeLines: [],
-      outboundBullets: [],
+      bullets: waitingBullet,
+      emailIncludeLines: withoutChecks(waitingBullet),
+      outboundBullets: waitingBullet,
       returnBullets: [],
       complimentaryWaitingMinutes: 10,
       mentionsTolls: false,
@@ -299,3 +300,17 @@ function escapeHtml(value: string): string {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
 }
+
+/** Customer-facing waiting-time policy (source of truth for FAQ / UI helpers). */
+export const AIRPORT_PICKUP_WAITING_COPY =
+  "Airport pickups include up to 60 minutes complimentary waiting time, giving you time to clear passport control, collect your luggage and make your way to the agreed pickup point.";
+
+export const AIRPORT_FLIGHT_MONITORING_COPY =
+  "Provide your flight number when booking and we’ll monitor your flight where possible to help account for early or delayed arrivals.";
+
+export const NON_AIRPORT_WAITING_COPY =
+  "Pickups from non-airport locations include up to 10 minutes complimentary waiting time from the agreed pickup time.";
+
+/** Used when 5+ / group transfers have no instant fare yet. */
+export const GROUP_QUOTE_FEE_NOTE =
+  "Any applicable airport access fees and tolls will be included in your tailored quote.";

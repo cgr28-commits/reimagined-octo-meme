@@ -1,0 +1,449 @@
+"use client";
+
+import type { SelectedPlace } from "@/lib/selected-place";
+import AddressInput from "@/components/AddressInput";
+import {
+  CUSTOMER_AIRPORTS,
+  QUOTE_JOURNEY_INTENT_OPTIONS,
+  type CustomerAirportCode,
+  type QuoteJourneyIntent,
+} from "@/lib/quote-journey-intent";
+import {
+  AIRPORT_FLIGHT_MONITORING_COPY,
+  AIRPORT_PICKUP_WAITING_COPY,
+  GROUP_QUOTE_FEE_NOTE,
+  NON_AIRPORT_WAITING_COPY,
+} from "@/lib/journey-inclusions";
+import {
+  FIVE_PLUS_PASSENGERS,
+  FIVE_PLUS_SUITCASES,
+  formatPassengerChoice,
+} from "@/lib/vehicle-selection";
+import type { QuickSelectAirportCode } from "@/lib/selected-place";
+
+const SELECT_CARD =
+  "flex min-h-[4.5rem] flex-col items-start justify-center rounded-2xl border px-4 py-3 text-left transition-all";
+const SELECT_CARD_ON = "border-emerald bg-emerald text-navy shadow-sm";
+const SELECT_CARD_OFF =
+  "border-white/15 bg-white/5 text-white hover:border-emerald/40 hover:bg-emerald/10";
+
+function ChoiceGrid({
+  label,
+  options,
+  value,
+  onChange,
+  formatOption,
+  columns,
+}: {
+  label: string;
+  options: number[];
+  value: number;
+  onChange: (value: number) => void;
+  formatOption?: (value: number) => string;
+  columns?: number;
+}) {
+  const cols = columns ?? options.length;
+  return (
+    <div>
+      <p className="mb-2 text-xs font-medium uppercase tracking-wider text-white/50">{label}</p>
+      <div
+        className="grid gap-2"
+        style={{ gridTemplateColumns: `repeat(${Math.min(cols, options.length)}, minmax(0, 1fr))` }}
+      >
+        {options.map((option) => {
+          const selected = value === option;
+          return (
+            <button
+              key={option}
+              type="button"
+              aria-pressed={selected}
+              onClick={() => onChange(option)}
+              className={`min-h-12 rounded-xl text-base font-semibold transition-all ${
+                selected
+                  ? "bg-emerald text-navy shadow-sm"
+                  : "border border-white/15 bg-white/5 text-white/85 hover:border-emerald/40 hover:text-white"
+              }`}
+            >
+              {formatOption ? formatOption(option) : String(option)}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+export type QuoteProgressiveRouteProps = {
+  journeyIntent: QuoteJourneyIntent | null;
+  onJourneyIntentChange: (intent: QuoteJourneyIntent) => void;
+  selectedAirportCode: CustomerAirportCode | "";
+  onAirportSelect: (code: CustomerAirportCode) => void;
+  pickupAddress: string;
+  dropoffAddress: string;
+  onPickupChange: (value: string) => void;
+  onDropoffChange: (value: string) => void;
+  onPickupPlaceSelect: (place: SelectedPlace) => void;
+  onDropoffPlaceSelect: (place: SelectedPlace) => void;
+  pickupPlaceError: string;
+  dropoffPlaceError: string;
+  addressLookupCode: string;
+  returnJourney: boolean;
+  onReturnJourneyChange: (value: boolean) => void;
+  passengers: number;
+  onPassengersChange: (value: number) => void;
+  exactPassengers: number | null;
+  onExactPassengersChange: (value: number | null) => void;
+  suitcases: number;
+  onSuitcasesChange: (value: number) => void;
+  childSeats: number;
+  onChildSeatsChange: (value: number) => void;
+  childSeatNotes: string;
+  onChildSeatNotesChange: (value: string) => void;
+  isGroupQuote: boolean;
+  showRouteFields: boolean;
+  showPartyFields: boolean;
+  journeyKindLabel?: string;
+};
+
+export default function QuoteProgressiveRoute({
+  journeyIntent,
+  onJourneyIntentChange,
+  selectedAirportCode,
+  onAirportSelect,
+  pickupAddress,
+  dropoffAddress,
+  onPickupChange,
+  onDropoffChange,
+  onPickupPlaceSelect,
+  onDropoffPlaceSelect,
+  pickupPlaceError,
+  dropoffPlaceError,
+  addressLookupCode,
+  returnJourney,
+  onReturnJourneyChange,
+  passengers,
+  onPassengersChange,
+  exactPassengers,
+  onExactPassengersChange,
+  suitcases,
+  onSuitcasesChange,
+  childSeats,
+  onChildSeatsChange,
+  childSeatNotes,
+  onChildSeatNotesChange,
+  isGroupQuote,
+  showRouteFields,
+  showPartyFields,
+  journeyKindLabel,
+}: QuoteProgressiveRouteProps) {
+  const showAirportPicker =
+    journeyIntent === "to-airport" || journeyIntent === "from-airport";
+  const airportChosen = Boolean(selectedAirportCode);
+  const showAddresses =
+    journeyIntent === "address-to-address" || (showAirportPicker && airportChosen);
+
+  return (
+    <div className="space-y-5">
+      <div className="min-h-[3.25rem]">
+        <h3 className="text-base font-semibold text-white sm:text-lg">Where are you travelling?</h3>
+        <p className="mt-1 min-h-[1rem] text-xs text-white/55">
+          {journeyKindLabel || "Choose how you’d like to travel"}
+        </p>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-3" role="group" aria-label="Journey type">
+        {QUOTE_JOURNEY_INTENT_OPTIONS.map((option) => {
+          const selected = journeyIntent === option.id;
+          return (
+            <button
+              key={option.id}
+              type="button"
+              aria-pressed={selected}
+              onClick={() => onJourneyIntentChange(option.id)}
+              className={`${SELECT_CARD} ${selected ? SELECT_CARD_ON : SELECT_CARD_OFF}`}
+            >
+              <span className="text-sm font-bold sm:text-base">{option.title}</span>
+              <span
+                className={`mt-1 text-xs leading-snug ${selected ? "text-navy/80" : "text-white/55"}`}
+              >
+                {option.description}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {showAirportPicker && (
+        <div className="space-y-3">
+          <p className="text-xs font-medium uppercase tracking-wider text-white/50">
+            Which airport?
+          </p>
+          <div className="grid gap-2" role="group" aria-label="Airport">
+            {CUSTOMER_AIRPORTS.map((airport) => {
+              const selected = selectedAirportCode === airport.code;
+              return (
+                <button
+                  key={airport.code}
+                  type="button"
+                  aria-pressed={selected}
+                  onClick={() => onAirportSelect(airport.code)}
+                  className={`${SELECT_CARD} ${selected ? SELECT_CARD_ON : SELECT_CARD_OFF}`}
+                >
+                  <span className="text-sm font-bold">{airport.title}</span>
+                </button>
+              );
+            })}
+          </div>
+          {!airportChosen && (
+            <p className="text-xs text-amber-200/90">Please choose an airport.</p>
+          )}
+        </div>
+      )}
+
+      {showAddresses && showRouteFields && (
+        <div className="space-y-4">
+          {(journeyIntent === "to-airport" || journeyIntent === "address-to-address") && (
+            <AddressInput
+              id="pickup"
+              name="pickup"
+              value={pickupAddress}
+              onChange={onPickupChange}
+              onSelectPlace={onPickupPlaceSelect}
+              requireSuggestion
+              selectionError={pickupPlaceError}
+              airportCode={addressLookupCode}
+              label={journeyIntent === "to-airport" ? "Where should we pick you up?" : "Pickup address"}
+              placeholder="Enter pickup address or hotel"
+              helperText="Pick a complete address from the suggestions"
+            />
+          )}
+          {(journeyIntent === "from-airport" || journeyIntent === "address-to-address") && (
+            <AddressInput
+              id="dropoff"
+              name="dropoff"
+              value={dropoffAddress}
+              onChange={onDropoffChange}
+              onSelectPlace={onDropoffPlaceSelect}
+              requireSuggestion
+              selectionError={dropoffPlaceError}
+              airportCode={addressLookupCode}
+              label={
+                journeyIntent === "from-airport" ? "Where are you travelling to?" : "Destination"
+              }
+              placeholder="Enter destination address or hotel"
+              helperText="Pick a complete address from the suggestions"
+            />
+          )}
+          {journeyIntent === "to-airport" && airportChosen && (
+            <p className="rounded-xl border border-white/10 bg-navy-dark/40 px-3 py-2 text-xs text-white/70">
+              Destination:{" "}
+              <strong className="text-white">
+                {CUSTOMER_AIRPORTS.find((a) => a.code === selectedAirportCode)?.title}
+              </strong>
+            </p>
+          )}
+          {journeyIntent === "from-airport" && airportChosen && (
+            <p className="rounded-xl border border-white/10 bg-navy-dark/40 px-3 py-2 text-xs text-white/70">
+              Pickup:{" "}
+              <strong className="text-white">
+                {CUSTOMER_AIRPORTS.find((a) => a.code === selectedAirportCode)?.title}
+              </strong>
+            </p>
+          )}
+        </div>
+      )}
+
+      {showPartyFields && (
+        <div className="space-y-5">
+          <div>
+            <p className="mb-2 text-xs font-medium uppercase tracking-wider text-white/50">
+              Journey
+            </p>
+            <div className="grid grid-cols-2 gap-2 rounded-xl border border-white/10 bg-white/5 p-1">
+              <button
+                type="button"
+                aria-pressed={!returnJourney}
+                onClick={() => onReturnJourneyChange(false)}
+                className={`min-h-12 rounded-lg px-3 py-2.5 text-sm font-semibold transition-all ${
+                  !returnJourney ? "bg-emerald text-navy shadow-sm" : "text-white/70 hover:text-white"
+                }`}
+              >
+                One Way
+              </button>
+              <button
+                type="button"
+                aria-pressed={returnJourney}
+                onClick={() => onReturnJourneyChange(true)}
+                className={`min-h-12 rounded-lg px-3 py-2.5 text-sm font-semibold transition-all ${
+                  returnJourney ? "bg-emerald text-navy shadow-sm" : "text-white/70 hover:text-white"
+                }`}
+              >
+                Return · 5% off
+              </button>
+            </div>
+          </div>
+
+          <ChoiceGrid
+            label="Passengers"
+            options={[1, 2, 3, 4, FIVE_PLUS_PASSENGERS]}
+            value={passengers >= FIVE_PLUS_PASSENGERS ? FIVE_PLUS_PASSENGERS : passengers}
+            onChange={(value) => {
+              onPassengersChange(value);
+              if (value < FIVE_PLUS_PASSENGERS) {
+                onExactPassengersChange(null);
+              } else if (!exactPassengers || exactPassengers < 5) {
+                onExactPassengersChange(5);
+              }
+            }}
+            formatOption={formatPassengerChoice}
+          />
+
+          {passengers >= FIVE_PLUS_PASSENGERS && (
+            <div className="space-y-3 rounded-2xl border border-amber-400/25 bg-amber-400/10 px-4 py-4">
+              <p className="text-sm font-semibold text-amber-100">
+                Travelling with 5 or more passengers?
+              </p>
+              <p className="text-xs leading-relaxed text-white/75">
+                We can arrange a suitable larger vehicle for your journey. Enter your journey details
+                and we’ll provide a tailored fixed-price quote.
+              </p>
+              <ChoiceGrid
+                label="Group size"
+                options={[5, 6, 7, 8, 9, 10]}
+                value={exactPassengers && exactPassengers >= 10 ? 10 : exactPassengers ?? 5}
+                onChange={(value) => {
+                  onPassengersChange(Math.max(5, value === 10 ? 10 : value));
+                  onExactPassengersChange(value === 10 ? 10 : value);
+                }}
+                formatOption={(value) => (value >= 10 ? "10+" : String(value))}
+                columns={6}
+              />
+              {(exactPassengers ?? 0) >= 10 && (
+                <div>
+                  <label
+                    htmlFor="exact-passengers"
+                    className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/70"
+                  >
+                    Exact passenger number
+                  </label>
+                  <input
+                    id="exact-passengers"
+                    type="number"
+                    inputMode="numeric"
+                    min={10}
+                    max={50}
+                    value={exactPassengers && exactPassengers >= 10 ? exactPassengers : 10}
+                    onChange={(e) => {
+                      const next = Number(e.target.value);
+                      if (Number.isFinite(next) && next >= 10) {
+                        onExactPassengersChange(next);
+                        onPassengersChange(next);
+                      }
+                    }}
+                    className="w-full rounded-xl border border-white/25 bg-navy-dark px-4 py-3 text-sm text-white outline-none focus:border-emerald focus:ring-2 focus:ring-emerald/25"
+                  />
+                </div>
+              )}
+              <p className="text-xs text-white/65">{GROUP_QUOTE_FEE_NOTE}</p>
+            </div>
+          )}
+
+          <ChoiceGrid
+            label="Suitcases / large bags"
+            options={[0, 1, 2, 3, 4]}
+            value={suitcases > 4 ? 4 : suitcases}
+            onChange={(value) => {
+              if (value === 4 && suitcases < 4) {
+                onSuitcasesChange(4);
+              } else if (value < 4) {
+                onSuitcasesChange(value);
+              } else {
+                onSuitcasesChange(suitcases >= 4 ? suitcases : 4);
+              }
+            }}
+            formatOption={(value) => (value >= 4 ? "4+" : String(value))}
+          />
+
+          {suitcases >= 4 && (
+            <ChoiceGrid
+              label="Exact large bags (4+)"
+              options={[4, 5, 6, 7, FIVE_PLUS_SUITCASES]}
+              value={suitcases >= FIVE_PLUS_SUITCASES ? FIVE_PLUS_SUITCASES : suitcases}
+              onChange={onSuitcasesChange}
+              formatOption={(value) => (value >= FIVE_PLUS_SUITCASES ? "5+" : String(value))}
+            />
+          )}
+
+          <ChoiceGrid
+            label="Child seats"
+            options={[0, 1, 2]}
+            value={childSeats}
+            onChange={onChildSeatsChange}
+            formatOption={(value) => (value === 0 ? "None" : String(value))}
+          />
+
+          {childSeats > 0 && (
+            <div>
+              <label
+                htmlFor="child-seat-notes"
+                className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/70"
+              >
+                Child seat details
+              </label>
+              <input
+                id="child-seat-notes"
+                type="text"
+                value={childSeatNotes}
+                onChange={(e) => onChildSeatNotesChange(e.target.value)}
+                placeholder="e.g. 1 infant seat, 1 booster"
+                className="w-full rounded-xl border border-white/25 bg-navy-dark px-4 py-3 text-sm text-white placeholder:text-white/45 outline-none focus:border-emerald focus:ring-2 focus:ring-emerald/25"
+              />
+              <p className="mt-1.5 text-xs text-white/55">
+                Child seats can be requested but availability is not guaranteed.
+              </p>
+            </div>
+          )}
+
+          {isGroupQuote ? (
+            <div className="rounded-xl border border-white/10 bg-navy-dark/40 px-4 py-3 text-xs leading-relaxed text-white/70">
+              <p>{AIRPORT_PICKUP_WAITING_COPY}</p>
+              <p className="mt-2">{NON_AIRPORT_WAITING_COPY}</p>
+            </div>
+          ) : journeyIntent === "from-airport" ? (
+            <div className="rounded-xl border border-white/10 bg-navy-dark/40 px-4 py-3 text-xs leading-relaxed text-white/70">
+              <p>{AIRPORT_PICKUP_WAITING_COPY}</p>
+              <p className="mt-2">{AIRPORT_FLIGHT_MONITORING_COPY}</p>
+            </div>
+          ) : journeyIntent === "to-airport" ? (
+            <div className="rounded-xl border border-white/10 bg-navy-dark/40 px-4 py-3 text-xs leading-relaxed text-white/70">
+              <p>{NON_AIRPORT_WAITING_COPY}</p>
+              {returnJourney && (
+                <>
+                  <p className="mt-2 font-semibold text-white/80">On your return (airport pickup)</p>
+                  <p className="mt-1">{AIRPORT_PICKUP_WAITING_COPY}</p>
+                  <p className="mt-2">{AIRPORT_FLIGHT_MONITORING_COPY}</p>
+                </>
+              )}
+            </div>
+          ) : journeyIntent === "address-to-address" ? (
+            <div className="rounded-xl border border-white/10 bg-navy-dark/40 px-4 py-3 text-xs leading-relaxed text-white/70">
+              <p>{NON_AIRPORT_WAITING_COPY}</p>
+            </div>
+          ) : null}
+
+          {returnJourney && showAddresses && (
+            <div className="rounded-xl border border-emerald/20 bg-emerald/10 px-4 py-3 text-xs text-white/80">
+              <p className="font-semibold text-emerald">Return journey</p>
+              <p className="mt-1">
+                Outbound route will be reversed automatically — you’ll only need the return date and
+                time on the next step.
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export type { QuickSelectAirportCode };
