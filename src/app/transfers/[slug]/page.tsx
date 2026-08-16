@@ -117,7 +117,7 @@ export default async function TransferRoutePage({ params }: Props) {
               ))}
             </ul>
             <p className="mt-6 text-sm text-white/45">
-              Typical guide: {page.airport.fromPriceLabel} · {page.airport.durationNote}
+              Get your fixed price based on your journey. {page.airport.durationNote}
             </p>
           </section>
 
