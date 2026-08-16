@@ -9,7 +9,7 @@ export default function WhyChooseUsSection() {
         <SectionHeading
           eyebrow="Our Service"
           title="Why Choose Us"
-          description="Reliable airport transfers across Northern Ireland — with clear quotes, professional drivers, and no hidden extras."
+          description="Clear fixed quotes, flight monitoring, and complimentary waiting — without the guesswork."
         />
 
         <div className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">

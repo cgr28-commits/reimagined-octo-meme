@@ -274,7 +274,7 @@ function knowledgeChunks(): Array<{ title: string; body: string }> {
     {
       title: "Flight delays and waiting time",
       body:
-        "We track your flight and adjust pickup for delays or early landings at no extra charge. Airport pickups include the applicable express pickup fee and up to 60 minutes complimentary waiting after landing. Airport drop-offs include the applicable express drop-off fee. Non-airport pickups include 10 minutes complimentary waiting. Dublin Airport fares include applicable tolls where they apply.",
+        "We monitor your flight where possible and adjust the planned collection time for early or delayed arrivals. Airport pickups include the applicable express pickup fee and up to 60 minutes complimentary waiting after landing. Airport drop-offs include the applicable express drop-off fee. Non-airport pickups include 10 minutes complimentary waiting. Dublin Airport fares include applicable tolls where they apply.",
     },
     {
       title: "Cash and payment options",

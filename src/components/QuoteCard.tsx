@@ -1859,6 +1859,8 @@ function QuoteCard({
               onChildSeatsChange={setChildSeats}
               childSeatNotes={childSeatNotes}
               onChildSeatNotesChange={setChildSeatNotes}
+              flightNumber={goingFlightNumber}
+              onFlightNumberChange={setGoingFlightNumber}
               isGroupQuote={exceedsOnlineCapacity}
               showRouteFields={Boolean(journeyIntent)}
               showPartyFields={

@@ -29,6 +29,7 @@ export const QUOTE_JOURNEY_INTENT_OPTIONS: Array<{
 export const CUSTOMER_AIRPORTS = [
   { code: "BFS" as const, title: "Belfast International Airport", short: "Belfast International" },
   { code: "BHD" as const, title: "Belfast City Airport", short: "Belfast City" },
+  { code: "LDY" as const, title: "City of Derry Airport", short: "City of Derry" },
   { code: "DUB" as const, title: "Dublin Airport", short: "Dublin Airport" },
 ];
 

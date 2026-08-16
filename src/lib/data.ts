@@ -338,9 +338,9 @@ export const AREAS = [
 
 export const WHY_CHOOSE_US = [
   {
-    title: "Live flight tracking",
+    title: "Live flight monitoring",
     description:
-      "We monitor your flight in real time and adjust pickup times for delays or early arrivals at no extra cost.",
+      "We monitor your flight where possible and adjust the planned collection time for early or delayed arrivals. Airport pickups include 60 minutes complimentary waiting time.",
   },
   {
     title: "Live driver tracking",
@@ -348,19 +348,19 @@ export const WHY_CHOOSE_US = [
       "Pay online and receive a tracking link with your invoice. On travel day, follow your driver's live location when they're on the way to you.",
   },
   {
-    title: "Meet & greet included",
+    title: "Meet & greet on request",
     description:
-      "Your driver meets you at arrivals with a name board — no searching for a taxi rank after a long flight.",
+      "For arrivals, we can meet you in the arrivals hall with a name board when requested — share your flight number when you book.",
   },
   {
-    title: "60 minutes free waiting",
+    title: "60 minutes airport waiting",
     description:
-      "Airport pickups include 60 minutes complimentary waiting after landing, with the applicable express pickup fee covered in your fixed fare.",
+      "Airport pickups include up to 60 minutes complimentary waiting time, with the applicable express pickup fee covered in your fixed fare.",
   },
   {
-    title: "Clear upfront quotes",
+    title: "Clear fixed quotes",
     description:
-      "Get a fixed price before you travel. Airport drop-offs include the applicable express drop-off fee; Dublin Airport fares include applicable tolls.",
+      "See only the inclusions that apply to your journey — express airport fees where relevant, Dublin tolls where they apply, and simple fixed prices for address-to-address trips.",
   },
   {
     title: "24/7, 365 days a year",
@@ -368,9 +368,9 @@ export const WHY_CHOOSE_US = [
       "Early morning and late-night transfers are our speciality — including bank holidays and Christmas.",
   },
   {
-    title: "Licensed & insured transport",
+    title: "1–4 or 5+ made simple",
     description:
-      "Licensed, insured private transfers for 1–4 passengers. Larger groups (5 or more) can be arranged as a group transfer / larger vehicle quote through licensed transport partners.",
+      "1–4 passengers get an instant fixed quote online. 5+ passengers receive a tailored larger vehicle / group transfer quote through licensed transport partners.",
   },
 ] as const;
 
@@ -417,119 +417,74 @@ export const CHAUFFEUR_SERVICES = [
 
 export const FAQS = [
   {
-    question: "How do I book an airport transfer?",
+    question: "Are airport fees included?",
     answer:
-      "Use Get a Live Quote on this page for your fixed price. When an instant fare is shown, you can pay securely online with SumUp to confirm. For larger groups or journeys that need a fixed quote, Request to book / enquire — once we confirm the job, we email a SumUp payment link. Your booking is confirmed after payment.",
+      "Yes where they apply to your journey. Airport pickups include the applicable express pickup fee in the fixed fare. Airport drop-offs include the applicable express drop-off fee. You only see the fees that match the direction of travel.",
   },
   {
-    question: "Do you track my flight?",
+    question: "How much airport waiting time is included?",
     answer:
-      "Yes. We monitor your flight in real time and adjust pickup times for delays or early arrivals at no extra cost. Just provide your flight number when booking.",
+      "Airport pickups include up to 60 minutes complimentary waiting time, giving you time to clear passport control, collect your luggage and make your way to the agreed pickup point. Pickups from non-airport locations include up to 10 minutes complimentary waiting time from the agreed pickup time.",
   },
   {
-    question: "Can I track my driver on the day of travel?",
+    question: "Do you monitor flights?",
     answer:
-      "Yes — when you pay online by card, your invoice includes a live tracking link. On the day of your transfer, the page opens about two hours before your scheduled pickup. When your driver is on the way, you can follow their location on a map. There is no extra charge for this service.",
+      "Provide your flight number when booking and we’ll monitor your flight where possible to help account for early or delayed arrivals. Airport pickups still include 60 minutes complimentary waiting time — waiting beyond that may be charged.",
   },
   {
-    question: "What is included in the price?",
+    question: "Can I book for 5+ passengers?",
     answer:
-      "Your fixed price depends on the journey. Airport pickups include the applicable express pickup fee and 60 minutes complimentary waiting after landing. Airport drop-offs include the applicable express drop-off fee. Dublin Airport fares include applicable tolls where they apply to that route. Address-to-address journeys are a fixed price for your route, with 10 minutes complimentary waiting at non-airport pickups.",
+      "Yes. 1–4 passengers usually receive an instant fixed online quote. For 5 or more passengers, request a tailored larger vehicle / group transfer quote — we arrange a suitable vehicle through licensed transport partners and confirm a fixed price (no automatic online fare).",
   },
   {
-    question: "Can I pay by card?",
+    question: "Are tolls included?",
     answer:
-      "Yes. Transfers with an instant fare can be paid online by card via SumUp at the end of the quote. For larger groups or journeys that need a fixed quote, Request to book and we’ll email a SumUp payment link after we confirm the job. Cash and bank transfer can be arranged where agreed.",
-  },
-  {
-    question: "What is your cancellation and refund policy?",
-    answer:
-      "Cancel more than 24 hours before pickup for a full refund of the fare paid. Cancellations with less than 24 hours’ notice and no-shows are non-refundable. There is no separate cancellation administration charge. Full details are in our Terms & Conditions.",
-  },
-  {
-    question: "When is my booking confirmed?",
-    answer:
-      "If you pay online at quote time, your booking is confirmed once SumUp payment completes and you receive your confirmation email. If you Request to book, submitting the request does not confirm the journey — once we confirm the job and you pay via the SumUp link we email, your booking is confirmed.",
-  },
-  {
-    question: "What size of group can you transfer?",
-    answer:
-      "Online quotes cover 1–8 passengers. For 1–4 passengers with light luggage you’ll usually see an instant fare. Larger groups (5–8) are arranged through our licensed transport partners — request a quote online (subject to availability). Eight passengers with eight large suitcases need a luggage-capacity check before we can confirm.",
-  },
-  {
-    question: "Do you offer chauffeur and executive private hire?",
-    answer:
-      "Yes. We provide chauffeur and executive private hire across Northern Ireland for business travel, events, and as-directed journeys — as well as our airport transfer service. Contact us via WhatsApp for a personalised quote.",
-  },
-  {
-    question: "Do you operate 24 hours a day?",
-    answer:
-      "Absolutely. We operate 24/7, 365 days a year — including bank holidays and Christmas. Early morning and late-night transfers are our speciality.",
-  },
-  {
-    question: "Do you offer meet and greet?",
-    answer:
-      "Yes. For arrivals we can meet you in the arrivals hall with a name board when requested. Tell us when you book if you want meet and greet, and share your flight number so we can track delays.",
-  },
-  {
-    question: "What if my flight is delayed?",
-    answer:
-      "Provide your flight number when booking and we’ll monitor your flight where possible to help account for early or delayed arrivals. Airport pickups include up to 60 minutes complimentary waiting time from the actual landing time.",
-  },
-  {
-    question: "Do you provide child seats or booster seats?",
-    answer:
-      "Booster seats and child seats can be requested when you book, but they are not guaranteed. Please ask in advance so we can check availability. If a legally required child seat cannot be provided, we may be unable to carry the journey.",
-  },
-  {
-    question: "Is parking included at the airport?",
-    answer:
-      "Yes — parking and express access charges for airport transfers are covered in the fixed quoted fare (described as the express pickup fee when we collect you from the airport, or the express drop-off fee when we take you to the airport). Dublin Airport fares also include applicable tolls where they apply.",
-  },
-  {
-    question: "Can I pay with cash?",
-    answer:
-      "Yes — cash to the driver or bank transfer can be arranged where agreed. Many customers pay by card via SumUp (online at quote time where an instant fare is shown, or via the payment link we email after confirming a booking request). Corporate accounts are available for regular travellers.",
-  },
-  {
-    question: "Where do you pick up at the airport?",
-    answer:
-      "For arrivals we collect from the designated pickup point for your airport (and can meet in arrivals with a name board if you request meet and greet). Share your flight number when booking so we know when you land.",
-  },
-  {
-    question: "How early should I book?",
-    answer:
-      "As early as you can — especially for early-morning departures, bank holidays, and busy travel days. Same-day transfers are often possible subject to availability; use Get a Live Quote or WhatsApp us to check.",
-  },
-  {
-    question: "Do you cover journeys in the Republic of Ireland?",
-    answer:
-      "Yes. Standard pickups are from Greater Belfast (or Belfast International, Belfast City, or Dublin Airport). Pickups from elsewhere in Northern Ireland to a Greater Belfast destination can receive a live online quote where available. Destinations can also be throughout Northern Ireland and the Republic of Ireland. Dublin Airport keeps a live online quote and book-online flow where eligible. Other Republic of Ireland city destinations, and out-of-area pickups that are not NI-to-Greater-Belfast, use Request Fixed Quote for manual approval — no automatic price or immediate payment until confirmed.",
-  },
-  {
-    question: "What currency are prices quoted in?",
-    answer:
-      "All prices on this website are quoted in pounds sterling (GBP). Cross-border journeys are still billed in GBP unless we agree otherwise in writing before you travel.",
-  },
-  {
-    question: "Are tolls included in the price?",
-    answer:
-      "Quoted fares for Dublin Airport and other cross-border routes that use toll roads include applicable road tolls in the fixed price. Ordinary Northern Ireland address-to-address journeys do not add separate toll charges.",
-  },
-  {
-    question: "How much waiting time is included?",
-    answer:
-      "Airport pickups include up to 60 minutes complimentary waiting time, giving you time to clear passport control, collect your luggage and make your way to the agreed pickup point. Provide your flight number when booking and we’ll monitor your flight where possible. Pickups from non-airport locations include up to 10 minutes complimentary waiting time from the agreed pickup time.",
+      "Dublin Airport fares include applicable road tolls where they form part of that route. Ordinary Northern Ireland address-to-address journeys do not add separate toll charges. Toll wording only appears when it applies to your quote.",
   },
   {
     question: "Can I book a return journey?",
     answer:
-      "Yes — choose Return on the quote form for a 5% discount on the combined fare where an instant online price is shown. For Republic of Ireland or bespoke long-distance routes, tell us your return date and we’ll include it in your fixed quote.",
+      "Yes — choose Return on the quote form. Where an instant online price is shown, a 5% discount applies to the combined fare. Each leg shows its own inclusions (for example drop-off fee outbound and pickup fee plus airport waiting on the return).",
   },
   {
-    question: "What is your cancellation policy for long-distance transfers?",
+    question: "How do I pay?",
     answer:
-      "Long-distance and cross-border transfers follow the same rule: cancel more than 24 hours before pickup for a full refund of the fare paid. Less than 24 hours’ notice is non-refundable. Full details are in our Terms & Conditions.",
+      "Get your fixed price online. Eligible 1–4 passenger bookings can be confirmed securely by card via SumUp. For tailored quotes (including 5+ passengers), we confirm the fare first and then send a payment link. Cash or bank transfer can be arranged where agreed.",
+  },
+  {
+    question: "Can I cancel my booking?",
+    answer:
+      "Cancel more than 24 hours before pickup for a full refund of the fare paid. Cancellations with less than 24 hours’ notice and no-shows are non-refundable. Full details are in our Terms & Conditions.",
+  },
+  {
+    question: "What is included in the price?",
+    answer:
+      "Your fixed price depends on the journey. Airport pickups: express pickup fee and 60 minutes complimentary waiting. Airport drop-offs: express drop-off fee. Dublin Airport: applicable tolls where they apply. Address-to-address: fixed price for your journey with 10 minutes complimentary waiting at non-airport pickups.",
+  },
+  {
+    question: "Do you cover City of Derry Airport?",
+    answer:
+      "Yes. City of Derry Airport (LDY) transfers are between LDY and the greater Belfast area (for example Belfast, Bangor, Lisburn and surrounds). Select City of Derry Airport in the quote tool — the same express pickup/drop-off wording applies; Dublin toll wording does not.",
+  },
+  {
+    question: "Do you cover journeys in the Republic of Ireland?",
+    answer:
+      "Yes. Dublin Airport keeps a live online quote where eligible. Other Republic of Ireland city destinations, and some out-of-area pickups, use a tailored fixed-quote request — no automatic price or immediate payment until confirmed.",
+  },
+  {
+    question: "Do you provide child seats or booster seats?",
+    answer:
+      "Child seats and boosters can be requested when you book, but availability is not guaranteed. Ask in advance so we can check. If a legally required child seat cannot be provided, we may be unable to carry the journey.",
+  },
+  {
+    question: "Can I track my driver on the day of travel?",
+    answer:
+      "When you pay online by card, your invoice includes a live tracking link. On travel day, the page opens about two hours before your scheduled pickup so you can follow your driver on a map.",
+  },
+  {
+    question: "What currency are prices quoted in?",
+    answer:
+      "All prices on this website are quoted in pounds sterling (GBP), including cross-border journeys unless we agree otherwise in writing before you travel.",
   },
 ] as const;
 
@@ -560,10 +515,10 @@ export const VEHICLE_FLEET = [
     partnerOperated: false,
   },
   {
-    name: "Minibus",
-    capacity: "5–8 passengers",
+    name: "Larger vehicle / group transfer",
+    capacity: "5+ passengers",
     description:
-      "For 5 or more passengers, minibus transfers are arranged through our licensed transport partners. Subject to availability — request a quote (guide price shown online).",
+      "For 5 or more passengers, a suitable larger vehicle can be arranged through licensed transport partners. Request a tailored fixed-price quote — no automatic online fare.",
     enquiryOnly: true,
     requestQuote: true,
     partnerOperated: true,
