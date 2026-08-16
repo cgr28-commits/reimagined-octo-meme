@@ -9,6 +9,7 @@ import { buildBookingMessage, isValidEmailAddress, isValidMobileNumber, type Boo
 import { buildMarketingOptInFields, recordMarketingOptIn } from "@/lib/marketing-api";
 import { TERMS_LAST_UPDATED } from "@/lib/terms";
 import { detectMobileDevice, useIsMobileDevice } from "@/lib/device";
+import { whatsAppChatUrl } from "@/lib/contact-card";
 import {
   AIRPORTS,
   isInstantPayVehicle,
@@ -109,20 +110,90 @@ const BOOKING_HELPER_CLASS = "mt-1.5 text-xs text-white/55";
 
 const ESTATE = "Estate Car (1–4 passengers)" as const;
 const MINIBUS = MINIBUS_VEHICLE_TYPE;
+const SALOON = "Standard Saloon (1–4 passengers)" as const;
+
+/** Instant online booking covers saloon/estate only (1–4 passengers, 0–4 large cases). */
+const ONLINE_BOOKABLE_MAX_PASSENGERS = 4;
+const ONLINE_BOOKABLE_MAX_SUITCASES = 4;
+
+const CAPACITY_WHATSAPP_MESSAGE =
+  "Hi, I need a quote for more than 4 passengers or more than 4 large suitcases.";
 
 type VehicleType = (typeof VEHICLE_TYPES)[number];
 
+function exceedsOnlineVehicleOptions(passengers: number, suitcases: number): boolean {
+  return passengers > ONLINE_BOOKABLE_MAX_PASSENGERS || suitcases > ONLINE_BOOKABLE_MAX_SUITCASES;
+}
+
 function getAutoVehicle(passengers: number, suitcases: number, _a2aPrimary = false): VehicleType {
   void _a2aPrimary;
-  // 5+ passengers → partner minibus (request a quote / subject to availability).
-  if (passengers > 4 || suitcases >= 5) {
+  // Beyond saloon/estate capacity — no instant online vehicle (manual confirmation).
+  if (exceedsOnlineVehicleOptions(passengers, suitcases)) {
     return MINIBUS;
   }
   if (suitcases >= 3) {
     return ESTATE;
   }
-  // Default private transfer for light luggage — kept internal (no customer vehicle picker).
-  return VEHICLE_TYPES[0];
+  return SALOON;
+}
+
+function vehicleShortLabel(vehicleType: VehicleType): string {
+  if (vehicleType === ESTATE) {
+    return "Estate";
+  }
+  if (vehicleType === SALOON) {
+    return "Saloon";
+  }
+  if (vehicleType === MINIBUS) {
+    return "Larger vehicle (manual quote)";
+  }
+  if (vehicleType.includes("Executive")) {
+    return "Executive";
+  }
+  return vehicleType;
+}
+
+function TapChoiceRow({
+  label,
+  options,
+  value,
+  onChange,
+  formatOption,
+}: {
+  label: string;
+  options: number[];
+  value: number;
+  onChange: (value: number) => void;
+  formatOption?: (value: number) => string;
+}) {
+  return (
+    <div>
+      <p className="mb-2 text-xs font-medium uppercase tracking-wider text-white/50">{label}</p>
+      <div
+        className="grid gap-2"
+        style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }}
+      >
+        {options.map((option) => {
+          const selected = value === option;
+          return (
+            <button
+              key={option}
+              type="button"
+              aria-pressed={selected}
+              onClick={() => onChange(option)}
+              className={`min-h-12 rounded-xl text-base font-semibold transition-all ${
+                selected
+                  ? "bg-emerald text-navy shadow-sm"
+                  : "border border-white/15 bg-white/5 text-white/85 hover:border-emerald/40 hover:text-white"
+              }`}
+            >
+              {formatOption ? formatOption(option) : String(option)}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 function formatDisplayDate(date: string): string {
@@ -247,6 +318,7 @@ function QuoteCard({
   const cardRef = useRef<HTMLDivElement>(null);
   const passengerLimit = Math.min(
     Math.max(1, maxPassengers),
+    ONLINE_BOOKABLE_MAX_PASSENGERS,
     MAX_ONLINE_PASSENGERS,
   );
   const isMobileDevice = useIsMobileDevice();
@@ -306,7 +378,7 @@ function QuoteCard({
         : undefined;
   const [vehicle, setVehicle] = useState<VehicleType>(VEHICLE_TYPES[0]);
   const [passengers, setPassengers] = useState(1);
-  const [suitcases, setSuitcases] = useState(1);
+  const [suitcases, setSuitcases] = useState(0);
   const [routeMetrics, setRouteMetrics] = useState<TripRouteMetrics | null>(null);
   const [paymentLoading, setPaymentLoading] = useState(false);
   const [paymentError, setPaymentError] = useState("");
@@ -377,6 +449,12 @@ function QuoteCard({
       setPassengers(passengerLimit);
     }
   }, [passengerLimit, passengers]);
+
+  useEffect(() => {
+    if (suitcases > ONLINE_BOOKABLE_MAX_SUITCASES) {
+      setSuitcases(ONLINE_BOOKABLE_MAX_SUITCASES);
+    }
+  }, [suitcases]);
 
   useEffect(() => {
     // Legacy: soft-hide address-to-address when flag is off.
@@ -596,8 +674,9 @@ function QuoteCard({
         ? isAirportAddressComplete
         : isAddressPairComplete);
 
-  // Quick quote: show price once the route is known. Date/time are asked when booking.
-  const canShowPrice = hasQuoteRoute;
+  // Fixed price only after route + passengers + luggage are known (selectors on step 1).
+  const exceedsOnlineCapacity = exceedsOnlineVehicleOptions(passengers, suitcases);
+  const canShowPrice = hasQuoteRoute && !exceedsOnlineCapacity;
 
   const tripDetailsReady = hasQuoteRoute && isScheduleComplete;
 
@@ -1275,6 +1354,12 @@ function QuoteCard({
       if (!hasQuoteRoute) {
         return;
       }
+      if (exceedsOnlineCapacity) {
+        setSubmitError(
+          "This party size needs a manual quote. Please contact us on WhatsApp — we don’t show an automatic online fare for it.",
+        );
+        return;
+      }
       if (!isEnquiryOnly && !isManualQuoteJourney && !pricingConfirmationRequired && !liveQuote) {
         return;
       }
@@ -1358,7 +1443,9 @@ function QuoteCard({
         ? `Send via WhatsApp — ${formatQuote(liveQuote.amount)}`
         : "Confirm & send via WhatsApp";
 
-  const quoteHint = pricingConfirmationRequired
+  const quoteHint = exceedsOnlineCapacity
+    ? "This party size needs a WhatsApp manual quote — we don’t show an automatic online fare for it."
+    : pricingConfirmationRequired
     ? hasQuoteRoute
       ? "Continue to request your price — we’ll confirm the fare before payment."
       : isA2AFlow && !isAddressPairComplete
@@ -1964,6 +2051,44 @@ function QuoteCard({
         />
           </>
         )}
+
+        <div className="space-y-4 rounded-xl border border-white/10 bg-white/5 px-4 py-4">
+          <TapChoiceRow
+            label="Passengers"
+            options={Array.from({ length: passengerLimit }, (_, index) => index + 1)}
+            value={passengers}
+            onChange={setPassengers}
+          />
+          <TapChoiceRow
+            label="Large suitcases (23kg)"
+            options={[0, 1, 2, 3, 4]}
+            value={Math.min(suitcases, ONLINE_BOOKABLE_MAX_SUITCASES)}
+            onChange={setSuitcases}
+            formatOption={(count) => (count === 4 ? "4+" : String(count))}
+          />
+          <input type="hidden" name="vehicle" value={quoteVehicle} />
+          <input type="hidden" name="passengers" value={passengers} />
+          <input type="hidden" name="suitcases" value={suitcases} />
+          <p className="text-xs leading-relaxed text-white/55">
+            Online booking is for saloon and estate cars (1–4 passengers, up to 4 large suitcases).
+            Need a larger party or more luggage?{" "}
+            <a
+              href={whatsAppChatUrl(CAPACITY_WHATSAPP_MESSAGE)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-semibold text-emerald underline-offset-2 hover:underline"
+            >
+              Message us on WhatsApp
+            </a>{" "}
+            for a manual quote — we don&apos;t invent an online fare for vehicles we don&apos;t
+            offer for instant booking.
+          </p>
+          {suitcases >= 3 && !exceedsOnlineCapacity ? (
+            <p className="text-xs text-emerald/90">
+              {suitcases >= 3 ? "Estate vehicle selected for your luggage." : null}
+            </p>
+          ) : null}
+        </div>
           </>
         ) : null}
 
@@ -2163,76 +2288,20 @@ function QuoteCard({
           </div>
         )}
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div>
-            <label
-              htmlFor="passengers"
-              className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/50"
-            >
-              Passengers
-            </label>
-            <select
-              id="passengers"
-              name="passengers"
-              required
-              value={passengers}
-              onChange={(e) => setPassengers(Number(e.target.value))}
-              className="box-border h-12 w-full min-w-0 rounded-xl border border-white/10 bg-navy-light px-4 text-base text-white outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30"
-            >
-              {Array.from({ length: passengerLimit }, (_, index) => index + 1).map((count) => (
-                <option key={count} value={count}>
-                  {count}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label
-              htmlFor="suitcases"
-              className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/50"
-            >
-              Suitcases (23kg each)
-            </label>
-            <select
-              id="suitcases"
-              name="suitcases"
-              required
-              value={suitcases}
-              onChange={(e) => setSuitcases(Number(e.target.value))}
-              className="box-border h-12 w-full min-w-0 rounded-xl border border-white/10 bg-navy-light px-4 text-base text-white outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30"
-            >
-              {Array.from({ length: 9 }, (_, index) => index).map((count) => (
-                <option key={count} value={count}>
-                  {count}
-                </option>
-              ))}
-            </select>
-          </div>
-          <input type="hidden" name="vehicle" value={quoteVehicle} />
-          <p className="sm:col-span-2 min-h-[2.5rem] text-xs leading-relaxed text-white/45">
-            {passengers > 4 || suitcases >= 5
-              ? "Larger groups are arranged through our licensed transport partners — request a quote (subject to availability)."
-              : isRequestQuote
-                ? MINIBUS_PARTNER_NOTE
-                : "\u00a0"}
+        <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3">
+          <p className="text-xs font-medium uppercase tracking-wider text-white/50">Your party</p>
+          <p className="mt-1 text-sm text-white/85">
+            {passengers} passenger{passengers === 1 ? "" : "s"} ·{" "}
+            {suitcases >= 4 ? "4+" : suitcases} large suitcase
+            {suitcases === 1 ? "" : "s"} · {vehicleShortLabel(quoteVehicle)}
           </p>
-        </div>
-
-        <div
-          className={`grid transition-[grid-template-rows] duration-200 ease-out ${
-            capacityNeedsConfirm ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
-          }`}
-        >
-          <div className="min-h-0 overflow-hidden">
-            <div className="rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-50">
-              <p className="font-semibold text-amber-100">Luggage capacity check required</p>
-              <p className="mt-1 text-xs leading-relaxed text-amber-50/90">
-                8 passengers with 8 large suitcases cannot be confirmed until we check capacity with
-                our transport partner. You can still request a quote — we&apos;ll confirm whether we
-                can take the booking.
-              </p>
-            </div>
-          </div>
+          <button
+            type="button"
+            onClick={() => setQuoteStep(1)}
+            className="mt-2 text-xs font-semibold text-emerald underline-offset-2 hover:underline"
+          >
+            Edit passengers or luggage
+          </button>
         </div>
           </>
         ) : null}
@@ -2256,6 +2325,28 @@ function QuoteCard({
                   Approx. {journeyDistanceLabel} · {journeyDurationLabel}
                 </p>
               )}
+            </>
+          ) : exceedsOnlineCapacity ? (
+            <>
+              <p className="text-xs font-medium uppercase tracking-wider text-emerald">
+                Manual confirmation required
+              </p>
+              <p className="mt-1 text-xl font-semibold tracking-tight text-white sm:text-2xl">
+                Contact us for this journey
+              </p>
+              <p className="mt-2 text-sm leading-relaxed text-white/70">
+                Online booking covers saloon and estate cars only (1–4 passengers, up to 4 large
+                suitcases). We won&apos;t show an automatic fare for larger parties or luggage —
+                message us and we&apos;ll confirm what we can offer.
+              </p>
+              <a
+                href={whatsAppChatUrl(CAPACITY_WHATSAPP_MESSAGE)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-4 inline-flex min-h-12 items-center justify-center rounded-xl bg-emerald px-4 text-sm font-semibold text-navy"
+              >
+                WhatsApp for a manual quote
+              </a>
             </>
           ) : isManualQuoteJourney ? (
             <>
@@ -2282,6 +2373,13 @@ function QuoteCard({
                 {returnJourney ? "Guide return price · request a quote" : "Guide price · request a quote"}
               </p>
               <p className="mt-1 text-3xl font-semibold tracking-tight text-white">{formatQuote(liveQuote.amount)}</p>
+              <p className="mt-3 text-sm text-white/75">
+                Vehicle: {vehicleShortLabel(quoteVehicle)}
+                <span className="mx-2 text-white/35">·</span>
+                Passengers: {passengers}
+                <span className="mx-2 text-white/35">·</span>
+                Suitcases: {suitcases >= 4 ? "4+" : suitcases}
+              </p>
               <p className="mt-2 text-xs leading-relaxed text-white/65">{MINIBUS_PARTNER_NOTE}</p>
               {journeyDistanceLabel && journeyDurationLabel && (
                 <p className="mt-2 text-xs text-white/60">
@@ -2331,6 +2429,13 @@ function QuoteCard({
               <p className="mt-1 text-3xl font-semibold tracking-tight text-white">
                 {formatQuote(testChargeAmount ?? liveQuote.amount)}
               </p>
+              <p className="mt-3 text-sm text-white/75">
+                Vehicle: {vehicleShortLabel(quoteVehicle)}
+                <span className="mx-2 text-white/35">·</span>
+                Passengers: {passengers}
+                <span className="mx-2 text-white/35">·</span>
+                Suitcases: {suitcases >= 4 ? "4+" : suitcases}
+              </p>
               {testChargeAmount !== null && (
                 <p className="mt-2 text-xs text-white/60">
                   Route price would be {formatQuote(liveQuote.amount)} — not charged in test mode.
@@ -2359,13 +2464,15 @@ function QuoteCard({
             </>
           )}
           <p className="mt-3 text-[11px] text-white/40">
-            {pricingConfirmationRequired || isManualQuoteJourney
+            {pricingConfirmationRequired || isManualQuoteJourney || exceedsOnlineCapacity
               ? "Request Fixed Quote — we’ll confirm your personal price before any payment is taken."
               : showsRequestQuoteFlow
               ? "Request a quote — we’ll confirm availability before the booking is accepted. No online payment until confirmed."
               : isEnquiryOnly
                 ? "We’ll reply with your quote — no online payment until you confirm."
-                : "Includes driver, fuel, and tolls. After we confirm your job, we’ll send a SumUp payment link by email."}
+                : canPayNowOnline
+                  ? "Includes driver, fuel, and tolls. Pay securely online with SumUp to confirm your booking."
+                  : "Includes driver, fuel, and tolls. Continue to enter your details — you can pay securely online with SumUp when you’re ready to confirm."}
           </p>
         </div>
         )}
@@ -2452,7 +2559,9 @@ function QuoteCard({
                 className={BOOKING_INPUT_CLASS}
               />
               <p className={BOOKING_HELPER_CLASS}>
-                So we can email your SumUp payment link and booking confirmation.
+                {canPayNowOnline
+                  ? "We’ll email your booking confirmation and receipt after you pay with SumUp."
+                  : "So we can email your booking confirmation and, when ready, your SumUp payment link."}
               </p>
               {emailAddressError && (
                 <p className="mt-1.5 text-xs text-red-300">{emailAddressError}</p>
@@ -2759,7 +2868,11 @@ function QuoteCard({
         ) : (
           <button
             type="submit"
-            disabled={submitted || ((isEnquiryOnly || isManualQuoteJourney) ? !hasQuoteRoute : !liveQuote)}
+            disabled={
+              submitted ||
+              exceedsOnlineCapacity ||
+              ((isEnquiryOnly || isManualQuoteJourney) ? !hasQuoteRoute : !liveQuote)
+            }
             className="w-full rounded-xl bg-emerald py-3.5 text-sm font-bold text-navy transition-all hover:bg-emerald-light disabled:cursor-not-allowed disabled:opacity-50"
           >
             {submitted ? submitInProgressLabel : "Continue to travel details"}

@@ -120,7 +120,7 @@ export function androidAddContactIntentUrl(): string {
   );
 }
 
-export function whatsAppChatUrl(message = SITE.whatsappDefaultMessage): string {
+export function whatsAppChatUrl(message: string = SITE.whatsappDefaultMessage): string {
   const text = encodeURIComponent(message);
   return `https://wa.me/${SITE.whatsapp}?text=${text}`;
 }
