@@ -251,6 +251,90 @@ function getAreaSurcharge(airportCode: string, area: Area | null): number {
   return table[area]?.[code] ?? defaults[code] ?? defaults.BFS;
 }
 
+const A2A_AIRPORT_FLOOR = PRICING_CONFIG.addressToAddressAirportFloor;
+
+/** One-way airport fare to a matched NI area (no address string required). */
+function getAirportOneWayForArea(
+  airportCode: AirportCode,
+  area: Area,
+  vehicleType: (typeof VEHICLE_TYPES)[number],
+): number {
+  const airport = AIRPORTS.find((item) => item.code === airportCode);
+  const configuredBase = getAirportBasePrice(airportCode);
+  const airportBase = configuredBase ?? airport?.basePrice ?? 0;
+  const areaSurcharge = getAreaSurcharge(airportCode, area);
+  const saloonOneWay = computeSaloonAirportOneWay(airportCode, airportBase + areaSurcharge);
+  return roundFare(applyAirportVehiclePricing(saloonOneWay, vehicleType, airportCode));
+}
+
+/** Highest BFS/BHD (configurable) airport one-way for an area + vehicle. */
+export function getBelfastAirportFareFloorForArea(
+  area: Area,
+  vehicleType: (typeof VEHICLE_TYPES)[number],
+): number {
+  const airports = (A2A_AIRPORT_FLOOR?.referenceAirports ?? ["BFS", "BHD"]) as AirportCode[];
+  let floor = 0;
+  for (const code of airports) {
+    floor = Math.max(floor, getAirportOneWayForArea(code, area, vehicleType));
+  }
+  return floor;
+}
+
+/**
+ * Pick the remote end of an A2A trip — the area with the higher Belfast-airport fare floor.
+ * Local Greater Belfast areas lose to long-haul towns (Enniskillen, Derry, Newry, …).
+ */
+function pickRemoteAreaForAirportFloor(
+  pickupArea: Area | null,
+  dropoffArea: Area | null,
+  vehicleType: (typeof VEHICLE_TYPES)[number],
+): Area | null {
+  if (pickupArea && dropoffArea) {
+    const pickupFloor = getBelfastAirportFareFloorForArea(pickupArea, vehicleType);
+    const dropoffFloor = getBelfastAirportFareFloorForArea(dropoffArea, vehicleType);
+    return dropoffFloor >= pickupFloor ? dropoffArea : pickupArea;
+  }
+  return dropoffArea ?? pickupArea;
+}
+
+function shouldApplyA2aAirportFloor(
+  remoteArea: Area,
+  routeMetrics?: TripRouteMetrics | null,
+): boolean {
+  if (!A2A_AIRPORT_FLOOR?.enabled) {
+    return false;
+  }
+  const minKm = A2A_AIRPORT_FLOOR.minDistanceKm ?? 60;
+  const minAreaRate = A2A_AIRPORT_FLOOR.minAreaRateGbpWithoutRoute ?? 32;
+  if (routeMetrics && routeMetrics.distanceKm >= minKm) {
+    return true;
+  }
+  if (!routeMetrics) {
+    const areaRate = getPointToPointAreaRate(remoteArea);
+    return areaRate >= minAreaRate;
+  }
+  return false;
+}
+
+/**
+ * Long address-to-address fares must not undercut BFS/BHD airport transfers
+ * to the same remote NI town (e.g. Cultra → Enniskillen vs BFS → Enniskillen).
+ */
+function applyAddressToAddressAirportFloor(
+  oneWay: number,
+  pickupArea: Area | null,
+  dropoffArea: Area | null,
+  vehicleType: (typeof VEHICLE_TYPES)[number],
+  routeMetrics?: TripRouteMetrics | null,
+): number {
+  const remoteArea = pickRemoteAreaForAirportFloor(pickupArea, dropoffArea, vehicleType);
+  if (!remoteArea || !shouldApplyA2aAirportFloor(remoteArea, routeMetrics)) {
+    return oneWay;
+  }
+  const floor = getBelfastAirportFareFloorForArea(remoteArea, vehicleType);
+  return Math.max(oneWay, floor);
+}
+
 export function matchAreaFromAddress(address: string): Area | null {
   const normalised = address.toLowerCase();
   const sortedAreas = [...AREAS].sort((a, b) => b.length - a.length);
@@ -454,6 +538,14 @@ export function calculatePointToPointQuote(
       vehicleType,
     );
   }
+
+  oneWay = applyAddressToAddressAirportFloor(
+    oneWay,
+    pickupArea,
+    dropoffArea,
+    vehicleType,
+    routeMetrics,
+  );
 
   const vehicleMultiplier = VEHICLE_MULTIPLIERS[vehicleType] ?? 1;
   const vehicleAdjustment = POINT_TO_POINT_VEHICLE_ADJUSTMENTS[vehicleType] ?? 0;

@@ -41,6 +41,13 @@ export type PricingConfig = {
     undercutMinGbp: number;
     undercutMaxGbp: number;
   };
+  addressToAddressAirportFloor?: {
+    enabled: boolean;
+    note?: string;
+    referenceAirports: AirportCode[];
+    minDistanceKm: number;
+    minAreaRateGbpWithoutRoute: number;
+  };
   returnJourneyDiscountRate: number;
   airportTripPremiumRate: number;
   addressToAddressTripPremiumRate: number;

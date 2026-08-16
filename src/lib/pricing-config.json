@@ -241,9 +241,9 @@
     "Lurgan": 32,
     "Coleraine": 48,
     "Cookstown": 42,
-    "Omagh": 52,
+    "Omagh": 95,
     "Derry / Londonderry": 136,
-    "Enniskillen": 62,
+    "Enniskillen": 115,
     "default": 20
   },
   "otsReferenceModel": {
@@ -259,6 +259,13 @@
     },
     "undercutMinGbp": 8,
     "undercutMaxGbp": 10
+  },
+  "addressToAddressAirportFloor": {
+    "enabled": true,
+    "note": "Long A2A one-ways must not undercut BFS/BHD airport fares to the remote NI town (fixes thin west/south long-hauls such as Cultra to Enniskillen).",
+    "referenceAirports": ["BFS", "BHD"],
+    "minDistanceKm": 60,
+    "minAreaRateGbpWithoutRoute": 32
   },
   "returnJourneyDiscountRate": 0.05,
   "airportTripPremiumRate": 0,
