@@ -32,6 +32,45 @@ export function isFullNorthernIrelandPostcode(postcode: string): boolean {
   return /^BT\d{1,2}\s?\d[A-Z]{2}$/i.test(postcode.trim());
 }
 
+/** True when the query is essentially only a full NI postcode (no house/street yet). */
+export function isPureFullNorthernIrelandPostcodeQuery(query: string): boolean {
+  const extracted = extractNorthernIrelandPostcode(query);
+  if (!extracted || !isFullNorthernIrelandPostcode(extracted)) {
+    return false;
+  }
+
+  const leftover = query
+    .replace(/\s+/g, "")
+    .toUpperCase()
+    .replace(extracted.replace(/\s+/g, "").toUpperCase(), "")
+    .replace(/[^A-Z0-9]/g, "");
+
+  return leftover.length === 0;
+}
+
+/**
+ * House number / building name typed alongside a full NI postcode
+ * (e.g. "7 BT36 7FU", "Flat 2, BT20 3BB").
+ */
+export function extractPremisePrefixFromPostcodeQuery(query: string): string | null {
+  const extracted = extractNorthernIrelandPostcode(query);
+  if (!extracted || !isFullNorthernIrelandPostcode(extracted)) {
+    return null;
+  }
+
+  const escaped = extracted.replace(/\s+/g, "\\s*");
+  const withoutPostcode = query
+    .replace(new RegExp(escaped, "i"), " ")
+    .replace(/[,\s]+/g, " ")
+    .trim();
+
+  if (!withoutPostcode || isPureFullNorthernIrelandPostcodeQuery(query)) {
+    return null;
+  }
+
+  return withoutPostcode;
+}
+
 export function extractNorthernIrelandPostcode(query: string): string | null {
   const match = query.trim().match(/\b(BT\d{1,2}(?:\s?\d[A-Z]{2})?)\b/i);
   if (!match?.[1]) {

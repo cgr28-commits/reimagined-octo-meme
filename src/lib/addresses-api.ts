@@ -45,10 +45,17 @@ export type WorkerResolvedAddress = {
   provider?: string;
 };
 
+export type WorkerAddressSuggestionsResult = {
+  suggestions: WorkerAddressSuggestion[];
+  needsHouseNumber?: boolean;
+  postcode?: string;
+  hint?: string;
+};
+
 export async function fetchWorkerAddressSuggestions(
   query: string,
   airportCode: string,
-): Promise<WorkerAddressSuggestion[] | null> {
+): Promise<WorkerAddressSuggestionsResult | null> {
   const baseUrl = resolveAddressesApiUrl();
   const url = new URL(baseUrl);
   url.searchParams.set("q", query);
@@ -67,9 +74,17 @@ export async function fetchWorkerAddressSuggestions(
 
     const payload = (await response.json()) as {
       suggestions?: WorkerAddressSuggestion[];
+      needsHouseNumber?: boolean;
+      postcode?: string;
+      hint?: string;
     };
 
-    return payload.suggestions ?? [];
+    return {
+      suggestions: payload.suggestions ?? [],
+      needsHouseNumber: Boolean(payload.needsHouseNumber),
+      postcode: payload.postcode,
+      hint: payload.hint,
+    };
   } catch {
     return null;
   }

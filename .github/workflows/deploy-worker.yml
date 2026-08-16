@@ -68,6 +68,7 @@ jobs:
           DRIVER_ACCESS_KEY: ${{ secrets.DRIVER_ACCESS_KEY }}
           OWNER_ACCESS_KEY: ${{ secrets.OWNER_ACCESS_KEY }}
           GOOGLE_PLACES_API_KEY: ${{ secrets.GOOGLE_PLACES_API_KEY || secrets.GOOGLE_API_KEY || secrets.GOOGLE_MAPS_API_KEY }}
+          IDEAL_POSTCODES_API_KEY: ${{ secrets.IDEAL_POSTCODES_API_KEY }}
           GETADDRESS_API_KEY: ${{ secrets.GETADDRESS_API_KEY }}
           CI: "true"
           WORKERS_CI: "1"
@@ -92,11 +93,17 @@ jobs:
           else
             echo "::error::GOOGLE_PLACES_API_KEY missing — address autocomplete will return empty suggestions."
           fi
+          if [ -n "$IDEAL_POSTCODES_API_KEY" ]; then
+            echo "Syncing IDEAL_POSTCODES_API_KEY secret…"
+            printf '%s' "$IDEAL_POSTCODES_API_KEY" | npx wrangler secret put IDEAL_POSTCODES_API_KEY
+          else
+            echo "::notice::IDEAL_POSTCODES_API_KEY not set — using free postcode + house number flow via Google Places."
+          fi
           if [ -n "$GETADDRESS_API_KEY" ]; then
             echo "Syncing GETADDRESS_API_KEY secret…"
             printf '%s' "$GETADDRESS_API_KEY" | npx wrangler secret put GETADDRESS_API_KEY
           else
-            echo "::notice::GETADDRESS_API_KEY not set — door-number suggestions rely on Google only."
+            echo "::notice::GETADDRESS_API_KEY not set — getAddress.io is discontinued; use IDEAL_POSTCODES_API_KEY."
           fi
           if [ -n "$WEB3FORMS_ACCESS_KEY" ]; then
             echo "Syncing Web3Forms secret…"

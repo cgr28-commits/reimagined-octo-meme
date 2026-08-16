@@ -6,6 +6,7 @@ import {
 import {
   corsHeaders,
   extractLeadingStreetNumber,
+  geocodeAddress,
   isNumberedAddressQuery,
   isStreetOnlyQuery,
   resolveGooglePlaceDetails,
@@ -13,11 +14,14 @@ import {
   searchGoogleEstablishments,
   searchGooglePlaces,
   searchGooglePostcodeAddresses,
+  searchGooglePostcodePremises,
   searchGoogleStreetAddresses,
 } from "../shared/google-places";
 import {
   extractNorthernIrelandPostcode,
+  extractPremisePrefixFromPostcodeQuery,
   isFullNorthernIrelandPostcode,
+  isPureFullNorthernIrelandPostcodeQuery,
   sortSuggestionsByStreetNumber,
 } from "../shared/address-validation";
 import {
@@ -25,6 +29,12 @@ import {
   searchGetAddress,
   shouldUseGetAddress,
 } from "../shared/getaddress";
+import {
+  isIdealPostcodesPlaceId,
+  resolveIdealPostcodesDetails,
+  searchIdealPostcodes,
+  shouldUseIdealPostcodes,
+} from "../shared/ideal-postcodes";
 import {
   formatBookingReference,
   prependBookingReference,
@@ -129,6 +139,7 @@ type EmailBinding = {
 type Env = {
   GOOGLE_PLACES_API_KEY: string;
   GETADDRESS_API_KEY?: string;
+  IDEAL_POSTCODES_API_KEY?: string;
   BOOKING_TO_EMAIL?: string;
   BOOKING_FROM_EMAIL?: string;
   WEB3FORMS_ACCESS_KEY?: string;
@@ -1393,7 +1404,7 @@ export default {
       return json({ error: "Method not allowed" }, 405, origin);
     }
 
-    if (!env.GOOGLE_PLACES_API_KEY && !env.GETADDRESS_API_KEY) {
+    if (!env.GOOGLE_PLACES_API_KEY && !env.GETADDRESS_API_KEY && !env.IDEAL_POSTCODES_API_KEY) {
       return json({ error: "Address lookup is not configured" }, 503, origin);
     }
 
@@ -1440,6 +1451,40 @@ export default {
       try {
         const userInput = url.searchParams.get("userInput")?.trim() || undefined;
 
+        if (isIdealPostcodesPlaceId(id)) {
+          const details = await resolveIdealPostcodesDetails(id, airportCode);
+          if (!details) {
+            return json({ error: "Address not found" }, 404, origin);
+          }
+
+          let lat = details.lat;
+          let lng = details.lng;
+          if ((lat == null || lng == null) && env.GOOGLE_PLACES_API_KEY) {
+            const coords = await geocodeAddress(env.GOOGLE_PLACES_API_KEY, details.formattedAddress);
+            if (coords) {
+              lat = coords.lat;
+              lng = coords.lng;
+            }
+          }
+
+          return json(
+            {
+              address: details.formattedAddress,
+              placeId: details.placeId,
+              lat,
+              lng,
+              countryCode: details.countryCode,
+              postalCode: details.postalCode,
+              streetNumber: details.streetNumber,
+              route: details.route,
+              locality: details.locality,
+              provider: "ideal-postcodes",
+            },
+            200,
+            origin,
+          );
+        }
+
         if (id.startsWith("ga:") && env.GETADDRESS_API_KEY) {
           const details = await resolveGetAddressDetails(
             env.GETADDRESS_API_KEY,
@@ -1449,12 +1494,23 @@ export default {
           if (!details) {
             return json({ error: "Address not found" }, 404, origin);
           }
+
+          let lat = details.lat;
+          let lng = details.lng;
+          if ((lat == null || lng == null) && env.GOOGLE_PLACES_API_KEY) {
+            const coords = await geocodeAddress(env.GOOGLE_PLACES_API_KEY, details.formattedAddress);
+            if (coords) {
+              lat = coords.lat;
+              lng = coords.lng;
+            }
+          }
+
           return json(
             {
               address: details.formattedAddress,
               placeId: details.placeId,
-              lat: details.lat,
-              lng: details.lng,
+              lat,
+              lng,
               countryCode: details.countryCode,
               postalCode: details.postalCode,
               streetNumber: details.streetNumber,
@@ -1509,18 +1565,81 @@ export default {
     }
 
     try {
+      const postcode = extractNorthernIrelandPostcode(query);
+      const isPureNiPostcode = isPureFullNorthernIrelandPostcodeQuery(query);
+      const premisePrefix = extractPremisePrefixFromPostcodeQuery(query);
+
+      // Optional paid Ideal Postcodes — only when a key is configured.
+      if (
+        isPureNiPostcode &&
+        env.IDEAL_POSTCODES_API_KEY &&
+        shouldUseIdealPostcodes(airportCode, query)
+      ) {
+        const premises = await searchIdealPostcodes(
+          env.IDEAL_POSTCODES_API_KEY,
+          query,
+          airportCode,
+        );
+        if (premises.length > 0) {
+          return json(
+            {
+              suggestions: premises.slice(0, 100),
+              provider: "ideal-postcodes",
+              configured: {
+                idealPostcodes: true,
+                getaddress: Boolean(env.GETADDRESS_API_KEY?.trim()),
+                google: Boolean(env.GOOGLE_PLACES_API_KEY?.trim()),
+              },
+            },
+            200,
+            origin,
+          );
+        }
+      }
+
+      // Free path: full postcode alone cannot list every property without PAF data.
+      // Ask the customer for a house number / building name (handled in AddressInput).
+      if (isPureNiPostcode) {
+        return json(
+          {
+            suggestions: [],
+            needsHouseNumber: true,
+            postcode: postcode ?? undefined,
+            provider: "google",
+            hint: "Enter your house number or building name to find your exact address.",
+            configured: {
+              idealPostcodes: Boolean(env.IDEAL_POSTCODES_API_KEY?.trim()),
+              getaddress: Boolean(env.GETADDRESS_API_KEY?.trim()),
+              google: Boolean(env.GOOGLE_PLACES_API_KEY?.trim()),
+            },
+          },
+          200,
+          origin,
+        );
+      }
+
       const tasks: Promise<Awaited<ReturnType<typeof searchGooglePlaces>>>[] = [];
+
+      if (env.IDEAL_POSTCODES_API_KEY && shouldUseIdealPostcodes(airportCode, query)) {
+        tasks.push(searchIdealPostcodes(env.IDEAL_POSTCODES_API_KEY, query, airportCode));
+      }
 
       if (env.GETADDRESS_API_KEY && shouldUseGetAddress(airportCode, query)) {
         tasks.push(searchGetAddress(env.GETADDRESS_API_KEY, query, airportCode));
       }
 
       if (env.GOOGLE_PLACES_API_KEY) {
+        if (premisePrefix && postcode && isFullNorthernIrelandPostcode(postcode)) {
+          tasks.push(
+            searchGooglePostcodePremises(env.GOOGLE_PLACES_API_KEY, query, airportCode),
+          );
+        }
+
         tasks.push(
           searchGooglePlaces(env.GOOGLE_PLACES_API_KEY, query, airportCode, sessionToken),
         );
 
-        if (!extractLeadingStreetNumber(query)) {
+        if (!extractLeadingStreetNumber(query) && !premisePrefix) {
           tasks.push(
             searchGoogleEstablishments(
               env.GOOGLE_PLACES_API_KEY,
@@ -1531,14 +1650,13 @@ export default {
           );
         }
 
-        if (isStreetOnlyQuery(query) || isNumberedAddressQuery(query)) {
+        if (isStreetOnlyQuery(query) || isNumberedAddressQuery(query) || Boolean(premisePrefix)) {
           tasks.push(
             searchGoogleStreetAddresses(env.GOOGLE_PLACES_API_KEY, query, airportCode),
           );
         }
 
-        const postcode = extractNorthernIrelandPostcode(query);
-        if (postcode && isFullNorthernIrelandPostcode(postcode)) {
+        if (postcode && isFullNorthernIrelandPostcode(postcode) && premisePrefix) {
           tasks.push(
             searchGooglePostcodeAddresses(env.GOOGLE_PLACES_API_KEY, query, airportCode),
           );
@@ -1570,14 +1688,16 @@ export default {
       );
 
       const providers: string[] = [];
+      if (env.IDEAL_POSTCODES_API_KEY?.trim()) providers.push("ideal-postcodes");
       if (env.GETADDRESS_API_KEY?.trim()) providers.push("getaddress");
       if (env.GOOGLE_PLACES_API_KEY?.trim()) providers.push("google");
 
       return json(
         {
-          suggestions: merged.slice(0, 8),
+          suggestions: merged.slice(0, 10),
           provider: providers.join("+") || "none",
           configured: {
+            idealPostcodes: Boolean(env.IDEAL_POSTCODES_API_KEY?.trim()),
             getaddress: Boolean(env.GETADDRESS_API_KEY?.trim()),
             google: Boolean(env.GOOGLE_PLACES_API_KEY?.trim()),
           },
