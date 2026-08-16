@@ -355,12 +355,12 @@ export const WHY_CHOOSE_US = [
   {
     title: "60 minutes free waiting",
     description:
-      "Complimentary waiting time after landing is included, along with airport parking charges.",
+      "Airport pickups include 60 minutes complimentary waiting after landing, with the applicable express pickup fee covered in your fixed fare.",
   },
   {
     title: "Clear upfront quotes",
     description:
-      "Get a personalised quote via WhatsApp before you travel. All quotes include fuel, tolls, and your driver.",
+      "Get a fixed price before you travel. Airport drop-offs include the applicable express drop-off fee; Dublin Airport fares include applicable tolls.",
   },
   {
     title: "24/7, 365 days a year",
@@ -370,7 +370,7 @@ export const WHY_CHOOSE_US = [
   {
     title: "Licensed & insured transport",
     description:
-      "Licensed, insured private transfers for 1–4 passengers. Larger groups (5 or more) are available through our licensed transport partners.",
+      "Licensed, insured private transfers for 1–4 passengers. Larger groups (5 or more) can be arranged as a group transfer / larger vehicle quote through licensed transport partners.",
   },
 ] as const;
 
@@ -434,7 +434,7 @@ export const FAQS = [
   {
     question: "What is included in the price?",
     answer:
-      "All quotes include the vehicle, professional driver, fuel, tolls, and up to 60 minutes complimentary waiting time after landing. Parking charges at the airport are also covered.",
+      "Your fixed price depends on the journey. Airport pickups include the applicable express pickup fee and 60 minutes complimentary waiting after landing. Airport drop-offs include the applicable express drop-off fee. Dublin Airport fares include applicable tolls where they apply to that route. Address-to-address journeys are a fixed price for your route, with 10 minutes complimentary waiting at non-airport pickups.",
   },
   {
     question: "Can I pay by card?",
@@ -474,7 +474,7 @@ export const FAQS = [
   {
     question: "What if my flight is delayed?",
     answer:
-      "We track your flight and adjust the pickup time for delays or early landings at no extra charge. Airport pickups include up to 60 minutes complimentary waiting after landing.",
+      "Provide your flight number when booking and we’ll monitor your flight where possible to help account for early or delayed arrivals. Airport pickups include up to 60 minutes complimentary waiting time from the actual landing time.",
   },
   {
     question: "Do you provide child seats or booster seats?",
@@ -484,7 +484,7 @@ export const FAQS = [
   {
     question: "Is parking included at the airport?",
     answer:
-      "Yes — parking charges at the airport are included in the quoted price for airport transfers, along with the vehicle, driver, fuel, tolls, and waiting time where applicable.",
+      "Yes — parking and express access charges for airport transfers are covered in the fixed quoted fare (described as the express pickup fee when we collect you from the airport, or the express drop-off fee when we take you to the airport). Dublin Airport fares also include applicable tolls where they apply.",
   },
   {
     question: "Can I pay with cash?",
@@ -514,12 +514,12 @@ export const FAQS = [
   {
     question: "Are tolls included in the price?",
     answer:
-      "Yes — quoted fares include applicable road tolls for your route (including cross-border tolls where relevant), along with the vehicle, professional driver, and fuel.",
+      "Quoted fares for Dublin Airport and other cross-border routes that use toll roads include applicable road tolls in the fixed price. Ordinary Northern Ireland address-to-address journeys do not add separate toll charges.",
   },
   {
     question: "How much waiting time is included?",
     answer:
-      "Airport collections include 60 minutes complimentary waiting from when your flight lands (with flight tracking when you provide a flight number). All other pickups include 10 minutes complimentary waiting at the agreed collection point.",
+      "Airport pickups include up to 60 minutes complimentary waiting time, giving you time to clear passport control, collect your luggage and make your way to the agreed pickup point. Provide your flight number when booking and we’ll monitor your flight where possible. Pickups from non-airport locations include up to 10 minutes complimentary waiting time from the agreed pickup time.",
   },
   {
     question: "Can I book a return journey?",
@@ -600,7 +600,7 @@ export const INSTANT_PAY_VEHICLE_TYPES: readonly VehicleType[] = [
 ];
 
 export const MINIBUS_PARTNER_NOTE =
-  "Minibus transfers for 5 or more passengers are arranged through our licensed transport partners.";
+  "Larger vehicle / group transfers for 5 or more passengers are arranged through licensed transport partners — request a tailored quote (no instant online fare).";
 
 /** Short guidance kept for ops/docs — not shown in the public quote UI. */
 export const VEHICLE_BOOKING_GUIDANCE = [

@@ -17,6 +17,7 @@ import {
 } from "@/lib/submit-booking";
 import { buildBookingMessage, buildEnquiryBookingMessage } from "@/lib/booking-message";
 import { parseAmountValue } from "@/lib/finalize-paid-booking";
+import { resolveJourneyInclusions } from "@/lib/journey-inclusions";
 import { sendViaFormSubmitEmail } from "../../shared/email-delivery";
 import { TERMS_LAST_UPDATED } from "@/lib/terms";
 
@@ -31,6 +32,12 @@ function buildAssistantQuoteEmail(draft: QuoteDraft): { subject: string; text: s
   const vehicle = (draft.vehicle ?? "Estate Car (1–4 passengers)").split(" (")[0];
   const price = draft.quotedAmountLabel ?? "See website quote";
   const returnLine = draft.returnJourney ? "Return journey (5% off)" : "One way";
+  const inclusions = resolveJourneyInclusions({
+    isAirportTrip: true,
+    isFromAirport: draft.direction === "from-airport",
+    returnJourney: Boolean(draft.returnJourney),
+    airportCode: draft.airportCode,
+  });
 
   const lines = [
     `Your ${SITE.name} quote`,
@@ -43,7 +50,10 @@ function buildAssistantQuoteEmail(draft: QuoteDraft): { subject: string; text: s
     `Passengers: ${draft.passengers ?? "—"}`,
     `Suitcases: ${draft.suitcases ?? "—"}`,
     "",
-    "Airport pickups include up to 60 minutes complimentary waiting time after landing, plus express drop-off where applicable.",
+    inclusions.summary,
+    ...inclusions.emailIncludeLines.map((line) =>
+      line.startsWith("•") || line.endsWith(":") ? line : `• ${line}`,
+    ),
     "",
     `Book online: ${SITE.url}`,
     `WhatsApp: @${SITE.whatsappUsername}`,
@@ -52,6 +62,14 @@ function buildAssistantQuoteEmail(draft: QuoteDraft): { subject: string; text: s
   ];
 
   const text = lines.join("\n");
+  const includeHtml =
+    inclusions.emailIncludeLines.length > 0
+      ? `<p style="margin:0 0 8px">${inclusions.summary}</p><ul style="margin:0 0 16px;padding-left:18px;">${inclusions.emailIncludeLines
+          .filter((line) => line !== "Outbound:" && line !== "Return:")
+          .map((line) => `<li>${line.replace(/^•\s*/, "")}</li>`)
+          .join("")}</ul>`
+      : `<p style="margin:0 0 16px">${inclusions.summary}</p>`;
+
   const html = `
     <div style="font-family:Arial,sans-serif;line-height:1.5;color:#0b1b33">
       <h2 style="margin:0 0 12px">Your ${SITE.name} quote</h2>
@@ -62,7 +80,7 @@ function buildAssistantQuoteEmail(draft: QuoteDraft): { subject: string; text: s
       <p style="margin:0 0 8px"><strong>Vehicle:</strong> ${vehicle}</p>
       <p style="margin:0 0 8px"><strong>Passengers:</strong> ${draft.passengers ?? "—"}</p>
       <p style="margin:0 0 16px"><strong>Suitcases:</strong> ${draft.suitcases ?? "—"}</p>
-      <p style="margin:0 0 16px">Airport pickups include up to 60 minutes complimentary waiting time after landing, plus express drop-off where applicable.</p>
+      ${includeHtml}
       <p style="margin:0 0 8px"><a href="${SITE.url}">Book online</a></p>
       <p style="margin:0">WhatsApp @${SITE.whatsappUsername} · ${SITE.landlineDisplay} · ${SITE.email}</p>
     </div>

@@ -1,0 +1,16 @@
+export {
+  AIRPORT_FLIGHT_MONITORING_COPY,
+  AIRPORT_PICKUP_WAITING_COPY,
+  formatEmailFareIncludesBlock,
+  formatEmailFareIncludesHtml,
+  getAddressToAddressInclusions,
+  getAirportTripInclusions,
+  getJourneyInclusions,
+  GROUP_QUOTE_FEE_NOTE,
+  journeyIncludesApplicableTolls,
+  NON_AIRPORT_WAITING_COPY,
+  resolveJourneyInclusions,
+  type AirportCodeLike,
+  type JourneyInclusionContext,
+  type JourneyInclusions,
+} from "../../shared/journey-inclusions";
