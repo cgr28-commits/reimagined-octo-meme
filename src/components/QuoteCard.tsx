@@ -80,6 +80,7 @@ import {
   savePendingPayment,
 } from "@/lib/pending-payment";
 import { scheduleQuoteLeadAlert } from "@/lib/submit-quote-lead";
+import { getPaymentBookingBlockers } from "../../shared/paid-booking-gate";
 import FlightNumberField, { formatVerifiedFlightSummary } from "@/components/FlightNumberField";
 import GoogleAdsRequestQuote from "@/components/GoogleAdsRequestQuote";
 import type { AdsQuotePageType } from "@/lib/google-ads";
@@ -1372,9 +1373,12 @@ function QuoteCard({
       ? `${isFromAirport ? "Pickup from" : "Transfer to"} ${airportName} (${effectiveAirportCode})`
       : "Address-to-address transfer";
     const customer = customerName.trim();
-    const namePart = customer ? ` — ${customer}` : "";
+    const mobile = customerMobile.trim();
+    const email = customerEmail.trim();
+    const contactParts = [customer, mobile, email].filter(Boolean);
+    const contactPart = contactParts.length ? ` — ${contactParts.join(" · ")}` : "";
     const prefix = testChargeAmount ? "[TEST £1] " : "";
-    return `${prefix}${tripSummary} — ${vehicleLabel}${namePart}`.slice(0, 140);
+    return `${prefix}${tripSummary} — ${vehicleLabel}${contactPart}`.slice(0, 140);
   }
 
   const paymentAmount = testChargeAmount ?? liveQuote?.amount ?? null;
@@ -1389,13 +1393,35 @@ function QuoteCard({
       return;
     }
 
+    syncScheduleFieldsFromInputs();
+
+    if (!tripDetailsReady) {
+      setPaymentError(
+        travelDetailsBlocker || "Please complete your journey and travel details before paying.",
+      );
+      setQuoteStep(hasQuoteRoute ? 2 : 1);
+      return;
+    }
+
     if (!validateContactDetails()) {
+      setPaymentError("Please enter your full name, mobile number, and email before paying.");
       return;
     }
 
     clearFlightBlockingErrors();
 
+    if (!requireCapacityConfirmed()) {
+      return;
+    }
+
     if (!requireTermsAccepted()) {
+      return;
+    }
+
+    const bookingDetails = buildConfirmedBookingDetails();
+    const blockers = getPaymentBookingBlockers(bookingDetails);
+    if (blockers.length > 0) {
+      setPaymentError(blockers[0]);
       return;
     }
 
@@ -1408,12 +1434,13 @@ function QuoteCard({
         amount: paymentAmount ?? liveQuote.amount,
         description: buildPaymentDescription(),
         redirectUrl: buildPaymentRedirectUrl(returnToken),
+        booking: bookingDetails,
       });
       savePendingPayment(
         {
           checkoutId: checkout.checkoutId,
           booking: {
-            ...buildConfirmedBookingDetails(),
+            ...bookingDetails,
           },
         },
         returnToken,
@@ -3037,7 +3064,15 @@ function QuoteCard({
                 <button
                   type="button"
                   onClick={() => void handlePayNow()}
-                  disabled={paymentLoading || submitted || !termsAccepted}
+                  disabled={
+                    paymentLoading ||
+                    submitted ||
+                    !termsAccepted ||
+                    !customerName.trim() ||
+                    !customerEmail.trim() ||
+                    !customerMobile.trim() ||
+                    !tripDetailsReady
+                  }
                   className="w-full rounded-xl bg-white py-3.5 text-sm font-bold text-navy transition-all hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-70"
                 >
                   {paymentLoading
@@ -3046,6 +3081,14 @@ function QuoteCard({
                       ? "Pay £1.00 test charge with SumUp"
                       : `Pay ${formatQuote(liveQuote.amount)} now with SumUp`}
                 </button>
+                {(!customerName.trim() ||
+                  !customerEmail.trim() ||
+                  !customerMobile.trim() ||
+                  !termsAccepted) && (
+                  <p className="text-center text-xs text-amber-200/90">
+                    Enter your name, mobile, email and accept the terms before paying.
+                  </p>
+                )}
                 <p className="text-center text-xs text-white/50">
                   Payment opens in a new tab. Close that tab to cancel — your quote stays on this
                   page. You&apos;ll receive a branded invoice by email after payment.

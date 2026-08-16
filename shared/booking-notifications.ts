@@ -387,6 +387,78 @@ export function buildOwnerPaidBookingEmail(
   return { subject, body };
 }
 
+/** Sent as soon as the customer opens SumUp — even if payment later fails or is abandoned. */
+export function buildOwnerPaymentAttemptEmail(
+  details: PaidBookingDetails,
+  options: {
+    amountLabel: string;
+    checkoutId: string;
+    checkoutReference?: string;
+  },
+  businessName = "My Airport Taxi NI",
+): { subject: string; body: string } {
+  const subject = `SumUp payment started — ${details.customerName} — ${options.amountLabel}`;
+
+  const body =
+    `A customer started online card payment on the ${businessName} website.\n` +
+    `Payment is NOT confirmed yet — you still have their contact details below.\n\n` +
+    `CUSTOMER\n` +
+    `${"=".repeat(40)}\n` +
+    `Name: ${details.customerName}\n` +
+    `Email: ${details.customerEmail}\n` +
+    `Mobile: ${details.mobileNumber || "Not provided"}\n\n` +
+    `TRIP\n` +
+    `${"=".repeat(40)}\n` +
+    `${formatTripSchedule(details)}\n\n` +
+    `PAYMENT\n` +
+    `${"=".repeat(40)}\n` +
+    `Quoted amount: ${options.amountLabel}\n` +
+    `Checkout id: ${options.checkoutId}\n` +
+    (options.checkoutReference ? `Checkout reference: ${options.checkoutReference}\n` : "") +
+    `Status: PAYMENT STARTED (awaiting SumUp result)\n` +
+    (details.termsAcceptedAt
+      ? `Terms accepted: ${details.termsAcceptedAt}${details.termsVersion ? ` (${details.termsVersion})` : ""}\n`
+      : "") +
+    `\nYou will get a separate “Paid booking” email if SumUp confirms payment.`;
+
+  return { subject, body };
+}
+
+/** Sent when SumUp reports the checkout did not complete successfully. */
+export function buildOwnerPaymentUnsuccessfulEmail(
+  details: PaidBookingDetails,
+  options: {
+    amountLabel: string;
+    checkoutId: string;
+    checkoutReference?: string;
+    sumUpStatus?: string;
+  },
+  businessName = "My Airport Taxi NI",
+): { subject: string; body: string } {
+  const status = options.sumUpStatus?.trim() || "UNSUCCESSFUL";
+  const subject = `SumUp payment unsuccessful — ${details.customerName} — ${options.amountLabel}`;
+
+  const body =
+    `A customer’s SumUp payment did not complete on the ${businessName} website.\n` +
+    `No card payment was taken. Contact details are below so you can follow up.\n\n` +
+    `CUSTOMER\n` +
+    `${"=".repeat(40)}\n` +
+    `Name: ${details.customerName}\n` +
+    `Email: ${details.customerEmail}\n` +
+    `Mobile: ${details.mobileNumber || "Not provided"}\n\n` +
+    `TRIP\n` +
+    `${"=".repeat(40)}\n` +
+    `${formatTripSchedule(details)}\n\n` +
+    `PAYMENT\n` +
+    `${"=".repeat(40)}\n` +
+    `Quoted amount: ${options.amountLabel}\n` +
+    `Checkout id: ${options.checkoutId}\n` +
+    (options.checkoutReference ? `Checkout reference: ${options.checkoutReference}\n` : "") +
+    `Status: ${status} (not paid)\n`;
+
+  return { subject, body };
+}
+
 export function formatPaidAmount(amount: number, currency = "GBP"): string {
   return new Intl.NumberFormat("en-GB", { style: "currency", currency }).format(amount);
 }
