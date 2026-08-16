@@ -49,6 +49,48 @@ export async function fetchOwnerBookingJobs(ownerKey: string): Promise<BookingJo
   return Array.isArray(payload.jobs) ? (payload.jobs as BookingJobRecord[]) : [];
 }
 
+export type OwnerQuoteStats = {
+  quoteLeadsTotal: number;
+  quoteLeadsDedupedTotal: number;
+  quoteLeadsLastAt: string | null;
+  bookingsIssuedTotal: number;
+  nextBookingRef: number | null;
+  counterConfigured: boolean;
+};
+
+export async function fetchOwnerQuoteStats(ownerKey: string): Promise<OwnerQuoteStats> {
+  const base = workerBaseUrl();
+  if (!base) {
+    throw new Error("Bookings API is not configured");
+  }
+
+  const response = await fetch(`${base}/quote-stats`, {
+    headers: {
+      Accept: "application/json",
+      "X-Driver-Key": ownerKey.trim(),
+    },
+  });
+  const payload = await parseJson(response);
+  if (!response.ok) {
+    throw new Error(String(payload.error ?? "Failed to load quote stats"));
+  }
+
+  return {
+    quoteLeadsTotal: Number(payload.quoteLeadsTotal) || 0,
+    quoteLeadsDedupedTotal: Number(payload.quoteLeadsDedupedTotal) || 0,
+    quoteLeadsLastAt:
+      typeof payload.quoteLeadsLastAt === "string" && payload.quoteLeadsLastAt.trim()
+        ? payload.quoteLeadsLastAt.trim()
+        : null,
+    bookingsIssuedTotal: Number(payload.bookingsIssuedTotal) || 0,
+    nextBookingRef:
+      typeof payload.nextBookingRef === "number" && Number.isFinite(payload.nextBookingRef)
+        ? payload.nextBookingRef
+        : null,
+    counterConfigured: payload.counterConfigured !== false,
+  };
+}
+
 export async function markBookingJobPaid(
   ownerKey: string,
   input: { id: string; amountPaidLabel: string; paymentReference?: string },
