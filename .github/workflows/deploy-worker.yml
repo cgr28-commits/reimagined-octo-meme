@@ -97,7 +97,7 @@ jobs:
             echo "Syncing IDEAL_POSTCODES_API_KEY secret…"
             printf '%s' "$IDEAL_POSTCODES_API_KEY" | npx wrangler secret put IDEAL_POSTCODES_API_KEY
           else
-            echo "::notice::IDEAL_POSTCODES_API_KEY not set — UK postcode premises lists unavailable (Google street/postcode only)."
+            echo "::notice::IDEAL_POSTCODES_API_KEY not set — using free postcode + house number flow via Google Places."
           fi
           if [ -n "$GETADDRESS_API_KEY" ]; then
             echo "Syncing GETADDRESS_API_KEY secret…"

@@ -11,8 +11,15 @@ import {
   resolveGooglePlaceDetails,
   searchGoogleEstablishments,
   searchGooglePlaces,
+  searchGooglePostcodePremises,
   searchGoogleStreetAddresses,
 } from "../../shared/google-places";
+import {
+  extractNorthernIrelandPostcode,
+  extractPremisePrefixFromPostcodeQuery,
+  isFullNorthernIrelandPostcode,
+  isPureFullNorthernIrelandPostcodeQuery,
+} from "../../shared/address-validation";
 import type { SelectedPlace } from "@/lib/selected-place";
 import { selectedPlaceFromParts } from "@/lib/selected-place";
 import {
@@ -33,6 +40,12 @@ const GETADDRESS_API_KEY = process.env.NEXT_PUBLIC_GETADDRESS_API_KEY?.trim() ??
 /** Server-only Ideal key must never be NEXT_PUBLIC — client relies on the Worker. */
 const IDEAL_POSTCODES_API_KEY = process.env.IDEAL_POSTCODES_API_KEY?.trim() ?? "";
 const ADDRESSES_API_URL = resolveAddressesApiUrl();
+
+export {
+  isPureFullNorthernIrelandPostcodeQuery,
+  extractNorthernIrelandPostcode,
+  isFullNorthernIrelandPostcode,
+};
 
 let sessionToken = createSessionToken();
 
@@ -157,13 +170,24 @@ async function fetchLocalAddressPredictions(
   }
 
   if (GOOGLE_API_KEY) {
+    const premisePrefix = extractPremisePrefixFromPostcodeQuery(trimmed);
+    const postcode = extractNorthernIrelandPostcode(trimmed);
+
+    if (premisePrefix && postcode && isFullNorthernIrelandPostcode(postcode)) {
+      tasks.push(
+        safePredictions(
+          searchGooglePostcodePremises(GOOGLE_API_KEY, trimmed, airportCode).then(toPredictions),
+        ),
+      );
+    }
+
     tasks.push(
       safePredictions(
         searchGooglePlaces(GOOGLE_API_KEY, trimmed, airportCode, sessionToken).then(toPredictions),
       ),
     );
 
-    if (!extractLeadingStreetNumber(trimmed)) {
+    if (!extractLeadingStreetNumber(trimmed) && !premisePrefix) {
       tasks.push(
         safePredictions(
           searchGoogleEstablishments(GOOGLE_API_KEY, trimmed, airportCode, sessionToken).then(
@@ -173,8 +197,8 @@ async function fetchLocalAddressPredictions(
       );
     }
 
-    // Premises text search for both street-only and numbered queries.
-    if (isStreetOnlyQuery(trimmed) || isNumberedAddressQuery(trimmed)) {
+    // Premises text search for street-only, numbered, and number+postcode queries.
+    if (isStreetOnlyQuery(trimmed) || isNumberedAddressQuery(trimmed) || Boolean(premisePrefix)) {
       tasks.push(
         safePredictions(
           searchGoogleStreetAddresses(GOOGLE_API_KEY, trimmed, airportCode).then(toPredictions),
@@ -188,17 +212,61 @@ async function fetchLocalAddressPredictions(
   }
 
   const results = await Promise.all(tasks);
-  const isPostcodeHeavy = /^BT\d{1,2}\s?\d[A-Z]{2}$/i.test(trimmed);
-  return mergePredictions(results.flat(), isPostcodeHeavy ? 100 : 8);
+  return mergePredictions(results.flat(), 10);
 }
+
+export type AddressPredictionsResult = {
+  predictions: AddressPrediction[];
+  needsHouseNumber: boolean;
+  postcode: string | null;
+  hint: string | null;
+};
 
 export async function fetchAddressPredictions(
   input: string,
   airportCode: string,
 ): Promise<AddressPrediction[]> {
+  const result = await fetchAddressPredictionsDetailed(input, airportCode);
+  return result.predictions;
+}
+
+export async function fetchAddressPredictionsDetailed(
+  input: string,
+  airportCode: string,
+): Promise<AddressPredictionsResult> {
   const trimmed = input.trim();
   if (trimmed.length < 3) {
-    return [];
+    return { predictions: [], needsHouseNumber: false, postcode: null, hint: null };
+  }
+
+  if (isPureFullNorthernIrelandPostcodeQuery(trimmed)) {
+    // Prefer Worker (may return Ideal list if configured); otherwise prompt for house number.
+    if (ADDRESSES_API_URL) {
+      const worker = await fetchWorkerAddressSuggestions(trimmed, airportCode);
+      if (worker && worker.suggestions.length > 0) {
+        return {
+          predictions: worker.suggestions.map(toPrediction),
+          needsHouseNumber: false,
+          postcode: worker.postcode ?? extractNorthernIrelandPostcode(trimmed),
+          hint: null,
+        };
+      }
+      if (worker?.needsHouseNumber) {
+        return {
+          predictions: [],
+          needsHouseNumber: true,
+          postcode: worker.postcode ?? extractNorthernIrelandPostcode(trimmed),
+          hint: worker.hint ?? "Enter your house number or building name.",
+        };
+      }
+    }
+
+    return {
+      predictions: [],
+      needsHouseNumber: true,
+      postcode: extractNorthernIrelandPostcode(trimmed),
+      hint: "Enter your house number or building name to find your exact address.",
+    };
   }
 
   const tasks: Promise<AddressPrediction[]>[] = [];
@@ -206,8 +274,8 @@ export async function fetchAddressPredictions(
   if (ADDRESSES_API_URL) {
     tasks.push(
       safePredictions(
-        fetchWorkerAddressSuggestions(trimmed, airportCode).then((suggestions) =>
-          (suggestions ?? []).map(toPrediction),
+        fetchWorkerAddressSuggestions(trimmed, airportCode).then((result) =>
+          (result?.suggestions ?? []).map(toPrediction),
         ),
       ),
     );
@@ -222,8 +290,12 @@ export async function fetchAddressPredictions(
   }
 
   const results = await Promise.all(tasks);
-  const isPostcodeHeavy = /^BT\d{1,2}\s?\d[A-Z]{2}$/i.test(trimmed);
-  return mergePredictions(results.flat(), isPostcodeHeavy ? 100 : 8);
+  return {
+    predictions: mergePredictions(results.flat(), 10),
+    needsHouseNumber: false,
+    postcode: extractNorthernIrelandPostcode(trimmed),
+    hint: null,
+  };
 }
 
 export async function fetchPlaceDetails(

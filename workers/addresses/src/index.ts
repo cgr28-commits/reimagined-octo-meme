@@ -14,11 +14,14 @@ import {
   searchGoogleEstablishments,
   searchGooglePlaces,
   searchGooglePostcodeAddresses,
+  searchGooglePostcodePremises,
   searchGoogleStreetAddresses,
 } from "../shared/google-places";
 import {
   extractNorthernIrelandPostcode,
+  extractPremisePrefixFromPostcodeQuery,
   isFullNorthernIrelandPostcode,
+  isPureFullNorthernIrelandPostcodeQuery,
   sortSuggestionsByStreetNumber,
 } from "../shared/address-validation";
 import {
@@ -1563,13 +1566,10 @@ export default {
 
     try {
       const postcode = extractNorthernIrelandPostcode(query);
-      const isPureNiPostcode =
-        Boolean(postcode) &&
-        isFullNorthernIrelandPostcode(postcode!) &&
-        query.replace(/\s+/g, "").toUpperCase().replace(postcode!.replace(/\s+/g, "").toUpperCase(), "")
-          .length <= 2;
+      const isPureNiPostcode = isPureFullNorthernIrelandPostcodeQuery(query);
+      const premisePrefix = extractPremisePrefixFromPostcodeQuery(query);
 
-      // Full NI postcode → Ideal Postcodes premises list (authoritative PAF data).
+      // Optional paid Ideal Postcodes — only when a key is configured.
       if (
         isPureNiPostcode &&
         env.IDEAL_POSTCODES_API_KEY &&
@@ -1597,6 +1597,27 @@ export default {
         }
       }
 
+      // Free path: full postcode alone cannot list every property without PAF data.
+      // Ask the customer for a house number / building name (handled in AddressInput).
+      if (isPureNiPostcode) {
+        return json(
+          {
+            suggestions: [],
+            needsHouseNumber: true,
+            postcode: postcode ?? undefined,
+            provider: "google",
+            hint: "Enter your house number or building name to find your exact address.",
+            configured: {
+              idealPostcodes: Boolean(env.IDEAL_POSTCODES_API_KEY?.trim()),
+              getaddress: Boolean(env.GETADDRESS_API_KEY?.trim()),
+              google: Boolean(env.GOOGLE_PLACES_API_KEY?.trim()),
+            },
+          },
+          200,
+          origin,
+        );
+      }
+
       const tasks: Promise<Awaited<ReturnType<typeof searchGooglePlaces>>>[] = [];
 
       if (env.IDEAL_POSTCODES_API_KEY && shouldUseIdealPostcodes(airportCode, query)) {
@@ -1608,11 +1629,17 @@ export default {
       }
 
       if (env.GOOGLE_PLACES_API_KEY) {
+        if (premisePrefix && postcode && isFullNorthernIrelandPostcode(postcode)) {
+          tasks.push(
+            searchGooglePostcodePremises(env.GOOGLE_PLACES_API_KEY, query, airportCode),
+          );
+        }
+
         tasks.push(
           searchGooglePlaces(env.GOOGLE_PLACES_API_KEY, query, airportCode, sessionToken),
         );
 
-        if (!extractLeadingStreetNumber(query)) {
+        if (!extractLeadingStreetNumber(query) && !premisePrefix) {
           tasks.push(
             searchGoogleEstablishments(
               env.GOOGLE_PLACES_API_KEY,
@@ -1623,19 +1650,13 @@ export default {
           );
         }
 
-        if (isStreetOnlyQuery(query) || isNumberedAddressQuery(query)) {
+        if (isStreetOnlyQuery(query) || isNumberedAddressQuery(query) || Boolean(premisePrefix)) {
           tasks.push(
             searchGoogleStreetAddresses(env.GOOGLE_PLACES_API_KEY, query, airportCode),
           );
         }
 
-        // Skip Google postcode-level search when Ideal is configured — it only
-        // returns postal_code places, not individual premises.
-        if (
-          postcode &&
-          isFullNorthernIrelandPostcode(postcode) &&
-          !env.IDEAL_POSTCODES_API_KEY?.trim()
-        ) {
+        if (postcode && isFullNorthernIrelandPostcode(postcode) && premisePrefix) {
           tasks.push(
             searchGooglePostcodeAddresses(env.GOOGLE_PLACES_API_KEY, query, airportCode),
           );
@@ -1671,11 +1692,9 @@ export default {
       if (env.GETADDRESS_API_KEY?.trim()) providers.push("getaddress");
       if (env.GOOGLE_PLACES_API_KEY?.trim()) providers.push("google");
 
-      const resultLimit = isPureNiPostcode ? 100 : 8;
-
       return json(
         {
-          suggestions: merged.slice(0, resultLimit),
+          suggestions: merged.slice(0, 10),
           provider: providers.join("+") || "none",
           configured: {
             idealPostcodes: Boolean(env.IDEAL_POSTCODES_API_KEY?.trim()),

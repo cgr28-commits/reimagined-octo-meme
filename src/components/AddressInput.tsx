@@ -9,10 +9,11 @@ import {
   type ReactNode,
 } from "react";
 import {
-  fetchAddressPredictions,
+  fetchAddressPredictionsDetailed,
   fetchPlaceDetails,
   fetchSelectedPlaceDetails,
   isGooglePlacesEnabled,
+  isPureFullNorthernIrelandPostcodeQuery,
   type AddressPrediction,
 } from "@/lib/google-maps";
 import type { SelectedPlace } from "@/lib/selected-place";
@@ -73,13 +74,18 @@ export default function AddressInput({
   const autocompleteEnabled = isGooglePlacesEnabled();
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const houseInputRef = useRef<HTMLInputElement>(null);
   const selectedPlaceRef = useRef<SelectedPlace | null>(null);
   const [suggestions, setSuggestions] = useState<AddressPrediction[]>([]);
   const [suggestionsOpen, setSuggestionsOpen] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [needsHouseNumber, setNeedsHouseNumber] = useState(false);
+  const [houseOrBuilding, setHouseOrBuilding] = useState("");
+  const [lockedPostcode, setLockedPostcode] = useState<string | null>(null);
   const debounceRef = useRef<number | null>(null);
   const hintId = useId();
   const listboxId = useId();
+  const houseHintId = useId();
   const showAbove = suggestionsPlacement === "above";
 
   useEffect(() => {
@@ -108,6 +114,9 @@ export default function AddressInput({
   useEffect(() => {
     setSuggestions([]);
     setSuggestionsOpen(false);
+    setNeedsHouseNumber(false);
+    setHouseOrBuilding("");
+    setLockedPostcode(null);
   }, [airportCode]);
 
   const requestSuggestions = useCallback(
@@ -120,22 +129,33 @@ export default function AddressInput({
       if (trimmed.length < 3) {
         setSuggestions([]);
         setSuggestionsOpen(false);
+        setNeedsHouseNumber(false);
         return;
       }
 
-      void fetchAddressPredictions(trimmed, airportCode)
-        .then((predictions) => {
-          setSuggestions(predictions);
-          setSuggestionsOpen(predictions.length > 0);
+      void fetchAddressPredictionsDetailed(trimmed, airportCode)
+        .then((result) => {
+          setSuggestions(result.predictions);
+          setSuggestionsOpen(result.predictions.length > 0);
+          setNeedsHouseNumber(result.needsHouseNumber);
+          if (result.needsHouseNumber && result.postcode) {
+            setLockedPostcode(result.postcode);
+            window.requestAnimationFrame(() => {
+              houseInputRef.current?.focus();
+            });
+          } else if (!result.needsHouseNumber) {
+            setLockedPostcode(null);
+          }
+
           setLoadError(
-            predictions.length === 0
+            result.predictions.length === 0 && !result.needsHouseNumber
               ? requireSuggestion
                 ? "No matching addresses found — try a fuller street, hotel or airport name."
                 : "No matching addresses found — keep typing or enter your full address manually."
               : null,
           );
 
-          if (predictions.length > 0 && !disableAutoScroll && !showAbove) {
+          if (result.predictions.length > 0 && !disableAutoScroll && !showAbove) {
             window.requestAnimationFrame(() => {
               containerRef.current?.scrollIntoView({
                 block: "nearest",
@@ -148,6 +168,7 @@ export default function AddressInput({
         .catch(() => {
           setSuggestions([]);
           setSuggestionsOpen(false);
+          setNeedsHouseNumber(false);
           setLoadError(
             requireSuggestion
               ? "Address suggestions are unavailable right now. Please try again shortly."
@@ -158,44 +179,59 @@ export default function AddressInput({
     [airportCode, autocompleteEnabled, disableAutoScroll, requireSuggestion, showAbove],
   );
 
+  function clearSelectionOnType(next: string) {
+    if (!requireSuggestion) {
+      return;
+    }
+
+    const previous = selectedPlaceRef.current;
+    const previousCore =
+      previous?.route?.trim() ||
+      previous?.formattedAddress.replace(/^\d+[a-zA-Z]?\s+/, "").split(",")[0]?.trim() ||
+      "";
+    const canKeepSelection =
+      Boolean(previous?.placeId) &&
+      previousCore.length >= 4 &&
+      next
+        .toLowerCase()
+        .includes(previousCore.toLowerCase().slice(0, Math.min(previousCore.length, 18)));
+
+    if (canKeepSelection && previous) {
+      const numberMatch = next.trim().match(/^(\d+[a-zA-Z]?)\b/);
+      const refined: SelectedPlace = {
+        ...previous,
+        formattedAddress: next.trim(),
+        streetNumber: numberMatch?.[1] ?? previous.streetNumber ?? null,
+      };
+      selectedPlaceRef.current = refined;
+      onSelectPlace?.(refined);
+      return;
+    }
+
+    selectedPlaceRef.current = null;
+    onSelectPlace?.({
+      placeId: "",
+      formattedAddress: next,
+      lat: null,
+      lng: null,
+      countryCode: null,
+      postalCode: null,
+      streetNumber: null,
+      route: null,
+      locality: null,
+    });
+  }
+
   function handleChange(event: React.ChangeEvent<HTMLInputElement>) {
     const next = event.target.value;
     setLoadError(null);
     onChange(next);
-    if (requireSuggestion) {
-      const previous = selectedPlaceRef.current;
-      const previousCore = previous?.route?.trim() ||
-        previous?.formattedAddress.replace(/^\d+[a-zA-Z]?\s+/, "").split(",")[0]?.trim() ||
-        "";
-      const canKeepSelection =
-        Boolean(previous?.placeId) &&
-        previousCore.length >= 4 &&
-        next.toLowerCase().includes(previousCore.toLowerCase().slice(0, Math.min(previousCore.length, 18)));
+    clearSelectionOnType(next);
 
-      if (canKeepSelection && previous) {
-        const numberMatch = next.trim().match(/^(\d+[a-zA-Z]?)\b/);
-        const refined: SelectedPlace = {
-          ...previous,
-          formattedAddress: next.trim(),
-          streetNumber: numberMatch?.[1] ?? previous.streetNumber ?? null,
-        };
-        selectedPlaceRef.current = refined;
-        onSelectPlace?.(refined);
-      } else {
-        selectedPlaceRef.current = null;
-        // Typing invalidates the previous Place ID selection.
-        onSelectPlace?.({
-          placeId: "",
-          formattedAddress: next,
-          lat: null,
-          lng: null,
-          countryCode: null,
-          postalCode: null,
-          streetNumber: null,
-          route: null,
-          locality: null,
-        });
-      }
+    if (!isPureFullNorthernIrelandPostcodeQuery(next)) {
+      setNeedsHouseNumber(false);
+      setHouseOrBuilding("");
+      setLockedPostcode(null);
     }
 
     if (debounceRef.current) {
@@ -205,6 +241,31 @@ export default function AddressInput({
     debounceRef.current = window.setTimeout(() => {
       requestSuggestions(next);
     }, 220);
+  }
+
+  function handleHouseChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const nextHouse = event.target.value;
+    setHouseOrBuilding(nextHouse);
+    setLoadError(null);
+
+    const postcode = lockedPostcode ?? value.trim();
+    const composed = nextHouse.trim() ? `${nextHouse.trim()} ${postcode}` : postcode;
+    onChange(composed);
+    clearSelectionOnType(composed);
+
+    if (debounceRef.current) {
+      window.clearTimeout(debounceRef.current);
+    }
+
+    debounceRef.current = window.setTimeout(() => {
+      if (nextHouse.trim().length >= 1) {
+        requestSuggestions(composed);
+      } else {
+        setSuggestions([]);
+        setSuggestionsOpen(false);
+        setNeedsHouseNumber(true);
+      }
+    }, 180);
   }
 
   function handleClear() {
@@ -229,17 +290,21 @@ export default function AddressInput({
     setSuggestions([]);
     setSuggestionsOpen(false);
     setLoadError(null);
+    setNeedsHouseNumber(false);
+    setHouseOrBuilding("");
+    setLockedPostcode(null);
     inputRef.current?.focus();
   }
 
   async function handleSelect(prediction: AddressPrediction) {
     setSuggestionsOpen(false);
     setSuggestions([]);
+    setNeedsHouseNumber(false);
+    setHouseOrBuilding("");
+    setLockedPostcode(null);
 
     const place = await fetchSelectedPlaceDetails(prediction.placeId, airportCode, value);
     if (place) {
-      // Prefer the suggestion label when it already includes the typed house number
-      // and Place Details returned a route-only address without one.
       const typedNumber = value.trim().match(/^(\d+[a-zA-Z]?)\b/)?.[1];
       const resolvedHasNumber = /^\d+[a-zA-Z]?\s/.test(place.formattedAddress);
       const suggestionHasNumber = /^\d+[a-zA-Z]?\s/.test(prediction.description);
@@ -283,6 +348,7 @@ export default function AddressInput({
   }
 
   const showSuggestions = suggestionsOpen && suggestions.length > 0;
+  const showHouseStep = needsHouseNumber || Boolean(lockedPostcode && houseOrBuilding);
 
   const suggestionList = showSuggestions ? (
     <ul
@@ -329,10 +395,9 @@ export default function AddressInput({
         </div>
       )}
 
-      {/* One control: typed value stays visible; suggestions expand inside the same bar. */}
       <div
         className={`overflow-hidden rounded-xl border bg-white/5 transition-colors ${
-          showSuggestions
+          showSuggestions || showHouseStep
             ? "border-emerald/50 ring-1 ring-emerald/30"
             : "border-white/10 focus-within:border-emerald/50 focus-within:ring-1 focus-within:ring-emerald/30"
         }`}
@@ -378,6 +443,34 @@ export default function AddressInput({
           ) : null}
         </div>
 
+        {showHouseStep ? (
+          <div className="border-t border-white/10 bg-white/5 px-3 py-3">
+            <label
+              htmlFor={`${id}-house`}
+              className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/55"
+            >
+              House number or building name
+            </label>
+            <input
+              ref={houseInputRef}
+              id={`${id}-house`}
+              type="text"
+              inputMode="text"
+              autoComplete="off"
+              value={houseOrBuilding}
+              onChange={handleHouseChange}
+              placeholder="e.g. 7 or Flat 2"
+              aria-describedby={houseHintId}
+              className="w-full rounded-lg border border-white/15 bg-white px-4 py-3.5 text-base font-semibold text-navy placeholder:font-normal placeholder:text-navy/35 outline-none focus:border-emerald focus:ring-1 focus:ring-emerald/40"
+            />
+            <p id={houseHintId} className="mt-1.5 text-xs text-white/45">
+              {lockedPostcode
+                ? `Finding addresses at ${lockedPostcode} — type your number, then tap your address.`
+                : "Type your house number or building name, then tap your address."}
+            </p>
+          </div>
+        ) : null}
+
         {!showAbove ? suggestionList : null}
       </div>
 
@@ -391,7 +484,7 @@ export default function AddressInput({
           loadError ??
           (autocompleteEnabled
             ? helperText ??
-              "Type a street, hotel or landmark — or enter a full postcode (e.g. BT36 7FU) to pick your exact address."
+              "Type a street, hotel or landmark — or a postcode, then your house number."
             : "Enter your full address including town and postcode")}
       </p>
     </div>

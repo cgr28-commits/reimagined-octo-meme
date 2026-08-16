@@ -197,15 +197,16 @@ function toIdealSuggestion(entry: IdealPostcodesAddress): AddressSuggestion | nu
   const town = entry.post_town?.trim() || "";
   const postcode = entry.postcode?.trim() || "";
 
-  // House/building number first; street + town + postcode underneath for easy scanning.
+  // House/building number or organisation first; street + town + postcode underneath.
   const secondaryParts: string[] = [];
-  if (street && !mainText.toLowerCase().includes(street.toLowerCase())) {
-    secondaryParts.push(street);
-  } else if (entry.line_1?.trim() && entry.line_1.trim().toLowerCase() !== mainText.toLowerCase()) {
+  if (entry.line_1?.trim() && entry.line_1.trim().toLowerCase() !== mainText.toLowerCase()) {
     secondaryParts.push(entry.line_1.trim());
   }
-  if (entry.line_2?.trim()) {
+  if (entry.line_2?.trim() && entry.line_2.trim().toLowerCase() !== mainText.toLowerCase()) {
     secondaryParts.push(entry.line_2.trim());
+  }
+  if (street && !secondaryParts.some((part) => part.toLowerCase().includes(street.toLowerCase()))) {
+    secondaryParts.push(street);
   }
   if (town) {
     secondaryParts.push(town);

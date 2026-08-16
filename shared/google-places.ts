@@ -1,10 +1,12 @@
 import {
   extractNorthernIrelandPostcode,
+  extractPremisePrefixFromPostcodeQuery,
   isAddressAllowedForAirport,
   isAllowedAutocompleteLabel,
   isAllowedCoordinates,
   isFullNorthernIrelandPostcode,
   isNorthernIrelandPostcodeQuery,
+  isPureFullNorthernIrelandPostcodeQuery,
   normaliseAirportCode,
   sortSuggestionsByStreetNumber,
 } from "./address-validation";
@@ -163,7 +165,16 @@ export function hasLeadingStreetNumber(text: string): boolean {
 }
 
 export function isStreetOnlyQuery(query: string): boolean {
-  if (isNorthernIrelandPostcodeQuery(query)) {
+  if (isPureFullNorthernIrelandPostcodeQuery(query)) {
+    return false;
+  }
+
+  // Number + postcode (e.g. "7 BT36 7FU") is a premises lookup, not a street-only query.
+  if (extractPremisePrefixFromPostcodeQuery(query)) {
+    return false;
+  }
+
+  if (isNorthernIrelandPostcodeQuery(query) && !extractLeadingStreetNumber(query)) {
     return false;
   }
 
@@ -338,18 +349,24 @@ export async function searchGoogleStreetAddresses(
   airportCode: string,
 ): Promise<AddressSuggestion[]> {
   const trimmed = query.trim();
-  if (trimmed.length < 3 || isNorthernIrelandPostcodeQuery(trimmed)) {
+  if (trimmed.length < 3 || isPureFullNorthernIrelandPostcodeQuery(trimmed)) {
     return [];
   }
 
   const code = normaliseAirportCode(airportCode);
   const userNumber = extractLeadingStreetNumber(trimmed);
+  const premisePrefix = extractPremisePrefixFromPostcodeQuery(trimmed);
+  const postcode = extractNorthernIrelandPostcode(trimmed);
+
+  // Prefer "7 Glen Manor Road, BT36 7FU" style when the user only typed number + postcode.
   const scopedQuery =
-    code === "DUB" || code === "A2A"
-      ? trimmed
-      : /northern ireland|,\s*bt/i.test(trimmed)
+    premisePrefix && postcode && isFullNorthernIrelandPostcode(postcode)
+      ? `${premisePrefix}, ${postcode}, Northern Ireland`
+      : code === "DUB" || code === "A2A"
         ? trimmed
-        : `${trimmed}, Northern Ireland`;
+        : /northern ireland|,\s*bt/i.test(trimmed)
+          ? trimmed
+          : `${trimmed}, Northern Ireland`;
 
   const response = await fetch("https://places.googleapis.com/v1/places:searchText", {
     method: "POST",
@@ -434,81 +451,132 @@ export async function searchGooglePostcodeAddresses(
     return [];
   }
 
-  const response = await fetch("https://places.googleapis.com/v1/places:searchText", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-Goog-Api-Key": apiKey,
-      "X-Goog-FieldMask": "places.id,places.formattedAddress,places.addressComponents",
-    },
-    body: JSON.stringify({
-      textQuery: `${extracted}, Northern Ireland`,
-      regionCode: "gb",
-      languageCode: "en-GB",
-      pageSize: 12,
-    }),
-  });
-
-  if (!response.ok) {
-    const detail = await response.text().catch(() => "");
-    console.error(
-      `Google Places postcode search failed (${response.status})`,
-      detail.slice(0, 300),
-    );
+  // Pure postcode alone cannot list every property via Google — skip noisy postal_code hits.
+  // Callers should prompt for a house number / building name instead.
+  if (isPureFullNorthernIrelandPostcodeQuery(query)) {
     return [];
   }
 
-  const data = (await response.json()) as {
-    places?: Array<{
-      id?: string;
-      formattedAddress?: string;
-      addressComponents?: GoogleAddressComponent[];
-    }>;
-  };
+  return searchGooglePostcodePremises(apiKey, query, airportCode);
+}
 
-  const suggestions: AddressSuggestion[] = [];
-  const code = normaliseAirportCode(airportCode);
-  const wantedCompact = extracted.replace(/\s+/g, "").toUpperCase();
-
-  for (const place of data.places ?? []) {
-    if (!place.id || !place.formattedAddress) {
-      continue;
-    }
-
-    const formatted = place.formattedAddress.trim();
-    const parts = parseGoogleAddressComponents(place.addressComponents);
-    const resultPostcode = (parts.postcode ?? extractNorthernIrelandPostcode(formatted) ?? "")
-      .replace(/\s+/g, "")
-      .toUpperCase();
-
-    // Google text search is fuzzy — reject wrong postcodes (e.g. BT64 for BT20).
-    if (resultPostcode !== wantedCompact) {
-      continue;
-    }
-
-    if (
-      !isAddressAllowedForAirport(code, {
-        ...parts,
-        displayName: formatted,
-      })
-    ) {
-      continue;
-    }
-
-    const commaIndex = formatted.indexOf(",");
-    const mainText = commaIndex === -1 ? formatted : formatted.slice(0, commaIndex);
-    const secondaryText = commaIndex === -1 ? "" : formatted.slice(commaIndex + 1).trim();
-
-    suggestions.push({
-      id: place.id,
-      label: formatted,
-      address: formatted,
-      mainText,
-      secondaryText,
-    });
+/**
+ * Free premises lookup: house number/building + NI postcode via Google Places text search.
+ * Does not return a complete Royal Mail premises list (that needs a paid PAF provider).
+ */
+export async function searchGooglePostcodePremises(
+  apiKey: string,
+  query: string,
+  airportCode: string,
+): Promise<AddressSuggestion[]> {
+  const extracted = extractNorthernIrelandPostcode(query);
+  const premise = extractPremisePrefixFromPostcodeQuery(query);
+  if (!extracted || !isFullNorthernIrelandPostcode(extracted) || !premise) {
+    return [];
   }
 
-  return sortSuggestionsByStreetNumber(suggestions).slice(0, 8);
+  const code = normaliseAirportCode(airportCode);
+  const wantedCompact = extracted.replace(/\s+/g, "").toUpperCase();
+  const queries = [
+    `${premise}, ${extracted}, Northern Ireland`,
+    `${premise} ${extracted}`,
+    `${premise}, ${extracted}`,
+  ];
+
+  const suggestions: AddressSuggestion[] = [];
+  const seen = new Set<string>();
+
+  for (const textQuery of queries) {
+    const response = await fetch("https://places.googleapis.com/v1/places:searchText", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Goog-Api-Key": apiKey,
+        "X-Goog-FieldMask":
+          "places.id,places.formattedAddress,places.addressComponents,places.location",
+      },
+      body: JSON.stringify({
+        textQuery,
+        regionCode: "gb",
+        languageCode: "en-GB",
+        pageSize: 12,
+      }),
+    });
+
+    if (!response.ok) {
+      continue;
+    }
+
+    const data = (await response.json()) as {
+      places?: Array<{
+        id?: string;
+        formattedAddress?: string;
+        addressComponents?: GoogleAddressComponent[];
+      }>;
+    };
+
+    for (const place of data.places ?? []) {
+      if (!place.id || !place.formattedAddress || seen.has(place.id)) {
+        continue;
+      }
+
+      const formatted = place.formattedAddress.trim();
+      const parts = parseGoogleAddressComponents(place.addressComponents);
+      const resultPostcode = (parts.postcode ?? extractNorthernIrelandPostcode(formatted) ?? "")
+        .replace(/\s+/g, "")
+        .toUpperCase();
+
+      if (resultPostcode && resultPostcode !== wantedCompact) {
+        continue;
+      }
+
+      if (
+        !isAddressAllowedForAirport(code, {
+          ...parts,
+          displayName: formatted,
+        })
+      ) {
+        continue;
+      }
+
+      seen.add(place.id);
+      const commaIndex = formatted.indexOf(",");
+      const mainText = commaIndex === -1 ? formatted : formatted.slice(0, commaIndex);
+      const secondaryText = commaIndex === -1 ? "" : formatted.slice(commaIndex + 1).trim();
+      const displayMain =
+        extractLeadingStreetNumber(premise) && !hasLeadingStreetNumber(mainText)
+          ? withStreetNumber(extractLeadingStreetNumber(premise)!, mainText)
+          : mainText;
+
+      suggestions.push({
+        id: place.id,
+        label: secondaryText ? `${displayMain}, ${secondaryText}` : displayMain,
+        address: formatted,
+        mainText: displayMain,
+        secondaryText,
+      });
+    }
+
+    if (suggestions.length >= 6) {
+      break;
+    }
+  }
+
+  // Also try autocomplete with premises types for the composed query.
+  const autocomplete = await searchGooglePlaces(
+    apiKey,
+    `${premise} ${extracted}`,
+    airportCode,
+  );
+  for (const item of autocomplete) {
+    if (seen.has(item.id)) {
+      continue;
+    }
+    seen.add(item.id);
+    suggestions.push(item);
+  }
+
+  return sortSuggestionsByStreetNumber(suggestions).slice(0, 10);
 }
 
 const ESTABLISHMENT_PRIMARY_TYPES = [
