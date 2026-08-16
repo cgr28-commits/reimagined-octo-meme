@@ -19,6 +19,19 @@ export type PaidBookingRecord = {
   tripTime: string;
   returnDate?: string;
   returnTime?: string;
+  /** Full trip details kept for resend / owner lookup. */
+  flightNumber?: string;
+  returnFlightNumber?: string;
+  passengers?: number;
+  suitcases?: number;
+  vehicle?: string;
+  journeyDistance?: string;
+  journeyDuration?: string;
+  isAirportTrip?: boolean;
+  airportCode?: string;
+  isFromAirport?: boolean;
+  termsAcceptedAt?: string;
+  termsVersion?: string;
   trackingToken?: string;
   calendarEventIds: string[];
   status: PaidBookingStatus;
@@ -34,4 +47,9 @@ export function paidBookingRefKey(paymentReference: string): string {
 /** Secondary index so confirm/webhook can find a paid booking by SumUp checkout id. */
 export function paidBookingCheckoutKey(checkoutId: string): string {
   return `booking:checkout:${checkoutId.trim()}`;
+}
+
+/** London calendar day index for owner listing of recent SumUp pays. */
+export function paidBookingCreatedDayIndexKey(day: string): string {
+  return `booking:created:${day.trim()}`;
 }

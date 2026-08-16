@@ -107,6 +107,12 @@ import {
   handleRefundRequest,
 } from "./refund-handlers";
 import {
+  handlePaidBookingResendRequest,
+  handlePaidBookingsListRequest,
+  isPaidBookingResendPath,
+  isPaidBookingsListPath,
+} from "./paid-booking-handlers";
+import {
   extractCheckoutIdFromWebhookPayload,
   finalizePaidCheckout,
   resolveBookingForCheckout,
@@ -306,6 +312,8 @@ function routePath(
   | "payments-confirm"
   | "payments-webhook"
   | "bookings-refund"
+  | "paid-bookings"
+  | "paid-bookings-resend"
   | "booking-jobs"
   | "booking-jobs-mark-paid"
   | "booking-jobs-assign-driver"
@@ -350,6 +358,14 @@ function routePath(
 
   if (pathname === "/bookings/refund" || pathname === "/api/bookings/refund") {
     return "bookings-refund";
+  }
+
+  if (isPaidBookingResendPath(pathname)) {
+    return "paid-bookings-resend";
+  }
+
+  if (isPaidBookingsListPath(pathname)) {
+    return "paid-bookings";
   }
 
   if (pathname === "/booking-jobs/mark-paid" || pathname === "/api/booking-jobs/mark-paid") {
@@ -1421,6 +1437,20 @@ export default {
       }
 
       return handleRefundRequest(request, env, origin);
+    }
+
+    if (route === "paid-bookings") {
+      if (request.method !== "GET") {
+        return json({ error: "Method not allowed" }, 405, origin);
+      }
+      return handlePaidBookingsListRequest(request, env, origin);
+    }
+
+    if (route === "paid-bookings-resend") {
+      if (request.method !== "POST") {
+        return json({ error: "Method not allowed" }, 405, origin);
+      }
+      return handlePaidBookingResendRequest(request, env, origin);
     }
 
     if (route === "booking-jobs") {
