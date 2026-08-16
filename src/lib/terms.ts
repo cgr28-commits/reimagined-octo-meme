@@ -197,12 +197,12 @@ export const TERMS_SECTIONS = [
   {
     title: "Luggage",
     content: [
+      "Luggage capacity depends on passenger numbers, luggage quantity and the vehicle arranged. Customers must provide accurate luggage details when booking or requesting a quote so that a suitable vehicle can be arranged.",
       "Customers must ensure:",
     ],
     list: [
       "All luggage is declared during booking.",
       "Oversized luggage is advised in advance.",
-      "Heavy luggage loads for 5–7 passengers may require capacity confirmation before we can accept the booking in writing.",
     ],
     footer:
       "We reserve the right to refuse luggage that cannot safely be accommodated, or to require a larger partner vehicle (which may change the fare). We do not offer journeys for more than 7 passengers.",
