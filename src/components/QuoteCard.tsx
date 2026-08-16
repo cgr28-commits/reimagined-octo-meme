@@ -38,6 +38,7 @@ import { formatUkDate, formatUkTime, todayLondonDate, nowLondonTime } from "@/li
 import { resolveJourneyInclusions } from "@/lib/journey-inclusions";
 import {
   intentFromDirection,
+  isCustomerAirportCode,
   type CustomerAirportCode,
   type QuoteJourneyIntent,
 } from "@/lib/quote-journey-intent";
@@ -357,14 +358,34 @@ function QuoteCard({
   const [tripMode, setTripMode] = useState<TripMode>(IS_A2A_PRIMARY ? "address" : "airport");
   const [tripDirection, setTripDirection] = useState<TripDirection>(initialDirection);
   const [airportCode, setAirportCode] = useState(initialAirportCode);
+  const initialAirportPlace = isCustomerAirportCode(initialAirportCode)
+    ? quickSelectToPlace(initialAirportCode)
+    : null;
   const [pickupAddress, setPickupAddress] = useState(
-    initialDirection === "to-airport" ? initialAddressHint : "",
+    initialDirection === "from-airport" && initialAirportPlace
+      ? initialAirportPlace.displayAddress || initialAirportPlace.formattedAddress
+      : initialDirection === "to-airport"
+        ? initialAddressHint
+        : "",
   );
   const [dropoffAddress, setDropoffAddress] = useState(
-    initialDropoffHint || (initialDirection === "from-airport" ? initialAddressHint : ""),
+    initialDropoffHint ||
+      (initialDirection === "to-airport" && initialAirportPlace
+        ? initialAirportPlace.displayAddress || initialAirportPlace.formattedAddress
+        : initialDirection === "from-airport"
+          ? initialAddressHint
+          : ""),
   );
-  const [pickupPlace, setPickupPlace] = useState<SelectedPlace>(emptySelectedPlace());
-  const [dropoffPlace, setDropoffPlace] = useState<SelectedPlace>(emptySelectedPlace());
+  const [pickupPlace, setPickupPlace] = useState<SelectedPlace>(() =>
+    initialDirection === "from-airport" && initialAirportPlace
+      ? initialAirportPlace
+      : emptySelectedPlace(),
+  );
+  const [dropoffPlace, setDropoffPlace] = useState<SelectedPlace>(() =>
+    initialDirection === "to-airport" && initialAirportPlace
+      ? initialAirportPlace
+      : emptySelectedPlace(),
+  );
   const [pickupPlaceError, setPickupPlaceError] = useState("");
   const [dropoffPlaceError, setDropoffPlaceError] = useState("");
   const [returnJourney, setReturnJourney] = useState(false);
@@ -403,7 +424,7 @@ function QuoteCard({
   const [childSeats, setChildSeats] = useState(0);
   const [childSeatNotes, setChildSeatNotes] = useState("");
   const [journeyIntent, setJourneyIntent] = useState<QuoteJourneyIntent | null>(() => {
-    if (initialAirportCode === "BFS" || initialAirportCode === "BHD" || initialAirportCode === "DUB") {
+    if (isCustomerAirportCode(initialAirportCode)) {
       return intentFromDirection(initialDirection);
     }
     if (initialAddressHint || initialDropoffHint) {
@@ -414,7 +435,7 @@ function QuoteCard({
     return null;
   });
   const [intentAirportCode, setIntentAirportCode] = useState<CustomerAirportCode | "">(() => {
-    if (initialAirportCode === "BFS" || initialAirportCode === "BHD" || initialAirportCode === "DUB") {
+    if (isCustomerAirportCode(initialAirportCode)) {
       return initialAirportCode;
     }
     return "";
@@ -562,17 +583,21 @@ function QuoteCard({
     const savedPickup = localStorage.getItem(PICKUP_STORAGE_KEY);
     const savedDropoff = localStorage.getItem(DROPOFF_STORAGE_KEY);
     // Keep dedicated landing-page address hints (e.g. Bangor / event venues) over stale localStorage.
-    const keepInitialPickup = initialDirection === "to-airport" && Boolean(initialAddressHint);
+    // Also keep the route-page airport place so transfer landings stay preselected.
+    const keepInitialPickup =
+      (initialDirection === "to-airport" && Boolean(initialAddressHint)) ||
+      (initialDirection === "from-airport" && isCustomerAirportCode(initialAirportCode));
     const keepInitialDropoff =
       Boolean(initialDropoffHint) ||
-      (initialDirection === "from-airport" && Boolean(initialAddressHint));
+      (initialDirection === "from-airport" && Boolean(initialAddressHint)) ||
+      (initialDirection === "to-airport" && isCustomerAirportCode(initialAirportCode));
     if (savedPickup && !keepInitialPickup) {
       setPickupAddress(savedPickup);
     }
     if (savedDropoff && !keepInitialDropoff) {
       setDropoffAddress(savedDropoff);
     }
-  }, [initialAddressHint, initialDirection, initialDropoffHint]);
+  }, [initialAddressHint, initialAirportCode, initialDirection, initialDropoffHint]);
 
   const isLdyTrip = effectiveAirportCode === "LDY";
   const ldyServiceAddress = isFromAirport ? dropoffAddress : pickupAddress;
@@ -589,6 +614,11 @@ function QuoteCard({
       if (IS_A2A_PRIMARY) {
         const place = quickSelectToPlace(code as QuickSelectAirportCode);
         if (place) {
+          if (isCustomerAirportCode(code)) {
+            setIntentAirportCode(code);
+            setJourneyIntent(intentFromDirection(initialDirection));
+            setAirportCode(code);
+          }
           if (initialDirection === "from-airport") {
             handlePickupPlaceSelect(place);
           } else {
@@ -606,9 +636,21 @@ function QuoteCard({
       setTripMode("airport");
       if (draft.direction === "from-airport" || draft.direction === "to-airport") {
         setTripDirection(draft.direction);
+        setJourneyIntent(intentFromDirection(draft.direction));
       }
       if (draft.airportCode && AIRPORTS.some((airport) => airport.code === draft.airportCode)) {
         setAirportCode(draft.airportCode);
+        if (isCustomerAirportCode(draft.airportCode)) {
+          setIntentAirportCode(draft.airportCode);
+          const place = quickSelectToPlace(draft.airportCode);
+          if (place && IS_A2A_PRIMARY) {
+            if (draft.direction === "from-airport") {
+              handlePickupPlaceSelect(place);
+            } else {
+              handleDropoffPlaceSelect(place);
+            }
+          }
+        }
       }
       if (draft.address?.trim()) {
         if (draft.direction === "from-airport") {

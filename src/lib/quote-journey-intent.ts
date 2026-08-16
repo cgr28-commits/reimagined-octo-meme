@@ -35,6 +35,10 @@ export const CUSTOMER_AIRPORTS = [
 
 export type CustomerAirportCode = (typeof CUSTOMER_AIRPORTS)[number]["code"];
 
+export function isCustomerAirportCode(code: string): code is CustomerAirportCode {
+  return CUSTOMER_AIRPORTS.some((airport) => airport.code === code);
+}
+
 export function intentFromDirection(direction: "to-airport" | "from-airport"): QuoteJourneyIntent {
   return direction;
 }
