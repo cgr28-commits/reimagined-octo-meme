@@ -1,13 +1,9 @@
 "use client";
 
-import { LOWEST_AIRPORT_FROM_PRICE, SERVICE_FLAGS } from "@/lib/data";
-import { arePublicLivePricesEnabled, getPublicUnapprovedPriceLabel } from "@/lib/pricing-config";
+import { SERVICE_FLAGS } from "@/lib/data";
 import QuoteCard from "./QuoteCard";
 
 export default function HeroSlideshow() {
-  const fromPrice = arePublicLivePricesEnabled()
-    ? `From £${LOWEST_AIRPORT_FROM_PRICE}`
-    : getPublicUnapprovedPriceLabel();
   const airportList = SERVICE_FLAGS.belfastCityAirport
     ? "Belfast International, Belfast City, City of Derry, and Dublin"
     : "Belfast International, City of Derry, and Dublin";
@@ -57,7 +53,7 @@ export default function HeroSlideshow() {
               <svg className="h-5 w-5 shrink-0 text-emerald" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
-              <span>{fromPrice}</span>
+              <span>Get your fixed price instantly</span>
             </div>
             <div className="flex items-center gap-2">
               <svg className="h-5 w-5 shrink-0 text-emerald" fill="none" viewBox="0 0 24 24" stroke="currentColor">

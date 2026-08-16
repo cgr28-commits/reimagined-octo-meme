@@ -1,19 +1,12 @@
 import Link from "next/link";
 import Logo from "./Logo";
 import FooterContact from "./FooterContact";
-import { LOWEST_AIRPORT_FROM_PRICE, NAV_LINKS, SERVICE_FLAGS, SITE } from "@/lib/data";
+import { NAV_LINKS, SERVICE_FLAGS, SITE } from "@/lib/data";
 import { AIRPORT_PAGES } from "@/lib/location-pages";
 import { TOURS } from "@/lib/tours";
-import {
-  arePublicLivePricesEnabled,
-  getPublicUnapprovedPriceLabel,
-} from "@/lib/pricing-config";
 
 export default function Footer() {
   const year = new Date().getFullYear();
-  const priceBlurb = arePublicLivePricesEnabled()
-    ? `prices from £${LOWEST_AIRPORT_FROM_PRICE}`
-    : getPublicUnapprovedPriceLabel().toLowerCase();
 
   return (
     <footer className="relative border-t border-white/10 bg-navy-dark">
@@ -27,7 +20,7 @@ export default function Footer() {
             <Logo className="h-16" />
             <p className="mt-4 max-w-xs text-sm leading-relaxed text-white/50">
               Professional airport transfers across Northern Ireland and beyond. Clear fixed
-              prices, {priceBlurb}, and 24/7 availability.
+              prices and 24/7 availability — get your fixed price instantly.
             </p>
           </div>
 

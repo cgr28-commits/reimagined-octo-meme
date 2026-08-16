@@ -249,7 +249,8 @@ export const ALL_AIRPORTS = [
     code: "BFS",
     name: "Belfast International",
     basePrice: 45,
-    distance: "From £45",
+    /** Short customer-facing CTA shown on airport cards (not a marketing fare). */
+    distance: "Get a fixed quote",
     duration: "~30 min from Belfast",
     mapLabel: "Belfast International Airport, Aldergrove, UK",
     mapLocation: { lat: 54.6575, lng: -6.2158 },
@@ -260,7 +261,7 @@ export const ALL_AIRPORTS = [
     code: "BHD",
     name: "George Best Belfast City",
     basePrice: 29,
-    distance: "From £29",
+    distance: "Get a fixed quote",
     duration: "~15 min from city centre",
     mapLabel: "George Best Belfast City Airport, Belfast, UK",
     mapLocation: { lat: 54.6181, lng: -5.8724 },
@@ -271,7 +272,7 @@ export const ALL_AIRPORTS = [
     code: "DUB",
     name: "Dublin Airport",
     basePrice: 180,
-    distance: "From £180",
+    distance: "Get a fixed quote",
     duration: "~2 hrs from Belfast",
     mapLabel: "Dublin Airport, Ireland",
     mapLocation: { lat: 53.4213, lng: -6.2701 },
@@ -282,7 +283,7 @@ export const ALL_AIRPORTS = [
     code: "LDY",
     name: "City of Derry",
     basePrice: 35,
-    distance: "From £140",
+    distance: "Get a fixed quote",
     duration: "Belfast area ↔ Derry Airport",
     mapLabel: "City of Derry Airport, Airport Road, Eglinton, UK",
     mapLocation: { lat: 55.0428, lng: -7.1611 },
@@ -295,18 +296,6 @@ export const ALL_AIRPORTS = [
 export const AIRPORTS = ALL_AIRPORTS.filter(
   (airport) => SERVICE_FLAGS.belfastCityAirport || airport.code !== "BHD",
 );
-
-/** Lowest public “From £X” marketing price (keeps footer / meta aligned with the quote tool). */
-export function getLowestAirportFromPrice(): number {
-  const prices = AIRPORTS.map((airport) => {
-    const match = /£(\d+)/.exec(airport.distance);
-    return match ? Number(match[1]) : airport.basePrice;
-  });
-  return Math.min(...prices);
-}
-
-export const LOWEST_AIRPORT_FROM_PRICE = getLowestAirportFromPrice();
-
 export const AREAS = [
   "Belfast City Centre",
   "Lisburn",

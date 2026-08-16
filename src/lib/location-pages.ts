@@ -58,7 +58,7 @@ const AIRPORT_PAGES_ALL: AirportPage[] = [
       "Arrivals pickups use the airport’s designated private-hire meeting points; share your flight number so we can track landing time.",
       "Spacious private transfers are ideal for family holidays with multiple large suitcases from BFS.",
     ],
-    fromPriceLabel: "From £45",
+    fromPriceLabel: "Get your fixed price based on your journey.",
     durationNote: "Around 30 minutes from Belfast city centre in normal traffic",
     heroBase: "antrim-coast",
     heroAlt: "Coastal Northern Ireland near Belfast International Airport routes",
@@ -85,7 +85,7 @@ const AIRPORT_PAGES_ALL: AirportPage[] = [
       "Hotel pickups in the Titanic Quarter and Cathedral Quarter are a frequent route for us.",
       "If you have a connecting flight from BHD, tell us your departure time and we’ll plan the drop-off window carefully.",
     ],
-    fromPriceLabel: "From £29",
+    fromPriceLabel: "Get your fixed price based on your journey.",
     durationNote: "Around 15 minutes from Belfast city centre in normal traffic",
     heroBase: "titanic-belfast",
     heroAlt: "Titanic Belfast near George Best Belfast City Airport",
@@ -112,7 +112,7 @@ const AIRPORT_PAGES_ALL: AirportPage[] = [
       "For early Dublin departures, overnight or very early pickups from Bangor, Belfast, and Lisburn are common.",
       "Tell us which Dublin terminal you need when known; we’ll confirm the pickup point for arrivals.",
     ],
-    fromPriceLabel: "From £180",
+    fromPriceLabel: "Get your fixed price based on your journey.",
     durationNote: "Around 2 hours from Belfast in normal traffic",
     heroBase: "dublin-beckett-bridge",
     heroAlt: "Dublin Beckett Bridge for Dublin Airport transfer routes",
@@ -139,7 +139,7 @@ const AIRPORT_PAGES_ALL: AirportPage[] = [
       "For arrivals at LDY heading to Belfast/Bangor, share your flight number so we can adjust for delays.",
       "These are longer inter-city runs; return bookings are popular for weekend trips.",
     ],
-    fromPriceLabel: "From £140",
+    fromPriceLabel: "Get your fixed price based on your journey.",
     durationNote: "Belfast area ↔ Derry Airport (longer inter-city transfer)",
     heroBase: "derry-guildhall",
     heroAlt: "Derry Guildhall for City of Derry Airport transfer routes",
@@ -245,6 +245,7 @@ export function getTransferRoutePage(slug: string): TransferRoutePage | undefine
   return TRANSFER_ROUTE_PAGES.find((page) => page.slug === slug);
 }
 
+/** Short CTA for airport cards/pages — not a marketing fare. */
 export function airportFromPrice(code: string): string {
-  return ALL_AIRPORTS.find((airport) => airport.code === code)?.distance ?? "";
+  return ALL_AIRPORTS.find((airport) => airport.code === code)?.distance ?? "Get a fixed quote";
 }

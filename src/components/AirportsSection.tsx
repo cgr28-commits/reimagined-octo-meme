@@ -1,10 +1,6 @@
 import Link from "next/link";
 import { AIRPORTS } from "@/lib/data";
 import { AIRPORT_PAGES } from "@/lib/location-pages";
-import {
-  arePublicLivePricesEnabled,
-  getPublicUnapprovedPriceLabel,
-} from "@/lib/pricing-config";
 import AirportBookNowLink from "./AirportBookNowLink";
 import SectionHeading from "./SectionHeading";
 
@@ -14,9 +10,6 @@ function airportPageHref(code: string): string | null {
 }
 
 export default function AirportsSection() {
-  const showLiveFromPrices = arePublicLivePricesEnabled();
-  const confirmationLabel = getPublicUnapprovedPriceLabel();
-
   return (
     <section id="airports" className="relative py-20 sm:py-28">
       <div className="absolute inset-0 bg-gradient-to-b from-navy via-navy-light/30 to-navy" />
@@ -39,8 +32,8 @@ export default function AirportsSection() {
                   <span className="rounded-lg bg-emerald/15 px-3 py-1 text-xs font-bold tracking-wider text-emerald">
                     {airport.code}
                   </span>
-                  <span className="text-lg font-bold text-emerald">
-                    {showLiveFromPrices ? airport.distance : confirmationLabel}
+                  <span className="text-sm font-semibold text-emerald">
+                    {airport.distance}
                   </span>
                 </div>
                 <h3 className="mt-4 text-lg font-bold text-white">
