@@ -241,10 +241,16 @@ main {
   touch-action: manipulation;
   -webkit-user-select: text;
   user-select: text;
+  font-size: 16px; /* avoid iOS Safari focus zoom */
 }
 
 .address-suggestions {
   pointer-events: auto;
+}
+
+.address-suggestions-overlay {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
 }
 
 .leaflet-container {
