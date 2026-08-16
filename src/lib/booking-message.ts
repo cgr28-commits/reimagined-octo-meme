@@ -2,6 +2,10 @@ import {
   formatUkDateTime,
   formatUkSubmissionTime,
 } from "@/lib/format-datetime";
+import {
+  formatEmailFareIncludesBlock,
+  resolveJourneyInclusions,
+} from "@/lib/journey-inclusions";
 import { formatMarketingOptInLine } from "../../shared/marketing";
 
 export type BookingDetails = {
@@ -59,6 +63,18 @@ export function isValidEmailAddress(value: string): boolean {
 
 function buildTripDetailsBlock(details: BookingDetails, bookingReference?: string): string {
   const reference = bookingReference ?? details.bookingReference;
+  const inclusions = resolveJourneyInclusions({
+    isAirportTrip: details.isAirportTrip,
+    isFromAirport: Boolean(details.isFromAirport),
+    returnJourney: details.returnJourney,
+    airportCode: details.airportCode,
+    addressToAddress: !details.isAirportTrip,
+  });
+  const includesBlock = details.estimatedPrice
+    ? `\n${formatEmailFareIncludesBlock(inclusions, details.estimatedPrice)}\n`
+    : inclusions.emailIncludeLines.length > 0
+      ? `\nIncludes:\n${inclusions.emailIncludeLines.map((line) => (line.startsWith("•") || line.endsWith(":") ? line : `• ${line}`)).join("\n")}\n`
+      : `\n${inclusions.summary}\n`;
 
   return (
     (reference ? `Booking reference: ${reference}\n` : "") +
@@ -88,6 +104,7 @@ function buildTripDetailsBlock(details: BookingDetails, bookingReference?: strin
       ? `Journey: ${details.journeyDistance} · ${details.journeyDuration}\n`
       : "") +
     (details.estimatedPrice ? `Your fixed journey price: ${details.estimatedPrice}\n` : "") +
+    includesBlock +
     (details.returnJourney && details.estimatedPrice ? "Return booking discount: 5% applied\n" : "") +
     (details.termsAcceptedAt
       ? `Terms accepted: ${details.termsAcceptedAt}${details.termsVersion ? ` (${details.termsVersion})` : ""}\n`

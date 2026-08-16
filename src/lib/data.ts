@@ -355,12 +355,12 @@ export const WHY_CHOOSE_US = [
   {
     title: "60 minutes free waiting",
     description:
-      "Complimentary waiting time after landing is included, along with airport parking charges.",
+      "Airport pickups include 60 minutes complimentary waiting after landing, with the applicable express pickup fee covered in your fixed fare.",
   },
   {
     title: "Clear upfront quotes",
     description:
-      "Get a personalised quote via WhatsApp before you travel. All quotes include fuel, tolls, and your driver.",
+      "Get a fixed price before you travel. Airport drop-offs include the applicable express drop-off fee; Dublin Airport fares include applicable tolls.",
   },
   {
     title: "24/7, 365 days a year",
@@ -434,7 +434,7 @@ export const FAQS = [
   {
     question: "What is included in the price?",
     answer:
-      "All quotes include the vehicle, professional driver, fuel, tolls, and up to 60 minutes complimentary waiting time after landing. Parking charges at the airport are also covered.",
+      "Quoted fares include the vehicle, professional driver and fuel. Airport pickups include the applicable express pickup fee and 60 minutes complimentary waiting after landing. Airport drop-offs include the applicable express drop-off fee. Dublin Airport fares include applicable tolls. Address-to-address journeys are a fixed price for your route.",
   },
   {
     question: "Can I pay by card?",
@@ -484,7 +484,7 @@ export const FAQS = [
   {
     question: "Is parking included at the airport?",
     answer:
-      "Yes — parking charges at the airport are included in the quoted price for airport transfers, along with the vehicle, driver, fuel, tolls, and waiting time where applicable.",
+      "Yes — parking and express access charges for airport transfers are covered in the fixed quoted fare (described as the express pickup fee when we collect you from the airport, or the express drop-off fee when we take you to the airport), along with the vehicle, driver and fuel. Dublin Airport fares also include applicable tolls.",
   },
   {
     question: "Can I pay with cash?",
@@ -514,12 +514,12 @@ export const FAQS = [
   {
     question: "Are tolls included in the price?",
     answer:
-      "Yes — quoted fares include applicable road tolls for your route (including cross-border tolls where relevant), along with the vehicle, professional driver, and fuel.",
+      "Quoted fares for Dublin Airport and other cross-border routes that use toll roads include applicable road tolls in the fixed price, along with the vehicle, professional driver and fuel. Northern Ireland address-to-address journeys do not add separate toll charges.",
   },
   {
     question: "How much waiting time is included?",
     answer:
-      "Airport collections include 60 minutes complimentary waiting from when your flight lands (with flight tracking when you provide a flight number). All other pickups include 10 minutes complimentary waiting at the agreed collection point.",
+      "Airport collections (pickup from the airport) include 60 minutes complimentary waiting from when your flight lands (with flight tracking when you provide a flight number). Airport drop-offs and all other pickups include 10 minutes complimentary waiting at the agreed collection point.",
   },
   {
     question: "Can I book a return journey?",

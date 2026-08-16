@@ -35,6 +35,7 @@ import {
 } from "@/lib/vehicle-selection";
 import { parseLondonLocalDateTime } from "@/lib/london-time";
 import { formatUkDate, formatUkTime, todayLondonDate, nowLondonTime } from "@/lib/format-datetime";
+import { resolveJourneyInclusions } from "@/lib/journey-inclusions";
 
 import {
   readPrefillAirport,
@@ -196,27 +197,44 @@ function formatDisplayTime(time: string): string {
   return formatUkTime(time);
 }
 
-function getPriceInclusionNote(
-  isAirportTrip: boolean,
-  isFromAirport: boolean,
-  returnJourney: boolean,
-): string {
-  if (!isAirportTrip) {
-    return "Includes 10 minutes complimentary waiting time at pickup.";
-  }
+function PriceInclusionBlock({
+  isAirportTrip,
+  isFromAirport,
+  returnJourney,
+  airportCode,
+  addressToAddress,
+  guideSuffix,
+}: {
+  isAirportTrip: boolean;
+  isFromAirport: boolean;
+  returnJourney: boolean;
+  airportCode?: string | null;
+  addressToAddress?: boolean;
+  guideSuffix?: string;
+}) {
+  const inclusions = resolveJourneyInclusions({
+    isAirportTrip,
+    isFromAirport,
+    returnJourney,
+    airportCode,
+    addressToAddress,
+  });
 
-  if (returnJourney) {
-    if (isFromAirport) {
-      return "Includes express drop-off and pickup fees, and 60 minutes complimentary waiting time from when your plane lands.";
-    }
-    return "Includes express drop-off and pickup fees. 60 minutes complimentary waiting time applies when we collect you from the airport.";
-  }
-
-  if (isFromAirport) {
-    return "Includes express pickup fees and 60 minutes complimentary waiting time from when your plane lands.";
-  }
-
-  return "Includes express drop-off fees.";
+  return (
+    <div className="mt-3 text-xs leading-relaxed text-white/60">
+      <p>
+        {inclusions.summary}
+        {guideSuffix ? ` ${guideSuffix}` : ""}
+      </p>
+      {inclusions.bullets.length > 0 && (
+        <ul className="mt-2 space-y-1">
+          {inclusions.bullets.map((bullet) => (
+            <li key={bullet}>{bullet}</li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
 }
 
 function getFlightNumbersIntro(isFromAirport: boolean, returnJourney: boolean): string {
@@ -435,6 +453,13 @@ function QuoteCard({
   const isFromAirport = isA2AFlow
     ? Boolean(pickupAirportCode)
     : tripDirection === "from-airport";
+  /** Airport fee wording applies to classic airport trips and A2A legs that touch an airport. */
+  const isAirportLegForInclusions =
+    isAirportTrip ||
+    journeyKind === "address-to-airport" ||
+    journeyKind === "airport-to-address" ||
+    Boolean(pickupAirportCode || dropoffAirportCode);
+  const isAddressToAddressInclusions = !isAirportLegForInclusions;
   const returnTripDirection: TripDirection = isFromAirport ? "to-airport" : "from-airport";
   const addressLookupCode = isA2AFlow
     ? PLACES_LOOKUP_A2A
@@ -2457,10 +2482,14 @@ function QuoteCard({
                   Approx. {journeyDistanceLabel} · {journeyDurationLabel}
                 </p>
               )}
-              <p className="mt-3 text-xs leading-relaxed text-white/60">
-                {getPriceInclusionNote(isAirportTrip, isFromAirport, returnJourney)} This is a guide
-                price only — not an instant confirmation.
-              </p>
+              <PriceInclusionBlock
+                isAirportTrip={isAirportLegForInclusions}
+                isFromAirport={isFromAirport}
+                returnJourney={returnJourney}
+                airportCode={effectiveAirportCode}
+                addressToAddress={isAddressToAddressInclusions}
+                guideSuffix="This is a guide price only — not an instant confirmation."
+              />
               {returnJourney && (
                 <p className="mt-2 text-xs font-medium text-emerald/90">
                   Includes 5% return booking discount on the guide price.
@@ -2517,9 +2546,13 @@ function QuoteCard({
                   Approx. {journeyDistanceLabel} · {journeyDurationLabel}
                 </p>
               )}
-              <p className="mt-3 text-xs leading-relaxed text-white/60">
-                {getPriceInclusionNote(isAirportTrip, isFromAirport, returnJourney)}
-              </p>
+              <PriceInclusionBlock
+                isAirportTrip={isAirportLegForInclusions}
+                isFromAirport={isFromAirport}
+                returnJourney={returnJourney}
+                airportCode={effectiveAirportCode}
+                addressToAddress={isAddressToAddressInclusions}
+              />
               {returnJourney && (
                 <p className="mt-2 text-xs font-medium text-emerald/90">
                   Includes 5% return booking discount.
@@ -2542,8 +2575,12 @@ function QuoteCard({
               : isEnquiryOnly
                 ? "We’ll reply with your quote — no online payment until you confirm."
                 : canPayNowOnline
-                  ? "Includes driver, fuel and tolls. Eligible bookings can be paid securely online with SumUp."
-                  : "Includes driver, fuel and tolls. Continue to enter your details — eligible bookings can be paid securely online with SumUp."}
+                  ? isAirportLegForInclusions
+                    ? "Eligible bookings can be paid securely online with SumUp."
+                    : "Fixed price for your journey. Eligible bookings can be paid securely online with SumUp."
+                  : isAirportLegForInclusions
+                    ? "Continue to enter your details — eligible bookings can be paid securely online with SumUp."
+                    : "Fixed price for your journey. Continue to enter your details when you’re ready."}
           </p>
         </div>
         )}

@@ -19,6 +19,7 @@ import {
   showsOnlineGuidePrice,
 } from "@/lib/data";
 import { selectVehicleForParty } from "@/lib/vehicle-selection";
+import { resolveJourneyInclusions } from "@/lib/journey-inclusions";
 import { BUSINESS_LEGAL } from "@/lib/business-legal";
 import {
   LONG_DISTANCE_EXAMPLE_ROUTES,
@@ -234,7 +235,7 @@ function knowledgeChunks(): Array<{ title: string; body: string }> {
     },
     {
       title: "Airports we cover",
-      body: `We cover ${AIRPORTS.map((a) => `${a.name} (${a.code}): ${a.description} ${a.distance}, ${a.duration}`).join(" ")} Prices include vehicle, driver, fuel, tolls, and up to 60 minutes complimentary waiting time after landing for airport pickups.`,
+      body: `We cover ${AIRPORTS.map((a) => `${a.name} (${a.code}): ${a.description} ${a.distance}, ${a.duration}`).join(" ")} Airport pickups include the applicable express pickup fee and 60 minutes complimentary waiting after landing. Airport drop-offs include the applicable express drop-off fee. Dublin Airport fares include applicable tolls.`,
     },
     {
       title: "Areas we cover",
@@ -273,7 +274,7 @@ function knowledgeChunks(): Array<{ title: string; body: string }> {
     {
       title: "Flight delays and waiting time",
       body:
-        "We track your flight and adjust pickup for delays or early landings at no extra charge. Airport pickups include up to 60 minutes complimentary waiting after landing. Other pickups include 10 minutes complimentary waiting. Parking at the airport is included in the price.",
+        "We track your flight and adjust pickup for delays or early landings at no extra charge. Airport pickups include the applicable express pickup fee and up to 60 minutes complimentary waiting after landing. Airport drop-offs include the applicable express drop-off fee (10 minutes complimentary waiting at non-airport pickups). Dublin Airport fares include applicable tolls.",
     },
     {
       title: "Cash and payment options",
@@ -1624,10 +1625,12 @@ function tryBuildQuote(
   const directionLabel =
     draft.direction === "from-airport" ? `from ${airportName}` : `to ${airportName}`;
   const vehicleLabel = vehicle.split(" (")[0];
-  const waitingNote =
-    draft.direction === "from-airport" || draft.returnJourney
-      ? "Includes vehicle, driver, fuel, tolls, and up to 60 minutes waiting after landing for airport pickups."
-      : "Includes vehicle, driver, fuel and tolls.";
+  const waitingNote = resolveJourneyInclusions({
+    isAirportTrip: true,
+    isFromAirport: draft.direction === "from-airport",
+    returnJourney: Boolean(draft.returnJourney),
+    airportCode: draft.airportCode,
+  }).summary;
 
   const quoteCard: QuoteCardSummary = {
     amount: quote.amount,

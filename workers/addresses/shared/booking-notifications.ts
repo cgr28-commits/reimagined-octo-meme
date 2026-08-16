@@ -1,6 +1,11 @@
 import { formatMarketingOptInLine } from "./marketing";
 import { BUSINESS_MAILBOX } from "./business-email";
 import { formatUkDate, formatUkTime, UK_LOCAL_TIME_LABEL } from "./uk-time";
+import {
+  formatEmailFareIncludesBlock,
+  formatEmailFareIncludesHtml,
+  resolveJourneyInclusions,
+} from "./journey-inclusions";
 
 export type PaidBookingDetails = {
   customerName: string;
@@ -216,6 +221,26 @@ function buildInvoiceHtml(
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0">${rowsHtml}</table>
             </td>
           </tr>
+          <tr>
+            <td style="padding:8px 32px 8px;">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;">
+                <tr>
+                  <td style="padding:16px 20px;">
+                    ${formatEmailFareIncludesHtml(
+                      resolveJourneyInclusions({
+                        isAirportTrip: details.isAirportTrip,
+                        isFromAirport: Boolean(details.isFromAirport),
+                        returnJourney: details.returnJourney,
+                        airportCode: details.airportCode,
+                        addressToAddress: !details.isAirportTrip,
+                      }),
+                      details.amountPaid,
+                    )}
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
           ${
             trackUrl
               ? `<tr>
@@ -292,6 +317,16 @@ export function buildCustomerConfirmationEmail(
     `BOOKING DETAILS\n` +
     `${"=".repeat(40)}\n` +
     `${formatTripSchedule(details)}\n\n` +
+    `${formatEmailFareIncludesBlock(
+      resolveJourneyInclusions({
+        isAirportTrip: details.isAirportTrip,
+        isFromAirport: Boolean(details.isFromAirport),
+        returnJourney: details.returnJourney,
+        airportCode: details.airportCode,
+        addressToAddress: !details.isAirportTrip,
+      }),
+      details.amountPaid,
+    )}\n\n` +
     `PAYMENT / INVOICE\n` +
     `${"=".repeat(40)}\n` +
     `Amount paid: ${details.amountPaid}\n` +
