@@ -18,6 +18,7 @@ import {
   needsLuggageCapacityConfirmation,
   showsOnlineGuidePrice,
 } from "@/lib/data";
+import { selectVehicleForParty } from "@/lib/vehicle-selection";
 import { BUSINESS_LEGAL } from "@/lib/business-legal";
 import {
   LONG_DISTANCE_EXAMPLE_ROUTES,
@@ -690,9 +691,7 @@ function extractBareCount(text: string): number | undefined {
 }
 
 function pickVehicle(passengers: number, suitcases: number): (typeof VEHICLE_TYPES)[number] {
-  if (passengers > 4 || suitcases >= 5) return "Minibus (5–8 passengers)";
-  if (suitcases >= 3) return "Estate Car (1–4 passengers)";
-  return "Standard Saloon (1–4 passengers)";
+  return selectVehicleForParty(passengers, suitcases);
 }
 
 function matchExplicitVehicle(text: string): (typeof VEHICLE_TYPES)[number] | undefined {
