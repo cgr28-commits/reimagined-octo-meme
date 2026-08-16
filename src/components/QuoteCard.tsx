@@ -1330,9 +1330,12 @@ function QuoteCard({
       ? `${isFromAirport ? "Pickup from" : "Transfer to"} ${airportName} (${effectiveAirportCode})`
       : "Address-to-address transfer";
     const customer = customerName.trim();
-    const namePart = customer ? ` — ${customer}` : "";
+    const mobile = customerMobile.trim();
+    const email = customerEmail.trim();
+    const contactParts = [customer, mobile, email].filter(Boolean);
+    const contactPart = contactParts.length ? ` — ${contactParts.join(" · ")}` : "";
     const prefix = testChargeAmount ? "[TEST £1] " : "";
-    return `${prefix}${tripSummary} — ${vehicleLabel}${namePart}`.slice(0, 140);
+    return `${prefix}${tripSummary} — ${vehicleLabel}${contactPart}`.slice(0, 140);
   }
 
   const paymentAmount = testChargeAmount ?? liveQuote?.amount ?? null;
@@ -1362,16 +1365,18 @@ function QuoteCard({
 
     try {
       const returnToken = createPaymentReturnToken();
+      const bookingDetails = buildConfirmedBookingDetails();
       const checkout = await createPaymentCheckout({
         amount: paymentAmount ?? liveQuote.amount,
         description: buildPaymentDescription(),
         redirectUrl: buildPaymentRedirectUrl(returnToken),
+        booking: bookingDetails,
       });
       savePendingPayment(
         {
           checkoutId: checkout.checkoutId,
           booking: {
-            ...buildConfirmedBookingDetails(),
+            ...bookingDetails,
           },
         },
         returnToken,

@@ -7,6 +7,8 @@ export type PaymentCheckoutRequest = {
   description: string;
   checkoutReference?: string;
   redirectUrl?: string;
+  /** Full booking with customer email + mobile — stored server-side before SumUp redirect. */
+  booking: BookingDetails;
 };
 
 export type PaymentCheckoutResult = {
@@ -101,6 +103,7 @@ export async function createPaymentCheckout(
       description: request.description,
       checkoutReference: request.checkoutReference,
       redirectUrl: request.redirectUrl ?? buildPaymentRedirectUrl(),
+      booking: request.booking,
     }),
   });
 

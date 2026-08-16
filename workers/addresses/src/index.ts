@@ -46,9 +46,6 @@ import {
   STARTING_BOOKING_REF,
 } from "../shared/booking-reference";
 import {
-  buildCustomerConfirmationEmail,
-  buildOwnerPaidBookingEmail,
-  formatPaidAmount,
   type PaidBookingDetails,
 } from "../shared/booking-notifications";
 import {
@@ -56,10 +53,6 @@ import {
   type TripDirection,
 } from "../shared/flight-lookup";
 import {
-  getSumUpCheckout,
-  getSuccessfulTransactionCode,
-  getSuccessfulTransactionId,
-  isSumUpCheckoutPaid,
   buildCheckoutReference,
   createSumUpHostedCheckout,
 } from "../shared/sumup-checkout";
@@ -80,7 +73,6 @@ import {
 } from "./booking-job-handlers";
 import { bookingJobStoreConfigured } from "./booking-job-store";
 import {
-  createTrackingJobForPaidBooking,
   handleCustomerLocationRequest,
   handleCustomerSharingRequest,
   handleDriverJobsRequest,
@@ -107,11 +99,18 @@ import {
 } from "./driver-vehicle-handlers";
 import {
   handleRefundRequest,
-  savePaidBookingRecordFromConfirm,
 } from "./refund-handlers";
 import {
+  extractCheckoutIdFromWebhookPayload,
+  finalizePaidCheckout,
+  resolveBookingForCheckout,
+} from "./finalize-paid-checkout";
+import {
+  pendingCheckoutStoreConfigured,
+  savePendingCheckout,
+} from "./pending-checkout-store";
+import {
   sendEmail,
-  trySendBrandedCustomerEmail,
   trySendEmail,
   type EmailPayload,
 } from "./worker-email";
@@ -177,8 +176,6 @@ type BookingRequestBody = {
 };
 
 const DEFAULT_BOOKING_EMAIL = "bookings@myairporttaxini.co.uk";
-const BUSINESS_NAME = "My Airport Taxi NI";
-
 function ownerInbox(_env?: { BOOKING_TO_EMAIL?: string }): string {
   return DEFAULT_BOOKING_EMAIL;
 }
@@ -517,8 +514,9 @@ function parsePaidBookingDetails(body: Record<string, unknown>): PaidBookingDeta
   const details = booking as Record<string, unknown>;
   const customerName = String(details.customerName ?? "").trim();
   const customerEmail = String(details.customerEmail ?? "").trim();
+  const mobileNumber = String(details.mobileNumber ?? "").trim();
 
-  if (!customerName || !customerEmail) {
+  if (!customerName || !customerEmail || !mobileNumber) {
     return null;
   }
 
@@ -530,7 +528,7 @@ function parsePaidBookingDetails(body: Record<string, unknown>): PaidBookingDeta
   return {
     customerName,
     customerEmail,
-    mobileNumber: String(details.mobileNumber ?? "").trim(),
+    mobileNumber,
     tripLabel: String(details.tripLabel ?? "").trim(),
     pickupLabel: String(details.pickupLabel ?? "").trim(),
     dropoffLabel: String(details.dropoffLabel ?? "").trim(),
@@ -555,6 +553,16 @@ function parsePaidBookingDetails(body: Record<string, unknown>): PaidBookingDeta
     marketingOptInAt: String(details.marketingOptInAt ?? "").trim() || undefined,
     marketingConsentVersion: String(details.marketingConsentVersion ?? "").trim() || undefined,
   };
+}
+
+/** Keep name + email + mobile visible on the SumUp payment itself (140 char limit). */
+function buildSumUpCheckoutDescription(
+  baseDescription: string,
+  booking: PaidBookingDetails,
+): string {
+  const contact = `${booking.customerName} · ${booking.mobileNumber} · ${booking.customerEmail}`;
+  const combined = `${baseDescription} — ${contact}`.replace(/\s+/g, " ").trim();
+  return combined.slice(0, 140);
 }
 
 async function isDuplicateQuoteLead(
@@ -883,12 +891,7 @@ async function handlePaymentRequest(
     return json({ error: "SumUp payment is not configured" }, 503, origin);
   }
 
-  let body: {
-    amount?: number;
-    description?: string;
-    checkoutReference?: string;
-    redirectUrl?: string;
-  };
+  let body: Record<string, unknown>;
 
   try {
     body = await request.json();
@@ -897,8 +900,9 @@ async function handlePaymentRequest(
   }
 
   const amount = Number(body.amount);
-  const description = body.description?.trim() ?? "";
-  const redirectUrl = body.redirectUrl?.trim() ?? "";
+  const description = String(body.description ?? "").trim();
+  const redirectUrl = String(body.redirectUrl ?? "").trim();
+  const booking = parsePaidBookingDetails(body);
 
   if (!Number.isFinite(amount) || amount < 1 || amount > 5000) {
     return json({ error: "Invalid payment amount" }, 400, origin);
@@ -912,15 +916,44 @@ async function handlePaymentRequest(
     return json({ error: "Missing redirect URL" }, 400, origin);
   }
 
+  if (!booking) {
+    return json(
+      {
+        error:
+          "Missing customer booking details. Email and mobile are required before starting SumUp payment.",
+      },
+      400,
+      origin,
+    );
+  }
+
+  if (!pendingCheckoutStoreConfigured(env.TRACKING_STORE)) {
+    return json(
+      { error: "Booking store is not configured — cannot start a paid checkout safely" },
+      503,
+      origin,
+    );
+  }
+
   try {
-    const checkoutReference = body.checkoutReference?.trim() || buildCheckoutReference();
+    const checkoutReference =
+      String(body.checkoutReference ?? "").trim() || buildCheckoutReference();
     const returnUrl = new URL("/payments/webhook", request.url).toString();
+    const sumUpDescription = buildSumUpCheckoutDescription(description, booking);
     const checkout = await createSumUpHostedCheckout(apiKey, merchantCode, {
       amount: Math.round(amount * 100) / 100,
-      description,
+      description: sumUpDescription,
       checkoutReference,
       redirectUrl,
       returnUrl,
+    });
+
+    await savePendingCheckout(env.TRACKING_STORE, {
+      checkoutId: checkout.checkoutId,
+      checkoutReference: checkout.checkoutReference,
+      amount: Math.round(amount * 100) / 100,
+      booking,
+      createdAt: new Date().toISOString(),
     });
 
     return json(
@@ -941,18 +974,40 @@ async function handlePaymentRequest(
 
 /**
  * SumUp server-to-server callback (return_url).
- * Must acknowledge quickly with 2xx — heavy work stays on /payments/confirm
- * when the customer returns to the website.
+ * Finalises using server-stored customer email/mobile so the owner is notified
+ * even if the customer never returns to /booking-confirmed/.
  */
 async function handlePaymentWebhookRequest(
   request: Request,
+  env: Env,
   origin: string | null,
 ): Promise<Response> {
+  let payload: unknown = null;
   try {
-    const payload = await request.json().catch(() => null);
+    payload = await request.json().catch(() => null);
     console.log("SumUp payment webhook", payload);
   } catch {
     // Ignore malformed bodies — still acknowledge so SumUp does not retry/timeout.
+  }
+
+  const checkoutId = extractCheckoutIdFromWebhookPayload(payload);
+  if (checkoutId && pendingCheckoutStoreConfigured(env.TRACKING_STORE)) {
+    try {
+      const booking = await resolveBookingForCheckout(env, checkoutId, null);
+      if (booking) {
+        const result = await finalizePaidCheckout({
+          env,
+          checkoutId,
+          booking,
+          logPaidBookingCalendar,
+        });
+        if (!result.ok && result.error && !result.error.includes("not been completed")) {
+          console.error("SumUp webhook finalize failed", result.error);
+        }
+      }
+    } catch (error) {
+      console.error("SumUp webhook finalize threw", error);
+    }
   }
 
   return json({ ok: true }, 200, origin);
@@ -978,100 +1033,38 @@ async function handlePaymentConfirmRequest(
   }
 
   const checkoutId = String(body.checkoutId ?? "").trim();
-  const booking = parsePaidBookingDetails(body);
+  const clientBooking = parsePaidBookingDetails(body);
+  const booking = checkoutId
+    ? await resolveBookingForCheckout(env, checkoutId, clientBooking)
+    : clientBooking;
 
   if (!checkoutId || !booking) {
-    return json({ error: "Missing checkout or booking details" }, 400, origin);
+    return json(
+      {
+        error:
+          "Missing checkout or booking details (customer email and mobile are required).",
+      },
+      400,
+      origin,
+    );
   }
 
   try {
-    const checkout = await getSumUpCheckout(apiKey, checkoutId);
-
-    if (!isSumUpCheckoutPaid(checkout)) {
-      return json({ error: "Payment has not been completed yet" }, 402, origin);
-    }
-
-    const amountPaid = formatPaidAmount(checkout.amount ?? 0, checkout.currency ?? "GBP");
-    const transactionCode = getSuccessfulTransactionCode(checkout);
-    const transactionId = getSuccessfulTransactionId(checkout);
-    const paymentReference = transactionCode ?? checkout.checkout_reference ?? checkout.id;
-
-    const receipt = {
-      ...booking,
-      amountPaid,
-      paymentReference,
-      transactionCode,
-      checkoutReference: checkout.checkout_reference,
-    };
-
-    // Live driver tracking soft-hidden until more testing — do not create track jobs/links.
-    const LIVE_DRIVER_TRACKING_ENABLED = false;
-    const tracking = LIVE_DRIVER_TRACKING_ENABLED
-      ? await createTrackingJobForPaidBooking(env, booking, paymentReference)
-      : { created: false, trackUrl: undefined as string | undefined, token: undefined as string | undefined };
-
-    const customerEmail = buildCustomerConfirmationEmail(receipt, BUSINESS_NAME, {
-      trackUrl: tracking.trackUrl,
-    });
-    const ownerEmail = buildOwnerPaidBookingEmail(receipt, BUSINESS_NAME, {
-      trackUrl: tracking.trackUrl,
-    });
-
-    const customerEmailResult = await trySendBrandedCustomerEmail(env, {
-      to: booking.customerEmail,
-      toName: booking.customerName,
-      subject: customerEmail.subject,
-      body: customerEmail.text,
-      htmlBody: customerEmail.html,
-    });
-
-    const ownerEmailResult = await trySendEmail(env, {
-      to: ownerInbox(env),
-      subject: ownerEmail.subject,
-      body: ownerEmail.body,
-    });
-
-    const calendar = await logPaidBookingCalendar(env, booking, amountPaid, paymentReference);
-
-    await savePaidBookingRecordFromConfirm({
+    const result = await finalizePaidCheckout({
       env,
-      booking,
       checkoutId,
-      transactionId,
-      transactionCode,
-      amount: checkout.amount ?? 0,
-      currency: checkout.currency ?? "GBP",
-      amountPaidLabel: amountPaid,
-      paymentReference,
-      trackingToken: tracking.token,
-      calendarEventIds: calendar.eventIds ?? [],
+      booking,
+      logPaidBookingCalendar,
     });
 
-    await maybeRecordMarketingFromPayload(env.TRACKING_STORE, {
-      email: booking.customerEmail,
-      name: booking.customerName,
-      source: "paid-booking",
-      marketingOptIn: booking.marketingOptIn,
-      marketingOptInAt: booking.marketingOptInAt,
-      marketingConsentVersion: booking.marketingConsentVersion,
-    });
-
-    const emailSent = customerEmailResult.sent && ownerEmailResult.sent;
-    const emailWarnings: string[] = [];
-
-    if (!customerEmailResult.sent) {
-      emailWarnings.push(
-        customerEmailResult.error
-          ? `Customer confirmation email failed: ${customerEmailResult.error}`
-          : "Customer confirmation email failed",
-      );
-    }
-
-    if (!ownerEmailResult.sent) {
-      emailWarnings.push(
-        ownerEmailResult.error
-          ? `Owner notification email failed: ${ownerEmailResult.error}`
-          : "Owner notification email failed",
+    if (!result.ok) {
+      const status = result.error?.includes("not been completed") ? 402 : 502;
+      return json(
+        {
+          error: result.error || "Could not confirm payment",
+        },
+        status,
+        origin,
       );
     }
 
@@ -1079,17 +1072,18 @@ async function handlePaymentConfirmRequest(
       {
         ok: true,
         paid: true,
-        amountPaid,
-        paymentReference,
-        emailSent,
-        customerEmailSent: customerEmailResult.sent,
-        ownerEmailSent: ownerEmailResult.sent,
-        ...(emailWarnings.length > 0 ? { emailWarning: emailWarnings.join("; ") } : {}),
-        calendarLogged: calendar.logged,
-        calendarEvents: calendar.events ?? 0,
-        ...(calendar.error ? { calendarWarning: calendar.error } : {}),
-        trackingCreated: tracking.created,
-        ...(tracking.trackUrl ? { trackUrl: tracking.trackUrl } : {}),
+        amountPaid: result.amountPaid,
+        paymentReference: result.paymentReference,
+        emailSent: result.emailSent,
+        customerEmailSent: result.customerEmailSent,
+        ownerEmailSent: result.ownerEmailSent,
+        ...(result.emailWarning ? { emailWarning: result.emailWarning } : {}),
+        calendarLogged: result.calendarLogged,
+        calendarEvents: result.calendarEvents,
+        ...(result.calendarWarning ? { calendarWarning: result.calendarWarning } : {}),
+        trackingCreated: result.trackingCreated,
+        ...(result.trackUrl ? { trackUrl: result.trackUrl } : {}),
+        ...(result.alreadyFinalized ? { alreadyFinalized: true } : {}),
       },
       200,
       origin,
@@ -1377,7 +1371,7 @@ export default {
         return json({ error: "Method not allowed" }, 405, origin);
       }
 
-      return handlePaymentWebhookRequest(request, origin);
+      return handlePaymentWebhookRequest(request, env, origin);
     }
 
     if (route === "payments-confirm") {

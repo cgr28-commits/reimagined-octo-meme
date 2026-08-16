@@ -30,3 +30,8 @@ export type PaidBookingRecord = {
 export function paidBookingRefKey(paymentReference: string): string {
   return `booking:ref:${paymentReference.trim()}`;
 }
+
+/** Secondary index so confirm/webhook can find a paid booking by SumUp checkout id. */
+export function paidBookingCheckoutKey(checkoutId: string): string {
+  return `booking:checkout:${checkoutId.trim()}`;
+}

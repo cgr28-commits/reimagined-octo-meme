@@ -1,4 +1,5 @@
 import {
+  paidBookingCheckoutKey,
   paidBookingRefKey,
   type PaidBookingRecord,
 } from "../shared/paid-booking-record";
@@ -14,6 +15,11 @@ export async function savePaidBookingRecord(
   await store.put(paidBookingRefKey(record.paymentReference), JSON.stringify(record), {
     expirationTtl: 60 * 60 * 24 * 400,
   });
+  if (record.checkoutId?.trim()) {
+    await store.put(paidBookingCheckoutKey(record.checkoutId), record.paymentReference, {
+      expirationTtl: 60 * 60 * 24 * 400,
+    });
+  }
 }
 
 export async function getPaidBookingRecord(
@@ -26,6 +32,17 @@ export async function getPaidBookingRecord(
   }
 
   return record;
+}
+
+export async function getPaidBookingRecordByCheckoutId(
+  store: KVNamespace,
+  checkoutId: string,
+): Promise<PaidBookingRecord | null> {
+  const paymentReference = await store.get(paidBookingCheckoutKey(checkoutId));
+  if (!paymentReference?.trim()) {
+    return null;
+  }
+  return getPaidBookingRecord(store, paymentReference.trim());
 }
 
 export async function markPaidBookingRefunded(
