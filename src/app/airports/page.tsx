@@ -46,7 +46,7 @@ export default function AirportsIndexPage() {
                     <span className="rounded-lg bg-emerald/15 px-2.5 py-1 text-xs font-bold tracking-wider text-emerald">
                       {page.code}
                     </span>
-                    <span className="text-sm font-semibold text-emerald">{page.fromPriceLabel}</span>
+                    <span className="text-sm font-semibold text-emerald">Get a fixed quote</span>
                   </div>
                   <h2 className="mt-3 text-xl font-bold text-white">{page.title}</h2>
                   <p className="mt-2 text-sm leading-relaxed text-white/60">{page.intro}</p>

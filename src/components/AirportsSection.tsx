@@ -14,7 +14,7 @@ function airportPageHref(code: string): string | null {
 }
 
 export default function AirportsSection() {
-  const showLiveFromPrices = arePublicLivePricesEnabled();
+  const showLiveQuotes = arePublicLivePricesEnabled();
   const confirmationLabel = getPublicUnapprovedPriceLabel();
 
   return (
@@ -39,8 +39,8 @@ export default function AirportsSection() {
                   <span className="rounded-lg bg-emerald/15 px-3 py-1 text-xs font-bold tracking-wider text-emerald">
                     {airport.code}
                   </span>
-                  <span className="text-lg font-bold text-emerald">
-                    {showLiveFromPrices ? airport.distance : confirmationLabel}
+                  <span className="text-sm font-semibold text-emerald">
+                    {showLiveQuotes ? airport.distance : confirmationLabel}
                   </span>
                 </div>
                 <h3 className="mt-4 text-lg font-bold text-white">
