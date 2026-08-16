@@ -197,12 +197,21 @@ export async function finalizePaidCheckout(input: {
     htmlBody: customerEmail.html,
   });
 
-  // Same path as payment-started: never FormSubmit-first (false success / no CF Email).
+  // Full invoice copy to bookings@ (HTML), plus the short owner alert.
+  const ownerCopyResult = await trySendBrandedCustomerEmail(env, {
+    to: ownerInbox(env),
+    toName: "Bookings",
+    subject: `[Bookings copy] ${customerEmail.subject}`,
+    body: customerEmail.text,
+    htmlBody: customerEmail.html,
+  });
+
   const ownerEmailResult = await trySendOwnerOperationalEmail(env, {
     to: ownerInbox(env),
     subject: ownerEmail.subject,
     body: ownerEmail.body,
   });
+  const ownerNotifySent = ownerCopyResult.sent || ownerEmailResult.sent;
 
   const calendar = await logPaidBookingCalendar(env, booking, amountPaid, paymentReference);
 
@@ -233,7 +242,7 @@ export async function finalizePaidCheckout(input: {
     await markPendingCheckoutFinalized(env.TRACKING_STORE, checkoutId, paymentReference);
   }
 
-  const emailSent = customerEmailResult.sent && ownerEmailResult.sent;
+  const emailSent = customerEmailResult.sent && ownerNotifySent;
   const emailWarnings: string[] = [];
 
   if (!customerEmailResult.sent) {
@@ -244,10 +253,10 @@ export async function finalizePaidCheckout(input: {
     );
   }
 
-  if (!ownerEmailResult.sent) {
+  if (!ownerNotifySent) {
     emailWarnings.push(
-      ownerEmailResult.error
-        ? `Owner notification email failed: ${ownerEmailResult.error}`
+      ownerEmailResult.error || ownerCopyResult.error
+        ? `Owner notification email failed: ${ownerEmailResult.error || ownerCopyResult.error}`
         : "Owner notification email failed",
     );
   }
@@ -259,7 +268,7 @@ export async function finalizePaidCheckout(input: {
     paymentReference,
     emailSent,
     customerEmailSent: customerEmailResult.sent,
-    ownerEmailSent: ownerEmailResult.sent,
+    ownerEmailSent: ownerNotifySent,
     ...(emailWarnings.length > 0 ? { emailWarning: emailWarnings.join("; ") } : {}),
     calendarLogged: calendar.logged,
     calendarEvents: calendar.events ?? 0,

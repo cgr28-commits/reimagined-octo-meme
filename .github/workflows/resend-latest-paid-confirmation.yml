@@ -1,5 +1,7 @@
 name: Resend latest paid confirmation
 
+# Runs on demand, or automatically when the trigger file is bumped on main
+# (used when the agent cannot call workflow_dispatch).
 on:
   workflow_dispatch:
     inputs:
@@ -7,13 +9,27 @@ on:
         description: "Optional payment reference (blank = latest paid booking)"
         required: false
         type: string
+  push:
+    branches: [main]
+    paths:
+      - "scripts/trigger-resend-latest-paid.txt"
+      - ".github/workflows/resend-latest-paid-confirmation.yml"
 
 concurrency:
   group: resend-paid-confirmation
   cancel-in-progress: false
 
 jobs:
+  wait-for-worker:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait briefly for worker deploy from the same merge
+        run: sleep 90
+
   resend:
+    needs: [wait-for-worker]
+    if: always() && (needs.wait-for-worker.result == 'success' || needs.wait-for-worker.result == 'skipped')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -22,7 +38,7 @@ jobs:
         with:
           node-version: 20
 
-      - name: Resend customer confirmation for latest (or given) paid booking
+      - name: Resend customer + bookings@ confirmation for latest (or given) paid booking
         env:
           OWNER_ACCESS_KEY: ${{ secrets.OWNER_ACCESS_KEY }}
           PAYMENT_REFERENCE: ${{ inputs.payment_reference }}
@@ -32,4 +48,16 @@ jobs:
             echo "::error::OWNER_ACCESS_KEY secret is not set"
             exit 1
           fi
+          # On push-triggered runs, wait a bit more if worker deploy is still catching up.
+          for i in 1 2 3 4 5; do
+            code=$(curl -sS -o /tmp/pb.json -w "%{http_code}" \
+              -H "Accept: application/json" \
+              -H "X-Owner-Key: $OWNER_ACCESS_KEY" \
+              "$WORKER_BASE_URL/api/paid-bookings?days=7&limit=1" || true)
+            if [ "$code" = "200" ]; then
+              break
+            fi
+            echo "paid-bookings returned $code — waiting for worker…"
+            sleep 20
+          done
           node scripts/resend-latest-paid-confirmation.mjs

@@ -1,0 +1,3 @@
+# Bump this file to trigger “Resend latest paid confirmation” on main.
+# Requested: send latest paid booking confirmation to customer + bookings@
+# Triggered: 2026-08-16T20:22:00Z
