@@ -60,6 +60,8 @@ type GoogleGeocodeResponse = {
 
 function getRegionCodes(airportCode: string): string[] {
   const code = normaliseAirportCode(airportCode);
+  // Google has no Northern-Ireland-only region code. "gb" includes England/Scotland/Wales,
+  // so every suggestion path must also run isAllowedAutocompleteLabel / isAddressAllowedForAirport.
   if (code === "DUB" || code === "A2A") {
     return ["gb", "ie"];
   }
@@ -383,6 +385,7 @@ export async function searchGoogleStreetAddresses(
       regionCode: code === "DUB" ? "ie" : "gb",
       languageCode: "en-GB",
       pageSize: 15,
+      locationRestriction: getLocationRestriction(code),
     }),
   });
 
@@ -423,6 +426,10 @@ export async function searchGoogleStreetAddresses(
         displayName: formatted,
       })
     ) {
+      continue;
+    }
+
+    if (!isAllowedAutocompleteLabel(formatted, code)) {
       continue;
     }
 
@@ -502,6 +509,7 @@ export async function searchGooglePostcodePremises(
         regionCode: "gb",
         languageCode: "en-GB",
         pageSize: 12,
+        locationRestriction: getLocationRestriction(code),
       }),
     });
 

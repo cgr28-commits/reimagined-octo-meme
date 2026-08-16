@@ -17,6 +17,7 @@ import {
 import {
   extractNorthernIrelandPostcode,
   extractPremisePrefixFromPostcodeQuery,
+  isAllowedAutocompleteLabel,
   isFullNorthernIrelandPostcode,
   isPureFullNorthernIrelandPostcodeQuery,
 } from "../../shared/address-validation";
@@ -69,12 +70,17 @@ function hasLeadingStreetNumber(text: string): boolean {
 
 function mergePredictions(
   predictions: AddressPrediction[],
+  airportCode: string,
   limit = 8,
 ): AddressPrediction[] {
   const seen = new Set<string>();
   const merged: AddressPrediction[] = [];
 
   for (const prediction of predictions) {
+    if (!isAllowedAutocompleteLabel(prediction.description, airportCode)) {
+      continue;
+    }
+
     const key = prediction.description.toLowerCase();
     if (seen.has(key)) {
       continue;
@@ -212,7 +218,7 @@ async function fetchLocalAddressPredictions(
   }
 
   const results = await Promise.all(tasks);
-  return mergePredictions(results.flat(), 10);
+  return mergePredictions(results.flat(), airportCode, 10);
 }
 
 export type AddressPredictionsResult = {
@@ -291,7 +297,7 @@ export async function fetchAddressPredictionsDetailed(
 
   const results = await Promise.all(tasks);
   return {
-    predictions: mergePredictions(results.flat(), 10),
+    predictions: mergePredictions(results.flat(), airportCode, 10),
     needsHouseNumber: false,
     postcode: extractNorthernIrelandPostcode(trimmed),
     hint: null,

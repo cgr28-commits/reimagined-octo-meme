@@ -20,6 +20,7 @@ import {
 import {
   extractNorthernIrelandPostcode,
   extractPremisePrefixFromPostcodeQuery,
+  isAllowedAutocompleteLabel,
   isFullNorthernIrelandPostcode,
   isPureFullNorthernIrelandPostcodeQuery,
   sortSuggestionsByStreetNumber,
@@ -1684,6 +1685,9 @@ export default {
       const seen = new Set<string>();
       const merged = sortSuggestionsByStreetNumber(
         suggestions.filter((item) => {
+          if (!isAllowedAutocompleteLabel(item.label, airportCode)) {
+            return false;
+          }
           const key = item.label.toLowerCase();
           if (seen.has(key)) {
             return false;

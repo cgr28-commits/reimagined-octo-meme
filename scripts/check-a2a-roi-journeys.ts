@@ -212,7 +212,14 @@ check("Belfast to Bangor keeps instant quote (NI A2A, standard pickup)", () => {
 check("A2A Places mode allows NI and ROI labels", () => {
   assert.equal(isAllowedAutocompleteLabel("10 High Street, Belfast BT1", "A2A"), true);
   assert.equal(isAllowedAutocompleteLabel("Grafton Street, Dublin, Ireland", "A2A"), true);
+  assert.equal(isAllowedAutocompleteLabel("Patrick Street, Cork", "A2A"), true);
+  assert.equal(isAllowedAutocompleteLabel("Dublin Airport", "A2A"), true);
+  assert.equal(isAllowedAutocompleteLabel("Newtownabbey", "A2A"), true);
   assert.equal(isAllowedAutocompleteLabel("Oxford Street, London, England", "A2A"), false);
+  assert.equal(isAllowedAutocompleteLabel("Manchester Piccadilly", "A2A"), false);
+  assert.equal(isAllowedAutocompleteLabel("Buchanan Street, Glasgow", "A2A"), false);
+  assert.equal(isAllowedAutocompleteLabel("Princes Street, Edinburgh", "A2A"), false);
+  assert.equal(isAllowedAutocompleteLabel("Cardiff Bay, Cardiff", "A2A"), false);
 });
 
 check("A2A Places mode allows IE coordinates", () => {
