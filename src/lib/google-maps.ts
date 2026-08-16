@@ -21,9 +21,17 @@ import {
   searchGetAddress,
   shouldUseGetAddress,
 } from "../../shared/getaddress";
+import {
+  isIdealPostcodesPlaceId,
+  resolveIdealPostcodesDetails,
+  searchIdealPostcodes,
+  shouldUseIdealPostcodes,
+} from "../../shared/ideal-postcodes";
 
 const GOOGLE_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_PLACES_API_KEY?.trim() ?? "";
 const GETADDRESS_API_KEY = process.env.NEXT_PUBLIC_GETADDRESS_API_KEY?.trim() ?? "";
+/** Server-only Ideal key must never be NEXT_PUBLIC — client relies on the Worker. */
+const IDEAL_POSTCODES_API_KEY = process.env.IDEAL_POSTCODES_API_KEY?.trim() ?? "";
 const ADDRESSES_API_URL = resolveAddressesApiUrl();
 
 let sessionToken = createSessionToken();
@@ -46,7 +54,10 @@ function hasLeadingStreetNumber(text: string): boolean {
   return /^\d+[a-zA-Z]?\s/.test(text.trim());
 }
 
-function mergePredictions(predictions: AddressPrediction[]): AddressPrediction[] {
+function mergePredictions(
+  predictions: AddressPrediction[],
+  limit = 8,
+): AddressPrediction[] {
   const seen = new Set<string>();
   const merged: AddressPrediction[] = [];
 
@@ -72,7 +83,7 @@ function mergePredictions(predictions: AddressPrediction[]): AddressPrediction[]
       }
       return 0;
     })
-    .slice(0, 8);
+    .slice(0, limit);
 }
 
 function toPrediction(suggestion: {
@@ -90,7 +101,7 @@ function toPrediction(suggestion: {
 }
 
 export function isGooglePlacesEnabled(): boolean {
-  return Boolean(ADDRESSES_API_URL || GOOGLE_API_KEY || GETADDRESS_API_KEY);
+  return Boolean(ADDRESSES_API_URL || GOOGLE_API_KEY || GETADDRESS_API_KEY || IDEAL_POSTCODES_API_KEY);
 }
 
 export async function geocodePickupAddress(
@@ -128,6 +139,14 @@ async function fetchLocalAddressPredictions(
 ): Promise<AddressPrediction[]> {
   const trimmed = input.trim();
   const tasks: Promise<AddressPrediction[]>[] = [];
+
+  if (IDEAL_POSTCODES_API_KEY && shouldUseIdealPostcodes(airportCode, trimmed)) {
+    tasks.push(
+      safePredictions(
+        searchIdealPostcodes(IDEAL_POSTCODES_API_KEY, trimmed, airportCode).then(toPredictions),
+      ),
+    );
+  }
 
   if (GETADDRESS_API_KEY && shouldUseGetAddress(airportCode, trimmed)) {
     tasks.push(
@@ -169,7 +188,8 @@ async function fetchLocalAddressPredictions(
   }
 
   const results = await Promise.all(tasks);
-  return mergePredictions(results.flat());
+  const isPostcodeHeavy = /^BT\d{1,2}\s?\d[A-Z]{2}$/i.test(trimmed);
+  return mergePredictions(results.flat(), isPostcodeHeavy ? 100 : 8);
 }
 
 export async function fetchAddressPredictions(
@@ -193,7 +213,7 @@ export async function fetchAddressPredictions(
     );
   }
 
-  if (GOOGLE_API_KEY || GETADDRESS_API_KEY) {
+  if (GOOGLE_API_KEY || GETADDRESS_API_KEY || IDEAL_POSTCODES_API_KEY) {
     tasks.push(safePredictions(fetchLocalAddressPredictions(trimmed, airportCode)));
   }
 
@@ -202,7 +222,8 @@ export async function fetchAddressPredictions(
   }
 
   const results = await Promise.all(tasks);
-  return mergePredictions(results.flat());
+  const isPostcodeHeavy = /^BT\d{1,2}\s?\d[A-Z]{2}$/i.test(trimmed);
+  return mergePredictions(results.flat(), isPostcodeHeavy ? 100 : 8);
 }
 
 export async function fetchPlaceDetails(
@@ -234,6 +255,24 @@ export async function fetchSelectedPlaceDetails(
         locality: workerPlace.locality,
       });
     }
+  }
+
+  if (isIdealPostcodesPlaceId(placeId)) {
+    const details = await resolveIdealPostcodesDetails(placeId, airportCode);
+    if (!details) {
+      return null;
+    }
+    return selectedPlaceFromParts({
+      placeId: details.placeId,
+      formattedAddress: details.formattedAddress,
+      lat: details.lat,
+      lng: details.lng,
+      countryCode: details.countryCode,
+      postalCode: details.postalCode,
+      streetNumber: details.streetNumber,
+      route: details.route,
+      locality: details.locality,
+    });
   }
 
   if (isGetAddressPlaceId(placeId)) {

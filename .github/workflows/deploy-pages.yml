@@ -48,9 +48,9 @@ jobs:
             echo "Google API key configured (${#KEY} characters)"
           fi
           if [ -n "$GETADDRESS_DOMAIN_TOKEN" ]; then
-            echo "getAddress domain token configured (${#GETADDRESS_DOMAIN_TOKEN} characters)"
+            echo "Legacy getAddress domain token configured (${#GETADDRESS_DOMAIN_TOKEN} characters)"
           else
-            echo "::notice::No GETADDRESS_DOMAIN_TOKEN — door numbers on street searches work best with getAddress.io (free tier available)."
+            echo "::notice::Postcode premises lists use Ideal Postcodes on the Worker (IDEAL_POSTCODES_API_KEY). Google Places still powers free-text search."
           fi
           if [ -z "$BOOKINGS_API_URL" ]; then
             BOOKINGS_API_URL="https://reimagined-octo-meme.cgr28.workers.dev/bookings"

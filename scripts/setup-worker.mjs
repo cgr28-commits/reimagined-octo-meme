@@ -7,7 +7,7 @@
  *
  * Optional env vars:
  *   CLOUDFLARE_ACCOUNT_ID (default: 36c5c88df4c1f0259413d555f2679f3c)
- *   GETADDRESS_API_KEY, BOOKING_TO_EMAIL, BOOKING_FROM_EMAIL
+ *   GETADDRESS_API_KEY, IDEAL_POSTCODES_API_KEY, BOOKING_TO_EMAIL, BOOKING_FROM_EMAIL
  */
 import { execSync, spawnSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
@@ -163,6 +163,7 @@ ensureKvNamespaces();
 
 console.log("\nSetting worker secrets…");
 putSecret("GOOGLE_PLACES_API_KEY", process.env.GOOGLE_PLACES_API_KEY);
+putSecret("IDEAL_POSTCODES_API_KEY", process.env.IDEAL_POSTCODES_API_KEY);
 putSecret("GETADDRESS_API_KEY", process.env.GETADDRESS_API_KEY);
 putSecret("WEB3FORMS_ACCESS_KEY", process.env.WEB3FORMS_ACCESS_KEY);
 putSecret("BOOKING_TO_EMAIL", "bookings@myairporttaxini.co.uk");

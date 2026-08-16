@@ -288,19 +288,25 @@ export default function AddressInput({
     <ul
       id={listboxId}
       role="listbox"
-      className="address-suggestions max-h-48 overflow-y-auto overscroll-contain border-t border-[#d7e0ec] bg-white"
+      className={`address-suggestions overflow-y-auto overscroll-contain border-t border-[#d7e0ec] bg-white ${
+        suggestions.length > 8 ? "max-h-[min(60vh,22rem)]" : "max-h-64"
+      }`}
     >
-      {suggestions.map((prediction) => (
-        <li key={prediction.placeId} role="option">
+      {suggestions.map((prediction, index) => (
+        <li key={`${prediction.placeId}-${index}`} role="option">
           <button
             type="button"
             onMouseDown={(event) => event.preventDefault()}
             onClick={() => void handleSelect(prediction)}
-            className="block w-full px-4 py-3 text-left transition-colors hover:bg-emerald/15"
+            className="block min-h-[3.25rem] w-full px-4 py-3.5 text-left transition-colors hover:bg-emerald/15 active:bg-emerald/20"
           >
-            <span className="block text-sm font-semibold text-navy">{prediction.mainText}</span>
+            <span className="block text-base font-semibold leading-snug text-navy">
+              {prediction.mainText}
+            </span>
             {prediction.secondaryText ? (
-              <span className="mt-0.5 block text-xs text-navy/70">{prediction.secondaryText}</span>
+              <span className="mt-0.5 block text-sm leading-snug text-navy/70">
+                {prediction.secondaryText}
+              </span>
             ) : null}
           </button>
         </li>
@@ -384,7 +390,8 @@ export default function AddressInput({
         {selectionError ??
           loadError ??
           (autocompleteEnabled
-            ? helperText
+            ? helperText ??
+              "Type a street, hotel or landmark — or enter a full postcode (e.g. BT36 7FU) to pick your exact address."
             : "Enter your full address including town and postcode")}
       </p>
     </div>
