@@ -42,6 +42,14 @@ type AddressInputProps = {
    * until a suggestion is chosen again.
    */
   requireSuggestion?: boolean;
+  /**
+   * Parent-held confirmed place (including restored from storage). Hydrates the
+   * internal selection so continue works without re-tapping the same suggestion.
+   */
+  confirmedPlace?: SelectedPlace | null;
+  /** Subtle “using previous address” hint when a confirmed place was restored. */
+  restoredHint?: boolean;
+  onClear?: () => void;
   selectionError?: string;
   /**
    * below = suggestions float under the field.
@@ -68,6 +76,9 @@ export default function AddressInput({
   onSelectAddress,
   onSelectPlace,
   requireSuggestion = false,
+  confirmedPlace = null,
+  restoredHint = false,
+  onClear,
   selectionError,
   suggestionsPlacement = "below",
   hideLabel = false,
@@ -97,6 +108,22 @@ export default function AddressInput({
       }
     };
   }, []);
+
+  // Keep internal selection in sync with parent-confirmed / restored places.
+  useEffect(() => {
+    if (confirmedPlace?.placeId?.trim() && confirmedPlace.formattedAddress?.trim()) {
+      selectedPlaceRef.current = confirmedPlace;
+      return;
+    }
+    if (!confirmedPlace?.placeId?.trim()) {
+      // Parent cleared confirmation (edit / clear) — drop local selection.
+      if (!value.trim()) {
+        selectedPlaceRef.current = null;
+      } else if (!selectedPlaceRef.current?.placeId?.trim()) {
+        selectedPlaceRef.current = null;
+      }
+    }
+  }, [confirmedPlace, value]);
 
   useEffect(() => {
     function handlePointerDown(event: MouseEvent | TouchEvent) {
@@ -285,29 +312,33 @@ export default function AddressInput({
     if (debounceRef.current) {
       window.clearTimeout(debounceRef.current);
     }
-    onChange("");
     selectedPlaceRef.current = null;
-    if (requireSuggestion) {
-      onSelectPlace?.({
-        placeId: "",
-        formattedAddress: "",
-        displayAddress: "",
-        placeName: null,
-        lat: null,
-        lng: null,
-        countryCode: null,
-        postalCode: null,
-        streetNumber: null,
-        route: null,
-        locality: null,
-      });
-    }
     setSuggestions([]);
     setSuggestionsOpen(false);
     setLoadError(null);
     setNeedsHouseNumber(false);
     setHouseOrBuilding("");
     setLockedPostcode(null);
+    if (onClear) {
+      onClear();
+    } else {
+      onChange("");
+      if (requireSuggestion) {
+        onSelectPlace?.({
+          placeId: "",
+          formattedAddress: "",
+          displayAddress: "",
+          placeName: null,
+          lat: null,
+          lng: null,
+          countryCode: null,
+          postalCode: null,
+          streetNumber: null,
+          route: null,
+          locality: null,
+        });
+      }
+    }
     inputRef.current?.focus({ preventScroll: true });
   }
 
@@ -388,13 +419,25 @@ export default function AddressInput({
 
   const showSuggestions = suggestionsOpen && suggestions.length > 0;
   const showHouseStep = needsHouseNumber || Boolean(lockedPostcode && houseOrBuilding);
+  const hasConfirmedSelection = Boolean(confirmedPlace?.placeId?.trim());
   const hintMessage =
     selectionError ??
     loadError ??
-    (autocompleteEnabled
-      ? helperText ??
-        "Type a street, hotel or landmark — or a postcode, then your house number."
-      : "Enter your full address including town and postcode");
+    (restoredHint && hasConfirmedSelection
+      ? "Using your previous address — edit or clear to choose a different one."
+      : hasConfirmedSelection && requireSuggestion
+        ? "Address confirmed — edit to choose a different one."
+        : autocompleteEnabled
+          ? helperText ??
+            "Type a street, hotel or landmark — or a postcode, then your house number."
+          : "Enter your full address including town and postcode");
+
+  const hintToneClass =
+    selectionError || loadError
+      ? "text-red-300"
+      : restoredHint && hasConfirmedSelection
+        ? "text-emerald/80"
+        : "text-white/40";
 
   const fieldShellRef = useRef<HTMLDivElement>(null);
   const [overlayStyle, setOverlayStyle] = useState<CSSProperties | undefined>(undefined);
@@ -570,9 +613,7 @@ export default function AddressInput({
 
       <p
         id={hintId}
-        className={`mt-1.5 min-h-[2.5rem] text-xs leading-snug ${
-          selectionError || loadError ? "text-red-300" : "text-white/40"
-        }`}
+        className={`mt-1.5 min-h-[2.5rem] text-xs leading-snug ${hintToneClass}`}
       >
         {hintMessage}
       </p>
