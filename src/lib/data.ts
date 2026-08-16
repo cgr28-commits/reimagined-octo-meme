@@ -437,9 +437,9 @@ export const FAQS = [
       "Yes. Meet & greet can be requested during booking where available — we can meet you in the arrivals hall with a name board. Share your flight number when you book so we can plan the collection.",
   },
   {
-    question: "Can I book for 5–7 passengers?",
+    question: "How many passengers can I book for?",
     answer:
-      "Yes. 1–4 passengers usually receive an instant fixed online quote where eligible. For 5–7 passengers, request a tailored larger-vehicle quote — we arrange a suitable vehicle through licensed transport partners and confirm a fixed price (no automatic online fare). We do not offer journeys for more than 7 passengers.",
+      "Our online service accommodates up to 7 passengers. Journeys for 1–4 passengers can receive an instant fixed quote where eligible. For 5–7 passengers, we’ll provide a tailored larger-vehicle quote.",
   },
   {
     question: "Are tolls included?",
@@ -523,7 +523,7 @@ export const VEHICLE_FLEET = [
     name: "Larger vehicle / group transfer",
     capacity: "5–7 passengers",
     description:
-      "5–7 passengers — a suitable larger vehicle can be arranged through licensed transport partners. Request a tailored fixed-price quote — no automatic online fare. We do not offer journeys for more than 7 passengers.",
+      "For groups of 5–7 passengers, we can arrange a suitable larger vehicle through a licensed transport partner. Request a tailored quote for your journey.",
     enquiryOnly: true,
     requestQuote: true,
     partnerOperated: true,
@@ -560,12 +560,12 @@ export const INSTANT_PAY_VEHICLE_TYPES: readonly VehicleType[] = [
 ];
 
 export const MINIBUS_PARTNER_NOTE =
-  "Larger vehicle / group transfers for 5–7 passengers are arranged through licensed transport partners — request a tailored quote (no instant online fare).";
+  "For groups of 5–7 passengers, we can arrange a suitable larger vehicle through a licensed transport partner — request a tailored quote (no instant online fare).";
 
 /** Short guidance kept for ops/docs — not shown in the public quote UI. */
 export const VEHICLE_BOOKING_GUIDANCE = [
   "1–4 passengers: instant quote where eligible. Pay online by card to confirm.",
-  "5–7 passengers: tailored larger-vehicle quote via licensed transport partners — not instant confirmation. Maximum 7 passengers.",
+  "5–7 passengers: tailored larger-vehicle quote via a licensed transport partner — not instant confirmation. Maximum 7 passengers.",
 ] as const;
 
 /** Legacy hook retained for quote form — capacity above 7 is blocked elsewhere. */

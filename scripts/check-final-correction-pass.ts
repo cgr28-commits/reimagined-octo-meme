@@ -125,7 +125,7 @@ async function main() {
       " ",
     );
     assert.match(joined, /Minibus \(5–7 passengers\)/);
-    assert.match(joined, /licensed transport partners/i);
+    assert.match(joined, /licensed transport partner/i);
     assert.equal(REQUEST_QUOTE_VEHICLE_TYPES.length, 1);
     assert.equal(/people carrier/i.test(joined), false);
     assert.equal(/5–8 passengers|up to 8|8\+|10\+/i.test(joined), false);
@@ -133,11 +133,13 @@ async function main() {
 
   await check("FAQs retain partner larger-vehicle wording for 5–7 and 24h cancel", () => {
     const text = FAQS.map((f) => `${f.question} ${f.answer}`).join("\n");
-    assert.match(text, /transport partners?/i);
-    assert.match(text, /5–7/i);
+    assert.match(text, /How many passengers can I book for\?/i);
+    assert.match(text, /up to 5–7 passengers|up to 7 passengers/i);
+    assert.match(text, /1–4 passengers/i);
+    assert.match(text, /5–7 passengers/i);
+    assert.match(text, /tailored larger-vehicle quote/i);
     assert.match(text, /more than 24 hours/i);
-    assert.match(text, /do not offer journeys for more than 7/i);
-    assert.equal(/5\+|5 or more|5–8|up to 8|larger groups can still/i.test(text), false);
+    assert.equal(/5\+|5 or more|5–8|up to 8|larger groups can still|8 passengers|8\+/i.test(text), false);
   });
 
   await check("Terms cover airports, long-distance, out-of-area, GBP, tolls, 24h cancel", () => {
@@ -175,6 +177,19 @@ async function main() {
     assert.match(text, /do not offer journeys for more than 7/i);
     assert.equal(/people carrier/i.test(text), false);
     assert.equal(/5–8 passengers|larger groups can still/i.test(text), false);
+  });
+
+  await check("Terms luggage clause does not imply 8-passenger bookings", () => {
+    const luggage = TERMS_SECTIONS.find((section) => section.title === "Luggage") as {
+      content?: readonly string[];
+      list?: readonly string[];
+      footer?: string;
+    };
+    assert.ok(luggage);
+    const text = [...(luggage.content ?? []), ...(luggage.list ?? []), luggage.footer ?? ""].join(" ");
+    assert.match(text, /Luggage capacity depends on passenger numbers/i);
+    assert.doesNotMatch(text, /8 passengers|8 large suitcases|5–8|up to 8/i);
+    assert.match(text, /do not offer journeys for more than 7/i);
   });
 
   await check("Terms Our Service lists airports immediately after the intro phrase", () => {
