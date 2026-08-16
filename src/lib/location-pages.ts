@@ -50,7 +50,7 @@ const AIRPORT_PAGES_ALL: AirportPage[] = [
     highlights: [
       "Fixed online prices for 1–4 passengers",
       "Flight tracking with up to 60 minutes complimentary waiting after landing",
-      "Meet & greet available in arrivals on request",
+      "Meet & greet available when requested during booking",
       "24/7 coverage including early-morning charters and late arrivals",
     ],
     localTips: [
@@ -77,7 +77,7 @@ const AIRPORT_PAGES_ALL: AirportPage[] = [
     highlights: [
       "Short transfer times from Belfast city centre, Holywood, and Bangor",
       "Flight tracking for arrivals and timed drop-offs for departures",
-      "Meet & greet on request for business travellers",
+      "Meet & greet available when requested during booking",
       "Licensed private hire with clear fixed pricing",
     ],
     localTips: [
@@ -132,7 +132,7 @@ const AIRPORT_PAGES_ALL: AirportPage[] = [
       "Belfast-area ↔ Derry Airport focus (Bangor, Belfast, Lisburn and surrounds)",
       "Flight tracking for LDY arrivals heading east",
       "Guide pricing shown online with confirmation before payment",
-      "Meet & greet available at LDY arrivals on request",
+      "Meet & greet available when requested during booking",
     ],
     localTips: [
       "Pickup must be in the greater Belfast area for journeys to LDY — enter a Bangor, Belfast, or Lisburn-area address in the quote tool.",
@@ -198,7 +198,7 @@ function buildRouteNotes(town: TownArea, airport: AirportPage): string[] {
     return [
       `${town.name} to Belfast City Airport is a shorter coastal/city run — ideal for short-haul and business flights.`,
       "We recommend confirming your terminal and departure time when you book.",
-      "Meet & greet can be arranged if you are arriving and need help with luggage.",
+      "Meet & greet is available when requested during booking if you are arriving and need help with luggage.",
     ];
   }
   if (airport.code === "DUB") {

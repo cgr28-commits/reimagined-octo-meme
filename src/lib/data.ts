@@ -348,9 +348,9 @@ export const WHY_CHOOSE_US = [
       "Pay online and receive a tracking link with your invoice. On travel day, follow your driver's live location when they're on the way to you.",
   },
   {
-    title: "Meet & greet on request",
+    title: "Meet & greet available",
     description:
-      "For arrivals, we can meet you in the arrivals hall with a name board when requested — share your flight number when you book.",
+      "Meet & greet is available when requested during booking — we can meet you in the arrivals hall with a name board. Share your flight number when you book.",
   },
   {
     title: "60 minutes airport waiting",
@@ -370,7 +370,7 @@ export const WHY_CHOOSE_US = [
   {
     title: "1–4 or 5+ made simple",
     description:
-      "1–4 passengers get an instant fixed quote online. 5+ passengers receive a tailored larger vehicle / group transfer quote through licensed transport partners.",
+      "1–4 passengers get an instant fixed quote online where eligible. 5+ passengers receive a tailored minibus / larger vehicle quote through licensed transport partners.",
   },
 ] as const;
 
@@ -429,12 +429,17 @@ export const FAQS = [
   {
     question: "Do you monitor flights?",
     answer:
-      "Provide your flight number when booking and we’ll monitor your flight where possible to help account for early or delayed arrivals. Airport pickups still include 60 minutes complimentary waiting time — waiting beyond that may be charged.",
+      "We monitor your flight where possible and adjust the planned collection time for early or delayed arrivals. Airport pickups include up to 60 minutes complimentary waiting time. Waiting beyond that may be charged.",
+  },
+  {
+    question: "Is meet & greet available?",
+    answer:
+      "Yes. Meet & greet is available when requested during booking — we can meet you in the arrivals hall with a name board. Share your flight number when you book so we can plan the collection.",
   },
   {
     question: "Can I book for 5+ passengers?",
     answer:
-      "Yes. 1–4 passengers usually receive an instant fixed online quote. For 5 or more passengers, request a tailored larger vehicle / group transfer quote — we arrange a suitable vehicle through licensed transport partners and confirm a fixed price (no automatic online fare).",
+      "Yes. 1–4 passengers usually receive an instant fixed online quote where eligible. For 5 or more passengers, request a tailored minibus / larger vehicle quote — we arrange a suitable vehicle through licensed transport partners and confirm a fixed price (no automatic online fare). Partner minibuses typically cover up to 8 passengers; larger groups can still request a tailored quote.",
   },
   {
     question: "Are tolls included?",
@@ -518,7 +523,7 @@ export const VEHICLE_FLEET = [
     name: "Larger vehicle / group transfer",
     capacity: "5+ passengers",
     description:
-      "For 5 or more passengers, a suitable larger vehicle can be arranged through licensed transport partners. Request a tailored fixed-price quote — no automatic online fare.",
+      "5+ passengers — a suitable larger vehicle can be arranged through licensed transport partners (partner minibuses typically seat up to 8). Request a tailored fixed-price quote — no automatic online fare.",
     enquiryOnly: true,
     requestQuote: true,
     partnerOperated: true,
@@ -555,12 +560,12 @@ export const INSTANT_PAY_VEHICLE_TYPES: readonly VehicleType[] = [
 ];
 
 export const MINIBUS_PARTNER_NOTE =
-  "Larger vehicle / group transfers for 5 or more passengers are arranged through licensed transport partners — request a tailored quote (no instant online fare).";
+  "Larger vehicle / group transfers for 5+ passengers are arranged through licensed transport partners (partner minibuses typically seat up to 8) — request a tailored quote (no instant online fare).";
 
 /** Short guidance kept for ops/docs — not shown in the public quote UI. */
 export const VEHICLE_BOOKING_GUIDANCE = [
-  "1–4 passengers with light luggage: instant online price where shown. Pay online by card to confirm.",
-  "5–8 passengers: arranged via licensed transport partners — Request a quote (not instant confirmation).",
+  "1–4 passengers: instant quote where eligible. Pay online by card to confirm.",
+  "5+ passengers: tailored minibus / larger vehicle quote via licensed transport partners — not instant confirmation. Partner minibuses typically seat up to 8; larger groups can still request a quote.",
 ] as const;
 
 /** 8 passengers with 8 large cases needs manual capacity confirmation before we can accept. */

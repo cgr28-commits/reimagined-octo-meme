@@ -28,18 +28,20 @@ export const TERMS_SECTIONS = [
     title: "Our Service",
     content: [
       "My Airport Taxi NI provides pre-booked private airport transfers throughout Greater Belfast and surrounding areas, including transfers to and from:",
+    ],
+    list: [
+      "Belfast International Airport",
+      "Belfast City Airport",
+      "Dublin Airport",
+      "City of Derry Airport",
+    ],
+    contentAfterList: [
       "We also provide pre-booked long-distance private transfers from Greater Belfast to destinations throughout Northern Ireland and the Republic of Ireland.",
       "Standard pickups are from anywhere within Greater Belfast. Pre-booked airport pickups are also available from Belfast International Airport, Belfast City Airport, City of Derry Airport and Dublin Airport.",
       "Pickups from elsewhere in Northern Ireland to a Greater Belfast destination receive a live online quote where route pricing is available. Other out-of-area pickups (for example outside Northern Ireland, or NI pickups to destinations outside Greater Belfast) require manual approval, do not receive an automatic online price, and cannot be paid for immediately online until we confirm a fixed quote.",
     ],
-    list: [
-      "Belfast International Airport",
-      "Belfast City Airport (George Best Belfast City Airport)",
-      "Dublin Airport",
-      "City of Derry Airport",
-    ],
     footer:
-      "All journeys are subject to vehicle availability. Saloon and estate cars (and executive on enquiry) cover up to four passengers. Larger groups of 5–8 passengers may be fulfilled by a licensed transport partner minibus subject to availability.",
+      "All journeys are subject to vehicle availability. Saloon and estate cars (and executive on enquiry) cover up to four passengers. For 5 or more passengers, a licensed transport partner minibus (typically 5–8 passengers) or other larger vehicle may fulfil the journey subject to availability. Larger groups can still request a tailored quote.",
   },
   {
     title: "Cross-border & Republic of Ireland journeys",
@@ -55,7 +57,7 @@ export const TERMS_SECTIONS = [
     title: "Licensed partner operators",
     content: [
       "Most saloon and estate car transfers (typically 1–4 passengers) are fulfilled by My Airport Taxi NI using our own licensed vehicles and drivers.",
-      "Where a larger vehicle is required for 5 or more passengers (including minibus transfers for 5–8 passengers), or where operational needs require it, your journey may be fulfilled by another fully licensed and insured private hire / PSV operator working as our transport partner (subcontracted fulfilment).",
+      "Where a larger vehicle is required for 5 or more passengers (including minibus transfers for 5–8 passengers, or larger groups on request), or where operational needs require it, your journey may be fulfilled by another fully licensed and insured private hire / PSV operator working as our transport partner (subcontracted fulfilment).",
       "By requesting a quotation or making a booking, you agree that we may arrange for a suitable licensed partner operator to carry out all or part of the transfer.",
       "Partner-operated journeys remain subject to these Terms & Conditions. We remain your point of contact for booking, payment (where applicable), and customer service, and we will only use operators who hold the licences and insurance required for the journey.",
       "Minibus transfers are subject to partner availability and are not instantly confirmed online — a booking is confirmed only when we accept it in writing (including by email).",

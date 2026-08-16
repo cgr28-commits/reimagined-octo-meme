@@ -9,7 +9,7 @@ import AdsAttributionCapture from "@/components/AdsAttributionCapture";
 import QuoteAssistant from "@/components/QuoteAssistant";
 import SiteOfflineGate from "@/components/SiteOfflineGate";
 import WhatsAppButton from "@/components/WhatsAppButton";
-import { SERVICE_FLAGS, SITE, SITE_OFFLINE } from "@/lib/data";
+import { SITE, SITE_OFFLINE } from "@/lib/data";
 import {
   arePublicLivePricesEnabled,
   getPublicUnapprovedPriceLabel,
@@ -26,13 +26,13 @@ const inter = Inter({
 const offlineActive = SITE_OFFLINE.enabled && Date.parse(SITE_OFFLINE.until) > Date.now();
 
 const livePrices = arePublicLivePricesEnabled();
+const defaultSiteDescription =
+  "Professional airport transfers across Northern Ireland and beyond. Clear fixed prices, airport pickup and drop-off options, flight monitoring and secure online booking.";
 const description = offlineActive
   ? `${SITE.name} is temporarily offline. Call ${SITE.landlineDisplay} or WhatsApp @${SITE.whatsappUsername} for bookings.`
   : livePrices
-    ? SERVICE_FLAGS.belfastCityAirport
-      ? `Airport transfers across Northern Ireland — Belfast International, Belfast City, City of Derry, and Dublin. Fixed prices, flight monitoring, and 60 minutes complimentary airport waiting. Get a fixed quote online.`
-      : "Airport transfers across Northern Ireland — Belfast International, City of Derry, and Dublin. Fixed prices, flight monitoring, and 60 minutes complimentary airport waiting. Get a fixed quote online."
-    : `Airport transfers across Northern Ireland to Belfast International, Belfast City, City of Derry, and Dublin. Flight monitoring and complimentary waiting where applicable. ${getPublicUnapprovedPriceLabel()} — request a quote online.`;
+    ? defaultSiteDescription
+    : `${defaultSiteDescription} ${getPublicUnapprovedPriceLabel()} — request a quote online.`;
 
 const ogImage = {
   url: absoluteSiteUrl("/og-image-square.png"),
@@ -77,7 +77,7 @@ export const metadata: Metadata = {
   ],
   openGraph: {
     title: SITE.name,
-    description: SITE.tagline,
+    description,
     type: "website",
     locale: "en_GB",
     url: SITE.url,
@@ -87,7 +87,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: SITE.name,
-    description: SITE.tagline,
+    description,
     images: [ogImage.url],
   },
   // Navy circle brand mark (white car + green plane). ?v= busts sticky crawler/browser caches.

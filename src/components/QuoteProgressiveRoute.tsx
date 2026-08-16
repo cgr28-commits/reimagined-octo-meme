@@ -343,8 +343,9 @@ export default function QuoteProgressiveRoute({
                 Travelling with 5 or more passengers?
               </p>
               <p className="text-xs leading-relaxed text-white/75">
-                We can arrange a suitable larger vehicle for your journey. Enter your journey details
-                and we’ll provide a tailored fixed-price quote.
+                5+ passengers receive a tailored minibus / larger vehicle quote (partner minibuses
+                typically seat up to 8). Enter your journey details and we’ll confirm a fixed price —
+                no automatic online fare.
               </p>
               <ChoiceGrid
                 label="Group size"

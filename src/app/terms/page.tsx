@@ -90,6 +90,13 @@ export default function TermsPage() {
                   </ul>
                 )}
 
+                {"contentAfterList" in section &&
+                  section.contentAfterList?.map((paragraph) => (
+                    <p key={paragraph} className="mt-4 text-sm leading-relaxed text-white/65">
+                      {paragraph}
+                    </p>
+                  ))}
+
                 {"subsections" in section &&
                   section.subsections?.map((subsection) => (
                     <div key={subsection.subtitle} className="mt-5">
