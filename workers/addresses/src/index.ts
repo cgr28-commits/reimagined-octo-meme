@@ -570,14 +570,40 @@ function parsePaidBookingDetails(body: Record<string, unknown>): PaidBookingDeta
   return parsed;
 }
 
-/** Keep name + email + mobile visible on the SumUp payment itself (140 char limit). */
+/** SumUp description: journey context + name + checkout ref only (no email/mobile). */
+function stripContactPiiFromDescription(text: string): string {
+  return text
+    .replace(/[^\s@]+@[^\s@]+\.[^\s@]+/gi, "")
+    .replace(/(?:\+?\d[\d\s().-]{8,}\d)/g, "")
+    .replace(/\s*[·•]\s*/g, " ")
+    .replace(/\s{2,}/g, " ")
+    .replace(/\s*—\s*/g, " — ")
+    .replace(/^(?:—\s*)+|(?:\s*—)+$/g, "")
+    .trim();
+}
+
 function buildSumUpCheckoutDescription(
   baseDescription: string,
   booking: PaidBookingDetails,
+  checkoutReference: string,
 ): string {
-  const contact = `${booking.customerName} · ${booking.mobileNumber} · ${booking.customerEmail}`;
-  const combined = `${baseDescription} — ${contact}`.replace(/\s+/g, " ").trim();
-  return combined.slice(0, 140);
+  let base = stripContactPiiFromDescription(baseDescription);
+  const name = booking.customerName.trim();
+  const ref = checkoutReference.trim();
+
+  if (name) {
+    if (!base.toLowerCase().includes(name.toLowerCase())) {
+      // Drop a leftover partial name after stripping email/mobile (e.g. "… — Elwyn").
+      base = base.replace(/\s—\s+[A-Za-z][A-Za-z'-]{1,40}$/u, "").trim();
+      base = base ? `${base} — ${name}` : name;
+    }
+  }
+
+  if (ref && !base.includes(ref)) {
+    base = base ? `${base} — ${ref}` : ref;
+  }
+
+  return base.replace(/\s+/g, " ").trim().slice(0, 140);
 }
 
 async function isDuplicateQuoteLead(
@@ -961,7 +987,11 @@ async function handlePaymentRequest(
     const checkoutReference =
       String(body.checkoutReference ?? "").trim() || buildCheckoutReference();
     const returnUrl = new URL("/payments/webhook", request.url).toString();
-    const sumUpDescription = buildSumUpCheckoutDescription(description, booking);
+    const sumUpDescription = buildSumUpCheckoutDescription(
+      description,
+      booking,
+      checkoutReference,
+    );
     const checkout = await createSumUpHostedCheckout(apiKey, merchantCode, {
       amount: Math.round(amount * 100) / 100,
       description: sumUpDescription,
