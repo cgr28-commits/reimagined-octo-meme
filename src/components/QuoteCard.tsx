@@ -146,6 +146,32 @@ const CAPACITY_WHATSAPP_MESSAGE =
 
 type VehicleType = (typeof VEHICLE_TYPES)[number];
 
+/** Smooth-scroll after the next paint so the target step section exists in the DOM. */
+function scheduleSmoothScrollTo(element: HTMLElement | null): () => void {
+  if (!element) {
+    return () => {};
+  }
+
+  let cancelled = false;
+  let outerFrame = 0;
+  let innerFrame = 0;
+
+  outerFrame = requestAnimationFrame(() => {
+    innerFrame = requestAnimationFrame(() => {
+      if (cancelled) {
+        return;
+      }
+      element.scrollIntoView({ behavior: "smooth", block: "start", inline: "nearest" });
+    });
+  });
+
+  return () => {
+    cancelled = true;
+    cancelAnimationFrame(outerFrame);
+    cancelAnimationFrame(innerFrame);
+  };
+}
+
 function exceedsOnlineVehicleOptions(passengers: number, suitcases: number): boolean {
   return requiresMinibus(passengers, suitcases);
 }
@@ -346,6 +372,13 @@ function QuoteCard({
   maxPassengers = MAX_ONLINE_PASSENGERS,
 }: QuoteCardProps) {
   const cardRef = useRef<HTMLDivElement>(null);
+  const step2TravelDetailsRef = useRef<HTMLDivElement>(null);
+  const step3CustomerDetailsRef = useRef<HTMLDivElement>(null);
+  const step3PaymentActionsRef = useRef<HTMLDivElement>(null);
+  /** Set only when Step 1 → 2 via intentional “Continue to travel details”. */
+  const pendingScrollToStep2DateRef = useRef(false);
+  /** Set only when Step 2 → 3 via intentional “Continue to your details”. */
+  const pendingScrollToStep3CustomerRef = useRef(false);
   const passengerLimit = Math.min(
     Math.max(1, maxPassengers),
     SELECTOR_MAX_PASSENGERS,
@@ -1747,6 +1780,7 @@ function QuoteCard({
         return;
       }
       setSubmitError("");
+      pendingScrollToStep2DateRef.current = true;
       setQuoteStep(2);
       return;
     }
@@ -1786,6 +1820,7 @@ function QuoteCard({
     }
     // Do not wait on flight lookup — unavailable/loading must not require a second click.
     clearFlightBlockingErrors();
+    pendingScrollToStep3CustomerRef.current = true;
     setQuoteStep(3);
   }
 
@@ -1796,6 +1831,24 @@ function QuoteCard({
       cardRef.current?.scrollIntoView({ behavior: "smooth", block: "start", inline: "nearest" });
     }
   }, [bookingSent]);
+
+  // After Step 1 → 2, scroll to the DATE fields (not the page top / nav / step tabs).
+  useEffect(() => {
+    if (quoteStep !== 2 || !pendingScrollToStep2DateRef.current) {
+      return;
+    }
+    pendingScrollToStep2DateRef.current = false;
+    return scheduleSmoothScrollTo(step2TravelDetailsRef.current);
+  }, [quoteStep]);
+
+  // After Step 2 → 3, scroll to name / mobile / email (not the journey summary or price).
+  useEffect(() => {
+    if (quoteStep !== 3 || !pendingScrollToStep3CustomerRef.current) {
+      return;
+    }
+    pendingScrollToStep3CustomerRef.current = false;
+    return scheduleSmoothScrollTo(step3CustomerDetailsRef.current);
+  }, [quoteStep]);
 
   const submitInProgressLabel = showsRequestQuoteFlow
     ? "Sending quote request…"
@@ -2485,6 +2538,11 @@ function QuoteCard({
 
         {quoteStep === 2 ? (
           <>
+        <div
+          id="step2-travel-details"
+          ref={step2TravelDetailsRef}
+          className="scroll-mt-44 space-y-4 md:scroll-mt-28"
+        >
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
             <label
@@ -2719,6 +2777,7 @@ function QuoteCard({
             Edit journey details
           </button>
         </div>
+        </div>
           </>
         ) : null}
 
@@ -2937,7 +2996,11 @@ function QuoteCard({
 
         {quoteStep === 3 ? (
           <>
-        <div className={BOOKING_PANEL_CLASS}>
+        <div
+          id="step3-customer-details"
+          ref={step3CustomerDetailsRef}
+          className={`${BOOKING_PANEL_CLASS} scroll-mt-44 md:scroll-mt-28`}
+        >
           <p className="text-xs font-medium uppercase tracking-wider text-emerald">
             Your details
           </p>
@@ -3182,6 +3245,15 @@ function QuoteCard({
                 setTermsAccepted(checked);
                 if (checked) {
                   setTermsError("");
+                  // Deliberate terms acceptance with contacts already filled → show pay/confirm controls.
+                  // Do not scroll while the customer is still typing name/email/mobile.
+                  if (
+                    customerName.trim() &&
+                    customerEmail.trim() &&
+                    customerMobile.trim()
+                  ) {
+                    scheduleSmoothScrollTo(step3PaymentActionsRef.current);
+                  }
                 }
               }}
               error={termsError}
@@ -3199,6 +3271,11 @@ function QuoteCard({
 
             <MarketingOptIn checked={marketingOptIn} onCheckedChange={setMarketingOptIn} />
 
+            <div
+              id="step3-payment-actions"
+              ref={step3PaymentActionsRef}
+              className="scroll-mt-44 space-y-3 md:scroll-mt-28"
+            >
             {canPayNowOnline && liveQuote && (
               <div className="space-y-3">
                 {openCheckout ? (
@@ -3344,6 +3421,7 @@ function QuoteCard({
                 </button>
               </div>
             )}
+            </div>
           </div>
           </>
         ) : quoteStep === 2 ? (
