@@ -1,0 +1,35 @@
+name: Resend latest paid confirmation
+
+on:
+  workflow_dispatch:
+    inputs:
+      payment_reference:
+        description: "Optional payment reference (blank = latest paid booking)"
+        required: false
+        type: string
+
+concurrency:
+  group: resend-paid-confirmation
+  cancel-in-progress: false
+
+jobs:
+  resend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Resend customer confirmation for latest (or given) paid booking
+        env:
+          OWNER_ACCESS_KEY: ${{ secrets.OWNER_ACCESS_KEY }}
+          PAYMENT_REFERENCE: ${{ inputs.payment_reference }}
+          WORKER_BASE_URL: https://reimagined-octo-meme.cgr28.workers.dev
+        run: |
+          if [ -z "$OWNER_ACCESS_KEY" ]; then
+            echo "::error::OWNER_ACCESS_KEY secret is not set"
+            exit 1
+          fi
+          node scripts/resend-latest-paid-confirmation.mjs
