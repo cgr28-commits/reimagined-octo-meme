@@ -97,12 +97,19 @@ check("Step 1 → 2 scrolls to DATE section after render (not page top)", () => 
   assert.match(card, /scroll-mt-44/);
   assert.match(card, /md:scroll-mt-28/);
   assert.match(card, /pendingScrollToStep2DateRef\.current = true/);
-  assert.match(
-    card,
-    /target\.scrollIntoView\(\{\s*behavior:\s*"smooth",\s*block:\s*"start"/,
-  );
+  assert.match(card, /scheduleSmoothScrollTo/);
   // Must not auto-scroll to card/quote container on Step 1→2.
   assert.match(card, /Continue to travel details/);
+});
+
+check("Step 2 → 3 scrolls to customer details after render", () => {
+  assert.match(card, /id="step3-customer-details"/);
+  assert.match(card, /step3CustomerDetailsRef/);
+  assert.match(card, /pendingScrollToStep3CustomerRef\.current = true/);
+  assert.match(card, /Continue to your details/);
+  assert.match(card, /id="step3-payment-actions"/);
+  // Payment scroll only after deliberate terms acceptance with contacts filled.
+  assert.match(card, /scheduleSmoothScrollTo\(step3PaymentActionsRef\.current\)/);
 });
 
 console.log("\nAll quote-tool UX checks passed.");
