@@ -346,6 +346,9 @@ function QuoteCard({
   maxPassengers = MAX_ONLINE_PASSENGERS,
 }: QuoteCardProps) {
   const cardRef = useRef<HTMLDivElement>(null);
+  const step2TravelDetailsRef = useRef<HTMLDivElement>(null);
+  /** Set only when Step 1 → 2 via intentional “Continue to travel details”. */
+  const pendingScrollToStep2DateRef = useRef(false);
   const passengerLimit = Math.min(
     Math.max(1, maxPassengers),
     SELECTOR_MAX_PASSENGERS,
@@ -1747,6 +1750,7 @@ function QuoteCard({
         return;
       }
       setSubmitError("");
+      pendingScrollToStep2DateRef.current = true;
       setQuoteStep(2);
       return;
     }
@@ -1796,6 +1800,38 @@ function QuoteCard({
       cardRef.current?.scrollIntoView({ behavior: "smooth", block: "start", inline: "nearest" });
     }
   }, [bookingSent]);
+
+  // After Step 1 → 2, scroll to the DATE fields (not the page top / nav / step tabs).
+  useEffect(() => {
+    if (quoteStep !== 2 || !pendingScrollToStep2DateRef.current) {
+      return;
+    }
+    pendingScrollToStep2DateRef.current = false;
+
+    let cancelled = false;
+    let outerFrame = 0;
+    let innerFrame = 0;
+
+    outerFrame = requestAnimationFrame(() => {
+      innerFrame = requestAnimationFrame(() => {
+        if (cancelled) {
+          return;
+        }
+        const target = step2TravelDetailsRef.current;
+        if (!target) {
+          return;
+        }
+        // CSS scroll-margin-top keeps DATE clear of the fixed header.
+        target.scrollIntoView({ behavior: "smooth", block: "start", inline: "nearest" });
+      });
+    });
+
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(outerFrame);
+      cancelAnimationFrame(innerFrame);
+    };
+  }, [quoteStep]);
 
   const submitInProgressLabel = showsRequestQuoteFlow
     ? "Sending quote request…"
@@ -2485,6 +2521,11 @@ function QuoteCard({
 
         {quoteStep === 2 ? (
           <>
+        <div
+          id="step2-travel-details"
+          ref={step2TravelDetailsRef}
+          className="scroll-mt-44 space-y-4 md:scroll-mt-28"
+        >
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
             <label
@@ -2718,6 +2759,7 @@ function QuoteCard({
           >
             Edit journey details
           </button>
+        </div>
         </div>
           </>
         ) : null}

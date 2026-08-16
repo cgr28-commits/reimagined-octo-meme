@@ -90,4 +90,19 @@ check("QuoteCard uses progressive route for A2A primary flow", () => {
   assert.match(card, /Your Journey/);
 });
 
+check("Step 1 → 2 scrolls to DATE section after render (not page top)", () => {
+  assert.match(card, /id="step2-travel-details"/);
+  assert.match(card, /step2TravelDetailsRef/);
+  assert.match(card, /pendingScrollToStep2DateRef/);
+  assert.match(card, /scroll-mt-44/);
+  assert.match(card, /md:scroll-mt-28/);
+  assert.match(card, /pendingScrollToStep2DateRef\.current = true/);
+  assert.match(
+    card,
+    /target\.scrollIntoView\(\{\s*behavior:\s*"smooth",\s*block:\s*"start"/,
+  );
+  // Must not auto-scroll to card/quote container on Step 1→2.
+  assert.match(card, /Continue to travel details/);
+});
+
 console.log("\nAll quote-tool UX checks passed.");
