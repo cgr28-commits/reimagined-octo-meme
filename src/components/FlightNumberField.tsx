@@ -144,8 +144,19 @@ export default function FlightNumberField({
     };
   }, [airportCode, direction, enabled, tripDate, value]);
 
+  const statusMessage =
+    error ||
+    (lookupStatus === "error" ? lookupMessage : "") ||
+    (lookupStatus === "unavailable" ? lookupMessage : "") ||
+    (lookupStatus === "loading" ? "Checking flight details…" : "") ||
+    (!tripDate && value.trim()
+      ? "Your trip date is required before we can verify this flight."
+      : "") ||
+    helperText ||
+    "";
+
   return (
-    <div>
+    <div className="min-w-0">
       <label
         htmlFor={id}
         className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/80"
@@ -159,42 +170,45 @@ export default function FlightNumberField({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder="e.g. BA1234"
-        className="w-full rounded-xl border border-white/25 bg-navy-dark px-4 py-3 text-sm uppercase text-white placeholder:normal-case placeholder:text-white/45 outline-none transition-colors focus:border-emerald focus:ring-2 focus:ring-emerald/25 md:border-white/30"
+        className="box-border h-12 w-full min-w-0 rounded-xl border border-white/25 bg-navy-dark px-4 text-base uppercase text-white placeholder:normal-case placeholder:text-white/45 outline-none transition-colors focus:border-emerald focus:ring-2 focus:ring-emerald/25 md:border-white/30"
       />
-      {helperText && <p className="mt-1.5 text-xs text-white/55">{helperText}</p>}
-      {!tripDate && value.trim() && (
-        <p className="mt-1.5 text-xs text-amber-200/90">
-          Your trip date is required before we can verify this flight.
-        </p>
-      )}
-      {lookupStatus === "loading" && (
-        <p className="mt-1.5 text-xs text-white/60">Checking flight details…</p>
-      )}
-      {lookupStatus === "verified" && verifiedFlight && (
-        <div className="mt-2 rounded-xl border border-emerald/30 bg-emerald/10 px-4 py-3 text-sm text-white/90">
-          <p className="font-semibold text-emerald">{verifiedFlight.airline}</p>
-          <p className="mt-1">
-            {verifiedFlight.flightNumber} ·{" "}
-            {new Date(`${verifiedFlight.date}T12:00:00`).toLocaleDateString("en-GB", {
-              weekday: "short",
-              day: "numeric",
-              month: "short",
-              year: "numeric",
-            })}
-          </p>
-          <p className="mt-0.5 text-white/80">
-            {verifiedFlight.scheduledTimeLabel} {verifiedFlight.airportName} at{" "}
-            {verifiedFlight.scheduledTime}
-          </p>
+      <p
+        className={`mt-1.5 min-h-[2.25rem] text-xs leading-snug ${
+          error || lookupStatus === "error"
+            ? "text-red-300"
+            : lookupStatus === "unavailable" || (!tripDate && value.trim())
+              ? "text-amber-200/90"
+              : "text-white/55"
+        }`}
+      >
+        {statusMessage}
+      </p>
+      <div
+        className={`grid transition-[grid-template-rows] duration-200 ease-out ${
+          lookupStatus === "verified" && verifiedFlight ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+        }`}
+      >
+        <div className="min-h-0 overflow-hidden">
+          {verifiedFlight ? (
+            <div className="mt-1 rounded-xl border border-emerald/30 bg-emerald/10 px-4 py-3 text-sm text-white/90">
+              <p className="truncate font-semibold text-emerald">{verifiedFlight.airline}</p>
+              <p className="mt-1 truncate">
+                {verifiedFlight.flightNumber} ·{" "}
+                {new Date(`${verifiedFlight.date}T12:00:00`).toLocaleDateString("en-GB", {
+                  weekday: "short",
+                  day: "numeric",
+                  month: "short",
+                  year: "numeric",
+                })}
+              </p>
+              <p className="mt-0.5 truncate text-white/80">
+                {verifiedFlight.scheduledTimeLabel} {verifiedFlight.airportName} at{" "}
+                {verifiedFlight.scheduledTime}
+              </p>
+            </div>
+          ) : null}
         </div>
-      )}
-      {lookupStatus === "unavailable" && lookupMessage && (
-        <p className="mt-1.5 text-xs text-amber-200/90">{lookupMessage}</p>
-      )}
-      {lookupStatus === "error" && lookupMessage && (
-        <p className="mt-1.5 text-xs text-red-300">{lookupMessage}</p>
-      )}
-      {error && <p className="mt-1.5 text-xs text-red-400">{error}</p>}
+      </div>
     </div>
   );
 }

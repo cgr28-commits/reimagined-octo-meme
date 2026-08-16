@@ -6,6 +6,7 @@ import {
   useId,
   useRef,
   useState,
+  type CSSProperties,
   type ReactNode,
 } from "react";
 import {
@@ -42,8 +43,8 @@ type AddressInputProps = {
   requireSuggestion?: boolean;
   selectionError?: string;
   /**
-   * below = suggestions expand under the field inside the same control (quote form / OTS-style).
-   * above = suggestions expand above the field (quote bot typing bar).
+   * below = suggestions float under the field.
+   * above = suggestions float above the field (quote bot typing bar).
    */
   suggestionsPlacement?: "below" | "above";
   /** Hide the visible label (still available to screen readers). */
@@ -62,7 +63,7 @@ export default function AddressInput({
   required = true,
   action,
   airportCode = "",
-  disableAutoScroll = false,
+  disableAutoScroll = true,
   onSelectAddress,
   onSelectPlace,
   requireSuggestion = false,
@@ -141,7 +142,7 @@ export default function AddressInput({
           if (result.needsHouseNumber && result.postcode) {
             setLockedPostcode(result.postcode);
             window.requestAnimationFrame(() => {
-              houseInputRef.current?.focus();
+              houseInputRef.current?.focus({ preventScroll: true });
             });
           } else if (!result.needsHouseNumber) {
             setLockedPostcode(null);
@@ -155,7 +156,14 @@ export default function AddressInput({
               : null,
           );
 
-          if (result.predictions.length > 0 && !disableAutoScroll && !showAbove) {
+          // Avoid scrollIntoView on suggestion updates — it causes mobile page jump.
+          if (
+            result.predictions.length > 0 &&
+            !disableAutoScroll &&
+            !showAbove &&
+            typeof window !== "undefined" &&
+            window.matchMedia("(min-width: 768px)").matches
+          ) {
             window.requestAnimationFrame(() => {
               containerRef.current?.scrollIntoView({
                 block: "nearest",
@@ -293,7 +301,7 @@ export default function AddressInput({
     setNeedsHouseNumber(false);
     setHouseOrBuilding("");
     setLockedPostcode(null);
-    inputRef.current?.focus();
+    inputRef.current?.focus({ preventScroll: true });
   }
 
   async function handleSelect(prediction: AddressPrediction) {
@@ -349,13 +357,56 @@ export default function AddressInput({
 
   const showSuggestions = suggestionsOpen && suggestions.length > 0;
   const showHouseStep = needsHouseNumber || Boolean(lockedPostcode && houseOrBuilding);
+  const hintMessage =
+    selectionError ??
+    loadError ??
+    (autocompleteEnabled
+      ? helperText ??
+        "Type a street, hotel or landmark — or a postcode, then your house number."
+      : "Enter your full address including town and postcode");
+
+  const fieldShellRef = useRef<HTMLDivElement>(null);
+  const [overlayStyle, setOverlayStyle] = useState<CSSProperties | undefined>(undefined);
+
+  const updateOverlayPosition = useCallback(() => {
+    if (!showAbove || !showSuggestions || !fieldShellRef.current) {
+      setOverlayStyle(undefined);
+      return;
+    }
+    const rect = fieldShellRef.current.getBoundingClientRect();
+    setOverlayStyle({
+      position: "fixed",
+      left: Math.max(8, rect.left),
+      width: Math.min(rect.width, window.innerWidth - 16),
+      bottom: Math.max(8, window.innerHeight - rect.top + 6),
+      top: "auto",
+      zIndex: 90,
+    });
+  }, [showAbove, showSuggestions]);
+
+  useEffect(() => {
+    if (!showAbove || !showSuggestions) {
+      setOverlayStyle(undefined);
+      return;
+    }
+    updateOverlayPosition();
+    window.addEventListener("resize", updateOverlayPosition);
+    window.addEventListener("scroll", updateOverlayPosition, true);
+    return () => {
+      window.removeEventListener("resize", updateOverlayPosition);
+      window.removeEventListener("scroll", updateOverlayPosition, true);
+    };
+  }, [showAbove, showSuggestions, updateOverlayPosition, suggestions.length, value]);
 
   const suggestionList = showSuggestions ? (
     <ul
       id={listboxId}
       role="listbox"
-      className={`address-suggestions overflow-y-auto overscroll-contain border-t border-[#d7e0ec] bg-white ${
-        suggestions.length > 8 ? "max-h-[min(60vh,22rem)]" : "max-h-64"
+      style={showAbove ? overlayStyle : undefined}
+      className={`address-suggestions address-suggestions-overlay max-h-[min(40vh,16rem)] overflow-y-auto overscroll-contain rounded-xl border border-[#d7e0ec] bg-white shadow-xl shadow-black/25 ${
+        showAbove
+          ? "z-[90]"
+          : "absolute left-0 right-0 top-[calc(100%+0.35rem)] z-[80]"
       }`}
     >
       {suggestions.map((prediction, index) => (
@@ -366,11 +417,11 @@ export default function AddressInput({
             onClick={() => void handleSelect(prediction)}
             className="block min-h-[3.25rem] w-full px-4 py-3.5 text-left transition-colors hover:bg-emerald/15 active:bg-emerald/20"
           >
-            <span className="block text-base font-semibold leading-snug text-navy">
+            <span className="block truncate text-base font-semibold leading-snug text-navy">
               {prediction.mainText}
             </span>
             {prediction.secondaryText ? (
-              <span className="mt-0.5 block text-sm leading-snug text-navy/70">
+              <span className="mt-0.5 block truncate text-sm leading-snug text-navy/70">
                 {prediction.secondaryText}
               </span>
             ) : null}
@@ -381,7 +432,7 @@ export default function AddressInput({
   ) : null;
 
   return (
-    <div ref={containerRef} className={`relative min-w-0 ${className}`}>
+    <div ref={containerRef} className={`relative z-10 min-w-0 ${className}`}>
       {hideLabel ? (
         <label htmlFor={id} className="sr-only">
           {label}
@@ -395,97 +446,101 @@ export default function AddressInput({
         </div>
       )}
 
-      <div
-        className={`overflow-hidden rounded-xl border bg-white/5 transition-colors ${
-          showSuggestions || showHouseStep
-            ? "border-emerald/50 ring-1 ring-emerald/30"
-            : "border-white/10 focus-within:border-emerald/50 focus-within:ring-1 focus-within:ring-emerald/30"
-        }`}
-      >
-        {showAbove ? suggestionList : null}
+      <div className="relative min-w-0" ref={fieldShellRef}>
+        <div
+          className={`rounded-xl border bg-white/5 transition-colors ${
+            showSuggestions || showHouseStep
+              ? "border-emerald/50 ring-1 ring-emerald/30"
+              : "border-white/10 focus-within:border-emerald/50 focus-within:ring-1 focus-within:ring-emerald/30"
+          }`}
+        >
+          <div className="relative">
+            <input
+              ref={inputRef}
+              id={id}
+              name={name}
+              type="text"
+              required={required}
+              autoComplete="street-address"
+              value={value}
+              onChange={handleChange}
+              onFocus={() => {
+                if (suggestions.length > 0) {
+                  setSuggestionsOpen(true);
+                } else if (value.trim().length >= 3) {
+                  requestSuggestions(value);
+                }
+              }}
+              placeholder={placeholder}
+              title={value || undefined}
+              aria-describedby={hintId}
+              aria-expanded={showSuggestions}
+              aria-controls={listboxId}
+              aria-autocomplete="list"
+              role="combobox"
+              className="address-input box-border h-12 w-full min-w-0 border-0 bg-transparent py-3 pl-4 pr-11 text-base leading-normal text-white placeholder:text-white/30 outline-none truncate"
+            />
+            {value ? (
+              <button
+                type="button"
+                onClick={handleClear}
+                aria-label="Clear address"
+                className="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-white/55 transition-colors hover:bg-white/10 hover:text-white"
+              >
+                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 6l12 12M18 6L6 18" />
+                </svg>
+              </button>
+            ) : null}
+          </div>
 
-        <div className="relative">
-          <input
-            ref={inputRef}
-            id={id}
-            name={name}
-            type="text"
-            required={required}
-            autoComplete="street-address"
-            value={value}
-            onChange={handleChange}
-            onFocus={() => {
-              if (suggestions.length > 0) {
-                setSuggestionsOpen(true);
-              } else if (value.trim().length >= 3) {
-                requestSuggestions(value);
-              }
-            }}
-            placeholder={placeholder}
-            aria-describedby={hintId}
-            aria-expanded={showSuggestions}
-            aria-controls={listboxId}
-            aria-autocomplete="list"
-            role="combobox"
-            className="address-input w-full border-0 bg-transparent py-3 pl-4 pr-11 text-sm text-white placeholder:text-white/30 outline-none"
-          />
-          {value ? (
-            <button
-              type="button"
-              onClick={handleClear}
-              aria-label="Clear address"
-              className="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-white/55 transition-colors hover:bg-white/10 hover:text-white"
-            >
-              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden>
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 6l12 12M18 6L6 18" />
-              </svg>
-            </button>
-          ) : null}
+          {/* Reserved slot so postcode house-number step doesn't yank the whole form as hard. */}
+          <div
+            className={`grid transition-[grid-template-rows] duration-200 ease-out ${
+              showHouseStep ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+            }`}
+          >
+            <div className="min-h-0 overflow-hidden">
+              <div className="border-t border-white/10 bg-white/5 px-3 py-3">
+                <label
+                  htmlFor={`${id}-house`}
+                  className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/55"
+                >
+                  House number or building name
+                </label>
+                <input
+                  ref={houseInputRef}
+                  id={`${id}-house`}
+                  type="text"
+                  inputMode="text"
+                  autoComplete="off"
+                  value={houseOrBuilding}
+                  onChange={handleHouseChange}
+                  placeholder="e.g. 7 or Flat 2"
+                  aria-describedby={houseHintId}
+                  tabIndex={showHouseStep ? 0 : -1}
+                  className="box-border h-12 w-full min-w-0 rounded-lg border border-white/15 bg-white px-4 text-base font-semibold text-navy placeholder:font-normal placeholder:text-navy/35 outline-none focus:border-emerald focus:ring-1 focus:ring-emerald/40"
+                />
+                <p id={houseHintId} className="mt-1.5 min-h-[1rem] text-xs text-white/45">
+                  {lockedPostcode
+                    ? `Finding addresses at ${lockedPostcode} — type your number, then tap your address.`
+                    : "Type your house number or building name, then tap your address."}
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
 
-        {showHouseStep ? (
-          <div className="border-t border-white/10 bg-white/5 px-3 py-3">
-            <label
-              htmlFor={`${id}-house`}
-              className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/55"
-            >
-              House number or building name
-            </label>
-            <input
-              ref={houseInputRef}
-              id={`${id}-house`}
-              type="text"
-              inputMode="text"
-              autoComplete="off"
-              value={houseOrBuilding}
-              onChange={handleHouseChange}
-              placeholder="e.g. 7 or Flat 2"
-              aria-describedby={houseHintId}
-              className="w-full rounded-lg border border-white/15 bg-white px-4 py-3.5 text-base font-semibold text-navy placeholder:font-normal placeholder:text-navy/35 outline-none focus:border-emerald focus:ring-1 focus:ring-emerald/40"
-            />
-            <p id={houseHintId} className="mt-1.5 text-xs text-white/45">
-              {lockedPostcode
-                ? `Finding addresses at ${lockedPostcode} — type your number, then tap your address.`
-                : "Type your house number or building name, then tap your address."}
-            </p>
-          </div>
-        ) : null}
-
-        {!showAbove ? suggestionList : null}
+        {suggestionList}
       </div>
 
       <p
         id={hintId}
-        className={`mt-1.5 text-xs ${
+        className={`mt-1.5 min-h-[2.5rem] text-xs leading-snug ${
           selectionError || loadError ? "text-red-300" : "text-white/40"
         }`}
       >
-        {selectionError ??
-          loadError ??
-          (autocompleteEnabled
-            ? helperText ??
-              "Type a street, hotel or landmark — or a postcode, then your house number."
-            : "Enter your full address including town and postcode")}
+        {hintMessage}
       </p>
     </div>
   );

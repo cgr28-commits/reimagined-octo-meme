@@ -1552,7 +1552,7 @@ function QuoteCard({
         </ol>
       </div>
 
-      <form id="quoteForm" onSubmit={handleSubmit} className="space-y-4">
+      <form id="quoteForm" onSubmit={handleSubmit} className="relative space-y-4 overflow-x-clip overflow-y-visible">
         {testChargeAmount !== null && (
           <div className="rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
             <strong className="text-white">Test booking mode.</strong> SumUp will charge{" "}
@@ -1565,13 +1565,13 @@ function QuoteCard({
           <>
         {isA2AFlow ? (
           <>
-            <div>
+            <div className="min-h-[3.25rem]">
               <h3 className="text-base font-semibold text-white sm:text-lg">
                 Where are you travelling?
               </h3>
-              {journeyKind ? (
-                <p className="mt-1 text-xs text-white/55">{journeyKindLabel(journeyKind)}</p>
-              ) : null}
+              <p className="mt-1 min-h-[1rem] text-xs text-white/55">
+                {journeyKind ? journeyKindLabel(journeyKind) : "\u00a0"}
+              </p>
             </div>
 
             <div>
@@ -1654,30 +1654,40 @@ function QuoteCard({
               </div>
             </div>
 
-            {isOutOfAreaPickupJourney ? (
-              <div className="rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-white/85">
-                <p className="font-semibold text-amber-200">Out-of-area pickup – request your fixed price</p>
-                <p className="mt-1 text-xs leading-relaxed text-white/70">
-                  Standard pickups are from Greater Belfast (or Belfast International, Belfast City,
-                  or Dublin Airport). This pickup needs manual approval — we&apos;ll confirm your
-                  personal fixed price by email. No automatic online fare or immediate payment.
-                </p>
+            <div
+              className={`grid transition-[grid-template-rows] duration-200 ease-out ${
+                isOutOfAreaPickupJourney || isRoiJourney ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+              }`}
+            >
+              <div className="min-h-0 overflow-hidden">
+                {isOutOfAreaPickupJourney ? (
+                  <div className="rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-white/85">
+                    <p className="font-semibold text-amber-200">Out-of-area pickup – request your fixed price</p>
+                    <p className="mt-1 text-xs leading-relaxed text-white/70">
+                      Standard pickups are from Greater Belfast (or Belfast International, Belfast City,
+                      or Dublin Airport). This pickup needs manual approval — we&apos;ll confirm your
+                      personal fixed price by email. No automatic online fare or immediate payment.
+                    </p>
+                  </div>
+                ) : isRoiJourney ? (
+                  <div className="rounded-xl border border-white/10 bg-navy-dark/40 px-4 py-3 text-sm text-white/85">
+                    <p className="font-semibold text-emerald">Republic of Ireland journey – request your fixed price</p>
+                    <p className="mt-1 text-xs leading-relaxed text-white/70">
+                      Republic of Ireland city destinations (outside Dublin Airport) are quoted
+                      individually — we&apos;ll confirm your personal fixed price by email.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="h-0" aria-hidden />
+                )}
               </div>
-            ) : isRoiJourney ? (
-              <div className="rounded-xl border border-white/10 bg-navy-dark/40 px-4 py-3 text-sm text-white/85">
-                <p className="font-semibold text-emerald">Republic of Ireland journey – request your fixed price</p>
-                <p className="mt-1 text-xs leading-relaxed text-white/70">
-                  Republic of Ireland city destinations (outside Dublin Airport) are quoted
-                  individually — we&apos;ll confirm your personal fixed price by email.
-                </p>
-              </div>
-            ) : null}
+            </div>
 
-            {isLdyTrip && ldyServiceAreaInvalid ? (
-              <p className="text-xs text-red-300">
-                City of Derry Airport transfers are between LDY and the greater Belfast area only.
-              </p>
-            ) : null}
+            <p className="min-h-[1.1rem] text-xs text-red-300">
+              {isLdyTrip && ldyServiceAreaInvalid
+                ? "City of Derry Airport transfers are between LDY and the greater Belfast area only."
+                : "\u00a0"}
+            </p>
 
             <TripMap
               tripMode="address"
@@ -1816,7 +1826,7 @@ function QuoteCard({
               onChange={(e) => {
                 setAirportCode(e.target.value);
               }}
-              className="w-full rounded-xl border border-white/10 bg-navy-light px-4 py-3 text-sm text-white outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30"
+              className="box-border h-12 w-full min-w-0 rounded-xl border border-white/10 bg-navy-light px-4 text-base text-white outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30"
             >
               <option value="">Select airport</option>
               {AIRPORTS.map((a) => (
@@ -1975,7 +1985,7 @@ function QuoteCard({
                 setTripDateError("");
                 setReturnDateError("");
               }}
-              className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30 [color-scheme:dark]"
+              className="box-border h-12 w-full min-w-0 rounded-xl border border-white/10 bg-white/5 px-4 text-base text-white outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30 [color-scheme:dark]"
             />
           </div>
           <div>
@@ -2004,73 +2014,79 @@ function QuoteCard({
                 setTripDateError("");
                 setReturnDateError("");
               }}
-              className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30 [color-scheme:dark]"
+              className="box-border h-12 w-full min-w-0 rounded-xl border border-white/10 bg-white/5 px-4 text-base text-white outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30 [color-scheme:dark]"
             />
           </div>
-          {tripDateError ? (
-            <p className="sm:col-span-2 text-xs text-red-400">{tripDateError}</p>
-          ) : null}
+          <p className="sm:col-span-2 min-h-[1.1rem] text-xs text-red-400">
+            {tripDateError || "\u00a0"}
+          </p>
         </div>
 
-        {returnJourney && (
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label
-                htmlFor="returnDate"
-                className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/50"
-              >
-                Return Date <span className="text-emerald/80">*</span>
-              </label>
-              <input
-                id="returnDate"
-                ref={returnDateInputRef}
-                name="returnDate"
-                type="date"
-                required
-                min={minReturnDate}
-                value={returnDate}
-                onChange={(e) => {
-                  setReturnDate(e.target.value);
-                  setReturnDateError("");
-                }}
-                onInput={(e) => {
-                  setReturnDate((e.target as HTMLInputElement).value);
-                  setReturnDateError("");
-                }}
-                className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30 [color-scheme:dark]"
-              />
+        <div
+          className={`grid transition-[grid-template-rows] duration-200 ease-out ${
+            returnJourney ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+          }`}
+        >
+          <div className="min-h-0 overflow-hidden">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label
+                  htmlFor="returnDate"
+                  className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/50"
+                >
+                  Return Date <span className="text-emerald/80">*</span>
+                </label>
+                <input
+                  id="returnDate"
+                  ref={returnDateInputRef}
+                  name="returnDate"
+                  type="date"
+                  required={returnJourney}
+                  min={minReturnDate}
+                  value={returnDate}
+                  onChange={(e) => {
+                    setReturnDate(e.target.value);
+                    setReturnDateError("");
+                  }}
+                  onInput={(e) => {
+                    setReturnDate((e.target as HTMLInputElement).value);
+                    setReturnDateError("");
+                  }}
+                  className="box-border h-12 w-full min-w-0 rounded-xl border border-white/10 bg-white/5 px-4 text-base text-white outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30 [color-scheme:dark]"
+                />
+              </div>
+              <div>
+                <label
+                  htmlFor="returnTime"
+                  className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/50"
+                >
+                  Return pick up time <span className="text-emerald/80">*</span>
+                </label>
+                <input
+                  id="returnTime"
+                  ref={returnTimeInputRef}
+                  name="returnTime"
+                  type="time"
+                  required={returnJourney}
+                  min={minReturnTime}
+                  value={returnTime}
+                  onChange={(e) => {
+                    setReturnTime(e.target.value);
+                    setReturnDateError("");
+                  }}
+                  onInput={(e) => {
+                    setReturnTime((e.target as HTMLInputElement).value);
+                    setReturnDateError("");
+                  }}
+                  className="box-border h-12 w-full min-w-0 rounded-xl border border-white/10 bg-white/5 px-4 text-base text-white outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30 [color-scheme:dark]"
+                />
+              </div>
+              <p className="sm:col-span-2 min-h-[1.1rem] text-xs text-red-400">
+                {returnDateError || "\u00a0"}
+              </p>
             </div>
-            <div>
-              <label
-                htmlFor="returnTime"
-                className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/50"
-              >
-                Return pick up time <span className="text-emerald/80">*</span>
-              </label>
-              <input
-                id="returnTime"
-                ref={returnTimeInputRef}
-                name="returnTime"
-                type="time"
-                required
-                min={minReturnTime}
-                value={returnTime}
-                onChange={(e) => {
-                  setReturnTime(e.target.value);
-                  setReturnDateError("");
-                }}
-                onInput={(e) => {
-                  setReturnTime((e.target as HTMLInputElement).value);
-                  setReturnDateError("");
-                }}
-                className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30 [color-scheme:dark]"
-              />
-            </div>
-            {returnDateError && (
-              <p className="sm:col-span-2 text-xs text-red-400">{returnDateError}</p>
-            )}
           </div>
-        )}
+        </div>
 
         {(isAirportTrip || (isA2AFlow && pickupAirportCode)) && (
           <div className="space-y-4 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-4">
@@ -2150,7 +2166,7 @@ function QuoteCard({
               required
               value={passengers}
               onChange={(e) => setPassengers(Number(e.target.value))}
-              className="w-full rounded-xl border border-white/10 bg-navy-light px-4 py-3 text-sm text-white outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30"
+              className="box-border h-12 w-full min-w-0 rounded-xl border border-white/10 bg-navy-light px-4 text-base text-white outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30"
             >
               {Array.from({ length: passengerLimit }, (_, index) => index + 1).map((count) => (
                 <option key={count} value={count}>
@@ -2172,7 +2188,7 @@ function QuoteCard({
               required
               value={suitcases}
               onChange={(e) => setSuitcases(Number(e.target.value))}
-              className="w-full rounded-xl border border-white/10 bg-navy-light px-4 py-3 text-sm text-white outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30"
+              className="box-border h-12 w-full min-w-0 rounded-xl border border-white/10 bg-navy-light px-4 text-base text-white outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30"
             >
               {Array.from({ length: 9 }, (_, index) => index).map((count) => (
                 <option key={count} value={count}>
@@ -2182,27 +2198,31 @@ function QuoteCard({
             </select>
           </div>
           <input type="hidden" name="vehicle" value={quoteVehicle} />
-          {passengers > 4 || suitcases >= 5 ? (
-            <p className="sm:col-span-2 text-xs leading-relaxed text-white/45">
-              Larger groups are arranged through our licensed transport partners — request a quote
-              (subject to availability).
-            </p>
-          ) : null}
-          {isRequestQuote ? (
-            <p className="sm:col-span-2 text-xs text-white/50">{MINIBUS_PARTNER_NOTE}</p>
-          ) : null}
+          <p className="sm:col-span-2 min-h-[2.5rem] text-xs leading-relaxed text-white/45">
+            {passengers > 4 || suitcases >= 5
+              ? "Larger groups are arranged through our licensed transport partners — request a quote (subject to availability)."
+              : isRequestQuote
+                ? MINIBUS_PARTNER_NOTE
+                : "\u00a0"}
+          </p>
         </div>
 
-        {capacityNeedsConfirm ? (
-          <div className="rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-50">
-            <p className="font-semibold text-amber-100">Luggage capacity check required</p>
-            <p className="mt-1 text-xs leading-relaxed text-amber-50/90">
-              8 passengers with 8 large suitcases cannot be confirmed until we check capacity with
-              our transport partner. You can still request a quote — we&apos;ll confirm whether we
-              can take the booking.
-            </p>
+        <div
+          className={`grid transition-[grid-template-rows] duration-200 ease-out ${
+            capacityNeedsConfirm ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+          }`}
+        >
+          <div className="min-h-0 overflow-hidden">
+            <div className="rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-50">
+              <p className="font-semibold text-amber-100">Luggage capacity check required</p>
+              <p className="mt-1 text-xs leading-relaxed text-amber-50/90">
+                8 passengers with 8 large suitcases cannot be confirmed until we check capacity with
+                our transport partner. You can still request a quote — we&apos;ll confirm whether we
+                can take the booking.
+              </p>
+            </div>
           </div>
-        ) : null}
+        </div>
           </>
         ) : null}
 
