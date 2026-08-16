@@ -27,6 +27,13 @@ jobs:
           script: |
             const owner = context.repo.owner;
             const repo = context.repo.repo;
+            // pull_request events often fire before Vercel/Workers finish — wait briefly.
+            const maxAttempts = context.eventName === "pull_request" ? 24 : 3;
+            const delayMs = 15000;
+
+            async function sleep(ms) {
+              await new Promise((resolve) => setTimeout(resolve, ms));
+            }
 
             async function findCursorPulls() {
               const pulls = [];
@@ -59,14 +66,7 @@ jobs:
               return pulls;
             }
 
-            const candidates = await findCursorPulls();
-            if (candidates.length === 0) {
-              return;
-            }
-
-            for (const candidate of candidates) {
-              const pull_number = candidate.number;
-
+            async function tryMerge(pull_number) {
               let { data: prDetails } = await github.rest.pulls.get({
                 owner,
                 repo,
@@ -74,10 +74,9 @@ jobs:
               });
 
               if (prDetails.merged || !prDetails.head.ref.startsWith("cursor/")) {
-                continue;
+                return "done";
               }
 
-              // GitHub cannot merge draft PRs — mark ready first.
               if (prDetails.draft) {
                 await github.rest.pulls.update({
                   owner,
@@ -92,8 +91,11 @@ jobs:
                 }));
               }
 
+              if (prDetails.mergeable === false) {
+                return "blocked";
+              }
               if (prDetails.mergeable !== true) {
-                continue;
+                return "wait";
               }
 
               const { data: checks } = await github.rest.checks.listForRef({
@@ -112,17 +114,16 @@ jobs:
                     !["success", "skipped", "neutral", "stale"].includes(run.conclusion)),
               );
               if (blockingRuns.length > 0) {
-                continue;
+                return "wait";
               }
 
-              // Also honour commit status contexts (e.g. Vercel).
               const { data: combined } = await github.rest.repos.getCombinedStatusForRef({
                 owner,
                 repo,
                 ref: prDetails.head.sha,
               });
               if (combined.state === "pending" || combined.state === "failure") {
-                continue;
+                return "wait";
               }
 
               await github.rest.pulls.merge({
@@ -131,4 +132,22 @@ jobs:
                 pull_number,
                 merge_method: "merge",
               });
+              return "merged";
+            }
+
+            const candidates = await findCursorPulls();
+            if (candidates.length === 0) {
+              return;
+            }
+
+            for (const candidate of candidates) {
+              for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+                const result = await tryMerge(candidate.number);
+                if (result === "merged" || result === "done" || result === "blocked") {
+                  break;
+                }
+                if (attempt < maxAttempts) {
+                  await sleep(delayMs);
+                }
+              }
             }
