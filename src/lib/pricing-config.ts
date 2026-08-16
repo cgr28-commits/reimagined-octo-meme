@@ -25,6 +25,13 @@ export type PricingConfig = {
   airportMinimumFaresGbp: Record<string, number>;
   airportBasePricesGbp: Record<AirportCode, number>;
   airportEstatePremiumGbp: number;
+  airportLongHaulEstatePremium?: {
+    enabled: boolean;
+    note?: string;
+    minSaloonFareGbp: number;
+    premiumGbp: number;
+    excludeAirports: AirportCode[];
+  };
   airportExecutiveMinimumFareGbp: number;
   areaAirportSurchargesGbp: Record<string, Record<AirportCode, number>>;
   defaultAreaSurchargeGbp: Record<AirportCode, number>;
@@ -46,6 +53,18 @@ export type PricingConfig = {
     note?: string;
     floorGbp: number;
     bands: Array<{ upToKm: number; adjustmentGbp: number }>;
+  };
+  dublinCityBeyondAirport?: {
+    enabled: boolean;
+    note?: string;
+    airportLat: number;
+    airportLng: number;
+    geofenceRadiusKm: number;
+    referenceLoadedKmFromBelfastCentre: number;
+    referenceLoadedMinutesFromBelfastCentre: number;
+    perKmGbp: number;
+    perMinuteGbp: number;
+    minimumUpliftGbp: number;
   };
   returnJourneyDiscountRate: number;
   airportTripPremiumRate: number;

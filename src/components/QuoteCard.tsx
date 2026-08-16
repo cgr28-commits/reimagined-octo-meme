@@ -43,6 +43,7 @@ import {
 } from "@/lib/quote-prefill";
 import { readTestBookingPrefill } from "@/lib/test-booking";
 import {
+  calculateDublinCityBeyondAirportQuote,
   calculatePointToPointQuote,
   calculateQuote,
   formatQuote,
@@ -88,6 +89,8 @@ import {
   emptySelectedPlace,
   placeDisplayText,
   placesEqual,
+  isDublinCityCorridorJourney,
+  isDublinCityNotAirportPlace,
   isOutOfAreaPickup,
   isPlaceSelected,
   isRepublicOfIrelandJourney,
@@ -406,7 +409,13 @@ function QuoteCard({
     isA2AFlow &&
     isPlaceSelected(pickupPlace) &&
     isPlaceSelected(dropoffPlace) &&
-    isRepublicOfIrelandJourney(pickupPlace, dropoffPlace);
+    isRepublicOfIrelandJourney(pickupPlace, dropoffPlace) &&
+    !isDublinCityCorridorJourney(pickupPlace, dropoffPlace);
+  const isDublinCityCorridor =
+    isA2AFlow &&
+    isPlaceSelected(pickupPlace) &&
+    isPlaceSelected(dropoffPlace) &&
+    isDublinCityCorridorJourney(pickupPlace, dropoffPlace);
   const isManualQuoteJourney =
     isA2AFlow &&
     isPlaceSelected(pickupPlace) &&
@@ -741,6 +750,18 @@ function QuoteCard({
       if (!routeMetrics) {
         return null;
       }
+      if (isDublinCityCorridor) {
+        const niAddress = isDublinCityNotAirportPlace(dropoffPlace)
+          ? pickupAddress
+          : dropoffAddress;
+        return calculateDublinCityBeyondAirportQuote(
+          niAddress,
+          quoteVehicle,
+          routeMetrics,
+          returnJourney,
+          schedule,
+        );
+      }
       return calculatePointToPointQuote(
         pickupAddress,
         dropoffAddress,
@@ -774,12 +795,15 @@ function QuoteCard({
     dropoffAirportCode,
     isA2AFlow,
     isAirportTrip,
+    isDublinCityCorridor,
     isEnquiryOnly,
     isManualQuoteJourney,
     pricingConfirmationRequired,
     journeyKind,
     pickupAddress,
     pickupAirportCode,
+    pickupPlace,
+    dropoffPlace,
     showGuidePrice,
     quoteAddress,
     returnDate,

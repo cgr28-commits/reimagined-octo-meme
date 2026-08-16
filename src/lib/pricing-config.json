@@ -39,6 +39,13 @@
     "LDY": 35
   },
   "airportEstatePremiumGbp": 8,
+  "airportLongHaulEstatePremium": {
+    "enabled": true,
+    "note": "Long NI airport transfers (e.g. BFS to Enniskillen) need a larger estate gap to stay near OTS; Dublin Airport keeps the default £8 premium.",
+    "minSaloonFareGbp": 140,
+    "premiumGbp": 24,
+    "excludeAirports": ["DUB"]
+  },
   "airportExecutiveMinimumFareGbp": 105,
   "areaAirportSurchargesGbp": {
     "Belfast City Centre": {
@@ -192,8 +199,8 @@
       "LDY": 0
     },
     "Enniskillen": {
-      "BFS": 99,
-      "BHD": 94,
+      "BFS": 110,
+      "BHD": 126,
       "DUB": 175,
       "LDY": 55
     }
@@ -270,6 +277,18 @@
       { "upToKm": 120, "adjustmentGbp": 0 },
       { "upToKm": 9999, "adjustmentGbp": 8 }
     ]
+  },
+  "dublinCityBeyondAirport": {
+    "enabled": true,
+    "note": "Belfast-area to Dublin city (NOT Dublin Airport) = DUB airport fare for the NI origin + continuation beyond the airport. Never treat Dublin city as DUB.",
+    "airportLat": 53.4264,
+    "airportLng": -6.2499,
+    "geofenceRadiusKm": 4,
+    "referenceLoadedKmFromBelfastCentre": 159,
+    "referenceLoadedMinutesFromBelfastCentre": 111,
+    "perKmGbp": 1.25,
+    "perMinuteGbp": 0.45,
+    "minimumUpliftGbp": 25
   },
   "returnJourneyDiscountRate": 0.05,
   "airportTripPremiumRate": 0,

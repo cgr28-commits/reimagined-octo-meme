@@ -9,6 +9,7 @@ import {
   isNorthernIrelandPostcode,
   isNorthernIrelandText,
 } from "@/lib/northern-ireland";
+import { PRICING_CONFIG } from "@/lib/pricing-config";
 
 export type SelectedPlace = {
   placeId: string;
@@ -97,7 +98,12 @@ const AIRPORT_MATCHERS: Array<{ code: string; patterns: RegExp[] }> = [
   },
   {
     code: "DUB",
-    patterns: [/dublin airport/i, /\bDUB\b/, /aerfort bhaile átha cliath/i],
+    // Require explicit airport wording / IATA — never bare "Dublin".
+    patterns: [
+      /\bdublin\s+airport\b/i,
+      /\baerfort\s+bhaile\s+átha\s+cliath\b/i,
+      /\bDUB\b/,
+    ],
   },
   {
     code: "LDY",
@@ -180,15 +186,137 @@ export function detectAirportCodeFromPlace(place: SelectedPlace): string | null 
     return AIRPORT_CODE_BY_PLACE_ID.get(place.placeId) ?? null;
   }
 
+  // Prefer geofence for Dublin Airport before any text heuristics.
+  if (isWithinDublinAirportGeofence(place)) {
+    return "DUB";
+  }
+
   const haystack = [place.placeName, place.displayAddress, place.formattedAddress]
     .filter(Boolean)
     .join(" ");
+
+  // Never classify plain Dublin city / hotel / port text as DUB.
+  if (isDublinCityTextWithoutAirport(haystack) && !/\bdublin\s+airport\b|\bDUB\b/i.test(haystack)) {
+    return null;
+  }
+
   for (const matcher of AIRPORT_MATCHERS) {
     if (matcher.patterns.some((pattern) => pattern.test(haystack))) {
       return matcher.code;
     }
   }
   return null;
+}
+
+function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const toRad = (deg: number) => (deg * Math.PI) / 180;
+  const r = 6371;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return 2 * r * Math.asin(Math.sqrt(a));
+}
+
+/** True when coordinates fall inside the configured Dublin Airport geofence. */
+export function isWithinDublinAirportGeofence(place: SelectedPlace): boolean {
+  const cfg = getDublinAirportGeoConfig();
+  if (
+    !cfg ||
+    typeof place.lat !== "number" ||
+    typeof place.lng !== "number" ||
+    !Number.isFinite(place.lat) ||
+    !Number.isFinite(place.lng)
+  ) {
+    return false;
+  }
+  return haversineKm(place.lat, place.lng, cfg.lat, cfg.lng) <= cfg.radiusKm;
+}
+
+function getDublinAirportGeoConfig(): { lat: number; lng: number; radiusKm: number } | null {
+  const cfg = PRICING_CONFIG.dublinCityBeyondAirport;
+  if (!cfg) {
+    return { lat: 53.4264, lng: -6.2499, radiusKm: 4 };
+  }
+  return {
+    lat: cfg.airportLat,
+    lng: cfg.airportLng,
+    radiusKm: cfg.geofenceRadiusKm,
+  };
+}
+
+/** Dublin city / county destinations that are explicitly not the airport. */
+function isDublinCityTextWithoutAirport(text: string): boolean {
+  const lower = text.toLowerCase();
+  if (/\bdublin\s+airport\b/.test(lower) || /\bdub\b/.test(lower)) {
+    return false;
+  }
+  return (
+    /\bdublin\b/.test(lower) ||
+    /\bco\.?\s*dublin\b/.test(lower) ||
+    /\bcounty dublin\b/.test(lower)
+  );
+}
+
+/**
+ * True when the place is in the Dublin urban/county area but is NOT Dublin Airport.
+ * Used so city hotels/businesses never receive the DUB £230/£240 airport fare alone.
+ */
+export function isDublinCityNotAirportPlace(place: SelectedPlace): boolean {
+  if (!isPlaceSelected(place)) {
+    return false;
+  }
+  if (detectAirportCodeFromPlace(place) === "DUB") {
+    return false;
+  }
+  if (isWithinDublinAirportGeofence(place)) {
+    return false;
+  }
+
+  const country = normaliseCountryCode(place.countryCode);
+  const haystack = [place.placeName, place.displayAddress, place.formattedAddress]
+    .filter(Boolean)
+    .join(" ");
+
+  if (country === "IE" && isDublinCityTextWithoutAirport(haystack)) {
+    return true;
+  }
+  if (country === "IE" && /\bdublin\b/i.test(haystack)) {
+    return true;
+  }
+  // Eircode Dublin routing keys often D / A for city — keep text-based for safety.
+  return isIrelandAddressText(haystack) && isDublinCityTextWithoutAirport(haystack);
+}
+
+/**
+ * Greater Belfast (or BFS/BHD) ↔ Dublin city corridor — priced as DUB airport + beyond.
+ */
+export function isDublinCityCorridorJourney(
+  pickup: SelectedPlace,
+  dropoff: SelectedPlace,
+): boolean {
+  if (!isPlaceSelected(pickup) || !isPlaceSelected(dropoff)) {
+    return false;
+  }
+  const pickupAirport = detectAirportCodeFromPlace(pickup);
+  const dropoffAirport = detectAirportCodeFromPlace(dropoff);
+  if (pickupAirport === "DUB" || dropoffAirport === "DUB") {
+    return false;
+  }
+
+  const pickupIsDublinCity = isDublinCityNotAirportPlace(pickup);
+  const dropoffIsDublinCity = isDublinCityNotAirportPlace(dropoff);
+  if (pickupIsDublinCity === dropoffIsDublinCity) {
+    return false;
+  }
+
+  const niLeg = pickupIsDublinCity ? dropoff : pickup;
+  const niAirport = detectAirportCodeFromPlace(niLeg);
+  if (niAirport === "BFS" || niAirport === "BHD" || niAirport === "LDY") {
+    return true;
+  }
+  return isGreaterBelfastServiceAddress(niLeg.formattedAddress);
 }
 
 export function detectJourneyKind(
@@ -333,6 +461,10 @@ export function needsManualQuoteApproval(
       return false;
     }
     return true;
+  }
+  // Greater Belfast ↔ Dublin city is a priced corridor (DUB fare + beyond), not a blank ROI quote.
+  if (isDublinCityCorridorJourney(pickup, dropoff)) {
+    return false;
   }
   return isRepublicOfIrelandJourney(pickup, dropoff);
 }

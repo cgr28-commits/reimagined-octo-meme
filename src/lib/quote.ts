@@ -162,7 +162,8 @@ function applyAirportVehiclePricing(
 ): number {
   const airportMinimum = AIRPORT_MINIMUM_FARE[airportCode] ?? 0;
   const saloonFare = Math.max(saloonOneWay, airportMinimum);
-  const estateTier = saloonFare + AIRPORT_ESTATE_PREMIUM;
+  const estatePremium = getAirportEstatePremiumGbp(airportCode, saloonFare);
+  const estateTier = saloonFare + estatePremium;
 
   switch (vehicleType) {
     case "Standard Saloon (1–4 passengers)":
@@ -181,19 +182,36 @@ function applyAirportVehiclePricing(
   }
 }
 
+function getAirportEstatePremiumGbp(airportCode: string, saloonFare: number): number {
+  const longHaul = PRICING_CONFIG.airportLongHaulEstatePremium;
+  if (
+    longHaul?.enabled &&
+    saloonFare >= longHaul.minSaloonFareGbp &&
+    !(longHaul.excludeAirports ?? []).includes(airportCode as AirportCode)
+  ) {
+    return longHaul.premiumGbp;
+  }
+  return AIRPORT_ESTATE_PREMIUM;
+}
+
 function getAirportVehiclePricingMeta(
   vehicleType: (typeof VEHICLE_TYPES)[number],
+  saloonFareForMeta = 0,
+  airportCode = "BFS",
 ): { vehicleMultiplier: number; vehicleAdjustment: number } {
   if (vehicleType === "Standard Saloon (1–4 passengers)") {
     return { vehicleMultiplier: 1, vehicleAdjustment: 0 };
   }
   if (vehicleType === "Estate Car (1–4 passengers)") {
-    return { vehicleMultiplier: 1, vehicleAdjustment: AIRPORT_ESTATE_PREMIUM };
+    return {
+      vehicleMultiplier: 1,
+      vehicleAdjustment: getAirportEstatePremiumGbp(airportCode, saloonFareForMeta),
+    };
   }
 
   return {
     vehicleMultiplier: VEHICLE_MULTIPLIERS[vehicleType] ?? 1,
-    vehicleAdjustment: AIRPORT_ESTATE_PREMIUM,
+    vehicleAdjustment: getAirportEstatePremiumGbp(airportCode, saloonFareForMeta),
   };
 }
 
@@ -546,7 +564,11 @@ export function calculateQuote(
     airportCode,
     airportBase + areaSurcharge,
   );
-  const { vehicleMultiplier, vehicleAdjustment } = getAirportVehiclePricingMeta(vehicleType);
+  const { vehicleMultiplier, vehicleAdjustment } = getAirportVehiclePricingMeta(
+    vehicleType,
+    saloonOneWay,
+    airportCode,
+  );
   let oneWayFare = applyAirportVehiclePricing(saloonOneWay, vehicleType, airportCode);
 
   // When operational rates are filled, fold configured tolls + airport charges into the fare.
@@ -596,6 +618,58 @@ export function getAirportFromPrice(
 
 export function formatQuote(amount: number): string {
   return `£${amount}`;
+}
+
+/**
+ * Belfast-area / NI origin → Dublin city (not Dublin Airport).
+ * Starts from the DUB airport fare for the NI address, then adds a continuation
+ * uplift for loaded distance/time beyond the Dublin Airport corridor reference.
+ */
+export function calculateDublinCityBeyondAirportQuote(
+  niAddress: string,
+  vehicleType: (typeof VEHICLE_TYPES)[number],
+  routeMetrics: TripRouteMetrics,
+  returnJourney = false,
+  schedule: TripSchedule = {},
+): QuoteResult | null {
+  const cfg = PRICING_CONFIG.dublinCityBeyondAirport;
+  if (!cfg?.enabled || !isValidRouteMetrics(routeMetrics)) {
+    return null;
+  }
+
+  const airportLeg = calculateQuote(niAddress, "DUB", vehicleType, false, {});
+  if (!airportLeg) {
+    return null;
+  }
+
+  const extraKm = Math.max(
+    0,
+    routeMetrics.distanceKm - cfg.referenceLoadedKmFromBelfastCentre,
+  );
+  const extraMin = Math.max(
+    0,
+    routeMetrics.durationMinutes - cfg.referenceLoadedMinutesFromBelfastCentre,
+  );
+  const rawUplift = extraKm * cfg.perKmGbp + extraMin * cfg.perMinuteGbp;
+  const uplift = Math.max(cfg.minimumUpliftGbp, rawUplift);
+  const oneWay = airportLeg.amount + uplift;
+
+  const premium = applyTripPremium(oneWay, { ...schedule, returnJourney });
+
+  return {
+    amount: roundFare(premium.total),
+    area: airportLeg.area,
+    areaSurcharge: Math.round(routeMetrics.distanceKm),
+    airportBase: airportLeg.airportBase,
+    vehicleMultiplier: airportLeg.vehicleMultiplier,
+    vehicleAdjustment: airportLeg.vehicleAdjustment,
+    premiumApplied: premium.premiumApplied,
+    operational: {
+      distanceKm: routeMetrics.distanceKm,
+      durationMinutes: routeMetrics.durationMinutes,
+      band: "weekday",
+    },
+  };
 }
 
 export {

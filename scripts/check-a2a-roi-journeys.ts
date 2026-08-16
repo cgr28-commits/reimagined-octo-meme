@@ -100,7 +100,7 @@ const dub = quickSelectToPlace("DUB");
 
 assert.ok(bfs && bhd && dub);
 
-check("Belfast address to Dublin city is ROI fixed-quote", () => {
+check("Belfast address to Dublin city is ROI geography (priced corridor, not DUB flat fare)", () => {
   assert.equal(detectJourneyKind(belfastHome, dublinCity), "address-to-address");
   assert.equal(isRepublicOfIrelandJourney(belfastHome, dublinCity), true);
 });
@@ -155,9 +155,9 @@ check("Dublin Airport keeps instant quote (not ROI fixed-quote)", () => {
   assert.equal(needsManualQuoteApproval(dub!, belfastHome), false);
 });
 
-check("Dublin city still uses ROI fixed-quote", () => {
+check("Dublin city is a priced corridor (DUB fare + beyond), not a blank ROI quote", () => {
   assert.equal(isRepublicOfIrelandJourney(belfastHome, dublinCity), true);
-  assert.equal(needsManualQuoteApproval(belfastHome, dublinCity), true);
+  assert.equal(needsManualQuoteApproval(belfastHome, dublinCity), false);
 });
 
 check("Greater Belfast address is a standard instant pickup", () => {

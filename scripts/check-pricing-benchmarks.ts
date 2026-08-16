@@ -180,6 +180,22 @@ near(rows[4].newE, 146, 5);
 near(rows[5].newS, 145, 5);
 near(rows[5].newE, 165, 5);
 
+// BFS → Enniskillen airport corridor (OTS-aligned, not deep undercut)
+const bfsEnniS = calculateQuote(
+  "10 East Bridge Street, Enniskillen, BT74 7AB",
+  "BFS",
+  SALOON,
+)?.amount;
+const bfsEnniE = calculateQuote(
+  "10 East Bridge Street, Enniskillen, BT74 7AB",
+  "BFS",
+  ESTATE,
+)?.amount;
+assert.ok(bfsEnniS && bfsEnniE);
+near(bfsEnniS, 156, 3);
+near(bfsEnniE, 180, 5);
+console.log(`OK  BFS → Enniskillen S £${bfsEnniS} / E £${bfsEnniE}`);
+
 assert.equal(PRICING_CONFIG.airportBasePricesGbp.BHD, 29);
 assert.equal(PRICING_CONFIG.airportMinimumFaresGbp.BHD, 29);
 assert.equal(PRICING_CONFIG.airportBasePricesGbp.BFS, 45);
