@@ -27,7 +27,7 @@ const SELECTABLE_AIRPORTS = CUSTOMER_AIRPORTS.filter(
 );
 
 const SELECT_CARD =
-  "flex min-h-[4.5rem] flex-col items-start justify-center rounded-2xl border px-4 py-3 text-left transition-all";
+  "flex min-h-[4.5rem] flex-col items-start justify-center rounded-2xl border px-4 py-3 text-left transition-all lg:min-h-[3.75rem] lg:px-3.5 lg:py-2.5";
 const SELECT_CARD_ON = "border-emerald bg-emerald text-navy shadow-sm";
 const SELECT_CARD_OFF =
   "border-white/15 bg-white/5 text-white hover:border-emerald/40 hover:bg-emerald/10";
@@ -63,7 +63,7 @@ function ChoiceGrid({
               type="button"
               aria-pressed={selected}
               onClick={() => onChange(option)}
-              className={`min-h-12 rounded-xl text-base font-semibold transition-all ${
+              className={`min-h-12 rounded-xl text-base font-semibold transition-all lg:min-h-11 ${
                 selected
                   ? "bg-emerald text-navy shadow-sm"
                   : "border border-white/15 bg-white/5 text-white/85 hover:border-emerald/40 hover:text-white"
@@ -165,15 +165,15 @@ export default function QuoteProgressiveRoute({
     journeyIntent === "address-to-address" || (showAirportPicker && airportChosen);
 
   return (
-    <div className="quote-field space-y-5">
-      <div className="min-h-[3.25rem]">
-        <h3 className="text-base font-semibold text-white sm:text-lg">Where are you travelling?</h3>
-        <p className="mt-1 min-h-[1rem] text-xs text-white/55">
+    <div className="quote-field space-y-5 lg:space-y-4">
+      <div className="min-h-[3.25rem] lg:min-h-0">
+        <h3 className="text-base font-semibold text-white sm:text-lg lg:text-base">Where are you travelling?</h3>
+        <p className="mt-1 min-h-[1rem] text-xs text-white/55 lg:min-h-0">
           {journeyKindLabel || "Choose how you’d like to travel"}
         </p>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-3" role="group" aria-label="Journey type">
+      <div className="grid gap-3 sm:grid-cols-3 lg:gap-2.5" role="group" aria-label="Journey type">
         {QUOTE_JOURNEY_INTENT_OPTIONS.map((option) => {
           const selected = journeyIntent === option.id;
           return (
@@ -312,7 +312,7 @@ export default function QuoteProgressiveRoute({
       )}
 
       {showPartyFields && (
-        <div className="space-y-5">
+        <div className="space-y-5 lg:space-y-4">
           <div>
             <p className="mb-2 text-xs font-medium uppercase tracking-wider text-white/50">
               Journey
@@ -322,7 +322,7 @@ export default function QuoteProgressiveRoute({
                 type="button"
                 aria-pressed={!returnJourney}
                 onClick={() => onReturnJourneyChange(false)}
-                className={`min-h-12 rounded-lg px-3 py-2.5 text-sm font-semibold transition-all ${
+                className={`min-h-12 rounded-lg px-3 py-2.5 text-sm font-semibold transition-all lg:min-h-11 ${
                   !returnJourney ? "bg-emerald text-navy shadow-sm" : "text-white/70 hover:text-white"
                 }`}
               >
@@ -332,7 +332,7 @@ export default function QuoteProgressiveRoute({
                 type="button"
                 aria-pressed={returnJourney}
                 onClick={() => onReturnJourneyChange(true)}
-                className={`min-h-12 rounded-lg px-3 py-2.5 text-sm font-semibold transition-all ${
+                className={`min-h-12 rounded-lg px-3 py-2.5 text-sm font-semibold transition-all lg:min-h-11 ${
                   returnJourney ? "bg-emerald text-navy shadow-sm" : "text-white/70 hover:text-white"
                 }`}
               >
@@ -341,8 +341,8 @@ export default function QuoteProgressiveRoute({
             </div>
           </div>
 
-          <div className="grid gap-5 lg:grid-cols-2 lg:items-start">
-            <div className="space-y-5">
+          <div className="grid gap-5 lg:grid-cols-2 lg:items-start lg:gap-3.5">
+            <div className="space-y-5 lg:space-y-3.5">
               <ChoiceGrid
                 label="Passengers"
                 options={[1, 2, 3, 4, FIVE_PLUS_PASSENGERS]}
@@ -388,7 +388,7 @@ export default function QuoteProgressiveRoute({
               )}
             </div>
 
-            <div className="space-y-5">
+            <div className="space-y-5 lg:space-y-3.5">
               <ChoiceGrid
                 label="Suitcases / large bags"
                 options={[0, 1, 2, 3, 4]}

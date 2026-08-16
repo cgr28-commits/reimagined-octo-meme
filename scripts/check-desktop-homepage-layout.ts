@@ -18,10 +18,11 @@ console.log("=== Desktop homepage layout (lg+) ===");
 const hero = read("src/components/HeroSlideshow.tsx");
 assert.match(hero, /lg:grid-cols-\[minmax\(0,1fr\)_minmax\(500px,600px\)\]/);
 assert.match(hero, /lg:max-w-\[1400px\]/);
+assert.match(hero, /lg:items-start/);
 assert.doesNotMatch(hero, /lg:max-w-md/);
 assert.match(hero, /xl:text-\[4rem\]/);
 assert.match(hero, /id="quote"/);
-console.log("OK  hero uses balanced desktop grid + wider content (no max-w-md quote cap)");
+console.log("OK  hero uses balanced desktop grid + top-aligned columns (no max-w-md quote cap)");
 
 const header = read("src/components/Header.tsx");
 assert.match(header, /lg:grid-cols-\[auto_minmax\(0,1fr\)_auto\]/);
@@ -32,8 +33,9 @@ console.log("OK  header desktop grid; mobile menu/quick links preserved");
 
 const quote = read("src/components/QuoteCard.tsx");
 assert.match(quote, /lg:grid-cols-2/);
-assert.match(quote, /lg:space-y-5/);
-assert.match(quote, /lg:gap-3/);
+assert.match(quote, /lg:space-y-3\.5/);
+assert.match(quote, /lg:p-6/);
+assert.match(quote, /lg:gap-2/);
 console.log("OK  quote card desktop spacing / side-by-side fields");
 
 const progressive = read("src/components/QuoteProgressiveRoute.tsx");
