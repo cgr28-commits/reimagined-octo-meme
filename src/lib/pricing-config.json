@@ -28,13 +28,13 @@
   },
   "airportMinimumFaresGbp": {
     "BFS": 45,
-    "BHD": 35,
+    "BHD": 29,
     "DUB": 180,
     "LDY": 35
   },
   "airportBasePricesGbp": {
     "BFS": 45,
-    "BHD": 35,
+    "BHD": 29,
     "DUB": 180,
     "LDY": 35
   },
@@ -49,7 +49,7 @@
     },
     "Holywood": {
       "BFS": 8,
-      "BHD": 0,
+      "BHD": 6,
       "DUB": 58,
       "LDY": 103
     },

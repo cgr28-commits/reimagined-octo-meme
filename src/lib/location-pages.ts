@@ -85,7 +85,7 @@ const AIRPORT_PAGES_ALL: AirportPage[] = [
       "Hotel pickups in the Titanic Quarter and Cathedral Quarter are a frequent route for us.",
       "If you have a connecting flight from BHD, tell us your departure time and we’ll plan the drop-off window carefully.",
     ],
-    fromPriceLabel: "From £35",
+    fromPriceLabel: "From £29",
     durationNote: "Around 15 minutes from Belfast city centre in normal traffic",
     heroBase: "titanic-belfast",
     heroAlt: "Titanic Belfast near George Best Belfast City Airport",

@@ -831,20 +831,30 @@ function QuoteCard({
   }
 
   function handlePickupPlaceSelect(place: SelectedPlace) {
-    const display = placeDisplayText(place);
     setPickupPlace(place);
-    setPickupAddress(display);
     setPickupPlaceError("");
+    // Typing clears placeId — address was already set via onChange; do not rewrite/trim
+    // the visible field (that was collapsing "24 Colinward" → "24Colinward").
+    if (!place.placeId?.trim()) {
+      return;
+    }
+    // Prefer exact display/formatted text — never trim here (trailing space after a
+    // house number must remain while the customer is still typing).
+    const display = place.displayAddress || place.formattedAddress || placeDisplayText(place);
+    setPickupAddress(display);
     if (display.trim()) {
       localStorage.setItem(PICKUP_STORAGE_KEY, display.trim());
     }
   }
 
   function handleDropoffPlaceSelect(place: SelectedPlace) {
-    const display = placeDisplayText(place);
     setDropoffPlace(place);
-    setDropoffAddress(display);
     setDropoffPlaceError("");
+    if (!place.placeId?.trim()) {
+      return;
+    }
+    const display = place.displayAddress || place.formattedAddress || placeDisplayText(place);
+    setDropoffAddress(display);
     if (display.trim()) {
       localStorage.setItem(DROPOFF_STORAGE_KEY, display.trim());
     }

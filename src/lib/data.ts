@@ -259,8 +259,8 @@ export const ALL_AIRPORTS = [
   {
     code: "BHD",
     name: "George Best Belfast City",
-    basePrice: 35,
-    distance: "From £35",
+    basePrice: 29,
+    distance: "From £29",
     duration: "~15 min from city centre",
     mapLabel: "George Best Belfast City Airport, Belfast, UK",
     mapLocation: { lat: 54.6181, lng: -5.8724 },

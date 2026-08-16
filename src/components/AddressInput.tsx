@@ -206,10 +206,12 @@ export default function AddressInput({
         .includes(previousCore.toLowerCase().slice(0, Math.min(previousCore.length, 18)));
 
     if (canKeepSelection && previous) {
-      const numberMatch = next.trim().match(/^(\d+[a-zA-Z]?)\b/);
+      const numberMatch = next.match(/^(\d+[a-zA-Z]?)\b/);
       const refined: SelectedPlace = {
         ...previous,
-        formattedAddress: next.trim(),
+        // Keep exact typed text (including spaces) — do not trim on each keystroke.
+        formattedAddress: next,
+        displayAddress: next,
         streetNumber: numberMatch?.[1] ?? previous.streetNumber ?? null,
       };
       selectedPlaceRef.current = refined;
