@@ -17,7 +17,8 @@ export default function FAQSection() {
   });
 
   return (
-    <section id="faq" className="relative py-24 sm:py-32">
+    <section id="faq" className="relative py-20 sm:py-28">
+      <div className="absolute inset-0 bg-navy-dark" />
       <div className="relative mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
         <SectionHeading
           eyebrow="Help Centre"
@@ -25,25 +26,28 @@ export default function FAQSection() {
           description="Everything you need to know about booking your airport transfer."
         />
 
-        <div className="mt-14 divide-y divide-white/10 border-y border-white/10">
+        <div className="mt-12 space-y-3">
           {faqs.map((faq, index) => {
             const isOpen = openIndex === index;
             return (
-              <div key={faq.question}>
+              <div
+                key={faq.question}
+                className="overflow-hidden rounded-xl border border-white/10 bg-white/[0.03] transition-colors hover:border-emerald/20"
+              >
                 <button
                   type="button"
                   onClick={() => setOpenIndex(isOpen ? null : index)}
-                  className="flex w-full items-center justify-between gap-4 py-5 text-left sm:py-6"
+                  className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left sm:px-6 sm:py-5"
                   aria-expanded={isOpen}
                 >
                   <span className="text-sm font-semibold text-white sm:text-base">
                     {faq.question}
                   </span>
                   <span
-                    className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border transition-transform ${
+                    className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border transition-all ${
                       isOpen
-                        ? "rotate-180 border-emerald/40 text-emerald"
-                        : "border-white/15 text-white/50"
+                        ? "rotate-180 border-emerald/50 bg-emerald/10 text-emerald"
+                        : "border-white/10 text-white/50"
                     }`}
                   >
                     <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -53,7 +57,7 @@ export default function FAQSection() {
                 </button>
                 <div className={`faq-answer ${isOpen ? "open" : ""}`}>
                   <div>
-                    <p className="pb-5 text-sm leading-relaxed text-white/60 sm:pb-6">
+                    <p className="px-5 pb-5 text-sm leading-relaxed text-white/60 sm:px-6 sm:pb-6">
                       {faq.answer}
                     </p>
                   </div>

@@ -63,16 +63,17 @@ export const SERVICE_FLAGS = {
 export type ServiceFlagKey = keyof typeof SERVICE_FLAGS;
 
 export const ALL_NAV_LINKS = [
-  { label: "Airports", href: "/#airports", service: null, primary: true },
-  { label: "Long-Distance Transfers", href: "/long-distance-transfers/", service: "addressToAddress" as const, primary: true },
-  { label: "Locations", href: "/locations/", service: "addressToAddress" as const, primary: true },
-  { label: "Day Trips", href: "/tours/", service: "dayTrips" as const, primary: false },
-  { label: "Chauffeur", href: "/#chauffeur", service: "chauffeur" as const, primary: false },
-  { label: "Check Flights", href: "/#flight-status", service: null, primary: false },
-  { label: "Driver Tracking", href: "/#driver-tracking", service: "liveDriverTracking" as const, primary: false },
-  { label: "Areas We Cover", href: "/#areas", service: null, primary: false },
-  { label: "Why Us", href: "/#why-us", service: null, primary: false },
-  { label: "FAQ", href: "/#faq", service: null, primary: true },
+  { label: "Airports", href: "/#airports", service: null },
+  { label: "Long-Distance Transfers", href: "/long-distance-transfers/", service: "addressToAddress" as const },
+  { label: "Locations", href: "/locations/", service: "addressToAddress" as const },
+  { label: "Day Trips", href: "/tours/", service: "dayTrips" as const },
+  { label: "Vehicles", href: "/#vehicles", service: null },
+  { label: "Chauffeur", href: "/#chauffeur", service: "chauffeur" as const },
+  { label: "Check Flights", href: "/#flight-status", service: null },
+  { label: "Driver Tracking", href: "/#driver-tracking", service: "liveDriverTracking" as const },
+  { label: "Areas We Cover", href: "/#areas", service: null },
+  { label: "Why Us", href: "/#why-us", service: null },
+  { label: "FAQ", href: "/#faq", service: null },
 ] as const;
 
 function isServiceEnabled(service: ServiceFlagKey | null): boolean {
@@ -86,11 +87,6 @@ function isServiceEnabled(service: ServiceFlagKey | null): boolean {
 export const NAV_LINKS = ALL_NAV_LINKS.filter((link) => isServiceEnabled(link.service)).map(
   ({ label, href }) => ({ label, href }),
 );
-
-/** Compact desktop header links — full list remains in the mobile menu. */
-export const PRIMARY_NAV_LINKS = ALL_NAV_LINKS.filter(
-  (link) => link.primary && isServiceEnabled(link.service),
-).map(({ label, href }) => ({ label, href }));
 
 /** Always visible on mobile — key services beyond airport transfers. */
 export const ALL_MOBILE_QUICK_LINKS = [
