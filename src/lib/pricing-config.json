@@ -247,7 +247,7 @@
     "default": 20
   },
   "otsReferenceModel": {
-    "note": "OTS-calibrated reference for public A2A and undercut target (~\u00a38\u2013\u00a310 below Onward Travel Solutions estate).",
+    "note": "Distance/time reference for public A2A quotes. Commercial position vs OTS is applied via addressToAddressDistanceBands (short undercut, long empty-return uplift) — not a flat undercut on every journey.",
     "estateBaseGbp": 40,
     "perKmGbp": 0.482,
     "perMinuteGbp": 0.554,
@@ -259,6 +259,17 @@
     },
     "undercutMinGbp": 8,
     "undercutMaxGbp": 10
+  },
+  "addressToAddressDistanceBands": {
+    "enabled": true,
+    "note": "Adjustment applied to the OTS-style reference fare by loaded distance. Negative = short-trip undercut; positive = long-haul empty-return protection. Benchmarks (Belfast centre): Newry ~£81/£93, Derry ~£127/£146, Enniskillen ~£145/£165.",
+    "floorGbp": 35,
+    "bands": [
+      { "upToKm": 50, "adjustmentGbp": -9 },
+      { "upToKm": 90, "adjustmentGbp": -1 },
+      { "upToKm": 120, "adjustmentGbp": 0 },
+      { "upToKm": 9999, "adjustmentGbp": 8 }
+    ]
   },
   "returnJourneyDiscountRate": 0.05,
   "airportTripPremiumRate": 0,

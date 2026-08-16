@@ -1559,7 +1559,7 @@ function QuoteCard({
                   : "We’ve received your minibus quote request. These transfers are subject to partner availability — we’ll confirm capacity and send your personal quote shortly."
               : isEnquiryOnly
                 ? "We’ve received your enquiry. We’ll confirm availability and send your personal quote shortly. When you’re ready to book, we’ll send a SumUp payment link — your trip is confirmed after payment."
-                : "We’ve received your booking request. Once we confirm the job, we’ll send a SumUp payment link by email. Your booking is confirmed after payment."}
+                : "We’ve received your booking request. If you paid online with SumUp, your booking is confirmed. Otherwise we’ll confirm the job and email a SumUp payment link — your trip is confirmed after payment."}
           </p>
           {(bookingReference || quoteTransactionId) && (
             <p className="mt-4 text-sm text-white/60">
@@ -2375,7 +2375,7 @@ function QuoteCard({
                 <span className="mx-2 text-white/35">·</span>
                 Passengers: {formatPassengerChoice(passengers)}
                 <span className="mx-2 text-white/35">·</span>
-                Suitcases: {formatSuitcaseChoice(suitcases)}
+                Large suitcases: {formatSuitcaseChoice(suitcases)}
               </p>
               <a
                 href={whatsAppChatUrl(CAPACITY_WHATSAPP_MESSAGE)}
@@ -2416,7 +2416,7 @@ function QuoteCard({
                 <span className="mx-2 text-white/35">·</span>
                 Passengers: {formatPassengerChoice(passengers)}
                 <span className="mx-2 text-white/35">·</span>
-                Suitcases: {formatSuitcaseChoice(suitcases)}
+                Large suitcases: {formatSuitcaseChoice(suitcases)}
               </p>
               <p className="mt-2 text-xs leading-relaxed text-white/65">{MINIBUS_PARTNER_NOTE}</p>
               {journeyDistanceLabel && journeyDurationLabel && (
@@ -2472,7 +2472,7 @@ function QuoteCard({
                 <span className="mx-2 text-white/35">·</span>
                 Passengers: {formatPassengerChoice(passengers)}
                 <span className="mx-2 text-white/35">·</span>
-                Suitcases: {formatSuitcaseChoice(suitcases)}
+                Large suitcases: {formatSuitcaseChoice(suitcases)}
               </p>
               {testChargeAmount !== null && (
                 <p className="mt-2 text-xs text-white/60">
@@ -2509,8 +2509,8 @@ function QuoteCard({
               : isEnquiryOnly
                 ? "We’ll reply with your quote — no online payment until you confirm."
                 : canPayNowOnline
-                  ? "Includes driver, fuel, and tolls. Pay securely online with SumUp to confirm your booking."
-                  : "Includes driver, fuel, and tolls. Continue to enter your details — you can pay securely online with SumUp when you’re ready to confirm."}
+                  ? "Includes driver, fuel and tolls. Eligible bookings can be paid securely online with SumUp."
+                  : "Includes driver, fuel and tolls. Continue to enter your details — eligible bookings can be paid securely online with SumUp."}
           </p>
         </div>
         )}
@@ -2524,7 +2524,7 @@ function QuoteCard({
           <p className="mt-1 mb-4 text-sm text-white/75">
             {canPayNowOnline
               ? "Enter your details, accept the terms, then pay securely with SumUp to confirm your booking."
-              : "We need these details for your booking request. After we confirm the job, we’ll email your SumUp payment link."}
+              : "We need these details for your booking request. For journeys that need manual confirmation, we’ll email a SumUp payment link after we confirm the job."}
           </p>
           <div className="space-y-4">
             <div>

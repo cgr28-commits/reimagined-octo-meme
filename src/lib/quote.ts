@@ -56,10 +56,11 @@ export const AREA_SURCHARGES: Record<Area, number> = Object.fromEntries(
   Object.entries(AREA_AIRPORT_SURCHARGES).map(([area, surcharges]) => [area, surcharges.BFS]),
 ) as Record<Area, number>;
 
-/** Target band: our estate fare should sit this many pounds below live OTS. */
+/** Target band: short A2A undercut vs OTS reference (legacy helpers / airport calibration). */
 export const OTS_UNDERCUT_MIN = PRICING_CONFIG.otsReferenceModel.undercutMinGbp;
 export const OTS_UNDERCUT_MAX = PRICING_CONFIG.otsReferenceModel.undercutMaxGbp;
 const OTS_UNDERCUT_MID = (OTS_UNDERCUT_MIN + OTS_UNDERCUT_MAX) / 2;
+const A2A_DISTANCE_BANDS = PRICING_CONFIG.addressToAddressDistanceBands;
 
 export type QuoteResult = {
   amount: number;
@@ -97,6 +98,41 @@ function calculateOtsPointToPointOneWay(
 function undercutOtsEstateFare(otsEstateFare: number, floor = POINT_TO_POINT_BASE): number {
   const target = otsEstateFare - OTS_UNDERCUT_MID;
   return roundFare(Math.max(floor, target));
+}
+
+/** Commercial A2A adjustment by loaded distance (short undercut → long empty-return uplift). */
+export function getA2aDistanceAdjustmentGbp(distanceKm: number): number {
+  if (!A2A_DISTANCE_BANDS?.enabled || !A2A_DISTANCE_BANDS.bands?.length) {
+    return -OTS_UNDERCUT_MID;
+  }
+  const sorted = [...A2A_DISTANCE_BANDS.bands].sort((a, b) => a.upToKm - b.upToKm);
+  for (const band of sorted) {
+    if (distanceKm <= band.upToKm) {
+      return band.adjustmentGbp;
+    }
+  }
+  return sorted[sorted.length - 1]?.adjustmentGbp ?? -OTS_UNDERCUT_MID;
+}
+
+function applyA2aCommercialFare(
+  otsReferenceFare: number,
+  distanceKm: number,
+  floor = A2A_DISTANCE_BANDS?.floorGbp ?? POINT_TO_POINT_BASE,
+): number {
+  const adjustment = getA2aDistanceAdjustmentGbp(distanceKm);
+  return roundFare(Math.max(floor, otsReferenceFare + adjustment));
+}
+
+function isValidRouteMetrics(routeMetrics?: TripRouteMetrics | null): routeMetrics is TripRouteMetrics {
+  if (!routeMetrics) {
+    return false;
+  }
+  return (
+    Number.isFinite(routeMetrics.distanceKm) &&
+    routeMetrics.distanceKm > 0.5 &&
+    Number.isFinite(routeMetrics.durationMinutes) &&
+    routeMetrics.durationMinutes > 0
+  );
 }
 
 /**
@@ -384,12 +420,17 @@ export function calculatePointToPointQuote(
     return null;
   }
 
+  // Do not invent A2A fares without a real driving route (prevents silent low fallbacks).
+  if (!isValidRouteMetrics(routeMetrics)) {
+    return null;
+  }
+
   const pickupArea = matchAreaFromAddress(pickup);
   const dropoffArea = matchAreaFromAddress(dropoff);
 
   let oneWay: number;
   let areaSurcharge: number;
-  let airportBase = routeMetrics ? OTS_ESTATE_BASE : POINT_TO_POINT_BASE;
+  let airportBase = OTS_ESTATE_BASE;
   let operationalMeta: QuoteResult["operational"] | undefined;
   let premiumAppliedFromOps = false;
 
@@ -404,7 +445,7 @@ export function calculatePointToPointQuote(
         isTripPremiumDateTime(schedule.returnDate, schedule.returnTime),
     );
 
-  if (routeMetrics && hasOperationalRatesConfigured()) {
+  if (hasOperationalRatesConfigured()) {
     const ops = calculateOperationalSubtotal({
       distanceKm: routeMetrics.distanceKm,
       durationMinutes: routeMetrics.durationMinutes,
@@ -423,36 +464,19 @@ export function calculatePointToPointQuote(
       durationMinutes: ops.operationalDurationMinutes,
       band: ops.band,
     };
-  } else if (routeMetrics) {
-    // OTS reference path — undercut live-equivalent estimate, floored at saloon base.
-    const saloonFloor = OTS_VEHICLE_BASE["Standard Saloon (1–4 passengers)"] ?? 35;
-    oneWay = undercutOtsEstateFare(
+  } else {
+    // OTS-style reference + distance-band commercial adjustment (not a flat undercut).
+    const saloonFloor = A2A_DISTANCE_BANDS?.floorGbp ?? OTS_VEHICLE_BASE["Standard Saloon (1–4 passengers)"] ?? 35;
+    oneWay = applyA2aCommercialFare(
       calculateOtsPointToPointOneWay(
         routeMetrics.distanceKm,
         routeMetrics.durationMinutes,
         vehicleType,
       ),
+      routeMetrics.distanceKm,
       saloonFloor,
     );
     areaSurcharge = Math.round(routeMetrics.distanceKm);
-  } else {
-    const pickupRate = getPointToPointAreaRate(pickupArea);
-    const dropoffRate = getPointToPointAreaRate(dropoffArea);
-    areaSurcharge = Math.max(pickupRate, dropoffRate);
-
-    let oneWaySubtotal: number;
-    if (pickupArea && dropoffArea && pickupArea === dropoffArea) {
-      oneWaySubtotal = POINT_TO_POINT_BASE + Math.max(pickupRate, dropoffRate) * 0.55;
-    } else {
-      const maxRate = Math.max(pickupRate, dropoffRate);
-      const minRate = Math.min(pickupRate, dropoffRate);
-      oneWaySubtotal = POINT_TO_POINT_BASE + maxRate + minRate * 0.35;
-    }
-
-    oneWay = applyPointToPointVehiclePricing(
-      undercutOtsEstateFare(oneWaySubtotal, POINT_TO_POINT_BASE - OTS_UNDERCUT_MID),
-      vehicleType,
-    );
   }
 
   const vehicleMultiplier = VEHICLE_MULTIPLIERS[vehicleType] ?? 1;
