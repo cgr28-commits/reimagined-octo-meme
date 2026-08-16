@@ -174,12 +174,14 @@ function sectionText(section: {
   title: string;
   content?: readonly string[];
   list?: readonly string[];
+  contentAfterList?: readonly string[];
   footer?: string;
   subsections?: ReadonlyArray<{ subtitle: string; content: readonly string[] }>;
 }): string {
   const parts: string[] = [];
   if (section.content) parts.push(...section.content);
   if (section.list) parts.push(...section.list);
+  if (section.contentAfterList) parts.push(...section.contentAfterList);
   if (section.footer) parts.push(section.footer);
   if (section.subsections) {
     for (const sub of section.subsections) {
@@ -269,12 +271,12 @@ function knowledgeChunks(): Array<{ title: string; body: string }> {
     {
       title: "Meet and greet",
       body:
-        "For arrivals we can meet you in the arrivals hall with a name board when requested. Ask for meet and greet when you book and share your flight number so we can track delays.",
+        "Meet & greet is available when requested during booking — we can meet you in the arrivals hall with a name board. Ask for meet and greet when you book and share your flight number so we can plan the collection.",
     },
     {
       title: "Flight delays and waiting time",
       body:
-        "We monitor your flight where possible and adjust the planned collection time for early or delayed arrivals. Airport pickups include the applicable express pickup fee and up to 60 minutes complimentary waiting after landing. Airport drop-offs include the applicable express drop-off fee. Non-airport pickups include 10 minutes complimentary waiting. Dublin Airport fares include applicable tolls where they apply.",
+        "We monitor your flight where possible and adjust the planned collection time for early or delayed arrivals. Airport pickups include up to 60 minutes complimentary waiting time. Airport drop-offs include the applicable express drop-off fee. Non-airport pickups include 10 minutes complimentary waiting. Dublin Airport fares include applicable tolls where they apply.",
     },
     {
       title: "Cash and payment options",

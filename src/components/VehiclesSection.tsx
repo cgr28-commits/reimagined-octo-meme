@@ -36,8 +36,8 @@ export default function VehiclesSection() {
               </p>
               <p className="mt-1 text-xl font-bold text-white">Instant Fixed Quote</p>
               <p className="mt-2 text-sm leading-relaxed text-white/70">
-                Standard or estate car selected automatically from your passengers and luggage.
-                Pay securely online where an instant fare is shown.
+                Instant quote where eligible. Standard or estate car selected automatically from your
+                passengers and luggage. Pay securely online where an instant fare is shown.
               </p>
             </div>
 
@@ -47,8 +47,9 @@ export default function VehiclesSection() {
               </p>
               <p className="mt-1 text-xl font-bold text-white">Tailored Larger Vehicle Quote</p>
               <p className="mt-2 text-sm leading-relaxed text-white/70">
-                We can arrange a suitable larger vehicle / group transfer through licensed transport
-                partners. Request a tailored fixed-price quote — no automatic online fare.
+                We can arrange a suitable minibus / larger vehicle through licensed transport
+                partners. Partner minibuses typically seat up to 8; larger groups can still request a
+                tailored fixed-price quote — no automatic online fare.
               </p>
             </div>
 

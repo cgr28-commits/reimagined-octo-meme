@@ -2,7 +2,7 @@ import { FAQS, SITE } from "./data";
 import { TOURS } from "./tours";
 
 const DESCRIPTION =
-  "Professional airport taxi transfers across Northern Ireland. Flight tracking, meet & greet, and transfers from Belfast International, Belfast City, City of Derry, Dublin, and more.";
+  "Professional airport transfers across Northern Ireland and beyond. Clear fixed prices, airport pickup and drop-off options, flight monitoring and secure online booking.";
 
 export function getWebSiteJsonLd() {
   return {

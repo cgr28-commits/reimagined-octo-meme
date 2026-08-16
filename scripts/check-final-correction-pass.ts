@@ -140,6 +140,7 @@ async function main() {
         title: string;
         content?: readonly string[];
         list?: readonly string[];
+        contentAfterList?: readonly string[];
         footer?: string;
         subsections?: ReadonlyArray<{ content?: readonly string[] }>;
       };
@@ -147,6 +148,7 @@ async function main() {
         s.title,
         ...(s.content ?? []),
         ...(s.list ?? []),
+        ...(s.contentAfterList ?? []),
         s.footer ?? "",
         ...(s.subsections ?? []).flatMap((sub) => sub.content ?? []),
       ];
@@ -165,6 +167,25 @@ async function main() {
     assert.match(text, /licensed partner operators|transport partner/i);
     assert.match(text, /5–8 passengers/i);
     assert.equal(/people carrier/i.test(text), false);
+  });
+
+  await check("Terms Our Service lists airports immediately after the intro phrase", () => {
+    const ourService = TERMS_SECTIONS.find((section) => section.title === "Our Service") as {
+      content?: readonly string[];
+      list?: readonly string[];
+      contentAfterList?: readonly string[];
+    };
+    assert.ok(ourService);
+    assert.equal(ourService.content?.length, 1);
+    assert.match(ourService.content![0], /including transfers to and from:\s*$/);
+    assert.deepEqual(ourService.list, [
+      "Belfast International Airport",
+      "Belfast City Airport",
+      "Dublin Airport",
+      "City of Derry Airport",
+    ]);
+    assert.ok((ourService.contentAfterList?.length ?? 0) >= 2);
+    assert.match(ourService.contentAfterList!.join(" "), /long-distance private transfers/i);
   });
 
   await check("Privacy explains Google Places and Ads quote + paid booking measurement", () => {

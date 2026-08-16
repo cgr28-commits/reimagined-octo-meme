@@ -244,6 +244,34 @@ main {
   font-size: 16px; /* avoid iOS Safari focus zoom */
 }
 
+/**
+ * Quote-tool text fields (flight number, booking contacts, etc.).
+ * Must stay ≥16px on iOS or Safari zooms the viewport and the page can pan sideways.
+ */
+.quote-text-input {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  font-size: 16px;
+  line-height: 1.25;
+  touch-action: manipulation;
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+.quote-field {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.quote-helper-text {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
 .address-suggestions {
   pointer-events: auto;
 }

@@ -80,8 +80,8 @@ export default function FlightStatusSection() {
         </div>
 
         <p className="mt-10 text-center text-sm text-white/40">
-          We monitor your flight for pickup times — delays and early arrivals are handled at no extra
-          cost.
+          We monitor your flight where possible and adjust the planned collection time for early or
+          delayed arrivals. Airport pickups include up to 60 minutes complimentary waiting time.
         </p>
       </div>
     </section>
