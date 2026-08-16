@@ -5,14 +5,28 @@ import {
   buildOwnerPaidBookingEmail,
   type PaidBookingReceipt,
 } from "../../shared/booking-notifications";
-import { sendViaFormSubmitEmail } from "../../shared/email-delivery";
-import { SITE } from "@/lib/data";
 
-const WEB3FORMS_ACCESS_KEY =
-  process.env.NEXT_PUBLIC_WEB3FORMS_ACCESS_KEY?.trim() ?? "";
+function resolveBookingsApiUrl(): string {
+  const url = process.env.NEXT_PUBLIC_BOOKINGS_API_URL?.trim() ?? "";
+  if (!url) {
+    return "";
+  }
+
+  try {
+    const host = new URL(url).hostname.toLowerCase();
+    if (host === "www.myairporttaxini.co.uk" || host === "myairporttaxini.co.uk") {
+      return "";
+    }
+  } catch {
+    return "";
+  }
+
+  return url;
+}
 
 export function isBrowserBookingEmailAvailable(): boolean {
-  return Boolean(WEB3FORMS_ACCESS_KEY);
+  // Browser no longer sends mail directly — paid confirmations go through the worker.
+  return Boolean(resolveBookingsApiUrl());
 }
 
 function toReceipt(booking: BookingDetails, payment: PaymentConfirmationResult): PaidBookingReceipt {
@@ -41,74 +55,23 @@ function toReceipt(booking: BookingDetails, payment: PaymentConfirmationResult):
   };
 }
 
-async function submitWeb3Forms(payload: Record<string, unknown>): Promise<boolean> {
-  if (!WEB3FORMS_ACCESS_KEY) {
-    return false;
-  }
-
-  const response = await fetch("https://api.web3forms.com/submit", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Accept: "application/json" },
-    body: JSON.stringify({
-      access_key: WEB3FORMS_ACCESS_KEY,
-      ...payload,
-    }),
-  });
-
-  const body = (await response.json().catch(() => null)) as { success?: unknown } | null;
-  return response.ok && body?.success === true;
-}
-
-/** Sends customer invoice + owner notification from the browser when the worker cannot. */
+/**
+ * Best-effort paid-booking email fallback.
+ * FormSubmit removed — relies on the Cloudflare Worker confirm-payment path.
+ * This helper only rebuilds local templates for diagnostics; it does not post
+ * booking data to third-party browser form endpoints.
+ */
 export async function sendPaidBookingEmailsFromBrowser(
   booking: BookingDetails,
   payment: PaymentConfirmationResult,
 ): Promise<{ customerEmailSent: boolean; ownerEmailSent: boolean }> {
-  const receipt = toReceipt(booking, payment);
-  const customerEmail = buildCustomerConfirmationEmail(receipt, "My Airport Taxi NI", {
-    trackUrl: payment.trackUrl,
-  });
-  const ownerEmail = buildOwnerPaidBookingEmail(receipt, "My Airport Taxi NI", {
-    trackUrl: payment.trackUrl,
-  });
-
-  let customerEmailSent = await sendViaFormSubmitEmail({
-    to: booking.customerEmail,
-    subject: customerEmail.subject,
-    htmlBody: customerEmail.html,
-    textBody: customerEmail.text,
-    fromName: booking.customerName,
-  });
-
-  if (!customerEmailSent) {
-    customerEmailSent = await submitWeb3Forms({
-      subject: customerEmail.subject,
-      name: booking.customerName,
-      email: booking.customerEmail,
-      from_name: booking.customerName,
-      message: customerEmail.text,
-      autoresponse: {
-        subject: customerEmail.subject,
-        message: customerEmail.text,
-      },
-    });
-  }
-
-  let ownerEmailSent = await sendViaFormSubmitEmail({
-    to: SITE.email,
-    subject: ownerEmail.subject,
-    textBody: ownerEmail.body,
-    fromName: "My Airport Taxi NI",
-  });
-
-  if (!ownerEmailSent) {
-    ownerEmailSent = await submitWeb3Forms({
-      subject: ownerEmail.subject,
-      name: booking.customerName,
-      from_name: "My Airport Taxi NI",
-      message: ownerEmail.body,
-    });
-  }
-
-  return { customerEmailSent, ownerEmailSent };
+  // Worker confirm-payment already sends Resend emails. Browser FormSubmit/Web3Forms
+  // fallbacks are intentionally removed for deliverability and security.
+  void toReceipt(booking, payment);
+  void buildCustomerConfirmationEmail;
+  void buildOwnerPaidBookingEmail;
+  console.error(
+    "Browser paid-booking email fallback is disabled — configure RESEND_API_KEY on the worker",
+  );
+  return { customerEmailSent: false, ownerEmailSent: false };
 }

@@ -65,6 +65,9 @@ jobs:
           GOOGLE_CALENDAR_ID: ${{ secrets.GOOGLE_CALENDAR_ID }}
           GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON }}
           WEB3FORMS_ACCESS_KEY: ${{ secrets.WEB3FORMS_ACCESS_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          BOOKING_FROM_EMAIL: ${{ secrets.BOOKING_FROM_EMAIL }}
+          BOOKING_NOTIFICATION_EMAIL: ${{ secrets.BOOKING_NOTIFICATION_EMAIL }}
           DRIVER_ACCESS_KEY: ${{ secrets.DRIVER_ACCESS_KEY }}
           OWNER_ACCESS_KEY: ${{ secrets.OWNER_ACCESS_KEY }}
           GOOGLE_PLACES_API_KEY: ${{ secrets.GOOGLE_PLACES_API_KEY || secrets.GOOGLE_API_KEY || secrets.GOOGLE_MAPS_API_KEY }}
@@ -105,11 +108,27 @@ jobs:
           else
             echo "::notice::GETADDRESS_API_KEY not set — getAddress.io is discontinued; use IDEAL_POSTCODES_API_KEY."
           fi
+          if [ -n "$RESEND_API_KEY" ]; then
+            echo "Syncing RESEND_API_KEY secret…"
+            printf '%s' "$RESEND_API_KEY" | npx wrangler secret put RESEND_API_KEY
+          else
+            echo "::error::RESEND_API_KEY missing — booking emails will fail until configured. See docs/RESEND_SETUP.md"
+          fi
+          if [ -n "$BOOKING_FROM_EMAIL" ]; then
+            echo "Syncing BOOKING_FROM_EMAIL secret…"
+            printf '%s' "$BOOKING_FROM_EMAIL" | npx wrangler secret put BOOKING_FROM_EMAIL
+          else
+            printf '%s' 'bookings@myairporttaxini.co.uk' | npx wrangler secret put BOOKING_FROM_EMAIL
+          fi
+          if [ -n "$BOOKING_NOTIFICATION_EMAIL" ]; then
+            echo "Syncing BOOKING_NOTIFICATION_EMAIL secret…"
+            printf '%s' "$BOOKING_NOTIFICATION_EMAIL" | npx wrangler secret put BOOKING_NOTIFICATION_EMAIL
+          fi
           if [ -n "$WEB3FORMS_ACCESS_KEY" ]; then
-            echo "Syncing Web3Forms secret…"
+            echo "Syncing Web3Forms secret (optional fallback)…"
             printf '%s' "$WEB3FORMS_ACCESS_KEY" | npx wrangler secret put WEB3FORMS_ACCESS_KEY
           else
-            echo "::notice::WEB3FORMS_ACCESS_KEY not set — paid booking emails may fail until configured."
+            echo "::notice::WEB3FORMS_ACCESS_KEY not set — OK once Resend is configured."
           fi
           if [ -n "$DRIVER_ACCESS_KEY" ]; then
             echo "Syncing DRIVER_ACCESS_KEY secret…"

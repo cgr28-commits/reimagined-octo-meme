@@ -7,7 +7,10 @@ compatibility_date = "2025-08-01"
 # - IDEAL_POSTCODES_API_KEY  (UK/NI postcode → premises list; preferred over getAddress)
 # - GETADDRESS_API_KEY       (legacy; getAddress.io shut down Feb 2026)
 # - AERODATABOX_RAPIDAPI_KEY  (RapidAPI key for AeroDataBox flight verification)
-# - WEB3FORMS_ACCESS_KEY
+# - RESEND_API_KEY           (primary branded email — required)
+# - BOOKING_FROM_EMAIL       (default bookings@myairporttaxini.co.uk)
+# - BOOKING_NOTIFICATION_EMAIL (business inbox for new booking alerts)
+# - WEB3FORMS_ACCESS_KEY     (optional legacy fallback only)
 # - GOOGLE_REVIEW_URL  (Google Business "Write a review" link for post-trip emails)
 # - OWNER_ACCESS_KEY   (optional — defaults to DRIVER_ACCESS_KEY for /admin/refund/)
 # Redeploy after changing worker code: wrangler deploy (or Cloudflare dashboard → Deploy)
@@ -35,8 +38,8 @@ id = "869e2c2e02004d4a88c9cfbf563f1d6a"
 # sets DRIVER_ACCESS_KEY secret for the /driver/ dashboard.
 
 # Cloudflare Email Service (optional — onboard myairporttaxini.co.uk in dashboard first).
-# Without this, bookings email via WEB3FORMS_ACCESS_KEY secret, then MailChannels.
-# Set WEB3FORMS_ACCESS_KEY in GitHub Actions secrets — deploy-worker syncs it automatically.
+# Primary email path is Resend (RESEND_API_KEY). FormSubmit has been removed.
+# See docs/RESEND_SETUP.md for domain verification steps.
 [[send_email]]
 name = "EMAIL"
 

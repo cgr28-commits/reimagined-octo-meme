@@ -1,31 +1,50 @@
-export type FormSubmitEmailOptions = {
+/**
+ * Server-side email helpers.
+ * FormSubmit has been removed — use Resend (or the Cloudflare Worker bookings API).
+ */
+
+import { resolveBookingFromHeader, resolveResendApiKey, type EmailEnvLike } from "./email-config";
+import { sendViaResend } from "./resend-email";
+
+export type TransactionalEmailOptions = {
   to: string;
   subject: string;
   htmlBody?: string;
   textBody: string;
   fromName?: string;
+  replyTo?: string;
+  /** Server env with RESEND_API_KEY / BOOKING_FROM_EMAIL. Required for sending. */
+  env?: EmailEnvLike | null;
 };
 
-export async function sendViaFormSubmitEmail(
-  options: FormSubmitEmailOptions,
-): Promise<boolean> {
-  const response = await fetch(`https://formsubmit.co/ajax/${encodeURIComponent(options.to)}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Accept: "application/json" },
-    body: JSON.stringify({
-      _subject: options.subject,
-      _captcha: "false",
-      _template: "box",
-      name: options.fromName ?? options.to,
-      message: options.htmlBody?.trim() || options.textBody,
-    }),
-  });
+/** @deprecated Use sendTransactionalEmail — FormSubmit is removed. */
+export type FormSubmitEmailOptions = TransactionalEmailOptions;
 
-  const contentType = response.headers.get("content-type") ?? "";
-  if (!contentType.includes("application/json")) {
+export async function sendTransactionalEmail(
+  options: TransactionalEmailOptions,
+): Promise<boolean> {
+  const apiKey = resolveResendApiKey(options.env);
+  if (!apiKey) {
+    console.error("Transactional email skipped — RESEND_API_KEY missing");
     return false;
   }
 
-  const payload = (await response.json().catch(() => null)) as { success?: unknown } | null;
-  return response.ok && (payload?.success === "true" || payload?.success === true);
+  const result = await sendViaResend({
+    apiKey,
+    from: resolveBookingFromHeader(options.env),
+    to: options.to,
+    subject: options.subject,
+    text: options.textBody,
+    html: options.htmlBody,
+    replyTo: options.replyTo,
+  });
+
+  return result.ok;
+}
+
+/** @deprecated FormSubmit removed — delegates to Resend when env is provided. */
+export async function sendViaFormSubmitEmail(
+  options: FormSubmitEmailOptions,
+): Promise<boolean> {
+  return sendTransactionalEmail(options);
 }
