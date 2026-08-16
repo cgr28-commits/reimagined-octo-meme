@@ -59,7 +59,11 @@ async function submitWeb3Forms(payload: Record<string, unknown>): Promise<boolea
   return response.ok && body?.success === true;
 }
 
-/** Sends customer invoice + owner notification from the browser when the worker cannot. */
+/**
+ * Sends customer invoice + owner notification from the browser when the worker cannot.
+ * Customer invoices never use FormSubmit — it often reports success without delivering
+ * to new recipient addresses (activation / silent drop).
+ */
 export async function sendPaidBookingEmailsFromBrowser(
   booking: BookingDetails,
   payment: PaymentConfirmationResult,
@@ -72,27 +76,18 @@ export async function sendPaidBookingEmailsFromBrowser(
     trackUrl: payment.trackUrl,
   });
 
-  let customerEmailSent = await sendViaFormSubmitEmail({
-    to: booking.customerEmail,
-    subject: customerEmail.subject,
-    htmlBody: customerEmail.html,
-    textBody: customerEmail.text,
-    fromName: booking.customerName,
-  });
-
-  if (!customerEmailSent) {
-    customerEmailSent = await submitWeb3Forms({
+  // Prefer HTML autoresponse so the customer gets the branded invoice, not plain text.
+  const customerEmailSent = await submitWeb3Forms({
+    subject: `[Paid booking copy] ${customerEmail.subject}`,
+    name: booking.customerName,
+    email: booking.customerEmail,
+    from_name: booking.customerName,
+    message: customerEmail.html,
+    autoresponse: {
       subject: customerEmail.subject,
-      name: booking.customerName,
-      email: booking.customerEmail,
-      from_name: booking.customerName,
-      message: customerEmail.text,
-      autoresponse: {
-        subject: customerEmail.subject,
-        message: customerEmail.text,
-      },
-    });
-  }
+      message: customerEmail.html,
+    },
+  });
 
   let ownerEmailSent = await sendViaFormSubmitEmail({
     to: SITE.email,
