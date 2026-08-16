@@ -655,6 +655,9 @@ export function getAirportFromPrice(
 }
 
 export function formatQuote(amount: number): string {
+  if (!Number.isFinite(amount) || amount < 0) {
+    return "Price unavailable";
+  }
   return `£${amount}`;
 }
 

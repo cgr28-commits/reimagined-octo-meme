@@ -23,7 +23,8 @@ export default function LocationQuoteSection({
           <p className="text-sm font-semibold uppercase tracking-widest text-emerald">Instant quote</p>
           <h2 className="mt-2 text-2xl font-bold text-white sm:text-3xl">{heading}</h2>
           <p className="mt-3 text-sm leading-relaxed text-white/60 sm:text-base">
-            Fixed prices. No surge pricing. Complimentary waiting time included for flight landings.
+            Fixed prices. Airport pickups include up to 60 minutes complimentary waiting time.
+            Non-airport pickups include 10 minutes.
           </p>
         </div>
         <QuoteCard
