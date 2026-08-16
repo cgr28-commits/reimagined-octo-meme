@@ -432,7 +432,10 @@ export default function AddressInput({
   ) : null;
 
   return (
-    <div ref={containerRef} className={`relative z-10 min-w-0 ${className}`}>
+    <div
+      ref={containerRef}
+      className={`relative min-w-0 ${showSuggestions || showHouseStep ? "z-30" : "z-10"} ${className}`}
+    >
       {hideLabel ? (
         <label htmlFor={id} className="sr-only">
           {label}
