@@ -1,23 +1,5 @@
 import type { PaidBookingRecord } from "../../shared/paid-booking-record";
-
-const DEFAULT_WORKER_BASE = "https://reimagined-octo-meme.cgr28.workers.dev";
-
-function resolveWorkerBaseUrl(): string {
-  const configured = process.env.NEXT_PUBLIC_BOOKINGS_API_URL?.trim() ?? "";
-  if (!configured) {
-    return DEFAULT_WORKER_BASE;
-  }
-  try {
-    const parsed = new URL(configured);
-    const host = parsed.hostname.toLowerCase();
-    if (host === "www.myairporttaxini.co.uk" || host === "myairporttaxini.co.uk") {
-      return DEFAULT_WORKER_BASE;
-    }
-    return configured.replace(/\/bookings\/?$/i, "");
-  } catch {
-    return DEFAULT_WORKER_BASE;
-  }
-}
+import { resolveWorkerBaseUrl } from "@/lib/worker-api";
 
 const WORKER_BASE = resolveWorkerBaseUrl();
 

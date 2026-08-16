@@ -65,6 +65,9 @@ jobs:
           GOOGLE_CALENDAR_ID: ${{ secrets.GOOGLE_CALENDAR_ID }}
           GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON }}
           WEB3FORMS_ACCESS_KEY: ${{ secrets.WEB3FORMS_ACCESS_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          SUMUP_API_KEY: ${{ secrets.SUMUP_API_KEY }}
+          SUMUP_MERCHANT_CODE: ${{ secrets.SUMUP_MERCHANT_CODE }}
           DRIVER_ACCESS_KEY: ${{ secrets.DRIVER_ACCESS_KEY }}
           OWNER_ACCESS_KEY: ${{ secrets.OWNER_ACCESS_KEY }}
           GOOGLE_PLACES_API_KEY: ${{ secrets.GOOGLE_PLACES_API_KEY || secrets.GOOGLE_API_KEY || secrets.GOOGLE_MAPS_API_KEY }}
@@ -110,6 +113,19 @@ jobs:
             printf '%s' "$WEB3FORMS_ACCESS_KEY" | npx wrangler secret put WEB3FORMS_ACCESS_KEY
           else
             echo "::notice::WEB3FORMS_ACCESS_KEY not set — paid booking emails may fail until configured."
+          fi
+          if [ -n "$RESEND_API_KEY" ]; then
+            echo "Syncing RESEND_API_KEY secret…"
+            printf '%s' "$RESEND_API_KEY" | npx wrangler secret put RESEND_API_KEY
+          else
+            echo "::notice::RESEND_API_KEY not set — add it under GitHub Actions secrets for preferred branded customer invoices via Resend."
+          fi
+          if [ -n "$SUMUP_API_KEY" ] && [ -n "$SUMUP_MERCHANT_CODE" ]; then
+            echo "Syncing SumUp secrets…"
+            printf '%s' "$SUMUP_API_KEY" | npx wrangler secret put SUMUP_API_KEY
+            printf '%s' "$SUMUP_MERCHANT_CODE" | npx wrangler secret put SUMUP_MERCHANT_CODE
+          else
+            echo "::notice::SUMUP_API_KEY / SUMUP_MERCHANT_CODE not both set in GitHub Actions — existing Cloudflare Worker SumUp secrets are left unchanged."
           fi
           if [ -n "$DRIVER_ACCESS_KEY" ]; then
             echo "Syncing DRIVER_ACCESS_KEY secret…"

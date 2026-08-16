@@ -29,6 +29,7 @@ const BUSINESS_NAME = "My Airport Taxi NI";
 
 type FinalizeEnv = {
   SUMUP_API_KEY?: string;
+  RESEND_API_KEY?: string;
   BOOKING_TO_EMAIL?: string;
   BOOKING_FROM_EMAIL?: string;
   WEB3FORMS_ACCESS_KEY?: string;
