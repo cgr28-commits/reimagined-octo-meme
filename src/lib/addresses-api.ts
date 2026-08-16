@@ -34,6 +34,9 @@ export type WorkerAddressSuggestion = {
 
 export type WorkerResolvedAddress = {
   address: string;
+  formattedAddress?: string | null;
+  displayAddress?: string | null;
+  placeName?: string | null;
   placeId: string;
   lat: number | null;
   lng: number | null;
@@ -94,6 +97,7 @@ export async function fetchWorkerAddressDetails(
   placeId: string,
   airportCode: string,
   userInput?: string,
+  suggestionName?: string,
 ): Promise<WorkerResolvedAddress | null> {
   const baseUrl = resolveAddressesApiUrl();
   const url = new URL(baseUrl);
@@ -103,6 +107,9 @@ export async function fetchWorkerAddressDetails(
   }
   if (userInput?.trim()) {
     url.searchParams.set("userInput", userInput.trim());
+  }
+  if (suggestionName?.trim()) {
+    url.searchParams.set("suggestionName", suggestionName.trim());
   }
 
   try {
@@ -124,6 +131,9 @@ export async function fetchWorkerAddressDetails(
 
     return {
       address,
+      formattedAddress: payload.formattedAddress?.trim() || address,
+      displayAddress: payload.displayAddress?.trim() || address,
+      placeName: payload.placeName?.trim() || null,
       placeId: payload.placeId?.trim() || placeId,
       lat: typeof payload.lat === "number" ? payload.lat : null,
       lng: typeof payload.lng === "number" ? payload.lng : null,

@@ -1527,12 +1527,15 @@ export default {
           return json({ error: "Address lookup is not configured" }, 503, origin);
         }
 
+        const suggestionName = url.searchParams.get("suggestionName")?.trim() || undefined;
+
         const details = await resolveGooglePlaceDetails(
           env.GOOGLE_PLACES_API_KEY,
           id,
           airportCode,
           sessionToken,
           userInput,
+          suggestionName,
         );
 
         if (!details) {
@@ -1541,7 +1544,10 @@ export default {
 
         return json(
           {
-            address: details.formattedAddress,
+            address: details.displayAddress,
+            formattedAddress: details.formattedAddress,
+            displayAddress: details.displayAddress,
+            placeName: details.placeName,
             placeId: details.placeId,
             lat: details.lat,
             lng: details.lng,

@@ -42,6 +42,8 @@ type GoogleAddressComponent = {
 type GooglePlaceDetails = {
   formattedAddress?: string;
   addressComponents?: GoogleAddressComponent[];
+  displayName?: { text?: string; languageCode?: string };
+  types?: string[];
 };
 
 type GoogleGeocodeResponse = {
@@ -677,6 +679,8 @@ export async function geocodeAddress(
 
 export type ResolvedGooglePlace = {
   formattedAddress: string;
+  displayAddress: string;
+  placeName: string | null;
   placeId: string;
   lat: number | null;
   lng: number | null;
@@ -687,12 +691,85 @@ export type ResolvedGooglePlace = {
   locality: string | null;
 };
 
+function buildGoogleDisplayAddress(
+  placeName: string | null | undefined,
+  formattedAddress: string,
+): string {
+  const formatted = formattedAddress.trim();
+  const name = placeName?.trim() || "";
+  if (!formatted) {
+    return name;
+  }
+  if (!name) {
+    return formatted;
+  }
+
+  const normalisedFormatted = formatted.toLowerCase();
+  const normalisedName = name.toLowerCase();
+  if (
+    normalisedFormatted === normalisedName ||
+    normalisedFormatted.startsWith(`${normalisedName},`) ||
+    normalisedFormatted.startsWith(`${normalisedName} `) ||
+    normalisedFormatted.includes(`, ${normalisedName}`) ||
+    normalisedFormatted.includes(normalisedName)
+  ) {
+    return formatted;
+  }
+
+  return `${name}, ${formatted}`;
+}
+
+/**
+ * Prefer Google displayName for establishments; fall back to autocomplete main text
+ * when Place Details omitted the business name.
+ */
+function resolvePlaceName(
+  displayName: string | null | undefined,
+  suggestionName: string | null | undefined,
+  formattedAddress: string,
+  types: string[] | undefined,
+): string | null {
+  const fromDetails = displayName?.trim() || "";
+  const fromSuggestion = suggestionName?.trim() || "";
+  const formatted = formattedAddress.trim();
+  const typeSet = new Set((types ?? []).map((type) => type.toLowerCase()));
+
+  const looksResidential =
+    typeSet.has("street_address") ||
+    typeSet.has("premise") ||
+    typeSet.has("subpremise") ||
+    typeSet.has("route");
+
+  const candidate = fromDetails || fromSuggestion;
+  if (!candidate) {
+    return null;
+  }
+
+  // Residential / route results: only keep a distinct building/flat name, not the street line.
+  if (looksResidential && !typeSet.has("establishment") && !typeSet.has("point_of_interest")) {
+    if (
+      formatted.toLowerCase().startsWith(candidate.toLowerCase()) ||
+      formatted.toLowerCase().includes(candidate.toLowerCase())
+    ) {
+      return null;
+    }
+  }
+
+  if (formatted.toLowerCase().includes(candidate.toLowerCase())) {
+    // Name already present in postal address (e.g. airports).
+    return candidate;
+  }
+
+  return candidate;
+}
+
 export async function resolveGooglePlaceDetails(
   apiKey: string,
   placeId: string,
   airportCode: string,
   sessionToken?: string,
   userInput?: string,
+  suggestionName?: string,
 ): Promise<ResolvedGooglePlace | null> {
   const url = new URL(`https://places.googleapis.com/v1/places/${encodeURIComponent(placeId)}`);
   if (sessionToken) {
@@ -703,7 +780,7 @@ export async function resolveGooglePlaceDetails(
     headers: {
       "X-Goog-Api-Key": apiKey,
       "X-Goog-FieldMask":
-        "id,formattedAddress,addressComponents,location",
+        "id,formattedAddress,addressComponents,location,displayName,types",
     },
   });
 
@@ -720,7 +797,7 @@ export async function resolveGooglePlaceDetails(
   if (
     !isAddressAllowedForAirport(normaliseAirportCode(airportCode), {
       ...parts,
-      displayName: data.formattedAddress,
+      displayName: data.displayName?.text || data.formattedAddress,
     })
   ) {
     return null;
@@ -741,6 +818,14 @@ export async function resolveGooglePlaceDetails(
     streetNumber = userNumber;
   }
 
+  const placeName = resolvePlaceName(
+    data.displayName?.text,
+    suggestionName,
+    formatted,
+    data.types,
+  );
+  const displayAddress = buildGoogleDisplayAddress(placeName, formatted);
+
   const countryShort =
     data.addressComponents?.find((component) => component.types?.includes("country"))?.shortText ??
     parts.country;
@@ -748,6 +833,8 @@ export async function resolveGooglePlaceDetails(
   return {
     placeId: data.id || placeId,
     formattedAddress: formatted,
+    displayAddress,
+    placeName,
     lat: data.location?.latitude ?? null,
     lng: data.location?.longitude ?? null,
     countryCode: countryShort?.trim().toUpperCase() === "UK" ? "GB" : countryShort?.trim().toUpperCase() ?? null,
@@ -764,6 +851,7 @@ export async function resolveGooglePlace(
   airportCode: string,
   sessionToken?: string,
   userInput?: string,
+  suggestionName?: string,
 ): Promise<string | null> {
   const details = await resolveGooglePlaceDetails(
     apiKey,
@@ -771,8 +859,9 @@ export async function resolveGooglePlace(
     airportCode,
     sessionToken,
     userInput,
+    suggestionName,
   );
-  return details?.formattedAddress ?? null;
+  return details?.displayAddress ?? details?.formattedAddress ?? null;
 }
 
 export async function reverseGeocodeGoogle(

@@ -302,22 +302,31 @@ export async function fetchPlaceDetails(
   placeId: string,
   airportCode: string,
   userInput?: string,
+  suggestionName?: string,
 ): Promise<string | null> {
-  const place = await fetchSelectedPlaceDetails(placeId, airportCode, userInput);
-  return place?.formattedAddress ?? null;
+  const place = await fetchSelectedPlaceDetails(placeId, airportCode, userInput, suggestionName);
+  return place?.displayAddress || place?.formattedAddress || null;
 }
 
 export async function fetchSelectedPlaceDetails(
   placeId: string,
   airportCode: string,
   userInput?: string,
+  suggestionName?: string,
 ): Promise<SelectedPlace | null> {
   if (ADDRESSES_API_URL) {
-    const workerPlace = await fetchWorkerAddressDetails(placeId, airportCode, userInput);
+    const workerPlace = await fetchWorkerAddressDetails(
+      placeId,
+      airportCode,
+      userInput,
+      suggestionName,
+    );
     if (workerPlace) {
       return selectedPlaceFromParts({
         placeId: workerPlace.placeId,
-        formattedAddress: workerPlace.address,
+        formattedAddress: workerPlace.formattedAddress || workerPlace.address,
+        displayAddress: workerPlace.displayAddress || workerPlace.address,
+        placeName: workerPlace.placeName,
         lat: workerPlace.lat,
         lng: workerPlace.lng,
         countryCode: workerPlace.countryCode,
@@ -337,6 +346,8 @@ export async function fetchSelectedPlaceDetails(
     return selectedPlaceFromParts({
       placeId: details.placeId,
       formattedAddress: details.formattedAddress,
+      displayAddress: details.formattedAddress,
+      placeName: null,
       lat: details.lat,
       lng: details.lng,
       countryCode: details.countryCode,
@@ -359,6 +370,8 @@ export async function fetchSelectedPlaceDetails(
     return selectedPlaceFromParts({
       placeId: details.placeId,
       formattedAddress: details.formattedAddress,
+      displayAddress: details.formattedAddress,
+      placeName: null,
       lat: details.lat,
       lng: details.lng,
       countryCode: details.countryCode,
@@ -379,6 +392,7 @@ export async function fetchSelectedPlaceDetails(
     airportCode,
     sessionToken,
     userInput,
+    suggestionName,
   );
   sessionToken = createSessionToken();
   if (!details) {
@@ -388,6 +402,8 @@ export async function fetchSelectedPlaceDetails(
   return selectedPlaceFromParts({
     placeId: details.placeId,
     formattedAddress: details.formattedAddress,
+    displayAddress: details.displayAddress,
+    placeName: details.placeName,
     lat: details.lat,
     lng: details.lng,
     countryCode: details.countryCode,
