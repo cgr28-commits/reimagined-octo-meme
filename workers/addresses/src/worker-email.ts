@@ -258,9 +258,12 @@ function buildProviderChain(
   }
 
   // Owner / general traffic: FormSubmit first (activated for bookings@ inbox),
-  // then Web3Forms / MailChannels / Resend.
+  // then Cloudflare Email / Resend / Web3Forms / MailChannels.
   providers.push({ label: "formsubmit", run: () => sendViaFormSubmit(options) });
 
+  if (env.EMAIL) {
+    providers.push({ label: "cloudflare-email", run: () => sendViaCloudflareEmail(env, options) });
+  }
   if (env.RESEND_API_KEY?.trim()) {
     providers.push({ label: "resend", run: () => sendViaResend(env, options) });
   }
@@ -294,7 +297,10 @@ export async function trySendEmail(
   return { sent: false, error: detail };
 }
 
-/** Owner operational emails (payment started / failed) — never FormSubmit. */
+/**
+ * Owner operational emails (payment started / paid / failed) — never FormSubmit.
+ * Prefer Cloudflare Email / Web3Forms so paid confirmations actually reach bookings@.
+ */
 export async function trySendOwnerOperationalEmail(
   env: WorkerEmailEnv,
   options: EmailPayload,

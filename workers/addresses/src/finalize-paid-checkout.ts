@@ -23,7 +23,7 @@ import {
   pendingCheckoutStoreConfigured,
 } from "./pending-checkout-store";
 import { maybeRecordMarketingFromPayload } from "./marketing-handlers";
-import { trySendBrandedCustomerEmail, trySendEmail } from "./worker-email";
+import { trySendBrandedCustomerEmail, trySendOwnerOperationalEmail } from "./worker-email";
 
 const BUSINESS_NAME = "My Airport Taxi NI";
 
@@ -197,7 +197,8 @@ export async function finalizePaidCheckout(input: {
     htmlBody: customerEmail.html,
   });
 
-  const ownerEmailResult = await trySendEmail(env, {
+  // Same path as payment-started: never FormSubmit-first (false success / no CF Email).
+  const ownerEmailResult = await trySendOwnerOperationalEmail(env, {
     to: ownerInbox(env),
     subject: ownerEmail.subject,
     body: ownerEmail.body,
