@@ -91,6 +91,13 @@ export type QuoteProgressiveRouteProps = {
   onDropoffPlaceSelect: (place: SelectedPlace) => void;
   pickupPlaceError: string;
   dropoffPlaceError: string;
+  /** Confirmed place currently held by the parent (incl. restored from storage). */
+  pickupConfirmedPlace?: SelectedPlace | null;
+  dropoffConfirmedPlace?: SelectedPlace | null;
+  pickupRestoredHint?: boolean;
+  dropoffRestoredHint?: boolean;
+  onClearPickup?: () => void;
+  onClearDropoff?: () => void;
   addressLookupCode: string;
   returnJourney: boolean;
   onReturnJourneyChange: (value: boolean) => void;
@@ -125,6 +132,12 @@ export default function QuoteProgressiveRoute({
   onDropoffPlaceSelect,
   pickupPlaceError,
   dropoffPlaceError,
+  pickupConfirmedPlace = null,
+  dropoffConfirmedPlace = null,
+  pickupRestoredHint = false,
+  dropoffRestoredHint = false,
+  onClearPickup,
+  onClearDropoff,
   addressLookupCode,
   returnJourney,
   onReturnJourneyChange,
@@ -224,6 +237,9 @@ export default function QuoteProgressiveRoute({
               onChange={onPickupChange}
               onSelectPlace={onPickupPlaceSelect}
               requireSuggestion
+              confirmedPlace={pickupConfirmedPlace}
+              restoredHint={pickupRestoredHint}
+              onClear={onClearPickup}
               selectionError={pickupPlaceError}
               airportCode={addressLookupCode}
               label={journeyIntent === "to-airport" ? "Where should we pick you up?" : "Pickup address"}
@@ -239,6 +255,9 @@ export default function QuoteProgressiveRoute({
               onChange={onDropoffChange}
               onSelectPlace={onDropoffPlaceSelect}
               requireSuggestion
+              confirmedPlace={dropoffConfirmedPlace}
+              restoredHint={dropoffRestoredHint}
+              onClear={onClearDropoff}
               selectionError={dropoffPlaceError}
               airportCode={addressLookupCode}
               label={

@@ -182,6 +182,22 @@ export function isPlaceSelected(place: SelectedPlace | null | undefined): boolea
   return Boolean(place?.placeId?.trim() && place.formattedAddress?.trim());
 }
 
+/**
+ * True when a stored/selected place has everything required to quote without
+ * asking the customer to tap the same autocomplete suggestion again.
+ */
+export function isQuoteReadyPlace(place: SelectedPlace | null | undefined): boolean {
+  if (!isPlaceSelected(place) || !place) {
+    return false;
+  }
+  return (
+    typeof place.lat === "number" &&
+    typeof place.lng === "number" &&
+    Number.isFinite(place.lat) &&
+    Number.isFinite(place.lng)
+  );
+}
+
 export function placesEqual(a: SelectedPlace, b: SelectedPlace): boolean {
   if (a.placeId && b.placeId && a.placeId === b.placeId) {
     return true;

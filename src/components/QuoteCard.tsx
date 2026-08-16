@@ -87,6 +87,20 @@ import {
   saveOpenCheckoutSession,
   type OpenCheckoutSession,
 } from "@/lib/booking-draft-storage";
+import {
+  clearConfirmedDropoffPlace,
+  clearConfirmedPickupPlace,
+  clearDropoffAddressStorage,
+  clearPickupAddressStorage,
+  DROPOFF_ADDRESS_STORAGE_KEY,
+  PICKUP_ADDRESS_STORAGE_KEY,
+  readConfirmedDropoffPlace,
+  readConfirmedPickupPlace,
+  saveConfirmedDropoffPlace,
+  saveConfirmedPickupPlace,
+  saveDropoffAddressLabel,
+  savePickupAddressLabel,
+} from "@/lib/address-place-storage";
 import { scheduleQuoteLeadAlert } from "@/lib/submit-quote-lead";
 import { getPaymentBookingBlockers } from "../../shared/paid-booking-gate";
 import FlightNumberField, { formatVerifiedFlightSummary } from "@/components/FlightNumberField";
@@ -102,6 +116,7 @@ import {
   detectAirportCodeFromPlace,
   detectJourneyKind,
   emptySelectedPlace,
+  isQuoteReadyPlace,
   placeDisplayText,
   placesEqual,
   isDublinCityCorridorJourney,
@@ -123,8 +138,8 @@ const IS_A2A_PRIMARY = SERVICE_FLAGS.addressToAddress;
 type TripMode = "airport" | "address";
 type TripDirection = "to-airport" | "from-airport";
 
-const PICKUP_STORAGE_KEY = "my-airport-taxi-ni-pickup-address";
-const DROPOFF_STORAGE_KEY = "my-airport-taxi-ni-dropoff-address";
+const PICKUP_STORAGE_KEY = PICKUP_ADDRESS_STORAGE_KEY;
+const DROPOFF_STORAGE_KEY = DROPOFF_ADDRESS_STORAGE_KEY;
 
 const BOOKING_PANEL_CLASS =
   "rounded-xl border border-white/25 bg-navy-light px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] sm:px-5 md:border-white/30 md:shadow-lg md:shadow-black/20";
@@ -430,6 +445,8 @@ function QuoteCard({
   );
   const [pickupPlaceError, setPickupPlaceError] = useState("");
   const [dropoffPlaceError, setDropoffPlaceError] = useState("");
+  const [pickupRestoredHint, setPickupRestoredHint] = useState(false);
+  const [dropoffRestoredHint, setDropoffRestoredHint] = useState(false);
   const [returnJourney, setReturnJourney] = useState(false);
   const [tripDateError, setTripDateError] = useState("");
   const [returnDateError, setReturnDateError] = useState("");
@@ -642,6 +659,35 @@ function QuoteCard({
       setDropoffAddress(savedDropoff);
     }
 
+    // Restore previously confirmed autocomplete places (placeId + coords) so the
+    // customer can continue without tapping the same suggestion again.
+    if (!keepInitialPickup) {
+      const storedPickupPlace = readConfirmedPickupPlace();
+      if (storedPickupPlace) {
+        setPickupPlace(storedPickupPlace);
+        setPickupAddress(
+          storedPickupPlace.displayAddress ||
+            storedPickupPlace.formattedAddress ||
+            savedPickup ||
+            "",
+        );
+        setPickupRestoredHint(true);
+      }
+    }
+    if (!keepInitialDropoff) {
+      const storedDropoffPlace = readConfirmedDropoffPlace();
+      if (storedDropoffPlace) {
+        setDropoffPlace(storedDropoffPlace);
+        setDropoffAddress(
+          storedDropoffPlace.displayAddress ||
+            storedDropoffPlace.formattedAddress ||
+            savedDropoff ||
+            "",
+        );
+        setDropoffRestoredHint(true);
+      }
+    }
+
     // Restore quote + customer details after SumUp tab switches / accidental reloads.
     const draft = readBookingFormDraft();
     if (draft && !testBooking) {
@@ -651,8 +697,14 @@ function QuoteCard({
       if (draft.dropoffAddress?.trim() && !keepInitialDropoff) {
         setDropoffAddress(draft.dropoffAddress);
       }
-      if (draft.pickupPlace) setPickupPlace(draft.pickupPlace);
-      if (draft.dropoffPlace) setDropoffPlace(draft.dropoffPlace);
+      if (draft.pickupPlace && isQuoteReadyPlace(draft.pickupPlace) && !keepInitialPickup) {
+        setPickupPlace(draft.pickupPlace);
+        setPickupRestoredHint(true);
+      }
+      if (draft.dropoffPlace && isQuoteReadyPlace(draft.dropoffPlace) && !keepInitialDropoff) {
+        setDropoffPlace(draft.dropoffPlace);
+        setDropoffRestoredHint(true);
+      }
       if (draft.tripDate) setTripDate(draft.tripDate);
       if (draft.tripTime) setTripTime(draft.tripTime);
       if (typeof draft.returnJourney === "boolean") setReturnJourney(draft.returnJourney);
@@ -1041,23 +1093,31 @@ function QuoteCard({
 
   function handlePickupChange(value: string) {
     setPickupAddress(value);
+    setPickupRestoredHint(false);
     if (isA2AFlow) {
       setPickupPlace(emptySelectedPlace());
       setPickupPlaceError("");
+      clearConfirmedPickupPlace();
     }
     if (value.trim()) {
-      localStorage.setItem(PICKUP_STORAGE_KEY, value.trim());
+      savePickupAddressLabel(value);
+    } else {
+      clearPickupAddressStorage();
     }
   }
 
   function handleDropoffChange(value: string) {
     setDropoffAddress(value);
+    setDropoffRestoredHint(false);
     if (isA2AFlow) {
       setDropoffPlace(emptySelectedPlace());
       setDropoffPlaceError("");
+      clearConfirmedDropoffPlace();
     }
     if (value.trim()) {
-      localStorage.setItem(DROPOFF_STORAGE_KEY, value.trim());
+      saveDropoffAddressLabel(value);
+    } else {
+      clearDropoffAddressStorage();
     }
   }
 
@@ -1067,14 +1127,20 @@ function QuoteCard({
     // Typing clears placeId — address was already set via onChange; do not rewrite/trim
     // the visible field (that was collapsing "24 Colinward" → "24Colinward").
     if (!place.placeId?.trim()) {
+      setPickupRestoredHint(false);
+      clearConfirmedPickupPlace();
       return;
     }
     // Prefer exact display/formatted text — never trim here (trailing space after a
     // house number must remain while the customer is still typing).
     const display = place.displayAddress || place.formattedAddress || placeDisplayText(place);
     setPickupAddress(display);
-    if (display.trim()) {
-      localStorage.setItem(PICKUP_STORAGE_KEY, display.trim());
+    setPickupRestoredHint(false);
+    if (isQuoteReadyPlace(place)) {
+      saveConfirmedPickupPlace(place);
+    } else if (display.trim()) {
+      savePickupAddressLabel(display);
+      clearConfirmedPickupPlace();
     }
   }
 
@@ -1082,12 +1148,18 @@ function QuoteCard({
     setDropoffPlace(place);
     setDropoffPlaceError("");
     if (!place.placeId?.trim()) {
+      setDropoffRestoredHint(false);
+      clearConfirmedDropoffPlace();
       return;
     }
     const display = place.displayAddress || place.formattedAddress || placeDisplayText(place);
     setDropoffAddress(display);
-    if (display.trim()) {
-      localStorage.setItem(DROPOFF_STORAGE_KEY, display.trim());
+    setDropoffRestoredHint(false);
+    if (isQuoteReadyPlace(place)) {
+      saveConfirmedDropoffPlace(place);
+    } else if (display.trim()) {
+      saveDropoffAddressLabel(display);
+      clearConfirmedDropoffPlace();
     }
   }
 
@@ -1117,10 +1189,14 @@ function QuoteCard({
       if (detectAirportCodeFromPlace(pickupPlace)) {
         setPickupPlace(emptySelectedPlace());
         setPickupAddress("");
+        setPickupRestoredHint(false);
+        clearPickupAddressStorage();
       }
       if (detectAirportCodeFromPlace(dropoffPlace)) {
         setDropoffPlace(emptySelectedPlace());
         setDropoffAddress("");
+        setDropoffRestoredHint(false);
+        clearDropoffAddressStorage();
       }
     }
   }
@@ -2113,6 +2189,16 @@ function QuoteCard({
               onDropoffPlaceSelect={handleDropoffPlaceSelect}
               pickupPlaceError={pickupPlaceError}
               dropoffPlaceError={dropoffPlaceError}
+              pickupConfirmedPlace={isQuoteReadyPlace(pickupPlace) ? pickupPlace : null}
+              dropoffConfirmedPlace={isQuoteReadyPlace(dropoffPlace) ? dropoffPlace : null}
+              pickupRestoredHint={pickupRestoredHint}
+              dropoffRestoredHint={dropoffRestoredHint}
+              onClearPickup={() => {
+                handlePickupChange("");
+              }}
+              onClearDropoff={() => {
+                handleDropoffChange("");
+              }}
               addressLookupCode={addressLookupCode}
               returnJourney={returnJourney}
               onReturnJourneyChange={(value) => {
