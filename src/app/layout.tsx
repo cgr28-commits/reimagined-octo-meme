@@ -7,6 +7,7 @@ import CookieConsent from "@/components/CookieConsent";
 import GoogleAdsTag from "@/components/GoogleAdsTag";
 import AdsAttributionCapture from "@/components/AdsAttributionCapture";
 import QuoteAssistant from "@/components/QuoteAssistant";
+import QuoteHashScroll from "@/components/QuoteHashScroll";
 import SiteOfflineGate from "@/components/SiteOfflineGate";
 import WhatsAppButton from "@/components/WhatsAppButton";
 import { SITE, SITE_OFFLINE } from "@/lib/data";
@@ -156,6 +157,7 @@ export default function RootLayout({
           {/* Outside the overflow clip so position:fixed is viewport-relative on mobile */}
           <GoogleAdsTag />
           <AdsAttributionCapture />
+          <QuoteHashScroll />
           <QuoteAssistant />
           <WhatsAppButton />
           <CookieConsent />
