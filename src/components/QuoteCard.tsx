@@ -121,8 +121,8 @@ const BOOKING_PANEL_CLASS =
 const BOOKING_LABEL_CLASS =
   "mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/80";
 const BOOKING_INPUT_CLASS =
-  "w-full rounded-xl border border-white/25 bg-navy-dark px-4 py-3 text-sm text-white placeholder:text-white/45 outline-none transition-colors focus:border-emerald focus:ring-2 focus:ring-emerald/25 md:border-white/30";
-const BOOKING_HELPER_CLASS = "mt-1.5 text-xs text-white/55";
+  "quote-text-input h-12 rounded-xl border border-white/25 bg-navy-dark px-4 text-white placeholder:text-white/45 outline-none transition-colors focus:border-emerald focus:ring-2 focus:ring-inset focus:ring-emerald/25 md:border-white/30";
+const BOOKING_HELPER_CLASS = "quote-helper-text mt-1.5 text-xs text-white/55";
 
 const ESTATE = "Estate Car (1–4 passengers)" as const;
 
