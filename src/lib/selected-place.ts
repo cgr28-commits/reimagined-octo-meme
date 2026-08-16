@@ -17,6 +17,9 @@ export type SelectedPlace = {
   lng: number | null;
   countryCode: string | null;
   postalCode: string | null;
+  streetNumber?: string | null;
+  route?: string | null;
+  locality?: string | null;
 };
 
 export type JourneyKind =
@@ -105,6 +108,9 @@ export function emptySelectedPlace(): SelectedPlace {
     lng: null,
     countryCode: null,
     postalCode: null,
+    streetNumber: null,
+    route: null,
+    locality: null,
   };
 }
 
@@ -335,6 +341,9 @@ export function selectedPlaceFromParts(options: {
   country?: string | null;
   countryCode?: string | null;
   postalCode?: string | null;
+  streetNumber?: string | null;
+  route?: string | null;
+  locality?: string | null;
 }): SelectedPlace {
   return {
     placeId: options.placeId.trim(),
@@ -343,5 +352,8 @@ export function selectedPlaceFromParts(options: {
     lng: options.lng ?? null,
     countryCode: normaliseCountryCode(options.countryCode ?? options.country),
     postalCode: options.postalCode?.trim() || null,
+    streetNumber: options.streetNumber?.trim() || null,
+    route: options.route?.trim() || null,
+    locality: options.locality?.trim() || null,
   };
 }

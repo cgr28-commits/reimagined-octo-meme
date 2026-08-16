@@ -73,6 +73,7 @@ export default function AddressInput({
   const autocompleteEnabled = isGooglePlacesEnabled();
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const selectedPlaceRef = useRef<SelectedPlace | null>(null);
   const [suggestions, setSuggestions] = useState<AddressPrediction[]>([]);
   const [suggestionsOpen, setSuggestionsOpen] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -162,15 +163,39 @@ export default function AddressInput({
     setLoadError(null);
     onChange(next);
     if (requireSuggestion) {
-      // Typing invalidates the previous Place ID selection.
-      onSelectPlace?.({
-        placeId: "",
-        formattedAddress: next,
-        lat: null,
-        lng: null,
-        countryCode: null,
-        postalCode: null,
-      });
+      const previous = selectedPlaceRef.current;
+      const previousCore = previous?.route?.trim() ||
+        previous?.formattedAddress.replace(/^\d+[a-zA-Z]?\s+/, "").split(",")[0]?.trim() ||
+        "";
+      const canKeepSelection =
+        Boolean(previous?.placeId) &&
+        previousCore.length >= 4 &&
+        next.toLowerCase().includes(previousCore.toLowerCase().slice(0, Math.min(previousCore.length, 18)));
+
+      if (canKeepSelection && previous) {
+        const numberMatch = next.trim().match(/^(\d+[a-zA-Z]?)\b/);
+        const refined: SelectedPlace = {
+          ...previous,
+          formattedAddress: next.trim(),
+          streetNumber: numberMatch?.[1] ?? previous.streetNumber ?? null,
+        };
+        selectedPlaceRef.current = refined;
+        onSelectPlace?.(refined);
+      } else {
+        selectedPlaceRef.current = null;
+        // Typing invalidates the previous Place ID selection.
+        onSelectPlace?.({
+          placeId: "",
+          formattedAddress: next,
+          lat: null,
+          lng: null,
+          countryCode: null,
+          postalCode: null,
+          streetNumber: null,
+          route: null,
+          locality: null,
+        });
+      }
     }
 
     if (debounceRef.current) {
@@ -187,6 +212,7 @@ export default function AddressInput({
       window.clearTimeout(debounceRef.current);
     }
     onChange("");
+    selectedPlaceRef.current = null;
     if (requireSuggestion) {
       onSelectPlace?.({
         placeId: "",
@@ -195,6 +221,9 @@ export default function AddressInput({
         lng: null,
         countryCode: null,
         postalCode: null,
+        streetNumber: null,
+        route: null,
+        locality: null,
       });
     }
     setSuggestions([]);
@@ -209,25 +238,47 @@ export default function AddressInput({
 
     const place = await fetchSelectedPlaceDetails(prediction.placeId, airportCode, value);
     if (place) {
-      onChange(place.formattedAddress);
-      onSelectAddress?.(place.formattedAddress);
-      onSelectPlace?.(place);
+      // Prefer the suggestion label when it already includes the typed house number
+      // and Place Details returned a route-only address without one.
+      const typedNumber = value.trim().match(/^(\d+[a-zA-Z]?)\b/)?.[1];
+      const resolvedHasNumber = /^\d+[a-zA-Z]?\s/.test(place.formattedAddress);
+      const suggestionHasNumber = /^\d+[a-zA-Z]?\s/.test(prediction.description);
+      const formattedAddress =
+        typedNumber && !resolvedHasNumber && suggestionHasNumber
+          ? prediction.description
+          : place.formattedAddress;
+
+      const nextPlace: SelectedPlace = {
+        ...place,
+        formattedAddress,
+        streetNumber: place.streetNumber || typedNumber || null,
+      };
+      selectedPlaceRef.current = nextPlace;
+      onChange(formattedAddress);
+      onSelectAddress?.(formattedAddress);
+      onSelectPlace?.(nextPlace);
       setLoadError(null);
       return;
     }
 
     const formatted = await fetchPlaceDetails(prediction.placeId, airportCode, value);
     const nextAddress = formatted ?? prediction.description;
-    onChange(nextAddress);
-    onSelectAddress?.(nextAddress);
-    onSelectPlace?.({
+    const typedNumber = value.trim().match(/^(\d+[a-zA-Z]?)\b/)?.[1];
+    const nextPlace: SelectedPlace = {
       placeId: prediction.placeId,
       formattedAddress: nextAddress,
       lat: null,
       lng: null,
       countryCode: null,
       postalCode: null,
-    });
+      streetNumber: typedNumber ?? null,
+      route: null,
+      locality: null,
+    };
+    selectedPlaceRef.current = nextPlace;
+    onChange(nextAddress);
+    onSelectAddress?.(nextAddress);
+    onSelectPlace?.(nextPlace);
     setLoadError(null);
   }
 

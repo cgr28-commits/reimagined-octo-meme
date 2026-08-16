@@ -6,6 +6,7 @@ import {
 import {
   geocodeAddress,
   extractLeadingStreetNumber,
+  isNumberedAddressQuery,
   isStreetOnlyQuery,
   resolveGooglePlaceDetails,
   searchGoogleEstablishments,
@@ -16,10 +17,10 @@ import type { SelectedPlace } from "@/lib/selected-place";
 import { selectedPlaceFromParts } from "@/lib/selected-place";
 import {
   isGetAddressPlaceId,
-  resolveGetAddress,
+  resolveGetAddressDetails,
   searchGetAddress,
+  shouldUseGetAddress,
 } from "../../shared/getaddress";
-import { isNorthernIrelandPostcodeQuery } from "../../shared/address-validation";
 
 const GOOGLE_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_PLACES_API_KEY?.trim() ?? "";
 const GETADDRESS_API_KEY = process.env.NEXT_PUBLIC_GETADDRESS_API_KEY?.trim() ?? "";
@@ -128,18 +129,12 @@ async function fetchLocalAddressPredictions(
   const trimmed = input.trim();
   const tasks: Promise<AddressPrediction[]>[] = [];
 
-  if (GETADDRESS_API_KEY && airportCode !== "DUB") {
-    const allowGetAddress =
-      (airportCode !== "LDY" || isNorthernIrelandPostcodeQuery(trimmed)) &&
-      (airportCode !== "A2A" || isNorthernIrelandPostcodeQuery(trimmed));
-
-    if (allowGetAddress) {
-      tasks.push(
-        safePredictions(
-          searchGetAddress(GETADDRESS_API_KEY, trimmed, airportCode).then(toPredictions),
-        ),
-      );
-    }
+  if (GETADDRESS_API_KEY && shouldUseGetAddress(airportCode, trimmed)) {
+    tasks.push(
+      safePredictions(
+        searchGetAddress(GETADDRESS_API_KEY, trimmed, airportCode).then(toPredictions),
+      ),
+    );
   }
 
   if (GOOGLE_API_KEY) {
@@ -159,7 +154,8 @@ async function fetchLocalAddressPredictions(
       );
     }
 
-    if (isStreetOnlyQuery(trimmed)) {
+    // Premises text search for both street-only and numbered queries.
+    if (isStreetOnlyQuery(trimmed) || isNumberedAddressQuery(trimmed)) {
       tasks.push(
         safePredictions(
           searchGoogleStreetAddresses(GOOGLE_API_KEY, trimmed, airportCode).then(toPredictions),
@@ -224,11 +220,18 @@ export async function fetchSelectedPlaceDetails(
   userInput?: string,
 ): Promise<SelectedPlace | null> {
   if (ADDRESSES_API_URL) {
-    const workerAddress = await fetchWorkerAddressDetails(placeId, airportCode);
-    if (workerAddress) {
+    const workerPlace = await fetchWorkerAddressDetails(placeId, airportCode, userInput);
+    if (workerPlace) {
       return selectedPlaceFromParts({
-        placeId,
-        formattedAddress: workerAddress,
+        placeId: workerPlace.placeId,
+        formattedAddress: workerPlace.address,
+        lat: workerPlace.lat,
+        lng: workerPlace.lng,
+        countryCode: workerPlace.countryCode,
+        postalCode: workerPlace.postalCode,
+        streetNumber: workerPlace.streetNumber,
+        route: workerPlace.route,
+        locality: workerPlace.locality,
       });
     }
   }
@@ -238,14 +241,20 @@ export async function fetchSelectedPlaceDetails(
       return null;
     }
 
-    const address = await resolveGetAddress(GETADDRESS_API_KEY, placeId, airportCode);
-    if (!address) {
+    const details = await resolveGetAddressDetails(GETADDRESS_API_KEY, placeId, airportCode);
+    if (!details) {
       return null;
     }
     return selectedPlaceFromParts({
-      placeId,
-      formattedAddress: address,
-      countryCode: "GB",
+      placeId: details.placeId,
+      formattedAddress: details.formattedAddress,
+      lat: details.lat,
+      lng: details.lng,
+      countryCode: details.countryCode,
+      postalCode: details.postalCode,
+      streetNumber: details.streetNumber,
+      route: details.route,
+      locality: details.locality,
     });
   }
 
@@ -272,5 +281,8 @@ export async function fetchSelectedPlaceDetails(
     lng: details.lng,
     countryCode: details.countryCode,
     postalCode: details.postalCode,
+    streetNumber: details.streetNumber,
+    route: details.route,
+    locality: details.locality,
   });
 }
