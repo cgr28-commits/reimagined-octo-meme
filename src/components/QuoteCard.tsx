@@ -38,6 +38,7 @@ import { formatUkDate, formatUkTime, todayLondonDate, nowLondonTime } from "@/li
 import { resolveJourneyInclusions } from "@/lib/journey-inclusions";
 import {
   intentFromDirection,
+  isCustomerAirportCode,
   type CustomerAirportCode,
   type QuoteJourneyIntent,
 } from "@/lib/quote-journey-intent";
@@ -403,7 +404,7 @@ function QuoteCard({
   const [childSeats, setChildSeats] = useState(0);
   const [childSeatNotes, setChildSeatNotes] = useState("");
   const [journeyIntent, setJourneyIntent] = useState<QuoteJourneyIntent | null>(() => {
-    if (initialAirportCode === "BFS" || initialAirportCode === "BHD" || initialAirportCode === "DUB") {
+    if (isCustomerAirportCode(initialAirportCode)) {
       return intentFromDirection(initialDirection);
     }
     if (initialAddressHint || initialDropoffHint) {
@@ -414,7 +415,7 @@ function QuoteCard({
     return null;
   });
   const [intentAirportCode, setIntentAirportCode] = useState<CustomerAirportCode | "">(() => {
-    if (initialAirportCode === "BFS" || initialAirportCode === "BHD" || initialAirportCode === "DUB") {
+    if (isCustomerAirportCode(initialAirportCode)) {
       return initialAirportCode;
     }
     return "";
@@ -427,6 +428,8 @@ function QuoteCard({
   const [marketingOptIn, setMarketingOptIn] = useState(false);
   const [testChargeAmount, setTestChargeAmount] = useState<number | null>(null);
   const [testBookingLabel, setTestBookingLabel] = useState<string | null>(null);
+  const initialAirportAppliedRef = useRef(false);
+  const submissionInFlightRef = useRef(false);
   const handleRouteMetrics = useCallback((metrics: TripRouteMetrics | null) => {
     setRouteMetrics(metrics);
   }, []);
@@ -573,6 +576,34 @@ function QuoteCard({
     }
   }, [initialAddressHint, initialDirection, initialDropoffHint]);
 
+  // Airport / transfer landing pages must seed the shared progressive quote with the
+  // correct airport place (including City of Derry / LDY).
+  useEffect(() => {
+    if (initialAirportAppliedRef.current || !IS_A2A_PRIMARY) {
+      return;
+    }
+    if (!isCustomerAirportCode(initialAirportCode)) {
+      return;
+    }
+    const place = quickSelectToPlace(initialAirportCode);
+    if (!place) {
+      return;
+    }
+    initialAirportAppliedRef.current = true;
+    const direction =
+      initialDirection === "from-airport" ? "from-airport" : "to-airport";
+    setIntentAirportCode(initialAirportCode);
+    setAirportCode(initialAirportCode);
+    setJourneyIntent(intentFromDirection(direction));
+    setTripDirection(direction);
+    setTripMode("address");
+    if (direction === "from-airport") {
+      handlePickupPlaceSelect(place);
+    } else {
+      handleDropoffPlaceSelect(place);
+    }
+  }, [initialAirportCode, initialDirection]);
+
   const isLdyTrip = effectiveAirportCode === "LDY";
   const ldyServiceAddress = isFromAirport ? dropoffAddress : pickupAddress;
   const ldyServiceAreaInvalid =
@@ -586,13 +617,24 @@ function QuoteCard({
         return;
       }
       if (IS_A2A_PRIMARY) {
-        const place = quickSelectToPlace(code as QuickSelectAirportCode);
-        if (place) {
-          if (initialDirection === "from-airport") {
-            handlePickupPlaceSelect(place);
-          } else {
-            handleDropoffPlaceSelect(place);
-          }
+        if (!isCustomerAirportCode(code)) {
+          return;
+        }
+        const place = quickSelectToPlace(code);
+        if (!place) {
+          return;
+        }
+        const direction =
+          initialDirection === "from-airport" ? "from-airport" : "to-airport";
+        setIntentAirportCode(code);
+        setAirportCode(code);
+        setJourneyIntent(intentFromDirection(direction));
+        setTripDirection(direction);
+        setTripMode("address");
+        if (direction === "from-airport") {
+          handlePickupPlaceSelect(place);
+        } else {
+          handleDropoffPlaceSelect(place);
         }
         return;
       }
@@ -907,6 +949,7 @@ function QuoteCard({
     if (isA2AFlow) {
       setPickupPlace(emptySelectedPlace());
       setPickupPlaceError("");
+      setRouteMetrics(null);
     }
     if (value.trim()) {
       localStorage.setItem(PICKUP_STORAGE_KEY, value.trim());
@@ -918,6 +961,7 @@ function QuoteCard({
     if (isA2AFlow) {
       setDropoffPlace(emptySelectedPlace());
       setDropoffPlaceError("");
+      setRouteMetrics(null);
     }
     if (value.trim()) {
       localStorage.setItem(DROPOFF_STORAGE_KEY, value.trim());
@@ -1337,12 +1381,16 @@ function QuoteCard({
   const paymentAmount = testChargeAmount ?? liveQuote?.amount ?? null;
 
   async function handlePayNow() {
-    if (!liveQuote || paymentLoading || !canPayNowOnline) {
+    if (!liveQuote || paymentLoading || !canPayNowOnline || submissionInFlightRef.current) {
       if (!canPayNowOnline) {
         setPaymentError(
           "Online payment is available when an instant fare is shown. Request to book instead and we’ll email a SumUp link once confirmed.",
         );
       }
+      return;
+    }
+    if (!Number.isFinite(liveQuote.amount) || liveQuote.amount <= 0) {
+      setPaymentError("We couldn’t confirm a valid fare for payment. Please request a quote instead.");
       return;
     }
 
@@ -1392,7 +1440,7 @@ function QuoteCard({
   }
 
   async function confirmBooking(delivery: BookingDelivery) {
-    if (submitted || bookingSent) {
+    if (submitted || bookingSent || submissionInFlightRef.current) {
       return;
     }
     if (!requireCapacityConfirmed()) {
@@ -1404,6 +1452,7 @@ function QuoteCard({
 
     const details = buildConfirmedBookingDetails();
     const isMobile = isMobileDevice ?? detectMobileDevice();
+    submissionInFlightRef.current = true;
     setSubmitted(true);
     setSubmitError("");
     setBookingReference("");
@@ -1451,6 +1500,7 @@ function QuoteCard({
           ? `We couldn't send your ${isEnquiryOnly ? "enquiry" : "booking"} by email. Please try WhatsApp or contact ${SITE.email} with your trip details.`
           : `We couldn't log your ${isEnquiryOnly ? "enquiry" : "booking"}. Please try email instead or contact ${SITE.email}.`,
       );
+      submissionInFlightRef.current = false;
       setSubmitted(false);
       return;
     }
@@ -1462,6 +1512,7 @@ function QuoteCard({
     setQuoteTransactionId(adsQuoteId);
     setBookingDelivery(delivery);
     setBookingSent(true);
+    submissionInFlightRef.current = false;
     setSubmitted(false);
 
     if (details.marketingOptIn) {
@@ -1782,7 +1833,7 @@ function QuoteCard({
   return (
     <div ref={cardRef} className="glass-card min-w-0 rounded-2xl p-6 sm:p-8">
       <div className="mb-6">
-        <h2 className="text-xl font-semibold tracking-tight text-white sm:text-2xl">Get a Live Quote</h2>
+        <h2 className="text-xl font-semibold tracking-tight text-white sm:text-2xl">Get a Fixed Quote</h2>
         <p className="mt-2 text-sm leading-relaxed text-white/60">
           {pricingConfirmationRequired
             ? "Three quick steps — your journey, travel details, then your details. We’ll confirm your fare before any payment."

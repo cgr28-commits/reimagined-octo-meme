@@ -48,7 +48,7 @@ export default function DriverTrackingSection() {
               </li>
             </ol>
             <p className="mt-6 text-xs leading-relaxed text-white/50">
-              Tracking is included at no extra cost for card payments made through our website.
+              Live tracking is included with card payments made through our website.
               Your driver may also send the link via WhatsApp on the day.
             </p>
             {/* Soft-hidden via SERVICE_FLAGS.trackingDemo — set true in data.ts to restore */}
