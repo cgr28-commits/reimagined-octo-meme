@@ -43,19 +43,21 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
     try {
       const result = await resendPaidBookingConfirmation(ownerKey, booking.paymentReference);
       if (!result.customerEmailSent) {
-        throw new Error(result.customerEmailError || "Customer confirmation could not be sent");
+        throw new Error(result.customerEmailError || "Booking confirmation could not be sent");
       }
       setMessage(
-        `Confirmation resent to ${result.customerEmail}${
+        `Booking confirmation resent to ${result.customerEmail}${
           result.ownerEmailSent ? " (owner copy sent too)" : ""
         }.`,
       );
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not resend confirmation");
+      setError(err instanceof Error ? err.message : "Could not resend booking confirmation");
     } finally {
       setBusyRef("");
     }
   }
+
+  const latestPaid = bookings.find((booking) => booking.status !== "refunded") ?? null;
 
   return (
     <section className="mb-10 rounded-2xl border border-sky-400/25 bg-sky-500/5 p-5 sm:p-6">
@@ -66,9 +68,8 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
           </p>
           <h2 className="mt-1 text-xl font-bold text-white">Paid bookings (SumUp)</h2>
           <p className="mt-2 max-w-2xl text-sm text-white/65">
-            Customers who pay on the website appear here automatically — name, email, mobile,
-            trip, and payment reference. This is separate from “Booking requests” below (those are
-            enquiry / WhatsApp jobs).
+            Customers who pay on the website appear here automatically. Use Resend booking
+            confirmation if they did not get the invoice email.
           </p>
         </div>
         <button
@@ -79,6 +80,26 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
           Refresh
         </button>
       </div>
+
+      {latestPaid ? (
+        <div className="mt-5 rounded-xl border border-emerald/35 bg-emerald/10 p-4">
+          <p className="text-sm text-white/80">
+            Latest paid booking:{" "}
+            <span className="font-semibold text-white">{latestPaid.customerName}</span>
+            {latestPaid.amountPaid ? ` · ${latestPaid.amountPaid}` : ""} · {latestPaid.customerEmail}
+          </p>
+          <button
+            type="button"
+            disabled={busyRef === latestPaid.paymentReference}
+            onClick={() => void handleResend(latestPaid)}
+            className="mt-3 w-full rounded-xl bg-emerald px-4 py-3 text-sm font-bold text-navy transition-colors hover:bg-emerald-light disabled:opacity-60 sm:w-auto"
+          >
+            {busyRef === latestPaid.paymentReference
+              ? "Sending booking confirmation…"
+              : "Resend booking confirmation"}
+          </button>
+        </div>
+      ) : null}
 
       {error ? (
         <p className="mt-4 rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-100">
@@ -159,11 +180,11 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
                     type="button"
                     disabled={busyRef === booking.paymentReference}
                     onClick={() => void handleResend(booking)}
-                    className="rounded-xl bg-emerald px-4 py-2.5 text-sm font-bold text-navy transition-colors hover:bg-emerald-light disabled:opacity-60"
+                    className="w-full rounded-xl bg-emerald px-4 py-3 text-sm font-bold text-navy transition-colors hover:bg-emerald-light disabled:opacity-60 sm:w-auto"
                   >
                     {busyRef === booking.paymentReference
                       ? "Sending…"
-                      : "Resend customer confirmation"}
+                      : "Resend booking confirmation"}
                   </button>
                   {booking.customerEmail ? (
                     <a
