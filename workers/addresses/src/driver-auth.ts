@@ -102,7 +102,14 @@ export function driverAuthorized(request: Request, env: DriverAuthEnv): boolean 
 
 export function ownerAuthorized(request: Request, env: DriverAuthEnv): boolean {
   const session = resolveDriverSession(request, env);
-  return session.authorized && session.role === "owner";
+  if (session.authorized && session.role === "owner") {
+    return true;
+  }
+  // When no separate OWNER_ACCESS_KEY is configured, the driver key is the admin key.
+  if (!ownerKey(env) && session.authorized && session.role === "driver") {
+    return true;
+  }
+  return false;
 }
 
 export function isDriverAuthConfigured(env: DriverAuthEnv): boolean {
