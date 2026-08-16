@@ -152,7 +152,7 @@ export default function QuoteProgressiveRoute({
     journeyIntent === "address-to-address" || (showAirportPicker && airportChosen);
 
   return (
-    <div className="space-y-5">
+    <div className="quote-field space-y-5">
       <div className="min-h-[3.25rem]">
         <h3 className="text-base font-semibold text-white sm:text-lg">Where are you travelling?</h3>
         <p className="mt-1 min-h-[1rem] text-xs text-white/55">
@@ -265,7 +265,7 @@ export default function QuoteProgressiveRoute({
             </p>
           )}
           {journeyIntent === "from-airport" && airportChosen && onFlightNumberChange && (
-            <div>
+            <div className="quote-field">
               <label
                 htmlFor="progressive-flight-number"
                 className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/70"
@@ -278,12 +278,15 @@ export default function QuoteProgressiveRoute({
                 inputMode="text"
                 autoCapitalize="characters"
                 autoComplete="off"
+                spellCheck={false}
                 value={flightNumber}
                 onChange={(e) => onFlightNumberChange(e.target.value.toUpperCase())}
                 placeholder="e.g. EI304"
-                className="w-full rounded-xl border border-white/25 bg-navy-dark px-4 py-3 text-sm text-white placeholder:text-white/45 outline-none focus:border-emerald focus:ring-2 focus:ring-emerald/25"
+                className="quote-text-input h-12 rounded-xl border border-white/25 bg-navy-dark px-4 uppercase text-white placeholder:normal-case placeholder:text-white/45 outline-none focus:border-emerald focus:ring-2 focus:ring-inset focus:ring-emerald/25"
               />
-              <p className="mt-1.5 text-xs text-white/55">{AIRPORT_FLIGHT_MONITORING_COPY}</p>
+              <p className="quote-helper-text mt-1.5 text-xs leading-snug text-white/55">
+                {AIRPORT_FLIGHT_MONITORING_COPY}
+              </p>
             </div>
           )}
         </div>
@@ -376,7 +379,7 @@ export default function QuoteProgressiveRoute({
                         onPassengersChange(next);
                       }
                     }}
-                    className="w-full rounded-xl border border-white/25 bg-navy-dark px-4 py-3 text-sm text-white outline-none focus:border-emerald focus:ring-2 focus:ring-emerald/25"
+                    className="quote-text-input h-12 rounded-xl border border-white/25 bg-navy-dark px-4 text-white outline-none focus:border-emerald focus:ring-2 focus:ring-inset focus:ring-emerald/25"
                   />
                 </div>
               )}
@@ -432,9 +435,9 @@ export default function QuoteProgressiveRoute({
                 value={childSeatNotes}
                 onChange={(e) => onChildSeatNotesChange(e.target.value)}
                 placeholder="e.g. 1 infant seat, 1 booster"
-                className="w-full rounded-xl border border-white/25 bg-navy-dark px-4 py-3 text-sm text-white placeholder:text-white/45 outline-none focus:border-emerald focus:ring-2 focus:ring-emerald/25"
+                className="quote-text-input h-12 rounded-xl border border-white/25 bg-navy-dark px-4 text-white placeholder:text-white/45 outline-none focus:border-emerald focus:ring-2 focus:ring-inset focus:ring-emerald/25"
               />
-              <p className="mt-1.5 text-xs text-white/55">
+              <p className="quote-helper-text mt-1.5 text-xs text-white/55">
                 Child seats can be requested but availability is not guaranteed.
               </p>
             </div>
