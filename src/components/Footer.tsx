@@ -10,7 +10,7 @@ export default function Footer() {
 
   return (
     <footer className="relative border-t border-white/10 bg-navy-dark">
-      <div className="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:max-w-[1400px] lg:px-10 lg:py-16 xl:px-12">
         <div
           className={`grid gap-10 sm:grid-cols-2 ${
             SERVICE_FLAGS.dayTrips ? "lg:grid-cols-6" : "lg:grid-cols-5"

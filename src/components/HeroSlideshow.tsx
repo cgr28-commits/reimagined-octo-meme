@@ -17,23 +17,23 @@ export default function HeroSlideshow() {
         <div className="absolute -right-16 bottom-10 h-80 w-80 rounded-full bg-navy-light/40 blur-3xl" />
       </div>
 
-      <div className="relative mx-auto flex w-full min-w-0 max-w-7xl flex-col gap-12 px-4 py-16 sm:px-6 lg:flex-row lg:items-center lg:gap-16 lg:px-8 lg:py-24">
-        <div className="min-w-0 flex-1 lg:max-w-xl">
+      <div className="relative mx-auto grid w-full min-w-0 max-w-7xl grid-cols-1 gap-12 px-4 py-16 sm:px-6 lg:max-w-[1400px] lg:grid-cols-[minmax(0,1fr)_minmax(500px,600px)] lg:items-center lg:gap-16 lg:px-10 lg:py-24 xl:gap-20 xl:px-12">
+        <div className="min-w-0">
           <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-emerald/30 bg-emerald/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-emerald">
             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald" />
             Fixed Price Airport Transfers
           </div>
 
-          <h1 className="text-4xl font-bold leading-tight tracking-tight text-white sm:text-5xl lg:text-6xl">
+          <h1 className="text-4xl font-bold leading-tight tracking-tight text-white sm:text-5xl lg:text-6xl xl:text-[4rem] xl:leading-[1.08]">
             My Airport Taxi NI
           </h1>
 
-          <p className="mt-5 max-w-lg text-lg leading-relaxed text-white/75 sm:text-xl">
+          <p className="mt-5 max-w-lg text-lg leading-relaxed text-white/75 sm:text-xl lg:max-w-xl lg:text-xl lg:leading-relaxed">
             Fixed price transfers to {airportList} airports — and door-to-door across Northern
             Ireland.
           </p>
 
-          <div className="mt-8 flex flex-wrap items-center gap-4">
+          <div className="mt-8 flex flex-wrap items-center gap-4 lg:mt-10 lg:gap-5">
             <a
               href="#quote"
               className="rounded-full bg-emerald px-8 py-3.5 text-sm font-bold text-navy shadow-lg shadow-emerald/25 transition-all hover:bg-emerald-light hover:shadow-emerald/40"
@@ -48,7 +48,7 @@ export default function HeroSlideshow() {
             </a>
           </div>
 
-          <div className="mt-10 flex flex-wrap gap-x-6 gap-y-3 text-sm text-white/65">
+          <div className="mt-10 flex flex-wrap gap-x-6 gap-y-3 text-sm text-white/65 lg:mt-12 lg:grid lg:grid-cols-2 lg:gap-x-8 lg:gap-y-3.5">
             <div className="flex items-center gap-2">
               <svg className="h-5 w-5 shrink-0 text-emerald" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -73,7 +73,7 @@ export default function HeroSlideshow() {
               </svg>
               60 minutes complimentary airport waiting
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 lg:col-span-2">
               <svg className="h-5 w-5 shrink-0 text-emerald" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
@@ -81,12 +81,12 @@ export default function HeroSlideshow() {
             </div>
           </div>
 
-          <p className="mt-6 max-w-lg text-sm text-white/55">
+          <p className="mt-6 max-w-lg text-sm text-white/55 lg:mt-8 lg:max-w-xl">
             Get your fixed price online. Eligible bookings can be confirmed securely by card.
           </p>
         </div>
 
-        <div className="min-w-0 w-full flex-1 scroll-mt-44 lg:max-w-md" id="quote">
+        <div className="min-w-0 w-full scroll-mt-44 lg:justify-self-stretch" id="quote">
           <QuoteCard />
         </div>
       </div>

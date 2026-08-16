@@ -3,14 +3,14 @@ import SectionHeading from "./SectionHeading";
 
 export default function AreasSection() {
   return (
-    <section id="areas" className="relative py-20 sm:py-28">
+    <section id="areas" className="relative py-20 sm:py-28 lg:py-32">
       <div className="absolute inset-0 bg-navy-dark" />
       <div className="absolute inset-0 opacity-20">
         <div className="h-full w-full bg-[radial-gradient(ellipse_at_center,_var(--color-emerald)_0%,_transparent_70%)]" />
       </div>
 
-      <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="grid items-center gap-12 lg:grid-cols-2 lg:gap-20">
+      <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:max-w-[1400px] lg:px-10 xl:px-12">
+        <div className="grid items-center gap-12 lg:grid-cols-2 lg:gap-20 xl:gap-24">
           <div>
             <SectionHeading
               align="left"
@@ -19,7 +19,7 @@ export default function AreasSection() {
               description="Based in Belfast, we provide airport transfers across all of Northern Ireland — from city centres to rural towns. Don't see your area? Get in touch; we cover the entire province."
             />
 
-            <div className="mt-8 flex flex-wrap gap-4">
+            <div className="mt-8 flex flex-wrap gap-4 lg:mt-10">
               <div className="rounded-xl border border-white/10 bg-white/5 px-5 py-4">
                 <p className="text-2xl font-bold text-emerald">20+</p>
                 <p className="text-sm text-white/50">Towns &amp; Cities</p>
@@ -35,8 +35,8 @@ export default function AreasSection() {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-2">
+          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 sm:p-8 lg:p-8">
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
               {AREAS.map((area) => (
                 <div
                   key={area}
