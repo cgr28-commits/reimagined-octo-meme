@@ -43,11 +43,12 @@ const finalize = read("workers/addresses/src/finalize-paid-checkout.ts");
 assert.match(finalize, /trySendBrandedCustomerEmail/);
 assert.match(finalize, /trySendOwnerOperationalEmail/);
 assert.match(finalize, /buildCustomerConfirmationEmail/);
+assert.match(finalize, /\[Bookings copy\]/);
 assert.doesNotMatch(
   finalize,
   /ownerEmailResult = await trySendEmail\(/,
 );
-console.log("OK  paid finalize uses branded customer + owner operational email");
+console.log("OK  paid finalize uses branded customer + bookings@ invoice copy + owner alert");
 
 console.log("\n=== Browser fallback ===");
 const browserEmail = read("src/lib/send-paid-booking-email.ts");

@@ -52,6 +52,18 @@ async function main() {
   if (!resendRes.ok || !resendBody?.customerEmailSent) {
     process.exit(1);
   }
+
+  if (!resendBody?.ownerEmailSent && !resendBody?.bookingsCopySent) {
+    console.error("Customer email sent, but bookings@ copy failed");
+    process.exit(1);
+  }
+
+  console.log(
+    "OK resent to",
+    resendBody.customerEmail,
+    "and bookings@ copy:",
+    Boolean(resendBody.bookingsCopySent || resendBody.ownerEmailSent),
+  );
 }
 
 main().catch((error) => {
