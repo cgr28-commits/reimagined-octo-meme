@@ -18,6 +18,7 @@ import {
   type AddressPrediction,
 } from "@/lib/google-maps";
 import type { SelectedPlace } from "@/lib/selected-place";
+import { buildDisplayAddress } from "@/lib/selected-place";
 
 type AddressInputProps = {
   id: string;
@@ -220,6 +221,8 @@ export default function AddressInput({
     onSelectPlace?.({
       placeId: "",
       formattedAddress: next,
+      displayAddress: next,
+      placeName: null,
       lat: null,
       lng: null,
       countryCode: null,
@@ -286,6 +289,8 @@ export default function AddressInput({
       onSelectPlace?.({
         placeId: "",
         formattedAddress: "",
+        displayAddress: "",
+        placeName: null,
         lat: null,
         lng: null,
         countryCode: null,
@@ -311,35 +316,59 @@ export default function AddressInput({
     setHouseOrBuilding("");
     setLockedPostcode(null);
 
-    const place = await fetchSelectedPlaceDetails(prediction.placeId, airportCode, value);
+    const place = await fetchSelectedPlaceDetails(
+      prediction.placeId,
+      airportCode,
+      value,
+      prediction.mainText,
+    );
     if (place) {
       const typedNumber = value.trim().match(/^(\d+[a-zA-Z]?)\b/)?.[1];
-      const resolvedHasNumber = /^\d+[a-zA-Z]?\s/.test(place.formattedAddress);
+      const postal = place.formattedAddress;
+      const resolvedHasNumber = /^\d+[a-zA-Z]?\s/.test(postal);
       const suggestionHasNumber = /^\d+[a-zA-Z]?\s/.test(prediction.description);
-      const formattedAddress =
+      const postalWithNumber =
         typedNumber && !resolvedHasNumber && suggestionHasNumber
           ? prediction.description
-          : place.formattedAddress;
+          : postal;
 
+      const placeName =
+        place.placeName ||
+        (prediction.mainText &&
+        !postalWithNumber.toLowerCase().includes(prediction.mainText.trim().toLowerCase())
+          ? prediction.mainText.trim()
+          : null);
+
+      const displayAddress = buildDisplayAddress(placeName, postalWithNumber);
       const nextPlace: SelectedPlace = {
         ...place,
-        formattedAddress,
+        formattedAddress: postalWithNumber,
+        displayAddress,
+        placeName,
         streetNumber: place.streetNumber || typedNumber || null,
       };
       selectedPlaceRef.current = nextPlace;
-      onChange(formattedAddress);
-      onSelectAddress?.(formattedAddress);
+      onChange(displayAddress);
+      onSelectAddress?.(displayAddress);
       onSelectPlace?.(nextPlace);
       setLoadError(null);
       return;
     }
 
-    const formatted = await fetchPlaceDetails(prediction.placeId, airportCode, value);
-    const nextAddress = formatted ?? prediction.description;
+    const formatted = await fetchPlaceDetails(
+      prediction.placeId,
+      airportCode,
+      value,
+      prediction.mainText,
+    );
+    const nextAddress =
+      formatted ?? buildDisplayAddress(prediction.mainText, prediction.description);
     const typedNumber = value.trim().match(/^(\d+[a-zA-Z]?)\b/)?.[1];
     const nextPlace: SelectedPlace = {
       placeId: prediction.placeId,
-      formattedAddress: nextAddress,
+      formattedAddress: prediction.description,
+      displayAddress: nextAddress,
+      placeName: prediction.mainText || null,
       lat: null,
       lng: null,
       countryCode: null,

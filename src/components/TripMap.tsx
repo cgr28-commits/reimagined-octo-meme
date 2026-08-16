@@ -33,6 +33,11 @@ type TripMapProps = {
   onRouteMetrics?: (metrics: TripRouteMetrics | null) => void;
   /** Compact distance/time line with optional map expand (default for quote form). */
   variant?: "full" | "summary";
+  /** Prefer selected-place coordinates over re-geocoding the visible address string. */
+  originLat?: number | null;
+  originLng?: number | null;
+  destinationLat?: number | null;
+  destinationLng?: number | null;
 };
 
 type MapPoint = {
@@ -45,7 +50,17 @@ function buildGoogleMapsLink(origin: string, destination: string) {
   return `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}&travelmode=driving`;
 }
 
-async function resolveMapPoint(address: string, label: string, airportCode?: string): Promise<MapPoint | null> {
+async function resolveMapPoint(
+  address: string,
+  label: string,
+  airportCode?: string,
+  lat?: number | null,
+  lng?: number | null,
+): Promise<MapPoint | null> {
+  if (typeof lat === "number" && typeof lng === "number") {
+    return { lat, lng, label };
+  }
+
   const trimmed = address.trim();
   if (!trimmed) {
     return null;
@@ -83,6 +98,10 @@ export default function TripMap({
   tripDirection = "to-airport",
   onRouteMetrics,
   variant = "full",
+  originLat = null,
+  originLng = null,
+  destinationLat = null,
+  destinationLng = null,
 }: TripMapProps) {
   const trimmedOrigin = originAddress.trim();
   const trimmedDestination = destinationAddress.trim();
@@ -142,8 +161,14 @@ export default function TripMap({
     let cancelled = false;
     const timer = window.setTimeout(() => {
       void Promise.all([
-        resolveMapPoint(trimmedOrigin, "Pickup", airportCode),
-        resolveMapPoint(trimmedDestination, "Drop-off", airportCode),
+        resolveMapPoint(trimmedOrigin, "Pickup", airportCode, originLat, originLng),
+        resolveMapPoint(
+          trimmedDestination,
+          "Drop-off",
+          airportCode,
+          destinationLat,
+          destinationLng,
+        ),
       ])
         .then(async ([origin, destination]) => {
           if (cancelled) {
@@ -189,7 +214,16 @@ export default function TripMap({
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [airportCode, onRouteMetrics, trimmedDestination, trimmedOrigin]);
+  }, [
+    airportCode,
+    destinationLat,
+    destinationLng,
+    onRouteMetrics,
+    originLat,
+    originLng,
+    trimmedDestination,
+    trimmedOrigin,
+  ]);
 
   if (!links || trimmedOrigin.length < 8 || trimmedDestination.length < 8) {
     return null;

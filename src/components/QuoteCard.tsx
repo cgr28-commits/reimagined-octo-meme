@@ -76,13 +76,14 @@ import {
   detectAirportCodeFromPlace,
   detectJourneyKind,
   emptySelectedPlace,
+  placeDisplayText,
+  placesEqual,
   isOutOfAreaPickup,
   isPlaceSelected,
   isRepublicOfIrelandJourney,
   journeyKindLabel,
   needsManualQuoteApproval,
   PLACES_LOOKUP_A2A,
-  placesEqual,
   quickSelectToPlace,
   QUICK_SELECT_AIRPORTS,
   type JourneyKind,
@@ -762,20 +763,22 @@ function QuoteCard({
   }
 
   function handlePickupPlaceSelect(place: SelectedPlace) {
+    const display = placeDisplayText(place);
     setPickupPlace(place);
-    setPickupAddress(place.formattedAddress);
+    setPickupAddress(display);
     setPickupPlaceError("");
-    if (place.formattedAddress.trim()) {
-      localStorage.setItem(PICKUP_STORAGE_KEY, place.formattedAddress.trim());
+    if (display.trim()) {
+      localStorage.setItem(PICKUP_STORAGE_KEY, display.trim());
     }
   }
 
   function handleDropoffPlaceSelect(place: SelectedPlace) {
+    const display = placeDisplayText(place);
     setDropoffPlace(place);
-    setDropoffAddress(place.formattedAddress);
+    setDropoffAddress(display);
     setDropoffPlaceError("");
-    if (place.formattedAddress.trim()) {
-      localStorage.setItem(DROPOFF_STORAGE_KEY, place.formattedAddress.trim());
+    if (display.trim()) {
+      localStorage.setItem(DROPOFF_STORAGE_KEY, display.trim());
     }
   }
 
@@ -822,7 +825,7 @@ function QuoteCard({
     AIRPORTS.find((a) => a.code === effectiveAirportCode)?.name ?? effectiveAirportCode;
 
   const pickupLabel = isA2AFlow
-    ? pickupPlace.formattedAddress.trim() || pickupAddress.trim()
+    ? placeDisplayText(pickupPlace) || pickupAddress.trim()
     : isAirportTrip
       ? isFromAirport
         ? airportName
@@ -830,7 +833,7 @@ function QuoteCard({
       : pickupAddress.trim();
 
   const dropoffLabel = isA2AFlow
-    ? dropoffPlace.formattedAddress.trim() || dropoffAddress.trim()
+    ? placeDisplayText(dropoffPlace) || dropoffAddress.trim()
     : isAirportTrip
       ? isFromAirport
         ? dropoffAddress.trim()
@@ -1693,6 +1696,10 @@ function QuoteCard({
               tripMode="address"
               originAddress={pickupAddress}
               destinationAddress={dropoffAddress}
+              originLat={pickupPlace.lat}
+              originLng={pickupPlace.lng}
+              destinationLat={dropoffPlace.lat}
+              destinationLng={dropoffPlace.lng}
               onRouteMetrics={handleRouteMetrics}
               variant="summary"
             />
@@ -1948,6 +1955,10 @@ function QuoteCard({
           }
           airportCode={airportCode}
           tripDirection={tripDirection}
+          originLat={pickupPlace.lat}
+          originLng={pickupPlace.lng}
+          destinationLat={dropoffPlace.lat}
+          destinationLng={dropoffPlace.lng}
           onRouteMetrics={handleRouteMetrics}
           variant="summary"
         />

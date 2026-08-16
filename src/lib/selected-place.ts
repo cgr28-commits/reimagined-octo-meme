@@ -12,7 +12,12 @@ import {
 
 export type SelectedPlace = {
   placeId: string;
+  /** Postal / street address from the provider (without requiring a business label). */
   formattedAddress: string;
+  /** Visible field value — place name + postal address when applicable. */
+  displayAddress?: string | null;
+  /** Business / hotel / venue / landmark name when the selection is a named place. */
+  placeName?: string | null;
   lat: number | null;
   lng: number | null;
   countryCode: string | null;
@@ -104,6 +109,8 @@ export function emptySelectedPlace(): SelectedPlace {
   return {
     placeId: "",
     formattedAddress: "",
+    displayAddress: "",
+    placeName: null,
     lat: null,
     lng: null,
     countryCode: null,
@@ -112,6 +119,46 @@ export function emptySelectedPlace(): SelectedPlace {
     route: null,
     locality: null,
   };
+}
+
+/** Customer-facing address string for inputs, emails, and booking labels. */
+export function placeDisplayText(place: SelectedPlace | null | undefined): string {
+  if (!place) {
+    return "";
+  }
+  return (place.displayAddress || place.formattedAddress || "").trim();
+}
+
+/**
+ * Build "{place name}, {formatted address}" without duplicating the name when
+ * Google already included it in the formatted address.
+ */
+export function buildDisplayAddress(
+  placeName: string | null | undefined,
+  formattedAddress: string,
+): string {
+  const formatted = formattedAddress.trim();
+  const name = placeName?.trim() || "";
+  if (!formatted) {
+    return name;
+  }
+  if (!name) {
+    return formatted;
+  }
+
+  const normalisedFormatted = formatted.toLowerCase();
+  const normalisedName = name.toLowerCase();
+  if (
+    normalisedFormatted === normalisedName ||
+    normalisedFormatted.startsWith(`${normalisedName},`) ||
+    normalisedFormatted.startsWith(`${normalisedName} `) ||
+    normalisedFormatted.includes(`, ${normalisedName}`) ||
+    normalisedFormatted.includes(normalisedName)
+  ) {
+    return formatted;
+  }
+
+  return `${name}, ${formatted}`;
 }
 
 export function isPlaceSelected(place: SelectedPlace | null | undefined): boolean {
@@ -133,7 +180,9 @@ export function detectAirportCodeFromPlace(place: SelectedPlace): string | null 
     return AIRPORT_CODE_BY_PLACE_ID.get(place.placeId) ?? null;
   }
 
-  const haystack = place.formattedAddress;
+  const haystack = [place.placeName, place.displayAddress, place.formattedAddress]
+    .filter(Boolean)
+    .join(" ");
   for (const matcher of AIRPORT_MATCHERS) {
     if (matcher.patterns.some((pattern) => pattern.test(haystack))) {
       return matcher.code;
@@ -326,6 +375,8 @@ export function quickSelectToPlace(
   return {
     placeId: airport.placeId,
     formattedAddress: airport.formattedAddress,
+    displayAddress: airport.formattedAddress,
+    placeName: airport.label,
     lat: airport.lat,
     lng: airport.lng,
     countryCode: airport.countryCode,
@@ -336,6 +387,8 @@ export function quickSelectToPlace(
 export function selectedPlaceFromParts(options: {
   placeId: string;
   formattedAddress: string;
+  displayAddress?: string | null;
+  placeName?: string | null;
   lat?: number | null;
   lng?: number | null;
   country?: string | null;
@@ -345,9 +398,16 @@ export function selectedPlaceFromParts(options: {
   route?: string | null;
   locality?: string | null;
 }): SelectedPlace {
+  const postal = options.formattedAddress.trim();
+  const placeName = options.placeName?.trim() || null;
+  const displayAddress =
+    options.displayAddress?.trim() || buildDisplayAddress(placeName, postal);
+
   return {
     placeId: options.placeId.trim(),
-    formattedAddress: options.formattedAddress.trim(),
+    formattedAddress: postal,
+    displayAddress,
+    placeName,
     lat: options.lat ?? null,
     lng: options.lng ?? null,
     countryCode: normaliseCountryCode(options.countryCode ?? options.country),
