@@ -46,6 +46,9 @@ import {
   STARTING_BOOKING_REF,
 } from "../shared/booking-reference";
 import {
+  buildOwnerPaymentAttemptEmail,
+  buildOwnerPaymentUnsuccessfulEmail,
+  formatPaidAmount,
   type PaidBookingDetails,
 } from "../shared/booking-notifications";
 import {
@@ -55,6 +58,8 @@ import {
 import {
   buildCheckoutReference,
   createSumUpHostedCheckout,
+  getSumUpCheckout,
+  isSumUpCheckoutPaid,
 } from "../shared/sumup-checkout";
 import {
   getGoogleAccessToken,
@@ -106,7 +111,9 @@ import {
   resolveBookingForCheckout,
 } from "./finalize-paid-checkout";
 import {
+  getPendingCheckout,
   pendingCheckoutStoreConfigured,
+  patchPendingCheckout,
   savePendingCheckout,
 } from "./pending-checkout-store";
 import {
@@ -956,12 +963,33 @@ async function handlePaymentRequest(
       createdAt: new Date().toISOString(),
     });
 
+    // Always notify the owner with contact details when SumUp opens — payment may fail.
+    const amountLabel = formatPaidAmount(Math.round(amount * 100) / 100);
+    const attemptEmail = buildOwnerPaymentAttemptEmail(booking, {
+      amountLabel,
+      checkoutId: checkout.checkoutId,
+      checkoutReference: checkout.checkoutReference,
+    });
+    const attemptSend = await trySendEmail(env, {
+      to: ownerInbox(env),
+      subject: attemptEmail.subject,
+      body: attemptEmail.body,
+    });
+    if (attemptSend.sent) {
+      await patchPendingCheckout(env.TRACKING_STORE, checkout.checkoutId, {
+        attemptEmailSentAt: new Date().toISOString(),
+      });
+    } else {
+      console.error("Owner payment-attempt email failed", attemptSend.error);
+    }
+
     return json(
       {
         ok: true,
         paymentUrl: checkout.paymentUrl,
         checkoutId: checkout.checkoutId,
         checkoutReference: checkout.checkoutReference,
+        ownerAttemptEmailSent: attemptSend.sent,
       },
       200,
       origin,
@@ -1001,7 +1029,49 @@ async function handlePaymentWebhookRequest(
           booking,
           logPaidBookingCalendar,
         });
-        if (!result.ok && result.error && !result.error.includes("not been completed")) {
+        if (result.ok) {
+          // Paid path handled (or already finalized).
+        } else if (result.error?.includes("not been completed")) {
+          // Payment still pending or failed — if SumUp shows a terminal failure, email owner.
+          const apiKey = env.SUMUP_API_KEY?.trim() ?? "";
+          if (apiKey) {
+            try {
+              const checkout = await getSumUpCheckout(apiKey, checkoutId);
+              const status = String(checkout.status ?? "").toUpperCase();
+              const failedStatuses = new Set([
+                "FAILED",
+                "EXPIRED",
+                "CANCELLED",
+                "CANCELED",
+                "DECLINED",
+              ]);
+              if (!isSumUpCheckoutPaid(checkout) && failedStatuses.has(status)) {
+                const pending = await getPendingCheckout(env.TRACKING_STORE, checkoutId);
+                if (!pending?.unsuccessfulEmailSentAt) {
+                  const amountLabel = formatPaidAmount(pending?.amount ?? checkout.amount ?? 0);
+                  const unsuccessful = buildOwnerPaymentUnsuccessfulEmail(booking, {
+                    amountLabel,
+                    checkoutId,
+                    checkoutReference: pending?.checkoutReference ?? checkout.checkout_reference,
+                    sumUpStatus: status,
+                  });
+                  const send = await trySendEmail(env, {
+                    to: ownerInbox(env),
+                    subject: unsuccessful.subject,
+                    body: unsuccessful.body,
+                  });
+                  if (send.sent) {
+                    await patchPendingCheckout(env.TRACKING_STORE, checkoutId, {
+                      unsuccessfulEmailSentAt: new Date().toISOString(),
+                    });
+                  }
+                }
+              }
+            } catch (lookupError) {
+              console.error("SumUp webhook unsuccessful lookup failed", lookupError);
+            }
+          }
+        } else if (result.error) {
           console.error("SumUp webhook finalize failed", result.error);
         }
       }

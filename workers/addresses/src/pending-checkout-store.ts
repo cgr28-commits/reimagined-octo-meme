@@ -9,6 +9,10 @@ export type PendingCheckoutRecord = {
   /** Set when owner/customer emails have been sent for this checkout. */
   finalizedAt?: string;
   paymentReference?: string;
+  /** Owner notified that payment was started (contact details captured). */
+  attemptEmailSentAt?: string;
+  /** Owner notified that SumUp did not complete payment. */
+  unsuccessfulEmailSentAt?: string;
 };
 
 export function pendingCheckoutKey(checkoutId: string): string {
@@ -59,4 +63,20 @@ export async function markPendingCheckoutFinalized(
     paymentReference,
   };
   await savePendingCheckout(store, updated);
+}
+
+export async function patchPendingCheckout(
+  store: KVNamespace,
+  checkoutId: string,
+  patch: Partial<
+    Pick<PendingCheckoutRecord, "attemptEmailSentAt" | "unsuccessfulEmailSentAt" | "finalizedAt" | "paymentReference">
+  >,
+): Promise<PendingCheckoutRecord | null> {
+  const existing = await getPendingCheckout(store, checkoutId);
+  if (!existing) {
+    return null;
+  }
+  const updated: PendingCheckoutRecord = { ...existing, ...patch };
+  await savePendingCheckout(store, updated);
+  return updated;
 }
