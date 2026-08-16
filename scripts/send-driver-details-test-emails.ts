@@ -4,6 +4,8 @@ import {
   buildDriverAssignmentEmail,
   type BookingJobRecord,
 } from "../shared/booking-job";
+import { resolveBookingFromHeader } from "../shared/email-config";
+import { sendViaResend } from "../shared/resend-email";
 
 const TO = process.env.TEST_EMAIL_TO?.trim() || "bookings@myairporttaxini.co.uk";
 const PREVIEW_DIR = process.env.EMAIL_PREVIEW_DIR?.trim() || "/tmp/email-previews";
@@ -41,66 +43,34 @@ const sampleJob: BookingJobRecord = {
   driverAssignmentStatus: "pending",
 };
 
-async function sendViaFormSubmit(subject: string, html: string, text: string): Promise<boolean> {
-  const response = await fetch(`https://formsubmit.co/ajax/${encodeURIComponent(TO)}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Accept: "application/json" },
-    body: JSON.stringify({
-      _subject: subject,
-      _captcha: "false",
-      _template: "box",
-      name: "My Airport Taxi NI",
-      message: html || text,
-      _replyto: "bookings@myairporttaxini.co.uk",
-    }),
-  });
-  const contentType = response.headers.get("content-type") ?? "";
-  const bodyText = await response.text();
-  console.log("FormSubmit", subject.slice(0, 60), response.status, bodyText.slice(0, 240));
-  if (!contentType.includes("application/json")) return false;
-  try {
-    const payload = JSON.parse(bodyText) as { success?: unknown };
-    return response.ok && (payload.success === "true" || payload.success === true);
-  } catch {
+async function sendViaResendApi(subject: string, html: string, text: string): Promise<boolean> {
+  const apiKey = process.env.RESEND_API_KEY?.trim() ?? "";
+  if (!apiKey) {
+    console.log("Resend skipped — RESEND_API_KEY not set");
     return false;
   }
-}
 
-async function sendViaWeb3Forms(subject: string, html: string, text: string): Promise<boolean> {
-  const accessKey = process.env.WEB3FORMS_ACCESS_KEY?.trim() ?? "";
-  if (!accessKey) {
-    console.log("Web3Forms skipped — WEB3FORMS_ACCESS_KEY not set");
-    return false;
-  }
-  const response = await fetch("https://api.web3forms.com/submit", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Accept: "application/json" },
-    body: JSON.stringify({
-      access_key: accessKey,
-      subject: `[Paid booking copy] ${subject}`,
-      name: TO,
-      from_name: "My Airport Taxi NI",
-      message: text,
-      email: TO,
-      autoresponse: { subject, message: html },
+  const result = await sendViaResend({
+    apiKey,
+    from: resolveBookingFromHeader({
+      BOOKING_FROM_EMAIL: process.env.BOOKING_FROM_EMAIL,
     }),
+    to: TO,
+    subject,
+    text,
+    html,
   });
-  const body = (await response.json().catch(() => null)) as { success?: unknown; message?: string } | null;
-  console.log("Web3Forms", subject.slice(0, 60), response.status, body);
-  return response.ok && body?.success === true;
+  console.log("Resend", subject.slice(0, 60), result.ok, result.error ?? result.id);
+  return result.ok;
 }
 
 async function sendOne(label: string, subject: string, html: string, text: string): Promise<boolean> {
   const fullSubject = `[TEST] ${subject}`;
-  if (await sendViaFormSubmit(fullSubject, html, text)) {
-    console.log(`${label}: sent via FormSubmit`);
+  if (await sendViaResendApi(fullSubject, html, text)) {
+    console.log(`${label}: sent via Resend`);
     return true;
   }
-  if (await sendViaWeb3Forms(fullSubject, html, text)) {
-    console.log(`${label}: sent via Web3Forms`);
-    return true;
-  }
-  console.error(`${label}: all providers failed`);
+  console.error(`${label}: Resend failed (set RESEND_API_KEY to send live tests)`);
   return false;
 }
 

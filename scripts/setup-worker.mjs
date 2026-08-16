@@ -3,11 +3,12 @@
  * One-shot Cloudflare Worker setup for My Airport Taxi NI.
  *
  * Usage (from repo root):
- *   CLOUDFLARE_API_TOKEN=... GOOGLE_PLACES_API_KEY=... WEB3FORMS_ACCESS_KEY=... node scripts/setup-worker.mjs
+ *   CLOUDFLARE_API_TOKEN=... GOOGLE_PLACES_API_KEY=... RESEND_API_KEY=... node scripts/setup-worker.mjs
  *
  * Optional env vars:
  *   CLOUDFLARE_ACCOUNT_ID (default: 36c5c88df4c1f0259413d555f2679f3c)
- *   GETADDRESS_API_KEY, IDEAL_POSTCODES_API_KEY, BOOKING_TO_EMAIL, BOOKING_FROM_EMAIL
+ *   GETADDRESS_API_KEY, IDEAL_POSTCODES_API_KEY, BOOKING_TO_EMAIL, BOOKING_FROM_EMAIL,
+ *   BOOKING_NOTIFICATION_EMAIL, WEB3FORMS_ACCESS_KEY (legacy fallback)
  */
 import { execSync, spawnSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
@@ -147,7 +148,7 @@ Create a token at https://dash.cloudflare.com/profile/api-tokens with:
 Then run:
   CLOUDFLARE_API_TOKEN=your_token \\
   GOOGLE_PLACES_API_KEY=your_google_key \\
-  WEB3FORMS_ACCESS_KEY=your_web3forms_key \\
+  RESEND_API_KEY=re_your_resend_key \\
   node scripts/setup-worker.mjs
 `);
   process.exit(1);
@@ -165,9 +166,16 @@ console.log("\nSetting worker secrets…");
 putSecret("GOOGLE_PLACES_API_KEY", process.env.GOOGLE_PLACES_API_KEY);
 putSecret("IDEAL_POSTCODES_API_KEY", process.env.IDEAL_POSTCODES_API_KEY);
 putSecret("GETADDRESS_API_KEY", process.env.GETADDRESS_API_KEY);
+putSecret("RESEND_API_KEY", process.env.RESEND_API_KEY);
 putSecret("WEB3FORMS_ACCESS_KEY", process.env.WEB3FORMS_ACCESS_KEY);
-putSecret("BOOKING_TO_EMAIL", "bookings@myairporttaxini.co.uk");
-putSecret("BOOKING_FROM_EMAIL", "bookings@myairporttaxini.co.uk");
+putSecret(
+  "BOOKING_NOTIFICATION_EMAIL",
+  process.env.BOOKING_NOTIFICATION_EMAIL ||
+    process.env.BOOKING_TO_EMAIL ||
+    "bookings@myairporttaxini.co.uk",
+);
+putSecret("BOOKING_TO_EMAIL", process.env.BOOKING_TO_EMAIL || "bookings@myairporttaxini.co.uk");
+putSecret("BOOKING_FROM_EMAIL", process.env.BOOKING_FROM_EMAIL || "bookings@myairporttaxini.co.uk");
 putSecret("GOOGLE_CALENDAR_ID", process.env.GOOGLE_CALENDAR_ID ?? "colinrice876@gmail.com");
 putSecret(
   "GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON",

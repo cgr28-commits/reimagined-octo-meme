@@ -48,6 +48,12 @@ import {
   type PaidBookingDetails,
 } from "../shared/booking-notifications";
 import {
+  buildBusinessBookingNotificationEmail,
+  buildCustomerBookingRequestEmail,
+  type BookingRequestEmailDetails,
+} from "../shared/booking-request-emails";
+import { resolveBookingNotificationEmail } from "../shared/email-config";
+import {
   lookupFlight,
   type TripDirection,
 } from "../shared/flight-lookup";
@@ -142,7 +148,9 @@ type Env = {
   GETADDRESS_API_KEY?: string;
   IDEAL_POSTCODES_API_KEY?: string;
   BOOKING_TO_EMAIL?: string;
+  BOOKING_NOTIFICATION_EMAIL?: string;
   BOOKING_FROM_EMAIL?: string;
+  RESEND_API_KEY?: string;
   WEB3FORMS_ACCESS_KEY?: string;
   SUMUP_API_KEY?: string;
   SUMUP_MERCHANT_CODE?: string;
@@ -168,15 +176,88 @@ type BookingRequestBody = {
   message?: string;
   /** When false, skip owner notification email (e.g. WhatsApp-only path). */
   sendEmail?: boolean;
+  /** Honeypot — must remain empty. */
+  companyWebsite?: string;
   booking?: TransferBookingEvent;
   tour?: TourBookingEvent;
 };
 
-const DEFAULT_BOOKING_EMAIL = "bookings@myairporttaxini.co.uk";
 const BUSINESS_NAME = "My Airport Taxi NI";
 
-function ownerInbox(_env?: { BOOKING_TO_EMAIL?: string }): string {
-  return DEFAULT_BOOKING_EMAIL;
+function ownerInbox(env?: Env): string {
+  return resolveBookingNotificationEmail(env);
+}
+
+function toBookingRequestEmailDetails(
+  body: BookingRequestBody,
+  customerName: string,
+  bookingReference: string | null,
+): BookingRequestEmailDetails {
+  const booking = body.booking as
+    | (TransferBookingEvent & {
+        airportCode?: string;
+        journeyDistance?: string;
+        journeyDuration?: string;
+        childSeats?: string;
+        notes?: string;
+      })
+    | undefined;
+  const tour = body.tour;
+  const isEnquiry =
+    !booking?.estimatedPrice?.trim() ||
+    /enquire about booking|enquiry only|Please send me a quote|Price confirmation/i.test(
+      body.message ?? "",
+    );
+
+  if (booking) {
+    return {
+      customerName: booking.customerName || customerName,
+      customerEmail: booking.customerEmail,
+      mobileNumber: booking.mobileNumber,
+      bookingReference: bookingReference ?? undefined,
+      tripLabel: booking.tripLabel,
+      pickupLabel: booking.pickupLabel,
+      dropoffLabel: booking.dropoffLabel,
+      airportCode: booking.airportCode,
+      flightNumber: booking.flightNumber,
+      returnFlightNumber: booking.returnFlightNumber,
+      tripDate: booking.tripDate,
+      tripTime: booking.tripTime,
+      returnJourney: booking.returnJourney,
+      returnDate: booking.returnDate,
+      returnTime: booking.returnTime,
+      passengers: booking.passengers,
+      suitcases: booking.suitcases,
+      vehicle: booking.vehicle,
+      estimatedPrice: booking.estimatedPrice,
+      journeyDistance: booking.journeyDistance,
+      journeyDuration: booking.journeyDuration,
+      isAirportTrip: booking.isAirportTrip,
+      isEnquiry,
+    };
+  }
+
+  if (tour) {
+    return {
+      customerName: tour.customerName || customerName,
+      customerEmail: tour.customerEmail,
+      mobileNumber: tour.mobileNumber,
+      bookingReference: bookingReference ?? undefined,
+      tripLabel: tour.tourTitle || "Day trip enquiry",
+      pickupLabel: tour.pickupLocation,
+      tripDate: tour.travelDate,
+      passengers: tour.groupSize,
+      notes: tour.notes,
+      isEnquiry: true,
+    };
+  }
+
+  return {
+    customerName,
+    bookingReference: bookingReference ?? undefined,
+    notes: body.message,
+    isEnquiry: true,
+  };
 }
 
 function json(body: unknown, status: number, origin: string | null): Response {
@@ -291,6 +372,7 @@ function routePath(
   | "geocode"
   | "bookings"
   | "quote-leads"
+  | "quote-email"
   | "quote-stats"
   | "payments"
   | "payments-confirm"
@@ -320,6 +402,10 @@ function routePath(
 
   if (pathname === "/quote-leads" || pathname === "/api/quote-leads") {
     return "quote-leads";
+  }
+
+  if (pathname === "/quote-email" || pathname === "/api/quote-email") {
+    return "quote-email";
   }
 
   if (pathname === "/quote-stats" || pathname === "/api/quote-stats") {
@@ -386,23 +472,44 @@ function routePath(
 
 async function sendBookingEmail(
   env: Env,
+  requestBody: BookingRequestBody,
   customerName: string,
   message: string,
   bookingReference: string | null,
 ): Promise<void> {
-  const toEmail = ownerInbox(env);
-  const body = bookingReference
+  const details = toBookingRequestEmailDetails(requestBody, customerName, bookingReference);
+  const businessEmail = buildBusinessBookingNotificationEmail(details);
+  const plainFallback = bookingReference
     ? prependBookingReference(message, bookingReference)
     : message;
-  const subject = bookingReference
-    ? `New booking ${bookingReference} — ${customerName}`
-    : `New booking — ${customerName}`;
 
-  await sendEmail(env, {
-    to: toEmail,
-    subject,
-    body,
+  const ownerResult = await trySendEmail(env, {
+    to: ownerInbox(env),
+    subject: businessEmail.subject,
+    body: `${businessEmail.text}\n\n---\nOriginal message\n---\n${plainFallback}`,
+    htmlBody: businessEmail.html,
+    replyTo: details.customerEmail?.trim() || undefined,
   });
+
+  if (!ownerResult.sent) {
+    throw new Error(ownerResult.error || "Failed to send business booking notification");
+  }
+
+  const customerAddress = details.customerEmail?.trim() ?? "";
+  if (customerAddress) {
+    const customerEmail = buildCustomerBookingRequestEmail(details);
+    const customerResult = await trySendBrandedCustomerEmail(env, {
+      to: customerAddress,
+      toName: details.customerName,
+      subject: customerEmail.subject,
+      body: customerEmail.text,
+      htmlBody: customerEmail.html,
+    });
+    if (!customerResult.sent) {
+      console.error("Customer booking confirmation email failed", customerResult.error);
+      // Business notification already sent — do not fail the whole booking.
+    }
+  }
 }
 
 async function allocateBookingReference(env: Env): Promise<string | null> {
@@ -619,6 +726,61 @@ function parseQuoteLeadBody(body: QuoteLeadRequestBody): QuoteLeadDetails | null
   };
 }
 
+async function handleQuoteEmailRequest(
+  request: Request,
+  env: Env,
+  origin: string | null,
+): Promise<Response> {
+  let body: {
+    to?: string;
+    subject?: string;
+    text?: string;
+    html?: string;
+    companyWebsite?: string;
+  };
+
+  try {
+    body = await request.json();
+  } catch {
+    return json({ success: false, error: "Unable to send email. Please try again." }, 400, origin);
+  }
+
+  if (body.companyWebsite?.trim()) {
+    return json({ success: true }, 200, origin);
+  }
+
+  const to = body.to?.trim() ?? "";
+  const subject = body.subject?.trim() ?? "";
+  const text = body.text?.trim() ?? "";
+  const html = body.html?.trim() ?? "";
+
+  if (!to || !subject || !text || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) {
+    return json({ success: false, error: "Unable to send email. Please try again." }, 400, origin);
+  }
+
+  const customerResult = html
+    ? await trySendBrandedCustomerEmail(env, {
+        to,
+        subject,
+        body: text,
+        htmlBody: html,
+      })
+    : await trySendEmail(env, { to, subject, body: text });
+
+  if (!customerResult.sent) {
+    return json({ success: false, error: "Unable to send email. Please try again." }, 502, origin);
+  }
+
+  await trySendEmail(env, {
+    to: ownerInbox(env),
+    subject: `Quote emailed to customer — ${subject}`,
+    body: `Quote emailed to ${to}\n\n${text}`,
+    replyTo: to,
+  });
+
+  return json({ success: true, ok: true }, 200, origin);
+}
+
 async function handleQuoteLeadRequest(
   request: Request,
   env: Env,
@@ -704,6 +866,10 @@ async function handleBookingRequest(
   const message = body.message?.trim() ?? "";
   const shouldSendEmail = body.sendEmail !== false;
 
+  if (body.companyWebsite?.trim()) {
+    return json({ ok: true, success: true, bookingReference: "MATNI-1001", emailSent: true }, 200, origin);
+  }
+
   if (!customerName || !message) {
     return json({ error: "Missing required fields" }, 400, origin);
   }
@@ -719,18 +885,19 @@ async function handleBookingRequest(
 
   if (shouldSendEmail) {
     try {
-      await sendBookingEmail(env, customerName, message, bookingReference);
+      await sendBookingEmail(env, body, customerName, message, bookingReference);
       emailSent = true;
     } catch (error) {
-      // Keep 502 so the live site falls through to browser FormSubmit/Web3Forms
-      // (customer IP), which is how email kept working when the worker path failed.
+      // Do not fall back to browser FormSubmit — Resend must be configured on the worker.
       console.error("Booking email failed", error);
       const detail = error instanceof Error ? error.message : "Unknown email error";
       return json(
         {
-          error: "Failed to send booking email",
+          ok: false,
+          success: false,
+          error: "Unable to submit booking. Please try again.",
           detail,
-          web3formsConfigured: Boolean(env.WEB3FORMS_ACCESS_KEY?.trim()),
+          resendConfigured: Boolean(env.RESEND_API_KEY?.trim()),
         },
         502,
         origin,
@@ -781,6 +948,7 @@ async function handleBookingRequest(
   return json(
     {
       ok: true,
+      success: true,
       bookingReference: bookingReference ?? undefined,
       bookingJobId,
       emailSent,
@@ -1010,6 +1178,7 @@ async function handlePaymentConfirmRequest(
       to: ownerInbox(env),
       subject: ownerEmail.subject,
       body: ownerEmail.body,
+      replyTo: booking.customerEmail,
     });
 
     const calendar = await logPaidBookingCalendar(env, booking, amountPaid, paymentReference);
@@ -1335,6 +1504,14 @@ export default {
       }
 
       return handleQuoteLeadRequest(request, env, origin);
+    }
+
+    if (route === "quote-email") {
+      if (request.method !== "POST") {
+        return json({ error: "Method not allowed" }, 405, origin);
+      }
+
+      return handleQuoteEmailRequest(request, env, origin);
     }
 
     if (route === "quote-stats") {

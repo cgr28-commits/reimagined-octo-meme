@@ -186,6 +186,73 @@ export function formatUkTime(time: string): string {
   return `${pad2(Number(match[1]))}:${match[2]}`;
 }
 
+/** 12-hour wall-clock time with AM/PM for customer-facing emails (no offset hard-coding). */
+export function formatUkTime12h(time: string): string {
+  if (!time) {
+    return "";
+  }
+
+  const match = time.trim().match(/^(\d{1,2}):(\d{2})/);
+  if (!match) {
+    return time;
+  }
+
+  let hour = Number(match[1]);
+  const minute = match[2];
+  if (!Number.isFinite(hour) || hour < 0 || hour > 23) {
+    return time;
+  }
+
+  const suffix = hour >= 12 ? "PM" : "AM";
+  hour = hour % 12;
+  if (hour === 0) {
+    hour = 12;
+  }
+
+  return `${hour}:${minute} ${suffix}`;
+}
+
+/**
+ * Customer-facing long UK local datetime, e.g. "Sunday 16 August 2026 at 11:30 AM".
+ * Interprets YYYY-MM-DD + HH:mm as Europe/London wall clock (handles GMT/BST automatically).
+ */
+export function formatUkCustomerDateTime(date: string, time: string): string {
+  if (!date?.trim()) {
+    return "";
+  }
+
+  const parsed = parseLondonLocalDateTime(date.trim(), (time || "12:00").trim());
+  if (!parsed) {
+    const fallbackDate = formatUkDate(date);
+    const fallbackTime = time ? formatUkTime12h(time) : "";
+    return fallbackDate && fallbackTime
+      ? `${fallbackDate} at ${fallbackTime}`
+      : fallbackDate || fallbackTime;
+  }
+
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: UK_TIME_ZONE,
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  }).formatToParts(parsed);
+
+  const weekday = parts.find((part) => part.type === "weekday")?.value ?? "";
+  const day = parts.find((part) => part.type === "day")?.value ?? "";
+  const month = parts.find((part) => part.type === "month")?.value ?? "";
+  const year = parts.find((part) => part.type === "year")?.value ?? "";
+  const timeLabel = formatUkTime12h(time);
+
+  if (!weekday || !day || !month || !year) {
+    return timeLabel ? `${formatUkDate(date)} at ${timeLabel}` : formatUkDate(date);
+  }
+
+  return timeLabel
+    ? `${weekday} ${day} ${month} ${year} at ${timeLabel}`
+    : `${weekday} ${day} ${month} ${year}`;
+}
+
 export function formatUkDateTime(
   date: string,
   time: string,

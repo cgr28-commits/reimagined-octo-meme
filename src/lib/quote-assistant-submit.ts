@@ -17,11 +17,22 @@ import {
 } from "@/lib/submit-booking";
 import { buildBookingMessage, buildEnquiryBookingMessage } from "@/lib/booking-message";
 import { parseAmountValue } from "@/lib/finalize-paid-booking";
-import { sendViaFormSubmitEmail } from "../../shared/email-delivery";
 import { TERMS_LAST_UPDATED } from "@/lib/terms";
 
-const WEB3FORMS_ACCESS_KEY =
-  process.env.NEXT_PUBLIC_WEB3FORMS_ACCESS_KEY?.trim() ?? "";
+function resolveQuoteEmailApiUrl(): string {
+  const bookings = process.env.NEXT_PUBLIC_BOOKINGS_API_URL?.trim() ?? "";
+  if (bookings) {
+    try {
+      const host = new URL(bookings).hostname.toLowerCase();
+      if (host !== "www.myairporttaxini.co.uk" && host !== "myairporttaxini.co.uk") {
+        return bookings.replace(/\/bookings\/?$/, "/quote-email");
+      }
+    } catch {
+      // fall through
+    }
+  }
+  return "/api/email/quote";
+}
 
 function buildAssistantQuoteEmail(draft: QuoteDraft): { subject: string; text: string; html: string } {
   const airportName =
@@ -53,9 +64,9 @@ function buildAssistantQuoteEmail(draft: QuoteDraft): { subject: string; text: s
 
   const text = lines.join("\n");
   const html = `
-    <div style="font-family:Arial,sans-serif;line-height:1.5;color:#0b1b33">
+    <div style="font-family:Arial,sans-serif;line-height:1.5;color:#071C38">
       <h2 style="margin:0 0 12px">Your ${SITE.name} quote</h2>
-      <p style="font-size:28px;font-weight:700;margin:0 0 16px">${price}</p>
+      <p style="font-size:28px;font-weight:700;margin:0 0 16px;color:#2FBF4A">${price}</p>
       <p style="margin:0 0 8px"><strong>Trip:</strong> ${direction}</p>
       <p style="margin:0 0 8px"><strong>Address:</strong> ${draft.address}</p>
       <p style="margin:0 0 8px"><strong>Journey:</strong> ${returnLine}</p>
@@ -63,7 +74,7 @@ function buildAssistantQuoteEmail(draft: QuoteDraft): { subject: string; text: s
       <p style="margin:0 0 8px"><strong>Passengers:</strong> ${draft.passengers ?? "—"}</p>
       <p style="margin:0 0 16px"><strong>Suitcases:</strong> ${draft.suitcases ?? "—"}</p>
       <p style="margin:0 0 16px">Airport pickups include up to 60 minutes complimentary waiting time after landing, plus express drop-off where applicable.</p>
-      <p style="margin:0 0 8px"><a href="${SITE.url}">Book online</a></p>
+      <p style="margin:0 0 8px"><a href="${SITE.url}" style="color:#071C38">Book online</a></p>
       <p style="margin:0">WhatsApp @${SITE.whatsappUsername} · ${SITE.landlineDisplay} · ${SITE.email}</p>
     </div>
   `.trim();
@@ -75,38 +86,36 @@ function buildAssistantQuoteEmail(draft: QuoteDraft): { subject: string; text: s
   };
 }
 
-async function submitQuoteViaWeb3Forms(
+async function sendQuoteEmailServerSide(
   toEmail: string,
   subject: string,
   text: string,
   html: string,
 ): Promise<boolean> {
-  if (!WEB3FORMS_ACCESS_KEY) {
-    return false;
+  const endpoints = [resolveQuoteEmailApiUrl(), "/api/email/quote"];
+  const seen = new Set<string>();
+
+  for (const endpoint of endpoints) {
+    if (!endpoint || seen.has(endpoint)) {
+      continue;
+    }
+    seen.add(endpoint);
+    try {
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ to: toEmail, subject, text, html, companyWebsite: "" }),
+      });
+      const payload = (await response.json().catch(() => null)) as { success?: boolean } | null;
+      if (response.ok && payload?.success) {
+        return true;
+      }
+    } catch (error) {
+      console.error(`Quote email via ${endpoint} failed`, error);
+    }
   }
 
-  const response = await fetch("https://api.web3forms.com/submit", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Accept: "application/json",
-    },
-    body: JSON.stringify({
-      access_key: WEB3FORMS_ACCESS_KEY,
-      subject: `[Quote copy] ${subject}`,
-      name: toEmail,
-      email: toEmail,
-      from_name: SITE.name,
-      message: text,
-      autoresponse: {
-        subject,
-        message: html || text,
-      },
-    }),
-  });
-
-  const body = (await response.json().catch(() => null)) as { success?: unknown } | null;
-  return response.ok && body?.success === true;
+  return false;
 }
 
 export function buildBookingDetailsFromDraft(draft: QuoteDraft): BookingDetails | null {
@@ -288,25 +297,12 @@ export async function emailAssistantQuote(draft: QuoteDraft): Promise<{
   const email = buildAssistantQuoteEmail(draft);
 
   try {
-    let sent = await sendViaFormSubmitEmail({
-      to: toEmail,
-      subject: email.subject,
-      htmlBody: email.html,
-      textBody: email.text,
-      fromName: SITE.name,
-    });
-
-    if (!sent) {
-      sent = await submitQuoteViaWeb3Forms(toEmail, email.subject, email.text, email.html);
-    }
-
-    // Also notify the bookings inbox (best effort).
-    void sendViaFormSubmitEmail({
-      to: SITE.email,
-      subject: `Quote emailed to customer — ${draft.quotedAmountLabel}`,
-      textBody: `Quote emailed to ${toEmail}\n\n${email.text}`,
-      fromName: SITE.name,
-    }).catch(() => false);
+    const sent = await sendQuoteEmailServerSide(
+      toEmail,
+      email.subject,
+      email.text,
+      email.html,
+    );
 
     if (!sent) {
       return {
