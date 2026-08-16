@@ -22,8 +22,9 @@ console.log("OK  paid-bookings API client");
 
 const panel = read("src/components/OwnerPaidBookingsPanel.tsx");
 assert.match(panel, /Paid bookings \(SumUp\)/);
-assert.match(panel, /Resend customer confirmation/);
+assert.match(panel, /Resend booking confirmation/);
 assert.match(panel, /Website card payments/);
+assert.match(panel, /latestPaid/);
 console.log("OK  OwnerPaidBookingsPanel");
 
 const page = read("src/app/driver/DriverPageClient.tsx");
