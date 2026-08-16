@@ -5,8 +5,9 @@ export type QuoteLeadDetails = {
   pickupLabel: string;
   dropoffLabel: string;
   returnJourney: boolean;
-  tripDate: string;
-  tripTime: string;
+  /** Optional — quote tools can show a price before the customer picks a time. */
+  tripDate?: string;
+  tripTime?: string;
   returnDate?: string;
   returnTime?: string;
   passengers: number;
@@ -18,14 +19,23 @@ export type QuoteLeadDetails = {
   isAirportTrip: boolean;
 };
 
+function scheduleLabel(date?: string, time?: string): string {
+  const d = date?.trim() ?? "";
+  const t = time?.trim() ?? "";
+  if (!d || !t) {
+    return "Not set yet";
+  }
+  return formatUkDateTime(d, t);
+}
+
 export function buildQuoteLeadFingerprint(details: QuoteLeadDetails): string {
   return [
     details.tripLabel,
     details.pickupLabel,
     details.dropoffLabel,
     details.returnJourney ? "1" : "0",
-    details.tripDate,
-    details.tripTime,
+    details.tripDate ?? "",
+    details.tripTime ?? "",
     details.returnDate ?? "",
     details.returnTime ?? "",
     details.estimatedPrice,
@@ -53,12 +63,12 @@ export function buildQuoteLeadMessage(details: QuoteLeadDetails): string {
     `Pickup: ${details.pickupLabel}`,
     `Drop-off: ${details.dropoffLabel}`,
     `Return journey: ${details.returnJourney ? "Yes" : "No"}`,
-    `${details.returnJourney ? "Outbound date & time" : "Date & time"}: ${formatUkDateTime(details.tripDate, details.tripTime)}`,
+    `${details.returnJourney ? "Outbound date & time" : "Date & time"}: ${scheduleLabel(details.tripDate, details.tripTime)}`,
   ];
 
-  if (details.returnJourney && details.returnDate && details.returnTime) {
+  if (details.returnJourney) {
     lines.push(
-      `Return date & time: ${formatUkDateTime(details.returnDate, details.returnTime)}`,
+      `Return date & time: ${scheduleLabel(details.returnDate, details.returnTime)}`,
     );
   }
 
