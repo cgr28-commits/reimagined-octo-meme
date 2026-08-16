@@ -61,8 +61,8 @@ async function submitWeb3Forms(payload: Record<string, unknown>): Promise<boolea
 
 /**
  * Sends customer invoice + owner notification from the browser when the worker cannot.
- * Customer invoices never use FormSubmit — it often reports success without delivering
- * to new recipient addresses (activation / silent drop).
+ * Customer invoices never use FormSubmit. Owner paid alerts prefer Web3Forms first
+ * (FormSubmit has been unreliable for confirmations).
  */
 export async function sendPaidBookingEmailsFromBrowser(
   booking: BookingDetails,
@@ -89,19 +89,20 @@ export async function sendPaidBookingEmailsFromBrowser(
     },
   });
 
-  let ownerEmailSent = await sendViaFormSubmitEmail({
-    to: SITE.email,
+  let ownerEmailSent = await submitWeb3Forms({
     subject: ownerEmail.subject,
-    textBody: ownerEmail.body,
-    fromName: "My Airport Taxi NI",
+    name: booking.customerName,
+    email: booking.customerEmail,
+    from_name: "My Airport Taxi NI",
+    message: ownerEmail.body,
   });
 
   if (!ownerEmailSent) {
-    ownerEmailSent = await submitWeb3Forms({
+    ownerEmailSent = await sendViaFormSubmitEmail({
+      to: SITE.email,
       subject: ownerEmail.subject,
-      name: booking.customerName,
-      from_name: "My Airport Taxi NI",
-      message: ownerEmail.body,
+      textBody: ownerEmail.body,
+      fromName: "My Airport Taxi NI",
     });
   }
 

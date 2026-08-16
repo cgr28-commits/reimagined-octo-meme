@@ -28,7 +28,7 @@ import {
   markTrackingJobRefunded,
   trackingStoreConfigured,
 } from "./tracking-store";
-import { trySendBrandedCustomerEmail, trySendEmail, type WorkerEmailEnv } from "./worker-email";
+import { trySendBrandedCustomerEmail, trySendOwnerOperationalEmail, type WorkerEmailEnv } from "./worker-email";
 import { ownerAuthorized, type DriverAuthEnv } from "./driver-auth";
 
 type RefundEnv = WorkerEmailEnv &
@@ -292,7 +292,7 @@ export async function issueBookingRefund(
     htmlBody: customerEmail.html,
   });
 
-  const ownerEmailResult = await trySendEmail(env, {
+  const ownerEmailResult = await trySendOwnerOperationalEmail(env, {
     to: "bookings@myairporttaxini.co.uk",
     subject: ownerEmail.subject,
     body: ownerEmail.body,
