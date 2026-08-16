@@ -3,9 +3,14 @@ import SectionHeading from "./SectionHeading";
 
 export default function AreasSection() {
   return (
-    <section id="areas" className="relative py-24 sm:py-32">
+    <section id="areas" className="relative py-20 sm:py-28">
+      <div className="absolute inset-0 bg-navy-dark" />
+      <div className="absolute inset-0 opacity-20">
+        <div className="h-full w-full bg-[radial-gradient(ellipse_at_center,_var(--color-emerald)_0%,_transparent_70%)]" />
+      </div>
+
       <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="grid items-start gap-16 lg:grid-cols-2 lg:gap-24">
+        <div className="grid items-center gap-12 lg:grid-cols-2 lg:gap-20">
           <div>
             <SectionHeading
               align="left"
@@ -14,30 +19,44 @@ export default function AreasSection() {
               description="Based in Belfast, we provide airport transfers across all of Northern Ireland — from city centres to rural towns. Don't see your area? Get in touch; we cover the entire province."
             />
 
-            <dl className="mt-10 grid grid-cols-3 gap-6 border-t border-white/10 pt-8">
-              <div>
-                <dt className="text-xs uppercase tracking-wider text-white/45">Towns &amp; cities</dt>
-                <dd className="mt-2 text-2xl font-semibold tracking-tight text-white">20+</dd>
+            <div className="mt-8 flex flex-wrap gap-4">
+              <div className="rounded-xl border border-white/10 bg-white/5 px-5 py-4">
+                <p className="text-2xl font-bold text-emerald">20+</p>
+                <p className="text-sm text-white/50">Towns &amp; Cities</p>
               </div>
-              <div>
-                <dt className="text-xs uppercase tracking-wider text-white/45">Major airports</dt>
-                <dd className="mt-2 text-2xl font-semibold tracking-tight text-white">{AIRPORTS.length}</dd>
+              <div className="rounded-xl border border-white/10 bg-white/5 px-5 py-4">
+                <p className="text-2xl font-bold text-emerald">{AIRPORTS.length}</p>
+                <p className="text-sm text-white/50">Major Airports</p>
               </div>
-              <div>
-                <dt className="text-xs uppercase tracking-wider text-white/45">Availability</dt>
-                <dd className="mt-2 text-2xl font-semibold tracking-tight text-white">24/7</dd>
+              <div className="rounded-xl border border-white/10 bg-white/5 px-5 py-4">
+                <p className="text-2xl font-bold text-emerald">24/7</p>
+                <p className="text-sm text-white/50">Availability</p>
               </div>
-            </dl>
+            </div>
           </div>
 
-          <div className="border-t border-white/10 pt-8 lg:border-t-0 lg:border-l lg:pt-0 lg:pl-12">
-            <ul className="grid grid-cols-2 gap-x-6 gap-y-3">
+          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-2">
               {AREAS.map((area) => (
-                <li key={area} className="text-sm text-white/70">
+                <div
+                  key={area}
+                  className="flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm text-white/75 transition-colors hover:bg-emerald/10 hover:text-white"
+                >
+                  <svg
+                    className="h-4 w-4 shrink-0 text-emerald"
+                    fill="currentColor"
+                    viewBox="0 0 20 20"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
                   {area}
-                </li>
+                </div>
               ))}
-            </ul>
+            </div>
           </div>
         </div>
       </div>

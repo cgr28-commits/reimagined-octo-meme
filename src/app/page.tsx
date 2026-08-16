@@ -8,6 +8,7 @@ import WhyChooseUsSection from "@/components/WhyChooseUsSection";
 import DriverTrackingSection from "@/components/DriverTrackingSection";
 import FAQSection from "@/components/FAQSection";
 import ToursTeaserSection from "@/components/ToursTeaserSection";
+import VehiclesSection from "@/components/VehiclesSection";
 import ChauffeurSection from "@/components/ChauffeurSection";
 import EmergePromoCard from "@/components/EmergePromoCard";
 import Footer from "@/components/Footer";
@@ -30,6 +31,7 @@ export default function Home() {
         <AreasSection />
         {/* Soft-hidden via SERVICE_FLAGS — set dayTrips: true in data.ts to restore */}
         {SERVICE_FLAGS.dayTrips ? <ToursTeaserSection /> : null}
+        <VehiclesSection />
         {/* Soft-hidden via SERVICE_FLAGS — set chauffeur: true in data.ts to restore */}
         {SERVICE_FLAGS.chauffeur ? <ChauffeurSection /> : null}
         <WhyChooseUsSection />

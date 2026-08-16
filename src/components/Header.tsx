@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useId, useState } from "react";
 import { createPortal } from "react-dom";
 import Logo from "./Logo";
-import { MOBILE_QUICK_LINKS, NAV_LINKS, PRIMARY_NAV_LINKS, SITE } from "@/lib/data";
+import { MOBILE_QUICK_LINKS, NAV_LINKS, SITE } from "@/lib/data";
 
 export default function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -111,35 +111,35 @@ export default function Header() {
 
   return (
     <>
-      <header className="fixed inset-x-0 top-0 z-[60] max-w-[100%] border-b border-white/8 bg-navy/95 backdrop-blur-md">
+      <header className="fixed inset-x-0 top-0 z-[60] max-w-[100%] bg-gradient-to-b from-navy via-navy/70 to-transparent">
         <div className="hidden md:block">
-          <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-x-6 gap-y-1 border-b border-white/6 px-4 py-2 text-xs font-medium text-white/45 sm:justify-between sm:px-6 sm:text-sm lg:px-8">
+          <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-x-6 gap-y-1 px-4 py-2 text-xs font-medium text-white/55 sm:justify-between sm:px-6 sm:text-sm lg:px-8">
             <p className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1">
-              <span>Licensed &amp; insured</span>
-              <span className="text-white/15" aria-hidden>
+              <span className="text-emerald/90">Licensed &amp; insured</span>
+              <span className="text-white/20" aria-hidden>
                 ·
               </span>
-              <span>Flight tracking</span>
-              <span className="text-white/15" aria-hidden>
+              <span className="text-emerald/90">Flight tracking</span>
+              <span className="text-white/20" aria-hidden>
                 ·
               </span>
-              <span>Secure SumUp payment</span>
+              <span className="text-emerald/90">Secure SumUp payment</span>
             </p>
-            <p className="hidden text-white/35 lg:block">24/7 airport transfers across Northern Ireland</p>
+            <p className="hidden text-white/40 lg:block">24/7 airport transfers across Northern Ireland</p>
           </div>
         </div>
 
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
           <Link href="/" aria-label={`${SITE.name} home`} className="shrink-0">
-            <Logo className="h-14 sm:h-16" />
+            <Logo className="h-16 sm:h-20" />
           </Link>
 
-          <nav className="hidden items-center gap-7 md:flex" aria-label="Main navigation">
-            {PRIMARY_NAV_LINKS.map((link) => (
+          <nav className="hidden items-center gap-8 md:flex" aria-label="Main navigation">
+            {NAV_LINKS.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
-                className="text-sm font-medium text-white/65 transition-colors hover:text-white"
+                className="text-sm font-medium text-white/70 transition-colors hover:text-emerald"
               >
                 {link.label}
               </Link>
@@ -149,7 +149,7 @@ export default function Header() {
           <div className="hidden items-center gap-4 md:flex">
             <Link
               href="/#quote"
-              className="rounded-full bg-emerald px-5 py-2.5 text-sm font-semibold text-navy transition-colors hover:bg-emerald-light"
+              className="rounded-full bg-emerald px-5 py-2 text-sm font-semibold text-navy transition-all hover:bg-emerald-light hover:shadow-lg hover:shadow-emerald/25"
             >
               Get a Quote
             </Link>

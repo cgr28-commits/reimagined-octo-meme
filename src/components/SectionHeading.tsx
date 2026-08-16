@@ -22,11 +22,11 @@ export default function SectionHeading({
   return (
     <div className={`section-header max-w-2xl ${alignClass} ${className}`}>
       <p className="section-eyebrow">{eyebrow}</p>
-      <HeadingTag className="section-heading mt-4 text-3xl font-semibold tracking-tight text-white sm:text-4xl lg:text-[2.75rem] lg:leading-tight">
+      <HeadingTag className="section-heading mt-4 text-3xl font-bold tracking-tight text-white sm:text-4xl lg:text-[2.75rem] lg:leading-tight">
         {title}
       </HeadingTag>
       {description ? (
-        <p className="section-description mt-5 text-base leading-relaxed text-white/60 sm:text-lg">
+        <p className="section-description mt-5 text-base leading-relaxed text-white/60">
           {description}
         </p>
       ) : null}
