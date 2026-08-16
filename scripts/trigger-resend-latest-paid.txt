@@ -1,3 +1,4 @@
-# Bump this file to trigger “Resend latest paid confirmation” on main.
-# Requested: send latest paid booking confirmation to customer + bookings@
-# Triggered: 2026-08-16T20:25:30Z (follow-up — workflow now exists on main)
+# Set RUN_RESEND=1 to resend the latest paid booking confirmation on the next
+# Deploy Cloudflare Worker run (customer + bookings@). Clear it afterwards.
+RUN_RESEND=1
+# Requested: 2026-08-16T20:28:00Z
