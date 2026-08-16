@@ -1,6 +1,7 @@
 import { SITE } from "@/lib/data";
 import type { BookingDetails } from "@/lib/booking-message";
 import { isValidPassengerCount, PASSENGER_LIMIT_ERROR } from "../../shared/passenger-limits";
+import { getPaymentBookingBlockers } from "../../shared/paid-booking-gate";
 
 export type PaymentCheckoutRequest = {
   amount: number;
@@ -90,6 +91,15 @@ export async function createPaymentCheckout(
 ): Promise<PaymentCheckoutResult> {
   if (!PAYMENTS_API_URL) {
     throw new Error("Online payment is not configured");
+  }
+
+  const blockers = getPaymentBookingBlockers(request.booking);
+  if (blockers.length > 0) {
+    throw new Error(blockers[0]);
+  }
+
+  if (!isValidPassengerCount(request.booking.passengers)) {
+    throw new Error(PASSENGER_LIMIT_ERROR);
   }
 
   const response = await fetch(PAYMENTS_API_URL, {

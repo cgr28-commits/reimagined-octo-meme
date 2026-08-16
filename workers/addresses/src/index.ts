@@ -2,6 +2,7 @@ import {
   isValidPassengerCount,
   PASSENGER_LIMIT_ERROR,
 } from "../shared/passenger-limits";
+import { getPaymentBookingBlockers } from "../shared/paid-booking-gate";
 import {
   buildQuoteLeadMessage,
   buildQuoteLeadSubject,
@@ -532,7 +533,7 @@ function parsePaidBookingDetails(body: Record<string, unknown>): PaidBookingDeta
     return null;
   }
 
-  return {
+  const parsed: PaidBookingDetails = {
     customerName,
     customerEmail,
     mobileNumber,
@@ -560,6 +561,13 @@ function parsePaidBookingDetails(body: Record<string, unknown>): PaidBookingDeta
     marketingOptInAt: String(details.marketingOptInAt ?? "").trim() || undefined,
     marketingConsentVersion: String(details.marketingConsentVersion ?? "").trim() || undefined,
   };
+
+  // Hard gate — incomplete bookings must never open SumUp.
+  if (getPaymentBookingBlockers(parsed).length > 0) {
+    return null;
+  }
+
+  return parsed;
 }
 
 /** Keep name + email + mobile visible on the SumUp payment itself (140 char limit). */
@@ -924,10 +932,17 @@ async function handlePaymentRequest(
   }
 
   if (!booking) {
+    const blockers = getPaymentBookingBlockers(
+      (body.booking && typeof body.booking === "object"
+        ? (body.booking as Record<string, unknown>)
+        : {}) as Parameters<typeof getPaymentBookingBlockers>[0],
+    );
     return json(
       {
         error:
-          "Missing customer booking details. Email and mobile are required before starting SumUp payment.",
+          blockers[0] ||
+          "Missing customer booking details. Complete name, email, mobile, trip and travel details before starting SumUp payment.",
+        blockers,
       },
       400,
       origin,
