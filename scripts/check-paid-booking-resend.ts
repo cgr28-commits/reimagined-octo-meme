@@ -23,15 +23,18 @@ console.log("OK  paid booking store lists recent refs (index + KV scan fallback)
 const handlers = read("workers/addresses/src/paid-booking-handlers.ts");
 assert.match(handlers, /handlePaidBookingsListRequest/);
 assert.match(handlers, /handlePaidBookingResendRequest/);
+assert.match(handlers, /handleFinalizeCheckoutRequest/);
 assert.match(handlers, /trySendBrandedCustomerEmail/);
 assert.match(handlers, /latest/);
-console.log("OK  owner list + resend handlers present");
+console.log("OK  owner list + resend + finalize handlers present");
 
 const index = read("workers/addresses/src/index.ts");
 assert.match(index, /paid-bookings/);
 assert.match(index, /paid-bookings-resend/);
+assert.match(index, /paid-bookings-finalize/);
 assert.match(index, /handlePaidBookingsListRequest/);
 assert.match(index, /handlePaidBookingResendRequest/);
+assert.match(index, /handleFinalizeCheckoutRequest/);
 console.log("OK  worker routes wired");
 
 const record = read("shared/paid-booking-record.ts");

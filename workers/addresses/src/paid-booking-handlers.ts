@@ -7,12 +7,18 @@ import {
 import type { PaidBookingRecord } from "../shared/paid-booking-record";
 import { corsHeaders } from "../shared/google-places";
 import { ownerAuthorized, type DriverAuthEnv } from "./driver-auth";
+import type { LogPaidBookingCalendarFn } from "./finalize-paid-checkout";
 import {
   getPaidBookingRecord,
   listRecentPaidBookings,
   paidBookingStoreConfigured,
 } from "./paid-booking-store";
 import { getPendingCheckout, pendingCheckoutStoreConfigured } from "./pending-checkout-store";
+import {
+  buildPendingCheckoutOwnerViews,
+  recoverPaidButUnfinalizedCheckouts,
+  recoverPaidCheckout,
+} from "./recover-paid-checkouts";
 import {
   trySendBrandedCustomerEmail,
   trySendOwnerOperationalEmail,
@@ -22,6 +28,9 @@ import {
 type Env = DriverAuthEnv &
   WorkerEmailEnv & {
     TRACKING_STORE?: KVNamespace;
+    SUMUP_API_KEY?: string;
+    GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON?: string;
+    GOOGLE_CALENDAR_ID?: string;
   };
 
 const BUSINESS_NAME = "My Airport Taxi NI";
@@ -248,6 +257,117 @@ export async function handlePaidBookingResendRequest(
   );
 }
 
+export async function handlePendingCheckoutsListRequest(
+  request: Request,
+  env: Env,
+  origin: string | null,
+): Promise<Response> {
+  if (!ownerAuthorized(request, env)) {
+    return jsonResponse(
+      { error: "Unauthorized — use OWNER_ACCESS_KEY to list pending checkouts." },
+      401,
+      origin,
+    );
+  }
+
+  if (!pendingCheckoutStoreConfigured(env.TRACKING_STORE)) {
+    return jsonResponse({ error: "Booking store is not configured." }, 503, origin);
+  }
+
+  const url = new URL(request.url);
+  const limit = Number(url.searchParams.get("limit") || "40");
+  const pending = await buildPendingCheckoutOwnerViews(env, { limit });
+
+  return jsonResponse(
+    {
+      ok: true,
+      count: pending.length,
+      needsFinalizeCount: pending.filter((item) => item.needsFinalize).length,
+      pending,
+    },
+    200,
+    origin,
+  );
+}
+
+/**
+ * One-shot idempotent recovery for a PAID SumUp checkout that never finalized
+ * (or for scanning recent pending checkouts). Does not create a new payment.
+ */
+export async function handleFinalizeCheckoutRequest(
+  request: Request,
+  env: Env,
+  origin: string | null,
+  logPaidBookingCalendar: LogPaidBookingCalendarFn,
+): Promise<Response> {
+  if (!ownerAuthorized(request, env)) {
+    return jsonResponse(
+      {
+        error:
+          "Unauthorized — use OWNER_ACCESS_KEY (or DRIVER_ACCESS_KEY) to recover a paid checkout.",
+      },
+      401,
+      origin,
+    );
+  }
+
+  let body: Record<string, unknown> = {};
+  try {
+    body = (await request.json()) as Record<string, unknown>;
+  } catch {
+    body = {};
+  }
+
+  const checkoutId = String(body.checkoutId ?? "").trim();
+  const preferTestOnePound = Boolean(body.preferTestOnePound ?? body.latestTest ?? true);
+  const scan = Boolean(body.scan ?? !checkoutId);
+
+  if (checkoutId) {
+    const result = await recoverPaidCheckout({
+      env,
+      checkoutId,
+      logPaidBookingCalendar,
+    });
+    const ok =
+      result.action === "finalized" ||
+      result.action === "already_finalized" ||
+      result.action === "calendar_backfill";
+    return jsonResponse(
+      {
+        ok,
+        ...result,
+      },
+      ok ? 200 : result.action === "skipped" ? 402 : 502,
+      origin,
+    );
+  }
+
+  if (!scan) {
+    return jsonResponse({ error: "Provide checkoutId or set scan: true." }, 400, origin);
+  }
+
+  const sweep = await recoverPaidButUnfinalizedCheckouts({
+    env,
+    logPaidBookingCalendar,
+    preferTestOnePound,
+    limit: Number(body.limit ?? 40),
+  });
+
+  return jsonResponse(
+    {
+      ok: sweep.ok,
+      scanned: sweep.scanned,
+      recovered: sweep.recovered,
+      primary: sweep.primary,
+      message: sweep.primary
+        ? `Recovery ${sweep.primary.action} for ${sweep.primary.checkoutId}`
+        : "No PAID-but-unfinalized pending checkouts found.",
+    },
+    sweep.ok || sweep.recovered.length === 0 ? 200 : 502,
+    origin,
+  );
+}
+
 export function isPaidBookingsListPath(pathname: string): boolean {
   return pathname === "/paid-bookings" || pathname === "/api/paid-bookings";
 }
@@ -256,5 +376,18 @@ export function isPaidBookingResendPath(pathname: string): boolean {
   return (
     pathname === "/paid-bookings/resend-confirmation" ||
     pathname === "/api/paid-bookings/resend-confirmation"
+  );
+}
+
+export function isPendingCheckoutsListPath(pathname: string): boolean {
+  return (
+    pathname === "/paid-bookings/pending" || pathname === "/api/paid-bookings/pending"
+  );
+}
+
+export function isFinalizeCheckoutPath(pathname: string): boolean {
+  return (
+    pathname === "/paid-bookings/finalize-checkout" ||
+    pathname === "/api/paid-bookings/finalize-checkout"
   );
 }

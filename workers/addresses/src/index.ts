@@ -107,13 +107,17 @@ import {
   handleRefundRequest,
 } from "./refund-handlers";
 import {
+  handleFinalizeCheckoutRequest,
   handlePaidBookingResendRequest,
   handlePaidBookingsListRequest,
+  handlePendingCheckoutsListRequest,
+  isFinalizeCheckoutPath,
   isPaidBookingResendPath,
   isPaidBookingsListPath,
+  isPendingCheckoutsListPath,
 } from "./paid-booking-handlers";
 import {
-  extractCheckoutIdFromWebhookPayload,
+  extractCheckoutIdFromRequest,
   finalizePaidCheckout,
   resolveBookingForCheckout,
 } from "./finalize-paid-checkout";
@@ -123,6 +127,7 @@ import {
   patchPendingCheckout,
   savePendingCheckout,
 } from "./pending-checkout-store";
+import { recoverPaidButUnfinalizedCheckouts } from "./recover-paid-checkouts";
 import {
   sendEmail,
   trySendEmail,
@@ -315,6 +320,8 @@ function routePath(
   | "bookings-refund"
   | "paid-bookings"
   | "paid-bookings-resend"
+  | "paid-bookings-pending"
+  | "paid-bookings-finalize"
   | "booking-jobs"
   | "booking-jobs-mark-paid"
   | "booking-jobs-assign-driver"
@@ -365,6 +372,14 @@ function routePath(
 
   if (isPaidBookingResendPath(pathname)) {
     return "paid-bookings-resend";
+  }
+
+  if (isFinalizeCheckoutPath(pathname)) {
+    return "paid-bookings-finalize";
+  }
+
+  if (isPendingCheckoutsListPath(pathname)) {
+    return "paid-bookings-pending";
   }
 
   if (isPaidBookingsListPath(pathname)) {
@@ -1140,6 +1155,42 @@ async function handlePaymentRequest(
  * Finalises using server-stored customer email/mobile so the owner is notified
  * even if the customer never returns to /booking-confirmed/.
  */
+async function parseWebhookPayload(request: Request): Promise<unknown> {
+  const contentType = (request.headers.get("content-type") || "").toLowerCase();
+
+  if (contentType.includes("application/x-www-form-urlencoded")) {
+    try {
+      const form = await request.formData();
+      const asObject: Record<string, unknown> = {};
+      form.forEach((value, key) => {
+        asObject[key] = typeof value === "string" ? value : String(value);
+      });
+      if (typeof asObject.payload === "string") {
+        try {
+          asObject.payload = JSON.parse(asObject.payload);
+        } catch {
+          // keep raw string
+        }
+      }
+      return asObject;
+    } catch {
+      return null;
+    }
+  }
+
+  const raw = await request.text().catch(() => "");
+  if (!raw.trim()) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(raw) as unknown;
+  } catch {
+    // Some gateways POST a bare checkout id.
+    return raw.trim();
+  }
+}
+
 async function handlePaymentWebhookRequest(
   request: Request,
   env: Env,
@@ -1147,13 +1198,13 @@ async function handlePaymentWebhookRequest(
 ): Promise<Response> {
   let payload: unknown = null;
   try {
-    payload = await request.json().catch(() => null);
+    payload = await parseWebhookPayload(request);
     console.log("SumUp payment webhook", payload);
   } catch {
     // Ignore malformed bodies — still acknowledge so SumUp does not retry/timeout.
   }
 
-  const checkoutId = extractCheckoutIdFromWebhookPayload(payload);
+  const checkoutId = extractCheckoutIdFromRequest(request, payload);
   if (checkoutId && pendingCheckoutStoreConfigured(env.TRACKING_STORE)) {
     try {
       const booking = await resolveBookingForCheckout(env, checkoutId, null);
@@ -1237,17 +1288,21 @@ async function handlePaymentConfirmRequest(
     return json({ error: "Invalid JSON" }, 400, origin);
   }
 
-  const checkoutId = String(body.checkoutId ?? "").trim();
+  const checkoutId = String(body.checkoutId ?? body.checkout_id ?? "").trim();
   const clientBooking = parsePaidBookingDetails(body);
   const booking = checkoutId
     ? await resolveBookingForCheckout(env, checkoutId, clientBooking)
     : clientBooking;
 
-  if (!checkoutId || !booking) {
+  if (!checkoutId) {
+    return json({ error: "Missing checkoutId." }, 400, origin);
+  }
+
+  if (!booking) {
     return json(
       {
         error:
-          "Missing checkout or booking details (customer email and mobile are required).",
+          "Missing booking details for this checkout (customer email and mobile are required). If you just paid, wait a moment and refresh — or contact us with your payment reference.",
       },
       400,
       origin,
@@ -1517,6 +1572,20 @@ export default {
         return json({ error: "Method not allowed" }, 405, origin);
       }
       return handlePaidBookingsListRequest(request, env, origin);
+    }
+
+    if (route === "paid-bookings-pending") {
+      if (request.method !== "GET") {
+        return json({ error: "Method not allowed" }, 405, origin);
+      }
+      return handlePendingCheckoutsListRequest(request, env, origin);
+    }
+
+    if (route === "paid-bookings-finalize") {
+      if (request.method !== "POST") {
+        return json({ error: "Method not allowed" }, 405, origin);
+      }
+      return handleFinalizeCheckoutRequest(request, env, origin, logPaidBookingCalendar);
     }
 
     if (route === "paid-bookings-resend") {
@@ -1975,6 +2044,25 @@ export default {
           console.log("Review request cron", JSON.stringify(result));
         }
       }),
+    );
+
+    // Backup when the customer never returns from SumUp / webhook is missed:
+    // finalize any PAID pending checkouts (idempotent — no duplicate emails/calendar).
+    ctx.waitUntil(
+      recoverPaidButUnfinalizedCheckouts({
+        env,
+        logPaidBookingCalendar,
+        preferTestOnePound: true,
+        limit: 40,
+      })
+        .then((result) => {
+          if (result.recovered.length > 0) {
+            console.log("Paid checkout recovery cron", JSON.stringify(result));
+          }
+        })
+        .catch((error) => {
+          console.error("Paid checkout recovery cron failed", error);
+        }),
     );
   },
 };

@@ -108,9 +108,9 @@ export async function createPaymentCheckout(
 
 export async function confirmPaidBooking(
   checkoutId: string,
-  booking: BookingDetails,
+  booking?: BookingDetails | null,
 ): Promise<PaymentConfirmationResult> {
-  if (!isValidPassengerCount(booking.passengers)) {
+  if (booking && !isValidPassengerCount(booking.passengers)) {
     throw new Error(PASSENGER_LIMIT_ERROR);
   }
 
@@ -126,7 +126,7 @@ export async function confirmPaidBooking(
     },
     body: JSON.stringify({
       checkoutId,
-      booking,
+      ...(booking ? { booking } : {}),
     }),
   });
 

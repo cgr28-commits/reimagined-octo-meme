@@ -17,6 +17,8 @@ console.log("=== Owner paid bookings UI ===");
 const api = read("src/lib/paid-bookings-api.ts");
 assert.match(api, /fetchOwnerPaidBookings/);
 assert.match(api, /resendPaidBookingConfirmation/);
+assert.match(api, /fetchOwnerPendingCheckouts/);
+assert.match(api, /finalizePaidCheckoutRecovery/);
 assert.match(api, /\/paid-bookings/);
 console.log("OK  paid-bookings API client");
 
@@ -25,6 +27,7 @@ assert.match(panel, /Paid bookings \(SumUp\)/);
 assert.match(panel, /Resend booking confirmation/);
 assert.match(panel, /Website card payments/);
 assert.match(panel, /latestPaid/);
+assert.match(panel, /Recover PAID checkouts/);
 console.log("OK  OwnerPaidBookingsPanel");
 
 const page = read("src/app/driver/DriverPageClient.tsx");
