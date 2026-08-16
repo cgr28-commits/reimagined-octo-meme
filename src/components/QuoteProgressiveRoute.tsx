@@ -27,7 +27,7 @@ const SELECTABLE_AIRPORTS = CUSTOMER_AIRPORTS.filter(
 );
 
 const SELECT_CARD =
-  "flex min-h-[4.5rem] flex-col items-start justify-center rounded-2xl border px-4 py-3 text-left transition-all";
+  "flex min-h-[4.5rem] flex-col items-start justify-center rounded-2xl border px-4 py-3 text-left transition-all lg:min-h-[3.75rem] lg:px-3.5 lg:py-2.5";
 const SELECT_CARD_ON = "border-emerald bg-emerald text-navy shadow-sm";
 const SELECT_CARD_OFF =
   "border-white/15 bg-white/5 text-white hover:border-emerald/40 hover:bg-emerald/10";
@@ -63,7 +63,7 @@ function ChoiceGrid({
               type="button"
               aria-pressed={selected}
               onClick={() => onChange(option)}
-              className={`min-h-12 rounded-xl text-base font-semibold transition-all ${
+              className={`min-h-12 rounded-xl text-base font-semibold transition-all lg:min-h-11 ${
                 selected
                   ? "bg-emerald text-navy shadow-sm"
                   : "border border-white/15 bg-white/5 text-white/85 hover:border-emerald/40 hover:text-white"
@@ -165,15 +165,15 @@ export default function QuoteProgressiveRoute({
     journeyIntent === "address-to-address" || (showAirportPicker && airportChosen);
 
   return (
-    <div className="quote-field space-y-5">
-      <div className="min-h-[3.25rem]">
-        <h3 className="text-base font-semibold text-white sm:text-lg">Where are you travelling?</h3>
-        <p className="mt-1 min-h-[1rem] text-xs text-white/55">
+    <div className="quote-field space-y-5 lg:space-y-4">
+      <div className="min-h-[3.25rem] lg:min-h-0">
+        <h3 className="text-base font-semibold text-white sm:text-lg lg:text-base">Where are you travelling?</h3>
+        <p className="mt-1 min-h-[1rem] text-xs text-white/55 lg:min-h-0">
           {journeyKindLabel || "Choose how you’d like to travel"}
         </p>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-3" role="group" aria-label="Journey type">
+      <div className="grid gap-3 sm:grid-cols-3 lg:gap-2.5" role="group" aria-label="Journey type">
         {QUOTE_JOURNEY_INTENT_OPTIONS.map((option) => {
           const selected = journeyIntent === option.id;
           return (
@@ -200,7 +200,7 @@ export default function QuoteProgressiveRoute({
           <p className="text-xs font-medium uppercase tracking-wider text-white/50">
             Which airport?
           </p>
-          <div className="grid gap-2" role="group" aria-label="Airport">
+          <div className="grid gap-2 lg:grid-cols-2" role="group" aria-label="Airport">
             {SELECTABLE_AIRPORTS.map((airport) => {
               const selected = selectedAirportCode === airport.code;
               return (
@@ -312,7 +312,7 @@ export default function QuoteProgressiveRoute({
       )}
 
       {showPartyFields && (
-        <div className="space-y-5">
+        <div className="space-y-5 lg:space-y-4">
           <div>
             <p className="mb-2 text-xs font-medium uppercase tracking-wider text-white/50">
               Journey
@@ -322,7 +322,7 @@ export default function QuoteProgressiveRoute({
                 type="button"
                 aria-pressed={!returnJourney}
                 onClick={() => onReturnJourneyChange(false)}
-                className={`min-h-12 rounded-lg px-3 py-2.5 text-sm font-semibold transition-all ${
+                className={`min-h-12 rounded-lg px-3 py-2.5 text-sm font-semibold transition-all lg:min-h-11 ${
                   !returnJourney ? "bg-emerald text-navy shadow-sm" : "text-white/70 hover:text-white"
                 }`}
               >
@@ -332,7 +332,7 @@ export default function QuoteProgressiveRoute({
                 type="button"
                 aria-pressed={returnJourney}
                 onClick={() => onReturnJourneyChange(true)}
-                className={`min-h-12 rounded-lg px-3 py-2.5 text-sm font-semibold transition-all ${
+                className={`min-h-12 rounded-lg px-3 py-2.5 text-sm font-semibold transition-all lg:min-h-11 ${
                   returnJourney ? "bg-emerald text-navy shadow-sm" : "text-white/70 hover:text-white"
                 }`}
               >
@@ -341,105 +341,111 @@ export default function QuoteProgressiveRoute({
             </div>
           </div>
 
-          <ChoiceGrid
-            label="Passengers"
-            options={[1, 2, 3, 4, FIVE_PLUS_PASSENGERS]}
-            value={passengers >= FIVE_PLUS_PASSENGERS ? FIVE_PLUS_PASSENGERS : passengers}
-            onChange={(value) => {
-              onPassengersChange(value);
-              if (value < FIVE_PLUS_PASSENGERS) {
-                onExactPassengersChange(null);
-              } else if (!exactPassengers || exactPassengers < 5 || exactPassengers > 7) {
-                onExactPassengersChange(5);
-              }
-            }}
-            formatOption={formatPassengerChoice}
-          />
-
-          {passengers >= FIVE_PLUS_PASSENGERS && (
-            <div className="space-y-3 rounded-2xl border border-amber-400/25 bg-amber-400/10 px-4 py-4">
-              <p className="text-sm font-semibold text-amber-100">
-                Travelling with 5–7 passengers?
-              </p>
-              <p className="text-xs leading-relaxed text-white/75">
-                We can arrange a suitable minibus for your journey (Minibus — 5–7 passengers). Enter
-                your journey details and we’ll provide a tailored fixed-price quote.
-              </p>
+          <div className="grid gap-5 lg:grid-cols-2 lg:items-start lg:gap-3.5">
+            <div className="space-y-5 lg:space-y-3.5">
               <ChoiceGrid
-                label="Exact passengers"
-                options={[5, 6, 7]}
-                value={
-                  exactPassengers && exactPassengers >= 5 && exactPassengers <= 7
-                    ? exactPassengers
-                    : 5
-                }
+                label="Passengers"
+                options={[1, 2, 3, 4, FIVE_PLUS_PASSENGERS]}
+                value={passengers >= FIVE_PLUS_PASSENGERS ? FIVE_PLUS_PASSENGERS : passengers}
                 onChange={(value) => {
-                  const next = Math.min(7, Math.max(5, value));
-                  onPassengersChange(next);
-                  onExactPassengersChange(next);
+                  onPassengersChange(value);
+                  if (value < FIVE_PLUS_PASSENGERS) {
+                    onExactPassengersChange(null);
+                  } else if (!exactPassengers || exactPassengers < 5 || exactPassengers > 7) {
+                    onExactPassengersChange(5);
+                  }
                 }}
-                formatOption={(value) => String(value)}
-                columns={3}
+                formatOption={formatPassengerChoice}
               />
-              <p className="text-xs text-white/65">{GROUP_QUOTE_FEE_NOTE}</p>
+
+              {passengers >= FIVE_PLUS_PASSENGERS && (
+                <div className="space-y-3 rounded-2xl border border-amber-400/25 bg-amber-400/10 px-4 py-4">
+                  <p className="text-sm font-semibold text-amber-100">
+                    Travelling with 5–7 passengers?
+                  </p>
+                  <p className="text-xs leading-relaxed text-white/75">
+                    We can arrange a suitable minibus for your journey (Minibus — 5–7 passengers). Enter
+                    your journey details and we’ll provide a tailored fixed-price quote.
+                  </p>
+                  <ChoiceGrid
+                    label="Exact passengers"
+                    options={[5, 6, 7]}
+                    value={
+                      exactPassengers && exactPassengers >= 5 && exactPassengers <= 7
+                        ? exactPassengers
+                        : 5
+                    }
+                    onChange={(value) => {
+                      const next = Math.min(7, Math.max(5, value));
+                      onPassengersChange(next);
+                      onExactPassengersChange(next);
+                    }}
+                    formatOption={(value) => String(value)}
+                    columns={3}
+                  />
+                  <p className="text-xs text-white/65">{GROUP_QUOTE_FEE_NOTE}</p>
+                </div>
+              )}
             </div>
-          )}
 
-          <ChoiceGrid
-            label="Suitcases / large bags"
-            options={[0, 1, 2, 3, 4]}
-            value={suitcases > 4 ? 4 : suitcases}
-            onChange={(value) => {
-              if (value === 4 && suitcases < 4) {
-                onSuitcasesChange(4);
-              } else if (value < 4) {
-                onSuitcasesChange(value);
-              } else {
-                onSuitcasesChange(suitcases >= 4 ? suitcases : 4);
-              }
-            }}
-            formatOption={(value) => (value >= 4 ? "4+" : String(value))}
-          />
-
-          {suitcases >= 4 && (
-            <ChoiceGrid
-              label="Exact large bags (4+)"
-              options={[4, 5, 6, 7, FIVE_PLUS_SUITCASES]}
-              value={suitcases >= FIVE_PLUS_SUITCASES ? FIVE_PLUS_SUITCASES : suitcases}
-              onChange={onSuitcasesChange}
-              formatOption={(value) => (value >= FIVE_PLUS_SUITCASES ? "5+" : String(value))}
-            />
-          )}
-
-          <ChoiceGrid
-            label="Child seats"
-            options={[0, 1, 2]}
-            value={childSeats}
-            onChange={onChildSeatsChange}
-            formatOption={(value) => (value === 0 ? "None" : String(value))}
-          />
-
-          {childSeats > 0 && (
-            <div>
-              <label
-                htmlFor="child-seat-notes"
-                className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/70"
-              >
-                Child seat details
-              </label>
-              <input
-                id="child-seat-notes"
-                type="text"
-                value={childSeatNotes}
-                onChange={(e) => onChildSeatNotesChange(e.target.value)}
-                placeholder="e.g. 1 infant seat, 1 booster"
-                className="quote-text-input h-12 rounded-xl border border-white/25 bg-navy-dark px-4 text-white placeholder:text-white/45 outline-none focus:border-emerald focus:ring-2 focus:ring-inset focus:ring-emerald/25"
+            <div className="space-y-5 lg:space-y-3.5">
+              <ChoiceGrid
+                label="Suitcases / large bags"
+                options={[0, 1, 2, 3, 4]}
+                value={suitcases > 4 ? 4 : suitcases}
+                onChange={(value) => {
+                  if (value === 4 && suitcases < 4) {
+                    onSuitcasesChange(4);
+                  } else if (value < 4) {
+                    onSuitcasesChange(value);
+                  } else {
+                    onSuitcasesChange(suitcases >= 4 ? suitcases : 4);
+                  }
+                }}
+                formatOption={(value) => (value >= 4 ? "4+" : String(value))}
               />
-              <p className="quote-helper-text mt-1.5 text-xs text-white/55">
-                Child seats can be requested but availability is not guaranteed.
-              </p>
+
+              {suitcases >= 4 && (
+                <ChoiceGrid
+                  label="Exact large bags (4+)"
+                  options={[4, 5, 6, 7, FIVE_PLUS_SUITCASES]}
+                  value={suitcases >= FIVE_PLUS_SUITCASES ? FIVE_PLUS_SUITCASES : suitcases}
+                  onChange={onSuitcasesChange}
+                  formatOption={(value) => (value >= FIVE_PLUS_SUITCASES ? "5+" : String(value))}
+                />
+              )}
+
+              <ChoiceGrid
+                label="Child seats"
+                options={[0, 1, 2]}
+                value={childSeats}
+                onChange={onChildSeatsChange}
+                formatOption={(value) => (value === 0 ? "None" : String(value))}
+              />
+
+              {childSeats > 0 && (
+                <div>
+                  <label
+                    htmlFor="child-seat-notes"
+                    className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/70"
+                  >
+                    Child seat details
+                  </label>
+                  <input
+                    id="child-seat-notes"
+                    type="text"
+                    value={childSeatNotes}
+                    onChange={(e) => onChildSeatNotesChange(e.target.value)}
+                    placeholder="e.g. 1 infant seat, 1 booster"
+                    className="quote-text-input h-12 rounded-xl border border-white/25 bg-navy-dark px-4 text-white placeholder:text-white/45 outline-none focus:border-emerald focus:ring-2 focus:ring-inset focus:ring-emerald/25"
+                  />
+                  <p className="quote-helper-text mt-1.5 text-xs text-white/55">
+                    Child seats can be requested but availability is not guaranteed.
+                  </p>
+                </div>
+              )}
             </div>
-          )}
+          </div>
 
           {isGroupQuote ? (
             <div className="rounded-xl border border-white/10 bg-navy-dark/40 px-4 py-3 text-xs leading-relaxed text-white/70">

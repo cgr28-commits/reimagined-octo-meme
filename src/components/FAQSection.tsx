@@ -17,16 +17,16 @@ export default function FAQSection() {
   });
 
   return (
-    <section id="faq" className="relative py-20 sm:py-28">
+    <section id="faq" className="relative py-20 sm:py-28 lg:py-32">
       <div className="absolute inset-0 bg-navy-dark" />
-      <div className="relative mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
+      <div className="relative mx-auto max-w-3xl px-4 sm:px-6 lg:max-w-4xl lg:px-10 xl:px-12">
         <SectionHeading
           eyebrow="Help Centre"
           title="Frequently Asked Questions"
           description="Everything you need to know about booking your airport transfer."
         />
 
-        <div className="mt-12 space-y-3">
+        <div className="mt-12 space-y-3 lg:mt-14">
           {faqs.map((faq, index) => {
             const isOpen = openIndex === index;
             return (

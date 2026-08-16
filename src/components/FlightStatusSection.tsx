@@ -4,16 +4,16 @@ import SectionHeading from "./SectionHeading";
 
 export default function FlightStatusSection() {
   return (
-    <section id="flight-status" className="relative py-20 sm:py-28">
+    <section id="flight-status" className="relative py-20 sm:py-28 lg:py-32">
       <div className="absolute inset-0 bg-gradient-to-b from-navy via-navy-dark/50 to-navy" />
-      <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+      <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:max-w-[1400px] lg:px-10 xl:px-12">
         <SectionHeading
           eyebrow="Plan Your Pickup"
           title="Check Your Flight"
           description="View live arrivals and departures on each airport's official flight board. Share your flight number when you book and we'll monitor it for your pickup."
         />
 
-        <div className="mt-14 grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="mt-14 grid gap-6 sm:grid-cols-2 xl:grid-cols-4 lg:mt-16 lg:gap-7">
           {FLIGHT_AIRPORTS.map((airport) => (
             <article
               key={airport.code}

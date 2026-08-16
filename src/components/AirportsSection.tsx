@@ -11,16 +11,16 @@ function airportPageHref(code: string): string | null {
 
 export default function AirportsSection() {
   return (
-    <section id="airports" className="relative py-20 sm:py-28">
+    <section id="airports" className="relative py-20 sm:py-28 lg:py-32">
       <div className="absolute inset-0 bg-gradient-to-b from-navy via-navy-light/30 to-navy" />
-      <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+      <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:max-w-[1400px] lg:px-10 xl:px-12">
         <SectionHeading
           eyebrow="Destinations"
           title="Airports We Serve"
           description="Transfers to Belfast International, Belfast City, City of Derry, and Dublin — with flight monitoring and complimentary waiting where it applies."
         />
 
-        <div className="mt-14 grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="mt-14 grid gap-6 sm:grid-cols-2 xl:grid-cols-4 lg:mt-16 lg:gap-7">
           {AIRPORTS.map((airport) => {
             const href = airportPageHref(airport.code);
             return (

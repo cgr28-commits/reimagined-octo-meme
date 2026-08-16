@@ -224,7 +224,7 @@ function TapChoiceRow({
               type="button"
               aria-pressed={selected}
               onClick={() => onChange(option)}
-              className={`min-h-12 rounded-xl text-base font-semibold transition-all ${
+              className={`min-h-12 rounded-xl text-base font-semibold transition-all lg:min-h-11 ${
                 selected
                   ? "bg-emerald text-navy shadow-sm"
                   : "border border-white/15 bg-white/5 text-white/85 hover:border-emerald/40 hover:text-white"
@@ -2126,15 +2126,15 @@ function QuoteCard({
   }
 
   return (
-    <div ref={cardRef} className="glass-card min-w-0 rounded-2xl p-6 sm:p-8">
-      <div className="mb-6">
-        <h2 className="text-xl font-semibold tracking-tight text-white sm:text-2xl">Get a Live Quote</h2>
-        <p className="mt-2 text-sm leading-relaxed text-white/60">
+    <div ref={cardRef} className="glass-card min-w-0 rounded-2xl p-6 sm:p-8 lg:p-6 xl:p-7">
+      <div className="mb-6 lg:mb-4">
+        <h2 className="text-xl font-semibold tracking-tight text-white sm:text-2xl lg:text-[1.5rem]">Get a Live Quote</h2>
+        <p className="mt-2 text-sm leading-relaxed text-white/60 lg:mt-1.5 lg:text-[0.875rem] lg:leading-snug">
           {pricingConfirmationRequired
             ? "Three quick steps — your journey, travel details, then your details. We’ll confirm your fare before any payment."
             : "Three quick steps — your journey, travel details, then your details. Instant fares can be paid online by card to confirm; otherwise Request to book and we’ll email a SumUp link after we confirm."}
         </p>
-        <ol className="mt-4 grid grid-cols-3 gap-2" aria-label="Booking steps">
+        <ol className="mt-4 grid grid-cols-3 gap-2 lg:mt-3 lg:gap-2" aria-label="Booking steps">
           {[
             { step: 1 as const, label: isA2AFlow ? "Your journey" : "Airport & address" },
             { step: 2 as const, label: exceedsOnlineCapacity ? "Request quote" : "Price & travel" },
@@ -2163,7 +2163,7 @@ function QuoteCard({
         </ol>
       </div>
 
-      <form id="quoteForm" onSubmit={handleSubmit} className="relative space-y-4 overflow-x-clip overflow-y-visible">
+      <form id="quoteForm" onSubmit={handleSubmit} className="relative space-y-4 overflow-x-clip overflow-y-visible lg:space-y-3.5">
         {testChargeAmount !== null && (
           <div className="rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
             <strong className="text-white">Test booking mode.</strong> SumUp will charge{" "}
@@ -2559,21 +2559,23 @@ function QuoteCard({
         )}
 
         {!isA2AFlow && (
-        <div className="space-y-4 rounded-xl border border-white/10 bg-white/5 px-4 py-4">
-          <TapChoiceRow
-            label="Passengers"
-            options={Array.from({ length: passengerLimit }, (_, index) => index + 1)}
-            value={Math.min(passengers, passengerLimit)}
-            onChange={setPassengers}
-            formatOption={formatPassengerChoice}
-          />
-          <TapChoiceRow
-            label="Large suitcases (23kg)"
-            options={[0, 1, 2, 3, 4, 5].filter((count) => count <= SELECTOR_MAX_SUITCASES)}
-            value={Math.min(suitcases, SELECTOR_MAX_SUITCASES)}
-            onChange={setSuitcases}
-            formatOption={formatSuitcaseChoice}
-          />
+        <div className="space-y-4 rounded-xl border border-white/10 bg-white/5 px-4 py-4 lg:space-y-3.5 lg:px-4 lg:py-3.5">
+          <div className="grid gap-4 lg:grid-cols-2 lg:gap-3.5">
+            <TapChoiceRow
+              label="Passengers"
+              options={Array.from({ length: passengerLimit }, (_, index) => index + 1)}
+              value={Math.min(passengers, passengerLimit)}
+              onChange={setPassengers}
+              formatOption={formatPassengerChoice}
+            />
+            <TapChoiceRow
+              label="Large suitcases (23kg)"
+              options={[0, 1, 2, 3, 4, 5].filter((count) => count <= SELECTOR_MAX_SUITCASES)}
+              value={Math.min(suitcases, SELECTOR_MAX_SUITCASES)}
+              onChange={setSuitcases}
+              formatOption={formatSuitcaseChoice}
+            />
+          </div>
           <div className="rounded-xl border border-emerald/30 bg-emerald/10 px-4 py-3">
             <p className="text-xs font-medium uppercase tracking-wider text-emerald">
               Vehicle for this journey
@@ -2629,7 +2631,7 @@ function QuoteCard({
           ref={step2TravelDetailsRef}
           className="scroll-mt-44 space-y-4 md:scroll-mt-28"
         >
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-2 lg:gap-3.5">
           <div>
             <label
               htmlFor="date"
@@ -3095,55 +3097,57 @@ function QuoteCard({
               ? "Enter your details, accept the terms, then pay securely with SumUp to confirm your booking."
               : "We need these details for your booking request. For journeys that need manual confirmation, we’ll email a SumUp payment link after we confirm the job."}
           </p>
-          <div className="space-y-4">
-            <div>
-              <label htmlFor="name" className={BOOKING_LABEL_CLASS}>
-                Your Name
-              </label>
-              <input
-                id="name"
-                name="name"
-                type="text"
-                value={customerName}
-                onChange={(e) => {
-                  setCustomerName(e.target.value);
-                  if (e.target.value.trim()) {
-                    setCustomerNameError("");
-                  }
-                }}
-                placeholder="John Smith"
-                className={BOOKING_INPUT_CLASS}
-              />
-              {customerNameError && (
-                <p className="mt-1.5 text-xs text-red-300">{customerNameError}</p>
-              )}
-            </div>
+          <div className="space-y-4 lg:space-y-3.5">
+            <div className="grid gap-4 lg:grid-cols-2 lg:gap-3.5">
+              <div>
+                <label htmlFor="name" className={BOOKING_LABEL_CLASS}>
+                  Your Name
+                </label>
+                <input
+                  id="name"
+                  name="name"
+                  type="text"
+                  value={customerName}
+                  onChange={(e) => {
+                    setCustomerName(e.target.value);
+                    if (e.target.value.trim()) {
+                      setCustomerNameError("");
+                    }
+                  }}
+                  placeholder="John Smith"
+                  className={BOOKING_INPUT_CLASS}
+                />
+                {customerNameError && (
+                  <p className="mt-1.5 text-xs text-red-300">{customerNameError}</p>
+                )}
+              </div>
 
-            <div>
-              <label htmlFor="mobile" className={BOOKING_LABEL_CLASS}>
-                Mobile Number
-              </label>
-              <input
-                id="mobile"
-                name="mobile"
-                type="tel"
-                autoComplete="tel"
-                value={customerMobile}
-                onChange={(e) => {
-                  setCustomerMobile(e.target.value);
-                  if (e.target.value.trim()) {
-                    setMobileNumberError("");
-                  }
-                }}
-                placeholder="07xxx xxxxxx"
-                className={BOOKING_INPUT_CLASS}
-              />
-              <p className={BOOKING_HELPER_CLASS}>
-                So we can call or text if we need to reach you about your booking.
-              </p>
-              {mobileNumberError && (
-                <p className="mt-1.5 text-xs text-red-300">{mobileNumberError}</p>
-              )}
+              <div>
+                <label htmlFor="mobile" className={BOOKING_LABEL_CLASS}>
+                  Mobile Number
+                </label>
+                <input
+                  id="mobile"
+                  name="mobile"
+                  type="tel"
+                  autoComplete="tel"
+                  value={customerMobile}
+                  onChange={(e) => {
+                    setCustomerMobile(e.target.value);
+                    if (e.target.value.trim()) {
+                      setMobileNumberError("");
+                    }
+                  }}
+                  placeholder="07xxx xxxxxx"
+                  className={BOOKING_INPUT_CLASS}
+                />
+                <p className={BOOKING_HELPER_CLASS}>
+                  So we can call or text if we need to reach you about your booking.
+                </p>
+                {mobileNumberError && (
+                  <p className="mt-1.5 text-xs text-red-300">{mobileNumberError}</p>
+                )}
+              </div>
             </div>
 
             <div>
