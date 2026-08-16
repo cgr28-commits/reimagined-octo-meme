@@ -9,7 +9,9 @@ import { formatUkInstant } from "../../shared/uk-time";
 import {
   assignBookingJobDriver,
   fetchOwnerBookingJobs,
+  fetchOwnerQuoteStats,
   markBookingJobPaid,
+  type OwnerQuoteStats,
 } from "@/lib/booking-jobs-api";
 import { buildWhatsAppDriverDetailsLink } from "@/lib/tracking-api";
 
@@ -50,6 +52,7 @@ function statusBadge(job: BookingJobRecord): { label: string; className: string 
 
 export default function OwnerBookingJobsPanel({ ownerKey }: OwnerBookingJobsPanelProps) {
   const [jobs, setJobs] = useState<BookingJobRecord[]>([]);
+  const [stats, setStats] = useState<OwnerQuoteStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [busyId, setBusyId] = useState("");
@@ -75,8 +78,12 @@ export default function OwnerBookingJobsPanel({ ownerKey }: OwnerBookingJobsPane
     setLoading(true);
     setError("");
     try {
-      const next = await fetchOwnerBookingJobs(ownerKey);
+      const [next, nextStats] = await Promise.all([
+        fetchOwnerBookingJobs(ownerKey),
+        fetchOwnerQuoteStats(ownerKey).catch(() => null),
+      ]);
       setJobs(next);
+      setStats(nextStats);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load bookings");
     } finally {
@@ -186,6 +193,34 @@ export default function OwnerBookingJobsPanel({ ownerKey }: OwnerBookingJobsPane
           Refresh
         </button>
       </div>
+
+      {stats ? (
+        <div className="mt-5 grid gap-3 sm:grid-cols-3">
+          <div className="rounded-xl border border-white/10 bg-black/20 px-4 py-3">
+            <p className="text-xs uppercase tracking-wider text-white/45">Website quotes</p>
+            <p className="mt-1 text-2xl font-bold text-white">{stats.quoteLeadsTotal}</p>
+            <p className="mt-1 text-xs text-white/50">
+              Unique live quotes emailed to you
+              {stats.quoteLeadsLastAt
+                ? ` · last ${formatUkInstant(stats.quoteLeadsLastAt)}`
+                : " · counting from deploy"}
+            </p>
+          </div>
+          <div className="rounded-xl border border-white/10 bg-black/20 px-4 py-3">
+            <p className="text-xs uppercase tracking-wider text-white/45">Repeat views</p>
+            <p className="mt-1 text-2xl font-bold text-white">{stats.quoteLeadsDedupedTotal}</p>
+            <p className="mt-1 text-xs text-white/50">Same quote seen again (not re-emailed)</p>
+          </div>
+          <div className="rounded-xl border border-white/10 bg-black/20 px-4 py-3">
+            <p className="text-xs uppercase tracking-wider text-white/45">Booking refs</p>
+            <p className="mt-1 text-2xl font-bold text-white">{stats.bookingsIssuedTotal}</p>
+            <p className="mt-1 text-xs text-white/50">
+              MATNI references issued
+              {stats.nextBookingRef ? ` · next MATNI-${stats.nextBookingRef}` : ""}
+            </p>
+          </div>
+        </div>
+      ) : null}
 
       {error ? (
         <p className="mt-4 rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-100">

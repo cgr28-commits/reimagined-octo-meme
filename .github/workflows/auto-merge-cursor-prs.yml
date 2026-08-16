@@ -5,91 +5,149 @@ on:
     types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
   check_suite:
     types: [completed]
+  status: {}
 
 permissions:
   contents: write
   pull-requests: write
+  checks: read
 
 jobs:
   automerge:
     # Always auto-merge Cursor agent branches once checks pass (drafts are undrafted first).
-    if: startsWith(github.head_ref, 'cursor/')
+    if: >
+      (github.event_name == 'pull_request' && startsWith(github.head_ref, 'cursor/')) ||
+      github.event_name == 'check_suite' ||
+      github.event_name == 'status'
     runs-on: ubuntu-latest
     steps:
       - name: Merge when checks pass
         uses: actions/github-script@v7
         with:
           script: |
-            const pr = context.payload.pull_request;
-            if (!pr || !pr.head.ref.startsWith("cursor/")) {
-              return;
-            }
-
             const owner = context.repo.owner;
             const repo = context.repo.repo;
-            const pull_number = pr.number;
+            // pull_request events often fire before Vercel/Workers finish — wait briefly.
+            const maxAttempts = context.eventName === "pull_request" ? 24 : 3;
+            const delayMs = 15000;
 
-            let { data: prDetails } = await github.rest.pulls.get({
-              owner,
-              repo,
-              pull_number,
-            });
-
-            if (prDetails.merged) {
-              return;
+            async function sleep(ms) {
+              await new Promise((resolve) => setTimeout(resolve, ms));
             }
 
-            // GitHub cannot merge draft PRs — mark ready first.
-            if (prDetails.draft) {
-              await github.rest.pulls.update({
+            async function findCursorPulls() {
+              const pulls = [];
+
+              if (context.payload.pull_request?.head?.ref?.startsWith("cursor/")) {
+                pulls.push(context.payload.pull_request);
+                return pulls;
+              }
+
+              const headSha =
+                context.payload.check_suite?.head_sha ||
+                context.payload.sha ||
+                null;
+
+              if (headSha) {
+                const { data } = await github.rest.pulls.list({
+                  owner,
+                  repo,
+                  state: "open",
+                  per_page: 50,
+                });
+                for (const pr of data) {
+                  if (pr.head.ref.startsWith("cursor/") && pr.head.sha === headSha) {
+                    pulls.push(pr);
+                  }
+                }
+                return pulls;
+              }
+
+              return pulls;
+            }
+
+            async function tryMerge(pull_number) {
+              let { data: prDetails } = await github.rest.pulls.get({
                 owner,
                 repo,
                 pull_number,
-                draft: false,
               });
-              ({ data: prDetails } = await github.rest.pulls.get({
+
+              if (prDetails.merged || !prDetails.head.ref.startsWith("cursor/")) {
+                return "done";
+              }
+
+              if (prDetails.draft) {
+                await github.rest.pulls.update({
+                  owner,
+                  repo,
+                  pull_number,
+                  draft: false,
+                });
+                ({ data: prDetails } = await github.rest.pulls.get({
+                  owner,
+                  repo,
+                  pull_number,
+                }));
+              }
+
+              if (prDetails.mergeable === false) {
+                return "blocked";
+              }
+              if (prDetails.mergeable !== true) {
+                return "wait";
+              }
+
+              const { data: checks } = await github.rest.checks.listForRef({
+                owner,
+                repo,
+                ref: prDetails.head.sha,
+              });
+
+              const ignored = new Set(["Auto-merge Cursor PRs", "automerge"]);
+              const runs = checks.check_runs.filter((run) => !ignored.has(run.name));
+
+              const blockingRuns = runs.filter(
+                (run) =>
+                  run.status !== "completed" ||
+                  (run.conclusion &&
+                    !["success", "skipped", "neutral", "stale"].includes(run.conclusion)),
+              );
+              if (blockingRuns.length > 0) {
+                return "wait";
+              }
+
+              const { data: combined } = await github.rest.repos.getCombinedStatusForRef({
+                owner,
+                repo,
+                ref: prDetails.head.sha,
+              });
+              if (combined.state === "pending" || combined.state === "failure") {
+                return "wait";
+              }
+
+              await github.rest.pulls.merge({
                 owner,
                 repo,
                 pull_number,
-              }));
+                merge_method: "merge",
+              });
+              return "merged";
             }
 
-            if (prDetails.mergeable !== true) {
+            const candidates = await findCursorPulls();
+            if (candidates.length === 0) {
               return;
             }
 
-            const { data: checks } = await github.rest.checks.listForRef({
-              owner,
-              repo,
-              ref: prDetails.head.sha,
-            });
-
-            const ignored = new Set(["Auto-merge Cursor PRs", "automerge"]);
-            const runs = checks.check_runs.filter((run) => !ignored.has(run.name));
-
-            const blockingRuns = runs.filter(
-              (run) =>
-                run.status !== "completed" ||
-                (run.conclusion &&
-                  !["success", "skipped", "neutral", "stale"].includes(run.conclusion)),
-            );
-            if (blockingRuns.length > 0) {
-              return;
+            for (const candidate of candidates) {
+              for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+                const result = await tryMerge(candidate.number);
+                if (result === "merged" || result === "done" || result === "blocked") {
+                  break;
+                }
+                if (attempt < maxAttempts) {
+                  await sleep(delayMs);
+                }
+              }
             }
-
-            // Also honour commit status contexts (e.g. Vercel).
-            const { data: combined } = await github.rest.repos.getCombinedStatusForRef({
-              owner,
-              repo,
-              ref: prDetails.head.sha,
-            });
-            if (combined.state === "pending" || combined.state === "failure") {
-              return;
-            }
-
-            await github.rest.pulls.merge({
-              owner,
-              repo,
-              pull_number,
-              merge_method: "merge",
-            });

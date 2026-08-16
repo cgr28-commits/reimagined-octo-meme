@@ -109,6 +109,11 @@ import {
   isTestDriverDetailEmailsPath,
 } from "./test-email-handlers";
 import { CONTACT_VCARD } from "../shared/contact-vcard";
+import {
+  handleQuoteStatsRequest,
+  recordQuoteLeadDeduped,
+  recordQuoteLeadSent,
+} from "./quote-stats";
 
 type EmailBinding = {
   send(message: {
@@ -271,6 +276,7 @@ function routePath(
   | "geocode"
   | "bookings"
   | "quote-leads"
+  | "quote-stats"
   | "payments"
   | "payments-confirm"
   | "payments-webhook"
@@ -299,6 +305,10 @@ function routePath(
 
   if (pathname === "/quote-leads" || pathname === "/api/quote-leads") {
     return "quote-leads";
+  }
+
+  if (pathname === "/quote-stats" || pathname === "/api/quote-stats") {
+    return "quote-stats";
   }
 
   if (pathname === "/payments/confirm" || pathname === "/api/payments/confirm") {
@@ -604,6 +614,11 @@ async function handleQuoteLeadRequest(
   }
 
   if (await isDuplicateQuoteLead(fingerprint)) {
+    try {
+      await recordQuoteLeadDeduped(env);
+    } catch (error) {
+      console.error("Quote lead dedupe counter failed", error);
+    }
     return json({ ok: true, emailed: false, deduplicated: true }, 200, origin);
   }
 
@@ -620,7 +635,22 @@ async function handleQuoteLeadRequest(
     return json({ error: "Failed to send quote alert email" }, 502, origin);
   }
 
-  return json({ ok: true, emailed: true }, 200, origin);
+  let quoteLeadsTotal: number | null = null;
+  try {
+    quoteLeadsTotal = await recordQuoteLeadSent(env);
+  } catch (error) {
+    console.error("Quote lead counter failed", error);
+  }
+
+  return json(
+    {
+      ok: true,
+      emailed: true,
+      ...(quoteLeadsTotal !== null ? { quoteLeadsTotal } : {}),
+    },
+    200,
+    origin,
+  );
 }
 
 async function handleBookingRequest(
@@ -1271,6 +1301,14 @@ export default {
       }
 
       return handleQuoteLeadRequest(request, env, origin);
+    }
+
+    if (route === "quote-stats") {
+      if (request.method !== "GET") {
+        return json({ error: "Method not allowed" }, 405, origin);
+      }
+
+      return handleQuoteStatsRequest(request, env, origin);
     }
 
     if (route === "payments") {
