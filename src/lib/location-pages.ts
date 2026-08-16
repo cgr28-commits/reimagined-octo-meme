@@ -98,13 +98,13 @@ const AIRPORT_PAGES_ALL: AirportPage[] = [
     shortName: "Dublin Airport",
     title: "Dublin Airport Transfers from Northern Ireland",
     metaDescription:
-      "Cross-border private transfers between Northern Ireland and Dublin Airport (DUB). Experienced drivers, fixed prices, and flight tracking for long-distance airport runs.",
+      "Cross-border private transfers between Northern Ireland and Dublin Airport (DUB). Fixed prices, flight monitoring, applicable tolls included, and up to 60 minutes complimentary waiting on airport pickups.",
     intro:
-      "Dublin Airport is a major gateway for Northern Ireland travellers. We run comfortable cross-border transfers with drivers who know the A1/M1 corridor, border timing, and terminal pickup arrangements.",
+      "Dublin Airport is a major gateway for Northern Ireland travellers. We run comfortable cross-border transfers with drivers who know the A1/M1 corridor, border timing, and terminal pickup arrangements. We monitor your flight where possible and adjust the planned collection time for early or delayed arrivals.",
     highlights: [
       "Fixed prices for NI ↔ Dublin Airport journeys",
-      "Flight tracking for arrivals into Dublin",
-      "Suitable options for luggage-heavy trips",
+      "Applicable tolls included on Dublin Airport fares",
+      "Up to 60 minutes complimentary waiting time on airport pickups",
       "Return bookings available with a 5% discount online",
     ],
     localTips: [
@@ -211,7 +211,7 @@ function buildRouteNotes(town: TownArea, airport: AirportPage): string[] {
   return [
     `${town.name} sits in our LDY service area for Belfast-side pickups to City of Derry Airport.`,
     "Enter your full street address so we can confirm you are within the greater Belfast coverage zone.",
-    "Flight tracking is available for LDY arrivals heading back to the Belfast area.",
+    "Flight monitoring is available for LDY arrivals heading back to the Belfast area — airport pickups include up to 60 minutes complimentary waiting time.",
   ];
 }
 
@@ -226,7 +226,7 @@ export function getTransferRoutePages(): TransferRoutePage[] {
         town,
         airport,
         title: `${town.name} to ${airport.shortName} Taxi`,
-        metaDescription: `Private airport taxi from ${town.name} to ${airport.name}. Fixed prices, flight tracking, and 24/7 licensed transfers with ${"My Airport Taxi NI"}.`,
+        metaDescription: `Private airport taxi from ${town.name} to ${airport.name}. Fixed prices, flight monitoring, and 24/7 licensed transfers with ${"My Airport Taxi NI"}.`,
         intro: `${town.blurb} This page is for ${town.name} ↔ ${airport.shortName} transfers — get a live quote with the airport already selected.`,
         journeyNotes: buildRouteNotes(town, airport),
       });

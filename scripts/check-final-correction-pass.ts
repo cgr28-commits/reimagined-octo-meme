@@ -7,6 +7,7 @@
 
 import assert from "node:assert/strict";
 import {
+  isDublinCityCorridorJourney,
   isOutOfAreaPickup,
   isPlaceSelected,
   isRepublicOfIrelandJourney,
@@ -24,6 +25,8 @@ import {
 } from "../src/lib/data";
 import { TERMS_SECTIONS } from "../src/lib/terms";
 import { PRIVACY_SECTIONS } from "../src/lib/privacy";
+import { calculateDublinCityBeyondAirportQuote, calculateQuote } from "../src/lib/quote";
+import { getJourneyInclusions } from "../shared/journey-inclusions";
 
 let passed = 0;
 
@@ -202,10 +205,47 @@ async function main() {
     assert.match(text, /completed paid bookings/i);
   });
 
-  await check("Belfast → Dublin city is ROI fixed quote", () => {
+  await check("Belfast → Dublin city is a live priced corridor (not manual ROI)", () => {
     assert.equal(isStandardInstantPickup(belfast), true);
     assert.equal(isRepublicOfIrelandJourney(belfast, dublinCity), true);
-    assert.equal(needsManualQuoteApproval(belfast, dublinCity), true);
+    assert.equal(isDublinCityCorridorJourney(belfast, dublinCity), true);
+    // Intended behaviour: Greater Belfast ↔ Dublin city gets a live fixed quote
+    // (DUB airport fare + beyond uplift). Do not force manual approval.
+    assert.equal(needsManualQuoteApproval(belfast, dublinCity), false);
+
+    const dubAirport = calculateQuote(
+      "10 Donegall Square North, Belfast BT1 5GB, UK",
+      "DUB",
+      "Standard Saloon (1–4 passengers)",
+    );
+    const cityQuote = calculateDublinCityBeyondAirportQuote(
+      "10 Donegall Square North, Belfast BT1 5GB, UK",
+      "Standard Saloon (1–4 passengers)",
+      { distanceKm: 168.6, durationMinutes: 119.5 },
+    );
+    assert.ok(dubAirport, "DUB airport fare must calculate");
+    assert.ok(cityQuote, "Dublin city corridor fare must calculate");
+    assert.ok(
+      cityQuote.amount > dubAirport.amount,
+      `Dublin city £${cityQuote.amount} must exceed DUB airport £${dubAirport.amount}`,
+    );
+    // Commercial DUB fixed fare (base of the corridor quote) includes applicable ROI tolls;
+    // defaultTollsGbp is null — tolls are not a separate calculator add-on.
+
+    // Address-to-address inclusions: no airport express fees / no 60-minute airport waiting.
+    const inclusions = getJourneyInclusions({
+      pickupIsAirport: false,
+      dropoffIsAirport: false,
+      airportCode: null,
+      returnJourney: false,
+    });
+    const joined = [...inclusions.bullets, inclusions.summary, ...inclusions.emailIncludeLines].join(
+      " ",
+    );
+    assert.equal(inclusions.mentionsTolls, false);
+    assert.doesNotMatch(joined, /Express pickup fee|Express drop-off fee/i);
+    assert.doesNotMatch(joined, /60 minutes complimentary airport waiting/i);
+    assert.match(joined, /10 minutes complimentary waiting/i);
   });
 
   await check("Bangor → Cork is ROI fixed quote", () => {
