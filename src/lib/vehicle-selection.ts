@@ -56,7 +56,7 @@ export function vehicleShortLabel(vehicleType: VehicleType | string): string {
     return "Saloon";
   }
   if (vehicleType === MINIBUS_VEHICLE || vehicleType === MINIBUS_VEHICLE_TYPE) {
-    return "Larger vehicle";
+    return "Minibus — 5–7 passengers";
   }
   if (String(vehicleType).includes("Executive")) {
     return "Executive";

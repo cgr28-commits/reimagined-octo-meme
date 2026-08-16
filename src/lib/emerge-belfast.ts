@@ -59,7 +59,7 @@ export const EMERGE_FAQS = [
   {
     question: "Can you collect me from an airport?",
     answer:
-      "Yes. Transfers can be requested from Belfast International Airport, Belfast City Airport and Dublin Airport.",
+      "Yes. Transfers can be requested from Belfast International Airport, Belfast City Airport, City of Derry Airport and Dublin Airport.",
   },
   {
     question: "How many passengers can I book for?",

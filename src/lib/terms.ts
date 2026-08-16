@@ -41,7 +41,7 @@ export const TERMS_SECTIONS = [
       "Pickups from elsewhere in Northern Ireland to a Greater Belfast destination receive a live online quote where route pricing is available. Other out-of-area pickups (for example outside Northern Ireland, or NI pickups to destinations outside Greater Belfast) require manual approval, do not receive an automatic online price, and cannot be paid for immediately online until we confirm a fixed quote.",
     ],
     footer:
-      "All journeys are subject to vehicle availability. Saloon and estate cars (and executive on enquiry) cover up to four passengers. For 5–7 passengers, a licensed transport partner larger vehicle may fulfil the journey subject to availability. We do not offer journeys for more than 7 passengers.",
+      "All journeys are subject to vehicle availability. Saloon and estate cars (and executive on enquiry) cover up to four passengers. For 5–7 passengers, a licensed transport partner minibus may fulfil the journey subject to availability. We do not offer journeys for more than 7 passengers.",
   },
   {
     title: "Cross-border & Republic of Ireland journeys",
@@ -57,10 +57,10 @@ export const TERMS_SECTIONS = [
     title: "Licensed partner operators",
     content: [
       "Most saloon and estate car transfers (typically 1–4 passengers) are fulfilled by My Airport Taxi NI using our own licensed vehicles and drivers.",
-      "Where a larger vehicle is required for 5–7 passengers, or where operational needs require it, your journey may be fulfilled by another fully licensed and insured private hire / PSV operator working as our transport partner (subcontracted fulfilment).",
+      "Where a minibus is required for 5–7 passengers, or where operational needs require it, your journey may be fulfilled by another fully licensed and insured private hire / PSV operator working as our transport partner (subcontracted fulfilment).",
       "By requesting a quotation or making a booking, you agree that we may arrange for a suitable licensed partner operator to carry out all or part of the transfer.",
       "Partner-operated journeys remain subject to these Terms & Conditions. We remain your point of contact for booking, payment (where applicable), and customer service, and we will only use operators who hold the licences and insurance required for the journey.",
-      "Larger-vehicle transfers are subject to partner availability and are not instantly confirmed online — a booking is confirmed only when we accept it in writing (including by email).",
+      "Minibus transfers (5–7 passengers) are subject to partner availability and are not instantly confirmed online — a booking is confirmed only when we accept it in writing (including by email).",
       "We do not offer journeys for more than 7 passengers.",
     ],
   },
@@ -205,7 +205,7 @@ export const TERMS_SECTIONS = [
       "Oversized luggage is advised in advance.",
     ],
     footer:
-      "We reserve the right to refuse luggage that cannot safely be accommodated, or to require a larger partner vehicle (which may change the fare). We do not offer journeys for more than 7 passengers.",
+      "We reserve the right to refuse luggage that cannot safely be accommodated, or to require a partner minibus (which may change the fare). We do not offer journeys for more than 7 passengers.",
   },
   {
     title: "Lost Property",

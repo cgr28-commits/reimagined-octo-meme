@@ -43,12 +43,13 @@ export default function VehiclesSection() {
 
             <div className="rounded-2xl border border-white/15 bg-white/[0.03] px-5 py-5">
               <p className="text-xs font-semibold uppercase tracking-wider text-white/55">
-                5–7 passengers
+                Minibus — 5–7 passengers
               </p>
-              <p className="mt-1 text-xl font-bold text-white">Request Larger Vehicle Quote</p>
+              <p className="mt-1 text-xl font-bold text-white">Request a tailored quote</p>
               <p className="mt-2 text-sm leading-relaxed text-white/70">
-                For groups of 5–7 passengers, we can arrange a suitable larger vehicle through a
-                licensed transport partner. Request a tailored quote for your journey.
+                For groups of 5–7 passengers, we can arrange a suitable minibus through a licensed
+                transport partner. Request a tailored quote for your journey. We do not offer
+                journeys for more than 7 passengers.
               </p>
             </div>
 

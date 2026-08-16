@@ -1,7 +1,7 @@
 /** Shared locations page copy — used by the page and the quote bot. */
 
 export const LOCATIONS_PAGE_INTRO =
-  "Standard long-distance pickups are from Greater Belfast (plus Belfast International, Belfast City, and Dublin Airport). Destinations can be anywhere in Northern Ireland or the Republic of Ireland. Lists below are examples only — enter exact addresses on the quote form.";
+  "Standard long-distance pickups are from Greater Belfast (plus Belfast International, Belfast City, City of Derry, and Dublin Airport). Destinations can be anywhere in Northern Ireland or the Republic of Ireland. Lists below are examples only — enter exact addresses on the quote form.";
 
 export const LOCATIONS_ROI_EXAMPLES = [
   "Dublin city centre",

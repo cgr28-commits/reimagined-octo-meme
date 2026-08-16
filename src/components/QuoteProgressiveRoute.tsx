@@ -343,8 +343,8 @@ export default function QuoteProgressiveRoute({
                 Travelling with 5–7 passengers?
               </p>
               <p className="text-xs leading-relaxed text-white/75">
-                We can arrange a suitable larger vehicle for your journey. Enter your journey details
-                and we’ll provide a tailored fixed-price quote.
+                We can arrange a suitable minibus for your journey (Minibus — 5–7 passengers). Enter
+                your journey details and we’ll provide a tailored fixed-price quote.
               </p>
               <ChoiceGrid
                 label="Exact passengers"

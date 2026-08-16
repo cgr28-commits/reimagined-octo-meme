@@ -228,7 +228,7 @@ function knowledgeChunks(): Array<{ title: string; body: string }> {
     {
       title: "How booking works",
       body:
-        "Standard process: (1) Get a Live Quote on the website or in this chat for your fixed journey price. (2) When an instant fare is shown, you can pay online with SumUp to confirm. Otherwise Request to book / enquire with your date, time, and contact details — we confirm the job and email a SumUp payment link; booking is confirmed after payment. Online quotes cover 1–7 passengers. For 5–7 passengers we arrange a suitable larger vehicle via licensed transport partners (tailored quote, subject to availability). We do not offer journeys for more than 7 passengers.",
+        "Standard process: (1) Get a Live Quote on the website or in this chat for your fixed journey price. (2) When an instant fare is shown, you can pay online with SumUp to confirm. Otherwise Request to book / enquire with your date, time, and contact details — we confirm the job and email a SumUp payment link; booking is confirmed after payment. Online quotes cover 1–7 passengers. For 5–7 passengers we arrange a suitable minibus (Minibus — 5–7 passengers) via licensed transport partners (tailored quote, subject to availability). We do not offer journeys for more than 7 passengers.",
     },
     {
       title: "Quote tool flow",
