@@ -139,6 +139,37 @@ jobs:
           fi
           npm run deploy
 
+      - name: Recover PAID-but-unfinalized SumUp checkouts (no new charge)
+        env:
+          OWNER_ACCESS_KEY: ${{ secrets.OWNER_ACCESS_KEY }}
+          DRIVER_ACCESS_KEY: ${{ secrets.DRIVER_ACCESS_KEY }}
+          WORKER_BASE_URL: https://reimagined-octo-meme.cgr28.workers.dev
+        run: |
+          ACCESS_KEY="${OWNER_ACCESS_KEY:-$DRIVER_ACCESS_KEY}"
+          if [ -z "$ACCESS_KEY" ]; then
+            echo "::notice::OWNER_ACCESS_KEY / DRIVER_ACCESS_KEY not set — skipping paid checkout recovery."
+            exit 0
+          fi
+          echo "Scanning for SumUp PAID checkouts that never finalized (email/calendar)…"
+          for i in 1 2 3 4 5 6; do
+            code=$(curl -sS -o /tmp/recover.json -w "%{http_code}" \
+              -X POST \
+              -H "Accept: application/json" \
+              -H "Content-Type: application/json" \
+              -H "X-Owner-Key: $ACCESS_KEY" \
+              -d '{"scan":true,"preferTestOnePound":true}' \
+              "$WORKER_BASE_URL/api/paid-bookings/finalize-checkout" || true)
+            if [ "$code" = "200" ] || [ "$code" = "402" ]; then
+              echo "Recovery HTTP $code:"
+              head -c 2000 /tmp/recover.json || true
+              echo
+              exit 0
+            fi
+            echo "finalize-checkout returned $code — waiting… body=$(head -c 200 /tmp/recover.json)"
+            sleep 15
+          done
+          echo "::warning::Paid checkout recovery did not succeed after retries (worker may still cron-sweep)."
+
       - name: Resend latest paid confirmation when trigger requests it
         env:
           OWNER_ACCESS_KEY: ${{ secrets.OWNER_ACCESS_KEY }}

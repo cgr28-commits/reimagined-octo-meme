@@ -301,14 +301,88 @@ export async function resolveBookingForCheckout(
   return clientBooking;
 }
 
-export function extractCheckoutIdFromWebhookPayload(payload: unknown): string {
-  if (!payload || typeof payload !== "object") {
-    return "";
+function firstNonEmpty(...values: unknown[]): string {
+  for (const value of values) {
+    if (typeof value === "string" && value.trim()) {
+      return value.trim();
+    }
+    if (typeof value === "number" && Number.isFinite(value)) {
+      return String(value);
+    }
   }
-  const body = payload as Record<string, unknown>;
-  const direct =
-    String(body.id ?? body.checkout_id ?? body.checkoutId ?? "").trim() ||
-    String((body.data as Record<string, unknown> | undefined)?.id ?? "").trim() ||
-    String((body.checkout as Record<string, unknown> | undefined)?.id ?? "").trim();
-  return direct;
+  return "";
+}
+
+function checkoutIdFromRecord(record: Record<string, unknown> | null | undefined): string {
+  if (!record) return "";
+  const nestedData =
+    record.data && typeof record.data === "object"
+      ? (record.data as Record<string, unknown>)
+      : undefined;
+  const nestedCheckout =
+    record.checkout && typeof record.checkout === "object"
+      ? (record.checkout as Record<string, unknown>)
+      : undefined;
+  const nestedPayload =
+    record.payload && typeof record.payload === "object"
+      ? (record.payload as Record<string, unknown>)
+      : undefined;
+  const nestedEvent =
+    record.event && typeof record.event === "object"
+      ? (record.event as Record<string, unknown>)
+      : undefined;
+
+  return firstNonEmpty(
+    record.id,
+    record.checkout_id,
+    record.checkoutId,
+    record.checkout_uuid,
+    record.resource_id,
+    nestedData?.id,
+    nestedData?.checkout_id,
+    nestedData?.checkoutId,
+    nestedCheckout?.id,
+    nestedCheckout?.checkout_id,
+    nestedPayload?.id,
+    nestedPayload?.checkout_id,
+    nestedEvent?.id,
+    nestedEvent?.checkout_id,
+  );
+}
+
+/** Extract SumUp checkout id from webhook JSON (and common nested shapes). */
+export function extractCheckoutIdFromWebhookPayload(payload: unknown): string {
+  if (!payload) return "";
+  if (typeof payload === "string") {
+    const trimmed = payload.trim();
+    // Bare UUID or id string
+    if (/^[0-9a-f-]{20,}$/i.test(trimmed)) return trimmed;
+    try {
+      return extractCheckoutIdFromWebhookPayload(JSON.parse(trimmed));
+    } catch {
+      return "";
+    }
+  }
+  if (typeof payload !== "object") return "";
+  return checkoutIdFromRecord(payload as Record<string, unknown>);
+}
+
+/** Also accept checkout id from query string / form fields (SumUp return variants). */
+export function extractCheckoutIdFromRequest(
+  request: Request,
+  payload: unknown,
+): string {
+  const fromBody = extractCheckoutIdFromWebhookPayload(payload);
+  if (fromBody) return fromBody;
+
+  const url = new URL(request.url);
+  const fromQuery = firstNonEmpty(
+    url.searchParams.get("id"),
+    url.searchParams.get("checkout_id"),
+    url.searchParams.get("checkoutId"),
+    url.searchParams.get("checkout-id"),
+  );
+  if (fromQuery) return fromQuery;
+
+  return "";
 }

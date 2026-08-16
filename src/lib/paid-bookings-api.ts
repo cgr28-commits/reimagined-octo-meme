@@ -24,6 +24,44 @@ export type OwnerPaidBookingSummary = Pick<
   amountPaid: string;
 };
 
+export type OwnerPendingCheckoutSummary = {
+  checkoutId: string;
+  checkoutReference: string;
+  amount: number;
+  createdAt: string;
+  finalizedAt?: string;
+  paymentReference?: string;
+  customerName: string;
+  customerEmail: string;
+  tripLabel: string;
+  tripDate: string;
+  sumUpStatus?: string;
+  sumUpPaid?: boolean;
+  paidBookingExists: boolean;
+  needsFinalize: boolean;
+};
+
+export type FinalizeCheckoutResult = {
+  ok: boolean;
+  checkoutId?: string;
+  action?: string;
+  sumUpStatus?: string;
+  bookingStatus?: string;
+  paid?: boolean;
+  customerEmailSent?: boolean;
+  ownerEmailSent?: boolean;
+  calendarLogged?: boolean;
+  calendarEvents?: number;
+  paymentReference?: string;
+  amountPaid?: string;
+  alreadyFinalized?: boolean;
+  error?: string;
+  message?: string;
+  primary?: FinalizeCheckoutResult;
+  recovered?: FinalizeCheckoutResult[];
+  scanned?: number;
+};
+
 async function parseJson(response: Response): Promise<Record<string, unknown>> {
   return ((await response.json().catch(() => null)) as Record<string, unknown> | null) ?? {};
 }
@@ -50,6 +88,52 @@ export async function fetchOwnerPaidBookings(
   return Array.isArray(payload.bookings)
     ? (payload.bookings as OwnerPaidBookingSummary[])
     : [];
+}
+
+export async function fetchOwnerPendingCheckouts(
+  ownerKey: string,
+  options?: { limit?: number },
+): Promise<OwnerPendingCheckoutSummary[]> {
+  const limit = options?.limit ?? 40;
+  const response = await fetch(
+    `${WORKER_BASE}/paid-bookings/pending?limit=${encodeURIComponent(String(limit))}`,
+    {
+      headers: {
+        Accept: "application/json",
+        "X-Owner-Key": ownerKey.trim(),
+      },
+    },
+  );
+  const payload = await parseJson(response);
+  if (!response.ok) {
+    throw new Error(String(payload.error ?? "Failed to load pending checkouts"));
+  }
+  return Array.isArray(payload.pending)
+    ? (payload.pending as OwnerPendingCheckoutSummary[])
+    : [];
+}
+
+export async function finalizePaidCheckoutRecovery(
+  ownerKey: string,
+  options?: { checkoutId?: string; preferTestOnePound?: boolean },
+): Promise<FinalizeCheckoutResult> {
+  const response = await fetch(`${WORKER_BASE}/paid-bookings/finalize-checkout`, {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      "X-Owner-Key": ownerKey.trim(),
+    },
+    body: JSON.stringify({
+      ...(options?.checkoutId ? { checkoutId: options.checkoutId } : { scan: true }),
+      preferTestOnePound: options?.preferTestOnePound ?? true,
+    }),
+  });
+  const payload = await parseJson(response);
+  if (!response.ok && response.status !== 402) {
+    throw new Error(String(payload.error ?? payload.message ?? "Failed to finalize checkout"));
+  }
+  return payload as unknown as FinalizeCheckoutResult;
 }
 
 export type ResendPaidConfirmationResult = {

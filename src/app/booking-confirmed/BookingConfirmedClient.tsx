@@ -30,10 +30,11 @@ export default function BookingConfirmedClient() {
     const hasPaymentReturn =
       isPaymentReturnSearch(search) ||
       Boolean(params.get("return_token")) ||
-      Boolean(params.get("checkout_id"));
+      Boolean(params.get("checkout_id")) ||
+      Boolean(params.get("checkoutId"));
 
     // Clean tracking params from the address bar after first load, keep stable /booking-confirmed/
-    if (hasPaymentReturn) {
+    if (hasPaymentReturn || params.get("paid") === "1") {
       window.history.replaceState(null, "", "/booking-confirmed/");
     }
 
@@ -47,6 +48,7 @@ export default function BookingConfirmedClient() {
 
     void (async () => {
       // Arrival from owner-approved SumUp flow (/booking-payment → here after pay).
+      // That path only redirects with paid=1 after server-side confirmation.
       if (params.get("paid") === "1") {
         if (!cancelled) {
           const amount = params.get("amount")?.trim() || undefined;
@@ -60,22 +62,20 @@ export default function BookingConfirmedClient() {
               ? `Payment of ${amount} received. Your booking is confirmed — we’ve emailed your confirmation.`
               : "Thank you — your booking payment is complete. We’ve emailed your confirmation.",
           );
-          // Only fire Ads when we have a unique order id (prevents refresh double-count).
           if (ref) {
             setFireConversion(true);
           }
-          window.history.replaceState(null, "", "/booking-confirmed/");
         }
         return;
       }
 
-      // Direct visits keep the thank-you URL for Ads destination goals, but we only
-      // fire the event tag after a real payment confirmation.
+      // Direct visits must NOT show a fake booking success. Ads destination
+      // goals can still use this URL; the event tag only fires after confirm.
       if (!hasPaymentReturn) {
         if (!cancelled) {
-          setStatus("confirmed");
+          setStatus("missing");
           setSummary(
-            "Thank you — if you’ve just paid, your confirmation email is on its way. Keep this page as your booking confirmation.",
+            `If you’ve just paid, check your email for confirmation or return via the SumUp “Back to merchant” link. Need help? Email ${SITE.email}.`,
           );
         }
         return;
@@ -125,7 +125,7 @@ export default function BookingConfirmedClient() {
                 ? "Payment check"
                 : status === "loading"
                   ? "Confirming payment"
-                  : "Thank you"}
+                  : "Checking your payment"}
         </h1>
         <p
           className={`mt-4 text-sm leading-relaxed sm:text-base ${
@@ -162,7 +162,7 @@ export default function BookingConfirmedClient() {
           >
             Email us
           </a>
-          {(status === "pending" || status === "error") && (
+          {(status === "pending" || status === "error" || status === "missing") && (
             <button
               type="button"
               onClick={() => window.location.reload()}

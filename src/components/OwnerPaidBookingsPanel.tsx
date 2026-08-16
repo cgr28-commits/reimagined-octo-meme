@@ -4,8 +4,11 @@ import { useCallback, useEffect, useState } from "react";
 import { formatUkInstant } from "../../shared/uk-time";
 import {
   fetchOwnerPaidBookings,
+  fetchOwnerPendingCheckouts,
+  finalizePaidCheckoutRecovery,
   resendPaidBookingConfirmation,
   type OwnerPaidBookingSummary,
+  type OwnerPendingCheckoutSummary,
 } from "@/lib/paid-bookings-api";
 
 type OwnerPaidBookingsPanelProps = {
@@ -14,17 +17,23 @@ type OwnerPaidBookingsPanelProps = {
 
 export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPanelProps) {
   const [bookings, setBookings] = useState<OwnerPaidBookingSummary[]>([]);
+  const [pending, setPending] = useState<OwnerPendingCheckoutSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [busyRef, setBusyRef] = useState("");
+  const [recovering, setRecovering] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
-      const next = await fetchOwnerPaidBookings(ownerKey, { days: 30, limit: 50 });
-      setBookings(next);
+      const [nextBookings, nextPending] = await Promise.all([
+        fetchOwnerPaidBookings(ownerKey, { days: 30, limit: 50 }),
+        fetchOwnerPendingCheckouts(ownerKey, { limit: 40 }).catch(() => [] as OwnerPendingCheckoutSummary[]),
+      ]);
+      setBookings(nextBookings);
+      setPending(nextPending);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load paid bookings");
     } finally {
@@ -57,7 +66,40 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
     }
   }
 
+  async function handleRecover(checkoutId?: string) {
+    setRecovering(true);
+    setError("");
+    setMessage("");
+    try {
+      const result = await finalizePaidCheckoutRecovery(ownerKey, {
+        checkoutId,
+        preferTestOnePound: true,
+      });
+      const primary = result.primary ?? result;
+      if (!result.ok && !primary.ok) {
+        throw new Error(primary.error || result.message || "Recovery did not complete");
+      }
+      setMessage(
+        [
+          result.message || `Recovery ${primary.action ?? "done"}`,
+          primary.paymentReference ? `ref ${primary.paymentReference}` : "",
+          primary.customerEmailSent ? "customer email ok" : "customer email not sent",
+          primary.ownerEmailSent ? "bookings@ ok" : "bookings@ not sent",
+          primary.calendarLogged ? "calendar ok" : "calendar not logged",
+        ]
+          .filter(Boolean)
+          .join(" · "),
+      );
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not recover paid checkout");
+    } finally {
+      setRecovering(false);
+    }
+  }
+
   const latestPaid = bookings.find((booking) => booking.status !== "refunded") ?? null;
+  const needsFinalize = pending.filter((item) => item.needsFinalize);
 
   return (
     <section className="mb-10 rounded-2xl border border-sky-400/25 bg-sky-500/5 p-5 sm:p-6">
@@ -69,7 +111,8 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
           <h2 className="mt-1 text-xl font-bold text-white">Paid bookings (SumUp)</h2>
           <p className="mt-2 max-w-2xl text-sm text-white/65">
             Customers who pay on the website appear here automatically. Use Resend booking
-            confirmation if they did not get the invoice email.
+            confirmation if they did not get the invoice email. Recover finalizes a SumUp PAID
+            checkout that never completed email/calendar (no new charge).
           </p>
         </div>
         <button
@@ -80,6 +123,38 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
           Refresh
         </button>
       </div>
+
+      {needsFinalize.length > 0 ? (
+        <div className="mt-5 rounded-xl border border-amber-400/35 bg-amber-500/10 p-4">
+          <p className="text-sm text-white/85">
+            {needsFinalize.length} SumUp PAID checkout
+            {needsFinalize.length === 1 ? "" : "s"} waiting to finalize (email/calendar).
+          </p>
+          <ul className="mt-3 space-y-2 text-sm text-white/70">
+            {needsFinalize.slice(0, 5).map((item) => (
+              <li key={item.checkoutId}>
+                £{item.amount.toFixed(2)} · {item.customerName} · {item.customerEmail}
+                <button
+                  type="button"
+                  disabled={recovering}
+                  onClick={() => void handleRecover(item.checkoutId)}
+                  className="ml-2 text-emerald underline disabled:opacity-60"
+                >
+                  Finalize
+                </button>
+              </li>
+            ))}
+          </ul>
+          <button
+            type="button"
+            disabled={recovering}
+            onClick={() => void handleRecover()}
+            className="mt-3 w-full rounded-xl bg-amber-300 px-4 py-3 text-sm font-bold text-navy transition-colors hover:bg-amber-200 disabled:opacity-60 sm:w-auto"
+          >
+            {recovering ? "Recovering…" : "Recover PAID checkouts (no new charge)"}
+          </button>
+        </div>
+      ) : null}
 
       {latestPaid ? (
         <div className="mt-5 rounded-xl border border-emerald/35 bg-emerald/10 p-4">
@@ -116,7 +191,8 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
         <p className="mt-6 text-sm text-white/60">Loading paid bookings…</p>
       ) : bookings.length === 0 ? (
         <p className="mt-6 text-sm text-white/60">
-          No website card payments found in the last 30 days. If a customer just paid, tap Refresh.
+          No website card payments found in the last 30 days. If a customer just paid, tap Refresh
+          or use Recover if SumUp shows PAID.
         </p>
       ) : (
         <ul className="mt-6 space-y-4">

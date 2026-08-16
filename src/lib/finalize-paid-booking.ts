@@ -68,22 +68,23 @@ export async function finalizePaidBookingFromUrl(
     };
   }
 
-  if (!checkoutId || !pending?.booking) {
+  if (!checkoutId) {
     return {
       status: "missing",
       summary:
         "If you just paid, check your email for confirmation. You can also email us with your booking details.",
-      checkoutId: checkoutId || undefined,
     };
   }
 
-  const booking: BookingDetails = pending.booking;
+  // Prefer browser-stored booking, but server KV pending-checkout is enough
+  // when the customer returns without localStorage (new device / cleared storage).
+  const booking: BookingDetails | null = pending?.booking ?? null;
 
   for (let attempt = 0; attempt < PAYMENT_CONFIRM_MAX_ATTEMPTS; attempt += 1) {
     try {
       let result = await confirmPaidBooking(checkoutId, booking);
 
-      if (result.customerEmailSent !== true || result.ownerEmailSent !== true) {
+      if (booking && (result.customerEmailSent !== true || result.ownerEmailSent !== true)) {
         try {
           const fallback = await sendPaidBookingEmailsFromBrowser(booking, result);
           result = {
@@ -99,7 +100,10 @@ export async function finalizePaidBookingFromUrl(
         }
       }
 
-      const summary = buildPaymentConfirmationSummary(result, booking.customerEmail);
+      const summary = buildPaymentConfirmationSummary(
+        result,
+        booking?.customerEmail || "your email",
+      );
       markPaymentConfirmed(checkoutId, summary, returnToken || undefined, result);
 
       if (paymentNeedsFollowUp(result) && attempt < PAYMENT_CONFIRM_MAX_ATTEMPTS - 1) {

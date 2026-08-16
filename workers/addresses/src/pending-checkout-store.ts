@@ -80,3 +80,31 @@ export async function patchPendingCheckout(
   await savePendingCheckout(store, updated);
   return updated;
 }
+
+/**
+ * Scan recent pending checkouts (newest-first). Used for owner recovery and cron
+ * finalize of SumUp PAID checkouts that never completed email/calendar.
+ */
+export async function listRecentPendingCheckouts(
+  store: KVNamespace,
+  options?: { limit?: number },
+): Promise<PendingCheckoutRecord[]> {
+  const limit = Math.min(Math.max(options?.limit ?? 50, 1), 200);
+  const records: PendingCheckoutRecord[] = [];
+  let cursor: string | undefined;
+
+  do {
+    const page = await store.list({ prefix: "pending-checkout:", cursor, limit: 100 });
+    for (const key of page.keys) {
+      const checkoutId = key.name.replace(/^pending-checkout:/, "").trim();
+      if (!checkoutId) continue;
+      const record = await getPendingCheckout(store, checkoutId);
+      if (record) records.push(record);
+    }
+    cursor = page.list_complete ? undefined : page.cursor;
+  } while (cursor && records.length < limit * 2);
+
+  return records
+    .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))
+    .slice(0, limit);
+}
