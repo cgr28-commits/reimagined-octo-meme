@@ -137,7 +137,7 @@ async function main() {
     assert.match(text, /up to 5–7 passengers|up to 7 passengers/i);
     assert.match(text, /1–4 passengers/i);
     assert.match(text, /5–7 passengers/i);
-    assert.match(text, /tailored larger-vehicle quote/i);
+    assert.match(text, /tailored minibus quote/i);
     assert.match(text, /more than 24 hours/i);
     assert.equal(/5\+|5 or more|5–8|up to 8|larger groups can still|8 passengers|8\+/i.test(text), false);
   });

@@ -359,7 +359,7 @@ export const WHY_CHOOSE_US = [
   {
     title: "1–4 or 5–7 made simple",
     description:
-      "1–4 passengers get an instant fixed quote online where eligible. 5–7 passengers receive a tailored larger-vehicle quote through licensed transport partners. We do not offer journeys for more than 7 passengers.",
+      "1–4 passengers get an instant fixed quote online where eligible. 5–7 passengers receive a tailored minibus quote through licensed transport partners. We do not offer journeys for more than 7 passengers.",
   },
 ] as const;
 
@@ -428,7 +428,7 @@ export const FAQS = [
   {
     question: "How many passengers can I book for?",
     answer:
-      "Our online service accommodates up to 7 passengers. Journeys for 1–4 passengers can receive an instant fixed quote where eligible. For 5–7 passengers, we’ll provide a tailored larger-vehicle quote.",
+      "Our online service accommodates up to 7 passengers. Journeys for 1–4 passengers can receive an instant fixed quote where eligible. For 5–7 passengers, we’ll provide a tailored minibus quote (Minibus — 5–7 passengers).",
   },
   {
     question: "Are tolls included?",
@@ -509,10 +509,10 @@ export const VEHICLE_FLEET = [
     partnerOperated: false,
   },
   {
-    name: "Larger vehicle / group transfer",
+    name: "Minibus — 5–7 passengers",
     capacity: "5–7 passengers",
     description:
-      "For groups of 5–7 passengers, we can arrange a suitable larger vehicle through a licensed transport partner. Request a tailored quote for your journey.",
+      "For groups of 5–7 passengers, we can arrange a suitable minibus through a licensed transport partner. Request a tailored quote for your journey. We do not offer journeys for more than 7 passengers.",
     enquiryOnly: true,
     requestQuote: true,
     partnerOperated: true,
@@ -549,12 +549,12 @@ export const INSTANT_PAY_VEHICLE_TYPES: readonly VehicleType[] = [
 ];
 
 export const MINIBUS_PARTNER_NOTE =
-  "For groups of 5–7 passengers, we can arrange a suitable larger vehicle through a licensed transport partner — request a tailored quote (no instant online fare).";
+  "For groups of 5–7 passengers, we can arrange a suitable minibus through a licensed transport partner — request a tailored quote (no instant online fare). Maximum 7 passengers.";
 
 /** Short guidance kept for ops/docs — not shown in the public quote UI. */
 export const VEHICLE_BOOKING_GUIDANCE = [
   "1–4 passengers: instant quote where eligible. Pay online by card to confirm.",
-  "5–7 passengers: tailored larger-vehicle quote via a licensed transport partner — not instant confirmation. Maximum 7 passengers.",
+  "5–7 passengers: tailored minibus quote via a licensed transport partner — not instant confirmation. Maximum 7 passengers.",
 ] as const;
 
 /** Legacy hook retained for quote form — capacity above 7 is blocked elsewhere. */

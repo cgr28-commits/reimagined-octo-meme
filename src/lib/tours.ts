@@ -26,8 +26,8 @@ export const TOURS: readonly Tour[] = [
     description:
       "We take you to the UNESCO World Heritage Giant's Causeway with a private driver who knows the best viewpoints, quieter stops, and photo spots along the Causeway Coast. We tailor the route to your pace — whether you want the full coastal experience or a focused visit to the stones and nearby attractions.",
     duration: "Full day (~8 hours)",
-    price: "From £280",
-    priceNote: "Based on estate car from Belfast. Larger vehicle options available for 5–7 passengers via licensed transport partners.",
+    price: "Get a quote",
+    priceNote: "Based on estate car from Belfast. Minibus options available for 5–7 passengers via licensed transport partners.",
     highlights: [
       "Giant's Causeway UNESCO World Heritage Site",
       "Carrick-a-Rede Rope Bridge (seasonal access)",
@@ -49,7 +49,7 @@ export const TOURS: readonly Tour[] = [
     description:
       "See Belfast at your own pace with a private driver. From the Titanic Quarter and Cathedral Quarter to political murals and panoramic viewpoints, we take you where you want to go — history, architecture, food stops, or a bit of everything.",
     duration: "Half day (~4 hours)",
-    price: "From £160",
+    price: "Get a quote",
     priceNote: "Ideal for cruise passengers, day visitors, or pre-flight day trips.",
     highlights: [
       "Titanic Belfast and Titanic Quarter",
@@ -72,7 +72,7 @@ export const TOURS: readonly Tour[] = [
     description:
       "Northern Ireland served as the backdrop for much of Game of Thrones. We take you to the most recognisable filming locations with a driver who knows the routes to each stop. Perfect for fans who want to see multiple sites in one comfortable day.",
     duration: "Full day (~8 hours)",
-    price: "From £280",
+    price: "Get a quote",
     priceNote: "Route can be customised to focus on your favourite locations.",
     highlights: [
       "Dark Hedges avenue",
@@ -95,7 +95,7 @@ export const TOURS: readonly Tour[] = [
     description:
       "The Antrim Coast Road is one of the finest scenic drives in the UK. Enjoy a leisurely private chauffeur trip through seaside towns, glens, and cliff-top lookouts without the stress of navigating narrow roads or finding parking. We can include Glenariff Forest Park, Cushendall, and Ballycastle depending on your time.",
     duration: "Half to full day (~5–8 hours)",
-    price: "From £280",
+    price: "Get a quote",
     priceNote: "Duration and price depend on how far along the coast you wish to travel.",
     highlights: [
       "Glens of Antrim coastal route",
@@ -118,7 +118,7 @@ export const TOURS: readonly Tour[] = [
     description:
       "The Mourne Mountains inspired C.S. Lewis and offer some of Northern Ireland's most striking landscapes. Our private day trip combines mountain scenery with charming coastal villages, Silent Valley Reservoir, and the seaside town of Newcastle — all at a pace that suits you.",
     duration: "Full day (~8 hours)",
-    price: "From £280",
+    price: "Get a quote",
     priceNote: "Includes mountain viewpoints and coastal stops. Hiking time can be built in on request.",
     highlights: [
       "Mourne mountain scenic viewpoints",
@@ -141,7 +141,7 @@ export const TOURS: readonly Tour[] = [
     description:
       "Derry/Londonderry is one of Europe's finest walled cities. We take you to the 17th-century walls, the Peace Bridge, Bogside murals, and the Guildhall — with your driver on hand for pickups between sites throughout the day.",
     duration: "Full day (~7 hours)",
-    price: "From £280",
+    price: "Get a quote",
     priceNote: "Includes Belfast–Derry transfer time. Shorter city-only trips available on request.",
     highlights: [
       "Historic city walls walk",

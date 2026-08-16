@@ -102,8 +102,8 @@ export default function EmergeBelfastPageClient() {
           </p>
           <p className="mt-4 text-base leading-relaxed text-white/70 sm:text-lg">
             {SITE.name} provides pre-booked transfers from Belfast International Airport, Belfast
-            City Airport, Dublin Airport, Belfast hotels and home addresses. One-way and return
-            journeys are available, subject to booking availability.
+            City Airport, City of Derry Airport, Dublin Airport, Belfast hotels and home addresses.
+            One-way and return journeys are available, subject to booking availability.
           </p>
         </div>
       </section>

@@ -134,7 +134,7 @@ const SELECTOR_MAX_PASSENGERS = FIVE_PLUS_PASSENGERS;
 const SELECTOR_MAX_SUITCASES = FIVE_PLUS_SUITCASES;
 
 const CAPACITY_WHATSAPP_MESSAGE =
-  "Hi, I need a tailored quote for a larger vehicle / group transfer (5–7 passengers or extra luggage).";
+  "Hi, I need a tailored quote for a minibus (5–7 passengers or extra luggage).";
 
 type VehicleType = (typeof VEHICLE_TYPES)[number];
 
@@ -1276,7 +1276,7 @@ function QuoteCard({
 
   function buildBookingDetails(): BookingDetails {
     const tripLabel = exceedsOnlineCapacity
-      ? "Larger vehicle / 5–7 passenger quote request"
+      ? "Minibus — 5–7 passenger quote request"
       : isOutOfAreaPickupJourney
       ? "Out-of-area pickup — manual quote request"
       : isRoiJourney
@@ -1483,7 +1483,7 @@ function QuoteCard({
           ? buildGroupQuoteRequestMessage(details)
           : buildEnquiryBookingMessage(details);
         const subject = exceedsOnlineCapacity
-          ? `5–7 PASSENGER / LARGER VEHICLE QUOTE REQUEST — ${details.customerName}`
+          ? `5–7 PASSENGER / MINIBUS QUOTE REQUEST — ${details.customerName}`
           : pricingConfirmationRequired
           ? `Price confirmation request — ${details.customerName}`
           : isOutOfAreaPickupJourney
@@ -1659,7 +1659,7 @@ function QuoteCard({
       : "Sending booking…";
 
   const confirmButtonLabel = exceedsOnlineCapacity
-    ? "Request Larger Vehicle Quote"
+    ? "Request Minibus Quote"
     : showsRequestQuoteFlow
     ? pricingConfirmationRequired || isManualQuoteJourney
       ? "Request Fixed Quote"
@@ -1673,7 +1673,7 @@ function QuoteCard({
         : "Confirm & book";
 
   const whatsAppConfirmLabel = exceedsOnlineCapacity
-    ? "Request Larger Vehicle Quote via WhatsApp"
+    ? "Request Minibus Quote via WhatsApp"
     : showsRequestQuoteFlow
     ? pricingConfirmationRequired || isManualQuoteJourney
       ? "Request Fixed Quote via WhatsApp"
@@ -1687,7 +1687,7 @@ function QuoteCard({
         : "Confirm & send via WhatsApp";
 
   const quoteHint = exceedsOnlineCapacity
-    ? "This party size needs a tailored larger-vehicle quote — we don’t show an automatic online fare."
+    ? "This party size needs a tailored minibus quote — we don’t show an automatic online fare."
     : pricingConfirmationRequired
     ? hasQuoteRoute
       ? "Continue to request your price — we’ll confirm the fare before payment."
@@ -1798,13 +1798,13 @@ function QuoteCard({
           ) : null}
           <p className="mx-auto mt-4 max-w-md text-sm leading-relaxed text-white/80 sm:text-base">
             {exceedsOnlineCapacity
-              ? "We’ve received your journey details for a larger vehicle / group transfer. This is a quote request only — a tailored fixed price will be provided shortly. Nothing is confirmed until you accept the quote."
+              ? "We’ve received your journey details for a minibus (5–7 passengers). This is a quote request only — a tailored fixed price will be provided shortly. Nothing is confirmed until you accept the quote."
               : showsRequestQuoteFlow
               ? isOutOfAreaPickupJourney
                 ? "We’ve received your out-of-area pickup request. We’ll review it manually, confirm availability, and send your personal fixed quote shortly. No payment is taken until the fare is confirmed."
                 : isRoiJourney
                   ? "We’ve received your Republic of Ireland long-distance transfer request. We’ll confirm your fixed price and send your personal quote shortly."
-                  : "We’ve received your larger vehicle quote request. These transfers are subject to partner availability — we’ll confirm capacity and send your personal quote shortly."
+                  : "We’ve received your minibus quote request. These transfers are subject to partner availability — we’ll confirm capacity and send your personal quote shortly."
               : isEnquiryOnly
                 ? "We’ve received your enquiry. We’ll confirm availability and send your personal quote shortly. When you’re ready to book, we’ll send a SumUp payment link — your trip is confirmed after payment."
                 : "We’ve received your booking request. If you paid online with SumUp, your booking is confirmed. Otherwise we’ll confirm the job and email a SumUp payment link — your trip is confirmed after payment."}
@@ -2299,8 +2299,8 @@ function QuoteCard({
             </p>
             {exceedsOnlineCapacity ? (
               <p className="mt-2 text-xs leading-relaxed text-white/70">
-                A larger vehicle is required for this party size. We don&apos;t show an automatic
-                online fare — request a tailored group transfer quote via WhatsApp.
+                A minibus is required for this party size (Minibus — 5–7 passengers). We don&apos;t
+                show an automatic online fare — request a tailored quote via WhatsApp.
               </p>
             ) : quoteVehicle === ESTATE ? (
               <p className="mt-2 text-xs leading-relaxed text-white/70">
@@ -2326,7 +2326,7 @@ function QuoteCard({
               >
                 Message us on WhatsApp
               </a>{" "}
-              for a tailored group transfer quote.
+              for a tailored minibus quote.
             </p>
           ) : (
             <p className="text-xs leading-relaxed text-white/55">
@@ -2603,7 +2603,7 @@ function QuoteCard({
                 Tailored Quote Required
               </p>
               <p className="mt-1 text-xl font-semibold tracking-tight text-white sm:text-2xl">
-                Larger vehicle / group transfer
+                Minibus — 5–7 passengers
               </p>
               <div className="mt-3 space-y-1 text-sm text-white/80">
                 <p>
@@ -2633,8 +2633,9 @@ function QuoteCard({
               </div>
               <p className="mt-3 text-xs leading-relaxed text-white/65">
                 We don&apos;t show an automatic online fare for 5–7 passengers. Continue to request a
-                tailored fixed-price quote — any applicable airport access fees and tolls will be
-                included in that quote.
+                tailored fixed-price quote. Your quote will list only the inclusions that apply to
+                your journey — express airport fees where relevant, and Dublin tolls only where they
+                apply.
               </p>
               <p className="mt-3 text-xs leading-relaxed text-white/55">
                 Prefer WhatsApp?{" "}
@@ -2644,7 +2645,7 @@ function QuoteCard({
                   rel="noopener noreferrer"
                   className="font-semibold text-emerald underline-offset-2 hover:underline"
                 >
-                  Message us for a larger vehicle quote
+                  Message us for a minibus quote
                 </a>
               </p>
             </>

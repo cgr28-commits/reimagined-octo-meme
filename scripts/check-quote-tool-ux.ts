@@ -59,13 +59,14 @@ check("Passenger and luggage use selectable buttons", () => {
 
 check("5–7 path requests tailored quote without inventing a fare", () => {
   assert.match(progressive, /Travelling with 5–7 passengers\?/);
-  assert.match(progressive, /suitable larger vehicle/);
+  assert.match(progressive, /suitable minibus/);
+  assert.match(progressive, /Minibus — 5–7 passengers/);
   assert.match(progressive, /Request|tailored fixed-price quote/i);
   assert.match(card, /Tailored Quote Required/);
-  assert.match(card, /Request Larger Vehicle Quote/);
+  assert.match(card, /Request Minibus Quote/);
   assert.match(card, /Continue to request quote/);
   assert.doesNotMatch(card, /disabled=\{\s*submitted \|\|\s*exceedsOnlineCapacity/);
-  assert.match(bookingMessage, /5–7 PASSENGER \/ LARGER VEHICLE QUOTE REQUEST/);
+  assert.match(bookingMessage, /5–7 PASSENGER \/ MINIBUS QUOTE REQUEST/);
   assert.match(bookingMessage, /Quote Request Received/);
   assert.match(inclusions, /GROUP_QUOTE_FEE_NOTE/);
   assert.doesNotMatch(progressive, /10\+|up to 8|5 or more passengers/);

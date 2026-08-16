@@ -20,7 +20,7 @@ export default function Footer() {
             <Logo className="h-16" />
             <p className="mt-4 max-w-xs text-sm leading-relaxed text-white/50">
               Professional airport transfers across Northern Ireland and beyond. Clear fixed
-              prices and 24/7 availability — get your fixed price instantly.
+              prices and 24/7 availability.
             </p>
           </div>
 

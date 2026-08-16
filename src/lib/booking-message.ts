@@ -140,7 +140,7 @@ export function buildEnquiryBookingMessage(
 }
 
 /**
- * Business-facing 5–7 / larger-vehicle quote request.
+ * Business-facing 5–7 / minibus quote request.
  * Scannable on mobile — no invented price, no false "fee included" claims.
  */
 export function buildGroupQuoteRequestMessage(
@@ -153,7 +153,7 @@ export function buildGroupQuoteRequestMessage(
     : "Non-airport pickup waiting policy: up to 10 minutes complimentary waiting time from the agreed pickup time.";
 
   return (
-    `5–7 PASSENGER / LARGER VEHICLE QUOTE REQUEST\n` +
+    `5–7 PASSENGER / MINIBUS QUOTE REQUEST\n` +
     `${"=".repeat(36)}\n` +
     (reference ? `Reference: ${reference}\n` : "") +
     `Passengers: ${details.passengers}\n` +
@@ -175,12 +175,12 @@ export function buildGroupQuoteRequestMessage(
     `Mobile: ${details.mobileNumber}\n` +
     `Email: ${details.customerEmail}\n` +
     `\n${waitingNote}\n` +
-    `Note: Any applicable airport access fees and tolls will be included in the tailored quote.\n` +
+    `Note: Tailored quote will list only journey-specific inclusions (express airport fees where relevant; Dublin tolls only where they apply).\n` +
     `Submitted: ${formatUkSubmissionTime()}\n` +
     `\n--- Customer copy ---\n` +
     `Quote Request Received\n\n` +
     `Dear ${details.customerName},\n\n` +
-    `Thank you — we’ve received your journey details for a larger vehicle transfer (${details.passengers} passengers).\n` +
+    `Thank you — we’ve received your journey details for a minibus transfer (${details.passengers} passengers).\n` +
     `This is a quote request only. A tailored fixed price will be provided shortly. ` +
     `Nothing is confirmed until you accept the quote.\n\n` +
     `Pickup: ${details.pickupLabel}\n` +
