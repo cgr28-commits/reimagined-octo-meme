@@ -60,6 +60,17 @@ export const QUICK_SELECT_AIRPORTS = [
     postalCode: "BT3 9JH",
   },
   {
+    code: "LDY",
+    label: "City of Derry Airport",
+    /** Stable quick-select ID — detection also matches “City of Derry Airport” text patterns. */
+    placeId: "quickselect-ldy-city-of-derry-airport",
+    formattedAddress: "City of Derry Airport, Airport Road, Eglinton BT47 3GY, UK",
+    lat: 55.0428,
+    lng: -7.1611,
+    countryCode: "GB",
+    postalCode: "BT47 3GY",
+  },
+  {
     code: "DUB",
     label: "Dublin Airport",
     placeId: "ChIJUU1_1pJZZ0gR3vQvL7Gqj0U",

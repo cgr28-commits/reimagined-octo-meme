@@ -127,10 +127,10 @@ async function main() {
     assert.equal(/people carrier/i.test(joined), false);
   });
 
-  await check("FAQs retain partner minibus for 5–8 and 24h cancel", () => {
+  await check("FAQs retain partner larger-vehicle wording for 5+ and 24h cancel", () => {
     const text = FAQS.map((f) => `${f.question} ${f.answer}`).join("\n");
     assert.match(text, /transport partners?/i);
-    assert.match(text, /5–8 passengers/i);
+    assert.match(text, /5\+|5 or more/i);
     assert.match(text, /more than 24 hours/i);
   });
 

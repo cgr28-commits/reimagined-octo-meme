@@ -26,8 +26,8 @@ export default function Footer() {
           <div className="sm:col-span-2 lg:col-span-1">
             <Logo className="h-16" />
             <p className="mt-4 max-w-xs text-sm leading-relaxed text-white/50">
-              Northern Ireland&apos;s trusted airport transfer service. Professional
-              drivers, {priceBlurb}, and 24/7 availability.
+              Professional airport transfers across Northern Ireland and beyond. Clear fixed
+              prices, {priceBlurb}, and 24/7 availability.
             </p>
           </div>
 

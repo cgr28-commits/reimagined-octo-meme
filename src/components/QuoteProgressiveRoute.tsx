@@ -8,6 +8,7 @@ import {
   type CustomerAirportCode,
   type QuoteJourneyIntent,
 } from "@/lib/quote-journey-intent";
+import { SERVICE_FLAGS } from "@/lib/data";
 import {
   AIRPORT_FLIGHT_MONITORING_COPY,
   AIRPORT_PICKUP_WAITING_COPY,
@@ -20,6 +21,10 @@ import {
   formatPassengerChoice,
 } from "@/lib/vehicle-selection";
 import type { QuickSelectAirportCode } from "@/lib/selected-place";
+
+const SELECTABLE_AIRPORTS = CUSTOMER_AIRPORTS.filter(
+  (airport) => SERVICE_FLAGS.belfastCityAirport || airport.code !== "BHD",
+);
 
 const SELECT_CARD =
   "flex min-h-[4.5rem] flex-col items-start justify-center rounded-2xl border px-4 py-3 text-left transition-all";
@@ -99,6 +104,8 @@ export type QuoteProgressiveRouteProps = {
   onChildSeatsChange: (value: number) => void;
   childSeatNotes: string;
   onChildSeatNotesChange: (value: string) => void;
+  flightNumber?: string;
+  onFlightNumberChange?: (value: string) => void;
   isGroupQuote: boolean;
   showRouteFields: boolean;
   showPartyFields: boolean;
@@ -131,6 +138,8 @@ export default function QuoteProgressiveRoute({
   onChildSeatsChange,
   childSeatNotes,
   onChildSeatNotesChange,
+  flightNumber = "",
+  onFlightNumberChange,
   isGroupQuote,
   showRouteFields,
   showPartyFields,
@@ -179,7 +188,7 @@ export default function QuoteProgressiveRoute({
             Which airport?
           </p>
           <div className="grid gap-2" role="group" aria-label="Airport">
-            {CUSTOMER_AIRPORTS.map((airport) => {
+            {SELECTABLE_AIRPORTS.map((airport) => {
               const selected = selectedAirportCode === airport.code;
               return (
                 <button
@@ -196,6 +205,11 @@ export default function QuoteProgressiveRoute({
           </div>
           {!airportChosen && (
             <p className="text-xs text-amber-200/90">Please choose an airport.</p>
+          )}
+          {selectedAirportCode === "LDY" && (
+            <p className="rounded-xl border border-white/10 bg-navy-dark/40 px-3 py-2 text-xs text-white/70">
+              City of Derry Airport transfers are between LDY and the greater Belfast area.
+            </p>
           )}
         </div>
       )}
@@ -238,7 +252,7 @@ export default function QuoteProgressiveRoute({
             <p className="rounded-xl border border-white/10 bg-navy-dark/40 px-3 py-2 text-xs text-white/70">
               Destination:{" "}
               <strong className="text-white">
-                {CUSTOMER_AIRPORTS.find((a) => a.code === selectedAirportCode)?.title}
+                {SELECTABLE_AIRPORTS.find((a) => a.code === selectedAirportCode)?.title}
               </strong>
             </p>
           )}
@@ -246,9 +260,31 @@ export default function QuoteProgressiveRoute({
             <p className="rounded-xl border border-white/10 bg-navy-dark/40 px-3 py-2 text-xs text-white/70">
               Pickup:{" "}
               <strong className="text-white">
-                {CUSTOMER_AIRPORTS.find((a) => a.code === selectedAirportCode)?.title}
+                {SELECTABLE_AIRPORTS.find((a) => a.code === selectedAirportCode)?.title}
               </strong>
             </p>
+          )}
+          {journeyIntent === "from-airport" && airportChosen && onFlightNumberChange && (
+            <div>
+              <label
+                htmlFor="progressive-flight-number"
+                className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/70"
+              >
+                Flight number <span className="font-normal text-white/45">(optional)</span>
+              </label>
+              <input
+                id="progressive-flight-number"
+                type="text"
+                inputMode="text"
+                autoCapitalize="characters"
+                autoComplete="off"
+                value={flightNumber}
+                onChange={(e) => onFlightNumberChange(e.target.value.toUpperCase())}
+                placeholder="e.g. EI304"
+                className="w-full rounded-xl border border-white/25 bg-navy-dark px-4 py-3 text-sm text-white placeholder:text-white/45 outline-none focus:border-emerald focus:ring-2 focus:ring-emerald/25"
+              />
+              <p className="mt-1.5 text-xs text-white/55">{AIRPORT_FLIGHT_MONITORING_COPY}</p>
+            </div>
           )}
         </div>
       )}

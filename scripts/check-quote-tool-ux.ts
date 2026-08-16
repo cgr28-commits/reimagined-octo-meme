@@ -24,6 +24,7 @@ function check(label: string, fn: () => void) {
 const card = read("src/components/QuoteCard.tsx");
 const progressive = read("src/components/QuoteProgressiveRoute.tsx");
 const intent = read("src/lib/quote-journey-intent.ts");
+const selectedPlace = read("src/lib/selected-place.ts");
 const bookingMessage = read("src/lib/booking-message.ts");
 const inclusions = read("shared/journey-inclusions.ts");
 
@@ -34,11 +35,18 @@ check("Journey intent options include three large choices", () => {
   assert.match(progressive, /Where are you travelling\?/);
 });
 
-check("Airport picker lists BFS / BHD / DUB without typing", () => {
+check("Airport picker lists BFS / BHD / LDY / DUB without typing", () => {
   assert.match(intent, /Belfast International Airport/);
   assert.match(intent, /Belfast City Airport/);
+  assert.match(intent, /City of Derry Airport/);
   assert.match(intent, /Dublin Airport/);
   assert.match(progressive, /Which airport\?/);
+  assert.match(selectedPlace, /code: "LDY"/);
+});
+
+check("City of Derry quick-select does not use Dublin toll logic", () => {
+  assert.match(inclusions, /=== "DUB"/);
+  assert.doesNotMatch(inclusions, /LDY.*toll|toll.*LDY/i);
 });
 
 check("Passenger and luggage use selectable buttons", () => {

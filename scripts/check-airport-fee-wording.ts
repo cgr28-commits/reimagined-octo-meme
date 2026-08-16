@@ -57,6 +57,19 @@ check("Dublin Airport drop-off includes tolls + drop-off (no waiting)", () => {
   assert.ok(!inc.bullets.some((b) => /pickup fee/i.test(b)));
 });
 
+check("City of Derry Airport uses express fees but never Dublin tolls", () => {
+  const pickup = getAirportTripInclusions({ isFromAirport: true, airportCode: "LDY" });
+  assert.ok(pickup.bullets.some((b) => /Express pickup fee included/.test(b)));
+  assert.ok(pickup.bullets.some((b) => /60 minutes/.test(b)));
+  assert.ok(!pickup.bullets.some((b) => /toll/i.test(b)));
+  assert.equal(pickup.mentionsTolls, false);
+
+  const dropoff = getAirportTripInclusions({ isFromAirport: false, airportCode: "LDY" });
+  assert.ok(dropoff.bullets.some((b) => /Express drop-off fee included/.test(b)));
+  assert.ok(!dropoff.bullets.some((b) => /toll/i.test(b)));
+  assert.equal(dropoff.mentionsTolls, false);
+});
+
 check("Address-to-address: fixed price + 10 min waiting, no airport fees/tolls", () => {
   const inc = getAddressToAddressInclusions();
   assert.equal(inc.summary, "Fixed price for your journey.");

@@ -9,7 +9,7 @@ import AdsAttributionCapture from "@/components/AdsAttributionCapture";
 import QuoteAssistant from "@/components/QuoteAssistant";
 import SiteOfflineGate from "@/components/SiteOfflineGate";
 import WhatsAppButton from "@/components/WhatsAppButton";
-import { LOWEST_AIRPORT_FROM_PRICE, SERVICE_FLAGS, SITE, SITE_OFFLINE } from "@/lib/data";
+import { SERVICE_FLAGS, SITE, SITE_OFFLINE } from "@/lib/data";
 import {
   arePublicLivePricesEnabled,
   getPublicUnapprovedPriceLabel,
@@ -30,9 +30,9 @@ const description = offlineActive
   ? `${SITE.name} is temporarily offline. Call ${SITE.landlineDisplay} or WhatsApp @${SITE.whatsappUsername} for bookings.`
   : livePrices
     ? SERVICE_FLAGS.belfastCityAirport
-      ? `Airport transfers across Northern Ireland. From £${LOWEST_AIRPORT_FROM_PRICE} to Belfast City Airport and from £45 to Belfast International, plus Dublin and City of Derry. Flight tracking, meet & greet. Get a live quote online — pay by SumUp to confirm, or request to book.`
-      : "Airport transfers across Northern Ireland. Belfast International from £45, Dublin Airport, and City of Derry Airport. Flight tracking, meet & greet. Get a live quote online — pay by SumUp to confirm, or request to book."
-    : `Airport transfers across Northern Ireland to Belfast International, Belfast City, Dublin, and City of Derry. Flight tracking, meet & greet. ${getPublicUnapprovedPriceLabel()} — request a quote online.`;
+      ? `Airport transfers across Northern Ireland — Belfast International, Belfast City, City of Derry, and Dublin. Fixed prices, flight monitoring, and 60 minutes complimentary airport waiting. Get a fixed quote online.`
+      : "Airport transfers across Northern Ireland — Belfast International, City of Derry, and Dublin. Fixed prices, flight monitoring, and 60 minutes complimentary airport waiting. Get a fixed quote online."
+    : `Airport transfers across Northern Ireland to Belfast International, Belfast City, City of Derry, and Dublin. Flight monitoring and complimentary waiting where applicable. ${getPublicUnapprovedPriceLabel()} — request a quote online.`;
 
 const ogImage = {
   url: absoluteSiteUrl("/og-image-square.png"),

@@ -24,7 +24,7 @@ export default function AirportsSection() {
         <SectionHeading
           eyebrow="Destinations"
           title="Airports We Serve"
-          description="Professional transfers to every major airport — with live flight tracking, meet & greet, and complimentary waiting time included."
+          description="Transfers to Belfast International, Belfast City, City of Derry, and Dublin — with flight monitoring and complimentary waiting where it applies."
         />
 
         <div className="mt-14 grid gap-6 sm:grid-cols-2 xl:grid-cols-4">

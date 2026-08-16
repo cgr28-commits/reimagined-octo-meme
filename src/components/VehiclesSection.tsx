@@ -1,5 +1,4 @@
 import Image from "next/image";
-import { VEHICLE_FLEET } from "@/lib/data";
 import { withBasePath } from "@/lib/paths";
 import DeviceBookingCta from "./DeviceBookingCta";
 import SectionHeading from "./SectionHeading";
@@ -12,16 +11,16 @@ export default function VehiclesSection() {
       <div className="absolute inset-0 bg-gradient-to-b from-navy via-navy-light/15 to-navy" />
       <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <SectionHeading
-          eyebrow="Vehicles"
-          title="The right vehicle for every group"
-          description="1–4 passengers travel in a standard or estate car with an instant online price. For 5–8 passengers, minibus transfers are arranged through our licensed transport partners — subject to availability, with a request-a-quote booking."
+          eyebrow="Your journey"
+          title="Choose by passenger count"
+          description="The quote tool matches the right vehicle for your group. You don’t need to pick a fleet category first."
         />
 
         <div className="mt-12 grid items-center gap-10 lg:grid-cols-2 lg:gap-14">
           <div className="relative aspect-[16/10] overflow-hidden rounded-2xl border border-white/10 shadow-2xl shadow-black/30">
             <Image
               src={HERO_IMAGE}
-              alt="My Airport Taxi NI estate car with open boot and suitcases at Belfast International Airport"
+              alt="Estate car with open boot and suitcases ready for an airport transfer"
               fill
               className="object-cover"
               sizes="(max-width: 1024px) 100vw, 50vw"
@@ -30,44 +29,33 @@ export default function VehiclesSection() {
             <div className="absolute inset-0 bg-gradient-to-t from-navy/50 via-transparent to-transparent" />
           </div>
 
-          <div className="space-y-6">
-            <p className="text-base leading-relaxed text-white/70">
-              Our typical airport transfer vehicle is a modern estate car with a generous boot for
-              suitcases, pushchairs, and holiday gear — ideal for families and airport travel.
-            </p>
+          <div className="space-y-5">
+            <div className="rounded-2xl border border-emerald/30 bg-emerald/10 px-5 py-5">
+              <p className="text-xs font-semibold uppercase tracking-wider text-emerald">
+                1–4 passengers
+              </p>
+              <p className="mt-1 text-xl font-bold text-white">Instant Fixed Quote</p>
+              <p className="mt-2 text-sm leading-relaxed text-white/70">
+                Standard or estate car selected automatically from your passengers and luggage.
+                Pay securely online where an instant fare is shown.
+              </p>
+            </div>
 
-            <ul className="grid gap-4 sm:grid-cols-2">
-              {VEHICLE_FLEET.map((vehicle) => (
-                <li
-                  key={vehicle.name}
-                  className="rounded-xl border border-white/10 bg-white/[0.03] p-4 transition-colors hover:border-emerald/20"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <p className="font-semibold text-white">{vehicle.name}</p>
-                    {vehicle.requestQuote ? (
-                      <span className="shrink-0 rounded-md border border-emerald/30 bg-emerald/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-emerald">
-                        Request a quote
-                      </span>
-                    ) : vehicle.enquiryOnly ? (
-                      <span className="shrink-0 rounded-md border border-emerald/30 bg-emerald/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-emerald">
-                        Enquire
-                      </span>
-                    ) : (
-                      <span className="shrink-0 rounded-md border border-white/15 bg-white/5 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-white/70">
-                        Instant price
-                      </span>
-                    )}
-                  </div>
-                  <p className="mt-1 text-sm text-emerald">{vehicle.capacity}</p>
-                  <p className="mt-2 text-sm leading-relaxed text-white/60">{vehicle.description}</p>
-                </li>
-              ))}
-            </ul>
+            <div className="rounded-2xl border border-white/15 bg-white/[0.03] px-5 py-5">
+              <p className="text-xs font-semibold uppercase tracking-wider text-white/55">
+                5+ passengers
+              </p>
+              <p className="mt-1 text-xl font-bold text-white">Tailored Larger Vehicle Quote</p>
+              <p className="mt-2 text-sm leading-relaxed text-white/70">
+                We can arrange a suitable larger vehicle / group transfer through licensed transport
+                partners. Request a tailored fixed-price quote — no automatic online fare.
+              </p>
+            </div>
 
             <DeviceBookingCta
-              whatsappMessage="Hi, I'd like a quote for an airport transfer. Please advise the best vehicle for my group and luggage."
-              mobileLabel="Ask about vehicle options"
-              desktopLabel="Get a quote online"
+              whatsappMessage="Hi, I'd like a quote for an airport transfer."
+              mobileLabel="Get a quote on WhatsApp"
+              desktopLabel="Get a fixed quote"
               className="inline-flex items-center gap-2 rounded-full bg-emerald px-6 py-3 text-sm font-semibold text-navy transition-all hover:bg-emerald-light hover:shadow-lg hover:shadow-emerald/25"
             />
           </div>

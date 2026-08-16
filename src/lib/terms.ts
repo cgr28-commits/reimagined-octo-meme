@@ -29,7 +29,7 @@ export const TERMS_SECTIONS = [
     content: [
       "My Airport Taxi NI provides pre-booked private airport transfers throughout Greater Belfast and surrounding areas, including transfers to and from:",
       "We also provide pre-booked long-distance private transfers from Greater Belfast to destinations throughout Northern Ireland and the Republic of Ireland.",
-      "Standard pickups are from anywhere within Greater Belfast. Pre-booked airport pickups are also available from Belfast International Airport, Belfast City Airport and Dublin Airport.",
+      "Standard pickups are from anywhere within Greater Belfast. Pre-booked airport pickups are also available from Belfast International Airport, Belfast City Airport, City of Derry Airport and Dublin Airport.",
       "Pickups from elsewhere in Northern Ireland to a Greater Belfast destination receive a live online quote where route pricing is available. Other out-of-area pickups (for example outside Northern Ireland, or NI pickups to destinations outside Greater Belfast) require manual approval, do not receive an automatic online price, and cannot be paid for immediately online until we confirm a fixed quote.",
     ],
     list: [
@@ -83,11 +83,13 @@ export const TERMS_SECTIONS = [
     title: "Quotations & Fares",
     content: [
       "All quotations are based on the information supplied at the time of booking.",
+      "Where applicable, airport access charges and route tolls that form part of the quoted journey are included in the displayed fixed price.",
+      "Tolls are not implied for every booking — they are included only where they form part of the agreed route (for example certain Dublin Airport journeys).",
       "Prices may change if:",
     ],
     list: [
       "Pickup or destination changes.",
-      "Additional waiting time is incurred.",
+      "Additional waiting time is incurred beyond the complimentary allowance.",
       "Additional passengers or luggage are added.",
       "Extra stops are requested.",
     ],
@@ -115,14 +117,14 @@ export const TERMS_SECTIONS = [
       {
         subtitle: "Airport Collections",
         content: [
-          "We provide 60 minutes complimentary waiting time from the actual flight landing time.",
-          "Additional waiting time may be charged.",
+          "Airport pickups include up to 60 minutes complimentary waiting time from the actual flight landing time.",
+          "This is not unlimited waiting. Additional waiting time beyond the complimentary period may be charged.",
         ],
       },
       {
         subtitle: "All Other Collections",
         content: [
-          "We provide 10 minutes complimentary waiting time.",
+          "Pickups from non-airport locations include up to 10 minutes complimentary waiting time from the agreed pickup time.",
           "Waiting beyond this period may incur additional charges.",
         ],
       },
@@ -132,7 +134,8 @@ export const TERMS_SECTIONS = [
     title: "Flight Delays",
     content: [
       "We monitor flight arrivals where a valid flight number has been provided.",
-      "If your flight is delayed, we will adjust your collection time where reasonably possible.",
+      "If your flight is delayed or arrives early, we will adjust the planned collection time where reasonably possible.",
+      "Airport pickups include 60 minutes complimentary waiting time — this is not unlimited free waiting.",
       "If no flight number is supplied, we cannot guarantee delayed collection without additional charges.",
     ],
   },
