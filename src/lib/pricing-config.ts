@@ -10,6 +10,15 @@ export type DayRateBand = {
 };
 
 export type PricingConfig = {
+  pricingModel?: {
+    summary?: string;
+    addressToAddress?: string;
+    airport?: string;
+    dublinAirport?: string;
+    vehicles?: string;
+    returnDiscount?: string;
+    rounding?: string;
+  };
   pricingRulesApproved: boolean;
   publicUnapprovedPriceLabel: string;
   currency: string;
@@ -25,6 +34,15 @@ export type PricingConfig = {
   airportMinimumFaresGbp: Record<string, number>;
   airportBasePricesGbp: Record<AirportCode, number>;
   airportEstatePremiumGbp: number;
+  airportLongHaulEstatePremium?: {
+    enabled: boolean;
+    note?: string;
+    minSaloonFareGbp: number;
+    premiumGbp: number;
+    excludeAirports: AirportCode[];
+  };
+  /** At/above this loaded distance, airport quotes take max(zone, distance-band fare). */
+  airportRouteDistanceProtectFromKm?: number;
   airportExecutiveMinimumFareGbp: number;
   areaAirportSurchargesGbp: Record<string, Record<AirportCode, number>>;
   defaultAreaSurchargeGbp: Record<AirportCode, number>;
@@ -40,6 +58,24 @@ export type PricingConfig = {
     vehicleBaseGbp: Record<string, number>;
     undercutMinGbp: number;
     undercutMaxGbp: number;
+  };
+  addressToAddressDistanceBands?: {
+    enabled: boolean;
+    note?: string;
+    floorGbp: number;
+    bands: Array<{ upToKm: number; adjustmentGbp: number }>;
+  };
+  dublinCityBeyondAirport?: {
+    enabled: boolean;
+    note?: string;
+    airportLat: number;
+    airportLng: number;
+    geofenceRadiusKm: number;
+    referenceLoadedKmFromBelfastCentre: number;
+    referenceLoadedMinutesFromBelfastCentre: number;
+    perKmGbp: number;
+    perMinuteGbp: number;
+    minimumUpliftGbp: number;
   };
   returnJourneyDiscountRate: number;
   airportTripPremiumRate: number;

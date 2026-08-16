@@ -43,6 +43,7 @@ import {
 } from "@/lib/quote-prefill";
 import { readTestBookingPrefill } from "@/lib/test-booking";
 import {
+  calculateDublinCityBeyondAirportQuote,
   calculatePointToPointQuote,
   calculateQuote,
   formatQuote,
@@ -88,6 +89,8 @@ import {
   emptySelectedPlace,
   placeDisplayText,
   placesEqual,
+  isDublinCityCorridorJourney,
+  isDublinCityNotAirportPlace,
   isOutOfAreaPickup,
   isPlaceSelected,
   isRepublicOfIrelandJourney,
@@ -406,7 +409,13 @@ function QuoteCard({
     isA2AFlow &&
     isPlaceSelected(pickupPlace) &&
     isPlaceSelected(dropoffPlace) &&
-    isRepublicOfIrelandJourney(pickupPlace, dropoffPlace);
+    isRepublicOfIrelandJourney(pickupPlace, dropoffPlace) &&
+    !isDublinCityCorridorJourney(pickupPlace, dropoffPlace);
+  const isDublinCityCorridor =
+    isA2AFlow &&
+    isPlaceSelected(pickupPlace) &&
+    isPlaceSelected(dropoffPlace) &&
+    isDublinCityCorridorJourney(pickupPlace, dropoffPlace);
   const isManualQuoteJourney =
     isA2AFlow &&
     isPlaceSelected(pickupPlace) &&
@@ -727,6 +736,7 @@ function QuoteCard({
           quoteVehicle,
           returnJourney,
           schedule,
+          routeMetrics,
         );
       }
       if (journeyKind === "airport-to-address" && pickupAirportCode) {
@@ -736,10 +746,23 @@ function QuoteCard({
           quoteVehicle,
           returnJourney,
           schedule,
+          routeMetrics,
         );
       }
       if (!routeMetrics) {
         return null;
+      }
+      if (isDublinCityCorridor) {
+        const niAddress = isDublinCityNotAirportPlace(dropoffPlace)
+          ? pickupAddress
+          : dropoffAddress;
+        return calculateDublinCityBeyondAirportQuote(
+          niAddress,
+          quoteVehicle,
+          routeMetrics,
+          returnJourney,
+          schedule,
+        );
       }
       return calculatePointToPointQuote(
         pickupAddress,
@@ -752,7 +775,14 @@ function QuoteCard({
     }
 
     if (isAirportTrip) {
-      return calculateQuote(quoteAddress, airportCode, quoteVehicle, returnJourney, schedule);
+      return calculateQuote(
+        quoteAddress,
+        airportCode,
+        quoteVehicle,
+        returnJourney,
+        schedule,
+        routeMetrics,
+      );
     }
 
     if (!routeMetrics) {
@@ -774,12 +804,15 @@ function QuoteCard({
     dropoffAirportCode,
     isA2AFlow,
     isAirportTrip,
+    isDublinCityCorridor,
     isEnquiryOnly,
     isManualQuoteJourney,
     pricingConfirmationRequired,
     journeyKind,
     pickupAddress,
     pickupAirportCode,
+    pickupPlace,
+    dropoffPlace,
     showGuidePrice,
     quoteAddress,
     returnDate,
@@ -831,20 +864,30 @@ function QuoteCard({
   }
 
   function handlePickupPlaceSelect(place: SelectedPlace) {
-    const display = placeDisplayText(place);
     setPickupPlace(place);
-    setPickupAddress(display);
     setPickupPlaceError("");
+    // Typing clears placeId — address was already set via onChange; do not rewrite/trim
+    // the visible field (that was collapsing "24 Colinward" → "24Colinward").
+    if (!place.placeId?.trim()) {
+      return;
+    }
+    // Prefer exact display/formatted text — never trim here (trailing space after a
+    // house number must remain while the customer is still typing).
+    const display = place.displayAddress || place.formattedAddress || placeDisplayText(place);
+    setPickupAddress(display);
     if (display.trim()) {
       localStorage.setItem(PICKUP_STORAGE_KEY, display.trim());
     }
   }
 
   function handleDropoffPlaceSelect(place: SelectedPlace) {
-    const display = placeDisplayText(place);
     setDropoffPlace(place);
-    setDropoffAddress(display);
     setDropoffPlaceError("");
+    if (!place.placeId?.trim()) {
+      return;
+    }
+    const display = place.displayAddress || place.formattedAddress || placeDisplayText(place);
+    setDropoffAddress(display);
     if (display.trim()) {
       localStorage.setItem(DROPOFF_STORAGE_KEY, display.trim());
     }
@@ -1499,7 +1542,7 @@ function QuoteCard({
       : !isAddressPairComplete
         ? "Enter pickup and drop-off addresses to see your fixed journey price"
         : !routeMetrics
-          ? "Calculating your route and price…"
+          ? "We need to confirm the price for this journey. Calculating your route… If a route cannot be found, use WhatsApp for a manual quote."
           : !isScheduleComplete
             ? "Price ready — add your date and time when you’re ready to book"
             : "";
@@ -1549,7 +1592,7 @@ function QuoteCard({
                   : "We’ve received your minibus quote request. These transfers are subject to partner availability — we’ll confirm capacity and send your personal quote shortly."
               : isEnquiryOnly
                 ? "We’ve received your enquiry. We’ll confirm availability and send your personal quote shortly. When you’re ready to book, we’ll send a SumUp payment link — your trip is confirmed after payment."
-                : "We’ve received your booking request. Once we confirm the job, we’ll send a SumUp payment link by email. Your booking is confirmed after payment."}
+                : "We’ve received your booking request. If you paid online with SumUp, your booking is confirmed. Otherwise we’ll confirm the job and email a SumUp payment link — your trip is confirmed after payment."}
           </p>
           {(bookingReference || quoteTransactionId) && (
             <p className="mt-4 text-sm text-white/60">
@@ -2365,7 +2408,7 @@ function QuoteCard({
                 <span className="mx-2 text-white/35">·</span>
                 Passengers: {formatPassengerChoice(passengers)}
                 <span className="mx-2 text-white/35">·</span>
-                Suitcases: {formatSuitcaseChoice(suitcases)}
+                Large suitcases: {formatSuitcaseChoice(suitcases)}
               </p>
               <a
                 href={whatsAppChatUrl(CAPACITY_WHATSAPP_MESSAGE)}
@@ -2406,7 +2449,7 @@ function QuoteCard({
                 <span className="mx-2 text-white/35">·</span>
                 Passengers: {formatPassengerChoice(passengers)}
                 <span className="mx-2 text-white/35">·</span>
-                Suitcases: {formatSuitcaseChoice(suitcases)}
+                Large suitcases: {formatSuitcaseChoice(suitcases)}
               </p>
               <p className="mt-2 text-xs leading-relaxed text-white/65">{MINIBUS_PARTNER_NOTE}</p>
               {journeyDistanceLabel && journeyDurationLabel && (
@@ -2462,7 +2505,7 @@ function QuoteCard({
                 <span className="mx-2 text-white/35">·</span>
                 Passengers: {formatPassengerChoice(passengers)}
                 <span className="mx-2 text-white/35">·</span>
-                Suitcases: {formatSuitcaseChoice(suitcases)}
+                Large suitcases: {formatSuitcaseChoice(suitcases)}
               </p>
               {testChargeAmount !== null && (
                 <p className="mt-2 text-xs text-white/60">
@@ -2499,8 +2542,8 @@ function QuoteCard({
               : isEnquiryOnly
                 ? "We’ll reply with your quote — no online payment until you confirm."
                 : canPayNowOnline
-                  ? "Includes driver, fuel, and tolls. Pay securely online with SumUp to confirm your booking."
-                  : "Includes driver, fuel, and tolls. Continue to enter your details — you can pay securely online with SumUp when you’re ready to confirm."}
+                  ? "Includes driver, fuel and tolls. Eligible bookings can be paid securely online with SumUp."
+                  : "Includes driver, fuel and tolls. Continue to enter your details — eligible bookings can be paid securely online with SumUp."}
           </p>
         </div>
         )}
@@ -2514,7 +2557,7 @@ function QuoteCard({
           <p className="mt-1 mb-4 text-sm text-white/75">
             {canPayNowOnline
               ? "Enter your details, accept the terms, then pay securely with SumUp to confirm your booking."
-              : "We need these details for your booking request. After we confirm the job, we’ll email your SumUp payment link."}
+              : "We need these details for your booking request. For journeys that need manual confirmation, we’ll email a SumUp payment link after we confirm the job."}
           </p>
           <div className="space-y-4">
             <div>

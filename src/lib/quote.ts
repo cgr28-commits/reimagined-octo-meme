@@ -56,10 +56,11 @@ export const AREA_SURCHARGES: Record<Area, number> = Object.fromEntries(
   Object.entries(AREA_AIRPORT_SURCHARGES).map(([area, surcharges]) => [area, surcharges.BFS]),
 ) as Record<Area, number>;
 
-/** Target band: our estate fare should sit this many pounds below live OTS. */
+/** Target band: short A2A undercut vs OTS reference (legacy helpers / airport calibration). */
 export const OTS_UNDERCUT_MIN = PRICING_CONFIG.otsReferenceModel.undercutMinGbp;
 export const OTS_UNDERCUT_MAX = PRICING_CONFIG.otsReferenceModel.undercutMaxGbp;
 const OTS_UNDERCUT_MID = (OTS_UNDERCUT_MIN + OTS_UNDERCUT_MAX) / 2;
+const A2A_DISTANCE_BANDS = PRICING_CONFIG.addressToAddressDistanceBands;
 
 export type QuoteResult = {
   amount: number;
@@ -99,6 +100,41 @@ function undercutOtsEstateFare(otsEstateFare: number, floor = POINT_TO_POINT_BAS
   return roundFare(Math.max(floor, target));
 }
 
+/** Commercial A2A adjustment by loaded distance (short undercut → long empty-return uplift). */
+export function getA2aDistanceAdjustmentGbp(distanceKm: number): number {
+  if (!A2A_DISTANCE_BANDS?.enabled || !A2A_DISTANCE_BANDS.bands?.length) {
+    return -OTS_UNDERCUT_MID;
+  }
+  const sorted = [...A2A_DISTANCE_BANDS.bands].sort((a, b) => a.upToKm - b.upToKm);
+  for (const band of sorted) {
+    if (distanceKm <= band.upToKm) {
+      return band.adjustmentGbp;
+    }
+  }
+  return sorted[sorted.length - 1]?.adjustmentGbp ?? -OTS_UNDERCUT_MID;
+}
+
+function applyA2aCommercialFare(
+  otsReferenceFare: number,
+  distanceKm: number,
+  floor = A2A_DISTANCE_BANDS?.floorGbp ?? POINT_TO_POINT_BASE,
+): number {
+  const adjustment = getA2aDistanceAdjustmentGbp(distanceKm);
+  return roundFare(Math.max(floor, otsReferenceFare + adjustment));
+}
+
+function isValidRouteMetrics(routeMetrics?: TripRouteMetrics | null): routeMetrics is TripRouteMetrics {
+  if (!routeMetrics) {
+    return false;
+  }
+  return (
+    Number.isFinite(routeMetrics.distanceKm) &&
+    routeMetrics.distanceKm > 0.5 &&
+    Number.isFinite(routeMetrics.durationMinutes) &&
+    routeMetrics.durationMinutes > 0
+  );
+}
+
 /**
  * Address-to-address distance bands from Belfast — fallback when OSRM route is unavailable.
  * Values live in pricing-config.json (`pointToPointAreaRatesGbp`).
@@ -126,7 +162,8 @@ function applyAirportVehiclePricing(
 ): number {
   const airportMinimum = AIRPORT_MINIMUM_FARE[airportCode] ?? 0;
   const saloonFare = Math.max(saloonOneWay, airportMinimum);
-  const estateTier = saloonFare + AIRPORT_ESTATE_PREMIUM;
+  const estatePremium = getAirportEstatePremiumGbp(airportCode, saloonFare);
+  const estateTier = saloonFare + estatePremium;
 
   switch (vehicleType) {
     case "Standard Saloon (1–4 passengers)":
@@ -145,19 +182,36 @@ function applyAirportVehiclePricing(
   }
 }
 
+function getAirportEstatePremiumGbp(airportCode: string, saloonFare: number): number {
+  const longHaul = PRICING_CONFIG.airportLongHaulEstatePremium;
+  if (
+    longHaul?.enabled &&
+    saloonFare >= longHaul.minSaloonFareGbp &&
+    !(longHaul.excludeAirports ?? []).includes(airportCode as AirportCode)
+  ) {
+    return longHaul.premiumGbp;
+  }
+  return AIRPORT_ESTATE_PREMIUM;
+}
+
 function getAirportVehiclePricingMeta(
   vehicleType: (typeof VEHICLE_TYPES)[number],
+  saloonFareForMeta = 0,
+  airportCode = "BFS",
 ): { vehicleMultiplier: number; vehicleAdjustment: number } {
   if (vehicleType === "Standard Saloon (1–4 passengers)") {
     return { vehicleMultiplier: 1, vehicleAdjustment: 0 };
   }
   if (vehicleType === "Estate Car (1–4 passengers)") {
-    return { vehicleMultiplier: 1, vehicleAdjustment: AIRPORT_ESTATE_PREMIUM };
+    return {
+      vehicleMultiplier: 1,
+      vehicleAdjustment: getAirportEstatePremiumGbp(airportCode, saloonFareForMeta),
+    };
   }
 
   return {
     vehicleMultiplier: VEHICLE_MULTIPLIERS[vehicleType] ?? 1,
-    vehicleAdjustment: AIRPORT_ESTATE_PREMIUM,
+    vehicleAdjustment: getAirportEstatePremiumGbp(airportCode, saloonFareForMeta),
   };
 }
 
@@ -384,12 +438,17 @@ export function calculatePointToPointQuote(
     return null;
   }
 
+  // Do not invent A2A fares without a real driving route (prevents silent low fallbacks).
+  if (!isValidRouteMetrics(routeMetrics)) {
+    return null;
+  }
+
   const pickupArea = matchAreaFromAddress(pickup);
   const dropoffArea = matchAreaFromAddress(dropoff);
 
   let oneWay: number;
   let areaSurcharge: number;
-  let airportBase = routeMetrics ? OTS_ESTATE_BASE : POINT_TO_POINT_BASE;
+  let airportBase = OTS_ESTATE_BASE;
   let operationalMeta: QuoteResult["operational"] | undefined;
   let premiumAppliedFromOps = false;
 
@@ -404,7 +463,7 @@ export function calculatePointToPointQuote(
         isTripPremiumDateTime(schedule.returnDate, schedule.returnTime),
     );
 
-  if (routeMetrics && hasOperationalRatesConfigured()) {
+  if (hasOperationalRatesConfigured()) {
     const ops = calculateOperationalSubtotal({
       distanceKm: routeMetrics.distanceKm,
       durationMinutes: routeMetrics.durationMinutes,
@@ -423,36 +482,19 @@ export function calculatePointToPointQuote(
       durationMinutes: ops.operationalDurationMinutes,
       band: ops.band,
     };
-  } else if (routeMetrics) {
-    // OTS reference path — undercut live-equivalent estimate, floored at saloon base.
-    const saloonFloor = OTS_VEHICLE_BASE["Standard Saloon (1–4 passengers)"] ?? 35;
-    oneWay = undercutOtsEstateFare(
+  } else {
+    // OTS-style reference + distance-band commercial adjustment (not a flat undercut).
+    const saloonFloor = A2A_DISTANCE_BANDS?.floorGbp ?? OTS_VEHICLE_BASE["Standard Saloon (1–4 passengers)"] ?? 35;
+    oneWay = applyA2aCommercialFare(
       calculateOtsPointToPointOneWay(
         routeMetrics.distanceKm,
         routeMetrics.durationMinutes,
         vehicleType,
       ),
+      routeMetrics.distanceKm,
       saloonFloor,
     );
     areaSurcharge = Math.round(routeMetrics.distanceKm);
-  } else {
-    const pickupRate = getPointToPointAreaRate(pickupArea);
-    const dropoffRate = getPointToPointAreaRate(dropoffArea);
-    areaSurcharge = Math.max(pickupRate, dropoffRate);
-
-    let oneWaySubtotal: number;
-    if (pickupArea && dropoffArea && pickupArea === dropoffArea) {
-      oneWaySubtotal = POINT_TO_POINT_BASE + Math.max(pickupRate, dropoffRate) * 0.55;
-    } else {
-      const maxRate = Math.max(pickupRate, dropoffRate);
-      const minRate = Math.min(pickupRate, dropoffRate);
-      oneWaySubtotal = POINT_TO_POINT_BASE + maxRate + minRate * 0.35;
-    }
-
-    oneWay = applyPointToPointVehiclePricing(
-      undercutOtsEstateFare(oneWaySubtotal, POINT_TO_POINT_BASE - OTS_UNDERCUT_MID),
-      vehicleType,
-    );
   }
 
   const vehicleMultiplier = VEHICLE_MULTIPLIERS[vehicleType] ?? 1;
@@ -499,6 +541,7 @@ export function calculateQuote(
   vehicleType: (typeof VEHICLE_TYPES)[number],
   returnJourney = false,
   schedule: TripSchedule = {},
+  routeMetrics?: TripRouteMetrics | null,
 ): QuoteResult | null {
   const trimmedAddress = address.trim();
   if (!trimmedAddress || !airportCode) {
@@ -518,11 +561,43 @@ export function calculateQuote(
   const areaSurcharge = getAreaSurcharge(airportCode, matchedArea);
   const configuredBase = getAirportBasePrice(airportCode);
   const airportBase = configuredBase ?? airport.basePrice;
-  const saloonOneWay = computeSaloonAirportOneWay(
+  const airportMinimum = getAirportMinimumFare(airportCode) ?? AIRPORT_MINIMUM_FARE[airportCode] ?? 0;
+  const zoneSaloonOneWay = computeSaloonAirportOneWay(
     airportCode,
     airportBase + areaSurcharge,
   );
-  const { vehicleMultiplier, vehicleAdjustment } = getAirportVehiclePricingMeta(vehicleType);
+
+  let saloonOneWay = zoneSaloonOneWay;
+  let usedDistanceProtection = false;
+
+  if (isValidRouteMetrics(routeMetrics)) {
+    const distanceSaloon = applyA2aCommercialFare(
+      calculateOtsPointToPointOneWay(
+        routeMetrics.distanceKm,
+        routeMetrics.durationMinutes,
+        "Standard Saloon (1–4 passengers)",
+      ),
+      routeMetrics.distanceKm,
+      Math.max(airportMinimum, A2A_DISTANCE_BANDS?.floorGbp ?? POINT_TO_POINT_BASE),
+    );
+    const protectFromKm = PRICING_CONFIG.airportRouteDistanceProtectFromKm ?? 100;
+
+    if (!matchedArea) {
+      // Arbitrary address not in the zone table — generalise from the driving route.
+      saloonOneWay = Math.max(airportMinimum, distanceSaloon);
+      usedDistanceProtection = true;
+    } else if (routeMetrics.distanceKm >= protectFromKm) {
+      // Long airport legs: protect empty-return economics globally (not only named towns).
+      saloonOneWay = Math.max(zoneSaloonOneWay, distanceSaloon);
+      usedDistanceProtection = saloonOneWay > zoneSaloonOneWay;
+    }
+  }
+
+  const { vehicleMultiplier, vehicleAdjustment } = getAirportVehiclePricingMeta(
+    vehicleType,
+    saloonOneWay,
+    airportCode,
+  );
   let oneWayFare = applyAirportVehiclePricing(saloonOneWay, vehicleType, airportCode);
 
   // When operational rates are filled, fold configured tolls + airport charges into the fare.
@@ -547,11 +622,20 @@ export function calculateQuote(
   return {
     amount: roundFare(premium.total),
     area: matchedArea,
-    areaSurcharge,
+    areaSurcharge: usedDistanceProtection
+      ? Math.round(routeMetrics?.distanceKm ?? areaSurcharge)
+      : areaSurcharge,
     airportBase,
     vehicleMultiplier,
     vehicleAdjustment,
     premiumApplied: premium.premiumApplied,
+    operational: isValidRouteMetrics(routeMetrics)
+      ? {
+          distanceKm: routeMetrics.distanceKm,
+          durationMinutes: routeMetrics.durationMinutes,
+          band: "weekday",
+        }
+      : undefined,
   };
 }
 
@@ -572,6 +656,58 @@ export function getAirportFromPrice(
 
 export function formatQuote(amount: number): string {
   return `£${amount}`;
+}
+
+/**
+ * Belfast-area / NI origin → Dublin city (not Dublin Airport).
+ * Starts from the DUB airport fare for the NI address, then adds a continuation
+ * uplift for loaded distance/time beyond the Dublin Airport corridor reference.
+ */
+export function calculateDublinCityBeyondAirportQuote(
+  niAddress: string,
+  vehicleType: (typeof VEHICLE_TYPES)[number],
+  routeMetrics: TripRouteMetrics,
+  returnJourney = false,
+  schedule: TripSchedule = {},
+): QuoteResult | null {
+  const cfg = PRICING_CONFIG.dublinCityBeyondAirport;
+  if (!cfg?.enabled || !isValidRouteMetrics(routeMetrics)) {
+    return null;
+  }
+
+  const airportLeg = calculateQuote(niAddress, "DUB", vehicleType, false, {});
+  if (!airportLeg) {
+    return null;
+  }
+
+  const extraKm = Math.max(
+    0,
+    routeMetrics.distanceKm - cfg.referenceLoadedKmFromBelfastCentre,
+  );
+  const extraMin = Math.max(
+    0,
+    routeMetrics.durationMinutes - cfg.referenceLoadedMinutesFromBelfastCentre,
+  );
+  const rawUplift = extraKm * cfg.perKmGbp + extraMin * cfg.perMinuteGbp;
+  const uplift = Math.max(cfg.minimumUpliftGbp, rawUplift);
+  const oneWay = airportLeg.amount + uplift;
+
+  const premium = applyTripPremium(oneWay, { ...schedule, returnJourney });
+
+  return {
+    amount: roundFare(premium.total),
+    area: airportLeg.area,
+    areaSurcharge: Math.round(routeMetrics.distanceKm),
+    airportBase: airportLeg.airportBase,
+    vehicleMultiplier: airportLeg.vehicleMultiplier,
+    vehicleAdjustment: airportLeg.vehicleAdjustment,
+    premiumApplied: premium.premiumApplied,
+    operational: {
+      distanceKm: routeMetrics.distanceKm,
+      durationMinutes: routeMetrics.durationMinutes,
+      band: "weekday",
+    },
+  };
 }
 
 export {

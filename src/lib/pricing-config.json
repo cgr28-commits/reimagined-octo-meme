@@ -1,5 +1,14 @@
 {
-  "$schemaComment": "Single editable pricing configuration. Public live quotes use airport minimums, area surcharges, and the OTS reference model (target ~\u00a38\u2013\u00a310 under Onward Travel Solutions estate fares).",
+  "$schemaComment": "CENTRAL PRICING CONFIG — all commercial £ values for the public quote engine. UI components must not hard-code fares. See `pricingModel` for the formula.",
+  "pricingModel": {
+    "summary": "One engine for every eligible online journey: driving route (when available) → distance/time reference → distance-band adjustment → airport zone/minimum rules when an airport leg is present → vehicle supplement → optional return 5% discount → rounded fixed fare.",
+    "addressToAddress": "OTS-style reference (vehicleBase + tier×(perKm×km + perMin×min)) + addressToAddressDistanceBands adjustment. Requires valid route metrics; otherwise no fare.",
+    "airport": "Calibrated areaAirportSurchargesGbp zones supply short/medium airport fares (scales by origin zone, not a hard-coded town-pair). When route metrics exist: unknown origins use distance+airport minimum; long hauls (≥ airportRouteDistanceProtectFromKm) take max(zone, distance) for empty-return protection.",
+    "dublinAirport": "£230/£240 Belfast-centre benchmark is DUB airport only (place ID / geofence / explicit airport name). Dublin city uses DUB fare + dublinCityBeyondAirport uplift.",
+    "vehicles": "Saloon 1–2 pax AND 0–2 large cases; Estate if 3–4 pax OR 3–4 cases (≤4/≤4); Minibus if >4 pax OR >4 cases (manual quote, no invented fare).",
+    "returnDiscount": "returnJourneyDiscountRate applied once to (2 × oneWay).",
+    "rounding": "Prefer nearest £5; amounts ending in £x4 are kept (e.g. £29, £34)."
+  },
   "pricingRulesApproved": true,
   "publicUnapprovedPriceLabel": "Price confirmation required",
   "currency": "GBP",
@@ -28,17 +37,25 @@
   },
   "airportMinimumFaresGbp": {
     "BFS": 45,
-    "BHD": 35,
+    "BHD": 29,
     "DUB": 180,
     "LDY": 35
   },
   "airportBasePricesGbp": {
     "BFS": 45,
-    "BHD": 35,
+    "BHD": 29,
     "DUB": 180,
     "LDY": 35
   },
   "airportEstatePremiumGbp": 8,
+  "airportLongHaulEstatePremium": {
+    "enabled": true,
+    "note": "Long NI airport transfers need a larger estate gap to stay near OTS; Dublin Airport keeps the default £8 premium.",
+    "minSaloonFareGbp": 140,
+    "premiumGbp": 24,
+    "excludeAirports": ["DUB"]
+  },
+  "airportRouteDistanceProtectFromKm": 100,
   "airportExecutiveMinimumFareGbp": 105,
   "areaAirportSurchargesGbp": {
     "Belfast City Centre": {
@@ -49,7 +66,7 @@
     },
     "Holywood": {
       "BFS": 8,
-      "BHD": 0,
+      "BHD": 6,
       "DUB": 58,
       "LDY": 103
     },
@@ -192,8 +209,8 @@
       "LDY": 0
     },
     "Enniskillen": {
-      "BFS": 99,
-      "BHD": 94,
+      "BFS": 110,
+      "BHD": 126,
       "DUB": 175,
       "LDY": 55
     }
@@ -247,7 +264,7 @@
     "default": 20
   },
   "otsReferenceModel": {
-    "note": "OTS-calibrated reference for public A2A and undercut target (~\u00a38\u2013\u00a310 below Onward Travel Solutions estate).",
+    "note": "Distance/time reference for public A2A quotes. Commercial position vs OTS is applied via addressToAddressDistanceBands (short undercut, long empty-return uplift) — not a flat undercut on every journey.",
     "estateBaseGbp": 40,
     "perKmGbp": 0.482,
     "perMinuteGbp": 0.554,
@@ -259,6 +276,29 @@
     },
     "undercutMinGbp": 8,
     "undercutMaxGbp": 10
+  },
+  "addressToAddressDistanceBands": {
+    "enabled": true,
+    "note": "Adjustment applied to the OTS-style reference fare by loaded distance. Negative = short-trip undercut; positive = long-haul empty-return protection. Benchmarks (Belfast centre): Newry ~£81/£93, Derry ~£127/£146, Enniskillen ~£145/£165.",
+    "floorGbp": 35,
+    "bands": [
+      { "upToKm": 50, "adjustmentGbp": -9 },
+      { "upToKm": 90, "adjustmentGbp": -1 },
+      { "upToKm": 120, "adjustmentGbp": 0 },
+      { "upToKm": 9999, "adjustmentGbp": 8 }
+    ]
+  },
+  "dublinCityBeyondAirport": {
+    "enabled": true,
+    "note": "Belfast-area to Dublin city (NOT Dublin Airport) = DUB airport fare for the NI origin + continuation beyond the airport. Never treat Dublin city as DUB.",
+    "airportLat": 53.4264,
+    "airportLng": -6.2499,
+    "geofenceRadiusKm": 4,
+    "referenceLoadedKmFromBelfastCentre": 159,
+    "referenceLoadedMinutesFromBelfastCentre": 111,
+    "perKmGbp": 1.25,
+    "perMinuteGbp": 0.45,
+    "minimumUpliftGbp": 25
   },
   "returnJourneyDiscountRate": 0.05,
   "airportTripPremiumRate": 0,
