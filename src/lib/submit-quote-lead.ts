@@ -1,7 +1,11 @@
 import {
   buildQuoteLeadFingerprint,
+  buildQuoteLeadMessage,
+  buildQuoteLeadSubject,
   type QuoteLeadDetails,
 } from "../../shared/quote-lead";
+import { SITE } from "@/lib/data";
+import { sendViaFormSubmitEmail } from "../../shared/email-delivery";
 
 const SESSION_STORAGE_KEY = "matni-quote-lead-sent";
 const DEBOUNCE_MS = 4000;
@@ -65,6 +69,50 @@ function rememberSentFingerprint(fingerprint: string): void {
   }
 }
 
+async function submitQuoteLeadViaBrowser(details: QuoteLeadDetails): Promise<boolean> {
+  return sendViaFormSubmitEmail({
+    to: SITE.email,
+    subject: buildQuoteLeadSubject(details),
+    textBody: buildQuoteLeadMessage(details),
+    fromName: SITE.name,
+  });
+}
+
+async function postQuoteLeadToWorker(
+  details: QuoteLeadDetails,
+  fingerprint: string,
+  options: { skipEmail?: boolean },
+): Promise<{ ok: boolean; emailed: boolean; deduplicated: boolean }> {
+  try {
+    const response = await fetch(QUOTE_LEADS_API_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify({
+        ...details,
+        fingerprint,
+        skipEmail: options.skipEmail === true,
+      }),
+    });
+
+    const payload = (await response.json().catch(() => null)) as {
+      emailed?: unknown;
+      deduplicated?: unknown;
+    } | null;
+
+    return {
+      ok: response.ok,
+      emailed: response.ok && payload?.emailed === true,
+      deduplicated: response.ok && payload?.deduplicated === true,
+    };
+  } catch (error) {
+    console.error("Quote lead worker request failed", error);
+    return { ok: false, emailed: false, deduplicated: false };
+  }
+}
+
 export async function submitQuoteLead(details: QuoteLeadDetails): Promise<void> {
   const fingerprint = buildQuoteLeadFingerprint(details);
   const sent = readSentFingerprints();
@@ -72,23 +120,23 @@ export async function submitQuoteLead(details: QuoteLeadDetails): Promise<void> 
     return;
   }
 
-  const response = await fetch(QUOTE_LEADS_API_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Accept: "application/json",
-    },
-    body: JSON.stringify({
-      ...details,
-      fingerprint,
-    }),
-  });
+  // Prefer browser FormSubmit (visitor IP). The shared worker IP is often
+  // rate-limited by FormSubmit/Web3Forms, which caused silent missed alerts.
+  const browserSent = await submitQuoteLeadViaBrowser(details).catch(() => false);
 
-  if (!response.ok) {
-    throw new Error(`Quote lead API failed (${response.status})`);
+  if (browserSent) {
+    await postQuoteLeadToWorker(details, fingerprint, { skipEmail: true });
+    rememberSentFingerprint(fingerprint);
+    return;
   }
 
-  rememberSentFingerprint(fingerprint);
+  const worker = await postQuoteLeadToWorker(details, fingerprint, { skipEmail: false });
+  if (worker.deduplicated || worker.emailed) {
+    rememberSentFingerprint(fingerprint);
+    return;
+  }
+
+  throw new Error("Quote lead email failed via browser and worker");
 }
 
 export function scheduleQuoteLeadAlert(

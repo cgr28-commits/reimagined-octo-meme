@@ -11,6 +11,7 @@ permissions:
   contents: write
   pull-requests: write
   checks: read
+  actions: write
 
 jobs:
   automerge:
@@ -132,6 +133,21 @@ jobs:
                 pull_number,
                 merge_method: "merge",
               });
+
+              // GITHUB_TOKEN merges do not trigger push workflows — dispatch deploys.
+              for (const workflow_id of ["deploy-pages.yml", "deploy-worker.yml"]) {
+                try {
+                  await github.rest.actions.createWorkflowDispatch({
+                    owner,
+                    repo,
+                    workflow_id,
+                    ref: "main",
+                  });
+                } catch (error) {
+                  console.warn(`Failed to dispatch ${workflow_id}`, error);
+                }
+              }
+
               return "merged";
             }
 

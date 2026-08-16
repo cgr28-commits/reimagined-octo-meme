@@ -842,14 +842,11 @@ function QuoteCard({
       return;
     }
 
-    // Quote-lead API requires a complete schedule — never call with empty date/time.
-    if (!tripDate || !tripTime || !isTripDateOnOrAfterToday(tripDate)) {
+    // Fire as soon as a live price is shown — date/time may still be empty.
+    if (tripDate && !isTripDateOnOrAfterToday(tripDate)) {
       return;
     }
-    if (returnJourney) {
-      if (!returnDate || !returnTime) {
-        return;
-      }
+    if (returnJourney && tripDate && tripTime && returnDate && returnTime) {
       if (!isReturnAfterOutbound(tripDate, tripTime, returnDate, returnTime)) {
         return;
       }
@@ -872,10 +869,10 @@ function QuoteCard({
       pickupLabel,
       dropoffLabel,
       returnJourney,
-      tripDate,
-      tripTime,
-      returnDate: returnJourney ? returnDate : undefined,
-      returnTime: returnJourney ? returnTime : undefined,
+      tripDate: tripDate || undefined,
+      tripTime: tripTime || undefined,
+      returnDate: returnJourney ? returnDate || undefined : undefined,
+      returnTime: returnJourney ? returnTime || undefined : undefined,
       passengers,
       suitcases,
       vehicle: quoteVehicle,

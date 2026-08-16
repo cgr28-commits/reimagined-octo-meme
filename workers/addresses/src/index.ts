@@ -146,6 +146,8 @@ type Env = {
 
 type QuoteLeadRequestBody = QuoteLeadDetails & {
   fingerprint?: string;
+  /** When true, only record stats/dedupe — email already sent from the browser. */
+  skipEmail?: boolean;
 };
 
 type BookingRequestBody = {
@@ -533,7 +535,21 @@ function parsePaidBookingDetails(body: Record<string, unknown>): PaidBookingDeta
   };
 }
 
-async function isDuplicateQuoteLead(fingerprint: string): Promise<boolean> {
+async function isDuplicateQuoteLead(
+  fingerprint: string,
+  env: Env,
+): Promise<boolean> {
+  // Prefer KV so dedupe works across colo edges (Cache API often missed).
+  if (env.BOOKING_COUNTER) {
+    const key = `quote_lead_fp:${fingerprint}`;
+    const existing = await env.BOOKING_COUNTER.get(key);
+    if (existing) {
+      return true;
+    }
+    await env.BOOKING_COUNTER.put(key, "1", { expirationTtl: 60 * 60 });
+    return false;
+  }
+
   const cache = (caches as unknown as { default: Cache }).default;
   const cacheKey = new Request(`https://quote-lead-dedup.internal/${encodeURIComponent(fingerprint)}`);
   const cached = await cache.match(cacheKey);
@@ -560,7 +576,7 @@ function parseQuoteLeadBody(body: QuoteLeadRequestBody): QuoteLeadDetails | null
   const vehicle = body.vehicle?.trim() ?? "";
   const estimatedPrice = body.estimatedPrice?.trim() ?? "";
 
-  if (!tripLabel || !pickupLabel || !dropoffLabel || !tripDate || !tripTime || !vehicle || !estimatedPrice) {
+  if (!tripLabel || !pickupLabel || !dropoffLabel || !vehicle || !estimatedPrice) {
     return null;
   }
 
@@ -576,8 +592,8 @@ function parseQuoteLeadBody(body: QuoteLeadRequestBody): QuoteLeadDetails | null
     pickupLabel,
     dropoffLabel,
     returnJourney: Boolean(body.returnJourney),
-    tripDate,
-    tripTime,
+    tripDate: tripDate || undefined,
+    tripTime: tripTime || undefined,
     returnDate: body.returnDate?.trim() || undefined,
     returnTime: body.returnTime?.trim() || undefined,
     passengers,
@@ -613,7 +629,7 @@ async function handleQuoteLeadRequest(
     return json({ error: "Missing quote fingerprint" }, 400, origin);
   }
 
-  if (await isDuplicateQuoteLead(fingerprint)) {
+  if (await isDuplicateQuoteLead(fingerprint, env)) {
     try {
       await recordQuoteLeadDeduped(env);
     } catch (error) {
@@ -622,17 +638,21 @@ async function handleQuoteLeadRequest(
     return json({ ok: true, emailed: false, deduplicated: true }, 200, origin);
   }
 
-  const toEmail = ownerInbox(env);
+  const skipEmail = body.skipEmail === true;
 
-  try {
-    await sendEmail(env, {
-      to: toEmail,
-      subject: buildQuoteLeadSubject(details),
-      body: buildQuoteLeadMessage(details),
-    });
-  } catch (error) {
-    console.error("Quote lead email failed", error);
-    return json({ error: "Failed to send quote alert email" }, 502, origin);
+  if (!skipEmail) {
+    const toEmail = ownerInbox(env);
+
+    try {
+      await sendEmail(env, {
+        to: toEmail,
+        subject: buildQuoteLeadSubject(details),
+        body: buildQuoteLeadMessage(details),
+      });
+    } catch (error) {
+      console.error("Quote lead email failed", error);
+      return json({ error: "Failed to send quote alert email" }, 502, origin);
+    }
   }
 
   let quoteLeadsTotal: number | null = null;
@@ -645,7 +665,8 @@ async function handleQuoteLeadRequest(
   return json(
     {
       ok: true,
-      emailed: true,
+      emailed: !skipEmail,
+      recorded: true,
       ...(quoteLeadsTotal !== null ? { quoteLeadsTotal } : {}),
     },
     200,

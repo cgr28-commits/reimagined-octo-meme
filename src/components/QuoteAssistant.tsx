@@ -20,6 +20,7 @@ import {
   type QuoteDraft,
 } from "@/lib/quote-assistant";
 import { emailAssistantQuote, submitAssistantBooking } from "@/lib/quote-assistant-submit";
+import { scheduleQuoteLeadAlert } from "@/lib/submit-quote-lead";
 
 const BOT_WORKING_MS = 450;
 const SESSION_KEY = "matni-quote-assistant-v1";
@@ -362,6 +363,26 @@ export default function QuoteAssistant() {
           },
         ]);
         playBotReplySound();
+
+        if (result.quoteCard) {
+          const card = result.quoteCard;
+          const fromAirport = nextDraft.direction === "from-airport";
+          scheduleQuoteLeadAlert({
+            tripLabel: fromAirport ? "Airport pickup" : "Airport drop-off",
+            pickupLabel: fromAirport ? card.airportName : card.address,
+            dropoffLabel: fromAirport ? card.address : card.airportName,
+            returnJourney: card.returnJourney,
+            tripDate: nextDraft.tripDate,
+            tripTime: nextDraft.tripTime,
+            returnDate: nextDraft.returnDate,
+            returnTime: nextDraft.returnTime,
+            passengers: card.passengers,
+            suitcases: card.suitcases,
+            vehicle: card.vehicle,
+            estimatedPrice: card.amountLabel,
+            isAirportTrip: true,
+          });
+        }
 
         if (result.emailQuote) {
           const emailed = await emailAssistantQuote(nextDraft);

@@ -63,6 +63,8 @@ async function sendViaWeb3Forms(env: WorkerEmailEnv, options: EmailPayload): Pro
 
   const payload: Record<string, unknown> = {
     access_key: accessKey,
+    // Always include email — Web3Forms treats submissions without it as incomplete.
+    email: options.to,
     subject: sendAutoresponse ? `[Paid booking copy] ${options.subject}` : options.subject,
     name: options.toName ?? options.to,
     from_name: options.toName ?? BUSINESS_NAME,
@@ -70,7 +72,6 @@ async function sendViaWeb3Forms(env: WorkerEmailEnv, options: EmailPayload): Pro
   };
 
   if (sendAutoresponse) {
-    payload.email = options.to;
     const autoresponseMessage = options.htmlBody?.trim() || options.body;
     payload.autoresponse = {
       subject: options.subject,
@@ -162,12 +163,10 @@ export async function trySendEmail(
   const isCustomerEmail = options.to.toLowerCase() !== ownerEmail.toLowerCase();
   const skipPlainTextFallback = Boolean(options.requireHtml && wantsHtml && isCustomerEmail);
 
-  // Cloudflare Email binding is present but the domain is not verified yet
-  // ("myairporttaxini.co.uk not found"). Skip it so FormSubmit/Web3Forms —
-  // the path that historically delivered mail — run first.
-  if (wantsHtml) {
-    providers.push({ label: "formsubmit", run: () => sendViaFormSubmit(options) });
-  }
+  // Prefer FormSubmit first — Web3Forms from the shared worker IP has been
+  // returning 403 / silent non-delivery. Cloudflare Email binding is skipped
+  // (domain not verified yet).
+  providers.push({ label: "formsubmit", run: () => sendViaFormSubmit(options) });
 
   if (!skipPlainTextFallback && env.WEB3FORMS_ACCESS_KEY?.trim()) {
     providers.push({ label: "web3forms", run: () => sendViaWeb3Forms(env, options) });
@@ -176,10 +175,6 @@ export async function trySendEmail(
       label: "web3forms-html-autoresponse",
       run: () => sendViaWeb3Forms(env, { ...options, body: options.htmlBody!.trim() }),
     });
-  }
-
-  if (!wantsHtml) {
-    providers.push({ label: "formsubmit", run: () => sendViaFormSubmit(options) });
   }
 
   providers.push({ label: "mailchannels", run: () => sendViaMailChannels(env, options) });
