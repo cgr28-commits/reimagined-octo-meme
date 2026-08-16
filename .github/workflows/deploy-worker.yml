@@ -122,3 +122,30 @@ jobs:
             printf '%s' "$OWNER_ACCESS_KEY" | npx wrangler secret put OWNER_ACCESS_KEY
           fi
           npm run deploy
+
+      - name: Resend latest paid confirmation when trigger requests it
+        env:
+          OWNER_ACCESS_KEY: ${{ secrets.OWNER_ACCESS_KEY }}
+          WORKER_BASE_URL: https://reimagined-octo-meme.cgr28.workers.dev
+        run: |
+          if ! grep -q '^RUN_RESEND=1$' scripts/trigger-resend-latest-paid.txt 2>/dev/null; then
+            echo "No RUN_RESEND=1 in scripts/trigger-resend-latest-paid.txt — skipping resend."
+            exit 0
+          fi
+          if [ -z "$OWNER_ACCESS_KEY" ]; then
+            echo "::error::OWNER_ACCESS_KEY secret is not set — cannot resend confirmation"
+            exit 1
+          fi
+          echo "RUN_RESEND=1 detected — resending latest paid booking to customer + bookings@"
+          for i in 1 2 3 4 5 6; do
+            code=$(curl -sS -o /tmp/pb.json -w "%{http_code}" \
+              -H "Accept: application/json" \
+              -H "X-Owner-Key: $OWNER_ACCESS_KEY" \
+              "$WORKER_BASE_URL/api/paid-bookings?days=7&limit=1" || true)
+            if [ "$code" = "200" ]; then
+              break
+            fi
+            echo "paid-bookings returned $code — waiting…"
+            sleep 15
+          done
+          node scripts/resend-latest-paid-confirmation.mjs
