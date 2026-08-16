@@ -570,9 +570,11 @@ export const VEHICLE_BOOKING_GUIDANCE = [
 
 /** Legacy hook retained for quote form — capacity above 7 is blocked elsewhere. */
 export function needsLuggageCapacityConfirmation(
-  _passengers: number,
-  _suitcases: number,
+  passengers: number,
+  suitcases: number,
 ): boolean {
+  void passengers;
+  void suitcases;
   return false;
 }
 
