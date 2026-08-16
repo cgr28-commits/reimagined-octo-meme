@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useId, useState } from "react";
 import { createPortal } from "react-dom";
 import Logo from "./Logo";
+import QuoteNavLink from "./QuoteNavLink";
 import { MOBILE_QUICK_LINKS, NAV_LINKS, SITE } from "@/lib/data";
 
 export default function Header() {
@@ -87,13 +88,12 @@ export default function Header() {
                     </Link>
                   ))}
                   <hr className="my-3 border-white/10" />
-                  <Link
-                    href="/#quote"
-                    onClick={closeMenu}
+                  <QuoteNavLink
+                    onNavigate={closeMenu}
                     className="rounded-full bg-emerald px-5 py-3.5 text-center text-sm font-semibold text-navy"
                   >
                     Get a Quote
-                  </Link>
+                  </QuoteNavLink>
                   <a
                     href={`tel:${SITE.landline}`}
                     onClick={closeMenu}
@@ -147,12 +147,9 @@ export default function Header() {
           </nav>
 
           <div className="hidden items-center gap-4 md:flex">
-            <Link
-              href="/#quote"
-              className="rounded-full bg-emerald px-5 py-2 text-sm font-semibold text-navy transition-all hover:bg-emerald-light hover:shadow-lg hover:shadow-emerald/25"
-            >
+            <QuoteNavLink className="rounded-full bg-emerald px-5 py-2 text-sm font-semibold text-navy transition-all hover:bg-emerald-light hover:shadow-lg hover:shadow-emerald/25">
               Get a Quote
-            </Link>
+            </QuoteNavLink>
           </div>
 
           <button
@@ -182,20 +179,38 @@ export default function Header() {
             Airport transfers · Get a quote
           </p>
           <div className="flex max-w-full flex-wrap gap-2">
-            {MOBILE_QUICK_LINKS.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                onClick={closeMenu}
-                className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors ${
-                  "highlight" in link && link.highlight
-                    ? "bg-emerald text-navy"
-                    : "border border-white/15 bg-white/[0.04] text-white/80 hover:border-emerald/40 hover:text-emerald"
-                }`}
-              >
-                {link.label}
-              </Link>
-            ))}
+            {MOBILE_QUICK_LINKS.map((link) => {
+              const className = `rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors ${
+                "highlight" in link && link.highlight
+                  ? "bg-emerald text-navy"
+                  : "border border-white/15 bg-white/[0.04] text-white/80 hover:border-emerald/40 hover:text-emerald"
+              }`;
+              const isQuoteCta = link.label === "Get a Quote";
+
+              if (isQuoteCta) {
+                return (
+                  <QuoteNavLink
+                    key={link.href}
+                    href={link.href}
+                    onNavigate={closeMenu}
+                    className={className}
+                  >
+                    {link.label}
+                  </QuoteNavLink>
+                );
+              }
+
+              return (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  onClick={closeMenu}
+                  className={className}
+                >
+                  {link.label}
+                </Link>
+              );
+            })}
           </div>
         </nav>
       </header>

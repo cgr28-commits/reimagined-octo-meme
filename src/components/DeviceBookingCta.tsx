@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import QuoteNavLink from "./QuoteNavLink";
 import { SITE } from "@/lib/data";
 import { useIsMobileDevice } from "@/lib/device";
 
@@ -11,6 +12,10 @@ type DeviceBookingCtaProps = {
   desktopLabel: string;
   className?: string;
 };
+
+function isQuoteHref(href: string) {
+  return href === "/#quote" || href === "#quote" || href.endsWith("#quote");
+}
 
 export default function DeviceBookingCta({
   whatsappMessage,
@@ -31,6 +36,14 @@ export default function DeviceBookingCta({
       >
         {mobileLabel}
       </a>
+    );
+  }
+
+  if (isQuoteHref(desktopHref)) {
+    return (
+      <QuoteNavLink href={desktopHref} className={className}>
+        {desktopLabel}
+      </QuoteNavLink>
     );
   }
 

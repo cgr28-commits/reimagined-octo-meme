@@ -86,7 +86,7 @@ export default function HeroSlideshow() {
           </p>
         </div>
 
-        <div className="min-w-0 w-full flex-1 scroll-mt-28 lg:max-w-md" id="quote">
+        <div className="min-w-0 w-full flex-1 scroll-mt-40 md:scroll-mt-32 lg:max-w-md" id="quote">
           <QuoteCard />
         </div>
       </div>

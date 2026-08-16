@@ -172,7 +172,7 @@ export default function EmergeBelfastPageClient() {
       </section>
 
       {/* Quote tool */}
-      <section id="quote" className="relative scroll-mt-28 py-16 sm:py-20">
+      <section id="quote" className="relative scroll-mt-40 md:scroll-mt-32 py-16 sm:py-20">
         <div className="absolute inset-0 bg-gradient-to-b from-navy via-navy-light/25 to-navy" />
         <div className="relative mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
           <div className="mb-8 text-center">

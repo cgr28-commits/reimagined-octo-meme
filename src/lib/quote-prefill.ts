@@ -1,7 +1,8 @@
 export const AIRPORT_PREFILL_KEY = "my-airport-taxi-ni-prefill-airport";
 export const QUOTE_DRAFT_PREFILL_KEY = "my-airport-taxi-ni-prefill-quote-draft";
 
-const HEADER_SCROLL_OFFSET = 96;
+/** Kept for callers that need a numeric offset; `#quote` uses CSS scroll-mt. */
+export const HEADER_SCROLL_OFFSET = 152;
 
 export type QuoteDraftPrefill = {
   source?: "assistant";
@@ -42,14 +43,21 @@ export function prefillQuoteFromAssistant(draft: QuoteDraftPrefill) {
 export function scrollToQuoteForm() {
   const quoteEl = document.getElementById("quote");
   if (!quoteEl) {
-    window.location.hash = "quote";
+    const onHome =
+      window.location.pathname === "/" || window.location.pathname === "";
+    if (onHome) {
+      window.location.hash = "quote";
+      return;
+    }
+    window.location.assign("/#quote");
     return;
   }
 
-  const top =
-    quoteEl.getBoundingClientRect().top + window.scrollY - HEADER_SCROLL_OFFSET;
-  window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
-  window.history.replaceState(null, "", "#quote");
+  // CSS scroll-margin-top on `#quote` keeps the form clear of the sticky header.
+  quoteEl.scrollIntoView({ behavior: "smooth", block: "start" });
+
+  const path = `${window.location.pathname}${window.location.search}`;
+  window.history.replaceState(null, "", `${path}#quote`);
 }
 
 export function readPrefillAirport(): string | null {
