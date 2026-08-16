@@ -1,5 +1,14 @@
 {
-  "$schemaComment": "Single editable pricing configuration. Public live quotes use airport minimums, area surcharges, and the OTS reference model (target ~\u00a38\u2013\u00a310 under Onward Travel Solutions estate fares).",
+  "$schemaComment": "CENTRAL PRICING CONFIG — all commercial £ values for the public quote engine. UI components must not hard-code fares. See `pricingModel` for the formula.",
+  "pricingModel": {
+    "summary": "One engine for every eligible online journey: driving route (when available) → distance/time reference → distance-band adjustment → airport zone/minimum rules when an airport leg is present → vehicle supplement → optional return 5% discount → rounded fixed fare.",
+    "addressToAddress": "OTS-style reference (vehicleBase + tier×(perKm×km + perMin×min)) + addressToAddressDistanceBands adjustment. Requires valid route metrics; otherwise no fare.",
+    "airport": "Calibrated areaAirportSurchargesGbp zones supply short/medium airport fares (scales by origin zone, not a hard-coded town-pair). When route metrics exist: unknown origins use distance+airport minimum; long hauls (≥ airportRouteDistanceProtectFromKm) take max(zone, distance) for empty-return protection.",
+    "dublinAirport": "£230/£240 Belfast-centre benchmark is DUB airport only (place ID / geofence / explicit airport name). Dublin city uses DUB fare + dublinCityBeyondAirport uplift.",
+    "vehicles": "Saloon 1–2 pax AND 0–2 large cases; Estate if 3–4 pax OR 3–4 cases (≤4/≤4); Minibus if >4 pax OR >4 cases (manual quote, no invented fare).",
+    "returnDiscount": "returnJourneyDiscountRate applied once to (2 × oneWay).",
+    "rounding": "Prefer nearest £5; amounts ending in £x4 are kept (e.g. £29, £34)."
+  },
   "pricingRulesApproved": true,
   "publicUnapprovedPriceLabel": "Price confirmation required",
   "currency": "GBP",
@@ -41,11 +50,12 @@
   "airportEstatePremiumGbp": 8,
   "airportLongHaulEstatePremium": {
     "enabled": true,
-    "note": "Long NI airport transfers (e.g. BFS to Enniskillen) need a larger estate gap to stay near OTS; Dublin Airport keeps the default £8 premium.",
+    "note": "Long NI airport transfers need a larger estate gap to stay near OTS; Dublin Airport keeps the default £8 premium.",
     "minSaloonFareGbp": 140,
     "premiumGbp": 24,
     "excludeAirports": ["DUB"]
   },
+  "airportRouteDistanceProtectFromKm": 100,
   "airportExecutiveMinimumFareGbp": 105,
   "areaAirportSurchargesGbp": {
     "Belfast City Centre": {

@@ -10,6 +10,15 @@ export type DayRateBand = {
 };
 
 export type PricingConfig = {
+  pricingModel?: {
+    summary?: string;
+    addressToAddress?: string;
+    airport?: string;
+    dublinAirport?: string;
+    vehicles?: string;
+    returnDiscount?: string;
+    rounding?: string;
+  };
   pricingRulesApproved: boolean;
   publicUnapprovedPriceLabel: string;
   currency: string;
@@ -32,6 +41,8 @@ export type PricingConfig = {
     premiumGbp: number;
     excludeAirports: AirportCode[];
   };
+  /** At/above this loaded distance, airport quotes take max(zone, distance-band fare). */
+  airportRouteDistanceProtectFromKm?: number;
   airportExecutiveMinimumFareGbp: number;
   areaAirportSurchargesGbp: Record<string, Record<AirportCode, number>>;
   defaultAreaSurchargeGbp: Record<AirportCode, number>;

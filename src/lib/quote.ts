@@ -541,6 +541,7 @@ export function calculateQuote(
   vehicleType: (typeof VEHICLE_TYPES)[number],
   returnJourney = false,
   schedule: TripSchedule = {},
+  routeMetrics?: TripRouteMetrics | null,
 ): QuoteResult | null {
   const trimmedAddress = address.trim();
   if (!trimmedAddress || !airportCode) {
@@ -560,10 +561,38 @@ export function calculateQuote(
   const areaSurcharge = getAreaSurcharge(airportCode, matchedArea);
   const configuredBase = getAirportBasePrice(airportCode);
   const airportBase = configuredBase ?? airport.basePrice;
-  const saloonOneWay = computeSaloonAirportOneWay(
+  const airportMinimum = getAirportMinimumFare(airportCode) ?? AIRPORT_MINIMUM_FARE[airportCode] ?? 0;
+  const zoneSaloonOneWay = computeSaloonAirportOneWay(
     airportCode,
     airportBase + areaSurcharge,
   );
+
+  let saloonOneWay = zoneSaloonOneWay;
+  let usedDistanceProtection = false;
+
+  if (isValidRouteMetrics(routeMetrics)) {
+    const distanceSaloon = applyA2aCommercialFare(
+      calculateOtsPointToPointOneWay(
+        routeMetrics.distanceKm,
+        routeMetrics.durationMinutes,
+        "Standard Saloon (1–4 passengers)",
+      ),
+      routeMetrics.distanceKm,
+      Math.max(airportMinimum, A2A_DISTANCE_BANDS?.floorGbp ?? POINT_TO_POINT_BASE),
+    );
+    const protectFromKm = PRICING_CONFIG.airportRouteDistanceProtectFromKm ?? 100;
+
+    if (!matchedArea) {
+      // Arbitrary address not in the zone table — generalise from the driving route.
+      saloonOneWay = Math.max(airportMinimum, distanceSaloon);
+      usedDistanceProtection = true;
+    } else if (routeMetrics.distanceKm >= protectFromKm) {
+      // Long airport legs: protect empty-return economics globally (not only named towns).
+      saloonOneWay = Math.max(zoneSaloonOneWay, distanceSaloon);
+      usedDistanceProtection = saloonOneWay > zoneSaloonOneWay;
+    }
+  }
+
   const { vehicleMultiplier, vehicleAdjustment } = getAirportVehiclePricingMeta(
     vehicleType,
     saloonOneWay,
@@ -593,11 +622,20 @@ export function calculateQuote(
   return {
     amount: roundFare(premium.total),
     area: matchedArea,
-    areaSurcharge,
+    areaSurcharge: usedDistanceProtection
+      ? Math.round(routeMetrics?.distanceKm ?? areaSurcharge)
+      : areaSurcharge,
     airportBase,
     vehicleMultiplier,
     vehicleAdjustment,
     premiumApplied: premium.premiumApplied,
+    operational: isValidRouteMetrics(routeMetrics)
+      ? {
+          distanceKm: routeMetrics.distanceKm,
+          durationMinutes: routeMetrics.durationMinutes,
+          band: "weekday",
+        }
+      : undefined,
   };
 }
 

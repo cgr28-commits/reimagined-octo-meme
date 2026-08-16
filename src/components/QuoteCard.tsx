@@ -736,6 +736,7 @@ function QuoteCard({
           quoteVehicle,
           returnJourney,
           schedule,
+          routeMetrics,
         );
       }
       if (journeyKind === "airport-to-address" && pickupAirportCode) {
@@ -745,6 +746,7 @@ function QuoteCard({
           quoteVehicle,
           returnJourney,
           schedule,
+          routeMetrics,
         );
       }
       if (!routeMetrics) {
@@ -773,7 +775,14 @@ function QuoteCard({
     }
 
     if (isAirportTrip) {
-      return calculateQuote(quoteAddress, airportCode, quoteVehicle, returnJourney, schedule);
+      return calculateQuote(
+        quoteAddress,
+        airportCode,
+        quoteVehicle,
+        returnJourney,
+        schedule,
+        routeMetrics,
+      );
     }
 
     if (!routeMetrics) {
@@ -1533,7 +1542,7 @@ function QuoteCard({
       : !isAddressPairComplete
         ? "Enter pickup and drop-off addresses to see your fixed journey price"
         : !routeMetrics
-          ? "Calculating your route and price…"
+          ? "We need to confirm the price for this journey. Calculating your route… If a route cannot be found, use WhatsApp for a manual quote."
           : !isScheduleComplete
             ? "Price ready — add your date and time when you’re ready to book"
             : "";
