@@ -15,6 +15,8 @@ export type PaymentCheckoutRequest = {
 export type PaymentCheckoutResult = {
   paymentUrl: string;
   checkoutId: string;
+  checkoutReference?: string;
+  ownerAttemptEmailSent?: boolean;
 };
 
 export type PaymentConfirmationResult = {

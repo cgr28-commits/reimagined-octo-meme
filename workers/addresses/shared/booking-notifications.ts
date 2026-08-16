@@ -397,11 +397,11 @@ export function buildOwnerPaymentAttemptEmail(
   },
   businessName = "My Airport Taxi NI",
 ): { subject: string; body: string } {
-  const subject = `SumUp payment started — ${details.customerName} — ${options.amountLabel}`;
+  const subject = `Customer details captured — payment started — ${options.amountLabel}`;
 
   const body =
-    `A customer started online card payment on the ${businessName} website.\n` +
-    `Payment is NOT confirmed yet — you still have their contact details below.\n\n` +
+    `A customer entered their details and started online card payment on the ${businessName} website.\n` +
+    `Payment is NOT confirmed yet — contact details below are from the booking form (stored server-side before SumUp).\n\n` +
     `CUSTOMER\n` +
     `${"=".repeat(40)}\n` +
     `Name: ${details.customerName}\n` +
@@ -412,10 +412,10 @@ export function buildOwnerPaymentAttemptEmail(
     `${formatTripSchedule(details)}\n\n` +
     `PAYMENT\n` +
     `${"=".repeat(40)}\n` +
-    `Quoted amount: ${options.amountLabel}\n` +
+    `Quoted fare: ${options.amountLabel}\n` +
     `Checkout id: ${options.checkoutId}\n` +
-    (options.checkoutReference ? `Checkout reference: ${options.checkoutReference}\n` : "") +
-    `Status: PAYMENT STARTED (awaiting SumUp result)\n` +
+    (options.checkoutReference ? `Checkout / booking reference: ${options.checkoutReference}\n` : "") +
+    `Status: PAYMENT STARTED — NOT YET PAID\n` +
     (details.termsAcceptedAt
       ? `Terms accepted: ${details.termsAcceptedAt}${details.termsVersion ? ` (${details.termsVersion})` : ""}\n`
       : "") +

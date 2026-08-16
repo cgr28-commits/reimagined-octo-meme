@@ -24,6 +24,11 @@ export type EmailPayload = {
   toName?: string;
   /** When true, do not fall back to plain-text-only providers for customer emails. */
   requireHtml?: boolean;
+  /**
+   * Owner operational alerts (payment started / unsuccessful) must not rely on FormSubmit.
+   * Prefer Cloudflare Email / Web3Forms / MailChannels only.
+   */
+  preferWorkerProviders?: boolean;
 };
 
 export type EmailSendResult = {
@@ -162,22 +167,34 @@ export async function trySendEmail(
   const ownerEmail = env.BOOKING_TO_EMAIL?.trim() || DEFAULT_BOOKING_EMAIL;
   const isCustomerEmail = options.to.toLowerCase() !== ownerEmail.toLowerCase();
   const skipPlainTextFallback = Boolean(options.requireHtml && wantsHtml && isCustomerEmail);
+  const skipFormSubmit = Boolean(options.preferWorkerProviders);
 
-  // Prefer FormSubmit first — Web3Forms from the shared worker IP has been
-  // returning 403 / silent non-delivery. Cloudflare Email binding is skipped
-  // (domain not verified yet).
-  providers.push({ label: "formsubmit", run: () => sendViaFormSubmit(options) });
+  // Owner payment-stage alerts: Worker providers only (no FormSubmit dependency).
+  if (skipFormSubmit) {
+    if (env.EMAIL) {
+      providers.push({ label: "cloudflare-email", run: () => sendViaCloudflareEmail(env, options) });
+    }
+    if (env.WEB3FORMS_ACCESS_KEY?.trim()) {
+      providers.push({ label: "web3forms", run: () => sendViaWeb3Forms(env, options) });
+    }
+    providers.push({ label: "mailchannels", run: () => sendViaMailChannels(env, options) });
+  } else {
+    // Prefer FormSubmit first — Web3Forms from the shared worker IP has been
+    // returning 403 / silent non-delivery. Cloudflare Email binding is skipped
+    // (domain not verified yet) for general traffic.
+    providers.push({ label: "formsubmit", run: () => sendViaFormSubmit(options) });
 
-  if (!skipPlainTextFallback && env.WEB3FORMS_ACCESS_KEY?.trim()) {
-    providers.push({ label: "web3forms", run: () => sendViaWeb3Forms(env, options) });
-  } else if (wantsHtml && isCustomerEmail && env.WEB3FORMS_ACCESS_KEY?.trim()) {
-    providers.push({
-      label: "web3forms-html-autoresponse",
-      run: () => sendViaWeb3Forms(env, { ...options, body: options.htmlBody!.trim() }),
-    });
+    if (!skipPlainTextFallback && env.WEB3FORMS_ACCESS_KEY?.trim()) {
+      providers.push({ label: "web3forms", run: () => sendViaWeb3Forms(env, options) });
+    } else if (wantsHtml && isCustomerEmail && env.WEB3FORMS_ACCESS_KEY?.trim()) {
+      providers.push({
+        label: "web3forms-html-autoresponse",
+        run: () => sendViaWeb3Forms(env, { ...options, body: options.htmlBody!.trim() }),
+      });
+    }
+
+    providers.push({ label: "mailchannels", run: () => sendViaMailChannels(env, options) });
   }
-
-  providers.push({ label: "mailchannels", run: () => sendViaMailChannels(env, options) });
 
   let lastError: unknown = null;
 
@@ -194,6 +211,14 @@ export async function trySendEmail(
   const detail =
     lastError instanceof Error ? lastError.message : "All email providers failed";
   return { sent: false, error: detail };
+}
+
+/** Owner operational emails (payment started / failed) — never FormSubmit. */
+export async function trySendOwnerOperationalEmail(
+  env: WorkerEmailEnv,
+  options: EmailPayload,
+): Promise<EmailSendResult> {
+  return trySendEmail(env, { ...options, preferWorkerProviders: true });
 }
 
 /** Sends a branded HTML email to a customer — never falls back to plain-text-only delivery. */

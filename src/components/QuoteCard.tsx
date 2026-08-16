@@ -79,6 +79,14 @@ import {
   createPaymentReturnToken,
   savePendingPayment,
 } from "@/lib/pending-payment";
+import {
+  clearOpenCheckoutSession,
+  readBookingFormDraft,
+  readOpenCheckoutSession,
+  saveBookingFormDraft,
+  saveOpenCheckoutSession,
+  type OpenCheckoutSession,
+} from "@/lib/booking-draft-storage";
 import { scheduleQuoteLeadAlert } from "@/lib/submit-quote-lead";
 import { getPaymentBookingBlockers } from "../../shared/paid-booking-gate";
 import FlightNumberField, { formatVerifiedFlightSummary } from "@/components/FlightNumberField";
@@ -444,6 +452,8 @@ function QuoteCard({
   const [routeMetrics, setRouteMetrics] = useState<TripRouteMetrics | null>(null);
   const [paymentLoading, setPaymentLoading] = useState(false);
   const [paymentError, setPaymentError] = useState("");
+  const [openCheckout, setOpenCheckout] = useState<OpenCheckoutSession | null>(null);
+  const [paymentPopupBlocked, setPaymentPopupBlocked] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [termsError, setTermsError] = useState("");
   const [marketingOptIn, setMarketingOptIn] = useState(false);
@@ -597,6 +607,56 @@ function QuoteCard({
     }
     if (savedDropoff && !keepInitialDropoff) {
       setDropoffAddress(savedDropoff);
+    }
+
+    // Restore quote + customer details after SumUp tab switches / accidental reloads.
+    const draft = readBookingFormDraft();
+    if (draft && !testBooking) {
+      if (draft.pickupAddress?.trim() && !keepInitialPickup) {
+        setPickupAddress(draft.pickupAddress);
+      }
+      if (draft.dropoffAddress?.trim() && !keepInitialDropoff) {
+        setDropoffAddress(draft.dropoffAddress);
+      }
+      if (draft.pickupPlace) setPickupPlace(draft.pickupPlace);
+      if (draft.dropoffPlace) setDropoffPlace(draft.dropoffPlace);
+      if (draft.tripDate) setTripDate(draft.tripDate);
+      if (draft.tripTime) setTripTime(draft.tripTime);
+      if (typeof draft.returnJourney === "boolean") setReturnJourney(draft.returnJourney);
+      if (draft.returnDate) setReturnDate(draft.returnDate);
+      if (draft.returnTime) setReturnTime(draft.returnTime);
+      if (typeof draft.passengers === "number" && draft.passengers > 0) {
+        setPassengers(draft.passengers);
+      }
+      if (typeof draft.suitcases === "number" && draft.suitcases >= 0) {
+        setSuitcases(draft.suitcases);
+      }
+      if (draft.exactPassengers != null) setExactPassengers(draft.exactPassengers);
+      if (typeof draft.childSeats === "number") setChildSeats(draft.childSeats);
+      if (draft.childSeatNotes) setChildSeatNotes(draft.childSeatNotes);
+      if (
+        draft.vehicle &&
+        (VEHICLE_TYPES as readonly string[]).includes(String(draft.vehicle))
+      ) {
+        setVehicle(draft.vehicle as VehicleType);
+      }
+      if (draft.customerName) setCustomerName(draft.customerName);
+      if (draft.customerEmail) setCustomerEmail(draft.customerEmail);
+      if (draft.customerMobile) setCustomerMobile(draft.customerMobile);
+      if (draft.goingFlightNumber) setGoingFlightNumber(draft.goingFlightNumber);
+      if (draft.collectionFlightNumber) setCollectionFlightNumber(draft.collectionFlightNumber);
+      if (draft.journeyIntent) setJourneyIntent(draft.journeyIntent);
+      if (draft.intentAirportCode) setIntentAirportCode(draft.intentAirportCode);
+      if (typeof draft.termsAccepted === "boolean") setTermsAccepted(draft.termsAccepted);
+      if (typeof draft.marketingOptIn === "boolean") setMarketingOptIn(draft.marketingOptIn);
+      if (draft.quoteStep === 1 || draft.quoteStep === 2 || draft.quoteStep === 3) {
+        setQuoteStep(draft.quoteStep);
+      }
+    }
+
+    const existingCheckout = readOpenCheckoutSession();
+    if (existingCheckout) {
+      setOpenCheckout(existingCheckout);
     }
   }, [initialAddressHint, initialAirportCode, initialDirection, initialDropoffHint]);
 
@@ -1423,8 +1483,42 @@ function QuoteCard({
       return;
     }
 
+    // Do not navigate this tab away — SumUp’s X cannot reliably return customers here.
+    // Reopening uses the same checkout via “Open payment again”.
     setPaymentLoading(true);
     setPaymentError("");
+    setPaymentPopupBlocked(false);
+
+    const amountLabel = formatQuote(paymentAmount ?? liveQuote.amount);
+
+    // Persist before SumUp opens so closing the payment tab cannot wipe the form.
+    saveBookingFormDraft({
+      quoteStep: 3,
+      pickupAddress,
+      dropoffAddress,
+      pickupPlace,
+      dropoffPlace,
+      tripDate,
+      tripTime,
+      returnJourney,
+      returnDate,
+      returnTime,
+      passengers,
+      suitcases,
+      exactPassengers,
+      childSeats,
+      childSeatNotes,
+      vehicle: quoteVehicle,
+      customerName,
+      customerEmail,
+      customerMobile,
+      goingFlightNumber,
+      collectionFlightNumber,
+      journeyIntent,
+      intentAirportCode,
+      termsAccepted,
+      marketingOptIn,
+    });
 
     try {
       const returnToken = createPaymentReturnToken();
@@ -1437,16 +1531,34 @@ function QuoteCard({
       savePendingPayment(
         {
           checkoutId: checkout.checkoutId,
+          paymentUrl: checkout.paymentUrl,
+          checkoutReference: checkout.checkoutReference,
+          amountLabel,
           booking: {
             ...bookingDetails,
           },
         },
         returnToken,
       );
+
+      const session: OpenCheckoutSession = {
+        paymentUrl: checkout.paymentUrl,
+        checkoutId: checkout.checkoutId,
+        checkoutReference: checkout.checkoutReference,
+        amountLabel,
+        returnToken,
+        openedAt: new Date().toISOString(),
+      };
+      saveOpenCheckoutSession(session);
+      setOpenCheckout(session);
+
+      // Never navigate this tab away — SumUp X cannot return customers here reliably.
       const paymentWindow = window.open(checkout.paymentUrl, "_blank", "noopener,noreferrer");
       if (!paymentWindow) {
-        window.location.assign(checkout.paymentUrl);
-        return;
+        setPaymentPopupBlocked(true);
+        setPaymentError(
+          "Secure payment is ready. Tap “Open payment again” to open SumUp — your booking details stay on this page.",
+        );
       }
       setPaymentLoading(false);
     } catch (error) {
@@ -1457,6 +1569,39 @@ function QuoteCard({
       );
       setPaymentLoading(false);
     }
+  }
+
+  function handleOpenPaymentAgain() {
+    if (!openCheckout?.paymentUrl) {
+      void handlePayNow();
+      return;
+    }
+    setPaymentPopupBlocked(false);
+    setPaymentError("");
+    const paymentWindow = window.open(openCheckout.paymentUrl, "_blank", "noopener,noreferrer");
+    if (!paymentWindow) {
+      setPaymentPopupBlocked(true);
+      setPaymentError(
+        "Your browser blocked the payment tab. Allow pop-ups for this site, or tap “Open payment again” again.",
+      );
+    }
+  }
+
+  function handleReturnToEditBooking() {
+    setPaymentError("");
+    setPaymentPopupBlocked(false);
+    setQuoteStep(3);
+    setSubmitError("");
+    setBookingSent(false);
+    // Keep openCheckout so “Open payment again” still works with the same SumUp link.
+    cardRef.current?.scrollIntoView({ behavior: "smooth", block: "start", inline: "nearest" });
+  }
+
+  function handleStartFreshCheckout() {
+    clearOpenCheckoutSession();
+    setOpenCheckout(null);
+    setPaymentPopupBlocked(false);
+    setPaymentError("");
   }
 
   async function confirmBooking(delivery: BookingDelivery) {
@@ -3056,42 +3201,83 @@ function QuoteCard({
 
             {canPayNowOnline && liveQuote && (
               <div className="space-y-3">
-                <p className="text-xs leading-relaxed text-white/50">
-                  Card payments are processed securely by SumUp. Keep your confirmation email as
-                  proof of booking and payment.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => void handlePayNow()}
-                  disabled={
-                    paymentLoading ||
-                    submitted ||
-                    !termsAccepted ||
-                    !customerName.trim() ||
-                    !customerEmail.trim() ||
-                    !customerMobile.trim() ||
-                    !tripDetailsReady
-                  }
-                  className="w-full rounded-xl bg-white py-3.5 text-sm font-bold text-navy transition-all hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-70"
-                >
-                  {paymentLoading
-                    ? "Opening SumUp…"
-                    : testChargeAmount !== null
-                      ? "Pay £1.00 test charge with SumUp"
-                      : `Pay ${formatQuote(liveQuote.amount)} now with SumUp`}
-                </button>
-                {(!customerName.trim() ||
-                  !customerEmail.trim() ||
-                  !customerMobile.trim() ||
-                  !termsAccepted) && (
-                  <p className="text-center text-xs text-amber-200/90">
-                    Enter your name, mobile, email and accept the terms before paying.
-                  </p>
+                {openCheckout ? (
+                  <div className="space-y-3 rounded-2xl border border-emerald/35 bg-emerald/10 px-4 py-4">
+                    <p className="text-sm font-semibold text-emerald">Payment opened in a new tab</p>
+                    <p className="text-xs leading-relaxed text-white/75">
+                      Secure payment opened for {openCheckout.amountLabel}. To make changes, close
+                      the SumUp tab and return here — your booking details are saved on this page.
+                    </p>
+                    {paymentPopupBlocked ? (
+                      <p className="text-xs leading-relaxed text-amber-200">
+                        Your browser may have blocked the payment tab. Use “Open payment again”
+                        below.
+                      </p>
+                    ) : null}
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      <button
+                        type="button"
+                        onClick={handleReturnToEditBooking}
+                        className="w-full rounded-xl border border-white/20 bg-white/5 py-3 text-sm font-semibold text-white transition-all hover:bg-white/10"
+                      >
+                        Return to / Edit booking
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleOpenPaymentAgain}
+                        className="w-full rounded-xl bg-white py-3 text-sm font-bold text-navy transition-all hover:bg-white/90"
+                      >
+                        Open payment again
+                      </button>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleStartFreshCheckout}
+                      className="w-full text-center text-xs font-medium text-white/55 underline-offset-2 hover:text-white/80 hover:underline"
+                    >
+                      Start a new payment link
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <p className="text-xs leading-relaxed text-white/50">
+                      Secure payment will open in a new tab. To make changes, close the SumUp tab and
+                      return here — your booking details will be saved.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => void handlePayNow()}
+                      disabled={
+                        paymentLoading ||
+                        submitted ||
+                        !termsAccepted ||
+                        !customerName.trim() ||
+                        !customerEmail.trim() ||
+                        !customerMobile.trim() ||
+                        !tripDetailsReady
+                      }
+                      className="w-full rounded-xl bg-white py-3.5 text-sm font-bold text-navy transition-all hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-70"
+                    >
+                      {paymentLoading
+                        ? "Opening SumUp…"
+                        : testChargeAmount !== null
+                          ? "Pay £1.00 test charge with SumUp"
+                          : `Pay ${formatQuote(liveQuote.amount)} now with SumUp`}
+                    </button>
+                    {(!customerName.trim() ||
+                      !customerEmail.trim() ||
+                      !customerMobile.trim() ||
+                      !termsAccepted) && (
+                      <p className="text-center text-xs text-amber-200/90">
+                        Enter your name, mobile, email and accept the terms before paying.
+                      </p>
+                    )}
+                    <p className="text-center text-xs text-white/50">
+                      Card payments are processed securely by SumUp. You&apos;ll receive a branded
+                      invoice by email after payment.
+                    </p>
+                  </>
                 )}
-                <p className="text-center text-xs text-white/50">
-                  Payment opens in a new tab. Close that tab to cancel — your quote stays on this
-                  page. You&apos;ll receive a branded invoice by email after payment.
-                </p>
               </div>
             )}
             {canPayNowOnline ? (

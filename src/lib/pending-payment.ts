@@ -10,6 +10,9 @@ const PAYMENT_RESULT_PREFIX = "matni-payment-result-";
 export type PendingPayment = {
   checkoutId: string;
   booking: BookingDetails;
+  paymentUrl?: string;
+  checkoutReference?: string;
+  amountLabel?: string;
 };
 
 function parsePendingPayment(raw: string | null): PendingPayment | null {
