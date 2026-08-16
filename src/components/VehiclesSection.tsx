@@ -14,7 +14,7 @@ export default function VehiclesSection() {
         <SectionHeading
           eyebrow="Vehicles"
           title="The right vehicle for every group"
-          description="1–4 passengers travel in a standard or estate car with an instant online price. For 5–8 passengers, minibus transfers are arranged through our licensed transport partners — subject to availability, with a request-a-quote booking."
+          description="Saloon and estate cars cover parties of up to 4 with matching luggage limits, with an instant online price. Larger groups or more luggage are arranged through our licensed minibus partners — subject to availability, with a request-a-quote booking."
         />
 
         <div className="mt-12 grid items-center gap-10 lg:grid-cols-2 lg:gap-14">

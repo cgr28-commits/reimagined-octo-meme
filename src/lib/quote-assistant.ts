@@ -647,9 +647,9 @@ function vehicleSuggestionNote(
     return `I’ve suggested a ${short} for ${passengers} passengers / ${suitcases} cases (arranged via a licensed transport partner).`;
   }
   if (vehicle.startsWith("Estate")) {
-    return `I’ve suggested an ${short} — better boot space for ${suitcases} cases.`;
+    return `I’ve suggested an ${short} (up to 4 passengers + 4 large cases) for your party.`;
   }
-  return `I’ve suggested a ${short} for ${passengers} passenger${passengers === 1 ? "" : "s"}.`;
+  return `I’ve suggested a ${short} (up to 3 passengers + 3 large cases, or 4 with hand luggage) for ${passengers} passenger${passengers === 1 ? "" : "s"}.`;
 }
 
 function extractNumber(text: string, kind: "passenger" | "suitcase"): number | undefined {

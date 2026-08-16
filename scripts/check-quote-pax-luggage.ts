@@ -1,5 +1,5 @@
 /**
- * Phase 2 quote UX: passenger/luggage → vehicle selection (aligned with business rules).
+ * Quote UX: passenger/luggage → vehicle selection (OTS capacity model).
  * Run: npx tsx scripts/check-quote-pax-luggage.ts
  */
 
@@ -38,19 +38,25 @@ const belfast = "10 Donegall Square North, Belfast BT1 5GB";
 
 check("1 passenger / 0 suitcases", 1, 0, "saloon", "BFS", belfast);
 check("2 passengers / 2 suitcases", 2, 2, "saloon", "BFS", belfast);
-check("3 passengers / 0 suitcases", 3, 0, "estate", "BFS", belfast);
+check("3 passengers / 0 suitcases", 3, 0, "saloon", "BFS", belfast);
+check("3 passengers / 3 suitcases", 3, 3, "saloon", "BFS", belfast);
+check("4 passengers / hand luggage", 4, 0, "saloon", "BFS", belfast);
+check("4 passengers / 1 suitcase", 4, 1, "estate", "BFS", belfast);
 check("4 passengers / 4 suitcases", 4, 4, "estate", "BFS", belfast);
-check("1 passenger / 3 suitcases", 1, 3, "estate", "BFS", belfast);
+check("1 passenger / 3 suitcases", 1, 3, "saloon", "BFS", belfast);
+check("1 passenger / 4 suitcases", 1, 4, "estate", "BFS", belfast);
 check("2 passengers / 4 suitcases", 2, 4, "estate", "BFS", belfast);
 check("5+ passengers", 5, 1, "minibus", "BFS", belfast);
 check("5+ suitcases", 2, 5, "minibus", "BFS", belfast);
 check("Belfast City Airport", 2, 1, "saloon", "BHD", belfast);
 check("Belfast International", 2, 1, "saloon", "BFS", belfast);
 check("Dublin Airport", 2, 1, "saloon", "DUB", belfast);
-check("BFS estate luggage", 2, 3, "estate", "BFS", belfast);
+check("BFS estate luggage", 2, 4, "estate", "BFS", belfast);
 
 assert.equal(selectVehicleForParty(2, 2), SALOON_VEHICLE);
-assert.equal(selectVehicleForParty(3, 2), ESTATE_VEHICLE);
+assert.equal(selectVehicleForParty(3, 2), SALOON_VEHICLE);
+assert.equal(selectVehicleForParty(4, 0), SALOON_VEHICLE);
+assert.equal(selectVehicleForParty(4, 1), ESTATE_VEHICLE);
 
 const ret = calculateQuote(belfast, "BFS", SALOON_VEHICLE, true);
 assert.equal(ret?.amount, 105);

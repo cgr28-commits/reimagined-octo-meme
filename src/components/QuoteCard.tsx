@@ -31,6 +31,7 @@ import {
   formatSuitcaseChoice,
   requiresMinibus,
   selectVehicleForParty,
+  vehicleCapacityHint,
   vehicleShortLabel,
 } from "@/lib/vehicle-selection";
 import { parseLondonLocalDateTime } from "@/lib/london-time";
@@ -2063,20 +2064,11 @@ function QuoteCard({
             <p className="mt-1 text-xl font-semibold tracking-tight text-white">
               {vehicleShortLabel(quoteVehicle)}
             </p>
-            {exceedsOnlineCapacity ? (
-              <p className="mt-2 text-xs leading-relaxed text-white/70">
-                A minibus is required for this party size. We don&apos;t show an automatic online
-                fare — request a manual quote via WhatsApp.
-              </p>
-            ) : quoteVehicle === ESTATE ? (
-              <p className="mt-2 text-xs leading-relaxed text-white/70">
-                Estate selected automatically from your passengers and luggage.
-              </p>
-            ) : (
-              <p className="mt-2 text-xs leading-relaxed text-white/70">
-                Saloon selected automatically from your passengers and luggage.
-              </p>
-            )}
+            <p className="mt-2 text-xs leading-relaxed text-white/70">
+              {exceedsOnlineCapacity
+                ? "A minibus is required for this party size. We don't show an automatic online fare — request a manual quote via WhatsApp."
+                : vehicleCapacityHint(quoteVehicle)}
+            </p>
           </div>
           <input type="hidden" name="vehicle" value={quoteVehicle} />
           <input type="hidden" name="passengers" value={passengers} />

@@ -536,17 +536,18 @@ export const FAQS = [
 export const VEHICLE_FLEET = [
   {
     name: "Estate Car",
-    capacity: "1–4 passengers",
+    capacity: "Up to 4 passengers + 4 large suitcases",
     description:
-      "1–4 passengers — spacious estate with a large boot for family holidays and airport luggage. Instant online price.",
+      "Up to 4 passengers plus 4 standard suitcases (23kg) — spacious boot for family holidays and airport luggage. Instant online price.",
     enquiryOnly: false,
     requestQuote: false,
     partnerOperated: false,
   },
   {
     name: "Standard Saloon",
-    capacity: "1–4 passengers",
-    description: "1–4 passengers — ideal for solo travellers and couples with light luggage. Instant online price.",
+    capacity: "Up to 3 passengers + 3 cases, or 4 + hand luggage",
+    description:
+      "Up to 3 passengers plus 3 standard suitcases (23kg), or 4 passengers with hand luggage only. Instant online price.",
     enquiryOnly: false,
     requestQuote: false,
     partnerOperated: false,
@@ -563,7 +564,7 @@ export const VEHICLE_FLEET = [
     name: "Minibus",
     capacity: "5–8 passengers",
     description:
-      "For 5 or more passengers, minibus transfers are arranged through our licensed transport partners. Subject to availability — request a quote (guide price shown online).",
+      "For more than 4 passengers or more than 4 large suitcases, minibus transfers are arranged through our licensed transport partners. Subject to availability — request a quote.",
     enquiryOnly: true,
     requestQuote: true,
     partnerOperated: true,
