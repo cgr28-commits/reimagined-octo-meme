@@ -1,5 +1,6 @@
 import { SITE } from "@/lib/data";
 import type { BookingDetails } from "@/lib/booking-message";
+import { isValidPassengerCount, PASSENGER_LIMIT_ERROR } from "../../shared/passenger-limits";
 
 export type PaymentCheckoutRequest = {
   amount: number;
@@ -128,6 +129,10 @@ export async function confirmPaidBooking(
   checkoutId: string,
   booking: BookingDetails,
 ): Promise<PaymentConfirmationResult> {
+  if (!isValidPassengerCount(booking.passengers)) {
+    throw new Error(PASSENGER_LIMIT_ERROR);
+  }
+
   if (!PAYMENTS_CONFIRM_API_URL) {
     throw new Error("Online payment is not configured");
   }

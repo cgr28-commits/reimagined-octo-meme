@@ -1,6 +1,7 @@
 import { SITE } from "@/lib/data";
 import type { BookingDetails } from "@/lib/booking-message";
 import { buildBookingMessage } from "@/lib/booking-message";
+import { isValidPassengerCount, PASSENGER_LIMIT_ERROR } from "../../shared/passenger-limits";
 
 import type { TourEnquiryDetails } from "@/lib/tour-enquiry-message";
 
@@ -247,6 +248,10 @@ export async function submitEnquiryByEmail(
   submission: EnquirySubmission,
   options?: { allowFormSubmitFallback?: boolean },
 ): Promise<string> {
+  if (submission.booking && !isValidPassengerCount(submission.booking.passengers)) {
+    throw new Error(PASSENGER_LIMIT_ERROR);
+  }
+
   const allowFormSubmitFallback = options?.allowFormSubmitFallback ?? true;
   let bookingReference = "";
   let lastError: unknown = null;

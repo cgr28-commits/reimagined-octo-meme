@@ -127,12 +127,12 @@ const BOOKING_HELPER_CLASS = "quote-helper-text mt-1.5 text-xs text-white/55";
 const ESTATE = "Estate Car (1–4 passengers)" as const;
 
 /** Instant online booking (SumUp) covers saloon/estate only — never invent a minibus fare. */
-/** Quote form “5+” taps use sentinel value 5. */
+/** Quote form “5–7” tap uses sentinel value 5. */
 const SELECTOR_MAX_PASSENGERS = FIVE_PLUS_PASSENGERS;
 const SELECTOR_MAX_SUITCASES = FIVE_PLUS_SUITCASES;
 
 const CAPACITY_WHATSAPP_MESSAGE =
-  "Hi, I need a tailored quote for a larger vehicle / group transfer (5+ passengers or extra luggage).";
+  "Hi, I need a tailored quote for a larger vehicle / group transfer (5–7 passengers or extra luggage).";
 
 type VehicleType = (typeof VEHICLE_TYPES)[number];
 
@@ -497,10 +497,11 @@ function QuoteCard({
       : "BFS";
 
   useEffect(() => {
-    // Instant online path is 1–4. Group / 5+ uses exact passenger counts (up to 50).
+    // Instant online path is 1–4. Group / 5–7 uses exact passenger counts (max 7).
     if (passengers >= FIVE_PLUS_PASSENGERS) {
-      if (passengers > 50) {
-        setPassengers(50);
+      if (passengers > MAX_ONLINE_PASSENGERS) {
+        setPassengers(MAX_ONLINE_PASSENGERS);
+        setExactPassengers(MAX_ONLINE_PASSENGERS);
       }
       return;
     }
@@ -1232,7 +1233,7 @@ function QuoteCard({
 
   function buildBookingDetails(): BookingDetails {
     const tripLabel = exceedsOnlineCapacity
-      ? "Minibus / 5+ passenger quote request"
+      ? "Larger vehicle / 5–7 passenger quote request"
       : isOutOfAreaPickupJourney
       ? "Out-of-area pickup — manual quote request"
       : isRoiJourney
@@ -1415,7 +1416,7 @@ function QuoteCard({
           ? buildGroupQuoteRequestMessage(details)
           : buildEnquiryBookingMessage(details);
         const subject = exceedsOnlineCapacity
-          ? `MINIBUS / 5+ PASSENGER QUOTE REQUEST — ${details.customerName}`
+          ? `5–7 PASSENGER / LARGER VEHICLE QUOTE REQUEST — ${details.customerName}`
           : pricingConfirmationRequired
           ? `Price confirmation request — ${details.customerName}`
           : isOutOfAreaPickupJourney
@@ -1511,8 +1512,12 @@ function QuoteCard({
       if (passengers >= FIVE_PLUS_PASSENGERS && !exactPassengers) {
         setExactPassengers(5);
       }
-      if (passengers >= 10 && (!exactPassengers || exactPassengers < 10)) {
-        setSubmitError("Please enter your exact passenger number.");
+      if (passengers > MAX_ONLINE_PASSENGERS || (exactPassengers != null && exactPassengers > MAX_ONLINE_PASSENGERS)) {
+        setSubmitError("We can only quote for up to 7 passengers.");
+        return;
+      }
+      if (passengers >= FIVE_PLUS_PASSENGERS && (!exactPassengers || exactPassengers < 5 || exactPassengers > 7)) {
+        setSubmitError("Please select 5, 6, or 7 passengers.");
         return;
       }
       if (!hasQuoteRoute) {
@@ -1525,7 +1530,7 @@ function QuoteCard({
         );
         return;
       }
-      // 5+ continues into the tailored quote request path (no invented price).
+      // 5–7 continues into the tailored quote request path (no invented price).
       if (!exceedsOnlineCapacity && !isEnquiryOnly && !isManualQuoteJourney && !pricingConfirmationRequired && !liveQuote) {
         return;
       }
@@ -1633,8 +1638,8 @@ function QuoteCard({
       : isRequestQuote
     ? hasQuoteRoute
       ? !isScheduleComplete
-        ? "Minibus guide price ready — add your date and time, then request a quote (subject to partner availability)."
-        : "Minibus transfers via licensed partners — continue to request a quote."
+        ? "Larger-vehicle quote ready — add your date and time, then request a quote (subject to partner availability)."
+        : "Larger-vehicle transfers via licensed partners — continue to request a quote."
       : isAirportTrip
         ? !airportCode
           ? "Select an airport to see a minibus guide price"
@@ -2560,7 +2565,7 @@ function QuoteCard({
                 )}
               </div>
               <p className="mt-3 text-xs leading-relaxed text-white/65">
-                We don&apos;t show an automatic online fare for 5+ passengers. Continue to request a
+                We don&apos;t show an automatic online fare for 5–7 passengers. Continue to request a
                 tailored fixed-price quote — any applicable airport access fees and tolls will be
                 included in that quote.
               </p>
@@ -2949,8 +2954,8 @@ function QuoteCard({
                   className="mt-1 h-4 w-4 shrink-0 rounded border-white/30 bg-navy text-emerald focus:ring-emerald"
                 />
                 <span>
-                  I understand that 8 passengers with 8 large suitcases cannot be booked until you
-                  confirm capacity in writing.
+                  I understand luggage capacity may need written confirmation before this booking is
+                  accepted.
                   {capacityError ? (
                     <span className="mt-1 block text-xs text-red-200">{capacityError}</span>
                   ) : null}

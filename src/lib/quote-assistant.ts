@@ -15,10 +15,10 @@ import {
   WHY_CHOOSE_US,
   isVehicleEnquiryOnly,
   isVehicleRequestQuote,
-  needsLuggageCapacityConfirmation,
   showsOnlineGuidePrice,
 } from "@/lib/data";
 import { selectVehicleForParty } from "@/lib/vehicle-selection";
+import { isValidPassengerCount, PASSENGER_LIMIT_ERROR } from "../../shared/passenger-limits";
 import { resolveJourneyInclusions } from "@/lib/journey-inclusions";
 import { BUSINESS_LEGAL } from "@/lib/business-legal";
 import {
@@ -228,7 +228,7 @@ function knowledgeChunks(): Array<{ title: string; body: string }> {
     {
       title: "How booking works",
       body:
-        "Standard process: (1) Get a Live Quote on the website or in this chat for your fixed journey price. (2) When an instant fare is shown, you can pay online with SumUp to confirm. Otherwise Request to book / enquire with your date, time, and contact details — we confirm the job and email a SumUp payment link; booking is confirmed after payment. Online quotes cover 1–8 passengers. Larger groups are arranged via licensed transport partners (guide price, request a quote, subject to availability).",
+        "Standard process: (1) Get a Live Quote on the website or in this chat for your fixed journey price. (2) When an instant fare is shown, you can pay online with SumUp to confirm. Otherwise Request to book / enquire with your date, time, and contact details — we confirm the job and email a SumUp payment link; booking is confirmed after payment. Online quotes cover 1–7 passengers. For 5–7 passengers we arrange a suitable larger vehicle via licensed transport partners (tailored quote, subject to availability). We do not offer journeys for more than 7 passengers.",
     },
     {
       title: "Quote tool flow",
@@ -271,7 +271,7 @@ function knowledgeChunks(): Array<{ title: string; body: string }> {
     {
       title: "Meet and greet",
       body:
-        "Meet & greet is available when requested during booking — we can meet you in the arrivals hall with a name board. Ask for meet and greet when you book and share your flight number so we can plan the collection.",
+        "Meet & greet can be requested during booking where available — we can meet you in the arrivals hall with a name board. Ask for meet and greet when you book and share your flight number so we can plan the collection.",
     },
     {
       title: "Flight delays and waiting time",
@@ -430,7 +430,7 @@ function matchKnowledge(text: string): string | null {
     ) {
       score += 4;
     }
-    if (/partner|subcontract|psv|minibus|5.?8|five|group/.test(lower) && /partner|minibus|5–8|group/.test(haystack)) {
+    if (/partner|subcontract|psv|minibus|5.?7|five|group/.test(lower) && /partner|minibus|5–7|group/.test(haystack)) {
       score += 4;
     }
     if (
@@ -689,6 +689,8 @@ function extractBareCount(text: string): number | undefined {
   const match = text.trim().match(/^(\d+)$/);
   if (!match) return undefined;
   const value = Number(match[1]);
+  // Bare numbers may be passengers (1–7) or suitcases (0–16). Cap at 16 for suitcases;
+  // passenger extraction elsewhere uses MAX_ONLINE_PASSENGERS.
   if (!Number.isFinite(value) || value < 0 || value > 16) return undefined;
   return value;
 }
@@ -699,7 +701,7 @@ function pickVehicle(passengers: number, suitcases: number): (typeof VEHICLE_TYP
 
 function matchExplicitVehicle(text: string): (typeof VEHICLE_TYPES)[number] | undefined {
   const lower = text.toLowerCase();
-  if (/\bminibus\b/.test(lower)) return "Minibus (5–8 passengers)";
+  if (/\bminibus\b/.test(lower)) return "Minibus (5–7 passengers)";
   if (/\bexecutive\b/.test(lower)) return "Executive Saloon (1–4 passengers)";
   if (/\bestate\b/.test(lower)) return "Estate Car (1–4 passengers)";
   if (/\bsaloon\b/.test(lower)) return "Standard Saloon (1–4 passengers)";
@@ -1059,6 +1061,7 @@ function promptForField(field: MissingField, draft: QuoteDraft): AssistantRespon
           "4 passengers",
           "5 passengers",
           "6 passengers",
+          "7 passengers",
         ],
       };
     case "suitcases":
@@ -1563,9 +1566,7 @@ function tryBuildQuote(
   const guidePrice = showsOnlineGuidePrice(vehicle);
   const airportName =
     AIRPORTS.find((airport) => airport.code === draft.airportCode)?.name ?? draft.airportCode;
-  const capacityNote = needsLuggageCapacityConfirmation(passengers, suitcases)
-    ? " Note: 8 passengers with 8 large suitcases needs a luggage-capacity check before we can confirm."
-    : "";
+  const capacityNote = "";
 
   if (enquiryOnly && !guidePrice) {
     return {
@@ -1936,6 +1937,22 @@ export async function respondToAssistantMessage(
     } else if (nextField === "suitcases" && suitcases === undefined) {
       suitcases = bareCount;
     }
+  }
+
+  if (passengers !== undefined && !isValidPassengerCount(passengers)) {
+    return {
+      reply: PASSENGER_LIMIT_ERROR,
+      draft: nextDraft,
+      quickReplies: [
+        "1 passenger",
+        "2 passengers",
+        "3 passengers",
+        "4 passengers",
+        "5 passengers",
+        "6 passengers",
+        "7 passengers",
+      ],
+    };
   }
 
   if (passengers !== undefined) nextDraft.passengers = passengers;

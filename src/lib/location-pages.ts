@@ -44,13 +44,13 @@ const AIRPORT_PAGES_ALL: AirportPage[] = [
     shortName: "Belfast International",
     title: "Belfast International Airport Transfers",
     metaDescription:
-      "Private taxi transfers to and from Belfast International Airport (BFS / Aldergrove). Fixed prices, flight tracking, meet & greet, and 60 minutes complimentary waiting time.",
+      "Private taxi transfers to and from Belfast International Airport (BFS / Aldergrove). Fixed prices, flight monitoring, meet & greet on request, and up to 60 minutes complimentary waiting time on airport pickups.",
     intro:
-      "Belfast International (Aldergrove) is Northern Ireland’s main long-haul and holiday airport. We provide door-to-door private transfers across Greater Belfast and beyond, with live flight monitoring so pickup adjusts if your flight is early or delayed.",
+      "Belfast International (Aldergrove) is Northern Ireland’s main long-haul and holiday airport. We provide door-to-door private transfers across Greater Belfast and beyond. We monitor your flight where possible and adjust the planned collection time for early or delayed arrivals. Airport pickups include up to 60 minutes complimentary waiting time.",
     highlights: [
       "Fixed online prices for 1–4 passengers",
-      "Flight tracking with up to 60 minutes complimentary waiting after landing",
-      "Meet & greet available when requested during booking",
+      "Up to 60 minutes complimentary waiting time on airport pickups",
+      "Meet & greet can be requested during booking where available",
       "24/7 coverage including early-morning charters and late arrivals",
     ],
     localTips: [
@@ -71,13 +71,13 @@ const AIRPORT_PAGES_ALL: AirportPage[] = [
     shortName: "Belfast City Airport",
     title: "Belfast City Airport Transfers",
     metaDescription:
-      "Quick private transfers to and from George Best Belfast City Airport (BHD). Ideal for business trips and short-haul flights with flight tracking and meet & greet.",
+      "Quick private transfers to and from George Best Belfast City Airport (BHD). Ideal for business trips and short-haul flights with flight monitoring, meet & greet on request, and up to 60 minutes complimentary waiting on airport pickups.",
     intro:
       "George Best Belfast City Airport sits close to the Titanic Quarter and city centre — ideal for short-haul and business travel. Our drivers know the Sydenham Bypass and airport approach roads for punctual drop-offs and collections.",
     highlights: [
       "Short transfer times from Belfast city centre, Holywood, and Bangor",
-      "Flight tracking for arrivals and timed drop-offs for departures",
-      "Meet & greet available when requested during booking",
+      "Up to 60 minutes complimentary waiting time on airport pickups",
+      "Meet & greet can be requested during booking where available",
       "Licensed private hire with clear fixed pricing",
     ],
     localTips: [
@@ -125,14 +125,14 @@ const AIRPORT_PAGES_ALL: AirportPage[] = [
     shortName: "City of Derry Airport",
     title: "City of Derry Airport Transfers",
     metaDescription:
-      "Transfers between City of Derry Airport (LDY) and the greater Belfast area — Bangor, Belfast, Lisburn and surrounds. Flight tracking and meet & greet available.",
+      "Transfers between City of Derry Airport (LDY) and the greater Belfast area — Bangor, Belfast, Lisburn and surrounds. Flight monitoring, meet & greet on request, and up to 60 minutes complimentary waiting time on airport pickups.",
     intro:
       "City of Derry Airport (Eglinton) connects the north-west with UK routes. We specialise in transfers between LDY and the greater Belfast area — not short local Derry city hops — so Bangor, Belfast, and Lisburn travellers can travel with one clear booked price.",
     highlights: [
       "Belfast-area ↔ Derry Airport focus (Bangor, Belfast, Lisburn and surrounds)",
-      "Flight tracking for LDY arrivals heading east",
+      "Flight monitoring with up to 60 minutes complimentary waiting on airport pickups",
       "Guide pricing shown online with confirmation before payment",
-      "Meet & greet available when requested during booking",
+      "Meet & greet can be requested during booking where available",
     ],
     localTips: [
       "Pickup must be in the greater Belfast area for journeys to LDY — enter a Bangor, Belfast, or Lisburn-area address in the quote tool.",
@@ -198,7 +198,7 @@ function buildRouteNotes(town: TownArea, airport: AirportPage): string[] {
     return [
       `${town.name} to Belfast City Airport is a shorter coastal/city run — ideal for short-haul and business flights.`,
       "We recommend confirming your terminal and departure time when you book.",
-      "Meet & greet is available when requested during booking if you are arriving and need help with luggage.",
+      "Meet & greet can be requested during booking where available if you are arriving and need help with luggage.",
     ];
   }
   if (airport.code === "DUB") {

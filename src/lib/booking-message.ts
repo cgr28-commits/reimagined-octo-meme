@@ -140,7 +140,7 @@ export function buildEnquiryBookingMessage(
 }
 
 /**
- * Business-facing 5+ / larger-vehicle quote request.
+ * Business-facing 5–7 / larger-vehicle quote request.
  * Scannable on mobile — no invented price, no false "fee included" claims.
  */
 export function buildGroupQuoteRequestMessage(
@@ -149,11 +149,11 @@ export function buildGroupQuoteRequestMessage(
 ): string {
   const reference = bookingReference ?? details.bookingReference;
   const waitingNote = details.isFromAirport
-    ? "Airport pickup waiting policy: 60 minutes complimentary (when a flight number is provided where possible)."
-    : "Non-airport pickup waiting policy: 10 minutes complimentary from the agreed pickup time.";
+    ? "Airport pickup waiting policy: up to 60 minutes complimentary waiting time."
+    : "Non-airport pickup waiting policy: up to 10 minutes complimentary waiting time from the agreed pickup time.";
 
   return (
-    `MINIBUS / 5+ PASSENGER QUOTE REQUEST\n` +
+    `5–7 PASSENGER / LARGER VEHICLE QUOTE REQUEST\n` +
     `${"=".repeat(36)}\n` +
     (reference ? `Reference: ${reference}\n` : "") +
     `Passengers: ${details.passengers}\n` +
@@ -180,7 +180,7 @@ export function buildGroupQuoteRequestMessage(
     `\n--- Customer copy ---\n` +
     `Quote Request Received\n\n` +
     `Dear ${details.customerName},\n\n` +
-    `Thank you — we’ve received your journey details for a larger vehicle / group transfer.\n` +
+    `Thank you — we’ve received your journey details for a larger vehicle transfer (${details.passengers} passengers).\n` +
     `This is a quote request only. A tailored fixed price will be provided shortly. ` +
     `Nothing is confirmed until you accept the quote.\n\n` +
     `Pickup: ${details.pickupLabel}\n` +

@@ -175,7 +175,7 @@ function applyAirportVehiclePricing(
         AIRPORT_EXECUTIVE_MINIMUM_FARE,
         roundToNearestFive(estateTier * VEHICLE_MULTIPLIERS[vehicleType]),
       );
-    case "Minibus (5–8 passengers)":
+    case "Minibus (5–7 passengers)":
       return roundToNearestFive(estateTier * VEHICLE_MULTIPLIERS[vehicleType]);
     default:
       return saloonFare;
