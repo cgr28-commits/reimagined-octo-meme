@@ -12,7 +12,9 @@ type EmailBinding = {
 export type WorkerEmailEnv = {
   BOOKING_TO_EMAIL?: string;
   BOOKING_FROM_EMAIL?: string;
+  BOOKING_NOTIFICATION_EMAIL?: string;
   WEB3FORMS_ACCESS_KEY?: string;
+  RESEND_API_KEY?: string;
   EMAIL?: EmailBinding;
 };
 
@@ -29,11 +31,18 @@ export type EmailPayload = {
    * Prefer Cloudflare Email / Web3Forms / MailChannels only.
    */
   preferWorkerProviders?: boolean;
+  /**
+   * Branded customer emails (invoices, refunds, driver details) must never use FormSubmit.
+   * FormSubmit often returns success for new recipient addresses without delivering the
+   * booking confirmation (activation / spam / silent drop).
+   */
+  customerDelivery?: boolean;
 };
 
 export type EmailSendResult = {
   sent: boolean;
   error?: string;
+  provider?: string;
 };
 
 const DEFAULT_BOOKING_EMAIL = "bookings@myairporttaxini.co.uk";
@@ -57,13 +66,55 @@ async function sendViaCloudflareEmail(env: WorkerEmailEnv, options: EmailPayload
   });
 }
 
+async function sendViaResend(env: WorkerEmailEnv, options: EmailPayload): Promise<void> {
+  const apiKey = env.RESEND_API_KEY?.trim() ?? "";
+  if (!apiKey) {
+    throw new Error("Resend is not configured");
+  }
+
+  const fromEmail = env.BOOKING_FROM_EMAIL?.trim() || DEFAULT_BOOKING_EMAIL;
+  const html = options.htmlBody?.trim();
+
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify({
+      from: `${BUSINESS_NAME} <${fromEmail}>`,
+      to: [options.to],
+      subject: options.subject,
+      text: options.body,
+      ...(html ? { html } : {}),
+      reply_to: fromEmail,
+    }),
+  });
+
+  const payload = (await response.json().catch(() => null)) as
+    | { id?: string; message?: string; name?: string }
+    | null;
+
+  if (!response.ok) {
+    const detail =
+      payload && typeof payload === "object"
+        ? String(payload.message ?? payload.name ?? response.status)
+        : String(response.status);
+    throw new Error(`Resend request failed: ${detail}`);
+  }
+}
+
 async function sendViaWeb3Forms(env: WorkerEmailEnv, options: EmailPayload): Promise<void> {
   const accessKey = env.WEB3FORMS_ACCESS_KEY?.trim() ?? "";
   if (!accessKey) {
     throw new Error("Web3Forms is not configured");
   }
 
-  const ownerEmail = env.BOOKING_TO_EMAIL?.trim() || DEFAULT_BOOKING_EMAIL;
+  const ownerEmail =
+    env.BOOKING_NOTIFICATION_EMAIL?.trim() ||
+    env.BOOKING_TO_EMAIL?.trim() ||
+    DEFAULT_BOOKING_EMAIL;
   const sendAutoresponse = options.to.toLowerCase() !== ownerEmail.toLowerCase();
 
   const payload: Record<string, unknown> = {
@@ -158,19 +209,44 @@ async function sendViaMailChannels(env: WorkerEmailEnv, options: EmailPayload): 
   }
 }
 
-export async function trySendEmail(
+function buildProviderChain(
   env: WorkerEmailEnv,
   options: EmailPayload,
-): Promise<EmailSendResult> {
+): Array<{ label: string; run: () => Promise<void> }> {
   const providers: Array<{ label: string; run: () => Promise<void> }> = [];
   const wantsHtml = Boolean(options.htmlBody?.trim());
-  const ownerEmail = env.BOOKING_TO_EMAIL?.trim() || DEFAULT_BOOKING_EMAIL;
+  const ownerEmail =
+    env.BOOKING_NOTIFICATION_EMAIL?.trim() ||
+    env.BOOKING_TO_EMAIL?.trim() ||
+    DEFAULT_BOOKING_EMAIL;
   const isCustomerEmail = options.to.toLowerCase() !== ownerEmail.toLowerCase();
-  const skipPlainTextFallback = Boolean(options.requireHtml && wantsHtml && isCustomerEmail);
-  const skipFormSubmit = Boolean(options.preferWorkerProviders);
+  const customerDelivery = Boolean(options.customerDelivery || (options.requireHtml && isCustomerEmail));
+  const skipFormSubmit = Boolean(options.preferWorkerProviders || customerDelivery);
 
-  // Owner payment-stage alerts: Worker providers only (no FormSubmit dependency).
+  // Customer branded invoices: never FormSubmit (false “success” / activation trap).
+  if (customerDelivery) {
+    if (env.RESEND_API_KEY?.trim()) {
+      providers.push({ label: "resend", run: () => sendViaResend(env, options) });
+    }
+    if (env.EMAIL) {
+      providers.push({ label: "cloudflare-email", run: () => sendViaCloudflareEmail(env, options) });
+    }
+    if (env.WEB3FORMS_ACCESS_KEY?.trim() && wantsHtml) {
+      providers.push({
+        label: "web3forms-html-autoresponse",
+        run: () => sendViaWeb3Forms(env, { ...options, body: options.htmlBody!.trim() }),
+      });
+    } else if (env.WEB3FORMS_ACCESS_KEY?.trim()) {
+      providers.push({ label: "web3forms", run: () => sendViaWeb3Forms(env, options) });
+    }
+    providers.push({ label: "mailchannels", run: () => sendViaMailChannels(env, options) });
+    return providers;
+  }
+
   if (skipFormSubmit) {
+    if (env.RESEND_API_KEY?.trim()) {
+      providers.push({ label: "resend", run: () => sendViaResend(env, options) });
+    }
     if (env.EMAIL) {
       providers.push({ label: "cloudflare-email", run: () => sendViaCloudflareEmail(env, options) });
     }
@@ -178,30 +254,35 @@ export async function trySendEmail(
       providers.push({ label: "web3forms", run: () => sendViaWeb3Forms(env, options) });
     }
     providers.push({ label: "mailchannels", run: () => sendViaMailChannels(env, options) });
-  } else {
-    // Prefer FormSubmit first — Web3Forms from the shared worker IP has been
-    // returning 403 / silent non-delivery. Cloudflare Email binding is skipped
-    // (domain not verified yet) for general traffic.
-    providers.push({ label: "formsubmit", run: () => sendViaFormSubmit(options) });
-
-    if (!skipPlainTextFallback && env.WEB3FORMS_ACCESS_KEY?.trim()) {
-      providers.push({ label: "web3forms", run: () => sendViaWeb3Forms(env, options) });
-    } else if (wantsHtml && isCustomerEmail && env.WEB3FORMS_ACCESS_KEY?.trim()) {
-      providers.push({
-        label: "web3forms-html-autoresponse",
-        run: () => sendViaWeb3Forms(env, { ...options, body: options.htmlBody!.trim() }),
-      });
-    }
-
-    providers.push({ label: "mailchannels", run: () => sendViaMailChannels(env, options) });
+    return providers;
   }
 
+  // Owner / general traffic: FormSubmit first (activated for bookings@ inbox),
+  // then Web3Forms / MailChannels / Resend.
+  providers.push({ label: "formsubmit", run: () => sendViaFormSubmit(options) });
+
+  if (env.RESEND_API_KEY?.trim()) {
+    providers.push({ label: "resend", run: () => sendViaResend(env, options) });
+  }
+  if (env.WEB3FORMS_ACCESS_KEY?.trim()) {
+    providers.push({ label: "web3forms", run: () => sendViaWeb3Forms(env, options) });
+  }
+  providers.push({ label: "mailchannels", run: () => sendViaMailChannels(env, options) });
+
+  return providers;
+}
+
+export async function trySendEmail(
+  env: WorkerEmailEnv,
+  options: EmailPayload,
+): Promise<EmailSendResult> {
+  const providers = buildProviderChain(env, options);
   let lastError: unknown = null;
 
   for (const provider of providers) {
     try {
       await provider.run();
-      return { sent: true };
+      return { sent: true, provider: provider.label };
     } catch (error) {
       lastError = error;
       console.error(`Email via ${provider.label} failed`, error);
@@ -221,7 +302,7 @@ export async function trySendOwnerOperationalEmail(
   return trySendEmail(env, { ...options, preferWorkerProviders: true });
 }
 
-/** Sends a branded HTML email to a customer — never falls back to plain-text-only delivery. */
+/** Sends a branded HTML email to a customer — never FormSubmit. */
 export async function trySendBrandedCustomerEmail(
   env: WorkerEmailEnv,
   options: EmailPayload,
@@ -230,7 +311,11 @@ export async function trySendBrandedCustomerEmail(
     return { sent: false, error: "Missing HTML email body" };
   }
 
-  return trySendEmail(env, { ...options, requireHtml: true });
+  return trySendEmail(env, {
+    ...options,
+    requireHtml: true,
+    customerDelivery: true,
+  });
 }
 
 export async function sendEmail(env: WorkerEmailEnv, options: EmailPayload): Promise<void> {
