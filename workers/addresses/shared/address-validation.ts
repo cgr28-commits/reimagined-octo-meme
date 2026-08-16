@@ -95,6 +95,14 @@ export function normaliseNorthernIrelandPostcode(postcode: string): string {
   return postcode.trim().toUpperCase();
 }
 
+/** Common NI towns/cities that autocomplete often omits “Northern Ireland” / BT postcode. */
+const NI_PLACE_NAME_PATTERN =
+  /\b(belfast|newtownabbey|lisburn|bangor|holywood|carrickfergus|antrim|ballymena|larne|newtownards|comber|dundonald|hillsborough|ballyclare|downpatrick|newcastle|banbridge|newry|armagh|portadown|lurgan|cookstown|coleraine|portrush|portstewart|omagh|enniskillen|derry|londonderry|strabane|limavady|magherafelt|craigavon|aldergrove)\b/i;
+
+export function isNorthernIrelandPlaceName(value: string): boolean {
+  return NI_PLACE_NAME_PATTERN.test(value);
+}
+
 export function isNorthernIrelandText(value: string): boolean {
   const normalised = value.toLowerCase();
 
@@ -110,7 +118,11 @@ export function isNorthernIrelandText(value: string): boolean {
     return true;
   }
 
-  return NI_COUNTY_PATTERN.test(normalised);
+  if (NI_COUNTY_PATTERN.test(normalised)) {
+    return true;
+  }
+
+  return isNorthernIrelandPlaceName(normalised);
 }
 
 export function isNorthernIrelandAddressParts(parts: {
@@ -141,6 +153,17 @@ export function isRepublicOfIrelandPostcode(postcode?: string | null): boolean {
   return EIRCODE_PATTERN.test(postcode.trim());
 }
 
+/** ROI cities/airports commonly returned without “Ireland” in the autocomplete label. */
+const ROI_PLACE_NAME_PATTERN =
+  /\b(dublin|cork|galway|limerick|waterford|kilkenny|wexford|wicklow|kildare|meath|louth|drogheda|dundalk|sligo|donegal|letterkenny|athlone|killarney|tralee|shannon|cork airport|dublin airport|shannon airport)\b/i;
+
+export function isRepublicOfIrelandPlaceName(value: string): boolean {
+  if (/\bnorthern ireland\b/i.test(value)) {
+    return false;
+  }
+  return ROI_PLACE_NAME_PATTERN.test(value);
+}
+
 export function isRepublicOfIrelandText(value: string): boolean {
   const normalised = value.toLowerCase();
 
@@ -148,7 +171,16 @@ export function isRepublicOfIrelandText(value: string): boolean {
     return false;
   }
 
-  if (normalised.includes("ireland") || normalised.includes("dublin")) {
+  if (
+    normalised.includes("ireland") ||
+    normalised.includes("éire") ||
+    normalised.includes("eire") ||
+    normalised.includes("republic of ireland")
+  ) {
+    return true;
+  }
+
+  if (isRepublicOfIrelandPlaceName(normalised)) {
     return true;
   }
 
@@ -183,6 +215,28 @@ export function isRepublicOfIrelandAddressParts(parts: {
   return isRepublicOfIrelandText(combined);
 }
 
+/** True when Google/admin text clearly points at England, Scotland or Wales. */
+export function isGreatBritainMainlandParts(parts: {
+  postcode?: string;
+  county?: string;
+  state?: string;
+  city?: string;
+  town?: string;
+  country?: string;
+  displayName?: string;
+}): boolean {
+  const admin = [parts.state, parts.county].filter(Boolean).join(" ").toLowerCase();
+  if (/\b(england|scotland|wales)\b/.test(admin)) {
+    return true;
+  }
+
+  const combined = [parts.postcode, parts.county, parts.state, parts.city, parts.town, parts.displayName]
+    .filter(Boolean)
+    .join(", ");
+
+  return isGreatBritainMainlandText(combined);
+}
+
 export function isAddressAllowedForAirport(
   airportCode: string,
   parts: {
@@ -196,6 +250,11 @@ export function isAddressAllowedForAirport(
   },
 ): boolean {
   const code = normaliseAirportCode(airportCode);
+
+  // Never accept England / Scotland / Wales — even when country is “GB”/“UK”.
+  if (isGreatBritainMainlandParts(parts)) {
+    return false;
+  }
 
   // Universal address-to-address / ROI mode — NI + Republic of Ireland.
   if (code === "A2A") {
@@ -243,10 +302,55 @@ export function normaliseAirportCode(value: string): string {
 
 const NON_NI_UK_POSTCODE_PATTERN = /\b(?!BT)([A-Z]{1,2}\d{1,2}[A-Z]?\s?\d[A-Z]{2})\b/i;
 
-const NON_NI_UK_REGION_PATTERN =
-  /\b(england|scotland|wales|london|manchester|liverpool|birmingham|leeds|sheffield|bristol|glasgow|edinburgh|cardiff|essex|kent|surrey|yorkshire|lancashire|cheshire|devon|cornwall|somerset|norfolk|suffolk|hampshire|west midlands|east sussex|west sussex|newcastle upon tyne)\b/i;
+/**
+ * England / Scotland / Wales markers. Word boundaries avoid matching
+ * “Londonderry”. Do not treat whole-GB country codes as enough on their own —
+ * NI addresses are also “United Kingdom”.
+ */
+const GB_MAINLAND_REGION_PATTERN =
+  /\b(england|scotland|wales|london|manchester|liverpool|birmingham|leeds|sheffield|bristol|glasgow|edinburgh|cardiff|swansea|newport|oxford|cambridge|nottingham|leicester|coventry|southampton|portsmouth|brighton|reading|milton keynes|newcastle upon tyne|sunderland|middlesbrough|hull|york|preston|blackpool|bolton|wigan|stockport|oldham|bradford|wakefield|huddersfield|derby|stoke|wolverhampton|plymouth|exeter|bournemouth|essex|kent|surrey|yorkshire|lancashire|cheshire|devon|cornwall|somerset|norfolk|suffolk|hampshire|dorset|wiltshire|berkshire|buckinghamshire|hertfordshire|bedfordshire|northamptonshire|warwickshire|worcestershire|gloucestershire|herefordshire|shropshire|staffordshire|derbyshire|nottinghamshire|lincolnshire|cumbria|northumberland|durham|tyne and wear|merseyside|greater manchester|west midlands|south yorkshire|west yorkshire|east sussex|west sussex|east anglia|highland|aberdeenshire|fife|lothian|strathclyde|gwent|dyfed|powys|clwyd|gwynedd)\b/i;
 
-/** Filter Google autocomplete labels before place details are loaded. */
+/**
+ * True when a suggestion label is clearly in England, Scotland or Wales.
+ * Northern Ireland (BT / NI place names) and Republic of Ireland are not mainland.
+ */
+export function isGreatBritainMainlandText(value: string): boolean {
+  const text = value.trim();
+  if (!text) {
+    return false;
+  }
+
+  const lower = text.toLowerCase();
+
+  // Explicit Northern Ireland always stays allowed.
+  if (
+    lower.includes("northern ireland") ||
+    Boolean(extractPostcode(text)) ||
+    isNorthernIrelandPostcodeOutcode(text)
+  ) {
+    return false;
+  }
+
+  if (/\b(england|scotland|wales)\b/i.test(text)) {
+    return true;
+  }
+
+  if (GB_MAINLAND_REGION_PATTERN.test(text)) {
+    return true;
+  }
+
+  if (NON_NI_UK_POSTCODE_PATTERN.test(text)) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Filter autocomplete labels before place details are loaded.
+ * Allowed service area: Northern Ireland + Republic of Ireland only.
+ * Never allow England / Scotland / Wales (GB region codes alone are insufficient).
+ */
 export function isAllowedAutocompleteLabel(label: string, airportCode: string): boolean {
   const text = label.trim();
   if (!text) {
@@ -255,51 +359,24 @@ export function isAllowedAutocompleteLabel(label: string, airportCode: string): 
 
   const code = normaliseAirportCode(airportCode);
 
+  if (isGreatBritainMainlandText(text)) {
+    return false;
+  }
+
   if (code === "LDY") {
     return isGreaterBelfastServiceAddress(text);
   }
 
-  if (code === "A2A") {
-    if (NON_NI_UK_REGION_PATTERN.test(text) && !isRepublicOfIrelandText(text)) {
-      // Allow Scotland/England only when clearly Ireland? No — block GB mainland.
-      if (!isNorthernIrelandText(text) && !isRepublicOfIrelandText(text)) {
-        return false;
-      }
-    }
-    if (isNorthernIrelandText(text) || isRepublicOfIrelandText(text)) {
-      return true;
-    }
-    const postcodeMatch = text.match(NON_NI_UK_POSTCODE_PATTERN);
-    if (postcodeMatch) {
-      return false;
-    }
-    // With island-wide bias, allow short NI/IE place names without county.
-    return true;
+  const isNi = isNorthernIrelandText(text);
+  const isRoi = isRepublicOfIrelandText(text);
+
+  if (code === "A2A" || code === "DUB") {
+    // Require a positive NI or ROI signal — do not pass ambiguous GB mainland labels.
+    return isNi || isRoi;
   }
 
-  if (NON_NI_UK_REGION_PATTERN.test(text)) {
-    return false;
-  }
-
-  const postcodeMatch = text.match(NON_NI_UK_POSTCODE_PATTERN);
-  if (postcodeMatch) {
-    const postcode = postcodeMatch[1] ?? postcodeMatch[0];
-    if (code === "DUB" && isRepublicOfIrelandPostcode(postcode)) {
-      return true;
-    }
-    return false;
-  }
-
-  if (isNorthernIrelandText(text)) {
-    return true;
-  }
-
-  if (code === "DUB" && isRepublicOfIrelandText(text)) {
-    return true;
-  }
-
-  // With locationRestriction, allow NI place names that omit county/postcode (e.g. Lisburn).
-  return code !== "DUB";
+  // BFS / BHD / other NI airport modes — Northern Ireland only.
+  return isNi;
 }
 
 export function hasLeadingStreetNumber(text: string): boolean {
