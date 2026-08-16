@@ -178,11 +178,10 @@ export default function OwnerBookingJobsPanel({ ownerKey }: OwnerBookingJobsPane
           <p className="text-xs font-semibold uppercase tracking-wider text-emerald">
             Booking requests
           </p>
-          <h2 className="mt-1 text-xl font-bold text-white">Quotes &amp; confirmed jobs</h2>
+          <h2 className="mt-1 text-xl font-bold text-white">Quotes &amp; enquiry jobs</h2>
           <p className="mt-2 max-w-2xl text-sm text-white/65">
-            Customers enquire online. After you confirm and they pay via your SumUp link, mark the
-            job paid (adds it to the calendar), then assign a driver by email with their pay for
-            the journey.
+            Customers who request a quote / book via enquiry appear here. Website card payments
+            (Pay now on SumUp) are listed above under “Paid bookings (SumUp)”.
           </p>
         </div>
         <button

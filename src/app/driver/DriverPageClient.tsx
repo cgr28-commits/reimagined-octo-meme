@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Footer from "@/components/Footer";
 import Header from "@/components/Header";
 import OwnerBookingJobsPanel from "@/components/OwnerBookingJobsPanel";
+import OwnerPaidBookingsPanel from "@/components/OwnerPaidBookingsPanel";
 import type { MapMarker, MapRoutePoint } from "@/components/LiveTrackMap";
 import {
   buildWhatsAppDriverDetailsLink,
@@ -2078,6 +2079,8 @@ export default function DriverPageClient({
               </div>
 
               {isOwnerView && profilePanel}
+
+              {isOwnerView && savedKey ? <OwnerPaidBookingsPanel ownerKey={savedKey} /> : null}
 
               {isOwnerView && savedKey ? <OwnerBookingJobsPanel ownerKey={savedKey} /> : null}
 
