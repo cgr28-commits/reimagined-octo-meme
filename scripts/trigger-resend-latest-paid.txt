@@ -1,4 +1,4 @@
 # Set RUN_RESEND=1 to resend the latest paid booking confirmation on the next
 # Deploy Cloudflare Worker run (customer + bookings@). Clear it afterwards.
-RUN_RESEND=1
-# Requested: 2026-08-16T20:28:00Z
+RUN_RESEND=0
+# Cleared after Actions secrets were missing owner/driver keys
