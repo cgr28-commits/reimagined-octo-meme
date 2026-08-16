@@ -1,5 +1,5 @@
 /**
- * Smoke checks for the progressive quote-tool UX (journey intent, 5+ path, flight gating).
+ * Smoke checks for the progressive quote-tool UX (journey intent, 5–7 path, flight gating).
  */
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -57,16 +57,18 @@ check("Passenger and luggage use selectable buttons", () => {
   assert.match(progressive, /Return/);
 });
 
-check("5+ path requests tailored quote without inventing a fare", () => {
-  assert.match(progressive, /Travelling with 5 or more passengers\?/);
+check("5–7 path requests tailored quote without inventing a fare", () => {
+  assert.match(progressive, /Travelling with 5–7 passengers\?/);
+  assert.match(progressive, /suitable larger vehicle/);
   assert.match(progressive, /Request|tailored fixed-price quote/i);
   assert.match(card, /Tailored Quote Required/);
   assert.match(card, /Request Larger Vehicle Quote/);
   assert.match(card, /Continue to request quote/);
   assert.doesNotMatch(card, /disabled=\{\s*submitted \|\|\s*exceedsOnlineCapacity/);
-  assert.match(bookingMessage, /MINIBUS \/ 5\+ PASSENGER QUOTE REQUEST/);
+  assert.match(bookingMessage, /5–7 PASSENGER \/ LARGER VEHICLE QUOTE REQUEST/);
   assert.match(bookingMessage, /Quote Request Received/);
   assert.match(inclusions, /GROUP_QUOTE_FEE_NOTE/);
+  assert.doesNotMatch(progressive, /10\+|up to 8|5 or more passengers/);
 });
 
 check("Flight number only for airport pickups", () => {

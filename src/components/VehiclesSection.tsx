@@ -43,13 +43,13 @@ export default function VehiclesSection() {
 
             <div className="rounded-2xl border border-white/15 bg-white/[0.03] px-5 py-5">
               <p className="text-xs font-semibold uppercase tracking-wider text-white/55">
-                5+ passengers
+                5–7 passengers
               </p>
-              <p className="mt-1 text-xl font-bold text-white">Tailored Larger Vehicle Quote</p>
+              <p className="mt-1 text-xl font-bold text-white">Request Larger Vehicle Quote</p>
               <p className="mt-2 text-sm leading-relaxed text-white/70">
-                We can arrange a suitable minibus / larger vehicle through licensed transport
-                partners. Partner minibuses typically seat up to 8; larger groups can still request a
-                tailored fixed-price quote — no automatic online fare.
+                We can arrange a suitable larger vehicle through licensed transport partners.
+                Request a tailored fixed-price quote — no automatic online fare. We do not offer
+                journeys for more than 7 passengers.
               </p>
             </div>
 

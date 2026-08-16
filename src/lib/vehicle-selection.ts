@@ -4,17 +4,25 @@
  */
 
 import { MINIBUS_VEHICLE_TYPE, VEHICLE_TYPES, type VehicleType } from "@/lib/data";
+import {
+  GROUP_PASSENGER_MAX,
+  GROUP_PASSENGER_MIN,
+  MAX_PASSENGERS,
+} from "../../shared/passenger-limits";
 
 export const SALOON_VEHICLE: VehicleType = "Standard Saloon (1–4 passengers)";
 export const ESTATE_VEHICLE: VehicleType = "Estate Car (1–4 passengers)";
 export const MINIBUS_VEHICLE: VehicleType = MINIBUS_VEHICLE_TYPE;
 
-/** Sentinel values for “5+” taps on the quote form. */
-export const FIVE_PLUS_PASSENGERS = 5;
+/** Sentinel value for the “5–7” tap on the quote form. */
+export const FIVE_PLUS_PASSENGERS = GROUP_PASSENGER_MIN;
 export const FIVE_PLUS_SUITCASES = 5;
 
+export { GROUP_PASSENGER_MAX, GROUP_PASSENGER_MIN, MAX_PASSENGERS };
+
 /**
- * True when the party needs a minibus (more than 4 passengers or more than 4 large cases).
+ * True when the party needs a larger vehicle / tailored quote
+ * (more than 4 passengers or more than 4 large cases).
  * Instant online fares / SumUp must not be offered for these journeys unless approved.
  */
 export function requiresMinibus(passengers: number, suitcases: number): boolean {
@@ -23,7 +31,7 @@ export function requiresMinibus(passengers: number, suitcases: number): boolean 
 
 /**
  * Business rules (source of truth):
- * - Minibus if passengers > 4 OR suitcases > 4
+ * - Larger vehicle if passengers > 4 OR suitcases > 4
  * - Else Estate if passengers 3–4 OR suitcases 3–4 (and still ≤4 / ≤4)
  * - Else Saloon when passengers 1–2 AND suitcases 0–2
  */
@@ -48,7 +56,7 @@ export function vehicleShortLabel(vehicleType: VehicleType | string): string {
     return "Saloon";
   }
   if (vehicleType === MINIBUS_VEHICLE || vehicleType === MINIBUS_VEHICLE_TYPE) {
-    return "Minibus";
+    return "Larger vehicle";
   }
   if (String(vehicleType).includes("Executive")) {
     return "Executive";
@@ -56,8 +64,9 @@ export function vehicleShortLabel(vehicleType: VehicleType | string): string {
   return String(vehicleType);
 }
 
+/** Main passenger selector label (1–4 or the 5–7 band). */
 export function formatPassengerChoice(count: number): string {
-  return count >= FIVE_PLUS_PASSENGERS ? "5+" : String(count);
+  return count >= FIVE_PLUS_PASSENGERS ? "5–7" : String(count);
 }
 
 export function formatSuitcaseChoice(count: number): string {

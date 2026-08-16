@@ -350,12 +350,12 @@ export const WHY_CHOOSE_US = [
   {
     title: "Meet & greet available",
     description:
-      "Meet & greet is available when requested during booking — we can meet you in the arrivals hall with a name board. Share your flight number when you book.",
+      "Meet & greet can be requested during booking where available — we can meet you in the arrivals hall with a name board. Share your flight number when you book.",
   },
   {
     title: "60 minutes airport waiting",
     description:
-      "Airport pickups include up to 60 minutes complimentary waiting time, with the applicable express pickup fee covered in your fixed fare.",
+      "Airport pickups include up to 60 minutes complimentary waiting time, giving you time to clear passport control, collect your luggage and make your way to the agreed pickup point.",
   },
   {
     title: "Clear fixed quotes",
@@ -368,9 +368,9 @@ export const WHY_CHOOSE_US = [
       "Early morning and late-night transfers are our speciality — including bank holidays and Christmas.",
   },
   {
-    title: "1–4 or 5+ made simple",
+    title: "1–4 or 5–7 made simple",
     description:
-      "1–4 passengers get an instant fixed quote online where eligible. 5+ passengers receive a tailored minibus / larger vehicle quote through licensed transport partners.",
+      "1–4 passengers get an instant fixed quote online where eligible. 5–7 passengers receive a tailored larger-vehicle quote through licensed transport partners. We do not offer journeys for more than 7 passengers.",
   },
 ] as const;
 
@@ -424,7 +424,7 @@ export const FAQS = [
   {
     question: "How much airport waiting time is included?",
     answer:
-      "Airport pickups include up to 60 minutes complimentary waiting time, giving you time to clear passport control, collect your luggage and make your way to the agreed pickup point. Pickups from non-airport locations include up to 10 minutes complimentary waiting time from the agreed pickup time.",
+      "Airport pickups include up to 60 minutes complimentary waiting time, giving you time to clear passport control, collect your luggage and make your way to the agreed pickup point. Pickups from non-airport locations include up to 10 minutes complimentary waiting time from the agreed pickup time. Waiting beyond the complimentary period may be charged.",
   },
   {
     question: "Do you monitor flights?",
@@ -434,12 +434,12 @@ export const FAQS = [
   {
     question: "Is meet & greet available?",
     answer:
-      "Yes. Meet & greet is available when requested during booking — we can meet you in the arrivals hall with a name board. Share your flight number when you book so we can plan the collection.",
+      "Yes. Meet & greet can be requested during booking where available — we can meet you in the arrivals hall with a name board. Share your flight number when you book so we can plan the collection.",
   },
   {
-    question: "Can I book for 5+ passengers?",
+    question: "Can I book for 5–7 passengers?",
     answer:
-      "Yes. 1–4 passengers usually receive an instant fixed online quote where eligible. For 5 or more passengers, request a tailored minibus / larger vehicle quote — we arrange a suitable vehicle through licensed transport partners and confirm a fixed price (no automatic online fare). Partner minibuses typically cover up to 8 passengers; larger groups can still request a tailored quote.",
+      "Yes. 1–4 passengers usually receive an instant fixed online quote where eligible. For 5–7 passengers, request a tailored larger-vehicle quote — we arrange a suitable vehicle through licensed transport partners and confirm a fixed price (no automatic online fare). We do not offer journeys for more than 7 passengers.",
   },
   {
     question: "Are tolls included?",
@@ -454,7 +454,7 @@ export const FAQS = [
   {
     question: "How do I pay?",
     answer:
-      "Get your fixed price online. Eligible 1–4 passenger bookings can be confirmed securely by card via SumUp. For tailored quotes (including 5+ passengers), we confirm the fare first and then send a payment link. Cash or bank transfer can be arranged where agreed.",
+      "Get your fixed price online. Eligible 1–4 passenger bookings can be confirmed securely by card via SumUp. For tailored quotes (including 5–7 passengers), we confirm the fare first and then send a payment link. Cash or bank transfer can be arranged where agreed.",
   },
   {
     question: "Can I cancel my booking?",
@@ -521,9 +521,9 @@ export const VEHICLE_FLEET = [
   },
   {
     name: "Larger vehicle / group transfer",
-    capacity: "5+ passengers",
+    capacity: "5–7 passengers",
     description:
-      "5+ passengers — a suitable larger vehicle can be arranged through licensed transport partners (partner minibuses typically seat up to 8). Request a tailored fixed-price quote — no automatic online fare.",
+      "5–7 passengers — a suitable larger vehicle can be arranged through licensed transport partners. Request a tailored fixed-price quote — no automatic online fare. We do not offer journeys for more than 7 passengers.",
     enquiryOnly: true,
     requestQuote: true,
     partnerOperated: true,
@@ -534,15 +534,15 @@ export const VEHICLE_TYPES = [
   "Standard Saloon (1–4 passengers)",
   "Estate Car (1–4 passengers)",
   "Executive Saloon (1–4 passengers)",
-  "Minibus (5–8 passengers)",
+  "Minibus (5–7 passengers)",
 ] as const;
 
 export type VehicleType = (typeof VEHICLE_TYPES)[number];
 
-export const MINIBUS_VEHICLE_TYPE: VehicleType = "Minibus (5–8 passengers)";
+export const MINIBUS_VEHICLE_TYPE: VehicleType = "Minibus (5–7 passengers)";
 
-/** Maximum passengers accepted on the online quote and booking form. */
-export const MAX_ONLINE_PASSENGERS = 8;
+/** Maximum passengers accepted on the online quote and booking form / APIs. */
+export const MAX_ONLINE_PASSENGERS = 7;
 
 /** Vehicles that cannot be instantly confirmed — enquiry / request-a-quote flow. */
 export const ENQUIRY_ONLY_VEHICLE_TYPES: readonly VehicleType[] = [
@@ -560,20 +560,22 @@ export const INSTANT_PAY_VEHICLE_TYPES: readonly VehicleType[] = [
 ];
 
 export const MINIBUS_PARTNER_NOTE =
-  "Larger vehicle / group transfers for 5+ passengers are arranged through licensed transport partners (partner minibuses typically seat up to 8) — request a tailored quote (no instant online fare).";
+  "Larger vehicle / group transfers for 5–7 passengers are arranged through licensed transport partners — request a tailored quote (no instant online fare).";
 
 /** Short guidance kept for ops/docs — not shown in the public quote UI. */
 export const VEHICLE_BOOKING_GUIDANCE = [
   "1–4 passengers: instant quote where eligible. Pay online by card to confirm.",
-  "5+ passengers: tailored minibus / larger vehicle quote via licensed transport partners — not instant confirmation. Partner minibuses typically seat up to 8; larger groups can still request a quote.",
+  "5–7 passengers: tailored larger-vehicle quote via licensed transport partners — not instant confirmation. Maximum 7 passengers.",
 ] as const;
 
-/** 8 passengers with 8 large cases needs manual capacity confirmation before we can accept. */
+/** Legacy hook retained for quote form — capacity above 7 is blocked elsewhere. */
 export function needsLuggageCapacityConfirmation(
   passengers: number,
   suitcases: number,
 ): boolean {
-  return passengers >= 8 && suitcases >= 8;
+  void passengers;
+  void suitcases;
+  return false;
 }
 
 export function isVehicleEnquiryOnly(vehicleType: string): boolean {

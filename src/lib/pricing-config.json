@@ -225,13 +225,13 @@
     "Estate Car (1\u20134 passengers)": 1,
     "Standard Saloon (1\u20134 passengers)": 1,
     "Executive Saloon (1\u20134 passengers)": 1.2,
-    "Minibus (5\u20138 passengers)": 1.55
+    "Minibus (5\u20137 passengers)": 1.55
   },
   "pointToPointVehicleAdjustmentsGbp": {
     "Estate Car (1\u20134 passengers)": 0,
     "Standard Saloon (1\u20134 passengers)": -10,
     "Executive Saloon (1\u20134 passengers)": 0,
-    "Minibus (5\u20138 passengers)": 0
+    "Minibus (5\u20137 passengers)": 0
   },
   "pointToPointBaseGbp": 35,
   "pointToPointAreaRatesGbp": {
@@ -272,7 +272,7 @@
       "Standard Saloon (1\u20134 passengers)": 35,
       "Estate Car (1\u20134 passengers)": 40,
       "Executive Saloon (1\u20134 passengers)": 45,
-      "Minibus (5\u20138 passengers)": 60
+      "Minibus (5\u20137 passengers)": 60
     },
     "undercutMinGbp": 8,
     "undercutMaxGbp": 10

@@ -7,6 +7,7 @@
 
 import assert from "node:assert/strict";
 import {
+  isDublinCityCorridorJourney,
   isOutOfAreaPickup,
   isPlaceSelected,
   isRepublicOfIrelandJourney,
@@ -24,6 +25,8 @@ import {
 } from "../src/lib/data";
 import { TERMS_SECTIONS } from "../src/lib/terms";
 import { PRIVACY_SECTIONS } from "../src/lib/privacy";
+import { calculateDublinCityBeyondAirportQuote, calculateQuote } from "../src/lib/quote";
+import { getJourneyInclusions } from "../shared/journey-inclusions";
 
 let passed = 0;
 
@@ -113,25 +116,28 @@ async function workerSuggestions(query: string, airport = "A2A") {
 }
 
 async function main() {
-  await check("Max online passengers is 8 (partner minibus for 5+)", () => {
-    assert.equal(MAX_ONLINE_PASSENGERS, 8);
+  await check("Max online passengers is 7 (larger vehicle for 5–7)", () => {
+    assert.equal(MAX_ONLINE_PASSENGERS, 7);
   });
 
-  await check("Partner minibus vehicle type is available for 5–8", () => {
+  await check("Partner larger-vehicle type is available for 5–7", () => {
     const joined = [...VEHICLE_TYPES, ...VEHICLE_FLEET.map((v) => `${v.name} ${v.description}`)].join(
       " ",
     );
-    assert.match(joined, /Minibus \(5–8 passengers\)/);
+    assert.match(joined, /Minibus \(5–7 passengers\)/);
     assert.match(joined, /licensed transport partners/i);
     assert.equal(REQUEST_QUOTE_VEHICLE_TYPES.length, 1);
     assert.equal(/people carrier/i.test(joined), false);
+    assert.equal(/5–8 passengers|up to 8|8\+|10\+/i.test(joined), false);
   });
 
-  await check("FAQs retain partner larger-vehicle wording for 5+ and 24h cancel", () => {
+  await check("FAQs retain partner larger-vehicle wording for 5–7 and 24h cancel", () => {
     const text = FAQS.map((f) => `${f.question} ${f.answer}`).join("\n");
     assert.match(text, /transport partners?/i);
-    assert.match(text, /5\+|5 or more/i);
+    assert.match(text, /5–7/i);
     assert.match(text, /more than 24 hours/i);
+    assert.match(text, /do not offer journeys for more than 7/i);
+    assert.equal(/5\+|5 or more|5–8|up to 8|larger groups can still/i.test(text), false);
   });
 
   await check("Terms cover airports, long-distance, out-of-area, GBP, tolls, 24h cancel", () => {
@@ -165,8 +171,10 @@ async function main() {
     assert.match(text, /non-refundable/i);
     assert.equal(/administration charge of|10%|£5 .*cancel/i.test(text), false);
     assert.match(text, /licensed partner operators|transport partner/i);
-    assert.match(text, /5–8 passengers/i);
+    assert.match(text, /5–7 passengers/i);
+    assert.match(text, /do not offer journeys for more than 7/i);
     assert.equal(/people carrier/i.test(text), false);
+    assert.equal(/5–8 passengers|larger groups can still/i.test(text), false);
   });
 
   await check("Terms Our Service lists airports immediately after the intro phrase", () => {
@@ -197,10 +205,47 @@ async function main() {
     assert.match(text, /completed paid bookings/i);
   });
 
-  await check("Belfast → Dublin city is ROI fixed quote", () => {
+  await check("Belfast → Dublin city is a live priced corridor (not manual ROI)", () => {
     assert.equal(isStandardInstantPickup(belfast), true);
     assert.equal(isRepublicOfIrelandJourney(belfast, dublinCity), true);
-    assert.equal(needsManualQuoteApproval(belfast, dublinCity), true);
+    assert.equal(isDublinCityCorridorJourney(belfast, dublinCity), true);
+    // Intended behaviour: Greater Belfast ↔ Dublin city gets a live fixed quote
+    // (DUB airport fare + beyond uplift). Do not force manual approval.
+    assert.equal(needsManualQuoteApproval(belfast, dublinCity), false);
+
+    const dubAirport = calculateQuote(
+      "10 Donegall Square North, Belfast BT1 5GB, UK",
+      "DUB",
+      "Standard Saloon (1–4 passengers)",
+    );
+    const cityQuote = calculateDublinCityBeyondAirportQuote(
+      "10 Donegall Square North, Belfast BT1 5GB, UK",
+      "Standard Saloon (1–4 passengers)",
+      { distanceKm: 168.6, durationMinutes: 119.5 },
+    );
+    assert.ok(dubAirport, "DUB airport fare must calculate");
+    assert.ok(cityQuote, "Dublin city corridor fare must calculate");
+    assert.ok(
+      cityQuote.amount > dubAirport.amount,
+      `Dublin city £${cityQuote.amount} must exceed DUB airport £${dubAirport.amount}`,
+    );
+    // Commercial DUB fixed fare (base of the corridor quote) includes applicable ROI tolls;
+    // defaultTollsGbp is null — tolls are not a separate calculator add-on.
+
+    // Address-to-address inclusions: no airport express fees / no 60-minute airport waiting.
+    const inclusions = getJourneyInclusions({
+      pickupIsAirport: false,
+      dropoffIsAirport: false,
+      airportCode: null,
+      returnJourney: false,
+    });
+    const joined = [...inclusions.bullets, inclusions.summary, ...inclusions.emailIncludeLines].join(
+      " ",
+    );
+    assert.equal(inclusions.mentionsTolls, false);
+    assert.doesNotMatch(joined, /Express pickup fee|Express drop-off fee/i);
+    assert.doesNotMatch(joined, /60 minutes complimentary airport waiting/i);
+    assert.match(joined, /10 minutes complimentary waiting/i);
   });
 
   await check("Bangor → Cork is ROI fixed quote", () => {

@@ -1,4 +1,8 @@
 import {
+  isValidPassengerCount,
+  PASSENGER_LIMIT_ERROR,
+} from "../shared/passenger-limits";
+import {
   buildQuoteLeadMessage,
   buildQuoteLeadSubject,
   type QuoteLeadDetails,
@@ -518,6 +522,11 @@ function parsePaidBookingDetails(body: Record<string, unknown>): PaidBookingDeta
     return null;
   }
 
+  const passengers = Number(details.passengers);
+  if (!isValidPassengerCount(passengers)) {
+    return null;
+  }
+
   return {
     customerName,
     customerEmail,
@@ -532,7 +541,7 @@ function parsePaidBookingDetails(body: Record<string, unknown>): PaidBookingDeta
     returnTime: String(details.returnTime ?? "").trim(),
     flightNumber: String(details.flightNumber ?? "").trim(),
     returnFlightNumber: String(details.returnFlightNumber ?? "").trim() || undefined,
-    passengers: Number(details.passengers) || 0,
+    passengers,
     suitcases: Number(details.suitcases) || 0,
     vehicle: String(details.vehicle ?? "").trim(),
     journeyDistance: String(details.journeyDistance ?? "").trim() || undefined,
@@ -597,6 +606,9 @@ function parseQuoteLeadBody(body: QuoteLeadRequestBody): QuoteLeadDetails | null
   const suitcases = Number(body.suitcases);
 
   if (!Number.isFinite(passengers) || passengers < 1 || !Number.isFinite(suitcases) || suitcases < 0) {
+    return null;
+  }
+  if (!isValidPassengerCount(passengers)) {
     return null;
   }
 
@@ -706,6 +718,13 @@ async function handleBookingRequest(
 
   if (!customerName || !message) {
     return json({ error: "Missing required fields" }, 400, origin);
+  }
+
+  if (body.booking) {
+    const passengers = Number((body.booking as { passengers?: unknown }).passengers);
+    if (!isValidPassengerCount(passengers)) {
+      return json({ error: PASSENGER_LIMIT_ERROR }, 400, origin);
+    }
   }
 
   let bookingReference: string | null = null;

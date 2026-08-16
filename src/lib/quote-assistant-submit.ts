@@ -4,6 +4,7 @@ import {
   isValidMobileNumber,
   type BookingDetails,
 } from "@/lib/booking-message";
+import { isValidPassengerCount } from "../../shared/passenger-limits";
 import { detectMobileDevice } from "@/lib/device";
 import { trackRequestQuote } from "@/lib/google-ads-client";
 import { buildMarketingOptInFields, recordMarketingOptIn } from "@/lib/marketing-api";
@@ -148,6 +149,10 @@ export function buildBookingDetailsFromDraft(draft: QuoteDraft): BookingDetails 
   }
 
   if (draft.returnJourney && (!draft.returnDate || !draft.returnTime || !draft.returnFlightNumber?.trim())) {
+    return null;
+  }
+
+  if (!isValidPassengerCount(draft.passengers)) {
     return null;
   }
 

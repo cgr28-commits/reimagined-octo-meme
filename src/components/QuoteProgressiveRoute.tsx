@@ -330,7 +330,7 @@ export default function QuoteProgressiveRoute({
               onPassengersChange(value);
               if (value < FIVE_PLUS_PASSENGERS) {
                 onExactPassengersChange(null);
-              } else if (!exactPassengers || exactPassengers < 5) {
+              } else if (!exactPassengers || exactPassengers < 5 || exactPassengers > 7) {
                 onExactPassengersChange(5);
               }
             }}
@@ -340,50 +340,28 @@ export default function QuoteProgressiveRoute({
           {passengers >= FIVE_PLUS_PASSENGERS && (
             <div className="space-y-3 rounded-2xl border border-amber-400/25 bg-amber-400/10 px-4 py-4">
               <p className="text-sm font-semibold text-amber-100">
-                Travelling with 5 or more passengers?
+                Travelling with 5–7 passengers?
               </p>
               <p className="text-xs leading-relaxed text-white/75">
-                5+ passengers receive a tailored minibus / larger vehicle quote (partner minibuses
-                typically seat up to 8). Enter your journey details and we’ll confirm a fixed price —
-                no automatic online fare.
+                We can arrange a suitable larger vehicle for your journey. Enter your journey details
+                and we’ll provide a tailored fixed-price quote.
               </p>
               <ChoiceGrid
-                label="Group size"
-                options={[5, 6, 7, 8, 9, 10]}
-                value={exactPassengers && exactPassengers >= 10 ? 10 : exactPassengers ?? 5}
+                label="Exact passengers"
+                options={[5, 6, 7]}
+                value={
+                  exactPassengers && exactPassengers >= 5 && exactPassengers <= 7
+                    ? exactPassengers
+                    : 5
+                }
                 onChange={(value) => {
-                  onPassengersChange(Math.max(5, value === 10 ? 10 : value));
-                  onExactPassengersChange(value === 10 ? 10 : value);
+                  const next = Math.min(7, Math.max(5, value));
+                  onPassengersChange(next);
+                  onExactPassengersChange(next);
                 }}
-                formatOption={(value) => (value >= 10 ? "10+" : String(value))}
-                columns={6}
+                formatOption={(value) => String(value)}
+                columns={3}
               />
-              {(exactPassengers ?? 0) >= 10 && (
-                <div>
-                  <label
-                    htmlFor="exact-passengers"
-                    className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/70"
-                  >
-                    Exact passenger number
-                  </label>
-                  <input
-                    id="exact-passengers"
-                    type="number"
-                    inputMode="numeric"
-                    min={10}
-                    max={50}
-                    value={exactPassengers && exactPassengers >= 10 ? exactPassengers : 10}
-                    onChange={(e) => {
-                      const next = Number(e.target.value);
-                      if (Number.isFinite(next) && next >= 10) {
-                        onExactPassengersChange(next);
-                        onPassengersChange(next);
-                      }
-                    }}
-                    className="quote-text-input h-12 rounded-xl border border-white/25 bg-navy-dark px-4 text-white outline-none focus:border-emerald focus:ring-2 focus:ring-inset focus:ring-emerald/25"
-                  />
-                </div>
-              )}
               <p className="text-xs text-white/65">{GROUP_QUOTE_FEE_NOTE}</p>
             </div>
           )}
