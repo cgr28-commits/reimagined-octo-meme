@@ -156,7 +156,7 @@ export default function FlightNumberField({
     "";
 
   return (
-    <div className="min-w-0">
+    <div className="quote-field">
       <label
         htmlFor={id}
         className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/80"
@@ -167,13 +167,17 @@ export default function FlightNumberField({
         id={id}
         name={id}
         type="text"
+        inputMode="text"
+        autoCapitalize="characters"
+        autoComplete="off"
+        spellCheck={false}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder="e.g. BA1234"
-        className="box-border h-12 w-full min-w-0 rounded-xl border border-white/25 bg-navy-dark px-4 text-base uppercase text-white placeholder:normal-case placeholder:text-white/45 outline-none transition-colors focus:border-emerald focus:ring-2 focus:ring-emerald/25 md:border-white/30"
+        className="quote-text-input h-12 rounded-xl border border-white/25 bg-navy-dark px-4 uppercase text-white placeholder:normal-case placeholder:text-white/45 outline-none transition-colors focus:border-emerald focus:ring-2 focus:ring-inset focus:ring-emerald/25 md:border-white/30"
       />
       <p
-        className={`mt-1.5 min-h-[2.25rem] text-xs leading-snug ${
+        className={`quote-helper-text mt-1.5 min-h-[2.25rem] text-xs leading-snug ${
           error || lookupStatus === "error"
             ? "text-red-300"
             : lookupStatus === "unavailable" || (!tripDate && value.trim())
@@ -184,15 +188,15 @@ export default function FlightNumberField({
         {statusMessage}
       </p>
       <div
-        className={`grid transition-[grid-template-rows] duration-200 ease-out ${
+        className={`grid max-w-full transition-[grid-template-rows] duration-200 ease-out ${
           lookupStatus === "verified" && verifiedFlight ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
         }`}
       >
-        <div className="min-h-0 overflow-hidden">
+        <div className="min-h-0 max-w-full overflow-hidden">
           {verifiedFlight ? (
-            <div className="mt-1 rounded-xl border border-emerald/30 bg-emerald/10 px-4 py-3 text-sm text-white/90">
+            <div className="mt-1 max-w-full rounded-xl border border-emerald/30 bg-emerald/10 px-4 py-3 text-sm text-white/90">
               <p className="truncate font-semibold text-emerald">{verifiedFlight.airline}</p>
-              <p className="mt-1 truncate">
+              <p className="quote-helper-text mt-1">
                 {verifiedFlight.flightNumber} ·{" "}
                 {new Date(`${verifiedFlight.date}T12:00:00`).toLocaleDateString("en-GB", {
                   weekday: "short",
@@ -201,7 +205,7 @@ export default function FlightNumberField({
                   year: "numeric",
                 })}
               </p>
-              <p className="mt-0.5 truncate text-white/80">
+              <p className="quote-helper-text mt-0.5 text-white/80">
                 {verifiedFlight.scheduledTimeLabel} {verifiedFlight.airportName} at{" "}
                 {verifiedFlight.scheduledTime}
               </p>
