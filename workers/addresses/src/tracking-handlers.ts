@@ -18,6 +18,7 @@ import {
   getTrackingJob,
   isTrackingJobCancelled,
   listTrackingJobsForDate,
+  listTrackingJobsForDateRange,
   listTrackingJobsForRecentDays,
   listUpcomingTrackingJobs,
   saveTrackingJob,
@@ -530,6 +531,20 @@ export async function handleDriverJobsRequest(
   } else if (scope === "upcoming") {
     jobs = await listUpcomingTrackingJobs(env.TRACKING_STORE, daysAhead);
     responseDate = "upcoming";
+  } else if (scope === "range") {
+    // Owner Booking Calendar: all legs (including completed) in an explicit date window.
+    const fromParam = url.searchParams.get("from")?.trim() ?? "";
+    const toParam = url.searchParams.get("to")?.trim() ?? "";
+    const fromDate = /^\d{4}-\d{2}-\d{2}$/.test(fromParam) ? fromParam : tripDate;
+    const toDate = /^\d{4}-\d{2}-\d{2}$/.test(toParam) ? toParam : fromDate;
+    // Cap window to 120 days to keep KV day-index reads bounded.
+    let end = fromDate <= toDate ? toDate : fromDate;
+    const maxEnd = addDaysYmd(fromDate, 120);
+    if (end > maxEnd) {
+      end = maxEnd;
+    }
+    jobs = await listTrackingJobsForDateRange(env.TRACKING_STORE, fromDate, end);
+    responseDate = `${fromDate}:${end}`;
   } else {
     jobs = await listTrackingJobsForDate(env.TRACKING_STORE, tripDate);
   }

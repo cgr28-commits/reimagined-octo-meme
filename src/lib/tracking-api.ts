@@ -317,8 +317,10 @@ export async function fetchDriverJobs(
   driverKey: string,
   options?: {
     date?: string;
-    scope?: "date" | "upcoming" | "pending";
+    scope?: "date" | "upcoming" | "pending" | "range";
     days?: number;
+    from?: string;
+    to?: string;
   },
 ): Promise<DriverJobsResponse> {
   if (isDemoDriverKey(driverKey)) {
@@ -327,6 +329,9 @@ export async function fetchDriverJobs(
     }
     if (options?.scope === "pending") {
       return getDemoDriverPendingJobs();
+    }
+    if (options?.scope === "range") {
+      return getDemoDriverUpcomingJobs();
     }
     return getDemoDriverJobs(options?.date);
   }
@@ -338,6 +343,9 @@ export async function fetchDriverJobs(
     if (options?.scope === "pending") {
       return getDemoOwnerPendingJobs();
     }
+    if (options?.scope === "range") {
+      return getDemoOwnerUpcomingJobs();
+    }
     return getDemoOwnerJobs(options?.date);
   }
 
@@ -348,6 +356,10 @@ export async function fetchDriverJobs(
     if (options.days) {
       url.searchParams.set("days", String(options.days));
     }
+  } else if (options?.scope === "range") {
+    url.searchParams.set("scope", "range");
+    if (options.from) url.searchParams.set("from", options.from);
+    if (options.to) url.searchParams.set("to", options.to);
   } else if (options?.date) {
     url.searchParams.set("date", options.date);
   }
