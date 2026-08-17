@@ -7,13 +7,11 @@ export const metadata: Metadata = {
 };
 
 type PageProps = {
-  searchParams?: Promise<Record<string, string | string[] | undefined>> | Record<string, string | string[] | undefined>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 };
 
 export default async function ShortNoticePayPage({ searchParams }: PageProps) {
-  const params = searchParams && typeof (searchParams as Promise<unknown>).then === "function"
-    ? await (searchParams as Promise<Record<string, string | string[] | undefined>>)
-    : ((searchParams as Record<string, string | string[] | undefined>) ?? {});
+  const params = (await searchParams) ?? {};
   const raw = params.token;
   const token = Array.isArray(raw) ? raw[0] ?? "" : String(raw ?? "");
 
