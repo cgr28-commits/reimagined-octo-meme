@@ -632,12 +632,12 @@ export async function handleTrackingDiagnosticRequest(
     {
       ok: true,
       readOnly: true,
+      // Flat primary fields for the single-job report format.
+      ...primary,
       paymentReference: paymentReference || primary.paymentReference,
       paidBookingFound: Boolean(paid),
       sessionFound: true,
       sessionCount: sessions.length,
-      // Flat primary fields for the single-job report format.
-      ...primary,
       sessions,
     },
     200,
