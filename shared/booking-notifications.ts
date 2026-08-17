@@ -932,17 +932,25 @@ export function buildUpdatedBookingConfirmationEmail(
 ): CustomerPaidBookingEmail {
   const base = buildCustomerConfirmationEmail(receipt, businessName, options);
   const subject = `Your booking has been updated — ${businessName}`;
-  const banner =
-    `Hi ${receipt.customerName},\n\n` +
+  const intro =
+    `Dear ${receipt.customerName},\n\n` +
     `Your booking has been updated.\n\n` +
     `Please review the updated journey details below.\n\n`;
 
-  const text = base.text.replace(/^Hi [^\n]+,\n\n/, banner);
+  const detailsStart = base.text.indexOf("BOOKING DETAILS");
+  const text =
+    detailsStart >= 0
+      ? intro + base.text.slice(detailsStart)
+      : intro + base.text.replace(/^Dear [^\n]+,\n\n[\s\S]*?\n\nPlease find your invoice details below\.\n\n/, "");
 
   const html = base.html
     .replace(
-      /Your booking is confirmed|Booking confirmed|Payment received/i,
-      "Your booking has been updated",
+      /Your card payment has been received and your transfer is confirmed\.?/i,
+      "Your booking has been updated. Please review the updated journey details below.",
+    )
+    .replace(
+      /Thank you for your booking with [^.<]+?\./i,
+      "Your booking has been updated.",
     )
     .replace(
       /(<div style="margin-top:8px;font-size:22px;line-height:1\.35;color:#ffffff;font-weight:bold;">)([^<]*)(<\/div>)/,

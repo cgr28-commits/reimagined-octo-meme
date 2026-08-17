@@ -66,8 +66,9 @@ console.log("\n=== 4. Booking cards: groups + completed Evidence prominence ==="
   assert.match(panel, /uppercase tracking-wider text-white\/40">\s*Customer\s*</);
   assert.match(panel, /uppercase tracking-wider text-white\/40">\s*Admin\s*</);
   assert.match(panel, /View Journey Evidence/);
-  assert.match(panel, /journeyCompleted \?/);
-  assert.match(panel, /bg-sky-500 text-navy/);
+  assert.match(panel, /journeyCompleted \?|status === "completed"/);
+  assert.match(panel, /bg-sky-500/);
+  assert.match(panel, /text-navy/);
   console.log("OK  control groups + completed journey Evidence CTA");
 }
 

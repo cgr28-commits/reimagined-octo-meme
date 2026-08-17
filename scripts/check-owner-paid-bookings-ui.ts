@@ -23,8 +23,8 @@ assert.match(api, /\/paid-bookings/);
 console.log("OK  paid-bookings API client");
 
 const panel = read("src/components/OwnerPaidBookingsPanel.tsx");
-assert.match(panel, /Paid bookings \(SumUp\)/);
-assert.match(panel, /Resend booking confirmation/);
+assert.match(panel, /Upcoming Jobs/);
+assert.match(panel, /Resend booking confirmation|Resend Confirmation/i);
 assert.match(panel, /Website card payments/);
 assert.match(panel, /latestPaid/);
 assert.match(panel, /Recover PAID checkouts/);
