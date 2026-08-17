@@ -193,8 +193,12 @@ console.log("\n=== 7. Owner panel UI contracts ===");
   assert.match(panel, /Confirm \$\{booking\.amountPaid|Confirm Changes/);
   assert.match(panel, /This will refund the customer/);
   assert.match(panel, /Send Updated Booking Confirmation|Send Updated Confirmation/);
-  assert.match(panel, /Retry Notification/);
-  assert.match(panel, /Assigned driver|assignedDriverDisplay/);
+  assert.match(panel, /Not sent yet/);
+  assert.match(panel, /status === "not_configured"/);
+  assert.doesNotMatch(
+    panel,
+    /if \(!status\) return "Not configured"/,
+  );
 
   const editModal = read("src/components/OwnerEditBookingModal.tsx");
   assert.match(editModal, /Confirm Booking Changes/);
