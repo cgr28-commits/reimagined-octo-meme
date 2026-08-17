@@ -670,10 +670,22 @@ export async function handleDriverLocationRequest(
   let driverName = record.activeDriverName;
   if (sessionHeader) {
     const trackingSession = await getTrackingSession(env.TRACKING_STORE, sessionHeader);
-    if (!trackingSession || trackingSession.jobToken !== token) {
+    if (trackingSession && trackingSession.jobToken === token) {
+      driverName = trackingSession.driverName ?? driverName;
+    } else if (driverAuthorized(request, env)) {
+      // Fall back to owner/driver key if the short-lived session expired.
+      const session = resolveDriverSession(request, env);
+      const operateError = assertDriverCanOperateJob(record, session);
+      if (operateError) {
+        return jsonResponse({ error: operateError }, 409, origin);
+      }
+      driverName =
+        session.authorized && session.role === "driver"
+          ? session.driverName
+          : record.activeDriverName;
+    } else {
       return jsonResponse({ error: "Invalid or expired tracking session" }, 401, origin);
     }
-    driverName = trackingSession.driverName ?? driverName;
   } else {
     if (!driverAuthorized(request, env)) {
       return jsonResponse({ error: "Unauthorized" }, 401, origin);

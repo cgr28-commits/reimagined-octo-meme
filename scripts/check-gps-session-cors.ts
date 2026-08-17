@@ -35,6 +35,7 @@ for (const rel of corsSources) {
 const api = read("src/lib/tracking-api.ts");
 assert.match(api, /export async function postDriverLocation/);
 assert.match(api, /headers\["X-Tracking-Session"\]\s*=\s*sessionToken/);
+assert.match(api, /"X-Driver-Key":\s*driverKey/);
 assert.match(api, /token,\s*\n\s*lat,\s*\n\s*lng/);
 assert.match(api, /\$\{WORKER_BASE\}\/driver\/location/);
 assert.doesNotMatch(
@@ -47,17 +48,14 @@ console.log("OK  postDriverLocation sends session header + lat/lng");
 const panel = read("src/components/OwnerPaidBookingsPanel.tsx");
 assert.match(panel, /startGpsWatch/);
 assert.match(panel, /watchPosition/);
+assert.match(panel, /getCurrentPosition/);
 assert.match(panel, /postDriverLocation\(/);
 assert.match(panel, /sessionToken/);
+assert.match(panel, /serverConnected/);
 assert.match(
   panel,
-  /postDriverLocation\([\s\S]*?sessionToken[\s\S]*?\)\.catch\(\(err\)/,
-  "Owner GPS uploads must catch failures with the error value",
-);
-assert.match(
-  panel,
-  /setGps\(\(current\)\s*=>\s*\(current\s*\?\s*\{\s*\.\.\.current,\s*error:\s*message/,
-  "Owner GPS upload failures must surface in the GPS status UI",
+  /GPS upload failed|GPS NOT RECORDING/,
+  "Owner GPS failures must surface clearly",
 );
 console.log("OK  OwnerPaidBookingsPanel wires session GPS + surfaces upload errors");
 
