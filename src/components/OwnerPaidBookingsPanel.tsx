@@ -5,12 +5,14 @@ import { formatUkInstant } from "../../shared/uk-time";
 import {
   fetchOwnerPaidBookings,
   fetchOwnerPendingCheckouts,
+  fetchTrackingDiagnostic,
   finalizePaidCheckoutRecovery,
   resendPaidBookingConfirmation,
   sendOwnerReviewRequest,
   type OwnerPaidBookingSummary,
   type OwnerPendingCheckoutSummary,
   type OwnerReviewRequestSummary,
+  type TrackingDiagnosticReport,
 } from "@/lib/paid-bookings-api";
 import {
   ensurePaidBookingTracking,
@@ -28,12 +30,19 @@ type LiveGpsState = {
   lastAt: number | null;
   accuracyMeters: number | null;
   error: string | null;
+  /** True only after the Worker accepted at least one GPS post. */
+  serverConnected: boolean;
+  pointCount: number;
+  permissionDenied: boolean;
 };
 
-function reviewStatusLabel(status: OwnerReviewRequestSummary["status"] | undefined): string {
+function reviewStatusLabel(
+  status: OwnerReviewRequestSummary["status"] | undefined,
+  dueAt?: string,
+): string {
   switch (status) {
     case "scheduled":
-      return "Scheduled";
+      return dueAt ? `Scheduled for ${formatUkInstant(dueAt)}` : "Scheduled";
     case "sent":
       return "Sent";
     case "failed":
@@ -51,6 +60,7 @@ function PaidBookingLiveTracking({
   onError,
   onTrackingToken,
   onSharingChange,
+  onJourneyCompleted,
 }: {
   ownerKey: string;
   booking: OwnerPaidBookingSummary;
@@ -59,6 +69,12 @@ function PaidBookingLiveTracking({
   onError: (message: string) => void;
   onTrackingToken: (paymentReference: string, token: string, trackUrl: string) => void;
   onSharingChange: (active: boolean) => void;
+  onJourneyCompleted: (update: {
+    token: string;
+    journeyStatus: string;
+    journeyCompletedAt?: string;
+    reviewRequest?: OwnerReviewRequestSummary;
+  }) => void;
 }) {
   const [localActive, setLocalActive] = useState(Boolean(booking.sharingActive));
   const [gps, setGps] = useState<LiveGpsState | null>(null);
@@ -69,8 +85,12 @@ function PaidBookingLiveTracking({
   const tokenRef = useRef<string | null>(booking.trackingToken ?? null);
 
   useEffect(() => {
+    // Restore sharing flag from server, but never claim GPS connected without a fresh watch.
     setLocalActive(Boolean(booking.sharingActive));
     tokenRef.current = booking.trackingToken ?? null;
+    if (!booking.sharingActive) {
+      setGps(null);
+    }
   }, [booking.sharingActive, booking.trackingToken]);
 
   useEffect(() => {
@@ -88,10 +108,85 @@ function PaidBookingLiveTracking({
 
   useEffect(() => () => clearWatch(), [clearWatch]);
 
+  const uploadPosition = useCallback(
+    (
+      token: string,
+      sessionToken: string,
+      position: GeolocationPosition,
+    ) => {
+      const accuracy =
+        typeof position.coords.accuracy === "number" && Number.isFinite(position.coords.accuracy)
+          ? position.coords.accuracy
+          : null;
+
+      void postDriverLocation(
+        ownerKey,
+        token,
+        position.coords.latitude,
+        position.coords.longitude,
+        {
+          sessionToken,
+          ...(accuracy !== null ? { accuracy } : {}),
+          ...(typeof position.coords.speed === "number" && Number.isFinite(position.coords.speed)
+            ? { speed: position.coords.speed }
+            : {}),
+          ...(typeof position.coords.heading === "number" &&
+          Number.isFinite(position.coords.heading)
+            ? { heading: position.coords.heading }
+            : {}),
+        },
+      )
+        .then((result) => {
+          setGps((current) =>
+            current
+              ? {
+                  ...current,
+                  lastAt: Date.now(),
+                  accuracyMeters: accuracy,
+                  error: null,
+                  permissionDenied: false,
+                  serverConnected: true,
+                  pointCount:
+                    typeof result.pointCount === "number"
+                      ? Math.max(current.pointCount, result.pointCount)
+                      : Math.max(current.pointCount, 1),
+                }
+              : current,
+          );
+        })
+        .catch((err) => {
+          const message =
+            err instanceof Error && err.message.trim()
+              ? err.message
+              : "GPS upload failed — check connection and keep this page open.";
+          setGps((current) =>
+            current
+              ? {
+                  ...current,
+                  error: message,
+                  // Keep serverConnected if we already had a successful point.
+                }
+              : current,
+          );
+        });
+    },
+    [ownerKey],
+  );
+
   const startGpsWatch = useCallback(
     (token: string, sessionToken: string) => {
       if (!navigator.geolocation) {
         onError("This browser does not support live GPS tracking.");
+        setGps({
+          token,
+          sessionToken,
+          lastAt: null,
+          accuracyMeters: null,
+          error: "GPS NOT RECORDING — this browser has no geolocation API.",
+          serverConnected: false,
+          pointCount: 0,
+          permissionDenied: true,
+        });
         return;
       }
 
@@ -104,57 +199,44 @@ function PaidBookingLiveTracking({
         lastAt: null,
         accuracyMeters: null,
         error: null,
+        serverConnected: false,
+        pointCount: 0,
+        permissionDenied: false,
       });
+
+      const onGeoError = (geoError: GeolocationPositionError) => {
+        const permissionDenied = geoError.code === geoError.PERMISSION_DENIED;
+        setGps((current) =>
+          current
+            ? {
+                ...current,
+                permissionDenied,
+                error: permissionDenied
+                  ? "GPS NOT RECORDING — location permission denied. Enable Precise Location for Safari, then try again."
+                  : "GPS NOT RECORDING — location unavailable. Keep this page open and check GPS.",
+              }
+            : current,
+        );
+      };
+
+      // Force the iPhone permission prompt + first fix before relying on watch alone.
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          uploadPosition(token, sessionToken, position);
+        },
+        onGeoError,
+        {
+          enableHighAccuracy: true,
+          maximumAge: 0,
+          timeout: 25_000,
+        },
+      );
 
       watchIdRef.current = navigator.geolocation.watchPosition(
         (position) => {
-          const accuracy =
-            typeof position.coords.accuracy === "number" && Number.isFinite(position.coords.accuracy)
-              ? position.coords.accuracy
-              : null;
-          setGps((current) =>
-            current
-              ? {
-                  ...current,
-                  lastAt: Date.now(),
-                  accuracyMeters: accuracy,
-                  error: null,
-                }
-              : current,
-          );
-          void postDriverLocation(
-            ownerKey,
-            token,
-            position.coords.latitude,
-            position.coords.longitude,
-            {
-              sessionToken,
-              ...(accuracy !== null ? { accuracy } : {}),
-              ...(typeof position.coords.speed === "number" && Number.isFinite(position.coords.speed)
-                ? { speed: position.coords.speed }
-                : {}),
-              ...(typeof position.coords.heading === "number" &&
-              Number.isFinite(position.coords.heading)
-                ? { heading: position.coords.heading }
-                : {}),
-            },
-          ).catch(() => {
-            // Transient upload errors retry on the next GPS tick.
-          });
+          uploadPosition(token, sessionToken, position);
         },
-        (geoError) => {
-          setGps((current) =>
-            current
-              ? {
-                  ...current,
-                  error:
-                    geoError.code === geoError.PERMISSION_DENIED
-                      ? "Location permission denied — enable Precise Location and reopen this page."
-                      : "Location unavailable — keep this page open and check GPS.",
-                }
-              : current,
-          );
-        },
+        onGeoError,
         {
           enableHighAccuracy: true,
           maximumAge: 15_000,
@@ -162,7 +244,7 @@ function PaidBookingLiveTracking({
         },
       );
     },
-    [clearWatch, onError, ownerKey],
+    [clearWatch, onError, uploadPosition],
   );
 
   const startTracking = async () => {
@@ -184,11 +266,22 @@ function PaidBookingLiveTracking({
         throw new Error("Tracking started but no GPS session was issued — try again.");
       }
 
+      // Sharing is on server-side, but UI stays "waiting for GPS" until Worker accepts a point.
       setLocalActive(true);
+      setGps({
+        token,
+        sessionToken,
+        lastAt: null,
+        accuracyMeters: null,
+        error: null,
+        serverConnected: false,
+        pointCount: 0,
+        permissionDenied: false,
+      });
       startGpsWatch(token, sessionToken);
       onSharingChange(true);
       onMessage(
-        "Live tracking active. Keep this page open while driving — GPS may pause if the phone locks or Safari goes to the background.",
+        "Waiting for GPS… Keep this Safari tab open in the foreground. GPS pauses if the screen locks or you switch apps.",
       );
     } catch (err) {
       onError(err instanceof Error ? err.message : "Could not start live tracking");
@@ -214,7 +307,9 @@ function PaidBookingLiveTracking({
       clearWatch();
       setGps(null);
       onSharingChange(false);
-      onMessage("Live tracking stopped.");
+      onMessage(
+        "Live tracking stopped (GPS sharing off). Press Complete Journey when the passenger trip has finished — that schedules the Google review email.",
+      );
     } catch (err) {
       onError(err instanceof Error ? err.message : "Could not stop live tracking");
     } finally {
@@ -223,8 +318,50 @@ function PaidBookingLiveTracking({
     }
   };
 
-  const active = localActive;
-  const lastAt = gps?.lastAt ?? (booking.driverUpdatedAt ? new Date(booking.driverUpdatedAt).getTime() : null);
+  const completeJourney = async () => {
+    setBusy(true);
+    onBusy(booking.paymentReference);
+    onError("");
+    try {
+      let token = tokenRef.current ?? booking.trackingToken?.trim() ?? "";
+      if (!token) {
+        const created = await ensurePaidBookingTracking(ownerKey, booking.paymentReference);
+        token = created.token;
+        onTrackingToken(booking.paymentReference, created.token, created.trackUrl);
+      }
+
+      const result = await postJourneyAction(ownerKey, token, "complete_journey");
+      setLocalActive(false);
+      clearWatch();
+      setGps(null);
+      onSharingChange(false);
+      onJourneyCompleted({
+        token,
+        journeyStatus: result.journeyStatus,
+        journeyCompletedAt: result.journeyCompletedAt,
+        reviewRequest: result.reviewRequest,
+      });
+      onMessage(
+        result.reviewRequest?.dueAt
+          ? `Journey completed. Review request scheduled for ${formatUkInstant(result.reviewRequest.dueAt)} (about 2 hours after completion).`
+          : "Journey completed. Review request scheduled (~2 hours after completion).",
+      );
+    } catch (err) {
+      onError(err instanceof Error ? err.message : "Could not complete journey");
+    } finally {
+      setBusy(false);
+      onBusy("");
+    }
+  };
+
+  const sessionOn = localActive;
+  const journeyCompleted = booking.journeyStatus === "completed";
+  const canCompleteJourney = !journeyCompleted && booking.status !== "refunded";
+  const gpsConnected = Boolean(gps?.serverConnected);
+  const gpsNotRecording = Boolean(
+    sessionOn && (gps?.permissionDenied || (gps?.error && !gpsConnected)),
+  );
+  const lastAt = gps?.lastAt ?? null;
   const lastLabel =
     lastAt && Number.isFinite(lastAt)
       ? `${Math.max(1, Math.round((Date.now() - lastAt) / 1000))}s ago`
@@ -246,32 +383,53 @@ function PaidBookingLiveTracking({
           </p>
           <p className="mt-1 text-sm font-semibold text-white">
             Status:{" "}
-            <span className={active ? "text-emerald" : "text-white/70"}>
-              {active ? "LIVE" : "OFF"}
+            <span
+              className={
+                gpsConnected ? "text-emerald" : sessionOn ? "text-amber-200" : "text-white/70"
+              }
+            >
+              {gpsConnected ? "LIVE" : sessionOn ? "WAITING FOR GPS" : "OFF"}
             </span>
           </p>
-          {active && lastLabel ? (
-            <p className="mt-1 text-xs text-white/60">Last update: {lastLabel}</p>
+          {gpsConnected ? (
+            <>
+              <p className="mt-1 text-xs text-emerald">GPS: Connected</p>
+              {lastLabel ? (
+                <p className="mt-1 text-xs text-white/60">Last GPS update: {lastLabel}</p>
+              ) : null}
+              {typeof gps?.accuracyMeters === "number" ? (
+                <p className="mt-1 text-xs text-white/60">
+                  Accuracy: ±{Math.round(gps.accuracyMeters)} m
+                </p>
+              ) : null}
+              <p className="mt-1 text-xs text-white/60">
+                Points recorded: {gps?.pointCount ?? 0}
+              </p>
+            </>
           ) : null}
-          {active && typeof gps?.accuracyMeters === "number" ? (
-            <p className="mt-1 text-xs text-white/60">
-              Accuracy: ±{Math.round(gps.accuracyMeters)} m
+          {sessionOn && !gpsConnected && !gpsNotRecording ? (
+            <p className="mt-2 text-xs text-amber-100">
+              Waiting for the first GPS fix and server confirmation…
             </p>
           ) : null}
+          {gpsNotRecording ? (
+            <p className="mt-2 text-sm font-semibold text-amber-100">GPS NOT RECORDING</p>
+          ) : null}
           {gps?.error ? <p className="mt-2 text-xs text-amber-100">{gps.error}</p> : null}
-          {active ? (
+          {sessionOn ? (
             <p className="mt-2 text-xs text-white/45">
-              Keep this tab open. iPhone/Safari may pause GPS when the screen locks or the browser
-              is backgrounded.
+              Keep this Safari tab open in the foreground. iPhone may pause GPS when the screen
+              locks, Safari backgrounds, or you open Maps/Waze.
             </p>
           ) : (
             <p className="mt-2 text-xs text-white/45">
-              Customers only see your live location from about 1 hour before pickup.
+              Customers only see your live location from about 1 hour before pickup. Historical
+              GPS stays owner-only.
             </p>
           )}
         </div>
         <div className="flex flex-wrap gap-2">
-          {!active ? (
+          {!sessionOn ? (
             <button
               type="button"
               disabled={busy}
@@ -282,8 +440,20 @@ function PaidBookingLiveTracking({
             </button>
           ) : (
             <>
-              <span className="inline-flex min-h-11 items-center rounded-xl border border-emerald/40 bg-emerald/15 px-4 py-2 text-sm font-semibold text-emerald">
-                LIVE TRACKING ACTIVE
+              <span
+                className={`inline-flex min-h-11 items-center rounded-xl border px-4 py-2 text-sm font-semibold ${
+                  gpsConnected
+                    ? "border-emerald/40 bg-emerald/15 text-emerald"
+                    : gpsNotRecording
+                      ? "border-amber-400/40 bg-amber-500/15 text-amber-100"
+                      : "border-white/20 bg-white/5 text-white/80"
+                }`}
+              >
+                {gpsConnected
+                  ? "LIVE TRACKING ACTIVE"
+                  : gpsNotRecording
+                    ? "GPS NOT RECORDING"
+                    : "WAITING FOR GPS"}
               </span>
               <button
                 type="button"
@@ -305,8 +475,137 @@ function PaidBookingLiveTracking({
               Open customer track link
             </a>
           ) : null}
+          {canCompleteJourney ? (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => void completeJourney()}
+              className="min-h-11 rounded-xl border border-sky-400/40 bg-sky-500/15 px-4 py-2.5 text-sm font-bold text-sky-100 transition-colors hover:bg-sky-500/25 disabled:opacity-60"
+            >
+              {busy ? "Completing…" : "Complete Journey"}
+            </button>
+          ) : journeyCompleted ? (
+            <span className="inline-flex min-h-11 items-center rounded-xl border border-emerald/40 bg-emerald/15 px-4 py-2 text-sm font-semibold text-emerald">
+              Journey completed
+            </span>
+          ) : null}
         </div>
       </div>
+      {canCompleteJourney ? (
+        <p className="mt-3 text-xs text-white/45">
+          Complete Journey confirms the passenger trip finished and schedules the Google review
+          email ~2 hours later. It is separate from Stop Tracking (GPS only).
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function yesNo(value: boolean | undefined): string {
+  if (value === true) return "YES";
+  if (value === false) return "NO";
+  return "—";
+}
+
+function TrackingDiagnosticView({ report }: { report: TrackingDiagnosticReport }) {
+  const events = report.journeyEvents;
+  return (
+    <div className="mt-4 rounded-xl border border-white/10 bg-black/25 p-4">
+      <p className="text-xs font-semibold uppercase tracking-wider text-emerald">
+        Tracking diagnostic (read-only)
+      </p>
+      <p className="mt-1 text-xs text-white/45">
+        Owner-authenticated lookup. No journey data was changed. Secrets are never returned.
+      </p>
+      <dl className="mt-3 grid gap-2 text-sm text-white/75 sm:grid-cols-2">
+        <div>
+          <dt className="text-white/40">Session found</dt>
+          <dd className="font-semibold text-white">{yesNo(report.sessionFound)}</dd>
+        </div>
+        <div>
+          <dt className="text-white/40">Session ID</dt>
+          <dd className="break-all font-mono text-xs text-white/85">
+            {report.sessionId || "—"}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-white/40">GPS points</dt>
+          <dd>{report.sessionFound ? String(report.gpsPointCount ?? 0) : "—"}</dd>
+        </div>
+        <div>
+          <dt className="text-white/40">Route reconstructable</dt>
+          <dd>{yesNo(report.routeReconstructable)}</dd>
+        </div>
+        <div>
+          <dt className="text-white/40">First point</dt>
+          <dd>{report.firstPointAt || "—"}</dd>
+        </div>
+        <div>
+          <dt className="text-white/40">Last point</dt>
+          <dd>{report.lastPointAt || "—"}</dd>
+        </div>
+        <div>
+          <dt className="text-white/40">Tracking start</dt>
+          <dd>{report.trackingStartedAt || events?.trackingStartedAt || "—"}</dd>
+        </div>
+        <div>
+          <dt className="text-white/40">Tracking stop</dt>
+          <dd>{report.trackingStoppedAt || events?.trackingStoppedAt || "—"}</dd>
+        </div>
+        <div>
+          <dt className="text-white/40">Lat/Lng stored</dt>
+          <dd>{yesNo(report.fieldsStored?.latitudeLongitude)}</dd>
+        </div>
+        <div>
+          <dt className="text-white/40">Accuracy / speed / heading</dt>
+          <dd>
+            {yesNo(report.fieldsStored?.accuracyMeters)} /{" "}
+            {yesNo(report.fieldsStored?.speedMps)} /{" "}
+            {yesNo(report.fieldsStored?.headingDegrees)}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-white/40">Payment ref linked</dt>
+          <dd>{yesNo(report.paymentReferenceLinked ?? report.paidBookingFound)}</dd>
+        </div>
+        <div>
+          <dt className="text-white/40">Customer sees historical trail</dt>
+          <dd>{yesNo(report.customerSeesHistoricalRoute)}</dd>
+        </div>
+        <div className="sm:col-span-2">
+          <dt className="text-white/40">Storage</dt>
+          <dd>
+            {report.storage
+              ? `${report.storage.location} (${report.storage.binding}) — DO: ${yesNo(report.storage.durableObject)}, D1: ${yesNo(report.storage.d1)}`
+              : "—"}
+          </dd>
+        </div>
+        <div className="sm:col-span-2">
+          <dt className="text-white/40">Retention</dt>
+          <dd>
+            {report.retention
+              ? `Job ~${report.retention.trackingJobTtlDays}d · GPS history ~${report.retention.gpsHistoryTtlDays}d · GPS session ~${report.retention.gpsSessionTtlHours}h`
+              : "—"}
+          </dd>
+        </div>
+        <div className="sm:col-span-2">
+          <dt className="text-white/40">Journey events</dt>
+          <dd className="mt-1 whitespace-pre-wrap font-mono text-xs text-white/70">
+            {events
+              ? [
+                  `status: ${events.journeyStatus}`,
+                  `sharingActive: ${events.sharingActive}`,
+                  `trackingStartedAt: ${events.trackingStartedAt ?? "—"}`,
+                  `arrivedPickupAt: ${events.arrivedPickupAt ?? "—"}`,
+                  `journeyStartedAt: ${events.journeyStartedAt ?? "—"}`,
+                  `arrivedDestinationAt: ${events.arrivedDestinationAt ?? "—"}`,
+                  `journeyCompletedAt: ${events.journeyCompletedAt ?? "—"}`,
+                  `trackingStoppedAt: ${events.trackingStoppedAt ?? "—"}`,
+                ].join("\n")
+              : "—"}
+          </dd>
+        </div>
+      </dl>
     </div>
   );
 }
@@ -319,6 +618,8 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
   const [message, setMessage] = useState("");
   const [busyRef, setBusyRef] = useState("");
   const [recovering, setRecovering] = useState(false);
+  const [diagnostics, setDiagnostics] = useState<Record<string, TrackingDiagnosticReport>>({});
+  const [diagnosticBusyRef, setDiagnosticBusyRef] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -426,6 +727,78 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
       setBusyRef("");
     }
   }
+
+  async function handleTrackingDiagnostic(booking: OwnerPaidBookingSummary) {
+    setDiagnosticBusyRef(booking.paymentReference);
+    setError("");
+    try {
+      const report = await fetchTrackingDiagnostic(ownerKey, booking.paymentReference);
+      setDiagnostics((current) => ({
+        ...current,
+        [booking.paymentReference]: report,
+      }));
+      setMessage(
+        report.sessionFound
+          ? `Tracking diagnostic loaded for ${booking.paymentReference} (${report.gpsPointCount ?? 0} GPS points).`
+          : `No tracking session found for ${booking.paymentReference}.`,
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not load tracking diagnostic");
+    } finally {
+      setDiagnosticBusyRef("");
+    }
+  }
+
+  async function handleCompleteJourney(booking: OwnerPaidBookingSummary) {
+    setBusyRef(booking.paymentReference);
+    setError("");
+    setMessage("");
+    try {
+      let token = booking.trackingToken?.trim() ?? "";
+      if (!token) {
+        const created = await ensurePaidBookingTracking(ownerKey, booking.paymentReference);
+        token = created.token;
+        onTrackingTokenUpdate(booking.paymentReference, created.token, created.trackUrl);
+      }
+
+      const result = await postJourneyAction(ownerKey, token, "complete_journey");
+      setBookings((current) =>
+        current.map((entry) =>
+          entry.paymentReference === booking.paymentReference
+            ? {
+                ...entry,
+                trackingToken: token,
+                sharingActive: false,
+                journeyStatus: result.journeyStatus ?? "completed",
+                journeyCompletedAt: result.journeyCompletedAt ?? new Date().toISOString(),
+                reviewRequest: result.reviewRequest ?? entry.reviewRequest,
+              }
+            : entry,
+        ),
+      );
+      setMessage(
+        result.reviewRequest?.dueAt
+          ? `Journey completed. Google review request scheduled for ${formatUkInstant(result.reviewRequest.dueAt)}.`
+          : "Journey completed. Review request will be scheduled automatically.",
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not complete journey");
+    } finally {
+      setBusyRef("");
+    }
+  }
+
+  function onTrackingTokenUpdate(paymentReference: string, token: string, trackUrl: string) {
+    setBookings((current) =>
+      current.map((entry) =>
+        entry.paymentReference === paymentReference
+          ? { ...entry, trackingToken: token, trackUrl }
+          : entry,
+      ),
+    );
+  }
+
+  // handleCompleteJourney kept for any secondary Complete Journey controls below.
 
   async function handleRecover(checkoutId?: string) {
     setRecovering(true);
@@ -629,14 +1002,21 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
                               : "border-white/15 bg-white/5 text-white/70"
                       }`}
                     >
-                      {reviewStatusLabel(booking.reviewRequest?.status)}
+                      {reviewStatusLabel(
+                        booking.reviewRequest?.status,
+                        booking.reviewRequest?.dueAt,
+                      )}
                     </span>
-                    {booking.reviewRequest?.scheduledAt ? (
+                    {booking.reviewRequest?.status === "scheduled" && booking.reviewRequest.dueAt ? (
+                      <span className="mt-2 block text-xs text-white/45">
+                        Auto-send around {formatUkInstant(booking.reviewRequest.dueAt)}
+                        {booking.reviewRequest.scheduledAt
+                          ? ` · scheduled ${formatUkInstant(booking.reviewRequest.scheduledAt)}`
+                          : ""}
+                      </span>
+                    ) : booking.reviewRequest?.scheduledAt ? (
                       <span className="mt-2 block text-xs text-white/45">
                         Scheduled {formatUkInstant(booking.reviewRequest.scheduledAt)}
-                        {booking.reviewRequest.dueAt
-                          ? ` · due ${formatUkInstant(booking.reviewRequest.dueAt)}`
-                          : ""}
                       </span>
                     ) : null}
                     {booking.reviewRequest?.sentAt ? (
@@ -679,6 +1059,22 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
                         ),
                       );
                     }}
+                    onJourneyCompleted={(update) => {
+                      setBookings((current) =>
+                        current.map((entry) =>
+                          entry.paymentReference === booking.paymentReference
+                            ? {
+                                ...entry,
+                                trackingToken: update.token,
+                                sharingActive: false,
+                                journeyStatus: update.journeyStatus,
+                                journeyCompletedAt: update.journeyCompletedAt,
+                                reviewRequest: update.reviewRequest ?? entry.reviewRequest,
+                              }
+                            : entry,
+                        ),
+                      );
+                    }}
                   />
 
                   <div className="mt-4 flex flex-wrap gap-3">
@@ -692,6 +1088,16 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
                         ? "Sending…"
                         : "Resend booking confirmation"}
                     </button>
+                    {booking.journeyStatus !== "completed" ? (
+                      <button
+                        type="button"
+                        disabled={busyRef === booking.paymentReference}
+                        onClick={() => void handleCompleteJourney(booking)}
+                        className="rounded-xl border border-sky-400/40 bg-sky-500/15 px-4 py-2.5 text-sm font-bold text-sky-100 transition-colors hover:bg-sky-500/25 disabled:opacity-60"
+                      >
+                        Complete Journey
+                      </button>
+                    ) : null}
                     {booking.journeyStatus === "completed" || booking.reviewRequest ? (
                       booking.reviewRequest?.status === "sent" ? (
                         <button
@@ -733,6 +1139,19 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
                         ? "Refresh tracking link"
                         : "Create tracking (no new charge)"}
                     </button>
+                    <button
+                      type="button"
+                      disabled={
+                        diagnosticBusyRef === booking.paymentReference ||
+                        busyRef === booking.paymentReference
+                      }
+                      onClick={() => void handleTrackingDiagnostic(booking)}
+                      className="rounded-xl border border-emerald/40 bg-emerald/10 px-4 py-2.5 text-sm font-semibold text-emerald transition-colors hover:bg-emerald/20 disabled:opacity-60"
+                    >
+                      {diagnosticBusyRef === booking.paymentReference
+                        ? "Loading diagnostic…"
+                        : "Tracking diagnostic (read-only)"}
+                    </button>
                     {booking.customerEmail ? (
                       <a
                         href={`mailto:${encodeURIComponent(booking.customerEmail)}`}
@@ -752,6 +1171,12 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
                       </a>
                     ) : null}
                   </div>
+
+                  {diagnostics[booking.paymentReference] ? (
+                    <TrackingDiagnosticView
+                      report={diagnostics[booking.paymentReference]}
+                    />
+                  ) : null}
                 </>
               ) : null}
             </li>

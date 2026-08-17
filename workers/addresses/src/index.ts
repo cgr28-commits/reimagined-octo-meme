@@ -95,7 +95,9 @@ import {
   handleJourneyEvidenceRequest,
   handleJourneySessionRequest,
   handleJourneyTransitionRequest,
+  handleTrackingDiagnosticRequest,
   isEnsureTrackingPath,
+  isJourneyDiagnosticPath,
   isJourneyEvidencePath,
   isJourneySessionPath,
   isJourneyTransitionPath,
@@ -1586,6 +1588,10 @@ export default {
 
     if (isJourneyEvidencePath(url.pathname) && request.method === "GET") {
       return handleJourneyEvidenceRequest(request, env, origin);
+    }
+
+    if (isJourneyDiagnosticPath(url.pathname) && request.method === "GET") {
+      return handleTrackingDiagnosticRequest(request, env, origin);
     }
 
     if (isEnsureTrackingPath(url.pathname) && request.method === "POST") {

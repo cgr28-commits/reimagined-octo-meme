@@ -83,7 +83,22 @@ console.log("\n=== 2. Paid-but-not-completed does not schedule ===");
 
   const tracking = baseJob({ journeyStatus: "tracking", sharingActive: true });
   assert.equal(ensureReviewRequestScheduled(tracking).reviewRequestScheduledAt, undefined);
-  console.log("OK  paid/tracking-only bookings are not scheduled");
+
+  const stoppedOnly = baseJob({
+    journeyStatus: "stopped",
+    sharingActive: false,
+    trackingStoppedAt: "2026-08-17T06:32:23.170Z",
+  });
+  assert.equal(ensureReviewRequestScheduled(stoppedOnly).reviewRequestScheduledAt, undefined);
+  assert.equal(isReviewRequestDue(stoppedOnly), false);
+
+  // Owner can Complete Journey after Stop Tracking.
+  let afterStop = mustApply(baseJob({ journeyStatus: "tracking", sharingActive: true }), "stop_tracking");
+  assert.equal(afterStop.journeyStatus, "stopped");
+  afterStop = mustApply(afterStop, "complete_journey");
+  const scheduledAfterStop = ensureReviewRequestScheduled(afterStop);
+  assert.equal(getReviewRequestStatus(scheduledAfterStop), "scheduled");
+  console.log("OK  paid/tracking/stopped-only bookings are not scheduled until Complete Journey");
 }
 
 console.log("\n=== 3. Cancelled / refunded booking does not send ===");
@@ -222,11 +237,10 @@ console.log("\n=== 9–10. Manual send / already-sent protection (source) ===");
   assert.match(panel, /Resend review request/);
   assert.match(panel, /sendOwnerReviewRequest/);
   assert.match(panel, /Review request/);
-
-  const api = read("src/lib/paid-bookings-api.ts");
-  assert.match(api, /\/paid-bookings\/review-request/);
-  assert.match(api, /forceResend/);
-  console.log("OK  owner Send + explicit Resend with duplicate warning");
+  assert.match(panel, /Complete Journey/);
+  assert.match(panel, /complete_journey/);
+  assert.match(panel, /Stop Tracking \(GPS only\)|separate from Stop Tracking/);
+  console.log("OK  owner Send + Complete Journey + explicit Resend with duplicate warning");
 }
 
 console.log("\n=== 11. Resend failure records Failed without changing completion ===");

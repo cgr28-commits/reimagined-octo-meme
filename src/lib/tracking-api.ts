@@ -456,6 +456,14 @@ export type JourneyTransitionResponse = {
   journeyCompletedAt?: string;
   trackingStoppedAt?: string;
   trackingSession?: { sessionToken: string; expiresAt: string };
+  reviewRequest?: {
+    status: "not_scheduled" | "scheduled" | "sent" | "failed";
+    scheduledAt?: string;
+    dueAt?: string;
+    sentAt?: string;
+    failedAt?: string;
+    lastError?: string;
+  };
 };
 
 export async function postJourneyAction(
@@ -1065,25 +1073,24 @@ export async function postDriverLocation(
     speed?: number;
     heading?: number;
   },
-): Promise<void> {
+): Promise<{ ok: true; pointCount?: number; stored?: boolean; throttled?: boolean }> {
   if (isDemoDriverKey(driverKey) || isDemoOwnerKey(driverKey)) {
-    return;
+    return { ok: true, pointCount: 1, stored: true };
   }
 
   const headers: Record<string, string> = {
     Accept: "application/json",
     "Content-Type": "application/json",
+    // Always send the dashboard key so Worker can fall back if the short-lived
+    // session token is missing/expired. Session header is preferred when valid.
+    "X-Driver-Key": driverKey,
   };
   const sessionToken = extras?.sessionToken?.trim();
   if (sessionToken) {
     headers["X-Tracking-Session"] = sessionToken;
-  } else {
-    headers["X-Driver-Key"] = driverKey;
   }
 
-  const url = sessionToken
-    ? `${WORKER_BASE}/driver/location`
-    : `${WORKER_BASE}/driver/location?key=${encodeURIComponent(driverKey)}`;
+  const url = `${WORKER_BASE}/driver/location?key=${encodeURIComponent(driverKey)}`;
 
   const response = await fetch(url, {
     method: "POST",
@@ -1099,7 +1106,12 @@ export async function postDriverLocation(
     }),
   });
 
-  await parseJsonResponse<{ ok: true }>(response);
+  return parseJsonResponse<{
+    ok: true;
+    pointCount?: number;
+    stored?: boolean;
+    throttled?: boolean;
+  }>(response);
 }
 
 export async function setCustomerSharing(

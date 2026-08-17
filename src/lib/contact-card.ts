@@ -2,7 +2,9 @@ import { SITE } from "@/lib/data";
 import { withBasePath } from "@/lib/paths";
 
 export const CONTACT_CARD_PATH = "/contact/";
-export const CONTACT_VCARD_PATH = "/my-airport-taxi-ni.vcf";
+/** Legacy lowercase path (still served). Prefer CONTACT_VCARD_PATH for new links. */
+export const CONTACT_VCARD_LEGACY_PATH = "/my-airport-taxi-ni.vcf";
+export const CONTACT_VCARD_PATH = "/My-Airport-Taxi-NI.vcf";
 
 /**
  * Worker vCard — Content-Type: text/vcard (no disposition).
@@ -15,18 +17,18 @@ export const CONTACT_VCARD_WORKER_URL =
 export const CONTACT_VCARD_DOWNLOAD_URL = `${CONTACT_VCARD_WORKER_URL}?download=1`;
 
 /** Cache-bust so phones pick up the regenerated branded PHOTO. */
-const VCARD_CACHE_BUST = "v=20260806gsa3";
+const VCARD_CACHE_BUST = "v=20260817contacts";
 
 export function contactCardUrl(): string {
   return `${SITE.url}${CONTACT_CARD_PATH}`;
 }
 
-/** Same-origin vCard (GitHub Pages serves text/x-vcard). */
+/** Same-origin vCard on the production site. */
 export function contactVCardUrl(): string {
   return `${withBasePath(CONTACT_VCARD_PATH)}?${VCARD_CACHE_BUST}`;
 }
 
-/** Absolute same-origin vCard URL (for email / share text). */
+/** Absolute production-domain vCard URL (for email / share text — not the Worker host). */
 export function contactVCardAbsoluteUrl(): string {
   return `${SITE.url}${CONTACT_VCARD_PATH}?${VCARD_CACHE_BUST}`;
 }
@@ -92,11 +94,6 @@ export function saveToContactsHref(): string {
   return contactVCardUrl();
 }
 
-function whatsAppE164(): string {
-  const raw = SITE.whatsapp.trim();
-  return raw.startsWith("+") ? raw : `+${raw}`;
-}
-
 /**
  * Android Intent that opens the native “Add contact” screen (no .vcf download).
  * Logo photo is not supported by this intent — offer the vCard as a second step.
@@ -104,7 +101,6 @@ function whatsAppE164(): string {
 export function androidAddContactIntentUrl(): string {
   const name = encodeURIComponent(SITE.name);
   const phone = encodeURIComponent(SITE.landline);
-  const mobile = encodeURIComponent(whatsAppE164());
   const email = encodeURIComponent(SITE.email);
   const company = encodeURIComponent(SITE.name);
   return (
@@ -113,7 +109,6 @@ export function androidAddContactIntentUrl(): string {
     `type=vnd.android.cursor.dir/contact;` +
     `S.name=${name};` +
     `S.phone=${phone};` +
-    `S.secondary_phone=${mobile};` +
     `S.email=${email};` +
     `S.company=${company};` +
     `end`

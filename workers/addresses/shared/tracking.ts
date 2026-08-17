@@ -139,20 +139,23 @@ export function customerJourneyLabel(job: Pick<TrackingJobRecord, "journeyStatus
 export function allowedJourneyActions(status: JourneyStatus): JourneyAction[] {
   switch (status) {
     case "idle":
+      // Can start live tracking, or mark complete without live GPS (e.g. trip done offline).
+      return ["start_tracking", "complete_journey"];
     case "stopped":
-      return ["start_tracking"];
+      // Stop Live Tracking ≠ Complete Journey — owner can still mark the trip finished.
+      return ["start_tracking", "complete_journey"];
     case "tracking":
-      return ["arrived_pickup", "stop_tracking"];
+      return ["arrived_pickup", "stop_tracking", "complete_journey"];
     case "arrived_pickup":
-      return ["start_journey", "stop_tracking"];
+      return ["start_journey", "stop_tracking", "complete_journey"];
     case "en_route":
-      return ["arrived_destination", "stop_tracking"];
+      return ["arrived_destination", "stop_tracking", "complete_journey"];
     case "arrived_destination":
       return ["complete_journey", "stop_tracking"];
     case "completed":
       return [];
     default:
-      return ["start_tracking"];
+      return ["start_tracking", "complete_journey"];
   }
 }
 
@@ -197,6 +200,10 @@ export function applyJourneyAction(
       next.journeyStatus = "completed";
       next.journeyCompletedAt = atIso;
       next.sharingActive = false;
+      // Close live sharing safely; keep GPS history / evidence fields intact.
+      if (!next.trackingStoppedAt) {
+        next.trackingStoppedAt = atIso;
+      }
       delete next.driverLat;
       delete next.driverLng;
       delete next.driverUpdatedAt;
