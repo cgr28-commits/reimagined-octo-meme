@@ -12,6 +12,13 @@ import {
   relevantUpcomingJourneyTime,
   upcomingBucketForTripDate,
 } from "../../shared/upcoming-jobs";
+import {
+  activeLegPickupLabel,
+  buildArrivedPickupWhatsAppLink,
+  buildArrivedPickupWhatsAppMessage,
+  isAirportPickupLabel,
+  type ArrivalVehicleDetails,
+} from "../../shared/arrival-whatsapp";
 import { formatUkInstant } from "../../shared/uk-time";
 import OwnerEditBookingModal from "@/components/OwnerEditBookingModal";
 import {
@@ -30,6 +37,8 @@ import {
 import { issueBookingRefund } from "@/lib/refund-api";
 import {
   ensurePaidBookingTracking,
+  fetchDriverVehicle,
+  fetchOwnerAccountProfile,
   postDriverLocation,
   postJourneyAction,
   type JourneyAction,
@@ -106,6 +115,62 @@ function arrivalNotificationLabel(booking: OwnerPaidBookingSummary): string {
 function paymentStatusLabel(booking: OwnerPaidBookingSummary): string {
   if (booking.status === "refunded") return "Refunded";
   return "Paid";
+}
+
+function openWhatsAppDeepLink(href: string) {
+  const opened = window.open(href, "_blank", "noopener,noreferrer");
+  if (!opened) {
+    window.location.assign(href);
+  }
+}
+
+async function resolveArrivalVehicleForBooking(
+  ownerKey: string,
+  booking: OwnerPaidBookingSummary,
+): Promise<ArrivalVehicleDetails | null> {
+  const assigned = booking.assignedDriverName?.trim();
+  if (assigned) {
+    try {
+      const profile = await fetchDriverVehicle(ownerKey, assigned);
+      if (
+        profile?.colour?.trim() &&
+        profile.make?.trim() &&
+        profile.model?.trim() &&
+        profile.registration?.trim()
+      ) {
+        return {
+          colour: profile.colour.trim(),
+          make: profile.make.trim(),
+          model: profile.model.trim(),
+          registration: profile.registration.trim().toUpperCase(),
+        };
+      }
+    } catch {
+      // Fall through to owner profile.
+    }
+  }
+
+  try {
+    const { profile, complete } = await fetchOwnerAccountProfile(ownerKey);
+    if (
+      complete &&
+      profile?.colour?.trim() &&
+      profile.make?.trim() &&
+      profile.model?.trim() &&
+      profile.registration?.trim()
+    ) {
+      return {
+        colour: profile.colour.trim(),
+        make: profile.make.trim(),
+        model: profile.model.trim(),
+        registration: profile.registration.trim().toUpperCase(),
+      };
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
 }
 
 function sortByTripDateTime(a: OwnerPaidBookingSummary, b: OwnerPaidBookingSummary): number {
@@ -894,13 +959,40 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
       } else if (action === "arrived_pickup") {
         const notify =
           result.arrivalNotificationStatus === "sent"
-            ? " Customer notified."
+            ? " Customer emailed."
             : result.arrivalNotificationStatus === "failed"
-              ? " Customer notification failed — use Retry Notification."
+              ? " Customer email failed — use Retry Notification."
               : result.arrivalNotificationStatus === "not_configured"
-                ? " Arrival notification not configured."
+                ? " Arrival email not configured."
                 : "";
-        setMessage(`Arrived at pickup recorded.${notify}`);
+
+        const mobile = booking.mobileNumber?.trim() || "";
+        const openWhatsApp = !options?.retryArrivalNotification && Boolean(mobile);
+        if (openWhatsApp) {
+          const pickupLabel = activeLegPickupLabel(booking);
+          const airport = isAirportPickupLabel(pickupLabel);
+          const vehicle = await resolveArrivalVehicleForBooking(ownerKey, booking);
+          const message = buildArrivedPickupWhatsAppMessage({
+            isAirportPickup: airport,
+            vehicle,
+          });
+          openWhatsAppDeepLink(buildArrivedPickupWhatsAppLink(mobile, message));
+          setMessage(
+            `Arrived at pickup recorded.${notify} WhatsApp opened — press Send to message the customer.`,
+          );
+        } else if (!mobile && !options?.retryArrivalNotification) {
+          setMessage(
+            `Arrived at pickup recorded.${notify} No customer mobile on this booking for WhatsApp.`,
+          );
+        } else {
+          setMessage(
+            options?.retryArrivalNotification
+              ? result.arrivalNotificationStatus === "sent"
+                ? "Arrival notification resent successfully."
+                : `Arrived at pickup recorded.${notify}`
+              : `Arrived at pickup recorded.${notify}`,
+          );
+        }
       } else if (options?.retryArrivalNotification) {
         setMessage(
           result.arrivalNotificationStatus === "sent"
@@ -999,9 +1091,10 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
 
     const primaryActions: { action: JourneyAction; label: string }[] = [];
     if (status === "tracking") {
-      primaryActions.push({ action: "arrived_pickup", label: "Arrived at Pickup" });
+      primaryActions.push({ action: "arrived_pickup", label: "🚕 Arrived at Pickup" });
     } else if (status === "arrived_pickup") {
-      primaryActions.push({ action: "start_journey", label: "Start Journey / Passenger On Board" });
+      // Intended owner flow: Arrived → WhatsApp → Complete Journey
+      primaryActions.push({ action: "complete_journey", label: "Complete Journey" });
     } else if (status === "en_route") {
       primaryActions.push({ action: "arrived_destination", label: "Arrived at Destination" });
     } else if (status === "arrived_destination") {
@@ -1027,17 +1120,24 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
             </a>
           ) : (
             <>
-              {primaryActions.map((item) => (
-                <button
-                  key={item.action}
-                  type="button"
-                  disabled={busy}
-                  onClick={() => void handleJourneyAction(booking, item.action)}
-                  className="min-h-11 w-full rounded-xl border border-sky-400/40 bg-sky-500/15 px-4 py-2.5 text-sm font-bold text-sky-100 transition-colors hover:bg-sky-500/25 disabled:opacity-60 sm:w-auto"
-                >
-                  {busy ? "Updating…" : item.label}
-                </button>
-              ))}
+              {primaryActions.map((item) => {
+                const isArrivedCta = item.action === "arrived_pickup";
+                return (
+                  <button
+                    key={item.action}
+                    type="button"
+                    disabled={busy}
+                    onClick={() => void handleJourneyAction(booking, item.action)}
+                    className={
+                      isArrivedCta
+                        ? "min-h-12 w-full rounded-xl bg-emerald px-4 py-3 text-base font-bold text-navy transition-colors hover:bg-emerald/90 disabled:opacity-60 sm:w-auto"
+                        : "min-h-11 w-full rounded-xl border border-sky-400/40 bg-sky-500/15 px-4 py-2.5 text-sm font-bold text-sky-100 transition-colors hover:bg-sky-500/25 disabled:opacity-60 sm:w-auto"
+                    }
+                  >
+                    {busy ? "Updating…" : item.label}
+                  </button>
+                );
+              })}
               {showEvidence ? (
                 <a
                   href={`/owner/journey-evidence/?ref=${encodeURIComponent(booking.paymentReference)}`}
@@ -1073,6 +1173,12 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
             </button>
           ) : null}
         </div>
+        {status === "tracking" ? (
+          <p className="mt-2 text-xs text-white/45">
+            Press Arrived at Pickup when you are at the customer. This records arrival, emails the
+            customer, and opens WhatsApp with a ready-to-send message (you press Send).
+          </p>
+        ) : null}
         {canComplete && (status === "idle" || status === "stopped" || !status) ? (
           <p className="mt-2 text-xs text-white/45">
             Start Live Tracking above for GPS. Complete Journey when the passenger trip has finished

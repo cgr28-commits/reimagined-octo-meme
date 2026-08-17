@@ -26,6 +26,7 @@ import {
   fetchDriverLocationHistory,
   fetchDriverVehicleProfiles,
   fetchDriverVehicle,
+  fetchOwnerAccountProfile,
   saveDriverVehicle,
   type DriverJob,
   type JourneyAction,
@@ -34,6 +35,11 @@ import {
 import { issueBookingRefund } from "@/lib/refund-api";
 import { DEMO_DRIVER_KEY, DEMO_DRIVER_NAME, DEMO_OWNER_KEY, DEMO_ROSTER } from "@/lib/tracking-demo";
 import { SERVICE_FLAGS, SITE } from "@/lib/data";
+import {
+  buildArrivedPickupWhatsAppLink,
+  buildArrivedPickupWhatsAppMessage,
+  isAirportPickupLabel,
+} from "../../../shared/arrival-whatsapp";
 
 /** Mirror of shared DRIVER_GPS_STALE_MS — warn when browser GPS stops updating. */
 const DRIVER_GPS_STALE_MS = 2 * 60 * 1000;
@@ -1012,6 +1018,65 @@ function DriverJobCard({
       };
       onUpdated(nextJob);
 
+      // WhatsApp click-to-chat after recording arrival (manual Send). Keep Resend/email as-is.
+      if (action === "arrived_pickup") {
+        const mobile = job.customerMobile?.trim() || "";
+        if (mobile) {
+          let vehicle = null as
+            | { colour: string; make: string; model: string; registration: string }
+            | null;
+          const assigned = job.assignedDriverName?.trim();
+          try {
+            if (assigned) {
+              const profile = await fetchDriverVehicle(driverKey, assigned);
+              if (
+                profile?.colour?.trim() &&
+                profile.make?.trim() &&
+                profile.model?.trim() &&
+                profile.registration?.trim()
+              ) {
+                vehicle = {
+                  colour: profile.colour.trim(),
+                  make: profile.make.trim(),
+                  model: profile.model.trim(),
+                  registration: profile.registration.trim().toUpperCase(),
+                };
+              }
+            }
+            if (!vehicle && isOwner) {
+              const { profile, complete } = await fetchOwnerAccountProfile(driverKey);
+              if (
+                complete &&
+                profile?.colour?.trim() &&
+                profile.make?.trim() &&
+                profile.model?.trim() &&
+                profile.registration?.trim()
+              ) {
+                vehicle = {
+                  colour: profile.colour.trim(),
+                  make: profile.make.trim(),
+                  model: profile.model.trim(),
+                  registration: profile.registration.trim().toUpperCase(),
+                };
+              }
+            }
+          } catch {
+            vehicle = null;
+          }
+
+          // Return-leg jobs already store the leg's pickup on pickupLabel.
+          const message = buildArrivedPickupWhatsAppMessage({
+            isAirportPickup: isAirportPickupLabel(job.pickupLabel || ""),
+            vehicle,
+          });
+          const href = buildArrivedPickupWhatsAppLink(mobile, message);
+          const opened = window.open(href, "_blank", "noopener,noreferrer");
+          if (!opened) {
+            window.location.assign(href);
+          }
+        }
+      }
+
       if (result.sharingActive) {
         onSharingChange(job.token);
         if (result.trackingSession?.sessionToken) {
@@ -1478,7 +1543,13 @@ function DriverJobCard({
 
         {canOperateJourney && (
           <div className="flex w-full flex-wrap gap-2 sm:w-auto">
-            {allowedActions.map((action) => {
+            {(journeyStatus === "arrived_pickup"
+              ? allowedActions.filter(
+                  (action) => action === "complete_journey" || action === "stop_tracking",
+                )
+              : allowedActions
+            ).map((action) => {
+              const isArrivedCta = action === "arrived_pickup";
               const primary =
                 action === "start_tracking" ||
                 action === "arrived_pickup" ||
@@ -1492,12 +1563,14 @@ function DriverJobCard({
                   type="button"
                   disabled={busy}
                   onClick={() => void runJourneyAction(action)}
-                  className={`min-h-11 flex-1 rounded-xl px-4 py-3 text-sm font-semibold transition-colors disabled:opacity-60 sm:flex-none ${
-                    danger
-                      ? "bg-red-500/20 text-red-200 hover:bg-red-500/30"
-                      : primary
-                        ? "bg-emerald text-navy hover:bg-emerald/90"
-                        : "border border-white/15 text-white hover:border-white/30"
+                  className={`flex-1 rounded-xl px-4 py-3 font-semibold transition-colors disabled:opacity-60 sm:flex-none ${
+                    isArrivedCta
+                      ? "min-h-12 text-base font-bold bg-emerald text-navy hover:bg-emerald/90"
+                      : danger
+                        ? "min-h-11 text-sm bg-red-500/20 text-red-200 hover:bg-red-500/30"
+                        : primary
+                          ? "min-h-11 text-sm bg-emerald text-navy hover:bg-emerald/90"
+                          : "min-h-11 text-sm border border-white/15 text-white hover:border-white/30"
                   }`}
                 >
                   {busy ? "Updating…" : JOURNEY_ACTION_LABELS[action]}
