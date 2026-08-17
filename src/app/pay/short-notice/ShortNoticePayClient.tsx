@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   buildPaymentRedirectUrl,
   createPaymentCheckout,
@@ -9,17 +10,32 @@ import {
 import { createPaymentReturnToken, savePendingPayment } from "@/lib/pending-payment";
 import { fetchPublicShortNotice, type PublicShortNoticeSummary } from "@/lib/short-notice-api";
 
-type Props = {
-  token: string;
-};
+function readTokenFromLocation(): string {
+  if (typeof window === "undefined") return "";
+  return new URLSearchParams(window.location.search).get("token")?.trim() ?? "";
+}
 
-export default function ShortNoticePayClient({ token }: Props) {
+function ShortNoticePayInner() {
+  const searchParams = useSearchParams();
+  const [token, setToken] = useState(() => searchParams.get("token")?.trim() ?? "");
   const [summary, setSummary] = useState<PublicShortNoticeSummary | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [paying, setPaying] = useState(false);
 
   useEffect(() => {
+    const fromUrl = searchParams.get("token")?.trim() ?? readTokenFromLocation();
+    setToken(fromUrl);
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (!token) {
+      setLoading(false);
+      setSummary(null);
+      setError("This page needs a secure payment token from your approved booking link.");
+      return;
+    }
+
     let cancelled = false;
     (async () => {
       setLoading(true);
@@ -41,7 +57,7 @@ export default function ShortNoticePayClient({ token }: Props) {
   }, [token]);
 
   async function handlePay() {
-    if (!summary?.payable) return;
+    if (!summary?.payable || !token) return;
     setPaying(true);
     setError("");
     try {
@@ -178,5 +194,19 @@ export default function ShortNoticePayClient({ token }: Props) {
         </p>
       )}
     </div>
+  );
+}
+
+export default function ShortNoticePayClient() {
+  return (
+    <Suspense
+      fallback={
+        <div className="mx-auto max-w-lg rounded-2xl border border-white/10 bg-navy/80 p-6 text-white">
+          <p className="text-sm text-white/70">Loading your booking…</p>
+        </div>
+      }
+    >
+      <ShortNoticePayInner />
+    </Suspense>
   );
 }
