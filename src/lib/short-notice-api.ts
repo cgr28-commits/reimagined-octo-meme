@@ -9,7 +9,8 @@ export type ShortNoticeBookingSummary = {
   amount: number;
   amountLabel: string;
   materialFingerprint: string;
-  minimumNoticeHoursApplied: number;
+  minimumNoticeHoursApplied?: number;
+  automaticBookingsAvailableFromApplied?: string | null;
   createdAt: string;
   updatedAt: string;
   approvedAt?: string;
@@ -41,8 +42,10 @@ export type ShortNoticeBookingSummary = {
 };
 
 export type BookingSettings = {
-  minimumOnlineNoticeHours: number;
+  automaticBookingsAvailableFrom: string | null;
   updatedAt: string;
+  gateActive?: boolean;
+  availableFromLabel?: string | null;
 };
 
 export type PublicShortNoticeSummary = {
@@ -151,7 +154,7 @@ export async function fetchBookingSettings(ownerKey: string): Promise<BookingSet
 
 export async function saveBookingSettings(
   ownerKey: string,
-  minimumOnlineNoticeHours: number,
+  automaticBookingsAvailableFrom: string | null,
 ): Promise<BookingSettings> {
   const response = await fetch(`${WORKER_BASE}/owner/booking-settings`, {
     method: "POST",
@@ -160,7 +163,10 @@ export async function saveBookingSettings(
       Accept: "application/json",
       "X-Owner-Key": ownerKey.trim(),
     },
-    body: JSON.stringify({ minimumOnlineNoticeHours }),
+    body: JSON.stringify({
+      automaticBookingsAvailableFrom,
+      ...(automaticBookingsAvailableFrom == null ? { clear: true } : {}),
+    }),
   });
   const payload = await parseJson(response);
   if (!response.ok) {

@@ -27,6 +27,9 @@ export type PaymentCheckoutResult = {
   shortNotice?: boolean;
   reference?: string;
   whatsappUrl?: string;
+  automaticBookingsAvailableFrom?: string | null;
+  automaticBookingsAvailableFromLabel?: string | null;
+  /** @deprecated Replaced by automaticBookingsAvailableFrom */
   minimumNoticeHours?: number;
   amount?: number;
   amountLabel?: string;

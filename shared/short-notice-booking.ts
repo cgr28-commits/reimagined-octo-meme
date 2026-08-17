@@ -27,7 +27,10 @@ export type ShortNoticeBookingRecord = {
   booking: PaidBookingDetails;
   /** Fare-affecting fingerprint locked at create / re-locked on approve. */
   materialFingerprint: string;
-  minimumNoticeHoursApplied: number;
+  /** Legacy hours audit (older KV records). */
+  minimumNoticeHoursApplied?: number;
+  /** Availability datetime applied when this request was created (London local). */
+  automaticBookingsAvailableFromApplied?: string | null;
   createdAt: string;
   updatedAt: string;
   approvedAt?: string;

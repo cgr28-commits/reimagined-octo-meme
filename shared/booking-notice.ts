@@ -1,13 +1,14 @@
 /**
- * Minimum online booking notice + service labels (Europe/London).
- * Default notice hours live in booking settings KV — call sites must not hard-code 6.
+ * Automatic booking availability gate + service labels (Europe/London).
+ * Owner sets "automatic bookings available from" date/time — not a rolling hours window.
  */
 
-import { parseLondonLocalDateTime } from "./uk-time";
-
-export const DEFAULT_MINIMUM_ONLINE_NOTICE_HOURS = 6;
+import { parseLondonLocalDateTime, parseLondonLocalIso, UK_TIME_ZONE } from "./uk-time";
 
 export type BookableServiceCode = "SALOON" | "ESTATE" | "MINIBUS";
+
+/** Stored as Europe/London wall clock `YYYY-MM-DDTHH:mm`. */
+export type AutomaticAvailabilityLocal = string;
 
 /** Map stored vehicle string → Owner Dashboard service code. */
 export function vehicleServiceCode(vehicle?: string | null): BookableServiceCode | "OTHER" {
@@ -26,29 +27,82 @@ export function vehicleServiceLabel(vehicle?: string | null): string {
 }
 
 /**
- * True when pickup (Europe/London wall clock) is at least `hours` ahead of `now`.
- * Exactly N hours ahead → true (auto-pay allowed). Strictly less → short-notice.
+ * Normalize Owner-entered availability to `YYYY-MM-DDTHH:mm` (Europe/London wall clock).
+ * Accepts `YYYY-MM-DDTHH:mm`, with seconds, or separate date+time.
  */
-export function isPickupAtLeastHoursAhead(
-  tripDate: string,
-  tripTime: string,
-  hours: number,
-  now = new Date(),
-): boolean {
-  const pickup = parseLondonLocalDateTime(tripDate, tripTime);
-  if (!pickup) return false;
-  const ms = Number(hours) * 60 * 60 * 1000;
-  if (!Number.isFinite(ms) || ms < 0) return false;
-  return pickup.getTime() - now.getTime() >= ms;
+export function normalizeAutomaticAvailabilityLocal(
+  value: string | null | undefined,
+): string | null {
+  if (value == null) return null;
+  const trimmed = String(value).trim();
+  if (!trimmed) return null;
+
+  const match = trimmed.match(/^(\d{4}-\d{2}-\d{2})[T ](\d{2}):(\d{2})(?::\d{2})?$/);
+  if (!match) return null;
+  const normalized = `${match[1]}T${match[2]}:${match[3]}`;
+  if (!parseLondonLocalIso(`${normalized}:00`)) return null;
+  return normalized;
 }
 
-export function isShortNoticePickup(
-  tripDate: string,
-  tripTime: string,
-  minimumNoticeHours: number,
+export function parseAutomaticAvailabilityFrom(
+  value: string | null | undefined,
+): Date | null {
+  const normalized = normalizeAutomaticAvailabilityLocal(value);
+  if (!normalized) return null;
+  return parseLondonLocalIso(`${normalized}:00`);
+}
+
+/**
+ * Gate is active only while the Owner-set availability instant is still in the future.
+ * Once that wall-clock time has passed (Europe/London), the restriction auto-expires.
+ */
+export function isAutomaticAvailabilityGateActive(
+  availableFrom: string | null | undefined,
   now = new Date(),
 ): boolean {
-  return !isPickupAtLeastHoursAhead(tripDate, tripTime, minimumNoticeHours, now);
+  const from = parseAutomaticAvailabilityFrom(availableFrom);
+  if (!from) return false;
+  return from.getTime() > now.getTime();
+}
+
+/**
+ * True when automatic SumUp must be blocked and the booking diverted to Owner approval.
+ * Uses outbound pickup only. Pickup exactly at availableFrom → allowed (not short-notice).
+ */
+export function isPickupBeforeAutomaticAvailability(
+  tripDate: string,
+  tripTime: string,
+  availableFrom: string | null | undefined,
+  now = new Date(),
+): boolean {
+  if (!isAutomaticAvailabilityGateActive(availableFrom, now)) {
+    return false;
+  }
+  const pickup = parseLondonLocalDateTime(tripDate, tripTime);
+  const from = parseAutomaticAvailabilityFrom(availableFrom);
+  if (!pickup || !from) return false;
+  return pickup.getTime() < from.getTime();
+}
+
+/** Display: "Tuesday 18 August 2026 · 08:00" */
+export function formatAutomaticAvailabilityLabel(
+  availableFrom: string | null | undefined,
+): string | null {
+  const normalized = normalizeAutomaticAvailabilityLocal(availableFrom);
+  if (!normalized) return null;
+  const [ymd, hm] = normalized.split("T");
+  const date = new Date(`${ymd}T12:00:00`);
+  if (Number.isNaN(date.getTime())) return null;
+  const dayPart = new Intl.DateTimeFormat("en-GB", {
+    timeZone: UK_TIME_ZONE,
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  })
+    .format(date)
+    .replace(",", "");
+  return `${dayPart} · ${hm}`;
 }
 
 /** Stable fingerprint of fare-affecting fields (approval lock). */
@@ -108,7 +162,6 @@ export function computeShortNoticePaymentExpiryIso(options: {
     expires = pickup;
   }
   if (expires.getTime() < fifteenMinutesAfterApproval.getTime() && pickup && pickup.getTime() > now.getTime()) {
-    // Very tight window: keep until pickup (capped) or 15 minutes, whichever is sooner.
     expires =
       pickup.getTime() < fifteenMinutesAfterApproval.getTime() ? pickup : fifteenMinutesAfterApproval;
   }

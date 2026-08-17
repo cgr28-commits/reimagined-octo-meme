@@ -32,10 +32,22 @@ function statusLabel(status: string): string {
   }
 }
 
+function splitAvailability(value: string | null | undefined): { date: string; time: string } {
+  const match = String(value ?? "")
+    .trim()
+    .match(/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})/);
+  if (!match) return { date: "", time: "" };
+  return { date: match[1]!, time: match[2]! };
+}
+
 export default function OwnerShortNoticePanel({ ownerKey }: OwnerShortNoticePanelProps) {
   const [bookings, setBookings] = useState<ShortNoticeBookingSummary[]>([]);
-  const [noticeHours, setNoticeHours] = useState(6);
-  const [hoursDraft, setHoursDraft] = useState("6");
+  const [availableFrom, setAvailableFrom] = useState<string | null>(null);
+  const [availableFromLabel, setAvailableFromLabel] = useState<string | null>(null);
+  const [gateActive, setGateActive] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [dateDraft, setDateDraft] = useState("");
+  const [timeDraft, setTimeDraft] = useState("08:00");
   const [loading, setLoading] = useState(true);
   const [busyRef, setBusyRef] = useState("");
   const [savingSettings, setSavingSettings] = useState(false);
@@ -44,6 +56,27 @@ export default function OwnerShortNoticePanel({ ownerKey }: OwnerShortNoticePane
   const [payLinks, setPayLinks] = useState<
     Record<string, { payUrl: string; whatsappPayUrl: string }>
   >({});
+
+  const applySettings = useCallback(
+    (settings: {
+      automaticBookingsAvailableFrom: string | null;
+      gateActive?: boolean;
+      availableFromLabel?: string | null;
+    }) => {
+      const next = settings.automaticBookingsAvailableFrom;
+      const active = Boolean(settings.gateActive && next);
+      setAvailableFrom(active ? next : null);
+      setAvailableFromLabel(active ? settings.availableFromLabel ?? null : null);
+      setGateActive(active);
+      const parts = splitAvailability(next);
+      setDateDraft(parts.date);
+      setTimeDraft(parts.time || "08:00");
+      if (!active) {
+        setEditing(false);
+      }
+    },
+    [],
+  );
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -54,14 +87,13 @@ export default function OwnerShortNoticePanel({ ownerKey }: OwnerShortNoticePane
         fetchBookingSettings(ownerKey),
       ]);
       setBookings(list);
-      setNoticeHours(settings.minimumOnlineNoticeHours);
-      setHoursDraft(String(settings.minimumOnlineNoticeHours));
+      applySettings(settings);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load short-notice requests");
     } finally {
       setLoading(false);
     }
-  }, [ownerKey]);
+  }, [ownerKey, applySettings]);
 
   useEffect(() => {
     void load();
@@ -72,13 +104,37 @@ export default function OwnerShortNoticePanel({ ownerKey }: OwnerShortNoticePane
     setError("");
     setMessage("");
     try {
-      const hours = Number(hoursDraft);
-      const settings = await saveBookingSettings(ownerKey, hours);
-      setNoticeHours(settings.minimumOnlineNoticeHours);
-      setHoursDraft(String(settings.minimumOnlineNoticeHours));
-      setMessage(`Minimum online booking notice saved: ${settings.minimumOnlineNoticeHours} hours.`);
+      if (!dateDraft || !timeDraft) {
+        throw new Error("Choose both a date and a time.");
+      }
+      const settings = await saveBookingSettings(ownerKey, `${dateDraft}T${timeDraft}`);
+      applySettings(settings);
+      setEditing(false);
+      setMessage(
+        settings.gateActive && settings.availableFromLabel
+          ? `Automatic bookings available from ${settings.availableFromLabel}.`
+          : "Availability restriction saved (inactive if the time is already past).",
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save settings");
+    } finally {
+      setSavingSettings(false);
+    }
+  }
+
+  async function handleClearRestriction() {
+    setSavingSettings(true);
+    setError("");
+    setMessage("");
+    try {
+      const settings = await saveBookingSettings(ownerKey, null);
+      applySettings(settings);
+      setDateDraft("");
+      setTimeDraft("08:00");
+      setEditing(false);
+      setMessage("Availability restriction cleared — bookings can go straight to SumUp.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not clear restriction");
     } finally {
       setSavingSettings(false);
     }
@@ -130,6 +186,8 @@ export default function OwnerShortNoticePanel({ ownerKey }: OwnerShortNoticePane
     }
   }
 
+  const showEditor = editing || !gateActive;
+
   return (
     <section className="mb-8 rounded-2xl border border-amber-400/25 bg-navy/70 p-4 sm:p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -138,45 +196,106 @@ export default function OwnerShortNoticePanel({ ownerKey }: OwnerShortNoticePane
             Short-notice requests awaiting approval
           </p>
           <p className="mt-1 text-sm text-white/65">
-            Pickups inside the minimum online notice window — review before SumUp payment.
+            Pickups before your automatic booking availability time — review before SumUp payment.
           </p>
         </div>
         <button
           type="button"
           onClick={() => void load()}
-          className="rounded-xl border border-white/15 px-3 py-2 text-sm font-semibold text-white hover:border-white/30"
+          className="min-h-11 rounded-xl border border-white/15 px-3 py-2 text-sm font-semibold text-white hover:border-white/30"
         >
           Refresh
         </button>
       </div>
 
-      <div className="mt-4 rounded-xl border border-white/10 bg-navy-dark/40 p-4">
-        <p className="text-xs font-semibold uppercase tracking-wider text-white/45">
-          Minimum online booking notice
+      <div className="mt-4 rounded-xl border border-emerald/30 bg-emerald/10 p-4">
+        <p className="text-xs font-semibold uppercase tracking-wider text-emerald">
+          Automatic bookings available from
         </p>
-        <div className="mt-2 flex flex-wrap items-end gap-3">
-          <label className="block text-sm text-white/70">
-            Hours
-            <input
-              type="number"
-              min={0}
-              max={72}
-              step={0.5}
-              value={hoursDraft}
-              onChange={(event) => setHoursDraft(event.target.value)}
-              className="mt-1 block w-28 rounded-xl border border-white/20 bg-navy px-3 py-2 text-white outline-none focus:border-emerald"
-            />
-          </label>
-          <button
-            type="button"
-            disabled={savingSettings}
-            onClick={() => void handleSaveSettings()}
-            className="rounded-xl bg-emerald px-4 py-2.5 text-sm font-bold text-navy disabled:opacity-60"
-          >
-            {savingSettings ? "Saving…" : "Save notice setting"}
-          </button>
-          <p className="text-xs text-white/45">Current: {noticeHours} hours (Europe/London)</p>
-        </div>
+        {gateActive && availableFromLabel && !editing ? (
+          <>
+            <p className="mt-2 text-lg font-bold text-white sm:text-xl">{availableFromLabel}</p>
+            <p className="mt-1 text-xs text-white/55">Europe/London · auto-expires after this time</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  const parts = splitAvailability(availableFrom);
+                  setDateDraft(parts.date);
+                  setTimeDraft(parts.time || "08:00");
+                  setEditing(true);
+                }}
+                className="min-h-11 rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold text-white hover:border-white/30"
+              >
+                Change
+              </button>
+              <button
+                type="button"
+                disabled={savingSettings}
+                onClick={() => void handleClearRestriction()}
+                className="min-h-11 rounded-xl border border-red-400/40 bg-red-500/15 px-4 py-2.5 text-sm font-semibold text-red-100 disabled:opacity-60"
+              >
+                Clear restriction
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <p className="mt-2 text-sm text-white/70">
+              {showEditor && !gateActive
+                ? "No active restriction — customers can pay online for any future pickup."
+                : "Set the earliest pickup time you will automatically accept."}
+            </p>
+            <div className="mt-3 flex flex-wrap items-end gap-3">
+              <label className="block text-sm text-white/70">
+                Date
+                <input
+                  type="date"
+                  value={dateDraft}
+                  onChange={(event) => setDateDraft(event.target.value)}
+                  className="mt-1 block min-h-11 w-full min-w-[10rem] rounded-xl border border-white/20 bg-navy px-3 py-2 text-white outline-none focus:border-emerald"
+                />
+              </label>
+              <label className="block text-sm text-white/70">
+                Time
+                <input
+                  type="time"
+                  value={timeDraft}
+                  onChange={(event) => setTimeDraft(event.target.value)}
+                  className="mt-1 block min-h-11 w-full min-w-[7rem] rounded-xl border border-white/20 bg-navy px-3 py-2 text-white outline-none focus:border-emerald"
+                />
+              </label>
+              <button
+                type="button"
+                disabled={savingSettings}
+                onClick={() => void handleSaveSettings()}
+                className="min-h-11 rounded-xl bg-emerald px-4 py-2.5 text-sm font-bold text-navy disabled:opacity-60"
+              >
+                {savingSettings ? "Saving…" : "Save availability"}
+              </button>
+              {editing ? (
+                <button
+                  type="button"
+                  onClick={() => setEditing(false)}
+                  className="min-h-11 rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold text-white/70"
+                >
+                  Cancel
+                </button>
+              ) : null}
+              {gateActive ? (
+                <button
+                  type="button"
+                  disabled={savingSettings}
+                  onClick={() => void handleClearRestriction()}
+                  className="min-h-11 rounded-xl border border-red-400/40 bg-red-500/15 px-4 py-2.5 text-sm font-semibold text-red-100 disabled:opacity-60"
+                >
+                  Clear restriction
+                </button>
+              ) : null}
+            </div>
+            <p className="mt-2 text-xs text-white/45">Europe/London (NI local time)</p>
+          </>
+        )}
       </div>
 
       {error ? <p className="mt-3 text-sm text-red-300">{error}</p> : null}
@@ -298,9 +417,9 @@ export default function OwnerShortNoticePanel({ ownerKey }: OwnerShortNoticePane
                             <button
                               type="button"
                               onClick={() => void copyPayUrl(links.payUrl)}
-                              className="rounded-xl border border-white/20 px-3 py-2 text-sm font-semibold text-white"
+                              className="min-h-11 rounded-xl border border-white/15 px-4 py-2 text-sm font-semibold text-white"
                             >
-                              Copy payment link
+                              Copy pay link
                             </button>
                           ) : null}
                           {links?.whatsappPayUrl ? (
@@ -308,29 +427,14 @@ export default function OwnerShortNoticePanel({ ownerKey }: OwnerShortNoticePane
                               href={links.whatsappPayUrl}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="rounded-xl bg-emerald px-3 py-2 text-sm font-bold text-navy"
+                              className="inline-flex min-h-11 items-center rounded-xl bg-emerald px-4 py-2 text-sm font-bold text-navy"
                             >
-                              Share via WhatsApp
+                              Share on WhatsApp
                             </a>
-                          ) : null}
-                          {booking.status === "SHORT_NOTICE_APPROVED" && !links ? (
-                            <button
-                              type="button"
-                              disabled={busy}
-                              onClick={() => void handleApprove(booking)}
-                              className="rounded-xl border border-emerald/40 px-3 py-2 text-sm font-semibold text-emerald"
-                            >
-                              Show payment link
-                            </button>
                           ) : null}
                         </div>
                       </>
                     )}
-                    {booking.paymentExpiresAt ? (
-                      <p className="text-xs text-white/45">
-                        Link expires: {new Date(booking.paymentExpiresAt).toLocaleString("en-GB")}
-                      </p>
-                    ) : null}
                   </div>
                 ) : null}
               </li>
