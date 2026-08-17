@@ -22,10 +22,11 @@ import {
 } from "../src/lib/vehicle-selection";
 import {
   computeShortNoticePaymentExpiryIso,
-  DEFAULT_MINIMUM_ONLINE_NOTICE_HOURS,
-  isPickupAtLeastHoursAhead,
-  isShortNoticePickup,
+  formatAutomaticAvailabilityLabel,
+  isAutomaticAvailabilityGateActive,
+  isPickupBeforeAutomaticAvailability,
   materialJourneyFingerprint,
+  normalizeAutomaticAvailabilityLocal,
   vehicleServiceCode,
   vehicleServiceLabel,
 } from "../shared/booking-notice";
@@ -98,15 +99,43 @@ check("25–28. One-way + return pricing works for all three services", () => {
   assert.equal(selectVehicleForParty(3, 1), ESTATE_VEHICLE);
 });
 
-check("29–30. Exactly 6 hours ahead is NOT short-notice; Europe/London parse works", () => {
-  assert.equal(DEFAULT_MINIMUM_ONLINE_NOTICE_HOURS, 6);
-  const pickup = parseLondonLocalDateTime("2026-03-29", "02:30"); // BST spring-forward night
-  assert.ok(pickup);
-  const now = new Date(pickup!.getTime() - 6 * 60 * 60 * 1000);
-  assert.equal(isPickupAtLeastHoursAhead("2026-03-29", "02:30", 6, now), true);
-  assert.equal(isShortNoticePickup("2026-03-29", "02:30", 6, now), false);
-  const nowInside = new Date(pickup!.getTime() - 6 * 60 * 60 * 1000 + 1000);
-  assert.equal(isShortNoticePickup("2026-03-29", "02:30", 6, nowInside), true);
+check("29–30. Availability datetime gate (Europe/London) — exact time allowed; before blocked", () => {
+  const availableFrom = "2026-08-18T08:00";
+  assert.equal(normalizeAutomaticAvailabilityLocal(availableFrom), "2026-08-18T08:00");
+  assert.equal(
+    formatAutomaticAvailabilityLabel(availableFrom),
+    "Tuesday 18 August 2026 · 08:00",
+  );
+
+  // Wall clock before availability → gate active
+  const beforeWall = parseLondonLocalDateTime("2026-08-18", "07:00")!;
+  assert.equal(isAutomaticAvailabilityGateActive(availableFrom, beforeWall), true);
+  assert.equal(
+    isPickupBeforeAutomaticAvailability("2026-08-18", "07:30", availableFrom, beforeWall),
+    true,
+  );
+  assert.equal(
+    isPickupBeforeAutomaticAvailability("2026-08-18", "08:00", availableFrom, beforeWall),
+    false,
+  );
+  assert.equal(
+    isPickupBeforeAutomaticAvailability("2026-08-18", "09:00", availableFrom, beforeWall),
+    false,
+  );
+
+  // Wall clock after availability → gate auto-expired
+  const afterWall = parseLondonLocalDateTime("2026-08-18", "08:01")!;
+  assert.equal(isAutomaticAvailabilityGateActive(availableFrom, afterWall), false);
+  assert.equal(
+    isPickupBeforeAutomaticAvailability("2026-08-18", "07:30", availableFrom, afterWall),
+    false,
+  );
+
+  // No restriction
+  assert.equal(isPickupBeforeAutomaticAvailability("2026-08-18", "07:30", null, beforeWall), false);
+
+  // BST spring-forward night still parses
+  assert.ok(parseLondonLocalDateTime("2026-03-29", "02:30"));
 });
 
 check("11/34. Service codes SALOON / ESTATE / MINIBUS", () => {
@@ -155,7 +184,8 @@ check("20–22. Payable helper blocks unapproved / declined / expired / paid", (
     amountLabel: "£50.00",
     booking: {} as never,
     materialFingerprint: "x",
-    minimumNoticeHoursApplied: 6,
+    minimumNoticeHoursApplied: undefined,
+    automaticBookingsAvailableFromApplied: "2026-08-18T08:00",
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
@@ -206,17 +236,28 @@ check("Worker + UI wiring present", () => {
   assert.match(index, /createShortNoticeRequest/);
   assert.match(index, /shortNoticeToken/);
   assert.match(index, /owner\/short-notice/);
+  assert.match(index, /automaticBookingsAvailableFrom/);
   assert.match(handlers, /SHORT_NOTICE_AWAITING_APPROVAL/);
   assert.match(handlers, /Approve Short-Notice|approveShortNotice|handleOwnerApproveShortNotice/);
+  assert.match(handlers, /isPickupBeforeAutomaticAvailability/);
+  assert.match(handlers, /automaticBookingsAvailableFrom/);
+  assert.doesNotMatch(handlers, /minimumOnlineNoticeHours/);
   assert.match(data, /MINIBUS_VEHICLE_TYPE/);
   assert.match(data, /INSTANT_PAY_VEHICLE_TYPES/);
   assert.match(card, /shortNoticeResult/);
-  assert.match(card, /Short-notice booking/);
+  assert.match(card, /Booking requires availability confirmation/);
   assert.match(card, /Message us on WhatsApp/);
+  assert.doesNotMatch(card, /within .* hours/);
   assert.match(panel, /Approve Short-Notice Booking/);
-  assert.match(panel, /Minimum online booking notice/);
+  assert.match(panel, /Automatic bookings available from/);
+  assert.match(panel, /Clear restriction/);
+  assert.doesNotMatch(panel, /Minimum online booking notice/);
   assert.match(pay, /Pay Securely/);
   assert.match(pay, /shortNoticeToken/);
+
+  const settingsStore = read("workers/addresses/src/booking-settings-store.ts");
+  assert.match(settingsStore, /automaticBookingsAvailableFrom/);
+  assert.doesNotMatch(settingsStore, /minimumOnlineNoticeHours:\s*number/);
 });
 
 check("Finalize attaches SumUp to same short-notice booking", () => {

@@ -1,12 +1,19 @@
 /**
- * Owner-configurable booking settings (KV). Default minimum online notice = 6 hours.
+ * Owner-configurable booking settings (KV).
+ * Automatic bookings available from a Europe/London date/time — not a rolling hours window.
  */
 
-import { DEFAULT_MINIMUM_ONLINE_NOTICE_HOURS } from "../shared/booking-notice";
+import {
+  isAutomaticAvailabilityGateActive,
+  normalizeAutomaticAvailabilityLocal,
+} from "../shared/booking-notice";
 
 export type BookingSettings = {
-  /** Minimum hours before pickup for automatic SumUp (Europe/London). */
-  minimumOnlineNoticeHours: number;
+  /**
+   * Europe/London wall clock `YYYY-MM-DDTHH:mm`.
+   * Null / empty / past → no automatic-booking restriction (SumUp proceeds normally).
+   */
+  automaticBookingsAvailableFrom: string | null;
   updatedAt: string;
 };
 
@@ -15,22 +22,37 @@ const TTL = 60 * 60 * 24 * 365 * 5;
 
 export function defaultBookingSettings(): BookingSettings {
   return {
-    minimumOnlineNoticeHours: DEFAULT_MINIMUM_ONLINE_NOTICE_HOURS,
+    automaticBookingsAvailableFrom: null,
     updatedAt: new Date(0).toISOString(),
   };
 }
 
 export function normalizeBookingSettings(
-  raw: Partial<BookingSettings> | null | undefined,
+  raw: Partial<BookingSettings> & {
+    /** Legacy hours field — ignored so both rules never run together. */
+    minimumOnlineNoticeHours?: number;
+  } | null | undefined,
 ): BookingSettings {
-  const hours = Number(raw?.minimumOnlineNoticeHours);
-  const safeHours =
-    Number.isFinite(hours) && hours >= 0 && hours <= 72
-      ? Math.round(hours * 10) / 10
-      : DEFAULT_MINIMUM_ONLINE_NOTICE_HOURS;
+  const availableFrom = normalizeAutomaticAvailabilityLocal(
+    raw?.automaticBookingsAvailableFrom ?? null,
+  );
   return {
-    minimumOnlineNoticeHours: safeHours,
+    automaticBookingsAvailableFrom: availableFrom,
     updatedAt: String(raw?.updatedAt ?? new Date().toISOString()),
+  };
+}
+
+/** Effective settings for gates: past availability is treated as cleared. */
+export function effectiveBookingSettings(
+  settings: BookingSettings,
+  now = new Date(),
+): BookingSettings & { gateActive: boolean } {
+  const availableFrom = settings.automaticBookingsAvailableFrom;
+  const gateActive = isAutomaticAvailabilityGateActive(availableFrom, now);
+  return {
+    ...settings,
+    automaticBookingsAvailableFrom: gateActive ? availableFrom : null,
+    gateActive,
   };
 }
 

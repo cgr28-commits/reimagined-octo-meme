@@ -1216,7 +1216,7 @@ async function handlePaymentRequest(
         await trySendOwnerOperationalEmail(env, {
           to: ownerInbox(env),
           subject: `[Short-notice] ${attemptEmail.subject}`,
-          body: `${attemptEmail.body}\n\nStatus: SHORT_NOTICE_AWAITING_APPROVAL\nMinimum notice applied: ${notice.hours} hours\nApprove or decline in the Owner Dashboard.`,
+          body: `${attemptEmail.body}\n\nStatus: SHORT_NOTICE_AWAITING_APPROVAL\nAutomatic bookings available from: ${notice.availableFromLabel ?? notice.availableFrom ?? "—"}\nApprove or decline in the Owner Dashboard.`,
         });
         return json(
           {
@@ -1224,7 +1224,8 @@ async function handlePaymentRequest(
             shortNotice: true,
             reference: created.record.reference,
             whatsappUrl: created.whatsappUrl,
-            minimumNoticeHours: notice.hours,
+            automaticBookingsAvailableFrom: notice.availableFrom,
+            automaticBookingsAvailableFromLabel: notice.availableFromLabel,
             amount: created.record.amount,
             amountLabel: created.record.amountLabel,
             status: created.record.status,

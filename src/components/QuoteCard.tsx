@@ -510,7 +510,6 @@ function QuoteCard({
   const [shortNoticeResult, setShortNoticeResult] = useState<{
     reference: string;
     whatsappUrl: string;
-    minimumNoticeHours: number;
     amountLabel?: string;
   } | null>(null);
   const [termsAccepted, setTermsAccepted] = useState(false);
@@ -1652,7 +1651,6 @@ function QuoteCard({
         setShortNoticeResult({
           reference: checkout.reference,
           whatsappUrl: checkout.whatsappUrl,
-          minimumNoticeHours: checkout.minimumNoticeHours ?? 6,
           amountLabel: checkout.amountLabel ?? amountLabel,
         });
         setPaymentLoading(false);
@@ -2067,7 +2065,7 @@ function QuoteCard({
       >
         <div className="rounded-xl border border-amber-400/30 bg-navy-dark/50 px-5 py-8 text-center sm:px-8 sm:py-10">
           <p className="text-xs font-medium uppercase tracking-wider text-amber-200">
-            Short-notice booking
+            Booking requires availability confirmation
           </p>
           <h2 className="mt-2 text-2xl font-semibold tracking-tight text-white sm:text-3xl">
             Thanks — we&apos;ve received your journey details.
@@ -2078,7 +2076,7 @@ function QuoteCard({
             </p>
           ) : null}
           <p className="mx-auto mt-4 max-w-md text-sm leading-relaxed text-white/80 sm:text-base">
-            Because your pickup is within {shortNoticeResult.minimumNoticeHours} hours, we just need
+            This pickup is before our current automatic booking availability time, so we just need
             to confirm driver availability before taking payment.
           </p>
           <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-white/70">
