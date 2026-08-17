@@ -22,6 +22,7 @@ export type OwnerPaidBookingSummary = Pick<
   | "returnTime"
 > & {
   amountPaid: string;
+  trackingToken?: string;
 };
 
 export type OwnerPendingCheckoutSummary = {

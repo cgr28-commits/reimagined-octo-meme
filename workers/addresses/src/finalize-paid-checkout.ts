@@ -177,8 +177,8 @@ export async function finalizePaidCheckout(input: {
     checkoutReference: checkout.checkout_reference,
   };
 
-  // Live driver tracking soft-hidden until more testing — do not create track jobs/links.
-  const LIVE_DRIVER_TRACKING_ENABLED = false;
+  // Create live tracking jobs/links for paid bookings (customer + journey evidence).
+  const LIVE_DRIVER_TRACKING_ENABLED = true;
   const tracking = LIVE_DRIVER_TRACKING_ENABLED
     ? await createTrackingJobForPaidBooking(env, booking, paymentReference)
     : { created: false, trackUrl: undefined as string | undefined, token: undefined as string | undefined };

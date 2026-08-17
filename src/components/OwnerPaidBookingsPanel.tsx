@@ -10,6 +10,7 @@ import {
   type OwnerPaidBookingSummary,
   type OwnerPendingCheckoutSummary,
 } from "@/lib/paid-bookings-api";
+import { ensurePaidBookingTracking } from "@/lib/tracking-api";
 
 type OwnerPaidBookingsPanelProps = {
   ownerKey: string;
@@ -61,6 +62,25 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
       );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not resend booking confirmation");
+    } finally {
+      setBusyRef("");
+    }
+  }
+
+  async function handleEnsureTracking(booking: OwnerPaidBookingSummary) {
+    setBusyRef(booking.paymentReference);
+    setError("");
+    setMessage("");
+    try {
+      const result = await ensurePaidBookingTracking(ownerKey, booking.paymentReference);
+      setMessage(
+        result.alreadyExisted
+          ? `Tracking already exists — ${result.trackUrl}`
+          : `Tracking created — ${result.trackUrl}`,
+      );
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not create tracking for this booking");
     } finally {
       setBusyRef("");
     }
@@ -262,6 +282,26 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
                       ? "Sending…"
                       : "Resend booking confirmation"}
                   </button>
+                  <button
+                    type="button"
+                    disabled={busyRef === booking.paymentReference}
+                    onClick={() => void handleEnsureTracking(booking)}
+                    className="rounded-xl border border-emerald/40 bg-emerald/10 px-4 py-2.5 text-sm font-semibold text-emerald transition-colors hover:bg-emerald/20 disabled:opacity-60"
+                  >
+                    {booking.trackingToken
+                      ? "Refresh tracking link"
+                      : "Create tracking (no new charge)"}
+                  </button>
+                  {booking.trackingToken ? (
+                    <a
+                      href={`/track/?id=${encodeURIComponent(booking.trackingToken)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:border-white/30"
+                    >
+                      Open customer track link
+                    </a>
+                  ) : null}
                   {booking.customerEmail ? (
                     <a
                       href={`mailto:${encodeURIComponent(booking.customerEmail)}`}

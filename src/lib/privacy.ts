@@ -22,6 +22,7 @@ export const PRIVACY_SECTIONS = [
       "Passenger and luggage details",
       "Payment confirmation details from SumUp (amount, transaction reference)",
       "Optional live location if you choose to share it on your tracking link",
+      "Driver GPS location history recorded during booked journeys (for live customer tracking and operational/dispute evidence)",
       "Marketing preferences if you opt in to receive updates (optional)",
     ],
   },
@@ -34,6 +35,7 @@ export const PRIVACY_SECTIONS = [
       "Send booking confirmations and invoices by email",
       "Contact you about your journey (including SMS/WhatsApp where agreed)",
       "Share live driver tracking links when applicable",
+      "Record journey status and GPS route points as operational evidence for service delivery, safety and payment disputes",
       "Log bookings in our business calendar",
       "Respond to enquiries and complaints",
       "Send occasional marketing emails if you have opted in (offers, travel tips and service news)",
@@ -78,10 +80,20 @@ export const PRIVACY_SECTIONS = [
     ],
   },
   {
+    title: "Driver tracking & location records",
+    content: [
+      "When your driver starts tracking for a booked journey, we may record timestamped GPS points (latitude, longitude, accuracy, speed and heading where the device provides them).",
+      "We use this data to show you a live tracking page, to operate the journey safely, and to keep an internal journey record that may support payment or service disputes. A journey record does not guarantee the outcome of any card chargeback.",
+      "Customer tracking links use a random, booking-specific token. Links become available around two hours before pickup and expire after the journey window. Live location is not shown after the journey is completed.",
+      "We do not intentionally collect unnecessary device identifiers beyond what is needed to operate location sharing.",
+    ],
+  },
+  {
     title: "Retention",
     content: [
       "Booking and payment records are kept as long as needed for customer service, accounting, tax and dispute resolution — typically up to 6 years where required.",
-      "Live tracking data is stored temporarily and expires automatically.",
+      "Driver GPS journey evidence is retained as an operational/dispute record for a configurable period (default around 13 months / ~400 days unless a longer period is set for the business). Customer-facing tracking tokens expire after the journey window.",
+      "Optional customer location shared on a tracking link is used only while that journey’s tracking window is open.",
     ],
   },
   {

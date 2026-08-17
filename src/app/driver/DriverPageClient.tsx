@@ -12,6 +12,9 @@ import {
   fetchDriverJobs,
   postDriverLocation,
   setDriverSharing,
+  postJourneyAction,
+  fetchJourneyEvidence,
+  JOURNEY_ACTION_LABELS,
   updateDriverBooking,
   verifyDriverAccessKey,
   fetchDriverStatus,
@@ -24,10 +27,15 @@ import {
   fetchDriverVehicle,
   saveDriverVehicle,
   type DriverJob,
+  type JourneyAction,
+  type JourneyEvidencePack,
 } from "@/lib/tracking-api";
 import { issueBookingRefund } from "@/lib/refund-api";
 import { DEMO_DRIVER_KEY, DEMO_DRIVER_NAME, DEMO_OWNER_KEY, DEMO_ROSTER } from "@/lib/tracking-demo";
 import { SERVICE_FLAGS, SITE } from "@/lib/data";
+
+/** Mirror of shared DRIVER_GPS_STALE_MS — warn when browser GPS stops updating. */
+const DRIVER_GPS_STALE_MS = 2 * 60 * 1000;
 
 function readDemoQueryParam(): "owner" | "driver" | null {
   if (typeof window === "undefined") {
@@ -566,6 +574,7 @@ function DriverJobCard({
   driverKey,
   activeToken,
   onSharingChange,
+  onSessionChange,
   onRefunded,
   onUpdated,
   onAssignmentUpdated,
@@ -575,11 +584,14 @@ function DriverJobCard({
   highlightPending = false,
   isOwner = false,
   availableDrivers = [],
+  gpsStale = false,
+  lastGpsAt = null,
 }: {
   job: DriverJob;
   driverKey: string;
   activeToken: string | null;
   onSharingChange: (token: string | null) => void;
+  onSessionChange: (token: string, sessionToken: string | null) => void;
   onRefunded: (token: string, refundAmount?: string) => void;
   onUpdated: (job: DriverJob) => void;
   onAssignmentUpdated: (job: DriverJob) => void;
@@ -589,6 +601,8 @@ function DriverJobCard({
   highlightPending?: boolean;
   isOwner?: boolean;
   availableDrivers?: string[];
+  gpsStale?: boolean;
+  lastGpsAt?: number | null;
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -597,6 +611,9 @@ function DriverJobCard({
   const [refundMessage, setRefundMessage] = useState<string | null>(null);
   const [editOpen, setEditOpen] = useState(false);
   const [editBusy, setEditBusy] = useState(false);
+  const [evidenceOpen, setEvidenceOpen] = useState(false);
+  const [evidenceBusy, setEvidenceBusy] = useState(false);
+  const [evidence, setEvidence] = useState<JourneyEvidencePack | null>(null);
   const [editMessage, setEditMessage] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({
     tripDate: job.tripDate,
@@ -643,12 +660,31 @@ function DriverJobCard({
     !isRefunded &&
     (isOwner || isAcceptedAssignment || (isPendingForDriver && job.isAirportPickup));
   const canShare =
-    !isOwner && !isRefunded && isAcceptedAssignment && !compactTracking && job.trackingWindow.open;
+    !isRefunded &&
+    (isOwner || isAcceptedAssignment) &&
+    !compactTracking &&
+    (job.trackingWindow.open || job.sharingActive);
   const trackingAvailable = !compactTracking && job.trackingWindow.open && !isRefunded;
   const driverSharingLive = Boolean(job.sharingActive && job.driver);
   const showRecordedRoute = isOwner && (job.driverLocationPointCount ?? 0) > 0;
   const showMap =
     mapMarkers.length > 0 || (showRecordedRoute && recordedRoute.length > 0);
+  const journeyStatus = job.journeyStatus ?? (job.sharingActive ? "tracking" : "idle");
+  const journeyLabel = job.journeyStatusLabel ?? (job.sharingActive ? "Driver on the way" : "Driver preparing");
+  const allowedActions: JourneyAction[] =
+    job.allowedJourneyActions ??
+    (journeyStatus === "idle" || journeyStatus === "stopped"
+      ? ["start_tracking"]
+      : journeyStatus === "tracking"
+        ? ["arrived_pickup", "stop_tracking"]
+        : journeyStatus === "arrived_pickup"
+          ? ["start_journey", "stop_tracking"]
+          : journeyStatus === "en_route"
+            ? ["arrived_destination", "stop_tracking"]
+            : journeyStatus === "arrived_destination"
+              ? ["complete_journey", "stop_tracking"]
+              : []);
+  const canOperateJourney = canShare && SERVICE_FLAGS.liveDriverTracking;
 
   useEffect(() => {
     if (!showRecordedRoute) {
@@ -756,9 +792,11 @@ function DriverJobCard({
       if (isActive) {
         await setDriverSharing(driverKey, job.token, false);
         onSharingChange(null);
+        onSessionChange(job.token, null);
       } else {
         if (activeToken) {
           await setDriverSharing(driverKey, activeToken, false);
+          onSessionChange(activeToken, null);
         }
         await setDriverSharing(driverKey, job.token, true);
         onSharingChange(job.token);
@@ -767,6 +805,72 @@ function DriverJobCard({
       setError(err instanceof Error ? err.message : "Could not update sharing");
     } finally {
       setBusy(false);
+    }
+  };
+
+  const runJourneyAction = async (action: JourneyAction) => {
+    setBusy(true);
+    setError(null);
+    try {
+      if (action === "start_tracking" && activeToken && activeToken !== job.token) {
+        try {
+          await postJourneyAction(driverKey, activeToken, "stop_tracking");
+        } catch {
+          /* previous job may already be stopped */
+        }
+        onSessionChange(activeToken, null);
+      }
+
+      const result = await postJourneyAction(driverKey, job.token, action);
+      const nextJob: DriverJob = {
+        ...job,
+        journeyStatus: result.journeyStatus,
+        journeyStatusLabel: result.journeyStatusLabel,
+        allowedJourneyActions: result.allowedActions,
+        sharingActive: result.sharingActive,
+        trackingStartedAt: result.trackingStartedAt ?? job.trackingStartedAt,
+        arrivedPickupAt: result.arrivedPickupAt ?? job.arrivedPickupAt,
+        journeyStartedAt: result.journeyStartedAt ?? job.journeyStartedAt,
+        arrivedDestinationAt: result.arrivedDestinationAt ?? job.arrivedDestinationAt,
+        journeyCompletedAt: result.journeyCompletedAt ?? job.journeyCompletedAt,
+        trackUrl: result.trackUrl || job.trackUrl,
+        driver: result.sharingActive ? job.driver : null,
+      };
+      onUpdated(nextJob);
+
+      if (result.sharingActive) {
+        onSharingChange(job.token);
+        if (result.trackingSession?.sessionToken) {
+          onSessionChange(job.token, result.trackingSession.sessionToken);
+        }
+      } else {
+        onSharingChange(null);
+        onSessionChange(job.token, null);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not update journey");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const openJourneyEvidence = async () => {
+    if (!isOwner) {
+      return;
+    }
+    setEvidenceBusy(true);
+    setError(null);
+    try {
+      const result = await fetchJourneyEvidence(driverKey, job.token);
+      setEvidence(result.evidence);
+      setEvidenceOpen(true);
+      if (result.evidence.points.length > 0) {
+        setRecordedRoute(result.evidence.points.map((point) => ({ lat: point.lat, lng: point.lng })));
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not load journey record");
+    } finally {
+      setEvidenceBusy(false);
     }
   };
 
@@ -973,7 +1077,7 @@ function DriverJobCard({
               {job.airportCode ? ` · ${job.airportCode}` : ""}
             </p>
           )}
-          {isOwner && job.customerMobile && (
+          {(isOwner || isAcceptedAssignment) && job.customerMobile && (
             <p className="mt-2 text-sm text-emerald">{job.customerMobile}</p>
           )}
           {isOwner && job.amountPaidLabel && (
@@ -984,8 +1088,25 @@ function DriverJobCard({
               Refunded: {job.refundAmountLabel ?? job.amountPaidLabel}
             </p>
           )}
-          {isOwner && job.paymentReference && (
-            <p className="mt-1 text-xs text-white/40">Ref: {job.paymentReference}</p>
+          {(job.paymentReference || job.bookingReference) && (
+            <p className="mt-1 text-xs text-white/40">
+              Ref: {job.paymentReference ?? job.bookingReference}
+            </p>
+          )}
+          <p className="mt-2 text-sm font-semibold text-emerald">
+            Journey: {journeyLabel}
+            {job.sharingActive ? " · GPS live" : ""}
+          </p>
+          {isActive && gpsStale && (
+            <p className="mt-2 rounded-lg border border-amber-400/40 bg-amber-500/15 px-3 py-2 text-sm text-amber-100">
+              Location has not updated for 2 minutes — reopen this page and keep it open while
+              driving. iPhone may pause GPS when Safari is locked or in the background.
+            </p>
+          )}
+          {isActive && lastGpsAt && !gpsStale && (
+            <p className="mt-1 text-xs text-white/45">
+              Last GPS update {Math.max(1, Math.round((Date.now() - lastGpsAt) / 1000))}s ago
+            </p>
           )}
           {isOwner && job.sharingActive && job.activeDriverName && (
             <p className="mt-2 text-sm font-semibold text-emerald">
@@ -997,7 +1118,7 @@ function DriverJobCard({
           )}
           {isOwner && (job.driverLocationPointCount ?? 0) > 0 && (
             <p className="mt-2 text-xs text-white/50">
-              {job.driverLocationPointCount} GPS points recorded for audit (retained 1 year)
+              {job.driverLocationPointCount} GPS points recorded for journey evidence
             </p>
           )}
         </div>
@@ -1181,7 +1302,49 @@ function DriverJobCard({
           </>
         )}
 
-        {canShare && SERVICE_FLAGS.liveDriverTracking && (
+        {canOperateJourney && (
+          <div className="flex w-full flex-wrap gap-2 sm:w-auto">
+            {allowedActions.map((action) => {
+              const primary =
+                action === "start_tracking" ||
+                action === "arrived_pickup" ||
+                action === "start_journey" ||
+                action === "arrived_destination" ||
+                action === "complete_journey";
+              const danger = action === "stop_tracking";
+              return (
+                <button
+                  key={action}
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void runJourneyAction(action)}
+                  className={`min-h-11 flex-1 rounded-xl px-4 py-3 text-sm font-semibold transition-colors disabled:opacity-60 sm:flex-none ${
+                    danger
+                      ? "bg-red-500/20 text-red-200 hover:bg-red-500/30"
+                      : primary
+                        ? "bg-emerald text-navy hover:bg-emerald/90"
+                        : "border border-white/15 text-white hover:border-white/30"
+                  }`}
+                >
+                  {busy ? "Updating…" : JOURNEY_ACTION_LABELS[action]}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {isOwner && (job.driverLocationPointCount ?? 0) > 0 && (
+          <button
+            type="button"
+            disabled={evidenceBusy}
+            onClick={() => void openJourneyEvidence()}
+            className="rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:border-white/30 disabled:opacity-60"
+          >
+            {evidenceBusy ? "Loading…" : "Journey record"}
+          </button>
+        )}
+
+        {!canOperateJourney && canShare && SERVICE_FLAGS.liveDriverTracking && (
           <button
             type="button"
             disabled={busy}
@@ -1389,13 +1552,14 @@ function DriverJobCard({
         </p>
       )}
 
-      {isActive && !isOwner && (
+      {isActive && (
         <p className="mt-4 text-sm text-emerald">
-          Sharing live location for this job. Keep this page open while driving.
+          Sharing live location for this job. Keep this page open while driving — GPS pauses if
+          the phone locks or Safari goes to the background.
         </p>
       )}
 
-      {isOwner && driverSharingLive && (
+      {isOwner && driverSharingLive && !isActive && (
         <p className="mt-4 text-sm text-emerald">
           {job.activeDriverName ?? "Driver"}&apos;s live location is on the map below.
         </p>
@@ -1415,13 +1579,98 @@ function DriverJobCard({
 
       {isOwner && showRecordedRoute && recordedRoute.length > 0 && !driverSharingLive && (
         <p className="mt-4 text-sm text-white/60">
-          Recorded driver route shown below — retained for audit purposes.
+          Recorded driver route shown below — supporting journey evidence for this booking.
         </p>
       )}
 
       {showMap && (
         <div className="mt-5 overflow-hidden rounded-xl border border-white/10">
           <LiveTrackMap markers={mapMarkers} route={recordedRoute} />
+        </div>
+      )}
+
+      {evidenceOpen && evidence && (
+        <div className="mt-5 rounded-xl border border-emerald/25 bg-emerald/5 p-4 sm:p-5">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-emerald">
+                Journey record
+              </p>
+              <h3 className="mt-1 text-lg font-bold text-white">{evidence.customerName}</h3>
+              <p className="mt-1 text-sm text-white/65">
+                Ref {evidence.bookingReference}
+                {evidence.amountPaid ? ` · ${evidence.amountPaid}` : ""}
+                {evidence.paymentStatus ? ` · ${evidence.paymentStatus}` : ""}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setEvidenceOpen(false)}
+              className="rounded-xl border border-white/15 px-3 py-2 text-sm text-white/80"
+            >
+              Close
+            </button>
+          </div>
+          <p className="mt-3 text-xs text-white/50">{evidence.disclaimer}</p>
+          <dl className="mt-4 grid gap-3 text-sm text-white/75 sm:grid-cols-2">
+            <div>
+              <dt className="text-white/40">Pickup</dt>
+              <dd>{evidence.pickupLabel}</dd>
+            </div>
+            <div>
+              <dt className="text-white/40">Destination</dt>
+              <dd>{evidence.dropoffLabel}</dd>
+            </div>
+            <div>
+              <dt className="text-white/40">Scheduled</dt>
+              <dd>{evidence.pickupDisplay}</dd>
+            </div>
+            <div>
+              <dt className="text-white/40">Status</dt>
+              <dd>{evidence.journeyStatusLabel}</dd>
+            </div>
+            <div>
+              <dt className="text-white/40">Tracking start</dt>
+              <dd>{evidence.trackingStartedAt ?? "—"}</dd>
+            </div>
+            <div>
+              <dt className="text-white/40">Arrived pickup</dt>
+              <dd>{evidence.arrivedPickupAt ?? "—"}</dd>
+            </div>
+            <div>
+              <dt className="text-white/40">Journey start</dt>
+              <dd>{evidence.journeyStartedAt ?? "—"}</dd>
+            </div>
+            <div>
+              <dt className="text-white/40">Arrived destination</dt>
+              <dd>{evidence.arrivedDestinationAt ?? "—"}</dd>
+            </div>
+            <div>
+              <dt className="text-white/40">Completed</dt>
+              <dd>{evidence.journeyCompletedAt ?? "—"}</dd>
+            </div>
+            <div>
+              <dt className="text-white/40">Duration</dt>
+              <dd>
+                {typeof evidence.durationMinutes === "number"
+                  ? `${evidence.durationMinutes} min`
+                  : "—"}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-white/40">GPS points</dt>
+              <dd>
+                {evidence.pointCount}
+                {evidence.points.some((p) => typeof p.accuracyMeters === "number")
+                  ? ` · accuracy recorded where available`
+                  : ""}
+              </dd>
+            </div>
+          </dl>
+          <p className="mt-4 text-xs text-white/45">
+            PDF download (branded evidence pack) is Phase 2 — this on-screen record is the primary
+            evidence view for now.
+          </p>
         </div>
       )}
 
@@ -1448,6 +1697,9 @@ export default function DriverPageClient({
   const [jobs, setJobs] = useState<DriverJob[]>([]);
   const [pendingJobs, setPendingJobs] = useState<DriverJob[]>([]);
   const [activeToken, setActiveToken] = useState<string | null>(null);
+  const [trackingSessionToken, setTrackingSessionToken] = useState<string | null>(null);
+  const [lastGpsAt, setLastGpsAt] = useState<number | null>(null);
+  const [gpsStale, setGpsStale] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Owner defaults to Upcoming so paid jobs with future trip dates show first.
@@ -1456,6 +1708,15 @@ export default function DriverPageClient({
   const watchIdRef = useRef<number | null>(null);
   const demoQueryHandledRef = useRef(false);
   const portalBootstrappedRef = useRef(false);
+
+  const handleSessionChange = useCallback((token: string, sessionToken: string | null) => {
+    void token;
+    setTrackingSessionToken(sessionToken);
+    if (!sessionToken) {
+      setLastGpsAt(null);
+      setGpsStale(false);
+    }
+  }, []);
 
   const isDemoDriverSession = savedKey === DEMO_DRIVER_KEY;
   const isDemoOwnerSession = savedKey === DEMO_OWNER_KEY;
@@ -1778,34 +2039,63 @@ export default function DriverPageClient({
   }, [loadJobs, savedKey, viewRole, view]);
 
   useEffect(() => {
-    if (!savedKey || !activeToken || !navigator.geolocation || isOwnerView) {
+    if (!savedKey || !activeToken || !navigator.geolocation) {
       return;
     }
 
     const sendPosition = (position: GeolocationPosition) => {
+      setLastGpsAt(Date.now());
+      setGpsStale(false);
       void postDriverLocation(
         savedKey,
         activeToken,
         position.coords.latitude,
         position.coords.longitude,
+        {
+          ...(trackingSessionToken ? { sessionToken: trackingSessionToken } : {}),
+          ...(Number.isFinite(position.coords.accuracy)
+            ? { accuracy: position.coords.accuracy }
+            : {}),
+          ...(typeof position.coords.speed === "number" && Number.isFinite(position.coords.speed)
+            ? { speed: position.coords.speed }
+            : {}),
+          ...(typeof position.coords.heading === "number" &&
+          Number.isFinite(position.coords.heading)
+            ? { heading: position.coords.heading }
+            : {}),
+        },
       ).catch(() => {
         // Ignore transient GPS upload errors; next tick will retry.
       });
     };
 
-    watchIdRef.current = navigator.geolocation.watchPosition(sendPosition, undefined, {
+    const onGeoError = () => {
+      setGpsStale(true);
+    };
+
+    watchIdRef.current = navigator.geolocation.watchPosition(sendPosition, onGeoError, {
       enableHighAccuracy: true,
       maximumAge: 15_000,
       timeout: 20_000,
     });
 
+    const staleTimer = window.setInterval(() => {
+      setLastGpsAt((prev) => {
+        if (prev && Date.now() - prev >= DRIVER_GPS_STALE_MS) {
+          setGpsStale(true);
+        }
+        return prev;
+      });
+    }, 15_000);
+
     return () => {
+      window.clearInterval(staleTimer);
       if (watchIdRef.current !== null) {
         navigator.geolocation.clearWatch(watchIdRef.current);
         watchIdRef.current = null;
       }
     };
-  }, [activeToken, isOwnerView, savedKey]);
+  }, [activeToken, savedKey, trackingSessionToken]);
 
   useEffect(() => {
     // Soft-hidden via SERVICE_FLAGS.trackingDemo — public ?demo= links disabled when false
@@ -2201,6 +2491,9 @@ export default function DriverPageClient({
                         driverKey={savedKey}
                         activeToken={activeToken}
                         onSharingChange={setActiveToken}
+                        onSessionChange={handleSessionChange}
+                        gpsStale={gpsStale}
+                        lastGpsAt={lastGpsAt}
                         onRefunded={(token, refundAmount) => {
                           setJobs((current) =>
                             current.map((entry) =>
@@ -2253,6 +2546,9 @@ export default function DriverPageClient({
                             driverKey={savedKey}
                             activeToken={activeToken}
                             onSharingChange={setActiveToken}
+                            onSessionChange={handleSessionChange}
+                            gpsStale={gpsStale}
+                            lastGpsAt={lastGpsAt}
                             onRefunded={(token, refundAmount) => {
                               setJobs((current) =>
                                 current.map((entry) =>
@@ -2292,6 +2588,9 @@ export default function DriverPageClient({
                       driverKey={savedKey}
                       activeToken={activeToken}
                       onSharingChange={setActiveToken}
+                      onSessionChange={handleSessionChange}
+                      gpsStale={gpsStale}
+                      lastGpsAt={lastGpsAt}
                       onRefunded={(token, refundAmount) => {
                         setJobs((current) =>
                           current.map((entry) =>
