@@ -79,7 +79,7 @@ console.log("\n=== 4. Upcoming Jobs merge + list ===");
 {
   const paidHandlers = read("workers/addresses/src/paid-booking-handlers.ts");
   assert.match(paidHandlers, /Return legs alone must not invent a synthetic/);
-  assert.match(paidHandlers, /Prefer return leg for live status/);
+  assert.match(paidHandlers, /outbound is past\/completed but return is still ahead/);
   assert.doesNotMatch(
     paidHandlers,
     /for \(const job of trackJobs\) \{\s*if \(job\.journeyLeg === "return"\) continue;/,
