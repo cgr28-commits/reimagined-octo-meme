@@ -49,7 +49,10 @@ export type TrackingJobRecord = {
   driverLng?: number;
   driverUpdatedAt?: string;
   sharingActive: boolean;
-  /** ISO timestamp when the live-tracking reminder email was sent */
+  /**
+   * ISO timestamp when the “tracking is now available” reminder was emailed
+   * (sent once when the customer window opens, ~1 hour before pickup).
+   */
   sharingReminderSentAt?: string;
   /** ISO timestamp when the post-trip Google review request email was sent */
   reviewRequestSentAt?: string;
@@ -388,6 +391,59 @@ export function getReviewRequestEligibleAt(pickupAt: string): Date | null {
 export function isReviewRequestDue(pickupAt: string, now = Date.now()): boolean {
   const eligibleAt = getReviewRequestEligibleAt(pickupAt);
   return eligibleAt !== null && now >= eligibleAt.getTime();
+}
+
+/** True once the customer tracking window has opened (~1 hour before pickup) and not yet closed. */
+export function isTrackingAvailableReminderDue(pickupAt: string, now = Date.now()): boolean {
+  const window = getTrackingWindow(pickupAt, new Date(now));
+  return window.open;
+}
+
+/**
+ * Whether the ~1-hour tracking-available reminder should be sent for this job.
+ * Pure check — does not send email or mutate state.
+ */
+export function evaluateTrackingAvailableReminder(
+  job: Pick<
+    TrackingJobRecord,
+    "token" | "refundedAt" | "sharingReminderSentAt" | "customerEmail" | "pickupAt"
+  >,
+  now = Date.now(),
+): "not_eligible" | "eligible" {
+  if (job.sharingReminderSentAt) {
+    return "not_eligible";
+  }
+  if (!job.customerEmail?.trim()) {
+    return "not_eligible";
+  }
+  if (job.refundedAt?.trim()) {
+    return "not_eligible";
+  }
+  if (!resolveEmailTrackUrl(job)) {
+    return "not_eligible";
+  }
+  if (!isTrackingAvailableReminderDue(job.pickupAt, now)) {
+    return "not_eligible";
+  }
+  return "eligible";
+}
+
+/**
+ * Secure customer track URL for emails. Returns undefined when the job is missing,
+ * refunded/cancelled, or has no token — never invents links from payment refs or secrets.
+ */
+export function resolveEmailTrackUrl(
+  job: Pick<TrackingJobRecord, "token" | "refundedAt"> | null | undefined,
+  siteUrl?: string,
+): string | undefined {
+  const token = job?.token?.trim();
+  if (!token) {
+    return undefined;
+  }
+  if (job?.refundedAt?.trim()) {
+    return undefined;
+  }
+  return buildPublicTrackUrl(token, siteUrl);
 }
 
 export function getTrackingWindow(pickupAt: string, now = new Date()): TrackingWindow {
