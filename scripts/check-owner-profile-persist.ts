@@ -173,7 +173,8 @@ async function run() {
   assert.equal(afterUpdate.email, "chris@myairporttaxini.co.uk");
   assert.equal(shouldAskSetup(ownerAccountProfileComplete(afterUpdate)), false);
 
-  // Owner model stays separate from driver profiles
+  // Owner model stays separate from additional driver profiles, but owner save
+  // mirrors into driver:vehicle:owner for customer tracking default.
   await store.putJson("driver:vehicle:driver", {
     profileKey: "driver",
     displayName: "Driver",

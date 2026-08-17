@@ -98,18 +98,21 @@ export default function OwnerAccountProfilePanel({ ownerKey }: OwnerAccountProfi
           </p>
           <h2 className="mt-1 text-lg font-bold text-white">Owner profile</h2>
           <p className="mt-2 text-sm text-white/60">
-            Your business owner details are stored on the server and restored when you sign in.
-            This is separate from driver profiles used for journeys.
+            Your name and vehicle details are stored on the server and restored when you sign in.
+            This profile is also the <span className="text-white/85">default driver</span> for
+            journeys and customer live tracking — you do not need to enter the same details again
+            under Driver profiles.
           </p>
           {complete && collapsed && (
             <p className="mt-3 text-sm text-emerald">
-              Saved · {form.displayName} · {form.make} {form.model} ({form.colour}) ·{" "}
+              Default driver · {form.displayName} · {form.make} {form.model} ({form.colour}) ·{" "}
               {form.registration}
             </p>
           )}
           {showSetupPrompt && (
             <p className="mt-3 text-sm text-amber-100">
-              Owner profile is not saved yet — enter your details below and press Save.
+              Owner profile is not saved yet — enter your details below and press Save. Journeys
+              will use these details as the default driver.
             </p>
           )}
         </div>

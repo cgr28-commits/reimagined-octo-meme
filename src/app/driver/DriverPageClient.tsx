@@ -322,7 +322,8 @@ function DriverProfilePanel({
           return;
         }
 
-        // Owner account profile is managed separately — do not treat "owner" as a driver slot here.
+        // Owner account profile is the default journey driver — do not show the
+        // "owner" slot here (avoids duplicate data entry). Additional drivers only.
         const visible = isOwner
           ? nextProfiles.filter((entry) => entry.profileKey !== "owner")
           : nextProfiles;
@@ -340,10 +341,16 @@ function DriverProfilePanel({
           }
           return visible[0]?.profileKey ?? "";
         });
+        if (visible.length === 0) {
+          setLoading(false);
+          setProfileComplete(true);
+          setCollapsed(true);
+        }
       })
       .catch(() => {
         if (!cancelled) {
           setError("Could not load vehicle profiles.");
+          setLoading(false);
         }
       });
 
@@ -354,6 +361,10 @@ function DriverProfilePanel({
 
   useEffect(() => {
     if (!selectedProfile) {
+      if (isOwner) {
+        setLoading(false);
+        setProfileComplete(true);
+      }
       return;
     }
 
@@ -427,9 +438,18 @@ function DriverProfilePanel({
     return () => {
       cancelled = true;
     };
-  }, [accessKey, selectedProfile, profiles]);
+  }, [accessKey, selectedProfile, profiles, isOwner]);
 
   const saveProfile = async () => {
+    if (!selectedProfile?.trim()) {
+      setError(
+        isOwner
+          ? "Add or select an additional driver before saving. Your Owner profile is already the default."
+          : "Missing driver profile key.",
+      );
+      return;
+    }
+
     setSaving(true);
     setMessage(null);
     setError(null);
@@ -490,41 +510,51 @@ function DriverProfilePanel({
     }
   };
 
-  const showSetupPrompt = !loading && !profileComplete;
-  // Owner managing driver profiles can collapse when complete — do not force the editor open.
-  const showEditor = !collapsed || showSetupPrompt;
+  const showSetupPrompt = !loading && !profileComplete && Boolean(selectedProfile);
+  // Owner managing additional drivers can collapse when complete — do not force the editor open.
+  // When there are no additional drivers, keep the default-driver notice visible (no empty form).
+  const ownerHasNoAdditionalDrivers = isOwner && profiles.length === 0 && !selectedProfile;
+  const showEditor =
+    !ownerHasNoAdditionalDrivers && (!collapsed || showSetupPrompt);
 
   return (
     <section className="mb-8 rounded-2xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <h2 className="text-lg font-bold text-white">
-            {isOwner ? "Driver profiles (for journeys)" : "Your driver profile"}
+            {isOwner ? "Additional drivers (optional)" : "Your driver profile"}
           </h2>
           <p className="mt-2 text-sm text-white/60">
             {isOwner
-              ? "Separate from your owner account profile. Save each driver’s contact and vehicle details for assignments and customer tracking."
+              ? "Your Owner profile above is the default driver for journeys and customer tracking. Add another driver here only if someone else will drive a job."
               : "Save your name, email, mobile, and vehicle details. They are stored on the server and restored on your next login."}
           </p>
-          {profileComplete && collapsed && (
+          {isOwner && ownerHasNoAdditionalDrivers && !loading ? (
+            <p className="mt-3 text-sm text-emerald">
+              Using Owner profile as the default driver. No separate driver entry needed.
+            </p>
+          ) : null}
+          {profileComplete && collapsed && selectedProfile ? (
             <p className="mt-3 text-sm text-emerald">
               Saved · {form.displayName} · {form.make} {form.model} ({form.colour}) ·{" "}
               {form.registration}
             </p>
-          )}
-          {showSetupPrompt && (
+          ) : null}
+          {showSetupPrompt ? (
             <p className="mt-3 text-sm text-amber-100">
-              Driver details are not saved yet — enter the fields below and press Save.
+              {isOwner
+                ? "This additional driver’s details are not saved yet — enter the fields below and press Save."
+                : "Driver details are not saved yet — enter the fields below and press Save."}
             </p>
-          )}
+          ) : null}
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {profileComplete && (
+          {profileComplete && selectedProfile ? (
             <span className="rounded-full border border-emerald/40 bg-emerald/15 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-emerald">
               Saved
             </span>
-          )}
-          {!showSetupPrompt && (
+          ) : null}
+          {!showSetupPrompt && selectedProfile ? (
             <button
               type="button"
               onClick={() => setCollapsed((current) => !current)}
@@ -532,8 +562,8 @@ function DriverProfilePanel({
             >
               {collapsed ? "Edit profile" : "Collapse"}
             </button>
-          )}
-          {isOwner && profiles.length > 1 && (
+          ) : null}
+          {isOwner && profiles.length > 1 ? (
             <select
               value={selectedProfile}
               onChange={(event) => setSelectedProfile(event.target.value)}
@@ -546,7 +576,7 @@ function DriverProfilePanel({
                 </option>
               ))}
             </select>
-          )}
+          ) : null}
         </div>
       </div>
 

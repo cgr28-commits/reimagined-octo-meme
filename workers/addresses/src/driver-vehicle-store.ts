@@ -5,6 +5,12 @@ import {
   vehicleProfileKey,
   type DriverVehicleProfile,
 } from "../shared/driver-vehicle";
+import {
+  getOwnerAccountProfile,
+} from "./owner-profile-store";
+import {
+  ownerAccountProfileComplete,
+} from "../shared/owner-profile";
 
 const VEHICLE_PREFIX = "driver:vehicle:";
 const VEHICLE_INDEX_KEY = "driver:vehicle-index";
@@ -170,13 +176,26 @@ export async function listOwnerVehicleProfileOptions(
   await Promise.all(
     items.map(async (item) => {
       const saved = await getDriverVehicleProfile(store, item.profileKey);
-      if (!saved) {
-        return;
+      if (saved) {
+        item.displayName =
+          saved.displayName?.trim() ||
+          (item.profileKey === OWNER_VEHICLE_PROFILE_KEY ? "Owner" : item.displayName);
+        item.complete = driverProfileComplete(saved);
       }
-      item.displayName =
-        saved.displayName?.trim() ||
-        (item.profileKey === OWNER_VEHICLE_PROFILE_KEY ? "Owner" : item.displayName);
-      item.complete = driverProfileComplete(saved);
+
+      // Owner account profile is the default journey driver — treat it as complete
+      // for the owner slot even if only owner:profile exists (mirror may lag).
+      if (item.profileKey === OWNER_VEHICLE_PROFILE_KEY && !item.complete) {
+        const ownerAccount = await getOwnerAccountProfile(store);
+        if (
+          ownerAccount &&
+          ownerAccountProfileComplete(ownerAccount) &&
+          vehicleProfileComplete(ownerAccount)
+        ) {
+          item.displayName = ownerAccount.displayName?.trim() || "Owner";
+          item.complete = true;
+        }
+      }
     }),
   );
 
@@ -187,6 +206,28 @@ export async function listOwnerVehicleProfileOptions(
   });
 }
 
+function ownerAccountAsDriverVehicle(
+  owner: NonNullable<Awaited<ReturnType<typeof getOwnerAccountProfile>>>,
+): DriverVehicleProfile {
+  return {
+    profileKey: OWNER_VEHICLE_PROFILE_KEY,
+    displayName: owner.displayName,
+    email: owner.email,
+    mobile: owner.mobile,
+    make: owner.make,
+    model: owner.model,
+    colour: owner.colour,
+    registration: owner.registration,
+    updatedAt: owner.updatedAt,
+  };
+}
+
+/**
+ * Vehicle details for the customer tracking page while live sharing is on.
+ * Prefers the active/assigned driver's saved vehicle profile; if that is the
+ * owner (or missing), falls back to the Owner account profile so the business
+ * owner does not need a duplicate driver profile entry.
+ */
 export async function resolveCustomerVisibleVehicle(
   store: KVNamespace,
   options: {
@@ -200,14 +241,32 @@ export async function resolveCustomerVisibleVehicle(
   }
 
   const driverName = options.driverName?.trim();
-  if (!driverName) {
-    return null;
+  if (driverName) {
+    const key = normalizeVehicleProfileKey(driverName);
+    const profile = await getDriverVehicleProfile(store, driverName);
+    if (profile && vehicleProfileComplete(profile)) {
+      return profile;
+    }
+
+    // Named non-owner driver without a complete profile: do not invent owner vehicle.
+    if (key && key !== OWNER_VEHICLE_PROFILE_KEY) {
+      return null;
+    }
   }
 
-  const profile = await getDriverVehicleProfile(store, driverName);
-  if (!profile || !vehicleProfileComplete(profile)) {
-    return null;
+  const ownerVehicle = await getDriverVehicleProfile(store, OWNER_VEHICLE_PROFILE_KEY);
+  if (ownerVehicle && vehicleProfileComplete(ownerVehicle)) {
+    return ownerVehicle;
   }
 
-  return profile;
+  const ownerAccount = await getOwnerAccountProfile(store);
+  if (
+    ownerAccount &&
+    ownerAccountProfileComplete(ownerAccount) &&
+    vehicleProfileComplete(ownerAccount)
+  ) {
+    return ownerAccountAsDriverVehicle(ownerAccount);
+  }
+
+  return null;
 }
