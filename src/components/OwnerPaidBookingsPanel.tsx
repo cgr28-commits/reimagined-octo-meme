@@ -6,6 +6,7 @@ import {
   formatDisplayTripDate,
   isUpcomingWorkBooking,
   journeyStatusLabel,
+  relevantUpcomingJourneyDate,
   upcomingBucketForTripDate,
 } from "../../shared/upcoming-jobs";
 import { formatUkInstant } from "../../shared/uk-time";
@@ -105,9 +106,15 @@ function paymentStatusLabel(booking: OwnerPaidBookingSummary): string {
 }
 
 function sortByTripDateTime(a: OwnerPaidBookingSummary, b: OwnerPaidBookingSummary): number {
-  const dateCmp = (a.tripDate || "").localeCompare(b.tripDate || "");
+  const aDate = relevantUpcomingJourneyDate(a);
+  const bDate = relevantUpcomingJourneyDate(b);
+  const dateCmp = aDate.localeCompare(bDate);
   if (dateCmp !== 0) return dateCmp;
-  return (a.tripTime || "").localeCompare(b.tripTime || "");
+  const aTime =
+    aDate === (a.returnDate || "").trim() ? a.returnTime || "" : a.tripTime || "";
+  const bTime =
+    bDate === (b.returnDate || "").trim() ? b.returnTime || "" : b.tripTime || "";
+  return aTime.localeCompare(bTime);
 }
 
 function PaidBookingLiveTracking({
@@ -675,7 +682,7 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
     const tomorrow: OwnerPaidBookingSummary[] = [];
     const later: OwnerPaidBookingSummary[] = [];
     for (const booking of upcomingJobs) {
-      const bucket = upcomingBucketForTripDate(booking.tripDate || "");
+      const bucket = upcomingBucketForTripDate(relevantUpcomingJourneyDate(booking));
       if (bucket === "tomorrow") tomorrow.push(booking);
       else if (bucket === "later") later.push(booking);
       else today.push(booking); // today + past incomplete still need attention
@@ -1092,11 +1099,31 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
           <div className="min-w-0 flex-1">
             <p className="break-words text-lg font-bold text-white">{booking.customerName}</p>
             <p className="mt-1 break-words text-sm text-white/65">
-              {formatDisplayTripDate(booking.tripDate)} · pick up {booking.tripTime || "—"}
-              {booking.amountPaid ? ` · ${booking.amountPaid}` : ""}
+              {(() => {
+                const nextDate = relevantUpcomingJourneyDate(booking);
+                const isReturnNext =
+                  Boolean(booking.returnJourney) &&
+                  nextDate === (booking.returnDate || "").trim() &&
+                  nextDate !== (booking.tripDate || "").trim();
+                const nextTime = isReturnNext
+                  ? booking.returnTime || "—"
+                  : booking.tripTime || "—";
+                return `${isReturnNext ? "Return · " : ""}${formatDisplayTripDate(nextDate)} · pick up ${nextTime}${
+                  booking.amountPaid ? ` · ${booking.amountPaid}` : ""
+                }`;
+              })()}
             </p>
             <p className="mt-2 break-words text-sm text-white/80">
-              {booking.pickupLabel} → {booking.dropoffLabel}
+              {(() => {
+                const nextDate = relevantUpcomingJourneyDate(booking);
+                const isReturnNext =
+                  Boolean(booking.returnJourney) &&
+                  nextDate === (booking.returnDate || "").trim() &&
+                  nextDate !== (booking.tripDate || "").trim();
+                return isReturnNext
+                  ? `${booking.dropoffLabel} → ${booking.pickupLabel}`
+                  : `${booking.pickupLabel} → ${booking.dropoffLabel}`;
+              })()}
             </p>
             <p className="mt-2 break-all text-xs text-white/45">
               Ref {booking.paymentReference}

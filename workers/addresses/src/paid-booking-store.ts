@@ -6,6 +6,7 @@ import {
   type PaidBookingEditAuditEntry,
   type PaidBookingRecord,
 } from "../shared/paid-booking-record";
+import { bookingInUpcomingHorizon } from "../shared/upcoming-jobs";
 
 const RECORD_TTL = 60 * 60 * 24 * 400;
 const DAY_INDEX_TTL = 60 * 60 * 24 * 400;
@@ -218,13 +219,47 @@ export async function listUpcomingPaidBookings(
   const horizonEnd = addDaysYmd(today, futureDays);
 
   return [...byRef.values()]
-    .filter((record) => {
-      const tripDate = record.tripDate?.trim() ?? "";
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(tripDate)) return true;
-      return tripDate >= horizonStart && tripDate <= horizonEnd;
-    })
+    .filter((record) => bookingInUpcomingHorizon(record, horizonStart, horizonEnd))
     .sort((a, b) => tripSortKey(a).localeCompare(tripSortKey(b)))
     .slice(0, limit);
+}
+
+/**
+ * Payment refs for confirmed return bookings whose returnDate falls in [fromDate, toDate].
+ * Used to seed return-leg tracking backfill for SumUp-only bookings (no booking-job row).
+ */
+export async function listPaymentRefsWithReturnDateInRange(
+  store: KVNamespace,
+  fromDate: string,
+  toDate: string,
+): Promise<string[]> {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(fromDate) || !/^\d{4}-\d{2}-\d{2}$/.test(toDate)) {
+    return [];
+  }
+
+  const refs: string[] = [];
+  const seen = new Set<string>();
+  let cursor: string | undefined;
+
+  do {
+    const page = await store.list({ prefix: "booking:ref:", cursor, limit: 100 });
+    for (const key of page.keys) {
+      const ref = key.name.replace(/^booking:ref:/, "").trim();
+      if (!ref || seen.has(ref)) continue;
+      seen.add(ref);
+      const record = await getPaidBookingRecord(store, ref);
+      if (!record || record.status === "refunded") continue;
+      if (!record.returnJourney) continue;
+      const returnDate = record.returnDate?.trim() ?? "";
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(returnDate)) continue;
+      if (returnDate < fromDate || returnDate > toDate) continue;
+      if (!record.returnTime?.trim()) continue;
+      refs.push(record.paymentReference);
+    }
+    cursor = page.list_complete ? undefined : page.cursor;
+  } while (cursor);
+
+  return refs;
 }
 
 export async function markPaidBookingRefunded(

@@ -634,7 +634,9 @@ export async function handleEnsureTrackingRequest(
 
   if (paid.trackingToken?.trim()) {
     const existing = await getTrackingJob(env.TRACKING_STORE, paid.trackingToken);
-    if (existing) {
+    // Still run createTrackingJobFromBooking below when return fields exist so a
+    // missing return leg is created even if the outbound token is already set.
+    if (existing && !(paid.returnJourney && paid.returnDate?.trim() && paid.returnTime?.trim())) {
       return jsonResponse(
         {
           ok: true,
@@ -670,6 +672,11 @@ export async function handleEnsureTrackingRequest(
     isFromAirport: paid.isFromAirport,
   };
 
+  const beforeJobs = paid.paymentReference
+    ? await findTrackingJobsByPaymentReference(env.TRACKING_STORE, paymentReference)
+    : [];
+  const hadReturnBefore = beforeJobs.some((job) => job.journeyLeg === "return");
+
   const record = await createTrackingJobFromBooking(
     env.TRACKING_STORE,
     booking,
@@ -679,6 +686,11 @@ export async function handleEnsureTrackingRequest(
     return jsonResponse({ error: "Could not create tracking job for this booking" }, 502, origin);
   }
 
+  const afterJobs = await findTrackingJobsByPaymentReference(env.TRACKING_STORE, paymentReference);
+  const hasReturnAfter = afterJobs.some((job) => job.journeyLeg === "return");
+  const returnLegCreated = Boolean(paid.returnJourney && !hadReturnBefore && hasReturnAfter);
+  const alreadyExisted = beforeJobs.length > 0 && !returnLegCreated;
+
   await savePaidBookingRecord(env.TRACKING_STORE, {
     ...paid,
     trackingToken: record.token,
@@ -687,9 +699,11 @@ export async function handleEnsureTrackingRequest(
   return jsonResponse(
     {
       ok: true,
-      alreadyExisted: false,
+      alreadyExisted,
       token: record.token,
       trackUrl: buildPublicTrackUrl(record.token),
+      returnLegCreated,
+      trackingJobCount: afterJobs.length,
     },
     200,
     origin,

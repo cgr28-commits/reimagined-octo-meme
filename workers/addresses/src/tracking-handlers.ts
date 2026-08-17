@@ -28,7 +28,11 @@ import {
   bookingJobStoreConfigured,
   getBookingJob,
 } from "./booking-job-store";
-import { getPaidBookingRecord, paidBookingStoreConfigured } from "./paid-booking-store";
+import {
+  getPaidBookingRecord,
+  listPaymentRefsWithReturnDateInRange,
+  paidBookingStoreConfigured,
+} from "./paid-booking-store";
 import {
   filterJobsForSession,
   assertDriverCanOperateJob,
@@ -48,6 +52,7 @@ import { type WorkerEmailEnv } from "./worker-email";
 import { resolveCustomerVisibleVehicle } from "./driver-vehicle-store";
 import { toCustomerVehicleDetails } from "../shared/driver-vehicle";
 import { getTrackingSession, gpsHistoryTtlSeconds } from "./tracking-store";
+import { addDaysYmd, londonYmd } from "../shared/upcoming-jobs";
 
 type Env = WorkerEmailEnv & {
   TRACKING_STORE?: KVNamespace;
@@ -312,56 +317,111 @@ export async function buildPublicTrackResponse(
   };
 }
 
+async function paidBookingDetailsForReturnBackfill(
+  store: KVNamespace,
+  paymentRef: string,
+): Promise<PaidBookingDetails | null> {
+  if (paidBookingStoreConfigured(store)) {
+    const paid = await getPaidBookingRecord(store, paymentRef);
+    if (
+      paid &&
+      paid.status !== "refunded" &&
+      paid.returnJourney &&
+      paid.returnDate?.trim() &&
+      paid.returnTime?.trim()
+    ) {
+      return {
+        customerName: paid.customerName,
+        customerEmail: paid.customerEmail,
+        mobileNumber: paid.mobileNumber,
+        tripLabel: paid.tripLabel,
+        pickupLabel: paid.pickupLabel,
+        dropoffLabel: paid.dropoffLabel,
+        returnJourney: true,
+        tripDate: paid.tripDate,
+        tripTime: paid.tripTime,
+        returnDate: paid.returnDate,
+        returnTime: paid.returnTime,
+        flightNumber: paid.flightNumber ?? "",
+        returnFlightNumber: paid.returnFlightNumber,
+        passengers: paid.passengers ?? 1,
+        suitcases: paid.suitcases ?? 0,
+        vehicle: paid.vehicle ?? "Saloon",
+        isAirportTrip: paid.isAirportTrip ?? false,
+        airportCode: paid.airportCode,
+        isFromAirport: paid.isFromAirport,
+      };
+    }
+  }
+
+  if (bookingJobStoreConfigured(store)) {
+    const booking = await getBookingJob(store, paymentRef);
+    if (
+      booking &&
+      booking.status === "paid" &&
+      booking.returnJourney &&
+      booking.returnDate?.trim() &&
+      booking.returnTime?.trim()
+    ) {
+      return {
+        customerName: booking.customerName,
+        customerEmail: booking.customerEmail,
+        mobileNumber: booking.customerMobile,
+        tripLabel: booking.tripLabel,
+        pickupLabel: booking.pickupLabel,
+        dropoffLabel: booking.dropoffLabel,
+        returnJourney: true,
+        tripDate: booking.tripDate,
+        tripTime: booking.tripTime,
+        returnDate: booking.returnDate,
+        returnTime: booking.returnTime,
+        flightNumber: booking.flightNumber ?? "",
+        returnFlightNumber: booking.returnFlightNumber,
+        passengers: booking.passengers,
+        suitcases: booking.suitcases,
+        vehicle: booking.vehicle,
+        isAirportTrip: booking.isAirportTrip,
+        airportCode: booking.airportCode,
+        isFromAirport: booking.isFromAirport,
+      };
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Create missing return-leg tracking jobs from SumUp paid bookings and/or
+ * enquiry booking-jobs. Idempotent via createTrackingJobFromBooking.
+ */
 async function backfillReturnTrackingLegs(
   store: KVNamespace,
   seedJobs: TrackingJobRecord[],
+  extraPaymentRefs: string[] = [],
 ): Promise<void> {
-  if (!bookingJobStoreConfigured(store)) {
-    return;
-  }
-
   const seen = new Set<string>();
+  const paymentRefs: string[] = [];
+
   for (const job of seedJobs) {
     const paymentRef = job.paymentReference?.trim();
-    if (!paymentRef || seen.has(paymentRef)) {
-      continue;
-    }
+    if (!paymentRef || seen.has(paymentRef)) continue;
     seen.add(paymentRef);
+    paymentRefs.push(paymentRef);
+  }
 
-    const booking = await getBookingJob(store, paymentRef);
-    if (!booking || booking.status !== "paid") {
-      continue;
-    }
-    if (!booking.returnJourney || !booking.returnDate?.trim() || !booking.returnTime?.trim()) {
-      continue;
-    }
+  for (const ref of extraPaymentRefs) {
+    const paymentRef = ref.trim();
+    if (!paymentRef || seen.has(paymentRef)) continue;
+    seen.add(paymentRef);
+    paymentRefs.push(paymentRef);
+  }
+
+  for (const paymentRef of paymentRefs) {
+    const details = await paidBookingDetailsForReturnBackfill(store, paymentRef);
+    if (!details) continue;
 
     try {
-      await createTrackingJobFromBooking(
-        store,
-        {
-          customerName: booking.customerName,
-          customerEmail: booking.customerEmail,
-          mobileNumber: booking.customerMobile,
-          tripLabel: booking.tripLabel,
-          pickupLabel: booking.pickupLabel,
-          dropoffLabel: booking.dropoffLabel,
-          returnJourney: true,
-          tripDate: booking.tripDate,
-          tripTime: booking.tripTime,
-          returnDate: booking.returnDate,
-          returnTime: booking.returnTime,
-          flightNumber: booking.flightNumber ?? "",
-          returnFlightNumber: booking.returnFlightNumber,
-          passengers: booking.passengers,
-          suitcases: booking.suitcases,
-          vehicle: booking.vehicle,
-          isAirportTrip: booking.isAirportTrip,
-          airportCode: booking.airportCode,
-          isFromAirport: booking.isFromAirport,
-        },
-        paymentRef,
-      );
+      await createTrackingJobFromBooking(store, details, paymentRef);
     } catch (error) {
       console.error("Return tracking leg backfill failed", paymentRef, error);
     }
@@ -407,13 +467,24 @@ export async function handleDriverJobsRequest(
     }).format(new Date());
 
   // Owner dashboard: create missing return-leg jobs from paid booking records
-  // so Pick date / Upcoming show the return on its own day (e.g. 19 Aug).
+  // (SumUp) and booking-jobs so Pick date / Upcoming show the return on its own day.
   if (role === "owner") {
     const seed = [
       ...(await listUpcomingTrackingJobs(env.TRACKING_STORE, daysAhead)),
       ...(await listTrackingJobsForRecentDays(env.TRACKING_STORE, 45)),
     ];
-    await backfillReturnTrackingLegs(env.TRACKING_STORE, seed);
+    let paidReturnRefs: string[] = [];
+    if (paidBookingStoreConfigured(env.TRACKING_STORE)) {
+      const today = londonYmd();
+      const fromDate = addDaysYmd(today, -45);
+      const toDate = addDaysYmd(today, daysAhead);
+      paidReturnRefs = await listPaymentRefsWithReturnDateInRange(
+        env.TRACKING_STORE,
+        fromDate,
+        toDate,
+      );
+    }
+    await backfillReturnTrackingLegs(env.TRACKING_STORE, seed, paidReturnRefs);
   }
 
   let jobs: TrackingJobRecord[];

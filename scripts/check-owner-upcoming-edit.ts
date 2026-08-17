@@ -24,6 +24,7 @@ import {
   assignedDriverDisplay,
   addDaysYmd,
   londonYmd,
+  relevantUpcomingJourneyDate,
 } from "../shared/upcoming-jobs";
 import {
   buildDriverArrivedPickupEmail,
@@ -61,6 +62,7 @@ console.log("=== 1. Missing 19 Aug root cause (payment-created listing) ===");
   const record = read("shared/paid-booking-record.ts");
   assert.match(store, /listUpcomingPaidBookings/);
   assert.match(store, /paidBookingTripDayIndexKey/);
+  assert.match(store, /bookingInUpcomingHorizon/);
   assert.match(record, /booking:trip:/);
   assert.match(store, /tripSortKey/);
   // Old created-day path remains available for mode=recent
@@ -80,6 +82,21 @@ console.log("\n=== 2. Upcoming bucket helpers + Primary Driver ===");
   assert.equal(upcomingBucketForTripDate("2026-08-16", today), "past");
   assert.equal(addDaysYmd(today, 2), "2026-08-19");
   assert.match(londonYmd(), /^\d{4}-\d{2}-\d{2}$/);
+
+  assert.equal(
+    upcomingBucketForTripDate(
+      relevantUpcomingJourneyDate(
+        {
+          tripDate: "2026-08-08",
+          returnJourney: true,
+          returnDate: "2026-08-19",
+        },
+        today,
+      ),
+      today,
+    ),
+    "later",
+  );
 
   assert.equal(resolveAssignedDriverLabel(undefined), PRIMARY_DRIVER_LABEL);
   assert.equal(resolveAssignedDriverLabel(""), PRIMARY_DRIVER_LABEL);

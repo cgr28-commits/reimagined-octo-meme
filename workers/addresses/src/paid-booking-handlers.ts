@@ -20,6 +20,7 @@ import {
 } from "../shared/paid-booking-record";
 import {
   findTrackingJobByPaymentReference,
+  findTrackingJobsByPaymentReference,
   getTrackingJob,
   listTrackingJobsForDateRange,
 } from "./tracking-store";
@@ -236,7 +237,6 @@ export async function handlePaidBookingsListRequest(
     const byRef = new Map(bookings.map((b) => [b.paymentReference, b]));
 
     for (const job of trackJobs) {
-      if (job.journeyLeg === "return") continue;
       if (journeyStatusOf(job) === "completed") continue;
       if (job.refundedAt) continue;
       const paymentReference = job.paymentReference?.trim();
@@ -247,6 +247,9 @@ export async function handlePaidBookingsListRequest(
         byRef.set(paymentReference, paid);
         continue;
       }
+
+      // Return legs alone must not invent a synthetic outbound-shaped paid row.
+      if (job.journeyLeg === "return") continue;
 
       const synthetic = syntheticPaidBookingFromTrackingJob(job);
       if (synthetic) byRef.set(paymentReference, synthetic);
@@ -296,9 +299,44 @@ export async function handlePaidBookingsListRequest(
 
       const token = booking.trackingToken?.trim();
       let job = token ? await getTrackingJob(store, token) : null;
-      if (!job && booking.paymentReference?.trim()) {
-        job = await findTrackingJobByPaymentReference(store, booking.paymentReference.trim());
+      let linkedJobs: TrackingJobRecord[] = [];
+      if (booking.paymentReference?.trim()) {
+        linkedJobs = await findTrackingJobsByPaymentReference(
+          store,
+          booking.paymentReference.trim(),
+        );
+        if (!job) {
+          job =
+            linkedJobs.find((entry) => entry.journeyLeg !== "return") ??
+            linkedJobs[0] ??
+            null;
+        }
       }
+
+      // When outbound is past/completed but return is still ahead, surface the return
+      // leg status so Upcoming Jobs does not treat the whole booking as done.
+      if (booking.returnJourney && linkedJobs.length > 0) {
+        const today = londonYmdNow();
+        const returnDate = booking.returnDate?.trim() ?? "";
+        const returnJob = linkedJobs.find((entry) => entry.journeyLeg === "return");
+        const outboundJob =
+          linkedJobs.find((entry) => entry.journeyLeg === "outbound") ??
+          linkedJobs.find((entry) => entry.journeyLeg !== "return") ??
+          job;
+        const outboundDone =
+          !outboundJob ||
+          journeyStatusOf(outboundJob) === "completed" ||
+          (outboundJob.tripDate?.trim() ?? "") < today;
+        if (
+          returnJob &&
+          /^\d{4}-\d{2}-\d{2}$/.test(returnDate) &&
+          returnDate >= today &&
+          outboundDone
+        ) {
+          job = returnJob;
+        }
+      }
+
       if (job) {
         trackingToken = job.token;
         sharingActive = Boolean(job.sharingActive);

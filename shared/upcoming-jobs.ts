@@ -28,6 +28,59 @@ export function upcomingBucketForTripDate(
   return "later";
 }
 
+/**
+ * Next journey date for Upcoming Jobs bucketing.
+ * When the outbound day is past but a return leg is still upcoming, use returnDate
+ * so return trips (e.g. 19 Aug after an 8 Aug outbound) stay visible.
+ */
+export function relevantUpcomingJourneyDate(
+  booking: {
+    tripDate?: string;
+    returnJourney?: boolean;
+    returnDate?: string;
+  },
+  today = londonYmd(),
+): string {
+  const tripDate = booking.tripDate?.trim() ?? "";
+  const returnDate = booking.returnDate?.trim() ?? "";
+  if (
+    booking.returnJourney &&
+    /^\d{4}-\d{2}-\d{2}$/.test(returnDate) &&
+    returnDate >= today &&
+    (!/^\d{4}-\d{2}-\d{2}$/.test(tripDate) || tripDate < today)
+  ) {
+    return returnDate;
+  }
+  return tripDate;
+}
+
+/** True when outbound and/or return falls inside the Upcoming Jobs horizon. */
+export function bookingInUpcomingHorizon(
+  booking: {
+    tripDate?: string;
+    returnJourney?: boolean;
+    returnDate?: string;
+  },
+  horizonStart: string,
+  horizonEnd: string,
+): boolean {
+  const tripDate = booking.tripDate?.trim() ?? "";
+  const returnDate = booking.returnDate?.trim() ?? "";
+  const tripOk = /^\d{4}-\d{2}-\d{2}$/.test(tripDate);
+  const returnOk =
+    Boolean(booking.returnJourney) && /^\d{4}-\d{2}-\d{2}$/.test(returnDate);
+
+  if (!tripOk && !returnOk) return true;
+
+  if (tripOk && tripDate >= horizonStart && tripDate <= horizonEnd) {
+    return true;
+  }
+  if (returnOk && returnDate >= horizonStart && returnDate <= horizonEnd) {
+    return true;
+  }
+  return false;
+}
+
 export function formatDisplayTripDate(tripDate: string): string {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(tripDate)) return tripDate || "—";
   const [y, m, d] = tripDate.split("-").map(Number);

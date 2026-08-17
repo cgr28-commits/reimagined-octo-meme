@@ -92,10 +92,11 @@ async function indexTrackingJobOnDay(
   const tokens = Array.isArray(existing) ? existing : [];
   if (!tokens.includes(token)) {
     tokens.push(token);
-    await store.put(indexKey, JSON.stringify(tokens), {
-      expirationTtl: DAY_INDEX_TTL,
-    });
   }
+  // Always rewrite so day-index TTL is refreshed (return legs need to survive until travel day).
+  await store.put(indexKey, JSON.stringify(tokens), {
+    expirationTtl: DAY_INDEX_TTL,
+  });
 }
 
 export function trackingStoreConfigured(store?: KVNamespace): store is KVNamespace {
