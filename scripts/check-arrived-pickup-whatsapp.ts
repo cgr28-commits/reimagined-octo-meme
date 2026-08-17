@@ -95,15 +95,22 @@ console.log("\n=== 4. Owner panel wires existing arrived_pickup + WhatsApp ===")
   assert.match(panel, /fetchDriverVehicle/);
   assert.match(panel, /postJourneyAction/);
   assert.match(panel, /retryArrivalNotification/);
+  // Must show Arrived for idle/stopped — not only when status === "tracking"
+  assert.match(panel, /idle \/ stopped \/ tracking/);
+  assert.match(panel, /Open WhatsApp arrival message/);
   assert.doesNotMatch(panel, /WHATSAPP_BUSINESS_API_TOKEN/);
   console.log("OK  Extends existing arrival action; click-to-chat only");
 }
 
-console.log("\n=== 5. Backend idempotent arrival + per-job leg storage ===");
+console.log("\n=== 5. Backend allows Arrived from idle/stopped + idempotent storage ===");
 {
   const tracking = read("workers/addresses/shared/tracking.ts");
   assert.match(tracking, /if \(!next\.arrivedPickupAt\)/);
   assert.match(tracking, /arrivedPickupAt = atIso/);
+  assert.match(
+    tracking,
+    /case "idle":[\s\S]*arrived_pickup[\s\S]*case "stopped":[\s\S]*arrived_pickup/,
+  );
   const handlers = read("workers/addresses/src/journey-handlers.ts");
   assert.match(handlers, /alreadyArrived/);
   assert.match(handlers, /idempotent: true/);
@@ -112,7 +119,7 @@ console.log("\n=== 5. Backend idempotent arrival + per-job leg storage ===");
   assert.match(paid, /outboundJourneyStatus/);
   assert.match(paid, /returnJourneyStatus/);
   assert.match(paid, /job = returnJob/);
-  console.log("OK  Arrival stored per tracking job; idempotent re-press");
+  console.log("OK  Arrival allowed from idle; stored per tracking job; idempotent");
 }
 
 console.log("\n=== 6. Action label ===");

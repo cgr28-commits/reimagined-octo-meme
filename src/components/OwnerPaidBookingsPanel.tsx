@@ -124,6 +124,28 @@ function openWhatsAppDeepLink(href: string) {
   }
 }
 
+/** Prefer booking mobile; tolerate legacy empty/whitespace. */
+function bookingCustomerMobile(booking: OwnerPaidBookingSummary): string {
+  return booking.mobileNumber?.trim() || "";
+}
+
+async function openArrivalWhatsAppForBooking(
+  ownerKey: string,
+  booking: OwnerPaidBookingSummary,
+): Promise<"opened" | "no_mobile"> {
+  const mobile = bookingCustomerMobile(booking);
+  if (!mobile) return "no_mobile";
+
+  const pickupLabel = activeLegPickupLabel(booking);
+  const vehicle = await resolveArrivalVehicleForBooking(ownerKey, booking);
+  const message = buildArrivedPickupWhatsAppMessage({
+    isAirportPickup: isAirportPickupLabel(pickupLabel),
+    vehicle,
+  });
+  openWhatsAppDeepLink(buildArrivedPickupWhatsAppLink(mobile, message));
+  return "opened";
+}
+
 async function resolveArrivalVehicleForBooking(
   ownerKey: string,
   booking: OwnerPaidBookingSummary,
@@ -966,23 +988,20 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
                 ? " Arrival email not configured."
                 : "";
 
-        const mobile = booking.mobileNumber?.trim() || "";
+        const mobile = bookingCustomerMobile(booking);
         const openWhatsApp = !options?.retryArrivalNotification && Boolean(mobile);
         if (openWhatsApp) {
-          const pickupLabel = activeLegPickupLabel(booking);
-          const airport = isAirportPickupLabel(pickupLabel);
-          const vehicle = await resolveArrivalVehicleForBooking(ownerKey, booking);
-          const message = buildArrivedPickupWhatsAppMessage({
-            isAirportPickup: airport,
-            vehicle,
-          });
-          openWhatsAppDeepLink(buildArrivedPickupWhatsAppLink(mobile, message));
+          await openArrivalWhatsAppForBooking(ownerKey, booking);
           setMessage(
-            `Arrived at pickup recorded.${notify} WhatsApp opened — press Send to message the customer.`,
+            result.idempotent
+              ? `Already arrived at pickup${result.arrivedPickupAt ? ` (${formatArrivedPickupHhMm(result.arrivedPickupAt)})` : ""}.${notify} WhatsApp opened — press Send to message the customer.`
+              : `Arrived at pickup recorded.${notify} WhatsApp opened — press Send to message the customer.`,
           );
         } else if (!mobile && !options?.retryArrivalNotification) {
           setMessage(
-            `Arrived at pickup recorded.${notify} No customer mobile on this booking for WhatsApp.`,
+            result.idempotent
+              ? `Already arrived at pickup.${notify} No customer mobile on this booking for WhatsApp.`
+              : `Arrived at pickup recorded.${notify} No customer mobile on this booking for WhatsApp.`,
           );
         } else {
           setMessage(
@@ -990,7 +1009,9 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
               ? result.arrivalNotificationStatus === "sent"
                 ? "Arrival notification resent successfully."
                 : `Arrived at pickup recorded.${notify}`
-              : `Arrived at pickup recorded.${notify}`,
+              : result.idempotent
+                ? `Already arrived at pickup.${notify}`
+                : `Arrived at pickup recorded.${notify}`,
           );
         }
       } else if (options?.retryArrivalNotification) {
@@ -1081,26 +1102,32 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
   const needsFinalize = pending.filter((item) => item.needsFinalize);
 
   function renderJourneyControls(booking: OwnerPaidBookingSummary) {
-    const status = booking.journeyStatus || "idle";
+    // Live sharing without an explicit status still counts as tracking for controls
+    // (matches customer label fallback — otherwise Arrived stays hidden).
+    const rawStatus = booking.journeyStatus || "idle";
+    const status =
+      booking.sharingActive && (rawStatus === "idle" || !booking.journeyStatus)
+        ? "tracking"
+        : rawStatus;
     const busy = busyRef === booking.paymentReference;
-    const canComplete = status !== "completed" && booking.status !== "refunded";
     const showEvidence =
       status === "completed" ||
       Boolean(booking.trackingToken) ||
       (diagnostics[booking.paymentReference]?.gpsPointCount ?? 0) > 0;
 
     const primaryActions: { action: JourneyAction; label: string }[] = [];
-    if (status === "tracking") {
-      primaryActions.push({ action: "arrived_pickup", label: "🚕 Arrived at Pickup" });
-    } else if (status === "arrived_pickup") {
+    if (status === "arrived_pickup") {
       // Intended owner flow: Arrived → WhatsApp → Complete Journey
       primaryActions.push({ action: "complete_journey", label: "Complete Journey" });
     } else if (status === "en_route") {
       primaryActions.push({ action: "arrived_destination", label: "Arrived at Destination" });
     } else if (status === "arrived_destination") {
       primaryActions.push({ action: "complete_journey", label: "Complete Journey" });
-    } else if (status === "idle" || status === "stopped" || !status) {
-      if (canComplete) {
+    } else if (status !== "completed" && booking.status !== "refunded") {
+      // idle / stopped / tracking — Arrived must be visible (not only after Start Live Tracking).
+      // Arrived is listed before Complete Journey.
+      primaryActions.push({ action: "arrived_pickup", label: "🚕 Arrived at Pickup" });
+      if (status === "idle" || status === "stopped") {
         primaryActions.push({ action: "complete_journey", label: "Complete Journey" });
       }
     }
@@ -1110,6 +1137,11 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
         <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-white/40">
           Journey
         </p>
+        {status === "arrived_pickup" && booking.arrivedPickupAt ? (
+          <p className="mb-2 text-sm font-semibold text-emerald">
+            Arrived at pickup · {formatArrivedPickupHhMm(booking.arrivedPickupAt)}
+          </p>
+        ) : null}
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
           {status === "completed" ? (
             <a
@@ -1138,6 +1170,35 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
                   </button>
                 );
               })}
+              {status === "arrived_pickup" ? (
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => {
+                    void (async () => {
+                      setBusyRef(booking.paymentReference);
+                      setError("");
+                      try {
+                        const outcome = await openArrivalWhatsAppForBooking(ownerKey, booking);
+                        setMessage(
+                          outcome === "opened"
+                            ? "WhatsApp arrival message opened — press Send to message the customer. Arrival time was not changed."
+                            : "No customer mobile on this booking for WhatsApp.",
+                        );
+                      } catch (err) {
+                        setError(
+                          err instanceof Error ? err.message : "Could not open WhatsApp",
+                        );
+                      } finally {
+                        setBusyRef("");
+                      }
+                    })();
+                  }}
+                  className="min-h-11 w-full rounded-xl border border-emerald/40 bg-emerald/15 px-4 py-2.5 text-sm font-bold text-emerald transition-colors hover:bg-emerald/25 disabled:opacity-60 sm:w-auto"
+                >
+                  Open WhatsApp arrival message
+                </button>
+              ) : null}
               {showEvidence ? (
                 <a
                   href={`/owner/journey-evidence/?ref=${encodeURIComponent(booking.paymentReference)}`}
@@ -1173,16 +1234,16 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
             </button>
           ) : null}
         </div>
-        {status === "tracking" ? (
+        {status !== "completed" && status !== "arrived_pickup" && status !== "arrived_destination" ? (
           <p className="mt-2 text-xs text-white/45">
-            Press Arrived at Pickup when you are at the customer. This records arrival, emails the
-            customer, and opens WhatsApp with a ready-to-send message (you press Send).
+            Ideal flow: Start Live Tracking (GPS) → Arrived at Pickup (records time, emails customer,
+            opens WhatsApp — you press Send) → Complete Journey when finished.
           </p>
         ) : null}
-        {canComplete && (status === "idle" || status === "stopped" || !status) ? (
+        {status === "arrived_pickup" ? (
           <p className="mt-2 text-xs text-white/45">
-            Start Live Tracking above for GPS. Complete Journey when the passenger trip has finished
-            (schedules the Google review email ~2 hours later).
+            Arrival already recorded (timestamp kept). Re-open WhatsApp if needed, then Complete
+            Journey when the passenger trip has finished.
           </p>
         ) : null}
       </div>

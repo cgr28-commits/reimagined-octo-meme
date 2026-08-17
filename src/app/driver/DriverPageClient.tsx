@@ -856,11 +856,11 @@ function DriverJobCard({
   const allowedActions: JourneyAction[] =
     job.allowedJourneyActions ??
     (journeyStatus === "idle" || journeyStatus === "stopped"
-      ? ["start_tracking"]
+      ? ["start_tracking", "arrived_pickup"]
       : journeyStatus === "tracking"
         ? ["arrived_pickup", "stop_tracking"]
         : journeyStatus === "arrived_pickup"
-          ? ["start_journey", "stop_tracking"]
+          ? ["complete_journey", "stop_tracking"]
           : journeyStatus === "en_route"
             ? ["arrived_destination", "stop_tracking"]
             : journeyStatus === "arrived_destination"

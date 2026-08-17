@@ -226,6 +226,7 @@ console.log("\n=== 7. Owner panel UI contracts ===");
   assert.match(panel, /buildArrivedPickupWhatsAppLink|wa\.me/);
   assert.match(panel, /Complete Journey/);
   assert.match(panel, /status === "arrived_pickup"/);
+  assert.match(panel, /idle \/ stopped \/ tracking/);
   assert.match(panel, /OwnerEditBookingModal/);
   assert.match(panel, /Confirm \$\{booking\.amountPaid|Confirm Changes/);
   assert.match(panel, /This will refund the customer/);
