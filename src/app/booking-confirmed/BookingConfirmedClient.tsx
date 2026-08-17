@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import GoogleAdsConversion from "@/components/GoogleAdsConversion";
+import { saveToContactsHref } from "@/lib/contact-card";
 import { SITE } from "@/lib/data";
 import {
   finalizePaidBookingFromUrl,
@@ -23,6 +24,11 @@ export default function BookingConfirmedClient() {
   const [fireConversion, setFireConversion] = useState(false);
   const [customerEmail, setCustomerEmail] = useState<string | undefined>();
   const [customerPhone, setCustomerPhone] = useState<string | undefined>();
+  const [contactsHref, setContactsHref] = useState("/My-Airport-Taxi-NI.vcf");
+
+  useEffect(() => {
+    setContactsHref(saveToContactsHref());
+  }, []);
 
   useEffect(() => {
     const search = window.location.search;
@@ -172,6 +178,24 @@ export default function BookingConfirmedClient() {
             </button>
           )}
         </div>
+
+        {status === "confirmed" ? (
+          <div className="mt-8 border-t border-white/10 pt-6">
+            <p className="text-xs font-semibold uppercase tracking-wider text-white/45">
+              Save us for your next journey
+            </p>
+            <p className="mt-2 text-sm leading-relaxed text-white/65">
+              Keep {SITE.name} in your contacts so we&apos;re easy to find whenever you need another
+              airport transfer.
+            </p>
+            <a
+              href={contactsHref}
+              className="mt-4 inline-flex rounded-xl border border-white/20 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:border-emerald/50 hover:text-emerald"
+            >
+              Save My Airport Taxi NI to Contacts
+            </a>
+          </div>
+        ) : null}
       </div>
     </>
   );

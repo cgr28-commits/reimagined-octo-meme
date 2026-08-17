@@ -7,6 +7,7 @@ import {
   BUSINESS_PHONE_TEL,
   BUSINESS_WEBSITE as CANONICAL_BUSINESS_WEBSITE,
 } from "./business-email";
+import { contactVCardPublicUrl } from "./business-links";
 import { formatUkDate, formatUkTime, UK_LOCAL_TIME_LABEL } from "./uk-time";
 import {
   formatEmailFareIncludesBlock,
@@ -302,6 +303,23 @@ function buildInvoiceHtml(
           }
           <tr>
             <td style="padding:8px 32px 8px;">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;">
+                <tr>
+                  <td style="padding:20px 24px;">
+                    <div style="font-size:12px;letter-spacing:0.1em;text-transform:uppercase;color:${ACCENT};font-weight:bold;margin-bottom:12px;">Save us for your next journey</div>
+                    <div style="font-size:14px;line-height:1.8;color:#475569;">
+                      Keep ${escapeHtml(businessName)} in your contacts so we&apos;re easy to find whenever you need another airport transfer.
+                    </div>
+                    <div style="margin-top:12px;">
+                      <a href="${escapeHtml(contactVCardPublicUrl())}" style="display:inline-block;background:${NAVY};color:#ffffff;text-decoration:none;font-size:14px;font-weight:bold;padding:12px 20px;border-radius:8px;">Save My Airport Taxi NI to Contacts</a>
+                    </div>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:8px 32px 8px;">
               <div style="font-size:13px;line-height:1.7;color:#64748b;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:16px 20px;">
                 <strong style="color:#92400e;">Cancellation policy:</strong>
                 With at least 24 hours’ notice we issue a full refund of the fare paid. Bookings cancelled within 24 hours of pickup are non-refundable.
@@ -370,6 +388,9 @@ export function buildCustomerConfirmationEmail(
         `Save this link — it activates about 1 hour before your scheduled pickup:\n` +
         `${trackUrl}\n`
       : "") +
+    `\nSAVE US FOR YOUR NEXT JOURNEY\n${"=".repeat(40)}\n` +
+    `Keep ${businessName} in your contacts so we're easy to find whenever you need another airport transfer.\n` +
+    `Save My Airport Taxi NI to Contacts:\n${contactVCardPublicUrl()}\n` +
     `\nWe will contact you if we need any further information before your journey.\n\n` +
     `If you have questions, reply to this email, call ${BUSINESS_PHONE_DISPLAY}, or contact us at ${BUSINESS_EMAIL}.\n\n` +
     `${businessName}\n` +
