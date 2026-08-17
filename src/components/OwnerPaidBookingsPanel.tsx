@@ -28,6 +28,10 @@ type LiveGpsState = {
   lastAt: number | null;
   accuracyMeters: number | null;
   error: string | null;
+  /** True only after the Worker accepted at least one GPS post. */
+  serverConnected: boolean;
+  pointCount: number;
+  permissionDenied: boolean;
 };
 
 function PaidBookingLiveTracking({
@@ -56,8 +60,12 @@ function PaidBookingLiveTracking({
   const tokenRef = useRef<string | null>(booking.trackingToken ?? null);
 
   useEffect(() => {
+    // Restore sharing flag from server, but never claim GPS connected without a fresh watch.
     setLocalActive(Boolean(booking.sharingActive));
     tokenRef.current = booking.trackingToken ?? null;
+    if (!booking.sharingActive) {
+      setGps(null);
+    }
   }, [booking.sharingActive, booking.trackingToken]);
 
   useEffect(() => {
@@ -75,10 +83,85 @@ function PaidBookingLiveTracking({
 
   useEffect(() => () => clearWatch(), [clearWatch]);
 
+  const uploadPosition = useCallback(
+    (
+      token: string,
+      sessionToken: string,
+      position: GeolocationPosition,
+    ) => {
+      const accuracy =
+        typeof position.coords.accuracy === "number" && Number.isFinite(position.coords.accuracy)
+          ? position.coords.accuracy
+          : null;
+
+      void postDriverLocation(
+        ownerKey,
+        token,
+        position.coords.latitude,
+        position.coords.longitude,
+        {
+          sessionToken,
+          ...(accuracy !== null ? { accuracy } : {}),
+          ...(typeof position.coords.speed === "number" && Number.isFinite(position.coords.speed)
+            ? { speed: position.coords.speed }
+            : {}),
+          ...(typeof position.coords.heading === "number" &&
+          Number.isFinite(position.coords.heading)
+            ? { heading: position.coords.heading }
+            : {}),
+        },
+      )
+        .then((result) => {
+          setGps((current) =>
+            current
+              ? {
+                  ...current,
+                  lastAt: Date.now(),
+                  accuracyMeters: accuracy,
+                  error: null,
+                  permissionDenied: false,
+                  serverConnected: true,
+                  pointCount:
+                    typeof result.pointCount === "number"
+                      ? Math.max(current.pointCount, result.pointCount)
+                      : Math.max(current.pointCount, 1),
+                }
+              : current,
+          );
+        })
+        .catch((err) => {
+          const message =
+            err instanceof Error && err.message.trim()
+              ? err.message
+              : "GPS upload failed — check connection and keep this page open.";
+          setGps((current) =>
+            current
+              ? {
+                  ...current,
+                  error: message,
+                  // Keep serverConnected if we already had a successful point.
+                }
+              : current,
+          );
+        });
+    },
+    [ownerKey],
+  );
+
   const startGpsWatch = useCallback(
     (token: string, sessionToken: string) => {
       if (!navigator.geolocation) {
         onError("This browser does not support live GPS tracking.");
+        setGps({
+          token,
+          sessionToken,
+          lastAt: null,
+          accuracyMeters: null,
+          error: "GPS NOT RECORDING — this browser has no geolocation API.",
+          serverConnected: false,
+          pointCount: 0,
+          permissionDenied: true,
+        });
         return;
       }
 
@@ -91,57 +174,44 @@ function PaidBookingLiveTracking({
         lastAt: null,
         accuracyMeters: null,
         error: null,
+        serverConnected: false,
+        pointCount: 0,
+        permissionDenied: false,
       });
+
+      const onGeoError = (geoError: GeolocationPositionError) => {
+        const permissionDenied = geoError.code === geoError.PERMISSION_DENIED;
+        setGps((current) =>
+          current
+            ? {
+                ...current,
+                permissionDenied,
+                error: permissionDenied
+                  ? "GPS NOT RECORDING — location permission denied. Enable Precise Location for Safari, then try again."
+                  : "GPS NOT RECORDING — location unavailable. Keep this page open and check GPS.",
+              }
+            : current,
+        );
+      };
+
+      // Force the iPhone permission prompt + first fix before relying on watch alone.
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          uploadPosition(token, sessionToken, position);
+        },
+        onGeoError,
+        {
+          enableHighAccuracy: true,
+          maximumAge: 0,
+          timeout: 25_000,
+        },
+      );
 
       watchIdRef.current = navigator.geolocation.watchPosition(
         (position) => {
-          const accuracy =
-            typeof position.coords.accuracy === "number" && Number.isFinite(position.coords.accuracy)
-              ? position.coords.accuracy
-              : null;
-          setGps((current) =>
-            current
-              ? {
-                  ...current,
-                  lastAt: Date.now(),
-                  accuracyMeters: accuracy,
-                  error: null,
-                }
-              : current,
-          );
-          void postDriverLocation(
-            ownerKey,
-            token,
-            position.coords.latitude,
-            position.coords.longitude,
-            {
-              sessionToken,
-              ...(accuracy !== null ? { accuracy } : {}),
-              ...(typeof position.coords.speed === "number" && Number.isFinite(position.coords.speed)
-                ? { speed: position.coords.speed }
-                : {}),
-              ...(typeof position.coords.heading === "number" &&
-              Number.isFinite(position.coords.heading)
-                ? { heading: position.coords.heading }
-                : {}),
-            },
-          ).catch(() => {
-            // Transient upload errors retry on the next GPS tick.
-          });
+          uploadPosition(token, sessionToken, position);
         },
-        (geoError) => {
-          setGps((current) =>
-            current
-              ? {
-                  ...current,
-                  error:
-                    geoError.code === geoError.PERMISSION_DENIED
-                      ? "Location permission denied — enable Precise Location and reopen this page."
-                      : "Location unavailable — keep this page open and check GPS.",
-                }
-              : current,
-          );
-        },
+        onGeoError,
         {
           enableHighAccuracy: true,
           maximumAge: 15_000,
@@ -149,7 +219,7 @@ function PaidBookingLiveTracking({
         },
       );
     },
-    [clearWatch, onError, ownerKey],
+    [clearWatch, onError, uploadPosition],
   );
 
   const startTracking = async () => {
@@ -171,11 +241,22 @@ function PaidBookingLiveTracking({
         throw new Error("Tracking started but no GPS session was issued — try again.");
       }
 
+      // Sharing is on server-side, but UI stays "waiting for GPS" until Worker accepts a point.
       setLocalActive(true);
+      setGps({
+        token,
+        sessionToken,
+        lastAt: null,
+        accuracyMeters: null,
+        error: null,
+        serverConnected: false,
+        pointCount: 0,
+        permissionDenied: false,
+      });
       startGpsWatch(token, sessionToken);
       onSharingChange(true);
       onMessage(
-        "Live tracking active. Keep this page open while driving — GPS may pause if the phone locks or Safari goes to the background.",
+        "Waiting for GPS… Keep this Safari tab open in the foreground. GPS pauses if the screen locks or you switch apps.",
       );
     } catch (err) {
       onError(err instanceof Error ? err.message : "Could not start live tracking");
@@ -201,7 +282,7 @@ function PaidBookingLiveTracking({
       clearWatch();
       setGps(null);
       onSharingChange(false);
-      onMessage("Live tracking stopped.");
+      onMessage("Live tracking stopped. Recorded GPS history is kept for journey evidence.");
     } catch (err) {
       onError(err instanceof Error ? err.message : "Could not stop live tracking");
     } finally {
@@ -210,8 +291,12 @@ function PaidBookingLiveTracking({
     }
   };
 
-  const active = localActive;
-  const lastAt = gps?.lastAt ?? (booking.driverUpdatedAt ? new Date(booking.driverUpdatedAt).getTime() : null);
+  const sessionOn = localActive;
+  const gpsConnected = Boolean(gps?.serverConnected);
+  const gpsNotRecording = Boolean(
+    sessionOn && (gps?.permissionDenied || (gps?.error && !gpsConnected)),
+  );
+  const lastAt = gps?.lastAt ?? null;
   const lastLabel =
     lastAt && Number.isFinite(lastAt)
       ? `${Math.max(1, Math.round((Date.now() - lastAt) / 1000))}s ago`
@@ -233,32 +318,53 @@ function PaidBookingLiveTracking({
           </p>
           <p className="mt-1 text-sm font-semibold text-white">
             Status:{" "}
-            <span className={active ? "text-emerald" : "text-white/70"}>
-              {active ? "LIVE" : "OFF"}
+            <span
+              className={
+                gpsConnected ? "text-emerald" : sessionOn ? "text-amber-200" : "text-white/70"
+              }
+            >
+              {gpsConnected ? "LIVE" : sessionOn ? "WAITING FOR GPS" : "OFF"}
             </span>
           </p>
-          {active && lastLabel ? (
-            <p className="mt-1 text-xs text-white/60">Last update: {lastLabel}</p>
+          {gpsConnected ? (
+            <>
+              <p className="mt-1 text-xs text-emerald">GPS: Connected</p>
+              {lastLabel ? (
+                <p className="mt-1 text-xs text-white/60">Last GPS update: {lastLabel}</p>
+              ) : null}
+              {typeof gps?.accuracyMeters === "number" ? (
+                <p className="mt-1 text-xs text-white/60">
+                  Accuracy: ±{Math.round(gps.accuracyMeters)} m
+                </p>
+              ) : null}
+              <p className="mt-1 text-xs text-white/60">
+                Points recorded: {gps?.pointCount ?? 0}
+              </p>
+            </>
           ) : null}
-          {active && typeof gps?.accuracyMeters === "number" ? (
-            <p className="mt-1 text-xs text-white/60">
-              Accuracy: ±{Math.round(gps.accuracyMeters)} m
+          {sessionOn && !gpsConnected && !gpsNotRecording ? (
+            <p className="mt-2 text-xs text-amber-100">
+              Waiting for the first GPS fix and server confirmation…
             </p>
           ) : null}
+          {gpsNotRecording ? (
+            <p className="mt-2 text-sm font-semibold text-amber-100">GPS NOT RECORDING</p>
+          ) : null}
           {gps?.error ? <p className="mt-2 text-xs text-amber-100">{gps.error}</p> : null}
-          {active ? (
+          {sessionOn ? (
             <p className="mt-2 text-xs text-white/45">
-              Keep this tab open. iPhone/Safari may pause GPS when the screen locks or the browser
-              is backgrounded.
+              Keep this Safari tab open in the foreground. iPhone may pause GPS when the screen
+              locks, Safari backgrounds, or you open Maps/Waze.
             </p>
           ) : (
             <p className="mt-2 text-xs text-white/45">
-              Customers only see your live location from about 1 hour before pickup.
+              Customers only see your live location from about 1 hour before pickup. Historical
+              GPS stays owner-only.
             </p>
           )}
         </div>
         <div className="flex flex-wrap gap-2">
-          {!active ? (
+          {!sessionOn ? (
             <button
               type="button"
               disabled={busy}
@@ -269,8 +375,20 @@ function PaidBookingLiveTracking({
             </button>
           ) : (
             <>
-              <span className="inline-flex min-h-11 items-center rounded-xl border border-emerald/40 bg-emerald/15 px-4 py-2 text-sm font-semibold text-emerald">
-                LIVE TRACKING ACTIVE
+              <span
+                className={`inline-flex min-h-11 items-center rounded-xl border px-4 py-2 text-sm font-semibold ${
+                  gpsConnected
+                    ? "border-emerald/40 bg-emerald/15 text-emerald"
+                    : gpsNotRecording
+                      ? "border-amber-400/40 bg-amber-500/15 text-amber-100"
+                      : "border-white/20 bg-white/5 text-white/80"
+                }`}
+              >
+                {gpsConnected
+                  ? "LIVE TRACKING ACTIVE"
+                  : gpsNotRecording
+                    ? "GPS NOT RECORDING"
+                    : "WAITING FOR GPS"}
               </span>
               <button
                 type="button"

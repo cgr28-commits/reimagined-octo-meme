@@ -935,6 +935,7 @@ export function corsHeaders(origin: string | null): HeadersInit {
   return {
     "Access-Control-Allow-Origin": allowedOrigin,
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, X-Driver-Key, X-Owner-Key",
+    "Access-Control-Allow-Headers":
+      "Content-Type, Accept, X-Driver-Key, X-Owner-Key, X-Tracking-Session",
   };
 }
