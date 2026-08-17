@@ -29,6 +29,7 @@ import {
   recoverPaidButUnfinalizedCheckouts,
   recoverPaidCheckout,
 } from "./recover-paid-checkouts";
+import { buildReviewRequestSummary } from "./review-request-handlers";
 import {
   trySendBrandedCustomerEmail,
   trySendOwnerOperationalEmail,
@@ -162,16 +163,20 @@ export async function handlePaidBookingsListRequest(
     bookings.map(async (booking) => {
       let sharingActive = false;
       let journeyStatus: string | undefined;
+      let journeyCompletedAt: string | undefined;
       let driverUpdatedAt: string | undefined;
       let trackUrl: string | undefined;
+      let reviewRequest: ReturnType<typeof buildReviewRequestSummary> | undefined;
       const token = booking.trackingToken?.trim();
       if (token) {
         const job = await getTrackingJob(store, token);
         if (job) {
           sharingActive = Boolean(job.sharingActive);
           journeyStatus = journeyStatusOf(job);
+          journeyCompletedAt = job.journeyCompletedAt;
           driverUpdatedAt = job.driverUpdatedAt;
           trackUrl = buildPublicTrackUrl(job.token);
+          reviewRequest = buildReviewRequestSummary(job);
         }
       }
 
@@ -195,8 +200,10 @@ export async function handlePaidBookingsListRequest(
         trackingToken: booking.trackingToken,
         sharingActive,
         journeyStatus,
+        journeyCompletedAt,
         driverUpdatedAt,
         trackUrl,
+        ...(reviewRequest ? { reviewRequest } : {}),
       };
     }),
   );

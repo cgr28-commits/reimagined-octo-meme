@@ -3,6 +3,15 @@ import { resolveWorkerBaseUrl } from "@/lib/worker-api";
 
 const WORKER_BASE = resolveWorkerBaseUrl();
 
+export type OwnerReviewRequestSummary = {
+  status: "not_scheduled" | "scheduled" | "sent" | "failed";
+  scheduledAt?: string;
+  dueAt?: string;
+  sentAt?: string;
+  failedAt?: string;
+  lastError?: string;
+};
+
 export type OwnerPaidBookingSummary = Pick<
   PaidBookingRecord,
   | "paymentReference"
@@ -25,8 +34,10 @@ export type OwnerPaidBookingSummary = Pick<
   trackingToken?: string;
   sharingActive?: boolean;
   journeyStatus?: string;
+  journeyCompletedAt?: string;
   driverUpdatedAt?: string;
   trackUrl?: string;
+  reviewRequest?: OwnerReviewRequestSummary;
 };
 
 export type OwnerPendingCheckoutSummary = {
@@ -179,6 +190,55 @@ export async function resendPaidBookingConfirmation(
       typeof payload.customerEmailError === "string" ? payload.customerEmailError : undefined,
     tripLabel: typeof payload.tripLabel === "string" ? payload.tripLabel : undefined,
     amountPaid: typeof payload.amountPaid === "string" ? payload.amountPaid : undefined,
+  };
+}
+
+export type SendReviewRequestResult = {
+  ok: boolean;
+  alreadySent?: boolean;
+  resent?: boolean;
+  customerEmail?: string;
+  error?: string;
+  reviewRequest?: OwnerReviewRequestSummary;
+};
+
+export async function sendOwnerReviewRequest(
+  ownerKey: string,
+  options: { paymentReference?: string; token?: string; forceResend?: boolean },
+): Promise<SendReviewRequestResult> {
+  const response = await fetch(`${WORKER_BASE}/paid-bookings/review-request`, {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      "X-Owner-Key": ownerKey.trim(),
+    },
+    body: JSON.stringify({
+      ...(options.paymentReference ? { paymentReference: options.paymentReference } : {}),
+      ...(options.token ? { token: options.token } : {}),
+      ...(options.forceResend ? { forceResend: true } : {}),
+    }),
+  });
+  const payload = await parseJson(response);
+  const reviewRequest =
+    payload.reviewRequest && typeof payload.reviewRequest === "object"
+      ? (payload.reviewRequest as OwnerReviewRequestSummary)
+      : undefined;
+
+  if (!response.ok) {
+    return {
+      ok: false,
+      alreadySent: payload.alreadySent === true,
+      error: String(payload.error ?? "Failed to send review request"),
+      reviewRequest,
+    };
+  }
+
+  return {
+    ok: payload.ok === true,
+    resent: payload.resent === true,
+    customerEmail: typeof payload.customerEmail === "string" ? payload.customerEmail : undefined,
+    reviewRequest,
   };
 }
 

@@ -8,8 +8,10 @@ import {
   allowedJourneyActions,
   buildPublicTrackUrl,
   customerJourneyLabel,
+  ensureReviewRequestScheduled,
   formatLondonDateTime,
   journeyStatusOf,
+  resolveReviewRequestDelayMs,
   TRACKING_SESSION_TTL_SECONDS,
   type DriverLocationPoint,
   type JourneyAction,
@@ -37,6 +39,7 @@ import {
 } from "./tracking-store";
 import { getPaidBookingRecord, paidBookingStoreConfigured, savePaidBookingRecord } from "./paid-booking-store";
 import type { PaidBookingDetails } from "../shared/booking-notifications";
+import { buildReviewRequestSummary } from "./review-request-handlers";
 
 type Env = {
   TRACKING_STORE?: KVNamespace;
@@ -46,6 +49,8 @@ type Env = {
   DRIVER_ROSTER?: string;
   /** Optional override for GPS audit retention (seconds). */
   TRACKING_GPS_HISTORY_TTL_SECONDS?: string;
+  /** Minutes after journey completion before the Google review email (default 120). */
+  REVIEW_REQUEST_DELAY_MINUTES?: string;
 };
 
 function jsonResponse(body: unknown, status: number, origin: string | null) {
@@ -113,11 +118,18 @@ export async function handleJourneyTransitionRequest(
     return jsonResponse({ error: applied.error }, 409, origin);
   }
 
-  const next = applied.job;
+  let next = applied.job;
   if (session.authorized && session.role === "driver" && session.driverName && next.sharingActive) {
     next.activeDriverName = session.driverName;
   } else if (session.authorized && session.role === "owner" && next.sharingActive) {
     next.activeDriverName = next.activeDriverName ?? "Owner";
+  }
+
+  if (action === "complete_journey") {
+    next = ensureReviewRequestScheduled(
+      next,
+      resolveReviewRequestDelayMs(env.REVIEW_REQUEST_DELAY_MINUTES),
+    );
   }
 
   await saveTrackingJob(env.TRACKING_STORE, next);
@@ -153,6 +165,7 @@ export async function handleJourneyTransitionRequest(
       arrivedDestinationAt: next.arrivedDestinationAt,
       journeyCompletedAt: next.journeyCompletedAt,
       trackingStoppedAt: next.trackingStoppedAt,
+      reviewRequest: buildReviewRequestSummary(next),
       ...(trackingSession ? { trackingSession } : {}),
     },
     200,

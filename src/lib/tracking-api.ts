@@ -456,6 +456,14 @@ export type JourneyTransitionResponse = {
   journeyCompletedAt?: string;
   trackingStoppedAt?: string;
   trackingSession?: { sessionToken: string; expiresAt: string };
+  reviewRequest?: {
+    status: "not_scheduled" | "scheduled" | "sent" | "failed";
+    scheduledAt?: string;
+    dueAt?: string;
+    sentAt?: string;
+    failedAt?: string;
+    lastError?: string;
+  };
 };
 
 export async function postJourneyAction(

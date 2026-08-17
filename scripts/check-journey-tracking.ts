@@ -46,7 +46,11 @@ function run() {
   assert.notEqual(token, session);
 
   let job = baseJob();
-  assert.deepEqual(allowedJourneyActions("idle"), ["start_tracking"]);
+  assert.deepEqual(allowedJourneyActions("idle"), ["start_tracking", "complete_journey"]);
+  assert.ok(allowedJourneyActions("tracking").includes("complete_journey"));
+  assert.ok(allowedJourneyActions("stopped").includes("complete_journey"));
+  assert.ok(allowedJourneyActions("stopped").includes("start_tracking"));
+  assert.ok(!allowedJourneyActions("stopped").includes("stop_tracking"));
 
   job = mustApply(job, "start_tracking");
   assert.equal(job.journeyStatus, "tracking");
@@ -65,6 +69,14 @@ function run() {
   assert.equal(job.journeyStatus, "completed");
   assert.equal(job.sharingActive, false);
   assert.equal(allowedJourneyActions("completed").length, 0);
+
+  // Stop Live Tracking then Complete Journey (owner path after GPS off).
+  let stoppedJob = mustApply(baseJob(), "start_tracking");
+  stoppedJob = mustApply(stoppedJob, "stop_tracking");
+  assert.equal(stoppedJob.journeyStatus, "stopped");
+  stoppedJob = mustApply(stoppedJob, "complete_journey");
+  assert.equal(stoppedJob.journeyStatus, "completed");
+  assert.ok(stoppedJob.journeyCompletedAt);
 
   const blocked = applyJourneyAction(job, "start_tracking");
   assert.equal(blocked.ok, false);

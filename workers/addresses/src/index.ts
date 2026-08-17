@@ -107,7 +107,11 @@ import {
   handleOwnerProfileSaveRequest,
   isOwnerProfilePath,
 } from "./owner-profile-handlers";
-import { processDueReviewRequests } from "./review-request-handlers";
+import {
+  handleReviewRequestSendRequest,
+  isReviewRequestSendPath,
+  processDueReviewRequests,
+} from "./review-request-handlers";
 import { processDueTrackingAvailableReminders } from "./tracking-reminder-handlers";
 import { handleDriverUpdateBookingRequest } from "./driver-booking-handlers";
 import {
@@ -196,6 +200,8 @@ type Env = {
   TRACKING_STORE?: KVNamespace;
   DRIVER_ACCESS_KEY?: string;
   GOOGLE_REVIEW_URL?: string;
+  /** Minutes after journey completion before automated Google review email (default 120). */
+  REVIEW_REQUEST_DELAY_MINUTES?: string;
   OWNER_ACCESS_KEY?: string;
   /** Optional GPS audit retention override (seconds, min 30 days). */
   TRACKING_GPS_HISTORY_TTL_SECONDS?: string;
@@ -340,6 +346,7 @@ function routePath(
   | "bookings-refund"
   | "paid-bookings"
   | "paid-bookings-resend"
+  | "paid-bookings-review-request"
   | "paid-bookings-pending"
   | "paid-bookings-finalize"
   | "booking-jobs"
@@ -392,6 +399,10 @@ function routePath(
 
   if (isPaidBookingResendPath(pathname)) {
     return "paid-bookings-resend";
+  }
+
+  if (isReviewRequestSendPath(pathname)) {
+    return "paid-bookings-review-request";
   }
 
   if (isFinalizeCheckoutPath(pathname)) {
@@ -1641,6 +1652,13 @@ export default {
         return json({ error: "Method not allowed" }, 405, origin);
       }
       return handlePaidBookingResendRequest(request, env, origin);
+    }
+
+    if (route === "paid-bookings-review-request") {
+      if (request.method !== "POST") {
+        return json({ error: "Method not allowed" }, 405, origin);
+      }
+      return handleReviewRequestSendRequest(request, env, origin);
     }
 
     if (route === "booking-jobs") {
