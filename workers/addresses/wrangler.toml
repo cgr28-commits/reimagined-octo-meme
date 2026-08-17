@@ -44,5 +44,9 @@ id = "869e2c2e02004d4a88c9cfbf563f1d6a"
 [[send_email]]
 name = "EMAIL"
 
+[vars]
+# Minutes after journey COMPLETE before automated Google review email (hourly cron sends when due).
+REVIEW_REQUEST_DELAY_MINUTES = "120"
+
 [triggers]
 crons = ["0 * * * *"]

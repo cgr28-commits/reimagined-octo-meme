@@ -7,8 +7,10 @@ import {
   fetchOwnerPendingCheckouts,
   finalizePaidCheckoutRecovery,
   resendPaidBookingConfirmation,
+  sendOwnerReviewRequest,
   type OwnerPaidBookingSummary,
   type OwnerPendingCheckoutSummary,
+  type OwnerReviewRequestSummary,
 } from "@/lib/paid-bookings-api";
 import {
   ensurePaidBookingTracking,
@@ -27,6 +29,19 @@ type LiveGpsState = {
   accuracyMeters: number | null;
   error: string | null;
 };
+
+function reviewStatusLabel(status: OwnerReviewRequestSummary["status"] | undefined): string {
+  switch (status) {
+    case "scheduled":
+      return "Scheduled";
+    case "sent":
+      return "Sent";
+    case "failed":
+      return "Failed";
+    default:
+      return "Not scheduled";
+  }
+}
 
 function PaidBookingLiveTracking({
   ownerKey,
@@ -378,6 +393,40 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
     }
   }
 
+  async function handleReviewRequest(booking: OwnerPaidBookingSummary, forceResend = false) {
+    setBusyRef(booking.paymentReference);
+    setError("");
+    setMessage("");
+    try {
+      const result = await sendOwnerReviewRequest(ownerKey, {
+        paymentReference: booking.paymentReference,
+        token: booking.trackingToken,
+        forceResend,
+      });
+      if (result.reviewRequest) {
+        setBookings((current) =>
+          current.map((entry) =>
+            entry.paymentReference === booking.paymentReference
+              ? { ...entry, reviewRequest: result.reviewRequest }
+              : entry,
+          ),
+        );
+      }
+      if (!result.ok) {
+        throw new Error(result.error || "Could not send review request");
+      }
+      setMessage(
+        forceResend
+          ? `Review request resent to ${result.customerEmail || booking.customerEmail}.`
+          : `Review request sent to ${result.customerEmail || booking.customerEmail}.`,
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not send review request");
+    } finally {
+      setBusyRef("");
+    }
+  }
+
   async function handleRecover(checkoutId?: string) {
     setRecovering(true);
     setError("");
@@ -566,6 +615,42 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
                       : "No"}
                   </dd>
                 </div>
+                <div className="sm:col-span-2">
+                  <dt className="text-white/40">Review request</dt>
+                  <dd className="mt-1">
+                    <span
+                      className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wider ${
+                        booking.reviewRequest?.status === "sent"
+                          ? "border-emerald/40 bg-emerald/15 text-emerald"
+                          : booking.reviewRequest?.status === "failed"
+                            ? "border-red-400/30 bg-red-500/10 text-red-100"
+                            : booking.reviewRequest?.status === "scheduled"
+                              ? "border-sky-400/30 bg-sky-500/10 text-sky-100"
+                              : "border-white/15 bg-white/5 text-white/70"
+                      }`}
+                    >
+                      {reviewStatusLabel(booking.reviewRequest?.status)}
+                    </span>
+                    {booking.reviewRequest?.scheduledAt ? (
+                      <span className="mt-2 block text-xs text-white/45">
+                        Scheduled {formatUkInstant(booking.reviewRequest.scheduledAt)}
+                        {booking.reviewRequest.dueAt
+                          ? ` · due ${formatUkInstant(booking.reviewRequest.dueAt)}`
+                          : ""}
+                      </span>
+                    ) : null}
+                    {booking.reviewRequest?.sentAt ? (
+                      <span className="mt-1 block text-xs text-white/45">
+                        Sent {formatUkInstant(booking.reviewRequest.sentAt)}
+                      </span>
+                    ) : null}
+                    {booking.reviewRequest?.status === "failed" && booking.reviewRequest.lastError ? (
+                      <span className="mt-1 block text-xs text-red-200/80">
+                        {booking.reviewRequest.lastError}
+                      </span>
+                    ) : null}
+                  </dd>
+                </div>
               </dl>
 
               {booking.status !== "refunded" ? (
@@ -607,6 +692,37 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
                         ? "Sending…"
                         : "Resend booking confirmation"}
                     </button>
+                    {booking.journeyStatus === "completed" || booking.reviewRequest ? (
+                      booking.reviewRequest?.status === "sent" ? (
+                        <button
+                          type="button"
+                          disabled={busyRef === booking.paymentReference}
+                          onClick={() => {
+                            if (
+                              window.confirm(
+                                "A review request was already sent. Send another copy to the customer?",
+                              )
+                            ) {
+                              void handleReviewRequest(booking, true);
+                            }
+                          }}
+                          className="rounded-xl border border-amber-300/40 px-4 py-2.5 text-sm font-semibold text-amber-100 transition-colors hover:border-amber-200/60 disabled:opacity-60"
+                        >
+                          Resend review request
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          disabled={busyRef === booking.paymentReference}
+                          onClick={() => void handleReviewRequest(booking, false)}
+                          className="rounded-xl border border-emerald/40 bg-emerald/15 px-4 py-2.5 text-sm font-semibold text-emerald transition-colors hover:bg-emerald/25 disabled:opacity-60"
+                        >
+                          {booking.reviewRequest?.status === "failed"
+                            ? "Retry review request"
+                            : "Send review request"}
+                        </button>
+                      )
+                    ) : null}
                     <button
                       type="button"
                       disabled={busyRef === booking.paymentReference}

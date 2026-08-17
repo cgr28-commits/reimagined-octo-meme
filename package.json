@@ -25,6 +25,7 @@
     "check:google-ads": "npx tsx scripts/check-google-ads-request-quote.ts",
     "check:emerge-belfast": "npx tsx scripts/check-emerge-belfast-page.ts",
     "check:journey-tracking": "npx tsx scripts/check-journey-tracking.ts",
+    "check:review-request": "npx tsx scripts/check-review-request.ts",
     "check:tracking-email-delivery": "npx tsx scripts/check-tracking-email-delivery.ts",
     "check:driver-profile-persist": "npx tsx scripts/check-driver-profile-persist.ts",
     "check:owner-profile-persist": "npx tsx scripts/check-owner-profile-persist.ts"

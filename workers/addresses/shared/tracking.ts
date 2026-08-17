@@ -54,8 +54,16 @@ export type TrackingJobRecord = {
    * (sent once when the customer window opens, ~1 hour before pickup).
    */
   sharingReminderSentAt?: string;
+  /** ISO timestamp when the post-trip Google review request was scheduled (on journey complete). */
+  reviewRequestScheduledAt?: string;
+  /** ISO timestamp when the review request email becomes due (~2h after completion by default). */
+  reviewRequestDueAt?: string;
   /** ISO timestamp when the post-trip Google review request email was sent */
   reviewRequestSentAt?: string;
+  /** ISO timestamp of the last failed automated/manual review send attempt */
+  reviewRequestFailedAt?: string;
+  /** Last review-request send error (Resend/provider) — does not affect journey completion */
+  reviewRequestLastError?: string;
   customerSharingActive?: boolean;
   customerLat?: number;
   customerLng?: number;
@@ -348,11 +356,126 @@ export type TrackingWindow = {
 
 const OPEN_BEFORE_MS = 60 * 60 * 1000;
 const CLOSE_AFTER_MS = 90 * 60 * 1000;
-/** Send review request 24 hours after the job completion window (pickup + 90 min). */
-export const REVIEW_REQUEST_DELAY_MS = 24 * 60 * 60 * 1000;
+
+/** Default delay after journey completion before the Google review email (minutes). */
+export const DEFAULT_REVIEW_REQUEST_DELAY_MINUTES = 120;
+
+/** Default delay in ms (override via REVIEW_REQUEST_DELAY_MINUTES worker var). */
+export const REVIEW_REQUEST_DELAY_MS = DEFAULT_REVIEW_REQUEST_DELAY_MINUTES * 60 * 1000;
 
 /** How long before pickup the customer-facing live map opens. */
 export const CUSTOMER_TRACKING_OPEN_BEFORE_MS = OPEN_BEFORE_MS;
+
+export type ReviewRequestStatus = "not_scheduled" | "scheduled" | "sent" | "failed";
+
+export function resolveReviewRequestDelayMs(configuredMinutes?: string | number): number {
+  const raw =
+    typeof configuredMinutes === "number"
+      ? configuredMinutes
+      : Number(String(configuredMinutes ?? "").trim());
+  if (Number.isFinite(raw) && raw >= 0 && raw <= 60 * 24 * 14) {
+    return Math.round(raw) * 60 * 1000;
+  }
+  return REVIEW_REQUEST_DELAY_MS;
+}
+
+export function getReviewRequestStatus(
+  job: Pick<
+    TrackingJobRecord,
+    | "journeyStatus"
+    | "journeyCompletedAt"
+    | "reviewRequestScheduledAt"
+    | "reviewRequestSentAt"
+    | "reviewRequestFailedAt"
+  >,
+): ReviewRequestStatus {
+  if (job.reviewRequestSentAt?.trim()) {
+    return "sent";
+  }
+  if (job.reviewRequestFailedAt?.trim()) {
+    return "failed";
+  }
+  if (job.reviewRequestScheduledAt?.trim() || journeyStatusOf(job) === "completed") {
+    if (journeyStatusOf(job) === "completed" || job.journeyCompletedAt?.trim()) {
+      return job.reviewRequestScheduledAt?.trim() ? "scheduled" : "not_scheduled";
+    }
+  }
+  return "not_scheduled";
+}
+
+/**
+ * Idempotently schedule a review request when a journey is marked completed.
+ * Does nothing if already scheduled/sent, or if the journey is not completed.
+ */
+export function ensureReviewRequestScheduled(
+  job: TrackingJobRecord,
+  delayMs: number = REVIEW_REQUEST_DELAY_MS,
+  nowIso = new Date().toISOString(),
+): TrackingJobRecord {
+  if (journeyStatusOf(job) !== "completed") {
+    return job;
+  }
+  if (job.reviewRequestSentAt?.trim()) {
+    return job;
+  }
+  if (job.reviewRequestScheduledAt?.trim() && job.reviewRequestDueAt?.trim()) {
+    return job;
+  }
+
+  const completedAt = job.journeyCompletedAt?.trim() || nowIso;
+  const completedMs = Date.parse(completedAt);
+  const dueAt = Number.isFinite(completedMs)
+    ? new Date(completedMs + delayMs).toISOString()
+    : new Date(Date.parse(nowIso) + delayMs).toISOString();
+
+  return {
+    ...job,
+    journeyCompletedAt: job.journeyCompletedAt ?? completedAt,
+    reviewRequestScheduledAt: job.reviewRequestScheduledAt ?? nowIso,
+    reviewRequestDueAt: job.reviewRequestDueAt ?? dueAt,
+  };
+}
+
+export function getReviewRequestDueAt(
+  job: Pick<TrackingJobRecord, "reviewRequestDueAt" | "journeyCompletedAt">,
+  delayMs: number = REVIEW_REQUEST_DELAY_MS,
+): Date | null {
+  if (job.reviewRequestDueAt?.trim()) {
+    const parsed = Date.parse(job.reviewRequestDueAt);
+    return Number.isFinite(parsed) ? new Date(parsed) : null;
+  }
+  if (job.journeyCompletedAt?.trim()) {
+    const completedMs = Date.parse(job.journeyCompletedAt);
+    return Number.isFinite(completedMs) ? new Date(completedMs + delayMs) : null;
+  }
+  return null;
+}
+
+/** True when a completed journey’s review email is due and not yet sent. */
+export function isReviewRequestDue(
+  job: Pick<
+    TrackingJobRecord,
+    | "journeyStatus"
+    | "journeyCompletedAt"
+    | "reviewRequestDueAt"
+    | "reviewRequestSentAt"
+    | "refundedAt"
+  >,
+  delayMs: number = REVIEW_REQUEST_DELAY_MS,
+  now = Date.now(),
+): boolean {
+  if (job.reviewRequestSentAt?.trim()) {
+    return false;
+  }
+  if (job.refundedAt?.trim()) {
+    return false;
+  }
+  if (journeyStatusOf(job) !== "completed") {
+    return false;
+  }
+  const dueAt = getReviewRequestDueAt(job, delayMs);
+  return dueAt !== null && now >= dueAt.getTime();
+}
 
 export function buildPickupDateTimeLocal(tripDate: string, tripTime: string): string | null {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(tripDate) || !/^\d{2}:\d{2}$/.test(tripTime)) {
@@ -379,18 +502,37 @@ export function getJobCompletionAt(pickupAt: string): Date | null {
   return new Date(pickup.getTime() + CLOSE_AFTER_MS);
 }
 
-export function getReviewRequestEligibleAt(pickupAt: string): Date | null {
-  const completedAt = getJobCompletionAt(pickupAt);
-  if (!completedAt) {
-    return null;
+export function getTrackingWindow(pickupAt: string, now = new Date()): TrackingWindow {
+  const pickup = parseLondonLocal(pickupAt);
+  if (!pickup) {
+    return {
+      open: false,
+      opensAt: pickupAt,
+      closesAt: pickupAt,
+      pickupAt,
+      reason: "too_early",
+    };
   }
 
-  return new Date(completedAt.getTime() + REVIEW_REQUEST_DELAY_MS);
+  const opensAt = new Date(pickup.getTime() - OPEN_BEFORE_MS);
+  const closesAt = new Date(pickup.getTime() + CLOSE_AFTER_MS);
+  const open = now >= opensAt && now <= closesAt;
+
+  return {
+    open,
+    opensAt: opensAt.toISOString(),
+    closesAt: closesAt.toISOString(),
+    pickupAt,
+    reason: now < opensAt ? "too_early" : now > closesAt ? "too_late" : "open",
+  };
 }
 
-export function isReviewRequestDue(pickupAt: string, now = Date.now()): boolean {
-  const eligibleAt = getReviewRequestEligibleAt(pickupAt);
-  return eligibleAt !== null && now >= eligibleAt.getTime();
+export function formatLondonDateTime(iso: string): string {
+  return formatUkDateTimeValue(iso, { withZoneLabel: true, includeYear: false });
+}
+
+export function buildPublicTrackUrl(token: string, siteUrl = "https://www.myairporttaxini.co.uk"): string {
+  return `${siteUrl.replace(/\/$/, "")}/track/?id=${encodeURIComponent(token)}`;
 }
 
 /** True once the customer tracking window has opened (~1 hour before pickup) and not yet closed. */
@@ -444,39 +586,6 @@ export function resolveEmailTrackUrl(
     return undefined;
   }
   return buildPublicTrackUrl(token, siteUrl);
-}
-
-export function getTrackingWindow(pickupAt: string, now = new Date()): TrackingWindow {
-  const pickup = parseLondonLocal(pickupAt);
-  if (!pickup) {
-    return {
-      open: false,
-      opensAt: pickupAt,
-      closesAt: pickupAt,
-      pickupAt,
-      reason: "too_early",
-    };
-  }
-
-  const opensAt = new Date(pickup.getTime() - OPEN_BEFORE_MS);
-  const closesAt = new Date(pickup.getTime() + CLOSE_AFTER_MS);
-  const open = now >= opensAt && now <= closesAt;
-
-  return {
-    open,
-    opensAt: opensAt.toISOString(),
-    closesAt: closesAt.toISOString(),
-    pickupAt,
-    reason: now < opensAt ? "too_early" : now > closesAt ? "too_late" : "open",
-  };
-}
-
-export function formatLondonDateTime(iso: string): string {
-  return formatUkDateTimeValue(iso, { withZoneLabel: true, includeYear: false });
-}
-
-export function buildPublicTrackUrl(token: string, siteUrl = "https://www.myairporttaxini.co.uk"): string {
-  return `${siteUrl.replace(/\/$/, "")}/track/?id=${encodeURIComponent(token)}`;
 }
 
 export function generateTrackingToken(): string {
