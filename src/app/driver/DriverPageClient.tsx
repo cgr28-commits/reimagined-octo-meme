@@ -2674,8 +2674,6 @@ export default function DriverPageClient({
                 </button>
               </div>
 
-              {isOwnerView && profilePanel}
-
               {isOwnerView && savedKey ? <OwnerShortNoticePanel ownerKey={savedKey} /> : null}
 
               {isOwnerView && savedKey ? <OwnerPaidBookingsPanel ownerKey={savedKey} /> : null}
@@ -2969,7 +2967,8 @@ export default function DriverPageClient({
               </>
               ) : null}
 
-              {!isOwnerView && profilePanel}
+              {/* Setup/settings at the bottom — Owner Profile then Additional Drivers (owner), or driver profile. */}
+              {profilePanel ? <div className="mt-8">{profilePanel}</div> : null}
             </>
           )}
         </div>
