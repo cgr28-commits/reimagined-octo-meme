@@ -455,6 +455,11 @@ export type JourneyTransitionResponse = {
   arrivedDestinationAt?: string;
   journeyCompletedAt?: string;
   trackingStoppedAt?: string;
+  arrivalNotificationStatus?: string;
+  arrivalNotificationSentAt?: string;
+  arrivalNotificationProvider?: string;
+  arrivalNotificationError?: string;
+  idempotent?: boolean;
   trackingSession?: { sessionToken: string; expiresAt: string };
   reviewRequest?: {
     status: "not_scheduled" | "scheduled" | "sent" | "failed";
@@ -470,6 +475,7 @@ export async function postJourneyAction(
   accessKey: string,
   token: string,
   action: JourneyAction,
+  options?: { retryArrivalNotification?: boolean },
 ): Promise<JourneyTransitionResponse> {
   if (isDemoDriverKey(accessKey) || isDemoOwnerKey(accessKey)) {
     const trackUrl = isDemoTrackToken(token)
@@ -495,7 +501,11 @@ export async function postJourneyAction(
     {
       method: "POST",
       headers: driverPostHeaders(accessKey),
-      body: JSON.stringify({ token, action }),
+      body: JSON.stringify({
+        token,
+        action,
+        ...(options?.retryArrivalNotification ? { retryArrivalNotification: true } : {}),
+      }),
     },
   );
 

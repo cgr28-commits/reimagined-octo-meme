@@ -10,9 +10,14 @@ import { ownerAuthorized, type DriverAuthEnv } from "./driver-auth";
 import type { LogPaidBookingCalendarFn } from "./finalize-paid-checkout";
 import {
   getPaidBookingRecord,
+  listUpcomingPaidBookings,
   listRecentPaidBookings,
   paidBookingStoreConfigured,
 } from "./paid-booking-store";
+import {
+  PRIMARY_DRIVER_LABEL,
+  resolveAssignedDriverLabel,
+} from "../shared/paid-booking-record";
 import {
   findTrackingJobByPaymentReference,
   getTrackingJob,
@@ -155,9 +160,21 @@ export async function handlePaidBookingsListRequest(
 
   const store = env.TRACKING_STORE;
   const url = new URL(request.url);
-  const days = Number(url.searchParams.get("days") || "14");
-  const limit = Number(url.searchParams.get("limit") || "50");
-  const bookings = await listRecentPaidBookings(store, { days, limit });
+  const mode = String(url.searchParams.get("mode") || "upcoming").trim().toLowerCase();
+  const days = Number(url.searchParams.get("days") || "30");
+  const limit = Number(url.searchParams.get("limit") || "100");
+  const pastDays = Number(url.searchParams.get("pastDays") || "2");
+  const futureDays = Number(url.searchParams.get("futureDays") || "90");
+
+  // Upcoming Jobs default: journey/pickup date (not payment-created date).
+  const bookings =
+    mode === "recent" || mode === "created"
+      ? await listRecentPaidBookings(store, { days, limit })
+      : await listUpcomingPaidBookings(store, {
+          pastDays: Number.isFinite(pastDays) ? pastDays : 2,
+          futureDays: Number.isFinite(futureDays) ? futureDays : 90,
+          limit: Number.isFinite(limit) ? limit : 100,
+        });
 
   const enriched = await Promise.all(
     bookings.map(async (booking) => {
@@ -167,6 +184,32 @@ export async function handlePaidBookingsListRequest(
       let driverUpdatedAt: string | undefined;
       let trackUrl: string | undefined;
       let reviewRequest: ReturnType<typeof buildReviewRequestSummary> | undefined;
+      let assignedDriverName: string | undefined;
+      let assignmentStatus: string | undefined;
+      let arrivedPickupAt: string | undefined;
+      let arrivalNotificationStatus: string | undefined;
+      let arrivalNotificationSentAt: string | undefined;
+      let arrivalNotificationProvider: string | undefined;
+      let arrivalNotificationError: string | undefined;
+      let passengers: number | undefined;
+      let suitcases: number | undefined;
+      let childSeats: number | undefined;
+      let childSeatNotes: string | undefined;
+      let notes: string | undefined;
+      let flightNumber: string | undefined;
+      let returnFlightNumber: string | undefined;
+      let vehicle: string | undefined;
+      let editHistory = booking.editHistory ?? [];
+
+      passengers = booking.passengers;
+      suitcases = booking.suitcases;
+      childSeats = booking.childSeats;
+      childSeatNotes = booking.childSeatNotes;
+      notes = booking.notes;
+      flightNumber = booking.flightNumber;
+      returnFlightNumber = booking.returnFlightNumber;
+      vehicle = booking.vehicle;
+
       const token = booking.trackingToken?.trim();
       if (token) {
         const job = await getTrackingJob(store, token);
@@ -177,6 +220,13 @@ export async function handlePaidBookingsListRequest(
           driverUpdatedAt = job.driverUpdatedAt;
           trackUrl = buildPublicTrackUrl(job.token);
           reviewRequest = buildReviewRequestSummary(job);
+          assignedDriverName = job.assignedDriverName;
+          assignmentStatus = job.assignmentStatus;
+          arrivedPickupAt = job.arrivedPickupAt;
+          arrivalNotificationStatus = job.arrivalNotificationStatus;
+          arrivalNotificationSentAt = job.arrivalNotificationSentAt;
+          arrivalNotificationProvider = job.arrivalNotificationProvider;
+          arrivalNotificationError = job.arrivalNotificationError;
         }
       }
 
@@ -197,12 +247,30 @@ export async function handlePaidBookingsListRequest(
         returnJourney: booking.returnJourney,
         returnDate: booking.returnDate,
         returnTime: booking.returnTime,
+        flightNumber,
+        returnFlightNumber,
+        passengers,
+        suitcases,
+        childSeats,
+        childSeatNotes,
+        notes,
+        vehicle,
         trackingToken: booking.trackingToken,
         sharingActive,
         journeyStatus,
         journeyCompletedAt,
         driverUpdatedAt,
         trackUrl,
+        assignedDriverName,
+        assignmentStatus,
+        assignedDriverLabel: resolveAssignedDriverLabel(assignedDriverName),
+        primaryDriverDefault: !assignedDriverName?.trim(),
+        arrivedPickupAt,
+        arrivalNotificationStatus,
+        arrivalNotificationSentAt,
+        arrivalNotificationProvider,
+        arrivalNotificationError,
+        editHistory,
         ...(reviewRequest ? { reviewRequest } : {}),
       };
     }),
@@ -212,6 +280,8 @@ export async function handlePaidBookingsListRequest(
     {
       ok: true,
       count: enriched.length,
+      mode: mode === "recent" || mode === "created" ? "recent" : "upcoming",
+      primaryDriverLabel: PRIMARY_DRIVER_LABEL,
       bookings: enriched,
     },
     200,
@@ -450,6 +520,17 @@ export function isPaidBookingResendPath(pathname: string): boolean {
   return (
     pathname === "/paid-bookings/resend-confirmation" ||
     pathname === "/api/paid-bookings/resend-confirmation"
+  );
+}
+
+export function isPaidBookingEditPath(pathname: string): boolean {
+  return pathname === "/paid-bookings/edit" || pathname === "/api/paid-bookings/edit";
+}
+
+export function isPaidBookingUpdatedConfirmationPath(pathname: string): boolean {
+  return (
+    pathname === "/paid-bookings/send-updated-confirmation" ||
+    pathname === "/api/paid-bookings/send-updated-confirmation"
   );
 }
 

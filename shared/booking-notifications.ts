@@ -864,3 +864,90 @@ export function buildGoogleReviewRequestEmail(
 
   return { subject, text, html };
 }
+
+export type ArrivalNotificationDetails = {
+  customerName: string;
+};
+
+/** Customer message when the driver taps Arrived at Pickup. */
+export function buildDriverArrivedPickupEmail(
+  details: ArrivalNotificationDetails,
+  businessName = "My Airport Taxi NI",
+): CustomerPaidBookingEmail {
+  const firstName = customerFirstName(details.customerName);
+  const subject = `Your driver has arrived — ${businessName}`;
+  const bodyLine = `Hi ${firstName}, your ${businessName} driver has arrived at your pickup location. Please make your way to the vehicle when ready.`;
+
+  const text =
+    `${bodyLine}\n\n` +
+    `Questions? Contact us at ${BUSINESS_EMAIL} or ${BUSINESS_PHONE_DISPLAY}.\n\n` +
+    `${businessName}\n${BUSINESS_WEBSITE}`;
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>${escapeHtml(subject)}</title>
+</head>
+<body style="margin:0;padding:0;background:#f4f6f8;font-family:Arial,Helvetica,sans-serif;color:#1a2b3c;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f4f6f8;padding:32px 16px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="640" cellspacing="0" cellpadding="0" style="max-width:640px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.08);">
+          <tr>
+            <td style="background:${NAVY};padding:28px 32px;text-align:center;">
+              <img src="${LOGO_URL}" alt="${escapeHtml(businessName)}" height="72" style="display:block;margin:0 auto;height:72px;width:auto;max-width:100%;" />
+              <div style="margin-top:16px;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:${ACCENT};font-weight:bold;">${escapeHtml(businessName)}</div>
+              <div style="margin-top:8px;font-size:22px;line-height:1.35;color:#ffffff;font-weight:bold;">Your driver has arrived</div>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:28px 32px;font-size:15px;line-height:1.7;color:#334155;">
+              <p style="margin:0;">${escapeHtml(bodyLine)}</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:20px 32px;font-size:13px;line-height:1.7;color:#64748b;">
+              <strong style="color:${NAVY};">${escapeHtml(businessName)}</strong><br />
+              <a href="mailto:${BUSINESS_EMAIL}" style="color:${NAVY};">${BUSINESS_EMAIL}</a> ·
+              <a href="tel:${BUSINESS_PHONE_TEL}" style="color:${NAVY};">${BUSINESS_PHONE_DISPLAY}</a>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+
+  return { subject, text, html };
+}
+
+/** Customer email after an owner edits an existing paid booking (optional send). */
+export function buildUpdatedBookingConfirmationEmail(
+  receipt: PaidBookingReceipt,
+  businessName = "My Airport Taxi NI",
+  options?: { trackUrl?: string },
+): CustomerPaidBookingEmail {
+  const base = buildCustomerConfirmationEmail(receipt, businessName, options);
+  const subject = `Your booking has been updated — ${businessName}`;
+  const banner =
+    `Hi ${receipt.customerName},\n\n` +
+    `Your booking has been updated.\n\n` +
+    `Please review the updated journey details below.\n\n`;
+
+  const text = base.text.replace(/^Hi [^\n]+,\n\n/, banner);
+
+  const html = base.html
+    .replace(
+      /Your booking is confirmed|Booking confirmed|Payment received/i,
+      "Your booking has been updated",
+    )
+    .replace(
+      /(<div style="margin-top:8px;font-size:22px;line-height:1\.35;color:#ffffff;font-weight:bold;">)([^<]*)(<\/div>)/,
+      `$1Your booking has been updated$3`,
+    );
+
+  return { subject, text, html };
+}

@@ -100,6 +100,14 @@ export type TrackingJobRecord = {
   arrivedDestinationAt?: string;
   journeyCompletedAt?: string;
   trackingStoppedAt?: string;
+  /**
+   * Arrival-at-pickup customer notification (idempotent).
+   * Prefer WhatsApp Business API / SMS when configured; Resend email is the current fallback.
+   */
+  arrivalNotificationStatus?: "sent" | "failed" | "not_configured" | "skipped";
+  arrivalNotificationSentAt?: string;
+  arrivalNotificationProvider?: "email" | "sms" | "whatsapp";
+  arrivalNotificationError?: string;
 };
 
 export type DriverLocationPoint = {
@@ -183,7 +191,10 @@ export function applyJourneyAction(
       break;
     case "arrived_pickup":
       next.journeyStatus = "arrived_pickup";
-      next.arrivedPickupAt = atIso;
+      // Preserve the original arrival timestamp on any re-application path.
+      if (!next.arrivedPickupAt) {
+        next.arrivedPickupAt = atIso;
+      }
       next.sharingActive = true;
       break;
     case "start_journey":
