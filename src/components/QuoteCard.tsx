@@ -151,13 +151,13 @@ const BOOKING_HELPER_CLASS = "quote-helper-text mt-1.5 text-xs text-white/55";
 
 const ESTATE = "Estate Car (1–4 passengers)" as const;
 
-/** Instant online booking (SumUp) covers saloon/estate only — never invent a minibus fare. */
+/** Instant online booking covers Saloon, Estate, and Minibus (existing pricing). */
 /** Quote form “5–7” tap uses sentinel value 5. */
 const SELECTOR_MAX_PASSENGERS = FIVE_PLUS_PASSENGERS;
 const SELECTOR_MAX_SUITCASES = FIVE_PLUS_SUITCASES;
 
 const CAPACITY_WHATSAPP_MESSAGE =
-  "Hi, I need a tailored quote for a minibus (5–7 passengers or extra luggage).";
+  "Hi, I need help with a minibus booking (5–7 passengers or extra luggage).";
 
 type VehicleType = (typeof VEHICLE_TYPES)[number];
 
@@ -187,8 +187,11 @@ function scheduleSmoothScrollTo(element: HTMLElement | null): () => void {
   };
 }
 
-function exceedsOnlineVehicleOptions(passengers: number, suitcases: number): boolean {
-  return requiresMinibus(passengers, suitcases);
+/** Previously blocked 5–7 from online fares; Minibus is bookable online again. */
+function exceedsOnlineVehicleOptions(_passengers: number, _suitcases: number): boolean {
+  void _passengers;
+  void _suitcases;
+  return false;
 }
 
 function getAutoVehicle(passengers: number, suitcases: number, _a2aPrimary = false): VehicleType {
@@ -504,6 +507,12 @@ function QuoteCard({
   const [paymentError, setPaymentError] = useState("");
   const [openCheckout, setOpenCheckout] = useState<OpenCheckoutSession | null>(null);
   const [paymentPopupBlocked, setPaymentPopupBlocked] = useState(false);
+  const [shortNoticeResult, setShortNoticeResult] = useState<{
+    reference: string;
+    whatsappUrl: string;
+    minimumNoticeHours: number;
+    amountLabel?: string;
+  } | null>(null);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [termsError, setTermsError] = useState("");
   const [marketingOptIn, setMarketingOptIn] = useState(false);
@@ -924,6 +933,7 @@ function QuoteCard({
 
   // Fixed price only after route + passengers + luggage are known (selectors on step 1).
   const exceedsOnlineCapacity = exceedsOnlineVehicleOptions(passengers, suitcases);
+  const isMinibusParty = requiresMinibus(passengers, suitcases);
   const canShowPrice = hasQuoteRoute && !exceedsOnlineCapacity;
 
   const tripDetailsReady = hasQuoteRoute && isScheduleComplete;
@@ -1081,7 +1091,7 @@ function QuoteCard({
     ? formatJourneyDuration(routeMetrics.durationMinutes)
     : "";
 
-  /** Pay online at quote time — saloon/estate only, SumUp enabled. */
+  /** Pay online at quote time — saloon/estate/minibus when SumUp enabled. */
   const canPayNowOnline =
     SERVICE_FLAGS.customerSumUpPay &&
     isSumUpPaymentEnabled() &&
@@ -1637,6 +1647,22 @@ function QuoteCard({
         redirectUrl: buildPaymentRedirectUrl(returnToken),
         booking: bookingDetails,
       });
+
+      if (checkout.shortNotice && checkout.reference && checkout.whatsappUrl) {
+        setShortNoticeResult({
+          reference: checkout.reference,
+          whatsappUrl: checkout.whatsappUrl,
+          minimumNoticeHours: checkout.minimumNoticeHours ?? 6,
+          amountLabel: checkout.amountLabel ?? amountLabel,
+        });
+        setPaymentLoading(false);
+        return;
+      }
+
+      if (!checkout.paymentUrl || !checkout.checkoutId) {
+        throw new Error("Payment service returned an invalid response");
+      }
+
       savePendingPayment(
         {
           checkoutId: checkout.checkoutId,
@@ -2031,6 +2057,61 @@ function QuoteCard({
           : !isScheduleComplete
             ? "Price ready — add your date and time when you’re ready to book"
             : "";
+
+  if (shortNoticeResult) {
+    return (
+      <div
+        ref={cardRef}
+        id="quoteResult"
+        className="glass-card min-w-0 rounded-2xl p-6 sm:p-8"
+      >
+        <div className="rounded-xl border border-amber-400/30 bg-navy-dark/50 px-5 py-8 text-center sm:px-8 sm:py-10">
+          <p className="text-xs font-medium uppercase tracking-wider text-amber-200">
+            Short-notice booking
+          </p>
+          <h2 className="mt-2 text-2xl font-semibold tracking-tight text-white sm:text-3xl">
+            Thanks — we&apos;ve received your journey details.
+          </h2>
+          {shortNoticeResult.amountLabel ? (
+            <p className="mt-4 text-3xl font-bold text-white sm:text-4xl">
+              {shortNoticeResult.amountLabel}
+            </p>
+          ) : null}
+          <p className="mx-auto mt-4 max-w-md text-sm leading-relaxed text-white/80 sm:text-base">
+            Because your pickup is within {shortNoticeResult.minimumNoticeHours} hours, we just need
+            to confirm driver availability before taking payment.
+          </p>
+          <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-white/70">
+            Please message us on WhatsApp. Once availability is confirmed, you&apos;ll be able to pay
+            securely online for this booking.
+          </p>
+          <p className="mt-5 text-sm text-white/60">
+            Booking reference:{" "}
+            <span className="font-semibold text-white">{shortNoticeResult.reference}</span>
+          </p>
+          <a
+            href={shortNoticeResult.whatsappUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-6 inline-flex min-h-12 w-full max-w-sm items-center justify-center rounded-xl bg-emerald px-5 py-3 text-base font-bold text-navy transition-colors hover:bg-emerald/90 sm:w-auto"
+          >
+            Message us on WhatsApp
+          </a>
+          <button
+            type="button"
+            onClick={() => {
+              setShortNoticeResult(null);
+              setQuoteStep(1);
+              setPaymentError("");
+            }}
+            className="mt-4 block w-full text-sm text-white/55 underline-offset-2 hover:underline sm:mx-auto sm:w-auto"
+          >
+            Start another quote
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (bookingSent) {
     const quoteConversionValue =
@@ -2583,10 +2664,10 @@ function QuoteCard({
             <p className="mt-1 text-xl font-semibold tracking-tight text-white">
               {vehicleShortLabel(quoteVehicle)}
             </p>
-            {exceedsOnlineCapacity ? (
+            {isMinibusParty ? (
               <p className="mt-2 text-xs leading-relaxed text-white/70">
-                A minibus is required for this party size (Minibus — 5–7 passengers). We don&apos;t
-                show an automatic online fare — request a tailored quote via WhatsApp.
+                Minibus selected for your party size (5–7 passengers or extra luggage). Your fixed
+                online fare uses our existing minibus pricing — pay securely to confirm.
               </p>
             ) : quoteVehicle === ESTATE ? (
               <p className="mt-2 text-xs leading-relaxed text-white/70">
@@ -2601,24 +2682,10 @@ function QuoteCard({
           <input type="hidden" name="vehicle" value={quoteVehicle} />
           <input type="hidden" name="passengers" value={passengers} />
           <input type="hidden" name="suitcases" value={suitcases} />
-          {exceedsOnlineCapacity ? (
-            <p className="text-xs leading-relaxed text-white/55">
-              Online instant booking is for saloon and estate only.{" "}
-              <a
-                href={whatsAppChatUrl(CAPACITY_WHATSAPP_MESSAGE)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="font-semibold text-emerald underline-offset-2 hover:underline"
-              >
-                Message us on WhatsApp
-              </a>{" "}
-              for a tailored minibus quote.
-            </p>
-          ) : (
-            <p className="text-xs leading-relaxed text-white/55">
-              Saloon and estate are chosen automatically from your party size.
-            </p>
-          )}
+          <p className="text-xs leading-relaxed text-white/55">
+            Saloon, Estate, or Minibus is chosen automatically from your party size. All three can
+            be quoted and paid online.
+          </p>
         </div>
         )}
           </>

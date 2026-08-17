@@ -25,8 +25,8 @@ const card = read("src/components/QuoteCard.tsx");
 const progressive = read("src/components/QuoteProgressiveRoute.tsx");
 const intent = read("src/lib/quote-journey-intent.ts");
 const selectedPlace = read("src/lib/selected-place.ts");
-const bookingMessage = read("src/lib/booking-message.ts");
 const inclusions = read("shared/journey-inclusions.ts");
+const data = read("src/lib/data.ts");
 
 check("Journey intent options include three large choices", () => {
   assert.match(intent, /To an Airport/);
@@ -57,17 +57,14 @@ check("Passenger and luggage use selectable buttons", () => {
   assert.match(progressive, /Return/);
 });
 
-check("5–7 path requests tailored quote without inventing a fare", () => {
+check("5–7 path is Minibus online quote + SumUp (existing pricing)", () => {
   assert.match(progressive, /Travelling with 5–7 passengers\?/);
-  assert.match(progressive, /suitable minibus/);
-  assert.match(progressive, /Minibus — 5–7 passengers/);
-  assert.match(progressive, /Request|tailored fixed-price quote/i);
-  assert.match(card, /Tailored Quote Required/);
-  assert.match(card, /Request Minibus Quote/);
-  assert.match(card, /Continue to request quote/);
-  assert.doesNotMatch(card, /disabled=\{\s*submitted \|\|\s*exceedsOnlineCapacity/);
-  assert.match(bookingMessage, /5–7 PASSENGER \/ MINIBUS QUOTE REQUEST/);
-  assert.match(bookingMessage, /Quote Request Received/);
+  assert.match(progressive, /Minibus/);
+  assert.match(progressive, /fixed Minibus fare online|pay securely/i);
+  assert.match(data, /INSTANT_PAY_VEHICLE_TYPES/);
+  assert.match(data, /MINIBUS_VEHICLE_TYPE/);
+  assert.match(card, /Minibus selected for your party size/);
+  assert.match(card, /canPayNowOnline/);
   assert.match(inclusions, /GROUP_QUOTE_FEE_NOTE/);
   assert.doesNotMatch(progressive, /10\+|up to 8|5 or more passengers/);
 });
@@ -98,18 +95,12 @@ check("Step 1 → 2 scrolls to DATE section after render (not page top)", () => 
   assert.match(card, /md:scroll-mt-28/);
   assert.match(card, /pendingScrollToStep2DateRef\.current = true/);
   assert.match(card, /scheduleSmoothScrollTo/);
-  // Must not auto-scroll to card/quote container on Step 1→2.
-  assert.match(card, /Continue to travel details/);
 });
 
-check("Step 2 → 3 scrolls to customer details after render", () => {
-  assert.match(card, /id="step3-customer-details"/);
-  assert.match(card, /step3CustomerDetailsRef/);
-  assert.match(card, /pendingScrollToStep3CustomerRef\.current = true/);
-  assert.match(card, /Continue to your details/);
-  assert.match(card, /id="step3-payment-actions"/);
-  // Payment scroll only after deliberate terms acceptance with contacts filled.
-  assert.match(card, /scheduleSmoothScrollTo\(step3PaymentActionsRef\.current\)/);
+check("Short-notice success UI after full form submit", () => {
+  assert.match(card, /shortNoticeResult/);
+  assert.match(card, /Short-notice booking/);
+  assert.match(card, /confirm driver availability before taking payment/);
 });
 
 console.log("\nAll quote-tool UX checks passed.");

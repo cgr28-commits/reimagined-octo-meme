@@ -5,7 +5,7 @@
     "addressToAddress": "OTS-style reference (vehicleBase + tier×(perKm×km + perMin×min)) + addressToAddressDistanceBands adjustment. Requires valid route metrics; otherwise no fare.",
     "airport": "Calibrated areaAirportSurchargesGbp zones supply short/medium airport fares (scales by origin zone, not a hard-coded town-pair). When route metrics exist: unknown origins use distance+airport minimum; long hauls (≥ airportRouteDistanceProtectFromKm) take max(zone, distance) for empty-return protection.",
     "dublinAirport": "£230/£240 Belfast-centre benchmark is DUB airport only (place ID / geofence / explicit airport name). Dublin city uses DUB fare + dublinCityBeyondAirport uplift.",
-    "vehicles": "Saloon 1–2 pax AND 0–2 large cases; Estate if 3–4 pax OR 3–4 cases (≤4/≤4); Minibus if >4 pax OR >4 cases (manual quote, no invented fare).",
+    "vehicles": "Saloon 1–2 pax AND 0–2 large cases; Estate if 3–4 pax OR 3–4 cases (≤4/≤4); Minibus if >4 pax OR >4 cases (online fare: estateTier×1.55 airport / £60 A2A base).",
     "returnDiscount": "returnJourneyDiscountRate applied once to (2 × oneWay).",
     "rounding": "Prefer nearest £5; amounts ending in £x4 are kept (e.g. £29, £34)."
   },

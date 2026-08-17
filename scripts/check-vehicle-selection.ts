@@ -70,10 +70,11 @@ console.log(
   `OK  BFS Belfast saloon £${saloon!.amount} / estate £${estate!.amount} (config estate premium £8 before rounding)`,
 );
 
-// Minibus formula exists but must not be used for instant online checkout without approval.
+// Minibus formula is enabled for instant online checkout (existing rates).
 const minibusFormula = calculateQuote(belfast, "BFS", MINIBUS_VEHICLE);
+assert.ok(minibusFormula && minibusFormula.amount > 0);
 console.log(
-  `NOTE Minibus formula exists in config (BFS Belfast would be £${minibusFormula?.amount}) — NOT enabled for instant online booking.`,
+  `OK  Minibus online fare enabled (BFS Belfast £${minibusFormula.amount}) — uses existing 1.55× estate tier / £60 A2A base.`,
 );
 
 console.log("\nAll vehicle-selection checks passed.");

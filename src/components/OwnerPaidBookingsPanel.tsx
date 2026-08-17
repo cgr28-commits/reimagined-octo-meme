@@ -1324,6 +1324,21 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
             <dd>{booking.tripTime || "—"}</dd>
           </div>
           <div>
+            <dt className="text-white/40">Service</dt>
+            <dd className="font-semibold text-white">
+              {booking.vehicle
+                ? booking.vehicle.toLowerCase().includes("minibus")
+                  ? "MINIBUS"
+                  : booking.vehicle.toLowerCase().includes("estate")
+                    ? "ESTATE"
+                    : booking.vehicle.toLowerCase().includes("saloon") ||
+                        booking.vehicle.toLowerCase().includes("standard")
+                      ? "SALOON"
+                      : booking.vehicle
+                : "—"}
+            </dd>
+          </div>
+          <div>
             <dt className="text-white/40">Customer</dt>
             <dd>{booking.customerName || "—"}</dd>
           </div>

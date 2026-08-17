@@ -22,6 +22,7 @@ import {
   markPendingCheckoutFinalized,
   pendingCheckoutStoreConfigured,
 } from "./pending-checkout-store";
+import { markShortNoticePaid } from "./short-notice-handlers";
 import { maybeRecordMarketingFromPayload } from "./marketing-handlers";
 import { trySendBrandedCustomerEmail, trySendOwnerOperationalEmail } from "./worker-email";
 
@@ -241,6 +242,15 @@ export async function finalizePaidCheckout(input: {
 
   if (pendingCheckoutStoreConfigured(env.TRACKING_STORE)) {
     await markPendingCheckoutFinalized(env.TRACKING_STORE, checkoutId, paymentReference);
+    const pending = await getPendingCheckout(env.TRACKING_STORE, checkoutId);
+    if (pending?.shortNoticeToken) {
+      await markShortNoticePaid(
+        env.TRACKING_STORE,
+        pending.shortNoticeToken,
+        paymentReference,
+        checkoutId,
+      );
+    }
   }
 
   const emailSent = customerEmailResult.sent && ownerNotifySent;
