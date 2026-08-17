@@ -15,10 +15,7 @@ export const metadata: Metadata = {
 };
 
 type PageProps = {
-  searchParams?: Promise<Record<string, string | string[] | undefined>> | Record<
-    string,
-    string | string[] | undefined
-  >;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 };
 
 function firstParam(value: string | string[] | undefined): string {
@@ -27,9 +24,11 @@ function firstParam(value: string | string[] | undefined): string {
 }
 
 export default async function OwnerJourneyEvidencePage({ searchParams }: PageProps) {
-  const params = searchParams instanceof Promise ? await searchParams : searchParams ?? {};
+  const params = (await searchParams) ?? {};
+  // Normal paid bookings: ?ref=PAYMENT_REF only (no customer tracking token in the URL).
+  // Optional ?token= remains as a fallback for legacy/unlinked jobs without a payment reference.
   const paymentReference = firstParam(params.ref) || firstParam(params.paymentReference);
-  const token = firstParam(params.token);
+  const token = paymentReference ? "" : firstParam(params.token);
 
   return (
     <div className="min-h-screen bg-navy">

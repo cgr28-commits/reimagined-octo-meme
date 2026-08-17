@@ -1770,7 +1770,7 @@ function DriverJobCard({
               <>
                 {" "}
                 <a
-                  href={`/owner/journey-evidence/?ref=${encodeURIComponent(job.paymentReference)}&token=${encodeURIComponent(job.token)}`}
+                  href={`/owner/journey-evidence/?ref=${encodeURIComponent(job.paymentReference)}`}
                   className="font-semibold text-emerald underline"
                 >
                   Open Journey Evidence
@@ -1779,6 +1779,7 @@ function DriverJobCard({
             ) : (
               <>
                 {" "}
+                {/* Fallback only when no payment reference exists (legacy / unlinked job). */}
                 <a
                   href={`/owner/journey-evidence/?token=${encodeURIComponent(job.token)}`}
                   className="font-semibold text-emerald underline"

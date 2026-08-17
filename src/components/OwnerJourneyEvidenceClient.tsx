@@ -22,6 +22,13 @@ const LiveTrackMap = dynamic(() => import("@/components/LiveTrackMap"), {
 
 const OWNER_KEY_STORAGE = "matni-owner-key";
 
+/**
+ * Owner auth for Journey Evidence matches the existing owner dashboard:
+ * sessionStorage key `matni-owner-key` + Worker validation of X-Owner-Key.
+ * There is no separate server-side owner session/proxy in this codebase yet;
+ * redesigning that is a future hardening task, not in scope for this page.
+ */
+
 function yesNo(value: boolean | undefined): string {
   return value ? "YES" : "NO";
 }
@@ -87,8 +94,10 @@ export default function OwnerJourneyEvidenceClient({
       setError("");
       try {
         const result = await fetchJourneyEvidence(key, {
+          // Prefer payment reference. Token query is only used when the page was
+          // opened for a legacy/unlinked job that has no payment reference.
           paymentReference: paymentReference || undefined,
-          token: token || undefined,
+          token: paymentReference ? undefined : token || undefined,
         });
         setEvidence(result.evidence);
       } catch (err) {
@@ -147,8 +156,9 @@ export default function OwnerJourneyEvidenceClient({
         <h1 className="mt-2 font-display text-3xl font-bold">Journey Evidence</h1>
         <p className="mt-2 text-sm text-white/60">{SITE.name}</p>
         <p className="mt-4 text-sm text-white/70">
-          Sign in with your owner access key to view historical GPS evidence. This page is never
-          shown to customers.
+          Sign in with the same owner access key used on the owner dashboard. This page reuses the
+          existing owner sessionStorage pattern — it does not introduce a new auth system. Historical
+          GPS evidence is never shown to customers.
         </p>
         <form onSubmit={unlock} className="mt-6 space-y-3">
           <label className="block text-sm text-white/70">

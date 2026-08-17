@@ -55,12 +55,16 @@ console.log("\n=== 3. Owner dashboard + dedicated evidence page ===");
 {
   const panel = read("src/components/OwnerPaidBookingsPanel.tsx");
   assert.match(panel, /View Journey Evidence/);
-  assert.match(panel, /\/owner\/journey-evidence\//);
+  assert.match(panel, /\/owner\/journey-evidence\/\?ref=/);
   assert.match(panel, /Tracking diagnostic \(read-only\)/);
+  // Normal paid-booking links must not put the customer tracking token in the URL.
+  assert.doesNotMatch(panel, /journey-evidence\/\?ref=[^"']*&token=/);
+  assert.doesNotMatch(panel, /journey-evidence\/[^"']*token=/);
 
   const page = read("src/app/owner/journey-evidence/page.tsx");
   assert.match(page, /index:\s*false/);
   assert.match(page, /OwnerJourneyEvidenceClient/);
+  assert.match(page, /paymentReference \? "" : firstParam\(params\.token\)/);
 
   const client = read("src/components/OwnerJourneyEvidenceClient.tsx");
   assert.match(client, /Journey Evidence/);
@@ -70,10 +74,37 @@ console.log("\n=== 3. Owner dashboard + dedicated evidence page ===");
   assert.match(client, /Not recorded/);
   assert.match(client, /LiveTrackMap/);
   assert.match(client, /matni-owner-key/);
+  assert.match(client, /existing owner dashboard/i);
+  assert.match(client, /future hardening/i);
   assert.match(client, /does not prove|passenger/i);
+  assert.match(client, /paymentReference \? undefined : token/);
   assert.doesNotMatch(client, /OWNER_ACCESS_KEY/);
   assert.doesNotMatch(client, /searchParams\.set\(["']key["']/);
-  console.log("OK  owner UI + dedicated page + print/PDF path");
+
+  const driver = read("src/app/driver/DriverPageClient.tsx");
+  assert.match(
+    driver,
+    /journey-evidence\/\?ref=\$\{encodeURIComponent\(job\.paymentReference\)\}/,
+  );
+  assert.doesNotMatch(
+    driver,
+    /journey-evidence\/\?ref=\$\{encodeURIComponent\(job\.paymentReference\)\}&token=/,
+  );
+  console.log("OK  owner UI + dedicated page; paid links use ref only; auth matches dashboard");
+}
+
+console.log("\n=== 3b. Owner auth architecture note ===");
+{
+  const driver = read("src/app/driver/DriverPageClient.tsx");
+  assert.match(driver, /matni-owner-key/);
+  assert.match(driver, /sessionStorage/);
+  const refund = read("src/app/admin/refund/RefundPageClient.tsx");
+  assert.match(refund, /matni-owner-key/);
+  const paidApi = read("src/lib/paid-bookings-api.ts");
+  assert.match(paidApi, /X-Owner-Key/);
+  console.log(
+    "OK  Journey Evidence reuses the same sessionStorage + X-Owner-Key owner pattern as dashboard/refund (no separate session proxy exists yet)",
+  );
 }
 
 console.log("\n=== 4. Customer live tracking stays live-pin only ===");
