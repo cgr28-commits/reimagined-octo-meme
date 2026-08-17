@@ -125,8 +125,14 @@ function PaidBookingLiveTracking({
                 ? { heading: position.coords.heading }
                 : {}),
             },
-          ).catch(() => {
-            // Transient upload errors retry on the next GPS tick.
+          ).catch((err) => {
+            // Surface persistent upload failures (e.g. CORS / auth). Transient
+            // network blips still clear on the next successful GPS tick.
+            const message =
+              err instanceof Error && err.message.trim()
+                ? err.message
+                : "GPS upload failed — check connection and keep this page open.";
+            setGps((current) => (current ? { ...current, error: message } : current));
           });
         },
         (geoError) => {
