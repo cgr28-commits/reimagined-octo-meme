@@ -18,6 +18,8 @@ export type MapRoutePoint = {
 type LiveTrackMapProps = {
   markers: MapMarker[];
   route?: MapRoutePoint[];
+  /** Optional height/layout override. Default matches live tracking cards. */
+  className?: string;
 };
 
 function configureLeafletIcons() {
@@ -37,7 +39,11 @@ function createCustomerIcon() {
   });
 }
 
-export default function LiveTrackMap({ markers, route = [] }: LiveTrackMapProps) {
+export default function LiveTrackMap({
+  markers,
+  route = [],
+  className,
+}: LiveTrackMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const markerRefs = useRef<Map<string, L.Marker>>(new Map());
@@ -149,5 +155,10 @@ export default function LiveTrackMap({ markers, route = [] }: LiveTrackMapProps)
     map.fitBounds(bounds, { padding: [48, 48], maxZoom: 15, animate: true });
   }, [markers, route]);
 
-  return <div ref={containerRef} className="h-64 w-full rounded-xl sm:h-80" />;
+  return (
+    <div
+      ref={containerRef}
+      className={className?.trim() || "h-64 w-full rounded-xl sm:h-80"}
+    />
+  );
 }

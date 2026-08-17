@@ -958,7 +958,10 @@ function DriverJobCard({
     setEvidenceBusy(true);
     setError(null);
     try {
-      const result = await fetchJourneyEvidence(driverKey, job.token);
+      const result = await fetchJourneyEvidence(driverKey, {
+        token: job.token,
+        paymentReference: job.paymentReference,
+      });
       setEvidence(result.evidence);
       setEvidenceOpen(true);
       if (result.evidence.points.length > 0) {
@@ -1762,8 +1765,29 @@ function DriverJobCard({
             </div>
           </dl>
           <p className="mt-4 text-xs text-white/45">
-            PDF download (branded evidence pack) is Phase 2 — this on-screen record is the primary
-            evidence view for now.
+            Full Journey Evidence (map, timeline, print/PDF) opens in a dedicated owner-only page.
+            {job.paymentReference ? (
+              <>
+                {" "}
+                <a
+                  href={`/owner/journey-evidence/?ref=${encodeURIComponent(job.paymentReference)}`}
+                  className="font-semibold text-emerald underline"
+                >
+                  Open Journey Evidence
+                </a>
+              </>
+            ) : (
+              <>
+                {" "}
+                {/* Fallback only when no payment reference exists (legacy / unlinked job). */}
+                <a
+                  href={`/owner/journey-evidence/?token=${encodeURIComponent(job.token)}`}
+                  className="font-semibold text-emerald underline"
+                >
+                  Open Journey Evidence
+                </a>
+              </>
+            )}
           </p>
         </div>
       )}

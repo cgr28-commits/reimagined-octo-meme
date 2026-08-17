@@ -233,6 +233,12 @@ export async function handleJourneySessionRequest(
   );
 }
 
+/**
+ * Owner-only historical Journey Evidence pack (full GPS trail + booking/payment/timeline).
+ * Read-only — does not mutate tracking or GPS history.
+ * Lookup by tracking token and/or payment reference (same resolution pattern as diagnostic).
+ * Customer tracking tokens must never unlock this endpoint (ownerAuthorized only).
+ */
 export async function handleJourneyEvidenceRequest(
   request: Request,
   env: Env,
@@ -247,23 +253,58 @@ export async function handleJourneyEvidenceRequest(
 
   const url = new URL(request.url);
   const token = url.searchParams.get("token")?.trim() ?? "";
-  if (!token) {
-    return jsonResponse({ error: "Missing token" }, 400, origin);
+  const paymentReference = url.searchParams.get("paymentReference")?.trim() ?? "";
+  if (!token && !paymentReference) {
+    return jsonResponse({ error: "Missing paymentReference or token" }, 400, origin);
   }
 
-  const record = await getTrackingJob(env.TRACKING_STORE, token);
+  const store = env.TRACKING_STORE;
+  let record: TrackingJobRecord | null = null;
+
+  if (token) {
+    record = await getTrackingJob(store, token);
+  }
+
+  if (!record && paymentReference) {
+    const jobs = await findTrackingJobsByPaymentReference(store, paymentReference);
+    record = jobs[0] ?? null;
+  }
+
+  let paid =
+    paymentReference && paidBookingStoreConfigured(store)
+      ? await getPaidBookingRecord(store, paymentReference)
+      : null;
+
+  if (!record && paid?.trackingToken?.trim()) {
+    record = await getTrackingJob(store, paid.trackingToken.trim());
+  }
+
   if (!record) {
-    return jsonResponse({ error: "Job not found" }, 404, origin);
+    return jsonResponse(
+      {
+        error: "Tracking job not found for that booking.",
+        paymentReference: paymentReference || null,
+        paidBookingFound: Boolean(paid),
+      },
+      404,
+      origin,
+    );
   }
 
-  const points = await getDriverLocationHistory(env.TRACKING_STORE, token);
-  let paid = null;
-  if (record.paymentReference && paidBookingStoreConfigured(env.TRACKING_STORE)) {
-    paid = await getPaidBookingRecord(env.TRACKING_STORE, record.paymentReference);
+  if (!paid && record.paymentReference && paidBookingStoreConfigured(store)) {
+    paid = await getPaidBookingRecord(store, record.paymentReference);
   }
+
+  const points = await getDriverLocationHistory(store, record.token);
+  const fields = pointFieldPresence(points);
+  const firstPoint = points[0];
+  const lastPoint = points.at(-1);
+  const recordedFrom = record.driverLocationRecordedFrom ?? firstPoint?.recordedAt;
+  const recordedTo = record.driverLocationRecordedTo ?? lastPoint?.recordedAt;
 
   const started = record.trackingStartedAt ?? record.journeyStartedAt;
-  const ended = record.journeyCompletedAt ?? record.arrivedDestinationAt ?? record.trackingStoppedAt;
+  const ended =
+    record.journeyCompletedAt ?? record.arrivedDestinationAt ?? record.trackingStoppedAt;
   let durationMinutes: number | undefined;
   if (started && ended) {
     const ms = new Date(ended).getTime() - new Date(started).getTime();
@@ -272,26 +313,78 @@ export async function handleJourneyEvidenceRequest(
     }
   }
 
+  let gpsTrailDurationMinutes: number | undefined;
+  if (recordedFrom && recordedTo) {
+    const ms = new Date(recordedTo).getTime() - new Date(recordedFrom).getTime();
+    if (Number.isFinite(ms) && ms >= 0) {
+      gpsTrailDurationMinutes = Math.round(ms / 60000);
+    }
+  }
+
+  const routeReconstructable = points.length >= 2 && fields.hasLatLng;
+  const paymentLinked = Boolean(paid?.paymentReference || record.paymentReference?.trim());
+  const journeyCompleted = journeyStatusOf(record) === "completed";
+
+  const bookingReference =
+    paid?.paymentReference ?? record.paymentReference ?? record.token;
+
   return jsonResponse(
     {
       ok: true,
+      readOnly: true,
+      ownerOnly: true,
+      customerSeesHistoricalRoute: false,
       evidence: {
         businessName: "My Airport Taxi NI",
+        generatedAt: new Date().toISOString(),
         disclaimer:
           "Automatically generated journey record from the booking system. Intended as supporting operational evidence; it does not guarantee the outcome of any payment dispute.",
-        bookingReference: record.paymentReference ?? record.token,
-        paymentReference: record.paymentReference,
+        integrityNotes: [
+          "RECORDED FACTS come from stored booking, payment, journey-event, and GPS records.",
+          "Derived values (for example duration) are calculated only from stored timestamps.",
+          "GPS points were recorded by the driver's device associated with this booking session.",
+          "This record does not prove the identity of any passenger in the vehicle.",
+          "This record does not claim that a named customer was physically present unless a separate verifiable mechanism records that.",
+          "Pickup and destination addresses are stored as text; they are not geocoded onto the map for evidence.",
+          "Customers never receive this historical route — live tracking remains live-pin only.",
+        ],
+        summary: {
+          journeyRecorded: points.length > 0,
+          gpsPointCount: points.length,
+          routeReconstructable,
+          paymentLinked,
+          journeyCompleted,
+        },
+        bookingReference,
+        paymentReference: record.paymentReference ?? paid?.paymentReference,
         amountPaid: paid?.amountPaidLabel,
-        paymentStatus: paid?.status ?? "confirmed",
-        customerName: record.customerName,
-        customerMobile: record.customerMobile,
-        customerEmail: record.customerEmail,
-        pickupLabel: record.pickupLabel,
-        dropoffLabel: record.dropoffLabel,
-        tripDate: record.tripDate,
-        tripTime: record.tripTime,
+        amount: typeof paid?.amount === "number" ? paid.amount : undefined,
+        currency: paid?.currency,
+        paymentStatus: paid?.status ?? (record.paymentReference ? "confirmed" : undefined),
+        paymentCreatedAt: paid?.createdAt,
+        checkoutId: paid?.checkoutId,
+        transactionId: paid?.transactionId,
+        transactionCode: paid?.transactionCode,
+        paymentLinkageStatus: paymentLinked
+          ? "Payment reference linked to tracking session"
+          : "Payment reference not linked",
+        bookingCreatedAt: paid?.createdAt ?? record.createdAt,
+        customerName: record.customerName || paid?.customerName || "",
+        customerMobile: record.customerMobile || paid?.mobileNumber,
+        customerEmail: record.customerEmail || paid?.customerEmail,
+        pickupLabel: record.pickupLabel || paid?.pickupLabel || "",
+        dropoffLabel: record.dropoffLabel || paid?.dropoffLabel || "",
+        tripLabel: paid?.tripLabel,
+        tripType: paid?.returnJourney
+          ? "Return journey"
+          : paid?.isAirportTrip
+            ? "Airport transfer"
+            : "One-way",
+        tripDate: record.tripDate || paid?.tripDate || "",
+        tripTime: record.tripTime || paid?.tripTime || "",
         pickupDisplay: formatLondonDateTime(record.pickupAt),
-        flightNumber: record.flightNumber,
+        flightNumber: record.flightNumber || paid?.flightNumber,
+        vehicle: paid?.vehicle,
         journeyStatus: journeyStatusOf(record),
         journeyStatusLabel: customerJourneyLabel(record),
         trackingStartedAt: record.trackingStartedAt,
@@ -301,10 +394,37 @@ export async function handleJourneyEvidenceRequest(
         journeyCompletedAt: record.journeyCompletedAt,
         trackingStoppedAt: record.trackingStoppedAt,
         durationMinutes,
+        gpsTrailDurationMinutes,
         pointCount: points.length,
-        recordedFrom: record.driverLocationRecordedFrom ?? points[0]?.recordedAt,
-        recordedTo: record.driverLocationRecordedTo ?? points.at(-1)?.recordedAt,
+        recordedFrom,
+        recordedTo,
+        fieldsStored: {
+          latitudeLongitude: fields.hasLatLng,
+          accuracyMeters: fields.hasAccuracy,
+          speedMps: fields.hasSpeed,
+          headingDegrees: fields.hasHeading,
+        },
+        routeReconstructable,
+        sessionId: record.token,
         trackUrl: buildPublicTrackUrl(record.token),
+        timeline: [
+          { id: "booking_created", label: "Booking created", at: paid?.createdAt ?? record.createdAt },
+          { id: "payment_received", label: "Payment received", at: paid?.createdAt },
+          { id: "tracking_started", label: "Tracking started", at: record.trackingStartedAt },
+          { id: "arrived_pickup", label: "Driver arrived at pickup", at: record.arrivedPickupAt },
+          {
+            id: "journey_started",
+            label: "Passenger journey started",
+            at: record.journeyStartedAt,
+          },
+          {
+            id: "arrived_destination",
+            label: "Arrived destination",
+            at: record.arrivedDestinationAt,
+          },
+          { id: "journey_completed", label: "Journey completed", at: record.journeyCompletedAt },
+          { id: "tracking_stopped", label: "Tracking stopped", at: record.trackingStoppedAt },
+        ],
         points,
       },
     },
@@ -428,7 +548,10 @@ export function isJourneySessionPath(pathname: string): boolean {
 
 export function isJourneyEvidencePath(pathname: string): boolean {
   return (
-    pathname === "/driver/journey/evidence" || pathname === "/api/driver/journey/evidence"
+    pathname === "/driver/journey/evidence" ||
+    pathname === "/api/driver/journey/evidence" ||
+    pathname === "/paid-bookings/journey-evidence" ||
+    pathname === "/api/paid-bookings/journey-evidence"
   );
 }
 

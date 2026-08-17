@@ -526,22 +526,48 @@ export async function fetchJourneySession(
   return parseJsonResponse<{ ok: true; sessionToken: string; expiresAt: string }>(response);
 }
 
+export type JourneyEvidenceTimelineEvent = {
+  id: string;
+  label: string;
+  at?: string;
+};
+
 export type JourneyEvidencePack = {
   businessName: string;
+  generatedAt?: string;
   disclaimer: string;
+  integrityNotes?: string[];
+  summary?: {
+    journeyRecorded: boolean;
+    gpsPointCount: number;
+    routeReconstructable: boolean;
+    paymentLinked: boolean;
+    journeyCompleted: boolean;
+  };
   bookingReference: string;
   paymentReference?: string;
   amountPaid?: string;
+  amount?: number;
+  currency?: string;
   paymentStatus?: string;
+  paymentCreatedAt?: string;
+  checkoutId?: string;
+  transactionId?: string;
+  transactionCode?: string;
+  paymentLinkageStatus?: string;
+  bookingCreatedAt?: string;
   customerName: string;
   customerMobile?: string;
   customerEmail?: string;
   pickupLabel: string;
   dropoffLabel: string;
+  tripLabel?: string;
+  tripType?: string;
   tripDate: string;
   tripTime: string;
   pickupDisplay: string;
   flightNumber?: string;
+  vehicle?: string;
   journeyStatus: JourneyStatus;
   journeyStatusLabel: string;
   trackingStartedAt?: string;
@@ -551,55 +577,121 @@ export type JourneyEvidencePack = {
   journeyCompletedAt?: string;
   trackingStoppedAt?: string;
   durationMinutes?: number;
+  gpsTrailDurationMinutes?: number;
   pointCount: number;
   recordedFrom?: string;
   recordedTo?: string;
+  fieldsStored?: {
+    latitudeLongitude: boolean;
+    accuracyMeters: boolean;
+    speedMps: boolean;
+    headingDegrees: boolean;
+  };
+  routeReconstructable?: boolean;
+  sessionId?: string;
   trackUrl: string;
+  timeline?: JourneyEvidenceTimelineEvent[];
   points: DriverLocationPoint[];
 };
 
 export async function fetchJourneyEvidence(
   ownerKey: string,
-  token: string,
-): Promise<{ ok: true; evidence: JourneyEvidencePack }> {
+  options: { token?: string; paymentReference?: string },
+): Promise<{ ok: true; evidence: JourneyEvidencePack; customerSeesHistoricalRoute: false }> {
+  const token = options.token?.trim() ?? "";
+  const paymentReference = options.paymentReference?.trim() ?? "";
+  if (!token && !paymentReference) {
+    throw new Error("Missing payment reference or tracking token");
+  }
+
   if (isDemoOwnerKey(ownerKey)) {
-    const history = getDemoOwnerLocationHistory(token);
+    const history = getDemoOwnerLocationHistory(token || "demo-token");
+    const now = new Date().toISOString();
     return {
       ok: true,
+      customerSeesHistoricalRoute: false,
       evidence: {
         businessName: "My Airport Taxi NI",
+        generatedAt: now,
         disclaimer:
           "Automatically generated journey record from the booking system. Intended as supporting operational evidence; it does not guarantee the outcome of any payment dispute.",
-        bookingReference: "DEMO-REF",
-        paymentReference: "DEMO-REF",
+        integrityNotes: [
+          "Demo evidence only — not a live booking record.",
+          "GPS points were recorded by the driver's device associated with this booking session.",
+          "This record does not prove the identity of any passenger in the vehicle.",
+        ],
+        summary: {
+          journeyRecorded: history.count > 0,
+          gpsPointCount: history.count,
+          routeReconstructable: history.count >= 2,
+          paymentLinked: true,
+          journeyCompleted: true,
+        },
+        bookingReference: paymentReference || "DEMO-REF",
+        paymentReference: paymentReference || "DEMO-REF",
         amountPaid: "£1.00",
         paymentStatus: "confirmed",
+        paymentLinkageStatus: "Payment reference linked to tracking session",
+        bookingCreatedAt: now,
         customerName: "Demo Customer",
+        customerEmail: "demo@example.com",
+        customerMobile: "07700900000",
         pickupLabel: "Demo pickup",
         dropoffLabel: "Demo drop-off",
+        tripType: "One-way",
         tripDate: new Date().toISOString().slice(0, 10),
         tripTime: "10:00",
         pickupDisplay: "Demo pickup time",
         journeyStatus: "completed",
         journeyStatusLabel: "Journey completed",
         pointCount: history.count,
+        routeReconstructable: history.count >= 2,
+        fieldsStored: {
+          latitudeLongitude: true,
+          accuracyMeters: true,
+          speedMps: true,
+          headingDegrees: true,
+        },
+        timeline: [
+          { id: "booking_created", label: "Booking created", at: now },
+          { id: "payment_received", label: "Payment received", at: now },
+          { id: "tracking_started", label: "Tracking started", at: now },
+          { id: "arrived_pickup", label: "Driver arrived at pickup" },
+          { id: "journey_started", label: "Passenger journey started" },
+          { id: "arrived_destination", label: "Arrived destination" },
+          { id: "journey_completed", label: "Journey completed", at: now },
+          { id: "tracking_stopped", label: "Tracking stopped" },
+        ],
         points: history.points,
-        trackUrl: `https://www.myairporttaxini.co.uk/track/?id=${token}`,
+        trackUrl: `https://www.myairporttaxini.co.uk/track/?id=${token || "demo-token"}`,
       },
     };
   }
 
-  const url = new URL(`${WORKER_BASE}/driver/journey/evidence`);
-  driverQueryKey(url, ownerKey);
-  url.searchParams.set("token", token);
+  const url = new URL(`${WORKER_BASE}/paid-bookings/journey-evidence`);
+  if (token) url.searchParams.set("token", token);
+  if (paymentReference) url.searchParams.set("paymentReference", paymentReference);
 
   const response = await fetch(url.toString(), {
     method: "GET",
-    headers: { Accept: "application/json" },
+    headers: {
+      Accept: "application/json",
+      "X-Owner-Key": ownerKey.trim(),
+    },
     cache: "no-store",
   });
 
-  return parseJsonResponse<{ ok: true; evidence: JourneyEvidencePack }>(response);
+  const payload = await parseJsonResponse<{
+    ok: true;
+    evidence: JourneyEvidencePack;
+    customerSeesHistoricalRoute?: boolean;
+  }>(response);
+
+  return {
+    ok: true,
+    customerSeesHistoricalRoute: false,
+    evidence: payload.evidence,
+  };
 }
 
 export async function ensurePaidBookingTracking(
