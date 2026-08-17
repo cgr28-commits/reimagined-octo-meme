@@ -64,9 +64,12 @@ console.log("\n=== 3. Owner dashboard + dedicated evidence page ===");
   const page = read("src/app/owner/journey-evidence/page.tsx");
   assert.match(page, /index:\s*false/);
   assert.match(page, /OwnerJourneyEvidenceClient/);
-  assert.match(page, /paymentReference \? "" : firstParam\(params\.token\)/);
+  assert.match(page, /Suspense/);
+  assert.match(page, /Static-export friendly|client-side/);
+  assert.doesNotMatch(page, /await searchParams\)/);
 
   const client = read("src/components/OwnerJourneyEvidenceClient.tsx");
+  assert.match(client, /useSearchParams/);
   assert.match(client, /Journey Evidence/);
   assert.match(client, /Evidence summary/);
   assert.match(client, /Download Journey Evidence PDF/);
