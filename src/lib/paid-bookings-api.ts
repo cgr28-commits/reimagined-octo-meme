@@ -181,3 +181,83 @@ export async function resendPaidBookingConfirmation(
     amountPaid: typeof payload.amountPaid === "string" ? payload.amountPaid : undefined,
   };
 }
+
+/** Owner-only read-only tracking diagnostic (Worker validates OWNER_ACCESS_KEY server-side). */
+export type TrackingDiagnosticReport = {
+  ok: boolean;
+  readOnly: boolean;
+  paymentReference: string | null;
+  paidBookingFound?: boolean;
+  sessionFound: boolean;
+  sessionCount?: number;
+  sessionId?: string;
+  paymentReferenceLinked?: boolean;
+  gpsPointCount?: number;
+  firstPointAt?: string | null;
+  lastPointAt?: string | null;
+  fieldsStored?: {
+    latitudeLongitude: boolean;
+    accuracyMeters: boolean;
+    speedMps: boolean;
+    headingDegrees: boolean;
+  };
+  trackingStartedAt?: string | null;
+  trackingStoppedAt?: string | null;
+  journeyEvents?: {
+    journeyStatus: string;
+    trackingStartedAt: string | null;
+    arrivedPickupAt: string | null;
+    journeyStartedAt: string | null;
+    arrivedDestinationAt: string | null;
+    journeyCompletedAt: string | null;
+    trackingStoppedAt: string | null;
+    sharingActive: boolean;
+  };
+  storage?: {
+    location: string;
+    binding: string;
+    jobKeyPrefix?: string;
+    historyKeyPrefix?: string;
+    paymentRefIndexPrefix?: string;
+    durableObject: boolean;
+    d1: boolean;
+  };
+  retention?: {
+    trackingJobTtlDays: number;
+    gpsHistoryTtlDays: number;
+    gpsSessionTtlHours: number;
+    note: string;
+  };
+  routeReconstructable?: boolean;
+  customerSeesHistoricalRoute: boolean;
+  customerPrivacy?: {
+    livePinOnly: boolean;
+    historicalTrailExposed: boolean;
+    historicalEvidenceOwnerOnly: boolean;
+  };
+  sessions?: TrackingDiagnosticReport[];
+  error?: string;
+};
+
+export async function fetchTrackingDiagnostic(
+  ownerKey: string,
+  paymentReference: string,
+): Promise<TrackingDiagnosticReport> {
+  const ref = paymentReference.trim();
+  const response = await fetch(
+    `${WORKER_BASE}/paid-bookings/tracking-diagnostic?paymentReference=${encodeURIComponent(ref)}`,
+    {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+        "X-Owner-Key": ownerKey.trim(),
+      },
+      cache: "no-store",
+    },
+  );
+  const payload = await parseJson(response);
+  if (!response.ok) {
+    throw new Error(String(payload.error ?? "Failed to load tracking diagnostic"));
+  }
+  return payload as unknown as TrackingDiagnosticReport;
+}
