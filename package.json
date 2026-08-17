@@ -30,6 +30,7 @@
     "check:save-to-contacts": "npx tsx scripts/check-save-to-contacts.ts",
     "check:tracking-diagnostic": "npx tsx scripts/check-tracking-diagnostic.ts",
     "check:journey-evidence": "npx tsx scripts/check-journey-evidence.ts",
+    "check:owner-mobile-ui": "npx tsx scripts/check-owner-mobile-ui.ts",
     "check:gps-session-cors": "npx tsx scripts/check-gps-session-cors.ts",
     "check:gps-ingestion": "npx tsx scripts/check-gps-ingestion.ts",
     "check:driver-profile-persist": "npx tsx scripts/check-driver-profile-persist.ts",

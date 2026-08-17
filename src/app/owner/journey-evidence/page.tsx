@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import OwnerJourneyEvidenceClient from "@/components/OwnerJourneyEvidenceClient";
+import OwnerPortalHeader from "@/components/OwnerPortalHeader";
 import { SITE } from "@/lib/data";
 
 export const metadata: Metadata = {
@@ -31,8 +32,11 @@ export default async function OwnerJourneyEvidencePage({ searchParams }: PagePro
   const token = paymentReference ? "" : firstParam(params.token);
 
   return (
-    <div className="min-h-screen bg-navy">
-      <OwnerJourneyEvidenceClient paymentReference={paymentReference} token={token} />
+    <div className="min-h-screen overflow-x-clip bg-navy">
+      <OwnerPortalHeader title="Journey Evidence" variant="owner" />
+      <div className="pt-[calc(4.75rem+env(safe-area-inset-top))] md:pt-[calc(4.5rem+env(safe-area-inset-top))]">
+        <OwnerJourneyEvidenceClient paymentReference={paymentReference} token={token} />
+      </div>
     </div>
   );
 }

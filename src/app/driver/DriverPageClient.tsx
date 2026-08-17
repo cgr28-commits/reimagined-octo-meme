@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Footer from "@/components/Footer";
-import Header from "@/components/Header";
+import OwnerPortalHeader from "@/components/OwnerPortalHeader";
 import OwnerBookingJobsPanel from "@/components/OwnerBookingJobsPanel";
 import OwnerPaidBookingsPanel from "@/components/OwnerPaidBookingsPanel";
 import OwnerAccountProfilePanel from "@/components/OwnerAccountProfilePanel";
@@ -2282,9 +2282,12 @@ export default function DriverPageClient({
 
   return (
     <>
-      <Header />
-      <main className="min-h-screen overflow-x-clip bg-navy pb-16 pt-44 md:pt-28">
-        <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
+      <OwnerPortalHeader
+        variant={isOwnerPortal ? "owner" : "driver"}
+        title={isOwnerPortal ? "Owner Dashboard" : "Driver"}
+      />
+      <main className="min-h-screen overflow-x-clip bg-navy pb-16 pt-[calc(4.75rem+env(safe-area-inset-top))] md:pt-[calc(4.5rem+env(safe-area-inset-top))]">
+        <div className={`mx-auto px-4 sm:px-6 lg:px-8 ${isOwnerPortal ? "max-w-5xl" : "max-w-3xl"}`}>
           <header className="mb-8">
             <p className="text-sm font-semibold uppercase tracking-widest text-emerald">
               {isOwnerView

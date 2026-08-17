@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import Footer from "@/components/Footer";
-import Header from "@/components/Header";
+import OwnerPortalHeader from "@/components/OwnerPortalHeader";
 import { issueBookingRefund, type RefundIssueResponse } from "@/lib/refund-api";
 
 const OWNER_KEY_STORAGE = "matni-owner-key";
@@ -53,8 +53,8 @@ export default function RefundPageClient() {
 
   return (
     <>
-      <Header />
-      <main className="min-h-screen overflow-x-clip bg-navy pb-16 pt-44 md:pt-28">
+      <OwnerPortalHeader variant="admin" title="Owner tools" />
+      <main className="min-h-screen overflow-x-clip bg-navy pb-16 pt-[calc(4.75rem+env(safe-area-inset-top))] md:pt-[calc(4.5rem+env(safe-area-inset-top))]">
         <div className="mx-auto max-w-2xl px-4 sm:px-6 lg:px-8">
           <header className="mb-8">
             <p className="text-sm font-semibold uppercase tracking-widest text-amber-300">
