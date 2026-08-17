@@ -134,10 +134,16 @@ import {
   handlePaidBookingsListRequest,
   handlePendingCheckoutsListRequest,
   isFinalizeCheckoutPath,
+  isPaidBookingEditPath,
   isPaidBookingResendPath,
   isPaidBookingsListPath,
+  isPaidBookingUpdatedConfirmationPath,
   isPendingCheckoutsListPath,
 } from "./paid-booking-handlers";
+import {
+  handlePaidBookingEditRequest,
+  handlePaidBookingSendUpdatedConfirmationRequest,
+} from "./paid-booking-edit-handlers";
 import {
   extractCheckoutIdFromRequest,
   finalizePaidCheckout,
@@ -346,6 +352,8 @@ function routePath(
   | "bookings-refund"
   | "paid-bookings"
   | "paid-bookings-resend"
+  | "paid-bookings-edit"
+  | "paid-bookings-updated-confirmation"
   | "paid-bookings-review-request"
   | "paid-bookings-pending"
   | "paid-bookings-finalize"
@@ -399,6 +407,14 @@ function routePath(
 
   if (isPaidBookingResendPath(pathname)) {
     return "paid-bookings-resend";
+  }
+
+  if (isPaidBookingEditPath(pathname)) {
+    return "paid-bookings-edit";
+  }
+
+  if (isPaidBookingUpdatedConfirmationPath(pathname)) {
+    return "paid-bookings-updated-confirmation";
   }
 
   if (isReviewRequestSendPath(pathname)) {
@@ -1652,6 +1668,20 @@ export default {
         return json({ error: "Method not allowed" }, 405, origin);
       }
       return handlePaidBookingResendRequest(request, env, origin);
+    }
+
+    if (route === "paid-bookings-edit") {
+      if (request.method !== "POST") {
+        return json({ error: "Method not allowed" }, 405, origin);
+      }
+      return handlePaidBookingEditRequest(request, env, origin);
+    }
+
+    if (route === "paid-bookings-updated-confirmation") {
+      if (request.method !== "POST") {
+        return json({ error: "Method not allowed" }, 405, origin);
+      }
+      return handlePaidBookingSendUpdatedConfirmationRequest(request, env, origin);
     }
 
     if (route === "paid-bookings-review-request") {

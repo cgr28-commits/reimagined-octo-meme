@@ -281,13 +281,18 @@ export async function handleDriverUpdateBookingRequest(
   const warnings: string[] = [];
 
   if (record.paymentReference && paidBookingStoreConfigured(env.TRACKING_STORE)) {
-    const updated = await updatePaidBookingFields(env.TRACKING_STORE, record.paymentReference, {
-      tripDate: record.tripDate,
-      tripTime: record.tripTime,
-      pickupLabel: record.pickupLabel,
-      dropoffLabel: record.dropoffLabel,
-      mobileNumber: record.customerMobile,
-    });
+    const updated = await updatePaidBookingFields(
+      env.TRACKING_STORE,
+      record.paymentReference,
+      {
+        tripDate: record.tripDate,
+        tripTime: record.tripTime,
+        pickupLabel: record.pickupLabel,
+        dropoffLabel: record.dropoffLabel,
+        mobileNumber: record.customerMobile,
+      },
+      { appendAudit: false },
+    );
 
     if (!updated) {
       warnings.push("Paid booking record could not be updated");

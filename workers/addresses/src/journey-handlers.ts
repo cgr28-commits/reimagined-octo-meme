@@ -17,6 +17,10 @@ import {
   type JourneyAction,
   type TrackingJobRecord,
 } from "../shared/tracking";
+import {
+  buildDriverArrivedPickupEmail,
+  customerFirstName,
+} from "../shared/booking-notifications";
 import { corsHeaders } from "../shared/google-places";
 import {
   assertDriverCanOperateJob,
@@ -40,6 +44,10 @@ import {
 import { getPaidBookingRecord, paidBookingStoreConfigured, savePaidBookingRecord } from "./paid-booking-store";
 import type { PaidBookingDetails } from "../shared/booking-notifications";
 import { buildReviewRequestSummary } from "./review-request-handlers";
+import {
+  trySendBrandedCustomerEmail,
+  type WorkerEmailEnv,
+} from "./worker-email";
 
 type Env = {
   TRACKING_STORE?: KVNamespace;
@@ -51,7 +59,106 @@ type Env = {
   TRACKING_GPS_HISTORY_TTL_SECONDS?: string;
   /** Minutes after journey completion before the Google review email (default 120). */
   REVIEW_REQUEST_DELAY_MINUTES?: string;
+  /** WhatsApp Business API — not configured in this Worker yet (wa.me links do not count). */
+  WHATSAPP_BUSINESS_API_TOKEN?: string;
+  WHATSAPP_BUSINESS_PHONE_ID?: string;
+  /** SMS provider — not configured in this Worker yet. */
+  TWILIO_ACCOUNT_SID?: string;
+  TWILIO_AUTH_TOKEN?: string;
+  TWILIO_FROM_NUMBER?: string;
+} & WorkerEmailEnv;
+
+const BUSINESS_NAME = "My Airport Taxi NI";
+
+export type ArrivalChannelReport = {
+  whatsappAutomatic: "AVAILABLE" | "NOT CONFIGURED";
+  smsAutomatic: "AVAILABLE" | "NOT CONFIGURED";
+  emailFallback: "AVAILABLE" | "NOT AVAILABLE";
 };
+
+export function arrivalChannelReport(env: Env): ArrivalChannelReport {
+  const whatsapp =
+    Boolean(env.WHATSAPP_BUSINESS_API_TOKEN?.trim()) &&
+    Boolean(env.WHATSAPP_BUSINESS_PHONE_ID?.trim());
+  const sms =
+    Boolean(env.TWILIO_ACCOUNT_SID?.trim()) &&
+    Boolean(env.TWILIO_AUTH_TOKEN?.trim()) &&
+    Boolean(env.TWILIO_FROM_NUMBER?.trim());
+  const email = Boolean(env.RESEND_API_KEY?.trim());
+  return {
+    whatsappAutomatic: whatsapp ? "AVAILABLE" : "NOT CONFIGURED",
+    smsAutomatic: sms ? "AVAILABLE" : "NOT CONFIGURED",
+    emailFallback: email ? "AVAILABLE" : "NOT AVAILABLE",
+  };
+}
+
+/**
+ * Idempotent customer arrival notification.
+ * Prefer WhatsApp Business API → SMS → Resend email. wa.me links are not automatic.
+ */
+export async function sendArrivalNotificationIfNeeded(
+  env: Env,
+  job: TrackingJobRecord,
+  options?: { forceRetry?: boolean },
+): Promise<TrackingJobRecord> {
+  if (job.arrivalNotificationStatus === "sent" && !options?.forceRetry) {
+    return job;
+  }
+
+  const channels = arrivalChannelReport(env);
+  const next: TrackingJobRecord = { ...job };
+
+  // No fake WhatsApp/SMS automation — only real configured providers.
+  if (channels.whatsappAutomatic === "AVAILABLE") {
+    // Reserved for future WhatsApp Business API integration.
+  }
+  if (channels.smsAutomatic === "AVAILABLE") {
+    // Reserved for future SMS provider integration.
+  }
+
+  if (channels.emailFallback !== "AVAILABLE") {
+    next.arrivalNotificationStatus = "not_configured";
+    next.arrivalNotificationError =
+      "WhatsApp Business API and SMS are not configured; Resend email is also unavailable.";
+    return next;
+  }
+
+  const emailAddress =
+    job.customerEmail?.trim() ||
+    (job.paymentReference && paidBookingStoreConfigured(env.TRACKING_STORE)
+      ? (await getPaidBookingRecord(env.TRACKING_STORE, job.paymentReference))?.customerEmail
+      : undefined);
+
+  if (!emailAddress?.trim()) {
+    next.arrivalNotificationStatus = "failed";
+    next.arrivalNotificationError = "No customer email on file for arrival notification";
+    return next;
+  }
+
+  const email = buildDriverArrivedPickupEmail(
+    { customerName: job.customerName || customerFirstName(emailAddress) },
+    BUSINESS_NAME,
+  );
+  const result = await trySendBrandedCustomerEmail(env, {
+    to: emailAddress.trim(),
+    toName: job.customerName,
+    subject: email.subject,
+    body: email.text,
+    htmlBody: email.html,
+  });
+
+  if (result.sent) {
+    next.arrivalNotificationStatus = "sent";
+    next.arrivalNotificationSentAt = new Date().toISOString();
+    next.arrivalNotificationProvider = "email";
+    delete next.arrivalNotificationError;
+  } else {
+    next.arrivalNotificationStatus = "failed";
+    next.arrivalNotificationError = result.error || "Arrival notification email failed";
+  }
+
+  return next;
+}
 
 function jsonResponse(body: unknown, status: number, origin: string | null) {
   return new Response(JSON.stringify(body), {
@@ -113,6 +220,48 @@ export async function handleJourneyTransitionRequest(
     return jsonResponse({ error: operateError }, 409, origin);
   }
 
+  const forceRetryArrival = Boolean(body.retryArrivalNotification);
+  const alreadyArrived =
+    action === "arrived_pickup" && journeyStatusOf(record) === "arrived_pickup";
+
+  // Idempotent Arrived at Pickup: keep original timestamp; optionally retry notification only.
+  if (alreadyArrived) {
+    let next = record;
+    if (forceRetryArrival || record.arrivalNotificationStatus !== "sent") {
+      next = await sendArrivalNotificationIfNeeded(env, record, {
+        forceRetry: forceRetryArrival,
+      });
+      await saveTrackingJob(env.TRACKING_STORE, next);
+    }
+    const channels = arrivalChannelReport(env);
+    return jsonResponse(
+      {
+        ok: true,
+        token: next.token,
+        journeyStatus: journeyStatusOf(next),
+        journeyStatusLabel: customerJourneyLabel(next),
+        allowedActions: allowedJourneyActions(journeyStatusOf(next)),
+        sharingActive: next.sharingActive,
+        trackUrl: buildPublicTrackUrl(next.token),
+        trackingStartedAt: next.trackingStartedAt,
+        arrivedPickupAt: next.arrivedPickupAt,
+        journeyStartedAt: next.journeyStartedAt,
+        arrivedDestinationAt: next.arrivedDestinationAt,
+        journeyCompletedAt: next.journeyCompletedAt,
+        trackingStoppedAt: next.trackingStoppedAt,
+        arrivalNotificationStatus: next.arrivalNotificationStatus,
+        arrivalNotificationSentAt: next.arrivalNotificationSentAt,
+        arrivalNotificationProvider: next.arrivalNotificationProvider,
+        arrivalNotificationError: next.arrivalNotificationError,
+        arrivalChannels: channels,
+        reviewRequest: buildReviewRequestSummary(next),
+        idempotent: true,
+      },
+      200,
+      origin,
+    );
+  }
+
   const applied = applyJourneyAction(record, action);
   if (!applied.ok) {
     return jsonResponse({ error: applied.error }, 409, origin);
@@ -130,6 +279,10 @@ export async function handleJourneyTransitionRequest(
       next,
       resolveReviewRequestDelayMs(env.REVIEW_REQUEST_DELAY_MINUTES),
     );
+  }
+
+  if (action === "arrived_pickup") {
+    next = await sendArrivalNotificationIfNeeded(env, next, { forceRetry: forceRetryArrival });
   }
 
   await saveTrackingJob(env.TRACKING_STORE, next);
@@ -150,6 +303,8 @@ export async function handleJourneyTransitionRequest(
     };
   }
 
+  const channels = arrivalChannelReport(env);
+
   return jsonResponse(
     {
       ok: true,
@@ -165,6 +320,11 @@ export async function handleJourneyTransitionRequest(
       arrivedDestinationAt: next.arrivedDestinationAt,
       journeyCompletedAt: next.journeyCompletedAt,
       trackingStoppedAt: next.trackingStoppedAt,
+      arrivalNotificationStatus: next.arrivalNotificationStatus,
+      arrivalNotificationSentAt: next.arrivalNotificationSentAt,
+      arrivalNotificationProvider: next.arrivalNotificationProvider,
+      arrivalNotificationError: next.arrivalNotificationError,
+      arrivalChannels: channels,
       reviewRequest: buildReviewRequestSummary(next),
       ...(trackingSession ? { trackingSession } : {}),
     },

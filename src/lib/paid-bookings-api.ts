@@ -38,6 +38,24 @@ export type OwnerPaidBookingSummary = Pick<
   driverUpdatedAt?: string;
   trackUrl?: string;
   reviewRequest?: OwnerReviewRequestSummary;
+  flightNumber?: string;
+  returnFlightNumber?: string;
+  passengers?: number;
+  suitcases?: number;
+  childSeats?: number;
+  childSeatNotes?: string;
+  notes?: string;
+  vehicle?: string;
+  assignedDriverName?: string;
+  assignedDriverLabel?: string;
+  assignmentStatus?: string;
+  primaryDriverDefault?: boolean;
+  arrivedPickupAt?: string;
+  arrivalNotificationStatus?: "sent" | "failed" | "not_configured" | "skipped" | string;
+  arrivalNotificationSentAt?: string;
+  arrivalNotificationProvider?: "email" | "sms" | "whatsapp" | string;
+  arrivalNotificationError?: string;
+  editHistory?: PaidBookingRecord["editHistory"];
 };
 
 export type OwnerPendingCheckoutSummary = {
@@ -84,19 +102,32 @@ async function parseJson(response: Response): Promise<Record<string, unknown>> {
 
 export async function fetchOwnerPaidBookings(
   ownerKey: string,
-  options?: { days?: number; limit?: number },
+  options?: {
+    days?: number;
+    limit?: number;
+    mode?: "upcoming" | "recent";
+    pastDays?: number;
+    futureDays?: number;
+  },
 ): Promise<OwnerPaidBookingSummary[]> {
   const days = options?.days ?? 30;
-  const limit = options?.limit ?? 50;
-  const response = await fetch(
-    `${WORKER_BASE}/paid-bookings?days=${encodeURIComponent(String(days))}&limit=${encodeURIComponent(String(limit))}`,
-    {
-      headers: {
-        Accept: "application/json",
-        "X-Owner-Key": ownerKey.trim(),
-      },
+  const limit = options?.limit ?? 100;
+  const mode = options?.mode ?? "upcoming";
+  const pastDays = options?.pastDays ?? 2;
+  const futureDays = options?.futureDays ?? 90;
+  const params = new URLSearchParams({
+    mode,
+    days: String(days),
+    limit: String(limit),
+    pastDays: String(pastDays),
+    futureDays: String(futureDays),
+  });
+  const response = await fetch(`${WORKER_BASE}/paid-bookings?${params.toString()}`, {
+    headers: {
+      Accept: "application/json",
+      "X-Owner-Key": ownerKey.trim(),
     },
-  );
+  });
   const payload = await parseJson(response);
   if (!response.ok) {
     throw new Error(String(payload.error ?? "Failed to load paid bookings"));
@@ -345,4 +376,115 @@ export async function fetchTrackingDiagnostic(
     throw new Error(String(payload.error ?? "Failed to load tracking diagnostic"));
   }
   return payload as unknown as TrackingDiagnosticReport;
+}
+
+export type OwnerEditBookingInput = {
+  paymentReference: string;
+  tripDate?: string;
+  tripTime?: string;
+  pickupLabel?: string;
+  dropoffLabel?: string;
+  customerName?: string;
+  customerEmail?: string;
+  mobileNumber?: string;
+  flightNumber?: string;
+  returnFlightNumber?: string;
+  passengers?: number;
+  suitcases?: number;
+  childSeats?: number;
+  childSeatNotes?: string;
+  notes?: string;
+  returnJourney?: boolean;
+  returnDate?: string;
+  returnTime?: string;
+  tripLabel?: string;
+  vehicle?: string;
+  sendUpdatedConfirmation?: boolean;
+};
+
+export type OwnerEditBookingResult = {
+  ok: boolean;
+  paymentReference: string;
+  booking?: OwnerPaidBookingSummary & {
+    editHistory?: PaidBookingRecord["editHistory"];
+    calendarEventIds?: string[];
+  };
+  fareMayNeedManualAdjustment?: boolean;
+  fareAdjustmentMessage?: string;
+  paymentPreserved?: boolean;
+  calendarUpdated?: boolean;
+  customerEmailSent?: boolean;
+  customerEmailError?: string;
+  warnings?: string[];
+  error?: string;
+};
+
+export async function editOwnerPaidBooking(
+  ownerKey: string,
+  input: OwnerEditBookingInput,
+): Promise<OwnerEditBookingResult> {
+  const response = await fetch(`${WORKER_BASE}/paid-bookings/edit`, {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      "X-Owner-Key": ownerKey.trim(),
+    },
+    body: JSON.stringify(input),
+  });
+  const payload = await parseJson(response);
+  if (!response.ok) {
+    return {
+      ok: false,
+      paymentReference: input.paymentReference,
+      error: String(payload.error ?? "Failed to edit booking"),
+    };
+  }
+  return {
+    ok: payload.ok === true,
+    paymentReference: String(payload.paymentReference ?? input.paymentReference),
+    booking: payload.booking as OwnerEditBookingResult["booking"],
+    fareMayNeedManualAdjustment: payload.fareMayNeedManualAdjustment === true,
+    fareAdjustmentMessage:
+      typeof payload.fareAdjustmentMessage === "string"
+        ? payload.fareAdjustmentMessage
+        : undefined,
+    paymentPreserved: payload.paymentPreserved === true,
+    calendarUpdated: payload.calendarUpdated === true,
+    customerEmailSent: payload.customerEmailSent === true,
+    customerEmailError:
+      typeof payload.customerEmailError === "string" ? payload.customerEmailError : undefined,
+    warnings: Array.isArray(payload.warnings)
+      ? payload.warnings.map((w) => String(w))
+      : undefined,
+  };
+}
+
+export async function sendUpdatedBookingConfirmation(
+  ownerKey: string,
+  paymentReference: string,
+): Promise<{ ok: boolean; customerEmail?: string; error?: string }> {
+  const response = await fetch(`${WORKER_BASE}/paid-bookings/send-updated-confirmation`, {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      "X-Owner-Key": ownerKey.trim(),
+    },
+    body: JSON.stringify({ paymentReference }),
+  });
+  const payload = await parseJson(response);
+  if (!response.ok) {
+    return {
+      ok: false,
+      error: String(payload.error ?? "Failed to send updated confirmation"),
+    };
+  }
+  return {
+    ok: payload.ok === true && payload.customerEmailSent === true,
+    customerEmail: typeof payload.customerEmail === "string" ? payload.customerEmail : undefined,
+    ...(payload.customerEmailSent === true
+      ? {}
+      : { error: String(payload.error ?? "Updated confirmation was not sent") }),
+  };
 }
