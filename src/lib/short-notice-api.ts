@@ -11,6 +11,7 @@ export type ShortNoticeBookingSummary = {
   materialFingerprint: string;
   minimumNoticeHoursApplied?: number;
   automaticBookingsAvailableFromApplied?: string | null;
+  unavailablePeriodIdApplied?: string | null;
   createdAt: string;
   updatedAt: string;
   approvedAt?: string;
@@ -41,11 +42,20 @@ export type ShortNoticeBookingSummary = {
   };
 };
 
-export type BookingSettings = {
-  automaticBookingsAvailableFrom: string | null;
+export type UnavailablePeriodSummary = {
+  id: string;
+  startLocal: string;
+  endLocal: string;
+  note?: string;
+  createdAt: string;
   updatedAt: string;
-  gateActive?: boolean;
-  availableFromLabel?: string | null;
+};
+
+export type BookingSettings = {
+  unavailablePeriods: UnavailablePeriodSummary[];
+  activeUnavailablePeriods?: UnavailablePeriodSummary[];
+  activeCount?: number;
+  updatedAt: string;
 };
 
 export type PublicShortNoticeSummary = {
@@ -86,16 +96,21 @@ export async function fetchShortNoticeBookings(
   });
   const payload = await parseJson(response);
   if (!response.ok) {
-    throw new Error(String(payload.error || "Could not load short-notice requests"));
+    throw new Error(String(payload.error || "Could not load short-notice bookings"));
   }
-  const bookings = Array.isArray(payload.bookings) ? payload.bookings : [];
-  return bookings as ShortNoticeBookingSummary[];
+  return Array.isArray(payload.bookings)
+    ? (payload.bookings as ShortNoticeBookingSummary[])
+    : [];
 }
 
 export async function approveShortNoticeBooking(
   ownerKey: string,
   reference: string,
-): Promise<{ payUrl: string; whatsappPayUrl: string; record: ShortNoticeBookingSummary }> {
+): Promise<{
+  record: ShortNoticeBookingSummary;
+  payUrl: string;
+  whatsappPayUrl: string;
+}> {
   const response = await fetch(`${WORKER_BASE}/owner/short-notice/approve`, {
     method: "POST",
     headers: {
@@ -110,17 +125,16 @@ export async function approveShortNoticeBooking(
     throw new Error(String(payload.error || "Could not approve short-notice booking"));
   }
   return {
-    payUrl: String(payload.payUrl || ""),
-    whatsappPayUrl: String(payload.whatsappPayUrl || ""),
     record: payload.record as ShortNoticeBookingSummary,
+    payUrl: String(payload.payUrl ?? ""),
+    whatsappPayUrl: String(payload.whatsappPayUrl ?? ""),
   };
 }
 
 export async function declineShortNoticeBooking(
   ownerKey: string,
   reference: string,
-  reason?: string,
-): Promise<void> {
+): Promise<ShortNoticeBookingSummary> {
   const response = await fetch(`${WORKER_BASE}/owner/short-notice/decline`, {
     method: "POST",
     headers: {
@@ -128,12 +142,13 @@ export async function declineShortNoticeBooking(
       Accept: "application/json",
       "X-Owner-Key": ownerKey.trim(),
     },
-    body: JSON.stringify({ reference, reason }),
+    body: JSON.stringify({ reference }),
   });
   const payload = await parseJson(response);
   if (!response.ok) {
     throw new Error(String(payload.error || "Could not decline short-notice booking"));
   }
+  return payload.record as ShortNoticeBookingSummary;
 }
 
 export async function fetchBookingSettings(ownerKey: string): Promise<BookingSettings> {
@@ -148,13 +163,21 @@ export async function fetchBookingSettings(ownerKey: string): Promise<BookingSet
   if (!response.ok) {
     throw new Error(String(payload.error || "Could not load booking settings"));
   }
-  const settings = payload.settings as BookingSettings;
-  return settings;
+  return payload.settings as BookingSettings;
 }
 
-export async function saveBookingSettings(
+export type UnavailablePeriodWriteInput = {
+  id?: string;
+  startDate: string;
+  startTime: string;
+  endDate: string;
+  endTime: string;
+  note?: string;
+};
+
+export async function addUnavailablePeriod(
   ownerKey: string,
-  automaticBookingsAvailableFrom: string | null,
+  input: UnavailablePeriodWriteInput,
 ): Promise<BookingSettings> {
   const response = await fetch(`${WORKER_BASE}/owner/booking-settings`, {
     method: "POST",
@@ -164,15 +187,76 @@ export async function saveBookingSettings(
       "X-Owner-Key": ownerKey.trim(),
     },
     body: JSON.stringify({
-      automaticBookingsAvailableFrom,
-      ...(automaticBookingsAvailableFrom == null ? { clear: true } : {}),
+      action: "add",
+      startDate: input.startDate,
+      startTime: input.startTime,
+      endDate: input.endDate,
+      endTime: input.endTime,
+      note: input.note ?? "",
     }),
   });
   const payload = await parseJson(response);
   if (!response.ok) {
-    throw new Error(String(payload.error || "Could not save booking settings"));
+    throw new Error(String(payload.error || "Could not add unavailable period"));
   }
   return payload.settings as BookingSettings;
+}
+
+export async function updateUnavailablePeriod(
+  ownerKey: string,
+  input: UnavailablePeriodWriteInput & { id: string },
+): Promise<BookingSettings> {
+  const response = await fetch(`${WORKER_BASE}/owner/booking-settings`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      "X-Owner-Key": ownerKey.trim(),
+    },
+    body: JSON.stringify({
+      action: "update",
+      id: input.id,
+      startDate: input.startDate,
+      startTime: input.startTime,
+      endDate: input.endDate,
+      endTime: input.endTime,
+      note: input.note ?? "",
+    }),
+  });
+  const payload = await parseJson(response);
+  if (!response.ok) {
+    throw new Error(String(payload.error || "Could not update unavailable period"));
+  }
+  return payload.settings as BookingSettings;
+}
+
+export async function deleteUnavailablePeriod(
+  ownerKey: string,
+  id: string,
+): Promise<BookingSettings> {
+  const response = await fetch(`${WORKER_BASE}/owner/booking-settings`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      "X-Owner-Key": ownerKey.trim(),
+    },
+    body: JSON.stringify({ action: "delete", id }),
+  });
+  const payload = await parseJson(response);
+  if (!response.ok) {
+    throw new Error(String(payload.error || "Could not delete unavailable period"));
+  }
+  return payload.settings as BookingSettings;
+}
+
+/** @deprecated Use addUnavailablePeriod / update / delete */
+export async function saveBookingSettings(
+  ownerKey: string,
+  _legacy: string | null,
+): Promise<BookingSettings> {
+  void _legacy;
+  return fetchBookingSettings(ownerKey);
 }
 
 export async function fetchPublicShortNotice(

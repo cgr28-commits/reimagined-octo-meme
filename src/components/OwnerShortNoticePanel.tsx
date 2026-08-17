@@ -1,18 +1,41 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { vehicleServiceLabel } from "../../shared/booking-notice";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  formatUnavailablePeriodRangeLabel,
+  isUnavailablePeriodExpired,
+  vehicleServiceLabel,
+} from "../../shared/booking-notice";
+import {
+  addUnavailablePeriod,
   approveShortNoticeBooking,
   declineShortNoticeBooking,
+  deleteUnavailablePeriod,
   fetchBookingSettings,
   fetchShortNoticeBookings,
-  saveBookingSettings,
+  updateUnavailablePeriod,
   type ShortNoticeBookingSummary,
+  type UnavailablePeriodSummary,
 } from "@/lib/short-notice-api";
 
 type OwnerShortNoticePanelProps = {
   ownerKey: string;
+};
+
+type PeriodDraft = {
+  startDate: string;
+  startTime: string;
+  endDate: string;
+  endTime: string;
+  note: string;
+};
+
+const EMPTY_DRAFT: PeriodDraft = {
+  startDate: "",
+  startTime: "00:30",
+  endDate: "",
+  endTime: "08:00",
+  note: "",
 };
 
 function statusLabel(status: string): string {
@@ -32,51 +55,42 @@ function statusLabel(status: string): string {
   }
 }
 
-function splitAvailability(value: string | null | undefined): { date: string; time: string } {
-  const match = String(value ?? "")
-    .trim()
-    .match(/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})/);
+function splitLocal(value: string): { date: string; time: string } {
+  const match = value.trim().match(/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})/);
   if (!match) return { date: "", time: "" };
   return { date: match[1]!, time: match[2]! };
 }
 
+function draftFromPeriod(period: UnavailablePeriodSummary): PeriodDraft {
+  const start = splitLocal(period.startLocal);
+  const end = splitLocal(period.endLocal);
+  return {
+    startDate: start.date,
+    startTime: start.time || "00:00",
+    endDate: end.date,
+    endTime: end.time || "00:00",
+    note: period.note ?? "",
+  };
+}
+
 export default function OwnerShortNoticePanel({ ownerKey }: OwnerShortNoticePanelProps) {
   const [bookings, setBookings] = useState<ShortNoticeBookingSummary[]>([]);
-  const [availableFrom, setAvailableFrom] = useState<string | null>(null);
-  const [availableFromLabel, setAvailableFromLabel] = useState<string | null>(null);
-  const [gateActive, setGateActive] = useState(false);
-  const [editing, setEditing] = useState(false);
-  const [dateDraft, setDateDraft] = useState("");
-  const [timeDraft, setTimeDraft] = useState("08:00");
+  const [periods, setPeriods] = useState<UnavailablePeriodSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyRef, setBusyRef] = useState("");
   const [savingSettings, setSavingSettings] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [showAdd, setShowAdd] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [draft, setDraft] = useState<PeriodDraft>(EMPTY_DRAFT);
   const [payLinks, setPayLinks] = useState<
     Record<string, { payUrl: string; whatsappPayUrl: string }>
   >({});
 
-  const applySettings = useCallback(
-    (settings: {
-      automaticBookingsAvailableFrom: string | null;
-      gateActive?: boolean;
-      availableFromLabel?: string | null;
-    }) => {
-      const next = settings.automaticBookingsAvailableFrom;
-      const active = Boolean(settings.gateActive && next);
-      setAvailableFrom(active ? next : null);
-      setAvailableFromLabel(active ? settings.availableFromLabel ?? null : null);
-      setGateActive(active);
-      const parts = splitAvailability(next);
-      setDateDraft(parts.date);
-      setTimeDraft(parts.time || "08:00");
-      if (!active) {
-        setEditing(false);
-      }
-    },
-    [],
-  );
+  const applySettings = useCallback((settings: { unavailablePeriods?: UnavailablePeriodSummary[] }) => {
+    setPeriods(Array.isArray(settings.unavailablePeriods) ? settings.unavailablePeriods : []);
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -99,42 +113,57 @@ export default function OwnerShortNoticePanel({ ownerKey }: OwnerShortNoticePane
     void load();
   }, [load]);
 
-  async function handleSaveSettings() {
+  const sortedPeriods = useMemo(
+    () =>
+      [...periods].sort((a, b) => a.startLocal.localeCompare(b.startLocal)),
+    [periods],
+  );
+
+  async function handleSavePeriod() {
     setSavingSettings(true);
     setError("");
     setMessage("");
     try {
-      if (!dateDraft || !timeDraft) {
-        throw new Error("Choose both a date and a time.");
+      if (!draft.startDate || !draft.startTime || !draft.endDate || !draft.endTime) {
+        throw new Error("Choose start and end date/time.");
       }
-      const settings = await saveBookingSettings(ownerKey, `${dateDraft}T${timeDraft}`);
+      const payload = {
+        startDate: draft.startDate,
+        startTime: draft.startTime,
+        endDate: draft.endDate,
+        endTime: draft.endTime,
+        note: draft.note,
+      };
+      const settings = editingId
+        ? await updateUnavailablePeriod(ownerKey, { ...payload, id: editingId })
+        : await addUnavailablePeriod(ownerKey, payload);
       applySettings(settings);
-      setEditing(false);
-      setMessage(
-        settings.gateActive && settings.availableFromLabel
-          ? `Automatic bookings available from ${settings.availableFromLabel}.`
-          : "Availability restriction saved (inactive if the time is already past).",
-      );
+      setShowAdd(false);
+      setEditingId(null);
+      setDraft(EMPTY_DRAFT);
+      setMessage(editingId ? "Unavailable period updated." : "Unavailable period added.");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not save settings");
+      setError(err instanceof Error ? err.message : "Could not save period");
     } finally {
       setSavingSettings(false);
     }
   }
 
-  async function handleClearRestriction() {
+  async function handleDeletePeriod(id: string) {
     setSavingSettings(true);
     setError("");
     setMessage("");
     try {
-      const settings = await saveBookingSettings(ownerKey, null);
+      const settings = await deleteUnavailablePeriod(ownerKey, id);
       applySettings(settings);
-      setDateDraft("");
-      setTimeDraft("08:00");
-      setEditing(false);
-      setMessage("Availability restriction cleared — bookings can go straight to SumUp.");
+      if (editingId === id) {
+        setEditingId(null);
+        setShowAdd(false);
+        setDraft(EMPTY_DRAFT);
+      }
+      setMessage("Unavailable period deleted.");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not clear restriction");
+      setError(err instanceof Error ? err.message : "Could not delete period");
     } finally {
       setSavingSettings(false);
     }
@@ -186,17 +215,183 @@ export default function OwnerShortNoticePanel({ ownerKey }: OwnerShortNoticePane
     }
   }
 
-  const showEditor = editing || !gateActive;
+  const editorOpen = showAdd || Boolean(editingId);
 
   return (
     <section className="mb-8 rounded-2xl border border-amber-400/25 bg-navy/70 p-4 sm:p-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+      <div className="rounded-xl border border-emerald/30 bg-emerald/10 p-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wider text-emerald">
+              Booking Availability
+            </p>
+            <h2 className="mt-1 text-lg font-bold text-white">Unavailable periods</h2>
+            <p className="mt-1 text-sm text-white/65">
+              Block automatic SumUp for pickups inside these windows (Europe/London). Expired
+              periods stop blocking automatically — no need to clear them.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setEditingId(null);
+              setDraft(EMPTY_DRAFT);
+              setShowAdd(true);
+            }}
+            className="min-h-11 rounded-xl bg-emerald px-4 py-2.5 text-sm font-bold text-navy"
+          >
+            Add unavailable period
+          </button>
+        </div>
+
+        {editorOpen ? (
+          <div className="mt-4 rounded-xl border border-white/10 bg-navy/60 p-4">
+            <p className="text-sm font-semibold text-white">
+              {editingId ? "Edit unavailable period" : "New unavailable period"}
+            </p>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <label className="block text-sm text-white/70">
+                Unavailable from (date)
+                <input
+                  type="date"
+                  value={draft.startDate}
+                  onChange={(event) => setDraft((d) => ({ ...d, startDate: event.target.value }))}
+                  className="mt-1 block min-h-11 w-full rounded-xl border border-white/20 bg-navy px-3 py-2 text-white outline-none focus:border-emerald"
+                />
+              </label>
+              <label className="block text-sm text-white/70">
+                Start time
+                <input
+                  type="time"
+                  value={draft.startTime}
+                  onChange={(event) => setDraft((d) => ({ ...d, startTime: event.target.value }))}
+                  className="mt-1 block min-h-11 w-full rounded-xl border border-white/20 bg-navy px-3 py-2 text-white outline-none focus:border-emerald"
+                />
+              </label>
+              <label className="block text-sm text-white/70">
+                Until (date)
+                <input
+                  type="date"
+                  value={draft.endDate}
+                  onChange={(event) => setDraft((d) => ({ ...d, endDate: event.target.value }))}
+                  className="mt-1 block min-h-11 w-full rounded-xl border border-white/20 bg-navy px-3 py-2 text-white outline-none focus:border-emerald"
+                />
+              </label>
+              <label className="block text-sm text-white/70">
+                End time
+                <input
+                  type="time"
+                  value={draft.endTime}
+                  onChange={(event) => setDraft((d) => ({ ...d, endTime: event.target.value }))}
+                  className="mt-1 block min-h-11 w-full rounded-xl border border-white/20 bg-navy px-3 py-2 text-white outline-none focus:border-emerald"
+                />
+              </label>
+            </div>
+            <label className="mt-3 block text-sm text-white/70">
+              Private Owner note (optional — never shown to customers)
+              <input
+                type="text"
+                value={draft.note}
+                maxLength={280}
+                onChange={(event) => setDraft((d) => ({ ...d, note: event.target.value }))}
+                placeholder="e.g. Sleep / MOT / holiday"
+                className="mt-1 block min-h-11 w-full rounded-xl border border-white/20 bg-navy px-3 py-2 text-white outline-none focus:border-emerald"
+              />
+            </label>
+            <p className="mt-2 text-xs text-white/45">
+              Start inclusive · End exclusive (e.g. 00:30→08:00 blocks 00:30–07:59; 08:00 is normal
+              SumUp).
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button
+                type="button"
+                disabled={savingSettings}
+                onClick={() => void handleSavePeriod()}
+                className="min-h-11 rounded-xl bg-emerald px-4 py-2.5 text-sm font-bold text-navy disabled:opacity-60"
+              >
+                {savingSettings ? "Saving…" : editingId ? "Save changes" : "Save period"}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAdd(false);
+                  setEditingId(null);
+                  setDraft(EMPTY_DRAFT);
+                }}
+                className="min-h-11 rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold text-white/70"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : null}
+
+        {sortedPeriods.length === 0 ? (
+          <p className="mt-4 text-sm text-white/55">
+            No unavailable periods — customers can pay online for any future pickup.
+          </p>
+        ) : (
+          <ul className="mt-4 space-y-3">
+            {sortedPeriods.map((period) => {
+              const expired = isUnavailablePeriodExpired(period);
+              return (
+                <li
+                  key={period.id}
+                  className={`rounded-xl border p-3 ${
+                    expired
+                      ? "border-white/10 bg-white/[0.03] opacity-70"
+                      : "border-emerald/25 bg-navy/50"
+                  }`}
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-white">
+                        {formatUnavailablePeriodRangeLabel(period)}
+                      </p>
+                      <p className="mt-1 text-xs uppercase tracking-wider text-white/45">
+                        {expired ? "Expired · ignored for SumUp" : "Active"}
+                      </p>
+                      {period.note ? (
+                        <p className="mt-2 text-xs text-white/55">Note: {period.note}</p>
+                      ) : null}
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        disabled={savingSettings}
+                        onClick={() => {
+                          setShowAdd(false);
+                          setEditingId(period.id);
+                          setDraft(draftFromPeriod(period));
+                        }}
+                        className="min-h-11 rounded-xl border border-white/15 px-3 py-2 text-sm font-semibold text-white hover:border-white/30"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        disabled={savingSettings}
+                        onClick={() => void handleDeletePeriod(period.id)}
+                        className="min-h-11 rounded-xl border border-red-400/40 bg-red-500/15 px-3 py-2 text-sm font-semibold text-red-100 disabled:opacity-60"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
+
+      <div className="mt-6 flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-xs font-semibold uppercase tracking-wider text-amber-200">
             Short-notice requests awaiting approval
           </p>
           <p className="mt-1 text-sm text-white/65">
-            Pickups before your automatic booking availability time — review before SumUp payment.
+            Pickups inside an unavailable period — review before SumUp payment.
           </p>
         </div>
         <button
@@ -206,96 +401,6 @@ export default function OwnerShortNoticePanel({ ownerKey }: OwnerShortNoticePane
         >
           Refresh
         </button>
-      </div>
-
-      <div className="mt-4 rounded-xl border border-emerald/30 bg-emerald/10 p-4">
-        <p className="text-xs font-semibold uppercase tracking-wider text-emerald">
-          Automatic bookings available from
-        </p>
-        {gateActive && availableFromLabel && !editing ? (
-          <>
-            <p className="mt-2 text-lg font-bold text-white sm:text-xl">{availableFromLabel}</p>
-            <p className="mt-1 text-xs text-white/55">Europe/London · auto-expires after this time</p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  const parts = splitAvailability(availableFrom);
-                  setDateDraft(parts.date);
-                  setTimeDraft(parts.time || "08:00");
-                  setEditing(true);
-                }}
-                className="min-h-11 rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold text-white hover:border-white/30"
-              >
-                Change
-              </button>
-              <button
-                type="button"
-                disabled={savingSettings}
-                onClick={() => void handleClearRestriction()}
-                className="min-h-11 rounded-xl border border-red-400/40 bg-red-500/15 px-4 py-2.5 text-sm font-semibold text-red-100 disabled:opacity-60"
-              >
-                Clear restriction
-              </button>
-            </div>
-          </>
-        ) : (
-          <>
-            <p className="mt-2 text-sm text-white/70">
-              {showEditor && !gateActive
-                ? "No active restriction — customers can pay online for any future pickup."
-                : "Set the earliest pickup time you will automatically accept."}
-            </p>
-            <div className="mt-3 flex flex-wrap items-end gap-3">
-              <label className="block text-sm text-white/70">
-                Date
-                <input
-                  type="date"
-                  value={dateDraft}
-                  onChange={(event) => setDateDraft(event.target.value)}
-                  className="mt-1 block min-h-11 w-full min-w-[10rem] rounded-xl border border-white/20 bg-navy px-3 py-2 text-white outline-none focus:border-emerald"
-                />
-              </label>
-              <label className="block text-sm text-white/70">
-                Time
-                <input
-                  type="time"
-                  value={timeDraft}
-                  onChange={(event) => setTimeDraft(event.target.value)}
-                  className="mt-1 block min-h-11 w-full min-w-[7rem] rounded-xl border border-white/20 bg-navy px-3 py-2 text-white outline-none focus:border-emerald"
-                />
-              </label>
-              <button
-                type="button"
-                disabled={savingSettings}
-                onClick={() => void handleSaveSettings()}
-                className="min-h-11 rounded-xl bg-emerald px-4 py-2.5 text-sm font-bold text-navy disabled:opacity-60"
-              >
-                {savingSettings ? "Saving…" : "Save availability"}
-              </button>
-              {editing ? (
-                <button
-                  type="button"
-                  onClick={() => setEditing(false)}
-                  className="min-h-11 rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold text-white/70"
-                >
-                  Cancel
-                </button>
-              ) : null}
-              {gateActive ? (
-                <button
-                  type="button"
-                  disabled={savingSettings}
-                  onClick={() => void handleClearRestriction()}
-                  className="min-h-11 rounded-xl border border-red-400/40 bg-red-500/15 px-4 py-2.5 text-sm font-semibold text-red-100 disabled:opacity-60"
-                >
-                  Clear restriction
-                </button>
-              ) : null}
-            </div>
-            <p className="mt-2 text-xs text-white/45">Europe/London (NI local time)</p>
-          </>
-        )}
       </div>
 
       {error ? <p className="mt-3 text-sm text-red-300">{error}</p> : null}
