@@ -372,7 +372,7 @@ export const DRIVER_TRACKING_HIGHLIGHTS = [
   {
     title: "Active on travel day",
     description:
-      "The link is ready when you book, but live tracking opens on the day of your transfer, from about two hours before pickup.",
+      "The link is ready when you book, but live tracking opens on the day of your transfer, from about one hour before pickup.",
   },
   {
     title: "See your driver en route",
@@ -473,7 +473,7 @@ export const FAQS = [
   {
     question: "Can I track my driver on the day of travel?",
     answer:
-      "When you pay online by card, your invoice includes a live tracking link. On travel day, the page opens about two hours before your scheduled pickup so you can follow your driver on a map.",
+      "When you pay online by card, your invoice includes a live tracking link. On travel day, the page opens about one hour before your scheduled pickup so you can follow your driver on a map.",
   },
   {
     question: "What currency are prices quoted in?",

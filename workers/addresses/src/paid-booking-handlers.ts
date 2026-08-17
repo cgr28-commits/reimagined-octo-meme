@@ -13,6 +13,8 @@ import {
   listRecentPaidBookings,
   paidBookingStoreConfigured,
 } from "./paid-booking-store";
+import { getTrackingJob } from "./tracking-store";
+import { journeyStatusOf } from "../shared/tracking";
 import { getPendingCheckout, pendingCheckoutStoreConfigured } from "./pending-checkout-store";
 import {
   buildPendingCheckoutOwnerViews,
@@ -119,16 +121,30 @@ export async function handlePaidBookingsListRequest(
     return jsonResponse({ error: "Booking store is not configured." }, 503, origin);
   }
 
+  const store = env.TRACKING_STORE;
   const url = new URL(request.url);
   const days = Number(url.searchParams.get("days") || "14");
   const limit = Number(url.searchParams.get("limit") || "50");
-  const bookings = await listRecentPaidBookings(env.TRACKING_STORE, { days, limit });
+  const bookings = await listRecentPaidBookings(store, { days, limit });
 
-  return jsonResponse(
-    {
-      ok: true,
-      count: bookings.length,
-      bookings: bookings.map((booking) => ({
+  const enriched = await Promise.all(
+    bookings.map(async (booking) => {
+      let sharingActive = false;
+      let journeyStatus: string | undefined;
+      let driverUpdatedAt: string | undefined;
+      let trackUrl: string | undefined;
+      const token = booking.trackingToken?.trim();
+      if (token) {
+        const job = await getTrackingJob(store, token);
+        if (job) {
+          sharingActive = Boolean(job.sharingActive);
+          journeyStatus = journeyStatusOf(job);
+          driverUpdatedAt = job.driverUpdatedAt;
+          trackUrl = `https://www.myairporttaxini.co.uk/track/?id=${encodeURIComponent(job.token)}`;
+        }
+      }
+
+      return {
         paymentReference: booking.paymentReference,
         checkoutId: booking.checkoutId,
         createdAt: booking.createdAt,
@@ -146,7 +162,19 @@ export async function handlePaidBookingsListRequest(
         returnDate: booking.returnDate,
         returnTime: booking.returnTime,
         trackingToken: booking.trackingToken,
-      })),
+        sharingActive,
+        journeyStatus,
+        driverUpdatedAt,
+        trackUrl,
+      };
+    }),
+  );
+
+  return jsonResponse(
+    {
+      ok: true,
+      count: enriched.length,
+      bookings: enriched,
     },
     200,
     origin,

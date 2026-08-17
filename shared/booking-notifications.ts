@@ -288,7 +288,7 @@ function buildInvoiceHtml(
                     <div style="font-size:12px;letter-spacing:0.1em;text-transform:uppercase;color:#15803d;font-weight:bold;margin-bottom:12px;">Live driver tracking</div>
                     <div style="font-size:14px;line-height:1.8;color:#475569;">
                       On the day of travel, your driver can share their live location around pickup time.
-                      Save this link — it activates about 2 hours before your scheduled pickup.
+                      Save this link — it activates about 1 hour before your scheduled pickup.
                     </div>
                     <div style="margin-top:12px;">
                       <a href="${escapeHtml(trackUrl)}" style="display:inline-block;background:${NAVY};color:#ffffff;text-decoration:none;font-size:14px;font-weight:bold;padding:12px 20px;border-radius:8px;">Open tracking page</a>
@@ -367,7 +367,7 @@ export function buildCustomerConfirmationEmail(
     (trackUrl
       ? `\nLIVE DRIVER TRACKING\n${"=".repeat(40)}\n` +
         `On the day of travel, your driver can share their live location around pickup time.\n` +
-        `Save this link — it activates about 2 hours before your scheduled pickup:\n` +
+        `Save this link — it activates about 1 hour before your scheduled pickup:\n` +
         `${trackUrl}\n`
       : "") +
     `\nWe will contact you if we need any further information before your journey.\n\n` +

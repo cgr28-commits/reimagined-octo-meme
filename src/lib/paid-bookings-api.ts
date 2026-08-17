@@ -23,6 +23,10 @@ export type OwnerPaidBookingSummary = Pick<
 > & {
   amountPaid: string;
   trackingToken?: string;
+  sharingActive?: boolean;
+  journeyStatus?: string;
+  driverUpdatedAt?: string;
+  trackUrl?: string;
 };
 
 export type OwnerPendingCheckoutSummary = {

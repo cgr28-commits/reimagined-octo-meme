@@ -117,10 +117,14 @@ async function main() {
     const early = getTrackingWindow(pickupAt!, new Date("2026-03-28T20:00:00.000Z"));
     assert.equal(early.open, false);
     assert.equal(early.reason, "too_early");
-    // 02:30 London BST = 01:30 UTC; opensAt = 01:30 UTC - 2h = 2026-03-28T23:30:00.000Z
-    assert.equal(early.opensAt, "2026-03-28T23:30:00.000Z");
+    // 02:30 London BST = 01:30 UTC; opensAt = 01:30 UTC - 1h = 2026-03-29T00:30:00.000Z
+    assert.equal(early.opensAt, "2026-03-29T00:30:00.000Z");
 
-    const open = getTrackingWindow(pickupAt!, new Date("2026-03-29T00:00:00.000Z"));
+    const stillEarly = getTrackingWindow(pickupAt!, new Date("2026-03-29T00:00:00.000Z"));
+    assert.equal(stillEarly.open, false);
+    assert.equal(stillEarly.reason, "too_early");
+
+    const open = getTrackingWindow(pickupAt!, new Date("2026-03-29T00:45:00.000Z"));
     assert.equal(open.open, true);
     assert.equal(open.reason, "open");
 

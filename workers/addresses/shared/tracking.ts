@@ -343,10 +343,13 @@ export type TrackingWindow = {
   reason?: "too_early" | "too_late" | "open";
 };
 
-const OPEN_BEFORE_MS = 2 * 60 * 60 * 1000;
+const OPEN_BEFORE_MS = 60 * 60 * 1000;
 const CLOSE_AFTER_MS = 90 * 60 * 1000;
 /** Send review request 24 hours after the job completion window (pickup + 90 min). */
 export const REVIEW_REQUEST_DELAY_MS = 24 * 60 * 60 * 1000;
+
+/** How long before pickup the customer-facing live map opens. */
+export const CUSTOMER_TRACKING_OPEN_BEFORE_MS = OPEN_BEFORE_MS;
 
 export function buildPickupDateTimeLocal(tripDate: string, tripTime: string): string | null {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(tripDate) || !/^\d{2}:\d{2}$/.test(tripTime)) {

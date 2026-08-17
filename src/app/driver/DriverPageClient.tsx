@@ -2292,7 +2292,7 @@ export default function DriverPageClient({
               ) : (
                 <>
                   Accept assigned jobs at any time — live tracking starts on the day of travel,
-                  from about 2 hours before pickup. For airport pickups, your flight number and
+                  from about 1 hour before pickup. For airport pickups, your flight number and
                   live arrival status are shown on each job.
                 </>
               )}
