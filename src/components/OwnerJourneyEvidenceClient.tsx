@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { formatUkInstant } from "../../shared/uk-time";
 import type { MapMarker } from "@/components/LiveTrackMap";
@@ -63,14 +64,27 @@ function Fact({
 }
 
 type OwnerJourneyEvidenceClientProps = {
+  /** Optional overrides; normally read from ?ref= / legacy ?token= in the URL. */
   paymentReference?: string;
   token?: string;
 };
 
 export default function OwnerJourneyEvidenceClient({
-  paymentReference = "",
-  token = "",
-}: OwnerJourneyEvidenceClientProps) {
+  paymentReference: paymentReferenceProp = "",
+  token: tokenProp = "",
+}: OwnerJourneyEvidenceClientProps = {}) {
+  const searchParams = useSearchParams();
+  // Prefer payment reference from the URL. Token is only a fallback when no ref exists
+  // (legacy/unlinked jobs). Paid bookings should use ?ref= only.
+  const paymentReference =
+    paymentReferenceProp.trim() ||
+    searchParams.get("ref")?.trim() ||
+    searchParams.get("paymentReference")?.trim() ||
+    "";
+  const token = paymentReference
+    ? ""
+    : tokenProp.trim() || searchParams.get("token")?.trim() || "";
+
   const [ownerKey, setOwnerKey] = useState("");
   const [unlockInput, setUnlockInput] = useState("");
   const [evidence, setEvidence] = useState<JourneyEvidencePack | null>(null);
