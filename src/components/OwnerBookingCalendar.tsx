@@ -229,14 +229,14 @@ export default function OwnerBookingCalendar({
   const dayEntries = entriesForDate(entries, anchor);
 
   return (
-    <section className="mb-10 rounded-2xl border border-sky-400/25 bg-sky-500/5 p-4 sm:p-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
+    <section className="mb-10 w-full min-w-0 max-w-full rounded-2xl border border-sky-400/25 bg-sky-500/5 p-4 sm:p-6">
+      <div className="flex w-full min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
+        <div className="min-w-0 flex-1">
           <p className="text-xs font-semibold uppercase tracking-wider text-sky-200">
             Operational calendar
           </p>
           <h2 className="mt-1 text-xl font-bold text-white">Booking Calendar</h2>
-          <p className="mt-2 max-w-2xl text-sm text-white/65">
+          <p className="mt-2 max-w-2xl break-words text-sm text-white/65">
             Confirmed and paid journeys from website booking data — one entry per outbound or
             return leg. Tap a booking to open journey controls below.
           </p>
@@ -244,14 +244,14 @@ export default function OwnerBookingCalendar({
         <button
           type="button"
           onClick={() => void load()}
-          className="min-h-11 rounded-xl border border-white/15 px-4 py-2 text-sm font-semibold text-white transition-colors hover:border-white/30"
+          className="min-h-11 w-full shrink-0 rounded-xl border border-white/15 px-4 py-2 text-sm font-semibold text-white transition-colors hover:border-white/30 sm:w-auto"
         >
           Refresh
         </button>
       </div>
 
-      <div className="mt-5 flex flex-col gap-3">
-        <div className="flex flex-wrap gap-2">
+      <div className="mt-5 flex w-full min-w-0 flex-col gap-3">
+        <div className="flex min-w-0 flex-wrap gap-2">
           {(["day", "week", "month"] as const).map((mode) => (
             <button
               key={mode}
@@ -268,7 +268,7 @@ export default function OwnerBookingCalendar({
           ))}
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex w-full min-w-0 flex-wrap items-center gap-2">
           <button
             type="button"
             onClick={goPrev}
@@ -292,7 +292,7 @@ export default function OwnerBookingCalendar({
           >
             ›
           </button>
-          <label className="ml-auto flex min-h-11 items-center gap-2 rounded-xl border border-white/15 px-3 text-sm text-white/70">
+          <label className="flex min-h-11 w-full min-w-0 max-w-full items-center gap-2 rounded-xl border border-white/15 px-3 text-sm text-white/70 sm:ml-auto sm:w-auto">
             <span className="sr-only">Pick date</span>
             <input
               type="date"
@@ -304,12 +304,12 @@ export default function OwnerBookingCalendar({
                   if (narrow) setView("day");
                 }
               }}
-              className="min-h-9 bg-transparent text-sm font-semibold text-white outline-none"
+              className="box-border min-h-9 w-full min-w-0 max-w-full bg-transparent text-sm font-semibold text-white outline-none [color-scheme:dark]"
             />
           </label>
         </div>
 
-        <p className="text-base font-semibold text-white">{heading}</p>
+        <p className="min-w-0 break-words text-base font-semibold text-white">{heading}</p>
       </div>
 
       {error ? (
