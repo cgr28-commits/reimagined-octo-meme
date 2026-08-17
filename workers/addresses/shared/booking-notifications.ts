@@ -8,6 +8,7 @@ import {
   BUSINESS_WEBSITE as CANONICAL_BUSINESS_WEBSITE,
 } from "./business-email";
 import { contactVCardPublicUrl } from "./business-links";
+import { vehicleServiceLabel } from "./booking-notice";
 import { formatUkDate, formatUkTime, UK_LOCAL_TIME_LABEL } from "./uk-time";
 import {
   formatEmailFareIncludesBlock,
@@ -109,6 +110,7 @@ function formatTripScheduleLines(details: PaidBookingDetails): string[] {
   lines.push(
     `Passengers: ${details.passengers}`,
     `Suitcases: ${details.suitcases}`,
+    `Service: ${vehicleServiceLabel(details.vehicle)}`,
     `Vehicle: ${details.vehicle}`,
   );
 
@@ -160,6 +162,7 @@ function invoiceRows(details: PaidBookingReceipt): Array<{ label: string; value:
   rows.push(
     { label: "Passengers", value: String(details.passengers) },
     { label: "Suitcases", value: String(details.suitcases) },
+    { label: "Service", value: vehicleServiceLabel(details.vehicle) },
     { label: "Vehicle", value: details.vehicle },
   );
 

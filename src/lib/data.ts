@@ -34,6 +34,7 @@ export const SITE_OFFLINE_ALLOWLIST = [
   "/track",
   "/unsubscribe",
   "/booking-confirmed",
+  "/pay",
 ] as const;
 
 /**
@@ -51,7 +52,7 @@ export const SERVICE_FLAGS = {
   trackingDemo: false,
   /**
    * Customer SumUp “Pay now” on the website for instant-price vehicles
-   * (Standard Saloon / Estate). Enquiry/request-quote vehicles still use Request to book.
+   * (Standard Saloon / Estate / Minibus). Enquiry-only vehicles still use Request to book.
    */
   customerSumUpPay: true,
   /** Live driver tracking marketing + customer track links + dashboard journey controls. */
@@ -359,7 +360,7 @@ export const WHY_CHOOSE_US = [
   {
     title: "1–4 or 5–7 made simple",
     description:
-      "1–4 passengers get an instant fixed quote online where eligible. 5–7 passengers receive a tailored minibus quote through licensed transport partners. We do not offer journeys for more than 7 passengers.",
+      "1–4 passengers get an instant Saloon or Estate quote online where eligible. 5–7 passengers get a fixed Minibus fare online using our existing minibus pricing. We do not offer journeys for more than 7 passengers.",
   },
 ] as const;
 
@@ -428,7 +429,7 @@ export const FAQS = [
   {
     question: "How many passengers can I book for?",
     answer:
-      "Our online service accommodates up to 7 passengers. Journeys for 1–4 passengers can receive an instant fixed quote where eligible. For 5–7 passengers, we’ll provide a tailored minibus quote (Minibus — 5–7 passengers).",
+      "Our online service accommodates up to 7 passengers. Journeys for 1–4 passengers can receive an instant Saloon or Estate quote where eligible. For 5–7 passengers, we show a fixed Minibus fare online (Minibus — 5–7 passengers) using our existing minibus pricing.",
   },
   {
     question: "Are tolls included?",
@@ -443,7 +444,7 @@ export const FAQS = [
   {
     question: "How do I pay?",
     answer:
-      "Get your fixed price online. Eligible 1–4 passenger bookings can be confirmed securely by card via SumUp. For tailored quotes (including 5–7 passengers), we confirm the fare first and then send a payment link. Cash or bank transfer can be arranged where agreed.",
+      "Get your fixed price online. Eligible Saloon, Estate, and Minibus bookings can be confirmed securely by card via SumUp. Short-notice pickups may need Owner availability confirmation before payment. Cash or bank transfer can be arranged where agreed.",
   },
   {
     question: "Can I cancel my booking?",
@@ -512,10 +513,10 @@ export const VEHICLE_FLEET = [
     name: "Minibus — 5–7 passengers",
     capacity: "5–7 passengers",
     description:
-      "For groups of 5–7 passengers, we can arrange a suitable minibus through a licensed transport partner. Request a tailored quote for your journey. We do not offer journeys for more than 7 passengers.",
-    enquiryOnly: true,
-    requestQuote: true,
-    partnerOperated: true,
+      "For groups of 5–7 passengers, get a fixed Minibus fare online using our existing minibus pricing. Pay securely to confirm. We do not offer journeys for more than 7 passengers.",
+    enquiryOnly: false,
+    requestQuote: false,
+    partnerOperated: false,
   },
 ] as const;
 
@@ -536,25 +537,25 @@ export const MAX_ONLINE_PASSENGERS = 7;
 /** Vehicles that cannot be instantly confirmed — enquiry / request-a-quote flow. */
 export const ENQUIRY_ONLY_VEHICLE_TYPES: readonly VehicleType[] = [
   "Executive Saloon (1–4 passengers)",
-  MINIBUS_VEHICLE_TYPE,
 ];
 
-/** Minibus: show a guide price online, but require “Request a quote” (not instant confirmation). */
-export const REQUEST_QUOTE_VEHICLE_TYPES: readonly VehicleType[] = [MINIBUS_VEHICLE_TYPE];
+/** @deprecated Minibus is instant-pay again — kept empty for callers. */
+export const REQUEST_QUOTE_VEHICLE_TYPES: readonly VehicleType[] = [];
 
-/** Saloon/estate can pay online at quote time when an instant fare is shown. */
+/** Saloon, estate, and minibus can pay online at quote time when an instant fare is shown. */
 export const INSTANT_PAY_VEHICLE_TYPES: readonly VehicleType[] = [
   "Standard Saloon (1–4 passengers)",
   "Estate Car (1–4 passengers)",
+  MINIBUS_VEHICLE_TYPE,
 ];
 
 export const MINIBUS_PARTNER_NOTE =
-  "For groups of 5–7 passengers, we can arrange a suitable minibus through a licensed transport partner — request a tailored quote (no instant online fare). Maximum 7 passengers.";
+  "Minibus (5–7 passengers): fixed online fare using our existing minibus pricing. Pay securely online to confirm. Maximum 7 passengers.";
 
 /** Short guidance kept for ops/docs — not shown in the public quote UI. */
 export const VEHICLE_BOOKING_GUIDANCE = [
-  "1–4 passengers: instant quote where eligible. Pay online by card to confirm.",
-  "5–7 passengers: tailored minibus quote via a licensed transport partner — not instant confirmation. Maximum 7 passengers.",
+  "1–4 passengers: Saloon or Estate instant quote where eligible. Pay online by card to confirm.",
+  "5–7 passengers: Minibus instant quote where eligible. Pay online by card to confirm. Maximum 7 passengers.",
 ] as const;
 
 /** Legacy hook retained for quote form — capacity above 7 is blocked elsewhere. */

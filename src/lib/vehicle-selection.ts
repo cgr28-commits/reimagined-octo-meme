@@ -21,9 +21,8 @@ export const FIVE_PLUS_SUITCASES = 5;
 export { GROUP_PASSENGER_MAX, GROUP_PASSENGER_MIN, MAX_PASSENGERS };
 
 /**
- * True when the party needs a larger vehicle / tailored quote
- * (more than 4 passengers or more than 4 large cases).
- * Instant online fares / SumUp must not be offered for these journeys unless approved.
+ * True when the party needs a Minibus (more than 4 passengers or more than 4 large cases).
+ * Minibus uses existing pricing and is bookable online via SumUp.
  */
 export function requiresMinibus(passengers: number, suitcases: number): boolean {
   return passengers > 4 || suitcases > 4;
@@ -56,7 +55,7 @@ export function vehicleShortLabel(vehicleType: VehicleType | string): string {
     return "Saloon";
   }
   if (vehicleType === MINIBUS_VEHICLE || vehicleType === MINIBUS_VEHICLE_TYPE) {
-    return "Minibus — 5–7 passengers";
+    return "Minibus";
   }
   if (String(vehicleType).includes("Executive")) {
     return "Executive";

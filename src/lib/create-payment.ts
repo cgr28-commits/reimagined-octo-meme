@@ -13,14 +13,25 @@ export type PaymentCheckoutRequest = {
   checkoutReference?: string;
   redirectUrl?: string;
   /** Full booking with customer email + mobile — stored server-side before SumUp redirect. */
-  booking: BookingDetails;
+  booking?: BookingDetails;
+  /** After Owner approval — pay the locked short-notice booking (no re-entry). */
+  shortNoticeToken?: string;
 };
 
 export type PaymentCheckoutResult = {
-  paymentUrl: string;
-  checkoutId: string;
+  paymentUrl?: string;
+  checkoutId?: string;
   checkoutReference?: string;
   ownerAttemptEmailSent?: boolean;
+  /** Server diverted to Owner approval instead of SumUp. */
+  shortNotice?: boolean;
+  reference?: string;
+  whatsappUrl?: string;
+  minimumNoticeHours?: number;
+  amount?: number;
+  amountLabel?: string;
+  status?: string;
+  shortNoticeReference?: string;
 };
 
 export type PaymentConfirmationResult = {
@@ -61,13 +72,18 @@ export async function createPaymentCheckout(
     throw new Error("Online payment is not configured");
   }
 
-  const blockers = getPaymentBookingBlockers(request.booking);
-  if (blockers.length > 0) {
-    throw new Error(blockers[0]);
-  }
+  if (!request.shortNoticeToken) {
+    if (!request.booking) {
+      throw new Error("Missing booking details");
+    }
+    const blockers = getPaymentBookingBlockers(request.booking);
+    if (blockers.length > 0) {
+      throw new Error(blockers[0]);
+    }
 
-  if (!isValidPassengerCount(request.booking.passengers)) {
-    throw new Error(PASSENGER_LIMIT_ERROR);
+    if (!isValidPassengerCount(request.booking.passengers)) {
+      throw new Error(PASSENGER_LIMIT_ERROR);
+    }
   }
 
   const response = await fetch(PAYMENTS_API_URL, {
@@ -81,7 +97,8 @@ export async function createPaymentCheckout(
       description: request.description,
       checkoutReference: request.checkoutReference,
       redirectUrl: request.redirectUrl ?? buildPaymentRedirectUrl(),
-      booking: request.booking,
+      ...(request.booking ? { booking: request.booking } : {}),
+      ...(request.shortNoticeToken ? { shortNoticeToken: request.shortNoticeToken } : {}),
     }),
   });
 
@@ -95,15 +112,20 @@ export async function createPaymentCheckout(
     throw new Error(message);
   }
 
-  if (
-    !payload ||
-    typeof payload !== "object" ||
-    typeof (payload as PaymentCheckoutResult).paymentUrl !== "string"
-  ) {
+  if (!payload || typeof payload !== "object") {
     throw new Error("Payment service returned an invalid response");
   }
 
-  return payload as PaymentCheckoutResult;
+  const result = payload as PaymentCheckoutResult;
+  if (result.shortNotice && result.reference && result.whatsappUrl) {
+    return result;
+  }
+
+  if (typeof result.paymentUrl !== "string") {
+    throw new Error("Payment service returned an invalid response");
+  }
+
+  return result;
 }
 
 export async function confirmPaidBooking(

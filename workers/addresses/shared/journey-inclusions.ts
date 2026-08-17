@@ -301,9 +301,9 @@ function escapeHtml(value: string): string {
     .replace(/"/g, "&quot;");
 }
 
-/** Used when 5–7 / minibus transfers have no instant fare yet. */
+/** Used for 5–7 / minibus transfers (online fixed fare). */
 export const GROUP_QUOTE_FEE_NOTE =
-  "Your tailored quote will list only the inclusions that apply to your journey — express airport fees where relevant, and Dublin tolls only where they apply.";
+  "Your fixed online fare lists only the inclusions that apply to your journey — express airport fees where relevant, and Dublin tolls only where they apply.";
 
 /** Customer-facing waiting-time policy (source of truth for FAQ / UI helpers). */
 export const AIRPORT_PICKUP_WAITING_COPY =

@@ -108,6 +108,24 @@ import {
   isOwnerProfilePath,
 } from "./owner-profile-handlers";
 import {
+  createShortNoticeRequest,
+  handleOwnerApproveShortNotice,
+  handleOwnerDeclineShortNotice,
+  handleOwnerGetBookingSettings,
+  handleOwnerListShortNotice,
+  handleOwnerSaveBookingSettings,
+  isOwnerBookingSettingsPath,
+  isOwnerShortNoticePath,
+  isPublicShortNoticePath,
+  markShortNoticePaid,
+  publicShortNoticeSummary,
+  resolveShortNoticeForPayment,
+  shouldForceShortNotice,
+} from "./short-notice-handlers";
+import { saveShortNoticeBooking } from "./short-notice-store";
+import { BUSINESS_WEBSITE } from "../shared/business-email";
+import { getShortNoticeByToken } from "./short-notice-store";
+import {
   handleReviewRequestSendRequest,
   isReviewRequestSendPath,
   processDueReviewRequests,
@@ -1092,16 +1110,60 @@ async function handlePaymentRequest(
     return json({ error: "Invalid JSON" }, 400, origin);
   }
 
-  const amount = Number(body.amount);
+  const shortNoticeToken = String(body.shortNoticeToken ?? "").trim();
+  let amount = Number(body.amount);
   const description = String(body.description ?? "").trim();
   const redirectUrl = String(body.redirectUrl ?? "").trim();
-  const booking = parsePaidBookingDetails(body);
+  let booking = parsePaidBookingDetails(body);
+  let shortNoticeReference: string | undefined;
+
+  // Approved short-notice pay: amount + journey locked server-side (ignore client fare).
+  if (shortNoticeToken) {
+    if (!pendingCheckoutStoreConfigured(env.TRACKING_STORE)) {
+      return json(
+        { error: "Booking store is not configured — cannot start a paid checkout safely" },
+        503,
+        origin,
+      );
+    }
+    const resolved = await resolveShortNoticeForPayment(env.TRACKING_STORE, shortNoticeToken);
+    if ("error" in resolved) {
+      return json({ error: resolved.error }, resolved.status, origin);
+    }
+    const record = resolved.record;
+    amount = Math.round((record.approvedAmount ?? record.amount) * 100) / 100;
+    booking = record.booking;
+    shortNoticeReference = record.reference;
+
+    // Reuse an unpaid checkout when possible (blocks duplicate SumUp sessions).
+    if (record.checkoutId && record.paymentUrl) {
+      try {
+        const existingCheckout = await getSumUpCheckout(apiKey, record.checkoutId);
+        if (isSumUpCheckoutPaid(existingCheckout)) {
+          return json({ error: "This booking is already paid." }, 409, origin);
+        }
+        return json(
+          {
+            ok: true,
+            paymentUrl: record.paymentUrl,
+            checkoutId: record.checkoutId,
+            checkoutReference: record.checkoutReference,
+            shortNoticeReference: record.reference,
+          },
+          200,
+          origin,
+        );
+      } catch {
+        // Fall through and create a fresh checkout.
+      }
+    }
+  }
 
   if (!Number.isFinite(amount) || amount < 1 || amount > 5000) {
     return json({ error: "Invalid payment amount" }, 400, origin);
   }
 
-  if (!description) {
+  if (!description && !shortNoticeToken) {
     return json({ error: "Missing payment description" }, 400, origin);
   }
 
@@ -1135,12 +1197,68 @@ async function handlePaymentRequest(
     );
   }
 
+  // Short-notice window: save request for Owner approval — do NOT open SumUp.
+  if (!shortNoticeToken) {
+    const notice = await shouldForceShortNotice(env.TRACKING_STORE, booking);
+    if (notice.shortNotice) {
+      try {
+        const created = await createShortNoticeRequest({
+          store: env.TRACKING_STORE,
+          booking,
+          amount: Math.round(amount * 100) / 100,
+        });
+        const amountLabel = formatPaidAmount(created.record.amount);
+        const attemptEmail = buildOwnerPaymentAttemptEmail(booking, {
+          amountLabel,
+          checkoutId: created.record.reference,
+          checkoutReference: `SHORT-NOTICE · ${created.record.reference}`,
+        });
+        await trySendOwnerOperationalEmail(env, {
+          to: ownerInbox(env),
+          subject: `[Short-notice] ${attemptEmail.subject}`,
+          body: `${attemptEmail.body}\n\nStatus: SHORT_NOTICE_AWAITING_APPROVAL\nMinimum notice applied: ${notice.hours} hours\nApprove or decline in the Owner Dashboard.`,
+        });
+        return json(
+          {
+            ok: true,
+            shortNotice: true,
+            reference: created.record.reference,
+            whatsappUrl: created.whatsappUrl,
+            minimumNoticeHours: notice.hours,
+            amount: created.record.amount,
+            amountLabel: created.record.amountLabel,
+            status: created.record.status,
+          },
+          200,
+          origin,
+        );
+      } catch (error) {
+        console.error("Short-notice request failed", error);
+        return json(
+          {
+            error:
+              error instanceof Error
+                ? error.message
+                : "Could not save short-notice booking request",
+          },
+          502,
+          origin,
+        );
+      }
+    }
+  }
+
   try {
     const checkoutReference =
       String(body.checkoutReference ?? "").trim() || buildCheckoutReference();
     const returnUrl = new URL("/payments/webhook", request.url).toString();
+    const payDescription =
+      description ||
+      (shortNoticeReference
+        ? `Short-notice booking ${shortNoticeReference}`
+        : "Airport taxi booking");
     const sumUpDescription = buildSumUpCheckoutDescription(
-      description,
+      payDescription,
       booking,
       checkoutReference,
     );
@@ -1158,7 +1276,23 @@ async function handlePaymentRequest(
       amount: Math.round(amount * 100) / 100,
       booking,
       createdAt: new Date().toISOString(),
+      ...(shortNoticeToken
+        ? { shortNoticeToken, shortNoticeReference }
+        : {}),
     });
+
+    if (shortNoticeToken) {
+      const sn = await getShortNoticeByToken(env.TRACKING_STORE, shortNoticeToken);
+      if (sn) {
+        await saveShortNoticeBooking(env.TRACKING_STORE, {
+          ...sn,
+          checkoutId: checkout.checkoutId,
+          checkoutReference: checkout.checkoutReference,
+          paymentUrl: checkout.paymentUrl,
+          updatedAt: new Date().toISOString(),
+        });
+      }
+    }
 
     // Always notify the owner with contact details when SumUp opens — payment may fail.
     const amountLabel = formatPaidAmount(Math.round(amount * 100) / 100);
@@ -1187,6 +1321,7 @@ async function handlePaymentRequest(
         checkoutId: checkout.checkoutId,
         checkoutReference: checkout.checkoutReference,
         ownerAttemptEmailSent: attemptSend.sent,
+        ...(shortNoticeReference ? { shortNoticeReference } : {}),
       },
       200,
       origin,
@@ -1620,6 +1755,97 @@ export default {
 
     if (isOwnerProfilePath(url.pathname) && request.method === "POST") {
       return handleOwnerProfileSaveRequest(request, env, origin);
+    }
+
+    if (isOwnerBookingSettingsPath(url.pathname)) {
+      if (!env.TRACKING_STORE) {
+        return json({ error: "Storage is not configured" }, 503, origin);
+      }
+      if (request.method === "GET") {
+        const result = await handleOwnerGetBookingSettings(request, {
+          ...env,
+          TRACKING_STORE: env.TRACKING_STORE,
+        });
+        if ("error" in result) return json({ error: result.error }, result.status, origin);
+        return json(result, 200, origin);
+      }
+      if (request.method === "POST") {
+        let body: Record<string, unknown>;
+        try {
+          body = await request.json();
+        } catch {
+          return json({ error: "Invalid JSON" }, 400, origin);
+        }
+        const result = await handleOwnerSaveBookingSettings(
+          request,
+          { ...env, TRACKING_STORE: env.TRACKING_STORE },
+          body,
+        );
+        if ("error" in result) return json({ error: result.error }, result.status, origin);
+        return json(result, 200, origin);
+      }
+      return json({ error: "Method not allowed" }, 405, origin);
+    }
+
+    if (isOwnerShortNoticePath(url.pathname)) {
+      if (!env.TRACKING_STORE) {
+        return json({ error: "Storage is not configured" }, 503, origin);
+      }
+      const snEnv = { ...env, TRACKING_STORE: env.TRACKING_STORE };
+      if (
+        (url.pathname === "/owner/short-notice" || url.pathname === "/api/owner/short-notice") &&
+        request.method === "GET"
+      ) {
+        const result = await handleOwnerListShortNotice(request, snEnv);
+        if ("error" in result) return json({ error: result.error }, result.status, origin);
+        return json(result, 200, origin);
+      }
+      if (
+        (url.pathname.endsWith("/approve") || url.pathname.includes("/approve")) &&
+        request.method === "POST"
+      ) {
+        let body: Record<string, unknown>;
+        try {
+          body = await request.json();
+        } catch {
+          return json({ error: "Invalid JSON" }, 400, origin);
+        }
+        const result = await handleOwnerApproveShortNotice(
+          request,
+          snEnv,
+          body,
+          BUSINESS_WEBSITE,
+        );
+        if ("error" in result) return json({ error: result.error }, result.status, origin);
+        return json(result, 200, origin);
+      }
+      if (
+        (url.pathname.endsWith("/decline") || url.pathname.includes("/decline")) &&
+        request.method === "POST"
+      ) {
+        let body: Record<string, unknown>;
+        try {
+          body = await request.json();
+        } catch {
+          return json({ error: "Invalid JSON" }, 400, origin);
+        }
+        const result = await handleOwnerDeclineShortNotice(request, snEnv, body);
+        if ("error" in result) return json({ error: result.error }, result.status, origin);
+        return json(result, 200, origin);
+      }
+      return json({ error: "Method not allowed" }, 405, origin);
+    }
+
+    if (isPublicShortNoticePath(url.pathname) && request.method === "GET") {
+      if (!env.TRACKING_STORE) {
+        return json({ error: "Storage is not configured" }, 503, origin);
+      }
+      const token = (url.searchParams.get("token") ?? "").trim();
+      if (!token) return json({ error: "Missing payment token" }, 400, origin);
+      const record = await getShortNoticeByToken(env.TRACKING_STORE, token);
+      if (!record) return json({ error: "Payment link not found." }, 404, origin);
+      // Public summary — never expose the raw token again; payment still uses URL token.
+      return json({ ok: true, booking: publicShortNoticeSummary(record) }, 200, origin);
     }
 
     if (!route) {

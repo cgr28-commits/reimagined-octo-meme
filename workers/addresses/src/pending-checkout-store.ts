@@ -13,6 +13,9 @@ export type PendingCheckoutRecord = {
   attemptEmailSentAt?: string;
   /** Owner notified that SumUp did not complete payment. */
   unsuccessfulEmailSentAt?: string;
+  /** Short-notice payment token — same booking after Owner approval. */
+  shortNoticeToken?: string;
+  shortNoticeReference?: string;
 };
 
 export function pendingCheckoutKey(checkoutId: string): string {
