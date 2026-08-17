@@ -28,30 +28,104 @@ export function upcomingBucketForTripDate(
   return "later";
 }
 
+/** Booking fields used for Upcoming vs Completed and next-leg ordering. */
+export type LegAwareBooking = {
+  status?: string;
+  returnJourney?: boolean;
+  tripDate?: string;
+  tripTime?: string;
+  returnDate?: string;
+  returnTime?: string;
+  journeyStatus?: string;
+  outboundJourneyStatus?: string;
+  returnJourneyStatus?: string;
+  allLegsCompleted?: boolean;
+  nextUnfinishedLegDate?: string;
+  nextUnfinishedLegTime?: string;
+};
+
+function legStatusCompleted(status?: string | null): boolean {
+  return status === "completed";
+}
+
 /**
- * Next journey date for Upcoming Jobs bucketing.
- * When the outbound day is past but a return leg is still upcoming, use returnDate
- * so return trips (e.g. 19 Aug after an 8 Aug outbound) stay visible.
+ * True when every journey leg that exists for this paid booking is completed.
+ * Return bookings stay unfinished until BOTH outbound and return are completed.
+ * Missing return tracking does not count as completed.
+ */
+export function bookingFullyCompleted(booking: LegAwareBooking): boolean {
+  if (typeof booking.allLegsCompleted === "boolean") {
+    return booking.allLegsCompleted;
+  }
+
+  if (booking.returnJourney) {
+    const outboundDone = legStatusCompleted(
+      booking.outboundJourneyStatus ?? booking.journeyStatus,
+    );
+    const returnDone = legStatusCompleted(booking.returnJourneyStatus);
+    return outboundDone && returnDone;
+  }
+
+  return legStatusCompleted(
+    booking.outboundJourneyStatus ?? booking.journeyStatus,
+  );
+}
+
+/**
+ * Next unfinished journey date for Upcoming Jobs bucketing / display.
+ * Uses API `nextUnfinishedLegDate` when present; otherwise derives from leg statuses.
+ * Past unfinished outbound stays on the outbound date (not auto-skipped).
  */
 export function relevantUpcomingJourneyDate(
-  booking: {
-    tripDate?: string;
-    returnJourney?: boolean;
-    returnDate?: string;
-  },
-  today = londonYmd(),
+  booking: LegAwareBooking,
+  _today = londonYmd(),
 ): string {
+  const explicit = booking.nextUnfinishedLegDate?.trim() ?? "";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(explicit)) {
+    return explicit;
+  }
+
   const tripDate = booking.tripDate?.trim() ?? "";
   const returnDate = booking.returnDate?.trim() ?? "";
+
+  if (booking.returnJourney) {
+    const outboundDone = legStatusCompleted(
+      booking.outboundJourneyStatus ?? booking.journeyStatus,
+    );
+    if (!outboundDone) {
+      return tripDate;
+    }
+    if (!legStatusCompleted(booking.returnJourneyStatus)) {
+      return returnDate || tripDate;
+    }
+  }
+
+  return tripDate;
+}
+
+export function relevantUpcomingJourneyTime(booking: LegAwareBooking): string {
+  const explicitDate = booking.nextUnfinishedLegDate?.trim() ?? "";
+  const explicitTime = booking.nextUnfinishedLegTime?.trim() ?? "";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(explicitDate)) {
+    return explicitTime;
+  }
+
+  const nextDate = relevantUpcomingJourneyDate(booking);
   if (
     booking.returnJourney &&
-    /^\d{4}-\d{2}-\d{2}$/.test(returnDate) &&
-    returnDate >= today &&
-    (!/^\d{4}-\d{2}-\d{2}$/.test(tripDate) || tripDate < today)
+    nextDate === (booking.returnDate || "").trim() &&
+    nextDate !== (booking.tripDate || "").trim()
   ) {
-    return returnDate;
+    return booking.returnTime?.trim() ?? "";
   }
-  return tripDate;
+  return booking.tripTime?.trim() ?? "";
+}
+
+/** Sort key: next unfinished leg date+time ascending (soonest due first). */
+export function nextUnfinishedSortKey(booking: LegAwareBooking): string {
+  const date = relevantUpcomingJourneyDate(booking) || "9999-99-99";
+  const time = relevantUpcomingJourneyTime(booking) || "99:99";
+  return `${date}T${time}`;
 }
 
 /** True when outbound and/or return falls inside the Upcoming Jobs horizon. */
@@ -117,11 +191,14 @@ export function assignedDriverDisplay(label?: string | null, name?: string | nul
   return label?.trim() || name?.trim() || PRIMARY_DRIVER_LABEL;
 }
 
-export function isUpcomingWorkBooking(booking: {
-  status?: string;
-  journeyStatus?: string;
-}): boolean {
+/** Upcoming Jobs: unfinished paid work only (refunded / fully completed excluded). */
+export function isUpcomingWorkBooking(booking: LegAwareBooking): boolean {
   if (booking.status === "refunded") return false;
-  if (booking.journeyStatus === "completed") return false;
-  return true;
+  return !bookingFullyCompleted(booking);
+}
+
+/** Completed Jobs history: fully completed legs or refunded. */
+export function isCompletedWorkBooking(booking: LegAwareBooking): boolean {
+  if (booking.status === "refunded") return true;
+  return bookingFullyCompleted(booking);
 }

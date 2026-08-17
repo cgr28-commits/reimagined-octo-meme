@@ -313,27 +313,48 @@ export async function handlePaidBookingsListRequest(
         }
       }
 
-      // When outbound is past/completed but return is still ahead, surface the return
-      // leg status so Upcoming Jobs does not treat the whole booking as done.
-      if (booking.returnJourney && linkedJobs.length > 0) {
-        const today = londonYmdNow();
-        const returnDate = booking.returnDate?.trim() ?? "";
-        const returnJob = linkedJobs.find((entry) => entry.journeyLeg === "return");
-        const outboundJob =
-          linkedJobs.find((entry) => entry.journeyLeg === "outbound") ??
-          linkedJobs.find((entry) => entry.journeyLeg !== "return") ??
-          job;
-        const outboundDone =
-          !outboundJob ||
-          journeyStatusOf(outboundJob) === "completed" ||
-          (outboundJob.tripDate?.trim() ?? "") < today;
-        if (
-          returnJob &&
-          /^\d{4}-\d{2}-\d{2}$/.test(returnDate) &&
-          returnDate >= today &&
-          outboundDone
-        ) {
+      const outboundJob =
+        linkedJobs.find((entry) => entry.journeyLeg === "outbound") ??
+        linkedJobs.find((entry) => entry.journeyLeg !== "return") ??
+        (!booking.returnJourney ? job : null);
+      const returnJob = linkedJobs.find((entry) => entry.journeyLeg === "return") ?? null;
+
+      const outboundJourneyStatus = outboundJob
+        ? journeyStatusOf(outboundJob)
+        : job && job.journeyLeg !== "return"
+          ? journeyStatusOf(job)
+          : undefined;
+      const returnJourneyStatus = returnJob ? journeyStatusOf(returnJob) : undefined;
+
+      const allLegsCompleted = booking.returnJourney
+        ? outboundJourneyStatus === "completed" && returnJourneyStatus === "completed"
+        : outboundJourneyStatus === "completed" ||
+          (!outboundJob && job ? journeyStatusOf(job) === "completed" : false);
+
+      // Active leg for dashboard controls: first unfinished leg (never skip past unfinished outbound).
+      if (booking.returnJourney) {
+        if (outboundJourneyStatus !== "completed" && outboundJob) {
+          job = outboundJob;
+        } else if (returnJourneyStatus !== "completed" && returnJob) {
           job = returnJob;
+        } else if (returnJob) {
+          job = returnJob;
+        } else if (outboundJob) {
+          job = outboundJob;
+        }
+      } else if (outboundJob) {
+        job = outboundJob;
+      }
+
+      let nextUnfinishedLegDate = booking.tripDate;
+      let nextUnfinishedLegTime = booking.tripTime;
+      if (booking.returnJourney) {
+        if (outboundJourneyStatus === "completed") {
+          nextUnfinishedLegDate = booking.returnDate ?? booking.tripDate;
+          nextUnfinishedLegTime = booking.returnTime ?? booking.tripTime;
+        } else {
+          nextUnfinishedLegDate = booking.tripDate;
+          nextUnfinishedLegTime = booking.tripTime;
         }
       }
 
@@ -395,6 +416,11 @@ export async function handlePaidBookingsListRequest(
         arrivalNotificationSentAt,
         arrivalNotificationProvider,
         arrivalNotificationError,
+        outboundJourneyStatus,
+        returnJourneyStatus,
+        allLegsCompleted,
+        nextUnfinishedLegDate,
+        nextUnfinishedLegTime,
         editHistory,
         ...(reviewRequest ? { reviewRequest } : {}),
       };

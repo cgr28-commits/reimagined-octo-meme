@@ -90,12 +90,29 @@ console.log("\n=== 2. Upcoming bucket helpers + Primary Driver ===");
           tripDate: "2026-08-08",
           returnJourney: true,
           returnDate: "2026-08-19",
+          outboundJourneyStatus: "completed",
+          nextUnfinishedLegDate: "2026-08-19",
         },
         today,
       ),
       today,
     ),
     "later",
+  );
+  // Past unfinished outbound (not marked complete) stays on outbound date for attention.
+  assert.equal(
+    upcomingBucketForTripDate(
+      relevantUpcomingJourneyDate(
+        {
+          tripDate: "2026-08-08",
+          returnJourney: true,
+          returnDate: "2026-08-19",
+        },
+        today,
+      ),
+      today,
+    ),
+    "past",
   );
 
   assert.equal(resolveAssignedDriverLabel(undefined), PRIMARY_DRIVER_LABEL);

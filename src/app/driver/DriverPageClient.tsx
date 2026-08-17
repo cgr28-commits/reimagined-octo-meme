@@ -330,7 +330,13 @@ function DriverProfilePanel({
 
         setProfiles(visible);
         setSelectedProfile((current) => {
-          if (current && visible.some((entry) => entry.profileKey === current)) {
+          if (
+            current &&
+            visible.some(
+              (entry) =>
+                entry.profileKey === current && (!isOwner || entry.complete),
+            )
+          ) {
             return current;
           }
           if (!isOwner && driverName) {
@@ -339,9 +345,13 @@ function DriverProfilePanel({
               return key;
             }
           }
+          // Owner: never auto-open an incomplete roster stub (that caused duplicate forms).
+          if (isOwner) {
+            return visible.find((entry) => entry.complete)?.profileKey ?? "";
+          }
           return visible[0]?.profileKey ?? "";
         });
-        if (visible.length === 0) {
+        if (visible.length === 0 || (isOwner && !visible.some((entry) => entry.complete))) {
           setLoading(false);
           setProfileComplete(true);
           setCollapsed(true);
@@ -513,9 +523,12 @@ function DriverProfilePanel({
   const showSetupPrompt = !loading && !profileComplete && Boolean(selectedProfile);
   // Owner managing additional drivers can collapse when complete — do not force the editor open.
   // When there are no additional drivers, keep the default-driver notice visible (no empty form).
-  const ownerHasNoAdditionalDrivers = isOwner && profiles.length === 0 && !selectedProfile;
+  const ownerUsingDefaultDriver = isOwner && !selectedProfile;
+  const incompleteAdditional = isOwner
+    ? profiles.filter((entry) => !entry.complete)
+    : [];
   const showEditor =
-    !ownerHasNoAdditionalDrivers && (!collapsed || showSetupPrompt);
+    !ownerUsingDefaultDriver && (!collapsed || showSetupPrompt);
 
   return (
     <section className="mb-8 rounded-2xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
@@ -529,10 +542,28 @@ function DriverProfilePanel({
               ? "Your Owner profile above is the default driver for journeys and customer tracking. Add another driver here only if someone else will drive a job."
               : "Save your name, email, mobile, and vehicle details. They are stored on the server and restored on your next login."}
           </p>
-          {isOwner && ownerHasNoAdditionalDrivers && !loading ? (
+          {isOwner && ownerUsingDefaultDriver && !loading ? (
             <p className="mt-3 text-sm text-emerald">
               Using Owner profile as the default driver. No separate driver entry needed.
             </p>
+          ) : null}
+          {isOwner && ownerUsingDefaultDriver && incompleteAdditional.length > 0 ? (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {incompleteAdditional.map((profile) => (
+                <button
+                  key={profile.profileKey}
+                  type="button"
+                  onClick={() => {
+                    setSelectedProfile(profile.profileKey);
+                    setCollapsed(false);
+                    setProfileComplete(false);
+                  }}
+                  className="rounded-xl border border-white/15 px-3 py-2 text-xs font-semibold text-white/80 transition-colors hover:border-white/30"
+                >
+                  Set up {profile.displayName}
+                </button>
+              ))}
+            </div>
           ) : null}
           {profileComplete && collapsed && selectedProfile ? (
             <p className="mt-3 text-sm text-emerald">
@@ -549,6 +580,21 @@ function DriverProfilePanel({
           ) : null}
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          {isOwner && selectedProfile ? (
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedProfile("");
+                setCollapsed(true);
+                setProfileComplete(true);
+                setMessage(null);
+                setError(null);
+              }}
+              className="rounded-xl border border-white/15 px-4 py-2 text-sm font-semibold text-white transition-colors hover:border-white/30"
+            >
+              Use Owner profile
+            </button>
+          ) : null}
           {profileComplete && selectedProfile ? (
             <span className="rounded-full border border-emerald/40 bg-emerald/15 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-emerald">
               Saved
@@ -563,18 +609,19 @@ function DriverProfilePanel({
               {collapsed ? "Edit profile" : "Collapse"}
             </button>
           ) : null}
-          {isOwner && profiles.length > 1 ? (
+          {isOwner && profiles.filter((entry) => entry.complete).length > 1 ? (
             <select
               value={selectedProfile}
               onChange={(event) => setSelectedProfile(event.target.value)}
               className="rounded-xl border border-white/15 bg-navy px-4 py-2.5 text-sm text-white outline-none focus:border-emerald"
             >
-              {profiles.map((profile) => (
-                <option key={profile.profileKey} value={profile.profileKey}>
-                  {profile.displayName}
-                  {profile.complete ? " ✓" : ""}
-                </option>
-              ))}
+              {profiles
+                .filter((entry) => entry.complete)
+                .map((profile) => (
+                  <option key={profile.profileKey} value={profile.profileKey}>
+                    {profile.displayName} ✓
+                  </option>
+                ))}
             </select>
           ) : null}
         </div>
@@ -1896,7 +1943,29 @@ export default function DriverPageClient({
 
     return jobs.filter((job) => !pendingTokens.has(job.token));
   }, [jobs, pendingTokens, viewRole]);
-  const groupedVisibleUpcoming = useMemo(() => groupJobsByDate(visibleJobs), [visibleJobs]);
+
+  const activeVisibleJobs = useMemo(() => {
+    if (!isOwnerView) return visibleJobs;
+    return visibleJobs.filter(
+      (job) =>
+        job.bookingStatus !== "refunded" &&
+        (job.journeyStatus ?? (job.sharingActive ? "tracking" : "idle")) !== "completed",
+    );
+  }, [isOwnerView, visibleJobs]);
+
+  const completedVisibleJobs = useMemo(() => {
+    if (!isOwnerView) return [];
+    return visibleJobs.filter(
+      (job) =>
+        job.bookingStatus === "refunded" ||
+        (job.journeyStatus ?? "") === "completed",
+    );
+  }, [isOwnerView, visibleJobs]);
+
+  const groupedVisibleUpcoming = useMemo(
+    () => groupJobsByDate(activeVisibleJobs),
+    [activeVisibleJobs],
+  );
 
   const loadJobs = useCallback(
     async (key: string) => {
@@ -2624,15 +2693,15 @@ export default function DriverPageClient({
                 </div>
               )}
 
-              {!loading && !error && visibleJobs.length === 0 && pendingJobs.length === 0 && (
+              {!loading && !error && activeVisibleJobs.length === 0 && pendingJobs.length === 0 && (
                 <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-8 text-white/70">
                   {viewRole === "driver"
                     ? view === "upcoming"
                       ? "No jobs assigned to you in the next 60 days. When the owner assigns a job, it will appear at the top for you to accept."
                       : "No jobs assigned to you for this date yet."
                     : view === "upcoming"
-                      ? "No upcoming paid bookings with tracking in the next 60 days."
-                      : "No paid bookings with tracking for this date yet."}
+                      ? "No unfinished paid bookings with tracking in the next 60 days."
+                      : "No unfinished paid bookings with tracking for this date."}
                 </div>
               )}
 
@@ -2690,7 +2759,7 @@ export default function DriverPageClient({
                 </section>
               )}
 
-              {view === "today" && visibleJobs.length > 0 && (
+              {view === "today" && activeVisibleJobs.length > 0 && (
                 <h2 className="mb-4 text-lg font-semibold text-white">Today&apos;s bookings</h2>
               )}
 
@@ -2744,7 +2813,7 @@ export default function DriverPageClient({
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {visibleJobs.map((job) => (
+                  {activeVisibleJobs.map((job) => (
                     <DriverJobCard
                       key={job.token}
                       job={job}
@@ -2780,6 +2849,47 @@ export default function DriverPageClient({
                   ))}
                 </div>
               )}
+
+              {isOwnerView && completedVisibleJobs.length > 0 ? (
+                <section className="mt-10 rounded-2xl border border-white/10 bg-white/[0.02] p-4 sm:p-6">
+                  <h2 className="text-lg font-semibold text-white/80">Completed Jobs</h2>
+                  <p className="mt-1 text-sm text-white/45">
+                    Finished tracking legs for this view — kept for records and evidence.
+                  </p>
+                  <div className="mt-4 space-y-4">
+                    {completedVisibleJobs.map((job) => (
+                      <DriverJobCard
+                        key={`completed-${job.token}`}
+                        job={job}
+                        driverKey={savedKey}
+                        activeToken={activeToken}
+                        onSharingChange={setActiveToken}
+                        onSessionChange={handleSessionChange}
+                        gpsStale={gpsStale}
+                        lastGpsAt={lastGpsAt}
+                        onRefunded={(token, refundAmount) => {
+                          setJobs((current) =>
+                            current.map((entry) =>
+                              entry.token === token
+                                ? {
+                                    ...entry,
+                                    bookingStatus: "refunded",
+                                    refundAmountLabel: refundAmount ?? entry.refundAmountLabel,
+                                  }
+                                : entry,
+                            ),
+                          );
+                        }}
+                        onUpdated={handleJobUpdated}
+                        onAssignmentUpdated={handleAssignmentUpdated}
+                        compactTracking={view === "upcoming"}
+                        isOwner={isOwnerView}
+                        availableDrivers={availableDrivers}
+                      />
+                    ))}
+                  </div>
+                </section>
+              ) : null}
               </>
               ) : null}
 

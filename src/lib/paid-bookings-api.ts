@@ -55,6 +55,11 @@ export type OwnerPaidBookingSummary = Pick<
   arrivalNotificationSentAt?: string;
   arrivalNotificationProvider?: "email" | "sms" | "whatsapp" | string;
   arrivalNotificationError?: string;
+  outboundJourneyStatus?: string;
+  returnJourneyStatus?: string;
+  allLegsCompleted?: boolean;
+  nextUnfinishedLegDate?: string;
+  nextUnfinishedLegTime?: string;
   editHistory?: PaidBookingRecord["editHistory"];
 };
 

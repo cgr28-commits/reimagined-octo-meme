@@ -27,6 +27,9 @@ console.log("=== 1. Horizon + relevant date helpers (Pamela-shaped return) ===")
     returnJourney: true,
     returnDate: "2026-08-19",
     returnTime: "02:35",
+    outboundJourneyStatus: "completed",
+    nextUnfinishedLegDate: "2026-08-19",
+    nextUnfinishedLegTime: "02:35",
   };
   const today = "2026-08-17";
   assert.equal(relevantUpcomingJourneyDate(pamela, today), "2026-08-19");
@@ -43,7 +46,7 @@ console.log("=== 1. Horizon + relevant date helpers (Pamela-shaped return) ===")
       today,
     ),
     "2026-08-20",
-    "while outbound is still ahead, bucket by outbound",
+    "while outbound is still unfinished, bucket by outbound",
   );
   console.log("OK  Pamela return buckets under Later on 19 Aug; horizon includes returnDate");
 }
@@ -79,7 +82,8 @@ console.log("\n=== 4. Upcoming Jobs merge + list ===");
 {
   const paidHandlers = read("workers/addresses/src/paid-booking-handlers.ts");
   assert.match(paidHandlers, /Return legs alone must not invent a synthetic/);
-  assert.match(paidHandlers, /outbound is past\/completed but return is still ahead/);
+  assert.match(paidHandlers, /allLegsCompleted/);
+  assert.match(paidHandlers, /nextUnfinishedLegDate/);
   assert.doesNotMatch(
     paidHandlers,
     /for \(const job of trackJobs\) \{\s*if \(job\.journeyLeg === "return"\) continue;/,

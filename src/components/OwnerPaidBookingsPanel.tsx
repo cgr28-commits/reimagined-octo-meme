@@ -4,9 +4,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   assignedDriverDisplay,
   formatDisplayTripDate,
+  isCompletedWorkBooking,
   isUpcomingWorkBooking,
   journeyStatusLabel,
+  nextUnfinishedSortKey,
   relevantUpcomingJourneyDate,
+  relevantUpcomingJourneyTime,
   upcomingBucketForTripDate,
 } from "../../shared/upcoming-jobs";
 import { formatUkInstant } from "../../shared/uk-time";
@@ -106,15 +109,17 @@ function paymentStatusLabel(booking: OwnerPaidBookingSummary): string {
 }
 
 function sortByTripDateTime(a: OwnerPaidBookingSummary, b: OwnerPaidBookingSummary): number {
-  const aDate = relevantUpcomingJourneyDate(a);
-  const bDate = relevantUpcomingJourneyDate(b);
-  const dateCmp = aDate.localeCompare(bDate);
-  if (dateCmp !== 0) return dateCmp;
-  const aTime =
-    aDate === (a.returnDate || "").trim() ? a.returnTime || "" : a.tripTime || "";
-  const bTime =
-    bDate === (b.returnDate || "").trim() ? b.returnTime || "" : b.tripTime || "";
-  return aTime.localeCompare(bTime);
+  return nextUnfinishedSortKey(a).localeCompare(nextUnfinishedSortKey(b));
+}
+
+function sortCompletedByTripDateTime(
+  a: OwnerPaidBookingSummary,
+  b: OwnerPaidBookingSummary,
+): number {
+  // Newest completed / paid trip first for history browsing.
+  const aKey = `${a.returnDate || a.tripDate || ""}T${a.returnTime || a.tripTime || ""}`;
+  const bKey = `${b.returnDate || b.tripDate || ""}T${b.returnTime || b.tripTime || ""}`;
+  return bKey.localeCompare(aKey);
 }
 
 function PaidBookingLiveTracking({
@@ -668,12 +673,7 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
   );
 
   const completedRecent = useMemo(
-    () =>
-      bookings
-        .filter((b) => b.status === "refunded" || b.journeyStatus === "completed")
-        .slice()
-        .sort(sortByTripDateTime)
-        .reverse(),
+    () => bookings.filter(isCompletedWorkBooking).slice().sort(sortCompletedByTripDateTime),
     [bookings],
   );
 
@@ -688,7 +688,7 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
       else today.push(booking); // today + past incomplete still need attention
     }
     return [
-      { key: "today", title: "Today", items: today },
+      { key: "today", title: "Today / needs attention", items: today },
       { key: "tomorrow", title: "Tomorrow", items: tomorrow },
       { key: "later", title: "Later", items: later },
     ] as const;
@@ -889,6 +889,8 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
             ? `Journey completed. Google review request scheduled for ${formatUkInstant(result.reviewRequest.dueAt)}.`
             : "Journey completed. Review request will be scheduled automatically.",
         );
+        // Refresh so Upcoming / Completed split uses both legs' statuses.
+        void load();
       } else if (action === "arrived_pickup") {
         const notify =
           result.arrivalNotificationStatus === "sent"
@@ -1101,13 +1103,11 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
             <p className="mt-1 break-words text-sm text-white/65">
               {(() => {
                 const nextDate = relevantUpcomingJourneyDate(booking);
+                const nextTime = relevantUpcomingJourneyTime(booking) || "—";
                 const isReturnNext =
                   Boolean(booking.returnJourney) &&
                   nextDate === (booking.returnDate || "").trim() &&
                   nextDate !== (booking.tripDate || "").trim();
-                const nextTime = isReturnNext
-                  ? booking.returnTime || "—"
-                  : booking.tripTime || "—";
                 return `${isReturnNext ? "Return · " : ""}${formatDisplayTripDate(nextDate)} · pick up ${nextTime}${
                   booking.amountPaid ? ` · ${booking.amountPaid}` : ""
                 }`;
@@ -1504,10 +1504,10 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
           </p>
           <h2 className="mt-1 text-xl font-bold text-white">Upcoming Jobs</h2>
           <p className="mt-2 max-w-2xl text-sm text-white/65">
-            Jobs are listed by pickup/journey date. Use{" "}
-            <span className="text-white/85">Start Live Tracking</span> for GPS, then the Journey
-            controls for arrival and completion. Customers only see live location from about 1 hour
-            before pickup.
+            Unfinished paid journeys only, ordered by the next leg due. Completed trips move to{" "}
+            <span className="text-white/85">Completed Jobs</span> below (records are kept). Use{" "}
+            <span className="text-white/85">Start Live Tracking</span> for GPS, then Journey
+            controls for arrival and completion.
           </p>
         </div>
         <button
@@ -1593,7 +1593,8 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
         <>
           {upcomingJobs.length === 0 ? (
             <p className="mt-6 text-sm text-white/60">
-              No open upcoming jobs right now. Completed and refunded bookings appear below.
+              No open upcoming jobs right now. Completed and refunded bookings appear under Completed
+              Jobs below.
             </p>
           ) : (
             <div className="mt-6 space-y-8">
@@ -1615,8 +1616,12 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
           {completedRecent.length > 0 ? (
             <div className="mt-10">
               <h3 className="text-sm font-semibold uppercase tracking-wider text-white/50">
-                Recent / completed
+                Completed Jobs
               </h3>
+              <p className="mt-2 text-sm text-white/45">
+                Finished and refunded bookings kept for records, evidence, refunds, and customer
+                follow-up.
+              </p>
               <ul className="mt-3 space-y-4">
                 {completedRecent.map((booking) =>
                   renderBookingCard(booking, { compact: true }),
