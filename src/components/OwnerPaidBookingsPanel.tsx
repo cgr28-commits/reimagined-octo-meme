@@ -91,9 +91,12 @@ function arrivalNotificationLabel(booking: OwnerPaidBookingSummary): string {
     return `Sent via ${via}`;
   }
   if (status === "failed") return "Failed";
-  if (status === "not_configured" || status === "skipped") return "Not configured";
-  if (!status) return "Not configured";
-  return String(status);
+  // Only show "Not configured" when the Worker recorded that no provider could send.
+  if (status === "not_configured") return "Not configured";
+  if (status === "skipped") return "Skipped";
+  // No Arrived at Pickup attempt yet — Resend may still be available.
+  if (!booking.arrivedPickupAt) return "Not sent yet";
+  return "Pending";
 }
 
 function paymentStatusLabel(booking: OwnerPaidBookingSummary): string {

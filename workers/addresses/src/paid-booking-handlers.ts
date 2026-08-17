@@ -21,6 +21,7 @@ import {
 import {
   findTrackingJobByPaymentReference,
   getTrackingJob,
+  listTrackingJobsForDateRange,
 } from "./tracking-store";
 import {
   buildPublicTrackUrl,
@@ -50,6 +51,53 @@ type Env = DriverAuthEnv &
   };
 
 const BUSINESS_NAME = "My Airport Taxi NI";
+
+function londonYmdNow(): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/London",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+}
+
+function addDaysYmd(day: string, offset: number): string {
+  const date = new Date(`${day}T12:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + offset);
+  return date.toISOString().slice(0, 10);
+}
+
+/**
+ * Build a minimal paid-booking-shaped record from a tracking job when the
+ * SumUp paid-booking KV row is missing (finalize gap) so Upcoming Jobs still lists it.
+ */
+function syntheticPaidBookingFromTrackingJob(job: TrackingJobRecord): PaidBookingRecord | null {
+  const paymentReference = job.paymentReference?.trim();
+  if (!paymentReference) return null;
+  if (job.refundedAt) return null;
+
+  return {
+    paymentReference,
+    checkoutId: "",
+    amount: 0,
+    currency: "GBP",
+    amountPaidLabel: "",
+    customerName: job.customerName || "Customer",
+    customerEmail: job.customerEmail || "",
+    mobileNumber: job.customerMobile || "",
+    tripLabel: `${job.pickupLabel} → ${job.dropoffLabel}`,
+    pickupLabel: job.pickupLabel,
+    dropoffLabel: job.dropoffLabel,
+    returnJourney: false,
+    tripDate: job.tripDate,
+    tripTime: job.tripTime,
+    flightNumber: job.flightNumber,
+    trackingToken: job.token,
+    calendarEventIds: [],
+    status: "confirmed",
+    createdAt: job.createdAt,
+  };
+}
 
 /**
  * Current secure customer track URL for a paid booking confirmation / resend.
@@ -167,7 +215,7 @@ export async function handlePaidBookingsListRequest(
   const futureDays = Number(url.searchParams.get("futureDays") || "90");
 
   // Upcoming Jobs default: journey/pickup date (not payment-created date).
-  const bookings =
+  let bookings =
     mode === "recent" || mode === "created"
       ? await listRecentPaidBookings(store, { days, limit })
       : await listUpcomingPaidBookings(store, {
@@ -175,6 +223,41 @@ export async function handlePaidBookingsListRequest(
           futureDays: Number.isFinite(futureDays) ? futureDays : 90,
           limit: Number.isFinite(limit) ? limit : 100,
         });
+
+  // Also merge tracking jobs in the journey-date window. Covers finalize gaps where a
+  // live tracking job exists for e.g. 19 Aug but the paid-booking KV row is missing.
+  if (mode !== "recent" && mode !== "created") {
+    const today = londonYmdNow();
+    const past = Number.isFinite(pastDays) ? pastDays : 2;
+    const future = Number.isFinite(futureDays) ? futureDays : 90;
+    const fromDate = addDaysYmd(today, -past);
+    const toDate = addDaysYmd(today, future);
+    const trackJobs = await listTrackingJobsForDateRange(store, fromDate, toDate);
+    const byRef = new Map(bookings.map((b) => [b.paymentReference, b]));
+
+    for (const job of trackJobs) {
+      if (job.journeyLeg === "return") continue;
+      if (journeyStatusOf(job) === "completed") continue;
+      if (job.refundedAt) continue;
+      const paymentReference = job.paymentReference?.trim();
+      if (!paymentReference || byRef.has(paymentReference)) continue;
+
+      const paid = await getPaidBookingRecord(store, paymentReference);
+      if (paid) {
+        byRef.set(paymentReference, paid);
+        continue;
+      }
+
+      const synthetic = syntheticPaidBookingFromTrackingJob(job);
+      if (synthetic) byRef.set(paymentReference, synthetic);
+    }
+
+    bookings = [...byRef.values()]
+      .sort((a, b) =>
+        `${a.tripDate}T${a.tripTime}`.localeCompare(`${b.tripDate}T${b.tripTime}`),
+      )
+      .slice(0, Number.isFinite(limit) ? limit : 100);
+  }
 
   const enriched = await Promise.all(
     bookings.map(async (booking) => {
@@ -200,6 +283,7 @@ export async function handlePaidBookingsListRequest(
       let returnFlightNumber: string | undefined;
       let vehicle: string | undefined;
       let editHistory = booking.editHistory ?? [];
+      let trackingToken = booking.trackingToken;
 
       passengers = booking.passengers;
       suitcases = booking.suitcases;
@@ -211,23 +295,26 @@ export async function handlePaidBookingsListRequest(
       vehicle = booking.vehicle;
 
       const token = booking.trackingToken?.trim();
-      if (token) {
-        const job = await getTrackingJob(store, token);
-        if (job) {
-          sharingActive = Boolean(job.sharingActive);
-          journeyStatus = journeyStatusOf(job);
-          journeyCompletedAt = job.journeyCompletedAt;
-          driverUpdatedAt = job.driverUpdatedAt;
-          trackUrl = buildPublicTrackUrl(job.token);
-          reviewRequest = buildReviewRequestSummary(job);
-          assignedDriverName = job.assignedDriverName;
-          assignmentStatus = job.assignmentStatus;
-          arrivedPickupAt = job.arrivedPickupAt;
-          arrivalNotificationStatus = job.arrivalNotificationStatus;
-          arrivalNotificationSentAt = job.arrivalNotificationSentAt;
-          arrivalNotificationProvider = job.arrivalNotificationProvider;
-          arrivalNotificationError = job.arrivalNotificationError;
-        }
+      let job = token ? await getTrackingJob(store, token) : null;
+      if (!job && booking.paymentReference?.trim()) {
+        job = await findTrackingJobByPaymentReference(store, booking.paymentReference.trim());
+      }
+      if (job) {
+        trackingToken = job.token;
+        sharingActive = Boolean(job.sharingActive);
+        journeyStatus = journeyStatusOf(job);
+        journeyCompletedAt = job.journeyCompletedAt;
+        driverUpdatedAt = job.driverUpdatedAt;
+        trackUrl = buildPublicTrackUrl(job.token);
+        reviewRequest = buildReviewRequestSummary(job);
+        assignedDriverName = job.assignedDriverName;
+        assignmentStatus = job.assignmentStatus;
+        arrivedPickupAt = job.arrivedPickupAt;
+        arrivalNotificationStatus = job.arrivalNotificationStatus;
+        arrivalNotificationSentAt = job.arrivalNotificationSentAt;
+        arrivalNotificationProvider = job.arrivalNotificationProvider;
+        arrivalNotificationError = job.arrivalNotificationError;
+        if (!flightNumber && job.flightNumber) flightNumber = job.flightNumber;
       }
 
       return {
@@ -255,7 +342,7 @@ export async function handlePaidBookingsListRequest(
         childSeatNotes,
         notes,
         vehicle,
-        trackingToken: booking.trackingToken,
+        trackingToken,
         sharingActive,
         journeyStatus,
         journeyCompletedAt,
