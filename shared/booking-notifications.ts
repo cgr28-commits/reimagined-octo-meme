@@ -796,7 +796,7 @@ function buildGoogleReviewRequestHtml(
           <tr>
             <td style="padding:0 32px 28px;font-size:15px;line-height:1.7;color:#334155;">
               <p style="margin:0 0 16px;">Thank you again for choosing ${escapeHtml(businessName)}.</p>
-              <p style="margin:0;">Kind regards,<br /><strong>Colin</strong><br />${escapeHtml(businessName)}</p>
+              <p style="margin:0;">Kind regards,<br /><strong>${escapeHtml(businessName)}</strong></p>
             </td>
           </tr>
           <tr>
@@ -836,7 +836,6 @@ export function buildGoogleReviewRequestEmail(
     `Leave a Google Review:\n${reviewUrl}\n\n` +
     `Thank you again for choosing ${businessName}.\n\n` +
     `Kind regards,\n` +
-    `Colin\n` +
     `${businessName}\n` +
     `${BUSINESS_WEBSITE}`;
 

@@ -158,10 +158,11 @@ console.log("\n=== 6. Customer first name populated safely ===");
   assert.match(email.text, /^Hi Jordan,/m);
   assert.match(email.html, /Hi Jordan,/);
   assert.match(email.html, /Kind regards/);
-  assert.match(email.html, /Colin/);
+  assert.doesNotMatch(email.html, /\bColin\b/);
+  assert.doesNotMatch(email.text, /\bColin\b/);
   assert.match(email.html, /google-business-logo\.png/);
   assert.match(email.html, /#071c38|#2fbf4a/i);
-  console.log("OK  first name + subject + Colin sign-off");
+  console.log("OK  first name + subject + business sign-off (no personal name)");
 }
 
 console.log("\n=== 7. Duplicate completion does not schedule duplicate ===");
