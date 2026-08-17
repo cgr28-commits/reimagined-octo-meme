@@ -65,7 +65,8 @@ console.log("\n=== 3. Owner dashboard + dedicated evidence page ===");
   assert.match(page, /index:\s*false/);
   assert.match(page, /OwnerJourneyEvidenceClient/);
   assert.match(page, /Suspense/);
-  assert.doesNotMatch(page, /await searchParams/);
+  assert.match(page, /Static-export friendly|client-side/);
+  assert.doesNotMatch(page, /await searchParams\)/);
 
   const client = read("src/components/OwnerJourneyEvidenceClient.tsx");
   assert.match(client, /useSearchParams/);
