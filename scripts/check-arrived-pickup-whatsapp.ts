@@ -97,6 +97,7 @@ console.log("\n=== 4. Owner panel wires existing arrived_pickup + WhatsApp ===")
   assert.match(panel, /retryArrivalNotification/);
   // Must show Arrived for idle/stopped — not only when status === "tracking"
   assert.match(panel, /idle \/ stopped \/ tracking/);
+  assert.match(panel, /Open WhatsApp arrival message/);
   assert.doesNotMatch(panel, /WHATSAPP_BUSINESS_API_TOKEN/);
   console.log("OK  Extends existing arrival action; click-to-chat only");
 }

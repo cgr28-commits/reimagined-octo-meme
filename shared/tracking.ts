@@ -163,7 +163,8 @@ export function allowedJourneyActions(status: JourneyStatus): JourneyAction[] {
     case "completed":
       return [];
     default:
-      return ["start_tracking", "complete_journey"];
+      // Unknown/legacy statuses: still allow arrive + complete (safe fallbacks).
+      return ["start_tracking", "arrived_pickup", "complete_journey"];
   }
 }
 
