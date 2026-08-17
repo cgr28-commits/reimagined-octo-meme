@@ -624,6 +624,114 @@ export async function ensurePaidBookingTracking(
   }>(response);
 }
 
+export type OwnerAccountProfile = {
+  profileKey: "owner";
+  displayName: string;
+  email: string;
+  mobile?: string;
+  make: string;
+  model: string;
+  colour: string;
+  registration: string;
+  updatedAt: string;
+};
+
+export async function fetchOwnerAccountProfile(
+  ownerKey: string,
+): Promise<{ profile: OwnerAccountProfile | null; complete: boolean }> {
+  if (isDemoOwnerKey(ownerKey)) {
+    return {
+      profile: {
+        profileKey: "owner",
+        displayName: "Owner",
+        email: "owner@example.com",
+        mobile: "07700900123",
+        make: "Mercedes-Benz",
+        model: "E-Class",
+        colour: "Black",
+        registration: "ABC 1234",
+        updatedAt: new Date().toISOString(),
+      },
+      complete: true,
+    };
+  }
+
+  const url = new URL(`${WORKER_BASE}/owner/profile`);
+  driverQueryKey(url, ownerKey);
+
+  const response = await fetch(url.toString(), {
+    method: "GET",
+    headers: {
+      Accept: "application/json",
+      "X-Owner-Key": ownerKey.trim(),
+    },
+    cache: "no-store",
+  });
+
+  const payload = await parseJsonResponse<{
+    ok: true;
+    profile: OwnerAccountProfile | null;
+    complete?: boolean;
+  }>(response);
+
+  return {
+    profile: payload.profile ?? null,
+    complete: payload.complete === true,
+  };
+}
+
+export async function saveOwnerAccountProfile(
+  ownerKey: string,
+  input: {
+    displayName: string;
+    email: string;
+    mobile?: string;
+    make: string;
+    model: string;
+    colour: string;
+    registration: string;
+  },
+): Promise<OwnerAccountProfile> {
+  if (isDemoOwnerKey(ownerKey)) {
+    return {
+      profileKey: "owner",
+      displayName: input.displayName,
+      email: input.email,
+      mobile: input.mobile,
+      make: input.make,
+      model: input.model,
+      colour: input.colour,
+      registration: input.registration.toUpperCase(),
+      updatedAt: new Date().toISOString(),
+    };
+  }
+
+  const response = await fetch(
+    `${WORKER_BASE}/owner/profile?key=${encodeURIComponent(ownerKey.trim())}`,
+    {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        "X-Owner-Key": ownerKey.trim(),
+      },
+      body: JSON.stringify(input),
+    },
+  );
+
+  const payload = await parseJsonResponse<{
+    ok: true;
+    profile: OwnerAccountProfile;
+    complete?: boolean;
+  }>(response);
+
+  if (!payload.profile?.email || payload.complete === false) {
+    throw new Error("Owner profile was not saved on the server");
+  }
+
+  return payload.profile;
+}
+
 export async function fetchDriverVehicleProfiles(
   accessKey: string,
 ): Promise<Array<{ profileKey: string; displayName: string; complete?: boolean }>> {

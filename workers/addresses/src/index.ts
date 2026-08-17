@@ -100,6 +100,11 @@ import {
   isJourneySessionPath,
   isJourneyTransitionPath,
 } from "./journey-handlers";
+import {
+  handleOwnerProfileGetRequest,
+  handleOwnerProfileSaveRequest,
+  isOwnerProfilePath,
+} from "./owner-profile-handlers";
 import { processDueReviewRequests } from "./review-request-handlers";
 import { handleDriverUpdateBookingRequest } from "./driver-booking-handlers";
 import {
@@ -1573,6 +1578,14 @@ export default {
 
     if (isEnsureTrackingPath(url.pathname) && request.method === "POST") {
       return handleEnsureTrackingRequest(request, env, origin);
+    }
+
+    if (isOwnerProfilePath(url.pathname) && request.method === "GET") {
+      return handleOwnerProfileGetRequest(request, env, origin);
+    }
+
+    if (isOwnerProfilePath(url.pathname) && request.method === "POST") {
+      return handleOwnerProfileSaveRequest(request, env, origin);
     }
 
     if (!route) {

@@ -6,6 +6,7 @@ import Footer from "@/components/Footer";
 import Header from "@/components/Header";
 import OwnerBookingJobsPanel from "@/components/OwnerBookingJobsPanel";
 import OwnerPaidBookingsPanel from "@/components/OwnerPaidBookingsPanel";
+import OwnerAccountProfilePanel from "@/components/OwnerAccountProfilePanel";
 import type { MapMarker, MapRoutePoint } from "@/components/LiveTrackMap";
 import {
   buildWhatsAppDriverDetailsLink,
@@ -321,19 +322,23 @@ function DriverProfilePanel({
           return;
         }
 
-        setProfiles(nextProfiles);
+        // Owner account profile is managed separately — do not treat "owner" as a driver slot here.
+        const visible = isOwner
+          ? nextProfiles.filter((entry) => entry.profileKey !== "owner")
+          : nextProfiles;
+
+        setProfiles(visible);
         setSelectedProfile((current) => {
-          if (current && nextProfiles.some((entry) => entry.profileKey === current)) {
+          if (current && visible.some((entry) => entry.profileKey === current)) {
             return current;
           }
           if (!isOwner && driverName) {
             const key = driverName.trim().toLowerCase().replace(/\s+/g, "-");
-            if (nextProfiles.some((entry) => entry.profileKey === key)) {
+            if (visible.some((entry) => entry.profileKey === key)) {
               return key;
             }
           }
-          const owner = nextProfiles.find((entry) => entry.profileKey === "owner");
-          return owner?.profileKey ?? nextProfiles[0]?.profileKey ?? (isOwner ? "owner" : current);
+          return visible[0]?.profileKey ?? "";
         });
       })
       .catch(() => {
@@ -486,18 +491,19 @@ function DriverProfilePanel({
   };
 
   const showSetupPrompt = !loading && !profileComplete;
-  const showEditor = !collapsed || showSetupPrompt || isOwner;
+  // Owner managing driver profiles can collapse when complete — do not force the editor open.
+  const showEditor = !collapsed || showSetupPrompt;
 
   return (
     <section className="mb-8 rounded-2xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <h2 className="text-lg font-bold text-white">
-            {isOwner ? "Manage driver profiles" : "Your profile"}
+            {isOwner ? "Driver profiles (for journeys)" : "Your driver profile"}
           </h2>
           <p className="mt-2 text-sm text-white/60">
             {isOwner
-              ? "Set each driver’s name, email, mobile, and vehicle. Details are stored on the server and restored when you sign in again."
+              ? "Separate from your owner account profile. Save each driver’s contact and vehicle details for assignments and customer tracking."
               : "Save your name, email, mobile, and vehicle details. They are stored on the server and restored on your next login."}
           </p>
           {profileComplete && collapsed && (
@@ -2230,12 +2236,24 @@ export default function DriverPageClient({
   }, [isOwnerView, savedKey]);
 
   const profilePanel = savedKey ? (
-    <DriverProfilePanel
-      accessKey={savedKey}
-      isOwner={isOwnerView}
-      driverName={viewDriverName}
-      defaultCollapsed={isDemoDriverSession}
-    />
+    isOwnerView ? (
+      <>
+        <OwnerAccountProfilePanel ownerKey={savedKey} />
+        <DriverProfilePanel
+          accessKey={savedKey}
+          isOwner
+          driverName={viewDriverName}
+          defaultCollapsed
+        />
+      </>
+    ) : (
+      <DriverProfilePanel
+        accessKey={savedKey}
+        isOwner={false}
+        driverName={viewDriverName}
+        defaultCollapsed={isDemoDriverSession}
+      />
+    )
   ) : null;
 
   return (
