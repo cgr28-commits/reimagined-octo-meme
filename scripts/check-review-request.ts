@@ -231,6 +231,21 @@ console.log("\n=== 9–10. Manual send / already-sent protection (source) ===");
   assert.match(handlers, /alreadySent/);
   assert.match(handlers, /A Google review request was already sent/);
   assert.match(handlers, /Resend review request/);
+  assert.match(handlers, /trySendResendOnlyCustomerEmail/);
+  assert.match(handlers, /resolveReviewRequestRecipient/);
+  assert.match(handlers, /getPaidBookingRecord/);
+  assert.match(handlers, /provider:\s*"resend"/);
+  assert.match(handlers, /resendId/);
+  assert.match(handlers, /reviewRequestDueAt/);
+  assert.match(handlers, /Customer email is missing on tracking job and paid booking/);
+
+  const email = read("workers/addresses/src/worker-email.ts");
+  assert.match(email, /trySendResendOnlyCustomerEmail/);
+  assert.match(email, /Resend is not configured \(RESEND_API_KEY\)/);
+
+  const api = read("src/lib/paid-bookings-api.ts");
+  assert.match(api, /provider === "resend"/);
+  assert.match(api, /resendId/);
 
   const panel = read("src/components/OwnerPaidBookingsPanel.tsx");
   assert.match(panel, /Send review request/);
@@ -240,7 +255,9 @@ console.log("\n=== 9–10. Manual send / already-sent protection (source) ===");
   assert.match(panel, /Complete Journey/);
   assert.match(panel, /complete_journey/);
   assert.match(panel, /Stop Tracking \(GPS only\)|separate from Stop Tracking/);
-  console.log("OK  owner Send + Complete Journey + explicit Resend with duplicate warning");
+  assert.match(panel, /Failed:/);
+  assert.match(panel, /via Resend/);
+  console.log("OK  owner Send + Complete Journey + Resend-required + email fallback");
 }
 
 console.log("\n=== 11. Resend failure records Failed without changing completion ===");
@@ -255,12 +272,22 @@ console.log("\n=== 11. Resend failure records Failed without changing completion
   });
   assert.equal(failed.journeyStatus, "completed");
   assert.equal(getReviewRequestStatus(failed), "failed");
+  assert.ok(failed.reviewRequestDueAt, "dueAt must remain after failure for auto retry window");
 
   const handlers = read("workers/addresses/src/review-request-handlers.ts");
   assert.match(handlers, /reviewRequestFailedAt/);
   assert.match(handlers, /reviewRequestLastError/);
   assert.match(handlers, /Keep journey completed|journey completed/i);
-  console.log("OK  failed status independent of completed journey");
+  assert.match(handlers, /Keep reviewRequestDueAt|Auto schedule remains|reviewRequestDueAt/i);
+  console.log("OK  failed status independent of completed journey; dueAt preserved");
+}
+
+console.log("\n=== 12. Paid-booking email fallback helper is exported ===");
+{
+  const handlers = read("workers/addresses/src/review-request-handlers.ts");
+  assert.match(handlers, /export async function resolveReviewRequestRecipient/);
+  assert.match(handlers, /source:\s*"tracking"\s*\|\s*"paid_booking"/);
+  console.log("OK  resolveReviewRequestRecipient supports tracking + paid_booking sources");
 }
 
 console.log("\n=== Architecture wiring ===");
