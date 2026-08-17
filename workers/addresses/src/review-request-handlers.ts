@@ -11,6 +11,7 @@ import {
   type TrackingJobRecord,
 } from "../shared/tracking";
 import { ownerAuthorized, type DriverAuthEnv } from "./driver-auth";
+import { getPaidBookingRecord } from "./paid-booking-store";
 import {
   findTrackingJobByPaymentReference,
   getTrackingJob,
@@ -19,7 +20,7 @@ import {
   saveTrackingJob,
   trackingStoreConfigured,
 } from "./tracking-store";
-import { trySendBrandedCustomerEmail, type WorkerEmailEnv } from "./worker-email";
+import { trySendResendOnlyCustomerEmail, type WorkerEmailEnv } from "./worker-email";
 
 type Env = DriverAuthEnv &
   WorkerEmailEnv & {
@@ -44,6 +45,15 @@ export type ReviewRequestSummary = {
   sentAt?: string;
   failedAt?: string;
   lastError?: string;
+};
+
+type ReviewEmailSendResult = {
+  sent: boolean;
+  error?: string;
+  provider?: string;
+  resendId?: string;
+  customerEmail?: string;
+  customerName?: string;
 };
 
 function jsonResponse(body: unknown, status: number, origin: string | null) {
@@ -95,39 +105,98 @@ async function resolveJobForOwnerSend(
   return null;
 }
 
+/**
+ * Prefer the tracking job email; fall back to the paid booking record.
+ * When the paid booking supplies the address, backfill it onto the job for future cron runs.
+ */
+export async function resolveReviewRequestRecipient(
+  store: KVNamespace,
+  job: TrackingJobRecord,
+): Promise<{
+  email: string;
+  name: string;
+  source: "tracking" | "paid_booking";
+  job: TrackingJobRecord;
+} | null> {
+  const fromJob = job.customerEmail?.trim() ?? "";
+  if (fromJob) {
+    return {
+      email: fromJob,
+      name: job.customerName?.trim() || fromJob,
+      source: "tracking",
+      job,
+    };
+  }
+
+  const paymentReference = job.paymentReference?.trim() ?? "";
+  if (!paymentReference) {
+    return null;
+  }
+
+  const paid = await getPaidBookingRecord(store, paymentReference);
+  const fromPaid = paid?.customerEmail?.trim() ?? "";
+  if (!fromPaid) {
+    return null;
+  }
+
+  const name = paid?.customerName?.trim() || job.customerName?.trim() || fromPaid;
+  const patched: TrackingJobRecord = {
+    ...job,
+    customerEmail: fromPaid,
+    ...(job.customerName?.trim() ? {} : { customerName: name }),
+  };
+
+  return {
+    email: fromPaid,
+    name,
+    source: "paid_booking",
+    job: patched,
+  };
+}
+
 async function sendReviewRequestEmail(
   env: Env,
   job: TrackingJobRecord,
   reviewUrl: string,
-): Promise<{ sent: boolean; error?: string }> {
-  const customerEmail = job.customerEmail?.trim() ?? "";
+  recipient: { email: string; name: string },
+): Promise<ReviewEmailSendResult> {
+  const customerEmail = recipient.email.trim();
   if (!customerEmail) {
     return { sent: false, error: "Customer email is missing" };
   }
 
   const email = buildGoogleReviewRequestEmail(
     {
-      customerName: job.customerName,
+      customerName: recipient.name,
     },
     reviewUrl,
   );
 
-  const sendResult = await trySendBrandedCustomerEmail(env, {
+  const sendResult = await trySendResendOnlyCustomerEmail(env, {
     to: customerEmail,
-    toName: job.customerName,
+    toName: recipient.name,
     subject: email.subject,
     body: email.text,
     htmlBody: email.html,
   });
 
-  if (!sendResult.sent) {
+  if (!sendResult.sent || sendResult.provider !== "resend") {
     return {
       sent: false,
-      error: sendResult.error || "Review request email failed to send",
+      error: sendResult.error || "Review request email failed via Resend",
+      provider: sendResult.provider,
+      customerEmail,
+      customerName: recipient.name,
     };
   }
 
-  return { sent: true };
+  return {
+    sent: true,
+    provider: "resend",
+    ...(sendResult.resendId ? { resendId: sendResult.resendId } : {}),
+    customerEmail,
+    customerName: recipient.name,
+  };
 }
 
 export async function processDueReviewRequests(env: Env): Promise<ReviewRequestRunResult> {
@@ -191,10 +260,6 @@ async function maybeProcessReviewRequest(
     return "not_eligible";
   }
 
-  if (!job.customerEmail?.trim()) {
-    return "not_eligible";
-  }
-
   let current = job;
   const beforeScheduled = Boolean(current.reviewRequestScheduledAt?.trim());
   current = ensureReviewRequestScheduled(current, delayMs);
@@ -207,7 +272,18 @@ async function maybeProcessReviewRequest(
     return beforeScheduled ? "not_eligible" : "scheduled";
   }
 
-  const sendResult = await sendReviewRequestEmail(env, current, reviewUrl);
+  const recipient = await resolveReviewRequestRecipient(env.TRACKING_STORE!, current);
+  if (!recipient) {
+    current.reviewRequestFailedAt = new Date().toISOString();
+    current.reviewRequestLastError =
+      "Customer email is missing on tracking job and paid booking";
+    // Keep reviewRequestDueAt so a later retry / manual send can still run after email is fixed.
+    await saveTrackingJob(env.TRACKING_STORE!, current);
+    return "eligible_error";
+  }
+
+  current = recipient.job;
+  const sendResult = await sendReviewRequestEmail(env, current, reviewUrl, recipient);
   if (!sendResult.sent) {
     current.reviewRequestFailedAt = new Date().toISOString();
     current.reviewRequestLastError = sendResult.error;
@@ -226,6 +302,7 @@ async function maybeProcessReviewRequest(
 /**
  * Owner manual send / explicit resend.
  * Default: refuses if already sent. forceResend=true allows a deliberate duplicate.
+ * Success only when Resend accepts the message (provider=resend).
  */
 export async function handleReviewRequestSendRequest(
   request: Request,
@@ -302,16 +379,36 @@ export async function handleReviewRequestSendRequest(
   const delayMs = delayMsFromEnv(env);
   let current = ensureReviewRequestScheduled(job, delayMs);
 
-  const sendResult = await sendReviewRequestEmail(env, current, reviewUrl);
-  if (!sendResult.sent) {
+  const recipient = await resolveReviewRequestRecipient(env.TRACKING_STORE, current);
+  if (!recipient) {
     current.reviewRequestFailedAt = new Date().toISOString();
-    current.reviewRequestLastError = sendResult.error;
-    // Keep journey completed — only review status changes.
+    current.reviewRequestLastError =
+      "Customer email is missing on tracking job and paid booking";
+    // Keep reviewRequestDueAt — auto schedule remains until a successful send.
     await saveTrackingJob(env.TRACKING_STORE, current);
     return jsonResponse(
       {
         ok: false,
-        error: sendResult.error || "Failed to send review request email",
+        error: current.reviewRequestLastError,
+        reviewRequest: buildReviewRequestSummary(current),
+      },
+      502,
+      origin,
+    );
+  }
+
+  current = recipient.job;
+  const sendResult = await sendReviewRequestEmail(env, current, reviewUrl, recipient);
+  if (!sendResult.sent) {
+    current.reviewRequestFailedAt = new Date().toISOString();
+    current.reviewRequestLastError = sendResult.error;
+    // Keep journey completed and reviewRequestDueAt — only review status changes.
+    await saveTrackingJob(env.TRACKING_STORE, current);
+    return jsonResponse(
+      {
+        ok: false,
+        error: sendResult.error || "Failed to send review request email via Resend",
+        provider: sendResult.provider ?? "resend",
         reviewRequest: buildReviewRequestSummary(current),
       },
       502,
@@ -328,7 +425,10 @@ export async function handleReviewRequestSendRequest(
     {
       ok: true,
       resent: forceResend,
-      customerEmail: current.customerEmail,
+      provider: "resend",
+      ...(sendResult.resendId ? { resendId: sendResult.resendId } : {}),
+      customerEmail: sendResult.customerEmail ?? current.customerEmail,
+      emailSource: recipient.source,
       reviewRequest: buildReviewRequestSummary(current),
     },
     200,

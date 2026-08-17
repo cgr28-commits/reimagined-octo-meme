@@ -714,12 +714,21 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
         );
       }
       if (!result.ok) {
-        throw new Error(result.error || "Could not send review request");
+        const failReason = result.error || result.reviewRequest?.lastError || "Could not send review request";
+        throw new Error(
+          result.reviewRequest?.status === "failed" ? `Failed: ${failReason}` : failReason,
+        );
       }
+      const to = result.customerEmail || booking.customerEmail;
+      const viaResend = result.resendId
+        ? ` via Resend (${result.resendId})`
+        : result.provider === "resend"
+          ? " via Resend"
+          : "";
       setMessage(
         forceResend
-          ? `Review request resent to ${result.customerEmail || booking.customerEmail}.`
-          : `Review request sent to ${result.customerEmail || booking.customerEmail}.`,
+          ? `Review request resent to ${to}${viaResend}.`
+          : `Review request sent to ${to}${viaResend}.`,
       );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not send review request");
@@ -1014,9 +1023,16 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
                           ? ` · scheduled ${formatUkInstant(booking.reviewRequest.scheduledAt)}`
                           : ""}
                       </span>
-                    ) : booking.reviewRequest?.scheduledAt ? (
+                    ) : booking.reviewRequest?.scheduledAt &&
+                      booking.reviewRequest?.status !== "failed" ? (
                       <span className="mt-2 block text-xs text-white/45">
                         Scheduled {formatUkInstant(booking.reviewRequest.scheduledAt)}
+                      </span>
+                    ) : null}
+                    {booking.reviewRequest?.status === "failed" && booking.reviewRequest.dueAt ? (
+                      <span className="mt-2 block text-xs text-white/45">
+                        Auto schedule kept for {formatUkInstant(booking.reviewRequest.dueAt)} until
+                        send succeeds
                       </span>
                     ) : null}
                     {booking.reviewRequest?.sentAt ? (
@@ -1026,7 +1042,7 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
                     ) : null}
                     {booking.reviewRequest?.status === "failed" && booking.reviewRequest.lastError ? (
                       <span className="mt-1 block text-xs text-red-200/80">
-                        {booking.reviewRequest.lastError}
+                        Failed: {booking.reviewRequest.lastError}
                       </span>
                     ) : null}
                   </dd>

@@ -198,6 +198,10 @@ export type SendReviewRequestResult = {
   alreadySent?: boolean;
   resent?: boolean;
   customerEmail?: string;
+  /** Only "resend" counts as a trustworthy review delivery. */
+  provider?: string;
+  resendId?: string;
+  emailSource?: "tracking" | "paid_booking";
   error?: string;
   reviewRequest?: OwnerReviewRequestSummary;
 };
@@ -224,20 +228,41 @@ export async function sendOwnerReviewRequest(
     payload.reviewRequest && typeof payload.reviewRequest === "object"
       ? (payload.reviewRequest as OwnerReviewRequestSummary)
       : undefined;
+  const provider = typeof payload.provider === "string" ? payload.provider : undefined;
+  const resendId = typeof payload.resendId === "string" ? payload.resendId : undefined;
+  const emailSource =
+    payload.emailSource === "tracking" || payload.emailSource === "paid_booking"
+      ? payload.emailSource
+      : undefined;
 
   if (!response.ok) {
     return {
       ok: false,
       alreadySent: payload.alreadySent === true,
       error: String(payload.error ?? "Failed to send review request"),
+      provider,
+      resendId,
+      emailSource,
       reviewRequest,
     };
   }
 
+  const ok = payload.ok === true && provider === "resend";
   return {
-    ok: payload.ok === true,
+    ok,
     resent: payload.resent === true,
     customerEmail: typeof payload.customerEmail === "string" ? payload.customerEmail : undefined,
+    provider,
+    resendId,
+    emailSource,
+    ...(ok
+      ? {}
+      : {
+          error:
+            typeof payload.error === "string"
+              ? payload.error
+              : "Review request was not accepted by Resend",
+        }),
     reviewRequest,
   };
 }

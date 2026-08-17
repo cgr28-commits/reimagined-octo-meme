@@ -43,6 +43,8 @@ export type EmailSendResult = {
   sent: boolean;
   error?: string;
   provider?: string;
+  /** Resend message id when provider is resend and the API accepted the send. */
+  resendId?: string;
 };
 
 const DEFAULT_BOOKING_EMAIL = "bookings@myairporttaxini.co.uk";
@@ -66,7 +68,10 @@ async function sendViaCloudflareEmail(env: WorkerEmailEnv, options: EmailPayload
   });
 }
 
-async function sendViaResend(env: WorkerEmailEnv, options: EmailPayload): Promise<void> {
+async function sendViaResend(
+  env: WorkerEmailEnv,
+  options: EmailPayload,
+): Promise<string | undefined> {
   const apiKey = env.RESEND_API_KEY?.trim() ?? "";
   if (!apiKey) {
     throw new Error("Resend is not configured");
@@ -103,6 +108,8 @@ async function sendViaResend(env: WorkerEmailEnv, options: EmailPayload): Promis
         : String(response.status);
     throw new Error(`Resend request failed: ${detail}`);
   }
+
+  return typeof payload?.id === "string" && payload.id.trim() ? payload.id.trim() : undefined;
 }
 
 async function sendViaWeb3Forms(env: WorkerEmailEnv, options: EmailPayload): Promise<void> {
@@ -226,7 +233,12 @@ function buildProviderChain(
   // Customer branded invoices: never FormSubmit (false “success” / activation trap).
   if (customerDelivery) {
     if (env.RESEND_API_KEY?.trim()) {
-      providers.push({ label: "resend", run: () => sendViaResend(env, options) });
+      providers.push({
+        label: "resend",
+        run: async () => {
+          await sendViaResend(env, options);
+        },
+      });
     }
     if (env.EMAIL) {
       providers.push({ label: "cloudflare-email", run: () => sendViaCloudflareEmail(env, options) });
@@ -245,7 +257,12 @@ function buildProviderChain(
 
   if (skipFormSubmit) {
     if (env.RESEND_API_KEY?.trim()) {
-      providers.push({ label: "resend", run: () => sendViaResend(env, options) });
+      providers.push({
+        label: "resend",
+        run: async () => {
+          await sendViaResend(env, options);
+        },
+      });
     }
     if (env.EMAIL) {
       providers.push({ label: "cloudflare-email", run: () => sendViaCloudflareEmail(env, options) });
@@ -265,7 +282,12 @@ function buildProviderChain(
     providers.push({ label: "cloudflare-email", run: () => sendViaCloudflareEmail(env, options) });
   }
   if (env.RESEND_API_KEY?.trim()) {
-    providers.push({ label: "resend", run: () => sendViaResend(env, options) });
+    providers.push({
+      label: "resend",
+      run: async () => {
+        await sendViaResend(env, options);
+      },
+    });
   }
   if (env.WEB3FORMS_ACCESS_KEY?.trim()) {
     providers.push({ label: "web3forms", run: () => sendViaWeb3Forms(env, options) });
@@ -322,6 +344,43 @@ export async function trySendBrandedCustomerEmail(
     requireHtml: true,
     customerDelivery: true,
   });
+}
+
+/**
+ * Google review request emails must go through Resend only.
+ * Fallback providers (Web3Forms / MailChannels) can report success without
+ * a trustworthy delivery signal — owner UI must only show Sent when Resend accepts.
+ */
+export async function trySendResendOnlyCustomerEmail(
+  env: WorkerEmailEnv,
+  options: EmailPayload,
+): Promise<EmailSendResult> {
+  if (!options.htmlBody?.trim()) {
+    return { sent: false, error: "Missing HTML email body" };
+  }
+
+  if (!env.RESEND_API_KEY?.trim()) {
+    return { sent: false, error: "Resend is not configured (RESEND_API_KEY)" };
+  }
+
+  try {
+    const resendId = await sendViaResend(env, {
+      ...options,
+      requireHtml: true,
+      customerDelivery: true,
+    });
+    return {
+      sent: true,
+      provider: "resend",
+      ...(resendId ? { resendId } : {}),
+    };
+  } catch (error) {
+    return {
+      sent: false,
+      provider: "resend",
+      error: error instanceof Error ? error.message : "Resend request failed",
+    };
+  }
 }
 
 export async function sendEmail(env: WorkerEmailEnv, options: EmailPayload): Promise<void> {
