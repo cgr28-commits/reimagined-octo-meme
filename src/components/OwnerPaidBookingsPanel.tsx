@@ -1081,26 +1081,31 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
   const needsFinalize = pending.filter((item) => item.needsFinalize);
 
   function renderJourneyControls(booking: OwnerPaidBookingSummary) {
-    const status = booking.journeyStatus || "idle";
+    // Live sharing without an explicit status still counts as tracking for controls
+    // (matches customer label fallback — otherwise Arrived stays hidden).
+    const rawStatus = booking.journeyStatus || "idle";
+    const status =
+      booking.sharingActive && (rawStatus === "idle" || !booking.journeyStatus)
+        ? "tracking"
+        : rawStatus;
     const busy = busyRef === booking.paymentReference;
-    const canComplete = status !== "completed" && booking.status !== "refunded";
     const showEvidence =
       status === "completed" ||
       Boolean(booking.trackingToken) ||
       (diagnostics[booking.paymentReference]?.gpsPointCount ?? 0) > 0;
 
     const primaryActions: { action: JourneyAction; label: string }[] = [];
-    if (status === "tracking") {
-      primaryActions.push({ action: "arrived_pickup", label: "🚕 Arrived at Pickup" });
-    } else if (status === "arrived_pickup") {
+    if (status === "arrived_pickup") {
       // Intended owner flow: Arrived → WhatsApp → Complete Journey
       primaryActions.push({ action: "complete_journey", label: "Complete Journey" });
     } else if (status === "en_route") {
       primaryActions.push({ action: "arrived_destination", label: "Arrived at Destination" });
     } else if (status === "arrived_destination") {
       primaryActions.push({ action: "complete_journey", label: "Complete Journey" });
-    } else if (status === "idle" || status === "stopped" || !status) {
-      if (canComplete) {
+    } else if (status !== "completed" && booking.status !== "refunded") {
+      // idle / stopped / tracking — Arrived must be visible (not only after Start Live Tracking).
+      primaryActions.push({ action: "arrived_pickup", label: "🚕 Arrived at Pickup" });
+      if (status === "idle" || status === "stopped") {
         primaryActions.push({ action: "complete_journey", label: "Complete Journey" });
       }
     }
@@ -1173,16 +1178,16 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
             </button>
           ) : null}
         </div>
-        {status === "tracking" ? (
+        {status !== "completed" && status !== "arrived_pickup" && status !== "arrived_destination" ? (
           <p className="mt-2 text-xs text-white/45">
-            Press Arrived at Pickup when you are at the customer. This records arrival, emails the
-            customer, and opens WhatsApp with a ready-to-send message (you press Send).
+            Ideal flow: Start Live Tracking (GPS) → Arrived at Pickup (records time, emails customer,
+            opens WhatsApp — you press Send) → Complete Journey when finished.
           </p>
         ) : null}
-        {canComplete && (status === "idle" || status === "stopped" || !status) ? (
+        {status === "arrived_pickup" ? (
           <p className="mt-2 text-xs text-white/45">
-            Start Live Tracking above for GPS. Complete Journey when the passenger trip has finished
-            (schedules the Google review email ~2 hours later).
+            Arrival recorded. Complete Journey when the passenger trip has finished (schedules the
+            Google review email ~2 hours later).
           </p>
         ) : null}
       </div>

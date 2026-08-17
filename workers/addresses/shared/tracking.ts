@@ -147,11 +147,11 @@ export function customerJourneyLabel(job: Pick<TrackingJobRecord, "journeyStatus
 export function allowedJourneyActions(status: JourneyStatus): JourneyAction[] {
   switch (status) {
     case "idle":
-      // Can start live tracking, or mark complete without live GPS (e.g. trip done offline).
-      return ["start_tracking", "complete_journey"];
+      // Start GPS, mark arrived (WhatsApp), or complete offline without live GPS.
+      return ["start_tracking", "arrived_pickup", "complete_journey"];
     case "stopped":
-      // Stop Live Tracking ≠ Complete Journey — owner can still mark the trip finished.
-      return ["start_tracking", "complete_journey"];
+      // Stop Live Tracking ≠ Complete Journey — owner can still arrive or mark finished.
+      return ["start_tracking", "arrived_pickup", "complete_journey"];
     case "tracking":
       return ["arrived_pickup", "stop_tracking", "complete_journey"];
     case "arrived_pickup":
