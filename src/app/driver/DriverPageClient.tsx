@@ -261,7 +261,10 @@ function DriverFlightPanel({
   );
 }
 
-function assignmentSummary(job: DriverJob): string {
+function assignmentSummary(
+  job: DriverJob,
+  options?: { isOwner?: boolean; defaultDriverLabel?: string },
+): string {
   switch (job.assignmentStatus ?? "unassigned") {
     case "pending":
       return `Awaiting ${job.assignedDriverName ?? "driver"} to accept`;
@@ -270,11 +273,22 @@ function assignmentSummary(job: DriverJob): string {
     case "declined":
       return `${job.assignedDriverName ?? "Driver"} declined`;
     default:
+      if (options?.isOwner) {
+        return (
+          job.assignedDriverLabel?.trim() ||
+          job.assignedDriverName?.trim() ||
+          options.defaultDriverLabel?.trim() ||
+          "Owner / Primary Driver"
+        );
+      }
       return "Unassigned";
   }
 }
 
-function assignmentBadgeClass(status: DriverJob["assignmentStatus"]): string {
+function assignmentBadgeClass(
+  status: DriverJob["assignmentStatus"],
+  options?: { isOwner?: boolean },
+): string {
   switch (status ?? "unassigned") {
     case "pending":
       return "bg-amber-500/15 text-amber-200";
@@ -283,7 +297,8 @@ function assignmentBadgeClass(status: DriverJob["assignmentStatus"]): string {
     case "declined":
       return "bg-red-500/15 text-red-200";
     default:
-      return "bg-white/10 text-white/50";
+      // Owner default driver is not a missing assignment — keep it calm/positive.
+      return options?.isOwner ? "bg-emerald/15 text-emerald" : "bg-white/10 text-white/50";
   }
 }
 
@@ -768,6 +783,7 @@ function DriverJobCard({
   highlightPending = false,
   isOwner = false,
   availableDrivers = [],
+  defaultDriverLabel = "Owner / Primary Driver",
   gpsStale = false,
   lastGpsAt = null,
 }: {
@@ -785,6 +801,8 @@ function DriverJobCard({
   highlightPending?: boolean;
   isOwner?: boolean;
   availableDrivers?: string[];
+  /** Owner profile display name used when no additional driver is assigned. */
+  defaultDriverLabel?: string;
   gpsStale?: boolean;
   lastGpsAt?: number | null;
 }) {
@@ -854,7 +872,28 @@ function DriverJobCard({
   const showMap =
     mapMarkers.length > 0 || (showRecordedRoute && recordedRoute.length > 0);
   const journeyStatus = job.journeyStatus ?? (job.sharingActive ? "tracking" : "idle");
-  const journeyLabel = job.journeyStatusLabel ?? (job.sharingActive ? "Driver on the way" : "Driver preparing");
+  const journeyLabel = isOwner
+    ? job.journeyStatusLabel ??
+      (job.sharingActive
+        ? "Live Tracking"
+        : journeyStatus === "arrived_pickup"
+          ? "Arrived at Pickup"
+          : journeyStatus === "en_route"
+            ? "Journey in Progress"
+            : journeyStatus === "completed"
+              ? "Completed"
+              : journeyStatus === "arrived_destination"
+                ? "Arrived at Destination"
+                : journeyStatus === "stopped"
+                  ? "Tracking stopped"
+                  : journeyStatus === "tracking"
+                    ? "Live Tracking"
+                    : "Upcoming")
+    : job.journeyStatusLabel ?? (job.sharingActive ? "Driver on the way" : "Driver preparing");
+  const ownerAssignmentLabel = assignmentSummary(job, {
+    isOwner,
+    defaultDriverLabel,
+  });
   const allowedActions: JourneyAction[] =
     job.allowedJourneyActions ??
     (journeyStatus === "idle" || journeyStatus === "stopped"
@@ -1361,6 +1400,9 @@ function DriverJobCard({
           {!isRefunded && !isOwner && !isPendingForDriver && (
             <p className="mt-2 text-sm text-white/55">{assignmentSummary(job)}</p>
           )}
+          {isOwner && !isRefunded ? (
+            <p className="mt-2 text-sm text-white/70">Driver: {ownerAssignmentLabel}</p>
+          ) : null}
           {isOwner && (job.driverLocationPointCount ?? 0) > 0 && (
             <p className="mt-2 text-xs text-white/50">
               {job.driverLocationPointCount} GPS points recorded for journey evidence
@@ -1388,9 +1430,9 @@ function DriverJobCard({
               </span>
             ) : null}
             <span
-              className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wider ${assignmentBadgeClass(job.assignmentStatus)}`}
+              className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wider ${assignmentBadgeClass(job.assignmentStatus, { isOwner })}`}
             >
-              {assignmentSummary(job)}
+              {ownerAssignmentLabel}
             </span>
             <span
               className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wider ${
@@ -1965,6 +2007,7 @@ export default function DriverPageClient({
   );
   const [driverName, setDriverName] = useState<string | null>(null);
   const [availableDrivers, setAvailableDrivers] = useState<string[]>([...DEMO_ROSTER]);
+  const [defaultDriverLabel, setDefaultDriverLabel] = useState("Owner / Primary Driver");
   const [jobs, setJobs] = useState<DriverJob[]>([]);
   const [pendingJobs, setPendingJobs] = useState<DriverJob[]>([]);
   const [calendarFocusJob, setCalendarFocusJob] = useState<DriverJob | null>(null);
@@ -2060,6 +2103,9 @@ export default function DriverPageClient({
         ]);
         setJobs(mainResponse.jobs);
         setPendingJobs(pendingResponse.jobs);
+        if (mainResponse.defaultDriverName?.trim()) {
+          setDefaultDriverLabel(mainResponse.defaultDriverName.trim());
+        }
         if (key === DEMO_DRIVER_KEY) {
           setSessionRole("driver");
           setDriverName(DEMO_DRIVER_NAME);
@@ -2784,6 +2830,7 @@ export default function DriverPageClient({
                     refreshingJob={loading}
                     isOwner={isOwnerView}
                     availableDrivers={availableDrivers}
+                    defaultDriverLabel={defaultDriverLabel}
                   />
                 </section>
               ) : null}
@@ -2939,6 +2986,7 @@ export default function DriverPageClient({
                         compactTracking={view === "upcoming"}
                         isOwner={isOwnerView}
                         availableDrivers={availableDrivers}
+                    defaultDriverLabel={defaultDriverLabel}
                       />
                     ))}
                   </div>
@@ -2991,6 +3039,7 @@ export default function DriverPageClient({
                             compactTracking
                             isOwner={isOwnerView}
                             availableDrivers={availableDrivers}
+                    defaultDriverLabel={defaultDriverLabel}
                           />
                         ))}
                       </div>
@@ -3031,6 +3080,7 @@ export default function DriverPageClient({
                       refreshingJob={loading}
                       isOwner={isOwnerView}
                       availableDrivers={availableDrivers}
+                    defaultDriverLabel={defaultDriverLabel}
                     />
                   ))}
                 </div>
@@ -3071,6 +3121,7 @@ export default function DriverPageClient({
                         compactTracking={view === "upcoming"}
                         isOwner={isOwnerView}
                         availableDrivers={availableDrivers}
+                    defaultDriverLabel={defaultDriverLabel}
                       />
                     ))}
                   </div>

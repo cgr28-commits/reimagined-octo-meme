@@ -57,9 +57,20 @@ export type PaidBookingRecord = {
 /** Default driver label when no other driver is assigned (multi-driver capable later). */
 export const PRIMARY_DRIVER_LABEL = "Owner / Primary Driver";
 
-export function resolveAssignedDriverLabel(assignedDriverName?: string | null): string {
+/**
+ * Display label for the journey driver.
+ * Explicit assignment wins; otherwise use the Owner/default driver name when known.
+ * Does not invent an assignment — presentation only.
+ */
+export function resolveAssignedDriverLabel(
+  assignedDriverName?: string | null,
+  ownerDisplayName?: string | null,
+): string {
   const trimmed = assignedDriverName?.trim();
-  return trimmed || PRIMARY_DRIVER_LABEL;
+  if (trimmed) return trimmed;
+  const owner = ownerDisplayName?.trim();
+  if (owner) return owner;
+  return PRIMARY_DRIVER_LABEL;
 }
 
 export function paidBookingRefKey(paymentReference: string): string {

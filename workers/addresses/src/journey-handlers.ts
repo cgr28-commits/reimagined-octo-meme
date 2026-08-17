@@ -17,6 +17,7 @@ import {
   type JourneyAction,
   type TrackingJobRecord,
 } from "../shared/tracking";
+import { journeyStatusLabel as ownerDashboardJourneyLabel } from "../shared/upcoming-jobs";
 import {
   buildDriverArrivedPickupEmail,
   customerFirstName,
@@ -29,6 +30,7 @@ import {
   driverAuthorized,
   ownerAuthorized,
   resolveDriverSession,
+  type DashboardRole,
 } from "./driver-auth";
 import {
   createTrackingSession,
@@ -184,6 +186,18 @@ function parseJourneyAction(value: unknown): JourneyAction | null {
   return JOURNEY_ACTIONS.has(action) ? action : null;
 }
 
+function responseJourneyStatusLabel(
+  job: Pick<TrackingJobRecord, "journeyStatus" | "sharingActive">,
+  role: DashboardRole | null,
+): string {
+  if (role === "owner") {
+    return ownerDashboardJourneyLabel(journeyStatusOf(job), {
+      sharingActive: job.sharingActive,
+    });
+  }
+  return customerJourneyLabel(job);
+}
+
 export async function handleJourneyTransitionRequest(
   request: Request,
   env: Env,
@@ -239,7 +253,7 @@ export async function handleJourneyTransitionRequest(
         ok: true,
         token: next.token,
         journeyStatus: journeyStatusOf(next),
-        journeyStatusLabel: customerJourneyLabel(next),
+        journeyStatusLabel: responseJourneyStatusLabel(next, session.authorized ? session.role : null),
         allowedActions: allowedJourneyActions(journeyStatusOf(next)),
         sharingActive: next.sharingActive,
         trackUrl: buildPublicTrackUrl(next.token),
@@ -310,7 +324,7 @@ export async function handleJourneyTransitionRequest(
       ok: true,
       token: next.token,
       journeyStatus: journeyStatusOf(next),
-      journeyStatusLabel: customerJourneyLabel(next),
+      journeyStatusLabel: responseJourneyStatusLabel(next, session.authorized ? session.role : null),
       allowedActions: allowedJourneyActions(journeyStatusOf(next)),
       sharingActive: next.sharingActive,
       trackUrl: buildPublicTrackUrl(next.token),
@@ -546,7 +560,9 @@ export async function handleJourneyEvidenceRequest(
         flightNumber: record.flightNumber || paid?.flightNumber,
         vehicle: paid?.vehicle,
         journeyStatus: journeyStatusOf(record),
-        journeyStatusLabel: customerJourneyLabel(record),
+        journeyStatusLabel: ownerDashboardJourneyLabel(journeyStatusOf(record), {
+          sharingActive: record.sharingActive,
+        }),
         trackingStartedAt: record.trackingStartedAt,
         arrivedPickupAt: record.arrivedPickupAt,
         journeyStartedAt: record.journeyStartedAt,

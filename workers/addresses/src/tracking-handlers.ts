@@ -10,6 +10,8 @@ import {
   shouldStoreGpsPoint,
   type TrackingJobRecord,
 } from "../shared/tracking";
+import { journeyStatusLabel as ownerDashboardJourneyLabel } from "../shared/upcoming-jobs";
+import { resolveAssignedDriverLabel } from "../shared/paid-booking-record";
 import { lookupFlight, type VerifiedFlight } from "../shared/flight-lookup";
 import {
   createTrackingJobFromBooking,
@@ -35,6 +37,7 @@ import {
   listPaymentRefsWithReturnDateInRange,
   paidBookingStoreConfigured,
 } from "./paid-booking-store";
+import { getOwnerAccountProfile } from "./owner-profile-store";
 import {
   filterJobsForSession,
   assertDriverCanOperateJob,
@@ -551,6 +554,10 @@ export async function handleDriverJobsRequest(
 
   jobs = filterJobsForSession(jobs, session);
 
+  const ownerProfile =
+    role === "owner" ? await getOwnerAccountProfile(env.TRACKING_STORE) : null;
+  const ownerDisplayName = ownerProfile?.displayName?.trim() || "";
+
   const enrichedJobs = await Promise.all(
     jobs.map(async (job) => {
       const flight = await resolveDriverFlight(job, env);
@@ -571,6 +578,7 @@ export async function handleDriverJobsRequest(
       }
 
       const refundAmountLabel = paidRecord?.refundAmountLabel ?? job.refundAmountLabel;
+      const status = journeyStatusOf(job);
 
       return sanitizeDriverJobForRole(
         {
@@ -583,6 +591,10 @@ export async function handleDriverJobsRequest(
           refundAmountLabel,
           activeDriverName: job.activeDriverName,
           assignedDriverName: job.assignedDriverName,
+          assignedDriverLabel: resolveAssignedDriverLabel(
+            job.assignedDriverName,
+            role === "owner" ? ownerDisplayName : undefined,
+          ),
           assignmentStatus: jobAssignmentStatus(job),
           assignedAt: job.assignedAt,
           acceptedAt: job.acceptedAt,
@@ -590,9 +602,13 @@ export async function handleDriverJobsRequest(
           driverLocationPointCount: job.driverLocationPointCount,
           driverLocationRecordedFrom: job.driverLocationRecordedFrom,
           driverLocationRecordedTo: job.driverLocationRecordedTo,
-          journeyStatus: journeyStatusOf(job),
-          journeyStatusLabel: customerJourneyLabel(job),
-          allowedJourneyActions: allowedJourneyActions(journeyStatusOf(job)),
+          journeyStatus: status,
+          // Owner dashboard uses operational wording; customer track page keeps customerJourneyLabel.
+          journeyStatusLabel:
+            role === "owner"
+              ? ownerDashboardJourneyLabel(status, { sharingActive: job.sharingActive })
+              : customerJourneyLabel(job),
+          allowedJourneyActions: allowedJourneyActions(status),
           trackingStartedAt: job.trackingStartedAt,
           arrivedPickupAt: job.arrivedPickupAt,
           journeyStartedAt: job.journeyStartedAt,
@@ -616,6 +632,9 @@ export async function handleDriverJobsRequest(
       date: responseDate,
       role,
       ...(session.authorized && session.role === "driver" ? { driverName: session.driverName } : {}),
+      ...(role === "owner" && ownerDisplayName
+        ? { defaultDriverName: ownerDisplayName }
+        : {}),
       jobs: enrichedJobs,
     },
     200,

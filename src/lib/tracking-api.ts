@@ -233,6 +233,8 @@ export type DriverJob = PublicTrackResponse & {
   refundAmountLabel?: string;
   activeDriverName?: string;
   assignedDriverName?: string;
+  /** Owner-facing label: explicit assignee, else Owner/default driver display name. */
+  assignedDriverLabel?: string;
   assignedDriverMobile?: string;
   assignedDriverCarMake?: string;
   assignedDriverCarModel?: string;
@@ -267,6 +269,8 @@ export type DriverJobsResponse = {
   date: string;
   role?: "owner" | "driver";
   driverName?: string;
+  /** Owner profile display name when no additional driver is assigned. */
+  defaultDriverName?: string;
   jobs: DriverJob[];
 };
 

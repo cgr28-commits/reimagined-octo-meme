@@ -168,16 +168,28 @@ export function formatDisplayTripDate(tripDate: string): string {
   }).format(date);
 }
 
-export function journeyStatusLabel(status?: string): string {
-  switch (status) {
+/**
+ * Owner Dashboard journey wording (not customer track-page copy).
+ * Idle/future confirmed → Upcoming until an actual journey action changes state.
+ */
+export function journeyStatusLabel(
+  status?: string,
+  options?: { sharingActive?: boolean },
+): string {
+  const effective =
+    options?.sharingActive && (!status || status === "idle" || status === "stopped")
+      ? "tracking"
+      : status;
+
+  switch (effective) {
     case "tracking":
-      return "Live tracking";
+      return "Live Tracking";
     case "arrived_pickup":
-      return "Arrived at pickup";
+      return "Arrived at Pickup";
     case "en_route":
-      return "Passenger on board";
+      return "Journey in Progress";
     case "arrived_destination":
-      return "Arrived at destination";
+      return "Arrived at Destination";
     case "completed":
       return "Completed";
     case "stopped":
