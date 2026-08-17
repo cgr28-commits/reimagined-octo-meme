@@ -291,7 +291,7 @@ function buildInvoiceHtml(
                       Save this link — it activates about 1 hour before your scheduled pickup.
                     </div>
                     <div style="margin-top:12px;">
-                      <a href="${escapeHtml(trackUrl)}" style="display:inline-block;background:${NAVY};color:#ffffff;text-decoration:none;font-size:14px;font-weight:bold;padding:12px 20px;border-radius:8px;">Open tracking page</a>
+                      <a href="${escapeHtml(trackUrl)}" style="display:inline-block;background:${NAVY};color:#ffffff;text-decoration:none;font-size:14px;font-weight:bold;padding:12px 20px;border-radius:8px;">Track Your Driver</a>
                     </div>
                   </td>
                 </tr>
@@ -499,6 +499,8 @@ export type TrackingReminderDetails = {
   dropoffLabel: string;
   tripDate: string;
   tripTime: string;
+  /** Invoice / payment / checkout reference shown to the customer */
+  bookingReference?: string;
 };
 
 function formatTripDateTime(tripDate: string, tripTime: string): string {
@@ -520,6 +522,9 @@ function buildTrackingReminderHtml(
   const pickup = escapeHtml(details.pickupLabel);
   const dropoff = escapeHtml(details.dropoffLabel);
   const when = escapeHtml(formatTripDateTime(details.tripDate, details.tripTime));
+  const bookingReference = details.bookingReference?.trim()
+    ? escapeHtml(details.bookingReference.trim())
+    : "";
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -536,13 +541,13 @@ function buildTrackingReminderHtml(
           <tr>
             <td style="background:${NAVY};padding:28px 32px;text-align:center;">
               <img src="${LOGO_URL}" alt="${escapeHtml(businessName)}" height="72" style="display:block;margin:0 auto;height:72px;width:auto;max-width:100%;" />
-              <div style="margin-top:16px;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:${ACCENT};font-weight:bold;">Live driver tracking</div>
-              <div style="margin-top:8px;font-size:22px;line-height:1.35;color:#ffffff;font-weight:bold;">Your driver is on the way</div>
+              <div style="margin-top:16px;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:${ACCENT};font-weight:bold;">${escapeHtml(businessName)}</div>
+              <div style="margin-top:8px;font-size:22px;line-height:1.35;color:#ffffff;font-weight:bold;">Your driver tracking is now available</div>
             </td>
           </tr>
           <tr>
             <td style="padding:28px 32px 8px;font-size:15px;line-height:1.7;color:#334155;">
-              <p style="margin:0 0 16px;">Hi ${customerName}, your driver has started sharing their live location. Open the link below to follow them on the map.</p>
+              <p style="margin:0 0 16px;">Hi ${customerName}, live driver tracking for your transfer is now available. Use the secure link below to open your tracking page.</p>
             </td>
           </tr>
           <tr>
@@ -551,6 +556,7 @@ function buildTrackingReminderHtml(
                 <tr>
                   <td style="padding:20px 24px;font-size:14px;line-height:1.8;color:#475569;">
                     ${when ? `<strong>Pickup time:</strong> ${when}<br />` : ""}
+                    ${bookingReference ? `<strong>Booking reference:</strong> ${bookingReference}<br />` : ""}
                     <strong>Pickup:</strong> ${pickup}<br />
                     <strong>Drop-off:</strong> ${dropoff}
                   </td>
@@ -560,7 +566,7 @@ function buildTrackingReminderHtml(
           </tr>
           <tr>
             <td style="padding:16px 32px 28px;text-align:center;">
-              <a href="${escapeHtml(trackUrl)}" style="display:inline-block;background:${NAVY};color:#ffffff;text-decoration:none;font-size:16px;font-weight:bold;padding:14px 28px;border-radius:8px;">Follow your driver live</a>
+              <a href="${escapeHtml(trackUrl)}" style="display:inline-block;background:${NAVY};color:#ffffff;text-decoration:none;font-size:16px;font-weight:bold;padding:14px 28px;border-radius:8px;">Track Your Driver</a>
               <p style="margin:16px 0 0;font-size:13px;line-height:1.6;color:#64748b;">Or copy this link:<br /><a href="${escapeHtml(trackUrl)}" style="color:${NAVY};word-break:break-all;">${escapeHtml(trackUrl)}</a></p>
             </td>
           </tr>
@@ -584,15 +590,17 @@ export function buildTrackingReminderEmail(
   businessName = "My Airport Taxi NI",
 ): CustomerPaidBookingEmail {
   const when = formatTripDateTime(details.tripDate, details.tripTime);
-  const subject = `Your driver is on the way — follow live | ${businessName}`;
+  const subject = `Your driver tracking is now available | ${businessName}`;
+  const bookingReference = details.bookingReference?.trim();
 
   const text =
     `Hi ${details.customerName},\n\n` +
-    `Your driver has started sharing their live location for your transfer today.\n\n` +
+    `Live driver tracking for your transfer is now available.\n\n` +
     (when ? `Pickup time: ${when}\n` : "") +
+    (bookingReference ? `Booking reference: ${bookingReference}\n` : "") +
     `Pickup: ${details.pickupLabel}\n` +
     `Drop-off: ${details.dropoffLabel}\n\n` +
-    `Follow your driver live:\n${trackUrl}\n\n` +
+    `Track Your Driver:\n${trackUrl}\n\n` +
     `${businessName}\n${BUSINESS_WEBSITE}`;
 
   const html = buildTrackingReminderHtml(details, trackUrl, businessName);

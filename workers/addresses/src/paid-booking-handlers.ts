@@ -13,8 +13,16 @@ import {
   listRecentPaidBookings,
   paidBookingStoreConfigured,
 } from "./paid-booking-store";
-import { getTrackingJob } from "./tracking-store";
-import { journeyStatusOf } from "../shared/tracking";
+import {
+  findTrackingJobByPaymentReference,
+  getTrackingJob,
+} from "./tracking-store";
+import {
+  buildPublicTrackUrl,
+  journeyStatusOf,
+  resolveEmailTrackUrl,
+} from "../shared/tracking";
+import type { TrackingJobRecord } from "../shared/tracking";
 import { getPendingCheckout, pendingCheckoutStoreConfigured } from "./pending-checkout-store";
 import {
   buildPendingCheckoutOwnerViews,
@@ -36,6 +44,29 @@ type Env = DriverAuthEnv &
   };
 
 const BUSINESS_NAME = "My Airport Taxi NI";
+
+/**
+ * Current secure customer track URL for a paid booking confirmation / resend.
+ * Uses the booking's tracking token (or payment-ref lookup). Skips refunded /
+ * missing jobs so expired or revoked tokens are never emailed.
+ */
+export async function resolvePaidBookingTrackUrl(
+  store: KVNamespace,
+  record: { trackingToken?: string; paymentReference?: string },
+): Promise<string | undefined> {
+  const token = record.trackingToken?.trim();
+  let job: TrackingJobRecord | null = null;
+
+  if (token) {
+    job = await getTrackingJob(store, token);
+  }
+
+  if (!job && record.paymentReference?.trim()) {
+    job = await findTrackingJobByPaymentReference(store, record.paymentReference.trim());
+  }
+
+  return resolveEmailTrackUrl(job);
+}
 
 function jsonResponse(body: unknown, status: number, origin: string | null) {
   return new Response(JSON.stringify(body), {
@@ -140,7 +171,7 @@ export async function handlePaidBookingsListRequest(
           sharingActive = Boolean(job.sharingActive);
           journeyStatus = journeyStatusOf(job);
           driverUpdatedAt = job.driverUpdatedAt;
-          trackUrl = `https://www.myairporttaxini.co.uk/track/?id=${encodeURIComponent(job.token)}`;
+          trackUrl = buildPublicTrackUrl(job.token);
         }
       }
 
@@ -234,8 +265,13 @@ export async function handlePaidBookingResendRequest(
 
   const bookingDetails = await loadBookingDetails(env, record);
   const receipt = recordToReceipt(record, bookingDetails);
-  const customerEmail = buildCustomerConfirmationEmail(receipt, BUSINESS_NAME);
-  const ownerEmail = buildOwnerPaidBookingEmail(receipt, BUSINESS_NAME);
+  const trackUrl = await resolvePaidBookingTrackUrl(env.TRACKING_STORE, record);
+  const customerEmail = buildCustomerConfirmationEmail(receipt, BUSINESS_NAME, {
+    trackUrl,
+  });
+  const ownerEmail = buildOwnerPaidBookingEmail(receipt, BUSINESS_NAME, {
+    trackUrl,
+  });
 
   const customerEmailResult = await trySendBrandedCustomerEmail(env, {
     to: record.customerEmail,
@@ -268,6 +304,8 @@ export async function handlePaidBookingResendRequest(
       ok: customerEmailResult.sent,
       paymentReference: record.paymentReference,
       customerEmail: record.customerEmail,
+      trackUrlIncluded: Boolean(trackUrl),
+      ...(trackUrl ? { trackUrl } : {}),
       customerEmailSent: customerEmailResult.sent,
       customerEmailProvider: customerEmailResult.provider,
       customerEmailError: customerEmailResult.error,

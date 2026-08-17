@@ -106,6 +106,7 @@ import {
   isOwnerProfilePath,
 } from "./owner-profile-handlers";
 import { processDueReviewRequests } from "./review-request-handlers";
+import { processDueTrackingAvailableReminders } from "./tracking-reminder-handlers";
 import { handleDriverUpdateBookingRequest } from "./driver-booking-handlers";
 import {
   handleDriverAssignRequest,
@@ -2083,6 +2084,15 @@ export default {
       processDueReviewRequests(env).then((result) => {
         if (result.sent > 0 || result.errors > 0) {
           console.log("Review request cron", JSON.stringify(result));
+        }
+      }),
+    );
+
+    // ~1 hour before pickup: branded “Track Your Driver” reminder (once per job).
+    ctx.waitUntil(
+      processDueTrackingAvailableReminders(env).then((result) => {
+        if (result.sent > 0 || result.errors > 0) {
+          console.log("Tracking available reminder cron", JSON.stringify(result));
         }
       }),
     );

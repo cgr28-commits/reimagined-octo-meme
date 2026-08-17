@@ -10,7 +10,6 @@ import {
   type TrackingJobRecord,
 } from "../shared/tracking";
 import { lookupFlight, type VerifiedFlight } from "../shared/flight-lookup";
-import { buildTrackingReminderEmail } from "../shared/booking-notifications";
 import {
   createTrackingJobFromBooking,
   appendDriverLocationPoint,
@@ -45,7 +44,7 @@ import {
   sanitizeDriverJobForRole,
   type DashboardRole,
 } from "./driver-auth";
-import { trySendBrandedCustomerEmail, type WorkerEmailEnv } from "./worker-email";
+import { type WorkerEmailEnv } from "./worker-email";
 import { resolveCustomerVisibleVehicle } from "./driver-vehicle-store";
 import { toCustomerVehicleDetails } from "../shared/driver-vehicle";
 import { getTrackingSession, gpsHistoryTtlSeconds } from "./tracking-store";
@@ -311,42 +310,6 @@ export async function buildPublicTrackResponse(
     ...payload,
     vehicle: toCustomerVehicleDetails(profile),
   };
-}
-
-async function sendSharingReminderEmail(
-  env: Env,
-  record: TrackingJobRecord,
-  trackUrl: string,
-): Promise<boolean> {
-  const customerEmail = record.customerEmail?.trim() ?? "";
-  if (!customerEmail) {
-    return false;
-  }
-
-  const reminder = buildTrackingReminderEmail(
-    {
-      customerName: record.customerName,
-      pickupLabel: record.pickupLabel,
-      dropoffLabel: record.dropoffLabel,
-      tripDate: record.tripDate,
-      tripTime: record.tripTime,
-    },
-    trackUrl,
-  );
-
-  const result = await trySendBrandedCustomerEmail(env, {
-    to: customerEmail,
-    toName: record.customerName,
-    subject: reminder.subject,
-    body: reminder.text,
-    htmlBody: reminder.html,
-  });
-
-  if (!result.sent) {
-    console.error("Sharing reminder email failed", result.error);
-  }
-
-  return result.sent;
 }
 
 async function backfillReturnTrackingLegs(
@@ -625,7 +588,6 @@ export async function handleDriverSharingRequest(
     return jsonResponse({ error: operateError }, 409, origin);
   }
 
-  const wasSharing = record.sharingActive;
   record.sharingActive = active;
   if (active) {
     if (session.authorized && session.role === "driver" && session.driverName) {
@@ -650,19 +612,6 @@ export async function handleDriverSharingRequest(
   await saveTrackingJob(env.TRACKING_STORE, record);
 
   const trackUrl = buildPublicTrackUrl(record.token);
-
-  if (
-    active &&
-    !wasSharing &&
-    !record.sharingReminderSentAt &&
-    record.customerEmail?.trim()
-  ) {
-    const sent = await sendSharingReminderEmail(env, record, trackUrl);
-    if (sent) {
-      record.sharingReminderSentAt = new Date().toISOString();
-      await saveTrackingJob(env.TRACKING_STORE, record);
-    }
-  }
 
   return jsonResponse(
     {
