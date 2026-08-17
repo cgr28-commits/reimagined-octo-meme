@@ -290,8 +290,12 @@ function DriverProfilePanel({
   defaultCollapsed?: boolean;
 }) {
   const [collapsed, setCollapsed] = useState(defaultCollapsed);
-  const [profiles, setProfiles] = useState<Array<{ profileKey: string; displayName: string }>>([]);
-  const [selectedProfile, setSelectedProfile] = useState(isOwner ? "owner" : driverName ?? "");
+  const [profiles, setProfiles] = useState<
+    Array<{ profileKey: string; displayName: string; complete?: boolean }>
+  >([]);
+  const [selectedProfile, setSelectedProfile] = useState(
+    isOwner ? "owner" : (driverName ?? "").trim().toLowerCase().replace(/\s+/g, "-"),
+  );
   const [form, setForm] = useState({
     displayName: "",
     email: "",
@@ -301,10 +305,12 @@ function DriverProfilePanel({
     colour: "",
     registration: "",
   });
+  const [profileComplete, setProfileComplete] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [savedAt, setSavedAt] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -316,11 +322,19 @@ function DriverProfilePanel({
         }
 
         setProfiles(nextProfiles);
-        if (!isOwner && driverName) {
-          setSelectedProfile(driverName);
-        } else if (isOwner && nextProfiles.length > 0) {
-          setSelectedProfile(nextProfiles[0]?.profileKey === "owner" ? "owner" : nextProfiles[0]?.displayName ?? "owner");
-        }
+        setSelectedProfile((current) => {
+          if (current && nextProfiles.some((entry) => entry.profileKey === current)) {
+            return current;
+          }
+          if (!isOwner && driverName) {
+            const key = driverName.trim().toLowerCase().replace(/\s+/g, "-");
+            if (nextProfiles.some((entry) => entry.profileKey === key)) {
+              return key;
+            }
+          }
+          const owner = nextProfiles.find((entry) => entry.profileKey === "owner");
+          return owner?.profileKey ?? nextProfiles[0]?.profileKey ?? (isOwner ? "owner" : current);
+        });
       })
       .catch(() => {
         if (!cancelled) {
@@ -341,6 +355,7 @@ function DriverProfilePanel({
     let cancelled = false;
     setLoading(true);
     setError(null);
+    setMessage(null);
 
     void fetchDriverVehicle(accessKey, selectedProfile)
       .then((profile) => {
@@ -348,27 +363,54 @@ function DriverProfilePanel({
           return;
         }
 
-        setForm({
-          displayName:
-            profile?.displayName ??
-            (selectedProfile === "owner"
-              ? "Owner"
-              : profiles.find(
-                  (entry) =>
-                    entry.profileKey === selectedProfile ||
-                    entry.displayName === selectedProfile,
-                )?.displayName ?? selectedProfile),
-          email: profile?.email ?? "",
-          mobile: profile?.mobile ?? "",
-          make: profile?.make ?? "",
-          model: profile?.model ?? "",
-          colour: profile?.colour ?? "",
-          registration: profile?.registration ?? "",
-        });
+        const fallbackName =
+          selectedProfile === "owner"
+            ? "Owner"
+            : profiles.find((entry) => entry.profileKey === selectedProfile)?.displayName ??
+              selectedProfile;
+
+        if (profile) {
+          setForm({
+            displayName: profile.displayName || fallbackName,
+            email: profile.email ?? "",
+            mobile: profile.mobile ?? "",
+            make: profile.make ?? "",
+            model: profile.model ?? "",
+            colour: profile.colour ?? "",
+            registration: profile.registration ?? "",
+          });
+          const complete = Boolean(
+            profile.displayName?.trim() &&
+              profile.email?.trim() &&
+              profile.make?.trim() &&
+              profile.model?.trim() &&
+              profile.colour?.trim() &&
+              profile.registration?.trim(),
+          );
+          setProfileComplete(complete);
+          setSavedAt(profile.updatedAt ?? null);
+          if (complete) {
+            setCollapsed(true);
+          }
+        } else {
+          setForm({
+            displayName: fallbackName,
+            email: "",
+            mobile: "",
+            make: "",
+            model: "",
+            colour: "",
+            registration: "",
+          });
+          setProfileComplete(false);
+          setSavedAt(null);
+          setCollapsed(false);
+        }
       })
       .catch(() => {
         if (!cancelled) {
           setError("Could not load saved vehicle details.");
+          setProfileComplete(false);
         }
       })
       .finally(() => {
@@ -398,23 +440,53 @@ function DriverProfilePanel({
         colour: form.colour,
         registration: form.registration,
       });
+
+      if (!result.profile?.profileKey) {
+        throw new Error("Save did not return a stored driver profile");
+      }
+
+      setForm({
+        displayName: result.profile.displayName,
+        email: result.profile.email,
+        mobile: result.profile.mobile ?? "",
+        make: result.profile.make,
+        model: result.profile.model,
+        colour: result.profile.colour,
+        registration: result.profile.registration,
+      });
+      setSelectedProfile(result.profile.profileKey);
+      setProfileComplete(true);
+      setSavedAt(result.profile.updatedAt ?? new Date().toISOString());
+      setCollapsed(true);
+      setProfiles((current) => {
+        const next = current.filter((entry) => entry.profileKey !== result.profile.profileKey);
+        next.unshift({
+          profileKey: result.profile.profileKey,
+          displayName: result.profile.displayName,
+          complete: true,
+        });
+        return next;
+      });
+
       setMessage(
         result.emailSent
           ? isOwner
-            ? `Driver profile saved and emailed to ${result.profile.email}.`
-            : `Your profile was saved and emailed to ${result.profile.email}.`
+            ? `Saved. Confirmation emailed to ${result.profile.email}.`
+            : `Saved. Confirmation emailed to ${result.profile.email}.`
           : result.emailWarning
-            ? `Profile saved, but the confirmation email could not be sent: ${result.emailWarning}`
-            : isOwner
-              ? "Driver profile saved."
-              : "Your profile was saved.",
+            ? `Saved on the server, but the confirmation email could not be sent: ${result.emailWarning}`
+            : "Saved.",
       );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save driver profile");
+      setProfileComplete(false);
     } finally {
       setSaving(false);
     }
   };
+
+  const showSetupPrompt = !loading && !profileComplete;
+  const showEditor = !collapsed || showSetupPrompt || isOwner;
 
   return (
     <section className="mb-8 rounded-2xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
@@ -425,17 +497,28 @@ function DriverProfilePanel({
           </h2>
           <p className="mt-2 text-sm text-white/60">
             {isOwner
-              ? "Set each driver’s name, email, mobile, and vehicle. You can send the mobile and car details to customers on WhatsApp."
-              : "Save your name, email, mobile, and vehicle details. A confirmation email is sent when you save."}
+              ? "Set each driver’s name, email, mobile, and vehicle. Details are stored on the server and restored when you sign in again."
+              : "Save your name, email, mobile, and vehicle details. They are stored on the server and restored on your next login."}
           </p>
-          {!isOwner && collapsed && form.displayName && form.registration && (
+          {profileComplete && collapsed && (
             <p className="mt-3 text-sm text-emerald">
-              {form.displayName} · {form.make} {form.model} ({form.colour}) · {form.registration}
+              Saved · {form.displayName} · {form.make} {form.model} ({form.colour}) ·{" "}
+              {form.registration}
+            </p>
+          )}
+          {showSetupPrompt && (
+            <p className="mt-3 text-sm text-amber-100">
+              Driver details are not saved yet — enter the fields below and press Save.
             </p>
           )}
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {!isOwner && (
+          {profileComplete && (
+            <span className="rounded-full border border-emerald/40 bg-emerald/15 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-emerald">
+              Saved
+            </span>
+          )}
+          {!showSetupPrompt && (
             <button
               type="button"
               onClick={() => setCollapsed((current) => !current)}
@@ -444,125 +527,135 @@ function DriverProfilePanel({
               {collapsed ? "Edit profile" : "Collapse"}
             </button>
           )}
-        {isOwner && profiles.length > 1 && (
-          <select
-            value={selectedProfile}
-            onChange={(event) => setSelectedProfile(event.target.value)}
-            className="rounded-xl border border-white/15 bg-navy px-4 py-2.5 text-sm text-white outline-none focus:border-emerald"
-          >
-            {profiles.map((profile) => (
-              <option
-                key={profile.profileKey}
-                value={profile.profileKey === "owner" ? "owner" : profile.displayName}
-              >
-                {profile.displayName}
-              </option>
-            ))}
-          </select>
-        )}
+          {isOwner && profiles.length > 1 && (
+            <select
+              value={selectedProfile}
+              onChange={(event) => setSelectedProfile(event.target.value)}
+              className="rounded-xl border border-white/15 bg-navy px-4 py-2.5 text-sm text-white outline-none focus:border-emerald"
+            >
+              {profiles.map((profile) => (
+                <option key={profile.profileKey} value={profile.profileKey}>
+                  {profile.displayName}
+                  {profile.complete ? " ✓" : ""}
+                </option>
+              ))}
+            </select>
+          )}
         </div>
       </div>
 
-      {(!collapsed || isOwner) && (
+      {showEditor && (
         <>
-      <div className="mt-5 grid gap-4 sm:grid-cols-2">
-        <label className="block text-sm text-white/70">
-          Name
-          <input
-            type="text"
-            value={form.displayName}
-            onChange={(event) =>
-              setForm((current) => ({ ...current, displayName: event.target.value }))
-            }
-            className="mt-2 w-full rounded-xl border border-white/15 bg-navy px-4 py-3 text-white outline-none focus:border-emerald"
-            placeholder="e.g. Driver name"
-          />
-        </label>
-        <label className="block text-sm text-white/70">
-          Email
-          <input
-            type="email"
-            value={form.email}
-            onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))}
-            className="mt-2 w-full rounded-xl border border-white/15 bg-navy px-4 py-3 text-white outline-none focus:border-emerald"
-            placeholder="driver@example.com"
-          />
-        </label>
-        <label className="block text-sm text-white/70">
-          Mobile
-          <input
-            type="tel"
-            value={form.mobile}
-            onChange={(event) => setForm((current) => ({ ...current, mobile: event.target.value }))}
-            className="mt-2 w-full rounded-xl border border-white/15 bg-navy px-4 py-3 text-white outline-none focus:border-emerald"
-            placeholder="e.g. 07700 900123"
-          />
-        </label>
-        <label className="block text-sm text-white/70">
-          Make
-          <input
-            type="text"
-            value={form.make}
-            onChange={(event) => setForm((current) => ({ ...current, make: event.target.value }))}
-            className="mt-2 w-full rounded-xl border border-white/15 bg-navy px-4 py-3 text-white outline-none focus:border-emerald"
-            placeholder="e.g. Mercedes-Benz"
-          />
-        </label>
-        <label className="block text-sm text-white/70">
-          Model
-          <input
-            type="text"
-            value={form.model}
-            onChange={(event) => setForm((current) => ({ ...current, model: event.target.value }))}
-            className="mt-2 w-full rounded-xl border border-white/15 bg-navy px-4 py-3 text-white outline-none focus:border-emerald"
-            placeholder="e.g. E-Class"
-          />
-        </label>
-        <label className="block text-sm text-white/70">
-          Colour
-          <input
-            type="text"
-            value={form.colour}
-            onChange={(event) => setForm((current) => ({ ...current, colour: event.target.value }))}
-            className="mt-2 w-full rounded-xl border border-white/15 bg-navy px-4 py-3 text-white outline-none focus:border-emerald"
-            placeholder="e.g. Black"
-          />
-        </label>
-        <label className="block text-sm text-white/70">
-          Registration
-          <input
-            type="text"
-            value={form.registration}
-            onChange={(event) =>
-              setForm((current) => ({ ...current, registration: event.target.value.toUpperCase() }))
-            }
-            className="mt-2 w-full rounded-xl border border-white/15 bg-navy px-4 py-3 uppercase text-white outline-none focus:border-emerald"
-            placeholder="e.g. ABC 1234"
-          />
-        </label>
-      </div>
+          <div className="mt-5 grid gap-4 sm:grid-cols-2">
+            <label className="block text-sm text-white/70">
+              Name
+              <input
+                type="text"
+                value={form.displayName}
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, displayName: event.target.value }))
+                }
+                className="mt-2 w-full rounded-xl border border-white/15 bg-navy px-4 py-3 text-white outline-none focus:border-emerald"
+                placeholder="e.g. Driver name"
+              />
+            </label>
+            <label className="block text-sm text-white/70">
+              Email
+              <input
+                type="email"
+                value={form.email}
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, email: event.target.value }))
+                }
+                className="mt-2 w-full rounded-xl border border-white/15 bg-navy px-4 py-3 text-white outline-none focus:border-emerald"
+                placeholder="driver@example.com"
+              />
+            </label>
+            <label className="block text-sm text-white/70">
+              Mobile
+              <input
+                type="tel"
+                value={form.mobile}
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, mobile: event.target.value }))
+                }
+                className="mt-2 w-full rounded-xl border border-white/15 bg-navy px-4 py-3 text-white outline-none focus:border-emerald"
+                placeholder="e.g. 07700 900123"
+              />
+            </label>
+            <label className="block text-sm text-white/70">
+              Make
+              <input
+                type="text"
+                value={form.make}
+                onChange={(event) => setForm((current) => ({ ...current, make: event.target.value }))}
+                className="mt-2 w-full rounded-xl border border-white/15 bg-navy px-4 py-3 text-white outline-none focus:border-emerald"
+                placeholder="e.g. Mercedes-Benz"
+              />
+            </label>
+            <label className="block text-sm text-white/70">
+              Model
+              <input
+                type="text"
+                value={form.model}
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, model: event.target.value }))
+                }
+                className="mt-2 w-full rounded-xl border border-white/15 bg-navy px-4 py-3 text-white outline-none focus:border-emerald"
+                placeholder="e.g. E-Class"
+              />
+            </label>
+            <label className="block text-sm text-white/70">
+              Colour
+              <input
+                type="text"
+                value={form.colour}
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, colour: event.target.value }))
+                }
+                className="mt-2 w-full rounded-xl border border-white/15 bg-navy px-4 py-3 text-white outline-none focus:border-emerald"
+                placeholder="e.g. Black"
+              />
+            </label>
+            <label className="block text-sm text-white/70">
+              Registration
+              <input
+                type="text"
+                value={form.registration}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    registration: event.target.value.toUpperCase(),
+                  }))
+                }
+                className="mt-2 w-full rounded-xl border border-white/15 bg-navy px-4 py-3 uppercase text-white outline-none focus:border-emerald"
+                placeholder="e.g. ABC 1234"
+              />
+            </label>
+          </div>
 
-      <div className="mt-5 flex flex-wrap gap-3">
-        <button
-          type="button"
-          disabled={saving || loading}
-          onClick={() => void saveProfile()}
-          className="rounded-xl bg-emerald px-5 py-3 text-sm font-semibold text-navy transition-colors hover:bg-emerald/90 disabled:opacity-60"
-        >
-          {saving ? "Saving…" : isOwner ? "Save driver profile & email driver" : "Save your profile"}
-        </button>
-      </div>
+          <div className="mt-5 flex flex-wrap gap-3">
+            <button
+              type="button"
+              disabled={saving || loading}
+              onClick={() => void saveProfile()}
+              className="rounded-xl bg-emerald px-5 py-3 text-sm font-semibold text-navy transition-colors hover:bg-emerald/90 disabled:opacity-60"
+            >
+              {saving ? "Saving…" : profileComplete ? "Update saved profile" : "Save profile"}
+            </button>
+          </div>
 
-      {message && (
-        <p className="mt-4 rounded-xl border border-emerald/30 bg-emerald/10 px-4 py-3 text-sm text-emerald-light">
-          {message}
-        </p>
-      )}
-      {error && (
-        <p className="mt-4 rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-100">
-          {error}
-        </p>
-      )}
+          {message && (
+            <p className="mt-4 rounded-xl border border-emerald/30 bg-emerald/10 px-4 py-3 text-sm text-emerald-light">
+              {message}
+              {savedAt ? ` · Updated ${new Date(savedAt).toLocaleString("en-GB")}` : ""}
+            </p>
+          )}
+          {error && (
+            <p className="mt-4 rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-100">
+              {error}
+            </p>
+          )}
         </>
       )}
     </section>
@@ -727,9 +820,7 @@ function DriverJobCard({
         setAssignProfiles(profiles);
         if (!assignProfileKey && profiles.length > 0) {
           const first = profiles[0];
-          setAssignProfileKey(
-            first.profileKey === "owner" ? "owner" : first.displayName || first.profileKey,
-          );
+          setAssignProfileKey(first.profileKey);
         }
       })
       .catch(() => {
@@ -1219,10 +1310,7 @@ function DriverJobCard({
                 className="mt-1 w-full rounded-xl border border-white/15 bg-navy px-3 py-2 text-sm text-white outline-none focus:border-emerald"
               >
                 {assignProfiles.map((profile) => (
-                  <option
-                    key={profile.profileKey}
-                    value={profile.profileKey === "owner" ? "owner" : profile.displayName}
-                  >
+                  <option key={profile.profileKey} value={profile.profileKey}>
                     {profile.displayName}
                   </option>
                 ))}

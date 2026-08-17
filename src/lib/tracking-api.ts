@@ -626,7 +626,7 @@ export async function ensurePaidBookingTracking(
 
 export async function fetchDriverVehicleProfiles(
   accessKey: string,
-): Promise<Array<{ profileKey: string; displayName: string }>> {
+): Promise<Array<{ profileKey: string; displayName: string; complete?: boolean }>> {
   if (isDemoOwnerKey(accessKey)) {
     return getDemoOwnerVehicleProfiles();
   }
@@ -644,9 +644,10 @@ export async function fetchDriverVehicleProfiles(
     cache: "no-store",
   });
 
-  const payload = await parseJsonResponse<{ ok: true; profiles: Array<{ profileKey: string; displayName: string }> }>(
-    response,
-  );
+  const payload = await parseJsonResponse<{
+    ok: true;
+    profiles: Array<{ profileKey: string; displayName: string; complete?: boolean }>;
+  }>(response);
   return payload.profiles;
 }
 
@@ -734,9 +735,15 @@ export async function saveDriverVehicle(
   const payload = await parseJsonResponse<{
     ok: true;
     profile: DriverVehicleProfile;
+    complete?: boolean;
     emailSent?: boolean;
     emailWarning?: string;
   }>(response);
+
+  if (!payload.profile?.profileKey || !payload.profile.email) {
+    throw new Error("Driver profile was not saved on the server");
+  }
+
   return payload;
 }
 
