@@ -217,16 +217,19 @@ export default function OwnerShortNoticePanel({ ownerKey }: OwnerShortNoticePane
 
   const editorOpen = showAdd || Boolean(editingId);
 
+  const fieldClass =
+    "box-border mt-1 block min-h-11 w-full min-w-0 max-w-full rounded-xl border border-white/20 bg-navy px-3 py-2 text-base text-white outline-none focus:border-emerald [color-scheme:dark]";
+
   return (
-    <section className="mb-8 rounded-2xl border border-amber-400/25 bg-navy/70 p-4 sm:p-5">
-      <div className="rounded-xl border border-emerald/30 bg-emerald/10 p-4">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
+    <section className="mb-8 w-full min-w-0 max-w-full rounded-2xl border border-amber-400/25 bg-navy/70 p-4 sm:p-5">
+      <div className="w-full min-w-0 max-w-full rounded-xl border border-emerald/30 bg-emerald/10 p-3 sm:p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
+          <div className="min-w-0 flex-1">
             <p className="text-xs font-semibold uppercase tracking-wider text-emerald">
               Booking Availability
             </p>
             <h2 className="mt-1 text-lg font-bold text-white">Unavailable periods</h2>
-            <p className="mt-1 text-sm text-white/65">
+            <p className="mt-1 break-words text-sm text-white/65">
               Block automatic SumUp for pickups inside these windows (Europe/London). Expired
               periods stop blocking automatically — no need to clear them.
             </p>
@@ -238,56 +241,56 @@ export default function OwnerShortNoticePanel({ ownerKey }: OwnerShortNoticePane
               setDraft(EMPTY_DRAFT);
               setShowAdd(true);
             }}
-            className="min-h-11 rounded-xl bg-emerald px-4 py-2.5 text-sm font-bold text-navy"
+            className="min-h-11 w-full shrink-0 rounded-xl bg-emerald px-4 py-2.5 text-sm font-bold text-navy sm:w-auto"
           >
             Add unavailable period
           </button>
         </div>
 
         {editorOpen ? (
-          <div className="mt-4 rounded-xl border border-white/10 bg-navy/60 p-4">
+          <div className="mt-4 w-full min-w-0 max-w-full rounded-xl border border-white/10 bg-navy/60 p-3 sm:p-4">
             <p className="text-sm font-semibold text-white">
               {editingId ? "Edit unavailable period" : "New unavailable period"}
             </p>
-            <div className="mt-3 grid gap-3 sm:grid-cols-2">
-              <label className="block text-sm text-white/70">
+            <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <label className="block min-w-0 text-sm text-white/70">
                 Unavailable from (date)
                 <input
                   type="date"
                   value={draft.startDate}
                   onChange={(event) => setDraft((d) => ({ ...d, startDate: event.target.value }))}
-                  className="mt-1 block min-h-11 w-full rounded-xl border border-white/20 bg-navy px-3 py-2 text-white outline-none focus:border-emerald"
+                  className={fieldClass}
                 />
               </label>
-              <label className="block text-sm text-white/70">
+              <label className="block min-w-0 text-sm text-white/70">
                 Start time
                 <input
                   type="time"
                   value={draft.startTime}
                   onChange={(event) => setDraft((d) => ({ ...d, startTime: event.target.value }))}
-                  className="mt-1 block min-h-11 w-full rounded-xl border border-white/20 bg-navy px-3 py-2 text-white outline-none focus:border-emerald"
+                  className={fieldClass}
                 />
               </label>
-              <label className="block text-sm text-white/70">
+              <label className="block min-w-0 text-sm text-white/70">
                 Until (date)
                 <input
                   type="date"
                   value={draft.endDate}
                   onChange={(event) => setDraft((d) => ({ ...d, endDate: event.target.value }))}
-                  className="mt-1 block min-h-11 w-full rounded-xl border border-white/20 bg-navy px-3 py-2 text-white outline-none focus:border-emerald"
+                  className={fieldClass}
                 />
               </label>
-              <label className="block text-sm text-white/70">
+              <label className="block min-w-0 text-sm text-white/70">
                 End time
                 <input
                   type="time"
                   value={draft.endTime}
                   onChange={(event) => setDraft((d) => ({ ...d, endTime: event.target.value }))}
-                  className="mt-1 block min-h-11 w-full rounded-xl border border-white/20 bg-navy px-3 py-2 text-white outline-none focus:border-emerald"
+                  className={fieldClass}
                 />
               </label>
             </div>
-            <label className="mt-3 block text-sm text-white/70">
+            <label className="mt-3 block min-w-0 text-sm text-white/70">
               Private Owner note (optional — never shown to customers)
               <input
                 type="text"
@@ -295,10 +298,10 @@ export default function OwnerShortNoticePanel({ ownerKey }: OwnerShortNoticePane
                 maxLength={280}
                 onChange={(event) => setDraft((d) => ({ ...d, note: event.target.value }))}
                 placeholder="e.g. Sleep / MOT / holiday"
-                className="mt-1 block min-h-11 w-full rounded-xl border border-white/20 bg-navy px-3 py-2 text-white outline-none focus:border-emerald"
+                className={fieldClass}
               />
             </label>
-            <p className="mt-2 text-xs text-white/45">
+            <p className="mt-2 break-words text-xs text-white/45">
               Start inclusive · End exclusive (e.g. 00:30→08:00 blocks 00:30–07:59; 08:00 is normal
               SumUp).
             </p>
@@ -307,7 +310,7 @@ export default function OwnerShortNoticePanel({ ownerKey }: OwnerShortNoticePane
                 type="button"
                 disabled={savingSettings}
                 onClick={() => void handleSavePeriod()}
-                className="min-h-11 rounded-xl bg-emerald px-4 py-2.5 text-sm font-bold text-navy disabled:opacity-60"
+                className="min-h-11 w-full rounded-xl bg-emerald px-4 py-2.5 text-sm font-bold text-navy disabled:opacity-60 sm:w-auto"
               >
                 {savingSettings ? "Saving…" : editingId ? "Save changes" : "Save period"}
               </button>
@@ -318,7 +321,7 @@ export default function OwnerShortNoticePanel({ ownerKey }: OwnerShortNoticePane
                   setEditingId(null);
                   setDraft(EMPTY_DRAFT);
                 }}
-                className="min-h-11 rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold text-white/70"
+                className="min-h-11 w-full rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold text-white/70 sm:w-auto"
               >
                 Cancel
               </button>
@@ -327,35 +330,35 @@ export default function OwnerShortNoticePanel({ ownerKey }: OwnerShortNoticePane
         ) : null}
 
         {sortedPeriods.length === 0 ? (
-          <p className="mt-4 text-sm text-white/55">
+          <p className="mt-4 break-words text-sm text-white/55">
             No unavailable periods — customers can pay online for any future pickup.
           </p>
         ) : (
-          <ul className="mt-4 space-y-3">
+          <ul className="mt-4 w-full min-w-0 space-y-3">
             {sortedPeriods.map((period) => {
               const expired = isUnavailablePeriodExpired(period);
               return (
                 <li
                   key={period.id}
-                  className={`rounded-xl border p-3 ${
+                  className={`w-full min-w-0 max-w-full rounded-xl border p-3 ${
                     expired
                       ? "border-white/10 bg-white/[0.03] opacity-70"
                       : "border-emerald/25 bg-navy/50"
                   }`}
                 >
-                  <div className="flex flex-wrap items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="text-sm font-bold text-white">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
+                    <div className="min-w-0 flex-1">
+                      <p className="break-words text-sm font-bold text-white">
                         {formatUnavailablePeriodRangeLabel(period)}
                       </p>
                       <p className="mt-1 text-xs uppercase tracking-wider text-white/45">
                         {expired ? "Expired · ignored for SumUp" : "Active"}
                       </p>
                       {period.note ? (
-                        <p className="mt-2 text-xs text-white/55">Note: {period.note}</p>
+                        <p className="mt-2 break-words text-xs text-white/55">Note: {period.note}</p>
                       ) : null}
                     </div>
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex w-full shrink-0 flex-wrap gap-2 sm:w-auto">
                       <button
                         type="button"
                         disabled={savingSettings}
@@ -364,7 +367,7 @@ export default function OwnerShortNoticePanel({ ownerKey }: OwnerShortNoticePane
                           setEditingId(period.id);
                           setDraft(draftFromPeriod(period));
                         }}
-                        className="min-h-11 rounded-xl border border-white/15 px-3 py-2 text-sm font-semibold text-white hover:border-white/30"
+                        className="min-h-11 min-w-[5.5rem] flex-1 rounded-xl border border-white/15 px-3 py-2 text-sm font-semibold text-white hover:border-white/30 sm:flex-none"
                       >
                         Edit
                       </button>
@@ -372,7 +375,7 @@ export default function OwnerShortNoticePanel({ ownerKey }: OwnerShortNoticePane
                         type="button"
                         disabled={savingSettings}
                         onClick={() => void handleDeletePeriod(period.id)}
-                        className="min-h-11 rounded-xl border border-red-400/40 bg-red-500/15 px-3 py-2 text-sm font-semibold text-red-100 disabled:opacity-60"
+                        className="min-h-11 min-w-[5.5rem] flex-1 rounded-xl border border-red-400/40 bg-red-500/15 px-3 py-2 text-sm font-semibold text-red-100 disabled:opacity-60 sm:flex-none"
                       >
                         Delete
                       </button>
@@ -385,19 +388,19 @@ export default function OwnerShortNoticePanel({ ownerKey }: OwnerShortNoticePane
         )}
       </div>
 
-      <div className="mt-6 flex flex-wrap items-start justify-between gap-3">
-        <div>
+      <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
+        <div className="min-w-0 flex-1">
           <p className="text-xs font-semibold uppercase tracking-wider text-amber-200">
             Short-notice requests awaiting approval
           </p>
-          <p className="mt-1 text-sm text-white/65">
+          <p className="mt-1 break-words text-sm text-white/65">
             Pickups inside an unavailable period — review before SumUp payment.
           </p>
         </div>
         <button
           type="button"
           onClick={() => void load()}
-          className="min-h-11 rounded-xl border border-white/15 px-3 py-2 text-sm font-semibold text-white hover:border-white/30"
+          className="min-h-11 w-full shrink-0 rounded-xl border border-white/15 px-3 py-2 text-sm font-semibold text-white hover:border-white/30 sm:w-auto"
         >
           Refresh
         </button>
