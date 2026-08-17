@@ -185,7 +185,7 @@ export async function listUpcomingPaidBookings(
   store: KVNamespace,
   options?: { pastDays?: number; futureDays?: number; limit?: number },
 ): Promise<PaidBookingRecord[]> {
-  const pastDays = Math.min(Math.max(options?.pastDays ?? 2, 0), 14);
+  const pastDays = Math.min(Math.max(options?.pastDays ?? 2, 0), 120);
   const futureDays = Math.min(Math.max(options?.futureDays ?? 90, 1), 180);
   const limit = Math.min(Math.max(options?.limit ?? 100, 1), 250);
   const byRef = new Map<string, PaidBookingRecord>();

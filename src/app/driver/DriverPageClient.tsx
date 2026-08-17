@@ -7,6 +7,7 @@ import OwnerPortalHeader from "@/components/OwnerPortalHeader";
 import OwnerBookingJobsPanel from "@/components/OwnerBookingJobsPanel";
 import OwnerPaidBookingsPanel from "@/components/OwnerPaidBookingsPanel";
 import OwnerShortNoticePanel from "@/components/OwnerShortNoticePanel";
+import OwnerBookingCalendar from "@/components/OwnerBookingCalendar";
 import OwnerAccountProfilePanel from "@/components/OwnerAccountProfilePanel";
 import type { MapMarker, MapRoutePoint } from "@/components/LiveTrackMap";
 import {
@@ -1299,6 +1300,7 @@ function DriverJobCard({
 
   return (
     <article
+      id={`owner-job-${job.token}`}
       className={`rounded-2xl border p-6 ${
         isRefunded
           ? "border-red-400/20 bg-red-500/[0.04] opacity-90"
@@ -1965,6 +1967,7 @@ export default function DriverPageClient({
   const [availableDrivers, setAvailableDrivers] = useState<string[]>([...DEMO_ROSTER]);
   const [jobs, setJobs] = useState<DriverJob[]>([]);
   const [pendingJobs, setPendingJobs] = useState<DriverJob[]>([]);
+  const [calendarFocusJob, setCalendarFocusJob] = useState<DriverJob | null>(null);
   const [activeToken, setActiveToken] = useState<string | null>(null);
   const [trackingSessionToken, setTrackingSessionToken] = useState<string | null>(null);
   const [lastGpsAt, setLastGpsAt] = useState<number | null>(null);
@@ -2675,6 +2678,115 @@ export default function DriverPageClient({
               </div>
 
               {isOwnerView && savedKey ? <OwnerShortNoticePanel ownerKey={savedKey} /> : null}
+
+              {isOwnerView && savedKey ? (
+                <OwnerBookingCalendar
+                  ownerKey={savedKey}
+                  onSelectJob={(job) => {
+                    setCalendarFocusJob(job);
+                    setJobs((current) =>
+                      current.some((entry) => entry.token === job.token)
+                        ? current.map((entry) => (entry.token === job.token ? job : entry))
+                        : [...current, job],
+                    );
+                    setView("date");
+                    setSelectedDate(job.tripDate);
+                    window.setTimeout(() => {
+                      document
+                        .getElementById("owner-calendar-selected-journey")
+                        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+                    }, 50);
+                  }}
+                  onSelectPaymentRef={(paymentReference) => {
+                    const match = jobs.find(
+                      (job) => job.paymentReference?.trim() === paymentReference,
+                    );
+                    if (match) {
+                      setCalendarFocusJob(match);
+                      setView("date");
+                      setSelectedDate(match.tripDate);
+                      window.setTimeout(() => {
+                        document
+                          .getElementById("owner-calendar-selected-journey")
+                          ?.scrollIntoView({ behavior: "smooth", block: "start" });
+                      }, 50);
+                    }
+                  }}
+                />
+              ) : null}
+
+              {isOwnerView && calendarFocusJob && savedKey ? (
+                <section
+                  id="owner-calendar-selected-journey"
+                  className="mb-10 scroll-mt-24 rounded-2xl border border-emerald/30 bg-emerald/5 p-4 sm:p-5"
+                >
+                  <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wider text-emerald">
+                        Selected from calendar
+                      </p>
+                      <h2 className="mt-1 text-lg font-bold text-white">Journey controls</h2>
+                      <p className="mt-1 text-sm text-white/60">
+                        Same Owner controls as the job list — tracking, arrival, complete, edit,
+                        evidence, and refund.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setCalendarFocusJob(null)}
+                      className="min-h-11 rounded-xl border border-white/15 px-4 text-sm font-semibold text-white/70 hover:border-white/30"
+                    >
+                      Close
+                    </button>
+                  </div>
+                  <DriverJobCard
+                    job={
+                      jobs.find((entry) => entry.token === calendarFocusJob.token) ??
+                      calendarFocusJob
+                    }
+                    driverKey={savedKey}
+                    activeToken={activeToken}
+                    onSharingChange={setActiveToken}
+                    onSessionChange={handleSessionChange}
+                    gpsStale={gpsStale}
+                    lastGpsAt={lastGpsAt}
+                    onRefunded={(token, refundAmount) => {
+                      setJobs((current) =>
+                        current.map((entry) =>
+                          entry.token === token
+                            ? {
+                                ...entry,
+                                bookingStatus: "refunded",
+                                refundAmountLabel: refundAmount ?? entry.refundAmountLabel,
+                              }
+                            : entry,
+                        ),
+                      );
+                      setCalendarFocusJob((current) =>
+                        current && current.token === token
+                          ? {
+                              ...current,
+                              bookingStatus: "refunded",
+                              refundAmountLabel: refundAmount ?? current.refundAmountLabel,
+                            }
+                          : current,
+                      );
+                    }}
+                    onUpdated={(nextJob) => {
+                      handleJobUpdated(nextJob);
+                      setCalendarFocusJob(nextJob);
+                    }}
+                    onAssignmentUpdated={(nextJob) => {
+                      handleAssignmentUpdated(nextJob);
+                      setCalendarFocusJob(nextJob);
+                    }}
+                    onRefreshJob={calendarFocusJob.isAirportPickup ? () => void loadJobs(savedKey) : undefined}
+                    refreshingJob={loading}
+                    isOwner={isOwnerView}
+                    availableDrivers={availableDrivers}
+                  />
+                </section>
+              ) : null}
 
               {isOwnerView && savedKey ? <OwnerPaidBookingsPanel ownerKey={savedKey} /> : null}
 
