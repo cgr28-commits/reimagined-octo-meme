@@ -16,7 +16,9 @@ const DAY_INDEX_PREFIX = "track:day:";
 const REF_INDEX_PREFIX = "track:ref:";
 const DRIVER_HISTORY_PREFIX = "track:driver-history:";
 const SESSION_PREFIX = "track:session:";
-const DAY_INDEX_TTL = 60 * 60 * 24 * 45;
+/** Job / day-index / payment-ref index retention (seconds). */
+export const TRACKING_JOB_TTL_SECONDS = 60 * 60 * 24 * 45;
+const DAY_INDEX_TTL = TRACKING_JOB_TTL_SECONDS;
 /** Retain driver GPS audit trail — default ~400 days; overridable via env helper. */
 const DRIVER_HISTORY_TTL = DEFAULT_GPS_HISTORY_TTL_SECONDS;
 const PAYMENT_REF_SEARCH_DAYS_BACK = 45;

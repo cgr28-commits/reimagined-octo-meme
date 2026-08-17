@@ -10,7 +10,10 @@ import {
   customerJourneyLabel,
   formatLondonDateTime,
   journeyStatusOf,
+  TRACKING_SESSION_TTL_SECONDS,
+  type DriverLocationPoint,
   type JourneyAction,
+  type TrackingJobRecord,
 } from "../shared/tracking";
 import { corsHeaders } from "../shared/google-places";
 import {
@@ -24,9 +27,12 @@ import {
 import {
   createTrackingSession,
   createTrackingJobFromBooking,
+  findTrackingJobsByPaymentReference,
   getDriverLocationHistory,
   getTrackingJob,
+  gpsHistoryTtlSeconds,
   saveTrackingJob,
+  TRACKING_JOB_TTL_SECONDS,
   trackingStoreConfigured,
 } from "./tracking-store";
 import { getPaidBookingRecord, paidBookingStoreConfigured, savePaidBookingRecord } from "./paid-booking-store";
@@ -413,9 +419,228 @@ export function isJourneyEvidencePath(pathname: string): boolean {
   );
 }
 
+/** Owner-only read-only tracking diagnostic (by payment reference or job token). */
+export function isJourneyDiagnosticPath(pathname: string): boolean {
+  return (
+    pathname === "/driver/journey/diagnostic" ||
+    pathname === "/api/driver/journey/diagnostic" ||
+    pathname === "/paid-bookings/tracking-diagnostic" ||
+    pathname === "/api/paid-bookings/tracking-diagnostic"
+  );
+}
+
 export function isEnsureTrackingPath(pathname: string): boolean {
   return (
     pathname === "/paid-bookings/ensure-tracking" ||
     pathname === "/api/paid-bookings/ensure-tracking"
+  );
+}
+
+function pointFieldPresence(points: DriverLocationPoint[]) {
+  let hasLatLng = false;
+  let hasAccuracy = false;
+  let hasSpeed = false;
+  let hasHeading = false;
+  for (const point of points) {
+    if (typeof point.lat === "number" && typeof point.lng === "number") {
+      hasLatLng = true;
+    }
+    if (typeof point.accuracyMeters === "number" && Number.isFinite(point.accuracyMeters)) {
+      hasAccuracy = true;
+    }
+    if (typeof point.speedMps === "number" && Number.isFinite(point.speedMps)) {
+      hasSpeed = true;
+    }
+    if (typeof point.headingDegrees === "number" && Number.isFinite(point.headingDegrees)) {
+      hasHeading = true;
+    }
+  }
+  return { hasLatLng, hasAccuracy, hasSpeed, hasHeading };
+}
+
+function buildSessionDiagnostic(
+  job: TrackingJobRecord,
+  points: DriverLocationPoint[],
+  options: {
+    paymentReferenceQueried: string;
+    paidBookingLinked: boolean;
+    gpsHistoryTtlSeconds: number;
+  },
+) {
+  const fields = pointFieldPresence(points);
+  const first = points[0];
+  const last = points.at(-1);
+  return {
+    sessionFound: true as const,
+    sessionId: job.token,
+    paymentReference: job.paymentReference ?? null,
+    paymentReferenceLinked:
+      options.paidBookingLinked ||
+      Boolean(job.paymentReference?.trim()) ||
+      job.paymentReference?.trim() === options.paymentReferenceQueried,
+    gpsPointCount: points.length,
+    firstPointAt: first?.recordedAt ?? job.driverLocationRecordedFrom ?? null,
+    lastPointAt: last?.recordedAt ?? job.driverLocationRecordedTo ?? null,
+    fieldsStored: {
+      latitudeLongitude: fields.hasLatLng,
+      accuracyMeters: fields.hasAccuracy,
+      speedMps: fields.hasSpeed,
+      headingDegrees: fields.hasHeading,
+    },
+    trackingStartedAt: job.trackingStartedAt ?? null,
+    trackingStoppedAt: job.trackingStoppedAt ?? null,
+    journeyEvents: {
+      journeyStatus: journeyStatusOf(job),
+      trackingStartedAt: job.trackingStartedAt ?? null,
+      arrivedPickupAt: job.arrivedPickupAt ?? null,
+      journeyStartedAt: job.journeyStartedAt ?? null,
+      arrivedDestinationAt: job.arrivedDestinationAt ?? null,
+      journeyCompletedAt: job.journeyCompletedAt ?? null,
+      trackingStoppedAt: job.trackingStoppedAt ?? null,
+      sharingActive: Boolean(job.sharingActive),
+    },
+    storage: {
+      location: "cloudflare_kv",
+      binding: "TRACKING_STORE",
+      jobKeyPrefix: "track:job:",
+      historyKeyPrefix: "track:driver-history:",
+      paymentRefIndexPrefix: "track:ref:",
+      durableObject: false,
+      d1: false,
+    },
+    retention: {
+      trackingJobTtlDays: Math.round(TRACKING_JOB_TTL_SECONDS / (60 * 60 * 24)),
+      gpsHistoryTtlDays: Math.round(options.gpsHistoryTtlSeconds / (60 * 60 * 24)),
+      gpsSessionTtlHours: Math.round(TRACKING_SESSION_TTL_SECONDS / (60 * 60)),
+      note: "Read-only diagnostic. No journey data was modified.",
+    },
+    routeReconstructable: points.length >= 2 && fields.hasLatLng,
+    customerSeesHistoricalRoute: false,
+    customerPrivacy: {
+      livePinOnly: true,
+      historicalTrailExposed: false,
+      historicalEvidenceOwnerOnly: true,
+    },
+  };
+}
+
+/**
+ * Owner-only, read-only tracking diagnostic for a payment reference (or job token).
+ * Uses server-side OWNER_ACCESS_KEY validation. Never returns secrets or full GPS trails.
+ * Does not create, delete, or mutate tracking data.
+ */
+export async function handleTrackingDiagnosticRequest(
+  request: Request,
+  env: Env,
+  origin: string | null,
+): Promise<Response> {
+  if (!trackingStoreConfigured(env.TRACKING_STORE)) {
+    return jsonResponse({ error: "Live tracking is not configured" }, 503, origin);
+  }
+  if (!ownerAuthorized(request, env)) {
+    return jsonResponse({ error: "Unauthorized — owner access required" }, 401, origin);
+  }
+
+  const url = new URL(request.url);
+  const paymentReference = url.searchParams.get("paymentReference")?.trim() ?? "";
+  const token = url.searchParams.get("token")?.trim() ?? "";
+  if (!paymentReference && !token) {
+    return jsonResponse(
+      { error: "Missing paymentReference or token" },
+      400,
+      origin,
+    );
+  }
+
+  const store = env.TRACKING_STORE;
+  const historyTtl = gpsHistoryTtlSeconds(env);
+
+  let jobs: TrackingJobRecord[] = [];
+  if (token) {
+    const job = await getTrackingJob(store, token);
+    if (job) {
+      jobs = [job];
+    }
+  } else {
+    jobs = await findTrackingJobsByPaymentReference(store, paymentReference);
+  }
+
+  const paid =
+    paymentReference && paidBookingStoreConfigured(store)
+      ? await getPaidBookingRecord(store, paymentReference)
+      : jobs[0]?.paymentReference && paidBookingStoreConfigured(store)
+        ? await getPaidBookingRecord(store, jobs[0].paymentReference)
+        : null;
+
+  // If paid booking has a trackingToken but ref index missed it, resolve that job too.
+  if (jobs.length === 0 && paid?.trackingToken?.trim()) {
+    const linked = await getTrackingJob(store, paid.trackingToken.trim());
+    if (linked) {
+      jobs = [linked];
+    }
+  }
+
+  if (jobs.length === 0) {
+    return jsonResponse(
+      {
+        ok: true,
+        readOnly: true,
+        paymentReference: paymentReference || null,
+        sessionFound: false,
+        sessions: [],
+        paidBookingFound: Boolean(paid),
+        paymentReferenceLinked: Boolean(paid),
+        storage: {
+          location: "cloudflare_kv",
+          binding: "TRACKING_STORE",
+          durableObject: false,
+          d1: false,
+        },
+        retention: {
+          trackingJobTtlDays: Math.round(TRACKING_JOB_TTL_SECONDS / (60 * 60 * 24)),
+          gpsHistoryTtlDays: Math.round(historyTtl / (60 * 60 * 24)),
+          gpsSessionTtlHours: Math.round(TRACKING_SESSION_TTL_SECONDS / (60 * 60)),
+          note: "Read-only diagnostic. No journey data was modified.",
+        },
+        customerSeesHistoricalRoute: false,
+        customerPrivacy: {
+          livePinOnly: true,
+          historicalTrailExposed: false,
+          historicalEvidenceOwnerOnly: true,
+        },
+      },
+      200,
+      origin,
+    );
+  }
+
+  const sessions = [];
+  for (const job of jobs) {
+    const points = await getDriverLocationHistory(store, job.token);
+    sessions.push(
+      buildSessionDiagnostic(job, points, {
+        paymentReferenceQueried: paymentReference || job.paymentReference?.trim() || "",
+        paidBookingLinked: Boolean(paid),
+        gpsHistoryTtlSeconds: historyTtl,
+      }),
+    );
+  }
+
+  const primary = sessions[0];
+
+  return jsonResponse(
+    {
+      ok: true,
+      readOnly: true,
+      // Flat primary fields for the single-job report format.
+      ...primary,
+      paymentReference: paymentReference || primary.paymentReference,
+      paidBookingFound: Boolean(paid),
+      sessionFound: true,
+      sessionCount: sessions.length,
+      sessions,
+    },
+    200,
+    origin,
   );
 }

@@ -5,10 +5,12 @@ import { formatUkInstant } from "../../shared/uk-time";
 import {
   fetchOwnerPaidBookings,
   fetchOwnerPendingCheckouts,
+  fetchTrackingDiagnostic,
   finalizePaidCheckoutRecovery,
   resendPaidBookingConfirmation,
   type OwnerPaidBookingSummary,
   type OwnerPendingCheckoutSummary,
+  type TrackingDiagnosticReport,
 } from "@/lib/paid-bookings-api";
 import {
   ensurePaidBookingTracking,
@@ -296,6 +298,115 @@ function PaidBookingLiveTracking({
   );
 }
 
+function yesNo(value: boolean | undefined): string {
+  if (value === true) return "YES";
+  if (value === false) return "NO";
+  return "—";
+}
+
+function TrackingDiagnosticView({ report }: { report: TrackingDiagnosticReport }) {
+  const events = report.journeyEvents;
+  return (
+    <div className="mt-4 rounded-xl border border-white/10 bg-black/25 p-4">
+      <p className="text-xs font-semibold uppercase tracking-wider text-emerald">
+        Tracking diagnostic (read-only)
+      </p>
+      <p className="mt-1 text-xs text-white/45">
+        Owner-authenticated lookup. No journey data was changed. Secrets are never returned.
+      </p>
+      <dl className="mt-3 grid gap-2 text-sm text-white/75 sm:grid-cols-2">
+        <div>
+          <dt className="text-white/40">Session found</dt>
+          <dd className="font-semibold text-white">{yesNo(report.sessionFound)}</dd>
+        </div>
+        <div>
+          <dt className="text-white/40">Session ID</dt>
+          <dd className="break-all font-mono text-xs text-white/85">
+            {report.sessionId || "—"}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-white/40">GPS points</dt>
+          <dd>{report.sessionFound ? String(report.gpsPointCount ?? 0) : "—"}</dd>
+        </div>
+        <div>
+          <dt className="text-white/40">Route reconstructable</dt>
+          <dd>{yesNo(report.routeReconstructable)}</dd>
+        </div>
+        <div>
+          <dt className="text-white/40">First point</dt>
+          <dd>{report.firstPointAt || "—"}</dd>
+        </div>
+        <div>
+          <dt className="text-white/40">Last point</dt>
+          <dd>{report.lastPointAt || "—"}</dd>
+        </div>
+        <div>
+          <dt className="text-white/40">Tracking start</dt>
+          <dd>{report.trackingStartedAt || events?.trackingStartedAt || "—"}</dd>
+        </div>
+        <div>
+          <dt className="text-white/40">Tracking stop</dt>
+          <dd>{report.trackingStoppedAt || events?.trackingStoppedAt || "—"}</dd>
+        </div>
+        <div>
+          <dt className="text-white/40">Lat/Lng stored</dt>
+          <dd>{yesNo(report.fieldsStored?.latitudeLongitude)}</dd>
+        </div>
+        <div>
+          <dt className="text-white/40">Accuracy / speed / heading</dt>
+          <dd>
+            {yesNo(report.fieldsStored?.accuracyMeters)} /{" "}
+            {yesNo(report.fieldsStored?.speedMps)} /{" "}
+            {yesNo(report.fieldsStored?.headingDegrees)}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-white/40">Payment ref linked</dt>
+          <dd>{yesNo(report.paymentReferenceLinked ?? report.paidBookingFound)}</dd>
+        </div>
+        <div>
+          <dt className="text-white/40">Customer sees historical trail</dt>
+          <dd>{yesNo(report.customerSeesHistoricalRoute)}</dd>
+        </div>
+        <div className="sm:col-span-2">
+          <dt className="text-white/40">Storage</dt>
+          <dd>
+            {report.storage
+              ? `${report.storage.location} (${report.storage.binding}) — DO: ${yesNo(report.storage.durableObject)}, D1: ${yesNo(report.storage.d1)}`
+              : "—"}
+          </dd>
+        </div>
+        <div className="sm:col-span-2">
+          <dt className="text-white/40">Retention</dt>
+          <dd>
+            {report.retention
+              ? `Job ~${report.retention.trackingJobTtlDays}d · GPS history ~${report.retention.gpsHistoryTtlDays}d · GPS session ~${report.retention.gpsSessionTtlHours}h`
+              : "—"}
+          </dd>
+        </div>
+        <div className="sm:col-span-2">
+          <dt className="text-white/40">Journey events</dt>
+          <dd className="mt-1 whitespace-pre-wrap font-mono text-xs text-white/70">
+            {events
+              ? [
+                  `status: ${events.journeyStatus}`,
+                  `sharingActive: ${events.sharingActive}`,
+                  `trackingStartedAt: ${events.trackingStartedAt ?? "—"}`,
+                  `arrivedPickupAt: ${events.arrivedPickupAt ?? "—"}`,
+                  `journeyStartedAt: ${events.journeyStartedAt ?? "—"}`,
+                  `arrivedDestinationAt: ${events.arrivedDestinationAt ?? "—"}`,
+                  `journeyCompletedAt: ${events.journeyCompletedAt ?? "—"}`,
+                  `trackingStoppedAt: ${events.trackingStoppedAt ?? "—"}`,
+                ].join("\n")
+              : "—"}
+          </dd>
+        </div>
+      </dl>
+    </div>
+  );
+}
+
 export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPanelProps) {
   const [bookings, setBookings] = useState<OwnerPaidBookingSummary[]>([]);
   const [pending, setPending] = useState<OwnerPendingCheckoutSummary[]>([]);
@@ -304,6 +415,8 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
   const [message, setMessage] = useState("");
   const [busyRef, setBusyRef] = useState("");
   const [recovering, setRecovering] = useState(false);
+  const [diagnostics, setDiagnostics] = useState<Record<string, TrackingDiagnosticReport>>({});
+  const [diagnosticBusyRef, setDiagnosticBusyRef] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -375,6 +488,27 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
       setError(err instanceof Error ? err.message : "Could not create tracking for this booking");
     } finally {
       setBusyRef("");
+    }
+  }
+
+  async function handleTrackingDiagnostic(booking: OwnerPaidBookingSummary) {
+    setDiagnosticBusyRef(booking.paymentReference);
+    setError("");
+    try {
+      const report = await fetchTrackingDiagnostic(ownerKey, booking.paymentReference);
+      setDiagnostics((current) => ({
+        ...current,
+        [booking.paymentReference]: report,
+      }));
+      setMessage(
+        report.sessionFound
+          ? `Tracking diagnostic loaded for ${booking.paymentReference} (${report.gpsPointCount ?? 0} GPS points).`
+          : `No tracking session found for ${booking.paymentReference}.`,
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not load tracking diagnostic");
+    } finally {
+      setDiagnosticBusyRef("");
     }
   }
 
@@ -617,6 +751,19 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
                         ? "Refresh tracking link"
                         : "Create tracking (no new charge)"}
                     </button>
+                    <button
+                      type="button"
+                      disabled={
+                        diagnosticBusyRef === booking.paymentReference ||
+                        busyRef === booking.paymentReference
+                      }
+                      onClick={() => void handleTrackingDiagnostic(booking)}
+                      className="rounded-xl border border-emerald/40 bg-emerald/10 px-4 py-2.5 text-sm font-semibold text-emerald transition-colors hover:bg-emerald/20 disabled:opacity-60"
+                    >
+                      {diagnosticBusyRef === booking.paymentReference
+                        ? "Loading diagnostic…"
+                        : "Tracking diagnostic (read-only)"}
+                    </button>
                     {booking.customerEmail ? (
                       <a
                         href={`mailto:${encodeURIComponent(booking.customerEmail)}`}
@@ -636,6 +783,12 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
                       </a>
                     ) : null}
                   </div>
+
+                  {diagnostics[booking.paymentReference] ? (
+                    <TrackingDiagnosticView
+                      report={diagnostics[booking.paymentReference]}
+                    />
+                  ) : null}
                 </>
               ) : null}
             </li>
