@@ -44,6 +44,13 @@ console.log("\n=== 2. Owner Dashboard copy — no duplicate owner entry ===");
     driverPage,
     /Separate from your owner account profile\. Save each driver's contact/,
   );
+  // Operational panels first; Owner Profile + Additional Drivers render via profilePanel at bottom.
+  const shortNoticeAt = driverPage.indexOf("<OwnerShortNoticePanel");
+  const paidBookingsAt = driverPage.indexOf("<OwnerPaidBookingsPanel");
+  const profilePanelAt = driverPage.lastIndexOf("{profilePanel}");
+  assert.ok(shortNoticeAt > 0 && paidBookingsAt > shortNoticeAt, "Short-notice stays above paid bookings");
+  assert.ok(profilePanelAt > paidBookingsAt, "Owner/driver profile panels stay below operational sections");
+  assert.doesNotMatch(driverPage, /isOwnerView && profilePanel/);
   console.log("OK  Owner UI treats owner profile as default; additional drivers optional");
 }
 
