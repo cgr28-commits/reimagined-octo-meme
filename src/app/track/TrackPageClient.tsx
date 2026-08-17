@@ -64,7 +64,7 @@ function statusMessage(data: PublicTrackResponse): { title: string; detail: stri
       return {
         title: "Tracking opens closer to pickup",
         detail:
-          "Live driver tracking will become available approximately 2 hours before your scheduled pickup.",
+          "Live driver tracking will become available approximately 1 hour before your scheduled pickup.",
       };
     }
 
@@ -80,7 +80,7 @@ function statusMessage(data: PublicTrackResponse): { title: string; detail: stri
         title: journeyStatusLabel,
         detail:
           journeyStatus === "idle"
-            ? "Your driver will start sharing their location when they are on the way to you."
+            ? "Your driver has not started live tracking yet."
             : "Status updates as your driver progresses the journey.",
       };
     }
@@ -92,8 +92,8 @@ function statusMessage(data: PublicTrackResponse): { title: string; detail: stri
 
   if (!sharingActive || !driver) {
     return {
-      title: "Waiting for your driver",
-      detail: "Your driver will start sharing their location when they are on the way to you.",
+      title: "Your driver has not started live tracking yet",
+      detail: "When your driver starts tracking, their live location will appear here.",
     };
   }
 

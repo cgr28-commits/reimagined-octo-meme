@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { formatUkInstant } from "../../shared/uk-time";
 import {
   fetchOwnerPaidBookings,
@@ -10,11 +10,291 @@ import {
   type OwnerPaidBookingSummary,
   type OwnerPendingCheckoutSummary,
 } from "@/lib/paid-bookings-api";
-import { ensurePaidBookingTracking } from "@/lib/tracking-api";
+import {
+  ensurePaidBookingTracking,
+  postDriverLocation,
+  postJourneyAction,
+} from "@/lib/tracking-api";
 
 type OwnerPaidBookingsPanelProps = {
   ownerKey: string;
 };
+
+type LiveGpsState = {
+  token: string;
+  sessionToken: string;
+  lastAt: number | null;
+  accuracyMeters: number | null;
+  error: string | null;
+};
+
+function PaidBookingLiveTracking({
+  ownerKey,
+  booking,
+  onBusy,
+  onMessage,
+  onError,
+  onTrackingToken,
+  onSharingChange,
+}: {
+  ownerKey: string;
+  booking: OwnerPaidBookingSummary;
+  onBusy: (ref: string) => void;
+  onMessage: (message: string) => void;
+  onError: (message: string) => void;
+  onTrackingToken: (paymentReference: string, token: string, trackUrl: string) => void;
+  onSharingChange: (active: boolean) => void;
+}) {
+  const [localActive, setLocalActive] = useState(Boolean(booking.sharingActive));
+  const [gps, setGps] = useState<LiveGpsState | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [tick, setTick] = useState(0);
+  const watchIdRef = useRef<number | null>(null);
+  const sessionRef = useRef<string | null>(null);
+  const tokenRef = useRef<string | null>(booking.trackingToken ?? null);
+
+  useEffect(() => {
+    setLocalActive(Boolean(booking.sharingActive));
+    tokenRef.current = booking.trackingToken ?? null;
+  }, [booking.sharingActive, booking.trackingToken]);
+
+  useEffect(() => {
+    const id = window.setInterval(() => setTick((n) => n + 1), 15_000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  const clearWatch = useCallback(() => {
+    if (watchIdRef.current !== null) {
+      navigator.geolocation.clearWatch(watchIdRef.current);
+      watchIdRef.current = null;
+    }
+    sessionRef.current = null;
+  }, []);
+
+  useEffect(() => () => clearWatch(), [clearWatch]);
+
+  const startGpsWatch = useCallback(
+    (token: string, sessionToken: string) => {
+      if (!navigator.geolocation) {
+        onError("This browser does not support live GPS tracking.");
+        return;
+      }
+
+      clearWatch();
+      sessionRef.current = sessionToken;
+      tokenRef.current = token;
+      setGps({
+        token,
+        sessionToken,
+        lastAt: null,
+        accuracyMeters: null,
+        error: null,
+      });
+
+      watchIdRef.current = navigator.geolocation.watchPosition(
+        (position) => {
+          const accuracy =
+            typeof position.coords.accuracy === "number" && Number.isFinite(position.coords.accuracy)
+              ? position.coords.accuracy
+              : null;
+          setGps((current) =>
+            current
+              ? {
+                  ...current,
+                  lastAt: Date.now(),
+                  accuracyMeters: accuracy,
+                  error: null,
+                }
+              : current,
+          );
+          void postDriverLocation(
+            ownerKey,
+            token,
+            position.coords.latitude,
+            position.coords.longitude,
+            {
+              sessionToken,
+              ...(accuracy !== null ? { accuracy } : {}),
+              ...(typeof position.coords.speed === "number" && Number.isFinite(position.coords.speed)
+                ? { speed: position.coords.speed }
+                : {}),
+              ...(typeof position.coords.heading === "number" &&
+              Number.isFinite(position.coords.heading)
+                ? { heading: position.coords.heading }
+                : {}),
+            },
+          ).catch(() => {
+            // Transient upload errors retry on the next GPS tick.
+          });
+        },
+        (geoError) => {
+          setGps((current) =>
+            current
+              ? {
+                  ...current,
+                  error:
+                    geoError.code === geoError.PERMISSION_DENIED
+                      ? "Location permission denied — enable Precise Location and reopen this page."
+                      : "Location unavailable — keep this page open and check GPS.",
+                }
+              : current,
+          );
+        },
+        {
+          enableHighAccuracy: true,
+          maximumAge: 15_000,
+          timeout: 20_000,
+        },
+      );
+    },
+    [clearWatch, onError, ownerKey],
+  );
+
+  const startTracking = async () => {
+    setBusy(true);
+    onBusy(booking.paymentReference);
+    onError("");
+    onMessage("");
+    try {
+      let token = booking.trackingToken?.trim() ?? "";
+      if (!token) {
+        const created = await ensurePaidBookingTracking(ownerKey, booking.paymentReference);
+        token = created.token;
+        onTrackingToken(booking.paymentReference, created.token, created.trackUrl);
+      }
+
+      const result = await postJourneyAction(ownerKey, token, "start_tracking");
+      const sessionToken = result.trackingSession?.sessionToken;
+      if (!sessionToken) {
+        throw new Error("Tracking started but no GPS session was issued — try again.");
+      }
+
+      setLocalActive(true);
+      startGpsWatch(token, sessionToken);
+      onSharingChange(true);
+      onMessage(
+        "Live tracking active. Keep this page open while driving — GPS may pause if the phone locks or Safari goes to the background.",
+      );
+    } catch (err) {
+      onError(err instanceof Error ? err.message : "Could not start live tracking");
+      setLocalActive(false);
+      clearWatch();
+      setGps(null);
+    } finally {
+      setBusy(false);
+      onBusy("");
+    }
+  };
+
+  const stopTracking = async () => {
+    setBusy(true);
+    onBusy(booking.paymentReference);
+    onError("");
+    try {
+      const token = tokenRef.current ?? booking.trackingToken?.trim();
+      if (token) {
+        await postJourneyAction(ownerKey, token, "stop_tracking");
+      }
+      setLocalActive(false);
+      clearWatch();
+      setGps(null);
+      onSharingChange(false);
+      onMessage("Live tracking stopped.");
+    } catch (err) {
+      onError(err instanceof Error ? err.message : "Could not stop live tracking");
+    } finally {
+      setBusy(false);
+      onBusy("");
+    }
+  };
+
+  const active = localActive;
+  const lastAt = gps?.lastAt ?? (booking.driverUpdatedAt ? new Date(booking.driverUpdatedAt).getTime() : null);
+  const lastLabel =
+    lastAt && Number.isFinite(lastAt)
+      ? `${Math.max(1, Math.round((Date.now() - lastAt) / 1000))}s ago`
+      : null;
+  void tick;
+
+  const trackHref =
+    booking.trackUrl ||
+    (booking.trackingToken
+      ? `/track/?id=${encodeURIComponent(booking.trackingToken)}`
+      : null);
+
+  return (
+    <div className="mt-4 rounded-xl border border-emerald/30 bg-emerald/5 p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wider text-emerald">
+            Driver tracking
+          </p>
+          <p className="mt-1 text-sm font-semibold text-white">
+            Status:{" "}
+            <span className={active ? "text-emerald" : "text-white/70"}>
+              {active ? "LIVE" : "OFF"}
+            </span>
+          </p>
+          {active && lastLabel ? (
+            <p className="mt-1 text-xs text-white/60">Last update: {lastLabel}</p>
+          ) : null}
+          {active && typeof gps?.accuracyMeters === "number" ? (
+            <p className="mt-1 text-xs text-white/60">
+              Accuracy: ±{Math.round(gps.accuracyMeters)} m
+            </p>
+          ) : null}
+          {gps?.error ? <p className="mt-2 text-xs text-amber-100">{gps.error}</p> : null}
+          {active ? (
+            <p className="mt-2 text-xs text-white/45">
+              Keep this tab open. iPhone/Safari may pause GPS when the screen locks or the browser
+              is backgrounded.
+            </p>
+          ) : (
+            <p className="mt-2 text-xs text-white/45">
+              Customers only see your live location from about 1 hour before pickup.
+            </p>
+          )}
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {!active ? (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => void startTracking()}
+              className="min-h-11 rounded-xl bg-emerald px-4 py-3 text-sm font-bold text-navy transition-colors hover:bg-emerald/90 disabled:opacity-60"
+            >
+              {busy ? "Starting…" : "Start Live Tracking"}
+            </button>
+          ) : (
+            <>
+              <span className="inline-flex min-h-11 items-center rounded-xl border border-emerald/40 bg-emerald/15 px-4 py-2 text-sm font-semibold text-emerald">
+                LIVE TRACKING ACTIVE
+              </span>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void stopTracking()}
+                className="min-h-11 rounded-xl border border-red-400/40 bg-red-500/15 px-4 py-2.5 text-sm font-semibold text-red-100 transition-colors hover:bg-red-500/25 disabled:opacity-60"
+              >
+                {busy ? "Stopping…" : "Stop Tracking"}
+              </button>
+            </>
+          )}
+          {trackHref ? (
+            <a
+              href={trackHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex min-h-11 items-center rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:border-white/30"
+            >
+              Open customer track link
+            </a>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPanelProps) {
   const [bookings, setBookings] = useState<OwnerPaidBookingSummary[]>([]);
@@ -31,7 +311,9 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
     try {
       const [nextBookings, nextPending] = await Promise.all([
         fetchOwnerPaidBookings(ownerKey, { days: 30, limit: 50 }),
-        fetchOwnerPendingCheckouts(ownerKey, { limit: 40 }).catch(() => [] as OwnerPendingCheckoutSummary[]),
+        fetchOwnerPendingCheckouts(ownerKey, { limit: 40 }).catch(
+          () => [] as OwnerPendingCheckoutSummary[],
+        ),
       ]);
       setBookings(nextBookings);
       setPending(nextPending);
@@ -78,7 +360,17 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
           ? `Tracking already exists — ${result.trackUrl}`
           : `Tracking created — ${result.trackUrl}`,
       );
-      await load();
+      setBookings((current) =>
+        current.map((entry) =>
+          entry.paymentReference === booking.paymentReference
+            ? {
+                ...entry,
+                trackingToken: result.token,
+                trackUrl: result.trackUrl,
+              }
+            : entry,
+        ),
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not create tracking for this booking");
     } finally {
@@ -130,9 +422,9 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
           </p>
           <h2 className="mt-1 text-xl font-bold text-white">Paid bookings (SumUp)</h2>
           <p className="mt-2 max-w-2xl text-sm text-white/65">
-            Customers who pay on the website appear here automatically. Use Resend booking
-            confirmation if they did not get the invoice email. Recover finalizes a SumUp PAID
-            checkout that never completed email/calendar (no new charge).
+            Customers who pay on the website appear here automatically. Use{" "}
+            <span className="text-white/85">Start Live Tracking</span> on a booking to share your
+            GPS. Customers only see live location from about 1 hour before pickup.
           </p>
         </div>
         <button
@@ -240,10 +532,16 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
                   className={`rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wider ${
                     booking.status === "refunded"
                       ? "border-red-400/30 bg-red-500/10 text-red-100"
-                      : "border-emerald/40 bg-emerald/15 text-emerald"
+                      : booking.sharingActive
+                        ? "border-emerald/40 bg-emerald/15 text-emerald"
+                        : "border-emerald/40 bg-emerald/15 text-emerald"
                   }`}
                 >
-                  {booking.status === "refunded" ? "Refunded" : "Paid"}
+                  {booking.status === "refunded"
+                    ? "Refunded"
+                    : booking.sharingActive
+                      ? "Paid · Tracking live"
+                      : "Paid"}
                 </span>
               </div>
 
@@ -271,56 +569,74 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
               </dl>
 
               {booking.status !== "refunded" ? (
-                <div className="mt-4 flex flex-wrap gap-3">
-                  <button
-                    type="button"
-                    disabled={busyRef === booking.paymentReference}
-                    onClick={() => void handleResend(booking)}
-                    className="w-full rounded-xl bg-emerald px-4 py-3 text-sm font-bold text-navy transition-colors hover:bg-emerald-light disabled:opacity-60 sm:w-auto"
-                  >
-                    {busyRef === booking.paymentReference
-                      ? "Sending…"
-                      : "Resend booking confirmation"}
-                  </button>
-                  <button
-                    type="button"
-                    disabled={busyRef === booking.paymentReference}
-                    onClick={() => void handleEnsureTracking(booking)}
-                    className="rounded-xl border border-emerald/40 bg-emerald/10 px-4 py-2.5 text-sm font-semibold text-emerald transition-colors hover:bg-emerald/20 disabled:opacity-60"
-                  >
-                    {booking.trackingToken
-                      ? "Refresh tracking link"
-                      : "Create tracking (no new charge)"}
-                  </button>
-                  {booking.trackingToken ? (
-                    <a
-                      href={`/track/?id=${encodeURIComponent(booking.trackingToken)}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:border-white/30"
+                <>
+                  <PaidBookingLiveTracking
+                    ownerKey={ownerKey}
+                    booking={booking}
+                    onBusy={setBusyRef}
+                    onMessage={setMessage}
+                    onError={setError}
+                    onTrackingToken={(paymentReference, token, trackUrl) => {
+                      setBookings((current) =>
+                        current.map((entry) =>
+                          entry.paymentReference === paymentReference
+                            ? { ...entry, trackingToken: token, trackUrl }
+                            : entry,
+                        ),
+                      );
+                    }}
+                    onSharingChange={(active) => {
+                      setBookings((current) =>
+                        current.map((entry) =>
+                          entry.paymentReference === booking.paymentReference
+                            ? { ...entry, sharingActive: active }
+                            : entry,
+                        ),
+                      );
+                    }}
+                  />
+
+                  <div className="mt-4 flex flex-wrap gap-3">
+                    <button
+                      type="button"
+                      disabled={busyRef === booking.paymentReference}
+                      onClick={() => void handleResend(booking)}
+                      className="w-full rounded-xl bg-emerald px-4 py-3 text-sm font-bold text-navy transition-colors hover:bg-emerald-light disabled:opacity-60 sm:w-auto"
                     >
-                      Open customer track link
-                    </a>
-                  ) : null}
-                  {booking.customerEmail ? (
-                    <a
-                      href={`mailto:${encodeURIComponent(booking.customerEmail)}`}
-                      className="rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:border-white/30"
+                      {busyRef === booking.paymentReference
+                        ? "Sending…"
+                        : "Resend booking confirmation"}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={busyRef === booking.paymentReference}
+                      onClick={() => void handleEnsureTracking(booking)}
+                      className="rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:border-white/30 disabled:opacity-60"
                     >
-                      Email customer
-                    </a>
-                  ) : null}
-                  {booking.mobileNumber ? (
-                    <a
-                      href={`https://wa.me/${booking.mobileNumber.replace(/\D/g, "").replace(/^0/, "44")}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:border-white/30"
-                    >
-                      WhatsApp
-                    </a>
-                  ) : null}
-                </div>
+                      {booking.trackingToken
+                        ? "Refresh tracking link"
+                        : "Create tracking (no new charge)"}
+                    </button>
+                    {booking.customerEmail ? (
+                      <a
+                        href={`mailto:${encodeURIComponent(booking.customerEmail)}`}
+                        className="rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:border-white/30"
+                      >
+                        Email customer
+                      </a>
+                    ) : null}
+                    {booking.mobileNumber ? (
+                      <a
+                        href={`https://wa.me/${booking.mobileNumber.replace(/\D/g, "").replace(/^0/, "44")}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:border-white/30"
+                      >
+                        WhatsApp
+                      </a>
+                    ) : null}
+                  </div>
+                </>
               ) : null}
             </li>
           ))}

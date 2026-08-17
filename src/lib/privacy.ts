@@ -84,7 +84,7 @@ export const PRIVACY_SECTIONS = [
     content: [
       "When your driver starts tracking for a booked journey, we may record timestamped GPS points (latitude, longitude, accuracy, speed and heading where the device provides them).",
       "We use this data to show you a live tracking page, to operate the journey safely, and to keep an internal journey record that may support payment or service disputes. A journey record does not guarantee the outcome of any card chargeback.",
-      "Customer tracking links use a random, booking-specific token. Links become available around two hours before pickup and expire after the journey window. Live location is not shown after the journey is completed.",
+      "Customer tracking links use a random, booking-specific token. Links become available around one hour before pickup and expire after the journey window. Live location is not shown after the journey is completed.",
       "We do not intentionally collect unnecessary device identifiers beyond what is needed to operate location sharing.",
     ],
   },
