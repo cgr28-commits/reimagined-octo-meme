@@ -1168,6 +1168,20 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
                         ? "Loading diagnostic…"
                         : "Tracking diagnostic (read-only)"}
                     </button>
+                    {booking.journeyStatus === "completed" ||
+                    booking.trackingToken ||
+                    (diagnostics[booking.paymentReference]?.gpsPointCount ?? 0) > 0 ? (
+                      <a
+                        href={`/owner/journey-evidence/?ref=${encodeURIComponent(booking.paymentReference)}${
+                          booking.trackingToken
+                            ? `&token=${encodeURIComponent(booking.trackingToken)}`
+                            : ""
+                        }`}
+                        className="rounded-xl border border-sky-400/40 bg-sky-500/15 px-4 py-2.5 text-sm font-semibold text-sky-100 transition-colors hover:bg-sky-500/25"
+                      >
+                        View Journey Evidence
+                      </a>
+                    ) : null}
                     {booking.customerEmail ? (
                       <a
                         href={`mailto:${encodeURIComponent(booking.customerEmail)}`}
