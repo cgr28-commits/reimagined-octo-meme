@@ -73,10 +73,12 @@ async function indexTrackingJobPaymentReference(
   }
 
   const tokens = await readPaymentReferenceTokens(store, trimmed);
-  if (!tokens.includes(token)) {
-    tokens.push(token);
+  // Already indexed — skip rewrite so GPS / status loops do not burn KV writes.
+  if (tokens.includes(token)) {
+    return;
   }
 
+  tokens.push(token);
   await store.put(refIndexKey(trimmed), JSON.stringify(tokens), {
     expirationTtl: DAY_INDEX_TTL,
   });
@@ -310,13 +312,26 @@ export async function getTrackingJob(
   return record;
 }
 
+export type SaveTrackingJobOptions = {
+  /**
+   * When false, skip payment-ref index maintenance (job put only).
+   * Use for high-frequency GPS live-pin updates where the token was indexed at create time.
+   */
+  indexPaymentReference?: boolean;
+};
+
 export async function saveTrackingJob(
   store: KVNamespace,
   record: TrackingJobRecord,
+  options?: SaveTrackingJobOptions,
 ): Promise<void> {
   await store.put(jobKey(record.token), JSON.stringify(record), {
     expirationTtl: DAY_INDEX_TTL,
   });
+
+  if (options?.indexPaymentReference === false) {
+    return;
+  }
 
   if (record.paymentReference?.trim()) {
     await indexTrackingJobPaymentReference(store, record.paymentReference, record.token);

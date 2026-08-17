@@ -7,6 +7,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   applyJourneyAction,
+  GPS_MIN_INTERVAL_MS,
   shouldStoreGpsPoint,
   type DriverLocationPoint,
   type TrackingJobRecord,
@@ -46,7 +47,10 @@ section("Location handler persists lat/lng/accuracy/speed/heading");
   assert.match(handlers, /speedMps:\s*Number\(body\.speed\)/);
   assert.match(handlers, /headingDegrees:\s*Number\(body\.heading\)/);
   assert.match(handlers, /driverLocationPointCount = appendResult\.pointCount/);
-  assert.match(handlers, /saveTrackingJob\(env\.TRACKING_STORE,\s*record\)/);
+  assert.match(
+    handlers,
+    /saveTrackingJob\(env\.TRACKING_STORE,\s*record,\s*\{\s*indexPaymentReference:\s*false\s*\}\)/,
+  );
   // Stop/complete must not wipe history — only live pin.
   const shared = read("shared/tracking.ts");
   assert.match(shared, /case "stop_tracking":/);
@@ -91,9 +95,33 @@ section("First GPS point is always stored; throttle does not drop first");
   );
 
   const handlers = read("workers/addresses/src/tracking-handlers.ts");
-  assert.match(handlers, /nowMs - lastPost < 4_000/);
+  assert.match(handlers, /LOCATION_ACCEPT_MIN_MS/);
+  assert.match(handlers, /softLocationThrottled/);
   assert.match(handlers, /throttled:\s*true/);
   console.log("OK  store thresholds + soft 4s rate limit");
+}
+
+section("KV write optimisation — job persist gated; unchanged ref index skipped");
+{
+  const handlers = read("workers/addresses/src/tracking-handlers.ts");
+  assert.match(handlers, /shouldPersistJob|!appendResult\.stored/);
+  assert.match(handlers, /jobPersisted:\s*false/);
+  assert.match(handlers, /jobPersisted:\s*true/);
+  assert.match(handlers, /if \(!appendResult\.stored\)/);
+  assert.match(handlers, /shouldStoreGpsPoint\(previousCustomerLivePoint/);
+  assert.match(handlers, /cust-loc:/);
+  assert.equal(GPS_MIN_INTERVAL_MS, 20_000);
+
+  const store = read("workers/addresses/src/tracking-store.ts");
+  assert.match(store, /Already indexed — skip rewrite/);
+  assert.match(store, /indexPaymentReference\?:/);
+  assert.match(store, /options\?\.indexPaymentReference === false/);
+  // Estimate: ≤2 KV writes per ~20s while moving (history + job) ≈ 6/min ≈ 270–360 per 45–60 min
+  const writesPerHourCeiling = (60 * 60_000) / GPS_MIN_INTERVAL_MS * 2;
+  assert.ok(writesPerHourCeiling <= 400, `expected ≤360–400 writes/hour, got ${writesPerHourCeiling}`);
+  console.log(
+    `OK  gated job writes + index skip (≤${writesPerHourCeiling} KV writes/hour ceiling)`,
+  );
 }
 
 section("Start tracking enables sharing; stop keeps payment link fields");

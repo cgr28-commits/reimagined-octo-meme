@@ -7,6 +7,7 @@ import {
   isLocationFresh,
   journeyStatusOf,
   allowedJourneyActions,
+  shouldStoreGpsPoint,
   type TrackingJobRecord,
 } from "../shared/tracking";
 import { lookupFlight, type VerifiedFlight } from "../shared/flight-lookup";
@@ -66,6 +67,38 @@ type Env = WorkerEmailEnv & {
 
 /** Soft in-memory rate limit for GPS posts (per isolate). */
 const LOCATION_RATE_LIMIT = new Map<string, number>();
+
+/** Accept at most one location POST per job every 4s (driver or customer). */
+const LOCATION_ACCEPT_MIN_MS = 4_000;
+
+function previousCustomerLivePoint(
+  record: TrackingJobRecord,
+): { lat: number; lng: number; recordedAt: string } | undefined {
+  if (
+    typeof record.customerLat !== "number" ||
+    typeof record.customerLng !== "number" ||
+    !record.customerUpdatedAt?.trim()
+  ) {
+    return undefined;
+  }
+  return {
+    lat: record.customerLat,
+    lng: record.customerLng,
+    recordedAt: record.customerUpdatedAt,
+  };
+}
+
+function softLocationThrottled(rateKey: string, nowMs: number): boolean {
+  const lastPost = LOCATION_RATE_LIMIT.get(rateKey) ?? 0;
+  if (nowMs - lastPost < LOCATION_ACCEPT_MIN_MS) {
+    return true;
+  }
+  LOCATION_RATE_LIMIT.set(rateKey, nowMs);
+  if (LOCATION_RATE_LIMIT.size > 5_000) {
+    LOCATION_RATE_LIMIT.clear();
+  }
+  return false;
+}
 
 const AIRPORT_NAMES: Record<string, string> = {
   BFS: "Belfast International",
@@ -777,15 +810,9 @@ export async function handleDriverLocationRequest(
   }
 
   // Soft rate limit: accept at most one GPS post per job every 4 seconds.
-  const rateKey = `loc:${token}`;
   const nowMs = Date.now();
-  const lastPost = LOCATION_RATE_LIMIT.get(rateKey) ?? 0;
-  if (nowMs - lastPost < 4_000) {
+  if (softLocationThrottled(`loc:${token}`, nowMs)) {
     return jsonResponse({ ok: true, throttled: true, pointCount: record.driverLocationPointCount ?? 0 }, 200, origin);
-  }
-  LOCATION_RATE_LIMIT.set(rateKey, nowMs);
-  if (LOCATION_RATE_LIMIT.size > 5_000) {
-    LOCATION_RATE_LIMIT.clear();
   }
 
   const recordedAt = new Date().toISOString();
@@ -802,6 +829,22 @@ export async function handleDriverLocationRequest(
     historyTtlSeconds: gpsHistoryTtlSeconds(env),
   });
 
+  // Persist live pin on the job only when the audit trail stores a point
+  // (same cadence as shouldStoreGpsPoint: ≈20s or 25m). Skips rewriting the
+  // job on every accepted 4s post when coordinates have not aged/moved enough.
+  if (!appendResult.stored) {
+    return jsonResponse(
+      {
+        ok: true,
+        pointCount: appendResult.pointCount,
+        stored: false,
+        jobPersisted: false,
+      },
+      200,
+      origin,
+    );
+  }
+
   record.driverLat = lat;
   record.driverLng = lng;
   record.driverUpdatedAt = recordedAt;
@@ -810,10 +853,15 @@ export async function handleDriverLocationRequest(
     record.driverLocationRecordedFrom = recordedAt;
   }
   record.driverLocationRecordedTo = recordedAt;
-  await saveTrackingJob(env.TRACKING_STORE, record);
+  await saveTrackingJob(env.TRACKING_STORE, record, { indexPaymentReference: false });
 
   return jsonResponse(
-    { ok: true, pointCount: appendResult.pointCount, stored: appendResult.stored },
+    {
+      ok: true,
+      pointCount: appendResult.pointCount,
+      stored: true,
+      jobPersisted: true,
+    },
     200,
     origin,
   );
@@ -983,10 +1031,25 @@ export async function handleCustomerLocationRequest(
     return jsonResponse({ error: "Customer sharing is not active" }, 409, origin);
   }
 
+  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+    return jsonResponse({ error: "Invalid coordinates" }, 400, origin);
+  }
+
+  // Soft rate limit + same persist cadence as driver GPS (≈20s / 25m).
+  const nowMs = Date.now();
+  if (softLocationThrottled(`cust-loc:${token}`, nowMs)) {
+    return jsonResponse({ ok: true, throttled: true }, 200, origin);
+  }
+
+  const recordedAt = new Date().toISOString();
+  if (!shouldStoreGpsPoint(previousCustomerLivePoint(record), { lat, lng, recordedAt })) {
+    return jsonResponse({ ok: true, jobPersisted: false }, 200, origin);
+  }
+
   record.customerLat = lat;
   record.customerLng = lng;
-  record.customerUpdatedAt = new Date().toISOString();
-  await saveTrackingJob(env.TRACKING_STORE, record);
+  record.customerUpdatedAt = recordedAt;
+  await saveTrackingJob(env.TRACKING_STORE, record, { indexPaymentReference: false });
 
-  return jsonResponse({ ok: true }, 200, origin);
+  return jsonResponse({ ok: true, jobPersisted: true }, 200, origin);
 }

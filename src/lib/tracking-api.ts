@@ -1175,9 +1175,15 @@ export async function postDriverLocation(
     speed?: number;
     heading?: number;
   },
-): Promise<{ ok: true; pointCount?: number; stored?: boolean; throttled?: boolean }> {
+): Promise<{
+  ok: true;
+  pointCount?: number;
+  stored?: boolean;
+  throttled?: boolean;
+  jobPersisted?: boolean;
+}> {
   if (isDemoDriverKey(driverKey) || isDemoOwnerKey(driverKey)) {
-    return { ok: true, pointCount: 1, stored: true };
+    return { ok: true, pointCount: 1, stored: true, jobPersisted: true };
   }
 
   const headers: Record<string, string> = {
@@ -1213,6 +1219,7 @@ export async function postDriverLocation(
     pointCount?: number;
     stored?: boolean;
     throttled?: boolean;
+    jobPersisted?: boolean;
   }>(response);
 }
 
