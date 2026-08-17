@@ -90,6 +90,21 @@ import {
   parseTrackSubRoute,
   parseTrackTokenFromPath,
 } from "./tracking-handlers";
+import {
+  handleEnsureTrackingRequest,
+  handleJourneyEvidenceRequest,
+  handleJourneySessionRequest,
+  handleJourneyTransitionRequest,
+  isEnsureTrackingPath,
+  isJourneyEvidencePath,
+  isJourneySessionPath,
+  isJourneyTransitionPath,
+} from "./journey-handlers";
+import {
+  handleOwnerProfileGetRequest,
+  handleOwnerProfileSaveRequest,
+  isOwnerProfilePath,
+} from "./owner-profile-handlers";
 import { processDueReviewRequests } from "./review-request-handlers";
 import { handleDriverUpdateBookingRequest } from "./driver-booking-handlers";
 import {
@@ -179,6 +194,8 @@ type Env = {
   DRIVER_ACCESS_KEY?: string;
   GOOGLE_REVIEW_URL?: string;
   OWNER_ACCESS_KEY?: string;
+  /** Optional GPS audit retention override (seconds, min 30 days). */
+  TRACKING_GPS_HISTORY_TTL_SECONDS?: string;
 };
 
 type QuoteLeadRequestBody = QuoteLeadDetails & {
@@ -1545,6 +1562,30 @@ export default {
 
     if (driverRoute === "location-history" && request.method === "GET") {
       return handleDriverLocationHistoryRequest(request, env, origin);
+    }
+
+    if (isJourneyTransitionPath(url.pathname) && request.method === "POST") {
+      return handleJourneyTransitionRequest(request, env, origin);
+    }
+
+    if (isJourneySessionPath(url.pathname) && request.method === "POST") {
+      return handleJourneySessionRequest(request, env, origin);
+    }
+
+    if (isJourneyEvidencePath(url.pathname) && request.method === "GET") {
+      return handleJourneyEvidenceRequest(request, env, origin);
+    }
+
+    if (isEnsureTrackingPath(url.pathname) && request.method === "POST") {
+      return handleEnsureTrackingRequest(request, env, origin);
+    }
+
+    if (isOwnerProfilePath(url.pathname) && request.method === "GET") {
+      return handleOwnerProfileGetRequest(request, env, origin);
+    }
+
+    if (isOwnerProfilePath(url.pathname) && request.method === "POST") {
+      return handleOwnerProfileSaveRequest(request, env, origin);
     }
 
     if (!route) {

@@ -1,9 +1,12 @@
 import {
   buildPublicTrackUrl,
+  customerJourneyLabel,
   formatLondonDateTime,
   getTrackingWindow,
   isAirportPickupJob,
   isLocationFresh,
+  journeyStatusOf,
+  allowedJourneyActions,
   type TrackingJobRecord,
 } from "../shared/tracking";
 import { lookupFlight, type VerifiedFlight } from "../shared/flight-lookup";
@@ -45,6 +48,7 @@ import {
 import { trySendBrandedCustomerEmail, type WorkerEmailEnv } from "./worker-email";
 import { resolveCustomerVisibleVehicle } from "./driver-vehicle-store";
 import { toCustomerVehicleDetails } from "../shared/driver-vehicle";
+import { getTrackingSession, gpsHistoryTtlSeconds } from "./tracking-store";
 
 type Env = WorkerEmailEnv & {
   TRACKING_STORE?: KVNamespace;
@@ -53,7 +57,11 @@ type Env = WorkerEmailEnv & {
   DRIVER_NAME?: string;
   DRIVER_ROSTER?: string;
   AERODATABOX_RAPIDAPI_KEY?: string;
+  TRACKING_GPS_HISTORY_TTL_SECONDS?: string;
 };
+
+/** Soft in-memory rate limit for GPS posts (per isolate). */
+const LOCATION_RATE_LIMIT = new Map<string, number>();
 
 const AIRPORT_NAMES: Record<string, string> = {
   BFS: "Belfast International",
@@ -141,8 +149,11 @@ async function cancelledJobResponse(
 }
 
 function liveDriverLocation(record: TrackingJobRecord, windowOpen: boolean) {
+  const journeyDone =
+    journeyStatusOf(record) === "completed" || journeyStatusOf(record) === "stopped";
   if (
     !windowOpen ||
+    journeyDone ||
     !record.sharingActive ||
     typeof record.driverLat !== "number" ||
     typeof record.driverLng !== "number" ||
@@ -203,6 +214,10 @@ export function publicTrackPayload(
     },
     sharingActive: record.sharingActive,
     customerSharingActive: Boolean(record.customerSharingActive),
+    journeyStatus: journeyStatusOf(record),
+    journeyStatusLabel: customerJourneyLabel(record),
+    /** Invoice / payment reference customers already receive — not a sequential internal id. */
+    bookingReference: record.paymentReference ?? undefined,
     driver,
     customer,
     trackUrl: buildPublicTrackUrl(record.token),
@@ -493,6 +508,14 @@ export async function handleDriverJobsRequest(
           driverLocationPointCount: job.driverLocationPointCount,
           driverLocationRecordedFrom: job.driverLocationRecordedFrom,
           driverLocationRecordedTo: job.driverLocationRecordedTo,
+          journeyStatus: journeyStatusOf(job),
+          journeyStatusLabel: customerJourneyLabel(job),
+          allowedJourneyActions: allowedJourneyActions(journeyStatusOf(job)),
+          trackingStartedAt: job.trackingStartedAt,
+          arrivedPickupAt: job.arrivedPickupAt,
+          journeyStartedAt: job.journeyStartedAt,
+          arrivedDestinationAt: job.arrivedDestinationAt,
+          journeyCompletedAt: job.journeyCompletedAt,
           isAirportPickup: isAirportPickupJob(job),
           flightNumber: job.flightNumber ?? null,
           airportCode: job.airportCode ?? null,
@@ -608,11 +631,20 @@ export async function handleDriverSharingRequest(
     if (session.authorized && session.role === "driver" && session.driverName) {
       record.activeDriverName = session.driverName;
     }
+    if (!record.journeyStatus || record.journeyStatus === "idle" || record.journeyStatus === "stopped") {
+      record.journeyStatus = "tracking";
+      record.trackingStartedAt = record.trackingStartedAt ?? new Date().toISOString();
+      delete record.trackingStoppedAt;
+    }
   } else {
     delete record.driverLat;
     delete record.driverLng;
     delete record.driverUpdatedAt;
     delete record.activeDriverName;
+    if (record.journeyStatus !== "completed") {
+      record.journeyStatus = "stopped";
+      record.trackingStoppedAt = new Date().toISOString();
+    }
   }
 
   await saveTrackingJob(env.TRACKING_STORE, record);
@@ -654,10 +686,6 @@ export async function handleDriverLocationRequest(
     return jsonResponse({ error: "Live tracking is not configured" }, 503, origin);
   }
 
-  if (!driverAuthorized(request, env)) {
-    return jsonResponse({ error: "Unauthorized" }, 401, origin);
-  }
-
   let body: Record<string, unknown>;
   try {
     body = await request.json();
@@ -668,9 +696,16 @@ export async function handleDriverLocationRequest(
   const token = String(body.token ?? "").trim();
   const lat = Number(body.lat);
   const lng = Number(body.lng);
+  const sessionHeader =
+    request.headers.get("X-Tracking-Session")?.trim() ||
+    String(body.sessionToken ?? "").trim();
 
   if (!token || !Number.isFinite(lat) || !Number.isFinite(lng)) {
     return jsonResponse({ error: "Missing token or coordinates" }, 400, origin);
+  }
+
+  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+    return jsonResponse({ error: "Invalid coordinates" }, 400, origin);
   }
 
   const record = await getTrackingJob(env.TRACKING_STORE, token);
@@ -683,40 +718,73 @@ export async function handleDriverLocationRequest(
     return cancelled;
   }
 
-  const session = resolveDriverSession(request, env);
-  const operateError = assertDriverCanOperateJob(record, session);
-  if (operateError) {
-    return jsonResponse({ error: operateError }, 409, origin);
+  let driverName = record.activeDriverName;
+  if (sessionHeader) {
+    const trackingSession = await getTrackingSession(env.TRACKING_STORE, sessionHeader);
+    if (!trackingSession || trackingSession.jobToken !== token) {
+      return jsonResponse({ error: "Invalid or expired tracking session" }, 401, origin);
+    }
+    driverName = trackingSession.driverName ?? driverName;
+  } else {
+    if (!driverAuthorized(request, env)) {
+      return jsonResponse({ error: "Unauthorized" }, 401, origin);
+    }
+    const session = resolveDriverSession(request, env);
+    const operateError = assertDriverCanOperateJob(record, session);
+    if (operateError) {
+      return jsonResponse({ error: operateError }, 409, origin);
+    }
+    driverName =
+      session.authorized && session.role === "driver"
+        ? session.driverName
+        : record.activeDriverName;
   }
 
   if (!record.sharingActive) {
     return jsonResponse({ error: "Sharing is not active for this job" }, 409, origin);
   }
 
-  const recordedAt = new Date().toISOString();
-  const driverName =
-    session.authorized && session.role === "driver"
-      ? session.driverName
-      : record.activeDriverName;
+  // Soft rate limit: accept at most one GPS post per job every 4 seconds.
+  const rateKey = `loc:${token}`;
+  const nowMs = Date.now();
+  const lastPost = LOCATION_RATE_LIMIT.get(rateKey) ?? 0;
+  if (nowMs - lastPost < 4_000) {
+    return jsonResponse({ ok: true, throttled: true, pointCount: record.driverLocationPointCount ?? 0 }, 200, origin);
+  }
+  LOCATION_RATE_LIMIT.set(rateKey, nowMs);
+  if (LOCATION_RATE_LIMIT.size > 5_000) {
+    LOCATION_RATE_LIMIT.clear();
+  }
 
-  const pointCount = await appendDriverLocationPoint(env.TRACKING_STORE, token, {
+  const recordedAt = new Date().toISOString();
+
+  const appendResult = await appendDriverLocationPoint(env.TRACKING_STORE, token, {
     lat,
     lng,
     recordedAt,
     ...(driverName ? { driverName } : {}),
+    ...(Number.isFinite(Number(body.accuracy)) ? { accuracyMeters: Number(body.accuracy) } : {}),
+    ...(Number.isFinite(Number(body.speed)) ? { speedMps: Number(body.speed) } : {}),
+    ...(Number.isFinite(Number(body.heading)) ? { headingDegrees: Number(body.heading) } : {}),
+  }, {
+    historyTtlSeconds: gpsHistoryTtlSeconds(env),
   });
 
   record.driverLat = lat;
   record.driverLng = lng;
   record.driverUpdatedAt = recordedAt;
-  record.driverLocationPointCount = pointCount;
+  record.driverLocationPointCount = appendResult.pointCount;
   if (!record.driverLocationRecordedFrom) {
     record.driverLocationRecordedFrom = recordedAt;
   }
   record.driverLocationRecordedTo = recordedAt;
   await saveTrackingJob(env.TRACKING_STORE, record);
 
-  return jsonResponse({ ok: true, pointCount }, 200, origin);
+  return jsonResponse(
+    { ok: true, pointCount: appendResult.pointCount, stored: appendResult.stored },
+    200,
+    origin,
+  );
 }
 
 export async function handleDriverLocationHistoryRequest(

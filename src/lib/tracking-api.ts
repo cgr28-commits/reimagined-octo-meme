@@ -163,10 +163,39 @@ export type PublicTrackResponse = {
   trackingWindow: TrackingWindow;
   sharingActive: boolean;
   customerSharingActive: boolean;
+  journeyStatus?: JourneyStatus;
+  journeyStatusLabel?: string;
+  bookingReference?: string;
   driver: TrackLocation | null;
   customer?: TrackLocation | null;
   vehicle?: CustomerVehicleDetails;
   trackUrl: string;
+};
+
+export type JourneyStatus =
+  | "idle"
+  | "tracking"
+  | "arrived_pickup"
+  | "en_route"
+  | "arrived_destination"
+  | "completed"
+  | "stopped";
+
+export type JourneyAction =
+  | "start_tracking"
+  | "arrived_pickup"
+  | "start_journey"
+  | "arrived_destination"
+  | "complete_journey"
+  | "stop_tracking";
+
+export const JOURNEY_ACTION_LABELS: Record<JourneyAction, string> = {
+  start_tracking: "Start tracking",
+  arrived_pickup: "Arrived at pickup",
+  start_journey: "Start journey",
+  arrived_destination: "Arrived at destination",
+  complete_journey: "Complete journey",
+  stop_tracking: "Stop tracking",
 };
 
 export type DriverFlight = {
@@ -189,6 +218,9 @@ export type DriverLocationPoint = {
   lng: number;
   recordedAt: string;
   driverName?: string;
+  accuracyMeters?: number;
+  speedMps?: number;
+  headingDegrees?: number;
 };
 
 export type DriverJob = PublicTrackResponse & {
@@ -214,6 +246,14 @@ export type DriverJob = PublicTrackResponse & {
   driverLocationPointCount?: number;
   driverLocationRecordedFrom?: string;
   driverLocationRecordedTo?: string;
+  journeyStatus?: JourneyStatus;
+  journeyStatusLabel?: string;
+  allowedJourneyActions?: JourneyAction[];
+  trackingStartedAt?: string;
+  arrivedPickupAt?: string;
+  journeyStartedAt?: string;
+  arrivedDestinationAt?: string;
+  journeyCompletedAt?: string;
   isAirportPickup?: boolean;
   flightNumber?: string | null;
   airportCode?: string | null;
@@ -401,9 +441,300 @@ export async function setDriverSharing(
   return parseJsonResponse<{ ok: true; trackUrl: string }>(response);
 }
 
+export type JourneyTransitionResponse = {
+  ok: true;
+  token: string;
+  journeyStatus: JourneyStatus;
+  journeyStatusLabel: string;
+  allowedActions: JourneyAction[];
+  sharingActive: boolean;
+  trackUrl: string;
+  trackingStartedAt?: string;
+  arrivedPickupAt?: string;
+  journeyStartedAt?: string;
+  arrivedDestinationAt?: string;
+  journeyCompletedAt?: string;
+  trackingStoppedAt?: string;
+  trackingSession?: { sessionToken: string; expiresAt: string };
+};
+
+export async function postJourneyAction(
+  accessKey: string,
+  token: string,
+  action: JourneyAction,
+): Promise<JourneyTransitionResponse> {
+  if (isDemoDriverKey(accessKey) || isDemoOwnerKey(accessKey)) {
+    const trackUrl = isDemoTrackToken(token)
+      ? getDemoTrackResponse(token).trackUrl
+      : `https://www.myairporttaxini.co.uk/track/?id=${encodeURIComponent(token)}`;
+    return {
+      ok: true,
+      token,
+      journeyStatus: action === "complete_journey" ? "completed" : action === "stop_tracking" ? "stopped" : "tracking",
+      journeyStatusLabel: "Demo journey",
+      allowedActions: [],
+      sharingActive: action !== "complete_journey" && action !== "stop_tracking",
+      trackUrl,
+      trackingSession:
+        action === "complete_journey" || action === "stop_tracking"
+          ? undefined
+          : { sessionToken: "demo-session", expiresAt: new Date(Date.now() + 3_600_000).toISOString() },
+    };
+  }
+
+  const response = await fetch(
+    `${WORKER_BASE}/driver/journey?key=${encodeURIComponent(accessKey.trim())}`,
+    {
+      method: "POST",
+      headers: driverPostHeaders(accessKey),
+      body: JSON.stringify({ token, action }),
+    },
+  );
+
+  return parseJsonResponse<JourneyTransitionResponse>(response);
+}
+
+export async function fetchJourneySession(
+  accessKey: string,
+  token: string,
+): Promise<{ ok: true; sessionToken: string; expiresAt: string }> {
+  if (isDemoDriverKey(accessKey) || isDemoOwnerKey(accessKey)) {
+    return {
+      ok: true,
+      sessionToken: "demo-session",
+      expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
+    };
+  }
+
+  const response = await fetch(
+    `${WORKER_BASE}/driver/journey/session?key=${encodeURIComponent(accessKey.trim())}`,
+    {
+      method: "POST",
+      headers: driverPostHeaders(accessKey),
+      body: JSON.stringify({ token }),
+    },
+  );
+
+  return parseJsonResponse<{ ok: true; sessionToken: string; expiresAt: string }>(response);
+}
+
+export type JourneyEvidencePack = {
+  businessName: string;
+  disclaimer: string;
+  bookingReference: string;
+  paymentReference?: string;
+  amountPaid?: string;
+  paymentStatus?: string;
+  customerName: string;
+  customerMobile?: string;
+  customerEmail?: string;
+  pickupLabel: string;
+  dropoffLabel: string;
+  tripDate: string;
+  tripTime: string;
+  pickupDisplay: string;
+  flightNumber?: string;
+  journeyStatus: JourneyStatus;
+  journeyStatusLabel: string;
+  trackingStartedAt?: string;
+  arrivedPickupAt?: string;
+  journeyStartedAt?: string;
+  arrivedDestinationAt?: string;
+  journeyCompletedAt?: string;
+  trackingStoppedAt?: string;
+  durationMinutes?: number;
+  pointCount: number;
+  recordedFrom?: string;
+  recordedTo?: string;
+  trackUrl: string;
+  points: DriverLocationPoint[];
+};
+
+export async function fetchJourneyEvidence(
+  ownerKey: string,
+  token: string,
+): Promise<{ ok: true; evidence: JourneyEvidencePack }> {
+  if (isDemoOwnerKey(ownerKey)) {
+    const history = getDemoOwnerLocationHistory(token);
+    return {
+      ok: true,
+      evidence: {
+        businessName: "My Airport Taxi NI",
+        disclaimer:
+          "Automatically generated journey record from the booking system. Intended as supporting operational evidence; it does not guarantee the outcome of any payment dispute.",
+        bookingReference: "DEMO-REF",
+        paymentReference: "DEMO-REF",
+        amountPaid: "£1.00",
+        paymentStatus: "confirmed",
+        customerName: "Demo Customer",
+        pickupLabel: "Demo pickup",
+        dropoffLabel: "Demo drop-off",
+        tripDate: new Date().toISOString().slice(0, 10),
+        tripTime: "10:00",
+        pickupDisplay: "Demo pickup time",
+        journeyStatus: "completed",
+        journeyStatusLabel: "Journey completed",
+        pointCount: history.count,
+        points: history.points,
+        trackUrl: `https://www.myairporttaxini.co.uk/track/?id=${token}`,
+      },
+    };
+  }
+
+  const url = new URL(`${WORKER_BASE}/driver/journey/evidence`);
+  driverQueryKey(url, ownerKey);
+  url.searchParams.set("token", token);
+
+  const response = await fetch(url.toString(), {
+    method: "GET",
+    headers: { Accept: "application/json" },
+    cache: "no-store",
+  });
+
+  return parseJsonResponse<{ ok: true; evidence: JourneyEvidencePack }>(response);
+}
+
+export async function ensurePaidBookingTracking(
+  ownerKey: string,
+  paymentReference: string,
+): Promise<{ ok: true; alreadyExisted: boolean; token: string; trackUrl: string }> {
+  if (isDemoOwnerKey(ownerKey)) {
+    return {
+      ok: true,
+      alreadyExisted: true,
+      token: "demo-token",
+      trackUrl: "https://www.myairporttaxini.co.uk/track/?id=demo-token",
+    };
+  }
+
+  const response = await fetch(
+    `${WORKER_BASE}/paid-bookings/ensure-tracking?key=${encodeURIComponent(ownerKey.trim())}`,
+    {
+      method: "POST",
+      headers: driverPostHeaders(ownerKey),
+      body: JSON.stringify({ paymentReference }),
+    },
+  );
+
+  return parseJsonResponse<{
+    ok: true;
+    alreadyExisted: boolean;
+    token: string;
+    trackUrl: string;
+  }>(response);
+}
+
+export type OwnerAccountProfile = {
+  profileKey: "owner";
+  displayName: string;
+  email: string;
+  mobile?: string;
+  make: string;
+  model: string;
+  colour: string;
+  registration: string;
+  updatedAt: string;
+};
+
+export async function fetchOwnerAccountProfile(
+  ownerKey: string,
+): Promise<{ profile: OwnerAccountProfile | null; complete: boolean }> {
+  if (isDemoOwnerKey(ownerKey)) {
+    return {
+      profile: {
+        profileKey: "owner",
+        displayName: "Owner",
+        email: "owner@example.com",
+        mobile: "07700900123",
+        make: "Mercedes-Benz",
+        model: "E-Class",
+        colour: "Black",
+        registration: "ABC 1234",
+        updatedAt: new Date().toISOString(),
+      },
+      complete: true,
+    };
+  }
+
+  const url = new URL(`${WORKER_BASE}/owner/profile`);
+  driverQueryKey(url, ownerKey);
+
+  const response = await fetch(url.toString(), {
+    method: "GET",
+    headers: {
+      Accept: "application/json",
+      "X-Owner-Key": ownerKey.trim(),
+    },
+    cache: "no-store",
+  });
+
+  const payload = await parseJsonResponse<{
+    ok: true;
+    profile: OwnerAccountProfile | null;
+    complete?: boolean;
+  }>(response);
+
+  return {
+    profile: payload.profile ?? null,
+    complete: payload.complete === true,
+  };
+}
+
+export async function saveOwnerAccountProfile(
+  ownerKey: string,
+  input: {
+    displayName: string;
+    email: string;
+    mobile?: string;
+    make: string;
+    model: string;
+    colour: string;
+    registration: string;
+  },
+): Promise<OwnerAccountProfile> {
+  if (isDemoOwnerKey(ownerKey)) {
+    return {
+      profileKey: "owner",
+      displayName: input.displayName,
+      email: input.email,
+      mobile: input.mobile,
+      make: input.make,
+      model: input.model,
+      colour: input.colour,
+      registration: input.registration.toUpperCase(),
+      updatedAt: new Date().toISOString(),
+    };
+  }
+
+  const response = await fetch(
+    `${WORKER_BASE}/owner/profile?key=${encodeURIComponent(ownerKey.trim())}`,
+    {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        "X-Owner-Key": ownerKey.trim(),
+      },
+      body: JSON.stringify(input),
+    },
+  );
+
+  const payload = await parseJsonResponse<{
+    ok: true;
+    profile: OwnerAccountProfile;
+    complete?: boolean;
+  }>(response);
+
+  if (!payload.profile?.email || payload.complete === false) {
+    throw new Error("Owner profile was not saved on the server");
+  }
+
+  return payload.profile;
+}
+
 export async function fetchDriverVehicleProfiles(
   accessKey: string,
-): Promise<Array<{ profileKey: string; displayName: string }>> {
+): Promise<Array<{ profileKey: string; displayName: string; complete?: boolean }>> {
   if (isDemoOwnerKey(accessKey)) {
     return getDemoOwnerVehicleProfiles();
   }
@@ -421,9 +752,10 @@ export async function fetchDriverVehicleProfiles(
     cache: "no-store",
   });
 
-  const payload = await parseJsonResponse<{ ok: true; profiles: Array<{ profileKey: string; displayName: string }> }>(
-    response,
-  );
+  const payload = await parseJsonResponse<{
+    ok: true;
+    profiles: Array<{ profileKey: string; displayName: string; complete?: boolean }>;
+  }>(response);
   return payload.profiles;
 }
 
@@ -511,9 +843,15 @@ export async function saveDriverVehicle(
   const payload = await parseJsonResponse<{
     ok: true;
     profile: DriverVehicleProfile;
+    complete?: boolean;
     emailSent?: boolean;
     emailWarning?: string;
   }>(response);
+
+  if (!payload.profile?.profileKey || !payload.profile.email) {
+    throw new Error("Driver profile was not saved on the server");
+  }
+
   return payload;
 }
 
@@ -721,19 +1059,44 @@ export async function postDriverLocation(
   token: string,
   lat: number,
   lng: number,
+  extras?: {
+    sessionToken?: string;
+    accuracy?: number;
+    speed?: number;
+    heading?: number;
+  },
 ): Promise<void> {
-  if (isDemoDriverKey(driverKey)) {
+  if (isDemoDriverKey(driverKey) || isDemoOwnerKey(driverKey)) {
     return;
   }
 
-  const response = await fetch(`${WORKER_BASE}/driver/location?key=${encodeURIComponent(driverKey)}`, {
+  const headers: Record<string, string> = {
+    Accept: "application/json",
+    "Content-Type": "application/json",
+  };
+  const sessionToken = extras?.sessionToken?.trim();
+  if (sessionToken) {
+    headers["X-Tracking-Session"] = sessionToken;
+  } else {
+    headers["X-Driver-Key"] = driverKey;
+  }
+
+  const url = sessionToken
+    ? `${WORKER_BASE}/driver/location`
+    : `${WORKER_BASE}/driver/location?key=${encodeURIComponent(driverKey)}`;
+
+  const response = await fetch(url, {
     method: "POST",
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/json",
-      "X-Driver-Key": driverKey,
-    },
-    body: JSON.stringify({ token, lat, lng }),
+    headers,
+    body: JSON.stringify({
+      token,
+      lat,
+      lng,
+      ...(sessionToken ? { sessionToken } : {}),
+      ...(typeof extras?.accuracy === "number" ? { accuracy: extras.accuracy } : {}),
+      ...(typeof extras?.speed === "number" ? { speed: extras.speed } : {}),
+      ...(typeof extras?.heading === "number" ? { heading: extras.heading } : {}),
+    }),
   });
 
   await parseJsonResponse<{ ok: true }>(response);

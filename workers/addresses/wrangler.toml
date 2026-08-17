@@ -35,6 +35,8 @@ id = "869e2c2e02004d4a88c9cfbf563f1d6a"
 #
 # Live driver tracking (paid bookings). setup-worker.mjs creates TRACKING_STORE KV and
 # sets DRIVER_ACCESS_KEY secret for the /driver/ dashboard.
+# Optional: TRACKING_GPS_HISTORY_TTL_SECONDS (plain var) — GPS audit retention override (seconds, min 30 days).
+# Default GPS history retention is ~400 days.
 
 # Cloudflare Email Service (optional — onboard myairporttaxini.co.uk in dashboard first).
 # Without this, bookings email via WEB3FORMS_ACCESS_KEY secret, then MailChannels.

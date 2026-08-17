@@ -6,7 +6,6 @@ import {
 } from "../shared/driver-vehicle";
 import {
   driverAuthorized,
-  isConfiguredDriver,
   listConfiguredDrivers,
   resolveDriverSession,
   type DriverAuthEnv,
@@ -14,6 +13,7 @@ import {
 import { corsHeaders } from "../shared/google-places";
 import {
   getDriverVehicleProfile,
+  listOwnerVehicleProfileOptions,
   normalizeVehicleProfileKey,
   saveDriverVehicleProfile,
 } from "./driver-vehicle-store";
@@ -41,40 +41,26 @@ function isValidEmail(value: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
 }
 
-function ownerProfileOptions(env: Env): Array<{ profileKey: string; displayName: string }> {
-  return [
-    { profileKey: OWNER_VEHICLE_PROFILE_KEY, displayName: "Owner" },
-    ...listConfiguredDrivers(env).map((name) => ({
-      profileKey: normalizeVehicleProfileKey(name),
-      displayName: name,
-    })),
-  ];
-}
-
-function canAccessVehicleProfile(
+async function ownerCanAccessProfileKey(
+  store: KVNamespace,
   env: Env,
-  session: ReturnType<typeof resolveDriverSession>,
   profileKey: string,
-): boolean {
-  if (!session.authorized) {
-    return false;
+): Promise<boolean> {
+  if (profileKey === OWNER_VEHICLE_PROFILE_KEY) {
+    return true;
   }
 
-  if (session.role === "owner") {
-    if (profileKey === OWNER_VEHICLE_PROFILE_KEY) {
-      return true;
-    }
-
-    return listConfiguredDrivers(env).some(
+  if (
+    listConfiguredDrivers(env).some(
       (name) => normalizeVehicleProfileKey(name) === profileKey,
-    );
+    )
+  ) {
+    return true;
   }
 
-  if (!session.driverName) {
-    return false;
-  }
-
-  return normalizeVehicleProfileKey(session.driverName) === profileKey;
+  // Allow access to any profile previously saved in KV (roster may have changed).
+  const existing = await getDriverVehicleProfile(store, profileKey);
+  return Boolean(existing);
 }
 
 function resolveRequestedProfileKey(
@@ -91,12 +77,7 @@ function resolveRequestedProfileKey(
     if (!trimmed || trimmed.toLowerCase() === OWNER_VEHICLE_PROFILE_KEY) {
       return OWNER_VEHICLE_PROFILE_KEY;
     }
-
-    if (isConfiguredDriver(env, trimmed)) {
-      return normalizeVehicleProfileKey(trimmed);
-    }
-
-    return null;
+    return normalizeVehicleProfileKey(trimmed);
   }
 
   if (!session.driverName) {
@@ -134,24 +115,31 @@ export async function handleDriverVehicleProfilesRequest(
     return jsonResponse({ error: "Unauthorized" }, 401, origin);
   }
 
-  if (session.role === "owner") {
-    return jsonResponse(
-      {
-        ok: true,
-        profiles: ownerProfileOptions(env),
-      },
-      200,
-      origin,
-    );
+  if (!trackingStoreConfigured(env.TRACKING_STORE)) {
+    return jsonResponse({ error: "Live tracking is not configured" }, 503, origin);
   }
+
+  if (session.role === "owner") {
+    const profiles = await listOwnerVehicleProfileOptions(
+      env.TRACKING_STORE,
+      listConfiguredDrivers(env),
+    );
+    return jsonResponse({ ok: true, profiles }, 200, origin);
+  }
+
+  const profileKey = normalizeVehicleProfileKey(session.driverName ?? "");
+  const saved = profileKey
+    ? await getDriverVehicleProfile(env.TRACKING_STORE, profileKey)
+    : null;
 
   return jsonResponse(
     {
       ok: true,
       profiles: [
         {
-          profileKey: normalizeVehicleProfileKey(session.driverName ?? ""),
-          displayName: session.driverName ?? "Driver",
+          profileKey: profileKey || "driver",
+          displayName: saved?.displayName ?? session.driverName ?? "Driver",
+          complete: saved ? driverProfileComplete(saved) : false,
         },
       ],
     },
@@ -175,9 +163,28 @@ export async function handleDriverVehicleGetRequest(
 
   const session = resolveDriverSession(request, env);
   const url = new URL(request.url);
-  const profileKey = resolveRequestedProfileKey(env, session, url.searchParams.get("profile") ?? undefined);
+  const profileKey = resolveRequestedProfileKey(
+    env,
+    session,
+    url.searchParams.get("profile") ?? undefined,
+  );
 
-  if (!profileKey || !canAccessVehicleProfile(env, session, profileKey)) {
+  if (!profileKey || !session.authorized) {
+    return jsonResponse({ error: "Unauthorized for this driver profile" }, 403, origin);
+  }
+
+  if (session.role === "owner") {
+    const allowed = await ownerCanAccessProfileKey(env.TRACKING_STORE, env, profileKey);
+    if (!allowed) {
+      // Still allow GET for empty/new roster slots so the form can open blank.
+      const rosterHit = listConfiguredDrivers(env).some(
+        (name) => normalizeVehicleProfileKey(name) === profileKey,
+      );
+      if (!rosterHit && profileKey !== OWNER_VEHICLE_PROFILE_KEY) {
+        return jsonResponse({ error: "Unauthorized for this driver profile" }, 403, origin);
+      }
+    }
+  } else if (normalizeVehicleProfileKey(session.driverName ?? "") !== profileKey) {
     return jsonResponse({ error: "Unauthorized for this driver profile" }, 403, origin);
   }
 
@@ -188,6 +195,7 @@ export async function handleDriverVehicleGetRequest(
       ok: true,
       profile: profile ?? null,
       profileKey,
+      complete: profile ? driverProfileComplete(profile) : false,
     },
     200,
     origin,
@@ -216,13 +224,26 @@ export async function handleDriverVehicleSaveRequest(
     return jsonResponse({ error: "Invalid JSON" }, 400, origin);
   }
 
-  const profileKey = resolveRequestedProfileKey(
-    env,
-    session,
-    String(body.profile ?? body.profileKey ?? body.displayName ?? "").trim() || undefined,
-  );
+  const requested =
+    String(body.profile ?? body.profileKey ?? "").trim() ||
+    String(body.displayName ?? body.name ?? "").trim() ||
+    undefined;
 
-  if (!profileKey || !canAccessVehicleProfile(env, session, profileKey)) {
+  const profileKey = resolveRequestedProfileKey(env, session, requested);
+
+  if (!profileKey || !session.authorized) {
+    return jsonResponse({ error: "Unauthorized for this driver profile" }, 403, origin);
+  }
+
+  if (session.role === "owner") {
+    const rosterHit = listConfiguredDrivers(env).some(
+      (name) => normalizeVehicleProfileKey(name) === profileKey,
+    );
+    const existing = await getDriverVehicleProfile(env.TRACKING_STORE, profileKey);
+    if (!rosterHit && profileKey !== OWNER_VEHICLE_PROFILE_KEY && !existing) {
+      // Owner may create a new named profile (upsert) — allowed; falls through.
+    }
+  } else if (normalizeVehicleProfileKey(session.driverName ?? "") !== profileKey) {
     return jsonResponse({ error: "Unauthorized for this driver profile" }, 403, origin);
   }
 
@@ -254,28 +275,41 @@ export async function handleDriverVehicleSaveRequest(
     );
   }
 
-  const saved = await saveDriverVehicleProfile(env.TRACKING_STORE, {
-    profileKey,
-    displayName: resolvedDisplayName,
-    email,
-    mobile: mobile || undefined,
-    make,
-    model,
-    colour,
-    registration,
-    updatedAt: new Date().toISOString(),
-  });
-
-  if (!driverProfileComplete(saved)) {
-    return jsonResponse({ error: "Driver profile could not be saved" }, 502, origin);
+  let saved: DriverVehicleProfile;
+  try {
+    saved = await saveDriverVehicleProfile(env.TRACKING_STORE, {
+      profileKey,
+      displayName: resolvedDisplayName,
+      email,
+      mobile: mobile || undefined,
+      make,
+      model,
+      colour,
+      registration,
+      updatedAt: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error("Driver vehicle profile save failed", error);
+    return jsonResponse({ error: "Could not save driver profile to storage" }, 502, origin);
   }
 
-  const emailResult = await sendDriverProfileEmail(env, saved);
+  // Confirm round-trip from KV so we never report success on a failed write.
+  const confirmed = await getDriverVehicleProfile(env.TRACKING_STORE, saved.profileKey);
+  if (!confirmed || !driverProfileComplete(confirmed)) {
+    return jsonResponse(
+      { error: "Driver profile was not persisted — please try saving again" },
+      502,
+      origin,
+    );
+  }
+
+  const emailResult = await sendDriverProfileEmail(env, confirmed);
 
   return jsonResponse(
     {
       ok: true,
-      profile: saved,
+      profile: confirmed,
+      complete: true,
       emailSent: emailResult.sent,
       ...(emailResult.error ? { emailWarning: emailResult.error } : {}),
     },

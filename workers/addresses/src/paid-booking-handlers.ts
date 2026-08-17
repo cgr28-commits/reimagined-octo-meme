@@ -145,6 +145,7 @@ export async function handlePaidBookingsListRequest(
         returnJourney: booking.returnJourney,
         returnDate: booking.returnDate,
         returnTime: booking.returnTime,
+        trackingToken: booking.trackingToken,
       })),
     },
     200,

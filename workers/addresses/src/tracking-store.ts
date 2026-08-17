@@ -1,8 +1,13 @@
 import {
   buildPickupDateTimeLocal,
+  generateTrackingSessionToken,
   generateTrackingToken,
+  shouldStoreGpsPoint,
+  TRACKING_SESSION_TTL_SECONDS,
+  DEFAULT_GPS_HISTORY_TTL_SECONDS,
   type DriverLocationPoint,
   type TrackingJobRecord,
+  type TrackingSessionRecord,
 } from "../shared/tracking";
 import type { PaidBookingDetails } from "../shared/booking-notifications";
 
@@ -10,9 +15,10 @@ const JOB_PREFIX = "track:job:";
 const DAY_INDEX_PREFIX = "track:day:";
 const REF_INDEX_PREFIX = "track:ref:";
 const DRIVER_HISTORY_PREFIX = "track:driver-history:";
+const SESSION_PREFIX = "track:session:";
 const DAY_INDEX_TTL = 60 * 60 * 24 * 45;
-/** Retain driver GPS audit trail for 1 year */
-const DRIVER_HISTORY_TTL = 60 * 60 * 24 * 365;
+/** Retain driver GPS audit trail — default ~400 days; overridable via env helper. */
+const DRIVER_HISTORY_TTL = DEFAULT_GPS_HISTORY_TTL_SECONDS;
 const PAYMENT_REF_SEARCH_DAYS_BACK = 45;
 const PAYMENT_REF_SEARCH_DAYS_AHEAD = 60;
 
@@ -566,19 +572,93 @@ function driverHistoryKey(token: string): string {
   return `${DRIVER_HISTORY_PREFIX}${token}`;
 }
 
+function sessionKey(sessionToken: string): string {
+  return `${SESSION_PREFIX}${sessionToken.trim()}`;
+}
+
+export async function createTrackingSession(
+  store: KVNamespace,
+  input: {
+    jobToken: string;
+    createdByRole: "owner" | "driver";
+    driverName?: string;
+    ttlSeconds?: number;
+  },
+): Promise<TrackingSessionRecord> {
+  const ttl = Math.max(60 * 30, Math.min(input.ttlSeconds ?? TRACKING_SESSION_TTL_SECONDS, 60 * 60 * 24));
+  const createdAt = new Date();
+  const expiresAt = new Date(createdAt.getTime() + ttl * 1000);
+  const record: TrackingSessionRecord = {
+    sessionToken: generateTrackingSessionToken(),
+    jobToken: input.jobToken.trim(),
+    createdAt: createdAt.toISOString(),
+    expiresAt: expiresAt.toISOString(),
+    createdByRole: input.createdByRole,
+    ...(input.driverName?.trim() ? { driverName: input.driverName.trim() } : {}),
+  };
+  await store.put(sessionKey(record.sessionToken), JSON.stringify(record), {
+    expirationTtl: ttl,
+  });
+  return record;
+}
+
+export async function getTrackingSession(
+  store: KVNamespace,
+  sessionToken: string,
+): Promise<TrackingSessionRecord | null> {
+  const record = await store.get<TrackingSessionRecord>(sessionKey(sessionToken), "json");
+  if (!record?.sessionToken || !record.jobToken) {
+    return null;
+  }
+  if (new Date(record.expiresAt).getTime() < Date.now()) {
+    return null;
+  }
+  return record;
+}
+
+/** GPS audit retention — default ~400 days; override with TRACKING_GPS_HISTORY_TTL_SECONDS (≥30 days). */
+export function gpsHistoryTtlSeconds(env: {
+  TRACKING_GPS_HISTORY_TTL_SECONDS?: string;
+}): number {
+  const raw = Number(env.TRACKING_GPS_HISTORY_TTL_SECONDS?.trim());
+  if (Number.isFinite(raw) && raw >= 60 * 60 * 24 * 30) {
+    return Math.floor(raw);
+  }
+  return DEFAULT_GPS_HISTORY_TTL_SECONDS;
+}
+
+export async function revokeTrackingSessionsForJob(
+  store: KVNamespace,
+  _jobToken: string,
+): Promise<void> {
+  // Sessions expire via TTL; active session tokens are rotated on stop/complete.
+  // No list API in KV — callers issue a fresh session only while tracking is active.
+  void store;
+  void _jobToken;
+}
+
+/**
+ * Append a GPS audit point when it moved/aged enough. Always returns the history length
+ * (even when the point was skipped as redundant).
+ */
 export async function appendDriverLocationPoint(
   store: KVNamespace,
   token: string,
   point: DriverLocationPoint,
-): Promise<number> {
+  options?: { historyTtlSeconds?: number },
+): Promise<{ pointCount: number; stored: boolean }> {
   const key = driverHistoryKey(token);
   const existing = await store.get<DriverLocationPoint[]>(key, "json");
   const history = Array.isArray(existing) ? existing : [];
-  history.push(point);
-  await store.put(key, JSON.stringify(history), {
-    expirationTtl: DRIVER_HISTORY_TTL,
-  });
-  return history.length;
+  const previous = history.at(-1);
+  const storePoint = shouldStoreGpsPoint(previous, point);
+  if (storePoint) {
+    history.push(point);
+    await store.put(key, JSON.stringify(history), {
+      expirationTtl: options?.historyTtlSeconds ?? DRIVER_HISTORY_TTL,
+    });
+  }
+  return { pointCount: history.length, stored: storePoint };
 }
 
 export async function getDriverLocationHistory(

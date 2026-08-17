@@ -529,22 +529,28 @@ export function getDemoOwnerLocationHistory(token: string) {
 }
 
 export function getDemoOwnerVehicleProfiles() {
-  return DEMO_ROSTER.map((name) => ({
-    profileKey: name.toLowerCase(),
-    displayName: name,
-  }));
+  return [
+    { profileKey: "owner", displayName: "Owner", complete: true },
+    ...DEMO_ROSTER.map((name) => ({
+      profileKey: name.toLowerCase(),
+      displayName: name,
+      complete: true,
+    })),
+  ];
 }
 
 export function getDemoOwnerVehicle(profile?: string) {
+  const key = (profile ?? "owner").trim().toLowerCase();
   const displayName =
-    profile && profile !== "owner"
-      ? DEMO_ROSTER.find((name) => name.toLowerCase() === profile.toLowerCase()) ?? profile
-      : DEMO_DRIVER_NAME;
+    key === "owner"
+      ? "Owner"
+      : DEMO_ROSTER.find((name) => name.toLowerCase() === key) ?? profile ?? DEMO_DRIVER_NAME;
 
   return {
-    profileKey: displayName.toLowerCase(),
+    profileKey: key === "owner" ? "owner" : displayName.toLowerCase(),
     displayName,
-    email: `${displayName.toLowerCase()}@example.com`,
+    email: `${String(displayName).toLowerCase().replace(/\s+/g, ".")}@example.com`,
+    mobile: "07700900123",
     make: "Mercedes-Benz",
     model: "E-Class",
     colour: "Black",
@@ -554,7 +560,7 @@ export function getDemoOwnerVehicle(profile?: string) {
 }
 
 export function getDemoDriverVehicleProfiles() {
-  return [{ profileKey: DEMO_DRIVER_NAME.toLowerCase(), displayName: DEMO_DRIVER_NAME }];
+  return [{ profileKey: DEMO_DRIVER_NAME.toLowerCase(), displayName: DEMO_DRIVER_NAME, complete: true }];
 }
 
 export function getDemoDriverVehicle() {

@@ -54,10 +54,10 @@ export const SERVICE_FLAGS = {
    * (Standard Saloon / Estate). Enquiry/request-quote vehicles still use Request to book.
    */
   customerSumUpPay: true,
-  /** Live driver tracking marketing + customer track links — soft-hidden until more testing. */
-  liveDriverTracking: false,
-  /** Public driver dashboard — soft-hidden; drivers confirm jobs by email instead. */
-  driverDashboard: false,
+  /** Live driver tracking marketing + customer track links + dashboard journey controls. */
+  liveDriverTracking: true,
+  /** Public driver dashboard — enabled for journey tracking on phone. */
+  driverDashboard: true,
 } as const;
 
 export type ServiceFlagKey = keyof typeof SERVICE_FLAGS;
