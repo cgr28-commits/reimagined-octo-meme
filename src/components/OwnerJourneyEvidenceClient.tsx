@@ -57,7 +57,7 @@ function Fact({
           </span>
         ) : null}
       </dt>
-      <dd className="mt-1 text-sm text-white/90">{value || "—"}</dd>
+      <dd className="mt-1 break-words text-sm text-white/90 print:text-black">{value || "—"}</dd>
     </div>
   );
 }
@@ -187,29 +187,19 @@ export default function OwnerJourneyEvidenceClient({
   }
 
   return (
-    <main className="mx-auto min-h-screen max-w-6xl px-4 py-6 text-white sm:py-10 print:max-w-none print:bg-white print:text-black">
+    <main className="mx-auto min-h-screen max-w-6xl overflow-x-clip px-4 py-6 text-white sm:px-6 sm:py-8 lg:px-8 print:max-w-none print:bg-white print:text-black">
       <div className="print:hidden mb-4 flex flex-wrap items-center justify-between gap-3">
         <Link href="/owner/" className="text-sm text-emerald underline">
           ← Owner dashboard
         </Link>
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => void loadEvidence(ownerKey)}
-            disabled={loading}
-            className="rounded-xl border border-white/15 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
-          >
-            Refresh
-          </button>
-          <button
-            type="button"
-            onClick={downloadPdf}
-            disabled={!evidence}
-            className="rounded-xl bg-emerald px-4 py-2 text-sm font-bold text-navy disabled:opacity-60"
-          >
-            Download Journey Evidence PDF
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={() => void loadEvidence(ownerKey)}
+          disabled={loading}
+          className="min-h-11 rounded-xl border border-white/15 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+        >
+          Refresh
+        </button>
       </div>
 
       <header className="border-b border-white/10 pb-5 print:border-black/20">
@@ -278,8 +268,86 @@ export default function OwnerJourneyEvidenceClient({
             </dl>
           </section>
 
-          <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
-            <div className="space-y-6">
+          {/* Mobile: summary → map → journey → booking → payment → timeline → notes → PDF
+              Desktop: map + details side-by-side */}
+          <div className="flex flex-col gap-8 lg:grid lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)] lg:items-start">
+            <section className="order-1 min-w-0 print:break-inside-avoid lg:order-2 lg:sticky lg:top-24">
+              <h2 className="text-sm font-bold uppercase tracking-wider text-white/50 print:text-black/70">
+                Historical route map
+              </h2>
+              <p className="mt-2 text-xs text-white/45 print:text-black/60">
+                Owner only. Markers show tracking start and tracking end from stored GPS points.
+                Pickup and destination addresses are text records and are not geocoded onto this
+                map.
+              </p>
+              {route.length >= 2 ? (
+                <div className="mt-3 w-full max-w-full overflow-hidden rounded-xl border border-white/10 print:border-black/20">
+                  <LiveTrackMap
+                    markers={markers}
+                    route={route}
+                    className="h-72 w-full max-w-full sm:h-96 lg:h-[32rem]"
+                  />
+                </div>
+              ) : (
+                <p className="mt-3 rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-white/60 print:border-black/20 print:text-black/70">
+                  Route not reconstructable — fewer than two GPS points with coordinates.
+                </p>
+              )}
+              <p className="mt-2 text-xs text-white/40 print:text-black/50">
+                Map tiles may not appear in printed PDFs. The GPS point count and timestamps remain
+                the primary recorded evidence.
+              </p>
+            </section>
+
+            <div className="order-2 min-w-0 space-y-6 lg:order-1">
+              <section>
+                <h2 className="text-sm font-bold uppercase tracking-wider text-white/50 print:text-black/70">
+                  Journey record
+                </h2>
+                <dl className="mt-3 grid gap-3 sm:grid-cols-2">
+                  <Fact label="Status" value={evidence.journeyStatusLabel} />
+                  <Fact label="Tracking start" value={recordedOrNot(evidence.trackingStartedAt)} />
+                  <Fact label="First GPS point" value={recordedOrNot(evidence.recordedFrom)} />
+                  <Fact label="Last GPS point" value={recordedOrNot(evidence.recordedTo)} />
+                  <Fact label="Tracking stopped" value={recordedOrNot(evidence.trackingStoppedAt)} />
+                  <Fact
+                    label="Journey completed time"
+                    value={recordedOrNot(evidence.journeyCompletedAt)}
+                  />
+                  <Fact
+                    label="Total tracking duration"
+                    value={
+                      typeof evidence.durationMinutes === "number"
+                        ? `${evidence.durationMinutes} min`
+                        : typeof evidence.gpsTrailDurationMinutes === "number"
+                          ? `${evidence.gpsTrailDurationMinutes} min`
+                          : "Not recorded"
+                    }
+                    derived={
+                      typeof evidence.durationMinutes === "number" ||
+                      typeof evidence.gpsTrailDurationMinutes === "number"
+                    }
+                  />
+                  <Fact label="Total GPS points" value={String(evidence.pointCount)} />
+                  <Fact
+                    label="Route reconstructable"
+                    value={yesNo(evidence.routeReconstructable)}
+                  />
+                  <Fact
+                    label="GPS accuracy available"
+                    value={yesNo(evidence.fieldsStored?.accuracyMeters)}
+                  />
+                  <Fact
+                    label="Speed data available"
+                    value={yesNo(evidence.fieldsStored?.speedMps)}
+                  />
+                  <Fact
+                    label="Heading data available"
+                    value={yesNo(evidence.fieldsStored?.headingDegrees)}
+                  />
+                </dl>
+              </section>
+
               <section>
                 <h2 className="text-sm font-bold uppercase tracking-wider text-white/50 print:text-black/70">
                   Booking
@@ -346,108 +414,31 @@ export default function OwnerJourneyEvidenceClient({
                   ) : null}
                 </dl>
               </section>
-
-              <section>
-                <h2 className="text-sm font-bold uppercase tracking-wider text-white/50 print:text-black/70">
-                  Journey
-                </h2>
-                <dl className="mt-3 grid gap-3 sm:grid-cols-2">
-                  <Fact label="Tracking start" value={recordedOrNot(evidence.trackingStartedAt)} />
-                  <Fact label="First GPS point" value={recordedOrNot(evidence.recordedFrom)} />
-                  <Fact label="Last GPS point" value={recordedOrNot(evidence.recordedTo)} />
-                  <Fact label="Tracking stopped" value={recordedOrNot(evidence.trackingStoppedAt)} />
-                  <Fact
-                    label="Journey completed time"
-                    value={recordedOrNot(evidence.journeyCompletedAt)}
-                  />
-                  <Fact
-                    label="Total tracking duration"
-                    value={
-                      typeof evidence.durationMinutes === "number"
-                        ? `${evidence.durationMinutes} min`
-                        : typeof evidence.gpsTrailDurationMinutes === "number"
-                          ? `${evidence.gpsTrailDurationMinutes} min`
-                          : "Not recorded"
-                    }
-                    derived={
-                      typeof evidence.durationMinutes === "number" ||
-                      typeof evidence.gpsTrailDurationMinutes === "number"
-                    }
-                  />
-                  <Fact label="Total GPS points" value={String(evidence.pointCount)} />
-                  <Fact
-                    label="Route reconstructable"
-                    value={yesNo(evidence.routeReconstructable)}
-                  />
-                  <Fact
-                    label="GPS accuracy available"
-                    value={yesNo(evidence.fieldsStored?.accuracyMeters)}
-                  />
-                  <Fact
-                    label="Speed data available"
-                    value={yesNo(evidence.fieldsStored?.speedMps)}
-                  />
-                  <Fact
-                    label="Heading data available"
-                    value={yesNo(evidence.fieldsStored?.headingDegrees)}
-                  />
-                </dl>
-              </section>
-            </div>
-
-            <div className="space-y-6">
-              <section className="print:break-inside-avoid">
-                <h2 className="text-sm font-bold uppercase tracking-wider text-white/50 print:text-black/70">
-                  Recorded route map
-                </h2>
-                <p className="mt-2 text-xs text-white/45 print:text-black/60">
-                  Owner only. Markers show tracking start and tracking end from stored GPS points.
-                  Pickup and destination addresses are text records and are not geocoded onto this
-                  map.
-                </p>
-                {route.length >= 2 ? (
-                  <div className="mt-3 overflow-hidden rounded-xl border border-white/10 print:border-black/20">
-                    <LiveTrackMap
-                      markers={markers}
-                      route={route}
-                      className="h-80 w-full sm:h-[28rem] lg:h-[32rem]"
-                    />
-                  </div>
-                ) : (
-                  <p className="mt-3 rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-white/60 print:border-black/20 print:text-black/70">
-                    Route not reconstructable — fewer than two GPS points with coordinates.
-                  </p>
-                )}
-                <p className="mt-2 text-xs text-white/40 print:text-black/50">
-                  Map tiles may not appear in printed PDFs. The GPS point count and timestamps remain
-                  the primary recorded evidence.
-                </p>
-              </section>
-
-              <section>
-                <h2 className="text-sm font-bold uppercase tracking-wider text-white/50 print:text-black/70">
-                  Journey timeline
-                </h2>
-                <ol className="mt-3 space-y-3">
-                  {(evidence.timeline ?? []).map((event) => (
-                    <li
-                      key={event.id}
-                      className="flex gap-3 border-l-2 border-white/15 pl-3 print:border-black/20"
-                    >
-                      <div>
-                        <p className="text-sm font-semibold text-white print:text-black">
-                          {event.label}
-                        </p>
-                        <p className="text-xs text-white/55 print:text-black/60">
-                          {event.at?.trim() ? formatUkInstant(event.at) : "Not recorded"}
-                        </p>
-                      </div>
-                    </li>
-                  ))}
-                </ol>
-              </section>
             </div>
           </div>
+
+          <section className="min-w-0">
+            <h2 className="text-sm font-bold uppercase tracking-wider text-white/50 print:text-black/70">
+              Journey timeline
+            </h2>
+            <ol className="mt-3 space-y-3">
+              {(evidence.timeline ?? []).map((event) => (
+                <li
+                  key={event.id}
+                  className="flex gap-3 border-l-2 border-white/15 pl-3 print:border-black/20"
+                >
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-white print:text-black">
+                      {event.label}
+                    </p>
+                    <p className="break-words text-xs text-white/55 print:text-black/60">
+                      {event.at?.trim() ? formatUkInstant(event.at) : "Not recorded"}
+                    </p>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </section>
 
           <section className="rounded-2xl border border-white/10 bg-white/5 p-4 sm:p-5 print:border-black/20 print:bg-transparent">
             <h2 className="text-sm font-bold uppercase tracking-wider text-white/50 print:text-black/70">
@@ -470,6 +461,16 @@ export default function OwnerJourneyEvidenceClient({
               image remains a separate stage if needed.
             </p>
           </section>
+
+          <div className="print:hidden pb-8">
+            <button
+              type="button"
+              onClick={downloadPdf}
+              className="min-h-12 w-full rounded-xl bg-emerald px-4 py-3 text-sm font-bold text-navy transition-colors hover:bg-emerald-light sm:w-auto"
+            >
+              Download Journey Evidence PDF
+            </button>
+          </div>
         </div>
       ) : null}
     </main>

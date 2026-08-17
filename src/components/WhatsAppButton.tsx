@@ -1,15 +1,23 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import { SITE } from "@/lib/data";
 import { useIsMobileDevice } from "@/lib/device";
+import { shouldHidePublicSalesWidgets } from "@/lib/owner-portal";
 
 const WHATSAPP_HREF = `https://wa.me/${SITE.whatsapp}?text=${encodeURIComponent(SITE.whatsappDefaultMessage)}`;
 
 export default function WhatsAppButton() {
   const isMobile = useIsMobileDevice();
+  const pathname = usePathname();
 
   // Mobile only — desktop keeps the quote assistant chatbot.
   if (isMobile !== true) {
+    return null;
+  }
+
+  // Owner/admin/driver dashboards — no customer sales widget over private controls.
+  if (shouldHidePublicSalesWidgets(pathname)) {
     return null;
   }
 

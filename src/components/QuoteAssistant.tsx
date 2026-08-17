@@ -2,12 +2,14 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState, type Ref } from "react";
 import { createPortal } from "react-dom";
 import AddressInput from "@/components/AddressInput";
 import { playBotOpenSound, playBotReplySound, playBotWorkingSound } from "@/lib/bot-sounds";
 import { contactCardUrl } from "@/lib/contact-card";
 import { detectMobileDevice, useIsMobileDevice } from "@/lib/device";
+import { shouldHidePublicSalesWidgets } from "@/lib/owner-portal";
 import { withBasePath } from "@/lib/paths";
 import {
   createWelcomeMessages,
@@ -113,6 +115,7 @@ function QuotePriceCard({
 
 export default function QuoteAssistant() {
   const isMobile = useIsMobileDevice();
+  const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<AssistantMessage[]>(() => createWelcomeMessages());
@@ -733,5 +736,7 @@ export default function QuoteAssistant() {
   if (!mounted) return null;
   // Mobile uses a floating WhatsApp button instead — the chat panel covers the quote form.
   if (isMobile === true) return null;
+  // Owner/admin/driver dashboards — keep the public quote assistant off private ops screens.
+  if (shouldHidePublicSalesWidgets(pathname)) return null;
   return createPortal(ui, document.body);
 }

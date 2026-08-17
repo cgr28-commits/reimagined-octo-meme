@@ -429,7 +429,19 @@ function PaidBookingLiveTracking({
           )}
         </div>
         <div className="flex flex-wrap gap-2">
-          {!sessionOn ? (
+          {journeyCompleted ? (
+            <>
+              <span className="inline-flex min-h-11 items-center rounded-xl border border-emerald/40 bg-emerald/15 px-4 py-2 text-sm font-semibold text-emerald">
+                Journey completed
+              </span>
+              <a
+                href={`/owner/journey-evidence/?ref=${encodeURIComponent(booking.paymentReference)}`}
+                className="inline-flex min-h-11 items-center rounded-xl bg-sky-500 px-4 py-2.5 text-sm font-bold text-navy transition-colors hover:bg-sky-400"
+              >
+                View Journey Evidence
+              </a>
+            </>
+          ) : !sessionOn ? (
             <button
               type="button"
               disabled={busy}
@@ -465,7 +477,7 @@ function PaidBookingLiveTracking({
               </button>
             </>
           )}
-          {trackHref ? (
+          {!journeyCompleted && trackHref ? (
             <a
               href={trackHref}
               target="_blank"
@@ -484,10 +496,6 @@ function PaidBookingLiveTracking({
             >
               {busy ? "Completing…" : "Complete Journey"}
             </button>
-          ) : journeyCompleted ? (
-            <span className="inline-flex min-h-11 items-center rounded-xl border border-emerald/40 bg-emerald/15 px-4 py-2 text-sm font-semibold text-emerald">
-              Journey completed
-            </span>
           ) : null}
         </div>
       </div>
@@ -945,16 +953,16 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
               className="rounded-2xl border border-white/10 bg-navy/60 p-4 sm:p-5"
             >
               <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <p className="text-lg font-bold text-white">{booking.customerName}</p>
-                  <p className="mt-1 text-sm text-white/65">
+                <div className="min-w-0 flex-1">
+                  <p className="break-words text-lg font-bold text-white">{booking.customerName}</p>
+                  <p className="mt-1 break-words text-sm text-white/65">
                     {booking.tripDate} · pick up {booking.tripTime}
                     {booking.amountPaid ? ` · ${booking.amountPaid}` : ""}
                   </p>
-                  <p className="mt-2 text-sm text-white/80">
+                  <p className="mt-2 break-words text-sm text-white/80">
                     {booking.pickupLabel} → {booking.dropoffLabel}
                   </p>
-                  <p className="mt-2 text-xs text-white/45">
+                  <p className="mt-2 break-all text-xs text-white/45">
                     Ref {booking.paymentReference}
                     {booking.createdAt ? ` · paid ${formatUkInstant(booking.createdAt)}` : ""}
                   </p>
@@ -1093,109 +1101,138 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
                     }}
                   />
 
-                  <div className="mt-4 flex flex-wrap gap-3">
-                    <button
-                      type="button"
-                      disabled={busyRef === booking.paymentReference}
-                      onClick={() => void handleResend(booking)}
-                      className="w-full rounded-xl bg-emerald px-4 py-3 text-sm font-bold text-navy transition-colors hover:bg-emerald-light disabled:opacity-60 sm:w-auto"
-                    >
-                      {busyRef === booking.paymentReference
-                        ? "Sending…"
-                        : "Resend booking confirmation"}
-                    </button>
-                    {booking.journeyStatus !== "completed" ? (
-                      <button
-                        type="button"
-                        disabled={busyRef === booking.paymentReference}
-                        onClick={() => void handleCompleteJourney(booking)}
-                        className="rounded-xl border border-sky-400/40 bg-sky-500/15 px-4 py-2.5 text-sm font-bold text-sky-100 transition-colors hover:bg-sky-500/25 disabled:opacity-60"
-                      >
-                        Complete Journey
-                      </button>
-                    ) : null}
-                    {booking.journeyStatus === "completed" || booking.reviewRequest ? (
-                      booking.reviewRequest?.status === "sent" ? (
+                  <div className="mt-4 space-y-4">
+                    <div>
+                      <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-white/40">
+                        Journey
+                      </p>
+                      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                        {booking.journeyStatus !== "completed" ? (
+                          <button
+                            type="button"
+                            disabled={busyRef === booking.paymentReference}
+                            onClick={() => void handleCompleteJourney(booking)}
+                            className="min-h-11 w-full rounded-xl border border-sky-400/40 bg-sky-500/15 px-4 py-2.5 text-sm font-bold text-sky-100 transition-colors hover:bg-sky-500/25 disabled:opacity-60 sm:w-auto"
+                          >
+                            Complete Journey
+                          </button>
+                        ) : null}
+                        {booking.journeyStatus === "completed" ||
+                        booking.trackingToken ||
+                        (diagnostics[booking.paymentReference]?.gpsPointCount ?? 0) > 0 ? (
+                          <a
+                            href={`/owner/journey-evidence/?ref=${encodeURIComponent(booking.paymentReference)}`}
+                            className={`inline-flex min-h-11 w-full items-center justify-center rounded-xl px-4 py-2.5 text-sm font-bold transition-colors sm:w-auto ${
+                              booking.journeyStatus === "completed"
+                                ? "bg-sky-500 text-navy hover:bg-sky-400"
+                                : "border border-sky-400/40 bg-sky-500/15 text-sky-100 hover:bg-sky-500/25"
+                            }`}
+                          >
+                            View Journey Evidence
+                          </a>
+                        ) : null}
                         <button
                           type="button"
                           disabled={busyRef === booking.paymentReference}
-                          onClick={() => {
-                            if (
-                              window.confirm(
-                                "A review request was already sent. Send another copy to the customer?",
-                              )
-                            ) {
-                              void handleReviewRequest(booking, true);
-                            }
-                          }}
-                          className="rounded-xl border border-amber-300/40 px-4 py-2.5 text-sm font-semibold text-amber-100 transition-colors hover:border-amber-200/60 disabled:opacity-60"
+                          onClick={() => void handleEnsureTracking(booking)}
+                          className="min-h-11 w-full rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:border-white/30 disabled:opacity-60 sm:w-auto"
                         >
-                          Resend review request
+                          {booking.trackingToken
+                            ? "Refresh tracking link"
+                            : "Create tracking (no new charge)"}
                         </button>
-                      ) : (
+                      </div>
+                    </div>
+
+                    {(booking.customerEmail || booking.mobileNumber) && (
+                      <div>
+                        <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-white/40">
+                          Customer
+                        </p>
+                        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                          {booking.customerEmail ? (
+                            <a
+                              href={`mailto:${encodeURIComponent(booking.customerEmail)}`}
+                              className="inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:border-white/30 sm:w-auto"
+                            >
+                              Email customer
+                            </a>
+                          ) : null}
+                          {booking.mobileNumber ? (
+                            <a
+                              href={`https://wa.me/${booking.mobileNumber.replace(/\D/g, "").replace(/^0/, "44")}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:border-white/30 sm:w-auto"
+                            >
+                              WhatsApp
+                            </a>
+                          ) : null}
+                        </div>
+                      </div>
+                    )}
+
+                    <div>
+                      <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-white/40">
+                        Admin
+                      </p>
+                      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
                         <button
                           type="button"
                           disabled={busyRef === booking.paymentReference}
-                          onClick={() => void handleReviewRequest(booking, false)}
-                          className="rounded-xl border border-emerald/40 bg-emerald/15 px-4 py-2.5 text-sm font-semibold text-emerald transition-colors hover:bg-emerald/25 disabled:opacity-60"
+                          onClick={() => void handleResend(booking)}
+                          className="min-h-11 w-full rounded-xl bg-emerald px-4 py-3 text-sm font-bold text-navy transition-colors hover:bg-emerald-light disabled:opacity-60 sm:w-auto"
                         >
-                          {booking.reviewRequest?.status === "failed"
-                            ? "Retry review request"
-                            : "Send review request"}
+                          {busyRef === booking.paymentReference
+                            ? "Sending…"
+                            : "Resend booking confirmation"}
                         </button>
-                      )
-                    ) : null}
-                    <button
-                      type="button"
-                      disabled={busyRef === booking.paymentReference}
-                      onClick={() => void handleEnsureTracking(booking)}
-                      className="rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:border-white/30 disabled:opacity-60"
-                    >
-                      {booking.trackingToken
-                        ? "Refresh tracking link"
-                        : "Create tracking (no new charge)"}
-                    </button>
-                    <button
-                      type="button"
-                      disabled={
-                        diagnosticBusyRef === booking.paymentReference ||
-                        busyRef === booking.paymentReference
-                      }
-                      onClick={() => void handleTrackingDiagnostic(booking)}
-                      className="rounded-xl border border-emerald/40 bg-emerald/10 px-4 py-2.5 text-sm font-semibold text-emerald transition-colors hover:bg-emerald/20 disabled:opacity-60"
-                    >
-                      {diagnosticBusyRef === booking.paymentReference
-                        ? "Loading diagnostic…"
-                        : "Tracking diagnostic (read-only)"}
-                    </button>
-                    {booking.journeyStatus === "completed" ||
-                    booking.trackingToken ||
-                    (diagnostics[booking.paymentReference]?.gpsPointCount ?? 0) > 0 ? (
-                      <a
-                        href={`/owner/journey-evidence/?ref=${encodeURIComponent(booking.paymentReference)}`}
-                        className="rounded-xl border border-sky-400/40 bg-sky-500/15 px-4 py-2.5 text-sm font-semibold text-sky-100 transition-colors hover:bg-sky-500/25"
-                      >
-                        View Journey Evidence
-                      </a>
-                    ) : null}
-                    {booking.customerEmail ? (
-                      <a
-                        href={`mailto:${encodeURIComponent(booking.customerEmail)}`}
-                        className="rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:border-white/30"
-                      >
-                        Email customer
-                      </a>
-                    ) : null}
-                    {booking.mobileNumber ? (
-                      <a
-                        href={`https://wa.me/${booking.mobileNumber.replace(/\D/g, "").replace(/^0/, "44")}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:border-white/30"
-                      >
-                        WhatsApp
-                      </a>
-                    ) : null}
+                        {booking.journeyStatus === "completed" || booking.reviewRequest ? (
+                          booking.reviewRequest?.status === "sent" ? (
+                            <button
+                              type="button"
+                              disabled={busyRef === booking.paymentReference}
+                              onClick={() => {
+                                if (
+                                  window.confirm(
+                                    "A review request was already sent. Send another copy to the customer?",
+                                  )
+                                ) {
+                                  void handleReviewRequest(booking, true);
+                                }
+                              }}
+                              className="min-h-11 w-full rounded-xl border border-amber-300/40 px-4 py-2.5 text-sm font-semibold text-amber-100 transition-colors hover:border-amber-200/60 disabled:opacity-60 sm:w-auto"
+                            >
+                              Resend review request
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              disabled={busyRef === booking.paymentReference}
+                              onClick={() => void handleReviewRequest(booking, false)}
+                              className="min-h-11 w-full rounded-xl border border-emerald/40 bg-emerald/15 px-4 py-2.5 text-sm font-semibold text-emerald transition-colors hover:bg-emerald/25 disabled:opacity-60 sm:w-auto"
+                            >
+                              {booking.reviewRequest?.status === "failed"
+                                ? "Retry review request"
+                                : "Send review request"}
+                            </button>
+                          )
+                        ) : null}
+                        <button
+                          type="button"
+                          disabled={
+                            diagnosticBusyRef === booking.paymentReference ||
+                            busyRef === booking.paymentReference
+                          }
+                          onClick={() => void handleTrackingDiagnostic(booking)}
+                          className="min-h-11 w-full rounded-xl border border-emerald/40 bg-emerald/10 px-4 py-2.5 text-sm font-semibold text-emerald transition-colors hover:bg-emerald/20 disabled:opacity-60 sm:w-auto"
+                        >
+                          {diagnosticBusyRef === booking.paymentReference
+                            ? "Loading diagnostic…"
+                            : "Tracking diagnostic (read-only)"}
+                        </button>
+                      </div>
+                    </div>
                   </div>
 
                   {diagnostics[booking.paymentReference] ? (
