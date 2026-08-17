@@ -29,8 +29,10 @@ export type ShortNoticeBookingRecord = {
   materialFingerprint: string;
   /** Legacy hours audit (older KV records). */
   minimumNoticeHoursApplied?: number;
-  /** Availability datetime applied when this request was created (London local). */
+  /** Legacy single availability-from audit. */
   automaticBookingsAvailableFromApplied?: string | null;
+  /** Unavailable period that triggered Owner approval (if any). */
+  unavailablePeriodIdApplied?: string | null;
   createdAt: string;
   updatedAt: string;
   approvedAt?: string;

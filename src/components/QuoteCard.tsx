@@ -2076,8 +2076,8 @@ function QuoteCard({
             </p>
           ) : null}
           <p className="mx-auto mt-4 max-w-md text-sm leading-relaxed text-white/80 sm:text-base">
-            This pickup is before our current automatic booking availability time, so we just need
-            to confirm driver availability before taking payment.
+            We just need to confirm availability for your requested pickup time before taking
+            payment.
           </p>
           <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-white/70">
             Please message us on WhatsApp. Once availability is confirmed, you&apos;ll be able to pay

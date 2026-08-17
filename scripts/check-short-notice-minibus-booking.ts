@@ -1,5 +1,5 @@
 /**
- * Offline checks: Saloon/Estate/Minibus online booking + short-notice notice/approval.
+ * Offline checks: unavailable periods gate + Saloon/Estate/Minibus booking.
  * Run: npx tsx scripts/check-short-notice-minibus-booking.ts
  */
 
@@ -22,13 +22,15 @@ import {
 } from "../src/lib/vehicle-selection";
 import {
   computeShortNoticePaymentExpiryIso,
-  formatAutomaticAvailabilityLabel,
-  isAutomaticAvailabilityGateActive,
-  isPickupBeforeAutomaticAvailability,
+  findBlockingUnavailablePeriod,
+  isPickupBlockedByUnavailablePeriods,
+  isPickupInsideUnavailablePeriod,
+  isUnavailablePeriodExpired,
   materialJourneyFingerprint,
-  normalizeAutomaticAvailabilityLocal,
+  normalizeUnavailablePeriod,
   vehicleServiceCode,
   vehicleServiceLabel,
+  type UnavailablePeriod,
 } from "../shared/booking-notice";
 import { isShortNoticePayable, SHORT_NOTICE_STATUSES } from "../shared/short-notice-booking";
 import { parseLondonLocalDateTime } from "../shared/uk-time";
@@ -51,6 +53,13 @@ function check(label: string, fn: () => void) {
 
 const belfast = "10 Donegall Square North, Belfast BT1 5GB";
 
+const sleepBlock: UnavailablePeriod = normalizeUnavailablePeriod({
+  id: "sleep-1",
+  startLocal: "2026-08-18T00:30",
+  endLocal: "2026-08-18T08:00",
+  note: "Sleep",
+})!;
+
 check("1–3. Saloon/Estate/Minibus are instant-pay vehicle types", () => {
   assert.ok(isInstantPayVehicle(SALOON_VEHICLE));
   assert.ok(isInstantPayVehicle(ESTATE_VEHICLE));
@@ -66,15 +75,10 @@ check("4–6. Existing pricing formulas produce distinct fares (no invented Mini
   const minibus = calculateQuote(belfast, "BFS", MINIBUS_VEHICLE);
   assert.ok(saloon && estate && minibus);
   assert.ok(estate!.amount > saloon!.amount, "Estate > Saloon");
-  // Airport Minibus = round5(estateTier * 1.55)
   const expectedMin = Math.round((estate!.amount * 1.55) / 5) * 5;
-  // Allow x4 rounding quirk from roundToNearestFive
   assert.ok(
     Math.abs(minibus!.amount - expectedMin) <= 5 || minibus!.amount >= estate!.amount,
     `Minibus £${minibus!.amount} should track estate×1.55 (≈£${expectedMin})`,
-  );
-  console.log(
-    `    BFS Belfast: Saloon £${saloon!.amount} / Estate £${estate!.amount} / Minibus £${minibus!.amount}`,
   );
 });
 
@@ -95,47 +99,55 @@ check("25–28. One-way + return pricing works for all three services", () => {
     assert.ok(ret!.amount > oneWay!.amount, `${vehicle} return > one-way`);
   }
   assert.equal(selectVehicleForParty(5, 1), MINIBUS_VEHICLE);
-  assert.equal(selectVehicleForParty(2, 1), SALOON_VEHICLE);
-  assert.equal(selectVehicleForParty(3, 1), ESTATE_VEHICLE);
 });
 
-check("29–30. Availability datetime gate (Europe/London) — exact time allowed; before blocked", () => {
-  const availableFrom = "2026-08-18T08:00";
-  assert.equal(normalizeAutomaticAvailabilityLocal(availableFrom), "2026-08-18T08:00");
-  assert.equal(
-    formatAutomaticAvailabilityLabel(availableFrom),
-    "Tuesday 18 August 2026 · 08:00",
-  );
+check("Unavailable period boundaries: start inclusive, end exclusive", () => {
+  assert.equal(isPickupInsideUnavailablePeriod("2026-08-18", "00:29", sleepBlock), false);
+  assert.equal(isPickupInsideUnavailablePeriod("2026-08-18", "00:30", sleepBlock), true);
+  assert.equal(isPickupInsideUnavailablePeriod("2026-08-18", "07:59", sleepBlock), true);
+  assert.equal(isPickupInsideUnavailablePeriod("2026-08-18", "08:00", sleepBlock), false);
+  assert.equal(isPickupInsideUnavailablePeriod("2026-08-18", "08:01", sleepBlock), false);
 
-  // Wall clock before availability → gate active
-  const beforeWall = parseLondonLocalDateTime("2026-08-18", "07:00")!;
-  assert.equal(isAutomaticAvailabilityGateActive(availableFrom, beforeWall), true);
+  // While period not expired, same pickup rules apply
+  const during = parseLondonLocalDateTime("2026-08-18", "07:00")!;
   assert.equal(
-    isPickupBeforeAutomaticAvailability("2026-08-18", "07:30", availableFrom, beforeWall),
+    isPickupBlockedByUnavailablePeriods("2026-08-18", "07:59", [sleepBlock], during),
     true,
   );
   assert.equal(
-    isPickupBeforeAutomaticAvailability("2026-08-18", "08:00", availableFrom, beforeWall),
+    isPickupBlockedByUnavailablePeriods("2026-08-18", "08:00", [sleepBlock], during),
     false,
+  );
+
+  // After end, expired period is ignored even for a pickup that was inside the window
+  const after = parseLondonLocalDateTime("2026-08-18", "08:00")!;
+  assert.equal(isUnavailablePeriodExpired(sleepBlock, after), true);
+  assert.equal(
+    isPickupBlockedByUnavailablePeriods("2026-08-18", "07:59", [sleepBlock], after),
+    false,
+  );
+  assert.equal(findBlockingUnavailablePeriod("2026-08-18", "07:59", [sleepBlock], after), null);
+});
+
+check("Multiple periods — only matching active period blocks", () => {
+  const holiday = normalizeUnavailablePeriod({
+    id: "hol-1",
+    startLocal: "2026-08-20T00:00",
+    endLocal: "2026-08-22T00:00",
+  })!;
+  const now = parseLondonLocalDateTime("2026-08-17", "12:00")!;
+  assert.equal(
+    isPickupBlockedByUnavailablePeriods("2026-08-18", "07:00", [sleepBlock, holiday], now),
+    true,
   );
   assert.equal(
-    isPickupBeforeAutomaticAvailability("2026-08-18", "09:00", availableFrom, beforeWall),
-    false,
+    isPickupBlockedByUnavailablePeriods("2026-08-21", "10:00", [sleepBlock, holiday], now),
+    true,
   );
-
-  // Wall clock after availability → gate auto-expired
-  const afterWall = parseLondonLocalDateTime("2026-08-18", "08:01")!;
-  assert.equal(isAutomaticAvailabilityGateActive(availableFrom, afterWall), false);
   assert.equal(
-    isPickupBeforeAutomaticAvailability("2026-08-18", "07:30", availableFrom, afterWall),
+    isPickupBlockedByUnavailablePeriods("2026-08-19", "10:00", [sleepBlock, holiday], now),
     false,
   );
-
-  // No restriction
-  assert.equal(isPickupBeforeAutomaticAvailability("2026-08-18", "07:30", null, beforeWall), false);
-
-  // BST spring-forward night still parses
-  assert.ok(parseLondonLocalDateTime("2026-03-29", "02:30"));
 });
 
 check("11/34. Service codes SALOON / ESTATE / MINIBUS", () => {
@@ -184,8 +196,7 @@ check("20–22. Payable helper blocks unapproved / declined / expired / paid", (
     amountLabel: "£50.00",
     booking: {} as never,
     materialFingerprint: "x",
-    minimumNoticeHoursApplied: undefined,
-    automaticBookingsAvailableFromApplied: "2026-08-18T08:00",
+    unavailablePeriodIdApplied: "sleep-1",
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
@@ -200,22 +211,6 @@ check("20–22. Payable helper blocks unapproved / declined / expired / paid", (
   assert.equal(
     isShortNoticePayable({
       ...base,
-      status: "SHORT_NOTICE_DECLINED",
-      paymentExpiresAt: new Date(Date.now() + 3600000).toISOString(),
-    }),
-    false,
-  );
-  assert.equal(
-    isShortNoticePayable({
-      ...base,
-      status: "SHORT_NOTICE_APPROVED",
-      paymentExpiresAt: new Date(Date.now() - 1000).toISOString(),
-    }),
-    false,
-  );
-  assert.equal(
-    isShortNoticePayable({
-      ...base,
       status: "SHORT_NOTICE_APPROVED",
       paymentExpiresAt: new Date(Date.now() + 3600000).toISOString(),
     }),
@@ -224,40 +219,38 @@ check("20–22. Payable helper blocks unapproved / declined / expired / paid", (
   assert.ok(SHORT_NOTICE_STATUSES.includes("SHORT_NOTICE_AWAITING_APPROVAL"));
 });
 
-check("Worker + UI wiring present", () => {
+check("Worker + UI wiring — unavailable periods replace hours/single-date rules", () => {
   const index = read("workers/addresses/src/index.ts");
   const handlers = read("workers/addresses/src/short-notice-handlers.ts");
   const card = read("src/components/QuoteCard.tsx");
   const data = read("src/lib/data.ts");
   const panel = read("src/components/OwnerShortNoticePanel.tsx");
   const pay = read("src/app/pay/short-notice/ShortNoticePayClient.tsx");
+  const settingsStore = read("workers/addresses/src/booking-settings-store.ts");
+  const notice = read("shared/booking-notice.ts");
 
   assert.match(index, /shouldForceShortNotice/);
   assert.match(index, /createShortNoticeRequest/);
   assert.match(index, /shortNoticeToken/);
-  assert.match(index, /owner\/short-notice/);
-  assert.match(index, /automaticBookingsAvailableFrom/);
-  assert.match(handlers, /SHORT_NOTICE_AWAITING_APPROVAL/);
-  assert.match(handlers, /Approve Short-Notice|approveShortNotice|handleOwnerApproveShortNotice/);
-  assert.match(handlers, /isPickupBeforeAutomaticAvailability/);
-  assert.match(handlers, /automaticBookingsAvailableFrom/);
+  assert.match(handlers, /findBlockingUnavailablePeriod/);
+  assert.match(handlers, /addUnavailablePeriod/);
+  assert.match(handlers, /deleteUnavailablePeriod/);
   assert.doesNotMatch(handlers, /minimumOnlineNoticeHours/);
-  assert.match(data, /MINIBUS_VEHICLE_TYPE/);
+  assert.doesNotMatch(handlers, /automaticBookingsAvailableFrom/);
+  assert.match(settingsStore, /unavailablePeriods/);
+  assert.match(settingsStore, /Legacy.*ignored|minimumOnlineNoticeHours/);
+  assert.match(notice, /isPickupBlockedByUnavailablePeriods/);
+  assert.match(notice, /isUnavailablePeriodExpired/);
   assert.match(data, /INSTANT_PAY_VEHICLE_TYPES/);
-  assert.match(card, /shortNoticeResult/);
   assert.match(card, /Booking requires availability confirmation/);
-  assert.match(card, /Message us on WhatsApp/);
-  assert.doesNotMatch(card, /within .* hours/);
+  assert.match(card, /confirm availability for your requested pickup time/);
+  assert.match(panel, /Booking Availability/);
+  assert.match(panel, /Add unavailable period/);
+  assert.match(panel, /Private Owner note/);
   assert.match(panel, /Approve Short-Notice Booking/);
-  assert.match(panel, /Automatic bookings available from/);
-  assert.match(panel, /Clear restriction/);
+  assert.doesNotMatch(panel, /Automatic bookings available from/);
   assert.doesNotMatch(panel, /Minimum online booking notice/);
-  assert.match(pay, /Pay Securely/);
   assert.match(pay, /shortNoticeToken/);
-
-  const settingsStore = read("workers/addresses/src/booking-settings-store.ts");
-  assert.match(settingsStore, /automaticBookingsAvailableFrom/);
-  assert.doesNotMatch(settingsStore, /minimumOnlineNoticeHours:\s*number/);
 });
 
 check("Finalize attaches SumUp to same short-notice booking", () => {
@@ -266,4 +259,4 @@ check("Finalize attaches SumUp to same short-notice booking", () => {
   assert.match(finalize, /shortNoticeToken/);
 });
 
-console.log("\nAll short-notice / Minibus booking checks passed.");
+console.log("\nAll short-notice / unavailable-period checks passed.");

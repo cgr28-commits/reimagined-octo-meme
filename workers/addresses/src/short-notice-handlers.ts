@@ -5,10 +5,10 @@
 import type { PaidBookingDetails } from "../shared/booking-notifications";
 import {
   computeShortNoticePaymentExpiryIso,
-  formatAutomaticAvailabilityLabel,
-  isPickupBeforeAutomaticAvailability,
+  findBlockingUnavailablePeriod,
+  formatUnavailablePeriodRangeLabel,
+  listActiveUnavailablePeriods,
   materialJourneyFingerprint,
-  normalizeAutomaticAvailabilityLocal,
   vehicleServiceLabel,
 } from "../shared/booking-notice";
 import {
@@ -16,10 +16,11 @@ import {
   type ShortNoticeBookingRecord,
 } from "../shared/short-notice-booking";
 import {
-  effectiveBookingSettings,
+  addUnavailablePeriod,
+  bookingSettingsPublicView,
+  deleteUnavailablePeriod,
   getBookingSettings,
-  saveBookingSettings,
-  type BookingSettings,
+  updateUnavailablePeriod,
 } from "./booking-settings-store";
 import {
   generatePaymentToken,
@@ -93,17 +94,15 @@ export async function createShortNoticeRequest(options: {
 }> {
   const now = options.now ?? new Date();
   const settings = await getBookingSettings(options.store);
-  const availableFrom = settings.automaticBookingsAvailableFrom;
+  const blocking = findBlockingUnavailablePeriod(
+    options.booking.tripDate,
+    options.booking.tripTime,
+    settings.unavailablePeriods,
+    now,
+  );
 
-  if (
-    !isPickupBeforeAutomaticAvailability(
-      options.booking.tripDate,
-      options.booking.tripTime,
-      availableFrom,
-      now,
-    )
-  ) {
-    throw new Error("Pickup is within automatic booking availability — use SumUp checkout.");
+  if (!blocking) {
+    throw new Error("Pickup is outside unavailable periods — use SumUp checkout.");
   }
 
   const amount = Math.round(options.amount * 100) / 100;
@@ -123,7 +122,7 @@ export async function createShortNoticeRequest(options: {
     amountLabel: formatAmountLabel(amount),
     booking: options.booking,
     materialFingerprint: fingerprint,
-    automaticBookingsAvailableFromApplied: availableFrom,
+    unavailablePeriodIdApplied: blocking.id,
     createdAt: now.toISOString(),
     updatedAt: now.toISOString(),
   };
@@ -132,30 +131,33 @@ export async function createShortNoticeRequest(options: {
   return { record, whatsappUrl: buildCustomerWhatsAppUrl(reference) };
 }
 
+/**
+ * Re-check Owner unavailable periods immediately before SumUp checkout.
+ * Read-only — expired periods are ignored without a KV write.
+ */
 export async function shouldForceShortNotice(
   store: KVNamespace,
   booking: PaidBookingDetails,
   now = new Date(),
 ): Promise<{
   shortNotice: boolean;
-  availableFrom: string | null;
-  availableFromLabel: string | null;
   gateActive: boolean;
+  blockingPeriodId: string | null;
+  blockingPeriodLabel: string | null;
 }> {
   const settings = await getBookingSettings(store);
-  const effective = effectiveBookingSettings(settings, now);
-  const availableFrom = effective.automaticBookingsAvailableFrom;
-  const shortNotice = isPickupBeforeAutomaticAvailability(
+  const blocking = findBlockingUnavailablePeriod(
     booking.tripDate,
     booking.tripTime,
-    availableFrom,
+    settings.unavailablePeriods,
     now,
   );
+  const activePeriods = listActiveUnavailablePeriods(settings.unavailablePeriods, now);
   return {
-    shortNotice,
-    availableFrom,
-    availableFromLabel: formatAutomaticAvailabilityLabel(availableFrom),
-    gateActive: effective.gateActive,
+    shortNotice: Boolean(blocking),
+    gateActive: activePeriods.length > 0,
+    blockingPeriodId: blocking?.id ?? null,
+    blockingPeriodLabel: blocking ? formatUnavailablePeriodRangeLabel(blocking) : null,
   };
 }
 
@@ -350,10 +352,7 @@ export async function handleOwnerGetBookingSettings(
 ): Promise<
   | {
       ok: true;
-      settings: BookingSettings & {
-        gateActive: boolean;
-        availableFromLabel: string | null;
-      };
+      settings: ReturnType<typeof bookingSettingsPublicView>;
     }
   | { error: string; status: number }
 > {
@@ -361,19 +360,7 @@ export async function handleOwnerGetBookingSettings(
     return { error: "Unauthorized — owner access required.", status: 401 };
   }
   const settings = await getBookingSettings(env.TRACKING_STORE);
-  const effective = effectiveBookingSettings(settings);
-  return {
-    ok: true,
-    settings: {
-      ...settings,
-      // Surface effective (auto-expired) value for Owner UI clarity.
-      automaticBookingsAvailableFrom: effective.automaticBookingsAvailableFrom,
-      gateActive: effective.gateActive,
-      availableFromLabel: formatAutomaticAvailabilityLabel(
-        effective.automaticBookingsAvailableFrom,
-      ),
-    },
-  };
+  return { ok: true, settings: bookingSettingsPublicView(settings) };
 }
 
 export async function handleOwnerSaveBookingSettings(
@@ -383,10 +370,8 @@ export async function handleOwnerSaveBookingSettings(
 ): Promise<
   | {
       ok: true;
-      settings: BookingSettings & {
-        gateActive: boolean;
-        availableFromLabel: string | null;
-      };
+      settings: ReturnType<typeof bookingSettingsPublicView>;
+      period?: { id: string; startLocal: string; endLocal: string; note?: string };
     }
   | { error: string; status: number }
 > {
@@ -394,44 +379,71 @@ export async function handleOwnerSaveBookingSettings(
     return { error: "Unauthorized — owner access required.", status: 401 };
   }
 
-  const clear =
-    body.clear === true ||
-    body.automaticBookingsAvailableFrom === null ||
-    body.automaticBookingsAvailableFrom === "";
+  const action = String(body.action ?? "add").trim().toLowerCase();
 
-  let availableFrom: string | null = null;
-  if (!clear) {
-    const raw =
-      typeof body.automaticBookingsAvailableFrom === "string"
-        ? body.automaticBookingsAvailableFrom
-        : typeof body.date === "string" && typeof body.time === "string"
-          ? `${body.date.trim()}T${body.time.trim()}`
+  try {
+    if (action === "delete") {
+      const id = String(body.id ?? "").trim();
+      const settings = await deleteUnavailablePeriod(env.TRACKING_STORE, id);
+      return { ok: true, settings: bookingSettingsPublicView(settings) };
+    }
+
+    const startLocal =
+      typeof body.startLocal === "string"
+        ? body.startLocal
+        : typeof body.startDate === "string" && typeof body.startTime === "string"
+          ? `${body.startDate.trim()}T${body.startTime.trim()}`
           : "";
-    availableFrom = normalizeAutomaticAvailabilityLocal(raw);
-    if (!availableFrom) {
+    const endLocal =
+      typeof body.endLocal === "string"
+        ? body.endLocal
+        : typeof body.endDate === "string" && typeof body.endTime === "string"
+          ? `${body.endDate.trim()}T${body.endTime.trim()}`
+          : "";
+    const note = typeof body.note === "string" ? body.note : "";
+
+    if (action === "update") {
+      const id = String(body.id ?? "").trim();
+      const { settings, period } = await updateUnavailablePeriod(env.TRACKING_STORE, id, {
+        id,
+        startLocal,
+        endLocal,
+        note,
+      });
       return {
-        error: "Provide a valid availability date and time (Europe/London).",
-        status: 400,
+        ok: true,
+        settings: bookingSettingsPublicView(settings),
+        period: {
+          id: period.id,
+          startLocal: period.startLocal,
+          endLocal: period.endLocal,
+          ...(period.note ? { note: period.note } : {}),
+        },
       };
     }
-  }
 
-  const settings = await saveBookingSettings(env.TRACKING_STORE, {
-    automaticBookingsAvailableFrom: availableFrom,
-    updatedAt: new Date().toISOString(),
-  });
-  const effective = effectiveBookingSettings(settings);
-  return {
-    ok: true,
-    settings: {
-      ...settings,
-      automaticBookingsAvailableFrom: effective.automaticBookingsAvailableFrom,
-      gateActive: effective.gateActive,
-      availableFromLabel: formatAutomaticAvailabilityLabel(
-        effective.automaticBookingsAvailableFrom,
-      ),
-    },
-  };
+    // default: add
+    const { settings, period } = await addUnavailablePeriod(env.TRACKING_STORE, {
+      startLocal,
+      endLocal,
+      note,
+    });
+    return {
+      ok: true,
+      settings: bookingSettingsPublicView(settings),
+      period: {
+        id: period.id,
+        startLocal: period.startLocal,
+        endLocal: period.endLocal,
+        ...(period.note ? { note: period.note } : {}),
+      },
+    };
+  } catch (error) {
+    return {
+      error: error instanceof Error ? error.message : "Could not update unavailable periods",
+      status: 400,
+    };
+  }
 }
 
 export { getShortNoticeByToken, getBookingSettings };
