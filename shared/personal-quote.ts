@@ -3,6 +3,8 @@
  * Authorised amount always lives server-side in KV; the browser never decides the price.
  */
 
+import { getWebsiteReturnJourneyFare } from "./return-journey-discount";
+
 export type PersonalQuoteRecord = {
   /** Public code, e.g. MQ-7K4P9X */
   code: string;
@@ -69,6 +71,120 @@ export function isValidPersonalQuotePassengerCount(value: unknown): value is num
     n >= PERSONAL_QUOTE_MIN_PASSENGERS &&
     n <= PERSONAL_QUOTE_MAX_PASSENGERS
   );
+}
+
+function roundGbp(amount: number): number {
+  return Math.round(amount * 100) / 100;
+}
+
+/** Currency-safe equality for GBP amounts (½p tolerance). */
+export function personalQuoteAmountsEqual(a: number, b: number): boolean {
+  return Math.abs(roundGbp(a) - roundGbp(b)) < 0.005;
+}
+
+/**
+ * True when the customer is already receiving a Personal Quote discount vs the
+ * stored one-way website fare. Missing standardWebsiteAmount ⇒ treat as a
+ * manually agreed fare (not eligible for the public-site return discount stacking).
+ */
+export function isPersonallyDiscountedPersonalQuote(
+  agreedAmount: number,
+  standardWebsiteAmount?: number | null,
+): boolean {
+  if (
+    typeof standardWebsiteAmount !== "number" ||
+    !Number.isFinite(standardWebsiteAmount)
+  ) {
+    return true;
+  }
+  return roundGbp(agreedAmount) < roundGbp(standardWebsiteAmount) - 0.004;
+}
+
+/**
+ * Authoritative SumUp / checkout amount from stored ONE-WAY Personal Quote figures.
+ * Never trust browser-supplied totals — only returnJourney (boolean) from the booking.
+ *
+ * Rules:
+ * - one-way → agreedAmount
+ * - return + not personally discounted (agreed == standard) → website return fare
+ *   (shared returnJourneyDiscountRate via getWebsiteReturnJourneyFare)
+ * - return + personally discounted OR no standard → agreed × 2
+ */
+export function resolvePersonalQuoteCheckoutAmount(input: {
+  agreedAmount: number;
+  standardWebsiteAmount?: number | null;
+  returnJourney: boolean;
+}): number {
+  const agreed = roundGbp(Number(input.agreedAmount));
+  if (!Number.isFinite(agreed) || agreed < 1) {
+    return NaN;
+  }
+  if (!input.returnJourney) {
+    return agreed;
+  }
+
+  const standard =
+    typeof input.standardWebsiteAmount === "number" &&
+    Number.isFinite(input.standardWebsiteAmount)
+      ? roundGbp(input.standardWebsiteAmount)
+      : undefined;
+
+  const personallyDiscounted =
+    standard == null || isPersonallyDiscountedPersonalQuote(agreed, standard);
+
+  if (!personallyDiscounted && standard != null) {
+    return getWebsiteReturnJourneyFare(agreed);
+  }
+  return roundGbp(agreed * 2);
+}
+
+export type PersonalQuotePaymentDisplay = {
+  paymentAmount: number;
+  paymentAmountLabel: string;
+  oneWayAgreedAmount: number;
+  oneWayAgreedLabel: string;
+  returnJourney: boolean;
+  personallyDiscounted: boolean;
+  appliesWebsiteReturnDiscount: boolean;
+  standardWebsiteAmount?: number;
+  standardWebsiteAmountLabel?: string;
+};
+
+export function describePersonalQuotePayment(input: {
+  agreedAmount: number;
+  standardWebsiteAmount?: number | null;
+  returnJourney: boolean;
+}): PersonalQuotePaymentDisplay {
+  const oneWay = roundGbp(input.agreedAmount);
+  const standard =
+    typeof input.standardWebsiteAmount === "number" &&
+    Number.isFinite(input.standardWebsiteAmount)
+      ? roundGbp(input.standardWebsiteAmount)
+      : undefined;
+  const personallyDiscounted = isPersonallyDiscountedPersonalQuote(oneWay, standard);
+  const appliesWebsiteReturnDiscount =
+    Boolean(input.returnJourney) && !personallyDiscounted && standard != null;
+  const paymentAmount = resolvePersonalQuoteCheckoutAmount({
+    agreedAmount: oneWay,
+    standardWebsiteAmount: standard,
+    returnJourney: input.returnJourney,
+  });
+
+  return {
+    paymentAmount,
+    paymentAmountLabel: formatPersonalQuoteAmount(paymentAmount),
+    oneWayAgreedAmount: oneWay,
+    oneWayAgreedLabel: formatPersonalQuoteAmount(oneWay),
+    returnJourney: Boolean(input.returnJourney),
+    personallyDiscounted,
+    appliesWebsiteReturnDiscount,
+    ...(standard != null
+      ? {
+          standardWebsiteAmount: standard,
+          standardWebsiteAmountLabel: formatPersonalQuoteAmount(standard),
+        }
+      : {}),
+  };
 }
 
 const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";

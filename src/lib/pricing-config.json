@@ -318,7 +318,6 @@
     "perMinuteGbp": 0.45,
     "minimumUpliftGbp": 25
   },
-  "returnJourneyDiscountRate": 0.05,
   "airportTripPremiumRate": 0,
   "addressToAddressTripPremiumRate": 0.05
 }

@@ -12,8 +12,11 @@ if (!existsSync(sourceDir)) {
 
 mkdirSync(targetDir, { recursive: true });
 
-for (const file of readdirSync(sourceDir).filter((name) => name.endsWith(".ts"))) {
+const sharedFiles = readdirSync(sourceDir).filter(
+  (name) => name.endsWith(".ts") || name.endsWith(".json"),
+);
+for (const file of sharedFiles) {
   cpSync(join(sourceDir, file), join(targetDir, file));
 }
 
-console.log(`Synced ${readdirSync(targetDir).length} shared modules into workers/addresses/shared/`);
+console.log(`Synced ${sharedFiles.length} shared modules into workers/addresses/shared/`);

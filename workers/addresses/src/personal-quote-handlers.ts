@@ -10,6 +10,7 @@ import {
   normalizePersonalQuoteCustomerToken,
   personalQuoteCustomerError,
   personalQuoteTokenCustomerError,
+  resolvePersonalQuoteCheckoutAmount,
   toPersonalQuotePublicSummary,
   type PersonalQuoteRecord,
 } from "../shared/personal-quote";
@@ -228,8 +229,9 @@ export async function handlePublicPersonalQuoteByToken(
 export async function resolvePersonalQuoteForPayment(
   store: KVNamespace,
   code: string,
+  options?: { returnJourney?: boolean },
 ): Promise<
-  | { ok: true; record: PersonalQuoteRecord; amount: number }
+  | { ok: true; record: PersonalQuoteRecord; amount: number; oneWayAgreedAmount: number }
   | { ok: false; error: string; status: number }
 > {
   const normalized = normalizePersonalQuoteCode(code);
@@ -245,9 +247,21 @@ export async function resolvePersonalQuoteForPayment(
       status: evaluated.error === "not_found" ? 404 : 409,
     };
   }
+
+  const oneWayAgreedAmount = Math.round(evaluated.record.agreedAmount * 100) / 100;
+  const amount = resolvePersonalQuoteCheckoutAmount({
+    agreedAmount: oneWayAgreedAmount,
+    standardWebsiteAmount: evaluated.record.standardWebsiteAmount,
+    returnJourney: Boolean(options?.returnJourney),
+  });
+  if (!Number.isFinite(amount) || amount < 1) {
+    return { ok: false, error: personalQuoteCustomerError("invalid_amount"), status: 400 };
+  }
+
   return {
     ok: true,
     record: evaluated.record,
-    amount: Math.round(evaluated.record.agreedAmount * 100) / 100,
+    amount,
+    oneWayAgreedAmount,
   };
 }

@@ -17,9 +17,11 @@ import {
   PERSONAL_QUOTE_MAX_PASSENGERS,
   PERSONAL_QUOTE_MIN_PASSENGERS,
   PERSONAL_QUOTE_PASSENGER_LIMIT_ERROR,
+  describePersonalQuotePayment,
   isValidPersonalQuotePassengerCount,
 } from "../../../shared/personal-quote";
 import { getPaymentBookingBlockers } from "../../../shared/paid-booking-gate";
+import { formatReturnJourneyDiscountPercent } from "../../../shared/return-journey-discount";
 
 /** Personal-quote links: saloon/estate only — no minibus / 5–7 options. */
 const PERSONAL_QUOTE_VEHICLE_TYPES = VEHICLE_TYPES.filter(
@@ -128,11 +130,19 @@ function PersonalQuoteInner() {
     return detectAirport(quote.pickupLabel || "", quote.dropoffLabel || "");
   }, [quote]);
 
-  function buildBooking(): BookingDetails | null {
+  const paymentDisplay = useMemo(() => {
     if (!quote) return null;
+    return describePersonalQuotePayment({
+      agreedAmount: quote.agreedAmount,
+      standardWebsiteAmount: quote.standardWebsiteAmount,
+      returnJourney,
+    });
+  }, [quote, returnJourney]);
+
+  function buildBooking(): BookingDetails | null {
+    if (!quote || !paymentDisplay) return null;
     const pickup = (quote.pickupLabel || "").trim();
     const dropoff = (quote.dropoffLabel || "").trim();
-    const amountLabel = quote.amountLabel;
     return {
       customerName: customerName.trim(),
       customerEmail: customerEmail.trim(),
@@ -151,7 +161,7 @@ function PersonalQuoteInner() {
       passengers,
       suitcases,
       vehicle,
-      estimatedPrice: amountLabel,
+      estimatedPrice: paymentDisplay.paymentAmountLabel,
       isAirportTrip: airportMeta.isAirportTrip,
       ...(airportMeta.airportCode ? { airportCode: airportMeta.airportCode } : {}),
       ...(typeof airportMeta.isFromAirport === "boolean"
@@ -183,6 +193,9 @@ function PersonalQuoteInner() {
       if (!isValidPersonalQuotePassengerCount(passengers)) {
         throw new Error(PERSONAL_QUOTE_PASSENGER_LIMIT_ERROR);
       }
+      if (!paymentDisplay) {
+        throw new Error("Could not calculate payment amount.");
+      }
       const booking = buildBooking();
       if (!booking) throw new Error("Quote details are missing.");
       if (!booking.pickupLabel || !booking.dropoffLabel) {
@@ -195,10 +208,10 @@ function PersonalQuoteInner() {
         throw new Error(blockers[0]);
       }
 
-      // Amount sent here is ignored when personalQuoteCode is present — Worker uses KV.
+      // Amount here is display-only — Worker recalculates from KV + returnJourney.
       const returnToken = createPaymentReturnToken();
       const checkout = await createPaymentCheckout({
-        amount: quote.agreedAmount,
+        amount: paymentDisplay!.paymentAmount,
         description: `Personal quote ${quote.code}`,
         redirectUrl: buildPaymentRedirectUrl(returnToken),
         booking,
@@ -215,7 +228,7 @@ function PersonalQuoteInner() {
           checkoutId: checkout.checkoutId,
           paymentUrl: checkout.paymentUrl,
           checkoutReference: checkout.checkoutReference,
-          amountLabel: quote.amountLabel,
+          amountLabel: paymentDisplay!.paymentAmountLabel,
           booking,
         },
         returnToken,
@@ -244,7 +257,7 @@ function PersonalQuoteInner() {
     );
   }
 
-  if (!quote) return null;
+  if (!quote || !paymentDisplay) return null;
 
   const showSaving =
     typeof quote.standardWebsiteAmount === "number" &&
@@ -300,12 +313,46 @@ function PersonalQuoteInner() {
             </p>
             <p className="text-lg font-bold text-white">
               Your agreed fare: {quote.amountLabel}
+              {paymentDisplay.returnJourney ? " each way" : ""}
             </p>
             <p className="font-medium text-emerald">You save {quote.discountAmountLabel}</p>
           </div>
         ) : (
-          <p className="text-lg font-bold text-white">Agreed fare: {quote.amountLabel}</p>
+          <p className="text-lg font-bold text-white">
+            Agreed fare: {quote.amountLabel}
+            {paymentDisplay.returnJourney ? " each way" : ""}
+          </p>
         )}
+
+        {paymentDisplay.returnJourney ? (
+          <div className="mt-3 space-y-1 border-t border-white/10 pt-3 text-sm">
+            {paymentDisplay.appliesWebsiteReturnDiscount ? (
+              <>
+                <p className="text-white/70">One-way fare: {paymentDisplay.oneWayAgreedLabel}</p>
+                <p className="text-white/70">
+                  Return journey discount: {formatReturnJourneyDiscountPercent()}
+                </p>
+                <p className="text-lg font-bold text-white">
+                  Return total: {paymentDisplay.paymentAmountLabel}
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="text-white/70">
+                  Personal agreed fare: {paymentDisplay.oneWayAgreedLabel} each way
+                </p>
+                <p className="text-lg font-bold text-white">
+                  Return total: {paymentDisplay.paymentAmountLabel}
+                </p>
+              </>
+            )}
+          </div>
+        ) : (
+          <p className="mt-3 text-sm font-semibold text-white">
+            Total to pay: {paymentDisplay.paymentAmountLabel}
+          </p>
+        )}
+
         <p className="mt-2 text-xs text-white/55">
           Fixed price — your payment amount is authorised server-side and cannot be changed via this
           link.
@@ -471,7 +518,7 @@ function PersonalQuoteInner() {
           accepted={termsAccepted}
           onAcceptedChange={setTermsAccepted}
           mode="card-payment"
-          paymentAmountLabel={quote.amountLabel}
+          paymentAmountLabel={paymentDisplay.paymentAmountLabel}
         />
 
         {error ? <p className="text-sm text-red-300">{error}</p> : null}
@@ -481,7 +528,9 @@ function PersonalQuoteInner() {
           disabled={paying || !termsAccepted}
           className="mt-1 inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-emerald px-5 py-3 text-base font-bold text-navy disabled:opacity-60"
         >
-          {paying ? "Opening secure payment…" : `Pay ${quote.amountLabel} securely with SumUp`}
+          {paying
+            ? "Opening secure payment…"
+            : `Pay ${paymentDisplay.paymentAmountLabel} securely with SumUp`}
         </button>
         <p className="text-center text-xs text-white/45">
           You will not be asked to run the website quote tool. The agreed fare stays fixed.

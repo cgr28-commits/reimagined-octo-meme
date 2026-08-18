@@ -1207,21 +1207,20 @@ async function handlePaymentRequest(
     const resolved = await resolvePersonalQuoteForPayment(
       env.TRACKING_STORE,
       personalQuoteCodeRaw,
+      { returnJourney: Boolean(booking?.returnJourney) },
     );
     if (!resolved.ok) {
       return json({ error: resolved.error }, resolved.status, origin);
     }
-    if (
+    // Audit only — never use client standardWebsiteAmount for SumUp amount.
+    if (typeof resolved.record.standardWebsiteAmount === "number") {
+      standardWebsiteAmount = resolved.record.standardWebsiteAmount;
+    } else if (
       Number.isFinite(clientStandardWebsiteAmount) &&
       clientStandardWebsiteAmount >= 1 &&
       clientStandardWebsiteAmount <= 5000
     ) {
-      standardWebsiteAmount =
-        typeof resolved.record.standardWebsiteAmount === "number"
-          ? resolved.record.standardWebsiteAmount
-          : Math.round(clientStandardWebsiteAmount * 100) / 100;
-    } else if (typeof resolved.record.standardWebsiteAmount === "number") {
-      standardWebsiteAmount = resolved.record.standardWebsiteAmount;
+      standardWebsiteAmount = Math.round(clientStandardWebsiteAmount * 100) / 100;
     }
     personalQuoteCode = resolved.record.code;
     personalQuotedAmount = resolved.amount;
