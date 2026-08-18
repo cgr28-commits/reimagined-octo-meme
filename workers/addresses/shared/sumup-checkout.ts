@@ -12,6 +12,10 @@ export type SumUpCheckoutResult = {
   checkoutId: string;
   paymentUrl: string;
   checkoutReference: string;
+  /** SumUp status at create time (normally PENDING). */
+  status?: string;
+  amount?: number;
+  currency?: string;
 };
 
 type SumUpCheckoutResponse = {
@@ -19,7 +23,15 @@ type SumUpCheckoutResponse = {
   hosted_checkout_url?: string;
   status?: string;
   checkout_reference?: string;
+  amount?: number;
+  currency?: string;
   error_message?: string;
+  message?: string;
+  error_code?: string;
+  type?: string;
+  title?: string;
+  detail?: string;
+  hosted_checkout?: { enabled?: boolean };
 };
 
 export type SumUpCheckoutDetails = {
@@ -29,52 +41,132 @@ export type SumUpCheckoutDetails = {
   currency?: string;
   checkout_reference?: string;
   description?: string;
+  hosted_checkout_url?: string;
+  hosted_checkout?: { enabled?: boolean };
   transactions?: Array<{
     status?: string;
     transaction_code?: string;
     id?: string;
+    amount?: number;
+    currency?: string;
   }>;
 };
+
+/** Safe summary for logs / owner diagnostics — never includes secrets or card data. */
+export function summarizeSumUpCheckoutForLog(
+  checkout: Partial<SumUpCheckoutDetails> & {
+    hosted_checkout_url?: string;
+    error_message?: string;
+  },
+): Record<string, unknown> {
+  return {
+    id: checkout.id ?? null,
+    status: checkout.status ?? null,
+    amount: checkout.amount ?? null,
+    currency: checkout.currency ?? null,
+    checkout_reference: checkout.checkout_reference ?? null,
+    hasHostedCheckoutUrl: Boolean(checkout.hosted_checkout_url?.trim()),
+    hostedCheckoutEnabled: checkout.hosted_checkout?.enabled ?? null,
+    transactionCount: Array.isArray(checkout.transactions) ? checkout.transactions.length : 0,
+    transactionStatuses: Array.isArray(checkout.transactions)
+      ? checkout.transactions.map((t) => t.status ?? "UNKNOWN")
+      : [],
+  };
+}
+
+export class SumUpCheckoutCreateError extends Error {
+  readonly httpStatus: number;
+  readonly sumUpErrorCode?: string;
+  readonly safeDetails: Record<string, unknown>;
+
+  constructor(
+    message: string,
+    options: {
+      httpStatus: number;
+      sumUpErrorCode?: string;
+      safeDetails?: Record<string, unknown>;
+    },
+  ) {
+    super(message);
+    this.name = "SumUpCheckoutCreateError";
+    this.httpStatus = options.httpStatus;
+    this.sumUpErrorCode = options.sumUpErrorCode;
+    this.safeDetails = options.safeDetails ?? {};
+  }
+}
 
 export async function createSumUpHostedCheckout(
   apiKey: string,
   merchantCode: string,
   request: SumUpCheckoutRequest,
 ): Promise<SumUpCheckoutResult> {
+  const amount = Math.round(Number(request.amount) * 100) / 100;
+  const body = {
+    amount,
+    currency: "GBP",
+    merchant_code: merchantCode,
+    checkout_reference: request.checkoutReference,
+    description: request.description.slice(0, 140),
+    redirect_url: request.redirectUrl,
+    ...(request.returnUrl ? { return_url: request.returnUrl } : {}),
+    hosted_checkout: {
+      enabled: true,
+    },
+  };
+
   const response = await fetch("https://api.sumup.com/v0.1/checkouts", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({
-      amount: request.amount,
-      currency: "GBP",
-      merchant_code: merchantCode,
-      checkout_reference: request.checkoutReference,
-      description: request.description.slice(0, 140),
-      redirect_url: request.redirectUrl,
-      ...(request.returnUrl ? { return_url: request.returnUrl } : {}),
-      hosted_checkout: {
-        enabled: true,
-      },
-    }),
+    body: JSON.stringify(body),
   });
 
   const payload = (await response.json().catch(() => null)) as SumUpCheckoutResponse | null;
 
-  if (!response.ok || !payload?.hosted_checkout_url || !payload.id) {
+  const safeCreateLog = {
+    httpStatus: response.status,
+    amount,
+    currency: "GBP",
+    checkout_reference: request.checkoutReference,
+    hasRedirectUrl: Boolean(request.redirectUrl?.trim()),
+    hasReturnUrl: Boolean(request.returnUrl?.trim()),
+    hostedCheckoutEnabledRequested: true,
+    responseId: payload?.id ?? null,
+    responseStatus: payload?.status ?? null,
+    responseAmount: payload?.amount ?? null,
+    responseCurrency: payload?.currency ?? null,
+    hasHostedCheckoutUrl: Boolean(payload?.hosted_checkout_url?.trim()),
+    hostedCheckoutEnabled: payload?.hosted_checkout?.enabled ?? null,
+    error_message: payload?.error_message ?? payload?.message ?? payload?.detail ?? null,
+    error_code: payload?.error_code ?? payload?.type ?? null,
+  };
+  console.log("SumUp checkout create", safeCreateLog);
+
+  if (!response.ok || !payload?.hosted_checkout_url?.trim() || !payload.id) {
     const message =
-      payload && typeof payload === "object" && "error_message" in payload
-        ? String(payload.error_message)
-        : "SumUp checkout creation failed";
-    throw new Error(message);
+      payload?.error_message ||
+      payload?.message ||
+      payload?.detail ||
+      payload?.title ||
+      (!payload?.hosted_checkout_url?.trim() && response.ok
+        ? "SumUp did not return a hosted checkout URL"
+        : "SumUp checkout creation failed");
+    throw new SumUpCheckoutCreateError(String(message), {
+      httpStatus: response.status,
+      sumUpErrorCode: payload?.error_code ?? payload?.type,
+      safeDetails: safeCreateLog,
+    });
   }
 
   return {
     checkoutId: payload.id,
-    paymentUrl: payload.hosted_checkout_url,
+    paymentUrl: payload.hosted_checkout_url.trim(),
     checkoutReference: request.checkoutReference,
+    status: payload.status,
+    amount: payload.amount ?? amount,
+    currency: payload.currency ?? "GBP",
   };
 }
 
@@ -97,6 +189,7 @@ export async function getSumUpCheckout(
     throw new Error("Could not retrieve SumUp checkout");
   }
 
+  console.log("SumUp checkout status", summarizeSumUpCheckoutForLog(payload));
   return payload;
 }
 
