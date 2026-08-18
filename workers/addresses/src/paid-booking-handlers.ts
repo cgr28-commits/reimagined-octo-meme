@@ -18,6 +18,7 @@ import {
   PRIMARY_DRIVER_LABEL,
   resolveAssignedDriverLabel,
 } from "../shared/paid-booking-record";
+import { getOwnerAccountProfile } from "./owner-profile-store";
 import {
   findTrackingJobByPaymentReference,
   findTrackingJobsByPaymentReference,
@@ -262,6 +263,10 @@ export async function handlePaidBookingsListRequest(
       .slice(0, Number.isFinite(limit) ? limit : 100);
   }
 
+  const ownerProfile = await getOwnerAccountProfile(store);
+  const ownerDisplayName = ownerProfile?.displayName?.trim() || "";
+  const defaultDriverLabel = resolveAssignedDriverLabel(undefined, ownerDisplayName);
+
   const enriched = await Promise.all(
     bookings.map(async (booking) => {
       let sharingActive = false;
@@ -409,7 +414,7 @@ export async function handlePaidBookingsListRequest(
         trackUrl,
         assignedDriverName,
         assignmentStatus,
-        assignedDriverLabel: resolveAssignedDriverLabel(assignedDriverName),
+        assignedDriverLabel: resolveAssignedDriverLabel(assignedDriverName, ownerDisplayName),
         primaryDriverDefault: !assignedDriverName?.trim(),
         arrivedPickupAt,
         arrivalNotificationStatus,
@@ -432,7 +437,7 @@ export async function handlePaidBookingsListRequest(
       ok: true,
       count: enriched.length,
       mode: mode === "recent" || mode === "created" ? "recent" : "upcoming",
-      primaryDriverLabel: PRIMARY_DRIVER_LABEL,
+      primaryDriverLabel: defaultDriverLabel || PRIMARY_DRIVER_LABEL,
       bookings: enriched,
     },
     200,

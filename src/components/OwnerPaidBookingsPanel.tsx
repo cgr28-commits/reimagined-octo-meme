@@ -1366,7 +1366,11 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
           </div>
           <div>
             <dt className="text-white/40">Journey status</dt>
-            <dd>{journeyStatusLabel(booking.journeyStatus)}</dd>
+            <dd>
+              {journeyStatusLabel(booking.journeyStatus, {
+                sharingActive: booking.sharingActive,
+              })}
+            </dd>
           </div>
           <div>
             <dt className="text-white/40">Mobile</dt>
