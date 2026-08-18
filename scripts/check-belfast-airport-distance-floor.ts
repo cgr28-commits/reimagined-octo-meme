@@ -72,16 +72,16 @@ console.log("\n=== 2. Threshold gate (1dp) — Carrickfergus ~20.015 stays zone 
   const rawKm = milesToKm(20.015);
   assert.equal(thresholdMilesOneDecimal(drivingMilesFromKm(rawKm)), 20.0);
 
-  // Existing zone £59 must be preserved (floor not applied).
-  const kept = applyBelfastAirportDistanceFloor(59, "BFS", rawKm);
-  assert.equal(kept, 59);
+  // Existing zone fare must be preserved (floor not applied at ≤20.0 miles).
+  const kept = applyBelfastAirportDistanceFloor(64, "BFS", rawKm);
+  assert.equal(kept, 64);
 
   const carrick = "Carrickfergus BT38 7DG";
   const withMetrics = calculateQuote(carrick, "BFS", SALOON, false, {}, metricsForMiles(20.015));
   const zoneOnly = calculateQuote(carrick, "BFS", SALOON, false, {}, null);
   assert.equal(withMetrics?.amount, zoneOnly?.amount);
-  assert.equal(withMetrics?.amount, 59);
-  console.log("OK  threshold 20.0 skips floor; Carrickfergus → BFS stays £59");
+  assert.equal(withMetrics?.amount, 64);
+  console.log("OK  threshold 20.0 skips floor; Carrickfergus → BFS stays zone £64");
 }
 
 console.log("\n=== 3. Zone wins unchanged; floor wins nearest £5 ===");
@@ -111,7 +111,7 @@ console.log("\n=== 4. Approved route targets (BHD/BFS) ===");
     miles: number;
     saloon: number;
   }> = [
-    { name: "Larne → BHD", address: "Larne BT40 1AA", airport: "BHD", miles: 24.6, saloon: 75 },
+    { name: "Larne → BHD", address: "Larne BT40 1AA", airport: "BHD", miles: 24.6, saloon: 80 },
     {
       name: "Ballygally → BHD",
       address: "Ballygally, Larne BT40 2QZ",
@@ -124,7 +124,7 @@ console.log("\n=== 4. Approved route targets (BHD/BFS) ===");
       address: "Ballymena BT43 6AN",
       airport: "BHD",
       miles: 29.4,
-      saloon: 85,
+      saloon: 89,
     },
     { name: "Larne → BFS", address: "Larne BT40 1AA", airport: "BFS", miles: 22.3, saloon: 65 },
     {
@@ -151,7 +151,7 @@ console.log("\n=== 4. Approved route targets (BHD/BFS) ===");
   // Short / local unchanged (no metrics or short metrics).
   assert.equal(
     calculateQuote("Belfast City Hall, Belfast BT1 5GS", "BHD", SALOON)?.amount,
-    29,
+    34,
   );
   assert.equal(
     calculateQuote(
@@ -162,7 +162,7 @@ console.log("\n=== 4. Approved route targets (BHD/BFS) ===");
       {},
       metricsForMiles(4.6),
     )?.amount,
-    29,
+    34,
   );
   assert.equal(
     calculateQuote(
@@ -173,14 +173,14 @@ console.log("\n=== 4. Approved route targets (BHD/BFS) ===");
       {},
       metricsForMiles(16),
     )?.amount,
-    55,
+    50,
   );
   assert.equal(
     calculateQuote("Ballymena BT43 6AN", "BFS", SALOON, false, {}, metricsForMiles(17.4))
       ?.amount,
-    45,
+    49,
   );
-  console.log("OK  approved £75/£80/£85/£65/£70 + short fares unchanged");
+  console.log("OK  long-distance floor routes + short fares at revised zone prices");
 }
 
 console.log("\n=== 5. Estate / Minibus / return relationships ===");

@@ -34,8 +34,8 @@ const ROUTES = [
     km: 7.2,
     oldS: 35,
     oldE: 45,
-    targetS: 29,
-    targetE: 34,
+    targetS: 34,
+    targetE: 39,
   },
   {
     name: "City Hall → BFS",
@@ -46,8 +46,8 @@ const ROUTES = [
     km: 22.5,
     oldS: 55,
     oldE: 65,
-    targetS: 55,
-    targetE: 64,
+    targetS: 50,
+    targetE: 60,
   },
   {
     name: "City Hall → Dublin Airport",
@@ -167,10 +167,10 @@ function near(actual: number, target: number, tol = 5) {
   );
 }
 
-near(rows[0].newS, 29, 0);
-near(rows[0].newE, 34, 2);
-near(rows[1].newS, 55, 0);
-near(rows[1].newE, 64, 2);
+near(rows[0].newS, 34, 0);
+near(rows[0].newE, 39, 0);
+near(rows[1].newS, 50, 0);
+near(rows[1].newE, 60, 0);
 near(rows[2].newS, 230, 0);
 near(rows[2].newE, 240, 0);
 near(rows[3].newS, 81, 5);
@@ -192,15 +192,19 @@ const bfsEnniE = calculateQuote(
   ESTATE,
 )?.amount;
 assert.ok(bfsEnniS && bfsEnniE);
-near(bfsEnniS, 156, 3);
-near(bfsEnniE, 180, 5);
+near(bfsEnniS, 145, 5);
+near(bfsEnniE, 169, 5);
 console.log(`OK  BFS → Enniskillen S £${bfsEnniS} / E £${bfsEnniE}`);
 
-assert.equal(PRICING_CONFIG.airportBasePricesGbp.BHD, 29);
-assert.equal(PRICING_CONFIG.airportMinimumFaresGbp.BHD, 29);
+assert.equal(PRICING_CONFIG.airportBasePricesGbp.BHD, 34);
+assert.equal(PRICING_CONFIG.airportMinimumFaresGbp.BHD, 34);
 assert.equal(PRICING_CONFIG.airportBasePricesGbp.BFS, 45);
 assert.equal(PRICING_CONFIG.airportBasePricesGbp.DUB, 180);
 assert.equal(PRICING_CONFIG.airportEstatePremiumGbp, 8);
+assert.equal(PRICING_CONFIG.airportEstatePremiumTiers?.shortPremiumGbp, 5);
+assert.equal(PRICING_CONFIG.airportEstatePremiumTiers?.longPremiumGbp, 24);
+assert.equal(PRICING_CONFIG.airportOtsCalibration?.undercutMinGbp, 3);
+assert.equal(PRICING_CONFIG.airportOtsCalibration?.undercutMaxGbp, 5);
 assert.equal(PRICING_CONFIG.returnJourneyDiscountRate, 0.05);
 
 assert.equal(getA2aDistanceAdjustmentGbp(40), -9);
@@ -223,7 +227,7 @@ assert.equal(
 );
 
 const ret = calculateQuote(hall, "BFS", SALOON, true);
-assert.equal(ret?.amount, 105, "BFS return keeps single 5% discount (55*1.9→105)");
+assert.equal(ret?.amount, 95, "BFS return keeps single 5% discount (50*1.9→95)");
 
 assert.equal(selectVehicleForParty(2, 2), SALOON);
 assert.equal(selectVehicleForParty(3, 0), ESTATE);

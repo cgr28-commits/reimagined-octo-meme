@@ -3,11 +3,11 @@
   "pricingModel": {
     "summary": "One engine for every eligible online journey: driving route (when available) → distance/time reference → distance-band adjustment → airport zone/minimum rules when an airport leg is present → vehicle supplement → optional return 5% discount → rounded fixed fare.",
     "addressToAddress": "OTS-style reference (vehicleBase + tier×(perKm×km + perMin×min)) + addressToAddressDistanceBands adjustment. Requires valid route metrics; otherwise no fare.",
-    "airport": "Calibrated areaAirportSurchargesGbp zones supply short/medium airport fares (scales by origin zone, not a hard-coded town-pair). When route metrics exist: unknown origins use distance+airport minimum; long hauls (≥ airportRouteDistanceProtectFromKm) take max(zone, distance) for empty-return protection. BHD/BFS also apply belfastAirportDistanceFloor (MAX zone vs £65/£60 + £2/mile above 20 miles) so named zones do not flatten longer journeys.",
+    "airport": "Calibrated areaAirportSurchargesGbp zones supply short/medium airport fares (scales by origin zone, not a hard-coded town-pair). Estate uses tiered premium (≤£45 +£5; mid +£8; ≥£140 +£24; Dublin flat +£8). Airport-zone OTS calibration targets ~£3–£5 below OTS estate (airportOtsCalibration) without feeding live quotes. When route metrics exist: unknown origins use distance+airport minimum; long hauls (≥ airportRouteDistanceProtectFromKm) take max(zone, distance) for empty-return protection. BHD/BFS also apply belfastAirportDistanceFloor (MAX zone vs £65/£60 + £2/mile above 20 miles) so named zones do not flatten longer journeys.",
     "dublinAirport": "£230/£240 Belfast-centre benchmark is DUB airport only (place ID / geofence / explicit airport name). Dublin city uses DUB fare + dublinCityBeyondAirport uplift.",
     "vehicles": "Saloon 1–2 pax AND 0–2 large cases; Estate if 3–4 pax OR 3–4 cases (≤4/≤4); Minibus if >4 pax OR >4 cases (online fare: estateTier×1.55 airport / £60 A2A base).",
     "returnDiscount": "returnJourneyDiscountRate applied once to (2 × oneWay).",
-    "rounding": "Prefer nearest £5; amounts ending in £x4 are kept (e.g. £29, £34)."
+    "rounding": "Prefer nearest £5; amounts ending in £x4 are kept (e.g. £34, £49)."
   },
   "pricingRulesApproved": true,
   "publicUnapprovedPriceLabel": "Price confirmation required",
@@ -37,23 +37,31 @@
   },
   "airportMinimumFaresGbp": {
     "BFS": 45,
-    "BHD": 29,
+    "BHD": 34,
     "DUB": 180,
     "LDY": 35
   },
   "airportBasePricesGbp": {
     "BFS": 45,
-    "BHD": 29,
+    "BHD": 34,
     "DUB": 180,
     "LDY": 35
   },
   "airportEstatePremiumGbp": 8,
-  "airportLongHaulEstatePremium": {
+  "airportEstatePremiumTiers": {
     "enabled": true,
-    "note": "Long NI airport transfers need a larger estate gap to stay near OTS; Dublin Airport keeps the default £8 premium.",
-    "minSaloonFareGbp": 140,
-    "premiumGbp": 24,
+    "note": "BFS/BHD/LDY estate uplift by rounded saloon fare: ≤£45 → +£5; £46–£139 → +£8; ≥£140 → +£24. Dublin Airport always uses airportEstatePremiumGbp (£8).",
+    "shortMaxSaloonFareGbp": 45,
+    "shortPremiumGbp": 5,
+    "midPremiumGbp": 8,
+    "longMinSaloonFareGbp": 140,
+    "longPremiumGbp": 24,
     "excludeAirports": ["DUB"]
+  },
+  "airportOtsCalibration": {
+    "note": "Calibration-only target vs live OTS estate for BFS/BHD/LDY zone surcharges. Does not feed the live customer quote formula. Midpoint ~£4 undercut.",
+    "undercutMinGbp": 3,
+    "undercutMaxGbp": 5
   },
   "airportRouteDistanceProtectFromKm": 100,
   "belfastAirportDistanceFloor": {
@@ -69,158 +77,158 @@
   "airportExecutiveMinimumFareGbp": 105,
   "areaAirportSurchargesGbp": {
     "Belfast City Centre": {
-      "BFS": 8,
+      "BFS": 3,
       "BHD": 0,
       "DUB": 50,
       "LDY": 99
     },
     "Holywood": {
-      "BFS": 8,
-      "BHD": 6,
+      "BFS": 19,
+      "BHD": 0,
       "DUB": 58,
       "LDY": 103
     },
     "Newtownabbey": {
-      "BFS": 3,
-      "BHD": 8,
+      "BFS": 0,
+      "BHD": 5,
       "DUB": 60,
       "LDY": 89
     },
     "Lisburn": {
-      "BFS": 0,
-      "BHD": 8,
+      "BFS": 4,
+      "BHD": 4,
       "DUB": 60,
       "LDY": 98
     },
     "Dundonald": {
-      "BFS": 23,
-      "BHD": 3,
+      "BFS": 28,
+      "BHD": 4,
       "DUB": 60,
       "LDY": 103
     },
     "Antrim": {
       "BFS": 0,
-      "BHD": 29,
+      "BHD": 35,
       "DUB": 50,
       "LDY": 68
     },
     "Ballyclare": {
-      "BFS": 3,
-      "BHD": 13,
+      "BFS": 0,
+      "BHD": 19,
       "DUB": 65,
       "LDY": 83
     },
     "Hillsborough": {
-      "BFS": 3,
-      "BHD": 19,
+      "BFS": 8,
+      "BHD": 25,
       "DUB": 65,
       "LDY": 118
     },
     "Carrickfergus": {
-      "BFS": 14,
-      "BHD": 8,
+      "BFS": 19,
+      "BHD": 15,
       "DUB": 62,
       "LDY": 103
     },
     "Comber": {
-      "BFS": 23,
-      "BHD": 0,
+      "BFS": 28,
+      "BHD": 9,
       "DUB": 62,
       "LDY": 113
     },
     "Larne": {
-      "BFS": 13,
-      "BHD": 38,
+      "BFS": 18,
+      "BHD": 44,
       "DUB": 72,
       "LDY": 98
     },
     "Bangor": {
-      "BFS": 29,
-      "BHD": 3,
+      "BFS": 34,
+      "BHD": 9,
       "DUB": 65,
       "LDY": 118
     },
     "Newtownards": {
-      "BFS": 23,
-      "BHD": 0,
+      "BFS": 28,
+      "BHD": 9,
       "DUB": 62,
       "LDY": 113
     },
     "Ballymena": {
-      "BFS": 0,
-      "BHD": 49,
+      "BFS": 4,
+      "BHD": 55,
       "DUB": 78,
       "LDY": 58
     },
     "Downpatrick": {
-      "BFS": 38,
-      "BHD": 43,
+      "BFS": 43,
+      "BHD": 49,
       "DUB": 75,
       "LDY": 85
     },
     "Banbridge": {
-      "BFS": 38,
-      "BHD": 43,
+      "BFS": 43,
+      "BHD": 49,
       "DUB": 75,
       "LDY": 78
     },
     "Newcastle": {
-      "BFS": 64,
-      "BHD": 58,
+      "BFS": 69,
+      "BHD": 64,
       "DUB": 80,
       "LDY": 90
     },
     "Lurgan": {
-      "BFS": 18,
-      "BHD": 33,
+      "BFS": 23,
+      "BHD": 29,
       "DUB": 82,
       "LDY": 72
     },
     "Portadown": {
-      "BFS": 23,
-      "BHD": 53,
+      "BFS": 28,
+      "BHD": 59,
       "DUB": 85,
       "LDY": 70
     },
     "Armagh": {
-      "BFS": 44,
-      "BHD": 53,
+      "BFS": 43,
+      "BHD": 49,
       "DUB": 88,
       "LDY": 75
     },
     "Newry": {
-      "BFS": 63,
-      "BHD": 63,
+      "BFS": 68,
+      "BHD": 69,
       "DUB": 40,
       "LDY": 88
     },
     "Cookstown": {
-      "BFS": 28,
-      "BHD": 78,
+      "BFS": 33,
+      "BHD": 84,
       "DUB": 95,
       "LDY": 28
     },
     "Coleraine": {
-      "BFS": 43,
-      "BHD": 48,
+      "BFS": 48,
+      "BHD": 44,
       "DUB": 159,
       "LDY": 18
     },
     "Omagh": {
-      "BFS": 74,
-      "BHD": 62,
+      "BFS": 73,
+      "BHD": 59,
       "DUB": 115,
       "LDY": 22
     },
     "Derry / Londonderry": {
-      "BFS": 83,
-      "BHD": 128,
+      "BFS": 88,
+      "BHD": 119,
       "DUB": 105,
       "LDY": 0
     },
     "Enniskillen": {
-      "BFS": 110,
-      "BHD": 126,
+      "BFS": 98,
+      "BHD": 109,
       "DUB": 175,
       "LDY": 55
     }
@@ -274,7 +282,7 @@
     "default": 20
   },
   "otsReferenceModel": {
-    "note": "Distance/time reference for public A2A quotes. Commercial position vs OTS is applied via addressToAddressDistanceBands (short undercut, long empty-return uplift) — not a flat undercut on every journey.",
+    "note": "Distance/time reference for public A2A quotes. Commercial position vs OTS is applied via addressToAddressDistanceBands (short undercut, long empty-return uplift) — not a flat undercut on every journey. undercutMin/Max here are A2A-oriented fallbacks only; airport-zone calibration uses airportOtsCalibration (£3–£5).",
     "estateBaseGbp": 40,
     "perKmGbp": 0.482,
     "perMinuteGbp": 0.554,

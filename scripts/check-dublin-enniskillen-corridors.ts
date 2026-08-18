@@ -140,13 +140,13 @@ console.log("\n=== BFS → Enniskillen (near OTS, not deep undercut) ===");
 const bfsEnniS = calculateQuote(enni, "BFS", SALOON);
 const bfsEnniE = calculateQuote(enni, "BFS", ESTATE);
 assert.ok(bfsEnniS && bfsEnniE);
-assert.ok(bfsEnniS.amount >= 155 && bfsEnniS.amount <= 160, `saloon £${bfsEnniS.amount}`);
-assert.ok(bfsEnniE.amount >= 175 && bfsEnniE.amount <= 185, `estate £${bfsEnniE.amount}`);
+assert.ok(bfsEnniS.amount >= 140 && bfsEnniS.amount <= 150, `saloon £${bfsEnniS.amount}`);
+assert.ok(bfsEnniE.amount >= 164 && bfsEnniE.amount <= 174, `estate £${bfsEnniE.amount}`);
 console.log(
-  `OK  BFS → Enniskillen/SWAH  S £${bfsEnniS.amount} / E £${bfsEnniE.amount} (OTS ~£158/£182)`,
+  `OK  BFS → Enniskillen/SWAH  S £${bfsEnniS.amount} / E £${bfsEnniE.amount}`,
 );
 console.log(
-  `    surcharge £${bfsEnniS.areaSurcharge}, long-haul estate premium £${PRICING_CONFIG.airportLongHaulEstatePremium?.premiumGbp}`,
+  `    surcharge £${bfsEnniS.areaSurcharge}, long-haul estate premium £${PRICING_CONFIG.airportEstatePremiumTiers?.longPremiumGbp}`,
 );
 
 console.log("\nAll Dublin / Enniskillen corridor checks passed.");

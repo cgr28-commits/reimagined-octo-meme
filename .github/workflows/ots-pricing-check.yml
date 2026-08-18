@@ -1,5 +1,5 @@
 # Daily: sample 100 routes vs OTS (https://www.airporttaxis-uk.co.uk/),
-# auto-adjust airport surcharges, commit to main.
+# auto-adjust airport surcharges (~£3–£5 below OTS estate), commit to main.
 
 name: OTS daily pricing check
 
@@ -43,6 +43,8 @@ jobs:
         env:
           OTS_SAMPLE_SIZE: ${{ github.event.inputs.sample_size || '100' }}
           OTS_CHECK_DATE: ${{ github.event.inputs.check_date || '' }}
+          OTS_MIN_DISCOUNT: "3"
+          OTS_MAX_DISCOUNT: "5"
         run: npm run calibrate:ots-pricing
 
       - name: Upload calibration report
@@ -57,7 +59,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src/lib/quote.ts
+          git add src/lib/pricing-config.json
           if git diff --staged --quiet; then
             echo "No pricing changes to commit"
           else
