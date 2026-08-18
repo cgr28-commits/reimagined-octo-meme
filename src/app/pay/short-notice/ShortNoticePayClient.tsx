@@ -180,7 +180,7 @@ function ShortNoticePayInner() {
           onClick={() => void handlePay()}
           className="mt-6 inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-emerald px-5 py-3 text-base font-bold text-navy disabled:opacity-60"
         >
-          {paying ? "Opening SumUp…" : "Pay Securely"}
+          {paying ? "Opening secure payment…" : "Pay Securely"}
         </button>
       ) : (
         <p className="mt-6 rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">

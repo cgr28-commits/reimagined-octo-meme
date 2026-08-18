@@ -1,5 +1,5 @@
 /**
- * Payment-started owner notification + SumUp new-tab UX checks.
+ * Payment-started owner notification + SumUp same-tab Hosted Checkout UX checks.
  * Run: npx tsx scripts/check-sumup-payment-ux.ts
  */
 
@@ -69,25 +69,48 @@ assert.match(workerEmail, /trySendOwnerOperationalEmail/);
 assert.match(workerEmail, /skipFormSubmit/);
 assert.match(workerIndex, /trySendOwnerOperationalEmail\(env/);
 assert.match(workerIndex, /buildOwnerPaymentAttemptEmail/);
-// Payment attempt must use operational sender (not default FormSubmit-first path alone).
 assert.match(
   workerIndex,
   /attemptSend = await trySendOwnerOperationalEmail/,
 );
 console.log("OK  payment-started uses trySendOwnerOperationalEmail (no FormSubmit preference)");
 
-console.log("\n=== QuoteCard SumUp new-tab UX ===");
+console.log("\n=== SumUp Hosted Checkout (server) ===");
+const sumup = read("shared/sumup-checkout.ts");
+assert.match(sumup, /hosted_checkout:\s*\{[\s\S]*enabled:\s*true/);
+assert.match(sumup, /hosted_checkout_url/);
+assert.match(sumup, /redirect_url/);
+assert.doesNotMatch(sumup, /NEXT_PUBLIC_.*SUMUP|process\.env\.SUMUP/);
+console.log("OK  hosted_checkout.enabled + hosted_checkout_url; no public SumUp key in shared module");
+
+console.log("\n=== QuoteCard same-tab SumUp redirect UX ===");
 const card = read("src/components/QuoteCard.tsx");
-assert.match(card, /Payment opened in a new tab/);
-assert.match(card, /Return to \/ Edit booking/);
-assert.match(card, /Open payment again/);
-assert.match(card, /Secure payment will open in a new tab/);
-assert.match(card, /window\.open\(checkout\.paymentUrl, "_blank"/);
-assert.doesNotMatch(card, /location\.assign\(checkout\.paymentUrl\)/);
+assert.match(card, /window\.location\.assign\(checkout\.paymentUrl\)/);
+assert.match(card, /Opening secure payment…/);
+assert.match(card, /You’ll be securely redirected to SumUp to complete your payment/);
+assert.doesNotMatch(card, /Secure payment will open in a new tab/);
+assert.doesNotMatch(card, /window\.open\(checkout\.paymentUrl,\s*"_blank"/);
+assert.doesNotMatch(card, /window\.open\(openCheckout\.paymentUrl,\s*"_blank"/);
 assert.match(card, /saveBookingFormDraft/);
+assert.match(card, /savePendingPayment/);
 assert.match(card, /saveOpenCheckoutSession/);
-assert.match(card, /handleOpenPaymentAgain/);
-console.log("OK  QuoteCard opens SumUp in a new tab and preserves draft/checkout session");
+assert.match(card, /Continue to SumUp/);
+console.log("OK  QuoteCard same-tab assign; draft + pending payment preserved");
+
+const shortNotice = read("src/app/pay/short-notice/ShortNoticePayClient.tsx");
+assert.match(shortNotice, /window\.location\.assign\(checkout\.paymentUrl\)/);
+console.log("OK  short-notice pay also uses same-tab assign");
+
+const createPayment = read("src/lib/create-payment.ts");
+assert.match(createPayment, /buildPaymentRedirectUrl/);
+assert.match(createPayment, /booking-confirmed/);
+assert.doesNotMatch(createPayment, /SUMUP_API_KEY|SUMUP_MERCHANT/);
+console.log("OK  create-payment has return URL; no SumUp secrets in frontend");
+
+const finalize = read("src/lib/finalize-paid-booking.ts");
+assert.match(finalize, /confirmPaidBooking/);
+assert.match(finalize, /PAYMENT_CONFIRM_MAX_ATTEMPTS/);
+console.log("OK  return flow confirms via server (not client-only paid flag)");
 
 const draftStore = read("src/lib/booking-draft-storage.ts");
 assert.match(draftStore, /customerName/);
