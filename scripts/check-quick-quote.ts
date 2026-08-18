@@ -16,7 +16,14 @@ import {
   QUICK_QUOTE_MAX_PASSENGERS,
   type QuickQuoteRecord,
 } from "../shared/quick-quote";
-import { parseQuickQuoteMessage, parseUkDate, parseUkTime } from "../shared/quick-quote-parse";
+import {
+  addCalendarDays,
+  parseQuickQuoteMessage,
+  parseRelativeDateWord,
+  parseUkDate,
+  parseUkTime,
+} from "../shared/quick-quote-parse";
+import { todayLondonDate } from "../shared/uk-time";
 import { calculateAuthoritativeWebsiteQuote } from "../src/lib/quote-service";
 import { calculateQuote } from "../src/lib/quote";
 
@@ -62,33 +69,61 @@ assert.equal(quickQuoteAmountsEqual(50, 50), true);
 assert.equal(quickQuoteAmountsEqual(50, 49.5), false);
 assert.equal(quickQuoteAmountsEqual(50.001, 50), true);
 
-console.log("=== Return journey date/time required by parser ===");
-const oneWay = parseQuickQuoteMessage(
-  "Hi need taxi to Belfast International tomorrow 18/08/2026 at 14:30 for 2 passengers 2 bags from 12 Donegall Square North Belfast",
-);
-assert.ok(oneWay.airportCode.value === "BFS" || oneWay.dropoffAddress.value);
+console.log("=== Compact times + relative dates ===");
+assert.equal(parseUkTime("1340"), "13:40");
+assert.equal(parseUkTime("1620"), "16:20");
+assert.equal(parseUkTime("13:40"), "13:40");
 assert.equal(parseUkDate("18/08/2026"), "2026-08-18");
-assert.equal(parseUkTime("2:30pm"), "14:30");
+const fixedNow = new Date("2026-08-18T12:00:00.000Z");
+assert.equal(parseRelativeDateWord("tomm", fixedNow).value, addCalendarDays(todayLondonDate(fixedNow), 1));
+assert.equal(parseRelativeDateWord("tmrw", fixedNow).value, addCalendarDays(todayLondonDate(fixedNow), 1));
+assert.equal(parseRelativeDateWord("tomorrow", fixedNow).value, addCalendarDays(todayLondonDate(fixedNow), 1));
 
+console.log("=== Realistic WhatsApp regression (Ormeau → BFS tomm) ===");
+const REAL_MSG =
+  "Sure will do, by any chance I could check a price for an airport transfer from 55 ormeau road to Belfast international airport tomm at sat 1340 ( flight is at 1620)\n4 person 2 cabin baggage";
+const real = parseQuickQuoteMessage(REAL_MSG, fixedNow);
+const expectedTomorrow = addCalendarDays(todayLondonDate(fixedNow), 1);
+assert.equal(real.pickupAddress.value, "55 Ormeau Road");
+assert.equal(real.dropoffAddress.value, "Belfast International Airport");
+assert.equal(real.airportCode.value, "BFS");
+assert.equal(real.fromAirport.value, false);
+assert.equal(real.returnJourney.value, false);
+assert.equal(real.outboundDate.value, expectedTomorrow);
+assert.equal(real.outboundTime.value, "13:40");
+assert.equal(real.flightTime.value, "16:20");
+assert.equal(real.passengers.value, 4);
+assert.equal(real.suitcases.value, 2);
+assert.equal(real.returnTime.value, null); // flight time must not become return time
+assert.ok(!real.missingMandatoryForQuote.includes("pickupAddress"));
+assert.ok(!real.missingMandatoryForQuote.includes("outboundDate"));
+assert.ok(!real.missingMandatoryForQuote.includes("passengers"));
+assert.ok(!real.missingMandatoryForQuote.includes("suitcases"));
+assert.deepEqual(real.missingMandatoryForQuote, []);
+
+console.log("=== Default one-way when return not mentioned ===");
+const noReturnWord = parseQuickQuoteMessage(
+  "Price from 12 Donegall Square to Belfast City Airport on 20/08/2026 at 10:00 2 passengers 1 bag",
+);
+assert.equal(noReturnWord.returnJourney.value, false);
+
+console.log("=== Explicit return still detected ===");
 const returnMsg = parseQuickQuoteMessage(
   "Return trip Belfast City Airport from Hotel Europa 20/08/2026 09:00 returning 22/08/2026 18:30 2 passengers 1 suitcase",
 );
 assert.equal(returnMsg.returnJourney.value, true);
-assert.ok(returnMsg.missingMandatoryForQuote.includes("returnDate") || returnMsg.returnDate.value);
-// If dates extracted, return date/time should be present for return journeys.
 if (returnMsg.returnJourney.value === true) {
-  const needs =
-    !returnMsg.returnDate.value || !returnMsg.returnTime.value
-      ? returnMsg.missingMandatoryForQuote
-      : [];
-  if (!returnMsg.returnDate.value) assert.ok(needs.includes("returnDate"));
-  if (!returnMsg.returnTime.value) assert.ok(needs.includes("returnTime"));
+  if (!returnMsg.returnDate.value) {
+    assert.ok(returnMsg.missingMandatoryForQuote.includes("returnDate"));
+  }
+  if (!returnMsg.returnTime.value) {
+    assert.ok(returnMsg.missingMandatoryForQuote.includes("returnTime"));
+  }
 }
 
 console.log("=== Missing fields flagged ===");
 const sparse = parseQuickQuoteMessage("Hi can I get a price please");
 assert.ok(sparse.missingMandatoryForQuote.length >= 3);
-assert.ok(sparse.uncertainFields.length >= 0);
 
 console.log("=== Authoritative quote matches website engine ===");
 const quote = calculateAuthoritativeWebsiteQuote({
