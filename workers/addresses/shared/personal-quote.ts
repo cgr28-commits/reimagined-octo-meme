@@ -3,6 +3,8 @@
  * Authorised amount always lives server-side in KV; the browser never decides the price.
  */
 
+import { getWebsiteReturnJourneyFare } from "./return-journey-discount";
+
 export type PersonalQuoteRecord = {
   /** Public code, e.g. MQ-7K4P9X */
   code: string;
@@ -71,12 +73,6 @@ export function isValidPersonalQuotePassengerCount(value: unknown): value is num
   );
 }
 
-/**
- * Must match `pricing-config.json` → `returnJourneyDiscountRate`.
- * Used only when a Personal Quote is charged at the normal website fare (no personal discount).
- */
-export const PERSONAL_QUOTE_WEBSITE_RETURN_DISCOUNT_RATE = 0.05;
-
 function roundGbp(amount: number): number {
   return Math.round(amount * 100) / 100;
 }
@@ -89,7 +85,7 @@ export function personalQuoteAmountsEqual(a: number, b: number): boolean {
 /**
  * True when the customer is already receiving a Personal Quote discount vs the
  * stored one-way website fare. Missing standardWebsiteAmount ⇒ treat as a
- * manually agreed fare (not eligible for the public-site 5% return stacking).
+ * manually agreed fare (not eligible for the public-site return discount stacking).
  */
 export function isPersonallyDiscountedPersonalQuote(
   agreedAmount: number,
@@ -110,7 +106,8 @@ export function isPersonallyDiscountedPersonalQuote(
  *
  * Rules:
  * - one-way → agreedAmount
- * - return + not personally discounted (agreed == standard) → agreed × 2 × 0.95
+ * - return + not personally discounted (agreed == standard) → website return fare
+ *   (shared returnJourneyDiscountRate via getWebsiteReturnJourneyFare)
  * - return + personally discounted OR no standard → agreed × 2
  */
 export function resolvePersonalQuoteCheckoutAmount(input: {
@@ -136,7 +133,7 @@ export function resolvePersonalQuoteCheckoutAmount(input: {
     standard == null || isPersonallyDiscountedPersonalQuote(agreed, standard);
 
   if (!personallyDiscounted && standard != null) {
-    return roundGbp(agreed * 2 * (1 - PERSONAL_QUOTE_WEBSITE_RETURN_DISCOUNT_RATE));
+    return getWebsiteReturnJourneyFare(agreed);
   }
   return roundGbp(agreed * 2);
 }

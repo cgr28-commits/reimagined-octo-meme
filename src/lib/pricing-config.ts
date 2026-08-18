@@ -1,4 +1,5 @@
 import pricingConfigJson from "./pricing-config.json";
+import { RETURN_JOURNEY_DISCOUNT_RATE } from "../../shared/return-journey-discount";
 
 export type AirportCode = "BFS" | "BHD" | "DUB" | "LDY";
 
@@ -104,7 +105,11 @@ export type PricingConfig = {
   addressToAddressTripPremiumRate: number;
 };
 
-export const PRICING_CONFIG = pricingConfigJson as PricingConfig;
+export const PRICING_CONFIG = {
+  ...(pricingConfigJson as Omit<PricingConfig, "returnJourneyDiscountRate">),
+  /** From shared/return-journey-discount-rate.json — single source for website + Personal Quote. */
+  returnJourneyDiscountRate: RETURN_JOURNEY_DISCOUNT_RATE,
+} as PricingConfig;
 
 /** Owner switch — set false in pricing-config.json to temporarily hide live £ amounts. */
 export function arePricingRulesApproved(): boolean {

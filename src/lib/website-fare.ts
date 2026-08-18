@@ -2,9 +2,13 @@
  * One-way website fare using the SAME pricing engine as QuoteCard.
  * Always calls calculateQuote / calculatePointToPointQuote / Dublin helper
  * with returnJourney=false so Personal Quotes store one-way figures only.
+ *
+ * Pass the same schedule fields the public calculator uses (outbound date/time)
+ * so weekend / Bank Holiday premiums match the public site for A2A journeys.
  */
 
 import { VEHICLE_TYPES, type VehicleType } from "@/lib/data";
+import type { TripSchedule } from "@/lib/point-to-point-premium";
 import {
   calculateDublinCityBeyondAirportQuote,
   calculatePointToPointQuote,
@@ -28,6 +32,8 @@ export type WebsiteOneWayFareInput = {
   dropoffPlace: SelectedPlace | null;
   vehicleType: VehicleType;
   routeMetrics: TripRouteMetrics | null;
+  /** Same schedule shape as QuoteCard — outbound date/time drive weekend premiums. */
+  schedule?: TripSchedule;
 };
 
 /**
@@ -49,7 +55,10 @@ export function calculateWebsiteOneWayFare(
 
   const pickup = input.pickupPlace;
   const dropoff = input.dropoffPlace;
-  const schedule = {}; // one-way Personal Quote standard — no return/weekend schedule at issue time
+  const schedule: TripSchedule = {
+    ...(input.schedule ?? {}),
+    returnJourney: false,
+  };
   const returnJourney = false;
 
   if (pickup && dropoff && isPlaceSelected(pickup) && isPlaceSelected(dropoff)) {

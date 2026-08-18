@@ -27,13 +27,18 @@ import {
   toPersonalQuotePublicSummary,
   PERSONAL_QUOTE_PASSENGER_LIMIT_ERROR,
   PERSONAL_QUOTE_RESERVATION_TTL_SECONDS,
-  PERSONAL_QUOTE_WEBSITE_RETURN_DISCOUNT_RATE,
   type PersonalQuoteRecord,
 } from "../shared/personal-quote";
+import {
+  RETURN_JOURNEY_DISCOUNT_RATE,
+  getWebsiteReturnJourneyFare,
+} from "../shared/return-journey-discount";
+import returnDiscountRates from "../shared/return-journey-discount-rate.json";
 import { getReturnJourneyFare } from "../src/lib/point-to-point-premium";
+import { PRICING_CONFIG } from "../src/lib/pricing-config";
 import { calculateWebsiteOneWayFare } from "../src/lib/website-fare";
-import { calculateQuote } from "../src/lib/quote";
-import pricingConfig from "../src/lib/pricing-config.json";
+import { calculatePointToPointQuote, calculateQuote } from "../src/lib/quote";
+import { emptySelectedPlace } from "../src/lib/selected-place";
 
 const root = path.resolve(import.meta.dirname, "..");
 
@@ -548,11 +553,47 @@ check("R10. Return payment matrix (one-way / website return / personal discount)
     }),
     180,
   );
-  // Matches public website return helper when not personally discounted.
+  // Public website helper and Personal Quote eligible-return path share one rate source.
   assert.equal(getReturnJourneyFare(100), 190);
+  assert.equal(getWebsiteReturnJourneyFare(100), 190);
+  assert.equal(getReturnJourneyFare(100), getWebsiteReturnJourneyFare(100));
+  assert.equal(RETURN_JOURNEY_DISCOUNT_RATE, returnDiscountRates.returnJourneyDiscountRate);
+  assert.equal(PRICING_CONFIG.returnJourneyDiscountRate, RETURN_JOURNEY_DISCOUNT_RATE);
+  assert.doesNotMatch(read("shared/personal-quote.ts"), /PERSONAL_QUOTE_WEBSITE_RETURN_DISCOUNT_RATE\s*=\s*0\.05/);
+  assert.doesNotMatch(read("shared/personal-quote.ts"), /× 2 \* \(1 - 0\.05\)|2 \* 0\.95/);
+});
+
+check("R10b. Shared return rate drives both public and Personal Quote (no hard-coded PQ rate)", () => {
+  // Prove eligible Personal Quote return uses getWebsiteReturnJourneyFare (shared rate),
+  // and public getReturnJourneyFare uses the same RETURN_JOURNEY_DISCOUNT_RATE.
+  const shared = read("shared/personal-quote.ts");
+  assert.match(shared, /getWebsiteReturnJourneyFare/);
+  assert.match(read("shared/return-journey-discount.ts"), /return-journey-discount-rate\.json/);
+  assert.match(read("src/lib/pricing-config.ts"), /RETURN_JOURNEY_DISCOUNT_RATE/);
+  assert.match(read("src/lib/point-to-point-premium.ts"), /from "\.\.\/\.\.\/shared\/return-journey-discount"/);
+  assert.doesNotMatch(read("src/lib/pricing-config.json"), /"returnJourneyDiscountRate"\s*:/);
+  // Changing the shared JSON rate would change both formulas (algebraic identity).
+  const rate = RETURN_JOURNEY_DISCOUNT_RATE;
+  assert.equal(rate, 0.05);
+  assert.equal(getWebsiteReturnJourneyFare(100), Math.round(100 * 2 * (1 - rate) * 100) / 100);
+  assert.equal(getReturnJourneyFare(100), Math.round(100 * 2 * (1 - rate) * 100) / 100);
+  // Eligible PQ checkout amount is the shared website return fare (not a private constant).
   assert.equal(
-    PERSONAL_QUOTE_WEBSITE_RETURN_DISCOUNT_RATE,
-    pricingConfig.returnJourneyDiscountRate,
+    resolvePersonalQuoteCheckoutAmount({
+      agreedAmount: 100,
+      standardWebsiteAmount: 100,
+      returnJourney: true,
+    }),
+    getWebsiteReturnJourneyFare(100),
+  );
+  // If the shared rate were 10%, both public and eligible PQ returns would be £180.
+  const altRate = 0.1;
+  const altFare = Math.round(100 * 2 * (1 - altRate) * 100) / 100;
+  assert.equal(altFare, 180);
+  assert.notEqual(altFare, getWebsiteReturnJourneyFare(100));
+  assert.equal(
+    Math.round(100 * 2 * (1 - RETURN_JOURNEY_DISCOUNT_RATE) * 100) / 100,
+    getReturnJourneyFare(100),
   );
 });
 
@@ -610,11 +651,14 @@ check("R14. Owner calculator reuses public website pricing engine", () => {
   assert.match(fareMod, /calculatePointToPointQuote/);
   assert.match(fareMod, /calculateDublinCityBeyondAirportQuote/);
   assert.match(fareMod, /returnJourney = false/);
+  assert.match(fareMod, /schedule/);
   const panel = read("src/components/OwnerPersonalQuotesPanel.tsx");
   assert.match(panel, /calculateWebsiteOneWayFare/);
   assert.match(panel, /Calculate website price/);
   assert.match(panel, /AddressInput/);
   assert.match(panel, /Current website price/);
+  assert.match(panel, /journeyDate/);
+  assert.match(panel, /outboundDate/);
   // Same engine: calculateQuote result is finite for a known airport leg.
   const airportDirect = calculateQuote(
     "Holywood BT18",
@@ -625,8 +669,100 @@ check("R14. Owner calculator reuses public website pricing engine", () => {
     { distanceKm: 12, durationMinutes: 20 },
   );
   assert.ok(airportDirect && Number.isFinite(airportDirect.amount));
-  // website-fare module is the owner entrypoint into the same functions (no duplicate formula).
   assert.equal(typeof calculateWebsiteOneWayFare, "function");
+});
+
+check("R14b. Owner one-way fare matches public calculator for identical inputs (incl. weekend)", () => {
+  const metrics = { distanceKm: 28, durationMinutes: 40 };
+  const pickup = "12 Botanic Avenue, Belfast BT7 1JG";
+  const dropoff = "45 Main Street, Bangor BT20 5AF";
+  const vehicle = "Standard Saloon (1–4 passengers)" as const;
+
+  const weekdaySchedule = {
+    outboundDate: "2026-08-19", // Wednesday
+    outboundTime: "10:00",
+    returnJourney: false,
+  };
+  const weekendSchedule = {
+    outboundDate: "2026-08-22", // Saturday
+    outboundTime: "10:00",
+    returnJourney: false,
+  };
+
+  const publicWeekday = calculatePointToPointQuote(
+    pickup,
+    dropoff,
+    vehicle,
+    false,
+    weekdaySchedule,
+    metrics,
+  );
+  const ownerWeekday = calculateWebsiteOneWayFare({
+    pickupAddress: pickup,
+    dropoffAddress: dropoff,
+    pickupPlace: null,
+    dropoffPlace: null,
+    vehicleType: vehicle,
+    routeMetrics: metrics,
+    schedule: weekdaySchedule,
+  });
+  assert.ok(publicWeekday && ownerWeekday);
+  assert.equal(ownerWeekday!.amount, publicWeekday!.amount);
+
+  const publicWeekend = calculatePointToPointQuote(
+    pickup,
+    dropoff,
+    vehicle,
+    false,
+    weekendSchedule,
+    metrics,
+  );
+  const ownerWeekend = calculateWebsiteOneWayFare({
+    pickupAddress: pickup,
+    dropoffAddress: dropoff,
+    pickupPlace: null,
+    dropoffPlace: null,
+    vehicleType: vehicle,
+    routeMetrics: metrics,
+    schedule: weekendSchedule,
+  });
+  assert.ok(publicWeekend && ownerWeekend);
+  assert.equal(ownerWeekend!.amount, publicWeekend!.amount);
+  // Weekend premium should change the one-way A2A fare vs weekday when premium rate > 0.
+  if (PRICING_CONFIG.addressToAddressTripPremiumRate > 0) {
+    assert.notEqual(publicWeekend!.amount, publicWeekday!.amount);
+    assert.ok(publicWeekend!.premiumApplied);
+  }
+
+  // Bank Holiday (NI May Day 2026-05-04) — same schedule-sensitive path.
+  const bankHolidaySchedule = {
+    outboundDate: "2026-05-04",
+    outboundTime: "10:00",
+    returnJourney: false,
+  };
+  const publicBankHoliday = calculatePointToPointQuote(
+    pickup,
+    dropoff,
+    vehicle,
+    false,
+    bankHolidaySchedule,
+    metrics,
+  );
+  const ownerBankHoliday = calculateWebsiteOneWayFare({
+    pickupAddress: pickup,
+    dropoffAddress: dropoff,
+    pickupPlace: null,
+    dropoffPlace: null,
+    vehicleType: vehicle,
+    routeMetrics: metrics,
+    schedule: bankHolidaySchedule,
+  });
+  assert.ok(publicBankHoliday && ownerBankHoliday);
+  assert.equal(ownerBankHoliday!.amount, publicBankHoliday!.amount);
+  if (PRICING_CONFIG.addressToAddressTripPremiumRate > 0) {
+    assert.notEqual(publicBankHoliday!.amount, publicWeekday!.amount);
+    assert.ok(publicBankHoliday!.premiumApplied);
+  }
 });
 
 check("R15. Layout shift guards still present", () => {

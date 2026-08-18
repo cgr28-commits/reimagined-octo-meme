@@ -75,6 +75,8 @@ export default function OwnerPersonalQuotesPanel({ ownerKey }: OwnerPersonalQuot
   const [passengers, setPassengers] = useState(2);
   const [suitcases, setSuitcases] = useState(2);
   const [vehicle, setVehicle] = useState<VehicleType>(OWNER_PQ_VEHICLES[0] ?? VEHICLE_TYPES[0]);
+  const [journeyDate, setJourneyDate] = useState("");
+  const [journeyTime, setJourneyTime] = useState("10:00");
 
   const savingsPreview = useMemo(() => {
     const standard = parseMoney(standardWebsiteAmount);
@@ -164,6 +166,11 @@ export default function OwnerPersonalQuotesPanel({ ownerKey }: OwnerPersonalQuot
         dropoffPlace: isPlaceSelected(dropoffPlace) ? dropoffPlace : null,
         vehicleType: vehicle,
         routeMetrics,
+        schedule: {
+          outboundDate: journeyDate.trim() || undefined,
+          outboundTime: journeyTime.trim() || undefined,
+          returnJourney: false,
+        },
       });
 
       if (!quote || !Number.isFinite(quote.amount)) {
@@ -231,6 +238,8 @@ export default function OwnerPersonalQuotesPanel({ ownerKey }: OwnerPersonalQuot
       setDropoffPlace(emptySelectedPlace());
       setPassengers(2);
       setSuitcases(2);
+      setJourneyDate("");
+      setJourneyTime("10:00");
       setFareHint("");
       setExpiresOn(defaultExpiry());
       setSingleUse(true);
@@ -417,6 +426,30 @@ export default function OwnerPersonalQuotesPanel({ ownerKey }: OwnerPersonalQuot
             ))}
           </select>
         </label>
+        <label className="block min-w-0 text-sm text-white/80">
+          Journey date (for website pricing)
+          <input
+            type="date"
+            value={journeyDate}
+            onChange={(e) => {
+              setJourneyDate(e.target.value);
+              setFareHint("");
+            }}
+            className={fieldClass}
+          />
+        </label>
+        <label className="block min-w-0 text-sm text-white/80">
+          Journey time (for website pricing)
+          <input
+            type="time"
+            value={journeyTime}
+            onChange={(e) => {
+              setJourneyTime(e.target.value);
+              setFareHint("");
+            }}
+            className={fieldClass}
+          />
+        </label>
 
         <div className="min-w-0 space-y-2 sm:col-span-2">
           <button
@@ -427,6 +460,10 @@ export default function OwnerPersonalQuotesPanel({ ownerKey }: OwnerPersonalQuot
           >
             {calculatingFare ? "Calculating…" : "Calculate website price"}
           </button>
+          <p className="text-xs text-white/45">
+            Uses the same pricing engine as the public quote calculator (including weekend / Bank
+            Holiday premiums when date and time are set). Stores the one-way website fare.
+          </p>
           {standardWebsiteAmount.trim() ? (
             <p className="text-lg font-bold text-white">
               Current website price:{" "}
