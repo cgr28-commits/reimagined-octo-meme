@@ -28,6 +28,7 @@ import {
   type RefundActionKind,
   type RefundAuditEntry,
   type RefundReasonCategory,
+  type PaymentRefundStatus,
   REFUND_REASON_CATEGORIES,
 } from "../shared/refund-ops";
 import {
@@ -752,7 +753,7 @@ async function reconcileRecordWithSumUp(
 
 function deriveCombinedFromRecord(
   record: PaidBookingRecord,
-  paymentStatus: ReturnType<typeof derivePaymentStatus>,
+  paymentStatus: PaymentRefundStatus,
   amountRefundedAfter: number,
 ): PaidBookingRecord["status"] {
   const operational = resolveOperationalStatus(record);
