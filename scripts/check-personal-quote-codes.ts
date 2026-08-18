@@ -7,10 +7,13 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import {
+  buildPersonalQuoteReservation,
   evaluatePersonalQuote,
   generatePersonalQuoteCode,
+  isPersonalQuoteReservationActive,
   normalizePersonalQuoteCode,
   personalQuoteCustomerError,
+  PERSONAL_QUOTE_RESERVATION_TTL_SECONDS,
   type PersonalQuoteRecord,
 } from "../shared/personal-quote";
 
@@ -159,6 +162,111 @@ check("Pending checkout stores quote audit fields", () => {
   assert.match(pending, /personalQuoteCode\?:/);
   assert.match(pending, /standardWebsiteAmount\?:/);
   assert.match(pending, /personalQuotedAmount\?:/);
+});
+
+check("R1. Single-use quote with no reservation → checkout acquire path exists", () => {
+  const store = read("workers/addresses/src/personal-quote-store.ts");
+  assert.match(store, /tryAcquirePersonalQuoteReservation/);
+  const payment = read("workers/addresses/src/index.ts");
+  assert.match(payment, /tryAcquirePersonalQuoteReservation/);
+  assert.match(payment, /quoteRecord\?\.singleUse/);
+  const reservation = buildPersonalQuoteReservation({
+    code: "MQ-7K4P9X",
+    attemptId: "abc",
+    now: new Date("2026-08-18T12:00:00Z"),
+  });
+  assert.equal(isPersonalQuoteReservationActive(reservation, new Date("2026-08-18T12:00:00Z")), true);
+});
+
+check("R2. Active reservation blocks second checkout (customer-friendly message)", () => {
+  const now = new Date("2026-08-18T12:00:00Z");
+  const active = buildPersonalQuoteReservation({
+    code: "MQ-7K4P9X",
+    attemptId: "attempt-a",
+    checkoutId: "chk_1",
+    paymentUrl: "https://pay.example/1",
+    now,
+  });
+  assert.equal(isPersonalQuoteReservationActive(active, now), true);
+  assert.match(
+    personalQuoteCustomerError("reserved"),
+    /currently being used for another payment attempt/i,
+  );
+  const payment = read("workers/addresses/src/index.ts");
+  assert.match(payment, /personalQuoteCustomerError\("reserved"\)/);
+});
+
+check("R3. Same unpaid checkout/payment attempt can be reused", () => {
+  const payment = read("workers/addresses/src/index.ts");
+  assert.match(payment, /personalQuoteReuse: true/);
+  assert.match(payment, /existingReservation\.paymentUrl/);
+  assert.match(payment, /bindPersonalQuoteReservationCheckout/);
+});
+
+check("R4. Expired reservation → quote available again", () => {
+  const created = new Date("2026-08-18T12:00:00Z");
+  const reservation = buildPersonalQuoteReservation({
+    code: "MQ-7K4P9X",
+    attemptId: "old",
+    now: created,
+    ttlSeconds: 60,
+  });
+  assert.equal(
+    isPersonalQuoteReservationActive(reservation, new Date("2026-08-18T12:00:30Z")),
+    true,
+  );
+  assert.equal(
+    isPersonalQuoteReservationActive(reservation, new Date("2026-08-18T12:02:00Z")),
+    false,
+  );
+  assert.ok(PERSONAL_QUOTE_RESERVATION_TTL_SECONDS >= 15 * 60);
+  assert.ok(PERSONAL_QUOTE_RESERVATION_TTL_SECONDS <= 30 * 60);
+});
+
+check("R5. Successful payment → quote used and reservation cleared", () => {
+  const store = read("workers/addresses/src/personal-quote-store.ts");
+  assert.match(store, /clearPersonalQuoteReservation/);
+  // markPersonalQuoteUsed clears reservation after setting usedAt
+  const markFn = store.slice(store.indexOf("export async function markPersonalQuoteUsed"));
+  assert.match(markFn, /clearPersonalQuoteReservation/);
+  assert.match(markFn, /usedAt: new Date\(\)\.toISOString\(\)/);
+});
+
+check("R6. Abandoned checkout → reservation expires without consuming quote", () => {
+  const shared = read("shared/personal-quote.ts");
+  assert.match(shared, /PERSONAL_QUOTE_RESERVATION_TTL_SECONDS/);
+  // evaluatePersonalQuote does not treat reservation as used
+  assert.equal(evaluatePersonalQuote(sampleQuote()).ok, true);
+  const paymentFn = read("workers/addresses/src/index.ts").slice(
+    read("workers/addresses/src/index.ts").indexOf("async function handlePaymentRequest"),
+    read("workers/addresses/src/index.ts").indexOf("async function parseWebhookPayload"),
+  );
+  assert.doesNotMatch(paymentFn, /markPersonalQuoteUsed/);
+});
+
+check("R7. Multi-use quotes are not locked by reservation path", () => {
+  const payment = read("workers/addresses/src/index.ts");
+  // Reservation acquire is nested under singleUse — multi-use skips it.
+  assert.match(
+    payment,
+    /if \(quoteRecord\?\.singleUse\)[\s\S]{0,4000}?tryAcquirePersonalQuoteReservation/,
+  );
+});
+
+check("R8. Normal bookings without personal quotes skip reservation", () => {
+  const payment = read("workers/addresses/src/index.ts");
+  assert.match(
+    payment,
+    /if \(personalQuoteCode\) \{\s*const quoteRecord = await getPersonalQuoteByCode/,
+  );
+});
+
+check("R9. Terminal SumUp failure clears reservation where practical", () => {
+  const payment = read("workers/addresses/src/index.ts");
+  assert.match(payment, /failedStatuses/);
+  assert.match(payment, /clearPersonalQuoteReservation/);
+  assert.match(payment, /FAILED/);
+  assert.match(payment, /EXPIRED/);
 });
 
 console.log("\nAll personal quote code checks passed.");

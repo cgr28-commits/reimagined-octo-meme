@@ -132,6 +132,17 @@ import {
   resolvePersonalQuoteForPayment,
 } from "./personal-quote-handlers";
 import { normalizePersonalQuoteCode } from "../shared/personal-quote";
+import {
+  isPersonalQuoteReservationActive,
+  personalQuoteCustomerError,
+} from "../shared/personal-quote";
+import {
+  bindPersonalQuoteReservationCheckout,
+  clearPersonalQuoteReservation,
+  getPersonalQuoteByCode,
+  getPersonalQuoteReservation,
+  tryAcquirePersonalQuoteReservation,
+} from "./personal-quote-store";
 import { saveShortNoticeBooking } from "./short-notice-store";
 import { BUSINESS_WEBSITE } from "../shared/business-email";
 import { getShortNoticeByToken } from "./short-notice-store";
@@ -1325,13 +1336,134 @@ async function handlePaymentRequest(
       booking,
       checkoutReference,
     );
-    const checkout = await createSumUpHostedCheckout(apiKey, merchantCode, {
-      amount: Math.round(amount * 100) / 100,
-      description: sumUpDescription,
-      checkoutReference,
-      redirectUrl,
-      returnUrl,
-    });
+
+    // Single-use personal quotes: short-lived KV reservation before SumUp create.
+    // Does not permanently consume the quote (finalize still marks used).
+    let personalQuoteReservationAttemptId: string | undefined;
+    if (personalQuoteCode) {
+      const quoteRecord = await getPersonalQuoteByCode(env.TRACKING_STORE, personalQuoteCode);
+      if (quoteRecord?.singleUse) {
+        const existingReservation = await getPersonalQuoteReservation(
+          env.TRACKING_STORE,
+          personalQuoteCode,
+        );
+        if (isPersonalQuoteReservationActive(existingReservation) && existingReservation) {
+          const reservedCheckoutId = existingReservation.checkoutId?.trim() ?? "";
+          if (reservedCheckoutId && existingReservation.paymentUrl) {
+            try {
+              const existingCheckout = await getSumUpCheckout(apiKey, reservedCheckoutId);
+              if (isSumUpCheckoutPaid(existingCheckout)) {
+                return json(
+                  { error: personalQuoteCustomerError("already_used") },
+                  409,
+                  origin,
+                );
+              }
+              // Reuse the unpaid checkout for this quote — do not create a second SumUp.
+              return json(
+                {
+                  ok: true,
+                  paymentUrl: existingReservation.paymentUrl,
+                  checkoutId: reservedCheckoutId,
+                  checkoutReference:
+                    existingReservation.checkoutReference ||
+                    (await getPendingCheckout(env.TRACKING_STORE, reservedCheckoutId))
+                      ?.checkoutReference,
+                  ...(shortNoticeReference ? { shortNoticeReference } : {}),
+                  personalQuoteReuse: true,
+                },
+                200,
+                origin,
+              );
+            } catch {
+              // SumUp lookup failed — still reuse stored payment URL if we have it.
+              return json(
+                {
+                  ok: true,
+                  paymentUrl: existingReservation.paymentUrl,
+                  checkoutId: reservedCheckoutId,
+                  checkoutReference: existingReservation.checkoutReference,
+                  ...(shortNoticeReference ? { shortNoticeReference } : {}),
+                  personalQuoteReuse: true,
+                },
+                200,
+                origin,
+              );
+            }
+          }
+          return json(
+            { error: personalQuoteCustomerError("reserved") },
+            409,
+            origin,
+          );
+        }
+
+        const acquired = await tryAcquirePersonalQuoteReservation(
+          env.TRACKING_STORE,
+          personalQuoteCode,
+          { checkoutReference },
+        );
+        if (!acquired.ok) {
+          if (acquired.reservation.checkoutId && acquired.reservation.paymentUrl) {
+            try {
+              const existingCheckout = await getSumUpCheckout(
+                apiKey,
+                acquired.reservation.checkoutId,
+              );
+              if (!isSumUpCheckoutPaid(existingCheckout)) {
+                return json(
+                  {
+                    ok: true,
+                    paymentUrl: acquired.reservation.paymentUrl,
+                    checkoutId: acquired.reservation.checkoutId,
+                    checkoutReference: acquired.reservation.checkoutReference,
+                    ...(shortNoticeReference ? { shortNoticeReference } : {}),
+                    personalQuoteReuse: true,
+                  },
+                  200,
+                  origin,
+                );
+              }
+            } catch {
+              // fall through to reserved error
+            }
+          }
+          return json({ error: acquired.message }, 409, origin);
+        }
+        personalQuoteReservationAttemptId = acquired.reservation.attemptId;
+      }
+    }
+
+    let checkout: Awaited<ReturnType<typeof createSumUpHostedCheckout>>;
+    try {
+      checkout = await createSumUpHostedCheckout(apiKey, merchantCode, {
+        amount: Math.round(amount * 100) / 100,
+        description: sumUpDescription,
+        checkoutReference,
+        redirectUrl,
+        returnUrl,
+      });
+    } catch (error) {
+      if (personalQuoteCode && personalQuoteReservationAttemptId) {
+        await clearPersonalQuoteReservation(env.TRACKING_STORE, personalQuoteCode, {
+          attemptId: personalQuoteReservationAttemptId,
+        });
+      }
+      throw error;
+    }
+
+    if (personalQuoteCode && personalQuoteReservationAttemptId) {
+      await bindPersonalQuoteReservationCheckout(
+        env.TRACKING_STORE,
+        personalQuoteCode,
+        personalQuoteReservationAttemptId,
+        checkout.checkoutId,
+        {
+          checkoutReference: checkout.checkoutReference,
+          paymentUrl: checkout.paymentUrl,
+        },
+      );
+    }
 
     await savePendingCheckout(env.TRACKING_STORE, {
       checkoutId: checkout.checkoutId,
@@ -1485,6 +1617,13 @@ async function handlePaymentWebhookRequest(
               ]);
               if (!isSumUpCheckoutPaid(checkout) && failedStatuses.has(status)) {
                 const pending = await getPendingCheckout(env.TRACKING_STORE, checkoutId);
+                if (pending?.personalQuoteCode) {
+                  await clearPersonalQuoteReservation(
+                    env.TRACKING_STORE,
+                    pending.personalQuoteCode,
+                    { checkoutId },
+                  );
+                }
                 if (!pending?.unsuccessfulEmailSentAt) {
                   const amountLabel = formatPaidAmount(pending?.amount ?? checkout.amount ?? 0);
                   const unsuccessful = buildOwnerPaymentUnsuccessfulEmail(booking, {

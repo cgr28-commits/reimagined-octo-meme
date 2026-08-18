@@ -83,7 +83,68 @@ export type PersonalQuoteRedeemError =
   | "inactive"
   | "expired"
   | "already_used"
-  | "invalid_amount";
+  | "invalid_amount"
+  | "reserved";
+
+/** Short-lived checkout lock for single-use quotes (KV TTL + expiresAt). */
+export const PERSONAL_QUOTE_RESERVATION_TTL_SECONDS = 25 * 60;
+
+export type PersonalQuoteReservation = {
+  code: string;
+  /** Opaque attempt id — must match to update/clear this reservation. */
+  attemptId: string;
+  checkoutReference?: string;
+  checkoutId?: string;
+  /** Hosted SumUp URL — allows reuse without a second checkout create. */
+  paymentUrl?: string;
+  createdAt: string;
+  /** ISO timestamp — reservation is inactive at/after this instant. */
+  expiresAt: string;
+};
+
+export function personalQuoteReservationKey(code: string): string {
+  return `personal-quote:reservation:${normalizePersonalQuoteCode(code)}`;
+}
+
+export function generatePersonalQuoteAttemptId(): string {
+  const bytes = new Uint8Array(12);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+export function isPersonalQuoteReservationActive(
+  reservation: PersonalQuoteReservation | null | undefined,
+  now = new Date(),
+): boolean {
+  if (!reservation?.code || !reservation.attemptId || !reservation.expiresAt) {
+    return false;
+  }
+  const expiresMs = Date.parse(reservation.expiresAt);
+  if (!Number.isFinite(expiresMs)) return false;
+  return expiresMs > now.getTime();
+}
+
+export function buildPersonalQuoteReservation(input: {
+  code: string;
+  attemptId: string;
+  checkoutReference?: string;
+  checkoutId?: string;
+  paymentUrl?: string;
+  now?: Date;
+  ttlSeconds?: number;
+}): PersonalQuoteReservation {
+  const now = input.now ?? new Date();
+  const ttl = input.ttlSeconds ?? PERSONAL_QUOTE_RESERVATION_TTL_SECONDS;
+  return {
+    code: normalizePersonalQuoteCode(input.code),
+    attemptId: input.attemptId,
+    ...(input.checkoutReference ? { checkoutReference: input.checkoutReference } : {}),
+    ...(input.checkoutId ? { checkoutId: input.checkoutId } : {}),
+    ...(input.paymentUrl ? { paymentUrl: input.paymentUrl } : {}),
+    createdAt: now.toISOString(),
+    expiresAt: new Date(now.getTime() + ttl * 1000).toISOString(),
+  };
+}
 
 /**
  * Server-side redeemability check. Does not mutate the record.
@@ -141,6 +202,8 @@ export function personalQuoteCustomerError(error: PersonalQuoteRedeemError): str
       return "That personal quote has already been used. Please contact My Airport Taxi NI.";
     case "inactive":
       return "That personal quote is no longer active. Please contact My Airport Taxi NI.";
+    case "reserved":
+      return "This personal quote is currently being used for another payment attempt. Please try again shortly.";
     default:
       return "We couldn’t apply that quote code. Please check the code or contact My Airport Taxi NI.";
   }

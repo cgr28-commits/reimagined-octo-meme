@@ -3,12 +3,19 @@
  */
 
 import {
+  buildPersonalQuoteReservation,
   evaluatePersonalQuote,
+  generatePersonalQuoteAttemptId,
   generatePersonalQuoteCode,
+  isPersonalQuoteReservationActive,
   normalizePersonalQuoteCode,
   personalQuoteCodeKey,
+  personalQuoteCustomerError,
   personalQuoteOpenIndexKey,
+  personalQuoteReservationKey,
+  PERSONAL_QUOTE_RESERVATION_TTL_SECONDS,
   type PersonalQuoteRecord,
+  type PersonalQuoteReservation,
 } from "../shared/personal-quote";
 
 const TTL_SECONDS = 60 * 60 * 24 * 120;
@@ -146,6 +153,7 @@ export async function markPersonalQuoteUsed(
       record.associatedCheckoutId === checkoutId ||
       record.associatedPaymentReference === paymentReference
     ) {
+      await clearPersonalQuoteReservation(store, code);
       return;
     }
     return;
@@ -158,6 +166,7 @@ export async function markPersonalQuoteUsed(
       associatedPaymentReference: paymentReference,
       associatedCheckoutId: checkoutId,
     });
+    await clearPersonalQuoteReservation(store, code);
     return;
   }
 
@@ -167,6 +176,7 @@ export async function markPersonalQuoteUsed(
     associatedPaymentReference: paymentReference,
     associatedCheckoutId: checkoutId,
   });
+  await clearPersonalQuoteReservation(store, code);
 }
 
 export async function deactivatePersonalQuote(
@@ -178,4 +188,129 @@ export async function deactivatePersonalQuote(
   const next = { ...record, active: false };
   await savePersonalQuote(store, next);
   return next;
+}
+
+export async function getPersonalQuoteReservation(
+  store: KVNamespace,
+  code: string,
+): Promise<PersonalQuoteReservation | null> {
+  const normalized = normalizePersonalQuoteCode(code);
+  if (!normalized) return null;
+  const reservation = await store.get<PersonalQuoteReservation>(
+    personalQuoteReservationKey(normalized),
+    "json",
+  );
+  if (!reservation?.code || !reservation.attemptId) return null;
+  return {
+    ...reservation,
+    code: normalizePersonalQuoteCode(reservation.code),
+  };
+}
+
+async function putPersonalQuoteReservation(
+  store: KVNamespace,
+  reservation: PersonalQuoteReservation,
+): Promise<void> {
+  const code = normalizePersonalQuoteCode(reservation.code);
+  const ttlMs = Math.max(60_000, Date.parse(reservation.expiresAt) - Date.now());
+  const expirationTtl = Math.min(
+    PERSONAL_QUOTE_RESERVATION_TTL_SECONDS,
+    Math.ceil(ttlMs / 1000),
+  );
+  await store.put(
+    personalQuoteReservationKey(code),
+    JSON.stringify({ ...reservation, code }),
+    { expirationTtl: Math.max(60, expirationTtl) },
+  );
+}
+
+export async function clearPersonalQuoteReservation(
+  store: KVNamespace,
+  code: string,
+  options?: { attemptId?: string; checkoutId?: string },
+): Promise<void> {
+  const normalized = normalizePersonalQuoteCode(code);
+  if (!normalized) return;
+  const existing = await getPersonalQuoteReservation(store, normalized);
+  if (!existing) return;
+  if (options?.attemptId && existing.attemptId !== options.attemptId) return;
+  if (options?.checkoutId && existing.checkoutId && existing.checkoutId !== options.checkoutId) {
+    return;
+  }
+  await store.delete(personalQuoteReservationKey(normalized));
+}
+
+/**
+ * Acquire a short-lived reservation for a single-use quote before SumUp create.
+ * Best-effort under KV (no Durable Objects / conditional writes in this project).
+ *
+ * Returns:
+ * - acquired: caller may create a new SumUp checkout
+ * - reserved: another active attempt holds the lock
+ */
+export async function tryAcquirePersonalQuoteReservation(
+  store: KVNamespace,
+  code: string,
+  options?: { checkoutReference?: string; now?: Date },
+): Promise<
+  | { ok: true; reservation: PersonalQuoteReservation }
+  | { ok: false; error: "reserved"; message: string; reservation: PersonalQuoteReservation }
+> {
+  const normalized = normalizePersonalQuoteCode(code);
+  const now = options?.now ?? new Date();
+  const existing = await getPersonalQuoteReservation(store, normalized);
+
+  if (isPersonalQuoteReservationActive(existing, now)) {
+    return {
+      ok: false,
+      error: "reserved",
+      message: personalQuoteCustomerError("reserved"),
+      reservation: existing!,
+    };
+  }
+
+  const reservation = buildPersonalQuoteReservation({
+    code: normalized,
+    attemptId: generatePersonalQuoteAttemptId(),
+    checkoutReference: options?.checkoutReference,
+    now,
+  });
+  await putPersonalQuoteReservation(store, reservation);
+
+  // Best-effort race check: if another writer won, abort before SumUp create.
+  const verified = await getPersonalQuoteReservation(store, normalized);
+  if (
+    !verified ||
+    verified.attemptId !== reservation.attemptId ||
+    !isPersonalQuoteReservationActive(verified, now)
+  ) {
+    return {
+      ok: false,
+      error: "reserved",
+      message: personalQuoteCustomerError("reserved"),
+      reservation:
+        verified && isPersonalQuoteReservationActive(verified, now) ? verified : reservation,
+    };
+  }
+
+  return { ok: true, reservation: verified };
+}
+
+/** Attach SumUp checkout id to an existing reservation owned by this attempt. */
+export async function bindPersonalQuoteReservationCheckout(
+  store: KVNamespace,
+  code: string,
+  attemptId: string,
+  checkoutId: string,
+  options?: { checkoutReference?: string; paymentUrl?: string },
+): Promise<void> {
+  const existing = await getPersonalQuoteReservation(store, code);
+  if (!existing || existing.attemptId !== attemptId) return;
+  if (!isPersonalQuoteReservationActive(existing)) return;
+  await putPersonalQuoteReservation(store, {
+    ...existing,
+    checkoutId: checkoutId.trim(),
+    ...(options?.checkoutReference ? { checkoutReference: options.checkoutReference } : {}),
+    ...(options?.paymentUrl ? { paymentUrl: options.paymentUrl } : {}),
+  });
 }
