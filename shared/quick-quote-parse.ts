@@ -63,9 +63,7 @@ export function addCalendarDays(isoDate: string, delta: number): string {
 }
 
 function titleCaseAddress(value: string): string {
-  return value
-    .trim()
-    .replace(/\s+/g, " ")
+  return cleanExtractedText(value)
     .replace(/\b([a-z])/gi, (ch) => ch.toUpperCase())
     .replace(/\bBt(\d)/gi, "BT$1");
 }
@@ -83,6 +81,17 @@ export function stripWhatsAppMarkdown(text: string): string {
     .replace(/\*+\s*(?=\n|$)/g, "")
     .replace(/^\s*[>*]+\s?/gm, "")
     .replace(/\u00a0/g, " ");
+}
+
+/** Strip residual markdown / bullets from a single extracted field value. */
+export function cleanExtractedText(value: string): string {
+  return value
+    .replace(/[\u00a0]/g, " ")
+    .replace(/\*+/g, " ")
+    .replace(/^[\s_\-~`>•]+/, "")
+    .replace(/[\s_\-~`]+$/, "")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 const MONTH_INDEX: Record<string, number> = {
@@ -173,7 +182,7 @@ function readLabel(text: string, labels: string[]): string | null {
     );
     const match = text.match(re);
     if (match?.[1]) {
-      const value = match[1].trim();
+      const value = cleanExtractedText(match[1]);
       if (value) return value;
     }
   }
@@ -214,10 +223,11 @@ export function extractLabelledFields(text: string, now = new Date()): LabelledF
   const bagsRaw =
     readLabel(text, ["suitcases?", "bags?", "baggage", "luggage", "cases?"]) ?? null;
   const flightRaw =
-    readLabel(text, ["flight\\s*number", "flight"]) ?? null;
+    readLabel(text, ["flight\\s*number", "flight\\s*no\\.?", "flight"]) ?? null;
 
   const passengers = parseLeadingCount(paxRaw);
   const suitcases = parseLeadingCount(bagsRaw);
+  const flightNumber = flightRaw ? normalizeFlightCode(flightRaw) : null;
 
   return {
     ...(pickup ? { pickupAddress: titleCaseAddress(pickup) } : {}),
@@ -234,7 +244,7 @@ export function extractLabelledFields(text: string, now = new Date()): LabelledF
       : {}),
     ...(passengers != null ? { passengers } : {}),
     ...(suitcases != null ? { suitcases } : {}),
-    ...(flightRaw && !/^at\b/i.test(flightRaw) ? { flightNumber: flightRaw.toUpperCase() } : {}),
+    ...(flightNumber ? { flightNumber } : {}),
   };
 }
 
@@ -317,6 +327,16 @@ function extractAirport(text: string): {
  */
 function extractReturnJourney(text: string): ParsedQuickQuoteField<boolean> {
   const n = normalise(text);
+  const tripType = readLabel(text, ["trip\\s*type", "journey\\s*type", "type"]);
+  if (tripType) {
+    const t = tripType.toLowerCase();
+    if (/\bone[\s-]*way\b/.test(t) || /\bsingle\b/.test(t)) {
+      return field(false, "high", "labelled-trip-type-one-way");
+    }
+    if (/\breturn\b/.test(t) || /\bround\s*trip\b/.test(t)) {
+      return field(true, "high", "labelled-trip-type-return");
+    }
+  }
   if (/\breturn\b/.test(n) || /\bround\s*trip\b/.test(n) || /\bcoming\s+back\b/.test(n)) {
     return field(true, "high");
   }
@@ -554,15 +574,52 @@ function extractYesNo(text: string, patterns: RegExp[]): ParsedQuickQuoteField<b
   return missing<boolean>();
 }
 
+/** NI / UK postcode fragments must never be treated as flight numbers (e.g. BT30). */
+function isUkPostcodeFlightFalsePositive(code: string): boolean {
+  const c = code.replace(/\s+/g, "").toUpperCase();
+  if (/^BT\d/i.test(c)) return true; // all NI postcodes
+  if (/^[A-Z]{1,2}\d[A-Z\d]?\d[A-Z]{2}$/.test(c)) return true; // full postcode jammed
+  return false;
+}
+
+function normalizeFlightCode(raw: string): string | null {
+  const cleaned = cleanExtractedText(raw).replace(/\s+/g, "").toUpperCase();
+  // BA1418 / FR123 / EI605 — or EasyJet-style U2801
+  if (!/^(?:[A-Z]{2}\d{1,4}[A-Z]?|[A-Z]\d\d{1,4}[A-Z]?)$/.test(cleaned)) return null;
+  if (cleaned.length < 3) return null;
+  if (/^(MON|TUE|WED|THU|FRI|SAT|SUN)/.test(cleaned)) return null;
+  if (isUkPostcodeFlightFalsePositive(cleaned)) return null;
+  return cleaned;
+}
+
 function extractFlightNumber(text: string): ParsedQuickQuoteField<string> {
-  // Real flight codes — avoid weekdays + times (e.g. "sat 1340").
-  const match = text.match(/\b([A-Z]{2}\s?\d{1,4}[A-Z]?)\b/i);
-  if (!match?.[1]) return missing<string>();
-  const raw = match[1];
-  if (/^(mon|tue|wed|thu|fri|sat|sun)/i.test(raw)) return missing<string>();
-  const code = raw.replace(/\s+/g, "").toUpperCase();
-  if (code.length < 3) return field<string>(null, "low", raw);
-  return field(code, "high", raw);
+  // Prefer explicit labels only — never invent from address/postcode text.
+  const labelled = [
+    ...text.matchAll(
+      /\bflight\s*(?:number|no\.?|#)?\s*[:\-–]\s*([A-Z]{1,2}\s?\d{1,4}[A-Z]?)\b/gi,
+    ),
+  ];
+  for (const match of labelled) {
+    const code = normalizeFlightCode(match[1] ?? "");
+    if (code) return field(code, "high", match[0]);
+  }
+
+  // Unlabelled: only when a flight keyword is nearby (not bare BT30 in an address).
+  for (const match of text.matchAll(/\b((?:[A-Z]{2}|[A-Z]\d)\s?\d{1,4}[A-Z]?)\b/gi)) {
+    const code = normalizeFlightCode(match[1] ?? "");
+    if (!code) continue;
+    const idx = match.index ?? 0;
+    const window = text.slice(Math.max(0, idx - 28), idx + match[0].length + 8).toLowerCase();
+    if (!/\b(flight|fly(?:ing)?|airline|depart(?:ure|ing)?|landing|arrival)\b/.test(window)) {
+      continue;
+    }
+    // Skip if this token sits inside a full UK postcode like BT30 6PA.
+    const postcodeWindow = text.slice(Math.max(0, idx - 1), idx + match[0].length + 5);
+    if (/\b[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}\b/i.test(postcodeWindow)) continue;
+    return field(code, "high", match[0]);
+  }
+
+  return missing<string>();
 }
 
 function extractFromToAddresses(text: string): {
@@ -831,9 +888,17 @@ export function parseQuickQuoteMessage(
     if (!returnTime.value) missingMandatoryForQuote.push("returnTime");
   }
 
+  const cleanAddr = (f: ParsedQuickQuoteField<string>): ParsedQuickQuoteField<string> => {
+    if (f.value == null) return f;
+    const cleaned = cleanExtractedText(f.value);
+    if (!cleaned) return missing<string>(f.raw);
+    if (cleaned === f.value) return f;
+    return field(cleaned, f.confidence, f.raw);
+  };
+
   return {
-    pickupAddress: addresses.pickup,
-    dropoffAddress: addresses.dropoff,
+    pickupAddress: cleanAddr(addresses.pickup),
+    dropoffAddress: cleanAddr(addresses.dropoff),
     airportCode,
     fromAirport,
     returnJourney,

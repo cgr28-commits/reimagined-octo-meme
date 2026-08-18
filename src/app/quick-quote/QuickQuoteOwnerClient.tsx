@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import AddressInput from "@/components/AddressInput";
 import {
   airportLabel,
+  cleanExtractedText,
   countFieldValue,
   parseAirportCode,
   parseQuickQuoteMessage,
@@ -267,10 +268,14 @@ export default function QuickQuoteOwnerClient() {
     const suitcases = countFieldValue(parsed.suitcases.value);
     const airportCode = parsed.airportCode.value ?? "";
     const fromAirport = parsed.fromAirport.value ?? false;
-    let nextPickup = parsed.pickupAddress.value ?? "";
-    let nextDropoff = parsed.dropoffAddress.value ?? "";
+    let nextPickup = cleanExtractedText(parsed.pickupAddress.value ?? "");
+    let nextDropoff = cleanExtractedText(parsed.dropoffAddress.value ?? "");
     let nextPickupPlace = emptySelectedPlace();
     let nextDropoffPlace = emptySelectedPlace();
+    const flightNumber =
+      parsed.flightNumber.value && !/^BT\d/i.test(parsed.flightNumber.value)
+        ? parsed.flightNumber.value
+        : "";
 
     if (airportCode === "BFS" || airportCode === "BHD" || airportCode === "DUB") {
       const airportPlace = quickSelectToPlace(airportCode);
@@ -286,9 +291,7 @@ export default function QuickQuoteOwnerClient() {
       }
     }
 
-    setPickupPlace(nextPickupPlace);
-    setDropoffPlace(nextDropoffPlace);
-    setDraft({
+    const nextDraft: Draft = {
       pickupAddress: nextPickup,
       dropoffAddress: nextDropoff,
       airportCode,
@@ -301,19 +304,25 @@ export default function QuickQuoteOwnerClient() {
       passengers,
       suitcases,
       childSeatRequired: parsed.childSeatRequired.value ?? false,
-      flightNumber: parsed.flightNumber.value ?? "",
-    });
+      flightNumber,
+    };
 
-    // Align Missing badges with what actually landed in the form.
-    const nextMissing = parsed.missingMandatoryForQuote.filter((name) => {
-      if (name === "passengers") return !passengers;
-      if (name === "suitcases") return !suitcases;
-      if (name === "pickupAddress") return !nextPickup.trim();
-      if (name === "dropoffAddress") return !nextDropoff.trim();
-      if (name === "outboundDate") return !(parsed.outboundDate.value ?? "");
-      if (name === "outboundTime") return !(parsed.outboundTime.value ?? "");
-      return true;
-    });
+    setPickupPlace(nextPickupPlace);
+    setDropoffPlace(nextDropoffPlace);
+    setDraft(nextDraft);
+
+    // Missing badges from what actually landed in React state — not parser alone.
+    const nextMissing: string[] = [];
+    if (!nextDraft.pickupAddress.trim()) nextMissing.push("pickupAddress");
+    if (!nextDraft.dropoffAddress.trim()) nextMissing.push("dropoffAddress");
+    if (!nextDraft.outboundDate) nextMissing.push("outboundDate");
+    if (!nextDraft.outboundTime) nextMissing.push("outboundTime");
+    if (!nextDraft.passengers.trim()) nextMissing.push("passengers");
+    if (!nextDraft.suitcases.trim()) nextMissing.push("suitcases");
+    if (nextDraft.returnJourney) {
+      if (!nextDraft.returnDate) nextMissing.push("returnDate");
+      if (!nextDraft.returnTime) nextMissing.push("returnTime");
+    }
     setUncertain(parsed.uncertainFields);
     setMissing(nextMissing);
     setFlightTimeHint(parsed.flightTime.value ?? "");
@@ -705,15 +714,16 @@ export default function QuickQuoteOwnerClient() {
               flag={flagFor("passengers")}
             />
             <input
-              type="number"
+              type="text"
               inputMode="numeric"
-              min={1}
-              max={QUICK_QUOTE_MAX_PASSENGERS}
+              pattern="[0-9]*"
+              autoComplete="off"
               value={draft.passengers}
               onChange={(e) => {
-                setDraft((d) => ({ ...d, passengers: e.target.value }));
+                const next = e.target.value.replace(/[^\d]/g, "").slice(0, 2);
+                setDraft((d) => ({ ...d, passengers: next }));
                 clearQuoteOutputs();
-                if (e.target.value.trim()) {
+                if (next.trim()) {
                   setMissing((m) => m.filter((x) => x !== "passengers"));
                 }
               }}
@@ -723,15 +733,16 @@ export default function QuickQuoteOwnerClient() {
           <div className="min-w-0">
             <FieldLabel label="Luggage" flag={flagFor("suitcases")} />
             <input
-              type="number"
+              type="text"
               inputMode="numeric"
-              min={0}
-              max={12}
+              pattern="[0-9]*"
+              autoComplete="off"
               value={draft.suitcases}
               onChange={(e) => {
-                setDraft((d) => ({ ...d, suitcases: e.target.value }));
+                const next = e.target.value.replace(/[^\d]/g, "").slice(0, 2);
+                setDraft((d) => ({ ...d, suitcases: next }));
                 clearQuoteOutputs();
-                if (e.target.value.trim()) {
+                if (next.trim()) {
                   setMissing((m) => m.filter((x) => x !== "suitcases"));
                 }
               }}
