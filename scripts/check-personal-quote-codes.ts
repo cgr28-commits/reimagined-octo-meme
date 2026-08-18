@@ -773,6 +773,74 @@ check("R14b. Owner one-way fare matches public calculator for identical inputs (
   }
 });
 
+check("R14c. Owner airport weekend fare matches public (airportTripPremiumRate)", () => {
+  assert.equal(PRICING_CONFIG.airportTripPremiumRate, 0.05);
+  const cityHall = "Belfast City Hall, Belfast BT1 5GS";
+  const vehicle = "Standard Saloon (1–4 passengers)" as const;
+  const weekdaySchedule = {
+    outboundDate: "2026-08-19",
+    outboundTime: "10:00",
+    returnJourney: false,
+  };
+  const weekendSchedule = {
+    outboundDate: "2026-08-22",
+    outboundTime: "10:00",
+    returnJourney: false,
+  };
+  const publicWeekday = calculateQuote(cityHall, "BFS", vehicle, false, weekdaySchedule);
+  const publicWeekend = calculateQuote(cityHall, "BFS", vehicle, false, weekendSchedule);
+  assert.ok(publicWeekday && publicWeekend);
+  assert.equal(publicWeekday!.premiumApplied, false);
+  assert.equal(publicWeekend!.premiumApplied, true);
+  assert.ok(publicWeekend!.amount > publicWeekday!.amount);
+
+  const cityPlace = {
+    ...emptySelectedPlace(),
+    placeId: "city-hall-test",
+    formattedAddress: cityHall,
+    displayAddress: cityHall,
+    placeName: "Belfast City Hall",
+    lat: 54.5964,
+    lng: -5.9301,
+    countryCode: "GB",
+    postalCode: "BT1 5GS",
+  };
+  const bfsPlace = {
+    ...emptySelectedPlace(),
+    placeId: "ChIJy4dKsjJVYEgRntaoTC4U5gw",
+    formattedAddress: "Belfast International Airport, Airport Rd, Aldergrove BT29 4AB, UK",
+    displayAddress: "Belfast International Airport, Aldergrove",
+    placeName: "Belfast International Airport",
+    lat: 54.6575,
+    lng: -6.2158,
+    countryCode: "GB",
+    postalCode: "BT29 4AB",
+  };
+  const ownerWeekday = calculateWebsiteOneWayFare({
+    pickupAddress: cityHall,
+    dropoffAddress: "Belfast International Airport",
+    pickupPlace: cityPlace,
+    dropoffPlace: bfsPlace,
+    vehicleType: vehicle,
+    routeMetrics: null,
+    schedule: weekdaySchedule,
+  });
+  const ownerWeekend = calculateWebsiteOneWayFare({
+    pickupAddress: cityHall,
+    dropoffAddress: "Belfast International Airport",
+    pickupPlace: cityPlace,
+    dropoffPlace: bfsPlace,
+    vehicleType: vehicle,
+    routeMetrics: null,
+    schedule: weekendSchedule,
+  });
+  assert.ok(ownerWeekday && ownerWeekend);
+  assert.equal(ownerWeekday!.amount, publicWeekday!.amount);
+  assert.equal(ownerWeekend!.amount, publicWeekend!.amount);
+  // standardWebsiteAmount stores the schedule-adjusted one-way fare.
+  assert.equal(ownerWeekend!.amount, publicWeekend!.amount);
+});
+
 check("R15. Layout shift guards still present", () => {
   const css = read("src/app/globals.css");
   assert.match(css, /scrollbar-gutter:\s*stable/);

@@ -77,12 +77,25 @@ assert.equal(toAirport?.amount, fromAirport?.amount, "same fare either direction
 console.log(`OK  Direction-symmetric Holywood↔BHD £${toAirport?.amount}`);
 
 const weekend = calculateQuote(cityHall, "BFS", SALOON, false, {
-  outboundDate: "2026-08-31",
+  outboundDate: "2026-08-22", // Saturday
   outboundTime: "10:00",
 });
-assert.equal(weekend?.premiumApplied, false);
-assert.equal(PRICING_CONFIG.airportTripPremiumRate, 0);
-console.log("OK  Airport weekend/bank-holiday premium remains 0%");
+const weekday = calculateQuote(cityHall, "BFS", SALOON, false, {
+  outboundDate: "2026-08-19", // Wednesday
+  outboundTime: "10:00",
+});
+assert.equal(PRICING_CONFIG.airportTripPremiumRate, 0.05);
+assert.ok(weekday);
+assert.equal(weekday.premiumApplied, false);
+assert.ok(weekend);
+assert.equal(weekend.premiumApplied, true);
+assert.ok(
+  weekend.amount > weekday.amount,
+  `airport weekend fare (£${weekend.amount}) should exceed weekday (£${weekday.amount})`,
+);
+console.log(
+  `OK  Airport weekend/bank-holiday premium 5% (weekday £${weekday.amount} → Sat £${weekend.amount})`,
+);
 
 const x4 = calculateQuote(cityHall, "BHD", SALOON);
 assert.equal(x4?.amount, 34);
