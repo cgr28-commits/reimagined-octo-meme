@@ -1363,7 +1363,7 @@ function withCors(response: Response, origin: string | null): Response {
   } else {
     headers.set("Access-Control-Allow-Origin", "*");
   }
-  headers.set("Access-Control-Allow-Methods", "POST, OPTIONS");
+  headers.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   headers.set(
     "Access-Control-Allow-Headers",
     "Content-Type, Accept, X-Owner-Key, X-Driver-Key",
@@ -1373,4 +1373,149 @@ function withCors(response: Response, origin: string | null): Response {
 
 function json(body: unknown, status: number, origin: string | null): Response {
   return withCors(new Response(JSON.stringify(body), { status }), origin);
+}
+
+export function isRefundDiagnosticsPath(pathname: string): boolean {
+  return (
+    pathname === "/paid-bookings/refund-diagnostics" ||
+    pathname === "/api/paid-bookings/refund-diagnostics"
+  );
+}
+
+/**
+ * Owner-only read-only refund diagnostics for production smoke tests.
+ * Never returns secrets, card details, or API keys.
+ */
+export async function handleRefundDiagnosticsRequest(
+  request: Request,
+  env: RefundEnv,
+  origin: string | null,
+): Promise<Response> {
+  if (request.method !== "GET") {
+    return json({ error: "Method not allowed" }, 405, origin);
+  }
+
+  if (!ownerAuthorized(request, env)) {
+    return json(
+      { error: "Unauthorized — refund diagnostics require OWNER_ACCESS_KEY." },
+      401,
+      origin,
+    );
+  }
+
+  const url = new URL(request.url);
+  const paymentReference = (url.searchParams.get("paymentReference") ?? "").trim();
+  if (!paymentReference) {
+    return json({ error: "Missing paymentReference" }, 400, origin);
+  }
+
+  const coordinatorConfigured = Boolean(env.REFUND_COORDINATOR);
+  const sumUpConfigured = Boolean(env.SUMUP_API_KEY?.trim() && env.SUMUP_MERCHANT_CODE?.trim());
+
+  if (!paidBookingStoreConfigured(env.TRACKING_STORE)) {
+    return json(
+      {
+        ok: false,
+        coordinatorConfigured,
+        sumUpConfigured,
+        error: "Booking store is not configured",
+      },
+      503,
+      origin,
+    );
+  }
+
+  const record = await getPaidBookingRecord(env.TRACKING_STORE, paymentReference);
+  if (!record) {
+    return json(
+      {
+        ok: false,
+        coordinatorConfigured,
+        sumUpConfigured,
+        paymentReference,
+        error: "Booking not found",
+      },
+      404,
+      origin,
+    );
+  }
+
+  const amountPaid = amountPaidOf(record);
+  const amountRefunded = amountRefundedOf(record);
+  const remaining = remainingRefundableBalance(amountPaid, amountRefunded);
+  const history = [...(record.refundHistory ?? [])].sort((a, b) =>
+    String(b.requestedAt).localeCompare(String(a.requestedAt)),
+  );
+  const latest = history[0];
+
+  // Never expose secrets — only presence flags and public booking money/ops fields.
+  return json(
+    {
+      ok: true,
+      coordinatorConfigured,
+      sumUpConfigured,
+      paymentReference: record.paymentReference,
+      transactionId: record.transactionId ?? null,
+      transactionCode: record.transactionCode ?? null,
+      checkoutId: record.checkoutId || null,
+      currency: record.currency || "GBP",
+      originalAmount: amountPaid,
+      amountRefunded,
+      remainingRefundable: remaining,
+      amountPaidLabel: record.amountPaidLabel,
+      combinedStatus: record.status,
+      operationalStatus: resolveOperationalStatus(record),
+      paymentStatus:
+        record.paymentStatus ??
+        resolvePaymentStatusFromRecord({
+          amountPaid,
+          amountRefunded,
+          status: record.status,
+          paymentStatus: record.paymentStatus,
+        }),
+      cancelledAt: record.cancelledAt ?? null,
+      refundedAt: record.refundedAt ?? null,
+      calendarEventCount: Array.isArray(record.calendarEventIds)
+        ? record.calendarEventIds.length
+        : 0,
+      trackingTokenPresent: Boolean(record.trackingToken),
+      latestRefundOperation: latest
+        ? {
+            auditId: latest.id,
+            operationState: latest.operationState,
+            actionKind: latest.actionKind,
+            refundAmount: latest.refundAmount,
+            cumulativeRefundedAmount: latest.cumulativeRefundedAmount,
+            remainingBalance: latest.remainingBalance,
+            cancelBooking: latest.cancelBooking,
+            success: latest.success,
+            sumUpStatus: latest.sumUpStatus ?? null,
+            customerEmailStatus: latest.customerEmailStatus,
+            ownerEmailStatus: latest.ownerEmailStatus,
+            requestedAt: latest.requestedAt,
+            processorAcceptedAt: latest.processorAcceptedAt ?? null,
+            completedAt: latest.completedAt ?? null,
+            failureDetail: latest.failureDetail ?? null,
+            idempotencyKeySuffix: latest.idempotencyKey
+              ? latest.idempotencyKey.slice(-12)
+              : null,
+          }
+        : null,
+      refundHistoryCount: history.length,
+      // Truncated history for UI — no owner notes (may contain sensitive ops notes).
+      recentAudits: history.slice(0, 5).map((entry) => ({
+        auditId: entry.id,
+        operationState: entry.operationState,
+        refundAmount: entry.refundAmount,
+        cancelBooking: entry.cancelBooking,
+        customerEmailStatus: entry.customerEmailStatus,
+        ownerEmailStatus: entry.ownerEmailStatus,
+        requestedAt: entry.requestedAt,
+        completedAt: entry.completedAt ?? null,
+        success: entry.success,
+      })),
+    },
+    200,
+    origin,
+  );
 }

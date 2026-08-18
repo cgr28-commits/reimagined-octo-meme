@@ -25,6 +25,7 @@ import OwnerCancelRefundModal from "@/components/OwnerCancelRefundModal";
 import {
   fetchOwnerPaidBookings,
   fetchOwnerPendingCheckouts,
+  fetchRefundDiagnostics,
   fetchTrackingDiagnostic,
   finalizePaidCheckoutRecovery,
   resendPaidBookingConfirmation,
@@ -33,6 +34,7 @@ import {
   type OwnerPaidBookingSummary,
   type OwnerPendingCheckoutSummary,
   type OwnerReviewRequestSummary,
+  type RefundDiagnosticsReport,
   type TrackingDiagnosticReport,
 } from "@/lib/paid-bookings-api";
 import type { RefundIssueResponse } from "@/lib/refund-api";
@@ -44,7 +46,11 @@ import {
   postJourneyAction,
   type JourneyAction,
 } from "@/lib/tracking-api";
-import { isOperationallyCancelled } from "../../shared/refund-ops";
+import {
+  isOperationallyCancelled,
+  remainingRefundableBalance,
+  roundGbp,
+} from "../../shared/refund-ops";
 
 type OwnerPaidBookingsPanelProps = {
   ownerKey: string;
@@ -620,6 +626,106 @@ function yesNo(value: boolean | undefined): string {
   return "—";
 }
 
+function moneyGbp(amount: number | undefined | null): string {
+  if (typeof amount !== "number" || !Number.isFinite(amount)) return "—";
+  return `£${roundGbp(amount).toFixed(2)}`;
+}
+
+function RefundDiagnosticView({ report }: { report: RefundDiagnosticsReport }) {
+  const latest = report.latestRefundOperation;
+  return (
+    <div className="mt-3 rounded-xl border border-amber-400/25 bg-amber-500/10 p-3">
+      <p className="text-sm font-semibold text-amber-100">Refund diagnostics (read-only)</p>
+      <p className="mt-1 text-xs text-amber-100/70">
+        Owner-only. No access keys, SumUp API keys, or card details are shown.
+      </p>
+      <dl className="mt-3 grid gap-2 text-xs text-white/80 sm:grid-cols-2">
+        <div>
+          <dt className="text-white/40">REFUND_COORDINATOR configured</dt>
+          <dd className="mt-0.5 font-semibold text-white">
+            {yesNo(report.coordinatorConfigured)}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-white/40">SumUp secrets present</dt>
+          <dd className="mt-0.5 font-semibold text-white">{yesNo(report.sumUpConfigured)}</dd>
+        </div>
+        <div>
+          <dt className="text-white/40">Payment reference</dt>
+          <dd className="mt-0.5 break-all font-mono text-white">{report.paymentReference}</dd>
+        </div>
+        <div>
+          <dt className="text-white/40">SumUp transaction ID</dt>
+          <dd className="mt-0.5 break-all font-mono text-white">
+            {report.transactionId || "—"}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-white/40">Original amount</dt>
+          <dd className="mt-0.5 text-white">{moneyGbp(report.originalAmount)}</dd>
+        </div>
+        <div>
+          <dt className="text-white/40">Refunded amount</dt>
+          <dd className="mt-0.5 text-white">{moneyGbp(report.amountRefunded)}</dd>
+        </div>
+        <div>
+          <dt className="text-white/40">Remaining refundable</dt>
+          <dd className="mt-0.5 text-white">{moneyGbp(report.remainingRefundable)}</dd>
+        </div>
+        <div>
+          <dt className="text-white/40">Operational / payment / combined</dt>
+          <dd className="mt-0.5 text-white">
+            {report.operationalStatus || "—"} / {report.paymentStatus || "—"} /{" "}
+            {report.combinedStatus || "—"}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-white/40">Calendar events / tracking token</dt>
+          <dd className="mt-0.5 text-white">
+            {report.calendarEventCount ?? 0} / {yesNo(report.trackingTokenPresent)}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-white/40">Refund history entries</dt>
+          <dd className="mt-0.5 text-white">{report.refundHistoryCount ?? 0}</dd>
+        </div>
+        {latest ? (
+          <>
+            <div className="sm:col-span-2">
+              <dt className="text-white/40">Latest refund operation</dt>
+              <dd className="mt-0.5 whitespace-pre-wrap font-mono text-[11px] text-white/75">
+                {[
+                  `auditId: ${latest.auditId}`,
+                  `operationState: ${latest.operationState}`,
+                  `actionKind: ${latest.actionKind ?? "—"}`,
+                  `refundAmount: ${moneyGbp(latest.refundAmount)}`,
+                  `cumulative: ${moneyGbp(latest.cumulativeRefundedAmount)}`,
+                  `remaining: ${moneyGbp(latest.remainingBalance)}`,
+                  `cancelBooking: ${latest.cancelBooking}`,
+                  `sumUpStatus: ${latest.sumUpStatus ?? "—"}`,
+                  `customerEmail: ${latest.customerEmailStatus}`,
+                  `ownerEmail: ${latest.ownerEmailStatus}`,
+                  `requestedAt: ${latest.requestedAt}`,
+                  `processorAcceptedAt: ${latest.processorAcceptedAt ?? "—"}`,
+                  `completedAt: ${latest.completedAt ?? "—"}`,
+                  latest.failureDetail ? `failureDetail: ${latest.failureDetail}` : null,
+                ]
+                  .filter(Boolean)
+                  .join("\n")}
+              </dd>
+            </div>
+          </>
+        ) : (
+          <div className="sm:col-span-2">
+            <dt className="text-white/40">Latest refund operation</dt>
+            <dd className="mt-0.5 text-white/60">No refund audit entries yet.</dd>
+          </div>
+        )}
+      </dl>
+    </div>
+  );
+}
+
 function TrackingDiagnosticView({ report }: { report: TrackingDiagnosticReport }) {
   const events = report.journeyEvents;
   return (
@@ -732,7 +838,11 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
   const [busyRef, setBusyRef] = useState("");
   const [recovering, setRecovering] = useState(false);
   const [diagnostics, setDiagnostics] = useState<Record<string, TrackingDiagnosticReport>>({});
+  const [refundDiagnostics, setRefundDiagnostics] = useState<
+    Record<string, RefundDiagnosticsReport>
+  >({});
   const [diagnosticBusyRef, setDiagnosticBusyRef] = useState("");
+  const [refundDiagBusyRef, setRefundDiagBusyRef] = useState("");
   const [editingBooking, setEditingBooking] = useState<OwnerPaidBookingSummary | null>(null);
   const [offerUpdatedConfirmationRef, setOfferUpdatedConfirmationRef] = useState<string | null>(null);
   const [fareAdjustMessage, setFareAdjustMessage] = useState("");
@@ -927,6 +1037,27 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
       setError(err instanceof Error ? err.message : "Could not load tracking diagnostic");
     } finally {
       setDiagnosticBusyRef("");
+    }
+  }
+
+  async function handleRefundDiagnostic(booking: OwnerPaidBookingSummary) {
+    setRefundDiagBusyRef(booking.paymentReference);
+    setError("");
+    try {
+      const report = await fetchRefundDiagnostics(ownerKey, booking.paymentReference);
+      setRefundDiagnostics((current) => ({
+        ...current,
+        [booking.paymentReference]: report,
+      }));
+      setMessage(
+        report.coordinatorConfigured
+          ? `Refund diagnostics loaded for ${booking.paymentReference} (coordinator YES).`
+          : `Refund diagnostics loaded — WARNING: REFUND_COORDINATOR not configured.`,
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not load refund diagnostics");
+    } finally {
+      setRefundDiagBusyRef("");
     }
   }
 
@@ -1281,11 +1412,11 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
         : booking.status === "refunded" || booking.status === "refunded_active"
           ? paidNum
           : 0;
+    const remainingNum = remainingRefundableBalance(paidNum, refundedNum);
+    // Allow cancel/refund while operationally open (incl. refunded_active → cancel-only),
+    // or when money remains on an already-cancelled booking.
     const canRefundOrCancel =
-      booking.status !== "refunded" &&
-      booking.status !== "refunded_active"
-        ? true
-        : paidNum > refundedNum + 0.001;
+      !isOperationallyCancelled(booking) || remainingNum > 0.001;
 
     return (
       <li
@@ -1308,6 +1439,16 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
                 }`;
               })()}
             </p>
+            {(refundedNum > 0 || booking.status === "partially_refunded" || booking.status === "refunded_active") && (
+              <p className="mt-1 text-xs text-amber-100/90">
+                Paid {booking.amountPaid}
+                {` · refunded £${refundedNum.toFixed(2)}`}
+                {` · remaining £${remainingNum.toFixed(2)}`}
+                {booking.operationalStatus || booking.status
+                  ? ` · ${booking.operationalStatus ?? "—"} / ${booking.paymentStatus ?? booking.status}`
+                  : ""}
+              </p>
+            )}
             <p className="mt-2 break-words text-sm text-white/80">
               {(() => {
                 const nextDate = relevantUpcomingJourneyDate(booking);
@@ -1622,6 +1763,19 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
                       ? "Loading diagnostic…"
                       : "Tracking diagnostic (read-only)"}
                   </button>
+                  <button
+                    type="button"
+                    disabled={
+                      refundDiagBusyRef === booking.paymentReference ||
+                      busyRef === booking.paymentReference
+                    }
+                    onClick={() => void handleRefundDiagnostic(booking)}
+                    className="min-h-11 w-full rounded-xl border border-amber-400/40 bg-amber-500/10 px-4 py-2.5 text-sm font-semibold text-amber-100 transition-colors hover:bg-amber-500/20 disabled:opacity-60 sm:w-auto"
+                  >
+                    {refundDiagBusyRef === booking.paymentReference
+                      ? "Loading refund diagnostics…"
+                      : "Refund diagnostics (read-only)"}
+                  </button>
                   {canRefundOrCancel ? (
                     <button
                       type="button"
@@ -1674,6 +1828,9 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
             {diagnostics[booking.paymentReference] ? (
               <TrackingDiagnosticView report={diagnostics[booking.paymentReference]} />
             ) : null}
+            {refundDiagnostics[booking.paymentReference] ? (
+              <RefundDiagnosticView report={refundDiagnostics[booking.paymentReference]} />
+            ) : null}
           </>
         ) : (
           <div className="mt-4 space-y-3">
@@ -1688,7 +1845,20 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
               >
                 View Journey Evidence
               </a>
-              {canRefundOrCancel && booking.status === "cancelled" ? (
+              <button
+                type="button"
+                disabled={
+                  refundDiagBusyRef === booking.paymentReference ||
+                  busyRef === booking.paymentReference
+                }
+                onClick={() => void handleRefundDiagnostic(booking)}
+                className="min-h-11 w-full rounded-xl border border-amber-400/40 bg-amber-500/10 px-4 py-2.5 text-sm font-semibold text-amber-100 transition-colors hover:bg-amber-500/20 disabled:opacity-60 sm:w-auto"
+              >
+                {refundDiagBusyRef === booking.paymentReference
+                  ? "Loading refund diagnostics…"
+                  : "Refund diagnostics (read-only)"}
+              </button>
+              {canRefundOrCancel ? (
                 <button
                   type="button"
                   disabled={busyRef === booking.paymentReference}
@@ -1711,6 +1881,9 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
                 onSuccess={(result) => void handleCancelRefundSuccess(result, booking)}
                 onError={(message) => setError(message)}
               />
+            ) : null}
+            {refundDiagnostics[booking.paymentReference] ? (
+              <RefundDiagnosticView report={refundDiagnostics[booking.paymentReference]} />
             ) : null}
           </div>
         )}

@@ -18,6 +18,7 @@ import {
   PRIMARY_DRIVER_LABEL,
   resolveAssignedDriverLabel,
 } from "../shared/paid-booking-record";
+import { resolveOperationalStatus } from "../shared/refund-ops";
 import {
   findTrackingJobByPaymentReference,
   findTrackingJobsByPaymentReference,
@@ -381,8 +382,11 @@ export async function handlePaidBookingsListRequest(
         checkoutId: booking.checkoutId,
         createdAt: booking.createdAt,
         status: booking.status,
+        operationalStatus: booking.operationalStatus ?? resolveOperationalStatus(booking),
+        paymentStatus: booking.paymentStatus,
         amountPaid: booking.amountPaidLabel,
         amountRefunded: booking.amountRefunded ?? 0,
+        transactionId: booking.transactionId,
         refundHistory: booking.refundHistory,
         cancelledAt: booking.cancelledAt,
         refundedAt: booking.refundedAt,

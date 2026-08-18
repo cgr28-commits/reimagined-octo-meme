@@ -18,6 +18,9 @@ export type OwnerPaidBookingSummary = Pick<
   | "checkoutId"
   | "createdAt"
   | "status"
+  | "operationalStatus"
+  | "paymentStatus"
+  | "transactionId"
   | "customerName"
   | "customerEmail"
   | "mobileNumber"
@@ -388,6 +391,83 @@ export async function fetchTrackingDiagnostic(
     throw new Error(String(payload.error ?? "Failed to load tracking diagnostic"));
   }
   return payload as unknown as TrackingDiagnosticReport;
+}
+
+export type RefundDiagnosticsReport = {
+  ok: boolean;
+  coordinatorConfigured: boolean;
+  sumUpConfigured: boolean;
+  paymentReference: string;
+  transactionId?: string | null;
+  transactionCode?: string | null;
+  checkoutId?: string | null;
+  currency?: string;
+  originalAmount: number;
+  amountRefunded: number;
+  remainingRefundable: number;
+  amountPaidLabel?: string;
+  combinedStatus?: string;
+  operationalStatus?: string;
+  paymentStatus?: string;
+  cancelledAt?: string | null;
+  refundedAt?: string | null;
+  calendarEventCount?: number;
+  trackingTokenPresent?: boolean;
+  latestRefundOperation?: {
+    auditId: string;
+    operationState: string;
+    actionKind?: string;
+    refundAmount: number;
+    cumulativeRefundedAmount: number;
+    remainingBalance: number;
+    cancelBooking: boolean;
+    success: boolean;
+    sumUpStatus?: string | null;
+    customerEmailStatus: string;
+    ownerEmailStatus: string;
+    requestedAt: string;
+    processorAcceptedAt?: string | null;
+    completedAt?: string | null;
+    failureDetail?: string | null;
+    idempotencyKeySuffix?: string | null;
+  } | null;
+  refundHistoryCount?: number;
+  recentAudits?: Array<{
+    auditId: string;
+    operationState: string;
+    refundAmount: number;
+    cancelBooking: boolean;
+    customerEmailStatus: string;
+    ownerEmailStatus: string;
+    requestedAt: string;
+    completedAt?: string | null;
+    success: boolean;
+  }>;
+  error?: string;
+};
+
+/** Owner-only read-only refund diagnostics (no secrets). */
+export async function fetchRefundDiagnostics(
+  ownerKey: string,
+  paymentReference: string,
+): Promise<RefundDiagnosticsReport> {
+  const ref = paymentReference.trim();
+  const response = await fetch(
+    `${WORKER_BASE}/paid-bookings/refund-diagnostics?paymentReference=${encodeURIComponent(ref)}`,
+    {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+        "X-Owner-Key": ownerKey.trim(),
+      },
+      cache: "no-store",
+    },
+  );
+  const payload = await parseJson(response);
+  if (!response.ok) {
+    throw new Error(String(payload.error ?? "Failed to load refund diagnostics"));
+  }
+  return payload as unknown as RefundDiagnosticsReport;
 }
 
 export type OwnerEditBookingInput = {
