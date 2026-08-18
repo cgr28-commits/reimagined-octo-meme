@@ -7,12 +7,16 @@ import {
   evaluatePersonalQuote,
   generatePersonalQuoteAttemptId,
   generatePersonalQuoteCode,
+  generatePersonalQuoteCustomerToken,
   isPersonalQuoteReservationActive,
   normalizePersonalQuoteCode,
+  normalizePersonalQuoteCustomerToken,
   personalQuoteCodeKey,
   personalQuoteCustomerError,
   personalQuoteOpenIndexKey,
   personalQuoteReservationKey,
+  personalQuoteTokenKey,
+  resolvePersonalQuotePricing,
   PERSONAL_QUOTE_RESERVATION_TTL_SECONDS,
   type PersonalQuoteRecord,
   type PersonalQuoteReservation,
@@ -43,8 +47,17 @@ export async function savePersonalQuote(
   record: PersonalQuoteRecord,
 ): Promise<void> {
   const code = normalizePersonalQuoteCode(record.code);
-  const toSave: PersonalQuoteRecord = { ...record, code };
+  let customerToken = record.customerToken
+    ? normalizePersonalQuoteCustomerToken(record.customerToken)
+    : "";
+  if (!customerToken || customerToken.length < 32) {
+    customerToken = generatePersonalQuoteCustomerToken();
+  }
+  const toSave: PersonalQuoteRecord = { ...record, code, customerToken };
   await store.put(personalQuoteCodeKey(code), JSON.stringify(toSave), {
+    expirationTtl: TTL_SECONDS,
+  });
+  await store.put(personalQuoteTokenKey(customerToken), code, {
     expirationTtl: TTL_SECONDS,
   });
 
@@ -67,6 +80,46 @@ export async function getPersonalQuoteByCode(
   return { ...record, code: normalizePersonalQuoteCode(record.code) };
 }
 
+export async function getPersonalQuoteByCustomerToken(
+  store: KVNamespace,
+  token: string,
+): Promise<PersonalQuoteRecord | null> {
+  const normalized = normalizePersonalQuoteCustomerToken(token);
+  if (!normalized || normalized.length < 32) return null;
+  const code = await store.get(personalQuoteTokenKey(normalized));
+  if (!code) return null;
+  const record = await getPersonalQuoteByCode(store, code);
+  if (!record) return null;
+  // Token on record must match (prevents stale token→code maps after rotation).
+  if (
+    record.customerToken &&
+    normalizePersonalQuoteCustomerToken(record.customerToken) !== normalized
+  ) {
+    return null;
+  }
+  return record;
+}
+
+/** Ensure legacy records get a customerToken + token index entry. */
+export async function ensurePersonalQuoteCustomerToken(
+  store: KVNamespace,
+  record: PersonalQuoteRecord,
+): Promise<PersonalQuoteRecord> {
+  const existing = record.customerToken
+    ? normalizePersonalQuoteCustomerToken(record.customerToken)
+    : "";
+  if (existing.length >= 32) {
+    const mapped = await store.get(personalQuoteTokenKey(existing));
+    if (mapped === normalizePersonalQuoteCode(record.code)) {
+      return { ...record, customerToken: existing };
+    }
+  }
+  const customerToken = generatePersonalQuoteCustomerToken();
+  const next: PersonalQuoteRecord = { ...record, customerToken };
+  await savePersonalQuote(store, next);
+  return next;
+}
+
 export async function listOpenPersonalQuotes(
   store: KVNamespace,
 ): Promise<PersonalQuoteRecord[]> {
@@ -75,7 +128,7 @@ export async function listOpenPersonalQuotes(
   for (const code of codes) {
     const record = await getPersonalQuoteByCode(store, code);
     if (record && evaluatePersonalQuote(record).ok) {
-      records.push(record);
+      records.push(await ensurePersonalQuoteCustomerToken(store, record));
     }
   }
   return records.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
@@ -86,8 +139,10 @@ export async function createPersonalQuote(
   input: {
     customerName: string;
     customerEmail?: string;
+    customerMobile?: string;
     agreedAmount: number;
     standardWebsiteAmount?: number;
+    discountAmount?: number;
     pickupLabel?: string;
     dropoffLabel?: string;
     notes?: string;
@@ -95,9 +150,13 @@ export async function createPersonalQuote(
     expiresOn: string;
   },
 ): Promise<PersonalQuoteRecord> {
-  const agreedAmount = Math.round(Number(input.agreedAmount) * 100) / 100;
-  if (!Number.isFinite(agreedAmount) || agreedAmount < 1 || agreedAmount > 5000) {
-    throw new Error("Agreed price must be between £1 and £5000");
+  const pricing = resolvePersonalQuotePricing({
+    agreedAmount: input.agreedAmount,
+    standardWebsiteAmount: input.standardWebsiteAmount,
+    discountAmount: input.discountAmount,
+  });
+  if (!pricing.ok) {
+    throw new Error(pricing.error);
   }
   if (!/^\d{4}-\d{2}-\d{2}$/.test(input.expiresOn)) {
     throw new Error("Expiry date must be YYYY-MM-DD");
@@ -114,13 +173,25 @@ export async function createPersonalQuote(
     code = generatePersonalQuoteCode();
   }
 
+  let customerToken = generatePersonalQuoteCustomerToken();
+  for (let attempt = 0; attempt < 8; attempt++) {
+    const existingCode = await store.get(personalQuoteTokenKey(customerToken));
+    if (!existingCode) break;
+    customerToken = generatePersonalQuoteCustomerToken();
+  }
+
   const record: PersonalQuoteRecord = {
     code,
+    customerToken,
     customerName,
     ...(input.customerEmail?.trim() ? { customerEmail: input.customerEmail.trim() } : {}),
-    agreedAmount,
-    ...(typeof input.standardWebsiteAmount === "number" && Number.isFinite(input.standardWebsiteAmount)
-      ? { standardWebsiteAmount: Math.round(input.standardWebsiteAmount * 100) / 100 }
+    ...(input.customerMobile?.trim() ? { customerMobile: input.customerMobile.trim() } : {}),
+    agreedAmount: pricing.agreedAmount,
+    ...(typeof pricing.standardWebsiteAmount === "number"
+      ? { standardWebsiteAmount: pricing.standardWebsiteAmount }
+      : {}),
+    ...(typeof pricing.discountAmount === "number"
+      ? { discountAmount: pricing.discountAmount }
       : {}),
     ...(input.pickupLabel?.trim() ? { pickupLabel: input.pickupLabel.trim() } : {}),
     ...(input.dropoffLabel?.trim() ? { dropoffLabel: input.dropoffLabel.trim() } : {}),

@@ -1,6 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  buildPersonalQuoteWhatsAppMessage,
+  computeLinkedPersonalQuoteFares,
+  formatPersonalQuoteAmount,
+} from "../../shared/personal-quote";
 import {
   createOwnerPersonalQuote,
   deactivateOwnerPersonalQuote,
@@ -18,23 +23,42 @@ function defaultExpiry(): string {
   return d.toISOString().slice(0, 10);
 }
 
+function parseMoney(value: string): number | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const n = Number(trimmed);
+  if (!Number.isFinite(n)) return null;
+  return Math.round(n * 100) / 100;
+}
+
 export default function OwnerPersonalQuotesPanel({ ownerKey }: OwnerPersonalQuotesPanelProps) {
   const [quotes, setQuotes] = useState<PersonalQuoteOwnerView[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
-  const [lastCreatedCode, setLastCreatedCode] = useState("");
+  const [lastCreated, setLastCreated] = useState<PersonalQuoteOwnerView | null>(null);
 
   const [customerName, setCustomerName] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
+  const [customerMobile, setCustomerMobile] = useState("");
   const [agreedAmount, setAgreedAmount] = useState("");
   const [standardWebsiteAmount, setStandardWebsiteAmount] = useState("");
+  const [discountAmount, setDiscountAmount] = useState("");
   const [expiresOn, setExpiresOn] = useState(defaultExpiry);
   const [singleUse, setSingleUse] = useState(true);
   const [notes, setNotes] = useState("");
   const [pickupLabel, setPickupLabel] = useState("");
   const [dropoffLabel, setDropoffLabel] = useState("");
+
+  const savingsPreview = useMemo(() => {
+    const standard = parseMoney(standardWebsiteAmount);
+    const agreed = parseMoney(agreedAmount);
+    if (standard == null || agreed == null) return null;
+    const save = Math.round((standard - agreed) * 100) / 100;
+    if (save <= 0) return null;
+    return save;
+  }, [standardWebsiteAmount, agreedAmount]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -53,32 +77,54 @@ export default function OwnerPersonalQuotesPanel({ ownerKey }: OwnerPersonalQuot
     void load();
   }, [load]);
 
+  function applyLinkedFares(edited: "discount" | "agreed" | "standard") {
+    const standard = parseMoney(standardWebsiteAmount);
+    if (standard == null) return;
+    const linked = computeLinkedPersonalQuoteFares({
+      standardWebsiteAmount: standard,
+      discountAmount: parseMoney(discountAmount),
+      agreedAmount: parseMoney(agreedAmount),
+      edited,
+    });
+    if (!linked) return;
+    if (linked.discountAmount != null) {
+      setDiscountAmount(String(linked.discountAmount));
+    }
+    if (linked.agreedAmount != null) {
+      setAgreedAmount(String(linked.agreedAmount));
+    }
+  }
+
   async function handleCreate(event: React.FormEvent) {
     event.preventDefault();
     setSaving(true);
     setError("");
     setMessage("");
-    setLastCreatedCode("");
+    setLastCreated(null);
     try {
       const quote = await createOwnerPersonalQuote(ownerKey, {
         customerName,
         customerEmail: customerEmail.trim() || undefined,
+        customerMobile: customerMobile.trim() || undefined,
         agreedAmount: Number(agreedAmount),
         standardWebsiteAmount: standardWebsiteAmount.trim()
           ? Number(standardWebsiteAmount)
           : undefined,
+        discountAmount: discountAmount.trim() ? Number(discountAmount) : undefined,
         expiresOn,
         singleUse,
         notes: notes.trim() || undefined,
         pickupLabel: pickupLabel.trim() || undefined,
         dropoffLabel: dropoffLabel.trim() || undefined,
       });
-      setLastCreatedCode(quote.code);
+      setLastCreated(quote);
       setMessage(`Personal quote created: ${quote.code} · ${quote.amountLabel}`);
       setCustomerName("");
       setCustomerEmail("");
+      setCustomerMobile("");
       setAgreedAmount("");
       setStandardWebsiteAmount("");
+      setDiscountAmount("");
       setNotes("");
       setPickupLabel("");
       setDropoffLabel("");
@@ -104,23 +150,28 @@ export default function OwnerPersonalQuotesPanel({ ownerKey }: OwnerPersonalQuot
     }
   }
 
-  async function copyCode(code: string) {
+  async function copyText(label: string, text: string) {
     try {
-      await navigator.clipboard.writeText(code);
-      setMessage(`Copied ${code}`);
+      await navigator.clipboard.writeText(text);
+      setMessage(label);
     } catch {
-      setMessage(`Code: ${code}`);
+      setMessage(text);
     }
+  }
+
+  function customerLinkFor(quote: PersonalQuoteOwnerView): string | null {
+    if (quote.customerLink) return quote.customerLink;
+    return null;
   }
 
   return (
     <section className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 sm:p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-base font-semibold text-white">Personal quote codes</h2>
+          <h2 className="text-base font-semibold text-white">Personal quotes</h2>
           <p className="mt-1 max-w-xl text-sm text-white/65">
-            Honour an individually agreed fare without changing the website pricing engine. Customers
-            enter the code on booking; SumUp always charges the server-authorised amount.
+            Create an agreed fare, optionally apply a discount, and send a private customer link.
+            SumUp always charges the server-authorised amount — customers never enter an MQ code.
           </p>
         </div>
         <button
@@ -140,7 +191,7 @@ export default function OwnerPersonalQuotesPanel({ ownerKey }: OwnerPersonalQuot
             value={customerName}
             onChange={(e) => setCustomerName(e.target.value)}
             className="mt-1 w-full rounded-lg border border-white/15 bg-navy/60 px-3 py-2 text-white"
-            placeholder="Existing minibus customer"
+            placeholder="John Smith"
           />
         </label>
         <label className="block text-sm text-white/80">
@@ -153,27 +204,64 @@ export default function OwnerPersonalQuotesPanel({ ownerKey }: OwnerPersonalQuot
             placeholder="optional"
           />
         </label>
-        <label className="block text-sm text-white/80">
-          Agreed fare (£)
+        <label className="block text-sm text-white/80 sm:col-span-2">
+          Customer mobile (optional)
           <input
-            required
-            inputMode="decimal"
-            value={agreedAmount}
-            onChange={(e) => setAgreedAmount(e.target.value)}
+            type="tel"
+            value={customerMobile}
+            onChange={(e) => setCustomerMobile(e.target.value)}
             className="mt-1 w-full rounded-lg border border-white/15 bg-navy/60 px-3 py-2 text-white"
-            placeholder="75"
+            placeholder="07…"
           />
         </label>
+
         <label className="block text-sm text-white/80">
           Standard website fare (£, optional)
           <input
             inputMode="decimal"
             value={standardWebsiteAmount}
-            onChange={(e) => setStandardWebsiteAmount(e.target.value)}
+            onChange={(e) => {
+              setStandardWebsiteAmount(e.target.value);
+            }}
+            onBlur={() => applyLinkedFares("standard")}
             className="mt-1 w-full rounded-lg border border-white/15 bg-navy/60 px-3 py-2 text-white"
-            placeholder="100"
+            placeholder="75"
           />
         </label>
+        <label className="block text-sm text-white/80">
+          Discount (£)
+          <input
+            inputMode="decimal"
+            value={discountAmount}
+            onChange={(e) => setDiscountAmount(e.target.value)}
+            onBlur={() => applyLinkedFares("discount")}
+            className="mt-1 w-full rounded-lg border border-white/15 bg-navy/60 px-3 py-2 text-white"
+            placeholder="10"
+            disabled={!standardWebsiteAmount.trim()}
+          />
+        </label>
+        <label className="block text-sm text-white/80">
+          Final agreed fare (£)
+          <input
+            required
+            inputMode="decimal"
+            value={agreedAmount}
+            onChange={(e) => setAgreedAmount(e.target.value)}
+            onBlur={() => {
+              if (standardWebsiteAmount.trim()) applyLinkedFares("agreed");
+            }}
+            className="mt-1 w-full rounded-lg border border-white/15 bg-navy/60 px-3 py-2 text-white"
+            placeholder="65"
+          />
+        </label>
+        <div className="flex items-end pb-2 text-sm text-emerald">
+          {savingsPreview != null ? (
+            <p>Customer saves {formatPersonalQuoteAmount(savingsPreview)}</p>
+          ) : (
+            <p className="text-white/40">No discount calculated</p>
+          )}
+        </div>
+
         <label className="block text-sm text-white/80">
           Expiry date
           <input
@@ -194,28 +282,30 @@ export default function OwnerPersonalQuotesPanel({ ownerKey }: OwnerPersonalQuot
           Single use
         </label>
         <label className="block text-sm text-white/80 sm:col-span-2">
-          Notes (optional, internal)
+          Agreed journey notes (optional — shown to customer)
           <input
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             className="mt-1 w-full rounded-lg border border-white/15 bg-navy/60 px-3 py-2 text-white"
-            placeholder="Agreed over WhatsApp"
+            placeholder="Meet at arrivals, name board"
           />
         </label>
         <label className="block text-sm text-white/80">
-          Pickup note (optional)
+          Pickup
           <input
             value={pickupLabel}
             onChange={(e) => setPickupLabel(e.target.value)}
             className="mt-1 w-full rounded-lg border border-white/15 bg-navy/60 px-3 py-2 text-white"
+            placeholder="Belfast International Airport"
           />
         </label>
         <label className="block text-sm text-white/80">
-          Destination note (optional)
+          Drop-off
           <input
             value={dropoffLabel}
             onChange={(e) => setDropoffLabel(e.target.value)}
             className="mt-1 w-full rounded-lg border border-white/15 bg-navy/60 px-3 py-2 text-white"
+            placeholder="BT9 address"
           />
         </label>
         <div className="sm:col-span-2">
@@ -224,21 +314,65 @@ export default function OwnerPersonalQuotesPanel({ ownerKey }: OwnerPersonalQuot
             disabled={saving}
             className="rounded-xl bg-emerald px-4 py-2.5 text-sm font-bold text-navy disabled:opacity-60"
           >
-            {saving ? "Creating…" : "Generate personal quote code"}
+            {saving ? "Creating…" : "Create personal quote & link"}
           </button>
         </div>
       </form>
 
-      {lastCreatedCode ? (
-        <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-emerald/40 bg-emerald/10 px-3 py-2 text-sm text-emerald">
-          <span className="font-mono text-base font-semibold tracking-wide">{lastCreatedCode}</span>
-          <button
-            type="button"
-            onClick={() => void copyCode(lastCreatedCode)}
-            className="rounded-md border border-emerald/40 px-2 py-1 text-xs font-medium hover:bg-emerald/20"
-          >
-            Copy code
-          </button>
+      {lastCreated ? (
+        <div className="mt-3 space-y-2 rounded-xl border border-emerald/40 bg-emerald/10 px-3 py-3 text-sm text-emerald">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-mono text-base font-semibold tracking-wide">{lastCreated.code}</span>
+            <span className="text-white/70">{lastCreated.amountLabel}</span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {lastCreated.customerLink ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() =>
+                    void copyText("Customer link copied", lastCreated.customerLink!)
+                  }
+                  className="rounded-md border border-emerald/40 px-2 py-1 text-xs font-medium hover:bg-emerald/20"
+                >
+                  Copy customer link
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    void copyText(
+                      "WhatsApp message copied",
+                      buildPersonalQuoteWhatsAppMessage({
+                        customerName: lastCreated.customerName,
+                        agreedAmount: lastCreated.agreedAmount,
+                        pickupLabel: lastCreated.pickupLabel,
+                        dropoffLabel: lastCreated.dropoffLabel,
+                        customerUrl: lastCreated.customerLink!,
+                      }),
+                    )
+                  }
+                  className="rounded-md border border-emerald/40 px-2 py-1 text-xs font-medium hover:bg-emerald/20"
+                >
+                  Copy WhatsApp message
+                </button>
+                <a
+                  href={lastCreated.customerLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded-md border border-emerald/40 px-2 py-1 text-xs font-medium hover:bg-emerald/20"
+                >
+                  Open customer link
+                </a>
+              </>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => void copyText(`Copied ${lastCreated.code}`, lastCreated.code)}
+              className="rounded-md border border-white/20 px-2 py-1 text-xs font-medium text-white/80 hover:bg-white/10"
+            >
+              Copy MQ code
+            </button>
+          </div>
         </div>
       ) : null}
 
@@ -253,41 +387,95 @@ export default function OwnerPersonalQuotesPanel({ ownerKey }: OwnerPersonalQuot
           <p className="text-sm text-white/55">No active personal quotes.</p>
         ) : (
           <ul className="space-y-2">
-            {quotes.map((quote) => (
-              <li
-                key={quote.code}
-                className="rounded-xl border border-white/10 bg-black/20 px-3 py-2.5 text-sm text-white/85"
-              >
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <button
-                    type="button"
-                    onClick={() => void copyCode(quote.code)}
-                    className="font-mono font-semibold tracking-wide text-emerald hover:underline"
-                  >
-                    {quote.code}
-                  </button>
-                  <span className="font-semibold">{quote.amountLabel}</span>
-                </div>
-                <p className="mt-1 text-xs text-white/60">
-                  {quote.customerName}
-                  {quote.standardWebsiteAmount != null
-                    ? ` · website £${Number(quote.standardWebsiteAmount).toFixed(2)}`
-                    : ""}
-                  {` · expires ${quote.expiresOn}`}
-                  {quote.singleUse ? " · single use" : " · multi use"}
-                </p>
-                {quote.notes ? (
-                  <p className="mt-1 text-xs text-white/45">{quote.notes}</p>
-                ) : null}
-                <button
-                  type="button"
-                  onClick={() => void handleDeactivate(quote.code)}
-                  className="mt-2 text-xs text-amber-200/90 underline-offset-2 hover:underline"
+            {quotes.map((quote) => {
+              const link = customerLinkFor(quote);
+              const save =
+                typeof quote.standardWebsiteAmount === "number" &&
+                quote.standardWebsiteAmount > quote.agreedAmount
+                  ? Math.round((quote.standardWebsiteAmount - quote.agreedAmount) * 100) / 100
+                  : null;
+              return (
+                <li
+                  key={quote.code}
+                  className="rounded-xl border border-white/10 bg-black/20 px-3 py-2.5 text-sm text-white/85"
                 >
-                  Deactivate
-                </button>
-              </li>
-            ))}
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <button
+                      type="button"
+                      onClick={() => void copyText(`Copied ${quote.code}`, quote.code)}
+                      className="font-mono font-semibold tracking-wide text-emerald hover:underline"
+                    >
+                      {quote.code}
+                    </button>
+                    <span className="font-semibold">{quote.amountLabel}</span>
+                  </div>
+                  <p className="mt-1 text-xs text-white/60">
+                    {quote.customerName}
+                    {quote.standardWebsiteAmount != null
+                      ? ` · website £${Number(quote.standardWebsiteAmount).toFixed(2)}`
+                      : ""}
+                    {save != null ? ` · saves £${save.toFixed(2)}` : ""}
+                    {` · expires ${quote.expiresOn}`}
+                    {quote.singleUse ? " · single use" : " · multi use"}
+                    {quote.usedAt ? " · used" : " · unused"}
+                  </p>
+                  {(quote.pickupLabel || quote.dropoffLabel) && (
+                    <p className="mt-1 text-xs text-white/45">
+                      {[quote.pickupLabel, quote.dropoffLabel].filter(Boolean).join(" → ")}
+                    </p>
+                  )}
+                  {quote.notes ? (
+                    <p className="mt-1 text-xs text-white/45">{quote.notes}</p>
+                  ) : null}
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {link ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => void copyText("Customer link copied", link)}
+                          className="rounded-md border border-emerald/30 px-2 py-1 text-xs font-medium text-emerald hover:bg-emerald/10"
+                        >
+                          Copy customer link
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            void copyText(
+                              "WhatsApp message copied",
+                              buildPersonalQuoteWhatsAppMessage({
+                                customerName: quote.customerName,
+                                agreedAmount: quote.agreedAmount,
+                                pickupLabel: quote.pickupLabel,
+                                dropoffLabel: quote.dropoffLabel,
+                                customerUrl: link,
+                              }),
+                            )
+                          }
+                          className="rounded-md border border-white/15 px-2 py-1 text-xs text-white/80 hover:bg-white/5"
+                        >
+                          Copy WhatsApp message
+                        </button>
+                        <a
+                          href={link}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="rounded-md border border-white/15 px-2 py-1 text-xs text-white/80 hover:bg-white/5"
+                        >
+                          Open customer link
+                        </a>
+                      </>
+                    ) : null}
+                    <button
+                      type="button"
+                      onClick={() => void handleDeactivate(quote.code)}
+                      className="text-xs text-amber-200/90 underline-offset-2 hover:underline"
+                    >
+                      Deactivate
+                    </button>
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         )}
       </div>
