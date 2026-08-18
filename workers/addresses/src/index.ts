@@ -169,7 +169,9 @@ import {
   handleDriverVehicleSaveRequest,
 } from "./driver-vehicle-handlers";
 import {
+  handleRefundDiagnosticsRequest,
   handleRefundRequest,
+  isRefundDiagnosticsPath,
 } from "./refund-handlers";
 export { RefundCoordinator } from "./refund-coordinator";
 import {
@@ -413,6 +415,7 @@ function routePath(
   | "payments-confirm"
   | "payments-webhook"
   | "bookings-refund"
+  | "paid-bookings-refund-diagnostics"
   | "paid-bookings"
   | "paid-bookings-resend"
   | "paid-bookings-edit"
@@ -466,6 +469,10 @@ function routePath(
 
   if (pathname === "/bookings/refund" || pathname === "/api/bookings/refund") {
     return "bookings-refund";
+  }
+
+  if (isRefundDiagnosticsPath(pathname)) {
+    return "paid-bookings-refund-diagnostics";
   }
 
   if (isPaidBookingResendPath(pathname)) {
@@ -2336,6 +2343,13 @@ export default {
       }
 
       return handleRefundRequest(request, env, origin);
+    }
+
+    if (route === "paid-bookings-refund-diagnostics") {
+      if (request.method !== "GET") {
+        return json({ error: "Method not allowed" }, 405, origin);
+      }
+      return handleRefundDiagnosticsRequest(request, env, origin);
     }
 
     if (route === "paid-bookings") {

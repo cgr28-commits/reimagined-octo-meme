@@ -20,6 +20,7 @@ assert.match(api, /resendPaidBookingConfirmation/);
 assert.match(api, /fetchOwnerPendingCheckouts/);
 assert.match(api, /finalizePaidCheckoutRecovery/);
 assert.match(api, /\/paid-bookings/);
+assert.match(api, /fetchRefundDiagnostics|refund-diagnostics/);
 console.log("OK  paid-bookings API client");
 
 const panel = read("src/components/OwnerPaidBookingsPanel.tsx");
@@ -28,6 +29,7 @@ assert.match(panel, /Resend booking confirmation|Resend Confirmation/i);
 assert.match(panel, /Website card payments/);
 assert.match(panel, /latestPaid/);
 assert.match(panel, /Cancel \/ Refund|OwnerCancelRefundModal/);
+assert.match(panel, /Refund diagnostics \(read-only\)|fetchRefundDiagnostics/);
 console.log("OK  OwnerPaidBookingsPanel");
 
 const page = read("src/app/driver/DriverPageClient.tsx");
