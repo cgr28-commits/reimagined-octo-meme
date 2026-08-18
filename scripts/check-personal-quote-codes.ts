@@ -10,9 +10,11 @@ import {
   buildPersonalQuoteCustomerUrl,
   buildPersonalQuoteReservation,
   computeLinkedPersonalQuoteFares,
+  describePersonalQuotePayment,
   evaluatePersonalQuote,
   generatePersonalQuoteCode,
   generatePersonalQuoteCustomerToken,
+  isPersonallyDiscountedPersonalQuote,
   isPersonalQuoteReservationActive,
   isValidPersonalQuotePassengerCount,
   normalizePersonalQuoteCode,
@@ -20,12 +22,18 @@ import {
   personalQuoteCustomerError,
   personalQuoteTokenCustomerError,
   personalQuoteTokenKey,
+  resolvePersonalQuoteCheckoutAmount,
   resolvePersonalQuotePricing,
   toPersonalQuotePublicSummary,
   PERSONAL_QUOTE_PASSENGER_LIMIT_ERROR,
   PERSONAL_QUOTE_RESERVATION_TTL_SECONDS,
+  PERSONAL_QUOTE_WEBSITE_RETURN_DISCOUNT_RATE,
   type PersonalQuoteRecord,
 } from "../shared/personal-quote";
+import { getReturnJourneyFare } from "../src/lib/point-to-point-premium";
+import { calculateWebsiteOneWayFare } from "../src/lib/website-fare";
+import { calculateQuote } from "../src/lib/quote";
+import pricingConfig from "../src/lib/pricing-config.json";
 
 const root = path.resolve(import.meta.dirname, "..");
 
@@ -492,11 +500,141 @@ check("L11. SumUp amount still from KV agreedAmount; MQ path unchanged", () => {
   assert.match(payment, /Personal quote: authorised amount from KV only/);
   assert.match(payment, /amount = resolved\.amount/);
   assert.match(payment, /resolvePersonalQuoteForPayment/);
+  assert.match(payment, /returnJourney: Boolean\(booking\?\.returnJourney\)/);
   const page = read("src/app/personal-quote/PersonalQuoteCustomerClient.tsx");
-  assert.match(page, /Worker uses KV/);
+  assert.match(page, /Worker recalculates from KV/);
   assert.doesNotMatch(page, /searchParams\.get\(["'](?:amount|fare|price|discount)/);
   assert.match(read("src/components/QuoteCard.tsx"), /validatePersonalQuoteCode/);
   assert.match(read("src/components/QuoteCard.tsx"), /Apply Quote/);
+});
+
+check("R10. Return payment matrix (one-way / website return / personal discount)", () => {
+  assert.equal(
+    resolvePersonalQuoteCheckoutAmount({
+      agreedAmount: 100,
+      standardWebsiteAmount: 100,
+      returnJourney: false,
+    }),
+    100,
+  );
+  assert.equal(
+    resolvePersonalQuoteCheckoutAmount({
+      agreedAmount: 100,
+      standardWebsiteAmount: 100,
+      returnJourney: true,
+    }),
+    190,
+  );
+  assert.equal(
+    resolvePersonalQuoteCheckoutAmount({
+      agreedAmount: 90,
+      standardWebsiteAmount: 100,
+      returnJourney: false,
+    }),
+    90,
+  );
+  assert.equal(
+    resolvePersonalQuoteCheckoutAmount({
+      agreedAmount: 90,
+      standardWebsiteAmount: 100,
+      returnJourney: true,
+    }),
+    180,
+  );
+  assert.equal(
+    resolvePersonalQuoteCheckoutAmount({
+      agreedAmount: 90,
+      returnJourney: true,
+    }),
+    180,
+  );
+  // Matches public website return helper when not personally discounted.
+  assert.equal(getReturnJourneyFare(100), 190);
+  assert.equal(
+    PERSONAL_QUOTE_WEBSITE_RETURN_DISCOUNT_RATE,
+    pricingConfig.returnJourneyDiscountRate,
+  );
+});
+
+check("R11. Personally discounted detection (currency-safe)", () => {
+  assert.equal(isPersonallyDiscountedPersonalQuote(75, 75), false);
+  assert.equal(isPersonallyDiscountedPersonalQuote(65, 75), true);
+  assert.equal(isPersonallyDiscountedPersonalQuote(90, undefined), true);
+  assert.equal(isPersonallyDiscountedPersonalQuote(100.0, 100.001), false);
+});
+
+check("R12. Customer return display + toggle wiring", () => {
+  const page = read("src/app/personal-quote/PersonalQuoteCustomerClient.tsx");
+  assert.match(page, /describePersonalQuotePayment/);
+  assert.match(page, /Return journey discount: 5%/);
+  assert.match(page, /Return total:/);
+  assert.match(page, /Personal agreed fare:/);
+  assert.match(page, /paymentDisplay\.paymentAmountLabel/);
+  assert.match(page, /setReturnJourney/);
+  const displayReturn = describePersonalQuotePayment({
+    agreedAmount: 100,
+    standardWebsiteAmount: 100,
+    returnJourney: true,
+  });
+  assert.equal(displayReturn.paymentAmount, 190);
+  assert.equal(displayReturn.appliesWebsiteReturnDiscount, true);
+  const displayPq = describePersonalQuotePayment({
+    agreedAmount: 90,
+    standardWebsiteAmount: 100,
+    returnJourney: true,
+  });
+  assert.equal(displayPq.paymentAmount, 180);
+  assert.equal(displayPq.appliesWebsiteReturnDiscount, false);
+  const oneWay = describePersonalQuotePayment({
+    agreedAmount: 90,
+    standardWebsiteAmount: 100,
+    returnJourney: false,
+  });
+  assert.equal(oneWay.paymentAmount, 90);
+});
+
+check("R13. Browser cannot dictate SumUp amount (Worker uses KV + returnJourney only)", () => {
+  const handlers = read("workers/addresses/src/personal-quote-handlers.ts");
+  assert.match(handlers, /resolvePersonalQuoteCheckoutAmount/);
+  assert.match(handlers, /options\?\.returnJourney/);
+  const payment = read("workers/addresses/src/index.ts");
+  assert.match(payment, /never use client standardWebsiteAmount for SumUp amount/);
+  // Client amount is overwritten after resolve.
+  assert.match(payment, /amount = resolved\.amount/);
+});
+
+check("R14. Owner calculator reuses public website pricing engine", () => {
+  const fareMod = read("src/lib/website-fare.ts");
+  assert.match(fareMod, /from "@\/lib\/quote"/);
+  assert.match(fareMod, /calculateQuote/);
+  assert.match(fareMod, /calculatePointToPointQuote/);
+  assert.match(fareMod, /calculateDublinCityBeyondAirportQuote/);
+  assert.match(fareMod, /returnJourney = false/);
+  const panel = read("src/components/OwnerPersonalQuotesPanel.tsx");
+  assert.match(panel, /calculateWebsiteOneWayFare/);
+  assert.match(panel, /Calculate website price/);
+  assert.match(panel, /AddressInput/);
+  assert.match(panel, /Current website price/);
+  // Same engine: calculateQuote result is finite for a known airport leg.
+  const airportDirect = calculateQuote(
+    "Holywood BT18",
+    "BHD",
+    "Standard Saloon (1–4 passengers)",
+    false,
+    {},
+    { distanceKm: 12, durationMinutes: 20 },
+  );
+  assert.ok(airportDirect && Number.isFinite(airportDirect.amount));
+  // website-fare module is the owner entrypoint into the same functions (no duplicate formula).
+  assert.equal(typeof calculateWebsiteOneWayFare, "function");
+});
+
+check("R15. Layout shift guards still present", () => {
+  const css = read("src/app/globals.css");
+  assert.match(css, /scrollbar-gutter:\s*stable/);
+  const panel = read("src/components/OwnerPersonalQuotesPanel.tsx");
+  assert.match(panel, /mb-8 w-full min-w-0 max-w-full/);
+  assert.match(panel, /fieldClass/);
 });
 
 console.log("\nAll personal quote code checks passed.");

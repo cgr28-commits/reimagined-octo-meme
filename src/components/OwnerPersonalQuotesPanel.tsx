@@ -1,21 +1,39 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  buildPersonalQuoteWhatsAppMessage,
-  computeLinkedPersonalQuoteFares,
-  formatPersonalQuoteAmount,
-} from "../../shared/personal-quote";
+import AddressInput from "@/components/AddressInput";
+import { VEHICLE_TYPES, type VehicleType } from "@/lib/data";
+import { formatQuote } from "@/lib/quote";
 import {
   createOwnerPersonalQuote,
   deactivateOwnerPersonalQuote,
   fetchOwnerPersonalQuotes,
   type PersonalQuoteOwnerView,
 } from "@/lib/personal-quote-api";
+import {
+  emptySelectedPlace,
+  isPlaceSelected,
+  placeDisplayText,
+  type SelectedPlace,
+} from "@/lib/selected-place";
+import { fetchTripRouteMetrics } from "@/lib/trip-route";
+import { selectVehicleForParty } from "@/lib/vehicle-selection";
+import { calculateWebsiteOneWayFare } from "@/lib/website-fare";
+import {
+  buildPersonalQuoteWhatsAppMessage,
+  computeLinkedPersonalQuoteFares,
+  formatPersonalQuoteAmount,
+  PERSONAL_QUOTE_MAX_PASSENGERS,
+  PERSONAL_QUOTE_MIN_PASSENGERS,
+} from "../../shared/personal-quote";
 
 type OwnerPersonalQuotesPanelProps = {
   ownerKey: string;
 };
+
+const OWNER_PQ_VEHICLES = VEHICLE_TYPES.filter(
+  (v) => !v.toLowerCase().includes("minibus") && !v.includes("5–7"),
+) as VehicleType[];
 
 function defaultExpiry(): string {
   const d = new Date();
@@ -35,8 +53,10 @@ export default function OwnerPersonalQuotesPanel({ ownerKey }: OwnerPersonalQuot
   const [quotes, setQuotes] = useState<PersonalQuoteOwnerView[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [calculatingFare, setCalculatingFare] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [fareHint, setFareHint] = useState("");
   const [lastCreated, setLastCreated] = useState<PersonalQuoteOwnerView | null>(null);
 
   const [customerName, setCustomerName] = useState("");
@@ -50,6 +70,11 @@ export default function OwnerPersonalQuotesPanel({ ownerKey }: OwnerPersonalQuot
   const [notes, setNotes] = useState("");
   const [pickupLabel, setPickupLabel] = useState("");
   const [dropoffLabel, setDropoffLabel] = useState("");
+  const [pickupPlace, setPickupPlace] = useState<SelectedPlace>(() => emptySelectedPlace());
+  const [dropoffPlace, setDropoffPlace] = useState<SelectedPlace>(() => emptySelectedPlace());
+  const [passengers, setPassengers] = useState(2);
+  const [suitcases, setSuitcases] = useState(2);
+  const [vehicle, setVehicle] = useState<VehicleType>(OWNER_PQ_VEHICLES[0] ?? VEHICLE_TYPES[0]);
 
   const savingsPreview = useMemo(() => {
     const standard = parseMoney(standardWebsiteAmount);
@@ -77,6 +102,15 @@ export default function OwnerPersonalQuotesPanel({ ownerKey }: OwnerPersonalQuot
     void load();
   }, [load]);
 
+  useEffect(() => {
+    const next = selectVehicleForParty(passengers, suitcases);
+    if (OWNER_PQ_VEHICLES.includes(next)) {
+      setVehicle(next);
+    } else {
+      setVehicle(OWNER_PQ_VEHICLES[0] ?? VEHICLE_TYPES[0]);
+    }
+  }, [passengers, suitcases]);
+
   function applyLinkedFares(edited: "discount" | "agreed" | "standard") {
     const standard = parseMoney(standardWebsiteAmount);
     if (standard == null) return;
@@ -92,6 +126,71 @@ export default function OwnerPersonalQuotesPanel({ ownerKey }: OwnerPersonalQuot
     }
     if (linked.agreedAmount != null) {
       setAgreedAmount(String(linked.agreedAmount));
+    }
+  }
+
+  async function handleCalculateWebsiteFare() {
+    setCalculatingFare(true);
+    setFareHint("");
+    setError("");
+    try {
+      const pickup = pickupLabel.trim() || placeDisplayText(pickupPlace);
+      const dropoff = dropoffLabel.trim() || placeDisplayText(dropoffPlace);
+      if (!pickup || !dropoff) {
+        throw new Error("Enter pickup and destination, then calculate the website price.");
+      }
+
+      let routeMetrics = null;
+      if (
+        isPlaceSelected(pickupPlace) &&
+        isPlaceSelected(dropoffPlace) &&
+        typeof pickupPlace.lat === "number" &&
+        typeof pickupPlace.lng === "number" &&
+        typeof dropoffPlace.lat === "number" &&
+        typeof dropoffPlace.lng === "number"
+      ) {
+        routeMetrics = await fetchTripRouteMetrics(
+          pickupPlace.lat,
+          pickupPlace.lng,
+          dropoffPlace.lat,
+          dropoffPlace.lng,
+        );
+      }
+
+      const quote = calculateWebsiteOneWayFare({
+        pickupAddress: pickup,
+        dropoffAddress: dropoff,
+        pickupPlace: isPlaceSelected(pickupPlace) ? pickupPlace : null,
+        dropoffPlace: isPlaceSelected(dropoffPlace) ? dropoffPlace : null,
+        vehicleType: vehicle,
+        routeMetrics,
+      });
+
+      if (!quote || !Number.isFinite(quote.amount)) {
+        throw new Error(
+          "Could not calculate a live website fare for that journey. Choose addresses from suggestions (for route distance) or enter the website fare manually.",
+        );
+      }
+
+      const oneWay = Math.round(quote.amount * 100) / 100;
+      setStandardWebsiteAmount(String(oneWay));
+      setPickupLabel(pickup);
+      setDropoffLabel(dropoff);
+      // Default agreed = website fare (no discount) unless a discount was already set.
+      const existingDiscount = parseMoney(discountAmount);
+      if (existingDiscount != null && existingDiscount > 0 && existingDiscount < oneWay) {
+        setAgreedAmount(String(Math.round((oneWay - existingDiscount) * 100) / 100));
+        setDiscountAmount(String(existingDiscount));
+      } else {
+        setAgreedAmount(String(oneWay));
+        setDiscountAmount("0");
+      }
+      setFareHint(`Current website price: ${formatQuote(oneWay)} (one-way, same engine as the public quote calculator)`);
+    } catch (err) {
+      setFareHint("");
+      setError(err instanceof Error ? err.message : "Could not calculate website fare");
+    } finally {
+      setCalculatingFare(false);
     }
   }
 
@@ -128,6 +227,11 @@ export default function OwnerPersonalQuotesPanel({ ownerKey }: OwnerPersonalQuot
       setNotes("");
       setPickupLabel("");
       setDropoffLabel("");
+      setPickupPlace(emptySelectedPlace());
+      setDropoffPlace(emptySelectedPlace());
+      setPassengers(2);
+      setSuitcases(2);
+      setFareHint("");
       setExpiresOn(defaultExpiry());
       setSingleUse(true);
       await load();
@@ -226,14 +330,118 @@ export default function OwnerPersonalQuotesPanel({ ownerKey }: OwnerPersonalQuot
           />
         </label>
 
+        <div className="min-w-0 sm:col-span-2">
+          <AddressInput
+            id="owner-pq-pickup"
+            name="owner-pq-pickup"
+            label="Pickup"
+            value={pickupLabel}
+            onChange={(value) => {
+              setPickupLabel(value);
+              setPickupPlace(emptySelectedPlace());
+              setFareHint("");
+            }}
+            onSelectPlace={(place) => {
+              setPickupPlace(place);
+              setPickupLabel(placeDisplayText(place));
+              setFareHint("");
+            }}
+            confirmedPlace={isPlaceSelected(pickupPlace) ? pickupPlace : null}
+            requireSuggestion={false}
+            placeholder="Start typing an address or airport"
+          />
+        </div>
+        <div className="min-w-0 sm:col-span-2">
+          <AddressInput
+            id="owner-pq-dropoff"
+            name="owner-pq-dropoff"
+            label="Destination"
+            value={dropoffLabel}
+            onChange={(value) => {
+              setDropoffLabel(value);
+              setDropoffPlace(emptySelectedPlace());
+              setFareHint("");
+            }}
+            onSelectPlace={(place) => {
+              setDropoffPlace(place);
+              setDropoffLabel(placeDisplayText(place));
+              setFareHint("");
+            }}
+            confirmedPlace={isPlaceSelected(dropoffPlace) ? dropoffPlace : null}
+            requireSuggestion={false}
+            placeholder="Start typing an address or airport"
+          />
+        </div>
         <label className="block min-w-0 text-sm text-white/80">
-          Standard website fare (£, optional)
+          Passengers (max {PERSONAL_QUOTE_MAX_PASSENGERS})
+          <input
+            type="number"
+            min={PERSONAL_QUOTE_MIN_PASSENGERS}
+            max={PERSONAL_QUOTE_MAX_PASSENGERS}
+            value={passengers}
+            onChange={(e) =>
+              setPassengers(
+                Math.min(
+                  PERSONAL_QUOTE_MAX_PASSENGERS,
+                  Math.max(PERSONAL_QUOTE_MIN_PASSENGERS, Number(e.target.value) || 1),
+                ),
+              )
+            }
+            className={fieldClass}
+          />
+        </label>
+        <label className="block min-w-0 text-sm text-white/80">
+          Suitcases
+          <input
+            type="number"
+            min={0}
+            max={4}
+            value={suitcases}
+            onChange={(e) =>
+              setSuitcases(Math.min(4, Math.max(0, Number(e.target.value) || 0)))
+            }
+            className={fieldClass}
+          />
+        </label>
+        <label className="block min-w-0 text-sm text-white/80 sm:col-span-2">
+          Vehicle (pricing engine)
+          <select
+            value={vehicle}
+            onChange={(e) => setVehicle(e.target.value as VehicleType)}
+            className={fieldClass}
+          >
+            {OWNER_PQ_VEHICLES.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <div className="min-w-0 space-y-2 sm:col-span-2">
+          <button
+            type="button"
+            disabled={calculatingFare}
+            onClick={() => void handleCalculateWebsiteFare()}
+            className="rounded-xl border border-emerald/40 bg-emerald/10 px-4 py-2.5 text-sm font-bold text-emerald disabled:opacity-60"
+          >
+            {calculatingFare ? "Calculating…" : "Calculate website price"}
+          </button>
+          {standardWebsiteAmount.trim() ? (
+            <p className="text-lg font-bold text-white">
+              Current website price:{" "}
+              {formatPersonalQuoteAmount(Number(standardWebsiteAmount) || 0)}
+            </p>
+          ) : null}
+          {fareHint ? <p className="break-words text-xs text-white/55">{fareHint}</p> : null}
+        </div>
+
+        <label className="block min-w-0 text-sm text-white/80">
+          Website fare (£)
           <input
             inputMode="decimal"
             value={standardWebsiteAmount}
-            onChange={(e) => {
-              setStandardWebsiteAmount(e.target.value);
-            }}
+            onChange={(e) => setStandardWebsiteAmount(e.target.value)}
             onBlur={() => applyLinkedFares("standard")}
             className={fieldClass}
             placeholder="75"
@@ -252,7 +460,7 @@ export default function OwnerPersonalQuotesPanel({ ownerKey }: OwnerPersonalQuot
           />
         </label>
         <label className="block min-w-0 text-sm text-white/80">
-          Final agreed fare (£)
+          Final personal fare (£)
           <input
             required
             inputMode="decimal"
@@ -269,7 +477,7 @@ export default function OwnerPersonalQuotesPanel({ ownerKey }: OwnerPersonalQuot
           {savingsPreview != null ? (
             <p className="break-words">Customer saves {formatPersonalQuoteAmount(savingsPreview)}</p>
           ) : (
-            <p className="text-white/40">No discount calculated</p>
+            <p className="text-white/40">No personal discount</p>
           )}
         </div>
 
@@ -299,24 +507,6 @@ export default function OwnerPersonalQuotesPanel({ ownerKey }: OwnerPersonalQuot
             onChange={(e) => setNotes(e.target.value)}
             className={fieldClass}
             placeholder="Meet at arrivals, name board"
-          />
-        </label>
-        <label className="block min-w-0 text-sm text-white/80">
-          Pickup
-          <input
-            value={pickupLabel}
-            onChange={(e) => setPickupLabel(e.target.value)}
-            className={fieldClass}
-            placeholder="Belfast International Airport"
-          />
-        </label>
-        <label className="block min-w-0 text-sm text-white/80">
-          Drop-off
-          <input
-            value={dropoffLabel}
-            onChange={(e) => setDropoffLabel(e.target.value)}
-            className={fieldClass}
-            placeholder="BT9 address"
           />
         </label>
         <div className="min-w-0 sm:col-span-2">
