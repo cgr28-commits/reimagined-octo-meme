@@ -85,6 +85,7 @@ export default function QuickQuoteOwnerClient() {
   const [vehicleType, setVehicleType] = useState("");
   const [bookingUrl, setBookingUrl] = useState("");
   const [whatsappReply, setWhatsappReply] = useState("");
+  const [flightTimeHint, setFlightTimeHint] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -127,6 +128,7 @@ export default function QuickQuoteOwnerClient() {
     setVehicleType("");
     setBookingUrl("");
     setWhatsappReply("");
+    setFlightTimeHint("");
     setError("");
     setNotice("Started again.");
   }
@@ -161,6 +163,7 @@ export default function QuickQuoteOwnerClient() {
     setFareLabel("");
     setBookingUrl("");
     setWhatsappReply("");
+    setFlightTimeHint("");
     if (!paste.trim()) {
       setError("Paste a WhatsApp message first.");
       return;
@@ -168,6 +171,7 @@ export default function QuickQuoteOwnerClient() {
     const parsed = parseQuickQuoteMessage(paste);
     setUncertain(parsed.uncertainFields);
     setMissing(parsed.missingMandatoryForQuote);
+    setFlightTimeHint(parsed.flightTime.value ?? "");
     setDraft({
       pickupAddress: parsed.pickupAddress.value ?? "",
       dropoffAddress: parsed.dropoffAddress.value ?? "",
@@ -553,6 +557,12 @@ export default function QuickQuoteOwnerClient() {
             className="min-h-11 w-full rounded-xl border border-white/15 bg-navy px-3 text-sm text-white"
           />
         </div>
+        {flightTimeHint ? (
+          <p className="text-xs text-white/55">
+            Flight time mentioned in message: <span className="text-white/85">{flightTimeHint}</span>{" "}
+            (pickup time is separate — confirm above).
+          </p>
+        ) : null}
       </section>
 
       {fareAmount != null ? (

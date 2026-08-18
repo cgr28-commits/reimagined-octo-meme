@@ -4,6 +4,8 @@
  * No paid AI dependency.
  */
 
+import { todayLondonDate } from "./uk-time";
+
 export type QuickQuoteAirportCode = "BFS" | "BHD" | "DUB";
 
 export type ParsedQuickQuoteField<T> = {
@@ -26,6 +28,8 @@ export type QuickQuoteParseResult = {
   suitcases: ParsedQuickQuoteField<number>;
   childSeatRequired: ParsedQuickQuoteField<boolean>;
   flightNumber: ParsedQuickQuoteField<string>;
+  /** Departure/landing clock time mentioned as “flight is at …”, not the taxi pickup. */
+  flightTime: ParsedQuickQuoteField<string>;
   /** Fields the owner must verify before quoting. */
   uncertainFields: string[];
   missingMandatoryForQuote: string[];
@@ -47,6 +51,25 @@ function normalise(text: string): string {
   return text.trim().toLowerCase().replace(/\s+/g, " ");
 }
 
+function pad2(n: number): string {
+  return String(n).padStart(2, "0");
+}
+
+/** Add calendar days to a YYYY-MM-DD civil date (London date string). */
+export function addCalendarDays(isoDate: string, delta: number): string {
+  const [y, m, d] = isoDate.split("-").map(Number);
+  const utc = new Date(Date.UTC(y, m - 1, d + delta, 12, 0, 0));
+  return `${utc.getUTCFullYear()}-${pad2(utc.getUTCMonth() + 1)}-${pad2(utc.getUTCDate())}`;
+}
+
+function titleCaseAddress(value: string): string {
+  return value
+    .trim()
+    .replace(/\s+/g, " ")
+    .replace(/\b([a-z])/gi, (ch) => ch.toUpperCase())
+    .replace(/\bBt(\d)/gi, "BT$1");
+}
+
 export function parseUkDate(text: string): string | null {
   const trimmed = text.trim();
   const iso = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})$/);
@@ -61,17 +84,28 @@ export function parseUkDate(text: string): string | null {
   return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
 
+/** Accept HH:MM, H:MM, HHMM, H.MM, optional am/pm. */
 export function parseUkTime(text: string): string | null {
-  const trimmed = text.trim().toLowerCase();
-  const match = trimmed.match(/^(\d{1,2})(?::|\.)?(\d{2})?\s*(am|pm)?$/);
+  const trimmed = text.trim().toLowerCase().replace(/\./g, ":");
+  const compact = trimmed.match(/^(\d{3,4})\s*(am|pm)?$/);
+  if (compact) {
+    const digits = compact[1];
+    const meridiem = compact[2];
+    const hour = digits.length === 3 ? Number(digits.slice(0, 1)) : Number(digits.slice(0, 2));
+    const minute = Number(digits.slice(-2));
+    return finaliseTime(hour, minute, meridiem);
+  }
+  const match = trimmed.match(/^(\d{1,2})(?::)?(\d{2})?\s*(am|pm)?$/);
   if (!match) return null;
-  let hour = Number(match[1]);
-  const minute = Number(match[2] ?? "0");
-  const meridiem = match[3];
-  if (meridiem === "pm" && hour < 12) hour += 12;
-  if (meridiem === "am" && hour === 12) hour = 0;
-  if (hour > 23 || minute > 59) return null;
-  return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+  return finaliseTime(Number(match[1]), Number(match[2] ?? "0"), match[3]);
+}
+
+function finaliseTime(hour: number, minute: number, meridiem?: string | null): string | null {
+  let h = hour;
+  if (meridiem === "pm" && h < 12) h += 12;
+  if (meridiem === "am" && h === 12) h = 0;
+  if (h > 23 || minute > 59) return null;
+  return `${pad2(h)}:${pad2(minute)}`;
 }
 
 export function parseAirportCode(text: string): QuickQuoteAirportCode | null {
@@ -82,7 +116,7 @@ export function parseAirportCode(text: string): QuickQuoteAirportCode | null {
   if (/\bbelfast city\b/.test(n) || /\bgeorge best\b/.test(n) || /\bbhd\b/.test(n)) {
     return "BHD";
   }
-  if (/\bdublin\b/.test(n) || /\bdub\b/.test(n)) {
+  if (/\bdublin(?:\s+airport)?\b/.test(n) || /\bdub\b/.test(n)) {
     return "DUB";
   }
   return null;
@@ -93,6 +127,9 @@ export function airportLabel(code: QuickQuoteAirportCode): string {
   if (code === "BHD") return "Belfast City Airport";
   return "Dublin Airport";
 }
+
+const AIRPORT_NAME_PATTERN =
+  "(?:belfast\\s+international(?:\\s+airport)?|aldergrove(?:\\s+airport)?|belfast\\s+city(?:\\s+airport)?|george\\s+best(?:\\s+belfast\\s+city)?(?:\\s+airport)?|dublin(?:\\s+airport)?|(?:the\\s+)?airport)";
 
 function extractAirport(text: string): {
   code: QuickQuoteAirportCode | null;
@@ -106,6 +143,10 @@ function extractAirport(text: string): {
   return { code: null, confidence: "missing" };
 }
 
+/**
+ * Default one-way when the customer does not mention a return.
+ * Only mark return when return/round-trip language is present.
+ */
 function extractReturnJourney(text: string): ParsedQuickQuoteField<boolean> {
   const n = normalise(text);
   if (/\breturn\b/.test(n) || /\bround\s*trip\b/.test(n) || /\bcoming\s+back\b/.test(n)) {
@@ -114,11 +155,34 @@ function extractReturnJourney(text: string): ParsedQuickQuoteField<boolean> {
   if (/\bone[\s-]*way\b/.test(n) || /\bsingle\b/.test(n)) {
     return field(false, "high");
   }
-  return missing<boolean>();
+  // Sensible Quick Quote default — one journey mentioned ⇒ one-way.
+  return field(false, "high", "default-one-way");
 }
 
-function extractFromAirport(text: string, airportCode: QuickQuoteAirportCode | null): ParsedQuickQuoteField<boolean> {
+function extractFromAirport(
+  text: string,
+  airportCode: QuickQuoteAirportCode | null,
+): ParsedQuickQuoteField<boolean> {
   const n = normalise(text);
+
+  // "from 55 ormeau road to Belfast international airport"
+  const fromAddrToAirport = new RegExp(
+    `\\bfrom\\s+(?!${AIRPORT_NAME_PATTERN}\\b).{3,80}?\\s+to\\s+${AIRPORT_NAME_PATTERN}\\b`,
+    "i",
+  );
+  if (fromAddrToAirport.test(n)) {
+    return field(false, "high", "from-address-to-airport");
+  }
+
+  // "from Belfast international to …"
+  const fromAirportToAddr = new RegExp(
+    `\\bfrom\\s+${AIRPORT_NAME_PATTERN}\\b`,
+    "i",
+  );
+  if (fromAirportToAddr.test(n) && !fromAddrToAirport.test(n)) {
+    return field(true, "high", "from-airport");
+  }
+
   if (
     /\bfrom\s+(the\s+)?airport\b/.test(n) ||
     /\bpick\s*up\s+(at|from)\s+(the\s+)?airport\b/.test(n) ||
@@ -129,37 +193,74 @@ function extractFromAirport(text: string, airportCode: QuickQuoteAirportCode | n
   }
   if (
     /\bto\s+(the\s+)?airport\b/.test(n) ||
+    /\bto\s+belfast\s+international\b/.test(n) ||
+    /\bto\s+belfast\s+city\b/.test(n) ||
+    /\bto\s+dublin\b/.test(n) ||
     /\bdrop\s*off\s+(at\s+)?(the\s+)?airport\b/.test(n) ||
     /\bflying\s+out\b/.test(n) ||
-    /\bdeparting\b/.test(n)
+    /\bdeparting\b/.test(n) ||
+    /\bairport\s+transfer\b/.test(n)
   ) {
+    // "airport transfer from X to airport" is to-airport when from-address matched above;
+    // bare "airport transfer" alone is weak — only use with airport code.
+    if (/\bairport\s+transfer\b/.test(n) && !/\bto\s+/.test(n) && !airportCode) {
+      return missing<boolean>();
+    }
     return field(false, "high");
   }
   if (airportCode) {
-    // Presence of airport alone is not enough to decide direction.
     return missing<boolean>();
   }
   return missing<boolean>();
 }
 
-function extractDates(text: string): {
+/** Relative words: tomorrow / tomm / tom / tmrw / today (Europe/London). */
+export function parseRelativeDateWord(
+  text: string,
+  now = new Date(),
+): ParsedQuickQuoteField<string> {
+  const n = normalise(text);
+  const today = todayLondonDate(now);
+  if (/\b(day\s+after\s+tomorrow|overmorrow)\b/.test(n)) {
+    return field(addCalendarDays(today, 2), "high", "day after tomorrow");
+  }
+  if (/\b(tomorrow|tomm+|tomor+ow|tmrw|tmw|tom)\b/.test(n)) {
+    const raw = n.match(/\b(tomorrow|tomm+|tomor+ow|tmrw|tmw|tom)\b/)?.[1] ?? "tomorrow";
+    return field(addCalendarDays(today, 1), "high", raw);
+  }
+  if (/\b(today|tonight)\b/.test(n)) {
+    return field(today, "high", "today");
+  }
+  return missing<string>();
+}
+
+function extractDates(
+  text: string,
+  now = new Date(),
+): {
   outbound: ParsedQuickQuoteField<string>;
   returnDate: ParsedQuickQuoteField<string>;
 } {
+  const relative = parseRelativeDateWord(text, now);
   const matches = [
-    ...text.matchAll(
-      /\b(\d{4}-\d{2}-\d{2}|\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4})\b/g,
-    ),
+    ...text.matchAll(/\b(\d{4}-\d{2}-\d{2}|\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4})\b/g),
   ];
   const parsed = matches
     .map((m) => ({ raw: m[1], value: parseUkDate(m[1]) }))
-    .filter((x) => x.value);
+    .filter((x): x is { raw: string; value: string } => Boolean(x.value));
+
+  if (relative.value) {
+    return {
+      outbound: relative,
+      returnDate:
+        parsed.length >= 1
+          ? field(parsed[0].value, "high", parsed[0].raw)
+          : missing<string>(),
+    };
+  }
 
   if (parsed.length === 0) {
-    return {
-      outbound: missing<string>(),
-      returnDate: missing<string>(),
-    };
+    return { outbound: missing<string>(), returnDate: missing<string>() };
   }
   if (parsed.length === 1) {
     return {
@@ -173,39 +274,68 @@ function extractDates(text: string): {
   };
 }
 
-function extractTimes(text: string): {
-  outbound: ParsedQuickQuoteField<string>;
-  returnTime: ParsedQuickQuoteField<string>;
-} {
-  const matches = [
-    ...text.matchAll(/\b((?:[01]?\d|2[0-3])(?::|\.)?[0-5]\d(?:\s*[ap]m)?|\d{1,2}\s*[ap]m)\b/gi),
-  ];
-  const parsed = matches
-    .map((m) => ({ raw: m[1], value: parseUkTime(m[1]) }))
-    .filter((x) => x.value);
-
-  if (parsed.length === 0) {
-    return {
-      outbound: missing<string>(),
-      returnTime: missing<string>(),
-    };
-  }
-  if (parsed.length === 1) {
-    return {
-      outbound: field(parsed[0].value, "high", parsed[0].raw),
-      returnTime: missing<string>(),
-    };
-  }
-  return {
-    outbound: field(parsed[0].value, "high", parsed[0].raw),
-    returnTime: field(parsed[1].value, "high", parsed[1].raw),
-  };
+function extractFlightClockTime(text: string): ParsedQuickQuoteField<string> {
+  const match = text.match(
+    /\bflight\s*(?:is\s*)?(?:at|@|:)?\s*((?:[01]?\d|2[0-3])(?::|\.)?[0-5]\d|\d{3,4})\b/i,
+  );
+  if (!match?.[1]) return missing<string>();
+  const value = parseUkTime(match[1]);
+  if (!value) return missing<string>(match[1]);
+  return field(value, "high", match[0]);
 }
 
-function extractCount(
+function extractPickupTime(text: string, flightTime: string | null): ParsedQuickQuoteField<string> {
+  const n = text;
+  // Prefer explicit pickup / at / for time near relative date.
+  const preferred = [
+    ...n.matchAll(
+      /\b(?:pickup|pick\s*up|collect(?:ion)?|leave|leaving|depart(?:ure)?|at|@)\s+(?:sat|say|on)?\s*((?:[01]?\d|2[0-3])(?::|\.)?[0-5]\d|\d{3,4})(?:\s*[ap]m)?\b/gi,
+    ),
+  ];
+  for (const match of preferred) {
+    const value = parseUkTime(match[1]);
+    if (!value || value === flightTime) continue;
+    // Skip if this match is inside a "flight is at …" clause.
+    const idx = match.index ?? 0;
+    const window = n.slice(Math.max(0, idx - 24), idx).toLowerCase();
+    if (/\bflight\b/.test(window)) continue;
+    return field(value, "high", match[0]);
+  }
+
+  // Compact times not labelled as flight.
+  const all = [...n.matchAll(/\b((?:[01]?\d|2[0-3])(?::|\.)?[0-5]\d|\d{3,4})\b/g)];
+  const times: string[] = [];
+  for (const match of all) {
+    const value = parseUkTime(match[1]);
+    if (!value || value === flightTime) continue;
+    const idx = match.index ?? 0;
+    const window = n.slice(Math.max(0, idx - 24), idx + match[0].length + 8).toLowerCase();
+    if (/\bflight\b/.test(window)) continue;
+    if (!times.includes(value)) times.push(value);
+  }
+  if (times.length === 0) return missing<string>();
+  return field(times[0], "high", times[0]);
+}
+
+function extractReturnTimeOnly(
   text: string,
-  patterns: RegExp[],
-): ParsedQuickQuoteField<number> {
+  outboundTime: string | null,
+  flightTime: string | null,
+  isReturn: boolean,
+): ParsedQuickQuoteField<string> {
+  if (!isReturn) return missing<string>();
+  const all = [...text.matchAll(/\b((?:[01]?\d|2[0-3])(?::|\.)?[0-5]\d|\d{3,4})\b/g)];
+  const times: string[] = [];
+  for (const match of all) {
+    const value = parseUkTime(match[1]);
+    if (!value || value === outboundTime || value === flightTime) continue;
+    times.push(value);
+  }
+  if (times.length === 0) return missing<string>();
+  return field(times[0], "high", times[0]);
+}
+
+function extractCount(text: string, patterns: RegExp[]): ParsedQuickQuoteField<number> {
   for (const pattern of patterns) {
     const match = text.match(pattern);
     if (!match?.[1]) continue;
@@ -229,13 +359,60 @@ function extractYesNo(text: string, patterns: RegExp[]): ParsedQuickQuoteField<b
 }
 
 function extractFlightNumber(text: string): ParsedQuickQuoteField<string> {
-  const match = text.match(/\b([A-Z]{1,3}\s?\d{1,4})\b/i);
+  // Real flight codes — avoid weekdays + times (e.g. "sat 1340").
+  const match = text.match(/\b([A-Z]{2}\s?\d{1,4}[A-Z]?)\b/i);
   if (!match?.[1]) return missing<string>();
-  // Avoid matching dates like 18/08 or times.
-  if (/^\d/.test(match[1])) return missing<string>();
-  const code = match[1].replace(/\s+/g, "").toUpperCase();
-  if (code.length < 3) return field<string>(null, "low", match[1]);
-  return field(code, "high", match[1]);
+  const raw = match[1];
+  if (/^(mon|tue|wed|thu|fri|sat|sun)/i.test(raw)) return missing<string>();
+  const code = raw.replace(/\s+/g, "").toUpperCase();
+  if (code.length < 3) return field<string>(null, "low", raw);
+  return field(code, "high", raw);
+}
+
+function extractFromToAddresses(text: string): {
+  pickup: string | null;
+  dropoff: string | null;
+  raw?: string;
+} {
+  const fromToAirport = text.match(
+    new RegExp(
+      `\\bfrom\\s+(.+?)\\s+to\\s+(${AIRPORT_NAME_PATTERN})\\b`,
+      "i",
+    ),
+  );
+  if (fromToAirport) {
+    return {
+      pickup: titleCaseAddress(fromToAirport[1]),
+      dropoff: fromToAirport[2],
+      raw: fromToAirport[0],
+    };
+  }
+
+  const fromAirportTo = text.match(
+    new RegExp(
+      `\\bfrom\\s+(${AIRPORT_NAME_PATTERN})\\s+to\\s+(.+?)(?=\\s+(?:tomm+|tomorrow|tmrw|today|at|on|return|\\d{3,4}|\\d{1,2}:\\d{2})\\b|[.(]|$)`,
+      "i",
+    ),
+  );
+  if (fromAirportTo) {
+    return {
+      pickup: fromAirportTo[1],
+      dropoff: titleCaseAddress(fromAirportTo[2]),
+      raw: fromAirportTo[0],
+    };
+  }
+
+  const generic = text.match(
+    /\bfrom\s+(.+?)\s+to\s+(.+?)(?=\s+(?:tomm+|tomorrow|tmrw|today|at|on|return|\d{3,4}|\d{1,2}:\d{2})\b|[.(]|$)/i,
+  );
+  if (generic) {
+    return {
+      pickup: titleCaseAddress(generic[1]),
+      dropoff: titleCaseAddress(generic[2]),
+      raw: generic[0],
+    };
+  }
+  return { pickup: null, dropoff: null };
 }
 
 function extractAddresses(
@@ -246,41 +423,52 @@ function extractAddresses(
   pickup: ParsedQuickQuoteField<string>;
   dropoff: ParsedQuickQuoteField<string>;
 } {
+  const fromTo = extractFromToAddresses(text);
+  const airport = airportCode ? airportLabel(airportCode) : null;
+
+  if (fromTo.pickup || fromTo.dropoff) {
+    let pickup = fromTo.pickup;
+    let dropoff = fromTo.dropoff;
+    if (airport && fromAirport === false) {
+      dropoff = airport;
+    }
+    if (airport && fromAirport === true) {
+      pickup = airport;
+    }
+    // Resolve airport-name dropoff/pickup via code when possible.
+    if (dropoff && parseAirportCode(dropoff) && airport) dropoff = airport;
+    if (pickup && parseAirportCode(pickup) && airport) pickup = airport;
+
+    return {
+      pickup: pickup ? field(pickup, "high", fromTo.raw) : missing<string>(),
+      dropoff: dropoff ? field(dropoff, "high", fromTo.raw) : missing<string>(),
+    };
+  }
+
   const lines = text
-    .split(/\n|,(?=\s*[A-Za-z])/)
+    .split(/\n/)
     .map((l) => l.trim())
     .filter((l) => l.length > 5);
 
-  const addressLike = lines.filter((line) => {
-    const n = normalise(line);
-    if (parseAirportCode(n)) return false;
-    if (/^(hi|hello|thanks|please|can you|looking for|need)\b/.test(n)) return false;
-    return (
-      /\bbt\d/i.test(line) ||
-      /\bstreet\b|\broad\b|\bavenue\b|\bdrive\b|\blane\b|\bclose\b|\bpark\b|\bhotel\b|\bhouse\b/i.test(
-        line,
-      ) ||
-      /\d+\s+[A-Za-z]/.test(line)
-    );
-  });
-
-  const airport = airportCode ? airportLabel(airportCode) : null;
+  const addressLike = lines
+    .map((line) => {
+      const street = line.match(
+        /\b(\d{1,4}\s+[A-Za-z][A-Za-z0-9'’\-]*(?:\s+[A-Za-z][A-Za-z0-9'’\-]*)*\s+(?:road|rd|street|st|avenue|ave|drive|dr|lane|ln|close|park|way|crescent|court|place))\b/i,
+      );
+      if (street) return titleCaseAddress(street[1]);
+      return null;
+    })
+    .filter((v): v is string => Boolean(v));
 
   if (airport && fromAirport === true) {
     return {
       pickup: field(airport, "high"),
-      dropoff:
-        addressLike[0]
-          ? field(addressLike[0], addressLike.length === 1 ? "high" : "low", addressLike[0])
-          : missing<string>(),
+      dropoff: addressLike[0] ? field(addressLike[0], "high", addressLike[0]) : missing<string>(),
     };
   }
   if (airport && fromAirport === false) {
     return {
-      pickup:
-        addressLike[0]
-          ? field(addressLike[0], addressLike.length === 1 ? "high" : "low", addressLike[0])
-          : missing<string>(),
+      pickup: addressLike[0] ? field(addressLike[0], "high", addressLike[0]) : missing<string>(),
       dropoff: field(airport, "high"),
     };
   }
@@ -297,30 +485,37 @@ function extractAddresses(
       dropoff: missing<string>(),
     };
   }
-  return {
-    pickup: missing<string>(),
-    dropoff: missing<string>(),
-  };
+  return { pickup: missing<string>(), dropoff: missing<string>() };
 }
 
 /**
  * Parse free-text customer WhatsApp message into editable journey fields.
- * Flags uncertain/missing values — does not invent fares or silent defaults for key fields.
+ * Flags uncertain/missing values — does not invent fares.
  */
-export function parseQuickQuoteMessage(rawMessage: string): QuickQuoteParseResult {
+export function parseQuickQuoteMessage(
+  rawMessage: string,
+  now = new Date(),
+): QuickQuoteParseResult {
   const text = rawMessage.trim();
   const airport = extractAirport(text);
   const returnJourney = extractReturnJourney(text);
   const fromAirport = extractFromAirport(text, airport.code);
-  const dates = extractDates(text);
-  const times = extractTimes(text);
+  const dates = extractDates(text, now);
+  const flightTime = extractFlightClockTime(text);
+  const outboundTime = extractPickupTime(text, flightTime.value);
+  const returnTime = extractReturnTimeOnly(
+    text,
+    outboundTime.value,
+    flightTime.value,
+    returnJourney.value === true,
+  );
   const passengers = extractCount(text, [
-    /(\d{1,2})\s*(?:passengers?|pax|people|adults?)\b/i,
-    /\b(?:passengers?|pax|people|adults?)\s*[:=]?\s*(\d{1,2})\b/i,
+    /(\d{1,2})\s*(?:passengers?|pax|people|persons?|adults?)\b/i,
+    /\b(?:passengers?|pax|people|persons?|adults?)\s*[:=]?\s*(\d{1,2})\b/i,
   ]);
   const suitcases = extractCount(text, [
-    /(\d{1,2})\s*(?:suitcases?|bags?|luggage|cases?)\b/i,
-    /\b(?:suitcases?|bags?|luggage|cases?)\s*[:=]?\s*(\d{1,2})\b/i,
+    /(\d{1,2})\s*(?:cabin\s*)?(?:suitcases?|bags?|baggage|luggage|cases?)\b/i,
+    /\b(?:suitcases?|bags?|baggage|luggage|cases?)\s*[:=]?\s*(\d{1,2})\b/i,
   ]);
   const childSeat = extractYesNo(text, [
     /\b(no\s+)?child\s*seats?\b/,
@@ -340,30 +535,30 @@ export function parseQuickQuoteMessage(rawMessage: string): QuickQuoteParseResul
   pushUncertain("dropoffAddress", addresses.dropoff);
   pushUncertain("airportCode", airportCode);
   pushUncertain("fromAirport", fromAirport);
-  pushUncertain("returnJourney", returnJourney);
   pushUncertain("outboundDate", dates.outbound);
-  pushUncertain("outboundTime", times.outbound);
+  pushUncertain("outboundTime", outboundTime);
   pushUncertain("returnDate", dates.returnDate);
-  pushUncertain("returnTime", times.returnTime);
+  pushUncertain("returnTime", returnTime);
   pushUncertain("passengers", passengers);
   pushUncertain("suitcases", suitcases);
   pushUncertain("flightNumber", flightNumber);
+  pushUncertain("flightTime", flightTime);
 
   if (returnJourney.value === true) {
     if (dates.returnDate.confidence === "missing") uncertainFields.push("returnDate");
-    if (times.returnTime.confidence === "missing") uncertainFields.push("returnTime");
+    if (returnTime.confidence === "missing") uncertainFields.push("returnTime");
   }
 
   const missingMandatoryForQuote: string[] = [];
   if (!addresses.pickup.value) missingMandatoryForQuote.push("pickupAddress");
   if (!addresses.dropoff.value && !airport.code) missingMandatoryForQuote.push("dropoffAddress");
   if (!dates.outbound.value) missingMandatoryForQuote.push("outboundDate");
-  if (!times.outbound.value) missingMandatoryForQuote.push("outboundTime");
+  if (!outboundTime.value) missingMandatoryForQuote.push("outboundTime");
   if (passengers.value == null) missingMandatoryForQuote.push("passengers");
   if (suitcases.value == null) missingMandatoryForQuote.push("suitcases");
   if (returnJourney.value === true) {
     if (!dates.returnDate.value) missingMandatoryForQuote.push("returnDate");
-    if (!times.returnTime.value) missingMandatoryForQuote.push("returnTime");
+    if (!returnTime.value) missingMandatoryForQuote.push("returnTime");
   }
 
   return {
@@ -373,13 +568,14 @@ export function parseQuickQuoteMessage(rawMessage: string): QuickQuoteParseResul
     fromAirport,
     returnJourney,
     outboundDate: dates.outbound,
-    outboundTime: times.outbound,
+    outboundTime,
     returnDate: dates.returnDate,
-    returnTime: times.returnTime,
+    returnTime,
     passengers,
     suitcases,
     childSeatRequired: childSeat,
     flightNumber,
+    flightTime,
     uncertainFields: [...new Set(uncertainFields)],
     missingMandatoryForQuote: [...new Set(missingMandatoryForQuote)],
   };
