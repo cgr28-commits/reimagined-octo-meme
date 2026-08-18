@@ -102,6 +102,7 @@ assert.match(coordinator, /blockConcurrencyWhile/);
 assert.match(coordinator, /RefundCoordinator/);
 assert.match(coordinator, /confirmOwnerKeyVerified/);
 assert.match(coordinator, /reserveOperation|activeRefundOp/);
+assert.match(coordinator, /onProcessorAccepted/);
 assert.doesNotMatch(coordinator, /KV\.get\(lockKey\)|refund-lock/);
 assert.doesNotMatch(
   coordinator,

@@ -5,6 +5,16 @@
  * `blockConcurrencyWhile` is used ONLY for short atomic reserve/update of
  * operation state — never held across SumUp, email, or calendar I/O
  * (Cloudflare applies a ~30s timeout and advises against external I/O inside it).
+ *
+ * Flow:
+ * 1. Atomically reserve → processing (intended amount / idempotency / payment ref)
+ * 2. Run SumUp + booking persist outside the block
+ * 3. onProcessorAccepted → short put of processor_accepted (before email/calendar)
+ * 4. Side effects (email/calendar/tracking) outside the block
+ * 5. Short put of completed / reconciliation_required / failed
+ *
+ * Invariant: only one SumUp refund attempt may be authorised at a time per payment.
+ * Email/calendar failures must never allow another monetary refund.
  */
 
 import {
@@ -163,19 +173,39 @@ export class RefundCoordinator implements DurableObject {
     }
 
     // External work (SumUp / email / calendar / KV) runs OUTSIDE blockConcurrencyWhile.
+    // onProcessorAccepted persists durable state immediately after money success,
+    // before side effects — so email/calendar failures cannot unlock another refund.
     let result: RefundIssueResult;
     try {
       result = await processBookingRefundOrCancel(this.env, {
         ...body,
         paymentReference,
+        onProcessorAccepted: async ({ auditId }) => {
+          await this.ctx.blockConcurrencyWhile(async () => {
+            const current =
+              (await this.ctx.storage.get<StoredRefundOp>(OP_KEY)) ?? reservation.op;
+            if (current.idempotencyKey !== idempotencyKey) return;
+            await this.ctx.storage.put(OP_KEY, {
+              ...current,
+              state: "processor_accepted",
+              updatedAt: new Date().toISOString(),
+              auditId,
+            });
+          });
+        },
       });
     } catch (error) {
       await this.ctx.blockConcurrencyWhile(async () => {
         const current = (await this.ctx.storage.get<StoredRefundOp>(OP_KEY)) ?? reservation.op;
         if (current.idempotencyKey !== idempotencyKey) return;
+        // If money may already have been accepted, keep processor_accepted; else reconcile.
+        const nextState: CoordinatorOpState =
+          current.state === "processor_accepted"
+            ? "processor_accepted"
+            : "reconciliation_required";
         await this.ctx.storage.put(OP_KEY, {
           ...current,
-          state: "reconciliation_required",
+          state: nextState,
           updatedAt: new Date().toISOString(),
         });
       });
@@ -197,31 +227,21 @@ export class RefundCoordinator implements DurableObject {
       const current = (await this.ctx.storage.get<StoredRefundOp>(OP_KEY)) ?? reservation.op;
       if (current.idempotencyKey !== idempotencyKey) return;
 
-      let state: CoordinatorOpState = "failed";
+      let state: CoordinatorOpState;
       if (result.ok) {
         state = "completed";
-      } else if (result.sumUpRefunded || result.auditId) {
-        // Money may have moved or audit exists — require SumUp reconcile on next attempt.
-        state = result.error?.includes("SumUp")
-          ? "failed"
-          : "reconciliation_required";
-        if (result.sumUpRefunded) {
-          state = "processor_accepted";
-        }
+      } else if (result.sumUpRefunded || current.state === "processor_accepted") {
+        // Money moved — never clear to a state that would allow another SumUp attempt.
+        state = "processor_accepted";
+      } else if (result.error?.includes("uncertain") || result.auditId) {
+        state = "reconciliation_required";
+      } else {
+        state = "failed";
       }
-
-      // If process reported success with warnings only, completed is correct.
-      if (result.ok) state = "completed";
 
       await this.ctx.storage.put(OP_KEY, {
         ...current,
-        state: result.ok
-          ? "completed"
-          : result.sumUpRefunded
-            ? "processor_accepted"
-            : state === "failed"
-              ? "failed"
-              : "reconciliation_required",
+        state,
         updatedAt: new Date().toISOString(),
         auditId: result.auditId ?? current.auditId,
         lastResult: result.ok ? result : current.lastResult,
@@ -262,7 +282,10 @@ export class RefundCoordinator implements DurableObject {
         // Same idempotency key may resume / reconcile — never authorise a second SumUp attempt blindly.
         const resumed: StoredRefundOp = {
           ...existing,
-          state: existing.state === "processor_accepted" ? "processor_accepted" : "reconciliation_required",
+          state:
+            existing.state === "processor_accepted"
+              ? "processor_accepted"
+              : "reconciliation_required",
           updatedAt: now,
         };
         await this.ctx.storage.put(OP_KEY, resumed);

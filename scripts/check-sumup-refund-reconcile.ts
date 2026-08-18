@@ -124,6 +124,19 @@ const FIXTURES = {
       { id: 70, event_type: "REFUND", status: "REFUNDED", amount: 10 },
     ],
   } satisfies SumUpTransactionPayload,
+
+  /** Multiple partials via transaction_events only (no refunded_amount). */
+  multiplePartialsEventsOnly: {
+    id: "tx-10",
+    amount: 80,
+    currency: "GBP",
+    status: "SUCCESSFUL",
+    transaction_events: [
+      { id: 80, event_type: "REFUND", status: "REFUNDED", amount: 15 },
+      { id: 81, event_type: "REFUND", status: "SUCCESSFUL", amount: 20 },
+      { id: 82, event_type: "REFUND", status: "FAILED", amount: 5 },
+    ],
+  } satisfies SumUpTransactionPayload,
 } as const;
 
 console.log("=== SumUp parseSumUpRefundedTotal fixtures ===");
@@ -184,6 +197,13 @@ console.log("=== SumUp parseSumUpRefundedTotal fixtures ===");
   assert.equal(r.source, "refunded_amount");
 }
 
+{
+  const r = parseSumUpRefundedTotal(FIXTURES.multiplePartialsEventsOnly);
+  assert.equal(r.amountRefunded, 35, "sum completed REFUND events only");
+  assert.equal(r.refundEvents.length, 2);
+  assert.equal(r.source, "transaction_events");
+}
+
 console.log("OK  SumUp reconciliation fixtures");
 
 console.log("=== getSumUpTransactionDetails uses documented endpoint ===");
@@ -204,6 +224,8 @@ assert.match(coordinator, /blockConcurrencyWhile/);
 assert.match(coordinator, /OUTSIDE blockConcurrencyWhile|runs OUTSIDE/i);
 assert.match(coordinator, /reconciliation_required/);
 assert.match(coordinator, /processBookingRefundOrCancel/);
+assert.match(coordinator, /onProcessorAccepted/);
+assert.match(coordinator, /processor_accepted/);
 // Must not wrap the whole process inside a single blockConcurrencyWhile call site only.
 const blockBlocks = [...coordinator.matchAll(/blockConcurrencyWhile\(/g)];
 assert.ok(blockBlocks.length >= 2, "expect short reserve + terminal update blocks, not one mega-lock");
@@ -211,6 +233,12 @@ assert.match(coordinator, /Another refund operation is already in progress/);
 assert.doesNotMatch(
   coordinator,
   /blockConcurrencyWhile\(async \(\) =>\s*processBookingRefundOrCancel/,
+);
+const handlers = read("workers/addresses/src/refund-handlers.ts");
+assert.match(handlers, /onProcessorAccepted/);
+assert.match(
+  handlers,
+  /operationState: \"processor_accepted\"[\s\S]{0,400}onProcessorAccepted/,
 );
 console.log("OK  DO operation-state coordinator pattern");
 

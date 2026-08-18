@@ -188,6 +188,15 @@ export type ProcessRefundOptions = {
   idempotencyKey?: string;
   confirmOwnerKey: string;
   actionKind?: RefundActionKind;
+  /**
+   * Called immediately after monetary success is persisted (`processor_accepted`),
+   * before email/calendar/tracking side effects. Used by RefundCoordinator to update
+   * durable operation state without holding blockConcurrencyWhile across I/O.
+   */
+  onProcessorAccepted?: (info: {
+    auditId: string;
+    sumUpRefunded: boolean;
+  }) => Promise<void>;
 };
 
 /**
@@ -299,6 +308,7 @@ export async function processBookingRefundOrCancel(
       customerFacingReason: options.customerFacingReason?.trim() || undefined,
       actionKind,
       initialTripDate: initialTripDateRef.value,
+      onProcessorAccepted: options.onProcessorAccepted,
     });
   }
 
@@ -515,6 +525,9 @@ export async function processBookingRefundOrCancel(
         sumUpStatus: "already_refunded",
       });
       await persistRecord(env, record, initialTripDateRef.value);
+      if (options.onProcessorAccepted) {
+        await options.onProcessorAccepted({ auditId, sumUpRefunded: cumulative > 0 });
+      }
 
       return await completeRefundSideEffects(env, {
         record,
@@ -604,6 +617,9 @@ export async function processBookingRefundOrCancel(
       sumUpReference: record.transactionId,
     });
     await persistRecord(env, record, initialTripDateRef.value);
+    if (options.onProcessorAccepted) {
+      await options.onProcessorAccepted({ auditId, sumUpRefunded: true });
+    }
 
     return await completeRefundSideEffects(env, {
       record,
@@ -650,6 +666,9 @@ export async function processBookingRefundOrCancel(
     sumUpStatus: "skipped",
   });
   await persistRecord(env, record, initialTripDateRef.value);
+  if (options.onProcessorAccepted) {
+    await options.onProcessorAccepted({ auditId, sumUpRefunded: false });
+  }
 
   return await completeRefundSideEffects(env, {
     record,
@@ -799,6 +818,10 @@ async function finishUncertainRefund(
     customerFacingReason?: string;
     actionKind: RefundActionKind;
     initialTripDate: string;
+    onProcessorAccepted?: (info: {
+      auditId: string;
+      sumUpRefunded: boolean;
+    }) => Promise<void>;
   },
 ): Promise<RefundIssueResult> {
   const sumUpApiKey = env.SUMUP_API_KEY?.trim() ?? "";
@@ -853,6 +876,13 @@ async function finishUncertainRefund(
         remainingBalance: remainingRefundableBalance(paidAfter, cumulative),
       });
       await persistRecord(env, record, ctx.initialTripDate);
+    }
+
+    if (ctx.onProcessorAccepted) {
+      await ctx.onProcessorAccepted({
+        auditId: prior.id,
+        sumUpRefunded: prior.refundAmount > 0,
+      });
     }
 
     return await completeRefundSideEffects(env, {
