@@ -21,6 +21,7 @@ import {
   isValidPersonalQuotePassengerCount,
 } from "../../../shared/personal-quote";
 import { getPaymentBookingBlockers } from "../../../shared/paid-booking-gate";
+import { formatReturnJourneyDiscountPercent } from "../../../shared/return-journey-discount";
 
 /** Personal-quote links: saloon/estate only — no minibus / 5–7 options. */
 const PERSONAL_QUOTE_VEHICLE_TYPES = VEHICLE_TYPES.filter(
@@ -328,7 +329,9 @@ function PersonalQuoteInner() {
             {paymentDisplay.appliesWebsiteReturnDiscount ? (
               <>
                 <p className="text-white/70">One-way fare: {paymentDisplay.oneWayAgreedLabel}</p>
-                <p className="text-white/70">Return journey discount: 5%</p>
+                <p className="text-white/70">
+                  Return journey discount: {formatReturnJourneyDiscountPercent()}
+                </p>
                 <p className="text-lg font-bold text-white">
                   Return total: {paymentDisplay.paymentAmountLabel}
                 </p>

@@ -31,6 +31,7 @@ import {
 } from "../shared/personal-quote";
 import {
   RETURN_JOURNEY_DISCOUNT_RATE,
+  formatReturnJourneyDiscountPercent,
   getWebsiteReturnJourneyFare,
 } from "../shared/return-journey-discount";
 import returnDiscountRates from "../shared/return-journey-discount-rate.json";
@@ -607,7 +608,14 @@ check("R11. Personally discounted detection (currency-safe)", () => {
 check("R12. Customer return display + toggle wiring", () => {
   const page = read("src/app/personal-quote/PersonalQuoteCustomerClient.tsx");
   assert.match(page, /describePersonalQuotePayment/);
-  assert.match(page, /Return journey discount: 5%/);
+  assert.match(page, /formatReturnJourneyDiscountPercent/);
+  assert.match(page, /Return journey discount:\s*\{formatReturnJourneyDiscountPercent\(\)\}/);
+  // Must not hard-code the percentage in the Personal Quote UI.
+  assert.doesNotMatch(page, /Return journey discount:\s*5%/);
+  assert.doesNotMatch(page, /Return journey discount:\s*["'`]5%/);
+  assert.equal(formatReturnJourneyDiscountPercent(), `${Math.round(RETURN_JOURNEY_DISCOUNT_RATE * 100)}%`);
+  assert.equal(formatReturnJourneyDiscountPercent(0.05), "5%");
+  assert.equal(formatReturnJourneyDiscountPercent(0.1), "10%");
   assert.match(page, /Return total:/);
   assert.match(page, /Personal agreed fare:/);
   assert.match(page, /paymentDisplay\.paymentAmountLabel/);

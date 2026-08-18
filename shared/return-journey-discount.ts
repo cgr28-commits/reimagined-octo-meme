@@ -11,6 +11,17 @@ import rates from "./return-journey-discount-rate.json";
 
 export const RETURN_JOURNEY_DISCOUNT_RATE = Number(rates.returnJourneyDiscountRate);
 
+/** e.g. 0.05 → "5%", 0.10 → "10%" — for customer-facing copy. */
+export function formatReturnJourneyDiscountPercent(
+  rate: number = RETURN_JOURNEY_DISCOUNT_RATE,
+): string {
+  const pct = Math.round(Number(rate) * 100);
+  if (!Number.isFinite(pct) || pct < 0) {
+    return "0%";
+  }
+  return `${pct}%`;
+}
+
 export function getWebsiteReturnJourneyFare(oneWayFare: number): number {
   const oneWay = Math.round(Number(oneWayFare) * 100) / 100;
   if (!Number.isFinite(oneWay) || oneWay < 0) {
