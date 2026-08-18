@@ -73,6 +73,8 @@ console.log("\n=== 3. Owner dashboard + dedicated evidence page ===");
   assert.match(client, /Journey Evidence/);
   assert.match(client, /Evidence summary/);
   assert.match(client, /Download Journey Evidence PDF/);
+  assert.match(client, /Export dispute evidence/);
+  assert.match(client, /buildDisputeEvidenceSummary/);
   assert.match(client, /window\.print/);
   assert.match(client, /Not recorded/);
   assert.match(client, /LiveTrackMap/);

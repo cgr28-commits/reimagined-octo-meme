@@ -525,6 +525,16 @@ export async function handleJourneyEvidenceRequest(
         checkoutId: paid?.checkoutId,
         transactionId: paid?.transactionId,
         transactionCode: paid?.transactionCode,
+        amountRefunded: typeof paid?.amountRefunded === "number" ? paid.amountRefunded : undefined,
+        refundHistory: paid?.refundHistory,
+        termsAcceptedAt: paid?.termsAcceptedAt,
+        termsVersion: paid?.termsVersion,
+        cancellationPolicyVersion: paid?.cancellationPolicyVersion,
+        cancelledAt: paid?.cancelledAt,
+        refundedAt: paid?.refundedAt,
+        assignedDriverName: record.assignedDriverName,
+        paymentAuthorisationWording:
+          "Customer authorised card payment for the quoted fare for the booked transfer service, subject to the Terms & Conditions and cancellation policy version shown at checkout.",
         paymentLinkageStatus: paymentLinked
           ? "Payment reference linked to tracking session"
           : "Payment reference not linked",
@@ -628,8 +638,12 @@ export async function handleEnsureTrackingRequest(
   if (!paid) {
     return jsonResponse({ error: `No paid booking for ${paymentReference}` }, 404, origin);
   }
-  if (paid.status === "refunded") {
-    return jsonResponse({ error: "Cannot create tracking for a refunded booking" }, 400, origin);
+  if (paid.status === "refunded" || paid.status === "cancelled") {
+    return jsonResponse(
+      { error: "Cannot create tracking for a cancelled or refunded booking" },
+      400,
+      origin,
+    );
   }
 
   if (paid.trackingToken?.trim()) {

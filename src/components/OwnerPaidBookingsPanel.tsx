@@ -21,6 +21,7 @@ import {
 } from "../../shared/arrival-whatsapp";
 import { formatUkInstant } from "../../shared/uk-time";
 import OwnerEditBookingModal from "@/components/OwnerEditBookingModal";
+import OwnerCancelRefundModal from "@/components/OwnerCancelRefundModal";
 import {
   fetchOwnerPaidBookings,
   fetchOwnerPendingCheckouts,
@@ -34,7 +35,7 @@ import {
   type OwnerReviewRequestSummary,
   type TrackingDiagnosticReport,
 } from "@/lib/paid-bookings-api";
-import { issueBookingRefund } from "@/lib/refund-api";
+import type { RefundIssueResponse } from "@/lib/refund-api";
 import {
   ensurePaidBookingTracking,
   fetchDriverVehicle,
@@ -43,6 +44,7 @@ import {
   postJourneyAction,
   type JourneyAction,
 } from "@/lib/tracking-api";
+import { isOperationallyCancelled } from "../../shared/refund-ops";
 
 type OwnerPaidBookingsPanelProps = {
   ownerKey: string;
@@ -113,8 +115,18 @@ function arrivalNotificationLabel(booking: OwnerPaidBookingSummary): string {
 }
 
 function paymentStatusLabel(booking: OwnerPaidBookingSummary): string {
-  if (booking.status === "refunded") return "Refunded";
-  return "Paid";
+  switch (booking.status) {
+    case "refunded":
+      return "Refunded + cancelled";
+    case "refunded_active":
+      return "Fully refunded (active)";
+    case "partially_refunded":
+      return "Partially refunded";
+    case "cancelled":
+      return "Cancelled";
+    default:
+      return "Paid";
+  }
 }
 
 function openWhatsAppDeepLink(href: string) {
@@ -1032,38 +1044,41 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
     }
   }
 
-  async function handleRefund(booking: OwnerPaidBookingSummary) {
-    setBusyRef(booking.paymentReference);
-    setError("");
-    setMessage("");
-    try {
-      const result = await issueBookingRefund({
-        ownerKey,
-        paymentReference: booking.paymentReference,
-        trackingToken: booking.trackingToken,
-      });
-      if (!result.ok && !result.alreadyRefunded) {
-        throw new Error(result.error || "Refund failed");
-      }
-      setRefundConfirmRef(null);
-      setBookings((current) =>
-        current.map((entry) =>
-          entry.paymentReference === booking.paymentReference
-            ? { ...entry, status: "refunded", sharingActive: false }
-            : entry,
-        ),
-      );
-      setMessage(
-        result.alreadyRefunded
-          ? `Booking ${booking.paymentReference} was already refunded.`
-          : `Refund issued${result.refundAmount ? ` (${result.refundAmount})` : ""} for ${booking.customerName}.`,
-      );
-      await load();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not issue refund");
-    } finally {
-      setBusyRef("");
-    }
+  async function handleCancelRefundSuccess(
+    result: RefundIssueResponse,
+    booking: OwnerPaidBookingSummary,
+  ) {
+    setRefundConfirmRef(null);
+    setBookings((current) =>
+      current.map((entry) =>
+        entry.paymentReference === booking.paymentReference
+          ? {
+              ...entry,
+              status: (result.status as OwnerPaidBookingSummary["status"]) || entry.status,
+              amountRefunded:
+                typeof result.cumulativeRefunded === "number"
+                  ? result.cumulativeRefunded
+                  : entry.amountRefunded,
+              sharingActive: result.cancelBooking ? false : entry.sharingActive,
+            }
+          : entry,
+      ),
+    );
+    const bits = [
+      result.alreadyProcessed
+        ? "Already processed (idempotent)"
+        : result.alreadyRefunded
+          ? "Already fully refunded"
+          : "Action completed",
+      result.refundAmountValue && result.refundAmountValue > 0
+        ? `refund ${result.refundAmount}`
+        : "no SumUp refund",
+      result.cancelBooking ? "booking cancelled" : "booking remains active",
+      result.customerEmailSent ? "customer email sent" : null,
+      result.ownerEmailSent ? "owner email sent" : null,
+    ].filter(Boolean);
+    setMessage(`${booking.paymentReference}: ${bits.join(" · ")}`);
+    await load();
   }
 
   async function handleRecover(checkoutId?: string) {
@@ -1098,7 +1113,8 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
     }
   }
 
-  const latestPaid = bookings.find((booking) => booking.status !== "refunded") ?? null;
+  const latestPaid =
+    bookings.find((booking) => !isOperationallyCancelled(booking.status)) ?? null;
   const needsFinalize = pending.filter((item) => item.needsFinalize);
 
   function renderJourneyControls(booking: OwnerPaidBookingSummary) {
@@ -1123,7 +1139,7 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
       primaryActions.push({ action: "arrived_destination", label: "Arrived at Destination" });
     } else if (status === "arrived_destination") {
       primaryActions.push({ action: "complete_journey", label: "Complete Journey" });
-    } else if (status !== "completed" && booking.status !== "refunded") {
+    } else if (status !== "completed" && !isOperationallyCancelled(booking.status)) {
       // idle / stopped / tracking — Arrived must be visible (not only after Start Live Tracking).
       // Arrived is listed before Complete Journey.
       primaryActions.push({ action: "arrived_pickup", label: "🚕 Arrived at Pickup" });
@@ -1251,13 +1267,25 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
   }
 
   function renderBookingCard(booking: OwnerPaidBookingSummary, options?: { compact?: boolean }) {
-    const isRefunded = booking.status === "refunded";
+    const isClosed = isOperationallyCancelled(booking.status);
     const isCompleted = booking.journeyStatus === "completed";
-    const canEdit = !isRefunded && !isCompleted;
-    const canAdminConfirm = !isRefunded && !isCompleted;
+    const canEdit = !isClosed && !isCompleted;
+    const canAdminConfirm = !isClosed && !isCompleted;
     const showOfferUpdated =
       offerUpdatedConfirmationRef === booking.paymentReference && canAdminConfirm;
     const refundOpen = refundConfirmRef === booking.paymentReference;
+    const paidNum = parseFloat(String(booking.amountPaid).replace(/[^\d.]/g, "") || "0");
+    const refundedNum =
+      typeof booking.amountRefunded === "number"
+        ? booking.amountRefunded
+        : booking.status === "refunded" || booking.status === "refunded_active"
+          ? paidNum
+          : 0;
+    const canRefundOrCancel =
+      booking.status !== "refunded" &&
+      booking.status !== "refunded_active"
+        ? true
+        : paidNum > refundedNum + 0.001;
 
     return (
       <li
@@ -1299,15 +1327,21 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
           </div>
           <span
             className={`rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wider ${
-              isRefunded
+              isClosed
                 ? "border-red-400/30 bg-red-500/10 text-red-100"
-                : booking.sharingActive
-                  ? "border-emerald/40 bg-emerald/15 text-emerald"
-                  : "border-emerald/40 bg-emerald/15 text-emerald"
+                : booking.status === "partially_refunded"
+                  ? "border-amber-400/30 bg-amber-500/10 text-amber-100"
+                  : booking.sharingActive
+                    ? "border-emerald/40 bg-emerald/15 text-emerald"
+                    : "border-emerald/40 bg-emerald/15 text-emerald"
             }`}
           >
-            {isRefunded
-              ? "Refunded"
+            {isClosed
+              ? booking.status === "cancelled"
+                ? "Cancelled"
+                : "Refunded"
+              : booking.status === "refunded_active"
+                ? "Fully refunded · Active"
               : booking.sharingActive
                 ? "Paid · Tracking live"
                 : paymentStatusLabel(booking)}
@@ -1427,7 +1461,7 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
           ) : null}
         </dl>
 
-        {!isRefunded ? (
+        {!isClosed ? (
           <>
             <PaidBookingLiveTracking
               ownerKey={ownerKey}
@@ -1588,18 +1622,16 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
                       ? "Loading diagnostic…"
                       : "Tracking diagnostic (read-only)"}
                   </button>
-                  {!isRefunded ? (
+                  {canRefundOrCancel ? (
                     <button
                       type="button"
                       disabled={busyRef === booking.paymentReference}
                       onClick={() =>
-                        setRefundConfirmRef(
-                          refundOpen ? null : booking.paymentReference,
-                        )
+                        setRefundConfirmRef(refundOpen ? null : booking.paymentReference)
                       }
                       className="min-h-11 w-full rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-2.5 text-sm font-semibold text-red-200 transition-colors hover:bg-red-500/20 disabled:opacity-60 sm:w-auto"
                     >
-                      Issue Refund
+                      Cancel / Refund
                     </button>
                   ) : null}
                 </div>
@@ -1624,46 +1656,17 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
                 ) : null}
 
                 {refundOpen ? (
-                  <div className="mt-3 rounded-xl border border-red-400/30 bg-red-500/10 p-4">
-                    <p className="text-sm font-semibold text-red-100">Confirm refund</p>
-                    <dl className="mt-3 space-y-1 text-sm text-red-100/90">
-                      <div>
-                        <span className="text-red-100/60">Customer: </span>
-                        {booking.customerName}
-                      </div>
-                      <div>
-                        <span className="text-red-100/60">Booking reference: </span>
-                        <span className="break-all">{booking.paymentReference}</span>
-                      </div>
-                      <div>
-                        <span className="text-red-100/60">Original amount: </span>
-                        {booking.amountPaid || "—"}
-                      </div>
-                    </dl>
-                    <p className="mt-3 text-sm text-red-100/85">
-                      This will refund the customer&apos;s payment.
-                    </p>
-                    <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-                      <button
-                        type="button"
-                        disabled={busyRef === booking.paymentReference}
-                        onClick={() => setRefundConfirmRef(null)}
-                        className="min-h-11 rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:border-white/30 disabled:opacity-60"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        type="button"
-                        disabled={busyRef === booking.paymentReference}
-                        onClick={() => void handleRefund(booking)}
-                        className="min-h-11 rounded-xl bg-red-500 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-red-600 disabled:opacity-60"
-                      >
-                        {busyRef === booking.paymentReference
-                          ? "Processing…"
-                          : `Confirm ${booking.amountPaid || "full"} Refund`}
-                      </button>
-                    </div>
-                  </div>
+                  <OwnerCancelRefundModal
+                    ownerKey={ownerKey}
+                    booking={booking}
+                    busy={busyRef === booking.paymentReference}
+                    onBusyChange={(next) =>
+                      setBusyRef(next ? booking.paymentReference : "")
+                    }
+                    onClose={() => setRefundConfirmRef(null)}
+                    onSuccess={(result) => void handleCancelRefundSuccess(result, booking)}
+                    onError={(message) => setError(message)}
+                  />
                 ) : null}
               </div>
             </div>
@@ -1672,7 +1675,45 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
               <TrackingDiagnosticView report={diagnostics[booking.paymentReference]} />
             ) : null}
           </>
-        ) : null}
+        ) : (
+          <div className="mt-4 space-y-3">
+            <p className="text-sm text-white/60">
+              This booking is {booking.status === "cancelled" ? "cancelled" : "fully refunded"}.
+              Journey evidence is retained.
+            </p>
+            <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+              <a
+                href={`/owner/journey-evidence/?ref=${encodeURIComponent(booking.paymentReference)}`}
+                className="inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-sky-400/40 bg-sky-500/15 px-4 py-2.5 text-sm font-bold text-sky-100 transition-colors hover:bg-sky-500/25 sm:w-auto"
+              >
+                View Journey Evidence
+              </a>
+              {canRefundOrCancel && booking.status === "cancelled" ? (
+                <button
+                  type="button"
+                  disabled={busyRef === booking.paymentReference}
+                  onClick={() =>
+                    setRefundConfirmRef(refundOpen ? null : booking.paymentReference)
+                  }
+                  className="min-h-11 w-full rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-2.5 text-sm font-semibold text-red-200 transition-colors hover:bg-red-500/20 disabled:opacity-60 sm:w-auto"
+                >
+                  Issue refund on cancelled booking
+                </button>
+              ) : null}
+            </div>
+            {refundOpen && booking.status === "cancelled" ? (
+              <OwnerCancelRefundModal
+                ownerKey={ownerKey}
+                booking={booking}
+                busy={busyRef === booking.paymentReference}
+                onBusyChange={(next) => setBusyRef(next ? booking.paymentReference : "")}
+                onClose={() => setRefundConfirmRef(null)}
+                onSuccess={(result) => void handleCancelRefundSuccess(result, booking)}
+                onError={(message) => setError(message)}
+              />
+            ) : null}
+          </div>
+        )}
       </li>
     );
   }

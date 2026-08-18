@@ -13,6 +13,7 @@ import { VEHICLE_TYPES } from "@/lib/data";
 import { createPaymentReturnToken, savePendingPayment } from "@/lib/pending-payment";
 import { fetchPersonalQuoteByToken, type PersonalQuotePublicSummary } from "@/lib/personal-quote-api";
 import { TERMS_LAST_UPDATED } from "@/lib/terms";
+import { CANCELLATION_POLICY_VERSION } from "../../../shared/refund-ops";
 import {
   PERSONAL_QUOTE_MAX_PASSENGERS,
   PERSONAL_QUOTE_MIN_PASSENGERS,
@@ -169,6 +170,7 @@ function PersonalQuoteInner() {
         : {}),
       termsAcceptedAt: new Date().toISOString(),
       termsVersion: TERMS_LAST_UPDATED,
+      cancellationPolicyVersion: CANCELLATION_POLICY_VERSION,
     };
   }
 

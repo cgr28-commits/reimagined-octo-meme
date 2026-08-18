@@ -40,6 +40,7 @@ export type PaidBookingDetails = {
   isFromAirport?: boolean;
   termsAcceptedAt?: string;
   termsVersion?: string;
+  cancellationPolicyVersion?: string;
   marketingOptIn?: boolean;
   marketingOptInAt?: string;
   marketingConsentVersion?: string;
@@ -760,6 +761,293 @@ export function buildOwnerRefundConfirmationEmail(
     `Calendar events marked as cancelled and the booking marked as refunded on the driver dashboard.`;
 
   return { subject, body };
+}
+
+export type CancellationEmailDetails = RefundConfirmationDetails & {
+  refundAmountValue: number;
+  originalAmount: string;
+  originalAmountValue: number;
+  cumulativeRefunded: string;
+  remainingPaid: string;
+  cancelBooking: boolean;
+  within24h: boolean;
+  reasonCategory: string;
+  customerFacingReason?: string;
+  bookingRemainsActive: boolean;
+  actionKind: string;
+};
+
+/**
+ * Choose the correct customer + owner email for a refund/cancellation outcome.
+ * Never returns a customer “refund completed” template when refundAmountValue is 0
+ * unless it is an explicit cancellation notice.
+ */
+export function buildCustomerCancellationEmails(
+  details: CancellationEmailDetails,
+  businessName = "My Airport Taxi NI",
+): {
+  customer: CustomerPaidBookingEmail | null;
+  owner: { subject: string; body: string } | null;
+} {
+  const when = formatTripDateTime(details.tripDate, details.tripTime);
+  const ref = details.paymentReference;
+  const isBusiness = details.reasonCategory === "business_cancelled";
+
+  // Business cancels → apology + full refund confirmation (when money returned).
+  if (isBusiness && details.cancelBooking) {
+    const refundLine =
+      details.refundAmountValue > 0
+        ? `We have refunded ${details.refundAmount} to your original payment method via SumUp. Banks/cards may take several working days to show the funds.`
+        : `Please contact us if you have any questions about payment.`;
+    const subject =
+      details.refundAmountValue > 0
+        ? `Booking Cancelled – Full Refund Issued – ${ref}`
+        : `Booking Cancellation Confirmed – ${ref}`;
+    const text =
+      `Hi ${details.customerName},\n\n` +
+      `We're sorry — My Airport Taxi NI has had to cancel your booking ${ref}.\n\n` +
+      `Trip: ${details.tripLabel}\n` +
+      (when ? `When: ${when}\n` : "") +
+      `Pickup: ${details.pickupLabel}\n` +
+      `Drop-off: ${details.dropoffLabel}\n\n` +
+      `${refundLine}\n\n` +
+      `We apologise for the inconvenience and hope to welcome you again soon.\n\n` +
+      `${businessName}\n${BUSINESS_WEBSITE}`;
+    const html = buildSimpleBrandedEmailHtml({
+      title: "Booking cancelled",
+      headline: `We're sorry, ${escapeHtml(details.customerName)}`,
+      bodyHtml:
+        `<p>We have had to cancel booking <strong>${escapeHtml(ref)}</strong>.</p>` +
+        `<p>${escapeHtml(details.tripLabel)}${when ? `<br/>${escapeHtml(when)}` : ""}<br/>` +
+        `${escapeHtml(details.pickupLabel)} → ${escapeHtml(details.dropoffLabel)}</p>` +
+        `<p>${escapeHtml(refundLine)}</p>`,
+      businessName,
+    });
+    return {
+      customer: { subject, text, html },
+      owner: {
+        subject: `Business cancellation — ${details.customerName} — ${ref}`,
+        body: text,
+      },
+    };
+  }
+
+  // Cancel within 24h, no refund
+  if (details.cancelBooking && details.refundAmountValue <= 0 && details.within24h) {
+    const subject = `Booking Cancellation Confirmed – ${ref}`;
+    const text =
+      `Hi ${details.customerName},\n\n` +
+      `Your booking ${ref} has been cancelled.\n\n` +
+      `Trip: ${details.tripLabel}\n` +
+      (when ? `When: ${when}\n` : "") +
+      `Pickup: ${details.pickupLabel}\n` +
+      `Drop-off: ${details.dropoffLabel}\n\n` +
+      `Your cancellation was received within 24 hours of the scheduled pickup. Under our short-notice cancellation terms a refund is not normally due because vehicle/driver capacity had been reserved and short-notice replacement work may not be available.\n\n` +
+      `Any amount retained remains subject to applicable consumer law. We will not retain more than our reasonable loss resulting from the cancellation. If there are exceptional circumstances, or you believe an adjustment is appropriate, please contact us.\n\n` +
+      `This does not affect your statutory consumer rights.\n\n` +
+      `${businessName}\n${BUSINESS_WEBSITE}`;
+    const html = buildSimpleBrandedEmailHtml({
+      title: "Cancellation confirmed",
+      headline: `Booking cancelled — ${escapeHtml(ref)}`,
+      bodyHtml:
+        `<p>Your booking has been cancelled.</p>` +
+        `<p>${escapeHtml(details.tripLabel)}${when ? `<br/>${escapeHtml(when)}` : ""}</p>` +
+        `<p>Your cancellation was received within 24 hours of pickup. Under our short-notice terms a refund is not normally due because capacity had been reserved. Any amount retained will not exceed our reasonable loss. This does not affect your statutory consumer rights.</p>` +
+        `<p>Contact us if there are exceptional circumstances.</p>`,
+      businessName,
+    });
+    return {
+      customer: { subject, text, html },
+      owner: {
+        subject: `Cancellation (<24h, no refund) — ${details.customerName} — ${ref}`,
+        body: text,
+      },
+    };
+  }
+
+  // Cancel >24h with full refund
+  if (
+    details.cancelBooking &&
+    details.refundAmountValue > 0 &&
+    !details.within24h &&
+    details.remainingPaid.replace(/[^\d.]/g, "") === "0" ||
+    (details.cancelBooking &&
+      details.refundAmountValue > 0 &&
+      !details.within24h &&
+      details.originalAmountValue - details.refundAmountValue < 0.01)
+  ) {
+    const subject = `Booking Cancelled – Full Refund Issued – ${ref}`;
+    const text =
+      `Hi ${details.customerName},\n\n` +
+      `Your booking ${ref} has been cancelled and a full refund has been issued.\n\n` +
+      `Trip: ${details.tripLabel}\n` +
+      (when ? `When: ${when}\n` : "") +
+      `Pickup: ${details.pickupLabel}\n` +
+      `Drop-off: ${details.dropoffLabel}\n\n` +
+      `Your cancellation was received more than 24 hours before pickup.\n` +
+      `Refund amount: ${details.refundAmount}\n` +
+      `The refund has been returned to your original payment method via SumUp. Your bank or card provider may take several working days before it appears.\n\n` +
+      `We'd be glad to welcome you again — book anytime at ${BUSINESS_WEBSITE}.\n\n` +
+      `${businessName}`;
+    const html = buildSimpleBrandedEmailHtml({
+      title: "Full refund issued",
+      headline: `Booking cancelled — full refund`,
+      bodyHtml:
+        `<p>Booking <strong>${escapeHtml(ref)}</strong> is cancelled.</p>` +
+        `<p>Cancellation received more than 24 hours before pickup.</p>` +
+        `<p><strong>Refund:</strong> ${escapeHtml(details.refundAmount)} returned to your original payment method via SumUp. Banks/cards may take several working days to show the funds.</p>` +
+        `<p>We'd love to welcome you again soon.</p>`,
+      businessName,
+    });
+    return {
+      customer: { subject, text, html },
+      owner: buildOwnerRefundConfirmationEmail(details, businessName),
+    };
+  }
+
+  // Partial or full refund while booking may remain active or be cancelled
+  if (details.refundAmountValue > 0) {
+    const remainingNum = Number(String(details.remainingPaid).replace(/[^\d.]/g, ""));
+    const fullyRefundedMoney =
+      !Number.isFinite(remainingNum) || remainingNum <= 0.001;
+
+    if (fullyRefundedMoney && !details.cancelBooking) {
+      const subject = `Full Refund Issued – Booking Remains Confirmed – ${ref}`;
+      const text =
+        `Hi ${details.customerName},\n\n` +
+        `A full refund has been issued for booking ${ref}. Your booking remains CONFIRMED.\n\n` +
+        `Trip: ${details.tripLabel}\n` +
+        (when ? `When: ${when}\n` : "") +
+        `Pickup: ${details.pickupLabel}\n` +
+        `Drop-off: ${details.dropoffLabel}\n\n` +
+        `Original payment: ${details.originalAmount}\n` +
+        `Refund amount: ${details.refundAmount}\n` +
+        `The refund has been returned to your original payment method via SumUp. Banks/cards may take several working days to show the funds.\n\n` +
+        `${businessName}\n${BUSINESS_WEBSITE}`;
+      return {
+        customer: {
+          subject,
+          text,
+          html: buildSimpleBrandedEmailHtml({
+            title: "Full refund issued",
+            headline: `Full refund — booking remains confirmed`,
+            bodyHtml:
+              `<p>Booking <strong>${escapeHtml(ref)}</strong> remains <strong>CONFIRMED</strong>.</p>` +
+              `<p><strong>Refund:</strong> ${escapeHtml(details.refundAmount)} returned via SumUp.</p>`,
+            businessName,
+          }),
+        },
+        owner: {
+          subject: `Full refund (booking active) — ${details.customerName} — ${ref}`,
+          body: text,
+        },
+      };
+    }
+
+    const statusLine = details.cancelBooking
+      ? "Your booking has been CANCELLED."
+      : "Your booking remains CONFIRMED.";
+    const reasonLine = details.customerFacingReason
+      ? `Reason: ${details.customerFacingReason}\n`
+      : "";
+    const subject = fullyRefundedMoney
+      ? `Full Refund Issued – ${ref}`
+      : `Partial Refund Issued – ${ref}`;
+    const text =
+      `Hi ${details.customerName},\n\n` +
+      (fullyRefundedMoney
+        ? `A full refund has been issued for booking ${ref}.\n\n`
+        : `A partial refund has been issued for booking ${ref}.\n\n`) +
+      `Original payment: ${details.originalAmount}\n` +
+      `Refund amount: ${details.refundAmount}\n` +
+      `Total refunded to date: ${details.cumulativeRefunded}\n` +
+      `Remaining paid amount: ${details.remainingPaid}\n` +
+      `${statusLine}\n` +
+      reasonLine +
+      `\nThe refund has been returned to your original payment method via SumUp.\n\n` +
+      `${businessName}\n${BUSINESS_WEBSITE}`;
+    const html = buildSimpleBrandedEmailHtml({
+      title: fullyRefundedMoney ? "Full refund issued" : "Partial refund issued",
+      headline: `${fullyRefundedMoney ? "Full" : "Partial"} refund — ${escapeHtml(ref)}`,
+      bodyHtml:
+        `<p>Original payment: <strong>${escapeHtml(details.originalAmount)}</strong><br/>` +
+        `Refund now: <strong>${escapeHtml(details.refundAmount)}</strong><br/>` +
+        `Total refunded: <strong>${escapeHtml(details.cumulativeRefunded)}</strong><br/>` +
+        `Remaining paid: <strong>${escapeHtml(details.remainingPaid)}</strong></p>` +
+        `<p>${escapeHtml(statusLine)}</p>` +
+        (details.customerFacingReason
+          ? `<p>${escapeHtml(details.customerFacingReason)}</p>`
+          : "") +
+        `<p>Returned to your original payment method via SumUp.</p>`,
+      businessName,
+    });
+    return {
+      customer: { subject, text, html },
+      owner: {
+        subject: `${fullyRefundedMoney ? "Full" : "Partial"} refund — ${details.customerName} — ${details.refundAmount}`,
+        body: text,
+      },
+    };
+  }
+
+  // Cancel without refund outside the <24h template (e.g. goodwill cancel £0)
+  if (details.cancelBooking) {
+    const subject = `Booking Cancellation Confirmed – ${ref}`;
+    const text =
+      `Hi ${details.customerName},\n\n` +
+      `Your booking ${ref} has been cancelled.\n\n` +
+      `Trip: ${details.tripLabel}\n` +
+      (when ? `When: ${when}\n` : "") +
+      `Pickup: ${details.pickupLabel}\n` +
+      `Drop-off: ${details.dropoffLabel}\n\n` +
+      `No refund was issued for this cancellation.\n\n` +
+      `${businessName}\n${BUSINESS_WEBSITE}`;
+    return {
+      customer: {
+        subject,
+        text,
+        html: buildSimpleBrandedEmailHtml({
+          title: "Cancellation confirmed",
+          headline: `Booking cancelled — ${escapeHtml(ref)}`,
+          bodyHtml: `<p>Your booking has been cancelled. No refund was issued for this cancellation.</p>`,
+          businessName,
+        }),
+      },
+      owner: {
+        subject: `Cancellation (no refund) — ${details.customerName} — ${ref}`,
+        body: text,
+      },
+    };
+  }
+
+  return { customer: null, owner: null };
+}
+
+function buildSimpleBrandedEmailHtml(input: {
+  title: string;
+  headline: string;
+  bodyHtml: string;
+  businessName: string;
+}): string {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>${escapeHtml(input.title)} — ${escapeHtml(input.businessName)}</title></head>
+<body style="margin:0;padding:0;background:#f4f6f8;font-family:Arial,Helvetica,sans-serif;color:#1a2b3c;">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f4f6f8;padding:32px 16px;"><tr><td align="center">
+<table role="presentation" width="640" cellspacing="0" cellpadding="0" style="max-width:640px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;">
+<tr><td style="background:${NAVY};padding:28px 32px;text-align:center;">
+<img src="${LOGO_URL}" alt="${escapeHtml(input.businessName)}" height="72" style="display:block;margin:0 auto;height:72px;width:auto;" />
+<div style="margin-top:16px;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:${ACCENT};font-weight:bold;">${escapeHtml(input.title)}</div>
+<div style="margin-top:8px;font-size:22px;line-height:1.35;color:#ffffff;font-weight:bold;">${input.headline}</div>
+</td></tr>
+<tr><td style="padding:28px 32px;font-size:15px;line-height:1.7;color:#334155;">${input.bodyHtml}</td></tr>
+<tr><td style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:20px 32px;font-size:13px;color:#64748b;">
+<strong style="color:${NAVY};">${escapeHtml(input.businessName)}</strong><br />
+<a href="${BUSINESS_WEBSITE}" style="color:${NAVY};">${BUSINESS_WEBSITE.replace(/^https:\/\//, "")}</a>
+</td></tr>
+</table></td></tr></table>
+</body></html>`;
 }
 
 export type GoogleReviewRequestDetails = {

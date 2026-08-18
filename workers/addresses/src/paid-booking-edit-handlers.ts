@@ -293,7 +293,7 @@ export async function handlePaidBookingEditRequest(
   if (!existing) {
     return jsonResponse({ error: `No paid booking found for ${paymentReference}` }, 404, origin);
   }
-  if (existing.status === "refunded") {
+  if (existing.status === "refunded" || existing.status === "cancelled") {
     return jsonResponse({ error: "Refunded bookings cannot be edited." }, 409, origin);
   }
 
@@ -521,8 +521,8 @@ export async function handlePaidBookingSendUpdatedConfirmationRequest(
   if (!record) {
     return jsonResponse({ error: `No paid booking found for ${paymentReference}` }, 404, origin);
   }
-  if (record.status === "refunded") {
-    return jsonResponse({ error: "Refunded bookings cannot send confirmations." }, 400, origin);
+  if (record.status === "refunded" || record.status === "cancelled") {
+    return jsonResponse({ error: "Cancelled or refunded bookings cannot send confirmations." }, 400, origin);
   }
 
   const bookingDetails = await loadBookingDetails(env, record);

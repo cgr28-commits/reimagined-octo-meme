@@ -382,6 +382,13 @@ export async function handlePaidBookingsListRequest(
         createdAt: booking.createdAt,
         status: booking.status,
         amountPaid: booking.amountPaidLabel,
+        amountRefunded: booking.amountRefunded ?? 0,
+        refundHistory: booking.refundHistory,
+        cancelledAt: booking.cancelledAt,
+        refundedAt: booking.refundedAt,
+        termsAcceptedAt: booking.termsAcceptedAt,
+        termsVersion: booking.termsVersion,
+        cancellationPolicyVersion: booking.cancellationPolicyVersion,
         customerName: booking.customerName,
         customerEmail: booking.customerEmail,
         mobileNumber: booking.mobileNumber,
@@ -487,8 +494,12 @@ export async function handlePaidBookingResendRequest(
     );
   }
 
-  if (record.status === "refunded") {
-    return jsonResponse({ error: "That booking was refunded — confirmation not resent." }, 400, origin);
+  if (record.status === "refunded" || record.status === "cancelled") {
+    return jsonResponse(
+      { error: "That booking was cancelled or refunded — confirmation not resent." },
+      400,
+      origin,
+    );
   }
 
   const bookingDetails = await loadBookingDetails(env, record);

@@ -9,6 +9,7 @@ import TripMap from "@/components/TripMap";
 import { buildBookingMessage, buildEnquiryBookingMessage, buildGroupQuoteRequestMessage, isValidEmailAddress, isValidMobileNumber, type BookingDetails } from "@/lib/booking-message";
 import { buildMarketingOptInFields, recordMarketingOptIn } from "@/lib/marketing-api";
 import { TERMS_LAST_UPDATED } from "@/lib/terms";
+import { CANCELLATION_POLICY_VERSION } from "../../shared/refund-ops";
 import { detectMobileDevice, useIsMobileDevice } from "@/lib/device";
 import { whatsAppChatUrl } from "@/lib/contact-card";
 import {
@@ -1543,6 +1544,7 @@ function QuoteCard({
       ...buildBookingDetails(),
       termsAcceptedAt: new Date().toISOString(),
       termsVersion: TERMS_LAST_UPDATED,
+      cancellationPolicyVersion: CANCELLATION_POLICY_VERSION,
       ...buildMarketingOptInFields(marketingOptIn),
     };
   }

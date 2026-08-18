@@ -248,7 +248,7 @@ export async function listPaymentRefsWithReturnDateInRange(
       if (!ref || seen.has(ref)) continue;
       seen.add(ref);
       const record = await getPaidBookingRecord(store, ref);
-      if (!record || record.status === "refunded") continue;
+      if (!record || record.status === "refunded" || record.status === "cancelled") continue;
       if (!record.returnJourney) continue;
       const returnDate = record.returnDate?.trim() ?? "";
       if (!/^\d{4}-\d{2}-\d{2}$/.test(returnDate)) continue;
@@ -321,7 +321,7 @@ export async function updatePaidBookingFields(
   options?: { appendAudit?: boolean; changedBy?: "Owner" },
 ): Promise<PaidBookingRecord | null> {
   const record = await getPaidBookingRecord(store, paymentReference);
-  if (!record || record.status === "refunded") {
+  if (!record || record.status === "refunded" || record.status === "cancelled") {
     return null;
   }
 

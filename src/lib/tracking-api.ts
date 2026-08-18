@@ -229,7 +229,12 @@ export type DriverJob = PublicTrackResponse & {
   customerEmail?: string;
   paymentReference?: string;
   amountPaidLabel?: string;
-  bookingStatus?: "confirmed" | "refunded";
+  bookingStatus?:
+    | "confirmed"
+    | "partially_refunded"
+    | "refunded_active"
+    | "refunded"
+    | "cancelled";
   refundAmountLabel?: string;
   activeDriverName?: string;
   assignedDriverName?: string;
@@ -576,6 +581,32 @@ export type JourneyEvidencePack = {
   checkoutId?: string;
   transactionId?: string;
   transactionCode?: string;
+  amountRefunded?: number;
+  refundHistory?: Array<{
+    id: string;
+    refundAmount: number;
+    cumulativeRefundedAmount: number;
+    remainingBalance: number;
+    fullOrPartial: string;
+    cancelBooking: boolean;
+    reasonCategory: string;
+    ownerNotes: string;
+    customerFacingReason?: string;
+    requestedAt: string;
+    completedAt?: string;
+    success: boolean;
+    sumUpStatus?: string;
+    sumUpReference?: string;
+    customerEmailStatus: string;
+    ownerEmailStatus: string;
+  }>;
+  termsAcceptedAt?: string;
+  termsVersion?: string;
+  cancellationPolicyVersion?: string;
+  cancelledAt?: string;
+  refundedAt?: string;
+  assignedDriverName?: string;
+  paymentAuthorisationWording?: string;
   paymentLinkageStatus?: string;
   bookingCreatedAt?: string;
   customerName: string;

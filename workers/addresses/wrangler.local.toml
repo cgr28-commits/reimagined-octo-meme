@@ -7,6 +7,14 @@ compatibility_date = "2025-08-01"
 binding = "TRACKING_STORE"
 id = "local-tracking-demo-store"
 
+[[durable_objects.bindings]]
+name = "REFUND_COORDINATOR"
+class_name = "RefundCoordinator"
+
+[[migrations]]
+tag = "v1-refund-coordinator"
+new_sqlite_classes = ["RefundCoordinator"]
+
 [vars]
 DRIVER_ACCESS_KEY = "demo-driver-key"
 GOOGLE_PLACES_API_KEY = "local-demo"

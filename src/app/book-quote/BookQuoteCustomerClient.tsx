@@ -16,6 +16,7 @@ import {
 import { createPaymentReturnToken, savePendingPayment } from "@/lib/pending-payment";
 import { fetchQuickQuoteById, type QuickQuotePublicSummary } from "@/lib/quick-quote-api";
 import { TERMS_LAST_UPDATED } from "@/lib/terms";
+import { CANCELLATION_POLICY_VERSION } from "../../../shared/refund-ops";
 import { getPaymentBookingBlockers } from "../../../shared/paid-booking-gate";
 
 const fieldClass =
@@ -112,6 +113,7 @@ function BookQuoteInner() {
       estimatedPrice: quote.quotedAmountLabel,
       termsAcceptedAt: termsAccepted ? new Date().toISOString() : undefined,
       termsVersion: TERMS_LAST_UPDATED,
+      cancellationPolicyVersion: CANCELLATION_POLICY_VERSION,
     };
   }, [quote, journey, customerName, customerEmail, mobileNumber, flightNumber, childSeatRequired, termsAccepted]);
 

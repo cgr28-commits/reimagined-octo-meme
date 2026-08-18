@@ -171,6 +171,7 @@ import {
 import {
   handleRefundRequest,
 } from "./refund-handlers";
+export { RefundCoordinator } from "./refund-coordinator";
 import {
   handleFinalizeCheckoutRequest,
   handlePaidBookingResendRequest,
@@ -271,6 +272,8 @@ type Env = {
   OWNER_ACCESS_KEY?: string;
   /** Optional GPS audit retention override (seconds, min 30 days). */
   TRACKING_GPS_HISTORY_TTL_SECONDS?: string;
+  /** Per-booking refund serialization (Durable Object). */
+  REFUND_COORDINATOR?: DurableObjectNamespace;
 };
 
 type QuoteLeadRequestBody = QuoteLeadDetails & {

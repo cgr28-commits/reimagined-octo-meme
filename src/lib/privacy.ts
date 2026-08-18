@@ -1,6 +1,6 @@
 import { BUSINESS_LEGAL } from "@/lib/business-legal";
 
-export const PRIVACY_LAST_UPDATED = "August 2026";
+export const PRIVACY_LAST_UPDATED = "August 2026 v2";
 
 export const PRIVACY_SECTIONS = [
   {
@@ -84,16 +84,18 @@ export const PRIVACY_SECTIONS = [
     content: [
       "When your driver starts tracking for a booked journey, we may record timestamped GPS points (latitude, longitude, accuracy, speed and heading where the device provides them).",
       "We use this data to show you a live tracking page, to operate the journey safely, and to keep an internal journey record that may support payment or service disputes. A journey record does not guarantee the outcome of any card chargeback.",
+      "Journey and driver location information, together with booking-event information, may be recorded and retained where necessary for providing and managing the booked service, safety and security, resolving complaints, fraud prevention, payment and refund disputes, and establishing or defending legal claims.",
       "Customer tracking links use a random, booking-specific token. Links become available around one hour before pickup and expire after the journey window. Live location is not shown after the journey is completed.",
-      "We do not intentionally collect unnecessary device identifiers beyond what is needed to operate location sharing.",
+      "We do not intentionally collect unnecessary device identifiers beyond what is needed to operate location sharing, and we do not add invasive device fingerprinting solely for chargeback purposes.",
     ],
   },
   {
     title: "Retention",
     content: [
-      "Booking and payment records are kept as long as needed for customer service, accounting, tax and dispute resolution — typically up to 6 years where required.",
-      "Driver GPS journey evidence is retained as an operational/dispute record for a configurable period (default around 13 months / ~400 days unless a longer period is set for the business). Customer-facing tracking tokens expire after the journey window.",
-      "Optional customer location shared on a tracking link is used only while that journey’s tracking window is open.",
+      "Booking and payment records are kept as long as needed for customer service, accounting, tax and dispute resolution — typically up to 6 years where required for tax or accounting, then deleted or anonymised where we no longer need them.",
+      "Driver GPS journey evidence is retained as an operational/dispute record for a configurable period (default around 13 months / ~400 days unless a longer period is set for the business). It is not retained indefinitely.",
+      "Customer-facing tracking tokens expire after the journey window. Optional customer location shared on a tracking link is used only while that journey’s tracking window is open.",
+      "Refund and cancellation audit records are kept with the related booking for the same accounting/dispute retention period.",
     ],
   },
   {

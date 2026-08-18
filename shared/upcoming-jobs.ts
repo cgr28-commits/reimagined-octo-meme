@@ -191,14 +191,15 @@ export function assignedDriverDisplay(label?: string | null, name?: string | nul
   return label?.trim() || name?.trim() || PRIMARY_DRIVER_LABEL;
 }
 
-/** Upcoming Jobs: unfinished paid work only (refunded / fully completed excluded). */
+/** Upcoming Jobs: unfinished paid work only (operationally cancelled / fully completed excluded). */
 export function isUpcomingWorkBooking(booking: LegAwareBooking): boolean {
-  if (booking.status === "refunded") return false;
+  // refunded_active = money fully returned but journey still live — keep in upcoming.
+  if (booking.status === "refunded" || booking.status === "cancelled") return false;
   return !bookingFullyCompleted(booking);
 }
 
-/** Completed Jobs history: fully completed legs or refunded. */
+/** Completed Jobs history: fully completed legs, cancelled, or cancel+full-refund. */
 export function isCompletedWorkBooking(booking: LegAwareBooking): boolean {
-  if (booking.status === "refunded") return true;
+  if (booking.status === "refunded" || booking.status === "cancelled") return true;
   return bookingFullyCompleted(booking);
 }

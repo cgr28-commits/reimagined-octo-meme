@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { TERMS_LAST_UPDATED } from "@/lib/terms";
+import { CANCELLATION_POLICY_VERSION } from "../../shared/refund-ops";
 
 type BookingTermsConsentProps = {
   accepted: boolean;
@@ -18,6 +19,16 @@ export default function BookingTermsConsent({
 }: BookingTermsConsentProps) {
   return (
     <div className="space-y-3">
+      <div className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-xs leading-relaxed text-white/65">
+        <p className="font-semibold text-white/80">Cancellation summary</p>
+        <p className="mt-1.5">
+          More than 24 hours before pickup: full refund of the fare paid. Within 24 hours:
+          normally non-refundable because capacity has been reserved; any amount retained will not
+          exceed our reasonable loss, and an appropriate refund will be made where that loss is
+          lower. If we cancel and cannot provide the service, sums paid are normally refunded in
+          full. Your statutory consumer rights are not excluded.
+        </p>
+      </div>
       <label className="flex min-w-0 cursor-pointer items-start gap-3 rounded-xl border border-white/15 bg-white/[0.04] px-4 py-3 text-left">
         <input
           type="checkbox"
@@ -44,8 +55,7 @@ export default function BookingTermsConsent({
           >
             Privacy Policy
           </Link>
-          , including the cancellation policy (full refund with at least 24 hours’ notice;
-          non-refundable within 24 hours or for no-shows).
+          , including the cancellation summary above.
           {mode === "card-payment" ? (
             <>
               {" "}
@@ -63,8 +73,9 @@ export default function BookingTermsConsent({
       </label>
       {error && <p className="text-xs text-red-300">{error}</p>}
       <p className="text-xs leading-relaxed text-white/45">
-        Terms version: {TERMS_LAST_UPDATED}. Keep your confirmation email or booking reference as
-        proof of agreement.
+        Terms version: {TERMS_LAST_UPDATED}. Cancellation policy version:{" "}
+        {CANCELLATION_POLICY_VERSION}. Keep your confirmation email or booking reference as proof
+        of agreement.
       </p>
     </div>
   );

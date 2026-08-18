@@ -15,6 +15,14 @@ compatibility_date = "2025-08-01"
 # Redeploy after changing worker code: wrangler deploy (or Cloudflare dashboard → Deploy)
 account_id = "36c5c88df4c1f0259413d555f2679f3c"
 
+[[durable_objects.bindings]]
+name = "REFUND_COORDINATOR"
+class_name = "RefundCoordinator"
+
+[[migrations]]
+tag = "v1-refund-coordinator"
+new_sqlite_classes = ["RefundCoordinator"]
+
 [build]
 command = "node ../../scripts/sync-worker-shared.mjs && npm run typecheck"
 

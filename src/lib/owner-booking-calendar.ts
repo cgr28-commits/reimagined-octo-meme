@@ -34,7 +34,13 @@ export type OwnerCalendarEntry = {
   isAirportPickup?: boolean;
   serviceType: "SALOON" | "ESTATE" | "MINIBUS" | "OTHER";
   serviceLabel: string;
-  paymentStatus: "confirmed" | "refunded" | "unknown";
+  paymentStatus:
+    | "confirmed"
+    | "partially_refunded"
+    | "refunded_active"
+    | "refunded"
+    | "cancelled"
+    | "unknown";
   assignedDriver: string;
   calendarStatus: CalendarLegStatus;
   journeyStatus?: string;
@@ -66,9 +72,10 @@ export function deriveCalendarLegStatus(input: {
   journeyStatus?: string | null;
   sharingActive?: boolean | null;
 }): CalendarLegStatus {
-  if (input.bookingStatus === "refunded") {
+  if (input.bookingStatus === "refunded" || input.bookingStatus === "cancelled") {
     return "refunded";
   }
+  // refunded_active keeps calendar/upcoming operationally live.
   const status = input.journeyStatus || "idle";
   if (status === "completed") {
     return "completed";
@@ -174,7 +181,13 @@ export function calendarEntriesFromPaidBooking(
   booking: OwnerPaidBookingSummary,
   existingTokens: Set<string>,
 ): OwnerCalendarEntry[] {
-  if (booking.status !== "confirmed" && booking.status !== "refunded") {
+  if (
+    booking.status !== "confirmed" &&
+    booking.status !== "partially_refunded" &&
+    booking.status !== "refunded_active" &&
+    booking.status !== "refunded" &&
+    booking.status !== "cancelled"
+  ) {
     return [];
   }
 
@@ -205,7 +218,13 @@ export function calendarEntriesFromPaidBooking(
       flightNumber: booking.flightNumber,
       serviceType,
       serviceLabel,
-      paymentStatus: booking.status === "refunded" ? "refunded" : "confirmed",
+      paymentStatus:
+        booking.status === "refunded" ||
+        booking.status === "cancelled" ||
+        booking.status === "refunded_active" ||
+        booking.status === "partially_refunded"
+          ? booking.status
+          : "confirmed",
       assignedDriver: booking.assignedDriverLabel || booking.assignedDriverName || "Owner / Primary Driver",
       calendarStatus: outboundStatus,
       journeyStatus: booking.outboundJourneyStatus ?? booking.journeyStatus,
@@ -237,7 +256,13 @@ export function calendarEntriesFromPaidBooking(
         flightNumber: booking.returnFlightNumber,
         serviceType,
         serviceLabel,
-        paymentStatus: booking.status === "refunded" ? "refunded" : "confirmed",
+        paymentStatus:
+        booking.status === "refunded" ||
+        booking.status === "cancelled" ||
+        booking.status === "refunded_active" ||
+        booking.status === "partially_refunded"
+          ? booking.status
+          : "confirmed",
         assignedDriver: booking.assignedDriverLabel || booking.assignedDriverName || "Owner / Primary Driver",
         calendarStatus: returnStatus,
         journeyStatus: booking.returnJourneyStatus,
