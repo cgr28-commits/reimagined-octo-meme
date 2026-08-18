@@ -43,6 +43,18 @@ export type PricingConfig = {
   };
   /** At/above this loaded distance, airport quotes take max(zone, distance-band fare). */
   airportRouteDistanceProtectFromKm?: number;
+  /**
+   * BHD/BFS long-distance saloon floor: when threshold miles (1dp) > thresholdMiles,
+   * saloon = max(existing, base + perExtraMile × (rawMiles − threshold)).
+   * Floor wins → nearest £5; zone wins → existing fare unchanged.
+   */
+  belfastAirportDistanceFloor?: {
+    enabled: boolean;
+    note?: string;
+    thresholdMiles: number;
+    perExtraMileGbp: number;
+    baseFloorGbp: Partial<Record<"BHD" | "BFS", number>>;
+  };
   airportExecutiveMinimumFareGbp: number;
   areaAirportSurchargesGbp: Record<string, Record<AirportCode, number>>;
   defaultAreaSurchargeGbp: Record<AirportCode, number>;

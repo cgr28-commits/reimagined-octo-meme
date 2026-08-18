@@ -239,6 +239,62 @@ function roundFare(value: number): number {
   return rounded % 5 === 4 ? rounded : roundToNearestFive(rounded);
 }
 
+/** OSRM km → statute miles (same factor used for public journey distance display). */
+export function drivingMilesFromKm(distanceKm: number): number {
+  return distanceKm * 0.621371;
+}
+
+/** Round mileage to 1 decimal for the >20.0 threshold gate only. */
+export function thresholdMilesOneDecimal(rawMiles: number): number {
+  return Math.round(rawMiles * 10) / 10;
+}
+
+/**
+ * BHD/BFS long-distance saloon floor (scoped rounding).
+ * - Threshold uses miles rounded to 1dp; ≤20.0 → no change.
+ * - Floor uses raw miles: base + £2 × (rawMiles − 20).
+ * - If floor ≤ existing zone/production saloon → keep existing exactly.
+ * - If floor wins → nearest £5 only (does not use/alter global roundFare).
+ * Dublin / other airports: no-op.
+ */
+export function applyBelfastAirportDistanceFloor(
+  existingSaloonOneWay: number,
+  airportCode: string,
+  distanceKm: number,
+): number {
+  const cfg = PRICING_CONFIG.belfastAirportDistanceFloor;
+  if (!cfg?.enabled) {
+    return existingSaloonOneWay;
+  }
+
+  const code = airportCode.trim().toUpperCase();
+  const baseFloor = cfg.baseFloorGbp?.[code as "BHD" | "BFS"];
+  if (baseFloor == null || !Number.isFinite(baseFloor)) {
+    return existingSaloonOneWay;
+  }
+
+  if (!Number.isFinite(distanceKm) || distanceKm <= 0.5) {
+    return existingSaloonOneWay;
+  }
+
+  const rawMiles = drivingMilesFromKm(distanceKm);
+  const thresholdMiles = thresholdMilesOneDecimal(rawMiles);
+  const gate = cfg.thresholdMiles ?? 20;
+  if (thresholdMiles <= gate) {
+    return existingSaloonOneWay;
+  }
+
+  const perMile = cfg.perExtraMileGbp ?? 2;
+  const distanceFloor = baseFloor + perMile * (rawMiles - gate);
+  if (!(distanceFloor > existingSaloonOneWay)) {
+    // Zone / existing production fare wins — preserve exactly.
+    return existingSaloonOneWay;
+  }
+
+  // Floor wins — scoped nearest-£5 only (not roundFare / £x4-keep).
+  return roundToNearestFive(distanceFloor);
+}
+
 /** Estate one-way fare for calibration scripts (OTS daily auto-fix). */
 export function computeAirportEstateForSurcharge(
   airportCode: string,
@@ -591,6 +647,14 @@ export function calculateQuote(
       saloonOneWay = Math.max(zoneSaloonOneWay, distanceSaloon);
       usedDistanceProtection = saloonOneWay > zoneSaloonOneWay;
     }
+
+    // BHD/BFS: long-distance floor so named zones do not flatten >20 mile journeys.
+    // Zone-winning fares stay exact; floor-winning fares use nearest £5 only.
+    saloonOneWay = applyBelfastAirportDistanceFloor(
+      saloonOneWay,
+      airportCode,
+      routeMetrics.distanceKm,
+    );
   }
 
   const { vehicleMultiplier, vehicleAdjustment } = getAirportVehiclePricingMeta(
