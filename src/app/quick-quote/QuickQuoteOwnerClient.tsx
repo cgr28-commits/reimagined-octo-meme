@@ -1,8 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import AddressInput from "@/components/AddressInput";
 import {
   airportLabel,
+  countFieldValue,
+  parseAirportCode,
   parseQuickQuoteMessage,
   type QuickQuoteAirportCode,
 } from "../../../shared/quick-quote-parse";
@@ -11,8 +14,18 @@ import {
   calculateServerQuote,
   createOwnerQuickQuote,
 } from "@/lib/quick-quote-api";
+import {
+  emptySelectedPlace,
+  isPlaceSelected,
+  placeDisplayText,
+  quickSelectToPlace,
+  type SelectedPlace,
+} from "@/lib/selected-place";
 
 const OWNER_KEY_STORAGE = "matni-owner-key";
+
+const fieldClass =
+  "quote-text-input min-h-12 rounded-xl border border-white/15 bg-navy px-3 text-base text-white";
 
 type Draft = {
   pickupAddress: string;
@@ -54,20 +67,38 @@ function FieldLabel({
   flag?: "missing" | "uncertain" | null;
 }) {
   return (
-    <div className="mb-1 flex items-center justify-between gap-2">
-      <span className="text-xs font-medium text-white/70">{label}</span>
+    <div className="mb-1 flex min-w-0 items-center justify-between gap-2">
+      <span className="min-w-0 truncate text-xs font-medium text-white/70">{label}</span>
       {flag === "missing" ? (
-        <span className="rounded bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-200">
+        <span className="shrink-0 rounded bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-200">
           Missing
         </span>
       ) : null}
       {flag === "uncertain" ? (
-        <span className="rounded bg-orange-500/20 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-orange-200">
+        <span className="shrink-0 rounded bg-orange-500/20 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-orange-200">
           Check
         </span>
       ) : null}
     </div>
   );
+}
+
+function isAirportAddress(value: string): boolean {
+  return Boolean(parseAirportCode(value));
+}
+
+function resolveJourneyAddresses(
+  pickupPlace: SelectedPlace,
+  dropoffPlace: SelectedPlace,
+  draft: Draft,
+): { pickupAddress: string; dropoffAddress: string } {
+  const pickupAddress = isPlaceSelected(pickupPlace)
+    ? placeDisplayText(pickupPlace)
+    : draft.pickupAddress.trim();
+  const dropoffAddress = isPlaceSelected(dropoffPlace)
+    ? placeDisplayText(dropoffPlace)
+    : draft.dropoffAddress.trim();
+  return { pickupAddress, dropoffAddress };
 }
 
 export default function QuickQuoteOwnerClient() {
@@ -78,6 +109,8 @@ export default function QuickQuoteOwnerClient() {
   const [keyInput, setKeyInput] = useState("");
   const [paste, setPaste] = useState("");
   const [draft, setDraft] = useState<Draft>(emptyDraft);
+  const [pickupPlace, setPickupPlace] = useState<SelectedPlace>(() => emptySelectedPlace());
+  const [dropoffPlace, setDropoffPlace] = useState<SelectedPlace>(() => emptySelectedPlace());
   const [uncertain, setUncertain] = useState<string[]>([]);
   const [missing, setMissing] = useState<string[]>([]);
   const [fareLabel, setFareLabel] = useState("");
@@ -97,7 +130,12 @@ export default function QuickQuoteOwnerClient() {
   };
 
   const canCalculate = useMemo(() => {
-    if (!draft.pickupAddress.trim() || !draft.dropoffAddress.trim()) return false;
+    const { pickupAddress, dropoffAddress } = resolveJourneyAddresses(
+      pickupPlace,
+      dropoffPlace,
+      draft,
+    );
+    if (!pickupAddress || !dropoffAddress) return false;
     if (!draft.outboundDate || !draft.outboundTime) return false;
     const pax = Number(draft.passengers);
     const bags = Number(draft.suitcases);
@@ -105,7 +143,15 @@ export default function QuickQuoteOwnerClient() {
     if (!Number.isInteger(bags) || bags < 0) return false;
     if (draft.returnJourney && (!draft.returnDate || !draft.returnTime)) return false;
     return true;
-  }, [draft]);
+  }, [draft, pickupPlace, dropoffPlace]);
+
+  function clearQuoteOutputs() {
+    setFareAmount(null);
+    setFareLabel("");
+    setVehicleType("");
+    setBookingUrl("");
+    setWhatsappReply("");
+  }
 
   function unlock() {
     const key = keyInput.trim();
@@ -121,75 +167,164 @@ export default function QuickQuoteOwnerClient() {
   function startAgain() {
     setPaste("");
     setDraft(emptyDraft());
+    setPickupPlace(emptySelectedPlace());
+    setDropoffPlace(emptySelectedPlace());
     setUncertain([]);
     setMissing([]);
-    setFareLabel("");
-    setFareAmount(null);
-    setVehicleType("");
-    setBookingUrl("");
-    setWhatsappReply("");
+    clearQuoteOutputs();
     setFlightTimeHint("");
     setError("");
     setNotice("Started again.");
   }
 
   function applyAirport(code: QuickQuoteAirportCode) {
-    setDraft((prev) => {
-      const label = airportLabel(code);
-      if (prev.fromAirport) {
-        return {
-          ...prev,
-          airportCode: code,
-          pickupAddress: label,
-          dropoffAddress: prev.dropoffAddress.includes("Airport") ? prev.dropoffAddress : prev.dropoffAddress,
-        };
-      }
-      return {
+    const place = quickSelectToPlace(code);
+    if (!place) return;
+    const label = placeDisplayText(place) || airportLabel(code);
+    const fromAirport = draft.fromAirport;
+    if (fromAirport) {
+      setPickupPlace(place);
+      setDropoffPlace((prev) => (isAirportAddress(draft.dropoffAddress) ? emptySelectedPlace() : prev));
+      setDraft((prev) => ({
+        ...prev,
+        airportCode: code,
+        pickupAddress: label,
+        dropoffAddress: isAirportAddress(prev.dropoffAddress) ? "" : prev.dropoffAddress,
+      }));
+    } else {
+      setDropoffPlace(place);
+      setPickupPlace((prev) => (isAirportAddress(draft.pickupAddress) ? emptySelectedPlace() : prev));
+      setDraft((prev) => ({
         ...prev,
         airportCode: code,
         dropoffAddress: label,
-      };
-    });
-    setFareAmount(null);
-    setFareLabel("");
-    setBookingUrl("");
-    setWhatsappReply("");
+        pickupAddress: isAirportAddress(prev.pickupAddress) ? "" : prev.pickupAddress,
+      }));
+    }
+    clearQuoteOutputs();
+  }
+
+  function setDirection(fromAirport: boolean) {
+    const code = draft.airportCode;
+    if (!code) {
+      setDraft((prev) => ({ ...prev, fromAirport }));
+      clearQuoteOutputs();
+      return;
+    }
+    const place = quickSelectToPlace(code);
+    if (!place) {
+      setDraft((prev) => ({ ...prev, fromAirport }));
+      clearQuoteOutputs();
+      return;
+    }
+    const airportText = placeDisplayText(place) || airportLabel(code);
+
+    if (fromAirport) {
+      const customerSide =
+        !isAirportAddress(draft.dropoffAddress) && draft.dropoffAddress.trim()
+          ? draft.dropoffAddress
+          : !isAirportAddress(draft.pickupAddress) && draft.pickupAddress.trim()
+            ? draft.pickupAddress
+            : "";
+      setPickupPlace(place);
+      setDropoffPlace(emptySelectedPlace());
+      setDraft((prev) => ({
+        ...prev,
+        fromAirport: true,
+        pickupAddress: airportText,
+        dropoffAddress: customerSide,
+      }));
+    } else {
+      const customerSide =
+        !isAirportAddress(draft.pickupAddress) && draft.pickupAddress.trim()
+          ? draft.pickupAddress
+          : !isAirportAddress(draft.dropoffAddress) && draft.dropoffAddress.trim()
+            ? draft.dropoffAddress
+            : "";
+      setDropoffPlace(place);
+      setPickupPlace(emptySelectedPlace());
+      setDraft((prev) => ({
+        ...prev,
+        fromAirport: false,
+        dropoffAddress: airportText,
+        pickupAddress: customerSide,
+      }));
+    }
+    clearQuoteOutputs();
   }
 
   function extract() {
     setError("");
     setNotice("");
-    setFareAmount(null);
-    setFareLabel("");
-    setBookingUrl("");
-    setWhatsappReply("");
+    clearQuoteOutputs();
     setFlightTimeHint("");
     if (!paste.trim()) {
       setError("Paste a WhatsApp message first.");
       return;
     }
     const parsed = parseQuickQuoteMessage(paste);
-    setUncertain(parsed.uncertainFields);
-    setMissing(parsed.missingMandatoryForQuote);
-    setFlightTimeHint(parsed.flightTime.value ?? "");
+    const passengers = countFieldValue(parsed.passengers.value);
+    const suitcases = countFieldValue(parsed.suitcases.value);
+    const airportCode = parsed.airportCode.value ?? "";
+    const fromAirport = parsed.fromAirport.value ?? false;
+    let nextPickup = parsed.pickupAddress.value ?? "";
+    let nextDropoff = parsed.dropoffAddress.value ?? "";
+    let nextPickupPlace = emptySelectedPlace();
+    let nextDropoffPlace = emptySelectedPlace();
+
+    if (airportCode === "BFS" || airportCode === "BHD" || airportCode === "DUB") {
+      const airportPlace = quickSelectToPlace(airportCode);
+      if (airportPlace) {
+        const airportText = placeDisplayText(airportPlace) || airportLabel(airportCode);
+        if (fromAirport) {
+          nextPickupPlace = airportPlace;
+          nextPickup = airportText;
+        } else {
+          nextDropoffPlace = airportPlace;
+          nextDropoff = airportText;
+        }
+      }
+    }
+
+    setPickupPlace(nextPickupPlace);
+    setDropoffPlace(nextDropoffPlace);
     setDraft({
-      pickupAddress: parsed.pickupAddress.value ?? "",
-      dropoffAddress: parsed.dropoffAddress.value ?? "",
-      airportCode: parsed.airportCode.value ?? "",
-      fromAirport: parsed.fromAirport.value ?? false,
+      pickupAddress: nextPickup,
+      dropoffAddress: nextDropoff,
+      airportCode,
+      fromAirport,
       returnJourney: parsed.returnJourney.value ?? false,
       outboundDate: parsed.outboundDate.value ?? "",
       outboundTime: parsed.outboundTime.value ?? "",
       returnDate: parsed.returnDate.value ?? "",
       returnTime: parsed.returnTime.value ?? "",
-      passengers: parsed.passengers.value != null ? String(parsed.passengers.value) : "",
-      suitcases: parsed.suitcases.value != null ? String(parsed.suitcases.value) : "",
+      passengers,
+      suitcases,
       childSeatRequired: parsed.childSeatRequired.value ?? false,
       flightNumber: parsed.flightNumber.value ?? "",
     });
-    if (parsed.missingMandatoryForQuote.length || parsed.uncertainFields.length) {
+
+    // Align Missing badges with what actually landed in the form.
+    const nextMissing = parsed.missingMandatoryForQuote.filter((name) => {
+      if (name === "passengers") return !passengers;
+      if (name === "suitcases") return !suitcases;
+      if (name === "pickupAddress") return !nextPickup.trim();
+      if (name === "dropoffAddress") return !nextDropoff.trim();
+      if (name === "outboundDate") return !(parsed.outboundDate.value ?? "");
+      if (name === "outboundTime") return !(parsed.outboundTime.value ?? "");
+      return true;
+    });
+    setUncertain(parsed.uncertainFields);
+    setMissing(nextMissing);
+    setFlightTimeHint(parsed.flightTime.value ?? "");
+
+    if (nextMissing.length || parsed.uncertainFields.length) {
       setNotice(
-        "Review highlighted fields before calculating. Uncertain values are never used silently.",
+        "Review highlighted fields before calculating. Confirm the non-airport address from suggestions when you can.",
+      );
+    } else if (!isPlaceSelected(nextPickupPlace) || !isPlaceSelected(nextDropoffPlace)) {
+      setNotice(
+        "Details extracted — tap the non-airport address and pick a suggestion before calculating when possible.",
       );
     } else {
       setNotice("Details extracted — check everything looks right, then Calculate Quote.");
@@ -210,11 +345,24 @@ export default function QuickQuoteOwnerClient() {
       setError(`Online quotes are limited to ${QUICK_QUOTE_MAX_PASSENGERS} passengers.`);
       return;
     }
+    const { pickupAddress, dropoffAddress } = resolveJourneyAddresses(
+      pickupPlace,
+      dropoffPlace,
+      draft,
+    );
+    if (!isPlaceSelected(pickupPlace) && !isAirportAddress(pickupAddress)) {
+      setError("Select the pickup address from the suggestions list.");
+      return;
+    }
+    if (!isPlaceSelected(dropoffPlace) && !isAirportAddress(dropoffAddress)) {
+      setError("Select the destination address from the suggestions list.");
+      return;
+    }
     setBusy(true);
     try {
       const result = await calculateServerQuote({
-        pickupAddress: draft.pickupAddress.trim(),
-        dropoffAddress: draft.dropoffAddress.trim(),
+        pickupAddress,
+        dropoffAddress,
         airportCode: draft.airportCode || null,
         fromAirport: draft.fromAirport,
         returnJourney: draft.returnJourney,
@@ -226,6 +374,10 @@ export default function QuickQuoteOwnerClient() {
         suitcases: Number(draft.suitcases),
         childSeatRequired: draft.childSeatRequired,
         flightNumber: draft.flightNumber.trim() || undefined,
+        pickupLat: pickupPlace.lat ?? undefined,
+        pickupLng: pickupPlace.lng ?? undefined,
+        dropoffLat: dropoffPlace.lat ?? undefined,
+        dropoffLng: dropoffPlace.lng ?? undefined,
       });
       if (!result.ok) {
         setFareAmount(null);
@@ -255,11 +407,16 @@ export default function QuickQuoteOwnerClient() {
       setError("Calculate the quote first.");
       return;
     }
+    const { pickupAddress, dropoffAddress } = resolveJourneyAddresses(
+      pickupPlace,
+      dropoffPlace,
+      draft,
+    );
     setBusy(true);
     try {
       const created = await createOwnerQuickQuote(ownerKey, {
-        pickupAddress: draft.pickupAddress.trim(),
-        dropoffAddress: draft.dropoffAddress.trim(),
+        pickupAddress,
+        dropoffAddress,
         airportCode: draft.airportCode || null,
         fromAirport: draft.fromAirport,
         returnJourney: draft.returnJourney,
@@ -300,7 +457,7 @@ export default function QuickQuoteOwnerClient() {
 
   if (!ownerKey) {
     return (
-      <section className="space-y-4 rounded-2xl border border-white/10 bg-navy-dark/70 p-4">
+      <section className="min-w-0 space-y-4 rounded-2xl border border-white/10 bg-navy-dark/70 p-4">
         <p className="text-sm text-white/75">
           Enter your live <span className="text-white">OWNER_ACCESS_KEY</span> (same as the owner
           dashboard). It stays on this phone only.
@@ -310,13 +467,13 @@ export default function QuickQuoteOwnerClient() {
           value={keyInput}
           onChange={(e) => setKeyInput(e.target.value)}
           placeholder="OWNER_ACCESS_KEY"
-          className="min-h-12 w-full rounded-xl border border-white/15 bg-navy px-4 text-base text-white placeholder:text-white/35"
+          className={fieldClass}
         />
-        {error ? <p className="text-sm text-red-300">{error}</p> : null}
+        {error ? <p className="break-words text-sm text-red-300">{error}</p> : null}
         <button
           type="button"
           onClick={unlock}
-          className="min-h-12 w-full rounded-xl bg-emerald px-4 text-base font-semibold text-navy"
+          className="min-h-12 w-full max-w-full rounded-xl bg-emerald px-4 text-base font-semibold text-navy"
         >
           Unlock Quick Quote
         </button>
@@ -325,28 +482,28 @@ export default function QuickQuoteOwnerClient() {
   }
 
   return (
-    <div className="space-y-5">
-      <section className="space-y-3">
+    <div className="w-full min-w-0 max-w-full space-y-5">
+      <section className="min-w-0 space-y-3">
         <label className="block text-sm font-medium text-white/80">Paste WhatsApp message</label>
         <textarea
           value={paste}
           onChange={(e) => setPaste(e.target.value)}
           rows={7}
           placeholder="Paste the customer’s WhatsApp enquiry here…"
-          className="w-full rounded-2xl border border-white/15 bg-navy-dark/80 px-4 py-3 text-base leading-relaxed text-white placeholder:text-white/35"
+          className="quote-text-input w-full max-w-full rounded-2xl border border-white/15 bg-navy-dark/80 px-4 py-3 text-base leading-relaxed text-white placeholder:text-white/35"
         />
         <button
           type="button"
           onClick={extract}
-          className="min-h-12 w-full rounded-xl bg-white px-4 text-base font-semibold text-navy"
+          className="min-h-12 w-full max-w-full rounded-xl bg-white px-4 text-base font-semibold text-navy"
         >
           Extract journey details
         </button>
       </section>
 
-      <section className="space-y-3 rounded-2xl border border-white/10 bg-navy-dark/60 p-4">
+      <section className="min-w-0 space-y-3 overflow-hidden rounded-2xl border border-white/10 bg-navy-dark/60 p-4">
         <p className="text-sm font-semibold text-white">Airport shortcuts</p>
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+        <div className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-3">
           {(
             [
               ["BFS", "Belfast International"],
@@ -358,7 +515,7 @@ export default function QuickQuoteOwnerClient() {
               key={code}
               type="button"
               onClick={() => applyAirport(code)}
-              className={`min-h-11 rounded-xl border px-3 text-sm font-medium ${
+              className={`min-h-11 min-w-0 rounded-xl border px-3 text-sm font-medium ${
                 draft.airportCode === code
                   ? "border-emerald bg-emerald/15 text-emerald"
                   : "border-white/15 text-white/85"
@@ -368,14 +525,11 @@ export default function QuickQuoteOwnerClient() {
             </button>
           ))}
         </div>
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid min-w-0 grid-cols-2 gap-2">
           <button
             type="button"
-            onClick={() => {
-              setDraft((d) => ({ ...d, fromAirport: true }));
-              setFareAmount(null);
-            }}
-            className={`min-h-11 rounded-xl border text-sm ${
+            onClick={() => setDirection(true)}
+            className={`min-h-11 min-w-0 rounded-xl border text-sm ${
               draft.fromAirport ? "border-emerald text-emerald" : "border-white/15 text-white/80"
             }`}
           >
@@ -383,11 +537,8 @@ export default function QuickQuoteOwnerClient() {
           </button>
           <button
             type="button"
-            onClick={() => {
-              setDraft((d) => ({ ...d, fromAirport: false }));
-              setFareAmount(null);
-            }}
-            className={`min-h-11 rounded-xl border text-sm ${
+            onClick={() => setDirection(false)}
+            className={`min-h-11 min-w-0 rounded-xl border text-sm ${
               !draft.fromAirport ? "border-emerald text-emerald" : "border-white/15 text-white/80"
             }`}
           >
@@ -396,40 +547,74 @@ export default function QuickQuoteOwnerClient() {
         </div>
       </section>
 
-      <section className="space-y-3 rounded-2xl border border-white/10 bg-navy-dark/60 p-4">
+      <section className="min-w-0 space-y-3 overflow-hidden rounded-2xl border border-white/10 bg-navy-dark/60 p-4">
         <p className="text-sm font-semibold text-white">Journey details</p>
 
-        <div>
+        <div className="min-w-0">
           <FieldLabel label="Pickup address" flag={flagFor("pickupAddress")} />
-          <input
+          <AddressInput
+            id="qq-pickup"
+            name="qq-pickup"
+            hideLabel
+            label="Pickup address"
             value={draft.pickupAddress}
-            onChange={(e) => {
-              setDraft({ ...draft, pickupAddress: e.target.value });
-              setFareAmount(null);
+            onChange={(value) => {
+              setDraft((d) => ({ ...d, pickupAddress: value }));
+              setPickupPlace(emptySelectedPlace());
+              clearQuoteOutputs();
             }}
-            className="min-h-11 w-full rounded-xl border border-white/15 bg-navy px-3 text-sm text-white"
+            onSelectPlace={(place) => {
+              setPickupPlace(place);
+              setDraft((d) => ({ ...d, pickupAddress: placeDisplayText(place) }));
+              clearQuoteOutputs();
+              setMissing((m) => m.filter((x) => x !== "pickupAddress"));
+            }}
+            confirmedPlace={isPlaceSelected(pickupPlace) ? pickupPlace : null}
+            requireSuggestion={false}
+            disableAutoScroll
+            placeholder="Type address — then tap a suggestion"
+            helperText="Same Google Places search as the public quote tool"
+            airportCode={draft.airportCode || ""}
+            className="min-w-0"
           />
         </div>
-        <div>
+        <div className="min-w-0">
           <FieldLabel label="Destination address" flag={flagFor("dropoffAddress")} />
-          <input
+          <AddressInput
+            id="qq-dropoff"
+            name="qq-dropoff"
+            hideLabel
+            label="Destination address"
             value={draft.dropoffAddress}
-            onChange={(e) => {
-              setDraft({ ...draft, dropoffAddress: e.target.value });
-              setFareAmount(null);
+            onChange={(value) => {
+              setDraft((d) => ({ ...d, dropoffAddress: value }));
+              setDropoffPlace(emptySelectedPlace());
+              clearQuoteOutputs();
             }}
-            className="min-h-11 w-full rounded-xl border border-white/15 bg-navy px-3 text-sm text-white"
+            onSelectPlace={(place) => {
+              setDropoffPlace(place);
+              setDraft((d) => ({ ...d, dropoffAddress: placeDisplayText(place) }));
+              clearQuoteOutputs();
+              setMissing((m) => m.filter((x) => x !== "dropoffAddress"));
+            }}
+            confirmedPlace={isPlaceSelected(dropoffPlace) ? dropoffPlace : null}
+            requireSuggestion={false}
+            disableAutoScroll
+            placeholder="Type address — then tap a suggestion"
+            helperText="Same Google Places search as the public quote tool"
+            airportCode={draft.airportCode || ""}
+            className="min-w-0"
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid min-w-0 grid-cols-2 gap-2">
           <button
             type="button"
             onClick={() => {
-              setDraft({ ...draft, returnJourney: false, returnDate: "", returnTime: "" });
-              setFareAmount(null);
+              setDraft((d) => ({ ...d, returnJourney: false, returnDate: "", returnTime: "" }));
+              clearQuoteOutputs();
             }}
-            className={`min-h-11 rounded-xl border text-sm ${
+            className={`min-h-11 min-w-0 rounded-xl border text-sm ${
               !draft.returnJourney ? "border-emerald text-emerald" : "border-white/15 text-white/80"
             }`}
           >
@@ -438,10 +623,10 @@ export default function QuickQuoteOwnerClient() {
           <button
             type="button"
             onClick={() => {
-              setDraft({ ...draft, returnJourney: true });
-              setFareAmount(null);
+              setDraft((d) => ({ ...d, returnJourney: true }));
+              clearQuoteOutputs();
             }}
-            className={`min-h-11 rounded-xl border text-sm ${
+            className={`min-h-11 min-w-0 rounded-xl border text-sm ${
               draft.returnJourney ? "border-emerald text-emerald" : "border-white/15 text-white/80"
             }`}
           >
@@ -449,36 +634,38 @@ export default function QuickQuoteOwnerClient() {
           </button>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <div>
+        <div className="grid min-w-0 grid-cols-2 gap-3">
+          <div className="min-w-0">
             <FieldLabel label="Outbound date" flag={flagFor("outboundDate")} />
             <input
               type="date"
               value={draft.outboundDate}
               onChange={(e) => {
-                setDraft({ ...draft, outboundDate: e.target.value });
-                setFareAmount(null);
+                setDraft((d) => ({ ...d, outboundDate: e.target.value }));
+                clearQuoteOutputs();
+                setMissing((m) => m.filter((x) => x !== "outboundDate"));
               }}
-              className="min-h-11 w-full rounded-xl border border-white/15 bg-navy px-3 text-sm text-white"
+              className={fieldClass}
             />
           </div>
-          <div>
+          <div className="min-w-0">
             <FieldLabel label="Outbound time" flag={flagFor("outboundTime")} />
             <input
               type="time"
               value={draft.outboundTime}
               onChange={(e) => {
-                setDraft({ ...draft, outboundTime: e.target.value });
-                setFareAmount(null);
+                setDraft((d) => ({ ...d, outboundTime: e.target.value }));
+                clearQuoteOutputs();
+                setMissing((m) => m.filter((x) => x !== "outboundTime"));
               }}
-              className="min-h-11 w-full rounded-xl border border-white/15 bg-navy px-3 text-sm text-white"
+              className={fieldClass}
             />
           </div>
         </div>
 
         {draft.returnJourney ? (
-          <div className="grid grid-cols-2 gap-3">
-            <div>
+          <div className="grid min-w-0 grid-cols-2 gap-3">
+            <div className="min-w-0">
               <FieldLabel
                 label="Return date"
                 flag={!draft.returnDate ? "missing" : flagFor("returnDate")}
@@ -487,13 +674,13 @@ export default function QuickQuoteOwnerClient() {
                 type="date"
                 value={draft.returnDate}
                 onChange={(e) => {
-                  setDraft({ ...draft, returnDate: e.target.value });
-                  setFareAmount(null);
+                  setDraft((d) => ({ ...d, returnDate: e.target.value }));
+                  clearQuoteOutputs();
                 }}
-                className="min-h-11 w-full rounded-xl border border-white/15 bg-navy px-3 text-sm text-white"
+                className={fieldClass}
               />
             </div>
-            <div>
+            <div className="min-w-0">
               <FieldLabel
                 label="Return time"
                 flag={!draft.returnTime ? "missing" : flagFor("returnTime")}
@@ -502,63 +689,78 @@ export default function QuickQuoteOwnerClient() {
                 type="time"
                 value={draft.returnTime}
                 onChange={(e) => {
-                  setDraft({ ...draft, returnTime: e.target.value });
-                  setFareAmount(null);
+                  setDraft((d) => ({ ...d, returnTime: e.target.value }));
+                  clearQuoteOutputs();
                 }}
-                className="min-h-11 w-full rounded-xl border border-white/15 bg-navy px-3 text-sm text-white"
+                className={fieldClass}
               />
             </div>
           </div>
         ) : null}
 
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <FieldLabel label={`Passengers (max ${QUICK_QUOTE_MAX_PASSENGERS})`} flag={flagFor("passengers")} />
+        <div className="grid min-w-0 grid-cols-2 gap-3">
+          <div className="min-w-0">
+            <FieldLabel
+              label={`Passengers (max ${QUICK_QUOTE_MAX_PASSENGERS})`}
+              flag={flagFor("passengers")}
+            />
             <input
+              type="number"
               inputMode="numeric"
+              min={1}
+              max={QUICK_QUOTE_MAX_PASSENGERS}
               value={draft.passengers}
               onChange={(e) => {
-                setDraft({ ...draft, passengers: e.target.value });
-                setFareAmount(null);
+                setDraft((d) => ({ ...d, passengers: e.target.value }));
+                clearQuoteOutputs();
+                if (e.target.value.trim()) {
+                  setMissing((m) => m.filter((x) => x !== "passengers"));
+                }
               }}
-              className="min-h-11 w-full rounded-xl border border-white/15 bg-navy px-3 text-sm text-white"
+              className={fieldClass}
             />
           </div>
-          <div>
+          <div className="min-w-0">
             <FieldLabel label="Luggage" flag={flagFor("suitcases")} />
             <input
+              type="number"
               inputMode="numeric"
+              min={0}
+              max={12}
               value={draft.suitcases}
               onChange={(e) => {
-                setDraft({ ...draft, suitcases: e.target.value });
-                setFareAmount(null);
+                setDraft((d) => ({ ...d, suitcases: e.target.value }));
+                clearQuoteOutputs();
+                if (e.target.value.trim()) {
+                  setMissing((m) => m.filter((x) => x !== "suitcases"));
+                }
               }}
-              className="min-h-11 w-full rounded-xl border border-white/15 bg-navy px-3 text-sm text-white"
+              className={fieldClass}
             />
           </div>
         </div>
 
-        <label className="flex min-h-11 items-center gap-3 rounded-xl border border-white/10 px-3 text-sm text-white/80">
+        <label className="flex min-h-11 min-w-0 items-center gap-3 rounded-xl border border-white/10 px-3 text-sm text-white/80">
           <input
             type="checkbox"
             checked={draft.childSeatRequired}
-            onChange={(e) => setDraft({ ...draft, childSeatRequired: e.target.checked })}
-            className="h-4 w-4 rounded border-white/30"
+            onChange={(e) => setDraft((d) => ({ ...d, childSeatRequired: e.target.checked }))}
+            className="h-4 w-4 shrink-0 rounded border-white/30"
           />
           Child seat required
         </label>
 
-        <div>
+        <div className="min-w-0">
           <FieldLabel label="Flight number" flag={flagFor("flightNumber")} />
           <input
             value={draft.flightNumber}
-            onChange={(e) => setDraft({ ...draft, flightNumber: e.target.value })}
+            onChange={(e) => setDraft((d) => ({ ...d, flightNumber: e.target.value }))}
             placeholder="Optional"
-            className="min-h-11 w-full rounded-xl border border-white/15 bg-navy px-3 text-sm text-white"
+            className={fieldClass}
           />
         </div>
         {flightTimeHint ? (
-          <p className="text-xs text-white/55">
+          <p className="break-words text-xs text-white/55">
             Flight time mentioned in message: <span className="text-white/85">{flightTimeHint}</span>{" "}
             (pickup time is separate — confirm above).
           </p>
@@ -566,22 +768,22 @@ export default function QuickQuoteOwnerClient() {
       </section>
 
       {fareAmount != null ? (
-        <section className="rounded-2xl border border-emerald/40 bg-emerald/10 px-4 py-5 text-center">
+        <section className="min-w-0 overflow-hidden rounded-2xl border border-emerald/40 bg-emerald/10 px-4 py-5 text-center">
           <p className="text-xs font-semibold uppercase tracking-wider text-emerald">Fixed fare</p>
-          <p className="mt-1 font-display text-4xl text-white">{fareLabel}</p>
-          {vehicleType ? <p className="mt-1 text-sm text-white/60">{vehicleType}</p> : null}
+          <p className="mt-1 break-words font-display text-4xl text-white">{fareLabel}</p>
+          {vehicleType ? <p className="mt-1 break-words text-sm text-white/60">{vehicleType}</p> : null}
         </section>
       ) : null}
 
-      {error ? <p className="text-sm text-red-300">{error}</p> : null}
-      {notice ? <p className="text-sm text-emerald/90">{notice}</p> : null}
+      {error ? <p className="break-words text-sm text-red-300">{error}</p> : null}
+      {notice ? <p className="break-words text-sm text-emerald/90">{notice}</p> : null}
 
-      <div className="grid gap-2">
+      <div className="grid min-w-0 gap-2">
         <button
           type="button"
           disabled={busy || !canCalculate}
           onClick={() => void calculate()}
-          className="min-h-12 rounded-xl bg-emerald px-4 text-base font-semibold text-navy disabled:opacity-40"
+          className="min-h-12 w-full max-w-full rounded-xl bg-emerald px-4 text-base font-semibold text-navy disabled:opacity-40"
         >
           {busy ? "Working…" : "Calculate Quote"}
         </button>
@@ -589,7 +791,7 @@ export default function QuickQuoteOwnerClient() {
           type="button"
           disabled={busy || fareAmount == null}
           onClick={() => void generateLink()}
-          className="min-h-12 rounded-xl bg-white px-4 text-base font-semibold text-navy disabled:opacity-40"
+          className="min-h-12 w-full max-w-full rounded-xl bg-white px-4 text-base font-semibold text-navy disabled:opacity-40"
         >
           Generate Booking Link
         </button>
@@ -597,23 +799,23 @@ export default function QuickQuoteOwnerClient() {
           type="button"
           disabled={!whatsappReply}
           onClick={() => void copyReply()}
-          className="min-h-12 rounded-xl border border-white/20 px-4 text-base font-semibold text-white disabled:opacity-40"
+          className="min-h-12 w-full max-w-full rounded-xl border border-white/20 px-4 text-base font-semibold text-white disabled:opacity-40"
         >
           Copy WhatsApp Reply
         </button>
         <button
           type="button"
           onClick={startAgain}
-          className="min-h-11 rounded-xl px-4 text-sm font-medium text-white/60 underline-offset-2 hover:underline"
+          className="min-h-11 w-full max-w-full rounded-xl px-4 text-sm font-medium text-white/60 underline-offset-2 hover:underline"
         >
           Start Again
         </button>
       </div>
 
       {whatsappReply ? (
-        <section className="space-y-2 rounded-2xl border border-white/10 bg-black/20 p-4">
+        <section className="min-w-0 space-y-2 overflow-hidden rounded-2xl border border-white/10 bg-black/20 p-4">
           <p className="text-xs font-semibold uppercase tracking-wide text-white/50">Reply preview</p>
-          <pre className="whitespace-pre-wrap break-words text-sm leading-relaxed text-white/85">
+          <pre className="max-w-full whitespace-pre-wrap break-words text-sm leading-relaxed text-white/85">
             {whatsappReply}
           </pre>
           {bookingUrl ? (

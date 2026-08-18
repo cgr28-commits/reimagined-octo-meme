@@ -18,6 +18,7 @@ import {
 } from "../shared/quick-quote";
 import {
   addCalendarDays,
+  countFieldValue,
   parseQuickQuoteMessage,
   parseRelativeDateWord,
   parseUkDate,
@@ -123,6 +124,23 @@ assert.equal(labelled.suitcases.value, 4);
 assert.equal(labelled.returnJourney.value, false);
 assert.deepEqual(labelled.missingMandatoryForQuote, []);
 
+console.log("=== Passenger/luggage form field values (natural + labelled) ===");
+assert.equal(countFieldValue(real.passengers.value), "4");
+assert.equal(countFieldValue(real.suitcases.value), "2");
+assert.equal(countFieldValue(labelled.passengers.value), "4");
+assert.equal(countFieldValue(labelled.suitcases.value), "4");
+assert.equal(countFieldValue(null), "");
+assert.equal(countFieldValue(undefined), "");
+
+console.log("=== Party-of / of-us passenger wording ===");
+const partyMsg = parseQuickQuoteMessage(
+  "Need a transfer from Belfast International Airport to Bangor party of 3 on 30/08/2026 at 09:00 2 bags",
+  fixedNow,
+);
+assert.equal(partyMsg.passengers.value, 3);
+assert.equal(countFieldValue(partyMsg.passengers.value), "3");
+assert.equal(partyMsg.suitcases.value, 2);
+
 console.log("=== Default one-way when return not mentioned ===");
 const noReturnWord = parseQuickQuoteMessage(
   "Price from 12 Donegall Square to Belfast City Airport on 20/08/2026 at 10:00 2 passengers 1 bag",
@@ -225,5 +243,47 @@ assert.ok(fs.existsSync(path.join(root, "src/app/book-quote/page.tsx")));
 assert.ok(fs.existsSync(path.join(root, "src/lib/quote-service.ts")));
 assert.ok(!fs.existsSync(path.join(root, "shared/whatsapp-meta.ts")));
 assert.ok(!fs.existsSync(path.join(root, "workers/addresses/src/whatsapp-handlers.ts")));
+
+const qqPage = fs.readFileSync(path.join(root, "src/app/quick-quote/page.tsx"), "utf8");
+const qqClient = fs.readFileSync(
+  path.join(root, "src/app/quick-quote/QuickQuoteOwnerClient.tsx"),
+  "utf8",
+);
+assert.match(qqPage, /max-w-lg/);
+assert.match(qqPage, /min-w-0/);
+assert.match(qqPage, /overflow-x-clip/);
+assert.match(qqClient, /from ["']@\/components\/AddressInput["']/);
+assert.match(qqClient, /quickSelectToPlace/);
+assert.match(qqClient, /countFieldValue/);
+assert.match(qqClient, /quote-text-input/);
+assert.match(qqClient, /calculateServerQuote/);
+assert.match(qqClient, /pickupLat/);
+// Prefer 16px+ form text — text-sm inputs zoom/pan Safari sideways on iPhone.
+assert.doesNotMatch(qqClient, /className="[^"]*text-sm[^"]*min-h-11[^"]*w-full[^"]*rounded-xl border border-white\/15 bg-navy/);
+assert.match(qqClient, /countFieldValue\(parsed\.passengers\.value\)/);
+assert.match(qqClient, /countFieldValue\(parsed\.suitcases\.value\)/);
+assert.match(qqClient, /passengers,/);
+assert.match(qqClient, /suitcases,/);
+assert.match(qqClient, /Number\(draft\.passengers\)/);
+assert.match(qqClient, /Number\(draft\.suitcases\)/);
+
+console.log("=== Mobile layout width locks (375 / 390 / 430) ===");
+for (const width of [375, 390, 430]) {
+  assert.ok(width <= 430);
+  // Structural guarantees that keep the page within these common iPhone widths.
+  assert.match(qqPage, /max-w-lg/); // 32rem = 512px container, padded inside viewport
+  assert.match(qqClient, /w-full min-w-0 max-w-full/);
+  assert.match(qqClient, /grid min-w-0 grid-cols-2/);
+  assert.match(qqClient, /quote-text-input/);
+}
+assert.match(qqClient, /break-words|break-all/);
+
+const quoteService = fs.readFileSync(path.join(root, "src/lib/quote-service.ts"), "utf8");
+assert.match(quoteService, /export function calculateAuthoritativeWebsiteQuote/);
+const quoteHandlers = fs.readFileSync(
+  path.join(root, "workers/addresses/src/quote-handlers.ts"),
+  "utf8",
+);
+assert.match(quoteHandlers, /calculateAuthoritativeWebsiteQuote/);
 
 console.log("\nAll Quick Quote checks passed.");
