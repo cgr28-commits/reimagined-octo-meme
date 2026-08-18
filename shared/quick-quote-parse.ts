@@ -216,8 +216,8 @@ export function extractLabelledFields(text: string, now = new Date()): LabelledF
   const flightRaw =
     readLabel(text, ["flight\\s*number", "flight"]) ?? null;
 
-  const passengers = paxRaw && /^\d{1,2}$/.test(paxRaw) ? Number(paxRaw) : null;
-  const suitcases = bagsRaw && /^\d{1,2}$/.test(bagsRaw) ? Number(bagsRaw) : null;
+  const passengers = parseLeadingCount(paxRaw);
+  const suitcases = parseLeadingCount(bagsRaw);
 
   return {
     ...(pickup ? { pickupAddress: titleCaseAddress(pickup) } : {}),
@@ -516,6 +516,15 @@ function extractReturnTimeOnly(
   return field(times[0], "high", times[0]);
 }
 
+/** Leading integer from labelled values like "4", "4 people", "4x". */
+function parseLeadingCount(raw: string | null | undefined): number | null {
+  if (!raw) return null;
+  const match = raw.trim().match(/^(\d{1,2})\b/);
+  if (!match) return null;
+  const n = Number(match[1]);
+  return Number.isInteger(n) && n >= 0 && n <= 20 ? n : null;
+}
+
 function extractCount(text: string, patterns: RegExp[]): ParsedQuickQuoteField<number> {
   for (const pattern of patterns) {
     const match = text.match(pattern);
@@ -526,6 +535,12 @@ function extractCount(text: string, patterns: RegExp[]): ParsedQuickQuoteField<n
     }
   }
   return missing<number>();
+}
+
+/** String values for controlled Quick Quote form inputs (never leave null as blank silently). */
+export function countFieldValue(value: number | null | undefined): string {
+  if (value == null || !Number.isFinite(value)) return "";
+  return String(Math.trunc(value));
 }
 
 function extractYesNo(text: string, patterns: RegExp[]): ParsedQuickQuoteField<boolean> {
@@ -727,14 +742,18 @@ export function parseQuickQuoteMessage(
   let passengers = extractCount(text, [
     /(\d{1,2})\s*(?:passengers?|pax|people|persons?|adults?)\b/i,
     /\b(?:passengers?|pax|people|persons?|adults?)\s*[:=]?\s*(\d{1,2})\b/i,
+    /\bparty\s+of\s+(\d{1,2})\b/i,
+    /\b(\d{1,2})\s+of\s+us\b/i,
+    /\bfor\s+(\d{1,2})(?:\s*(?:passengers?|people|persons?|pax))?\b/i,
   ]);
   if (typeof labelled.passengers === "number") {
     passengers = field(labelled.passengers, "high", "labelled-passengers");
   }
 
   let suitcases = extractCount(text, [
-    /(\d{1,2})\s*(?:cabin\s*)?(?:suitcases?|bags?|baggage|luggage|cases?)\b/i,
+    /(\d{1,2})\s*(?:x\s*)?(?:cabin\s*)?(?:suitcases?|bags?|baggage|luggage|cases?)\b/i,
     /\b(?:suitcases?|bags?|baggage|luggage|cases?)\s*[:=]?\s*(\d{1,2})\b/i,
+    /\b(\d{1,2})\s*x\s*(?:bags?|suitcases?|cases?)\b/i,
   ]);
   if (typeof labelled.suitcases === "number") {
     suitcases = field(labelled.suitcases, "high", "labelled-suitcases");
