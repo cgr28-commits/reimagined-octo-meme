@@ -131,10 +131,19 @@ export type SumUpTransactionSummary = {
 };
 
 export type SumUpTransactionDetails = SumUpTransactionSummary & {
-  /** Best-effort total already refunded on this transaction (GBP). */
+  /** Authoritative total already refunded on this transaction (GBP). */
   amountRefunded: number;
-  refundEvents: Array<{ amount: number; type?: string; timestamp?: string }>;
+  /** Counted REFUND events only (deduplicated); excludes FAILED/PENDING/CHARGE_BACK/PAYOUT_DEDUCTION. */
+  refundEvents: Array<{
+    id?: string;
+    amount: number;
+    type?: string;
+    status?: string;
+    timestamp?: string;
+  }>;
   rawStatus?: string;
+  /** How the total was derived. */
+  refundTotalSource?: "refunded_amount" | "transaction_events" | "status_full_amount" | "none";
 };
 
 type SumUpTransactionHistoryItem = {
@@ -143,24 +152,35 @@ type SumUpTransactionHistoryItem = {
   amount?: number;
   currency?: string;
   status?: string;
+  refunded_amount?: number;
 };
 
-type SumUpTransactionPayload = {
+/** Documented SumUp transaction / transaction-event fields used for reconciliation. */
+export type SumUpTransactionEvent = {
+  id?: number | string;
+  event_type?: string;
+  status?: string;
+  amount?: number;
+  timestamp?: string;
+  date?: string;
+};
+
+export type SumUpTransactionPayload = {
   id?: string;
   transaction_id?: string;
   transaction_code?: string;
   amount?: number;
   currency?: string;
   status?: string;
-  refunds?: Array<{ amount?: number; type?: string; timestamp?: string; date?: string }>;
-  events?: Array<{
-    type?: string;
-    amount?: number;
-    timestamp?: string;
-    event_type?: string;
-  }>;
-  amount_refunded?: number;
-  tip_amount?: number;
+  /** Documented total refunded amount on retrieve-transaction / history records. */
+  refunded_amount?: number;
+  /** Documented detailed event list (preferred over legacy `events`). */
+  transaction_events?: SumUpTransactionEvent[];
+  /**
+   * Legacy/alternate compact event list some responses may include.
+   * Only used when `transaction_events` is absent — never summed together with it.
+   */
+  events?: SumUpTransactionEvent[];
 };
 
 type SumUpTransactionsHistoryResponse = {
@@ -387,62 +407,121 @@ function roundMoney(amount: number): number {
   return Math.round(amount * 100) / 100;
 }
 
-/** Parse refund totals from a SumUp transaction payload (events / refunds / amount_refunded). */
-export function parseSumUpRefundedTotal(payload: SumUpTransactionPayload | null | undefined): {
-  amountRefunded: number;
-  refundEvents: Array<{ amount: number; type?: string; timestamp?: string }>;
-} {
-  const refundEvents: Array<{ amount: number; type?: string; timestamp?: string }> = [];
+const COMPLETED_REFUND_EVENT_STATUSES = new Set(["REFUNDED", "SUCCESSFUL"]);
 
-  for (const refund of payload?.refunds ?? []) {
-    const amount = Number(refund.amount);
-    if (Number.isFinite(amount) && amount > 0) {
-      refundEvents.push({
-        amount: roundMoney(amount),
-        type: refund.type,
-        timestamp: refund.timestamp ?? refund.date,
-      });
-    }
-  }
-
-  for (const event of payload?.events ?? []) {
-    const type = String(event.type ?? event.event_type ?? "").toUpperCase();
-    if (!type.includes("REFUND")) continue;
-    const amount = Number(event.amount);
-    if (Number.isFinite(amount) && amount > 0) {
-      refundEvents.push({
-        amount: roundMoney(Math.abs(amount)),
-        type,
-        timestamp: event.timestamp,
-      });
-    }
-  }
-
-  let amountRefunded = refundEvents.reduce((sum, event) => sum + event.amount, 0);
-  if (typeof payload?.amount_refunded === "number" && payload.amount_refunded > 0) {
-    amountRefunded = Math.max(amountRefunded, payload.amount_refunded);
-  }
-
-  // Fully refunded status with no event breakdown — treat original amount as refunded.
-  const status = String(payload?.status ?? "").toUpperCase();
-  if (
-    amountRefunded <= 0 &&
-    (status === "REFUNDED" || status === "FULLY_REFUNDED") &&
-    typeof payload?.amount === "number" &&
-    payload.amount > 0
-  ) {
-    amountRefunded = payload.amount;
-  }
-
-  return {
-    amountRefunded: roundMoney(amountRefunded),
-    refundEvents,
-  };
+function isCountableRefundEvent(event: SumUpTransactionEvent): boolean {
+  const eventType = String(event.event_type ?? "").toUpperCase();
+  if (eventType !== "REFUND") return false;
+  const status = String(event.status ?? "").toUpperCase();
+  // PENDING / FAILED / SCHEDULED are not completed customer refunds.
+  // Missing status: treat as countable only when SumUp returns REFUND without status
+  // on older payloads — prefer documented REFUNDED/SUCCESSFUL when present.
+  if (!status) return true;
+  if (status === "FAILED" || status === "PENDING" || status === "SCHEDULED") return false;
+  return COMPLETED_REFUND_EVENT_STATUSES.has(status);
 }
 
 /**
- * Fetch SumUp transaction details including refund history when available.
- * Used to reconcile before retrying a refund after an uncertain failure window.
+ * Parse already-refunded total from a documented SumUp transaction payload.
+ *
+ * Prefer one authoritative source (never sum duplicate representations):
+ * 1. `refunded_amount` when present
+ * 2. else completed `transaction_events` with `event_type: REFUND`, deduped by event id
+ * 3. else (only if events absent) the alternate `events` list the same way
+ * 4. else transaction `status: REFUNDED` with full `amount` when no event breakdown exists
+ *
+ * Never counts CHARGE_BACK or PAYOUT_DEDUCTION as customer refunds.
+ */
+export function parseSumUpRefundedTotal(payload: SumUpTransactionPayload | null | undefined): {
+  amountRefunded: number;
+  refundEvents: Array<{
+    id?: string;
+    amount: number;
+    type?: string;
+    status?: string;
+    timestamp?: string;
+  }>;
+  source: "refunded_amount" | "transaction_events" | "status_full_amount" | "none";
+} {
+  if (!payload) {
+    return { amountRefunded: 0, refundEvents: [], source: "none" };
+  }
+
+  const collectFrom = (events: SumUpTransactionEvent[] | undefined) => {
+    const refundEvents: Array<{
+      id?: string;
+      amount: number;
+      type?: string;
+      status?: string;
+      timestamp?: string;
+    }> = [];
+    const seenIds = new Set<string>();
+
+    for (const event of events ?? []) {
+      if (!isCountableRefundEvent(event)) continue;
+      const amount = Number(event.amount);
+      if (!Number.isFinite(amount) || amount <= 0) continue;
+      const id = event.id != null ? String(event.id) : undefined;
+      if (id) {
+        if (seenIds.has(id)) continue;
+        seenIds.add(id);
+      }
+      refundEvents.push({
+        id,
+        amount: roundMoney(Math.abs(amount)),
+        type: String(event.event_type ?? "REFUND"),
+        status: event.status,
+        timestamp: event.timestamp ?? event.date,
+      });
+    }
+
+    const amountRefunded = roundMoney(
+      refundEvents.reduce((sum, event) => sum + event.amount, 0),
+    );
+    return { amountRefunded, refundEvents };
+  };
+
+  // 1. Documented total field — authoritative when the endpoint returns it.
+  if (typeof payload.refunded_amount === "number" && Number.isFinite(payload.refunded_amount)) {
+    const fromEvents = collectFrom(
+      payload.transaction_events ??
+        (payload.transaction_events === undefined ? payload.events : undefined),
+    );
+    return {
+      amountRefunded: roundMoney(Math.max(0, payload.refunded_amount)),
+      refundEvents: fromEvents.refundEvents,
+      source: "refunded_amount",
+    };
+  }
+
+  // 2. Detailed transaction_events (preferred). Do not also add `events`.
+  if (Array.isArray(payload.transaction_events)) {
+    const fromEvents = collectFrom(payload.transaction_events);
+    return { ...fromEvents, source: "transaction_events" };
+  }
+
+  // 3. Fallback: alternate events list only when transaction_events is absent.
+  if (!Array.isArray(payload.transaction_events) && Array.isArray(payload.events)) {
+    const fromEvents = collectFrom(payload.events);
+    return { ...fromEvents, source: "transaction_events" };
+  }
+
+  // 4. Fully refunded status with no refunded_amount / event breakdown.
+  const status = String(payload.status ?? "").toUpperCase();
+  if (status === "REFUNDED" && typeof payload.amount === "number" && payload.amount > 0) {
+    return {
+      amountRefunded: roundMoney(payload.amount),
+      refundEvents: [],
+      source: "status_full_amount",
+    };
+  }
+
+  return { amountRefunded: 0, refundEvents: [], source: "none" };
+}
+
+/**
+ * Fetch SumUp transaction details including refund history.
+ * Primary: documented GET /v2.1/merchants/{merchant_code}/transactions?id=...
  */
 export async function getSumUpTransactionDetails(
   apiKey: string,
@@ -452,15 +531,15 @@ export async function getSumUpTransactionDetails(
   const trimmed = transactionId.trim();
   if (!trimmed) return null;
 
-  const attempts: string[] = [
-    `https://api.sumup.com/v0.1/me/transactions?id=${encodeURIComponent(trimmed)}`,
-    `https://api.sumup.com/v0.1/me/transactions/${encodeURIComponent(trimmed)}`,
-  ];
+  const attempts: string[] = [];
   if (merchantCode?.trim()) {
-    attempts.unshift(
-      `https://api.sumup.com/v2.1/merchants/${encodeURIComponent(merchantCode.trim())}/transactions/${encodeURIComponent(trimmed)}`,
-    );
+    const base = `https://api.sumup.com/v2.1/merchants/${encodeURIComponent(merchantCode.trim())}/transactions`;
+    // Documented retrieve-transaction uses query params (not path id).
+    attempts.push(`${base}?id=${encodeURIComponent(trimmed)}`);
+    attempts.push(`${base}?transaction_code=${encodeURIComponent(trimmed)}`);
   }
+  // Older me/transactions lookup as last resort.
+  attempts.push(`https://api.sumup.com/v0.1/me/transactions?id=${encodeURIComponent(trimmed)}`);
 
   for (const url of attempts) {
     try {
@@ -482,6 +561,7 @@ export async function getSumUpTransactionDetails(
         rawStatus: payload.status,
         amountRefunded: parsed.amountRefunded,
         refundEvents: parsed.refundEvents,
+        refundTotalSource: parsed.source,
       };
     } catch {
       // try next endpoint

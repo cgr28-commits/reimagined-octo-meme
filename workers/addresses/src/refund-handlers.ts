@@ -3,7 +3,8 @@
  * Supports full/partial refunds, cancel-without-refund, and refund-without-cancel.
  *
  * Money-moving work must be routed through RefundCoordinator (Durable Object).
- * Serialization uses DO blockConcurrencyWhile — no KV refund locks.
+ * The DO atomically reserves operation state; SumUp/email/calendar run outside
+ * blockConcurrencyWhile. No KV refund locks.
  */
 
 import {
@@ -224,8 +225,8 @@ export async function processBookingRefundOrCancel(
   env: RefundEnv,
   options: ProcessRefundOptions & { paymentReference: string },
 ): Promise<RefundIssueResult> {
-  // Serialization is handled by RefundCoordinator Durable Object (blockConcurrencyWhile).
-  // No KV refund lock here — callers must route money-moving work through the DO.
+  // Serialization / single-flight is handled by RefundCoordinator Durable Object
+  // (short atomic reserve in DO storage). No KV refund lock and no long-held DO lock here.
   const paymentReference = options.paymentReference.trim();
   if (!paymentReference) {
     return { ok: false, paymentReference: "", error: "Missing payment reference" };

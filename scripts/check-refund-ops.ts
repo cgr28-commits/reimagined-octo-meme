@@ -75,10 +75,13 @@ assert.equal(cappedRefundAmount({ requested: 20, amountPaid: 40, alreadyRefunded
 const parsed = parseSumUpRefundedTotal({
   amount: 50,
   status: "SUCCESSFUL",
-  refunds: [{ amount: 10 }, { amount: 5 }],
-  events: [{ type: "REFUND", amount: 2 }],
+  refunded_amount: 15,
+  transaction_events: [
+    { id: 1, event_type: "REFUND", status: "REFUNDED", amount: 10 },
+    { id: 2, event_type: "REFUND", status: "REFUNDED", amount: 5 },
+  ],
 });
-assert.ok(parsed.amountRefunded >= 15);
+assert.equal(parsed.amountRefunded, 15);
 console.log("OK  SumUp refund parse / caps");
 
 console.log("=== Auth: no legacy bypass on HTTP refund path ===");
@@ -98,7 +101,12 @@ const coordinator = read("workers/addresses/src/refund-coordinator.ts");
 assert.match(coordinator, /blockConcurrencyWhile/);
 assert.match(coordinator, /RefundCoordinator/);
 assert.match(coordinator, /confirmOwnerKeyVerified/);
+assert.match(coordinator, /reserveOperation|activeRefundOp/);
 assert.doesNotMatch(coordinator, /KV\.get\(lockKey\)|refund-lock/);
+assert.doesNotMatch(
+  coordinator,
+  /blockConcurrencyWhile\(async \(\) =>\s*processBookingRefundOrCancel/,
+);
 
 const wrangler = read("workers/addresses/wrangler.toml");
 assert.match(wrangler, /REFUND_COORDINATOR/);
