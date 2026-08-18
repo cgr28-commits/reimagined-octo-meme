@@ -133,10 +133,12 @@ import {
   isPublicPersonalQuoteValidatePath,
   resolvePersonalQuoteForPayment,
 } from "./personal-quote-handlers";
-import { normalizePersonalQuoteCode } from "../shared/personal-quote";
 import {
   isPersonalQuoteReservationActive,
+  isValidPersonalQuotePassengerCount,
+  normalizePersonalQuoteCode,
   personalQuoteCustomerError,
+  PERSONAL_QUOTE_PASSENGER_LIMIT_ERROR,
 } from "../shared/personal-quote";
 import {
   bindPersonalQuoteReservationCheckout,
@@ -1254,6 +1256,11 @@ async function handlePaymentRequest(
       400,
       origin,
     );
+  }
+
+  // Personal-quote payment links: hard-cap at 4 passengers (saloon/estate capacity).
+  if (personalQuoteCode && !isValidPersonalQuotePassengerCount(booking.passengers)) {
+    return json({ error: PERSONAL_QUOTE_PASSENGER_LIMIT_ERROR }, 400, origin);
   }
 
   if (!pendingCheckoutStoreConfigured(env.TRACKING_STORE)) {

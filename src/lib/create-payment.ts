@@ -5,6 +5,10 @@ import {
   resolvePaymentsConfirmApiUrl,
 } from "@/lib/worker-api";
 import { isValidPassengerCount, PASSENGER_LIMIT_ERROR } from "../../shared/passenger-limits";
+import {
+  isValidPersonalQuotePassengerCount,
+  PERSONAL_QUOTE_PASSENGER_LIMIT_ERROR,
+} from "../../shared/personal-quote";
 import { getPaymentBookingBlockers } from "../../shared/paid-booking-gate";
 
 export type PaymentCheckoutRequest = {
@@ -95,6 +99,12 @@ export async function createPaymentCheckout(
 
     if (!isValidPassengerCount(request.booking.passengers)) {
       throw new Error(PASSENGER_LIMIT_ERROR);
+    }
+    if (
+      request.personalQuoteCode &&
+      !isValidPersonalQuotePassengerCount(request.booking.passengers)
+    ) {
+      throw new Error(PERSONAL_QUOTE_PASSENGER_LIMIT_ERROR);
     }
   }
 

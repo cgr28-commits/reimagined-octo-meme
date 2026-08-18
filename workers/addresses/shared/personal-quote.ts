@@ -35,6 +35,10 @@ export type PersonalQuoteRecord = {
   associatedCheckoutId?: string;
 };
 
+/**
+ * Customer-safe public summary (token lookup + MQ validate).
+ * Never includes stored customer email/mobile — those stay owner-only.
+ */
 export type PersonalQuotePublicSummary = {
   code: string;
   customerName: string;
@@ -44,14 +48,28 @@ export type PersonalQuotePublicSummary = {
   standardWebsiteAmountLabel?: string;
   discountAmount?: number;
   discountAmountLabel?: string;
-  customerEmail?: string;
-  customerMobile?: string;
   pickupLabel?: string;
   dropoffLabel?: string;
   notes?: string;
   expiresOn: string;
   singleUse: boolean;
 };
+
+/** Personal-quote payment links are limited to saloon/estate capacity (not minibus). */
+export const PERSONAL_QUOTE_MIN_PASSENGERS = 1;
+export const PERSONAL_QUOTE_MAX_PASSENGERS = 4;
+
+export const PERSONAL_QUOTE_PASSENGER_LIMIT_ERROR =
+  "This personal quote is for up to 4 passengers. Please select 1–4 passengers, or contact My Airport Taxi NI for a larger vehicle.";
+
+export function isValidPersonalQuotePassengerCount(value: unknown): value is number {
+  const n = typeof value === "number" ? value : Number(value);
+  return (
+    Number.isInteger(n) &&
+    n >= PERSONAL_QUOTE_MIN_PASSENGERS &&
+    n <= PERSONAL_QUOTE_MAX_PASSENGERS
+  );
+}
 
 const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
@@ -398,8 +416,6 @@ export function toPersonalQuotePublicSummary(
           discountAmountLabel: formatPersonalQuoteAmount(discount),
         }
       : {}),
-    ...(record.customerEmail ? { customerEmail: record.customerEmail } : {}),
-    ...(record.customerMobile ? { customerMobile: record.customerMobile } : {}),
     ...(record.pickupLabel ? { pickupLabel: record.pickupLabel } : {}),
     ...(record.dropoffLabel ? { dropoffLabel: record.dropoffLabel } : {}),
     ...(record.notes ? { notes: record.notes } : {}),

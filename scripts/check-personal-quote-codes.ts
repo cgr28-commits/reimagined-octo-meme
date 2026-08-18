@@ -14,6 +14,7 @@ import {
   generatePersonalQuoteCode,
   generatePersonalQuoteCustomerToken,
   isPersonalQuoteReservationActive,
+  isValidPersonalQuotePassengerCount,
   normalizePersonalQuoteCode,
   normalizePersonalQuoteCustomerToken,
   personalQuoteCustomerError,
@@ -21,6 +22,7 @@ import {
   personalQuoteTokenKey,
   resolvePersonalQuotePricing,
   toPersonalQuotePublicSummary,
+  PERSONAL_QUOTE_PASSENGER_LIMIT_ERROR,
   PERSONAL_QUOTE_RESERVATION_TTL_SECONDS,
   type PersonalQuoteRecord,
 } from "../shared/personal-quote";
@@ -349,7 +351,14 @@ check("L4. Secure token generation + URL never contains fare", () => {
   assert.equal(normalizePersonalQuoteCustomerToken(` ${token.toUpperCase()} `), token);
   const url = buildPersonalQuoteCustomerUrl(token, "https://www.myairporttaxini.co.uk");
   assert.match(url, /\/personal-quote\/\?t=/);
-  assert.doesNotMatch(url, /65|75|10|agreed|amount|fare|discount/i);
+  const parsed = new URL(url);
+  assert.equal([...parsed.searchParams.keys()].join(","), "t");
+  assert.equal(parsed.searchParams.get("t"), token);
+  assert.equal(parsed.searchParams.has("amount"), false);
+  assert.equal(parsed.searchParams.has("fare"), false);
+  assert.equal(parsed.searchParams.has("discount"), false);
+  assert.equal(parsed.searchParams.has("agreedAmount"), false);
+  assert.doesNotMatch(url, /agreedAmount|discountAmount|customerEmail/);
   assert.equal(personalQuoteTokenKey(token), `personal-quote:token:${token}`);
 });
 
@@ -410,11 +419,84 @@ check("L8. Backwards-compatible record shape (optional new fields)", () => {
     discountAmount: 10,
     customerToken: generatePersonalQuoteCustomerToken(),
     customerMobile: "07700900123",
+    customerEmail: "john@example.com",
   });
   const summary = toPersonalQuotePublicSummary(withDiscount);
   assert.equal(summary.discountAmount, 10);
   assert.equal(summary.amountLabel, "£65.00");
-  assert.equal(summary.customerMobile, "07700900123");
+});
+
+check("L9. Public summary / token path must not expose customer email or mobile", () => {
+  const record = sampleQuote({
+    customerEmail: "private@example.com",
+    customerMobile: "07700900999",
+  });
+  const summary = toPersonalQuotePublicSummary(record);
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(summary, "customerEmail"),
+    false,
+  );
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(summary, "customerMobile"),
+    false,
+  );
+  assert.equal((summary as { customerEmail?: string }).customerEmail, undefined);
+  assert.equal((summary as { customerMobile?: string }).customerMobile, undefined);
+  const shared = read("shared/personal-quote.ts");
+  const summaryFn = shared.slice(shared.indexOf("export function toPersonalQuotePublicSummary"));
+  assert.doesNotMatch(summaryFn, /customerEmail/);
+  assert.doesNotMatch(summaryFn, /customerMobile/);
+  // Owner create/list still accept and return email/mobile on the full record.
+  const store = read("workers/addresses/src/personal-quote-store.ts");
+  assert.match(store, /customerEmail/);
+  assert.match(store, /customerMobile/);
+  const handlers = read("workers/addresses/src/personal-quote-handlers.ts");
+  assert.match(handlers, /customerEmail/);
+  assert.match(handlers, /customerMobile/);
+  const panel = read("src/components/OwnerPersonalQuotesPanel.tsx");
+  assert.match(panel, /customerEmail/);
+  assert.match(panel, /customerMobile/);
+  // Customer page collects email/mobile itself — does not prefill from token payload.
+  const page = read("src/app/personal-quote/PersonalQuoteCustomerClient.tsx");
+  assert.doesNotMatch(page, /loaded\.customerEmail/);
+  assert.doesNotMatch(page, /loaded\.customerMobile/);
+  assert.match(page, /Email/);
+  assert.match(page, /Mobile/);
+});
+
+check("L10. Personal-quote bookings capped at 4 passengers (UI + client + Worker)", () => {
+  assert.equal(isValidPersonalQuotePassengerCount(1), true);
+  assert.equal(isValidPersonalQuotePassengerCount(4), true);
+  assert.equal(isValidPersonalQuotePassengerCount(5), false);
+  assert.equal(isValidPersonalQuotePassengerCount(7), false);
+  assert.equal(isValidPersonalQuotePassengerCount(0), false);
+  assert.match(PERSONAL_QUOTE_PASSENGER_LIMIT_ERROR, /up to 4 passengers/i);
+  const page = read("src/app/personal-quote/PersonalQuoteCustomerClient.tsx");
+  assert.match(page, /PERSONAL_QUOTE_MAX_PASSENGERS/);
+  assert.match(page, /PERSONAL_QUOTE_MIN_PASSENGERS/);
+  assert.match(page, /isValidPersonalQuotePassengerCount/);
+  assert.match(page, /PERSONAL_QUOTE_VEHICLE_TYPES\.map/);
+  assert.doesNotMatch(page, /max=\{7\}/);
+  assert.doesNotMatch(page, /[^_]VEHICLE_TYPES\.map/);
+  // Filtered list excludes minibus / larger capacity labels from the selectable options source.
+  assert.match(page, /includes\("minibus"\)/);
+  const createPay = read("src/lib/create-payment.ts");
+  assert.match(createPay, /personalQuoteCode[\s\S]{0,200}?isValidPersonalQuotePassengerCount/);
+  const payment = read("workers/addresses/src/index.ts");
+  assert.match(payment, /personalQuoteCode && !isValidPersonalQuotePassengerCount/);
+  assert.match(payment, /PERSONAL_QUOTE_PASSENGER_LIMIT_ERROR/);
+});
+
+check("L11. SumUp amount still from KV agreedAmount; MQ path unchanged", () => {
+  const payment = read("workers/addresses/src/index.ts");
+  assert.match(payment, /Personal quote: authorised amount from KV only/);
+  assert.match(payment, /amount = resolved\.amount/);
+  assert.match(payment, /resolvePersonalQuoteForPayment/);
+  const page = read("src/app/personal-quote/PersonalQuoteCustomerClient.tsx");
+  assert.match(page, /Worker uses KV/);
+  assert.doesNotMatch(page, /searchParams\.get\(["'](?:amount|fare|price|discount)/);
+  assert.match(read("src/components/QuoteCard.tsx"), /validatePersonalQuoteCode/);
+  assert.match(read("src/components/QuoteCard.tsx"), /Apply Quote/);
 });
 
 console.log("\nAll personal quote code checks passed.");

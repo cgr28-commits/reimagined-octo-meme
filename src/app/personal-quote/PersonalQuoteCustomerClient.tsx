@@ -13,7 +13,18 @@ import { VEHICLE_TYPES } from "@/lib/data";
 import { createPaymentReturnToken, savePendingPayment } from "@/lib/pending-payment";
 import { fetchPersonalQuoteByToken, type PersonalQuotePublicSummary } from "@/lib/personal-quote-api";
 import { TERMS_LAST_UPDATED } from "@/lib/terms";
+import {
+  PERSONAL_QUOTE_MAX_PASSENGERS,
+  PERSONAL_QUOTE_MIN_PASSENGERS,
+  PERSONAL_QUOTE_PASSENGER_LIMIT_ERROR,
+  isValidPersonalQuotePassengerCount,
+} from "../../../shared/personal-quote";
 import { getPaymentBookingBlockers } from "../../../shared/paid-booking-gate";
+
+/** Personal-quote links: saloon/estate only — no minibus / 5–7 options. */
+const PERSONAL_QUOTE_VEHICLE_TYPES = VEHICLE_TYPES.filter(
+  (v) => !v.toLowerCase().includes("minibus") && !v.includes("5–7"),
+) as unknown as readonly (typeof VEHICLE_TYPES)[number][];
 
 function readTokenFromLocation(): string {
   if (typeof window === "undefined") return "";
@@ -63,7 +74,9 @@ function PersonalQuoteInner() {
   const [returnTime, setReturnTime] = useState("");
   const [passengers, setPassengers] = useState(2);
   const [suitcases, setSuitcases] = useState(2);
-  const [vehicle, setVehicle] = useState<(typeof VEHICLE_TYPES)[number]>(VEHICLE_TYPES[0]);
+  const [vehicle, setVehicle] = useState<(typeof VEHICLE_TYPES)[number]>(
+    PERSONAL_QUOTE_VEHICLE_TYPES[0] ?? VEHICLE_TYPES[0],
+  );
   const [flightNumber, setFlightNumber] = useState("");
   const [returnFlightNumber, setReturnFlightNumber] = useState("");
   const [termsAccepted, setTermsAccepted] = useState(false);
@@ -92,8 +105,7 @@ function PersonalQuoteInner() {
         if (cancelled) return;
         setQuote(loaded);
         setCustomerName(loaded.customerName || "");
-        setCustomerEmail(loaded.customerEmail || "");
-        setMobileNumber(loaded.customerMobile || "");
+        // Email/mobile are never returned by the public token endpoint — customer enters them.
       } catch (err) {
         if (!cancelled) {
           setError(
@@ -167,6 +179,9 @@ function PersonalQuoteInner() {
       }
       if (!isValidMobileNumber(mobileNumber)) {
         throw new Error("Please enter a valid mobile number.");
+      }
+      if (!isValidPersonalQuotePassengerCount(passengers)) {
+        throw new Error(PERSONAL_QUOTE_PASSENGER_LIMIT_ERROR);
       }
       const booking = buildBooking();
       if (!booking) throw new Error("Quote details are missing.");
@@ -355,10 +370,18 @@ function PersonalQuoteInner() {
             <input
               required
               type="number"
-              min={1}
-              max={7}
+              min={PERSONAL_QUOTE_MIN_PASSENGERS}
+              max={PERSONAL_QUOTE_MAX_PASSENGERS}
               value={passengers}
-              onChange={(e) => setPassengers(Number(e.target.value) || 1)}
+              onChange={(e) => {
+                const next = Number(e.target.value) || PERSONAL_QUOTE_MIN_PASSENGERS;
+                setPassengers(
+                  Math.min(
+                    PERSONAL_QUOTE_MAX_PASSENGERS,
+                    Math.max(PERSONAL_QUOTE_MIN_PASSENGERS, next),
+                  ),
+                );
+              }}
               className="mt-1 w-full rounded-lg border border-white/15 bg-navy/60 px-3 py-2.5 text-base text-white"
             />
           </label>
@@ -382,7 +405,7 @@ function PersonalQuoteInner() {
             onChange={(e) => setVehicle(e.target.value as (typeof VEHICLE_TYPES)[number])}
             className="mt-1 w-full rounded-lg border border-white/15 bg-navy/60 px-3 py-2.5 text-base text-white"
           >
-            {VEHICLE_TYPES.map((option) => (
+            {PERSONAL_QUOTE_VEHICLE_TYPES.map((option) => (
               <option key={option} value={option}>
                 {option}
               </option>
