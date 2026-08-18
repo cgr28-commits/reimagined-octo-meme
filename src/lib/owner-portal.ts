@@ -28,11 +28,15 @@ export function isDriverPortalPath(pathname: string | null | undefined): boolean
   return path === "/driver" || path.startsWith("/driver/");
 }
 
-/** Hide public WhatsApp / quote assistant FABs on private ops routes. */
+/** Hide public WhatsApp / quote assistant FABs on private ops + checkout routes. */
 export function shouldHidePublicSalesWidgets(pathname: string | null | undefined): boolean {
+  const path = normalizePortalPath(pathname);
   return (
     isOwnerPortalPath(pathname) ||
     isAdminPortalPath(pathname) ||
-    isDriverPortalPath(pathname)
+    isDriverPortalPath(pathname) ||
+    path === "/book-quote" ||
+    path === "/quick-quote" ||
+    path === "/booking-confirmed"
   );
 }
