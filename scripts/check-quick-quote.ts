@@ -101,6 +101,28 @@ assert.ok(!real.missingMandatoryForQuote.includes("passengers"));
 assert.ok(!real.missingMandatoryForQuote.includes("suitcases"));
 assert.deepEqual(real.missingMandatoryForQuote, []);
 
+console.log("=== Structured labelled WhatsApp regression (BFS → Downpatrick) ===");
+const LABELLED_MSG = `*Pickup Address:* Belfast International Airport
+*Drop-off Address:* Downpatrick
+*Date:* 29th August
+*Time:* 10:00 am
+*Passengers:* 4
+*Suitcases:* 4
+
+Does this look correct?
+I’m checking the pricing in the background for you now.`;
+const labelled = parseQuickQuoteMessage(LABELLED_MSG, fixedNow);
+assert.equal(labelled.fromAirport.value, true);
+assert.equal(labelled.airportCode.value, "BFS");
+assert.equal(labelled.pickupAddress.value, "Belfast International Airport");
+assert.equal(labelled.dropoffAddress.value, "Downpatrick");
+assert.equal(labelled.outboundDate.value, "2026-08-29");
+assert.equal(labelled.outboundTime.value, "10:00");
+assert.equal(labelled.passengers.value, 4);
+assert.equal(labelled.suitcases.value, 4);
+assert.equal(labelled.returnJourney.value, false);
+assert.deepEqual(labelled.missingMandatoryForQuote, []);
+
 console.log("=== Default one-way when return not mentioned ===");
 const noReturnWord = parseQuickQuoteMessage(
   "Price from 12 Donegall Square to Belfast City Airport on 20/08/2026 at 10:00 2 passengers 1 bag",

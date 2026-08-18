@@ -70,6 +70,171 @@ function titleCaseAddress(value: string): string {
     .replace(/\bBt(\d)/gi, "BT$1");
 }
 
+/** Remove WhatsApp markdown (*bold*, _italic_, ~strike~, ```) without changing meaning. */
+export function stripWhatsAppMarkdown(text: string): string {
+  return text
+    .replace(/```[\s\S]*?```/g, " ")
+    .replace(/`([^`]+)`/g, "$1")
+    .replace(/\*([^*\n]+)\*/g, "$1")
+    .replace(/_([^_\n]+)_/g, "$1")
+    .replace(/~([^~\n]+)~/g, "$1")
+    .replace(/^\s*[>*]+\s?/gm, "")
+    .replace(/\u00a0/g, " ");
+}
+
+const MONTH_INDEX: Record<string, number> = {
+  jan: 1,
+  january: 1,
+  feb: 2,
+  february: 2,
+  mar: 3,
+  march: 3,
+  apr: 4,
+  april: 4,
+  may: 5,
+  jun: 6,
+  june: 6,
+  jul: 7,
+  july: 7,
+  aug: 8,
+  august: 8,
+  sep: 9,
+  sept: 9,
+  september: 9,
+  oct: 10,
+  october: 10,
+  nov: 11,
+  november: 11,
+  dec: 12,
+  december: 12,
+};
+
+/** If no year was given, bump to next year when the civil date is already past (London). */
+function resolveNaturalYear(day: number, month: number, yearRaw: string | undefined, now: Date): number {
+  if (yearRaw) return Number(yearRaw);
+  const today = todayLondonDate(now);
+  let year = Number(today.slice(0, 4));
+  const candidate = `${year}-${pad2(month)}-${pad2(day)}`;
+  if (candidate < today) year += 1;
+  return year;
+}
+
+/** Parse “29th August”, “29 August 2026”, “Aug 29”, plus ISO/UK numeric. */
+export function parseNaturalDate(text: string, now = new Date()): string | null {
+  const trimmed = text.trim();
+  const numeric = parseUkDate(trimmed);
+  if (numeric) return numeric;
+
+  const ordinal = trimmed.match(
+    /^(\d{1,2})(?:st|nd|rd|th)?\s+(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)(?:\s+(\d{4}))?$/i,
+  );
+  if (ordinal) {
+    const day = Number(ordinal[1]);
+    const month = MONTH_INDEX[ordinal[2].toLowerCase()];
+    if (!month || day < 1 || day > 31) return null;
+    const year = resolveNaturalYear(day, month, ordinal[3], now);
+    return `${year}-${pad2(month)}-${pad2(day)}`;
+  }
+
+  const usStyle = trimmed.match(
+    /^(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s+(\d{1,2})(?:st|nd|rd|th)?(?:,?\s+(\d{4}))?$/i,
+  );
+  if (usStyle) {
+    const month = MONTH_INDEX[usStyle[1].toLowerCase()];
+    const day = Number(usStyle[2]);
+    if (!month || day < 1 || day > 31) return null;
+    const year = resolveNaturalYear(day, month, usStyle[3], now);
+    return `${year}-${pad2(month)}-${pad2(day)}`;
+  }
+
+  return null;
+}
+
+type LabelledFields = {
+  pickupAddress?: string;
+  dropoffAddress?: string;
+  date?: string;
+  time?: string;
+  passengers?: number;
+  suitcases?: number;
+  flightNumber?: string;
+  returnDate?: string;
+  returnTime?: string;
+};
+
+function readLabel(text: string, labels: string[]): string | null {
+  for (const label of labels) {
+    const re = new RegExp(
+      `(?:^|\\n)\\s*${label}\\s*[:\\-–]\\s*(.+?)\\s*(?=\\n|$)`,
+      "i",
+    );
+    const match = text.match(re);
+    if (match?.[1]) {
+      const value = match[1].trim();
+      if (value) return value;
+    }
+  }
+  return null;
+}
+
+/** Structured WhatsApp / bot messages with labelled lines. */
+export function extractLabelledFields(text: string, now = new Date()): LabelledFields {
+  const pickup =
+    readLabel(text, [
+      "pickup\\s*address",
+      "pick\\s*-?\\s*up\\s*address",
+      "pickup",
+      "pick\\s*-?\\s*up",
+      "collection\\s*address",
+      "from",
+    ]) ?? undefined;
+  const dropoff =
+    readLabel(text, [
+      "drop\\s*-?\\s*off\\s*address",
+      "dropoff\\s*address",
+      "destination\\s*address",
+      "drop\\s*-?\\s*off",
+      "dropoff",
+      "destination",
+      "to",
+    ]) ?? undefined;
+  const dateRaw =
+    readLabel(text, ["date", "pickup\\s*date", "travel\\s*date", "outbound\\s*date"]) ?? null;
+  const timeRaw =
+    readLabel(text, ["time", "pickup\\s*time", "collection\\s*time", "outbound\\s*time"]) ?? null;
+  const returnDateRaw =
+    readLabel(text, ["return\\s*date"]) ?? null;
+  const returnTimeRaw =
+    readLabel(text, ["return\\s*time"]) ?? null;
+  const paxRaw =
+    readLabel(text, ["passengers?", "pax", "people", "persons?", "adults?"]) ?? null;
+  const bagsRaw =
+    readLabel(text, ["suitcases?", "bags?", "baggage", "luggage", "cases?"]) ?? null;
+  const flightRaw =
+    readLabel(text, ["flight\\s*number", "flight"]) ?? null;
+
+  const passengers = paxRaw && /^\d{1,2}$/.test(paxRaw) ? Number(paxRaw) : null;
+  const suitcases = bagsRaw && /^\d{1,2}$/.test(bagsRaw) ? Number(bagsRaw) : null;
+
+  return {
+    ...(pickup ? { pickupAddress: titleCaseAddress(pickup) } : {}),
+    ...(dropoff ? { dropoffAddress: titleCaseAddress(dropoff) } : {}),
+    ...(dateRaw && parseNaturalDate(dateRaw, now)
+      ? { date: parseNaturalDate(dateRaw, now)! }
+      : {}),
+    ...(timeRaw && parseUkTime(timeRaw) ? { time: parseUkTime(timeRaw)! } : {}),
+    ...(returnDateRaw && parseNaturalDate(returnDateRaw, now)
+      ? { returnDate: parseNaturalDate(returnDateRaw, now)! }
+      : {}),
+    ...(returnTimeRaw && parseUkTime(returnTimeRaw)
+      ? { returnTime: parseUkTime(returnTimeRaw)! }
+      : {}),
+    ...(passengers != null ? { passengers } : {}),
+    ...(suitcases != null ? { suitcases } : {}),
+    ...(flightRaw && !/^at\b/i.test(flightRaw) ? { flightNumber: flightRaw.toUpperCase() } : {}),
+  };
+}
+
 export function parseUkDate(text: string): string | null {
   const trimmed = text.trim();
   const iso = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})$/);
@@ -249,28 +414,41 @@ function extractDates(
     .map((m) => ({ raw: m[1], value: parseUkDate(m[1]) }))
     .filter((x): x is { raw: string; value: string } => Boolean(x.value));
 
+  // Natural language dates anywhere in the message (e.g. 29th August).
+  const naturalMatches = [
+    ...text.matchAll(
+      /\b(\d{1,2}(?:st|nd|rd|th)?\s+(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)(?:\s+\d{4})?)\b/gi,
+    ),
+  ]
+    .map((m) => ({ raw: m[1], value: parseNaturalDate(m[1], now) }))
+    .filter((x): x is { raw: string; value: string } => Boolean(x.value));
+
   if (relative.value) {
     return {
       outbound: relative,
       returnDate:
-        parsed.length >= 1
-          ? field(parsed[0].value, "high", parsed[0].raw)
+        parsed[0] || naturalMatches[0]
+          ? field(
+              (parsed[0] ?? naturalMatches[0]).value,
+              "high",
+              (parsed[0] ?? naturalMatches[0]).raw,
+            )
           : missing<string>(),
     };
   }
 
-  if (parsed.length === 0) {
+  const outboundCandidate = parsed[0] ?? naturalMatches[0];
+  const returnCandidate =
+    parsed.length > 1 ? parsed[1] : naturalMatches.length > 1 ? naturalMatches[1] : null;
+
+  if (!outboundCandidate) {
     return { outbound: missing<string>(), returnDate: missing<string>() };
   }
-  if (parsed.length === 1) {
-    return {
-      outbound: field(parsed[0].value, "high", parsed[0].raw),
-      returnDate: missing<string>(),
-    };
-  }
   return {
-    outbound: field(parsed[0].value, "high", parsed[0].raw),
-    returnDate: field(parsed[1].value, "high", parsed[1].raw),
+    outbound: field(outboundCandidate.value, "high", outboundCandidate.raw),
+    returnDate: returnCandidate
+      ? field(returnCandidate.value, "high", returnCandidate.raw)
+      : missing<string>(),
   };
 }
 
@@ -490,40 +668,110 @@ function extractAddresses(
 
 /**
  * Parse free-text customer WhatsApp message into editable journey fields.
+ * Supports conversational copy and structured labelled lines (*Pickup Address:* …).
  * Flags uncertain/missing values — does not invent fares.
  */
 export function parseQuickQuoteMessage(
   rawMessage: string,
   now = new Date(),
 ): QuickQuoteParseResult {
-  const text = rawMessage.trim();
-  const airport = extractAirport(text);
+  const text = stripWhatsAppMarkdown(rawMessage).trim();
+  const labelled = extractLabelledFields(text, now);
+
+  const airport = extractAirport(
+    [labelled.pickupAddress, labelled.dropoffAddress, text].filter(Boolean).join("\n"),
+  );
+
+  let fromAirport = extractFromAirport(text, airport.code);
+  if (labelled.pickupAddress && parseAirportCode(labelled.pickupAddress)) {
+    fromAirport = field(true, "high", "labelled-pickup-airport");
+  } else if (labelled.dropoffAddress && parseAirportCode(labelled.dropoffAddress)) {
+    fromAirport = field(false, "high", "labelled-dropoff-airport");
+  }
+
   const returnJourney = extractReturnJourney(text);
-  const fromAirport = extractFromAirport(text, airport.code);
-  const dates = extractDates(text, now);
+  let dates = extractDates(text, now);
+  if (labelled.date) {
+    dates = {
+      outbound: field(labelled.date, "high", "labelled-date"),
+      returnDate: labelled.returnDate
+        ? field(labelled.returnDate, "high", "labelled-return-date")
+        : dates.returnDate,
+    };
+  } else if (labelled.returnDate) {
+    dates = {
+      ...dates,
+      returnDate: field(labelled.returnDate, "high", "labelled-return-date"),
+    };
+  }
+
   const flightTime = extractFlightClockTime(text);
-  const outboundTime = extractPickupTime(text, flightTime.value);
-  const returnTime = extractReturnTimeOnly(
+  let outboundTime = extractPickupTime(text, flightTime.value);
+  if (labelled.time) {
+    outboundTime = field(labelled.time, "high", "labelled-time");
+  }
+
+  let returnTime = extractReturnTimeOnly(
     text,
     outboundTime.value,
     flightTime.value,
     returnJourney.value === true,
   );
-  const passengers = extractCount(text, [
+  if (labelled.returnTime) {
+    returnTime = field(labelled.returnTime, "high", "labelled-return-time");
+  }
+
+  let passengers = extractCount(text, [
     /(\d{1,2})\s*(?:passengers?|pax|people|persons?|adults?)\b/i,
     /\b(?:passengers?|pax|people|persons?|adults?)\s*[:=]?\s*(\d{1,2})\b/i,
   ]);
-  const suitcases = extractCount(text, [
+  if (typeof labelled.passengers === "number") {
+    passengers = field(labelled.passengers, "high", "labelled-passengers");
+  }
+
+  let suitcases = extractCount(text, [
     /(\d{1,2})\s*(?:cabin\s*)?(?:suitcases?|bags?|baggage|luggage|cases?)\b/i,
     /\b(?:suitcases?|bags?|baggage|luggage|cases?)\s*[:=]?\s*(\d{1,2})\b/i,
   ]);
+  if (typeof labelled.suitcases === "number") {
+    suitcases = field(labelled.suitcases, "high", "labelled-suitcases");
+  }
+
   const childSeat = extractYesNo(text, [
     /\b(no\s+)?child\s*seats?\b/,
     /\b(no\s+)?car\s*seats?\b/,
     /\b(with|need|needs)\s+a?\s*child\s*seat\b/,
   ]);
-  const flightNumber = extractFlightNumber(text);
-  const addresses = extractAddresses(text, airport.code, fromAirport.value);
+  let flightNumber = extractFlightNumber(text);
+  if (labelled.flightNumber) {
+    flightNumber = field(labelled.flightNumber, "high", "labelled-flight");
+  }
+
+  let addresses = extractAddresses(text, airport.code, fromAirport.value);
+  if (labelled.pickupAddress || labelled.dropoffAddress) {
+    const pickupValue =
+      labelled.pickupAddress ??
+      (fromAirport.value === true && airport.code ? airportLabel(airport.code) : addresses.pickup.value);
+    let dropoffValue =
+      labelled.dropoffAddress ??
+      (fromAirport.value === false && airport.code
+        ? airportLabel(airport.code)
+        : addresses.dropoff.value);
+    if (pickupValue && parseAirportCode(pickupValue) && airport.code) {
+      // Normalise airport pickup label.
+    }
+    if (dropoffValue && parseAirportCode(dropoffValue) && airport.code) {
+      dropoffValue = airportLabel(airport.code);
+    }
+    const pickupNorm =
+      pickupValue && parseAirportCode(pickupValue) && airport.code
+        ? airportLabel(airport.code)
+        : pickupValue;
+    addresses = {
+      pickup: pickupNorm ? field(pickupNorm, "high", "labelled-pickup") : missing<string>(),
+      dropoff: dropoffValue ? field(dropoffValue, "high", "labelled-dropoff") : missing<string>(),
+    };
+  }
 
   const airportCode = field(airport.code, airport.confidence, airport.raw);
 
