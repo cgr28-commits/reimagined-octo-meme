@@ -163,6 +163,102 @@ export default function OwnerJourneyEvidenceClient({
     window.print();
   }
 
+  function buildDisputeEvidenceSummary(pack: JourneyEvidencePack): string {
+    const lines: string[] = [
+      "DISPUTE EVIDENCE SUMMARY — My Airport Taxi NI",
+      `Generated: ${pack.generatedAt ? formatUkInstant(pack.generatedAt) : "—"}`,
+      "",
+      "=== RECORDED FACTS (system) ===",
+      `Booking reference: ${pack.bookingReference || "—"}`,
+      `Payment reference: ${pack.paymentReference || "—"}`,
+      `SumUp checkout ID: ${pack.checkoutId || "Not recorded"}`,
+      `SumUp transaction ID: ${pack.transactionId || "Not recorded"}`,
+      `SumUp transaction code: ${pack.transactionCode || "Not recorded"}`,
+      `Amount paid: ${pack.amountPaid || "—"} ${pack.currency || ""}`.trim(),
+      `Amount refunded (cumulative): ${
+        typeof pack.amountRefunded === "number" ? `£${pack.amountRefunded.toFixed(2)}` : "None recorded"
+      }`,
+      `Payment status: ${pack.paymentStatus || "Not recorded"}`,
+      `Customer name: ${pack.customerName || "—"}`,
+      `Customer email: ${pack.customerEmail || "—"}`,
+      `Mobile: ${pack.customerMobile || "—"}`,
+      `Pickup: ${pack.pickupLabel || "—"}`,
+      `Drop-off: ${pack.dropoffLabel || "—"}`,
+      `Booked date/time: ${pack.tripDate || "—"} ${pack.tripTime || ""}`.trim(),
+      `Flight number: ${pack.flightNumber || "Not provided"}`,
+      `Vehicle: ${pack.vehicle || "—"}`,
+      `Assigned driver: ${pack.assignedDriverName || "Not recorded"}`,
+      `Terms accepted at: ${pack.termsAcceptedAt ? formatUkInstant(pack.termsAcceptedAt) : "Not recorded"}`,
+      `Terms version: ${pack.termsVersion || "Not recorded"}`,
+      `Cancellation policy version: ${pack.cancellationPolicyVersion || "Not recorded"}`,
+      `Payment authorisation wording: ${pack.paymentAuthorisationWording || "Not recorded"}`,
+      `Cancelled at: ${pack.cancelledAt ? formatUkInstant(pack.cancelledAt) : "n/a"}`,
+      `Refunded at: ${pack.refundedAt ? formatUkInstant(pack.refundedAt) : "n/a"}`,
+      "",
+      "=== JOURNEY / GPS (recorded facts only; missing points are not invented) ===",
+      `Journey status: ${pack.journeyStatusLabel}`,
+      `Tracking started: ${recordedOrNot(pack.trackingStartedAt)}`,
+      `Arrived pickup: ${recordedOrNot(pack.arrivedPickupAt)}`,
+      `Journey started: ${recordedOrNot(pack.journeyStartedAt)}`,
+      `Arrived destination: ${recordedOrNot(pack.arrivedDestinationAt)}`,
+      `Journey completed: ${recordedOrNot(pack.journeyCompletedAt)}`,
+      `GPS point count: ${pack.pointCount}`,
+      `First GPS: ${recordedOrNot(pack.recordedFrom)}`,
+      `Last GPS: ${recordedOrNot(pack.recordedTo)}`,
+      `Route reconstructable: ${yesNo(pack.routeReconstructable)}`,
+      "",
+      "=== REFUND / CANCELLATION AUDIT ===",
+    ];
+
+    const history = pack.refundHistory ?? [];
+    if (history.length === 0) {
+      lines.push("No refund/cancellation audit entries on this booking.");
+    } else {
+      for (const entry of history) {
+        lines.push(
+          `- ${entry.requestedAt} | ${entry.success ? "SUCCESS" : "FAILED"} | ${entry.fullOrPartial} £${entry.refundAmount.toFixed(2)} | cancel=${entry.cancelBooking} | reason=${entry.reasonCategory} | SumUp=${entry.sumUpStatus || "—"} | customerEmail=${entry.customerEmailStatus} | ownerEmail=${entry.ownerEmailStatus}`,
+        );
+        lines.push(`  OWNER NOTES (internal): ${entry.ownerNotes || "(none)"}`);
+        if (entry.customerFacingReason) {
+          lines.push(`  Customer-facing reason: ${entry.customerFacingReason}`);
+        }
+      }
+    }
+
+    lines.push("");
+    lines.push("=== DISCLAIMER ===");
+    lines.push(pack.disclaimer);
+    lines.push(
+      "This summary does not guarantee the outcome of any card dispute or chargeback. No card numbers/CVV are stored.",
+    );
+    return lines.join("\n");
+  }
+
+  async function copyDisputeEvidence() {
+    if (!evidence) return;
+    const text = buildDisputeEvidenceSummary(evidence);
+    try {
+      await navigator.clipboard.writeText(text);
+      setError("");
+      // Reuse error banner green via temporary message isn't available; alert is fine for owner tool.
+      window.alert("Dispute evidence summary copied to clipboard.");
+    } catch {
+      setError("Could not copy to clipboard — use Export / print instead.");
+    }
+  }
+
+  function exportDisputeEvidence() {
+    if (!evidence) return;
+    const text = buildDisputeEvidenceSummary(evidence);
+    const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `dispute-evidence-${evidence.bookingReference || "booking"}.txt`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  }
+
   if (!ownerKey) {
     return (
       <main className="mx-auto min-h-screen max-w-lg px-4 py-10 text-white">
@@ -426,8 +522,70 @@ export default function OwnerJourneyEvidenceClient({
                   {evidence.transactionId ? (
                     <Fact label="Transaction ID" value={evidence.transactionId} />
                   ) : null}
+                  <Fact
+                    label="Terms accepted"
+                    value={
+                      evidence.termsAcceptedAt
+                        ? formatUkInstant(evidence.termsAcceptedAt)
+                        : "Not recorded"
+                    }
+                  />
+                  <Fact label="Terms version" value={evidence.termsVersion || "Not recorded"} />
+                  <Fact
+                    label="Cancellation policy version"
+                    value={evidence.cancellationPolicyVersion || "Not recorded"}
+                  />
+                  <Fact
+                    label="Payment authorisation wording"
+                    value={evidence.paymentAuthorisationWording || "Not recorded"}
+                  />
+                  <Fact
+                    label="Cumulative refunded"
+                    value={
+                      typeof evidence.amountRefunded === "number"
+                        ? `£${evidence.amountRefunded.toFixed(2)}`
+                        : "None recorded"
+                    }
+                  />
                 </dl>
               </section>
+
+              {(evidence.refundHistory?.length ?? 0) > 0 ? (
+                <section>
+                  <h2 className="text-sm font-bold uppercase tracking-wider text-white/50 print:text-black/70">
+                    Refund / cancellation audit
+                  </h2>
+                  <p className="mt-2 text-xs text-amber-200/80 print:text-black/70">
+                    Owner notes below are internal. Customer-facing reasons are labelled separately.
+                  </p>
+                  <ul className="mt-3 space-y-3 text-sm">
+                    {evidence.refundHistory!.map((entry) => (
+                      <li
+                        key={entry.id}
+                        className="rounded-xl border border-white/10 bg-white/5 p-3 print:border-black/20"
+                      >
+                        <p className="font-semibold text-white print:text-black">
+                          {entry.success ? "Success" : "Failed"} · {entry.fullOrPartial} · £
+                          {entry.refundAmount.toFixed(2)}
+                          {entry.cancelBooking ? " · booking cancelled" : " · booking kept active"}
+                        </p>
+                        <p className="mt-1 text-xs text-white/55 print:text-black/60">
+                          {entry.requestedAt ? formatUkInstant(entry.requestedAt) : "—"} · reason{" "}
+                          {entry.reasonCategory} · SumUp {entry.sumUpStatus || "—"}
+                        </p>
+                        <p className="mt-2 text-xs text-amber-100/90 print:text-black/80">
+                          Owner notes (internal): {entry.ownerNotes || "(none)"}
+                        </p>
+                        {entry.customerFacingReason ? (
+                          <p className="mt-1 text-xs text-white/70 print:text-black/70">
+                            Customer-facing reason: {entry.customerFacingReason}
+                          </p>
+                        ) : null}
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ) : null}
             </div>
           </div>
 
@@ -476,13 +634,27 @@ export default function OwnerJourneyEvidenceClient({
             </p>
           </section>
 
-          <div className="print:hidden pb-8">
+          <div className="print:hidden flex flex-col gap-2 pb-8 sm:flex-row sm:flex-wrap">
             <button
               type="button"
               onClick={downloadPdf}
               className="min-h-12 w-full rounded-xl bg-emerald px-4 py-3 text-sm font-bold text-navy transition-colors hover:bg-emerald-light sm:w-auto"
             >
               Download Journey Evidence PDF
+            </button>
+            <button
+              type="button"
+              onClick={() => void copyDisputeEvidence()}
+              className="min-h-12 w-full rounded-xl border border-sky-400/40 bg-sky-500/15 px-4 py-3 text-sm font-bold text-sky-100 transition-colors hover:bg-sky-500/25 sm:w-auto"
+            >
+              Copy dispute evidence
+            </button>
+            <button
+              type="button"
+              onClick={exportDisputeEvidence}
+              className="min-h-12 w-full rounded-xl border border-white/20 px-4 py-3 text-sm font-bold text-white transition-colors hover:border-white/40 sm:w-auto"
+            >
+              Export dispute evidence
             </button>
           </div>
         </div>

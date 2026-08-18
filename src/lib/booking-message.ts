@@ -37,6 +37,7 @@ export type BookingDetails = {
   bookingReference?: string;
   termsAcceptedAt?: string;
   termsVersion?: string;
+  cancellationPolicyVersion?: string;
   marketingOptIn?: boolean;
   marketingOptInAt?: string;
   marketingConsentVersion?: string;

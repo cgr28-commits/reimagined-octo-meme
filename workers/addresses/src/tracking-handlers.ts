@@ -159,7 +159,7 @@ async function isJobCancelled(record: TrackingJobRecord, env: Env): Promise<bool
 
   if (record.paymentReference && paidBookingStoreConfigured(env.TRACKING_STORE)) {
     const paidRecord = await getPaidBookingRecord(env.TRACKING_STORE, record.paymentReference);
-    if (paidRecord?.status === "refunded") {
+    if (paidRecord?.status === "refunded" || paidRecord?.status === "cancelled") {
       return true;
     }
   }
@@ -360,6 +360,7 @@ async function paidBookingDetailsForReturnBackfill(
     if (
       paid &&
       paid.status !== "refunded" &&
+      paid.status !== "cancelled" &&
       paid.returnJourney &&
       paid.returnDate?.trim() &&
       paid.returnTime?.trim()
@@ -555,7 +556,11 @@ export async function handleDriverJobsRequest(
     jobs.map(async (job) => {
       const flight = await resolveDriverFlight(job, env);
       let amountPaidLabel: string | undefined;
-      let bookingStatus: "confirmed" | "refunded" = "confirmed";
+      let bookingStatus:
+        | "confirmed"
+        | "partially_refunded"
+        | "refunded"
+        | "cancelled" = "confirmed";
       let paidRecord = null;
 
       if (job.paymentReference && paidBookingStoreConfigured(env.TRACKING_STORE)) {
@@ -566,7 +571,7 @@ export async function handleDriverJobsRequest(
         }
       }
 
-      if (bookingStatus !== "refunded" && job.refundedAt) {
+      if (bookingStatus !== "refunded" && bookingStatus !== "cancelled" && job.refundedAt) {
         bookingStatus = "refunded";
       }
 

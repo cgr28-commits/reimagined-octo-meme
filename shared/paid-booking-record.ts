@@ -1,4 +1,6 @@
-export type PaidBookingStatus = "confirmed" | "refunded";
+import type { RefundAuditEntry, PaidBookingMoneyStatus } from "./refund-ops";
+
+export type PaidBookingStatus = PaidBookingMoneyStatus;
 
 /** Owner-only audit entry when a paid booking is edited (never silently overwrite history). */
 export type PaidBookingEditAuditEntry = {
@@ -17,6 +19,8 @@ export type PaidBookingRecord = {
   amount: number;
   currency: string;
   amountPaidLabel: string;
+  /** Cumulative GBP already refunded via SumUp (authoritative money state). */
+  amountRefunded?: number;
   customerName: string;
   customerEmail: string;
   mobileNumber: string;
@@ -44,12 +48,17 @@ export type PaidBookingRecord = {
   isFromAirport?: boolean;
   termsAcceptedAt?: string;
   termsVersion?: string;
+  /** Cancellation / checkout policy version shown beside Terms acceptance. */
+  cancellationPolicyVersion?: string;
   trackingToken?: string;
   calendarEventIds: string[];
   status: PaidBookingStatus;
   createdAt: string;
   refundedAt?: string;
+  cancelledAt?: string;
   refundAmountLabel?: string;
+  /** Append-only refund / cancellation audit trail (no secrets). */
+  refundHistory?: RefundAuditEntry[];
   /** Owner-only edit history (append-only). */
   editHistory?: PaidBookingEditAuditEntry[];
   /** Personal quote code when this booking used an individually agreed fare. */

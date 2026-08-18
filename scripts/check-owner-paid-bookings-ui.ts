@@ -27,7 +27,7 @@ assert.match(panel, /Upcoming Jobs/);
 assert.match(panel, /Resend booking confirmation|Resend Confirmation/i);
 assert.match(panel, /Website card payments/);
 assert.match(panel, /latestPaid/);
-assert.match(panel, /Recover PAID checkouts/);
+assert.match(panel, /Cancel \/ Refund|OwnerCancelRefundModal/);
 console.log("OK  OwnerPaidBookingsPanel");
 
 const page = read("src/app/driver/DriverPageClient.tsx");

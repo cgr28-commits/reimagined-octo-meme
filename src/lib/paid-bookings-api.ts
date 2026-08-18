@@ -29,6 +29,13 @@ export type OwnerPaidBookingSummary = Pick<
   | "returnJourney"
   | "returnDate"
   | "returnTime"
+  | "amountRefunded"
+  | "refundHistory"
+  | "cancelledAt"
+  | "refundedAt"
+  | "termsAcceptedAt"
+  | "termsVersion"
+  | "cancellationPolicyVersion"
 > & {
   amountPaid: string;
   trackingToken?: string;

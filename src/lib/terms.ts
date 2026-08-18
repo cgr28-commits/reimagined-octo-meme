@@ -1,4 +1,4 @@
-export const TERMS_LAST_UPDATED = "August 2026";
+export const TERMS_LAST_UPDATED = "August 2026 v2";
 
 export const TERMS_SECTIONS = [
   {
@@ -151,16 +151,25 @@ export const TERMS_SECTIONS = [
       {
         subtitle: "More than 24 hours before pickup",
         content: [
-          "Cancel more than 24 hours before your scheduled pickup and we will issue a full refund of the fare paid.",
+          "If you cancel more than 24 hours before the scheduled pickup time, we will refund the fare paid in full.",
         ],
       },
       {
-        subtitle: "Less than 24 hours before pickup",
+        subtitle: "Within 24 hours of pickup",
         content: [
-          "Cancellations with less than 24 hours’ notice are non-refundable. No administration charge applies — the fare paid is simply not refunded.",
+          "Cancellations made within 24 hours are normally non-refundable because a vehicle/driver and booking capacity have been reserved and short-notice replacement work may not be available.",
+          "Any amount retained will not exceed the reasonable loss directly resulting from the cancellation, taking account of costs saved and, where relevant, replacement work. Where the amount retained would exceed that loss, an appropriate refund will be made.",
+        ],
+      },
+      {
+        subtitle: "Cancellation by us",
+        content: [
+          "If My Airport Taxi NI cancels and cannot provide the agreed service, sums paid for the service not provided will normally be refunded in full, subject to your statutory rights.",
         ],
       },
     ],
+    footer:
+      "Nothing in these terms excludes or limits your statutory consumer rights.",
   },
   {
     title: "No Shows",
@@ -171,7 +180,8 @@ export const TERMS_SECTIONS = [
       "Incorrect booking information has been provided.",
       "The customer leaves the airport without contacting us.",
     ],
-    footer: "No refunds will be issued for No Shows.",
+    footer:
+      "No Shows are normally non-refundable for the same capacity reasons as short-notice cancellations, subject to the reasonable-loss approach above and your statutory rights.",
   },
   {
     title: "Child Seats",
@@ -190,9 +200,19 @@ export const TERMS_SECTIONS = [
       "Avoid behaviour that endangers the driver or other passengers.",
       "Not smoke or vape in the vehicle.",
       "Not consume illegal drugs.",
-      "Not damage or excessively soil the vehicle.",
     ],
-    footer: "Customers may be charged for damage or specialist cleaning where appropriate.",
+  },
+  {
+    title: "Vehicle Cleaning and Damage",
+    content: [
+      "The person making the booking is responsible for the conduct of passengers travelling under the booking.",
+      "Passengers must not damage, contaminate or excessively soil the vehicle.",
+      "Where a passenger causes cleaning beyond ordinary routine cleaning — including for example vomiting or bodily fluids, significant food or drink spillages, stains, pet soiling or contamination, smoking or vaping contamination, excessive mess, or deliberate or negligent damage — My Airport Taxi NI may recover the reasonable costs directly resulting from the incident.",
+      "Those costs may include reasonable specialist cleaning or valeting, reasonable repair or replacement for damage, and reasonable and evidenced loss of use or driver earnings where the vehicle genuinely has to be taken out of service.",
+      "Charges must be proportionate and based on reasonable loss or cost, not arbitrary penalties.",
+      "Where reasonably practicable we retain evidence such as timestamped photographs, cleaning or repair invoices or receipts, the date and time the vehicle was out of service, and the associated booking or journey reference.",
+      "We do not silently charge a customer’s card for these later amounts unless the payment provider and the customer’s specific payment authorisation lawfully support that exact charge. The default workflow is to record the incident, document a reasonable amount, and send an invoice or payment request with an explanation and evidence.",
+    ],
   },
   {
     title: "Luggage",
