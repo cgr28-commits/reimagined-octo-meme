@@ -434,6 +434,9 @@ export async function savePaidBookingRecordFromConfirm(input: {
   paymentReference: string;
   trackingToken?: string;
   calendarEventIds: string[];
+  personalQuoteCode?: string;
+  standardWebsiteAmount?: number;
+  personalQuotedAmount?: number;
 }): Promise<void> {
   if (!paidBookingStoreConfigured(input.env.TRACKING_STORE)) {
     return;
@@ -474,6 +477,13 @@ export async function savePaidBookingRecordFromConfirm(input: {
     calendarEventIds: input.calendarEventIds,
     status: "confirmed",
     createdAt: new Date().toISOString(),
+    ...(input.personalQuoteCode ? { personalQuoteCode: input.personalQuoteCode } : {}),
+    ...(typeof input.standardWebsiteAmount === "number"
+      ? { standardWebsiteAmount: input.standardWebsiteAmount }
+      : {}),
+    ...(typeof input.personalQuotedAmount === "number"
+      ? { personalQuotedAmount: input.personalQuotedAmount }
+      : {}),
   };
 
   await savePaidBookingRecord(input.env.TRACKING_STORE, record);

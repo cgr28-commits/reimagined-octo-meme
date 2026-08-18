@@ -76,6 +76,10 @@ import {
   isSumUpPaymentEnabled,
 } from "@/lib/create-payment";
 import {
+  validatePersonalQuoteCode,
+  type PersonalQuotePublicSummary,
+} from "@/lib/personal-quote-api";
+import {
   createPaymentReturnToken,
   savePendingPayment,
 } from "@/lib/pending-payment";
@@ -517,6 +521,11 @@ function QuoteCard({
   const [marketingOptIn, setMarketingOptIn] = useState(false);
   const [testChargeAmount, setTestChargeAmount] = useState<number | null>(null);
   const [testBookingLabel, setTestBookingLabel] = useState<string | null>(null);
+  const [personalQuoteCodeInput, setPersonalQuoteCodeInput] = useState("");
+  const [appliedPersonalQuote, setAppliedPersonalQuote] =
+    useState<PersonalQuotePublicSummary | null>(null);
+  const [personalQuoteError, setPersonalQuoteError] = useState("");
+  const [personalQuoteLoading, setPersonalQuoteLoading] = useState(false);
   const handleRouteMetrics = useCallback((metrics: TripRouteMetrics | null) => {
     setRouteMetrics(metrics);
   }, []);
@@ -742,6 +751,24 @@ function QuoteCard({
       if (draft.intentAirportCode) setIntentAirportCode(draft.intentAirportCode);
       if (typeof draft.termsAccepted === "boolean") setTermsAccepted(draft.termsAccepted);
       if (typeof draft.marketingOptIn === "boolean") setMarketingOptIn(draft.marketingOptIn);
+      if (draft.personalQuoteCode?.trim()) {
+        const code = draft.personalQuoteCode.trim().toUpperCase();
+        setPersonalQuoteCodeInput(code);
+        // Re-validate from server — never trust a cached agreed amount from sessionStorage.
+        void validatePersonalQuoteCode(code)
+          .then((quote) => {
+            setAppliedPersonalQuote(quote);
+            setPersonalQuoteError("");
+          })
+          .catch((err) => {
+            setAppliedPersonalQuote(null);
+            setPersonalQuoteError(
+              err instanceof Error
+                ? err.message
+                : "We couldn’t apply that quote code. Please check the code or contact My Airport Taxi NI.",
+            );
+          });
+      }
       if (draft.quoteStep === 1 || draft.quoteStep === 2 || draft.quoteStep === 3) {
         setQuoteStep(draft.quoteStep);
       }
@@ -1557,7 +1584,65 @@ function QuoteCard({
     return `${prefix}${tripSummary} — ${vehicleLabel}${namePart}`.slice(0, 140);
   }
 
-  const paymentAmount = testChargeAmount ?? liveQuote?.amount ?? null;
+  const paymentAmount =
+    testChargeAmount ?? appliedPersonalQuote?.agreedAmount ?? liveQuote?.amount ?? null;
+
+  async function handleApplyPersonalQuote() {
+    const code = personalQuoteCodeInput.trim();
+    if (!code || personalQuoteLoading) {
+      return;
+    }
+    setPersonalQuoteLoading(true);
+    setPersonalQuoteError("");
+    try {
+      const quote = await validatePersonalQuoteCode(code);
+      setAppliedPersonalQuote(quote);
+      setPersonalQuoteCodeInput(quote.code);
+      saveBookingFormDraft({
+        quoteStep,
+        pickupAddress,
+        dropoffAddress,
+        pickupPlace,
+        dropoffPlace,
+        tripDate,
+        tripTime,
+        returnJourney,
+        returnDate,
+        returnTime,
+        passengers,
+        suitcases,
+        exactPassengers,
+        childSeats,
+        childSeatNotes,
+        vehicle: quoteVehicle,
+        customerName,
+        customerEmail,
+        customerMobile,
+        goingFlightNumber,
+        collectionFlightNumber,
+        journeyIntent,
+        intentAirportCode,
+        termsAccepted,
+        marketingOptIn,
+        personalQuoteCode: quote.code,
+      });
+    } catch (error) {
+      setAppliedPersonalQuote(null);
+      setPersonalQuoteError(
+        error instanceof Error
+          ? error.message
+          : "We couldn’t apply that quote code. Please check the code or contact My Airport Taxi NI.",
+      );
+    } finally {
+      setPersonalQuoteLoading(false);
+    }
+  }
+
+  function handleClearPersonalQuote() {
+    setAppliedPersonalQuote(null);
+    setPersonalQuoteCodeInput("");
+    setPersonalQuoteError("");
+  }
 
   async function handlePayNow() {
     if (!liveQuote || paymentLoading || !canPayNowOnline) {
@@ -1636,6 +1721,7 @@ function QuoteCard({
       intentAirportCode,
       termsAccepted,
       marketingOptIn,
+      personalQuoteCode: appliedPersonalQuote?.code,
     });
 
     try {
@@ -1645,6 +1731,12 @@ function QuoteCard({
         description: buildPaymentDescription(),
         redirectUrl: buildPaymentRedirectUrl(returnToken),
         booking: bookingDetails,
+        ...(appliedPersonalQuote && testChargeAmount === null
+          ? {
+              personalQuoteCode: appliedPersonalQuote.code,
+              standardWebsiteAmount: liveQuote.amount,
+            }
+          : {}),
       });
 
       if (checkout.shortNotice && checkout.reference && checkout.whatsappUrl) {
@@ -3074,13 +3166,25 @@ function QuoteCard({
               <p className="text-xs font-medium uppercase tracking-wider text-emerald">
                 {testChargeAmount !== null
                   ? "Test SumUp charge"
-                  : returnJourney
-                    ? "Your fixed return journey price"
-                    : "Your fixed journey price"}
+                  : appliedPersonalQuote
+                    ? "Personal quoted fare"
+                    : returnJourney
+                      ? "Your fixed return journey price"
+                      : "Your fixed journey price"}
               </p>
               <p className="mt-1 text-3xl font-semibold tracking-tight text-white">
-                {formatQuote(testChargeAmount ?? liveQuote.amount)}
+                {formatQuote(
+                  testChargeAmount ?? appliedPersonalQuote?.agreedAmount ?? liveQuote.amount,
+                )}
               </p>
+              {appliedPersonalQuote && testChargeAmount === null ? (
+                <p className="mt-2 text-sm text-emerald/90">
+                  Personal quote applied
+                  <span className="mt-1 block text-xs text-white/55">
+                    Standard website fare: {formatQuote(liveQuote.amount)}
+                  </span>
+                </p>
+              ) : null}
               <p className="mt-3 text-sm text-white/75">
                 Vehicle: {vehicleShortLabel(quoteVehicle)}
                 <span className="mx-2 text-white/35">·</span>
@@ -3105,7 +3209,7 @@ function QuoteCard({
                 airportCode={effectiveAirportCode}
                 addressToAddress={isAddressToAddressInclusions}
               />
-              {returnJourney && (
+              {returnJourney && !appliedPersonalQuote && (
                 <p className="mt-2 text-xs font-medium text-emerald/90">
                   Includes 5% return booking discount.
                 </p>
@@ -3136,6 +3240,75 @@ function QuoteCard({
           </p>
         </div>
         )}
+
+        {(quoteStep === 1 || quoteStep === 2 || quoteStep === 3) &&
+        liveQuote &&
+        canPayNowOnline &&
+        !isEnquiryOnly &&
+        !showsRequestQuoteFlow ? (
+          <div className={`${BOOKING_PANEL_CLASS} mt-3`}>
+            <p className="text-xs font-medium uppercase tracking-wider text-white/55">
+              Have a personal quote?
+            </p>
+            {appliedPersonalQuote ? (
+              <div className="mt-2">
+                <p className="text-sm font-semibold text-emerald">Personal quote applied</p>
+                <p className="mt-1 text-lg font-semibold text-white">
+                  Your agreed fare: {formatQuote(appliedPersonalQuote.agreedAmount)}
+                </p>
+                <p className="mt-1 text-xs text-white/55">
+                  Standard website fare: {formatQuote(liveQuote.amount)}
+                </p>
+                <p className="mt-1 font-mono text-xs text-white/45">{appliedPersonalQuote.code}</p>
+                <button
+                  type="button"
+                  onClick={handleClearPersonalQuote}
+                  className="mt-2 text-xs text-white/55 underline-offset-2 hover:text-white/80 hover:underline"
+                >
+                  Remove quote code
+                </button>
+              </div>
+            ) : (
+              <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-stretch">
+                <label htmlFor="personal-quote-code" className="sr-only">
+                  Quote code
+                </label>
+                <input
+                  id="personal-quote-code"
+                  name="personal-quote-code"
+                  type="text"
+                  autoComplete="off"
+                  autoCapitalize="characters"
+                  spellCheck={false}
+                  value={personalQuoteCodeInput}
+                  onChange={(e) => {
+                    setPersonalQuoteCodeInput(e.target.value.toUpperCase());
+                    if (personalQuoteError) setPersonalQuoteError("");
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      void handleApplyPersonalQuote();
+                    }
+                  }}
+                  placeholder="Quote code"
+                  className={`${BOOKING_INPUT_CLASS} sm:flex-1`}
+                />
+                <button
+                  type="button"
+                  onClick={() => void handleApplyPersonalQuote()}
+                  disabled={personalQuoteLoading || !personalQuoteCodeInput.trim()}
+                  className="rounded-xl border border-white/20 bg-white/10 px-4 py-3 text-sm font-semibold text-white transition-all hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-60 sm:shrink-0"
+                >
+                  {personalQuoteLoading ? "Checking…" : "Apply Quote"}
+                </button>
+              </div>
+            )}
+            {personalQuoteError ? (
+              <p className="mt-2 text-sm text-amber-100/95">{personalQuoteError}</p>
+            ) : null}
+          </div>
+        ) : null}
 
         {quoteStep === 3 ? (
           <>
@@ -3344,7 +3517,21 @@ function QuoteCard({
                 <PreviewRow label="Pricing" value="Enquiry — we’ll quote you" />
               ) : liveQuote ? (
                 <PreviewRow
-                  label={returnJourney ? "Your fixed return journey price" : "Your fixed journey price"}
+                  label={
+                    appliedPersonalQuote
+                      ? "Personal quoted fare"
+                      : returnJourney
+                        ? "Your fixed return journey price"
+                        : "Your fixed journey price"
+                  }
+                  value={formatQuote(
+                    testChargeAmount ?? appliedPersonalQuote?.agreedAmount ?? liveQuote.amount,
+                  )}
+                />
+              ) : null}
+              {appliedPersonalQuote && liveQuote && testChargeAmount === null ? (
+                <PreviewRow
+                  label="Standard website fare"
                   value={formatQuote(liveQuote.amount)}
                 />
               ) : null}
@@ -3408,9 +3595,11 @@ function QuoteCard({
                   ? undefined
                   : testChargeAmount !== null
                     ? "£1.00"
-                    : liveQuote
-                      ? formatQuote(liveQuote.amount)
-                      : undefined
+                    : appliedPersonalQuote
+                      ? formatQuote(appliedPersonalQuote.agreedAmount)
+                      : liveQuote
+                        ? formatQuote(liveQuote.amount)
+                        : undefined
               }
             />
 
@@ -3489,7 +3678,7 @@ function QuoteCard({
                         ? "Opening secure payment…"
                         : testChargeAmount !== null
                           ? "Pay £1.00 test charge with SumUp"
-                          : `Pay ${formatQuote(liveQuote.amount)} now with SumUp`}
+                          : `Pay ${formatQuote(appliedPersonalQuote?.agreedAmount ?? liveQuote.amount)} now with SumUp`}
                     </button>
                     {(!customerName.trim() ||
                       !customerEmail.trim() ||

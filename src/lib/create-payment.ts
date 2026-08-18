@@ -16,6 +16,13 @@ export type PaymentCheckoutRequest = {
   booking?: BookingDetails;
   /** After Owner approval — pay the locked short-notice booking (no re-entry). */
   shortNoticeToken?: string;
+  /**
+   * Personal quote code. Server re-validates and overwrites `amount` from KV.
+   * Never rely on the client amount when this is set.
+   */
+  personalQuoteCode?: string;
+  /** Website-calculated fare for audit only when a personal quote is applied. */
+  standardWebsiteAmount?: number;
 };
 
 export type PaymentCheckoutResult = {
@@ -104,6 +111,10 @@ export async function createPaymentCheckout(
       redirectUrl: request.redirectUrl ?? buildPaymentRedirectUrl(),
       ...(request.booking ? { booking: request.booking } : {}),
       ...(request.shortNoticeToken ? { shortNoticeToken: request.shortNoticeToken } : {}),
+      ...(request.personalQuoteCode ? { personalQuoteCode: request.personalQuoteCode } : {}),
+      ...(typeof request.standardWebsiteAmount === "number"
+        ? { standardWebsiteAmount: request.standardWebsiteAmount }
+        : {}),
     }),
   });
 

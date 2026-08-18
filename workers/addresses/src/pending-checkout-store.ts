@@ -16,6 +16,12 @@ export type PendingCheckoutRecord = {
   /** Short-notice payment token — same booking after Owner approval. */
   shortNoticeToken?: string;
   shortNoticeReference?: string;
+  /** Personal quote code — amount always re-validated from KV at checkout create. */
+  personalQuoteCode?: string;
+  /** Website-calculated fare at checkout (audit); SumUp uses `amount`. */
+  standardWebsiteAmount?: number;
+  /** Authorised personal-quote fare when a code was applied (audit). */
+  personalQuotedAmount?: number;
 };
 
 export function pendingCheckoutKey(checkoutId: string): string {

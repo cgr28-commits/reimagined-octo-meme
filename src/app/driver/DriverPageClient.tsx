@@ -7,6 +7,7 @@ import OwnerPortalHeader from "@/components/OwnerPortalHeader";
 import OwnerBookingJobsPanel from "@/components/OwnerBookingJobsPanel";
 import OwnerPaidBookingsPanel from "@/components/OwnerPaidBookingsPanel";
 import OwnerShortNoticePanel from "@/components/OwnerShortNoticePanel";
+import OwnerPersonalQuotesPanel from "@/components/OwnerPersonalQuotesPanel";
 import OwnerBookingCalendar from "@/components/OwnerBookingCalendar";
 import OwnerAccountProfilePanel from "@/components/OwnerAccountProfilePanel";
 import type { MapMarker, MapRoutePoint } from "@/components/LiveTrackMap";
@@ -2678,6 +2679,10 @@ export default function DriverPageClient({
               </div>
 
               {isOwnerView && savedKey ? <OwnerShortNoticePanel ownerKey={savedKey} /> : null}
+
+              {isOwnerView && savedKey ? (
+                <OwnerPersonalQuotesPanel ownerKey={savedKey} />
+              ) : null}
 
               {isOwnerView && savedKey ? (
                 <OwnerBookingCalendar

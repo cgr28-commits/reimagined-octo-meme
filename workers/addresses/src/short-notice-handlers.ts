@@ -88,6 +88,8 @@ export async function createShortNoticeRequest(options: {
   booking: PaidBookingDetails;
   amount: number;
   now?: Date;
+  personalQuoteCode?: string;
+  standardWebsiteAmount?: number;
 }): Promise<{
   record: ShortNoticeBookingRecord;
   whatsappUrl: string;
@@ -125,6 +127,12 @@ export async function createShortNoticeRequest(options: {
     unavailablePeriodIdApplied: blocking.id,
     createdAt: now.toISOString(),
     updatedAt: now.toISOString(),
+    ...(options.personalQuoteCode
+      ? { personalQuoteCode: options.personalQuoteCode }
+      : {}),
+    ...(typeof options.standardWebsiteAmount === "number"
+      ? { standardWebsiteAmount: options.standardWebsiteAmount }
+      : {}),
   };
 
   await saveShortNoticeBooking(options.store, record);

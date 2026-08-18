@@ -122,6 +122,16 @@ import {
   resolveShortNoticeForPayment,
   shouldForceShortNotice,
 } from "./short-notice-handlers";
+import {
+  handleOwnerCreatePersonalQuote,
+  handleOwnerDeactivatePersonalQuote,
+  handleOwnerListPersonalQuotes,
+  handlePublicValidatePersonalQuote,
+  isOwnerPersonalQuotesPath,
+  isPublicPersonalQuoteValidatePath,
+  resolvePersonalQuoteForPayment,
+} from "./personal-quote-handlers";
+import { normalizePersonalQuoteCode } from "../shared/personal-quote";
 import { saveShortNoticeBooking } from "./short-notice-store";
 import { BUSINESS_WEBSITE } from "../shared/business-email";
 import { getShortNoticeByToken } from "./short-notice-store";
@@ -1111,11 +1121,17 @@ async function handlePaymentRequest(
   }
 
   const shortNoticeToken = String(body.shortNoticeToken ?? "").trim();
+  const personalQuoteCodeRaw = String(body.personalQuoteCode ?? "").trim();
   let amount = Number(body.amount);
+  /** Client-reported website fare for audit only — never used as SumUp amount when a quote applies. */
+  const clientStandardWebsiteAmount = Number(body.standardWebsiteAmount);
   const description = String(body.description ?? "").trim();
   const redirectUrl = String(body.redirectUrl ?? "").trim();
   let booking = parsePaidBookingDetails(body);
   let shortNoticeReference: string | undefined;
+  let personalQuoteCode: string | undefined;
+  let standardWebsiteAmount: number | undefined;
+  let personalQuotedAmount: number | undefined;
 
   // Approved short-notice pay: amount + journey locked server-side (ignore client fare).
   if (shortNoticeToken) {
@@ -1134,6 +1150,13 @@ async function handlePaymentRequest(
     amount = Math.round((record.approvedAmount ?? record.amount) * 100) / 100;
     booking = record.booking;
     shortNoticeReference = record.reference;
+    if (record.personalQuoteCode) {
+      personalQuoteCode = normalizePersonalQuoteCode(record.personalQuoteCode);
+      personalQuotedAmount = amount;
+    }
+    if (typeof record.standardWebsiteAmount === "number") {
+      standardWebsiteAmount = record.standardWebsiteAmount;
+    }
 
     // Reuse an unpaid checkout when possible (blocks duplicate SumUp sessions).
     if (record.checkoutId && record.paymentUrl) {
@@ -1157,6 +1180,37 @@ async function handlePaymentRequest(
         // Fall through and create a fresh checkout.
       }
     }
+  } else if (personalQuoteCodeRaw) {
+    // Personal quote: authorised amount from KV only — ignore client amount.
+    if (!pendingCheckoutStoreConfigured(env.TRACKING_STORE)) {
+      return json(
+        { error: "Booking store is not configured — cannot start a paid checkout safely" },
+        503,
+        origin,
+      );
+    }
+    const resolved = await resolvePersonalQuoteForPayment(
+      env.TRACKING_STORE,
+      personalQuoteCodeRaw,
+    );
+    if (!resolved.ok) {
+      return json({ error: resolved.error }, resolved.status, origin);
+    }
+    if (
+      Number.isFinite(clientStandardWebsiteAmount) &&
+      clientStandardWebsiteAmount >= 1 &&
+      clientStandardWebsiteAmount <= 5000
+    ) {
+      standardWebsiteAmount =
+        typeof resolved.record.standardWebsiteAmount === "number"
+          ? resolved.record.standardWebsiteAmount
+          : Math.round(clientStandardWebsiteAmount * 100) / 100;
+    } else if (typeof resolved.record.standardWebsiteAmount === "number") {
+      standardWebsiteAmount = resolved.record.standardWebsiteAmount;
+    }
+    personalQuoteCode = resolved.record.code;
+    personalQuotedAmount = resolved.amount;
+    amount = resolved.amount;
   }
 
   if (!Number.isFinite(amount) || amount < 1 || amount > 5000) {
@@ -1206,6 +1260,14 @@ async function handlePaymentRequest(
           store: env.TRACKING_STORE,
           booking,
           amount: Math.round(amount * 100) / 100,
+          ...(personalQuoteCode ? { personalQuoteCode } : {}),
+          ...(typeof standardWebsiteAmount === "number"
+            ? { standardWebsiteAmount }
+            : Number.isFinite(clientStandardWebsiteAmount) &&
+                clientStandardWebsiteAmount >= 1 &&
+                clientStandardWebsiteAmount <= 5000
+              ? { standardWebsiteAmount: Math.round(clientStandardWebsiteAmount * 100) / 100 }
+              : {}),
         });
         const amountLabel = formatPaidAmount(created.record.amount);
         const attemptEmail = buildOwnerPaymentAttemptEmail(booking, {
@@ -1280,6 +1342,13 @@ async function handlePaymentRequest(
       ...(shortNoticeToken
         ? { shortNoticeToken, shortNoticeReference }
         : {}),
+      ...(personalQuoteCode ? { personalQuoteCode } : {}),
+      ...(typeof standardWebsiteAmount === "number" ? { standardWebsiteAmount } : {}),
+      ...(typeof personalQuotedAmount === "number"
+        ? { personalQuotedAmount }
+        : personalQuoteCode
+          ? { personalQuotedAmount: Math.round(amount * 100) / 100 }
+          : {}),
     });
 
     if (shortNoticeToken) {
@@ -1835,6 +1904,72 @@ export default {
         return json(result, 200, origin);
       }
       return json({ error: "Method not allowed" }, 405, origin);
+    }
+
+    if (isOwnerPersonalQuotesPath(url.pathname)) {
+      if (!env.TRACKING_STORE) {
+        return json({ error: "Storage is not configured" }, 503, origin);
+      }
+      const pqEnv = { ...env, TRACKING_STORE: env.TRACKING_STORE };
+      if (
+        (url.pathname === "/owner/personal-quotes" ||
+          url.pathname === "/api/owner/personal-quotes") &&
+        request.method === "GET"
+      ) {
+        const result = await handleOwnerListPersonalQuotes(request, pqEnv);
+        if ("error" in result) return json({ error: result.error }, result.status, origin);
+        return json(result, 200, origin);
+      }
+      if (
+        (url.pathname === "/owner/personal-quotes" ||
+          url.pathname === "/api/owner/personal-quotes") &&
+        request.method === "POST"
+      ) {
+        let body: Record<string, unknown>;
+        try {
+          body = await request.json();
+        } catch {
+          return json({ error: "Invalid JSON" }, 400, origin);
+        }
+        const result = await handleOwnerCreatePersonalQuote(request, pqEnv, body);
+        if ("error" in result) return json({ error: result.error }, result.status, origin);
+        return json(result, 200, origin);
+      }
+      if (
+        (url.pathname.endsWith("/deactivate") || url.pathname.includes("/deactivate")) &&
+        request.method === "POST"
+      ) {
+        let body: Record<string, unknown>;
+        try {
+          body = await request.json();
+        } catch {
+          return json({ error: "Invalid JSON" }, 400, origin);
+        }
+        const result = await handleOwnerDeactivatePersonalQuote(request, pqEnv, body);
+        if ("error" in result) return json({ error: result.error }, result.status, origin);
+        return json(result, 200, origin);
+      }
+      return json({ error: "Method not allowed" }, 405, origin);
+    }
+
+    if (isPublicPersonalQuoteValidatePath(url.pathname) && request.method === "POST") {
+      if (!env.TRACKING_STORE) {
+        return json({ error: "Storage is not configured" }, 503, origin);
+      }
+      let body: Record<string, unknown>;
+      try {
+        body = await request.json();
+      } catch {
+        return json({ error: "Invalid JSON" }, 400, origin);
+      }
+      const result = await handlePublicValidatePersonalQuote(
+        { ...env, TRACKING_STORE: env.TRACKING_STORE },
+        body,
+      );
+      if (!result.ok) {
+        return json({ error: result.error }, result.status, origin);
+      }
+      return json(result, 200, origin);
     }
 
     if (isPublicShortNoticePath(url.pathname) && request.method === "GET") {

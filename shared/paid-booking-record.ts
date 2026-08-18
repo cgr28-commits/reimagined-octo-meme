@@ -52,6 +52,12 @@ export type PaidBookingRecord = {
   refundAmountLabel?: string;
   /** Owner-only edit history (append-only). */
   editHistory?: PaidBookingEditAuditEntry[];
+  /** Personal quote code when this booking used an individually agreed fare. */
+  personalQuoteCode?: string;
+  /** Website fare before personal quote (audit). */
+  standardWebsiteAmount?: number;
+  /** Authorised personal-quote fare (audit). */
+  personalQuotedAmount?: number;
 };
 
 /** Default driver label when no other driver is assigned (multi-driver capable later). */
