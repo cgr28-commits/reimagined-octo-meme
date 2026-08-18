@@ -220,6 +220,23 @@ import {
   recordQuoteLeadDeduped,
   recordQuoteLeadSent,
 } from "./quote-stats";
+import { handleQuoteCalculateRequest } from "./quote-handlers";
+import {
+  handleOwnerCreateQuickQuote,
+  handlePublicQuickQuoteLookup,
+} from "./quick-quote-handlers";
+import {
+  getQuickQuote,
+  markQuickQuoteCheckout,
+  markQuickQuotePaid,
+} from "./quick-quote-store";
+import {
+  normalizeQuickQuoteId,
+  quickQuoteAmountsEqual,
+  QUICK_QUOTE_MAX_PASSENGERS,
+  isQuickQuoteExpired,
+} from "../shared/quick-quote";
+import { calculateAuthoritativeWebsiteQuote } from "../../../src/lib/quote-service";
 
 type EmailBinding = {
   send(message: {
@@ -1137,6 +1154,7 @@ async function handlePaymentRequest(
 
   const shortNoticeToken = String(body.shortNoticeToken ?? "").trim();
   const personalQuoteCodeRaw = String(body.personalQuoteCode ?? "").trim();
+  const quickQuoteIdRaw = String(body.quickQuoteId ?? "").trim();
   let amount = Number(body.amount);
   /** Client-reported website fare for audit only — never used as SumUp amount when a quote applies. */
   const clientStandardWebsiteAmount = Number(body.standardWebsiteAmount);
@@ -1145,6 +1163,7 @@ async function handlePaymentRequest(
   let booking = parsePaidBookingDetails(body);
   let shortNoticeReference: string | undefined;
   let personalQuoteCode: string | undefined;
+  let quickQuoteId: string | undefined;
   let standardWebsiteAmount: number | undefined;
   let personalQuotedAmount: number | undefined;
 
@@ -1225,6 +1244,126 @@ async function handlePaymentRequest(
     personalQuoteCode = resolved.record.code;
     personalQuotedAmount = resolved.amount;
     amount = resolved.amount;
+  } else if (quickQuoteIdRaw) {
+    // Quick Quote: fixed fare from KV; recalculate to block price/journey tampering.
+    if (!pendingCheckoutStoreConfigured(env.TRACKING_STORE)) {
+      return json(
+        { error: "Booking store is not configured — cannot start a paid checkout safely" },
+        503,
+        origin,
+      );
+    }
+    const qid = normalizeQuickQuoteId(quickQuoteIdRaw);
+    const record = await getQuickQuote(env.TRACKING_STORE, qid);
+    if (!record) {
+      return json({ error: "This quote link is invalid or no longer available." }, 404, origin);
+    }
+    if (record.status === "paid") {
+      return json({ error: "This quote has already been paid." }, 409, origin);
+    }
+    if (isQuickQuoteExpired(record) || record.status === "expired" || record.status === "cancelled") {
+      return json(
+        { error: "This quote link has expired. Please contact My Airport Taxi NI for a new quote." },
+        410,
+        origin,
+      );
+    }
+    if (!booking) {
+      return json({ error: "Missing customer booking details for this quote." }, 400, origin);
+    }
+    if (booking.passengers > QUICK_QUOTE_MAX_PASSENGERS) {
+      return json(
+        {
+          error: `Online booking is limited to ${QUICK_QUOTE_MAX_PASSENGERS} passengers. Please contact My Airport Taxi NI.`,
+        },
+        400,
+        origin,
+      );
+    }
+    if (booking.returnJourney && (!booking.returnDate?.trim() || !booking.returnTime?.trim())) {
+      return json(
+        { error: "Return journeys require both return date and return time." },
+        400,
+        origin,
+      );
+    }
+
+    // Prefer locked journey from KV for fare; customer contact comes from booking.
+    const j = record.journey;
+    const requote = calculateAuthoritativeWebsiteQuote({
+      airportCode: j.airportCode ?? null,
+      fromAirport: Boolean(j.fromAirport),
+      pickupAddress: j.pickupAddress,
+      dropoffAddress: j.dropoffAddress,
+      returnJourney: Boolean(j.returnJourney),
+      outboundDate: j.outboundDate,
+      outboundTime: j.outboundTime,
+      returnDate: j.returnDate,
+      returnTime: j.returnTime,
+      passengers: j.passengers,
+      suitcases: j.suitcases,
+    });
+    if (!requote.ok) {
+      return json({ error: requote.message }, 422, origin);
+    }
+    if (!quickQuoteAmountsEqual(requote.amount, record.quotedAmount)) {
+      return json(
+        {
+          error:
+            "The stored fare could not be re-validated. Please contact My Airport Taxi NI for a fresh quote.",
+        },
+        409,
+        origin,
+      );
+    }
+
+    // Reuse unpaid checkout when present (blocks duplicate SumUp sessions).
+    if (record.checkoutId && record.paymentUrl) {
+      try {
+        const existingCheckout = await getSumUpCheckout(apiKey, record.checkoutId);
+        if (isSumUpCheckoutPaid(existingCheckout)) {
+          return json({ error: "This booking is already paid." }, 409, origin);
+        }
+        return json(
+          {
+            ok: true,
+            paymentUrl: record.paymentUrl,
+            checkoutId: record.checkoutId,
+            checkoutReference: record.checkoutReference,
+          },
+          200,
+          origin,
+        );
+      } catch {
+        // Fall through and create a fresh checkout.
+      }
+    }
+
+    quickQuoteId = record.id;
+    amount = Math.round(record.quotedAmount * 100) / 100;
+    standardWebsiteAmount = amount;
+    // Overlay locked journey labels onto booking for emails/calendar.
+    booking = {
+      ...booking,
+      pickupLabel: j.pickupAddress,
+      dropoffLabel: j.dropoffAddress,
+      returnJourney: Boolean(j.returnJourney),
+      tripDate: j.outboundDate,
+      tripTime: j.outboundTime,
+      returnDate: j.returnDate ?? "",
+      returnTime: j.returnTime ?? "",
+      passengers: j.passengers,
+      suitcases: j.suitcases,
+      flightNumber: booking.flightNumber || j.flightNumber || "",
+      returnFlightNumber: booking.returnFlightNumber || j.returnFlightNumber || "",
+      vehicle: j.vehicleType || booking.vehicle,
+      isAirportTrip: Boolean(j.airportCode),
+      airportCode: j.airportCode ?? booking.airportCode,
+      isFromAirport: j.fromAirport,
+      tripLabel: j.childSeatRequired
+        ? `${booking.tripLabel || "Airport transfer"} · Child seat required`
+        : booking.tripLabel || "Airport transfer",
+    };
   }
 
   if (!Number.isFinite(amount) || amount < 1 || amount > 5000) {
@@ -1483,6 +1622,7 @@ async function handlePaymentRequest(
         ? { shortNoticeToken, shortNoticeReference }
         : {}),
       ...(personalQuoteCode ? { personalQuoteCode } : {}),
+      ...(quickQuoteId ? { quickQuoteId } : {}),
       ...(typeof standardWebsiteAmount === "number" ? { standardWebsiteAmount } : {}),
       ...(typeof personalQuotedAmount === "number"
         ? { personalQuotedAmount }
@@ -1490,6 +1630,14 @@ async function handlePaymentRequest(
           ? { personalQuotedAmount: Math.round(amount * 100) / 100 }
           : {}),
     });
+
+    if (quickQuoteId) {
+      await markQuickQuoteCheckout(env.TRACKING_STORE, quickQuoteId, {
+        checkoutId: checkout.checkoutId,
+        checkoutReference: checkout.checkoutReference,
+        paymentUrl: checkout.paymentUrl,
+      });
+    }
 
     if (shortNoticeToken) {
       const sn = await getShortNoticeByToken(env.TRACKING_STORE, shortNoticeToken);
@@ -1866,6 +2014,27 @@ export default {
         status: 204,
         headers: corsHeaders(origin),
       });
+    }
+
+    if (
+      (url.pathname === "/quote/calculate" || url.pathname === "/api/quote/calculate") &&
+      (request.method === "POST" || request.method === "OPTIONS")
+    ) {
+      return handleQuoteCalculateRequest(request, origin);
+    }
+
+    if (
+      (url.pathname === "/owner/quick-quotes" || url.pathname === "/api/owner/quick-quotes") &&
+      (request.method === "POST" || request.method === "OPTIONS")
+    ) {
+      return handleOwnerCreateQuickQuote(request, env, origin);
+    }
+
+    if (
+      (url.pathname === "/quick-quotes/by-id" || url.pathname === "/api/quick-quotes/by-id") &&
+      (request.method === "GET" || request.method === "OPTIONS")
+    ) {
+      return handlePublicQuickQuoteLookup(request, env, origin);
     }
 
     if (

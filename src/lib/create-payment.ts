@@ -25,6 +25,11 @@ export type PaymentCheckoutRequest = {
    * Never rely on the client amount when this is set.
    */
   personalQuoteCode?: string;
+  /**
+   * Quick Quote opaque id. Server re-validates and overwrites `amount` from KV.
+   * Never rely on the client amount when this is set.
+   */
+  quickQuoteId?: string;
   /** Website-calculated fare for audit only when a personal quote is applied. */
   standardWebsiteAmount?: number;
 };
@@ -122,6 +127,7 @@ export async function createPaymentCheckout(
       ...(request.booking ? { booking: request.booking } : {}),
       ...(request.shortNoticeToken ? { shortNoticeToken: request.shortNoticeToken } : {}),
       ...(request.personalQuoteCode ? { personalQuoteCode: request.personalQuoteCode } : {}),
+      ...(request.quickQuoteId ? { quickQuoteId: request.quickQuoteId } : {}),
       ...(typeof request.standardWebsiteAmount === "number"
         ? { standardWebsiteAmount: request.standardWebsiteAmount }
         : {}),
