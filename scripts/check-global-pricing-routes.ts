@@ -79,15 +79,15 @@ add(
   4.5,
   calculateQuote("Belfast City Hall, Belfast BT1 5GS", "BHD", S)?.amount,
   calculateQuote("Belfast City Hall, Belfast BT1 5GS", "BHD", E)?.amount,
-  "bench ~£29/~£34",
+  "bench ~£34/~£39",
 );
 
-// 3 Lisburn → BHD (must scale above city £29)
+// 3 Lisburn → BHD (must scale above city £34)
 {
   const s = calculateQuote("1 Market Square, Lisburn BT28 1XN", "BHD", S)?.amount;
   const e = calculateQuote("1 Market Square, Lisburn BT28 1XN", "BHD", E)?.amount;
   add("Lisburn → BHD", "airport", 12, s, e);
-  assert.ok((s ?? 0) > 29, "Lisburn→BHD must exceed City Hall→BHD");
+  assert.ok((s ?? 0) > 34, "Lisburn→BHD must exceed City Hall→BHD");
 }
 
 // 4 BFS city
@@ -97,7 +97,7 @@ add(
   14,
   calculateQuote("Belfast City Hall, Belfast BT1 5GS", "BFS", S)?.amount,
   calculateQuote("Belfast City Hall, Belfast BT1 5GS", "BFS", E)?.amount,
-  "bench ~£55/~£64",
+  "bench ~£50/~£60",
 );
 
 // 5 Bangor → BFS
@@ -272,7 +272,7 @@ add(
     distanceKm: 126.5,
     durationMinutes: 98,
   })?.amount,
-  "bench ~£155–£158 / ~£178–£182",
+  "bench zone+distance protect",
 );
 
 // 15 Holywood → Enniskillen (non-benchmark A2A)
@@ -370,8 +370,8 @@ assert.equal(selectVehicleForParty(3, 0), E);
 // Return discount once
 const oneWay = calculateQuote("Belfast City Hall, Belfast BT1 5GS", "BFS", S)?.amount ?? 0;
 const ret = calculateQuote("Belfast City Hall, Belfast BT1 5GS", "BFS", S, true)?.amount ?? 0;
-assert.equal(oneWay, 55);
-assert.equal(ret, 105, "BFS return is single 5% on 2×£55 → £105");
+assert.equal(oneWay, 50);
+assert.equal(ret, 95, "BFS return is single 5% on 2×£50 → £95");
 assert.ok(ret < oneWay * 2);
 
 assert.ok(rows.length >= 15, `expected ≥15 journeys, got ${rows.length}`);

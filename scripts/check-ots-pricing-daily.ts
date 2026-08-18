@@ -7,14 +7,21 @@
  *
  * To auto-adjust surcharges, use: npm run calibrate:ots-pricing
  *
- * Airport transfers: target ~£8–£10 below OTS (with rounding tolerance).
- * Point-to-point: same £8–£10 below OTS target.
+ * Airport transfers: target ~£3–£5 below OTS (airportOtsCalibration).
+ * Point-to-point: A2A undercut band from otsReferenceModel (~£8–£10).
  */
 
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { calculatePointToPointQuote, calculateQuote, computeAirportEstateForSurcharge } from "../src/lib/quote";
+import { PRICING_CONFIG } from "../src/lib/pricing-config";
+import {
+  AIRPORT_OTS_UNDERCUT_MAX,
+  AIRPORT_OTS_UNDERCUT_MIN,
+  calculatePointToPointQuote,
+  calculateQuote,
+  computeAirportEstateForSurcharge,
+} from "../src/lib/quote";
 import { fetchOtsEstateQuote } from "./lib/ots-client.mjs";
 import { buildRoutePool } from "./lib/ots-route-pool.mjs";
 import { sampleRoutes, seedFromDate } from "./lib/seeded-sample.mjs";
@@ -22,8 +29,18 @@ import { sampleRoutes, seedFromDate } from "./lib/seeded-sample.mjs";
 const ESTATE = "Estate Car (1–4 passengers)" as const;
 
 const SAMPLE_SIZE = Number(process.env.OTS_SAMPLE_SIZE ?? "100");
-const MIN_DISCOUNT = Number(process.env.OTS_MIN_DISCOUNT ?? "8");
-const MAX_DISCOUNT = Number(process.env.OTS_MAX_DISCOUNT ?? "10");
+const AIRPORT_MIN_DISCOUNT = Number(
+  process.env.OTS_MIN_DISCOUNT ?? String(AIRPORT_OTS_UNDERCUT_MIN),
+);
+const AIRPORT_MAX_DISCOUNT = Number(
+  process.env.OTS_MAX_DISCOUNT ?? String(AIRPORT_OTS_UNDERCUT_MAX),
+);
+const A2A_MIN_DISCOUNT = Number(
+  process.env.OTS_A2A_MIN_DISCOUNT ?? String(PRICING_CONFIG.otsReferenceModel.undercutMinGbp),
+);
+const A2A_MAX_DISCOUNT = Number(
+  process.env.OTS_A2A_MAX_DISCOUNT ?? String(PRICING_CONFIG.otsReferenceModel.undercutMaxGbp),
+);
 const DISCOUNT_TOLERANCE = Number(process.env.OTS_DISCOUNT_TOLERANCE ?? "2");
 const REQUEST_DELAY_MS = Number(process.env.OTS_REQUEST_DELAY_MS ?? "250");
 
@@ -59,10 +76,10 @@ type CheckResult = {
   message: string;
 };
 
-function airportDiscountBand() {
+function discountBand(minDiscount: number, maxDiscount: number) {
   return {
-    min: MIN_DISCOUNT - DISCOUNT_TOLERANCE,
-    max: MAX_DISCOUNT + DISCOUNT_TOLERANCE,
+    min: minDiscount - DISCOUNT_TOLERANCE,
+    max: maxDiscount + DISCOUNT_TOLERANCE,
   };
 }
 
@@ -83,25 +100,26 @@ function ourPointToPointEstate(route: Extract<Route, { kind: "point-to-point" }>
   return quote?.amount ?? null;
 }
 
-function evaluateAirport(
+function evaluateAgainstBand(
   otsEstate: number,
   ourEstate: number,
+  minDiscount: number,
+  maxDiscount: number,
   airportCode?: string,
 ): { status: "pass" | "fail"; message: string } {
   const discount = +(otsEstate - ourEstate).toFixed(2);
-  const band = airportDiscountBand();
+  const band = discountBand(minDiscount, maxDiscount);
 
   if (discount >= band.min && discount <= band.max) {
     return {
       status: "pass",
-      message: `£${discount.toFixed(2)} below OTS (target £${MIN_DISCOUNT}–£${MAX_DISCOUNT})`,
+      message: `£${discount.toFixed(2)} below OTS (target £${minDiscount}–£${maxDiscount})`,
     };
   }
 
   // Short hops: OTS can sit under our published airport estate minimum — stay at the floor.
   if (airportCode && discount < 0) {
     const estateFloorRaw = computeAirportEstateForSurcharge(airportCode, 0);
-    // Match public rounding (e.g. £43 → £45) used by calculateQuote.
     const estateFloor =
       estateFloorRaw % 5 === 4 ? Math.round(estateFloorRaw) : Math.round(estateFloorRaw / 5) * 5;
     if (estateFloor > 0 && ourEstate <= estateFloor) {
@@ -115,28 +133,21 @@ function evaluateAirport(
   if (discount < 0) {
     return {
       status: "fail",
-      message: `Our price is £${Math.abs(discount).toFixed(2)} above OTS — should be ~£${MIN_DISCOUNT}–£${MAX_DISCOUNT} below`,
+      message: `Our price is £${Math.abs(discount).toFixed(2)} above OTS — should be ~£${minDiscount}–£${maxDiscount} below`,
     };
   }
 
   if (discount < band.min) {
     return {
       status: "fail",
-      message: `Only £${discount.toFixed(2)} below OTS — expected ~£${MIN_DISCOUNT}–£${MAX_DISCOUNT} below`,
+      message: `Only £${discount.toFixed(2)} below OTS — expected ~£${minDiscount}–£${maxDiscount} below`,
     };
   }
 
   return {
     status: "fail",
-    message: `£${discount.toFixed(2)} below OTS — more than £${MAX_DISCOUNT + DISCOUNT_TOLERANCE} under target band`,
+    message: `£${discount.toFixed(2)} below OTS — more than £${maxDiscount + DISCOUNT_TOLERANCE} under target band`,
   };
-}
-
-function evaluatePointToPoint(
-  otsEstate: number,
-  ourEstate: number,
-): { status: "pass" | "fail"; message: string } {
-  return evaluateAirport(otsEstate, ourEstate);
 }
 
 async function checkRoute(route: Route): Promise<CheckResult> {
@@ -169,8 +180,14 @@ async function checkRoute(route: Route): Promise<CheckResult> {
     const discount = +(otsEstate - ourEstate).toFixed(2);
     const evaluation =
       route.kind === "airport"
-        ? evaluateAirport(otsEstate, ourEstate, route.airportCode)
-        : evaluatePointToPoint(otsEstate, ourEstate);
+        ? evaluateAgainstBand(
+            otsEstate,
+            ourEstate,
+            AIRPORT_MIN_DISCOUNT,
+            AIRPORT_MAX_DISCOUNT,
+            route.airportCode,
+          )
+        : evaluateAgainstBand(otsEstate, ourEstate, A2A_MIN_DISCOUNT, A2A_MAX_DISCOUNT);
 
     return {
       ...base,
@@ -238,9 +255,11 @@ async function main() {
     `Sampling ${sampled.length} routes (${airportSampleSize} airport, ${p2pSampleSize} point-to-point)`,
   );
   console.log(
-    `Airport target: £${MIN_DISCOUNT}–£${MAX_DISCOUNT} below OTS (±£${DISCOUNT_TOLERANCE} tolerance)`,
+    `Airport target: £${AIRPORT_MIN_DISCOUNT}–£${AIRPORT_MAX_DISCOUNT} below OTS (±£${DISCOUNT_TOLERANCE} tolerance)`,
   );
-  console.log(`Point-to-point target: £${MIN_DISCOUNT}–£${MAX_DISCOUNT} below OTS\n`);
+  console.log(
+    `Point-to-point target: £${A2A_MIN_DISCOUNT}–£${A2A_MAX_DISCOUNT} below OTS (±£${DISCOUNT_TOLERANCE} tolerance)\n`,
+  );
 
   const results: CheckResult[] = [];
   for (const [index, route] of sampled.entries()) {
@@ -261,10 +280,12 @@ async function main() {
     seed,
     sampleSize: sampled.length,
     thresholds: {
-      airportMinDiscount: MIN_DISCOUNT,
-      airportMaxDiscount: MAX_DISCOUNT,
+      airportMinDiscount: AIRPORT_MIN_DISCOUNT,
+      airportMaxDiscount: AIRPORT_MAX_DISCOUNT,
       airportTolerance: DISCOUNT_TOLERANCE,
-      pointToPointTolerance: MAX_DISCOUNT,
+      a2aMinDiscount: A2A_MIN_DISCOUNT,
+      a2aMaxDiscount: A2A_MAX_DISCOUNT,
+      pointToPointTolerance: DISCOUNT_TOLERANCE,
     },
     summary,
     failures,
@@ -277,30 +298,12 @@ async function main() {
   const reportPath = join(reportsDir, `ots-pricing-${runDate}.json`);
   writeFileSync(reportPath, `${JSON.stringify(report, null, 2)}\n`);
 
-  console.log("\n--- Summary ---");
-  console.log(JSON.stringify(summary, null, 2));
   console.log(`\nReport written to ${reportPath}`);
+  console.log(
+    `Summary: ${summary.pass} pass / ${summary.fail} fail / ${summary.error} error / ${summary.skipped} skipped`,
+  );
 
-  if (failures.length > 0) {
-    console.log("\nRoutes outside target band:");
-    for (const row of failures.slice(0, 20)) {
-      console.log(
-        `- ${row.id}: OTS £${row.otsEstate}, ours £${row.ourEstate} — ${row.message}`,
-      );
-    }
-    if (failures.length > 20) {
-      console.log(`… and ${failures.length - 20} more (see report JSON)`);
-    }
-  }
-
-  if (errors.length > 0) {
-    console.log(`\n${errors.length} OTS/API errors — see report for details`);
-  }
-
-  const failRate = summary.fail / Math.max(1, summary.total - summary.skipped - summary.error);
-  const exitOnFailure = process.env.OTS_CHECK_STRICT !== "0";
-
-  if (exitOnFailure && (failures.length > 0 || failRate > 0.15)) {
+  if (summary.fail > 0 || summary.error > 0) {
     process.exitCode = 1;
   }
 }

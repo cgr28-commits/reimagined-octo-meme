@@ -34,12 +34,22 @@ export type PricingConfig = {
   airportMinimumFaresGbp: Record<string, number>;
   airportBasePricesGbp: Record<AirportCode, number>;
   airportEstatePremiumGbp: number;
-  airportLongHaulEstatePremium?: {
+  /** Tiered estate uplift for NI airports; excluded airports always use airportEstatePremiumGbp. */
+  airportEstatePremiumTiers?: {
     enabled: boolean;
     note?: string;
-    minSaloonFareGbp: number;
-    premiumGbp: number;
+    shortMaxSaloonFareGbp: number;
+    shortPremiumGbp: number;
+    midPremiumGbp: number;
+    longMinSaloonFareGbp: number;
+    longPremiumGbp: number;
     excludeAirports: AirportCode[];
+  };
+  /** Calibration-only undercut vs OTS estate for airport zone surcharges (not live quotes). */
+  airportOtsCalibration?: {
+    note?: string;
+    undercutMinGbp: number;
+    undercutMaxGbp: number;
   };
   /** At/above this loaded distance, airport quotes take max(zone, distance-band fare). */
   airportRouteDistanceProtectFromKm?: number;

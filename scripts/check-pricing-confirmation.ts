@@ -13,6 +13,9 @@ import { calculateQuote, calculatePointToPointQuote } from "../src/lib/quote";
 assert.equal(arePricingRulesApproved(), true, "pricingRulesApproved should be true for live SumUp quotes");
 assert.equal(arePublicLivePricesEnabled(), true, "public live prices should be enabled");
 assert.ok(PRICING_CONFIG.airportMinimumFaresGbp.BFS === 45);
+assert.ok(PRICING_CONFIG.airportMinimumFaresGbp.BHD === 34);
+assert.ok(PRICING_CONFIG.airportOtsCalibration?.undercutMinGbp === 3);
+assert.ok(PRICING_CONFIG.airportOtsCalibration?.undercutMaxGbp === 5);
 assert.ok(PRICING_CONFIG.otsReferenceModel.undercutMinGbp === 8);
 assert.ok(PRICING_CONFIG.otsReferenceModel.undercutMaxGbp === 10);
 

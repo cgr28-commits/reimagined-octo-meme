@@ -56,9 +56,15 @@ export const AREA_SURCHARGES: Record<Area, number> = Object.fromEntries(
   Object.entries(AREA_AIRPORT_SURCHARGES).map(([area, surcharges]) => [area, surcharges.BFS]),
 ) as Record<Area, number>;
 
-/** Target band: short A2A undercut vs OTS reference (legacy helpers / airport calibration). */
+/** Target band: short A2A undercut vs OTS reference (legacy helpers / A2A fallback). */
 export const OTS_UNDERCUT_MIN = PRICING_CONFIG.otsReferenceModel.undercutMinGbp;
 export const OTS_UNDERCUT_MAX = PRICING_CONFIG.otsReferenceModel.undercutMaxGbp;
+
+/** Airport-zone OTS calibration band (scripts only — not used in live customer quotes). */
+export const AIRPORT_OTS_UNDERCUT_MIN =
+  PRICING_CONFIG.airportOtsCalibration?.undercutMinGbp ?? 3;
+export const AIRPORT_OTS_UNDERCUT_MAX =
+  PRICING_CONFIG.airportOtsCalibration?.undercutMaxGbp ?? 5;
 const OTS_UNDERCUT_MID = (OTS_UNDERCUT_MIN + OTS_UNDERCUT_MAX) / 2;
 const A2A_DISTANCE_BANDS = PRICING_CONFIG.addressToAddressDistanceBands;
 
@@ -182,16 +188,25 @@ function applyAirportVehiclePricing(
   }
 }
 
-function getAirportEstatePremiumGbp(airportCode: string, saloonFare: number): number {
-  const longHaul = PRICING_CONFIG.airportLongHaulEstatePremium;
-  if (
-    longHaul?.enabled &&
-    saloonFare >= longHaul.minSaloonFareGbp &&
-    !(longHaul.excludeAirports ?? []).includes(airportCode as AirportCode)
-  ) {
-    return longHaul.premiumGbp;
+/**
+ * Estate premium for airport transfers from the rounded saloon fare.
+ * Dublin keeps the flat airportEstatePremiumGbp; other airports use tiers.
+ */
+export function getAirportEstatePremiumGbp(airportCode: string, saloonFare: number): number {
+  const tiers = PRICING_CONFIG.airportEstatePremiumTiers;
+  const excluded = new Set(tiers?.excludeAirports ?? []);
+
+  if (!tiers?.enabled || excluded.has(airportCode as AirportCode)) {
+    return AIRPORT_ESTATE_PREMIUM;
   }
-  return AIRPORT_ESTATE_PREMIUM;
+
+  if (saloonFare <= tiers.shortMaxSaloonFareGbp) {
+    return tiers.shortPremiumGbp;
+  }
+  if (saloonFare >= tiers.longMinSaloonFareGbp) {
+    return tiers.longPremiumGbp;
+  }
+  return tiers.midPremiumGbp;
 }
 
 function getAirportVehiclePricingMeta(
@@ -300,24 +315,27 @@ export function computeAirportEstateForSurcharge(
   airportCode: string,
   areaSurcharge: number,
 ): number {
+  const configuredBase = getAirportBasePrice(airportCode);
   const airport = AIRPORTS.find((item) => item.code === airportCode);
-  if (!airport) {
+  if (configuredBase == null && !airport) {
     return 0;
   }
 
-  const saloonOneWay = computeSaloonAirportOneWay(airportCode, airport.basePrice + areaSurcharge);
+  const airportBase = configuredBase ?? airport!.basePrice;
+  const saloonOneWay = computeSaloonAirportOneWay(airportCode, airportBase + areaSurcharge);
   return applyAirportVehiclePricing(saloonOneWay, "Estate Car (1–4 passengers)", airportCode);
 }
 
-/** Surcharge that places our estate fare ~£8–£10 below live OTS (for auto-calibration). */
+/** Surcharge that places our estate fare ~£3–£5 below live OTS (for auto-calibration only). */
 export function findAirportSurchargeForOtsEstate(
   airportCode: string,
   otsEstate: number,
-  minDiscount = OTS_UNDERCUT_MIN,
-  maxDiscount = OTS_UNDERCUT_MAX,
+  minDiscount = AIRPORT_OTS_UNDERCUT_MIN,
+  maxDiscount = AIRPORT_OTS_UNDERCUT_MAX,
 ): number | null {
+  const configuredBase = getAirportBasePrice(airportCode);
   const airport = AIRPORTS.find((item) => item.code === airportCode);
-  if (!airport) {
+  if (!airport && configuredBase == null) {
     return null;
   }
 
@@ -330,23 +348,41 @@ export function findAirportSurchargeForOtsEstate(
     }
   }
 
-  for (let surcharge = 0; surcharge <= 200; surcharge++) {
-    const estate = computeAirportEstateForSurcharge(airportCode, surcharge);
-    const discount = otsEstate - estate;
-    if (discount >= minDiscount && discount <= maxDiscount) {
-      return surcharge;
+  const pickClosest = (
+    predicate: (discount: number) => boolean,
+  ): number | null => {
+    let best: { surcharge: number; score: number } | null = null;
+    for (let surcharge = 0; surcharge <= 200; surcharge++) {
+      const estate = computeAirportEstateForSurcharge(airportCode, surcharge);
+      if (estate <= 0) {
+        continue;
+      }
+      const discount = otsEstate - estate;
+      if (!predicate(discount)) {
+        continue;
+      }
+      const score = Math.abs(discount - targetDiscount);
+      if (!best || score < best.score || (score === best.score && surcharge < best.surcharge)) {
+        best = { surcharge, score };
+      }
     }
+    return best?.surcharge ?? null;
+  };
+
+  const inBand = pickClosest((d) => d >= minDiscount && d <= maxDiscount);
+  if (inBand != null) {
+    return inBand;
   }
 
-  for (let surcharge = 0; surcharge <= 200; surcharge++) {
-    const estate = computeAirportEstateForSurcharge(airportCode, surcharge);
-    const discount = otsEstate - estate;
-    if (discount >= minDiscount - 2 && discount <= maxDiscount + 2) {
-      return surcharge;
-    }
+  const nearBand = pickClosest(
+    (d) => d >= minDiscount - 2 && d <= maxDiscount + 2,
+  );
+  if (nearBand != null) {
+    return nearBand;
   }
 
-  return null;
+  // Short hops / OTS near our estate floor: closest available undercut (may be £0).
+  return pickClosest(() => true);
 }
 
 function getAreaSurcharge(airportCode: string, area: Area | null): number {
@@ -713,7 +749,9 @@ export function getAirportFromPrice(
     return null;
   }
 
-  const saloonOneWay = computeSaloonAirportOneWay(airportCode, airport.basePrice);
+  const configuredBase = getAirportBasePrice(airportCode);
+  const airportBase = configuredBase ?? airport.basePrice;
+  const saloonOneWay = computeSaloonAirportOneWay(airportCode, airportBase);
   const oneWay = applyAirportVehiclePricing(saloonOneWay, vehicleType, airportCode);
   return returnJourney ? roundToNearestFive(getReturnJourneyFare(oneWay)) : oneWay;
 }

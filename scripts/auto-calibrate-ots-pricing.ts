@@ -3,7 +3,7 @@
  *
  * Samples random NI airport routes, fetches live OTS estate quotes from
  * https://www.airporttaxis-uk.co.uk/, adjusts
- * AREA_AIRPORT_SURCHARGES in src/lib/pricing-config.json so our estate fares sit ~£8–£10
+ * AREA_AIRPORT_SURCHARGES in src/lib/pricing-config.json so our estate fares sit ~£3–£5
  * below OTS, then writes a report.
  */
 
@@ -12,6 +12,8 @@ import { join } from "node:path";
 
 import { AIRPORTS } from "../src/lib/data";
 import {
+  AIRPORT_OTS_UNDERCUT_MAX,
+  AIRPORT_OTS_UNDERCUT_MIN,
   calculateQuote,
   computeAirportEstateForSurcharge,
   findAirportSurchargeForOtsEstate,
@@ -25,8 +27,8 @@ const ESTATE = "Estate Car (1–4 passengers)" as const;
 const QUOTE_PATH = join(process.cwd(), "src/lib/pricing-config.json");
 
 const SAMPLE_SIZE = Number(process.env.OTS_SAMPLE_SIZE ?? "100");
-const MIN_DISCOUNT = Number(process.env.OTS_MIN_DISCOUNT ?? "8");
-const MAX_DISCOUNT = Number(process.env.OTS_MAX_DISCOUNT ?? "10");
+const MIN_DISCOUNT = Number(process.env.OTS_MIN_DISCOUNT ?? String(AIRPORT_OTS_UNDERCUT_MIN));
+const MAX_DISCOUNT = Number(process.env.OTS_MAX_DISCOUNT ?? String(AIRPORT_OTS_UNDERCUT_MAX));
 const REQUEST_DELAY_MS = Number(process.env.OTS_REQUEST_DELAY_MS ?? "250");
 
 type AirportRoute = {

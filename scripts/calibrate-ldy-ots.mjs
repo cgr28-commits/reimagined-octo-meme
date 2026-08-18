@@ -1,6 +1,7 @@
 /**
  * Fetches OTS quotes for LDY → Belfast-area routes and computes surcharges
- * targeting ~£8–£10 below OTS estate fares (same approach as BFS/BHD table).
+ * targeting ~£8–£10 below OTS estate fares (LDY-specific; BFS/BHD airport
+ * calibration now uses airportOtsCalibration £3–£5 in pricing-config.json).
  *
  * Uses live quotes from https://www.airporttaxis-uk.co.uk/
  */
