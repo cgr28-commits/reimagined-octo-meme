@@ -16,6 +16,8 @@ html {
   overscroll-behavior-x: none;
   width: 100%;
   max-width: 100%;
+  /* Reserve vertical scrollbar space so content/header don't shift when page height grows. */
+  scrollbar-gutter: stable;
   /* Prefer vertical scrolling — stops the page feeling sideways-jerky on phones. */
   touch-action: pan-y pinch-zoom;
 }

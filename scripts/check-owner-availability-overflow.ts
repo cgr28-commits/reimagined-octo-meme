@@ -56,4 +56,23 @@ console.log("\n=== 3. Owner shell + calendar stay viewport-aligned ===");
   console.log("OK  Owner content wrapper + calendar date picker can shrink");
 }
 
+console.log("\n=== 4. Personal quotes panel uses same overflow guards ===");
+{
+  const panel = read("src/components/OwnerPersonalQuotesPanel.tsx");
+  assert.match(panel, /mb-8 w-full min-w-0 max-w-full rounded-2xl/);
+  assert.match(panel, /fieldClass\s*=/);
+  assert.match(panel, /box-border/);
+  assert.match(panel, /min-w-0/);
+  assert.match(panel, /max-w-full/);
+  assert.match(panel, /text-base/);
+  assert.match(panel, /\[color-scheme:dark\]/);
+  assert.match(panel, /type="date"/);
+  assert.match(panel, /className=\{fieldClass\}/);
+  assert.match(panel, /grid w-full min-w-0 max-w-full grid-cols-1 gap-3 sm:grid-cols-2/);
+  assert.doesNotMatch(panel, /overflow-x:\s*hidden|overflow-x-hidden/);
+  const css = read("src/app/globals.css");
+  assert.match(css, /scrollbar-gutter:\s*stable/);
+  console.log("OK  Personal quotes min-w-0 + date field shrink; scrollbar-gutter stable");
+}
+
 console.log("\nAll owner availability overflow checks passed.");
