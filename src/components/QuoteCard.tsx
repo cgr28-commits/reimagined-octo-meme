@@ -1601,8 +1601,8 @@ function QuoteCard({
       return;
     }
 
-    // Do not navigate this tab away — SumUp’s X cannot reliably return customers here.
-    // Reopening uses the same checkout via “Open payment again”.
+    // Persist draft + pending payment, then same-tab redirect to SumUp Hosted Checkout.
+    // window.open after await is blocked on iPhone Safari (no user-gesture), which looks like a dead button.
     setPaymentLoading(true);
     setPaymentError("");
     setPaymentPopupBlocked(false);
@@ -1685,15 +1685,10 @@ function QuoteCard({
       saveOpenCheckoutSession(session);
       setOpenCheckout(session);
 
-      // Never navigate this tab away — SumUp X cannot return customers here reliably.
-      const paymentWindow = window.open(checkout.paymentUrl, "_blank", "noopener,noreferrer");
-      if (!paymentWindow) {
-        setPaymentPopupBlocked(true);
-        setPaymentError(
-          "Secure payment is ready. Tap “Open payment again” to open SumUp — your booking details stay on this page.",
-        );
-      }
-      setPaymentLoading(false);
+      // Same-tab redirect — reliable on iPhone Safari / Android / desktop (no popup).
+      window.location.assign(checkout.paymentUrl);
+      // Keep loading state until navigation completes; re-enable only if assign somehow fails.
+      return;
     } catch (error) {
       setPaymentError(
         error instanceof Error
@@ -1711,13 +1706,8 @@ function QuoteCard({
     }
     setPaymentPopupBlocked(false);
     setPaymentError("");
-    const paymentWindow = window.open(openCheckout.paymentUrl, "_blank", "noopener,noreferrer");
-    if (!paymentWindow) {
-      setPaymentPopupBlocked(true);
-      setPaymentError(
-        "Your browser blocked the payment tab. Allow pop-ups for this site, or tap “Open payment again” again.",
-      );
-    }
+    setPaymentLoading(true);
+    window.location.assign(openCheckout.paymentUrl);
   }
 
   function handleReturnToEditBooking() {
@@ -3433,17 +3423,21 @@ function QuoteCard({
             >
             {canPayNowOnline && liveQuote && (
               <div className="space-y-3">
+                {paymentError ? (
+                  <p className="rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-100">
+                    {paymentError}
+                  </p>
+                ) : null}
                 {openCheckout ? (
                   <div className="space-y-3 rounded-2xl border border-emerald/35 bg-emerald/10 px-4 py-4">
-                    <p className="text-sm font-semibold text-emerald">Payment opened in a new tab</p>
+                    <p className="text-sm font-semibold text-emerald">Secure payment ready</p>
                     <p className="text-xs leading-relaxed text-white/75">
-                      Secure payment opened for {openCheckout.amountLabel}. To make changes, close
-                      the SumUp tab and return here — your booking details are saved on this page.
+                      Your booking details are saved for {openCheckout.amountLabel}. Continue to
+                      SumUp to finish paying, or edit your booking first.
                     </p>
                     {paymentPopupBlocked ? (
                       <p className="text-xs leading-relaxed text-amber-200">
-                        Your browser may have blocked the payment tab. Use “Open payment again”
-                        below.
+                        Payment could not open automatically. Tap “Continue to SumUp” below.
                       </p>
                     ) : null}
                     <div className="grid gap-2 sm:grid-cols-2">
@@ -3457,9 +3451,10 @@ function QuoteCard({
                       <button
                         type="button"
                         onClick={handleOpenPaymentAgain}
-                        className="w-full rounded-xl bg-white py-3 text-sm font-bold text-navy transition-all hover:bg-white/90"
+                        disabled={paymentLoading}
+                        className="w-full rounded-xl bg-white py-3 text-sm font-bold text-navy transition-all hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-70"
                       >
-                        Open payment again
+                        {paymentLoading ? "Opening secure payment…" : "Continue to SumUp"}
                       </button>
                     </div>
                     <button
@@ -3473,8 +3468,8 @@ function QuoteCard({
                 ) : (
                   <>
                     <p className="text-xs leading-relaxed text-white/50">
-                      Secure payment will open in a new tab. To make changes, close the SumUp tab and
-                      return here — your booking details will be saved.
+                      You’ll be securely redirected to SumUp to complete your payment. Your booking
+                      details stay saved if you return to this page.
                     </p>
                     <button
                       type="button"
@@ -3491,7 +3486,7 @@ function QuoteCard({
                       className="w-full rounded-xl bg-white py-3.5 text-sm font-bold text-navy transition-all hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-70"
                     >
                       {paymentLoading
-                        ? "Opening SumUp…"
+                        ? "Opening secure payment…"
                         : testChargeAmount !== null
                           ? "Pay £1.00 test charge with SumUp"
                           : `Pay ${formatQuote(liveQuote.amount)} now with SumUp`}
