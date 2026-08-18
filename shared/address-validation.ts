@@ -306,9 +306,21 @@ const NON_NI_UK_POSTCODE_PATTERN = /\b(?!BT)([A-Z]{1,2}\d{1,2}[A-Z]?\s?\d[A-Z]{2
  * England / Scotland / Wales markers. Word boundaries avoid matching
  * “Londonderry”. Do not treat whole-GB country codes as enough on their own —
  * NI addresses are also “United Kingdom”.
+ *
+ * City names that are also common street names (e.g. York Street, Hull Road)
+ * must not match when followed by a thoroughfare type.
  */
+const GB_MAINLAND_STREET_TYPE =
+  "st\\.?|street|rd\\.?|road|ave\\.?|avenue|ln\\.?|lane|close|court|crescent|park|way|terrace|drive|place|gardens|grove|hill|row|square|mews|walk|gate|circus|parade";
+
+/** York / Hull / Derby / Reading as GB cities — not “York Street”, “Hull Road”, etc. */
+const GB_MAINLAND_AMBIGUOUS_CITY_PATTERN = new RegExp(
+  String.raw`\b(york|hull|derby|reading)\b(?!\s+(?:${GB_MAINLAND_STREET_TYPE})\b)`,
+  "i",
+);
+
 const GB_MAINLAND_REGION_PATTERN =
-  /\b(england|scotland|wales|london|manchester|liverpool|birmingham|leeds|sheffield|bristol|glasgow|edinburgh|cardiff|swansea|newport|oxford|cambridge|nottingham|leicester|coventry|southampton|portsmouth|brighton|reading|milton keynes|newcastle upon tyne|sunderland|middlesbrough|hull|york|preston|blackpool|bolton|wigan|stockport|oldham|bradford|wakefield|huddersfield|derby|stoke|wolverhampton|plymouth|exeter|bournemouth|essex|kent|surrey|yorkshire|lancashire|cheshire|devon|cornwall|somerset|norfolk|suffolk|hampshire|dorset|wiltshire|berkshire|buckinghamshire|hertfordshire|bedfordshire|northamptonshire|warwickshire|worcestershire|gloucestershire|herefordshire|shropshire|staffordshire|derbyshire|nottinghamshire|lincolnshire|cumbria|northumberland|durham|tyne and wear|merseyside|greater manchester|west midlands|south yorkshire|west yorkshire|east sussex|west sussex|east anglia|highland|aberdeenshire|fife|lothian|strathclyde|gwent|dyfed|powys|clwyd|gwynedd)\b/i;
+  /\b(england|scotland|wales|london|manchester|liverpool|birmingham|leeds|sheffield|bristol|glasgow|edinburgh|cardiff|swansea|newport|oxford|cambridge|nottingham|leicester|coventry|southampton|portsmouth|brighton|milton keynes|newcastle upon tyne|sunderland|middlesbrough|preston|blackpool|bolton|wigan|stockport|oldham|bradford|wakefield|huddersfield|stoke|wolverhampton|plymouth|exeter|bournemouth|essex|kent|surrey|yorkshire|lancashire|cheshire|devon|cornwall|somerset|norfolk|suffolk|hampshire|dorset|wiltshire|berkshire|buckinghamshire|hertfordshire|bedfordshire|northamptonshire|warwickshire|worcestershire|gloucestershire|herefordshire|shropshire|staffordshire|derbyshire|nottinghamshire|lincolnshire|cumbria|northumberland|durham|tyne and wear|merseyside|greater manchester|west midlands|south yorkshire|west yorkshire|east sussex|west sussex|east anglia|highland|aberdeenshire|fife|lothian|strathclyde|gwent|dyfed|powys|clwyd|gwynedd)\b/i;
 
 /**
  * True when a suggestion label is clearly in England, Scotland or Wales.
@@ -322,24 +334,35 @@ export function isGreatBritainMainlandText(value: string): boolean {
 
   const lower = text.toLowerCase();
 
-  // Explicit Northern Ireland always stays allowed.
-  if (
-    lower.includes("northern ireland") ||
-    Boolean(extractPostcode(text)) ||
-    isNorthernIrelandPostcodeOutcode(text)
-  ) {
-    return false;
-  }
-
+  // Explicit England / Scotland / Wales always win (before NI place-name short-circuit).
+  // Prevents “Newcastle upon Tyne, England” matching NI town Newcastle.
   if (/\b(england|scotland|wales)\b/i.test(text)) {
     return true;
   }
 
+  // Multi-word / unambiguous mainland cities & counties (includes “newcastle upon tyne”).
   if (GB_MAINLAND_REGION_PATTERN.test(text)) {
     return true;
   }
 
   if (NON_NI_UK_POSTCODE_PATTERN.test(text)) {
+    return true;
+  }
+
+  // NI / ROI service-area labels are never mainland GB.
+  // This prevents false positives like “York Street, Belfast” matching city York.
+  if (
+    lower.includes("northern ireland") ||
+    Boolean(extractPostcode(text)) ||
+    isNorthernIrelandPostcodeOutcode(text) ||
+    isNorthernIrelandText(text) ||
+    isRepublicOfIrelandText(text)
+  ) {
+    return false;
+  }
+
+  // Ambiguous single-token cities (York / Hull / Derby / Reading) when not a street name.
+  if (GB_MAINLAND_AMBIGUOUS_CITY_PATTERN.test(text)) {
     return true;
   }
 
