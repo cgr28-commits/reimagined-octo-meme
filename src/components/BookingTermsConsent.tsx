@@ -18,14 +18,14 @@ export default function BookingTermsConsent({
 }: BookingTermsConsentProps) {
   return (
     <div className="space-y-3">
-      <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-white/15 bg-white/[0.04] px-4 py-3 text-left">
+      <label className="flex min-w-0 cursor-pointer items-start gap-3 rounded-xl border border-white/15 bg-white/[0.04] px-4 py-3 text-left">
         <input
           type="checkbox"
           checked={accepted}
           onChange={(event) => onAcceptedChange(event.target.checked)}
           className="mt-0.5 h-4 w-4 shrink-0 rounded border-white/30 bg-navy-dark text-emerald focus:ring-emerald/30"
         />
-        <span className="text-sm leading-relaxed text-white/80">
+        <span className="min-w-0 break-words text-sm leading-relaxed text-white/80">
           I agree to the{" "}
           <Link
             href="/terms/"

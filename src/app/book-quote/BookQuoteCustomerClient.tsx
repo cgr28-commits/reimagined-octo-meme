@@ -18,6 +18,9 @@ import { fetchQuickQuoteById, type QuickQuotePublicSummary } from "@/lib/quick-q
 import { TERMS_LAST_UPDATED } from "@/lib/terms";
 import { getPaymentBookingBlockers } from "../../../shared/paid-booking-gate";
 
+const fieldClass =
+  "quote-text-input min-h-12 rounded-xl border border-white/15 bg-navy px-3 text-base text-white placeholder:text-white/35";
+
 function readIdFromLocation(): string {
   if (typeof window === "undefined") return "";
   return new URLSearchParams(window.location.search).get("id")?.trim() ?? "";
@@ -182,7 +185,7 @@ function BookQuoteInner() {
 
   if (loading) {
     return (
-      <div className="mx-auto max-w-lg rounded-2xl border border-white/10 bg-navy-dark/70 p-6 text-center text-white/70">
+      <div className="mx-auto w-full min-w-0 max-w-lg rounded-2xl border border-white/10 bg-navy-dark/70 p-6 text-center text-white/70">
         Loading your quote…
       </div>
     );
@@ -190,7 +193,7 @@ function BookQuoteInner() {
 
   if (error && !quote) {
     return (
-      <div className="mx-auto max-w-lg rounded-2xl border border-red-400/30 bg-navy-dark/70 p-6 text-center text-red-200">
+      <div className="mx-auto w-full min-w-0 max-w-lg break-words rounded-2xl border border-red-400/30 bg-navy-dark/70 p-6 text-center text-red-200">
         {error}
       </div>
     );
@@ -199,11 +202,11 @@ function BookQuoteInner() {
   if (!quote || !journey) return null;
 
   return (
-    <div className="mx-auto max-w-lg space-y-5">
-      <section className="rounded-2xl border border-emerald/35 bg-emerald/10 px-5 py-6 text-center">
+    <div className="mx-auto w-full min-w-0 max-w-lg space-y-5">
+      <section className="min-w-0 overflow-hidden rounded-2xl border border-emerald/35 bg-emerald/10 px-4 py-6 text-center sm:px-5">
         <p className="text-xs font-semibold uppercase tracking-wider text-emerald">Fixed fare</p>
-        <p className="mt-1 font-display text-4xl text-white">{quote.quotedAmountLabel}</p>
-        <p className="mt-2 text-sm text-white/60">
+        <p className="mt-1 break-words font-display text-4xl text-white">{quote.quotedAmountLabel}</p>
+        <p className="mt-2 break-words text-sm text-white/60">
           Secure card payment · quote expires{" "}
           {new Date(quote.expiresAt).toLocaleString("en-GB", {
             timeZone: "Europe/London",
@@ -211,19 +214,19 @@ function BookQuoteInner() {
         </p>
       </section>
 
-      <section className="space-y-2 rounded-2xl border border-white/10 bg-navy-dark/70 p-5 text-sm text-white/80">
+      <section className="min-w-0 space-y-2 overflow-hidden rounded-2xl border border-white/10 bg-navy-dark/70 p-4 text-sm text-white/80 sm:p-5">
         <p className="text-xs font-semibold uppercase tracking-wide text-white/45">Journey</p>
-        <p>
+        <p className="break-words">
           <span className="text-white/50">Pickup:</span> {journey.pickupAddress}
         </p>
-        <p>
+        <p className="break-words">
           <span className="text-white/50">Drop-off:</span> {journey.dropoffAddress}
         </p>
-        <p>
+        <p className="break-words">
           <span className="text-white/50">When:</span> {journey.outboundDate} {journey.outboundTime}
         </p>
         {journey.returnJourney ? (
-          <p>
+          <p className="break-words">
             <span className="text-white/50">Return:</span> {journey.returnDate} {journey.returnTime}
           </p>
         ) : (
@@ -237,65 +240,80 @@ function BookQuoteInner() {
         </p>
       </section>
 
-      <section className="space-y-3 rounded-2xl border border-white/10 bg-navy-dark/70 p-5">
+      <section className="min-w-0 space-y-3 overflow-hidden rounded-2xl border border-white/10 bg-navy-dark/70 p-4 sm:p-5">
         <p className="text-sm font-semibold text-white">Confirm your details</p>
-        <input
-          value={customerName}
-          onChange={(e) => setCustomerName(e.target.value)}
-          placeholder="Full name"
-          className="min-h-11 w-full rounded-xl border border-white/15 bg-navy px-3 text-sm text-white"
-        />
-        <input
-          value={mobileNumber}
-          onChange={(e) => setMobileNumber(e.target.value)}
-          placeholder="WhatsApp / mobile number"
-          className="min-h-11 w-full rounded-xl border border-white/15 bg-navy px-3 text-sm text-white"
-        />
-        <input
-          type="email"
-          value={customerEmail}
-          onChange={(e) => setCustomerEmail(e.target.value)}
-          placeholder="Email for confirmation"
-          className="min-h-11 w-full rounded-xl border border-white/15 bg-navy px-3 text-sm text-white"
-        />
-        <input
-          value={flightNumber}
-          onChange={(e) => setFlightNumber(e.target.value)}
-          placeholder="Flight number (if known)"
-          className="min-h-11 w-full rounded-xl border border-white/15 bg-navy px-3 text-sm text-white"
-        />
-        <label className="flex items-center gap-3 text-sm text-white/75">
+        <div className="min-w-0">
+          <input
+            value={customerName}
+            onChange={(e) => setCustomerName(e.target.value)}
+            placeholder="Full name"
+            autoComplete="name"
+            className={fieldClass}
+          />
+        </div>
+        <div className="min-w-0">
+          <input
+            value={mobileNumber}
+            onChange={(e) => setMobileNumber(e.target.value)}
+            placeholder="WhatsApp / mobile number"
+            autoComplete="tel"
+            inputMode="tel"
+            className={fieldClass}
+          />
+        </div>
+        <div className="min-w-0">
+          <input
+            type="email"
+            value={customerEmail}
+            onChange={(e) => setCustomerEmail(e.target.value)}
+            placeholder="Email for confirmation"
+            autoComplete="email"
+            className={fieldClass}
+          />
+        </div>
+        <div className="min-w-0">
+          <input
+            value={flightNumber}
+            onChange={(e) => setFlightNumber(e.target.value)}
+            placeholder="Flight number (if known)"
+            autoComplete="off"
+            className={fieldClass}
+          />
+        </div>
+        <label className="flex min-w-0 items-center gap-3 text-sm text-white/75">
           <input
             type="checkbox"
             checked={childSeatRequired}
             onChange={(e) => setChildSeatRequired(e.target.checked)}
-            className="h-4 w-4 rounded"
+            className="h-4 w-4 shrink-0 rounded"
           />
-          Child seat required
+          <span className="min-w-0 break-words">Child seat required</span>
         </label>
       </section>
 
-      <BookingTermsConsent
-        accepted={termsAccepted}
-        onAcceptedChange={setTermsAccepted}
-        mode="card-payment"
-        paymentAmountLabel={quote.quotedAmountLabel}
-        error={!termsAccepted && error.includes("Terms") ? error : undefined}
-      />
+      <div className="min-w-0">
+        <BookingTermsConsent
+          accepted={termsAccepted}
+          onAcceptedChange={setTermsAccepted}
+          mode="card-payment"
+          paymentAmountLabel={quote.quotedAmountLabel}
+          error={!termsAccepted && error.includes("Terms") ? error : undefined}
+        />
+      </div>
 
-      {error ? <p className="text-sm text-red-300">{error}</p> : null}
+      {error ? <p className="break-words text-sm text-red-300">{error}</p> : null}
 
       <button
         type="button"
         disabled={paying}
         onClick={() => void pay()}
-        className="min-h-12 w-full rounded-xl bg-emerald px-4 text-base font-semibold text-navy disabled:opacity-50"
+        className="min-h-12 w-full max-w-full break-words rounded-xl bg-emerald px-4 py-3 text-base font-semibold leading-snug text-navy disabled:opacity-50"
       >
         {paying
           ? "Starting secure payment…"
           : `Confirm Booking & Pay ${quote.quotedAmountLabel}`}
       </button>
-      <p className="text-center text-xs text-white/45">
+      <p className="break-words px-1 pb-[max(1rem,env(safe-area-inset-bottom))] text-center text-xs text-white/45">
         You will complete payment on SumUp’s secure hosted checkout. Card details are never entered
         on this site.
       </p>
@@ -307,7 +325,7 @@ export default function BookQuoteCustomerClient() {
   return (
     <Suspense
       fallback={
-        <div className="mx-auto max-w-lg rounded-2xl border border-white/10 bg-navy-dark/70 p-6 text-center text-white/70">
+        <div className="mx-auto w-full min-w-0 max-w-lg rounded-2xl border border-white/10 bg-navy-dark/70 p-6 text-center text-white/70">
           Loading…
         </div>
       }

@@ -35,7 +35,8 @@
     "check:gps-ingestion": "npx tsx scripts/check-gps-ingestion.ts",
     "check:driver-profile-persist": "npx tsx scripts/check-driver-profile-persist.ts",
     "check:owner-profile-persist": "npx tsx scripts/check-owner-profile-persist.ts",
-    "check:quick-quote": "npx tsx scripts/check-quick-quote.ts"
+    "check:quick-quote": "npx tsx scripts/check-quick-quote.ts",
+    "check:book-quote-mobile": "npx tsx scripts/check-book-quote-mobile.ts"
   },
   "dependencies": {
     "leaflet": "^1.9.4",
