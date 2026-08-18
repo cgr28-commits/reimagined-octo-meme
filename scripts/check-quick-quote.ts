@@ -27,6 +27,7 @@ import {
 import { todayLondonDate } from "../shared/uk-time";
 import { calculateAuthoritativeWebsiteQuote } from "../src/lib/quote-service";
 import { calculateQuote } from "../src/lib/quote";
+import { isHighConfidenceAddressMatch } from "../src/lib/address-match";
 
 const root = path.resolve(import.meta.dirname, "..");
 
@@ -312,18 +313,43 @@ for (const width of [375, 390, 430]) {
   // Structural guarantees that keep the page within these common iPhone widths.
   assert.match(qqPage, /max-w-lg/); // 32rem = 512px container, padded inside viewport
   assert.match(qqClient, /w-full min-w-0 max-w-full/);
-  assert.match(qqClient, /grid min-w-0 grid-cols-2/);
+  assert.match(qqClient, /grid-cols-1 gap-3 sm:grid-cols-2/);
   assert.match(qqClient, /quote-text-input/);
 }
 assert.match(qqClient, /break-words|break-all/);
 assert.match(qqClient, /cleanExtractedText/);
 assert.match(qqClient, /type="text"/); // passengers/luggage avoid iOS number-input wipe
 assert.doesNotMatch(qqClient, /type="number"/);
+assert.match(qqClient, /autoSuggestToken/);
+assert.match(qqClient, /autoConfirmExactMatch/);
 assert.match(qqPage, /overflow-x-clip/);
 assert.match(qqPage, /min-w-0/);
 // 390px iPhone: container must not use fixed px wider than viewport
 assert.doesNotMatch(qqPage, /w-\[(4[0-9]{2}|[5-9]\d{2}|[1-9]\d{3,})px\]/);
 assert.doesNotMatch(qqClient, /w-screen|min-w-\[[4-9]\d{2}/);
+
+const addressInput = fs.readFileSync(path.join(root, "src/components/AddressInput.tsx"), "utf8");
+assert.match(addressInput, /autoSuggestToken/);
+assert.match(addressInput, /isHighConfidenceAddressMatch/);
+assert.match(addressInput, /autoConfirmExact/);
+
+console.log("=== High-confidence address match helper ===");
+assert.equal(
+  isHighConfidenceAddressMatch("43 Saul Rd, Downpatrick BT30 6PA", {
+    description: "43 Saul Road, Downpatrick BT30 6PA, UK",
+    mainText: "43 Saul Road",
+    secondaryText: "Downpatrick BT30 6PA, UK",
+  }),
+  true,
+);
+assert.equal(
+  isHighConfidenceAddressMatch("Downpatrick", {
+    description: "Downpatrick, UK",
+    mainText: "Downpatrick",
+    secondaryText: "UK",
+  }),
+  false,
+);
 
 const quoteService = fs.readFileSync(path.join(root, "src/lib/quote-service.ts"), "utf8");
 assert.match(quoteService, /export function calculateAuthoritativeWebsiteQuote/);

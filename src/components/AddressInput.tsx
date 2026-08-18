@@ -19,6 +19,7 @@ import {
 } from "@/lib/google-maps";
 import type { SelectedPlace } from "@/lib/selected-place";
 import { buildDisplayAddress } from "@/lib/selected-place";
+import { isHighConfidenceAddressMatch } from "@/lib/address-match";
 
 type AddressInputProps = {
   id: string;
@@ -59,6 +60,16 @@ type AddressInputProps = {
   /** Hide the visible label (still available to screen readers). */
   hideLabel?: boolean;
   className?: string;
+  /**
+   * When this token changes, run Places search for the current value and open
+   * suggestions (skipped when a confirmed place is already set).
+   */
+  autoSuggestToken?: number | string | null;
+  /**
+   * With autoSuggestToken: auto-confirm only an exact/high-confidence match;
+   * otherwise leave suggestions open for a one-tap confirm.
+   */
+  autoConfirmExactMatch?: boolean;
 };
 
 export default function AddressInput({
@@ -83,12 +94,18 @@ export default function AddressInput({
   suggestionsPlacement = "below",
   hideLabel = false,
   className = "",
+  autoSuggestToken = null,
+  autoConfirmExactMatch = false,
 }: AddressInputProps) {
   const autocompleteEnabled = isGooglePlacesEnabled();
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const houseInputRef = useRef<HTMLInputElement>(null);
   const selectedPlaceRef = useRef<SelectedPlace | null>(null);
+  const selectPredictionRef = useRef<(prediction: AddressPrediction) => Promise<void>>(
+    async () => undefined,
+  );
+  const lastAutoSuggestTokenRef = useRef<number | string | null>(null);
   const [suggestions, setSuggestions] = useState<AddressPrediction[]>([]);
   const [suggestionsOpen, setSuggestionsOpen] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -149,7 +166,7 @@ export default function AddressInput({
   }, [airportCode]);
 
   const requestSuggestions = useCallback(
-    (query: string) => {
+    (query: string, options?: { autoConfirmExact?: boolean }) => {
       if (!autocompleteEnabled) {
         return;
       }
@@ -164,6 +181,16 @@ export default function AddressInput({
 
       void fetchAddressPredictionsDetailed(trimmed, airportCode)
         .then((result) => {
+          if (options?.autoConfirmExact) {
+            const exact = result.predictions.find((prediction) =>
+              isHighConfidenceAddressMatch(trimmed, prediction),
+            );
+            if (exact) {
+              void selectPredictionRef.current(exact);
+              return;
+            }
+          }
+
           setSuggestions(result.predictions);
           setSuggestionsOpen(result.predictions.length > 0);
           setNeedsHouseNumber(result.needsHouseNumber);
@@ -214,6 +241,27 @@ export default function AddressInput({
     },
     [airportCode, autocompleteEnabled, disableAutoScroll, requireSuggestion, showAbove],
   );
+
+  // Parent-driven search after WhatsApp extract (or similar) — open suggestions for one-tap confirm.
+  useEffect(() => {
+    if (autoSuggestToken == null || autoSuggestToken === "") return;
+    if (lastAutoSuggestTokenRef.current === autoSuggestToken) return;
+    lastAutoSuggestTokenRef.current = autoSuggestToken;
+    if (confirmedPlace?.placeId?.trim()) return;
+    const query = value.trim();
+    if (query.length < 3 || !autocompleteEnabled) return;
+    const timer = window.setTimeout(() => {
+      requestSuggestions(query, { autoConfirmExact: autoConfirmExactMatch });
+    }, 40);
+    return () => window.clearTimeout(timer);
+  }, [
+    autoSuggestToken,
+    autoConfirmExactMatch,
+    autocompleteEnabled,
+    confirmedPlace?.placeId,
+    requestSuggestions,
+    value,
+  ]);
 
   function clearSelectionOnType(next: string) {
     if (!requireSuggestion) {
@@ -416,6 +464,7 @@ export default function AddressInput({
     onSelectPlace?.(nextPlace);
     setLoadError(null);
   }
+  selectPredictionRef.current = handleSelect;
 
   const showSuggestions = suggestionsOpen && suggestions.length > 0;
   const showHouseStep = needsHouseNumber || Boolean(lockedPostcode && houseOrBuilding);
