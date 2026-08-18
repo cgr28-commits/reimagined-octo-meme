@@ -4,7 +4,7 @@
  * with returnJourney=false so Personal Quotes store one-way figures only.
  *
  * Pass the same schedule fields the public calculator uses (outbound date/time)
- * so weekend / Bank Holiday premiums match the public site for A2A journeys.
+ * so weekend / Bank Holiday premiums match the public site for airport and A2A journeys.
  */
 
 import { VEHICLE_TYPES, type VehicleType } from "@/lib/data";

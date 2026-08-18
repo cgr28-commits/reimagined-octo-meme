@@ -8,7 +8,7 @@ export const TRIP_PREMIUM_RATE = PRICING_CONFIG.addressToAddressTripPremiumRate;
 /** Public + Personal Quote return discount — from shared/return-journey-discount-rate.json. */
 export { RETURN_JOURNEY_DISCOUNT_RATE };
 
-/** Airport transfers use no weekend uplift — OTS does not apply one. */
+/** Airport transfers: same weekend / Bank Holiday premium window as A2A (rate from config). */
 export const AIRPORT_TRIP_PREMIUM_RATE = PRICING_CONFIG.airportTripPremiumRate;
 
 /** @deprecated Use TRIP_PREMIUM_RATE */
