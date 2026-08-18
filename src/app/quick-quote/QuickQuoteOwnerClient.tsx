@@ -123,6 +123,8 @@ export default function QuickQuoteOwnerClient() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [pickupSuggestToken, setPickupSuggestToken] = useState(0);
+  const [dropoffSuggestToken, setDropoffSuggestToken] = useState(0);
 
   const flagFor = (name: string): "missing" | "uncertain" | null => {
     if (missing.includes(name)) return "missing";
@@ -311,6 +313,14 @@ export default function QuickQuoteOwnerClient() {
     setDropoffPlace(nextDropoffPlace);
     setDraft(nextDraft);
 
+    // Kick Places search for unconfirmed (non-airport) addresses — one-tap confirm.
+    if (!isPlaceSelected(nextPickupPlace) && nextPickup.trim().length >= 3) {
+      setPickupSuggestToken((n) => n + 1);
+    }
+    if (!isPlaceSelected(nextDropoffPlace) && nextDropoff.trim().length >= 3) {
+      setDropoffSuggestToken((n) => n + 1);
+    }
+
     // Missing badges from what actually landed in React state — not parser alone.
     const nextMissing: string[] = [];
     if (!nextDraft.pickupAddress.trim()) nextMissing.push("pickupAddress");
@@ -329,11 +339,11 @@ export default function QuickQuoteOwnerClient() {
 
     if (nextMissing.length || parsed.uncertainFields.length) {
       setNotice(
-        "Review highlighted fields before calculating. Confirm the non-airport address from suggestions when you can.",
+        "Review highlighted fields. Tap a suggested address to confirm, then Calculate Quote.",
       );
     } else if (!isPlaceSelected(nextPickupPlace) || !isPlaceSelected(nextDropoffPlace)) {
       setNotice(
-        "Details extracted — tap the non-airport address and pick a suggestion before calculating when possible.",
+        "Details extracted — tap the suggested address below to confirm, then Calculate Quote.",
       );
     } else {
       setNotice("Details extracted — check everything looks right, then Calculate Quote.");
@@ -581,8 +591,10 @@ export default function QuickQuoteOwnerClient() {
             confirmedPlace={isPlaceSelected(pickupPlace) ? pickupPlace : null}
             requireSuggestion={false}
             disableAutoScroll
+            autoSuggestToken={pickupSuggestToken}
+            autoConfirmExactMatch
             placeholder="Type address — then tap a suggestion"
-            helperText="Same Google Places search as the public quote tool"
+            helperText="Suggestions open after extract — tap once to confirm"
             airportCode={draft.airportCode || ""}
             className="min-w-0"
           />
@@ -609,8 +621,10 @@ export default function QuickQuoteOwnerClient() {
             confirmedPlace={isPlaceSelected(dropoffPlace) ? dropoffPlace : null}
             requireSuggestion={false}
             disableAutoScroll
+            autoSuggestToken={dropoffSuggestToken}
+            autoConfirmExactMatch
             placeholder="Type address — then tap a suggestion"
-            helperText="Same Google Places search as the public quote tool"
+            helperText="Suggestions open after extract — tap once to confirm"
             airportCode={draft.airportCode || ""}
             className="min-w-0"
           />
@@ -643,7 +657,7 @@ export default function QuickQuoteOwnerClient() {
           </button>
         </div>
 
-        <div className="grid min-w-0 grid-cols-2 gap-3">
+        <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="min-w-0">
             <FieldLabel label="Outbound date" flag={flagFor("outboundDate")} />
             <input
@@ -673,7 +687,7 @@ export default function QuickQuoteOwnerClient() {
         </div>
 
         {draft.returnJourney ? (
-          <div className="grid min-w-0 grid-cols-2 gap-3">
+          <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="min-w-0">
               <FieldLabel
                 label="Return date"
@@ -707,7 +721,7 @@ export default function QuickQuoteOwnerClient() {
           </div>
         ) : null}
 
-        <div className="grid min-w-0 grid-cols-2 gap-3">
+        <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="min-w-0">
             <FieldLabel
               label={`Passengers (max ${QUICK_QUOTE_MAX_PASSENGERS})`}
