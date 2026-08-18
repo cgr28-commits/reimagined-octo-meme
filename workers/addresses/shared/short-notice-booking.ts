@@ -50,6 +50,9 @@ export type ShortNoticeBookingRecord = {
   /** Set when paid — same paymentReference as the saved PaidBookingRecord. */
   paymentReference?: string;
   paidAt?: string;
+  /** Optional personal quote — marked used only after successful SumUp finalize. */
+  personalQuoteCode?: string;
+  standardWebsiteAmount?: number;
 };
 
 export function shortNoticeRefKey(reference: string): string {

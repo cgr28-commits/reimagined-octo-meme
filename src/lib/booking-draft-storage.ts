@@ -36,6 +36,8 @@ export type BookingFormDraft = {
   intentAirportCode?: CustomerAirportCode | "";
   termsAccepted?: boolean;
   marketingOptIn?: boolean;
+  /** Persist code only — amount is always re-validated from the server on restore. */
+  personalQuoteCode?: string;
   savedAt?: string;
 };
 

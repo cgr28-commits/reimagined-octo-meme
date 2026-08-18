@@ -23,6 +23,7 @@ import {
   pendingCheckoutStoreConfigured,
 } from "./pending-checkout-store";
 import { markShortNoticePaid } from "./short-notice-handlers";
+import { markPersonalQuoteUsed } from "./personal-quote-store";
 import { maybeRecordMarketingFromPayload } from "./marketing-handlers";
 import { trySendBrandedCustomerEmail, trySendOwnerOperationalEmail } from "./worker-email";
 
@@ -217,6 +218,10 @@ export async function finalizePaidCheckout(input: {
 
   const calendar = await logPaidBookingCalendar(env, booking, amountPaid, paymentReference);
 
+  const pendingForAudit = pendingCheckoutStoreConfigured(env.TRACKING_STORE)
+    ? await getPendingCheckout(env.TRACKING_STORE, checkoutId)
+    : null;
+
   await savePaidBookingRecordFromConfirm({
     env,
     booking,
@@ -229,6 +234,15 @@ export async function finalizePaidCheckout(input: {
     paymentReference,
     trackingToken: tracking.token,
     calendarEventIds: calendar.eventIds ?? [],
+    ...(pendingForAudit?.personalQuoteCode
+      ? { personalQuoteCode: pendingForAudit.personalQuoteCode }
+      : {}),
+    ...(typeof pendingForAudit?.standardWebsiteAmount === "number"
+      ? { standardWebsiteAmount: pendingForAudit.standardWebsiteAmount }
+      : {}),
+    ...(typeof pendingForAudit?.personalQuotedAmount === "number"
+      ? { personalQuotedAmount: pendingForAudit.personalQuotedAmount }
+      : {}),
   });
 
   await maybeRecordMarketingFromPayload(env.TRACKING_STORE, {
@@ -242,11 +256,20 @@ export async function finalizePaidCheckout(input: {
 
   if (pendingCheckoutStoreConfigured(env.TRACKING_STORE)) {
     await markPendingCheckoutFinalized(env.TRACKING_STORE, checkoutId, paymentReference);
-    const pending = await getPendingCheckout(env.TRACKING_STORE, checkoutId);
+    const pending = pendingForAudit ?? (await getPendingCheckout(env.TRACKING_STORE, checkoutId));
     if (pending?.shortNoticeToken) {
       await markShortNoticePaid(
         env.TRACKING_STORE,
         pending.shortNoticeToken,
+        paymentReference,
+        checkoutId,
+      );
+    }
+    // Consume single-use personal quotes only after SumUp PAID finalize — never on Pay click.
+    if (pending?.personalQuoteCode) {
+      await markPersonalQuoteUsed(
+        env.TRACKING_STORE,
+        pending.personalQuoteCode,
         paymentReference,
         checkoutId,
       );
