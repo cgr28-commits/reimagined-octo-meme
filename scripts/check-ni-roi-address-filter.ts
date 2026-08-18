@@ -43,6 +43,14 @@ expectAllowed("Belfast");
 expectAllowed("Newtownabbey");
 expectAllowed("Titanic Belfast, Olympic Way, Belfast");
 expectAllowed("1 Olympic Way, Belfast BT3 9EP, UK");
+// York Street: “york” must not be treated as York, England when Belfast/BT is present.
+expectAllowed("123 York Street, Belfast BT15 1AS");
+expectAllowed("123 York Street Belfast");
+expectAllowed("123 York St Belfast");
+expectAllowed("York Street, Belfast");
+expectAllowed("123 York Street, Belfast, BT15 1AS");
+expectAllowed("Hull Road, Belfast");
+expectAllowed("Reading Road, Belfast BT1 1AA");
 
 console.log("\n=== Must NOT show (England / Scotland / Wales) ===");
 expectBlocked("Oxford Street, London, England");
@@ -54,6 +62,14 @@ expectBlocked("Cardiff Bay, Cardiff, Wales");
 expectBlocked("Liverpool Lime Street, Liverpool");
 expectBlocked("Newcastle upon Tyne, England");
 expectBlocked("M1 1AE, Manchester");
+expectBlocked("York, England");
+expectBlocked("Museum Gardens, York");
+expectBlocked("York YO1 7HH");
+expectBlocked("York Street, London");
+expectBlocked("Hull, England");
+expectBlocked("Reading, Berkshire");
+// Street alone without NI/ROI signal stays blocked (still requires place selection + NI context).
+expectBlocked("123 York Street");
 
 console.log("\n=== BFS mode blocks ROI + mainland ===");
 assert.equal(isAllowedAutocompleteLabel("Grafton Street, Dublin", "BFS"), false);
