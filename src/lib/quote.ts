@@ -1,4 +1,4 @@
-import { ALL_AIRPORTS as AIRPORTS, AREAS, VEHICLE_TYPES } from "@/lib/data";
+import { ALL_AIRPORTS as AIRPORTS, AREAS, VEHICLE_TYPES } from "./data";
 import { isLdyServiceAreaAddress } from "../../shared/ldy-service-area";
 import {
   applyTripPremium,
@@ -6,8 +6,8 @@ import {
   getReturnJourneyFare,
   isTripPremiumDateTime,
   type TripSchedule,
-} from "@/lib/point-to-point-premium";
-import type { TripRouteMetrics } from "@/lib/trip-route";
+} from "./point-to-point-premium";
+import type { TripRouteMetrics } from "./trip-route";
 import {
   calculateOperationalSubtotal,
   getAirportBasePrice,
@@ -15,7 +15,7 @@ import {
   hasOperationalRatesConfigured,
   PRICING_CONFIG,
   type AirportCode,
-} from "@/lib/pricing-config";
+} from "./pricing-config";
 
 type Area = (typeof AREAS)[number];
 
@@ -816,5 +816,5 @@ export {
   arePricingRulesApproved,
   arePublicLivePricesEnabled,
   getPublicUnapprovedPriceLabel,
-} from "@/lib/pricing-config";
+} from "./pricing-config";
 

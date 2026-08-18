@@ -3,7 +3,7 @@
  * Monetary rates live in pricing-config.json and are not defined here.
  */
 
-import { MINIBUS_VEHICLE_TYPE, VEHICLE_TYPES, type VehicleType } from "@/lib/data";
+import { MINIBUS_VEHICLE_TYPE, VEHICLE_TYPES, type VehicleType } from "./data";
 import {
   GROUP_PASSENGER_MAX,
   GROUP_PASSENGER_MIN,
