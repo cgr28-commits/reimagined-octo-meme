@@ -1,10 +1,12 @@
 /**
  * Paid booking refund / cancellation — extends the existing SumUp refund pipeline.
  * Supports full/partial refunds, cancel-without-refund, and refund-without-cancel.
+ *
+ * Money-moving work must be routed through RefundCoordinator (Durable Object).
+ * Serialization uses DO blockConcurrencyWhile — no KV refund locks.
  */
 
 import {
-  buildCustomerRefundConfirmationEmail,
   buildOwnerRefundConfirmationEmail,
   buildCustomerCancellationEmails,
   formatPaidAmount,
@@ -12,13 +14,15 @@ import {
 } from "../shared/booking-notifications";
 import type { PaidBookingRecord } from "../shared/paid-booking-record";
 import {
+  cappedRefundAmount,
   generateRefundOpId,
-  isOperationallyCancelled,
   isWithin24HoursOfPickup,
-  nextMoneyStatus,
+  nextBookingStatuses,
   ownerNotesRequired,
   parseMoneyLabelToNumber,
   remainingRefundableBalance,
+  resolveOperationalStatus,
+  resolvePaymentStatusFromRecord,
   resolveRefundAmountForAction,
   roundGbp,
   type RefundActionKind,
@@ -29,6 +33,7 @@ import {
 import {
   getSumUpCheckout,
   getSuccessfulTransactionId,
+  getSumUpTransactionDetails,
   resolveSumUpTransactionForRefund,
   refundSumUpTransaction,
 } from "../shared/sumup-checkout";
@@ -63,6 +68,7 @@ type RefundEnv = WorkerEmailEnv &
     BOOKING_TO_EMAIL?: string;
     GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON?: string;
     GOOGLE_CALENDAR_ID?: string;
+    REFUND_COORDINATOR?: DurableObjectNamespace;
   };
 
 const BUSINESS_NAME = "My Airport Taxi NI";
@@ -83,11 +89,6 @@ function verifyConfirmOwnerKey(env: RefundEnv, confirmOwnerKey: string): boolean
   return Boolean(expected) && Boolean(provided) && expected === provided;
 }
 
-function isKnownRefundAmount(label: string | undefined): boolean {
-  const trimmed = label?.trim() ?? "";
-  return Boolean(trimmed) && trimmed.toLowerCase() !== "unknown";
-}
-
 function calendarConfigured(env: RefundEnv): boolean {
   return Boolean(
     env.GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON?.trim() && env.GOOGLE_CALENDAR_ID?.trim(),
@@ -99,16 +100,55 @@ function amountPaidOf(record: PaidBookingRecord): number {
   return parseMoneyLabelToNumber(record.amountPaidLabel) ?? 0;
 }
 
+/** Treat legacy refunded / refunded_active as fully refunded when amountRefunded is missing. */
 function amountRefundedOf(record: PaidBookingRecord): number {
   if (typeof record.amountRefunded === "number" && record.amountRefunded >= 0) {
     return roundGbp(record.amountRefunded);
   }
-  if (record.status === "refunded") return amountPaidOf(record);
+  if (record.status === "refunded" || record.status === "refunded_active") {
+    return amountPaidOf(record);
+  }
   return 0;
 }
 
-function refundLockKey(paymentReference: string): string {
-  return `booking:refund-lock:${paymentReference.trim().toLowerCase()}`;
+function isTerminalMoneySuccess(entry: RefundAuditEntry): boolean {
+  return (
+    entry.success &&
+    (entry.operationState === "processor_accepted" || entry.operationState === "completed")
+  );
+}
+
+function isUncertainEntry(entry: RefundAuditEntry): boolean {
+  if (entry.operationState === "completed" || entry.operationState === "failed") return false;
+  if (entry.operationState === "processing" || entry.operationState === "reconciliation_required") {
+    return true;
+  }
+  if (entry.operationState === "processor_accepted" && !entry.completedAt) return true;
+  return false;
+}
+
+function patchAuditEntry(
+  record: PaidBookingRecord,
+  auditId: string,
+  patch: Partial<RefundAuditEntry>,
+): PaidBookingRecord {
+  const history = record.refundHistory ?? [];
+  return {
+    ...record,
+    refundHistory: history.map((entry) =>
+      entry.id === auditId ? { ...entry, ...patch } : entry,
+    ),
+  };
+}
+
+async function persistRecord(
+  env: RefundEnv,
+  record: PaidBookingRecord,
+  previousTripDate?: string,
+): Promise<void> {
+  await savePaidBookingRecord(env.TRACKING_STORE!, record, {
+    previousTripDate,
+  });
 }
 
 export type RefundIssueResult = {
@@ -144,31 +184,38 @@ export type ProcessRefundOptions = {
   ownerNotes?: string;
   customerFacingReason?: string;
   idempotencyKey?: string;
-  confirmOwnerKey?: string;
+  confirmOwnerKey: string;
   actionKind?: RefundActionKind;
-  /** Legacy path: skip confirm-key body check (header auth only). Prefer false. */
-  legacyFullRefund?: boolean;
 };
 
 /**
  * Backward-compatible full refund + cancel (existing admin / owner one-click).
- * New UI should call processBookingRefundOrCancel with explicit options + re-auth key.
+ * Requires confirmOwnerKey — no bypass path.
  */
 export async function issueBookingRefund(
   env: RefundEnv,
   paymentReferenceInput: string,
-  options?: { trackingToken?: string },
+  options: { trackingToken?: string; confirmOwnerKey: string },
 ): Promise<RefundIssueResult> {
+  const paymentReference = paymentReferenceInput.trim();
+  if (!options.confirmOwnerKey || !verifyConfirmOwnerKey(env, options.confirmOwnerKey)) {
+    return {
+      ok: false,
+      paymentReference,
+      error: "Re-enter OWNER_ACCESS_KEY to confirm this refund or cancellation.",
+    };
+  }
+
   return processBookingRefundOrCancel(env, {
-    paymentReference: paymentReferenceInput,
-    trackingToken: options?.trackingToken,
+    paymentReference,
+    trackingToken: options.trackingToken,
     cancelBooking: true,
     refundFullRemaining: true,
     reasonCategory: "other",
     ownerNotes: "Legacy full refund + cancel",
-    idempotencyKey: `legacy-full-${paymentReferenceInput.trim()}-${Date.now()}`,
+    idempotencyKey: `legacy-full-${paymentReference}-${Date.now()}`,
     actionKind: "cancel_full_refund",
-    legacyFullRefund: true,
+    confirmOwnerKey: options.confirmOwnerKey,
   });
 }
 
@@ -176,6 +223,8 @@ export async function processBookingRefundOrCancel(
   env: RefundEnv,
   options: ProcessRefundOptions & { paymentReference: string },
 ): Promise<RefundIssueResult> {
+  // Serialization is handled by RefundCoordinator Durable Object (blockConcurrencyWhile).
+  // No KV refund lock here — callers must route money-moving work through the DO.
   const paymentReference = options.paymentReference.trim();
   if (!paymentReference) {
     return { ok: false, paymentReference: "", error: "Missing payment reference" };
@@ -185,14 +234,12 @@ export async function processBookingRefundOrCancel(
     return { ok: false, paymentReference, error: "Booking store is not configured" };
   }
 
-  if (!options.legacyFullRefund) {
-    if (!options.confirmOwnerKey || !verifyConfirmOwnerKey(env, options.confirmOwnerKey)) {
-      return {
-        ok: false,
-        paymentReference,
-        error: "Re-enter OWNER_ACCESS_KEY to confirm this refund or cancellation.",
-      };
-    }
+  if (!options.confirmOwnerKey || !verifyConfirmOwnerKey(env, options.confirmOwnerKey)) {
+    return {
+      ok: false,
+      paymentReference,
+      error: "Re-enter OWNER_ACCESS_KEY to confirm this refund or cancellation.",
+    };
   }
 
   const actionKind: RefundActionKind = options.actionKind ?? "cancel_full_refund";
@@ -208,6 +255,8 @@ export async function processBookingRefundOrCancel(
     return { ok: false, paymentReference, error: "Missing idempotency key." };
   }
 
+  const initialTripDateRef = { value: "" };
+
   let record =
     (await getPaidBookingRecord(env.TRACKING_STORE, paymentReference)) ??
     (await buildLegacyPaidBookingRecord(env, paymentReference, options.trackingToken));
@@ -219,33 +268,51 @@ export async function processBookingRefundOrCancel(
       error: "Booking not found for that payment reference",
     };
   }
+  initialTripDateRef.value = record.tripDate;
 
-  const prior = (record.refundHistory ?? []).find(
-    (entry) => entry.idempotencyKey === idempotencyKey && entry.success,
+  const priorSameKey = (record.refundHistory ?? []).find(
+    (entry) => entry.idempotencyKey === idempotencyKey,
   );
-  if (prior) {
+
+  if (priorSameKey && isTerminalMoneySuccess(priorSameKey)) {
     return {
       ok: true,
       alreadyProcessed: true,
       paymentReference,
-      refundAmount: formatPaidAmount(prior.refundAmount, prior.currency),
-      refundAmountValue: prior.refundAmount,
-      cumulativeRefunded: prior.cumulativeRefundedAmount,
-      remainingBalance: prior.remainingBalance,
+      refundAmount: formatPaidAmount(priorSameKey.refundAmount, priorSameKey.currency),
+      refundAmountValue: priorSameKey.refundAmount,
+      cumulativeRefunded: priorSameKey.cumulativeRefundedAmount,
+      remainingBalance: priorSameKey.remainingBalance,
       status: record.status,
-      cancelBooking: prior.cancelBooking,
-      auditId: prior.id,
+      cancelBooking: priorSameKey.cancelBooking,
+      auditId: priorSameKey.id,
     };
   }
 
-  if (record.status === "refunded" && refundFullRemaining && !cancelBooking) {
-    return {
-      ok: true,
-      alreadyRefunded: true,
+  if (priorSameKey && isUncertainEntry(priorSameKey)) {
+    return await finishUncertainRefund(env, record, priorSameKey, {
       paymentReference,
-      refundAmount: record.refundAmountLabel ?? record.amountPaidLabel,
-      status: record.status,
-    };
+      cancelBooking,
+      reasonCategory,
+      customerFacingReason: options.customerFacingReason?.trim() || undefined,
+      actionKind,
+      initialTripDate: initialTripDateRef.value,
+    });
+  }
+
+  const sumUpApiKey = env.SUMUP_API_KEY?.trim() ?? "";
+  const sumUpMerchantCode = env.SUMUP_MERCHANT_CODE?.trim() ?? "";
+
+  // Different idempotency key — reconcile SumUp totals first so cumulative cannot exceed paid.
+  if (sumUpApiKey) {
+    const reconciled = await reconcileRecordWithSumUp(
+      env,
+      record,
+      sumUpApiKey,
+      sumUpMerchantCode,
+      initialTripDateRef.value,
+    );
+    record = reconciled.record;
   }
 
   const amountPaid = amountPaidOf(record);
@@ -261,9 +328,9 @@ export async function processBookingRefundOrCancel(
   if (resolved.error) {
     return { ok: false, paymentReference, error: resolved.error };
   }
-  const refundAmount = resolved.refundAmount;
+  const requestedRefundAmount = resolved.refundAmount;
 
-  if (refundAmount <= 0 && !cancelBooking) {
+  if (requestedRefundAmount <= 0 && !cancelBooking) {
     return {
       ok: false,
       paymentReference,
@@ -276,8 +343,9 @@ export async function processBookingRefundOrCancel(
   if (
     ownerNotesRequired({
       reasonCategory,
-      refundAmount,
-      refundFullRemaining: refundAmount >= remaining - 0.001 && refundAmount > 0,
+      refundAmount: requestedRefundAmount,
+      refundFullRemaining:
+        requestedRefundAmount >= remaining - 0.001 && requestedRefundAmount > 0,
       within24h,
     }) &&
     !notes
@@ -293,56 +361,58 @@ export async function processBookingRefundOrCancel(
   const auditId = generateRefundOpId();
   const warnings: string[] = [];
 
-  // Short-lived lock against double-submit races.
-  const lockKey = refundLockKey(paymentReference);
-  try {
-    const existingLock = await env.TRACKING_STORE!.get(lockKey);
-    if (existingLock && existingLock !== idempotencyKey) {
-      return {
-        ok: false,
-        paymentReference,
-        error: "Another refund is already in progress for this booking. Wait and retry.",
-      };
-    }
-    await env.TRACKING_STORE!.put(lockKey, idempotencyKey, { expirationTtl: 90 });
-  } catch {
-    warnings.push("Could not acquire refund lock — continuing carefully");
-  }
+  const previouslyCancelled = resolveOperationalStatus(record) === "cancelled";
 
-  let sumUpRefunded = false;
-  let sumUpStatus = "skipped";
-  let sumUpReference: string | undefined;
+  let refundAmount = requestedRefundAmount;
   let refundAmountLabel =
     refundAmount > 0 ? formatPaidAmount(refundAmount, record.currency || "GBP") : "£0";
+  let sumUpRefunded = false;
+
+  const baseAudit: Omit<RefundAuditEntry, "operationState"> = {
+    id: auditId,
+    bookingReference: paymentReference,
+    sumUpTransactionId: record.transactionId,
+    originalAmountPaid: amountPaid,
+    refundAmount,
+    cumulativeRefundedAmount: alreadyRefunded,
+    remainingBalance: remaining,
+    currency: record.currency || "GBP",
+    fullOrPartial:
+      refundAmount <= 0 ? "none" : remaining - refundAmount <= 0.001 ? "full" : "partial",
+    cancelBooking,
+    reasonCategory,
+    ownerNotes: notes,
+    customerFacingReason: options.customerFacingReason?.trim() || undefined,
+    requestedAt,
+    success: false,
+    customerEmailStatus: "skipped",
+    ownerEmailStatus: "skipped",
+    idempotencyKey,
+    actionKind,
+  };
+
+  // Audit: requested — save early.
+  record = {
+    ...record,
+    refundHistory: [...(record.refundHistory ?? []), { ...baseAudit, operationState: "requested" }],
+  };
+  await persistRecord(env, record, initialTripDateRef.value);
+
+  // Audit: processing — save.
+  record = patchAuditEntry(record, auditId, { operationState: "processing" });
+  await persistRecord(env, record, initialTripDateRef.value);
 
   if (refundAmount > 0) {
-    const sumUpApiKey = env.SUMUP_API_KEY?.trim() ?? "";
-    const sumUpMerchantCode = env.SUMUP_MERCHANT_CODE?.trim() ?? "";
-
     if (!sumUpApiKey) {
-      await appendFailedAudit(env, record, {
-        id: auditId,
-        bookingReference: paymentReference,
-        originalAmountPaid: amountPaid,
-        refundAmount,
-        cumulativeRefundedAmount: alreadyRefunded,
-        remainingBalance: remaining,
-        currency: record.currency || "GBP",
-        fullOrPartial: refundAmount >= remaining - 0.001 ? "full" : "partial",
-        cancelBooking,
-        reasonCategory,
-        ownerNotes: notes,
-        customerFacingReason: options.customerFacingReason?.trim() || undefined,
-        requestedAt,
-        success: false,
-        failureDetail: "SumUp refund was not attempted — missing API key",
-        customerEmailStatus: "skipped",
-        ownerEmailStatus: "skipped",
-        idempotencyKey,
-        actionKind,
-        sumUpStatus: "missing_api_key",
-      });
-      await clearLock(env, lockKey, idempotencyKey);
+      await failRefund(
+        env,
+        record,
+        auditId,
+        paymentReference,
+        "SumUp refund was not attempted — missing API key",
+        { sumUpStatus: "missing_api_key" },
+        initialTripDateRef.value,
+      );
       return {
         ok: false,
         paymentReference,
@@ -351,61 +421,20 @@ export async function processBookingRefundOrCancel(
       };
     }
 
+    record = await resolveTransactionOnRecord(env, record, sumUpApiKey, sumUpMerchantCode);
+    record = patchAuditEntry(record, auditId, { sumUpTransactionId: record.transactionId });
+    await persistRecord(env, record, initialTripDateRef.value);
+
     if (!record.transactionId) {
-      const resolvedTx = await resolveSumUpTransactionForRefund(
-        sumUpApiKey,
-        sumUpMerchantCode,
-        record.paymentReference,
-        record.checkoutId || undefined,
+      await failRefund(
+        env,
+        record,
+        auditId,
+        paymentReference,
+        "Could not find SumUp transaction for this booking",
+        { sumUpStatus: "transaction_not_found" },
+        initialTripDateRef.value,
       );
-      if (resolvedTx?.id) {
-        record.transactionId = resolvedTx.id;
-        if (typeof resolvedTx.amount === "number" && resolvedTx.amount > 0) {
-          record.amount = resolvedTx.amount;
-          record.currency = resolvedTx.currency ?? record.currency;
-          record.amountPaidLabel = formatPaidAmount(record.amount, record.currency);
-        }
-      }
-    }
-
-    if (!record.transactionId && record.checkoutId) {
-      try {
-        const checkout = await getSumUpCheckout(sumUpApiKey, record.checkoutId);
-        const transactionId = getSuccessfulTransactionId(checkout);
-        if (transactionId) record.transactionId = transactionId;
-        if (typeof checkout.amount === "number" && checkout.amount > 0) {
-          record.amount = checkout.amount;
-          record.currency = checkout.currency ?? record.currency;
-          record.amountPaidLabel = formatPaidAmount(record.amount, record.currency);
-        }
-      } catch {
-        // best effort
-      }
-    }
-
-    if (!record.transactionId) {
-      await appendFailedAudit(env, record, {
-        id: auditId,
-        bookingReference: paymentReference,
-        originalAmountPaid: amountPaidOf(record),
-        refundAmount,
-        cumulativeRefundedAmount: alreadyRefunded,
-        remainingBalance: remaining,
-        currency: record.currency || "GBP",
-        fullOrPartial: "partial",
-        cancelBooking,
-        reasonCategory,
-        ownerNotes: notes,
-        requestedAt,
-        success: false,
-        failureDetail: "Could not find SumUp transaction for this booking",
-        customerEmailStatus: "skipped",
-        ownerEmailStatus: "skipped",
-        idempotencyKey,
-        actionKind,
-        sumUpStatus: "transaction_not_found",
-      });
-      await clearLock(env, lockKey, idempotencyKey);
       return {
         ok: false,
         paymentReference,
@@ -414,17 +443,102 @@ export async function processBookingRefundOrCancel(
       };
     }
 
+    const reconciled = await reconcileRecordWithSumUp(
+      env,
+      record,
+      sumUpApiKey,
+      sumUpMerchantCode,
+      initialTripDateRef.value,
+    );
+    record = reconciled.record;
+    const authoritativeAlready = reconciled.authoritativeAlready;
+    const paidNow = amountPaidOf(record);
+
+    refundAmount = cappedRefundAmount({
+      requested: refundAmount,
+      amountPaid: paidNow,
+      alreadyRefunded: authoritativeAlready,
+    });
+    refundAmountLabel =
+      refundAmount > 0 ? formatPaidAmount(refundAmount, record.currency || "GBP") : "£0";
+
+    record = patchAuditEntry(record, auditId, {
+      refundAmount,
+      originalAmountPaid: paidNow,
+      cumulativeRefundedAmount: authoritativeAlready,
+      remainingBalance: remainingRefundableBalance(paidNow, authoritativeAlready),
+      fullOrPartial:
+        refundAmount <= 0
+          ? "none"
+          : remainingRefundableBalance(paidNow, authoritativeAlready + refundAmount) <= 0.001
+            ? "full"
+            : "partial",
+    });
+    await persistRecord(env, record, initialTripDateRef.value);
+
+    if (refundAmount <= 0) {
+      // Already fully refunded on SumUp — sync local, skip SumUp call.
+      const cumulative = authoritativeAlready;
+      const statuses = nextBookingStatuses({
+        cancelBooking,
+        previouslyCancelled,
+        amountPaid: paidNow,
+        amountRefundedAfter: cumulative,
+      });
+
+      const processorAcceptedAt = new Date().toISOString();
+      record = {
+        ...record,
+        amount: paidNow,
+        amountPaidLabel: formatPaidAmount(paidNow, record.currency || "GBP"),
+        amountRefunded: cumulative,
+        operationalStatus: statuses.operationalStatus,
+        paymentStatus: statuses.paymentStatus,
+        status: statuses.status,
+        refundAmountLabel:
+          cumulative > 0
+            ? formatPaidAmount(cumulative, record.currency || "GBP")
+            : record.refundAmountLabel,
+        ...(cumulative > 0 ? { refundedAt: record.refundedAt ?? processorAcceptedAt } : {}),
+        ...(cancelBooking ? { cancelledAt: record.cancelledAt ?? processorAcceptedAt } : {}),
+      };
+      record = patchAuditEntry(record, auditId, {
+        refundAmount: 0,
+        cumulativeRefundedAmount: cumulative,
+        remainingBalance: remainingRefundableBalance(paidNow, cumulative),
+        fullOrPartial: cumulative >= paidNow - 0.001 && cumulative > 0 ? "full" : "none",
+        operationState: "processor_accepted",
+        processorAcceptedAt,
+        success: true,
+        sumUpStatus: "already_refunded",
+      });
+      await persistRecord(env, record, initialTripDateRef.value);
+
+      return await completeRefundSideEffects(env, {
+        record,
+        auditId,
+        paymentReference,
+        refundAmount: 0,
+        refundAmountLabel: "£0",
+        cancelBooking,
+        reasonCategory,
+        customerFacingReason: options.customerFacingReason?.trim() || undefined,
+        actionKind,
+        within24h,
+        warnings,
+        initialTripDate: initialTripDateRef.value,
+        alreadyProcessed: true,
+      });
+    }
+
     try {
       const refund = await refundSumUpTransaction(
         sumUpApiKey,
-        record.transactionId,
-        // Always pass explicit GBP amount for partials and remaining balances.
+        record.transactionId!,
         refundAmount,
         sumUpMerchantCode || undefined,
       );
       sumUpRefunded = true;
-      sumUpStatus = "accepted";
-      sumUpReference = record.transactionId;
       if (typeof refund.refundedAmount === "number" && refund.refundedAmount > 0) {
         refundAmountLabel = formatPaidAmount(
           refund.refundedAmount,
@@ -433,31 +547,11 @@ export async function processBookingRefundOrCancel(
       }
     } catch (error) {
       const detail = error instanceof Error ? error.message : "SumUp refund failed";
-      await appendFailedAudit(env, record, {
-        id: auditId,
-        bookingReference: paymentReference,
-        sumUpTransactionId: record.transactionId,
-        originalAmountPaid: amountPaidOf(record),
-        refundAmount,
-        cumulativeRefundedAmount: alreadyRefunded,
-        remainingBalance: remaining,
-        currency: record.currency || "GBP",
-        fullOrPartial: refundAmount >= remaining - 0.001 ? "full" : "partial",
-        cancelBooking,
-        reasonCategory,
-        ownerNotes: notes,
-        requestedAt,
-        completedAt: new Date().toISOString(),
-        success: false,
-        failureDetail: detail,
-        customerEmailStatus: "skipped",
-        ownerEmailStatus: "pending",
-        idempotencyKey,
-        actionKind,
+      await failRefund(env, record, auditId, paymentReference, detail, {
         sumUpStatus: "failed",
-      });
+        sumUpTransactionId: record.transactionId,
+      }, initialTripDateRef.value);
 
-      // Alert owner — never tell customer the refund completed.
       await trySendOwnerOperationalEmail(env, {
         to: "bookings@myairporttaxini.co.uk",
         subject: `REFUND FAILED — ${record.customerName} — ${paymentReference}`,
@@ -470,15 +564,355 @@ export async function processBookingRefundOrCancel(
           `You can safely retry after checking SumUp.`,
       });
 
-      await clearLock(env, lockKey, idempotencyKey);
       return { ok: false, paymentReference, error: detail, auditId };
+    }
+
+    const paidAfter = amountPaidOf(record);
+    const cumulative = roundGbp(authoritativeAlready + refundAmount);
+    const statuses = nextBookingStatuses({
+      cancelBooking,
+      previouslyCancelled,
+      amountPaid: paidAfter,
+      amountRefundedAfter: cumulative,
+    });
+    const processorAcceptedAt = new Date().toISOString();
+
+    record = {
+      ...record,
+      amount: paidAfter,
+      amountPaidLabel: formatPaidAmount(paidAfter, record.currency || "GBP"),
+      amountRefunded: cumulative,
+      operationalStatus: statuses.operationalStatus,
+      paymentStatus: statuses.paymentStatus,
+      status: statuses.status,
+      refundAmountLabel: formatPaidAmount(cumulative, record.currency || "GBP"),
+      refundedAt: record.refundedAt ?? processorAcceptedAt,
+      ...(cancelBooking ? { cancelledAt: record.cancelledAt ?? processorAcceptedAt } : {}),
+    };
+    record = patchAuditEntry(record, auditId, {
+      refundAmount,
+      cumulativeRefundedAmount: cumulative,
+      remainingBalance: remainingRefundableBalance(paidAfter, cumulative),
+      fullOrPartial:
+        remainingRefundableBalance(paidAfter, cumulative) <= 0.001 ? "full" : "partial",
+      operationState: "processor_accepted",
+      processorAcceptedAt,
+      success: true,
+      sumUpStatus: "accepted",
+      sumUpReference: record.transactionId,
+    });
+    await persistRecord(env, record, initialTripDateRef.value);
+
+    return await completeRefundSideEffects(env, {
+      record,
+      auditId,
+      paymentReference,
+      refundAmount,
+      refundAmountLabel,
+      cancelBooking,
+      reasonCategory,
+      customerFacingReason: options.customerFacingReason?.trim() || undefined,
+      actionKind,
+      within24h,
+      warnings,
+      initialTripDate: initialTripDateRef.value,
+      sumUpRefunded,
+    });
+  }
+
+  // Cancel without refund (refundAmount = 0).
+  const paidAfter = amountPaidOf(record);
+  const cumulative = amountRefundedOf(record);
+  const statuses = nextBookingStatuses({
+    cancelBooking,
+    previouslyCancelled,
+    amountPaid: paidAfter,
+    amountRefundedAfter: cumulative,
+  });
+
+  record = {
+    ...record,
+    operationalStatus: statuses.operationalStatus,
+    paymentStatus: statuses.paymentStatus,
+    status: statuses.status,
+    ...(cancelBooking ? { cancelledAt: record.cancelledAt ?? new Date().toISOString() } : {}),
+  };
+  record = patchAuditEntry(record, auditId, {
+    refundAmount: 0,
+    cumulativeRefundedAmount: cumulative,
+    remainingBalance: remainingRefundableBalance(paidAfter, cumulative),
+    fullOrPartial: "none",
+    operationState: "processor_accepted",
+    processorAcceptedAt: new Date().toISOString(),
+    success: true,
+    sumUpStatus: "skipped",
+  });
+  await persistRecord(env, record, initialTripDateRef.value);
+
+  return await completeRefundSideEffects(env, {
+    record,
+    auditId,
+    paymentReference,
+    refundAmount: 0,
+    refundAmountLabel: "£0",
+    cancelBooking,
+    reasonCategory,
+    customerFacingReason: options.customerFacingReason?.trim() || undefined,
+    actionKind,
+    within24h,
+    warnings,
+    initialTripDate: initialTripDateRef.value,
+  });
+}
+
+async function resolveTransactionOnRecord(
+  env: RefundEnv,
+  record: PaidBookingRecord,
+  sumUpApiKey: string,
+  sumUpMerchantCode: string,
+): Promise<PaidBookingRecord> {
+  let updated = { ...record };
+
+  if (!updated.transactionId) {
+    const resolvedTx = await resolveSumUpTransactionForRefund(
+      sumUpApiKey,
+      sumUpMerchantCode,
+      updated.paymentReference,
+      updated.checkoutId || undefined,
+    );
+    if (resolvedTx?.id) {
+      updated.transactionId = resolvedTx.id;
+      if (typeof resolvedTx.amount === "number" && resolvedTx.amount > 0) {
+        updated.amount = resolvedTx.amount;
+        updated.currency = resolvedTx.currency ?? updated.currency;
+        updated.amountPaidLabel = formatPaidAmount(updated.amount, updated.currency);
+      }
     }
   }
 
-  // Operational cancel (calendar + tracking) only when requested.
+  if (!updated.transactionId && updated.checkoutId) {
+    try {
+      const checkout = await getSumUpCheckout(sumUpApiKey, updated.checkoutId);
+      const transactionId = getSuccessfulTransactionId(checkout);
+      if (transactionId) updated.transactionId = transactionId;
+      if (typeof checkout.amount === "number" && checkout.amount > 0) {
+        updated.amount = checkout.amount;
+        updated.currency = checkout.currency ?? updated.currency;
+        updated.amountPaidLabel = formatPaidAmount(updated.amount, updated.currency);
+      }
+    } catch {
+      // best effort
+    }
+  }
+
+  return updated;
+}
+
+async function reconcileRecordWithSumUp(
+  env: RefundEnv,
+  record: PaidBookingRecord,
+  sumUpApiKey: string,
+  sumUpMerchantCode: string,
+  initialTripDate: string,
+): Promise<{ record: PaidBookingRecord; authoritativeAlready: number }> {
+  let updated = await resolveTransactionOnRecord(env, record, sumUpApiKey, sumUpMerchantCode);
+  const localAlready = amountRefundedOf(updated);
+
+  if (!updated.transactionId) {
+    return { record: updated, authoritativeAlready: localAlready };
+  }
+
+  const details = await getSumUpTransactionDetails(
+    sumUpApiKey,
+    updated.transactionId,
+    sumUpMerchantCode || undefined,
+  );
+  const processorRefunded = details?.amountRefunded ?? 0;
+  const authoritativeAlready = Math.max(localAlready, processorRefunded);
+
+  if (processorRefunded > localAlready) {
+    const paid = amountPaidOf(updated);
+    const paymentStatus = resolvePaymentStatusFromRecord({
+      amountPaid: paid,
+      amountRefunded: authoritativeAlready,
+      status: updated.status,
+      paymentStatus: updated.paymentStatus,
+    });
+    updated = {
+      ...updated,
+      amountRefunded: authoritativeAlready,
+      paymentStatus,
+      status: deriveCombinedFromRecord(updated, paymentStatus, authoritativeAlready),
+    };
+    await persistRecord(env, updated, initialTripDate);
+  }
+
+  return { record: updated, authoritativeAlready };
+}
+
+function deriveCombinedFromRecord(
+  record: PaidBookingRecord,
+  paymentStatus: ReturnType<typeof derivePaymentStatus>,
+  amountRefundedAfter: number,
+): PaidBookingRecord["status"] {
+  const operational = resolveOperationalStatus(record);
+  return nextBookingStatuses({
+    cancelBooking: operational === "cancelled",
+    previouslyCancelled: operational === "cancelled",
+    amountPaid: amountPaidOf(record),
+    amountRefundedAfter,
+  }).status;
+}
+
+async function failRefund(
+  env: RefundEnv,
+  record: PaidBookingRecord,
+  auditId: string,
+  paymentReference: string,
+  failureDetail: string,
+  extra: Partial<RefundAuditEntry>,
+  initialTripDate: string,
+): Promise<void> {
+  const completedAt = new Date().toISOString();
+  const failed = patchAuditEntry(record, auditId, {
+    ...extra,
+    operationState: "failed",
+    completedAt,
+    success: false,
+    failureDetail,
+    customerEmailStatus: "skipped",
+    ownerEmailStatus: "pending",
+  });
+  await persistRecord(env, failed, initialTripDate);
+}
+
+async function finishUncertainRefund(
+  env: RefundEnv,
+  record: PaidBookingRecord,
+  prior: RefundAuditEntry,
+  ctx: {
+    paymentReference: string;
+    cancelBooking: boolean;
+    reasonCategory: RefundReasonCategory;
+    customerFacingReason?: string;
+    actionKind: RefundActionKind;
+    initialTripDate: string;
+  },
+): Promise<RefundIssueResult> {
+  const sumUpApiKey = env.SUMUP_API_KEY?.trim() ?? "";
+  const sumUpMerchantCode = env.SUMUP_MERCHANT_CODE?.trim() ?? "";
+  const warnings: string[] = [];
+
+  if (sumUpApiKey) {
+    const reconciled = await reconcileRecordWithSumUp(
+      env,
+      record,
+      sumUpApiKey,
+      sumUpMerchantCode,
+      ctx.initialTripDate,
+    );
+    record = reconciled.record;
+  }
+
+  const paidAfter = amountPaidOf(record);
+  const cumulative = amountRefundedOf(record);
+  const intendedRefund = prior.refundAmount;
+  const moneyMoved =
+    intendedRefund > 0 &&
+    cumulative >= roundGbp((prior.cumulativeRefundedAmount ?? 0) + intendedRefund - 0.001);
+
+  if (moneyMoved || prior.operationState === "processor_accepted") {
+    const cancelBooking = prior.cancelBooking ?? ctx.cancelBooking;
+    const statuses = nextBookingStatuses({
+      cancelBooking,
+      previouslyCancelled: resolveOperationalStatus(record) === "cancelled",
+      amountPaid: paidAfter,
+      amountRefundedAfter: cumulative,
+    });
+
+    record = {
+      ...record,
+      amountRefunded: cumulative,
+      operationalStatus: statuses.operationalStatus,
+      paymentStatus: statuses.paymentStatus,
+      status: statuses.status,
+      refundAmountLabel:
+        cumulative > 0
+          ? formatPaidAmount(cumulative, record.currency || "GBP")
+          : record.refundAmountLabel,
+    };
+
+    if (!prior.processorAcceptedAt) {
+      record = patchAuditEntry(record, prior.id, {
+        operationState: "processor_accepted",
+        processorAcceptedAt: new Date().toISOString(),
+        success: true,
+        cumulativeRefundedAmount: cumulative,
+        remainingBalance: remainingRefundableBalance(paidAfter, cumulative),
+      });
+      await persistRecord(env, record, ctx.initialTripDate);
+    }
+
+    return await completeRefundSideEffects(env, {
+      record,
+      auditId: prior.id,
+      paymentReference: ctx.paymentReference,
+      refundAmount: prior.refundAmount,
+      refundAmountLabel: formatPaidAmount(prior.refundAmount, prior.currency),
+      cancelBooking,
+      reasonCategory: prior.reasonCategory ?? ctx.reasonCategory,
+      customerFacingReason: prior.customerFacingReason ?? ctx.customerFacingReason,
+      actionKind: prior.actionKind ?? ctx.actionKind,
+      within24h: isWithin24HoursOfPickup(record.tripDate, record.tripTime),
+      warnings,
+      initialTripDate: ctx.initialTripDate,
+      sumUpRefunded: prior.refundAmount > 0,
+      alreadyProcessed: true,
+    });
+  }
+
+  record = patchAuditEntry(record, prior.id, {
+    operationState: "reconciliation_required",
+    failureDetail: "Prior refund attempt uncertain — SumUp totals do not show the expected refund.",
+  });
+  await persistRecord(env, record, ctx.initialTripDate);
+
+  return {
+    ok: false,
+    paymentReference: ctx.paymentReference,
+    error:
+      "A prior refund attempt is still uncertain. Check SumUp and retry with the same idempotency key.",
+    auditId: prior.id,
+    warnings,
+  };
+}
+
+async function completeRefundSideEffects(
+  env: RefundEnv,
+  input: {
+    record: PaidBookingRecord;
+    auditId: string;
+    paymentReference: string;
+    refundAmount: number;
+    refundAmountLabel: string;
+    cancelBooking: boolean;
+    reasonCategory: RefundReasonCategory;
+    customerFacingReason?: string;
+    actionKind: RefundActionKind;
+    within24h: boolean;
+    warnings: string[];
+    initialTripDate: string;
+    sumUpRefunded?: boolean;
+    alreadyProcessed?: boolean;
+  },
+): Promise<RefundIssueResult> {
+  let record = input.record;
+  const warnings = input.warnings;
+
   let calendarCancelled = 0;
   let trackingMarkedRefunded = false;
-  if (cancelBooking) {
+
+  if (input.cancelBooking) {
     if (calendarConfigured(env) && record.calendarEventIds.length > 0) {
       try {
         const serviceAccount = parseServiceAccountJson(
@@ -486,8 +920,8 @@ export async function processBookingRefundOrCancel(
         );
         const accessToken = await getGoogleAccessToken(serviceAccount);
         const refundNote =
-          `${refundAmount > 0 ? `Refunded: ${refundAmountLabel}` : "Cancelled without refund"}\n` +
-          `Reference: ${paymentReference}\n` +
+          `${input.refundAmount > 0 ? `Refunded: ${input.refundAmountLabel}` : "Cancelled without refund"}\n` +
+          `Reference: ${input.paymentReference}\n` +
           `Cancelled at: ${new Date().toISOString()}`;
         const result = await cancelCalendarEvents(
           accessToken,
@@ -511,33 +945,29 @@ export async function processBookingRefundOrCancel(
     if (trackingStoreConfigured(env.TRACKING_STORE)) {
       const token =
         record.trackingToken ??
-        (await findTrackingJobByPaymentReference(env.TRACKING_STORE, paymentReference))
+        (await findTrackingJobByPaymentReference(env.TRACKING_STORE, input.paymentReference))
           ?.token;
       if (token) {
         trackingMarkedRefunded = await markTrackingJobRefunded(
           env.TRACKING_STORE,
           token,
-          refundAmount > 0 ? refundAmountLabel : "Cancelled",
+          input.refundAmount > 0 ? input.refundAmountLabel : "Cancelled",
         );
       }
     }
   }
 
   const paidAfter = amountPaidOf(record);
-  const cumulative = roundGbp(alreadyRefunded + refundAmount);
+  const cumulative = amountRefundedOf(record);
   const remainingAfter = remainingRefundableBalance(paidAfter, cumulative);
-  const nextStatus = nextMoneyStatus({
-    cancelBooking: cancelBooking || isOperationallyCancelled(record.status),
-    amountPaid: paidAfter,
-    amountRefundedAfter: cumulative,
-  });
+  const operationalAfter = resolveOperationalStatus(record);
 
   const emailBundle = buildCustomerCancellationEmails(
     {
       customerName: record.customerName,
       paymentReference: record.paymentReference,
-      refundAmount: refundAmountLabel,
-      refundAmountValue: refundAmount,
+      refundAmount: input.refundAmountLabel,
+      refundAmountValue: input.refundAmount,
       originalAmount: formatPaidAmount(paidAfter, record.currency || "GBP"),
       originalAmountValue: paidAfter,
       cumulativeRefunded: formatPaidAmount(cumulative, record.currency || "GBP"),
@@ -547,12 +977,12 @@ export async function processBookingRefundOrCancel(
       dropoffLabel: record.dropoffLabel,
       tripDate: record.tripDate,
       tripTime: record.tripTime,
-      cancelBooking,
-      within24h,
-      reasonCategory,
-      customerFacingReason: options.customerFacingReason?.trim() || undefined,
-      bookingRemainsActive: !cancelBooking && !isOperationallyCancelled(nextStatus),
-      actionKind,
+      cancelBooking: input.cancelBooking,
+      within24h: input.within24h,
+      reasonCategory: input.reasonCategory,
+      customerFacingReason: input.customerFacingReason,
+      bookingRemainsActive: operationalAfter === "confirmed",
+      actionKind: input.actionKind,
     },
     BUSINESS_NAME,
   );
@@ -587,7 +1017,7 @@ export async function processBookingRefundOrCancel(
       {
         customerName: record.customerName,
         paymentReference: record.paymentReference,
-        refundAmount: refundAmountLabel,
+        refundAmount: input.refundAmountLabel,
         tripLabel: record.tripLabel,
         pickupLabel: record.pickupLabel,
         dropoffLabel: record.dropoffLabel,
@@ -606,116 +1036,42 @@ export async function processBookingRefundOrCancel(
   ownerEmailStatus = ownerEmailResult.sent ? "sent" : "failed";
   if (!ownerEmailResult.sent) {
     warnings.push(
-      ownerEmailResult.error
-        ? `Owner email failed: ${ownerEmailResult.error}`
-        : "Owner email failed",
+      ownerEmailResult.error ? `Owner email failed: ${ownerEmailResult.error}` : "Owner email failed",
     );
   }
 
   const completedAt = new Date().toISOString();
-  const audit: RefundAuditEntry = {
-    id: auditId,
-    bookingReference: paymentReference,
-    sumUpTransactionId: record.transactionId,
-    originalAmountPaid: paidAfter,
-    refundAmount,
-    cumulativeRefundedAmount: cumulative,
-    remainingBalance: remainingAfter,
-    currency: record.currency || "GBP",
-    fullOrPartial:
-      refundAmount <= 0 ? "none" : remainingAfter <= 0.001 ? "full" : "partial",
-    cancelBooking,
-    reasonCategory,
-    ownerNotes: notes,
-    customerFacingReason: options.customerFacingReason?.trim() || undefined,
-    requestedAt,
+  record = patchAuditEntry(record, input.auditId, {
     completedAt,
-    sumUpStatus,
-    sumUpReference,
+    operationState: "completed",
     success: true,
     customerEmailStatus,
     ownerEmailStatus,
-    idempotencyKey,
-    actionKind,
-  };
-
-  const updated: PaidBookingRecord = {
-    ...record,
-    amount: paidAfter,
-    amountPaidLabel: formatPaidAmount(paidAfter, record.currency || "GBP"),
-    amountRefunded: cumulative,
-    status: nextStatus,
-    refundAmountLabel:
-      cumulative > 0
-        ? formatPaidAmount(cumulative, record.currency || "GBP")
-        : record.refundAmountLabel,
-    ...(refundAmount > 0 || nextStatus === "refunded"
-      ? { refundedAt: record.refundedAt ?? completedAt }
-      : {}),
-    ...(cancelBooking ? { cancelledAt: record.cancelledAt ?? completedAt } : {}),
-    refundHistory: [...(record.refundHistory ?? []), audit],
-  };
-
-  await savePaidBookingRecord(env.TRACKING_STORE!, updated, {
-    previousTripDate: record.tripDate,
+    cumulativeRefundedAmount: cumulative,
+    remainingBalance: remainingAfter,
   });
-  await clearLock(env, lockKey, idempotencyKey);
+  await persistRecord(env, record, input.initialTripDate);
 
   return {
     ok: true,
-    paymentReference,
-    refundAmount: refundAmountLabel,
-    refundAmountValue: refundAmount,
+    ...(input.alreadyProcessed ? { alreadyProcessed: true } : {}),
+    paymentReference: input.paymentReference,
+    refundAmount: input.refundAmountLabel,
+    refundAmountValue: input.refundAmount,
     cumulativeRefunded: cumulative,
     remainingBalance: remainingAfter,
-    status: nextStatus,
-    cancelBooking,
-    sumUpRefunded,
+    status: record.status,
+    cancelBooking: input.cancelBooking,
+    sumUpRefunded: input.sumUpRefunded ?? false,
     calendarCancelled,
     calendarDeleted: calendarCancelled,
     trackingRemoved: trackingMarkedRefunded,
     trackingMarkedRefunded,
     customerEmailSent,
     ownerEmailSent,
-    auditId,
+    auditId: input.auditId,
     ...(warnings.length > 0 ? { warnings } : {}),
   };
-}
-
-async function clearLock(
-  env: RefundEnv,
-  lockKey: string,
-  idempotencyKey: string,
-): Promise<void> {
-  try {
-    const current = await env.TRACKING_STORE!.get(lockKey);
-    if (current === idempotencyKey) {
-      await env.TRACKING_STORE!.delete(lockKey);
-    }
-  } catch {
-    // ignore
-  }
-}
-
-async function appendFailedAudit(
-  env: RefundEnv,
-  record: PaidBookingRecord,
-  entry: RefundAuditEntry,
-): Promise<void> {
-  try {
-    const latest =
-      (await getPaidBookingRecord(env.TRACKING_STORE!, record.paymentReference)) ?? record;
-    await savePaidBookingRecord(
-      env.TRACKING_STORE!,
-      {
-        ...latest,
-        refundHistory: [...(latest.refundHistory ?? []), entry],
-      },
-      { previousTripDate: latest.tripDate },
-    );
-  } catch {
-    // Audit write failure must not hide the primary error.
-  }
 }
 
 async function buildLegacyPaidBookingRecord(
@@ -796,6 +1152,8 @@ async function buildLegacyPaidBookingRecord(
     trackingToken: trackingJob.token,
     calendarEventIds: [],
     status: "confirmed",
+    operationalStatus: "confirmed",
+    paymentStatus: "paid",
     createdAt: trackingJob.createdAt,
   };
 }
@@ -856,6 +1214,8 @@ export async function savePaidBookingRecordFromConfirm(input: {
     trackingToken: input.trackingToken,
     calendarEventIds: input.calendarEventIds,
     status: "confirmed",
+    operationalStatus: "confirmed",
+    paymentStatus: "paid",
     createdAt: new Date().toISOString(),
     ...(input.personalQuoteCode ? { personalQuoteCode: input.personalQuoteCode } : {}),
     ...(typeof input.standardWebsiteAmount === "number"
@@ -894,23 +1254,7 @@ export async function handleRefundRequest(
     return json({ error: "Missing paymentReference" }, 400, origin);
   }
 
-  const trackingToken = String(body.trackingToken ?? "").trim() || undefined;
   const confirmOwnerKey = String(body.confirmOwnerKey ?? body.ownerKey ?? "").trim();
-  const hasExtendedFields =
-    body.actionKind != null ||
-    body.cancelBooking != null ||
-    body.amount != null ||
-    body.refundFullRemaining != null ||
-    body.reasonCategory != null ||
-    body.idempotencyKey != null ||
-    Boolean(confirmOwnerKey);
-
-  // Legacy clients: header-auth full refund + cancel (admin page / old owner button).
-  if (!hasExtendedFields) {
-    const result = await issueBookingRefund(env, paymentReference, { trackingToken });
-    return json(result, result.ok ? 200 : 502, origin);
-  }
-
   if (!confirmOwnerKey || !verifyConfirmOwnerKey(env, confirmOwnerKey)) {
     return json(
       {
@@ -922,6 +1266,15 @@ export async function handleRefundRequest(
     );
   }
 
+  if (!env.REFUND_COORDINATOR) {
+    return json(
+      { error: "Refund coordinator is not configured — cannot safely serialize refunds." },
+      503,
+      origin,
+    );
+  }
+
+  const trackingToken = String(body.trackingToken ?? "").trim() || undefined;
   const actionKind = String(body.actionKind ?? "cancel_full_refund") as RefundActionKind;
   const cancelBooking =
     body.cancelBooking === true ||
@@ -935,7 +1288,10 @@ export async function handleRefundRequest(
     actionKind === "full_refund_keep_active" ||
     actionKind === "full_refund_and_cancel";
 
-  const result = await processBookingRefundOrCancel(env, {
+  const options: ProcessRefundOptions & {
+    paymentReference: string;
+    confirmOwnerKeyVerified: true;
+  } = {
     paymentReference,
     trackingToken,
     amount: body.amount != null ? Number(body.amount) : null,
@@ -947,28 +1303,40 @@ export async function handleRefundRequest(
     idempotencyKey: String(body.idempotencyKey ?? ""),
     confirmOwnerKey,
     actionKind,
-    legacyFullRefund: false,
-  });
+    confirmOwnerKeyVerified: true,
+  };
 
-  const status = result.ok ? 200 : result.error?.includes("OWNER_ACCESS_KEY") ? 401 : 502;
-  return json(result, status, origin);
+  const id = env.REFUND_COORDINATOR.idFromName(paymentReference.trim().toLowerCase());
+  const stub = env.REFUND_COORDINATOR.get(id);
+  const doResponse = await stub.fetch(
+    new Request("https://refund-coordinator/run", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(options),
+    }),
+  );
+
+  const responseBody = await doResponse.text();
+  return withCors(new Response(responseBody, { status: doResponse.status }), origin);
+}
+
+function withCors(response: Response, origin: string | null): Response {
+  const headers = new Headers(response.headers);
+  headers.set("Content-Type", "application/json");
+  if (origin) {
+    headers.set("Access-Control-Allow-Origin", origin);
+    headers.set("Vary", "Origin");
+  } else {
+    headers.set("Access-Control-Allow-Origin", "*");
+  }
+  headers.set("Access-Control-Allow-Methods", "POST, OPTIONS");
+  headers.set(
+    "Access-Control-Allow-Headers",
+    "Content-Type, Accept, X-Owner-Key, X-Driver-Key",
+  );
+  return new Response(response.body, { status: response.status, headers });
 }
 
 function json(body: unknown, status: number, origin: string | null): Response {
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-  };
-
-  if (origin) {
-    headers["Access-Control-Allow-Origin"] = origin;
-    headers.Vary = "Origin";
-  } else {
-    headers["Access-Control-Allow-Origin"] = "*";
-  }
-
-  headers["Access-Control-Allow-Methods"] = "POST, OPTIONS";
-  headers["Access-Control-Allow-Headers"] =
-    "Content-Type, Accept, X-Owner-Key, X-Driver-Key";
-
-  return new Response(JSON.stringify(body), { status, headers });
+  return withCors(new Response(JSON.stringify(body), { status }), origin);
 }

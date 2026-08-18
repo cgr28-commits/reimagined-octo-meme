@@ -64,6 +64,13 @@ export async function issueBookingRefund(input: {
     },
     body: JSON.stringify({
       paymentReference: input.paymentReference.trim(),
+      confirmOwnerKey: input.ownerKey.trim(),
+      actionKind: "cancel_full_refund",
+      cancelBooking: true,
+      refundFullRemaining: true,
+      reasonCategory: "other",
+      ownerNotes: "Full refund + cancel",
+      idempotencyKey: `legacy-full-${input.paymentReference.trim()}-${Date.now()}`,
       ...(input.trackingToken?.trim() ? { trackingToken: input.trackingToken.trim() } : {}),
     }),
   });
