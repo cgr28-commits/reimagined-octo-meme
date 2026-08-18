@@ -220,6 +220,12 @@ import {
   recordQuoteLeadDeduped,
   recordQuoteLeadSent,
 } from "./quote-stats";
+import { handleQuoteCalculateRequest } from "./quote-handlers";
+import {
+  handleWhatsAppWebhookGet,
+  handleWhatsAppWebhookPost,
+  notifyWhatsAppPaymentFinalized,
+} from "./whatsapp-handlers";
 
 type EmailBinding = {
   send(message: {
@@ -254,6 +260,13 @@ type Env = {
   OWNER_ACCESS_KEY?: string;
   /** Optional GPS audit retention override (seconds, min 30 days). */
   TRACKING_GPS_HISTORY_TTL_SECONDS?: string;
+  /** WhatsApp Cloud API booking channel (Worker secrets — never NEXT_PUBLIC_*). */
+  WHATSAPP_BOOKING_ENABLED?: string;
+  META_WHATSAPP_VERIFY_TOKEN?: string;
+  META_WHATSAPP_APP_SECRET?: string;
+  META_WHATSAPP_ACCESS_TOKEN?: string;
+  META_WHATSAPP_PHONE_NUMBER_ID?: string;
+  SITE_ORIGIN?: string;
 };
 
 type QuoteLeadRequestBody = QuoteLeadDetails & {
@@ -1608,7 +1621,17 @@ async function handlePaymentWebhookRequest(
           logPaidBookingCalendar,
         });
         if (result.ok) {
-          // Paid path handled (or already finalized).
+          try {
+            await notifyWhatsAppPaymentFinalized({
+              env,
+              checkoutId,
+              paymentReference: result.paymentReference,
+              amountPaid: result.amountPaid,
+              alreadyFinalized: result.alreadyFinalized,
+            });
+          } catch (waError) {
+            console.error("WhatsApp payment confirmation failed", waError);
+          }
         } else if (result.error?.includes("not been completed")) {
           // Payment still pending or failed — if SumUp shows a terminal failure, email owner.
           const apiKey = env.SUMUP_API_KEY?.trim() ?? "";
@@ -1725,6 +1748,18 @@ async function handlePaymentConfirmRequest(
         status,
         origin,
       );
+    }
+
+    try {
+      await notifyWhatsAppPaymentFinalized({
+        env,
+        checkoutId,
+        paymentReference: result.paymentReference,
+        amountPaid: result.amountPaid,
+        alreadyFinalized: result.alreadyFinalized,
+      });
+    } catch (waError) {
+      console.error("WhatsApp payment confirmation failed", waError);
     }
 
     return json(
@@ -1866,6 +1901,27 @@ export default {
         status: 204,
         headers: corsHeaders(origin),
       });
+    }
+
+    if (
+      (url.pathname === "/whatsapp/webhook" || url.pathname === "/api/whatsapp/webhook") &&
+      request.method === "GET"
+    ) {
+      return handleWhatsAppWebhookGet(request, env, origin);
+    }
+
+    if (
+      (url.pathname === "/whatsapp/webhook" || url.pathname === "/api/whatsapp/webhook") &&
+      request.method === "POST"
+    ) {
+      return handleWhatsAppWebhookPost(request, env, origin);
+    }
+
+    if (
+      (url.pathname === "/quote/calculate" || url.pathname === "/api/quote/calculate") &&
+      (request.method === "POST" || request.method === "OPTIONS")
+    ) {
+      return handleQuoteCalculateRequest(request, origin);
     }
 
     if (

@@ -22,6 +22,8 @@ export type PendingCheckoutRecord = {
   standardWebsiteAmount?: number;
   /** Authorised personal-quote fare when a code was applied (audit). */
   personalQuotedAmount?: number;
+  /** WhatsApp Cloud API wa_id — used to confirm booking after SumUp PAID. */
+  whatsappWaId?: string;
 };
 
 export function pendingCheckoutKey(checkoutId: string): string {

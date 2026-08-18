@@ -10,6 +10,8 @@ compatibility_date = "2025-08-01"
 # - WEB3FORMS_ACCESS_KEY
 # - RESEND_API_KEY           (preferred branded HTML invoices — never expose to the browser)
 # - SUMUP_API_KEY / SUMUP_MERCHANT_CODE  (hosted checkout — Worker-only secrets)
+# - WHATSAPP_BOOKING_ENABLED=true + META_WHATSAPP_VERIFY_TOKEN / APP_SECRET /
+#   ACCESS_TOKEN / PHONE_NUMBER_ID  (WhatsApp Cloud API booking — Worker-only)
 # - GOOGLE_REVIEW_URL  (Google Business "Write a review" link for post-trip emails)
 # - OWNER_ACCESS_KEY   (optional — defaults to DRIVER_ACCESS_KEY for /admin/refund/)
 # Redeploy after changing worker code: wrangler deploy (or Cloudflare dashboard → Deploy)

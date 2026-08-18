@@ -68,6 +68,11 @@ jobs:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           SUMUP_API_KEY: ${{ secrets.SUMUP_API_KEY }}
           SUMUP_MERCHANT_CODE: ${{ secrets.SUMUP_MERCHANT_CODE }}
+          WHATSAPP_BOOKING_ENABLED: ${{ secrets.WHATSAPP_BOOKING_ENABLED }}
+          META_WHATSAPP_VERIFY_TOKEN: ${{ secrets.META_WHATSAPP_VERIFY_TOKEN }}
+          META_WHATSAPP_APP_SECRET: ${{ secrets.META_WHATSAPP_APP_SECRET }}
+          META_WHATSAPP_ACCESS_TOKEN: ${{ secrets.META_WHATSAPP_ACCESS_TOKEN }}
+          META_WHATSAPP_PHONE_NUMBER_ID: ${{ secrets.META_WHATSAPP_PHONE_NUMBER_ID }}
           DRIVER_ACCESS_KEY: ${{ secrets.DRIVER_ACCESS_KEY }}
           OWNER_ACCESS_KEY: ${{ secrets.OWNER_ACCESS_KEY }}
           GOOGLE_PLACES_API_KEY: ${{ secrets.GOOGLE_PLACES_API_KEY || secrets.GOOGLE_API_KEY || secrets.GOOGLE_MAPS_API_KEY }}
@@ -126,6 +131,20 @@ jobs:
             printf '%s' "$SUMUP_MERCHANT_CODE" | npx wrangler secret put SUMUP_MERCHANT_CODE
           else
             echo "::notice::SUMUP_API_KEY / SUMUP_MERCHANT_CODE not both set in GitHub Actions — existing Cloudflare Worker SumUp secrets are left unchanged."
+          fi
+          if [ -n "$META_WHATSAPP_ACCESS_TOKEN" ] && [ -n "$META_WHATSAPP_PHONE_NUMBER_ID" ] && [ -n "$META_WHATSAPP_VERIFY_TOKEN" ]; then
+            echo "Syncing WhatsApp Cloud API secrets…"
+            printf '%s' "${WHATSAPP_BOOKING_ENABLED:-true}" | npx wrangler secret put WHATSAPP_BOOKING_ENABLED
+            printf '%s' "$META_WHATSAPP_VERIFY_TOKEN" | npx wrangler secret put META_WHATSAPP_VERIFY_TOKEN
+            printf '%s' "$META_WHATSAPP_ACCESS_TOKEN" | npx wrangler secret put META_WHATSAPP_ACCESS_TOKEN
+            printf '%s' "$META_WHATSAPP_PHONE_NUMBER_ID" | npx wrangler secret put META_WHATSAPP_PHONE_NUMBER_ID
+            if [ -n "$META_WHATSAPP_APP_SECRET" ]; then
+              printf '%s' "$META_WHATSAPP_APP_SECRET" | npx wrangler secret put META_WHATSAPP_APP_SECRET
+            else
+              echo "::warning::META_WHATSAPP_APP_SECRET missing — webhook signature verification will be skipped until set."
+            fi
+          else
+            echo "::notice::WhatsApp Cloud API secrets incomplete — leave WHATSAPP_BOOKING_ENABLED unset/false until Meta is configured."
           fi
           if [ -n "$DRIVER_ACCESS_KEY" ]; then
             echo "Syncing DRIVER_ACCESS_KEY secret…"
