@@ -61,7 +61,6 @@ import {
   createSumUpHostedCheckout,
   getSumUpCheckout,
   isSumUpCheckoutPaid,
-  summarizeSumUpCheckoutForLog,
   SumUpCheckoutCreateError,
 } from "../shared/sumup-checkout";
 import {
