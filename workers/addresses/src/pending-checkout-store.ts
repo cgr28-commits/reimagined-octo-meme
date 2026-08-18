@@ -22,6 +22,8 @@ export type PendingCheckoutRecord = {
   standardWebsiteAmount?: number;
   /** Authorised personal-quote fare when a code was applied (audit). */
   personalQuotedAmount?: number;
+  /** Quick Quote opaque id — amount always from KV + server re-validation. */
+  quickQuoteId?: string;
 };
 
 export function pendingCheckoutKey(checkoutId: string): string {

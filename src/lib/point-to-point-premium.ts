@@ -1,6 +1,6 @@
 import { londonWeekday, wallClockMinutes } from "../../shared/uk-time";
 import { RETURN_JOURNEY_DISCOUNT_RATE } from "../../shared/return-journey-discount";
-import { PRICING_CONFIG } from "@/lib/pricing-config";
+import { PRICING_CONFIG } from "./pricing-config";
 
 /** 5% supplement for address-to-address trips on premium dates. */
 export const TRIP_PREMIUM_RATE = PRICING_CONFIG.addressToAddressTripPremiumRate;
