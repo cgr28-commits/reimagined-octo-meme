@@ -9,6 +9,7 @@ import path from "node:path";
 import {
   buildPersonalQuoteCustomerUrl,
   buildPersonalQuoteReservation,
+  buildPersonalQuoteWhatsAppMessage,
   computeLinkedPersonalQuoteFares,
   describePersonalQuotePayment,
   evaluatePersonalQuote,
@@ -374,6 +375,30 @@ check("L4. Secure token generation + URL never contains fare", () => {
   assert.equal(parsed.searchParams.has("agreedAmount"), false);
   assert.doesNotMatch(url, /agreedAmount|discountAmount|customerEmail/);
   assert.equal(personalQuoteTokenKey(token), `personal-quote:token:${token}`);
+});
+
+check("L4b. WhatsApp message says personal quote (not private quote)", () => {
+  const message = buildPersonalQuoteWhatsAppMessage({
+    customerName: "Justine Smith",
+    agreedAmount: 50,
+    pickupLabel: "Belfast City Hall",
+    dropoffLabel: "Belfast International Airport",
+    customerUrl: "https://www.myairporttaxini.co.uk/personal-quote/?t=abc",
+  });
+  assert.match(message, /personal quote/i);
+  assert.doesNotMatch(message, /private quote/i);
+  assert.match(
+    message,
+    /^Hi Justine, here is your personal quote from My Airport Taxi NI for your airport transfer\. Your agreed fixed price is £50\.00\. You can review the journey and pay securely here: https:\/\/www\.myairporttaxini\.co\.uk\/personal-quote\/\?t=abc$/,
+  );
+  // Customer-facing UI / page title must also use personal quote wording.
+  assert.match(read("src/app/personal-quote/page.tsx"), /Your personal quote/);
+  assert.doesNotMatch(read("src/app/personal-quote/page.tsx"), /private quote/i);
+  const customerPage = read("src/app/personal-quote/PersonalQuoteCustomerClient.tsx");
+  assert.match(customerPage, /Loading your personal quote/);
+  assert.match(customerPage, />Personal quote</);
+  assert.doesNotMatch(customerPage, /private quote/i);
+  assert.doesNotMatch(read("shared/personal-quote.ts"), /private quote/i);
 });
 
 check("L5. Token / expired / inactive / used customer messages", () => {

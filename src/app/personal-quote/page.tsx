@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import PersonalQuoteCustomerClient from "./PersonalQuoteCustomerClient";
 
 export const metadata: Metadata = {
-  title: "Your private quote | My Airport Taxi NI",
+  title: "Your personal quote | My Airport Taxi NI",
   description: "Review your personally agreed airport transfer quote and pay securely.",
   robots: { index: false, follow: false },
 };

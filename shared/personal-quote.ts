@@ -473,7 +473,7 @@ export function buildPersonalQuoteWhatsAppMessage(input: {
     input.dropoffLabel?.toLowerCase().includes("airport")
       ? "airport transfer"
       : "transfer";
-  return `Hi ${firstName}, here is your private quote from My Airport Taxi NI for your ${journeyHint}. Your agreed fixed price is ${formatPersonalQuoteAmount(input.agreedAmount)}. You can review the journey and pay securely here: ${input.customerUrl}`;
+  return `Hi ${firstName}, here is your personal quote from My Airport Taxi NI for your ${journeyHint}. Your agreed fixed price is ${formatPersonalQuoteAmount(input.agreedAmount)}. You can review the journey and pay securely here: ${input.customerUrl}`;
 }
 
 /**
