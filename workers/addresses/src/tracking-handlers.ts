@@ -559,6 +559,7 @@ export async function handleDriverJobsRequest(
       let bookingStatus:
         | "confirmed"
         | "partially_refunded"
+        | "refunded_active"
         | "refunded"
         | "cancelled" = "confirmed";
       let paidRecord = null;
@@ -571,8 +572,17 @@ export async function handleDriverJobsRequest(
         }
       }
 
-      if (bookingStatus !== "refunded" && bookingStatus !== "cancelled" && job.refundedAt) {
-        bookingStatus = "refunded";
+      if (
+        bookingStatus !== "refunded" &&
+        bookingStatus !== "cancelled" &&
+        job.refundedAt
+      ) {
+        // Tracking mark alone: keep refunded_active if money was fully returned without cancel.
+        if (bookingStatus === "refunded_active") {
+          // leave as refunded_active
+        } else {
+          bookingStatus = "refunded";
+        }
       }
 
       const refundAmountLabel = paidRecord?.refundAmountLabel ?? job.refundAmountLabel;

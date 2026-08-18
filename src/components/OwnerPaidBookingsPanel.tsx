@@ -117,7 +117,9 @@ function arrivalNotificationLabel(booking: OwnerPaidBookingSummary): string {
 function paymentStatusLabel(booking: OwnerPaidBookingSummary): string {
   switch (booking.status) {
     case "refunded":
-      return "Refunded";
+      return "Refunded + cancelled";
+    case "refunded_active":
+      return "Fully refunded (active)";
     case "partially_refunded":
       return "Partially refunded";
     case "cancelled":
@@ -1274,8 +1276,16 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
     const refundOpen = refundConfirmRef === booking.paymentReference;
     const paidNum = parseFloat(String(booking.amountPaid).replace(/[^\d.]/g, "") || "0");
     const refundedNum =
-      typeof booking.amountRefunded === "number" ? booking.amountRefunded : booking.status === "refunded" ? paidNum : 0;
-    const canRefundOrCancel = booking.status !== "refunded" || paidNum > refundedNum + 0.001;
+      typeof booking.amountRefunded === "number"
+        ? booking.amountRefunded
+        : booking.status === "refunded" || booking.status === "refunded_active"
+          ? paidNum
+          : 0;
+    const canRefundOrCancel =
+      booking.status !== "refunded" &&
+      booking.status !== "refunded_active"
+        ? true
+        : paidNum > refundedNum + 0.001;
 
     return (
       <li
@@ -1330,6 +1340,8 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
               ? booking.status === "cancelled"
                 ? "Cancelled"
                 : "Refunded"
+              : booking.status === "refunded_active"
+                ? "Fully refunded · Active"
               : booking.sharingActive
                 ? "Paid · Tracking live"
                 : paymentStatusLabel(booking)}

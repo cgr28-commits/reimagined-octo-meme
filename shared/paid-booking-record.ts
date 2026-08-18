@@ -52,7 +52,15 @@ export type PaidBookingRecord = {
   cancellationPolicyVersion?: string;
   trackingToken?: string;
   calendarEventIds: string[];
+  /**
+   * Combined compatibility status.
+   * Prefer operationalStatus + paymentStatus when present.
+   */
   status: PaidBookingStatus;
+  /** Journey/calendar/tracking state — independent of refund money. */
+  operationalStatus?: "confirmed" | "cancelled";
+  /** SumUp money state — independent of journey cancel. */
+  paymentStatus?: "paid" | "partially_refunded" | "fully_refunded";
   createdAt: string;
   refundedAt?: string;
   cancelledAt?: string;

@@ -905,18 +905,59 @@ export function buildCustomerCancellationEmails(
     };
   }
 
-  // Partial refund (booking may remain active or cancelled)
+  // Partial or full refund while booking may remain active or be cancelled
   if (details.refundAmountValue > 0) {
+    const remainingNum = Number(String(details.remainingPaid).replace(/[^\d.]/g, ""));
+    const fullyRefundedMoney =
+      !Number.isFinite(remainingNum) || remainingNum <= 0.001;
+
+    if (fullyRefundedMoney && !details.cancelBooking) {
+      const subject = `Full Refund Issued – Booking Remains Confirmed – ${ref}`;
+      const text =
+        `Hi ${details.customerName},\n\n` +
+        `A full refund has been issued for booking ${ref}. Your booking remains CONFIRMED.\n\n` +
+        `Trip: ${details.tripLabel}\n` +
+        (when ? `When: ${when}\n` : "") +
+        `Pickup: ${details.pickupLabel}\n` +
+        `Drop-off: ${details.dropoffLabel}\n\n` +
+        `Original payment: ${details.originalAmount}\n` +
+        `Refund amount: ${details.refundAmount}\n` +
+        `The refund has been returned to your original payment method via SumUp. Banks/cards may take several working days to show the funds.\n\n` +
+        `${businessName}\n${BUSINESS_WEBSITE}`;
+      return {
+        customer: {
+          subject,
+          text,
+          html: buildSimpleBrandedEmailHtml({
+            title: "Full refund issued",
+            headline: `Full refund — booking remains confirmed`,
+            bodyHtml:
+              `<p>Booking <strong>${escapeHtml(ref)}</strong> remains <strong>CONFIRMED</strong>.</p>` +
+              `<p><strong>Refund:</strong> ${escapeHtml(details.refundAmount)} returned via SumUp.</p>`,
+            businessName,
+          }),
+        },
+        owner: {
+          subject: `Full refund (booking active) — ${details.customerName} — ${ref}`,
+          body: text,
+        },
+      };
+    }
+
     const statusLine = details.cancelBooking
       ? "Your booking has been CANCELLED."
       : "Your booking remains CONFIRMED.";
     const reasonLine = details.customerFacingReason
       ? `Reason: ${details.customerFacingReason}\n`
       : "";
-    const subject = `Partial Refund Issued – ${ref}`;
+    const subject = fullyRefundedMoney
+      ? `Full Refund Issued – ${ref}`
+      : `Partial Refund Issued – ${ref}`;
     const text =
       `Hi ${details.customerName},\n\n` +
-      `A partial refund has been issued for booking ${ref}.\n\n` +
+      (fullyRefundedMoney
+        ? `A full refund has been issued for booking ${ref}.\n\n`
+        : `A partial refund has been issued for booking ${ref}.\n\n`) +
       `Original payment: ${details.originalAmount}\n` +
       `Refund amount: ${details.refundAmount}\n` +
       `Total refunded to date: ${details.cumulativeRefunded}\n` +
@@ -926,8 +967,8 @@ export function buildCustomerCancellationEmails(
       `\nThe refund has been returned to your original payment method via SumUp.\n\n` +
       `${businessName}\n${BUSINESS_WEBSITE}`;
     const html = buildSimpleBrandedEmailHtml({
-      title: "Partial refund issued",
-      headline: `Partial refund — ${escapeHtml(ref)}`,
+      title: fullyRefundedMoney ? "Full refund issued" : "Partial refund issued",
+      headline: `${fullyRefundedMoney ? "Full" : "Partial"} refund — ${escapeHtml(ref)}`,
       bodyHtml:
         `<p>Original payment: <strong>${escapeHtml(details.originalAmount)}</strong><br/>` +
         `Refund now: <strong>${escapeHtml(details.refundAmount)}</strong><br/>` +
@@ -943,7 +984,7 @@ export function buildCustomerCancellationEmails(
     return {
       customer: { subject, text, html },
       owner: {
-        subject: `Partial refund — ${details.customerName} — ${details.refundAmount}`,
+        subject: `${fullyRefundedMoney ? "Full" : "Partial"} refund — ${details.customerName} — ${details.refundAmount}`,
         body: text,
       },
     };

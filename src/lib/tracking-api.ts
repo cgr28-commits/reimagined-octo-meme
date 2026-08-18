@@ -229,7 +229,12 @@ export type DriverJob = PublicTrackResponse & {
   customerEmail?: string;
   paymentReference?: string;
   amountPaidLabel?: string;
-  bookingStatus?: "confirmed" | "partially_refunded" | "refunded" | "cancelled";
+  bookingStatus?:
+    | "confirmed"
+    | "partially_refunded"
+    | "refunded_active"
+    | "refunded"
+    | "cancelled";
   refundAmountLabel?: string;
   activeDriverName?: string;
   assignedDriverName?: string;

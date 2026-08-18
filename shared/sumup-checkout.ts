@@ -130,12 +130,37 @@ export type SumUpTransactionSummary = {
   status?: string;
 };
 
+export type SumUpTransactionDetails = SumUpTransactionSummary & {
+  /** Best-effort total already refunded on this transaction (GBP). */
+  amountRefunded: number;
+  refundEvents: Array<{ amount: number; type?: string; timestamp?: string }>;
+  rawStatus?: string;
+};
+
 type SumUpTransactionHistoryItem = {
   transaction_id?: string;
   transaction_code?: string;
   amount?: number;
   currency?: string;
   status?: string;
+};
+
+type SumUpTransactionPayload = {
+  id?: string;
+  transaction_id?: string;
+  transaction_code?: string;
+  amount?: number;
+  currency?: string;
+  status?: string;
+  refunds?: Array<{ amount?: number; type?: string; timestamp?: string; date?: string }>;
+  events?: Array<{
+    type?: string;
+    amount?: number;
+    timestamp?: string;
+    event_type?: string;
+  }>;
+  amount_refunded?: number;
+  tip_amount?: number;
 };
 
 type SumUpTransactionsHistoryResponse = {
@@ -356,4 +381,112 @@ export async function refundSumUpTransaction(
 export function buildCheckoutReference(prefix = "matni"): string {
   const random = crypto.randomUUID().replace(/-/g, "").slice(0, 12);
   return `${prefix}-${Date.now()}-${random}`;
+}
+
+function roundMoney(amount: number): number {
+  return Math.round(amount * 100) / 100;
+}
+
+/** Parse refund totals from a SumUp transaction payload (events / refunds / amount_refunded). */
+export function parseSumUpRefundedTotal(payload: SumUpTransactionPayload | null | undefined): {
+  amountRefunded: number;
+  refundEvents: Array<{ amount: number; type?: string; timestamp?: string }>;
+} {
+  const refundEvents: Array<{ amount: number; type?: string; timestamp?: string }> = [];
+
+  for (const refund of payload?.refunds ?? []) {
+    const amount = Number(refund.amount);
+    if (Number.isFinite(amount) && amount > 0) {
+      refundEvents.push({
+        amount: roundMoney(amount),
+        type: refund.type,
+        timestamp: refund.timestamp ?? refund.date,
+      });
+    }
+  }
+
+  for (const event of payload?.events ?? []) {
+    const type = String(event.type ?? event.event_type ?? "").toUpperCase();
+    if (!type.includes("REFUND")) continue;
+    const amount = Number(event.amount);
+    if (Number.isFinite(amount) && amount > 0) {
+      refundEvents.push({
+        amount: roundMoney(Math.abs(amount)),
+        type,
+        timestamp: event.timestamp,
+      });
+    }
+  }
+
+  let amountRefunded = refundEvents.reduce((sum, event) => sum + event.amount, 0);
+  if (typeof payload?.amount_refunded === "number" && payload.amount_refunded > 0) {
+    amountRefunded = Math.max(amountRefunded, payload.amount_refunded);
+  }
+
+  // Fully refunded status with no event breakdown — treat original amount as refunded.
+  const status = String(payload?.status ?? "").toUpperCase();
+  if (
+    amountRefunded <= 0 &&
+    (status === "REFUNDED" || status === "FULLY_REFUNDED") &&
+    typeof payload?.amount === "number" &&
+    payload.amount > 0
+  ) {
+    amountRefunded = payload.amount;
+  }
+
+  return {
+    amountRefunded: roundMoney(amountRefunded),
+    refundEvents,
+  };
+}
+
+/**
+ * Fetch SumUp transaction details including refund history when available.
+ * Used to reconcile before retrying a refund after an uncertain failure window.
+ */
+export async function getSumUpTransactionDetails(
+  apiKey: string,
+  transactionId: string,
+  merchantCode?: string,
+): Promise<SumUpTransactionDetails | null> {
+  const trimmed = transactionId.trim();
+  if (!trimmed) return null;
+
+  const attempts: string[] = [
+    `https://api.sumup.com/v0.1/me/transactions?id=${encodeURIComponent(trimmed)}`,
+    `https://api.sumup.com/v0.1/me/transactions/${encodeURIComponent(trimmed)}`,
+  ];
+  if (merchantCode?.trim()) {
+    attempts.unshift(
+      `https://api.sumup.com/v2.1/merchants/${encodeURIComponent(merchantCode.trim())}/transactions/${encodeURIComponent(trimmed)}`,
+    );
+  }
+
+  for (const url of attempts) {
+    try {
+      const response = await fetch(url, {
+        headers: { Authorization: `Bearer ${apiKey}` },
+      });
+      if (!response.ok) continue;
+      const payload = (await response.json().catch(() => null)) as SumUpTransactionPayload | null;
+      if (!payload) continue;
+
+      const id = String(payload.id ?? payload.transaction_id ?? "").trim() || trimmed;
+      const parsed = parseSumUpRefundedTotal(payload);
+      return {
+        id,
+        transaction_code: payload.transaction_code,
+        amount: payload.amount,
+        currency: payload.currency,
+        status: payload.status,
+        rawStatus: payload.status,
+        amountRefunded: parsed.amountRefunded,
+        refundEvents: parsed.refundEvents,
+      };
+    } catch {
+      // try next endpoint
+    }
+  }
+
+  return null;
 }

@@ -5,3 +5,13 @@ account_id = "36c5c88df4c1f0259413d555f2679f3c"
 
 [observability]
 enabled = true
+
+# Alias worker shares the same refund Durable Object class as production.
+# Bindings for KV/secrets are applied by deploy scripts; DO class must be declared.
+[[durable_objects.bindings]]
+name = "REFUND_COORDINATOR"
+class_name = "RefundCoordinator"
+
+[[migrations]]
+tag = "v1-refund-coordinator"
+new_sqlite_classes = ["RefundCoordinator"]

@@ -37,11 +37,31 @@ export type RefundActionKind =
   | "full_refund_keep_active"
   | "full_refund_and_cancel";
 
+/** Journey / calendar / tracking operational state (independent of money). */
+export type OperationalBookingStatus = "confirmed" | "cancelled";
+
+/** Card payment / SumUp refund money state (independent of journey). */
+export type PaymentRefundStatus = "paid" | "partially_refunded" | "fully_refunded";
+
+/**
+ * Combined compatibility status stored on paid booking records.
+ * `refunded_active` = fully refunded money but journey still confirmed.
+ * `refunded` = fully refunded AND operationally cancelled (legacy cancel+refund).
+ */
 export type PaidBookingMoneyStatus =
   | "confirmed"
   | "partially_refunded"
+  | "refunded_active"
   | "refunded"
   | "cancelled";
+
+export type RefundOperationState =
+  | "requested"
+  | "processing"
+  | "processor_accepted"
+  | "completed"
+  | "failed"
+  | "reconciliation_required";
 
 export type RefundAuditEntry = {
   id: string;
@@ -59,6 +79,7 @@ export type RefundAuditEntry = {
   customerFacingReason?: string;
   requestedAt: string;
   completedAt?: string;
+  processorAcceptedAt?: string;
   sumUpStatus?: string;
   sumUpReference?: string;
   success: boolean;
@@ -67,6 +88,7 @@ export type RefundAuditEntry = {
   ownerEmailStatus: "sent" | "failed" | "skipped" | "pending";
   idempotencyKey: string;
   actionKind: RefundActionKind;
+  operationState: RefundOperationState;
 };
 
 export type RefundRequestInput = {
@@ -172,24 +194,107 @@ export function resolveRefundAmountForAction(input: {
   return { refundAmount: amount };
 }
 
+export function derivePaymentStatus(
+  amountPaid: number,
+  amountRefunded: number,
+): PaymentRefundStatus {
+  const remaining = remainingRefundableBalance(amountPaid, amountRefunded);
+  if (amountRefunded > 0 && remaining <= 0.001) return "fully_refunded";
+  if (amountRefunded > 0) return "partially_refunded";
+  return "paid";
+}
+
+export function deriveCombinedStatus(
+  operationalStatus: OperationalBookingStatus,
+  paymentStatus: PaymentRefundStatus,
+): PaidBookingMoneyStatus {
+  if (operationalStatus === "cancelled") {
+    return paymentStatus === "fully_refunded" ? "refunded" : "cancelled";
+  }
+  if (paymentStatus === "fully_refunded") return "refunded_active";
+  if (paymentStatus === "partially_refunded") return "partially_refunded";
+  return "confirmed";
+}
+
+/** Prefer explicit fields; fall back to legacy combined `status`. */
+export function resolveOperationalStatus(input: {
+  operationalStatus?: OperationalBookingStatus | string;
+  status?: string;
+}): OperationalBookingStatus {
+  if (input.operationalStatus === "cancelled" || input.operationalStatus === "confirmed") {
+    return input.operationalStatus;
+  }
+  // Legacy: "refunded" meant cancel+full refund. "refunded_active" keeps journey.
+  if (input.status === "refunded" || input.status === "cancelled") return "cancelled";
+  return "confirmed";
+}
+
+export function resolvePaymentStatusFromRecord(input: {
+  paymentStatus?: PaymentRefundStatus | string;
+  status?: string;
+  amountPaid: number;
+  amountRefunded: number;
+}): PaymentRefundStatus {
+  if (
+    input.paymentStatus === "paid" ||
+    input.paymentStatus === "partially_refunded" ||
+    input.paymentStatus === "fully_refunded"
+  ) {
+    return input.paymentStatus;
+  }
+  if (input.status === "refunded" || input.status === "refunded_active") {
+    return "fully_refunded";
+  }
+  if (input.status === "partially_refunded") return "partially_refunded";
+  return derivePaymentStatus(input.amountPaid, input.amountRefunded);
+}
+
+export function nextBookingStatuses(input: {
+  cancelBooking: boolean;
+  previouslyCancelled?: boolean;
+  amountPaid: number;
+  amountRefundedAfter: number;
+}): {
+  operationalStatus: OperationalBookingStatus;
+  paymentStatus: PaymentRefundStatus;
+  status: PaidBookingMoneyStatus;
+} {
+  const operationalStatus: OperationalBookingStatus =
+    input.cancelBooking || input.previouslyCancelled ? "cancelled" : "confirmed";
+  const paymentStatus = derivePaymentStatus(input.amountPaid, input.amountRefundedAfter);
+  return {
+    operationalStatus,
+    paymentStatus,
+    status: deriveCombinedStatus(operationalStatus, paymentStatus),
+  };
+}
+
+/** @deprecated Prefer nextBookingStatuses — kept for older call sites. */
 export function nextMoneyStatus(input: {
   cancelBooking: boolean;
   amountPaid: number;
   amountRefundedAfter: number;
 }): PaidBookingMoneyStatus {
-  const remaining = remainingRefundableBalance(input.amountPaid, input.amountRefundedAfter);
-  if (input.amountRefundedAfter > 0 && remaining <= 0.001) {
-    return "refunded";
-  }
-  if (input.amountRefundedAfter > 0) {
-    return "partially_refunded";
-  }
-  if (input.cancelBooking) return "cancelled";
-  return "confirmed";
+  return nextBookingStatuses(input).status;
 }
 
-export function isOperationallyCancelled(status: string | undefined): boolean {
-  return status === "refunded" || status === "cancelled";
+/**
+ * Operational cancel only — never treat refunded_active (money fully returned,
+ * journey still live) as cancelled.
+ */
+export function isOperationallyCancelled(
+  statusOrRecord?:
+    | string
+    | {
+        status?: string;
+        operationalStatus?: string;
+      },
+): boolean {
+  if (!statusOrRecord) return false;
+  if (typeof statusOrRecord === "string") {
+    return statusOrRecord === "refunded" || statusOrRecord === "cancelled";
+  }
+  return resolveOperationalStatus(statusOrRecord) === "cancelled";
 }
 
 export function isFullyRefunded(
@@ -197,14 +302,29 @@ export function isFullyRefunded(
   amountPaid: number,
   amountRefunded: number,
 ): boolean {
-  if (status === "refunded") return true;
+  if (status === "refunded" || status === "refunded_active") return true;
   return amountPaid > 0 && remainingRefundableBalance(amountPaid, amountRefunded) <= 0.001;
+}
+
+/** Journey still bookable / trackable (not operationally cancelled). */
+export function isJourneyStillActive(statusOrRecord?: string | { status?: string; operationalStatus?: string }): boolean {
+  return !isOperationallyCancelled(statusOrRecord);
 }
 
 export function generateRefundOpId(): string {
   const bytes = new Uint8Array(12);
   crypto.getRandomValues(bytes);
   return [...bytes].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+/** Cap a requested refund so cumulative never exceeds paid (after SumUp reconcile). */
+export function cappedRefundAmount(input: {
+  requested: number;
+  amountPaid: number;
+  alreadyRefunded: number;
+}): number {
+  const remaining = remainingRefundableBalance(input.amountPaid, input.alreadyRefunded);
+  return roundGbp(Math.max(0, Math.min(input.requested, remaining)));
 }
 
 /** Cancellation policy version shown at checkout (paired with TERMS_LAST_UPDATED). */

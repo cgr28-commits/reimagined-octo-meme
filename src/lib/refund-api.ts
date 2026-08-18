@@ -35,6 +35,8 @@ export type RefundIssueResponse = {
   cumulativeRefunded?: number;
   remainingBalance?: number;
   status?: string;
+  operationalStatus?: string;
+  paymentStatus?: string;
   cancelBooking?: boolean;
   sumUpRefunded?: boolean;
   calendarCancelled?: number;
@@ -48,43 +50,32 @@ export type RefundIssueResponse = {
   auditId?: string;
 };
 
-/** Legacy full refund + cancel (admin page / older callers). */
+/**
+ * Full refund + cancel — still requires a freshly entered confirmOwnerKey
+ * (must not reuse only the unlocked dashboard session).
+ */
 export async function issueBookingRefund(input: {
   ownerKey: string;
+  confirmOwnerKey: string;
   paymentReference: string;
   trackingToken?: string;
+  ownerNotes?: string;
+  idempotencyKey?: string;
 }): Promise<RefundIssueResponse> {
-  const response = await fetch(`${WORKER_BASE}/bookings/refund`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Accept: "application/json",
-      "X-Owner-Key": input.ownerKey.trim(),
-      "X-Driver-Key": input.ownerKey.trim(),
-    },
-    body: JSON.stringify({
-      paymentReference: input.paymentReference.trim(),
-      confirmOwnerKey: input.ownerKey.trim(),
-      actionKind: "cancel_full_refund",
-      cancelBooking: true,
-      refundFullRemaining: true,
-      reasonCategory: "other",
-      ownerNotes: "Full refund + cancel",
-      idempotencyKey: `legacy-full-${input.paymentReference.trim()}-${Date.now()}`,
-      ...(input.trackingToken?.trim() ? { trackingToken: input.trackingToken.trim() } : {}),
-    }),
+  return processBookingRefundOrCancel({
+    ownerKey: input.ownerKey,
+    confirmOwnerKey: input.confirmOwnerKey,
+    paymentReference: input.paymentReference,
+    trackingToken: input.trackingToken,
+    actionKind: "cancel_full_refund",
+    cancelBooking: true,
+    refundFullRemaining: true,
+    reasonCategory: "other",
+    ownerNotes: input.ownerNotes ?? "Full refund + cancel",
+    idempotencyKey:
+      input.idempotencyKey ??
+      `ui-full-${input.paymentReference.trim()}-${crypto.randomUUID()}`,
   });
-
-  const payload = (await response.json().catch(() => null)) as RefundIssueResponse | null;
-  if (!payload) {
-    throw new Error(`Refund request failed (${response.status})`);
-  }
-
-  if (!response.ok && !payload.error) {
-    throw new Error(`Refund request failed (${response.status})`);
-  }
-
-  return payload;
 }
 
 /** Extended cancel / refund with re-entered owner key + idempotency. */

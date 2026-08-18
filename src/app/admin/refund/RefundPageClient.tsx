@@ -9,7 +9,9 @@ const OWNER_KEY_STORAGE = "matni-owner-key";
 
 export default function RefundPageClient() {
   const [ownerKey, setOwnerKey] = useState("");
+  const [confirmOwnerKey, setConfirmOwnerKey] = useState("");
   const [paymentReference, setPaymentReference] = useState("");
+  const [finalConfirm, setFinalConfirm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState<RefundIssueResponse | null>(null);
@@ -28,10 +30,21 @@ export default function RefundPageClient() {
     setResult(null);
 
     try {
+      if (!confirmOwnerKey.trim()) {
+        setError("Re-enter OWNER_ACCESS_KEY to confirm this refund.");
+        return;
+      }
+      if (!finalConfirm) {
+        setError("Tick the final confirmation box before continuing.");
+        return;
+      }
+
       sessionStorage.setItem(OWNER_KEY_STORAGE, ownerKey.trim());
       const response = await issueBookingRefund({
         ownerKey: ownerKey.trim(),
+        confirmOwnerKey: confirmOwnerKey.trim(),
         paymentReference: paymentReference.trim(),
+        ownerNotes: "Admin refund page — full refund + cancel",
       });
 
       if (!response.ok) {
@@ -40,6 +53,8 @@ export default function RefundPageClient() {
       }
 
       setResult(response);
+      setConfirmOwnerKey("");
+      setFinalConfirm(false);
     } catch (submitError) {
       setError(
         submitError instanceof Error
@@ -62,8 +77,9 @@ export default function RefundPageClient() {
             </p>
             <h1 className="mt-2 text-3xl font-bold text-white sm:text-4xl">Issue refund</h1>
             <p className="mt-3 text-sm leading-relaxed text-white/70">
-              Refund a paid SumUp booking, email the customer a confirmation, remove the calendar
-              entry, and cancel the driver tracking job.
+              Full SumUp refund + cancel: emails the customer, cancels the calendar entry, and marks
+              tracking cancelled. For partial refunds or refund-without-cancel, use Cancel / Refund
+              on the owner dashboard.
             </p>
           </header>
 
@@ -78,7 +94,7 @@ export default function RefundPageClient() {
                 required
                 value={ownerKey}
                 onChange={(event) => setOwnerKey(event.target.value)}
-                placeholder="Same key as driver dashboard unless you set OWNER_ACCESS_KEY"
+                placeholder="Unlock / session key"
                 className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/30 outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30"
               />
             </label>
@@ -97,6 +113,37 @@ export default function RefundPageClient() {
               />
             </label>
 
+            <label className="block">
+              <span className="mb-2 block text-sm font-medium text-white/80">
+                Re-enter OWNER_ACCESS_KEY to confirm
+              </span>
+              <input
+                type="password"
+                required
+                autoComplete="off"
+                value={confirmOwnerKey}
+                onChange={(event) => setConfirmOwnerKey(event.target.value)}
+                placeholder="Required immediately before every refund"
+                className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/30 outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30"
+              />
+            </label>
+
+            <div className="rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-3">
+              <p className="text-sm font-semibold text-amber-100">
+                Refund the full remaining balance to the original payment method for booking{" "}
+                {paymentReference.trim() || "…"} and cancel the journey?
+              </p>
+              <label className="mt-2 flex items-start gap-2 text-sm text-amber-50">
+                <input
+                  type="checkbox"
+                  checked={finalConfirm}
+                  onChange={(event) => setFinalConfirm(event.target.checked)}
+                  className="mt-1"
+                />
+                <span>I confirm this full refund and cancellation.</span>
+              </label>
+            </div>
+
             {error && (
               <p className="rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-100">
                 {error}
@@ -105,21 +152,21 @@ export default function RefundPageClient() {
 
             {result && (
               <div className="rounded-xl border border-emerald/30 bg-emerald/10 px-4 py-3 text-sm text-white/85">
-                {result.alreadyRefunded ? (
-                  <p>This booking was already refunded ({result.refundAmount}).</p>
+                {result.alreadyRefunded || result.alreadyProcessed ? (
+                  <p>This booking was already processed ({result.refundAmount}).</p>
                 ) : (
                   <>
                     <p className="font-semibold text-white">
                       Refund issued: {result.refundAmount}
                     </p>
                     <ul className="mt-2 space-y-1 text-white/75">
-                      <li>Customer email: {result.customerEmailSent ? "sent" : "failed"}</li>
-                      <li>Owner email: {result.ownerEmailSent ? "sent" : "failed"}</li>
+                      <li>Customer email: {result.customerEmailSent ? "sent" : "failed / skipped"}</li>
+                      <li>Owner email: {result.ownerEmailSent ? "sent" : "failed / skipped"}</li>
                       <li>
                         Calendar events cancelled:{" "}
                         {result.calendarCancelled ?? result.calendarDeleted ?? 0}
                       </li>
-                      <li>Tracking job removed: {result.trackingRemoved ? "yes" : "no"}</li>
+                      <li>Tracking marked cancelled: {result.trackingRemoved ? "yes" : "no"}</li>
                     </ul>
                   </>
                 )}
@@ -135,16 +182,17 @@ export default function RefundPageClient() {
 
             <button
               type="submit"
-              disabled={submitting}
+              disabled={submitting || !finalConfirm || !confirmOwnerKey.trim()}
               className="w-full rounded-xl bg-emerald px-6 py-4 text-sm font-bold text-navy transition-colors hover:bg-emerald-light disabled:cursor-not-allowed disabled:opacity-70"
             >
-              {submitting ? "Processing refund…" : "Issue full refund"}
+              {submitting ? "Processing refund…" : "Confirm full refund + cancel"}
             </button>
           </form>
 
           <p className="mt-6 text-xs leading-relaxed text-white/45">
             Use the SumUp transaction code shown on the customer invoice or in your driver
-            dashboard. Refunds return to the customer&apos;s original card via SumUp.
+            dashboard. Refunds return to the customer&apos;s original card via SumUp. Unlocking the
+            page is not enough — you must re-enter the owner key immediately before each refund.
           </p>
         </div>
       </main>

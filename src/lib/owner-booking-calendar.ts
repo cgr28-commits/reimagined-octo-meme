@@ -34,7 +34,13 @@ export type OwnerCalendarEntry = {
   isAirportPickup?: boolean;
   serviceType: "SALOON" | "ESTATE" | "MINIBUS" | "OTHER";
   serviceLabel: string;
-  paymentStatus: "confirmed" | "partially_refunded" | "refunded" | "cancelled" | "unknown";
+  paymentStatus:
+    | "confirmed"
+    | "partially_refunded"
+    | "refunded_active"
+    | "refunded"
+    | "cancelled"
+    | "unknown";
   assignedDriver: string;
   calendarStatus: CalendarLegStatus;
   journeyStatus?: string;
@@ -69,6 +75,7 @@ export function deriveCalendarLegStatus(input: {
   if (input.bookingStatus === "refunded" || input.bookingStatus === "cancelled") {
     return "refunded";
   }
+  // refunded_active keeps calendar/upcoming operationally live.
   const status = input.journeyStatus || "idle";
   if (status === "completed") {
     return "completed";
@@ -177,6 +184,7 @@ export function calendarEntriesFromPaidBooking(
   if (
     booking.status !== "confirmed" &&
     booking.status !== "partially_refunded" &&
+    booking.status !== "refunded_active" &&
     booking.status !== "refunded" &&
     booking.status !== "cancelled"
   ) {
@@ -211,11 +219,12 @@ export function calendarEntriesFromPaidBooking(
       serviceType,
       serviceLabel,
       paymentStatus:
-        booking.status === "refunded" || booking.status === "cancelled"
+        booking.status === "refunded" ||
+        booking.status === "cancelled" ||
+        booking.status === "refunded_active" ||
+        booking.status === "partially_refunded"
           ? booking.status
-          : booking.status === "partially_refunded"
-            ? "partially_refunded"
-            : "confirmed",
+          : "confirmed",
       assignedDriver: booking.assignedDriverLabel || booking.assignedDriverName || "Owner / Primary Driver",
       calendarStatus: outboundStatus,
       journeyStatus: booking.outboundJourneyStatus ?? booking.journeyStatus,
@@ -248,11 +257,12 @@ export function calendarEntriesFromPaidBooking(
         serviceType,
         serviceLabel,
         paymentStatus:
-        booking.status === "refunded" || booking.status === "cancelled"
+        booking.status === "refunded" ||
+        booking.status === "cancelled" ||
+        booking.status === "refunded_active" ||
+        booking.status === "partially_refunded"
           ? booking.status
-          : booking.status === "partially_refunded"
-            ? "partially_refunded"
-            : "confirmed",
+          : "confirmed",
         assignedDriver: booking.assignedDriverLabel || booking.assignedDriverName || "Owner / Primary Driver",
         calendarStatus: returnStatus,
         journeyStatus: booking.returnJourneyStatus,

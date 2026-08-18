@@ -101,12 +101,10 @@ export async function enrichDriverJob(
         (await getBookingJob(env.TRACKING_STORE, job.token))
       : null;
 
+  // Prefer paid booking combined status; refunded_active stays active operationally.
   const bookingStatus =
-    paidRecord?.status === "refunded" ||
-    paidRecord?.status === "cancelled" ||
-    job.refundedAt
-      ? "refunded"
-      : "confirmed";
+    paidRecord?.status ??
+    (job.refundedAt ? "refunded" : "confirmed");
 
   return sanitizeDriverJobForRole(
     {

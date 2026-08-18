@@ -1278,16 +1278,18 @@ export async function handleRefundRequest(
   const trackingToken = String(body.trackingToken ?? "").trim() || undefined;
   const actionKind = String(body.actionKind ?? "cancel_full_refund") as RefundActionKind;
   const cancelBooking =
-    body.cancelBooking === true ||
-    actionKind === "cancel_full_refund" ||
-    actionKind === "cancel_partial_refund" ||
-    actionKind === "cancel_no_refund" ||
-    actionKind === "full_refund_and_cancel";
+    typeof body.cancelBooking === "boolean"
+      ? body.cancelBooking
+      : actionKind === "cancel_full_refund" ||
+        actionKind === "cancel_partial_refund" ||
+        actionKind === "cancel_no_refund" ||
+        actionKind === "full_refund_and_cancel";
   const refundFullRemaining =
-    body.refundFullRemaining === true ||
-    actionKind === "cancel_full_refund" ||
-    actionKind === "full_refund_keep_active" ||
-    actionKind === "full_refund_and_cancel";
+    typeof body.refundFullRemaining === "boolean"
+      ? body.refundFullRemaining
+      : actionKind === "cancel_full_refund" ||
+        actionKind === "full_refund_keep_active" ||
+        actionKind === "full_refund_and_cancel";
 
   const options: ProcessRefundOptions & {
     paymentReference: string;
