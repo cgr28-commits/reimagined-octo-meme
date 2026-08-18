@@ -243,7 +243,7 @@ function PersonalQuoteInner() {
   if (loading) {
     return (
       <div className="mx-auto max-w-lg rounded-2xl border border-white/10 bg-navy/80 p-6 text-white">
-        <p className="text-sm text-white/70">Loading your private quote…</p>
+        <p className="text-sm text-white/70">Loading your personal quote…</p>
       </div>
     );
   }
@@ -266,7 +266,7 @@ function PersonalQuoteInner() {
 
   return (
     <div className="mx-auto max-w-lg rounded-2xl border border-white/10 bg-navy/80 p-5 text-white sm:p-8">
-      <p className="text-xs font-semibold uppercase tracking-wider text-emerald">Private quote</p>
+      <p className="text-xs font-semibold uppercase tracking-wider text-emerald">Personal quote</p>
       <h1 className="mt-2 text-2xl font-bold tracking-tight">Your private airport transfer quote</h1>
       <p className="mt-2 text-sm text-white/65">
         This is a personally agreed fare from My Airport Taxi NI. Complete your trip details below
@@ -545,7 +545,7 @@ export default function PersonalQuoteCustomerClient() {
     <Suspense
       fallback={
         <div className="mx-auto max-w-lg rounded-2xl border border-white/10 bg-navy/80 p-6 text-white">
-          <p className="text-sm text-white/70">Loading your private quote…</p>
+          <p className="text-sm text-white/70">Loading your personal quote…</p>
         </div>
       }
     >
