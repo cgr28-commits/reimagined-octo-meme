@@ -1,12 +1,15 @@
 /**
- * Personal Quote Codes — owner create/list/deactivate + public validate.
+ * Personal Quote Codes — owner create/list/deactivate + public validate / token lookup.
  * Authorised amount always comes from KV; never trust the browser.
  */
 
 import {
+  buildPersonalQuoteCustomerUrl,
   evaluatePersonalQuote,
   normalizePersonalQuoteCode,
+  normalizePersonalQuoteCustomerToken,
   personalQuoteCustomerError,
+  personalQuoteTokenCustomerError,
   toPersonalQuotePublicSummary,
   type PersonalQuoteRecord,
 } from "../shared/personal-quote";
@@ -14,13 +17,22 @@ import { ownerAuthorized, type DriverAuthEnv } from "./driver-auth";
 import {
   createPersonalQuote,
   deactivatePersonalQuote,
+  ensurePersonalQuoteCustomerToken,
   getPersonalQuoteByCode,
+  getPersonalQuoteByCustomerToken,
   listOpenPersonalQuotes,
 } from "./personal-quote-store";
 
 export type PersonalQuoteEnv = DriverAuthEnv & {
   TRACKING_STORE: KVNamespace;
+  SITE_ORIGIN?: string;
 };
+
+const DEFAULT_SITE_ORIGIN = "https://www.myairporttaxini.co.uk";
+
+function siteOrigin(env: PersonalQuoteEnv): string {
+  return (env.SITE_ORIGIN || DEFAULT_SITE_ORIGIN).replace(/\/$/, "");
+}
 
 export function isOwnerPersonalQuotesPath(pathname: string): boolean {
   return (
@@ -38,23 +50,43 @@ export function isPublicPersonalQuoteValidatePath(pathname: string): boolean {
   );
 }
 
-function ownerView(record: PersonalQuoteRecord) {
+export function isPublicPersonalQuoteTokenPath(pathname: string): boolean {
+  return (
+    pathname === "/personal-quotes/by-token" ||
+    pathname === "/api/personal-quotes/by-token"
+  );
+}
+
+function ownerView(record: PersonalQuoteRecord, origin: string) {
+  const token = record.customerToken
+    ? normalizePersonalQuoteCustomerToken(record.customerToken)
+    : "";
   return {
     ...record,
     amountLabel: `£${(Math.round(record.agreedAmount * 100) / 100).toFixed(2)}`,
     redeemable: evaluatePersonalQuote(record).ok,
+    ...(token
+      ? {
+          customerToken: token,
+          customerLink: buildPersonalQuoteCustomerUrl(token, origin),
+        }
+      : {}),
   };
 }
 
 export async function handleOwnerListPersonalQuotes(
   request: Request,
   env: PersonalQuoteEnv,
-): Promise<{ ok: true; quotes: ReturnType<typeof ownerView>[] } | { error: string; status: number }> {
+): Promise<
+  | { ok: true; quotes: ReturnType<typeof ownerView>[] }
+  | { error: string; status: number }
+> {
   if (!ownerAuthorized(request, env)) {
     return { error: "Unauthorized — owner access required.", status: 401 };
   }
   const quotes = await listOpenPersonalQuotes(env.TRACKING_STORE);
-  return { ok: true, quotes: quotes.map(ownerView) };
+  const origin = siteOrigin(env);
+  return { ok: true, quotes: quotes.map((q) => ownerView(q, origin)) };
 }
 
 export async function handleOwnerCreatePersonalQuote(
@@ -73,10 +105,15 @@ export async function handleOwnerCreatePersonalQuote(
     const quote = await createPersonalQuote(env.TRACKING_STORE, {
       customerName: String(body.customerName ?? ""),
       customerEmail: body.customerEmail ? String(body.customerEmail) : undefined,
+      customerMobile: body.customerMobile ? String(body.customerMobile) : undefined,
       agreedAmount: Number(body.agreedAmount),
       standardWebsiteAmount:
         body.standardWebsiteAmount != null && body.standardWebsiteAmount !== ""
           ? Number(body.standardWebsiteAmount)
+          : undefined,
+      discountAmount:
+        body.discountAmount != null && body.discountAmount !== ""
+          ? Number(body.discountAmount)
           : undefined,
       pickupLabel: body.pickupLabel ? String(body.pickupLabel) : undefined,
       dropoffLabel: body.dropoffLabel ? String(body.dropoffLabel) : undefined,
@@ -84,7 +121,7 @@ export async function handleOwnerCreatePersonalQuote(
       singleUse: body.singleUse !== false && body.singleUse !== "false" && body.singleUse !== 0,
       expiresOn: String(body.expiresOn ?? "").trim(),
     });
-    return { ok: true, quote: ownerView(quote) };
+    return { ok: true, quote: ownerView(quote, siteOrigin(env)) };
   } catch (error) {
     return {
       error: error instanceof Error ? error.message : "Could not create personal quote",
@@ -112,7 +149,7 @@ export async function handleOwnerDeactivatePersonalQuote(
   if (!quote) {
     return { error: "Quote not found", status: 404 };
   }
-  return { ok: true, quote: ownerView(quote) };
+  return { ok: true, quote: ownerView(quote, siteOrigin(env)) };
 }
 
 /**
@@ -141,6 +178,42 @@ export async function handlePublicValidatePersonalQuote(
     return {
       ok: false,
       error: personalQuoteCustomerError(evaluated.error),
+      status: evaluated.error === "not_found" ? 404 : 409,
+    };
+  }
+
+  return { ok: true, quote: toPersonalQuotePublicSummary(evaluated.record) };
+}
+
+/**
+ * Public lookup by opaque customer token (private link).
+ * Does not consume the quote. Never trusts URL fare params.
+ */
+export async function handlePublicPersonalQuoteByToken(
+  env: PersonalQuoteEnv,
+  tokenRaw: string,
+): Promise<
+  | { ok: true; quote: ReturnType<typeof toPersonalQuotePublicSummary> }
+  | { ok: false; error: string; status: number }
+> {
+  const token = normalizePersonalQuoteCustomerToken(tokenRaw);
+  if (!token || token.length < 32) {
+    return {
+      ok: false,
+      error: personalQuoteTokenCustomerError("not_found"),
+      status: 400,
+    };
+  }
+
+  let record = await getPersonalQuoteByCustomerToken(env.TRACKING_STORE, token);
+  if (record && !record.customerToken) {
+    record = await ensurePersonalQuoteCustomerToken(env.TRACKING_STORE, record);
+  }
+  const evaluated = evaluatePersonalQuote(record);
+  if (!evaluated.ok) {
+    return {
+      ok: false,
+      error: personalQuoteTokenCustomerError(evaluated.error),
       status: evaluated.error === "not_found" ? 404 : 409,
     };
   }

@@ -7,12 +7,20 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import {
+  buildPersonalQuoteCustomerUrl,
   buildPersonalQuoteReservation,
+  computeLinkedPersonalQuoteFares,
   evaluatePersonalQuote,
   generatePersonalQuoteCode,
+  generatePersonalQuoteCustomerToken,
   isPersonalQuoteReservationActive,
   normalizePersonalQuoteCode,
+  normalizePersonalQuoteCustomerToken,
   personalQuoteCustomerError,
+  personalQuoteTokenCustomerError,
+  personalQuoteTokenKey,
+  resolvePersonalQuotePricing,
+  toPersonalQuotePublicSummary,
   PERSONAL_QUOTE_RESERVATION_TTL_SECONDS,
   type PersonalQuoteRecord,
 } from "../shared/personal-quote";
@@ -148,8 +156,11 @@ check("Owner panel + Worker routes exist and require owner auth", () => {
   assert.match(handlers, /ownerAuthorized/);
   assert.match(handlers, /handleOwnerCreatePersonalQuote/);
   assert.match(handlers, /handlePublicValidatePersonalQuote/);
+  assert.match(handlers, /handlePublicPersonalQuoteByToken/);
   const panel = read("src/components/OwnerPersonalQuotesPanel.tsx");
-  assert.match(panel, /Generate personal quote code/);
+  assert.match(panel, /Create personal quote & link/);
+  assert.match(panel, /Copy customer link/);
+  assert.match(panel, /Copy WhatsApp message/);
   assert.doesNotMatch(panel, /voucher|coupon|discount code/i);
   const card = read("src/components/QuoteCard.tsx");
   assert.doesNotMatch(card, /voucher|coupon|promo code/i);
@@ -267,6 +278,143 @@ check("R9. Terminal SumUp failure clears reservation where practical", () => {
   assert.match(payment, /clearPersonalQuoteReservation/);
   assert.match(payment, /FAILED/);
   assert.match(payment, /EXPIRED/);
+});
+
+check("L1. Personal quote without discount — agreed only", () => {
+  const pricing = resolvePersonalQuotePricing({ agreedAmount: 65 });
+  assert.equal(pricing.ok, true);
+  if (pricing.ok) {
+    assert.equal(pricing.agreedAmount, 65);
+    assert.equal(pricing.standardWebsiteAmount, undefined);
+    assert.equal(pricing.discountAmount, undefined);
+  }
+  const summary = toPersonalQuotePublicSummary(
+    sampleQuote({
+      agreedAmount: 65,
+      standardWebsiteAmount: undefined,
+      discountAmount: undefined,
+    }),
+  );
+  assert.equal(summary.amountLabel, "£65.00");
+  assert.equal(summary.discountAmount, undefined);
+  assert.equal(summary.standardWebsiteAmount, undefined);
+});
+
+check("L2. £10 discount from £75 → £65", () => {
+  const pricing = resolvePersonalQuotePricing({
+    standardWebsiteAmount: 75,
+    discountAmount: 10,
+  });
+  assert.equal(pricing.ok, true);
+  if (pricing.ok) {
+    assert.equal(pricing.agreedAmount, 65);
+    assert.equal(pricing.discountAmount, 10);
+    assert.equal(pricing.standardWebsiteAmount, 75);
+  }
+  const linked = computeLinkedPersonalQuoteFares({
+    standardWebsiteAmount: 75,
+    discountAmount: 10,
+    agreedAmount: null,
+    edited: "discount",
+  });
+  assert.deepEqual(linked, { discountAmount: 10, agreedAmount: 65 });
+  const fromAgreed = computeLinkedPersonalQuoteFares({
+    standardWebsiteAmount: 75,
+    discountAmount: null,
+    agreedAmount: 65,
+    edited: "agreed",
+  });
+  assert.deepEqual(fromAgreed, { agreedAmount: 65, discountAmount: 10 });
+});
+
+check("L3. Invalid negative discount / discount > standard / agreed under £1", () => {
+  assert.equal(resolvePersonalQuotePricing({ standardWebsiteAmount: 75, discountAmount: -5 }).ok, false);
+  assert.equal(resolvePersonalQuotePricing({ standardWebsiteAmount: 75, discountAmount: 80 }).ok, false);
+  assert.equal(resolvePersonalQuotePricing({ agreedAmount: 0.5 }).ok, false);
+  assert.equal(resolvePersonalQuotePricing({ agreedAmount: "NaN" }).ok, false);
+  assert.equal(resolvePersonalQuotePricing({ agreedAmount: -10 }).ok, false);
+  assert.equal(
+    resolvePersonalQuotePricing({
+      standardWebsiteAmount: 75,
+      discountAmount: 10,
+      agreedAmount: 50,
+    }).ok,
+    false,
+  );
+});
+
+check("L4. Secure token generation + URL never contains fare", () => {
+  const token = generatePersonalQuoteCustomerToken();
+  assert.match(token, /^[a-f0-9]{48}$/);
+  assert.equal(normalizePersonalQuoteCustomerToken(` ${token.toUpperCase()} `), token);
+  const url = buildPersonalQuoteCustomerUrl(token, "https://www.myairporttaxini.co.uk");
+  assert.match(url, /\/personal-quote\/\?t=/);
+  assert.doesNotMatch(url, /65|75|10|agreed|amount|fare|discount/i);
+  assert.equal(personalQuoteTokenKey(token), `personal-quote:token:${token}`);
+});
+
+check("L5. Token / expired / inactive / used customer messages", () => {
+  assert.match(personalQuoteTokenCustomerError("not_found"), /invalid or no longer available/i);
+  assert.match(personalQuoteCustomerError("expired"), /has expired/i);
+  assert.match(personalQuoteCustomerError("inactive"), /no longer active/i);
+  assert.match(personalQuoteCustomerError("already_used"), /already been used/i);
+  assert.doesNotMatch(personalQuoteTokenCustomerError("not_found"), /KV|database|stack/i);
+});
+
+check("L6. Standard fare absent — no fabricated saving", () => {
+  const summary = toPersonalQuotePublicSummary(
+    sampleQuote({ agreedAmount: 65, standardWebsiteAmount: undefined }),
+  );
+  assert.equal(summary.discountAmount, undefined);
+  assert.equal(summary.amountLabel, "£65.00");
+});
+
+check("L7. Customer page + token API; payment still server-authorised; MQ path intact", () => {
+  const page = read("src/app/personal-quote/PersonalQuoteCustomerClient.tsx");
+  assert.match(page, /fetchPersonalQuoteByToken/);
+  assert.match(page, /personalQuoteCode: quote\.code/);
+  assert.match(page, /Your private airport transfer quote/);
+  assert.match(page, /You save/);
+  assert.doesNotMatch(page, /coupon|promo code/i);
+  // Fare must not be read from URL query params for payment.
+  assert.doesNotMatch(page, /searchParams\.get\(["']amount/);
+  assert.doesNotMatch(page, /searchParams\.get\(["']fare/);
+  const api = read("src/lib/personal-quote-api.ts");
+  assert.match(api, /personal-quotes\/by-token/);
+  assert.match(api, /validatePersonalQuoteCode/);
+  const index = read("workers/addresses/src/index.ts");
+  assert.match(index, /isPublicPersonalQuoteTokenPath/);
+  assert.match(index, /handlePublicPersonalQuoteByToken/);
+  assert.match(index, /resolvePersonalQuoteForPayment/);
+  assert.match(index, /amount = resolved\.amount/);
+  const store = read("workers/addresses/src/personal-quote-store.ts");
+  assert.match(store, /customerToken/);
+  assert.match(store, /discountAmount/);
+  assert.match(store, /getPersonalQuoteByCustomerToken/);
+  assert.match(store, /ensurePersonalQuoteCustomerToken/);
+  // Legacy MQ validate path still present.
+  assert.match(read("workers/addresses/src/personal-quote-handlers.ts"), /handlePublicValidatePersonalQuote/);
+  assert.match(read("src/components/QuoteCard.tsx"), /validatePersonalQuoteCode/);
+});
+
+check("L8. Backwards-compatible record shape (optional new fields)", () => {
+  const legacy = sampleQuote();
+  assert.equal(legacy.customerToken, undefined);
+  assert.equal(legacy.discountAmount, undefined);
+  assert.equal(legacy.customerMobile, undefined);
+  const evaluated = evaluatePersonalQuote(legacy, new Date("2026-08-18T12:00:00Z"));
+  assert.equal(evaluated.ok, true);
+  const withDiscount = sampleQuote({
+    agreedAmount: 65,
+    standardWebsiteAmount: 75,
+    discountAmount: 10,
+    customerToken: generatePersonalQuoteCustomerToken(),
+    customerMobile: "07700900123",
+  });
+  const summary = toPersonalQuotePublicSummary(withDiscount);
+  assert.equal(summary.discountAmount, 10);
+  assert.equal(summary.amountLabel, "£65.00");
+  assert.equal(summary.customerMobile, "07700900123");
 });
 
 console.log("\nAll personal quote code checks passed.");

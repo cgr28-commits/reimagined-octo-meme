@@ -126,8 +126,10 @@ import {
   handleOwnerCreatePersonalQuote,
   handleOwnerDeactivatePersonalQuote,
   handleOwnerListPersonalQuotes,
+  handlePublicPersonalQuoteByToken,
   handlePublicValidatePersonalQuote,
   isOwnerPersonalQuotesPath,
+  isPublicPersonalQuoteTokenPath,
   isPublicPersonalQuoteValidatePath,
   resolvePersonalQuoteForPayment,
 } from "./personal-quote-handlers";
@@ -2104,6 +2106,21 @@ export default {
       const result = await handlePublicValidatePersonalQuote(
         { ...env, TRACKING_STORE: env.TRACKING_STORE },
         body,
+      );
+      if (!result.ok) {
+        return json({ error: result.error }, result.status, origin);
+      }
+      return json(result, 200, origin);
+    }
+
+    if (isPublicPersonalQuoteTokenPath(url.pathname) && request.method === "GET") {
+      if (!env.TRACKING_STORE) {
+        return json({ error: "Storage is not configured" }, 503, origin);
+      }
+      const token = (url.searchParams.get("t") ?? url.searchParams.get("token") ?? "").trim();
+      const result = await handlePublicPersonalQuoteByToken(
+        { ...env, TRACKING_STORE: env.TRACKING_STORE },
+        token,
       );
       if (!result.ok) {
         return json({ error: result.error }, result.status, origin);

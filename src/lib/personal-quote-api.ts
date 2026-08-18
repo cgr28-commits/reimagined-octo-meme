@@ -7,6 +7,7 @@ export type { PersonalQuotePublicSummary };
 
 export type PersonalQuoteOwnerView = PersonalQuotePublicSummary & {
   customerEmail?: string;
+  customerMobile?: string;
   notes?: string;
   active: boolean;
   createdAt: string;
@@ -21,8 +22,11 @@ export type PersonalQuoteOwnerView = PersonalQuotePublicSummary & {
   customerName: string;
   code: string;
   standardWebsiteAmount?: number;
+  discountAmount?: number;
   pickupLabel?: string;
   dropoffLabel?: string;
+  customerToken?: string;
+  customerLink?: string;
 };
 
 async function parseJson(response: Response): Promise<Record<string, unknown>> {
@@ -64,6 +68,35 @@ export async function validatePersonalQuoteCode(
   return quote as PersonalQuotePublicSummary;
 }
 
+/** Public lookup by opaque customer token — does not consume the quote. */
+export async function fetchPersonalQuoteByToken(
+  token: string,
+): Promise<PersonalQuotePublicSummary> {
+  const response = await fetch(
+    `${WORKER_BASE}/personal-quotes/by-token?t=${encodeURIComponent(token.trim())}`,
+    {
+      headers: { Accept: "application/json" },
+      cache: "no-store",
+    },
+  );
+  const payload = await parseJson(response);
+  if (!response.ok) {
+    throw new Error(
+      String(
+        payload.error ||
+          "This personal quote link is invalid or no longer available. Please contact My Airport Taxi NI.",
+      ),
+    );
+  }
+  const quote = payload.quote;
+  if (!quote || typeof quote !== "object") {
+    throw new Error(
+      "This personal quote link is invalid or no longer available. Please contact My Airport Taxi NI.",
+    );
+  }
+  return quote as PersonalQuotePublicSummary;
+}
+
 export async function fetchOwnerPersonalQuotes(
   ownerKey: string,
 ): Promise<PersonalQuoteOwnerView[]> {
@@ -84,8 +117,10 @@ export async function fetchOwnerPersonalQuotes(
 export type CreatePersonalQuoteInput = {
   customerName: string;
   customerEmail?: string;
+  customerMobile?: string;
   agreedAmount: number;
   standardWebsiteAmount?: number;
+  discountAmount?: number;
   pickupLabel?: string;
   dropoffLabel?: string;
   notes?: string;
