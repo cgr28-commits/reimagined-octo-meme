@@ -124,6 +124,45 @@ assert.equal(labelled.suitcases.value, 4);
 assert.equal(labelled.returnJourney.value, false);
 assert.deepEqual(labelled.missingMandatoryForQuote, []);
 
+console.log("=== Saul Rd structured WhatsApp regression (BFS → BT30, no flight) ===");
+const SAUL_MSG = `*Trip Type:* One-way
+*Pickup Address:* Belfast International Airport
+*Drop-off Address:* 43 Saul Rd, Downpatrick BT30 6PA
+*Date:* 29th August
+*Time:* 10:00 am
+*Passengers:* 4
+*Suitcases:* 4`;
+const saul = parseQuickQuoteMessage(SAUL_MSG, fixedNow);
+assert.equal(saul.pickupAddress.value, "Belfast International Airport");
+assert.equal(saul.dropoffAddress.value, "43 Saul Rd, Downpatrick BT30 6PA");
+assert.equal(saul.passengers.value, 4);
+assert.equal(saul.suitcases.value, 4);
+assert.equal(countFieldValue(saul.passengers.value), "4");
+assert.equal(countFieldValue(saul.suitcases.value), "4");
+assert.equal(saul.flightNumber.value, null);
+assert.equal(saul.outboundDate.value, "2026-08-29");
+assert.equal(saul.outboundTime.value, "10:00");
+assert.equal(saul.returnJourney.value, false);
+assert.equal(saul.fromAirport.value, true);
+assert.equal(saul.airportCode.value, "BFS");
+assert.ok(!saul.pickupAddress.value?.startsWith("*"));
+assert.ok(!saul.dropoffAddress.value?.startsWith("*"));
+assert.ok(!String(saul.flightNumber.value ?? "").startsWith("*"));
+assert.deepEqual(saul.missingMandatoryForQuote, []);
+
+console.log("=== Explicit flight still extracted; postcode never is ===");
+const withFlight = parseQuickQuoteMessage(
+  "Airport transfer to Belfast International from 12 High Street Bangor BT20 5ED on 20/08/2026 at 09:00 flight BA1418 2 passengers 1 bag",
+  fixedNow,
+);
+assert.equal(withFlight.flightNumber.value, "BA1418");
+assert.notEqual(withFlight.flightNumber.value, "BT20");
+const easyJet = parseQuickQuoteMessage(
+  "Pickup Belfast City Airport 21/08/2026 11:00 Flight: U2801 2 passengers 2 bags to Holywood",
+  fixedNow,
+);
+assert.equal(easyJet.flightNumber.value, "U2801");
+
 console.log("=== Passenger/luggage form field values (natural + labelled) ===");
 assert.equal(countFieldValue(real.passengers.value), "4");
 assert.equal(countFieldValue(real.suitcases.value), "2");
@@ -277,6 +316,14 @@ for (const width of [375, 390, 430]) {
   assert.match(qqClient, /quote-text-input/);
 }
 assert.match(qqClient, /break-words|break-all/);
+assert.match(qqClient, /cleanExtractedText/);
+assert.match(qqClient, /type="text"/); // passengers/luggage avoid iOS number-input wipe
+assert.doesNotMatch(qqClient, /type="number"/);
+assert.match(qqPage, /overflow-x-clip/);
+assert.match(qqPage, /min-w-0/);
+// 390px iPhone: container must not use fixed px wider than viewport
+assert.doesNotMatch(qqPage, /w-\[(4[0-9]{2}|[5-9]\d{2}|[1-9]\d{3,})px\]/);
+assert.doesNotMatch(qqClient, /w-screen|min-w-\[[4-9]\d{2}/);
 
 const quoteService = fs.readFileSync(path.join(root, "src/lib/quote-service.ts"), "utf8");
 assert.match(quoteService, /export function calculateAuthoritativeWebsiteQuote/);
