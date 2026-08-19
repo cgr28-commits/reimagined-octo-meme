@@ -3,6 +3,7 @@ import {
   generateTrackingSessionToken,
   generateTrackingToken,
   shouldStoreGpsPoint,
+  selectTrackingJobsForRefundMark,
   TRACKING_SESSION_TTL_SECONDS,
   DEFAULT_GPS_HISTORY_TTL_SECONDS,
   type DriverLocationPoint,
@@ -250,14 +251,13 @@ export async function createTrackingJobFromBooking(
 
     if (!returnJob) {
       const dayJobs = await listTrackingJobsForDate(store, returnDate);
+      // Only adopt an existing day job when paymentReference matches exactly.
+      // Never fuzzy-match by customer name / swapped addresses / time — that can
+      // wrongly pair two different bookings and let a refund on A mutate B.
       returnJob =
-        dayJobs.find(
-          (job) =>
-            (paymentRef && job.paymentReference?.trim() === paymentRef) ||
-            (job.customerName.trim().toLowerCase() === booking.customerName.trim().toLowerCase() &&
-              job.pickupLabel.trim().toLowerCase() === booking.dropoffLabel.trim().toLowerCase() &&
-              job.tripTime === returnTime),
-        ) ?? null;
+        paymentRef
+          ? dayJobs.find((job) => job.paymentReference?.trim() === paymentRef) ?? null
+          : null;
     }
 
     if (!returnJob) {
@@ -546,6 +546,8 @@ export function isTrackingJobCancelled(record: TrackingJobRecord): boolean {
   return Boolean(record.refundedAt?.trim());
 }
 
+export { selectTrackingJobsForRefundMark };
+
 export async function markTrackingJobRefunded(
   store: KVNamespace,
   token: string,
@@ -556,22 +558,26 @@ export async function markTrackingJobRefunded(
     return false;
   }
 
-  const related = record.paymentReference?.trim()
-    ? await findTrackingJobsByPaymentReference(store, record.paymentReference)
-    : [record];
+  const paymentRef = record.paymentReference?.trim() || "";
+  const related = paymentRef
+    ? await findTrackingJobsByPaymentReference(store, paymentRef)
+    : [];
 
-  const tokens = new Set<string>([token, ...related.map((job) => job.token)]);
-  if (record.pairedToken?.trim()) {
-    tokens.add(record.pairedToken.trim());
+  let pairedJob: TrackingJobRecord | null = null;
+  const pairedToken = record.pairedToken?.trim();
+  if (pairedToken) {
+    pairedJob = await getTrackingJob(store, pairedToken);
   }
+
+  const toMark = selectTrackingJobsForRefundMark({
+    primary: record,
+    relatedByPaymentRef: related,
+    pairedJob,
+  });
 
   let marked = false;
   const refundedAt = new Date().toISOString();
-  for (const relatedToken of tokens) {
-    const job = await getTrackingJob(store, relatedToken);
-    if (!job) {
-      continue;
-    }
+  for (const job of toMark) {
     const updated: TrackingJobRecord = {
       ...job,
       sharingActive: false,
