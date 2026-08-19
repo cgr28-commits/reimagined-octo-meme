@@ -30,6 +30,7 @@ import { hoursUntilPickup, isWithin24HoursOfPickup } from "../shared/refund-ops"
 import { corsHeaders } from "../shared/google-places";
 import { INSTANT_QUOTE_MAX_PASSENGERS } from "../shared/passenger-limits";
 import { buildManageBookingUrl } from "../shared/manage-booking-token";
+import { matchServedAirportCode } from "../shared/served-airports";
 import type { PaidBookingAmendmentEvent, PaidBookingRecord } from "../shared/paid-booking-record";
 import { buildPickupDateTimeLocal, journeyStatusOf } from "../shared/tracking";
 import {
@@ -699,6 +700,34 @@ export async function handleCustomerAmendSchedule(
   );
   const burnsFreeQuota = materialChanged.length > 0;
 
+  const pickupAirport = matchServedAirportCode(merged.pickupLabel);
+  const dropoffAirport = matchServedAirportCode(merged.dropoffLabel);
+  const storedRaw = String(record.airportCode ?? "").trim().toUpperCase();
+  const storedCode =
+    storedRaw === "BFS" || storedRaw === "BHD" || storedRaw === "DUB" || storedRaw === "LDY"
+      ? (storedRaw as QuoteServiceAirportCode)
+      : null;
+
+  let resolvedAirportCode: QuoteServiceAirportCode | null = null;
+  let resolvedFromAirport = Boolean(record.isFromAirport);
+  let resolvedIsAirportTrip = Boolean(record.isAirportTrip);
+
+  if (pickupAirport && !dropoffAirport) {
+    resolvedAirportCode = pickupAirport as QuoteServiceAirportCode;
+    resolvedFromAirport = true;
+    resolvedIsAirportTrip = true;
+  } else if (dropoffAirport && !pickupAirport) {
+    resolvedAirportCode = dropoffAirport as QuoteServiceAirportCode;
+    resolvedFromAirport = false;
+    resolvedIsAirportTrip = true;
+  } else if (pickupAirport && dropoffAirport) {
+    resolvedAirportCode = dropoffAirport as QuoteServiceAirportCode;
+    resolvedFromAirport = true;
+    resolvedIsAirportTrip = true;
+  } else if (resolvedIsAirportTrip || storedCode) {
+    resolvedAirportCode = storedCode;
+  }
+
   // Always reprice server-side (weekday/weekend/bank holiday may differ).
   // Client amount / authoritativeFare / newFare are ignored if present.
   let previousFare = Number(record.amount) || 0;
@@ -706,14 +735,10 @@ export async function handleCustomerAmendSchedule(
   let fareDiff = describeFareDifference(previousFare, newFare);
 
   if (burnsFreeQuota) {
-    const airportRaw = String(record.airportCode ?? "").trim().toUpperCase();
-    const airportCode =
-      airportRaw === "BFS" || airportRaw === "BHD" || airportRaw === "DUB" || airportRaw === "LDY"
-        ? (airportRaw as QuoteServiceAirportCode)
-        : null;
     const quote = calculateAuthoritativeWebsiteQuote({
-      airportCode: record.isAirportTrip || airportCode ? airportCode : null,
-      fromAirport: Boolean(record.isFromAirport),
+      airportCode:
+        resolvedIsAirportTrip || resolvedAirportCode ? resolvedAirportCode : null,
+      fromAirport: resolvedFromAirport,
       pickupAddress: merged.pickupLabel,
       dropoffAddress: merged.dropoffLabel,
       returnJourney: Boolean(record.returnJourney),
@@ -830,6 +855,9 @@ export async function handleCustomerAmendSchedule(
         childSeatNotes: merged.childSeatNotes,
         flightNumber: merged.flightNumber,
         mobileNumber: merged.mobileNumber,
+        airportCode: resolvedAirportCode,
+        isFromAirport: resolvedFromAirport,
+        isAirportTrip: resolvedIsAirportTrip,
       },
       createdBy: "Customer",
     });
@@ -972,6 +1000,9 @@ export async function handleCustomerAmendSchedule(
       childSeatNotes: merged.childSeatNotes,
       flightNumber: merged.flightNumber,
       mobileNumber: merged.mobileNumber,
+      airportCode: resolvedAirportCode || undefined,
+      isFromAirport: resolvedFromAirport,
+      isAirportTrip: resolvedIsAirportTrip,
       originalTripDate: record.originalTripDate || previousTripDate,
       originalTripTime: record.originalTripTime || previousTripTime,
       dateTimeAmendmentCount: nextCount,

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { SITE } from "@/lib/data";
 import { whatsAppChatUrl } from "@/lib/contact-card";
+import { PLACES_LOOKUP_A2A } from "@/lib/selected-place";
 import AddressInput from "@/components/AddressInput";
 import {
   abandonPendingAmendment,
@@ -760,7 +761,7 @@ export default function ManageBookingClient() {
                   setPickupSelected(true);
                 }}
                 requireSuggestion
-                airportCode={booking.airportCode || ""}
+                airportCode={PLACES_LOOKUP_A2A}
                 disableAutoScroll
                 className="manage-address-field"
               />
@@ -781,7 +782,7 @@ export default function ManageBookingClient() {
                   setDropoffSelected(true);
                 }}
                 requireSuggestion
-                airportCode={booking.airportCode || ""}
+                airportCode={PLACES_LOOKUP_A2A}
                 disableAutoScroll
                 className="manage-address-field"
               />

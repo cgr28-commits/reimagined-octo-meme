@@ -2,6 +2,11 @@ import {
   isGreaterBelfastServiceAddress,
   isLdyDropOffAddress,
 } from "./ldy-service-area";
+import {
+  isDublinAirportCoordinates,
+  isServedAirportLabel,
+  matchServedAirportCode,
+} from "./served-airports";
 
 const BT_POSTCODE_PATTERN = /\bBT\d{1,2}\s?\d[A-Z]{2}\b/i;
 const BT_OUTCODE_PATTERN = /\bBT\d{1,2}\b/i;
@@ -293,6 +298,17 @@ export function isAddressAllowedForAirport(
     return true;
   }
 
+  // Served airports (esp. Dublin) must resolve even when search mode is BFS/BHD.
+  const display = [parts.displayName, parts.city, parts.town, parts.county]
+    .filter(Boolean)
+    .join(" ");
+  if (isServedAirportLabel(display) || matchServedAirportCode(display)) {
+    if (code === "LDY") {
+      return isLdyDropOffAddress(display);
+    }
+    return true;
+  }
+
   return false;
 }
 
@@ -393,12 +409,20 @@ export function isAllowedAutocompleteLabel(label: string, airportCode: string): 
   const isNi = isNorthernIrelandText(text);
   const isRoi = isRepublicOfIrelandText(text);
 
+  // Always allow the site’s served airports (BFS / BHD / DUB) regardless of search mode.
+  if (isServedAirportLabel(text)) {
+    if (code === "LDY") {
+      return isGreaterBelfastServiceAddress(text);
+    }
+    return true;
+  }
+
   if (code === "A2A" || code === "DUB") {
     // Require a positive NI or ROI signal — do not pass ambiguous GB mainland labels.
     return isNi || isRoi;
   }
 
-  // BFS / BHD / other NI airport modes — Northern Ireland only.
+  // BFS / BHD / other NI airport modes — Northern Ireland only (airports handled above).
   return isNi;
 }
 
@@ -426,6 +450,11 @@ export function isNorthernIrelandCoordinates(lat: number, lon: number): boolean 
 
 export function isAllowedCoordinates(airportCode: string, lat: number, lon: number): boolean {
   if (isNorthernIrelandCoordinates(lat, lon)) {
+    return true;
+  }
+
+  // Dublin Airport must resolve when changing a BFS/BHD booking destination.
+  if (isDublinAirportCoordinates(lat, lon)) {
     return true;
   }
 

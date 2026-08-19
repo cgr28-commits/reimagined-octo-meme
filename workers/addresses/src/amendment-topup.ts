@@ -17,6 +17,7 @@ import type {
   PendingBookingAmendment,
 } from "../shared/paid-booking-record";
 import { grossAmountCollectedOf } from "../shared/paid-booking-record";
+import { matchServedAirportCode } from "../shared/served-airports";
 import {
   buildCheckoutReference,
   createSumUpHostedCheckout,
@@ -374,6 +375,40 @@ export async function finalizeAmendmentTopUpCheckout(input: {
     pending.proposed.mobileNumber !== undefined
       ? String(pending.proposed.mobileNumber || "")
       : booking.mobileNumber;
+  const pickupAirport = matchServedAirportCode(newPickupLabel);
+  const dropoffAirport = matchServedAirportCode(newDropoffLabel);
+  let resolvedAirportCode =
+    pending.proposed.airportCode !== undefined
+      ? String(pending.proposed.airportCode || "")
+      : booking.airportCode;
+  let resolvedFromAirport =
+    pending.proposed.isFromAirport !== undefined
+      ? Boolean(pending.proposed.isFromAirport)
+      : Boolean(booking.isFromAirport);
+  let resolvedIsAirportTrip =
+    pending.proposed.isAirportTrip !== undefined
+      ? Boolean(pending.proposed.isAirportTrip)
+      : Boolean(booking.isAirportTrip);
+
+  // Prefer label detection so Dublin/BFS/BHD changes reprice correctly even if
+  // an older pending payload omitted airportCode fields.
+  if (pickupAirport && !dropoffAirport) {
+    resolvedAirportCode = pickupAirport;
+    resolvedFromAirport = true;
+    resolvedIsAirportTrip = true;
+  } else if (dropoffAirport && !pickupAirport) {
+    resolvedAirportCode = dropoffAirport;
+    resolvedFromAirport = false;
+    resolvedIsAirportTrip = true;
+  } else if (pickupAirport && dropoffAirport) {
+    resolvedAirportCode = dropoffAirport;
+    resolvedFromAirport = true;
+    resolvedIsAirportTrip = true;
+  }
+
+  const newAirportCode = resolvedAirportCode;
+  const newIsFromAirport = resolvedFromAirport;
+  const newIsAirportTrip = resolvedIsAirportTrip;
   const previousTripDate = booking.tripDate;
   const previousTripTime = booking.tripTime;
   const changedAt = new Date().toISOString();
@@ -459,6 +494,9 @@ export async function finalizeAmendmentTopUpCheckout(input: {
       childSeatNotes: newChildSeatNotes,
       flightNumber: newFlightNumber,
       mobileNumber: newMobileNumber,
+      airportCode: newAirportCode || undefined,
+      isFromAirport: newIsFromAirport,
+      isAirportTrip: newIsAirportTrip,
       originalTripDate: booking.originalTripDate || previousTripDate,
       originalTripTime: booking.originalTripTime || previousTripTime,
       dateTimeAmendmentCount: Math.max(0, Number(booking.dateTimeAmendmentCount) || 0) + 1,

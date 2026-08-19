@@ -21,6 +21,7 @@ import {
   isFullNorthernIrelandPostcode,
   isPureFullNorthernIrelandPostcodeQuery,
 } from "../../shared/address-validation";
+import { matchServedAirportSuggestions, servedAirportFromPlaceId } from "../../shared/served-airports";
 import type { SelectedPlace } from "@/lib/selected-place";
 import { selectedPlaceFromParts } from "@/lib/selected-place";
 import {
@@ -72,16 +73,24 @@ function mergePredictions(
   predictions: AddressPrediction[],
   airportCode: string,
   limit = 8,
+  query = "",
 ): AddressPrediction[] {
   const seen = new Set<string>();
   const merged: AddressPrediction[] = [];
 
-  for (const prediction of predictions) {
+  const served = matchServedAirportSuggestions(query).map((item) => ({
+    placeId: item.id,
+    description: item.label,
+    mainText: item.mainText,
+    secondaryText: item.secondaryText,
+  }));
+
+  for (const prediction of [...served, ...predictions]) {
     if (!isAllowedAutocompleteLabel(prediction.description, airportCode)) {
       continue;
     }
 
-    const key = prediction.description.toLowerCase();
+    const key = prediction.placeId || prediction.description.toLowerCase();
     if (seen.has(key)) {
       continue;
     }
@@ -92,6 +101,11 @@ function mergePredictions(
 
   return merged
     .sort((a, b) => {
+      // Keep served airports at the top when they matched the query.
+      const aServed = served.some((s) => s.placeId === a.placeId);
+      const bServed = served.some((s) => s.placeId === b.placeId);
+      if (aServed && !bServed) return -1;
+      if (!aServed && bServed) return 1;
       const aHasNumber = hasLeadingStreetNumber(a.mainText);
       const bHasNumber = hasLeadingStreetNumber(b.mainText);
       if (aHasNumber && !bHasNumber) {
@@ -218,7 +232,7 @@ async function fetchLocalAddressPredictions(
   }
 
   const results = await Promise.all(tasks);
-  return mergePredictions(results.flat(), airportCode, 10);
+  return mergePredictions(results.flat(), airportCode, 10, trimmed);
 }
 
 export type AddressPredictionsResult = {
@@ -297,7 +311,7 @@ export async function fetchAddressPredictionsDetailed(
 
   const results = await Promise.all(tasks);
   return {
-    predictions: mergePredictions(results.flat(), airportCode, 10),
+    predictions: mergePredictions(results.flat(), airportCode, 10, trimmed),
     needsHouseNumber: false,
     postcode: extractNorthernIrelandPostcode(trimmed),
     hint: null,
@@ -320,6 +334,23 @@ export async function fetchSelectedPlaceDetails(
   userInput?: string,
   suggestionName?: string,
 ): Promise<SelectedPlace | null> {
+  const served = servedAirportFromPlaceId(placeId);
+  if (served) {
+    return {
+      placeId: served.placeId,
+      formattedAddress: served.formattedAddress,
+      displayAddress: served.formattedAddress,
+      placeName: served.name,
+      lat: served.lat,
+      lng: served.lng,
+      countryCode: served.countryCode,
+      postalCode: served.postalCode,
+      streetNumber: null,
+      route: null,
+      locality: null,
+    };
+  }
+
   if (ADDRESSES_API_URL) {
     const workerPlace = await fetchWorkerAddressDetails(
       placeId,

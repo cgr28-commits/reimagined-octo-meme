@@ -30,6 +30,7 @@ import {
   isPureFullNorthernIrelandPostcodeQuery,
   sortSuggestionsByStreetNumber,
 } from "../shared/address-validation";
+import { matchServedAirportSuggestions, servedAirportFromPlaceId } from "../shared/served-airports";
 import {
   resolveGetAddressDetails,
   searchGetAddress,
@@ -2871,6 +2872,28 @@ export default {
     if (id) {
       try {
         const userInput = url.searchParams.get("userInput")?.trim() || undefined;
+        const served = servedAirportFromPlaceId(id);
+        if (served) {
+          return json(
+            {
+              address: served.formattedAddress,
+              formattedAddress: served.formattedAddress,
+              displayAddress: served.formattedAddress,
+              placeName: served.name,
+              placeId: served.placeId,
+              lat: served.lat,
+              lng: served.lng,
+              countryCode: served.countryCode,
+              postalCode: served.postalCode,
+              streetNumber: null,
+              route: null,
+              locality: null,
+              provider: "served-airport",
+            },
+            200,
+            origin,
+          );
+        }
 
         if (isIdealPostcodesPlaceId(id)) {
           const details = await resolveIdealPostcodesDetails(id, airportCode);
@@ -3102,20 +3125,22 @@ export default {
       );
       const suggestions = results.flat();
 
-      const seen = new Set<string>();
       const merged = sortSuggestionsByStreetNumber(
-        suggestions.filter((item) => {
-          if (!isAllowedAutocompleteLabel(item.label, airportCode)) {
-            return false;
-          }
-          const key = item.label.toLowerCase();
-          if (seen.has(key)) {
-            return false;
-          }
-          seen.add(key);
-          return true;
-        }),
+        suggestions.filter((item) => isAllowedAutocompleteLabel(item.label, airportCode)),
       );
+
+      // First-class served airports (BFS / BHD / DUB) — reliable even when Places is GB-only.
+      const served = matchServedAirportSuggestions(query).filter((item) =>
+        isAllowedAutocompleteLabel(item.label, airportCode),
+      );
+      const byId = new Set<string>();
+      const finalSuggestions = [];
+      for (const item of [...served, ...merged]) {
+        const id = (item.id || item.label).toLowerCase();
+        if (byId.has(id)) continue;
+        byId.add(id);
+        finalSuggestions.push(item);
+      }
 
       const providers: string[] = [];
       if (env.IDEAL_POSTCODES_API_KEY?.trim()) providers.push("ideal-postcodes");
@@ -3124,7 +3149,7 @@ export default {
 
       return json(
         {
-          suggestions: merged.slice(0, 10),
+          suggestions: finalSuggestions.slice(0, 10),
           provider: providers.join("+") || "none",
           configured: {
             idealPostcodes: Boolean(env.IDEAL_POSTCODES_API_KEY?.trim()),

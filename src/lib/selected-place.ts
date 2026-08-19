@@ -10,6 +10,10 @@ import {
   isNorthernIrelandText,
 } from "@/lib/northern-ireland";
 import { PRICING_CONFIG } from "@/lib/pricing-config";
+import {
+  SERVED_AIRPORTS,
+  type ServedAirportCode,
+} from "../../shared/served-airports";
 
 export type SelectedPlace = {
   placeId: string;
@@ -37,90 +41,29 @@ export type JourneyKind =
 export const PLACES_LOOKUP_A2A = "A2A";
 
 /** Quick-select airports shown under the address fields. */
-export const QUICK_SELECT_AIRPORTS = [
-  {
-    code: "BFS",
-    label: "Belfast International",
-    /** Verified Google Place ID (Aldergrove). */
-    placeId: "ChIJy4dKsjJVYEgRntaoTC4U5gw",
-    formattedAddress: "Belfast International Airport, Airport Rd, Aldergrove BT29 4AB, UK",
-    lat: 54.6575,
-    lng: -6.2158,
-    countryCode: "GB",
-    postalCode: "BT29 4AB",
-  },
-  {
-    code: "BHD",
-    label: "Belfast City",
-    placeId: "ChIJN1t_tDeuW0gR2cK0JqQZQ0E",
-    formattedAddress: "George Best Belfast City Airport, Airport Rd, Belfast BT3 9JH, UK",
-    lat: 54.6181,
-    lng: -5.8724,
-    countryCode: "GB",
-    postalCode: "BT3 9JH",
-  },
-  {
-    code: "LDY",
-    label: "City of Derry Airport",
-    /** Stable quick-select ID — detection also matches “City of Derry Airport” text patterns. */
-    placeId: "quickselect-ldy-city-of-derry-airport",
-    formattedAddress: "City of Derry Airport, Airport Road, Eglinton BT47 3GY, UK",
-    lat: 55.0428,
-    lng: -7.1611,
-    countryCode: "GB",
-    postalCode: "BT47 3GY",
-  },
-  {
-    code: "DUB",
-    label: "Dublin Airport",
-    placeId: "ChIJUU1_1pJZZ0gR3vQvL7Gqj0U",
-    formattedAddress: "Dublin Airport, Co. Dublin, Ireland",
-    lat: 53.4264,
-    lng: -6.2499,
-    countryCode: "IE",
-    postalCode: null,
-  },
-] as const;
+export const QUICK_SELECT_AIRPORTS = SERVED_AIRPORTS.map((airport) => ({
+  code: airport.code,
+  label: airport.label,
+  placeId: airport.placeId,
+  formattedAddress: airport.formattedAddress,
+  lat: airport.lat,
+  lng: airport.lng,
+  countryCode: airport.countryCode,
+  postalCode: airport.postalCode,
+}));
 
-export type QuickSelectAirportCode = (typeof QUICK_SELECT_AIRPORTS)[number]["code"];
+export type QuickSelectAirportCode = ServedAirportCode;
 
 const AIRPORT_CODE_BY_PLACE_ID = new Map<string, string>(
-  QUICK_SELECT_AIRPORTS.map((airport) => [airport.placeId, airport.code]),
+  SERVED_AIRPORTS.map((airport) => [airport.placeId, airport.code]),
 );
 
-const AIRPORT_MATCHERS: Array<{ code: string; patterns: RegExp[] }> = [
-  {
-    code: "BFS",
-    patterns: [
-      /belfast international/i,
-      /\baldergrove\b/i,
-      /\bBFS\b/,
-      /airport rd.*aldergrove/i,
-    ],
-  },
-  {
-    code: "BHD",
-    patterns: [
-      /belfast city airport/i,
-      /george best belfast city/i,
-      /\bBHD\b/,
-      /sydenham.*airport/i,
-    ],
-  },
-  {
-    code: "DUB",
-    // Require explicit airport wording / IATA — never bare "Dublin".
-    patterns: [
-      /\bdublin\s+airport\b/i,
-      /\baerfort\s+bhaile\s+átha\s+cliath\b/i,
-      /\bDUB\b/,
-    ],
-  },
-  {
-    code: "LDY",
-    patterns: [/city of derry airport/i, /derry airport/i, /\bLDY\b/, /eg ae/i],
-  },
-];
+const AIRPORT_MATCHERS: Array<{ code: string; patterns: RegExp[] }> = SERVED_AIRPORTS.map(
+  (airport) => ({
+    code: airport.code,
+    patterns: [...airport.patterns],
+  }),
+);
 
 export function emptySelectedPlace(): SelectedPlace {
   return {
