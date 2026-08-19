@@ -44,7 +44,7 @@ export default function Footer() {
                   href="/manage-booking/"
                   className="text-sm text-white/50 transition-colors hover:text-emerald"
                 >
-                  Manage Booking
+                  Manage Your Booking
                 </Link>
               </li>
               <li>

@@ -93,7 +93,7 @@ export default function Header() {
                     onClick={closeMenu}
                     className="rounded-full border border-white/20 px-5 py-3.5 text-center text-sm font-semibold text-white/90"
                   >
-                    Manage Booking
+                    Manage Your Booking
                   </Link>
                   <QuoteNavLink
                     onNavigate={closeMenu}
@@ -161,7 +161,7 @@ export default function Header() {
               href="/manage-booking/"
               className="whitespace-nowrap rounded-full border border-white/20 px-4 py-2 text-sm font-semibold text-white/90 transition-colors hover:border-emerald/50 hover:text-emerald lg:px-5"
             >
-              Manage Booking
+              Manage Your Booking
             </Link>
             <QuoteNavLink className="rounded-full bg-emerald px-5 py-2 text-sm font-semibold text-navy transition-all hover:bg-emerald-light hover:shadow-lg hover:shadow-emerald/25 lg:px-6">
               Get a Quote

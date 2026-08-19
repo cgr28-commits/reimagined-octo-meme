@@ -99,7 +99,7 @@ export const ALL_MOBILE_QUICK_LINKS = [
   { label: "Day Trips", href: "/tours/", service: "dayTrips" as const },
   { label: "Chauffeur Hire", href: "/#chauffeur", service: "chauffeur" as const },
   { label: "Airports", href: "/#airports", service: null },
-  { label: "Manage Booking", href: "/manage-booking/", service: null },
+  { label: "Manage Your Booking", href: "/manage-booking/", service: null },
   { label: "Get a Quote", href: "/#quote", highlight: true, service: null },
 ] as const;
 
@@ -460,7 +460,7 @@ export const FAQS = [
   {
     question: "Can I change the date or time of my booking?",
     answer:
-      "More than 24 hours before pickup you can request one free date/time change (same pickup and destination), subject to availability, via Manage Booking. Within 24 hours, changes cannot be made automatically — contact us on WhatsApp and we’ll do our best to help. Changing a booking does not avoid the cancellation policy. Saved quotes are not bookings: changing the date on a saved quote recalculates the fare.",
+      "More than 24 hours before pickup you can request one free date/time change (same pickup and destination), subject to availability, via Manage Your Booking. Within 24 hours, changes cannot be made automatically — contact us on WhatsApp and we’ll do our best to help. Changing a booking does not avoid the cancellation policy. Saved quotes are not bookings: changing the date on a saved quote recalculates the fare.",
   },
   {
     question: "What is included in the price?",
