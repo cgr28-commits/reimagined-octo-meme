@@ -78,12 +78,12 @@ jobs:
           fi
           npm install --no-save wrangler@3.109.0
           BRANCH_SAFE="$(echo "${GITHUB_REF_NAME}" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g' | cut -c1-50)"
+          # wrangler pages deploy does not accept --compatibility-date (Workers-only flag).
           OUTPUT="$(npx wrangler pages deploy out \
             --project-name=my-airport-taxi-ni-preview \
             --branch="$BRANCH_SAFE" \
             --commit-hash="${GITHUB_SHA}" \
-            --commit-dirty=true \
-            --compatibility-date=2025-08-01 2>&1)" || {
+            --commit-dirty=true 2>&1)" || {
               echo "$OUTPUT"
               exit 1
             }
