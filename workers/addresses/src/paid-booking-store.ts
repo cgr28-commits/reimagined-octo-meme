@@ -357,6 +357,23 @@ export type PaidBookingUpdateFields = Partial<
     | "originalTripTime"
     | "dateTimeAmendmentCount"
     | "dateTimeAmendmentHistory"
+    | "amendmentHistory"
+    | "pendingAmendment"
+    | "amount"
+    | "amountPaidLabel"
+    | "amountRefunded"
+    | "refundDueAmount"
+    | "refundDueReason"
+    | "refundDueAt"
+    | "lastUpdatedConfirmationSentAt"
+    | "lastUpdatedConfirmationError"
+    | "lastUpdatedConfirmationAmendmentId"
+    | "airportCode"
+    | "isFromAirport"
+    | "isAirportTrip"
+    | "journeyDistance"
+    | "journeyDuration"
+    | "paymentStatus"
   >
 >;
 
@@ -392,7 +409,12 @@ export async function updatePaidBookingFields(
 
   if (options?.appendAudit !== false) {
     for (const [field, newRaw] of Object.entries(cleaned)) {
-      if (field === "dateTimeAmendmentHistory" || field === "dateTimeAmendmentCount") {
+      if (
+        field === "dateTimeAmendmentHistory" ||
+        field === "dateTimeAmendmentCount" ||
+        field === "amendmentHistory" ||
+        field === "pendingAmendment"
+      ) {
         continue;
       }
       const previousValue = auditValue((record as Record<string, unknown>)[field]);

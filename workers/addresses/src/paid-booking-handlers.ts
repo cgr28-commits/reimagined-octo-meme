@@ -1,9 +1,11 @@
 import {
   buildCustomerConfirmationEmail,
   buildOwnerPaidBookingEmail,
+  buildUpdatedBookingConfirmationEmail,
   type PaidBookingDetails,
   type PaidBookingReceipt,
 } from "../shared/booking-notifications";
+import { paidBookingRecordToReceipt } from "../shared/paid-booking-canonical";
 import type { PaidBookingRecord } from "../shared/paid-booking-record";
 import { corsHeaders } from "../shared/google-places";
 import { ownerAuthorized, type DriverAuthEnv } from "./driver-auth";
@@ -13,6 +15,7 @@ import {
   listUpcomingPaidBookings,
   listRecentPaidBookings,
   paidBookingStoreConfigured,
+  updatePaidBookingFields,
 } from "./paid-booking-store";
 import {
   PRIMARY_DRIVER_LABEL,
@@ -134,61 +137,12 @@ function jsonResponse(body: unknown, status: number, origin: string | null) {
   });
 }
 
-function recordToDetails(record: PaidBookingRecord, booking?: PaidBookingDetails): PaidBookingDetails {
-  if (booking?.customerEmail) {
-    return booking;
-  }
-
-  return {
-    customerName: record.customerName,
-    customerEmail: record.customerEmail,
-    mobileNumber: record.mobileNumber,
-    tripLabel: record.tripLabel,
-    pickupLabel: record.pickupLabel,
-    dropoffLabel: record.dropoffLabel,
-    returnJourney: record.returnJourney,
-    tripDate: record.tripDate,
-    tripTime: record.tripTime,
-    returnDate: record.returnDate ?? "",
-    returnTime: record.returnTime ?? "",
-    flightNumber: record.flightNumber ?? "",
-    returnFlightNumber: record.returnFlightNumber ?? "",
-    passengers: record.passengers ?? 1,
-    suitcases: record.suitcases ?? 0,
-    vehicle: record.vehicle ?? "Saloon",
-    journeyDistance: record.journeyDistance,
-    journeyDuration: record.journeyDuration,
-    isAirportTrip:
-      record.isAirportTrip ??
-      /airport/i.test(`${record.tripLabel} ${record.pickupLabel} ${record.dropoffLabel}`),
-    airportCode: record.airportCode,
-    isFromAirport: record.isFromAirport,
-    termsAcceptedAt: record.termsAcceptedAt,
-    termsVersion: record.termsVersion,
-  };
+function recordToDetails(record: PaidBookingRecord): PaidBookingDetails {
+  return paidBookingRecordToReceipt(record);
 }
 
-function recordToReceipt(
-  record: PaidBookingRecord,
-  booking?: PaidBookingDetails,
-): PaidBookingReceipt {
-  return {
-    ...recordToDetails(record, booking),
-    amountPaid: record.amountPaidLabel,
-    paymentReference: record.paymentReference,
-    transactionCode: record.transactionCode,
-  };
-}
-
-async function loadBookingDetails(
-  env: Env,
-  record: PaidBookingRecord,
-): Promise<PaidBookingDetails | undefined> {
-  if (!pendingCheckoutStoreConfigured(env.TRACKING_STORE) || !record.checkoutId?.trim()) {
-    return undefined;
-  }
-  const pending = await getPendingCheckout(env.TRACKING_STORE, record.checkoutId);
-  return pending?.booking;
+function recordToReceipt(record: PaidBookingRecord): PaidBookingReceipt {
+  return paidBookingRecordToReceipt(record);
 }
 
 export async function handlePaidBookingsListRequest(
@@ -506,11 +460,13 @@ export async function handlePaidBookingResendRequest(
     );
   }
 
-  const bookingDetails = await loadBookingDetails(env, record);
-  const receipt = recordToReceipt(record, bookingDetails);
+  const receipt = recordToReceipt(record);
   const trackUrl = await resolvePaidBookingTrackUrl(env.TRACKING_STORE, record);
-  const customerEmail = buildCustomerConfirmationEmail(receipt, BUSINESS_NAME, {
+  // Resend uses updated-confirmation template from the canonical record only
+  // (never pending-checkout.booking — that snapshot is frozen at payment time).
+  const customerEmail = buildUpdatedBookingConfirmationEmail(receipt, BUSINESS_NAME, {
     trackUrl,
+    fareNote: "No change to your fare",
   });
   const ownerEmail = buildOwnerPaidBookingEmail(receipt, BUSINESS_NAME, {
     trackUrl,
@@ -523,6 +479,28 @@ export async function handlePaidBookingResendRequest(
     body: customerEmail.text,
     htmlBody: customerEmail.html,
   });
+
+  if (customerEmailResult.sent) {
+    await updatePaidBookingFields(
+      env.TRACKING_STORE,
+      record.paymentReference,
+      {
+        lastUpdatedConfirmationSentAt: new Date().toISOString(),
+        lastUpdatedConfirmationError: "",
+      },
+      { appendAudit: false },
+    );
+  } else {
+    await updatePaidBookingFields(
+      env.TRACKING_STORE,
+      record.paymentReference,
+      {
+        lastUpdatedConfirmationError:
+          customerEmailResult.error || "Updated confirmation email failed",
+      },
+      { appendAudit: false },
+    );
+  }
 
   const bookingsInbox =
     env.BOOKING_TO_EMAIL?.trim() || "bookings@myairporttaxini.co.uk";
@@ -561,6 +539,10 @@ export async function handlePaidBookingResendRequest(
       tripLabel: record.tripLabel,
       amountPaid: record.amountPaidLabel,
       createdAt: record.createdAt,
+      confirmationPickupLabel: receipt.pickupLabel,
+      pickupLabel: record.pickupLabel,
+      resendOnly: true,
+      subject: customerEmail.subject,
     },
     customerEmailResult.sent ? 200 : 502,
     origin,

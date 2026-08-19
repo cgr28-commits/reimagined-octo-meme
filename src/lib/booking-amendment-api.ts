@@ -51,7 +51,12 @@ export async function amendBookingSchedule(input: {
   customerEmail: string;
   tripDate: string;
   tripTime: string;
-}): Promise<ManageBookingSummary> {
+}): Promise<{
+  booking: ManageBookingSummary;
+  emailUi?: { headline: string; body: string };
+  fareLabel?: string;
+  customerEmailSent?: boolean;
+}> {
   const response = await fetch(`${WORKER_BASE}/paid-bookings/amend-schedule`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Accept: "application/json" },
@@ -70,11 +75,28 @@ export async function amendBookingSchedule(input: {
     err.reason = String(payload.reason || "");
     err.contactRequired = Boolean(payload.contactRequired);
     err.headline = payload.headline ? String(payload.headline) : undefined;
-    err.body = payload.body ? String(payload.body) : undefined;
+    err.body = payload.body
+      ? String(payload.body)
+      : payload.note
+        ? String(payload.note)
+        : undefined;
     if (payload.booking && typeof payload.booking === "object") {
       err.booking = payload.booking as ManageBookingSummary;
     }
     throw err;
   }
-  return payload.booking as ManageBookingSummary;
+  const emailUi =
+    payload.emailUi && typeof payload.emailUi === "object"
+      ? (payload.emailUi as { headline: string; body: string })
+      : undefined;
+  const fare =
+    payload.fare && typeof payload.fare === "object"
+      ? (payload.fare as { label?: string })
+      : undefined;
+  return {
+    booking: payload.booking as ManageBookingSummary,
+    emailUi,
+    fareLabel: fare?.label,
+    customerEmailSent: Boolean(payload.customerEmailSent),
+  };
 }

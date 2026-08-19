@@ -47,12 +47,13 @@ function run() {
   });
   assert.equal(ok.ok, true);
   if (ok.ok) {
-    assert.equal(ok.farePreserved, true);
+    assert.equal(ok.farePreserved, false);
+    assert.equal(ok.reason, "free_schedule_amendment_repriced");
     assert.equal(ok.amendmentsRemainingAfter, FREE_CUSTOMER_DATE_TIME_AMENDMENTS - 1);
   }
 
-  console.log("=== 2. Booking 48h away → original journey fare preserved (policy) ===");
-  assert.equal(ok.ok && ok.farePreserved, true);
+  console.log("=== 2. Booking 48h away → schedule change must reprice (not keep old fare) ===");
+  assert.equal(ok.ok && ok.farePreserved, false);
 
   console.log("=== 3. Booking 12h away → automatic amendment rejected ===");
   assert.equal(isWithin24HoursOfPickup("2026-08-25", "10:00", now12h), true);
@@ -142,7 +143,7 @@ function run() {
     }
   }
 
-  console.log("=== 7. Route/destination change → material change (repricing / contact) ===");
+  console.log("=== 7. Route/destination change → allowed >24h (must reprice server-side) ===");
   const material = evaluateCustomerDateTimeAmendment({
     booking: bookingBase(),
     newTripDate: "2026-08-26",
@@ -150,16 +151,34 @@ function run() {
     proposedPickupLabel: "Somewhere Else",
     now: now48h,
   });
-  assert.equal(material.ok, false);
-  if (!material.ok) assert.equal(material.reason, "material_journey_change");
+  assert.equal(material.ok, true);
+  if (material.ok) {
+    assert.equal(material.farePreserved, false);
+  }
+  // Same material change within 24h remains blocked.
+  const materialLate = evaluateCustomerDateTimeAmendment({
+    booking: bookingBase(),
+    newTripDate: "2026-08-26",
+    newTripTime: "11:00",
+    proposedPickupLabel: "Somewhere Else",
+    now: now12h,
+  });
+  assert.equal(materialLate.ok, false);
+  if (!materialLate.ok) assert.equal(materialLate.reason, "within_24_hours");
 
   console.log("=== 8. Amendment history retained (model + handler wiring) ===");
   const record = fs.readFileSync(path.join(root, "shared/paid-booking-record.ts"), "utf8");
   assert.match(record, /dateTimeAmendmentHistory/);
   assert.match(record, /dateTimeAmendmentCount/);
   assert.match(record, /originalTripDate/);
+  assert.match(record, /amendmentHistory/);
   assert.match(handlers, /dateTimeAmendmentHistory/);
   assert.match(handlers, /changedBy: \"Customer\"/);
+  assert.match(handlers, /calculateAuthoritativeWebsiteQuote/);
+  assert.match(handlers, /describeFareDifference/);
+  assert.match(handlers, /sendUpdatedConfirmationForPaymentReference/);
+  assert.match(handlers, /refundDueAmount/);
+  assert.match(handlers, /additional_payment_required/);
 
   const index = fs.readFileSync(path.join(root, "workers/addresses/src/index.ts"), "utf8");
   assert.match(index, /isPaidBookingAmendSchedulePath/);

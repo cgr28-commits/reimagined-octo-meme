@@ -1,15 +1,23 @@
 /**
- * Owner-only paid booking edit + optional updated confirmation email.
- * Does not create SumUp charges, refunds, or duplicate bookings.
+ * Owner-only paid booking edit + automatic updated confirmation email.
+ * Confirmation content always comes from the canonical PaidBookingRecord.
+ * Does not create SumUp charges or refunds on edit (fare differences are
+ * previewed / flagged; owner override supported separately).
  */
 
 import {
-  buildUpdatedBookingConfirmationEmail,
   type PaidBookingDetails,
   type PaidBookingReceipt,
 } from "../shared/booking-notifications";
+import { paidBookingRecordToReceipt } from "../shared/paid-booking-canonical";
+import {
+  generateAmendmentId,
+  MATERIAL_REPRICE_FIELDS,
+  summarizeAmendmentChanges,
+} from "../shared/booking-amendment";
 import {
   PRIMARY_DRIVER_LABEL,
+  type PaidBookingAmendmentEvent,
   type PaidBookingRecord,
 } from "../shared/paid-booking-record";
 import { buildPickupDateTimeLocal, journeyStatusOf } from "../shared/tracking";
@@ -27,7 +35,6 @@ import {
   updatePaidBookingFields,
   type PaidBookingUpdateFields,
 } from "./paid-booking-store";
-import { getPendingCheckout, pendingCheckoutStoreConfigured } from "./pending-checkout-store";
 import {
   findTrackingJobByPaymentReference,
   getTrackingJob,
@@ -35,11 +42,11 @@ import {
   saveTrackingJob,
   trackingStoreConfigured,
 } from "./tracking-store";
+import { type WorkerEmailEnv } from "./worker-email";
 import {
-  trySendBrandedCustomerEmail,
-  type WorkerEmailEnv,
-} from "./worker-email";
-import { resolvePaidBookingTrackUrl } from "./paid-booking-handlers";
+  sendUpdatedConfirmationForPaymentReference,
+  sendUpdatedConfirmationFromCanonicalRecord,
+} from "./send-updated-confirmation";
 
 type Env = DriverAuthEnv &
   WorkerEmailEnv & {
@@ -48,9 +55,7 @@ type Env = DriverAuthEnv &
     GOOGLE_CALENDAR_ID?: string;
   };
 
-const BUSINESS_NAME = "My Airport Taxi NI";
-
-const FARE_SENSITIVE_FIELDS = new Set(["pickupLabel", "dropoffLabel", "tripDate", "tripTime"]);
+const FARE_SENSITIVE_FIELDS = new Set<string>(MATERIAL_REPRICE_FIELDS);
 
 function jsonResponse(body: unknown, status: number, origin: string | null) {
   return new Response(JSON.stringify(body), {
@@ -101,68 +106,44 @@ export type OwnerEditBookingBody = {
   returnTime?: string;
   tripLabel?: string;
   vehicle?: string;
-  /** When true, send updated confirmation after a successful edit. */
+  airportCode?: string;
+  isFromAirport?: boolean;
+  /** @deprecated Automatic send after save is default. Legacy clients may still set this. */
   sendUpdatedConfirmation?: boolean;
+  keepAgreedFare?: boolean;
+  authoritativeFare?: number;
+  agreedFare?: number;
 };
 
-function recordToDetails(
-  record: PaidBookingRecord,
-  booking?: PaidBookingDetails,
-): PaidBookingDetails {
-  if (booking?.customerEmail) {
-    return booking;
-  }
+export function recordToReceipt(record: PaidBookingRecord): PaidBookingReceipt {
+  return paidBookingRecordToReceipt(record);
+}
 
+export function recordToDetails(record: PaidBookingRecord): PaidBookingDetails {
+  return paidBookingRecordToReceipt(record);
+}
+
+function snapshotJourney(record: PaidBookingRecord): Record<string, string | number | boolean | null | undefined> {
   return {
+    pickupLabel: record.pickupLabel,
+    dropoffLabel: record.dropoffLabel,
+    tripDate: record.tripDate,
+    tripTime: record.tripTime,
+    returnJourney: record.returnJourney,
+    returnDate: record.returnDate,
+    returnTime: record.returnTime,
+    passengers: record.passengers,
+    suitcases: record.suitcases,
+    childSeats: record.childSeats,
+    flightNumber: record.flightNumber,
+    returnFlightNumber: record.returnFlightNumber,
     customerName: record.customerName,
     customerEmail: record.customerEmail,
     mobileNumber: record.mobileNumber,
-    tripLabel: record.tripLabel,
-    pickupLabel: record.pickupLabel,
-    dropoffLabel: record.dropoffLabel,
-    returnJourney: record.returnJourney,
-    tripDate: record.tripDate,
-    tripTime: record.tripTime,
-    returnDate: record.returnDate ?? "",
-    returnTime: record.returnTime ?? "",
-    flightNumber: record.flightNumber ?? "",
-    returnFlightNumber: record.returnFlightNumber ?? "",
-    passengers: record.passengers ?? 1,
-    suitcases: record.suitcases ?? 0,
-    vehicle: record.vehicle ?? "Saloon",
-    journeyDistance: record.journeyDistance,
-    journeyDuration: record.journeyDuration,
-    isAirportTrip:
-      record.isAirportTrip ??
-      /airport/i.test(`${record.tripLabel} ${record.pickupLabel} ${record.dropoffLabel}`),
+    vehicle: record.vehicle,
     airportCode: record.airportCode,
-    isFromAirport: record.isFromAirport,
-    termsAcceptedAt: record.termsAcceptedAt,
-    termsVersion: record.termsVersion,
+    amount: record.amount,
   };
-}
-
-function recordToReceipt(
-  record: PaidBookingRecord,
-  booking?: PaidBookingDetails,
-): PaidBookingReceipt {
-  return {
-    ...recordToDetails(record, booking),
-    amountPaid: record.amountPaidLabel,
-    paymentReference: record.paymentReference,
-    transactionCode: record.transactionCode,
-  };
-}
-
-async function loadBookingDetails(
-  env: Env,
-  record: PaidBookingRecord,
-): Promise<PaidBookingDetails | undefined> {
-  if (!pendingCheckoutStoreConfigured(env.TRACKING_STORE) || !record.checkoutId?.trim()) {
-    return undefined;
-  }
-  const pending = await getPendingCheckout(env.TRACKING_STORE, record.checkoutId);
-  return pending?.booking;
 }
 
 function parseEditFields(body: OwnerEditBookingBody): {
@@ -256,6 +237,12 @@ function parseEditFields(body: OwnerEditBookingBody): {
   if (body.vehicle !== undefined) {
     fields.vehicle = String(body.vehicle).trim();
   }
+  if (body.airportCode !== undefined) {
+    fields.airportCode = String(body.airportCode).trim().toUpperCase();
+  }
+  if (body.isFromAirport !== undefined) {
+    fields.isFromAirport = Boolean(body.isFromAirport);
+  }
 
   return { fields };
 }
@@ -297,7 +284,6 @@ export async function handlePaidBookingEditRequest(
     return jsonResponse({ error: "Refunded bookings cannot be edited." }, 409, origin);
   }
 
-  // Completed journey protection — do not rewrite historical evidence via normal edit.
   if (trackingStoreConfigured(env.TRACKING_STORE)) {
     const token = existing.trackingToken?.trim();
     let job = token ? await getTrackingJob(env.TRACKING_STORE, token) : null;
@@ -331,17 +317,63 @@ export async function handlePaidBookingEditRequest(
         assignedDriver: PRIMARY_DRIVER_LABEL,
         fareMayNeedManualAdjustment: false,
         changes: [],
+        customerEmailSent: false,
+        automaticConfirmation: false,
       },
       200,
       origin,
     );
   }
 
+  const beforeSnap = snapshotJourney(existing);
   const previousTripDate = existing.tripDate;
-  const updated = await updatePaidBookingFields(env.TRACKING_STORE, paymentReference, fields, {
-    appendAudit: true,
+  const amendmentId = generateAmendmentId();
+  const changedAt = new Date().toISOString();
+
+  const ownerOverride =
+    body.keepAgreedFare &&
+    typeof body.authoritativeFare === "number" &&
+    typeof body.agreedFare === "number"
+      ? {
+          authoritativeFare: body.authoritativeFare,
+          agreedFare: body.agreedFare,
+          difference: Math.round((body.authoritativeFare - body.agreedFare) * 100) / 100,
+        }
+      : undefined;
+
+  const amendmentEvent: PaidBookingAmendmentEvent = {
+    amendmentId,
+    changedAt,
     changedBy: "Owner",
-  });
+    before: beforeSnap,
+    after: {
+      ...beforeSnap,
+      ...Object.fromEntries(
+        Object.entries(fields).map(([k, v]) => [
+          k,
+          typeof v === "object" && v !== null ? JSON.stringify(v) : (v as string | number | boolean | null | undefined),
+        ]),
+      ),
+    },
+    previousFare: existing.amount,
+    newFare: ownerOverride ? ownerOverride.agreedFare : existing.amount,
+    difference: ownerOverride ? ownerOverride.difference : 0,
+    ownerOverride,
+    idempotencyKey: `amend:${paymentReference}:${amendmentId}`,
+  };
+
+  const updated = await updatePaidBookingFields(
+    env.TRACKING_STORE,
+    paymentReference,
+    {
+      ...fields,
+      amendmentHistory: [...(existing.amendmentHistory ?? []), amendmentEvent],
+    },
+    {
+      appendAudit: true,
+      changedBy: "Owner",
+    },
+  );
 
   if (!updated) {
     return jsonResponse({ error: "Could not update booking" }, 500, origin);
@@ -352,7 +384,6 @@ export async function handlePaidBookingEditRequest(
     FARE_SENSITIVE_FIELDS.has(key),
   );
 
-  // Keep tracking job pickup window in sync (same token — no new payment).
   if (trackingStoreConfigured(env.TRACKING_STORE)) {
     const token = updated.trackingToken?.trim();
     let job = token ? await getTrackingJob(env.TRACKING_STORE, token) : null;
@@ -382,7 +413,6 @@ export async function handlePaidBookingEditRequest(
     }
   }
 
-  // Update existing Google Calendar event(s) — never create duplicates here.
   if (calendarConfigured(env) && updated.calendarEventIds.length > 0) {
     try {
       const serviceAccount = parseServiceAccountJson(env.GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON!);
@@ -397,8 +427,10 @@ export async function handlePaidBookingEditRequest(
           endDateTime: transferEventEndDateTime(startDateTime),
           location: updated.pickupLabel,
           updateNote:
-            `Updated via owner dashboard at ${new Date().toISOString()}\n` +
+            `Updated via owner dashboard at ${changedAt}\n` +
             `Payment reference preserved: ${updated.paymentReference}\n` +
+            `Pickup: ${updated.pickupLabel}\n` +
+            `Drop-off: ${updated.dropoffLabel}\n` +
             (previousTripDate !== updated.tripDate || existing.tripTime !== updated.tripTime
               ? `Was: ${previousTripDate} ${existing.tripTime}\nNow: ${updated.tripDate} ${updated.tripTime}\n`
               : ""),
@@ -412,82 +444,90 @@ export async function handlePaidBookingEditRequest(
     }
   }
 
-  let customerEmailSent = false;
+  const afterSnap = snapshotJourney(updated);
+  const whatChanged = summarizeAmendmentChanges(beforeSnap, afterSnap);
+  const fareNote = ownerOverride
+    ? `Agreed fare kept at £${ownerOverride.agreedFare.toFixed(2)} (calculated £${ownerOverride.authoritativeFare.toFixed(2)})`
+    : fareMayNeedManualAdjustment
+      ? "Fare may need a manual adjustment — please check your payment position with My Airport Taxi NI if needed."
+      : "No change to your fare";
+
+  const emailResult = await sendUpdatedConfirmationForPaymentReference({
+    env: env as Env & { TRACKING_STORE: KVNamespace },
+    paymentReference,
+    whatChanged,
+    fareNote,
+    amendmentId,
+    before: beforeSnap,
+    after: afterSnap,
+  });
+
+  const customerEmailSent = Boolean(emailResult?.sent);
   let customerEmailError: string | undefined;
-  if (body.sendUpdatedConfirmation) {
-    const bookingDetails = await loadBookingDetails(env, updated);
-    const receipt = recordToReceipt(updated, bookingDetails);
-    const trackUrl = await resolvePaidBookingTrackUrl(env.TRACKING_STORE, updated);
-    const email = buildUpdatedBookingConfirmationEmail(receipt, BUSINESS_NAME, { trackUrl });
-    const sendResult = await trySendBrandedCustomerEmail(env, {
-      to: updated.customerEmail,
-      toName: updated.customerName,
-      subject: email.subject,
-      body: email.text,
-      htmlBody: email.html,
-    });
-    customerEmailSent = sendResult.sent;
-    if (!sendResult.sent) {
-      customerEmailError = sendResult.error || "Updated confirmation email failed";
-      warnings.push(customerEmailError);
-    }
+  if (!customerEmailSent) {
+    customerEmailError = emailResult?.error || "Updated confirmation email failed";
+    warnings.push(customerEmailError);
   }
 
   const recentAudit = (updated.editHistory ?? []).slice(-(Object.keys(fields).length + 2));
+  const fresh = (await getPaidBookingRecord(env.TRACKING_STORE, paymentReference)) || updated;
 
   return jsonResponse(
     {
       ok: true,
-      paymentReference: updated.paymentReference,
-      checkoutId: updated.checkoutId,
-      amountPaid: updated.amountPaidLabel,
-      status: updated.status,
+      paymentReference: fresh.paymentReference,
+      checkoutId: fresh.checkoutId,
+      amountPaid: fresh.amountPaidLabel,
+      status: fresh.status,
       booking: {
-        paymentReference: updated.paymentReference,
-        checkoutId: updated.checkoutId,
-        createdAt: updated.createdAt,
-        status: updated.status,
-        amountPaid: updated.amountPaidLabel,
-        customerName: updated.customerName,
-        customerEmail: updated.customerEmail,
-        mobileNumber: updated.mobileNumber,
-        tripLabel: updated.tripLabel,
-        pickupLabel: updated.pickupLabel,
-        dropoffLabel: updated.dropoffLabel,
-        tripDate: updated.tripDate,
-        tripTime: updated.tripTime,
-        returnJourney: updated.returnJourney,
-        returnDate: updated.returnDate,
-        returnTime: updated.returnTime,
-        flightNumber: updated.flightNumber,
-        returnFlightNumber: updated.returnFlightNumber,
-        passengers: updated.passengers,
-        suitcases: updated.suitcases,
-        childSeats: updated.childSeats,
-        childSeatNotes: updated.childSeatNotes,
-        notes: updated.notes,
-        vehicle: updated.vehicle,
-        trackingToken: updated.trackingToken,
-        calendarEventIds: updated.calendarEventIds,
-        editHistory: updated.editHistory ?? [],
+        paymentReference: fresh.paymentReference,
+        checkoutId: fresh.checkoutId,
+        createdAt: fresh.createdAt,
+        status: fresh.status,
+        amount: fresh.amount,
+        amountPaidLabel: fresh.amountPaidLabel,
+        customerName: fresh.customerName,
+        customerEmail: fresh.customerEmail,
+        mobileNumber: fresh.mobileNumber,
+        tripLabel: fresh.tripLabel,
+        pickupLabel: fresh.pickupLabel,
+        dropoffLabel: fresh.dropoffLabel,
+        tripDate: fresh.tripDate,
+        tripTime: fresh.tripTime,
+        returnJourney: fresh.returnJourney,
+        returnDate: fresh.returnDate,
+        returnTime: fresh.returnTime,
+        passengers: fresh.passengers,
+        suitcases: fresh.suitcases,
+        flightNumber: fresh.flightNumber,
+        returnFlightNumber: fresh.returnFlightNumber,
+        vehicle: fresh.vehicle,
+        trackingToken: fresh.trackingToken,
+        calendarEventIds: fresh.calendarEventIds,
+        editHistory: fresh.editHistory,
+        amendmentHistory: fresh.amendmentHistory,
+        lastUpdatedConfirmationSentAt: fresh.lastUpdatedConfirmationSentAt,
+        lastUpdatedConfirmationError: fresh.lastUpdatedConfirmationError,
+        refundDueAmount: fresh.refundDueAmount,
       },
       assignedDriver: PRIMARY_DRIVER_LABEL,
       fareMayNeedManualAdjustment,
-      fareAdjustmentMessage: fareMayNeedManualAdjustment
-        ? "Journey details changed — fare may require manual adjustment."
-        : undefined,
       paymentPreserved: true,
-      calendarUpdated: Boolean(calendarConfigured(env) && updated.calendarEventIds.length > 0),
+      changes: recentAudit,
+      whatChanged,
+      amendmentId,
+      automaticConfirmation: true,
       customerEmailSent,
-      ...(customerEmailError ? { customerEmailError } : {}),
-      auditEntries: recentAudit,
-      ...(warnings.length > 0 ? { warnings } : {}),
+      customerEmailError,
+      confirmationPickupLabel: emailResult?.receiptPickupLabel ?? fresh.pickupLabel,
+      warnings,
     },
     200,
     origin,
   );
 }
 
+/** POST — resend updated confirmation from canonical record only (backup). */
 export async function handlePaidBookingSendUpdatedConfirmationRequest(
   request: Request,
   env: Env,
@@ -495,7 +535,7 @@ export async function handlePaidBookingSendUpdatedConfirmationRequest(
 ): Promise<Response> {
   if (!ownerAuthorized(request, env)) {
     return jsonResponse(
-      { error: "Unauthorized — use OWNER_ACCESS_KEY to send updated confirmations." },
+      { error: "Unauthorized — use OWNER_ACCESS_KEY to resend confirmations." },
       401,
       origin,
     );
@@ -522,44 +562,36 @@ export async function handlePaidBookingSendUpdatedConfirmationRequest(
     return jsonResponse({ error: `No paid booking found for ${paymentReference}` }, 404, origin);
   }
   if (record.status === "refunded" || record.status === "cancelled") {
-    return jsonResponse({ error: "Cancelled or refunded bookings cannot send confirmations." }, 400, origin);
-  }
-
-  const bookingDetails = await loadBookingDetails(env, record);
-  const receipt = recordToReceipt(record, bookingDetails);
-  const trackUrl = await resolvePaidBookingTrackUrl(env.TRACKING_STORE, record);
-  const email = buildUpdatedBookingConfirmationEmail(receipt, BUSINESS_NAME, { trackUrl });
-  const sendResult = await trySendBrandedCustomerEmail(env, {
-    to: record.customerEmail,
-    toName: record.customerName,
-    subject: email.subject,
-    body: email.text,
-    htmlBody: email.html,
-  });
-
-  if (!sendResult.sent) {
     return jsonResponse(
-      {
-        ok: false,
-        error: sendResult.error || "Updated confirmation email failed",
-        paymentReference,
-        customerEmail: record.customerEmail,
-        customerEmailSent: false,
-      },
-      502,
+      { error: "That booking was cancelled or refunded — confirmation not resent." },
+      400,
       origin,
     );
   }
 
+  const result = await sendUpdatedConfirmationFromCanonicalRecord({
+    env,
+    record,
+    fareNote: "No change to your fare",
+    persistStatus: true,
+  });
+
   return jsonResponse(
     {
-      ok: true,
-      paymentReference,
+      ok: result.sent,
+      paymentReference: record.paymentReference,
       customerEmail: record.customerEmail,
-      customerEmailSent: true,
-      subject: email.subject,
+      customerEmailSent: result.sent,
+      customerEmailError: result.error,
+      subject: result.subject,
+      confirmationPickupLabel: result.receiptPickupLabel,
+      pickupLabel: record.pickupLabel,
+      dropoffLabel: record.dropoffLabel,
+      tripDate: record.tripDate,
+      tripTime: record.tripTime,
+      resendOnly: true,
     },
-    200,
+    result.sent ? 200 : 502,
     origin,
   );
 }

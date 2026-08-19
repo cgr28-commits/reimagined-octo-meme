@@ -1422,38 +1422,73 @@ export function buildDriverArrivedPickupEmail(
   return { subject, text, html };
 }
 
-/** Customer email after an owner edits an existing paid booking (optional send). */
+/** Customer email after a confirmed booking amendment (auto or resend). */
 export function buildUpdatedBookingConfirmationEmail(
   receipt: PaidBookingReceipt,
   businessName = "My Airport Taxi NI",
-  options?: { trackUrl?: string },
+  options?: {
+    trackUrl?: string;
+    /** Concise “What changed” bullets (optional). */
+    whatChanged?: string[];
+    /** Fare position line, e.g. "No change to your fare" / "Additional payment received: £14". */
+    fareNote?: string;
+  },
 ): CustomerPaidBookingEmail {
   const base = buildCustomerConfirmationEmail(receipt, businessName, options);
-  const subject = `Your booking has been updated — ${businessName}`;
+  const subject = `Updated Booking Confirmation – ${receipt.paymentReference}`;
+  const whatChangedBlock =
+    options?.whatChanged && options.whatChanged.length > 0
+      ? `What changed\n${options.whatChanged.map((line) => `• ${line}`).join("\n")}\n\n`
+      : "";
+  const fareBlock = options?.fareNote ? `${options.fareNote}\n\n` : "";
   const intro =
     `Dear ${receipt.customerName},\n\n` +
     `Your booking has been updated.\n\n` +
+    fareBlock +
+    whatChangedBlock +
     `Please review the updated journey details below.\n\n`;
 
   const detailsStart = base.text.indexOf("BOOKING DETAILS");
   const text =
     detailsStart >= 0
       ? intro + base.text.slice(detailsStart)
-      : intro + base.text.replace(/^Dear [^\n]+,\n\n[\s\S]*?\n\nPlease find your invoice details below\.\n\n/, "");
+      : intro +
+        base.text.replace(
+          /^Dear [^\n]+,\n\n[\s\S]*?\n\nPlease find your invoice details below\.\n\n/,
+          "",
+        );
 
-  const html = base.html
+  let html = base.html
     .replace(
       /Your card payment has been received and your transfer is confirmed\.?/i,
       "Your booking has been updated. Please review the updated journey details below.",
     )
-    .replace(
-      /Thank you for your booking with [^.<]+?\./i,
-      "Your booking has been updated.",
-    )
+    .replace(/Thank you for your booking with [^.<]+?\./i, "Your booking has been updated.")
     .replace(
       /(<div style="margin-top:8px;font-size:22px;line-height:1\.35;color:#ffffff;font-weight:bold;">)([^<]*)(<\/div>)/,
       `$1Your booking has been updated$3`,
     );
+
+  if (options?.fareNote || (options?.whatChanged && options.whatChanged.length > 0)) {
+    const extraBits: string[] = [];
+    if (options.fareNote) {
+      extraBits.push(
+        `<p style="margin:0 0 12px;font-size:15px;line-height:1.6;color:#334155;"><strong>${escapeHtml(options.fareNote)}</strong></p>`,
+      );
+    }
+    if (options.whatChanged && options.whatChanged.length > 0) {
+      extraBits.push(
+        `<p style="margin:0 0 6px;font-size:13px;letter-spacing:0.04em;text-transform:uppercase;color:#64748b;">What changed</p>`,
+        `<ul style="margin:0 0 16px;padding-left:18px;color:#334155;font-size:14px;line-height:1.6;">${options.whatChanged
+          .map((line) => `<li>${escapeHtml(line)}</li>`)
+          .join("")}</ul>`,
+      );
+    }
+    html = html.replace(
+      /(Your booking has been updated\. Please review the updated journey details below\.)/i,
+      `$1${extraBits.join("")}`,
+    );
+  }
 
   return { subject, text, html };
 }

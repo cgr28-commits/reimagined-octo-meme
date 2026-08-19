@@ -8,7 +8,9 @@ import {
   FREE_AMENDMENT_HINT,
   WITHIN_24H_AMENDMENT_BODY,
   WITHIN_24H_AMENDMENT_HEADLINE,
+  describeFareDifference,
   evaluateCustomerDateTimeAmendment,
+  generateAmendmentId,
   isValidScheduleDate,
   isValidScheduleTime,
   normalizeScheduleDate,
@@ -17,9 +19,12 @@ import {
 } from "../shared/booking-amendment";
 import { hoursUntilPickup, isWithin24HoursOfPickup } from "../shared/refund-ops";
 import { corsHeaders } from "../shared/google-places";
-import { buildUpdatedBookingConfirmationEmail } from "../shared/booking-notifications";
-import type { PaidBookingRecord } from "../shared/paid-booking-record";
+import type { PaidBookingAmendmentEvent, PaidBookingRecord } from "../shared/paid-booking-record";
 import { buildPickupDateTimeLocal, journeyStatusOf } from "../shared/tracking";
+import {
+  calculateAuthoritativeWebsiteQuote,
+  type QuoteServiceAirportCode,
+} from "../../../src/lib/quote-service";
 import {
   getGoogleAccessToken,
   parseServiceAccountJson,
@@ -38,8 +43,8 @@ import {
   saveTrackingJob,
   trackingStoreConfigured,
 } from "./tracking-store";
-import { trySendBrandedCustomerEmail, type WorkerEmailEnv } from "./worker-email";
-import { resolvePaidBookingTrackUrl } from "./paid-booking-handlers";
+import { type WorkerEmailEnv } from "./worker-email";
+import { sendUpdatedConfirmationForPaymentReference } from "./send-updated-confirmation";
 
 type Env = WorkerEmailEnv & {
   TRACKING_STORE?: KVNamespace;
@@ -259,6 +264,86 @@ export async function handleCustomerAmendSchedule(
   const previousTripDate = record.tripDate;
   const previousTripTime = record.tripTime;
   const changedAt = new Date().toISOString();
+  const amendmentId = generateAmendmentId();
+
+  // Always reprice server-side (weekday/weekend/bank holiday may differ).
+  const airportRaw = String(record.airportCode ?? "").trim().toUpperCase();
+  const airportCode =
+    airportRaw === "BFS" || airportRaw === "BHD" || airportRaw === "DUB" || airportRaw === "LDY"
+      ? (airportRaw as QuoteServiceAirportCode)
+      : null;
+  const quote = calculateAuthoritativeWebsiteQuote({
+    airportCode: record.isAirportTrip || airportCode ? airportCode : null,
+    fromAirport: Boolean(record.isFromAirport),
+    pickupAddress: record.pickupLabel,
+    dropoffAddress: record.dropoffLabel,
+    returnJourney: Boolean(record.returnJourney),
+    outboundDate: newTripDate,
+    outboundTime: newTripTime,
+    returnDate: record.returnDate,
+    returnTime: record.returnTime,
+    passengers: record.passengers ?? 1,
+    suitcases: record.suitcases ?? 0,
+  });
+
+  if (!quote.ok) {
+    return jsonResponse(
+      {
+        error:
+          quote.message ||
+          "We could not recalculate this journey online. Please contact My Airport Taxi NI.",
+        reason: "capacity_not_online",
+        contactRequired: true,
+        booking: publicAmendmentSummary(record),
+      },
+      422,
+      origin,
+    );
+  }
+
+  const previousFare = Number(record.amount) || 0;
+  const newFare = quote.amount;
+  const fareDiff = describeFareDifference(previousFare, newFare);
+
+  // Higher fare: do not mutate the confirmed booking until extra payment succeeds.
+  if (fareDiff.kind === "additional_payment") {
+    const pending = {
+      amendmentId,
+      createdAt: changedAt,
+      createdBy: "Customer" as const,
+      proposed: {
+        tripDate: newTripDate,
+        tripTime: newTripTime,
+      },
+      previousFare,
+      newFare,
+      additionalPaymentAmount: fareDiff.difference,
+      idempotencyKey: `amend-pay:${paymentReference}:${amendmentId}`,
+      status: "awaiting_payment" as const,
+    };
+    await updatePaidBookingFields(
+      env.TRACKING_STORE,
+      paymentReference,
+      { pendingAmendment: pending },
+      { appendAudit: false },
+    );
+    return jsonResponse(
+      {
+        ok: false,
+        reason: "additional_payment_required",
+        message: fareDiff.label,
+        fare: fareDiff,
+        pendingAmendment: pending,
+        booking: publicAmendmentSummary(record),
+        contactRequired: true,
+        note:
+          "Your current booking is unchanged. Please contact My Airport Taxi NI to pay the difference, or use the owner dashboard payment link when available.",
+      },
+      402,
+      origin,
+    );
+  }
+
   const historyEntry: DateTimeAmendmentAuditEntry = {
     changedAt,
     previousTripDate,
@@ -266,9 +351,53 @@ export async function handleCustomerAmendSchedule(
     newTripDate,
     newTripTime,
     changedBy: "Customer",
-    farePreserved: true,
-    notes: "Free customer date/time amendment (>24h notice)",
+    farePreserved: false,
+    previousFare,
+    newFare,
+    notes:
+      fareDiff.kind === "none"
+        ? "Customer schedule amendment — fare unchanged after authoritative reprice"
+        : `Customer schedule amendment — refund due £${fareDiff.difference.toFixed(2)} (owner-controlled)`,
   };
+
+  const amendmentEvent: PaidBookingAmendmentEvent = {
+    amendmentId,
+    changedAt,
+    changedBy: "Customer",
+    before: {
+      tripDate: previousTripDate,
+      tripTime: previousTripTime,
+      amount: previousFare,
+    },
+    after: {
+      tripDate: newTripDate,
+      tripTime: newTripTime,
+      amount: newFare,
+    },
+    previousFare,
+    newFare,
+    difference: fareDiff.kind === "refund_due" ? -fareDiff.difference : 0,
+    refundAmount: fareDiff.kind === "refund_due" ? fareDiff.difference : undefined,
+    idempotencyKey: `amend:${paymentReference}:${amendmentId}`,
+  };
+
+  /**
+   * Lower fare: commit journey + flag refundDueAmount for owner-controlled partial refund
+   * via the existing SumUp refund UI (safe/idempotent). Automatic customer-initiated
+   * partial refund is intentionally not wired here.
+   */
+  const refundDueFields =
+    fareDiff.kind === "refund_due"
+      ? {
+          refundDueAmount: fareDiff.difference,
+          refundDueReason: `Schedule amendment ${amendmentId}: ${previousFare} → ${newFare}`,
+          refundDueAt: changedAt,
+          amount: newFare,
+          amountPaidLabel: `£${newFare.toFixed(2)}`,
+        }
+      : fareDiff.kind === "none"
+        ? {}
+        : {};
 
   const updated = await updatePaidBookingFields(
     env.TRACKING_STORE,
@@ -280,6 +409,9 @@ export async function handleCustomerAmendSchedule(
       originalTripTime: record.originalTripTime || previousTripTime,
       dateTimeAmendmentCount: Math.max(0, Number(record.dateTimeAmendmentCount) || 0) + 1,
       dateTimeAmendmentHistory: [...(record.dateTimeAmendmentHistory ?? []), historyEntry],
+      amendmentHistory: [...(record.amendmentHistory ?? []), amendmentEvent],
+      pendingAmendment: null,
+      ...refundDueFields,
     },
     { appendAudit: true, changedBy: "Customer" },
   );
@@ -328,7 +460,7 @@ export async function handleCustomerAmendSchedule(
             `Updated via customer amendment at ${changedAt}\n` +
             `Payment reference preserved: ${updated.paymentReference}\n` +
             `Was: ${previousTripDate} ${previousTripTime}\nNow: ${updated.tripDate} ${updated.tripTime}\n` +
-            `Fare preserved (free date/time amendment)\n`,
+            `Authoritative reprice: £${previousFare.toFixed(2)} → £${newFare.toFixed(2)}\n`,
         },
       );
       if (result.errors.length > 0) {
@@ -339,55 +471,45 @@ export async function handleCustomerAmendSchedule(
     }
   }
 
-  try {
-    const trackUrl = await resolvePaidBookingTrackUrl(env.TRACKING_STORE, updated);
-    const email = buildUpdatedBookingConfirmationEmail(
-      {
-        customerName: updated.customerName,
-        customerEmail: updated.customerEmail,
-        mobileNumber: updated.mobileNumber,
-        tripLabel: updated.tripLabel,
-        pickupLabel: updated.pickupLabel,
-        dropoffLabel: updated.dropoffLabel,
-        returnJourney: updated.returnJourney,
-        tripDate: updated.tripDate,
-        tripTime: updated.tripTime,
-        returnDate: updated.returnDate ?? "",
-        returnTime: updated.returnTime ?? "",
-        flightNumber: updated.flightNumber ?? "",
-        returnFlightNumber: updated.returnFlightNumber,
-        passengers: updated.passengers ?? 1,
-        suitcases: updated.suitcases ?? 0,
-        vehicle: updated.vehicle ?? "Saloon",
-        isAirportTrip: Boolean(updated.isAirportTrip),
-        airportCode: updated.airportCode,
-        isFromAirport: updated.isFromAirport,
-        amountPaid: updated.amountPaidLabel,
-        paymentReference: updated.paymentReference,
-        transactionCode: updated.transactionCode,
-      },
-      BUSINESS_NAME,
-      { trackUrl: trackUrl || undefined },
-    );
-    await trySendBrandedCustomerEmail(env, {
-      to: updated.customerEmail,
-      toName: updated.customerName,
-      subject: email.subject,
-      body: email.text,
-      htmlBody: email.html,
-    });
-  } catch (err) {
-    warnings.push(
-      err instanceof Error ? `Confirmation email: ${err.message}` : "Confirmation email failed",
-    );
+  const fareNote =
+    fareDiff.kind === "refund_due"
+      ? `Refund due: £${fareDiff.difference.toFixed(2)}`
+      : "No change to your fare";
+
+  const emailResult = await sendUpdatedConfirmationForPaymentReference({
+    env: env as Env & { TRACKING_STORE: KVNamespace },
+    paymentReference,
+    whatChanged: ["Pickup date changed", "Pickup time changed"],
+    fareNote,
+    amendmentId,
+  });
+
+  if (!emailResult?.sent) {
+    warnings.push(emailResult?.error || "Confirmation email failed");
   }
+
+  const fresh = (await getPaidBookingRecord(env.TRACKING_STORE, paymentReference)) || updated;
 
   return jsonResponse(
     {
       ok: true,
-      farePreserved: true,
-      booking: publicAmendmentSummary(updated),
+      farePreserved: false,
+      fare: fareDiff,
+      amendmentId,
+      customerEmailSent: Boolean(emailResult?.sent),
+      customerEmailError: emailResult?.sent ? undefined : emailResult?.error,
+      confirmationPickupLabel: fresh.pickupLabel,
+      booking: publicAmendmentSummary(fresh),
       warnings: warnings.length ? warnings : undefined,
+      emailUi: emailResult?.sent
+        ? {
+            headline: "Your booking has been updated.",
+            body: `We’ve emailed your updated confirmation to ${fresh.customerEmail}.`,
+          }
+        : {
+            headline: "Your booking has been updated.",
+            body: "Your booking has been updated, but we couldn’t send the confirmation email. Please contact us if you need a copy.",
+          },
     },
     200,
     origin,

@@ -372,7 +372,7 @@ export default function OwnerEditBookingModal({
             {fareSensitive ? (
               <p className="mt-4 rounded-xl border border-amber-400/35 bg-amber-500/10 px-3 py-3 text-sm text-amber-100">
                 Journey details changed — fare may require manual adjustment. No automatic charge or
-                refund will run.
+                refund will run. An updated confirmation email is sent automatically after save.
               </p>
             ) : null}
 
@@ -422,7 +422,7 @@ export default function OwnerEditBookingModal({
                 onClick={() => void save(false)}
                 className="min-h-12 w-full rounded-xl bg-emerald px-4 py-3 text-sm font-bold text-navy disabled:opacity-60"
               >
-                {busy ? "Saving…" : "Confirm Changes"}
+                {busy ? "Saving…" : "Confirm Changes (email customer)"}
               </button>
               <button
                 type="button"

@@ -12,6 +12,50 @@ export type PaidBookingEditAuditEntry = {
   changedBy: "Owner" | "Customer" | "System";
 };
 
+/**
+ * Full amendment event (material or schedule) — append-only audit trail.
+ * Distinct from per-field editHistory; one entry per confirmed amendment.
+ */
+export type PaidBookingAmendmentEvent = {
+  amendmentId: string;
+  changedAt: string;
+  changedBy: "Owner" | "Customer" | "System";
+  before: Record<string, string | number | boolean | null | undefined>;
+  after: Record<string, string | number | boolean | null | undefined>;
+  previousFare?: number;
+  newFare?: number;
+  difference?: number;
+  additionalPaymentAmount?: number;
+  additionalPaymentReference?: string;
+  refundAmount?: number;
+  refundReference?: string;
+  /** Owner kept a different agreed fare than the authoritative calculation. */
+  ownerOverride?: {
+    authoritativeFare: number;
+    agreedFare: number;
+    difference: number;
+  };
+  reasonNote?: string;
+  confirmationEmailSentAt?: string;
+  confirmationEmailError?: string;
+  /** Idempotency key for payment/refund/email (stable per amendment). */
+  idempotencyKey?: string;
+};
+
+/** Pending material amendment awaiting extra SumUp payment (higher fare). */
+export type PendingBookingAmendment = {
+  amendmentId: string;
+  createdAt: string;
+  createdBy: "Owner" | "Customer";
+  proposed: Record<string, string | number | boolean | null | undefined>;
+  previousFare: number;
+  newFare: number;
+  additionalPaymentAmount: number;
+  checkoutId?: string;
+  idempotencyKey: string;
+  status: "awaiting_payment" | "abandoned" | "committed";
+};
+
 export type PaidBookingRecord = {
   paymentReference: string;
   checkoutId: string;
@@ -22,6 +66,13 @@ export type PaidBookingRecord = {
   amountPaidLabel: string;
   /** Cumulative GBP already refunded via SumUp (authoritative money state). */
   amountRefunded?: number;
+  /**
+   * Refund due after a lower-fare amendment when automatic partial refund
+   * was not completed — owner must process via refund UI.
+   */
+  refundDueAmount?: number;
+  refundDueReason?: string;
+  refundDueAt?: string;
   customerName: string;
   customerEmail: string;
   mobileNumber: string;
@@ -36,10 +87,18 @@ export type PaidBookingRecord = {
   /** Snapshot of the original booked schedule (set on first date/time amendment). */
   originalTripDate?: string;
   originalTripTime?: string;
-  /** Count of customer self-service date/time amendments (free quota). */
+  /** Count of customer self-service material amendments (quota). */
   dateTimeAmendmentCount?: number;
   /** Append-only date/time amendment history (customer + operator). */
   dateTimeAmendmentHistory?: DateTimeAmendmentAuditEntry[];
+  /** Append-only full amendment events (material + schedule). */
+  amendmentHistory?: PaidBookingAmendmentEvent[];
+  /** In-flight higher-fare amendment awaiting extra payment. */
+  pendingAmendment?: PendingBookingAmendment | null;
+  /** Last automatic/manual updated confirmation attempt. */
+  lastUpdatedConfirmationSentAt?: string;
+  lastUpdatedConfirmationError?: string;
+  lastUpdatedConfirmationAmendmentId?: string;
   /** Full trip details kept for resend / owner lookup. */
   flightNumber?: string;
   returnFlightNumber?: string;
@@ -120,4 +179,9 @@ export function paidBookingTripDayIndexKey(day: string): string {
 /** Append-only index of owner £1 live refund-test payment references. */
 export function paidBookingRefundTestIndexKey(): string {
   return "booking:refund-test:index";
+}
+
+/** KV key for a pending material amendment awaiting extra payment. */
+export function pendingBookingAmendmentKey(amendmentId: string): string {
+  return `pending-amendment:${amendmentId.trim()}`;
 }

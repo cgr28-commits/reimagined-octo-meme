@@ -68,18 +68,24 @@ export default function ManageBookingClient() {
     setSuccess("");
     setSaving(true);
     try {
-      const updated = await amendBookingSchedule({
+      const result = await amendBookingSchedule({
         paymentReference: booking.paymentReference,
         customerEmail: customerEmail.trim(),
         tripDate,
         tripTime,
       });
-      setBooking(updated);
-      setTripDate(updated.tripDate);
-      setTripTime(updated.tripTime);
-      setSuccess(
-        `Your pickup is now ${updated.tripDate} at ${updated.tripTime}. Your original fare was preserved.`,
-      );
+      setBooking(result.booking);
+      setTripDate(result.booking.tripDate);
+      setTripTime(result.booking.tripTime);
+      if (result.emailUi) {
+        setSuccess(`${result.emailUi.headline} ${result.emailUi.body}`);
+      } else {
+        setSuccess(
+          `Your booking has been updated.${
+            result.fareLabel ? ` ${result.fareLabel}.` : ""
+          } We’ve emailed your updated confirmation to ${customerEmail.trim()}.`,
+        );
+      }
       setContactGate(null);
     } catch (err) {
       const e = err as Error & {
@@ -255,7 +261,7 @@ export default function ManageBookingClient() {
                   <li key={`${entry.changedAt}-${entry.newTripDate}-${entry.newTripTime}`}>
                     {entry.previousTripDate} {entry.previousTripTime} → {entry.newTripDate}{" "}
                     {entry.newTripTime} ({entry.changedBy}
-                    {entry.farePreserved ? ", fare preserved" : ""})
+                    {entry.farePreserved === false ? ", fare recalculated" : entry.farePreserved ? ", fare preserved" : ""})
                   </li>
                 ))}
               </ul>

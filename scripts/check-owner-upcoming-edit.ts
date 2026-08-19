@@ -179,7 +179,7 @@ console.log("\n=== 4. Arrival + updated confirmation emails (no send) ===");
     paymentReference: "TEST-AUG19-001",
   };
   const updated = buildUpdatedBookingConfirmationEmail(receipt);
-  assert.match(updated.subject, /updated/i);
+  assert.match(updated.subject, /Updated Booking Confirmation/i);
   assert.match(updated.text, /Your booking has been updated/i);
   assert.match(updated.text, /21/);
   console.log("OK  email builders only — no Resend calls");
@@ -192,10 +192,12 @@ console.log("\n=== 5. Owner edit handler safety ===");
   assert.match(edit, /Completed journeys cannot be rewritten/);
   assert.match(edit, /paymentPreserved:\s*true/);
   assert.match(edit, /fareMayNeedManualAdjustment/);
-  assert.match(edit, /Journey details changed — fare may require manual adjustment/);
+  assert.match(edit, /Fare may need a manual adjustment|fare may require manual adjustment/i);
+  assert.match(edit, /paidBookingRecordToReceipt|sendUpdatedConfirmation/);
+  assert.doesNotMatch(edit, /getPendingCheckout/);
   assert.match(edit, /rescheduleCalendarEvents/);
   assert.match(edit, /appendAudit:\s*true/);
-  assert.match(edit, /buildUpdatedBookingConfirmationEmail/);
+  assert.match(edit, /sendUpdatedConfirmation/);
   assert.doesNotMatch(edit, /createCheckout|SUMUP_API_KEY|issueRefund|markPaidBookingRefunded/);
   console.log("OK  edit preserves payment, updates calendar, audits, no SumUp charge");
 }
@@ -228,9 +230,7 @@ console.log("\n=== 7. Owner panel UI contracts ===");
   assert.match(panel, /status === "arrived_pickup"/);
   assert.match(panel, /idle \/ stopped \/ tracking/);
   assert.match(panel, /OwnerEditBookingModal/);
-  assert.match(panel, /Confirm \$\{booking\.amountPaid|Confirm Changes/);
-  assert.match(panel, /This will refund the customer/);
-  assert.match(panel, /Send Updated Booking Confirmation|Send Updated Confirmation/);
+  assert.match(panel, /Resend Updated Confirmation/);
   assert.match(panel, /Not sent yet/);
   assert.match(panel, /status === "not_configured"/);
   assert.doesNotMatch(
@@ -242,6 +242,7 @@ console.log("\n=== 7. Owner panel UI contracts ===");
   assert.match(editModal, /Confirm Booking Changes/);
   assert.match(editModal, /Confirm Changes/);
   assert.match(editModal, /fare may require manual adjustment/i);
+  assert.match(editModal, /updated confirmation email is sent automatically/i);
 
   // Evidence not duplicated inside Driver tracking when completed
   const driverBlockStart = panel.indexOf("Driver tracking");
