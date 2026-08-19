@@ -1,7 +1,14 @@
 /**
  * Pure UI helpers for the owner £1 live SumUp refund-test form.
  * Keep money-moving decisions explicit — no silent £0 / remaining shortcuts.
+ * Amount / reason / notes are editable without the owner key; submit still requires it.
  */
+
+import {
+  REFUND_REASON_CATEGORIES,
+  ownerNotesRequired,
+  type RefundReasonCategory,
+} from "../../shared/refund-ops";
 
 export function roundGbp(amount: number): number {
   return Math.round(amount * 100) / 100;
@@ -28,6 +35,8 @@ export function parseRefundTestAmountInput(
 export function canSubmitRefundTest(input: {
   amountRaw: string;
   remainingRefundable: number;
+  reasonCategory: RefundReasonCategory | "";
+  ownerNotes: string;
   confirmOwnerKey: string;
   finalConfirm: boolean;
   busy: boolean;
@@ -42,6 +51,23 @@ export function canSubmitRefundTest(input: {
   if (amount == null) {
     return { ok: false, amount: null, reason: "invalid_amount" };
   }
+  if (
+    !input.reasonCategory ||
+    !REFUND_REASON_CATEGORIES.includes(input.reasonCategory as RefundReasonCategory)
+  ) {
+    return { ok: false, amount, reason: "missing_reason" };
+  }
+  if (
+    ownerNotesRequired({
+      reasonCategory: input.reasonCategory as RefundReasonCategory,
+      refundAmount: amount,
+      refundFullRemaining: amount >= input.remainingRefundable - 0.001,
+      within24h: false,
+    }) &&
+    !input.ownerNotes.trim()
+  ) {
+    return { ok: false, amount, reason: "notes_required" };
+  }
   if (!input.confirmOwnerKey.trim()) {
     return { ok: false, amount, reason: "missing_owner_key" };
   }
@@ -55,4 +81,9 @@ export function canSubmitRefundTest(input: {
 export function remainingBalanceFillValue(remainingRefundable: number): string {
   if (remainingRefundable < 0.01) return "";
   return roundGbp(remainingRefundable).toFixed(2);
+}
+
+/** Amount/reason/notes editable without owner key (submit still requires key). */
+export function refundFormFieldsEditableWithoutOwnerKey(): boolean {
+  return true;
 }

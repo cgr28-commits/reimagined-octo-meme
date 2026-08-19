@@ -96,6 +96,8 @@ console.log("=== Refund Test UI safety (single submit) ===");
   const base = {
     amountRaw: "0.50",
     remainingRefundable: 0.5,
+    reasonCategory: "partial_refund_agreed" as const,
+    ownerNotes: "Agreed 50p test refund",
     confirmOwnerKey: "secret",
     finalConfirm: true,
     busy: false,
@@ -111,7 +113,12 @@ console.log("=== Refund Test UI safety (single submit) ===");
     canSubmitRefundTest({ ...base, remainingRefundable: 0, amountRaw: "0.50" }).ok,
     false,
   );
-  console.log("OK  submit gate requires valid amount + owner key + checkbox; blocks £0/busy/full");
+  assert.equal(canSubmitRefundTest({ ...base, reasonCategory: "" as never }).ok, false);
+  assert.equal(
+    canSubmitRefundTest({ ...base, reasonCategory: "other", ownerNotes: "" }).ok,
+    false,
+  );
+  console.log("OK  submit gate requires valid amount + reason + owner key + checkbox; blocks £0/busy/full");
 }
 
 const ui = read("src/components/OwnerRefundTestClient.tsx");

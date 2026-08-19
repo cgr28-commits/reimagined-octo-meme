@@ -105,6 +105,8 @@ export async function issueRefundTestRefund(input: {
   paymentReference: string;
   amount: number | null;
   refundFullRemaining?: boolean;
+  reasonCategory?: string;
+  ownerNotes?: string;
   idempotencyKey?: string;
 }): Promise<RefundIssueResponse> {
   const response = await fetch(`${WORKER_BASE}/paid-bookings/refund-test/refund`, {
@@ -119,8 +121,9 @@ export async function issueRefundTestRefund(input: {
       confirmOwnerKey: input.confirmOwnerKey.trim(),
       amount: input.amount,
       refundFullRemaining: input.refundFullRemaining === true,
+      reasonCategory: input.reasonCategory ?? "other",
+      ownerNotes: input.ownerNotes ?? "Owner £1 live SumUp refund test",
       idempotencyKey: input.idempotencyKey ?? `refund-test-${generateRefundOpId()}`,
-      ownerNotes: "Owner £1 live SumUp refund test",
     }),
   });
   const payload = (await response.json().catch(() => null)) as RefundIssueResponse | null;

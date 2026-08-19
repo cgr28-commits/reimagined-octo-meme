@@ -422,9 +422,18 @@ export type RefundDiagnosticsReport = {
     refundAmount: number;
     cumulativeRefundedAmount: number;
     remainingBalance: number;
+    amountRetained?: number | null;
     cancelBooking: boolean;
+    reasonCategory?: string;
+    reasonLabel?: string | null;
+    ownerNotes?: string | null;
+    ownerNotesAt?: string | null;
+    initiatedBy?: string | null;
+    within24HoursOfPickup?: boolean | null;
+    bookingStatusAfter?: string | null;
     success: boolean;
     sumUpStatus?: string | null;
+    sumUpTransactionId?: string | null;
     customerEmailStatus: string;
     ownerEmailStatus: string;
     requestedAt: string;

@@ -21,6 +21,12 @@ import {
   parseRefundTestAmountInput,
   remainingBalanceFillValue,
 } from "@/lib/refund-test-ui";
+import {
+  REFUND_REASON_LABELS,
+  REFUND_REASON_UI_CATEGORIES,
+  ownerNotesRequired,
+  type RefundReasonCategory,
+} from "../../shared/refund-ops";
 import { SITE } from "@/lib/data";
 
 const OWNER_KEY_STORAGE = "matni-owner-key";
@@ -42,6 +48,9 @@ export default function OwnerRefundTestClient() {
   const [finalConfirm, setFinalConfirm] = useState(false);
   const [selectedRef, setSelectedRef] = useState<string | null>(null);
   const [refundAmount, setRefundAmount] = useState("");
+  const [reasonCategory, setReasonCategory] =
+    useState<RefundReasonCategory>("partial_refund_agreed");
+  const [ownerNotes, setOwnerNotes] = useState("");
 
   const redirectUrl = useMemo(() => {
     if (typeof window === "undefined") {
@@ -141,6 +150,8 @@ export default function OwnerRefundTestClient() {
   function resetRefundForm() {
     setSelectedRef(null);
     setRefundAmount("");
+    setReasonCategory("partial_refund_agreed");
+    setOwnerNotes("");
     setConfirmKey("");
     setFinalConfirm(false);
   }
@@ -149,6 +160,8 @@ export default function OwnerRefundTestClient() {
     if (booking.remainingRefundable < 0.01) return;
     setSelectedRef(booking.paymentReference);
     setRefundAmount("");
+    setReasonCategory("partial_refund_agreed");
+    setOwnerNotes("");
     setConfirmKey("");
     setFinalConfirm(false);
     setError("");
@@ -200,6 +213,8 @@ export default function OwnerRefundTestClient() {
     const gate = canSubmitRefundTest({
       amountRaw: refundAmount,
       remainingRefundable: booking.remainingRefundable,
+      reasonCategory,
+      ownerNotes,
       confirmOwnerKey: confirmKey,
       finalConfirm,
       busy,
@@ -207,6 +222,10 @@ export default function OwnerRefundTestClient() {
     if (!gate.ok || gate.amount == null) {
       if (gate.reason === "invalid_amount") {
         setError("Enter a valid refund amount greater than £0 and not more than remaining.");
+      } else if (gate.reason === "missing_reason") {
+        setError("Select a refund reason.");
+      } else if (gate.reason === "notes_required") {
+        setError("Owner notes are required for this reason.");
       } else if (gate.reason === "missing_owner_key") {
         setError("Re-enter OWNER_ACCESS_KEY to confirm this refund.");
       } else if (gate.reason === "missing_confirm") {
@@ -229,6 +248,8 @@ export default function OwnerRefundTestClient() {
         paymentReference: booking.paymentReference,
         amount: submittedAmount,
         refundFullRemaining: false,
+        reasonCategory,
+        ownerNotes: ownerNotes.trim() || "Owner £1 live SumUp refund test",
         idempotencyKey: `refund-test-${booking.paymentReference}-${generateRefundOpId()}`,
       });
       if (!result.ok) {
@@ -386,9 +407,18 @@ export default function OwnerRefundTestClient() {
                     const submitGate = canSubmitRefundTest({
                       amountRaw: refundAmount,
                       remainingRefundable: booking.remainingRefundable,
+                      reasonCategory,
+                      ownerNotes,
                       confirmOwnerKey: confirmKey,
                       finalConfirm,
                       busy,
+                    });
+                    const notesNeeded = ownerNotesRequired({
+                      reasonCategory,
+                      refundAmount: parsedAmount ?? 0,
+                      refundFullRemaining:
+                        (parsedAmount ?? 0) >= booking.remainingRefundable - 0.001,
+                      within24h: false,
                     });
                     const submitLabel =
                       busy && open
@@ -484,13 +514,15 @@ export default function OwnerRefundTestClient() {
                             </p>
 
                             <div className="rounded-lg border border-white/10 bg-navy/40 px-3 py-2 text-sm text-white/85">
-                              <p>Paid {money(booking.amountPaid)}</p>
-                              <p>Already refunded {money(booking.amountRefunded)}</p>
-                              <p>Remaining refundable {money(booking.remainingRefundable)}</p>
+                              <p>Original payment: {money(booking.amountPaid)}</p>
+                              <p>Already refunded: {money(booking.amountRefunded)}</p>
+                              <p className="font-semibold">
+                                Remaining refundable: {money(booking.remainingRefundable)}
+                              </p>
                             </div>
 
                             <label className="block text-xs text-white/70">
-                              Amount (GBP)
+                              Refund amount (GBP)
                               <input
                                 type="number"
                                 min="0.01"
@@ -522,6 +554,39 @@ export default function OwnerRefundTestClient() {
                               Fills the Amount field only — does not submit a refund.
                             </p>
 
+                            <label className="block text-xs text-white/70">
+                              Reason
+                              <select
+                                value={reasonCategory}
+                                disabled={busy}
+                                onChange={(event) =>
+                                  setReasonCategory(event.target.value as RefundReasonCategory)
+                                }
+                                className="mt-1 w-full rounded-lg border border-white/15 bg-navy px-3 py-2 text-white"
+                                data-refund-test-reason="true"
+                              >
+                                {REFUND_REASON_UI_CATEGORIES.map((category) => (
+                                  <option key={category} value={category}>
+                                    {REFUND_REASON_LABELS[category]}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+
+                            <label className="block text-xs text-white/70">
+                              Owner notes (internal)
+                              {notesNeeded ? " — required" : " — optional"}
+                              <textarea
+                                value={ownerNotes}
+                                disabled={busy}
+                                onChange={(event) => setOwnerNotes(event.target.value)}
+                                rows={3}
+                                className="mt-1 w-full rounded-lg border border-white/15 bg-navy px-3 py-2 text-white"
+                                placeholder="Internal only — never sent to the customer."
+                                data-refund-test-notes="true"
+                              />
+                            </label>
+
                             {parsedAmount != null ? (
                               <p className="rounded-lg border border-amber-300/30 bg-amber-500/10 px-3 py-2 text-sm font-semibold text-amber-50">
                                 You are about to refund {money(parsedAmount)} to the original
@@ -542,6 +607,7 @@ export default function OwnerRefundTestClient() {
                                 onChange={(event) => setConfirmKey(event.target.value)}
                                 className="mt-1 w-full rounded-lg border border-white/15 bg-navy px-3 py-2 text-white"
                                 autoComplete="off"
+                                data-refund-test-owner-key="true"
                               />
                             </label>
 
@@ -551,6 +617,7 @@ export default function OwnerRefundTestClient() {
                                 checked={finalConfirm}
                                 onChange={(event) => setFinalConfirm(event.target.checked)}
                                 className="mt-0.5"
+                                data-refund-test-final-confirm="true"
                               />
                               I confirm a LIVE SumUp refund of{" "}
                               {parsedAmount != null ? money(parsedAmount) : "the entered amount"}{" "}

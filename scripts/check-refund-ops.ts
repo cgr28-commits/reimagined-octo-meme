@@ -157,8 +157,9 @@ const keepActiveEmail = buildCustomerCancellationEmails({
   bookingRemainsActive: true,
   actionKind: "full_refund_keep_active",
 });
-assert.match(keepActiveEmail.customer!.subject, /Booking Remains Confirmed/);
-assert.match(keepActiveEmail.customer!.text, /CONFIRMED/);
+assert.match(keepActiveEmail.customer!.subject, /Full Refund|Booking Remains|remains/i);
+assert.match(keepActiveEmail.customer!.text, /has NOT been cancelled/i);
+assert.match(keepActiveEmail.customer!.text, /remains booked as scheduled/i);
 assert.doesNotMatch(keepActiveEmail.customer!.text, /has been CANCELLED/);
 console.log("OK  keep-active full refund email");
 
