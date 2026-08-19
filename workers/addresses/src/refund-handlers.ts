@@ -15,6 +15,11 @@ import {
 } from "../shared/booking-notifications";
 import type { PaidBookingRecord } from "../shared/paid-booking-record";
 import {
+  grossAmountCollectedOf,
+  journeyFareOf,
+} from "../shared/paid-booking-record";
+import { normalizeCustomerBookingReference } from "../shared/customer-booking-reference";
+import {
   applyProcessorAuthoritativeRefund,
   cappedRefundAmount,
   generateRefundOpId,
@@ -49,6 +54,8 @@ import {
   getPaidBookingRecord,
   paidBookingStoreConfigured,
   savePaidBookingRecord,
+  claimUniqueCustomerBookingReference,
+  ensureManageBookingToken,
 } from "./paid-booking-store";
 import {
   findTrackingJobByPaymentReference,
@@ -98,9 +105,32 @@ function calendarConfigured(env: RefundEnv): boolean {
   );
 }
 
+/** Gross money collected — never the current journey fare when they differ. */
 function amountPaidOf(record: PaidBookingRecord): number {
-  if (typeof record.amount === "number" && record.amount > 0) return roundGbp(record.amount);
-  return parseMoneyLabelToNumber(record.amountPaidLabel) ?? 0;
+  return grossAmountCollectedOf(record);
+}
+
+/** After a successful SumUp refund: preserve journey fare; reduce refund-due. */
+function moneyFieldsAfterRefund(
+  record: PaidBookingRecord,
+  input: {
+    grossCollected: number;
+    cumulativeRefunded: number;
+    amountMovedThisOp: number;
+  },
+): Partial<PaidBookingRecord> {
+  const dueBefore = Number(record.refundDueAmount) || 0;
+  const dueAfter = roundGbp(Math.max(0, dueBefore - Math.max(0, input.amountMovedThisOp)));
+  return {
+    amount: journeyFareOf(record) || record.amount,
+    originalAmount: record.originalAmount ?? input.grossCollected,
+    amountPaidLabel: formatPaidAmount(input.grossCollected, record.currency || "GBP"),
+    amountRefunded: input.cumulativeRefunded,
+    refundDueAmount: dueAfter,
+    ...(dueAfter <= 0.005
+      ? { refundDueReason: "", refundDueAt: "" }
+      : {}),
+  };
 }
 
 /** Treat legacy refunded / refunded_active as fully refunded when amountRefunded is missing. */
@@ -509,9 +539,11 @@ export async function processBookingRefundOrCancel(
       const processorAcceptedAt = new Date().toISOString();
       record = {
         ...record,
-        amount: paidNow,
-        amountPaidLabel: formatPaidAmount(paidNow, record.currency || "GBP"),
-        amountRefunded: cumulative,
+        ...moneyFieldsAfterRefund(record, {
+          grossCollected: paidNow,
+          cumulativeRefunded: cumulative,
+          amountMovedThisOp: 0,
+        }),
         operationalStatus: statuses.operationalStatus,
         paymentStatus: statuses.paymentStatus,
         status: statuses.status,
@@ -642,9 +674,11 @@ export async function processBookingRefundOrCancel(
 
     record = {
       ...record,
-      amount: paidAfter,
-      amountPaidLabel: formatPaidAmount(paidAfter, record.currency || "GBP"),
-      amountRefunded: cumulative,
+      ...moneyFieldsAfterRefund(record, {
+        grossCollected: paidAfter,
+        cumulativeRefunded: cumulative,
+        amountMovedThisOp: actualMoved,
+      }),
       operationalStatus: statuses.operationalStatus,
       paymentStatus: statuses.paymentStatus,
       status: statuses.status,
@@ -775,9 +809,23 @@ async function resolveTransactionOnRecord(
     if (resolvedTx?.id) {
       updated.transactionId = resolvedTx.id;
       if (typeof resolvedTx.amount === "number" && resolvedTx.amount > 0) {
-        updated.amount = resolvedTx.amount;
+        updated.originalAmount = updated.originalAmount ?? resolvedTx.amount;
         updated.currency = resolvedTx.currency ?? updated.currency;
-        updated.amountPaidLabel = formatPaidAmount(updated.amount, updated.currency);
+        updated.amountPaidLabel = formatPaidAmount(
+          grossAmountCollectedOf({
+            ...updated,
+            originalAmount: updated.originalAmount,
+            amountPaidLabel: formatPaidAmount(resolvedTx.amount, updated.currency),
+          }),
+          updated.currency,
+        );
+        const hasSettlementGap =
+          (Number(updated.refundDueAmount) || 0) > 0.005 ||
+          (updated.amendmentHistory?.length ?? 0) > 0 ||
+          (updated.additionalPayments?.length ?? 0) > 0;
+        if (!hasSettlementGap) {
+          updated.amount = resolvedTx.amount;
+        }
       }
     }
   }
@@ -788,9 +836,23 @@ async function resolveTransactionOnRecord(
       const transactionId = getSuccessfulTransactionId(checkout);
       if (transactionId) updated.transactionId = transactionId;
       if (typeof checkout.amount === "number" && checkout.amount > 0) {
-        updated.amount = checkout.amount;
+        updated.originalAmount = updated.originalAmount ?? checkout.amount;
         updated.currency = checkout.currency ?? updated.currency;
-        updated.amountPaidLabel = formatPaidAmount(updated.amount, updated.currency);
+        updated.amountPaidLabel = formatPaidAmount(
+          grossAmountCollectedOf({
+            ...updated,
+            originalAmount: updated.originalAmount,
+            amountPaidLabel: formatPaidAmount(checkout.amount, updated.currency),
+          }),
+          updated.currency,
+        );
+        const hasSettlementGap =
+          (Number(updated.refundDueAmount) || 0) > 0.005 ||
+          (updated.amendmentHistory?.length ?? 0) > 0 ||
+          (updated.additionalPayments?.length ?? 0) > 0;
+        if (!hasSettlementGap) {
+          updated.amount = checkout.amount;
+        }
       }
     } catch {
       // best effort
@@ -1329,13 +1391,26 @@ export async function savePaidBookingRecordFromConfirm(input: {
   standardWebsiteAmount?: number;
   personalQuotedAmount?: number;
   isRefundTest?: boolean;
-}): Promise<void> {
+}): Promise<string | undefined> {
   if (!paidBookingStoreConfigured(input.env.TRACKING_STORE)) {
-    return;
+    return undefined;
   }
+
+  const existing = await getPaidBookingRecord(
+    input.env.TRACKING_STORE,
+    input.paymentReference,
+  );
+  const customerReference =
+    normalizeCustomerBookingReference(existing?.customerReference ?? "") ||
+    (await claimUniqueCustomerBookingReference(
+      input.env.TRACKING_STORE,
+      input.paymentReference,
+    ));
 
   const record: PaidBookingRecord = {
     paymentReference: input.paymentReference,
+    customerReference,
+    manageBookingToken: existing?.manageBookingToken,
     checkoutId: input.checkoutId,
     transactionId: input.transactionId,
     transactionCode: input.transactionCode,
@@ -1372,7 +1447,7 @@ export async function savePaidBookingRecordFromConfirm(input: {
     status: "confirmed",
     operationalStatus: "confirmed",
     paymentStatus: "paid",
-    createdAt: new Date().toISOString(),
+    createdAt: existing?.createdAt || new Date().toISOString(),
     ...(input.isRefundTest ? { isRefundTest: true } : {}),
     ...(input.personalQuoteCode ? { personalQuoteCode: input.personalQuoteCode } : {}),
     ...(typeof input.standardWebsiteAmount === "number"
@@ -1384,6 +1459,13 @@ export async function savePaidBookingRecordFromConfirm(input: {
   };
 
   await savePaidBookingRecord(input.env.TRACKING_STORE, record);
+  // Opaque manage-booking token (metadata only — does not burn free amendment quota).
+  const withToken = await ensureManageBookingToken(input.env.TRACKING_STORE, {
+    ...record,
+    manageBookingToken: existing?.manageBookingToken,
+  });
+  void withToken;
+  return customerReference;
 }
 
 export async function handleRefundRequest(
@@ -1451,6 +1533,16 @@ export async function handleRefundRequest(
   // Guard: refund-test UI may only touch isRefundTest records; normal UI must not.
   if (paidBookingStoreConfigured(env.TRACKING_STORE)) {
     const existing = await getPaidBookingRecord(env.TRACKING_STORE, paymentReference);
+    if (existing?.isAmendmentTestFixture) {
+      return json(
+        {
+          error:
+            "This is an AMENDMENT TEST fixture (no live SumUp payment). It cannot be refunded via SumUp.",
+        },
+        400,
+        origin,
+      );
+    }
     if (existing?.isRefundTest && !refundTestRequested) {
       return json(
         {

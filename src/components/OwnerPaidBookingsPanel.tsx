@@ -937,8 +937,8 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
       setFareAdjustMessage("");
       setMessage(
         result.customerEmail
-          ? `Updated booking confirmation sent to ${result.customerEmail}.`
-          : "Updated booking confirmation sent.",
+          ? `Updated booking confirmation resent to ${result.customerEmail}.`
+          : "Updated booking confirmation resent.",
       );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not send updated confirmation");
@@ -1518,9 +1518,42 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
             <dd>{booking.customerName || "—"}</dd>
           </div>
           <div>
-            <dt className="text-white/40">Fare</dt>
+            <dt className="text-white/40">Journey fare</dt>
+            <dd>
+              {typeof booking.amount === "number"
+                ? `£${booking.amount.toFixed(2)}`
+                : booking.amountPaid || "—"}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-white/40">Collected</dt>
             <dd>{booking.amountPaid || "—"}</dd>
           </div>
+          {typeof booking.amountRefunded === "number" && booking.amountRefunded > 0 ? (
+            <div>
+              <dt className="text-white/40">Refunded</dt>
+              <dd>£{booking.amountRefunded.toFixed(2)}</dd>
+            </div>
+          ) : null}
+          {typeof booking.refundDueAmount === "number" && booking.refundDueAmount > 0 ? (
+            <div className="sm:col-span-2">
+              <dt className="text-amber-200/80">Refund due</dt>
+              <dd className="font-semibold text-amber-100">
+                £{booking.refundDueAmount.toFixed(2)}
+                {booking.refundDueReason ? ` — ${booking.refundDueReason}` : ""}
+                {" "}(process via Cancel / Refund)
+              </dd>
+            </div>
+          ) : null}
+          {booking.lastUpdatedConfirmationError ? (
+            <div className="sm:col-span-2">
+              <dt className="text-red-200/80">Confirmation email</dt>
+              <dd className="text-red-100">
+                Delivery failed — {booking.lastUpdatedConfirmationError}. Use Resend Updated
+                Confirmation.
+              </dd>
+            </div>
+          ) : null}
           <div>
             <dt className="text-white/40">Pickup</dt>
             <dd className="break-words">{booking.pickupLabel || "—"}</dd>
@@ -1706,7 +1739,7 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
                     >
                       {busyRef === booking.paymentReference
                         ? "Sending…"
-                        : "Send Updated Confirmation"}
+                        : "Resend Updated Confirmation"}
                     </button>
                   ) : null}
                   <button
@@ -1804,7 +1837,7 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
                       onClick={() => void handleSendUpdatedConfirmation(booking)}
                       className="mt-3 min-h-11 w-full rounded-xl bg-sky-500 px-4 py-2.5 text-sm font-bold text-navy transition-colors hover:bg-sky-400 disabled:opacity-60 sm:w-auto"
                     >
-                      Send Updated Booking Confirmation
+                      Resend Updated Confirmation
                     </button>
                   </div>
                 ) : null}

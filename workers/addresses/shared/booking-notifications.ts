@@ -53,7 +53,13 @@ export type PaidBookingDetails = {
 
 export type PaidBookingReceipt = PaidBookingDetails & {
   amountPaid: string;
+  /**
+   * Internal / SumUp payment key (transaction code or checkout ref).
+   * Prefer {@link customerReference} for customer-facing “Booking reference”.
+   */
   paymentReference: string;
+  /** Short customer-facing booking reference (MAT-4827). */
+  customerReference?: string;
   transactionCode?: string;
   checkoutReference?: string;
 };
@@ -179,7 +185,9 @@ function invoiceRows(details: PaidBookingReceipt): Array<{ label: string; value:
     });
   }
 
-  if (details.checkoutReference) {
+  if (details.customerReference?.trim()) {
+    rows.unshift({ label: "Booking reference", value: details.customerReference.trim().toUpperCase() });
+  } else if (details.checkoutReference) {
     rows.push({ label: "Booking reference", value: details.checkoutReference });
   }
 
@@ -208,8 +216,12 @@ function buildInvoiceHtml(
   details: PaidBookingReceipt,
   businessName: string,
   trackUrl?: string,
+  manageUrl?: string,
 ): string {
-  const invoiceNumber = escapeHtml(details.paymentReference);
+  const customerRef =
+    details.customerReference?.trim().toUpperCase() ||
+    details.checkoutReference?.trim() ||
+    "";
   const customerName = escapeHtml(details.customerName);
   const rowsHtml = invoiceRows(details)
     .map(
@@ -235,11 +247,21 @@ function buildInvoiceHtml(
               <img src="${LOGO_URL}" alt="${escapeHtml(businessName)}" height="72" style="display:block;margin:0 auto;height:72px;width:auto;max-width:100%;" />
               <div style="margin-top:16px;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:${ACCENT};font-weight:bold;">Invoice &amp; booking confirmation</div>
               <div style="margin-top:8px;font-size:22px;line-height:1.35;color:#ffffff;font-weight:bold;">Thank you, ${customerName}</div>
+              ${
+                customerRef
+                  ? `<div style="margin-top:14px;display:inline-block;background:rgba(16,185,129,0.15);border:1px solid ${ACCENT};border-radius:10px;padding:10px 16px;font-size:15px;color:#ffffff;"><span style="color:${ACCENT};font-size:11px;letter-spacing:0.08em;text-transform:uppercase;font-weight:bold;">Booking reference</span><br /><span style="font-size:22px;font-weight:bold;letter-spacing:0.04em;">${escapeHtml(customerRef)}</span></div>`
+                  : ""
+              }
             </td>
           </tr>
           <tr>
             <td style="padding:28px 32px 8px;font-size:15px;line-height:1.7;color:#334155;">
               <p style="margin:0 0 16px;">Your card payment has been received and your airport transfer with <strong style="color:${NAVY};">${escapeHtml(businessName)}</strong> is confirmed. Please keep this invoice for your records.</p>
+              ${
+                customerRef
+                  ? `<p style="margin:0 0 16px;font-size:15px;"><strong style="color:${NAVY};">Booking reference:</strong> ${escapeHtml(customerRef)}</p>`
+                  : ""
+              }
             </td>
           </tr>
           <tr>
@@ -251,10 +273,8 @@ function buildInvoiceHtml(
                     <div style="font-size:28px;font-weight:bold;color:${NAVY};line-height:1.2;margin-bottom:12px;">${escapeHtml(details.amountPaid)}</div>
                     <div style="display:inline-block;background:${ACCENT};color:${NAVY};font-size:12px;font-weight:bold;letter-spacing:0.06em;text-transform:uppercase;padding:6px 12px;border-radius:999px;margin-bottom:12px;">Paid in full</div>
                     <div style="font-size:14px;line-height:1.8;color:#475569;">
-                      <strong>Invoice / payment reference:</strong> ${invoiceNumber}<br />
-                      ${details.checkoutReference ? `<strong>Booking reference:</strong> ${escapeHtml(details.checkoutReference)}<br />` : ""}
+                      ${customerRef ? `<strong>Booking reference:</strong> ${escapeHtml(customerRef)}<br />` : ""}
                       <strong>Payment method:</strong> Card (SumUp)<br />
-                      ${details.transactionCode ? `<strong>Transaction code:</strong> ${escapeHtml(details.transactionCode)}<br />` : ""}
                       <strong>Status:</strong> Paid &amp; confirmed
                     </div>
                   </td>
@@ -288,6 +308,25 @@ function buildInvoiceHtml(
               </table>
             </td>
           </tr>
+          ${
+            manageUrl
+              ? `<tr>
+            <td style="padding:8px 32px 8px;">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#ecfdf5;border:1px solid #a7f3d0;border-radius:10px;">
+                <tr>
+                  <td style="padding:20px 24px;text-align:center;">
+                    <div style="font-size:12px;letter-spacing:0.1em;text-transform:uppercase;color:#047857;font-weight:bold;margin-bottom:10px;">Need to change something?</div>
+                    <div style="font-size:14px;line-height:1.7;color:#475569;margin-bottom:14px;">
+                      Update your pickup, destination, date, time, or passenger details online.
+                    </div>
+                    <a href="${escapeHtml(manageUrl)}" style="display:inline-block;background:${ACCENT};color:${NAVY};text-decoration:none;font-size:15px;font-weight:bold;padding:14px 24px;border-radius:8px;">Manage Your Booking</a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>`
+              : ""
+          }
           ${
             trackUrl
               ? `<tr>
@@ -354,25 +393,33 @@ function buildInvoiceHtml(
 export function buildCustomerConfirmationEmail(
   details: PaidBookingReceipt,
   businessName = "My Airport Taxi NI",
-  options?: { trackUrl?: string },
+  options?: { trackUrl?: string; manageUrl?: string },
 ): CustomerPaidBookingEmail {
   const trackUrl = options?.trackUrl?.trim();
-  const subject = `Invoice & booking confirmed — ${businessName}`;
+  const manageUrl = options?.manageUrl?.trim();
+  const customerRef =
+    details.customerReference?.trim().toUpperCase() ||
+    details.checkoutReference?.trim() ||
+    "";
+  const subject = customerRef
+    ? `Invoice & booking confirmed — ${customerRef}`
+    : `Invoice & booking confirmed — ${businessName}`;
 
   const text =
     `Dear ${details.customerName},\n\n` +
     `Thank you for your booking with ${businessName}. Your card payment has been received and your transfer is confirmed.\n\n` +
+    (customerRef ? `Booking reference: ${customerRef}\n\n` : "") +
     `${BUSINESS_WEBSITE}\n` +
     `Phone: ${BUSINESS_PHONE_DISPLAY}\n` +
     `Email: ${BUSINESS_EMAIL}\n\n` +
     `Please find your invoice details below.\n\n` +
     `BOOKING DETAILS\n` +
     `${"=".repeat(40)}\n` +
+    (customerRef ? `Booking reference: ${customerRef}\n` : "") +
     `Customer: ${details.customerName}\n` +
     `Email: ${details.customerEmail}\n` +
     `Mobile: ${details.mobileNumber || "Not provided"}\n` +
     `${formatTripSchedule(details)}\n` +
-    (details.checkoutReference ? `Booking reference: ${details.checkoutReference}\n` : "") +
     `\n` +
     `${formatEmailFareIncludesBlock(
       resolveJourneyInclusions({
@@ -387,8 +434,7 @@ export function buildCustomerConfirmationEmail(
     `PAYMENT / INVOICE\n` +
     `${"=".repeat(40)}\n` +
     `Amount paid: ${details.amountPaid}\n` +
-    `Invoice / payment reference: ${details.paymentReference}\n` +
-    (details.transactionCode ? `Transaction code: ${details.transactionCode}\n` : "") +
+    (customerRef ? `Booking reference: ${customerRef}\n` : "") +
     `Payment method: Card (SumUp)\n` +
     `Status: Paid & confirmed\n` +
     (trackUrl
@@ -396,6 +442,11 @@ export function buildCustomerConfirmationEmail(
         `On the day of travel, your driver can share their live location around pickup time.\n` +
         `Save this link — it activates about 1 hour before your scheduled pickup:\n` +
         `${trackUrl}\n`
+      : "") +
+    (manageUrl
+      ? `\nMANAGE YOUR BOOKING\n${"=".repeat(40)}\n` +
+        `Need to change pickup, destination, date, time, or passenger details?\n` +
+        `Manage Your Booking:\n${manageUrl}\n`
       : "") +
     `\nSAVE US FOR YOUR NEXT JOURNEY\n${"=".repeat(40)}\n` +
     `Keep ${businessName} in your contacts so we're easy to find whenever you need another airport transfer.\n` +
@@ -405,7 +456,7 @@ export function buildCustomerConfirmationEmail(
     `${businessName}\n` +
     `${BUSINESS_WEBSITE}`;
 
-  const html = buildInvoiceHtml(details, businessName, trackUrl);
+  const html = buildInvoiceHtml(details, businessName, trackUrl, manageUrl);
 
   return { subject, text, html };
 }
@@ -431,6 +482,9 @@ export function buildOwnerPaidBookingEmail(
     `PAYMENT\n` +
     `${"=".repeat(40)}\n` +
     `Amount paid: ${details.amountPaid}\n` +
+    (details.customerReference
+      ? `Customer booking reference: ${details.customerReference.trim().toUpperCase()}\n`
+      : "") +
     `Payment reference: ${details.paymentReference}\n` +
     (details.transactionCode ? `Transaction code: ${details.transactionCode}\n` : "") +
     (details.checkoutReference ? `Checkout reference: ${details.checkoutReference}\n` : "") +
@@ -1422,38 +1476,76 @@ export function buildDriverArrivedPickupEmail(
   return { subject, text, html };
 }
 
-/** Customer email after an owner edits an existing paid booking (optional send). */
+/** Customer email after a confirmed booking amendment (auto or resend). */
 export function buildUpdatedBookingConfirmationEmail(
   receipt: PaidBookingReceipt,
   businessName = "My Airport Taxi NI",
-  options?: { trackUrl?: string },
+  options?: {
+    trackUrl?: string;
+    manageUrl?: string;
+    /** Concise “What changed” bullets (optional). */
+    whatChanged?: string[];
+    /** Fare position line, e.g. "No change to your fare" / "Additional payment received: £14". */
+    fareNote?: string;
+  },
 ): CustomerPaidBookingEmail {
   const base = buildCustomerConfirmationEmail(receipt, businessName, options);
-  const subject = `Your booking has been updated — ${businessName}`;
+  const displayRef =
+    receipt.customerReference?.trim().toUpperCase() || receipt.paymentReference;
+  const subject = `Updated Booking Confirmation – ${displayRef}`;
+  const whatChangedBlock =
+    options?.whatChanged && options.whatChanged.length > 0
+      ? `What changed\n${options.whatChanged.map((line) => `• ${line}`).join("\n")}\n\n`
+      : "";
+  const fareBlock = options?.fareNote ? `${options.fareNote}\n\n` : "";
   const intro =
     `Dear ${receipt.customerName},\n\n` +
     `Your booking has been updated.\n\n` +
+    fareBlock +
+    whatChangedBlock +
     `Please review the updated journey details below.\n\n`;
 
   const detailsStart = base.text.indexOf("BOOKING DETAILS");
   const text =
     detailsStart >= 0
       ? intro + base.text.slice(detailsStart)
-      : intro + base.text.replace(/^Dear [^\n]+,\n\n[\s\S]*?\n\nPlease find your invoice details below\.\n\n/, "");
+      : intro +
+        base.text.replace(
+          /^Dear [^\n]+,\n\n[\s\S]*?\n\nPlease find your invoice details below\.\n\n/,
+          "",
+        );
 
-  const html = base.html
+  let html = base.html
     .replace(
       /Your card payment has been received and your transfer is confirmed\.?/i,
       "Your booking has been updated. Please review the updated journey details below.",
     )
-    .replace(
-      /Thank you for your booking with [^.<]+?\./i,
-      "Your booking has been updated.",
-    )
+    .replace(/Thank you for your booking with [^.<]+?\./i, "Your booking has been updated.")
     .replace(
       /(<div style="margin-top:8px;font-size:22px;line-height:1\.35;color:#ffffff;font-weight:bold;">)([^<]*)(<\/div>)/,
       `$1Your booking has been updated$3`,
     );
+
+  if (options?.fareNote || (options?.whatChanged && options.whatChanged.length > 0)) {
+    const extraBits: string[] = [];
+    if (options.fareNote) {
+      extraBits.push(
+        `<p style="margin:0 0 12px;font-size:15px;line-height:1.6;color:#334155;"><strong>${escapeHtml(options.fareNote)}</strong></p>`,
+      );
+    }
+    if (options.whatChanged && options.whatChanged.length > 0) {
+      extraBits.push(
+        `<p style="margin:0 0 6px;font-size:13px;letter-spacing:0.04em;text-transform:uppercase;color:#64748b;">What changed</p>`,
+        `<ul style="margin:0 0 16px;padding-left:18px;color:#334155;font-size:14px;line-height:1.6;">${options.whatChanged
+          .map((line) => `<li>${escapeHtml(line)}</li>`)
+          .join("")}</ul>`,
+      );
+    }
+    html = html.replace(
+      /(Your booking has been updated\. Please review the updated journey details below\.)/i,
+      `$1${extraBits.join("")}`,
+    );
+  }
 
   return { subject, text, html };
 }

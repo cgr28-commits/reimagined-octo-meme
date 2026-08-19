@@ -14,14 +14,18 @@ import {
 import { createTrackingJobForPaidBooking } from "./tracking-handlers";
 import { savePaidBookingRecordFromConfirm } from "./refund-handlers";
 import {
+  getPaidBookingRecord,
   getPaidBookingRecordByCheckoutId,
+  ensureManageBookingToken,
   paidBookingStoreConfigured,
 } from "./paid-booking-store";
+import { buildManageBookingUrl } from "../shared/manage-booking-token";
 import {
   getPendingCheckout,
   markPendingCheckoutFinalized,
   pendingCheckoutStoreConfigured,
 } from "./pending-checkout-store";
+import { finalizeAmendmentTopUpCheckout, type FinalizeAmendmentTopUpResult } from "./amendment-topup";
 import { markShortNoticePaid } from "./short-notice-handlers";
 import { markPersonalQuoteUsed } from "./personal-quote-store";
 import { markQuickQuotePaid } from "./quick-quote-store";
@@ -57,6 +61,8 @@ export type FinalizePaidCheckoutResult = {
   alreadyFinalized?: boolean;
   amountPaid: string;
   paymentReference: string;
+  /** Short customer-facing MAT-#### reference when available. */
+  customerReference?: string;
   emailSent: boolean;
   customerEmailSent: boolean;
   ownerEmailSent: boolean;
@@ -67,6 +73,11 @@ export type FinalizePaidCheckoutResult = {
   trackingCreated: boolean;
   trackUrl?: string;
   error?: string;
+  /** Set when this checkout amended an existing booking instead of creating one. */
+  amendmentTopUp?: boolean;
+  bookingPaymentReference?: string;
+  manageBookingPath?: string;
+  amendmentBooking?: FinalizeAmendmentTopUpResult["booking"];
 };
 
 function ownerInbox(env: FinalizeEnv): string {
@@ -113,21 +124,30 @@ export async function finalizePaidCheckout(input: {
   }
 
   if (paidBookingStoreConfigured(env.TRACKING_STORE)) {
-    const existing = await getPaidBookingRecordByCheckoutId(env.TRACKING_STORE, checkoutId);
-    if (existing) {
-      return {
-        ok: true,
-        paid: true,
-        alreadyFinalized: true,
-        amountPaid: existing.amountPaidLabel,
-        paymentReference: existing.paymentReference,
-        emailSent: true,
-        customerEmailSent: true,
-        ownerEmailSent: true,
-        calendarLogged: (existing.calendarEventIds?.length ?? 0) > 0,
-        calendarEvents: existing.calendarEventIds?.length ?? 0,
-        trackingCreated: Boolean(existing.trackingToken),
-      };
+    // Amendment top-ups must not be mistaken for a new booking via checkout index.
+    const pendingEarly = pendingCheckoutStoreConfigured(env.TRACKING_STORE)
+      ? await getPendingCheckout(env.TRACKING_STORE, checkoutId)
+      : null;
+    if (pendingEarly?.checkoutKind === "amendment-topup") {
+      // Fall through after SumUp PAID check below — handled in dedicated branch.
+    } else {
+      const existing = await getPaidBookingRecordByCheckoutId(env.TRACKING_STORE, checkoutId);
+      if (existing) {
+        return {
+          ok: true,
+          paid: true,
+          alreadyFinalized: true,
+          amountPaid: existing.amountPaidLabel,
+          paymentReference: existing.paymentReference,
+          customerReference: existing.customerReference,
+          emailSent: true,
+          customerEmailSent: true,
+          ownerEmailSent: true,
+          calendarLogged: (existing.calendarEventIds?.length ?? 0) > 0,
+          calendarEvents: existing.calendarEventIds?.length ?? 0,
+          trackingCreated: Boolean(existing.trackingToken),
+        };
+      }
     }
   }
 
@@ -177,6 +197,34 @@ export async function finalizePaidCheckout(input: {
     ? await getPendingCheckout(env.TRACKING_STORE, checkoutId)
     : null;
   const isRefundTest = pendingForAudit?.isRefundTest === true;
+  const isAmendmentTopUp = pendingForAudit?.checkoutKind === "amendment-topup";
+
+  if (isAmendmentTopUp && paidBookingStoreConfigured(env.TRACKING_STORE)) {
+    const topUp = await finalizeAmendmentTopUpCheckout({
+      env: env as typeof env & { TRACKING_STORE: KVNamespace },
+      checkoutId,
+      checkout,
+    });
+    return {
+      ok: topUp.ok,
+      paid: topUp.paid,
+      alreadyFinalized: topUp.alreadyFinalized,
+      amountPaid: topUp.amountPaid,
+      paymentReference: topUp.bookingPaymentReference || topUp.paymentReference,
+      emailSent: topUp.customerEmailSent,
+      customerEmailSent: topUp.customerEmailSent,
+      ownerEmailSent: false,
+      emailWarning: topUp.emailWarning || topUp.error,
+      calendarLogged: Boolean(topUp.amendmentCommitted),
+      calendarEvents: 0,
+      trackingCreated: false,
+      amendmentTopUp: true,
+      bookingPaymentReference: topUp.bookingPaymentReference,
+      manageBookingPath: "/manage-booking/",
+      amendmentBooking: topUp.booking,
+      error: topUp.ok ? undefined : topUp.error,
+    };
+  }
 
   // Owner-only £1 live SumUp refund smoke test — no journey, calendar, or customer emails.
   if (isRefundTest) {
@@ -231,7 +279,7 @@ export async function finalizePaidCheckout(input: {
     };
   }
 
-  const receipt = {
+  const receiptBase = {
     ...booking,
     amountPaid,
     paymentReference,
@@ -245,8 +293,56 @@ export async function finalizePaidCheckout(input: {
     ? await createTrackingJobForPaidBooking(env, booking, paymentReference)
     : { created: false, trackUrl: undefined as string | undefined, token: undefined as string | undefined };
 
+  const calendar = await logPaidBookingCalendar(env, booking, amountPaid, paymentReference);
+
+  // Allocate short MAT-#### before emails so confirmation shows the customer reference.
+  const customerReference = paidBookingStoreConfigured(env.TRACKING_STORE)
+    ? await savePaidBookingRecordFromConfirm({
+        env,
+        booking,
+        checkoutId,
+        transactionId,
+        transactionCode,
+        amount: checkout.amount ?? 0,
+        currency: checkout.currency ?? "GBP",
+        amountPaidLabel: amountPaid,
+        paymentReference,
+        trackingToken: tracking.token,
+        calendarEventIds: calendar.eventIds ?? [],
+        ...(pendingForAudit?.personalQuoteCode
+          ? { personalQuoteCode: pendingForAudit.personalQuoteCode }
+          : {}),
+        ...(typeof pendingForAudit?.standardWebsiteAmount === "number"
+          ? { standardWebsiteAmount: pendingForAudit.standardWebsiteAmount }
+          : {}),
+        ...(typeof pendingForAudit?.personalQuotedAmount === "number"
+          ? { personalQuotedAmount: pendingForAudit.personalQuotedAmount }
+          : {}),
+      })
+    : undefined;
+
+  const receipt = {
+    ...receiptBase,
+    customerReference,
+  };
+
+  let manageUrl: string | undefined;
+  if (paidBookingStoreConfigured(env.TRACKING_STORE) && paymentReference) {
+    const saved = await getPaidBookingRecord(env.TRACKING_STORE, paymentReference);
+    if (saved) {
+      const withToken = await ensureManageBookingToken(env.TRACKING_STORE, saved);
+      if (withToken.manageBookingToken) {
+        manageUrl = buildManageBookingUrl(
+          "https://www.myairporttaxini.co.uk",
+          withToken.manageBookingToken,
+        );
+      }
+    }
+  }
+
   const customerEmail = buildCustomerConfirmationEmail(receipt, BUSINESS_NAME, {
     trackUrl: tracking.trackUrl,
+    manageUrl,
   });
   const ownerEmail = buildOwnerPaidBookingEmail(receipt, BUSINESS_NAME, {
     trackUrl: tracking.trackUrl,
@@ -275,31 +371,6 @@ export async function finalizePaidCheckout(input: {
     body: ownerEmail.body,
   });
   const ownerNotifySent = ownerCopyResult.sent || ownerEmailResult.sent;
-
-  const calendar = await logPaidBookingCalendar(env, booking, amountPaid, paymentReference);
-
-  await savePaidBookingRecordFromConfirm({
-    env,
-    booking,
-    checkoutId,
-    transactionId,
-    transactionCode,
-    amount: checkout.amount ?? 0,
-    currency: checkout.currency ?? "GBP",
-    amountPaidLabel: amountPaid,
-    paymentReference,
-    trackingToken: tracking.token,
-    calendarEventIds: calendar.eventIds ?? [],
-    ...(pendingForAudit?.personalQuoteCode
-      ? { personalQuoteCode: pendingForAudit.personalQuoteCode }
-      : {}),
-    ...(typeof pendingForAudit?.standardWebsiteAmount === "number"
-      ? { standardWebsiteAmount: pendingForAudit.standardWebsiteAmount }
-      : {}),
-    ...(typeof pendingForAudit?.personalQuotedAmount === "number"
-      ? { personalQuotedAmount: pendingForAudit.personalQuotedAmount }
-      : {}),
-  });
 
   await maybeRecordMarketingFromPayload(env.TRACKING_STORE, {
     email: booking.customerEmail,
@@ -365,6 +436,7 @@ export async function finalizePaidCheckout(input: {
     paid: true,
     amountPaid,
     paymentReference,
+    ...(customerReference ? { customerReference } : {}),
     emailSent,
     customerEmailSent: customerEmailResult.sent,
     ownerEmailSent: ownerNotifySent,

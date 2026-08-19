@@ -19,6 +19,10 @@ import {
   type SavedQuoteRecord,
 } from "../shared/saved-quote";
 import { calculateAuthoritativeWebsiteQuote } from "../src/lib/quote-service";
+import {
+  buildSaveQuotePayloadFromLiveQuote,
+  saveQuotePayloadBlockMessage,
+} from "../src/lib/save-quote-payload";
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -177,6 +181,126 @@ function run() {
   assert.match(createFn, /buildAuthoritativeSavedQuotePricing/);
   assert.doesNotMatch(createFn, /parsePricing\(/);
   assert.doesNotMatch(createFn, /pricing\.totalAmount\s*=\s*client/);
+
+  console.log("=== Live quote → Save Quote payload mapping ===");
+  // Bangor ← BFS is the production smoke-test shape (from-airport + named town).
+  const bangorFromBfs = calculateAuthoritativeWebsiteQuote({
+    airportCode: "BFS",
+    fromAirport: true,
+    pickupAddress: "Belfast International Airport (BFS)",
+    dropoffAddress: "Main Street, Bangor, BT20",
+    returnJourney: false,
+    outboundDate: "2026-08-25",
+    outboundTime: "14:30",
+    passengers: 2,
+    suitcases: 2,
+  });
+  assert.equal(bangorFromBfs.ok, true);
+  if (!bangorFromBfs.ok) throw new Error("Bangor←BFS fixture must price");
+
+  const liveQuoteSnapshot = {
+    amount: bangorFromBfs.amount,
+    area: "Bangor",
+    areaSurcharge: 10,
+    airportBase: 35,
+    vehicleMultiplier: 1,
+    vehicleAdjustment: 0,
+    premiumApplied: false,
+    operational: null,
+  };
+
+  // Exact regression: step-1 live price without date/time must NOT look like an "expired" quote.
+  const missingSchedule = buildSaveQuotePayloadFromLiveQuote({
+    liveQuote: liveQuoteSnapshot,
+    canPayNowOnline: true,
+    isEnquiryOnly: false,
+    showsRequestQuoteFlow: false,
+    pickupLabel: "Belfast International Airport (BFS)",
+    dropoffLabel: "Main Street, Bangor, BT20",
+    airportCode: "BFS",
+    tripDirection: "from-airport",
+    isAirportTrip: true,
+    isFromAirport: true,
+    journeyType: "Airport pickup",
+    tripDate: "",
+    tripTime: "",
+    returnJourney: false,
+    passengers: 2,
+    suitcases: 2,
+    vehicle: "Standard Saloon (1–4 passengers)",
+    tripLabel: "Airport pickup",
+  });
+  assert.equal(missingSchedule.ok, false);
+  if (!missingSchedule.ok) {
+    assert.equal(missingSchedule.reason, "missing_schedule");
+    assert.match(missingSchedule.message, /date and time/i);
+    assert.doesNotMatch(missingSchedule.message, /no longer available/i);
+  }
+  assert.doesNotMatch(saveQuotePayloadBlockMessage("missing_schedule"), /no longer available/i);
+
+  const readyPayload = buildSaveQuotePayloadFromLiveQuote({
+    liveQuote: liveQuoteSnapshot,
+    canPayNowOnline: true,
+    isEnquiryOnly: false,
+    showsRequestQuoteFlow: false,
+    pickupLabel: "Belfast International Airport (BFS)",
+    dropoffLabel: "Main Street, Bangor, BT20",
+    airportCode: "BFS",
+    tripDirection: "from-airport",
+    isAirportTrip: true,
+    isFromAirport: true,
+    journeyType: "Airport pickup",
+    tripDate: "2026-08-25",
+    tripTime: "14:30",
+    returnJourney: false,
+    passengers: 2,
+    suitcases: 2,
+    vehicle: "Standard Saloon (1–4 passengers)",
+    tripLabel: "Airport pickup",
+    pickupLat: 54.6575,
+    pickupLng: -6.2158,
+    dropoffLat: 54.6633,
+    dropoffLng: -5.6681,
+  });
+  assert.equal(readyPayload.ok, true);
+  if (readyPayload.ok) {
+    assert.equal(readyPayload.payload.journey.airportCode, "BFS");
+    assert.equal(readyPayload.payload.journey.tripDirection, "from-airport");
+    assert.equal(readyPayload.payload.journey.isFromAirport, true);
+    assert.equal(readyPayload.payload.journey.tripDate, "2026-08-25");
+    assert.equal(readyPayload.payload.journey.tripTime, "14:30");
+    assert.equal(readyPayload.payload.journey.passengers, 2);
+    assert.equal(readyPayload.payload.journey.suitcases, 2);
+    assert.equal(readyPayload.payload.pricing.totalAmount, bangorFromBfs.amount);
+    assert.equal(readyPayload.payload.pricing.currency, "GBP");
+    // Server must still accept this journey shape via the authoritative engine.
+    const serverRecalc = calculateAuthoritativeWebsiteQuote({
+      airportCode: "BFS",
+      fromAirport: true,
+      pickupAddress: readyPayload.payload.journey.pickupLabel,
+      dropoffAddress: readyPayload.payload.journey.dropoffLabel,
+      returnJourney: false,
+      outboundDate: readyPayload.payload.journey.tripDate,
+      outboundTime: readyPayload.payload.journey.tripTime,
+      passengers: readyPayload.payload.journey.passengers,
+      suitcases: readyPayload.payload.journey.suitcases,
+    });
+    assert.equal(serverRecalc.ok, true);
+    if (serverRecalc.ok) {
+      assert.equal(serverRecalc.amount, readyPayload.payload.pricing.totalAmount);
+    }
+  }
+
+  const modalSrc = fs.readFileSync(path.join(root, "src/components/SaveQuoteModal.tsx"), "utf8");
+  assert.match(modalSrc, /saveQuoteSubmitErrorMessage/);
+  assert.doesNotMatch(
+    modalSrc,
+    /Your quote is no longer available\. Please recalculate and try again\./,
+  );
+  const quoteCardSrc = fs.readFileSync(path.join(root, "src/components/QuoteCard.tsx"), "utf8");
+  assert.match(quoteCardSrc, /handleSaveQuoteClick/);
+  assert.match(quoteCardSrc, /buildSaveQuotePayloadFromLiveQuote/);
+  assert.match(quoteCardSrc, /syncScheduleFieldsFromInputs/);
 
   console.log("check-saved-quote: all assertions passed");
 }

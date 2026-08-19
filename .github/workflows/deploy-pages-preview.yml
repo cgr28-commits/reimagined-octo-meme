@@ -1,6 +1,17 @@
 # Isolated frontend preview for draft-PR smoke tests.
 # Does NOT use the github-pages environment or production custom domain.
 # Production Deploy GitHub Pages workflow + branch protection stay unchanged.
+<<<<<<< HEAD
+#
+# Cloudflare token requirements for this workflow:
+# - Account → Cloudflare Pages → Edit
+# - Account → Account Settings → Read (recommended)
+# - User → User Details → Read (optional; silences wrangler whoami warning)
+# Prefer a dedicated secret CLOUDFLARE_PAGES_API_TOKEN so the Workers-only
+# CLOUDFLARE_API_TOKEN can stay narrowly scoped. Falls back to CLOUDFLARE_API_TOKEN.
+# Preview project name: my-airport-taxi-ni-preview (create once in Cloudflare if missing).
+=======
+>>>>>>> origin/main
 
 name: Deploy Pages Preview
 
@@ -69,6 +80,23 @@ jobs:
         id: deploy
         working-directory: .
         env:
+<<<<<<< HEAD
+          # Prefer a Pages-capable token; fall back to the shared Workers token.
+          CLOUDFLARE_PAGES_API_TOKEN: ${{ secrets.CLOUDFLARE_PAGES_API_TOKEN }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          TOKEN="${CLOUDFLARE_PAGES_API_TOKEN:-$CLOUDFLARE_API_TOKEN}"
+          if [ -z "$TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "::error::Need CLOUDFLARE_PAGES_API_TOKEN (or CLOUDFLARE_API_TOKEN) and CLOUDFLARE_ACCOUNT_ID."
+            exit 1
+          fi
+          export CLOUDFLARE_API_TOKEN="$TOKEN"
+          npm install --no-save wrangler@3.109.0
+          BRANCH_SAFE="$(echo "${GITHUB_REF_NAME}" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g' | cut -c1-50)"
+          # wrangler pages deploy does not accept --compatibility-date (Workers-only flag).
+          set +e
+=======
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
@@ -78,20 +106,42 @@ jobs:
           fi
           npm install --no-save wrangler@3.109.0
           BRANCH_SAFE="$(echo "${GITHUB_REF_NAME}" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g' | cut -c1-50)"
+>>>>>>> origin/main
           OUTPUT="$(npx wrangler pages deploy out \
             --project-name=my-airport-taxi-ni-preview \
             --branch="$BRANCH_SAFE" \
             --commit-hash="${GITHUB_SHA}" \
+<<<<<<< HEAD
+            --commit-dirty=true 2>&1)"
+          STATUS=$?
+          set -e
+          echo "$OUTPUT"
+          if [ "$STATUS" -ne 0 ]; then
+            if printf '%s' "$OUTPUT" | grep -qiE 'Authentication error|code: 10000'; then
+              echo "::error::Cloudflare rejected Pages API auth (code 10000)."
+              echo "::error::The token can deploy Workers but lacks Cloudflare Pages permission, or project my-airport-taxi-ni-preview is inaccessible."
+              echo "::error::Fix: Cloudflare Dashboard → My Profile → API Tokens → edit/create token with Account → Cloudflare Pages → Edit (and Account Settings → Read)."
+              echo "::error::Optional: store that token as GitHub secret CLOUDFLARE_PAGES_API_TOKEN (keeps Workers token unchanged)."
+              echo "::error::Also create Pages project named my-airport-taxi-ni-preview if it does not exist yet."
+            fi
+            exit "$STATUS"
+          fi
+=======
             --commit-dirty=true \
             --compatibility-date=2025-08-01 2>&1)" || {
               echo "$OUTPUT"
               exit 1
             }
           echo "$OUTPUT"
+>>>>>>> origin/main
           URL="$(printf '%s\n' "$OUTPUT" | grep -Eo 'https://[a-zA-Z0-9.-]+\.pages\.dev' | tail -1 || true)"
           if [ -z "$URL" ]; then
             URL="https://${BRANCH_SAFE}.my-airport-taxi-ni-preview.pages.dev"
           fi
           echo "url=$URL" >> "$GITHUB_OUTPUT"
           echo "::notice::Preview frontend URL: $URL/manage-booking/"
+<<<<<<< HEAD
           echo "::notice::Stable project URL: https://my-airport-taxi-ni-preview.pages.dev/manage-booking/"
+=======
+          echo "::notice::Stable project URL: https://my-airport-taxi-ni-preview.pages.dev/manage-booking/"
+>>>>>>> origin/main

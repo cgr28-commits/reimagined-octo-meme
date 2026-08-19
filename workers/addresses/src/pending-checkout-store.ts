@@ -33,6 +33,17 @@ export type PendingCheckoutRecord = {
    * create tracking/calendar/customer confirmation emails.
    */
   isRefundTest?: boolean;
+  /**
+   * Amendment top-up: SumUp charge for fare difference only.
+   * Finalize must amend the existing booking — never create a new journey.
+   */
+  checkoutKind?: "booking" | "amendment-topup" | "refund-test";
+  /** Existing paid booking payment reference being amended. */
+  amendmentBookingPaymentReference?: string;
+  amendmentId?: string;
+  amendmentIdempotencyKey?: string;
+  amendmentPreviousFare?: number;
+  amendmentNewFare?: number;
 };
 
 export function pendingCheckoutKey(checkoutId: string): string {

@@ -77,4 +77,30 @@ assert.equal(isAllowedAutocompleteLabel("Oxford Street, London", "BFS"), false);
 assert.equal(isAllowedAutocompleteLabel("High Street, Belfast BT1", "BFS"), true);
 console.log("OK  BFS mode NI-only");
 
+console.log("\n=== Served airports allowed under BFS / BHD / A2A ===");
+for (const code of ["BFS", "BHD", "A2A"] as const) {
+  assert.equal(
+    isAllowedAutocompleteLabel("Dublin Airport, Co. Dublin, Ireland", code),
+    true,
+    `Dublin Airport must be allowed under ${code}`,
+  );
+  assert.equal(
+    isAllowedAutocompleteLabel(
+      "Belfast International Airport, Airport Rd, Aldergrove BT29 4AB, UK",
+      code,
+    ),
+    true,
+    `BFS airport must be allowed under ${code}`,
+  );
+  assert.equal(
+    isAllowedAutocompleteLabel(
+      "George Best Belfast City Airport, Airport Rd, Belfast BT3 9JH, UK",
+      code,
+    ),
+    true,
+    `BHD airport must be allowed under ${code}`,
+  );
+}
+console.log("OK  served airports under BFS/BHD/A2A");
+
 console.log("\nAll NI/ROI address filter checks passed.");
