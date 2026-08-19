@@ -46,10 +46,16 @@ function run() {
   assert.notEqual(token, session);
 
   let job = baseJob();
-  assert.deepEqual(allowedJourneyActions("idle"), ["start_tracking", "complete_journey"]);
+  assert.deepEqual(allowedJourneyActions("idle"), [
+    "start_tracking",
+    "arrived_pickup",
+    "complete_journey",
+  ]);
   assert.ok(allowedJourneyActions("tracking").includes("complete_journey"));
+  assert.ok(allowedJourneyActions("tracking").includes("arrived_pickup"));
   assert.ok(allowedJourneyActions("stopped").includes("complete_journey"));
   assert.ok(allowedJourneyActions("stopped").includes("start_tracking"));
+  assert.ok(allowedJourneyActions("stopped").includes("arrived_pickup"));
   assert.ok(!allowedJourneyActions("stopped").includes("stop_tracking"));
 
   job = mustApply(job, "start_tracking");

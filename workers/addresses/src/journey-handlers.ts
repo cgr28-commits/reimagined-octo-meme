@@ -19,6 +19,7 @@ import {
 } from "../shared/tracking";
 import {
   buildDriverArrivedPickupEmail,
+  buildDriverOnTheWayEmail,
   customerFirstName,
 } from "../shared/booking-notifications";
 import { corsHeaders } from "../shared/google-places";
@@ -160,6 +161,66 @@ export async function sendArrivalNotificationIfNeeded(
   return next;
 }
 
+/**
+ * Idempotent customer "Driver on the way" notification.
+ * Email/status only — no website track link and no automated WhatsApp Live Location.
+ */
+export async function sendOnTheWayNotificationIfNeeded(
+  env: Env,
+  job: TrackingJobRecord,
+  options?: { forceRetry?: boolean },
+): Promise<TrackingJobRecord> {
+  if (job.onTheWayNotificationStatus === "sent" && !options?.forceRetry) {
+    return job;
+  }
+
+  const channels = arrivalChannelReport(env);
+  const next: TrackingJobRecord = { ...job };
+
+  if (channels.emailFallback !== "AVAILABLE") {
+    next.onTheWayNotificationStatus = "not_configured";
+    next.onTheWayNotificationError =
+      "Resend email is unavailable for Driver on the way notification.";
+    return next;
+  }
+
+  const emailAddress =
+    job.customerEmail?.trim() ||
+    (job.paymentReference && paidBookingStoreConfigured(env.TRACKING_STORE)
+      ? (await getPaidBookingRecord(env.TRACKING_STORE, job.paymentReference))?.customerEmail
+      : undefined);
+
+  if (!emailAddress?.trim()) {
+    next.onTheWayNotificationStatus = "failed";
+    next.onTheWayNotificationError = "No customer email on file for on-the-way notification";
+    return next;
+  }
+
+  const email = buildDriverOnTheWayEmail(
+    { customerName: job.customerName || customerFirstName(emailAddress) },
+    BUSINESS_NAME,
+  );
+  const result = await trySendBrandedCustomerEmail(env, {
+    to: emailAddress.trim(),
+    toName: job.customerName,
+    subject: email.subject,
+    body: email.text,
+    htmlBody: email.html,
+  });
+
+  if (result.sent) {
+    next.onTheWayNotificationStatus = "sent";
+    next.onTheWayNotificationSentAt = new Date().toISOString();
+    next.onTheWayNotificationProvider = "email";
+    delete next.onTheWayNotificationError;
+  } else {
+    next.onTheWayNotificationStatus = "failed";
+    next.onTheWayNotificationError = result.error || "On-the-way notification email failed";
+  }
+
+  return next;
+}
+
 function jsonResponse(body: unknown, status: number, origin: string | null) {
   return new Response(JSON.stringify(body), {
     status,
@@ -221,8 +282,13 @@ export async function handleJourneyTransitionRequest(
   }
 
   const forceRetryArrival = Boolean(body.retryArrivalNotification);
+  const forceRetryOnTheWay = Boolean(body.retryOnTheWayNotification);
   const alreadyArrived =
     action === "arrived_pickup" && journeyStatusOf(record) === "arrived_pickup";
+  const alreadyOnTheWay =
+    action === "start_tracking" &&
+    (journeyStatusOf(record) === "tracking" ||
+      (journeyStatusOf(record) === "idle" && Boolean(record.sharingActive)));
 
   // Idempotent Arrived at Pickup: keep original timestamp; optionally retry notification only.
   if (alreadyArrived) {
@@ -253,9 +319,71 @@ export async function handleJourneyTransitionRequest(
         arrivalNotificationSentAt: next.arrivalNotificationSentAt,
         arrivalNotificationProvider: next.arrivalNotificationProvider,
         arrivalNotificationError: next.arrivalNotificationError,
+        onTheWayNotificationStatus: next.onTheWayNotificationStatus,
+        onTheWayNotificationSentAt: next.onTheWayNotificationSentAt,
+        onTheWayNotificationProvider: next.onTheWayNotificationProvider,
+        onTheWayNotificationError: next.onTheWayNotificationError,
         arrivalChannels: channels,
         reviewRequest: buildReviewRequestSummary(next),
         idempotent: true,
+      },
+      200,
+      origin,
+    );
+  }
+
+  // Idempotent Driver on the way: keep status; optionally retry email; re-issue GPS session.
+  if (alreadyOnTheWay) {
+    let next = record;
+    if (forceRetryOnTheWay || record.onTheWayNotificationStatus !== "sent") {
+      next = await sendOnTheWayNotificationIfNeeded(env, record, {
+        forceRetry: forceRetryOnTheWay,
+      });
+      await saveTrackingJob(env.TRACKING_STORE, next);
+    }
+    let trackingSession: { sessionToken: string; expiresAt: string } | undefined;
+    if (next.sharingActive) {
+      const created = await createTrackingSession(env.TRACKING_STORE, {
+        jobToken: next.token,
+        createdByRole: session.authorized && session.role === "owner" ? "owner" : "driver",
+        driverName:
+          session.authorized && session.role === "driver"
+            ? session.driverName
+            : next.activeDriverName,
+      });
+      trackingSession = {
+        sessionToken: created.sessionToken,
+        expiresAt: created.expiresAt,
+      };
+    }
+    const channels = arrivalChannelReport(env);
+    return jsonResponse(
+      {
+        ok: true,
+        token: next.token,
+        journeyStatus: journeyStatusOf(next),
+        journeyStatusLabel: customerJourneyLabel(next),
+        allowedActions: allowedJourneyActions(journeyStatusOf(next)),
+        sharingActive: next.sharingActive,
+        trackUrl: buildPublicTrackUrl(next.token),
+        trackingStartedAt: next.trackingStartedAt,
+        arrivedPickupAt: next.arrivedPickupAt,
+        journeyStartedAt: next.journeyStartedAt,
+        arrivedDestinationAt: next.arrivedDestinationAt,
+        journeyCompletedAt: next.journeyCompletedAt,
+        trackingStoppedAt: next.trackingStoppedAt,
+        arrivalNotificationStatus: next.arrivalNotificationStatus,
+        arrivalNotificationSentAt: next.arrivalNotificationSentAt,
+        arrivalNotificationProvider: next.arrivalNotificationProvider,
+        arrivalNotificationError: next.arrivalNotificationError,
+        onTheWayNotificationStatus: next.onTheWayNotificationStatus,
+        onTheWayNotificationSentAt: next.onTheWayNotificationSentAt,
+        onTheWayNotificationProvider: next.onTheWayNotificationProvider,
+        onTheWayNotificationError: next.onTheWayNotificationError,
+        arrivalChannels: channels,
+        reviewRequest: buildReviewRequestSummary(next),
+        idempotent: true,
+        ...(trackingSession ? { trackingSession } : {}),
       },
       200,
       origin,
@@ -283,6 +411,12 @@ export async function handleJourneyTransitionRequest(
 
   if (action === "arrived_pickup") {
     next = await sendArrivalNotificationIfNeeded(env, next, { forceRetry: forceRetryArrival });
+  }
+
+  if (action === "start_tracking") {
+    next = await sendOnTheWayNotificationIfNeeded(env, next, {
+      forceRetry: forceRetryOnTheWay,
+    });
   }
 
   await saveTrackingJob(env.TRACKING_STORE, next);
@@ -324,6 +458,10 @@ export async function handleJourneyTransitionRequest(
       arrivalNotificationSentAt: next.arrivalNotificationSentAt,
       arrivalNotificationProvider: next.arrivalNotificationProvider,
       arrivalNotificationError: next.arrivalNotificationError,
+      onTheWayNotificationStatus: next.onTheWayNotificationStatus,
+      onTheWayNotificationSentAt: next.onTheWayNotificationSentAt,
+      onTheWayNotificationProvider: next.onTheWayNotificationProvider,
+      onTheWayNotificationError: next.onTheWayNotificationError,
       arrivalChannels: channels,
       reviewRequest: buildReviewRequestSummary(next),
       ...(trackingSession ? { trackingSession } : {}),

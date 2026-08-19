@@ -43,6 +43,7 @@ import { SERVICE_FLAGS, SITE } from "@/lib/data";
 import {
   buildArrivedPickupWhatsAppLink,
   buildArrivedPickupWhatsAppMessage,
+  buildDriverOnTheWayWhatsAppLink,
   isAirportPickupLabel,
 } from "../../../shared/arrival-whatsapp";
 
@@ -1077,6 +1078,18 @@ function DriverJobCard({
             vehicle,
           });
           const href = buildArrivedPickupWhatsAppLink(mobile, message);
+          const opened = window.open(href, "_blank", "noopener,noreferrer");
+          if (!opened) {
+            window.location.assign(href);
+          }
+        }
+      }
+
+      // Optional WhatsApp for Driver on the way (manual Send / Live Location).
+      if (action === "start_tracking") {
+        const mobile = job.customerMobile?.trim() || "";
+        if (mobile) {
+          const href = buildDriverOnTheWayWhatsAppLink(mobile);
           const opened = window.open(href, "_blank", "noopener,noreferrer");
           if (!opened) {
             window.location.assign(href);

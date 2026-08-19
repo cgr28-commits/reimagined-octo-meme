@@ -190,7 +190,7 @@ export type JourneyAction =
   | "stop_tracking";
 
 export const JOURNEY_ACTION_LABELS: Record<JourneyAction, string> = {
-  start_tracking: "Start tracking",
+  start_tracking: "Driver on the way",
   arrived_pickup: "🚕 Arrived at Pickup",
   start_journey: "Start journey",
   arrived_destination: "Arrived at destination",
@@ -476,6 +476,10 @@ export type JourneyTransitionResponse = {
   arrivalNotificationSentAt?: string;
   arrivalNotificationProvider?: string;
   arrivalNotificationError?: string;
+  onTheWayNotificationStatus?: string;
+  onTheWayNotificationSentAt?: string;
+  onTheWayNotificationProvider?: string;
+  onTheWayNotificationError?: string;
   idempotent?: boolean;
   trackingSession?: { sessionToken: string; expiresAt: string };
   reviewRequest?: {
@@ -492,7 +496,7 @@ export async function postJourneyAction(
   accessKey: string,
   token: string,
   action: JourneyAction,
-  options?: { retryArrivalNotification?: boolean },
+  options?: { retryArrivalNotification?: boolean; retryOnTheWayNotification?: boolean },
 ): Promise<JourneyTransitionResponse> {
   if (isDemoDriverKey(accessKey) || isDemoOwnerKey(accessKey)) {
     const trackUrl = isDemoTrackToken(token)
@@ -522,6 +526,7 @@ export async function postJourneyAction(
         token,
         action,
         ...(options?.retryArrivalNotification ? { retryArrivalNotification: true } : {}),
+        ...(options?.retryOnTheWayNotification ? { retryOnTheWayNotification: true } : {}),
       }),
     },
   );

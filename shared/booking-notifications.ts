@@ -1476,6 +1476,74 @@ export function buildDriverArrivedPickupEmail(
   return { subject, text, html };
 }
 
+/**
+ * Customer message when driver/owner marks Driver on the way.
+ * Status/email only — no website tracking CTA and no automated WhatsApp Live Location promise.
+ */
+export function buildDriverOnTheWayEmail(
+  details: ArrivalNotificationDetails,
+  businessName = "My Airport Taxi NI",
+): CustomerPaidBookingEmail {
+  const firstName = customerFirstName(details.customerName);
+  const subject = `Driver on the way — ${businessName}`;
+  const statusHeading = "Driver on the way";
+  const bodyLine =
+    "Your driver is on the way to collect you. Your driver may share their live location with you via WhatsApp when appropriate.";
+  const greeting = `Hi ${firstName},`;
+
+  const text =
+    `${greeting}\n\n` +
+    `${statusHeading}\n\n` +
+    `${bodyLine}\n\n` +
+    `You can also message us on WhatsApp or call ${BUSINESS_PHONE_DISPLAY} if you need anything.\n\n` +
+    `Questions? Contact us at ${BUSINESS_EMAIL} or ${BUSINESS_PHONE_DISPLAY}.\n\n` +
+    `${businessName}\n${BUSINESS_WEBSITE}`;
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>${escapeHtml(subject)}</title>
+</head>
+<body style="margin:0;padding:0;background:#f4f6f8;font-family:Arial,Helvetica,sans-serif;color:#1a2b3c;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f4f6f8;padding:32px 16px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="640" cellspacing="0" cellpadding="0" style="max-width:640px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.08);">
+          <tr>
+            <td style="background:${NAVY};padding:28px 32px;text-align:center;">
+              <img src="${LOGO_URL}" alt="${escapeHtml(businessName)}" height="72" style="display:block;margin:0 auto;height:72px;width:auto;max-width:100%;" />
+              <div style="margin-top:16px;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:${ACCENT};font-weight:bold;">${escapeHtml(businessName)}</div>
+              <div style="margin-top:8px;font-size:22px;line-height:1.35;color:#ffffff;font-weight:bold;">${escapeHtml(statusHeading)}</div>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:28px 32px;font-size:15px;line-height:1.7;color:#334155;">
+              <p style="margin:0 0 14px;">${escapeHtml(greeting)}</p>
+              <p style="margin:0;">${escapeHtml(bodyLine)}</p>
+              <p style="margin:16px 0 0;font-size:14px;color:#64748b;">
+                WhatsApp remains available for messages. Live location sharing, when used, is sent manually by your driver in WhatsApp.
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:20px 32px;font-size:13px;line-height:1.7;color:#64748b;">
+              <strong style="color:${NAVY};">${escapeHtml(businessName)}</strong><br />
+              <a href="mailto:${BUSINESS_EMAIL}" style="color:${NAVY};">${BUSINESS_EMAIL}</a> ·
+              <a href="tel:${BUSINESS_PHONE_TEL}" style="color:${NAVY};">${BUSINESS_PHONE_DISPLAY}</a>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+
+  return { subject, text, html };
+}
+
 /** Customer email after a confirmed booking amendment (auto or resend). */
 export function buildUpdatedBookingConfirmationEmail(
   receipt: PaidBookingReceipt,
