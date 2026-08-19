@@ -22,7 +22,7 @@ import {
   markPendingCheckoutFinalized,
   pendingCheckoutStoreConfigured,
 } from "./pending-checkout-store";
-import { finalizeAmendmentTopUpCheckout } from "./amendment-topup";
+import { finalizeAmendmentTopUpCheckout, type FinalizeAmendmentTopUpResult } from "./amendment-topup";
 import { markShortNoticePaid } from "./short-notice-handlers";
 import { markPersonalQuoteUsed } from "./personal-quote-store";
 import { markQuickQuotePaid } from "./quick-quote-store";
@@ -72,6 +72,7 @@ export type FinalizePaidCheckoutResult = {
   amendmentTopUp?: boolean;
   bookingPaymentReference?: string;
   manageBookingPath?: string;
+  amendmentBooking?: FinalizeAmendmentTopUpResult["booking"];
 };
 
 function ownerInbox(env: FinalizeEnv): string {
@@ -214,6 +215,7 @@ export async function finalizePaidCheckout(input: {
       amendmentTopUp: true,
       bookingPaymentReference: topUp.bookingPaymentReference,
       manageBookingPath: "/manage-booking/",
+      amendmentBooking: topUp.booking,
       error: topUp.ok ? undefined : topUp.error,
     };
   }

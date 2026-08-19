@@ -9,11 +9,16 @@ export { CUSTOMER_SELF_SERVICE_AMENDMENT_FIELDS };
 export type ManageBookingSummary = {
   paymentReference: string;
   customerName: string;
+  customerEmail?: string;
   tripDate: string;
   tripTime: string;
   pickupLabel: string;
   dropoffLabel: string;
   amountPaidLabel: string;
+  journeyFare?: number;
+  journeyFareLabel?: string;
+  refundDueAmount?: number;
+  amountRefunded?: number;
   dateTimeAmendmentCount: number;
   freeAmendmentAvailable: boolean;
   within24HoursOfPickup: boolean;
@@ -33,6 +38,8 @@ export type ManageBookingSummary = {
     status?: string;
     paymentUrl?: string;
   } | null;
+  lastUpdatedConfirmationSentAt?: string;
+  lastUpdatedConfirmationError?: string;
 };
 
 export type AmendmentFareSummary = {
@@ -203,5 +210,32 @@ export async function startAmendmentTopUpPayment(input: {
     payCtaLabel: String(payload.payCtaLabel || "Pay now"),
     fare: (payload.fare || {}) as AmendmentFareSummary,
     note: String(payload.note || ""),
+  };
+}
+
+/** After SumUp return — load amended booking using checkout id only (no email in URL). */
+export async function loadBookingAfterAmendmentReturn(input: {
+  checkoutId: string;
+}): Promise<{
+  booking: ManageBookingSummary;
+  customerEmailSent: boolean;
+  amendmentCommitted: boolean;
+  paymentReference: string;
+}> {
+  const response = await fetch(`${WORKER_BASE}/paid-bookings/amend-return`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify(input),
+    cache: "no-store",
+  });
+  const payload = await parseJson(response);
+  if (!response.ok || !payload.booking) {
+    throw new Error(String(payload.error || "Could not reload the amended booking."));
+  }
+  return {
+    booking: payload.booking as ManageBookingSummary,
+    customerEmailSent: Boolean(payload.customerEmailSent),
+    amendmentCommitted: Boolean(payload.amendmentCommitted),
+    paymentReference: String(payload.paymentReference || ""),
   };
 }

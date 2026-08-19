@@ -77,12 +77,22 @@ export type PaidBookingRecord = {
   checkoutId: string;
   transactionId?: string;
   transactionCode?: string;
+  /**
+   * Current agreed / journey fare (may differ from money collected while a
+   * refund-due or unpaid top-up is outstanding).
+   */
   amount: number;
   currency: string;
+  /**
+   * Display of gross money collected from the customer (original + top-ups).
+   * Must not be rewritten to a lower journey fare while refundDueAmount > 0.
+   * After refunds, still typically shows gross collected; use amountRefunded
+   * for money returned.
+   */
   amountPaidLabel: string;
   /**
-   * Original checkout fare at first payment (preserved when amendments add top-ups).
-   * Defaults to `amount` for bookings created before this field existed.
+   * Original checkout amount at first payment (preserved when amendments add
+   * top-ups or lower the journey fare). Defaults to first known collected amount.
    */
   originalAmount?: number;
   /** Append-only SumUp top-up payments for higher-fare amendments. */
@@ -207,4 +217,115 @@ export function paidBookingRefundTestIndexKey(): string {
 /** KV key for a pending material amendment awaiting extra payment. */
 export function pendingBookingAmendmentKey(amendmentId: string): string {
   return `pending-amendment:${amendmentId.trim()}`;
+}
+
+function roundMoneyGbp(amount: number): number {
+  return Math.round(amount * 100) / 100;
+}
+
+function parsePaidLabel(label: string | undefined | null): number | null {
+  if (!label) return null;
+  const match = label.replace(/,/g, "").match(/(\d+(?:\.\d{1,2})?)/);
+  if (!match) return null;
+  const n = Number(match[1]);
+  return Number.isFinite(n) && n >= 0 ? roundMoneyGbp(n) : null;
+}
+
+/** Current journey / agreed fare on the booking. */
+export function journeyFareOf(
+  record: Pick<PaidBookingRecord, "amount">,
+): number {
+  return typeof record.amount === "number" && Number.isFinite(record.amount)
+    ? roundMoneyGbp(record.amount)
+    : 0;
+}
+
+/**
+ * Gross money actually collected (original checkout + amendment top-ups).
+ * Does not subtract refunds — use {@link netAmountRetainedOf} for that.
+ */
+export function grossAmountCollectedOf(
+  record: Pick<
+    PaidBookingRecord,
+    "originalAmount" | "amount" | "amountPaidLabel" | "additionalPayments"
+  >,
+): number {
+  const additional = (record.additionalPayments ?? []).reduce(
+    (sum, entry) => sum + (Number(entry.amount) || 0),
+    0,
+  );
+  if (
+    typeof record.originalAmount === "number" &&
+    Number.isFinite(record.originalAmount) &&
+    record.originalAmount >= 0
+  ) {
+    return roundMoneyGbp(record.originalAmount + additional);
+  }
+  const fromLabel = parsePaidLabel(record.amountPaidLabel);
+  if (fromLabel != null && fromLabel > 0) {
+    return fromLabel;
+  }
+  if (typeof record.amount === "number" && record.amount > 0) {
+    return roundMoneyGbp(record.amount);
+  }
+  return 0;
+}
+
+export function amountActuallyRefundedOf(
+  record: Pick<PaidBookingRecord, "amountRefunded" | "status" | "amount" | "amountPaidLabel" | "originalAmount" | "additionalPayments">,
+): number {
+  if (typeof record.amountRefunded === "number" && record.amountRefunded >= 0) {
+    return roundMoneyGbp(record.amountRefunded);
+  }
+  if (record.status === "refunded" || record.status === "refunded_active") {
+    return grossAmountCollectedOf(record);
+  }
+  return 0;
+}
+
+/** Gross collected minus amount actually refunded via SumUp. */
+export function netAmountRetainedOf(
+  record: Pick<
+    PaidBookingRecord,
+    | "originalAmount"
+    | "amount"
+    | "amountPaidLabel"
+    | "additionalPayments"
+    | "amountRefunded"
+    | "status"
+  >,
+): number {
+  return roundMoneyGbp(
+    Math.max(0, grossAmountCollectedOf(record) - amountActuallyRefundedOf(record)),
+  );
+}
+
+/**
+ * How much more should be refunded so net retained matches the journey fare.
+ * Zero when the customer still owes a top-up or accounts already match.
+ */
+export function refundDueToAlignWithJourneyFare(
+  record: Pick<
+    PaidBookingRecord,
+    | "originalAmount"
+    | "amount"
+    | "amountPaidLabel"
+    | "additionalPayments"
+    | "amountRefunded"
+    | "status"
+  >,
+  journeyFare: number = journeyFareOf(record),
+): number {
+  return roundMoneyGbp(Math.max(0, netAmountRetainedOf(record) - journeyFare));
+}
+
+/** Fare note for updated confirmation before a refund has been issued. */
+export function buildLowerFareAmendmentFareNote(input: {
+  newFare: number;
+  refundDue: number;
+}): string {
+  return (
+    `Updated journey price: £${input.newFare.toFixed(2)}\n` +
+    `Refund due: £${input.refundDue.toFixed(2)}`
+  );
 }

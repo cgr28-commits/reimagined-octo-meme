@@ -45,6 +45,9 @@ export type OwnerPaidBookingSummary = Pick<
   | "cancellationPolicyVersion"
 > & {
   amountPaid: string;
+  /** Current journey fare when provided by the worker. */
+  amount?: number;
+  originalAmount?: number;
   trackingToken?: string;
   sharingActive?: boolean;
   journeyStatus?: string;

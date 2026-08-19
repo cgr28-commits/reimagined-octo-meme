@@ -1518,9 +1518,23 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
             <dd>{booking.customerName || "—"}</dd>
           </div>
           <div>
-            <dt className="text-white/40">Fare</dt>
+            <dt className="text-white/40">Journey fare</dt>
+            <dd>
+              {typeof booking.amount === "number"
+                ? `£${booking.amount.toFixed(2)}`
+                : booking.amountPaid || "—"}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-white/40">Collected</dt>
             <dd>{booking.amountPaid || "—"}</dd>
           </div>
+          {typeof booking.amountRefunded === "number" && booking.amountRefunded > 0 ? (
+            <div>
+              <dt className="text-white/40">Refunded</dt>
+              <dd>£{booking.amountRefunded.toFixed(2)}</dd>
+            </div>
+          ) : null}
           {typeof booking.refundDueAmount === "number" && booking.refundDueAmount > 0 ? (
             <div className="sm:col-span-2">
               <dt className="text-amber-200/80">Refund due</dt>

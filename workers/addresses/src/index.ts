@@ -180,9 +180,11 @@ import {
   handleCustomerAmendLookup,
   handleCustomerAmendSchedule,
   handleCustomerAmendPay,
+  handleCustomerAmendReturn,
   isPaidBookingAmendLookupPath,
   isPaidBookingAmendSchedulePath,
   isPaidBookingAmendPayPath,
+  isPaidBookingAmendReturnPath,
 } from "./booking-amendment-handlers";
 import { handleDriverUpdateBookingRequest } from "./driver-booking-handlers";
 import {
@@ -2047,6 +2049,14 @@ async function handlePaymentConfirmRequest(
         trackingCreated: result.trackingCreated,
         ...(result.trackUrl ? { trackUrl: result.trackUrl } : {}),
         ...(result.alreadyFinalized ? { alreadyFinalized: true } : {}),
+        ...(result.amendmentTopUp
+          ? {
+              amendmentTopUp: true,
+              bookingPaymentReference: result.bookingPaymentReference,
+              manageBookingPath: result.manageBookingPath || "/manage-booking/",
+              ...(result.amendmentBooking ? { booking: result.amendmentBooking } : {}),
+            }
+          : {}),
       },
       200,
       origin,
@@ -2313,6 +2323,9 @@ export default {
     }
     if (isPaidBookingAmendPayPath(url.pathname) && request.method === "POST") {
       return handleCustomerAmendPay(request, env, origin);
+    }
+    if (isPaidBookingAmendReturnPath(url.pathname) && request.method === "POST") {
+      return handleCustomerAmendReturn(request, env, origin);
     }
 
     if (

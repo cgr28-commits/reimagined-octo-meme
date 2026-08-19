@@ -213,6 +213,8 @@ function run() {
   assert.match(amendHandlers, /refundDueAmount/);
   assert.match(amendHandlers, /sendUpdatedConfirmationForPaymentReference/);
   assert.match(amendHandlers, /farePreserved:\s*false/);
+  assert.doesNotMatch(amendHandlers, /amountPaidLabel:\s*`£\$\{newFare/);
+  assert.match(amendHandlers, /buildLowerFareAmendmentFareNote|Refund due:/);
 
   console.log("check-amendment-confirmation: all assertions passed");
 }

@@ -16,6 +16,7 @@ import type {
   PaidBookingRecord,
   PendingBookingAmendment,
 } from "../shared/paid-booking-record";
+import { grossAmountCollectedOf } from "../shared/paid-booking-record";
 import {
   buildCheckoutReference,
   createSumUpHostedCheckout,
@@ -189,12 +190,33 @@ export type FinalizeAmendmentTopUpResult = {
   emailWarning?: string;
   error?: string;
   abandonedWithoutCommit?: boolean;
+  /** Public booking snapshot for Manage Booking return (no secrets). */
+  booking?: {
+    paymentReference: string;
+    customerName: string;
+    customerEmail: string;
+    tripDate: string;
+    tripTime: string;
+    pickupLabel: string;
+    dropoffLabel: string;
+    amountPaidLabel: string;
+    journeyFare: number;
+  };
 };
 
-/**
- * After SumUp reports PAID for an amendment-topup checkout:
- * commit schedule + fare accounting once, then auto-send updated confirmation.
- */
+function amendmentBookingSnapshot(record: PaidBookingRecord) {
+  return {
+    paymentReference: record.paymentReference,
+    customerName: record.customerName,
+    customerEmail: record.customerEmail,
+    tripDate: record.tripDate,
+    tripTime: record.tripTime,
+    pickupLabel: record.pickupLabel,
+    dropoffLabel: record.dropoffLabel,
+    amountPaidLabel: record.amountPaidLabel,
+    journeyFare: record.amount,
+  };
+}
 export async function finalizeAmendmentTopUpCheckout(input: {
   env: AmendmentTopUpEnv;
   checkoutId: string;
@@ -225,6 +247,9 @@ export async function finalizeAmendmentTopUpCheckout(input: {
   );
 
   if (pendingCheckout.finalizedAt) {
+    const existingBooking = bookingRef
+      ? await getPaidBookingRecord(input.env.TRACKING_STORE, bookingRef)
+      : null;
     return {
       ok: true,
       paid: true,
@@ -234,7 +259,8 @@ export async function finalizeAmendmentTopUpCheckout(input: {
       paymentReference: pendingCheckout.paymentReference || topUpPaymentReference,
       bookingPaymentReference: bookingRef,
       // Already finalized — do not imply a fresh email was sent on this callback.
-      customerEmailSent: false,
+      customerEmailSent: Boolean(existingBooking?.lastUpdatedConfirmationSentAt),
+      booking: existingBooking ? amendmentBookingSnapshot(existingBooking) : undefined,
     };
   }
 
@@ -275,7 +301,8 @@ export async function finalizeAmendmentTopUpCheckout(input: {
       amountPaid,
       paymentReference: topUpPaymentReference,
       bookingPaymentReference: bookingRef,
-      customerEmailSent: false,
+      customerEmailSent: Boolean(booking.lastUpdatedConfirmationSentAt),
+      booking: amendmentBookingSnapshot(booking),
     };
   }
 
@@ -324,9 +351,15 @@ export async function finalizeAmendmentTopUpCheckout(input: {
   const previousTripDate = booking.tripDate;
   const previousTripTime = booking.tripTime;
   const changedAt = new Date().toISOString();
-  const originalAmount = Number(booking.originalAmount ?? booking.amount) || 0;
   const previousAdditional = booking.additionalPayments ?? [];
   const topUpAmount = Math.round(Number(pending.additionalPaymentAmount) * 100) / 100;
+  const grossBefore = grossAmountCollectedOf(booking);
+  const priorAdditionalSum = previousAdditional.reduce((s, p) => s + (Number(p.amount) || 0), 0);
+  const originalAmount =
+    typeof booking.originalAmount === "number" && Number.isFinite(booking.originalAmount)
+      ? booking.originalAmount
+      : Math.round((grossBefore - priorAdditionalSum) * 100) / 100;
+  const totalPaid = Math.round((grossBefore + topUpAmount) * 100) / 100;
   const additionalEntry: PaidBookingAdditionalPayment = {
     amount: topUpAmount,
     checkoutId: input.checkoutId,
@@ -336,9 +369,6 @@ export async function finalizeAmendmentTopUpCheckout(input: {
     transactionId: getSuccessfulTransactionId(input.checkout) || undefined,
     transactionCode: getSuccessfulTransactionCode(input.checkout) || undefined,
   };
-  const totalPaid =
-    Math.round((originalAmount + previousAdditional.reduce((s, p) => s + p.amount, 0) + topUpAmount) * 100) /
-    100;
 
   const historyEntry: DateTimeAmendmentAuditEntry = {
     changedAt,
@@ -478,6 +508,9 @@ export async function finalizeAmendmentTopUpCheckout(input: {
     topUpPaymentReference,
   );
 
+  const fresh =
+    (await getPaidBookingRecord(input.env.TRACKING_STORE, bookingRef)) || updated;
+
   return {
     ok: true,
     paid: true,
@@ -487,5 +520,6 @@ export async function finalizeAmendmentTopUpCheckout(input: {
     bookingPaymentReference: bookingRef,
     customerEmailSent: Boolean(emailResult?.sent),
     emailWarning: emailResult?.sent ? undefined : emailResult?.error,
+    booking: amendmentBookingSnapshot(fresh),
   };
 }

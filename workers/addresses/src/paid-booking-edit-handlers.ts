@@ -19,6 +19,8 @@ import {
   PRIMARY_DRIVER_LABEL,
   type PaidBookingAmendmentEvent,
   type PaidBookingRecord,
+  grossAmountCollectedOf,
+  refundDueToAlignWithJourneyFare,
 } from "../shared/paid-booking-record";
 import { buildPickupDateTimeLocal, journeyStatusOf } from "../shared/tracking";
 import { corsHeaders } from "../shared/google-places";
@@ -410,20 +412,43 @@ export async function handlePaidBookingEditRequest(
     idempotencyKey: `amend:${paymentReference}:${amendmentId}`,
   };
 
-  // Update journey fare only — never overwrite original payment label / references.
-  const amountPatch =
-    !keepAgreed && serverCalculatedFare != null
-      ? {
-          amount: serverCalculatedFare,
-        }
-      : {};
+  // Journey fare only — never rewrite amountPaidLabel (gross collected) here.
+  // Outstanding refund/top-up settlement stays explicit via refundDueAmount.
+  const collected = grossAmountCollectedOf(existing);
+  let moneyPatch: PaidBookingUpdateFields = {};
+  if (!keepAgreed && serverCalculatedFare != null) {
+    const originalAmount = existing.originalAmount ?? collected;
+    const nextDue = refundDueToAlignWithJourneyFare(
+      {
+        ...existing,
+        amount: serverCalculatedFare,
+        originalAmount,
+      },
+      serverCalculatedFare,
+    );
+    moneyPatch = {
+      amount: serverCalculatedFare,
+      originalAmount,
+      ...(nextDue > 0.005
+        ? {
+            refundDueAmount: nextDue,
+            refundDueReason: `Owner material amendment ${amendmentId}: journey fare £${existing.amount.toFixed(2)} → £${serverCalculatedFare.toFixed(2)} (collected £${collected.toFixed(2)})`,
+            refundDueAt: changedAt,
+          }
+        : {
+            refundDueAmount: 0,
+            refundDueReason: "",
+            refundDueAt: "",
+          }),
+    };
+  }
 
   const updated = await updatePaidBookingFields(
     env.TRACKING_STORE,
     paymentReference,
     {
       ...fields,
-      ...amountPatch,
+      ...moneyPatch,
       amendmentHistory: [...(existing.amendmentHistory ?? []), amendmentEvent],
     },
     {
@@ -512,10 +537,13 @@ export async function handlePaidBookingEditRequest(
 
   const afterSnap = snapshotJourney(updated);
   const whatChanged = summarizeAmendmentChanges(beforeSnap, afterSnap);
+  const appliedDue = Number(updated.refundDueAmount) || 0;
   const fareNote = ownerOverride
     ? `Agreed fare kept at £${ownerOverride.agreedFare.toFixed(2)} (calculated £${ownerOverride.authoritativeFare.toFixed(2)})`
     : serverCalculatedFare != null && serverCalculatedFare !== existing.amount
-      ? `Updated journey fare: £${serverCalculatedFare.toFixed(2)}`
+      ? appliedDue > 0.005
+        ? `Updated journey price: £${serverCalculatedFare.toFixed(2)}\nRefund due: £${appliedDue.toFixed(2)}`
+        : `Updated journey fare: £${serverCalculatedFare.toFixed(2)}`
       : "No change to your fare";
 
   const emailResult = await sendUpdatedConfirmationForPaymentReference({

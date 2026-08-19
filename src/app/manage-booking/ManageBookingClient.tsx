@@ -6,6 +6,7 @@ import { SITE } from "@/lib/data";
 import { whatsAppChatUrl } from "@/lib/contact-card";
 import {
   amendBookingSchedule,
+  loadBookingAfterAmendmentReturn,
   lookupBookingForAmendment,
   startAmendmentTopUpPayment,
   type ManageBookingSummary,
@@ -15,6 +16,8 @@ import { confirmPaidBooking } from "@/lib/create-payment";
 
 const fieldClass =
   "quote-text-input min-h-12 w-full rounded-xl border border-white/15 bg-navy px-3 text-base text-white placeholder:text-white/35";
+
+const AMEND_RETURN_STORAGE_KEY = "matni.amendReturn";
 
 type PaymentRequiredState = {
   fareNewLabel: string;
@@ -46,7 +49,7 @@ export default function ManageBookingClient() {
     `Hi, I need to change booking ${paymentReference || "(reference)"}.`,
   );
 
-  // After SumUp return: finalize top-up then refresh booking.
+  // After SumUp return: finalize top-up then reload booking without relying on React state.
   useEffect(() => {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
@@ -56,7 +59,6 @@ export default function ManageBookingClient() {
       params.get("id") ||
       params.get("checkoutId") ||
       "";
-    const ref = params.get("ref") || paymentReference;
     if (!checkoutId) return;
 
     let cancelled = false;
@@ -64,33 +66,111 @@ export default function ManageBookingClient() {
       setSaving(true);
       setError("");
       try {
-        await confirmPaidBooking(checkoutId);
+        const confirmed = await confirmPaidBooking(checkoutId);
         if (cancelled) return;
-        setSuccess(
-          `Your booking has been updated.${
-            customerEmail.trim()
-              ? ` We’ve emailed your updated confirmation to ${customerEmail.trim()}.`
-              : ""
-          }`,
-        );
-        setPaymentRequired(null);
-        if (ref && customerEmail.trim()) {
-          const found = await lookupBookingForAmendment({
-            paymentReference: ref,
-            customerEmail: customerEmail.trim(),
-          });
+
+        let found: ManageBookingSummary | null = null;
+        let emailed = Boolean(confirmed.customerEmailSent);
+
+        if (confirmed.booking) {
+          found = {
+            ...(booking || ({} as ManageBookingSummary)),
+            paymentReference: confirmed.booking.paymentReference,
+            customerName: confirmed.booking.customerName,
+            customerEmail: confirmed.booking.customerEmail,
+            tripDate: confirmed.booking.tripDate,
+            tripTime: confirmed.booking.tripTime,
+            pickupLabel: confirmed.booking.pickupLabel,
+            dropoffLabel: confirmed.booking.dropoffLabel,
+            amountPaidLabel: confirmed.booking.amountPaidLabel,
+            journeyFare: confirmed.booking.journeyFare,
+            dateTimeAmendmentCount: 0,
+            freeAmendmentAvailable: false,
+            within24HoursOfPickup: false,
+            hoursUntilPickup: null,
+            dateTimeAmendmentHistory: [],
+            within24hHeadline: "",
+            within24hBody: "",
+            freeAmendmentHint: FREE_AMENDMENT_HINT,
+            pendingAmendment: null,
+          };
+        }
+
+        try {
+          const returned = await loadBookingAfterAmendmentReturn({ checkoutId });
           if (!cancelled) {
-            setBooking(found);
-            setTripDate(found.tripDate);
-            setTripTime(found.tripTime);
-            setPaymentReference(found.paymentReference);
+            found = returned.booking;
+            emailed = emailed || returned.customerEmailSent;
           }
+        } catch {
+          // Confirm may have already committed; fall back to confirm payload / session.
+        }
+
+        if (!found) {
+          let storedRef = "";
+          let storedEmail = "";
+          try {
+            const raw = sessionStorage.getItem(AMEND_RETURN_STORAGE_KEY);
+            if (raw) {
+              const parsed = JSON.parse(raw) as { paymentReference?: string; customerEmail?: string };
+              storedRef = String(parsed.paymentReference || "").trim();
+              storedEmail = String(parsed.customerEmail || "").trim();
+            }
+          } catch {
+            // ignore
+          }
+          const ref =
+            confirmed.bookingPaymentReference ||
+            confirmed.paymentReference ||
+            storedRef ||
+            params.get("ref") ||
+            "";
+          if (ref && storedEmail) {
+            found = await lookupBookingForAmendment({
+              paymentReference: ref,
+              customerEmail: storedEmail,
+            });
+          }
+        }
+
+        if (cancelled) return;
+
+        if (found) {
+          setBooking(found);
+          setTripDate(found.tripDate);
+          setTripTime(found.tripTime);
+          setPaymentReference(found.paymentReference);
+          if (found.customerEmail) setCustomerEmail(found.customerEmail);
+          setSuccess(
+            emailed || found.lastUpdatedConfirmationSentAt
+              ? `Your booking has been updated. We’ve emailed your updated confirmation to ${
+                  found.customerEmail || "your email address"
+                }.`
+              : "Your booking has been updated. If you do not receive the confirmation email shortly, contact My Airport Taxi NI.",
+          );
+        } else {
+          setSuccess(
+            "Your additional payment was received and your booking is being updated. Find your booking below with your reference and email if details do not appear automatically.",
+          );
+          if (confirmed.bookingPaymentReference || confirmed.paymentReference) {
+            setPaymentReference(
+              confirmed.bookingPaymentReference || confirmed.paymentReference,
+            );
+          }
+        }
+
+        setPaymentRequired(null);
+        try {
+          sessionStorage.removeItem(AMEND_RETURN_STORAGE_KEY);
+        } catch {
+          // ignore
         }
         const url = new URL(window.location.href);
         url.searchParams.delete("amendment");
         url.searchParams.delete("checkout_id");
         url.searchParams.delete("id");
         url.searchParams.delete("checkoutId");
+        url.searchParams.delete("ref");
         window.history.replaceState({}, "", url.pathname + url.search);
       } catch (err) {
         if (!cancelled) {
@@ -236,6 +316,17 @@ export default function ManageBookingClient() {
             : current,
         );
       }
+      try {
+        sessionStorage.setItem(
+          AMEND_RETURN_STORAGE_KEY,
+          JSON.stringify({
+            paymentReference: booking.paymentReference,
+            customerEmail: customerEmail.trim(),
+          }),
+        );
+      } catch {
+        // sessionStorage may be unavailable — server checkout id path still works
+      }
       window.location.href = url;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not start payment.");
@@ -309,6 +400,16 @@ export default function ManageBookingClient() {
               {booking.tripDate} at {booking.tripTime}
             </p>
             <p className="mt-1 text-sm text-emerald">{booking.amountPaidLabel}</p>
+            {typeof booking.journeyFare === "number" &&
+            Math.abs(booking.journeyFare - (Number(String(booking.amountPaidLabel).replace(/[^\d.]/g, "")) || 0)) >
+              0.005 ? (
+              <p className="mt-1 text-xs text-white/55">
+                Current journey fare: {booking.journeyFareLabel || `£${booking.journeyFare.toFixed(2)}`}
+                {typeof booking.refundDueAmount === "number" && booking.refundDueAmount > 0
+                  ? ` · Refund due: £${booking.refundDueAmount.toFixed(2)}`
+                  : ""}
+              </p>
+            ) : null}
           </div>
 
           {contactGate ? (

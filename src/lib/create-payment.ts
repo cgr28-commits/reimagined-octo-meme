@@ -70,6 +70,20 @@ export type PaymentConfirmationResult = {
   trackUrl?: string;
   calendarLogged?: boolean;
   calendarWarning?: string;
+  amendmentTopUp?: boolean;
+  bookingPaymentReference?: string;
+  manageBookingPath?: string;
+  booking?: {
+    paymentReference: string;
+    customerName: string;
+    customerEmail: string;
+    tripDate: string;
+    tripTime: string;
+    pickupLabel: string;
+    dropoffLabel: string;
+    amountPaidLabel: string;
+    journeyFare: number;
+  };
 };
 
 const PAYMENTS_API_URL = resolvePaymentsApiUrl();

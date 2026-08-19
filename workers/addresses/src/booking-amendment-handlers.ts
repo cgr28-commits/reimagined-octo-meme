@@ -23,6 +23,11 @@ import {
 import { hoursUntilPickup, isWithin24HoursOfPickup } from "../shared/refund-ops";
 import { corsHeaders } from "../shared/google-places";
 import type { PaidBookingAmendmentEvent, PaidBookingRecord } from "../shared/paid-booking-record";
+import {
+  buildLowerFareAmendmentFareNote,
+  grossAmountCollectedOf,
+  refundDueToAlignWithJourneyFare,
+} from "../shared/paid-booking-record";
 import { buildPickupDateTimeLocal, journeyStatusOf } from "../shared/tracking";
 import {
   calculateAuthoritativeWebsiteQuote,
@@ -39,6 +44,7 @@ import {
   paidBookingStoreConfigured,
   updatePaidBookingFields,
 } from "./paid-booking-store";
+import { getPendingCheckout } from "./pending-checkout-store";
 import {
   findTrackingJobByPaymentReference,
   getTrackingJob,
@@ -88,11 +94,18 @@ function publicAmendmentSummary(record: PaidBookingRecord) {
   return {
     paymentReference: record.paymentReference,
     customerName: record.customerName,
+    customerEmail: record.customerEmail,
     tripDate: record.tripDate,
     tripTime: record.tripTime,
     pickupLabel: record.pickupLabel,
     dropoffLabel: record.dropoffLabel,
+    /** Gross money collected (not rewritten on lower-fare until refunded). */
     amountPaidLabel: record.amountPaidLabel,
+    /** Current journey / agreed fare. */
+    journeyFare: record.amount,
+    journeyFareLabel: `£${Number(record.amount || 0).toFixed(2)}`,
+    refundDueAmount: record.refundDueAmount ?? 0,
+    amountRefunded: record.amountRefunded ?? 0,
     dateTimeAmendmentCount: used,
     freeAmendmentAvailable: !within24h && used < 1 && pending?.status !== "awaiting_payment",
     within24HoursOfPickup: within24h,
@@ -116,6 +129,8 @@ function publicAmendmentSummary(record: PaidBookingRecord) {
           }
         : null,
     selfServiceFields: CUSTOMER_SELF_SERVICE_AMENDMENT_FIELDS,
+    lastUpdatedConfirmationSentAt: record.lastUpdatedConfirmationSentAt,
+    lastUpdatedConfirmationError: record.lastUpdatedConfirmationError,
   };
 }
 
@@ -136,6 +151,13 @@ export function isPaidBookingAmendSchedulePath(pathname: string): boolean {
 export function isPaidBookingAmendPayPath(pathname: string): boolean {
   return (
     pathname === "/paid-bookings/amend-pay" || pathname === "/api/paid-bookings/amend-pay"
+  );
+}
+
+export function isPaidBookingAmendReturnPath(pathname: string): boolean {
+  return (
+    pathname === "/paid-bookings/amend-return" ||
+    pathname === "/api/paid-bookings/amend-return"
   );
 }
 
@@ -456,18 +478,26 @@ export async function handleCustomerAmendSchedule(
   };
 
   /**
-   * Lower fare: commit journey + flag refundDueAmount for owner-controlled partial refund
-   * via the existing SumUp refund UI (safe/idempotent). Automatic customer-initiated
-   * partial refund is intentionally not wired here.
+   * Lower fare: commit journey fare + flag refundDueAmount for owner-controlled
+   * partial refund. Do NOT rewrite amountPaidLabel to the new fare — the customer
+   * has still paid the gross collected amount until SumUp refund succeeds.
    */
+  const collected = grossAmountCollectedOf(record);
   const refundDueFields =
     fareDiff.kind === "refund_due"
       ? {
-          refundDueAmount: fareDiff.difference,
-          refundDueReason: `Schedule amendment ${amendmentId}: ${previousFare} → ${newFare}`,
-          refundDueAt: changedAt,
           amount: newFare,
-          amountPaidLabel: `£${newFare.toFixed(2)}`,
+          originalAmount: record.originalAmount ?? collected,
+          refundDueAmount: refundDueToAlignWithJourneyFare(
+            {
+              ...record,
+              amount: newFare,
+              originalAmount: record.originalAmount ?? collected,
+            },
+            newFare,
+          ),
+          refundDueReason: `Schedule amendment ${amendmentId}: journey £${previousFare.toFixed(2)} → £${newFare.toFixed(2)} (collected £${collected.toFixed(2)})`,
+          refundDueAt: changedAt,
         }
       : fareDiff.kind === "none"
         ? {}
@@ -547,8 +577,13 @@ export async function handleCustomerAmendSchedule(
 
   const fareNote =
     fareDiff.kind === "refund_due"
-      ? `Refund due: £${fareDiff.difference.toFixed(2)}`
-      : "No change to your fare";
+      ? buildLowerFareAmendmentFareNote({
+          newFare,
+          refundDue: fareDiff.difference,
+        })
+      : fareDiff.kind === "none"
+        ? "No change to your fare"
+        : `Updated journey price: £${newFare.toFixed(2)}`;
 
   const emailResult = await sendUpdatedConfirmationForPaymentReference({
     env: env as Env & { TRACKING_STORE: KVNamespace },
@@ -698,6 +733,72 @@ export async function handleCustomerAmendPay(
         (await getPaidBookingRecord(env.TRACKING_STORE, paymentReference)) || record,
       ),
       selfServiceFields: CUSTOMER_SELF_SERVICE_AMENDMENT_FIELDS,
+    },
+    200,
+    origin,
+  );
+}
+
+/**
+ * POST — after SumUp return: resolve booking from amendment-topup checkout id.
+ * Does not require customer email in the URL or browser memory.
+ */
+export async function handleCustomerAmendReturn(
+  request: Request,
+  env: Env,
+  origin: string | null,
+): Promise<Response> {
+  if (!paidBookingStoreConfigured(env.TRACKING_STORE)) {
+    return jsonResponse({ error: "Booking store is not configured." }, 503, origin);
+  }
+
+  let body: Record<string, unknown>;
+  try {
+    body = (await request.json()) as Record<string, unknown>;
+  } catch {
+    return jsonResponse({ error: "Invalid JSON body." }, 400, origin);
+  }
+
+  const checkoutId = String(body.checkoutId ?? body.checkout_id ?? "").trim();
+  if (!checkoutId) {
+    return jsonResponse({ error: "Missing checkoutId." }, 400, origin);
+  }
+
+  const pending = await getPendingCheckout(env.TRACKING_STORE, checkoutId);
+  if (!pending || pending.checkoutKind !== "amendment-topup") {
+    return jsonResponse(
+      { error: "No amendment payment was found for this checkout." },
+      404,
+      origin,
+    );
+  }
+
+  const paymentReference = String(pending.amendmentBookingPaymentReference || "").trim();
+  if (!paymentReference) {
+    return jsonResponse({ error: "Amendment payment is missing its booking link." }, 404, origin);
+  }
+
+  const record = await getPaidBookingRecord(env.TRACKING_STORE, paymentReference);
+  if (!record) {
+    return jsonResponse({ error: "Booking not found for this amendment payment." }, 404, origin);
+  }
+
+  const committed =
+    Boolean(pending.finalizedAt) ||
+    (record.additionalPayments ?? []).some((p) => p.checkoutId === checkoutId) ||
+    record.pendingAmendment?.status === "committed" ||
+    !record.pendingAmendment;
+
+  return jsonResponse(
+    {
+      ok: true,
+      checkoutId,
+      finalized: Boolean(pending.finalizedAt),
+      amendmentCommitted: committed && record.pendingAmendment?.status !== "awaiting_payment",
+      paymentReference: record.paymentReference,
+      customerEmailSent: Boolean(record.lastUpdatedConfirmationSentAt),
+      customerEmailError: record.lastUpdatedConfirmationError || undefined,
+      booking: publicAmendmentSummary(record),
     },
     200,
     origin,
