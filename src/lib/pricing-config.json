@@ -77,28 +77,28 @@
   "airportExecutiveMinimumFareGbp": 105,
   "areaAirportSurchargesGbp": {
     "Belfast City Centre": {
-      "BFS": 3,
+      "BFS": 6,
       "BHD": 0,
       "DUB": 50,
-      "LDY": 99
+      "LDY": 104
     },
     "Holywood": {
-      "BFS": 19,
+      "BFS": 8,
       "BHD": 0,
       "DUB": 58,
-      "LDY": 103
+      "LDY": 104
     },
     "Newtownabbey": {
       "BFS": 0,
       "BHD": 5,
       "DUB": 60,
-      "LDY": 89
+      "LDY": 94
     },
     "Lisburn": {
       "BFS": 4,
-      "BHD": 4,
+      "BHD": 0,
       "DUB": 60,
-      "LDY": 98
+      "LDY": 104
     },
     "Dundonald": {
       "BFS": 28,
@@ -110,13 +110,13 @@
       "BFS": 0,
       "BHD": 35,
       "DUB": 50,
-      "LDY": 68
+      "LDY": 74
     },
     "Ballyclare": {
       "BFS": 0,
       "BHD": 19,
       "DUB": 65,
-      "LDY": 83
+      "LDY": 88
     },
     "Hillsborough": {
       "BFS": 8,
@@ -134,19 +134,19 @@
       "BFS": 28,
       "BHD": 9,
       "DUB": 62,
-      "LDY": 113
+      "LDY": 103
     },
     "Larne": {
       "BFS": 18,
       "BHD": 44,
       "DUB": 72,
-      "LDY": 98
+      "LDY": 104
     },
     "Bangor": {
       "BFS": 34,
       "BHD": 9,
       "DUB": 65,
-      "LDY": 118
+      "LDY": 109
     },
     "Newtownards": {
       "BFS": 28,
@@ -158,16 +158,16 @@
       "BFS": 4,
       "BHD": 55,
       "DUB": 78,
-      "LDY": 58
+      "LDY": 63
     },
     "Downpatrick": {
       "BFS": 43,
-      "BHD": 49,
+      "BHD": 50,
       "DUB": 75,
       "LDY": 85
     },
     "Banbridge": {
-      "BFS": 43,
+      "BFS": 44,
       "BHD": 49,
       "DUB": 75,
       "LDY": 78
@@ -197,7 +197,7 @@
       "LDY": 75
     },
     "Newry": {
-      "BFS": 68,
+      "BFS": 69,
       "BHD": 69,
       "DUB": 40,
       "LDY": 88
@@ -222,7 +222,7 @@
     },
     "Derry / Londonderry": {
       "BFS": 88,
-      "BHD": 119,
+      "BHD": 120,
       "DUB": 105,
       "LDY": 0
     },
