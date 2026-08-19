@@ -33,7 +33,7 @@ export type WebsiteOneWayFareInput = {
   dropoffPlace: SelectedPlace | null;
   vehicleType: VehicleType;
   routeMetrics: TripRouteMetrics | null;
-  /** Same schedule shape as QuoteCard — outbound date/time drive weekend premiums. */
+  /** Same schedule shape as QuoteCard — outbound date/time optional for quoting. */
   schedule?: TripSchedule;
 };
 
