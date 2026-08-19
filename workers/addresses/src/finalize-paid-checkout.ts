@@ -22,6 +22,7 @@ import {
   markPendingCheckoutFinalized,
   pendingCheckoutStoreConfigured,
 } from "./pending-checkout-store";
+import { finalizeAmendmentTopUpCheckout } from "./amendment-topup";
 import { markShortNoticePaid } from "./short-notice-handlers";
 import { markPersonalQuoteUsed } from "./personal-quote-store";
 import { markQuickQuotePaid } from "./quick-quote-store";
@@ -67,6 +68,10 @@ export type FinalizePaidCheckoutResult = {
   trackingCreated: boolean;
   trackUrl?: string;
   error?: string;
+  /** Set when this checkout amended an existing booking instead of creating one. */
+  amendmentTopUp?: boolean;
+  bookingPaymentReference?: string;
+  manageBookingPath?: string;
 };
 
 function ownerInbox(env: FinalizeEnv): string {
@@ -113,21 +118,29 @@ export async function finalizePaidCheckout(input: {
   }
 
   if (paidBookingStoreConfigured(env.TRACKING_STORE)) {
-    const existing = await getPaidBookingRecordByCheckoutId(env.TRACKING_STORE, checkoutId);
-    if (existing) {
-      return {
-        ok: true,
-        paid: true,
-        alreadyFinalized: true,
-        amountPaid: existing.amountPaidLabel,
-        paymentReference: existing.paymentReference,
-        emailSent: true,
-        customerEmailSent: true,
-        ownerEmailSent: true,
-        calendarLogged: (existing.calendarEventIds?.length ?? 0) > 0,
-        calendarEvents: existing.calendarEventIds?.length ?? 0,
-        trackingCreated: Boolean(existing.trackingToken),
-      };
+    // Amendment top-ups must not be mistaken for a new booking via checkout index.
+    const pendingEarly = pendingCheckoutStoreConfigured(env.TRACKING_STORE)
+      ? await getPendingCheckout(env.TRACKING_STORE, checkoutId)
+      : null;
+    if (pendingEarly?.checkoutKind === "amendment-topup") {
+      // Fall through after SumUp PAID check below — handled in dedicated branch.
+    } else {
+      const existing = await getPaidBookingRecordByCheckoutId(env.TRACKING_STORE, checkoutId);
+      if (existing) {
+        return {
+          ok: true,
+          paid: true,
+          alreadyFinalized: true,
+          amountPaid: existing.amountPaidLabel,
+          paymentReference: existing.paymentReference,
+          emailSent: true,
+          customerEmailSent: true,
+          ownerEmailSent: true,
+          calendarLogged: (existing.calendarEventIds?.length ?? 0) > 0,
+          calendarEvents: existing.calendarEventIds?.length ?? 0,
+          trackingCreated: Boolean(existing.trackingToken),
+        };
+      }
     }
   }
 
@@ -177,6 +190,33 @@ export async function finalizePaidCheckout(input: {
     ? await getPendingCheckout(env.TRACKING_STORE, checkoutId)
     : null;
   const isRefundTest = pendingForAudit?.isRefundTest === true;
+  const isAmendmentTopUp = pendingForAudit?.checkoutKind === "amendment-topup";
+
+  if (isAmendmentTopUp && paidBookingStoreConfigured(env.TRACKING_STORE)) {
+    const topUp = await finalizeAmendmentTopUpCheckout({
+      env: env as typeof env & { TRACKING_STORE: KVNamespace },
+      checkoutId,
+      checkout,
+    });
+    return {
+      ok: topUp.ok,
+      paid: topUp.paid,
+      alreadyFinalized: topUp.alreadyFinalized,
+      amountPaid: topUp.amountPaid,
+      paymentReference: topUp.bookingPaymentReference || topUp.paymentReference,
+      emailSent: topUp.customerEmailSent,
+      customerEmailSent: topUp.customerEmailSent,
+      ownerEmailSent: false,
+      emailWarning: topUp.emailWarning || topUp.error,
+      calendarLogged: Boolean(topUp.amendmentCommitted),
+      calendarEvents: 0,
+      trackingCreated: false,
+      amendmentTopUp: true,
+      bookingPaymentReference: topUp.bookingPaymentReference,
+      manageBookingPath: "/manage-booking/",
+      error: topUp.ok ? undefined : topUp.error,
+    };
+  }
 
   // Owner-only £1 live SumUp refund smoke test — no journey, calendar, or customer emails.
   if (isRefundTest) {

@@ -62,6 +62,24 @@ export async function sendUpdatedConfirmationFromCanonicalRecord(input: {
     fareNote: input.fareNote,
   });
 
+  // Duplicate finalize/webhook must not re-send the same amendment confirmation.
+  if (
+    input.amendmentId &&
+    input.record.lastUpdatedConfirmationAmendmentId === input.amendmentId &&
+    input.record.lastUpdatedConfirmationSentAt
+  ) {
+    return {
+      sent: true,
+      subject: email.subject,
+      pickupLabel: input.record.pickupLabel,
+      dropoffLabel: input.record.dropoffLabel,
+      tripDate: input.record.tripDate,
+      tripTime: input.record.tripTime,
+      paymentReference: input.record.paymentReference,
+      receiptPickupLabel: receipt.pickupLabel,
+    };
+  }
+
   const sendResult = await trySendBrandedCustomerEmail(input.env, {
     to: input.record.customerEmail,
     toName: input.record.customerName,

@@ -1,8 +1,8 @@
 /**
  * Owner-only paid booking edit + automatic updated confirmation email.
  * Confirmation content always comes from the canonical PaidBookingRecord.
- * Does not create SumUp charges or refunds on edit (fare differences are
- * previewed / flagged; owner override supported separately).
+ * Material journey edits are re-priced server-side; owner may keep the agreed
+ * fare (override recorded in amendment history). No automatic SumUp charge/refund.
  */
 
 import {
@@ -22,6 +22,10 @@ import {
 } from "../shared/paid-booking-record";
 import { buildPickupDateTimeLocal, journeyStatusOf } from "../shared/tracking";
 import { corsHeaders } from "../shared/google-places";
+import {
+  calculateAuthoritativeWebsiteQuote,
+  type QuoteServiceAirportCode,
+} from "../../../src/lib/quote-service";
 import { ownerAuthorized, type DriverAuthEnv } from "./driver-auth";
 import {
   getGoogleAccessToken,
@@ -330,14 +334,48 @@ export async function handlePaidBookingEditRequest(
   const amendmentId = generateAmendmentId();
   const changedAt = new Date().toISOString();
 
+  // Server calculates authoritative fare for material journey edits — never trust browser fare.
+  const fareSensitive = Object.keys(fields).some((key) => FARE_SENSITIVE_FIELDS.has(key));
+  let serverCalculatedFare: number | null = null;
+  let serverFareMessage: string | undefined;
+  if (fareSensitive) {
+    const merged = { ...existing, ...fields } as PaidBookingRecord;
+    const airportRaw = String(merged.airportCode ?? "").trim().toUpperCase();
+    const airportCode =
+      airportRaw === "BFS" || airportRaw === "BHD" || airportRaw === "DUB" || airportRaw === "LDY"
+        ? (airportRaw as QuoteServiceAirportCode)
+        : null;
+    const quote = calculateAuthoritativeWebsiteQuote({
+      airportCode: merged.isAirportTrip || airportCode ? airportCode : null,
+      fromAirport: Boolean(merged.isFromAirport),
+      pickupAddress: merged.pickupLabel,
+      dropoffAddress: merged.dropoffLabel,
+      returnJourney: Boolean(merged.returnJourney),
+      outboundDate: merged.tripDate,
+      outboundTime: merged.tripTime,
+      returnDate: merged.returnDate,
+      returnTime: merged.returnTime,
+      passengers: merged.passengers ?? 1,
+      suitcases: merged.suitcases ?? 0,
+    });
+    if (quote.ok) {
+      serverCalculatedFare = quote.amount;
+    } else {
+      serverFareMessage = quote.message;
+    }
+  }
+
+  const keepAgreed = Boolean(body.keepAgreedFare);
+  const agreedFare =
+    typeof body.agreedFare === "number" && Number.isFinite(body.agreedFare)
+      ? body.agreedFare
+      : existing.amount;
   const ownerOverride =
-    body.keepAgreedFare &&
-    typeof body.authoritativeFare === "number" &&
-    typeof body.agreedFare === "number"
+    keepAgreed && serverCalculatedFare != null
       ? {
-          authoritativeFare: body.authoritativeFare,
-          agreedFare: body.agreedFare,
-          difference: Math.round((body.authoritativeFare - body.agreedFare) * 100) / 100,
+          authoritativeFare: serverCalculatedFare,
+          agreedFare,
+          difference: Math.round((serverCalculatedFare - agreedFare) * 100) / 100,
         }
       : undefined;
 
@@ -351,22 +389,41 @@ export async function handlePaidBookingEditRequest(
       ...Object.fromEntries(
         Object.entries(fields).map(([k, v]) => [
           k,
-          typeof v === "object" && v !== null ? JSON.stringify(v) : (v as string | number | boolean | null | undefined),
+          typeof v === "object" && v !== null
+            ? JSON.stringify(v)
+            : (v as string | number | boolean | null | undefined),
         ]),
       ),
     },
     previousFare: existing.amount,
-    newFare: ownerOverride ? ownerOverride.agreedFare : existing.amount,
-    difference: ownerOverride ? ownerOverride.difference : 0,
+    newFare: ownerOverride
+      ? ownerOverride.agreedFare
+      : serverCalculatedFare != null
+        ? serverCalculatedFare
+        : existing.amount,
+    difference:
+      ownerOverride?.difference ??
+      (serverCalculatedFare != null
+        ? Math.round((serverCalculatedFare - existing.amount) * 100) / 100
+        : 0),
     ownerOverride,
     idempotencyKey: `amend:${paymentReference}:${amendmentId}`,
   };
+
+  // Update journey fare only — never overwrite original payment label / references.
+  const amountPatch =
+    !keepAgreed && serverCalculatedFare != null
+      ? {
+          amount: serverCalculatedFare,
+        }
+      : {};
 
   const updated = await updatePaidBookingFields(
     env.TRACKING_STORE,
     paymentReference,
     {
       ...fields,
+      ...amountPatch,
       amendmentHistory: [...(existing.amendmentHistory ?? []), amendmentEvent],
     },
     {
@@ -380,9 +437,18 @@ export async function handlePaidBookingEditRequest(
   }
 
   const warnings: string[] = [];
-  const fareMayNeedManualAdjustment = Object.keys(fields).some((key) =>
-    FARE_SENSITIVE_FIELDS.has(key),
-  );
+  const fareMayNeedManualAdjustment = fareSensitive && keepAgreed;
+  if (serverFareMessage) {
+    warnings.push(`Could not auto-reprice: ${serverFareMessage}`);
+  }
+  const fareAdjustmentMessage =
+    fareSensitive && serverCalculatedFare != null
+      ? keepAgreed
+        ? `Server calculated £${serverCalculatedFare.toFixed(2)}; agreed fare kept at £${agreedFare.toFixed(2)}.`
+        : `Server calculated fare £${serverCalculatedFare.toFixed(2)} applied (was £${existing.amount.toFixed(2)}). Original payment reference unchanged.`
+      : fareSensitive && serverFareMessage
+        ? serverFareMessage
+        : undefined;
 
   if (trackingStoreConfigured(env.TRACKING_STORE)) {
     const token = updated.trackingToken?.trim();
@@ -448,8 +514,8 @@ export async function handlePaidBookingEditRequest(
   const whatChanged = summarizeAmendmentChanges(beforeSnap, afterSnap);
   const fareNote = ownerOverride
     ? `Agreed fare kept at £${ownerOverride.agreedFare.toFixed(2)} (calculated £${ownerOverride.authoritativeFare.toFixed(2)})`
-    : fareMayNeedManualAdjustment
-      ? "Fare may need a manual adjustment — please check your payment position with My Airport Taxi NI if needed."
+    : serverCalculatedFare != null && serverCalculatedFare !== existing.amount
+      ? `Updated journey fare: £${serverCalculatedFare.toFixed(2)}`
       : "No change to your fare";
 
   const emailResult = await sendUpdatedConfirmationForPaymentReference({
@@ -512,6 +578,10 @@ export async function handlePaidBookingEditRequest(
       },
       assignedDriver: PRIMARY_DRIVER_LABEL,
       fareMayNeedManualAdjustment,
+      fareAdjustmentMessage,
+      serverCalculatedFare,
+      currentAgreedFare: existing.amount,
+      keepAgreedFare: keepAgreed,
       paymentPreserved: true,
       changes: recentAudit,
       whatChanged,

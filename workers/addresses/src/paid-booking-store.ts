@@ -357,6 +357,8 @@ export type PaidBookingUpdateFields = Partial<
     | "originalTripTime"
     | "dateTimeAmendmentCount"
     | "dateTimeAmendmentHistory"
+    | "originalAmount"
+    | "additionalPayments"
     | "amendmentHistory"
     | "pendingAmendment"
     | "amount"
@@ -413,7 +415,8 @@ export async function updatePaidBookingFields(
         field === "dateTimeAmendmentHistory" ||
         field === "dateTimeAmendmentCount" ||
         field === "amendmentHistory" ||
-        field === "pendingAmendment"
+        field === "pendingAmendment" ||
+        field === "additionalPayments"
       ) {
         continue;
       }

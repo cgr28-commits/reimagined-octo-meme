@@ -15,6 +15,10 @@
  */
 
 import { hoursUntilPickup, isWithin24HoursOfPickup } from "./refund-ops";
+import type {
+  PaidBookingRecord,
+  PendingBookingAmendment,
+} from "./paid-booking-record";
 
 /** One free customer self-service material/schedule amendment when >24h before pickup. */
 export const FREE_CUSTOMER_DATE_TIME_AMENDMENTS = 1;
@@ -452,4 +456,142 @@ export function generateAmendmentId(bytes = 16): string {
   const arr = new Uint8Array(bytes);
   crypto.getRandomValues(arr);
   return Array.from(arr, (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+/** Hours an unpaid higher-fare amendment proposal remains payable. */
+export const PENDING_AMENDMENT_EXPIRY_HOURS = 6;
+
+export function computePendingAmendmentExpiresAt(
+  createdAt: Date = new Date(),
+  hours = PENDING_AMENDMENT_EXPIRY_HOURS,
+): string {
+  return new Date(createdAt.getTime() + hours * 60 * 60 * 1000).toISOString();
+}
+
+export function isPendingAmendmentExpired(
+  pending: { expiresAt?: string; status?: string },
+  now: Date = new Date(),
+): boolean {
+  if (pending.status === "expired") return true;
+  if (pending.status === "abandoned" || pending.status === "committed") return false;
+  if (!pending.expiresAt) return false;
+  return Date.parse(pending.expiresAt) <= now.getTime();
+}
+
+/**
+ * Customer self-service fields currently exposed in /manage-booking/.
+ * Material address/pax/luggage amendments still require owner contact.
+ */
+export const CUSTOMER_SELF_SERVICE_AMENDMENT_FIELDS = [
+  "tripDate",
+  "tripTime",
+] as const;
+
+export type ValidatePendingAmendmentResult =
+  | { ok: true; pending: PendingBookingAmendment; booking: PaidBookingRecord }
+  | { ok: false; reason: string; message: string; booking?: PaidBookingRecord };
+
+/** Re-validate before creating/taking a SumUp top-up for a pending higher-fare amendment. */
+export function validatePendingAmendmentForPayment(input: {
+  booking: PaidBookingRecord;
+  amendmentId?: string;
+  now?: Date;
+}): ValidatePendingAmendmentResult {
+  const now = input.now ?? new Date();
+  const booking = input.booking;
+
+  if (
+    booking.status === "cancelled" ||
+    booking.status === "refunded" ||
+    booking.operationalStatus === "cancelled" ||
+    booking.paymentStatus === "fully_refunded"
+  ) {
+    return {
+      ok: false,
+      reason: "booking_not_amendable",
+      message: "This booking can no longer be changed online.",
+      booking,
+    };
+  }
+
+  const pending = booking.pendingAmendment;
+  if (!pending || pending.status !== "awaiting_payment") {
+    return {
+      ok: false,
+      reason: "no_pending_amendment",
+      message: "There is no amendment awaiting payment for this booking.",
+      booking,
+    };
+  }
+
+  if (input.amendmentId && pending.amendmentId !== input.amendmentId) {
+    return {
+      ok: false,
+      reason: "superseded",
+      message: "This amendment proposal is no longer current.",
+      booking,
+    };
+  }
+
+  if (isPendingAmendmentExpired(pending, now)) {
+    return {
+      ok: false,
+      reason: "expired",
+      message: "This amendment payment link has expired. Please start a new change request.",
+      booking,
+    };
+  }
+
+  // 24h gate uses the *confirmed* (current) pickup — cannot escape late policy mid-top-up.
+  if (isWithin24HoursOfPickup(booking.tripDate, booking.tripTime, now)) {
+    return {
+      ok: false,
+      reason: "within_24_hours",
+      message:
+        "Your pickup is now within 24 hours, so this change cannot be completed automatically. Please contact My Airport Taxi NI.",
+      booking,
+    };
+  }
+
+  if (
+    typeof pending.additionalPaymentAmount !== "number" ||
+    !Number.isFinite(pending.additionalPaymentAmount) ||
+    pending.additionalPaymentAmount <= 0
+  ) {
+    return {
+      ok: false,
+      reason: "invalid_amount",
+      message: "The additional payment amount is invalid.",
+      booking,
+    };
+  }
+
+  return { ok: true, pending, booking };
+}
+
+/** Build a pending amendment record for a higher-fare schedule change (before SumUp). */
+export function buildHigherFarePendingAmendment(input: {
+  paymentReference: string;
+  amendmentId?: string;
+  previousFare: number;
+  newFare: number;
+  proposed: Record<string, string | number | boolean | null | undefined>;
+  createdBy?: "Owner" | "Customer";
+  now?: Date;
+}): PendingBookingAmendment {
+  const now = input.now ?? new Date();
+  const amendmentId = input.amendmentId || generateAmendmentId();
+  const fare = describeFareDifference(input.previousFare, input.newFare);
+  return {
+    amendmentId,
+    createdAt: now.toISOString(),
+    expiresAt: computePendingAmendmentExpiresAt(now),
+    createdBy: input.createdBy ?? "Customer",
+    proposed: input.proposed,
+    previousFare: fare.previousFare,
+    newFare: fare.newFare,
+    additionalPaymentAmount: fare.difference,
+    idempotencyKey: `amend-pay:${input.paymentReference}:${amendmentId}`,
+    status: "awaiting_payment",
+  };
 }

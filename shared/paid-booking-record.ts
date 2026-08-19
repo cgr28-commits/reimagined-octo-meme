@@ -46,14 +46,30 @@ export type PaidBookingAmendmentEvent = {
 export type PendingBookingAmendment = {
   amendmentId: string;
   createdAt: string;
+  /** ISO expiry — unpaid proposals must not be payable after this. */
+  expiresAt: string;
   createdBy: "Owner" | "Customer";
   proposed: Record<string, string | number | boolean | null | undefined>;
   previousFare: number;
   newFare: number;
   additionalPaymentAmount: number;
   checkoutId?: string;
+  checkoutReference?: string;
+  paymentUrl?: string;
   idempotencyKey: string;
-  status: "awaiting_payment" | "abandoned" | "committed";
+  status: "awaiting_payment" | "abandoned" | "committed" | "expired";
+};
+
+/** Separate SumUp top-up payment for an amendment (never overwrites original paymentReference). */
+export type PaidBookingAdditionalPayment = {
+  amount: number;
+  checkoutId: string;
+  /** SumUp transaction / checkout reference for this top-up only. */
+  paymentReference: string;
+  amendmentId: string;
+  paidAt: string;
+  transactionId?: string;
+  transactionCode?: string;
 };
 
 export type PaidBookingRecord = {
@@ -64,6 +80,13 @@ export type PaidBookingRecord = {
   amount: number;
   currency: string;
   amountPaidLabel: string;
+  /**
+   * Original checkout fare at first payment (preserved when amendments add top-ups).
+   * Defaults to `amount` for bookings created before this field existed.
+   */
+  originalAmount?: number;
+  /** Append-only SumUp top-up payments for higher-fare amendments. */
+  additionalPayments?: PaidBookingAdditionalPayment[];
   /** Cumulative GBP already refunded via SumUp (authoritative money state). */
   amountRefunded?: number;
   /**

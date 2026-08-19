@@ -111,11 +111,28 @@ export default function OwnerEditBookingModal({
   const [form, setForm] = useState<EditFormState>(original);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [keepAgreedFare, setKeepAgreedFare] = useState(false);
 
   const diffs = useMemo(() => buildDiffs(original, form), [original, form]);
   const fareSensitive = diffs.some((row) =>
-    ["Pickup date", "Pickup time", "Pickup", "Destination"].includes(row.label),
+    [
+      "Pickup date",
+      "Pickup time",
+      "Pickup",
+      "Destination",
+      "Passengers",
+      "Luggage",
+      "Child seats",
+      "Return journey",
+      "Return date",
+      "Return time",
+    ].includes(row.label),
   );
+  const currentAgreedFareLabel = booking.amountPaid || "";
+  const currentAgreedFareNumber = (() => {
+    const n = Number(String(booking.amountPaid || "").replace(/[^\d.]/g, ""));
+    return Number.isFinite(n) && n > 0 ? n : undefined;
+  })();
 
   function update<K extends keyof EditFormState>(key: K, value: EditFormState[K]) {
     setForm((current) => ({ ...current, [key]: value }));
@@ -144,6 +161,8 @@ export default function OwnerEditBookingModal({
         returnJourney: form.returnJourney,
         returnDate: form.returnDate.trim(),
         returnTime: form.returnTime.trim(),
+        keepAgreedFare: fareSensitive ? keepAgreedFare : false,
+        agreedFare: currentAgreedFareNumber,
         sendUpdatedConfirmation,
       };
       const result = await editOwnerPaidBooking(ownerKey, payload);
@@ -370,10 +389,32 @@ export default function OwnerEditBookingModal({
             </div>
 
             {fareSensitive ? (
-              <p className="mt-4 rounded-xl border border-amber-400/35 bg-amber-500/10 px-3 py-3 text-sm text-amber-100">
-                Journey details changed — fare may require manual adjustment. No automatic charge or
-                refund will run. An updated confirmation email is sent automatically after save.
-              </p>
+              <div className="mt-4 space-y-3 rounded-xl border border-amber-400/35 bg-amber-500/10 px-3 py-3 text-sm text-amber-100">
+                <p>
+                  Material journey changes are re-priced on the server. Current agreed fare:{" "}
+                  <span className="font-semibold text-white">
+                    {currentAgreedFareLabel || "see booking"}
+                  </span>
+                  .
+                </p>
+                <p className="text-amber-100/85">
+                  By default the booking fare is updated to the server-calculated amount. No
+                  automatic SumUp charge or refund runs from this screen.
+                </p>
+                <label className="flex items-start gap-2 text-amber-50">
+                  <input
+                    type="checkbox"
+                    className="mt-1"
+                    checked={keepAgreedFare}
+                    onChange={(e) => setKeepAgreedFare(e.target.checked)}
+                  />
+                  <span>
+                    Keep current agreed fare
+                    {currentAgreedFareLabel ? ` (${currentAgreedFareLabel})` : ""} — record
+                    server-calculated fare in amendment history only
+                  </span>
+                </label>
+              </div>
             ) : null}
 
             <div className="mt-5 flex flex-col gap-2 sm:flex-row">
@@ -411,9 +452,20 @@ export default function OwnerEditBookingModal({
               ))}
             </ul>
             {fareSensitive ? (
-              <p className="mt-4 text-sm text-amber-100">
-                Journey details changed — fare may require manual adjustment.
-              </p>
+              <div className="mt-4 space-y-2 text-sm text-amber-100">
+                <p>
+                  Server will calculate the authoritative amended fare. Current agreed fare:{" "}
+                  <span className="font-semibold text-white">
+                    {currentAgreedFareLabel || "unchanged"}
+                  </span>
+                  .
+                </p>
+                <p>
+                  {keepAgreedFare
+                    ? "Agreed fare will be kept; calculated fare is recorded for audit."
+                    : "Booking fare will be updated to the server-calculated amount (no automatic payment)."}
+                </p>
+              </div>
             ) : null}
             <div className="mt-5 flex flex-col gap-2">
               <button

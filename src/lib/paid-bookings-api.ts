@@ -506,6 +506,9 @@ export type OwnerEditBookingInput = {
   returnTime?: string;
   tripLabel?: string;
   vehicle?: string;
+  /** When true with material changes, keep current agreed fare and record server calculated as override. */
+  keepAgreedFare?: boolean;
+  agreedFare?: number;
   sendUpdatedConfirmation?: boolean;
 };
 
@@ -518,6 +521,9 @@ export type OwnerEditBookingResult = {
   };
   fareMayNeedManualAdjustment?: boolean;
   fareAdjustmentMessage?: string;
+  serverCalculatedFare?: number | null;
+  currentAgreedFare?: number;
+  keepAgreedFare?: boolean;
   paymentPreserved?: boolean;
   calendarUpdated?: boolean;
   customerEmailSent?: boolean;
@@ -556,6 +562,11 @@ export async function editOwnerPaidBooking(
       typeof payload.fareAdjustmentMessage === "string"
         ? payload.fareAdjustmentMessage
         : undefined,
+    serverCalculatedFare:
+      typeof payload.serverCalculatedFare === "number" ? payload.serverCalculatedFare : null,
+    currentAgreedFare:
+      typeof payload.currentAgreedFare === "number" ? payload.currentAgreedFare : undefined,
+    keepAgreedFare: payload.keepAgreedFare === true,
     paymentPreserved: payload.paymentPreserved === true,
     calendarUpdated: payload.calendarUpdated === true,
     customerEmailSent: payload.customerEmailSent === true,

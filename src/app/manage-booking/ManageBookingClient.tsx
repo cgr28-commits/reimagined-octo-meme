@@ -1,18 +1,29 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { SITE } from "@/lib/data";
 import { whatsAppChatUrl } from "@/lib/contact-card";
 import {
   amendBookingSchedule,
   lookupBookingForAmendment,
+  startAmendmentTopUpPayment,
   type ManageBookingSummary,
 } from "@/lib/booking-amendment-api";
 import { FREE_AMENDMENT_HINT } from "../../../shared/booking-amendment";
+import { confirmPaidBooking } from "@/lib/create-payment";
 
 const fieldClass =
   "quote-text-input min-h-12 w-full rounded-xl border border-white/15 bg-navy px-3 text-base text-white placeholder:text-white/35";
+
+type PaymentRequiredState = {
+  fareNewLabel: string;
+  farePaidLabel: string;
+  amountDueLabel: string;
+  payCtaLabel: string;
+  paymentUrl: string;
+  note: string;
+};
 
 export default function ManageBookingClient() {
   const [paymentReference, setPaymentReference] = useState("");
@@ -22,8 +33,10 @@ export default function ManageBookingClient() {
   const [tripTime, setTripTime] = useState("");
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [paying, setPaying] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [paymentRequired, setPaymentRequired] = useState<PaymentRequiredState | null>(null);
   const [contactGate, setContactGate] = useState<{
     headline: string;
     body: string;
@@ -33,11 +46,76 @@ export default function ManageBookingClient() {
     `Hi, I need to change booking ${paymentReference || "(reference)"}.`,
   );
 
+  // After SumUp return: finalize top-up then refresh booking.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("amendment") !== "return") return;
+    const checkoutId =
+      params.get("checkout_id") ||
+      params.get("id") ||
+      params.get("checkoutId") ||
+      "";
+    const ref = params.get("ref") || paymentReference;
+    if (!checkoutId) return;
+
+    let cancelled = false;
+    (async () => {
+      setSaving(true);
+      setError("");
+      try {
+        await confirmPaidBooking(checkoutId);
+        if (cancelled) return;
+        setSuccess(
+          `Your booking has been updated.${
+            customerEmail.trim()
+              ? ` We’ve emailed your updated confirmation to ${customerEmail.trim()}.`
+              : ""
+          }`,
+        );
+        setPaymentRequired(null);
+        if (ref && customerEmail.trim()) {
+          const found = await lookupBookingForAmendment({
+            paymentReference: ref,
+            customerEmail: customerEmail.trim(),
+          });
+          if (!cancelled) {
+            setBooking(found);
+            setTripDate(found.tripDate);
+            setTripTime(found.tripTime);
+            setPaymentReference(found.paymentReference);
+          }
+        }
+        const url = new URL(window.location.href);
+        url.searchParams.delete("amendment");
+        url.searchParams.delete("checkout_id");
+        url.searchParams.delete("id");
+        url.searchParams.delete("checkoutId");
+        window.history.replaceState({}, "", url.pathname + url.search);
+      } catch (err) {
+        if (!cancelled) {
+          setError(
+            err instanceof Error
+              ? err.message
+              : "Payment return could not be confirmed yet. If you were charged, your booking will update shortly.",
+          );
+        }
+      } finally {
+        if (!cancelled) setSaving(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   async function lookup(event: React.FormEvent) {
     event.preventDefault();
     setError("");
     setSuccess("");
     setContactGate(null);
+    setPaymentRequired(null);
     setLoading(true);
     try {
       const found = await lookupBookingForAmendment({
@@ -51,6 +129,19 @@ export default function ManageBookingClient() {
         setContactGate({
           headline: found.within24hHeadline,
           body: found.within24hBody,
+        });
+      } else if (
+        found.pendingAmendment &&
+        found.pendingAmendment.status === "awaiting_payment"
+      ) {
+        const due = found.pendingAmendment.additionalPaymentAmount;
+        setPaymentRequired({
+          fareNewLabel: `£${found.pendingAmendment.newFare.toFixed(2)}`,
+          farePaidLabel: `£${found.pendingAmendment.previousFare.toFixed(2)}`,
+          amountDueLabel: `£${due.toFixed(2)}`,
+          payCtaLabel: `Pay £${due.toFixed(2)} & Confirm Change`,
+          paymentUrl: found.pendingAmendment.paymentUrl || "",
+          note: "Your existing booking will remain unchanged until the additional payment is completed.",
         });
       }
     } catch (err) {
@@ -66,6 +157,7 @@ export default function ManageBookingClient() {
     if (!booking) return;
     setError("");
     setSuccess("");
+    setPaymentRequired(null);
     setSaving(true);
     try {
       const result = await amendBookingSchedule({
@@ -74,6 +166,21 @@ export default function ManageBookingClient() {
         tripDate,
         tripTime,
       });
+      if (result.kind === "payment_required") {
+        setBooking(result.booking);
+        setPaymentRequired({
+          fareNewLabel:
+            result.fare.newFareLabel || `£${Number(result.fare.newFare).toFixed(2)}`,
+          farePaidLabel:
+            result.fare.previousFareLabel ||
+            `£${Number(result.fare.previousFare).toFixed(2)}`,
+          amountDueLabel: result.amountDueLabel,
+          payCtaLabel: result.payCtaLabel,
+          paymentUrl: result.paymentUrl,
+          note: result.note,
+        });
+        return;
+      }
       setBooking(result.booking);
       setTripDate(result.booking.tripDate);
       setTripTime(result.booking.tripTime);
@@ -104,6 +211,38 @@ export default function ManageBookingClient() {
     }
   }
 
+  async function payDifference() {
+    if (!booking) return;
+    setPaying(true);
+    setError("");
+    try {
+      let url = paymentRequired?.paymentUrl || "";
+      if (!url) {
+        const started = await startAmendmentTopUpPayment({
+          paymentReference: booking.paymentReference,
+          customerEmail: customerEmail.trim(),
+          amendmentId: booking.pendingAmendment?.amendmentId,
+        });
+        url = started.paymentUrl;
+        setPaymentRequired((current) =>
+          current
+            ? {
+                ...current,
+                paymentUrl: started.paymentUrl,
+                amountDueLabel: started.amountDueLabel || current.amountDueLabel,
+                payCtaLabel: started.payCtaLabel || current.payCtaLabel,
+                note: started.note || current.note,
+              }
+            : current,
+        );
+      }
+      window.location.href = url;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not start payment.");
+      setPaying(false);
+    }
+  }
+
   return (
     <div className="mx-auto w-full max-w-lg space-y-4">
       <form
@@ -113,24 +252,25 @@ export default function ManageBookingClient() {
         <p className="text-sm text-white/70">
           Enter your payment / booking reference and the email used at checkout.
         </p>
+        <p className="text-xs text-white/45">
+          Online self-service currently supports date and time changes only. Pickup,
+          destination, passengers and luggage changes need My Airport Taxi NI.
+        </p>
         <div>
-          <label className="mb-1.5 block text-xs font-medium text-white/60">
-            Booking reference
-          </label>
+          <label className="mb-1.5 block text-xs text-white/60">Booking / payment reference</label>
           <input
             className={fieldClass}
             value={paymentReference}
             onChange={(e) => setPaymentReference(e.target.value)}
             required
             autoComplete="off"
-            placeholder="Payment reference"
           />
         </div>
         <div>
-          <label className="mb-1.5 block text-xs font-medium text-white/60">Email</label>
+          <label className="mb-1.5 block text-xs text-white/60">Email on the booking</label>
           <input
-            className={fieldClass}
             type="email"
+            className={fieldClass}
             value={customerEmail}
             onChange={(e) => setCustomerEmail(e.target.value)}
             required
@@ -147,51 +287,41 @@ export default function ManageBookingClient() {
       </form>
 
       {error ? (
-        <p className="rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+        <p className="rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-200" role="alert">
           {error}
         </p>
       ) : null}
       {success ? (
-        <p className="rounded-xl border border-emerald/30 bg-emerald/10 px-4 py-3 text-sm text-emerald">
+        <p className="rounded-xl border border-emerald/30 bg-emerald/10 px-4 py-3 text-sm text-emerald-100" role="status">
           {success}
         </p>
       ) : null}
 
       {booking ? (
-        <div className="space-y-4 rounded-2xl border border-white/10 bg-navy-dark/70 p-5 text-sm text-white/80">
+        <div className="space-y-4 rounded-2xl border border-white/10 bg-navy-dark/70 p-5">
           <div>
-            <p className="text-xs uppercase tracking-wider text-white/45">Journey</p>
-            <p className="mt-1 break-words">{booking.pickupLabel}</p>
-            <p className="break-words text-white/55">to {booking.dropoffLabel}</p>
-            <p className="mt-2 font-semibold text-white">
+            <p className="text-xs uppercase tracking-wider text-white/45">Current booking</p>
+            <p className="mt-1 text-lg font-semibold text-white">{booking.customerName}</p>
+            <p className="mt-2 text-sm text-white/75">
+              {booking.pickupLabel} → {booking.dropoffLabel}
+            </p>
+            <p className="mt-1 text-sm text-white/75">
               {booking.tripDate} at {booking.tripTime}
             </p>
-            <p className="mt-1 text-white/55">Paid: {booking.amountPaidLabel}</p>
+            <p className="mt-1 text-sm text-emerald">{booking.amountPaidLabel}</p>
           </div>
 
-          {contactGate || booking.within24HoursOfPickup ? (
+          {contactGate ? (
             <div className="space-y-3 rounded-xl border border-amber-400/30 bg-amber-500/10 p-4">
-              <h2 className="text-lg font-semibold text-white">
-                {contactGate?.headline || booking.within24hHeadline}
-              </h2>
-              <p className="text-white/80">{contactGate?.body || booking.within24hBody}</p>
-              <p className="text-xs text-white/55">
-                Contact Us to Change This Booking — your pickup is within 24 hours, so changes need
-                to be agreed with us directly.
-              </p>
+              <h2 className="text-base font-semibold text-amber-50">{contactGate.headline}</h2>
+              <p className="text-sm text-amber-100/90">{contactGate.body}</p>
               <a
                 href={whatsappUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex w-full items-center justify-center rounded-xl bg-emerald py-3.5 text-sm font-bold text-navy"
               >
-                WhatsApp My Airport Taxi NI
-              </a>
-              <a
-                href={`tel:${SITE.landline}`}
-                className="inline-flex w-full items-center justify-center rounded-xl border border-white/20 py-3 text-sm font-semibold text-white"
-              >
-                Call {SITE.landlineDisplay}
+                Contact Us on WhatsApp
               </a>
               <a
                 href={`mailto:${SITE.email}`}
@@ -200,13 +330,38 @@ export default function ManageBookingClient() {
                 Email {SITE.email}
               </a>
             </div>
+          ) : paymentRequired ? (
+            <div className="space-y-3 rounded-xl border border-emerald/30 bg-emerald/10 p-4">
+              <h2 className="text-lg font-semibold text-white">
+                Your updated journey costs {paymentRequired.fareNewLabel}
+              </h2>
+              <dl className="space-y-2 text-sm text-white/80">
+                <div className="flex justify-between gap-3">
+                  <dt>Already paid</dt>
+                  <dd className="font-semibold text-white">{paymentRequired.farePaidLabel}</dd>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <dt>Amount to pay now</dt>
+                  <dd className="font-semibold text-emerald">{paymentRequired.amountDueLabel}</dd>
+                </div>
+              </dl>
+              <p className="text-xs text-white/60">{paymentRequired.note}</p>
+              <button
+                type="button"
+                disabled={paying || saving}
+                onClick={() => void payDifference()}
+                className="w-full rounded-xl bg-emerald py-3.5 text-sm font-bold text-navy disabled:opacity-70"
+              >
+                {paying ? "Opening secure payment…" : paymentRequired.payCtaLabel}
+              </button>
+            </div>
           ) : (
             <form onSubmit={saveAmendment} className="space-y-3">
               <h2 className="text-lg font-semibold text-white">Change Date or Time</h2>
               <p className="text-xs text-white/55">
                 {booking.freeAmendmentAvailable
                   ? FREE_AMENDMENT_HINT
-                  : "Your free date/time change has already been used. Further changes need our approval."}
+                  : "Your free online change has already been used. Further changes need our approval."}
               </p>
               {!booking.freeAmendmentAvailable ? (
                 <a
@@ -253,29 +408,31 @@ export default function ManageBookingClient() {
             </form>
           )}
 
-          {(booking.dateTimeAmendmentHistory?.length ?? 0) > 0 ? (
-            <div>
-              <p className="text-xs uppercase tracking-wider text-white/45">Amendment history</p>
-              <ul className="mt-2 space-y-2 text-xs text-white/60">
+          {booking.dateTimeAmendmentHistory?.length ? (
+            <div className="border-t border-white/10 pt-3">
+              <p className="text-xs uppercase tracking-wider text-white/45">Change history</p>
+              <ul className="mt-2 space-y-1 text-xs text-white/60">
                 {booking.dateTimeAmendmentHistory.map((entry) => (
                   <li key={`${entry.changedAt}-${entry.newTripDate}-${entry.newTripTime}`}>
                     {entry.previousTripDate} {entry.previousTripTime} → {entry.newTripDate}{" "}
                     {entry.newTripTime} ({entry.changedBy}
-                    {entry.farePreserved === false ? ", fare recalculated" : entry.farePreserved ? ", fare preserved" : ""})
+                    {entry.farePreserved === false
+                      ? ", fare recalculated"
+                      : entry.farePreserved
+                        ? ", fare preserved"
+                        : ""}
+                    )
                   </li>
                 ))}
               </ul>
             </div>
           ) : null}
+
+          <Link href="/#quote" className="block text-center text-sm text-emerald underline">
+            Get a new quote
+          </Link>
         </div>
       ) : null}
-
-      <p className="text-center text-xs text-white/40">
-        <Link href="/terms/" className="underline underline-offset-2">
-          Terms &amp; Conditions
-        </Link>{" "}
-        · cancellation and amendment rules apply
-      </p>
     </div>
   );
 }
