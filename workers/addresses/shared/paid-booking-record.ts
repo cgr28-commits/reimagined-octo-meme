@@ -1,14 +1,15 @@
 import type { RefundAuditEntry, PaidBookingMoneyStatus } from "./refund-ops";
+import type { DateTimeAmendmentAuditEntry } from "./booking-amendment";
 
 export type PaidBookingStatus = PaidBookingMoneyStatus;
 
-/** Owner-only audit entry when a paid booking is edited (never silently overwrite history). */
+/** Owner/customer audit entry when a paid booking is edited (never silently overwrite history). */
 export type PaidBookingEditAuditEntry = {
   changedAt: string;
   field: string;
   previousValue: string;
   newValue: string;
-  changedBy: "Owner";
+  changedBy: "Owner" | "Customer" | "System";
 };
 
 export type PaidBookingRecord = {
@@ -32,6 +33,13 @@ export type PaidBookingRecord = {
   tripTime: string;
   returnDate?: string;
   returnTime?: string;
+  /** Snapshot of the original booked schedule (set on first date/time amendment). */
+  originalTripDate?: string;
+  originalTripTime?: string;
+  /** Count of customer self-service date/time amendments (free quota). */
+  dateTimeAmendmentCount?: number;
+  /** Append-only date/time amendment history (customer + operator). */
+  dateTimeAmendmentHistory?: DateTimeAmendmentAuditEntry[];
   /** Full trip details kept for resend / owner lookup. */
   flightNumber?: string;
   returnFlightNumber?: string;
@@ -67,7 +75,7 @@ export type PaidBookingRecord = {
   refundAmountLabel?: string;
   /** Append-only refund / cancellation audit trail (no secrets). */
   refundHistory?: RefundAuditEntry[];
-  /** Owner-only edit history (append-only). */
+  /** Owner/customer edit history (append-only). */
   editHistory?: PaidBookingEditAuditEntry[];
   /** Personal quote code when this booking used an individually agreed fare. */
   personalQuoteCode?: string;

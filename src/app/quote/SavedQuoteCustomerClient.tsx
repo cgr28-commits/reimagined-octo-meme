@@ -15,10 +15,11 @@ import {
   type BookingDetails,
 } from "@/lib/booking-message";
 import { createPaymentReturnToken, savePendingPayment } from "@/lib/pending-payment";
-import { fetchSavedQuoteByToken, type SavedQuotePublicSummary } from "@/lib/saved-quote-api";
+import { fetchSavedQuoteByToken, requoteSavedQuote, type SavedQuotePublicSummary } from "@/lib/saved-quote-api";
 import { TERMS_LAST_UPDATED } from "@/lib/terms";
 import { CANCELLATION_POLICY_VERSION } from "../../../shared/refund-ops";
 import { getPaymentBookingBlockers } from "../../../shared/paid-booking-gate";
+import { savedQuoteScheduleChanged } from "../../../shared/booking-amendment";
 
 const fieldClass =
   "quote-text-input min-h-12 rounded-xl border border-white/15 bg-navy px-3 text-base text-white placeholder:text-white/35";
@@ -45,6 +46,12 @@ function SavedQuoteInner() {
   const [flightNumber, setFlightNumber] = useState("");
   const [returnFlightNumber, setReturnFlightNumber] = useState("");
   const [termsAccepted, setTermsAccepted] = useState(false);
+  const [tripDate, setTripDate] = useState("");
+  const [tripTime, setTripTime] = useState("");
+  const [displayAmount, setDisplayAmount] = useState<number | null>(null);
+  const [displayAmountLabel, setDisplayAmountLabel] = useState("");
+  const [scheduleChanged, setScheduleChanged] = useState(false);
+  const [requoting, setRequoting] = useState(false);
 
   useEffect(() => {
     const fromUrl = searchParams.get("t")?.trim() ?? readTokenFromLocation();
@@ -72,6 +79,11 @@ function SavedQuoteInner() {
           setCustomerEmail(loaded.quote.customerEmail || "");
           setFlightNumber(loaded.quote.journey.flightNumber || "");
           setReturnFlightNumber(loaded.quote.journey.returnFlightNumber || "");
+          setTripDate(loaded.quote.journey.tripDate);
+          setTripTime(loaded.quote.journey.tripTime);
+          setDisplayAmount(loaded.quote.amount);
+          setDisplayAmountLabel(loaded.quote.amountLabel);
+          setScheduleChanged(false);
           setState("ok");
           return;
         }
@@ -104,6 +116,48 @@ function SavedQuoteInner() {
 
   const journey = quote?.journey;
 
+  const effectiveAmount = displayAmount ?? quote?.amount ?? 0;
+  const effectiveAmountLabel = displayAmountLabel || quote?.amountLabel || "";
+
+  useEffect(() => {
+    if (!quote || state !== "ok") return;
+    const changed = savedQuoteScheduleChanged(quote.journey, { tripDate, tripTime });
+    if (!changed) {
+      setScheduleChanged(false);
+      setDisplayAmount(quote.amount);
+      setDisplayAmountLabel(quote.amountLabel);
+      return;
+    }
+
+    let cancelled = false;
+    (async () => {
+      setRequoting(true);
+      setError("");
+      try {
+        const result = await requoteSavedQuote({
+          token: quote.token,
+          tripDate,
+          tripTime,
+          returnDate: quote.journey.returnDate,
+          returnTime: quote.journey.returnTime,
+        });
+        if (cancelled) return;
+        setScheduleChanged(result.scheduleChanged);
+        setDisplayAmount(result.amount);
+        setDisplayAmountLabel(result.amountLabel);
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : "Could not recalculate this quote.");
+        }
+      } finally {
+        if (!cancelled) setRequoting(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [quote, tripDate, tripTime, state]);
+
   const booking = useMemo((): BookingDetails | null => {
     if (!quote || !journey) return null;
     return {
@@ -114,8 +168,8 @@ function SavedQuoteInner() {
       pickupLabel: journey.pickupLabel,
       dropoffLabel: journey.dropoffLabel,
       returnJourney: Boolean(journey.returnJourney),
-      tripDate: journey.tripDate,
-      tripTime: journey.tripTime,
+      tripDate,
+      tripTime,
       returnDate: journey.returnDate ?? "",
       returnTime: journey.returnTime ?? "",
       flightNumber: flightNumber.trim().toUpperCase(),
@@ -130,7 +184,7 @@ function SavedQuoteInner() {
       isAirportTrip: Boolean(journey.isAirportTrip || journey.airportCode),
       airportCode: journey.airportCode,
       isFromAirport: journey.isFromAirport,
-      estimatedPrice: quote.amountLabel,
+      estimatedPrice: effectiveAmountLabel,
       journeyDistance: journey.journeyDistance,
       journeyDuration: journey.journeyDuration,
       termsAcceptedAt: termsAccepted ? new Date().toISOString() : undefined,
@@ -146,6 +200,9 @@ function SavedQuoteInner() {
     flightNumber,
     returnFlightNumber,
     termsAccepted,
+    tripDate,
+    tripTime,
+    effectiveAmountLabel,
   ]);
 
   async function pay() {
@@ -181,12 +238,12 @@ function SavedQuoteInner() {
     try {
       const returnToken = createPaymentReturnToken();
       const checkout = await createPaymentCheckout({
-        amount: quote.amount,
+        amount: effectiveAmount,
         description: `My Airport Taxi NI booking · ${quote.reference}`,
         redirectUrl: buildPaymentRedirectUrl(returnToken),
         booking,
         savedQuoteToken: quote.token,
-        standardWebsiteAmount: quote.amount,
+        standardWebsiteAmount: effectiveAmount,
       });
       if (checkout.shortNotice && checkout.whatsappUrl) {
         window.location.href = checkout.whatsappUrl;
@@ -200,7 +257,7 @@ function SavedQuoteInner() {
           checkoutId: checkout.checkoutId,
           paymentUrl: checkout.paymentUrl,
           checkoutReference: checkout.checkoutReference,
-          amountLabel: quote.amountLabel,
+          amountLabel: effectiveAmountLabel,
           booking,
         },
         returnToken,
@@ -289,8 +346,17 @@ function SavedQuoteInner() {
       <div className="rounded-2xl border border-white/10 bg-navy-dark/70 p-5 sm:p-6">
         <p className="text-xs font-medium uppercase tracking-wider text-emerald">Saved quote</p>
         <p className="mt-1 font-mono text-sm text-white/55">{quote.reference}</p>
-        <p className="mt-3 text-3xl font-semibold tracking-tight text-white">{quote.amountLabel}</p>
-        <p className="mt-1 text-sm text-white/60">Fixed price · valid until {quote.expiresAtLabel}</p>
+        <p className="mt-3 text-3xl font-semibold tracking-tight text-white">
+          {requoting ? "Updating…" : effectiveAmountLabel}
+        </p>
+        {scheduleChanged ? (
+          <p className="mt-1 text-sm text-amber-200/90">
+            Date/time changed — new calculated price (original locked quote {quote.amountLabel} no
+            longer applies).
+          </p>
+        ) : (
+          <p className="mt-1 text-sm text-white/60">Fixed price · valid until {quote.expiresAtLabel}</p>
+        )}
 
         <dl className="mt-5 space-y-3 text-sm text-white/80">
           <div>
@@ -309,14 +375,32 @@ function SavedQuoteInner() {
           ) : null}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <dt className="text-xs uppercase tracking-wider text-white/45">Date</dt>
-              <dd className="mt-0.5">{journey.tripDate}</dd>
+              <dt className="mb-1 text-xs uppercase tracking-wider text-white/45">Date</dt>
+              <dd>
+                <input
+                  type="date"
+                  className={`${fieldClass} w-full`}
+                  value={tripDate}
+                  onChange={(e) => setTripDate(e.target.value)}
+                />
+              </dd>
             </div>
             <div>
-              <dt className="text-xs uppercase tracking-wider text-white/45">Time</dt>
-              <dd className="mt-0.5">{journey.tripTime}</dd>
+              <dt className="mb-1 text-xs uppercase tracking-wider text-white/45">Time</dt>
+              <dd>
+                <input
+                  type="time"
+                  className={`${fieldClass} w-full`}
+                  value={tripTime}
+                  onChange={(e) => setTripTime(e.target.value)}
+                />
+              </dd>
             </div>
           </div>
+          <p className="text-xs text-white/45">
+            Changing date or time recalculates the fare. The original saved price is not kept after
+            a schedule change.
+          </p>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <dt className="text-xs uppercase tracking-wider text-white/45">Passengers</dt>
@@ -445,7 +529,7 @@ function SavedQuoteInner() {
             accepted={termsAccepted}
             onAcceptedChange={setTermsAccepted}
             mode="card-payment"
-            paymentAmountLabel={quote.amountLabel}
+            paymentAmountLabel={effectiveAmountLabel}
             error={!termsAccepted && error.includes("Terms") ? error : undefined}
           />
 

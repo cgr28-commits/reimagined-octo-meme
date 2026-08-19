@@ -38,6 +38,8 @@ export const SITE_OFFLINE_ALLOWLIST = [
   "/personal-quote",
   "/quick-quote",
   "/book-quote",
+  "/quote",
+  "/manage-booking",
 ] as const;
 
 /**
@@ -453,6 +455,11 @@ export const FAQS = [
     question: "Can I cancel my booking?",
     answer:
       "Cancel more than 24 hours before pickup for a full refund of the fare paid. Cancellations with less than 24 hours’ notice and no-shows are non-refundable. Full details are in our Terms & Conditions.",
+  },
+  {
+    question: "Can I change the date or time of my booking?",
+    answer:
+      "More than 24 hours before pickup you can request one free date/time change (same pickup and destination), subject to availability, via Manage Booking. Within 24 hours, changes cannot be made automatically — contact us on WhatsApp and we’ll do our best to help. Changing a booking does not avoid the cancellation policy. Saved quotes are not bookings: changing the date on a saved quote recalculates the fare.",
   },
   {
     question: "What is included in the price?",

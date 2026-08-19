@@ -353,12 +353,17 @@ export type PaidBookingUpdateFields = Partial<
     | "returnDate"
     | "returnTime"
     | "vehicle"
+    | "originalTripDate"
+    | "originalTripTime"
+    | "dateTimeAmendmentCount"
+    | "dateTimeAmendmentHistory"
   >
 >;
 
 function auditValue(value: unknown): string {
   if (value === undefined || value === null) return "";
   if (typeof value === "boolean") return value ? "Yes" : "No";
+  if (Array.isArray(value)) return JSON.stringify(value);
   return String(value);
 }
 
@@ -366,7 +371,7 @@ export async function updatePaidBookingFields(
   store: KVNamespace,
   paymentReference: string,
   fields: PaidBookingUpdateFields,
-  options?: { appendAudit?: boolean; changedBy?: "Owner" },
+  options?: { appendAudit?: boolean; changedBy?: "Owner" | "Customer" | "System" },
 ): Promise<PaidBookingRecord | null> {
   const record = await getPaidBookingRecord(store, paymentReference);
   if (!record || record.status === "refunded" || record.status === "cancelled") {
@@ -387,6 +392,9 @@ export async function updatePaidBookingFields(
 
   if (options?.appendAudit !== false) {
     for (const [field, newRaw] of Object.entries(cleaned)) {
+      if (field === "dateTimeAmendmentHistory" || field === "dateTimeAmendmentCount") {
+        continue;
+      }
       const previousValue = auditValue((record as Record<string, unknown>)[field]);
       const newValue = auditValue(newRaw);
       if (previousValue === newValue) continue;

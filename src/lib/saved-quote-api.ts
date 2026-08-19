@@ -112,3 +112,39 @@ export async function fetchSavedQuoteByToken(token: string): Promise<FetchSavedQ
     canBook: true,
   };
 }
+
+export type SavedQuoteRequoteResult = {
+  ok: true;
+  scheduleChanged: boolean;
+  amount: number;
+  amountLabel: string;
+  lockedOriginalAmount: number;
+  originalAmountLabel?: string;
+  originalQuoteUntouched?: boolean;
+  tripDate?: string;
+  tripTime?: string;
+};
+
+/** Recalculate fare for a saved quote after a date/time change (does not mutate locked KV price). */
+export async function requoteSavedQuote(input: {
+  token: string;
+  tripDate: string;
+  tripTime: string;
+  returnDate?: string;
+  returnTime?: string;
+}): Promise<SavedQuoteRequoteResult> {
+  const response = await fetch(`${WORKER_BASE}/saved-quotes/requote`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify(input),
+    cache: "no-store",
+  });
+  const payload = await parseJson(response);
+  if (!response.ok) {
+    throw new Error(String(payload.error || "Could not recalculate this quote."));
+  }
+  return payload as unknown as SavedQuoteRequoteResult;
+}
