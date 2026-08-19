@@ -390,7 +390,11 @@ export function formatCalendarMonthHeading(monthYmd: string): string {
 }
 
 export function defaultMobileCalendarView(): CalendarViewMode {
-  return "day";
+  return "month";
+}
+
+export function defaultOwnerCalendarView(): CalendarViewMode {
+  return "month";
 }
 
 export function rangeForView(

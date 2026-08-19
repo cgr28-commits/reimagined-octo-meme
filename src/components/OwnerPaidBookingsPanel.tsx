@@ -16,6 +16,7 @@ import {
   activeLegPickupLabel,
   buildArrivedPickupWhatsAppLink,
   buildArrivedPickupWhatsAppMessage,
+  buildDriverOnTheWayWhatsAppLink,
   isAirportPickupLabel,
   type ArrivalVehicleDetails,
 } from "../../shared/arrival-whatsapp";
@@ -51,6 +52,7 @@ import {
   remainingRefundableBalance,
   roundGbp,
 } from "../../shared/refund-ops";
+import { SERVICE_FLAGS } from "@/lib/data";
 
 type OwnerPaidBookingsPanelProps = {
   ownerKey: string;
@@ -161,6 +163,15 @@ async function openArrivalWhatsAppForBooking(
     vehicle,
   });
   openWhatsAppDeepLink(buildArrivedPickupWhatsAppLink(mobile, message));
+  return "opened";
+}
+
+function openOnTheWayWhatsAppForBooking(
+  booking: OwnerPaidBookingSummary,
+): "opened" | "no_mobile" {
+  const mobile = bookingCustomerMobile(booking);
+  if (!mobile) return "no_mobile";
+  openWhatsAppDeepLink(buildDriverOnTheWayWhatsAppLink(mobile));
   return "opened";
 }
 
@@ -1157,6 +1168,29 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
                 : `Arrived at pickup recorded.${notify}`,
           );
         }
+      } else if (action === "start_tracking") {
+        const notify =
+          result.onTheWayNotificationStatus === "sent"
+            ? " Customer emailed (Driver on the way)."
+            : result.onTheWayNotificationStatus === "failed"
+              ? " On-the-way email failed."
+              : result.onTheWayNotificationStatus === "not_configured"
+                ? " On-the-way email not configured."
+                : "";
+        const wa = openOnTheWayWhatsAppForBooking(booking);
+        setMessage(
+          result.idempotent
+            ? `Already marked Driver on the way.${notify}${
+                wa === "opened"
+                  ? " WhatsApp opened — press Send (live location stays manual in WhatsApp)."
+                  : " No customer mobile on this booking for WhatsApp."
+              }`
+            : `Driver on the way recorded.${notify}${
+                wa === "opened"
+                  ? " WhatsApp opened — press Send (live location stays manual in WhatsApp)."
+                  : " No customer mobile on this booking for WhatsApp."
+              }`,
+        );
       } else if (options?.retryArrivalNotification) {
         setMessage(
           result.arrivalNotificationStatus === "sent"
@@ -1272,7 +1306,10 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
       primaryActions.push({ action: "complete_journey", label: "Complete Journey" });
     } else if (status !== "completed" && !isOperationallyCancelled(booking.status)) {
       // idle / stopped / tracking — Arrived must be visible (not only after Start Live Tracking).
-      // Arrived is listed before Complete Journey.
+      // Driver on the way (status + email) before Arrived; Arrived before Complete Journey.
+      if (status === "idle" || status === "stopped") {
+        primaryActions.push({ action: "start_tracking", label: "Driver on the way" });
+      }
       primaryActions.push({ action: "arrived_pickup", label: "🚕 Arrived at Pickup" });
       if (status === "idle" || status === "stopped") {
         primaryActions.push({ action: "complete_journey", label: "Complete Journey" });
@@ -1383,8 +1420,9 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
         </div>
         {status !== "completed" && status !== "arrived_pickup" && status !== "arrived_destination" ? (
           <p className="mt-2 text-xs text-white/45">
-            Ideal flow: Start Live Tracking (GPS) → Arrived at Pickup (records time, emails customer,
-            opens WhatsApp — you press Send) → Complete Journey when finished.
+            Ideal flow: Driver on the way (emails customer) → Arrived at Pickup (records time, emails
+            customer, opens WhatsApp — you press Send) → Complete Journey when finished. Live location
+            sharing stays manual in WhatsApp — no website track link.
           </p>
         ) : null}
         {status === "arrived_pickup" ? (
@@ -1637,6 +1675,7 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
 
         {!isClosed ? (
           <>
+            {SERVICE_FLAGS.liveDriverTracking ? (
             <PaidBookingLiveTracking
               ownerKey={ownerKey}
               booking={booking}
@@ -1663,6 +1702,7 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
                 );
               }}
             />
+            ) : null}
 
             <div className="mt-4 space-y-4">
               {renderJourneyControls(booking)}
@@ -1935,8 +1975,8 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
           <p className="mt-2 max-w-2xl text-sm text-white/65">
             Unfinished paid journeys only, ordered by the next leg due. Completed trips move to{" "}
             <span className="text-white/85">Completed Jobs</span> below (records are kept). Use{" "}
-            <span className="text-white/85">Start Live Tracking</span> for GPS, then Journey
-            controls for arrival and completion.
+            <span className="text-white/85">Driver on the way</span> then{" "}
+            <span className="text-white/85">Arrived at Pickup</span> for customer updates.
           </p>
           <p className="mt-2 text-xs text-amber-100/80">
             Need a controlled £1 live SumUp refund smoke test?{" "}

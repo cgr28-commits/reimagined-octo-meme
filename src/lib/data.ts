@@ -60,8 +60,11 @@ export const SERVICE_FLAGS = {
    * (Standard Saloon / Estate / Minibus). Enquiry-only vehicles still use Request to book.
    */
   customerSumUpPay: true,
-  /** Live driver tracking marketing + customer track links + dashboard journey controls. */
-  liveDriverTracking: true,
+  /**
+   * Soft-hide customer website live tracking (homepage section, nav, /track map).
+   * Journey status actions (Driver on the way / Arrived) stay available on driver/owner dashboards.
+   */
+  liveDriverTracking: false,
   /** Public driver dashboard — enabled for journey tracking on phone. */
   driverDashboard: true,
 } as const;
@@ -339,9 +342,9 @@ export const WHY_CHOOSE_US = [
       "We monitor your flight where possible and adjust the planned collection time for early or delayed arrivals. Airport pickups include 60 minutes complimentary waiting time.",
   },
   {
-    title: "Live driver tracking",
+    title: "Driver updates on travel day",
     description:
-      "Pay online and receive a tracking link with your invoice. On travel day, follow your driver's live location when they're on the way to you.",
+      "On travel day we email you when your driver is on the way. Your driver may also share their live location with you via WhatsApp when appropriate.",
   },
   {
     title: "Meet & greet available",
@@ -372,19 +375,19 @@ export const WHY_CHOOSE_US = [
 
 export const DRIVER_TRACKING_HIGHLIGHTS = [
   {
-    title: "Included with online payment",
+    title: "Driver on the way email",
     description:
-      "When you pay by card through our website, your invoice email includes a personal tracking link — at no extra charge.",
+      "When your driver is coming to collect you, we send a Driver on the way email so you know they are en route.",
   },
   {
-    title: "Active on travel day",
+    title: "WhatsApp when appropriate",
     description:
-      "The link is ready when you book, but live tracking opens on the day of your transfer, from about one hour before pickup.",
+      "Your driver may share their live location with you via WhatsApp when appropriate. Live location sharing stays manual inside WhatsApp.",
   },
   {
-    title: "See your driver en route",
+    title: "Arrived at pickup message",
     description:
-      "Once your driver starts sharing their location, you can follow them on a map — ideal for airport pickups and early-morning transfers.",
+      "When your driver arrives, you receive an arrival update and can continue on WhatsApp if you need anything.",
   },
 ] as const;
 
@@ -485,7 +488,7 @@ export const FAQS = [
   {
     question: "Can I track my driver on the day of travel?",
     answer:
-      "When you pay online by card, your invoice includes a live tracking link. On travel day, the page opens about one hour before your scheduled pickup so you can follow your driver on a map.",
+      "On travel day we email you when your driver is on the way. Your driver may share their live location with you via WhatsApp when appropriate. We do not use a website live-tracking page.",
   },
   {
     question: "What currency are prices quoted in?",

@@ -1,50 +1,51 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
-import TrackPageClient from "./TrackPageClient";
+import { SITE } from "@/lib/data";
 
-function readTokenFromLocation(): string {
-  if (typeof window === "undefined") {
-    return "";
-  }
-
-  return new URLSearchParams(window.location.search).get("id")?.trim() ?? "";
-}
-
-function TrackPageContent() {
-  const searchParams = useSearchParams();
-  const [token, setToken] = useState(() => searchParams.get("id")?.trim() ?? "");
-
-  useEffect(() => {
-    const fromUrl = searchParams.get("id")?.trim() ?? readTokenFromLocation();
-    if (fromUrl) {
-      setToken(fromUrl);
-    }
-  }, [searchParams]);
-
-  if (!token) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-navy px-4 text-center text-white/70">
-        Missing tracking link. Please use the link from your booking confirmation.
-      </main>
-    );
-  }
-
-  return <TrackPageClient token={token} />;
+/**
+ * Customer website live-tracking map is retired.
+ * Travel-day updates use Driver on the way email + optional WhatsApp live location.
+ */
+function TrackRetiredNotice() {
+  return (
+    <main className="flex min-h-screen items-center justify-center bg-navy px-4 py-16 text-center">
+      <div className="mx-auto max-w-md rounded-2xl border border-white/10 bg-navy-dark/60 px-6 py-8">
+        <p className="text-xs font-semibold uppercase tracking-wider text-emerald">
+          {SITE.name}
+        </p>
+        <h1 className="mt-3 text-2xl font-semibold text-white">Driver updates by email &amp; WhatsApp</h1>
+        <p className="mt-4 text-sm leading-relaxed text-white/70">
+          We no longer use a website live-tracking page. On travel day we email you when your
+          driver is on the way. Your driver may share their live location with you via WhatsApp
+          when appropriate.
+        </p>
+        <a
+          href={`https://wa.me/${SITE.whatsapp}?text=${encodeURIComponent("Hi, I have a question about my booking.")}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-6 inline-flex min-h-11 items-center justify-center rounded-xl bg-emerald px-5 py-3 text-sm font-bold text-navy"
+        >
+          Message us on WhatsApp
+        </a>
+        <p className="mt-4 text-xs text-white/45">
+          Or call {SITE.landlineDisplay}
+        </p>
+      </div>
+    </main>
+  );
 }
 
 export default function TrackPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex min-h-screen items-center justify-center bg-navy text-white/70">
+        <main className="flex min-h-screen items-center justify-center bg-navy text-white/60">
           Loading…
-        </div>
+        </main>
       }
     >
-      <TrackPageContent />
+      <TrackRetiredNotice />
     </Suspense>
   );
 }

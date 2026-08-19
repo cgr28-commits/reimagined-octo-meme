@@ -108,6 +108,14 @@ export type TrackingJobRecord = {
   arrivalNotificationSentAt?: string;
   arrivalNotificationProvider?: "email" | "sms" | "whatsapp";
   arrivalNotificationError?: string;
+  /**
+   * Driver-on-the-way customer notification (idempotent).
+   * Email/status only — no website live-tracking link and no automated WhatsApp Live Location.
+   */
+  onTheWayNotificationStatus?: "sent" | "failed" | "not_configured" | "skipped";
+  onTheWayNotificationSentAt?: string;
+  onTheWayNotificationProvider?: "email" | "sms" | "whatsapp";
+  onTheWayNotificationError?: string;
 };
 
 export type DriverLocationPoint = {

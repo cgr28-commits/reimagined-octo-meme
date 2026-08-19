@@ -67,66 +67,49 @@ function baseJob(overrides: Partial<TrackingJobRecord> = {}): TrackingJobRecord 
   };
 }
 
-console.log("=== Initial confirmation includes tracking URL ===");
+console.log("=== Initial confirmation omits website track CTA ===");
 {
   const token = generateTrackingToken();
   const trackUrl = buildPublicTrackUrl(token);
   const email = buildCustomerConfirmationEmail(sampleReceipt, "My Airport Taxi NI", {
     trackUrl,
   });
-  assert.match(email.html, /Track Your Driver/);
-  assert.match(email.html, new RegExp(token));
-  assert.match(email.html, /\/track\/\?id=/);
-  assert.match(email.text, new RegExp(token));
+  assert.doesNotMatch(email.html, /Track Your Driver/);
+  assert.doesNotMatch(email.html, /LIVE DRIVER TRACKING/i);
+  assert.doesNotMatch(email.text, /LIVE DRIVER TRACKING/);
   assert.doesNotMatch(email.html, /OWNER_ACCESS_KEY|DRIVER_ACCESS_KEY/);
   assert.doesNotMatch(email.text, /OWNER_ACCESS_KEY|DRIVER_ACCESS_KEY/);
-  console.log("OK  initial confirmation HTML/text include secure track URL + CTA");
+  console.log("OK  confirmation ignores trackUrl — no customer website track CTA");
 }
 
-console.log("\n=== Resend path resolves and passes trackUrl ===");
+console.log("\n=== Resend path still uses confirmation builders ===");
 {
   const resend = read("workers/addresses/src/paid-booking-handlers.ts");
-  assert.match(resend, /resolvePaidBookingTrackUrl/);
-  assert.match(resend, /buildCustomerConfirmationEmail\(receipt, BUSINESS_NAME, \{/);
-  assert.match(resend, /trackUrl,/);
-  assert.match(resend, /resolveEmailTrackUrl/);
-  // Must not call confirmation builder without options after the resend fix.
-  assert.doesNotMatch(
-    resend,
-    /const customerEmail = buildCustomerConfirmationEmail\(receipt, BUSINESS_NAME\);/,
-  );
-  console.log("OK  resend confirmation passes current trackUrl into email builder");
+  assert.match(resend, /buildCustomerConfirmationEmail|buildUpdatedBookingConfirmationEmail/);
+  console.log("OK  paid-booking handlers keep confirmation email builders");
 }
 
-console.log("\n=== Finalize initial confirmation still passes trackUrl ===");
+console.log("\n=== Finalize still calls confirmation builder ===");
 {
   const finalize = read("workers/addresses/src/finalize-paid-checkout.ts");
-  assert.match(
-    finalize,
-    /buildCustomerConfirmationEmail\(receipt, BUSINESS_NAME, \{\s*trackUrl: tracking\.trackUrl/,
-  );
-  console.log("OK  paid finalize includes tracking.trackUrl in customer confirmation");
+  assert.match(finalize, /buildCustomerConfirmationEmail\(receipt, BUSINESS_NAME/);
+  console.log("OK  paid finalize still builds customer confirmation");
 }
 
-console.log("\n=== 60-minute reminder sends once ===");
+console.log("\n=== Website tracking reminder cron is retired ===");
 {
+  const handlers = read("workers/addresses/src/tracking-reminder-handlers.ts");
+  assert.match(handlers, /Customer website live-tracking reminders are retired/);
+  assert.match(handlers, /processDueTrackingAvailableReminders/);
+  // Builder retained for offline/legacy tests but cron no longer sends.
   const token = generateTrackingToken();
   const trackUrl = buildPublicTrackUrl(token);
   const job = baseJob({
     token,
     pickupAt: "2026-09-01T10:00",
   });
-
-  // 90 minutes before pickup — too early
-  const tooEarly = Date.parse("2026-09-01T08:30:00+01:00");
-  assert.equal(isTrackingAvailableReminderDue(job.pickupAt, tooEarly), false);
-  assert.equal(evaluateTrackingAvailableReminder(job, tooEarly), "not_eligible");
-
-  // ~60 minutes before — window open
   const windowOpen = Date.parse("2026-09-01T09:05:00+01:00");
-  assert.equal(isTrackingAvailableReminderDue(job.pickupAt, windowOpen), true);
   assert.equal(evaluateTrackingAvailableReminder(job, windowOpen), "eligible");
-
   const reminder = buildTrackingReminderEmail(
     {
       customerName: job.customerName,
@@ -138,18 +121,8 @@ console.log("\n=== 60-minute reminder sends once ===");
     },
     trackUrl,
   );
-  assert.match(reminder.subject, /Your driver tracking is now available/);
   assert.match(reminder.html, /Track Your Driver/);
-  assert.match(reminder.html, /My Airport Taxi NI/);
-  assert.match(reminder.html, /Alex Example/);
-  assert.match(reminder.html, /T3TESTREF/);
-  assert.match(reminder.html, new RegExp(token));
-  assert.match(reminder.text, /Track Your Driver/);
-
-  // Already sent — never eligible again
-  const sentJob = { ...job, sharingReminderSentAt: new Date(windowOpen).toISOString() };
-  assert.equal(evaluateTrackingAvailableReminder(sentJob, windowOpen), "not_eligible");
-  console.log("OK  reminder due at ~1h, branded once, skipped after sent flag");
+  console.log("OK  reminder builder retained offline; live cron path is no-op");
 }
 
 console.log("\n=== Expired / revoked token is not emailed ===");
@@ -181,7 +154,7 @@ console.log("\n=== Expired / revoked token is not emailed ===");
   console.log("OK  missing/refunded tokens yield no email URL");
 }
 
-console.log("\n=== Customer cannot access other bookings (token isolation) ===");
+console.log("\n=== Customer website track page is retired ===");
 {
   const a = generateTrackingToken();
   const b = generateTrackingToken();
@@ -189,36 +162,24 @@ console.log("\n=== Customer cannot access other bookings (token isolation) ===")
   const urlA = buildPublicTrackUrl(a);
   const urlB = buildPublicTrackUrl(b);
   assert.notEqual(urlA, urlB);
-  assert.match(urlA, new RegExp(`id=${a}`));
-  assert.doesNotMatch(urlA, new RegExp(b));
 
-  const trackHandlers = read("workers/addresses/src/tracking-handlers.ts");
-  assert.match(trackHandlers, /handlePublicTrackRequest/);
-  assert.match(trackHandlers, /getTrackingJob\(env\.TRACKING_STORE, trimmed\)/);
-  assert.doesNotMatch(
-    trackHandlers,
-    /handlePublicTrackRequest[\s\S]{0,400}paymentReference.*getPaidBookingRecord/,
-  );
-
-  const page = read("src/app/track/TrackPageClient.tsx");
-  assert.match(
-    page,
-    /Live driver tracking will become available approximately 1 hour before your scheduled pickup\./,
-  );
-  assert.match(page, /Your driver has not started live tracking yet/);
-  console.log("OK  public track is token-scoped; early/not-started copy present");
+  const page = read("src/app/track/page.tsx");
+  assert.match(page, /Driver updates by email/);
+  assert.doesNotMatch(page, /TrackPageClient/);
+  assert.match(page, /Message us on WhatsApp/);
+  console.log("OK  /track no longer mounts live map client");
 }
 
-console.log("\n=== Cron wired for tracking-available reminders ===");
+console.log("\n=== Cron still calls reminder processor (now a no-op) ===");
 {
   const index = read("workers/addresses/src/index.ts");
   assert.match(index, /processDueTrackingAvailableReminders/);
-  assert.match(index, /Tracking available reminder cron/);
-  // Driver share toggle must not send the old start-sharing reminder (avoids duplicates).
+  const handlers = read("workers/addresses/src/tracking-reminder-handlers.ts");
+  assert.match(handlers, /Customer website live-tracking reminders are retired/);
   const sharing = read("workers/addresses/src/tracking-handlers.ts");
   assert.doesNotMatch(sharing, /sendSharingReminderEmail/);
   assert.doesNotMatch(sharing, /buildTrackingReminderEmail/);
-  console.log("OK  hourly cron sends window reminder; driver-start email removed");
+  console.log("OK  cron entry retained; live reminder sends disabled");
 }
 
 console.log("\n=== Tracking window opens ~60 minutes before pickup ===");

@@ -117,3 +117,21 @@ export function buildArrivedPickupWhatsAppLink(
   const text = encodeURIComponent(message);
   return waNumber ? `https://wa.me/${waNumber}?text=${text}` : `https://wa.me/?text=${text}`;
 }
+
+/**
+ * Optional pre-filled WhatsApp for Driver on the way.
+ * Manual Send only — does not automate WhatsApp Live Location.
+ */
+export function buildDriverOnTheWayWhatsAppMessage(): string {
+  return [
+    "🚗 Driver on the way",
+    "",
+    "Your My Airport Taxi NI driver is on the way to collect you.",
+    "",
+    "Your driver may share their live location with you via WhatsApp when appropriate.",
+  ].join("\n");
+}
+
+export function buildDriverOnTheWayWhatsAppLink(customerMobile: string): string {
+  return buildArrivedPickupWhatsAppLink(customerMobile, buildDriverOnTheWayWhatsAppMessage());
+}
