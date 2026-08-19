@@ -38,6 +38,7 @@ import {
   type RefundReasonCategory,
   REFUND_REASON_CATEGORIES,
 } from "../shared/refund-ops";
+import { shouldMarkTrackingJobsOnRefundSideEffects } from "../shared/refund-tracking-side-effects";
 import {
   getSumUpCheckout,
   getSuccessfulTransactionId,
@@ -1140,44 +1141,52 @@ async function completeRefundSideEffects(
     } else if (calendarConfigured(env)) {
       warnings.push("No stored calendar event ids — calendar entry may remain");
     }
+  }
 
-    if (trackingStoreConfigured(env.TRACKING_STORE)) {
-      const paymentRef = input.paymentReference.trim();
-      const jobsByRef = await findTrackingJobsByPaymentReference(
-        env.TRACKING_STORE,
-        paymentRef,
-      );
-      const tokens = new Set<string>(jobsByRef.map((job) => job.token));
+  // Tracking jobs: mark on operational cancel, AND on owner isRefundTest keep-active
+  // refunds (refund-test UI forces cancelBooking=false so isolation jobs would
+  // otherwise never receive refundedAt). Real customer keep-active refunds are
+  // unchanged — journey can remain live without stamping tracking refunded.
+  const shouldMarkTrackingRefunded = shouldMarkTrackingJobsOnRefundSideEffects({
+    cancelBooking: input.cancelBooking,
+    isRefundTest: record.isRefundTest,
+  });
+  if (shouldMarkTrackingRefunded && trackingStoreConfigured(env.TRACKING_STORE)) {
+    const paymentRef = input.paymentReference.trim();
+    const jobsByRef = await findTrackingJobsByPaymentReference(
+      env.TRACKING_STORE,
+      paymentRef,
+    );
+    const tokens = new Set<string>(jobsByRef.map((job) => job.token));
 
-      // trackingToken is only a hint — verify it belongs to this paymentReference.
-      const hintedToken = record.trackingToken?.trim();
-      if (hintedToken) {
-        const hinted = await getTrackingJob(env.TRACKING_STORE, hintedToken);
-        if (hinted && hinted.paymentReference?.trim() === paymentRef) {
-          tokens.add(hinted.token);
-        } else if (hinted && hinted.paymentReference?.trim()) {
-          warnings.push(
-            `Skipped tracking token ${hintedToken.slice(0, 8)}… — paymentReference mismatch (not mutating other booking)`,
-          );
-        }
-      }
-
-      if (tokens.size === 0 && hintedToken) {
-        // Legacy jobs with no paymentReference on the tracking record: mark only that token.
-        const hinted = await getTrackingJob(env.TRACKING_STORE, hintedToken);
-        if (hinted && !hinted.paymentReference?.trim()) {
-          tokens.add(hinted.token);
-        }
-      }
-
-      for (const token of tokens) {
-        const ok = await markTrackingJobRefunded(
-          env.TRACKING_STORE,
-          token,
-          input.refundAmount > 0 ? input.refundAmountLabel : "Cancelled",
+    // trackingToken is only a hint — verify it belongs to this paymentReference.
+    const hintedToken = record.trackingToken?.trim();
+    if (hintedToken) {
+      const hinted = await getTrackingJob(env.TRACKING_STORE, hintedToken);
+      if (hinted && hinted.paymentReference?.trim() === paymentRef) {
+        tokens.add(hinted.token);
+      } else if (hinted && hinted.paymentReference?.trim()) {
+        warnings.push(
+          `Skipped tracking token ${hintedToken.slice(0, 8)}… — paymentReference mismatch (not mutating other booking)`,
         );
-        if (ok) trackingMarkedRefunded = true;
       }
+    }
+
+    if (tokens.size === 0 && hintedToken) {
+      // Legacy jobs with no paymentReference on the tracking record: mark only that token.
+      const hinted = await getTrackingJob(env.TRACKING_STORE, hintedToken);
+      if (hinted && !hinted.paymentReference?.trim()) {
+        tokens.add(hinted.token);
+      }
+    }
+
+    for (const token of tokens) {
+      const ok = await markTrackingJobRefunded(
+        env.TRACKING_STORE,
+        token,
+        input.refundAmount > 0 ? input.refundAmountLabel : "Cancelled",
+      );
+      if (ok) trackingMarkedRefunded = true;
     }
   }
 
