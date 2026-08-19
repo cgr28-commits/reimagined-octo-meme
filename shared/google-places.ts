@@ -928,9 +928,30 @@ export const ALLOWED_ORIGINS = [
   "http://127.0.0.1:3000",
 ];
 
+/**
+ * Isolated Cloudflare Pages preview project for draft-PR smoke tests.
+ * Must never be used as a substitute for relaxing github-pages branch protection.
+ */
+export const PREVIEW_PAGES_PROJECT_HOST = "my-airport-taxi-ni-preview.pages.dev";
+
+export function isAllowedBrowserOrigin(origin: string | null | undefined): boolean {
+  if (!origin) return false;
+  if (ALLOWED_ORIGINS.includes(origin)) return true;
+  try {
+    const url = new URL(origin);
+    if (url.protocol !== "https:") return false;
+    const host = url.hostname.toLowerCase();
+    return (
+      host === PREVIEW_PAGES_PROJECT_HOST ||
+      host.endsWith(`.${PREVIEW_PAGES_PROJECT_HOST}`)
+    );
+  } catch {
+    return false;
+  }
+}
+
 export function corsHeaders(origin: string | null): HeadersInit {
-  const allowedOrigin =
-    origin && ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+  const allowedOrigin = isAllowedBrowserOrigin(origin) ? origin! : ALLOWED_ORIGINS[0];
 
   return {
     "Access-Control-Allow-Origin": allowedOrigin,
