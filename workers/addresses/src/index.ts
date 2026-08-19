@@ -2039,6 +2039,7 @@ async function handlePaymentConfirmRequest(
         paid: true,
         amountPaid: result.amountPaid,
         paymentReference: result.paymentReference,
+        ...(result.customerReference ? { customerReference: result.customerReference } : {}),
         emailSent: result.emailSent,
         customerEmailSent: result.customerEmailSent,
         ownerEmailSent: result.ownerEmailSent,

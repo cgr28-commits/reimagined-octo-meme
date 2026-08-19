@@ -40,8 +40,10 @@ import {
   transferEventEndDateTime,
 } from "./google-calendar";
 import {
+  ensureCustomerBookingReference,
   getPaidBookingRecord,
   paidBookingStoreConfigured,
+  resolvePaidBookingForCustomerLookup,
   updatePaidBookingFields,
 } from "./paid-booking-store";
 import { getPendingCheckout } from "./pending-checkout-store";
@@ -93,6 +95,7 @@ function publicAmendmentSummary(record: PaidBookingRecord) {
   const pending = record.pendingAmendment;
   return {
     paymentReference: record.paymentReference,
+    customerReference: record.customerReference || undefined,
     customerName: record.customerName,
     customerEmail: record.customerEmail,
     tripDate: record.tripDate,
@@ -178,7 +181,9 @@ export async function handleCustomerAmendLookup(
     return jsonResponse({ error: "Invalid JSON body." }, 400, origin);
   }
 
-  const paymentReference = String(body.paymentReference ?? "").trim();
+  const paymentReference = String(
+    body.paymentReference ?? body.customerReference ?? body.bookingReference ?? "",
+  ).trim();
   const customerEmail = String(body.customerEmail ?? "").trim().toLowerCase();
   if (!paymentReference || !customerEmail) {
     return jsonResponse(
@@ -188,7 +193,7 @@ export async function handleCustomerAmendLookup(
     );
   }
 
-  const record = await getPaidBookingRecord(env.TRACKING_STORE, paymentReference);
+  let record = await resolvePaidBookingForCustomerLookup(env.TRACKING_STORE, paymentReference);
   if (!record || !emailsMatch(record.customerEmail, customerEmail)) {
     return jsonResponse(
       { error: "We could not find a booking with that reference and email." },
@@ -196,6 +201,8 @@ export async function handleCustomerAmendLookup(
       origin,
     );
   }
+
+  record = await ensureCustomerBookingReference(env.TRACKING_STORE, record);
 
   return jsonResponse({ ok: true, booking: publicAmendmentSummary(record) }, 200, origin);
 }

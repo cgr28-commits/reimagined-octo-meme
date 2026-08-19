@@ -53,7 +53,13 @@ export type PaidBookingDetails = {
 
 export type PaidBookingReceipt = PaidBookingDetails & {
   amountPaid: string;
+  /**
+   * Internal / SumUp payment key (transaction code or checkout ref).
+   * Prefer {@link customerReference} for customer-facing “Booking reference”.
+   */
   paymentReference: string;
+  /** Short customer-facing booking reference (MAT-4827). */
+  customerReference?: string;
   transactionCode?: string;
   checkoutReference?: string;
 };
@@ -179,7 +185,9 @@ function invoiceRows(details: PaidBookingReceipt): Array<{ label: string; value:
     });
   }
 
-  if (details.checkoutReference) {
+  if (details.customerReference?.trim()) {
+    rows.unshift({ label: "Booking reference", value: details.customerReference.trim().toUpperCase() });
+  } else if (details.checkoutReference) {
     rows.push({ label: "Booking reference", value: details.checkoutReference });
   }
 
@@ -209,7 +217,10 @@ function buildInvoiceHtml(
   businessName: string,
   trackUrl?: string,
 ): string {
-  const invoiceNumber = escapeHtml(details.paymentReference);
+  const customerRef =
+    details.customerReference?.trim().toUpperCase() ||
+    details.checkoutReference?.trim() ||
+    "";
   const customerName = escapeHtml(details.customerName);
   const rowsHtml = invoiceRows(details)
     .map(
@@ -235,11 +246,21 @@ function buildInvoiceHtml(
               <img src="${LOGO_URL}" alt="${escapeHtml(businessName)}" height="72" style="display:block;margin:0 auto;height:72px;width:auto;max-width:100%;" />
               <div style="margin-top:16px;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:${ACCENT};font-weight:bold;">Invoice &amp; booking confirmation</div>
               <div style="margin-top:8px;font-size:22px;line-height:1.35;color:#ffffff;font-weight:bold;">Thank you, ${customerName}</div>
+              ${
+                customerRef
+                  ? `<div style="margin-top:14px;display:inline-block;background:rgba(16,185,129,0.15);border:1px solid ${ACCENT};border-radius:10px;padding:10px 16px;font-size:15px;color:#ffffff;"><span style="color:${ACCENT};font-size:11px;letter-spacing:0.08em;text-transform:uppercase;font-weight:bold;">Booking reference</span><br /><span style="font-size:22px;font-weight:bold;letter-spacing:0.04em;">${escapeHtml(customerRef)}</span></div>`
+                  : ""
+              }
             </td>
           </tr>
           <tr>
             <td style="padding:28px 32px 8px;font-size:15px;line-height:1.7;color:#334155;">
               <p style="margin:0 0 16px;">Your card payment has been received and your airport transfer with <strong style="color:${NAVY};">${escapeHtml(businessName)}</strong> is confirmed. Please keep this invoice for your records.</p>
+              ${
+                customerRef
+                  ? `<p style="margin:0 0 16px;font-size:15px;"><strong style="color:${NAVY};">Booking reference:</strong> ${escapeHtml(customerRef)}</p>`
+                  : ""
+              }
             </td>
           </tr>
           <tr>
@@ -251,10 +272,8 @@ function buildInvoiceHtml(
                     <div style="font-size:28px;font-weight:bold;color:${NAVY};line-height:1.2;margin-bottom:12px;">${escapeHtml(details.amountPaid)}</div>
                     <div style="display:inline-block;background:${ACCENT};color:${NAVY};font-size:12px;font-weight:bold;letter-spacing:0.06em;text-transform:uppercase;padding:6px 12px;border-radius:999px;margin-bottom:12px;">Paid in full</div>
                     <div style="font-size:14px;line-height:1.8;color:#475569;">
-                      <strong>Invoice / payment reference:</strong> ${invoiceNumber}<br />
-                      ${details.checkoutReference ? `<strong>Booking reference:</strong> ${escapeHtml(details.checkoutReference)}<br />` : ""}
+                      ${customerRef ? `<strong>Booking reference:</strong> ${escapeHtml(customerRef)}<br />` : ""}
                       <strong>Payment method:</strong> Card (SumUp)<br />
-                      ${details.transactionCode ? `<strong>Transaction code:</strong> ${escapeHtml(details.transactionCode)}<br />` : ""}
                       <strong>Status:</strong> Paid &amp; confirmed
                     </div>
                   </td>
@@ -357,22 +376,29 @@ export function buildCustomerConfirmationEmail(
   options?: { trackUrl?: string },
 ): CustomerPaidBookingEmail {
   const trackUrl = options?.trackUrl?.trim();
-  const subject = `Invoice & booking confirmed — ${businessName}`;
+  const customerRef =
+    details.customerReference?.trim().toUpperCase() ||
+    details.checkoutReference?.trim() ||
+    "";
+  const subject = customerRef
+    ? `Invoice & booking confirmed — ${customerRef}`
+    : `Invoice & booking confirmed — ${businessName}`;
 
   const text =
     `Dear ${details.customerName},\n\n` +
     `Thank you for your booking with ${businessName}. Your card payment has been received and your transfer is confirmed.\n\n` +
+    (customerRef ? `Booking reference: ${customerRef}\n\n` : "") +
     `${BUSINESS_WEBSITE}\n` +
     `Phone: ${BUSINESS_PHONE_DISPLAY}\n` +
     `Email: ${BUSINESS_EMAIL}\n\n` +
     `Please find your invoice details below.\n\n` +
     `BOOKING DETAILS\n` +
     `${"=".repeat(40)}\n` +
+    (customerRef ? `Booking reference: ${customerRef}\n` : "") +
     `Customer: ${details.customerName}\n` +
     `Email: ${details.customerEmail}\n` +
     `Mobile: ${details.mobileNumber || "Not provided"}\n` +
     `${formatTripSchedule(details)}\n` +
-    (details.checkoutReference ? `Booking reference: ${details.checkoutReference}\n` : "") +
     `\n` +
     `${formatEmailFareIncludesBlock(
       resolveJourneyInclusions({
@@ -387,8 +413,7 @@ export function buildCustomerConfirmationEmail(
     `PAYMENT / INVOICE\n` +
     `${"=".repeat(40)}\n` +
     `Amount paid: ${details.amountPaid}\n` +
-    `Invoice / payment reference: ${details.paymentReference}\n` +
-    (details.transactionCode ? `Transaction code: ${details.transactionCode}\n` : "") +
+    (customerRef ? `Booking reference: ${customerRef}\n` : "") +
     `Payment method: Card (SumUp)\n` +
     `Status: Paid & confirmed\n` +
     (trackUrl
@@ -431,6 +456,9 @@ export function buildOwnerPaidBookingEmail(
     `PAYMENT\n` +
     `${"=".repeat(40)}\n` +
     `Amount paid: ${details.amountPaid}\n` +
+    (details.customerReference
+      ? `Customer booking reference: ${details.customerReference.trim().toUpperCase()}\n`
+      : "") +
     `Payment reference: ${details.paymentReference}\n` +
     (details.transactionCode ? `Transaction code: ${details.transactionCode}\n` : "") +
     (details.checkoutReference ? `Checkout reference: ${details.checkoutReference}\n` : "") +
@@ -1435,7 +1463,9 @@ export function buildUpdatedBookingConfirmationEmail(
   },
 ): CustomerPaidBookingEmail {
   const base = buildCustomerConfirmationEmail(receipt, businessName, options);
-  const subject = `Updated Booking Confirmation – ${receipt.paymentReference}`;
+  const displayRef =
+    receipt.customerReference?.trim().toUpperCase() || receipt.paymentReference;
+  const subject = `Updated Booking Confirmation – ${displayRef}`;
   const whatChangedBlock =
     options?.whatChanged && options.whatChanged.length > 0
       ? `What changed\n${options.whatChanged.map((line) => `• ${line}`).join("\n")}\n\n`

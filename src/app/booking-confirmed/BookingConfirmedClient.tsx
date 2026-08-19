@@ -20,6 +20,7 @@ export default function BookingConfirmedClient() {
   const [summary, setSummary] = useState("Confirming your payment…");
   const [amountPaid, setAmountPaid] = useState<string | undefined>();
   const [paymentReference, setPaymentReference] = useState<string | undefined>();
+  const [customerReference, setCustomerReference] = useState<string | undefined>();
   const [transactionId, setTransactionId] = useState<string | undefined>();
   const [fireConversion, setFireConversion] = useState(false);
   const [customerEmail, setCustomerEmail] = useState<string | undefined>();
@@ -61,6 +62,7 @@ export default function BookingConfirmedClient() {
           const ref = params.get("ref")?.trim() || undefined;
           setAmountPaid(amount);
           setPaymentReference(ref);
+          setCustomerReference(undefined);
           setTransactionId(ref);
           setStatus("confirmed");
           setSummary(
@@ -93,7 +95,12 @@ export default function BookingConfirmedClient() {
       setSummary(result.summary);
       setAmountPaid(result.amountPaid);
       setPaymentReference(result.paymentReference);
-      const orderId = result.paymentReference?.trim() || result.checkoutId?.trim();
+      setCustomerReference(result.customerReference || result.result?.customerReference);
+      const orderId =
+        result.customerReference?.trim() ||
+        result.result?.customerReference?.trim() ||
+        result.paymentReference?.trim() ||
+        result.checkoutId?.trim();
       setTransactionId(orderId);
       setStatus(result.status === "confirmed" ? "confirmed" : result.status);
       if (result.status === "confirmed" && orderId) {
@@ -144,8 +151,13 @@ export default function BookingConfirmedClient() {
         >
           {summary}
         </p>
-        {paymentReference ? (
-          <p className="mt-3 text-sm text-white/50">Reference: {paymentReference}</p>
+        {customerReference || paymentReference ? (
+          <p className="mt-3 text-sm text-white/80">
+            <span className="text-white/50">Booking reference: </span>
+            <span className="font-semibold tracking-wide text-emerald">
+              {(customerReference || paymentReference || "").trim()}
+            </span>
+          </p>
         ) : null}
         {amountPaid ? (
           <p className="mt-1 text-sm text-white/50">Amount paid: {amountPaid}</p>
@@ -153,6 +165,9 @@ export default function BookingConfirmedClient() {
           <p className="mt-1 text-sm text-white/50">
             If you requested a fixed quote, we&apos;ll email your personal price shortly.
           </p>
+        ) : null}
+        {status === "confirmed" ? (
+          <p className="mt-1 text-xs text-white/40">Payment method: Card (SumUp)</p>
         ) : null}
 
         <div className="mt-8 flex flex-wrap gap-3">

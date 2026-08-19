@@ -41,6 +41,7 @@
     "check:amendment-confirmation": "npx tsx scripts/check-amendment-confirmation.ts",
     "check:amendment-topup": "npx tsx scripts/check-amendment-topup.ts",
     "check:amendment-accounting": "npx tsx scripts/check-amendment-accounting.ts",
+    "check:customer-booking-reference": "npx tsx scripts/check-customer-booking-reference.ts",
     "check:book-quote-mobile": "npx tsx scripts/check-book-quote-mobile.ts",
     "check:refund-ops": "npx tsx scripts/check-refund-ops.ts",
     "check:sumup-refund-reconcile": "npx tsx scripts/check-sumup-refund-reconcile.ts",

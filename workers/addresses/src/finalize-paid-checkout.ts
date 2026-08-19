@@ -58,6 +58,8 @@ export type FinalizePaidCheckoutResult = {
   alreadyFinalized?: boolean;
   amountPaid: string;
   paymentReference: string;
+  /** Short customer-facing MAT-#### reference when available. */
+  customerReference?: string;
   emailSent: boolean;
   customerEmailSent: boolean;
   ownerEmailSent: boolean;
@@ -134,6 +136,7 @@ export async function finalizePaidCheckout(input: {
           alreadyFinalized: true,
           amountPaid: existing.amountPaidLabel,
           paymentReference: existing.paymentReference,
+          customerReference: existing.customerReference,
           emailSent: true,
           customerEmailSent: true,
           ownerEmailSent: true,
@@ -273,7 +276,7 @@ export async function finalizePaidCheckout(input: {
     };
   }
 
-  const receipt = {
+  const receiptBase = {
     ...booking,
     amountPaid,
     paymentReference,
@@ -286,6 +289,39 @@ export async function finalizePaidCheckout(input: {
   const tracking = LIVE_DRIVER_TRACKING_ENABLED
     ? await createTrackingJobForPaidBooking(env, booking, paymentReference)
     : { created: false, trackUrl: undefined as string | undefined, token: undefined as string | undefined };
+
+  const calendar = await logPaidBookingCalendar(env, booking, amountPaid, paymentReference);
+
+  // Allocate short MAT-#### before emails so confirmation shows the customer reference.
+  const customerReference = paidBookingStoreConfigured(env.TRACKING_STORE)
+    ? await savePaidBookingRecordFromConfirm({
+        env,
+        booking,
+        checkoutId,
+        transactionId,
+        transactionCode,
+        amount: checkout.amount ?? 0,
+        currency: checkout.currency ?? "GBP",
+        amountPaidLabel: amountPaid,
+        paymentReference,
+        trackingToken: tracking.token,
+        calendarEventIds: calendar.eventIds ?? [],
+        ...(pendingForAudit?.personalQuoteCode
+          ? { personalQuoteCode: pendingForAudit.personalQuoteCode }
+          : {}),
+        ...(typeof pendingForAudit?.standardWebsiteAmount === "number"
+          ? { standardWebsiteAmount: pendingForAudit.standardWebsiteAmount }
+          : {}),
+        ...(typeof pendingForAudit?.personalQuotedAmount === "number"
+          ? { personalQuotedAmount: pendingForAudit.personalQuotedAmount }
+          : {}),
+      })
+    : undefined;
+
+  const receipt = {
+    ...receiptBase,
+    customerReference,
+  };
 
   const customerEmail = buildCustomerConfirmationEmail(receipt, BUSINESS_NAME, {
     trackUrl: tracking.trackUrl,
@@ -317,31 +353,6 @@ export async function finalizePaidCheckout(input: {
     body: ownerEmail.body,
   });
   const ownerNotifySent = ownerCopyResult.sent || ownerEmailResult.sent;
-
-  const calendar = await logPaidBookingCalendar(env, booking, amountPaid, paymentReference);
-
-  await savePaidBookingRecordFromConfirm({
-    env,
-    booking,
-    checkoutId,
-    transactionId,
-    transactionCode,
-    amount: checkout.amount ?? 0,
-    currency: checkout.currency ?? "GBP",
-    amountPaidLabel: amountPaid,
-    paymentReference,
-    trackingToken: tracking.token,
-    calendarEventIds: calendar.eventIds ?? [],
-    ...(pendingForAudit?.personalQuoteCode
-      ? { personalQuoteCode: pendingForAudit.personalQuoteCode }
-      : {}),
-    ...(typeof pendingForAudit?.standardWebsiteAmount === "number"
-      ? { standardWebsiteAmount: pendingForAudit.standardWebsiteAmount }
-      : {}),
-    ...(typeof pendingForAudit?.personalQuotedAmount === "number"
-      ? { personalQuotedAmount: pendingForAudit.personalQuotedAmount }
-      : {}),
-  });
 
   await maybeRecordMarketingFromPayload(env.TRACKING_STORE, {
     email: booking.customerEmail,
@@ -407,6 +418,7 @@ export async function finalizePaidCheckout(input: {
     paid: true,
     amountPaid,
     paymentReference,
+    ...(customerReference ? { customerReference } : {}),
     emailSent,
     customerEmailSent: customerEmailResult.sent,
     ownerEmailSent: ownerNotifySent,

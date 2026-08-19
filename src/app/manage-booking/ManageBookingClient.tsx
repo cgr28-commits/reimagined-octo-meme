@@ -341,20 +341,22 @@ export default function ManageBookingClient() {
         className="space-y-3 rounded-2xl border border-white/10 bg-navy-dark/70 p-5"
       >
         <p className="text-sm text-white/70">
-          Enter your payment / booking reference and the email used at checkout.
+          Enter the booking reference shown on your confirmation, along with the email address used
+          when booking.
         </p>
         <p className="text-xs text-white/45">
           Online self-service currently supports date and time changes only. Pickup,
           destination, passengers and luggage changes need My Airport Taxi NI.
         </p>
         <div>
-          <label className="mb-1.5 block text-xs text-white/60">Booking / payment reference</label>
+          <label className="mb-1.5 block text-xs text-white/60">Booking reference</label>
           <input
             className={fieldClass}
             value={paymentReference}
             onChange={(e) => setPaymentReference(e.target.value)}
             required
             autoComplete="off"
+            placeholder="MAT-4827"
           />
         </div>
         <div>
@@ -393,6 +395,12 @@ export default function ManageBookingClient() {
           <div>
             <p className="text-xs uppercase tracking-wider text-white/45">Current booking</p>
             <p className="mt-1 text-lg font-semibold text-white">{booking.customerName}</p>
+            <p className="mt-2 text-sm text-emerald">
+              Booking reference:{" "}
+              <span className="font-semibold tracking-wide">
+                {booking.customerReference || booking.paymentReference}
+              </span>
+            </p>
             <p className="mt-2 text-sm text-white/75">
               {booking.pickupLabel} → {booking.dropoffLabel}
             </p>

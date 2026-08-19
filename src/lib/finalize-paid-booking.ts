@@ -25,6 +25,7 @@ export type FinalizePaidBookingResult = {
   summary: string;
   amountPaid?: string;
   paymentReference?: string;
+  customerReference?: string;
   checkoutId?: string;
   result?: PaymentConfirmationResult;
   error?: string;
@@ -63,6 +64,7 @@ export async function finalizePaidBookingFromUrl(
       summary: savedSummary,
       amountPaid: storedResult?.amountPaid,
       paymentReference: storedResult?.paymentReference,
+      customerReference: storedResult?.customerReference,
       checkoutId,
       result: storedResult ?? undefined,
     };
@@ -116,6 +118,7 @@ export async function finalizePaidBookingFromUrl(
         summary,
         amountPaid: result.amountPaid,
         paymentReference: result.paymentReference,
+        customerReference: result.customerReference,
         checkoutId,
         result,
       };

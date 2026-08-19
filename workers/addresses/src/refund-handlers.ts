@@ -18,6 +18,7 @@ import {
   grossAmountCollectedOf,
   journeyFareOf,
 } from "../shared/paid-booking-record";
+import { normalizeCustomerBookingReference } from "../shared/customer-booking-reference";
 import {
   applyProcessorAuthoritativeRefund,
   cappedRefundAmount,
@@ -53,6 +54,7 @@ import {
   getPaidBookingRecord,
   paidBookingStoreConfigured,
   savePaidBookingRecord,
+  claimUniqueCustomerBookingReference,
 } from "./paid-booking-store";
 import {
   findTrackingJobByPaymentReference,
@@ -1388,13 +1390,25 @@ export async function savePaidBookingRecordFromConfirm(input: {
   standardWebsiteAmount?: number;
   personalQuotedAmount?: number;
   isRefundTest?: boolean;
-}): Promise<void> {
+}): Promise<string | undefined> {
   if (!paidBookingStoreConfigured(input.env.TRACKING_STORE)) {
-    return;
+    return undefined;
   }
+
+  const existing = await getPaidBookingRecord(
+    input.env.TRACKING_STORE,
+    input.paymentReference,
+  );
+  const customerReference =
+    normalizeCustomerBookingReference(existing?.customerReference ?? "") ||
+    (await claimUniqueCustomerBookingReference(
+      input.env.TRACKING_STORE,
+      input.paymentReference,
+    ));
 
   const record: PaidBookingRecord = {
     paymentReference: input.paymentReference,
+    customerReference,
     checkoutId: input.checkoutId,
     transactionId: input.transactionId,
     transactionCode: input.transactionCode,
@@ -1431,7 +1445,7 @@ export async function savePaidBookingRecordFromConfirm(input: {
     status: "confirmed",
     operationalStatus: "confirmed",
     paymentStatus: "paid",
-    createdAt: new Date().toISOString(),
+    createdAt: existing?.createdAt || new Date().toISOString(),
     ...(input.isRefundTest ? { isRefundTest: true } : {}),
     ...(input.personalQuoteCode ? { personalQuoteCode: input.personalQuoteCode } : {}),
     ...(typeof input.standardWebsiteAmount === "number"
@@ -1443,6 +1457,7 @@ export async function savePaidBookingRecordFromConfirm(input: {
   };
 
   await savePaidBookingRecord(input.env.TRACKING_STORE, record);
+  return customerReference;
 }
 
 export async function handleRefundRequest(

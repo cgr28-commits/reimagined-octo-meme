@@ -52,6 +52,7 @@ export function paidBookingRecordToReceipt(record: PaidBookingRecord): PaidBooki
     amountPaid: record.amountPaidLabel,
     paymentReference: record.paymentReference,
     transactionCode: record.transactionCode,
+    customerReference: record.customerReference,
   };
 }
 

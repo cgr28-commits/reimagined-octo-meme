@@ -8,6 +8,7 @@ export { CUSTOMER_SELF_SERVICE_AMENDMENT_FIELDS };
 
 export type ManageBookingSummary = {
   paymentReference: string;
+  customerReference?: string;
   customerName: string;
   customerEmail?: string;
   tripDate: string;

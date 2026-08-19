@@ -73,7 +73,16 @@ export type PaidBookingAdditionalPayment = {
 };
 
 export type PaidBookingRecord = {
+  /**
+   * Internal / SumUp reconciliation key (transaction code or checkout ref).
+   * Not the customer-facing booking reference — see {@link customerReference}.
+   */
   paymentReference: string;
+  /**
+   * Short customer-facing booking reference (MAT-4827).
+   * Unique per booking; used on invoices, emails, and Manage Booking lookup.
+   */
+  customerReference?: string;
   checkoutId: string;
   transactionId?: string;
   transactionCode?: string;
@@ -192,6 +201,11 @@ export function resolveAssignedDriverLabel(assignedDriverName?: string | null): 
 
 export function paidBookingRefKey(paymentReference: string): string {
   return `booking:ref:${paymentReference.trim()}`;
+}
+
+/** Secondary index: short customer ref MAT-#### → paymentReference. */
+export function paidBookingCustomerRefKey(customerReference: string): string {
+  return `booking:customer-ref:${customerReference.trim().toUpperCase()}`;
 }
 
 /** Secondary index so confirm/webhook can find a paid booking by SumUp checkout id. */

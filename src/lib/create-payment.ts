@@ -63,6 +63,8 @@ export type PaymentCheckoutResult = {
 export type PaymentConfirmationResult = {
   amountPaid: string;
   paymentReference: string;
+  /** Short customer-facing MAT-#### when available. */
+  customerReference?: string;
   emailSent?: boolean;
   customerEmailSent?: boolean;
   ownerEmailSent?: boolean;
@@ -75,6 +77,7 @@ export type PaymentConfirmationResult = {
   manageBookingPath?: string;
   booking?: {
     paymentReference: string;
+    customerReference?: string;
     customerName: string;
     customerEmail: string;
     tripDate: string;

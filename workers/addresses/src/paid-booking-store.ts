@@ -1,12 +1,17 @@
 import {
   paidBookingCheckoutKey,
   paidBookingCreatedDayIndexKey,
+  paidBookingCustomerRefKey,
   paidBookingRefKey,
   paidBookingRefundTestIndexKey,
   paidBookingTripDayIndexKey,
   type PaidBookingEditAuditEntry,
   type PaidBookingRecord,
 } from "../shared/paid-booking-record";
+import {
+  generateCustomerBookingReference,
+  normalizeCustomerBookingReference,
+} from "../shared/customer-booking-reference";
 import { bookingInUpcomingHorizon } from "../shared/upcoming-jobs";
 
 const RECORD_TTL = 60 * 60 * 24 * 400;
@@ -85,6 +90,12 @@ export async function savePaidBookingRecord(
       expirationTtl: RECORD_TTL,
     });
   }
+  const customerRef = normalizeCustomerBookingReference(record.customerReference ?? "");
+  if (customerRef) {
+    await store.put(paidBookingCustomerRefKey(customerRef), record.paymentReference, {
+      expirationTtl: RECORD_TTL,
+    });
+  }
   if (record.createdAt?.trim()) {
     await addIdToDayIndex(
       store,
@@ -124,6 +135,105 @@ export async function getPaidBookingRecord(
   }
 
   return record;
+}
+
+export async function getPaidBookingRecordByCustomerReference(
+  store: KVNamespace,
+  customerReference: string,
+): Promise<PaidBookingRecord | null> {
+  const normalized = normalizeCustomerBookingReference(customerReference);
+  if (!normalized) return null;
+  const paymentReference = await store.get(paidBookingCustomerRefKey(normalized));
+  if (!paymentReference?.trim()) return null;
+  return getPaidBookingRecord(store, paymentReference.trim());
+}
+
+/**
+ * Claim a unique MAT-#### for this payment reference (retries on collision).
+ */
+export async function claimUniqueCustomerBookingReference(
+  store: KVNamespace,
+  paymentReference: string,
+): Promise<string> {
+  const paymentRef = paymentReference.trim();
+  for (let attempt = 0; attempt < 48; attempt += 1) {
+    const candidate = generateCustomerBookingReference();
+    const key = paidBookingCustomerRefKey(candidate);
+    const existing = await store.get(key);
+    if (existing && existing.trim() && existing.trim() !== paymentRef) {
+      continue;
+    }
+    await store.put(key, paymentRef, { expirationTtl: RECORD_TTL });
+    return candidate;
+  }
+  throw new Error("Could not allocate a unique customer booking reference");
+}
+
+/**
+ * Ensure the record has a short MAT-#### and index. Persists when newly assigned.
+ * Does not overwrite paymentReference / SumUp ids.
+ */
+export async function ensureCustomerBookingReference(
+  store: KVNamespace,
+  record: PaidBookingRecord,
+): Promise<PaidBookingRecord> {
+  const existing = normalizeCustomerBookingReference(record.customerReference ?? "");
+  if (existing) {
+    const indexed = await store.get(paidBookingCustomerRefKey(existing));
+    if (!indexed?.trim()) {
+      await store.put(paidBookingCustomerRefKey(existing), record.paymentReference, {
+        expirationTtl: RECORD_TTL,
+      });
+    }
+    if (record.customerReference !== existing) {
+      const updated = { ...record, customerReference: existing };
+      await savePaidBookingRecord(store, updated);
+      return updated;
+    }
+    return record;
+  }
+
+  const customerReference = await claimUniqueCustomerBookingReference(
+    store,
+    record.paymentReference,
+  );
+  const updated = { ...record, customerReference };
+  await savePaidBookingRecord(store, updated);
+  return updated;
+}
+
+/**
+ * Resolve a Manage Booking lookup key: prefer MAT-####, fall back to SumUp / payment ref.
+ */
+export async function resolvePaidBookingForCustomerLookup(
+  store: KVNamespace,
+  rawReference: string,
+): Promise<PaidBookingRecord | null> {
+  const trimmed = String(rawReference ?? "").trim();
+  if (!trimmed) return null;
+
+  const asCustomer = normalizeCustomerBookingReference(trimmed);
+  if (asCustomer) {
+    const byCustomer = await getPaidBookingRecordByCustomerReference(store, asCustomer);
+    if (byCustomer) {
+      return ensureCustomerBookingReference(store, byCustomer);
+    }
+  }
+
+  const byPayment = await getPaidBookingRecord(store, trimmed);
+  if (byPayment) {
+    return ensureCustomerBookingReference(store, byPayment);
+  }
+
+  const upper = trimmed.toUpperCase();
+  if (upper !== trimmed) {
+    const byUpper = await getPaidBookingRecord(store, upper);
+    if (byUpper) {
+      return ensureCustomerBookingReference(store, byUpper);
+    }
+  }
+
+  return null;
 }
 
 export async function getPaidBookingRecordByCheckoutId(
