@@ -1,6 +1,6 @@
 import { BUSINESS_LEGAL } from "@/lib/business-legal";
 
-export const PRIVACY_LAST_UPDATED = "August 2026 v2";
+export const PRIVACY_LAST_UPDATED = "August 2026 v3";
 
 export const PRIVACY_SECTIONS = [
   {
@@ -20,6 +20,7 @@ export const PRIVACY_SECTIONS = [
       "Pickup and drop-off addresses (including addresses you select via Google Places on our quote form)",
       "Travel date, time and flight numbers (for airport journeys)",
       "Passenger and luggage details",
+      "Saved quote details (name, email, journey snapshot and fixed price) when you choose Save Quote",
       "Payment confirmation details from SumUp (amount, transaction reference)",
       "Optional live location if you choose to share it on your tracking link",
       "Driver GPS location history recorded during booked journeys (for live customer tracking and operational/dispute evidence)",
@@ -31,6 +32,8 @@ export const PRIVACY_SECTIONS = [
     content: ["We use your information to:"],
     list: [
       "Provide quotations and confirm bookings",
+      "Save fixed-price quotes you request and email you a secure link to return and book",
+      "Send transactional saved-quote reminders (about 24 hours and 5 days after saving) while your quote is still valid and unpaid — these are not marketing emails",
       "Process card payments via SumUp",
       "Send booking confirmations and invoices by email",
       "Contact you about your journey (including SMS/WhatsApp where agreed)",
@@ -39,6 +42,14 @@ export const PRIVACY_SECTIONS = [
       "Log bookings in our business calendar",
       "Respond to enquiries and complaints",
       "Send occasional marketing emails if you have opted in (offers, travel tips and service news)",
+    ],
+  },
+  {
+    title: "Saved quotes & quote follow-up emails",
+    content: [
+      "If you use Save Quote, we store your name, email and journey/price snapshot for up to 7 days (and a short period afterwards for audit) so you can reopen your fixed price via a secure link.",
+      "We send an initial confirmation email and up to two automated reminders while the quote remains saved, unbooked and unexpired. Saving a quote does not subscribe you to marketing emails.",
+      "Mobile numbers are not collected at the Save Quote stage — only when you continue to book.",
     ],
   },
   {
@@ -93,6 +104,7 @@ export const PRIVACY_SECTIONS = [
     title: "Retention",
     content: [
       "Booking and payment records are kept as long as needed for customer service, accounting, tax and dispute resolution — typically up to 6 years where required for tax or accounting, then deleted or anonymised where we no longer need them.",
+      "Saved quotes are kept for the 7-day validity window and a short additional period for audit and conversion tracking, then removed automatically from active storage.",
       "Driver GPS journey evidence is retained as an operational/dispute record for a configurable period (default around 13 months / ~400 days unless a longer period is set for the business). It is not retained indefinitely.",
       "Customer-facing tracking tokens expire after the journey window. Optional customer location shared on a tracking link is used only while that journey’s tracking window is open.",
       "Refund and cancellation audit records are kept with the related booking for the same accounting/dispute retention period.",

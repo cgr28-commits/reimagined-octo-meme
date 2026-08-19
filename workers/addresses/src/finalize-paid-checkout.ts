@@ -25,6 +25,7 @@ import {
 import { markShortNoticePaid } from "./short-notice-handlers";
 import { markPersonalQuoteUsed } from "./personal-quote-store";
 import { markQuickQuotePaid } from "./quick-quote-store";
+import { markSavedQuoteBookedFromPayment } from "./saved-quote-handlers";
 import { maybeRecordMarketingFromPayload } from "./marketing-handlers";
 import { trySendBrandedCustomerEmail, trySendOwnerOperationalEmail } from "./worker-email";
 
@@ -331,6 +332,12 @@ export async function finalizePaidCheckout(input: {
     }
     if (pending?.quickQuoteId) {
       await markQuickQuotePaid(env.TRACKING_STORE, pending.quickQuoteId, paymentReference);
+    }
+    if (pending?.savedQuoteToken) {
+      await markSavedQuoteBookedFromPayment(env.TRACKING_STORE, pending.savedQuoteToken, {
+        paymentReference,
+        checkoutId,
+      });
     }
   }
 

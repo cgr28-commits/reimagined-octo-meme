@@ -24,6 +24,10 @@ export type PendingCheckoutRecord = {
   personalQuotedAmount?: number;
   /** Quick Quote opaque id — amount always from KV + server re-validation. */
   quickQuoteId?: string;
+  /** Saved Quote opaque token — fixed price from KV for 7-day validity. */
+  savedQuoteToken?: string;
+  /** Human-readable saved quote reference (audit / conversion tracking). */
+  savedQuoteReference?: string;
   /**
    * Owner-only £1 live SumUp refund smoke test. When true, finalize must not
    * create tracking/calendar/customer confirmation emails.
