@@ -12,7 +12,7 @@
 
 name: Deploy Pages Preview
 
-on:
+"on":
   workflow_dispatch:
     inputs:
       note:
