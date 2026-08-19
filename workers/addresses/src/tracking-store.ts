@@ -11,6 +11,8 @@ import {
   type TrackingSessionRecord,
 } from "../shared/tracking";
 import type { PaidBookingDetails } from "../shared/booking-notifications";
+import { refundTestIsolationDecoyPaymentReference } from "../shared/refund-test-isolation";
+import type { PaidBookingRecord } from "../shared/paid-booking-record";
 
 const JOB_PREFIX = "track:job:";
 const DAY_INDEX_PREFIX = "track:day:";
@@ -547,6 +549,119 @@ export function isTrackingJobCancelled(record: TrackingJobRecord): boolean {
 }
 
 export { selectTrackingJobsForRefundMark };
+
+/**
+ * Owner-only: attach a tagged tracking job (+ intentional foreign paired decoy)
+ * to an isRefundTest paid booking so refund isolation can be verified live.
+ *
+ * Never fuzzy-matches day jobs. Never adopts or mutates unrelated customer jobs.
+ * Decoy uses a synthetic paymentReference that cannot collide with SumUp refs.
+ */
+export async function ensureRefundTestIsolationTrackingPair(
+  store: KVNamespace,
+  record: PaidBookingRecord,
+): Promise<{
+  primary: TrackingJobRecord;
+  decoy: TrackingJobRecord;
+  created: boolean;
+  decoyPaymentReference: string;
+}> {
+  if (!record.isRefundTest) {
+    throw new Error("Isolation tracking is only allowed for isRefundTest bookings");
+  }
+
+  const paymentRef = record.paymentReference.trim();
+  if (!paymentRef) {
+    throw new Error("Missing paymentReference on refund-test booking");
+  }
+
+  const decoyPaymentReference = refundTestIsolationDecoyPaymentReference(paymentRef);
+  const existingPrimary = await findTrackingJobsByPaymentReference(store, paymentRef);
+  const existingDecoy = await findTrackingJobsByPaymentReference(store, decoyPaymentReference);
+
+  let primary =
+    existingPrimary.find((job) => job.journeyLeg !== "return") ?? existingPrimary[0] ?? null;
+  let decoy = existingDecoy[0] ?? null;
+
+  if (primary && decoy) {
+    let dirty = false;
+    if (primary.pairedToken !== decoy.token) {
+      primary = { ...primary, pairedToken: decoy.token };
+      dirty = true;
+    }
+    if (decoy.pairedToken !== primary.token) {
+      decoy = { ...decoy, pairedToken: primary.token };
+      await saveTrackingJob(store, decoy);
+    }
+    if (dirty) {
+      await saveTrackingJob(store, primary);
+    }
+    return { primary, decoy, created: false, decoyPaymentReference };
+  }
+
+  const tripDate = /^\d{4}-\d{2}-\d{2}$/.test(record.tripDate)
+    ? record.tripDate
+    : new Date().toISOString().slice(0, 10);
+  const tripTime = /^\d{2}:\d{2}$/.test(record.tripTime) ? record.tripTime : "12:00";
+  const pickupAt = buildPickupDateTimeLocal(tripDate, tripTime) || `${tripDate}T${tripTime}`;
+  const createdAt = new Date().toISOString();
+
+  if (!primary) {
+    primary = {
+      token: generateTrackingToken(),
+      createdAt,
+      customerName: "REFUND TEST (Owner)",
+      customerEmail: record.customerEmail,
+      customerMobile: record.mobileNumber,
+      pickupLabel: "REFUND TEST — isolation primary (not a real pickup)",
+      dropoffLabel: "REFUND TEST — isolation primary (not a real drop-off)",
+      tripDate,
+      tripTime,
+      pickupAt,
+      paymentReference: paymentRef,
+      journeyLeg: "outbound",
+      journeyStatus: "idle",
+      sharingActive: false,
+    };
+    await store.put(jobKey(primary.token), JSON.stringify(primary), {
+      expirationTtl: DAY_INDEX_TTL,
+    });
+    await indexTrackingJobOnDay(store, tripDate, primary.token);
+    await indexTrackingJobPaymentReference(store, paymentRef, primary.token);
+  }
+
+  if (!decoy) {
+    decoy = {
+      token: generateTrackingToken(),
+      createdAt,
+      customerName: "REFUND TEST ISOLATION DECOY",
+      customerEmail: record.customerEmail,
+      customerMobile: "07700000000",
+      pickupLabel: "REFUND TEST — isolation decoy (never a customer job)",
+      dropoffLabel: "REFUND TEST — isolation decoy (never a customer job)",
+      tripDate,
+      tripTime,
+      pickupAt,
+      paymentReference: decoyPaymentReference,
+      journeyLeg: "return",
+      journeyStatus: "idle",
+      sharingActive: false,
+    };
+    await store.put(jobKey(decoy.token), JSON.stringify(decoy), {
+      expirationTtl: DAY_INDEX_TTL,
+    });
+    await indexTrackingJobOnDay(store, tripDate, decoy.token);
+    await indexTrackingJobPaymentReference(store, decoyPaymentReference, decoy.token);
+  }
+
+  // Intentionally cross-wire foreign payment refs — this is the bleed scenario #351 blocks.
+  primary = { ...primary, pairedToken: decoy.token, journeyLeg: "outbound" };
+  decoy = { ...decoy, pairedToken: primary.token, journeyLeg: "return" };
+  await saveTrackingJob(store, primary);
+  await saveTrackingJob(store, decoy);
+
+  return { primary, decoy, created: true, decoyPaymentReference };
+}
 
 export async function markTrackingJobRefunded(
   store: KVNamespace,

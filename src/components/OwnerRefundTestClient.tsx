@@ -5,6 +5,7 @@ import Footer from "@/components/Footer";
 import OwnerPortalHeader from "@/components/OwnerPortalHeader";
 import {
   createRefundTestCheckout,
+  ensureRefundTestIsolationTracking,
   fetchRefundTestList,
   issueRefundTestRefund,
   type RefundTestBookingSummary,
@@ -207,6 +208,29 @@ export default function OwnerRefundTestClient() {
     }
   }
 
+  async function attachIsolationTracking(booking: RefundTestBookingSummary) {
+    if (!savedKey) return;
+    setBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      const result = await ensureRefundTestIsolationTracking({
+        ownerKey: savedKey,
+        paymentReference: booking.paymentReference,
+      });
+      await load(savedKey);
+      setMessage(
+        result.created
+          ? `Isolation tracking attached.\nPrimary token: ${result.trackingToken}\nDecoy token: ${result.isolationDecoyToken}\n${result.warning ?? ""}`
+          : `Isolation tracking already present.\nPrimary: ${result.trackingToken}\nDecoy: ${result.isolationDecoyToken}`,
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not attach isolation tracking");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function submitRefund(booking: RefundTestBookingSummary) {
     if (!savedKey) return;
 
@@ -293,7 +317,9 @@ export default function OwnerRefundTestClient() {
             </p>
             <p className="mt-2 text-sm text-amber-50/90">
               Owner-only. Fixed £1.00 server-side. Does not change website fares. Does not create a
-              customer journey, tracking link, or calendar event. Refunds use the same SumUp +
+              customer journey or calendar event by default. Use{" "}
+              <span className="font-semibold">Attach tracking isolation jobs</span> only when you
+              need to verify pairedToken refund isolation. Refunds use the same SumUp +
               REFUND_COORDINATOR path as production.
             </p>
           </div>
@@ -447,6 +473,25 @@ export default function OwnerRefundTestClient() {
                           Txn {booking.transactionId || "—"} · status {booking.status} · audits{" "}
                           {booking.refundHistoryCount}
                         </p>
+                        <p className="mt-1 text-xs text-white/55">
+                          Tracking isolation:{" "}
+                          {booking.trackingIsolationReady
+                            ? `ready · primary ${booking.trackingRefundedAt ? "refunded" : "live"} · decoy ${booking.isolationDecoyRefundedAt ? "REFUND BLEED" : "untouched"}`
+                            : "not attached"}
+                        </p>
+                        {booking.trackingIsolationResult ? (
+                          <p
+                            className={`mt-2 rounded-lg border px-3 py-2 text-xs font-semibold ${
+                              booking.trackingIsolationResult.ok
+                                ? "border-emerald/40 bg-emerald/15 text-emerald"
+                                : booking.trackingIsolationResult.reason.startsWith("primary_not")
+                                  ? "border-white/15 bg-white/5 text-white/70"
+                                  : "border-red-400/40 bg-red-500/15 text-red-100"
+                            }`}
+                          >
+                            {booking.trackingIsolationResult.reason}
+                          </p>
+                        ) : null}
 
                         {fullyRefunded ? (
                           <p className="mt-3 rounded-xl border border-emerald/40 bg-emerald/15 px-3 py-2 text-sm font-bold uppercase tracking-wide text-emerald">
@@ -455,6 +500,16 @@ export default function OwnerRefundTestClient() {
                         ) : null}
 
                         <div className="mt-3 flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            disabled={busy}
+                            onClick={() => void attachIsolationTracking(booking)}
+                            className="min-h-11 rounded-xl border border-sky-400/40 bg-sky-500/10 px-3 py-2 text-sm font-semibold text-sky-100 disabled:opacity-60"
+                          >
+                            {booking.trackingIsolationReady
+                              ? "Refresh isolation tracking"
+                              : "Attach tracking isolation jobs"}
+                          </button>
                           <button
                             type="button"
                             disabled={busy}

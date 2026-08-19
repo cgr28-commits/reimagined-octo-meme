@@ -29,8 +29,11 @@ assert.match(handlers, /handleRefundRequest/);
 assert.match(handlers, /refundTest: true/);
 assert.match(handlers, /cannot refund a normal customer booking/i);
 assert.match(handlers, /ownerAuthorized/);
+assert.match(handlers, /ensureRefundTestIsolationTrackingPair/);
+assert.match(handlers, /isRefundTestEnsureTrackingPath/);
 assert.doesNotMatch(handlers, /amount:\s*Number\(body\.amount\)/);
 console.log("OK  server hard-codes £1; reuses SumUp + refund handler; guards normal bookings");
+console.log("OK  optional isolation tracking attach is owner/isRefundTest only");
 
 const finalize = read("workers/addresses/src/finalize-paid-checkout.ts");
 assert.match(finalize, /isRefundTest/);
