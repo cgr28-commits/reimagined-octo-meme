@@ -6,12 +6,19 @@ import {
 } from "../../shared/quote-lead";
 import { SITE } from "@/lib/data";
 import { sendViaFormSubmitEmail } from "../../shared/email-delivery";
+import { rememberQuoteAnalyticsFromDetails } from "@/lib/submit-quote-funnel";
 
 const SESSION_STORAGE_KEY = "matni-quote-lead-sent";
 const DEBOUNCE_MS = 4000;
 
 const DEFAULT_WORKER_QUOTE_LEADS =
   "https://reimagined-octo-meme.cgr28.workers.dev/quote-leads";
+
+export type QuoteLeadSubmitExtras = {
+  premiumApplied?: boolean;
+  airportCode?: string;
+  source?: "card" | "bot";
+};
 
 function resolveQuoteLeadsApiUrl(): string {
   const bookings = process.env.NEXT_PUBLIC_BOOKINGS_API_URL?.trim() ?? "";
@@ -81,7 +88,7 @@ async function submitQuoteLeadViaBrowser(details: QuoteLeadDetails): Promise<boo
 async function postQuoteLeadToWorker(
   details: QuoteLeadDetails,
   fingerprint: string,
-  options: { skipEmail?: boolean },
+  options: { skipEmail?: boolean } & QuoteLeadSubmitExtras,
 ): Promise<{ ok: boolean; emailed: boolean; deduplicated: boolean }> {
   try {
     const response = await fetch(QUOTE_LEADS_API_URL, {
@@ -94,6 +101,9 @@ async function postQuoteLeadToWorker(
         ...details,
         fingerprint,
         skipEmail: options.skipEmail === true,
+        premiumApplied: options.premiumApplied === true,
+        airportCode: options.airportCode,
+        source: options.source,
       }),
     });
 
@@ -113,8 +123,12 @@ async function postQuoteLeadToWorker(
   }
 }
 
-export async function submitQuoteLead(details: QuoteLeadDetails): Promise<void> {
+export async function submitQuoteLead(
+  details: QuoteLeadDetails,
+  extras: QuoteLeadSubmitExtras = {},
+): Promise<void> {
   const fingerprint = buildQuoteLeadFingerprint(details);
+  rememberQuoteAnalyticsFromDetails(details);
   const sent = readSentFingerprints();
   if (sent.has(fingerprint)) {
     return;
@@ -125,12 +139,15 @@ export async function submitQuoteLead(details: QuoteLeadDetails): Promise<void> 
   const browserSent = await submitQuoteLeadViaBrowser(details).catch(() => false);
 
   if (browserSent) {
-    await postQuoteLeadToWorker(details, fingerprint, { skipEmail: true });
+    await postQuoteLeadToWorker(details, fingerprint, { skipEmail: true, ...extras });
     rememberSentFingerprint(fingerprint);
     return;
   }
 
-  const worker = await postQuoteLeadToWorker(details, fingerprint, { skipEmail: false });
+  const worker = await postQuoteLeadToWorker(details, fingerprint, {
+    skipEmail: false,
+    ...extras,
+  });
   if (worker.deduplicated || worker.emailed) {
     rememberSentFingerprint(fingerprint);
     return;
@@ -141,19 +158,24 @@ export async function submitQuoteLead(details: QuoteLeadDetails): Promise<void> 
 
 export function scheduleQuoteLeadAlert(
   details: QuoteLeadDetails,
-  options?: { enabled?: boolean },
+  options?: { enabled?: boolean } & QuoteLeadSubmitExtras,
 ): () => void {
   if (options?.enabled === false || typeof window === "undefined") {
     return () => {};
   }
 
   const fingerprint = buildQuoteLeadFingerprint(details);
+  rememberQuoteAnalyticsFromDetails(details);
   if (readSentFingerprints().has(fingerprint)) {
     return () => {};
   }
 
   const timer = window.setTimeout(() => {
-    void submitQuoteLead(details).catch((error) => {
+    void submitQuoteLead(details, {
+      premiumApplied: options?.premiumApplied,
+      airportCode: options?.airportCode,
+      source: options?.source,
+    }).catch((error) => {
       console.error("Quote lead alert failed", error);
     });
   }, DEBOUNCE_MS);

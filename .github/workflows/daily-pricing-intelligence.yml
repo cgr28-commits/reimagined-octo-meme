@@ -1,0 +1,51 @@
+# Daily Quote Pricing & Competitor Report (analytics only).
+# Does NOT change pricing-config.json or live fares.
+# Triggers the Worker owner run endpoint around 23:55 Europe/London.
+
+name: Daily pricing intelligence report
+
+on:
+  schedule:
+    # 22:55 UTC ≈ 23:55 BST; 23:55 UTC ≈ 23:55 GMT
+    - cron: "55 22 * * *"
+    - cron: "55 23 * * *"
+  workflow_dispatch:
+    inputs:
+      force:
+        description: Force regenerate even if already run today
+        required: false
+        default: "true"
+
+permissions:
+  contents: read
+
+jobs:
+  daily-report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Trigger Worker daily pricing intelligence
+        env:
+          OWNER_ACCESS_KEY: ${{ secrets.OWNER_ACCESS_KEY }}
+          WORKER_BASE: ${{ vars.WORKER_BASE_URL || 'https://reimagined-octo-meme.cgr28.workers.dev' }}
+        run: |
+          if [ -z "$OWNER_ACCESS_KEY" ]; then
+            echo "OWNER_ACCESS_KEY secret missing — skipping remote trigger (Worker cron still runs at 23:00 London)."
+            exit 0
+          fi
+          FORCE="${{ github.event.inputs.force || 'false' }}"
+          # Only one of the two UTC crons should succeed per London day; force=false skips duplicates.
+          CODE=$(curl -sS -o /tmp/pricing-intel-run.json -w "%{http_code}" \
+            -X POST \
+            -H "Content-Type: application/json" \
+            -H "Accept: application/json" \
+            -H "X-Owner-Key: ${OWNER_ACCESS_KEY}" \
+            -d "{\"force\": ${FORCE}, \"skipEmail\": false}" \
+            "${WORKER_BASE}/owner/pricing-intelligence/run" || true)
+          echo "HTTP $CODE"
+          cat /tmp/pricing-intel-run.json || true
+          echo ""
+          if [ "$CODE" != "200" ]; then
+            echo "Worker run endpoint returned $CODE (Worker hourly cron remains the primary scheduler)."
+            exit 0
+          fi

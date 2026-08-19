@@ -113,6 +113,7 @@ import {
   savePickupAddressLabel,
 } from "@/lib/address-place-storage";
 import { scheduleQuoteLeadAlert } from "@/lib/submit-quote-lead";
+import { submitQuoteFunnelEvent } from "@/lib/submit-quote-funnel";
 import { getPaymentBookingBlockers } from "../../shared/paid-booking-gate";
 import FlightNumberField, { formatVerifiedFlightSummary } from "@/components/FlightNumberField";
 import GoogleAdsRequestQuote from "@/components/GoogleAdsRequestQuote";
@@ -1339,23 +1340,30 @@ function QuoteCard({
               : "Airport drop-off"
             : "Address to address";
 
-    return scheduleQuoteLeadAlert({
-      tripLabel,
-      pickupLabel,
-      dropoffLabel,
-      returnJourney,
-      tripDate: tripDate || undefined,
-      tripTime: tripTime || undefined,
-      returnDate: returnJourney ? returnDate || undefined : undefined,
-      returnTime: returnJourney ? returnTime || undefined : undefined,
-      passengers,
-      suitcases,
-      vehicle: quoteVehicle,
-      estimatedPrice: formatQuote(liveQuote.amount),
-      journeyDistance: journeyDistanceLabel || undefined,
-      journeyDuration: journeyDurationLabel || undefined,
-      isAirportTrip,
-    });
+    return scheduleQuoteLeadAlert(
+      {
+        tripLabel,
+        pickupLabel,
+        dropoffLabel,
+        returnJourney,
+        tripDate: tripDate || undefined,
+        tripTime: tripTime || undefined,
+        returnDate: returnJourney ? returnDate || undefined : undefined,
+        returnTime: returnJourney ? returnTime || undefined : undefined,
+        passengers,
+        suitcases,
+        vehicle: quoteVehicle,
+        estimatedPrice: formatQuote(liveQuote.amount),
+        journeyDistance: journeyDistanceLabel || undefined,
+        journeyDuration: journeyDurationLabel || undefined,
+        isAirportTrip,
+      },
+      {
+        premiumApplied: Boolean(liveQuote.premiumApplied),
+        airportCode: effectiveAirportCode || undefined,
+        source: "card",
+      },
+    );
   }, [
     bookingSent,
     dropoffLabel,
@@ -1374,6 +1382,7 @@ function QuoteCard({
     suitcases,
     tripDate,
     tripTime,
+    effectiveAirportCode,
   ]);
 
   /**
@@ -1827,6 +1836,10 @@ function QuoteCard({
 
     try {
       const returnToken = createPaymentReturnToken();
+      void submitQuoteFunnelEvent("checkout_started", {
+        ...bookingDetails,
+        estimatedPrice: amountLabel,
+      });
       const checkout = await createPaymentCheckout({
         amount: paymentAmount ?? liveQuote.amount,
         description: buildPaymentDescription(),
@@ -2296,6 +2309,23 @@ function QuoteCard({
     clearFlightBlockingErrors();
     pendingScrollToStep3CustomerRef.current = true;
     setQuoteStep(3);
+    if (liveQuote) {
+      void submitQuoteFunnelEvent("book_click", {
+        tripLabel: isAirportTrip
+          ? isFromAirport
+            ? "Airport pickup"
+            : "Airport drop-off"
+          : "Address to address",
+        pickupLabel,
+        dropoffLabel,
+        returnJourney,
+        passengers,
+        suitcases,
+        vehicle: quoteVehicle,
+        estimatedPrice: formatQuote(liveQuote.amount),
+        isAirportTrip,
+      });
+    }
   }
 
   const usesWhatsApp = isMobileDevice === true;
