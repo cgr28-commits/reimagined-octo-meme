@@ -104,7 +104,7 @@ export const CALENDAR_STATUS_STYLES: Record<
     bar: "bg-sky-400",
   },
   live: {
-    label: "Live tracking",
+    label: "Driver on the way",
     chip: "border-emerald/50 bg-emerald/20 text-emerald",
     bar: "bg-emerald",
   },

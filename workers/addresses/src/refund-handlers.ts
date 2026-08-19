@@ -58,7 +58,7 @@ import {
   ensureManageBookingToken,
 } from "./paid-booking-store";
 import {
-  findTrackingJobByPaymentReference,
+  findTrackingJobsByPaymentReference,
   getTrackingJob,
   markTrackingJobRefunded,
   trackingStoreConfigured,
@@ -1141,16 +1141,41 @@ async function completeRefundSideEffects(
     }
 
     if (trackingStoreConfigured(env.TRACKING_STORE)) {
-      const token =
-        record.trackingToken ??
-        (await findTrackingJobByPaymentReference(env.TRACKING_STORE, input.paymentReference))
-          ?.token;
-      if (token) {
-        trackingMarkedRefunded = await markTrackingJobRefunded(
+      const paymentRef = input.paymentReference.trim();
+      const jobsByRef = await findTrackingJobsByPaymentReference(
+        env.TRACKING_STORE,
+        paymentRef,
+      );
+      const tokens = new Set<string>(jobsByRef.map((job) => job.token));
+
+      // trackingToken is only a hint — verify it belongs to this paymentReference.
+      const hintedToken = record.trackingToken?.trim();
+      if (hintedToken) {
+        const hinted = await getTrackingJob(env.TRACKING_STORE, hintedToken);
+        if (hinted && hinted.paymentReference?.trim() === paymentRef) {
+          tokens.add(hinted.token);
+        } else if (hinted && hinted.paymentReference?.trim()) {
+          warnings.push(
+            `Skipped tracking token ${hintedToken.slice(0, 8)}… — paymentReference mismatch (not mutating other booking)`,
+          );
+        }
+      }
+
+      if (tokens.size === 0 && hintedToken) {
+        // Legacy jobs with no paymentReference on the tracking record: mark only that token.
+        const hinted = await getTrackingJob(env.TRACKING_STORE, hintedToken);
+        if (hinted && !hinted.paymentReference?.trim()) {
+          tokens.add(hinted.token);
+        }
+      }
+
+      for (const token of tokens) {
+        const ok = await markTrackingJobRefunded(
           env.TRACKING_STORE,
           token,
           input.refundAmount > 0 ? input.refundAmountLabel : "Cancelled",
         );
+        if (ok) trackingMarkedRefunded = true;
       }
     }
   }

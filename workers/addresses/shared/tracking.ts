@@ -562,6 +562,38 @@ export function buildPublicTrackUrl(token: string, siteUrl = "https://www.myairp
   return `${siteUrl.replace(/\/$/, "")}/track/?id=${encodeURIComponent(token)}`;
 }
 
+/**
+ * Choose tracking jobs that may be marked refunded with booking A.
+ * Never includes a paired/related job whose paymentReference differs.
+ */
+export function selectTrackingJobsForRefundMark(input: {
+  primary: TrackingJobRecord;
+  relatedByPaymentRef: TrackingJobRecord[];
+  pairedJob?: TrackingJobRecord | null;
+}): TrackingJobRecord[] {
+  const paymentRef = input.primary.paymentReference?.trim() || "";
+  const byToken = new Map<string, TrackingJobRecord>();
+  byToken.set(input.primary.token, input.primary);
+
+  for (const job of input.relatedByPaymentRef) {
+    if (!job?.token) continue;
+    if (!paymentRef) {
+      // Without a payment ref, never fan out — only the primary token is safe.
+      continue;
+    }
+    if (job.paymentReference?.trim() === paymentRef) {
+      byToken.set(job.token, job);
+    }
+  }
+
+  const paired = input.pairedJob ?? null;
+  if (paired?.token && paymentRef && paired.paymentReference?.trim() === paymentRef) {
+    byToken.set(paired.token, paired);
+  }
+
+  return [...byToken.values()];
+}
+
 /** True once the customer tracking window has opened (~1 hour before pickup) and not yet closed. */
 export function isTrackingAvailableReminderDue(pickupAt: string, now = Date.now()): boolean {
   const window = getTrackingWindow(pickupAt, new Date(now));
