@@ -23,6 +23,14 @@ export type RefundTestBookingSummary = {
   isRefundTest: true;
   refundHistoryCount: number;
   tripLabel: string;
+  trackingToken?: string | null;
+  trackingRefundedAt?: string | null;
+  trackingJourneyStatus?: string | null;
+  isolationDecoyToken?: string | null;
+  isolationDecoyRefundedAt?: string | null;
+  isolationDecoyPaymentReference?: string;
+  trackingIsolationReady?: boolean;
+  trackingIsolationResult?: { ok: boolean; reason: string } | null;
 };
 
 export type RefundTestPendingCheckout = {
@@ -132,6 +140,41 @@ export async function issueRefundTestRefund(input: {
   }
   if (!response.ok && !payload.error) {
     throw new Error(`Refund test refund failed (${response.status})`);
+  }
+  return payload;
+}
+
+export type RefundTestEnsureTrackingResult = {
+  ok: boolean;
+  created?: boolean;
+  isRefundTest?: boolean;
+  paymentReference?: string;
+  trackingToken?: string;
+  isolationDecoyToken?: string;
+  isolationDecoyPaymentReference?: string;
+  pairedTokenWired?: boolean;
+  warning?: string;
+  error?: string;
+};
+
+export async function ensureRefundTestIsolationTracking(input: {
+  ownerKey: string;
+  paymentReference: string;
+}): Promise<RefundTestEnsureTrackingResult> {
+  const response = await fetch(`${WORKER_BASE}/paid-bookings/refund-test/ensure-tracking`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      "X-Owner-Key": input.ownerKey.trim(),
+    },
+    body: JSON.stringify({
+      paymentReference: input.paymentReference.trim(),
+    }),
+  });
+  const payload = (await parseJson(response)) as RefundTestEnsureTrackingResult;
+  if (!response.ok) {
+    throw new Error(String(payload.error ?? `Ensure isolation tracking failed (${response.status})`));
   }
   return payload;
 }

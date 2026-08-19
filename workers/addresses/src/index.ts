@@ -211,9 +211,11 @@ import {
   handleRefundTestCheckoutRequest,
   handleRefundTestListRequest,
   handleRefundTestRefundRequest,
+  handleRefundTestEnsureTrackingRequest,
   isRefundTestCheckoutPath,
   isRefundTestListPath,
   isRefundTestRefundPath,
+  isRefundTestEnsureTrackingPath,
 } from "./refund-test-handlers";
 import {
   handleAmendmentTestListRequest,
@@ -466,6 +468,7 @@ function routePath(
   | "paid-bookings-refund-test-checkout"
   | "paid-bookings-refund-test-list"
   | "paid-bookings-refund-test-refund"
+  | "paid-bookings-refund-test-ensure-tracking"
   | "paid-bookings-amendment-test-seed"
   | "paid-bookings-amendment-test-list"
   | "paid-bookings"
@@ -535,6 +538,9 @@ function routePath(
   }
   if (isRefundTestRefundPath(pathname)) {
     return "paid-bookings-refund-test-refund";
+  }
+  if (isRefundTestEnsureTrackingPath(pathname)) {
+    return "paid-bookings-refund-test-ensure-tracking";
   }
   if (isAmendmentTestSeedPath(pathname)) {
     return "paid-bookings-amendment-test-seed";
@@ -2662,6 +2668,9 @@ export default {
     }
     if (route === "paid-bookings-refund-test-refund") {
       return handleRefundTestRefundRequest(request, env, origin);
+    }
+    if (route === "paid-bookings-refund-test-ensure-tracking") {
+      return handleRefundTestEnsureTrackingRequest(request, env, origin);
     }
     if (route === "paid-bookings-amendment-test-seed") {
       return handleAmendmentTestSeedRequest(request, env, origin);

@@ -17,15 +17,26 @@ import {
   roundGbp,
 } from "../shared/refund-ops";
 import { corsHeaders } from "../shared/google-places";
+import {
+  refundTestIsolationDecoyPaymentReference,
+  refundTestTrackingIsolationPassed,
+} from "../shared/refund-test-isolation";
 import { ownerAuthorized, type DriverAuthEnv } from "./driver-auth";
 import {
   getPaidBookingRecord,
   listRefundTestPaidBookings,
   paidBookingStoreConfigured,
+  savePaidBookingRecord,
 } from "./paid-booking-store";
 import { savePendingCheckout, listRecentPendingCheckouts } from "./pending-checkout-store";
 import { handleRefundRequest, syncPaidBookingRefundTotalsFromSumUp } from "./refund-handlers";
 import type { RefundEnv } from "./refund-handlers";
+import {
+  ensureRefundTestIsolationTrackingPair,
+  findTrackingJobsByPaymentReference,
+  getTrackingJob,
+  trackingStoreConfigured,
+} from "./tracking-store";
 
 /** Hard-coded live test charge — never taken from the browser. */
 export const REFUND_TEST_AMOUNT_GBP = 1;
@@ -103,6 +114,13 @@ export function isRefundTestRefundPath(pathname: string): boolean {
   return (
     pathname === "/paid-bookings/refund-test/refund" ||
     pathname === "/api/paid-bookings/refund-test/refund"
+  );
+}
+
+export function isRefundTestEnsureTrackingPath(pathname: string): boolean {
+  return (
+    pathname === "/paid-bookings/refund-test/ensure-tracking" ||
+    pathname === "/api/paid-bookings/refund-test/ensure-tracking"
   );
 }
 
@@ -259,6 +277,51 @@ export async function handleRefundTestListRequest(
         : 0;
     const amountRefunded =
       typeof record.amountRefunded === "number" ? roundGbp(record.amountRefunded) : 0;
+
+    const decoyPaymentReference = refundTestIsolationDecoyPaymentReference(
+      record.paymentReference,
+    );
+    let trackingToken = record.trackingToken?.trim() || null;
+    let trackingRefundedAt: string | null = null;
+    let trackingJourneyStatus: string | null = null;
+    let isolationDecoyToken: string | null = null;
+    let isolationDecoyRefundedAt: string | null = null;
+    let trackingIsolationReady = false;
+    let trackingIsolationResult: ReturnType<typeof refundTestTrackingIsolationPassed> | null =
+      null;
+
+    if (trackingStoreConfigured(env.TRACKING_STORE)) {
+      const primaryJobs = await findTrackingJobsByPaymentReference(
+        env.TRACKING_STORE,
+        record.paymentReference,
+      );
+      const primary =
+        primaryJobs.find((job) => job.journeyLeg !== "return") ?? primaryJobs[0] ?? null;
+      if (primary) {
+        trackingToken = primary.token;
+        trackingRefundedAt = primary.refundedAt?.trim() || null;
+        trackingJourneyStatus = primary.journeyStatus ?? "idle";
+      }
+      const decoyJobs = await findTrackingJobsByPaymentReference(
+        env.TRACKING_STORE,
+        decoyPaymentReference,
+      );
+      const decoy = decoyJobs[0] ?? null;
+      if (decoy) {
+        isolationDecoyToken = decoy.token;
+        isolationDecoyRefundedAt = decoy.refundedAt?.trim() || null;
+      }
+      trackingIsolationReady = Boolean(primary && decoy);
+      if (trackingIsolationReady) {
+        trackingIsolationResult = refundTestTrackingIsolationPassed({
+          primaryRefundedAt: trackingRefundedAt,
+          decoyRefundedAt: isolationDecoyRefundedAt,
+          primaryPaymentReference: record.paymentReference,
+          decoyPaymentReference,
+        });
+      }
+    }
+
     items.push({
       paymentReference: record.paymentReference,
       checkoutId: record.checkoutId,
@@ -284,6 +347,14 @@ export async function handleRefundTestListRequest(
       refundHistoryCount: record.refundHistory?.length ?? 0,
       tripLabel: record.tripLabel,
       syncedFromProcessor: synced.syncedFromProcessor,
+      trackingToken,
+      trackingRefundedAt,
+      trackingJourneyStatus,
+      isolationDecoyToken,
+      isolationDecoyRefundedAt,
+      isolationDecoyPaymentReference: decoyPaymentReference,
+      trackingIsolationReady,
+      trackingIsolationResult,
     });
   }
 
@@ -383,3 +454,112 @@ export async function handleRefundTestRefundRequest(
 
   return handleRefundRequest(forwarded, env, origin);
 }
+
+/**
+ * Attach tagged isolation tracking jobs to an isRefundTest booking only.
+ * Creates a primary job (same paymentReference) + a foreign-payment decoy
+ * cross-wired via pairedToken — never fuzzy-matches real customer jobs.
+ */
+export async function handleRefundTestEnsureTrackingRequest(
+  request: Request,
+  env: RefundTestEnv,
+  origin: string | null,
+): Promise<Response> {
+  if (request.method !== "POST") {
+    return jsonResponse({ error: "Method not allowed" }, 405, origin);
+  }
+  if (!ownerAuthorized(request, env)) {
+    return jsonResponse(
+      { error: "Unauthorized — Refund Test requires OWNER_ACCESS_KEY." },
+      401,
+      origin,
+    );
+  }
+  if (!paidBookingStoreConfigured(env.TRACKING_STORE) || !trackingStoreConfigured(env.TRACKING_STORE)) {
+    return jsonResponse({ error: "Booking store is not configured." }, 503, origin);
+  }
+
+  let body: Record<string, unknown>;
+  try {
+    body = (await request.json()) as Record<string, unknown>;
+  } catch {
+    return jsonResponse({ error: "Invalid JSON" }, 400, origin);
+  }
+
+  const paymentReference = String(body.paymentReference ?? "").trim();
+  if (!paymentReference) {
+    return jsonResponse({ error: "Missing paymentReference" }, 400, origin);
+  }
+
+  const record = await getPaidBookingRecord(env.TRACKING_STORE, paymentReference);
+  if (!record) {
+    return jsonResponse({ error: "Refund test booking not found." }, 404, origin);
+  }
+  if (!record.isRefundTest) {
+    return jsonResponse(
+      {
+        error:
+          "Isolation tracking can only be attached to isRefundTest bookings. Refusing customer booking.",
+      },
+      400,
+      origin,
+    );
+  }
+
+  try {
+    const pair = await ensureRefundTestIsolationTrackingPair(env.TRACKING_STORE, record);
+    if (record.trackingToken !== pair.primary.token) {
+      await savePaidBookingRecord(env.TRACKING_STORE, {
+        ...record,
+        trackingToken: pair.primary.token,
+      });
+    }
+
+    // Sanity: primary must never resolve to a foreign customer payment ref via getTrackingJob.
+    const verifyPrimary = await getTrackingJob(env.TRACKING_STORE, pair.primary.token);
+    const verifyDecoy = await getTrackingJob(env.TRACKING_STORE, pair.decoy.token);
+    if (!verifyPrimary || verifyPrimary.paymentReference?.trim() !== paymentReference) {
+      return jsonResponse(
+        { error: "Isolation primary job verification failed — aborting." },
+        500,
+        origin,
+      );
+    }
+    if (
+      !verifyDecoy ||
+      verifyDecoy.paymentReference?.trim() !== pair.decoyPaymentReference
+    ) {
+      return jsonResponse(
+        { error: "Isolation decoy job verification failed — aborting." },
+        500,
+        origin,
+      );
+    }
+
+    return jsonResponse(
+      {
+        ok: true,
+        created: pair.created,
+        isRefundTest: true,
+        paymentReference,
+        trackingToken: pair.primary.token,
+        isolationDecoyToken: pair.decoy.token,
+        isolationDecoyPaymentReference: pair.decoyPaymentReference,
+        pairedTokenWired: true,
+        warning:
+          "Isolation decoy uses a synthetic paymentReference and is cross-wired via pairedToken on purpose. Refunding this test must mark primary only.",
+      },
+      200,
+      origin,
+    );
+  } catch (error) {
+    return jsonResponse(
+      {
+        error: error instanceof Error ? error.message : "Failed to attach isolation tracking",
+      },
+      400,
+      origin,
+    );
+  }
+}
+
