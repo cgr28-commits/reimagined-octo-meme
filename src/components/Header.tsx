@@ -88,6 +88,13 @@ export default function Header() {
                     </Link>
                   ))}
                   <hr className="my-3 border-white/10" />
+                  <Link
+                    href="/manage-booking/"
+                    onClick={closeMenu}
+                    className="rounded-full border border-white/20 px-5 py-3.5 text-center text-sm font-semibold text-white/90"
+                  >
+                    Manage Your Booking
+                  </Link>
                   <QuoteNavLink
                     onNavigate={closeMenu}
                     className="rounded-full bg-emerald px-5 py-3.5 text-center text-sm font-semibold text-navy"
@@ -149,7 +156,13 @@ export default function Header() {
             ))}
           </nav>
 
-          <div className="hidden items-center gap-4 md:flex lg:justify-self-end">
+          <div className="hidden items-center gap-3 md:flex lg:justify-self-end">
+            <Link
+              href="/manage-booking/"
+              className="whitespace-nowrap rounded-full border border-white/20 px-4 py-2 text-sm font-semibold text-white/90 transition-colors hover:border-emerald/50 hover:text-emerald lg:px-5"
+            >
+              Manage Your Booking
+            </Link>
             <QuoteNavLink className="rounded-full bg-emerald px-5 py-2 text-sm font-semibold text-navy transition-all hover:bg-emerald-light hover:shadow-lg hover:shadow-emerald/25 lg:px-6">
               Get a Quote
             </QuoteNavLink>

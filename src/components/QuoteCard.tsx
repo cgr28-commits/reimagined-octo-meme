@@ -86,10 +86,6 @@ import {
   type BuildSaveQuotePayloadResult,
 } from "@/lib/save-quote-payload";
 import {
-  createPaymentReturnToken,
-  savePendingPayment,
-} from "@/lib/pending-payment";
-import {
   clearOpenCheckoutSession,
   readBookingFormDraft,
   readOpenCheckoutSession,
@@ -97,6 +93,11 @@ import {
   saveOpenCheckoutSession,
   type OpenCheckoutSession,
 } from "@/lib/booking-draft-storage";
+import { clearAbandonedQuotePersistence } from "@/lib/reset-quote-journey";
+import {
+  createPaymentReturnToken,
+  savePendingPayment,
+} from "@/lib/pending-payment";
 import {
   clearConfirmedDropoffPlace,
   clearConfirmedPickupPlace,
@@ -544,6 +545,9 @@ function QuoteCard({
   const showGuidePrice = showsOnlineGuidePrice(quoteVehicle);
   const capacityNeedsConfirm = needsLuggageCapacityConfirmation(passengers, suitcases);
   const [capacityConfirmed, setCapacityConfirmed] = useState(false);
+  const [confirmStartNewQuote, setConfirmStartNewQuote] = useState(false);
+  /** Bumped on Start a New Quote so address inputs remount with clean internal state. */
+  const [formResetKey, setFormResetKey] = useState(0);
 
   useEffect(() => {
     setVehicle(getAutoVehicle(passengers, suitcases, IS_A2A_PRIMARY));
@@ -1916,6 +1920,197 @@ function QuoteCard({
     setPaymentError("");
   }
 
+  function hasSubstantialQuoteInput(): boolean {
+    return (
+      isPlaceSelected(pickupPlace) ||
+      isPlaceSelected(dropoffPlace) ||
+      Boolean(pickupAddress.trim()) ||
+      Boolean(dropoffAddress.trim()) ||
+      Boolean(tripDate) ||
+      Boolean(tripTime) ||
+      returnJourney ||
+      passengers > 1 ||
+      suitcases > 0 ||
+      childSeats > 0 ||
+      Boolean(goingFlightNumber.trim()) ||
+      Boolean(collectionFlightNumber.trim()) ||
+      Boolean(customerName.trim()) ||
+      Boolean(customerEmail.trim()) ||
+      Boolean(customerMobile.trim()) ||
+      Boolean(appliedPersonalQuote) ||
+      Boolean(openCheckout) ||
+      Boolean(liveQuote) ||
+      quoteStep > 1
+    );
+  }
+
+  /**
+   * Abandon the current unconfirmed quote and return to a clean Get a Quote form.
+   * Clears QuoteCard React state + quote persistence only — never touches paid bookings.
+   */
+  function performStartNewQuote() {
+    clearAbandonedQuotePersistence();
+    resetRequestQuoteConversion();
+    setFormResetKey((key) => key + 1);
+
+    const airportPlace = isCustomerAirportCode(initialAirportCode)
+      ? quickSelectToPlace(initialAirportCode)
+      : null;
+    const nextMode: TripMode = IS_A2A_PRIMARY ? "address" : "airport";
+    const nextDirection = initialDirection;
+    const nextAirport = initialAirportCode;
+
+    setSubmitted(false);
+    setSubmitError("");
+    setBookingSent(false);
+    setBookingReference("");
+    setQuoteTransactionId("");
+    setBookingDelivery(null);
+    setQuoteStep(1);
+    setCustomerName("");
+    setCustomerMobile("");
+    setCustomerEmail("");
+    setMobileNumberError("");
+    setEmailAddressError("");
+    setTripMode(nextMode);
+    setTripDirection(nextDirection);
+    setAirportCode(nextAirport);
+    setPickupAddress(
+      nextDirection === "from-airport" && airportPlace
+        ? airportPlace.displayAddress || airportPlace.formattedAddress
+        : nextDirection === "to-airport"
+          ? initialAddressHint
+          : "",
+    );
+    setDropoffAddress(
+      initialDropoffHint ||
+        (nextDirection === "to-airport" && airportPlace
+          ? airportPlace.displayAddress || airportPlace.formattedAddress
+          : nextDirection === "from-airport"
+            ? initialAddressHint
+            : ""),
+    );
+    setPickupPlace(
+      nextDirection === "from-airport" && airportPlace ? airportPlace : emptySelectedPlace(),
+    );
+    setDropoffPlace(
+      nextDirection === "to-airport" && airportPlace ? airportPlace : emptySelectedPlace(),
+    );
+    setPickupPlaceError("");
+    setDropoffPlaceError("");
+    setPickupRestoredHint(false);
+    setDropoffRestoredHint(false);
+    setReturnJourney(false);
+    setTripDateError("");
+    setReturnDateError("");
+    setCustomerNameError("");
+    setGoingFlightNumber("");
+    setCollectionFlightNumber("");
+    setGoingFlightError("");
+    setCollectionFlightError("");
+    setVerifiedGoingFlight(null);
+    setVerifiedCollectionFlight(null);
+    setTripDate("");
+    setTripTime("");
+    setReturnDate("");
+    setReturnTime("");
+    setVehicle(VEHICLE_TYPES[0]);
+    setPassengers(1);
+    setSuitcases(0);
+    setExactPassengers(null);
+    setChildSeats(0);
+    setChildSeatNotes("");
+    setSaveQuoteOpen(false);
+    setSaveQuotePrompt("");
+    setJourneyIntent(
+      isCustomerAirportCode(initialAirportCode)
+        ? intentFromDirection(initialDirection)
+        : initialAddressHint || initialDropoffHint
+          ? initialDirection === "from-airport" || initialDirection === "to-airport"
+            ? intentFromDirection(initialDirection)
+            : "address-to-address"
+          : null,
+    );
+    setIntentAirportCode(isCustomerAirportCode(initialAirportCode) ? initialAirportCode : "");
+    setRouteMetrics(null);
+    setPaymentLoading(false);
+    setPaymentError("");
+    setOpenCheckout(null);
+    setPaymentPopupBlocked(false);
+    setShortNoticeResult(null);
+    setTermsAccepted(false);
+    setTermsError("");
+    setMarketingOptIn(false);
+    setTestChargeAmount(null);
+    setTestBookingLabel(null);
+    setPersonalQuoteCodeInput("");
+    setAppliedPersonalQuote(null);
+    setPersonalQuoteError("");
+    setPersonalQuoteLoading(false);
+    setCapacityConfirmed(false);
+    setConfirmStartNewQuote(false);
+
+    // Re-seed landing-page airport place into storage when props provide one.
+    if (nextDirection === "from-airport" && airportPlace) {
+      saveConfirmedPickupPlace(airportPlace);
+    } else if (nextDirection === "to-airport" && airportPlace) {
+      saveConfirmedDropoffPlace(airportPlace);
+    }
+
+    cardRef.current?.scrollIntoView({ behavior: "smooth", block: "start", inline: "nearest" });
+  }
+
+  function requestStartNewQuote() {
+    if (hasSubstantialQuoteInput()) {
+      setConfirmStartNewQuote(true);
+      return;
+    }
+    performStartNewQuote();
+  }
+
+  function renderStartNewQuoteControls() {
+    if (confirmStartNewQuote) {
+      return (
+        <div
+          className="rounded-xl border border-white/20 bg-navy-dark/60 px-4 py-3 text-center"
+          role="alertdialog"
+          aria-labelledby="start-new-quote-title"
+        >
+          <p id="start-new-quote-title" className="text-sm font-semibold text-white">
+            Start a new quote?
+          </p>
+          <p className="mt-1 text-xs text-white/60">Your current quote details will be cleared.</p>
+          <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:justify-center">
+            <button
+              type="button"
+              onClick={performStartNewQuote}
+              className="rounded-xl bg-emerald px-4 py-2.5 text-sm font-bold text-navy"
+            >
+              Start New Quote
+            </button>
+            <button
+              type="button"
+              onClick={() => setConfirmStartNewQuote(false)}
+              className="rounded-xl border border-white/20 px-4 py-2.5 text-sm font-semibold text-white/85"
+            >
+              Keep Current Quote
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <button
+        type="button"
+        onClick={requestStartNewQuote}
+        className="w-full text-center text-sm font-medium text-white/55 underline-offset-2 transition-colors hover:text-white/80 hover:underline"
+      >
+        Start a New Quote
+      </button>
+    );
+  }
+
   async function confirmBooking(delivery: BookingDelivery) {
     if (submitted || bookingSent) {
       return;
@@ -2277,13 +2472,11 @@ function QuoteCard({
           <button
             type="button"
             onClick={() => {
-              setShortNoticeResult(null);
-              setQuoteStep(1);
-              setPaymentError("");
+              performStartNewQuote();
             }}
             className="mt-4 block w-full text-sm text-white/55 underline-offset-2 hover:underline sm:mx-auto sm:w-auto"
           >
-            Start another quote
+            Start a New Quote
           </button>
         </div>
       </div>
@@ -2361,22 +2554,11 @@ function QuoteCard({
           <button
             type="button"
             onClick={() => {
-              resetRequestQuoteConversion();
-              setBookingSent(false);
-              setBookingReference("");
-              setQuoteTransactionId("");
-              setBookingDelivery(null);
-              setQuoteStep(1);
-              setSubmitError("");
-              setTermsAccepted(false);
-              setTermsError("");
-              setMarketingOptIn(false);
-              setSubmitted(false);
-              cardRef.current?.scrollIntoView({ behavior: "smooth", block: "start", inline: "nearest" });
+              performStartNewQuote();
             }}
             className="mt-6 w-full rounded-xl bg-emerald px-4 py-3 text-sm font-bold text-navy transition-colors hover:bg-emerald-light sm:w-auto sm:px-8"
           >
-            Get another quote
+            Start a New Quote
           </button>
         </div>
       </div>
@@ -2435,6 +2617,7 @@ function QuoteCard({
         {isA2AFlow ? (
           <>
             <QuoteProgressiveRoute
+              key={`quote-route-${formResetKey}`}
               journeyIntent={journeyIntent}
               onJourneyIntentChange={applyJourneyIntent}
               selectedAirportCode={intentAirportCode}
@@ -2703,6 +2886,7 @@ function QuoteCard({
           isFromAirport ? (
             <>
               <AddressInput
+                key={`dropoff-${formResetKey}`}
                 id="dropoff"
                 name="dropoff"
                 value={dropoffAddress}
@@ -2737,6 +2921,7 @@ function QuoteCard({
           ) : (
             <>
               <AddressInput
+                key={`pickup-${formResetKey}`}
                 id="pickup"
                 name="pickup"
                 value={pickupAddress}
@@ -2766,6 +2951,7 @@ function QuoteCard({
         ) : (
           <>
             <AddressInput
+              key={`a2a-pickup-${formResetKey}`}
               id="pickup"
               name="pickup"
               value={pickupAddress}
@@ -2776,6 +2962,7 @@ function QuoteCard({
               helperText="Where should we collect you?"
             />
             <AddressInput
+              key={`a2a-dropoff-${formResetKey}`}
               id="dropoff"
               name="dropoff"
               value={dropoffAddress}
@@ -3857,6 +4044,7 @@ function QuoteCard({
                 </button>
               </div>
             )}
+            {renderStartNewQuoteControls()}
             </div>
           </div>
           </>
@@ -3898,6 +4086,7 @@ function QuoteCard({
                 Save Quote
               </button>
             ) : null}
+            {renderStartNewQuoteControls()}
             {saveQuotePrompt ? (
               <p className="text-center text-xs text-emerald/90" role="status">
                 {saveQuotePrompt}
@@ -3957,6 +4146,7 @@ function QuoteCard({
                 Save Quote
               </button>
             ) : null}
+            {liveQuote ? renderStartNewQuoteControls() : null}
             {saveQuotePrompt ? (
               <p className="text-center text-xs text-emerald/90" role="status">
                 {saveQuotePrompt}

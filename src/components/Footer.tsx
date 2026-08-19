@@ -41,6 +41,14 @@ export default function Footer() {
               ))}
               <li>
                 <Link
+                  href="/manage-booking/"
+                  className="text-sm text-white/50 transition-colors hover:text-emerald"
+                >
+                  Manage Your Booking
+                </Link>
+              </li>
+              <li>
+                <Link
                   href="/airports/"
                   className="text-sm text-white/50 transition-colors hover:text-emerald"
                 >

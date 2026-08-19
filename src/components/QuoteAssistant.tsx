@@ -22,6 +22,7 @@ import {
   type QuoteDraft,
 } from "@/lib/quote-assistant";
 import { emailAssistantQuote, submitAssistantBooking } from "@/lib/quote-assistant-submit";
+import { START_NEW_QUOTE_EVENT } from "@/lib/reset-quote-journey";
 import { scheduleQuoteLeadAlert } from "@/lib/submit-quote-lead";
 
 const BOT_WORKING_MS = 450;
@@ -188,6 +189,28 @@ export default function QuoteAssistant() {
     setQuickReplies(saved.quickReplies);
     setConsecutiveMisses(saved.consecutiveMisses);
     missesRef.current = saved.consecutiveMisses;
+  }, []);
+
+  useEffect(() => {
+    function onStartNewQuote() {
+      setMessages(createWelcomeMessages());
+      setDraft(emptyQuoteDraft());
+      draftRef.current = {};
+      setQuickReplies(["Get a quote", "Save to contacts"]);
+      setShowContactOffer(false);
+      setAddressValue("");
+      setInput("");
+      setConsecutiveMisses(0);
+      missesRef.current = 0;
+      setOpen(false);
+      try {
+        sessionStorage.removeItem(SESSION_KEY);
+      } catch {
+        // ignore
+      }
+    }
+    window.addEventListener(START_NEW_QUOTE_EVENT, onStartNewQuote);
+    return () => window.removeEventListener(START_NEW_QUOTE_EVENT, onStartNewQuote);
   }, []);
 
   useEffect(() => {
