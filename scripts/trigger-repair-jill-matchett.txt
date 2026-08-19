@@ -1,0 +1,2 @@
+# Bump this file to re-run the Jill Matchett upcoming-status repair workflow on main.
+# 2026-08-19T21:30Z — initial repair request after erroneous COMPLETED status bleed
