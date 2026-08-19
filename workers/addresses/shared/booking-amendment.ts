@@ -226,6 +226,10 @@ export function materialFieldsChanged(
   proposed: ProposedBookingAmendment,
 ): MaterialRepriceField[] {
   const changed: MaterialRepriceField[] = [];
+  const numOr = (value: unknown, fallback: number) => {
+    const n = typeof value === "number" ? value : Number(value);
+    return Number.isFinite(n) ? n : fallback;
+  };
   const checks: Array<[MaterialRepriceField, string | number | boolean | undefined, string | number | boolean | undefined]> = [
     ["pickupLabel", proposed.pickupLabel, current.pickupLabel],
     ["dropoffLabel", proposed.dropoffLabel, current.dropoffLabel],
@@ -236,9 +240,21 @@ export function materialFieldsChanged(
     ["returnJourney", proposed.returnJourney, current.returnJourney],
     ["returnDate", proposed.returnDate, current.returnDate],
     ["returnTime", proposed.returnTime, current.returnTime],
-    ["passengers", proposed.passengers, current.passengers],
-    ["suitcases", proposed.suitcases, current.suitcases],
-    ["childSeats", proposed.childSeats, current.childSeats],
+    [
+      "passengers",
+      proposed.passengers !== undefined ? numOr(proposed.passengers, 1) : undefined,
+      numOr(current.passengers, 1),
+    ],
+    [
+      "suitcases",
+      proposed.suitcases !== undefined ? numOr(proposed.suitcases, 0) : undefined,
+      numOr(current.suitcases, 0),
+    ],
+    [
+      "childSeats",
+      proposed.childSeats !== undefined ? numOr(proposed.childSeats, 0) : undefined,
+      numOr(current.childSeats, 0),
+    ],
     ["vehicle", proposed.vehicle, undefined],
   ];
   for (const [field, next, prev] of checks) {
