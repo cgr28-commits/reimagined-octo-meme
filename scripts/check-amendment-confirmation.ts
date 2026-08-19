@@ -203,18 +203,18 @@ function run() {
   assert.doesNotMatch(panel, /"Send Updated Confirmation"/);
   assert.doesNotMatch(panel, /Send Updated Booking Confirmation/);
 
-  console.log("=== 7. Customer amend handler reprice + auto email + refund-due ===");
+  console.log("=== 7. Customer amend handler reprice + auto email + lower-fare contact ===");
   const amendHandlers = fs.readFileSync(
     path.join(root, "workers/addresses/src/booking-amendment-handlers.ts"),
     "utf8",
   );
   assert.match(amendHandlers, /calculateAuthoritativeWebsiteQuote/);
   assert.match(amendHandlers, /additional_payment_required/);
-  assert.match(amendHandlers, /refundDueAmount/);
+  assert.match(amendHandlers, /lower_fare_contact_required/);
   assert.match(amendHandlers, /sendUpdatedConfirmationForPaymentReference/);
-  assert.match(amendHandlers, /farePreserved:\s*false/);
+  assert.match(amendHandlers, /farePreserved:/);
   assert.doesNotMatch(amendHandlers, /amountPaidLabel:\s*`£\$\{newFare/);
-  assert.match(amendHandlers, /buildLowerFareAmendmentFareNote|Refund due:/);
+  assert.match(amendHandlers, /LOWER_FARE_CONTACT_BODY|Please contact us to complete this amendment/);
 
   console.log("check-amendment-confirmation: all assertions passed");
 }

@@ -15,7 +15,12 @@ import {
   getTrackingJob,
 } from "./tracking-store";
 import { resolveEmailTrackUrl } from "../shared/tracking";
-import { getPaidBookingRecord, updatePaidBookingFields } from "./paid-booking-store";
+import {
+  getPaidBookingRecord,
+  ensureManageBookingToken,
+  updatePaidBookingFields,
+} from "./paid-booking-store";
+import { buildManageBookingUrl } from "../shared/manage-booking-token";
 
 const BUSINESS_NAME = "My Airport Taxi NI";
 
@@ -56,8 +61,24 @@ export async function sendUpdatedConfirmationFromCanonicalRecord(input: {
 }): Promise<SendUpdatedConfirmationResult> {
   const receipt = paidBookingRecordToReceipt(input.record);
   const trackUrl = await resolveTrackUrl(input.env.TRACKING_STORE, input.record);
+  let manageUrl: string | undefined;
+  if (input.env.TRACKING_STORE && input.record.manageBookingToken) {
+    manageUrl = buildManageBookingUrl(
+      "https://www.myairporttaxini.co.uk",
+      input.record.manageBookingToken,
+    );
+  } else if (input.env.TRACKING_STORE) {
+    const withToken = await ensureManageBookingToken(input.env.TRACKING_STORE, input.record);
+    if (withToken.manageBookingToken) {
+      manageUrl = buildManageBookingUrl(
+        "https://www.myairporttaxini.co.uk",
+        withToken.manageBookingToken,
+      );
+    }
+  }
   const email = buildUpdatedBookingConfirmationEmail(receipt, BUSINESS_NAME, {
     trackUrl,
+    manageUrl,
     whatChanged: input.whatChanged,
     fareNote: input.fareNote,
   });

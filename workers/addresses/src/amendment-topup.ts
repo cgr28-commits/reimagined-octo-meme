@@ -348,6 +348,32 @@ export async function finalizeAmendmentTopUpCheckout(input: {
 
   const newTripDate = String(pending.proposed.tripDate || booking.tripDate);
   const newTripTime = String(pending.proposed.tripTime || booking.tripTime);
+  const newPickupLabel = String(pending.proposed.pickupLabel || booking.pickupLabel);
+  const newDropoffLabel = String(pending.proposed.dropoffLabel || booking.dropoffLabel);
+  const newPassengers =
+    pending.proposed.passengers !== undefined && pending.proposed.passengers !== null
+      ? Number(pending.proposed.passengers)
+      : booking.passengers;
+  const newSuitcases =
+    pending.proposed.suitcases !== undefined && pending.proposed.suitcases !== null
+      ? Number(pending.proposed.suitcases)
+      : booking.suitcases;
+  const newChildSeats =
+    pending.proposed.childSeats !== undefined && pending.proposed.childSeats !== null
+      ? Number(pending.proposed.childSeats)
+      : booking.childSeats;
+  const newChildSeatNotes =
+    pending.proposed.childSeatNotes !== undefined
+      ? String(pending.proposed.childSeatNotes || "")
+      : booking.childSeatNotes;
+  const newFlightNumber =
+    pending.proposed.flightNumber !== undefined
+      ? String(pending.proposed.flightNumber || "")
+      : booking.flightNumber;
+  const newMobileNumber =
+    pending.proposed.mobileNumber !== undefined
+      ? String(pending.proposed.mobileNumber || "")
+      : booking.mobileNumber;
   const previousTripDate = booking.tripDate;
   const previousTripTime = booking.tripTime;
   const changedAt = new Date().toISOString();
@@ -390,11 +416,25 @@ export async function finalizeAmendmentTopUpCheckout(input: {
     before: {
       tripDate: previousTripDate,
       tripTime: previousTripTime,
+      pickupLabel: booking.pickupLabel,
+      dropoffLabel: booking.dropoffLabel,
+      passengers: booking.passengers,
+      suitcases: booking.suitcases,
+      childSeats: booking.childSeats,
+      flightNumber: booking.flightNumber,
+      mobileNumber: booking.mobileNumber,
       amount: pending.previousFare,
     },
     after: {
       tripDate: newTripDate,
       tripTime: newTripTime,
+      pickupLabel: newPickupLabel,
+      dropoffLabel: newDropoffLabel,
+      passengers: newPassengers,
+      suitcases: newSuitcases,
+      childSeats: newChildSeats,
+      flightNumber: newFlightNumber,
+      mobileNumber: newMobileNumber,
       amount: pending.newFare,
     },
     previousFare: pending.previousFare,
@@ -411,6 +451,14 @@ export async function finalizeAmendmentTopUpCheckout(input: {
     {
       tripDate: newTripDate,
       tripTime: newTripTime,
+      pickupLabel: newPickupLabel,
+      dropoffLabel: newDropoffLabel,
+      passengers: newPassengers,
+      suitcases: newSuitcases,
+      childSeats: newChildSeats,
+      childSeatNotes: newChildSeatNotes,
+      flightNumber: newFlightNumber,
+      mobileNumber: newMobileNumber,
       originalTripDate: booking.originalTripDate || previousTripDate,
       originalTripTime: booking.originalTripTime || previousTripTime,
       dateTimeAmendmentCount: Math.max(0, Number(booking.dateTimeAmendmentCount) || 0) + 1,
@@ -455,6 +503,8 @@ export async function finalizeAmendmentTopUpCheckout(input: {
       const prevDate = job.tripDate;
       job.tripDate = newTripDate;
       job.tripTime = newTripTime;
+      job.pickupLabel = newPickupLabel;
+      job.dropoffLabel = newDropoffLabel;
       const pickupAt = buildPickupDateTimeLocal(job.tripDate, job.tripTime);
       if (pickupAt) job.pickupAt = pickupAt;
       await saveTrackingJob(input.env.TRACKING_STORE, job);

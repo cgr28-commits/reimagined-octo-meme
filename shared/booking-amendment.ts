@@ -105,6 +105,7 @@ export type PaidBookingAmendmentView = {
   passengers?: number;
   suitcases?: number;
   childSeats?: number;
+  childSeatNotes?: string;
   returnJourney?: boolean;
   returnDate?: string;
   returnTime?: string;
@@ -117,6 +118,10 @@ export type PaidBookingAmendmentView = {
   amountRefunded?: number;
   amount?: number;
   pendingAmendment?: { status?: string } | null;
+  mobileNumber?: string;
+  flightNumber?: string;
+  returnFlightNumber?: string;
+  notes?: string;
 };
 
 export type ProposedBookingAmendment = {
@@ -127,6 +132,7 @@ export type ProposedBookingAmendment = {
   passengers?: number;
   suitcases?: number;
   childSeats?: number;
+  childSeatNotes?: string;
   returnJourney?: boolean;
   returnDate?: string;
   returnTime?: string;
@@ -479,13 +485,27 @@ export function isPendingAmendmentExpired(
 }
 
 /**
- * Customer self-service fields currently exposed in /manage-booking/.
- * Material address/pax/luggage amendments still require owner contact.
+ * Customer self-service fields exposed in /manage-booking/.
+ * Fare-sensitive fields always reprice via the authoritative website quote engine.
+ * Online passenger capacity remains the instant-quote maximum (4).
  */
 export const CUSTOMER_SELF_SERVICE_AMENDMENT_FIELDS = [
   "tripDate",
   "tripTime",
+  "pickupLabel",
+  "dropoffLabel",
+  "passengers",
+  "suitcases",
+  "childSeats",
+  "childSeatNotes",
+  "flightNumber",
+  "mobileNumber",
 ] as const;
+
+/** Lower-fare self-service amendments require contact (no automatic refund). */
+export const LOWER_FARE_CONTACT_HEADLINE = "This change reduces your journey fare";
+export const LOWER_FARE_CONTACT_BODY =
+  "Please contact us to complete this amendment. We will not change your paid amount automatically.";
 
 export type ValidatePendingAmendmentResult =
   | { ok: true; pending: PendingBookingAmendment; booking: PaidBookingRecord }

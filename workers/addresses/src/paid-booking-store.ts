@@ -2,6 +2,7 @@ import {
   paidBookingCheckoutKey,
   paidBookingCreatedDayIndexKey,
   paidBookingCustomerRefKey,
+  paidBookingManageTokenKey,
   paidBookingRefKey,
   paidBookingRefundTestIndexKey,
   paidBookingTripDayIndexKey,
@@ -12,6 +13,10 @@ import {
   generateCustomerBookingReference,
   normalizeCustomerBookingReference,
 } from "../shared/customer-booking-reference";
+import {
+  generateManageBookingToken,
+  normalizeManageBookingToken,
+} from "../shared/manage-booking-token";
 import { bookingInUpcomingHorizon } from "../shared/upcoming-jobs";
 
 const RECORD_TTL = 60 * 60 * 24 * 400;
@@ -200,6 +205,56 @@ export async function ensureCustomerBookingReference(
   const updated = { ...record, customerReference };
   await savePaidBookingRecord(store, updated);
   return updated;
+}
+
+/**
+ * Ensure the record has an opaque manage-booking token and KV index.
+ * Metadata-only — does not consume free amendment quota.
+ */
+export async function ensureManageBookingToken(
+  store: KVNamespace,
+  record: PaidBookingRecord,
+): Promise<PaidBookingRecord> {
+  const existing = normalizeManageBookingToken(record.manageBookingToken ?? "");
+  if (existing) {
+    const indexed = await store.get(paidBookingManageTokenKey(existing));
+    if (!indexed?.trim()) {
+      await store.put(paidBookingManageTokenKey(existing), record.paymentReference, {
+        expirationTtl: RECORD_TTL,
+      });
+    }
+    if (record.manageBookingToken !== existing) {
+      const updated = { ...record, manageBookingToken: existing };
+      await savePaidBookingRecord(store, updated);
+      return updated;
+    }
+    return record;
+  }
+
+  for (let attempt = 0; attempt < 24; attempt += 1) {
+    const token = generateManageBookingToken();
+    const key = paidBookingManageTokenKey(token);
+    const claimed = await store.get(key);
+    if (claimed && claimed.trim() && claimed.trim() !== record.paymentReference) {
+      continue;
+    }
+    await store.put(key, record.paymentReference, { expirationTtl: RECORD_TTL });
+    const updated = { ...record, manageBookingToken: token };
+    await savePaidBookingRecord(store, updated);
+    return updated;
+  }
+  throw new Error("Could not allocate a unique manage booking token");
+}
+
+export async function getPaidBookingRecordByManageToken(
+  store: KVNamespace,
+  token: string,
+): Promise<PaidBookingRecord | null> {
+  const normalized = normalizeManageBookingToken(token);
+  if (!normalized) return null;
+  const paymentReference = await store.get(paidBookingManageTokenKey(normalized));
+  if (!paymentReference?.trim()) return null;
+  return getPaidBookingRecord(store, paymentReference.trim());
 }
 
 /**

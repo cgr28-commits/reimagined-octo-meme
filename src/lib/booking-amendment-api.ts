@@ -11,10 +11,22 @@ export type ManageBookingSummary = {
   customerReference?: string;
   customerName: string;
   customerEmail?: string;
+  mobileNumber?: string;
   tripDate: string;
   tripTime: string;
   pickupLabel: string;
   dropoffLabel: string;
+  passengers?: number;
+  suitcases?: number;
+  childSeats?: number;
+  childSeatNotes?: string;
+  flightNumber?: string;
+  returnFlightNumber?: string;
+  isAirportTrip?: boolean;
+  airportCode?: string;
+  isFromAirport?: boolean;
+  returnJourney?: boolean;
+  maxOnlinePassengers?: number;
   amountPaidLabel: string;
   journeyFare?: number;
   journeyFareLabel?: string;
@@ -38,9 +50,13 @@ export type ManageBookingSummary = {
     expiresAt?: string;
     status?: string;
     paymentUrl?: string;
+    proposed?: Record<string, string | number | boolean | null | undefined>;
   } | null;
   lastUpdatedConfirmationSentAt?: string;
   lastUpdatedConfirmationError?: string;
+  manageBookingUrl?: string;
+  hasManageToken?: boolean;
+  selfServiceFields?: readonly string[];
 };
 
 export type AmendmentFareSummary = {
@@ -52,6 +68,42 @@ export type AmendmentFareSummary = {
   differenceLabel?: string;
   label?: string;
   kind?: string;
+  amountPaidLabel?: string;
+};
+
+export type AmendmentReview = {
+  changes: string[];
+  diffs: Array<{ field: string; label: string; oldValue: string; newValue: string }>;
+  fare: AmendmentFareSummary;
+  burnsFreeQuota: boolean;
+  proposed: {
+    tripDate: string;
+    tripTime: string;
+    pickupLabel: string;
+    dropoffLabel: string;
+    passengers: number;
+    suitcases: number;
+    childSeats: number;
+    childSeatNotes: string;
+    flightNumber: string;
+    mobileNumber: string;
+  };
+};
+
+export type AmendPayload = {
+  paymentReference: string;
+  customerEmail: string;
+  token?: string;
+  tripDate: string;
+  tripTime: string;
+  pickupLabel: string;
+  dropoffLabel: string;
+  passengers: number;
+  suitcases: number;
+  childSeats: number;
+  childSeatNotes?: string;
+  flightNumber?: string;
+  mobileNumber: string;
 };
 
 export type AmendScheduleResult =
@@ -61,6 +113,7 @@ export type AmendScheduleResult =
       emailUi?: { headline: string; body: string };
       fareLabel?: string;
       customerEmailSent?: boolean;
+      review?: AmendmentReview;
     }
   | {
       kind: "payment_required";
@@ -73,6 +126,16 @@ export type AmendScheduleResult =
       payCtaLabel: string;
       note: string;
       pendingAmendment: ManageBookingSummary["pendingAmendment"];
+      review?: AmendmentReview;
+    }
+  | {
+      kind: "preview";
+      booking: ManageBookingSummary;
+      review: AmendmentReview;
+      contactRequired?: boolean;
+      headline?: string;
+      body?: string;
+      reason?: string;
     };
 
 async function parseJson(response: Response): Promise<Record<string, unknown>> {
@@ -82,8 +145,9 @@ async function parseJson(response: Response): Promise<Record<string, unknown>> {
 }
 
 export async function lookupBookingForAmendment(input: {
-  paymentReference: string;
-  customerEmail: string;
+  paymentReference?: string;
+  customerEmail?: string;
+  token?: string;
 }): Promise<ManageBookingSummary> {
   const response = await fetch(`${WORKER_BASE}/paid-bookings/amend-lookup`, {
     method: "POST",
@@ -98,19 +162,21 @@ export async function lookupBookingForAmendment(input: {
   return payload.booking as ManageBookingSummary;
 }
 
-export async function amendBookingSchedule(input: {
-  paymentReference: string;
-  customerEmail: string;
-  tripDate: string;
-  tripTime: string;
-}): Promise<AmendScheduleResult> {
-  const response = await fetch(`${WORKER_BASE}/paid-bookings/amend-schedule`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Accept: "application/json" },
-    body: JSON.stringify(input),
-    cache: "no-store",
-  });
-  const payload = await parseJson(response);
+function mapAmendResponse(
+  response: Response,
+  payload: Record<string, unknown>,
+): AmendScheduleResult {
+  if (payload.preview === true && payload.review && typeof payload.review === "object") {
+    return {
+      kind: "preview",
+      booking: payload.booking as ManageBookingSummary,
+      review: payload.review as AmendmentReview,
+      contactRequired: Boolean(payload.contactRequired),
+      headline: payload.headline ? String(payload.headline) : undefined,
+      body: payload.body ? String(payload.body) : undefined,
+      reason: payload.reason ? String(payload.reason) : undefined,
+    };
+  }
 
   if (response.status === 402 || payload.reason === "additional_payment_required") {
     if (!payload.paymentUrl || !payload.booking) {
@@ -142,11 +208,20 @@ export async function amendBookingSchedule(input: {
         payload.pendingAmendment && typeof payload.pendingAmendment === "object"
           ? (payload.pendingAmendment as ManageBookingSummary["pendingAmendment"])
           : null,
+      review:
+        payload.review && typeof payload.review === "object"
+          ? (payload.review as AmendmentReview)
+          : undefined,
     };
   }
 
   if (!response.ok) {
-    const err = new Error(String(payload.error || "Could not update this booking.")) as Error & {
+    const err = new Error(
+      String(
+        payload.error ||
+          "We couldn’t update your booking. Your existing booking has not been changed. Please try again or contact us.",
+      ),
+    ) as Error & {
       reason?: string;
       contactRequired?: boolean;
       headline?: string;
@@ -181,13 +256,62 @@ export async function amendBookingSchedule(input: {
     emailUi,
     fareLabel: fare?.label,
     customerEmailSent: Boolean(payload.customerEmailSent),
+    review:
+      payload.review && typeof payload.review === "object"
+        ? (payload.review as AmendmentReview)
+        : undefined,
   };
+}
+
+export async function previewBookingAmendment(
+  input: AmendPayload,
+): Promise<AmendScheduleResult> {
+  const response = await fetch(`${WORKER_BASE}/paid-bookings/amend-schedule`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify({ ...input, preview: true }),
+    cache: "no-store",
+  });
+  const payload = await parseJson(response);
+  return mapAmendResponse(response, payload);
+}
+
+export async function amendBookingSchedule(
+  input: AmendPayload,
+): Promise<AmendScheduleResult> {
+  const response = await fetch(`${WORKER_BASE}/paid-bookings/amend-schedule`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify({ ...input, preview: false }),
+    cache: "no-store",
+  });
+  const payload = await parseJson(response);
+  return mapAmendResponse(response, payload);
+}
+
+export async function abandonPendingAmendment(input: {
+  paymentReference?: string;
+  customerEmail?: string;
+  token?: string;
+}): Promise<ManageBookingSummary> {
+  const response = await fetch(`${WORKER_BASE}/paid-bookings/amend-abandon`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify(input),
+    cache: "no-store",
+  });
+  const payload = await parseJson(response);
+  if (!response.ok || !payload.booking) {
+    throw new Error(String(payload.error || "Could not cancel the pending payment request."));
+  }
+  return payload.booking as ManageBookingSummary;
 }
 
 export async function startAmendmentTopUpPayment(input: {
   paymentReference: string;
   customerEmail: string;
   amendmentId?: string;
+  token?: string;
 }): Promise<{
   paymentUrl: string;
   amountDueLabel: string;

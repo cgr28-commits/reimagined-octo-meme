@@ -181,10 +181,12 @@ import {
   handleCustomerAmendSchedule,
   handleCustomerAmendPay,
   handleCustomerAmendReturn,
+  handleCustomerAmendAbandon,
   isPaidBookingAmendLookupPath,
   isPaidBookingAmendSchedulePath,
   isPaidBookingAmendPayPath,
   isPaidBookingAmendReturnPath,
+  isPaidBookingAmendAbandonPath,
 } from "./booking-amendment-handlers";
 import { handleDriverUpdateBookingRequest } from "./driver-booking-handlers";
 import {
@@ -2327,6 +2329,9 @@ export default {
     }
     if (isPaidBookingAmendReturnPath(url.pathname) && request.method === "POST") {
       return handleCustomerAmendReturn(request, env, origin);
+    }
+    if (isPaidBookingAmendAbandonPath(url.pathname) && request.method === "POST") {
+      return handleCustomerAmendAbandon(request, env, origin);
     }
 
     if (

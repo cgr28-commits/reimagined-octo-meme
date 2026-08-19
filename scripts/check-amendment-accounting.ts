@@ -97,28 +97,17 @@ function run() {
   assert.equal(journeyFareOf(afterTopUp), 84);
   assert.equal(netAmountRetainedOf(afterTopUp), 84);
 
-  console.log("=== 4. Handler wiring: lower-fare keeps amountPaidLabel ===");
+  console.log("=== 4. Handler wiring: lower-fare requires contact (no auto-refund) ===");
   const amendHandlers = fs.readFileSync(
     path.join(root, "workers/addresses/src/booking-amendment-handlers.ts"),
     "utf8",
   );
-  const lowerBlock = amendHandlers.slice(
-    amendHandlers.indexOf("Lower fare:"),
-    amendHandlers.indexOf("const updated = await updatePaidBookingFields"),
-  );
-  assert.match(lowerBlock, /amount:\s*newFare/);
-  assert.match(lowerBlock, /refundDueAmount/);
-  assert.match(lowerBlock, /originalAmount/);
-  assert.doesNotMatch(lowerBlock, /amountPaidLabel:\s*`£\$\{newFare/);
-  assert.match(amendHandlers, /buildLowerFareAmendmentFareNote/);
-  assert.match(amendHandlers, /Updated journey price/);
-  assert.doesNotMatch(
-    amendHandlers.slice(
-      amendHandlers.indexOf("buildLowerFareAmendmentFareNote"),
-      amendHandlers.indexOf("sendUpdatedConfirmationForPaymentReference"),
-    ),
-    /Refund issued/,
-  );
+  assert.match(amendHandlers, /lower_fare_contact_required/);
+  assert.match(amendHandlers, /LOWER_FARE_CONTACT_BODY/);
+  assert.match(amendHandlers, /do not auto-refund|contact us/i);
+  assert.doesNotMatch(amendHandlers, /buildLowerFareAmendmentFareNote/);
+  // Customer path must not rewrite amountPaidLabel to the lower fare.
+  assert.doesNotMatch(amendHandlers, /amountPaidLabel:\s*`£\$\{newFare/);
 
   console.log("=== 5. Owner material amendment does not confuse collected vs fare ===");
   const ownerEdit = fs.readFileSync(

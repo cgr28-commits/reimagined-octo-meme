@@ -55,6 +55,7 @@ import {
   paidBookingStoreConfigured,
   savePaidBookingRecord,
   claimUniqueCustomerBookingReference,
+  ensureManageBookingToken,
 } from "./paid-booking-store";
 import {
   findTrackingJobByPaymentReference,
@@ -1409,6 +1410,7 @@ export async function savePaidBookingRecordFromConfirm(input: {
   const record: PaidBookingRecord = {
     paymentReference: input.paymentReference,
     customerReference,
+    manageBookingToken: existing?.manageBookingToken,
     checkoutId: input.checkoutId,
     transactionId: input.transactionId,
     transactionCode: input.transactionCode,
@@ -1457,6 +1459,12 @@ export async function savePaidBookingRecordFromConfirm(input: {
   };
 
   await savePaidBookingRecord(input.env.TRACKING_STORE, record);
+  // Opaque manage-booking token (metadata only — does not burn free amendment quota).
+  const withToken = await ensureManageBookingToken(input.env.TRACKING_STORE, {
+    ...record,
+    manageBookingToken: existing?.manageBookingToken,
+  });
+  void withToken;
   return customerReference;
 }
 

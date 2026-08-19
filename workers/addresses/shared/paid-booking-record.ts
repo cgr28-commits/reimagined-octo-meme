@@ -83,6 +83,11 @@ export type PaidBookingRecord = {
    * Unique per booking; used on invoices, emails, and Manage Booking lookup.
    */
   customerReference?: string;
+  /**
+   * Opaque Manage Booking access token (unguessable). Used in email deep-links
+   * as /manage-booking?token=… — never derived from MAT-#### or email.
+   */
+  manageBookingToken?: string;
   checkoutId: string;
   transactionId?: string;
   transactionCode?: string;
@@ -206,6 +211,11 @@ export function paidBookingRefKey(paymentReference: string): string {
 /** Secondary index: short customer ref MAT-#### → paymentReference. */
 export function paidBookingCustomerRefKey(customerReference: string): string {
   return `booking:customer-ref:${customerReference.trim().toUpperCase()}`;
+}
+
+/** Secondary index: opaque manage-booking token → paymentReference. */
+export function paidBookingManageTokenKey(token: string): string {
+  return `booking:manage-token:${token.trim().toLowerCase()}`;
 }
 
 /** Secondary index so confirm/webhook can find a paid booking by SumUp checkout id. */

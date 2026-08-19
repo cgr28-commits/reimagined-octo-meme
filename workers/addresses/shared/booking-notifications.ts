@@ -216,6 +216,7 @@ function buildInvoiceHtml(
   details: PaidBookingReceipt,
   businessName: string,
   trackUrl?: string,
+  manageUrl?: string,
 ): string {
   const customerRef =
     details.customerReference?.trim().toUpperCase() ||
@@ -308,6 +309,25 @@ function buildInvoiceHtml(
             </td>
           </tr>
           ${
+            manageUrl
+              ? `<tr>
+            <td style="padding:8px 32px 8px;">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#ecfdf5;border:1px solid #a7f3d0;border-radius:10px;">
+                <tr>
+                  <td style="padding:20px 24px;text-align:center;">
+                    <div style="font-size:12px;letter-spacing:0.1em;text-transform:uppercase;color:#047857;font-weight:bold;margin-bottom:10px;">Need to change something?</div>
+                    <div style="font-size:14px;line-height:1.7;color:#475569;margin-bottom:14px;">
+                      Update your pickup, destination, date, time, or passenger details online.
+                    </div>
+                    <a href="${escapeHtml(manageUrl)}" style="display:inline-block;background:${ACCENT};color:${NAVY};text-decoration:none;font-size:15px;font-weight:bold;padding:14px 24px;border-radius:8px;">Manage Your Booking</a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>`
+              : ""
+          }
+          ${
             trackUrl
               ? `<tr>
             <td style="padding:8px 32px 8px;">
@@ -373,9 +393,10 @@ function buildInvoiceHtml(
 export function buildCustomerConfirmationEmail(
   details: PaidBookingReceipt,
   businessName = "My Airport Taxi NI",
-  options?: { trackUrl?: string },
+  options?: { trackUrl?: string; manageUrl?: string },
 ): CustomerPaidBookingEmail {
   const trackUrl = options?.trackUrl?.trim();
+  const manageUrl = options?.manageUrl?.trim();
   const customerRef =
     details.customerReference?.trim().toUpperCase() ||
     details.checkoutReference?.trim() ||
@@ -422,6 +443,11 @@ export function buildCustomerConfirmationEmail(
         `Save this link — it activates about 1 hour before your scheduled pickup:\n` +
         `${trackUrl}\n`
       : "") +
+    (manageUrl
+      ? `\nMANAGE YOUR BOOKING\n${"=".repeat(40)}\n` +
+        `Need to change pickup, destination, date, time, or passenger details?\n` +
+        `Manage Your Booking:\n${manageUrl}\n`
+      : "") +
     `\nSAVE US FOR YOUR NEXT JOURNEY\n${"=".repeat(40)}\n` +
     `Keep ${businessName} in your contacts so we're easy to find whenever you need another airport transfer.\n` +
     `Save My Airport Taxi NI to Contacts:\n${contactVCardPublicUrl()}\n` +
@@ -430,7 +456,7 @@ export function buildCustomerConfirmationEmail(
     `${businessName}\n` +
     `${BUSINESS_WEBSITE}`;
 
-  const html = buildInvoiceHtml(details, businessName, trackUrl);
+  const html = buildInvoiceHtml(details, businessName, trackUrl, manageUrl);
 
   return { subject, text, html };
 }
@@ -1456,6 +1482,7 @@ export function buildUpdatedBookingConfirmationEmail(
   businessName = "My Airport Taxi NI",
   options?: {
     trackUrl?: string;
+    manageUrl?: string;
     /** Concise “What changed” bullets (optional). */
     whatChanged?: string[];
     /** Fare position line, e.g. "No change to your fare" / "Additional payment received: £14". */

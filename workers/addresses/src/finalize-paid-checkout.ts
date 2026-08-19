@@ -14,9 +14,12 @@ import {
 import { createTrackingJobForPaidBooking } from "./tracking-handlers";
 import { savePaidBookingRecordFromConfirm } from "./refund-handlers";
 import {
+  getPaidBookingRecord,
   getPaidBookingRecordByCheckoutId,
+  ensureManageBookingToken,
   paidBookingStoreConfigured,
 } from "./paid-booking-store";
+import { buildManageBookingUrl } from "../shared/manage-booking-token";
 import {
   getPendingCheckout,
   markPendingCheckoutFinalized,
@@ -323,8 +326,23 @@ export async function finalizePaidCheckout(input: {
     customerReference,
   };
 
+  let manageUrl: string | undefined;
+  if (paidBookingStoreConfigured(env.TRACKING_STORE) && paymentReference) {
+    const saved = await getPaidBookingRecord(env.TRACKING_STORE, paymentReference);
+    if (saved) {
+      const withToken = await ensureManageBookingToken(env.TRACKING_STORE, saved);
+      if (withToken.manageBookingToken) {
+        manageUrl = buildManageBookingUrl(
+          "https://www.myairporttaxini.co.uk",
+          withToken.manageBookingToken,
+        );
+      }
+    }
+  }
+
   const customerEmail = buildCustomerConfirmationEmail(receipt, BUSINESS_NAME, {
     trackUrl: tracking.trackUrl,
+    manageUrl,
   });
   const ownerEmail = buildOwnerPaidBookingEmail(receipt, BUSINESS_NAME, {
     trackUrl: tracking.trackUrl,

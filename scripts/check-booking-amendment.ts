@@ -74,7 +74,7 @@ function run() {
     path.join(root, "workers/addresses/src/booking-amendment-handlers.ts"),
     "utf8",
   );
-  assert.match(handlers, /evaluateCustomerDateTimeAmendment/);
+  assert.match(handlers, /evaluateCustomerAmendmentAccess|evaluateCustomerDateTimeAmendment/);
   assert.match(handlers, /within_24_hours/);
   assert.match(handlers, /403/);
   // Moving to a later date while inside 24h must still be rejected (cancellation bypass).
@@ -177,8 +177,10 @@ function run() {
   assert.match(handlers, /calculateAuthoritativeWebsiteQuote/);
   assert.match(handlers, /describeFareDifference/);
   assert.match(handlers, /sendUpdatedConfirmationForPaymentReference/);
-  assert.match(handlers, /refundDueAmount/);
+  assert.match(handlers, /lower_fare_contact_required/);
   assert.match(handlers, /additional_payment_required/);
+  assert.match(handlers, /amend-abandon|handleCustomerAmendAbandon/);
+  assert.match(handlers, /manageBookingToken|ensureManageBookingToken/);
 
   const index = fs.readFileSync(path.join(root, "workers/addresses/src/index.ts"), "utf8");
   assert.match(index, /isPaidBookingAmendSchedulePath/);

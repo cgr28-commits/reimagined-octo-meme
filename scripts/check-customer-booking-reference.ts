@@ -80,12 +80,16 @@ const record: PaidBookingRecord = {
   status: "confirmed",
   createdAt: "2026-08-19T12:00:00.000Z",
 };
-const email = buildCustomerConfirmationEmail(paidBookingRecordToReceipt(record));
+const email = buildCustomerConfirmationEmail(paidBookingRecordToReceipt(record), undefined, {
+  manageUrl: "https://www.myairporttaxini.co.uk/manage-booking/?token=abc123def456abc123def456abc123de",
+});
 assert.match(email.subject, /MAT-4827/);
 assert.match(email.text, /Booking reference: MAT-4827/);
 assert.doesNotMatch(email.text, /Invoice \/ payment reference: TAAA4VBCPZ9/);
 assert.match(email.html, /Booking reference/);
 assert.match(email.html, /MAT-4827/);
+assert.match(email.html, /Manage Your Booking/);
+assert.match(email.text, /Manage Your Booking/);
 assert.doesNotMatch(email.html, /Invoice \/ payment reference/);
 
 console.log("=== 6. Wiring present in Worker + UI ===");
@@ -93,20 +97,30 @@ assertSourceContains("workers/addresses/src/paid-booking-store.ts", [
   "claimUniqueCustomerBookingReference",
   "resolvePaidBookingForCustomerLookup",
   "ensureCustomerBookingReference",
+  "ensureManageBookingToken",
 ]);
 assertSourceContains("workers/addresses/src/booking-amendment-handlers.ts", [
   "resolvePaidBookingForCustomerLookup",
   "customerReference",
+  "manageBookingToken",
+  "getPaidBookingRecordByManageToken",
 ]);
 assertSourceContains("src/app/manage-booking/ManageBookingClient.tsx", [
   "Enter the booking reference shown on your confirmation",
   "placeholder=\"MAT-4827\"",
+  "token",
+  "Review Changes",
 ]);
 assertSourceContains("src/app/booking-confirmed/BookingConfirmedClient.tsx", [
   "Booking reference:",
 ]);
 assertSourceContains("workers/addresses/src/finalize-paid-checkout.ts", [
   "customerReference",
+  "manageUrl",
+]);
+assertSourceContains("shared/manage-booking-token.ts", [
+  "generateManageBookingToken",
+  "buildManageBookingUrl",
 ]);
 
 console.log("check-customer-booking-reference: all assertions passed");

@@ -15,7 +15,7 @@
  * 10. Updated confirmation only after confirmed top-up
  * 11. Owner material change uses server-calculated fare
  * 12. Customer cannot supply their own authoritative amended price
- * 13. Customer self-service fields = tripDate + tripTime only
+ * 13. Customer self-service fields include journey + contact details
  */
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -242,19 +242,24 @@ function run() {
   const emailIdx = topUp.indexOf("sendUpdatedConfirmationForPaymentReference");
   assert.ok(emailIdx > 0 && commitIdx > 0);
 
-  console.log("=== 7. Customer self-service field scope (honest) ===");
-  assert.deepEqual([...CUSTOMER_SELF_SERVICE_AMENDMENT_FIELDS], ["tripDate", "tripTime"]);
+  console.log("=== 7. Customer self-service field scope ===");
+  assert.ok(CUSTOMER_SELF_SERVICE_AMENDMENT_FIELDS.includes("tripDate"));
+  assert.ok(CUSTOMER_SELF_SERVICE_AMENDMENT_FIELDS.includes("tripTime"));
+  assert.ok(CUSTOMER_SELF_SERVICE_AMENDMENT_FIELDS.includes("pickupLabel"));
+  assert.ok(CUSTOMER_SELF_SERVICE_AMENDMENT_FIELDS.includes("dropoffLabel"));
+  assert.ok(CUSTOMER_SELF_SERVICE_AMENDMENT_FIELDS.includes("passengers"));
+  assert.ok(CUSTOMER_SELF_SERVICE_AMENDMENT_FIELDS.includes("suitcases"));
   const manageUi = fs.readFileSync(
     path.join(root, "src/app/manage-booking/ManageBookingClient.tsx"),
     "utf8",
   );
-  assert.match(manageUi, /date and time changes only/i);
-  assert.match(manageUi, /Pay £|payCtaLabel|Amount to pay now/);
-  assert.match(manageUi, /Your updated journey costs/);
-  assert.match(manageUi, /Already paid/);
-  assert.match(manageUi, /remain unchanged until the additional payment/);
-  assert.doesNotMatch(manageUi, /name=\"pickupLabel\"|id=\"pickupLabel\"/);
-  assert.doesNotMatch(manageUi, /Change pickup address/i);
+  assert.match(manageUi, /Review Changes/);
+  assert.match(manageUi, /Continue to Secure Payment|Confirm Changes/);
+  assert.match(manageUi, /AddressInput/);
+  assert.match(manageUi, /Additional payment required|No additional payment required/);
+  assert.match(manageUi, /remain unchanged until the additional payment/i);
+  assert.match(manageUi, /manage-pickup|Pickup address/);
+  assert.match(manageUi, /token/);
 
   console.log("=== 8. Owner material change uses server-calculated fare ===");
   const ownerEdit = fs.readFileSync(
@@ -286,6 +291,8 @@ function run() {
   const index = fs.readFileSync(path.join(root, "workers/addresses/src/index.ts"), "utf8");
   assert.match(index, /isPaidBookingAmendPayPath/);
   assert.match(index, /handleCustomerAmendPay/);
+  assert.match(index, /isPaidBookingAmendAbandonPath/);
+  assert.match(index, /handleCustomerAmendAbandon/);
 
   console.log("=== 11. Accounting fields on PaidBookingRecord ===");
   const record = fs.readFileSync(path.join(root, "shared/paid-booking-record.ts"), "utf8");
@@ -293,11 +300,12 @@ function run() {
   assert.match(record, /additionalPayments/);
   assert.match(record, /PaidBookingAdditionalPayment/);
   assert.match(record, /expiresAt/);
+  assert.match(record, /manageBookingToken/);
 
   console.log("=== 12. Scope documentation ===");
   console.log(
-    "Customer self-service now: tripDate, tripTime only. " +
-      "Still require owner/contact: pickup, destination, return journey, passengers, suitcases, capacity.",
+    "Customer self-service: date/time, pickup, destination, passengers, luggage, " +
+      "child seats, flight, mobile. Higher fare → SumUp difference. Lower fare → contact us.",
   );
 
   console.log("check-amendment-topup: all assertions passed");
