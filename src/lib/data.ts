@@ -99,6 +99,7 @@ export const ALL_MOBILE_QUICK_LINKS = [
   { label: "Day Trips", href: "/tours/", service: "dayTrips" as const },
   { label: "Chauffeur Hire", href: "/#chauffeur", service: "chauffeur" as const },
   { label: "Airports", href: "/#airports", service: null },
+  { label: "Manage Booking", href: "/manage-booking/", service: null },
   { label: "Get a Quote", href: "/#quote", highlight: true, service: null },
 ] as const;
 
