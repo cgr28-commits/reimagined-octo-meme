@@ -7,9 +7,11 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
+  buildSumUpRefundHttpBody,
   parseSumUpRefundedTotal,
   type SumUpTransactionPayload,
 } from "../shared/sumup-checkout";
+import { applyProcessorAuthoritativeRefund } from "../shared/refund-ops";
 
 const root = process.cwd();
 
@@ -206,6 +208,87 @@ console.log("=== SumUp parseSumUpRefundedTotal fixtures ===");
 
 console.log("OK  SumUp reconciliation fixtures");
 
+console.log("=== Partial refund HTTP body (official SumUp shape) ===");
+
+{
+  const partial = buildSumUpRefundHttpBody(0.5);
+  assert.equal(partial.isPartial, true);
+  assert.equal(partial.body, '{"amount":0.5}');
+  assert.equal(partial.parsedAmount, 0.5);
+  const full = buildSumUpRefundHttpBody(undefined);
+  assert.equal(full.isPartial, false);
+  assert.equal(full.body, undefined, "full refund must omit body (empty = SumUp full refund)");
+  const fullNull = buildSumUpRefundHttpBody(null);
+  assert.equal(fullNull.body, undefined);
+  assert.throws(() => buildSumUpRefundHttpBody(0), /greater than zero/);
+  assert.throws(() => buildSumUpRefundHttpBody(-1), /greater than zero/);
+  console.log("OK  partial body includes amount; omit body only for intentional full refund");
+}
+
+console.log("=== Processor-authoritative books override requested amount ===");
+
+{
+  // Live-test failure mode: requested £0.50, SumUp refunded £1.00
+  const applied = applyProcessorAuthoritativeRefund({
+    amountPaid: 1,
+    localAmountRefunded: 0,
+    processorAmountRefunded: 1,
+    requestedThisOperation: 0.5,
+  });
+  assert.equal(applied.amountRefunded, 1, "processor £1 overrides requested £0.50");
+  assert.equal(applied.remainingRefundable, 0, "must not show £0.50 remaining");
+  assert.equal(applied.expectedCumulative, 0.5);
+  assert.equal(applied.reconciliationRequired, true);
+  assert.equal(applied.furtherRefundBlocked, true);
+  assert.equal(applied.paymentStatus, "fully_refunded");
+  console.log("OK  requested £0.50 but processor £1.00 → refunded £1 / remaining £0 / blocked");
+}
+
+{
+  const applied = applyProcessorAuthoritativeRefund({
+    amountPaid: 1,
+    localAmountRefunded: 0,
+    processorAmountRefunded: 0.5,
+    requestedThisOperation: 0.5,
+  });
+  assert.equal(applied.amountRefunded, 0.5);
+  assert.equal(applied.remainingRefundable, 0.5);
+  assert.equal(applied.reconciliationRequired, false);
+  assert.equal(applied.furtherRefundBlocked, false);
+  assert.equal(applied.paymentStatus, "partially_refunded");
+  console.log("OK  matching partial leaves remaining £0.50");
+}
+
+{
+  // Further refund blocked when processor total equals original amount
+  const applied = applyProcessorAuthoritativeRefund({
+    amountPaid: 57,
+    localAmountRefunded: 20,
+    processorAmountRefunded: 57,
+    requestedThisOperation: 10,
+  });
+  assert.equal(applied.amountRefunded, 57);
+  assert.equal(applied.remainingRefundable, 0);
+  assert.equal(applied.furtherRefundBlocked, true);
+  assert.equal(applied.reconciliationRequired, true);
+  assert.equal(applied.paymentStatus, "fully_refunded");
+  console.log("OK  processor fully refunded blocks further refunds");
+}
+
+{
+  // Local stale £0.50 must not win over processor £1
+  const applied = applyProcessorAuthoritativeRefund({
+    amountPaid: 1,
+    localAmountRefunded: 0.5,
+    processorAmountRefunded: 1,
+    requestedThisOperation: 0,
+  });
+  assert.equal(applied.amountRefunded, 1);
+  assert.equal(applied.remainingRefundable, 0);
+  assert.equal(applied.furtherRefundBlocked, true);
+  console.log("OK  processor total overrides stale local £0.50");
+}
+
 console.log("=== getSumUpTransactionDetails uses documented endpoint ===");
 const sumup = read("shared/sumup-checkout.ts");
 assert.match(sumup, /\/v2\.1\/merchants\/.*\/transactions\?id=/);
@@ -215,7 +298,25 @@ assert.doesNotMatch(sumup, /amount_refunded/);
 assert.doesNotMatch(sumup, /payload\?\.refunds/);
 assert.match(sumup, /CHARGE_BACK|PAYOUT_DEDUCTION/);
 assert.match(sumup, /FAILED/);
-console.log("OK  documented retrieve-transaction wiring");
+assert.match(sumup, /v0\.1\/me\/refund/);
+assert.match(sumup, /buildSumUpRefundHttpBody/);
+assert.match(sumup, /Prefer the documented guide endpoint first/);
+// Must not prefer empty-object body for intentional full refunds on v0.1 path.
+assert.match(sumup, /requestBody: body \?\? ""/);
+console.log("OK  documented retrieve-transaction + v0.1 refund preference wiring");
+
+console.log("=== Refund handlers reconcile after SumUp accept ===");
+const handlersSrc = read("workers/addresses/src/refund-handlers.ts");
+assert.match(handlersSrc, /applyProcessorAuthoritativeRefund/);
+assert.match(handlersSrc, /reconcileRecordWithSumUp/);
+assert.match(handlersSrc, /reconciliation_required/);
+assert.match(handlersSrc, /syncPaidBookingRefundTotalsFromSumUp/);
+assert.match(handlersSrc, /Never trust the[\s\S]*requested amount alone/i);
+assert.doesNotMatch(
+  handlersSrc,
+  /cumulative = roundGbp\(authoritativeAlready \+ refundAmount\)/,
+);
+console.log("OK  post-refund processor reconcile (no local-only cumulative)");
 
 console.log("=== Durable Object does not hold blockConcurrencyWhile across I/O ===");
 const coordinator = read("workers/addresses/src/refund-coordinator.ts");

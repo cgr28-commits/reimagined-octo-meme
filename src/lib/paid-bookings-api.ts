@@ -405,6 +405,8 @@ export type RefundDiagnosticsReport = {
   originalAmount: number;
   amountRefunded: number;
   remainingRefundable: number;
+  /** True when this diagnostics call raised local amountRefunded from SumUp. */
+  syncedFromProcessor?: boolean;
   amountPaidLabel?: string;
   combinedStatus?: string;
   operationalStatus?: string;

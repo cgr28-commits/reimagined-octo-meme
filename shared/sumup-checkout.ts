@@ -118,9 +118,47 @@ export function getSuccessfulTransactionId(checkout: SumUpCheckoutDetails): stri
 }
 
 export type SumUpRefundResult = {
+  /** Amount we asked SumUp to refund (undefined = full refund request). */
+  requestedAmount?: number;
+  /**
+   * Amount reported in the refund API response body when present.
+   * SumUp often returns 204/empty `{}` — do not treat absence as "requested amount succeeded".
+   */
+  responseAmount?: number;
+  /** @deprecated Prefer responseAmount + post-refund getSumUpTransactionDetails reconciliation. */
   refundedAmount?: number;
   currency?: string;
+  /** Which refund endpoint accepted the request. */
+  endpoint: "v0.1/me/refund" | "v1.0/merchants/payments/refunds";
+  httpStatus: number;
+  /** Exact JSON body sent (empty string = empty/omitted body → SumUp full refund). */
+  requestBody: string;
+  requestUrl: string;
 };
+
+/**
+ * Build the SumUp refund HTTP body per official docs:
+ * - Partial: `{"amount": <major units>}` (required — omitting amount = FULL refund)
+ * - Full: omit body entirely (do not send `{}` on v0.1; empty object also means full)
+ */
+export function buildSumUpRefundHttpBody(amount?: number | null): {
+  body: string | undefined;
+  isPartial: boolean;
+  parsedAmount?: number;
+} {
+  if (amount === undefined || amount === null) {
+    return { body: undefined, isPartial: false };
+  }
+  if (!Number.isFinite(amount) || amount <= 0) {
+    throw new Error("Partial SumUp refund requires a finite amount greater than zero");
+  }
+  const parsedAmount = Math.round(Number(amount) * 100) / 100;
+  return {
+    body: JSON.stringify({ amount: parsedAmount }),
+    isPartial: true,
+    parsedAmount,
+  };
+}
 
 export type SumUpTransactionSummary = {
   id: string;
@@ -336,66 +374,143 @@ export async function resolveSumUpTransactionForRefund(
   return null;
 }
 
+/**
+ * Refund a SumUp transaction (full or partial).
+ *
+ * Documented partial refund (SumUp Developer guide):
+ *   POST https://api.sumup.com/v0.1/me/refund/{txn_id}
+ *   Content-Type: application/json
+ *   Body: { "amount": <major units> }   // omit body for FULL refund
+ *
+ * OpenAPI also documents:
+ *   POST /v1.0/merchants/{merchant_code}/payments/{transaction_id}/refunds
+ *   with the same optional `amount` field (omit = full refund).
+ *
+ * CRITICAL: If `amount` is omitted/null, SumUp performs a FULL refund.
+ * Never call this for a partial without a finite amount > 0.
+ *
+ * Successful responses are often 204 No Content or 201 with `{}` — the response
+ * body is NOT a reliable source of how much was refunded. Callers MUST reconcile
+ * via getSumUpTransactionDetails() / refunded_amount after success.
+ */
 export async function refundSumUpTransaction(
   apiKey: string,
   transactionId: string,
   amount?: number,
   merchantCode?: string,
 ): Promise<SumUpRefundResult> {
-  const body = JSON.stringify(amount !== undefined ? { amount } : {});
+  const trimmedId = transactionId.trim();
+  if (!trimmedId) {
+    throw new Error("Missing SumUp transaction id for refund");
+  }
 
+  const built = buildSumUpRefundHttpBody(amount);
+  const body = built.body;
+  const isPartial = built.isPartial;
+
+  // CRITICAL safety: money-move callers must pass a finite amount. Omitting amount
+  // tells SumUp to fully refund the transaction.
+  if (isPartial && (!body || !body.includes('"amount"'))) {
+    throw new Error("Refusing SumUp partial refund without an explicit amount body");
+  }
+
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${apiKey}`,
+  };
+  if (body !== undefined) {
+    headers["Content-Type"] = "application/json";
+  }
+
+  // Prefer the documented guide endpoint first (v0.1/me/refund/{txn_id}).
+  const primaryUrl = `https://api.sumup.com/v0.1/me/refund/${encodeURIComponent(trimmedId)}`;
+  const primary = await fetch(primaryUrl, {
+    method: "POST",
+    headers,
+    ...(body !== undefined ? { body } : {}),
+  });
+
+  if (primary.ok) {
+    const payload = (await primary.json().catch(() => null)) as
+      | { amount?: number; currency?: string }
+      | null;
+    return {
+      requestedAmount: isPartial ? built.parsedAmount : undefined,
+      responseAmount:
+        typeof payload?.amount === "number" && Number.isFinite(payload.amount)
+          ? payload.amount
+          : undefined,
+      refundedAmount:
+        typeof payload?.amount === "number" && Number.isFinite(payload.amount)
+          ? payload.amount
+          : undefined,
+      currency: payload?.currency,
+      endpoint: "v0.1/me/refund",
+      httpStatus: primary.status,
+      requestBody: body ?? "",
+      requestUrl: primaryUrl,
+    };
+  }
+
+  // Fallback: OpenAPI merchant payments refunds endpoint (same amount semantics).
   if (merchantCode?.trim()) {
-    const modernResponse = await fetch(
-      `https://api.sumup.com/v1.0/merchants/${encodeURIComponent(merchantCode.trim())}/payments/${encodeURIComponent(transactionId)}/refunds`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
-        },
-        body,
-      },
-    );
+    const fallbackUrl = `https://api.sumup.com/v1.0/merchants/${encodeURIComponent(merchantCode.trim())}/payments/${encodeURIComponent(trimmedId)}/refunds`;
+    const fallbackHeaders: Record<string, string> = {
+      Authorization: `Bearer ${apiKey}`,
+    };
+    // Partial: must include amount. Full: omit body (missing amount = full refund).
+    if (body !== undefined) {
+      fallbackHeaders["Content-Type"] = "application/json";
+    }
+    const modernResponse = await fetch(fallbackUrl, {
+      method: "POST",
+      headers: fallbackHeaders,
+      ...(body !== undefined ? { body } : {}),
+    });
 
     if (modernResponse.ok) {
       const modernPayload = (await modernResponse.json().catch(() => null)) as
         | { amount?: number; currency?: string }
         | null;
       return {
-        refundedAmount: modernPayload?.amount ?? amount,
+        requestedAmount: isPartial ? built.parsedAmount : undefined,
+        responseAmount:
+          typeof modernPayload?.amount === "number" && Number.isFinite(modernPayload.amount)
+            ? modernPayload.amount
+            : undefined,
+        refundedAmount:
+          typeof modernPayload?.amount === "number" && Number.isFinite(modernPayload.amount)
+            ? modernPayload.amount
+            : undefined,
         currency: modernPayload?.currency,
+        endpoint: "v1.0/merchants/payments/refunds",
+        httpStatus: modernResponse.status,
+        requestBody: body ?? "",
+        requestUrl: fallbackUrl,
       };
     }
+
+    const modernError = (await modernResponse.json().catch(() => null)) as
+      | { error_message?: string; detail?: string; message?: string }
+      | null;
+    const modernMessage =
+      modernError && typeof modernError === "object"
+        ? String(modernError.error_message ?? modernError.detail ?? modernError.message ?? "")
+        : "";
+    throw new Error(
+      modernMessage ||
+        `SumUp refund failed (v0.1 ${primary.status}, v1.0 ${modernResponse.status})`,
+    );
   }
 
-  const response = await fetch(
-    `https://api.sumup.com/v0.1/me/refund/${encodeURIComponent(transactionId)}`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body,
-    },
-  );
-
-  const payload = (await response.json().catch(() => null)) as
-    | { amount?: number; currency?: string; error_message?: string }
+  const payload = (await primary.json().catch(() => null)) as
+    | { amount?: number; currency?: string; error_message?: string; detail?: string; message?: string }
     | null;
 
-  if (!response.ok) {
-    const message =
-      payload && typeof payload === "object" && payload.error_message
-        ? String(payload.error_message)
-        : `SumUp refund failed (${response.status})`;
-    throw new Error(message);
-  }
-
-  return {
-    refundedAmount: payload?.amount,
-    currency: payload?.currency,
-  };
+  const message =
+    payload && typeof payload === "object"
+      ? String(payload.error_message ?? payload.detail ?? payload.message ?? "")
+      : "";
+  throw new Error(message || `SumUp refund failed (${primary.status})`);
 }
 
 export function buildCheckoutReference(prefix = "matni"): string {

@@ -16,6 +16,11 @@ import {
 } from "@/lib/paid-bookings-api";
 import { confirmPaidBooking } from "@/lib/create-payment";
 import { generateRefundOpId } from "../../shared/refund-ops";
+import {
+  canSubmitRefundTest,
+  parseRefundTestAmountInput,
+  remainingBalanceFillValue,
+} from "@/lib/refund-test-ui";
 import { SITE } from "@/lib/data";
 
 const OWNER_KEY_STORAGE = "matni-owner-key";
@@ -36,7 +41,7 @@ export default function OwnerRefundTestClient() {
   const [confirmKey, setConfirmKey] = useState("");
   const [finalConfirm, setFinalConfirm] = useState(false);
   const [selectedRef, setSelectedRef] = useState<string | null>(null);
-  const [refundAmount, setRefundAmount] = useState("0.50");
+  const [refundAmount, setRefundAmount] = useState("");
 
   const redirectUrl = useMemo(() => {
     if (typeof window === "undefined") {
@@ -51,8 +56,10 @@ export default function OwnerRefundTestClient() {
     try {
       const next = await fetchRefundTestList(key);
       setList(next);
+      return next;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load refund tests");
+      return null;
     } finally {
       setLoading(false);
     }
@@ -104,7 +111,6 @@ export default function OwnerRefundTestClient() {
         }
       } finally {
         if (!cancelled) setBusy(false);
-        // Clean return query without losing the page.
         const url = new URL(window.location.href);
         url.searchParams.delete("payment");
         url.searchParams.delete("checkout_id");
@@ -130,6 +136,22 @@ export default function OwnerRefundTestClient() {
     setSavedKey(key);
     setError("");
     void load(key);
+  }
+
+  function resetRefundForm() {
+    setSelectedRef(null);
+    setRefundAmount("");
+    setConfirmKey("");
+    setFinalConfirm(false);
+  }
+
+  function openRefundForm(booking: RefundTestBookingSummary) {
+    if (booking.remainingRefundable < 0.01) return;
+    setSelectedRef(booking.paymentReference);
+    setRefundAmount("");
+    setConfirmKey("");
+    setFinalConfirm(false);
+    setError("");
   }
 
   async function startCheckout() {
@@ -172,40 +194,66 @@ export default function OwnerRefundTestClient() {
     }
   }
 
-  async function submitRefund(booking: RefundTestBookingSummary, amount: number | null) {
+  async function submitRefund(booking: RefundTestBookingSummary) {
     if (!savedKey) return;
-    if (!confirmKey.trim()) {
-      setError("Re-enter OWNER_ACCESS_KEY to confirm this £ refund.");
+
+    const gate = canSubmitRefundTest({
+      amountRaw: refundAmount,
+      remainingRefundable: booking.remainingRefundable,
+      confirmOwnerKey: confirmKey,
+      finalConfirm,
+      busy,
+    });
+    if (!gate.ok || gate.amount == null) {
+      if (gate.reason === "invalid_amount") {
+        setError("Enter a valid refund amount greater than £0 and not more than remaining.");
+      } else if (gate.reason === "missing_owner_key") {
+        setError("Re-enter OWNER_ACCESS_KEY to confirm this refund.");
+      } else if (gate.reason === "missing_confirm") {
+        setError("Tick the confirmation checkbox before refunding.");
+      } else if (gate.reason === "fully_refunded") {
+        setError("This test booking is fully refunded.");
+      }
       return;
     }
-    if (!finalConfirm) {
-      setError("Tick the final confirmation box before refunding.");
-      return;
-    }
+
+    // Disable immediately — prevent double taps.
     setBusy(true);
     setError("");
+    const submittedAmount = gate.amount;
+
     try {
       const result = await issueRefundTestRefund({
         ownerKey: savedKey,
         confirmOwnerKey: confirmKey.trim(),
         paymentReference: booking.paymentReference,
-        amount,
-        refundFullRemaining: amount == null,
+        amount: submittedAmount,
+        refundFullRemaining: false,
         idempotencyKey: `refund-test-${booking.paymentReference}-${generateRefundOpId()}`,
       });
       if (!result.ok) {
         setError(result.error ?? "Refund failed");
         return;
       }
+
+      const cumulative =
+        typeof result.cumulativeRefunded === "number" ? result.cumulativeRefunded : submittedAmount;
+      const remaining =
+        typeof result.remainingBalance === "number" ? result.remainingBalance : 0;
+
+      resetRefundForm();
+      await load(savedKey);
+      await loadDiagnostics({
+        ...booking,
+        amountRefunded: cumulative,
+        remainingRefundable: remaining,
+      });
+
       setMessage(
         result.alreadyProcessed
-          ? `Already processed (idempotent) — ${result.refundAmount ?? "no new money move"}`
-          : `Refund OK: ${result.refundAmount} · cumulative £${(result.cumulativeRefunded ?? 0).toFixed(2)} · remaining £${(result.remainingBalance ?? 0).toFixed(2)}`,
+          ? `Already processed (idempotent).\nRefund amount: ${money(submittedAmount)}\nTotal refunded: ${money(cumulative)}\nRemaining refundable: ${money(remaining)}`
+          : `Refund successful: ${money(submittedAmount)}\nTotal refunded: ${money(cumulative)}\nRemaining refundable: ${money(remaining)}`,
       );
-      setConfirmKey("");
-      setFinalConfirm(false);
-      await load(savedKey);
-      await loadDiagnostics(booking);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Refund failed");
     } finally {
@@ -235,8 +283,8 @@ export default function OwnerRefundTestClient() {
             </p>
             <h1 className="mt-2 text-3xl font-bold text-white">£1 SumUp refund test</h1>
             <p className="mt-3 text-sm text-white/70">
-              Pay £1 via SumUp Hosted Checkout, then refund £0.50 twice through the existing refund
-              system. Not linked from public navigation.
+              Pay £1 via SumUp Hosted Checkout, then issue partial refunds through one clear submit
+              action. Not linked from public navigation.
             </p>
           </header>
 
@@ -299,7 +347,7 @@ export default function OwnerRefundTestClient() {
                 </p>
               ) : null}
               {message ? (
-                <p className="rounded-xl border border-emerald/30 bg-emerald/10 px-3 py-2 text-sm text-emerald">
+                <p className="whitespace-pre-line rounded-xl border border-emerald/40 bg-emerald/15 px-4 py-3 text-sm font-semibold text-emerald">
                   {message}
                 </p>
               ) : null}
@@ -330,6 +378,25 @@ export default function OwnerRefundTestClient() {
                   (list?.bookings ?? []).map((booking) => {
                     const open = selectedRef === booking.paymentReference;
                     const report = diagnostics[booking.paymentReference];
+                    const fullyRefunded = booking.remainingRefundable < 0.01;
+                    const parsedAmount = parseRefundTestAmountInput(
+                      refundAmount,
+                      booking.remainingRefundable,
+                    );
+                    const submitGate = canSubmitRefundTest({
+                      amountRaw: refundAmount,
+                      remainingRefundable: booking.remainingRefundable,
+                      confirmOwnerKey: confirmKey,
+                      finalConfirm,
+                      busy,
+                    });
+                    const submitLabel =
+                      busy && open
+                        ? "Processing refund…"
+                        : parsedAmount != null
+                          ? `Refund ${money(parsedAmount)}`
+                          : "Enter a valid amount";
+
                     return (
                       <article
                         key={booking.paymentReference}
@@ -342,14 +409,21 @@ export default function OwnerRefundTestClient() {
                           {booking.paymentReference}
                         </p>
                         <p className="mt-2 text-sm text-white/80">
-                          Paid {money(booking.amountPaid)} · refunded{" "}
-                          {money(booking.amountRefunded)} · remaining{" "}
+                          Paid {money(booking.amountPaid)} · Already refunded{" "}
+                          {money(booking.amountRefunded)} · Remaining refundable{" "}
                           {money(booking.remainingRefundable)}
                         </p>
                         <p className="mt-1 text-xs text-white/55">
                           Txn {booking.transactionId || "—"} · status {booking.status} · audits{" "}
                           {booking.refundHistoryCount}
                         </p>
+
+                        {fullyRefunded ? (
+                          <p className="mt-3 rounded-xl border border-emerald/40 bg-emerald/15 px-3 py-2 text-sm font-bold uppercase tracking-wide text-emerald">
+                            Fully refunded
+                          </p>
+                        ) : null}
+
                         <div className="mt-3 flex flex-wrap gap-2">
                           <button
                             type="button"
@@ -359,16 +433,18 @@ export default function OwnerRefundTestClient() {
                           >
                             Refund diagnostics
                           </button>
-                          <button
-                            type="button"
-                            disabled={busy}
-                            onClick={() =>
-                              setSelectedRef(open ? null : booking.paymentReference)
-                            }
-                            className="min-h-11 rounded-xl border border-red-400/30 bg-red-500/10 px-3 py-2 text-sm font-semibold text-red-100 disabled:opacity-60"
-                          >
-                            {open ? "Close refund" : "Issue test refund"}
-                          </button>
+                          {!fullyRefunded ? (
+                            <button
+                              type="button"
+                              disabled={busy}
+                              onClick={() =>
+                                open ? resetRefundForm() : openRefundForm(booking)
+                              }
+                              className="min-h-11 rounded-xl border border-red-400/30 bg-red-500/10 px-3 py-2 text-sm font-semibold text-red-100 disabled:opacity-60"
+                            >
+                              {open ? "Close refund" : "Issue test refund"}
+                            </button>
+                          ) : null}
                         </div>
 
                         {report ? (
@@ -398,11 +474,21 @@ export default function OwnerRefundTestClient() {
                           </dl>
                         ) : null}
 
-                        {open ? (
-                          <div className="mt-4 space-y-3 rounded-xl border border-red-400/25 bg-red-500/10 p-3">
+                        {open && !fullyRefunded ? (
+                          <div
+                            className="mt-4 space-y-3 rounded-xl border border-red-400/25 bg-red-500/10 p-3"
+                            data-refund-test-form="single-submit"
+                          >
                             <p className="text-sm font-semibold text-red-100">
                               Confirm live SumUp refund (original payment method only)
                             </p>
+
+                            <div className="rounded-lg border border-white/10 bg-navy/40 px-3 py-2 text-sm text-white/85">
+                              <p>Paid {money(booking.amountPaid)}</p>
+                              <p>Already refunded {money(booking.amountRefunded)}</p>
+                              <p>Remaining refundable {money(booking.remainingRefundable)}</p>
+                            </div>
+
                             <label className="block text-xs text-white/70">
                               Amount (GBP)
                               <input
@@ -413,8 +499,41 @@ export default function OwnerRefundTestClient() {
                                 value={refundAmount}
                                 onChange={(event) => setRefundAmount(event.target.value)}
                                 className="mt-1 w-full rounded-lg border border-white/15 bg-navy px-3 py-2 text-white"
+                                inputMode="decimal"
+                                placeholder="e.g. 0.50"
+                                data-refund-test-amount="true"
                               />
                             </label>
+
+                            <button
+                              type="button"
+                              disabled={busy || booking.remainingRefundable < 0.01}
+                              onClick={() =>
+                                setRefundAmount(
+                                  remainingBalanceFillValue(booking.remainingRefundable),
+                                )
+                              }
+                              className="min-h-9 rounded-lg border border-white/20 px-3 py-1.5 text-xs font-semibold text-white/85 disabled:opacity-60"
+                              data-refund-test-fill-remaining="true"
+                            >
+                              Use remaining balance ({money(booking.remainingRefundable)})
+                            </button>
+                            <p className="text-[11px] text-white/50">
+                              Fills the Amount field only — does not submit a refund.
+                            </p>
+
+                            {parsedAmount != null ? (
+                              <p className="rounded-lg border border-amber-300/30 bg-amber-500/10 px-3 py-2 text-sm font-semibold text-amber-50">
+                                You are about to refund {money(parsedAmount)} to the original
+                                payment method.
+                              </p>
+                            ) : (
+                              <p className="text-xs text-white/55">
+                                Enter an amount greater than £0 and not more than remaining
+                                refundable.
+                              </p>
+                            )}
+
                             <label className="block text-xs text-white/70">
                               Re-enter OWNER_ACCESS_KEY
                               <input
@@ -425,6 +544,7 @@ export default function OwnerRefundTestClient() {
                                 autoComplete="off"
                               />
                             </label>
+
                             <label className="flex items-start gap-2 text-xs text-white/80">
                               <input
                                 type="checkbox"
@@ -432,47 +552,21 @@ export default function OwnerRefundTestClient() {
                                 onChange={(event) => setFinalConfirm(event.target.checked)}
                                 className="mt-0.5"
                               />
-                              I confirm a LIVE SumUp refund of the amount below to the original
-                              payment method for this REFUND TEST booking only.
+                              I confirm a LIVE SumUp refund of{" "}
+                              {parsedAmount != null ? money(parsedAmount) : "the entered amount"}{" "}
+                              to the original payment method for this REFUND TEST booking only.
                             </label>
-                            <div className="flex flex-wrap gap-2">
-                              <button
-                                type="button"
-                                disabled={busy || booking.remainingRefundable < 0.01}
-                                onClick={() =>
-                                  void submitRefund(
-                                    booking,
-                                    Math.min(
-                                      Number(refundAmount) || 0,
-                                      booking.remainingRefundable,
-                                    ),
-                                  )
-                                }
-                                className="min-h-11 rounded-xl bg-red-500 px-3 py-2 text-sm font-bold text-white disabled:opacity-60"
-                              >
-                                Refund £
-                                {Math.min(
-                                  Number(refundAmount) || 0,
-                                  booking.remainingRefundable,
-                                ).toFixed(2)}
-                              </button>
-                              <button
-                                type="button"
-                                disabled={busy || booking.remainingRefundable < 0.01}
-                                onClick={() => void submitRefund(booking, 0.5)}
-                                className="min-h-11 rounded-xl border border-red-300/40 px-3 py-2 text-sm font-semibold text-red-100 disabled:opacity-60"
-                              >
-                                Refund £0.50
-                              </button>
-                              <button
-                                type="button"
-                                disabled={busy || booking.remainingRefundable < 0.01}
-                                onClick={() => void submitRefund(booking, null)}
-                                className="min-h-11 rounded-xl border border-red-300/40 px-3 py-2 text-sm font-semibold text-red-100 disabled:opacity-60"
-                              >
-                                Refund remaining
-                              </button>
-                            </div>
+
+                            {/* Exactly one refund submit control */}
+                            <button
+                              type="button"
+                              data-refund-test-submit="true"
+                              disabled={!submitGate.ok}
+                              onClick={() => void submitRefund(booking)}
+                              className="min-h-11 w-full rounded-xl bg-red-500 px-3 py-2 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-40 sm:w-auto"
+                            >
+                              {submitLabel}
+                            </button>
                           </div>
                         ) : null}
                       </article>

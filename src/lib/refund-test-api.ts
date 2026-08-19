@@ -14,6 +14,7 @@ export type RefundTestBookingSummary = {
   amountPaidLabel: string;
   amountRefunded: number;
   remainingRefundable: number;
+  syncedFromProcessor?: boolean;
   status: string;
   operationalStatus?: string;
   paymentStatus?: string;
