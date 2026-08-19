@@ -53,6 +53,8 @@ export type SavedQuotePricingSnapshot = {
   returnAmount?: number;
   currency: "GBP";
   amountLabel: string;
+  /** Client-submitted amount kept for audit only — never authoritative. */
+  clientSubmittedAmount?: number;
   /** Optional audit metadata from the quote engine. */
   pricingMeta?: Record<string, unknown>;
 };
@@ -76,6 +78,11 @@ export type SavedQuoteRecord = {
   initialEmailSentAt?: string;
   firstReminderSentAt?: string;
   finalReminderSentAt?: string;
+  /** Best-effort claim before send (KV race narrowing). */
+  firstReminderClaimId?: string;
+  firstReminderClaimedAt?: string;
+  finalReminderClaimId?: string;
+  finalReminderClaimedAt?: string;
   /** Last email send error (not marked sent until success). */
   lastEmailError?: string;
 };
@@ -158,6 +165,48 @@ export function computeSavedQuoteExpiresAt(createdAt: Date = new Date()): string
 export function formatSavedQuoteAmount(amount: number): string {
   const rounded = Math.round(amount * 100) / 100;
   return `£${rounded.toFixed(2)}`;
+}
+
+/**
+ * Lock the authoritative saved-quote fare from a trusted server calculation.
+ * Client-submitted amounts are audit-only and never become totalAmount.
+ */
+export function lockSavedQuotePricingFromServer(input: {
+  serverAmount: number;
+  amountLabel?: string;
+  clientSubmittedAmount?: number;
+  pricingMeta?: Record<string, unknown>;
+}): SavedQuotePricingSnapshot {
+  const totalAmount = Math.round(Number(input.serverAmount) * 100) / 100;
+  if (!Number.isFinite(totalAmount) || totalAmount < 1) {
+    throw new Error("Invalid server quote amount");
+  }
+  const clientSubmittedAmount =
+    typeof input.clientSubmittedAmount === "number" &&
+    Number.isFinite(input.clientSubmittedAmount) &&
+    input.clientSubmittedAmount > 0
+      ? Math.round(input.clientSubmittedAmount * 100) / 100
+      : undefined;
+  const mismatch =
+    typeof clientSubmittedAmount === "number" &&
+    Math.abs(clientSubmittedAmount - totalAmount) >= 0.01;
+
+  return {
+    totalAmount,
+    currency: "GBP",
+    amountLabel: input.amountLabel || formatSavedQuoteAmount(totalAmount),
+    ...(typeof clientSubmittedAmount === "number" ? { clientSubmittedAmount } : {}),
+    pricingMeta: {
+      ...(input.pricingMeta ?? {}),
+      ...(mismatch
+        ? {
+            clientAmountMismatch: true,
+            clientSubmittedAmount,
+            serverAmount: totalAmount,
+          }
+        : {}),
+    },
+  };
 }
 
 export function formatSavedQuoteExpiryLabel(iso: string): string {

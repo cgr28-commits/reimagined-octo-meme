@@ -8,6 +8,7 @@ import {
   buildSavedQuoteCustomerUrl,
   evaluateSavedQuoteAccess,
   formatSavedQuoteAmount,
+  lockSavedQuotePricingFromServer,
   normalizeSavedQuoteToken,
   shouldSendFinalReminder,
   shouldSendFirstReminder,
@@ -23,12 +24,20 @@ import {
 } from "../shared/saved-quote-emails";
 import { corsHeaders } from "../shared/google-places";
 import {
+  calculateAuthoritativeWebsiteQuote,
+  type QuoteServiceAirportCode,
+  type QuoteServiceResult,
+} from "../../../src/lib/quote-service";
+import { fetchTripRouteMetrics } from "../../../src/lib/trip-route";
+import {
+  clearSavedQuoteReminderClaim,
   createSavedQuote,
   getSavedQuoteByToken,
   listOpenSavedQuoteTokens,
   markSavedQuoteBooked,
   markSavedQuoteExpiredIfNeeded,
   patchSavedQuoteEmailTimestamps,
+  tryClaimSavedQuoteReminder,
 } from "./saved-quote-store";
 import { trySendBrandedCustomerEmail, type WorkerEmailEnv } from "./worker-email";
 
@@ -130,34 +139,103 @@ function parseJourney(raw: unknown): SavedQuoteJourneySnapshot | null {
   };
 }
 
-function parsePricing(raw: unknown): SavedQuotePricingSnapshot | null {
-  if (!raw || typeof raw !== "object") return null;
-  const p = raw as Record<string, unknown>;
-  const total = Number(p.totalAmount ?? p.totalPrice ?? p.amount);
-  if (!Number.isFinite(total) || total < 1) return null;
-  const rounded = Math.round(total * 100) / 100;
-  const outbound = asOptionalNumber(p.outboundAmount ?? p.outboundPrice);
-  const ret = asOptionalNumber(p.returnAmount ?? p.returnPrice);
-  const meta =
-    p.pricingMeta && typeof p.pricingMeta === "object"
-      ? (p.pricingMeta as Record<string, unknown>)
-      : p.pricingSnapshot && typeof p.pricingSnapshot === "object"
-        ? (p.pricingSnapshot as Record<string, unknown>)
+function parseAirportCode(value: unknown): QuoteServiceAirportCode | null {
+  const code = String(value ?? "").trim().toUpperCase();
+  if (code === "BFS" || code === "BHD" || code === "DUB" || code === "LDY") return code;
+  return null;
+}
+
+/**
+ * Build the authoritative fixed price from journey details.
+ * Client-submitted amounts are audit-only and never become totalAmount.
+ */
+export async function buildAuthoritativeSavedQuotePricing(input: {
+  journey: SavedQuoteJourneySnapshot;
+  /** Optional client amount for audit/mismatch logging only. */
+  clientSubmittedAmount?: number;
+  clientPricingMeta?: Record<string, unknown>;
+}): Promise<
+  | { ok: true; pricing: SavedQuotePricingSnapshot; quote: Extract<QuoteServiceResult, { ok: true }> }
+  | { ok: false; message: string; reason: string }
+> {
+  const journey = input.journey;
+  const airportCode = parseAirportCode(journey.airportCode);
+  const isAirportTrip = Boolean(airportCode || journey.isAirportTrip);
+
+  let routeMetrics = null as Awaited<ReturnType<typeof fetchTripRouteMetrics>>;
+  if (
+    typeof journey.pickupLat === "number" &&
+    typeof journey.pickupLng === "number" &&
+    typeof journey.dropoffLat === "number" &&
+    typeof journey.dropoffLng === "number" &&
+    Number.isFinite(journey.pickupLat) &&
+    Number.isFinite(journey.pickupLng) &&
+    Number.isFinite(journey.dropoffLat) &&
+    Number.isFinite(journey.dropoffLng)
+  ) {
+    routeMetrics = await fetchTripRouteMetrics(
+      journey.pickupLat,
+      journey.pickupLng,
+      journey.dropoffLat,
+      journey.dropoffLng,
+    );
+  }
+
+  const quote = calculateAuthoritativeWebsiteQuote({
+    airportCode: isAirportTrip ? airportCode : null,
+    fromAirport: Boolean(journey.isFromAirport),
+    pickupAddress: journey.pickupLabel,
+    dropoffAddress: journey.dropoffLabel,
+    returnJourney: Boolean(journey.returnJourney),
+    outboundDate: journey.tripDate,
+    outboundTime: journey.tripTime,
+    returnDate: journey.returnDate,
+    returnTime: journey.returnTime,
+    passengers: journey.passengers,
+    suitcases: journey.suitcases,
+    routeMetrics,
+  });
+
+  if (!quote.ok) {
+    return { ok: false, message: quote.message, reason: quote.reason };
+  }
+
+  const pricing = lockSavedQuotePricingFromServer({
+    serverAmount: quote.amount,
+    amountLabel: quote.amountLabel || formatSavedQuoteAmount(quote.amount),
+    clientSubmittedAmount: input.clientSubmittedAmount,
+    pricingMeta: {
+      source: quote.source,
+      vehicleType: quote.vehicleType,
+      premiumApplied: quote.premiumApplied,
+      returnJourney: quote.returnJourney,
+      ...(input.clientPricingMeta ? { clientPricingMeta: input.clientPricingMeta } : {}),
+    },
+  });
+
+  return { ok: true, pricing, quote };
+}
+
+function readClientSubmittedAmount(body: Record<string, unknown>): {
+  amount?: number;
+  meta?: Record<string, unknown>;
+} {
+  const pricingRaw = body.pricing;
+  if (pricingRaw && typeof pricingRaw === "object") {
+    const p = pricingRaw as Record<string, unknown>;
+    const amount = Number(p.totalAmount ?? p.totalPrice ?? p.amount);
+    const meta =
+      p.pricingMeta && typeof p.pricingMeta === "object"
+        ? (p.pricingMeta as Record<string, unknown>)
         : undefined;
+    return {
+      amount: Number.isFinite(amount) && amount > 0 ? amount : undefined,
+      meta,
+    };
+  }
+  const amount = Number(body.totalAmount ?? body.amount);
   return {
-    totalAmount: rounded,
-    outboundAmount: outbound != null ? Math.round(outbound * 100) / 100 : undefined,
-    returnAmount: ret != null ? Math.round(ret * 100) / 100 : undefined,
-    currency: "GBP",
-    amountLabel: formatSavedQuoteAmount(rounded),
-    pricingMeta: meta
-      ? {
-          ...meta,
-          ...(Array.isArray(p.surcharges) ? { surcharges: p.surcharges } : {}),
-        }
-      : Array.isArray(p.surcharges)
-        ? { surcharges: p.surcharges }
-        : undefined,
+    amount: Number.isFinite(amount) && amount > 0 ? amount : undefined,
   };
 }
 
@@ -187,18 +265,38 @@ export async function handleCreateSavedQuote(
     return jsonResponse({ error: "Please enter a valid email address." }, 400, origin);
   }
 
-  const journey = parseJourney(body.journey);
-  const pricing = parsePricing(body.pricing ?? body);
-  if (!journey) {
+  const journeyBase = parseJourney(body.journey);
+  if (!journeyBase) {
     return jsonResponse(
       { error: "Pickup, destination, date and time are required to save a quote." },
       400,
       origin,
     );
   }
-  if (!pricing) {
-    return jsonResponse({ error: "A valid quoted price is required." }, 400, origin);
+
+  // Never trust client pricing — recalculate with the same engine as Quick Quote / QuoteCard.
+  const clientPrice = readClientSubmittedAmount(body);
+  const priced = await buildAuthoritativeSavedQuotePricing({
+    journey: journeyBase,
+    clientSubmittedAmount: clientPrice.amount,
+    clientPricingMeta: clientPrice.meta,
+  });
+  if (!priced.ok) {
+    return jsonResponse(
+      {
+        error: priced.message,
+        reason: priced.reason,
+      },
+      422,
+      origin,
+    );
   }
+
+  const pricing = priced.pricing;
+  const journey: SavedQuoteJourneySnapshot = {
+    ...journeyBase,
+    ...(priced.quote.vehicleType ? { vehicle: priced.quote.vehicleType } : {}),
+  };
 
   let record: SavedQuoteRecord;
   try {
@@ -212,6 +310,19 @@ export async function handleCreateSavedQuote(
     console.error("[saved-quote] create failed", err);
     return jsonResponse({ error: "Could not save your quote. Please try again." }, 500, origin);
   }
+
+  console.log(
+    JSON.stringify({
+      event: "saved_quote_created",
+      reference: record.reference,
+      amount: record.pricing.totalAmount,
+      clientSubmittedAmount: record.pricing.clientSubmittedAmount ?? null,
+      mismatch: Boolean(
+        record.pricing.pricingMeta &&
+          (record.pricing.pricingMeta as { clientAmountMismatch?: boolean }).clientAmountMismatch,
+      ),
+    }),
+  );
 
   const email = buildSavedQuoteInitialEmail(record, { origin: siteOrigin(env) });
   let emailSent = false;
@@ -388,7 +499,8 @@ export async function markSavedQuoteBookedFromPayment(
 
 /**
  * Hourly cron: 24h + day-5 reminders; expire open quotes.
- * Re-checks status before every send. Idempotent via sent-at timestamps.
+ * Re-checks status before every send. Claim-before-send narrows KV races
+ * (same best-effort pattern as personal-quote reservations — KV has no true CAS).
  */
 export async function processSavedQuoteReminders(env: SavedQuoteEnv): Promise<{
   processed: number;
@@ -437,20 +549,21 @@ export async function processSavedQuoteReminders(env: SavedQuoteEnv): Promise<{
       }
 
       if (shouldSendFirstReminder(record, now)) {
-        const latest = await getSavedQuoteByToken(store, token);
-        if (
-          !latest ||
-          latest.status !== "saved" ||
-          latest.firstReminderSentAt ||
-          !shouldSendFirstReminder(latest, now)
-        ) {
+        const claim = await tryClaimSavedQuoteReminder(store, token, "first");
+        if (!claim.ok) {
           skipped += 1;
           continue;
         }
-        const email = buildSavedQuoteFirstReminderEmail(latest, { origin });
+        // Re-check due window after claim (status may have changed).
+        if (!shouldSendFirstReminder(claim.record, now) || claim.record.status !== "saved") {
+          await clearSavedQuoteReminderClaim(store, token, "first", claim.claimId);
+          skipped += 1;
+          continue;
+        }
+        const email = buildSavedQuoteFirstReminderEmail(claim.record, { origin });
         const result = await trySendBrandedCustomerEmail(env, {
-          to: latest.customerEmail,
-          toName: latest.customerName,
+          to: claim.record.customerEmail,
+          toName: claim.record.customerName,
           subject: email.subject,
           body: email.text,
           htmlBody: email.html,
@@ -462,11 +575,12 @@ export async function processSavedQuoteReminders(env: SavedQuoteEnv): Promise<{
           });
           firstReminders += 1;
         } else {
+          await clearSavedQuoteReminderClaim(store, token, "first", claim.claimId);
           await patchSavedQuoteEmailTimestamps(store, token, {
             lastEmailError: result.error || "First reminder failed",
           });
           console.error("[saved-quote] first reminder failed", {
-            reference: latest.reference,
+            reference: claim.record.reference,
             error: result.error,
           });
           errors += 1;
@@ -475,20 +589,20 @@ export async function processSavedQuoteReminders(env: SavedQuoteEnv): Promise<{
       }
 
       if (shouldSendFinalReminder(record, now)) {
-        const latest = await getSavedQuoteByToken(store, token);
-        if (
-          !latest ||
-          latest.status !== "saved" ||
-          latest.finalReminderSentAt ||
-          !shouldSendFinalReminder(latest, now)
-        ) {
+        const claim = await tryClaimSavedQuoteReminder(store, token, "final");
+        if (!claim.ok) {
           skipped += 1;
           continue;
         }
-        const email = buildSavedQuoteFinalReminderEmail(latest, { origin });
+        if (!shouldSendFinalReminder(claim.record, now) || claim.record.status !== "saved") {
+          await clearSavedQuoteReminderClaim(store, token, "final", claim.claimId);
+          skipped += 1;
+          continue;
+        }
+        const email = buildSavedQuoteFinalReminderEmail(claim.record, { origin });
         const result = await trySendBrandedCustomerEmail(env, {
-          to: latest.customerEmail,
-          toName: latest.customerName,
+          to: claim.record.customerEmail,
+          toName: claim.record.customerName,
           subject: email.subject,
           body: email.text,
           htmlBody: email.html,
@@ -500,11 +614,12 @@ export async function processSavedQuoteReminders(env: SavedQuoteEnv): Promise<{
           });
           finalReminders += 1;
         } else {
+          await clearSavedQuoteReminderClaim(store, token, "final", claim.claimId);
           await patchSavedQuoteEmailTimestamps(store, token, {
             lastEmailError: result.error || "Final reminder failed",
           });
           console.error("[saved-quote] final reminder failed", {
-            reference: latest.reference,
+            reference: claim.record.reference,
             error: result.error,
           });
           errors += 1;

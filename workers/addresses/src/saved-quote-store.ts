@@ -153,6 +153,10 @@ export async function patchSavedQuoteEmailTimestamps(
       | "initialEmailSentAt"
       | "firstReminderSentAt"
       | "finalReminderSentAt"
+      | "firstReminderClaimId"
+      | "firstReminderClaimedAt"
+      | "finalReminderClaimId"
+      | "finalReminderClaimedAt"
       | "lastEmailError"
     >
   >,
@@ -162,6 +166,90 @@ export async function patchSavedQuoteEmailTimestamps(
   const updated: SavedQuoteRecord = { ...record, ...patch };
   await saveSavedQuoteRecord(store, updated);
   return updated;
+}
+
+export type SavedQuoteReminderKind = "first" | "final";
+
+/**
+ * Best-effort claim before sending a reminder (KV has no true CAS).
+ * Write a unique claimId, re-read, proceed only if we still own the claim.
+ * Clears on send failure so a later cron can retry.
+ */
+export async function tryClaimSavedQuoteReminder(
+  store: KVNamespace,
+  token: string,
+  kind: SavedQuoteReminderKind,
+): Promise<{ ok: true; claimId: string; record: SavedQuoteRecord } | { ok: false; reason: string }> {
+  const record = await getSavedQuoteByToken(store, token);
+  if (!record) return { ok: false, reason: "missing" };
+  if (record.status !== "saved") return { ok: false, reason: "status" };
+  if (isSavedQuoteExpired(record)) return { ok: false, reason: "expired" };
+
+  if (kind === "first") {
+    if (record.firstReminderSentAt) return { ok: false, reason: "already_sent" };
+    if (record.firstReminderClaimId && record.firstReminderClaimedAt) {
+      const claimedMs = Date.parse(record.firstReminderClaimedAt);
+      // Active claim younger than 30 minutes — another worker may still be sending.
+      if (Number.isFinite(claimedMs) && Date.now() - claimedMs < 30 * 60 * 1000) {
+        return { ok: false, reason: "claimed" };
+      }
+    }
+  } else {
+    if (record.finalReminderSentAt) return { ok: false, reason: "already_sent" };
+    if (record.finalReminderClaimId && record.finalReminderClaimedAt) {
+      const claimedMs = Date.parse(record.finalReminderClaimedAt);
+      if (Number.isFinite(claimedMs) && Date.now() - claimedMs < 30 * 60 * 1000) {
+        return { ok: false, reason: "claimed" };
+      }
+    }
+  }
+
+  const claimId = crypto.randomUUID();
+  const claimedAt = new Date().toISOString();
+  const claimPatch =
+    kind === "first"
+      ? { firstReminderClaimId: claimId, firstReminderClaimedAt: claimedAt }
+      : { finalReminderClaimId: claimId, finalReminderClaimedAt: claimedAt };
+
+  await patchSavedQuoteEmailTimestamps(store, token, claimPatch);
+
+  const verified = await getSavedQuoteByToken(store, token);
+  if (!verified || verified.status !== "saved") {
+    return { ok: false, reason: "status" };
+  }
+  const owned =
+    kind === "first"
+      ? verified.firstReminderClaimId === claimId && !verified.firstReminderSentAt
+      : verified.finalReminderClaimId === claimId && !verified.finalReminderSentAt;
+  if (!owned) {
+    return { ok: false, reason: "lost_race" };
+  }
+  return { ok: true, claimId, record: verified };
+}
+
+export async function clearSavedQuoteReminderClaim(
+  store: KVNamespace,
+  token: string,
+  kind: SavedQuoteReminderKind,
+  claimId: string,
+): Promise<void> {
+  const record = await getSavedQuoteByToken(store, token);
+  if (!record) return;
+  if (kind === "first") {
+    if (record.firstReminderClaimId !== claimId || record.firstReminderSentAt) return;
+    await saveSavedQuoteRecord(store, {
+      ...record,
+      firstReminderClaimId: undefined,
+      firstReminderClaimedAt: undefined,
+    });
+    return;
+  }
+  if (record.finalReminderClaimId !== claimId || record.finalReminderSentAt) return;
+  await saveSavedQuoteRecord(store, {
+    ...record,
+    finalReminderClaimId: undefined,
+    finalReminderClaimedAt: undefined,
+  });
 }
 
 /** Open (still-saved) tokens for the hourly reminder processor. */

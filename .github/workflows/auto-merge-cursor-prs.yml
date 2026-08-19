@@ -79,17 +79,31 @@ jobs:
               }
 
               if (prDetails.draft) {
-                await github.rest.pulls.update({
-                  owner,
-                  repo,
-                  pull_number,
-                  draft: false,
-                });
+                // Prefer leaving intentional drafts alone: undraft only when
+                // the REST API successfully flips draft=false. If it remains
+                // draft (common flake / permission), do not attempt merge.
+                try {
+                  await github.rest.pulls.update({
+                    owner,
+                    repo,
+                    pull_number,
+                    draft: false,
+                  });
+                } catch (error) {
+                  console.warn(`Could not undraft PR #${pull_number}`, error);
+                  return "wait";
+                }
                 ({ data: prDetails } = await github.rest.pulls.get({
                   owner,
                   repo,
                   pull_number,
                 }));
+                if (prDetails.draft) {
+                  console.warn(
+                    `PR #${pull_number} is still a draft after undraft attempt — skipping merge`,
+                  );
+                  return "wait";
+                }
               }
 
               if (prDetails.mergeable === false) {
@@ -127,12 +141,22 @@ jobs:
                 return "wait";
               }
 
-              await github.rest.pulls.merge({
-                owner,
-                repo,
-                pull_number,
-                merge_method: "merge",
-              });
+              try {
+                await github.rest.pulls.merge({
+                  owner,
+                  repo,
+                  pull_number,
+                  merge_method: "merge",
+                });
+              } catch (error) {
+                const status = error?.status || error?.response?.status;
+                const message = String(error?.message || error || "");
+                if (status === 405 && /draft/i.test(message)) {
+                  console.warn(`PR #${pull_number} still draft at merge — skipping`);
+                  return "wait";
+                }
+                throw error;
+              }
 
               // GITHUB_TOKEN merges do not trigger push workflows — dispatch deploys.
               for (const workflow_id of ["deploy-pages.yml", "deploy-worker.yml"]) {

@@ -13,7 +13,7 @@ import { INSTANT_QUOTE_MAX_PASSENGERS } from "../../shared/passenger-limits";
 
 export const QUOTE_SERVICE_MAX_PASSENGERS = INSTANT_QUOTE_MAX_PASSENGERS; // 4
 
-export type QuoteServiceAirportCode = "BFS" | "BHD" | "DUB";
+export type QuoteServiceAirportCode = "BFS" | "BHD" | "DUB" | "LDY";
 
 export type QuoteServiceInput = {
   /** Airport transfer: address ↔ airport. Omit airportCode for address-to-address. */
