@@ -175,6 +175,14 @@ import {
 } from "./refund-handlers";
 export { RefundCoordinator } from "./refund-coordinator";
 import {
+  handleRefundTestCheckoutRequest,
+  handleRefundTestListRequest,
+  handleRefundTestRefundRequest,
+  isRefundTestCheckoutPath,
+  isRefundTestListPath,
+  isRefundTestRefundPath,
+} from "./refund-test-handlers";
+import {
   handleFinalizeCheckoutRequest,
   handlePaidBookingResendRequest,
   handlePaidBookingsListRequest,
@@ -416,6 +424,9 @@ function routePath(
   | "payments-webhook"
   | "bookings-refund"
   | "paid-bookings-refund-diagnostics"
+  | "paid-bookings-refund-test-checkout"
+  | "paid-bookings-refund-test-list"
+  | "paid-bookings-refund-test-refund"
   | "paid-bookings"
   | "paid-bookings-resend"
   | "paid-bookings-edit"
@@ -473,6 +484,16 @@ function routePath(
 
   if (isRefundDiagnosticsPath(pathname)) {
     return "paid-bookings-refund-diagnostics";
+  }
+
+  if (isRefundTestCheckoutPath(pathname)) {
+    return "paid-bookings-refund-test-checkout";
+  }
+  if (isRefundTestListPath(pathname)) {
+    return "paid-bookings-refund-test-list";
+  }
+  if (isRefundTestRefundPath(pathname)) {
+    return "paid-bookings-refund-test-refund";
   }
 
   if (isPaidBookingResendPath(pathname)) {
@@ -2350,6 +2371,16 @@ export default {
         return json({ error: "Method not allowed" }, 405, origin);
       }
       return handleRefundDiagnosticsRequest(request, env, origin);
+    }
+
+    if (route === "paid-bookings-refund-test-checkout") {
+      return handleRefundTestCheckoutRequest(request, env, origin);
+    }
+    if (route === "paid-bookings-refund-test-list") {
+      return handleRefundTestListRequest(request, env, origin);
+    }
+    if (route === "paid-bookings-refund-test-refund") {
+      return handleRefundTestRefundRequest(request, env, origin);
     }
 
     if (route === "paid-bookings") {

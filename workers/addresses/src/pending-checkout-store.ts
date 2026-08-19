@@ -24,6 +24,11 @@ export type PendingCheckoutRecord = {
   personalQuotedAmount?: number;
   /** Quick Quote opaque id — amount always from KV + server re-validation. */
   quickQuoteId?: string;
+  /**
+   * Owner-only £1 live SumUp refund smoke test. When true, finalize must not
+   * create tracking/calendar/customer confirmation emails.
+   */
+  isRefundTest?: boolean;
 };
 
 export function pendingCheckoutKey(checkoutId: string): string {

@@ -1905,6 +1905,13 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
             <span className="text-white/85">Start Live Tracking</span> for GPS, then Journey
             controls for arrival and completion.
           </p>
+          <p className="mt-2 text-xs text-amber-100/80">
+            Need a controlled £1 live SumUp refund smoke test?{" "}
+            <a href="/owner/refund-test/" className="font-semibold underline hover:text-amber-50">
+              Open Refund Test (owner-only)
+            </a>
+            . Not a customer fare.
+          </p>
         </div>
         <button
           type="button"
