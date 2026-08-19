@@ -27,6 +27,7 @@ import {
   resolvePaymentStatusFromRecord,
   resolveRefundAmountForAction,
   roundGbp,
+  REFUND_REASON_LABELS,
   type RefundActionKind,
   type RefundAuditEntry,
   type RefundReasonCategory,
@@ -188,6 +189,8 @@ export type ProcessRefundOptions = {
   idempotencyKey?: string;
   confirmOwnerKey: string;
   actionKind?: RefundActionKind;
+  /** Owner portal vs refund-test vs legacy — stored on audit only. */
+  initiatedBy?: "owner" | "owner_refund_test" | "legacy";
   /**
    * Called immediately after monetary success is persisted (`processor_accepted`),
    * before email/calendar/tracking side effects. Used by RefundCoordinator to update
@@ -388,13 +391,18 @@ export async function processBookingRefundOrCancel(
     refundAmount,
     cumulativeRefundedAmount: alreadyRefunded,
     remainingBalance: remaining,
+    amountRetained: remainingRefundableBalance(amountPaid, alreadyRefunded),
     currency: record.currency || "GBP",
     fullOrPartial:
       refundAmount <= 0 ? "none" : remaining - refundAmount <= 0.001 ? "full" : "partial",
     cancelBooking,
     reasonCategory,
+    reasonLabel: REFUND_REASON_LABELS[reasonCategory] ?? reasonCategory,
     ownerNotes: notes,
+    ownerNotesAt: notes ? requestedAt : undefined,
     customerFacingReason: options.customerFacingReason?.trim() || undefined,
+    initiatedBy: options.initiatedBy ?? (record.isRefundTest ? "owner_refund_test" : "owner"),
+    within24HoursOfPickup: within24h,
     requestedAt,
     success: false,
     customerEmailStatus: "skipped",
@@ -1111,6 +1119,15 @@ async function completeRefundSideEffects(
       customerFacingReason: input.customerFacingReason,
       bookingRemainsActive: operationalAfter === "confirmed",
       actionKind: input.actionKind,
+      ownerNotes: (record.refundHistory ?? []).find((e) => e.id === input.auditId)?.ownerNotes,
+      auditId: input.auditId,
+      sumUpTransactionId: record.transactionId,
+      cumulativeRefundedValue: cumulative,
+      amountRetained: formatPaidAmount(remainingAfter, record.currency || "GBP"),
+      paymentStatusAfter: record.paymentStatus,
+      operationalStatusAfter: operationalAfter,
+      initiatedBy:
+        (record.refundHistory ?? []).find((e) => e.id === input.auditId)?.initiatedBy ?? "owner",
     },
     BUSINESS_NAME,
   );
@@ -1183,6 +1200,10 @@ async function completeRefundSideEffects(
     ownerEmailStatus,
     cumulativeRefundedAmount: cumulative,
     remainingBalance: remainingAfter,
+    amountRetained: remainingAfter,
+    bookingStatusAfter: record.status,
+    sumUpTransactionId: record.transactionId,
+    sumUpReference: record.transactionId,
   });
   await persistRecord(env, record, input.initialTripDate);
 
@@ -1472,6 +1493,7 @@ export async function handleRefundRequest(
     idempotencyKey: String(body.idempotencyKey ?? ""),
     confirmOwnerKey,
     actionKind,
+    initiatedBy: refundTestRequested ? "owner_refund_test" : "owner",
     confirmOwnerKeyVerified: true,
   };
 
@@ -1628,9 +1650,18 @@ export async function handleRefundDiagnosticsRequest(
             refundAmount: latest.refundAmount,
             cumulativeRefundedAmount: latest.cumulativeRefundedAmount,
             remainingBalance: latest.remainingBalance,
+            amountRetained: latest.amountRetained ?? null,
             cancelBooking: latest.cancelBooking,
+            reasonCategory: latest.reasonCategory,
+            reasonLabel: latest.reasonLabel ?? null,
+            ownerNotes: latest.ownerNotes || null,
+            ownerNotesAt: latest.ownerNotesAt ?? null,
+            initiatedBy: latest.initiatedBy ?? null,
+            within24HoursOfPickup: latest.within24HoursOfPickup ?? null,
+            bookingStatusAfter: latest.bookingStatusAfter ?? null,
             success: latest.success,
             sumUpStatus: latest.sumUpStatus ?? null,
+            sumUpTransactionId: latest.sumUpTransactionId ?? null,
             customerEmailStatus: latest.customerEmailStatus,
             ownerEmailStatus: latest.ownerEmailStatus,
             requestedAt: latest.requestedAt,
@@ -1643,17 +1674,28 @@ export async function handleRefundDiagnosticsRequest(
           }
         : null,
       refundHistoryCount: history.length,
-      // Truncated history for UI — no owner notes (may contain sensitive ops notes).
+      // Truncated history for UI — includes internal notes for owner diagnostics only.
       recentAudits: history.slice(0, 5).map((entry) => ({
         auditId: entry.id,
         operationState: entry.operationState,
         refundAmount: entry.refundAmount,
+        cumulativeRefundedAmount: entry.cumulativeRefundedAmount,
+        remainingBalance: entry.remainingBalance,
+        amountRetained: entry.amountRetained ?? null,
         cancelBooking: entry.cancelBooking,
+        reasonCategory: entry.reasonCategory,
+        reasonLabel: entry.reasonLabel ?? null,
+        ownerNotes: entry.ownerNotes || null,
+        ownerNotesAt: entry.ownerNotesAt ?? null,
+        initiatedBy: entry.initiatedBy ?? null,
+        within24HoursOfPickup: entry.within24HoursOfPickup ?? null,
+        bookingStatusAfter: entry.bookingStatusAfter ?? null,
         customerEmailStatus: entry.customerEmailStatus,
         ownerEmailStatus: entry.ownerEmailStatus,
         requestedAt: entry.requestedAt,
         completedAt: entry.completedAt ?? null,
         success: entry.success,
+        sumUpTransactionId: entry.sumUpTransactionId ?? null,
       })),
     },
     200,

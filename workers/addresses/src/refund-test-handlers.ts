@@ -358,6 +358,8 @@ export async function handleRefundTestRefundRequest(
       ? roundGbp(Number(body.amount))
       : null;
   const refundFullRemaining = body.refundFullRemaining === true || amount == null;
+  const reasonCategory = String(body.reasonCategory ?? "other");
+  const ownerNotes = String(body.ownerNotes ?? "Owner £1 live SumUp refund test").trim();
 
   const forwarded = new Request(request.url, {
     method: "POST",
@@ -372,8 +374,8 @@ export async function handleRefundTestRefundRequest(
       actionKind: refundFullRemaining
         ? "full_refund_keep_active"
         : "partial_refund_keep_active",
-      reasonCategory: "other",
-      ownerNotes: String(body.ownerNotes ?? "Owner £1 live SumUp refund test"),
+      reasonCategory,
+      ownerNotes: ownerNotes || "Owner £1 live SumUp refund test",
       customerFacingReason: "",
       refundTest: true,
     }),

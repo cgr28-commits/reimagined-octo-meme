@@ -72,7 +72,11 @@ assert.match(modal, /finalConfirm/);
 assert.match(modal, /Cancel booking without refund/);
 assert.match(modal, /Partial refund only/);
 assert.match(modal, /idempotencyKey/);
-console.log("OK  owner modal: re-key, final confirm, cancel-only, partial keep-active");
+assert.match(modal, /data-owner-refund-submit="true"/);
+assert.match(modal, /data-refund-owner-notes="true"/);
+assert.match(modal, /Use remaining balance/);
+assert.match(modal, /Processing refund/);
+console.log("OK  owner modal: re-key, notes, amount before key, single submit");
 
 const panel = read("src/components/OwnerPaidBookingsPanel.tsx");
 assert.match(panel, /Refund diagnostics \(read-only\)/);
@@ -81,9 +85,10 @@ assert.match(panel, /RefundDiagnosticView/);
 console.log("OK  owner panel refund diagnostics UI");
 
 const emails = read("shared/booking-notifications.ts");
-assert.match(emails, /booking remains CONFIRMED/i);
-assert.match(emails, /Partial Refund Issued|partial refund/i);
-assert.match(emails, /Full Refund Issued – Booking Remains Confirmed/);
+assert.match(emails, /has NOT been cancelled|remains booked as scheduled/i);
+assert.match(emails, /Partial Refund|partial refund/i);
+assert.match(emails, /REFUND_FUNDS_TIMING|5–7 working days/);
+assert.doesNotMatch(emails, /Banks\/cards may take several working days/);
 console.log("OK  customer emails cover keep-active + partial");
 
 const ops = read("shared/refund-ops.ts");

@@ -13,21 +13,40 @@ export const REFUND_REASON_CATEGORIES = [
   "service_issue",
   "fare_adjustment",
   "duplicate_incorrect_payment",
+  "partial_refund_agreed",
   "other",
 ] as const;
 
 export type RefundReasonCategory = (typeof REFUND_REASON_CATEGORIES)[number];
 
+/** Reasons shown in owner UI (excludes legacy-only values kept for old audits). */
+export const REFUND_REASON_UI_CATEGORIES: readonly RefundReasonCategory[] = [
+  "customer_cancelled_over_24h",
+  "customer_cancelled_under_24h",
+  "business_cancelled",
+  "goodwill",
+  "fare_adjustment",
+  "duplicate_incorrect_payment",
+  "partial_refund_agreed",
+  "other",
+] as const;
+
 export const REFUND_REASON_LABELS: Record<RefundReasonCategory, string> = {
-  customer_cancelled_over_24h: "Customer cancelled >24 hours",
-  customer_cancelled_under_24h: "Customer cancelled <24 hours",
-  business_cancelled: "Business cancelled",
-  goodwill: "Goodwill",
+  customer_cancelled_over_24h:
+    "Customer cancelled — more than 24 hours before pickup",
+  customer_cancelled_under_24h: "Customer cancelled — within 24 hours of pickup",
+  business_cancelled: "Owner/service cancellation",
+  goodwill: "Customer service / goodwill",
   service_issue: "Service issue",
   fare_adjustment: "Fare adjustment",
   duplicate_incorrect_payment: "Duplicate/incorrect payment",
+  partial_refund_agreed: "Partial refund agreed with customer",
   other: "Other",
 };
+
+/** Consistent customer-facing refund timing (do not promise exact arrival). */
+export const REFUND_FUNDS_TIMING =
+  "Please allow 5–7 working days for the funds to appear in your account.";
 
 export type RefundActionKind =
   | "cancel_full_refund"
@@ -71,12 +90,24 @@ export type RefundAuditEntry = {
   refundAmount: number;
   cumulativeRefundedAmount: number;
   remainingBalance: number;
+  /** Original paid minus cumulative refunded after this operation. */
+  amountRetained?: number;
   currency: string;
   fullOrPartial: "full" | "partial" | "none";
   cancelBooking: boolean;
   reasonCategory: RefundReasonCategory;
+  /** Human label captured at request time for permanent audit readability. */
+  reasonLabel?: string;
   ownerNotes: string;
+  /** ISO timestamp when owner notes were recorded for this operation. */
+  ownerNotesAt?: string;
   customerFacingReason?: string;
+  /** Who initiated (owner portal / refund-test / legacy). */
+  initiatedBy?: "owner" | "owner_refund_test" | "legacy";
+  /** Whether pickup was within 24 hours at request time. */
+  within24HoursOfPickup?: boolean;
+  /** Combined booking status after the operation completed. */
+  bookingStatusAfter?: PaidBookingMoneyStatus | string;
   requestedAt: string;
   completedAt?: string;
   processorAcceptedAt?: string;
@@ -150,10 +181,61 @@ export function ownerNotesRequired(input: {
   refundFullRemaining: boolean;
   within24h: boolean;
 }): boolean {
-  if (input.reasonCategory === "other" || input.reasonCategory === "goodwill") return true;
+  if (input.reasonCategory === "other") return true;
+  if (input.reasonCategory === "goodwill" || input.reasonCategory === "partial_refund_agreed") {
+    return true;
+  }
   if (!input.refundFullRemaining && input.refundAmount > 0) return true;
   if (input.within24h && input.refundAmount > 0) return true;
   return false;
+}
+
+/**
+ * Client-side gate for the production cancel/refund form.
+ * Amount/reason/notes are editable without the owner key; submit still requires it.
+ */
+export function canSubmitOwnerRefundForm(input: {
+  busy: boolean;
+  /** Cancel-only allows £0; money moves require a valid positive amount. */
+  moneyMoveRequired: boolean;
+  refundAmount: number;
+  remainingRefundable: number;
+  reasonCategory: RefundReasonCategory | "";
+  ownerNotes: string;
+  confirmOwnerKey: string;
+  finalConfirm: boolean;
+  refundFullRemaining: boolean;
+  within24h: boolean;
+}): { ok: boolean; reason?: string } {
+  if (input.busy) return { ok: false, reason: "busy" };
+  if (!input.reasonCategory) return { ok: false, reason: "missing_reason" };
+  if (
+    !REFUND_REASON_CATEGORIES.includes(input.reasonCategory as RefundReasonCategory)
+  ) {
+    return { ok: false, reason: "invalid_reason" };
+  }
+  if (input.moneyMoveRequired) {
+    if (!Number.isFinite(input.refundAmount) || input.refundAmount <= 0) {
+      return { ok: false, reason: "invalid_amount" };
+    }
+    if (input.refundAmount > input.remainingRefundable + 0.001) {
+      return { ok: false, reason: "amount_exceeds_remaining" };
+    }
+  }
+  if (
+    ownerNotesRequired({
+      reasonCategory: input.reasonCategory as RefundReasonCategory,
+      refundAmount: input.refundAmount,
+      refundFullRemaining: input.refundFullRemaining,
+      within24h: input.within24h,
+    }) &&
+    !input.ownerNotes.trim()
+  ) {
+    return { ok: false, reason: "notes_required" };
+  }
+  if (!input.confirmOwnerKey.trim()) return { ok: false, reason: "missing_owner_key" };
+  if (!input.finalConfirm) return { ok: false, reason: "missing_confirm" };
+  return { ok: true };
 }
 
 export function resolveRefundAmountForAction(input: {

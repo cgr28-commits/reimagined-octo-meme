@@ -2,8 +2,9 @@
 
 import { useMemo, useState } from "react";
 import {
-  REFUND_REASON_CATEGORIES,
   REFUND_REASON_LABELS,
+  REFUND_REASON_UI_CATEGORIES,
+  canSubmitOwnerRefundForm,
   generateRefundOpId,
   isWithin24HoursOfPickup,
   ownerNotesRequired,
@@ -19,6 +20,7 @@ import {
   type RefundIssueResponse,
 } from "@/lib/refund-api";
 import type { OwnerPaidBookingSummary } from "@/lib/paid-bookings-api";
+import { remainingBalanceFillValue } from "@/lib/refund-test-ui";
 
 export type CancelRefundActionChoice =
   | "cancel_full_refund"
@@ -75,7 +77,9 @@ function amountPaidNumber(booking: OwnerPaidBookingSummary): number {
 
 function amountRefundedNumber(booking: OwnerPaidBookingSummary): number {
   if (typeof booking.amountRefunded === "number") return roundGbp(booking.amountRefunded);
-  if (booking.status === "refunded") return amountPaidNumber(booking);
+  if (booking.status === "refunded" || booking.status === "refunded_active") {
+    return amountPaidNumber(booking);
+  }
   return 0;
 }
 
@@ -92,8 +96,11 @@ export default function OwnerCancelRefundModal({
   const refunded = amountRefundedNumber(booking);
   const remaining = remainingRefundableBalance(paid, refunded);
   const within24h = isWithin24HoursOfPickup(booking.tripDate, booking.tripTime);
+  const fullyRefunded = remaining < 0.01;
 
-  const [actionChoice, setActionChoice] = useState<CancelRefundActionChoice>("cancel_full_refund");
+  const [actionChoice, setActionChoice] = useState<CancelRefundActionChoice>(
+    fullyRefunded ? "cancel_no_refund" : "cancel_full_refund",
+  );
   const [fullRefundAlsoCancel, setFullRefundAlsoCancel] = useState(true);
   const [partialAmount, setPartialAmount] = useState("");
   const [reasonCategory, setReasonCategory] =
@@ -156,13 +163,52 @@ export default function OwnerCancelRefundModal({
   const needsPartialAmount =
     actionChoice === "cancel_partial_refund" || actionChoice === "partial_refund_keep_active";
 
-  const confirmPhrase =
-    resolved.refundAmount > 0
-      ? `Refund £${resolved.refundAmount.toFixed(2)} to the original payment method for booking ${booking.paymentReference}?`
-      : `Cancel booking ${booking.paymentReference} without a SumUp refund?`;
+  const moneyMoveRequired = actionChoice !== "cancel_no_refund";
+
+  const submitGate = canSubmitOwnerRefundForm({
+    busy,
+    moneyMoveRequired: moneyMoveRequired && needsPartialAmount,
+    refundAmount: needsPartialAmount
+      ? Number.isFinite(Number(partialAmount))
+        ? roundGbp(Number(partialAmount))
+        : 0
+      : resolved.refundAmount,
+    remainingRefundable: remaining,
+    reasonCategory,
+    ownerNotes,
+    confirmOwnerKey,
+    finalConfirm,
+    refundFullRemaining: resolved.refundFullRemaining,
+    within24h,
+  });
+
+  // Full-remaining / cancel-only actions: amount is implied — still require reason/key/confirm.
+  const fullGate = canSubmitOwnerRefundForm({
+    busy,
+    moneyMoveRequired: false,
+    refundAmount: resolved.refundAmount,
+    remainingRefundable: remaining,
+    reasonCategory,
+    ownerNotes,
+    confirmOwnerKey,
+    finalConfirm,
+    refundFullRemaining: resolved.refundFullRemaining,
+    within24h,
+  });
+  const canSubmitFull =
+    fullGate.ok &&
+    !(moneyMoveRequired && resolved.refundAmount <= 0 && remaining < 0.01);
+
+  const canSubmit = needsPartialAmount ? submitGate.ok : canSubmitFull;
+
+  const submitLabel = busy
+    ? "Processing refund…"
+    : resolved.refundAmount > 0
+      ? `Refund £${resolved.refundAmount.toFixed(2)}`
+      : "Confirm cancellation";
 
   async function submit() {
-    if (busy) return;
+    if (busy || !canSubmit) return;
     if (!confirmOwnerKey.trim()) {
       onError("Re-enter OWNER_ACCESS_KEY to confirm this action.");
       return;
@@ -210,6 +256,8 @@ export default function OwnerCancelRefundModal({
       if (!result.ok && !result.alreadyProcessed && !result.alreadyRefunded) {
         throw new Error(result.error || "Refund / cancellation failed");
       }
+      setConfirmOwnerKey("");
+      setFinalConfirm(false);
       onSuccess(result, booking);
     } catch (err) {
       onError(err instanceof Error ? err.message : "Could not process refund / cancellation");
@@ -219,7 +267,10 @@ export default function OwnerCancelRefundModal({
   }
 
   return (
-    <div className="mt-3 rounded-xl border border-red-400/30 bg-red-500/10 p-4">
+    <div
+      className="mt-3 rounded-xl border border-red-400/30 bg-red-500/10 p-4"
+      data-owner-refund-form="ordered"
+    >
       <div className="flex flex-wrap items-start justify-between gap-2">
         <p className="text-sm font-semibold text-red-100">Cancel / Refund</p>
         <button
@@ -260,25 +311,36 @@ export default function OwnerCancelRefundModal({
           <dt className="text-red-100/55">Status</dt>
           <dd className="uppercase tracking-wider">{booking.status}</dd>
         </div>
-        <div>
-          <dt className="text-red-100/55">Original paid</dt>
-          <dd>{booking.amountPaid || `£${paid.toFixed(2)}`}</dd>
-        </div>
-        <div>
-          <dt className="text-red-100/55">Already refunded</dt>
-          <dd>£{refunded.toFixed(2)}</dd>
-        </div>
-        <div>
-          <dt className="text-red-100/55">Remaining refundable</dt>
-          <dd className="font-semibold">£{remaining.toFixed(2)}</dd>
-        </div>
       </dl>
 
-      <fieldset className="mt-4 space-y-2">
+      <div
+        className="mt-3 rounded-lg border border-white/10 bg-navy/40 px-3 py-2 text-sm text-red-50"
+        data-refund-balance-summary="true"
+      >
+        <p>Original payment: £{paid.toFixed(2)}</p>
+        <p>Already refunded: £{refunded.toFixed(2)}</p>
+        <p className="font-semibold">Remaining refundable: £{remaining.toFixed(2)}</p>
+      </div>
+
+      {fullyRefunded ? (
+        <p
+          className="mt-3 rounded-xl border border-emerald/40 bg-emerald/15 px-3 py-2 text-sm font-bold uppercase tracking-wide text-emerald"
+          data-fully-refunded="true"
+        >
+          Fully refunded
+        </p>
+      ) : null}
+
+      <fieldset className="mt-4 space-y-2" disabled={busy}>
         <legend className="text-xs font-semibold uppercase tracking-wider text-red-100/55">
           Action
         </legend>
-        {ACTION_OPTIONS.map((option) => (
+        {ACTION_OPTIONS.filter((option) => {
+          if (fullyRefunded) {
+            return option.id === "cancel_no_refund";
+          }
+          return true;
+        }).map((option) => (
           <label
             key={option.id}
             className="flex cursor-pointer items-start gap-2 rounded-lg border border-red-400/20 bg-navy/40 px-3 py-2"
@@ -299,7 +361,7 @@ export default function OwnerCancelRefundModal({
         ))}
       </fieldset>
 
-      {actionChoice === "full_refund_choice" ? (
+      {actionChoice === "full_refund_choice" && !fullyRefunded ? (
         <fieldset className="mt-3 space-y-2">
           <legend className="text-xs font-semibold uppercase tracking-wider text-red-100/55">
             Also cancel booking?
@@ -325,21 +387,38 @@ export default function OwnerCancelRefundModal({
         </fieldset>
       ) : null}
 
-      {needsPartialAmount ? (
-        <label className="mt-3 block text-sm text-red-50">
-          Partial refund amount (GBP)
-          <input
-            type="number"
-            min="0.01"
-            step="0.01"
-            max={remaining}
-            value={partialAmount}
-            disabled={busy}
-            onChange={(event) => setPartialAmount(event.target.value)}
-            className="mt-1 w-full rounded-lg border border-white/15 bg-navy px-3 py-2 text-white"
-            placeholder={`Max £${remaining.toFixed(2)}`}
-          />
-        </label>
+      {/* Order: amount → reason → notes → owner key → confirm → one submit */}
+      {needsPartialAmount && !fullyRefunded ? (
+        <div className="mt-3 space-y-2" data-refund-amount-block="true">
+          <label className="block text-sm text-red-50">
+            Refund amount (GBP)
+            <input
+              type="number"
+              min="0.01"
+              step="0.01"
+              max={remaining}
+              value={partialAmount}
+              disabled={busy}
+              onChange={(event) => setPartialAmount(event.target.value)}
+              className="mt-1 w-full rounded-lg border border-white/15 bg-navy px-3 py-2 text-white"
+              placeholder={`e.g. 0.50 — max £${remaining.toFixed(2)}`}
+              inputMode="decimal"
+              data-refund-amount-input="true"
+            />
+          </label>
+          <button
+            type="button"
+            disabled={busy || remaining < 0.01}
+            onClick={() => setPartialAmount(remainingBalanceFillValue(remaining))}
+            className="min-h-9 rounded-lg border border-white/20 px-3 py-1.5 text-xs font-semibold text-white/85 disabled:opacity-60"
+            data-refund-fill-remaining="true"
+          >
+            Use remaining balance (£{remaining.toFixed(2)})
+          </button>
+          <p className="text-[11px] text-red-100/50">
+            Fills the Amount field only — does not submit a refund.
+          </p>
+        </div>
       ) : null}
 
       <label className="mt-3 block text-sm text-red-50">
@@ -351,8 +430,9 @@ export default function OwnerCancelRefundModal({
             setReasonCategory(event.target.value as RefundReasonCategory)
           }
           className="mt-1 w-full rounded-lg border border-white/15 bg-navy px-3 py-2 text-white"
+          data-refund-reason="true"
         >
-          {REFUND_REASON_CATEGORIES.map((category) => (
+          {REFUND_REASON_UI_CATEGORIES.map((category) => (
             <option key={category} value={category}>
               {REFUND_REASON_LABELS[category]}
             </option>
@@ -361,16 +441,20 @@ export default function OwnerCancelRefundModal({
       </label>
 
       <label className="mt-3 block text-sm text-red-50">
-        Owner notes{notesNeeded ? " (required)" : " (optional)"}
+        Owner notes (internal){notesNeeded ? " — required" : " — optional"}
         <textarea
           value={ownerNotes}
           disabled={busy}
           onChange={(event) => setOwnerNotes(event.target.value)}
           rows={3}
           className="mt-1 w-full rounded-lg border border-white/15 bg-navy px-3 py-2 text-white"
-          placeholder="Internal only — not shown to the customer unless you mark a customer-facing reason below."
+          placeholder="Example: Customer called 19/08/26. Agreed £15 goodwill refund due to delayed pickup."
+          data-refund-owner-notes="true"
         />
       </label>
+      <p className="mt-1 text-[11px] text-red-100/50">
+        Saved on this refund operation only. Never shown in customer emails.
+      </p>
 
       <label className="mt-3 block text-sm text-red-50">
         Customer-facing reason (optional)
@@ -393,12 +477,22 @@ export default function OwnerCancelRefundModal({
           disabled={busy}
           onChange={(event) => setConfirmOwnerKey(event.target.value)}
           className="mt-1 w-full rounded-lg border border-white/15 bg-navy px-3 py-2 text-white"
-          placeholder="Required for every refund / cancellation"
+          placeholder="Final authorisation before money moves"
+          data-refund-owner-key="true"
         />
       </label>
 
       <div className="mt-4 rounded-lg border border-amber-400/30 bg-amber-500/10 p-3">
-        <p className="text-sm font-semibold text-amber-100">{confirmPhrase}</p>
+        <p className="text-sm font-semibold text-amber-100">
+          {resolved.refundAmount > 0
+            ? `You are about to refund £${resolved.refundAmount.toFixed(2)} to the original payment method for ${booking.paymentReference}.`
+            : `Cancel booking ${booking.paymentReference} without a SumUp refund?`}
+          {resolved.cancelBooking && resolved.refundAmount > 0
+            ? " The booking will also be cancelled."
+            : !resolved.cancelBooking && resolved.refundAmount > 0
+              ? " The journey will remain booked."
+              : ""}
+        </p>
         <label className="mt-2 flex items-start gap-2 text-sm text-amber-50">
           <input
             type="checkbox"
@@ -406,6 +500,7 @@ export default function OwnerCancelRefundModal({
             disabled={busy}
             onChange={(event) => setFinalConfirm(event.target.checked)}
             className="mt-1"
+            data-refund-final-confirm="true"
           />
           <span>I confirm this action. Money moves only after SumUp accepts a refund.</span>
         </label>
@@ -420,13 +515,15 @@ export default function OwnerCancelRefundModal({
         >
           Back
         </button>
+        {/* Exactly one refund/cancel submit control */}
         <button
           type="button"
-          disabled={busy || !finalConfirm || !confirmOwnerKey.trim()}
+          data-owner-refund-submit="true"
+          disabled={!canSubmit}
           onClick={() => void submit()}
-          className="min-h-11 rounded-xl bg-red-500 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-red-600 disabled:opacity-60"
+          className="min-h-11 rounded-xl bg-red-500 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-40"
         >
-          {busy ? "Processing…" : "Confirm action"}
+          {submitLabel}
         </button>
       </div>
     </div>

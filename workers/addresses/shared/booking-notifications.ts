@@ -15,6 +15,11 @@ import {
   formatEmailFareIncludesHtml,
   resolveJourneyInclusions,
 } from "./journey-inclusions";
+import {
+  REFUND_FUNDS_TIMING,
+  REFUND_REASON_LABELS,
+  type RefundReasonCategory,
+} from "./refund-ops";
 
 export type PaidBookingDetails = {
   customerName: string;
@@ -775,12 +780,231 @@ export type CancellationEmailDetails = RefundConfirmationDetails & {
   customerFacingReason?: string;
   bookingRemainsActive: boolean;
   actionKind: string;
+  /** Internal only — never included in customer-facing emails. */
+  ownerNotes?: string;
+  auditId?: string;
+  sumUpTransactionId?: string;
+  cumulativeRefundedValue?: number;
+  amountRetained?: string;
+  paymentStatusAfter?: string;
+  operationalStatusAfter?: string;
+  initiatedBy?: string;
 };
+
+function isFullyRefundedMoney(details: CancellationEmailDetails): boolean {
+  const remainingNum = Number(String(details.remainingPaid).replace(/[^\d.]/g, ""));
+  if (Number.isFinite(remainingNum) && remainingNum <= 0.001) return true;
+  return details.originalAmountValue - details.refundAmountValue < 0.01;
+}
+
+function customerRefundTypeLabel(
+  details: CancellationEmailDetails,
+  fullyRefunded: boolean,
+): string {
+  if (details.cancelBooking && details.refundAmountValue > 0) {
+    return "Cancellation & Refund";
+  }
+  if (fullyRefunded) return "Full Refund";
+  return "Partial Refund";
+}
+
+function customerBookingStatusLabel(details: CancellationEmailDetails): string {
+  if (details.operationalStatusAfter?.trim()) {
+    return details.operationalStatusAfter.trim();
+  }
+  if (details.cancelBooking || !details.bookingRemainsActive) {
+    return "Cancelled";
+  }
+  return "Confirmed — journey remains booked as scheduled";
+}
+
+function reasonLabelForOwner(reasonCategory: string): string {
+  if (reasonCategory in REFUND_REASON_LABELS) {
+    return REFUND_REASON_LABELS[reasonCategory as RefundReasonCategory];
+  }
+  return reasonCategory;
+}
+
+/**
+ * Dedicated owner audit body for refund/cancellation outcomes.
+ * Includes internal notes and references that must never go to the customer.
+ */
+export function buildOwnerRefundAuditEmailBody(
+  details: CancellationEmailDetails,
+  businessName = "My Airport Taxi NI",
+): string {
+  const when = formatTripDateTime(details.tripDate, details.tripTime);
+  const cumulativeLabel =
+    details.cumulativeRefundedValue != null
+      ? formatPaidAmount(details.cumulativeRefundedValue)
+      : details.cumulativeRefunded;
+  const timestamp = new Date().toISOString();
+  const notes = details.ownerNotes?.trim() || "(none)";
+
+  return (
+    `Refund / cancellation audit — ${businessName}\n\n` +
+    `CUSTOMER\n${"=".repeat(40)}\n` +
+    `Name: ${details.customerName}\n` +
+    `Booking reference: ${details.paymentReference}\n\n` +
+    `OPERATION\n${"=".repeat(40)}\n` +
+    `Reason: ${reasonLabelForOwner(details.reasonCategory)}\n` +
+    `Action kind: ${details.actionKind}\n` +
+    `Initiated by: ${details.initiatedBy?.trim() || "owner"}\n` +
+    `Owner notes (internal): ${notes}\n` +
+    (details.customerFacingReason
+      ? `Customer-facing reason: ${details.customerFacingReason}\n`
+      : "") +
+    `Within 24h of pickup: ${details.within24h ? "Yes" : "No"}\n` +
+    `\nMONEY\n${"=".repeat(40)}\n` +
+    `Amount refunded (this operation): ${details.refundAmount}\n` +
+    `Cumulative refunded to date: ${cumulativeLabel}\n` +
+    `Original payment: ${details.originalAmount}\n` +
+    `Remaining balance: ${details.remainingPaid}\n` +
+    (details.amountRetained ? `Amount retained: ${details.amountRetained}\n` : "") +
+    (details.paymentStatusAfter
+      ? `Payment status after: ${details.paymentStatusAfter}\n`
+      : "") +
+    `\nBOOKING STATUS\n${"=".repeat(40)}\n` +
+    `Cancel booking: ${details.cancelBooking ? "Yes" : "No"}\n` +
+    `Booking remains active: ${details.bookingRemainsActive ? "Yes" : "No"}\n` +
+    `Booking status: ${customerBookingStatusLabel(details)}\n` +
+    (details.operationalStatusAfter
+      ? `Operational status after: ${details.operationalStatusAfter}\n`
+      : "") +
+    `\nREFERENCES\n${"=".repeat(40)}\n` +
+    (details.sumUpTransactionId
+      ? `SumUp transaction / reference: ${details.sumUpTransactionId}\n`
+      : `SumUp transaction / reference: (not recorded)\n`) +
+    `Payment / booking reference: ${details.paymentReference}\n` +
+    (details.auditId ? `Audit ID: ${details.auditId}\n` : "Audit ID: (not recorded)\n") +
+    `Timestamp: ${timestamp}\n\n` +
+    `TRIP\n${"=".repeat(40)}\n` +
+    `Trip: ${details.tripLabel}\n` +
+    (when ? `Journey: ${when}\n` : "") +
+    `Pickup: ${details.pickupLabel}\n` +
+    `Drop-off: ${details.dropoffLabel}\n`
+  );
+}
+
+function buildOwnerCancellationEmail(
+  details: CancellationEmailDetails,
+  subject: string,
+  businessName: string,
+): { subject: string; body: string } {
+  return {
+    subject,
+    body: buildOwnerRefundAuditEmailBody(details, businessName),
+  };
+}
+
+/** Customer-facing refund/cancellation intent paragraph(s). Never includes ownerNotes. */
+function buildCustomerRefundIntentCopy(details: CancellationEmailDetails): {
+  fullyRefunded: boolean;
+  refundType: string;
+  intentText: string;
+  intentHtml: string;
+  bookingStatus: string;
+} {
+  const fullyRefunded = isFullyRefundedMoney(details);
+  const refundType = customerRefundTypeLabel(details, fullyRefunded);
+  const bookingStatus = customerBookingStatusLabel(details);
+  const remainsActive = details.bookingRemainsActive && !details.cancelBooking;
+  const amount = details.refundAmount;
+
+  let intentText: string;
+  let intentHtml: string;
+
+  if (details.cancelBooking && details.refundAmountValue > 0) {
+    intentText =
+      `Your booking has been cancelled. A refund of ${amount} has been issued to your original payment method. ${REFUND_FUNDS_TIMING}`;
+    intentHtml =
+      `<p>Your booking has been cancelled. A refund of <strong>${escapeHtml(amount)}</strong> has been issued to your original payment method. ${escapeHtml(REFUND_FUNDS_TIMING)}</p>`;
+  } else if (fullyRefunded && remainsActive) {
+    intentText =
+      `A full refund of ${amount} has been issued to your original payment method. ${REFUND_FUNDS_TIMING}\n\n` +
+      `Your journey has NOT been cancelled and remains booked as scheduled.`;
+    intentHtml =
+      `<p>A full refund of <strong>${escapeHtml(amount)}</strong> has been issued to your original payment method. ${escapeHtml(REFUND_FUNDS_TIMING)}</p>` +
+      `<p><strong>Your journey has NOT been cancelled and remains booked as scheduled.</strong></p>`;
+  } else if (!fullyRefunded && details.refundAmountValue > 0) {
+    intentText =
+      `A partial refund of ${amount} has been issued to your original payment method. ${REFUND_FUNDS_TIMING}` +
+      (remainsActive
+        ? `\n\nYour journey remains booked as scheduled.`
+        : details.cancelBooking
+          ? `\n\nYour booking has been cancelled.`
+          : "");
+    intentHtml =
+      `<p>A partial refund of <strong>${escapeHtml(amount)}</strong> has been issued to your original payment method. ${escapeHtml(REFUND_FUNDS_TIMING)}</p>` +
+      (remainsActive
+        ? `<p>Your journey remains booked as scheduled.</p>`
+        : details.cancelBooking
+          ? `<p>Your booking has been cancelled.</p>`
+          : "");
+  } else {
+    intentText =
+      `A refund of ${amount} has been issued to your original payment method. ${REFUND_FUNDS_TIMING}`;
+    intentHtml =
+      `<p>A refund of <strong>${escapeHtml(amount)}</strong> has been issued to your original payment method. ${escapeHtml(REFUND_FUNDS_TIMING)}</p>`;
+  }
+
+  return { fullyRefunded, refundType, intentText, intentHtml, bookingStatus };
+}
+
+function buildCustomerRefundDetailsBlock(details: CancellationEmailDetails): {
+  text: string;
+  html: string;
+} {
+  const { fullyRefunded, refundType, bookingStatus } = buildCustomerRefundIntentCopy(details);
+  const when = formatTripDateTime(details.tripDate, details.tripTime);
+  const showCumulative =
+    details.refundAmountValue > 0 &&
+    (details.cumulativeRefunded.trim() !== details.refundAmount.trim() || !fullyRefunded);
+
+  const text =
+    `Customer: ${details.customerName}\n` +
+    `Booking reference: ${details.paymentReference}\n` +
+    `Refund type: ${refundType}\n` +
+    `Amount refunded (this operation): ${details.refundAmount}\n` +
+    (showCumulative ? `Total refunded to date: ${details.cumulativeRefunded}\n` : "") +
+    `Original payment amount: ${details.originalAmount}\n` +
+    `Booking status: ${bookingStatus}\n` +
+    `Original payment method: Card (SumUp) — refund returned to your original payment method\n` +
+    `Trip: ${details.tripLabel}\n` +
+    (when ? `When: ${when}\n` : "") +
+    `Pickup: ${details.pickupLabel}\n` +
+    `Drop-off: ${details.dropoffLabel}\n` +
+    (details.customerFacingReason ? `Note: ${details.customerFacingReason}\n` : "");
+
+  const html =
+    `<p>` +
+    `<strong>Customer:</strong> ${escapeHtml(details.customerName)}<br/>` +
+    `<strong>Booking reference:</strong> ${escapeHtml(details.paymentReference)}<br/>` +
+    `<strong>Refund type:</strong> ${escapeHtml(refundType)}<br/>` +
+    `<strong>Amount refunded (this operation):</strong> ${escapeHtml(details.refundAmount)}<br/>` +
+    (showCumulative
+      ? `<strong>Total refunded to date:</strong> ${escapeHtml(details.cumulativeRefunded)}<br/>`
+      : "") +
+    `<strong>Original payment amount:</strong> ${escapeHtml(details.originalAmount)}<br/>` +
+    `<strong>Booking status:</strong> ${escapeHtml(bookingStatus)}<br/>` +
+    `<strong>Original payment method:</strong> Card (SumUp) — refund returned to your original payment method<br/>` +
+    `<strong>Trip:</strong> ${escapeHtml(details.tripLabel)}<br/>` +
+    (when ? `<strong>When:</strong> ${escapeHtml(when)}<br/>` : "") +
+    `<strong>Pickup:</strong> ${escapeHtml(details.pickupLabel)}<br/>` +
+    `<strong>Drop-off:</strong> ${escapeHtml(details.dropoffLabel)}` +
+    (details.customerFacingReason
+      ? `<br/><strong>Note:</strong> ${escapeHtml(details.customerFacingReason)}`
+      : "") +
+    `</p>`;
+
+  return { text, html };
+}
 
 /**
  * Choose the correct customer + owner email for a refund/cancellation outcome.
  * Never returns a customer “refund completed” template when refundAmountValue is 0
  * unless it is an explicit cancellation notice.
+ * Customer emails never include ownerNotes.
  */
 export function buildCustomerCancellationEmails(
   details: CancellationEmailDetails,
@@ -793,24 +1017,48 @@ export function buildCustomerCancellationEmails(
   const ref = details.paymentReference;
   const isBusiness = details.reasonCategory === "business_cancelled";
 
-  // Business cancels → apology + full refund confirmation (when money returned).
+  // Business cancels → apology + refund/cancellation confirmation (when money returned).
   if (isBusiness && details.cancelBooking) {
-    const refundLine =
-      details.refundAmountValue > 0
-        ? `We have refunded ${details.refundAmount} to your original payment method via SumUp. Banks/cards may take several working days to show the funds.`
-        : `Please contact us if you have any questions about payment.`;
-    const subject =
-      details.refundAmountValue > 0
-        ? `Booking Cancelled – Full Refund Issued – ${ref}`
-        : `Booking Cancellation Confirmed – ${ref}`;
+    if (details.refundAmountValue > 0) {
+      const { intentText, intentHtml, refundType } = buildCustomerRefundIntentCopy(details);
+      const detailsBlock = buildCustomerRefundDetailsBlock(details);
+      const subject = `Cancellation & Refund – ${ref}`;
+      const text =
+        `Hi ${details.customerName},\n\n` +
+        `We're sorry — ${businessName} has had to cancel your booking.\n\n` +
+        `${intentText}\n\n` +
+        `${detailsBlock.text}\n` +
+        `We apologise for the inconvenience and hope to welcome you again soon.\n\n` +
+        `${businessName}\n${BUSINESS_WEBSITE}`;
+      const html = buildSimpleBrandedEmailHtml({
+        title: refundType,
+        headline: `We're sorry, ${escapeHtml(details.customerName)}`,
+        bodyHtml:
+          `<p>We're sorry — ${escapeHtml(businessName)} has had to cancel your booking.</p>` +
+          intentHtml +
+          detailsBlock.html +
+          `<p>We apologise for the inconvenience and hope to welcome you again soon.</p>`,
+        businessName,
+      });
+      return {
+        customer: { subject, text, html },
+        owner: buildOwnerCancellationEmail(
+          details,
+          `Business cancellation — ${details.customerName} — ${ref}`,
+          businessName,
+        ),
+      };
+    }
+
+    const subject = `Booking Cancellation Confirmed – ${ref}`;
     const text =
       `Hi ${details.customerName},\n\n` +
-      `We're sorry — My Airport Taxi NI has had to cancel your booking ${ref}.\n\n` +
+      `We're sorry — ${businessName} has had to cancel your booking ${ref}.\n\n` +
       `Trip: ${details.tripLabel}\n` +
       (when ? `When: ${when}\n` : "") +
       `Pickup: ${details.pickupLabel}\n` +
       `Drop-off: ${details.dropoffLabel}\n\n` +
-      `${refundLine}\n\n` +
+      `Please contact us if you have any questions about payment.\n\n` +
       `We apologise for the inconvenience and hope to welcome you again soon.\n\n` +
       `${businessName}\n${BUSINESS_WEBSITE}`;
     const html = buildSimpleBrandedEmailHtml({
@@ -820,15 +1068,16 @@ export function buildCustomerCancellationEmails(
         `<p>We have had to cancel booking <strong>${escapeHtml(ref)}</strong>.</p>` +
         `<p>${escapeHtml(details.tripLabel)}${when ? `<br/>${escapeHtml(when)}` : ""}<br/>` +
         `${escapeHtml(details.pickupLabel)} → ${escapeHtml(details.dropoffLabel)}</p>` +
-        `<p>${escapeHtml(refundLine)}</p>`,
+        `<p>Please contact us if you have any questions about payment.</p>`,
       businessName,
     });
     return {
       customer: { subject, text, html },
-      owner: {
-        subject: `Business cancellation — ${details.customerName} — ${ref}`,
-        body: text,
-      },
+      owner: buildOwnerCancellationEmail(
+        details,
+        `Business cancellation — ${details.customerName} — ${ref}`,
+        businessName,
+      ),
     };
   }
 
@@ -838,6 +1087,8 @@ export function buildCustomerCancellationEmails(
     const text =
       `Hi ${details.customerName},\n\n` +
       `Your booking ${ref} has been cancelled.\n\n` +
+      `Customer: ${details.customerName}\n` +
+      `Booking reference: ${ref}\n` +
       `Trip: ${details.tripLabel}\n` +
       (when ? `When: ${when}\n` : "") +
       `Pickup: ${details.pickupLabel}\n` +
@@ -858,135 +1109,88 @@ export function buildCustomerCancellationEmails(
     });
     return {
       customer: { subject, text, html },
-      owner: {
-        subject: `Cancellation (<24h, no refund) — ${details.customerName} — ${ref}`,
-        body: text,
-      },
+      owner: buildOwnerCancellationEmail(
+        details,
+        `Cancellation (<24h, no refund) — ${details.customerName} — ${ref}`,
+        businessName,
+      ),
     };
   }
 
-  // Cancel >24h with full refund
+  // Cancel >24h with full refund (explicit parentheses — avoid && / || precedence bugs)
   if (
     details.cancelBooking &&
     details.refundAmountValue > 0 &&
     !details.within24h &&
-    details.remainingPaid.replace(/[^\d.]/g, "") === "0" ||
-    (details.cancelBooking &&
-      details.refundAmountValue > 0 &&
-      !details.within24h &&
+    (details.remainingPaid.replace(/[^\d.]/g, "") === "0" ||
       details.originalAmountValue - details.refundAmountValue < 0.01)
   ) {
-    const subject = `Booking Cancelled – Full Refund Issued – ${ref}`;
+    const { intentText, intentHtml, refundType } = buildCustomerRefundIntentCopy(details);
+    const detailsBlock = buildCustomerRefundDetailsBlock(details);
+    const subject = `Cancellation & Refund – ${ref}`;
     const text =
       `Hi ${details.customerName},\n\n` +
-      `Your booking ${ref} has been cancelled and a full refund has been issued.\n\n` +
-      `Trip: ${details.tripLabel}\n` +
-      (when ? `When: ${when}\n` : "") +
-      `Pickup: ${details.pickupLabel}\n` +
-      `Drop-off: ${details.dropoffLabel}\n\n` +
-      `Your cancellation was received more than 24 hours before pickup.\n` +
-      `Refund amount: ${details.refundAmount}\n` +
-      `The refund has been returned to your original payment method via SumUp. Your bank or card provider may take several working days before it appears.\n\n` +
+      `${intentText}\n\n` +
+      `Your cancellation was received more than 24 hours before pickup.\n\n` +
+      `${detailsBlock.text}\n` +
       `We'd be glad to welcome you again — book anytime at ${BUSINESS_WEBSITE}.\n\n` +
-      `${businessName}`;
+      `${businessName}\n${BUSINESS_WEBSITE}`;
     const html = buildSimpleBrandedEmailHtml({
-      title: "Full refund issued",
+      title: refundType,
       headline: `Booking cancelled — full refund`,
       bodyHtml:
-        `<p>Booking <strong>${escapeHtml(ref)}</strong> is cancelled.</p>` +
-        `<p>Cancellation received more than 24 hours before pickup.</p>` +
-        `<p><strong>Refund:</strong> ${escapeHtml(details.refundAmount)} returned to your original payment method via SumUp. Banks/cards may take several working days to show the funds.</p>` +
+        intentHtml +
+        `<p>Your cancellation was received more than 24 hours before pickup.</p>` +
+        detailsBlock.html +
         `<p>We'd love to welcome you again soon.</p>`,
       businessName,
     });
     return {
       customer: { subject, text, html },
-      owner: buildOwnerRefundConfirmationEmail(details, businessName),
+      owner: buildOwnerCancellationEmail(
+        details,
+        `Cancellation & refund — ${details.customerName} — ${details.refundAmount}`,
+        businessName,
+      ),
     };
   }
 
   // Partial or full refund while booking may remain active or be cancelled
   if (details.refundAmountValue > 0) {
-    const remainingNum = Number(String(details.remainingPaid).replace(/[^\d.]/g, ""));
-    const fullyRefundedMoney =
-      !Number.isFinite(remainingNum) || remainingNum <= 0.001;
+    const { fullyRefunded, intentText, intentHtml, refundType } =
+      buildCustomerRefundIntentCopy(details);
+    const detailsBlock = buildCustomerRefundDetailsBlock(details);
+    const remainsActive = details.bookingRemainsActive && !details.cancelBooking;
 
-    if (fullyRefundedMoney && !details.cancelBooking) {
-      const subject = `Full Refund Issued – Booking Remains Confirmed – ${ref}`;
-      const text =
-        `Hi ${details.customerName},\n\n` +
-        `A full refund has been issued for booking ${ref}. Your booking remains CONFIRMED.\n\n` +
-        `Trip: ${details.tripLabel}\n` +
-        (when ? `When: ${when}\n` : "") +
-        `Pickup: ${details.pickupLabel}\n` +
-        `Drop-off: ${details.dropoffLabel}\n\n` +
-        `Original payment: ${details.originalAmount}\n` +
-        `Refund amount: ${details.refundAmount}\n` +
-        `The refund has been returned to your original payment method via SumUp. Banks/cards may take several working days to show the funds.\n\n` +
-        `${businessName}\n${BUSINESS_WEBSITE}`;
-      return {
-        customer: {
-          subject,
-          text,
-          html: buildSimpleBrandedEmailHtml({
-            title: "Full refund issued",
-            headline: `Full refund — booking remains confirmed`,
-            bodyHtml:
-              `<p>Booking <strong>${escapeHtml(ref)}</strong> remains <strong>CONFIRMED</strong>.</p>` +
-              `<p><strong>Refund:</strong> ${escapeHtml(details.refundAmount)} returned via SumUp.</p>`,
-            businessName,
-          }),
-        },
-        owner: {
-          subject: `Full refund (booking active) — ${details.customerName} — ${ref}`,
-          body: text,
-        },
-      };
-    }
+    const subject =
+      details.cancelBooking
+        ? `Cancellation & Refund – ${ref}`
+        : fullyRefunded && remainsActive
+          ? `Full Refund Issued – Booking Remains Confirmed – ${ref}`
+          : fullyRefunded
+            ? `Full Refund Issued – ${ref}`
+            : `Partial Refund Issued – ${ref}`;
 
-    const statusLine = details.cancelBooking
-      ? "Your booking has been CANCELLED."
-      : "Your booking remains CONFIRMED.";
-    const reasonLine = details.customerFacingReason
-      ? `Reason: ${details.customerFacingReason}\n`
-      : "";
-    const subject = fullyRefundedMoney
-      ? `Full Refund Issued – ${ref}`
-      : `Partial Refund Issued – ${ref}`;
     const text =
       `Hi ${details.customerName},\n\n` +
-      (fullyRefundedMoney
-        ? `A full refund has been issued for booking ${ref}.\n\n`
-        : `A partial refund has been issued for booking ${ref}.\n\n`) +
-      `Original payment: ${details.originalAmount}\n` +
-      `Refund amount: ${details.refundAmount}\n` +
-      `Total refunded to date: ${details.cumulativeRefunded}\n` +
-      `Remaining paid amount: ${details.remainingPaid}\n` +
-      `${statusLine}\n` +
-      reasonLine +
-      `\nThe refund has been returned to your original payment method via SumUp.\n\n` +
+      `${intentText}\n\n` +
+      `${detailsBlock.text}\n` +
       `${businessName}\n${BUSINESS_WEBSITE}`;
+
     const html = buildSimpleBrandedEmailHtml({
-      title: fullyRefundedMoney ? "Full refund issued" : "Partial refund issued",
-      headline: `${fullyRefundedMoney ? "Full" : "Partial"} refund — ${escapeHtml(ref)}`,
-      bodyHtml:
-        `<p>Original payment: <strong>${escapeHtml(details.originalAmount)}</strong><br/>` +
-        `Refund now: <strong>${escapeHtml(details.refundAmount)}</strong><br/>` +
-        `Total refunded: <strong>${escapeHtml(details.cumulativeRefunded)}</strong><br/>` +
-        `Remaining paid: <strong>${escapeHtml(details.remainingPaid)}</strong></p>` +
-        `<p>${escapeHtml(statusLine)}</p>` +
-        (details.customerFacingReason
-          ? `<p>${escapeHtml(details.customerFacingReason)}</p>`
-          : "") +
-        `<p>Returned to your original payment method via SumUp.</p>`,
+      title: refundType,
+      headline: `${escapeHtml(refundType)} — ${escapeHtml(ref)}`,
+      bodyHtml: intentHtml + detailsBlock.html,
       businessName,
     });
+
     return {
       customer: { subject, text, html },
-      owner: {
-        subject: `${fullyRefundedMoney ? "Full" : "Partial"} refund — ${details.customerName} — ${details.refundAmount}`,
-        body: text,
-      },
+      owner: buildOwnerCancellationEmail(
+        details,
+        `${refundType} — ${details.customerName} — ${details.refundAmount}`,
+        businessName,
+      ),
     };
   }
 
@@ -996,6 +1200,8 @@ export function buildCustomerCancellationEmails(
     const text =
       `Hi ${details.customerName},\n\n` +
       `Your booking ${ref} has been cancelled.\n\n` +
+      `Customer: ${details.customerName}\n` +
+      `Booking reference: ${ref}\n` +
       `Trip: ${details.tripLabel}\n` +
       (when ? `When: ${when}\n` : "") +
       `Pickup: ${details.pickupLabel}\n` +
@@ -1013,10 +1219,11 @@ export function buildCustomerCancellationEmails(
           businessName,
         }),
       },
-      owner: {
-        subject: `Cancellation (no refund) — ${details.customerName} — ${ref}`,
-        body: text,
-      },
+      owner: buildOwnerCancellationEmail(
+        details,
+        `Cancellation (no refund) — ${details.customerName} — ${ref}`,
+        businessName,
+      ),
     };
   }
 
