@@ -10,6 +10,19 @@ on:
       - "scripts/sync-worker-shared.mjs"
       - ".github/workflows/deploy-worker.yml"
   workflow_dispatch:
+    inputs:
+      seed_same_fare_amendment_test:
+        description: "After deploy, seed isolated same-fare Manage Booking fixture (no SumUp / no card charge)"
+        type: boolean
+        default: true
+      manage_booking_base_url:
+        description: "Pages Preview origin for Manage Booking links (no trailing slash)"
+        required: false
+        default: "https://cursor-save-quote-payload-fi.my-airport-taxi-ni-preview.pages.dev"
+      customer_email:
+        description: "Test customer email for amendment confirmation emails"
+        required: false
+        default: "cgr28@hotmail.co.uk"
 
 concurrency:
   group: cloudflare-worker
@@ -169,6 +182,53 @@ jobs:
             sleep 15
           done
           echo "::warning::Paid checkout recovery did not succeed after retries (worker may still cron-sweep)."
+
+      - name: Seed same-fare amendment test fixture
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.seed_same_fare_amendment_test }}
+        env:
+          OWNER_ACCESS_KEY: ${{ secrets.OWNER_ACCESS_KEY }}
+          MANAGE_BASE: ${{ inputs.manage_booking_base_url }}
+          CUSTOMER_EMAIL: ${{ inputs.customer_email }}
+          WORKER_URL: https://reimagined-octo-meme.cgr28.workers.dev
+        run: |
+          set -euo pipefail
+          if [ -z "${OWNER_ACCESS_KEY:-}" ]; then
+            echo "::error::OWNER_ACCESS_KEY secret is missing — cannot seed amendment test fixture"
+            exit 1
+          fi
+          MANAGE_BASE="${MANAGE_BASE:-https://cursor-save-quote-payload-fi.my-airport-taxi-ni-preview.pages.dev}"
+          CUSTOMER_EMAIL="${CUSTOMER_EMAIL:-cgr28@hotmail.co.uk}"
+          BODY=$(jq -n \
+            --arg base "$MANAGE_BASE" \
+            --arg email "$CUSTOMER_EMAIL" \
+            '{manageBookingBaseUrl:$base, customerEmail:$email}')
+          # Do not print OWNER_ACCESS_KEY. Response JSON has no secret key material.
+          RESP=$(curl -sS -X POST "$WORKER_URL/paid-bookings/amendment-test/seed" \
+            -H "Content-Type: application/json" \
+            -H "Accept: application/json" \
+            -H "X-Owner-Key: $OWNER_ACCESS_KEY" \
+            -d "$BODY")
+          OK=$(echo "$RESP" | jq -r '.ok // false')
+          if [ "$OK" != "true" ]; then
+            echo "::error::Seed failed: $(echo "$RESP" | jq -r '.error // "unknown"')"
+            exit 1
+          fi
+          MAT=$(echo "$RESP" | jq -r '.fixture.customerReference')
+          URL=$(echo "$RESP" | jq -r '.fixture.manageBookingUrl')
+          DATE=$(echo "$RESP" | jq -r '.fixture.tripDate')
+          TIME=$(echo "$RESP" | jq -r '.fixture.tripTime')
+          PAID=$(echo "$RESP" | jq -r '.fixture.amountPaidLabel')
+          {
+            echo "## Same-fare amendment test fixture"
+            echo ""
+            echo "- **MAT:** \`$MAT\`"
+            echo "- **Manage Booking:** $URL"
+            echo "- **Current schedule:** $DATE at $TIME"
+            echo "- **Fare / paid:** $PAID (preview/test fixture — no live card charge)"
+            echo "- **Change only:** 10:00 → 10:15, then Review Changes (expect £0 top-up)"
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "::notice::MAT=$MAT schedule=$DATE $TIME paid=$PAID"
+          echo "::notice::Manage=$URL"
 
       - name: Resend latest paid confirmation when trigger requests it
         env:

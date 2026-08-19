@@ -6,6 +6,7 @@ import Footer from "@/components/Footer";
 import OwnerPortalHeader from "@/components/OwnerPortalHeader";
 import OwnerBookingJobsPanel from "@/components/OwnerBookingJobsPanel";
 import OwnerPaidBookingsPanel from "@/components/OwnerPaidBookingsPanel";
+import OwnerAmendmentTestPanel from "@/components/OwnerAmendmentTestPanel";
 import OwnerShortNoticePanel from "@/components/OwnerShortNoticePanel";
 import OwnerPersonalQuotesPanel from "@/components/OwnerPersonalQuotesPanel";
 import OwnerBookingCalendar from "@/components/OwnerBookingCalendar";
@@ -2720,6 +2721,10 @@ export default function DriverPageClient({
               </div>
 
               {isOwnerView && savedKey ? <OwnerShortNoticePanel ownerKey={savedKey} /> : null}
+
+              {isOwnerView && savedKey ? (
+                <OwnerAmendmentTestPanel ownerKey={savedKey} />
+              ) : null}
 
               {isOwnerView && savedKey ? (
                 <OwnerPersonalQuotesPanel ownerKey={savedKey} />

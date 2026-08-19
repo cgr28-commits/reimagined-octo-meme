@@ -1,6 +1,7 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import Footer from "@/components/Footer";
 import OwnerPortalHeader from "@/components/OwnerPortalHeader";
 import {
@@ -12,9 +13,72 @@ import { SITE } from "@/lib/data";
 
 const OWNER_KEY_STORAGE = "matni-owner-key";
 
+/** Read the existing Owner Dashboard session — never render the value. */
+function readOwnerSessionKey(): string {
+  if (typeof window === "undefined") return "";
+  try {
+    return (
+      sessionStorage.getItem(OWNER_KEY_STORAGE)?.trim() ||
+      localStorage.getItem(OWNER_KEY_STORAGE)?.trim() ||
+      ""
+    );
+  } catch {
+    return "";
+  }
+}
+
+function FixtureDetails({ fixture }: { fixture: AmendmentTestFixtureSummary }) {
+  return (
+    <section className="mt-8 space-y-3 rounded-xl border border-[var(--line)] bg-white p-5">
+      <h2 className="text-lg font-semibold">Ready for iPhone test</h2>
+      <p className="text-sm text-[var(--muted)]">{fixture.warning}</p>
+      <dl className="space-y-2 text-sm">
+        <div>
+          <dt className="font-medium">MAT reference</dt>
+          <dd className="font-mono text-base">{fixture.customerReference}</dd>
+        </div>
+        <div>
+          <dt className="font-medium">Trip</dt>
+          <dd>
+            {fixture.tripDate} at {fixture.tripTime}
+          </dd>
+        </div>
+        <div>
+          <dt className="font-medium">Route</dt>
+          <dd>
+            {fixture.pickupLabel} → {fixture.dropoffLabel}
+          </dd>
+        </div>
+        <div>
+          <dt className="font-medium">Fare / paid</dt>
+          <dd>
+            {fixture.amountPaidLabel} (payment status: {fixture.paymentStatus || "paid"})
+          </dd>
+        </div>
+        <div>
+          <dt className="font-medium">Manage Booking link</dt>
+          <dd className="break-all">
+            {fixture.manageBookingUrl ? (
+              <a className="text-[var(--navy)] underline" href={fixture.manageBookingUrl}>
+                {fixture.manageBookingUrl}
+              </a>
+            ) : (
+              "—"
+            )}
+          </dd>
+        </div>
+      </dl>
+      <p className="text-sm">
+        Change only <strong>10:00 → 10:15</strong>, then Review Changes — expect £0 additional
+        payment. No live card charge.
+      </p>
+    </section>
+  );
+}
+
 export default function OwnerAmendmentTestClient() {
-  const [ownerKey, setOwnerKey] = useState("");
-  const [savedKey, setSavedKey] = useState("");
+  const [sessionReady, setSessionReady] = useState(false);
+  const [hasSession, setHasSession] = useState(false);
   const [fixtures, setFixtures] = useState<AmendmentTestFixtureSummary[]>([]);
   const [latest, setLatest] = useState<AmendmentTestFixtureSummary | null>(null);
   const [loading, setLoading] = useState(false);
@@ -29,48 +93,47 @@ export default function OwnerAmendmentTestClient() {
     return window.location.origin.replace(/\/$/, "");
   }, []);
 
-  const load = useCallback(
-    async (key: string) => {
-      setLoading(true);
-      setError("");
-      try {
-        const next = await listAmendmentTestFixtures(key, manageBase);
-        setFixtures(next);
-        if (next[0]) setLatest(next[0]);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Could not load fixtures");
-      } finally {
-        setLoading(false);
-      }
-    },
-    [manageBase],
-  );
+  const ownerDashboardHref = useMemo(() => {
+    const returnTo = encodeURIComponent("/owner/amendment-test/");
+    return `/owner/?returnTo=${returnTo}`;
+  }, []);
 
-  useEffect(() => {
-    const stored = sessionStorage.getItem(OWNER_KEY_STORAGE)?.trim() ?? "";
-    if (stored) {
-      setOwnerKey(stored);
-      setSavedKey(stored);
-      void load(stored);
-    }
-  }, [load]);
-
-  async function onUnlock(event: FormEvent) {
-    event.preventDefault();
-    const key = ownerKey.trim();
+  const load = useCallback(async () => {
+    const key = readOwnerSessionKey();
     if (!key) {
-      setError("Enter OWNER_ACCESS_KEY");
+      setHasSession(false);
+      setSessionReady(true);
       return;
     }
-    sessionStorage.setItem(OWNER_KEY_STORAGE, key);
-    setSavedKey(key);
-    setMessage("");
-    await load(key);
-  }
+    setHasSession(true);
+    setLoading(true);
+    setError("");
+    try {
+      const next = await listAmendmentTestFixtures(key, manageBase);
+      setFixtures(next);
+      if (next[0]) setLatest(next[0]);
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Could not load fixtures — unlock the Owner Dashboard on this preview site first.",
+      );
+      setHasSession(false);
+    } finally {
+      setLoading(false);
+      setSessionReady(true);
+    }
+  }, [manageBase]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   async function onSeed() {
-    if (!savedKey) {
-      setError("Unlock with OWNER_ACCESS_KEY first");
+    const key = readOwnerSessionKey();
+    if (!key) {
+      setError("Unlock the Owner Dashboard on this preview site first, then return here.");
+      setHasSession(false);
       return;
     }
     setBusy(true);
@@ -78,14 +141,14 @@ export default function OwnerAmendmentTestClient() {
     setMessage("");
     try {
       const result = await seedAmendmentTestFixture({
-        ownerKey: savedKey,
+        ownerKey: key,
         manageBookingBaseUrl: manageBase,
       });
       setLatest(result.fixture);
       setMessage(
         `Created ${result.fixture.customerReference} at ${result.fixture.amountPaidLabel} (live quote; no SumUp charge).`,
       );
-      await load(savedKey);
+      await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Seed failed");
     } finally {
@@ -104,24 +167,25 @@ export default function OwnerAmendmentTestClient() {
           change MAT-3817 or production pricing.
         </p>
 
-        {!savedKey ? (
-          <form onSubmit={onUnlock} className="mt-6 space-y-3 rounded-xl border border-[var(--line)] bg-white p-4">
-            <label className="block text-sm font-medium">
-              OWNER_ACCESS_KEY
-              <input
-                className="mt-1 w-full rounded-lg border border-[var(--line)] px-3 py-2"
-                value={ownerKey}
-                onChange={(e) => setOwnerKey(e.target.value)}
-                autoComplete="off"
-              />
-            </label>
-            <button
-              type="submit"
-              className="rounded-lg bg-[var(--navy)] px-4 py-2 text-sm font-semibold text-white"
+        {!sessionReady ? (
+          <p className="mt-6 text-sm text-[var(--muted)]">Checking Owner Dashboard session…</p>
+        ) : !hasSession ? (
+          <div className="mt-6 space-y-3 rounded-xl border border-[var(--line)] bg-white p-4">
+            <p className="text-sm leading-relaxed">
+              This page uses your existing Owner Dashboard session on this preview site. It does
+              not ask you to type or display any access key.
+            </p>
+            <Link
+              href={ownerDashboardHref}
+              className="inline-flex rounded-lg bg-[var(--navy)] px-4 py-3 text-sm font-semibold text-white"
             >
-              Unlock
-            </button>
-          </form>
+              Open Owner Dashboard to unlock
+            </Link>
+            <p className="text-xs text-[var(--muted)]">
+              After you unlock the dashboard once on this preview, return here — or use the
+              “Same-fare amendment test” button on the dashboard.
+            </p>
+          </div>
         ) : (
           <div className="mt-6 space-y-4">
             <button
@@ -130,76 +194,34 @@ export default function OwnerAmendmentTestClient() {
               onClick={() => void onSeed()}
               className="rounded-lg bg-[var(--navy)] px-4 py-3 text-sm font-semibold text-white disabled:opacity-60"
             >
-              {busy ? "Creating…" : "Create same-fare £45-style test booking"}
+              {busy ? "Creating…" : "Create same-fare test booking"}
             </button>
             <button
               type="button"
               disabled={loading}
-              onClick={() => void load(savedKey)}
+              onClick={() => void load()}
               className="ml-3 rounded-lg border border-[var(--line)] bg-white px-4 py-3 text-sm font-semibold"
             >
-              Refresh list
+              Refresh
             </button>
           </div>
         )}
 
         {error ? <p className="mt-4 text-sm text-red-700">{error}</p> : null}
         {message ? <p className="mt-4 text-sm text-emerald-800">{message}</p> : null}
-
-        {latest ? (
-          <section className="mt-8 space-y-3 rounded-xl border border-[var(--line)] bg-white p-5">
-            <h2 className="text-lg font-semibold">Ready for iPhone test</h2>
-            <p className="text-sm text-[var(--muted)]">{latest.warning}</p>
-            <dl className="space-y-2 text-sm">
-              <div>
-                <dt className="font-medium">MAT reference</dt>
-                <dd className="font-mono text-base">{latest.customerReference}</dd>
-              </div>
-              <div>
-                <dt className="font-medium">Trip</dt>
-                <dd>
-                  {latest.tripDate} at {latest.tripTime}
-                </dd>
-              </div>
-              <div>
-                <dt className="font-medium">Route</dt>
-                <dd>
-                  {latest.pickupLabel} → {latest.dropoffLabel}
-                </dd>
-              </div>
-              <div>
-                <dt className="font-medium">Fare / paid</dt>
-                <dd>
-                  {latest.amountPaidLabel} (payment status: {latest.paymentStatus || "paid"})
-                </dd>
-              </div>
-              <div>
-                <dt className="font-medium">Manage Booking link</dt>
-                <dd className="break-all">
-                  {latest.manageBookingUrl ? (
-                    <a className="text-[var(--navy)] underline" href={latest.manageBookingUrl}>
-                      {latest.manageBookingUrl}
-                    </a>
-                  ) : (
-                    "—"
-                  )}
-                </dd>
-              </div>
-            </dl>
-            <p className="text-sm">
-              Change <strong>only</strong> 10:00 → 10:15, then Review Changes — expect £0 additional
-              payment.
-            </p>
-          </section>
-        ) : null}
+        {latest ? <FixtureDetails fixture={latest} /> : null}
 
         {fixtures.length > 1 ? (
           <section className="mt-8">
             <h3 className="text-sm font-semibold">Recent fixtures</h3>
             <ul className="mt-2 space-y-2 text-sm">
               {fixtures.map((item) => (
-                <li key={item.paymentReference} className="rounded-lg border border-[var(--line)] bg-white px-3 py-2">
-                  {item.customerReference} · {item.tripDate} {item.tripTime} · {item.amountPaidLabel}
+                <li
+                  key={item.paymentReference}
+                  className="rounded-lg border border-[var(--line)] bg-white px-3 py-2"
+                >
+                  {item.customerReference} · {item.tripDate} {item.tripTime} ·{" "}
+                  {item.amountPaidLabel}
                 </li>
               ))}
             </ul>
