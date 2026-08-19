@@ -839,6 +839,20 @@ export async function handleCustomerAmendSchedule(
 
   // Higher fare: pending only — commit after SumUp top-up succeeds.
   if (fareDiff.kind === "additional_payment") {
+    if (record.isAmendmentTestFixture) {
+      return jsonResponse(
+        {
+          error:
+            "This amendment test fixture cannot create a live SumUp top-up. Reset the fixture for same-fare tests, or use MAT-3817 for payment-difference tests.",
+          reason: "amendment_test_fixture_no_sumup",
+          contactRequired: true,
+          review,
+          booking: publicAmendmentSummary(record, siteOrigin),
+        },
+        422,
+        origin,
+      );
+    }
     const pending = buildHigherFarePendingAmendment({
       paymentReference: record.paymentReference,
       amendmentId,

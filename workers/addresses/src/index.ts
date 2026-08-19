@@ -216,6 +216,12 @@ import {
   isRefundTestRefundPath,
 } from "./refund-test-handlers";
 import {
+  handleAmendmentTestListRequest,
+  handleAmendmentTestSeedRequest,
+  isAmendmentTestListPath,
+  isAmendmentTestSeedPath,
+} from "./amendment-test-handlers";
+import {
   handleFinalizeCheckoutRequest,
   handlePaidBookingResendRequest,
   handlePaidBookingsListRequest,
@@ -460,6 +466,8 @@ function routePath(
   | "paid-bookings-refund-test-checkout"
   | "paid-bookings-refund-test-list"
   | "paid-bookings-refund-test-refund"
+  | "paid-bookings-amendment-test-seed"
+  | "paid-bookings-amendment-test-list"
   | "paid-bookings"
   | "paid-bookings-resend"
   | "paid-bookings-edit"
@@ -527,6 +535,12 @@ function routePath(
   }
   if (isRefundTestRefundPath(pathname)) {
     return "paid-bookings-refund-test-refund";
+  }
+  if (isAmendmentTestSeedPath(pathname)) {
+    return "paid-bookings-amendment-test-seed";
+  }
+  if (isAmendmentTestListPath(pathname)) {
+    return "paid-bookings-amendment-test-list";
   }
 
   if (isPaidBookingResendPath(pathname)) {
@@ -2648,6 +2662,12 @@ export default {
     }
     if (route === "paid-bookings-refund-test-refund") {
       return handleRefundTestRefundRequest(request, env, origin);
+    }
+    if (route === "paid-bookings-amendment-test-seed") {
+      return handleAmendmentTestSeedRequest(request, env, origin);
+    }
+    if (route === "paid-bookings-amendment-test-list") {
+      return handleAmendmentTestListRequest(request, env, origin);
     }
 
     if (route === "paid-bookings") {

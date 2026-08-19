@@ -1533,6 +1533,16 @@ export async function handleRefundRequest(
   // Guard: refund-test UI may only touch isRefundTest records; normal UI must not.
   if (paidBookingStoreConfigured(env.TRACKING_STORE)) {
     const existing = await getPaidBookingRecord(env.TRACKING_STORE, paymentReference);
+    if (existing?.isAmendmentTestFixture) {
+      return json(
+        {
+          error:
+            "This is an AMENDMENT TEST fixture (no live SumUp payment). It cannot be refunded via SumUp.",
+        },
+        400,
+        origin,
+      );
+    }
     if (existing?.isRefundTest && !refundTestRequested) {
       return json(
         {

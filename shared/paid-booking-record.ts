@@ -194,6 +194,12 @@ export type PaidBookingRecord = {
    * Must never appear as a real customer journey / Upcoming Job.
    */
   isRefundTest?: boolean;
+  /**
+   * Owner-seeded Manage Booking amendment fixture (no SumUp charge).
+   * Fully-paid for same-fare amendment tests only — never a live card payment.
+   * Must never appear as a real customer journey / Upcoming Job.
+   */
+  isAmendmentTestFixture?: boolean;
 };
 
 /** Default driver label when no other driver is assigned (multi-driver capable later). */
@@ -236,6 +242,11 @@ export function paidBookingTripDayIndexKey(day: string): string {
 /** Append-only index of owner £1 live refund-test payment references. */
 export function paidBookingRefundTestIndexKey(): string {
   return "booking:refund-test:index";
+}
+
+/** Index of owner-seeded same-fare amendment test fixtures (no SumUp). */
+export function paidBookingAmendmentTestIndexKey(): string {
+  return "booking:amendment-test:index";
 }
 
 /** KV key for a pending material amendment awaiting extra payment. */

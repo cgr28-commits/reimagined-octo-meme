@@ -1,0 +1,68 @@
+name: Seed same-fare amendment test
+
+# Owner-only: creates an isolated Manage Booking fixture (no SumUp / no card charge).
+# Run AFTER Deploy Cloudflare Worker on the PR branch tip.
+
+on:
+  workflow_dispatch:
+    inputs:
+      manage_booking_base_url:
+        description: "Pages Preview origin for Manage Booking links (no trailing slash)"
+        required: true
+        default: "https://cursor-save-quote-payload-fi.my-airport-taxi-ni-preview.pages.dev"
+      customer_email:
+        description: "Test customer email for amendment confirmation emails"
+        required: true
+        default: "cgr28@hotmail.co.uk"
+
+concurrency:
+  group: seed-amendment-test
+  cancel-in-progress: false
+
+jobs:
+  seed:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Seed amendment test fixture via Worker
+        env:
+          OWNER_ACCESS_KEY: ${{ secrets.OWNER_ACCESS_KEY }}
+          MANAGE_BASE: ${{ inputs.manage_booking_base_url }}
+          CUSTOMER_EMAIL: ${{ inputs.customer_email }}
+          WORKER_URL: https://reimagined-octo-meme.cgr28.workers.dev
+        run: |
+          set -euo pipefail
+          if [ -z "${OWNER_ACCESS_KEY:-}" ]; then
+            echo "::error::OWNER_ACCESS_KEY secret is missing"
+            exit 1
+          fi
+          BODY=$(jq -n \
+            --arg base "$MANAGE_BASE" \
+            --arg email "$CUSTOMER_EMAIL" \
+            '{manageBookingBaseUrl:$base, customerEmail:$email}')
+          RESP=$(curl -sS -X POST "$WORKER_URL/paid-bookings/amendment-test/seed" \
+            -H "Content-Type: application/json" \
+            -H "Accept: application/json" \
+            -H "X-Owner-Key: $OWNER_ACCESS_KEY" \
+            -d "$BODY")
+          echo "$RESP" | jq .
+          OK=$(echo "$RESP" | jq -r '.ok // false')
+          if [ "$OK" != "true" ]; then
+            echo "::error::Seed failed: $(echo "$RESP" | jq -r '.error // .')"
+            exit 1
+          fi
+          MAT=$(echo "$RESP" | jq -r '.fixture.customerReference')
+          URL=$(echo "$RESP" | jq -r '.fixture.manageBookingUrl')
+          DATE=$(echo "$RESP" | jq -r '.fixture.tripDate')
+          TIME=$(echo "$RESP" | jq -r '.fixture.tripTime')
+          PAID=$(echo "$RESP" | jq -r '.fixture.amountPaidLabel')
+          {
+            echo "## Same-fare amendment test fixture"
+            echo ""
+            echo "- **MAT:** \`$MAT\`"
+            echo "- **Manage Booking:** $URL"
+            echo "- **Current schedule:** $DATE at $TIME"
+            echo "- **Fare / paid:** $PAID (fixture — no live card charge)"
+            echo "- **Change only:** 10:00 → 10:15, then Review Changes (expect £0 top-up)"
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "::notice::MAT=$MAT schedule=$DATE $TIME paid=$PAID"
+          echo "::notice::Manage=$URL"
