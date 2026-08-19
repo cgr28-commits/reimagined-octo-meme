@@ -3,13 +3,40 @@
 import { useId, useState } from "react";
 import { isValidEmailAddress } from "@/lib/booking-message";
 import { saveQuote, type SaveQuoteRequest, type SaveQuoteResult } from "@/lib/saved-quote-api";
+import type { BuildSaveQuotePayloadResult } from "@/lib/save-quote-payload";
 
 type SaveQuoteModalProps = {
   open: boolean;
   onClose: () => void;
-  buildPayload: () => SaveQuoteRequest | null;
+  /** Builds the journey/pricing payload from the live quote card state. */
+  buildPayload: () => BuildSaveQuotePayloadResult;
   onBookNow: () => void;
 };
+
+/** Map API / network failures — never claim the quote "expired" unless the server said so. */
+export function saveQuoteSubmitErrorMessage(err: unknown): string {
+  const raw = err instanceof Error ? err.message.trim() : "";
+  if (!raw) {
+    return "We couldn’t save your quote just now. Please try again in a moment.";
+  }
+  const lower = raw.toLowerCase();
+  if (
+    lower.includes("no longer available") ||
+    lower.includes("expired") ||
+    lower.includes("recalculate")
+  ) {
+    return raw;
+  }
+  if (
+    lower.includes("failed to fetch") ||
+    lower.includes("networkerror") ||
+    lower.includes("load failed") ||
+    lower.includes("network")
+  ) {
+    return "We couldn’t reach the booking service. Please check your connection and try again.";
+  }
+  return raw;
+}
 
 export default function SaveQuoteModal({
   open,
@@ -43,22 +70,23 @@ export default function SaveQuoteModal({
       return;
     }
 
-    const payload = buildPayload();
-    if (!payload) {
-      setError("Your quote is no longer available. Please recalculate and try again.");
+    const built = buildPayload();
+    if (!built.ok) {
+      setError(built.message);
       return;
     }
 
     setSubmitting(true);
     try {
-      const saved = await saveQuote({
-        ...payload,
+      const payload: SaveQuoteRequest = {
+        ...built.payload,
         customerName: trimmedName,
         customerEmail: trimmedEmail,
-      });
+      };
+      const saved = await saveQuote(payload);
       setResult(saved);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not save your quote. Please try again.");
+      setError(saveQuoteSubmitErrorMessage(err));
     } finally {
       setSubmitting(false);
     }

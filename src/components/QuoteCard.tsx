@@ -81,8 +81,10 @@ import {
   type PersonalQuotePublicSummary,
 } from "@/lib/personal-quote-api";
 import SaveQuoteModal from "@/components/SaveQuoteModal";
-import type { SaveQuoteRequest } from "@/lib/saved-quote-api";
-import { formatSavedQuoteAmount } from "../../shared/saved-quote";
+import {
+  buildSaveQuotePayloadFromLiveQuote,
+  type BuildSaveQuotePayloadResult,
+} from "@/lib/save-quote-payload";
 import {
   createPaymentReturnToken,
   savePendingPayment,
@@ -494,6 +496,7 @@ function QuoteCard({
   const [childSeats, setChildSeats] = useState(0);
   const [childSeatNotes, setChildSeatNotes] = useState("");
   const [saveQuoteOpen, setSaveQuoteOpen] = useState(false);
+  const [saveQuotePrompt, setSaveQuotePrompt] = useState("");
   const [journeyIntent, setJourneyIntent] = useState<QuoteJourneyIntent | null>(() => {
     if (isCustomerAirportCode(initialAirportCode)) {
       return intentFromDirection(initialDirection);
@@ -1553,62 +1556,92 @@ function QuoteCard({
     };
   }
 
-  function buildSaveQuotePayload(): SaveQuoteRequest | null {
-    if (!liveQuote || !canPayNowOnline || isEnquiryOnly || showsRequestQuoteFlow) {
-      return null;
-    }
+  function buildSaveQuotePayload(
+    scheduleOverride?: {
+      tripDate: string;
+      tripTime: string;
+      returnDate: string;
+      returnTime: string;
+    },
+  ): BuildSaveQuotePayloadResult {
     const details = buildBookingDetails();
-    if (!details.pickupLabel || !details.dropoffLabel || !tripDate || !tripTime) {
-      return null;
+    const date = (scheduleOverride?.tripDate || tripDate).trim();
+    const time = (scheduleOverride?.tripTime || tripTime).trim();
+    const retDate = scheduleOverride?.returnDate || returnDate;
+    const retTime = scheduleOverride?.returnTime || returnTime;
+
+    return buildSaveQuotePayloadFromLiveQuote({
+      liveQuote: liveQuote
+        ? {
+            amount: liveQuote.amount,
+            area: liveQuote.area,
+            areaSurcharge: liveQuote.areaSurcharge,
+            airportBase: liveQuote.airportBase,
+            vehicleMultiplier: liveQuote.vehicleMultiplier,
+            vehicleAdjustment: liveQuote.vehicleAdjustment,
+            premiumApplied: Boolean(liveQuote.premiumApplied),
+            operational: (liveQuote.operational as Record<string, unknown> | null | undefined) ?? null,
+          }
+        : null,
+      canPayNowOnline,
+      isEnquiryOnly,
+      showsRequestQuoteFlow,
+      pickupLabel: details.pickupLabel,
+      dropoffLabel: details.dropoffLabel,
+      pickupPlaceId: pickupPlace?.placeId || undefined,
+      dropoffPlaceId: dropoffPlace?.placeId || undefined,
+      pickupLat: typeof pickupPlace?.lat === "number" ? pickupPlace.lat : undefined,
+      pickupLng: typeof pickupPlace?.lng === "number" ? pickupPlace.lng : undefined,
+      dropoffLat: typeof dropoffPlace?.lat === "number" ? dropoffPlace.lat : undefined,
+      dropoffLng: typeof dropoffPlace?.lng === "number" ? dropoffPlace.lng : undefined,
+      airportCode: details.airportCode,
+      tripDirection: isFromAirport ? "from-airport" : "to-airport",
+      isAirportTrip: Boolean(details.isAirportTrip),
+      isFromAirport: details.isFromAirport,
+      journeyType: details.tripLabel,
+      tripDate: date,
+      tripTime: time,
+      returnJourney,
+      returnDate: returnJourney ? retDate : undefined,
+      returnTime: returnJourney ? retTime : undefined,
+      passengers: details.passengers,
+      suitcases: details.suitcases,
+      childSeats: details.childSeats,
+      childSeatNotes: details.childSeatNotes,
+      vehicle: details.vehicle,
+      flightNumber: details.flightNumber || undefined,
+      returnFlightNumber: details.returnFlightNumber || undefined,
+      tripLabel: details.tripLabel,
+      journeyDistance: details.journeyDistance,
+      journeyDuration: details.journeyDuration,
+    });
+  }
+
+  /** Open Save Quote only when the live fare can actually be POSTed; otherwise guide to date/time. */
+  function handleSaveQuoteClick() {
+    setSaveQuotePrompt("");
+    const schedule = syncScheduleFieldsFromInputs();
+    const built = buildSaveQuotePayload(schedule);
+    if (built.ok) {
+      setSaveQuoteOpen(true);
+      return;
     }
-    return {
-      customerName: "",
-      customerEmail: "",
-      journey: {
-        pickupLabel: details.pickupLabel,
-        dropoffLabel: details.dropoffLabel,
-        pickupPlaceId: pickupPlace?.placeId || undefined,
-        dropoffPlaceId: dropoffPlace?.placeId || undefined,
-        pickupLat: typeof pickupPlace?.lat === "number" ? pickupPlace.lat : undefined,
-        pickupLng: typeof pickupPlace?.lng === "number" ? pickupPlace.lng : undefined,
-        dropoffLat: typeof dropoffPlace?.lat === "number" ? dropoffPlace.lat : undefined,
-        dropoffLng: typeof dropoffPlace?.lng === "number" ? dropoffPlace.lng : undefined,
-        airportCode: details.airportCode,
-        tripDirection: isFromAirport ? "from-airport" : "to-airport",
-        isAirportTrip: Boolean(details.isAirportTrip),
-        isFromAirport: details.isFromAirport,
-        journeyType: details.tripLabel,
-        tripDate,
-        tripTime,
-        returnJourney,
-        returnDate: returnJourney ? returnDate : undefined,
-        returnTime: returnJourney ? returnTime : undefined,
-        passengers: details.passengers,
-        suitcases: details.suitcases,
-        childSeats: details.childSeats,
-        childSeatNotes: details.childSeatNotes,
-        vehicle: details.vehicle,
-        flightNumber: details.flightNumber || undefined,
-        returnFlightNumber: details.returnFlightNumber || undefined,
-        tripLabel: details.tripLabel,
-        journeyDistance: details.journeyDistance,
-        journeyDuration: details.journeyDuration,
-      },
-      pricing: {
-        totalAmount: liveQuote.amount,
-        currency: "GBP",
-        amountLabel: formatSavedQuoteAmount(liveQuote.amount),
-        pricingMeta: {
-          area: liveQuote.area,
-          areaSurcharge: liveQuote.areaSurcharge,
-          airportBase: liveQuote.airportBase,
-          vehicleMultiplier: liveQuote.vehicleMultiplier,
-          vehicleAdjustment: liveQuote.vehicleAdjustment,
-          premiumApplied: liveQuote.premiumApplied,
-          operational: liveQuote.operational,
-        },
-      },
-    };
+    if (built.reason === "missing_schedule") {
+      if (quoteStep !== 2) {
+        pendingScrollToStep2DateRef.current = true;
+        setQuoteStep(2);
+      }
+      setTripDateError("Please select your pickup date and time to save this quote.");
+      setSaveQuotePrompt(
+        "Select your pickup date and time, then tap Save Quote to email yourself this fixed price.",
+      );
+      return;
+    }
+    if (built.reason === "missing_route") {
+      setSaveQuotePrompt(built.message);
+      return;
+    }
+    setSaveQuotePrompt(built.message);
   }
 
   function requireCapacityConfirmed(): boolean {
@@ -3859,11 +3892,16 @@ function QuoteCard({
             !submitted ? (
               <button
                 type="button"
-                onClick={() => setSaveQuoteOpen(true)}
+                onClick={handleSaveQuoteClick}
                 className="w-full rounded-xl border border-white/25 bg-transparent py-3 text-sm font-semibold text-white transition-all hover:bg-white/5"
               >
                 Save Quote
               </button>
+            ) : null}
+            {saveQuotePrompt ? (
+              <p className="text-center text-xs text-emerald/90" role="status">
+                {saveQuotePrompt}
+              </p>
             ) : null}
             {travelDetailsBlocker ? (
               <p className="text-center text-xs text-white/55" role="status">
@@ -3913,19 +3951,27 @@ function QuoteCard({
             !submitted ? (
               <button
                 type="button"
-                onClick={() => setSaveQuoteOpen(true)}
+                onClick={handleSaveQuoteClick}
                 className="w-full rounded-xl border border-white/25 bg-transparent py-3 text-sm font-semibold text-white transition-all hover:bg-white/5"
               >
                 Save Quote
               </button>
+            ) : null}
+            {saveQuotePrompt ? (
+              <p className="text-center text-xs text-emerald/90" role="status">
+                {saveQuotePrompt}
+              </p>
             ) : null}
           </div>
         )}
       </form>
       <SaveQuoteModal
         open={saveQuoteOpen}
-        onClose={() => setSaveQuoteOpen(false)}
-        buildPayload={buildSaveQuotePayload}
+        onClose={() => {
+          setSaveQuoteOpen(false);
+          setSaveQuotePrompt("");
+        }}
+        buildPayload={() => buildSaveQuotePayload(syncScheduleFieldsFromInputs())}
         onBookNow={() => {
           // Continue existing Book Now path (travel details → pay).
           const form = document.getElementById("quoteForm") as HTMLFormElement | null;
