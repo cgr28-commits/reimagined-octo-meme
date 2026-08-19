@@ -1,2 +1,3 @@
-# Bump this file to re-run the Jill Matchett upcoming-status repair workflow on main.
+# Bump this file to re-run the Jill Matchett upcoming-status repair workflow.
 # 2026-08-19T21:30Z — initial repair request after erroneous COMPLETED status bleed
+# 2026-08-19T21:35Z — re-run on pull_request (secrets available; Vercel blocked merge)

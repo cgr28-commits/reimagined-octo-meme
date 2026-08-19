@@ -4,21 +4,41 @@ name: Repair Jill Matchett upcoming status
 # Jill Matchett’s Sunday 23 Aug 2026 11:30 job only. Does not merge other PRs.
 on:
   workflow_dispatch:
+  # Same-repo PR runs have Actions secrets — repair without waiting on Vercel merge.
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - "scripts/trigger-repair-jill-matchett.txt"
+      - ".github/workflows/repair-jill-matchett-status.yml"
+      - "scripts/repair-jill-matchett-upcoming.ts"
+      - "shared/repair-erroneous-tracking-status.ts"
+      - "scripts/check-repair-erroneous-tracking-status.ts"
   push:
     branches: [main]
     paths:
       - "scripts/trigger-repair-jill-matchett.txt"
       - ".github/workflows/repair-jill-matchett-status.yml"
-          - "scripts/repair-jill-matchett-upcoming.ts"
-          - "shared/repair-erroneous-tracking-status.ts"
+      - "scripts/repair-jill-matchett-upcoming.ts"
+      - "shared/repair-erroneous-tracking-status.ts"
 
 concurrency:
   group: repair-jill-matchett-status
   cancel-in-progress: false
 
 jobs:
+  unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Unit checks for repair planner
+        run: npx --yes tsx scripts/check-repair-erroneous-tracking-status.ts
+
   repair:
     runs-on: ubuntu-latest
+    needs: [unit]
     steps:
       - uses: actions/checkout@v4
 
