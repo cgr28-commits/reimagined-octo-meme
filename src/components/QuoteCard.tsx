@@ -1621,24 +1621,13 @@ function QuoteCard({
     });
   }
 
-  /** Open Save Quote only when the live fare can actually be POSTed; otherwise guide to date/time. */
+  /** Open Save Quote when a live payable fare exists — date/time are optional. */
   function handleSaveQuoteClick() {
     setSaveQuotePrompt("");
     const schedule = syncScheduleFieldsFromInputs();
     const built = buildSaveQuotePayload(schedule);
     if (built.ok) {
       setSaveQuoteOpen(true);
-      return;
-    }
-    if (built.reason === "missing_schedule") {
-      if (quoteStep !== 2) {
-        pendingScrollToStep2DateRef.current = true;
-        setQuoteStep(2);
-      }
-      setTripDateError("Please select your pickup date and time to save this quote.");
-      setSaveQuotePrompt(
-        "Select your pickup date and time, then tap Save Quote to email yourself this fixed price.",
-      );
       return;
     }
     if (built.reason === "missing_route") {
@@ -3069,14 +3058,15 @@ function QuoteCard({
               className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/50"
             >
               {returnJourney ? "Outbound Date" : "Date"}{" "}
-              <span className="text-emerald/80">*</span>
+              <span className="font-normal normal-case tracking-normal text-white/40">
+                (needed to book)
+              </span>
             </label>
             <input
               id="date"
               ref={tripDateInputRef}
               name="date"
               type="date"
-              required
               min={minTripDate}
               value={tripDate}
               onChange={(e) => {
@@ -3098,14 +3088,15 @@ function QuoteCard({
               className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/50"
             >
               {returnJourney ? "Outbound pick up time" : "Pick up time"}{" "}
-              <span className="text-emerald/80">*</span>
+              <span className="font-normal normal-case tracking-normal text-white/40">
+                (needed to book)
+              </span>
             </label>
             <input
               id="time"
               ref={tripTimeInputRef}
               name="time"
               type="time"
-              required
               min={minTripTime}
               value={tripTime}
               onChange={(e) => {
@@ -3138,14 +3129,16 @@ function QuoteCard({
                   htmlFor="returnDate"
                   className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/50"
                 >
-                  Return Date <span className="text-emerald/80">*</span>
+                  Return Date{" "}
+                  <span className="font-normal normal-case tracking-normal text-white/40">
+                    (needed to book)
+                  </span>
                 </label>
                 <input
                   id="returnDate"
                   ref={returnDateInputRef}
                   name="returnDate"
                   type="date"
-                  required={returnJourney}
                   min={minReturnDate}
                   value={returnDate}
                   onChange={(e) => {
@@ -3164,14 +3157,16 @@ function QuoteCard({
                   htmlFor="returnTime"
                   className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/50"
                 >
-                  Return pick up time <span className="text-emerald/80">*</span>
+                  Return pick up time{" "}
+                  <span className="font-normal normal-case tracking-normal text-white/40">
+                    (needed to book)
+                  </span>
                 </label>
                 <input
                   id="returnTime"
                   ref={returnTimeInputRef}
                   name="returnTime"
                   type="time"
-                  required={returnJourney}
                   min={minReturnTime}
                   value={returnTime}
                   onChange={(e) => {

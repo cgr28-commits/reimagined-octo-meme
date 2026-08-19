@@ -29,6 +29,7 @@ export type SavedQuoteJourneySnapshot = {
   isAirportTrip: boolean;
   isFromAirport?: boolean;
   journeyType?: string;
+  /** Optional at save — empty string means not set (booking still requires date/time). */
   tripDate: string;
   tripTime: string;
   returnJourney: boolean;

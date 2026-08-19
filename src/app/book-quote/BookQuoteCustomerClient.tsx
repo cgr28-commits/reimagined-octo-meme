@@ -39,6 +39,10 @@ function BookQuoteInner() {
   const [customerEmail, setCustomerEmail] = useState("");
   const [mobileNumber, setMobileNumber] = useState("");
   const [flightNumber, setFlightNumber] = useState("");
+  const [tripDate, setTripDate] = useState("");
+  const [tripTime, setTripTime] = useState("");
+  const [returnDate, setReturnDate] = useState("");
+  const [returnTime, setReturnTime] = useState("");
   const [childSeatRequired, setChildSeatRequired] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
 
@@ -67,6 +71,10 @@ function BookQuoteInner() {
         setQuote(loaded);
         setFlightNumber(loaded.journey.flightNumber ?? "");
         setChildSeatRequired(Boolean(loaded.journey.childSeatRequired));
+        setTripDate(loaded.journey.outboundDate?.trim() || "");
+        setTripTime(loaded.journey.outboundTime?.trim() || "");
+        setReturnDate(loaded.journey.returnDate?.trim() || "");
+        setReturnTime(loaded.journey.returnTime?.trim() || "");
       } catch (err) {
         if (!cancelled) {
           setError(
@@ -98,10 +106,10 @@ function BookQuoteInner() {
       pickupLabel: journey.pickupAddress,
       dropoffLabel: journey.dropoffAddress,
       returnJourney: Boolean(journey.returnJourney),
-      tripDate: journey.outboundDate,
-      tripTime: journey.outboundTime,
-      returnDate: journey.returnDate ?? "",
-      returnTime: journey.returnTime ?? "",
+      tripDate: tripDate.trim(),
+      tripTime: tripTime.trim(),
+      returnDate: journey.returnJourney ? returnDate.trim() : "",
+      returnTime: journey.returnJourney ? returnTime.trim() : "",
       flightNumber: flightNumber.trim(),
       returnFlightNumber: journey.returnFlightNumber ?? "",
       passengers: journey.passengers,
@@ -115,7 +123,20 @@ function BookQuoteInner() {
       termsVersion: TERMS_LAST_UPDATED,
       cancellationPolicyVersion: CANCELLATION_POLICY_VERSION,
     };
-  }, [quote, journey, customerName, customerEmail, mobileNumber, flightNumber, childSeatRequired, termsAccepted]);
+  }, [
+    quote,
+    journey,
+    customerName,
+    customerEmail,
+    mobileNumber,
+    flightNumber,
+    childSeatRequired,
+    termsAccepted,
+    tripDate,
+    tripTime,
+    returnDate,
+    returnTime,
+  ]);
 
   async function pay() {
     setError("");
@@ -140,8 +161,8 @@ function BookQuoteInner() {
       setError("Please accept the Terms & Conditions to continue.");
       return;
     }
-    if (journey?.returnJourney && (!journey.returnDate || !journey.returnTime)) {
-      setError("This return quote is incomplete. Please contact My Airport Taxi NI.");
+    if (journey?.returnJourney && (!returnDate.trim() || !returnTime.trim())) {
+      setError("Please enter your return date and time before paying.");
       return;
     }
     const blockers = getPaymentBookingBlockers(booking);
@@ -225,17 +246,68 @@ function BookQuoteInner() {
           <span className="text-white/50">Drop-off:</span> {journey.dropoffAddress}
         </p>
         <p className="break-words">
-          <span className="text-white/50">When:</span> {journey.outboundDate} {journey.outboundTime}
+          <span className="text-white/50">When:</span>{" "}
+          {tripDate.trim() && tripTime.trim()
+            ? `${tripDate} ${tripTime}`
+            : "Not set"}
         </p>
         {journey.returnJourney ? (
           <p className="break-words">
-            <span className="text-white/50">Return:</span> {journey.returnDate} {journey.returnTime}
+            <span className="text-white/50">Return:</span>{" "}
+            {returnDate.trim() && returnTime.trim()
+              ? `${returnDate} ${returnTime}`
+              : "Not set"}
           </p>
         ) : (
           <p>
             <span className="text-white/50">Type:</span> One-way
           </p>
         )}
+        <div className="grid grid-cols-2 gap-3 pt-2">
+          <div>
+            <label className="mb-1 block text-xs text-white/45">Pickup date</label>
+            <input
+              type="date"
+              value={tripDate}
+              onChange={(e) => setTripDate(e.target.value)}
+              className={`${fieldClass} w-full`}
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs text-white/45">Pickup time</label>
+            <input
+              type="time"
+              value={tripTime}
+              onChange={(e) => setTripTime(e.target.value)}
+              className={`${fieldClass} w-full`}
+            />
+          </div>
+        </div>
+        {journey.returnJourney ? (
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="mb-1 block text-xs text-white/45">Return date</label>
+              <input
+                type="date"
+                value={returnDate}
+                onChange={(e) => setReturnDate(e.target.value)}
+                className={`${fieldClass} w-full`}
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs text-white/45">Return time</label>
+              <input
+                type="time"
+                value={returnTime}
+                onChange={(e) => setReturnTime(e.target.value)}
+                className={`${fieldClass} w-full`}
+              />
+            </div>
+          </div>
+        ) : null}
+        <p className="text-xs text-white/45">
+          Date and time are required before secure payment. Empty fields show as Not set.
+        </p>
         <p>
           <span className="text-white/50">Passengers / bags:</span> {journey.passengers} /{" "}
           {journey.suitcases}

@@ -728,7 +728,7 @@ export async function handleCustomerAmendSchedule(
     resolvedAirportCode = storedCode;
   }
 
-  // Always reprice server-side (weekday/weekend/bank holiday may differ).
+  // Always reprice server-side from current authoritative pricing.
   // Client amount / authoritativeFare / newFare are ignored if present.
   let previousFare = Number(record.amount) || 0;
   let newFare = previousFare;

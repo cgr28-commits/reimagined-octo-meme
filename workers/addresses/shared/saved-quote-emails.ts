@@ -36,22 +36,29 @@ function escapeHtml(value: string): string {
     .replace(/"/g, "&quot;");
 }
 
+function journeyScheduleLabel(date?: string, time?: string): string {
+  const d = String(date ?? "").trim();
+  const t = String(time ?? "").trim();
+  if (!d || !t) return "Not set";
+  return `${d} at ${t}`;
+}
+
 function journeySummary(record: SavedQuoteRecord): string {
   const j = record.journey;
-  const when = [j.tripDate, j.tripTime].filter(Boolean).join(" at ");
+  const when = journeyScheduleLabel(j.tripDate, j.tripTime);
   const ret =
-    j.returnJourney && j.returnDate
-      ? `\nReturn: ${j.returnDate}${j.returnTime ? ` at ${j.returnTime}` : ""}`
+    j.returnJourney
+      ? `\nReturn: ${journeyScheduleLabel(j.returnDate, j.returnTime)}`
       : "";
   return `From: ${j.pickupLabel}\nTo: ${j.dropoffLabel}\nJourney: ${when}${ret}`;
 }
 
 function journeySummaryHtml(record: SavedQuoteRecord): string {
   const j = record.journey;
-  const when = [j.tripDate, j.tripTime].filter(Boolean).join(" at ");
+  const when = journeyScheduleLabel(j.tripDate, j.tripTime);
   const ret =
-    j.returnJourney && j.returnDate
-      ? `<br/><strong>Return:</strong> ${escapeHtml(j.returnDate)}${j.returnTime ? ` at ${escapeHtml(j.returnTime)}` : ""}`
+    j.returnJourney
+      ? `<br/><strong>Return:</strong> ${escapeHtml(journeyScheduleLabel(j.returnDate, j.returnTime))}`
       : "";
   return (
     `<strong>From:</strong> ${escapeHtml(j.pickupLabel)}<br/>` +

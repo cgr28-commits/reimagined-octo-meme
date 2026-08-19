@@ -19,6 +19,7 @@
     "check:demo-features": "npx tsx scripts/check-demo-features.ts",
     "check:a2a-roi": "npx tsx scripts/check-a2a-roi-journeys.ts",
     "check:pricing-confirmation": "npx tsx scripts/check-pricing-confirmation.ts",
+    "check:pricing-vehicle-quote-flow": "npx tsx scripts/check-pricing-vehicle-quote-flow.ts",
     "check:final-correction": "npx tsx scripts/check-final-correction-pass.ts",
     "check:bot-knowledge": "npx tsx scripts/check-bot-site-knowledge.ts",
     "check:uk-time": "npx tsx scripts/check-uk-time.ts",

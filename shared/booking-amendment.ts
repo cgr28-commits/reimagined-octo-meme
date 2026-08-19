@@ -75,7 +75,7 @@ export type CustomerScheduleAmendmentDecision =
   | {
       ok: true;
       reason: "free_schedule_amendment_repriced";
-      /** Schedule/material self-service always reprices (weekday/weekend/bank holiday). */
+      /** Schedule/material self-service always reprices from current authoritative pricing. */
       farePreserved: false;
       hoursUntilPickup: number;
       amendmentsUsed: number;
@@ -457,7 +457,7 @@ export const WITHIN_24H_AMENDMENT_BODY =
   "As your pickup is within 24 hours, changes cannot be made automatically. Please contact My Airport Taxi NI and we’ll do our best to accommodate your new journey details, subject to availability.";
 
 export const FREE_AMENDMENT_HINT =
-  "One free online change is available more than 24 hours before pickup. Fare may change if weekday/weekend or journey details differ.";
+  "One free online change is available more than 24 hours before pickup. Fare may change if journey details differ.";
 
 /**
  * Saved quotes: any date/time change must leave the original locked price untouched

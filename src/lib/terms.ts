@@ -178,7 +178,7 @@ export const TERMS_SECTIONS = [
       "Requests made within 24 hours of the scheduled pickup cannot be amended automatically and must be agreed directly with My Airport Taxi NI.",
       "We will always try to accommodate reasonable changes, but availability cannot be guaranteed.",
       "Changing a booking does not provide a way to avoid the applicable cancellation policy.",
-      "Online amendments are always recalculated using current authoritative pricing. Weekday, weekend and bank holiday rates may change the fare. If the new fare is higher, the additional amount must be paid before the change is confirmed. If the new fare is lower, any refund due is processed by My Airport Taxi NI.",
+      "Online amendments are always recalculated using current authoritative pricing. Changing the journey details (for example addresses, passengers, luggage, vehicle, or return) may change the fare. If the new fare is higher, the additional amount must be paid before the change is confirmed. If the new fare is lower, any refund due is processed by My Airport Taxi NI.",
       "Where a change materially alters the journey, including pickup, destination, passengers or luggage, the fare is recalculated the same way.",
       "A saved quote is not a booking. If you change the date or time on a saved quote before paying, the fare is recalculated using current pricing and the original locked quote price no longer applies.",
     ],

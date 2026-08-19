@@ -84,17 +84,18 @@ const weekday = calculateQuote(cityHall, "BFS", SALOON, false, {
   outboundDate: "2026-08-19", // Wednesday
   outboundTime: "10:00",
 });
-assert.equal(PRICING_CONFIG.airportTripPremiumRate, 0.05);
+assert.equal(PRICING_CONFIG.airportTripPremiumRate, 0);
 assert.ok(weekday);
 assert.equal(weekday.premiumApplied, false);
 assert.ok(weekend);
-assert.equal(weekend.premiumApplied, true);
-assert.ok(
-  weekend.amount > weekday.amount,
-  `airport weekend fare (£${weekend.amount}) should exceed weekday (£${weekday.amount})`,
+assert.equal(weekend.premiumApplied, false);
+assert.equal(
+  weekend.amount,
+  weekday.amount,
+  `airport weekend fare (£${weekend.amount}) must equal weekday (£${weekday.amount})`,
 );
 console.log(
-  `OK  Airport weekend/bank-holiday premium 5% (weekday £${weekday.amount} → Sat £${weekend.amount})`,
+  `OK  Airport weekday = weekend £${weekday.amount} (no Bank Holiday / weekend surcharge)`,
 );
 
 const x4 = calculateQuote(cityHall, "BHD", SALOON);

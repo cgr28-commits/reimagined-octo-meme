@@ -23,8 +23,9 @@ export type QuoteServiceInput = {
   pickupAddress: string;
   dropoffAddress?: string;
   returnJourney: boolean;
-  outboundDate: string;
-  outboundTime: string;
+  /** Optional for quote calculation / Save Quote — required before payment. */
+  outboundDate?: string;
+  outboundTime?: string;
   returnDate?: string;
   returnTime?: string;
   passengers: number;
@@ -112,13 +113,8 @@ export function calculateAuthoritativeWebsiteQuote(
     };
   }
 
-  if (!input.outboundDate?.trim() || !input.outboundTime?.trim()) {
-    return {
-      ok: false,
-      reason: "incomplete",
-      message: "Pickup date and time are required.",
-    };
-  }
+  // Date/time are optional for quote calculation / Save Quote.
+  // Booking and payment still require them via paid-booking-gate.
 
   const vehicleType =
     input.vehicleType ?? selectVehicleForParty(passengers, Math.max(0, suitcases));

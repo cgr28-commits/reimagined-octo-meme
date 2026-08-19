@@ -93,7 +93,8 @@ function parseJourney(raw: unknown): SavedQuoteJourneySnapshot | null {
   const dropoffLabel = String(j.dropoffLabel ?? j.destinationAddress ?? "").trim();
   const tripDate = String(j.tripDate ?? j.pickupDate ?? "").trim();
   const tripTime = String(j.tripTime ?? j.pickupTime ?? "").trim();
-  if (!pickupLabel || !dropoffLabel || !tripDate || !tripTime) return null;
+  // Date/time are optional at save — booking/payment still require them.
+  if (!pickupLabel || !dropoffLabel) return null;
 
   const passengers = Math.max(1, Math.min(16, Number(j.passengers) || 1));
   const suitcases = Math.max(0, Math.min(20, Number(j.suitcases ?? j.luggage) || 0));
@@ -268,7 +269,7 @@ export async function handleCreateSavedQuote(
   const journeyBase = parseJourney(body.journey);
   if (!journeyBase) {
     return jsonResponse(
-      { error: "Pickup, destination, date and time are required to save a quote." },
+      { error: "Pickup and destination are required to save a quote." },
       400,
       origin,
     );
