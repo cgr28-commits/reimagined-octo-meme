@@ -2609,7 +2609,7 @@ function QuoteCard({
             <strong className="text-white">Test booking mode.</strong> SumUp will charge{" "}
             <strong className="text-white">£1.00</strong> only
             {testBookingLabel ? ` for ${testBookingLabel}` : ""}. You will still receive the full
-            invoice email and live tracking link.
+            invoice email.
           </div>
         )}
         {quoteStep === 1 ? (

@@ -189,7 +189,14 @@ console.log("\n=== 4. View ranges + dashboard wiring ===");
   assert.match(calUi, /"day"|'day'/);
   assert.match(calUi, /"week"|'week'/);
   assert.match(calUi, /"month"|'month'/);
+  assert.match(calUi, /defaultOwnerCalendarView\(\)/);
+  assert.match(calUi, /defaultMobileCalendarView\(\)/);
+  assert.doesNotMatch(calUi, /setView\(narrow \? defaultMobileCalendarView\(\) : "week"\)/);
   assert.doesNotMatch(calUi, /short-notice|Short-Notice/i);
+
+  const calLib = read("src/lib/owner-booking-calendar.ts");
+  assert.match(calLib, /export function defaultOwnerCalendarView[\s\S]*return "month"/);
+  assert.match(calLib, /export function defaultMobileCalendarView[\s\S]*return "month"/);
 
   // Google Calendar sync must remain (write-only, not calendar SoT)
   const gcal = read("workers/addresses/src/google-calendar.ts");

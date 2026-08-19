@@ -52,6 +52,7 @@ import {
   remainingRefundableBalance,
   roundGbp,
 } from "../../shared/refund-ops";
+import { SERVICE_FLAGS } from "@/lib/data";
 
 type OwnerPaidBookingsPanelProps = {
   ownerKey: string;
@@ -1420,8 +1421,8 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
         {status !== "completed" && status !== "arrived_pickup" && status !== "arrived_destination" ? (
           <p className="mt-2 text-xs text-white/45">
             Ideal flow: Driver on the way (emails customer) → Arrived at Pickup (records time, emails
-            customer, opens WhatsApp — you press Send) → Complete Journey when finished. Optional Start
-            Live Tracking for GPS. Live location sharing stays manual in WhatsApp.
+            customer, opens WhatsApp — you press Send) → Complete Journey when finished. Live location
+            sharing stays manual in WhatsApp — no website track link.
           </p>
         ) : null}
         {status === "arrived_pickup" ? (
@@ -1674,6 +1675,7 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
 
         {!isClosed ? (
           <>
+            {SERVICE_FLAGS.liveDriverTracking ? (
             <PaidBookingLiveTracking
               ownerKey={ownerKey}
               booking={booking}
@@ -1700,6 +1702,7 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
                 );
               }}
             />
+            ) : null}
 
             <div className="mt-4 space-y-4">
               {renderJourneyControls(booking)}
@@ -1972,8 +1975,8 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
           <p className="mt-2 max-w-2xl text-sm text-white/65">
             Unfinished paid journeys only, ordered by the next leg due. Completed trips move to{" "}
             <span className="text-white/85">Completed Jobs</span> below (records are kept). Use{" "}
-            <span className="text-white/85">Start Live Tracking</span> for GPS, then Journey
-            controls for arrival and completion.
+            <span className="text-white/85">Driver on the way</span> then{" "}
+            <span className="text-white/85">Arrived at Pickup</span> for customer updates.
           </p>
           <p className="mt-2 text-xs text-amber-100/80">
             Need a controlled £1 live SumUp refund smoke test?{" "}

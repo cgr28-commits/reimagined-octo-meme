@@ -41,6 +41,22 @@ function dedupeJobsByToken(jobs: TrackingJobRecord[]): TrackingJobRecord[] {
 export async function processDueTrackingAvailableReminders(
   env: Env,
 ): Promise<TrackingReminderRunResult> {
+  // Customer website live-tracking reminders are retired.
+  // Driver on the way / Arrived emails cover travel-day customer updates instead.
+  void env;
+  return {
+    scanned: 0,
+    eligible: 0,
+    sent: 0,
+    skipped: 0,
+    errors: 0,
+  };
+}
+
+/** Retained for offline tests / possible future restore — not called by cron. */
+export async function processDueTrackingAvailableRemindersLegacy(
+  env: Env,
+): Promise<TrackingReminderRunResult> {
   const result: TrackingReminderRunResult = {
     scanned: 0,
     eligible: 0,

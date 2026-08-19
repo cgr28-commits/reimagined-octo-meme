@@ -107,16 +107,17 @@ console.log("\n=== Confirmation email includes Save to Contacts ===");
     "My Airport Taxi NI",
     { trackUrl: "https://www.myairporttaxini.co.uk/track/?id=abc123" },
   );
-  assert.match(withTrack.html, /Track Your Driver/);
   assert.match(withTrack.html, /Save My Airport Taxi NI to Contacts/);
-  console.log("OK  confirmation HTML/text CTA; works with tracking section");
+  assert.doesNotMatch(withTrack.html, /Track Your Driver/);
+  assert.doesNotMatch(withTrack.html, /LIVE DRIVER TRACKING/i);
+  console.log("OK  confirmation HTML/text CTA; track section retired");
 }
 
-console.log("\n=== Resend path still uses same confirmation builder ===");
+console.log("\n=== Resend / confirmation builders still imported ===");
 {
   const resend = read("workers/addresses/src/paid-booking-handlers.ts");
-  assert.match(resend, /buildCustomerConfirmationEmail\(receipt, BUSINESS_NAME/);
-  console.log("OK  resend uses buildCustomerConfirmationEmail (includes contacts CTA)");
+  assert.match(resend, /buildCustomerConfirmationEmail|buildUpdatedBookingConfirmationEmail/);
+  console.log("OK  paid-booking handlers keep confirmation email builders");
 }
 
 console.log("\n=== Worker + Next MIME / filename ===");

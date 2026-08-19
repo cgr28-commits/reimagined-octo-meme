@@ -874,7 +874,7 @@ function DriverJobCard({
             : journeyStatus === "arrived_destination"
               ? ["complete_journey", "stop_tracking"]
               : []);
-  const canOperateJourney = canShare && SERVICE_FLAGS.liveDriverTracking;
+  const canOperateJourney = canShare;
 
   useEffect(() => {
     if (!showRecordedRoute) {
@@ -2858,10 +2858,10 @@ export default function DriverPageClient({
 
               {/*
                 Paid / tracking job list:
-                - Always shown for the owner so upcoming paid bookings stay visible
-                - Soft-hidden for drivers until SERVICE_FLAGS.liveDriverTracking
+                - Always shown for owner and drivers (journey status buttons need it)
+                - Customer website live-tracking UI stays soft-hidden via liveDriverTracking
               */}
-              {SERVICE_FLAGS.liveDriverTracking || isOwnerView ? (
+              {true ? (
               <>
               {isOwnerView && !SERVICE_FLAGS.liveDriverTracking ? (
                 <div className="mb-4">
@@ -2869,8 +2869,8 @@ export default function DriverPageClient({
                     Paid jobs coming up
                   </p>
                   <p className="mt-1 text-sm text-white/60">
-                    Paid bookings with a trip date ahead (including ones booked yesterday). Customer
-                    live-tracking links stay soft-hidden while testing continues.
+                    Use Driver on the way and Arrived at Pickup for customer updates. Website live
+                    tracking links stay retired.
                   </p>
                 </div>
               ) : null}

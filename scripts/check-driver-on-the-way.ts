@@ -121,6 +121,20 @@ const sharedEmail = read("shared/booking-notifications.ts");
 const workerEmail = read("workers/addresses/shared/booking-notifications.ts");
 assert.match(sharedEmail, /buildDriverOnTheWayEmail/);
 assert.match(workerEmail, /buildDriverOnTheWayEmail/);
-console.log("OK  driver/owner/worker wiring + shared sync");
+
+const data = read("src/lib/data.ts");
+assert.match(data, /liveDriverTracking:\s*false/);
+assert.match(data, /We do not use a website live-tracking page/);
+
+const trackPage = read("src/app/track/page.tsx");
+assert.match(trackPage, /Driver updates by email/);
+assert.doesNotMatch(trackPage, /TrackPageClient/);
+assert.match(trackPage, /Message us on WhatsApp/);
+
+const cal = read("src/lib/owner-booking-calendar.ts");
+assert.match(cal, /defaultOwnerCalendarView[\s\S]*return "month"/);
+
+console.log("OK  driver/owner/worker wiring + website tracking retired + Month calendar default");
 
 console.log("\nAll Driver on the way checks passed.");
+

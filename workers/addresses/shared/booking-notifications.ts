@@ -215,9 +215,10 @@ function brandFooterHtml(businessName: string): string {
 function buildInvoiceHtml(
   details: PaidBookingReceipt,
   businessName: string,
-  trackUrl?: string,
+  _trackUrl?: string,
   manageUrl?: string,
 ): string {
+  void _trackUrl;
   const customerRef =
     details.customerReference?.trim().toUpperCase() ||
     details.checkoutReference?.trim() ||
@@ -327,28 +328,6 @@ function buildInvoiceHtml(
           </tr>`
               : ""
           }
-          ${
-            trackUrl
-              ? `<tr>
-            <td style="padding:8px 32px 8px;">
-              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;">
-                <tr>
-                  <td style="padding:20px 24px;">
-                    <div style="font-size:12px;letter-spacing:0.1em;text-transform:uppercase;color:#15803d;font-weight:bold;margin-bottom:12px;">Live driver tracking</div>
-                    <div style="font-size:14px;line-height:1.8;color:#475569;">
-                      On the day of travel, your driver can share their live location around pickup time.
-                      Save this link — it activates about 1 hour before your scheduled pickup.
-                    </div>
-                    <div style="margin-top:12px;">
-                      <a href="${escapeHtml(trackUrl)}" style="display:inline-block;background:${NAVY};color:#ffffff;text-decoration:none;font-size:14px;font-weight:bold;padding:12px 20px;border-radius:8px;">Track Your Driver</a>
-                    </div>
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>`
-              : ""
-          }
           <tr>
             <td style="padding:8px 32px 8px;">
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;">
@@ -397,6 +376,9 @@ export function buildCustomerConfirmationEmail(
 ): CustomerPaidBookingEmail {
   const trackUrl = options?.trackUrl?.trim();
   const manageUrl = options?.manageUrl?.trim();
+  // Customer website live-tracking links are retired. Keep the optional param for
+  // call-site compatibility, but never include a Track Your Driver CTA.
+  void trackUrl;
   const customerRef =
     details.customerReference?.trim().toUpperCase() ||
     details.checkoutReference?.trim() ||
@@ -437,12 +419,6 @@ export function buildCustomerConfirmationEmail(
     (customerRef ? `Booking reference: ${customerRef}\n` : "") +
     `Payment method: Card (SumUp)\n` +
     `Status: Paid & confirmed\n` +
-    (trackUrl
-      ? `\nLIVE DRIVER TRACKING\n${"=".repeat(40)}\n` +
-        `On the day of travel, your driver can share their live location around pickup time.\n` +
-        `Save this link — it activates about 1 hour before your scheduled pickup:\n` +
-        `${trackUrl}\n`
-      : "") +
     (manageUrl
       ? `\nMANAGE YOUR BOOKING\n${"=".repeat(40)}\n` +
         `Need to change pickup, destination, date, time, or passenger details?\n` +
@@ -456,7 +432,7 @@ export function buildCustomerConfirmationEmail(
     `${businessName}\n` +
     `${BUSINESS_WEBSITE}`;
 
-  const html = buildInvoiceHtml(details, businessName, trackUrl, manageUrl);
+  const html = buildInvoiceHtml(details, businessName, undefined, manageUrl);
 
   return { subject, text, html };
 }
@@ -466,7 +442,8 @@ export function buildOwnerPaidBookingEmail(
   businessName = "My Airport Taxi NI",
   options?: { trackUrl?: string },
 ): { subject: string; body: string } {
-  const trackUrl = options?.trackUrl?.trim();
+  // Customer website track links are retired; ignore any trackUrl for owner alerts too.
+  void options?.trackUrl;
   const subject = `Paid booking — ${details.customerName} — ${details.amountPaid}`;
 
   const body =
@@ -495,8 +472,7 @@ export function buildOwnerPaidBookingEmail(
     (() => {
       const marketingLine = formatMarketingOptInLine(details);
       return marketingLine ? `\n${marketingLine}` : "";
-    })() +
-    (trackUrl ? `\n\nDRIVER TRACK LINK\n${"=".repeat(40)}\n${trackUrl}` : "");
+    })();
 
   return { subject, body };
 }

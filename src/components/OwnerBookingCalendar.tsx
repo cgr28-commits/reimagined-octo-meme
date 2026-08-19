@@ -12,6 +12,7 @@ import {
 import {
   CALENDAR_STATUS_STYLES,
   defaultMobileCalendarView,
+  defaultOwnerCalendarView,
   entriesForDate,
   formatCalendarDayHeading,
   formatCalendarMonthHeading,
@@ -131,7 +132,7 @@ export default function OwnerBookingCalendar({
 }: OwnerBookingCalendarProps) {
   const narrow = useIsNarrow();
   const today = londonYmd();
-  const [view, setView] = useState<CalendarViewMode>("day");
+  const [view, setView] = useState<CalendarViewMode>(defaultOwnerCalendarView());
   const [anchor, setAnchor] = useState(today);
   const [jobs, setJobs] = useState<DriverJob[]>([]);
   const [bookings, setBookings] = useState<OwnerPaidBookingSummary[]>([]);
@@ -142,7 +143,8 @@ export default function OwnerBookingCalendar({
 
   useEffect(() => {
     if (mobileDefaultApplied) return;
-    setView(narrow ? defaultMobileCalendarView() : "week");
+    // Month is the default for both desktop and mobile (user can still switch Day/Week).
+    setView(narrow ? defaultMobileCalendarView() : defaultOwnerCalendarView());
     setMobileDefaultApplied(true);
   }, [narrow, mobileDefaultApplied]);
 
