@@ -172,6 +172,64 @@ export async function finalizePaidCheckout(input: {
   const transactionId = getSuccessfulTransactionId(checkout);
   const paymentReference = transactionCode ?? checkout.checkout_reference ?? checkout.id;
 
+  const pendingForAudit = pendingCheckoutStoreConfigured(env.TRACKING_STORE)
+    ? await getPendingCheckout(env.TRACKING_STORE, checkoutId)
+    : null;
+  const isRefundTest = pendingForAudit?.isRefundTest === true;
+
+  // Owner-only £1 live SumUp refund smoke test — no journey, calendar, or customer emails.
+  if (isRefundTest) {
+    await savePaidBookingRecordFromConfirm({
+      env,
+      booking,
+      checkoutId,
+      transactionId,
+      transactionCode,
+      amount: checkout.amount ?? 0,
+      currency: checkout.currency ?? "GBP",
+      amountPaidLabel: amountPaid,
+      paymentReference,
+      trackingToken: undefined,
+      calendarEventIds: [],
+      isRefundTest: true,
+    });
+
+    if (pendingCheckoutStoreConfigured(env.TRACKING_STORE)) {
+      await markPendingCheckoutFinalized(env.TRACKING_STORE, checkoutId, paymentReference);
+    }
+
+    const ownerTestNotice = await trySendOwnerOperationalEmail(env, {
+      to: ownerInbox(env),
+      subject: `REFUND TEST £1 PAID — ${paymentReference}`,
+      body:
+        `LIVE SUMUP REFUND TEST — REAL £1 PAYMENT\n\n` +
+        `A £1.00 SumUp hosted checkout completed for an owner refund smoke test.\n` +
+        `Payment reference: ${paymentReference}\n` +
+        `Checkout ID: ${checkoutId}\n` +
+        `Transaction ID: ${transactionId ?? "—"}\n` +
+        `Transaction code: ${transactionCode ?? "—"}\n\n` +
+        `No customer journey, tracking link, or Google Calendar event was created.\n` +
+        `No customer booking confirmation email was sent.\n` +
+        `Use Owner → Refund Test to run diagnostics and issue test refunds via the normal refund coordinator.\n`,
+    });
+
+    return {
+      ok: true,
+      paid: true,
+      amountPaid,
+      paymentReference,
+      emailSent: ownerTestNotice.sent,
+      customerEmailSent: false,
+      ownerEmailSent: ownerTestNotice.sent,
+      emailWarning: ownerTestNotice.sent
+        ? undefined
+        : ownerTestNotice.error || "Owner refund-test notice failed",
+      calendarLogged: false,
+      calendarEvents: 0,
+      trackingCreated: false,
+    };
+  }
+
   const receipt = {
     ...booking,
     amountPaid,
@@ -218,10 +276,6 @@ export async function finalizePaidCheckout(input: {
   const ownerNotifySent = ownerCopyResult.sent || ownerEmailResult.sent;
 
   const calendar = await logPaidBookingCalendar(env, booking, amountPaid, paymentReference);
-
-  const pendingForAudit = pendingCheckoutStoreConfigured(env.TRACKING_STORE)
-    ? await getPendingCheckout(env.TRACKING_STORE, checkoutId)
-    : null;
 
   await savePaidBookingRecordFromConfirm({
     env,

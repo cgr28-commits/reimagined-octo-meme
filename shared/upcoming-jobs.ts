@@ -193,6 +193,8 @@ export function assignedDriverDisplay(label?: string | null, name?: string | nul
 
 /** Upcoming Jobs: unfinished paid work only (operationally cancelled / fully completed excluded). */
 export function isUpcomingWorkBooking(booking: LegAwareBooking): boolean {
+  // Owner £1 live refund tests are never real customer journeys.
+  if ((booking as { isRefundTest?: boolean }).isRefundTest) return false;
   // refunded_active = money fully returned but journey still live — keep in upcoming.
   if (booking.status === "refunded" || booking.status === "cancelled") return false;
   return !bookingFullyCompleted(booking);

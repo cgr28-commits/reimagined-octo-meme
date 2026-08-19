@@ -1024,7 +1024,10 @@ async function completeRefundSideEffects(
   let customerEmailStatus: RefundAuditEntry["customerEmailStatus"] = "skipped";
   let ownerEmailStatus: RefundAuditEntry["ownerEmailStatus"] = "skipped";
 
-  if (emailBundle.customer) {
+  // Owner £1 live refund tests: suppress customer-facing cancellation/refund emails.
+  const suppressCustomerEmails = record.isRefundTest === true;
+
+  if (emailBundle.customer && !suppressCustomerEmails) {
     const customerEmailResult = await trySendBrandedCustomerEmail(env, {
       to: record.customerEmail,
       toName: record.customerName,
@@ -1041,6 +1044,9 @@ async function completeRefundSideEffects(
           : "Customer email failed",
       );
     }
+  } else if (suppressCustomerEmails) {
+    customerEmailStatus = "skipped";
+    warnings.push("Refund test — customer refund/cancellation email suppressed.");
   }
 
   const ownerEmail =
@@ -1205,6 +1211,7 @@ export async function savePaidBookingRecordFromConfirm(input: {
   personalQuoteCode?: string;
   standardWebsiteAmount?: number;
   personalQuotedAmount?: number;
+  isRefundTest?: boolean;
 }): Promise<void> {
   if (!paidBookingStoreConfigured(input.env.TRACKING_STORE)) {
     return;
@@ -1249,6 +1256,7 @@ export async function savePaidBookingRecordFromConfirm(input: {
     operationalStatus: "confirmed",
     paymentStatus: "paid",
     createdAt: new Date().toISOString(),
+    ...(input.isRefundTest ? { isRefundTest: true } : {}),
     ...(input.personalQuoteCode ? { personalQuoteCode: input.personalQuoteCode } : {}),
     ...(typeof input.standardWebsiteAmount === "number"
       ? { standardWebsiteAmount: input.standardWebsiteAmount }
@@ -1308,6 +1316,7 @@ export async function handleRefundRequest(
 
   const trackingToken = String(body.trackingToken ?? "").trim() || undefined;
   const actionKind = String(body.actionKind ?? "cancel_full_refund") as RefundActionKind;
+  const refundTestRequested = body.refundTest === true;
   const cancelBooking =
     typeof body.cancelBooking === "boolean"
       ? body.cancelBooking
@@ -1321,6 +1330,36 @@ export async function handleRefundRequest(
       : actionKind === "cancel_full_refund" ||
         actionKind === "full_refund_keep_active" ||
         actionKind === "full_refund_and_cancel";
+
+  // Guard: refund-test UI may only touch isRefundTest records; normal UI must not.
+  if (paidBookingStoreConfigured(env.TRACKING_STORE)) {
+    const existing = await getPaidBookingRecord(env.TRACKING_STORE, paymentReference);
+    if (existing?.isRefundTest && !refundTestRequested) {
+      return json(
+        {
+          error:
+            "This is a REFUND TEST booking. Use Owner → Refund Test (not the normal Cancel/Refund UI).",
+        },
+        400,
+        origin,
+      );
+    }
+    if (refundTestRequested && existing && !existing.isRefundTest) {
+      return json(
+        {
+          error:
+            "Refund Test endpoint cannot refund a normal customer booking. Use the normal Cancel/Refund flow.",
+        },
+        400,
+        origin,
+      );
+    }
+    if (refundTestRequested && !existing) {
+      return json({ error: "Refund test booking not found for that payment reference." }, 404, origin);
+    }
+  } else if (refundTestRequested) {
+    return json({ error: "Booking store is not configured" }, 503, origin);
+  }
 
   const options: ProcessRefundOptions & {
     paymentReference: string;

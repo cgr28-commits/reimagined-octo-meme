@@ -75,6 +75,11 @@ export type PaidBookingRecord = {
   standardWebsiteAmount?: number;
   /** Authorised personal-quote fare (audit). */
   personalQuotedAmount?: number;
+  /**
+   * Owner-only live £1 SumUp refund smoke-test record.
+   * Must never appear as a real customer journey / Upcoming Job.
+   */
+  isRefundTest?: boolean;
 };
 
 /** Default driver label when no other driver is assigned (multi-driver capable later). */
@@ -102,4 +107,9 @@ export function paidBookingCreatedDayIndexKey(day: string): string {
 /** London calendar day index by journey/pickup date (Upcoming Jobs). */
 export function paidBookingTripDayIndexKey(day: string): string {
   return `booking:trip:${day.trim()}`;
+}
+
+/** Append-only index of owner £1 live refund-test payment references. */
+export function paidBookingRefundTestIndexKey(): string {
+  return "booking:refund-test:index";
 }

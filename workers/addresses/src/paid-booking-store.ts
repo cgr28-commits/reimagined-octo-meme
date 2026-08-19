@@ -2,6 +2,7 @@ import {
   paidBookingCheckoutKey,
   paidBookingCreatedDayIndexKey,
   paidBookingRefKey,
+  paidBookingRefundTestIndexKey,
   paidBookingTripDayIndexKey,
   type PaidBookingEditAuditEntry,
   type PaidBookingRecord,
@@ -103,6 +104,14 @@ export async function savePaidBookingRecord(
     }
     await addIdToDayIndex(store, paidBookingTripDayIndexKey(tripDay), record.paymentReference);
   }
+
+  if (record.isRefundTest) {
+    await addIdToDayIndex(
+      store,
+      paidBookingRefundTestIndexKey(),
+      record.paymentReference,
+    );
+  }
 }
 
 export async function getPaidBookingRecord(
@@ -169,6 +178,7 @@ export async function listRecentPaidBookings(
   }
 
   return [...byRef.values()]
+    .filter((record) => !record.isRefundTest)
     .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))
     .slice(0, limit);
 }
@@ -219,8 +229,46 @@ export async function listUpcomingPaidBookings(
   const horizonEnd = addDaysYmd(today, futureDays);
 
   return [...byRef.values()]
+    .filter((record) => !record.isRefundTest)
     .filter((record) => bookingInUpcomingHorizon(record, horizonStart, horizonEnd))
     .sort((a, b) => tripSortKey(a).localeCompare(tripSortKey(b)))
+    .slice(0, limit);
+}
+
+/** Owner-only list of live £1 SumUp refund-test paid bookings (newest first). */
+export async function listRefundTestPaidBookings(
+  store: KVNamespace,
+  options?: { limit?: number },
+): Promise<PaidBookingRecord[]> {
+  const limit = Math.min(Math.max(options?.limit ?? 40, 1), 100);
+  const ids = await store.get<string[]>(paidBookingRefundTestIndexKey(), "json");
+  const byRef = new Map<string, PaidBookingRecord>();
+
+  if (Array.isArray(ids)) {
+    for (const id of ids) {
+      if (!id?.trim() || byRef.has(id)) continue;
+      const record = await getPaidBookingRecord(store, id);
+      if (record?.isRefundTest) byRef.set(record.paymentReference, record);
+    }
+  }
+
+  // Fallback scan if index empty / incomplete.
+  if (byRef.size < limit) {
+    let cursor: string | undefined;
+    do {
+      const page = await store.list({ prefix: "booking:ref:", cursor, limit: 100 });
+      for (const key of page.keys) {
+        const ref = key.name.replace(/^booking:ref:/, "").trim();
+        if (!ref || byRef.has(ref)) continue;
+        const record = await getPaidBookingRecord(store, ref);
+        if (record?.isRefundTest) byRef.set(record.paymentReference, record);
+      }
+      cursor = page.list_complete ? undefined : page.cursor;
+    } while (cursor && byRef.size < limit * 2);
+  }
+
+  return [...byRef.values()]
+    .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))
     .slice(0, limit);
 }
 
