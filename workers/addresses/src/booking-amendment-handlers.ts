@@ -22,6 +22,7 @@ import {
   normalizeScheduleDate,
   normalizeScheduleTime,
   validatePendingAmendmentForPayment,
+  isPendingAmendmentExpired,
   type DateTimeAmendmentAuditEntry,
   type ProposedBookingAmendment,
 } from "../shared/booking-amendment";
@@ -373,6 +374,36 @@ export function isPaidBookingAmendAbandonPath(pathname: string): boolean {
   );
 }
 
+async function clearExpiredPendingIfNeeded(
+  store: KVNamespace,
+  record: PaidBookingRecord,
+): Promise<PaidBookingRecord> {
+  const pending = record.pendingAmendment;
+  if (!pending || pending.status !== "awaiting_payment") return record;
+  if (!isPendingAmendmentExpired(pending)) return record;
+  const updated = await updatePaidBookingFields(
+    store,
+    record.paymentReference,
+    {
+      pendingAmendment: {
+        ...pending,
+        status: "expired",
+        paymentUrl: undefined,
+        checkoutId: undefined,
+      },
+    },
+    { appendAudit: false },
+  );
+  if (!updated) return record;
+  const cleared = await updatePaidBookingFields(
+    store,
+    record.paymentReference,
+    { pendingAmendment: null },
+    { appendAudit: false },
+  );
+  return cleared || { ...updated, pendingAmendment: null };
+}
+
 /** POST — lookup booking for manage-booking UI (token OR ref + email). */
 export async function handleCustomerAmendLookup(
   request: Request,
@@ -403,6 +434,7 @@ export async function handleCustomerAmendLookup(
       );
     }
     record = await prepareManageRecord(env.TRACKING_STORE, record);
+    record = await clearExpiredPendingIfNeeded(env.TRACKING_STORE, record);
     return jsonResponse(
       { ok: true, booking: publicAmendmentSummary(record, siteOrigin), loadedVia: "token" },
       200,
@@ -432,6 +464,7 @@ export async function handleCustomerAmendLookup(
   }
 
   record = await prepareManageRecord(env.TRACKING_STORE, record);
+  record = await clearExpiredPendingIfNeeded(env.TRACKING_STORE, record);
 
   return jsonResponse(
     { ok: true, booking: publicAmendmentSummary(record, siteOrigin), loadedVia: "reference" },
