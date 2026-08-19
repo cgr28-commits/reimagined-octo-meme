@@ -156,6 +156,32 @@ import {
   processDueReviewRequests,
 } from "./review-request-handlers";
 import { processDueTrackingAvailableReminders } from "./tracking-reminder-handlers";
+import {
+  handleCreateSavedQuote,
+  handleGetSavedQuote,
+  isSavedQuotesCreatePath,
+  isSavedQuotesLookupPath,
+  processSavedQuoteReminders,
+  resolveSavedQuoteForPayment,
+  markSavedQuoteBookedFromPayment,
+  buildAuthoritativeSavedQuotePricing,
+} from "./saved-quote-handlers";
+import {
+  evaluateSavedQuoteAccess,
+  normalizeSavedQuoteToken,
+  toSavedQuotePublicSummary,
+} from "../shared/saved-quote";
+import { savedQuoteScheduleChanged } from "../shared/booking-amendment";
+import {
+  getSavedQuoteByToken,
+  markSavedQuoteExpiredIfNeeded,
+} from "./saved-quote-store";
+import {
+  handleCustomerAmendLookup,
+  handleCustomerAmendSchedule,
+  isPaidBookingAmendLookupPath,
+  isPaidBookingAmendSchedulePath,
+} from "./booking-amendment-handlers";
 import { handleDriverUpdateBookingRequest } from "./driver-booking-handlers";
 import {
   handleDriverAssignRequest,
@@ -1186,6 +1212,7 @@ async function handlePaymentRequest(
   const shortNoticeToken = String(body.shortNoticeToken ?? "").trim();
   const personalQuoteCodeRaw = String(body.personalQuoteCode ?? "").trim();
   const quickQuoteIdRaw = String(body.quickQuoteId ?? "").trim();
+  const savedQuoteTokenRaw = String(body.savedQuoteToken ?? "").trim();
   let amount = Number(body.amount);
   /** Client-reported website fare for audit only — never used as SumUp amount when a quote applies. */
   const clientStandardWebsiteAmount = Number(body.standardWebsiteAmount);
@@ -1195,6 +1222,8 @@ async function handlePaymentRequest(
   let shortNoticeReference: string | undefined;
   let personalQuoteCode: string | undefined;
   let quickQuoteId: string | undefined;
+  let savedQuoteToken: string | undefined;
+  let savedQuoteReference: string | undefined;
   let standardWebsiteAmount: number | undefined;
   let personalQuotedAmount: number | undefined;
 
@@ -1395,6 +1424,99 @@ async function handlePaymentRequest(
         ? `${booking.tripLabel || "Airport transfer"} · Child seat required`
         : booking.tripLabel || "Airport transfer",
     };
+  } else if (savedQuoteTokenRaw) {
+    // Saved Quote: locked KV price UNLESS the customer changed date/time — then recalculate.
+    if (!pendingCheckoutStoreConfigured(env.TRACKING_STORE)) {
+      return json(
+        { error: "Booking store is not configured — cannot start a paid checkout safely" },
+        503,
+        origin,
+      );
+    }
+    const resolved = await resolveSavedQuoteForPayment(env.TRACKING_STORE, savedQuoteTokenRaw);
+    if (!resolved.ok) {
+      return json({ error: resolved.error }, resolved.status, origin);
+    }
+    if (!booking) {
+      return json({ error: "Missing customer booking details for this quote." }, 400, origin);
+    }
+    const sq = resolved.record;
+    const sj = sq.journey;
+    const requestedDate = String(booking.tripDate || sj.tripDate).trim();
+    const requestedTime = String(booking.tripTime || sj.tripTime).trim();
+    const scheduleChanged = savedQuoteScheduleChanged(sj, {
+      tripDate: requestedDate,
+      tripTime: requestedTime,
+    });
+
+    savedQuoteToken = normalizeSavedQuoteToken(sq.token);
+    savedQuoteReference = sq.reference;
+
+    if (scheduleChanged) {
+      // Do not use the original locked price after a date/time change.
+      const priced = await buildAuthoritativeSavedQuotePricing({
+        journey: {
+          ...sj,
+          tripDate: requestedDate,
+          tripTime: requestedTime,
+          returnDate: booking.returnDate || sj.returnDate,
+          returnTime: booking.returnTime || sj.returnTime,
+        },
+      });
+      if (!priced.ok) {
+        return json({ error: priced.message }, 422, origin);
+      }
+      amount = priced.pricing.totalAmount;
+      standardWebsiteAmount = amount;
+      // Still attach token so finalize can mark booked; price is the requoted amount.
+      booking = {
+        ...booking,
+        pickupLabel: sj.pickupLabel,
+        dropoffLabel: sj.dropoffLabel,
+        returnJourney: Boolean(sj.returnJourney),
+        tripDate: requestedDate,
+        tripTime: requestedTime,
+        returnDate: booking.returnDate || sj.returnDate || "",
+        returnTime: booking.returnTime || sj.returnTime || "",
+        passengers: sj.passengers,
+        suitcases: sj.suitcases,
+        flightNumber: booking.flightNumber || sj.flightNumber || "",
+        returnFlightNumber: booking.returnFlightNumber || sj.returnFlightNumber || "",
+        vehicle: sj.vehicle || booking.vehicle,
+        isAirportTrip: Boolean(sj.isAirportTrip || sj.airportCode),
+        airportCode: sj.airportCode ?? booking.airportCode,
+        isFromAirport:
+          typeof sj.isFromAirport === "boolean" ? sj.isFromAirport : booking.isFromAirport,
+        tripLabel: sj.tripLabel || booking.tripLabel || "Airport transfer",
+        journeyDistance: sj.journeyDistance,
+        journeyDuration: sj.journeyDuration,
+      };
+    } else {
+      amount = resolved.amount;
+      standardWebsiteAmount = amount;
+      booking = {
+        ...booking,
+        pickupLabel: sj.pickupLabel,
+        dropoffLabel: sj.dropoffLabel,
+        returnJourney: Boolean(sj.returnJourney),
+        tripDate: sj.tripDate,
+        tripTime: sj.tripTime,
+        returnDate: sj.returnDate ?? "",
+        returnTime: sj.returnTime ?? "",
+        passengers: sj.passengers,
+        suitcases: sj.suitcases,
+        flightNumber: booking.flightNumber || sj.flightNumber || "",
+        returnFlightNumber: booking.returnFlightNumber || sj.returnFlightNumber || "",
+        vehicle: sj.vehicle || booking.vehicle,
+        isAirportTrip: Boolean(sj.isAirportTrip || sj.airportCode),
+        airportCode: sj.airportCode ?? booking.airportCode,
+        isFromAirport:
+          typeof sj.isFromAirport === "boolean" ? sj.isFromAirport : booking.isFromAirport,
+        tripLabel: sj.tripLabel || booking.tripLabel || "Airport transfer",
+        journeyDistance: sj.journeyDistance,
+        journeyDuration: sj.journeyDuration,
+      };
+    }
   }
 
   if (!Number.isFinite(amount) || amount < 1 || amount > 5000) {
@@ -1654,6 +1776,7 @@ async function handlePaymentRequest(
         : {}),
       ...(personalQuoteCode ? { personalQuoteCode } : {}),
       ...(quickQuoteId ? { quickQuoteId } : {}),
+      ...(savedQuoteToken ? { savedQuoteToken, savedQuoteReference } : {}),
       ...(typeof standardWebsiteAmount === "number" ? { standardWebsiteAmount } : {}),
       ...(typeof personalQuotedAmount === "number"
         ? { personalQuotedAmount }
@@ -2066,6 +2189,125 @@ export default {
       (request.method === "GET" || request.method === "OPTIONS")
     ) {
       return handlePublicQuickQuoteLookup(request, env, origin);
+    }
+
+    if (isSavedQuotesCreatePath(url.pathname) && request.method === "POST") {
+      if (!env.TRACKING_STORE) {
+        return json({ error: "Storage is not configured" }, 503, origin);
+      }
+      return handleCreateSavedQuote(
+        request,
+        { ...env, TRACKING_STORE: env.TRACKING_STORE },
+        origin,
+      );
+    }
+
+    if (isSavedQuotesLookupPath(url.pathname) && request.method === "GET") {
+      if (!env.TRACKING_STORE) {
+        return json({ error: "Storage is not configured" }, 503, origin);
+      }
+      return handleGetSavedQuote(
+        request,
+        { ...env, TRACKING_STORE: env.TRACKING_STORE },
+        origin,
+      );
+    }
+
+    if (
+      (url.pathname === "/saved-quotes/requote" || url.pathname === "/api/saved-quotes/requote") &&
+      request.method === "POST"
+    ) {
+      if (!env.TRACKING_STORE) {
+        return json({ error: "Storage is not configured" }, 503, origin);
+      }
+      let body: Record<string, unknown>;
+      try {
+        body = (await request.json()) as Record<string, unknown>;
+      } catch {
+        return json({ error: "Invalid JSON body." }, 400, origin);
+      }
+      const token = normalizeSavedQuoteToken(String(body.token ?? body.t ?? ""));
+      const record = await getSavedQuoteByToken(env.TRACKING_STORE, token);
+      if (!record) {
+        return json({ error: "Quote not found." }, 404, origin);
+      }
+      const latest = await markSavedQuoteExpiredIfNeeded(env.TRACKING_STORE, record);
+      const access = evaluateSavedQuoteAccess(latest);
+      if (!access.ok) {
+        return json(
+          {
+            error: access.error,
+            quote: toSavedQuotePublicSummary(latest),
+            canBook: false,
+          },
+          access.error === "expired" || access.error === "booked" ? 409 : 404,
+          origin,
+        );
+      }
+      const tripDate = String(body.tripDate ?? latest.journey.tripDate).trim();
+      const tripTime = String(body.tripTime ?? latest.journey.tripTime).trim();
+      const returnDate =
+        body.returnDate !== undefined
+          ? String(body.returnDate || "").trim() || undefined
+          : latest.journey.returnDate;
+      const returnTime =
+        body.returnTime !== undefined
+          ? String(body.returnTime || "").trim() || undefined
+          : latest.journey.returnTime;
+      const scheduleChanged = savedQuoteScheduleChanged(latest.journey, { tripDate, tripTime });
+      if (!scheduleChanged) {
+        return json(
+          {
+            ok: true,
+            scheduleChanged: false,
+            amount: latest.pricing.totalAmount,
+            amountLabel: latest.pricing.amountLabel,
+            lockedOriginalAmount: latest.pricing.totalAmount,
+            quote: toSavedQuotePublicSummary(latest),
+          },
+          200,
+          origin,
+        );
+      }
+      const priced = await buildAuthoritativeSavedQuotePricing({
+        journey: {
+          ...latest.journey,
+          tripDate,
+          tripTime,
+          returnDate,
+          returnTime,
+        },
+        clientSubmittedAmount: Number(body.clientAmount) || undefined,
+      });
+      if (!priced.ok) {
+        return json({ error: priced.message, reason: priced.reason }, 422, origin);
+      }
+      return json(
+        {
+          ok: true,
+          scheduleChanged: true,
+          amount: priced.pricing.totalAmount,
+          amountLabel: priced.pricing.amountLabel,
+          lockedOriginalAmount: latest.pricing.totalAmount,
+          originalAmountLabel: latest.pricing.amountLabel,
+          originalQuoteUntouched: true,
+          tripDate,
+          tripTime,
+          returnDate,
+          returnTime,
+          quote: toSavedQuotePublicSummary(latest),
+        },
+        200,
+        origin,
+      );
+    }
+
+    if (isPaidBookingAmendLookupPath(url.pathname) && request.method === "POST") {
+      return handleCustomerAmendLookup(request, env, origin);
+    }
+
+    if (isPaidBookingAmendSchedulePath(url.pathname) && request.method === "POST") {
+      return handleCustomerAmendSchedule(request, env, origin);
     }
 
     if (
@@ -2891,6 +3133,23 @@ export default {
         }
       }),
     );
+
+    // Saved Quote follow-ups: ~24h reminder, ~day-5 final reminder, expire open quotes.
+    // Re-checks status before every send; idempotent via sent-at timestamps.
+    if (env.TRACKING_STORE) {
+      ctx.waitUntil(
+        processSavedQuoteReminders({ ...env, TRACKING_STORE: env.TRACKING_STORE }).then((result) => {
+          if (
+            result.firstReminders > 0 ||
+            result.finalReminders > 0 ||
+            result.expired > 0 ||
+            result.errors > 0
+          ) {
+            console.log("Saved quote reminder cron", JSON.stringify(result));
+          }
+        }),
+      );
+    }
 
     // Backup when the customer never returns from SumUp / webhook is missed:
     // finalize any PAID pending checkouts (idempotent — no duplicate emails/calendar).

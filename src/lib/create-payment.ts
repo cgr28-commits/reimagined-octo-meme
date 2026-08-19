@@ -30,6 +30,11 @@ export type PaymentCheckoutRequest = {
    * Never rely on the client amount when this is set.
    */
   quickQuoteId?: string;
+  /**
+   * Saved Quote opaque token. Server uses the locked fixed price from KV.
+   * Never rely on the client amount when this is set.
+   */
+  savedQuoteToken?: string;
   /** Website-calculated fare for audit only when a personal quote is applied. */
   standardWebsiteAmount?: number;
 };
@@ -128,6 +133,7 @@ export async function createPaymentCheckout(
       ...(request.shortNoticeToken ? { shortNoticeToken: request.shortNoticeToken } : {}),
       ...(request.personalQuoteCode ? { personalQuoteCode: request.personalQuoteCode } : {}),
       ...(request.quickQuoteId ? { quickQuoteId: request.quickQuoteId } : {}),
+      ...(request.savedQuoteToken ? { savedQuoteToken: request.savedQuoteToken } : {}),
       ...(typeof request.standardWebsiteAmount === "number"
         ? { standardWebsiteAmount: request.standardWebsiteAmount }
         : {}),

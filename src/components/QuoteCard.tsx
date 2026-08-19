@@ -80,6 +80,9 @@ import {
   validatePersonalQuoteCode,
   type PersonalQuotePublicSummary,
 } from "@/lib/personal-quote-api";
+import SaveQuoteModal from "@/components/SaveQuoteModal";
+import type { SaveQuoteRequest } from "@/lib/saved-quote-api";
+import { formatSavedQuoteAmount } from "../../shared/saved-quote";
 import {
   createPaymentReturnToken,
   savePendingPayment,
@@ -490,6 +493,7 @@ function QuoteCard({
   const [exactPassengers, setExactPassengers] = useState<number | null>(null);
   const [childSeats, setChildSeats] = useState(0);
   const [childSeatNotes, setChildSeatNotes] = useState("");
+  const [saveQuoteOpen, setSaveQuoteOpen] = useState(false);
   const [journeyIntent, setJourneyIntent] = useState<QuoteJourneyIntent | null>(() => {
     if (isCustomerAirportCode(initialAirportCode)) {
       return intentFromDirection(initialDirection);
@@ -1546,6 +1550,64 @@ function QuoteCard({
       termsVersion: TERMS_LAST_UPDATED,
       cancellationPolicyVersion: CANCELLATION_POLICY_VERSION,
       ...buildMarketingOptInFields(marketingOptIn),
+    };
+  }
+
+  function buildSaveQuotePayload(): SaveQuoteRequest | null {
+    if (!liveQuote || !canPayNowOnline || isEnquiryOnly || showsRequestQuoteFlow) {
+      return null;
+    }
+    const details = buildBookingDetails();
+    if (!details.pickupLabel || !details.dropoffLabel || !tripDate || !tripTime) {
+      return null;
+    }
+    return {
+      customerName: "",
+      customerEmail: "",
+      journey: {
+        pickupLabel: details.pickupLabel,
+        dropoffLabel: details.dropoffLabel,
+        pickupPlaceId: pickupPlace?.placeId || undefined,
+        dropoffPlaceId: dropoffPlace?.placeId || undefined,
+        pickupLat: typeof pickupPlace?.lat === "number" ? pickupPlace.lat : undefined,
+        pickupLng: typeof pickupPlace?.lng === "number" ? pickupPlace.lng : undefined,
+        dropoffLat: typeof dropoffPlace?.lat === "number" ? dropoffPlace.lat : undefined,
+        dropoffLng: typeof dropoffPlace?.lng === "number" ? dropoffPlace.lng : undefined,
+        airportCode: details.airportCode,
+        tripDirection: isFromAirport ? "from-airport" : "to-airport",
+        isAirportTrip: Boolean(details.isAirportTrip),
+        isFromAirport: details.isFromAirport,
+        journeyType: details.tripLabel,
+        tripDate,
+        tripTime,
+        returnJourney,
+        returnDate: returnJourney ? returnDate : undefined,
+        returnTime: returnJourney ? returnTime : undefined,
+        passengers: details.passengers,
+        suitcases: details.suitcases,
+        childSeats: details.childSeats,
+        childSeatNotes: details.childSeatNotes,
+        vehicle: details.vehicle,
+        flightNumber: details.flightNumber || undefined,
+        returnFlightNumber: details.returnFlightNumber || undefined,
+        tripLabel: details.tripLabel,
+        journeyDistance: details.journeyDistance,
+        journeyDuration: details.journeyDuration,
+      },
+      pricing: {
+        totalAmount: liveQuote.amount,
+        currency: "GBP",
+        amountLabel: formatSavedQuoteAmount(liveQuote.amount),
+        pricingMeta: {
+          area: liveQuote.area,
+          areaSurcharge: liveQuote.areaSurcharge,
+          airportBase: liveQuote.airportBase,
+          vehicleMultiplier: liveQuote.vehicleMultiplier,
+          vehicleAdjustment: liveQuote.vehicleAdjustment,
+          premiumApplied: liveQuote.premiumApplied,
+          operational: liveQuote.operational,
+        },
+      },
     };
   }
 
@@ -3789,6 +3851,20 @@ function QuoteCard({
                 Continue to your details
               </button>
             </div>
+            {liveQuote &&
+            canPayNowOnline &&
+            !isEnquiryOnly &&
+            !showsRequestQuoteFlow &&
+            !appliedPersonalQuote &&
+            !submitted ? (
+              <button
+                type="button"
+                onClick={() => setSaveQuoteOpen(true)}
+                className="w-full rounded-xl border border-white/25 bg-transparent py-3 text-sm font-semibold text-white transition-all hover:bg-white/5"
+              >
+                Save Quote
+              </button>
+            ) : null}
             {travelDetailsBlocker ? (
               <p className="text-center text-xs text-white/55" role="status">
                 {travelDetailsBlocker}
@@ -3810,24 +3886,52 @@ function QuoteCard({
             )}
           </div>
         ) : (
-          <button
-            type="submit"
-            disabled={
-              submitted ||
-              (exceedsOnlineCapacity || isEnquiryOnly || isManualQuoteJourney || pricingConfirmationRequired
-                ? !hasQuoteRoute
-                : !liveQuote)
-            }
-            className="w-full rounded-xl bg-emerald py-3.5 text-sm font-bold text-navy transition-all hover:bg-emerald-light disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {submitted
-              ? submitInProgressLabel
-              : exceedsOnlineCapacity
-                ? "Continue to request quote"
-                : "Continue to travel details"}
-          </button>
+          <div className="flex w-full flex-col gap-2">
+            <button
+              type="submit"
+              disabled={
+                submitted ||
+                (exceedsOnlineCapacity || isEnquiryOnly || isManualQuoteJourney || pricingConfirmationRequired
+                  ? !hasQuoteRoute
+                  : !liveQuote)
+              }
+              className="w-full rounded-xl bg-emerald py-3.5 text-sm font-bold text-navy transition-all hover:bg-emerald-light disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {submitted
+                ? submitInProgressLabel
+                : exceedsOnlineCapacity
+                  ? "Continue to request quote"
+                  : liveQuote && canPayNowOnline && !isEnquiryOnly && !showsRequestQuoteFlow
+                    ? "Book Now"
+                    : "Continue to travel details"}
+            </button>
+            {liveQuote &&
+            canPayNowOnline &&
+            !isEnquiryOnly &&
+            !showsRequestQuoteFlow &&
+            !appliedPersonalQuote &&
+            !submitted ? (
+              <button
+                type="button"
+                onClick={() => setSaveQuoteOpen(true)}
+                className="w-full rounded-xl border border-white/25 bg-transparent py-3 text-sm font-semibold text-white transition-all hover:bg-white/5"
+              >
+                Save Quote
+              </button>
+            ) : null}
+          </div>
         )}
       </form>
+      <SaveQuoteModal
+        open={saveQuoteOpen}
+        onClose={() => setSaveQuoteOpen(false)}
+        buildPayload={buildSaveQuotePayload}
+        onBookNow={() => {
+          // Continue existing Book Now path (travel details → pay).
+          const form = document.getElementById("quoteForm") as HTMLFormElement | null;
+          form?.requestSubmit();
+        }}
+      />
     </div>
   );
 }
