@@ -1,0 +1,97 @@
+# Isolated frontend preview for draft-PR smoke tests.
+# Does NOT use the github-pages environment or production custom domain.
+# Production Deploy GitHub Pages workflow + branch protection stay unchanged.
+
+name: Deploy Pages Preview
+
+on:
+  workflow_dispatch:
+    inputs:
+      note:
+        description: "Optional note for this preview deploy"
+        required: false
+        default: "PR smoke-test preview"
+
+concurrency:
+  group: pages-preview
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: Preview
+      url: ${{ steps.deploy.outputs.url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Build static site (preview)
+        env:
+          GOOGLE_PLACES_API_KEY: ${{ secrets.GOOGLE_PLACES_API_KEY }}
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
+          GETADDRESS_DOMAIN_TOKEN: ${{ secrets.GETADDRESS_DOMAIN_TOKEN }}
+          BOOKINGS_API_URL: ${{ secrets.BOOKINGS_API_URL }}
+          WEB3FORMS_ACCESS_KEY: ${{ secrets.WEB3FORMS_ACCESS_KEY }}
+          GOOGLE_ADS_ID: ${{ secrets.GOOGLE_ADS_ID }}
+          GOOGLE_ADS_QUOTE_CONVERSION_LABEL: ${{ secrets.GOOGLE_ADS_QUOTE_CONVERSION_LABEL }}
+          GOOGLE_ADS_BOOKING_CONVERSION_LABEL: ${{ secrets.GOOGLE_ADS_BOOKING_CONVERSION_LABEL }}
+        run: |
+          KEY="${GOOGLE_PLACES_API_KEY:-${GOOGLE_API_KEY:-${GOOGLE_MAPS_API_KEY}}}"
+          if [ -z "$BOOKINGS_API_URL" ] || [[ "$BOOKINGS_API_URL" == *"myairporttaxini.co.uk"* ]]; then
+            BOOKINGS_API_URL="https://reimagined-octo-meme.cgr28.workers.dev/bookings"
+          fi
+          ADDRESSES_API_URL="${BOOKINGS_API_URL%/bookings}/addresses"
+          echo "Preview build → Worker API $BOOKINGS_API_URL"
+          echo "Dispatch note: ${{ inputs.note }}"
+          NEXT_PUBLIC_GOOGLE_PLACES_API_KEY="$KEY" \
+          NEXT_PUBLIC_GETADDRESS_API_KEY="$GETADDRESS_DOMAIN_TOKEN" \
+          NEXT_PUBLIC_BOOKINGS_API_URL="$BOOKINGS_API_URL" \
+          NEXT_PUBLIC_ADDRESSES_API_URL="$ADDRESSES_API_URL" \
+          NEXT_PUBLIC_WEB3FORMS_ACCESS_KEY="$WEB3FORMS_ACCESS_KEY" \
+          NEXT_PUBLIC_GOOGLE_ADS_ID="$GOOGLE_ADS_ID" \
+          NEXT_PUBLIC_GOOGLE_ADS_QUOTE_CONVERSION_LABEL="$GOOGLE_ADS_QUOTE_CONVERSION_LABEL" \
+          NEXT_PUBLIC_GOOGLE_ADS_BOOKING_CONVERSION_LABEL="$GOOGLE_ADS_BOOKING_CONVERSION_LABEL" \
+          GITHUB_PAGES=true npm run build
+          node scripts/fix-github-pages-paths.mjs
+
+      - name: Deploy to Cloudflare Pages preview project
+        id: deploy
+        working-directory: .
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "::error::CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID required for preview deploys."
+            exit 1
+          fi
+          npm install --no-save wrangler@3.109.0
+          BRANCH_SAFE="$(echo "${GITHUB_REF_NAME}" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g' | cut -c1-50)"
+          OUTPUT="$(npx wrangler pages deploy out \
+            --project-name=my-airport-taxi-ni-preview \
+            --branch="$BRANCH_SAFE" \
+            --commit-hash="${GITHUB_SHA}" \
+            --commit-dirty=true \
+            --compatibility-date=2025-08-01 2>&1)" || {
+              echo "$OUTPUT"
+              exit 1
+            }
+          echo "$OUTPUT"
+          URL="$(printf '%s\n' "$OUTPUT" | grep -Eo 'https://[a-zA-Z0-9.-]+\.pages\.dev' | tail -1 || true)"
+          if [ -z "$URL" ]; then
+            URL="https://${BRANCH_SAFE}.my-airport-taxi-ni-preview.pages.dev"
+          fi
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+          echo "::notice::Preview frontend URL: $URL/manage-booking/"
+          echo "::notice::Stable project URL: https://my-airport-taxi-ni-preview.pages.dev/manage-booking/"
