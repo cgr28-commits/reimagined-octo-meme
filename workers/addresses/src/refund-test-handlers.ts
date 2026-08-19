@@ -24,7 +24,8 @@ import {
   paidBookingStoreConfigured,
 } from "./paid-booking-store";
 import { savePendingCheckout, listRecentPendingCheckouts } from "./pending-checkout-store";
-import { handleRefundRequest } from "./refund-handlers";
+import { handleRefundRequest, syncPaidBookingRefundTotalsFromSumUp } from "./refund-handlers";
+import type { RefundEnv } from "./refund-handlers";
 
 /** Hard-coded live test charge — never taken from the browser. */
 export const REFUND_TEST_AMOUNT_GBP = 1;
@@ -243,39 +244,48 @@ export async function handleRefundTestListRequest(
       status: "pending_payment",
     }));
 
-  const items = bookings.map((booking) => {
+  // Sync each test booking from SumUp so a processor-full refund cannot leave
+  // a false local remaining balance (do not attempt further refunds).
+  const items = [];
+  for (const booking of bookings) {
+    const synced = await syncPaidBookingRefundTotalsFromSumUp(
+      env as RefundEnv,
+      booking,
+    );
+    const record = synced.record;
     const amountPaid =
-      typeof booking.amount === "number" && booking.amount > 0
-        ? roundGbp(booking.amount)
+      typeof record.amount === "number" && record.amount > 0
+        ? roundGbp(record.amount)
         : 0;
     const amountRefunded =
-      typeof booking.amountRefunded === "number" ? roundGbp(booking.amountRefunded) : 0;
-    return {
-      paymentReference: booking.paymentReference,
-      checkoutId: booking.checkoutId,
-      transactionId: booking.transactionId ?? null,
-      transactionCode: booking.transactionCode ?? null,
+      typeof record.amountRefunded === "number" ? roundGbp(record.amountRefunded) : 0;
+    items.push({
+      paymentReference: record.paymentReference,
+      checkoutId: record.checkoutId,
+      transactionId: record.transactionId ?? null,
+      transactionCode: record.transactionCode ?? null,
       amountPaid,
-      amountPaidLabel: booking.amountPaidLabel,
+      amountPaidLabel: record.amountPaidLabel,
       amountRefunded,
       remainingRefundable: remainingRefundableBalance(amountPaid, amountRefunded),
-      status: booking.status,
-      operationalStatus: resolveOperationalStatus(booking),
+      status: record.status,
+      operationalStatus: resolveOperationalStatus(record),
       paymentStatus:
-        booking.paymentStatus ??
+        record.paymentStatus ??
         resolvePaymentStatusFromRecord({
           amountPaid,
           amountRefunded,
-          status: booking.status,
-          paymentStatus: booking.paymentStatus,
+          status: record.status,
+          paymentStatus: record.paymentStatus,
         }),
-      createdAt: booking.createdAt,
-      refundedAt: booking.refundedAt ?? null,
+      createdAt: record.createdAt,
+      refundedAt: record.refundedAt ?? null,
       isRefundTest: true as const,
-      refundHistoryCount: booking.refundHistory?.length ?? 0,
-      tripLabel: booking.tripLabel,
-    };
-  });
+      refundHistoryCount: record.refundHistory?.length ?? 0,
+      tripLabel: record.tripLabel,
+      syncedFromProcessor: synced.syncedFromProcessor,
+    });
+  }
 
   return jsonResponse(
     {

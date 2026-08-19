@@ -15,6 +15,7 @@ import {
 } from "../shared/booking-notifications";
 import type { PaidBookingRecord } from "../shared/paid-booking-record";
 import {
+  applyProcessorAuthoritativeRefund,
   cappedRefundAmount,
   generateRefundOpId,
   isWithin24HoursOfPickup,
@@ -29,7 +30,6 @@ import {
   type RefundActionKind,
   type RefundAuditEntry,
   type RefundReasonCategory,
-  type PaymentRefundStatus,
   REFUND_REASON_CATEGORIES,
 } from "../shared/refund-ops";
 import {
@@ -62,7 +62,7 @@ import {
 } from "./worker-email";
 import { ownerAuthorized, type DriverAuthEnv } from "./driver-auth";
 
-type RefundEnv = WorkerEmailEnv &
+export type RefundEnv = WorkerEmailEnv &
   DriverAuthEnv & {
     SUMUP_API_KEY?: string;
     SUMUP_MERCHANT_CODE?: string;
@@ -546,6 +546,9 @@ export async function processBookingRefundOrCancel(
       });
     }
 
+    let sumUpRequestBody = "";
+    let sumUpEndpoint = "";
+    let sumUpHttpStatus = 0;
     try {
       const refund = await refundSumUpTransaction(
         sumUpApiKey,
@@ -554,12 +557,10 @@ export async function processBookingRefundOrCancel(
         sumUpMerchantCode || undefined,
       );
       sumUpRefunded = true;
-      if (typeof refund.refundedAmount === "number" && refund.refundedAmount > 0) {
-        refundAmountLabel = formatPaidAmount(
-          refund.refundedAmount,
-          refund.currency ?? record.currency,
-        );
-      }
+      sumUpRequestBody = refund.requestBody;
+      sumUpEndpoint = refund.endpoint;
+      sumUpHttpStatus = refund.httpStatus;
+      // Never trust refund.responseAmount / empty 204 body for books.
     } catch (error) {
       const detail = error instanceof Error ? error.message : "SumUp refund failed";
       await failRefund(env, record, auditId, paymentReference, detail, {
@@ -582,8 +583,43 @@ export async function processBookingRefundOrCancel(
       return { ok: false, paymentReference, error: detail, auditId };
     }
 
+    // CRITICAL: SumUp refund responses are often empty (204 / {}). Never trust the
+    // requested amount alone — re-fetch processor refunded_amount as authoritative.
+    const postRefund = await reconcileRecordWithSumUp(
+      env,
+      record,
+      sumUpApiKey,
+      sumUpMerchantCode,
+      initialTripDateRef.value,
+    );
+    record = postRefund.record;
     const paidAfter = amountPaidOf(record);
-    const cumulative = roundGbp(authoritativeAlready + refundAmount);
+    const applied = applyProcessorAuthoritativeRefund({
+      amountPaid: paidAfter,
+      localAmountRefunded: authoritativeAlready,
+      processorAmountRefunded: postRefund.authoritativeAlready,
+      requestedThisOperation: refundAmount,
+    });
+    const processorTotal = applied.amountRefunded;
+    const expectedMinimum = applied.expectedCumulative;
+    const processorMismatch = applied.reconciliationRequired;
+    const processorFullyRefunded = applied.furtherRefundBlocked;
+
+    if (processorMismatch) {
+      warnings.push(
+        `SumUp processor refund total (£${processorTotal.toFixed(2)}) differs from requested cumulative (£${expectedMinimum.toFixed(2)}). Local books use the processor total.`,
+      );
+    }
+    if (processorFullyRefunded && refundAmount + authoritativeAlready < paidAfter - 0.011) {
+      warnings.push(
+        "SumUp shows this transaction is fully refunded — further money refunds are blocked.",
+      );
+    }
+
+    // Local books = processor-authoritative total (never understate / overstate remaining).
+    const cumulative = processorTotal;
+    const actualMoved = roundGbp(Math.max(0, cumulative - authoritativeAlready));
+    refundAmountLabel = formatPaidAmount(actualMoved, record.currency || "GBP");
     const statuses = nextBookingStatuses({
       cancelBooking,
       previouslyCancelled,
@@ -591,6 +627,10 @@ export async function processBookingRefundOrCancel(
       amountRefundedAfter: cumulative,
     });
     const processorAcceptedAt = new Date().toISOString();
+    const remainingAfter = applied.remainingRefundable;
+    const operationState = processorMismatch
+      ? ("reconciliation_required" as const)
+      : ("processor_accepted" as const);
 
     record = {
       ...record,
@@ -605,27 +645,50 @@ export async function processBookingRefundOrCancel(
       ...(cancelBooking ? { cancelledAt: record.cancelledAt ?? processorAcceptedAt } : {}),
     };
     record = patchAuditEntry(record, auditId, {
-      refundAmount,
+      refundAmount: actualMoved,
       cumulativeRefundedAmount: cumulative,
-      remainingBalance: remainingRefundableBalance(paidAfter, cumulative),
-      fullOrPartial:
-        remainingRefundableBalance(paidAfter, cumulative) <= 0.001 ? "full" : "partial",
-      operationState: "processor_accepted",
+      remainingBalance: remainingAfter,
+      fullOrPartial: remainingAfter <= 0.001 ? "full" : "partial",
+      operationState,
       processorAcceptedAt,
-      success: true,
-      sumUpStatus: "accepted",
+      success: !processorMismatch,
+      sumUpStatus: processorMismatch
+        ? `processor_mismatch:${sumUpEndpoint}:http${sumUpHttpStatus}:body=${sumUpRequestBody || "(empty)"}`
+        : `accepted:${sumUpEndpoint}:http${sumUpHttpStatus}:body=${sumUpRequestBody || "(empty)"}`,
       sumUpReference: record.transactionId,
+      failureDetail: processorMismatch
+        ? `Requested £${refundAmount.toFixed(2)} (expected cumulative £${expectedMinimum.toFixed(2)}); SumUp reports £${processorTotal.toFixed(2)} refunded. Request body: ${sumUpRequestBody || "(empty → SumUp full refund semantics)"}.`
+        : undefined,
     });
     await persistRecord(env, record, initialTripDateRef.value);
     if (options.onProcessorAccepted) {
       await options.onProcessorAccepted({ auditId, sumUpRefunded: true });
     }
 
+    if (processorMismatch) {
+      await trySendOwnerOperationalEmail(env, {
+        to: "bookings@myairporttaxini.co.uk",
+        subject: `REFUND RECONCILIATION REQUIRED — ${record.customerName} — ${paymentReference}`,
+        body:
+          `SumUp refund amount MISMATCH for ${paymentReference}.\n` +
+          `Requested this operation: £${refundAmount.toFixed(2)}\n` +
+          `Expected cumulative after request: £${expectedMinimum.toFixed(2)}\n` +
+          `SumUp authoritative refunded total: £${processorTotal.toFixed(2)}\n` +
+          `Remaining refundable (from SumUp): £${remainingAfter.toFixed(2)}\n` +
+          `Endpoint: ${sumUpEndpoint} (HTTP ${sumUpHttpStatus})\n` +
+          `Request body: ${sumUpRequestBody || "(empty)"}\n` +
+          `Local books updated to the SumUp total. Do not issue another refund until reviewed.\n` +
+          `Transaction ID: ${record.transactionId ?? "—"}\n`,
+      });
+    }
+
+    // If processor shows fully refunded (or over), still complete side effects but
+    // remaining is £0 so further money refunds are blocked by remaining balance checks.
     return await completeRefundSideEffects(env, {
       record,
       auditId,
       paymentReference,
-      refundAmount,
+      refundAmount: actualMoved,
       refundAmountLabel,
       cancelBooking,
       reasonCategory,
@@ -759,11 +822,25 @@ async function reconcileRecordWithSumUp(
       status: updated.status,
       paymentStatus: updated.paymentStatus,
     });
+    const statuses = nextBookingStatuses({
+      cancelBooking: resolveOperationalStatus(updated) === "cancelled",
+      previouslyCancelled: resolveOperationalStatus(updated) === "cancelled",
+      amountPaid: paid,
+      amountRefundedAfter: authoritativeAlready,
+    });
     updated = {
       ...updated,
       amountRefunded: authoritativeAlready,
-      paymentStatus,
-      status: deriveCombinedFromRecord(updated, paymentStatus, authoritativeAlready),
+      paymentStatus: statuses.paymentStatus,
+      operationalStatus: statuses.operationalStatus,
+      status: statuses.status,
+      refundAmountLabel:
+        authoritativeAlready > 0
+          ? formatPaidAmount(authoritativeAlready, updated.currency || "GBP")
+          : updated.refundAmountLabel,
+      ...(authoritativeAlready >= paid - 0.001 && authoritativeAlready > 0
+        ? { refundedAt: updated.refundedAt ?? new Date().toISOString() }
+        : {}),
     };
     await persistRecord(env, updated, initialTripDate);
   }
@@ -771,18 +848,37 @@ async function reconcileRecordWithSumUp(
   return { record: updated, authoritativeAlready };
 }
 
-function deriveCombinedFromRecord(
+/**
+ * Owner/diagnostics: pull SumUp refunded_amount and sync local books when the
+ * processor total is ahead of our KV record (e.g. the £1 test mismatch).
+ * Does not call SumUp refund APIs.
+ */
+export async function syncPaidBookingRefundTotalsFromSumUp(
+  env: RefundEnv,
   record: PaidBookingRecord,
-  paymentStatus: PaymentRefundStatus,
-  amountRefundedAfter: number,
-): PaidBookingRecord["status"] {
-  const operational = resolveOperationalStatus(record);
-  return nextBookingStatuses({
-    cancelBooking: operational === "cancelled",
-    previouslyCancelled: operational === "cancelled",
-    amountPaid: amountPaidOf(record),
-    amountRefundedAfter,
-  }).status;
+): Promise<{
+  record: PaidBookingRecord;
+  authoritativeAlready: number;
+  syncedFromProcessor: boolean;
+}> {
+  const sumUpApiKey = env.SUMUP_API_KEY?.trim() ?? "";
+  const sumUpMerchantCode = env.SUMUP_MERCHANT_CODE?.trim() ?? "";
+  const before = amountRefundedOf(record);
+  if (!sumUpApiKey) {
+    return { record, authoritativeAlready: before, syncedFromProcessor: false };
+  }
+  const reconciled = await reconcileRecordWithSumUp(
+    env,
+    record,
+    sumUpApiKey,
+    sumUpMerchantCode,
+    record.tripDate,
+  );
+  return {
+    record: reconciled.record,
+    authoritativeAlready: reconciled.authoritativeAlready,
+    syncedFromProcessor: amountRefundedOf(reconciled.record) > before + 0.001,
+  };
 }
 
 async function failRefund(
@@ -1464,8 +1560,8 @@ export async function handleRefundDiagnosticsRequest(
     );
   }
 
-  const record = await getPaidBookingRecord(env.TRACKING_STORE, paymentReference);
-  if (!record) {
+  const recordRaw = await getPaidBookingRecord(env.TRACKING_STORE, paymentReference);
+  if (!recordRaw) {
     return json(
       {
         ok: false,
@@ -1478,6 +1574,11 @@ export async function handleRefundDiagnosticsRequest(
       origin,
     );
   }
+
+  // Always reconcile from SumUp before reporting remaining — never show a false
+  // £0.50 remaining when the processor already fully refunded.
+  const synced = await syncPaidBookingRefundTotalsFromSumUp(env, recordRaw);
+  const record = synced.record;
 
   const amountPaid = amountPaidOf(record);
   const amountRefunded = amountRefundedOf(record);
@@ -1501,6 +1602,7 @@ export async function handleRefundDiagnosticsRequest(
       originalAmount: amountPaid,
       amountRefunded,
       remainingRefundable: remaining,
+      syncedFromProcessor: synced.syncedFromProcessor,
       amountPaidLabel: record.amountPaidLabel,
       combinedStatus: record.status,
       operationalStatus: resolveOperationalStatus(record),

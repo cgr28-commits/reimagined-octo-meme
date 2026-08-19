@@ -327,5 +327,47 @@ export function cappedRefundAmount(input: {
   return roundGbp(Math.max(0, Math.min(input.requested, remaining)));
 }
 
+/**
+ * Apply SumUp's processor-authoritative refunded total to local books.
+ *
+ * Never trust the requested amount alone when the retrieve-transaction total differs
+ * (SumUp refund POSTs often return 204/empty bodies).
+ */
+export function applyProcessorAuthoritativeRefund(input: {
+  amountPaid: number;
+  /** Local cumulative before this operation (or last known local). */
+  localAmountRefunded: number;
+  /** SumUp refunded_amount / event total after the operation. */
+  processorAmountRefunded: number;
+  /** Amount we asked SumUp to refund in this operation. */
+  requestedThisOperation: number;
+}): {
+  amountRefunded: number;
+  remainingRefundable: number;
+  expectedCumulative: number;
+  reconciliationRequired: boolean;
+  furtherRefundBlocked: boolean;
+  paymentStatus: PaymentRefundStatus;
+} {
+  const amountPaid = roundGbp(Math.max(0, input.amountPaid));
+  const local = roundGbp(Math.max(0, input.localAmountRefunded));
+  const processor = roundGbp(Math.max(0, input.processorAmountRefunded));
+  const requested = roundGbp(Math.max(0, input.requestedThisOperation));
+  const expectedCumulative = roundGbp(local + requested);
+  // Processor wins — never understate what SumUp already moved.
+  const amountRefunded = roundGbp(Math.max(local, processor));
+  const remainingRefundable = remainingRefundableBalance(amountPaid, amountRefunded);
+  const reconciliationRequired = Math.abs(processor - expectedCumulative) > 0.011;
+  const furtherRefundBlocked = remainingRefundable < 0.01;
+  return {
+    amountRefunded,
+    remainingRefundable,
+    expectedCumulative,
+    reconciliationRequired,
+    furtherRefundBlocked,
+    paymentStatus: derivePaymentStatus(amountPaid, amountRefunded),
+  };
+}
+
 /** Cancellation policy version shown at checkout (paired with TERMS_LAST_UPDATED). */
 export const CANCELLATION_POLICY_VERSION = "August 2026 v2";
