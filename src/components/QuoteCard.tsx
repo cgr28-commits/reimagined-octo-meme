@@ -494,8 +494,6 @@ function QuoteCard({
   const [passengers, setPassengers] = useState(1);
   const [suitcases, setSuitcases] = useState(0);
   const [exactPassengers, setExactPassengers] = useState<number | null>(null);
-  const [childSeats, setChildSeats] = useState(0);
-  const [childSeatNotes, setChildSeatNotes] = useState("");
   const [saveQuoteOpen, setSaveQuoteOpen] = useState(false);
   const [saveQuotePrompt, setSaveQuotePrompt] = useState("");
   const [journeyIntent, setJourneyIntent] = useState<QuoteJourneyIntent | null>(() => {
@@ -746,8 +744,6 @@ function QuoteCard({
         setSuitcases(draft.suitcases);
       }
       if (draft.exactPassengers != null) setExactPassengers(draft.exactPassengers);
-      if (typeof draft.childSeats === "number") setChildSeats(draft.childSeats);
-      if (draft.childSeatNotes) setChildSeatNotes(draft.childSeatNotes);
       if (
         draft.vehicle &&
         (VEHICLE_TYPES as readonly string[]).includes(String(draft.vehicle))
@@ -1538,8 +1534,6 @@ function QuoteCard({
         : undefined,
       passengers: exactPassengers && exactPassengers > 4 ? exactPassengers : passengers,
       suitcases,
-      childSeats: childSeats > 0 ? childSeats : undefined,
-      childSeatNotes: childSeats > 0 && childSeatNotes.trim() ? childSeatNotes.trim() : undefined,
       vehicle: quoteVehicle,
       estimatedPrice,
       journeyDistance: journeyDistanceLabel || undefined,
@@ -1610,8 +1604,6 @@ function QuoteCard({
       returnTime: returnJourney ? retTime : undefined,
       passengers: details.passengers,
       suitcases: details.suitcases,
-      childSeats: details.childSeats,
-      childSeatNotes: details.childSeatNotes,
       vehicle: details.vehicle,
       flightNumber: details.flightNumber || undefined,
       returnFlightNumber: details.returnFlightNumber || undefined,
@@ -1702,8 +1694,6 @@ function QuoteCard({
         passengers,
         suitcases,
         exactPassengers,
-        childSeats,
-        childSeatNotes,
         vehicle: quoteVehicle,
         customerName,
         customerEmail,
@@ -1799,8 +1789,6 @@ function QuoteCard({
       passengers,
       suitcases,
       exactPassengers,
-      childSeats,
-      childSeatNotes,
       vehicle: quoteVehicle,
       customerName,
       customerEmail,
@@ -1920,7 +1908,6 @@ function QuoteCard({
       returnJourney ||
       passengers > 1 ||
       suitcases > 0 ||
-      childSeats > 0 ||
       Boolean(goingFlightNumber.trim()) ||
       Boolean(collectionFlightNumber.trim()) ||
       Boolean(customerName.trim()) ||
@@ -2007,8 +1994,6 @@ function QuoteCard({
     setPassengers(1);
     setSuitcases(0);
     setExactPassengers(null);
-    setChildSeats(0);
-    setChildSeatNotes("");
     setSaveQuoteOpen(false);
     setSaveQuotePrompt("");
     setJourneyIntent(
@@ -2641,10 +2626,6 @@ function QuoteCard({
               onExactPassengersChange={setExactPassengers}
               suitcases={suitcases}
               onSuitcasesChange={setSuitcases}
-              childSeats={childSeats}
-              onChildSeatsChange={setChildSeats}
-              childSeatNotes={childSeatNotes}
-              onChildSeatNotesChange={setChildSeatNotes}
               flightNumber={goingFlightNumber}
               onFlightNumberChange={setGoingFlightNumber}
               isGroupQuote={exceedsOnlineCapacity}

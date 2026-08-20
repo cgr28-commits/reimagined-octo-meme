@@ -107,10 +107,6 @@ export type QuoteProgressiveRouteProps = {
   onExactPassengersChange: (value: number | null) => void;
   suitcases: number;
   onSuitcasesChange: (value: number) => void;
-  childSeats: number;
-  onChildSeatsChange: (value: number) => void;
-  childSeatNotes: string;
-  onChildSeatNotesChange: (value: string) => void;
   flightNumber?: string;
   onFlightNumberChange?: (value: string) => void;
   isGroupQuote: boolean;
@@ -147,10 +143,6 @@ export default function QuoteProgressiveRoute({
   onExactPassengersChange,
   suitcases,
   onSuitcasesChange,
-  childSeats,
-  onChildSeatsChange,
-  childSeatNotes,
-  onChildSeatNotesChange,
   flightNumber = "",
   onFlightNumberChange,
   isGroupQuote,
@@ -414,36 +406,6 @@ export default function QuoteProgressiveRoute({
                   onChange={onSuitcasesChange}
                   formatOption={(value) => (value >= FIVE_PLUS_SUITCASES ? "5+" : String(value))}
                 />
-              )}
-
-              <ChoiceGrid
-                label="Child seats"
-                options={[0, 1, 2]}
-                value={childSeats}
-                onChange={onChildSeatsChange}
-                formatOption={(value) => (value === 0 ? "None" : String(value))}
-              />
-
-              {childSeats > 0 && (
-                <div>
-                  <label
-                    htmlFor="child-seat-notes"
-                    className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/70"
-                  >
-                    Child seat details
-                  </label>
-                  <input
-                    id="child-seat-notes"
-                    type="text"
-                    value={childSeatNotes}
-                    onChange={(e) => onChildSeatNotesChange(e.target.value)}
-                    placeholder="e.g. 1 infant seat, 1 booster"
-                    className="quote-text-input h-12 rounded-xl border border-white/25 bg-navy-dark px-4 text-white placeholder:text-white/45 outline-none focus:border-emerald focus:ring-2 focus:ring-inset focus:ring-emerald/25"
-                  />
-                  <p className="quote-helper-text mt-1.5 text-xs text-white/55">
-                    Child seats can be requested but availability is not guaranteed.
-                  </p>
-                </div>
               )}
             </div>
           </div>

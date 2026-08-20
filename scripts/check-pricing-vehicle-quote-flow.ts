@@ -204,6 +204,16 @@ check("homepage benefits include Save 5% when you book a return", () => {
   assert.match(hero, /Save 5% when you book a return/);
 });
 
+check("public quote tool does not ask for child/car seats", () => {
+  const progressive = fs.readFileSync(
+    path.join(root, "src/components/QuoteProgressiveRoute.tsx"),
+    "utf8",
+  );
+  const card = fs.readFileSync(path.join(root, "src/components/QuoteCard.tsx"), "utf8");
+  assert.doesNotMatch(progressive, /Child seats|Child seat details/);
+  assert.doesNotMatch(card, /onChildSeatsChange|setChildSeats/);
+});
+
 check("customer-facing copy does not claim weekend costs more", () => {
   const terms = fs.readFileSync(path.join(root, "src/lib/terms.ts"), "utf8");
   assert.doesNotMatch(terms, /Weekday, weekend and bank holiday rates may change the fare/);
