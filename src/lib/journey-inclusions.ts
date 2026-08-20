@@ -1,6 +1,7 @@
 export {
   AIRPORT_FLIGHT_MONITORING_COPY,
   AIRPORT_PICKUP_WAITING_COPY,
+  BOOKING_FLIGHT_NUMBER_HELPER,
   formatEmailFareIncludesBlock,
   formatEmailFareIncludesHtml,
   getAddressToAddressInclusions,

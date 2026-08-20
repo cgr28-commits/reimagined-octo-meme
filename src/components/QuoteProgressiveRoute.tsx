@@ -10,7 +10,6 @@ import {
 } from "@/lib/quote-journey-intent";
 import { SERVICE_FLAGS } from "@/lib/data";
 import {
-  AIRPORT_FLIGHT_MONITORING_COPY,
   AIRPORT_PICKUP_WAITING_COPY,
   GROUP_QUOTE_FEE_NOTE,
   NON_AIRPORT_WAITING_COPY,
@@ -107,8 +106,6 @@ export type QuoteProgressiveRouteProps = {
   onExactPassengersChange: (value: number | null) => void;
   suitcases: number;
   onSuitcasesChange: (value: number) => void;
-  flightNumber?: string;
-  onFlightNumberChange?: (value: string) => void;
   isGroupQuote: boolean;
   showRouteFields: boolean;
   showPartyFields: boolean;
@@ -143,8 +140,6 @@ export default function QuoteProgressiveRoute({
   onExactPassengersChange,
   suitcases,
   onSuitcasesChange,
-  flightNumber = "",
-  onFlightNumberChange,
   isGroupQuote,
   showRouteFields,
   showPartyFields,
@@ -275,31 +270,6 @@ export default function QuoteProgressiveRoute({
               </strong>
             </p>
           )}
-          {journeyIntent === "from-airport" && airportChosen && onFlightNumberChange && (
-            <div className="quote-field">
-              <label
-                htmlFor="progressive-flight-number"
-                className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/70"
-              >
-                Flight number <span className="font-normal text-white/45">(optional)</span>
-              </label>
-              <input
-                id="progressive-flight-number"
-                type="text"
-                inputMode="text"
-                autoCapitalize="characters"
-                autoComplete="off"
-                spellCheck={false}
-                value={flightNumber}
-                onChange={(e) => onFlightNumberChange(e.target.value.toUpperCase())}
-                placeholder="e.g. EI304"
-                className="quote-text-input h-12 rounded-xl border border-white/25 bg-navy-dark px-4 uppercase text-white placeholder:normal-case placeholder:text-white/45 outline-none focus:border-emerald focus:ring-2 focus:ring-inset focus:ring-emerald/25"
-              />
-              <p className="quote-helper-text mt-1.5 text-xs leading-snug text-white/55">
-                {AIRPORT_FLIGHT_MONITORING_COPY}
-              </p>
-            </div>
-          )}
         </div>
       )}
 
@@ -418,7 +388,6 @@ export default function QuoteProgressiveRoute({
           ) : journeyIntent === "from-airport" ? (
             <div className="rounded-xl border border-white/10 bg-navy-dark/40 px-4 py-3 text-xs leading-relaxed text-white/70">
               <p>{AIRPORT_PICKUP_WAITING_COPY}</p>
-              <p className="mt-2">{AIRPORT_FLIGHT_MONITORING_COPY}</p>
             </div>
           ) : journeyIntent === "to-airport" ? (
             <div className="rounded-xl border border-white/10 bg-navy-dark/40 px-4 py-3 text-xs leading-relaxed text-white/70">
@@ -427,7 +396,6 @@ export default function QuoteProgressiveRoute({
                 <>
                   <p className="mt-2 font-semibold text-white/80">On your return (airport pickup)</p>
                   <p className="mt-1">{AIRPORT_PICKUP_WAITING_COPY}</p>
-                  <p className="mt-2">{AIRPORT_FLIGHT_MONITORING_COPY}</p>
                 </>
               )}
             </div>

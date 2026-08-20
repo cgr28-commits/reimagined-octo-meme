@@ -312,5 +312,9 @@ export const AIRPORT_PICKUP_WAITING_COPY =
 export const AIRPORT_FLIGHT_MONITORING_COPY =
   "We monitor your flight where possible and adjust the planned collection time for early or delayed arrivals. Airport pickups include up to 60 minutes complimentary waiting time.";
 
+/** Shown next to the flight-number field at booking/checkout (not during Get a Quote). */
+export const BOOKING_FLIGHT_NUMBER_HELPER =
+  "Used to monitor your flight and adjust your collection time if your flight arrives early or is delayed.";
+
 export const NON_AIRPORT_WAITING_COPY =
   "Pickups from non-airport locations include up to 10 minutes complimentary waiting time from the agreed pickup time.";

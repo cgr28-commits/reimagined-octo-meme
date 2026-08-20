@@ -39,6 +39,7 @@ function BookQuoteInner() {
   const [customerEmail, setCustomerEmail] = useState("");
   const [mobileNumber, setMobileNumber] = useState("");
   const [flightNumber, setFlightNumber] = useState("");
+  const [returnFlightNumber, setReturnFlightNumber] = useState("");
   const [tripDate, setTripDate] = useState("");
   const [tripTime, setTripTime] = useState("");
   const [returnDate, setReturnDate] = useState("");
@@ -70,6 +71,7 @@ function BookQuoteInner() {
         if (cancelled) return;
         setQuote(loaded);
         setFlightNumber(loaded.journey.flightNumber ?? "");
+        setReturnFlightNumber(loaded.journey.returnFlightNumber ?? "");
         setChildSeatRequired(Boolean(loaded.journey.childSeatRequired));
         setTripDate(loaded.journey.outboundDate?.trim() || "");
         setTripTime(loaded.journey.outboundTime?.trim() || "");
@@ -110,8 +112,9 @@ function BookQuoteInner() {
       tripTime: tripTime.trim(),
       returnDate: journey.returnJourney ? returnDate.trim() : "",
       returnTime: journey.returnJourney ? returnTime.trim() : "",
-      flightNumber: flightNumber.trim(),
-      returnFlightNumber: journey.returnFlightNumber ?? "",
+      flightNumber: journey.fromAirport ? flightNumber.trim() : "",
+      returnFlightNumber:
+        journey.returnJourney && !journey.fromAirport ? returnFlightNumber.trim() : "",
       passengers: journey.passengers,
       suitcases: journey.suitcases,
       vehicle: journey.vehicleType || "Standard Saloon (1–4 passengers)",
@@ -130,6 +133,7 @@ function BookQuoteInner() {
     customerEmail,
     mobileNumber,
     flightNumber,
+    returnFlightNumber,
     childSeatRequired,
     termsAccepted,
     tripDate,
@@ -345,15 +349,51 @@ function BookQuoteInner() {
             className={fieldClass}
           />
         </div>
-        <div className="min-w-0">
-          <input
-            value={flightNumber}
-            onChange={(e) => setFlightNumber(e.target.value)}
-            placeholder="Flight number (if known)"
-            autoComplete="off"
-            className={fieldClass}
-          />
-        </div>
+        {journey.fromAirport ? (
+          <div className="min-w-0 space-y-1.5">
+            <label htmlFor="book-quote-flight-number" className="block text-xs font-medium text-white/60">
+              Flight number <span className="font-normal text-white/40">(optional)</span>
+            </label>
+            <input
+              id="book-quote-flight-number"
+              value={flightNumber}
+              onChange={(e) => setFlightNumber(e.target.value)}
+              placeholder="e.g. EI304"
+              autoComplete="off"
+              autoCapitalize="characters"
+              spellCheck={false}
+              className={`${fieldClass} uppercase placeholder:normal-case`}
+            />
+            <p className="text-xs leading-snug text-white/55">
+              Used to monitor your flight and adjust your collection time if your flight arrives
+              early or is delayed.
+            </p>
+          </div>
+        ) : null}
+        {journey.returnJourney && !journey.fromAirport ? (
+          <div className="min-w-0 space-y-1.5">
+            <label
+              htmlFor="book-quote-return-flight-number"
+              className="block text-xs font-medium text-white/60"
+            >
+              Return flight number <span className="font-normal text-white/40">(optional)</span>
+            </label>
+            <input
+              id="book-quote-return-flight-number"
+              value={returnFlightNumber}
+              onChange={(e) => setReturnFlightNumber(e.target.value)}
+              placeholder="e.g. EI456"
+              autoComplete="off"
+              autoCapitalize="characters"
+              spellCheck={false}
+              className={`${fieldClass} uppercase placeholder:normal-case`}
+            />
+            <p className="text-xs leading-snug text-white/55">
+              Used to monitor your flight and adjust your collection time if your flight arrives
+              early or is delayed.
+            </p>
+          </div>
+        ) : null}
         <label className="flex min-w-0 items-center gap-3 text-sm text-white/75">
           <input
             type="checkbox"

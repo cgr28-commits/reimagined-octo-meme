@@ -156,9 +156,14 @@ function PersonalQuoteInner() {
       tripTime,
       returnDate: returnJourney ? returnDate : "",
       returnTime: returnJourney ? returnTime : "",
-      flightNumber: airportMeta.isAirportTrip ? flightNumber.trim() : "",
+      flightNumber:
+        airportMeta.isAirportTrip && airportMeta.isFromAirport ? flightNumber.trim() : "",
       returnFlightNumber:
-        airportMeta.isAirportTrip && returnJourney ? returnFlightNumber.trim() : "",
+        airportMeta.isAirportTrip &&
+        returnJourney &&
+        airportMeta.isFromAirport === false
+          ? returnFlightNumber.trim()
+          : "",
       passengers,
       suitcases,
       vehicle,
@@ -461,15 +466,22 @@ function PersonalQuoteInner() {
             ))}
           </select>
         </label>
-        {airportMeta.isAirportTrip ? (
+        {airportMeta.isAirportTrip && airportMeta.isFromAirport ? (
           <label className="block text-sm text-white/80">
-            Flight number
+            Flight number <span className="font-normal text-white/45">(optional)</span>
             <input
               value={flightNumber}
               onChange={(e) => setFlightNumber(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-white/15 bg-navy/60 px-3 py-2.5 text-base text-white"
+              className="mt-1 w-full rounded-lg border border-white/15 bg-navy/60 px-3 py-2.5 text-base text-white uppercase placeholder:normal-case"
               placeholder="e.g. EI3045"
+              autoComplete="off"
+              autoCapitalize="characters"
+              spellCheck={false}
             />
+            <span className="mt-1.5 block text-xs leading-snug text-white/55">
+              Used to monitor your flight and adjust your collection time if your flight arrives
+              early or is delayed.
+            </span>
           </label>
         ) : null}
         <label className="flex items-center gap-2 text-sm text-white/80">
@@ -503,14 +515,23 @@ function PersonalQuoteInner() {
                 className="mt-1 w-full rounded-lg border border-white/15 bg-navy/60 px-3 py-2.5 text-base text-white"
               />
             </label>
-            {airportMeta.isAirportTrip ? (
+            {airportMeta.isAirportTrip && airportMeta.isFromAirport === false ? (
               <label className="col-span-2 block text-sm text-white/80">
-                Return flight number
+                Return flight number{" "}
+                <span className="font-normal text-white/45">(optional)</span>
                 <input
                   value={returnFlightNumber}
                   onChange={(e) => setReturnFlightNumber(e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-white/15 bg-navy/60 px-3 py-2.5 text-base text-white"
+                  className="mt-1 w-full rounded-lg border border-white/15 bg-navy/60 px-3 py-2.5 text-base text-white uppercase placeholder:normal-case"
+                  placeholder="e.g. EI456"
+                  autoComplete="off"
+                  autoCapitalize="characters"
+                  spellCheck={false}
                 />
+                <span className="mt-1.5 block text-xs leading-snug text-white/55">
+                  Used to monitor your flight and adjust your collection time if your flight arrives
+                  early or is delayed.
+                </span>
               </label>
             ) : null}
           </div>

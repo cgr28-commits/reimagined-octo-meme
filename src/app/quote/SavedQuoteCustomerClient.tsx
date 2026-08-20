@@ -172,10 +172,11 @@ function SavedQuoteInner() {
       tripTime,
       returnDate: journey.returnDate ?? "",
       returnTime: journey.returnTime ?? "",
-      flightNumber: flightNumber.trim().toUpperCase(),
-      returnFlightNumber: journey.returnJourney
-        ? returnFlightNumber.trim().toUpperCase()
-        : undefined,
+      flightNumber: journey.isFromAirport ? flightNumber.trim().toUpperCase() : "",
+      returnFlightNumber:
+        journey.returnJourney && journey.isFromAirport === false
+          ? returnFlightNumber.trim().toUpperCase()
+          : undefined,
       passengers: journey.passengers,
       suitcases: journey.suitcases,
       childSeats: journey.childSeats,
@@ -503,31 +504,64 @@ function SavedQuoteInner() {
               placeholder="07…"
             />
           </div>
-          {(journey.isAirportTrip || journey.airportCode) && (
-            <div>
-              <label className="mb-1.5 block text-xs font-medium text-white/60">
-                Flight number (optional)
-              </label>
-              <input
-                className={`${fieldClass} w-full`}
-                value={flightNumber}
-                onChange={(e) => setFlightNumber(e.target.value)}
-                placeholder="e.g. EI123"
-              />
+          {(journey.isFromAirport ||
+            (journey.returnJourney &&
+              (journey.isAirportTrip || journey.airportCode) &&
+              journey.isFromAirport === false)) && (
+            <div className="space-y-3">
+              {journey.isFromAirport ? (
+                <div>
+                  <label
+                    htmlFor="saved-quote-flight-number"
+                    className="mb-1.5 block text-xs font-medium text-white/60"
+                  >
+                    Flight number <span className="font-normal text-white/40">(optional)</span>
+                  </label>
+                  <input
+                    id="saved-quote-flight-number"
+                    className={`${fieldClass} w-full uppercase placeholder:normal-case`}
+                    value={flightNumber}
+                    onChange={(e) => setFlightNumber(e.target.value)}
+                    placeholder="e.g. EI123"
+                    autoComplete="off"
+                    autoCapitalize="characters"
+                    spellCheck={false}
+                  />
+                  <p className="mt-1.5 text-xs leading-snug text-white/55">
+                    Used to monitor your flight and adjust your collection time if your flight
+                    arrives early or is delayed.
+                  </p>
+                </div>
+              ) : null}
+              {journey.returnJourney &&
+              (journey.isAirportTrip || journey.airportCode) &&
+              journey.isFromAirport === false ? (
+                <div>
+                  <label
+                    htmlFor="saved-quote-return-flight-number"
+                    className="mb-1.5 block text-xs font-medium text-white/60"
+                  >
+                    Return flight number{" "}
+                    <span className="font-normal text-white/40">(optional)</span>
+                  </label>
+                  <input
+                    id="saved-quote-return-flight-number"
+                    className={`${fieldClass} w-full uppercase placeholder:normal-case`}
+                    value={returnFlightNumber}
+                    onChange={(e) => setReturnFlightNumber(e.target.value)}
+                    placeholder="e.g. EI456"
+                    autoComplete="off"
+                    autoCapitalize="characters"
+                    spellCheck={false}
+                  />
+                  <p className="mt-1.5 text-xs leading-snug text-white/55">
+                    Used to monitor your flight and adjust your collection time if your flight
+                    arrives early or is delayed.
+                  </p>
+                </div>
+              ) : null}
             </div>
           )}
-          {journey.returnJourney && (journey.isAirportTrip || journey.airportCode) ? (
-            <div>
-              <label className="mb-1.5 block text-xs font-medium text-white/60">
-                Return flight number (optional)
-              </label>
-              <input
-                className={`${fieldClass} w-full`}
-                value={returnFlightNumber}
-                onChange={(e) => setReturnFlightNumber(e.target.value)}
-              />
-            </div>
-          ) : null}
 
           <BookingTermsConsent
             accepted={termsAccepted}

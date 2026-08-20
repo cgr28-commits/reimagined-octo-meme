@@ -76,10 +76,17 @@ check("5–7 path is Minibus online quote + SumUp (existing pricing)", () => {
   assert.doesNotMatch(progressive, /10\+|up to 8|5 or more passengers/);
 });
 
-check("Flight number only for airport pickups", () => {
-  assert.match(card, /Providing your flight number helps us monitor your arrival/);
-  assert.match(card, /Boolean\(pickupAirportCode\)/);
-  assert.match(card, /Boolean\(dropoffAirportCode\)/);
+check("Flight number only at booking for airport pickups — not during Get a Quote", () => {
+  assert.doesNotMatch(progressive, /progressive-flight-number|Flight number/);
+  assert.doesNotMatch(progressive, /AIRPORT_FLIGHT_MONITORING_COPY|We monitor your flight/);
+  assert.match(card, /BOOKING_FLIGHT_NUMBER_HELPER/);
+  assert.match(card, /quoteStep === 3/);
+  assert.match(card, /enabled=\{quoteStep === 3\}/);
+  assert.doesNotMatch(card, /Providing your flight number helps us monitor your arrival/);
+  assert.doesNotMatch(card, /enabled=\{quoteStep === 2\}/);
+  // Going flight only when pickup is from airport; return flight only when return is airport pickup
+  assert.match(card, /isAirportTrip && isFromAirport/);
+  assert.match(card, /isAirportTrip && !isFromAirport/);
 });
 
 check("Waiting-time copy is centralised correctly", () => {
@@ -106,8 +113,8 @@ check("Step 1 → 2 scrolls to DATE section after render (not page top)", () => 
 
 check("Short-notice success UI after full form submit", () => {
   assert.match(card, /shortNoticeResult/);
-  assert.match(card, /Short-notice booking/);
-  assert.match(card, /confirm driver availability before taking payment/);
+  assert.match(card, /Booking requires availability confirmation/);
+  assert.match(card, /confirm availability for your requested pickup time before taking/);
 });
 
 console.log("\nAll quote-tool UX checks passed.");
