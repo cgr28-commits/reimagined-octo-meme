@@ -28,6 +28,7 @@ import {
 import { formatUkInstant } from "../../shared/uk-time";
 import OwnerEditBookingModal from "@/components/OwnerEditBookingModal";
 import OwnerCancelRefundModal from "@/components/OwnerCancelRefundModal";
+import OwnerFlightStatusPanel from "@/components/OwnerFlightStatusPanel";
 import {
   fetchOwnerPaidBookings,
   fetchOwnerPendingCheckouts,
@@ -1546,6 +1547,9 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
                   : `${booking.pickupLabel} → ${booking.dropoffLabel}`;
               })()}
             </p>
+            {!isClosed && !isCompleted ? (
+              <OwnerFlightStatusPanel booking={booking} />
+            ) : null}
             <p className="mt-2 break-all text-xs text-white/45">
               Ref {booking.paymentReference}
               {booking.createdAt ? ` · paid ${formatUkInstant(booking.createdAt)}` : ""}

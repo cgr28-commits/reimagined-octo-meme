@@ -11,6 +11,15 @@ export type VerifiedFlight = {
   departureAirport: string;
   arrivalAirport: string;
   status?: string;
+  /** Normalised operational category for Owner Dashboard badges. */
+  statusCategory?: "on_time" | "delayed" | "landed" | "cancelled" | "unknown";
+  /** Short badge label e.g. ON TIME / DELAYED. */
+  statusLabel?: string;
+  estimatedTime?: string;
+  actualTime?: string;
+  delayMinutes?: number | null;
+  terminal?: string;
+  gate?: string;
 };
 
 export type FlightLookupResult =
@@ -67,18 +76,28 @@ function airportMatches(code: string | undefined, servedCode: string): boolean {
   return allowed.includes(upper);
 }
 
+type AeroMovementTimes = {
+  local?: string;
+  utc?: string;
+};
+
+type AeroAirportMovement = {
+  airport?: { iata?: string; name?: string; icao?: string };
+  scheduledTime?: AeroMovementTimes;
+  revisedTime?: AeroMovementTimes;
+  predictedTime?: AeroMovementTimes;
+  runwayTime?: AeroMovementTimes;
+  terminal?: string;
+  gate?: string;
+  baggageBelt?: string;
+};
+
 type AeroFlight = {
   number?: string;
   status?: string;
   airline?: { name?: string; iata?: string; icao?: string };
-  departure?: {
-    airport?: { iata?: string; name?: string; icao?: string };
-    scheduledTime?: { local?: string; utc?: string };
-  };
-  arrival?: {
-    airport?: { iata?: string; name?: string; icao?: string };
-    scheduledTime?: { local?: string; utc?: string };
-  };
+  departure?: AeroAirportMovement;
+  arrival?: AeroAirportMovement;
 };
 
 function readScheduledLocal(scheduled?: { local?: string; utc?: string }): string | null {
@@ -169,6 +188,93 @@ function pickMatchingFlight(
   return pool[0] ?? null;
 }
 
+function parseLondonMs(isoLocal: string): number | null {
+  const match = isoLocal.match(
+    /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?/,
+  );
+  if (match) {
+    const [, y, m, d, hh, mm, ss] = match;
+    // Interpret wall-clock as UTC for delta only (same timezone both sides).
+    const ms = Date.UTC(
+      Number(y),
+      Number(m) - 1,
+      Number(d),
+      Number(hh),
+      Number(mm),
+      Number(ss || "0"),
+    );
+    return Number.isFinite(ms) ? ms : null;
+  }
+  const parsed = Date.parse(isoLocal);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+export function categorizeFlightStatus(
+  rawStatus: string | undefined,
+  delayMinutes: number | null | undefined,
+): { statusCategory: NonNullable<VerifiedFlight["statusCategory"]>; statusLabel: string } {
+  const normalised = (rawStatus || "").toLowerCase();
+  if (normalised.includes("cancel")) {
+    return { statusCategory: "cancelled", statusLabel: "CANCELLED" };
+  }
+  if (
+    normalised.includes("land") ||
+    normalised.includes("arriv") ||
+    normalised.includes("gate_arrival")
+  ) {
+    return { statusCategory: "landed", statusLabel: "LANDED" };
+  }
+  if (
+    normalised.includes("delay") ||
+    normalised.includes("late") ||
+    (typeof delayMinutes === "number" && delayMinutes >= 5)
+  ) {
+    return { statusCategory: "delayed", statusLabel: "DELAYED" };
+  }
+  if (
+    normalised.includes("on time") ||
+    normalised.includes("ontime") ||
+    normalised.includes("scheduled") ||
+    normalised.includes("expected") ||
+    normalised.includes("active") ||
+    normalised.includes("en route") ||
+    normalised.includes("boarding")
+  ) {
+    return { statusCategory: "on_time", statusLabel: "ON TIME" };
+  }
+  if (typeof delayMinutes === "number" && delayMinutes > 0) {
+    return { statusCategory: "delayed", statusLabel: "DELAYED" };
+  }
+  if (rawStatus?.trim()) {
+    return { statusCategory: "unknown", statusLabel: rawStatus.trim().toUpperCase() };
+  }
+  return { statusCategory: "unknown", statusLabel: "STATUS UNKNOWN" };
+}
+
+/**
+ * Cloudflare Cache-Control max-age for flight status responses.
+ * Longer when far from arrival; short near arrival; long after landed/cancelled.
+ */
+export function flightStatusCacheMaxAgeSeconds(input: {
+  tripDate: string;
+  statusCategory?: VerifiedFlight["statusCategory"];
+  scheduledTime?: string;
+}): number {
+  if (input.statusCategory === "landed" || input.statusCategory === "cancelled") {
+    return 60 * 60 * 12;
+  }
+  const date = input.tripDate?.trim() ?? "";
+  const time = (input.scheduledTime?.trim() || "12:00").slice(0, 5);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return 600;
+  const scheduledMs = parseLondonMs(`${date}T${time}:00`);
+  if (scheduledMs == null) return 600;
+  const hoursUntil = (scheduledMs - Date.now()) / (60 * 60 * 1000);
+  if (hoursUntil > 12) return 60 * 60;
+  if (hoursUntil > 3) return 15 * 60;
+  if (hoursUntil > 0) return 5 * 60;
+  return 10 * 60;
+}
+
 function mapAeroFlight(
   flight: AeroFlight,
   params: {
@@ -181,15 +287,33 @@ function mapAeroFlight(
 ): VerifiedFlight | null {
   const depAirport = flight.departure?.airport;
   const arrAirport = flight.arrival?.airport;
-  const leg =
-    params.direction === "from-airport"
-      ? flight.arrival?.scheduledTime
-      : flight.departure?.scheduledTime;
-  const scheduledRaw = readScheduledLocal(leg);
+  const movement =
+    params.direction === "from-airport" ? flight.arrival : flight.departure;
+  const scheduledRaw = readScheduledLocal(movement?.scheduledTime);
 
   if (!scheduledRaw) {
     return null;
   }
+
+  const estimatedRaw =
+    readScheduledLocal(movement?.revisedTime) ||
+    readScheduledLocal(movement?.predictedTime) ||
+    undefined;
+  const actualRaw = readScheduledLocal(movement?.runwayTime) || undefined;
+
+  let delayMinutes: number | null = null;
+  if (estimatedRaw) {
+    const scheduledMs = parseLondonMs(scheduledRaw);
+    const estimatedMs = parseLondonMs(estimatedRaw);
+    if (scheduledMs != null && estimatedMs != null) {
+      delayMinutes = Math.round((estimatedMs - scheduledMs) / 60000);
+    }
+  }
+
+  const { statusCategory, statusLabel } = categorizeFlightStatus(
+    flight.status,
+    delayMinutes,
+  );
 
   const relevantAirport =
     params.direction === "from-airport"
@@ -209,6 +333,13 @@ function mapAeroFlight(
     arrivalAirport:
       [arrAirport?.iata, arrAirport?.name].filter(Boolean).join(" · ") || "—",
     status: flight.status,
+    statusCategory,
+    statusLabel,
+    estimatedTime: estimatedRaw ? formatLocalTime(estimatedRaw) : undefined,
+    actualTime: actualRaw ? formatLocalTime(actualRaw) : undefined,
+    delayMinutes,
+    terminal: movement?.terminal?.trim() || undefined,
+    gate: movement?.gate?.trim() || undefined,
   };
 }
 

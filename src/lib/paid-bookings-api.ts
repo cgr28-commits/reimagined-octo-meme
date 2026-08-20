@@ -57,6 +57,8 @@ export type OwnerPaidBookingSummary = Pick<
   reviewRequest?: OwnerReviewRequestSummary;
   flightNumber?: string;
   returnFlightNumber?: string;
+  airportCode?: string;
+  isFromAirport?: boolean;
   passengers?: number;
   suitcases?: number;
   childSeats?: number;

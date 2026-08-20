@@ -32,16 +32,22 @@ export async function lookupFlightForBooking(params: {
   tripDate: string;
   airportCode: string;
   direction: TripDirection;
+  /** Bypass server cache for a manual Refresh Flight. */
+  refresh?: boolean;
 }): Promise<ClientFlightLookupResult> {
   const url = new URL(resolveFlightsApiUrl());
   url.searchParams.set("flight", params.flightNumber.trim());
   url.searchParams.set("date", params.tripDate);
   url.searchParams.set("airport", params.airportCode);
   url.searchParams.set("direction", params.direction);
+  if (params.refresh) {
+    url.searchParams.set("refresh", "1");
+  }
 
   try {
     const response = await fetch(url.toString(), {
       headers: { Accept: "application/json" },
+      cache: params.refresh ? "no-store" : "default",
     });
 
     const raw = await response.text();

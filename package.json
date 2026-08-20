@@ -53,7 +53,8 @@
     "check:refund-prod-readiness": "npx tsx scripts/check-refund-prod-readiness.ts",
     "check:refund-test-one-pound": "npx tsx scripts/check-refund-test-one-pound.ts",
     "check:refund-workflow-ui": "npx tsx scripts/check-refund-workflow-ui.ts",
-    "check:owner-dashboard-job-cleanup": "npx tsx scripts/check-owner-dashboard-job-cleanup.ts"
+    "check:owner-dashboard-job-cleanup": "npx tsx scripts/check-owner-dashboard-job-cleanup.ts",
+    "check:owner-dashboard-tool-switcher": "npx tsx scripts/check-owner-dashboard-tool-switcher.ts"
   },
   "dependencies": {
     "leaflet": "^1.9.4",

@@ -54,6 +54,7 @@ import {
   type PaidBookingDetails,
 } from "../shared/booking-notifications";
 import {
+  flightStatusCacheMaxAgeSeconds,
   lookupFlight,
   type TripDirection,
 } from "../shared/flight-lookup";
@@ -2111,6 +2112,9 @@ async function handleFlightLookupRequest(
     const directionParam = url.searchParams.get("direction")?.trim() ?? "from-airport";
     const direction: TripDirection =
       directionParam === "to-airport" ? "to-airport" : "from-airport";
+    const forceRefresh =
+      url.searchParams.get("refresh") === "1" ||
+      url.searchParams.get("refresh") === "true";
 
     const airportNames: Record<string, string> = {
       BFS: "Belfast International",
@@ -2121,12 +2125,17 @@ async function handleFlightLookupRequest(
 
     const configured = Boolean(env.AERODATABOX_RAPIDAPI_KEY?.trim());
     const flightCache = (caches as unknown as { default: Cache }).default;
-    const cacheKey = new Request(url.toString(), { method: "GET" });
-    const cached = await flightCache.match(cacheKey);
-    if (cached) {
-      const cachedBody = (await cached.json()) as { code?: string; ok?: boolean };
-      if (cachedBody.code !== "rate_limited") {
-        return json(cachedBody, cached.status, origin);
+    // Cache key ignores refresh= so a manual refresh still writes the shared entry.
+    const cacheUrl = new URL(url.toString());
+    cacheUrl.searchParams.delete("refresh");
+    const cacheKey = new Request(cacheUrl.toString(), { method: "GET" });
+    if (!forceRefresh) {
+      const cached = await flightCache.match(cacheKey);
+      if (cached) {
+        const cachedBody = (await cached.json()) as { code?: string; ok?: boolean };
+        if (cachedBody.code !== "rate_limited") {
+          return json(cachedBody, cached.status, origin);
+        }
       }
     }
 
@@ -2154,7 +2163,10 @@ async function handleFlightLookupRequest(
           cacheKey,
           new Response(JSON.stringify(responseBody), {
             status,
-            headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=600" },
+            headers: {
+              "Content-Type": "application/json",
+              "Cache-Control": "public, max-age=300",
+            },
           }),
         );
         return response;
@@ -2163,17 +2175,26 @@ async function handleFlightLookupRequest(
       return json(responseBody, status, origin);
     }
 
+    const maxAge = flightStatusCacheMaxAgeSeconds({
+      tripDate,
+      statusCategory: result.flight.statusCategory,
+      scheduledTime: result.flight.scheduledTime,
+    });
     const responseBody = {
       ok: true,
       flight: result.flight,
       configured,
+      cacheMaxAgeSeconds: maxAge,
     };
     const response = json(responseBody, 200, origin);
     await flightCache.put(
       cacheKey,
       new Response(JSON.stringify(responseBody), {
         status: 200,
-        headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=600" },
+        headers: {
+          "Content-Type": "application/json",
+          "Cache-Control": `public, max-age=${maxAge}`,
+        },
       }),
     );
     return response;

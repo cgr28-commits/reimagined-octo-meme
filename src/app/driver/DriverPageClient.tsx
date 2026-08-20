@@ -11,6 +11,10 @@ import OwnerShortNoticePanel from "@/components/OwnerShortNoticePanel";
 import OwnerPersonalQuotesPanel from "@/components/OwnerPersonalQuotesPanel";
 import OwnerBookingCalendar from "@/components/OwnerBookingCalendar";
 import OwnerAccountProfilePanel from "@/components/OwnerAccountProfilePanel";
+import OwnerDashboardToolSwitcher, {
+  type OwnerDashboardToolTab,
+} from "@/components/OwnerDashboardToolSwitcher";
+import OwnerFlightStatusPanel from "@/components/OwnerFlightStatusPanel";
 import type { MapMarker, MapRoutePoint } from "@/components/LiveTrackMap";
 import {
   buildWhatsAppDriverDetailsLink,
@@ -154,115 +158,6 @@ function jobMapMarkers(
   }
 
   return markers;
-}
-
-function flightStatusClass(status?: string): string {
-  const normalised = status?.toLowerCase() ?? "";
-  if (normalised.includes("land") || normalised.includes("arriv")) {
-    return "bg-emerald/15 text-emerald";
-  }
-  if (normalised.includes("delay") || normalised.includes("late")) {
-    return "bg-amber-500/15 text-amber-200";
-  }
-  if (normalised.includes("cancel")) {
-    return "bg-red-500/15 text-red-200";
-  }
-  return "bg-white/10 text-white/70";
-}
-
-function DriverFlightPanel({
-  job,
-  onRefresh,
-  refreshing,
-}: {
-  job: DriverJob;
-  onRefresh?: () => void;
-  refreshing?: boolean;
-}) {
-  if (!job.isAirportPickup) {
-    return null;
-  }
-
-  if (!job.flightNumber) {
-    return (
-      <div className="mt-4 rounded-xl border border-white/10 bg-navy/40 px-4 py-3 text-sm text-white/60">
-        Airport pickup — no flight number was provided for this booking.
-      </div>
-    );
-  }
-
-  if (!job.flight) {
-    return (
-      <div className="mt-4 rounded-xl border border-white/10 bg-navy/40 px-4 py-3">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-emerald">Incoming flight</p>
-            <p className="mt-1 text-lg font-bold text-white">{job.flightNumber}</p>
-            <p className="mt-1 text-sm text-white/60">
-              Live flight status is not available right now. Check the airport arrivals board before
-              pickup.
-            </p>
-          </div>
-          {onRefresh && (
-            <button
-              type="button"
-              disabled={refreshing}
-              onClick={onRefresh}
-              className="rounded-xl border border-white/15 px-3 py-2 text-xs font-semibold text-white transition-colors hover:border-white/30 disabled:opacity-60"
-            >
-              {refreshing ? "Refreshing…" : "Refresh flight"}
-            </button>
-          )}
-        </div>
-      </div>
-    );
-  }
-
-  const { flight } = job;
-
-  return (
-    <div className="mt-4 rounded-xl border border-emerald/20 bg-emerald/5 px-4 py-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wider text-emerald">Incoming flight</p>
-          <p className="mt-1 text-lg font-bold text-white">
-            {flight.flightNumber} · {flight.airline}
-          </p>
-          <p className="mt-1 text-sm text-white/70">
-            {flight.departureAirport} → {flight.arrivalAirport}
-          </p>
-        </div>
-        <div className="flex flex-col items-end gap-2">
-          {flight.status && (
-            <span
-              className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wider ${flightStatusClass(flight.status)}`}
-            >
-              {flight.status}
-            </span>
-          )}
-          {onRefresh && (
-            <button
-              type="button"
-              disabled={refreshing}
-              onClick={onRefresh}
-              className="rounded-xl border border-white/15 px-3 py-2 text-xs font-semibold text-white transition-colors hover:border-white/30 disabled:opacity-60"
-            >
-              {refreshing ? "Refreshing…" : "Refresh flight"}
-            </button>
-          )}
-        </div>
-      </div>
-      <p className="mt-3 text-sm text-white/80">
-        Scheduled arrival:{" "}
-        <span className="font-semibold text-white">{flight.scheduledTimeLabel}</span>
-        {" · "}
-        {flight.airportName} ({flight.airportCode})
-      </p>
-      <p className="mt-2 text-xs text-white/50">
-        60 minutes complimentary waiting applies from actual landing time.
-      </p>
-    </div>
-  );
 }
 
 function assignmentSummary(job: DriverJob): string {
@@ -1471,7 +1366,16 @@ function DriverJobCard({
         </div>
       )}
 
-      <DriverFlightPanel job={job} onRefresh={onRefreshJob} refreshing={refreshingJob} />
+      <OwnerFlightStatusPanel
+        booking={{
+          pickupLabel: job.pickupLabel,
+          dropoffLabel: job.dropoffLabel,
+          tripDate: job.tripDate,
+          flightNumber: job.flightNumber,
+          airportCode: job.airportCode,
+          isFromAirport: job.isAirportPickup === true,
+        }}
+      />
 
       {isOwner && !isRefunded && assignFormOpen ? (
         <div className="mt-5 space-y-3 rounded-xl border border-emerald/30 bg-emerald/5 p-4">
@@ -2025,6 +1929,7 @@ export default function DriverPageClient({
   const keyStorage = portalKeyStorage(portal);
   const [driverKey, setDriverKey] = useState("");
   const [savedKey, setSavedKey] = useState<string | null>(null);
+  const [ownerToolTab, setOwnerToolTab] = useState<OwnerDashboardToolTab>("jobs");
   const [sessionRole, setSessionRole] = useState<"owner" | "driver" | null>(
     isOwnerPortal ? "owner" : null,
   );
@@ -2742,15 +2647,42 @@ export default function DriverPageClient({
                 </button>
               </div>
 
+              {isOwnerView && savedKey ? (
+                <OwnerDashboardToolSwitcher
+                  value={ownerToolTab}
+                  onChange={setOwnerToolTab}
+                />
+              ) : null}
+
+              {isOwnerView && savedKey && ownerToolTab === "personal-quotes" ? (
+                <div
+                  id="owner-tool-panel-personal-quotes"
+                  role="tabpanel"
+                  aria-labelledby="owner-tool-tab-personal-quotes"
+                >
+                  <OwnerPersonalQuotesPanel ownerKey={savedKey} />
+                </div>
+              ) : null}
+
+              {isOwnerView && savedKey && ownerToolTab === "same-fare" ? (
+                <div
+                  id="owner-tool-panel-same-fare"
+                  role="tabpanel"
+                  aria-labelledby="owner-tool-tab-same-fare"
+                >
+                  <OwnerAmendmentTestPanel ownerKey={savedKey} />
+                </div>
+              ) : null}
+
+              {(!isOwnerView || !savedKey || ownerToolTab === "jobs") && (
+              <div
+                id="owner-tool-panel-jobs"
+                role={isOwnerView && savedKey ? "tabpanel" : undefined}
+                aria-labelledby={
+                  isOwnerView && savedKey ? "owner-tool-tab-jobs" : undefined
+                }
+              >
               {isOwnerView && savedKey ? <OwnerShortNoticePanel ownerKey={savedKey} /> : null}
-
-              {isOwnerView && savedKey ? (
-                <OwnerAmendmentTestPanel ownerKey={savedKey} />
-              ) : null}
-
-              {isOwnerView && savedKey ? (
-                <OwnerPersonalQuotesPanel ownerKey={savedKey} />
-              ) : null}
 
               {isOwnerView && savedKey ? (
                 <OwnerBookingCalendar
@@ -3151,6 +3083,8 @@ export default function DriverPageClient({
               ) : null}
               </>
               ) : null}
+              </div>
+              )}
 
               {/* Setup/settings at the bottom — Owner Profile then Additional Drivers (owner), or driver profile. */}
               {profilePanel ? <div className="mt-8">{profilePanel}</div> : null}

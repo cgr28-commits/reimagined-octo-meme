@@ -383,6 +383,11 @@ export async function handlePaidBookingsListRequest(
         returnTime: booking.returnTime,
         flightNumber,
         returnFlightNumber,
+        airportCode: booking.airportCode || undefined,
+        isFromAirport:
+          typeof booking.isFromAirport === "boolean"
+            ? booking.isFromAirport
+            : undefined,
         passengers,
         suitcases,
         childSeats,
