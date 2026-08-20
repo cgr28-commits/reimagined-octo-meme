@@ -111,6 +111,25 @@ check("Step 1 → 2 scrolls to DATE section after render (not page top)", () => 
   assert.match(card, /scheduleSmoothScrollTo/);
 });
 
+check("Mobile progressive quote has auto-scroll section targets", () => {
+  assert.match(progressive, /quote-section-passengers/);
+  assert.match(progressive, /quote-section-suitcases/);
+  assert.match(progressive, /scheduleQuoteSectionScroll/);
+  assert.match(card, /quote-step1-next/);
+  assert.match(card, /quote-step2-next/);
+});
+
+check("Quote auto-scroll is viewport-driven on mobile and desktop", () => {
+  const scrollHelper = read("src/lib/quote-mobile-scroll.ts");
+  assert.match(scrollHelper, /isQuoteSectionFullyVisible/);
+  assert.match(scrollHelper, /QUOTE_DESKTOP_SCROLL_TOP_INSET_PX/);
+  assert.doesNotMatch(scrollHelper, /mobileOnly !== false/);
+  assert.match(progressive, /scroll-mt-44/);
+  assert.match(progressive, /md:scroll-mt-28/);
+  assert.match(card, /scroll-mt-44/);
+  assert.match(card, /md:scroll-mt-28/);
+});
+
 check("Short-notice success UI after full form submit", () => {
   assert.match(card, /shortNoticeResult/);
   assert.match(card, /Booking requires availability confirmation/);

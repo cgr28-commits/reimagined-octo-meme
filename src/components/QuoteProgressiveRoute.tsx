@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import type { SelectedPlace } from "@/lib/selected-place";
 import AddressInput from "@/components/AddressInput";
 import {
@@ -20,6 +21,7 @@ import {
   formatPassengerChoice,
 } from "@/lib/vehicle-selection";
 import type { QuickSelectAirportCode } from "@/lib/selected-place";
+import { scheduleQuoteSectionScroll, scheduleQuoteSectionScrollById } from "@/lib/quote-mobile-scroll";
 
 const SELECTABLE_AIRPORTS = CUSTOMER_AIRPORTS.filter(
   (airport) => SERVICE_FLAGS.belfastCityAirport || airport.code !== "BHD",
@@ -30,6 +32,7 @@ const SELECT_CARD =
 const SELECT_CARD_ON = "border-emerald bg-emerald text-navy shadow-sm";
 const SELECT_CARD_OFF =
   "border-white/15 bg-white/5 text-white hover:border-emerald/40 hover:bg-emerald/10";
+const SECTION_SCROLL_CLASS = "scroll-mt-44 md:scroll-mt-28";
 
 function ChoiceGrid({
   label,
@@ -145,15 +148,73 @@ export default function QuoteProgressiveRoute({
   showPartyFields,
   journeyKindLabel,
 }: QuoteProgressiveRouteProps) {
+  const airportSectionRef = useRef<HTMLDivElement>(null);
+  const addressesSectionRef = useRef<HTMLDivElement>(null);
+  const passengersSectionRef = useRef<HTMLDivElement>(null);
+  const suitcasesSectionRef = useRef<HTMLDivElement>(null);
+  const prevShowPartyFields = useRef(showPartyFields);
+  const prevShowAddresses = useRef(false);
+
   const showAirportPicker =
     journeyIntent === "to-airport" || journeyIntent === "from-airport";
   const airportChosen = Boolean(selectedAirportCode);
   const showAddresses =
     journeyIntent === "address-to-address" || (showAirportPicker && airportChosen);
 
+  useEffect(() => {
+    const wasShowing = prevShowAddresses.current;
+    prevShowAddresses.current = showAddresses && showRouteFields;
+    if (!wasShowing && showAddresses && showRouteFields) {
+      return scheduleQuoteSectionScroll(addressesSectionRef.current);
+    }
+    return undefined;
+  }, [showAddresses, showRouteFields]);
+
+  useEffect(() => {
+    const wasShowing = prevShowPartyFields.current;
+    prevShowPartyFields.current = showPartyFields;
+    if (!wasShowing && showPartyFields) {
+      return scheduleQuoteSectionScroll(passengersSectionRef.current);
+    }
+    return undefined;
+  }, [showPartyFields]);
+
+  function handleJourneyIntentChange(intent: QuoteJourneyIntent) {
+    onJourneyIntentChange(intent);
+    if (intent === "to-airport" || intent === "from-airport") {
+      scheduleQuoteSectionScroll(airportSectionRef.current);
+      return;
+    }
+    scheduleQuoteSectionScroll(addressesSectionRef.current);
+  }
+
+  function handleAirportSelect(code: CustomerAirportCode) {
+    onAirportSelect(code);
+    scheduleQuoteSectionScroll(addressesSectionRef.current);
+  }
+
+  function handlePassengersChange(value: number) {
+    onPassengersChange(value);
+    if (value < FIVE_PLUS_PASSENGERS) {
+      onExactPassengersChange(null);
+      scheduleQuoteSectionScroll(suitcasesSectionRef.current);
+      return;
+    }
+    if (!exactPassengers || exactPassengers < 5 || exactPassengers > 7) {
+      onExactPassengersChange(5);
+    }
+    scheduleQuoteSectionScroll(suitcasesSectionRef.current);
+  }
+
+  function handleSuitcasesChange(value: number) {
+    onSuitcasesChange(value);
+    // After luggage is chosen, reveal the primary quote CTA (Book / Continue / Save).
+    scheduleQuoteSectionScrollById("quote-step1-next");
+  }
+
   return (
     <div className="quote-field space-y-5 lg:space-y-4">
-      <div className="min-h-[3.25rem] lg:min-h-0">
+      <div id="quote-section-journey" className={`min-h-[3.25rem] lg:min-h-0 ${SECTION_SCROLL_CLASS}`}>
         <h3 className="text-base font-semibold text-white sm:text-lg lg:text-base">Where are you travelling?</h3>
         <p className="mt-1 min-h-[1rem] text-xs text-white/55 lg:min-h-0">
           {journeyKindLabel || "Choose how you’d like to travel"}
@@ -168,7 +229,7 @@ export default function QuoteProgressiveRoute({
               key={option.id}
               type="button"
               aria-pressed={selected}
-              onClick={() => onJourneyIntentChange(option.id)}
+              onClick={() => handleJourneyIntentChange(option.id)}
               className={`${SELECT_CARD} ${selected ? SELECT_CARD_ON : SELECT_CARD_OFF}`}
             >
               <span className="text-sm font-bold sm:text-base">{option.title}</span>
@@ -183,7 +244,11 @@ export default function QuoteProgressiveRoute({
       </div>
 
       {showAirportPicker && (
-        <div className="space-y-3">
+        <div
+          id="quote-section-airport"
+          ref={airportSectionRef}
+          className={`space-y-3 ${SECTION_SCROLL_CLASS}`}
+        >
           <p className="text-xs font-medium uppercase tracking-wider text-white/50">
             Which airport?
           </p>
@@ -195,7 +260,7 @@ export default function QuoteProgressiveRoute({
                   key={airport.code}
                   type="button"
                   aria-pressed={selected}
-                  onClick={() => onAirportSelect(airport.code)}
+                  onClick={() => handleAirportSelect(airport.code)}
                   className={`${SELECT_CARD} ${selected ? SELECT_CARD_ON : SELECT_CARD_OFF}`}
                 >
                   <span className="text-sm font-bold">{airport.title}</span>
@@ -215,7 +280,11 @@ export default function QuoteProgressiveRoute({
       )}
 
       {showAddresses && showRouteFields && (
-        <div className="space-y-4">
+        <div
+          id="quote-section-addresses"
+          ref={addressesSectionRef}
+          className={`space-y-4 ${SECTION_SCROLL_CLASS}`}
+        >
           {(journeyIntent === "to-airport" || journeyIntent === "address-to-address") && (
             <AddressInput
               id="pickup"
@@ -275,7 +344,7 @@ export default function QuoteProgressiveRoute({
 
       {showPartyFields && (
         <div className="space-y-5 lg:space-y-4">
-          <div>
+          <div id="quote-section-journey-mode" className={SECTION_SCROLL_CLASS}>
             <p className="mb-2 text-xs font-medium uppercase tracking-wider text-white/50">
               Journey
             </p>
@@ -304,19 +373,16 @@ export default function QuoteProgressiveRoute({
           </div>
 
           <div className="grid gap-5 lg:grid-cols-2 lg:items-start lg:gap-3.5">
-            <div className="space-y-5 lg:space-y-3.5">
+            <div
+              id="quote-section-passengers"
+              ref={passengersSectionRef}
+              className={`space-y-5 lg:space-y-3.5 ${SECTION_SCROLL_CLASS}`}
+            >
               <ChoiceGrid
                 label="Passengers"
                 options={[1, 2, 3, 4, FIVE_PLUS_PASSENGERS]}
                 value={passengers >= FIVE_PLUS_PASSENGERS ? FIVE_PLUS_PASSENGERS : passengers}
-                onChange={(value) => {
-                  onPassengersChange(value);
-                  if (value < FIVE_PLUS_PASSENGERS) {
-                    onExactPassengersChange(null);
-                  } else if (!exactPassengers || exactPassengers < 5 || exactPassengers > 7) {
-                    onExactPassengersChange(5);
-                  }
-                }}
+                onChange={handlePassengersChange}
                 formatOption={formatPassengerChoice}
               />
 
@@ -342,6 +408,7 @@ export default function QuoteProgressiveRoute({
                       const next = Math.min(7, Math.max(5, value));
                       onPassengersChange(next);
                       onExactPassengersChange(next);
+                      scheduleQuoteSectionScroll(suitcasesSectionRef.current);
                     }}
                     formatOption={(value) => String(value)}
                     columns={3}
@@ -351,18 +418,22 @@ export default function QuoteProgressiveRoute({
               )}
             </div>
 
-            <div className="space-y-5 lg:space-y-3.5">
+            <div
+              id="quote-section-suitcases"
+              ref={suitcasesSectionRef}
+              className={`space-y-5 lg:space-y-3.5 ${SECTION_SCROLL_CLASS}`}
+            >
               <ChoiceGrid
                 label="Suitcases / large bags"
                 options={[0, 1, 2, 3, 4]}
                 value={suitcases > 4 ? 4 : suitcases}
                 onChange={(value) => {
                   if (value === 4 && suitcases < 4) {
-                    onSuitcasesChange(4);
+                    handleSuitcasesChange(4);
                   } else if (value < 4) {
-                    onSuitcasesChange(value);
+                    handleSuitcasesChange(value);
                   } else {
-                    onSuitcasesChange(suitcases >= 4 ? suitcases : 4);
+                    handleSuitcasesChange(suitcases >= 4 ? suitcases : 4);
                   }
                 }}
                 formatOption={(value) => (value >= 4 ? "4+" : String(value))}
@@ -373,7 +444,7 @@ export default function QuoteProgressiveRoute({
                   label="Exact large bags (4+)"
                   options={[4, 5, 6, 7, FIVE_PLUS_SUITCASES]}
                   value={suitcases >= FIVE_PLUS_SUITCASES ? FIVE_PLUS_SUITCASES : suitcases}
-                  onChange={onSuitcasesChange}
+                  onChange={handleSuitcasesChange}
                   formatOption={(value) => (value >= FIVE_PLUS_SUITCASES ? "5+" : String(value))}
                 />
               )}
