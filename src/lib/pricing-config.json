@@ -41,6 +41,13 @@
     "DUB": 180,
     "LDY": 35
   },
+  "airportAccessFeesGbp": {
+    "note": "Genuine airport access / express fees. Used when both ends are airports (added once per airport end on top of the underlying journey fare). Not applied by re-classifying an airport address as a town zone. Address↔airport zone fares continue to treat fees as commercial inclusions in the fixed zone price. operational.airportChargesGbp stays null.",
+    "BFS": 5,
+    "BHD": 4,
+    "DUB": 0,
+    "LDY": 0
+  },
   "airportBasePricesGbp": {
     "BFS": 45,
     "BHD": 34,

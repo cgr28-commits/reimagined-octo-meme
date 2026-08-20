@@ -10,6 +10,7 @@ import {
 import type { TripRouteMetrics } from "./trip-route";
 import {
   calculateOperationalSubtotal,
+  getAirportAccessFeeGbp,
   getAirportBasePrice,
   getAirportMinimumFare,
   hasOperationalRatesConfigured,
@@ -761,17 +762,14 @@ export function formatQuote(amount: number): string {
 }
 
 /**
- * Belfast-area / NI origin → Dublin city (not Dublin Airport).
- * Starts from the DUB airport fare for the NI address, then adds a continuation
- * uplift for loaded distance/time beyond the Dublin Airport corridor reference.
- */
-/**
- * Airport ↔ airport transfers must never fall through to generic A2A/OTS pricing.
+ * Airport ↔ airport transfers must never treat one airport’s address as a town
+ * zone under the other airport’s area-surcharge table (e.g. BFS/Aldergrove/BT29
+ * must not become “Antrim → BHD”).
  *
- * - When Dublin Airport is one end: always use existing DUB airport pricing for the
- *   other airport address (DUB floor, zone surcharges, vehicle rules unchanged).
- * - Otherwise: price under both airport schemes and keep the higher fare so a
- *   cheaper local airport path cannot undercut the longer/more expensive leg.
+ * - When Dublin Airport is one end: always use existing DUB airport pricing for
+ *   the other airport address (anti-undercut; zone/floor rules unchanged).
+ * - Otherwise: underlying address-to-address journey fare + genuine access fee
+ *   for each identified airport end (BFS £5, BHD £4, etc.).
  */
 export function calculateAirportToAirportQuote(
   pickupAirportCode: string,
@@ -791,6 +789,7 @@ export function calculateAirportToAirportQuote(
     return null;
   }
 
+  // Dublin anti-undercut: never price DUB legs via A2A or the other NI airport scheme.
   if (pickupCode === "DUB" || dropoffCode === "DUB") {
     const otherAddress = pickupCode === "DUB" ? dropoff : pickup;
     return calculateQuote(
@@ -803,34 +802,40 @@ export function calculateAirportToAirportQuote(
     );
   }
 
-  const viaPickupAirport = calculateQuote(
-    dropoff,
-    pickupCode,
-    vehicleType,
-    returnJourney,
-    schedule,
-    routeMetrics,
-  );
-  const viaDropoffAirport = calculateQuote(
-    pickup,
-    dropoffCode,
-    vehicleType,
-    returnJourney,
-    schedule,
-    routeMetrics,
-  );
+  if (!isValidRouteMetrics(routeMetrics)) {
+    return null;
+  }
 
-  if (!viaPickupAirport) {
-    return viaDropoffAirport;
+  const underlying = calculatePointToPointQuote(
+    pickup,
+    dropoff,
+    vehicleType,
+    returnJourney,
+    schedule,
+    routeMetrics,
+  );
+  if (!underlying) {
+    return null;
   }
-  if (!viaDropoffAirport) {
-    return viaPickupAirport;
-  }
-  return viaPickupAirport.amount >= viaDropoffAirport.amount
-    ? viaPickupAirport
-    : viaDropoffAirport;
+
+  const pickupAccessFee = getAirportAccessFeeGbp(pickupCode);
+  const dropoffAccessFee = getAirportAccessFeeGbp(dropoffCode);
+  const withAccessFees = underlying.amount + pickupAccessFee + dropoffAccessFee;
+
+  return {
+    ...underlying,
+    amount: roundFare(withAccessFees),
+    // Combined genuine access fees (not a town-zone surcharge).
+    areaSurcharge: pickupAccessFee + dropoffAccessFee,
+    airportBase: underlying.amount,
+  };
 }
 
+/**
+ * Belfast-area / NI origin → Dublin city (not Dublin Airport).
+ * Starts from the DUB airport fare for the NI address, then adds a continuation
+ * uplift for loaded distance/time beyond the Dublin Airport corridor reference.
+ */
 export function calculateDublinCityBeyondAirportQuote(
   niAddress: string,
   vehicleType: (typeof VEHICLE_TYPES)[number],

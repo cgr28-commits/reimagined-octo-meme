@@ -19,6 +19,7 @@
     "check:demo-features": "npx tsx scripts/check-demo-features.ts",
     "check:a2a-roi": "npx tsx scripts/check-a2a-roi-journeys.ts",
     "check:airport-to-airport-pricing": "npx tsx scripts/check-airport-to-airport-pricing.ts",
+    "check:airport-airport-access-fees": "npx tsx scripts/check-airport-airport-access-fees.ts",
     "check:pricing-confirmation": "npx tsx scripts/check-pricing-confirmation.ts",
     "check:pricing-vehicle-quote-flow": "npx tsx scripts/check-pricing-vehicle-quote-flow.ts",
     "check:quote-flight-booking-stage": "npx tsx scripts/check-quote-flight-booking-stage.ts",
