@@ -175,8 +175,8 @@ type VehicleType = (typeof VEHICLE_TYPES)[number];
 
 /** Smooth-scroll after the next paint so the target step section exists in the DOM. */
 function scheduleSmoothScrollTo(element: HTMLElement | null): () => void {
-  // Step transitions scroll on all viewports; visibility guard still avoids no-op jumps.
-  return scheduleQuoteSectionScroll(element, { mobileOnly: false });
+  // Viewport visibility check — no-ops when already fully visible on any breakpoint.
+  return scheduleQuoteSectionScroll(element);
 }
 
 /** Previously blocked 5–7 from online fares; Minibus is bookable online again. */
