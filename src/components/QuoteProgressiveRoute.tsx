@@ -21,7 +21,11 @@ import {
   formatPassengerChoice,
 } from "@/lib/vehicle-selection";
 import type { QuickSelectAirportCode } from "@/lib/selected-place";
-import { scheduleQuoteSectionScroll, scheduleQuoteSectionScrollById } from "@/lib/quote-mobile-scroll";
+import {
+  clearScheduledQuoteSectionScroll,
+  scheduleQuoteFareResultScroll,
+  scheduleQuoteSectionScroll,
+} from "@/lib/quote-mobile-scroll";
 
 const SELECTABLE_AIRPORTS = CUSTOMER_AIRPORTS.filter(
   (airport) => SERVICE_FLAGS.belfastCityAirport || airport.code !== "BHD",
@@ -151,9 +155,14 @@ export default function QuoteProgressiveRoute({
   const airportSectionRef = useRef<HTMLDivElement>(null);
   const addressesSectionRef = useRef<HTMLDivElement>(null);
   const passengersSectionRef = useRef<HTMLDivElement>(null);
+  const exactPassengersSectionRef = useRef<HTMLDivElement>(null);
   const suitcasesSectionRef = useRef<HTMLDivElement>(null);
+  const exactSuitcasesSectionRef = useRef<HTMLDivElement>(null);
+  const dropoffFieldRef = useRef<HTMLDivElement>(null);
   const prevShowPartyFields = useRef(showPartyFields);
   const prevShowAddresses = useRef(false);
+  const pendingScrollToExactPassengersRef = useRef(false);
+  const pendingScrollToExactSuitcasesRef = useRef(false);
 
   const showAirportPicker =
     journeyIntent === "to-airport" || journeyIntent === "from-airport";
@@ -179,6 +188,30 @@ export default function QuoteProgressiveRoute({
     return undefined;
   }, [showPartyFields]);
 
+  // Exact passengers panel mounts after 5+ is chosen — scroll once it exists.
+  useEffect(() => {
+    if (!pendingScrollToExactPassengersRef.current) {
+      return undefined;
+    }
+    if (passengers < FIVE_PLUS_PASSENGERS) {
+      return undefined;
+    }
+    pendingScrollToExactPassengersRef.current = false;
+    return scheduleQuoteSectionScroll(exactPassengersSectionRef.current);
+  }, [passengers, exactPassengers]);
+
+  // Exact large bags panel mounts after 4+ is chosen — scroll once it exists.
+  useEffect(() => {
+    if (!pendingScrollToExactSuitcasesRef.current) {
+      return undefined;
+    }
+    if (suitcases < 4) {
+      return undefined;
+    }
+    pendingScrollToExactSuitcasesRef.current = false;
+    return scheduleQuoteSectionScroll(exactSuitcasesSectionRef.current);
+  }, [suitcases]);
+
   function handleJourneyIntentChange(intent: QuoteJourneyIntent) {
     onJourneyIntentChange(intent);
     if (intent === "to-airport" || intent === "from-airport") {
@@ -197,19 +230,49 @@ export default function QuoteProgressiveRoute({
     onPassengersChange(value);
     if (value < FIVE_PLUS_PASSENGERS) {
       onExactPassengersChange(null);
+      pendingScrollToExactPassengersRef.current = false;
       scheduleQuoteSectionScroll(suitcasesSectionRef.current);
       return;
     }
     if (!exactPassengers || exactPassengers < 5 || exactPassengers > 7) {
       onExactPassengersChange(5);
     }
+    // Reveal Exact Passengers first — do not jump to suitcases or fare yet.
+    pendingScrollToExactPassengersRef.current = true;
+  }
+
+  function handleExactPassengersChange(value: number) {
+    const next = Math.min(7, Math.max(5, value));
+    onPassengersChange(next);
+    onExactPassengersChange(next);
     scheduleQuoteSectionScroll(suitcasesSectionRef.current);
   }
 
   function handleSuitcasesChange(value: number) {
+    const revealingExactBags = value >= 4 && suitcases < 4;
     onSuitcasesChange(value);
-    // After luggage is chosen, reveal the primary quote CTA (Book / Continue / Save).
-    scheduleQuoteSectionScrollById("quote-step1-next");
+    if (revealingExactBags) {
+      // Reveal Exact Large Bags first — do not jump to the fare until that is chosen.
+      clearScheduledQuoteSectionScroll();
+      pendingScrollToExactSuitcasesRef.current = true;
+      return;
+    }
+    // Luggage complete: wait for calculated quote to render, then scroll to fare result only.
+    // Never target Book / Continue / Save / customer details.
+    scheduleQuoteFareResultScroll();
+  }
+
+  function handleExactSuitcasesChange(value: number) {
+    onSuitcasesChange(value);
+    scheduleQuoteFareResultScroll();
+  }
+
+  function handlePickupPlaceSelect(place: SelectedPlace) {
+    onPickupPlaceSelect(place);
+    // A2A: after pickup, bring the destination field into view when needed.
+    if (journeyIntent === "address-to-address" && !dropoffConfirmedPlace) {
+      scheduleQuoteSectionScroll(dropoffFieldRef.current);
+    }
   }
 
   return (
@@ -291,7 +354,7 @@ export default function QuoteProgressiveRoute({
               name="pickup"
               value={pickupAddress}
               onChange={onPickupChange}
-              onSelectPlace={onPickupPlaceSelect}
+              onSelectPlace={handlePickupPlaceSelect}
               requireSuggestion
               confirmedPlace={pickupConfirmedPlace}
               restoredHint={pickupRestoredHint}
@@ -304,24 +367,30 @@ export default function QuoteProgressiveRoute({
             />
           )}
           {(journeyIntent === "from-airport" || journeyIntent === "address-to-address") && (
-            <AddressInput
-              id="dropoff"
-              name="dropoff"
-              value={dropoffAddress}
-              onChange={onDropoffChange}
-              onSelectPlace={onDropoffPlaceSelect}
-              requireSuggestion
-              confirmedPlace={dropoffConfirmedPlace}
-              restoredHint={dropoffRestoredHint}
-              onClear={onClearDropoff}
-              selectionError={dropoffPlaceError}
-              airportCode={addressLookupCode}
-              label={
-                journeyIntent === "from-airport" ? "Where are you travelling to?" : "Destination"
-              }
-              placeholder="Enter destination address or hotel"
-              helperText="Pick a complete address from the suggestions"
-            />
+            <div
+              id="quote-section-dropoff"
+              ref={dropoffFieldRef}
+              className={SECTION_SCROLL_CLASS}
+            >
+              <AddressInput
+                id="dropoff"
+                name="dropoff"
+                value={dropoffAddress}
+                onChange={onDropoffChange}
+                onSelectPlace={onDropoffPlaceSelect}
+                requireSuggestion
+                confirmedPlace={dropoffConfirmedPlace}
+                restoredHint={dropoffRestoredHint}
+                onClear={onClearDropoff}
+                selectionError={dropoffPlaceError}
+                airportCode={addressLookupCode}
+                label={
+                  journeyIntent === "from-airport" ? "Where are you travelling to?" : "Destination"
+                }
+                placeholder="Enter destination address or hotel"
+                helperText="Pick a complete address from the suggestions"
+              />
+            </div>
           )}
           {journeyIntent === "to-airport" && airportChosen && (
             <p className="rounded-xl border border-white/10 bg-navy-dark/40 px-3 py-2 text-xs text-white/70">
@@ -387,7 +456,11 @@ export default function QuoteProgressiveRoute({
               />
 
               {passengers >= FIVE_PLUS_PASSENGERS && (
-                <div className="space-y-3 rounded-2xl border border-amber-400/25 bg-amber-400/10 px-4 py-4">
+                <div
+                  id="quote-section-exact-passengers"
+                  ref={exactPassengersSectionRef}
+                  className={`space-y-3 rounded-2xl border border-amber-400/25 bg-amber-400/10 px-4 py-4 ${SECTION_SCROLL_CLASS}`}
+                >
                   <p className="text-sm font-semibold text-amber-100">
                     Travelling with 5–7 passengers?
                   </p>
@@ -404,12 +477,7 @@ export default function QuoteProgressiveRoute({
                         ? exactPassengers
                         : 5
                     }
-                    onChange={(value) => {
-                      const next = Math.min(7, Math.max(5, value));
-                      onPassengersChange(next);
-                      onExactPassengersChange(next);
-                      scheduleQuoteSectionScroll(suitcasesSectionRef.current);
-                    }}
+                    onChange={handleExactPassengersChange}
                     formatOption={(value) => String(value)}
                     columns={3}
                   />
@@ -440,13 +508,19 @@ export default function QuoteProgressiveRoute({
               />
 
               {suitcases >= 4 && (
-                <ChoiceGrid
-                  label="Exact large bags (4+)"
-                  options={[4, 5, 6, 7, FIVE_PLUS_SUITCASES]}
-                  value={suitcases >= FIVE_PLUS_SUITCASES ? FIVE_PLUS_SUITCASES : suitcases}
-                  onChange={handleSuitcasesChange}
-                  formatOption={(value) => (value >= FIVE_PLUS_SUITCASES ? "5+" : String(value))}
-                />
+                <div
+                  id="quote-section-exact-suitcases"
+                  ref={exactSuitcasesSectionRef}
+                  className={SECTION_SCROLL_CLASS}
+                >
+                  <ChoiceGrid
+                    label="Exact large bags (4+)"
+                    options={[4, 5, 6, 7, FIVE_PLUS_SUITCASES]}
+                    value={suitcases >= FIVE_PLUS_SUITCASES ? FIVE_PLUS_SUITCASES : suitcases}
+                    onChange={handleExactSuitcasesChange}
+                    formatOption={(value) => (value >= FIVE_PLUS_SUITCASES ? "5+" : String(value))}
+                  />
+                </div>
               )}
             </div>
           </div>
