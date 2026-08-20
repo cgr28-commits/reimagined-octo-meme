@@ -77,13 +77,13 @@
   "airportExecutiveMinimumFareGbp": 105,
   "areaAirportSurchargesGbp": {
     "Belfast City Centre": {
-      "BFS": 6,
+      "BFS": 4,
       "BHD": 0,
       "DUB": 50,
       "LDY": 104
     },
     "Holywood": {
-      "BFS": 8,
+      "BFS": 18,
       "BHD": 0,
       "DUB": 58,
       "LDY": 104
@@ -122,13 +122,13 @@
       "BFS": 8,
       "BHD": 25,
       "DUB": 65,
-      "LDY": 118
+      "LDY": 109
     },
     "Carrickfergus": {
       "BFS": 19,
       "BHD": 15,
       "DUB": 62,
-      "LDY": 103
+      "LDY": 104
     },
     "Comber": {
       "BFS": 28,
@@ -152,7 +152,7 @@
       "BFS": 28,
       "BHD": 9,
       "DUB": 62,
-      "LDY": 113
+      "LDY": 103
     },
     "Ballymena": {
       "BFS": 4,
@@ -186,7 +186,7 @@
     },
     "Portadown": {
       "BFS": 28,
-      "BHD": 59,
+      "BHD": 60,
       "DUB": 85,
       "LDY": 70
     },
