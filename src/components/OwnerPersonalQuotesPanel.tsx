@@ -461,8 +461,8 @@ export default function OwnerPersonalQuotesPanel({ ownerKey }: OwnerPersonalQuot
             {calculatingFare ? "Calculating…" : "Calculate website price"}
           </button>
           <p className="text-xs text-white/45">
-            Uses the same pricing engine as the public quote calculator (including weekend / Bank
-            Holiday premiums when date and time are set). Stores the one-way website fare.
+            Uses the same pricing engine as the public quote calculator. Stores the one-way website
+            fare (weekday and weekend use the same base fare; return bookings keep the 5% discount).
           </p>
           {standardWebsiteAmount.trim() ? (
             <p className="text-lg font-bold text-white">

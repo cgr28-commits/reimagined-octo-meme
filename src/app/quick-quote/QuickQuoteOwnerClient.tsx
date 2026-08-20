@@ -139,12 +139,17 @@ export default function QuickQuoteOwnerClient() {
       draft,
     );
     if (!pickupAddress || !dropoffAddress) return false;
-    if (!draft.outboundDate || !draft.outboundTime) return false;
+    // Date/time optional for fare calculation — customer must set before payment.
     const pax = Number(draft.passengers);
     const bags = Number(draft.suitcases);
     if (!Number.isInteger(pax) || pax < 1 || pax > QUICK_QUOTE_MAX_PASSENGERS) return false;
     if (!Number.isInteger(bags) || bags < 0) return false;
-    if (draft.returnJourney && (!draft.returnDate || !draft.returnTime)) return false;
+    if (
+      draft.returnJourney &&
+      ((draft.returnDate && !draft.returnTime) || (!draft.returnDate && draft.returnTime))
+    ) {
+      return false;
+    }
     return true;
   }, [draft, pickupPlace, dropoffPlace]);
 

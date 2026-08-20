@@ -1,6 +1,13 @@
 /**
  * Passenger / luggage → vehicle classification for the public quote form.
  * Monetary rates live in pricing-config.json and are not defined here.
+ *
+ * Shared business rule (source of truth):
+ * - Standard Saloon: 1–4 passengers AND 0–2 suitcases
+ * - Estate Car: 1–4 passengers AND 3–4 suitcases
+ * - Minibus: 5–7 passengers (also used when suitcases > 4 for capacity)
+ *
+ * Passenger count of 3 or 4 does NOT by itself trigger Estate.
  */
 
 import { MINIBUS_VEHICLE_TYPE, VEHICLE_TYPES, type VehicleType } from "./data";
@@ -21,7 +28,7 @@ export const FIVE_PLUS_SUITCASES = 5;
 export { GROUP_PASSENGER_MAX, GROUP_PASSENGER_MIN, MAX_PASSENGERS };
 
 /**
- * True when the party needs a Minibus (more than 4 passengers or more than 4 large cases).
+ * True when the party needs a Minibus (5–7 passengers, or more than 4 large cases).
  * Minibus uses existing pricing and is bookable online via SumUp.
  */
 export function requiresMinibus(passengers: number, suitcases: number): boolean {
@@ -29,10 +36,8 @@ export function requiresMinibus(passengers: number, suitcases: number): boolean 
 }
 
 /**
- * Business rules (source of truth):
- * - Larger vehicle if passengers > 4 OR suitcases > 4
- * - Else Estate if passengers 3–4 OR suitcases 3–4 (and still ≤4 / ≤4)
- * - Else Saloon when passengers 1–2 AND suitcases 0–2
+ * Shared vehicle-selection rule used by public quote, Quick Quote, Personal Quote,
+ * owner tools, and the quote assistant.
  */
 export function selectVehicleForParty(
   passengers: number,
@@ -41,7 +46,8 @@ export function selectVehicleForParty(
   if (requiresMinibus(passengers, suitcases)) {
     return MINIBUS_VEHICLE;
   }
-  if (passengers >= 3 || suitcases >= 3) {
+  // Estate only when luggage needs it — not merely because passengers are 3–4.
+  if (passengers >= 1 && passengers <= 4 && suitcases >= 3 && suitcases <= 4) {
     return ESTATE_VEHICLE;
   }
   return SALOON_VEHICLE;

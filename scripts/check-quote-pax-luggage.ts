@@ -38,10 +38,13 @@ const belfast = "10 Donegall Square North, Belfast BT1 5GB";
 
 check("1 passenger / 0 suitcases", 1, 0, "saloon", "BFS", belfast);
 check("2 passengers / 2 suitcases", 2, 2, "saloon", "BFS", belfast);
-check("3 passengers / 0 suitcases", 3, 0, "estate", "BFS", belfast);
+check("3 passengers / 0 suitcases", 3, 0, "saloon", "BFS", belfast);
+check("3 passengers / 2 suitcases", 3, 2, "saloon", "BFS", belfast);
+check("4 passengers / 2 suitcases", 4, 2, "saloon", "BFS", belfast);
 check("4 passengers / 4 suitcases", 4, 4, "estate", "BFS", belfast);
 check("1 passenger / 3 suitcases", 1, 3, "estate", "BFS", belfast);
 check("2 passengers / 4 suitcases", 2, 4, "estate", "BFS", belfast);
+check("3 passengers / 3 suitcases", 3, 3, "estate", "BFS", belfast);
 check("5–7 passengers", 5, 1, "minibus", "BFS", belfast);
 check("5+ suitcases", 2, 5, "minibus", "BFS", belfast);
 check("7 passengers", 7, 2, "minibus", "BFS", belfast);
@@ -51,10 +54,10 @@ check("Dublin Airport", 2, 1, "saloon", "DUB", belfast);
 check("BFS estate luggage", 2, 3, "estate", "BFS", belfast);
 
 assert.equal(selectVehicleForParty(2, 2), SALOON_VEHICLE);
-assert.equal(selectVehicleForParty(3, 2), ESTATE_VEHICLE);
+assert.equal(selectVehicleForParty(3, 2), SALOON_VEHICLE);
 
 const ret = calculateQuote(belfast, "BFS", SALOON_VEHICLE, true);
-assert.equal(ret?.amount, 105);
-console.log("OK  BFS return saloon £105");
+assert.equal(ret?.amount, 95); // £50 × 2 × 0.95
+console.log("OK  BFS return saloon £95");
 
 console.log("\nAll passenger/luggage quote checks passed (rates unchanged).");

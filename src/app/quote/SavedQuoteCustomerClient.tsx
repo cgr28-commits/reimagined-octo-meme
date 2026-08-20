@@ -375,7 +375,9 @@ function SavedQuoteInner() {
           ) : null}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <dt className="mb-1 text-xs uppercase tracking-wider text-white/45">Date</dt>
+              <dt className="mb-1 text-xs uppercase tracking-wider text-white/45">
+                Date {!tripDate.trim() ? <span className="normal-case text-white/40">(Not set)</span> : null}
+              </dt>
               <dd>
                 <input
                   type="date"
@@ -386,7 +388,9 @@ function SavedQuoteInner() {
               </dd>
             </div>
             <div>
-              <dt className="mb-1 text-xs uppercase tracking-wider text-white/45">Time</dt>
+              <dt className="mb-1 text-xs uppercase tracking-wider text-white/45">
+                Time {!tripTime.trim() ? <span className="normal-case text-white/40">(Not set)</span> : null}
+              </dt>
               <dd>
                 <input
                   type="time"
@@ -398,8 +402,8 @@ function SavedQuoteInner() {
             </div>
           </div>
           <p className="text-xs text-white/45">
-            Changing date or time recalculates the fare. The original saved price is not kept after
-            a schedule change.
+            Date and time can be added later — they are required before payment. Changing date or
+            time recalculates the fare.
           </p>
           <div className="grid grid-cols-2 gap-3">
             <div>

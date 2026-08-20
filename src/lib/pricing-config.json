@@ -3,10 +3,10 @@
   "pricingModel": {
     "summary": "One engine for every eligible online journey: driving route (when available) → distance/time reference → distance-band adjustment → airport zone/minimum rules when an airport leg is present → vehicle supplement → optional return 5% discount → rounded fixed fare.",
     "addressToAddress": "OTS-style reference (vehicleBase + tier×(perKm×km + perMin×min)) + addressToAddressDistanceBands adjustment. Requires valid route metrics; otherwise no fare.",
-    "airport": "Calibrated areaAirportSurchargesGbp zones supply short/medium airport fares (scales by origin zone, not a hard-coded town-pair). Estate uses tiered premium (≤£45 +£5; mid +£8; ≥£140 +£24; Dublin flat +£8). Airport-zone OTS calibration targets ~£3–£5 below OTS estate (airportOtsCalibration) without feeding live quotes. When route metrics exist: unknown origins use distance+airport minimum; long hauls (≥ airportRouteDistanceProtectFromKm) take max(zone, distance) for empty-return protection. BHD/BFS also apply belfastAirportDistanceFloor (MAX zone vs £65/£60 + £2/mile above 20 miles) so named zones do not flatten longer journeys. Weekend/Bank Holiday uplift uses airportTripPremiumRate (same schedule window as A2A).",
+    "airport": "Calibrated areaAirportSurchargesGbp zones supply short/medium airport fares (scales by origin zone, not a hard-coded town-pair). Estate uses tiered premium (≤£45 +£5; mid +£8; ≥£140 +£24; Dublin flat +£8). Airport-zone OTS calibration targets ~£3–£5 below OTS estate (airportOtsCalibration) without feeding live quotes. When route metrics exist: unknown origins use distance+airport minimum; long hauls (≥ airportRouteDistanceProtectFromKm) take max(zone, distance) for empty-return protection. BHD/BFS also apply belfastAirportDistanceFloor (MAX zone vs £65/£60 + £2/mile above 20 miles) so named zones do not flatten longer journeys. No weekend/Bank Holiday surcharge — weekday and weekend use the same base fare (airportTripPremiumRate / addressToAddressTripPremiumRate are 0).",
     "dublinAirport": "£230/£240 Belfast-centre benchmark is DUB airport only (place ID / geofence / explicit airport name). Dublin city uses DUB fare + dublinCityBeyondAirport uplift.",
-    "vehicles": "Saloon 1–2 pax AND 0–2 large cases; Estate if 3–4 pax OR 3–4 cases (≤4/≤4); Minibus if >4 pax OR >4 cases (online fare: estateTier×1.55 airport / £60 A2A base).",
-    "returnDiscount": "returnJourneyDiscountRate applied once to (2 × oneWay).",
+    "vehicles": "Saloon 1–4 pax AND 0–2 large cases; Estate 1–4 pax AND 3–4 cases; Minibus 5–7 pax (or >4 large cases for capacity). Online Minibus fare: estateTier×1.55 airport / £60 A2A base.",
+    "returnDiscount": "returnJourneyDiscountRate (exactly 5%) applied once to (2 × oneWay).",
     "rounding": "Prefer nearest £5; amounts ending in £x4 are kept (e.g. £34, £49)."
   },
   "pricingRulesApproved": true,
@@ -25,7 +25,7 @@
       "baseFeeGbp": null,
       "perKmGbp": null,
       "perMinuteGbp": null,
-      "premiumRate": 0.05
+      "premiumRate": 0
     },
     "defaultTollsGbp": null,
     "airportChargesGbp": {
@@ -318,6 +318,6 @@
     "perMinuteGbp": 0.45,
     "minimumUpliftGbp": 25
   },
-  "airportTripPremiumRate": 0.05,
-  "addressToAddressTripPremiumRate": 0.05
+  "airportTripPremiumRate": 0,
+  "addressToAddressTripPremiumRate": 0
 }

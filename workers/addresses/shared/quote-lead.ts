@@ -23,7 +23,7 @@ function scheduleLabel(date?: string, time?: string): string {
   const d = date?.trim() ?? "";
   const t = time?.trim() ?? "";
   if (!d || !t) {
-    return "Not set yet";
+    return "Not set";
   }
   return formatUkDateTime(d, t);
 }

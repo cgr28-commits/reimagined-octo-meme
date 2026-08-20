@@ -230,13 +230,11 @@ function run() {
     vehicle: "Standard Saloon (1–4 passengers)",
     tripLabel: "Airport pickup",
   });
-  assert.equal(missingSchedule.ok, false);
-  if (!missingSchedule.ok) {
-    assert.equal(missingSchedule.reason, "missing_schedule");
-    assert.match(missingSchedule.message, /date and time/i);
-    assert.doesNotMatch(missingSchedule.message, /no longer available/i);
+  assert.equal(missingSchedule.ok, true);
+  if (missingSchedule.ok) {
+    assert.equal(missingSchedule.payload.journey.tripDate, "");
+    assert.equal(missingSchedule.payload.journey.tripTime, "");
   }
-  assert.doesNotMatch(saveQuotePayloadBlockMessage("missing_schedule"), /no longer available/i);
 
   const readyPayload = buildSaveQuotePayloadFromLiveQuote({
     liveQuote: liveQuoteSnapshot,

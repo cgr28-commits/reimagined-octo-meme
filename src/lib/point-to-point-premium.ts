@@ -2,13 +2,16 @@ import { londonWeekday, wallClockMinutes } from "../../shared/uk-time";
 import { RETURN_JOURNEY_DISCOUNT_RATE } from "../../shared/return-journey-discount";
 import { PRICING_CONFIG } from "./pricing-config";
 
-/** 5% supplement for address-to-address trips on premium dates. */
+/**
+ * Weekend / Bank Holiday trip uplift rates (config). Live pricing sets these to 0 —
+ * weekday and weekend use the same base fare. Engine kept for schedule helpers / tests.
+ */
 export const TRIP_PREMIUM_RATE = PRICING_CONFIG.addressToAddressTripPremiumRate;
 
-/** Public + Personal Quote return discount — from shared/return-journey-discount-rate.json. */
+/** Public + Personal Quote return discount — from shared/return-journey-discount-rate.json (exactly 5%). */
 export { RETURN_JOURNEY_DISCOUNT_RATE };
 
-/** Airport transfers: same weekend / Bank Holiday premium window as A2A (rate from config). */
+/** Airport transfers: same schedule helpers as A2A; live rate is 0 (no weekend/BH surcharge). */
 export const AIRPORT_TRIP_PREMIUM_RATE = PRICING_CONFIG.airportTripPremiumRate;
 
 /** @deprecated Use TRIP_PREMIUM_RATE */

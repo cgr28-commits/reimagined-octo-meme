@@ -40,8 +40,9 @@ check("Airport picker lists BFS / BHD / LDY / DUB without typing", () => {
   assert.match(intent, /Belfast City Airport/);
   assert.match(intent, /City of Derry Airport/);
   assert.match(intent, /Dublin Airport/);
+  assert.match(intent, /code: "LDY"/);
   assert.match(progressive, /Which airport\?/);
-  assert.match(selectedPlace, /code: "LDY"/);
+  assert.match(selectedPlace, /"LDY"/);
 });
 
 check("City of Derry quick-select does not use Dublin toll logic", () => {
@@ -52,9 +53,15 @@ check("City of Derry quick-select does not use Dublin toll logic", () => {
 check("Passenger and luggage use selectable buttons", () => {
   assert.match(progressive, /Passengers/);
   assert.match(progressive, /Suitcases \/ large bags/);
-  assert.match(progressive, /Child seats/);
+  assert.doesNotMatch(progressive, /Child seats/);
   assert.match(progressive, /One Way/);
   assert.match(progressive, /Return/);
+});
+
+check("Public quote tool has no child/car seat question", () => {
+  assert.doesNotMatch(progressive, /Child seats|Child seat details|car seat/i);
+  assert.doesNotMatch(card, /onChildSeatsChange|setChildSeats|childSeatNotes/);
+  assert.doesNotMatch(card, /label=\"Child seats\"/);
 });
 
 check("5–7 path is Minibus online quote + SumUp (existing pricing)", () => {

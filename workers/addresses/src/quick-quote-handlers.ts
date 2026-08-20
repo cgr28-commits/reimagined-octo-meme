@@ -60,11 +60,9 @@ function parseJourney(body: Record<string, unknown>): QuickQuoteJourney | { erro
 
   if (!pickupAddress) return { error: "Pickup address is required." };
   if (!dropoffAddress) return { error: "Destination address is required." };
-  if (!outboundDate || !outboundTime) {
-    return { error: "Outbound date and time are required." };
-  }
-  if (returnJourney && (!returnDate || !returnTime)) {
-    return { error: "Return journeys require both return date and return time." };
+  // Outbound date/time optional for quote calculation; payment still requires them.
+  if (returnJourney && ((returnDate && !returnTime) || (!returnDate && returnTime))) {
+    return { error: "Return journeys need both return date and return time, or leave both blank." };
   }
   if (!Number.isFinite(passengers) || passengers < 1) {
     return { error: "Passenger count is required." };

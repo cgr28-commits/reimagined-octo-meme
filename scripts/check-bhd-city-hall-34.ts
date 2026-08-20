@@ -88,14 +88,16 @@ assert.equal(dubCity?.amount, 230, "DUB Belfast centre unchanged");
 console.log(`\nOK  BFS City Hall saloon £${bfsCity?.amount}`);
 console.log(`OK  DUB City Hall saloon £${dubCity?.amount} (untouched)`);
 
-console.log("\n=== Vehicle selection (unchanged) ===");
+console.log("\n=== Vehicle selection ===");
 assert.equal(selectVehicleForParty(1, 0), SALOON);
 assert.equal(selectVehicleForParty(2, 2), SALOON);
-assert.equal(selectVehicleForParty(3, 0), ESTATE);
+assert.equal(selectVehicleForParty(3, 0), SALOON);
+assert.equal(selectVehicleForParty(3, 2), SALOON);
+assert.equal(selectVehicleForParty(4, 2), SALOON);
 assert.equal(selectVehicleForParty(2, 3), ESTATE);
 assert.equal(selectVehicleForParty(4, 4), ESTATE);
 assert.equal(selectVehicleForParty(5, 1), MINIBUS_VEHICLE);
 assert.equal(requiresMinibus(5, 1), true);
-console.log("OK  Saloon 1–2 pax / 0–2 cases; Estate 3–4; Minibus >4");
+console.log("OK  Saloon 1–4 pax / 0–2 cases; Estate 1–4 pax / 3–4 cases; Minibus 5–7");
 
 console.log("\nAll BHD £34 benchmark checks passed.");

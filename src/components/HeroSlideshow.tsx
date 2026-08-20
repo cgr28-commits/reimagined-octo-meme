@@ -73,11 +73,17 @@ export default function HeroSlideshow() {
               </svg>
               60 minutes complimentary airport waiting
             </div>
-            <div className="flex items-center gap-2 lg:col-span-2">
+            <div className="flex items-center gap-2">
               <svg className="h-5 w-5 shrink-0 text-emerald" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
               Secure online booking
+            </div>
+            <div className="flex items-center gap-2">
+              <svg className="h-5 w-5 shrink-0 text-emerald" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+              Save 5% when you book a return
             </div>
           </div>
 

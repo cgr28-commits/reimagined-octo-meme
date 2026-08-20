@@ -1,5 +1,6 @@
 /**
- * Airport weekend / Bank Holiday trip premium (airportTripPremiumRate).
+ * No weekend / Bank Holiday trip surcharge (rates at 0).
+ * Return discount remains exactly 5%.
  * Run: npx tsx scripts/check-airport-weekend-premium.ts
  */
 
@@ -24,20 +25,20 @@ const SALOON = SALOON_VEHICLE;
 const cityHall = "Belfast City Hall, Belfast BT1 5GS";
 const root = path.resolve(import.meta.dirname, "..");
 
-assert.equal(PRICING_CONFIG.airportTripPremiumRate, 0.05);
-assert.equal(AIRPORT_TRIP_PREMIUM_RATE, 0.05);
-assert.equal(PRICING_CONFIG.addressToAddressTripPremiumRate, 0.05);
-console.log("OK  Config: airport + A2A trip premium rates are 5%");
+assert.equal(PRICING_CONFIG.airportTripPremiumRate, 0);
+assert.equal(AIRPORT_TRIP_PREMIUM_RATE, 0);
+assert.equal(PRICING_CONFIG.addressToAddressTripPremiumRate, 0);
+assert.equal(PRICING_CONFIG.operational.weekendAndBankHoliday.premiumRate ?? 0, 0);
+console.log("OK  Config: airport + A2A trip premium rates are 0 (no weekend/BH surcharge)");
 
-// Engine-level: £100 one-way → £105 before website roundFare.
-const enginePremium = applyTripPremium(
+const engineWeekend = applyTripPremium(
   100,
   { outboundDate: "2026-08-22", outboundTime: "10:00", returnJourney: false },
   AIRPORT_TRIP_PREMIUM_RATE,
 );
-assert.equal(enginePremium.premiumApplied, true);
-assert.equal(enginePremium.premiumAmount, 5);
-assert.equal(enginePremium.total, 105);
+assert.equal(engineWeekend.premiumApplied, false);
+assert.equal(engineWeekend.premiumAmount, 0);
+assert.equal(engineWeekend.total, 100);
 const engineWeekday = applyTripPremium(
   100,
   { outboundDate: "2026-08-19", outboundTime: "10:00", returnJourney: false },
@@ -45,37 +46,38 @@ const engineWeekday = applyTripPremium(
 );
 assert.equal(engineWeekday.premiumApplied, false);
 assert.equal(engineWeekday.total, 100);
-console.log("OK  Engine: £100 weekday → £100; Sat → £105 (before roundFare)");
+console.log("OK  Engine: £100 weekday = £100 weekend (no surcharge)");
 
 const weekday = calculateQuote(cityHall, "BFS", SALOON, false, {
-  outboundDate: "2026-08-19", // Wednesday
+  outboundDate: "2026-08-19",
   outboundTime: "10:00",
 });
 const saturday = calculateQuote(cityHall, "BFS", SALOON, false, {
-  outboundDate: "2026-08-22", // Saturday
+  outboundDate: "2026-08-22",
   outboundTime: "10:00",
 });
 const sunday = calculateQuote(cityHall, "BFS", SALOON, false, {
-  outboundDate: "2026-08-23", // Sunday
+  outboundDate: "2026-08-23",
   outboundTime: "10:00",
 });
 const bankHoliday = calculateQuote(cityHall, "BFS", SALOON, false, {
-  outboundDate: "2026-05-04", // NI May Day
+  outboundDate: "2026-05-04",
   outboundTime: "10:00",
 });
+const noSchedule = calculateQuote(cityHall, "BFS", SALOON, false, {});
 
-assert.ok(weekday && saturday && sunday && bankHoliday);
-assert.equal(weekday.premiumApplied, false, "1. Airport weekday — no premium");
-assert.equal(saturday.premiumApplied, true, "2. Airport Saturday — premium");
-assert.equal(sunday.premiumApplied, true, "3. Airport Sunday — premium");
-assert.equal(bankHoliday.premiumApplied, true, "4. Airport Bank Holiday — premium");
-assert.ok(saturday.amount > weekday.amount);
-assert.ok(sunday.amount > weekday.amount);
-assert.ok(bankHoliday.amount > weekday.amount);
-assert.equal(saturday.amount, sunday.amount);
-assert.equal(saturday.amount, bankHoliday.amount);
+assert.ok(weekday && saturday && sunday && bankHoliday && noSchedule);
+assert.equal(weekday.premiumApplied, false);
+assert.equal(saturday.premiumApplied, false);
+assert.equal(sunday.premiumApplied, false);
+assert.equal(bankHoliday.premiumApplied, false);
+assert.equal(noSchedule.premiumApplied, false);
+assert.equal(saturday.amount, weekday.amount);
+assert.equal(sunday.amount, weekday.amount);
+assert.equal(bankHoliday.amount, weekday.amount);
+assert.equal(noSchedule.amount, weekday.amount);
 console.log(
-  `OK  1–4. BFS City Hall weekday £${weekday.amount}; Sat/Sun/BH £${saturday.amount}`,
+  `OK  1–4. BFS City Hall weekday/Sat/Sun/BH/no-date all £${weekday.amount}`,
 );
 
 const bfsPlace: SelectedPlace = {
@@ -112,7 +114,7 @@ const ownerAirportWeekend = calculateWebsiteOneWayFare({
 });
 assert.ok(ownerAirportWeekend);
 assert.equal(ownerAirportWeekend!.amount, saturday.amount);
-assert.equal(ownerAirportWeekend!.premiumApplied, true);
+assert.equal(ownerAirportWeekend!.premiumApplied, false);
 
 const ownerAirportWeekday = calculateWebsiteOneWayFare({
   pickupAddress: cityHall,
@@ -133,7 +135,6 @@ console.log(
   `OK  5–6. Owner calculator matches public; standardWebsiteAmount £${standardWebsiteAmount}`,
 );
 
-// 7. A2A 5% premium still works.
 const a2aMetrics = { distanceKm: 28, durationMinutes: 40 };
 const a2aPickup = "12 Botanic Avenue, Belfast BT7 1JG";
 const a2aDropoff = "45 Main Street, Bangor BT20 5AF";
@@ -155,13 +156,12 @@ const a2aWeekend = calculatePointToPointQuote(
 );
 assert.ok(a2aWeekday && a2aWeekend);
 assert.equal(a2aWeekday.premiumApplied, false);
-assert.equal(a2aWeekend.premiumApplied, true);
-assert.notEqual(a2aWeekend.amount, a2aWeekday.amount);
+assert.equal(a2aWeekend.premiumApplied, false);
+assert.equal(a2aWeekend.amount, a2aWeekday.amount);
 console.log(
-  `OK  7. A2A premium still works (weekday £${a2aWeekday.amount} → Sat £${a2aWeekend.amount})`,
+  `OK  7. A2A weekday = weekend £${a2aWeekday.amount} (no surcharge)`,
 );
 
-// 8–9. Personal Quote return rules + public return discount unchanged.
 assert.equal(getReturnJourneyFare(100), 190);
 assert.equal(getWebsiteReturnJourneyFare(100), 190);
 assert.equal(
@@ -180,21 +180,16 @@ assert.equal(
   }),
   Math.round((standardWebsiteAmount - 10) * 2 * 100) / 100,
 );
-console.log("OK  8–9. PQ return rules + public return discount unchanged");
+console.log("OK  8–9. Return discount remains exactly 5%");
 
-// 10. SumUp remains server-authoritative.
 const payment = fs.readFileSync(path.join(root, "workers/addresses/src/index.ts"), "utf8");
 assert.match(payment, /never use client standardWebsiteAmount for SumUp amount/);
 assert.match(payment, /amount = resolved\.amount/);
 console.log("OK  10. SumUp remains Worker/KV-authoritative");
 
-const websiteFareSrc = fs.readFileSync(path.join(root, "src/lib/website-fare.ts"), "utf8");
-assert.doesNotMatch(websiteFareSrc, /0\.05/);
-const panel = fs.readFileSync(
-  path.join(root, "src/components/OwnerPersonalQuotesPanel.tsx"),
-  "utf8",
-);
-assert.doesNotMatch(panel, /airportTripPremiumRate|0\.05/);
-console.log("OK  No hard-coded airport premium rate in Owner / website-fare UI path");
+const hero = fs.readFileSync(path.join(root, "src/components/HeroSlideshow.tsx"), "utf8");
+assert.match(hero, /Save 5% when you book a return/);
+assert.match(hero, /Secure online booking/);
+console.log("OK  Homepage benefits include return saving");
 
-console.log("\nAll airport weekend premium checks passed.");
+console.log("\nAll airport weekend premium (disabled) checks passed.");

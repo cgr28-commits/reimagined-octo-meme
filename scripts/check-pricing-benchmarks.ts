@@ -230,7 +230,9 @@ const ret = calculateQuote(hall, "BFS", SALOON, true);
 assert.equal(ret?.amount, 95, "BFS return keeps single 5% discount (50*1.9→95)");
 
 assert.equal(selectVehicleForParty(2, 2), SALOON);
-assert.equal(selectVehicleForParty(3, 0), ESTATE);
+assert.equal(selectVehicleForParty(3, 0), SALOON);
+assert.equal(selectVehicleForParty(3, 2), SALOON);
+assert.equal(selectVehicleForParty(4, 2), SALOON);
 assert.equal(selectVehicleForParty(1, 3), ESTATE);
 assert.equal(selectVehicleForParty(5, 1), MINIBUS_VEHICLE);
 assert.equal(requiresMinibus(2, 5), true);

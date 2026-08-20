@@ -187,7 +187,7 @@ function run() {
   assert.ok(what.some((line) => /Pickup address/i.test(line)));
   assert.ok(what.some((line) => /Pickup time/i.test(line)));
 
-  assert.doesNotMatch(saveQuotePayloadBlockMessage("missing_schedule"), /no longer available/i);
+  assert.doesNotMatch(saveQuotePayloadBlockMessage("missing_route"), /no longer available/i);
   const modal = fs.readFileSync(path.join(root, "src/components/SaveQuoteModal.tsx"), "utf8");
   assert.doesNotMatch(
     modal,

@@ -80,8 +80,7 @@ export type BuildSaveQuotePayloadResult =
         | "missing_live_quote"
         | "not_online_payable"
         | "enquiry_or_request_flow"
-        | "missing_route"
-        | "missing_schedule";
+        | "missing_route";
       message: string;
     };
 
@@ -90,8 +89,6 @@ export function saveQuotePayloadBlockMessage(
   reason: Exclude<BuildSaveQuotePayloadResult, { ok: true }>["reason"],
 ): string {
   switch (reason) {
-    case "missing_schedule":
-      return "Please select your pickup date and time before saving this quote.";
     case "missing_route":
       return "Please complete your pickup and destination before saving this quote.";
     case "missing_live_quote":
@@ -145,13 +142,7 @@ export function buildSaveQuotePayloadFromLiveQuote(
 
   const tripDate = input.tripDate.trim();
   const tripTime = input.tripTime.trim();
-  if (!tripDate || !tripTime) {
-    return {
-      ok: false,
-      reason: "missing_schedule",
-      message: saveQuotePayloadBlockMessage("missing_schedule"),
-    };
-  }
+  // Date/time optional at Save Quote — store empty when not set (display as "Not set").
 
   const journey: SavedQuoteJourneySnapshot = {
     pickupLabel,
