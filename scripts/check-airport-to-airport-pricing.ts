@@ -82,6 +82,14 @@ console.log("=== 1. Routing: airport↔airport uses dedicated helper (not A2A fa
     quoteSrc,
     /When Dublin Airport is one end[\s\S]*always use existing DUB airport pricing/,
   );
+  assert.match(
+    quoteSrc,
+    /underlying address-to-address journey fare \+ genuine access fee/,
+  );
+  assert.doesNotMatch(
+    quoteSrc,
+    /viaPickupAirport\.amount >= viaDropoffAirport\.amount/,
+  );
 
   const card = read("src/components/QuoteCard.tsx");
   assert.match(card, /calculateAirportToAirportQuote/);
@@ -346,40 +354,40 @@ console.log("\n=== 6. Ordinary address ↔ Dublin Airport unchanged ===");
   console.log("OK  address→DUB and DUB→address fares unchanged (City Hall/Lisburn/Bangor)");
 }
 
-console.log("\n=== 7. Non-DUB airport↔airport uses max of both airport schemes (not A2A) ===");
+console.log("\n=== 7. Non-DUB airport↔airport = A2A underlying + access fees (not Antrim-zone max) ===");
 {
   const bhd = airportPlace("BHD");
   const bfs = airportPlace("BFS");
-  const metrics = { distanceKm: 30, durationMinutes: 35 };
+  const metrics = { distanceKm: 17 / 0.621371, durationMinutes: 32 };
   const a2a = calculatePointToPointQuote(
-    bhd.formattedAddress,
     bfs.formattedAddress,
+    bhd.formattedAddress,
     SALOON,
     false,
     {},
     metrics,
   );
   const viaAirport = calculateAirportToAirportQuote(
-    "BHD",
     "BFS",
-    bhd.formattedAddress,
+    "BHD",
     bfs.formattedAddress,
+    bhd.formattedAddress,
     SALOON,
     false,
     {},
     metrics,
   );
   assert.ok(a2a && viaAirport);
+  // Must NOT equal the old Antrim→BHD zone win (£69).
+  assert.notEqual(viaAirport!.amount, 69);
   assert.ok(
     viaAirport!.amount >= a2a!.amount,
-    `airport↔airport must not undercut A2A (airport £${viaAirport!.amount} vs A2A £${a2a!.amount})`,
+    `airport↔airport must include access fees on top of A2A (got £${viaAirport!.amount} vs A2A £${a2a!.amount})`,
   );
-  const viaBhd = calculateQuote(bfs.formattedAddress, "BHD", SALOON, false, {}, metrics);
-  const viaBfs = calculateQuote(bhd.formattedAddress, "BFS", SALOON, false, {}, metrics);
-  assert.ok(viaBhd && viaBfs);
-  assert.equal(viaAirport!.amount, Math.max(viaBhd!.amount, viaBfs!.amount));
+  assert.equal(viaAirport!.amount, a2a!.amount + 5 + 4);
+  assert.equal(viaAirport!.areaSurcharge, 9);
   console.log(
-    `OK  BHD↔BFS uses max airport scheme £${viaAirport!.amount} (A2A was £${a2a!.amount})`,
+    `OK  BFS↔BHD = A2A £${a2a!.amount} + £5 + £4 → £${viaAirport!.amount} (not Antrim-zone £69)`,
   );
 }
 

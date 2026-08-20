@@ -33,6 +33,11 @@ export type PricingConfig = {
     airportChargesGbp: Record<AirportCode, number | null>;
   };
   airportMinimumFaresGbp: Record<string, number>;
+  /**
+   * Genuine airport access fees (BFS £5, BHD £4). Applied on airport↔airport
+   * quotes — not by treating an airport postcode as a town under the other scheme.
+   */
+  airportAccessFeesGbp?: Partial<Record<AirportCode, number>> & { note?: string };
   airportBasePricesGbp: Record<AirportCode, number>;
   airportEstatePremiumGbp: number;
   /** Tiered estate uplift for NI airports; excluded airports always use airportEstatePremiumGbp. */
@@ -152,6 +157,16 @@ export function getAirportMinimumFare(airportCode: string): number | null {
 export function getAirportBasePrice(airportCode: string): number | null {
   const value = PRICING_CONFIG.airportBasePricesGbp[airportCode as AirportCode];
   return isFiniteNumber(value) ? value : null;
+}
+
+/** Genuine airport access fee for an identified airport end (0 when unset). */
+export function getAirportAccessFeeGbp(airportCode: string): number {
+  const fees = PRICING_CONFIG.airportAccessFeesGbp;
+  if (!fees) {
+    return 0;
+  }
+  const value = fees[airportCode.trim().toUpperCase() as AirportCode];
+  return isFiniteNumber(value) ? value : 0;
 }
 
 export function getAirportChargeGbp(airportCode: string): number {
