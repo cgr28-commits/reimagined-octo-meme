@@ -32,8 +32,9 @@ function statusBadgeClass(category?: VerifiedFlight["statusCategory"]): string {
 }
 
 /**
- * Compact Flight Status for airport-collection Upcoming Jobs.
- * Does not auto-fetch on mount — Check / Refresh only (server-side AeroDataBox cache).
+ * Prominent Flight Status for airport-collection Owner job cards.
+ * Always visible when eligible (including completed history cards).
+ * Does not auto-fetch — Check / Refresh only (server-side AeroDataBox cache).
  */
 export default function OwnerFlightStatusPanel({ booking }: OwnerFlightStatusPanelProps) {
   const context = resolveOwnerFlightLegContext(booking);
@@ -48,8 +49,19 @@ export default function OwnerFlightStatusPanel({ booking }: OwnerFlightStatusPan
 
   if (context.missingFlightNumber) {
     return (
-      <div className="mt-3 rounded-xl border border-white/10 bg-navy/40 px-3 py-2.5 text-sm text-white/65">
-        Flight: No flight number supplied
+      <div
+        className="mt-3 rounded-xl border border-amber-400/30 bg-amber-500/10 px-3 py-3"
+        data-owner-flight-status="missing"
+      >
+        <p className="text-[11px] font-bold uppercase tracking-wider text-amber-100/90">
+          ✈ Flight Status
+        </p>
+        <p className="mt-1 text-sm font-semibold text-white">
+          ✈ Flight: No flight number supplied
+        </p>
+        <p className="mt-1 text-xs text-white/55">
+          Airport collection — add a flight number on the booking if you need live status.
+        </p>
       </div>
     );
   }
@@ -57,6 +69,11 @@ export default function OwnerFlightStatusPanel({ booking }: OwnerFlightStatusPan
   async function loadFlight(refresh: boolean) {
     if (!context.airportCode) {
       setError("Airport code missing for this collection — cannot look up the flight.");
+      setExpanded(true);
+      return;
+    }
+    if (!context.tripDate) {
+      setError("Trip date missing — cannot look up the flight.");
       setExpanded(true);
       return;
     }
@@ -87,25 +104,54 @@ export default function OwnerFlightStatusPanel({ booking }: OwnerFlightStatusPan
   }
 
   const displayNumber = formatFlightNumberForDisplay(context.flightNumber);
-  const compact = flight
-    ? `✈️ ${ownerFlightCompactSummary({
+  const statusLine = flight
+    ? ownerFlightCompactSummary({
         flightNumber: flight.flightNumber,
         statusCategory: flight.statusCategory,
         statusLabel: flight.statusLabel,
         estimatedTime: flight.estimatedTime,
         delayMinutes: flight.delayMinutes,
-      })}`
-    : `✈️ Flight ${displayNumber} — Check flight`;
+      }).replace(flight.flightNumber, "").replace(/^ · /, "")
+    : "Tap Check Flight for live status";
 
   return (
-    <div className="mt-3 rounded-xl border border-emerald/20 bg-emerald/5 px-3 py-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm font-semibold text-white">{compact}</p>
+    <div
+      className="mt-3 rounded-xl border border-emerald/35 bg-emerald/10 px-3 py-3"
+      data-owner-flight-status="ready"
+    >
+      <p className="text-[11px] font-bold uppercase tracking-wider text-emerald">
+        ✈ Flight Status
+      </p>
+      <div className="mt-2 flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-lg font-bold text-white">{displayNumber}</p>
+          <p className="mt-0.5 text-sm text-white/75">
+            {flight ? (
+              <>
+                {flight.statusLabel ? (
+                  <span
+                    className={`mr-2 inline-flex rounded-md border px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${statusBadgeClass(flight.statusCategory)}`}
+                  >
+                    {flight.statusLabel}
+                  </span>
+                ) : null}
+                {statusLine}
+              </>
+            ) : (
+              statusLine
+            )}
+          </p>
+          <p className="mt-1 text-xs text-white/45">
+            {context.airportName}
+            {context.airportCode ? ` (${context.airportCode})` : ""}
+            {context.isReturnLeg ? " · return collection" : ""}
+          </p>
+        </div>
         <button
           type="button"
           disabled={busy}
           onClick={() => void loadFlight(Boolean(flight))}
-          className="min-h-10 rounded-xl border border-white/15 px-3 py-2 text-xs font-semibold text-white transition-colors hover:border-white/30 disabled:opacity-60"
+          className="min-h-11 shrink-0 rounded-xl bg-emerald px-4 py-2.5 text-sm font-bold text-navy transition-colors hover:bg-emerald/90 disabled:opacity-60"
         >
           {busy ? "Checking…" : flight ? "Refresh Flight" : "Check Flight"}
         </button>
@@ -123,8 +169,9 @@ export default function OwnerFlightStatusPanel({ booking }: OwnerFlightStatusPan
                   {flight.statusLabel || flight.status || "Status"}
                 </span>
                 {typeof flight.delayMinutes === "number" && flight.delayMinutes > 0 ? (
-                  <span className="text-amber-100">
-                    Delayed {flight.delayMinutes} min
+                  <span className="font-semibold text-amber-100">
+                    Delayed {flight.delayMinutes} min · ETA{" "}
+                    {flight.estimatedTime || "—"}
                   </span>
                 ) : null}
               </div>
@@ -137,7 +184,8 @@ export default function OwnerFlightStatusPanel({ booking }: OwnerFlightStatusPan
                 {flight.arrivalAirport}
               </p>
               <p>
-                <span className="text-white/45">Scheduled</span> {flight.scheduledTime}
+                <span className="text-white/45">Scheduled arrival</span>{" "}
+                {flight.scheduledTime}
                 {flight.estimatedTime ? (
                   <>
                     {" · "}
@@ -174,7 +222,9 @@ export default function OwnerFlightStatusPanel({ booking }: OwnerFlightStatusPan
                 <p className="font-semibold text-sky-100">Flight has landed.</p>
               ) : null}
               {flight.statusCategory === "cancelled" ? (
-                <p className="font-semibold text-red-100">Flight cancelled — contact the customer.</p>
+                <p className="font-semibold text-red-100">
+                  Flight cancelled — contact the customer.
+                </p>
               ) : null}
             </>
           ) : null}

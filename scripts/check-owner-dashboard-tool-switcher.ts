@@ -150,6 +150,22 @@ console.log("\n=== 3. Flight tracker eligibility ===");
     "journey to airport does not show unnecessary tracker",
   );
 
+  const a2aMisTagged = resolveOwnerFlightLegContext({
+    pickupLabel: "Belfast International Airport",
+    dropoffLabel: "George Best Belfast City Airport",
+    tripDate: "2026-08-25",
+    flightNumber: "BA1416",
+    airportCode: "BHD",
+    isFromAirport: false,
+  });
+  assert.equal(
+    a2aMisTagged.showFlightTracker,
+    true,
+    "A2A with airport pickup shows tracker even if isFromAirport was false",
+  );
+  assert.equal(a2aMisTagged.airportCode, "BFS", "uses pickup airport code for A2A");
+  assert.equal(a2aMisTagged.flightNumber, "BA1416");
+
   const returnPickup = resolveOwnerFlightLegContext(
     {
       pickupLabel: "12 High Street, Belfast",
@@ -182,6 +198,7 @@ console.log("\n=== 4. Flight Status UI + on-demand lookup ===");
   const panel = read("src/components/OwnerFlightStatusPanel.tsx");
   assert.match(panel, /Check Flight|Refresh Flight/);
   assert.match(panel, /No flight number supplied/);
+  assert.match(panel, /Flight Status/);
   assert.match(panel, /lookupFlightForBooking/);
   assert.match(panel, /refresh/);
   assert.doesNotMatch(
@@ -192,6 +209,16 @@ console.log("\n=== 4. Flight Status UI + on-demand lookup ===");
 
   const paid = read("src/components/OwnerPaidBookingsPanel.tsx");
   assert.match(paid, /OwnerFlightStatusPanel/);
+  assert.match(
+    paid,
+    /!isClosed \? <OwnerFlightStatusPanel/,
+    "Flight Status must render on main card even when journey is completed",
+  );
+  assert.doesNotMatch(
+    paid,
+    /!isClosed && !isCompleted \? \(\s*<OwnerFlightStatusPanel/,
+    "must not hide Flight Status solely because journeyStatus is completed",
+  );
 
   const page = read("src/app/driver/DriverPageClient.tsx");
   assert.match(page, /OwnerFlightStatusPanel/);

@@ -1547,9 +1547,9 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
                   : `${booking.pickupLabel} → ${booking.dropoffLabel}`;
               })()}
             </p>
-            {!isClosed && !isCompleted ? (
-              <OwnerFlightStatusPanel booking={booking} />
-            ) : null}
+            {/* Flight Status: main card, never under Admin / More. Show for eligible
+                airport collections even when the journey is already completed. */}
+            {!isClosed ? <OwnerFlightStatusPanel booking={booking} /> : null}
             <p className="mt-2 break-all text-xs text-white/45">
               Ref {booking.paymentReference}
               {booking.createdAt ? ` · paid ${formatUkInstant(booking.createdAt)}` : ""}
@@ -2024,11 +2024,12 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
           <p className="text-xs font-semibold uppercase tracking-wider text-sky-200">
             Website card payments
           </p>
-          <h2 className="mt-1 text-xl font-bold text-white">Upcoming Jobs</h2>
+          <h2 className="mt-1 text-xl font-bold text-white">Paid Jobs</h2>
           <p className="mt-2 max-w-2xl text-sm text-white/65">
-            Real customer journeys due today or later, ordered by the next unfinished leg. Completed
-            trips move to <span className="text-white/85">Completed Jobs</span> below (records are
-            kept). Owner test / refund-test bookings stay on their diagnostics pages only. Use{" "}
+            <span className="font-semibold text-white/90">Upcoming Jobs</span> below are real
+            unfinished customer journeys due today or later. Finished trips are listed separately
+            under <span className="text-white/85">Completed Jobs</span> (kept for records — not
+            Upcoming). Owner test / refund-test bookings stay on their diagnostics pages only. Use{" "}
             <span className="text-white/85">Driver on the way</span> then{" "}
             <span className="text-white/85">Driver has arrived</span> for customer updates.
           </p>
@@ -2128,12 +2129,13 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
             </p>
           ) : (
             <div className="mt-6 space-y-8">
+              <h3 className="text-base font-bold text-white">Upcoming Jobs</h3>
               {upcomingGroups.map((group) =>
                 group.items.length === 0 ? null : (
                   <div key={group.key}>
-                    <h3 className="text-sm font-semibold uppercase tracking-wider text-sky-200">
+                    <h4 className="text-sm font-semibold uppercase tracking-wider text-sky-200">
                       {group.title}
-                    </h3>
+                    </h4>
                     <ul className="mt-3 space-y-4">
                       {group.items.map((booking) => renderBookingCard(booking))}
                     </ul>
@@ -2144,14 +2146,12 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
           )}
 
           {completedDayGroups.length > 0 ? (
-            <div className="mt-10">
-              <h3 className="text-sm font-semibold uppercase tracking-wider text-white/50">
-                Completed Jobs
-              </h3>
+            <div className="mt-10 border-t border-white/10 pt-8">
+              <h3 className="text-base font-bold text-white">Completed Jobs</h3>
               <p className="mt-2 text-sm text-white/45">
-                Finished real bookings grouped by the day they were completed. Older days are
-                collapsed; today stays open for review. Cancelled / refunded customer bookings stay
-                in this archive (not Upcoming).
+                Finished real bookings grouped by the day they were completed — this is not Upcoming.
+                Older days are collapsed; today stays open for review. Cancelled / refunded customer
+                bookings stay in this archive.
               </p>
               <div className="mt-3 space-y-3">
                 {completedDayGroups.map((group) => (

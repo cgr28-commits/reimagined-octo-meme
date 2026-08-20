@@ -1,5 +1,5 @@
 /**
- * Owner Dashboard — which upcoming jobs should show Flight Status,
+ * Owner Dashboard — which jobs should show Flight Status,
  * and which flight number / airport / date to look up for the active leg.
  * Pure helpers only (no API keys, no network).
  */
@@ -43,9 +43,21 @@ export type OwnerFlightBookingFields = LegAwareBooking & {
   isAirportTrip?: boolean | null;
 };
 
+function labelIsAirport(label: string): boolean {
+  const trimmed = label.trim();
+  if (!trimmed) return false;
+  return isAirportPickupLabel(trimmed) || Boolean(matchServedAirportCode(trimmed));
+}
+
 /**
- * Resolve Flight Status context for the next unfinished leg on an Owner Upcoming card.
- * Tracker is for airport collections only (not ordinary drop-offs to the airport).
+ * Resolve Flight Status context for the active leg on an Owner job card.
+ *
+ * Tracker is for airport collections (pickup at a served airport), including
+ * airport-to-airport where the collection airport has the flight number.
+ * Ordinary to-airport drop-offs (pickup is an address) do not get a panel.
+ *
+ * Important: do not trust `isFromAirport === false` alone when the active
+ * pickup label is clearly an airport (A2A / mis-tagged bookings).
  */
 export function resolveOwnerFlightLegContext(
   booking: OwnerFlightBookingFields,
@@ -62,27 +74,30 @@ export function resolveOwnerFlightLegContext(
   const pickupLabel = activeLegPickupLabel(booking);
   const airportFromPickup = matchServedAirportCode(pickupLabel) ?? "";
   const storedAirport = booking.airportCode?.trim().toUpperCase() ?? "";
+  // Prefer the active pickup airport (correct for A2A + return legs).
   const airportCode = airportFromPickup || storedAirport;
 
   let isAirportCollection = false;
   let flightNumber = "";
 
-  const pickupIsAirport =
-    isAirportPickupLabel(pickupLabel) || Boolean(airportFromPickup);
+  const pickupIsAirport = labelIsAirport(pickupLabel);
 
   if (isReturnLeg) {
-    // Return collection when outbound was to-airport (isFromAirport false) or pickup is an airport.
+    // Return collection: outbound was to-airport, or active pickup is an airport.
     isAirportCollection =
-      booking.isFromAirport === false || pickupIsAirport;
+      pickupIsAirport || booking.isFromAirport === false;
     flightNumber = (booking.returnFlightNumber || "").trim();
-  } else if (typeof booking.isFromAirport === "boolean") {
-    isAirportCollection = booking.isFromAirport;
+  } else if (pickupIsAirport) {
+    // Outbound (or single) collection — including A2A BFS→BHD etc.
+    // Pickup-at-airport wins over a stale/wrong isFromAirport=false flag.
+    isAirportCollection = true;
+    flightNumber = (booking.flightNumber || "").trim();
+  } else if (booking.isFromAirport === true) {
+    isAirportCollection = true;
     flightNumber = (booking.flightNumber || "").trim();
   } else {
-    const outboundPickup = booking.pickupLabel || "";
-    isAirportCollection =
-      isAirportPickupLabel(outboundPickup) ||
-      Boolean(matchServedAirportCode(outboundPickup));
+    // Address pickup → airport drop-off (or non-airport journey): no tracker.
+    isAirportCollection = false;
     flightNumber = (booking.flightNumber || "").trim();
   }
 
