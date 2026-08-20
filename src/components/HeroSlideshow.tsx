@@ -10,7 +10,7 @@ export default function HeroSlideshow() {
     : "Belfast International, City of Derry and Dublin";
 
   return (
-    <section className="relative min-h-screen max-w-full overflow-x-clip overflow-y-hidden pt-44 md:pt-28">
+    <section className="relative min-h-screen max-w-full overflow-x-clip overflow-y-hidden pt-36 md:pt-28">
       <div className="absolute inset-0 overflow-hidden bg-navy" aria-hidden="true">
         <div className="absolute inset-0 bg-gradient-to-b from-navy-light/40 via-navy to-navy-dark" />
         <div className="absolute inset-0 bg-gradient-to-r from-navy-dark/80 via-transparent to-navy-light/30" />
@@ -18,8 +18,9 @@ export default function HeroSlideshow() {
         <div className="absolute -right-16 bottom-10 h-80 w-80 rounded-full bg-navy-light/40 blur-3xl" />
       </div>
 
-      <div className="relative mx-auto grid w-full min-w-0 max-w-7xl grid-cols-1 gap-12 px-4 py-16 sm:px-6 lg:max-w-[1400px] lg:grid-cols-[minmax(0,1fr)_minmax(500px,600px)] lg:items-start lg:gap-14 lg:px-10 lg:py-14 xl:gap-16 xl:px-12 xl:py-16">
-        <div className="min-w-0 lg:pt-1">
+      {/* Mobile: quote first so “Where are you travelling?” is above the fold. Desktop: copy | quote. */}
+      <div className="relative mx-auto grid w-full min-w-0 max-w-7xl grid-cols-1 gap-8 px-4 py-5 sm:px-6 md:gap-12 md:py-16 lg:max-w-[1400px] lg:grid-cols-[minmax(0,1fr)_minmax(500px,600px)] lg:items-start lg:gap-14 lg:px-10 lg:py-14 xl:gap-16 xl:px-12 xl:py-16">
+        <div className="order-2 min-w-0 lg:order-1 lg:pt-1">
           <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-emerald/30 bg-emerald/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-emerald lg:mb-3.5">
             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald" />
             Fixed Price Airport Transfers
@@ -93,7 +94,10 @@ export default function HeroSlideshow() {
           </p>
         </div>
 
-        <div className="min-w-0 w-full scroll-mt-44 lg:justify-self-stretch" id="quote">
+        <div
+          className="order-1 min-w-0 w-full scroll-mt-36 md:scroll-mt-28 lg:order-2 lg:justify-self-stretch"
+          id="quote"
+        >
           <QuoteCard />
           <p className="mt-4 px-1 text-center text-sm leading-relaxed text-white/50">
             Need help?{" "}

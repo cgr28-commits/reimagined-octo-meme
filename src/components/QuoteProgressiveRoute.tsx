@@ -36,7 +36,7 @@ const SELECT_CARD =
 const SELECT_CARD_ON = "border-emerald bg-emerald text-navy shadow-sm";
 const SELECT_CARD_OFF =
   "border-white/15 bg-white/5 text-white hover:border-emerald/40 hover:bg-emerald/10";
-const SECTION_SCROLL_CLASS = "scroll-mt-44 md:scroll-mt-28";
+const SECTION_SCROLL_CLASS = "scroll-mt-36 md:scroll-mt-28";
 
 function ChoiceGrid({
   label,

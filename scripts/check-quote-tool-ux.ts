@@ -105,7 +105,7 @@ check("Step 1 → 2 scrolls to DATE section after render (not page top)", () => 
   assert.match(card, /id="step2-travel-details"/);
   assert.match(card, /step2TravelDetailsRef/);
   assert.match(card, /pendingScrollToStep2DateRef/);
-  assert.match(card, /scroll-mt-44/);
+  assert.match(card, /scroll-mt-36/);
   assert.match(card, /md:scroll-mt-28/);
   assert.match(card, /pendingScrollToStep2DateRef\.current = true/);
   assert.match(card, /scheduleSmoothScrollTo/);
@@ -124,9 +124,9 @@ check("Quote auto-scroll is viewport-driven on mobile and desktop", () => {
   assert.match(scrollHelper, /isQuoteSectionFullyVisible/);
   assert.match(scrollHelper, /QUOTE_DESKTOP_SCROLL_TOP_INSET_PX/);
   assert.doesNotMatch(scrollHelper, /mobileOnly !== false/);
-  assert.match(progressive, /scroll-mt-44/);
+  assert.match(progressive, /scroll-mt-36/);
   assert.match(progressive, /md:scroll-mt-28/);
-  assert.match(card, /scroll-mt-44/);
+  assert.match(card, /scroll-mt-36/);
   assert.match(card, /md:scroll-mt-28/);
 });
 
@@ -137,7 +137,7 @@ check("Suitcase selection scrolls to fare result after quote renders, not Book/S
   assert.doesNotMatch(progressive, /scheduleQuoteSectionScrollById\("quote-step1-next"\)/);
   assert.match(card, /id="quote-fare-result"|QUOTE_FARE_RESULT_ID/);
   // Fare panel must use sticky-header scroll margin so the price heading stays visible.
-  assert.match(card, /scroll-mt-44[\s\S]*?md:scroll-mt-28|QUOTE_FARE_RESULT_ID[\s\S]*?scroll-mt-44/);
+  assert.match(card, /scroll-mt-36[\s\S]*?md:scroll-mt-28|QUOTE_FARE_RESULT_ID[\s\S]*?scroll-mt-36/);
 });
 
 check("Conditional Exact Passengers / Exact Large Bags scroll before fare", () => {

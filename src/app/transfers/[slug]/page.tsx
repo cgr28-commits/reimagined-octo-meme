@@ -77,7 +77,7 @@ export default async function TransferRoutePage({ params }: Props) {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(serviceLd) }}
       />
       <Header />
-      <main className="min-h-screen overflow-x-clip bg-navy pb-16 pt-44 md:pt-28">
+      <main className="min-h-screen overflow-x-clip bg-navy pb-16 pt-36 md:pt-28">
         <div className="relative h-56 overflow-hidden sm:h-72">
           <OptimizedHeroPicture
             baseName={page.airport.heroBase}

@@ -2486,15 +2486,15 @@ function QuoteCard({
   }
 
   return (
-    <div ref={cardRef} className="glass-card min-w-0 rounded-2xl p-6 sm:p-8 lg:p-6 xl:p-7">
-      <div className="mb-6 lg:mb-4">
+    <div ref={cardRef} className="glass-card min-w-0 rounded-2xl p-4 sm:p-8 lg:p-6 xl:p-7">
+      <div className="mb-4 lg:mb-4">
         <h2 className="text-xl font-semibold tracking-tight text-white sm:text-2xl lg:text-[1.5rem]">Get a Live Quote</h2>
-        <p className="mt-2 text-sm leading-relaxed text-white/60 lg:mt-1.5 lg:text-[0.875rem] lg:leading-snug">
+        <p className="mt-1.5 text-sm leading-relaxed text-white/60 sm:mt-2 lg:mt-1.5 lg:text-[0.875rem] lg:leading-snug">
           {pricingConfirmationRequired
             ? "Three quick steps — your journey, travel details, then your details. We’ll confirm your fare before any payment."
             : "Three quick steps — your journey, travel details, then your details. Instant fares can be paid online by card to confirm; otherwise Request to book and we’ll email a SumUp link after we confirm."}
         </p>
-        <ol className="mt-4 grid grid-cols-3 gap-2 lg:mt-3 lg:gap-2" aria-label="Booking steps">
+        <ol className="mt-3 grid grid-cols-3 gap-2 lg:mt-3 lg:gap-2" aria-label="Booking steps">
           {[
             { step: 1 as const, label: isA2AFlow ? "Your journey" : "Airport & address" },
             { step: 2 as const, label: exceedsOnlineCapacity ? "Request quote" : "Price & travel" },
@@ -2974,7 +2974,7 @@ function QuoteCard({
         <div
           id="step2-travel-details"
           ref={step2TravelDetailsRef}
-          className="scroll-mt-44 space-y-4 md:scroll-mt-28"
+          className="scroll-mt-36 space-y-4 md:scroll-mt-28"
         >
         <div className="grid gap-4 sm:grid-cols-2 lg:gap-3.5">
           <div>
@@ -3162,7 +3162,7 @@ function QuoteCard({
         <div
           id={QUOTE_FARE_RESULT_ID}
           data-quote-ready={fareResultContentReady ? "true" : "false"}
-          className="scroll-mt-44 rounded-xl border border-white/10 bg-navy-dark/40 px-4 py-5 md:scroll-mt-28"
+          className="scroll-mt-36 rounded-xl border border-white/10 bg-navy-dark/40 px-4 py-5 md:scroll-mt-28"
         >
           {pricingConfirmationRequired ? (
             <>
@@ -3392,7 +3392,7 @@ function QuoteCard({
         <div
           id="step3-customer-details"
           ref={step3CustomerDetailsRef}
-          className={`${BOOKING_PANEL_CLASS} scroll-mt-44 md:scroll-mt-28`}
+          className={`${BOOKING_PANEL_CLASS} scroll-mt-36 md:scroll-mt-28`}
         >
           <p className="text-xs font-medium uppercase tracking-wider text-emerald">
             Your details
@@ -3507,7 +3507,7 @@ function QuoteCard({
                 (isA2AFlow && Boolean(dropoffAirportCode)))) ? (
               <div
                 id="step3-flight-details"
-                className="scroll-mt-44 space-y-4 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-4 md:scroll-mt-28"
+                className="scroll-mt-36 space-y-4 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-4 md:scroll-mt-28"
               >
                 <div>
                   <p className="text-xs font-medium uppercase tracking-wider text-emerald">
@@ -3573,7 +3573,7 @@ function QuoteCard({
           </p>
         )}
 
-                  <div id="step3-booking-review" className={`${BOOKING_PANEL_CLASS} scroll-mt-44 md:scroll-mt-28`}>
+                  <div id="step3-booking-review" className={`${BOOKING_PANEL_CLASS} scroll-mt-36 md:scroll-mt-28`}>
             <div className="mb-4">
               <p className="text-xs font-medium uppercase tracking-wider text-emerald">
                 {showsRequestQuoteFlow
@@ -3767,7 +3767,7 @@ function QuoteCard({
             <div
               id="step3-payment-actions"
               ref={step3PaymentActionsRef}
-              className="scroll-mt-44 space-y-3 md:scroll-mt-28"
+              className="scroll-mt-36 space-y-3 md:scroll-mt-28"
             >
             {canPayNowOnline && liveQuote && (
               <div className="space-y-3">
@@ -3924,7 +3924,7 @@ function QuoteCard({
           </div>
           </>
         ) : quoteStep === 2 ? (
-          <div id="quote-step2-next" className="scroll-mt-44 space-y-3 md:scroll-mt-28">
+          <div id="quote-step2-next" className="scroll-mt-36 space-y-3 md:scroll-mt-28">
             <div className="grid gap-3 sm:grid-cols-2">
               <button
                 type="button"
@@ -3980,7 +3980,7 @@ function QuoteCard({
             )}
           </div>
         ) : (
-          <div id="quote-step1-next" className="flex w-full scroll-mt-44 flex-col gap-2 md:scroll-mt-28">
+          <div id="quote-step1-next" className="flex w-full scroll-mt-36 flex-col gap-2 md:scroll-mt-28">
             <button
               type="submit"
               disabled={

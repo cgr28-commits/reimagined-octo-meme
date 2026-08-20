@@ -10,8 +10,8 @@
 /** Stable target for the calculated fare / journey result panel (not Book/Save). */
 export const QUOTE_FARE_RESULT_ID = "quote-fare-result";
 
-/** Matches `scroll-mt-44` under the tall mobile header + quick links. */
-export const QUOTE_MOBILE_SCROLL_TOP_INSET_PX = 176;
+/** Matches `scroll-mt-36` under the mobile header + quick links. */
+export const QUOTE_MOBILE_SCROLL_TOP_INSET_PX = 144;
 /** Matches `md:scroll-mt-28` under the shorter desktop sticky header. */
 export const QUOTE_DESKTOP_SCROLL_TOP_INSET_PX = 112;
 

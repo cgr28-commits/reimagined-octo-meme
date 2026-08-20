@@ -26,7 +26,7 @@ export default function AirportsIndexPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumb) }}
       />
       <Header />
-      <main className="min-h-screen overflow-x-clip bg-navy pb-16 pt-44 md:pt-28">
+      <main className="min-h-screen overflow-x-clip bg-navy pb-16 pt-36 md:pt-28">
         <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
           <p className="text-sm font-semibold uppercase tracking-widest text-emerald">Destinations</p>
           <h1 className="mt-2 text-3xl font-bold text-white sm:text-4xl">Airport transfers</h1>

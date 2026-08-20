@@ -35,7 +35,7 @@ assert.match(helper, /isQuoteSectionFullyVisible/);
 assert.match(helper, /getQuoteScrollTopInsetPx/);
 assert.match(helper, /prefersQuoteReducedMotion|prefers-reduced-motion/);
 assert.match(helper, /clearScheduledQuoteSectionScroll|replaceActiveScroll/);
-assert.equal(QUOTE_MOBILE_SCROLL_TOP_INSET_PX, 176);
+assert.equal(QUOTE_MOBILE_SCROLL_TOP_INSET_PX, 144);
 assert.equal(QUOTE_DESKTOP_SCROLL_TOP_INSET_PX, 112);
 assert.equal(QUOTE_FARE_RESULT_ID, "quote-fare-result");
 // Must not gate progressive scrolls to mobile-only by default.
@@ -48,7 +48,7 @@ assert.match(progressive, /id="quote-section-passengers"/);
 assert.match(progressive, /id="quote-section-suitcases"/);
 assert.match(progressive, /id="quote-section-exact-passengers"/);
 assert.match(progressive, /id="quote-section-exact-suitcases"/);
-assert.match(progressive, /scroll-mt-44/);
+assert.match(progressive, /scroll-mt-36/);
 assert.match(progressive, /md:scroll-mt-28/);
 assert.match(progressive, /scheduleQuoteSectionScroll/);
 assert.match(progressive, /scheduleQuoteFareResultScroll/);
@@ -82,7 +82,7 @@ assert.match(card, /onBlur=\{\(\) => \{/);
 assert.match(card, /Only after leaving the field — never while typing/);
 assert.match(card, /scheduleReadyForScrollRef/);
 assert.doesNotMatch(card, /mobileOnly:\s*false/);
-assert.match(card, /scroll-mt-44/);
+assert.match(card, /scroll-mt-36/);
 assert.match(card, /md:scroll-mt-28/);
 
 function withViewport(height: number, desktopMedia: boolean, run: () => void) {
@@ -132,7 +132,7 @@ withViewport(800, false, () => {
       toJSON() {},
     }),
   } as unknown as HTMLElement;
-  assert.equal(isQuoteSectionFullyVisible(fullyVisible, 176), true);
+  assert.equal(isQuoteSectionFullyVisible(fullyVisible, 144), true);
 
   const partlyBelow = {
     getBoundingClientRect: () => ({
@@ -147,7 +147,7 @@ withViewport(800, false, () => {
       toJSON() {},
     }),
   } as unknown as HTMLElement;
-  assert.equal(isQuoteSectionFullyVisible(partlyBelow, 176), false);
+  assert.equal(isQuoteSectionFullyVisible(partlyBelow, 144), false);
   assert.equal(isQuoteSectionFullyVisible(partlyBelow, 112), false);
 
   const desktopFullyVisible = {

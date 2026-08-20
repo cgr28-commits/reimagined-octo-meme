@@ -16,7 +16,7 @@ export default function EmergeBelfastEndedPage() {
 
   return (
     <div className="emerge-page">
-      <section className="emerge-hero relative overflow-hidden pb-16 pt-44 md:pt-32">
+      <section className="emerge-hero relative overflow-hidden pb-16 pt-36 md:pt-32">
         <div className="emerge-hero-beams" aria-hidden="true" />
         <div className="relative mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
           <p className="text-sm font-semibold uppercase tracking-[0.18em] text-emerald">
