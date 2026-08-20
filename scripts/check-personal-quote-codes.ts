@@ -181,8 +181,14 @@ check("Owner panel + Worker routes exist and require owner auth", () => {
   assert.doesNotMatch(panel, /voucher|coupon|discount code/i);
   const card = read("src/components/QuoteCard.tsx");
   assert.doesNotMatch(card, /voucher|coupon|promo code/i);
-  assert.match(card, /Have a personal quote\?/);
-  assert.match(card, /Apply Quote/);
+  // Public Get a Quote must not offer manual quote-code entry (Quick Quote / personal links instead).
+  assert.doesNotMatch(card, /Have a personal quote\?/);
+  assert.doesNotMatch(card, /Apply Quote/);
+  assert.doesNotMatch(card, /id="personal-quote-code"/);
+  assert.doesNotMatch(card, /placeholder="Quote code"/);
+  // Infrastructure for applied codes (draft restore / payment) remains.
+  assert.match(card, /validatePersonalQuoteCode/);
+  assert.match(card, /appliedPersonalQuote/);
 });
 
 check("Pending checkout stores quote audit fields", () => {
@@ -536,7 +542,7 @@ check("L11. SumUp amount still from KV agreedAmount; MQ path unchanged", () => {
   assert.match(page, /Worker recalculates from KV/);
   assert.doesNotMatch(page, /searchParams\.get\(["'](?:amount|fare|price|discount)/);
   assert.match(read("src/components/QuoteCard.tsx"), /validatePersonalQuoteCode/);
-  assert.match(read("src/components/QuoteCard.tsx"), /Apply Quote/);
+  assert.doesNotMatch(read("src/components/QuoteCard.tsx"), /Apply Quote/);
 });
 
 check("R10. Return payment matrix (one-way / website return / personal discount)", () => {

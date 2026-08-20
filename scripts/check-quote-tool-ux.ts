@@ -160,6 +160,19 @@ check("Quote scroll respects reduced motion and cancels competing scrolls", () =
   assert.match(scrollHelper, /scheduleQuoteFareResultScroll/);
 });
 
+check("Public quote tool has no personal quote code-entry UI", () => {
+  assert.doesNotMatch(card, /Have a personal quote\?/);
+  assert.doesNotMatch(card, /Apply Quote/);
+  assert.doesNotMatch(card, /id="personal-quote-code"/);
+  assert.doesNotMatch(card, /placeholder="Quote code"/);
+  assert.doesNotMatch(card, /Remove quote code/);
+  // Direct personal / quick quote customer links remain separate pages.
+  const personalPage = read("src/app/personal-quote/PersonalQuoteCustomerClient.tsx");
+  const bookQuote = read("src/app/book-quote/BookQuoteCustomerClient.tsx");
+  assert.match(personalPage, /personal quote/i);
+  assert.match(bookQuote, /fetchQuickQuoteById|Quick Quote/i);
+});
+
 check("Short-notice success UI after full form submit", () => {
   assert.match(card, /shortNoticeResult/);
   assert.match(card, /Booking requires availability confirmation/);

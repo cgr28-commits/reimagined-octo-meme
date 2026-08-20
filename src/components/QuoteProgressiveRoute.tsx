@@ -22,6 +22,7 @@ import {
 } from "@/lib/vehicle-selection";
 import type { QuickSelectAirportCode } from "@/lib/selected-place";
 import {
+  clearScheduledQuoteSectionScroll,
   scheduleQuoteFareResultScroll,
   scheduleQuoteSectionScroll,
 } from "@/lib/quote-mobile-scroll";
@@ -252,6 +253,7 @@ export default function QuoteProgressiveRoute({
     onSuitcasesChange(value);
     if (revealingExactBags) {
       // Reveal Exact Large Bags first — do not jump to the fare until that is chosen.
+      clearScheduledQuoteSectionScroll();
       pendingScrollToExactSuitcasesRef.current = true;
       return;
     }
