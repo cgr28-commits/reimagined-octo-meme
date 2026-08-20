@@ -42,15 +42,15 @@ check("FlightNumberField uses quote-text-input and inset focus ring", () => {
   assert.doesNotMatch(inputClass[1], /text-sm/);
 });
 
-check("Progressive flight number field avoids text-sm zoom trap", () => {
-  assert.match(progressive, /id="progressive-flight-number"/);
-  const inputMatch = progressive.match(
-    /id="progressive-flight-number"[\s\S]*?className="([^"]+)"/,
-  );
-  assert.ok(inputMatch?.[1], "progressive flight input class present");
-  assert.match(inputMatch[1], /quote-text-input/);
-  assert.match(inputMatch[1], /focus:ring-inset/);
-  assert.doesNotMatch(inputMatch[1], /text-sm/);
+check("Progressive quote stage has no flight-number input", () => {
+  assert.doesNotMatch(progressive, /progressive-flight-number|Flight number/);
+  assert.doesNotMatch(progressive, /onFlightNumberChange|flightNumber=/);
+});
+
+check("Booking-stage flight field remains on QuoteCard with quote-text-input", () => {
+  assert.match(card, /id="goingFlightNumber"/);
+  assert.match(card, /enabled=\{quoteStep === 3\}/);
+  assert.match(card, /BOOKING_INPUT_CLASS[\s\S]*quote-text-input/);
 });
 
 check("Booking contact inputs use quote-text-input (16px)", () => {
