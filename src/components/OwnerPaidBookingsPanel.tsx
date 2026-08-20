@@ -897,7 +897,11 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
   );
 
   const upcomingJobs = useMemo(
-    () => operationalBookings.filter(isUpcomingWorkBooking).slice().sort(sortByTripDateTime),
+    () =>
+      operationalBookings
+        .filter((booking) => isUpcomingWorkBooking(booking))
+        .slice()
+        .sort(sortByTripDateTime),
     [operationalBookings],
   );
 

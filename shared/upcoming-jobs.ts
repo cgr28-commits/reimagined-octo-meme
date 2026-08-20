@@ -219,6 +219,10 @@ export function journeyStatusLabel(status?: string): string {
   }
 }
 
+export function assignedDriverDisplay(label?: string | null, name?: string | null): string {
+  return label?.trim() || name?.trim() || PRIMARY_DRIVER_LABEL;
+}
+
 /**
  * Primary Owner Dashboard journey CTAs for an upcoming paid booking.
  * Independent of the GPS tracking window — customer updates must stay available
