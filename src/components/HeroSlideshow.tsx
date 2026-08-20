@@ -1,6 +1,7 @@
 "use client";
 
 import { SERVICE_FLAGS } from "@/lib/data";
+import { whatsAppChatUrl } from "@/lib/contact-card";
 import QuoteCard from "./QuoteCard";
 
 export default function HeroSlideshow() {
@@ -94,6 +95,17 @@ export default function HeroSlideshow() {
 
         <div className="min-w-0 w-full scroll-mt-44 lg:justify-self-stretch" id="quote">
           <QuoteCard />
+          <p className="mt-4 px-1 text-center text-sm leading-relaxed text-white/50">
+            Need help?{" "}
+            <a
+              href={whatsAppChatUrl()}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium text-emerald/90 underline-offset-2 hover:text-emerald hover:underline"
+            >
+              WhatsApp us
+            </a>
+          </p>
         </div>
       </div>
     </section>

@@ -1,11 +1,9 @@
 "use client";
 
 import { SITE } from "@/lib/data";
-import { useIsMobileDevice } from "@/lib/device";
+import { whatsAppChatUrl } from "@/lib/contact-card";
 
 export default function FooterContact() {
-  const isMobile = useIsMobileDevice();
-
   return (
     <ul className="mt-4 space-y-3 text-sm text-white/50">
       <li>
@@ -24,18 +22,16 @@ export default function FooterContact() {
           {SITE.landlineDisplay}
         </a>
       </li>
-      {isMobile === true && (
-        <li>
-          <a
-            href={`https://wa.me/${SITE.whatsapp}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="transition-colors hover:text-emerald"
-          >
-            WhatsApp Us
-          </a>
-        </li>
-      )}
+      <li>
+        <a
+          href={whatsAppChatUrl()}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="transition-colors hover:text-emerald"
+        >
+          WhatsApp @{SITE.whatsappUsername}
+        </a>
+      </li>
     </ul>
   );
 }
