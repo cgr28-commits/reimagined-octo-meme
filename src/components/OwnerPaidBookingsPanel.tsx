@@ -4,12 +4,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   assignedDriverDisplay,
   formatDisplayTripDate,
+  groupCompletedBookingsByDay,
   isCompletedWorkBooking,
+  isOwnerOperationalTestBooking,
   isUpcomingWorkBooking,
   journeyStatusLabel,
   nextUnfinishedSortKey,
   relevantUpcomingJourneyDate,
   relevantUpcomingJourneyTime,
+  resolveCompletionTimestamp,
   upcomingBucketForTripDate,
 } from "../../shared/upcoming-jobs";
 import {
@@ -228,14 +231,13 @@ function sortByTripDateTime(a: OwnerPaidBookingSummary, b: OwnerPaidBookingSumma
   return nextUnfinishedSortKey(a).localeCompare(nextUnfinishedSortKey(b));
 }
 
-function sortCompletedByTripDateTime(
+function sortCompletedByCompletionTime(
   a: OwnerPaidBookingSummary,
   b: OwnerPaidBookingSummary,
 ): number {
-  // Newest completed / paid trip first for history browsing.
-  const aKey = `${a.returnDate || a.tripDate || ""}T${a.returnTime || a.tripTime || ""}`;
-  const bKey = `${b.returnDate || b.tripDate || ""}T${b.returnTime || b.tripTime || ""}`;
-  return bKey.localeCompare(aKey);
+  const aAt = resolveCompletionTimestamp(a)?.at || "";
+  const bAt = resolveCompletionTimestamp(b)?.at || "";
+  return bAt.localeCompare(aAt);
 }
 
 function PaidBookingLiveTracking({
@@ -866,9 +868,9 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
       const [nextBookings, nextPending] = await Promise.all([
         fetchOwnerPaidBookings(ownerKey, {
           mode: "upcoming",
-          pastDays: 2,
+          pastDays: 60,
           futureDays: 90,
-          limit: 100,
+          limit: 200,
         }),
         fetchOwnerPendingCheckouts(ownerKey, { limit: 40 }).catch(
           () => [] as OwnerPendingCheckoutSummary[],
@@ -887,14 +889,28 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
     void load();
   }, [load]);
 
-  const upcomingJobs = useMemo(
-    () => bookings.filter(isUpcomingWorkBooking).slice().sort(sortByTripDateTime),
+  const operationalBookings = useMemo(
+    () => bookings.filter((booking) => !isOwnerOperationalTestBooking(booking)),
     [bookings],
   );
 
+  const upcomingJobs = useMemo(
+    () => operationalBookings.filter(isUpcomingWorkBooking).slice().sort(sortByTripDateTime),
+    [operationalBookings],
+  );
+
   const completedRecent = useMemo(
-    () => bookings.filter(isCompletedWorkBooking).slice().sort(sortCompletedByTripDateTime),
-    [bookings],
+    () =>
+      operationalBookings
+        .filter(isCompletedWorkBooking)
+        .slice()
+        .sort(sortCompletedByCompletionTime),
+    [operationalBookings],
+  );
+
+  const completedDayGroups = useMemo(
+    () => groupCompletedBookingsByDay(completedRecent),
+    [completedRecent],
   );
 
   const upcomingGroups = useMemo(() => {
@@ -905,10 +921,10 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
       const bucket = upcomingBucketForTripDate(relevantUpcomingJourneyDate(booking));
       if (bucket === "tomorrow") tomorrow.push(booking);
       else if (bucket === "later") later.push(booking);
-      else today.push(booking); // today + past incomplete still need attention
+      else today.push(booking);
     }
     return [
-      { key: "today", title: "Today / needs attention", items: today },
+      { key: "today", title: "Today", items: today },
       { key: "tomorrow", title: "Tomorrow", items: tomorrow },
       { key: "later", title: "Later", items: later },
     ] as const;
@@ -1279,7 +1295,7 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
   }
 
   const latestPaid =
-    bookings.find((booking) => !isOperationallyCancelled(booking.status)) ?? null;
+    operationalBookings.find((booking) => !isOperationallyCancelled(booking.status)) ?? null;
   const needsFinalize = pending.filter((item) => item.needsFinalize);
 
   function renderJourneyControls(booking: OwnerPaidBookingSummary) {
@@ -1973,8 +1989,9 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
           </p>
           <h2 className="mt-1 text-xl font-bold text-white">Upcoming Jobs</h2>
           <p className="mt-2 max-w-2xl text-sm text-white/65">
-            Unfinished paid journeys only, ordered by the next leg due. Completed trips move to{" "}
-            <span className="text-white/85">Completed Jobs</span> below (records are kept). Use{" "}
+            Real customer journeys due today or later, ordered by the next unfinished leg. Completed
+            trips move to <span className="text-white/85">Completed Jobs</span> below (records are
+            kept). Owner test / refund-test bookings stay on their diagnostics pages only. Use{" "}
             <span className="text-white/85">Driver on the way</span> then{" "}
             <span className="text-white/85">Arrived at Pickup</span> for customer updates.
           </p>
@@ -2089,20 +2106,49 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
             </div>
           )}
 
-          {completedRecent.length > 0 ? (
+          {completedDayGroups.length > 0 ? (
             <div className="mt-10">
               <h3 className="text-sm font-semibold uppercase tracking-wider text-white/50">
                 Completed Jobs
               </h3>
               <p className="mt-2 text-sm text-white/45">
-                Finished and refunded bookings kept for records, evidence, refunds, and customer
-                follow-up.
+                Finished real bookings grouped by the day they were completed. Older days are
+                collapsed; today stays open for review. Cancelled / refunded customer bookings stay
+                in this archive (not Upcoming).
               </p>
-              <ul className="mt-3 space-y-4">
-                {completedRecent.map((booking) =>
-                  renderBookingCard(booking, { compact: true }),
-                )}
-              </ul>
+              <div className="mt-3 space-y-3">
+                {completedDayGroups.map((group) => (
+                  <details
+                    key={group.day}
+                    className="rounded-xl border border-white/10 bg-navy/40"
+                    open={group.isToday}
+                  >
+                    <summary className="cursor-pointer list-none px-4 py-3 text-sm font-semibold text-white/85 marker:content-none [&::-webkit-details-marker]:hidden">
+                      <span className="inline-flex w-full items-center justify-between gap-3">
+                        <span>{group.title}</span>
+                        <span className="text-xs font-medium text-white/45">
+                          {group.items.length} job{group.items.length === 1 ? "" : "s"}
+                        </span>
+                      </span>
+                    </summary>
+                    <ul className="space-y-4 border-t border-white/10 px-3 pb-3 pt-3">
+                      {group.items.map((booking) => {
+                        const completion = resolveCompletionTimestamp(booking);
+                        return (
+                          <div key={booking.paymentReference}>
+                            {completion && completion.source !== "journeyCompletedAt" ? (
+                              <p className="mb-1 px-1 text-[11px] text-white/40">
+                                Grouped by {completion.source} (no journeyCompletedAt on record)
+                              </p>
+                            ) : null}
+                            {renderBookingCard(booking, { compact: true })}
+                          </div>
+                        );
+                      })}
+                    </ul>
+                  </details>
+                ))}
+              </div>
             </div>
           ) : null}
         </>

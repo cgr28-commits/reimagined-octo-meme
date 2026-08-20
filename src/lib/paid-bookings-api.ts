@@ -78,6 +78,10 @@ export type OwnerPaidBookingSummary = Pick<
   nextUnfinishedLegDate?: string;
   nextUnfinishedLegTime?: string;
   editHistory?: PaidBookingRecord["editHistory"];
+  /** Owner-only £1 refund smoke-test — never show in operational lists. */
+  isRefundTest?: boolean;
+  /** Same-fare amendment fixture — never show in operational lists. */
+  isAmendmentTestFixture?: boolean;
 };
 
 export type OwnerPendingCheckoutSummary = {
