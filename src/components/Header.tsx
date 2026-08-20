@@ -22,11 +22,19 @@ export default function Header() {
 
     const html = document.documentElement;
     const body = document.body;
+    const scrollY = window.scrollY;
     const prevHtmlOverflow = html.style.overflow;
     const prevBodyOverflow = body.style.overflow;
+    const prevBodyPosition = body.style.position;
+    const prevBodyTop = body.style.top;
+    const prevBodyWidth = body.style.width;
 
+    // Lock the page behind the overlay (iOS Safari-friendly).
     html.style.overflow = "hidden";
     body.style.overflow = "hidden";
+    body.style.position = "fixed";
+    body.style.top = `-${scrollY}px`;
+    body.style.width = "100%";
 
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") setMenuOpen(false);
@@ -36,6 +44,10 @@ export default function Header() {
     return () => {
       html.style.overflow = prevHtmlOverflow;
       body.style.overflow = prevBodyOverflow;
+      body.style.position = prevBodyPosition;
+      body.style.top = prevBodyTop;
+      body.style.width = prevBodyWidth;
+      window.scrollTo(0, scrollY);
       window.removeEventListener("keydown", onKeyDown);
     };
   }, [menuOpen]);
@@ -47,7 +59,12 @@ export default function Header() {
   const mobileMenu =
     mounted && menuOpen
       ? createPortal(
-          <div className="fixed inset-0 z-[80] md:hidden" role="dialog" aria-modal="true" aria-label="Site menu">
+          <div
+            className="fixed inset-0 z-[80] flex h-[100dvh] max-h-[100dvh] flex-col md:hidden"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Site menu"
+          >
             <button
               type="button"
               className="absolute inset-0 bg-navy-dark/70 backdrop-blur-sm"
@@ -56,9 +73,9 @@ export default function Header() {
             />
             <div
               id={menuId}
-              className="absolute inset-x-0 top-0 flex max-h-[100dvh] flex-col overflow-y-auto overscroll-contain border-b border-white/10 bg-navy shadow-2xl"
+              className="relative z-10 flex h-full min-h-0 w-full flex-col border-b border-white/10 bg-navy pt-[env(safe-area-inset-top)] shadow-2xl"
             >
-              <div className="flex items-center justify-between gap-3 px-4 py-3">
+              <div className="flex shrink-0 items-center justify-between gap-3 px-4 py-3">
                 <Link href="/" aria-label={`${SITE.name} home`} className="shrink-0" onClick={closeMenu}>
                   <Logo className="h-14" />
                 </Link>
@@ -75,7 +92,10 @@ export default function Header() {
                 </button>
               </div>
 
-              <nav className="px-4 pb-6 pt-2" aria-label="Mobile navigation">
+              <nav
+                className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-2 touch-pan-y"
+                aria-label="Mobile navigation"
+              >
                 <p className="mb-3 text-sm text-white/60">Airport transfers across Northern Ireland.</p>
                 <div className="flex flex-col gap-1">
                   {NAV_LINKS.map((link) => (
