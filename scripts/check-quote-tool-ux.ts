@@ -101,63 +101,43 @@ check("QuoteCard uses progressive route for A2A primary flow", () => {
   assert.match(card, /Your Journey/);
 });
 
-check("Step 1 → 2 scrolls to DATE section after render (not page top)", () => {
+check("Step 2 travel details section remains in document flow (no auto-scroll)", () => {
   assert.match(card, /id="step2-travel-details"/);
   assert.match(card, /step2TravelDetailsRef/);
-  assert.match(card, /pendingScrollToStep2DateRef/);
-  assert.match(card, /scroll-mt-44/);
-  assert.match(card, /md:scroll-mt-28/);
-  assert.match(card, /pendingScrollToStep2DateRef\.current = true/);
-  assert.match(card, /scheduleSmoothScrollTo/);
+  assert.doesNotMatch(card, /pendingScrollToStep2DateRef/);
+  assert.doesNotMatch(card, /scheduleSmoothScrollTo/);
 });
 
-check("Mobile progressive quote has auto-scroll section targets", () => {
+check("Progressive quote sections stay in document flow without auto-scroll", () => {
   assert.match(progressive, /quote-section-passengers/);
   assert.match(progressive, /quote-section-suitcases/);
-  assert.match(progressive, /scheduleQuoteSectionScroll/);
+  assert.doesNotMatch(progressive, /scheduleQuoteSectionScroll/);
+  assert.doesNotMatch(progressive, /scheduleQuoteFareResultScroll/);
+  assert.doesNotMatch(progressive, /quote-mobile-scroll/);
   assert.match(card, /quote-step1-next/);
   assert.match(card, /quote-step2-next/);
 });
 
-check("Quote auto-scroll is viewport-driven on mobile and desktop", () => {
-  const scrollHelper = read("src/lib/quote-mobile-scroll.ts");
-  assert.match(scrollHelper, /isQuoteSectionFullyVisible/);
-  assert.match(scrollHelper, /QUOTE_DESKTOP_SCROLL_TOP_INSET_PX/);
-  assert.doesNotMatch(scrollHelper, /mobileOnly !== false/);
-  assert.match(progressive, /scroll-mt-44/);
-  assert.match(progressive, /md:scroll-mt-28/);
-  assert.match(card, /scroll-mt-44/);
-  assert.match(card, /md:scroll-mt-28/);
+check("Public quote tool does not auto-scroll after selections", () => {
+  assert.equal(fs.existsSync(path.join(root, "src/lib/quote-mobile-scroll.ts")), false);
+  assert.doesNotMatch(progressive, /scrollIntoView/);
+  assert.doesNotMatch(card, /scrollIntoView/);
+  assert.doesNotMatch(card, /pendingScrollToStep/);
+  assert.doesNotMatch(card, /scheduleReadyForScrollRef/);
 });
 
-check("Suitcase selection scrolls to fare result after quote renders, not Book/Save", () => {
-  assert.match(card, /QUOTE_FARE_RESULT_ID|id="quote-fare-result"/);
-  assert.match(card, /data-quote-ready/);
-  assert.match(progressive, /scheduleQuoteFareResultScroll/);
-  assert.doesNotMatch(progressive, /scheduleQuoteSectionScrollById\("quote-step1-next"\)/);
-  assert.match(card, /id="quote-fare-result"|QUOTE_FARE_RESULT_ID/);
-  // Fare panel must use sticky-header scroll margin so the price heading stays visible.
-  assert.match(card, /scroll-mt-44[\s\S]*?md:scroll-mt-28|QUOTE_FARE_RESULT_ID[\s\S]*?scroll-mt-44/);
+check("Suitcase selector is single 0–4|5+ row without Exact Large Bags", () => {
+  assert.match(progressive, /formatSuitcaseChoice/);
+  assert.match(progressive, /options=\{\[0, 1, 2, 3, 4, FIVE_PLUS_SUITCASES\]\}/);
+  assert.doesNotMatch(progressive, /label="Exact large bags/);
+  assert.doesNotMatch(progressive, /quote-section-exact-suitcases/);
 });
 
-check("Conditional Exact Passengers / Exact Large Bags scroll before fare", () => {
+check("Exact passengers still available for 5–7; no fare auto-scroll", () => {
   assert.match(progressive, /quote-section-exact-passengers/);
-  assert.match(progressive, /quote-section-exact-suitcases/);
-  assert.match(progressive, /pendingScrollToExactPassengersRef/);
-  assert.match(progressive, /pendingScrollToExactSuitcasesRef/);
-  assert.match(progressive, /revealingExactBags/);
-  // 5+ passengers must scroll to exact passengers, not suitcases/fare first.
-  assert.match(progressive, /pendingScrollToExactPassengersRef\.current = true/);
-  // Fare scroll only via scheduleQuoteFareResultScroll after luggage is complete.
-  assert.match(progressive, /scheduleQuoteFareResultScroll\(\)/);
-});
-
-check("Quote scroll respects reduced motion and cancels competing scrolls", () => {
-  const scrollHelper = read("src/lib/quote-mobile-scroll.ts");
-  assert.match(scrollHelper, /prefers-reduced-motion/);
-  assert.match(scrollHelper, /getQuoteScrollBehavior/);
-  assert.match(scrollHelper, /clearScheduledQuoteSectionScroll|replaceActiveScroll/);
-  assert.match(scrollHelper, /scheduleQuoteFareResultScroll/);
+  assert.match(progressive, /handleExactPassengersChange|Exact passengers/);
+  assert.doesNotMatch(progressive, /pendingScrollToExactPassengersRef/);
+  assert.doesNotMatch(progressive, /scheduleQuoteFareResultScroll/);
 });
 
 check("Public quote tool has no personal quote code-entry UI", () => {
