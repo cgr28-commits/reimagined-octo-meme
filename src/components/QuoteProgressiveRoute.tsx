@@ -16,7 +16,6 @@ import {
 } from "@/lib/journey-inclusions";
 import {
   FIVE_PLUS_PASSENGERS,
-  FIVE_PLUS_SUITCASES,
   formatPassengerChoice,
 } from "@/lib/vehicle-selection";
 import type { QuickSelectAirportCode } from "@/lib/selected-place";
@@ -371,10 +370,12 @@ export default function QuoteProgressiveRoute({
               {suitcases >= 4 && (
                 <ChoiceGrid
                   label="Exact large bags (4+)"
-                  options={[4, 5, 6, 7, FIVE_PLUS_SUITCASES]}
-                  value={suitcases >= FIVE_PLUS_SUITCASES ? FIVE_PLUS_SUITCASES : suitcases}
-                  onChange={onSuitcasesChange}
-                  formatOption={(value) => (value >= FIVE_PLUS_SUITCASES ? "5+" : String(value))}
+                  options={[4, 5, 6, 7]}
+                  value={Math.min(7, Math.max(4, suitcases))}
+                  onChange={(value) => {
+                    onSuitcasesChange(Math.min(7, Math.max(4, value)));
+                  }}
+                  formatOption={(value) => String(value)}
                 />
               )}
             </div>

@@ -58,6 +58,23 @@ check("Passenger and luggage use selectable buttons", () => {
   assert.match(progressive, /Return/);
 });
 
+check("Exact large bags shows 4–7 distinctly (no duplicate 5+ labels)", () => {
+  assert.match(progressive, /Exact large bags \(4\+\)/);
+  assert.match(progressive, /options=\{\[4, 5, 6, 7\]\}/);
+  assert.match(
+    progressive,
+    /Exact large bags \(4\+\)[\s\S]*?formatOption=\{\(value\) => String\(value\)\}/,
+  );
+  assert.doesNotMatch(
+    progressive,
+    /Exact large bags \(4\+\)[\s\S]*?FIVE_PLUS_SUITCASES/,
+  );
+  assert.doesNotMatch(
+    progressive,
+    /Exact large bags \(4\+\)[\s\S]*?value >= FIVE_PLUS_SUITCASES \? "5\+"/,
+  );
+});
+
 check("Public quote tool has no child/car seat question", () => {
   assert.doesNotMatch(progressive, /Child seats|Child seat details|car seat/i);
   assert.doesNotMatch(card, /onChildSeatsChange|setChildSeats|childSeatNotes/);
