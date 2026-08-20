@@ -62,6 +62,7 @@ import {
   createSumUpHostedCheckout,
   getSumUpCheckout,
   isSumUpCheckoutPaid,
+  SumUpCheckoutCreateError,
 } from "../shared/sumup-checkout";
 import {
   getGoogleAccessToken,
@@ -148,6 +149,10 @@ import {
   getPersonalQuoteReservation,
   tryAcquirePersonalQuoteReservation,
 } from "./personal-quote-store";
+import {
+  handleOwnerSumUpCheckoutLookup,
+  isOwnerSumUpCheckoutPath,
+} from "./sumup-checkout-diag";
 import { saveShortNoticeBooking } from "./short-notice-store";
 import { BUSINESS_WEBSITE } from "../shared/business-email";
 import { getShortNoticeByToken } from "./short-notice-store";
@@ -1867,6 +1872,17 @@ async function handlePaymentRequest(
     );
   } catch (error) {
     console.error("SumUp checkout failed", error);
+    if (error instanceof SumUpCheckoutCreateError) {
+      return json(
+        {
+          error: "Could not create SumUp payment link",
+          sumUpHttpStatus: error.httpStatus,
+          ...(error.sumUpErrorCode ? { sumUpErrorCode: error.sumUpErrorCode } : {}),
+        },
+        error.httpStatus >= 400 && error.httpStatus < 600 ? error.httpStatus : 502,
+        origin,
+      );
+    }
     return json({ error: "Could not create SumUp payment link" }, 502, origin);
   }
 }
@@ -1917,10 +1933,17 @@ async function handlePaymentWebhookRequest(
   env: Env,
   origin: string | null,
 ): Promise<Response> {
-  let payload: unknown = null;
+    let payload: unknown = null;
   try {
     payload = await parseWebhookPayload(request);
-    console.log("SumUp payment webhook", payload);
+    // Safe webhook log — never dump raw payload (may contain PII).
+    const record =
+      payload && typeof payload === "object" ? (payload as Record<string, unknown>) : null;
+    console.log("SumUp payment webhook", {
+      checkoutId: extractCheckoutIdFromRequest(request, payload) || null,
+      eventType: record?.event_type ?? record?.type ?? null,
+      status: record?.status ?? null,
+    });
   } catch {
     // Ignore malformed bodies — still acknowledge so SumUp does not retry/timeout.
   }
@@ -1968,6 +1991,11 @@ async function handlePaymentWebhookRequest(
                     checkoutId,
                     checkoutReference: pending?.checkoutReference ?? checkout.checkout_reference,
                     sumUpStatus: status,
+                    sumUpAmount: checkout.amount,
+                    sumUpCurrency: checkout.currency,
+                    transactionStatuses: Array.isArray(checkout.transactions)
+                      ? checkout.transactions.map((t) => String(t.status ?? "UNKNOWN"))
+                      : [],
                   });
                   const send = await trySendOwnerOperationalEmail(env, {
                     to: ownerInbox(env),
@@ -2584,6 +2612,12 @@ export default {
         return json(result, 200, origin);
       }
       return json({ error: "Method not allowed" }, 405, origin);
+    }
+
+    if (isOwnerSumUpCheckoutPath(url.pathname) && request.method === "GET") {
+      const result = await handleOwnerSumUpCheckoutLookup(request, env);
+      if ("error" in result) return json({ error: result.error }, result.status, origin);
+      return json(result, 200, origin);
     }
 
     if (isPublicPersonalQuoteValidatePath(url.pathname) && request.method === "POST") {

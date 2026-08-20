@@ -498,7 +498,8 @@ function QuoteCard({
   const [paymentLoading, setPaymentLoading] = useState(false);
   const [paymentError, setPaymentError] = useState("");
   const [openCheckout, setOpenCheckout] = useState<OpenCheckoutSession | null>(null);
-  const [paymentPopupBlocked, setPaymentPopupBlocked] = useState(false);
+  /** Same-tab redirect did not navigate — show Continue to SumUp. */
+  const [paymentRedirectStuck, setPaymentRedirectStuck] = useState(false);
   const [shortNoticeResult, setShortNoticeResult] = useState<{
     reference: string;
     whatsappUrl: string;
@@ -1697,7 +1698,7 @@ function QuoteCard({
     // window.open after await is blocked on iPhone Safari (no user-gesture), which looks like a dead button.
     setPaymentLoading(true);
     setPaymentError("");
-    setPaymentPopupBlocked(false);
+    setPaymentRedirectStuck(false);
 
     const amountLabel = formatQuote(paymentAmount ?? liveQuote.amount);
 
@@ -1784,7 +1785,11 @@ function QuoteCard({
 
       // Same-tab redirect — reliable on iPhone Safari / Android / desktop (no popup).
       window.location.assign(checkout.paymentUrl);
-      // Keep loading state until navigation completes; re-enable only if assign somehow fails.
+      // If Safari somehow stays on this page, re-enable Continue to SumUp.
+      window.setTimeout(() => {
+        setPaymentLoading(false);
+        setPaymentRedirectStuck(true);
+      }, 2500);
       return;
     } catch (error) {
       setPaymentError(
@@ -1801,26 +1806,30 @@ function QuoteCard({
       void handlePayNow();
       return;
     }
-    setPaymentPopupBlocked(false);
+    setPaymentRedirectStuck(false);
     setPaymentError("");
     setPaymentLoading(true);
     window.location.assign(openCheckout.paymentUrl);
+    window.setTimeout(() => {
+      setPaymentLoading(false);
+      setPaymentRedirectStuck(true);
+    }, 2500);
   }
 
   function handleReturnToEditBooking() {
     setPaymentError("");
-    setPaymentPopupBlocked(false);
+    setPaymentRedirectStuck(false);
     setQuoteStep(3);
     setSubmitError("");
     setBookingSent(false);
-    // Keep openCheckout so “Open payment again” still works with the same SumUp link.
+    // Keep openCheckout so “Continue to SumUp” still works with the same SumUp link.
     cardRef.current?.scrollIntoView({ behavior: "smooth", block: "start", inline: "nearest" });
   }
 
   function handleStartFreshCheckout() {
     clearOpenCheckoutSession();
     setOpenCheckout(null);
-    setPaymentPopupBlocked(false);
+    setPaymentRedirectStuck(false);
     setPaymentError("");
   }
 
@@ -3780,12 +3789,14 @@ function QuoteCard({
                   <div className="space-y-3 rounded-2xl border border-emerald/35 bg-emerald/10 px-4 py-4">
                     <p className="text-sm font-semibold text-emerald">Secure payment ready</p>
                     <p className="text-xs leading-relaxed text-white/75">
-                      Your booking details are saved for {openCheckout.amountLabel}. Continue to
-                      SumUp to finish paying, or edit your booking first.
+                      Your booking details are saved for {openCheckout.amountLabel}. You’ll leave
+                      this page and open SumUp in the same tab to finish paying, or edit your
+                      booking first.
                     </p>
-                    {paymentPopupBlocked ? (
+                    {paymentRedirectStuck ? (
                       <p className="text-xs leading-relaxed text-amber-200">
-                        Payment could not open automatically. Tap “Continue to SumUp” below.
+                        Payment did not open automatically. Tap “Continue to SumUp” below to open
+                        the secure payment page in this tab.
                       </p>
                     ) : null}
                     <div className="grid gap-2 sm:grid-cols-2">
@@ -3816,8 +3827,8 @@ function QuoteCard({
                 ) : (
                   <>
                     <p className="text-xs leading-relaxed text-white/50">
-                      You’ll be securely redirected to SumUp to complete your payment. Your booking
-                      details stay saved if you return to this page.
+                      You’ll leave this page and open SumUp securely in the same tab to complete
+                      your payment. Your booking details stay saved if you return here.
                     </p>
                     <button
                       type="button"

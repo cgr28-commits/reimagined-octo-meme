@@ -87,7 +87,7 @@ console.log("\n=== QuoteCard same-tab SumUp redirect UX ===");
 const card = read("src/components/QuoteCard.tsx");
 assert.match(card, /window\.location\.assign\(checkout\.paymentUrl\)/);
 assert.match(card, /Opening secure payment…/);
-assert.match(card, /You’ll be securely redirected to SumUp to complete your payment/);
+assert.match(card, /open SumUp securely in the same tab|open SumUp in the same tab/);
 assert.doesNotMatch(card, /Secure payment will open in a new tab/);
 assert.doesNotMatch(card, /window\.open\(checkout\.paymentUrl,\s*"_blank"/);
 assert.doesNotMatch(card, /window\.open\(openCheckout\.paymentUrl,\s*"_blank"/);
@@ -95,6 +95,7 @@ assert.match(card, /saveBookingFormDraft/);
 assert.match(card, /savePendingPayment/);
 assert.match(card, /saveOpenCheckoutSession/);
 assert.match(card, /Continue to SumUp/);
+assert.match(card, /paymentRedirectStuck/);
 console.log("OK  QuoteCard same-tab assign; draft + pending payment preserved");
 
 const shortNotice = read("src/app/pay/short-notice/ShortNoticePayClient.tsx");
@@ -118,5 +119,11 @@ assert.match(draftStore, /customerEmail/);
 assert.match(draftStore, /customerMobile/);
 assert.match(draftStore, /OPEN_CHECKOUT_KEY/);
 console.log("OK  booking draft storage covers contacts + open checkout");
+
+assert.match(sumup, /SumUpCheckoutCreateError/);
+assert.match(sumup, /summarizeSumUpCheckoutForLog/);
+assert.match(sumup, /console\.log\("SumUp checkout create"/);
+assert.match(workerIndex, /isOwnerSumUpCheckoutPath|handleOwnerSumUpCheckoutLookup/);
+console.log("OK  SumUp create diagnostics + owner checkout lookup wired");
 
 console.log("\nAll SumUp payment UX checks passed.");

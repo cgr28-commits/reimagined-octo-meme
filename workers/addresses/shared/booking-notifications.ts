@@ -522,11 +522,22 @@ export function buildOwnerPaymentUnsuccessfulEmail(
     checkoutId: string;
     checkoutReference?: string;
     sumUpStatus?: string;
+    sumUpAmount?: number;
+    sumUpCurrency?: string;
+    transactionStatuses?: string[];
   },
   businessName = "My Airport Taxi NI",
 ): { subject: string; body: string } {
   const status = options.sumUpStatus?.trim() || "UNSUCCESSFUL";
   const subject = `SumUp payment unsuccessful — ${details.customerName} — ${options.amountLabel}`;
+  const txStatuses =
+    Array.isArray(options.transactionStatuses) && options.transactionStatuses.length > 0
+      ? options.transactionStatuses.join(", ")
+      : "none recorded";
+  const sumUpAmountLine =
+    typeof options.sumUpAmount === "number" && Number.isFinite(options.sumUpAmount)
+      ? `SumUp checkout amount: ${formatPaidAmount(options.sumUpAmount, options.sumUpCurrency || "GBP")}\n`
+      : "";
 
   const body =
     `A customer’s SumUp payment did not complete on the ${businessName} website.\n` +
@@ -542,9 +553,14 @@ export function buildOwnerPaymentUnsuccessfulEmail(
     `PAYMENT\n` +
     `${"=".repeat(40)}\n` +
     `Quoted amount: ${options.amountLabel}\n` +
+    sumUpAmountLine +
     `Checkout id: ${options.checkoutId}\n` +
     (options.checkoutReference ? `Checkout reference: ${options.checkoutReference}\n` : "") +
-    `Status: ${status} (not paid)\n`;
+    `Status: ${status} (not paid)\n` +
+    `SumUp transaction statuses: ${txStatuses}\n` +
+    `Note: FAILED means SumUp reported a failed payment attempt on this checkout ` +
+    `(for example card declined or payment cancelled on the SumUp page). ` +
+    `It is not invented by the website.\n`;
 
   return { subject, body };
 }
