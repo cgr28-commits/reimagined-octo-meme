@@ -111,6 +111,14 @@ check("Step 1 → 2 scrolls to DATE section after render (not page top)", () => 
   assert.match(card, /scheduleSmoothScrollTo/);
 });
 
+check("Mobile progressive quote has auto-scroll section targets", () => {
+  assert.match(progressive, /quote-section-passengers/);
+  assert.match(progressive, /quote-section-suitcases/);
+  assert.match(progressive, /scheduleQuoteSectionScroll/);
+  assert.match(card, /quote-step1-next/);
+  assert.match(card, /quote-step2-next/);
+});
+
 check("Short-notice success UI after full form submit", () => {
   assert.match(card, /shortNoticeResult/);
   assert.match(card, /Booking requires availability confirmation/);

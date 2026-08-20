@@ -123,6 +123,7 @@ import {
 } from "@/lib/google-ads-client";
 import { withAdsAttribution } from "@/lib/ads-attribution";
 import type { VerifiedFlight } from "@/lib/flight-lookup";
+import { scheduleQuoteSectionScroll } from "@/lib/quote-mobile-scroll";
 import {
   detectAirportCodeFromPlace,
   detectJourneyKind,
@@ -174,28 +175,8 @@ type VehicleType = (typeof VEHICLE_TYPES)[number];
 
 /** Smooth-scroll after the next paint so the target step section exists in the DOM. */
 function scheduleSmoothScrollTo(element: HTMLElement | null): () => void {
-  if (!element) {
-    return () => {};
-  }
-
-  let cancelled = false;
-  let outerFrame = 0;
-  let innerFrame = 0;
-
-  outerFrame = requestAnimationFrame(() => {
-    innerFrame = requestAnimationFrame(() => {
-      if (cancelled) {
-        return;
-      }
-      element.scrollIntoView({ behavior: "smooth", block: "start", inline: "nearest" });
-    });
-  });
-
-  return () => {
-    cancelled = true;
-    cancelAnimationFrame(outerFrame);
-    cancelAnimationFrame(innerFrame);
-  };
+  // Step transitions scroll on all viewports; visibility guard still avoids no-op jumps.
+  return scheduleQuoteSectionScroll(element, { mobileOnly: false });
 }
 
 /** Previously blocked 5–7 from online fares; Minibus is bookable online again. */
@@ -2298,6 +2279,28 @@ function QuoteCard({
     return scheduleSmoothScrollTo(step3CustomerDetailsRef.current);
   }, [quoteStep]);
 
+  // When date/time (and return if needed) become complete on step 2, reveal Continue.
+  const scheduleReadyForScrollRef = useRef(false);
+  useEffect(() => {
+    if (quoteStep !== 2) {
+      scheduleReadyForScrollRef.current = false;
+      return;
+    }
+    const outboundReady = Boolean(tripDate.trim() && tripTime.trim());
+    const returnReady = !returnJourney || Boolean(returnDate.trim() && returnTime.trim());
+    const ready = outboundReady && returnReady;
+    if (ready && !scheduleReadyForScrollRef.current) {
+      scheduleReadyForScrollRef.current = true;
+      return scheduleQuoteSectionScroll(
+        typeof document !== "undefined" ? document.getElementById("quote-step2-next") : null,
+      );
+    }
+    if (!ready) {
+      scheduleReadyForScrollRef.current = false;
+    }
+    return undefined;
+  }, [quoteStep, tripDate, tripTime, returnDate, returnTime, returnJourney]);
+
   const submitInProgressLabel = showsRequestQuoteFlow
     ? "Sending quote request…"
     : isEnquiryOnly
@@ -3590,6 +3593,23 @@ function QuoteCard({
                     setEmailAddressError("");
                   }
                 }}
+                onBlur={() => {
+                  // Only after leaving the field — never while typing.
+                  if (
+                    !customerName.trim() ||
+                    !customerMobile.trim() ||
+                    !customerEmail.trim()
+                  ) {
+                    return;
+                  }
+                  const next =
+                    typeof document !== "undefined"
+                      ? document.getElementById("step3-flight-details") ||
+                        document.getElementById("step3-booking-review") ||
+                        step3PaymentActionsRef.current
+                      : step3PaymentActionsRef.current;
+                  scheduleQuoteSectionScroll(next);
+                }}
                 placeholder="you@example.com"
                 className={BOOKING_INPUT_CLASS}
               />
@@ -3607,7 +3627,10 @@ function QuoteCard({
             (returnJourney &&
               ((isAirportTrip && !isFromAirport) ||
                 (isA2AFlow && Boolean(dropoffAirportCode)))) ? (
-              <div className="space-y-4 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-4">
+              <div
+                id="step3-flight-details"
+                className="scroll-mt-44 space-y-4 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-4 md:scroll-mt-28"
+              >
                 <div>
                   <p className="text-xs font-medium uppercase tracking-wider text-emerald">
                     Flight number <span className="font-normal text-white/45">(optional)</span>
@@ -3672,7 +3695,7 @@ function QuoteCard({
           </p>
         )}
 
-                  <div className={BOOKING_PANEL_CLASS}>
+                  <div id="step3-booking-review" className={`${BOOKING_PANEL_CLASS} scroll-mt-44 md:scroll-mt-28`}>
             <div className="mb-4">
               <p className="text-xs font-medium uppercase tracking-wider text-emerald">
                 {showsRequestQuoteFlow
@@ -4023,7 +4046,7 @@ function QuoteCard({
           </div>
           </>
         ) : quoteStep === 2 ? (
-          <div className="space-y-3">
+          <div id="quote-step2-next" className="scroll-mt-44 space-y-3 md:scroll-mt-28">
             <div className="grid gap-3 sm:grid-cols-2">
               <button
                 type="button"
@@ -4079,7 +4102,7 @@ function QuoteCard({
             )}
           </div>
         ) : (
-          <div className="flex w-full flex-col gap-2">
+          <div id="quote-step1-next" className="flex w-full scroll-mt-44 flex-col gap-2 md:scroll-mt-28">
             <button
               type="submit"
               disabled={
