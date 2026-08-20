@@ -58,7 +58,7 @@ export default function EmergeBelfastPageClient() {
   return (
     <div className="emerge-page">
       {/* Hero */}
-      <section className="emerge-hero relative overflow-hidden pb-16 pt-44 md:pt-32">
+      <section className="emerge-hero relative overflow-hidden pb-16 pt-36 md:pt-32">
         <div className="emerge-hero-beams" aria-hidden="true" />
         <div className="relative mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
           <p className="text-sm font-semibold uppercase tracking-[0.18em] text-emerald">
@@ -172,7 +172,7 @@ export default function EmergeBelfastPageClient() {
       </section>
 
       {/* Quote tool */}
-      <section id="quote" className="relative scroll-mt-44 py-16 sm:py-20">
+      <section id="quote" className="relative scroll-mt-36 py-16 sm:py-20">
         <div className="absolute inset-0 bg-gradient-to-b from-navy via-navy-light/25 to-navy" />
         <div className="relative mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
           <div className="mb-8 text-center">

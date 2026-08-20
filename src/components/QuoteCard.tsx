@@ -2416,15 +2416,15 @@ function QuoteCard({
   }
 
   return (
-    <div ref={cardRef} className="glass-card min-w-0 rounded-2xl p-6 sm:p-8 lg:p-6 xl:p-7">
-      <div className="mb-6 lg:mb-4">
+    <div ref={cardRef} className="glass-card min-w-0 rounded-2xl p-4 sm:p-8 lg:p-6 xl:p-7">
+      <div className="mb-4 lg:mb-4">
         <h2 className="text-xl font-semibold tracking-tight text-white sm:text-2xl lg:text-[1.5rem]">Get a Live Quote</h2>
-        <p className="mt-2 text-sm leading-relaxed text-white/60 lg:mt-1.5 lg:text-[0.875rem] lg:leading-snug">
+        <p className="mt-1.5 text-sm leading-relaxed text-white/60 sm:mt-2 lg:mt-1.5 lg:text-[0.875rem] lg:leading-snug">
           {pricingConfirmationRequired
             ? "Three quick steps — your journey, travel details, then your details. We’ll confirm your fare before any payment."
             : "Three quick steps — your journey, travel details, then your details. Instant fares can be paid online by card to confirm; otherwise Request to book and we’ll email a SumUp link after we confirm."}
         </p>
-        <ol className="mt-4 grid grid-cols-3 gap-2 lg:mt-3 lg:gap-2" aria-label="Booking steps">
+        <ol className="mt-3 grid grid-cols-3 gap-2 lg:mt-3 lg:gap-2" aria-label="Booking steps">
           {[
             { step: 1 as const, label: isA2AFlow ? "Your journey" : "Airport & address" },
             { step: 2 as const, label: exceedsOnlineCapacity ? "Request quote" : "Price & travel" },

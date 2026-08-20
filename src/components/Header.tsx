@@ -153,9 +153,9 @@ export default function Header() {
           </div>
         </div>
 
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:grid lg:max-w-[1400px] lg:grid-cols-[auto_minmax(0,1fr)_auto] lg:items-center lg:gap-x-6 lg:px-10 xl:gap-x-8 xl:px-12">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-2 sm:px-6 md:py-3 lg:grid lg:max-w-[1400px] lg:grid-cols-[auto_minmax(0,1fr)_auto] lg:items-center lg:gap-x-6 lg:px-10 xl:gap-x-8 xl:px-12">
           <Link href="/" aria-label={`${SITE.name} home`} className="shrink-0">
-            <Logo className="h-16 sm:h-20" />
+            <Logo className="h-14 sm:h-16 md:h-20" />
           </Link>
 
           <nav
@@ -205,15 +205,15 @@ export default function Header() {
         </div>
 
         <nav
-          className="max-w-full overflow-x-clip px-4 py-2.5 md:hidden"
+          className="max-w-full overflow-x-clip px-4 pb-2 pt-1 md:hidden"
           aria-label="Quick services"
         >
-          <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-white/40">
+          <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-white/40">
             Airport transfers · Get a quote
           </p>
-          <div className="flex max-w-full flex-wrap gap-2">
+          <div className="flex max-w-full flex-wrap gap-1.5">
             {MOBILE_QUICK_LINKS.map((link) => {
-              const className = `rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors ${
+              const className = `rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
                 "highlight" in link && link.highlight
                   ? "bg-emerald text-navy"
                   : "border border-white/15 bg-white/[0.04] text-white/80 hover:border-emerald/40 hover:text-emerald"
