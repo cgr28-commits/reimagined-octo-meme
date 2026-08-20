@@ -117,6 +117,36 @@ console.log("\n=== 2. Upcoming Jobs matrix ===");
   );
   assert.equal(isCompletedWorkBooking(completedReal), true, "completed real → History");
 
+  // Pamela Brown–class: return booking fully done but stale allLegsCompleted:false
+  // and nextUnfinishedLegDate still set to the return date.
+  const pamelaBrown = {
+    customerName: "Pamela Brown",
+    status: "confirmed",
+    tripDate: "2026-08-08",
+    tripTime: "12:15",
+    returnJourney: true,
+    returnDate: "2026-08-19",
+    returnTime: "02:35",
+    outboundJourneyStatus: "completed",
+    returnJourneyStatus: "completed",
+    journeyStatus: "completed",
+    allLegsCompleted: false,
+    nextUnfinishedLegDate: "2026-08-19",
+    nextUnfinishedLegTime: "02:35",
+    journeyCompletedAt: "2026-08-19T03:10:00.000Z",
+    paymentReference: "TAA-PAMELA-BROWN",
+  };
+  assert.equal(
+    isUpcomingWorkBooking(pamelaBrown, today),
+    false,
+    "Pamela Brown completed return → not Upcoming",
+  );
+  assert.equal(
+    isCompletedWorkBooking(pamelaBrown),
+    true,
+    "Pamela Brown completed return → History only",
+  );
+
   const cancelledReal = {
     status: "cancelled",
     tripDate: "2026-08-22",

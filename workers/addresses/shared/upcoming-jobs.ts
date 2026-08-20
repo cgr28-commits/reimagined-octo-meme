@@ -84,23 +84,39 @@ function legStatusCompleted(status?: string | null): boolean {
  * True when every journey leg that exists for this paid booking is completed.
  * Return bookings stay unfinished until BOTH outbound and return are completed.
  * Missing return tracking does not count as completed.
+ *
+ * Important: do not let a stale `allLegsCompleted: false` override clear completed
+ * journey statuses (Pamela Brown–class bug: completed return still listed as Upcoming).
  */
 export function bookingFullyCompleted(booking: LegAwareBooking): boolean {
-  if (typeof booking.allLegsCompleted === "boolean") {
-    return booking.allLegsCompleted;
-  }
-
   if (booking.returnJourney) {
-    const outboundDone = legStatusCompleted(
-      booking.outboundJourneyStatus ?? booking.journeyStatus,
-    );
-    const returnDone = legStatusCompleted(booking.returnJourneyStatus);
-    return outboundDone && returnDone;
+    const outboundCompleted = legStatusCompleted(booking.outboundJourneyStatus);
+    const returnCompleted = legStatusCompleted(booking.returnJourneyStatus);
+
+    if (outboundCompleted && returnCompleted) return true;
+
+    // Active leg marked completed after return finished, even if one status field lagged.
+    if (
+      outboundCompleted &&
+      legStatusCompleted(booking.journeyStatus) &&
+      (returnCompleted || booking.allLegsCompleted === true)
+    ) {
+      return true;
+    }
+
+    if (booking.allLegsCompleted === true) return true;
+    return false;
   }
 
-  return legStatusCompleted(
-    booking.outboundJourneyStatus ?? booking.journeyStatus,
-  );
+  // One-way: completed journey status wins over a stale allLegsCompleted:false.
+  if (
+    legStatusCompleted(booking.outboundJourneyStatus) ||
+    legStatusCompleted(booking.journeyStatus)
+  ) {
+    return true;
+  }
+  if (booking.allLegsCompleted === true) return true;
+  return false;
 }
 
 /**

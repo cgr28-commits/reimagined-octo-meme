@@ -311,16 +311,28 @@ export async function handlePaidBookingsListRequest(
         job = outboundJob;
       }
 
-      let nextUnfinishedLegDate = booking.tripDate;
-      let nextUnfinishedLegTime = booking.tripTime;
+      let nextUnfinishedLegDate: string | undefined = booking.tripDate;
+      let nextUnfinishedLegTime: string | undefined = booking.tripTime;
       if (booking.returnJourney) {
-        if (outboundJourneyStatus === "completed") {
+        const outboundDone = outboundJourneyStatus === "completed";
+        const returnDone = returnJourneyStatus === "completed";
+        if (outboundDone && returnDone) {
+          // Fully finished — do not advertise a fake "next" unfinished leg.
+          nextUnfinishedLegDate = undefined;
+          nextUnfinishedLegTime = undefined;
+        } else if (outboundDone) {
           nextUnfinishedLegDate = booking.returnDate ?? booking.tripDate;
           nextUnfinishedLegTime = booking.returnTime ?? booking.tripTime;
         } else {
           nextUnfinishedLegDate = booking.tripDate;
           nextUnfinishedLegTime = booking.tripTime;
         }
+      } else if (
+        outboundJourneyStatus === "completed" ||
+        (job && journeyStatusOf(job) === "completed")
+      ) {
+        nextUnfinishedLegDate = undefined;
+        nextUnfinishedLegTime = undefined;
       }
 
       // Prefer the latest real journeyCompletedAt across linked legs (return finishes later).

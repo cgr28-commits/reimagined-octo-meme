@@ -1276,20 +1276,23 @@ function DriverJobCard({
           )}
           <p className="mt-2 text-sm font-semibold text-emerald">
             Journey: {journeyLabel}
-            {job.sharingActive ? " · GPS live" : ""}
+            {SERVICE_FLAGS.liveDriverTracking && job.sharingActive ? " · GPS live" : ""}
           </p>
-          {isActive && gpsStale && (
+          {SERVICE_FLAGS.liveDriverTracking && isActive && gpsStale && (
             <p className="mt-2 rounded-lg border border-amber-400/40 bg-amber-500/15 px-3 py-2 text-sm text-amber-100">
               Location has not updated for 2 minutes — reopen this page and keep it open while
               driving. iPhone may pause GPS when Safari is locked or in the background.
             </p>
           )}
-          {isActive && lastGpsAt && !gpsStale && (
+          {SERVICE_FLAGS.liveDriverTracking && isActive && lastGpsAt && !gpsStale && (
             <p className="mt-1 text-xs text-white/45">
               Last GPS update {Math.max(1, Math.round((Date.now() - lastGpsAt) / 1000))}s ago
             </p>
           )}
-          {isOwner && job.sharingActive && job.activeDriverName && (
+          {SERVICE_FLAGS.liveDriverTracking &&
+            isOwner &&
+            job.sharingActive &&
+            job.activeDriverName && (
             <p className="mt-2 text-sm font-semibold text-emerald">
               {job.activeDriverName} is sharing live location
             </p>
@@ -1297,7 +1300,9 @@ function DriverJobCard({
           {!isRefunded && !isOwner && !isPendingForDriver && (
             <p className="mt-2 text-sm text-white/55">{assignmentSummary(job)}</p>
           )}
-          {isOwner && (job.driverLocationPointCount ?? 0) > 0 && (
+          {SERVICE_FLAGS.liveDriverTracking &&
+            isOwner &&
+            (job.driverLocationPointCount ?? 0) > 0 && (
             <p className="mt-2 text-xs text-white/50">
               {job.driverLocationPointCount} GPS points recorded for journey evidence
             </p>

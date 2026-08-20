@@ -1547,9 +1547,13 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
                   : `${booking.pickupLabel} → ${booking.dropoffLabel}`;
               })()}
             </p>
-            {/* Flight Status: main card, never under Admin / More. Show for eligible
-                airport collections even when the journey is already completed. */}
-            {!isClosed ? <OwnerFlightStatusPanel booking={booking} /> : null}
+            {!isClosed ? (
+              <OwnerFlightStatusPanel
+                booking={booking}
+                paymentReference={booking.paymentReference}
+                ownerKey={ownerKey}
+              />
+            ) : null}
             <p className="mt-2 break-all text-xs text-white/45">
               Ref {booking.paymentReference}
               {booking.createdAt ? ` · paid ${formatUkInstant(booking.createdAt)}` : ""}
@@ -1561,9 +1565,7 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
                 ? "border-red-400/30 bg-red-500/10 text-red-100"
                 : booking.status === "partially_refunded"
                   ? "border-amber-400/30 bg-amber-500/10 text-amber-100"
-                  : booking.sharingActive
-                    ? "border-emerald/40 bg-emerald/15 text-emerald"
-                    : "border-emerald/40 bg-emerald/15 text-emerald"
+                  : "border-emerald/40 bg-emerald/15 text-emerald"
             }`}
           >
             {isClosed
@@ -1572,8 +1574,6 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
                 : "Refunded"
               : booking.status === "refunded_active"
                 ? "Fully refunded · Active"
-              : booking.sharingActive
-                ? "Paid · Tracking live"
                 : paymentStatusLabel(booking)}
           </span>
         </div>

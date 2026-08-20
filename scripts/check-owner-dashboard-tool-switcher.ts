@@ -11,6 +11,7 @@ import {
   categorizeFlightStatus,
   flightStatusCacheMaxAgeSeconds,
 } from "../shared/flight-lookup";
+import { decideDriverFlightAlert } from "../shared/driver-flight-alerts";
 import {
   ownerFlightCompactSummary,
   resolveOwnerFlightLegContext,
@@ -211,7 +212,7 @@ console.log("\n=== 4. Flight Status UI + on-demand lookup ===");
   assert.match(paid, /OwnerFlightStatusPanel/);
   assert.match(
     paid,
-    /!isClosed \? <OwnerFlightStatusPanel/,
+    /!isClosed \? \(\s*<OwnerFlightStatusPanel/,
     "Flight Status must render on main card even when journey is completed",
   );
   assert.doesNotMatch(
@@ -238,7 +239,49 @@ console.log("\n=== 4. Flight Status UI + on-demand lookup ===");
   assert.equal(categorizeFlightStatus("Delayed", 24).statusLabel, "DELAYED");
   assert.equal(categorizeFlightStatus("Landed", null).statusLabel, "LANDED");
   assert.equal(categorizeFlightStatus("Cancelled", null).statusLabel, "CANCELLED");
+  assert.equal(
+    categorizeFlightStatus("Delayed", 134, { actualTime: "22:31" }).statusLabel,
+    "LANDED",
+    "actual arrival beats stale delayed label",
+  );
   console.log("OK  compact UI · status labels · paid + calendar cards");
+}
+
+console.log("\n=== 4b. GPS live labels hidden · driver alerts dedupe ===");
+{
+  const panel = read("src/components/OwnerPaidBookingsPanel.tsx");
+  assert.doesNotMatch(panel, /Paid · Tracking live/);
+  assert.match(panel, /liveDriverTracking/);
+
+  const page = read("src/app/driver/DriverPageClient.tsx");
+  assert.match(page, /SERVICE_FLAGS\.liveDriverTracking && job\.sharingActive/);
+  assert.doesNotMatch(
+    page,
+    /\{job\.sharingActive \? " · GPS live" : ""\}/,
+  );
+
+  const first = decideDriverFlightAlert({
+    flightNumber: "RK159",
+    statusCategory: "delayed",
+    delayMinutes: 134,
+    estimatedTime: "22:29",
+    previous: null,
+  });
+  assert.equal(first.send, true);
+  const dupe = decideDriverFlightAlert({
+    flightNumber: "RK159",
+    statusCategory: "delayed",
+    delayMinutes: 134,
+    estimatedTime: "22:29",
+    previous: first.send ? first.nextSnapshot : null,
+  });
+  assert.equal(dupe.send, false, "duplicate delay alert prevented");
+
+  const flightPanel = read("src/components/OwnerFlightStatusPanel.tsx");
+  assert.match(flightPanel, /Watch Live/);
+  assert.match(flightPanel, /flightStatusAutoRefreshMs/);
+  assert.match(flightPanel, /Live aircraft position unavailable/);
+  console.log("OK  GPS labels gated · alert dedupe · Watch Live");
 }
 
 console.log("\n=== 5. Caching + credentials stay server-side ===");

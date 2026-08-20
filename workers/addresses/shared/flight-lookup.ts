@@ -20,6 +20,15 @@ export type VerifiedFlight = {
   delayMinutes?: number | null;
   terminal?: string;
   gate?: string;
+  /** Live / last-known aircraft position when provider returns it. */
+  position?: {
+    lat: number;
+    lng: number;
+    altitudeFt?: number | null;
+    groundSpeedKts?: number | null;
+    headingDeg?: number | null;
+    updatedAt?: string | null;
+  } | null;
 };
 
 export type FlightLookupResult =
@@ -98,6 +107,23 @@ type AeroFlight = {
   airline?: { name?: string; iata?: string; icao?: string };
   departure?: AeroAirportMovement;
   arrival?: AeroAirportMovement;
+  location?: {
+    lat?: number;
+    lon?: number;
+    longitude?: number;
+    altitude?: number | null;
+    altitudeFeet?: number | null;
+    groundSpeed?: number | null;
+    groundSpeedKts?: number | null;
+    trueTrack?: number | null;
+    heading?: number | null;
+    updated?: string | null;
+    lastUpdated?: string | null;
+  };
+  aircraft?: {
+    reg?: string;
+    modeS?: string;
+  };
 };
 
 function readScheduledLocal(scheduled?: { local?: string; utc?: string }): string | null {
@@ -209,20 +235,40 @@ function parseLondonMs(isoLocal: string): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+/**
+ * Priority:
+ * 1. Cancelled
+ * 2. Landed / actual arrival (never keep showing DELAYED once landed)
+ * 3. Delayed / estimated
+ * 4. On time / scheduled
+ */
 export function categorizeFlightStatus(
   rawStatus: string | undefined,
   delayMinutes: number | null | undefined,
+  options?: { actualTime?: string | null },
 ): { statusCategory: NonNullable<VerifiedFlight["statusCategory"]>; statusLabel: string } {
   const normalised = (rawStatus || "").toLowerCase();
   if (normalised.includes("cancel")) {
     return { statusCategory: "cancelled", statusLabel: "CANCELLED" };
   }
   if (
+    options?.actualTime?.trim() ||
     normalised.includes("land") ||
-    normalised.includes("arriv") ||
-    normalised.includes("gate_arrival")
+    normalised.includes("arrived") ||
+    normalised.includes("gate_arrival") ||
+    normalised === "arr"
   ) {
     return { statusCategory: "landed", statusLabel: "LANDED" };
+  }
+  // Avoid matching bare "arrival" schedule labels as landed.
+  if (normalised.includes("arriv") && !normalised.includes("estimated")) {
+    if (
+      normalised.includes("has arrived") ||
+      normalised.includes("arrived at") ||
+      normalised.includes("arrival gate")
+    ) {
+      return { statusCategory: "landed", statusLabel: "LANDED" };
+    }
   }
   if (
     normalised.includes("delay") ||
@@ -249,6 +295,28 @@ export function categorizeFlightStatus(
     return { statusCategory: "unknown", statusLabel: rawStatus.trim().toUpperCase() };
   }
   return { statusCategory: "unknown", statusLabel: "STATUS UNKNOWN" };
+}
+
+/** Client auto-refresh interval (ms). 0 = stop. */
+export function flightStatusAutoRefreshMs(input: {
+  statusCategory?: VerifiedFlight["statusCategory"];
+  tripDate: string;
+  scheduledTime?: string;
+}): number {
+  if (input.statusCategory === "landed" || input.statusCategory === "cancelled") {
+    return 0;
+  }
+  const date = input.tripDate?.trim() ?? "";
+  const time = (input.scheduledTime?.trim() || "12:00").slice(0, 5);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return 15 * 60 * 1000;
+  const scheduledMs = parseLondonMs(`${date}T${time}:00`);
+  if (scheduledMs == null) return 15 * 60 * 1000;
+  const hoursUntil = (scheduledMs - Date.now()) / (60 * 60 * 1000);
+  if (hoursUntil > 12) return 60 * 60 * 1000;
+  if (hoursUntil > 3) return 10 * 60 * 1000;
+  if (hoursUntil > 0.5) return 3 * 60 * 1000;
+  if (hoursUntil > -2) return 90 * 1000;
+  return 5 * 60 * 1000;
 }
 
 /**
@@ -313,12 +381,58 @@ function mapAeroFlight(
   const { statusCategory, statusLabel } = categorizeFlightStatus(
     flight.status,
     delayMinutes,
+    { actualTime: actualRaw ? formatLocalTime(actualRaw) : undefined },
   );
 
   const relevantAirport =
     params.direction === "from-airport"
       ? arrAirport?.name ?? params.airportName
       : depAirport?.name ?? params.airportName;
+
+  const loc = flight.location;
+  const lat = typeof loc?.lat === "number" ? loc.lat : null;
+  const lng =
+    typeof loc?.lon === "number"
+      ? loc.lon
+      : typeof loc?.longitude === "number"
+        ? loc.longitude
+        : null;
+  const position =
+    lat != null && lng != null && Number.isFinite(lat) && Number.isFinite(lng)
+      ? {
+          lat,
+          lng,
+          altitudeFt:
+            typeof loc?.altitudeFeet === "number"
+              ? loc.altitudeFeet
+              : typeof loc?.altitude === "number"
+                ? loc.altitude
+                : null,
+          groundSpeedKts:
+            typeof loc?.groundSpeedKts === "number"
+              ? loc.groundSpeedKts
+              : typeof loc?.groundSpeed === "number"
+                ? loc.groundSpeed
+                : null,
+          headingDeg:
+            typeof loc?.trueTrack === "number"
+              ? loc.trueTrack
+              : typeof loc?.heading === "number"
+                ? loc.heading
+                : null,
+          updatedAt: loc?.updated ?? loc?.lastUpdated ?? null,
+        }
+      : null;
+
+  // Delay vs schedule when we have actual arrival (for "X min late" after landing).
+  let resolvedDelay = delayMinutes;
+  if (actualRaw) {
+    const scheduledMs = parseLondonMs(scheduledRaw);
+    const actualMs = parseLondonMs(actualRaw);
+    if (scheduledMs != null && actualMs != null) {
+      resolvedDelay = Math.round((actualMs - scheduledMs) / 60000);
+    }
+  }
 
   return {
     flightNumber: formatFlightNumberForDisplay(flight.number ?? params.flightNumber),
@@ -337,9 +451,10 @@ function mapAeroFlight(
     statusLabel,
     estimatedTime: estimatedRaw ? formatLocalTime(estimatedRaw) : undefined,
     actualTime: actualRaw ? formatLocalTime(actualRaw) : undefined,
-    delayMinutes,
+    delayMinutes: resolvedDelay,
     terminal: movement?.terminal?.trim() || undefined,
     gate: movement?.gate?.trim() || undefined,
+    position,
   };
 }
 
@@ -351,7 +466,7 @@ async function fetchAeroDataBoxFlights(
 ): Promise<{ status: number; flights: AeroFlight[]; message?: string }> {
   const encoded = encodeURIComponent(flightNumber);
   const query =
-    "withAircraftImage=false&withLocation=false&withFlightPlan=false&dateLocalRole=Both";
+    "withAircraftImage=false&withLocation=true&withFlightPlan=false&dateLocalRole=Both";
   const url = tripDate
     ? `https://aerodatabox.p.rapidapi.com/flights/number/${encoded}/${tripDate}?${query}`
     : `https://aerodatabox.p.rapidapi.com/flights/number/${encoded}?${query}`;

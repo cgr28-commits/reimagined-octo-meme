@@ -191,6 +191,7 @@ import {
   isPaidBookingAmendAbandonPath,
 } from "./booking-amendment-handlers";
 import { handleDriverUpdateBookingRequest } from "./driver-booking-handlers";
+import { handleDriverFlightAlertRequest } from "./driver-flight-alert-handlers";
 import {
   handleDriverAssignRequest,
   handleDriverDeassignRequest,
@@ -485,6 +486,7 @@ function routePath(
   | "driver-accept"
   | "driver-accept-confirm"
   | "flights"
+  | "flights-driver-alerts"
   | "calendar-status"
   | "email-status"
   | "payment-status"
@@ -603,6 +605,13 @@ function routePath(
 
   if (pathname === "/flights" || pathname === "/api/flights") {
     return "flights";
+  }
+
+  if (
+    pathname === "/flights/driver-alerts" ||
+    pathname === "/api/flights/driver-alerts"
+  ) {
+    return "flights-driver-alerts";
   }
 
   if (pathname === "/calendar-status" || pathname === "/api/calendar-status") {
@@ -2830,6 +2839,14 @@ export default {
       }
 
       return handleFlightLookupRequest(url, env, origin);
+    }
+
+    if (route === "flights-driver-alerts") {
+      if (request.method !== "POST") {
+        return json({ error: "Method not allowed" }, 405, origin);
+      }
+
+      return handleDriverFlightAlertRequest(request, env, origin);
     }
 
     if (route === "calendar-status") {
