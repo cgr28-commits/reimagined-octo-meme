@@ -130,6 +130,36 @@ check("Quote auto-scroll is viewport-driven on mobile and desktop", () => {
   assert.match(card, /md:scroll-mt-28/);
 });
 
+check("Suitcase selection scrolls to fare result after quote renders, not Book/Save", () => {
+  assert.match(card, /QUOTE_FARE_RESULT_ID|id="quote-fare-result"/);
+  assert.match(card, /data-quote-ready/);
+  assert.match(progressive, /scheduleQuoteFareResultScroll/);
+  assert.doesNotMatch(progressive, /scheduleQuoteSectionScrollById\("quote-step1-next"\)/);
+  assert.match(card, /id="quote-fare-result"|QUOTE_FARE_RESULT_ID/);
+  // Fare panel must use sticky-header scroll margin so the price heading stays visible.
+  assert.match(card, /scroll-mt-44[\s\S]*?md:scroll-mt-28|QUOTE_FARE_RESULT_ID[\s\S]*?scroll-mt-44/);
+});
+
+check("Conditional Exact Passengers / Exact Large Bags scroll before fare", () => {
+  assert.match(progressive, /quote-section-exact-passengers/);
+  assert.match(progressive, /quote-section-exact-suitcases/);
+  assert.match(progressive, /pendingScrollToExactPassengersRef/);
+  assert.match(progressive, /pendingScrollToExactSuitcasesRef/);
+  assert.match(progressive, /revealingExactBags/);
+  // 5+ passengers must scroll to exact passengers, not suitcases/fare first.
+  assert.match(progressive, /pendingScrollToExactPassengersRef\.current = true/);
+  // Fare scroll only via scheduleQuoteFareResultScroll after luggage is complete.
+  assert.match(progressive, /scheduleQuoteFareResultScroll\(\)/);
+});
+
+check("Quote scroll respects reduced motion and cancels competing scrolls", () => {
+  const scrollHelper = read("src/lib/quote-mobile-scroll.ts");
+  assert.match(scrollHelper, /prefers-reduced-motion/);
+  assert.match(scrollHelper, /getQuoteScrollBehavior/);
+  assert.match(scrollHelper, /clearScheduledQuoteSectionScroll|replaceActiveScroll/);
+  assert.match(scrollHelper, /scheduleQuoteFareResultScroll/);
+});
+
 check("Short-notice success UI after full form submit", () => {
   assert.match(card, /shortNoticeResult/);
   assert.match(card, /Booking requires availability confirmation/);

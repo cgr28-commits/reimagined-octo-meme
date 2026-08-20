@@ -123,7 +123,7 @@ import {
 } from "@/lib/google-ads-client";
 import { withAdsAttribution } from "@/lib/ads-attribution";
 import type { VerifiedFlight } from "@/lib/flight-lookup";
-import { scheduleQuoteSectionScroll } from "@/lib/quote-mobile-scroll";
+import { QUOTE_FARE_RESULT_ID, scheduleQuoteSectionScroll } from "@/lib/quote-mobile-scroll";
 import {
   detectAirportCodeFromPlace,
   detectJourneyKind,
@@ -1098,6 +1098,14 @@ function QuoteCard({
     tripTime,
     quoteVehicle,
   ]);
+
+  const fareResultContentReady =
+    (quoteStep === 1 || quoteStep === 2) &&
+    (pricingConfirmationRequired ||
+      exceedsOnlineCapacity ||
+      isManualQuoteJourney ||
+      isEnquiryOnly ||
+      Boolean(liveQuote));
 
   const journeyDistanceLabel = routeMetrics
     ? formatJourneyDistance(routeMetrics.distanceKm)
@@ -3216,7 +3224,11 @@ function QuoteCard({
         ) : null}
 
         {(quoteStep === 1 || quoteStep === 2) && (
-        <div className="rounded-xl border border-white/10 bg-navy-dark/40 px-4 py-5">
+        <div
+          id={QUOTE_FARE_RESULT_ID}
+          data-quote-ready={fareResultContentReady ? "true" : "false"}
+          className="scroll-mt-44 rounded-xl border border-white/10 bg-navy-dark/40 px-4 py-5 md:scroll-mt-28"
+        >
           {pricingConfirmationRequired ? (
             <>
               <p className="text-xs font-medium uppercase tracking-wider text-emerald">

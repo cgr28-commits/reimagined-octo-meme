@@ -2,12 +2,44 @@
  * Responsive auto-scroll for the public quote / booking funnel.
  * Scrolls only when the next section is not fully visible in the viewport.
  * Accounts for sticky header offset (mobile vs desktop).
+ *
+ * At most one scheduled scroll is active at a time — a new schedule cancels the prior one
+ * so React re-renders / competing effects cannot fire multiple jumps.
  */
+
+/** Stable target for the calculated fare / journey result panel (not Book/Save). */
+export const QUOTE_FARE_RESULT_ID = "quote-fare-result";
 
 /** Matches `scroll-mt-44` under the tall mobile header + quick links. */
 export const QUOTE_MOBILE_SCROLL_TOP_INSET_PX = 176;
 /** Matches `md:scroll-mt-28` under the shorter desktop sticky header. */
 export const QUOTE_DESKTOP_SCROLL_TOP_INSET_PX = 112;
+
+let activeScrollCancel: (() => void) | null = null;
+
+export function clearScheduledQuoteSectionScroll(): void {
+  if (activeScrollCancel) {
+    activeScrollCancel();
+    activeScrollCancel = null;
+  }
+}
+
+function replaceActiveScroll(cancel: () => void): () => void {
+  clearScheduledQuoteSectionScroll();
+  let settled = false;
+  const wrapper = () => {
+    if (settled) {
+      return;
+    }
+    settled = true;
+    cancel();
+    if (activeScrollCancel === wrapper) {
+      activeScrollCancel = null;
+    }
+  };
+  activeScrollCancel = wrapper;
+  return wrapper;
+}
 
 export function getQuoteScrollTopInsetPx(): number {
   if (typeof window === "undefined") {
@@ -16,6 +48,17 @@ export function getQuoteScrollTopInsetPx(): number {
   return window.matchMedia("(min-width: 768px)").matches
     ? QUOTE_DESKTOP_SCROLL_TOP_INSET_PX
     : QUOTE_MOBILE_SCROLL_TOP_INSET_PX;
+}
+
+export function prefersQuoteReducedMotion(): boolean {
+  if (typeof window === "undefined") {
+    return false;
+  }
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+export function getQuoteScrollBehavior(): ScrollBehavior {
+  return prefersQuoteReducedMotion() ? "auto" : "smooth";
 }
 
 function getViewportHeight(): number {
@@ -84,9 +127,18 @@ export type ScheduleQuoteScrollOptions = {
   topInsetPx?: number;
 };
 
+function scrollElementIntoView(element: HTMLElement): void {
+  element.scrollIntoView({
+    behavior: getQuoteScrollBehavior(),
+    block: "start",
+    inline: "nearest",
+  });
+}
+
 /**
  * Smooth-scroll a quote section into view after the next paint when needed.
  * No-ops when the target is already fully visible (or focus is already inside it).
+ * Cancels any previously scheduled quote scroll.
  */
 export function scheduleQuoteSectionScroll(
   element: HTMLElement | null | undefined,
@@ -105,23 +157,29 @@ export function scheduleQuoteSectionScroll(
   let outerFrame = 0;
   let innerFrame = 0;
 
+  const localCancel = () => {
+    cancelled = true;
+    window.cancelAnimationFrame(outerFrame);
+    window.cancelAnimationFrame(innerFrame);
+  };
+
+  const cancel = replaceActiveScroll(localCancel);
+
   outerFrame = window.requestAnimationFrame(() => {
     innerFrame = window.requestAnimationFrame(() => {
       if (cancelled) {
         return;
       }
       if (!options.force && isQuoteSectionFullyVisible(element, topInsetPx)) {
+        cancel();
         return;
       }
-      element.scrollIntoView({ behavior: "smooth", block: "start", inline: "nearest" });
+      scrollElementIntoView(element);
+      cancel();
     });
   });
 
-  return () => {
-    cancelled = true;
-    window.cancelAnimationFrame(outerFrame);
-    window.cancelAnimationFrame(innerFrame);
-  };
+  return cancel;
 }
 
 export function scheduleQuoteSectionScrollById(
@@ -132,4 +190,64 @@ export function scheduleQuoteSectionScrollById(
     return () => {};
   }
   return scheduleQuoteSectionScroll(document.getElementById(id), options);
+}
+
+export type ScheduleQuoteFareResultScrollOptions = ScheduleQuoteScrollOptions & {
+  /** Return true when the calculated fare / result content has rendered. */
+  isReady?: () => boolean;
+  /** Max rAF attempts while waiting for the result to render (default ~45 ≈ 0.75s). */
+  maxAttempts?: number;
+};
+
+/**
+ * Wait until `#quote-fare-result` exists and is ready, then scroll once to its top.
+ * Used after luggage selection so we do not jump before the price renders, and never
+ * target Book / Continue / Save.
+ */
+export function scheduleQuoteFareResultScroll(
+  options: ScheduleQuoteFareResultScrollOptions = {},
+): () => void {
+  if (typeof window === "undefined" || typeof document === "undefined") {
+    return () => {};
+  }
+
+  const maxAttempts = options.maxAttempts ?? 45;
+  const isReady =
+    options.isReady ??
+    (() => {
+      const el = document.getElementById(QUOTE_FARE_RESULT_ID);
+      return Boolean(el && el.getAttribute("data-quote-ready") === "true");
+    });
+
+  let cancelled = false;
+  let attempts = 0;
+  let frame = 0;
+
+  const localCancel = () => {
+    cancelled = true;
+    window.cancelAnimationFrame(frame);
+  };
+
+  const cancel = replaceActiveScroll(localCancel);
+
+  const tick = () => {
+    if (cancelled) {
+      return;
+    }
+    attempts += 1;
+    const el = document.getElementById(QUOTE_FARE_RESULT_ID);
+    if (el && isReady()) {
+      // Hand off to the standard scheduler (also replaces active cancel).
+      scheduleQuoteSectionScroll(el, options);
+      return;
+    }
+    if (attempts >= maxAttempts) {
+      cancel();
+      return;
+    }
+    frame = window.requestAnimationFrame(tick);
+  };
+
+  frame = window.requestAnimationFrame(tick);
+  return cancel;
 }
