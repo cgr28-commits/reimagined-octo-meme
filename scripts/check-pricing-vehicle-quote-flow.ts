@@ -67,16 +67,23 @@ check("weekday fare = weekend fare = Bank Holiday fare", () => {
 
 check("vehicle selection matrix (suitcase-based Estate)", () => {
   const cases: Array<[number, number, string]> = [
+    // 1–4 pax: 0–2 Saloon, 3–4 Estate, 5+ Minibus
     [1, 0, SALOON_VEHICLE],
     [2, 2, SALOON_VEHICLE],
     [3, 1, SALOON_VEHICLE],
     [3, 2, SALOON_VEHICLE],
     [4, 2, SALOON_VEHICLE],
     [1, 3, ESTATE_VEHICLE],
+    [2, 3, ESTATE_VEHICLE],
     [2, 4, ESTATE_VEHICLE],
     [3, 3, ESTATE_VEHICLE],
     [4, 4, ESTATE_VEHICLE],
+    [1, 5, MINIBUS_VEHICLE],
+    [2, 5, MINIBUS_VEHICLE],
+    [4, 5, MINIBUS_VEHICLE],
+    // 5–7 pax → Minibus regardless of luggage
     [5, 0, MINIBUS_VEHICLE],
+    [5, 1, MINIBUS_VEHICLE],
     [6, 2, MINIBUS_VEHICLE],
     [7, 4, MINIBUS_VEHICLE],
   ];
