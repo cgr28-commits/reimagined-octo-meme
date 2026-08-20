@@ -5,8 +5,8 @@ import QuoteCard from "./QuoteCard";
 
 export default function HeroSlideshow() {
   const airportList = SERVICE_FLAGS.belfastCityAirport
-    ? "Belfast International, Belfast City, City of Derry, and Dublin"
-    : "Belfast International, City of Derry, and Dublin";
+    ? "Belfast International, Belfast City, City of Derry and Dublin"
+    : "Belfast International, City of Derry and Dublin";
 
   return (
     <section className="relative min-h-screen max-w-full overflow-x-clip overflow-y-hidden pt-44 md:pt-28">
@@ -28,9 +28,9 @@ export default function HeroSlideshow() {
             My Airport Taxi NI
           </h1>
 
-          <p className="mt-5 max-w-lg text-lg leading-relaxed text-white/75 sm:text-xl lg:mt-4 lg:max-w-xl lg:text-xl lg:leading-relaxed">
-            Fixed price transfers to {airportList} airports — and door-to-door across Northern
-            Ireland.
+          <p className="mt-5 max-w-xl break-words text-lg leading-relaxed text-white/75 sm:text-xl lg:mt-4 lg:max-w-2xl lg:text-xl lg:leading-relaxed">
+            Fixed price transfers to {airportList} airports — plus door-to-door transfers across
+            Northern Ireland and the Republic of Ireland.
           </p>
 
           <div className="mt-8 flex flex-wrap items-center gap-4 lg:mt-7 lg:gap-4">
