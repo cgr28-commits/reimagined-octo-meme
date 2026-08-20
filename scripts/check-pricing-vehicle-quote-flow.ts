@@ -166,10 +166,10 @@ check("booking cannot proceed to payment without date/time", () => {
     tripDate: "",
     tripTime: "",
     passengers: 2,
-    suitcases: 2,
     vehicle: SALOON_VEHICLE,
-    estimatedPrice: "£50.00",
     isAirportTrip: true,
+    airportCode: "BFS",
+    termsAcceptedAt: "2026-08-16T12:00:00.000Z",
   });
   assert.ok(blockers.some((b) => /date|time/i.test(b)));
 });
@@ -186,12 +186,13 @@ check("entering date/time allows booking gate to pass schedule checks", () => {
     tripDate: "2026-09-01",
     tripTime: "10:00",
     passengers: 2,
-    suitcases: 2,
     vehicle: SALOON_VEHICLE,
-    estimatedPrice: "£50.00",
     isAirportTrip: true,
+    airportCode: "BFS",
+    termsAcceptedAt: "2026-08-16T12:00:00.000Z",
   });
   assert.ok(!blockers.some((b) => /date|time/i.test(b)));
+  assert.deepEqual(blockers, []);
 });
 
 check("homepage benefits include Save 5% when you book a return", () => {
