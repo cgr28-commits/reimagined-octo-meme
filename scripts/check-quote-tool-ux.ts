@@ -130,6 +130,14 @@ check("Quote auto-scroll is viewport-driven on mobile and desktop", () => {
   assert.match(card, /md:scroll-mt-28/);
 });
 
+check("Suitcase selection scrolls to fare result, not Book/Save controls", () => {
+  assert.match(card, /id="quote-fare-result"/);
+  assert.match(progressive, /scheduleQuoteSectionScrollById\("quote-fare-result"\)/);
+  assert.doesNotMatch(progressive, /scheduleQuoteSectionScrollById\("quote-step1-next"\)/);
+  // Fare panel must use sticky-header scroll margin so the price heading stays visible.
+  assert.match(card, /id="quote-fare-result"[\s\S]*?scroll-mt-44/);
+});
+
 check("Short-notice success UI after full form submit", () => {
   assert.match(card, /shortNoticeResult/);
   assert.match(card, /Booking requires availability confirmation/);

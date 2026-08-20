@@ -3216,7 +3216,10 @@ function QuoteCard({
         ) : null}
 
         {(quoteStep === 1 || quoteStep === 2) && (
-        <div className="rounded-xl border border-white/10 bg-navy-dark/40 px-4 py-5">
+        <div
+          id="quote-fare-result"
+          className="scroll-mt-44 rounded-xl border border-white/10 bg-navy-dark/40 px-4 py-5 md:scroll-mt-28"
+        >
           {pricingConfirmationRequired ? (
             <>
               <p className="text-xs font-medium uppercase tracking-wider text-emerald">

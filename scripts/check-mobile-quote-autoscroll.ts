@@ -40,16 +40,22 @@ assert.match(progressive, /id="quote-section-suitcases"/);
 assert.match(progressive, /scroll-mt-44/);
 assert.match(progressive, /md:scroll-mt-28/);
 assert.match(progressive, /scheduleQuoteSectionScroll/);
-assert.match(progressive, /scheduleQuoteSectionScrollById\("quote-step1-next"\)/);
+assert.match(progressive, /scheduleQuoteSectionScrollById\("quote-fare-result"\)/);
+assert.doesNotMatch(progressive, /scheduleQuoteSectionScrollById\("quote-step1-next"\)/);
 assert.match(progressive, /handleJourneyIntentChange/);
 assert.match(progressive, /handlePassengersChange/);
 assert.match(progressive, /handleSuitcasesChange/);
+assert.match(
+  progressive,
+  /Do NOT jump to Book\/Continue\/Save|bring the fare \/ journey result into view/,
+);
 
 assert.match(progressive, /onChange=\{onPickupChange\}/);
 assert.match(progressive, /onChange=\{onDropoffChange\}/);
 assert.doesNotMatch(progressive, /onPickupChange=\{[^}]*scheduleQuote/);
 assert.doesNotMatch(progressive, /onDropoffChange=\{[^}]*scheduleQuote/);
 
+assert.match(card, /id="quote-fare-result"/);
 assert.match(card, /id="quote-step1-next"/);
 assert.match(card, /id="quote-step2-next"/);
 assert.match(card, /id="step3-flight-details"/);

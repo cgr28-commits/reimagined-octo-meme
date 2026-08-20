@@ -208,8 +208,9 @@ export default function QuoteProgressiveRoute({
 
   function handleSuitcasesChange(value: number) {
     onSuitcasesChange(value);
-    // After luggage is chosen, reveal the primary quote CTA (Book / Continue / Save).
-    scheduleQuoteSectionScrollById("quote-step1-next");
+    // After luggage is chosen, bring the fare / journey result into view so the
+    // customer can review price + details. Do NOT jump to Book/Continue/Save.
+    scheduleQuoteSectionScrollById("quote-fare-result");
   }
 
   return (
