@@ -123,7 +123,6 @@ import {
 } from "@/lib/google-ads-client";
 import { withAdsAttribution } from "@/lib/ads-attribution";
 import type { VerifiedFlight } from "@/lib/flight-lookup";
-import { QUOTE_FARE_RESULT_ID, scheduleQuoteSectionScroll } from "@/lib/quote-mobile-scroll";
 import {
   detectAirportCodeFromPlace,
   detectJourneyKind,
@@ -172,12 +171,6 @@ const CAPACITY_WHATSAPP_MESSAGE =
   "Hi, I need help with a minibus booking (5–7 passengers or extra luggage).";
 
 type VehicleType = (typeof VEHICLE_TYPES)[number];
-
-/** Smooth-scroll after the next paint so the target step section exists in the DOM. */
-function scheduleSmoothScrollTo(element: HTMLElement | null): () => void {
-  // Viewport visibility check — no-ops when already fully visible on any breakpoint.
-  return scheduleQuoteSectionScroll(element);
-}
 
 /** Previously blocked 5–7 from online fares; Minibus is bookable online again. */
 function exceedsOnlineVehicleOptions(_passengers: number, _suitcases: number): boolean {
@@ -385,10 +378,6 @@ function QuoteCard({
   const step2TravelDetailsRef = useRef<HTMLDivElement>(null);
   const step3CustomerDetailsRef = useRef<HTMLDivElement>(null);
   const step3PaymentActionsRef = useRef<HTMLDivElement>(null);
-  /** Set only when Step 1 → 2 via intentional “Continue to travel details”. */
-  const pendingScrollToStep2DateRef = useRef(false);
-  /** Set only when Step 2 → 3 via intentional “Continue to your details”. */
-  const pendingScrollToStep3CustomerRef = useRef(false);
   const passengerLimit = Math.min(
     Math.max(1, maxPassengers),
     SELECTOR_MAX_PASSENGERS,
@@ -1091,14 +1080,6 @@ function QuoteCard({
     tripTime,
     quoteVehicle,
   ]);
-
-  const fareResultContentReady =
-    (quoteStep === 1 || quoteStep === 2) &&
-    (pricingConfirmationRequired ||
-      exceedsOnlineCapacity ||
-      isManualQuoteJourney ||
-      isEnquiryOnly ||
-      Boolean(liveQuote));
 
   const journeyDistanceLabel = routeMetrics
     ? formatJourneyDistance(routeMetrics.distanceKm)
@@ -1814,7 +1795,6 @@ function QuoteCard({
     setSubmitError("");
     setBookingSent(false);
     // Keep openCheckout so “Open payment again” still works with the same SumUp link.
-    cardRef.current?.scrollIntoView({ behavior: "smooth", block: "start", inline: "nearest" });
   }
 
   function handleStartFreshCheckout() {
@@ -1954,8 +1934,6 @@ function QuoteCard({
     } else if (nextDirection === "to-airport" && airportPlace) {
       saveConfirmedDropoffPlace(airportPlace);
     }
-
-    cardRef.current?.scrollIntoView({ behavior: "smooth", block: "start", inline: "nearest" });
   }
 
   function requestStartNewQuote() {
@@ -2152,7 +2130,6 @@ function QuoteCard({
         return;
       }
       setSubmitError("");
-      pendingScrollToStep2DateRef.current = true;
       setQuoteStep(2);
       return;
     }
@@ -2192,57 +2169,10 @@ function QuoteCard({
     }
     // Do not wait on flight lookup — unavailable/loading must not require a second click.
     clearFlightBlockingErrors();
-    pendingScrollToStep3CustomerRef.current = true;
     setQuoteStep(3);
   }
 
   const usesWhatsApp = isMobileDevice === true;
-
-  useEffect(() => {
-    if (bookingSent) {
-      cardRef.current?.scrollIntoView({ behavior: "smooth", block: "start", inline: "nearest" });
-    }
-  }, [bookingSent]);
-
-  // After Step 1 → 2, scroll to the DATE fields (not the page top / nav / step tabs).
-  useEffect(() => {
-    if (quoteStep !== 2 || !pendingScrollToStep2DateRef.current) {
-      return;
-    }
-    pendingScrollToStep2DateRef.current = false;
-    return scheduleSmoothScrollTo(step2TravelDetailsRef.current);
-  }, [quoteStep]);
-
-  // After Step 2 → 3, scroll to name / mobile / email (not the journey summary or price).
-  useEffect(() => {
-    if (quoteStep !== 3 || !pendingScrollToStep3CustomerRef.current) {
-      return;
-    }
-    pendingScrollToStep3CustomerRef.current = false;
-    return scheduleSmoothScrollTo(step3CustomerDetailsRef.current);
-  }, [quoteStep]);
-
-  // When date/time (and return if needed) become complete on step 2, reveal Continue.
-  const scheduleReadyForScrollRef = useRef(false);
-  useEffect(() => {
-    if (quoteStep !== 2) {
-      scheduleReadyForScrollRef.current = false;
-      return;
-    }
-    const outboundReady = Boolean(tripDate.trim() && tripTime.trim());
-    const returnReady = !returnJourney || Boolean(returnDate.trim() && returnTime.trim());
-    const ready = outboundReady && returnReady;
-    if (ready && !scheduleReadyForScrollRef.current) {
-      scheduleReadyForScrollRef.current = true;
-      return scheduleQuoteSectionScroll(
-        typeof document !== "undefined" ? document.getElementById("quote-step2-next") : null,
-      );
-    }
-    if (!ready) {
-      scheduleReadyForScrollRef.current = false;
-    }
-    return undefined;
-  }, [quoteStep, tripDate, tripTime, returnDate, returnTime, returnJourney]);
 
   const submitInProgressLabel = showsRequestQuoteFlow
     ? "Sending quote request…"
@@ -2974,7 +2904,7 @@ function QuoteCard({
         <div
           id="step2-travel-details"
           ref={step2TravelDetailsRef}
-          className="scroll-mt-36 space-y-4 md:scroll-mt-28"
+          className="scroll-mt-44 space-y-4 md:scroll-mt-28"
         >
         <div className="grid gap-4 sm:grid-cols-2 lg:gap-3.5">
           <div>
@@ -3159,11 +3089,7 @@ function QuoteCard({
         ) : null}
 
         {(quoteStep === 1 || quoteStep === 2) && (
-        <div
-          id={QUOTE_FARE_RESULT_ID}
-          data-quote-ready={fareResultContentReady ? "true" : "false"}
-          className="scroll-mt-36 rounded-xl border border-white/10 bg-navy-dark/40 px-4 py-5 md:scroll-mt-28"
-        >
+        <div className="rounded-xl border border-white/10 bg-navy-dark/40 px-4 py-5">
           {pricingConfirmationRequired ? (
             <>
               <p className="text-xs font-medium uppercase tracking-wider text-emerald">
@@ -3392,7 +3318,7 @@ function QuoteCard({
         <div
           id="step3-customer-details"
           ref={step3CustomerDetailsRef}
-          className={`${BOOKING_PANEL_CLASS} scroll-mt-36 md:scroll-mt-28`}
+          className={`${BOOKING_PANEL_CLASS} scroll-mt-44 md:scroll-mt-28`}
         >
           <p className="text-xs font-medium uppercase tracking-wider text-emerald">
             Your details
@@ -3471,23 +3397,6 @@ function QuoteCard({
                     setEmailAddressError("");
                   }
                 }}
-                onBlur={() => {
-                  // Only after leaving the field — never while typing.
-                  if (
-                    !customerName.trim() ||
-                    !customerMobile.trim() ||
-                    !customerEmail.trim()
-                  ) {
-                    return;
-                  }
-                  const next =
-                    typeof document !== "undefined"
-                      ? document.getElementById("step3-flight-details") ||
-                        document.getElementById("step3-booking-review") ||
-                        step3PaymentActionsRef.current
-                      : step3PaymentActionsRef.current;
-                  scheduleQuoteSectionScroll(next);
-                }}
                 placeholder="you@example.com"
                 className={BOOKING_INPUT_CLASS}
               />
@@ -3507,7 +3416,7 @@ function QuoteCard({
                 (isA2AFlow && Boolean(dropoffAirportCode)))) ? (
               <div
                 id="step3-flight-details"
-                className="scroll-mt-36 space-y-4 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-4 md:scroll-mt-28"
+                className="scroll-mt-44 space-y-4 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-4 md:scroll-mt-28"
               >
                 <div>
                   <p className="text-xs font-medium uppercase tracking-wider text-emerald">
@@ -3573,7 +3482,7 @@ function QuoteCard({
           </p>
         )}
 
-                  <div id="step3-booking-review" className={`${BOOKING_PANEL_CLASS} scroll-mt-36 md:scroll-mt-28`}>
+                  <div id="step3-booking-review" className={`${BOOKING_PANEL_CLASS} scroll-mt-44 md:scroll-mt-28`}>
             <div className="mb-4">
               <p className="text-xs font-medium uppercase tracking-wider text-emerald">
                 {showsRequestQuoteFlow
@@ -3736,15 +3645,6 @@ function QuoteCard({
                 setTermsAccepted(checked);
                 if (checked) {
                   setTermsError("");
-                  // Deliberate terms acceptance with contacts already filled → show pay/confirm controls.
-                  // Do not scroll while the customer is still typing name/email/mobile.
-                  if (
-                    customerName.trim() &&
-                    customerEmail.trim() &&
-                    customerMobile.trim()
-                  ) {
-                    scheduleSmoothScrollTo(step3PaymentActionsRef.current);
-                  }
                 }
               }}
               error={termsError}
@@ -3767,7 +3667,7 @@ function QuoteCard({
             <div
               id="step3-payment-actions"
               ref={step3PaymentActionsRef}
-              className="scroll-mt-36 space-y-3 md:scroll-mt-28"
+              className="scroll-mt-44 space-y-3 md:scroll-mt-28"
             >
             {canPayNowOnline && liveQuote && (
               <div className="space-y-3">
@@ -3924,7 +3824,7 @@ function QuoteCard({
           </div>
           </>
         ) : quoteStep === 2 ? (
-          <div id="quote-step2-next" className="scroll-mt-36 space-y-3 md:scroll-mt-28">
+          <div id="quote-step2-next" className="scroll-mt-44 space-y-3 md:scroll-mt-28">
             <div className="grid gap-3 sm:grid-cols-2">
               <button
                 type="button"
@@ -3980,7 +3880,7 @@ function QuoteCard({
             )}
           </div>
         ) : (
-          <div id="quote-step1-next" className="flex w-full scroll-mt-36 flex-col gap-2 md:scroll-mt-28">
+          <div id="quote-step1-next" className="flex w-full scroll-mt-44 flex-col gap-2 md:scroll-mt-28">
             <button
               type="submit"
               disabled={
