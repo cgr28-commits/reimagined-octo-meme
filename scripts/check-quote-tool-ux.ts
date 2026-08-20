@@ -58,6 +58,17 @@ check("Passenger and luggage use selectable buttons", () => {
   assert.match(progressive, /Return/);
 });
 
+check("Suitcase selector is 0–4 and 5+ with no Exact Large Bags step", () => {
+  assert.match(progressive, /options=\{\[0, 1, 2, 3, 4, FIVE_PLUS_SUITCASES\]\}/);
+  assert.match(progressive, /formatOption=\{formatSuitcaseChoice\}/);
+  assert.doesNotMatch(progressive, /Exact large bags|4\+/);
+  assert.match(progressive, /formatSuitcaseChoice/);
+  assert.match(
+    read("src/lib/vehicle-selection.ts"),
+    /count >= FIVE_PLUS_SUITCASES \? "5\+"/,
+  );
+});
+
 check("Public quote tool has no child/car seat question", () => {
   assert.doesNotMatch(progressive, /Child seats|Child seat details|car seat/i);
   assert.doesNotMatch(card, /onChildSeatsChange|setChildSeats|childSeatNotes/);

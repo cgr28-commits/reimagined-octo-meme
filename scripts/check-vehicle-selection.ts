@@ -5,7 +5,7 @@
  * Rule:
  * - Saloon: 1–4 passengers AND 0–2 suitcases
  * - Estate: 1–4 passengers AND 3–4 suitcases
- * - Minibus: 5–7 passengers (or >4 suitcases for capacity)
+ * - Minibus: 1–4 passengers AND 5+ suitcases, OR 5–7 passengers (any luggage)
  */
 
 import assert from "node:assert/strict";
@@ -48,6 +48,16 @@ expectVehicle(3, 3, ESTATE_VEHICLE, "3p/3c");
 expectVehicle(4, 4, ESTATE_VEHICLE, "4p/4c");
 expectVehicle(2, 3, ESTATE_VEHICLE, "2p/3c luggage threshold");
 
+console.log("\n=== Luggage boundaries (1–4 pax): 2 Saloon → 3 Estate → 4 Estate → 5 Minibus ===");
+expectVehicle(2, 2, SALOON_VEHICLE, "2 cases → Saloon");
+expectVehicle(2, 3, ESTATE_VEHICLE, "3 cases → Estate");
+expectVehicle(2, 4, ESTATE_VEHICLE, "4 cases → Estate");
+expectVehicle(2, 5, MINIBUS_VEHICLE, "5 cases → Minibus");
+expectVehicle(4, 2, SALOON_VEHICLE, "4p/2c → Saloon");
+expectVehicle(4, 3, ESTATE_VEHICLE, "4p/3c → Estate");
+expectVehicle(4, 4, ESTATE_VEHICLE, "4p/4c → Estate");
+expectVehicle(4, 5, MINIBUS_VEHICLE, "4p/5c → Minibus");
+
 console.log("\n=== Threshold flips ===");
 expectVehicle(4, 2, SALOON_VEHICLE, "still saloon at 4p/2c");
 expectVehicle(4, 3, ESTATE_VEHICLE, "estate at 4p/3c");
@@ -58,7 +68,8 @@ expectVehicle(5, 1, MINIBUS_VEHICLE, "minibus at 5p");
 expectVehicle(4, 4, ESTATE_VEHICLE, "still estate at 4 cases");
 expectVehicle(2, 5, MINIBUS_VEHICLE, "minibus at 5 cases (capacity)");
 
-console.log("\n=== Minibus precedence ===");
+console.log("\n=== Minibus precedence (5–7 pax regardless of luggage) ===");
+expectVehicle(5, 0, MINIBUS_VEHICLE, "5p/0c");
 expectVehicle(5, 1, MINIBUS_VEHICLE, "5p/1c");
 expectVehicle(6, 0, MINIBUS_VEHICLE, "6p/0c");
 expectVehicle(7, 2, MINIBUS_VEHICLE, "7p/2c");
@@ -67,6 +78,7 @@ expectVehicle(4, 6, MINIBUS_VEHICLE, "4p/6c");
 expectVehicle(5, 5, MINIBUS_VEHICLE, "5p/5c");
 assert.equal(requiresMinibus(5, 1), true);
 assert.equal(requiresMinibus(4, 4), false);
+assert.equal(requiresMinibus(4, 5), true);
 
 console.log("\n=== Pricing uses vehicle (rates unchanged) ===");
 const belfast = "10 Donegall Square North, Belfast BT1 5GB";

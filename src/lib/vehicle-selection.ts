@@ -5,7 +5,7 @@
  * Shared business rule (source of truth):
  * - Standard Saloon: 1–4 passengers AND 0–2 suitcases
  * - Estate Car: 1–4 passengers AND 3–4 suitcases
- * - Minibus: 5–7 passengers (also used when suitcases > 4 for capacity)
+ * - Minibus: 1–4 passengers AND 5+ suitcases, OR 5–7 passengers (any luggage)
  *
  * Passenger count of 3 or 4 does NOT by itself trigger Estate.
  */
@@ -28,11 +28,11 @@ export const FIVE_PLUS_SUITCASES = 5;
 export { GROUP_PASSENGER_MAX, GROUP_PASSENGER_MIN, MAX_PASSENGERS };
 
 /**
- * True when the party needs a Minibus (5–7 passengers, or more than 4 large cases).
+ * True when the party needs a Minibus (5–7 passengers, or 5+ large cases).
  * Minibus uses existing pricing and is bookable online via SumUp.
  */
 export function requiresMinibus(passengers: number, suitcases: number): boolean {
-  return passengers > 4 || suitcases > 4;
+  return passengers > 4 || suitcases >= FIVE_PLUS_SUITCASES;
 }
 
 /**

@@ -18,6 +18,7 @@ import {
   FIVE_PLUS_PASSENGERS,
   FIVE_PLUS_SUITCASES,
   formatPassengerChoice,
+  formatSuitcaseChoice,
 } from "@/lib/vehicle-selection";
 import type { QuickSelectAirportCode } from "@/lib/selected-place";
 
@@ -354,29 +355,15 @@ export default function QuoteProgressiveRoute({
             <div className="space-y-5 lg:space-y-3.5">
               <ChoiceGrid
                 label="Suitcases / large bags"
-                options={[0, 1, 2, 3, 4]}
-                value={suitcases > 4 ? 4 : suitcases}
+                options={[0, 1, 2, 3, 4, FIVE_PLUS_SUITCASES]}
+                value={suitcases >= FIVE_PLUS_SUITCASES ? FIVE_PLUS_SUITCASES : suitcases}
                 onChange={(value) => {
-                  if (value === 4 && suitcases < 4) {
-                    onSuitcasesChange(4);
-                  } else if (value < 4) {
-                    onSuitcasesChange(value);
-                  } else {
-                    onSuitcasesChange(suitcases >= 4 ? suitcases : 4);
-                  }
+                  onSuitcasesChange(
+                    value >= FIVE_PLUS_SUITCASES ? FIVE_PLUS_SUITCASES : value,
+                  );
                 }}
-                formatOption={(value) => (value >= 4 ? "4+" : String(value))}
+                formatOption={formatSuitcaseChoice}
               />
-
-              {suitcases >= 4 && (
-                <ChoiceGrid
-                  label="Exact large bags (4+)"
-                  options={[4, 5, 6, 7, FIVE_PLUS_SUITCASES]}
-                  value={suitcases >= FIVE_PLUS_SUITCASES ? FIVE_PLUS_SUITCASES : suitcases}
-                  onChange={onSuitcasesChange}
-                  formatOption={(value) => (value >= FIVE_PLUS_SUITCASES ? "5+" : String(value))}
-                />
-              )}
             </div>
           </div>
 
