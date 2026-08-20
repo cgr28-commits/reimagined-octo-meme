@@ -765,6 +765,72 @@ export function formatQuote(amount: number): string {
  * Starts from the DUB airport fare for the NI address, then adds a continuation
  * uplift for loaded distance/time beyond the Dublin Airport corridor reference.
  */
+/**
+ * Airport ↔ airport transfers must never fall through to generic A2A/OTS pricing.
+ *
+ * - When Dublin Airport is one end: always use existing DUB airport pricing for the
+ *   other airport address (DUB floor, zone surcharges, vehicle rules unchanged).
+ * - Otherwise: price under both airport schemes and keep the higher fare so a
+ *   cheaper local airport path cannot undercut the longer/more expensive leg.
+ */
+export function calculateAirportToAirportQuote(
+  pickupAirportCode: string,
+  dropoffAirportCode: string,
+  pickupAddress: string,
+  dropoffAddress: string,
+  vehicleType: (typeof VEHICLE_TYPES)[number],
+  returnJourney = false,
+  schedule: TripSchedule = {},
+  routeMetrics?: TripRouteMetrics | null,
+): QuoteResult | null {
+  const pickupCode = pickupAirportCode.trim().toUpperCase();
+  const dropoffCode = dropoffAirportCode.trim().toUpperCase();
+  const pickup = pickupAddress.trim();
+  const dropoff = dropoffAddress.trim();
+  if (!pickupCode || !dropoffCode || pickupCode === dropoffCode || !pickup || !dropoff) {
+    return null;
+  }
+
+  if (pickupCode === "DUB" || dropoffCode === "DUB") {
+    const otherAddress = pickupCode === "DUB" ? dropoff : pickup;
+    return calculateQuote(
+      otherAddress,
+      "DUB",
+      vehicleType,
+      returnJourney,
+      schedule,
+      routeMetrics,
+    );
+  }
+
+  const viaPickupAirport = calculateQuote(
+    dropoff,
+    pickupCode,
+    vehicleType,
+    returnJourney,
+    schedule,
+    routeMetrics,
+  );
+  const viaDropoffAirport = calculateQuote(
+    pickup,
+    dropoffCode,
+    vehicleType,
+    returnJourney,
+    schedule,
+    routeMetrics,
+  );
+
+  if (!viaPickupAirport) {
+    return viaDropoffAirport;
+  }
+  if (!viaDropoffAirport) {
+    return viaPickupAirport;
+  }
+  return viaPickupAirport.amount >= viaDropoffAirport.amount
+    ? viaPickupAirport
+    : viaDropoffAirport;
+}
+
 export function calculateDublinCityBeyondAirportQuote(
   niAddress: string,
   vehicleType: (typeof VEHICLE_TYPES)[number],

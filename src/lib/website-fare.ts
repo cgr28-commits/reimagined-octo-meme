@@ -1,7 +1,8 @@
 /**
  * One-way website fare using the SAME pricing engine as QuoteCard.
- * Always calls calculateQuote / calculatePointToPointQuote / Dublin helper
- * with returnJourney=false so Personal Quotes store one-way figures only.
+ * Always calls calculateQuote / calculateAirportToAirportQuote /
+ * calculatePointToPointQuote / Dublin helper with returnJourney=false so
+ * Personal Quotes store one-way figures only.
  *
  * Pass the same schedule fields the public calculator uses (outbound date/time)
  * Owner / Personal Quote one-way fares use the same public website calculator
@@ -11,6 +12,7 @@
 import { VEHICLE_TYPES, type VehicleType } from "@/lib/data";
 import type { TripSchedule } from "@/lib/point-to-point-premium";
 import {
+  calculateAirportToAirportQuote,
   calculateDublinCityBeyondAirportQuote,
   calculatePointToPointQuote,
   calculateQuote,
@@ -81,6 +83,22 @@ export function calculateWebsiteOneWayFare(
       return calculateQuote(
         dropoffAddress,
         pickupAirportCode,
+        vehicleType,
+        returnJourney,
+        schedule,
+        input.routeMetrics,
+      );
+    }
+    if (
+      journeyKind === "airport-to-airport" &&
+      pickupAirportCode &&
+      dropoffAirportCode
+    ) {
+      return calculateAirportToAirportQuote(
+        pickupAirportCode,
+        dropoffAirportCode,
+        pickupAddress,
+        dropoffAddress,
         vehicleType,
         returnJourney,
         schedule,

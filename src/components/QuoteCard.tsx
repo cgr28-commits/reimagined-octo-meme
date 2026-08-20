@@ -51,6 +51,7 @@ import {
 } from "@/lib/quote-prefill";
 import { readTestBookingPrefill } from "@/lib/test-booking";
 import {
+  calculateAirportToAirportQuote,
   calculateDublinCityBeyondAirportQuote,
   calculatePointToPointQuote,
   calculateQuote,
@@ -1000,6 +1001,22 @@ function QuoteCard({
         return calculateQuote(
           dropoffAddress,
           pickupAirportCode,
+          quoteVehicle,
+          returnJourney,
+          schedule,
+          routeMetrics,
+        );
+      }
+      if (
+        journeyKind === "airport-to-airport" &&
+        pickupAirportCode &&
+        dropoffAirportCode
+      ) {
+        return calculateAirportToAirportQuote(
+          pickupAirportCode,
+          dropoffAirportCode,
+          pickupAddress,
+          dropoffAddress,
           quoteVehicle,
           returnJourney,
           schedule,
