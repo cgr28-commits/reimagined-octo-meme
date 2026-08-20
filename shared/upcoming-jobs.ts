@@ -219,8 +219,40 @@ export function journeyStatusLabel(status?: string): string {
   }
 }
 
-export function assignedDriverDisplay(label?: string | null, name?: string | null): string {
-  return label?.trim() || name?.trim() || PRIMARY_DRIVER_LABEL;
+/**
+ * Primary Owner Dashboard journey CTAs for an upcoming paid booking.
+ * Independent of the GPS tracking window — customer updates must stay available
+ * as soon as a genuine upcoming job exists.
+ */
+export function ownerUpcomingPrimaryJourneyActions(input: {
+  journeyStatus?: string | null;
+  sharingActive?: boolean | null;
+  bookingStatus?: string | null;
+}): Array<"start_tracking" | "arrived_pickup"> {
+  if (
+    input.bookingStatus === "refunded" ||
+    input.bookingStatus === "cancelled"
+  ) {
+    return [];
+  }
+
+  const raw = (input.journeyStatus || "idle").trim() || "idle";
+  const status =
+    input.sharingActive && (raw === "idle" || !input.journeyStatus)
+      ? "tracking"
+      : raw;
+
+  if (
+    status === "completed" ||
+    status === "arrived_pickup" ||
+    status === "en_route" ||
+    status === "arrived_destination"
+  ) {
+    return [];
+  }
+
+  // idle / stopped / tracking — both customer update actions stay visible.
+  return ["start_tracking", "arrived_pickup"];
 }
 
 /**

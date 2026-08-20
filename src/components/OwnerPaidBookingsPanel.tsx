@@ -10,11 +10,13 @@ import {
   isUpcomingWorkBooking,
   journeyStatusLabel,
   nextUnfinishedSortKey,
+  ownerUpcomingPrimaryJourneyActions,
   relevantUpcomingJourneyDate,
   relevantUpcomingJourneyTime,
   resolveCompletionTimestamp,
   upcomingBucketForTripDate,
 } from "../../shared/upcoming-jobs";
+import { JOURNEY_ACTION_LABELS } from "@/lib/tracking-api";
 import {
   activeLegPickupLabel,
   buildArrivedPickupWhatsAppLink,
@@ -1299,8 +1301,7 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
   const needsFinalize = pending.filter((item) => item.needsFinalize);
 
   function renderJourneyControls(booking: OwnerPaidBookingSummary) {
-    // Live sharing without an explicit status still counts as tracking for controls
-    // (matches customer label fallback — otherwise Arrived stays hidden).
+    // Live sharing without an explicit status still counts as tracking for labels.
     const rawStatus = booking.journeyStatus || "idle";
     const status =
       booking.sharingActive && (rawStatus === "idle" || !booking.journeyStatus)
@@ -1312,34 +1313,41 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
       Boolean(booking.trackingToken) ||
       (diagnostics[booking.paymentReference]?.gpsPointCount ?? 0) > 0;
 
-    const primaryActions: { action: JourneyAction; label: string }[] = [];
+    const primaryActions = ownerUpcomingPrimaryJourneyActions({
+      journeyStatus: booking.journeyStatus,
+      sharingActive: booking.sharingActive,
+      bookingStatus: booking.status,
+    }).map((action) => ({
+      action,
+      label: JOURNEY_ACTION_LABELS[action],
+    }));
+
+    const secondaryActions: { action: JourneyAction; label: string }[] = [];
     if (status === "arrived_pickup") {
-      // Intended owner flow: Arrived → WhatsApp → Complete Journey
-      primaryActions.push({ action: "complete_journey", label: "Complete Journey" });
+      secondaryActions.push({ action: "complete_journey", label: "Complete Journey" });
     } else if (status === "en_route") {
-      primaryActions.push({ action: "arrived_destination", label: "Arrived at Destination" });
+      secondaryActions.push({
+        action: "arrived_destination",
+        label: "Arrived at Destination",
+      });
     } else if (status === "arrived_destination") {
-      primaryActions.push({ action: "complete_journey", label: "Complete Journey" });
-    } else if (status !== "completed" && !isOperationallyCancelled(booking.status)) {
-      // idle / stopped / tracking — Arrived must be visible (not only after Start Live Tracking).
-      // Driver on the way (status + email) before Arrived; Arrived before Complete Journey.
-      if (status === "idle" || status === "stopped") {
-        primaryActions.push({ action: "start_tracking", label: "Driver on the way" });
-      }
-      primaryActions.push({ action: "arrived_pickup", label: "🚕 Arrived at Pickup" });
-      if (status === "idle" || status === "stopped") {
-        primaryActions.push({ action: "complete_journey", label: "Complete Journey" });
-      }
+      secondaryActions.push({ action: "complete_journey", label: "Complete Journey" });
+    } else if (
+      status !== "completed" &&
+      !isOperationallyCancelled(booking.status) &&
+      (status === "idle" || status === "stopped" || status === "tracking")
+    ) {
+      secondaryActions.push({ action: "complete_journey", label: "Complete Journey" });
     }
 
     return (
       <div>
         <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-white/40">
-          Journey
+          Driver updates
         </p>
         {status === "arrived_pickup" && booking.arrivedPickupAt ? (
           <p className="mb-2 text-sm font-semibold text-emerald">
-            Arrived at pickup · {formatArrivedPickupHhMm(booking.arrivedPickupAt)}
+            Driver has arrived · {formatArrivedPickupHhMm(booking.arrivedPickupAt)}
           </p>
         ) : null}
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
@@ -1399,14 +1407,6 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
                   Open WhatsApp arrival message
                 </button>
               ) : null}
-              {showEvidence ? (
-                <a
-                  href={`/owner/journey-evidence/?ref=${encodeURIComponent(booking.paymentReference)}`}
-                  className="inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-sky-400/40 bg-sky-500/15 px-4 py-2.5 text-sm font-bold text-sky-100 transition-colors hover:bg-sky-500/25 sm:w-auto"
-                >
-                  View Journey Evidence
-                </a>
-              ) : null}
             </>
           )}
           {booking.arrivalNotificationStatus === "failed" && status !== "completed" ? (
@@ -1423,29 +1423,56 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
               {busy ? "Retrying…" : "Retry Notification"}
             </button>
           ) : null}
-          {status !== "completed" ? (
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => void handleEnsureTracking(booking)}
-              className="min-h-11 w-full rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:border-white/30 disabled:opacity-60 sm:w-auto"
-            >
-              {booking.trackingToken ? "Refresh tracking link" : "Create tracking (no new charge)"}
-            </button>
-          ) : null}
         </div>
         {status !== "completed" && status !== "arrived_pickup" && status !== "arrived_destination" ? (
           <p className="mt-2 text-xs text-white/45">
-            Ideal flow: Driver on the way (emails customer) → Arrived at Pickup (records time, emails
-            customer, opens WhatsApp — you press Send) → Complete Journey when finished. Live location
-            sharing stays manual in WhatsApp — no website track link.
+            Driver on the way emails the customer and opens WhatsApp (you press Send). Driver has
+            arrived records the time, emails the customer, and opens WhatsApp. Live location sharing
+            stays manual in WhatsApp — not website map tracking.
           </p>
         ) : null}
         {status === "arrived_pickup" ? (
           <p className="mt-2 text-xs text-white/45">
             Arrival already recorded (timestamp kept). Re-open WhatsApp if needed, then Complete
-            Journey when the passenger trip has finished.
+            Journey when the passenger trip has finished (under More actions).
           </p>
+        ) : null}
+
+        {status !== "completed" ? (
+          <details className="mt-3 rounded-xl border border-white/10 bg-navy/40">
+            <summary className="cursor-pointer list-none px-3 py-2.5 text-xs font-semibold uppercase tracking-wider text-white/50 marker:content-none [&::-webkit-details-marker]:hidden">
+              More actions
+            </summary>
+            <div className="flex flex-col gap-2 border-t border-white/10 px-3 py-3 sm:flex-row sm:flex-wrap">
+              {secondaryActions.map((item) => (
+                <button
+                  key={item.action}
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void handleJourneyAction(booking, item.action)}
+                  className="min-h-11 w-full rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:border-white/30 disabled:opacity-60 sm:w-auto"
+                >
+                  {busy ? "Updating…" : item.label}
+                </button>
+              ))}
+              {showEvidence ? (
+                <a
+                  href={`/owner/journey-evidence/?ref=${encodeURIComponent(booking.paymentReference)}`}
+                  className="inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-sky-400/40 bg-sky-500/15 px-4 py-2.5 text-sm font-bold text-sky-100 transition-colors hover:bg-sky-500/25 sm:w-auto"
+                >
+                  View Journey Evidence
+                </a>
+              ) : null}
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void handleEnsureTracking(booking)}
+                className="min-h-11 w-full rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:border-white/30 disabled:opacity-60 sm:w-auto"
+              >
+                {booking.trackingToken ? "Refresh tracking link" : "Create tracking (no new charge)"}
+              </button>
+            </div>
+          </details>
         ) : null}
       </div>
     );
@@ -1726,7 +1753,7 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
               {(booking.customerEmail || booking.mobileNumber || booking.arrivedPickupAt) && (
                 <div>
                   <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-white/40">
-                    Customer
+                    Customer contact
                   </p>
                   <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
                     {booking.customerEmail ? (
@@ -1751,7 +1778,7 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
                   <div className="mt-3 space-y-1 text-sm text-white/70">
                     {booking.arrivedPickupAt ? (
                       <p>
-                        Arrived at pickup:{" "}
+                        Driver has arrived:{" "}
                         <span className="font-semibold text-white">
                           {formatArrivedPickupHhMm(booking.arrivedPickupAt)}
                         </span>
@@ -1771,10 +1798,11 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
                 </div>
               )}
 
-              <div>
-                <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-white/40">
-                  Admin
-                </p>
+              <details className="rounded-xl border border-white/10 bg-navy/40">
+                <summary className="cursor-pointer list-none px-3 py-2.5 text-xs font-semibold uppercase tracking-wider text-white/50 marker:content-none [&::-webkit-details-marker]:hidden">
+                  Admin / More
+                </summary>
+                <div className="border-t border-white/10 px-3 py-3">
                 <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
                   {canEdit ? (
                     <button
@@ -1802,7 +1830,7 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
                     type="button"
                     disabled={busyRef === booking.paymentReference}
                     onClick={() => void handleResend(booking)}
-                    className="min-h-11 w-full rounded-xl bg-emerald px-4 py-3 text-sm font-bold text-navy transition-colors hover:bg-emerald-light disabled:opacity-60 sm:w-auto"
+                    className="min-h-11 w-full rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:border-white/30 disabled:opacity-60 sm:w-auto"
                   >
                     {busyRef === booking.paymentReference
                       ? "Sending…"
@@ -1846,7 +1874,7 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
                       busyRef === booking.paymentReference
                     }
                     onClick={() => void handleTrackingDiagnostic(booking)}
-                    className="min-h-11 w-full rounded-xl border border-emerald/40 bg-emerald/10 px-4 py-2.5 text-sm font-semibold text-emerald transition-colors hover:bg-emerald/20 disabled:opacity-60 sm:w-auto"
+                    className="min-h-11 w-full rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold text-white/80 transition-colors hover:border-white/30 disabled:opacity-60 sm:w-auto"
                   >
                     {diagnosticBusyRef === booking.paymentReference
                       ? "Loading diagnostic…"
@@ -1859,7 +1887,7 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
                       busyRef === booking.paymentReference
                     }
                     onClick={() => void handleRefundDiagnostic(booking)}
-                    className="min-h-11 w-full rounded-xl border border-amber-400/40 bg-amber-500/10 px-4 py-2.5 text-sm font-semibold text-amber-100 transition-colors hover:bg-amber-500/20 disabled:opacity-60 sm:w-auto"
+                    className="min-h-11 w-full rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold text-white/80 transition-colors hover:border-white/30 disabled:opacity-60 sm:w-auto"
                   >
                     {refundDiagBusyRef === booking.paymentReference
                       ? "Loading refund diagnostics…"
@@ -1911,7 +1939,8 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
                     onError={(message) => setError(message)}
                   />
                 ) : null}
-              </div>
+                </div>
+              </details>
             </div>
 
             {diagnostics[booking.paymentReference] ? (
@@ -1993,7 +2022,7 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
             trips move to <span className="text-white/85">Completed Jobs</span> below (records are
             kept). Owner test / refund-test bookings stay on their diagnostics pages only. Use{" "}
             <span className="text-white/85">Driver on the way</span> then{" "}
-            <span className="text-white/85">Arrived at Pickup</span> for customer updates.
+            <span className="text-white/85">Driver has arrived</span> for customer updates.
           </p>
           <p className="mt-2 text-xs text-amber-100/80">
             Need a controlled £1 live SumUp refund smoke test?{" "}

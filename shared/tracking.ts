@@ -161,7 +161,8 @@ export function allowedJourneyActions(status: JourneyStatus): JourneyAction[] {
       // Stop Live Tracking ≠ Complete Journey — owner can still arrive or mark finished.
       return ["start_tracking", "arrived_pickup", "complete_journey"];
     case "tracking":
-      return ["arrived_pickup", "stop_tracking", "complete_journey"];
+      // Keep start_tracking so Owner can re-send Driver on the way (idempotent handler).
+      return ["start_tracking", "arrived_pickup", "stop_tracking", "complete_journey"];
     case "arrived_pickup":
       return ["start_journey", "stop_tracking", "complete_journey"];
     case "en_route":

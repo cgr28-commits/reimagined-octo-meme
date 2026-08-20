@@ -861,20 +861,29 @@ function DriverJobCard({
     mapMarkers.length > 0 || (showRecordedRoute && recordedRoute.length > 0);
   const journeyStatus = job.journeyStatus ?? (job.sharingActive ? "tracking" : "idle");
   const journeyLabel = job.journeyStatusLabel ?? (job.sharingActive ? "Driver on the way" : "Driver preparing");
-  const allowedActions: JourneyAction[] =
-    job.allowedJourneyActions ??
-    (journeyStatus === "idle" || journeyStatus === "stopped"
-      ? ["start_tracking", "arrived_pickup"]
-      : journeyStatus === "tracking"
-        ? ["arrived_pickup", "stop_tracking"]
-        : journeyStatus === "arrived_pickup"
-          ? ["complete_journey", "stop_tracking"]
-          : journeyStatus === "en_route"
-            ? ["arrived_destination", "stop_tracking"]
-            : journeyStatus === "arrived_destination"
-              ? ["complete_journey", "stop_tracking"]
-              : []);
-  const canOperateJourney = canShare;
+  // Customer update actions (Driver on the way / Driver has arrived) must NOT wait for the
+  // 1-hour GPS tracking window — that window only gates live map sharing.
+  const canOperateJourney =
+    !isRefunded &&
+    (isOwner || isAcceptedAssignment) &&
+    journeyStatus !== "completed";
+  const allowedActions: JourneyAction[] = (() => {
+    const raw =
+      job.allowedJourneyActions ??
+      (journeyStatus === "idle" || journeyStatus === "stopped"
+        ? (["start_tracking", "arrived_pickup"] as JourneyAction[])
+        : journeyStatus === "tracking"
+          ? (["start_tracking", "arrived_pickup"] as JourneyAction[])
+          : journeyStatus === "arrived_pickup"
+            ? (["complete_journey"] as JourneyAction[])
+            : journeyStatus === "en_route"
+              ? (["arrived_destination"] as JourneyAction[])
+              : journeyStatus === "arrived_destination"
+                ? (["complete_journey"] as JourneyAction[])
+                : []);
+    // Soft-hide legacy live-tracking stop control from the normal Owner primary row.
+    return raw.filter((action) => action !== "stop_tracking");
+  })();
 
   useEffect(() => {
     if (!showRecordedRoute) {

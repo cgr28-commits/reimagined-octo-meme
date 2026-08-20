@@ -191,7 +191,7 @@ export type JourneyAction =
 
 export const JOURNEY_ACTION_LABELS: Record<JourneyAction, string> = {
   start_tracking: "Driver on the way",
-  arrived_pickup: "🚕 Arrived at Pickup",
+  arrived_pickup: "Driver has arrived",
   start_journey: "Start journey",
   arrived_destination: "Arrived at destination",
   complete_journey: "Complete journey",

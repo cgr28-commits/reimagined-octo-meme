@@ -12,6 +12,7 @@ import {
   isCompletedWorkBooking,
   isOwnerOperationalTestBooking,
   isUpcomingWorkBooking,
+  ownerUpcomingPrimaryJourneyActions,
   resolveCompletionTimestamp,
 } from "../shared/upcoming-jobs";
 import { refundTestIsolationDecoyPaymentReference } from "../shared/refund-test-isolation";
@@ -48,10 +49,16 @@ console.log("=== 1. Test booking detection (flags preferred over names) ===");
   assert.equal(
     isOwnerOperationalTestBooking({
       paymentReference: "TAA-REAL-001",
-      customerName: "Refund Test Person",
-    } as { paymentReference: string }),
+    }),
     false,
-    "customer name alone must not flag a real booking",
+    "genuine payment refs are not treated as tests",
+  );
+  assert.equal(
+    isOwnerOperationalTestBooking({
+      paymentReference: "TAA-CUSTOMER-TEST-STREET",
+    }),
+    false,
+    "payment refs containing the word test (without REFUND-TEST-/AMEND-TEST- prefix) stay visible",
   );
   console.log("OK  isRefundTest / amendment / REFUND-TEST- / AMEND-TEST- / isolation decoy");
 }
@@ -67,6 +74,32 @@ console.log("\n=== 2. Upcoming Jobs matrix ===");
   };
   assert.equal(isUpcomingWorkBooking(futureReal, today), true, "future real → Upcoming");
   assert.equal(isCompletedWorkBooking(futureReal), false);
+  assert.deepEqual(
+    ownerUpcomingPrimaryJourneyActions({
+      journeyStatus: "idle",
+      sharingActive: false,
+      bookingStatus: "confirmed",
+    }),
+    ["start_tracking", "arrived_pickup"],
+    "new genuine booking → Driver on the way + Driver has arrived",
+  );
+  assert.deepEqual(
+    ownerUpcomingPrimaryJourneyActions({
+      journeyStatus: "tracking",
+      sharingActive: true,
+      bookingStatus: "confirmed",
+    }),
+    ["start_tracking", "arrived_pickup"],
+    "tracking status still keeps both customer update actions",
+  );
+  assert.deepEqual(
+    ownerUpcomingPrimaryJourneyActions({
+      journeyStatus: "arrived_pickup",
+      bookingStatus: "confirmed",
+    }),
+    [],
+    "after arrival, primary on-the-way/arrived CTAs are done",
+  );
 
   const completedReal = {
     status: "confirmed",
