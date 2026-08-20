@@ -6,6 +6,7 @@ import { createPortal } from "react-dom";
 import Logo from "./Logo";
 import QuoteNavLink from "./QuoteNavLink";
 import { MOBILE_QUICK_LINKS, NAV_LINKS, SITE } from "@/lib/data";
+import { whatsAppChatUrl } from "@/lib/contact-card";
 
 export default function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -108,6 +109,22 @@ export default function Header() {
                   >
                     Call {SITE.landlineDisplay}
                   </a>
+                  <a
+                    href={whatsAppChatUrl()}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={closeMenu}
+                    className="rounded-full border border-white/20 px-5 py-3 text-center text-sm font-semibold text-white/90"
+                  >
+                    WhatsApp @{SITE.whatsappUsername}
+                  </a>
+                  <Link
+                    href="/contact/"
+                    onClick={closeMenu}
+                    className="rounded-full border border-white/20 px-5 py-3 text-center text-sm font-semibold text-white/90"
+                  >
+                    Contact
+                  </Link>
                 </div>
               </nav>
             </div>

@@ -52,8 +52,10 @@ console.log("\n=== WhatsApp FAB hidden on checkout ===");
   assert.match(portal, /book-quote/);
   assert.match(portal, /shouldHidePublicSalesWidgets/);
   const wa = read("src/components/WhatsAppButton.tsx");
-  assert.match(wa, /shouldHidePublicSalesWidgets/);
-  console.log("OK  floating WhatsApp gated off /book-quote");
+  // Floating FAB removed site-wide from the quote funnel; component is a no-op.
+  assert.match(wa, /return null/);
+  assert.doesNotMatch(wa, /fixed bottom-/);
+  console.log("OK  floating WhatsApp not rendered (including /book-quote)");
 }
 
 console.log("\n=== Payment / booking logic preserved ===");

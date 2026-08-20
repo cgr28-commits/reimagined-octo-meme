@@ -16,8 +16,9 @@ function read(rel: string): string {
 console.log("=== 1. Public sales widgets hidden on owner/admin/driver ===");
 {
   const wa = read("src/components/WhatsAppButton.tsx");
-  assert.match(wa, /shouldHidePublicSalesWidgets/);
-  assert.match(wa, /usePathname/);
+  // Floating WhatsApp FAB retired; QuoteAssistant still gated off private portals.
+  assert.match(wa, /return null/);
+  assert.doesNotMatch(wa, /fixed bottom-/);
 
   const quote = read("src/components/QuoteAssistant.tsx");
   assert.match(quote, /shouldHidePublicSalesWidgets/);
@@ -25,7 +26,7 @@ console.log("=== 1. Public sales widgets hidden on owner/admin/driver ===");
   const helper = read("src/lib/owner-portal.ts");
   assert.match(helper, /isOwnerPortalPath/);
   assert.match(helper, /shouldHidePublicSalesWidgets/);
-  console.log("OK  WhatsApp + QuoteAssistant gated off private portals");
+  console.log("OK  WhatsApp FAB off; QuoteAssistant gated off private portals");
 }
 
 console.log("\n=== 2. Owner portal header replaces public Header on ops pages ===");
