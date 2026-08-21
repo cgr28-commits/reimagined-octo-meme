@@ -27,12 +27,14 @@ import { scheduleQuoteLeadAlert } from "@/lib/submit-quote-lead";
 
 const BOT_WORKING_MS = 450;
 const SESSION_KEY = "matni-quote-assistant-v1";
-/** ~20–24px viewport edge clearance for the floating Help pill. */
+/** ~20–24px viewport edge clearance for the fixed Help pill. */
 const HELP_EDGE_PX = 22;
-/** Inflate the quote rect so autocomplete / CTAs stay clear of a float. */
+/** Inflate the quote rect so autocomplete / CTAs stay clear of the pill. */
 const HELP_QUOTE_PAD_PX = 12;
+/** Clear the fixed site header when falling back to top-right. */
+const HELP_TOP_CLEARANCE = "max(5.75rem, calc(env(safe-area-inset-top, 0px) + 4.75rem))";
 
-type HelpPlacement = "float" | "dock";
+type HelpCorner = "bottom-right" | "bottom-left" | "top-right";
 
 function rectsOverlap(
   a: { left: number; top: number; right: number; bottom: number },
@@ -45,6 +47,61 @@ function rectsOverlap(
     a.bottom < b.top - pad ||
     a.top > b.bottom + pad
   );
+}
+
+function helpBoxForCorner(
+  corner: HelpCorner,
+  vw: number,
+  vh: number,
+  btnW: number,
+  btnH: number,
+  edge: number,
+  topPx: number,
+): { left: number; top: number; right: number; bottom: number } {
+  if (corner === "bottom-left") {
+    return {
+      left: edge,
+      top: vh - edge - btnH,
+      right: edge + btnW,
+      bottom: vh - edge,
+    };
+  }
+  if (corner === "top-right") {
+    return {
+      left: vw - edge - btnW,
+      top: topPx,
+      right: vw - edge,
+      bottom: topPx + btnH,
+    };
+  }
+  return {
+    left: vw - edge - btnW,
+    top: vh - edge - btnH,
+    right: vw - edge,
+    bottom: vh - edge,
+  };
+}
+
+/** Prefer bottom-right; if that covers #quote, try bottom-left, then top-right. Always fixed. */
+function chooseHelpCorner(
+  quote: DOMRect | null,
+  vw: number,
+  vh: number,
+  btnW: number,
+  btnH: number,
+): HelpCorner {
+  const edge = HELP_EDGE_PX;
+  const topPx = Math.round(4.75 * 16 + 8); // ~header clearance in px for overlap math
+  const order: HelpCorner[] = ["bottom-right", "bottom-left", "top-right"];
+  if (!quote) return "bottom-right";
+  for (const corner of order) {
+    const box = helpBoxForCorner(corner, vw, vh, btnW, btnH, edge, topPx);
+    if (!rectsOverlap(box, quote, HELP_QUOTE_PAD_PX)) {
+      return corner;
+    }
+  }
+  // Every corner intersects (tight mobile) — stay bottom-right and visible immediately.
+  return "bottom-right";
 }
 
 type PersistedChat = {
@@ -149,8 +206,7 @@ export default function QuoteAssistant() {
   const [addressValue, setAddressValue] = useState("");
   const [mounted, setMounted] = useState(false);
   const [consecutiveMisses, setConsecutiveMisses] = useState(0);
-  const [helpPlacement, setHelpPlacement] = useState<HelpPlacement>("dock");
-  const [helpDockEl, setHelpDockEl] = useState<HTMLElement | null>(null);
+  const [helpCorner, setHelpCorner] = useState<HelpCorner>("bottom-right");
   const launcherRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -271,68 +327,40 @@ export default function QuoteAssistant() {
   }, [open]);
 
   /**
-   * Float only when the bottom-right viewport corner is free of the Live Quote card.
-   * Otherwise dock into #matni-help-dock (below the quote) so controls stay clear.
-   * useLayoutEffect avoids a one-frame float flash over the quote card.
+   * Always position: fixed on document.body (viewport), never in page flow.
+   * Prefer bottom-right; if that covers #quote, try bottom-left, then top-right.
    */
   useLayoutEffect(() => {
     if (!mounted) return;
 
-    function syncHelpPlacement() {
-      const quote = document.getElementById("quote");
-      const dock = document.getElementById("matni-help-dock");
-      setHelpDockEl(dock);
-
-      // While the chat panel is open, keep a fixed close control in the corner.
-      if (open || !quote) {
-        setHelpPlacement("float");
+    function syncHelpCorner() {
+      if (open) {
+        setHelpCorner("bottom-right");
         return;
       }
-
+      const quoteEl = document.getElementById("quote");
+      const quoteRect = quoteEl?.getBoundingClientRect() ?? null;
       const mobile = isMobile ?? detectMobileDevice();
       const btnW = mobile ? 96 : 148;
       const btnH = 44;
-      const vw = window.innerWidth;
-      const vh = window.innerHeight;
-      const floatBox = {
-        left: vw - HELP_EDGE_PX - btnW,
-        top: vh - HELP_EDGE_PX - btnH,
-        right: vw - HELP_EDGE_PX,
-        bottom: vh - HELP_EDGE_PX,
-      };
-      const quoteRect = quote.getBoundingClientRect();
-      const overlapsQuote = rectsOverlap(floatBox, quoteRect, HELP_QUOTE_PAD_PX);
-
-      if (!overlapsQuote) {
-        setHelpPlacement("float");
-        return;
-      }
-
-      // Not enough free corner space — dock below/alongside the quote instead of covering it.
-      let host = dock;
-      if (!host) {
-        host = document.createElement("div");
-        host.id = "matni-help-dock";
-        host.className = "matni-help-dock mt-3 flex justify-end";
-        quote.appendChild(host);
-      }
-      setHelpDockEl(host);
-      setHelpPlacement("dock");
+      setHelpCorner(
+        chooseHelpCorner(quoteRect, window.innerWidth, window.innerHeight, btnW, btnH),
+      );
     }
 
-    syncHelpPlacement();
-    window.addEventListener("resize", syncHelpPlacement);
-    window.addEventListener("scroll", syncHelpPlacement, { passive: true });
+    syncHelpCorner();
+    window.addEventListener("resize", syncHelpCorner);
+    window.addEventListener("scroll", syncHelpCorner, { passive: true });
     const quote = document.getElementById("quote");
     const ro =
       quote && typeof ResizeObserver !== "undefined"
-        ? new ResizeObserver(() => syncHelpPlacement())
+        ? new ResizeObserver(() => syncHelpCorner())
         : null;
     if (quote && ro) ro.observe(quote);
 
     return () => {
-      window.removeEventListener("resize", syncHelpPlacement);
-      window.removeEventListener("scroll", syncHelpPlacement);
+      window.removeEventListener("resize", syncHelpCorner);
+      window.removeEventListener("scroll", syncHelpCorner);
       ro?.disconnect();
     };
   }, [mounted, open, isMobile, pathname]);
@@ -572,18 +600,46 @@ export default function QuoteAssistant() {
 
   const mobileUi = isMobile === true;
   const launcherClosedLabel = mobileUi ? "Help" : "Need help?";
-  const useDock = helpPlacement === "dock" && helpDockEl && !open;
+  const edgeInset = `max(${HELP_EDGE_PX}px, env(safe-area-inset-bottom, 0px))`;
+  const edgeInsetX = `max(${HELP_EDGE_PX}px, env(safe-area-inset-right, 0px))`;
+  const edgeInsetLeft = `max(${HELP_EDGE_PX}px, env(safe-area-inset-left, 0px))`;
+  const launcherStyle =
+    helpCorner === "bottom-left"
+      ? {
+          position: "fixed" as const,
+          zIndex: 60,
+          bottom: edgeInset,
+          left: edgeInsetLeft,
+          right: "auto",
+          top: "auto",
+        }
+      : helpCorner === "top-right"
+        ? {
+            position: "fixed" as const,
+            zIndex: 60,
+            top: HELP_TOP_CLEARANCE,
+            right: edgeInsetX,
+            left: "auto",
+            bottom: "auto",
+          }
+        : {
+            position: "fixed" as const,
+            zIndex: 60,
+            bottom: edgeInset,
+            right: edgeInsetX,
+            left: "auto",
+            top: "auto",
+          };
 
   const launcherButton = (
     <button
       ref={launcherRef}
       type="button"
       data-matni-help-launcher="true"
-      data-matni-help-placement={useDock ? "dock" : "float"}
+      data-matni-help-corner={helpCorner}
       onClick={toggleOpen}
+      style={launcherStyle}
       className={`matni-help-launcher flex items-center justify-center border border-emerald/70 bg-navy text-white shadow-md shadow-black/25 transition-colors hover:border-emerald hover:bg-navy-light ${
-        useDock ? "matni-help-launcher--dock relative z-[40]" : "matni-help-launcher--float fixed z-[60]"
-      } ${
         open
           ? "h-11 w-11 rounded-full"
           : mobileUi
@@ -846,20 +902,12 @@ export default function QuoteAssistant() {
   // Owner/admin/driver dashboards — keep the public quote assistant off private ops screens.
   if (shouldHidePublicSalesWidgets(pathname)) return null;
 
-  const dockedLauncher =
-    useDock && helpDockEl ? createPortal(launcherButton, helpDockEl) : null;
-  const bodyUi = createPortal(
+  // Portal to document.body so no page ancestor transform/overflow can un-fix the pill.
+  return createPortal(
     <>
-      {!useDock ? launcherButton : null}
+      {launcherButton}
       {panel}
     </>,
     document.body,
-  );
-
-  return (
-    <>
-      {dockedLauncher}
-      {bodyUi}
-    </>
   );
 }

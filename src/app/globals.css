@@ -357,21 +357,12 @@ main {
 }
 
 /*
- * Public Help launcher (QuoteAssistant).
- * Float mode: fixed bottom-right of the viewport (~22px edges), only when that
- * corner does not intersect #quote. Otherwise docks into #matni-help-dock below
- * the Live Quote card so form/price/CTAs stay clear.
+ * Public Help launcher (QuoteAssistant) — always position:fixed to the viewport
+ * via a portal to document.body (avoids ancestor transform/overflow traps).
+ * Corner (bottom-right / bottom-left / top-right) is chosen in JS so the pill
+ * stays visible on load without covering the Live Quote card.
  */
-.matni-help-launcher--float {
-  bottom: max(22px, env(safe-area-inset-bottom, 0px));
-  right: max(22px, env(safe-area-inset-right, 0px));
-}
-
 .matni-help-panel {
   bottom: calc(4.25rem + env(safe-area-inset-bottom, 0px));
   right: max(22px, env(safe-area-inset-right, 0px));
-}
-
-.matni-help-dock {
-  min-height: 0;
 }
