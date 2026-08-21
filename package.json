@@ -38,6 +38,7 @@
     "check:owner-dashboard-job-cleanup": "npx tsx scripts/check-owner-dashboard-job-cleanup.ts",
     "check:owner-dashboard-layout": "npx tsx scripts/check-owner-dashboard-layout.ts",
     "check:owner-personal-quote-fare-parity": "npx tsx scripts/check-owner-personal-quote-fare-parity.ts",
+    "check:owner-quick-quote-selectors": "npx tsx scripts/check-owner-quick-quote-selectors.ts",
     "check:public-help-fabs": "npx tsx scripts/check-public-help-fabs.ts",
     "check:homepage-hero-ctas": "npx tsx scripts/check-homepage-hero-ctas.ts",
     "check:gps-session-cors": "npx tsx scripts/check-gps-session-cors.ts",

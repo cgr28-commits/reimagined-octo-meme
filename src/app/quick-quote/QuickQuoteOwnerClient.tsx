@@ -22,6 +22,11 @@ import {
   quickSelectToPlace,
   type SelectedPlace,
 } from "@/lib/selected-place";
+import FiniteOptionSelect, {
+  ONLINE_PASSENGER_OPTIONS,
+  ONLINE_SUITCASE_OPTIONS,
+  formatOnlineSuitcaseOption,
+} from "@/components/FiniteOptionSelect";
 
 const OWNER_KEY_STORAGE = "matni-owner-key";
 
@@ -271,8 +276,19 @@ export default function QuickQuoteOwnerClient() {
       return;
     }
     const parsed = parseQuickQuoteMessage(paste);
-    const passengers = countFieldValue(parsed.passengers.value);
-    const suitcases = countFieldValue(parsed.suitcases.value);
+    const passengersRaw = countFieldValue(parsed.passengers.value);
+    const suitcasesRaw = countFieldValue(parsed.suitcases.value);
+    const passengers =
+      passengersRaw && Number(passengersRaw) > QUICK_QUOTE_MAX_PASSENGERS
+        ? String(QUICK_QUOTE_MAX_PASSENGERS)
+        : passengersRaw && Number(passengersRaw) >= 1
+          ? String(Math.min(QUICK_QUOTE_MAX_PASSENGERS, Math.max(1, Number(passengersRaw))))
+          : passengersRaw;
+    const suitcasesNum = Number(suitcasesRaw);
+    const suitcases =
+      suitcasesRaw && Number.isFinite(suitcasesNum)
+        ? String(suitcasesNum >= 5 ? 5 : Math.max(0, suitcasesNum))
+        : suitcasesRaw;
     const airportCode = parsed.airportCode.value ?? "";
     const fromAirport = parsed.fromAirport.value ?? false;
     let nextPickup = cleanExtractedText(parsed.pickupAddress.value ?? "");
@@ -732,40 +748,43 @@ export default function QuickQuoteOwnerClient() {
               label={`Passengers (max ${QUICK_QUOTE_MAX_PASSENGERS})`}
               flag={flagFor("passengers")}
             />
-            <input
-              type="text"
-              inputMode="numeric"
-              pattern="[0-9]*"
-              autoComplete="off"
-              value={draft.passengers}
-              onChange={(e) => {
-                const next = e.target.value.replace(/[^\d]/g, "").slice(0, 2);
-                setDraft((d) => ({ ...d, passengers: next }));
+            <FiniteOptionSelect
+              label=""
+              aria-label={`Passengers (max ${QUICK_QUOTE_MAX_PASSENGERS})`}
+              value={draft.passengers.trim() ? Number(draft.passengers) : ""}
+              options={[...ONLINE_PASSENGER_OPTIONS]}
+              allowEmpty
+              emptyLabel="Select passengers"
+              required
+              onChange={(next) => {
+                setDraft((d) => ({ ...d, passengers: String(next) }));
                 clearQuoteOutputs();
-                if (next.trim()) {
-                  setMissing((m) => m.filter((x) => x !== "passengers"));
-                }
+                setMissing((m) => m.filter((x) => x !== "passengers"));
               }}
-              className={fieldClass}
             />
           </div>
           <div className="min-w-0">
             <FieldLabel label="Luggage" flag={flagFor("suitcases")} />
-            <input
-              type="text"
-              inputMode="numeric"
-              pattern="[0-9]*"
-              autoComplete="off"
-              value={draft.suitcases}
-              onChange={(e) => {
-                const next = e.target.value.replace(/[^\d]/g, "").slice(0, 2);
-                setDraft((d) => ({ ...d, suitcases: next }));
+            <FiniteOptionSelect
+              label=""
+              aria-label="Luggage"
+              value={
+                draft.suitcases.trim()
+                  ? Number(draft.suitcases) >= 5
+                    ? 5
+                    : Number(draft.suitcases)
+                  : ""
+              }
+              options={[...ONLINE_SUITCASE_OPTIONS]}
+              formatOption={formatOnlineSuitcaseOption}
+              allowEmpty
+              emptyLabel="Select luggage"
+              required
+              onChange={(next) => {
+                setDraft((d) => ({ ...d, suitcases: String(next) }));
                 clearQuoteOutputs();
-                if (next.trim()) {
-                  setMissing((m) => m.filter((x) => x !== "suitcases"));
-                }
+                setMissing((m) => m.filter((x) => x !== "suitcases"));
               }}
-              className={fieldClass}
             />
           </div>
         </div>
