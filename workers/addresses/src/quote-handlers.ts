@@ -1,12 +1,27 @@
 /**
  * POST /quote/calculate — server-authoritative website fare.
  * Uses the SAME pricing engine as the public quote tool (no second algorithm).
+ *
+ * Owner/Driver Quick Quote may pass X-Owner-Key to:
+ * - raise the passenger ceiling to 7 (Minibus)
+ * - force Minibus via vehicleChoice / vehicleType using existing multipliers
  */
 
 import { corsHeaders } from "../shared/google-places";
+import {
+  parseQuickQuoteVehicleChoice,
+  quickQuoteMaxPassengersForVehicle,
+  type QuickQuoteVehicleChoice,
+} from "../shared/quick-quote";
 import { calculateAuthoritativeWebsiteQuote } from "../../../src/lib/quote-service";
 import type { QuoteServiceAirportCode } from "../../../src/lib/quote-service";
 import { fetchTripRouteMetrics } from "../../../src/lib/trip-route";
+import {
+  MINIBUS_VEHICLE,
+  selectVehicleForParty,
+} from "../../../src/lib/vehicle-selection";
+import type { VehicleType } from "../../../src/lib/data";
+import { ownerAuthorized } from "./driver-auth";
 
 function json(body: unknown, status: number, origin: string | null): Response {
   return new Response(JSON.stringify(body), {
@@ -18,9 +33,36 @@ function json(body: unknown, status: number, origin: string | null): Response {
   });
 }
 
+function resolveVehicleType(
+  body: Record<string, unknown>,
+  passengers: number,
+  suitcases: number,
+  ownerMode: boolean,
+): { vehicleType: VehicleType; vehicleChoice: QuickQuoteVehicleChoice; maxPassengers: number } {
+  const choice = parseQuickQuoteVehicleChoice(
+    body.vehicleChoice ?? body.vehiclePreference ?? body.vehicleType,
+  );
+  if (ownerMode && choice === "Minibus") {
+    return {
+      vehicleType: MINIBUS_VEHICLE,
+      vehicleChoice: "Minibus",
+      maxPassengers: quickQuoteMaxPassengersForVehicle("Minibus"),
+    };
+  }
+  // Saloon choice (or unauthenticated): still allow Estate/Minibus via party rules.
+  return {
+    vehicleType: selectVehicleForParty(passengers, Math.max(0, suitcases)),
+    vehicleChoice: "Saloon",
+    maxPassengers: ownerMode
+      ? quickQuoteMaxPassengersForVehicle("Saloon")
+      : quickQuoteMaxPassengersForVehicle("Saloon"),
+  };
+}
+
 export async function handleQuoteCalculateRequest(
   request: Request,
   origin: string | null,
+  env?: { OWNER_ACCESS_KEY?: string; DRIVER_ACCESS_KEY?: string },
 ): Promise<Response> {
   if (request.method === "OPTIONS") {
     return new Response(null, { status: 204, headers: corsHeaders(origin) });
@@ -57,6 +99,16 @@ export async function handleQuoteCalculateRequest(
     routeMetrics = await fetchTripRouteMetrics(pickupLat, pickupLng, dropoffLat, dropoffLng);
   }
 
+  const passengers = Number(body.passengers);
+  const suitcases = Number(body.suitcases);
+  const ownerMode = Boolean(env && ownerAuthorized(request, env));
+  const resolved = resolveVehicleType(
+    body,
+    Math.floor(passengers) || 1,
+    Math.floor(suitcases) || 0,
+    ownerMode,
+  );
+
   const result = calculateAuthoritativeWebsiteQuote({
     airportCode,
     fromAirport: body.fromAirport === true,
@@ -67,9 +119,11 @@ export async function handleQuoteCalculateRequest(
     outboundTime: String(body.outboundTime ?? ""),
     returnDate: String(body.returnDate ?? "") || undefined,
     returnTime: String(body.returnTime ?? "") || undefined,
-    passengers: Number(body.passengers),
-    suitcases: Number(body.suitcases),
+    passengers,
+    suitcases,
     routeMetrics,
+    vehicleType: resolved.vehicleType,
+    maxPassengers: resolved.maxPassengers,
   });
 
   console.log(
@@ -79,9 +133,22 @@ export async function handleQuoteCalculateRequest(
       reason: result.ok ? undefined : result.reason,
       airportCode,
       returnJourney: body.returnJourney === true,
+      ownerMode,
+      vehicleChoice: resolved.vehicleChoice,
       amount: result.ok ? result.amount : undefined,
     }),
   );
 
-  return json(result, result.ok ? 200 : 422, origin);
+  if (!result.ok) {
+    return json(result, 422, origin);
+  }
+
+  return json(
+    {
+      ...result,
+      vehicleChoice: resolved.vehicleChoice,
+    },
+    200,
+    origin,
+  );
 }
