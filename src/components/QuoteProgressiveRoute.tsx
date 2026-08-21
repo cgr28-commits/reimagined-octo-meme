@@ -217,7 +217,13 @@ export default function QuoteProgressiveRoute({
   return (
     <div className="quote-field space-y-5 lg:space-y-4">
       <div id="quote-section-journey" className="min-h-[3.25rem] lg:min-h-0">
-        <h3 className="text-base font-semibold text-white sm:text-lg lg:text-base">Where are you travelling?</h3>
+        <h3
+          data-booking-nav-heading
+          tabIndex={-1}
+          className="text-base font-semibold text-white outline-none sm:text-lg lg:text-base"
+        >
+          Where are you travelling?
+        </h3>
         <p className="mt-1 min-h-[1rem] text-xs text-white/55 lg:min-h-0">
           {journeyKindLabel || "Choose how you’d like to travel"}
         </p>

@@ -34,8 +34,23 @@ assert.match(data, /href: "\/manage-booking\/"/);
 const quoteCard = read("src/components/QuoteCard.tsx");
 assert.match(quoteCard, /performStartNewQuote/);
 assert.match(quoteCard, /clearAbandonedQuotePersistence/);
-assert.match(quoteCard, /Start a New Quote/);
+assert.match(quoteCard, /Start a new quote\?/);
 assert.match(quoteCard, /Keep Current Quote/);
+assert.match(quoteCard, /id="quote-actions"/);
+assert.match(quoteCard, /scheduleRevealQuoteActionsScroll/);
+assert.match(quoteCard, /keepCurrentQuote|onClick=\{keepCurrentQuote\}/);
+assert.match(quoteCard, /scheduleBookingNavAfterRender\("quote-section-journey"/);
+assert.doesNotMatch(
+  quoteCard,
+  /function requestStartNewQuote\(\) \{[\s\S]*?performStartNewQuote\(\);\s*setConfirmStartNewQuote/,
+);
+// Opening the panel must not clear; only the green confirm calls performStartNewQuote.
+assert.match(quoteCard, /function requestStartNewQuote\(\) \{[\s\S]*?setConfirmStartNewQuote\(true\)/);
+const scrollLib = read("src/lib/quote-step-nav-scroll.ts");
+assert.match(scrollLib, /scheduleRevealQuoteActionsScroll/);
+assert.match(scrollLib, /computeScrollTopToRevealActions/);
+assert.match(scrollLib, /visualViewport/);
+assert.doesNotMatch(scrollLib, /scheduleRevealQuoteActionsScroll[\s\S]*scrollIntoView/);
 console.log("OK  Manage Your Booking nav + Start a New Quote wiring");
 
 console.log("\n=== Persistence clear (jsdom-less memory polyfill) ===");
