@@ -163,6 +163,7 @@ export default function OwnerFlightStatusPanel({
         if (
           !(
             flightRef.current?.statusCategory === "landed" ||
+            flightRef.current?.statusCategory === "arrival_pending" ||
             flightRef.current?.statusCategory === "cancelled"
           )
         ) {
