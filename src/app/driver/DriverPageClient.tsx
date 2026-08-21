@@ -11,6 +11,7 @@ import OwnerShortNoticePanel from "@/components/OwnerShortNoticePanel";
 import OwnerPersonalQuotesPanel from "@/components/OwnerPersonalQuotesPanel";
 import OwnerBookingCalendar from "@/components/OwnerBookingCalendar";
 import OwnerAccountProfilePanel from "@/components/OwnerAccountProfilePanel";
+import OwnerFinancialSummaryPanel from "@/components/OwnerFinancialSummaryPanel";
 import OwnerDashboardToolSwitcher, {
   type OwnerDashboardToolTab,
 } from "@/components/OwnerDashboardToolSwitcher";
@@ -2885,6 +2886,10 @@ export default function DriverPageClient({
                   isOwnerView && savedKey ? "owner-tool-tab-jobs" : undefined
                 }
               >
+              {isOwnerView && savedKey ? (
+                <OwnerFinancialSummaryPanel ownerKey={savedKey} />
+              ) : null}
+
               {isOwnerView && savedKey ? <OwnerShortNoticePanel ownerKey={savedKey} /> : null}
 
               {isOwnerView && savedKey ? (

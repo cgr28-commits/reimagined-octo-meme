@@ -28,7 +28,6 @@ import {
 import { formatUkInstant } from "../../shared/uk-time";
 import OwnerEditBookingModal from "@/components/OwnerEditBookingModal";
 import OwnerCancelRefundModal from "@/components/OwnerCancelRefundModal";
-import OwnerFinancialSummaryPanel from "@/components/OwnerFinancialSummaryPanel";
 import {
   fetchOwnerPaidBookings,
   fetchOwnerPendingCheckouts,
@@ -866,7 +865,6 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
   const [fareAdjustMessage, setFareAdjustMessage] = useState("");
   const [refundConfirmRef, setRefundConfirmRef] = useState<string | null>(null);
   const [externalRefundConfirmRef, setExternalRefundConfirmRef] = useState<string | null>(null);
-  const [financialRefreshToken, setFinancialRefreshToken] = useState(0);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -1295,7 +1293,6 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
       result.ownerEmailSent ? "owner email sent" : null,
     ].filter(Boolean);
     setMessage(`${booking.paymentReference}: ${bits.join(" · ")}`);
-    setFinancialRefreshToken((n) => n + 1);
     await load();
   }
 
@@ -2195,11 +2192,6 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
 
   return (
     <section className="mb-10">
-      <OwnerFinancialSummaryPanel
-        ownerKey={ownerKey}
-        refreshToken={financialRefreshToken}
-      />
-
       {needsFinalize.length > 0 ? (
         <div className="mb-6 rounded-xl border border-amber-400/35 bg-amber-500/10 p-4">
           <p className="text-sm text-white/85">

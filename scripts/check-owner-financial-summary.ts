@@ -272,11 +272,14 @@ console.log("=== Payment day attribution ===");
 
 console.log("=== UI + API wiring ===");
 {
+  const page = read("src/app/driver/DriverPageClient.tsx");
+  assert.match(page, /OwnerFinancialSummaryPanel/);
+  const finAt = page.indexOf("<OwnerFinancialSummaryPanel");
+  const shortAt = page.indexOf("<OwnerShortNoticePanel");
+  assert.ok(finAt > 0 && finAt < shortAt, "financial summary above Booking Availability");
+
   const panel = read("src/components/OwnerPaidBookingsPanel.tsx");
-  assert.match(panel, /OwnerFinancialSummaryPanel/);
-  const finAt = panel.indexOf("<OwnerFinancialSummaryPanel");
-  const upcomingAt = panel.indexOf("Upcoming Jobs");
-  assert.ok(finAt > 0 && finAt < upcomingAt, "financial summary above Upcoming Jobs");
+  assert.doesNotMatch(panel, /OwnerFinancialSummaryPanel/);
 
   const finUi = read("src/components/OwnerFinancialSummaryPanel.tsx");
   assert.match(finUi, /This week/i);
@@ -300,7 +303,7 @@ console.log("=== UI + API wiring ===");
   assert.match(index, /paid-bookings-financial-summary/);
 
   const layout = read("scripts/check-owner-dashboard-layout.ts");
-  assert.match(layout, /OwnerFinancialSummaryPanel|financial/i);
+  assert.match(layout, /OwnerFinancialSummaryPanel/);
   console.log("OK  Owner UI + worker endpoint wired");
 }
 
