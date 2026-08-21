@@ -1,5 +1,6 @@
 /**
  * Public quote tool must NOT auto-scroll after customer selections.
+ * Explicit Book Now / Continue / Back step navigation may scroll on mobile only.
  * Run: npx tsx scripts/check-mobile-quote-autoscroll.ts
  */
 
@@ -16,7 +17,7 @@ function read(rel: string): string {
 const progressive = read("src/components/QuoteProgressiveRoute.tsx");
 const card = read("src/components/QuoteCard.tsx");
 
-// Shared auto-scroll helper must be retired.
+// Shared selection auto-scroll helper must stay retired.
 assert.equal(
   fs.existsSync(path.join(root, "src/lib/quote-mobile-scroll.ts")),
   false,
@@ -35,12 +36,18 @@ assert.doesNotMatch(card, /quote-mobile-scroll/);
 assert.doesNotMatch(card, /scheduleQuoteSectionScroll/);
 assert.doesNotMatch(card, /scheduleQuoteFareResultScroll/);
 assert.doesNotMatch(card, /scheduleSmoothScrollTo/);
-assert.doesNotMatch(card, /pendingScrollToStep/);
+assert.doesNotMatch(card, /pendingScrollToStep2DateRef/);
+assert.doesNotMatch(card, /pendingScrollToStep3CustomerRef/);
 assert.doesNotMatch(card, /scheduleReadyForScrollRef/);
-// No selection-driven auto-scroll via scrollIntoView in the quote card.
-assert.doesNotMatch(card, /scrollIntoView/);
 
-// Section ids remain in normal document flow (customers scroll manually).
+// Selection-driven scrollIntoView must not live in QuoteCard body helpers —
+// only the dedicated mobile step-nav helper may call scrollIntoView.
+assert.doesNotMatch(card, /scrollIntoView/);
+assert.match(card, /scheduleMobileQuoteStepNavScroll/);
+assert.match(card, /pendingQuoteStepNavScrollRef/);
+assert.match(card, /from "@\/lib\/quote-step-nav-scroll"/);
+
+// Section ids remain in normal document flow (customers scroll manually for selections).
 assert.match(progressive, /id="quote-section-passengers"/);
 assert.match(progressive, /id="quote-section-suitcases"/);
 assert.match(progressive, /id="quote-section-journey"/);
@@ -59,7 +66,7 @@ assert.doesNotMatch(card, /placeholder="Quote code"/);
 
 console.log("OK  quote-mobile-scroll helper removed");
 console.log("OK  progressive route has no auto-scroll after selections");
-console.log("OK  QuoteCard has no selection/step auto-scroll");
+console.log("OK  QuoteCard has no selection auto-scroll (step-nav scroll allowed)");
 console.log("OK  luggage is single 0–4|5+ row (no Exact Large Bags)");
 console.log("OK  personal quote code-entry UI remains removed");
 console.log("\nAll quote no-autoscroll checks passed.");
