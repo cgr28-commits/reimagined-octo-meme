@@ -239,7 +239,7 @@ export default function QuoteAssistant() {
     };
   }, []);
 
-  // Hide the floating WhatsApp button while chat is open (it covers the right edge).
+  // Track open state for any page styles that key off the help panel.
   useEffect(() => {
     document.body.dataset.matniChatOpen = open ? "true" : "false";
     window.dispatchEvent(new Event("matni-chat-open-change"));
@@ -484,49 +484,38 @@ export default function QuoteAssistant() {
 
   const ui = (
     <>
+      {/*
+        Compact corner Help pill — must stay clear of quote inputs / prices / Book CTAs.
+        Safe-area insets keep it above mobile browser chrome on narrow tablets.
+      */}
       <button
         ref={launcherRef}
         type="button"
+        data-matni-help-launcher="true"
         onClick={toggleOpen}
-        className={`fixed bottom-6 right-3 z-[60] flex max-w-[calc(100%-1.5rem)] items-center border-2 border-emerald bg-navy shadow-lg shadow-emerald/30 transition-all hover:bg-navy-light sm:bottom-8 sm:right-8 ${
+        className={`matni-help-launcher fixed z-[60] flex items-center justify-center border border-emerald/70 bg-navy/95 text-white shadow-md shadow-black/30 backdrop-blur-sm transition-colors hover:border-emerald hover:bg-navy-light ${
           open
-            ? "h-14 w-14 justify-center rounded-full sm:h-16 sm:w-16"
-            : "gap-2 rounded-2xl py-2 pl-2 pr-3 sm:gap-3 sm:py-2.5 sm:pl-2.5 sm:pr-4"
+            ? "h-10 w-10 rounded-full"
+            : "h-9 gap-1.5 rounded-full py-0 pl-2.5 pr-3"
         }`}
-        aria-label={open ? "Close chat" : "Can I help? — get quotes and help"}
+        aria-label={open ? "Close chat" : "Help — get quotes and help"}
         aria-expanded={open}
       >
         {open ? (
-          <svg className="h-6 w-6 text-emerald" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden>
+          <svg className="h-4 w-4 text-emerald" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden>
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 6l12 12M18 6L6 18" />
           </svg>
         ) : (
           <>
-            <span className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-navy-dark sm:h-12 sm:w-12">
-              <Image
-                src={withBasePath("/logo.png")}
-                alt=""
-                width={48}
-                height={48}
-                className="h-full w-full object-contain p-1"
-              />
-              <span
-                className="absolute right-0 top-0 flex h-3.5 w-3.5 items-center justify-center rounded-md bg-emerald text-navy"
-                aria-hidden
-              >
-                <svg className="h-2.5 w-2.5" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z" />
-                </svg>
-              </span>
-            </span>
-            <span className="min-w-0 max-w-[9.5rem] text-left sm:max-w-none">
-              <span className="block truncate text-sm font-bold leading-tight text-white sm:text-base">
-                Can I help ?
-              </span>
-              <span className="block truncate text-[11px] font-medium leading-tight text-emerald sm:text-xs">
-                Quotes · help · contact
-              </span>
-            </span>
+            <svg
+              className="h-3.5 w-3.5 shrink-0 text-emerald"
+              viewBox="0 0 24 24"
+              fill="currentColor"
+              aria-hidden
+            >
+              <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z" />
+            </svg>
+            <span className="text-xs font-semibold leading-none tracking-wide">Help</span>
           </>
         )}
       </button>
@@ -534,7 +523,7 @@ export default function QuoteAssistant() {
       {open ? (
         <div
           ref={panelRef}
-          className="fixed bottom-24 left-3 right-3 z-[60] box-border flex h-[min(78dvh,36rem)] max-h-[min(78dvh,36rem)] w-auto min-w-0 max-w-[calc(100vw-1.5rem)] touch-pan-y flex-col overflow-hidden overscroll-x-none rounded-2xl border border-white/15 bg-navy-dark shadow-2xl sm:bottom-28 sm:left-auto sm:right-8 sm:w-[24rem] sm:max-w-[min(24rem,calc(100%-4rem))]"
+          className="matni-help-panel fixed z-[60] box-border flex h-[min(78dvh,36rem)] max-h-[min(78dvh,36rem)] w-auto min-w-0 touch-pan-y flex-col overflow-hidden overscroll-x-none rounded-2xl border border-white/15 bg-navy-dark shadow-2xl left-3 right-3 max-w-[calc(100vw-1.5rem)] sm:left-auto sm:right-[max(1rem,env(safe-area-inset-right))] sm:w-[22rem] sm:max-w-[min(22rem,calc(100%-2rem))]"
         >
           <div className="flex min-w-0 items-start justify-between gap-3 border-b border-white/10 bg-navy px-4 py-3">
             <div className="flex min-w-0 items-center gap-3">
@@ -757,7 +746,9 @@ export default function QuoteAssistant() {
   );
 
   if (!mounted) return null;
-  // Mobile uses a floating WhatsApp button instead — the chat panel covers the quote form.
+  // Phones use the on-page quote form + “Need help? WhatsApp us” — keep the chat
+  // launcher off small viewports so it never covers form controls or browser chrome.
+  // Tablets/desktop get the compact Help pill (see .matni-help-launcher).
   if (isMobile === true) return null;
   // Owner/admin/driver dashboards — keep the public quote assistant off private ops screens.
   if (shouldHidePublicSalesWidgets(pathname)) return null;
