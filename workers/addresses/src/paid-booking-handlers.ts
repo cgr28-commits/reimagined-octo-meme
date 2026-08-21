@@ -22,6 +22,7 @@ import {
   resolveAssignedDriverLabel,
 } from "../shared/paid-booking-record";
 import { resolveOperationalStatus } from "../shared/refund-ops";
+import { isOwnerOperationalTestBooking } from "../shared/upcoming-jobs";
 import {
   findTrackingJobByPaymentReference,
   findTrackingJobsByPaymentReference,
@@ -80,6 +81,8 @@ function syntheticPaidBookingFromTrackingJob(job: TrackingJobRecord): PaidBookin
   const paymentReference = job.paymentReference?.trim();
   if (!paymentReference) return null;
   if (job.refundedAt) return null;
+  // Never invent operational rows for tagged owner/test payment refs.
+  if (isOwnerOperationalTestBooking({ paymentReference })) return null;
 
   return {
     paymentReference,
@@ -196,9 +199,12 @@ export async function handlePaidBookingsListRequest(
       if (job.refundedAt) continue;
       const paymentReference = job.paymentReference?.trim();
       if (!paymentReference || byRef.has(paymentReference)) continue;
+      // Isolation decoys / tagged test refs never enter the operational list via merge.
+      if (isOwnerOperationalTestBooking({ paymentReference })) continue;
 
       const paid = await getPaidBookingRecord(store, paymentReference);
       if (paid) {
+        if (isOwnerOperationalTestBooking(paid)) continue;
         byRef.set(paymentReference, paid);
         continue;
       }
@@ -211,11 +217,15 @@ export async function handlePaidBookingsListRequest(
     }
 
     bookings = [...byRef.values()]
+      .filter((record) => !isOwnerOperationalTestBooking(record))
       .sort((a, b) =>
         `${a.tripDate}T${a.tripTime}`.localeCompare(`${b.tripDate}T${b.tripTime}`),
       )
       .slice(0, Number.isFinite(limit) ? limit : 100);
   }
+
+  // Defence in depth: never return owner/test fixtures on the normal list endpoint.
+  bookings = bookings.filter((record) => !isOwnerOperationalTestBooking(record));
 
   const enriched = await Promise.all(
     bookings.map(async (booking) => {
@@ -301,23 +311,44 @@ export async function handlePaidBookingsListRequest(
         job = outboundJob;
       }
 
-      let nextUnfinishedLegDate = booking.tripDate;
-      let nextUnfinishedLegTime = booking.tripTime;
+      let nextUnfinishedLegDate: string | undefined = booking.tripDate;
+      let nextUnfinishedLegTime: string | undefined = booking.tripTime;
       if (booking.returnJourney) {
-        if (outboundJourneyStatus === "completed") {
+        const outboundDone = outboundJourneyStatus === "completed";
+        const returnDone = returnJourneyStatus === "completed";
+        if (outboundDone && returnDone) {
+          // Fully finished — do not advertise a fake "next" unfinished leg.
+          nextUnfinishedLegDate = undefined;
+          nextUnfinishedLegTime = undefined;
+        } else if (outboundDone) {
           nextUnfinishedLegDate = booking.returnDate ?? booking.tripDate;
           nextUnfinishedLegTime = booking.returnTime ?? booking.tripTime;
         } else {
           nextUnfinishedLegDate = booking.tripDate;
           nextUnfinishedLegTime = booking.tripTime;
         }
+      } else if (
+        outboundJourneyStatus === "completed" ||
+        (job && journeyStatusOf(job) === "completed")
+      ) {
+        nextUnfinishedLegDate = undefined;
+        nextUnfinishedLegTime = undefined;
+      }
+
+      // Prefer the latest real journeyCompletedAt across linked legs (return finishes later).
+      const completionCandidates = [outboundJob, returnJob, job]
+        .map((entry) => entry?.journeyCompletedAt?.trim())
+        .filter((value): value is string => Boolean(value))
+        .sort();
+      if (completionCandidates.length > 0) {
+        journeyCompletedAt = completionCandidates[completionCandidates.length - 1];
       }
 
       if (job) {
         trackingToken = job.token;
         sharingActive = Boolean(job.sharingActive);
         journeyStatus = journeyStatusOf(job);
-        journeyCompletedAt = job.journeyCompletedAt;
+        if (!journeyCompletedAt) journeyCompletedAt = job.journeyCompletedAt;
         driverUpdatedAt = job.driverUpdatedAt;
         trackUrl = buildPublicTrackUrl(job.token);
         reviewRequest = buildReviewRequestSummary(job);
@@ -329,6 +360,29 @@ export async function handlePaidBookingsListRequest(
         arrivalNotificationProvider = job.arrivalNotificationProvider;
         arrivalNotificationError = job.arrivalNotificationError;
         if (!flightNumber && job.flightNumber) flightNumber = job.flightNumber;
+      }
+
+      // Pamela Brown–class repair at the API boundary: if the return tracking job is
+      // missing so returnJourneyStatus never becomes "completed", but outbound is done,
+      // the active journey is completed, and the return pickup day is already past —
+      // treat the booking as fully completed and stop advertising a next unfinished leg.
+      const todayYmd = londonYmdNow();
+      const returnDateYmd = booking.returnDate?.trim() ?? "";
+      const returnDayPast =
+        Boolean(booking.returnJourney) &&
+        /^\d{4}-\d{2}-\d{2}$/.test(returnDateYmd) &&
+        returnDateYmd < todayYmd;
+      let resolvedAllLegsCompleted = allLegsCompleted;
+      if (
+        booking.returnJourney &&
+        !resolvedAllLegsCompleted &&
+        outboundJourneyStatus === "completed" &&
+        (journeyStatus === "completed" || Boolean(journeyCompletedAt?.trim())) &&
+        returnDayPast
+      ) {
+        resolvedAllLegsCompleted = true;
+        nextUnfinishedLegDate = undefined;
+        nextUnfinishedLegTime = undefined;
       }
 
       return {
@@ -364,6 +418,11 @@ export async function handlePaidBookingsListRequest(
         returnTime: booking.returnTime,
         flightNumber,
         returnFlightNumber,
+        airportCode: booking.airportCode || undefined,
+        isFromAirport:
+          typeof booking.isFromAirport === "boolean"
+            ? booking.isFromAirport
+            : undefined,
         passengers,
         suitcases,
         childSeats,
@@ -387,10 +446,13 @@ export async function handlePaidBookingsListRequest(
         arrivalNotificationError,
         outboundJourneyStatus,
         returnJourneyStatus,
-        allLegsCompleted,
+        allLegsCompleted: resolvedAllLegsCompleted,
         nextUnfinishedLegDate,
         nextUnfinishedLegTime,
         editHistory,
+        isRefundTest: booking.isRefundTest === true ? true : undefined,
+        isAmendmentTestFixture:
+          booking.isAmendmentTestFixture === true ? true : undefined,
         ...(reviewRequest ? { reviewRequest } : {}),
       };
     }),

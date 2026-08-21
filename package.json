@@ -35,6 +35,8 @@
     "check:tracking-diagnostic": "npx tsx scripts/check-tracking-diagnostic.ts",
     "check:journey-evidence": "npx tsx scripts/check-journey-evidence.ts",
     "check:owner-mobile-ui": "npx tsx scripts/check-owner-mobile-ui.ts",
+    "check:owner-dashboard-job-cleanup": "npx tsx scripts/check-owner-dashboard-job-cleanup.ts",
+    "check:owner-dashboard-layout": "npx tsx scripts/check-owner-dashboard-layout.ts",
     "check:gps-session-cors": "npx tsx scripts/check-gps-session-cors.ts",
     "check:gps-ingestion": "npx tsx scripts/check-gps-ingestion.ts",
     "check:driver-profile-persist": "npx tsx scripts/check-driver-profile-persist.ts",
