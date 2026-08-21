@@ -54,7 +54,9 @@ export type RefundActionKind =
   | "cancel_no_refund"
   | "partial_refund_keep_active"
   | "full_refund_keep_active"
-  | "full_refund_and_cancel";
+  | "full_refund_and_cancel"
+  /** Owner marks booking fully refunded after a manual SumUp refund — no payment API. */
+  | "mark_external_refund";
 
 /** Journey / calendar / tracking operational state (independent of money). */
 export type OperationalBookingStatus = "confirmed" | "cancelled";
@@ -248,6 +250,10 @@ export function resolveRefundAmountForAction(input: {
   if (input.actionKind === "cancel_no_refund") {
     return { refundAmount: 0 };
   }
+  // External mark books the remaining balance as already refunded — no SumUp call.
+  if (input.actionKind === "mark_external_refund") {
+    return { refundAmount: remaining };
+  }
 
   const wantsFull =
     input.refundFullRemaining ||
@@ -392,6 +398,37 @@ export function isFullyRefunded(
 export function isJourneyStillActive(statusOrRecord?: string | { status?: string; operationalStatus?: string }): boolean {
   return !isOperationallyCancelled(statusOrRecord);
 }
+
+/**
+ * Owner can mark a paid booking as already refunded externally (manual SumUp)
+ * when it is not already closed as fully refunded.
+ */
+export function canMarkExternalRefund(input: {
+  status?: string;
+  operationalStatus?: string;
+  paymentStatus?: string;
+  amountPaid: number;
+  amountRefunded: number;
+}): boolean {
+  if (!Number.isFinite(input.amountPaid) || input.amountPaid <= 0) return false;
+  if (input.status === "refunded") return false;
+  if (
+    resolveOperationalStatus(input) === "cancelled" &&
+    resolvePaymentStatusFromRecord({
+      paymentStatus: input.paymentStatus,
+      status: input.status,
+      amountPaid: input.amountPaid,
+      amountRefunded: input.amountRefunded,
+    }) === "fully_refunded"
+  ) {
+    return false;
+  }
+  return true;
+}
+
+/** Default audit note when owner confirms a manual SumUp refund already done. */
+export const EXTERNAL_REFUND_OWNER_NOTES =
+  "Already refunded manually in SumUp (owner confirmed). No payment API called.";
 
 export function generateRefundOpId(): string {
   const bytes = new Uint8Array(12);

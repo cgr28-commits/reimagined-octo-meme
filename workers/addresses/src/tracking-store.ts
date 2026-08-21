@@ -667,6 +667,7 @@ export async function markTrackingJobRefunded(
   store: KVNamespace,
   token: string,
   refundAmountLabel?: string,
+  options?: { closeJourney?: boolean },
 ): Promise<boolean> {
   const record = await getTrackingJob(store, token);
   if (!record) {
@@ -692,6 +693,7 @@ export async function markTrackingJobRefunded(
 
   let marked = false;
   const refundedAt = new Date().toISOString();
+  const closeJourney = options?.closeJourney === true;
   for (const job of toMark) {
     const updated: TrackingJobRecord = {
       ...job,
@@ -699,6 +701,13 @@ export async function markTrackingJobRefunded(
       customerSharingActive: false,
       refundedAt,
       ...(refundAmountLabel?.trim() ? { refundAmountLabel: refundAmountLabel.trim() } : {}),
+      ...(closeJourney
+        ? {
+            journeyStatus: "completed" as const,
+            journeyCompletedAt: job.journeyCompletedAt?.trim() || refundedAt,
+            trackingStoppedAt: job.trackingStoppedAt?.trim() || refundedAt,
+          }
+        : {}),
     };
     await saveTrackingJob(store, updated);
     marked = true;

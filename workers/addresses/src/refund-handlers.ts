@@ -22,6 +22,8 @@ import { normalizeCustomerBookingReference } from "../shared/customer-booking-re
 import {
   applyProcessorAuthoritativeRefund,
   cappedRefundAmount,
+  canMarkExternalRefund,
+  EXTERNAL_REFUND_OWNER_NOTES,
   generateRefundOpId,
   isWithin24HoursOfPickup,
   nextBookingStatuses,
@@ -196,6 +198,8 @@ export type RefundIssueResult = {
   cumulativeRefunded?: number;
   remainingBalance?: number;
   status?: string;
+  operationalStatus?: string;
+  paymentStatus?: string;
   cancelBooking?: boolean;
   sumUpRefunded?: boolean;
   calendarCancelled?: number;
@@ -265,6 +269,243 @@ export async function issueBookingRefund(
   });
 }
 
+/**
+ * Owner reconciliation: customer already refunded manually in SumUp.
+ * Never calls SumUp / payment APIs, never issues money, never emails the customer.
+ * Marks booking Cancelled + fully refunded, closes journey/tracking, preserves
+ * original payment amount + payment reference for audit.
+ */
+async function processMarkExternalRefund(
+  env: RefundEnv,
+  options: ProcessRefundOptions & { paymentReference: string },
+  recordInput: PaidBookingRecord,
+  initialTripDate: string,
+): Promise<RefundIssueResult> {
+  const paymentReference = options.paymentReference.trim();
+  let record = recordInput;
+
+  const amountPaid = amountPaidOf(record);
+  const alreadyRefunded = amountRefundedOf(record);
+  if (
+    !canMarkExternalRefund({
+      status: record.status,
+      operationalStatus: record.operationalStatus,
+      paymentStatus: record.paymentStatus,
+      amountPaid,
+      amountRefunded: alreadyRefunded,
+    })
+  ) {
+    if (record.status === "refunded") {
+      return {
+        ok: true,
+        alreadyProcessed: true,
+        alreadyRefunded: true,
+        paymentReference,
+        refundAmount: formatPaidAmount(amountPaid, record.currency || "GBP"),
+        refundAmountValue: 0,
+        cumulativeRefunded: amountPaid,
+        remainingBalance: 0,
+        status: record.status,
+        operationalStatus: "cancelled",
+        paymentStatus: "fully_refunded",
+        cancelBooking: true,
+        sumUpRefunded: false,
+        customerEmailSent: false,
+        ownerEmailSent: false,
+      };
+    }
+    return {
+      ok: false,
+      paymentReference,
+      error: "This booking cannot be marked as externally refunded.",
+    };
+  }
+
+  const idempotencyKey = (options.idempotencyKey ?? "").trim();
+  if (!idempotencyKey) {
+    return { ok: false, paymentReference, error: "Missing idempotency key." };
+  }
+
+  const priorSameKey = (record.refundHistory ?? []).find(
+    (entry) => entry.idempotencyKey === idempotencyKey,
+  );
+  if (priorSameKey && isTerminalMoneySuccess(priorSameKey)) {
+    return {
+      ok: true,
+      alreadyProcessed: true,
+      paymentReference,
+      refundAmount: formatPaidAmount(priorSameKey.refundAmount, priorSameKey.currency),
+      refundAmountValue: priorSameKey.refundAmount,
+      cumulativeRefunded: priorSameKey.cumulativeRefundedAmount,
+      remainingBalance: priorSameKey.remainingBalance,
+      status: record.status,
+      cancelBooking: true,
+      sumUpRefunded: false,
+      customerEmailSent: false,
+      ownerEmailSent: false,
+      auditId: priorSameKey.id,
+    };
+  }
+
+  const bookedRefundAmount = remainingRefundableBalance(amountPaid, alreadyRefunded);
+  // Books show full amount returned; money was already moved outside this system.
+  const cumulativeAfter = amountPaid;
+  const refundAmountLabel =
+    bookedRefundAmount > 0
+      ? formatPaidAmount(bookedRefundAmount, record.currency || "GBP")
+      : formatPaidAmount(amountPaid, record.currency || "GBP");
+  const nowIso = new Date().toISOString();
+  const auditId = generateRefundOpId();
+  const notes =
+    (options.ownerNotes ?? "").trim() || EXTERNAL_REFUND_OWNER_NOTES;
+  const warnings: string[] = [];
+
+  const statuses = nextBookingStatuses({
+    cancelBooking: true,
+    previouslyCancelled: resolveOperationalStatus(record) === "cancelled",
+    amountPaid,
+    amountRefundedAfter: cumulativeAfter,
+  });
+
+  const auditEntry: RefundAuditEntry = {
+    id: auditId,
+    bookingReference: paymentReference,
+    sumUpTransactionId: record.transactionId,
+    originalAmountPaid: amountPaid,
+    refundAmount: bookedRefundAmount > 0 ? bookedRefundAmount : amountPaid,
+    cumulativeRefundedAmount: cumulativeAfter,
+    remainingBalance: 0,
+    amountRetained: 0,
+    currency: record.currency || "GBP",
+    fullOrPartial: "full",
+    cancelBooking: true,
+    reasonCategory: "other",
+    reasonLabel: REFUND_REASON_LABELS.other,
+    ownerNotes: notes,
+    ownerNotesAt: nowIso,
+    initiatedBy: options.initiatedBy ?? "owner",
+    within24HoursOfPickup: isWithin24HoursOfPickup(record.tripDate, record.tripTime),
+    requestedAt: nowIso,
+    completedAt: nowIso,
+    processorAcceptedAt: nowIso,
+    sumUpStatus: "external_manual_sumup",
+    sumUpReference: record.transactionId,
+    success: true,
+    customerEmailStatus: "skipped",
+    ownerEmailStatus: "skipped",
+    idempotencyKey,
+    actionKind: "mark_external_refund",
+    operationState: "completed",
+    bookingStatusAfter: statuses.status,
+  };
+
+  // Preserve original payment amount + payment reference; never rewrite amountPaidLabel.
+  record = {
+    ...record,
+    amount: journeyFareOf(record) || record.amount,
+    originalAmount: record.originalAmount ?? amountPaid,
+    amountPaidLabel:
+      record.amountPaidLabel || formatPaidAmount(amountPaid, record.currency || "GBP"),
+    amountRefunded: cumulativeAfter,
+    refundDueAmount: 0,
+    refundDueReason: "",
+    refundDueAt: "",
+    operationalStatus: statuses.operationalStatus,
+    paymentStatus: statuses.paymentStatus,
+    status: statuses.status,
+    refundedAt: record.refundedAt ?? nowIso,
+    cancelledAt: record.cancelledAt ?? nowIso,
+    refundAmountLabel,
+    refundHistory: [...(record.refundHistory ?? []), auditEntry],
+  };
+  await persistRecord(env, record, initialTripDate);
+
+  if (options.onProcessorAccepted) {
+    await options.onProcessorAccepted({ auditId, sumUpRefunded: false });
+  }
+
+  let calendarCancelled = 0;
+  let trackingMarkedRefunded = false;
+
+  if (calendarConfigured(env) && record.calendarEventIds.length > 0) {
+    try {
+      const serviceAccount = parseServiceAccountJson(
+        env.GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON!,
+      );
+      const accessToken = await getGoogleAccessToken(serviceAccount);
+      const refundNote =
+        `Refunded externally (manual SumUp) — closed as refunded\n` +
+        `Reference: ${paymentReference}\n` +
+        `Marked at: ${nowIso}`;
+      const result = await cancelCalendarEvents(
+        accessToken,
+        env.GOOGLE_CALENDAR_ID!.trim(),
+        record.calendarEventIds,
+        { refundNote },
+      );
+      calendarCancelled = result.cancelled;
+      if (result.errors.length > 0) {
+        warnings.push(...result.errors.map((message) => `Calendar: ${message}`));
+      }
+    } catch (error) {
+      warnings.push(
+        error instanceof Error ? error.message : "Calendar cancellation failed",
+      );
+    }
+  } else if (calendarConfigured(env)) {
+    warnings.push("No stored calendar event ids — calendar entry may remain");
+  }
+
+  if (trackingStoreConfigured(env.TRACKING_STORE)) {
+    const paymentRef = paymentReference.trim();
+    const jobsByRef = await findTrackingJobsByPaymentReference(
+      env.TRACKING_STORE,
+      paymentRef,
+    );
+    const tokens = new Set<string>(jobsByRef.map((job) => job.token));
+    const hintedToken = record.trackingToken?.trim();
+    if (hintedToken) {
+      const hinted = await getTrackingJob(env.TRACKING_STORE, hintedToken);
+      if (hinted && hinted.paymentReference?.trim() === paymentRef) {
+        tokens.add(hinted.token);
+      } else if (hinted && !hinted.paymentReference?.trim()) {
+        tokens.add(hinted.token);
+      }
+    }
+    for (const token of tokens) {
+      const ok = await markTrackingJobRefunded(
+        env.TRACKING_STORE,
+        token,
+        refundAmountLabel,
+        { closeJourney: true },
+      );
+      if (ok) trackingMarkedRefunded = true;
+    }
+  }
+
+  return {
+    ok: true,
+    paymentReference,
+    refundAmount: refundAmountLabel,
+    refundAmountValue: bookedRefundAmount > 0 ? bookedRefundAmount : amountPaid,
+    cumulativeRefunded: cumulativeAfter,
+    remainingBalance: 0,
+    status: record.status,
+    operationalStatus: record.operationalStatus,
+    paymentStatus: record.paymentStatus,
+    cancelBooking: true,
+    sumUpRefunded: false,
+    calendarCancelled,
+    calendarDeleted: calendarCancelled,
+    trackingRemoved: trackingMarkedRefunded,
+    trackingMarkedRefunded,
+    customerEmailSent: false,
+    ownerEmailSent: false,
+    auditId,
+    ...(warnings.length > 0 ? { warnings } : {}),
+  };
+}
+
 export async function processBookingRefundOrCancel(
   env: RefundEnv,
   options: ProcessRefundOptions & { paymentReference: string },
@@ -315,6 +556,16 @@ export async function processBookingRefundOrCancel(
     };
   }
   initialTripDateRef.value = record.tripDate;
+
+  // External / manual SumUp reconciliation — never touch payment APIs.
+  if (actionKind === "mark_external_refund") {
+    return await processMarkExternalRefund(
+      env,
+      { ...options, cancelBooking: true, refundFullRemaining: true, actionKind },
+      record,
+      initialTripDateRef.value,
+    );
+  }
 
   const priorSameKey = (record.refundHistory ?? []).find(
     (entry) => entry.idempotencyKey === idempotencyKey,
@@ -1557,13 +1808,15 @@ export async function handleRefundRequest(
       : actionKind === "cancel_full_refund" ||
         actionKind === "cancel_partial_refund" ||
         actionKind === "cancel_no_refund" ||
-        actionKind === "full_refund_and_cancel";
+        actionKind === "full_refund_and_cancel" ||
+        actionKind === "mark_external_refund";
   const refundFullRemaining =
     typeof body.refundFullRemaining === "boolean"
       ? body.refundFullRemaining
       : actionKind === "cancel_full_refund" ||
         actionKind === "full_refund_keep_active" ||
-        actionKind === "full_refund_and_cancel";
+        actionKind === "full_refund_and_cancel" ||
+        actionKind === "mark_external_refund";
 
   // Guard: refund-test UI may only touch isRefundTest records; normal UI must not.
   if (paidBookingStoreConfigured(env.TRACKING_STORE)) {

@@ -44,6 +44,7 @@ import {
   type TrackingDiagnosticReport,
 } from "@/lib/paid-bookings-api";
 import type { RefundIssueResponse } from "@/lib/refund-api";
+import { markBookingRefundedExternally } from "@/lib/refund-api";
 import {
   ensurePaidBookingTracking,
   fetchDriverVehicle,
@@ -53,6 +54,7 @@ import {
   type JourneyAction,
 } from "@/lib/tracking-api";
 import {
+  canMarkExternalRefund,
   isOperationallyCancelled,
   remainingRefundableBalance,
   roundGbp,
@@ -862,6 +864,7 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
   const [offerUpdatedConfirmationRef, setOfferUpdatedConfirmationRef] = useState<string | null>(null);
   const [fareAdjustMessage, setFareAdjustMessage] = useState("");
   const [refundConfirmRef, setRefundConfirmRef] = useState<string | null>(null);
+  const [externalRefundConfirmRef, setExternalRefundConfirmRef] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -1249,17 +1252,25 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
     booking: OwnerPaidBookingSummary,
   ) {
     setRefundConfirmRef(null);
+    setExternalRefundConfirmRef(null);
     setBookings((current) =>
       current.map((entry) =>
         entry.paymentReference === booking.paymentReference
           ? {
               ...entry,
               status: (result.status as OwnerPaidBookingSummary["status"]) || entry.status,
+              operationalStatus:
+                (result.operationalStatus as OwnerPaidBookingSummary["operationalStatus"]) ||
+                entry.operationalStatus,
+              paymentStatus:
+                (result.paymentStatus as OwnerPaidBookingSummary["paymentStatus"]) ||
+                entry.paymentStatus,
               amountRefunded:
                 typeof result.cumulativeRefunded === "number"
                   ? result.cumulativeRefunded
                   : entry.amountRefunded,
               sharingActive: result.cancelBooking ? false : entry.sharingActive,
+              journeyStatus: result.cancelBooking ? "completed" : entry.journeyStatus,
             }
           : entry,
       ),
@@ -1269,16 +1280,43 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
         ? "Already processed (idempotent)"
         : result.alreadyRefunded
           ? "Already fully refunded"
-          : "Action completed",
-      result.refundAmountValue && result.refundAmountValue > 0
+          : result.sumUpRefunded === false && (result.refundAmountValue ?? 0) > 0
+            ? "Marked refunded externally (no SumUp call)"
+            : "Action completed",
+      result.refundAmountValue && result.refundAmountValue > 0 && result.sumUpRefunded
         ? `refund ${result.refundAmount}`
-        : "no SumUp refund",
-      result.cancelBooking ? "booking cancelled" : "booking remains active",
-      result.customerEmailSent ? "customer email sent" : null,
+        : result.sumUpRefunded === false
+          ? "no SumUp / payment API"
+          : "no SumUp refund",
+      result.cancelBooking ? "booking cancelled · journey closed" : "booking remains active",
+      result.customerEmailSent ? "customer email sent" : "no customer refund email",
       result.ownerEmailSent ? "owner email sent" : null,
     ].filter(Boolean);
     setMessage(`${booking.paymentReference}: ${bits.join(" · ")}`);
     await load();
+  }
+
+  async function handleMarkExternalRefund(booking: OwnerPaidBookingSummary) {
+    setBusyRef(booking.paymentReference);
+    setError("");
+    setMessage("");
+    try {
+      const result = await markBookingRefundedExternally({
+        ownerKey,
+        confirmOwnerKey: ownerKey,
+        paymentReference: booking.paymentReference,
+        trackingToken: booking.trackingToken,
+      });
+      if (!result.ok) {
+        throw new Error(result.error || "Could not mark booking as refunded");
+      }
+      await handleCancelRefundSuccess(result, booking);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not mark booking as refunded");
+      setExternalRefundConfirmRef(null);
+    } finally {
+      setBusyRef("");
+    }
   }
 
   async function handleRecover(checkoutId?: string) {
@@ -1354,6 +1392,22 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
     ) {
       secondaryActions.push({ action: "complete_journey", label: "Complete Journey" });
     }
+
+    const paidNum = parseFloat(String(booking.amountPaid).replace(/[^\d.]/g, "") || "0");
+    const refundedNum =
+      typeof booking.amountRefunded === "number"
+        ? booking.amountRefunded
+        : booking.status === "refunded" || booking.status === "refunded_active"
+          ? paidNum
+          : 0;
+    const showMarkExternalRefund = canMarkExternalRefund({
+      status: booking.status,
+      operationalStatus: booking.operationalStatus,
+      paymentStatus: booking.paymentStatus,
+      amountPaid: paidNum,
+      amountRefunded: refundedNum,
+    });
+    const externalConfirmOpen = externalRefundConfirmRef === booking.paymentReference;
 
     return (
       <div>
@@ -1470,6 +1524,19 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
                   {busy ? "Updating…" : item.label}
                 </button>
               ))}
+              {showMarkExternalRefund && !externalConfirmOpen ? (
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => {
+                    setRefundConfirmRef(null);
+                    setExternalRefundConfirmRef(booking.paymentReference);
+                  }}
+                  className="min-h-11 w-full rounded-xl border border-amber-400/40 bg-amber-500/10 px-4 py-2.5 text-sm font-semibold text-amber-100 transition-colors hover:bg-amber-500/20 disabled:opacity-60 sm:w-auto"
+                >
+                  Mark as refunded
+                </button>
+              ) : null}
               {showEvidence ? (
                 <a
                   href={`/owner/journey-evidence/?ref=${encodeURIComponent(booking.paymentReference)}`}
@@ -1488,6 +1555,53 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
               </button>
             </div>
           </details>
+        ) : null}
+
+        {showMarkExternalRefund && status === "completed" && !externalConfirmOpen ? (
+          <div className="mt-3">
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => {
+                setRefundConfirmRef(null);
+                setExternalRefundConfirmRef(booking.paymentReference);
+              }}
+              className="min-h-11 w-full rounded-xl border border-amber-400/40 bg-amber-500/10 px-4 py-2.5 text-sm font-semibold text-amber-100 transition-colors hover:bg-amber-500/20 disabled:opacity-60 sm:w-auto"
+            >
+              Mark as refunded
+            </button>
+          </div>
+        ) : null}
+
+        {externalConfirmOpen ? (
+          <div className="mt-3 rounded-xl border border-amber-400/35 bg-amber-500/10 p-3">
+            <p className="text-sm font-semibold text-amber-50">
+              Has this customer already been refunded manually in SumUp?
+            </p>
+            <p className="mt-2 text-xs leading-relaxed text-amber-50/80">
+              This does not call SumUp or issue money. It closes the booking as Cancelled /
+              Refunded, removes it from Upcoming, and keeps the original payment for audit. No
+              refund email is sent.
+            </p>
+            <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void handleMarkExternalRefund(booking)}
+                className="min-h-11 w-full rounded-xl bg-amber-300 px-4 py-2.5 text-sm font-bold text-navy transition-colors hover:bg-amber-200 disabled:opacity-60 sm:w-auto"
+              >
+                {busy ? "Closing…" : "Yes — close as refunded"}
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => setExternalRefundConfirmRef(null)}
+                className="min-h-11 w-full rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:border-white/30 disabled:opacity-60 sm:w-auto"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
         ) : null}
       </div>
     );
@@ -1513,6 +1627,14 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
     // or when money remains on an already-cancelled booking.
     const canRefundOrCancel =
       !isOperationallyCancelled(booking) || remainingNum > 0.001;
+    const showMarkExternalRefund = canMarkExternalRefund({
+      status: booking.status,
+      operationalStatus: booking.operationalStatus,
+      paymentStatus: booking.paymentStatus,
+      amountPaid: paidNum,
+      amountRefunded: refundedNum,
+    });
+    const externalConfirmOpen = externalRefundConfirmRef === booking.paymentReference;
 
     return (
       <li
@@ -1909,12 +2031,26 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
                     <button
                       type="button"
                       disabled={busyRef === booking.paymentReference}
-                      onClick={() =>
-                        setRefundConfirmRef(refundOpen ? null : booking.paymentReference)
-                      }
+                      onClick={() => {
+                        setExternalRefundConfirmRef(null);
+                        setRefundConfirmRef(refundOpen ? null : booking.paymentReference);
+                      }}
                       className="min-h-11 w-full rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-2.5 text-sm font-semibold text-red-200 transition-colors hover:bg-red-500/20 disabled:opacity-60 sm:w-auto"
                     >
                       Cancel / Refund
+                    </button>
+                  ) : null}
+                  {showMarkExternalRefund && !externalConfirmOpen ? (
+                    <button
+                      type="button"
+                      disabled={busyRef === booking.paymentReference}
+                      onClick={() => {
+                        setRefundConfirmRef(null);
+                        setExternalRefundConfirmRef(booking.paymentReference);
+                      }}
+                      className="min-h-11 w-full rounded-xl border border-amber-400/40 bg-amber-500/10 px-4 py-2.5 text-sm font-semibold text-amber-100 transition-colors hover:bg-amber-500/20 disabled:opacity-60 sm:w-auto"
+                    >
+                      Mark as refunded
                     </button>
                   ) : null}
                 </div>
@@ -1950,6 +2086,39 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
                     onSuccess={(result) => void handleCancelRefundSuccess(result, booking)}
                     onError={(message) => setError(message)}
                   />
+                ) : null}
+
+                {externalConfirmOpen ? (
+                  <div className="mt-3 rounded-xl border border-amber-400/35 bg-amber-500/10 p-3">
+                    <p className="text-sm font-semibold text-amber-50">
+                      Has this customer already been refunded manually in SumUp?
+                    </p>
+                    <p className="mt-2 text-xs leading-relaxed text-amber-50/80">
+                      This does not call SumUp or issue money. It closes the booking as Cancelled /
+                      Refunded, removes it from Upcoming, and keeps the original payment for audit.
+                      No refund email is sent.
+                    </p>
+                    <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                      <button
+                        type="button"
+                        disabled={busyRef === booking.paymentReference}
+                        onClick={() => void handleMarkExternalRefund(booking)}
+                        className="min-h-11 w-full rounded-xl bg-amber-300 px-4 py-2.5 text-sm font-bold text-navy transition-colors hover:bg-amber-200 disabled:opacity-60 sm:w-auto"
+                      >
+                        {busyRef === booking.paymentReference
+                          ? "Closing…"
+                          : "Yes — close as refunded"}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={busyRef === booking.paymentReference}
+                        onClick={() => setExternalRefundConfirmRef(null)}
+                        className="min-h-11 w-full rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:border-white/30 disabled:opacity-60 sm:w-auto"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
                 ) : null}
                 </div>
               </details>

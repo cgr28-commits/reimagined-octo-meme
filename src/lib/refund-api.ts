@@ -127,3 +127,31 @@ export async function processBookingRefundOrCancel(input: {
 
   return payload;
 }
+
+/**
+ * Mark a booking as already refunded manually in SumUp.
+ * Does not call SumUp or send refund emails — local books + journey close only.
+ */
+export async function markBookingRefundedExternally(input: {
+  ownerKey: string;
+  confirmOwnerKey: string;
+  paymentReference: string;
+  trackingToken?: string;
+  idempotencyKey?: string;
+}): Promise<RefundIssueResponse> {
+  return processBookingRefundOrCancel({
+    ownerKey: input.ownerKey,
+    confirmOwnerKey: input.confirmOwnerKey,
+    paymentReference: input.paymentReference,
+    trackingToken: input.trackingToken,
+    actionKind: "mark_external_refund",
+    cancelBooking: true,
+    refundFullRemaining: true,
+    reasonCategory: "other",
+    ownerNotes:
+      "Already refunded manually in SumUp (owner confirmed). No payment API called.",
+    idempotencyKey:
+      input.idempotencyKey ??
+      `ui-external-${input.paymentReference.trim()}-${crypto.randomUUID()}`,
+  });
+}

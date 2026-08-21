@@ -39,8 +39,8 @@ import {
   type JourneyAction,
   type JourneyEvidencePack,
 } from "@/lib/tracking-api";
-import { issueBookingRefund } from "@/lib/refund-api";
-import { isOperationallyCancelled } from "../../../shared/refund-ops";
+import { issueBookingRefund, markBookingRefundedExternally } from "@/lib/refund-api";
+import { canMarkExternalRefund, isOperationallyCancelled } from "../../../shared/refund-ops";
 import { DEMO_DRIVER_KEY, DEMO_DRIVER_NAME, DEMO_OWNER_KEY, DEMO_ROSTER } from "@/lib/tracking-demo";
 import { SERVICE_FLAGS, SITE } from "@/lib/data";
 import {
@@ -802,6 +802,7 @@ function DriverJobCard({
   const [refundMessage, setRefundMessage] = useState<string | null>(null);
   const [refundConfirmKey, setRefundConfirmKey] = useState("");
   const [refundFinalConfirm, setRefundFinalConfirm] = useState(false);
+  const [externalRefundConfirmOpen, setExternalRefundConfirmOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [editBusy, setEditBusy] = useState(false);
   const [evidenceOpen, setEvidenceOpen] = useState(false);
@@ -841,6 +842,16 @@ function DriverJobCard({
   const isDemoDriver = driverKey === DEMO_DRIVER_KEY;
   const isRefunded = isOperationallyCancelled(job.bookingStatus);
   const assignmentStatus = job.assignmentStatus ?? "unassigned";
+  const paidFromLabel = Number(String(job.amountPaidLabel ?? "").replace(/[^\d.]/g, "")) || 0;
+  const canMarkExternal =
+    isOwner &&
+    Boolean(job.paymentReference?.trim()) &&
+    !isDemoKey &&
+    canMarkExternalRefund({
+      status: job.bookingStatus,
+      amountPaid: paidFromLabel > 0 ? paidFromLabel : 1,
+      amountRefunded: isRefunded && job.bookingStatus === "refunded" ? paidFromLabel || 1 : 0,
+    });
   const isPendingForDriver = !isOwner && assignmentStatus === "pending";
   const isAcceptedAssignment = assignmentStatus === "accepted";
   const isAssigned =
@@ -1340,6 +1351,51 @@ function DriverJobCard({
     }
   };
 
+  const confirmExternalRefund = async () => {
+    const paymentReference = job.paymentReference?.trim();
+    if (!paymentReference) {
+      setRefundMessage("This job has no payment reference.");
+      return;
+    }
+
+    setRefundBusy(true);
+    setRefundMessage(null);
+
+    try {
+      if (isActive) {
+        await setDriverSharing(driverKey, job.token, false);
+        onSharingChange(null);
+      }
+
+      const result = await markBookingRefundedExternally({
+        ownerKey: driverKey,
+        confirmOwnerKey: driverKey,
+        paymentReference,
+        trackingToken: job.token,
+      });
+
+      if (!result.ok) {
+        setRefundMessage(result.error ?? "Could not mark booking as refunded.");
+        return;
+      }
+
+      setExternalRefundConfirmOpen(false);
+      setRefundConfirmOpen(false);
+      setRefundMessage(
+        result.alreadyProcessed || result.alreadyRefunded
+          ? "Already closed as refunded."
+          : "Marked as refunded externally — no SumUp call, no refund email. Journey closed.",
+      );
+      onRefunded(job.token, result.refundAmount);
+    } catch (err) {
+      setRefundMessage(
+        err instanceof Error ? err.message : "Could not mark booking as refunded.",
+      );
+    } finally {
+      setRefundBusy(false);
+    }
+  };
+
   return (
     <article
       id={`owner-job-${job.token}`}
@@ -1685,7 +1741,7 @@ function DriverJobCard({
             Edit booking
           </button>
         )}
-        {canRefund && !refundConfirmOpen && (
+        {canRefund && !refundConfirmOpen && !externalRefundConfirmOpen && (
           <button
             type="button"
             disabled={refundBusy}
@@ -1693,6 +1749,20 @@ function DriverJobCard({
             className="rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-2.5 text-sm font-semibold text-red-200 transition-colors hover:bg-red-500/20 disabled:opacity-60"
           >
             Issue refund
+          </button>
+        )}
+        {canMarkExternal && !externalRefundConfirmOpen && !refundConfirmOpen && (
+          <button
+            type="button"
+            disabled={refundBusy}
+            onClick={() => {
+              setRefundConfirmOpen(false);
+              setExternalRefundConfirmOpen(true);
+              setRefundMessage(null);
+            }}
+            className="rounded-xl border border-amber-400/40 bg-amber-500/10 px-4 py-2.5 text-sm font-semibold text-amber-100 transition-colors hover:bg-amber-500/20 disabled:opacity-60"
+          >
+            Mark as refunded
           </button>
         )}
         {showDemoRefund && (
@@ -1852,6 +1922,37 @@ function DriverJobCard({
               type="button"
               disabled={refundBusy}
               onClick={cancelRefund}
+              className="rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:border-white/30 disabled:opacity-60"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {canMarkExternal && externalRefundConfirmOpen && (
+        <div className="mt-4 rounded-xl border border-amber-400/35 bg-amber-500/10 p-4">
+          <p className="text-sm font-semibold text-amber-50">
+            Has this customer already been refunded manually in SumUp?
+          </p>
+          <p className="mt-2 text-sm leading-relaxed text-amber-50/85">
+            This does not call SumUp or issue money. It closes the booking as Cancelled / Refunded,
+            removes it from Upcoming, and keeps the original payment for audit. No refund email is
+            sent.
+          </p>
+          <div className="mt-4 flex flex-wrap gap-3">
+            <button
+              type="button"
+              disabled={refundBusy}
+              onClick={() => void confirmExternalRefund()}
+              className="rounded-xl bg-amber-300 px-4 py-2.5 text-sm font-bold text-navy transition-colors hover:bg-amber-200 disabled:opacity-60"
+            >
+              {refundBusy ? "Closing…" : "Yes — close as refunded"}
+            </button>
+            <button
+              type="button"
+              disabled={refundBusy}
+              onClick={() => setExternalRefundConfirmOpen(false)}
               className="rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:border-white/30 disabled:opacity-60"
             >
               Cancel
