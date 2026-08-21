@@ -16,6 +16,7 @@ import {
   quoteStepTargetId,
   scheduleBookingNavAfterRender,
   schedulePreciseResultsScroll,
+  scheduleRevealQuoteActionsScroll,
   type QuoteStepNavTarget,
 } from "@/lib/quote-step-nav-scroll";
 import { whatsAppChatUrl } from "@/lib/contact-card";
@@ -2093,10 +2094,13 @@ function QuoteCard({
       saveConfirmedDropoffPlace(airportPlace);
     }
 
-    // Return the customer to the start of the form after reset.
-    pendingQuoteStepNavScrollRef.current = 1;
+    // Return to the initial journey intent buttons after the empty form renders.
+    // Do not use the generic step-1 section scroll — that can overshoot past the buttons.
     window.setTimeout(() => {
-      scheduleBookingNavAfterRender("quote", { focusHeading: true });
+      scheduleBookingNavAfterRender("quote-section-journey", {
+        focusHeading: true,
+        behavior: "auto",
+      });
     }, 0);
   }
 
@@ -2108,6 +2112,10 @@ function QuoteCard({
     performStartNewQuote();
   }
 
+  function keepCurrentQuote() {
+    setConfirmStartNewQuote(false);
+  }
+
   function renderStartNewQuoteControls() {
     if (confirmStartNewQuote) {
       return (
@@ -2115,23 +2123,26 @@ function QuoteCard({
           className="rounded-xl border border-white/20 bg-navy-dark/60 px-4 py-3 text-center"
           role="alertdialog"
           aria-labelledby="start-new-quote-title"
+          aria-describedby="start-new-quote-desc"
         >
           <p id="start-new-quote-title" className="text-sm font-semibold text-white">
             Start a new quote?
           </p>
-          <p className="mt-1 text-xs text-white/60">Your current quote details will be cleared.</p>
+          <p id="start-new-quote-desc" className="mt-1 text-xs text-white/60">
+            Your current quote details will be cleared.
+          </p>
           <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:justify-center">
             <button
               type="button"
               onClick={performStartNewQuote}
-              className="rounded-xl bg-emerald px-4 py-2.5 text-sm font-bold text-navy"
+              className="min-h-11 rounded-xl bg-emerald px-4 py-2.5 text-sm font-bold text-navy"
             >
               Start New Quote
             </button>
             <button
               type="button"
-              onClick={() => setConfirmStartNewQuote(false)}
-              className="rounded-xl border border-white/20 px-4 py-2.5 text-sm font-semibold text-white/85"
+              onClick={keepCurrentQuote}
+              className="min-h-11 rounded-xl border border-white/20 px-4 py-2.5 text-sm font-semibold text-white/85"
             >
               Keep Current Quote
             </button>
@@ -2144,9 +2155,9 @@ function QuoteCard({
       <button
         type="button"
         onClick={requestStartNewQuote}
-        className="w-full text-center text-sm font-medium text-white/55 underline-offset-2 transition-colors hover:text-white/80 hover:underline"
+        className="min-h-11 w-full text-center text-sm font-medium text-white/55 underline-offset-2 transition-colors hover:text-white/80 hover:underline"
       >
-        Start a New Quote
+        Start a new quote?
       </button>
     );
   }
@@ -2355,6 +2366,13 @@ function QuoteCard({
   }
 
   const usesWhatsApp = isMobileDevice === true;
+
+  // When the Start New Quote confirmation expands, reveal the full action stack only.
+  // Do not clear the quote and do not jump to the top of the form.
+  useEffect(() => {
+    if (!confirmStartNewQuote) return;
+    return scheduleRevealQuoteActionsScroll("quote-actions");
+  }, [confirmStartNewQuote]);
 
   // After explicit step CTAs (Book Now / Continue / Back / Edit / Start New Quote),
   // bring the active section clearly below the fixed header and focus its heading.
@@ -3167,8 +3185,13 @@ function QuoteCard({
                     </div>
 
                     <div
-                      id="quote-step1-next"
-                      className="sticky bottom-0 z-20 -mx-1 space-y-2 border-t border-white/10 bg-navy/95 px-1 py-3 backdrop-blur-md supports-[padding:max(0px)]:pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:static sm:z-auto sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-none"
+                      id="quote-actions"
+                      data-quote-step="1"
+                      className={
+                        confirmStartNewQuote
+                          ? "relative z-20 -mx-1 space-y-2 border-t border-white/10 bg-navy/95 px-1 py-3 supports-[padding:max(0px)]:pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:static sm:z-auto sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0"
+                          : "sticky bottom-0 z-20 -mx-1 space-y-2 border-t border-white/10 bg-navy/95 px-1 py-3 backdrop-blur-md supports-[padding:max(0px)]:pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:static sm:z-auto sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-none"
+                      }
                     >
                       {renderStep1PrimaryActions()}
                     </div>
@@ -3583,8 +3606,13 @@ function QuoteCard({
               {renderQuotePriceSummaryBody()}
             </div>
             <div
-              id="quote-step1-next"
-              className="sticky bottom-0 z-20 -mx-1 space-y-2 border-t border-white/10 bg-navy/95 px-1 py-3 backdrop-blur-md supports-[padding:max(0px)]:pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:static sm:z-auto sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-none"
+              id="quote-actions"
+              data-quote-step="1"
+              className={
+                confirmStartNewQuote
+                  ? "relative z-20 -mx-1 space-y-2 border-t border-white/10 bg-navy/95 px-1 py-3 supports-[padding:max(0px)]:pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:static sm:z-auto sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0"
+                  : "sticky bottom-0 z-20 -mx-1 space-y-2 border-t border-white/10 bg-navy/95 px-1 py-3 backdrop-blur-md supports-[padding:max(0px)]:pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:static sm:z-auto sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-none"
+              }
             >
               {renderStep1PrimaryActions()}
             </div>
@@ -4194,6 +4222,7 @@ function QuoteCard({
               ref={step3PaymentActionsRef}
               className="scroll-mt-44 space-y-3 md:scroll-mt-28"
             >
+            <div id="quote-actions" data-quote-step="3" className="space-y-3">
             {canPayNowOnline && liveQuote && (
               <div className="space-y-3">
                 {paymentError ? (
@@ -4346,10 +4375,12 @@ function QuoteCard({
             )}
             {renderStartNewQuoteControls()}
             </div>
+            </div>
           </div>
           </>
         ) : quoteStep === 2 ? (
           <div id="quote-step2-next" className="scroll-mt-44 space-y-3 md:scroll-mt-28">
+            <div id="quote-actions" data-quote-step="2" className="space-y-3">
             <div className="grid gap-3 sm:grid-cols-2">
               <button
                 type="button"
@@ -4403,10 +4434,13 @@ function QuoteCard({
                   : "Next: your contact details to confirm the booking."}
               </p>
             )}
+            </div>
           </div>
         ) : quoteResultsReady ? null : (
           <div id="quote-step1-next" className="flex w-full scroll-mt-44 flex-col gap-2 md:scroll-mt-28">
-            {renderStep1PrimaryActions()}
+            <div id="quote-actions" data-quote-step="1" className="flex w-full flex-col gap-2">
+              {renderStep1PrimaryActions()}
+            </div>
           </div>
         )}
       </form>
