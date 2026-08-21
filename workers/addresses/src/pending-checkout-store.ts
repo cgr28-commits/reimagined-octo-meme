@@ -28,6 +28,8 @@ export type PendingCheckoutRecord = {
   savedQuoteToken?: string;
   /** Human-readable saved quote reference (audit / conversion tracking). */
   savedQuoteReference?: string;
+  /** Abandoned booking recovery token (1-hour unpaid reminder). */
+  abandonedBookingToken?: string;
   /**
    * Owner-only £1 live SumUp refund smoke test. When true, finalize must not
    * create tracking/calendar/customer confirmation emails.
@@ -100,7 +102,14 @@ export async function patchPendingCheckout(
   store: KVNamespace,
   checkoutId: string,
   patch: Partial<
-    Pick<PendingCheckoutRecord, "attemptEmailSentAt" | "unsuccessfulEmailSentAt" | "finalizedAt" | "paymentReference">
+    Pick<
+      PendingCheckoutRecord,
+      | "attemptEmailSentAt"
+      | "unsuccessfulEmailSentAt"
+      | "finalizedAt"
+      | "paymentReference"
+      | "abandonedBookingToken"
+    >
   >,
 ): Promise<PendingCheckoutRecord | null> {
   const existing = await getPendingCheckout(store, checkoutId);
