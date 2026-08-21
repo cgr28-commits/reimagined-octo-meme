@@ -1,5 +1,5 @@
 /**
- * Public site: desktop round “?” vs mobile WhatsApp FAB (exclusive).
+ * Public site: desktop round “?” vs mobile Header WhatsApp (exclusive).
  * Run: npx tsx scripts/check-public-help-fabs.ts
  */
 import assert from "node:assert/strict";
@@ -39,32 +39,26 @@ console.log("=== 1. Desktop round ? help button ===");
   console.log("OK  50px circle ? · fixed · desktop-only");
 }
 
-console.log("\n=== 2. Mobile WhatsApp FAB ===");
+console.log("\n=== 2. Mobile WhatsApp in Header quick row ===");
 {
-  assert.match(wa, /data-matni-whatsapp-fab/);
-  assert.match(wa, /isMobile !== true/);
-  assert.match(wa, /createPortal/);
-  assert.match(wa, /document\.body/);
-  assert.match(wa, /whatsAppChatUrl/);
-  assert.match(wa, /Hi, I need some help with an airport transfer/);
-  assert.match(wa, /h-\[50px\]/);
-  assert.match(wa, /safe-area-inset-bottom/);
-  assert.match(wa, /#25D366/);
-  assert.match(wa, /shouldHidePublicSalesWidgets/);
-  // Must not live inside the quote card markup.
-  assert.doesNotMatch(hero, /data-matni-whatsapp-fab/);
-  assert.doesNotMatch(hero, /matni-whatsapp-fab/);
-  console.log("OK  mobile WhatsApp FAB · outside quote · existing wa.me helper");
+  assert.match(header, /data-matni-whatsapp-quick/);
+  assert.match(header, /h-7 w-7/);
+  assert.match(header, /#25D366/);
+  assert.match(header, /whatsAppChatUrl/);
+  assert.match(header, /Hi, I need some help with an airport transfer/);
+  assert.match(wa, /return null/);
+  assert.doesNotMatch(layout, /<WhatsAppButton/);
+  assert.doesNotMatch(hero, /data-matni-whatsapp/);
+  console.log("OK  Header quick-row WhatsApp · no floating FAB · outside quote");
 }
 
 console.log("\n=== 3. Exclusive breakpoint (never both) ===");
 {
   assert.match(device, /min-width: 768px/);
   assert.match(assistant, /isMobile !== false/);
-  assert.match(wa, /isMobile !== true/);
   assert.match(layout, /QuoteAssistant/);
-  assert.match(layout, /WhatsAppButton/);
-  console.log("OK  ≥768px ? only · <768px WhatsApp only");
+  assert.doesNotMatch(layout, /<WhatsAppButton/);
+  console.log("OK  ≥768px ? only · <768px Header WhatsApp only");
 }
 
 console.log("\n=== 4. Hero CTAs removed · Live Quote untouched · nav Quote kept ===");

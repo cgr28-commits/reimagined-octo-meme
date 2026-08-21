@@ -1937,7 +1937,8 @@ function DriverJobCard({
             Has this customer already been refunded manually in SumUp?
           </p>
           <p className="mt-2 text-sm leading-relaxed text-amber-50/85">
-            This does not call SumUp or issue money. It closes the booking as Cancelled / Refunded,
+            Only use this if you have already refunded the customer outside this website. This will
+            NOT send money. It does not call SumUp, closes the booking as Cancelled / Refunded,
             removes it from Upcoming, and keeps the original payment for audit. No refund email is
             sent.
           </p>

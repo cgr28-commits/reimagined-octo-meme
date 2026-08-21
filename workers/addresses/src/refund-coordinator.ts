@@ -266,6 +266,7 @@ export class RefundCoordinator implements DurableObject {
   }): Promise<ReservationOutcome> {
     const now = new Date().toISOString();
     const existing = await this.ctx.storage.get<StoredRefundOp>(OP_KEY);
+    const isExternalMark = input.actionKind === "mark_external_refund";
 
     if (existing) {
       const sameKey = existing.idempotencyKey === input.idempotencyKey;
@@ -278,7 +279,7 @@ export class RefundCoordinator implements DurableObject {
         return { kind: "already_done", op: existing };
       }
 
-      if (sameKey && inFlight) {
+      if (sameKey && inFlight && !isExternalMark) {
         // Same idempotency key may resume / reconcile — never authorise a second SumUp attempt blindly.
         const resumed: StoredRefundOp = {
           ...existing,
@@ -292,11 +293,24 @@ export class RefundCoordinator implements DurableObject {
         return { kind: "resume", op: resumed };
       }
 
-      if (!sameKey && inFlight) {
+      if (sameKey && inFlight && isExternalMark && existing.actionKind === "mark_external_refund") {
+        // Resume the same external closeout idempotency key.
+        const resumed: StoredRefundOp = {
+          ...existing,
+          state: "processing",
+          updatedAt: now,
+        };
+        await this.ctx.storage.put(OP_KEY, resumed);
+        return { kind: "resume", op: resumed };
+      }
+
+      if (inFlight && !isExternalMark) {
+        // Normal SumUp refunds stay blocked while another op is in flight.
         return { kind: "busy", op: existing };
       }
 
-      // Prior failed/completed different key — allow a new reservation.
+      // External/manual closeout may supersede a stale/stuck SumUp refund lock.
+      // Completed/failed prior ops (any key) also allow a new reservation below.
     }
 
     const op: StoredRefundOp = {

@@ -428,7 +428,7 @@ export function canMarkExternalRefund(input: {
 
 /** Default audit note when owner confirms a manual SumUp refund already done. */
 export const EXTERNAL_REFUND_OWNER_NOTES =
-  "Already refunded manually in SumUp (owner confirmed). No payment API called.";
+  "Manually confirmed refunded by Owner — no SumUp API refund issued.";
 
 export function generateRefundOpId(): string {
   const bytes = new Uint8Array(12);

@@ -76,7 +76,7 @@ assert.equal(
   true,
   "refunded_active still needs operational close",
 );
-assert.match(EXTERNAL_REFUND_OWNER_NOTES, /manually in SumUp/i);
+assert.match(EXTERNAL_REFUND_OWNER_NOTES, /Manually confirmed refunded by Owner/i);
 console.log("OK  status helpers + canMarkExternalRefund");
 
 console.log("=== Worker path never calls SumUp for external mark ===");
