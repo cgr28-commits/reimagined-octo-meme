@@ -149,7 +149,7 @@ export async function markBookingRefundedExternally(input: {
     refundFullRemaining: true,
     reasonCategory: "other",
     ownerNotes:
-      "Already refunded manually in SumUp (owner confirmed). No payment API called.",
+      "Manually confirmed refunded by Owner — no SumUp API refund issued.",
     idempotencyKey:
       input.idempotencyKey ??
       `ui-external-${input.paymentReference.trim()}-${crypto.randomUUID()}`,

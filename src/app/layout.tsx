@@ -9,7 +9,6 @@ import AdsAttributionCapture from "@/components/AdsAttributionCapture";
 import QuoteAssistant from "@/components/QuoteAssistant";
 import QuoteHashScroll from "@/components/QuoteHashScroll";
 import SiteOfflineGate from "@/components/SiteOfflineGate";
-import WhatsAppButton from "@/components/WhatsAppButton";
 import { SITE, SITE_OFFLINE } from "@/lib/data";
 import {
   arePublicLivePricesEnabled,
@@ -159,7 +158,6 @@ export default function RootLayout({
           <AdsAttributionCapture />
           <QuoteHashScroll />
           <QuoteAssistant />
-          <WhatsAppButton />
           <CookieConsent />
         </SiteOfflineGate>
         <PreventHorizontalScroll />

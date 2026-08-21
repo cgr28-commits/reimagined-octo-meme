@@ -347,12 +347,43 @@ async function processMarkExternalRefund(
     };
   }
 
+  // Idempotent across different keys: already closed as external/manual refund.
+  const priorExternal = (record.refundHistory ?? []).find(
+    (entry) =>
+      entry.actionKind === "mark_external_refund" &&
+      entry.success === true &&
+      (entry.operationState === "completed" || entry.operationState === "processor_accepted"),
+  );
+  if (priorExternal && record.status === "refunded") {
+    return {
+      ok: true,
+      alreadyProcessed: true,
+      alreadyRefunded: true,
+      paymentReference,
+      refundAmount: formatPaidAmount(amountPaid, record.currency || "GBP"),
+      refundAmountValue: 0,
+      cumulativeRefunded: amountPaid,
+      remainingBalance: 0,
+      status: record.status,
+      operationalStatus: "cancelled",
+      paymentStatus: "fully_refunded",
+      cancelBooking: true,
+      sumUpRefunded: false,
+      customerEmailSent: false,
+      ownerEmailSent: false,
+      auditId: priorExternal.id,
+    };
+  }
+
   const bookedRefundAmount = remainingRefundableBalance(amountPaid, alreadyRefunded);
   // Books show full amount returned; money was already moved outside this system.
+  // Only attribute newly recorded refund money when books still show a remaining balance —
+  // avoids double-counting in financial totals when SumUp was already reconciled locally.
+  const auditRefundAmount = bookedRefundAmount > 0.001 ? bookedRefundAmount : 0;
   const cumulativeAfter = amountPaid;
   const refundAmountLabel =
-    bookedRefundAmount > 0
-      ? formatPaidAmount(bookedRefundAmount, record.currency || "GBP")
+    auditRefundAmount > 0
+      ? formatPaidAmount(auditRefundAmount, record.currency || "GBP")
       : formatPaidAmount(amountPaid, record.currency || "GBP");
   const nowIso = new Date().toISOString();
   const auditId = generateRefundOpId();
@@ -372,7 +403,9 @@ async function processMarkExternalRefund(
     bookingReference: paymentReference,
     sumUpTransactionId: record.transactionId,
     originalAmountPaid: amountPaid,
-    refundAmount: bookedRefundAmount > 0 ? bookedRefundAmount : amountPaid,
+    // When books already show fully refunded, record £0 newly attributed so financial
+    // totals do not double-count; cumulative still reflects the full paid amount.
+    refundAmount: auditRefundAmount > 0 ? auditRefundAmount : 0,
     cumulativeRefundedAmount: cumulativeAfter,
     remainingBalance: 0,
     amountRetained: 0,
@@ -487,7 +520,7 @@ async function processMarkExternalRefund(
     ok: true,
     paymentReference,
     refundAmount: refundAmountLabel,
-    refundAmountValue: bookedRefundAmount > 0 ? bookedRefundAmount : amountPaid,
+    refundAmountValue: auditRefundAmount > 0 ? auditRefundAmount : 0,
     cumulativeRefunded: cumulativeAfter,
     remainingBalance: 0,
     status: record.status,
