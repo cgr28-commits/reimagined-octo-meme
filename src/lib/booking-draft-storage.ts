@@ -19,6 +19,8 @@ export type BookingFormDraft = {
   tripDate?: string;
   tripTime?: string;
   returnJourney?: boolean;
+  /** Explicit One Way / Return — preferred over inferring from returnJourney alone. */
+  journeyMode?: "one-way" | "return";
   returnDate?: string;
   returnTime?: string;
   passengers?: number;

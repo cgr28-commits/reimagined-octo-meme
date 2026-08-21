@@ -472,7 +472,9 @@ function QuoteCard({
   const [dropoffPlaceError, setDropoffPlaceError] = useState("");
   const [pickupRestoredHint, setPickupRestoredHint] = useState(false);
   const [dropoffRestoredHint, setDropoffRestoredHint] = useState(false);
-  const [returnJourney, setReturnJourney] = useState(false);
+  /** Explicit One Way / Return — null until the customer taps a choice. */
+  const [journeyMode, setJourneyMode] = useState<"one-way" | "return" | null>(null);
+  const returnJourney = journeyMode === "return";
   const [tripDateError, setTripDateError] = useState("");
   const [returnDateError, setReturnDateError] = useState("");
   const [customerNameError, setCustomerNameError] = useState("");
@@ -754,7 +756,12 @@ function QuoteCard({
       }
       if (draft.tripDate) setTripDate(draft.tripDate);
       if (draft.tripTime) setTripTime(draft.tripTime);
-      if (typeof draft.returnJourney === "boolean") setReturnJourney(draft.returnJourney);
+      if (typeof draft.returnJourney === "boolean") {
+        setJourneyMode(draft.returnJourney ? "return" : "one-way");
+      }
+      if (draft.journeyMode === "one-way" || draft.journeyMode === "return") {
+        setJourneyMode(draft.journeyMode);
+      }
       if (draft.returnDate) setReturnDate(draft.returnDate);
       if (draft.returnTime) setReturnTime(draft.returnTime);
       if (typeof draft.passengers === "number" && draft.passengers > 0) {
@@ -865,7 +872,10 @@ function QuoteCard({
         }
       }
       if (typeof draft.returnJourney === "boolean") {
-        setReturnJourney(draft.returnJourney);
+        setJourneyMode(draft.returnJourney ? "return" : "one-way");
+      }
+      if (draft.journeyMode === "one-way" || draft.journeyMode === "return") {
+        setJourneyMode(draft.journeyMode);
       }
       if (draft.tripDate) setTripDate(draft.tripDate);
       if (draft.tripTime) setTripTime(draft.tripTime);
@@ -935,11 +945,11 @@ function QuoteCard({
       (Boolean(returnDate && returnTime) &&
         isReturnAfterOutbound(tripDate, tripTime, returnDate, returnTime)));
 
-  const hasCompatibleVehicle =
-    isPartySelectionComplete(passengers, suitcases, exactPassengers) && Boolean(quoteVehicle);
-
   const partySelectionReady = isPartySelectionComplete(passengers, suitcases, exactPassengers);
   const effectivePassengers = effectivePartyPassengers(passengers, exactPassengers);
+  const quoteChoicesReady = journeyMode !== null && partySelectionReady;
+
+  const hasCompatibleVehicle = quoteChoicesReady && Boolean(quoteVehicle);
 
   const travelDetailsBlocker = !tripDate
     ? "Select your pickup date to continue."
@@ -956,7 +966,9 @@ function QuoteCard({
                 returnTime &&
                 !isReturnAfterOutbound(tripDate, tripTime, returnDate, returnTime)
               ? "Return date and time must be after your outbound trip."
-              : !hasCompatibleVehicle
+              : journeyMode == null
+                ? "Choose One Way or Return to continue."
+                : !hasCompatibleVehicle
                 ? "Select passengers and luggage to continue."
                 : "";
 
@@ -985,18 +997,18 @@ function QuoteCard({
         ? isAirportAddressComplete
         : isAddressPairComplete);
 
-  // Fixed price only after route + deliberate passenger AND suitcase selections.
+  // Fixed price only after route + deliberate journey mode, passengers AND suitcases.
   const exceedsOnlineCapacity =
-    partySelectionReady &&
+    quoteChoicesReady &&
     effectivePassengers != null &&
     suitcases != null &&
     exceedsOnlineVehicleOptions(effectivePassengers, suitcases);
   const isMinibusParty =
-    partySelectionReady &&
+    quoteChoicesReady &&
     effectivePassengers != null &&
     suitcases != null &&
     requiresMinibus(effectivePassengers, suitcases);
-  const canShowPrice = hasQuoteRoute && partySelectionReady && !exceedsOnlineCapacity;
+  const canShowPrice = hasQuoteRoute && quoteChoicesReady && !exceedsOnlineCapacity;
 
   const tripDetailsReady = hasQuoteRoute && isScheduleComplete;
 
@@ -1784,7 +1796,9 @@ function QuoteCard({
       dropoffPlace,
       tripDate,
       tripTime,
-      returnJourney,
+      ...(journeyMode != null
+        ? { returnJourney: journeyMode === "return", journeyMode }
+        : {}),
       returnDate,
       returnTime,
       ...(passengers != null ? { passengers } : {}),
@@ -1906,6 +1920,7 @@ function QuoteCard({
       Boolean(tripDate) ||
       Boolean(tripTime) ||
       returnJourney ||
+      journeyMode != null ||
       passengers != null ||
       suitcases != null ||
       Boolean(goingFlightNumber.trim()) ||
@@ -1976,7 +1991,7 @@ function QuoteCard({
     setDropoffPlaceError("");
     setPickupRestoredHint(false);
     setDropoffRestoredHint(false);
-    setReturnJourney(false);
+    setJourneyMode(null);
     setTripDateError("");
     setReturnDateError("");
     setCustomerNameError("");
@@ -2213,6 +2228,11 @@ function QuoteCard({
         );
         return;
       }
+      if (journeyMode == null) {
+        setSubmitError("Choose One Way or Return to continue.");
+        scheduleBookingNavAfterRender("quote-section-journey-mode");
+        return;
+      }
       if (!partySelectionReady) {
         setSubmitError("Select your passenger and suitcase numbers to see your fixed price.");
         scheduleBookingNavAfterRender("quote-section-passengers");
@@ -2322,21 +2342,33 @@ function QuoteCard({
     return scheduleBookingNavAfterRender("quote-price-summary", { focusHeading: true });
   }, [liveQuoteAmount, quoteStep]);
 
-  // Legacy (non-A2A) form: after both addresses are ready, scroll to passenger/suitcase choices.
+  // Legacy (non-A2A) form: addresses → One Way/Return, then passengers after mode chosen.
+  const hadLegacyJourneyModeScrollRef = useRef(false);
   const hadLegacyPartyScrollRef = useRef(false);
   useEffect(() => {
     if (isA2AFlow || quoteStep !== 1) {
+      hadLegacyJourneyModeScrollRef.current = false;
       hadLegacyPartyScrollRef.current = false;
       return;
     }
     if (!hasQuoteRoute) {
+      hadLegacyJourneyModeScrollRef.current = false;
       hadLegacyPartyScrollRef.current = false;
       return;
+    }
+    if (journeyMode == null) {
+      hadLegacyPartyScrollRef.current = false;
+      if (hadLegacyJourneyModeScrollRef.current) return;
+      hadLegacyJourneyModeScrollRef.current = true;
+      if (typeof document !== "undefined" && document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
+      return scheduleBookingNavAfterRender("quote-section-journey-mode");
     }
     if (hadLegacyPartyScrollRef.current) return;
     hadLegacyPartyScrollRef.current = true;
     return scheduleBookingNavAfterRender("quote-section-passengers");
-  }, [hasQuoteRoute, isA2AFlow, quoteStep]);
+  }, [hasQuoteRoute, isA2AFlow, journeyMode, quoteStep]);
 
   const submitInProgressLabel = showsRequestQuoteFlow
     ? "Sending quote request…"
@@ -2433,14 +2465,18 @@ function QuoteCard({
             : "Pickups for Derry Airport must be in the greater Belfast area — enter a Belfast-area pickup address"
           : !isAirportAddressComplete
             ? `Enter your ${isFromAirport ? "drop-off" : "pickup"} address to see your fixed journey price`
-            : !partySelectionReady
+            : journeyMode == null
+              ? "Choose One Way or Return to continue."
+              : !partySelectionReady
               ? "Select your passenger and suitcase numbers to see your fixed price."
               : !isScheduleComplete
                 ? "Price ready — add your date and time when you’re ready to book"
                 : ""
       : !isAddressPairComplete
         ? "Enter pickup and drop-off addresses to see your fixed journey price"
-        : !partySelectionReady
+        : journeyMode == null
+          ? "Choose One Way or Return to continue."
+          : !partySelectionReady
           ? "Select your passenger and suitcase numbers to see your fixed price."
           : !routeMetrics
             ? "We need to confirm the price for this journey. Calculating your route… If a route cannot be found, use WhatsApp for a manual quote."
@@ -2671,10 +2707,10 @@ function QuoteCard({
                 handleDropoffChange("");
               }}
               addressLookupCode={addressLookupCode}
-              returnJourney={returnJourney}
-              onReturnJourneyChange={(value) => {
-                setReturnJourney(value);
-                if (!value) setReturnDateError("");
+              journeyMode={journeyMode}
+              onJourneyModeChange={(value) => {
+                setJourneyMode(value);
+                if (value === "one-way") setReturnDateError("");
               }}
               passengers={passengers}
               onPassengersChange={setPassengers}
@@ -2684,7 +2720,7 @@ function QuoteCard({
               onSuitcasesChange={setSuitcases}
               isGroupQuote={exceedsOnlineCapacity}
               showRouteFields={Boolean(journeyIntent)}
-              showPartyFields={
+              showJourneyModeFields={
                 journeyIntent === "address-to-address"
                   ? isPlaceSelected(pickupPlace) && isPlaceSelected(dropoffPlace)
                   : journeyIntent === "to-airport"
@@ -2692,6 +2728,16 @@ function QuoteCard({
                     : journeyIntent === "from-airport"
                       ? Boolean(intentAirportCode) && isPlaceSelected(dropoffPlace)
                       : false
+              }
+              showPartyFields={
+                journeyMode != null &&
+                (journeyIntent === "address-to-address"
+                  ? isPlaceSelected(pickupPlace) && isPlaceSelected(dropoffPlace)
+                  : journeyIntent === "to-airport"
+                    ? Boolean(intentAirportCode) && isPlaceSelected(pickupPlace)
+                    : journeyIntent === "from-airport"
+                      ? Boolean(intentAirportCode) && isPlaceSelected(dropoffPlace)
+                      : false)
               }
               journeyKindLabel={journeyKind ? journeyKindLabel(journeyKind) : undefined}
             />
@@ -2776,20 +2822,20 @@ function QuoteCard({
         ) : (
           <>
         {/* Legacy airport transfer UI when addressToAddress is disabled */}
-        <div>
+        <div id="quote-section-journey-mode">
           <p className="mb-2 text-xs font-medium uppercase tracking-wider text-white/50">
             Journey
           </p>
           <div className="grid grid-cols-2 gap-2 rounded-xl border border-white/10 bg-white/5 p-1">
             <button
               type="button"
-              aria-pressed={!returnJourney}
+              aria-pressed={journeyMode === "one-way"}
               onClick={() => {
-                setReturnJourney(false);
+                setJourneyMode("one-way");
                 setReturnDateError("");
               }}
               className={`rounded-lg px-3 py-2.5 text-xs font-semibold transition-all sm:text-sm ${
-                !returnJourney
+                journeyMode === "one-way"
                   ? "bg-emerald text-navy shadow-sm"
                   : "text-white/70 hover:text-white"
               }`}
@@ -2798,10 +2844,10 @@ function QuoteCard({
             </button>
             <button
               type="button"
-              aria-pressed={returnJourney}
-              onClick={() => setReturnJourney(true)}
+              aria-pressed={journeyMode === "return"}
+              onClick={() => setJourneyMode("return")}
               className={`rounded-lg px-3 py-2.5 text-xs font-semibold transition-all sm:text-sm ${
-                returnJourney
+                journeyMode === "return"
                   ? "bg-emerald text-navy shadow-sm"
                   : "text-white/70 hover:text-white"
               }`}
@@ -2809,6 +2855,15 @@ function QuoteCard({
               Return · 5% off
             </button>
           </div>
+          {journeyMode == null && (
+            <p
+              id="quote-journey-mode-prompt"
+              className="mt-3 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white/80"
+              role="status"
+            >
+              Choose One Way or Return to continue.
+            </p>
+          )}
         </div>
 
         {isAirportTrip && (
@@ -3038,7 +3093,7 @@ function QuoteCard({
           </>
         )}
 
-        {!isA2AFlow && (
+        {!isA2AFlow && journeyMode != null && (
         <div
           id="quote-section-passengers"
           className="space-y-4 rounded-xl border border-white/10 bg-white/5 px-4 py-4 lg:space-y-3.5 lg:px-4 lg:py-3.5"
@@ -3319,7 +3374,7 @@ function QuoteCard({
           </>
         ) : null}
 
-        {(quoteStep === 1 || quoteStep === 2) && partySelectionReady && (
+        {(quoteStep === 1 || quoteStep === 2) && quoteChoicesReady && (
         <div
           id="quote-price-summary"
           data-booking-nav-heading
@@ -4146,7 +4201,7 @@ function QuoteCard({
               type="submit"
               disabled={
                 submitted ||
-                !partySelectionReady ||
+                !quoteChoicesReady ||
                 (exceedsOnlineCapacity || isEnquiryOnly || isManualQuoteJourney || pricingConfirmationRequired
                   ? !hasQuoteRoute
                   : !liveQuote)

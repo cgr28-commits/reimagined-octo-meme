@@ -154,10 +154,30 @@ export function calculateAuthoritativeWebsiteQuote(
   // Date/time are optional for quote calculation / Save Quote.
   // Booking and payment still require them via paid-booking-gate.
 
+  // Reject missing journey mode — never coerce undefined to One Way via Boolean().
+  const rawReturnJourney = (input as { returnJourney?: unknown }).returnJourney;
+  const rawJourneyMode = (input as { journeyMode?: unknown }).journeyMode;
+  let returnJourney: boolean;
+  if (typeof rawReturnJourney === "boolean") {
+    returnJourney = rawReturnJourney;
+  } else if (rawJourneyMode === "one-way") {
+    returnJourney = false;
+  } else if (rawJourneyMode === "return") {
+    returnJourney = true;
+  } else {
+    return {
+      ok: false,
+      reason: "incomplete",
+      message: "Journey mode (One Way or Return) is required.",
+    };
+  }
+
   const vehicleType =
     input.vehicleType ?? selectVehicleForParty(passengers, Math.max(0, suitcases));
-  const schedule = buildSchedule(input);
-  const returnJourney = Boolean(input.returnJourney);
+  const schedule = {
+    ...buildSchedule(input),
+    returnJourney,
+  };
   const airportCode = input.airportCode ?? null;
 
   let quote = null as ReturnType<typeof calculateQuote>;

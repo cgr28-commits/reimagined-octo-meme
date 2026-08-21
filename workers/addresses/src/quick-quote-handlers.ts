@@ -69,7 +69,16 @@ function parseJourney(
   body: Record<string, unknown>,
 ): (QuickQuoteJourney & { vehicleChoice: QuickQuoteVehicleChoice }) | { error: string } {
   const airportCode = parseAirport(body.airportCode);
-  const returnJourney = body.returnJourney === true;
+  let returnJourney: boolean;
+  if (typeof body.returnJourney === "boolean") {
+    returnJourney = body.returnJourney;
+  } else if (body.journeyMode === "one-way") {
+    returnJourney = false;
+  } else if (body.journeyMode === "return") {
+    returnJourney = true;
+  } else {
+    return { error: "Journey mode (One Way or Return) is required." };
+  }
   if (body.passengers == null || body.suitcases == null) {
     return { error: "Passenger and suitcase selections are required." };
   }

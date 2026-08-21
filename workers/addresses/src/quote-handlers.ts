@@ -99,6 +99,26 @@ export async function handleQuoteCalculateRequest(
     routeMetrics = await fetchTripRouteMetrics(pickupLat, pickupLng, dropoffLat, dropoffLng);
   }
 
+  // Require explicit One Way / Return — never treat a missing field as One Way.
+  let returnJourney: boolean;
+  if (typeof body.returnJourney === "boolean") {
+    returnJourney = body.returnJourney;
+  } else if (body.journeyMode === "one-way") {
+    returnJourney = false;
+  } else if (body.journeyMode === "return") {
+    returnJourney = true;
+  } else {
+    return json(
+      {
+        ok: false,
+        reason: "incomplete",
+        message: "Journey mode (One Way or Return) is required.",
+      },
+      422,
+      origin,
+    );
+  }
+
   // Require explicit passenger and suitcase selections — never default to 1 / 0.
   if (body.passengers == null || body.suitcases == null) {
     return json(
@@ -150,7 +170,7 @@ export async function handleQuoteCalculateRequest(
     fromAirport: body.fromAirport === true,
     pickupAddress: String(body.pickupAddress ?? ""),
     dropoffAddress: String(body.dropoffAddress ?? ""),
-    returnJourney: body.returnJourney === true,
+    returnJourney,
     outboundDate: String(body.outboundDate ?? ""),
     outboundTime: String(body.outboundTime ?? ""),
     returnDate: String(body.returnDate ?? "") || undefined,
@@ -168,7 +188,7 @@ export async function handleQuoteCalculateRequest(
       ok: result.ok,
       reason: result.ok ? undefined : result.reason,
       airportCode,
-      returnJourney: body.returnJourney === true,
+      returnJourney,
       ownerMode,
       vehicleChoice: resolved.vehicleChoice,
       amount: result.ok ? result.amount : undefined,

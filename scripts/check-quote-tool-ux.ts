@@ -110,9 +110,11 @@ check("Step 2 travel details section scrolls only after explicit step navigation
   assert.doesNotMatch(card, /scheduleSmoothScrollTo/);
 });
 
-check("Progressive quote scrolls to party after addresses; no legacy selection-scroll helpers", () => {
+check("Progressive quote scrolls addresses → journey mode → party; no legacy selection-scroll helpers", () => {
   assert.match(progressive, /quote-section-passengers/);
   assert.match(progressive, /quote-section-suitcases/);
+  assert.match(progressive, /quote-section-journey-mode/);
+  assert.match(progressive, /scheduleBookingNavAfterRender\("quote-section-journey-mode"\)/);
   assert.match(progressive, /scheduleBookingNavAfterRender\("quote-section-passengers"\)/);
   assert.doesNotMatch(progressive, /scheduleQuoteSectionScroll/);
   assert.doesNotMatch(progressive, /scheduleQuoteFareResultScroll/);
@@ -132,11 +134,14 @@ check("Public quote tool uses booking-nav scroll (no scrollIntoView / legacy far
   assert.match(card, /scheduleBookingNavAfterRender/);
 });
 
-check("Passenger and suitcase start unselected; price waits for both", () => {
+check("Journey mode, passengers and suitcases start unselected; price waits for all three", () => {
+  assert.match(card, /useState<"one-way" \| "return" \| null>\(null\)/);
   assert.match(card, /useState<number \| null>\(null\)/);
+  assert.match(progressive, /Choose One Way or Return to continue\./);
   assert.match(progressive, /Select your passenger and suitcase numbers to see your fixed price\./);
-  assert.match(card, /canShowPrice = hasQuoteRoute && partySelectionReady/);
+  assert.match(card, /canShowPrice = hasQuoteRoute && quoteChoicesReady/);
   assert.doesNotMatch(card, /setExactPassengers\(5\)/);
+  assert.doesNotMatch(progressive, /aria-pressed=\{!returnJourney\}/);
 });
 
 check("Suitcase selector is single 0–4|5+ row without Exact Large Bags", () => {

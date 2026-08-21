@@ -16,6 +16,7 @@ export type QuoteDraftPrefill = {
   suitcases?: number;
   vehicle?: string;
   returnJourney?: boolean;
+  journeyMode?: "one-way" | "return";
   tripDate?: string;
   tripTime?: string;
   returnDate?: string;
