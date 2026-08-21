@@ -52,6 +52,9 @@ console.log("\n=== 2. Jobs section order: Upcoming → Refunds Pending → Compl
   assert.match(panel, /groupCompletedBookingsByDay/);
   assert.match(panel, /isOwnerOperationalTestBooking/);
   assert.doesNotMatch(panel, /OwnerFlightStatusPanel/);
+  assert.doesNotMatch(panel, /Website card payments/i);
+  assert.doesNotMatch(panel, /Latest paid booking/);
+  assert.doesNotMatch(panel, /Paid Jobs/);
 
   const upcomingAt = panel.indexOf("<h3 className=\"text-base font-bold text-white\">Upcoming Jobs</h3>");
   const refundsAt = panel.indexOf(
@@ -64,7 +67,7 @@ console.log("\n=== 2. Jobs section order: Upcoming → Refunds Pending → Compl
     upcomingAt > 0 && refundsAt > upcomingAt && completedAt > refundsAt,
     "section order must be Upcoming → Refunds Pending → Completed",
   );
-  console.log("OK  section order + test exclusion + no flight UI");
+  console.log("OK  section order + test exclusion + no Paid Jobs summary + no flight UI");
 }
 
 console.log("\nAll owner dashboard layout checks passed.");

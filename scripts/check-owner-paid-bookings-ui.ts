@@ -25,12 +25,16 @@ console.log("OK  paid-bookings API client");
 
 const panel = read("src/components/OwnerPaidBookingsPanel.tsx");
 assert.match(panel, /Upcoming Jobs/);
-assert.match(panel, /Resend booking confirmation|Resend Confirmation/i);
-assert.match(panel, /Website card payments/);
-assert.match(panel, /latestPaid/);
+assert.match(panel, /Resend Confirmation/i);
+assert.doesNotMatch(panel, /Website card payments/i);
+assert.doesNotMatch(panel, /Paid Jobs/);
+assert.doesNotMatch(panel, /Latest paid booking/);
+assert.doesNotMatch(panel, /Resend booking confirmation/);
+assert.doesNotMatch(panel, /latestPaid/);
+assert.doesNotMatch(panel, /Open Refund Test/);
 assert.match(panel, /Cancel \/ Refund|OwnerCancelRefundModal/);
 assert.match(panel, /Refund diagnostics \(read-only\)|fetchRefundDiagnostics/);
-console.log("OK  OwnerPaidBookingsPanel");
+console.log("OK  OwnerPaidBookingsPanel (no Paid Jobs summary chrome)");
 
 const page = read("src/app/driver/DriverPageClient.tsx");
 assert.match(page, /OwnerPaidBookingsPanel/);

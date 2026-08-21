@@ -1313,8 +1313,6 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
     }
   }
 
-  const latestPaid =
-    operationalBookings.find((booking) => !isOperationallyCancelled(booking.status)) ?? null;
   const needsFinalize = pending.filter((item) => item.needsFinalize);
 
   function renderJourneyControls(booking: OwnerPaidBookingSummary) {
@@ -2024,42 +2022,9 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
   }
 
   return (
-    <section className="mb-10 rounded-2xl border border-sky-400/25 bg-sky-500/5 p-5 sm:p-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wider text-sky-200">
-            Website card payments
-          </p>
-          <h2 className="mt-1 text-xl font-bold text-white">Paid Jobs</h2>
-          <p className="mt-2 max-w-2xl text-sm text-white/65">
-            <span className="font-semibold text-white/90">Upcoming Jobs</span> below are real
-            unfinished customer journeys due today or later.{" "}
-            <span className="text-amber-100/90">Refunds Pending</span> appears only when a refund is
-            still due. Finished trips are listed under{" "}
-            <span className="text-white/85">Completed Jobs</span> (kept for records — not Upcoming).
-            Owner test / refund-test bookings stay on their diagnostics pages only. Use{" "}
-            <span className="text-white/85">Driver on the way</span> then{" "}
-            <span className="text-white/85">Driver has arrived</span> for customer updates.
-          </p>
-          <p className="mt-2 text-xs text-amber-100/80">
-            Need a controlled £1 live SumUp refund smoke test?{" "}
-            <a href="/owner/refund-test/" className="font-semibold underline hover:text-amber-50">
-              Open Refund Test (owner-only)
-            </a>
-            . Not a customer fare.
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={() => void load()}
-          className="min-h-11 rounded-xl border border-white/15 px-4 py-2 text-sm font-semibold text-white transition-colors hover:border-white/30"
-        >
-          Refresh
-        </button>
-      </div>
-
+    <section className="mb-10">
       {needsFinalize.length > 0 ? (
-        <div className="mt-5 rounded-xl border border-amber-400/35 bg-amber-500/10 p-4">
+        <div className="mb-6 rounded-xl border border-amber-400/35 bg-amber-500/10 p-4">
           <p className="text-sm text-white/85">
             {needsFinalize.length} SumUp PAID checkout
             {needsFinalize.length === 1 ? "" : "s"} waiting to finalize (email/calendar).
@@ -2090,56 +2055,63 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
         </div>
       ) : null}
 
-      {latestPaid ? (
-        <div className="mt-5 rounded-xl border border-emerald/35 bg-emerald/10 p-4">
-          <p className="text-sm text-white/80">
-            Latest paid booking:{" "}
-            <span className="font-semibold text-white">{latestPaid.customerName}</span>
-            {latestPaid.amountPaid ? ` · ${latestPaid.amountPaid}` : ""} · {latestPaid.customerEmail}
-          </p>
-          <button
-            type="button"
-            disabled={busyRef === latestPaid.paymentReference}
-            onClick={() => void handleResend(latestPaid)}
-            className="mt-3 min-h-11 w-full rounded-xl bg-emerald px-4 py-3 text-sm font-bold text-navy transition-colors hover:bg-emerald-light disabled:opacity-60 sm:w-auto"
-          >
-            {busyRef === latestPaid.paymentReference
-              ? "Sending booking confirmation…"
-              : "Resend booking confirmation"}
-          </button>
-        </div>
-      ) : null}
-
       {error ? (
-        <p className="mt-4 rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-100">
+        <p className="mb-4 rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-100">
           {error}
         </p>
       ) : null}
       {message ? (
-        <p className="mt-4 rounded-xl border border-emerald/30 bg-emerald/10 px-4 py-3 text-sm text-emerald-light">
+        <p className="mb-4 rounded-xl border border-emerald/30 bg-emerald/10 px-4 py-3 text-sm text-emerald-light">
           {message}
         </p>
       ) : null}
 
       {loading ? (
-        <p className="mt-6 text-sm text-white/60">Loading upcoming jobs…</p>
+        <p className="text-sm text-white/60">Loading upcoming jobs…</p>
       ) : upcomingJobs.length === 0 &&
         refundsPending.length === 0 &&
         completedRecent.length === 0 ? (
-        <p className="mt-6 text-sm text-white/60">
-          No upcoming jobs by journey date (looking ahead ~90 days, plus recent incomplete). If a
-          customer just paid, tap Refresh or use Recover if SumUp shows PAID.
-        </p>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm text-white/60">
+            No upcoming jobs by journey date (looking ahead ~90 days, plus recent incomplete). If a
+            customer just paid, tap Refresh or use Recover if SumUp shows PAID.
+          </p>
+          <button
+            type="button"
+            onClick={() => void load()}
+            className="min-h-11 shrink-0 rounded-xl border border-white/15 px-4 py-2 text-sm font-semibold text-white transition-colors hover:border-white/30"
+          >
+            Refresh
+          </button>
+        </div>
       ) : (
         <>
           {upcomingJobs.length === 0 ? (
-            <p className="mt-6 text-sm text-white/60">
-              No open upcoming jobs right now. Refunds Pending (if any) and Completed Jobs appear
-              below.
-            </p>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-sm text-white/60">
+                No open upcoming jobs right now. Refunds Pending (if any) and Completed Jobs appear
+                below.
+              </p>
+              <button
+                type="button"
+                onClick={() => void load()}
+                className="min-h-11 shrink-0 rounded-xl border border-white/15 px-4 py-2 text-sm font-semibold text-white transition-colors hover:border-white/30"
+              >
+                Refresh
+              </button>
+            </div>
           ) : (
-            <div className="mt-6 space-y-8">
-              <h3 className="text-base font-bold text-white">Upcoming Jobs</h3>
+            <div className="space-y-8">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <h3 className="text-base font-bold text-white">Upcoming Jobs</h3>
+                <button
+                  type="button"
+                  onClick={() => void load()}
+                  className="min-h-11 shrink-0 rounded-xl border border-white/15 px-4 py-2 text-sm font-semibold text-white transition-colors hover:border-white/30"
+                >
+                  Refresh
+                </button>
+              </div>
               {upcomingGroups.map((group) =>
                 group.items.length === 0 ? null : (
                   <div key={group.key}>
