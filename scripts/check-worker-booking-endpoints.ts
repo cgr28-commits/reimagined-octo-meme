@@ -40,7 +40,39 @@ const places = read("shared/google-places.ts");
 assert.match(places, /www\.myairporttaxini\.co\.uk/);
 assert.match(places, /myairporttaxini\.co\.uk/);
 assert.match(places, new RegExp(VERCEL_ORIGIN.replace(/\./g, "\\.")));
+assert.match(places, /isVercelProjectPreviewHost/);
+assert.match(places, /VERCEL_PROJECT_HOST_PREFIX/);
 console.log("OK  ALLOWED_ORIGINS includes custom domain + Vercel production host");
+
+import {
+  isAllowedBrowserOrigin,
+  isVercelProjectPreviewHost,
+} from "../shared/google-places";
+
+assert.equal(
+  isVercelProjectPreviewHost("my-airport-taxi-ni-quote.vercel.app"),
+  true,
+);
+assert.equal(
+  isVercelProjectPreviewHost(
+    "my-airport-taxi-ni-quote-git-cursor-owner-dashbo-4b61f7-colin15.vercel.app",
+  ),
+  true,
+);
+assert.equal(isVercelProjectPreviewHost("some-other-app.vercel.app"), false);
+assert.equal(
+  isAllowedBrowserOrigin(
+    "https://my-airport-taxi-ni-quote-git-cursor-owner-dashbo-4b61f7-colin15.vercel.app",
+  ),
+  true,
+  "Vercel PR preview origin must be allowed for Owner Dashboard fetch",
+);
+assert.equal(
+  isAllowedBrowserOrigin("https://random-project.vercel.app"),
+  false,
+  "unrelated Vercel apps stay blocked",
+);
+console.log("OK  Vercel PR/branch preview hosts allowed; unrelated vercel.app blocked");
 
 console.log("\n=== Durable secrets sync (names only) ===");
 const deploy = read(".github/workflows/deploy-worker.yml");

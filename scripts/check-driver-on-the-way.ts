@@ -97,19 +97,25 @@ assert.match(handlers, /buildDriverArrivedPickupEmail/);
 
 const labels = read("src/lib/tracking-api.ts");
 assert.match(labels, /start_tracking:\s*"Driver on the way"/);
-assert.match(labels, /arrived_pickup:\s*"🚕 Arrived at Pickup"/);
+assert.match(labels, /arrived_pickup:\s*"Driver has arrived"/);
 
 const driver = read("src/app/driver/DriverPageClient.tsx");
 assert.match(driver, /buildArrivedPickupWhatsAppMessage/);
 assert.match(driver, /buildDriverOnTheWayWhatsAppLink/);
 assert.match(driver, /action === "arrived_pickup"/);
 assert.match(driver, /action === "start_tracking"/);
+assert.match(
+  driver,
+  /Customer update actions[\s\S]*must NOT wait for the[\s\S]*GPS tracking window/,
+);
 
 const owner = read("src/components/OwnerPaidBookingsPanel.tsx");
 assert.match(owner, /Driver on the way/);
-assert.match(owner, /🚕 Arrived at Pickup/);
+assert.match(owner, /Driver has arrived/);
+assert.match(owner, /ownerUpcomingPrimaryJourneyActions/);
 assert.match(owner, /openArrivalWhatsAppForBooking/);
 assert.match(owner, /openOnTheWayWhatsAppForBooking/);
+assert.doesNotMatch(owner, /🚕 Arrived at Pickup/);
 
 const sharedWa = read("shared/arrival-whatsapp.ts");
 const workerWa = read("workers/addresses/shared/arrival-whatsapp.ts");

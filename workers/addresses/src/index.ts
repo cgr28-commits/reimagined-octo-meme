@@ -54,7 +54,9 @@ import {
   type PaidBookingDetails,
 } from "../shared/booking-notifications";
 import {
-  lookupFlight,
+  flightStatusCacheMaxAgeSeconds,
+  lookupFlightWithProviders,
+  shouldBypassStaleFlightCache,
   type TripDirection,
 } from "../shared/flight-lookup";
 import {
@@ -190,6 +192,7 @@ import {
   isPaidBookingAmendAbandonPath,
 } from "./booking-amendment-handlers";
 import { handleDriverUpdateBookingRequest } from "./driver-booking-handlers";
+import { handleDriverFlightAlertRequest } from "./driver-flight-alert-handlers";
 import {
   handleDriverAssignRequest,
   handleDriverDeassignRequest,
@@ -313,6 +316,9 @@ type Env = {
   BOOKING_COUNTER?: KVNamespace;
   EMAIL?: EmailBinding;
   AERODATABOX_RAPIDAPI_KEY?: string;
+  /** Cirium / FlightStats Flex — preferred primary flight status provider. */
+  CIRIUM_APP_ID?: string;
+  CIRIUM_APP_KEY?: string;
   GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON?: string;
   GOOGLE_CALENDAR_ID?: string;
   TRACKING_STORE?: KVNamespace;
@@ -484,6 +490,7 @@ function routePath(
   | "driver-accept"
   | "driver-accept-confirm"
   | "flights"
+  | "flights-driver-alerts"
   | "calendar-status"
   | "email-status"
   | "payment-status"
@@ -602,6 +609,13 @@ function routePath(
 
   if (pathname === "/flights" || pathname === "/api/flights") {
     return "flights";
+  }
+
+  if (
+    pathname === "/flights/driver-alerts" ||
+    pathname === "/api/flights/driver-alerts"
+  ) {
+    return "flights-driver-alerts";
   }
 
   if (pathname === "/calendar-status" || pathname === "/api/calendar-status") {
@@ -2111,6 +2125,9 @@ async function handleFlightLookupRequest(
     const directionParam = url.searchParams.get("direction")?.trim() ?? "from-airport";
     const direction: TripDirection =
       directionParam === "to-airport" ? "to-airport" : "from-airport";
+    const forceRefresh =
+      url.searchParams.get("refresh") === "1" ||
+      url.searchParams.get("refresh") === "true";
 
     const airportNames: Record<string, string> = {
       BFS: "Belfast International",
@@ -2119,24 +2136,59 @@ async function handleFlightLookupRequest(
       LDY: "City of Derry",
     };
 
-    const configured = Boolean(env.AERODATABOX_RAPIDAPI_KEY?.trim());
+    const configured = Boolean(
+      (env.CIRIUM_APP_ID?.trim() && env.CIRIUM_APP_KEY?.trim()) ||
+        env.AERODATABOX_RAPIDAPI_KEY?.trim(),
+    );
     const flightCache = (caches as unknown as { default: Cache }).default;
-    const cacheKey = new Request(url.toString(), { method: "GET" });
-    const cached = await flightCache.match(cacheKey);
-    if (cached) {
-      const cachedBody = (await cached.json()) as { code?: string; ok?: boolean };
-      if (cachedBody.code !== "rate_limited") {
-        return json(cachedBody, cached.status, origin);
+    // Cache key ignores refresh= so a manual refresh still writes the shared entry.
+    const cacheUrl = new URL(url.toString());
+    cacheUrl.searchParams.delete("refresh");
+    // Bust legacy AeroDataBox-only cache entries when Cirium is configured.
+    if (env.CIRIUM_APP_ID?.trim() && env.CIRIUM_APP_KEY?.trim()) {
+      cacheUrl.searchParams.set("provider", "cirium");
+    }
+    const cacheKey = new Request(cacheUrl.toString(), { method: "GET" });
+    if (!forceRefresh) {
+      const cached = await flightCache.match(cacheKey);
+      if (cached) {
+        const cachedBody = (await cached.json()) as {
+          code?: string;
+          ok?: boolean;
+          flight?: {
+            statusCategory?: string;
+            date?: string;
+            scheduledTime?: string;
+            estimatedTime?: string;
+            actualTime?: string;
+            dataProvider?: string;
+          };
+        };
+        const staleDelayed =
+          cachedBody.ok &&
+          cachedBody.flight &&
+          shouldBypassStaleFlightCache(cachedBody.flight);
+        if (cachedBody.code !== "rate_limited" && !staleDelayed) {
+          return json(cachedBody, cached.status, origin);
+        }
+        // Fall through to live lookup when ETA has passed but status is still DELAYED.
       }
     }
 
-    const result = await lookupFlight(env.AERODATABOX_RAPIDAPI_KEY, {
-      flightNumber,
-      tripDate,
-      airportCode,
-      airportName: airportNames[airportCode] ?? airportCode,
-      direction,
-    });
+    const result = await lookupFlightWithProviders(
+      {
+        ciriumAppId: env.CIRIUM_APP_ID,
+        ciriumAppKey: env.CIRIUM_APP_KEY,
+        aerodataboxRapidApiKey: env.AERODATABOX_RAPIDAPI_KEY,
+      },
+      {
+        flightNumber,
+        tripDate,
+        airportCode,
+        airportName: airportNames[airportCode] ?? airportCode,
+        direction,
+      },
+    );
 
     if (!result.ok) {
       const status =
@@ -2154,7 +2206,10 @@ async function handleFlightLookupRequest(
           cacheKey,
           new Response(JSON.stringify(responseBody), {
             status,
-            headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=600" },
+            headers: {
+              "Content-Type": "application/json",
+              "Cache-Control": "public, max-age=300",
+            },
           }),
         );
         return response;
@@ -2163,17 +2218,27 @@ async function handleFlightLookupRequest(
       return json(responseBody, status, origin);
     }
 
+    const maxAge = flightStatusCacheMaxAgeSeconds({
+      tripDate,
+      statusCategory: result.flight.statusCategory,
+      scheduledTime: result.flight.scheduledTime,
+      estimatedTime: result.flight.estimatedTime,
+    });
     const responseBody = {
       ok: true,
       flight: result.flight,
       configured,
+      cacheMaxAgeSeconds: maxAge,
     };
     const response = json(responseBody, 200, origin);
     await flightCache.put(
       cacheKey,
       new Response(JSON.stringify(responseBody), {
         status: 200,
-        headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=600" },
+        headers: {
+          "Content-Type": "application/json",
+          "Cache-Control": `public, max-age=${maxAge}`,
+        },
       }),
     );
     return response;
@@ -2809,6 +2874,14 @@ export default {
       }
 
       return handleFlightLookupRequest(url, env, origin);
+    }
+
+    if (route === "flights-driver-alerts") {
+      if (request.method !== "POST") {
+        return json({ error: "Method not allowed" }, 405, origin);
+      }
+
+      return handleDriverFlightAlertRequest(request, env, origin);
     }
 
     if (route === "calendar-status") {

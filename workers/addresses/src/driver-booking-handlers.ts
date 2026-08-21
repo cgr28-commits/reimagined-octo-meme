@@ -1,7 +1,8 @@
 import { buildPickupDateTimeLocal } from "../shared/tracking";
 import type { TrackingJobRecord } from "../shared/tracking";
-import { isAirportPickupJob } from "../shared/tracking";
-import { lookupFlight, type VerifiedFlight } from "../shared/flight-lookup";
+import {
+  isAirportPickupJob,
+} from "../shared/tracking";
 import {
   getGoogleAccessToken,
   parseServiceAccountJson,
@@ -33,14 +34,6 @@ type Env = {
   DRIVER_ROSTER?: string;
   GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON?: string;
   GOOGLE_CALENDAR_ID?: string;
-  AERODATABOX_RAPIDAPI_KEY?: string;
-};
-
-const AIRPORT_NAMES: Record<string, string> = {
-  BFS: "Belfast International",
-  BHD: "George Best Belfast City",
-  DUB: "Dublin Airport",
-  LDY: "City of Derry",
 };
 
 function calendarConfigured(env: Env): boolean {
@@ -49,47 +42,13 @@ function calendarConfigured(env: Env): boolean {
   );
 }
 
-async function resolveDriverFlight(
-  record: TrackingJobRecord,
-  env: Env,
-): Promise<VerifiedFlight | null> {
-  if (
-    !record.isAirportTrip ||
-    !record.isFromAirport ||
-    !record.flightNumber?.trim() ||
-    !record.airportCode?.trim()
-  ) {
-    return null;
-  }
-
-  const apiKey = env.AERODATABOX_RAPIDAPI_KEY?.trim();
-  if (!apiKey) {
-    return null;
-  }
-
-  try {
-    const result = await lookupFlight(apiKey, {
-      flightNumber: record.flightNumber,
-      tripDate: record.tripDate,
-      airportCode: record.airportCode,
-      airportName: AIRPORT_NAMES[record.airportCode] ?? record.airportCode,
-      direction: "from-airport",
-    });
-
-    return result.ok ? result.flight : null;
-  } catch (error) {
-    console.error("Driver flight lookup failed", error);
-    return null;
-  }
-}
-
 export async function enrichDriverJob(
   job: TrackingJobRecord,
   env: Env,
   origin: string | null,
   role: DashboardRole = "owner",
 ) {
-  const flight = await resolveDriverFlight(job, env);
+  const flight = null;
   const paidRecord =
     job.paymentReference && paidBookingStoreConfigured(env.TRACKING_STORE)
       ? await getPaidBookingRecord(env.TRACKING_STORE, job.paymentReference)

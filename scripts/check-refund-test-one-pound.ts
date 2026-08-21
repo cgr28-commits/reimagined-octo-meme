@@ -55,10 +55,11 @@ console.log("OK  refund-test list syncs SumUp totals before showing remaining");
 
 const store = read("workers/addresses/src/paid-booking-store.ts");
 assert.match(store, /listRefundTestPaidBookings/);
-assert.match(store, /!record\.isRefundTest/);
+assert.match(store, /isOwnerOperationalTestBooking/);
 console.log("OK  test bookings excluded from normal upcoming/recent lists");
 
 const upcoming = read("shared/upcoming-jobs.ts");
+assert.match(upcoming, /isOwnerOperationalTestBooking/);
 assert.match(upcoming, /isRefundTest/);
 console.log("OK  Upcoming Jobs filter excludes isRefundTest");
 
