@@ -110,9 +110,10 @@ check("Step 2 travel details section scrolls only after explicit step navigation
   assert.doesNotMatch(card, /scheduleSmoothScrollTo/);
 });
 
-check("Progressive quote sections stay in document flow without selection auto-scroll", () => {
+check("Progressive quote scrolls to party after addresses; no legacy selection-scroll helpers", () => {
   assert.match(progressive, /quote-section-passengers/);
   assert.match(progressive, /quote-section-suitcases/);
+  assert.match(progressive, /scheduleBookingNavAfterRender\("quote-section-passengers"\)/);
   assert.doesNotMatch(progressive, /scheduleQuoteSectionScroll/);
   assert.doesNotMatch(progressive, /scheduleQuoteFareResultScroll/);
   assert.doesNotMatch(progressive, /quote-mobile-scroll/);
@@ -120,7 +121,7 @@ check("Progressive quote sections stay in document flow without selection auto-s
   assert.match(card, /quote-step2-next/);
 });
 
-check("Public quote tool does not auto-scroll after selections", () => {
+check("Public quote tool uses booking-nav scroll (no scrollIntoView / legacy fare scroll)", () => {
   assert.equal(fs.existsSync(path.join(root, "src/lib/quote-mobile-scroll.ts")), false);
   assert.doesNotMatch(progressive, /scrollIntoView/);
   // QuoteCard must not call scrollIntoView directly; step nav uses the mobile helper.
@@ -129,6 +130,13 @@ check("Public quote tool does not auto-scroll after selections", () => {
   assert.doesNotMatch(card, /pendingScrollToStep3CustomerRef/);
   assert.doesNotMatch(card, /scheduleReadyForScrollRef/);
   assert.match(card, /scheduleBookingNavAfterRender/);
+});
+
+check("Passenger and suitcase start unselected; price waits for both", () => {
+  assert.match(card, /useState<number \| null>\(null\)/);
+  assert.match(progressive, /Select your passenger and suitcase numbers to see your fixed price\./);
+  assert.match(card, /canShowPrice = hasQuoteRoute && partySelectionReady/);
+  assert.doesNotMatch(card, /setExactPassengers\(5\)/);
 });
 
 check("Suitcase selector is single 0–4|5+ row without Exact Large Bags", () => {

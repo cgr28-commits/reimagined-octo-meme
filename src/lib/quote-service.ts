@@ -86,8 +86,26 @@ function buildSchedule(input: QuoteServiceInput): TripSchedule {
 export function calculateAuthoritativeWebsiteQuote(
   input: QuoteServiceInput,
 ): QuoteServiceResult {
-  const passengers = Math.floor(Number(input.passengers));
-  const suitcases = Math.floor(Number(input.suitcases));
+  // Reject missing selections — never coerce null/undefined/"" to 1 passenger or 0 bags.
+  const rawPassengers = input.passengers as unknown;
+  const rawSuitcases = input.suitcases as unknown;
+  if (rawPassengers == null || rawPassengers === "") {
+    return {
+      ok: false,
+      reason: "incomplete",
+      message: "Passenger count is required.",
+    };
+  }
+  if (rawSuitcases == null || rawSuitcases === "") {
+    return {
+      ok: false,
+      reason: "incomplete",
+      message: "Luggage count is required.",
+    };
+  }
+
+  const passengers = Math.floor(Number(rawPassengers));
+  const suitcases = Math.floor(Number(rawSuitcases));
 
   if (!Number.isFinite(passengers) || passengers < 1) {
     return {

@@ -70,6 +70,9 @@ function parseJourney(
 ): (QuickQuoteJourney & { vehicleChoice: QuickQuoteVehicleChoice }) | { error: string } {
   const airportCode = parseAirport(body.airportCode);
   const returnJourney = body.returnJourney === true;
+  if (body.passengers == null || body.suitcases == null) {
+    return { error: "Passenger and suitcase selections are required." };
+  }
   const passengers = Math.floor(Number(body.passengers));
   const suitcases = Math.floor(Number(body.suitcases));
   const outboundDate = String(body.outboundDate ?? "").trim();

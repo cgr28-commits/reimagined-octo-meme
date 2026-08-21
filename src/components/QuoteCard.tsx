@@ -186,6 +186,37 @@ function exceedsOnlineVehicleOptions(_passengers: number, _suitcases: number): b
   return false;
 }
 
+/** True only when the customer has deliberately chosen both party fields. */
+function isPartySelectionComplete(
+  passengers: number | null,
+  suitcases: number | null,
+  exactPassengers: number | null,
+): boolean {
+  if (passengers == null || suitcases == null) return false;
+  if (passengers >= FIVE_PLUS_PASSENGERS) {
+    return (
+      exactPassengers != null &&
+      Number.isInteger(exactPassengers) &&
+      exactPassengers >= 5 &&
+      exactPassengers <= 7
+    );
+  }
+  return Number.isInteger(passengers) && passengers >= 1 && passengers <= 4 && suitcases >= 0;
+}
+
+function effectivePartyPassengers(
+  passengers: number | null,
+  exactPassengers: number | null,
+): number | null {
+  if (passengers == null) return null;
+  if (passengers >= FIVE_PLUS_PASSENGERS) {
+    return exactPassengers != null && exactPassengers >= 5 && exactPassengers <= 7
+      ? exactPassengers
+      : null;
+  }
+  return passengers;
+}
+
 function getAutoVehicle(passengers: number, suitcases: number, _a2aPrimary = false): VehicleType {
   void _a2aPrimary;
   return selectVehicleForParty(passengers, suitcases);
@@ -200,7 +231,7 @@ function TapChoiceRow({
 }: {
   label: string;
   options: number[];
-  value: number;
+  value: number | null;
   onChange: (value: number) => void;
   formatOption?: (value: number) => string;
 }) {
@@ -212,7 +243,7 @@ function TapChoiceRow({
         style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }}
       >
         {options.map((option) => {
-          const selected = value === option;
+          const selected = value !== null && value === option;
           return (
             <button
               key={option}
@@ -471,8 +502,8 @@ function QuoteCard({
         ? nowTimeInputValue()
         : undefined;
   const [vehicle, setVehicle] = useState<VehicleType>(VEHICLE_TYPES[0]);
-  const [passengers, setPassengers] = useState(1);
-  const [suitcases, setSuitcases] = useState(0);
+  const [passengers, setPassengers] = useState<number | null>(null);
+  const [suitcases, setSuitcases] = useState<number | null>(null);
   const [exactPassengers, setExactPassengers] = useState<number | null>(null);
   const [saveQuoteOpen, setSaveQuoteOpen] = useState(false);
   const [saveQuotePrompt, setSaveQuotePrompt] = useState("");
@@ -518,15 +549,25 @@ function QuoteCard({
   const isEnquiryOnly = isVehicleEnquiryOnly(quoteVehicle);
   const isRequestQuote = isVehicleRequestQuote(quoteVehicle);
   const showGuidePrice = showsOnlineGuidePrice(quoteVehicle);
-  const capacityNeedsConfirm = needsLuggageCapacityConfirmation(passengers, suitcases);
+  const capacityNeedsConfirm =
+    passengers != null &&
+    suitcases != null &&
+    needsLuggageCapacityConfirmation(
+      effectivePartyPassengers(passengers, exactPassengers) ?? passengers,
+      suitcases,
+    );
   const [capacityConfirmed, setCapacityConfirmed] = useState(false);
   const [confirmStartNewQuote, setConfirmStartNewQuote] = useState(false);
   /** Bumped on Start a New Quote so address inputs remount with clean internal state. */
   const [formResetKey, setFormResetKey] = useState(0);
 
   useEffect(() => {
-    setVehicle(getAutoVehicle(passengers, suitcases, IS_A2A_PRIMARY));
-  }, [passengers, suitcases]);
+    const pax = effectivePartyPassengers(passengers, exactPassengers);
+    if (pax == null || suitcases == null) {
+      return;
+    }
+    setVehicle(getAutoVehicle(pax, suitcases, IS_A2A_PRIMARY));
+  }, [passengers, suitcases, exactPassengers]);
   const [capacityError, setCapacityError] = useState("");
 
   const isA2AFlow = IS_A2A_PRIMARY;
@@ -584,6 +625,7 @@ function QuoteCard({
 
   useEffect(() => {
     // Instant online path is 1–4. Group / 5–7 uses exact passenger counts (max 7).
+    if (passengers == null) return;
     if (passengers >= FIVE_PLUS_PASSENGERS) {
       if (passengers > MAX_ONLINE_PASSENGERS) {
         setPassengers(MAX_ONLINE_PASSENGERS);
@@ -597,6 +639,7 @@ function QuoteCard({
   }, [passengerLimit, passengers]);
 
   useEffect(() => {
+    if (suitcases == null) return;
     if (suitcases > SELECTOR_MAX_SUITCASES) {
       setSuitcases(SELECTOR_MAX_SUITCASES);
     }
@@ -892,7 +935,11 @@ function QuoteCard({
       (Boolean(returnDate && returnTime) &&
         isReturnAfterOutbound(tripDate, tripTime, returnDate, returnTime)));
 
-  const hasCompatibleVehicle = Boolean(quoteVehicle) && passengers >= 1 && suitcases >= 0;
+  const hasCompatibleVehicle =
+    isPartySelectionComplete(passengers, suitcases, exactPassengers) && Boolean(quoteVehicle);
+
+  const partySelectionReady = isPartySelectionComplete(passengers, suitcases, exactPassengers);
+  const effectivePassengers = effectivePartyPassengers(passengers, exactPassengers);
 
   const travelDetailsBlocker = !tripDate
     ? "Select your pickup date to continue."
@@ -938,10 +985,18 @@ function QuoteCard({
         ? isAirportAddressComplete
         : isAddressPairComplete);
 
-  // Fixed price only after route + passengers + luggage are known (selectors on step 1).
-  const exceedsOnlineCapacity = exceedsOnlineVehicleOptions(passengers, suitcases);
-  const isMinibusParty = requiresMinibus(passengers, suitcases);
-  const canShowPrice = hasQuoteRoute && !exceedsOnlineCapacity;
+  // Fixed price only after route + deliberate passenger AND suitcase selections.
+  const exceedsOnlineCapacity =
+    partySelectionReady &&
+    effectivePassengers != null &&
+    suitcases != null &&
+    exceedsOnlineVehicleOptions(effectivePassengers, suitcases);
+  const isMinibusParty =
+    partySelectionReady &&
+    effectivePassengers != null &&
+    suitcases != null &&
+    requiresMinibus(effectivePassengers, suitcases);
+  const canShowPrice = hasQuoteRoute && partySelectionReady && !exceedsOnlineCapacity;
 
   const tripDetailsReady = hasQuoteRoute && isScheduleComplete;
 
@@ -1333,8 +1388,8 @@ function QuoteCard({
       tripTime: tripTime || undefined,
       returnDate: returnJourney ? returnDate || undefined : undefined,
       returnTime: returnJourney ? returnTime || undefined : undefined,
-      passengers,
-      suitcases,
+      passengers: effectivePassengers as number,
+      suitcases: suitcases as number,
       vehicle: quoteVehicle,
       estimatedPrice: formatQuote(liveQuote.amount),
       journeyDistance: journeyDistanceLabel || undefined,
@@ -1344,12 +1399,12 @@ function QuoteCard({
   }, [
     bookingSent,
     dropoffLabel,
+    effectivePassengers,
     isAirportTrip,
     isFromAirport,
     journeyDistanceLabel,
     journeyDurationLabel,
     liveQuote,
-    passengers,
     pickupLabel,
     quoteVehicle,
     returnDate,
@@ -1533,8 +1588,8 @@ function QuoteCard({
       returnFlightNumber: returnJourney
         ? collectionFlightNumber.trim().toUpperCase()
         : undefined,
-      passengers: exactPassengers && exactPassengers > 4 ? exactPassengers : passengers,
-      suitcases,
+      passengers: effectivePassengers as number,
+      suitcases: suitcases as number,
       vehicle: quoteVehicle,
       estimatedPrice,
       journeyDistance: journeyDistanceLabel || undefined,
@@ -1732,8 +1787,8 @@ function QuoteCard({
       returnJourney,
       returnDate,
       returnTime,
-      passengers,
-      suitcases,
+      ...(passengers != null ? { passengers } : {}),
+      ...(suitcases != null ? { suitcases } : {}),
       exactPassengers,
       vehicle: quoteVehicle,
       customerName,
@@ -1851,8 +1906,8 @@ function QuoteCard({
       Boolean(tripDate) ||
       Boolean(tripTime) ||
       returnJourney ||
-      passengers > 1 ||
-      suitcases > 0 ||
+      passengers != null ||
+      suitcases != null ||
       Boolean(goingFlightNumber.trim()) ||
       Boolean(collectionFlightNumber.trim()) ||
       Boolean(customerName.trim()) ||
@@ -1936,8 +1991,8 @@ function QuoteCard({
     setReturnDate("");
     setReturnTime("");
     setVehicle(VEHICLE_TYPES[0]);
-    setPassengers(1);
-    setSuitcases(0);
+    setPassengers(null);
+    setSuitcases(null);
     setExactPassengers(null);
     setSaveQuoteOpen(false);
     setSaveQuotePrompt("");
@@ -2148,17 +2203,6 @@ function QuoteCard({
           return;
         }
       }
-      if (passengers >= FIVE_PLUS_PASSENGERS && !exactPassengers) {
-        setExactPassengers(5);
-      }
-      if (passengers > MAX_ONLINE_PASSENGERS || (exactPassengers != null && exactPassengers > MAX_ONLINE_PASSENGERS)) {
-        setSubmitError("We can only quote for up to 7 passengers.");
-        return;
-      }
-      if (passengers >= FIVE_PLUS_PASSENGERS && (!exactPassengers || exactPassengers < 5 || exactPassengers > 7)) {
-        setSubmitError("Please select 5, 6, or 7 passengers.");
-        return;
-      }
       if (!hasQuoteRoute) {
         setSubmitError(
           isA2AFlow && journeyIntent === "to-airport"
@@ -2167,6 +2211,23 @@ function QuoteCard({
               ? "Please select your destination."
               : "Please complete your journey details.",
         );
+        return;
+      }
+      if (!partySelectionReady) {
+        setSubmitError("Select your passenger and suitcase numbers to see your fixed price.");
+        scheduleBookingNavAfterRender("quote-section-passengers");
+        return;
+      }
+      if (passengers != null && passengers > MAX_ONLINE_PASSENGERS) {
+        setSubmitError("We can only quote for up to 7 passengers.");
+        return;
+      }
+      if (
+        passengers != null &&
+        passengers >= FIVE_PLUS_PASSENGERS &&
+        (exactPassengers == null || exactPassengers < 5 || exactPassengers > 7)
+      ) {
+        setSubmitError("Please select 5, 6, or 7 passengers.");
         return;
       }
       // 5–7 continues into the tailored quote request path (no invented price).
@@ -2260,6 +2321,22 @@ function QuoteCard({
     hadLiveQuoteOnStep1Ref.current = true;
     return scheduleBookingNavAfterRender("quote-price-summary", { focusHeading: true });
   }, [liveQuoteAmount, quoteStep]);
+
+  // Legacy (non-A2A) form: after both addresses are ready, scroll to passenger/suitcase choices.
+  const hadLegacyPartyScrollRef = useRef(false);
+  useEffect(() => {
+    if (isA2AFlow || quoteStep !== 1) {
+      hadLegacyPartyScrollRef.current = false;
+      return;
+    }
+    if (!hasQuoteRoute) {
+      hadLegacyPartyScrollRef.current = false;
+      return;
+    }
+    if (hadLegacyPartyScrollRef.current) return;
+    hadLegacyPartyScrollRef.current = true;
+    return scheduleBookingNavAfterRender("quote-section-passengers");
+  }, [hasQuoteRoute, isA2AFlow, quoteStep]);
 
   const submitInProgressLabel = showsRequestQuoteFlow
     ? "Sending quote request…"
@@ -2356,16 +2433,20 @@ function QuoteCard({
             : "Pickups for Derry Airport must be in the greater Belfast area — enter a Belfast-area pickup address"
           : !isAirportAddressComplete
             ? `Enter your ${isFromAirport ? "drop-off" : "pickup"} address to see your fixed journey price`
-            : !isScheduleComplete
-              ? "Price ready — add your date and time when you’re ready to book"
-              : ""
+            : !partySelectionReady
+              ? "Select your passenger and suitcase numbers to see your fixed price."
+              : !isScheduleComplete
+                ? "Price ready — add your date and time when you’re ready to book"
+                : ""
       : !isAddressPairComplete
         ? "Enter pickup and drop-off addresses to see your fixed journey price"
-        : !routeMetrics
-          ? "We need to confirm the price for this journey. Calculating your route… If a route cannot be found, use WhatsApp for a manual quote."
-          : !isScheduleComplete
-            ? "Price ready — add your date and time when you’re ready to book"
-            : "";
+        : !partySelectionReady
+          ? "Select your passenger and suitcase numbers to see your fixed price."
+          : !routeMetrics
+            ? "We need to confirm the price for this journey. Calculating your route… If a route cannot be found, use WhatsApp for a manual quote."
+            : !isScheduleComplete
+              ? "Price ready — add your date and time when you’re ready to book"
+              : "";
 
   if (shortNoticeResult) {
     return (
@@ -2664,7 +2745,10 @@ function QuoteCard({
               />
             )}
 
-            {!exceedsOnlineCapacity && isPlaceSelected(pickupPlace) && isPlaceSelected(dropoffPlace) && (
+            {!exceedsOnlineCapacity &&
+              partySelectionReady &&
+              isPlaceSelected(pickupPlace) &&
+              isPlaceSelected(dropoffPlace) && (
               <div className="rounded-xl border border-emerald/30 bg-emerald/10 px-4 py-3">
                 <p className="text-xs font-medium uppercase tracking-wider text-emerald">
                   Vehicle for this journey
@@ -2678,8 +2762,16 @@ function QuoteCard({
               </div>
             )}
             <input type="hidden" name="vehicle" value={quoteVehicle} />
-            <input type="hidden" name="passengers" value={exactPassengers ?? passengers} />
-            <input type="hidden" name="suitcases" value={suitcases} />
+            <input
+              type="hidden"
+              name="passengers"
+              value={effectivePassengers == null ? "" : String(effectivePassengers)}
+            />
+            <input
+              type="hidden"
+              name="suitcases"
+              value={suitcases == null ? "" : String(suitcases)}
+            />
           </>
         ) : (
           <>
@@ -2947,23 +3039,36 @@ function QuoteCard({
         )}
 
         {!isA2AFlow && (
-        <div className="space-y-4 rounded-xl border border-white/10 bg-white/5 px-4 py-4 lg:space-y-3.5 lg:px-4 lg:py-3.5">
+        <div
+          id="quote-section-passengers"
+          className="space-y-4 rounded-xl border border-white/10 bg-white/5 px-4 py-4 lg:space-y-3.5 lg:px-4 lg:py-3.5"
+        >
           <div className="grid gap-4 lg:grid-cols-2 lg:gap-3.5">
             <TapChoiceRow
               label="Passengers"
               options={Array.from({ length: passengerLimit }, (_, index) => index + 1)}
-              value={Math.min(passengers, passengerLimit)}
+              value={passengers == null ? null : Math.min(passengers, passengerLimit)}
               onChange={setPassengers}
               formatOption={formatPassengerChoice}
             />
             <TapChoiceRow
               label="Large suitcases (23kg)"
               options={[0, 1, 2, 3, 4, 5].filter((count) => count <= SELECTOR_MAX_SUITCASES)}
-              value={Math.min(suitcases, SELECTOR_MAX_SUITCASES)}
+              value={suitcases == null ? null : Math.min(suitcases, SELECTOR_MAX_SUITCASES)}
               onChange={setSuitcases}
               formatOption={formatSuitcaseChoice}
             />
           </div>
+          {!partySelectionReady && (
+            <p
+              id="quote-party-prompt"
+              className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white/80"
+              role="status"
+            >
+              Select your passenger and suitcase numbers to see your fixed price.
+            </p>
+          )}
+          {partySelectionReady && (
           <div className="rounded-xl border border-emerald/30 bg-emerald/10 px-4 py-3">
             <p className="text-xs font-medium uppercase tracking-wider text-emerald">
               Vehicle for this journey
@@ -2986,9 +3091,18 @@ function QuoteCard({
               </p>
             )}
           </div>
+          )}
           <input type="hidden" name="vehicle" value={quoteVehicle} />
-          <input type="hidden" name="passengers" value={passengers} />
-          <input type="hidden" name="suitcases" value={suitcases} />
+          <input
+            type="hidden"
+            name="passengers"
+            value={passengers == null ? "" : String(passengers)}
+          />
+          <input
+            type="hidden"
+            name="suitcases"
+            value={suitcases == null ? "" : String(suitcases)}
+          />
           <p className="text-xs leading-relaxed text-white/55">
             Saloon, Estate, or Minibus is chosen automatically from your party size. All three can
             be quoted and paid online.
@@ -3183,14 +3297,16 @@ function QuoteCard({
                 : ""}
             </p>
           )}
+          {partySelectionReady && effectivePassengers != null && suitcases != null ? (
           <p className="mt-2 text-sm text-white/85">
-            {formatPassengerChoice(exactPassengers && exactPassengers > 4 ? exactPassengers : passengers)}{" "}
+            {formatPassengerChoice(effectivePassengers)}{" "}
             passenger
-            {(exactPassengers && exactPassengers > 4 ? exactPassengers : passengers) === 1 ? "" : "s"}{" "}
+            {effectivePassengers === 1 ? "" : "s"}{" "}
             · {formatSuitcaseChoice(suitcases)} suitcase
             {suitcases === 1 ? "" : "s"}
             {!exceedsOnlineCapacity ? ` · ${vehicleShortLabel(quoteVehicle)}` : ""}
           </p>
+          ) : null}
           <button
             type="button"
             onClick={() => navigateQuoteStep(1)}
@@ -3203,7 +3319,7 @@ function QuoteCard({
           </>
         ) : null}
 
-        {(quoteStep === 1 || quoteStep === 2) && (
+        {(quoteStep === 1 || quoteStep === 2) && partySelectionReady && (
         <div
           id="quote-price-summary"
           data-booking-nav-heading
@@ -3240,15 +3356,13 @@ function QuoteCard({
                 <p>
                   <span className="text-white/45">Journey:</span> {pickupLabel} → {dropoffLabel}
                 </p>
-                {(exactPassengers ?? passengers) > 0 && (
+                {(effectivePassengers != null && effectivePassengers > 0) && (
                   <p>
                     <span className="text-white/45">Passengers:</span>{" "}
-                    {exactPassengers && exactPassengers > 4
-                      ? exactPassengers
-                      : formatPassengerChoice(passengers)}
+                    {formatPassengerChoice(effectivePassengers)}
                     <span className="mx-2 text-white/35">·</span>
                     <span className="text-white/45">Large bags:</span>{" "}
-                    {formatSuitcaseChoice(suitcases)}
+                    {formatSuitcaseChoice(suitcases as number)}
                   </p>
                 )}
                 {effectiveAirportCode && (
@@ -3308,9 +3422,9 @@ function QuoteCard({
               <p className="mt-3 text-sm text-white/75">
                 Vehicle: {vehicleShortLabel(quoteVehicle)}
                 <span className="mx-2 text-white/35">·</span>
-                Passengers: {formatPassengerChoice(passengers)}
+                Passengers: {formatPassengerChoice(effectivePassengers as number)}
                 <span className="mx-2 text-white/35">·</span>
-                Large suitcases: {formatSuitcaseChoice(suitcases)}
+                Large suitcases: {formatSuitcaseChoice(suitcases as number)}
               </p>
               <p className="mt-2 text-xs leading-relaxed text-white/65">{MINIBUS_PARTNER_NOTE}</p>
               {journeyDistanceLabel && journeyDurationLabel && (
@@ -3380,9 +3494,9 @@ function QuoteCard({
               <p className="mt-3 text-sm text-white/75">
                 Vehicle: {vehicleShortLabel(quoteVehicle)}
                 <span className="mx-2 text-white/35">·</span>
-                Passengers: {formatPassengerChoice(passengers)}
+                Passengers: {formatPassengerChoice(effectivePassengers as number)}
                 <span className="mx-2 text-white/35">·</span>
-                Large suitcases: {formatSuitcaseChoice(suitcases)}
+                Large suitcases: {formatSuitcaseChoice(suitcases as number)}
               </p>
               {testChargeAmount !== null && (
                 <p className="mt-2 text-xs text-white/60">
@@ -3700,8 +3814,14 @@ function QuoteCard({
                   }
                 />
               )}
-              <PreviewRow label="Passengers" value={String(passengers)} />
-              <PreviewRow label="Suitcases" value={String(suitcases)} />
+              <PreviewRow
+                label="Passengers"
+                value={effectivePassengers == null ? "—" : String(effectivePassengers)}
+              />
+              <PreviewRow
+                label="Suitcases"
+                value={suitcases == null ? "—" : String(suitcases)}
+              />
               {pricingConfirmationRequired ? (
                 <PreviewRow label="Pricing" value={priceConfirmationLabel} />
               ) : isManualQuoteJourney ? (
@@ -4026,6 +4146,7 @@ function QuoteCard({
               type="submit"
               disabled={
                 submitted ||
+                !partySelectionReady ||
                 (exceedsOnlineCapacity || isEnquiryOnly || isManualQuoteJourney || pricingConfirmationRequired
                   ? !hasQuoteRoute
                   : !liveQuote)
@@ -4054,7 +4175,9 @@ function QuoteCard({
                 Save Quote
               </button>
             ) : null}
-            {liveQuote ? renderStartNewQuoteControls() : null}
+            {liveQuote || hasQuoteRoute || passengers != null || suitcases != null
+              ? renderStartNewQuoteControls()
+              : null}
             {saveQuotePrompt ? (
               <p className="text-center text-xs text-emerald/90" role="status">
                 {saveQuotePrompt}

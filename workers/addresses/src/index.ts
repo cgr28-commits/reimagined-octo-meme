@@ -776,8 +776,15 @@ function parsePaidBookingDetails(body: Record<string, unknown>): PaidBookingDeta
     return null;
   }
 
+  if (details.passengers == null || details.suitcases == null) {
+    return null;
+  }
   const passengers = Number(details.passengers);
+  const suitcases = Number(details.suitcases);
   if (!isValidPassengerCount(passengers)) {
+    return null;
+  }
+  if (!Number.isFinite(suitcases) || suitcases < 0) {
     return null;
   }
 
@@ -796,7 +803,7 @@ function parsePaidBookingDetails(body: Record<string, unknown>): PaidBookingDeta
     flightNumber: String(details.flightNumber ?? "").trim(),
     returnFlightNumber: String(details.returnFlightNumber ?? "").trim() || undefined,
     passengers,
-    suitcases: Number(details.suitcases) || 0,
+    suitcases,
     vehicle: String(details.vehicle ?? "").trim(),
     journeyDistance: String(details.journeyDistance ?? "").trim() || undefined,
     journeyDuration: String(details.journeyDuration ?? "").trim() || undefined,
@@ -899,6 +906,9 @@ function parseQuoteLeadBody(body: QuoteLeadRequestBody): QuoteLeadDetails | null
     return null;
   }
 
+  if (body.passengers == null || body.suitcases == null) {
+    return null;
+  }
   const passengers = Number(body.passengers);
   const suitcases = Number(body.suitcases);
 

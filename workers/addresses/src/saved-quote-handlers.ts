@@ -96,8 +96,16 @@ function parseJourney(raw: unknown): SavedQuoteJourneySnapshot | null {
   // Date/time are optional at save — booking/payment still require them.
   if (!pickupLabel || !dropoffLabel) return null;
 
-  const passengers = Math.max(1, Math.min(16, Number(j.passengers) || 1));
-  const suitcases = Math.max(0, Math.min(20, Number(j.suitcases ?? j.luggage) || 0));
+  // Require explicit party selections — never invent 1 passenger / 0 bags.
+  if (j.passengers == null || (j.suitcases == null && j.luggage == null)) {
+    return null;
+  }
+  const passengersRaw = Math.floor(Number(j.passengers));
+  const suitcasesRaw = Math.floor(Number(j.suitcases ?? j.luggage));
+  if (!Number.isFinite(passengersRaw) || passengersRaw < 1) return null;
+  if (!Number.isFinite(suitcasesRaw) || suitcasesRaw < 0) return null;
+  const passengers = Math.min(16, passengersRaw);
+  const suitcases = Math.min(20, suitcasesRaw);
   const childSeatsRaw = Number(j.childSeats);
   const childSeats =
     Number.isFinite(childSeatsRaw) && childSeatsRaw > 0

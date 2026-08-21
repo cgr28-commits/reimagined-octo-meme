@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import type { SelectedPlace } from "@/lib/selected-place";
 import AddressInput from "@/components/AddressInput";
 import {
@@ -14,6 +15,7 @@ import {
   GROUP_QUOTE_FEE_NOTE,
   NON_AIRPORT_WAITING_COPY,
 } from "@/lib/journey-inclusions";
+import { scheduleBookingNavAfterRender } from "@/lib/quote-step-nav-scroll";
 import {
   FIVE_PLUS_PASSENGERS,
   FIVE_PLUS_SUITCASES,
@@ -42,7 +44,7 @@ function ChoiceGrid({
 }: {
   label: string;
   options: number[];
-  value: number;
+  value: number | null;
   onChange: (value: number) => void;
   formatOption?: (value: number) => string;
   columns?: number;
@@ -56,7 +58,7 @@ function ChoiceGrid({
         style={{ gridTemplateColumns: `repeat(${Math.min(cols, options.length)}, minmax(0, 1fr))` }}
       >
         {options.map((option) => {
-          const selected = value === option;
+          const selected = value !== null && value === option;
           return (
             <button
               key={option}
@@ -101,11 +103,11 @@ export type QuoteProgressiveRouteProps = {
   addressLookupCode: string;
   returnJourney: boolean;
   onReturnJourneyChange: (value: boolean) => void;
-  passengers: number;
+  passengers: number | null;
   onPassengersChange: (value: number) => void;
   exactPassengers: number | null;
   onExactPassengersChange: (value: number | null) => void;
-  suitcases: number;
+  suitcases: number | null;
   onSuitcasesChange: (value: number) => void;
   isGroupQuote: boolean;
   showRouteFields: boolean;
@@ -152,15 +154,26 @@ export default function QuoteProgressiveRoute({
   const showAddresses =
     journeyIntent === "address-to-address" || (showAirportPicker && airportChosen);
 
+  // After both addresses are confirmed, bring passenger/suitcase choices into view.
+  const hadPartyFieldsRef = useRef(false);
+  useEffect(() => {
+    if (!showPartyFields) {
+      hadPartyFieldsRef.current = false;
+      return;
+    }
+    if (hadPartyFieldsRef.current) return;
+    hadPartyFieldsRef.current = true;
+    return scheduleBookingNavAfterRender("quote-section-passengers");
+  }, [showPartyFields]);
+
   function handlePassengersChange(value: number) {
     onPassengersChange(value);
     if (value < FIVE_PLUS_PASSENGERS) {
       onExactPassengersChange(null);
       return;
     }
-    if (!exactPassengers || exactPassengers < 5 || exactPassengers > 7) {
-      onExactPassengersChange(5);
-    }
+    // Require an explicit 5 / 6 / 7 tap — do not assume 5.
+    onExactPassengersChange(null);
   }
 
   function handleExactPassengersChange(value: number) {
@@ -328,12 +341,18 @@ export default function QuoteProgressiveRoute({
               <ChoiceGrid
                 label="Passengers"
                 options={[1, 2, 3, 4, FIVE_PLUS_PASSENGERS]}
-                value={passengers >= FIVE_PLUS_PASSENGERS ? FIVE_PLUS_PASSENGERS : passengers}
+                value={
+                  passengers == null
+                    ? null
+                    : passengers >= FIVE_PLUS_PASSENGERS
+                      ? FIVE_PLUS_PASSENGERS
+                      : passengers
+                }
                 onChange={handlePassengersChange}
                 formatOption={formatPassengerChoice}
               />
 
-              {passengers >= FIVE_PLUS_PASSENGERS && (
+              {passengers != null && passengers >= FIVE_PLUS_PASSENGERS && (
                 <div
                   id="quote-section-exact-passengers"
                   className="space-y-3 rounded-2xl border border-amber-400/25 bg-amber-400/10 px-4 py-4"
@@ -350,9 +369,9 @@ export default function QuoteProgressiveRoute({
                     label="Exact passengers"
                     options={[5, 6, 7]}
                     value={
-                      exactPassengers && exactPassengers >= 5 && exactPassengers <= 7
+                      exactPassengers != null && exactPassengers >= 5 && exactPassengers <= 7
                         ? exactPassengers
-                        : 5
+                        : null
                     }
                     onChange={handleExactPassengersChange}
                     formatOption={(value) => String(value)}
@@ -368,12 +387,30 @@ export default function QuoteProgressiveRoute({
               <ChoiceGrid
                 label="Suitcases / large bags"
                 options={[0, 1, 2, 3, 4, FIVE_PLUS_SUITCASES]}
-                value={suitcases >= FIVE_PLUS_SUITCASES ? FIVE_PLUS_SUITCASES : suitcases}
+                value={
+                  suitcases == null
+                    ? null
+                    : suitcases >= FIVE_PLUS_SUITCASES
+                      ? FIVE_PLUS_SUITCASES
+                      : suitcases
+                }
                 onChange={onSuitcasesChange}
                 formatOption={formatSuitcaseChoice}
               />
             </div>
           </div>
+
+          {(passengers == null ||
+            suitcases == null ||
+            (passengers >= FIVE_PLUS_PASSENGERS && exactPassengers == null)) && (
+            <p
+              id="quote-party-prompt"
+              className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white/80"
+              role="status"
+            >
+              Select your passenger and suitcase numbers to see your fixed price.
+            </p>
+          )}
 
           {isGroupQuote ? (
             <div className="rounded-xl border border-white/10 bg-navy-dark/40 px-4 py-3 text-xs leading-relaxed text-white/70">

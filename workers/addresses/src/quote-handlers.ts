@@ -99,13 +99,49 @@ export async function handleQuoteCalculateRequest(
     routeMetrics = await fetchTripRouteMetrics(pickupLat, pickupLng, dropoffLat, dropoffLng);
   }
 
+  // Require explicit passenger and suitcase selections — never default to 1 / 0.
+  if (body.passengers == null || body.suitcases == null) {
+    return json(
+      {
+        ok: false,
+        reason: "incomplete",
+        message: "Passenger and suitcase selections are required.",
+      },
+      422,
+      origin,
+    );
+  }
+
   const passengers = Number(body.passengers);
   const suitcases = Number(body.suitcases);
+  if (!Number.isFinite(passengers) || !Number.isInteger(passengers) || passengers < 1) {
+    return json(
+      {
+        ok: false,
+        reason: "incomplete",
+        message: "Passenger count is required.",
+      },
+      422,
+      origin,
+    );
+  }
+  if (!Number.isFinite(suitcases) || !Number.isInteger(suitcases) || suitcases < 0) {
+    return json(
+      {
+        ok: false,
+        reason: "incomplete",
+        message: "Luggage count is required.",
+      },
+      422,
+      origin,
+    );
+  }
+
   const ownerMode = Boolean(env && ownerAuthorized(request, env));
   const resolved = resolveVehicleType(
     body,
-    Math.floor(passengers) || 1,
-    Math.floor(suitcases) || 0,
+    Math.floor(passengers),
+    Math.floor(suitcases),
     ownerMode,
   );
 
