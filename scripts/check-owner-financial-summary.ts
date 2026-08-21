@@ -31,23 +31,29 @@ function booking(
     amountPaidLabel: string;
   },
 ): OwnerFinancialBookingInput {
+  const amount =
+    typeof overrides.originalAmount === "number"
+      ? overrides.originalAmount
+      : typeof overrides.amount === "number"
+        ? overrides.amount
+        : Number(String(overrides.amountPaidLabel).replace(/[^\d.]/g, "")) || 0;
   return {
-    customerName: overrides.customerName ?? "Customer",
-    status: overrides.status ?? "confirmed",
-    amount: overrides.amount,
-    originalAmount: overrides.originalAmount,
-    amountRefunded: overrides.amountRefunded ?? 0,
-    refundedAt: overrides.refundedAt,
-    refundHistory: overrides.refundHistory,
-    tripDate: overrides.tripDate ?? "2026-08-20",
-    isRefundTest: overrides.isRefundTest,
-    isAmendmentTestFixture: overrides.isAmendmentTestFixture,
-    paymentStatus: overrides.paymentStatus,
-    operationalStatus: overrides.operationalStatus,
-    additionalPayments: overrides.additionalPayments,
     paymentReference: overrides.paymentReference,
     createdAt: overrides.createdAt,
     amountPaidLabel: overrides.amountPaidLabel,
+    customerName: overrides.customerName ?? "Customer",
+    status: overrides.status ?? "confirmed",
+    amount,
+    originalAmount: typeof overrides.originalAmount === "number" ? overrides.originalAmount : amount,
+    amountRefunded: overrides.amountRefunded ?? 0,
+    tripDate: overrides.tripDate ?? "2026-08-20",
+    refundedAt: overrides.refundedAt,
+    refundHistory: overrides.refundHistory,
+    paymentStatus: overrides.paymentStatus,
+    operationalStatus: overrides.operationalStatus,
+    additionalPayments: overrides.additionalPayments,
+    isRefundTest: overrides.isRefundTest,
+    isAmendmentTestFixture: overrides.isAmendmentTestFixture,
   };
 }
 

@@ -68,49 +68,74 @@ export default function OwnerFinancialSummaryPanel({
     void load();
   }, [load, refreshToken]);
 
-  const buckets: OwnerFinancialBucket[] | null = summary
+  const emptyBuckets: OwnerFinancialBucket[] = CARD_ORDER.map((key) => ({
+    key,
+    label: bucketTitle(key),
+    total: 0,
+    count: 0,
+    countLabel: key === "refunds" ? "refunds" : "bookings",
+    fromDay: "",
+    toDay: "",
+    items: [],
+  }));
+
+  const buckets: OwnerFinancialBucket[] = summary
     ? CARD_ORDER.map((key) => summary[key])
-    : null;
+    : emptyBuckets;
 
   return (
     <section className="mb-6" aria-label="Financial totals">
-      {loading && !summary ? (
-        <p className="text-sm text-white/50">Loading financial totals…</p>
-      ) : null}
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-white/45">
+          Financial totals
+        </p>
+        {loading ? (
+          <p className="text-xs text-white/40">Updating…</p>
+        ) : error ? (
+          <button
+            type="button"
+            onClick={() => void load()}
+            className="text-xs font-semibold text-amber-100 underline"
+          >
+            Retry
+          </button>
+        ) : null}
+      </div>
       {error ? (
-        <p className="mb-3 rounded-xl border border-red-400/30 bg-red-500/10 px-3 py-2 text-sm text-red-100">
+        <p className="mb-3 rounded-xl border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-100">
           {error}
         </p>
       ) : null}
 
-      {buckets ? (
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
-          {buckets.map((bucket) => {
-            const isOpen = expanded === bucket.key;
-            return (
-              <button
-                key={bucket.key}
-                type="button"
-                onClick={() => setExpanded(isOpen ? null : bucket.key)}
-                aria-expanded={isOpen}
-                className={`rounded-xl border px-3 py-3 text-left transition-colors sm:px-4 ${
-                  isOpen
-                    ? "border-emerald/40 bg-emerald/10"
-                    : "border-white/10 bg-navy/50 hover:border-white/25"
-                }`}
-              >
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-white/45">
-                  {bucketTitle(bucket.key)}
-                </p>
-                <p className="mt-1 text-lg font-bold tabular-nums text-white sm:text-xl">
-                  {formatGbpAmount(bucket.total)}
-                </p>
-                <p className="mt-0.5 text-xs text-white/55">{countText(bucket)}</p>
-              </button>
-            );
-          })}
-        </div>
-      ) : null}
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
+        {buckets.map((bucket) => {
+          const isOpen = expanded === bucket.key;
+          return (
+            <button
+              key={bucket.key}
+              type="button"
+              onClick={() => setExpanded(isOpen ? null : bucket.key)}
+              aria-expanded={isOpen}
+              disabled={Boolean(error) && !summary}
+              className={`rounded-xl border px-3 py-3 text-left transition-colors sm:px-4 ${
+                isOpen
+                  ? "border-emerald/40 bg-emerald/10"
+                  : "border-white/10 bg-navy/50 hover:border-white/25"
+              } disabled:opacity-70`}
+            >
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-white/45">
+                {bucketTitle(bucket.key)}
+              </p>
+              <p className="mt-1 text-lg font-bold tabular-nums text-white sm:text-xl">
+                {loading && !summary ? "—" : formatGbpAmount(bucket.total)}
+              </p>
+              <p className="mt-0.5 text-xs text-white/55">
+                {loading && !summary ? "…" : countText(bucket)}
+              </p>
+            </button>
+          );
+        })}
+      </div>
 
       {expanded && summary ? (
         <div className="mt-3 rounded-xl border border-white/10 bg-navy/40 p-3 sm:p-4">
