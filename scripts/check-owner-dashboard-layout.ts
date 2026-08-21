@@ -42,9 +42,10 @@ console.log("=== 1. Top tool switcher ===");
   console.log("OK  Jobs default · exclusive tools · no flight panel");
 }
 
-console.log("\n=== 2. Jobs section order: Upcoming → Refunds Pending → Completed ===");
+console.log("\n=== 2. Jobs section order: Financial → Upcoming → Refunds Pending → Completed ===");
 {
   const panel = read("src/components/OwnerPaidBookingsPanel.tsx");
+  assert.match(panel, /OwnerFinancialSummaryPanel/);
   assert.match(panel, /Upcoming Jobs/);
   assert.match(panel, /Refunds Pending/);
   assert.match(panel, /Completed Jobs/);
@@ -56,6 +57,7 @@ console.log("\n=== 2. Jobs section order: Upcoming → Refunds Pending → Compl
   assert.doesNotMatch(panel, /Latest paid booking/);
   assert.doesNotMatch(panel, /Paid Jobs/);
 
+  const financialAt = panel.indexOf("<OwnerFinancialSummaryPanel");
   const upcomingAt = panel.indexOf("<h3 className=\"text-base font-bold text-white\">Upcoming Jobs</h3>");
   const refundsAt = panel.indexOf(
     "<h3 className=\"text-base font-bold text-amber-100\">Refunds Pending</h3>",
@@ -64,10 +66,13 @@ console.log("\n=== 2. Jobs section order: Upcoming → Refunds Pending → Compl
     "<h3 className=\"text-base font-bold text-white\">Completed Jobs</h3>",
   );
   assert.ok(
-    upcomingAt > 0 && refundsAt > upcomingAt && completedAt > refundsAt,
-    "section order must be Upcoming → Refunds Pending → Completed",
+    financialAt > 0 &&
+      upcomingAt > financialAt &&
+      refundsAt > upcomingAt &&
+      completedAt > refundsAt,
+    "section order must be Financial → Upcoming → Refunds Pending → Completed",
   );
-  console.log("OK  section order + test exclusion + no Paid Jobs summary + no flight UI");
+  console.log("OK  section order + financial totals + test exclusion + no Paid Jobs summary");
 }
 
 console.log("\nAll owner dashboard layout checks passed.");

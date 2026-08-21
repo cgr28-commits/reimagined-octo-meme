@@ -14,6 +14,7 @@ import {
   getPaidBookingRecord,
   listUpcomingPaidBookings,
   listRecentPaidBookings,
+  listPaidBookingsCreatedSince,
   paidBookingStoreConfigured,
   updatePaidBookingFields,
 } from "./paid-booking-store";
@@ -22,7 +23,11 @@ import {
   resolveAssignedDriverLabel,
 } from "../shared/paid-booking-record";
 import { resolveOperationalStatus } from "../shared/refund-ops";
-import { isOwnerOperationalTestBooking } from "../shared/upcoming-jobs";
+import { isOwnerOperationalTestBooking, londonYmd } from "../shared/upcoming-jobs";
+import {
+  buildOwnerFinancialSummary,
+  londonYearRangeContaining,
+} from "../shared/owner-financial-summary";
 import {
   findTrackingJobByPaymentReference,
   findTrackingJobsByPaymentReference,
@@ -728,6 +733,72 @@ export async function handleFinalizeCheckoutRequest(
 
 export function isPaidBookingsListPath(pathname: string): boolean {
   return pathname === "/paid-bookings" || pathname === "/api/paid-bookings";
+}
+
+export function isPaidBookingsFinancialSummaryPath(pathname: string): boolean {
+  return (
+    pathname === "/paid-bookings/financial-summary" ||
+    pathname === "/api/paid-bookings/financial-summary"
+  );
+}
+
+/**
+ * Owner financial totals from genuine paid-booking payment/refund records.
+ * Independent of which journey cards are visible on the dashboard.
+ */
+export async function handlePaidBookingsFinancialSummaryRequest(
+  request: Request,
+  env: Env,
+  origin: string | null,
+): Promise<Response> {
+  if (request.method !== "GET") {
+    return jsonResponse({ error: "Method not allowed" }, 405, origin);
+  }
+
+  if (!ownerAuthorized(request, env)) {
+    return jsonResponse(
+      { error: "Unauthorized — financial summary requires OWNER_ACCESS_KEY." },
+      401,
+      origin,
+    );
+  }
+
+  if (!paidBookingStoreConfigured(env.TRACKING_STORE)) {
+    return jsonResponse({ error: "Booking store is not configured." }, 503, origin);
+  }
+
+  const today = londonYmd();
+  const yearRange = londonYearRangeContaining(today);
+  // KV records TTL ~400 days — scan that window so refunds on older payments still appear.
+  const scanFrom = addDaysYmd(today, -400);
+  const records = await listPaidBookingsCreatedSince(env.TRACKING_STORE, scanFrom, {
+    limit: 800,
+  });
+
+  const byRef = new Map<string, (typeof records)[number]>();
+  for (const record of records) {
+    if (!record.paymentReference?.trim()) continue;
+    if (isOwnerOperationalTestBooking(record)) continue;
+    byRef.set(record.paymentReference, record);
+  }
+
+  const summary = buildOwnerFinancialSummary([...byRef.values()], new Date());
+
+  return jsonResponse(
+    {
+      ok: true,
+      asOfDay: summary.asOfDay,
+      week: summary.week,
+      month: summary.month,
+      year: summary.year,
+      refunds: summary.refunds,
+      scanned: byRef.size,
+      scanFrom,
+      yearFrom: yearRange.fromDay,
+    },
+    200,
+    origin,
+  );
 }
 
 export function isPaidBookingResendPath(pathname: string): boolean {
