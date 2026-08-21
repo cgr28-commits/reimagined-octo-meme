@@ -355,3 +355,14 @@ main {
     transform: none;
   }
 }
+
+/*
+ * Public Help launcher (QuoteAssistant) — always position:fixed to the viewport
+ * via a portal to document.body (avoids ancestor transform/overflow traps).
+ * Corner (bottom-right / bottom-left / top-right) is chosen in JS so the pill
+ * stays visible on load without covering the Live Quote card.
+ */
+.matni-help-panel {
+  bottom: calc(4.25rem + env(safe-area-inset-bottom, 0px));
+  right: max(22px, env(safe-area-inset-right, 0px));
+}
