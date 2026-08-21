@@ -55,7 +55,7 @@ import {
 } from "../shared/booking-notifications";
 import {
   flightStatusCacheMaxAgeSeconds,
-  lookupFlight,
+  lookupFlightWithProviders,
   shouldBypassStaleFlightCache,
   type TripDirection,
 } from "../shared/flight-lookup";
@@ -316,6 +316,9 @@ type Env = {
   BOOKING_COUNTER?: KVNamespace;
   EMAIL?: EmailBinding;
   AERODATABOX_RAPIDAPI_KEY?: string;
+  /** Cirium / FlightStats Flex — preferred primary flight status provider. */
+  CIRIUM_APP_ID?: string;
+  CIRIUM_APP_KEY?: string;
   GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON?: string;
   GOOGLE_CALENDAR_ID?: string;
   TRACKING_STORE?: KVNamespace;
@@ -2133,11 +2136,18 @@ async function handleFlightLookupRequest(
       LDY: "City of Derry",
     };
 
-    const configured = Boolean(env.AERODATABOX_RAPIDAPI_KEY?.trim());
+    const configured = Boolean(
+      (env.CIRIUM_APP_ID?.trim() && env.CIRIUM_APP_KEY?.trim()) ||
+        env.AERODATABOX_RAPIDAPI_KEY?.trim(),
+    );
     const flightCache = (caches as unknown as { default: Cache }).default;
     // Cache key ignores refresh= so a manual refresh still writes the shared entry.
     const cacheUrl = new URL(url.toString());
     cacheUrl.searchParams.delete("refresh");
+    // Bust legacy AeroDataBox-only cache entries when Cirium is configured.
+    if (env.CIRIUM_APP_ID?.trim() && env.CIRIUM_APP_KEY?.trim()) {
+      cacheUrl.searchParams.set("provider", "cirium");
+    }
     const cacheKey = new Request(cacheUrl.toString(), { method: "GET" });
     if (!forceRefresh) {
       const cached = await flightCache.match(cacheKey);
@@ -2151,6 +2161,7 @@ async function handleFlightLookupRequest(
             scheduledTime?: string;
             estimatedTime?: string;
             actualTime?: string;
+            dataProvider?: string;
           };
         };
         const staleDelayed =
@@ -2164,13 +2175,20 @@ async function handleFlightLookupRequest(
       }
     }
 
-    const result = await lookupFlight(env.AERODATABOX_RAPIDAPI_KEY, {
-      flightNumber,
-      tripDate,
-      airportCode,
-      airportName: airportNames[airportCode] ?? airportCode,
-      direction,
-    });
+    const result = await lookupFlightWithProviders(
+      {
+        ciriumAppId: env.CIRIUM_APP_ID,
+        ciriumAppKey: env.CIRIUM_APP_KEY,
+        aerodataboxRapidApiKey: env.AERODATABOX_RAPIDAPI_KEY,
+      },
+      {
+        flightNumber,
+        tripDate,
+        airportCode,
+        airportName: airportNames[airportCode] ?? airportCode,
+        direction,
+      },
+    );
 
     if (!result.ok) {
       const status =

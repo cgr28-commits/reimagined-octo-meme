@@ -12,9 +12,11 @@ import {
   flightStatusAutoRefreshMs,
   flightStatusCacheMaxAgeSeconds,
   formatFlightNumberForDisplay,
+  mapCiriumFlightStatus,
   preferFlightStatusSnapshot,
   resolveFlightStatusFromTimes,
   shouldBypassStaleFlightCache,
+  splitFlightNumber,
   type VerifiedFlight,
 } from "../shared/flight-lookup";
 import { decideDriverFlightAlert } from "../shared/driver-flight-alerts";
@@ -253,7 +255,7 @@ console.log("\n=== 4. Flight Status UI + auto-refresh ===");
   assert.equal(categorizeFlightStatus("Cancelled", null).statusLabel, "CANCELLED");
   assert.equal(
     categorizeFlightStatus("Delayed", 134, { actualTime: "22:31" }).statusLabel,
-    "LANDED",
+    "ARRIVED LATE",
     "actual arrival beats stale delayed label",
   );
   assert.equal(
@@ -276,10 +278,51 @@ console.log("\n=== 4. Flight Status UI + auto-refresh ===");
     nowMs: Date.parse("2026-08-21T00:30:00Z"),
   });
   assert.equal(landedResolved.statusCategory, "landed");
-  assert.equal(landedResolved.statusLabel, "LANDED");
+  assert.equal(landedResolved.statusLabel, "ARRIVED LATE");
   assert.equal(landedResolved.actualTime, "22:31");
   assert.equal(landedResolved.arrivalConfirmationPending, false);
   assert.notEqual(landedResolved.statusCategory, "delayed");
+
+  // Cirium RK159 acceptance benchmark: ARRIVED LATE + actual arrival 21:50
+  assert.deepEqual(splitFlightNumber("RK159"), { carrier: "RK", number: "159" });
+  const rk159 = mapCiriumFlightStatus(
+    {
+      carrierFsCode: "RK",
+      flightNumber: "159",
+      departureAirportFsCode: "STN",
+      arrivalAirportFsCode: "BFS",
+      status: "L",
+      operationalTimes: {
+        scheduledGateDeparture: { dateLocal: "2026-08-20T18:55:00.000" },
+        actualGateDeparture: { dateLocal: "2026-08-20T20:30:00.000" },
+        scheduledGateArrival: { dateLocal: "2026-08-20T20:15:00.000" },
+        estimatedGateArrival: { dateLocal: "2026-08-20T22:29:00.000" },
+        actualGateArrival: { dateLocal: "2026-08-20T21:50:00.000" },
+      },
+      delays: { arrivalGateDelayMinutes: 95 },
+    },
+    {
+      flightNumber: "RK159",
+      airportCode: "BFS",
+      airportName: "Belfast International",
+      direction: "from-airport",
+      fallbackDate: "2026-08-20",
+      airlineName: "Ryanair UK",
+    },
+  );
+  assert.ok(rk159);
+  assert.equal(rk159!.dataProvider, "cirium");
+  assert.equal(rk159!.statusCategory, "landed");
+  assert.equal(rk159!.statusLabel, "ARRIVED LATE");
+  assert.equal(rk159!.actualTime, "21:50");
+  assert.equal(rk159!.scheduledTime, "20:15");
+  assert.notEqual(rk159!.statusCategory, "delayed");
+
+  const workerSrc = read("workers/addresses/src/index.ts");
+  assert.match(workerSrc, /lookupFlightWithProviders/);
+  assert.match(workerSrc, /CIRIUM_APP_ID/);
+  assert.match(workerSrc, /CIRIUM_APP_KEY/);
+  assert.match(read("workers/addresses/wrangler.toml"), /CIRIUM_APP_ID/);
 
   const pendingResolved = resolveFlightStatusFromTimes({
     rawStatus: "Departed",

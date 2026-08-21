@@ -27,6 +27,8 @@ export type VerifiedFlight = {
   arrivalConfirmationPending?: boolean;
   /** Last provider status string (e.g. Departed / Delayed). */
   providerStatus?: string;
+  /** Which aviation API produced this snapshot. */
+  dataProvider?: "cirium" | "aerodatabox";
   delayMinutes?: number | null;
   terminal?: string;
   gate?: string;
@@ -315,6 +317,9 @@ export function categorizeFlightStatus(
     normalised.includes("arrived") ||
     normalised.includes("gate_arrival")
   ) {
+    if (typeof delayMinutes === "number" && delayMinutes >= 5) {
+      return { statusCategory: "landed", statusLabel: "ARRIVED LATE" };
+    }
     return { statusCategory: "landed", statusLabel: "LANDED" };
   }
   const arrivalIso = anchorArrivalIso(
@@ -707,6 +712,7 @@ function mapAeroFlight(
       [arrAirport?.iata, arrAirport?.name].filter(Boolean).join(" · ") || "—",
     status: flight.status,
     providerStatus: flight.status,
+    dataProvider: "aerodatabox",
     statusCategory,
     statusLabel,
     estimatedTime: estimatedRaw ? formatLocalTime(estimatedRaw) : undefined,
@@ -929,13 +935,473 @@ export async function lookupFlight(
     direction: TripDirection;
   },
 ): Promise<FlightLookupResult> {
-  if (!apiKey?.trim()) {
+  // Back-compat: single AeroDataBox key argument.
+  return lookupFlightWithProviders(
+    { aerodataboxRapidApiKey: apiKey },
+    params,
+  );
+}
+
+export type FlightProviderCredentials = {
+  /** Cirium / FlightStats Flex app id (primary). */
+  ciriumAppId?: string;
+  /** Cirium / FlightStats Flex app key (primary). */
+  ciriumAppKey?: string;
+  /** AeroDataBox RapidAPI key (fallback only). */
+  aerodataboxRapidApiKey?: string;
+};
+
+/**
+ * Prefer Cirium (FlightStats Flex) for final arrival accuracy; fall back to AeroDataBox.
+ */
+export async function lookupFlightWithProviders(
+  credentials: FlightProviderCredentials,
+  params: {
+    flightNumber: string;
+    tripDate: string;
+    airportCode: string;
+    airportName: string;
+    direction: TripDirection;
+  },
+): Promise<FlightLookupResult> {
+  const ciriumId = credentials.ciriumAppId?.trim() ?? "";
+  const ciriumKey = credentials.ciriumAppKey?.trim() ?? "";
+  if (ciriumId && ciriumKey) {
+    const cirium = await lookupFlightViaCirium(ciriumId, ciriumKey, params);
+    if (cirium.ok) return cirium;
+    // Soft-fail Cirium (rate limit / temporary) → try AeroDataBox when configured.
+    if (
+      cirium.code !== "not_found" &&
+      cirium.code !== "airport_mismatch" &&
+      cirium.code !== "invalid_format" &&
+      credentials.aerodataboxRapidApiKey?.trim()
+    ) {
+      const fallback = await lookupFlightViaAeroDataBox(
+        credentials.aerodataboxRapidApiKey.trim(),
+        params,
+      );
+      if (fallback.ok) return fallback;
+    }
+    if (cirium.code === "not_found" || cirium.code === "airport_mismatch") {
+      // Still try ADB in case Cirium missed the occurrence.
+      if (credentials.aerodataboxRapidApiKey?.trim()) {
+        const fallback = await lookupFlightViaAeroDataBox(
+          credentials.aerodataboxRapidApiKey.trim(),
+          params,
+        );
+        if (fallback.ok) return fallback;
+      }
+    }
+    return cirium;
+  }
+
+  if (!credentials.aerodataboxRapidApiKey?.trim()) {
     return {
       ok: false,
-      error: "Flight verification is not configured yet.",
+      error:
+        "Flight verification is not configured yet. Add CIRIUM_APP_ID + CIRIUM_APP_KEY (preferred) or AERODATABOX_RAPIDAPI_KEY.",
       code: "api_unavailable",
     };
   }
 
-  return lookupFlightViaAeroDataBox(apiKey.trim(), params);
+  return lookupFlightViaAeroDataBox(credentials.aerodataboxRapidApiKey.trim(), params);
+}
+
+/** Split IATA flight number into carrier + numeric (RK159 → { RK, 159 }). */
+export function splitFlightNumber(
+  value: string,
+): { carrier: string; number: string } | null {
+  const normalised = normalizeFlightNumber(value);
+  const two = normalised.match(/^([A-Z0-9]{2})(\d{1,4}[A-Z]?)$/i);
+  if (two) {
+    return { carrier: two[1]!.toUpperCase(), number: two[2]!.toUpperCase() };
+  }
+  const three = normalised.match(/^([A-Z]{3})(\d{1,4}[A-Z]?)$/i);
+  if (three) {
+    return { carrier: three[1]!.toUpperCase(), number: three[2]!.toUpperCase() };
+  }
+  return null;
+}
+
+type CiriumDateTime = { dateLocal?: string; dateUtc?: string };
+
+type CiriumFlightStatus = {
+  flightId?: number;
+  carrierFsCode?: string;
+  flightNumber?: string;
+  departureAirportFsCode?: string;
+  arrivalAirportFsCode?: string;
+  status?: string;
+  departureDate?: CiriumDateTime;
+  arrivalDate?: CiriumDateTime;
+  operationalTimes?: {
+    scheduledGateDeparture?: CiriumDateTime;
+    scheduledRunwayDeparture?: CiriumDateTime;
+    estimatedGateDeparture?: CiriumDateTime;
+    estimatedRunwayDeparture?: CiriumDateTime;
+    actualGateDeparture?: CiriumDateTime;
+    actualRunwayDeparture?: CiriumDateTime;
+    scheduledGateArrival?: CiriumDateTime;
+    scheduledRunwayArrival?: CiriumDateTime;
+    estimatedGateArrival?: CiriumDateTime;
+    estimatedRunwayArrival?: CiriumDateTime;
+    actualGateArrival?: CiriumDateTime;
+    actualRunwayArrival?: CiriumDateTime;
+  };
+  delays?: {
+    departureGateDelayMinutes?: number;
+    departureRunwayDelayMinutes?: number;
+    arrivalGateDelayMinutes?: number;
+    arrivalRunwayDelayMinutes?: number;
+  };
+  airportResources?: {
+    departureTerminal?: string;
+    departureGate?: string;
+    arrivalTerminal?: string;
+    arrivalGate?: string;
+  };
+  flightEquipment?: { tailNumber?: string };
+};
+
+function ciriumLocal(dt?: CiriumDateTime | null): string | null {
+  if (!dt) return null;
+  return dt.dateLocal?.trim() || dt.dateUtc?.trim() || null;
+}
+
+function ciriumStatusLabel(code?: string): string {
+  switch ((code || "").toUpperCase()) {
+    case "S":
+      return "Scheduled";
+    case "A":
+      return "Active";
+    case "L":
+      return "Landed";
+    case "C":
+      return "Cancelled";
+    case "D":
+      return "Diverted";
+    case "R":
+      return "Redirected";
+    case "U":
+      return "Unknown";
+    default:
+      return code?.trim() || "Unknown";
+  }
+}
+
+/**
+ * Map a Cirium / FlightStats Flex flightStatuses[] entry into VerifiedFlight.
+ * Exported for RK159 regression tests (ARRIVED LATE + actual arrival).
+ */
+export function mapCiriumFlightStatus(
+  flight: CiriumFlightStatus,
+  params: {
+    flightNumber: string;
+    airportCode: string;
+    airportName: string;
+    direction: TripDirection;
+    fallbackDate: string;
+    airlineName?: string;
+  },
+): VerifiedFlight | null {
+  const times = flight.operationalTimes || {};
+  const isArrival = params.direction === "from-airport";
+
+  const scheduledRaw = isArrival
+    ? ciriumLocal(times.scheduledGateArrival) ||
+      ciriumLocal(times.scheduledRunwayArrival) ||
+      ciriumLocal(flight.arrivalDate)
+    : ciriumLocal(times.scheduledGateDeparture) ||
+      ciriumLocal(times.scheduledRunwayDeparture) ||
+      ciriumLocal(flight.departureDate);
+
+  if (!scheduledRaw) return null;
+
+  const estimatedRaw = isArrival
+    ? ciriumLocal(times.estimatedGateArrival) ||
+      ciriumLocal(times.estimatedRunwayArrival) ||
+      undefined
+    : ciriumLocal(times.estimatedGateDeparture) ||
+      ciriumLocal(times.estimatedRunwayDeparture) ||
+      undefined;
+
+  // Passenger-facing actual arrival: gate preferred (matches Google/Cirium "Actual arrival"),
+  // runway as fallback (wheels-on).
+  const actualRaw = isArrival
+    ? ciriumLocal(times.actualGateArrival) ||
+      ciriumLocal(times.actualRunwayArrival) ||
+      undefined
+    : ciriumLocal(times.actualGateDeparture) ||
+      ciriumLocal(times.actualRunwayDeparture) ||
+      undefined;
+
+  const flightDate = formatIsoDate(scheduledRaw) || params.fallbackDate;
+
+  let delayMinutes: number | null = null;
+  if (isArrival) {
+    delayMinutes =
+      typeof flight.delays?.arrivalGateDelayMinutes === "number"
+        ? flight.delays.arrivalGateDelayMinutes
+        : typeof flight.delays?.arrivalRunwayDelayMinutes === "number"
+          ? flight.delays.arrivalRunwayDelayMinutes
+          : null;
+  } else {
+    delayMinutes =
+      typeof flight.delays?.departureGateDelayMinutes === "number"
+        ? flight.delays.departureGateDelayMinutes
+        : typeof flight.delays?.departureRunwayDelayMinutes === "number"
+          ? flight.delays.departureRunwayDelayMinutes
+          : null;
+  }
+
+  if (delayMinutes == null && actualRaw) {
+    const scheduledMs = parseLondonMs(scheduledRaw);
+    const actualMs = parseLondonMs(actualRaw);
+    if (scheduledMs != null && actualMs != null) {
+      delayMinutes = Math.round((actualMs - scheduledMs) / 60000);
+    }
+  } else if (delayMinutes == null && estimatedRaw) {
+    const scheduledMs = parseLondonMs(scheduledRaw);
+    const estimatedMs = parseLondonMs(estimatedRaw);
+    if (scheduledMs != null && estimatedMs != null) {
+      delayMinutes = Math.round((estimatedMs - scheduledMs) / 60000);
+    }
+  }
+
+  const statusCode = (flight.status || "").toUpperCase();
+  const providerStatus = ciriumStatusLabel(statusCode);
+  const rawForCategory =
+    statusCode === "L"
+      ? "Arrived"
+      : statusCode === "C"
+        ? "Cancelled"
+        : statusCode === "A"
+          ? "Departed"
+          : providerStatus;
+
+  const { statusCategory, statusLabel } = categorizeFlightStatus(
+    rawForCategory,
+    delayMinutes,
+    {
+      actualTime: actualRaw ? formatLocalTime(actualRaw) : undefined,
+      bestArrivalIso: anchorArrivalIso(actualRaw || estimatedRaw || null, flightDate),
+      tripDate: flightDate,
+    },
+  );
+
+  const depCode = flight.departureAirportFsCode || "—";
+  const arrCode = flight.arrivalAirportFsCode || "—";
+
+  return {
+    flightNumber: formatFlightNumberForDisplay(
+      `${flight.carrierFsCode || ""}${flight.flightNumber || params.flightNumber}`,
+    ),
+    airline: params.airlineName?.trim() || flight.carrierFsCode || "Airline",
+    date: flightDate,
+    scheduledTime: formatLocalTime(scheduledRaw),
+    scheduledTimeLabel: isArrival ? "Arrives" : "Departs",
+    airportCode: params.airportCode,
+    airportName: params.airportName,
+    departureAirport: depCode,
+    arrivalAirport: arrCode,
+    status: providerStatus,
+    providerStatus,
+    dataProvider: "cirium",
+    statusCategory,
+    statusLabel,
+    estimatedTime: estimatedRaw ? formatLocalTime(estimatedRaw) : undefined,
+    actualTime: actualRaw ? formatLocalTime(actualRaw) : undefined,
+    arrivalConfirmationPending: statusCategory === "arrival_pending",
+    delayMinutes,
+    terminal: isArrival
+      ? flight.airportResources?.arrivalTerminal
+      : flight.airportResources?.departureTerminal,
+    gate: isArrival
+      ? flight.airportResources?.arrivalGate
+      : flight.airportResources?.departureGate,
+    position: null,
+  };
+}
+
+export async function lookupFlightViaCirium(
+  appId: string,
+  appKey: string,
+  params: {
+    flightNumber: string;
+    tripDate: string;
+    airportCode: string;
+    airportName: string;
+    direction: TripDirection;
+  },
+): Promise<FlightLookupResult> {
+  const flightNumber = normalizeFlightNumber(params.flightNumber);
+  if (!isValidFlightNumberFormat(flightNumber)) {
+    return {
+      ok: false,
+      error: "Enter a valid flight number (e.g. BA1234 or EZY456).",
+      code: "invalid_format",
+    };
+  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(params.tripDate)) {
+    return {
+      ok: false,
+      error: "Select your trip date before entering a flight number.",
+      code: "invalid_format",
+    };
+  }
+
+  const parts = splitFlightNumber(flightNumber);
+  if (!parts) {
+    return {
+      ok: false,
+      error: "Enter a valid flight number (e.g. BA1234 or EZY456).",
+      code: "invalid_format",
+    };
+  }
+
+  const [year, month, day] = params.tripDate.split("-");
+  const kind = params.direction === "from-airport" ? "arr" : "dep";
+  const url = new URL(
+    `https://api.flightstats.com/flex/flightstatus/rest/v2/json/flight/status/${encodeURIComponent(parts.carrier)}/${encodeURIComponent(parts.number)}/${kind}/${year}/${Number(month)}/${Number(day)}`,
+  );
+  url.searchParams.set("appId", appId);
+  url.searchParams.set("appKey", appKey);
+  url.searchParams.set("utc", "false");
+  if (params.airportCode) {
+    url.searchParams.set("airport", params.airportCode);
+  }
+
+  let response: Response;
+  try {
+    response = await fetch(url.toString(), {
+      headers: { Accept: "application/json" },
+    });
+  } catch {
+    return {
+      ok: false,
+      error:
+        "Flight verification is temporarily unavailable. You can still enter your flight number and continue.",
+      code: "upstream_error",
+    };
+  }
+
+  if (response.status === 401 || response.status === 403) {
+    return {
+      ok: false,
+      error:
+        "Cirium flight API credentials were rejected. Check CIRIUM_APP_ID and CIRIUM_APP_KEY.",
+      code: "upstream_error",
+    };
+  }
+  if (response.status === 429) {
+    return {
+      ok: false,
+      error:
+        "Flight verification is temporarily busy. You can still enter your flight number and continue.",
+      code: "rate_limited",
+    };
+  }
+
+  const raw = await response.text();
+  let payload: {
+    flightStatuses?: CiriumFlightStatus[];
+    flightStatus?: CiriumFlightStatus;
+    error?: { errorMessage?: string; errorCode?: string };
+    appendix?: { airlines?: Array<{ fs?: string; name?: string; iata?: string }> };
+  };
+  try {
+    payload = JSON.parse(raw) as typeof payload;
+  } catch {
+    return {
+      ok: false,
+      error:
+        "Flight verification is temporarily unavailable. You can still enter your flight number and continue.",
+      code: "upstream_error",
+    };
+  }
+
+  if (!response.ok && response.status !== 404) {
+    return {
+      ok: false,
+      error:
+        payload.error?.errorMessage ||
+        "Flight verification is temporarily unavailable. You can still enter your flight number and continue.",
+      code: "upstream_error",
+    };
+  }
+
+  const statuses = [
+    ...(payload.flightStatuses || []),
+    ...(payload.flightStatus ? [payload.flightStatus] : []),
+  ];
+
+  if (statuses.length === 0) {
+    return {
+      ok: false,
+      error:
+        "No flight found for that number on your selected date. Check the flight number, airport, and date match your ticket.",
+      code: "not_found",
+    };
+  }
+
+  const airportUpper = params.airportCode.trim().toUpperCase();
+  const matched =
+    statuses.find((entry) => {
+      const code =
+        params.direction === "from-airport"
+          ? entry.arrivalAirportFsCode
+          : entry.departureAirportFsCode;
+      return (code || "").toUpperCase() === airportUpper;
+    }) || statuses[0];
+
+  if (!matched) {
+    return {
+      ok: false,
+      error: `That flight does not ${params.direction === "from-airport" ? "arrive at" : "depart from"} ${params.airportName} on this date.`,
+      code: "airport_mismatch",
+    };
+  }
+
+  const relevantCode =
+    params.direction === "from-airport"
+      ? matched.arrivalAirportFsCode
+      : matched.departureAirportFsCode;
+  if (
+    airportUpper &&
+    relevantCode &&
+    relevantCode.toUpperCase() !== airportUpper &&
+    !airportMatches(relevantCode, airportUpper)
+  ) {
+    return {
+      ok: false,
+      error: `That flight does not ${params.direction === "from-airport" ? "arrive at" : "depart from"} ${params.airportName} on this date.`,
+      code: "airport_mismatch",
+    };
+  }
+
+  const airlineName =
+    payload.appendix?.airlines?.find(
+      (a) =>
+        (a.fs || "").toUpperCase() === (matched.carrierFsCode || "").toUpperCase() ||
+        (a.iata || "").toUpperCase() === (matched.carrierFsCode || "").toUpperCase(),
+    )?.name || matched.carrierFsCode;
+
+  const mapped = mapCiriumFlightStatus(matched, {
+    flightNumber,
+    airportCode: params.airportCode,
+    airportName: params.airportName,
+    direction: params.direction,
+    fallbackDate: params.tripDate,
+    airlineName,
+  });
+
+  if (!mapped) {
+    return {
+      ok: false,
+      error: "Flight found but schedule time was unavailable. Please double-check your flight details.",
+      code: "upstream_error",
+    };
+  }
+
+  return { ok: true, flight: mapped };
 }
