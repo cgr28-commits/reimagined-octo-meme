@@ -25,7 +25,11 @@ import {
   type CalendarViewMode,
   type OwnerCalendarEntry,
 } from "@/lib/owner-booking-calendar";
-import { addDaysYmd, londonYmd } from "../../shared/upcoming-jobs";
+import {
+  addDaysYmd,
+  isOwnerOperationalTestBooking,
+  londonYmd,
+} from "../../shared/upcoming-jobs";
 
 type OwnerBookingCalendarProps = {
   ownerKey: string;
@@ -176,10 +180,15 @@ export default function OwnerBookingCalendar({
     void load();
   }, [load]);
 
-  const entries = useMemo(
-    () => mergeCalendarEntries(jobs, bookings),
-    [jobs, bookings],
-  );
+  const entries = useMemo(() => {
+    const operationalBookings = bookings.filter(
+      (booking) => !isOwnerOperationalTestBooking(booking),
+    );
+    const operationalJobs = jobs.filter(
+      (job) => !isOwnerOperationalTestBooking({ paymentReference: job.paymentReference }),
+    );
+    return mergeCalendarEntries(operationalJobs, operationalBookings);
+  }, [jobs, bookings]);
 
   const jobByToken = useMemo(() => {
     const map = new Map<string, DriverJob>();

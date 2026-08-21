@@ -18,7 +18,7 @@ import {
   generateManageBookingToken,
   normalizeManageBookingToken,
 } from "../shared/manage-booking-token";
-import { bookingInUpcomingHorizon } from "../shared/upcoming-jobs";
+import { bookingInUpcomingHorizon, isOwnerOperationalTestBooking } from "../shared/upcoming-jobs";
 
 const RECORD_TTL = 60 * 60 * 24 * 400;
 const DAY_INDEX_TTL = 60 * 60 * 24 * 400;
@@ -351,7 +351,7 @@ export async function listRecentPaidBookings(
   }
 
   return [...byRef.values()]
-    .filter((record) => !record.isRefundTest && !record.isAmendmentTestFixture)
+    .filter((record) => !isOwnerOperationalTestBooking(record))
     .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))
     .slice(0, limit);
 }
@@ -402,7 +402,7 @@ export async function listUpcomingPaidBookings(
   const horizonEnd = addDaysYmd(today, futureDays);
 
   return [...byRef.values()]
-    .filter((record) => !record.isRefundTest && !record.isAmendmentTestFixture)
+    .filter((record) => !isOwnerOperationalTestBooking(record))
     .filter((record) => bookingInUpcomingHorizon(record, horizonStart, horizonEnd))
     .sort((a, b) => tripSortKey(a).localeCompare(tripSortKey(b)))
     .slice(0, limit);
