@@ -1,5 +1,6 @@
 /**
- * Floating WhatsApp FAB must not obstruct the homepage / Get a Quote funnel.
+ * Floating WhatsApp is mobile-only; desktop uses the round “?” help button.
+ * Secondary WhatsApp links (menu/footer/Need help) remain.
  * Run: npx tsx scripts/check-no-floating-whatsapp.ts
  */
 
@@ -20,15 +21,17 @@ const footer = read("src/components/FooterContact.tsx");
 const contact = read("src/lib/contact-card.ts");
 const data = read("src/lib/data.ts");
 const layout = read("src/app/layout.tsx");
+const assistant = read("src/components/QuoteAssistant.tsx");
 
-assert.match(wa, /return null/);
-assert.doesNotMatch(wa, /fixed bottom-|z-\[60\]|z-\[40\]/);
+assert.match(wa, /data-matni-whatsapp-fab/);
+assert.match(wa, /isMobile !== true/);
 assert.match(layout, /WhatsAppButton/);
+assert.match(assistant, /isMobile !== false/);
 
 assert.match(hero, /Need help\?/);
 assert.match(hero, /WhatsApp us/);
 assert.match(hero, /whatsAppChatUrl\(\)/);
-assert.doesNotMatch(hero, /fixed bottom-/);
+assert.doesNotMatch(hero, /data-matni-whatsapp-fab/);
 
 assert.match(header, /WhatsApp @\{SITE\.whatsappUsername\}/);
 assert.match(header, /whatsAppChatUrl\(\)/);
@@ -42,7 +45,7 @@ assert.match(data, /whatsapp:\s*"447549815538"/);
 assert.match(data, /whatsappUsername:\s*"belfasttaxi"/);
 assert.match(data, /whatsappDefaultMessage/);
 
-console.log("OK  floating WhatsApp FAB disabled");
+console.log("OK  floating WhatsApp is mobile-only FAB");
+console.log("OK  desktop uses exclusive ? help (QuoteAssistant)");
 console.log("OK  secondary WhatsApp: menu, footer, Need help under quote");
-console.log("OK  number/username + default message preserved");
 console.log("\nAll no-floating-whatsapp checks passed.");

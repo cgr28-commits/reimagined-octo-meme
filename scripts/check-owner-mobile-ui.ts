@@ -16,9 +16,8 @@ function read(rel: string): string {
 console.log("=== 1. Public sales widgets hidden on owner/admin/driver ===");
 {
   const wa = read("src/components/WhatsAppButton.tsx");
-  // Floating WhatsApp FAB retired; QuoteAssistant still gated off private portals.
-  assert.match(wa, /return null/);
-  assert.doesNotMatch(wa, /fixed bottom-/);
+  // Mobile WhatsApp FAB still gated off private portals.
+  assert.match(wa, /shouldHidePublicSalesWidgets/);
 
   const quote = read("src/components/QuoteAssistant.tsx");
   assert.match(quote, /shouldHidePublicSalesWidgets/);
@@ -26,7 +25,7 @@ console.log("=== 1. Public sales widgets hidden on owner/admin/driver ===");
   const helper = read("src/lib/owner-portal.ts");
   assert.match(helper, /isOwnerPortalPath/);
   assert.match(helper, /shouldHidePublicSalesWidgets/);
-  console.log("OK  WhatsApp FAB off; QuoteAssistant gated off private portals");
+  console.log("OK  WhatsApp + QuoteAssistant gated off private portals");
 }
 
 console.log("\n=== 2. Owner portal header replaces public Header on ops pages ===");
@@ -63,9 +62,9 @@ console.log("\n=== 3. Public Header component still has marketing nav (unchanged
 console.log("\n=== 4. Booking cards: groups + completed Evidence prominence ===");
 {
   const panel = read("src/components/OwnerPaidBookingsPanel.tsx");
-  assert.match(panel, /uppercase tracking-wider text-white\/40">\s*Journey\s*</);
-  assert.match(panel, /uppercase tracking-wider text-white\/40">\s*Customer\s*</);
-  assert.match(panel, /uppercase tracking-wider text-white\/40">\s*Admin\s*</);
+  assert.match(panel, /Driver updates/);
+  assert.match(panel, /Customer contact/);
+  assert.match(panel, /Admin \/ More|More actions/);
   assert.match(panel, /View Journey Evidence/);
   assert.match(panel, /journeyCompleted \?|status === "completed"/);
   assert.match(panel, /bg-sky-500/);
