@@ -43,6 +43,7 @@ function read(rel: string): string {
 }
 
 const BFS_HILLSBOROUGH_ADDRESS = "201 Ballynahinch Road, Hillsborough BT26 6BH";
+const milesToKm = (miles: number) => miles / 0.621371;
 
 console.log("=== 1. Exact-bug fare split reproduced deterministically ===");
 {
@@ -64,7 +65,6 @@ console.log("=== 1. Exact-bug fare split reproduced deterministically ===");
   // Public-reported bug: with a real driving route (~22 miles — over the
   // 20-mile belfastAirportDistanceFloor threshold), the floor applies and
   // must raise the fare to £65 — this is the value the public site showed.
-  const milesToKm = (miles: number) => miles / 0.621371;
   const withRoute = calculateQuote(
     BFS_HILLSBOROUGH_ADDRESS,
     "BFS",
@@ -135,6 +135,125 @@ console.log("\n=== 4. \"Same Fare Test\" owner tool is an amendment regression c
   console.log(
     "OK  confirmed: \"Same Fare Test\" = amendment no-fare-change regression, not public-vs-owner parity",
   );
+}
+
+console.log("\n=== 5. Shared website-fare entry + multi-airport / A2A / schedule parity ===");
+{
+  // Direct calculateQuote path (public engine) for airport drop-off / pickup directions.
+  const bfsDropoff = calculateQuote(
+    BFS_HILLSBOROUGH_ADDRESS,
+    "BFS",
+    SALOON_VEHICLE,
+    false,
+    {},
+    { distanceKm: milesToKm(22.5), durationMinutes: 31 },
+  );
+  assert.equal(bfsDropoff?.amount, 65);
+
+  // BHD long-distance floor (≥20 miles) must also raise above short zone fare when metrics exist.
+  const bhdShort = calculateQuote("Holywood", "BHD", SALOON_VEHICLE, false, {}, null);
+  const bhdLong = calculateQuote(
+    "Far address beyond twenty miles",
+    "BHD",
+    SALOON_VEHICLE,
+    false,
+    {},
+    { distanceKm: milesToKm(25), durationMinutes: 35 },
+  );
+  assert.ok(bhdShort && bhdLong);
+  assert.ok(
+    (bhdLong.amount ?? 0) > (bhdShort.amount ?? 0),
+    "BHD long-distance floor must raise fare above short zone when route metrics present",
+  );
+
+  // Dublin / LDY still price via the same calculateQuote engine (zone surcharges).
+  const dub = calculateQuote("Belfast City Centre", "DUB", SALOON_VEHICLE, false, {}, null);
+  const ldy = calculateQuote("Belfast City Centre", "LDY", SALOON_VEHICLE, false, {}, null);
+  assert.ok(dub && dub.amount >= 100, "Dublin Belfast City Centre must remain a long-haul fare");
+  assert.ok(ldy && ldy.amount >= 100, "LDY Belfast City Centre must remain a long-haul fare");
+
+  // Weekday = weekend = Bank Holiday (premium rates are 0) — public engine source of truth.
+  const weekday = calculateQuote(
+    BFS_HILLSBOROUGH_ADDRESS,
+    "BFS",
+    SALOON_VEHICLE,
+    false,
+    { outboundDate: "2026-08-21", outboundTime: "10:00" },
+    { distanceKm: milesToKm(22.5), durationMinutes: 31 },
+  );
+  const weekend = calculateQuote(
+    BFS_HILLSBOROUGH_ADDRESS,
+    "BFS",
+    SALOON_VEHICLE,
+    false,
+    { outboundDate: "2026-08-22", outboundTime: "10:00" },
+    { distanceKm: milesToKm(22.5), durationMinutes: 31 },
+  );
+  const bankHoliday = calculateQuote(
+    BFS_HILLSBOROUGH_ADDRESS,
+    "BFS",
+    SALOON_VEHICLE,
+    false,
+    { outboundDate: "2026-07-12", outboundTime: "10:00" },
+    { distanceKm: milesToKm(22.5), durationMinutes: 31 },
+  );
+  assert.equal(weekday?.amount, 65);
+  assert.equal(weekend?.amount, weekday?.amount);
+  assert.equal(bankHoliday?.amount, weekday?.amount);
+  assert.equal(weekday?.premiumApplied, false);
+
+  // Return: 5% discount on 2× one-way (rounded).
+  const returnFare = calculateQuote(
+    BFS_HILLSBOROUGH_ADDRESS,
+    "BFS",
+    SALOON_VEHICLE,
+    true,
+    {
+      returnJourney: true,
+      outboundDate: "2026-08-21",
+      outboundTime: "10:00",
+      returnDate: "2026-08-21",
+      returnTime: "18:00",
+    },
+    { distanceKm: milesToKm(22.5), durationMinutes: 31 },
+  );
+  assert.equal(returnFare?.amount, 124, "return must apply 5% discount to 2× £65 → £124");
+
+  // A2A / airport wrappers remain the shared entry used by Owner Personal Quotes.
+  const websiteFareSrc = read("src/lib/website-fare.ts");
+  assert.match(websiteFareSrc, /calculateQuote/);
+  assert.match(websiteFareSrc, /calculatePointToPointQuote/);
+  assert.match(websiteFareSrc, /calculateAirportToAirportQuote/);
+  assert.match(websiteFareSrc, /returnJourney: false/);
+  assert.match(
+    read("src/components/OwnerPersonalQuotesPanel.tsx"),
+    /calculateWebsiteOneWayFare/,
+    "Owner Personal Quotes must call calculateWebsiteOneWayFare (shared public engine wrapper)",
+  );
+
+  // Public QuoteCard must still call calculateQuote / calculatePointToPointQuote directly
+  // (same functions website-fare wraps) — never a separate legacy calculator.
+  const card = read("src/components/QuoteCard.tsx");
+  assert.match(card, /calculateQuote\(/);
+  assert.match(card, /calculatePointToPointQuote\(/);
+  assert.doesNotMatch(card, /legacyQuote|oldPricing|ownerOnlyFare/i);
+
+  console.log("OK  BFS/BHD/DUB/LDY + weekday/weekend/BH + return discount share one public engine");
+}
+
+console.log("\n=== 6. Mobile quote step scroll + WhatsApp + Owner refund guards remain intact ===");
+{
+  assert.match(read("src/lib/quote-step-nav-scroll.ts"), /scheduleMobileQuoteStepNavScroll/);
+  const card = read("src/components/QuoteCard.tsx");
+  assert.match(card, /pendingQuoteStepNavScrollRef/);
+  assert.match(card, /navigateQuoteStep/);
+  assert.match(card, /id="step2-travel-details"/);
+  assert.match(card, /id="step3-customer-details"/);
+  assert.match(read("src/components/Header.tsx"), /data-matni-whatsapp-quick|WhatsApp/);
+  assert.doesNotMatch(read("src/components/WhatsAppButton.tsx"), /fixed bottom|position:\s*fixed/);
+  assert.match(read("src/components/OwnerPaidBookingsPanel.tsx"), /close as refunded|Mark as refunded|external/i);
+  assert.match(read("workers/addresses/src/refund-coordinator.ts"), /mark_external_refund/);
+  console.log("OK  mobile step scroll, WhatsApp row, and external-refund closeout still wired");
 }
 
 console.log("\nAll owner personal quote fare-parity checks passed.");
