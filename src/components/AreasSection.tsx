@@ -3,7 +3,7 @@ import SectionHeading from "./SectionHeading";
 
 export default function AreasSection() {
   return (
-    <section id="areas" className="relative py-20 sm:py-28 lg:py-32">
+    <section id="areas" className="relative scroll-mt-36 py-20 sm:py-28 lg:py-32 xl:scroll-mt-28">
       <div className="absolute inset-0 bg-navy-dark" />
       <div className="absolute inset-0 opacity-20">
         <div className="h-full w-full bg-[radial-gradient(ellipse_at_center,_var(--color-emerald)_0%,_transparent_70%)]" />

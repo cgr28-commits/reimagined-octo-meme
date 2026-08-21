@@ -42,7 +42,7 @@ console.log("=== 1. Desktop round ? help button ===");
 console.log("\n=== 2. Mobile WhatsApp in Header quick row ===");
 {
   assert.match(header, /data-matni-whatsapp-quick/);
-  assert.match(header, /h-7 w-7/);
+  assert.match(header, /h-11 w-11|min-h-11/);
   assert.match(header, /#25D366/);
   assert.match(header, /whatsAppChatUrl/);
   assert.match(header, /Hi, I need some help with an airport transfer/);

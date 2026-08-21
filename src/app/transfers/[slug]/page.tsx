@@ -6,6 +6,7 @@ import Header from "@/components/Header";
 import EmergeDiscoveryPromo from "@/components/EmergeDiscoveryPromo";
 import LocationQuoteSection from "@/components/LocationQuoteSection";
 import OptimizedHeroPicture from "@/components/OptimizedHeroPicture";
+import QuoteNavLink from "@/components/QuoteNavLink";
 import { SITE } from "@/lib/data";
 import {
   getTransferRoutePage,
@@ -77,7 +78,7 @@ export default async function TransferRoutePage({ params }: Props) {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(serviceLd) }}
       />
       <Header />
-      <main className="min-h-screen overflow-x-clip bg-navy pb-16 pt-36 md:pt-28">
+      <main className="min-h-screen overflow-x-clip bg-navy pb-16 pt-36 xl:pt-28">
         <div className="relative h-56 overflow-hidden sm:h-72">
           <OptimizedHeroPicture
             baseName={page.airport.heroBase}
@@ -90,7 +91,7 @@ export default async function TransferRoutePage({ params }: Props) {
         <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
           <Link
             href={`/airports/${page.airport.slug}/`}
-            className="relative z-10 -mt-8 inline-flex items-center gap-2 text-sm text-white/70 transition-colors hover:text-emerald"
+            className="relative z-10 -mt-8 inline-flex min-h-11 items-center gap-2 text-sm text-white/70 transition-colors hover:text-emerald"
           >
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -104,6 +105,12 @@ export default async function TransferRoutePage({ params }: Props) {
             </p>
             <h1 className="mt-2 text-3xl font-bold text-white sm:text-4xl">{page.title}</h1>
             <p className="mt-6 text-lg leading-relaxed text-white/70">{page.intro}</p>
+            <QuoteNavLink
+              href="#quote"
+              className="mt-6 inline-flex min-h-11 items-center rounded-full bg-emerald px-6 py-3 text-sm font-bold text-navy shadow-lg shadow-emerald/25 transition-all hover:bg-emerald-light"
+            >
+              Quote This Journey
+            </QuoteNavLink>
           </header>
 
           <section className="mt-10 rounded-2xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">

@@ -22,6 +22,12 @@ html {
   touch-action: pan-y pinch-zoom;
 }
 
+/*
+ * Fixed header clearance: major homepage / landing sections with fragment ids
+ * (airports, faq, areas, why-us, quote, …) should use scroll-mt-36 xl:scroll-mt-28
+ * so in-page nav and Get a Quote land below the sticky header.
+ */
+
 body {
   background-color: var(--color-navy);
   color: #e8edf5;

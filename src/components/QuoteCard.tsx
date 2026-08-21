@@ -11,8 +11,12 @@ import { buildMarketingOptInFields, recordMarketingOptIn } from "@/lib/marketing
 import { TERMS_LAST_UPDATED } from "@/lib/terms";
 import { CANCELLATION_POLICY_VERSION } from "../../shared/refund-ops";
 import { detectMobileDevice, useIsMobileDevice } from "@/lib/device";
-import { scheduleMobileQuoteStepNavScroll } from "@/lib/quote-step-nav-scroll";
-import type { QuoteStepNavTarget } from "@/lib/quote-step-nav-scroll";
+import {
+  focusFirstInvalidField,
+  quoteStepTargetId,
+  scheduleBookingNavAfterRender,
+  type QuoteStepNavTarget,
+} from "@/lib/quote-step-nav-scroll";
 import { whatsAppChatUrl } from "@/lib/contact-card";
 import {
   AIRPORTS,
@@ -1409,6 +1413,11 @@ function QuoteCard({
     }
 
     if (!ok) {
+      // After React paints the error state, focus/scroll the first invalid field.
+      window.setTimeout(() => {
+        const root = document.getElementById("quoteForm") ?? document.getElementById("quote");
+        focusFirstInvalidField(root);
+      }, 0);
       return false;
     }
 
@@ -1467,6 +1476,13 @@ function QuoteCard({
       ok = false;
     } else {
       setEmailAddressError("");
+    }
+
+    if (!ok) {
+      window.setTimeout(() => {
+        const root = document.getElementById("step3-customer-details") ?? document.getElementById("quoteForm");
+        focusFirstInvalidField(root);
+      }, 0);
     }
 
     return ok;
@@ -1956,6 +1972,12 @@ function QuoteCard({
     } else if (nextDirection === "to-airport" && airportPlace) {
       saveConfirmedDropoffPlace(airportPlace);
     }
+
+    // Return the customer to the start of the form after reset.
+    pendingQuoteStepNavScrollRef.current = 1;
+    window.setTimeout(() => {
+      scheduleBookingNavAfterRender("quote", { focusHeading: true });
+    }, 0);
   }
 
   function requestStartNewQuote() {
@@ -2203,7 +2225,8 @@ function QuoteCard({
 
   const usesWhatsApp = isMobileDevice === true;
 
-  // Mobile only: after explicit step CTAs, bring the active section into view once.
+  // After explicit step CTAs (Book Now / Continue / Back / Edit / Start New Quote),
+  // bring the active section clearly below the fixed header and focus its heading.
   useEffect(() => {
     const target = pendingQuoteStepNavScrollRef.current;
     if (!target || target !== quoteStep) {
@@ -2216,8 +2239,27 @@ function QuoteCard({
         : target === 2
           ? step2TravelDetailsRef.current
           : step3CustomerDetailsRef.current;
-    return scheduleMobileQuoteStepNavScroll(element);
+    return scheduleBookingNavAfterRender(element ?? quoteStepTargetId(target), {
+      focusHeading: true,
+    });
   }, [quoteStep]);
+
+  // When a fixed price first appears on step 1, make the summary / Book Now CTA visible.
+  const liveQuoteAmount = liveQuote?.amount ?? null;
+  const hadLiveQuoteOnStep1Ref = useRef(false);
+  useEffect(() => {
+    if (quoteStep !== 1) {
+      hadLiveQuoteOnStep1Ref.current = false;
+      return;
+    }
+    if (liveQuoteAmount == null) {
+      hadLiveQuoteOnStep1Ref.current = false;
+      return;
+    }
+    if (hadLiveQuoteOnStep1Ref.current) return;
+    hadLiveQuoteOnStep1Ref.current = true;
+    return scheduleBookingNavAfterRender("quote-price-summary", { focusHeading: true });
+  }, [liveQuoteAmount, quoteStep]);
 
   const submitInProgressLabel = showsRequestQuoteFlow
     ? "Sending quote request…"
@@ -2514,6 +2556,13 @@ function QuoteCard({
           ref={step1JourneyRef}
           className="scroll-mt-44 space-y-4 md:scroll-mt-28"
         >
+        <h2
+          data-booking-nav-heading
+          tabIndex={-1}
+          className="sr-only"
+        >
+          Step 1 — Journey details
+        </h2>
         {isA2AFlow ? (
           <>
             <QuoteProgressiveRoute
@@ -2957,6 +3006,13 @@ function QuoteCard({
           ref={step2TravelDetailsRef}
           className="scroll-mt-44 space-y-4 md:scroll-mt-28"
         >
+        <h2
+          data-booking-nav-heading
+          tabIndex={-1}
+          className="sr-only"
+        >
+          Step 2 — Travel details
+        </h2>
         <div className="grid gap-4 sm:grid-cols-2 lg:gap-3.5">
           <div>
             <label
@@ -2975,6 +3031,8 @@ function QuoteCard({
               type="date"
               min={minTripDate}
               value={tripDate}
+              aria-invalid={Boolean(tripDateError)}
+              aria-describedby={tripDateError ? "trip-date-error" : undefined}
               onChange={(e) => {
                 setTripDate(e.target.value);
                 setTripDateError("");
@@ -3005,6 +3063,8 @@ function QuoteCard({
               type="time"
               min={minTripTime}
               value={tripTime}
+              aria-invalid={Boolean(tripDateError)}
+              aria-describedby={tripDateError ? "trip-date-error" : undefined}
               onChange={(e) => {
                 setTripTime(e.target.value);
                 setTripDateError("");
@@ -3018,7 +3078,11 @@ function QuoteCard({
               className="box-border h-12 w-full min-w-0 rounded-xl border border-white/10 bg-white/5 px-4 text-base text-white outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30 [color-scheme:dark]"
             />
           </div>
-          <p className="sm:col-span-2 min-h-[1.1rem] text-xs text-red-400">
+          <p
+            id="trip-date-error"
+            role={tripDateError ? "alert" : undefined}
+            className="sm:col-span-2 min-h-[1.1rem] text-xs text-red-400"
+          >
             {tripDateError || "\u00a0"}
           </p>
         </div>
@@ -3140,7 +3204,12 @@ function QuoteCard({
         ) : null}
 
         {(quoteStep === 1 || quoteStep === 2) && (
-        <div className="rounded-xl border border-white/10 bg-navy-dark/40 px-4 py-5">
+        <div
+          id="quote-price-summary"
+          data-booking-nav-heading
+          tabIndex={-1}
+          className="scroll-mt-44 rounded-xl border border-white/10 bg-navy-dark/40 px-4 py-5 outline-none md:scroll-mt-28"
+        >
           {pricingConfirmationRequired ? (
             <>
               <p className="text-xs font-medium uppercase tracking-wider text-emerald">
@@ -3371,7 +3440,11 @@ function QuoteCard({
           ref={step3CustomerDetailsRef}
           className={`${BOOKING_PANEL_CLASS} scroll-mt-44 md:scroll-mt-28`}
         >
-          <p className="text-xs font-medium uppercase tracking-wider text-emerald">
+          <p
+            data-booking-nav-heading
+            tabIndex={-1}
+            className="text-xs font-medium uppercase tracking-wider text-emerald outline-none"
+          >
             Your details
           </p>
           <p className="mt-1 mb-4 text-sm text-white/75">
@@ -3389,7 +3462,10 @@ function QuoteCard({
                   id="name"
                   name="name"
                   type="text"
+                  autoComplete="name"
                   value={customerName}
+                  aria-invalid={Boolean(customerNameError)}
+                  aria-describedby={customerNameError ? "customer-name-error" : undefined}
                   onChange={(e) => {
                     setCustomerName(e.target.value);
                     if (e.target.value.trim()) {
@@ -3400,7 +3476,9 @@ function QuoteCard({
                   className={BOOKING_INPUT_CLASS}
                 />
                 {customerNameError && (
-                  <p className="mt-1.5 text-xs text-red-300">{customerNameError}</p>
+                  <p id="customer-name-error" role="alert" className="mt-1.5 text-xs text-red-300">
+                    {customerNameError}
+                  </p>
                 )}
               </div>
 
@@ -3414,6 +3492,8 @@ function QuoteCard({
                   type="tel"
                   autoComplete="tel"
                   value={customerMobile}
+                  aria-invalid={Boolean(mobileNumberError)}
+                  aria-describedby={mobileNumberError ? "customer-mobile-error" : "mobile-helper"}
                   onChange={(e) => {
                     setCustomerMobile(e.target.value);
                     if (e.target.value.trim()) {
@@ -3423,11 +3503,13 @@ function QuoteCard({
                   placeholder="07xxx xxxxxx"
                   className={BOOKING_INPUT_CLASS}
                 />
-                <p className={BOOKING_HELPER_CLASS}>
+                <p id="mobile-helper" className={BOOKING_HELPER_CLASS}>
                   So we can call or text if we need to reach you about your booking.
                 </p>
                 {mobileNumberError && (
-                  <p className="mt-1.5 text-xs text-red-300">{mobileNumberError}</p>
+                  <p id="customer-mobile-error" role="alert" className="mt-1.5 text-xs text-red-300">
+                    {mobileNumberError}
+                  </p>
                 )}
               </div>
             </div>
@@ -3442,6 +3524,8 @@ function QuoteCard({
                 type="email"
                 autoComplete="email"
                 value={customerEmail}
+                aria-invalid={Boolean(emailAddressError)}
+                aria-describedby={emailAddressError ? "customer-email-error" : "email-helper"}
                 onChange={(e) => {
                   setCustomerEmail(e.target.value);
                   if (e.target.value.trim()) {
@@ -3451,13 +3535,15 @@ function QuoteCard({
                 placeholder="you@example.com"
                 className={BOOKING_INPUT_CLASS}
               />
-              <p className={BOOKING_HELPER_CLASS}>
+              <p id="email-helper" className={BOOKING_HELPER_CLASS}>
                 {canPayNowOnline
                   ? "We’ll email your booking confirmation and receipt after you pay with SumUp."
                   : "So we can email your booking confirmation and, when ready, your SumUp payment link."}
               </p>
               {emailAddressError && (
-                <p className="mt-1.5 text-xs text-red-300">{emailAddressError}</p>
+                <p id="customer-email-error" role="alert" className="mt-1.5 text-xs text-red-300">
+                  {emailAddressError}
+                </p>
               )}
             </div>
 
@@ -3661,7 +3747,11 @@ function QuoteCard({
           </div>
 
         {submitError && (
-          <p className="rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-100">
+          <p
+            id="quote-submit-error"
+            role="alert"
+            className="rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-100"
+          >
             {submitError}
           </p>
         )}

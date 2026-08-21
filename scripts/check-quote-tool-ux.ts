@@ -105,7 +105,7 @@ check("Step 2 travel details section scrolls only after explicit step navigation
   assert.match(card, /id="step2-travel-details"/);
   assert.match(card, /step2TravelDetailsRef/);
   assert.match(card, /pendingQuoteStepNavScrollRef/);
-  assert.match(card, /scheduleMobileQuoteStepNavScroll/);
+  assert.match(card, /scheduleBookingNavAfterRender/);
   assert.doesNotMatch(card, /pendingScrollToStep2DateRef/);
   assert.doesNotMatch(card, /scheduleSmoothScrollTo/);
 });
@@ -128,7 +128,7 @@ check("Public quote tool does not auto-scroll after selections", () => {
   assert.doesNotMatch(card, /pendingScrollToStep2DateRef/);
   assert.doesNotMatch(card, /pendingScrollToStep3CustomerRef/);
   assert.doesNotMatch(card, /scheduleReadyForScrollRef/);
-  assert.match(card, /scheduleMobileQuoteStepNavScroll/);
+  assert.match(card, /scheduleBookingNavAfterRender/);
 });
 
 check("Suitcase selector is single 0–4|5+ row without Exact Large Bags", () => {
