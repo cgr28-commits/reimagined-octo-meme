@@ -72,8 +72,10 @@ check("Owner Personal Quotes uses FiniteOptionSelect (no free number typing)", (
 check("Quick Quote uses FiniteOptionSelect (no numeric text entry)", () => {
   const qq = read("src/app/quick-quote/QuickQuoteOwnerClient.tsx");
   assert.match(qq, /FiniteOptionSelect/);
-  assert.match(qq, /ONLINE_PASSENGER_OPTIONS/);
+  assert.match(qq, /ONLINE_PASSENGER_OPTIONS|QUICK_QUOTE_MINIBUS_PASSENGER_OPTIONS/);
   assert.match(qq, /ONLINE_SUITCASE_OPTIONS/);
+  assert.match(qq, /vehicleChoice/);
+  assert.match(qq, /Minibus/);
   assert.doesNotMatch(qq, /inputMode="numeric"/);
   assert.match(qq, /Airport shortcuts/);
   assert.match(qq, /fromAirport/);

@@ -88,6 +88,9 @@ export default function FiniteOptionSelect({
 /** Passenger options for online Saloon/Estate capacity (1–4). */
 export const ONLINE_PASSENGER_OPTIONS = [1, 2, 3, 4] as const;
 
+/** Owner/Driver Quick Quote Minibus passenger options (1–7). */
+export const QUICK_QUOTE_MINIBUS_PASSENGER_OPTIONS = [1, 2, 3, 4, 5, 6, 7] as const;
+
 /**
  * Luggage options for Quick Quote: 0–3 exact, then 4+ stored as 5
  * (matches public FIVE_PLUS_SUITCASES → Minibus when bags > 4).

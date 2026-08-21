@@ -10,7 +10,14 @@ import {
   parseQuickQuoteMessage,
   type QuickQuoteAirportCode,
 } from "../../../shared/quick-quote-parse";
-import { QUICK_QUOTE_MAX_PASSENGERS } from "../../../shared/quick-quote";
+import {
+  applyQuickQuoteManualDiscount,
+  formatQuickQuoteAmount,
+  quickQuoteMaxPassengersForVehicle,
+  type QuickQuoteDiscountType,
+  type QuickQuoteVehicleChoice,
+} from "../../../shared/quick-quote";
+import { formatReturnJourneyDiscountPercent } from "../../../shared/return-journey-discount";
 import {
   calculateServerQuote,
   createOwnerQuickQuote,
@@ -25,6 +32,7 @@ import {
 import FiniteOptionSelect, {
   ONLINE_PASSENGER_OPTIONS,
   ONLINE_SUITCASE_OPTIONS,
+  QUICK_QUOTE_MINIBUS_PASSENGER_OPTIONS,
   formatOnlineSuitcaseOption,
 } from "@/components/FiniteOptionSelect";
 
@@ -32,6 +40,9 @@ const OWNER_KEY_STORAGE = "matni-owner-key";
 
 const fieldClass =
   "quote-text-input min-h-12 rounded-xl border border-white/15 bg-navy px-3 text-base text-white";
+
+const DISCOUNT_PERCENT_PRESETS = [5, 10, 15] as const;
+const DISCOUNT_FIXED_PRESETS = [5, 10] as const;
 
 type Draft = {
   pickupAddress: string;
@@ -47,6 +58,7 @@ type Draft = {
   suitcases: string;
   childSeatRequired: boolean;
   flightNumber: string;
+  vehicleChoice: QuickQuoteVehicleChoice;
 };
 
 const emptyDraft = (): Draft => ({
@@ -63,6 +75,7 @@ const emptyDraft = (): Draft => ({
   suitcases: "",
   childSeatRequired: false,
   flightNumber: "",
+  vehicleChoice: "Saloon",
 });
 
 function FieldLabel({
@@ -121,7 +134,11 @@ export default function QuickQuoteOwnerClient() {
   const [missing, setMissing] = useState<string[]>([]);
   const [fareLabel, setFareLabel] = useState("");
   const [fareAmount, setFareAmount] = useState<number | null>(null);
+  const [calculatedFareAmount, setCalculatedFareAmount] = useState<number | null>(null);
   const [vehicleType, setVehicleType] = useState("");
+  const [discountType, setDiscountType] = useState<QuickQuoteDiscountType>("none");
+  const [discountValue, setDiscountValue] = useState(0);
+  const [customDiscountInput, setCustomDiscountInput] = useState("");
   const [bookingUrl, setBookingUrl] = useState("");
   const [whatsappReply, setWhatsappReply] = useState("");
   const [flightTimeHint, setFlightTimeHint] = useState("");
@@ -130,6 +147,17 @@ export default function QuickQuoteOwnerClient() {
   const [notice, setNotice] = useState("");
   const [pickupSuggestToken, setPickupSuggestToken] = useState(0);
   const [dropoffSuggestToken, setDropoffSuggestToken] = useState(0);
+
+  const maxPassengers = quickQuoteMaxPassengersForVehicle(draft.vehicleChoice);
+  const passengerOptions =
+    draft.vehicleChoice === "Minibus"
+      ? QUICK_QUOTE_MINIBUS_PASSENGER_OPTIONS
+      : ONLINE_PASSENGER_OPTIONS;
+
+  const discountBreakdown = useMemo(() => {
+    if (calculatedFareAmount == null) return null;
+    return applyQuickQuoteManualDiscount(calculatedFareAmount, discountType, discountValue);
+  }, [calculatedFareAmount, discountType, discountValue]);
 
   const flagFor = (name: string): "missing" | "uncertain" | null => {
     if (missing.includes(name)) return "missing";
@@ -147,7 +175,8 @@ export default function QuickQuoteOwnerClient() {
     // Date/time optional for fare calculation — customer must set before payment.
     const pax = Number(draft.passengers);
     const bags = Number(draft.suitcases);
-    if (!Number.isInteger(pax) || pax < 1 || pax > QUICK_QUOTE_MAX_PASSENGERS) return false;
+    const maxPax = quickQuoteMaxPassengersForVehicle(draft.vehicleChoice);
+    if (!Number.isInteger(pax) || pax < 1 || pax > maxPax) return false;
     if (!Number.isInteger(bags) || bags < 0) return false;
     if (
       draft.returnJourney &&
@@ -161,9 +190,50 @@ export default function QuickQuoteOwnerClient() {
   function clearQuoteOutputs() {
     setFareAmount(null);
     setFareLabel("");
+    setCalculatedFareAmount(null);
     setVehicleType("");
     setBookingUrl("");
     setWhatsappReply("");
+  }
+
+  function resetDiscount() {
+    setDiscountType("none");
+    setDiscountValue(0);
+    setCustomDiscountInput("");
+  }
+
+  function setVehicleChoice(choice: QuickQuoteVehicleChoice) {
+    const maxPax = quickQuoteMaxPassengersForVehicle(choice);
+    setDraft((d) => {
+      const pax = Number(d.passengers);
+      const nextPassengers =
+        Number.isInteger(pax) && pax > maxPax ? String(maxPax) : d.passengers;
+      return { ...d, vehicleChoice: choice, passengers: nextPassengers };
+    });
+    clearQuoteOutputs();
+  }
+
+  function applyDiscountPreset(type: QuickQuoteDiscountType, value: number) {
+    setDiscountType(type);
+    setDiscountValue(value);
+    setCustomDiscountInput("");
+    setBookingUrl("");
+    setWhatsappReply("");
+    if (calculatedFareAmount != null) {
+      const next = applyQuickQuoteManualDiscount(calculatedFareAmount, type, value);
+      setFareAmount(next.customerFare);
+      setFareLabel(formatQuickQuoteAmount(next.customerFare));
+    }
+  }
+
+  function applyCustomDiscount(type: QuickQuoteDiscountType) {
+    const raw = Number(customDiscountInput);
+    if (!Number.isFinite(raw) || raw < 0) {
+      setError(type === "percent" ? "Enter a valid percentage." : "Enter a valid £ amount.");
+      return;
+    }
+    setError("");
+    applyDiscountPreset(type, raw);
   }
 
   function unlock() {
@@ -185,6 +255,7 @@ export default function QuickQuoteOwnerClient() {
     setUncertain([]);
     setMissing([]);
     clearQuoteOutputs();
+    resetDiscount();
     setFlightTimeHint("");
     setError("");
     setNotice("Started again.");
@@ -278,11 +349,12 @@ export default function QuickQuoteOwnerClient() {
     const parsed = parseQuickQuoteMessage(paste);
     const passengersRaw = countFieldValue(parsed.passengers.value);
     const suitcasesRaw = countFieldValue(parsed.suitcases.value);
+    const maxPax = quickQuoteMaxPassengersForVehicle(draft.vehicleChoice);
     const passengers =
-      passengersRaw && Number(passengersRaw) > QUICK_QUOTE_MAX_PASSENGERS
-        ? String(QUICK_QUOTE_MAX_PASSENGERS)
+      passengersRaw && Number(passengersRaw) > maxPax
+        ? String(maxPax)
         : passengersRaw && Number(passengersRaw) >= 1
-          ? String(Math.min(QUICK_QUOTE_MAX_PASSENGERS, Math.max(1, Number(passengersRaw))))
+          ? String(Math.min(maxPax, Math.max(1, Number(passengersRaw))))
           : passengersRaw;
     const suitcasesNum = Number(suitcasesRaw);
     const suitcases =
@@ -328,6 +400,7 @@ export default function QuickQuoteOwnerClient() {
       suitcases,
       childSeatRequired: parsed.childSeatRequired.value ?? false,
       flightNumber,
+      vehicleChoice: draft.vehicleChoice,
     };
 
     setPickupPlace(nextPickupPlace);
@@ -381,8 +454,13 @@ export default function QuickQuoteOwnerClient() {
       return;
     }
     const passengers = Number(draft.passengers);
-    if (passengers > QUICK_QUOTE_MAX_PASSENGERS) {
-      setError(`Online quotes are limited to ${QUICK_QUOTE_MAX_PASSENGERS} passengers.`);
+    const maxPax = quickQuoteMaxPassengersForVehicle(draft.vehicleChoice);
+    if (passengers > maxPax) {
+      setError(
+        draft.vehicleChoice === "Minibus"
+          ? `Minibus quotes are limited to ${maxPax} passengers.`
+          : `Saloon quotes are limited to ${maxPax} passengers. Switch to Minibus for larger parties.`,
+      );
       return;
     }
     const { pickupAddress, dropoffAddress } = resolveJourneyAddresses(
@@ -400,35 +478,48 @@ export default function QuickQuoteOwnerClient() {
     }
     setBusy(true);
     try {
-      const result = await calculateServerQuote({
-        pickupAddress,
-        dropoffAddress,
-        airportCode: draft.airportCode || null,
-        fromAirport: draft.fromAirport,
-        returnJourney: draft.returnJourney,
-        outboundDate: draft.outboundDate,
-        outboundTime: draft.outboundTime,
-        returnDate: draft.returnJourney ? draft.returnDate : undefined,
-        returnTime: draft.returnJourney ? draft.returnTime : undefined,
-        passengers,
-        suitcases: Number(draft.suitcases),
-        childSeatRequired: draft.childSeatRequired,
-        flightNumber: draft.flightNumber.trim() || undefined,
-        pickupLat: pickupPlace.lat ?? undefined,
-        pickupLng: pickupPlace.lng ?? undefined,
-        dropoffLat: dropoffPlace.lat ?? undefined,
-        dropoffLng: dropoffPlace.lng ?? undefined,
-      });
+      const result = await calculateServerQuote(
+        {
+          pickupAddress,
+          dropoffAddress,
+          airportCode: draft.airportCode || null,
+          fromAirport: draft.fromAirport,
+          returnJourney: draft.returnJourney,
+          outboundDate: draft.outboundDate,
+          outboundTime: draft.outboundTime,
+          returnDate: draft.returnJourney ? draft.returnDate : undefined,
+          returnTime: draft.returnJourney ? draft.returnTime : undefined,
+          passengers,
+          suitcases: Number(draft.suitcases),
+          childSeatRequired: draft.childSeatRequired,
+          flightNumber: draft.flightNumber.trim() || undefined,
+          vehicleChoice: draft.vehicleChoice,
+          pickupLat: pickupPlace.lat ?? undefined,
+          pickupLng: pickupPlace.lng ?? undefined,
+          dropoffLat: dropoffPlace.lat ?? undefined,
+          dropoffLng: dropoffPlace.lng ?? undefined,
+        },
+        ownerKey,
+      );
       if (!result.ok) {
         setFareAmount(null);
         setFareLabel("");
+        setCalculatedFareAmount(null);
         setError(result.message);
         return;
       }
-      setFareAmount(result.amount);
-      setFareLabel(result.amountLabel);
+      setCalculatedFareAmount(result.amount);
+      const discounted = applyQuickQuoteManualDiscount(
+        result.amount,
+        discountType,
+        discountValue,
+      );
+      setFareAmount(discounted.customerFare);
+      setFareLabel(formatQuickQuoteAmount(discounted.customerFare));
       setVehicleType(result.vehicleType);
-      setNotice("Fixed website fare ready. Generate a booking link when you’re happy.");
+      setNotice(
+        "Calculated fare ready. Apply an optional discount if needed, then generate a booking link.",
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not calculate fare");
     } finally {
@@ -443,7 +534,7 @@ export default function QuickQuoteOwnerClient() {
       setError("Unlock with OWNER_ACCESS_KEY first.");
       return;
     }
-    if (fareAmount == null) {
+    if (calculatedFareAmount == null || fareAmount == null) {
       setError("Calculate the quote first.");
       return;
     }
@@ -468,12 +559,30 @@ export default function QuickQuoteOwnerClient() {
         suitcases: Number(draft.suitcases),
         childSeatRequired: draft.childSeatRequired,
         flightNumber: draft.flightNumber.trim() || undefined,
+        vehicleChoice: draft.vehicleChoice,
         vehicleType: vehicleType || undefined,
+        discountType,
+        discountValue,
+        pickupLat: pickupPlace.lat ?? undefined,
+        pickupLng: pickupPlace.lng ?? undefined,
+        dropoffLat: dropoffPlace.lat ?? undefined,
+        dropoffLng: dropoffPlace.lng ?? undefined,
       });
       setBookingUrl(created.bookingUrl);
       setWhatsappReply(created.whatsappReply);
+      setCalculatedFareAmount(
+        typeof created.quote.calculatedAmount === "number"
+          ? created.quote.calculatedAmount
+          : calculatedFareAmount,
+      );
       setFareAmount(created.quote.quotedAmount);
       setFareLabel(created.quote.quotedAmountLabel);
+      if (created.quote.discountType) {
+        setDiscountType(created.quote.discountType);
+      }
+      if (typeof created.quote.discountValue === "number") {
+        setDiscountValue(created.quote.discountValue);
+      }
       setNotice("Booking link ready — Copy WhatsApp Reply.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not create booking link");
@@ -742,17 +851,51 @@ export default function QuickQuoteOwnerClient() {
           </div>
         ) : null}
 
+        <div className="min-w-0">
+          <FieldLabel label="Vehicle" />
+          <div className="grid min-w-0 grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => setVehicleChoice("Saloon")}
+              className={`min-h-11 min-w-0 rounded-xl border text-sm ${
+                draft.vehicleChoice === "Saloon"
+                  ? "border-emerald text-emerald"
+                  : "border-white/15 text-white/80"
+              }`}
+            >
+              Saloon
+            </button>
+            <button
+              type="button"
+              onClick={() => setVehicleChoice("Minibus")}
+              className={`min-h-11 min-w-0 rounded-xl border text-sm ${
+                draft.vehicleChoice === "Minibus"
+                  ? "border-emerald text-emerald"
+                  : "border-white/15 text-white/80"
+              }`}
+            >
+              Minibus
+            </button>
+          </div>
+          {draft.vehicleChoice === "Minibus" ? (
+            <p className="mt-2 break-words text-xs text-white/50">
+              Owner/Driver only — uses existing central Minibus pricing (not advertised as
+              MATNI-owned fleet on the public site). Suitable for partner / subcontract work.
+            </p>
+          ) : null}
+        </div>
+
         <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="min-w-0">
             <FieldLabel
-              label={`Passengers (max ${QUICK_QUOTE_MAX_PASSENGERS})`}
+              label={`Passengers (max ${maxPassengers})`}
               flag={flagFor("passengers")}
             />
             <FiniteOptionSelect
               label=""
-              aria-label={`Passengers (max ${QUICK_QUOTE_MAX_PASSENGERS})`}
+              aria-label={`Passengers (max ${maxPassengers})`}
               value={draft.passengers.trim() ? Number(draft.passengers) : ""}
-              options={[...ONLINE_PASSENGER_OPTIONS]}
+              options={[...passengerOptions]}
               allowEmpty
               emptyLabel="Select passengers"
               required
@@ -816,11 +959,116 @@ export default function QuickQuoteOwnerClient() {
         ) : null}
       </section>
 
-      {fareAmount != null ? (
-        <section className="min-w-0 overflow-hidden rounded-2xl border border-emerald/40 bg-emerald/10 px-4 py-5 text-center">
-          <p className="text-xs font-semibold uppercase tracking-wider text-emerald">Fixed fare</p>
-          <p className="mt-1 break-words font-display text-4xl text-white">{fareLabel}</p>
-          {vehicleType ? <p className="mt-1 break-words text-sm text-white/60">{vehicleType}</p> : null}
+      {calculatedFareAmount != null && discountBreakdown ? (
+        <section className="min-w-0 space-y-4 overflow-hidden rounded-2xl border border-emerald/40 bg-emerald/10 px-4 py-5">
+          <div className="text-center">
+            <p className="text-xs font-semibold uppercase tracking-wider text-emerald">
+              Calculated fare
+            </p>
+            <p className="mt-1 break-words font-display text-4xl text-white">
+              {formatQuickQuoteAmount(discountBreakdown.calculatedFare)}
+            </p>
+            {vehicleType ? (
+              <p className="mt-1 break-words text-sm text-white/60">{vehicleType}</p>
+            ) : null}
+            {draft.returnJourney ? (
+              <p className="mt-2 break-words text-xs text-white/55">
+                Includes the website {formatReturnJourneyDiscountPercent()} return-booking
+                discount (already in the calculated fare). Manual discount below is separate.
+              </p>
+            ) : null}
+          </div>
+
+          <div className="min-w-0 space-y-2 border-t border-white/10 pt-4">
+            <p className="text-sm font-semibold text-white">Optional discount</p>
+            <div className="flex min-w-0 flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => applyDiscountPreset("none", 0)}
+                className={`min-h-10 rounded-xl border px-3 text-sm ${
+                  discountType === "none"
+                    ? "border-emerald text-emerald"
+                    : "border-white/15 text-white/80"
+                }`}
+              >
+                No discount
+              </button>
+              {DISCOUNT_PERCENT_PRESETS.map((pct) => (
+                <button
+                  key={`pct-${pct}`}
+                  type="button"
+                  onClick={() => applyDiscountPreset("percent", pct)}
+                  className={`min-h-10 rounded-xl border px-3 text-sm ${
+                    discountType === "percent" && discountValue === pct
+                      ? "border-emerald text-emerald"
+                      : "border-white/15 text-white/80"
+                  }`}
+                >
+                  {pct}%
+                </button>
+              ))}
+              {DISCOUNT_FIXED_PRESETS.map((gbp) => (
+                <button
+                  key={`gbp-${gbp}`}
+                  type="button"
+                  onClick={() => applyDiscountPreset("fixed", gbp)}
+                  className={`min-h-10 rounded-xl border px-3 text-sm ${
+                    discountType === "fixed" && discountValue === gbp
+                      ? "border-emerald text-emerald"
+                      : "border-white/15 text-white/80"
+                  }`}
+                >
+                  £{gbp}
+                </button>
+              ))}
+            </div>
+            <div className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-[1fr_auto_auto]">
+              <input
+                type="text"
+                inputMode="decimal"
+                value={customDiscountInput}
+                onChange={(e) => setCustomDiscountInput(e.target.value)}
+                placeholder="Custom amount"
+                className={fieldClass}
+              />
+              <button
+                type="button"
+                onClick={() => applyCustomDiscount("percent")}
+                className="min-h-12 rounded-xl border border-white/15 px-3 text-sm text-white/85"
+              >
+                Apply %
+              </button>
+              <button
+                type="button"
+                onClick={() => applyCustomDiscount("fixed")}
+                className="min-h-12 rounded-xl border border-white/15 px-3 text-sm text-white/85"
+              >
+                Apply £
+              </button>
+            </div>
+          </div>
+
+          <div className="space-y-1 border-t border-white/10 pt-4 text-sm text-white/80">
+            <p>
+              Original fare:{" "}
+              <span className="text-white">
+                {formatQuickQuoteAmount(discountBreakdown.calculatedFare)}
+              </span>
+            </p>
+            <p>
+              Discount:{" "}
+              <span className="text-white">
+                {discountBreakdown.discountType === "none"
+                  ? "None"
+                  : discountBreakdown.discountType === "percent"
+                    ? `${discountBreakdown.discountValue}% (−${formatQuickQuoteAmount(discountBreakdown.discountAmount)})`
+                    : `−${formatQuickQuoteAmount(discountBreakdown.discountAmount)}`}
+              </span>
+            </p>
+            <p className="pt-1 text-base font-semibold text-white">
+              Customer price: {formatQuickQuoteAmount(discountBreakdown.customerFare)}
+            </p>
+          </div>
         </section>
       ) : null}
 
@@ -838,7 +1086,7 @@ export default function QuickQuoteOwnerClient() {
         </button>
         <button
           type="button"
-          disabled={busy || fareAmount == null}
+          disabled={busy || calculatedFareAmount == null}
           onClick={() => void generateLink()}
           className="min-h-12 w-full max-w-full rounded-xl bg-white px-4 text-base font-semibold text-navy disabled:opacity-40"
         >

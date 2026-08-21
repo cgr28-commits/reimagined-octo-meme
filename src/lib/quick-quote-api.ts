@@ -1,9 +1,14 @@
 import { resolveWorkerBaseUrl } from "@/lib/worker-api";
-import type { QuickQuoteJourney, QuickQuotePublicSummary } from "../../shared/quick-quote";
+import type {
+  QuickQuoteDiscountType,
+  QuickQuoteJourney,
+  QuickQuotePublicSummary,
+  QuickQuoteVehicleChoice,
+} from "../../shared/quick-quote";
 
 const WORKER_BASE = resolveWorkerBaseUrl();
 
-export type { QuickQuoteJourney, QuickQuotePublicSummary };
+export type { QuickQuoteJourney, QuickQuotePublicSummary, QuickQuoteVehicleChoice, QuickQuoteDiscountType };
 
 export type QuickQuoteCalculateResult =
   | {
@@ -11,6 +16,7 @@ export type QuickQuoteCalculateResult =
       amount: number;
       amountLabel: string;
       vehicleType: string;
+      vehicleChoice?: QuickQuoteVehicleChoice;
       premiumApplied: boolean;
       returnJourney: boolean;
     }
@@ -18,9 +24,20 @@ export type QuickQuoteCalculateResult =
 
 export type QuickQuoteCreateResult = {
   ok: true;
-  quote: QuickQuotePublicSummary;
+  quote: QuickQuotePublicSummary & {
+    calculatedAmount?: number;
+    calculatedAmountLabel?: string;
+    discountType?: QuickQuoteDiscountType;
+    discountValue?: number;
+    discountAmount?: number;
+  };
   bookingUrl: string;
   whatsappReply: string;
+};
+
+export type QuickQuoteDiscountPayload = {
+  discountType?: QuickQuoteDiscountType;
+  discountValue?: number;
 };
 
 async function parseJson(response: Response): Promise<Record<string, unknown>> {
@@ -35,11 +52,20 @@ export async function calculateServerQuote(
     pickupLng?: number;
     dropoffLat?: number;
     dropoffLng?: number;
+    vehicleChoice?: QuickQuoteVehicleChoice;
   },
+  ownerKey?: string,
 ): Promise<QuickQuoteCalculateResult> {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    Accept: "application/json",
+  };
+  if (ownerKey?.trim()) {
+    headers["X-Owner-Key"] = ownerKey.trim();
+  }
   const response = await fetch(`${WORKER_BASE}/quote/calculate`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    headers,
     body: JSON.stringify(journey),
     cache: "no-store",
   });
@@ -63,6 +89,10 @@ export async function calculateServerQuote(
     amount: Number(payload.amount),
     amountLabel: String(payload.amountLabel ?? ""),
     vehicleType: String(payload.vehicleType ?? ""),
+    vehicleChoice:
+      payload.vehicleChoice === "Minibus" || payload.vehicleChoice === "Saloon"
+        ? payload.vehicleChoice
+        : undefined,
     premiumApplied: payload.premiumApplied === true,
     returnJourney: payload.returnJourney === true,
   };
@@ -70,7 +100,14 @@ export async function calculateServerQuote(
 
 export async function createOwnerQuickQuote(
   ownerKey: string,
-  journey: QuickQuoteJourney,
+  journey: QuickQuoteJourney &
+    QuickQuoteDiscountPayload & {
+      vehicleChoice?: QuickQuoteVehicleChoice;
+      pickupLat?: number;
+      pickupLng?: number;
+      dropoffLat?: number;
+      dropoffLng?: number;
+    },
 ): Promise<QuickQuoteCreateResult> {
   const response = await fetch(`${WORKER_BASE}/owner/quick-quotes`, {
     method: "POST",
@@ -91,7 +128,7 @@ export async function createOwnerQuickQuote(
   }
   return {
     ok: true,
-    quote: payload.quote as QuickQuotePublicSummary,
+    quote: payload.quote as QuickQuoteCreateResult["quote"],
     bookingUrl: String(payload.bookingUrl ?? ""),
     whatsappReply: String(payload.whatsappReply ?? ""),
   };

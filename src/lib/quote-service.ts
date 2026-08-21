@@ -9,7 +9,10 @@ import type { TripSchedule } from "./point-to-point-premium";
 import type { TripRouteMetrics } from "./trip-route";
 import { selectVehicleForParty } from "./vehicle-selection";
 import type { VehicleType } from "./data";
-import { INSTANT_QUOTE_MAX_PASSENGERS } from "../../shared/passenger-limits";
+import {
+  INSTANT_QUOTE_MAX_PASSENGERS,
+  MAX_PASSENGERS,
+} from "../../shared/passenger-limits";
 
 export const QUOTE_SERVICE_MAX_PASSENGERS = INSTANT_QUOTE_MAX_PASSENGERS; // 4
 
@@ -33,6 +36,12 @@ export type QuoteServiceInput = {
   routeMetrics?: TripRouteMetrics | null;
   /** Optional override — normally derived from passengers/suitcases. */
   vehicleType?: VehicleType;
+  /**
+   * Override passenger ceiling (default = instant quote band of 4).
+   * Owner/Driver Quick Quote Minibus may pass up to MAX_PASSENGERS (7).
+   * Public Live Quote must keep the default.
+   */
+  maxPassengers?: number;
 };
 
 export type QuoteServiceSuccess = {
@@ -88,11 +97,22 @@ export function calculateAuthoritativeWebsiteQuote(
     };
   }
 
-  if (passengers > QUOTE_SERVICE_MAX_PASSENGERS) {
+  const maxPassengers = Math.min(
+    MAX_PASSENGERS,
+    Math.max(
+      QUOTE_SERVICE_MAX_PASSENGERS,
+      Math.floor(Number(input.maxPassengers) || QUOTE_SERVICE_MAX_PASSENGERS),
+    ),
+  );
+
+  if (passengers > maxPassengers) {
     return {
       ok: false,
       reason: "passenger_limit",
-      message: `Online quotes are limited to ${QUOTE_SERVICE_MAX_PASSENGERS} passengers. Please speak to Colin for larger parties.`,
+      message:
+        maxPassengers > QUOTE_SERVICE_MAX_PASSENGERS
+          ? `Quotes are limited to ${maxPassengers} passengers.`
+          : `Online quotes are limited to ${QUOTE_SERVICE_MAX_PASSENGERS} passengers. Please speak to Colin for larger parties.`,
     };
   }
 
