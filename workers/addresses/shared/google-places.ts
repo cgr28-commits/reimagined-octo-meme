@@ -934,6 +934,21 @@ export const ALLOWED_ORIGINS = [
  */
 export const PREVIEW_PAGES_PROJECT_HOST = "my-airport-taxi-ni-preview.pages.dev";
 
+/** Vercel project slug — production + git/PR preview hosts share this prefix. */
+export const VERCEL_PROJECT_HOST_PREFIX = "my-airport-taxi-ni-quote";
+
+/**
+ * Allow this project's Vercel production host and PR/branch preview hosts only.
+ * Example preview: my-airport-taxi-ni-quote-git-cursor-owner-dashbo-….vercel.app
+ * Does not open CORS to arbitrary *.vercel.app apps.
+ */
+export function isVercelProjectPreviewHost(hostname: string): boolean {
+  const host = hostname.trim().toLowerCase();
+  if (!host.endsWith(".vercel.app")) return false;
+  if (host === `${VERCEL_PROJECT_HOST_PREFIX}.vercel.app`) return true;
+  return host.startsWith(`${VERCEL_PROJECT_HOST_PREFIX}-`);
+}
+
 export function isAllowedBrowserOrigin(origin: string | null | undefined): boolean {
   if (!origin) return false;
   if (ALLOWED_ORIGINS.includes(origin)) return true;
@@ -941,10 +956,13 @@ export function isAllowedBrowserOrigin(origin: string | null | undefined): boole
     const url = new URL(origin);
     if (url.protocol !== "https:") return false;
     const host = url.hostname.toLowerCase();
-    return (
+    if (
       host === PREVIEW_PAGES_PROJECT_HOST ||
       host.endsWith(`.${PREVIEW_PAGES_PROJECT_HOST}`)
-    );
+    ) {
+      return true;
+    }
+    return isVercelProjectPreviewHost(host);
   } catch {
     return false;
   }

@@ -4,7 +4,7 @@
  * Run: npx tsx scripts/check-owner-dashboard-layout.ts
  */
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 const root = process.cwd();
@@ -67,4 +67,22 @@ console.log("\n=== 2. Jobs section order: Upcoming → Refunds Pending → Compl
   console.log("OK  section order + test exclusion + no flight UI");
 }
 
+console.log("\n=== 3. Preview /owner/ routing (Vercel SSO root fix) ===");
+{
+  const nextConfig = read("next.config.ts");
+  assert.match(nextConfig, /owner-dashboard-layout-refunds/);
+  assert.match(nextConfig, /destination:\s*"\/owner\/"/);
+  assert.match(nextConfig, /VERCEL_ENV/);
+  assert.match(nextConfig, /isGithubPages \|\| !isOwnerLayoutRefundsPreview/);
+  assert.ok(
+    existsSync(join(root, "src/app/owner/page.tsx")),
+    "/owner/ page must exist",
+  );
+  const ownerPage = read("src/app/owner/page.tsx");
+  assert.match(ownerPage, /portal="owner"/);
+  assert.match(ownerPage, /DriverPageClient/);
+  console.log("OK  preview root → /owner/ · owner page renders portal=owner");
+}
+
 console.log("\nAll owner dashboard layout checks passed.");
+
