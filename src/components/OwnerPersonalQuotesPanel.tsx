@@ -16,7 +16,7 @@ import {
   placeDisplayText,
   type SelectedPlace,
 } from "@/lib/selected-place";
-import { fetchTripRouteMetrics } from "@/lib/trip-route";
+import { resolveTripRouteMetricsForAddresses } from "@/lib/route-point-resolver";
 import { selectVehicleForParty } from "@/lib/vehicle-selection";
 import { calculateWebsiteOneWayFare } from "@/lib/website-fare";
 import {
@@ -142,22 +142,16 @@ export default function OwnerPersonalQuotesPanel({ ownerKey }: OwnerPersonalQuot
         throw new Error("Enter pickup and destination, then calculate the website price.");
       }
 
-      let routeMetrics = null;
-      if (
-        isPlaceSelected(pickupPlace) &&
-        isPlaceSelected(dropoffPlace) &&
-        typeof pickupPlace.lat === "number" &&
-        typeof pickupPlace.lng === "number" &&
-        typeof dropoffPlace.lat === "number" &&
-        typeof dropoffPlace.lng === "number"
-      ) {
-        routeMetrics = await fetchTripRouteMetrics(
-          pickupPlace.lat,
-          pickupPlace.lng,
-          dropoffPlace.lat,
-          dropoffPlace.lng,
-        );
-      }
+      // Resolve route metrics the SAME way the public site does (TripMap), even
+      // when a selected address has no lat/lng yet (e.g. a GetAddress.io /
+      // Ideal Postcodes premises pick). Without this, journeys that rely on
+      // `applyBelfastAirportDistanceFloor` (BFS/BHD long-distance floor) or the
+      // >100km distance-protection override would silently price lower than
+      // the public Live Quote for the identical journey.
+      const routeMetrics = await resolveTripRouteMetricsForAddresses(
+        { address: pickup, lat: pickupPlace.lat, lng: pickupPlace.lng },
+        { address: dropoff, lat: dropoffPlace.lat, lng: dropoffPlace.lng },
+      );
 
       const quote = calculateWebsiteOneWayFare({
         pickupAddress: pickup,
