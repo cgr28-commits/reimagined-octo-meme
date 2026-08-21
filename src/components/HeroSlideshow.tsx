@@ -35,22 +35,7 @@ export default function HeroSlideshow() {
             Northern Ireland and the Republic of Ireland.
           </p>
 
-          <div className="mt-8 flex flex-wrap items-center gap-4 lg:mt-7 lg:gap-4">
-            <a
-              href="#quote"
-              className="rounded-full bg-emerald px-8 py-3.5 text-sm font-bold text-navy shadow-lg shadow-emerald/25 transition-all hover:bg-emerald-light hover:shadow-emerald/40"
-            >
-              Get a Fixed Quote
-            </a>
-            <a
-              href="#quote"
-              className="rounded-full border border-white/20 px-8 py-3.5 text-sm font-semibold text-white transition-all hover:border-emerald/50 hover:bg-white/5"
-            >
-              Book Your Transfer
-            </a>
-          </div>
-
-          <div className="mt-10 flex flex-wrap gap-x-6 gap-y-3 text-sm text-white/65 lg:mt-8 lg:grid lg:grid-cols-2 lg:gap-x-7 lg:gap-y-2.5">
+          <div className="mt-6 flex flex-wrap gap-x-6 gap-y-3 text-sm text-white/65 lg:mt-5 lg:grid lg:grid-cols-2 lg:gap-x-7 lg:gap-y-2.5">
             <div className="flex items-center gap-2">
               <svg className="h-5 w-5 shrink-0 text-emerald" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
