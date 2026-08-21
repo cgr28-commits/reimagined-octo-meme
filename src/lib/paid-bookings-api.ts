@@ -57,6 +57,8 @@ export type OwnerPaidBookingSummary = Pick<
   reviewRequest?: OwnerReviewRequestSummary;
   flightNumber?: string;
   returnFlightNumber?: string;
+  airportCode?: string;
+  isFromAirport?: boolean;
   passengers?: number;
   suitcases?: number;
   childSeats?: number;
@@ -78,6 +80,10 @@ export type OwnerPaidBookingSummary = Pick<
   nextUnfinishedLegDate?: string;
   nextUnfinishedLegTime?: string;
   editHistory?: PaidBookingRecord["editHistory"];
+  /** Owner-only £1 refund smoke-test — never show in operational lists. */
+  isRefundTest?: boolean;
+  /** Same-fare amendment fixture — never show in operational lists. */
+  isAmendmentTestFixture?: boolean;
 };
 
 export type OwnerPendingCheckoutSummary = {
@@ -608,4 +614,32 @@ export async function sendUpdatedBookingConfirmation(
       ? {}
       : { error: String(payload.error ?? "Updated confirmation was not sent") }),
   };
+}
+
+export type OwnerFinancialSummaryResponse = {
+  ok: boolean;
+  asOfDay: string;
+  week: import("../../shared/owner-financial-summary").OwnerFinancialBucket;
+  month: import("../../shared/owner-financial-summary").OwnerFinancialBucket;
+  year: import("../../shared/owner-financial-summary").OwnerFinancialBucket;
+  refunds: import("../../shared/owner-financial-summary").OwnerFinancialBucket;
+  scanned?: number;
+  error?: string;
+};
+
+/** Owner financial totals from payment/refund records (not visible job cards). */
+export async function fetchOwnerFinancialSummary(
+  ownerKey: string,
+): Promise<OwnerFinancialSummaryResponse> {
+  const response = await fetch(`${WORKER_BASE}/paid-bookings/financial-summary`, {
+    headers: {
+      Accept: "application/json",
+      "X-Owner-Key": ownerKey.trim(),
+    },
+  });
+  const payload = await parseJson(response);
+  if (!response.ok) {
+    throw new Error(String(payload.error ?? "Failed to load financial summary"));
+  }
+  return payload as unknown as OwnerFinancialSummaryResponse;
 }

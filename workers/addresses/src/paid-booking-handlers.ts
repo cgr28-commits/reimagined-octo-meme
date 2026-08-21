@@ -14,6 +14,7 @@ import {
   getPaidBookingRecord,
   listUpcomingPaidBookings,
   listRecentPaidBookings,
+  listPaidBookingsCreatedSince,
   paidBookingStoreConfigured,
   updatePaidBookingFields,
 } from "./paid-booking-store";
@@ -22,6 +23,11 @@ import {
   resolveAssignedDriverLabel,
 } from "../shared/paid-booking-record";
 import { resolveOperationalStatus } from "../shared/refund-ops";
+import { isOwnerOperationalTestBooking, londonYmd } from "../shared/upcoming-jobs";
+import {
+  buildOwnerFinancialSummary,
+  londonYearRangeContaining,
+} from "../shared/owner-financial-summary";
 import {
   findTrackingJobByPaymentReference,
   findTrackingJobsByPaymentReference,
@@ -80,6 +86,8 @@ function syntheticPaidBookingFromTrackingJob(job: TrackingJobRecord): PaidBookin
   const paymentReference = job.paymentReference?.trim();
   if (!paymentReference) return null;
   if (job.refundedAt) return null;
+  // Never invent operational rows for tagged owner/test payment refs.
+  if (isOwnerOperationalTestBooking({ paymentReference })) return null;
 
   return {
     paymentReference,
@@ -196,9 +204,12 @@ export async function handlePaidBookingsListRequest(
       if (job.refundedAt) continue;
       const paymentReference = job.paymentReference?.trim();
       if (!paymentReference || byRef.has(paymentReference)) continue;
+      // Isolation decoys / tagged test refs never enter the operational list via merge.
+      if (isOwnerOperationalTestBooking({ paymentReference })) continue;
 
       const paid = await getPaidBookingRecord(store, paymentReference);
       if (paid) {
+        if (isOwnerOperationalTestBooking(paid)) continue;
         byRef.set(paymentReference, paid);
         continue;
       }
@@ -211,11 +222,15 @@ export async function handlePaidBookingsListRequest(
     }
 
     bookings = [...byRef.values()]
+      .filter((record) => !isOwnerOperationalTestBooking(record))
       .sort((a, b) =>
         `${a.tripDate}T${a.tripTime}`.localeCompare(`${b.tripDate}T${b.tripTime}`),
       )
       .slice(0, Number.isFinite(limit) ? limit : 100);
   }
+
+  // Defence in depth: never return owner/test fixtures on the normal list endpoint.
+  bookings = bookings.filter((record) => !isOwnerOperationalTestBooking(record));
 
   const enriched = await Promise.all(
     bookings.map(async (booking) => {
@@ -301,23 +316,44 @@ export async function handlePaidBookingsListRequest(
         job = outboundJob;
       }
 
-      let nextUnfinishedLegDate = booking.tripDate;
-      let nextUnfinishedLegTime = booking.tripTime;
+      let nextUnfinishedLegDate: string | undefined = booking.tripDate;
+      let nextUnfinishedLegTime: string | undefined = booking.tripTime;
       if (booking.returnJourney) {
-        if (outboundJourneyStatus === "completed") {
+        const outboundDone = outboundJourneyStatus === "completed";
+        const returnDone = returnJourneyStatus === "completed";
+        if (outboundDone && returnDone) {
+          // Fully finished — do not advertise a fake "next" unfinished leg.
+          nextUnfinishedLegDate = undefined;
+          nextUnfinishedLegTime = undefined;
+        } else if (outboundDone) {
           nextUnfinishedLegDate = booking.returnDate ?? booking.tripDate;
           nextUnfinishedLegTime = booking.returnTime ?? booking.tripTime;
         } else {
           nextUnfinishedLegDate = booking.tripDate;
           nextUnfinishedLegTime = booking.tripTime;
         }
+      } else if (
+        outboundJourneyStatus === "completed" ||
+        (job && journeyStatusOf(job) === "completed")
+      ) {
+        nextUnfinishedLegDate = undefined;
+        nextUnfinishedLegTime = undefined;
+      }
+
+      // Prefer the latest real journeyCompletedAt across linked legs (return finishes later).
+      const completionCandidates = [outboundJob, returnJob, job]
+        .map((entry) => entry?.journeyCompletedAt?.trim())
+        .filter((value): value is string => Boolean(value))
+        .sort();
+      if (completionCandidates.length > 0) {
+        journeyCompletedAt = completionCandidates[completionCandidates.length - 1];
       }
 
       if (job) {
         trackingToken = job.token;
         sharingActive = Boolean(job.sharingActive);
         journeyStatus = journeyStatusOf(job);
-        journeyCompletedAt = job.journeyCompletedAt;
+        if (!journeyCompletedAt) journeyCompletedAt = job.journeyCompletedAt;
         driverUpdatedAt = job.driverUpdatedAt;
         trackUrl = buildPublicTrackUrl(job.token);
         reviewRequest = buildReviewRequestSummary(job);
@@ -329,6 +365,29 @@ export async function handlePaidBookingsListRequest(
         arrivalNotificationProvider = job.arrivalNotificationProvider;
         arrivalNotificationError = job.arrivalNotificationError;
         if (!flightNumber && job.flightNumber) flightNumber = job.flightNumber;
+      }
+
+      // Pamela Brown–class repair at the API boundary: if the return tracking job is
+      // missing so returnJourneyStatus never becomes "completed", but outbound is done,
+      // the active journey is completed, and the return pickup day is already past —
+      // treat the booking as fully completed and stop advertising a next unfinished leg.
+      const todayYmd = londonYmdNow();
+      const returnDateYmd = booking.returnDate?.trim() ?? "";
+      const returnDayPast =
+        Boolean(booking.returnJourney) &&
+        /^\d{4}-\d{2}-\d{2}$/.test(returnDateYmd) &&
+        returnDateYmd < todayYmd;
+      let resolvedAllLegsCompleted = allLegsCompleted;
+      if (
+        booking.returnJourney &&
+        !resolvedAllLegsCompleted &&
+        outboundJourneyStatus === "completed" &&
+        (journeyStatus === "completed" || Boolean(journeyCompletedAt?.trim())) &&
+        returnDayPast
+      ) {
+        resolvedAllLegsCompleted = true;
+        nextUnfinishedLegDate = undefined;
+        nextUnfinishedLegTime = undefined;
       }
 
       return {
@@ -364,6 +423,11 @@ export async function handlePaidBookingsListRequest(
         returnTime: booking.returnTime,
         flightNumber,
         returnFlightNumber,
+        airportCode: booking.airportCode || undefined,
+        isFromAirport:
+          typeof booking.isFromAirport === "boolean"
+            ? booking.isFromAirport
+            : undefined,
         passengers,
         suitcases,
         childSeats,
@@ -387,10 +451,13 @@ export async function handlePaidBookingsListRequest(
         arrivalNotificationError,
         outboundJourneyStatus,
         returnJourneyStatus,
-        allLegsCompleted,
+        allLegsCompleted: resolvedAllLegsCompleted,
         nextUnfinishedLegDate,
         nextUnfinishedLegTime,
         editHistory,
+        isRefundTest: booking.isRefundTest === true ? true : undefined,
+        isAmendmentTestFixture:
+          booking.isAmendmentTestFixture === true ? true : undefined,
         ...(reviewRequest ? { reviewRequest } : {}),
       };
     }),
@@ -666,6 +733,72 @@ export async function handleFinalizeCheckoutRequest(
 
 export function isPaidBookingsListPath(pathname: string): boolean {
   return pathname === "/paid-bookings" || pathname === "/api/paid-bookings";
+}
+
+export function isPaidBookingsFinancialSummaryPath(pathname: string): boolean {
+  return (
+    pathname === "/paid-bookings/financial-summary" ||
+    pathname === "/api/paid-bookings/financial-summary"
+  );
+}
+
+/**
+ * Owner financial totals from genuine paid-booking payment/refund records.
+ * Independent of which journey cards are visible on the dashboard.
+ */
+export async function handlePaidBookingsFinancialSummaryRequest(
+  request: Request,
+  env: Env,
+  origin: string | null,
+): Promise<Response> {
+  if (request.method !== "GET") {
+    return jsonResponse({ error: "Method not allowed" }, 405, origin);
+  }
+
+  if (!ownerAuthorized(request, env)) {
+    return jsonResponse(
+      { error: "Unauthorized — financial summary requires OWNER_ACCESS_KEY." },
+      401,
+      origin,
+    );
+  }
+
+  if (!paidBookingStoreConfigured(env.TRACKING_STORE)) {
+    return jsonResponse({ error: "Booking store is not configured." }, 503, origin);
+  }
+
+  const today = londonYmd();
+  const yearRange = londonYearRangeContaining(today);
+  // KV records TTL ~400 days — scan that window so refunds on older payments still appear.
+  const scanFrom = addDaysYmd(today, -400);
+  const records = await listPaidBookingsCreatedSince(env.TRACKING_STORE, scanFrom, {
+    limit: 800,
+  });
+
+  const byRef = new Map<string, (typeof records)[number]>();
+  for (const record of records) {
+    if (!record.paymentReference?.trim()) continue;
+    if (isOwnerOperationalTestBooking(record)) continue;
+    byRef.set(record.paymentReference, record);
+  }
+
+  const summary = buildOwnerFinancialSummary([...byRef.values()], new Date());
+
+  return jsonResponse(
+    {
+      ok: true,
+      asOfDay: summary.asOfDay,
+      week: summary.week,
+      month: summary.month,
+      year: summary.year,
+      refunds: summary.refunds,
+      scanned: byRef.size,
+      scanFrom,
+      yearFrom: yearRange.fromDay,
+    },
+    200,
+    origin,
+  );
 }
 
 export function isPaidBookingResendPath(pathname: string): boolean {

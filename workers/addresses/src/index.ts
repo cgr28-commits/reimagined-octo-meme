@@ -226,11 +226,13 @@ import {
 import {
   handleFinalizeCheckoutRequest,
   handlePaidBookingResendRequest,
+  handlePaidBookingsFinancialSummaryRequest,
   handlePaidBookingsListRequest,
   handlePendingCheckoutsListRequest,
   isFinalizeCheckoutPath,
   isPaidBookingEditPath,
   isPaidBookingResendPath,
+  isPaidBookingsFinancialSummaryPath,
   isPaidBookingsListPath,
   isPaidBookingUpdatedConfirmationPath,
   isPendingCheckoutsListPath,
@@ -471,6 +473,7 @@ function routePath(
   | "paid-bookings-refund-test-ensure-tracking"
   | "paid-bookings-amendment-test-seed"
   | "paid-bookings-amendment-test-list"
+  | "paid-bookings-financial-summary"
   | "paid-bookings"
   | "paid-bookings-resend"
   | "paid-bookings-edit"
@@ -571,6 +574,10 @@ function routePath(
 
   if (isPendingCheckoutsListPath(pathname)) {
     return "paid-bookings-pending";
+  }
+
+  if (isPaidBookingsFinancialSummaryPath(pathname)) {
+    return "paid-bookings-financial-summary";
   }
 
   if (isPaidBookingsListPath(pathname)) {
@@ -2677,6 +2684,10 @@ export default {
     }
     if (route === "paid-bookings-amendment-test-list") {
       return handleAmendmentTestListRequest(request, env, origin);
+    }
+
+    if (route === "paid-bookings-financial-summary") {
+      return handlePaidBookingsFinancialSummaryRequest(request, env, origin);
     }
 
     if (route === "paid-bookings") {

@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef, useState, type Ref } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type Ref } from "react";
 import { createPortal } from "react-dom";
 import AddressInput from "@/components/AddressInput";
 import { playBotOpenSound, playBotReplySound, playBotWorkingSound } from "@/lib/bot-sounds";
@@ -27,6 +27,45 @@ import { scheduleQuoteLeadAlert } from "@/lib/submit-quote-lead";
 
 const BOT_WORKING_MS = 450;
 const SESSION_KEY = "matni-quote-assistant-v1";
+const HELP_BTN_PX = 50;
+const HELP_EDGE_PX = 22;
+const HELP_QUOTE_PAD_PX = 12;
+
+type HelpCorner = "bottom-right" | "bottom-left";
+
+function rectsOverlap(
+  a: { left: number; top: number; right: number; bottom: number },
+  b: DOMRect,
+  pad: number,
+): boolean {
+  return !(
+    a.right < b.left - pad ||
+    a.left > b.right + pad ||
+    a.bottom < b.top - pad ||
+    a.top > b.bottom + pad
+  );
+}
+
+function chooseHelpCorner(quote: DOMRect | null, vw: number, vh: number): HelpCorner {
+  const edge = HELP_EDGE_PX;
+  const size = HELP_BTN_PX;
+  const br = {
+    left: vw - edge - size,
+    top: vh - edge - size,
+    right: vw - edge,
+    bottom: vh - edge,
+  };
+  if (!quote || !rectsOverlap(br, quote, HELP_QUOTE_PAD_PX)) return "bottom-right";
+  const bl = {
+    left: edge,
+    top: vh - edge - size,
+    right: edge + size,
+    bottom: vh - edge,
+  };
+  if (!rectsOverlap(bl, quote, HELP_QUOTE_PAD_PX)) return "bottom-left";
+  // Prefer bottom-right visibility; Live Quote must not be moved for clearance.
+  return "bottom-right";
+}
 
 type PersistedChat = {
   messages: AssistantMessage[];
@@ -130,6 +169,7 @@ export default function QuoteAssistant() {
   const [addressValue, setAddressValue] = useState("");
   const [mounted, setMounted] = useState(false);
   const [consecutiveMisses, setConsecutiveMisses] = useState(0);
+  const [helpCorner, setHelpCorner] = useState<HelpCorner>("bottom-right");
   const launcherRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -248,6 +288,35 @@ export default function QuoteAssistant() {
       window.dispatchEvent(new Event("matni-chat-open-change"));
     };
   }, [open]);
+
+  /** Keep the “?” fixed to the viewport; prefer BR, fall back to BL if it covers #quote. */
+  useLayoutEffect(() => {
+    if (!mounted || isMobile !== false) return;
+
+    function syncCorner() {
+      if (open) {
+        setHelpCorner("bottom-right");
+        return;
+      }
+      const quote = document.getElementById("quote")?.getBoundingClientRect() ?? null;
+      setHelpCorner(chooseHelpCorner(quote, window.innerWidth, window.innerHeight));
+    }
+
+    syncCorner();
+    window.addEventListener("resize", syncCorner);
+    window.addEventListener("scroll", syncCorner, { passive: true });
+    const quoteEl = document.getElementById("quote");
+    const ro =
+      quoteEl && typeof ResizeObserver !== "undefined"
+        ? new ResizeObserver(() => syncCorner())
+        : null;
+    if (quoteEl && ro) ro.observe(quoteEl);
+    return () => {
+      window.removeEventListener("resize", syncCorner);
+      window.removeEventListener("scroll", syncCorner);
+      ro?.disconnect();
+    };
+  }, [mounted, open, isMobile, pathname]);
 
   // Keep the page from sliding sideways while the chat is open.
   useEffect(() => {
@@ -482,59 +551,57 @@ export default function QuoteAssistant() {
     }
   }
 
+  const helpEdgeY = `max(${HELP_EDGE_PX}px, env(safe-area-inset-bottom, 0px))`;
+  const helpEdgeRight = `max(${HELP_EDGE_PX}px, env(safe-area-inset-right, 0px))`;
+  const helpEdgeLeft = `max(${HELP_EDGE_PX}px, env(safe-area-inset-left, 0px))`;
+  const launcherStyle: CSSProperties =
+    helpCorner === "bottom-left"
+      ? {
+          position: "fixed",
+          zIndex: 60,
+          bottom: helpEdgeY,
+          left: helpEdgeLeft,
+          right: "auto",
+          top: "auto",
+        }
+      : {
+          position: "fixed",
+          zIndex: 60,
+          bottom: helpEdgeY,
+          right: helpEdgeRight,
+          left: "auto",
+          top: "auto",
+        };
+
   const ui = (
     <>
+      {/* Desktop-only round “?” — never a Help pill; mobile uses WhatsApp FAB instead. */}
       <button
         ref={launcherRef}
         type="button"
+        data-matni-help-launcher="true"
+        data-matni-help-corner={helpCorner}
         onClick={toggleOpen}
-        className={`fixed bottom-6 right-3 z-[60] flex max-w-[calc(100%-1.5rem)] items-center border-2 border-emerald bg-navy shadow-lg shadow-emerald/30 transition-all hover:bg-navy-light sm:bottom-8 sm:right-8 ${
-          open
-            ? "h-14 w-14 justify-center rounded-full sm:h-16 sm:w-16"
-            : "gap-2 rounded-2xl py-2 pl-2 pr-3 sm:gap-3 sm:py-2.5 sm:pl-2.5 sm:pr-4"
-        }`}
-        aria-label={open ? "Close chat" : "Can I help? — get quotes and help"}
+        style={launcherStyle}
+        className="matni-help-launcher flex h-[50px] w-[50px] shrink-0 items-center justify-center rounded-full border border-emerald bg-navy text-white shadow-lg shadow-black/35 transition-colors hover:bg-navy-light"
+        aria-label={open ? "Close help" : "Help"}
         aria-expanded={open}
       >
         {open ? (
-          <svg className="h-6 w-6 text-emerald" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden>
+          <svg className="h-5 w-5 text-emerald" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden>
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 6l12 12M18 6L6 18" />
           </svg>
         ) : (
-          <>
-            <span className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-navy-dark sm:h-12 sm:w-12">
-              <Image
-                src={withBasePath("/logo.png")}
-                alt=""
-                width={48}
-                height={48}
-                className="h-full w-full object-contain p-1"
-              />
-              <span
-                className="absolute right-0 top-0 flex h-3.5 w-3.5 items-center justify-center rounded-md bg-emerald text-navy"
-                aria-hidden
-              >
-                <svg className="h-2.5 w-2.5" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z" />
-                </svg>
-              </span>
-            </span>
-            <span className="min-w-0 max-w-[9.5rem] text-left sm:max-w-none">
-              <span className="block truncate text-sm font-bold leading-tight text-white sm:text-base">
-                Can I help ?
-              </span>
-              <span className="block truncate text-[11px] font-medium leading-tight text-emerald sm:text-xs">
-                Quotes · help · contact
-              </span>
-            </span>
-          </>
+          <span className="select-none text-[1.75rem] font-light leading-none text-white" aria-hidden>
+            ?
+          </span>
         )}
       </button>
 
       {open ? (
         <div
           ref={panelRef}
-          className="fixed bottom-24 left-3 right-3 z-[60] box-border flex h-[min(78dvh,36rem)] max-h-[min(78dvh,36rem)] w-auto min-w-0 max-w-[calc(100vw-1.5rem)] touch-pan-y flex-col overflow-hidden overscroll-x-none rounded-2xl border border-white/15 bg-navy-dark shadow-2xl sm:bottom-28 sm:left-auto sm:right-8 sm:w-[24rem] sm:max-w-[min(24rem,calc(100%-4rem))]"
+          className="fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom,0px))] left-3 right-3 z-[60] box-border flex h-[min(78dvh,36rem)] max-h-[min(78dvh,36rem)] w-auto min-w-0 max-w-[calc(100vw-1.5rem)] touch-pan-y flex-col overflow-hidden overscroll-x-none rounded-2xl border border-white/15 bg-navy-dark shadow-2xl sm:left-auto sm:right-[max(1.25rem,env(safe-area-inset-right))] sm:w-[24rem] sm:max-w-[min(24rem,calc(100%-2.75rem))]"
         >
           <div className="flex min-w-0 items-start justify-between gap-3 border-b border-white/10 bg-navy px-4 py-3">
             <div className="flex min-w-0 items-center gap-3">
@@ -548,7 +615,7 @@ export default function QuoteAssistant() {
                 />
               </div>
               <div className="min-w-0">
-                <p className="truncate text-sm font-bold text-white">Can I help ?</p>
+                <p className="truncate text-sm font-bold text-white">Help</p>
                 <p className="truncate text-xs text-white/55">Quotes · help · contact</p>
               </div>
             </div>
@@ -757,8 +824,9 @@ export default function QuoteAssistant() {
   );
 
   if (!mounted) return null;
-  // Mobile uses a floating WhatsApp button instead — the chat panel covers the quote form.
-  if (isMobile === true) return null;
+  // Desktop/tablet only (≥768px). Mobile uses the floating WhatsApp FAB instead.
+  // Require isMobile === false so neither control flashes before the breakpoint resolves.
+  if (isMobile !== false) return null;
   // Owner/admin/driver dashboards — keep the public quote assistant off private ops screens.
   if (shouldHidePublicSalesWidgets(pathname)) return null;
   return createPortal(ui, document.body);

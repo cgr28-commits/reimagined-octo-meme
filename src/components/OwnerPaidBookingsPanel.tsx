@@ -4,14 +4,19 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   assignedDriverDisplay,
   formatDisplayTripDate,
+  groupCompletedBookingsByDay,
   isCompletedWorkBooking,
+  isOwnerOperationalTestBooking,
   isUpcomingWorkBooking,
   journeyStatusLabel,
   nextUnfinishedSortKey,
+  ownerUpcomingPrimaryJourneyActions,
   relevantUpcomingJourneyDate,
   relevantUpcomingJourneyTime,
+  resolveCompletionTimestamp,
   upcomingBucketForTripDate,
 } from "../../shared/upcoming-jobs";
+import { JOURNEY_ACTION_LABELS } from "@/lib/tracking-api";
 import {
   activeLegPickupLabel,
   buildArrivedPickupWhatsAppLink,
@@ -39,6 +44,7 @@ import {
   type TrackingDiagnosticReport,
 } from "@/lib/paid-bookings-api";
 import type { RefundIssueResponse } from "@/lib/refund-api";
+import { markBookingRefundedExternally } from "@/lib/refund-api";
 import {
   ensurePaidBookingTracking,
   fetchDriverVehicle,
@@ -48,6 +54,7 @@ import {
   type JourneyAction,
 } from "@/lib/tracking-api";
 import {
+  canMarkExternalRefund,
   isOperationallyCancelled,
   remainingRefundableBalance,
   roundGbp,
@@ -228,14 +235,13 @@ function sortByTripDateTime(a: OwnerPaidBookingSummary, b: OwnerPaidBookingSumma
   return nextUnfinishedSortKey(a).localeCompare(nextUnfinishedSortKey(b));
 }
 
-function sortCompletedByTripDateTime(
+function sortCompletedByCompletionTime(
   a: OwnerPaidBookingSummary,
   b: OwnerPaidBookingSummary,
 ): number {
-  // Newest completed / paid trip first for history browsing.
-  const aKey = `${a.returnDate || a.tripDate || ""}T${a.returnTime || a.tripTime || ""}`;
-  const bKey = `${b.returnDate || b.tripDate || ""}T${b.returnTime || b.tripTime || ""}`;
-  return bKey.localeCompare(aKey);
+  const aAt = resolveCompletionTimestamp(a)?.at || "";
+  const bAt = resolveCompletionTimestamp(b)?.at || "";
+  return bAt.localeCompare(aAt);
 }
 
 function PaidBookingLiveTracking({
@@ -858,6 +864,7 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
   const [offerUpdatedConfirmationRef, setOfferUpdatedConfirmationRef] = useState<string | null>(null);
   const [fareAdjustMessage, setFareAdjustMessage] = useState("");
   const [refundConfirmRef, setRefundConfirmRef] = useState<string | null>(null);
+  const [externalRefundConfirmRef, setExternalRefundConfirmRef] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -866,9 +873,9 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
       const [nextBookings, nextPending] = await Promise.all([
         fetchOwnerPaidBookings(ownerKey, {
           mode: "upcoming",
-          pastDays: 2,
+          pastDays: 60,
           futureDays: 90,
-          limit: 100,
+          limit: 200,
         }),
         fetchOwnerPendingCheckouts(ownerKey, { limit: 40 }).catch(
           () => [] as OwnerPendingCheckoutSummary[],
@@ -887,14 +894,45 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
     void load();
   }, [load]);
 
-  const upcomingJobs = useMemo(
-    () => bookings.filter(isUpcomingWorkBooking).slice().sort(sortByTripDateTime),
+  const operationalBookings = useMemo(
+    () => bookings.filter((booking) => !isOwnerOperationalTestBooking(booking)),
     [bookings],
   );
 
+  const upcomingJobs = useMemo(
+    () =>
+      operationalBookings
+        .filter((booking) => isUpcomingWorkBooking(booking))
+        .slice()
+        .sort(sortByTripDateTime),
+    [operationalBookings],
+  );
+
   const completedRecent = useMemo(
-    () => bookings.filter(isCompletedWorkBooking).slice().sort(sortCompletedByTripDateTime),
-    [bookings],
+    () =>
+      operationalBookings
+        .filter(isCompletedWorkBooking)
+        .slice()
+        .sort(sortCompletedByCompletionTime),
+    [operationalBookings],
+  );
+
+  const completedDayGroups = useMemo(
+    () => groupCompletedBookingsByDay(completedRecent),
+    [completedRecent],
+  );
+
+  /** Compact ops list: money still owed back / retry-required refunds. */
+  const refundsPending = useMemo(
+    () =>
+      operationalBookings
+        .filter(
+          (booking) =>
+            typeof booking.refundDueAmount === "number" && booking.refundDueAmount > 0,
+        )
+        .slice()
+        .sort(sortByTripDateTime),
+    [operationalBookings],
   );
 
   const upcomingGroups = useMemo(() => {
@@ -905,10 +943,10 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
       const bucket = upcomingBucketForTripDate(relevantUpcomingJourneyDate(booking));
       if (bucket === "tomorrow") tomorrow.push(booking);
       else if (bucket === "later") later.push(booking);
-      else today.push(booking); // today + past incomplete still need attention
+      else today.push(booking);
     }
     return [
-      { key: "today", title: "Today / needs attention", items: today },
+      { key: "today", title: "Today", items: today },
       { key: "tomorrow", title: "Tomorrow", items: tomorrow },
       { key: "later", title: "Later", items: later },
     ] as const;
@@ -1214,17 +1252,25 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
     booking: OwnerPaidBookingSummary,
   ) {
     setRefundConfirmRef(null);
+    setExternalRefundConfirmRef(null);
     setBookings((current) =>
       current.map((entry) =>
         entry.paymentReference === booking.paymentReference
           ? {
               ...entry,
               status: (result.status as OwnerPaidBookingSummary["status"]) || entry.status,
+              operationalStatus:
+                (result.operationalStatus as OwnerPaidBookingSummary["operationalStatus"]) ||
+                entry.operationalStatus,
+              paymentStatus:
+                (result.paymentStatus as OwnerPaidBookingSummary["paymentStatus"]) ||
+                entry.paymentStatus,
               amountRefunded:
                 typeof result.cumulativeRefunded === "number"
                   ? result.cumulativeRefunded
                   : entry.amountRefunded,
               sharingActive: result.cancelBooking ? false : entry.sharingActive,
+              journeyStatus: result.cancelBooking ? "completed" : entry.journeyStatus,
             }
           : entry,
       ),
@@ -1234,16 +1280,43 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
         ? "Already processed (idempotent)"
         : result.alreadyRefunded
           ? "Already fully refunded"
-          : "Action completed",
-      result.refundAmountValue && result.refundAmountValue > 0
+          : result.sumUpRefunded === false && (result.refundAmountValue ?? 0) > 0
+            ? "Marked refunded externally (no SumUp call)"
+            : "Action completed",
+      result.refundAmountValue && result.refundAmountValue > 0 && result.sumUpRefunded
         ? `refund ${result.refundAmount}`
-        : "no SumUp refund",
-      result.cancelBooking ? "booking cancelled" : "booking remains active",
-      result.customerEmailSent ? "customer email sent" : null,
+        : result.sumUpRefunded === false
+          ? "no SumUp / payment API"
+          : "no SumUp refund",
+      result.cancelBooking ? "booking cancelled · journey closed" : "booking remains active",
+      result.customerEmailSent ? "customer email sent" : "no customer refund email",
       result.ownerEmailSent ? "owner email sent" : null,
     ].filter(Boolean);
     setMessage(`${booking.paymentReference}: ${bits.join(" · ")}`);
     await load();
+  }
+
+  async function handleMarkExternalRefund(booking: OwnerPaidBookingSummary) {
+    setBusyRef(booking.paymentReference);
+    setError("");
+    setMessage("");
+    try {
+      const result = await markBookingRefundedExternally({
+        ownerKey,
+        confirmOwnerKey: ownerKey,
+        paymentReference: booking.paymentReference,
+        trackingToken: booking.trackingToken,
+      });
+      if (!result.ok) {
+        throw new Error(result.error || "Could not mark booking as refunded");
+      }
+      await handleCancelRefundSuccess(result, booking);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not mark booking as refunded");
+      setExternalRefundConfirmRef(null);
+    } finally {
+      setBusyRef("");
+    }
   }
 
   async function handleRecover(checkoutId?: string) {
@@ -1278,13 +1351,10 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
     }
   }
 
-  const latestPaid =
-    bookings.find((booking) => !isOperationallyCancelled(booking.status)) ?? null;
   const needsFinalize = pending.filter((item) => item.needsFinalize);
 
   function renderJourneyControls(booking: OwnerPaidBookingSummary) {
-    // Live sharing without an explicit status still counts as tracking for controls
-    // (matches customer label fallback — otherwise Arrived stays hidden).
+    // Live sharing without an explicit status still counts as tracking for labels.
     const rawStatus = booking.journeyStatus || "idle";
     const status =
       booking.sharingActive && (rawStatus === "idle" || !booking.journeyStatus)
@@ -1296,34 +1366,57 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
       Boolean(booking.trackingToken) ||
       (diagnostics[booking.paymentReference]?.gpsPointCount ?? 0) > 0;
 
-    const primaryActions: { action: JourneyAction; label: string }[] = [];
+    const primaryActions = ownerUpcomingPrimaryJourneyActions({
+      journeyStatus: booking.journeyStatus,
+      sharingActive: booking.sharingActive,
+      bookingStatus: booking.status,
+    }).map((action) => ({
+      action,
+      label: JOURNEY_ACTION_LABELS[action],
+    }));
+
+    const secondaryActions: { action: JourneyAction; label: string }[] = [];
     if (status === "arrived_pickup") {
-      // Intended owner flow: Arrived → WhatsApp → Complete Journey
-      primaryActions.push({ action: "complete_journey", label: "Complete Journey" });
+      secondaryActions.push({ action: "complete_journey", label: "Complete Journey" });
     } else if (status === "en_route") {
-      primaryActions.push({ action: "arrived_destination", label: "Arrived at Destination" });
+      secondaryActions.push({
+        action: "arrived_destination",
+        label: "Arrived at Destination",
+      });
     } else if (status === "arrived_destination") {
-      primaryActions.push({ action: "complete_journey", label: "Complete Journey" });
-    } else if (status !== "completed" && !isOperationallyCancelled(booking.status)) {
-      // idle / stopped / tracking — Arrived must be visible (not only after Start Live Tracking).
-      // Driver on the way (status + email) before Arrived; Arrived before Complete Journey.
-      if (status === "idle" || status === "stopped") {
-        primaryActions.push({ action: "start_tracking", label: "Driver on the way" });
-      }
-      primaryActions.push({ action: "arrived_pickup", label: "🚕 Arrived at Pickup" });
-      if (status === "idle" || status === "stopped") {
-        primaryActions.push({ action: "complete_journey", label: "Complete Journey" });
-      }
+      secondaryActions.push({ action: "complete_journey", label: "Complete Journey" });
+    } else if (
+      status !== "completed" &&
+      !isOperationallyCancelled(booking.status) &&
+      (status === "idle" || status === "stopped" || status === "tracking")
+    ) {
+      secondaryActions.push({ action: "complete_journey", label: "Complete Journey" });
     }
+
+    const paidNum = parseFloat(String(booking.amountPaid).replace(/[^\d.]/g, "") || "0");
+    const refundedNum =
+      typeof booking.amountRefunded === "number"
+        ? booking.amountRefunded
+        : booking.status === "refunded" || booking.status === "refunded_active"
+          ? paidNum
+          : 0;
+    const showMarkExternalRefund = canMarkExternalRefund({
+      status: booking.status,
+      operationalStatus: booking.operationalStatus,
+      paymentStatus: booking.paymentStatus,
+      amountPaid: paidNum,
+      amountRefunded: refundedNum,
+    });
+    const externalConfirmOpen = externalRefundConfirmRef === booking.paymentReference;
 
     return (
       <div>
         <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-white/40">
-          Journey
+          Driver updates
         </p>
         {status === "arrived_pickup" && booking.arrivedPickupAt ? (
           <p className="mb-2 text-sm font-semibold text-emerald">
-            Arrived at pickup · {formatArrivedPickupHhMm(booking.arrivedPickupAt)}
+            Driver has arrived · {formatArrivedPickupHhMm(booking.arrivedPickupAt)}
           </p>
         ) : null}
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
@@ -1383,14 +1476,6 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
                   Open WhatsApp arrival message
                 </button>
               ) : null}
-              {showEvidence ? (
-                <a
-                  href={`/owner/journey-evidence/?ref=${encodeURIComponent(booking.paymentReference)}`}
-                  className="inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-sky-400/40 bg-sky-500/15 px-4 py-2.5 text-sm font-bold text-sky-100 transition-colors hover:bg-sky-500/25 sm:w-auto"
-                >
-                  View Journey Evidence
-                </a>
-              ) : null}
             </>
           )}
           {booking.arrivalNotificationStatus === "failed" && status !== "completed" ? (
@@ -1407,29 +1492,116 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
               {busy ? "Retrying…" : "Retry Notification"}
             </button>
           ) : null}
-          {status !== "completed" ? (
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => void handleEnsureTracking(booking)}
-              className="min-h-11 w-full rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:border-white/30 disabled:opacity-60 sm:w-auto"
-            >
-              {booking.trackingToken ? "Refresh tracking link" : "Create tracking (no new charge)"}
-            </button>
-          ) : null}
         </div>
         {status !== "completed" && status !== "arrived_pickup" && status !== "arrived_destination" ? (
           <p className="mt-2 text-xs text-white/45">
-            Ideal flow: Driver on the way (emails customer) → Arrived at Pickup (records time, emails
-            customer, opens WhatsApp — you press Send) → Complete Journey when finished. Live location
-            sharing stays manual in WhatsApp — no website track link.
+            Driver on the way emails the customer and opens WhatsApp (you press Send). Driver has
+            arrived records the time, emails the customer, and opens WhatsApp. Live location sharing
+            stays manual in WhatsApp — not website map tracking.
           </p>
         ) : null}
         {status === "arrived_pickup" ? (
           <p className="mt-2 text-xs text-white/45">
             Arrival already recorded (timestamp kept). Re-open WhatsApp if needed, then Complete
-            Journey when the passenger trip has finished.
+            Journey when the passenger trip has finished (under More actions).
           </p>
+        ) : null}
+
+        {status !== "completed" ? (
+          <details className="mt-3 rounded-xl border border-white/10 bg-navy/40">
+            <summary className="cursor-pointer list-none px-3 py-2.5 text-xs font-semibold uppercase tracking-wider text-white/50 marker:content-none [&::-webkit-details-marker]:hidden">
+              More actions
+            </summary>
+            <div className="flex flex-col gap-2 border-t border-white/10 px-3 py-3 sm:flex-row sm:flex-wrap">
+              {secondaryActions.map((item) => (
+                <button
+                  key={item.action}
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void handleJourneyAction(booking, item.action)}
+                  className="min-h-11 w-full rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:border-white/30 disabled:opacity-60 sm:w-auto"
+                >
+                  {busy ? "Updating…" : item.label}
+                </button>
+              ))}
+              {showMarkExternalRefund && !externalConfirmOpen ? (
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => {
+                    setRefundConfirmRef(null);
+                    setExternalRefundConfirmRef(booking.paymentReference);
+                  }}
+                  className="min-h-11 w-full rounded-xl border border-amber-400/40 bg-amber-500/10 px-4 py-2.5 text-sm font-semibold text-amber-100 transition-colors hover:bg-amber-500/20 disabled:opacity-60 sm:w-auto"
+                >
+                  Mark as refunded
+                </button>
+              ) : null}
+              {showEvidence ? (
+                <a
+                  href={`/owner/journey-evidence/?ref=${encodeURIComponent(booking.paymentReference)}`}
+                  className="inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-sky-400/40 bg-sky-500/15 px-4 py-2.5 text-sm font-bold text-sky-100 transition-colors hover:bg-sky-500/25 sm:w-auto"
+                >
+                  View Journey Evidence
+                </a>
+              ) : null}
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void handleEnsureTracking(booking)}
+                className="min-h-11 w-full rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:border-white/30 disabled:opacity-60 sm:w-auto"
+              >
+                {booking.trackingToken ? "Refresh tracking link" : "Create tracking (no new charge)"}
+              </button>
+            </div>
+          </details>
+        ) : null}
+
+        {showMarkExternalRefund && status === "completed" && !externalConfirmOpen ? (
+          <div className="mt-3">
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => {
+                setRefundConfirmRef(null);
+                setExternalRefundConfirmRef(booking.paymentReference);
+              }}
+              className="min-h-11 w-full rounded-xl border border-amber-400/40 bg-amber-500/10 px-4 py-2.5 text-sm font-semibold text-amber-100 transition-colors hover:bg-amber-500/20 disabled:opacity-60 sm:w-auto"
+            >
+              Mark as refunded
+            </button>
+          </div>
+        ) : null}
+
+        {externalConfirmOpen ? (
+          <div className="mt-3 rounded-xl border border-amber-400/35 bg-amber-500/10 p-3">
+            <p className="text-sm font-semibold text-amber-50">
+              Has this customer already been refunded manually in SumUp?
+            </p>
+            <p className="mt-2 text-xs leading-relaxed text-amber-50/80">
+              This does not call SumUp or issue money. It closes the booking as Cancelled /
+              Refunded, removes it from Upcoming, and keeps the original payment for audit. No
+              refund email is sent.
+            </p>
+            <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void handleMarkExternalRefund(booking)}
+                className="min-h-11 w-full rounded-xl bg-amber-300 px-4 py-2.5 text-sm font-bold text-navy transition-colors hover:bg-amber-200 disabled:opacity-60 sm:w-auto"
+              >
+                {busy ? "Closing…" : "Yes — close as refunded"}
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => setExternalRefundConfirmRef(null)}
+                className="min-h-11 w-full rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:border-white/30 disabled:opacity-60 sm:w-auto"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
         ) : null}
       </div>
     );
@@ -1455,6 +1627,14 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
     // or when money remains on an already-cancelled booking.
     const canRefundOrCancel =
       !isOperationallyCancelled(booking) || remainingNum > 0.001;
+    const showMarkExternalRefund = canMarkExternalRefund({
+      status: booking.status,
+      operationalStatus: booking.operationalStatus,
+      paymentStatus: booking.paymentStatus,
+      amountPaid: paidNum,
+      amountRefunded: refundedNum,
+    });
+    const externalConfirmOpen = externalRefundConfirmRef === booking.paymentReference;
 
     return (
       <li
@@ -1499,6 +1679,7 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
                   : `${booking.pickupLabel} → ${booking.dropoffLabel}`;
               })()}
             </p>
+
             <p className="mt-2 break-all text-xs text-white/45">
               Ref {booking.paymentReference}
               {booking.createdAt ? ` · paid ${formatUkInstant(booking.createdAt)}` : ""}
@@ -1510,9 +1691,7 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
                 ? "border-red-400/30 bg-red-500/10 text-red-100"
                 : booking.status === "partially_refunded"
                   ? "border-amber-400/30 bg-amber-500/10 text-amber-100"
-                  : booking.sharingActive
-                    ? "border-emerald/40 bg-emerald/15 text-emerald"
-                    : "border-emerald/40 bg-emerald/15 text-emerald"
+                  : "border-emerald/40 bg-emerald/15 text-emerald"
             }`}
           >
             {isClosed
@@ -1521,8 +1700,6 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
                 : "Refunded"
               : booking.status === "refunded_active"
                 ? "Fully refunded · Active"
-              : booking.sharingActive
-                ? "Paid · Tracking live"
                 : paymentStatusLabel(booking)}
           </span>
         </div>
@@ -1710,7 +1887,7 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
               {(booking.customerEmail || booking.mobileNumber || booking.arrivedPickupAt) && (
                 <div>
                   <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-white/40">
-                    Customer
+                    Customer contact
                   </p>
                   <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
                     {booking.customerEmail ? (
@@ -1735,7 +1912,7 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
                   <div className="mt-3 space-y-1 text-sm text-white/70">
                     {booking.arrivedPickupAt ? (
                       <p>
-                        Arrived at pickup:{" "}
+                        Driver has arrived:{" "}
                         <span className="font-semibold text-white">
                           {formatArrivedPickupHhMm(booking.arrivedPickupAt)}
                         </span>
@@ -1755,10 +1932,11 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
                 </div>
               )}
 
-              <div>
-                <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-white/40">
-                  Admin
-                </p>
+              <details className="rounded-xl border border-white/10 bg-navy/40">
+                <summary className="cursor-pointer list-none px-3 py-2.5 text-xs font-semibold uppercase tracking-wider text-white/50 marker:content-none [&::-webkit-details-marker]:hidden">
+                  Admin / More
+                </summary>
+                <div className="border-t border-white/10 px-3 py-3">
                 <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
                   {canEdit ? (
                     <button
@@ -1786,7 +1964,7 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
                     type="button"
                     disabled={busyRef === booking.paymentReference}
                     onClick={() => void handleResend(booking)}
-                    className="min-h-11 w-full rounded-xl bg-emerald px-4 py-3 text-sm font-bold text-navy transition-colors hover:bg-emerald-light disabled:opacity-60 sm:w-auto"
+                    className="min-h-11 w-full rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:border-white/30 disabled:opacity-60 sm:w-auto"
                   >
                     {busyRef === booking.paymentReference
                       ? "Sending…"
@@ -1830,7 +2008,7 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
                       busyRef === booking.paymentReference
                     }
                     onClick={() => void handleTrackingDiagnostic(booking)}
-                    className="min-h-11 w-full rounded-xl border border-emerald/40 bg-emerald/10 px-4 py-2.5 text-sm font-semibold text-emerald transition-colors hover:bg-emerald/20 disabled:opacity-60 sm:w-auto"
+                    className="min-h-11 w-full rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold text-white/80 transition-colors hover:border-white/30 disabled:opacity-60 sm:w-auto"
                   >
                     {diagnosticBusyRef === booking.paymentReference
                       ? "Loading diagnostic…"
@@ -1843,7 +2021,7 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
                       busyRef === booking.paymentReference
                     }
                     onClick={() => void handleRefundDiagnostic(booking)}
-                    className="min-h-11 w-full rounded-xl border border-amber-400/40 bg-amber-500/10 px-4 py-2.5 text-sm font-semibold text-amber-100 transition-colors hover:bg-amber-500/20 disabled:opacity-60 sm:w-auto"
+                    className="min-h-11 w-full rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold text-white/80 transition-colors hover:border-white/30 disabled:opacity-60 sm:w-auto"
                   >
                     {refundDiagBusyRef === booking.paymentReference
                       ? "Loading refund diagnostics…"
@@ -1853,12 +2031,26 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
                     <button
                       type="button"
                       disabled={busyRef === booking.paymentReference}
-                      onClick={() =>
-                        setRefundConfirmRef(refundOpen ? null : booking.paymentReference)
-                      }
+                      onClick={() => {
+                        setExternalRefundConfirmRef(null);
+                        setRefundConfirmRef(refundOpen ? null : booking.paymentReference);
+                      }}
                       className="min-h-11 w-full rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-2.5 text-sm font-semibold text-red-200 transition-colors hover:bg-red-500/20 disabled:opacity-60 sm:w-auto"
                     >
                       Cancel / Refund
+                    </button>
+                  ) : null}
+                  {showMarkExternalRefund && !externalConfirmOpen ? (
+                    <button
+                      type="button"
+                      disabled={busyRef === booking.paymentReference}
+                      onClick={() => {
+                        setRefundConfirmRef(null);
+                        setExternalRefundConfirmRef(booking.paymentReference);
+                      }}
+                      className="min-h-11 w-full rounded-xl border border-amber-400/40 bg-amber-500/10 px-4 py-2.5 text-sm font-semibold text-amber-100 transition-colors hover:bg-amber-500/20 disabled:opacity-60 sm:w-auto"
+                    >
+                      Mark as refunded
                     </button>
                   ) : null}
                 </div>
@@ -1895,7 +2087,41 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
                     onError={(message) => setError(message)}
                   />
                 ) : null}
-              </div>
+
+                {externalConfirmOpen ? (
+                  <div className="mt-3 rounded-xl border border-amber-400/35 bg-amber-500/10 p-3">
+                    <p className="text-sm font-semibold text-amber-50">
+                      Has this customer already been refunded manually in SumUp?
+                    </p>
+                    <p className="mt-2 text-xs leading-relaxed text-amber-50/80">
+                      This does not call SumUp or issue money. It closes the booking as Cancelled /
+                      Refunded, removes it from Upcoming, and keeps the original payment for audit.
+                      No refund email is sent.
+                    </p>
+                    <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                      <button
+                        type="button"
+                        disabled={busyRef === booking.paymentReference}
+                        onClick={() => void handleMarkExternalRefund(booking)}
+                        className="min-h-11 w-full rounded-xl bg-amber-300 px-4 py-2.5 text-sm font-bold text-navy transition-colors hover:bg-amber-200 disabled:opacity-60 sm:w-auto"
+                      >
+                        {busyRef === booking.paymentReference
+                          ? "Closing…"
+                          : "Yes — close as refunded"}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={busyRef === booking.paymentReference}
+                        onClick={() => setExternalRefundConfirmRef(null)}
+                        className="min-h-11 w-full rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:border-white/30 disabled:opacity-60 sm:w-auto"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+                </div>
+              </details>
             </div>
 
             {diagnostics[booking.paymentReference] ? (
@@ -1965,38 +2191,9 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
   }
 
   return (
-    <section className="mb-10 rounded-2xl border border-sky-400/25 bg-sky-500/5 p-5 sm:p-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wider text-sky-200">
-            Website card payments
-          </p>
-          <h2 className="mt-1 text-xl font-bold text-white">Upcoming Jobs</h2>
-          <p className="mt-2 max-w-2xl text-sm text-white/65">
-            Unfinished paid journeys only, ordered by the next leg due. Completed trips move to{" "}
-            <span className="text-white/85">Completed Jobs</span> below (records are kept). Use{" "}
-            <span className="text-white/85">Driver on the way</span> then{" "}
-            <span className="text-white/85">Arrived at Pickup</span> for customer updates.
-          </p>
-          <p className="mt-2 text-xs text-amber-100/80">
-            Need a controlled £1 live SumUp refund smoke test?{" "}
-            <a href="/owner/refund-test/" className="font-semibold underline hover:text-amber-50">
-              Open Refund Test (owner-only)
-            </a>
-            . Not a customer fare.
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={() => void load()}
-          className="min-h-11 rounded-xl border border-white/15 px-4 py-2 text-sm font-semibold text-white transition-colors hover:border-white/30"
-        >
-          Refresh
-        </button>
-      </div>
-
+    <section className="mb-10">
       {needsFinalize.length > 0 ? (
-        <div className="mt-5 rounded-xl border border-amber-400/35 bg-amber-500/10 p-4">
+        <div className="mb-6 rounded-xl border border-amber-400/35 bg-amber-500/10 p-4">
           <p className="text-sm text-white/85">
             {needsFinalize.length} SumUp PAID checkout
             {needsFinalize.length === 1 ? "" : "s"} waiting to finalize (email/calendar).
@@ -2027,59 +2224,69 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
         </div>
       ) : null}
 
-      {latestPaid ? (
-        <div className="mt-5 rounded-xl border border-emerald/35 bg-emerald/10 p-4">
-          <p className="text-sm text-white/80">
-            Latest paid booking:{" "}
-            <span className="font-semibold text-white">{latestPaid.customerName}</span>
-            {latestPaid.amountPaid ? ` · ${latestPaid.amountPaid}` : ""} · {latestPaid.customerEmail}
-          </p>
-          <button
-            type="button"
-            disabled={busyRef === latestPaid.paymentReference}
-            onClick={() => void handleResend(latestPaid)}
-            className="mt-3 min-h-11 w-full rounded-xl bg-emerald px-4 py-3 text-sm font-bold text-navy transition-colors hover:bg-emerald-light disabled:opacity-60 sm:w-auto"
-          >
-            {busyRef === latestPaid.paymentReference
-              ? "Sending booking confirmation…"
-              : "Resend booking confirmation"}
-          </button>
-        </div>
-      ) : null}
-
       {error ? (
-        <p className="mt-4 rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-100">
+        <p className="mb-4 rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-100">
           {error}
         </p>
       ) : null}
       {message ? (
-        <p className="mt-4 rounded-xl border border-emerald/30 bg-emerald/10 px-4 py-3 text-sm text-emerald-light">
+        <p className="mb-4 rounded-xl border border-emerald/30 bg-emerald/10 px-4 py-3 text-sm text-emerald-light">
           {message}
         </p>
       ) : null}
 
       {loading ? (
-        <p className="mt-6 text-sm text-white/60">Loading upcoming jobs…</p>
-      ) : upcomingJobs.length === 0 && completedRecent.length === 0 ? (
-        <p className="mt-6 text-sm text-white/60">
-          No upcoming jobs by journey date (looking ahead ~90 days, plus recent incomplete). If a
-          customer just paid, tap Refresh or use Recover if SumUp shows PAID.
-        </p>
+        <p className="text-sm text-white/60">Loading upcoming jobs…</p>
+      ) : upcomingJobs.length === 0 &&
+        refundsPending.length === 0 &&
+        completedRecent.length === 0 ? (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm text-white/60">
+            No upcoming jobs by journey date (looking ahead ~90 days, plus recent incomplete). If a
+            customer just paid, tap Refresh or use Recover if SumUp shows PAID.
+          </p>
+          <button
+            type="button"
+            onClick={() => void load()}
+            className="min-h-11 shrink-0 rounded-xl border border-white/15 px-4 py-2 text-sm font-semibold text-white transition-colors hover:border-white/30"
+          >
+            Refresh
+          </button>
+        </div>
       ) : (
         <>
           {upcomingJobs.length === 0 ? (
-            <p className="mt-6 text-sm text-white/60">
-              No open upcoming jobs right now. Completed and refunded bookings appear under Completed
-              Jobs below.
-            </p>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-sm text-white/60">
+                No open upcoming jobs right now. Refunds Pending (if any) and Completed Jobs appear
+                below.
+              </p>
+              <button
+                type="button"
+                onClick={() => void load()}
+                className="min-h-11 shrink-0 rounded-xl border border-white/15 px-4 py-2 text-sm font-semibold text-white transition-colors hover:border-white/30"
+              >
+                Refresh
+              </button>
+            </div>
           ) : (
-            <div className="mt-6 space-y-8">
+            <div className="space-y-8">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <h3 className="text-base font-bold text-white">Upcoming Jobs</h3>
+                <button
+                  type="button"
+                  onClick={() => void load()}
+                  className="min-h-11 shrink-0 rounded-xl border border-white/15 px-4 py-2 text-sm font-semibold text-white transition-colors hover:border-white/30"
+                >
+                  Refresh
+                </button>
+              </div>
               {upcomingGroups.map((group) =>
                 group.items.length === 0 ? null : (
                   <div key={group.key}>
-                    <h3 className="text-sm font-semibold uppercase tracking-wider text-sky-200">
+                    <h4 className="text-sm font-semibold uppercase tracking-wider text-sky-200">
                       {group.title}
-                    </h3>
+                    </h4>
                     <ul className="mt-3 space-y-4">
                       {group.items.map((booking) => renderBookingCard(booking))}
                     </ul>
@@ -2089,20 +2296,62 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
             </div>
           )}
 
-          {completedRecent.length > 0 ? (
-            <div className="mt-10">
-              <h3 className="text-sm font-semibold uppercase tracking-wider text-white/50">
-                Completed Jobs
-              </h3>
-              <p className="mt-2 text-sm text-white/45">
-                Finished and refunded bookings kept for records, evidence, refunds, and customer
-                follow-up.
+          {refundsPending.length > 0 ? (
+            <div className="mt-10 border-t border-amber-400/20 pt-8">
+              <h3 className="text-base font-bold text-amber-100">Refunds Pending</h3>
+              <p className="mt-2 text-sm text-white/55">
+                Bookings with a refund still due or needing retry — shown only when something is
+                outstanding.
               </p>
               <ul className="mt-3 space-y-4">
-                {completedRecent.map((booking) =>
+                {refundsPending.map((booking) =>
                   renderBookingCard(booking, { compact: true }),
                 )}
               </ul>
+            </div>
+          ) : null}
+
+          {completedDayGroups.length > 0 ? (
+            <div className="mt-10 border-t border-white/10 pt-8">
+              <h3 className="text-base font-bold text-white">Completed Jobs</h3>
+              <p className="mt-2 text-sm text-white/45">
+                Finished real bookings grouped by the day they were completed — this is not Upcoming.
+                Older days are collapsed; today stays open for review. Cancelled / refunded customer
+                bookings stay in this archive.
+              </p>
+              <div className="mt-3 space-y-3">
+                {completedDayGroups.map((group) => (
+                  <details
+                    key={group.day}
+                    className="rounded-xl border border-white/10 bg-navy/40"
+                    open={group.isToday}
+                  >
+                    <summary className="cursor-pointer list-none px-4 py-3 text-sm font-semibold text-white/85 marker:content-none [&::-webkit-details-marker]:hidden">
+                      <span className="inline-flex w-full items-center justify-between gap-3">
+                        <span>{group.title}</span>
+                        <span className="text-xs font-medium text-white/45">
+                          {group.items.length} job{group.items.length === 1 ? "" : "s"}
+                        </span>
+                      </span>
+                    </summary>
+                    <ul className="space-y-4 border-t border-white/10 px-3 pb-3 pt-3">
+                      {group.items.map((booking) => {
+                        const completion = resolveCompletionTimestamp(booking);
+                        return (
+                          <div key={booking.paymentReference}>
+                            {completion && completion.source !== "journeyCompletedAt" ? (
+                              <p className="mb-1 px-1 text-[11px] text-white/40">
+                                Grouped by {completion.source} (no journeyCompletedAt on record)
+                              </p>
+                            ) : null}
+                            {renderBookingCard(booking, { compact: true })}
+                          </div>
+                        );
+                      })}
+                    </ul>
+                  </details>
+                ))}
+              </div>
             </div>
           ) : null}
         </>

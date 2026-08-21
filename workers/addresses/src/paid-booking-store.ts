@@ -18,7 +18,7 @@ import {
   generateManageBookingToken,
   normalizeManageBookingToken,
 } from "../shared/manage-booking-token";
-import { bookingInUpcomingHorizon } from "../shared/upcoming-jobs";
+import { bookingInUpcomingHorizon, isOwnerOperationalTestBooking } from "../shared/upcoming-jobs";
 
 const RECORD_TTL = 60 * 60 * 24 * 400;
 const DAY_INDEX_TTL = 60 * 60 * 24 * 400;
@@ -351,7 +351,61 @@ export async function listRecentPaidBookings(
   }
 
   return [...byRef.values()]
-    .filter((record) => !record.isRefundTest && !record.isAmendmentTestFixture)
+    .filter((record) => !isOwnerOperationalTestBooking(record))
+    .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))
+    .slice(0, limit);
+}
+
+/**
+ * Paid bookings with payment createdAt on/after fromDay (London YMD).
+ * Used for Owner financial totals — payment records only, not trip-card visibility.
+ */
+export async function listPaidBookingsCreatedSince(
+  store: KVNamespace,
+  fromDay: string,
+  options?: { limit?: number },
+): Promise<PaidBookingRecord[]> {
+  const start = /^\d{4}-\d{2}-\d{2}$/.test(fromDay) ? fromDay : addDaysYmd(londonToday(), -366);
+  const limit = Math.min(Math.max(options?.limit ?? 500, 1), 800);
+  const byRef = new Map<string, PaidBookingRecord>();
+  const today = londonToday();
+
+  let cursor = today;
+  let guard = 0;
+  while (cursor >= start && guard < 400) {
+    const ids = await store.get<string[]>(paidBookingCreatedDayIndexKey(cursor), "json");
+    if (Array.isArray(ids)) {
+      for (const id of ids) {
+        if (!id?.trim() || byRef.has(id)) continue;
+        const record = await getPaidBookingRecord(store, id);
+        if (record) byRef.set(record.paymentReference, record);
+      }
+    }
+    if (cursor === start) break;
+    cursor = addDaysYmd(cursor, -1);
+    guard += 1;
+  }
+
+  // Fallback scan for pre-index rows still within the year window.
+  if (byRef.size < limit) {
+    let listCursor: string | undefined;
+    do {
+      const page = await store.list({ prefix: "booking:ref:", cursor: listCursor, limit: 100 });
+      for (const key of page.keys) {
+        const ref = key.name.replace(/^booking:ref:/, "").trim();
+        if (!ref || byRef.has(ref)) continue;
+        const record = await getPaidBookingRecord(store, ref);
+        if (!record?.createdAt) continue;
+        const createdDay = londonDateFromIso(record.createdAt);
+        if (createdDay < start) continue;
+        byRef.set(record.paymentReference, record);
+      }
+      listCursor = page.list_complete ? undefined : page.cursor;
+    } while (listCursor && byRef.size < limit);
+  }
+
+  return [...byRef.values()]
+    .filter((record) => !isOwnerOperationalTestBooking(record))
     .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))
     .slice(0, limit);
 }
@@ -402,7 +456,7 @@ export async function listUpcomingPaidBookings(
   const horizonEnd = addDaysYmd(today, futureDays);
 
   return [...byRef.values()]
-    .filter((record) => !record.isRefundTest && !record.isAmendmentTestFixture)
+    .filter((record) => !isOwnerOperationalTestBooking(record))
     .filter((record) => bookingInUpcomingHorizon(record, horizonStart, horizonEnd))
     .sort((a, b) => tripSortKey(a).localeCompare(tripSortKey(b)))
     .slice(0, limit);
