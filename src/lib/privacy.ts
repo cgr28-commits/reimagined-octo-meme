@@ -1,6 +1,6 @@
 import { BUSINESS_LEGAL } from "@/lib/business-legal";
 
-export const PRIVACY_LAST_UPDATED = "August 2026 v3";
+export const PRIVACY_LAST_UPDATED = "August 2026 v4";
 
 export const PRIVACY_SECTIONS = [
   {
@@ -34,6 +34,7 @@ export const PRIVACY_SECTIONS = [
       "Provide quotations and confirm bookings",
       "Save fixed-price quotes you request and email you a secure link to return and book",
       "Send transactional saved-quote reminders (about 24 hours and 5 days after saving) while your quote is still valid and unpaid — these are not marketing emails",
+      "If you enter your email while booking and do not complete payment, send one booking-recovery reminder after about one hour so you can finish the booking — this is not a marketing email",
       "Process card payments via SumUp",
       "Send booking confirmations and invoices by email",
       "Contact you about your journey (including SMS/WhatsApp where agreed)",
@@ -50,6 +51,16 @@ export const PRIVACY_SECTIONS = [
       "If you use Save Quote, we store your name, email and journey/price snapshot for up to 7 days (and a short period afterwards for audit) so you can reopen your fixed price via a secure link.",
       "We send an initial confirmation email and up to two automated reminders while the quote remains saved, unbooked and unexpired. Saving a quote does not subscribe you to marketing emails.",
       "Mobile numbers are not collected at the Save Quote stage — only when you continue to book.",
+    ],
+  },
+  {
+    title: "Incomplete booking recovery emails",
+    content: [
+      "If you progress far enough in the booking form to enter a valid email address but do not complete or pay for the booking, we may store limited journey and contact details so we can send one recovery reminder about one hour later.",
+      "Before sending that reminder we check again that payment has not completed, the booking is not confirmed, cancelled or refunded, a recovery email has not already been sent, and you have not opted out. If any of those apply, we do not send the email.",
+      "The reminder includes a secure Continue My Booking link with an opaque token only — never your email, name or phone number in the URL. Recovery links expire automatically.",
+      "Incomplete-booking personal data that never converts is deleted automatically (typically within about 48 hours, with a short KV retention buffer). This is not used for newsletters or unrelated promotional marketing and is separate from the optional marketing checkbox.",
+      "You can stop booking-recovery emails using the link in the reminder or by contacting bookings@myairporttaxini.co.uk.",
     ],
   },
   {
@@ -105,6 +116,7 @@ export const PRIVACY_SECTIONS = [
     content: [
       "Booking and payment records are kept as long as needed for customer service, accounting, tax and dispute resolution — typically up to 6 years where required for tax or accounting, then deleted or anonymised where we no longer need them.",
       "Saved quotes are kept for the 7-day validity window and a short additional period for audit and conversion tracking, then removed automatically from active storage.",
+      "Incomplete booking recovery records that never convert are removed automatically after a short recovery window (about 48 hours, plus a limited storage TTL).",
       "Driver GPS journey evidence is retained as an operational/dispute record for a configurable period (default around 13 months / ~400 days unless a longer period is set for the business). It is not retained indefinitely.",
       "Journey records and any operational GPS evidence are retained only as needed for disputes, safety, and legal requirements. Optional WhatsApp live location is controlled by the sender inside WhatsApp.",
       "Refund and cancellation audit records are kept with the related booking for the same accounting/dispute retention period.",

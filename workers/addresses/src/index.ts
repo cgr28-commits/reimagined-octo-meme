@@ -168,6 +168,19 @@ import {
   buildAuthoritativeSavedQuotePricing,
 } from "./saved-quote-handlers";
 import {
+  captureAbandonedBookingFromCheckout,
+  handleAbandonedBookingCaptureRequest,
+  handleAbandonedBookingLookupRequest,
+  handleAbandonedBookingOptOutRequest,
+  handleAbandonedBookingsOwnerRequest,
+  isAbandonedBookingsCapturePath,
+  isAbandonedBookingsLookupPath,
+  isAbandonedBookingsOptOutPath,
+  isAbandonedBookingsOwnerPath,
+  markAbandonedBookingRecoveredFromPayment,
+  processDueAbandonedBookingRecoveryEmails,
+} from "./abandoned-booking-handlers";
+import {
   evaluateSavedQuoteAccess,
   normalizeSavedQuoteToken,
   toSavedQuotePublicSummary,
@@ -286,11 +299,18 @@ import {
 } from "./quick-quote-store";
 import {
   normalizeQuickQuoteId,
+  parseQuickQuoteVehicleChoice,
   quickQuoteAmountsEqual,
-  QUICK_QUOTE_MAX_PASSENGERS,
+  quickQuoteCalculatedAmount,
+  quickQuoteMaxPassengersForVehicle,
   isQuickQuoteExpired,
 } from "../shared/quick-quote";
 import { calculateAuthoritativeWebsiteQuote } from "../../../src/lib/quote-service";
+import {
+  MINIBUS_VEHICLE,
+  selectVehicleForParty,
+} from "../../../src/lib/vehicle-selection";
+import type { VehicleType } from "../../../src/lib/data";
 
 type EmailBinding = {
   send(message: {
@@ -322,6 +342,8 @@ type Env = {
   GOOGLE_REVIEW_URL?: string;
   /** Minutes after journey completion before automated Google review email (default 120). */
   REVIEW_REQUEST_DELAY_MINUTES?: string;
+  /** Minutes after abandoned-booking capture before one recovery reminder (default 60). */
+  ABANDONED_BOOKING_REMINDER_DELAY_MINUTES?: string;
   OWNER_ACCESS_KEY?: string;
   /** Optional GPS audit retention override (seconds, min 30 days). */
   TRACKING_GPS_HISTORY_TTL_SECONDS?: string;
@@ -1365,10 +1387,14 @@ async function handlePaymentRequest(
     if (!booking) {
       return json({ error: "Missing customer booking details for this quote." }, 400, origin);
     }
-    if (booking.passengers > QUICK_QUOTE_MAX_PASSENGERS) {
+    const qqVehicleChoice = parseQuickQuoteVehicleChoice(
+      record.journey.vehicleChoice ?? record.journey.vehicleType,
+    );
+    const qqMaxPax = quickQuoteMaxPassengersForVehicle(qqVehicleChoice);
+    if (booking.passengers > qqMaxPax) {
       return json(
         {
-          error: `Online booking is limited to ${QUICK_QUOTE_MAX_PASSENGERS} passengers. Please contact My Airport Taxi NI.`,
+          error: `Online booking is limited to ${qqMaxPax} passengers. Please contact My Airport Taxi NI.`,
         },
         400,
         origin,
@@ -1384,6 +1410,13 @@ async function handlePaymentRequest(
 
     // Prefer locked journey from KV for fare; customer contact comes from booking.
     const j = record.journey;
+    const vehicleChoice = parseQuickQuoteVehicleChoice(j.vehicleChoice ?? j.vehicleType);
+    const vehicleType: VehicleType =
+      vehicleChoice === "Minibus" || String(j.vehicleType ?? "").toLowerCase().includes("minibus")
+        ? MINIBUS_VEHICLE
+        : j.vehicleType
+          ? (j.vehicleType as VehicleType)
+          : selectVehicleForParty(j.passengers, j.suitcases);
     const requote = calculateAuthoritativeWebsiteQuote({
       airportCode: j.airportCode ?? null,
       fromAirport: Boolean(j.fromAirport),
@@ -1396,11 +1429,15 @@ async function handlePaymentRequest(
       returnTime: j.returnTime,
       passengers: j.passengers,
       suitcases: j.suitcases,
+      vehicleType,
+      maxPassengers: quickQuoteMaxPassengersForVehicle(vehicleChoice),
     });
     if (!requote.ok) {
       return json({ error: requote.message }, 422, origin);
     }
-    if (!quickQuoteAmountsEqual(requote.amount, record.quotedAmount)) {
+    // Re-validate against the canonical engine fare (not the discounted customer price).
+    const expectedCalculated = quickQuoteCalculatedAmount(record);
+    if (!quickQuoteAmountsEqual(requote.amount, expectedCalculated)) {
       return json(
         {
           error:
@@ -1435,7 +1472,8 @@ async function handlePaymentRequest(
 
     quickQuoteId = record.id;
     amount = Math.round(record.quotedAmount * 100) / 100;
-    standardWebsiteAmount = amount;
+    // Genuine calculated fare for financial audit — distinct from discretionary discount.
+    standardWebsiteAmount = expectedCalculated;
     // Overlay locked journey labels onto booking for emails/calendar.
     booking = {
       ...booking,
@@ -1818,6 +1856,47 @@ async function handlePaymentRequest(
           ? { personalQuotedAmount: Math.round(amount * 100) / 100 }
           : {}),
     });
+
+    // Capture abandoned-booking recovery candidate once a validated email + SumUp checkout exist.
+    // Does not initiate payment; reminder only sends after 1h if still unpaid.
+    const abandoned = await captureAbandonedBookingFromCheckout(
+      { ...env, TRACKING_STORE: env.TRACKING_STORE },
+      {
+        customerName: booking.customerName,
+        customerEmail: booking.customerEmail,
+        mobileNumber: booking.mobileNumber,
+        checkoutId: checkout.checkoutId,
+        checkoutReference: checkout.checkoutReference,
+        journey: {
+          pickupLabel: booking.pickupLabel,
+          dropoffLabel: booking.dropoffLabel,
+          airportCode: booking.airportCode,
+          isAirportTrip: booking.isAirportTrip,
+          isFromAirport: booking.isFromAirport,
+          tripDate: booking.tripDate,
+          tripTime: booking.tripTime,
+          returnJourney: booking.returnJourney,
+          returnDate: booking.returnDate || undefined,
+          returnTime: booking.returnTime || undefined,
+          passengers: booking.passengers,
+          suitcases: booking.suitcases,
+          vehicle: booking.vehicle,
+          flightNumber: booking.flightNumber || undefined,
+          returnFlightNumber: booking.returnFlightNumber || undefined,
+          tripLabel: booking.tripLabel,
+          journeyDistance: booking.journeyDistance,
+          journeyDuration: booking.journeyDuration,
+          quotedAmount: Math.round(amount * 100) / 100,
+          quotedAmountLabel: formatPaidAmount(Math.round(amount * 100) / 100),
+          quoteStep: 3,
+        },
+      },
+    );
+    if (abandoned?.token) {
+      await patchPendingCheckout(env.TRACKING_STORE, checkout.checkoutId, {
+        abandonedBookingToken: abandoned.token,
+      });
+    }
 
     if (quickQuoteId) {
       await markQuickQuoteCheckout(env.TRACKING_STORE, quickQuoteId, {
@@ -2217,7 +2296,7 @@ export default {
       (url.pathname === "/quote/calculate" || url.pathname === "/api/quote/calculate") &&
       (request.method === "POST" || request.method === "OPTIONS")
     ) {
-      return handleQuoteCalculateRequest(request, origin);
+      return handleQuoteCalculateRequest(request, origin, env);
     }
 
     if (
@@ -2254,6 +2333,46 @@ export default {
         { ...env, TRACKING_STORE: env.TRACKING_STORE },
         origin,
       );
+    }
+
+    if (isAbandonedBookingsCapturePath(url.pathname)) {
+      if (!env.TRACKING_STORE) {
+        return json({ error: "Storage is not configured" }, 503, origin);
+      }
+      return handleAbandonedBookingCaptureRequest(request, {
+        ...env,
+        TRACKING_STORE: env.TRACKING_STORE,
+      });
+    }
+
+    if (isAbandonedBookingsLookupPath(url.pathname)) {
+      if (!env.TRACKING_STORE) {
+        return json({ error: "Storage is not configured" }, 503, origin);
+      }
+      return handleAbandonedBookingLookupRequest(request, {
+        ...env,
+        TRACKING_STORE: env.TRACKING_STORE,
+      });
+    }
+
+    if (isAbandonedBookingsOptOutPath(url.pathname)) {
+      if (!env.TRACKING_STORE) {
+        return json({ error: "Storage is not configured" }, 503, origin);
+      }
+      return handleAbandonedBookingOptOutRequest(request, {
+        ...env,
+        TRACKING_STORE: env.TRACKING_STORE,
+      });
+    }
+
+    if (isAbandonedBookingsOwnerPath(url.pathname)) {
+      if (!env.TRACKING_STORE) {
+        return json({ error: "Storage is not configured" }, 503, origin);
+      }
+      return handleAbandonedBookingsOwnerRequest(request, {
+        ...env,
+        TRACKING_STORE: env.TRACKING_STORE,
+      });
     }
 
     if (
@@ -3235,6 +3354,26 @@ export default {
             result.errors > 0
           ) {
             console.log("Saved quote reminder cron", JSON.stringify(result));
+          }
+        }),
+      );
+    }
+
+    // Abandoned booking recovery: one reminder ~1 hour after email capture if still unpaid.
+    // Fresh SumUp/paid/opt-out checks before send; claim-before-send prevents duplicates.
+    if (env.TRACKING_STORE) {
+      ctx.waitUntil(
+        processDueAbandonedBookingRecoveryEmails({
+          ...env,
+          TRACKING_STORE: env.TRACKING_STORE,
+        }).then((result) => {
+          if (
+            result.sent > 0 ||
+            result.recovered > 0 ||
+            result.expired > 0 ||
+            result.errors > 0
+          ) {
+            console.log("Abandoned booking recovery cron", JSON.stringify(result));
           }
         }),
       );

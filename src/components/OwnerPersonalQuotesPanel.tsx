@@ -16,9 +16,14 @@ import {
   placeDisplayText,
   type SelectedPlace,
 } from "@/lib/selected-place";
-import { fetchTripRouteMetrics } from "@/lib/trip-route";
+import { resolveTripRouteMetricsForAddresses } from "@/lib/route-point-resolver";
 import { selectVehicleForParty } from "@/lib/vehicle-selection";
 import { calculateWebsiteOneWayFare } from "@/lib/website-fare";
+import FiniteOptionSelect, {
+  ONLINE_PASSENGER_OPTIONS,
+  PERSONAL_QUOTE_SUITCASE_OPTIONS,
+  formatPersonalQuoteSuitcaseOption,
+} from "@/components/FiniteOptionSelect";
 import {
   buildPersonalQuoteWhatsAppMessage,
   computeLinkedPersonalQuoteFares,
@@ -142,22 +147,16 @@ export default function OwnerPersonalQuotesPanel({ ownerKey }: OwnerPersonalQuot
         throw new Error("Enter pickup and destination, then calculate the website price.");
       }
 
-      let routeMetrics = null;
-      if (
-        isPlaceSelected(pickupPlace) &&
-        isPlaceSelected(dropoffPlace) &&
-        typeof pickupPlace.lat === "number" &&
-        typeof pickupPlace.lng === "number" &&
-        typeof dropoffPlace.lat === "number" &&
-        typeof dropoffPlace.lng === "number"
-      ) {
-        routeMetrics = await fetchTripRouteMetrics(
-          pickupPlace.lat,
-          pickupPlace.lng,
-          dropoffPlace.lat,
-          dropoffPlace.lng,
-        );
-      }
+      // Resolve route metrics the SAME way the public site does (TripMap), even
+      // when a selected address has no lat/lng yet (e.g. a GetAddress.io /
+      // Ideal Postcodes premises pick). Without this, journeys that rely on
+      // `applyBelfastAirportDistanceFloor` (BFS/BHD long-distance floor) or the
+      // >100km distance-protection override would silently price lower than
+      // the public Live Quote for the identical journey.
+      const routeMetrics = await resolveTripRouteMetricsForAddresses(
+        { address: pickup, lat: pickupPlace.lat, lng: pickupPlace.lng },
+        { address: dropoff, lat: dropoffPlace.lat, lng: dropoffPlace.lng },
+      );
 
       const quote = calculateWebsiteOneWayFare({
         pickupAddress: pickup,
@@ -381,37 +380,26 @@ export default function OwnerPersonalQuotesPanel({ ownerKey }: OwnerPersonalQuot
             placeholder="Start typing an address or airport"
           />
         </div>
-        <label className="block min-w-0 text-sm text-white/80">
-          Passengers (max {PERSONAL_QUOTE_MAX_PASSENGERS})
-          <input
-            type="number"
-            min={PERSONAL_QUOTE_MIN_PASSENGERS}
-            max={PERSONAL_QUOTE_MAX_PASSENGERS}
-            value={passengers}
-            onChange={(e) =>
-              setPassengers(
-                Math.min(
-                  PERSONAL_QUOTE_MAX_PASSENGERS,
-                  Math.max(PERSONAL_QUOTE_MIN_PASSENGERS, Number(e.target.value) || 1),
-                ),
-              )
-            }
-            className={fieldClass}
-          />
-        </label>
-        <label className="block min-w-0 text-sm text-white/80">
-          Suitcases
-          <input
-            type="number"
-            min={0}
-            max={4}
-            value={suitcases}
-            onChange={(e) =>
-              setSuitcases(Math.min(4, Math.max(0, Number(e.target.value) || 0)))
-            }
-            className={fieldClass}
-          />
-        </label>
+        <FiniteOptionSelect
+          label={`Passengers (max ${PERSONAL_QUOTE_MAX_PASSENGERS})`}
+          value={passengers}
+          options={[...ONLINE_PASSENGER_OPTIONS]}
+          onChange={(next) =>
+            setPassengers(
+              Math.min(
+                PERSONAL_QUOTE_MAX_PASSENGERS,
+                Math.max(PERSONAL_QUOTE_MIN_PASSENGERS, next),
+              ),
+            )
+          }
+        />
+        <FiniteOptionSelect
+          label="Suitcases"
+          value={suitcases}
+          options={[...PERSONAL_QUOTE_SUITCASE_OPTIONS]}
+          formatOption={formatPersonalQuoteSuitcaseOption}
+          onChange={(next) => setSuitcases(Math.min(4, Math.max(0, next)))}
+        />
         <label className="block min-w-0 text-sm text-white/80 sm:col-span-2">
           Vehicle (pricing engine)
           <select

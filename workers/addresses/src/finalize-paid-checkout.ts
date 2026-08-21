@@ -30,6 +30,7 @@ import { markShortNoticePaid } from "./short-notice-handlers";
 import { markPersonalQuoteUsed } from "./personal-quote-store";
 import { markQuickQuotePaid } from "./quick-quote-store";
 import { markSavedQuoteBookedFromPayment } from "./saved-quote-handlers";
+import { markAbandonedBookingRecoveredFromPayment } from "./abandoned-booking-handlers";
 import { maybeRecordMarketingFromPayload } from "./marketing-handlers";
 import { trySendBrandedCustomerEmail, trySendOwnerOperationalEmail } from "./worker-email";
 
@@ -410,6 +411,11 @@ export async function finalizePaidCheckout(input: {
         checkoutId,
       });
     }
+    await markAbandonedBookingRecoveredFromPayment(env.TRACKING_STORE, {
+      token: pending?.abandonedBookingToken,
+      checkoutId,
+      paymentReference,
+    });
   }
 
   const emailSent = customerEmailResult.sent && ownerNotifySent;

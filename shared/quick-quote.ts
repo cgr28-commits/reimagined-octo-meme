@@ -1,13 +1,34 @@
 /**
  * Quick Quote — owner-pasted WhatsApp → fixed website fare → customer booking link.
  * Amount always lives in KV; browsers never decide the price.
+ *
+ * Owner/Driver-only extensions (not public Live Quote):
+ * - Manual Saloon | Minibus vehicle choice (Minibus uses existing central pricing)
+ * - Optional discretionary discount AFTER the canonical fare is calculated
  */
 
-import { INSTANT_QUOTE_MAX_PASSENGERS } from "./passenger-limits";
+import {
+  INSTANT_QUOTE_MAX_PASSENGERS,
+  MAX_PASSENGERS,
+} from "./passenger-limits";
 
-export const QUICK_QUOTE_MAX_PASSENGERS = INSTANT_QUOTE_MAX_PASSENGERS; // 4
+/** Saloon / Estate public-style capacity (instant quote band). */
+export const QUICK_QUOTE_SALOON_MAX_PASSENGERS = INSTANT_QUOTE_MAX_PASSENGERS; // 4
+/** Minibus capacity — Owner/Driver Quick Quote only (matches engine max). */
+export const QUICK_QUOTE_MINIBUS_MAX_PASSENGERS = MAX_PASSENGERS; // 7
+/** @deprecated Prefer QUICK_QUOTE_SALOON_MAX_PASSENGERS / vehicle-aware helpers. */
+export const QUICK_QUOTE_MAX_PASSENGERS = QUICK_QUOTE_SALOON_MAX_PASSENGERS;
 export const QUICK_QUOTE_TTL_SECONDS = 60 * 60 * 24; // 24 hours
 export const QUICK_QUOTE_CREATE_RATE_LIMIT = 30; // per owner key per hour
+
+/**
+ * Owner/Driver Quick Quote vehicle choice.
+ * Minibus is NOT advertised on the public site as MATNI-owned fleet —
+ * QQ may price partner / subcontract minibus work via existing multipliers.
+ */
+export type QuickQuoteVehicleChoice = "Saloon" | "Minibus";
+
+export type QuickQuoteDiscountType = "none" | "percent" | "fixed";
 
 export type QuickQuoteAirportCode = "BFS" | "BHD" | "DUB";
 
@@ -33,7 +54,10 @@ export type QuickQuoteJourney = {
   childSeatRequired?: boolean;
   flightNumber?: string;
   returnFlightNumber?: string;
+  /** Resolved vehicle label from the pricing engine (Saloon / Estate / Minibus). */
   vehicleType?: string;
+  /** Owner/Driver manual choice when set (Saloon | Minibus). */
+  vehicleChoice?: QuickQuoteVehicleChoice;
 };
 
 export type QuickQuoteRecord = {
@@ -42,9 +66,24 @@ export type QuickQuoteRecord = {
   expiresAt: string;
   status: QuickQuoteStatus;
   journey: QuickQuoteJourney;
-  /** Authoritative fixed fare at link creation (GBP). */
+  /**
+   * Customer-facing fare (GBP) after any Owner/Driver discretionary discount.
+   * This is what the customer pays and what SumUp is charged.
+   */
   quotedAmount: number;
   quotedAmountLabel: string;
+  /**
+   * Canonical pricing-engine fare BEFORE discretionary discount.
+   * Equals quotedAmount when discountType is none.
+   */
+  calculatedAmount?: number;
+  calculatedAmountLabel?: string;
+  /** Discretionary discount (Owner/Driver override — not the return-journey engine discount). */
+  discountType?: QuickQuoteDiscountType;
+  /** Percent (0–100) or fixed GBP, depending on discountType. */
+  discountValue?: number;
+  /** Absolute GBP taken off calculatedAmount. */
+  discountAmount?: number;
   /** Optional audit — pricing engine source tag. */
   pricingSource: "website-pricing-engine";
   pricingVersion?: string;
@@ -135,4 +174,96 @@ export function toQuickQuotePublicSummary(record: QuickQuoteRecord): QuickQuoteP
 
 export function quickQuoteAmountsEqual(a: number, b: number): boolean {
   return Math.abs(Math.round(a * 100) / 100 - Math.round(b * 100) / 100) < 0.005;
+}
+
+export function parseQuickQuoteVehicleChoice(value: unknown): QuickQuoteVehicleChoice {
+  const raw = String(value ?? "").trim().toLowerCase();
+  if (raw === "minibus" || raw.includes("minibus")) return "Minibus";
+  return "Saloon";
+}
+
+export function quickQuoteMaxPassengersForVehicle(choice: QuickQuoteVehicleChoice): number {
+  return choice === "Minibus"
+    ? QUICK_QUOTE_MINIBUS_MAX_PASSENGERS
+    : QUICK_QUOTE_SALOON_MAX_PASSENGERS;
+}
+
+export function quickQuotePassengerOptions(choice: QuickQuoteVehicleChoice): number[] {
+  const max = quickQuoteMaxPassengersForVehicle(choice);
+  return Array.from({ length: max }, (_, i) => i + 1);
+}
+
+export function roundQuickQuoteGbp(amount: number): number {
+  return Math.round(Number(amount) * 100) / 100;
+}
+
+/**
+ * Apply an Owner/Driver discretionary discount AFTER the canonical fare.
+ * Does not alter the pricing engine. Never returns a negative customer fare.
+ * Return-journey engine discount (5%) stays inside calculatedFare — this is separate.
+ */
+export function applyQuickQuoteManualDiscount(
+  calculatedFare: number,
+  discountType: QuickQuoteDiscountType = "none",
+  discountValue = 0,
+): {
+  calculatedFare: number;
+  discountType: QuickQuoteDiscountType;
+  discountValue: number;
+  discountAmount: number;
+  customerFare: number;
+} {
+  const calculated = roundQuickQuoteGbp(Math.max(0, Number(calculatedFare) || 0));
+  let type: QuickQuoteDiscountType =
+    discountType === "percent" || discountType === "fixed" ? discountType : "none";
+  let value = Number(discountValue);
+  if (!Number.isFinite(value) || value < 0) value = 0;
+
+  if (type === "percent") {
+    value = Math.min(100, value);
+  }
+
+  let discountAmount = 0;
+  if (type === "percent" && value > 0) {
+    discountAmount = roundQuickQuoteGbp(calculated * (value / 100));
+  } else if (type === "fixed" && value > 0) {
+    discountAmount = roundQuickQuoteGbp(value);
+  }
+
+  // Never exceed the calculated fare (no negative customer price).
+  discountAmount = Math.min(discountAmount, calculated);
+  const customerFare = roundQuickQuoteGbp(Math.max(0, calculated - discountAmount));
+
+  if (type === "none" || discountAmount <= 0) {
+    return {
+      calculatedFare: calculated,
+      discountType: "none",
+      discountValue: 0,
+      discountAmount: 0,
+      customerFare: calculated,
+    };
+  }
+
+  return {
+    calculatedFare: calculated,
+    discountType: type,
+    discountValue: roundQuickQuoteGbp(value),
+    discountAmount,
+    customerFare,
+  };
+}
+
+export function parseQuickQuoteDiscountType(value: unknown): QuickQuoteDiscountType {
+  const raw = String(value ?? "").trim().toLowerCase();
+  if (raw === "percent" || raw === "percentage" || raw === "%") return "percent";
+  if (raw === "fixed" || raw === "amount" || raw === "gbp" || raw === "£") return "fixed";
+  return "none";
+}
+
+/** Engine fare used for re-validation (falls back to quotedAmount for legacy records). */
+export function quickQuoteCalculatedAmount(record: Pick<QuickQuoteRecord, "quotedAmount" | "calculatedAmount">): number {
+  if (typeof record.calculatedAmount === "number" && Number.isFinite(record.calculatedAmount)) {
+    return roundQuickQuoteGbp(record.calculatedAmount);
+  }
+  return roundQuickQuoteGbp(record.quotedAmount);
 }
