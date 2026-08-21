@@ -32,6 +32,7 @@ export default function LocationQuoteSection({
           initialDirection={direction}
           initialAddressHint={addressHint}
         />
+        <div id="matni-help-dock" className="matni-help-dock mt-3 flex justify-end" />
       </div>
     </section>
   );

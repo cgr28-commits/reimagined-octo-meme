@@ -357,44 +357,21 @@ main {
 }
 
 /*
- * Compact public Help launcher (QuoteAssistant).
- * Keeps a small pill/icon in the bottom-right corner with safe-area spacing so it
- * does not cover quote inputs, prices, or Book/Continue controls.
- * Phones (<768px) do not mount the launcher — see QuoteAssistant.
+ * Public Help launcher (QuoteAssistant).
+ * Float mode: fixed bottom-right of the viewport (~22px edges), only when that
+ * corner does not intersect #quote. Otherwise docks into #matni-help-dock below
+ * the Live Quote card so form/price/CTAs stay clear.
  */
-.matni-help-launcher {
-  bottom: max(0.75rem, env(safe-area-inset-bottom, 0px));
-  right: max(0.75rem, env(safe-area-inset-right, 0px));
+.matni-help-launcher--float {
+  bottom: max(22px, env(safe-area-inset-bottom, 0px));
+  right: max(22px, env(safe-area-inset-right, 0px));
 }
 
 .matni-help-panel {
-  bottom: calc(3.25rem + env(safe-area-inset-bottom, 0px));
+  bottom: calc(4.25rem + env(safe-area-inset-bottom, 0px));
+  right: max(22px, env(safe-area-inset-right, 0px));
 }
 
-/* Tablet: reserve a slim right gutter on quote CTAs so the pill never sits on buttons. */
-@media (min-width: 768px) and (max-width: 1279px) {
-  #quote #quote-step1-next,
-  #quote #quote-step2-next,
-  #quote #quoteResult {
-    padding-right: 4.25rem;
-  }
-}
-
-/* Desktop wide: tuck the pill into the page gutter outside max-w-7xl when possible. */
-@media (min-width: 1280px) {
-  .matni-help-launcher {
-    right: max(
-      1rem,
-      env(safe-area-inset-right, 0px),
-      calc((100vw - 80rem) / 2 + 0.75rem)
-    );
-  }
-
-  .matni-help-panel {
-    right: max(
-      1rem,
-      env(safe-area-inset-right, 0px),
-      calc((100vw - 80rem) / 2 + 0.75rem)
-    );
-  }
+.matni-help-dock {
+  min-height: 0;
 }

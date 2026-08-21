@@ -84,6 +84,8 @@ export default function HeroSlideshow() {
           id="quote"
         >
           <QuoteCard />
+          {/* Help launcher docks here when a viewport-corner float would cover the quote card. */}
+          <div id="matni-help-dock" className="matni-help-dock mt-3 flex justify-end" />
           <p className="mt-4 px-1 text-center text-sm leading-relaxed text-white/50">
             Need help?{" "}
             <a

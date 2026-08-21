@@ -1,5 +1,5 @@
 /**
- * Compact public Help launcher — must not compete with the quote booking flow.
+ * Public Help launcher — visible, never over the Live Quote card.
  * Run: npx tsx scripts/check-compact-help-button.ts
  */
 import assert from "node:assert/strict";
@@ -14,28 +14,47 @@ function read(rel: string): string {
 
 const assistant = read("src/components/QuoteAssistant.tsx");
 const css = read("src/app/globals.css");
+const hero = read("src/components/HeroSlideshow.tsx");
+const locationQuote = read("src/components/LocationQuoteSection.tsx");
 const wa = read("src/components/WhatsAppButton.tsx");
 const layout = read("src/app/layout.tsx");
 
-console.log("=== 1. Compact Help pill (not large floating card) ===");
+console.log("=== 1. Desktop / mobile Help labels (not tiny, not large card) ===");
 {
   assert.match(assistant, /data-matni-help-launcher/);
-  assert.match(assistant, /matni-help-launcher/);
-  assert.match(assistant, />Help</);
-  assert.match(assistant, /rounded-full/);
-  assert.match(assistant, /h-9/);
-  // Closed launcher must not render the old large two-line card copy.
+  assert.match(assistant, /Need help\?/);
+  assert.match(assistant, /launcherClosedLabel/);
+  assert.match(assistant, /min-h-\[44px\]/);
+  assert.match(assistant, /h-11/);
   assert.doesNotMatch(
     assistant,
     /Can I help \?\s*<\/span>\s*<span[^>]*>\s*Quotes · help · contact/,
   );
-  assert.doesNotMatch(assistant, /sm:h-12 sm:w-12/);
   assert.doesNotMatch(assistant, /sm:h-16 sm:w-16/);
   assert.doesNotMatch(assistant, /max-w-\[9\.5rem\]/);
-  console.log("OK  compact Help pill · no large Can I help card");
+  console.log("OK  Need help? / Help pills · no old large card");
 }
 
-console.log("\n=== 2. Help / contact behaviour unchanged ===");
+console.log("\n=== 2. Never float over the Live Quote card ===");
+{
+  assert.match(assistant, /HelpPlacement/);
+  assert.match(assistant, /rectsOverlap/);
+  assert.match(assistant, /helpPlacement === "dock"/);
+  assert.match(assistant, /matni-help-dock/);
+  assert.match(assistant, /HELP_EDGE_PX/);
+  assert.match(assistant, /HELP_QUOTE_PAD_PX/);
+  assert.match(hero, /id="matni-help-dock"/);
+  assert.match(locationQuote, /id="matni-help-dock"/);
+  assert.match(css, /\.matni-help-launcher--float/);
+  assert.match(css, /bottom:\s*max\(22px,\s*env\(safe-area-inset-bottom/);
+  assert.match(css, /right:\s*max\(22px,\s*env\(safe-area-inset-right/);
+  // Old “pad the CTAs under a covering float” approach must stay gone.
+  assert.doesNotMatch(css, /#quote #quote-step1-next/);
+  assert.doesNotMatch(css, /padding-right:\s*4\.25rem/);
+  console.log("OK  collision → dock below quote · float only in free corner");
+}
+
+console.log("\n=== 3. Help / contact behaviour unchanged ===");
 {
   assert.match(assistant, /toggleOpen/);
   assert.match(assistant, /respondToAssistantMessage/);
@@ -43,43 +62,19 @@ console.log("\n=== 2. Help / contact behaviour unchanged ===");
   assert.match(assistant, /emailAssistantQuote/);
   assert.match(assistant, /shouldHidePublicSalesWidgets/);
   assert.match(layout, /QuoteAssistant/);
-  console.log("OK  chat + booking helpers + portal gating intact");
+  // Mobile mounts the launcher (docked under quote when needed).
+  assert.doesNotMatch(assistant, /if \(isMobile === true\) return null/);
+  console.log("OK  chat helpers + portal gating · mobile Help enabled via dock");
 }
 
-console.log("\n=== 3. WhatsApp floating button stays retired ===");
+console.log("\n=== 4. WhatsApp FAB stays retired · hero CTAs stay removed ===");
 {
   assert.match(wa, /return null/);
   assert.doesNotMatch(wa, /fixed bottom-/);
   assert.match(layout, /WhatsAppButton/);
-  assert.doesNotMatch(assistant, /WhatsAppButton/);
-  console.log("OK  no WhatsApp FAB restored");
-}
-
-console.log("\n=== 4. Responsive: desktop / tablet / mobile ===");
-{
-  // Mobile phones: launcher not mounted (quote form + Need help WhatsApp stay clear).
-  assert.match(assistant, /if \(isMobile === true\) return null/);
-  assert.match(assistant, /Phones use the on-page quote form/);
-
-  // Shared safe-area corner positioning (tablet + desktop when mounted).
-  assert.match(css, /\.matni-help-launcher/);
-  assert.match(css, /safe-area-inset-bottom/);
-  assert.match(css, /safe-area-inset-right/);
-  assert.match(css, /bottom:\s*max\(0\.75rem,\s*env\(safe-area-inset-bottom/);
-  assert.match(css, /right:\s*max\(0\.75rem,\s*env\(safe-area-inset-right/);
-
-  // Tablet: quote CTA gutter so Book/Continue are not under the pill.
-  assert.match(css, /min-width:\s*768px\) and \(max-width:\s*1279px\)/);
-  assert.match(css, /#quote #quote-step1-next/);
-  assert.match(css, /#quote #quoteResult/);
-  assert.match(css, /padding-right:\s*4\.25rem/);
-
-  // Desktop wide: tuck into page gutter outside max-w-7xl.
-  assert.match(css, /min-width:\s*1280px/);
-  assert.match(css, /100vw - 80rem/);
-  assert.match(css, /\.matni-help-panel/);
-
-  console.log("OK  mobile hide · tablet CTA clearance · desktop gutter · safe-area");
+  assert.doesNotMatch(hero, /Get a Fixed Quote/);
+  assert.doesNotMatch(hero, /Book Your Transfer/);
+  console.log("OK  no WhatsApp FAB · hero Fixed Quote / Book Transfer still gone");
 }
 
 console.log("\nAll compact-help-button checks passed.");

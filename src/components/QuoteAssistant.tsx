@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef, useState, type Ref } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type Ref } from "react";
 import { createPortal } from "react-dom";
 import AddressInput from "@/components/AddressInput";
 import { playBotOpenSound, playBotReplySound, playBotWorkingSound } from "@/lib/bot-sounds";
@@ -27,6 +27,25 @@ import { scheduleQuoteLeadAlert } from "@/lib/submit-quote-lead";
 
 const BOT_WORKING_MS = 450;
 const SESSION_KEY = "matni-quote-assistant-v1";
+/** ~20–24px viewport edge clearance for the floating Help pill. */
+const HELP_EDGE_PX = 22;
+/** Inflate the quote rect so autocomplete / CTAs stay clear of a float. */
+const HELP_QUOTE_PAD_PX = 12;
+
+type HelpPlacement = "float" | "dock";
+
+function rectsOverlap(
+  a: { left: number; top: number; right: number; bottom: number },
+  b: DOMRect,
+  pad: number,
+): boolean {
+  return !(
+    a.right < b.left - pad ||
+    a.left > b.right + pad ||
+    a.bottom < b.top - pad ||
+    a.top > b.bottom + pad
+  );
+}
 
 type PersistedChat = {
   messages: AssistantMessage[];
@@ -130,6 +149,8 @@ export default function QuoteAssistant() {
   const [addressValue, setAddressValue] = useState("");
   const [mounted, setMounted] = useState(false);
   const [consecutiveMisses, setConsecutiveMisses] = useState(0);
+  const [helpPlacement, setHelpPlacement] = useState<HelpPlacement>("dock");
+  const [helpDockEl, setHelpDockEl] = useState<HTMLElement | null>(null);
   const launcherRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -248,6 +269,73 @@ export default function QuoteAssistant() {
       window.dispatchEvent(new Event("matni-chat-open-change"));
     };
   }, [open]);
+
+  /**
+   * Float only when the bottom-right viewport corner is free of the Live Quote card.
+   * Otherwise dock into #matni-help-dock (below the quote) so controls stay clear.
+   * useLayoutEffect avoids a one-frame float flash over the quote card.
+   */
+  useLayoutEffect(() => {
+    if (!mounted) return;
+
+    function syncHelpPlacement() {
+      const quote = document.getElementById("quote");
+      const dock = document.getElementById("matni-help-dock");
+      setHelpDockEl(dock);
+
+      // While the chat panel is open, keep a fixed close control in the corner.
+      if (open || !quote) {
+        setHelpPlacement("float");
+        return;
+      }
+
+      const mobile = isMobile ?? detectMobileDevice();
+      const btnW = mobile ? 96 : 148;
+      const btnH = 44;
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const floatBox = {
+        left: vw - HELP_EDGE_PX - btnW,
+        top: vh - HELP_EDGE_PX - btnH,
+        right: vw - HELP_EDGE_PX,
+        bottom: vh - HELP_EDGE_PX,
+      };
+      const quoteRect = quote.getBoundingClientRect();
+      const overlapsQuote = rectsOverlap(floatBox, quoteRect, HELP_QUOTE_PAD_PX);
+
+      if (!overlapsQuote) {
+        setHelpPlacement("float");
+        return;
+      }
+
+      // Not enough free corner space — dock below/alongside the quote instead of covering it.
+      let host = dock;
+      if (!host) {
+        host = document.createElement("div");
+        host.id = "matni-help-dock";
+        host.className = "matni-help-dock mt-3 flex justify-end";
+        quote.appendChild(host);
+      }
+      setHelpDockEl(host);
+      setHelpPlacement("dock");
+    }
+
+    syncHelpPlacement();
+    window.addEventListener("resize", syncHelpPlacement);
+    window.addEventListener("scroll", syncHelpPlacement, { passive: true });
+    const quote = document.getElementById("quote");
+    const ro =
+      quote && typeof ResizeObserver !== "undefined"
+        ? new ResizeObserver(() => syncHelpPlacement())
+        : null;
+    if (quote && ro) ro.observe(quote);
+
+    return () => {
+      window.removeEventListener("resize", syncHelpPlacement);
+      window.removeEventListener("scroll", syncHelpPlacement);
+      ro?.disconnect();
+    };
+  }, [mounted, open, isMobile, pathname]);
 
   // Keep the page from sliding sideways while the chat is open.
   useEffect(() => {
@@ -482,48 +570,59 @@ export default function QuoteAssistant() {
     }
   }
 
-  const ui = (
-    <>
-      {/*
-        Compact corner Help pill — must stay clear of quote inputs / prices / Book CTAs.
-        Safe-area insets keep it above mobile browser chrome on narrow tablets.
-      */}
-      <button
-        ref={launcherRef}
-        type="button"
-        data-matni-help-launcher="true"
-        onClick={toggleOpen}
-        className={`matni-help-launcher fixed z-[60] flex items-center justify-center border border-emerald/70 bg-navy/95 text-white shadow-md shadow-black/30 backdrop-blur-sm transition-colors hover:border-emerald hover:bg-navy-light ${
-          open
-            ? "h-10 w-10 rounded-full"
-            : "h-9 gap-1.5 rounded-full py-0 pl-2.5 pr-3"
-        }`}
-        aria-label={open ? "Close chat" : "Help — get quotes and help"}
-        aria-expanded={open}
-      >
-        {open ? (
-          <svg className="h-4 w-4 text-emerald" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden>
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 6l12 12M18 6L6 18" />
-          </svg>
-        ) : (
-          <>
-            <svg
-              className="h-3.5 w-3.5 shrink-0 text-emerald"
-              viewBox="0 0 24 24"
-              fill="currentColor"
-              aria-hidden
-            >
-              <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z" />
-            </svg>
-            <span className="text-xs font-semibold leading-none tracking-wide">Help</span>
-          </>
-        )}
-      </button>
+  const mobileUi = isMobile === true;
+  const launcherClosedLabel = mobileUi ? "Help" : "Need help?";
+  const useDock = helpPlacement === "dock" && helpDockEl && !open;
 
+  const launcherButton = (
+    <button
+      ref={launcherRef}
+      type="button"
+      data-matni-help-launcher="true"
+      data-matni-help-placement={useDock ? "dock" : "float"}
+      onClick={toggleOpen}
+      className={`matni-help-launcher flex items-center justify-center border border-emerald/70 bg-navy text-white shadow-md shadow-black/25 transition-colors hover:border-emerald hover:bg-navy-light ${
+        useDock ? "matni-help-launcher--dock relative z-[40]" : "matni-help-launcher--float fixed z-[60]"
+      } ${
+        open
+          ? "h-11 w-11 rounded-full"
+          : mobileUi
+            ? "min-h-[44px] gap-1.5 rounded-full py-2.5 pl-3.5 pr-4"
+            : "h-11 gap-2 rounded-full py-0 pl-3.5 pr-4"
+      }`}
+      aria-label={open ? "Close chat" : "Need help? — get quotes and help"}
+      aria-expanded={open}
+    >
       {open ? (
+        <svg className="h-5 w-5 text-emerald" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden>
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 6l12 12M18 6L6 18" />
+        </svg>
+      ) : (
+        <>
+          <svg
+            className={`shrink-0 text-emerald ${mobileUi ? "h-4 w-4" : "h-[1.125rem] w-[1.125rem]"}`}
+            viewBox="0 0 24 24"
+            fill="currentColor"
+            aria-hidden
+          >
+            <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z" />
+          </svg>
+          <span
+            className={`font-semibold leading-none tracking-wide ${
+              mobileUi ? "text-sm" : "text-sm sm:text-[0.9375rem]"
+            }`}
+          >
+            {launcherClosedLabel}
+          </span>
+        </>
+      )}
+    </button>
+  );
+
+  const panel = open ? (
         <div
           ref={panelRef}
-          className="matni-help-panel fixed z-[60] box-border flex h-[min(78dvh,36rem)] max-h-[min(78dvh,36rem)] w-auto min-w-0 touch-pan-y flex-col overflow-hidden overscroll-x-none rounded-2xl border border-white/15 bg-navy-dark shadow-2xl left-3 right-3 max-w-[calc(100vw-1.5rem)] sm:left-auto sm:right-[max(1rem,env(safe-area-inset-right))] sm:w-[22rem] sm:max-w-[min(22rem,calc(100%-2rem))]"
+          className="matni-help-panel fixed z-[60] box-border flex h-[min(78dvh,36rem)] max-h-[min(78dvh,36rem)] w-auto min-w-0 touch-pan-y flex-col overflow-hidden overscroll-x-none rounded-2xl border border-white/15 bg-navy-dark shadow-2xl left-3 right-3 max-w-[calc(100vw-1.5rem)] sm:left-auto sm:w-[22rem] sm:max-w-[min(22rem,calc(100%-2.75rem))]"
         >
           <div className="flex min-w-0 items-start justify-between gap-3 border-b border-white/10 bg-navy px-4 py-3">
             <div className="flex min-w-0 items-center gap-3">
@@ -741,16 +840,26 @@ export default function QuoteAssistant() {
             </form>
           )}
         </div>
-      ) : null}
-    </>
-  );
+  ) : null;
 
   if (!mounted) return null;
-  // Phones use the on-page quote form + “Need help? WhatsApp us” — keep the chat
-  // launcher off small viewports so it never covers form controls or browser chrome.
-  // Tablets/desktop get the compact Help pill (see .matni-help-launcher).
-  if (isMobile === true) return null;
   // Owner/admin/driver dashboards — keep the public quote assistant off private ops screens.
   if (shouldHidePublicSalesWidgets(pathname)) return null;
-  return createPortal(ui, document.body);
+
+  const dockedLauncher =
+    useDock && helpDockEl ? createPortal(launcherButton, helpDockEl) : null;
+  const bodyUi = createPortal(
+    <>
+      {!useDock ? launcherButton : null}
+      {panel}
+    </>,
+    document.body,
+  );
+
+  return (
+    <>
+      {dockedLauncher}
+      {bodyUi}
+    </>
+  );
 }
