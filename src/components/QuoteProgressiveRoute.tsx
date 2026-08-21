@@ -115,6 +115,8 @@ export type QuoteProgressiveRouteProps = {
   showJourneyModeFields: boolean;
   /** Journey mode chosen — show passenger / suitcase controls. */
   showPartyFields: boolean;
+  /** Bumped when addresses/intent change so stage scrolls can re-run cleanly. */
+  showStageScrollKey?: string;
   journeyKindLabel?: string;
 };
 
@@ -150,6 +152,7 @@ export default function QuoteProgressiveRoute({
   showRouteFields,
   showJourneyModeFields,
   showPartyFields,
+  showStageScrollKey = "",
   journeyKindLabel,
 }: QuoteProgressiveRouteProps) {
   const showAirportPicker =
@@ -162,8 +165,13 @@ export default function QuoteProgressiveRoute({
   // Addresses complete → stop at One Way / Return (never skip to passengers).
   const hadJourneyModeScrollRef = useRef(false);
   useEffect(() => {
-    if (!showJourneyModeFields) {
-      hadJourneyModeScrollRef.current = false;
+    hadJourneyModeScrollRef.current = false;
+  }, [showStageScrollKey]);
+  useEffect(() => {
+    if (!showJourneyModeFields || journeyMode != null) {
+      if (!showJourneyModeFields) {
+        hadJourneyModeScrollRef.current = false;
+      }
       return;
     }
     if (hadJourneyModeScrollRef.current) return;
@@ -172,11 +180,14 @@ export default function QuoteProgressiveRoute({
     if (typeof document !== "undefined" && document.activeElement instanceof HTMLElement) {
       document.activeElement.blur();
     }
-    return scheduleBookingNavAfterRender("quote-section-journey-mode");
-  }, [showJourneyModeFields]);
+    return scheduleBookingNavAfterRender("journey-type-selector");
+  }, [showJourneyModeFields, journeyMode]);
 
   // One Way / Return chosen → then move to passengers / suitcases.
   const hadPartyFieldsScrollRef = useRef(false);
+  useEffect(() => {
+    hadPartyFieldsScrollRef.current = false;
+  }, [showStageScrollKey]);
   useEffect(() => {
     if (!showPartyFields || journeyMode == null) {
       hadPartyFieldsScrollRef.current = false;
@@ -184,7 +195,7 @@ export default function QuoteProgressiveRoute({
     }
     if (hadPartyFieldsScrollRef.current) return;
     hadPartyFieldsScrollRef.current = true;
-    return scheduleBookingNavAfterRender("quote-section-passengers");
+    return scheduleBookingNavAfterRender("passenger-luggage-section");
   }, [showPartyFields, journeyMode]);
 
   function handlePassengersChange(value: number) {
@@ -328,31 +339,35 @@ export default function QuoteProgressiveRoute({
       )}
 
       {showJourneyModeFields && (
-        <div id="quote-section-journey-mode" className="space-y-3">
+        <div id="journey-type-selector" className="space-y-3">
           <p className="mb-2 text-xs font-medium uppercase tracking-wider text-white/50">
             Journey
           </p>
-          <div className="grid grid-cols-2 gap-2 rounded-xl border border-white/10 bg-white/5 p-1">
+          <div
+            role="group"
+            aria-label="One way or return"
+            className="grid grid-cols-2 overflow-hidden rounded-xl border border-white/15 bg-white/[0.06]"
+          >
             <button
               type="button"
               aria-pressed={journeyMode === "one-way"}
               onClick={() => onJourneyModeChange("one-way")}
-              className={`min-h-12 rounded-lg px-3 py-2.5 text-sm font-semibold transition-all lg:min-h-11 ${
+              className={`min-h-[52px] w-full px-3 py-3 text-sm font-semibold transition-colors focus-visible:z-10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-emerald lg:min-h-12 ${
                 journeyMode === "one-way"
-                  ? "bg-emerald text-navy shadow-sm"
-                  : "text-white/70 hover:text-white"
+                  ? "bg-emerald text-navy"
+                  : "bg-transparent text-white/75 hover:bg-white/[0.04] hover:text-white"
               }`}
             >
-              One Way
+              One way
             </button>
             <button
               type="button"
               aria-pressed={journeyMode === "return"}
               onClick={() => onJourneyModeChange("return")}
-              className={`min-h-12 rounded-lg px-3 py-2.5 text-sm font-semibold transition-all lg:min-h-11 ${
+              className={`min-h-[52px] w-full border-l border-white/40 px-3 py-3 text-sm font-semibold transition-colors focus-visible:z-10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-emerald lg:min-h-12 ${
                 journeyMode === "return"
-                  ? "bg-emerald text-navy shadow-sm"
-                  : "text-white/70 hover:text-white"
+                  ? "bg-emerald text-navy"
+                  : "bg-transparent text-white/75 hover:bg-white/[0.04] hover:text-white"
               }`}
             >
               Return · 5% off
@@ -364,7 +379,7 @@ export default function QuoteProgressiveRoute({
               className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white/80"
               role="status"
             >
-              Choose One Way or Return to continue.
+              Choose One way or Return to continue.
             </p>
           )}
           {returnJourney && showAddresses && (
@@ -380,7 +395,7 @@ export default function QuoteProgressiveRoute({
       )}
 
       {showPartyFields && (
-        <div className="space-y-5 lg:space-y-4">
+        <div id="passenger-luggage-section" className="space-y-5 lg:space-y-4">
           <div className="grid gap-5 lg:grid-cols-2 lg:items-start lg:gap-3.5">
             <div id="quote-section-passengers" className="space-y-5 lg:space-y-3.5">
               <ChoiceGrid

@@ -15,6 +15,7 @@ import {
   focusFirstInvalidField,
   quoteStepTargetId,
   scheduleBookingNavAfterRender,
+  schedulePreciseResultsScroll,
   type QuoteStepNavTarget,
 } from "@/lib/quote-step-nav-scroll";
 import { whatsAppChatUrl } from "@/lib/contact-card";
@@ -967,7 +968,7 @@ function QuoteCard({
                 !isReturnAfterOutbound(tripDate, tripTime, returnDate, returnTime)
               ? "Return date and time must be after your outbound trip."
               : journeyMode == null
-                ? "Choose One Way or Return to continue."
+                ? "Choose One way or Return to continue."
                 : !hasCompatibleVehicle
                 ? "Select passengers and luggage to continue."
                 : "";
@@ -1193,11 +1194,13 @@ function QuoteCard({
 
   /**
    * Complete results (route + vehicle + price) ready to show and scroll once.
-   * Waits for live fare (or request-quote paths) after journey mode + party choices.
+   * Waits for distance, time, and live fare (or request-quote paths) after all choices.
    */
   const quoteResultsReady =
     quoteChoicesReady &&
     hasQuoteRoute &&
+    Boolean(journeyDistanceLabel) &&
+    Boolean(journeyDurationLabel) &&
     (Boolean(liveQuote) ||
       pricingConfirmationRequired ||
       isManualQuoteJourney ||
@@ -1208,13 +1211,25 @@ function QuoteCard({
     ? isPlaceSelected(pickupPlace) && isPlaceSelected(dropoffPlace)
     : hasQuoteRoute;
 
+  function clearDownstreamQuoteChoices() {
+    setJourneyMode(null);
+    setPassengers(null);
+    setSuitcases(null);
+    setExactPassengers(null);
+    setRouteMetrics(null);
+  }
+
   function handlePickupChange(value: string) {
     setPickupAddress(value);
     setPickupRestoredHint(false);
     if (isA2AFlow) {
+      const hadConfirmed = isPlaceSelected(pickupPlace);
       setPickupPlace(emptySelectedPlace());
       setPickupPlaceError("");
       clearConfirmedPickupPlace();
+      if (hadConfirmed) {
+        clearDownstreamQuoteChoices();
+      }
     }
     if (value.trim()) {
       savePickupAddressLabel(value);
@@ -1227,9 +1242,13 @@ function QuoteCard({
     setDropoffAddress(value);
     setDropoffRestoredHint(false);
     if (isA2AFlow) {
+      const hadConfirmed = isPlaceSelected(dropoffPlace);
       setDropoffPlace(emptySelectedPlace());
       setDropoffPlaceError("");
       clearConfirmedDropoffPlace();
+      if (hadConfirmed) {
+        clearDownstreamQuoteChoices();
+      }
     }
     if (value.trim()) {
       saveDropoffAddressLabel(value);
@@ -1239,6 +1258,7 @@ function QuoteCard({
   }
 
   function handlePickupPlaceSelect(place: SelectedPlace) {
+    const addressChanged = Boolean(place.placeId?.trim()) && place.placeId !== pickupPlace.placeId;
     setPickupPlace(place);
     setPickupPlaceError("");
     // Typing clears placeId — address was already set via onChange; do not rewrite/trim
@@ -1259,9 +1279,13 @@ function QuoteCard({
       savePickupAddressLabel(display);
       clearConfirmedPickupPlace();
     }
+    if (addressChanged) {
+      clearDownstreamQuoteChoices();
+    }
   }
 
   function handleDropoffPlaceSelect(place: SelectedPlace) {
+    const addressChanged = Boolean(place.placeId?.trim()) && place.placeId !== dropoffPlace.placeId;
     setDropoffPlace(place);
     setDropoffPlaceError("");
     if (!place.placeId?.trim()) {
@@ -1278,9 +1302,15 @@ function QuoteCard({
       saveDropoffAddressLabel(display);
       clearConfirmedDropoffPlace();
     }
+    if (addressChanged) {
+      clearDownstreamQuoteChoices();
+    }
   }
 
   function applyJourneyIntent(intent: QuoteJourneyIntent) {
+    if (intent !== journeyIntent) {
+      clearDownstreamQuoteChoices();
+    }
     setJourneyIntent(intent);
     setTripMode("address");
     if (intent === "to-airport") {
@@ -1322,6 +1352,9 @@ function QuoteCard({
     const place = quickSelectToPlace(code);
     if (!place) {
       return;
+    }
+    if (code !== intentAirportCode) {
+      clearDownstreamQuoteChoices();
     }
     setIntentAirportCode(code);
     setAirportCode(code);
@@ -2246,13 +2279,13 @@ function QuoteCard({
         return;
       }
       if (journeyMode == null) {
-        setSubmitError("Choose One Way or Return to continue.");
-        scheduleBookingNavAfterRender("quote-section-journey-mode");
+        setSubmitError("Choose One way or Return to continue.");
+        scheduleBookingNavAfterRender("journey-type-selector");
         return;
       }
       if (!partySelectionReady) {
         setSubmitError("Select your passenger and suitcase numbers to see your fixed price.");
-        scheduleBookingNavAfterRender("quote-section-passengers");
+        scheduleBookingNavAfterRender("passenger-luggage-section");
         return;
       }
       if (passengers != null && passengers > MAX_ONLINE_PASSENGERS) {
@@ -2342,7 +2375,7 @@ function QuoteCard({
     });
   }, [quoteStep]);
 
-  // When the complete results summary first becomes ready, scroll once to it.
+  // When the complete results first become ready, scroll once to Your Route.
   // Do not re-scroll when route/vehicle/price fields update individually.
   const hadQuoteResultsReadyRef = useRef(false);
   useEffect(() => {
@@ -2356,7 +2389,7 @@ function QuoteCard({
     }
     if (hadQuoteResultsReadyRef.current) return;
     hadQuoteResultsReadyRef.current = true;
-    return scheduleBookingNavAfterRender("quote-results-summary", { focusHeading: true });
+    return schedulePreciseResultsScroll("quote-route-summary");
   }, [quoteResultsReady, quoteStep]);
 
   // Legacy (non-A2A) form: addresses → One Way/Return, then passengers after mode chosen.
@@ -2380,11 +2413,11 @@ function QuoteCard({
       if (typeof document !== "undefined" && document.activeElement instanceof HTMLElement) {
         document.activeElement.blur();
       }
-      return scheduleBookingNavAfterRender("quote-section-journey-mode");
+      return scheduleBookingNavAfterRender("journey-type-selector");
     }
     if (hadLegacyPartyScrollRef.current) return;
     hadLegacyPartyScrollRef.current = true;
-    return scheduleBookingNavAfterRender("quote-section-passengers");
+    return scheduleBookingNavAfterRender("passenger-luggage-section");
   }, [hasQuoteRoute, isA2AFlow, journeyMode, quoteStep]);
 
   const submitInProgressLabel = showsRequestQuoteFlow
@@ -2482,8 +2515,8 @@ function QuoteCard({
             : "Pickups for Derry Airport must be in the greater Belfast area — enter a Belfast-area pickup address"
           : !isAirportAddressComplete
             ? `Enter your ${isFromAirport ? "drop-off" : "pickup"} address to see your fixed journey price`
-            : journeyMode == null
-              ? "Choose One Way or Return to continue."
+              : journeyMode == null
+              ? "Choose One way or Return to continue."
               : !partySelectionReady
               ? "Select your passenger and suitcase numbers to see your fixed price."
               : !isScheduleComplete
@@ -2492,7 +2525,7 @@ function QuoteCard({
       : !isAddressPairComplete
         ? "Enter pickup and drop-off addresses to see your fixed journey price"
         : journeyMode == null
-          ? "Choose One Way or Return to continue."
+          ? "Choose One way or Return to continue."
           : !partySelectionReady
           ? "Select your passenger and suitcase numbers to see your fixed price."
           : !routeMetrics
@@ -3037,6 +3070,7 @@ function QuoteCard({
                       ? Boolean(intentAirportCode) && isPlaceSelected(dropoffPlace)
                       : false)
               }
+              showStageScrollKey={`${journeyIntent ?? ""}|${intentAirportCode}|${pickupPlace.placeId}|${dropoffPlace.placeId}`}
               journeyKindLabel={journeyKind ? journeyKindLabel(journeyKind) : undefined}
             />
 
@@ -3078,11 +3112,14 @@ function QuoteCard({
             {addressesReadyForRoute && (
               <div
                 id={quoteResultsReady && quoteStep === 1 ? "quote-results-summary" : undefined}
-                data-booking-nav-heading={quoteResultsReady && quoteStep === 1 ? true : undefined}
-                tabIndex={quoteResultsReady && quoteStep === 1 ? -1 : undefined}
                 className={
                   quoteResultsReady && quoteStep === 1
                     ? "scroll-mt-44 space-y-3 outline-none md:scroll-mt-28"
+                    : undefined
+                }
+                style={
+                  quoteResultsReady && quoteStep === 1
+                    ? { overflowAnchor: "none" }
                     : undefined
                 }
               >
@@ -3093,6 +3130,7 @@ function QuoteCard({
                   aria-hidden={!(quoteResultsReady && quoteStep === 1)}
                 >
                   <TripMap
+                    id={quoteResultsReady && quoteStep === 1 ? "quote-route-summary" : undefined}
                     tripMode="address"
                     originAddress={pickupAddress}
                     destinationAddress={dropoffAddress}
@@ -3110,7 +3148,7 @@ function QuoteCard({
                     {!exceedsOnlineCapacity && (
                       <div className="rounded-xl border border-emerald/30 bg-emerald/10 px-3 py-2.5 sm:px-4 sm:py-3">
                         <p className="text-xs font-medium uppercase tracking-wider text-emerald">
-                          Vehicle for This Journey
+                          Vehicle for this journey
                         </p>
                         <p className="mt-1 text-lg font-semibold tracking-tight text-white sm:text-xl">
                           {vehicleShortLabel(quoteVehicle)}
@@ -3153,11 +3191,16 @@ function QuoteCard({
         ) : (
           <>
         {/* Legacy airport transfer UI when addressToAddress is disabled */}
-        <div id="quote-section-journey-mode">
+        {hasQuoteRoute ? (
+        <div id="journey-type-selector">
           <p className="mb-2 text-xs font-medium uppercase tracking-wider text-white/50">
             Journey
           </p>
-          <div className="grid grid-cols-2 gap-2 rounded-xl border border-white/10 bg-white/5 p-1">
+          <div
+            role="group"
+            aria-label="One way or return"
+            className="grid grid-cols-2 overflow-hidden rounded-xl border border-white/15 bg-white/[0.06]"
+          >
             <button
               type="button"
               aria-pressed={journeyMode === "one-way"}
@@ -3165,10 +3208,10 @@ function QuoteCard({
                 setJourneyMode("one-way");
                 setReturnDateError("");
               }}
-              className={`rounded-lg px-3 py-2.5 text-xs font-semibold transition-all sm:text-sm ${
+              className={`min-h-[52px] w-full px-3 py-3 text-sm font-semibold transition-colors focus-visible:z-10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-emerald ${
                 journeyMode === "one-way"
-                  ? "bg-emerald text-navy shadow-sm"
-                  : "text-white/70 hover:text-white"
+                  ? "bg-emerald text-navy"
+                  : "bg-transparent text-white/75 hover:bg-white/[0.04] hover:text-white"
               }`}
             >
               One way
@@ -3177,10 +3220,10 @@ function QuoteCard({
               type="button"
               aria-pressed={journeyMode === "return"}
               onClick={() => setJourneyMode("return")}
-              className={`rounded-lg px-3 py-2.5 text-xs font-semibold transition-all sm:text-sm ${
+              className={`min-h-[52px] w-full border-l border-white/40 px-3 py-3 text-sm font-semibold transition-colors focus-visible:z-10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-emerald ${
                 journeyMode === "return"
-                  ? "bg-emerald text-navy shadow-sm"
-                  : "text-white/70 hover:text-white"
+                  ? "bg-emerald text-navy"
+                  : "bg-transparent text-white/75 hover:bg-white/[0.04] hover:text-white"
               }`}
             >
               Return · 5% off
@@ -3192,10 +3235,11 @@ function QuoteCard({
               className="mt-3 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white/80"
               role="status"
             >
-              Choose One Way or Return to continue.
+              Choose One way or Return to continue.
             </p>
           )}
         </div>
+        ) : null}
 
         {isAirportTrip && (
           <div>
@@ -3430,7 +3474,7 @@ function QuoteCard({
 
         {!isA2AFlow && journeyMode != null && (
         <div
-          id="quote-section-passengers"
+          id="passenger-luggage-section"
           className="space-y-4 rounded-xl border border-white/10 bg-white/5 px-4 py-4 lg:space-y-3.5 lg:px-4 lg:py-3.5"
         >
           <div className="grid gap-4 lg:grid-cols-2 lg:gap-3.5">
@@ -3479,11 +3523,11 @@ function QuoteCard({
         {!isA2AFlow && quoteResultsReady && quoteStep === 1 && (
           <div
             id="quote-results-summary"
-            data-booking-nav-heading
-            tabIndex={-1}
             className="scroll-mt-44 space-y-3 outline-none md:scroll-mt-28"
+            style={{ overflowAnchor: "none" }}
           >
             <TripMap
+              id="quote-route-summary"
               tripMode={tripMode}
               originAddress={
                 isAirportTrip
@@ -3511,7 +3555,7 @@ function QuoteCard({
             {!exceedsOnlineCapacity && (
               <div className="rounded-xl border border-emerald/30 bg-emerald/10 px-3 py-2.5 sm:px-4 sm:py-3">
                 <p className="text-xs font-medium uppercase tracking-wider text-emerald">
-                  Vehicle for This Journey
+                  Vehicle for this journey
                 </p>
                 <p className="mt-1 text-lg font-semibold tracking-tight text-white sm:text-xl">
                   {vehicleShortLabel(quoteVehicle)}

@@ -54,7 +54,7 @@ check("Passenger and luggage use selectable buttons", () => {
   assert.match(progressive, /Passengers/);
   assert.match(progressive, /Suitcases \/ large bags/);
   assert.doesNotMatch(progressive, /Child seats/);
-  assert.match(progressive, /One Way/);
+  assert.match(progressive, /One way/);
   assert.match(progressive, /Return/);
 });
 
@@ -113,9 +113,10 @@ check("Step 2 travel details section scrolls only after explicit step navigation
 check("Progressive quote scrolls addresses → journey mode → party; no legacy selection-scroll helpers", () => {
   assert.match(progressive, /quote-section-passengers/);
   assert.match(progressive, /quote-section-suitcases/);
-  assert.match(progressive, /quote-section-journey-mode/);
-  assert.match(progressive, /scheduleBookingNavAfterRender\("quote-section-journey-mode"\)/);
-  assert.match(progressive, /scheduleBookingNavAfterRender\("quote-section-passengers"\)/);
+  assert.match(progressive, /id="journey-type-selector"/);
+  assert.match(progressive, /id="passenger-luggage-section"/);
+  assert.match(progressive, /scheduleBookingNavAfterRender\("journey-type-selector"\)/);
+  assert.match(progressive, /scheduleBookingNavAfterRender\("passenger-luggage-section"\)/);
   assert.doesNotMatch(progressive, /scheduleQuoteSectionScroll/);
   assert.doesNotMatch(progressive, /scheduleQuoteFareResultScroll/);
   assert.doesNotMatch(progressive, /quote-mobile-scroll/);
@@ -132,16 +133,18 @@ check("Public quote tool uses booking-nav scroll (no scrollIntoView / legacy far
   assert.doesNotMatch(card, /pendingScrollToStep3CustomerRef/);
   assert.doesNotMatch(card, /scheduleReadyForScrollRef/);
   assert.match(card, /scheduleBookingNavAfterRender/);
+  assert.match(card, /schedulePreciseResultsScroll/);
 });
 
 check("Journey mode, passengers and suitcases start unselected; results scroll once when ready", () => {
   assert.match(card, /useState<"one-way" \| "return" \| null>\(null\)/);
   assert.match(card, /useState<number \| null>\(null\)/);
-  assert.match(progressive, /Choose One Way or Return to continue\./);
+  assert.match(progressive, /Choose One way or Return to continue\./);
   assert.match(progressive, /Select your passenger and suitcase numbers to see your fixed price\./);
   assert.match(card, /canShowPrice = hasQuoteRoute && quoteChoicesReady/);
-  assert.match(card, /quote-results-summary/);
-  assert.match(card, /scheduleBookingNavAfterRender\("quote-results-summary"/);
+  assert.match(card, /quote-route-summary/);
+  assert.match(card, /schedulePreciseResultsScroll\("quote-route-summary"\)/);
+  assert.doesNotMatch(card, /scheduleBookingNavAfterRender\("quote-results-summary"/);
   assert.doesNotMatch(card, /setExactPassengers\(5\)/);
   assert.doesNotMatch(progressive, /aria-pressed=\{!returnJourney\}/);
 });

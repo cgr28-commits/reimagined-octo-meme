@@ -169,7 +169,7 @@ export default function Header() {
         className={`fixed inset-x-0 top-0 z-[60] max-w-[100%] transition-[background-color,backdrop-filter,border-color] duration-200 ${
           scrolled
             ? "border-b border-white/10 bg-navy/95 backdrop-blur-md"
-            : "bg-gradient-to-b from-navy via-navy/85 to-transparent"
+            : "border-b border-white/5 bg-navy/90 backdrop-blur-sm"
         }`}
       >
         <div className="hidden xl:block">

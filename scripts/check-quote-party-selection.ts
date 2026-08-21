@@ -1,6 +1,6 @@
 /**
  * Acceptance: journey mode + passenger + suitcase must be explicit (null until tapped).
- * Sequence: addresses → One Way/Return → party → price.
+ * Sequence: addresses → One way/Return → party → price → scroll to #quote-route-summary.
  * Run: npx tsx scripts/check-quote-party-selection.ts
  */
 
@@ -27,6 +27,7 @@ const quoteHandlers = read("workers/addresses/src/quote-handlers.ts");
 const quoteService = read("src/lib/quote-service.ts");
 const savedQuote = read("workers/addresses/src/saved-quote-handlers.ts");
 const quickQuoteHandlers = read("workers/addresses/src/quick-quote-handlers.ts");
+const scrollLib = read("src/lib/quote-step-nav-scroll.ts");
 
 check("Passengers, suitcases and journey mode initialise as null", () => {
   assert.match(card, /useState<"one-way" \| "return" \| null>\(null\)/);
@@ -56,7 +57,7 @@ check("No silent One Way / 1 pax / 0 bags defaults on pricing path", () => {
 });
 
 check("Prompts and gated price until journey mode + party selected", () => {
-  assert.match(progressive, /Choose One Way or Return to continue\./);
+  assert.match(progressive, /Choose One way or Return to continue\./);
   assert.match(progressive, /Select your passenger and suitcase numbers to see your fixed price\./);
   assert.match(card, /quoteChoicesReady/);
   assert.match(card, /journeyMode !== null && partySelectionReady/);
@@ -67,31 +68,54 @@ check("Prompts and gated price until journey mode + party selected", () => {
   assert.doesNotMatch(progressive, /aria-pressed=\{!returnJourney\}/);
 });
 
-check("Scroll sequence: journey-mode → passengers → results summary once", () => {
-  assert.match(progressive, /scheduleBookingNavAfterRender\("quote-section-journey-mode"\)/);
-  assert.match(progressive, /scheduleBookingNavAfterRender\("quote-section-passengers"\)/);
-  assert.match(card, /scheduleBookingNavAfterRender\("quote-results-summary"/);
-  assert.match(card, /id=\{?["']quote-results-summary["']|id="quote-results-summary"/);
-  assert.match(card, /hadQuoteResultsReadyRef/);
-  assert.match(card, /quoteResultsReady/);
-  // Must not scroll to price card alone on liveQuote amount changes.
-  assert.doesNotMatch(card, /scheduleBookingNavAfterRender\("quote-price-summary"/);
+check("One way / Return centre divider and equal-width buttons", () => {
+  assert.match(progressive, /id="journey-type-selector"/);
+  assert.match(progressive, /border-l border-white\/40/);
+  assert.match(progressive, /min-h-\[52px\]/);
+  assert.match(progressive, /grid grid-cols-2/);
+  assert.match(progressive, /type="button"/);
+  assert.match(progressive, /focus-visible:outline/);
+  assert.match(card, /border-l border-white\/40/);
 });
 
-check("Results summary wraps route, vehicle, price and Book Now", () => {
-  assert.match(card, /quote-results-summary/);
-  assert.match(card, /Vehicle for This Journey/);
+check("Scroll sequence: journey-type → passengers → quote-route-summary once", () => {
+  assert.match(progressive, /scheduleBookingNavAfterRender\("journey-type-selector"\)/);
+  assert.match(progressive, /scheduleBookingNavAfterRender\("passenger-luggage-section"\)/);
+  assert.match(card, /schedulePreciseResultsScroll\("quote-route-summary"\)/);
+  assert.match(card, /id="quote-route-summary"|id=\{quoteResultsReady && quoteStep === 1 \? "quote-route-summary"/);
+  assert.match(card, /hadQuoteResultsReadyRef/);
+  assert.match(card, /quoteResultsReady/);
+  assert.doesNotMatch(card, /scheduleBookingNavAfterRender\("quote-price-summary"/);
+  assert.doesNotMatch(card, /scheduleBookingNavAfterRender\("quote-results-summary"/);
+  assert.doesNotMatch(card, /schedulePreciseResultsScroll\("quote-price-summary"/);
+});
+
+check("Results order: Your Route → Vehicle → Price → Book Now; overflow-anchor none", () => {
+  assert.match(card, /quote-route-summary/);
+  assert.match(card, /Vehicle for this journey/);
   assert.match(card, /Your Fixed Journey Price/);
   assert.match(card, /sticky bottom-0/);
+  assert.match(card, /overflowAnchor: "none"/);
   assert.match(read("src/components/TripMap.tsx"), /Your Route/);
-  assert.match(read("src/lib/quote-step-nav-scroll.ts"), /quote-results-summary/);
-  assert.match(read("src/lib/quote-step-nav-scroll.ts"), /HEADER_CLEARANCE_PX = 14/);
+  assert.match(scrollLib, /quote-route-summary/);
+  assert.match(scrollLib, /schedulePreciseResultsScroll/);
+  assert.match(scrollLib, /HEADER_CLEARANCE_PX = 16/);
+  assert.match(scrollLib, /RESULTS_CORRECTION_MS = 150/);
+  assert.match(scrollLib, /RESULTS_CORRECTION_TOLERANCE_PX = 4/);
+  assert.match(scrollLib, /behavior: "auto"/);
+});
+
+check("Address changes clear downstream quote choices", () => {
+  assert.match(card, /clearDownstreamQuoteChoices/);
+  assert.match(card, /addressChanged/);
+  assert.match(card, /showStageScrollKey/);
 });
 
 check("Party fields wait for journey mode", () => {
   assert.match(progressive, /showJourneyModeFields/);
   assert.match(progressive, /showPartyFields/);
   assert.match(card, /showPartyFields=\{\s*journeyMode != null &&/);
+  assert.match(progressive, /id="passenger-luggage-section"/);
 });
 
 check("5–7 / Minibus path retained", () => {

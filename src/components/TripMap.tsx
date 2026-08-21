@@ -33,6 +33,8 @@ type TripMapProps = {
   onRouteMetrics?: (metrics: TripRouteMetrics | null) => void;
   /** Compact distance/time line with optional map expand (default for quote form). */
   variant?: "full" | "summary";
+  /** Optional DOM id for the summary card (e.g. quote-route-summary). */
+  id?: string;
   /** Prefer selected-place coordinates over re-geocoding the visible address string. */
   originLat?: number | null;
   originLng?: number | null;
@@ -98,6 +100,7 @@ export default function TripMap({
   tripDirection = "to-airport",
   onRouteMetrics,
   variant = "full",
+  id,
   originLat = null,
   originLng = null,
   destinationLat = null,
@@ -231,7 +234,11 @@ export default function TripMap({
 
   if (variant === "summary") {
     return (
-      <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3">
+      <div
+        id={id}
+        className="rounded-xl border border-white/10 bg-white/5 px-4 py-3"
+        style={{ overflowAnchor: "none" }}
+      >
         <p className="text-xs font-medium uppercase tracking-wider text-emerald">Your Route</p>
         <p className="mt-1 text-sm text-white/70">{links.routeLabel}</p>
         {routeMetrics ? (
