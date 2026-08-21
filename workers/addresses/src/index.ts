@@ -56,6 +56,7 @@ import {
 import {
   flightStatusCacheMaxAgeSeconds,
   lookupFlight,
+  shouldBypassStaleFlightCache,
   type TripDirection,
 } from "../shared/flight-lookup";
 import {
@@ -2141,10 +2142,25 @@ async function handleFlightLookupRequest(
     if (!forceRefresh) {
       const cached = await flightCache.match(cacheKey);
       if (cached) {
-        const cachedBody = (await cached.json()) as { code?: string; ok?: boolean };
-        if (cachedBody.code !== "rate_limited") {
+        const cachedBody = (await cached.json()) as {
+          code?: string;
+          ok?: boolean;
+          flight?: {
+            statusCategory?: string;
+            date?: string;
+            scheduledTime?: string;
+            estimatedTime?: string;
+            actualTime?: string;
+          };
+        };
+        const staleDelayed =
+          cachedBody.ok &&
+          cachedBody.flight &&
+          shouldBypassStaleFlightCache(cachedBody.flight);
+        if (cachedBody.code !== "rate_limited" && !staleDelayed) {
           return json(cachedBody, cached.status, origin);
         }
+        // Fall through to live lookup when ETA has passed but status is still DELAYED.
       }
     }
 
@@ -2188,6 +2204,7 @@ async function handleFlightLookupRequest(
       tripDate,
       statusCategory: result.flight.statusCategory,
       scheduledTime: result.flight.scheduledTime,
+      estimatedTime: result.flight.estimatedTime,
     });
     const responseBody = {
       ok: true,

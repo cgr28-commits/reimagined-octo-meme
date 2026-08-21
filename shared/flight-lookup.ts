@@ -28,6 +28,7 @@ export type VerifiedFlight = {
     groundSpeedKts?: number | null;
     headingDeg?: number | null;
     updatedAt?: string | null;
+    registration?: string | null;
   } | null;
 };
 
@@ -69,11 +70,16 @@ export function isValidFlightNumberFormat(value: string): boolean {
 
 export function formatFlightNumberForDisplay(value: string): string {
   const normalised = normalizeFlightNumber(value);
-  const match = normalised.match(/^([A-Z0-9]{2,3})(\d{1,4}[A-Z]?)$/i);
-  if (!match) {
-    return normalised;
+  // Prefer 2-letter IATA (RK159 → "RK 159") over greedy 3-letter (was "RK1 59").
+  const twoLetter = normalised.match(/^([A-Z0-9]{2})(\d{1,4}[A-Z]?)$/i);
+  if (twoLetter) {
+    return `${twoLetter[1].toUpperCase()} ${twoLetter[2].toUpperCase()}`;
   }
-  return `${match[1]} ${match[2]}`;
+  const threeLetter = normalised.match(/^([A-Z]{3})(\d{1,4}[A-Z]?)$/i);
+  if (threeLetter) {
+    return `${threeLetter[1].toUpperCase()} ${threeLetter[2].toUpperCase()}`;
+  }
+  return normalised;
 }
 
 function airportMatches(code: string | undefined, servedCode: string): boolean {
@@ -214,25 +220,54 @@ function pickMatchingFlight(
   return pool[0] ?? null;
 }
 
+/**
+ * Parse an AeroDataBox local ISO (Europe/London wall clock, often without offset)
+ * into absolute epoch ms. Treating digits as UTC is wrong in BST and caused
+ * “ETA passed” checks to lag by ~1 hour — flights stayed DELAYED after landing.
+ */
 function parseLondonMs(isoLocal: string): number | null {
   const match = isoLocal.match(
     /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?/,
   );
-  if (match) {
-    const [, y, m, d, hh, mm, ss] = match;
-    // Interpret wall-clock as UTC for delta only (same timezone both sides).
-    const ms = Date.UTC(
-      Number(y),
-      Number(m) - 1,
-      Number(d),
-      Number(hh),
-      Number(mm),
-      Number(ss || "0"),
-    );
-    return Number.isFinite(ms) ? ms : null;
+  if (!match) {
+    const parsed = Date.parse(isoLocal);
+    return Number.isFinite(parsed) ? parsed : null;
   }
-  const parsed = Date.parse(isoLocal);
-  return Number.isFinite(parsed) ? parsed : null;
+  const [, y, m, d, hh, mm, ss] = match;
+  const wallAsUtc = Date.UTC(
+    Number(y),
+    Number(m) - 1,
+    Number(d),
+    Number(hh),
+    Number(mm),
+    Number(ss || "0"),
+  );
+  if (!Number.isFinite(wallAsUtc)) return null;
+
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/London",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date(wallAsUtc));
+  const get = (type: string) =>
+    Number(parts.find((part) => part.type === type)?.value ?? NaN);
+  const hour = get("hour");
+  const asSeenInLondon = Date.UTC(
+    get("year"),
+    get("month") - 1,
+    get("day"),
+    hour === 24 ? 0 : hour,
+    get("minute"),
+    get("second"),
+  );
+  if (!Number.isFinite(asSeenInLondon)) return null;
+  const offsetMs = asSeenInLondon - wallAsUtc;
+  return wallAsUtc - offsetMs;
 }
 
 /**
@@ -241,11 +276,20 @@ function parseLondonMs(isoLocal: string): number | null {
  * 2. Landed / actual arrival (never keep showing DELAYED once landed)
  * 3. Delayed / estimated
  * 4. On time / scheduled
+ *
+ * AeroDataBox often keeps status as "Departed"/"Delayed" after landing until it
+ * flips to "Arrived". When runwayTime is missing but the best arrival estimate is
+ * clearly in the past, treat as LANDED so the Owner panel does not stick on DELAYED.
  */
 export function categorizeFlightStatus(
   rawStatus: string | undefined,
   delayMinutes: number | null | undefined,
-  options?: { actualTime?: string | null },
+  options?: {
+    actualTime?: string | null;
+    /** ISO local of best known arrival (runway / revised / predicted). */
+    bestArrivalIso?: string | null;
+    nowMs?: number;
+  },
 ): { statusCategory: NonNullable<VerifiedFlight["statusCategory"]>; statusLabel: string } {
   const normalised = (rawStatus || "").toLowerCase();
   if (normalised.includes("cancel")) {
@@ -253,22 +297,15 @@ export function categorizeFlightStatus(
   }
   if (
     options?.actualTime?.trim() ||
+    normalised === "arrived" ||
     normalised.includes("land") ||
     normalised.includes("arrived") ||
-    normalised.includes("gate_arrival") ||
-    normalised === "arr"
+    normalised.includes("gate_arrival")
   ) {
     return { statusCategory: "landed", statusLabel: "LANDED" };
   }
-  // Avoid matching bare "arrival" schedule labels as landed.
-  if (normalised.includes("arriv") && !normalised.includes("estimated")) {
-    if (
-      normalised.includes("has arrived") ||
-      normalised.includes("arrived at") ||
-      normalised.includes("arrival gate")
-    ) {
-      return { statusCategory: "landed", statusLabel: "LANDED" };
-    }
+  if (arrivalTimeClearlyPast(options?.bestArrivalIso, options?.nowMs)) {
+    return { statusCategory: "landed", statusLabel: "LANDED" };
   }
   if (
     normalised.includes("delay") ||
@@ -284,8 +321,15 @@ export function categorizeFlightStatus(
     normalised.includes("expected") ||
     normalised.includes("active") ||
     normalised.includes("en route") ||
-    normalised.includes("boarding")
+    normalised.includes("enroute") ||
+    normalised.includes("boarding") ||
+    normalised.includes("departed") ||
+    normalised.includes("approaching")
   ) {
+    // Departed/Approaching without a past ETA stay non-delayed unless delayMinutes says so.
+    if (typeof delayMinutes === "number" && delayMinutes >= 5) {
+      return { statusCategory: "delayed", statusLabel: "DELAYED" };
+    }
     return { statusCategory: "on_time", statusLabel: "ON TIME" };
   }
   if (typeof delayMinutes === "number" && delayMinutes > 0) {
@@ -297,26 +341,115 @@ export function categorizeFlightStatus(
   return { statusCategory: "unknown", statusLabel: "STATUS UNKNOWN" };
 }
 
+/** True when an arrival wall-clock is ≥10 minutes in the past (London-local parse). */
+export function arrivalTimeClearlyPast(
+  isoLocal?: string | null,
+  nowMs = Date.now(),
+): boolean {
+  const raw = isoLocal?.trim() ?? "";
+  if (!raw) return false;
+  const ms = parseLondonMs(raw.includes("T") ? raw : `1970-01-01T${raw}:00`);
+  if (ms == null) return false;
+  // If we only have HH:MM, parseLondonMs still works with synthetic date — callers
+  // should prefer full ISO. For HH:MM-only, compare against today's date.
+  if (!raw.includes("T") && /^\d{2}:\d{2}$/.test(raw)) {
+    const today = new Date(nowMs).toISOString().slice(0, 10);
+    const todayMs = parseLondonMs(`${today}T${raw}:00`);
+    if (todayMs == null) return false;
+    return nowMs - todayMs >= 10 * 60 * 1000;
+  }
+  return nowMs - ms >= 10 * 60 * 1000;
+}
+
 /** Client auto-refresh interval (ms). 0 = stop. */
 export function flightStatusAutoRefreshMs(input: {
   statusCategory?: VerifiedFlight["statusCategory"];
   tripDate: string;
   scheduledTime?: string;
+  estimatedTime?: string;
+  actualTime?: string;
 }): number {
   if (input.statusCategory === "landed" || input.statusCategory === "cancelled") {
     return 0;
   }
   const date = input.tripDate?.trim() ?? "";
-  const time = (input.scheduledTime?.trim() || "12:00").slice(0, 5);
+  const time = (
+    input.estimatedTime?.trim() ||
+    input.scheduledTime?.trim() ||
+    "12:00"
+  ).slice(0, 5);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return 15 * 60 * 1000;
   const scheduledMs = parseLondonMs(`${date}T${time}:00`);
   if (scheduledMs == null) return 15 * 60 * 1000;
   const hoursUntil = (scheduledMs - Date.now()) / (60 * 60 * 1000);
+  // ETA already passed but not yet marked landed — keep forcing status updates.
+  if (hoursUntil <= 0) return 60 * 1000;
   if (hoursUntil > 12) return 60 * 60 * 1000;
   if (hoursUntil > 3) return 10 * 60 * 1000;
   if (hoursUntil > 0.5) return 3 * 60 * 1000;
-  if (hoursUntil > -2) return 90 * 1000;
-  return 5 * 60 * 1000;
+  return 90 * 1000;
+}
+
+/**
+ * True when a cached non-terminal (delayed/on_time) response should be bypassed
+ * because the ETA has passed — avoids sticky DELAYED after landing.
+ */
+export function shouldBypassStaleFlightCache(flight: {
+  statusCategory?: string | null;
+  tripDate?: string;
+  date?: string;
+  scheduledTime?: string;
+  estimatedTime?: string;
+  actualTime?: string;
+}): boolean {
+  const category = flight.statusCategory || "";
+  if (category === "landed" || category === "cancelled") return false;
+  const date = (flight.date || flight.tripDate || "").trim();
+  const time = (flight.estimatedTime || flight.scheduledTime || "").trim().slice(0, 5);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{2}:\d{2}$/.test(time)) return false;
+  return arrivalTimeClearlyPast(`${date}T${time}:00`);
+}
+
+/** Prefer a newer landed/cancelled snapshot over an older delayed one (client lock). */
+export function preferFlightStatusSnapshot(
+  previous: VerifiedFlight | null,
+  next: VerifiedFlight,
+): VerifiedFlight {
+  if (!previous) return next;
+  const prevRank = statusPriorityRank(previous.statusCategory);
+  const nextRank = statusPriorityRank(next.statusCategory);
+  // Lower rank = higher priority (cancelled=0, landed=1, …)
+  if (prevRank <= 1 && nextRank > prevRank) {
+    // Never regress from LANDED/CANCELLED back to DELAYED from a stale cache hit.
+    return previous;
+  }
+  // Both landed: keep a snapshot that already has actual arrival if the newer one lost it.
+  if (
+    previous.statusCategory === "landed" &&
+    next.statusCategory === "landed" &&
+    previous.actualTime &&
+    !next.actualTime
+  ) {
+    return previous;
+  }
+  return next;
+}
+
+function statusPriorityRank(
+  category?: VerifiedFlight["statusCategory"] | null,
+): number {
+  switch (category) {
+    case "cancelled":
+      return 0;
+    case "landed":
+      return 1;
+    case "delayed":
+      return 2;
+    case "on_time":
+      return 3;
+    default:
+      return 4;
+  }
 }
 
 /**
@@ -327,20 +460,26 @@ export function flightStatusCacheMaxAgeSeconds(input: {
   tripDate: string;
   statusCategory?: VerifiedFlight["statusCategory"];
   scheduledTime?: string;
+  estimatedTime?: string;
 }): number {
   if (input.statusCategory === "landed" || input.statusCategory === "cancelled") {
     return 60 * 60 * 12;
   }
   const date = input.tripDate?.trim() ?? "";
-  const time = (input.scheduledTime?.trim() || "12:00").slice(0, 5);
+  const time = (input.estimatedTime?.trim() || input.scheduledTime?.trim() || "12:00").slice(
+    0,
+    5,
+  );
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return 600;
   const scheduledMs = parseLondonMs(`${date}T${time}:00`);
   if (scheduledMs == null) return 600;
   const hoursUntil = (scheduledMs - Date.now()) / (60 * 60 * 1000);
+  // Past ETA but not landed yet — keep cache very short so we can flip to LANDED.
+  if (hoursUntil <= 0) return 60;
   if (hoursUntil > 12) return 60 * 60;
   if (hoursUntil > 3) return 15 * 60;
   if (hoursUntil > 0) return 5 * 60;
-  return 10 * 60;
+  return 60;
 }
 
 function mapAeroFlight(
@@ -367,7 +506,7 @@ function mapAeroFlight(
     readScheduledLocal(movement?.revisedTime) ||
     readScheduledLocal(movement?.predictedTime) ||
     undefined;
-  const actualRaw = readScheduledLocal(movement?.runwayTime) || undefined;
+  const runwayRaw = readScheduledLocal(movement?.runwayTime) || undefined;
 
   let delayMinutes: number | null = null;
   if (estimatedRaw) {
@@ -378,10 +517,23 @@ function mapAeroFlight(
     }
   }
 
+  // Best known arrival clock: runway (actual) beats revised/predicted.
+  const bestArrivalIso = runwayRaw || estimatedRaw || null;
+  // If provider still says Departed/Delayed but ETA is well past and no runwayTime,
+  // promote revised/predicted time to actual arrival for Owner ops.
+  const inferredActualIso =
+    !runwayRaw && estimatedRaw && arrivalTimeClearlyPast(estimatedRaw)
+      ? estimatedRaw
+      : undefined;
+  const actualRaw = runwayRaw || inferredActualIso;
+
   const { statusCategory, statusLabel } = categorizeFlightStatus(
     flight.status,
     delayMinutes,
-    { actualTime: actualRaw ? formatLocalTime(actualRaw) : undefined },
+    {
+      actualTime: actualRaw ? formatLocalTime(actualRaw) : undefined,
+      bestArrivalIso,
+    },
   );
 
   const relevantAirport =
@@ -421,6 +573,7 @@ function mapAeroFlight(
                 ? loc.heading
                 : null,
           updatedAt: loc?.updated ?? loc?.lastUpdated ?? null,
+          registration: flight.aircraft?.reg?.trim() || null,
         }
       : null;
 

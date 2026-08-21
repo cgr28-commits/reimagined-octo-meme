@@ -8,12 +8,17 @@ import {
   type VerifiedFlight,
 } from "@/lib/flight-lookup";
 import { resolveWorkerBaseUrl } from "@/lib/worker-api";
-import { flightStatusAutoRefreshMs } from "../../shared/flight-lookup";
+import {
+  flightStatusAutoRefreshMs,
+  preferFlightStatusSnapshot,
+  shouldBypassStaleFlightCache,
+} from "../../shared/flight-lookup";
 import {
   ownerFlightCompactSummary,
   resolveOwnerFlightLegContext,
   type OwnerFlightBookingFields,
 } from "../../shared/owner-flight-status";
+import { SERVED_AIRPORTS } from "../../shared/served-airports";
 
 const LiveTrackMap = dynamic(() => import("@/components/LiveTrackMap"), {
   ssr: false,
@@ -23,6 +28,14 @@ const LiveTrackMap = dynamic(() => import("@/components/LiveTrackMap"), {
     </div>
   ),
 });
+
+function airportMarkerFromLabel(label: string): { lat: number; lng: number; label: string } | null {
+  const code = (label.match(/\b([A-Z]{3})\b/) || [])[1];
+  if (!code) return null;
+  const airport = SERVED_AIRPORTS.find((a) => a.code === code);
+  if (!airport) return null;
+  return { lat: airport.lat, lng: airport.lng, label: `${airport.code} · ${airport.name}` };
+}
 
 type OwnerFlightStatusPanelProps = {
   booking: OwnerFlightBookingFields;
@@ -71,6 +84,7 @@ export default function OwnerFlightStatusPanel({
   const [error, setError] = useState("");
   const [lastFetchedAt, setLastFetchedAt] = useState<number | null>(null);
   const [tick, setTick] = useState(0);
+  const flightRef = useRef<VerifiedFlight | null>(null);
   const inFlightRef = useRef(false);
 
   const loadFlight = useCallback(
@@ -86,6 +100,15 @@ export default function OwnerFlightStatusPanel({
         setExpanded(true);
         return;
       }
+      // Once ETA has passed without a landed lock, always bypass server cache.
+      const forceRefresh =
+        refresh ||
+        (flightRef.current
+          ? shouldBypassStaleFlightCache({
+              ...flightRef.current,
+              tripDate: context.tripDate,
+            })
+          : false);
       inFlightRef.current = true;
       setBusy(true);
       setError("");
@@ -95,13 +118,23 @@ export default function OwnerFlightStatusPanel({
           tripDate: context.tripDate,
           airportCode: context.airportCode,
           direction: context.direction,
-          refresh,
+          refresh: forceRefresh,
         });
         if (!result.ok || !result.flight) {
-          setFlight(null);
+          // Keep a locked LANDED snapshot if we already have one.
+          if (
+            !(
+              flightRef.current?.statusCategory === "landed" ||
+              flightRef.current?.statusCategory === "cancelled"
+            )
+          ) {
+            setFlight(null);
+          }
           setError(result.ok === false ? result.error : "Flight status unavailable.");
         } else {
-          setFlight(result.flight);
+          const merged = preferFlightStatusSnapshot(flightRef.current, result.flight);
+          flightRef.current = merged;
+          setFlight(merged);
           setLastFetchedAt(Date.now());
           if (ownerKey && paymentReference) {
             void fetch(`${resolveWorkerBaseUrl()}/flights/driver-alerts`, {
@@ -113,7 +146,7 @@ export default function OwnerFlightStatusPanel({
               },
               body: JSON.stringify({
                 paymentReference,
-                flight: result.flight,
+                flight: merged,
                 tripDate: context.tripDate,
                 isReturnLeg: context.isReturnLeg,
               }),
@@ -124,7 +157,14 @@ export default function OwnerFlightStatusPanel({
         }
         if (refresh || expanded || watchLive) setExpanded(true);
       } catch (err) {
-        setFlight(null);
+        if (
+          !(
+            flightRef.current?.statusCategory === "landed" ||
+            flightRef.current?.statusCategory === "cancelled"
+          )
+        ) {
+          setFlight(null);
+        }
         setError(err instanceof Error ? err.message : "Could not load flight status");
         setExpanded(true);
       } finally {
@@ -159,18 +199,28 @@ export default function OwnerFlightStatusPanel({
       statusCategory: flight?.statusCategory,
       tripDate: context.tripDate,
       scheduledTime: flight?.scheduledTime,
+      estimatedTime: flight?.estimatedTime,
+      actualTime: flight?.actualTime,
     });
     if (!ms) return;
+    const force =
+      flight != null &&
+      shouldBypassStaleFlightCache({
+        ...flight,
+        tripDate: context.tripDate,
+      });
     const id = window.setInterval(() => {
-      void loadFlight(false);
+      void loadFlight(force);
     }, ms);
     return () => window.clearInterval(id);
   }, [
     context.showFlightTracker,
     context.missingFlightNumber,
     context.tripDate,
+    flight,
     flight?.statusCategory,
     flight?.scheduledTime,
+    flight?.estimatedTime,
     loadFlight,
   ]);
 
@@ -203,24 +253,29 @@ export default function OwnerFlightStatusPanel({
   const displayNumber = formatFlightNumberForDisplay(context.flightNumber);
   const compactLine = flight
     ? flight.statusCategory === "landed"
-      ? `LANDED · Actual ${flight.actualTime || "—"}`
+      ? `Actual arrival: ${flight.actualTime || "—"}`
       : flight.statusCategory === "cancelled"
         ? "CANCELLED"
-        : ownerFlightCompactSummary({
-            flightNumber: "",
-            statusCategory: flight.statusCategory,
-            statusLabel: flight.statusLabel,
-            estimatedTime: flight.estimatedTime,
-            delayMinutes: flight.delayMinutes,
-          }).replace(/^ · /, "") ||
-          flight.statusLabel ||
-          "Status"
+        : typeof flight.delayMinutes === "number" && flight.delayMinutes > 0
+          ? `DELAYED ${flight.delayMinutes} min · ETA ${flight.estimatedTime || "—"}`
+          : ownerFlightCompactSummary({
+              flightNumber: "",
+              statusCategory: flight.statusCategory,
+              statusLabel: flight.statusLabel,
+              estimatedTime: flight.estimatedTime,
+              delayMinutes: flight.delayMinutes,
+            }).replace(/^ · /, "") ||
+            flight.statusLabel ||
+            "Status"
     : "Checking flight…";
 
   const hasPosition =
     flight?.position &&
     typeof flight.position.lat === "number" &&
     typeof flight.position.lng === "number";
+
+  const originMarker = flight ? airportMarkerFromLabel(flight.departureAirport) : null;
+  const destMarker = flight ? airportMarkerFromLabel(flight.arrivalAirport) : null;
 
   return (
     <div
@@ -244,13 +299,20 @@ export default function OwnerFlightStatusPanel({
             {compactLine}
           </p>
           {flight?.statusCategory === "landed" ? (
-            <p className="mt-1 text-xs text-white/60">
-              Scheduled {flight.scheduledTime}
-              {flight.actualTime ? ` · Arrived ${flight.actualTime}` : ""}
-              {typeof flight.delayMinutes === "number" && flight.delayMinutes > 0
-                ? ` · ${flight.delayMinutes} min late`
-                : ""}
-            </p>
+            <div className="mt-2 space-y-0.5 text-xs text-white/65">
+              <p className="text-sm font-semibold text-sky-100">
+                LANDED
+                {flight.actualTime ? ` · Actual arrival: ${flight.actualTime}` : ""}
+              </p>
+              <p>
+                Scheduled: {flight.scheduledTime || "—"}
+                {flight.estimatedTime ? ` · Estimated: ${flight.estimatedTime}` : ""}
+                {flight.actualTime ? ` · Actual: ${flight.actualTime}` : ""}
+                {typeof flight.delayMinutes === "number" && flight.delayMinutes > 0
+                  ? ` · ${flight.delayMinutes} min late`
+                  : ""}
+              </p>
+            </div>
           ) : null}
           <p className="mt-1 text-xs text-white/45">
             {context.airportName}
@@ -297,6 +359,8 @@ export default function OwnerFlightStatusPanel({
                     lng: flight.position.lng,
                     label: displayNumber,
                   },
+                  ...(originMarker ? [originMarker] : []),
+                  ...(destMarker ? [destMarker] : []),
                 ]}
               />
               <p className="text-sm text-white/75">
@@ -319,14 +383,16 @@ export default function OwnerFlightStatusPanel({
                 {flight.position.updatedAt
                   ? ` · Position @ ${flight.position.updatedAt}`
                   : ""}
+                {lastFetchedAt ? ` · ${formatLastUpdated(lastFetchedAt)}` : ""}
               </p>
               <p className="text-xs text-white/40">
-                Only coordinates returned by AeroDataBox are plotted — no interpolated track.
+                Aircraft marker uses only AeroDataBox coordinates — no interpolated track.
+                Origin/destination pins use known served-airport coordinates when available.
               </p>
             </>
           ) : (
             <p className="rounded-xl border border-white/10 bg-navy/40 px-3 py-3 text-sm text-white/65">
-              Live aircraft position unavailable
+              Live aircraft position currently unavailable
             </p>
           )}
           <button

@@ -9,7 +9,12 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   categorizeFlightStatus,
+  flightStatusAutoRefreshMs,
   flightStatusCacheMaxAgeSeconds,
+  formatFlightNumberForDisplay,
+  preferFlightStatusSnapshot,
+  shouldBypassStaleFlightCache,
+  type VerifiedFlight,
 } from "../shared/flight-lookup";
 import { decideDriverFlightAlert } from "../shared/driver-flight-alerts";
 import {
@@ -194,18 +199,23 @@ console.log("\n=== 3. Flight tracker eligibility ===");
   console.log("OK  airport pickup / missing number / to-airport / return flight");
 }
 
-console.log("\n=== 4. Flight Status UI + on-demand lookup ===");
+console.log("\n=== 4. Flight Status UI + auto-refresh ===");
 {
   const panel = read("src/components/OwnerFlightStatusPanel.tsx");
-  assert.match(panel, /Check Flight|Refresh Flight/);
+  assert.match(panel, /Refresh Flight/);
   assert.match(panel, /No flight number supplied/);
   assert.match(panel, /Flight Status/);
   assert.match(panel, /lookupFlightForBooking/);
   assert.match(panel, /refresh/);
-  assert.doesNotMatch(
+  assert.match(panel, /flightStatusAutoRefreshMs/);
+  assert.match(panel, /shouldBypassStaleFlightCache/);
+  assert.match(panel, /preferFlightStatusSnapshot/);
+  assert.match(panel, /Last updated/);
+  assert.match(panel, /Live aircraft position currently unavailable/);
+  assert.match(
     panel,
-    /useEffect\(\s*\(\)\s*=>\s*\{[^}]*lookupFlight/,
-    "panel must not auto-fetch on mount via useEffect",
+    /flight\.position\.lat/,
+    "live map only renders when provider lat/lng exist",
   );
 
   const paid = read("src/components/OwnerPaidBookingsPanel.tsx");
@@ -225,6 +235,7 @@ console.log("\n=== 4. Flight Status UI + on-demand lookup ===");
   assert.match(page, /OwnerFlightStatusPanel/);
   assert.doesNotMatch(page, /DriverFlightPanel/);
 
+  assert.equal(formatFlightNumberForDisplay("RK159"), "RK 159");
   assert.equal(
     ownerFlightCompactSummary({
       flightNumber: "BA 1416",
@@ -244,7 +255,85 @@ console.log("\n=== 4. Flight Status UI + on-demand lookup ===");
     "LANDED",
     "actual arrival beats stale delayed label",
   );
-  console.log("OK  compact UI · status labels · paid + calendar cards");
+  assert.equal(
+    categorizeFlightStatus("Departed", 134, {
+      bestArrivalIso: "2026-08-20T22:29:00",
+      nowMs: Date.parse("2026-08-20T22:45:00+01:00"),
+    }).statusLabel,
+    "LANDED",
+    "past ETA with Departed/Delayed raw status → LANDED",
+  );
+
+  const delayed: VerifiedFlight = {
+    flightNumber: "RK 159",
+    airline: "Ryanair",
+    date: "2026-08-20",
+    scheduledTime: "20:15",
+    scheduledTimeLabel: "Arrives",
+    airportCode: "BFS",
+    airportName: "Belfast International",
+    departureAirport: "STN",
+    arrivalAirport: "BFS",
+    statusCategory: "delayed",
+    statusLabel: "DELAYED",
+    estimatedTime: "22:29",
+    delayMinutes: 134,
+  };
+  const landed: VerifiedFlight = {
+    ...delayed,
+    statusCategory: "landed",
+    statusLabel: "LANDED",
+    actualTime: "22:31",
+  };
+  assert.equal(
+    preferFlightStatusSnapshot(landed, delayed).statusCategory,
+    "landed",
+    "stale delayed cache cannot override landed",
+  );
+  assert.equal(
+    preferFlightStatusSnapshot(delayed, landed).statusCategory,
+    "landed",
+    "incoming landed wins over delayed",
+  );
+  assert.equal(
+    shouldBypassStaleFlightCache({
+      statusCategory: "delayed",
+      date: "2020-01-01",
+      estimatedTime: "12:00",
+    }),
+    true,
+    "ETA passed triggers final-status refresh",
+  );
+  assert.equal(
+    shouldBypassStaleFlightCache({
+      statusCategory: "landed",
+      date: "2020-01-01",
+      estimatedTime: "12:00",
+      actualTime: "12:05",
+    }),
+    false,
+    "landed does not need stale-cache bypass",
+  );
+  assert.equal(
+    flightStatusAutoRefreshMs({
+      statusCategory: "landed",
+      tripDate: "2026-08-20",
+      scheduledTime: "20:15",
+      actualTime: "22:31",
+    }),
+    0,
+    "landed flight stops polling",
+  );
+  assert.ok(
+    flightStatusAutoRefreshMs({
+      statusCategory: "delayed",
+      tripDate: "2099-01-01",
+      scheduledTime: "12:00",
+    }) >= 10 * 60 * 1000,
+    "far-away flights refresh infrequently",
+  );
+
+  console.log("OK  compact UI · landed priority · cache lock · auto-refresh");
 }
 
 console.log("\n=== 4b. GPS live labels hidden · driver alerts dedupe ===");
@@ -280,7 +369,7 @@ console.log("\n=== 4b. GPS live labels hidden · driver alerts dedupe ===");
   const flightPanel = read("src/components/OwnerFlightStatusPanel.tsx");
   assert.match(flightPanel, /Watch Live/);
   assert.match(flightPanel, /flightStatusAutoRefreshMs/);
-  assert.match(flightPanel, /Live aircraft position unavailable/);
+  assert.match(flightPanel, /Live aircraft position currently unavailable/);
   console.log("OK  GPS labels gated · alert dedupe · Watch Live");
 }
 
@@ -303,8 +392,14 @@ console.log("\n=== 5. Caching + credentials stay server-side ===");
 
   const worker = read("workers/addresses/src/index.ts");
   assert.match(worker, /flightStatusCacheMaxAgeSeconds/);
+  assert.match(worker, /shouldBypassStaleFlightCache/);
   assert.match(worker, /refresh/);
   assert.match(worker, /AERODATABOX_RAPIDAPI_KEY/);
+
+  const alertHandler = read("workers/addresses/src/driver-flight-alert-handlers.ts");
+  assert.match(alertHandler, /decideDriverFlightAlert/);
+  assert.match(alertHandler, /trySendEmail/);
+  assert.doesNotMatch(alertHandler, /AERODATABOX|RAPIDAPI/);
 
   const tracking = read("workers/addresses/src/tracking-handlers.ts");
   assert.match(
@@ -319,7 +414,7 @@ console.log("\n=== 5. Caching + credentials stay server-side ===");
   assert.match(clientLib, /refresh/);
 
   const flightPanel = read("src/components/OwnerFlightStatusPanel.tsx");
-  assert.doesNotMatch(flightPanel, /AERODATABOX|RAPIDAPI|OWNER_ACCESS_KEY/);
+  assert.doesNotMatch(flightPanel, /AERODATABOX_RAPIDAPI|RAPIDAPI_KEY|OWNER_ACCESS_KEY/);
 
   const switcherSrc = read("src/components/OwnerDashboardToolSwitcher.tsx");
   assert.doesNotMatch(switcherSrc, /AERODATABOX|RAPIDAPI|OWNER_ACCESS_KEY/);
