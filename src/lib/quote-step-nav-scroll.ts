@@ -8,12 +8,14 @@ export type BookingNavTargetId =
   | "step1-journey-details"
   | "step2-travel-details"
   | "step3-customer-details"
+  | "quote-results-summary"
   | "quote-price-summary"
   | "quote-step1-next"
   | "quote-step2-next";
 
 export type QuoteStepNavTarget = 1 | 2 | 3;
 
+/** Keep “Your Route” ~12–16px below the fixed header (14px midpoint). */
 const HEADER_CLEARANCE_PX = 14;
 const LONG_JUMP_PX = 900;
 

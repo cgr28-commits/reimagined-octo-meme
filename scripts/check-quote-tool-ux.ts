@@ -134,12 +134,14 @@ check("Public quote tool uses booking-nav scroll (no scrollIntoView / legacy far
   assert.match(card, /scheduleBookingNavAfterRender/);
 });
 
-check("Journey mode, passengers and suitcases start unselected; price waits for all three", () => {
+check("Journey mode, passengers and suitcases start unselected; results scroll once when ready", () => {
   assert.match(card, /useState<"one-way" \| "return" \| null>\(null\)/);
   assert.match(card, /useState<number \| null>\(null\)/);
   assert.match(progressive, /Choose One Way or Return to continue\./);
   assert.match(progressive, /Select your passenger and suitcase numbers to see your fixed price\./);
   assert.match(card, /canShowPrice = hasQuoteRoute && quoteChoicesReady/);
+  assert.match(card, /quote-results-summary/);
+  assert.match(card, /scheduleBookingNavAfterRender\("quote-results-summary"/);
   assert.doesNotMatch(card, /setExactPassengers\(5\)/);
   assert.doesNotMatch(progressive, /aria-pressed=\{!returnJourney\}/);
 });

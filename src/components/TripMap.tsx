@@ -232,7 +232,7 @@ export default function TripMap({
   if (variant === "summary") {
     return (
       <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3">
-        <p className="text-xs font-medium uppercase tracking-wider text-emerald">Your route</p>
+        <p className="text-xs font-medium uppercase tracking-wider text-emerald">Your Route</p>
         <p className="mt-1 text-sm text-white/70">{links.routeLabel}</p>
         {routeMetrics ? (
           <p className="mt-1.5 text-sm font-semibold text-white">
@@ -286,7 +286,7 @@ export default function TripMap({
   return (
     <div className="overflow-hidden rounded-xl border border-white/10 bg-white/5">
       <div className="border-b border-white/10 px-4 py-3">
-        <p className="text-xs font-medium uppercase tracking-wider text-emerald">Your route</p>
+        <p className="text-xs font-medium uppercase tracking-wider text-emerald">Your Route</p>
         <p className="mt-1 text-sm text-white/70">{links.routeLabel}</p>
         {routeMetrics ? (
           <p className="mt-1.5 text-sm font-semibold text-white">

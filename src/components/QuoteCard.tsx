@@ -1191,6 +1191,23 @@ function QuoteCard({
     isInstantPayVehicle(quoteVehicle) &&
     Boolean(liveQuote);
 
+  /**
+   * Complete results (route + vehicle + price) ready to show and scroll once.
+   * Waits for live fare (or request-quote paths) after journey mode + party choices.
+   */
+  const quoteResultsReady =
+    quoteChoicesReady &&
+    hasQuoteRoute &&
+    (Boolean(liveQuote) ||
+      pricingConfirmationRequired ||
+      isManualQuoteJourney ||
+      exceedsOnlineCapacity ||
+      isEnquiryOnly);
+
+  const addressesReadyForRoute = isA2AFlow
+    ? isPlaceSelected(pickupPlace) && isPlaceSelected(dropoffPlace)
+    : hasQuoteRoute;
+
   function handlePickupChange(value: string) {
     setPickupAddress(value);
     setPickupRestoredHint(false);
@@ -2325,22 +2342,22 @@ function QuoteCard({
     });
   }, [quoteStep]);
 
-  // When a fixed price first appears on step 1, make the summary / Book Now CTA visible.
-  const liveQuoteAmount = liveQuote?.amount ?? null;
-  const hadLiveQuoteOnStep1Ref = useRef(false);
+  // When the complete results summary first becomes ready, scroll once to it.
+  // Do not re-scroll when route/vehicle/price fields update individually.
+  const hadQuoteResultsReadyRef = useRef(false);
   useEffect(() => {
     if (quoteStep !== 1) {
-      hadLiveQuoteOnStep1Ref.current = false;
+      hadQuoteResultsReadyRef.current = false;
       return;
     }
-    if (liveQuoteAmount == null) {
-      hadLiveQuoteOnStep1Ref.current = false;
+    if (!quoteResultsReady) {
+      hadQuoteResultsReadyRef.current = false;
       return;
     }
-    if (hadLiveQuoteOnStep1Ref.current) return;
-    hadLiveQuoteOnStep1Ref.current = true;
-    return scheduleBookingNavAfterRender("quote-price-summary", { focusHeading: true });
-  }, [liveQuoteAmount, quoteStep]);
+    if (hadQuoteResultsReadyRef.current) return;
+    hadQuoteResultsReadyRef.current = true;
+    return scheduleBookingNavAfterRender("quote-results-summary", { focusHeading: true });
+  }, [quoteResultsReady, quoteStep]);
 
   // Legacy (non-A2A) form: addresses → One Way/Return, then passengers after mode chosen.
   const hadLegacyJourneyModeScrollRef = useRef(false);
@@ -2483,6 +2500,287 @@ function QuoteCard({
             : !isScheduleComplete
               ? "Price ready — add your date and time when you’re ready to book"
               : "";
+
+  function renderQuotePriceSummaryBody() {
+    return (
+      <>
+        {pricingConfirmationRequired ? (
+          <>
+            <p className="text-xs font-medium uppercase tracking-wider text-emerald">Pricing</p>
+            <p className="mt-1 text-xl font-semibold tracking-tight text-white sm:text-2xl">
+              {priceConfirmationLabel}
+            </p>
+            <p className="mt-2 text-sm leading-relaxed text-white/70">
+              We’ll confirm your fare once journey details are reviewed. Continue to send your trip
+              details — no online payment until the price is confirmed.
+            </p>
+            {journeyDistanceLabel && journeyDurationLabel && (
+              <p className="mt-2 text-xs text-white/60">
+                Approx. {journeyDistanceLabel} · {journeyDurationLabel}
+              </p>
+            )}
+          </>
+        ) : exceedsOnlineCapacity ? (
+          <>
+            <p className="text-xs font-medium uppercase tracking-wider text-emerald">
+              Tailored Quote Required
+            </p>
+            <p className="mt-1 text-xl font-semibold tracking-tight text-white sm:text-2xl">
+              Minibus — 5–7 passengers
+            </p>
+            <div className="mt-3 space-y-1 text-sm text-white/80">
+              <p>
+                <span className="text-white/45">Journey:</span> {pickupLabel} → {dropoffLabel}
+              </p>
+              {effectivePassengers != null && effectivePassengers > 0 && (
+                <p>
+                  <span className="text-white/45">Passengers:</span>{" "}
+                  {formatPassengerChoice(effectivePassengers)}
+                  <span className="mx-2 text-white/35">·</span>
+                  <span className="text-white/45">Large bags:</span>{" "}
+                  {formatSuitcaseChoice(suitcases as number)}
+                </p>
+              )}
+              {effectiveAirportCode && (
+                <p>
+                  <span className="text-white/45">Airport:</span>{" "}
+                  {airportName || effectiveAirportCode}
+                </p>
+              )}
+              {returnJourney && (
+                <p>
+                  <span className="text-white/45">Return:</span> Yes
+                </p>
+              )}
+            </div>
+            <p className="mt-3 text-xs leading-relaxed text-white/65">
+              We don&apos;t show an automatic online fare for 5–7 passengers. Continue to request a
+              tailored fixed-price quote. Your quote will list only the inclusions that apply to
+              your journey — express airport fees where relevant, and Dublin tolls only where they
+              apply.
+            </p>
+            <p className="mt-3 text-xs leading-relaxed text-white/55">
+              Prefer WhatsApp?{" "}
+              <a
+                href={whatsAppChatUrl(CAPACITY_WHATSAPP_MESSAGE)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-semibold text-emerald underline-offset-2 hover:underline"
+              >
+                Message us for a minibus quote
+              </a>
+            </p>
+          </>
+        ) : isManualQuoteJourney ? (
+          <>
+            <p className="text-xs font-medium uppercase tracking-wider text-emerald">
+              {isOutOfAreaPickupJourney
+                ? "Out-of-area pickup"
+                : "Republic of Ireland long-distance transfer"}
+            </p>
+            <p className="mt-1 text-xl font-semibold tracking-tight text-white sm:text-2xl">
+              Request your fixed price
+            </p>
+            <p className="mt-2 text-sm leading-relaxed text-white/70">
+              {isOutOfAreaPickupJourney
+                ? "This pickup is outside our standard Greater Belfast area and needs manual approval. Continue to send your trip details — we’ll email your personal fixed price. No automatic fare or online payment until confirmed."
+                : "Republic of Ireland city destinations are quoted individually. Continue to send your trip details and we’ll email your personal fixed price."}
+            </p>
+            {journeyDistanceLabel && journeyDurationLabel && (
+              <p className="mt-2 text-xs text-white/60">
+                Approx. {journeyDistanceLabel} · {journeyDurationLabel}
+              </p>
+            )}
+          </>
+        ) : showsRequestQuoteFlow && liveQuote ? (
+          <>
+            <p className="text-xs font-medium uppercase tracking-wider text-emerald">
+              {returnJourney
+                ? "Guide return price · request a quote"
+                : "Guide price · request a quote"}
+            </p>
+            <p className="mt-1 text-3xl font-semibold tracking-tight text-white">
+              {formatQuote(liveQuote.amount)}
+            </p>
+            <p className="mt-3 text-sm text-white/75">
+              Vehicle: {vehicleShortLabel(quoteVehicle)}
+              <span className="mx-2 text-white/35">·</span>
+              Passengers: {formatPassengerChoice(effectivePassengers as number)}
+              <span className="mx-2 text-white/35">·</span>
+              Large suitcases: {formatSuitcaseChoice(suitcases as number)}
+            </p>
+            <p className="mt-2 text-xs leading-relaxed text-white/65">{MINIBUS_PARTNER_NOTE}</p>
+            {journeyDistanceLabel && journeyDurationLabel && (
+              <p className="mt-2 text-xs text-white/60">
+                Approx. {journeyDistanceLabel} · {journeyDurationLabel}
+              </p>
+            )}
+            <PriceInclusionBlock
+              isAirportTrip={isAirportLegForInclusions}
+              isFromAirport={isFromAirport}
+              returnJourney={returnJourney}
+              airportCode={effectiveAirportCode}
+              addressToAddress={isAddressToAddressInclusions}
+              guideSuffix="This is a guide price only — not an instant confirmation."
+            />
+            {returnJourney && (
+              <p className="mt-2 text-xs font-medium text-emerald/90">
+                Includes 5% return booking discount on the guide price.
+              </p>
+            )}
+          </>
+        ) : isEnquiryOnly ? (
+          <>
+            <p className="text-xs font-medium uppercase tracking-wider text-emerald">
+              Enquiry to book
+            </p>
+            <p className="mt-1 text-xl font-semibold tracking-tight text-white sm:text-2xl">
+              Personal quote
+            </p>
+            <p className="mt-2 text-sm leading-relaxed text-white/70">
+              Send an enquiry with your trip details and we&apos;ll confirm availability and quote
+              you personally.
+            </p>
+            {journeyDistanceLabel && journeyDurationLabel && (
+              <p className="mt-2 text-xs text-white/60">
+                Approx. {journeyDistanceLabel} · {journeyDurationLabel}
+              </p>
+            )}
+            {!tripDetailsReady && quoteHint ? (
+              <p className="mt-3 text-sm text-white/70">{quoteHint}</p>
+            ) : null}
+          </>
+        ) : liveQuote ? (
+          <>
+            <p className="text-xs font-medium uppercase tracking-wider text-emerald">
+              {testChargeAmount !== null
+                ? "Test SumUp charge"
+                : appliedPersonalQuote
+                  ? "Personal quoted fare"
+                  : returnJourney
+                    ? "Your Fixed Return Journey Price"
+                    : "Your Fixed Journey Price"}
+            </p>
+            <p className="mt-1 text-3xl font-semibold tracking-tight text-white">
+              {formatQuote(
+                testChargeAmount ?? appliedPersonalQuote?.agreedAmount ?? liveQuote.amount,
+              )}
+            </p>
+            {appliedPersonalQuote && testChargeAmount === null ? (
+              <p className="mt-2 text-sm text-emerald/90">
+                Personal quote applied
+                <span className="mt-1 block text-xs text-white/55">
+                  Standard website fare: {formatQuote(liveQuote.amount)}
+                </span>
+              </p>
+            ) : null}
+            <p className="mt-3 text-sm text-white/75">
+              Vehicle: {vehicleShortLabel(quoteVehicle)}
+              <span className="mx-2 text-white/35">·</span>
+              Passengers: {formatPassengerChoice(effectivePassengers as number)}
+              <span className="mx-2 text-white/35">·</span>
+              Large suitcases: {formatSuitcaseChoice(suitcases as number)}
+            </p>
+            {testChargeAmount !== null && (
+              <p className="mt-2 text-xs text-white/60">
+                Route price would be {formatQuote(liveQuote.amount)} — not charged in test mode.
+              </p>
+            )}
+            {journeyDistanceLabel && journeyDurationLabel && (
+              <p className="mt-2 text-xs text-white/60">
+                Approx. {journeyDistanceLabel} · {journeyDurationLabel}
+              </p>
+            )}
+            <PriceInclusionBlock
+              isAirportTrip={isAirportLegForInclusions}
+              isFromAirport={isFromAirport}
+              returnJourney={returnJourney}
+              airportCode={effectiveAirportCode}
+              addressToAddress={isAddressToAddressInclusions}
+            />
+            {returnJourney && !appliedPersonalQuote && (
+              <p className="mt-2 text-xs font-medium text-emerald/90">
+                Includes 5% return booking discount.
+              </p>
+            )}
+          </>
+        ) : (
+          <>
+            <p className="text-xs font-medium uppercase tracking-wider text-white/50">
+              Your Fixed Journey Price
+            </p>
+            <p className="mt-1 text-sm text-white/70">{quoteHint}</p>
+          </>
+        )}
+        <p className="mt-3 text-[11px] text-white/40">
+          {pricingConfirmationRequired || isManualQuoteJourney || exceedsOnlineCapacity
+            ? "Request Fixed Quote — we’ll confirm your personal price before any payment is taken."
+            : showsRequestQuoteFlow
+              ? "Request a quote — we’ll confirm availability before the booking is accepted. No online payment until confirmed."
+              : isEnquiryOnly
+                ? "We’ll reply with your quote — no online payment until you confirm."
+                : canPayNowOnline
+                  ? isAirportLegForInclusions
+                    ? "Eligible bookings can be paid securely online with SumUp."
+                    : "Fixed price for your journey. Eligible bookings can be paid securely online with SumUp."
+                  : isAirportLegForInclusions
+                    ? "Continue to enter your details — eligible bookings can be paid securely online with SumUp."
+                    : "Fixed price for your journey. Continue to enter your details when you’re ready."}
+        </p>
+      </>
+    );
+  }
+
+  function renderStep1PrimaryActions() {
+    return (
+      <>
+        <button
+          type="submit"
+          disabled={
+            submitted ||
+            !quoteChoicesReady ||
+            (exceedsOnlineCapacity ||
+            isEnquiryOnly ||
+            isManualQuoteJourney ||
+            pricingConfirmationRequired
+              ? !hasQuoteRoute
+              : !liveQuote)
+          }
+          className="w-full rounded-xl bg-emerald py-3.5 text-sm font-bold text-navy transition-all hover:bg-emerald-light disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {submitted
+            ? submitInProgressLabel
+            : exceedsOnlineCapacity
+              ? "Continue to request quote"
+              : liveQuote && canPayNowOnline && !isEnquiryOnly && !showsRequestQuoteFlow
+                ? "Book Now"
+                : "Continue to travel details"}
+        </button>
+        {liveQuote &&
+        canPayNowOnline &&
+        !isEnquiryOnly &&
+        !showsRequestQuoteFlow &&
+        !appliedPersonalQuote &&
+        !submitted ? (
+          <button
+            type="button"
+            onClick={handleSaveQuoteClick}
+            className="w-full rounded-xl border border-white/25 bg-transparent py-3 text-sm font-semibold text-white transition-all hover:bg-white/5"
+          >
+            Save Quote
+          </button>
+        ) : null}
+        {liveQuote || hasQuoteRoute || passengers != null || suitcases != null
+          ? renderStartNewQuoteControls()
+          : null}
+        {saveQuotePrompt ? (
+          <p className="text-center text-xs text-emerald/90" role="status">
+            {saveQuotePrompt}
+          </p>
+        ) : null}
+      </>
+    );
+  }
 
   if (shortNoticeResult) {
     return (
@@ -2777,34 +3075,67 @@ function QuoteCard({
                 : "\u00a0"}
             </p>
 
-            {isPlaceSelected(pickupPlace) && isPlaceSelected(dropoffPlace) && (
-              <TripMap
-                tripMode="address"
-                originAddress={pickupAddress}
-                destinationAddress={dropoffAddress}
-                originLat={pickupPlace.lat}
-                originLng={pickupPlace.lng}
-                destinationLat={dropoffPlace.lat}
-                destinationLng={dropoffPlace.lng}
-                onRouteMetrics={handleRouteMetrics}
-                variant="summary"
-              />
-            )}
+            {addressesReadyForRoute && (
+              <div
+                id={quoteResultsReady && quoteStep === 1 ? "quote-results-summary" : undefined}
+                data-booking-nav-heading={quoteResultsReady && quoteStep === 1 ? true : undefined}
+                tabIndex={quoteResultsReady && quoteStep === 1 ? -1 : undefined}
+                className={
+                  quoteResultsReady && quoteStep === 1
+                    ? "scroll-mt-44 space-y-3 outline-none md:scroll-mt-28"
+                    : undefined
+                }
+              >
+                <div
+                  className={
+                    quoteResultsReady && quoteStep === 1 ? undefined : "sr-only"
+                  }
+                  aria-hidden={!(quoteResultsReady && quoteStep === 1)}
+                >
+                  <TripMap
+                    tripMode="address"
+                    originAddress={pickupAddress}
+                    destinationAddress={dropoffAddress}
+                    originLat={pickupPlace.lat}
+                    originLng={pickupPlace.lng}
+                    destinationLat={dropoffPlace.lat}
+                    destinationLng={dropoffPlace.lng}
+                    onRouteMetrics={handleRouteMetrics}
+                    variant="summary"
+                  />
+                </div>
 
-            {!exceedsOnlineCapacity &&
-              partySelectionReady &&
-              isPlaceSelected(pickupPlace) &&
-              isPlaceSelected(dropoffPlace) && (
-              <div className="rounded-xl border border-emerald/30 bg-emerald/10 px-4 py-3">
-                <p className="text-xs font-medium uppercase tracking-wider text-emerald">
-                  Vehicle for this journey
-                </p>
-                <p className="mt-1 text-xl font-semibold tracking-tight text-white">
-                  {vehicleShortLabel(quoteVehicle)}
-                </p>
-                <p className="mt-2 text-xs leading-relaxed text-white/70">
-                  Selected automatically from your passengers and luggage.
-                </p>
+                {quoteResultsReady && quoteStep === 1 && (
+                  <>
+                    {!exceedsOnlineCapacity && (
+                      <div className="rounded-xl border border-emerald/30 bg-emerald/10 px-3 py-2.5 sm:px-4 sm:py-3">
+                        <p className="text-xs font-medium uppercase tracking-wider text-emerald">
+                          Vehicle for This Journey
+                        </p>
+                        <p className="mt-1 text-lg font-semibold tracking-tight text-white sm:text-xl">
+                          {vehicleShortLabel(quoteVehicle)}
+                        </p>
+                        <p className="mt-1.5 text-xs leading-relaxed text-white/70">
+                          Selected automatically from your passengers and luggage.
+                        </p>
+                      </div>
+                    )}
+
+                    <div
+                      id="quote-price-summary"
+                      className="rounded-xl border border-white/10 bg-navy-dark/40 px-3 py-4 sm:px-4 sm:py-5"
+                    >
+                      {renderQuotePriceSummaryBody()}
+                    </div>
+
+                    <div
+                      id="quote-step1-next"
+                      className="sticky bottom-0 z-20 -mx-1 space-y-2 border-t border-white/10 bg-navy/95 px-1 py-3 backdrop-blur-md supports-[padding:max(0px)]:pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:static sm:z-auto sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-none"
+                    >
+                      {renderStep1PrimaryActions()}
+                    </div>
+                  </>
+                )}
               </div>
             )}
             <input type="hidden" name="vehicle" value={quoteVehicle} />
@@ -3065,31 +3396,35 @@ function QuoteCard({
           </>
         )}
 
-        <TripMap
-          tripMode={tripMode}
-          originAddress={
-            isAirportTrip
-              ? isFromAirport
-                ? (AIRPORTS.find((a) => a.code === airportCode)?.mapLabel ?? "")
-                : pickupAddress
-              : pickupAddress
-          }
-          destinationAddress={
-            isAirportTrip
-              ? isFromAirport
-                ? dropoffAddress
-                : (AIRPORTS.find((a) => a.code === airportCode)?.mapLabel ?? "")
-              : dropoffAddress
-          }
-          airportCode={airportCode}
-          tripDirection={tripDirection}
-          originLat={pickupPlace.lat}
-          originLng={pickupPlace.lng}
-          destinationLat={dropoffPlace.lat}
-          destinationLng={dropoffPlace.lng}
-          onRouteMetrics={handleRouteMetrics}
-          variant="summary"
-        />
+        {!quoteResultsReady && (
+          <div className="sr-only" aria-hidden="true">
+            <TripMap
+              tripMode={tripMode}
+              originAddress={
+                isAirportTrip
+                  ? isFromAirport
+                    ? (AIRPORTS.find((a) => a.code === airportCode)?.mapLabel ?? "")
+                    : pickupAddress
+                  : pickupAddress
+              }
+              destinationAddress={
+                isAirportTrip
+                  ? isFromAirport
+                    ? dropoffAddress
+                    : (AIRPORTS.find((a) => a.code === airportCode)?.mapLabel ?? "")
+                  : dropoffAddress
+              }
+              airportCode={airportCode}
+              tripDirection={tripDirection}
+              originLat={pickupPlace.lat}
+              originLng={pickupPlace.lng}
+              destinationLat={dropoffPlace.lat}
+              destinationLng={dropoffPlace.lng}
+              onRouteMetrics={handleRouteMetrics}
+              variant="summary"
+            />
+          </div>
+        )}
           </>
         )}
 
@@ -3123,30 +3458,6 @@ function QuoteCard({
               Select your passenger and suitcase numbers to see your fixed price.
             </p>
           )}
-          {partySelectionReady && (
-          <div className="rounded-xl border border-emerald/30 bg-emerald/10 px-4 py-3">
-            <p className="text-xs font-medium uppercase tracking-wider text-emerald">
-              Vehicle for this journey
-            </p>
-            <p className="mt-1 text-xl font-semibold tracking-tight text-white">
-              {vehicleShortLabel(quoteVehicle)}
-            </p>
-            {isMinibusParty ? (
-              <p className="mt-2 text-xs leading-relaxed text-white/70">
-                Minibus selected for your party size (5–7 passengers or extra luggage). Your fixed
-                online fare uses our existing minibus pricing — pay securely to confirm.
-              </p>
-            ) : quoteVehicle === ESTATE ? (
-              <p className="mt-2 text-xs leading-relaxed text-white/70">
-                Estate selected automatically from your passengers and luggage.
-              </p>
-            ) : (
-              <p className="mt-2 text-xs leading-relaxed text-white/70">
-                Saloon selected automatically from your passengers and luggage.
-              </p>
-            )}
-          </div>
-          )}
           <input type="hidden" name="vehicle" value={quoteVehicle} />
           <input
             type="hidden"
@@ -3163,6 +3474,77 @@ function QuoteCard({
             be quoted and paid online.
           </p>
         </div>
+        )}
+
+        {!isA2AFlow && quoteResultsReady && quoteStep === 1 && (
+          <div
+            id="quote-results-summary"
+            data-booking-nav-heading
+            tabIndex={-1}
+            className="scroll-mt-44 space-y-3 outline-none md:scroll-mt-28"
+          >
+            <TripMap
+              tripMode={tripMode}
+              originAddress={
+                isAirportTrip
+                  ? isFromAirport
+                    ? (AIRPORTS.find((a) => a.code === airportCode)?.mapLabel ?? "")
+                    : pickupAddress
+                  : pickupAddress
+              }
+              destinationAddress={
+                isAirportTrip
+                  ? isFromAirport
+                    ? dropoffAddress
+                    : (AIRPORTS.find((a) => a.code === airportCode)?.mapLabel ?? "")
+                  : dropoffAddress
+              }
+              airportCode={airportCode}
+              tripDirection={tripDirection}
+              originLat={pickupPlace.lat}
+              originLng={pickupPlace.lng}
+              destinationLat={dropoffPlace.lat}
+              destinationLng={dropoffPlace.lng}
+              onRouteMetrics={handleRouteMetrics}
+              variant="summary"
+            />
+            {!exceedsOnlineCapacity && (
+              <div className="rounded-xl border border-emerald/30 bg-emerald/10 px-3 py-2.5 sm:px-4 sm:py-3">
+                <p className="text-xs font-medium uppercase tracking-wider text-emerald">
+                  Vehicle for This Journey
+                </p>
+                <p className="mt-1 text-lg font-semibold tracking-tight text-white sm:text-xl">
+                  {vehicleShortLabel(quoteVehicle)}
+                </p>
+                {isMinibusParty ? (
+                  <p className="mt-1.5 text-xs leading-relaxed text-white/70">
+                    Minibus selected for your party size (5–7 passengers or extra luggage). Your
+                    fixed online fare uses our existing minibus pricing — pay securely to confirm.
+                  </p>
+                ) : quoteVehicle === ESTATE ? (
+                  <p className="mt-1.5 text-xs leading-relaxed text-white/70">
+                    Estate selected automatically from your passengers and luggage.
+                  </p>
+                ) : (
+                  <p className="mt-1.5 text-xs leading-relaxed text-white/70">
+                    Saloon selected automatically from your passengers and luggage.
+                  </p>
+                )}
+              </div>
+            )}
+            <div
+              id="quote-price-summary"
+              className="rounded-xl border border-white/10 bg-navy-dark/40 px-3 py-4 sm:px-4 sm:py-5"
+            >
+              {renderQuotePriceSummaryBody()}
+            </div>
+            <div
+              id="quote-step1-next"
+              className="sticky bottom-0 z-20 -mx-1 space-y-2 border-t border-white/10 bg-navy/95 px-1 py-3 backdrop-blur-md supports-[padding:max(0px)]:pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:static sm:z-auto sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-none"
+            >
+              {renderStep1PrimaryActions()}
+            </div>
+          </div>
         )}
         </div>
           </>
@@ -3374,231 +3756,14 @@ function QuoteCard({
           </>
         ) : null}
 
-        {(quoteStep === 1 || quoteStep === 2) && quoteChoicesReady && (
+        {quoteStep === 2 && quoteChoicesReady && (
         <div
           id="quote-price-summary"
           data-booking-nav-heading
           tabIndex={-1}
           className="scroll-mt-44 rounded-xl border border-white/10 bg-navy-dark/40 px-4 py-5 outline-none md:scroll-mt-28"
         >
-          {pricingConfirmationRequired ? (
-            <>
-              <p className="text-xs font-medium uppercase tracking-wider text-emerald">
-                Pricing
-              </p>
-              <p className="mt-1 text-xl font-semibold tracking-tight text-white sm:text-2xl">
-                {priceConfirmationLabel}
-              </p>
-              <p className="mt-2 text-sm leading-relaxed text-white/70">
-                We’ll confirm your fare once journey details are reviewed. Continue to send your
-                trip details — no online payment until the price is confirmed.
-              </p>
-              {journeyDistanceLabel && journeyDurationLabel && (
-                <p className="mt-2 text-xs text-white/60">
-                  Approx. {journeyDistanceLabel} · {journeyDurationLabel}
-                </p>
-              )}
-            </>
-          ) : exceedsOnlineCapacity ? (
-            <>
-              <p className="text-xs font-medium uppercase tracking-wider text-emerald">
-                Tailored Quote Required
-              </p>
-              <p className="mt-1 text-xl font-semibold tracking-tight text-white sm:text-2xl">
-                Minibus — 5–7 passengers
-              </p>
-              <div className="mt-3 space-y-1 text-sm text-white/80">
-                <p>
-                  <span className="text-white/45">Journey:</span> {pickupLabel} → {dropoffLabel}
-                </p>
-                {(effectivePassengers != null && effectivePassengers > 0) && (
-                  <p>
-                    <span className="text-white/45">Passengers:</span>{" "}
-                    {formatPassengerChoice(effectivePassengers)}
-                    <span className="mx-2 text-white/35">·</span>
-                    <span className="text-white/45">Large bags:</span>{" "}
-                    {formatSuitcaseChoice(suitcases as number)}
-                  </p>
-                )}
-                {effectiveAirportCode && (
-                  <p>
-                    <span className="text-white/45">Airport:</span> {airportName || effectiveAirportCode}
-                  </p>
-                )}
-                {returnJourney && (
-                  <p>
-                    <span className="text-white/45">Return:</span> Yes
-                  </p>
-                )}
-              </div>
-              <p className="mt-3 text-xs leading-relaxed text-white/65">
-                We don&apos;t show an automatic online fare for 5–7 passengers. Continue to request a
-                tailored fixed-price quote. Your quote will list only the inclusions that apply to
-                your journey — express airport fees where relevant, and Dublin tolls only where they
-                apply.
-              </p>
-              <p className="mt-3 text-xs leading-relaxed text-white/55">
-                Prefer WhatsApp?{" "}
-                <a
-                  href={whatsAppChatUrl(CAPACITY_WHATSAPP_MESSAGE)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="font-semibold text-emerald underline-offset-2 hover:underline"
-                >
-                  Message us for a minibus quote
-                </a>
-              </p>
-            </>
-          ) : isManualQuoteJourney ? (
-            <>
-              <p className="text-xs font-medium uppercase tracking-wider text-emerald">
-                {isOutOfAreaPickupJourney
-                  ? "Out-of-area pickup"
-                  : "Republic of Ireland long-distance transfer"}
-              </p>
-              <p className="mt-1 text-xl font-semibold tracking-tight text-white sm:text-2xl">Request your fixed price</p>
-              <p className="mt-2 text-sm leading-relaxed text-white/70">
-                {isOutOfAreaPickupJourney
-                  ? "This pickup is outside our standard Greater Belfast area and needs manual approval. Continue to send your trip details — we’ll email your personal fixed price. No automatic fare or online payment until confirmed."
-                  : "Republic of Ireland city destinations are quoted individually. Continue to send your trip details and we’ll email your personal fixed price."}
-              </p>
-              {journeyDistanceLabel && journeyDurationLabel && (
-                <p className="mt-2 text-xs text-white/60">
-                  Approx. {journeyDistanceLabel} · {journeyDurationLabel}
-                </p>
-              )}
-            </>
-          ) : showsRequestQuoteFlow && liveQuote ? (
-            <>
-              <p className="text-xs font-medium uppercase tracking-wider text-emerald">
-                {returnJourney ? "Guide return price · request a quote" : "Guide price · request a quote"}
-              </p>
-              <p className="mt-1 text-3xl font-semibold tracking-tight text-white">{formatQuote(liveQuote.amount)}</p>
-              <p className="mt-3 text-sm text-white/75">
-                Vehicle: {vehicleShortLabel(quoteVehicle)}
-                <span className="mx-2 text-white/35">·</span>
-                Passengers: {formatPassengerChoice(effectivePassengers as number)}
-                <span className="mx-2 text-white/35">·</span>
-                Large suitcases: {formatSuitcaseChoice(suitcases as number)}
-              </p>
-              <p className="mt-2 text-xs leading-relaxed text-white/65">{MINIBUS_PARTNER_NOTE}</p>
-              {journeyDistanceLabel && journeyDurationLabel && (
-                <p className="mt-2 text-xs text-white/60">
-                  Approx. {journeyDistanceLabel} · {journeyDurationLabel}
-                </p>
-              )}
-              <PriceInclusionBlock
-                isAirportTrip={isAirportLegForInclusions}
-                isFromAirport={isFromAirport}
-                returnJourney={returnJourney}
-                airportCode={effectiveAirportCode}
-                addressToAddress={isAddressToAddressInclusions}
-                guideSuffix="This is a guide price only — not an instant confirmation."
-              />
-              {returnJourney && (
-                <p className="mt-2 text-xs font-medium text-emerald/90">
-                  Includes 5% return booking discount on the guide price.
-                </p>
-              )}
-            </>
-          ) : isEnquiryOnly ? (
-            <>
-              <p className="text-xs font-medium uppercase tracking-wider text-emerald">
-                Enquiry to book
-              </p>
-              <p className="mt-1 text-xl font-semibold tracking-tight text-white sm:text-2xl">
-                Personal quote
-              </p>
-              <p className="mt-2 text-sm leading-relaxed text-white/70">
-                Send an enquiry with your trip details and we&apos;ll confirm availability and quote
-                you personally.
-              </p>
-              {journeyDistanceLabel && journeyDurationLabel && (
-                <p className="mt-2 text-xs text-white/60">
-                  Approx. {journeyDistanceLabel} · {journeyDurationLabel}
-                </p>
-              )}
-              {!tripDetailsReady && quoteHint ? (
-                <p className="mt-3 text-sm text-white/70">{quoteHint}</p>
-              ) : null}
-            </>
-          ) : liveQuote ? (
-            <>
-              <p className="text-xs font-medium uppercase tracking-wider text-emerald">
-                {testChargeAmount !== null
-                  ? "Test SumUp charge"
-                  : appliedPersonalQuote
-                    ? "Personal quoted fare"
-                    : returnJourney
-                      ? "Your fixed return journey price"
-                      : "Your fixed journey price"}
-              </p>
-              <p className="mt-1 text-3xl font-semibold tracking-tight text-white">
-                {formatQuote(
-                  testChargeAmount ?? appliedPersonalQuote?.agreedAmount ?? liveQuote.amount,
-                )}
-              </p>
-              {appliedPersonalQuote && testChargeAmount === null ? (
-                <p className="mt-2 text-sm text-emerald/90">
-                  Personal quote applied
-                  <span className="mt-1 block text-xs text-white/55">
-                    Standard website fare: {formatQuote(liveQuote.amount)}
-                  </span>
-                </p>
-              ) : null}
-              <p className="mt-3 text-sm text-white/75">
-                Vehicle: {vehicleShortLabel(quoteVehicle)}
-                <span className="mx-2 text-white/35">·</span>
-                Passengers: {formatPassengerChoice(effectivePassengers as number)}
-                <span className="mx-2 text-white/35">·</span>
-                Large suitcases: {formatSuitcaseChoice(suitcases as number)}
-              </p>
-              {testChargeAmount !== null && (
-                <p className="mt-2 text-xs text-white/60">
-                  Route price would be {formatQuote(liveQuote.amount)} — not charged in test mode.
-                </p>
-              )}
-              {journeyDistanceLabel && journeyDurationLabel && (
-                <p className="mt-2 text-xs text-white/60">
-                  Approx. {journeyDistanceLabel} · {journeyDurationLabel}
-                </p>
-              )}
-              <PriceInclusionBlock
-                isAirportTrip={isAirportLegForInclusions}
-                isFromAirport={isFromAirport}
-                returnJourney={returnJourney}
-                airportCode={effectiveAirportCode}
-                addressToAddress={isAddressToAddressInclusions}
-              />
-              {returnJourney && !appliedPersonalQuote && (
-                <p className="mt-2 text-xs font-medium text-emerald/90">
-                  Includes 5% return booking discount.
-                </p>
-              )}
-            </>
-          ) : (
-            <>
-              <p className="text-xs font-medium uppercase tracking-wider text-white/50">
-                Your fixed journey price
-              </p>
-              <p className="mt-1 text-sm text-white/70">{quoteHint}</p>
-            </>
-          )}
-          <p className="mt-3 text-[11px] text-white/40">
-            {pricingConfirmationRequired || isManualQuoteJourney || exceedsOnlineCapacity
-              ? "Request Fixed Quote — we’ll confirm your personal price before any payment is taken."
-              : showsRequestQuoteFlow
-              ? "Request a quote — we’ll confirm availability before the booking is accepted. No online payment until confirmed."
-              : isEnquiryOnly
-                ? "We’ll reply with your quote — no online payment until you confirm."
-                : canPayNowOnline
-                  ? isAirportLegForInclusions
-                    ? "Eligible bookings can be paid securely online with SumUp."
-                    : "Fixed price for your journey. Eligible bookings can be paid securely online with SumUp."
-                  : isAirportLegForInclusions
-                    ? "Continue to enter your details — eligible bookings can be paid securely online with SumUp."
-                    : "Fixed price for your journey. Continue to enter your details when you’re ready."}
-          </p>
+          {renderQuotePriceSummaryBody()}
         </div>
         )}
 
@@ -4195,49 +4360,9 @@ function QuoteCard({
               </p>
             )}
           </div>
-        ) : (
+        ) : quoteResultsReady ? null : (
           <div id="quote-step1-next" className="flex w-full scroll-mt-44 flex-col gap-2 md:scroll-mt-28">
-            <button
-              type="submit"
-              disabled={
-                submitted ||
-                !quoteChoicesReady ||
-                (exceedsOnlineCapacity || isEnquiryOnly || isManualQuoteJourney || pricingConfirmationRequired
-                  ? !hasQuoteRoute
-                  : !liveQuote)
-              }
-              className="w-full rounded-xl bg-emerald py-3.5 text-sm font-bold text-navy transition-all hover:bg-emerald-light disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {submitted
-                ? submitInProgressLabel
-                : exceedsOnlineCapacity
-                  ? "Continue to request quote"
-                  : liveQuote && canPayNowOnline && !isEnquiryOnly && !showsRequestQuoteFlow
-                    ? "Book Now"
-                    : "Continue to travel details"}
-            </button>
-            {liveQuote &&
-            canPayNowOnline &&
-            !isEnquiryOnly &&
-            !showsRequestQuoteFlow &&
-            !appliedPersonalQuote &&
-            !submitted ? (
-              <button
-                type="button"
-                onClick={handleSaveQuoteClick}
-                className="w-full rounded-xl border border-white/25 bg-transparent py-3 text-sm font-semibold text-white transition-all hover:bg-white/5"
-              >
-                Save Quote
-              </button>
-            ) : null}
-            {liveQuote || hasQuoteRoute || passengers != null || suitcases != null
-              ? renderStartNewQuoteControls()
-              : null}
-            {saveQuotePrompt ? (
-              <p className="text-center text-xs text-emerald/90" role="status">
-                {saveQuotePrompt}
-              </p>
-            ) : null}
+            {renderStep1PrimaryActions()}
           </div>
         )}
       </form>

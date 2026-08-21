@@ -67,16 +67,25 @@ check("Prompts and gated price until journey mode + party selected", () => {
   assert.doesNotMatch(progressive, /aria-pressed=\{!returnJourney\}/);
 });
 
-check("Scroll sequence: journey-mode → passengers → price", () => {
+check("Scroll sequence: journey-mode → passengers → results summary once", () => {
   assert.match(progressive, /scheduleBookingNavAfterRender\("quote-section-journey-mode"\)/);
   assert.match(progressive, /scheduleBookingNavAfterRender\("quote-section-passengers"\)/);
-  assert.match(card, /scheduleBookingNavAfterRender\("quote-price-summary"/);
-  assert.match(card, /scheduleBookingNavAfterRender\("quote-section-journey-mode"\)/);
-  // Must not scroll to passengers when only addresses are ready.
-  assert.doesNotMatch(
-    progressive,
-    /showJourneyModeFields[\s\S]{0,200}scheduleBookingNavAfterRender\("quote-section-passengers"\)/,
-  );
+  assert.match(card, /scheduleBookingNavAfterRender\("quote-results-summary"/);
+  assert.match(card, /id=\{?["']quote-results-summary["']|id="quote-results-summary"/);
+  assert.match(card, /hadQuoteResultsReadyRef/);
+  assert.match(card, /quoteResultsReady/);
+  // Must not scroll to price card alone on liveQuote amount changes.
+  assert.doesNotMatch(card, /scheduleBookingNavAfterRender\("quote-price-summary"/);
+});
+
+check("Results summary wraps route, vehicle, price and Book Now", () => {
+  assert.match(card, /quote-results-summary/);
+  assert.match(card, /Vehicle for This Journey/);
+  assert.match(card, /Your Fixed Journey Price/);
+  assert.match(card, /sticky bottom-0/);
+  assert.match(read("src/components/TripMap.tsx"), /Your Route/);
+  assert.match(read("src/lib/quote-step-nav-scroll.ts"), /quote-results-summary/);
+  assert.match(read("src/lib/quote-step-nav-scroll.ts"), /HEADER_CLEARANCE_PX = 14/);
 });
 
 check("Party fields wait for journey mode", () => {
