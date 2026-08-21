@@ -362,6 +362,29 @@ export async function handlePaidBookingsListRequest(
         if (!flightNumber && job.flightNumber) flightNumber = job.flightNumber;
       }
 
+      // Pamela Brown–class repair at the API boundary: if the return tracking job is
+      // missing so returnJourneyStatus never becomes "completed", but outbound is done,
+      // the active journey is completed, and the return pickup day is already past —
+      // treat the booking as fully completed and stop advertising a next unfinished leg.
+      const todayYmd = londonYmdNow();
+      const returnDateYmd = booking.returnDate?.trim() ?? "";
+      const returnDayPast =
+        Boolean(booking.returnJourney) &&
+        /^\d{4}-\d{2}-\d{2}$/.test(returnDateYmd) &&
+        returnDateYmd < todayYmd;
+      let resolvedAllLegsCompleted = allLegsCompleted;
+      if (
+        booking.returnJourney &&
+        !resolvedAllLegsCompleted &&
+        outboundJourneyStatus === "completed" &&
+        (journeyStatus === "completed" || Boolean(journeyCompletedAt?.trim())) &&
+        returnDayPast
+      ) {
+        resolvedAllLegsCompleted = true;
+        nextUnfinishedLegDate = undefined;
+        nextUnfinishedLegTime = undefined;
+      }
+
       return {
         paymentReference: booking.paymentReference,
         checkoutId: booking.checkoutId,
@@ -423,7 +446,7 @@ export async function handlePaidBookingsListRequest(
         arrivalNotificationError,
         outboundJourneyStatus,
         returnJourneyStatus,
-        allLegsCompleted,
+        allLegsCompleted: resolvedAllLegsCompleted,
         nextUnfinishedLegDate,
         nextUnfinishedLegTime,
         editHistory,

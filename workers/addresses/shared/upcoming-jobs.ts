@@ -74,6 +74,7 @@ export type LegAwareBooking = {
   allLegsCompleted?: boolean;
   nextUnfinishedLegDate?: string;
   nextUnfinishedLegTime?: string;
+  journeyCompletedAt?: string;
 };
 
 function legStatusCompleted(status?: string | null): boolean {
@@ -88,10 +89,16 @@ function legStatusCompleted(status?: string | null): boolean {
  * Important: do not let a stale `allLegsCompleted: false` override clear completed
  * journey statuses (Pamela Brown–class bug: completed return still listed as Upcoming).
  */
-export function bookingFullyCompleted(booking: LegAwareBooking): boolean {
+export function bookingFullyCompleted(
+  booking: LegAwareBooking,
+  today = londonYmd(),
+): boolean {
   if (booking.returnJourney) {
     const outboundCompleted = legStatusCompleted(booking.outboundJourneyStatus);
     const returnCompleted = legStatusCompleted(booking.returnJourneyStatus);
+    const returnDate = booking.returnDate?.trim() ?? "";
+    const returnDayPast =
+      /^\d{4}-\d{2}-\d{2}$/.test(returnDate) && returnDate < today;
 
     if (outboundCompleted && returnCompleted) return true;
 
@@ -105,6 +112,24 @@ export function bookingFullyCompleted(booking: LegAwareBooking): boolean {
     }
 
     if (booking.allLegsCompleted === true) return true;
+
+    // Pamela Brown–class: return tracking job missing/stale so returnJourneyStatus
+    // never becomes "completed", while outbound is done, journey is completed, and
+    // the return pickup day is already in the past.
+    if (
+      outboundCompleted &&
+      legStatusCompleted(booking.journeyStatus) &&
+      returnDayPast
+    ) {
+      return true;
+    }
+
+    // Completion timestamp present + return day past (ops finished even if leg
+    // status fields lag or allLegsCompleted stayed false).
+    if (booking.journeyCompletedAt?.trim() && returnDayPast) {
+      return true;
+    }
+
     return false;
   }
 
@@ -116,6 +141,14 @@ export function bookingFullyCompleted(booking: LegAwareBooking): boolean {
     return true;
   }
   if (booking.allLegsCompleted === true) return true;
+  const tripDate = booking.tripDate?.trim() ?? "";
+  if (
+    booking.journeyCompletedAt?.trim() &&
+    /^\d{4}-\d{2}-\d{2}$/.test(tripDate) &&
+    tripDate < today
+  ) {
+    return true;
+  }
   return false;
 }
 
@@ -126,8 +159,17 @@ export function bookingFullyCompleted(booking: LegAwareBooking): boolean {
  */
 export function relevantUpcomingJourneyDate(
   booking: LegAwareBooking,
-  _today = londonYmd(),
+  today = londonYmd(),
 ): string {
+  // Never advertise a leftover nextUnfinishedLegDate once the booking is done.
+  if (bookingFullyCompleted(booking, today)) {
+    const returnDate = booking.returnDate?.trim() ?? "";
+    if (booking.returnJourney && /^\d{4}-\d{2}-\d{2}$/.test(returnDate)) {
+      return returnDate;
+    }
+    return booking.tripDate?.trim() ?? "";
+  }
+
   const explicit = booking.nextUnfinishedLegDate?.trim() ?? "";
   if (/^\d{4}-\d{2}-\d{2}$/.test(explicit)) {
     return explicit;

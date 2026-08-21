@@ -147,6 +147,43 @@ console.log("\n=== 2. Upcoming Jobs matrix ===");
     "Pamela Brown completed return → History only",
   );
 
+  // Real-world variant: return tracking job missing → returnJourneyStatus undefined,
+  // stale nextUnfinishedLegDate, allLegsCompleted false, but journey completed + return day past.
+  const pamelaMissingReturnStatus = {
+    customerName: "Pamela Brown",
+    status: "confirmed",
+    tripDate: "2026-08-08",
+    tripTime: "12:15",
+    returnJourney: true,
+    returnDate: "2026-08-19",
+    returnTime: "02:35",
+    outboundJourneyStatus: "completed",
+    // returnJourneyStatus omitted — lost/missing return tracking job
+    journeyStatus: "completed",
+    allLegsCompleted: false,
+    nextUnfinishedLegDate: "2026-08-19",
+    nextUnfinishedLegTime: "02:35",
+    journeyCompletedAt: "2026-08-19T03:10:00.000Z",
+    paymentReference: "TAA-PAMELA-BROWN-2",
+  };
+  assert.equal(
+    isUpcomingWorkBooking(pamelaMissingReturnStatus, today),
+    false,
+    "Pamela with missing returnJourneyStatus + past return day → not Upcoming",
+  );
+  assert.equal(
+    isCompletedWorkBooking(pamelaMissingReturnStatus),
+    true,
+    "Pamela with missing returnJourneyStatus → History",
+  );
+
+  const handlers = read("workers/addresses/src/paid-booking-handlers.ts");
+  assert.match(
+    handlers,
+    /Pamela Brown|returnDayPast|resolvedAllLegsCompleted/,
+    "API enrichment repairs past completed returns with missing return status",
+  );
+
   const cancelledReal = {
     status: "cancelled",
     tripDate: "2026-08-22",

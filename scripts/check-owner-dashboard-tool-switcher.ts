@@ -13,6 +13,7 @@ import {
   flightStatusCacheMaxAgeSeconds,
   formatFlightNumberForDisplay,
   preferFlightStatusSnapshot,
+  resolveFlightStatusFromTimes,
   shouldBypassStaleFlightCache,
   type VerifiedFlight,
 } from "../shared/flight-lookup";
@@ -257,12 +258,39 @@ console.log("\n=== 4. Flight Status UI + auto-refresh ===");
   );
   assert.equal(
     categorizeFlightStatus("Departed", 134, {
-      bestArrivalIso: "2026-08-20T22:29:00",
-      nowMs: Date.parse("2026-08-20T22:45:00+01:00"),
+      bestArrivalIso: "22:29",
+      tripDate: "2026-08-20",
+      nowMs: Date.parse("2026-08-21T00:30:00Z"),
     }).statusLabel,
-    "LANDED",
-    "past ETA with Departed/Delayed raw status → LANDED",
+    "ARRIVAL PENDING",
+    "past ETA with no actual → arrival pending (not DELAYED)",
   );
+
+  // Regression: scheduled + estimated + actual + delayed data → LANDED + ACTUAL
+  const landedResolved = resolveFlightStatusFromTimes({
+    rawStatus: "Delayed",
+    tripDate: "2026-08-20",
+    scheduledTime: "20:15",
+    estimatedTime: "22:29",
+    actualTime: "22:31",
+    nowMs: Date.parse("2026-08-21T00:30:00Z"),
+  });
+  assert.equal(landedResolved.statusCategory, "landed");
+  assert.equal(landedResolved.statusLabel, "LANDED");
+  assert.equal(landedResolved.actualTime, "22:31");
+  assert.equal(landedResolved.arrivalConfirmationPending, false);
+  assert.notEqual(landedResolved.statusCategory, "delayed");
+
+  const pendingResolved = resolveFlightStatusFromTimes({
+    rawStatus: "Departed",
+    tripDate: "2026-08-20",
+    scheduledTime: "20:15",
+    estimatedTime: "22:29",
+    actualTime: null,
+    nowMs: Date.parse("2026-08-21T00:30:00Z"),
+  });
+  assert.equal(pendingResolved.statusCategory, "arrival_pending");
+  assert.equal(pendingResolved.arrivalConfirmationPending, true);
 
   const delayed: VerifiedFlight = {
     flightNumber: "RK 159",
@@ -332,6 +360,10 @@ console.log("\n=== 4. Flight Status UI + auto-refresh ===");
     }) >= 10 * 60 * 1000,
     "far-away flights refresh infrequently",
   );
+
+  const flightPanelSrc = read("src/components/OwnerFlightStatusPanel.tsx");
+  assert.match(flightPanelSrc, /Arrival confirmation pending/);
+  assert.match(flightPanelSrc, /Actual arrival/);
 
   console.log("OK  compact UI · landed priority · cache lock · auto-refresh");
 }

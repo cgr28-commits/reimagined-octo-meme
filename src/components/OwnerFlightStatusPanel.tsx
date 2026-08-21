@@ -51,6 +51,8 @@ function statusBadgeClass(category?: VerifiedFlight["statusCategory"]): string {
       return "border-amber-400/40 bg-amber-500/15 text-amber-100";
     case "landed":
       return "border-sky-400/40 bg-sky-500/15 text-sky-100";
+    case "arrival_pending":
+      return "border-amber-300/40 bg-amber-400/10 text-amber-50";
     case "cancelled":
       return "border-red-400/40 bg-red-500/15 text-red-100";
     default:
@@ -121,10 +123,11 @@ export default function OwnerFlightStatusPanel({
           refresh: forceRefresh,
         });
         if (!result.ok || !result.flight) {
-          // Keep a locked LANDED snapshot if we already have one.
+          // Keep a locked LANDED / ARRIVAL PENDING snapshot if we already have one.
           if (
             !(
               flightRef.current?.statusCategory === "landed" ||
+              flightRef.current?.statusCategory === "arrival_pending" ||
               flightRef.current?.statusCategory === "cancelled"
             )
           ) {
@@ -251,22 +254,26 @@ export default function OwnerFlightStatusPanel({
   }
 
   const displayNumber = formatFlightNumberForDisplay(context.flightNumber);
+  const lastProviderUpdate =
+    flight?.estimatedTime || flight?.scheduledTime || formatLastUpdated(lastFetchedAt).replace(/^Last updated /, "") || "—";
   const compactLine = flight
     ? flight.statusCategory === "landed"
       ? `Actual arrival: ${flight.actualTime || "—"}`
-      : flight.statusCategory === "cancelled"
-        ? "CANCELLED"
-        : typeof flight.delayMinutes === "number" && flight.delayMinutes > 0
-          ? `DELAYED ${flight.delayMinutes} min · ETA ${flight.estimatedTime || "—"}`
-          : ownerFlightCompactSummary({
-              flightNumber: "",
-              statusCategory: flight.statusCategory,
-              statusLabel: flight.statusLabel,
-              estimatedTime: flight.estimatedTime,
-              delayMinutes: flight.delayMinutes,
-            }).replace(/^ · /, "") ||
-            flight.statusLabel ||
-            "Status"
+      : flight.statusCategory === "arrival_pending"
+        ? `Arrival confirmation pending — last provider update ${lastProviderUpdate}`
+        : flight.statusCategory === "cancelled"
+          ? "CANCELLED"
+          : typeof flight.delayMinutes === "number" && flight.delayMinutes > 0
+            ? `DELAYED ${flight.delayMinutes} min · ETA ${flight.estimatedTime || "—"}`
+            : ownerFlightCompactSummary({
+                flightNumber: "",
+                statusCategory: flight.statusCategory,
+                statusLabel: flight.statusLabel,
+                estimatedTime: flight.estimatedTime,
+                delayMinutes: flight.delayMinutes,
+              }).replace(/^ · /, "") ||
+              flight.statusLabel ||
+              "Status"
     : "Checking flight…";
 
   const hasPosition =
@@ -311,6 +318,27 @@ export default function OwnerFlightStatusPanel({
                 {typeof flight.delayMinutes === "number" && flight.delayMinutes > 0
                   ? ` · ${flight.delayMinutes} min late`
                   : ""}
+              </p>
+            </div>
+          ) : null}
+          {flight?.statusCategory === "arrival_pending" ? (
+            <div className="mt-2 space-y-0.5 text-xs text-white/65">
+              <p className="text-sm font-semibold text-amber-50">
+                Arrival confirmation pending — last provider update{" "}
+                {flight.estimatedTime || flight.scheduledTime || "—"}
+              </p>
+              <p>
+                Scheduled: {flight.scheduledTime || "—"}
+                {flight.estimatedTime ? ` · Estimated: ${flight.estimatedTime}` : ""}
+                {" · "}
+                Provider status: {flight.providerStatus || flight.status || "—"}
+                {typeof flight.delayMinutes === "number" && flight.delayMinutes > 0
+                  ? ` · was ${flight.delayMinutes} min late vs schedule`
+                  : ""}
+              </p>
+              <p className="text-white/45">
+                AeroDataBox has not returned an actual/runway arrival yet — ETA is no longer shown as
+                primary status.
               </p>
             </div>
           ) : null}

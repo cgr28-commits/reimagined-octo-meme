@@ -12,11 +12,21 @@ export type VerifiedFlight = {
   arrivalAirport: string;
   status?: string;
   /** Normalised operational category for Owner Dashboard badges. */
-  statusCategory?: "on_time" | "delayed" | "landed" | "cancelled" | "unknown";
-  /** Short badge label e.g. ON TIME / DELAYED. */
+  statusCategory?:
+    | "on_time"
+    | "delayed"
+    | "landed"
+    | "arrival_pending"
+    | "cancelled"
+    | "unknown";
+  /** Short badge label e.g. ON TIME / DELAYED / LANDED. */
   statusLabel?: string;
   estimatedTime?: string;
   actualTime?: string;
+  /** True when ETA has passed but provider has not supplied runway/actual arrival. */
+  arrivalConfirmationPending?: boolean;
+  /** Last provider status string (e.g. Departed / Delayed). */
+  providerStatus?: string;
   delayMinutes?: number | null;
   terminal?: string;
   gate?: string;
@@ -273,13 +283,13 @@ function parseLondonMs(isoLocal: string): number | null {
 /**
  * Priority:
  * 1. Cancelled
- * 2. Landed / actual arrival (never keep showing DELAYED once landed)
- * 3. Delayed / estimated
- * 4. On time / scheduled
+ * 2. Landed / actual arrival (runwayTime or Arrived status)
+ * 3. Arrival pending (ETA passed, no actual yet) — never keep DELAYED
+ * 4. Delayed / estimated
+ * 5. On time / scheduled
  *
- * AeroDataBox often keeps status as "Departed"/"Delayed" after landing until it
- * flips to "Arrived". When runwayTime is missing but the best arrival estimate is
- * clearly in the past, treat as LANDED so the Owner panel does not stick on DELAYED.
+ * AeroDataBox often keeps status as "Departed"/"Delayed" after landing and may omit
+ * runwayTime. Do not keep showing DELAYED once the trip-date ETA has passed.
  */
 export function categorizeFlightStatus(
   rawStatus: string | undefined,
@@ -288,6 +298,8 @@ export function categorizeFlightStatus(
     actualTime?: string | null;
     /** ISO local of best known arrival (runway / revised / predicted). */
     bestArrivalIso?: string | null;
+    /** Trip/service date YYYY-MM-DD — required to interpret HH:MM ETAs correctly. */
+    tripDate?: string | null;
     nowMs?: number;
   },
 ): { statusCategory: NonNullable<VerifiedFlight["statusCategory"]>; statusLabel: string } {
@@ -295,8 +307,9 @@ export function categorizeFlightStatus(
   if (normalised.includes("cancel")) {
     return { statusCategory: "cancelled", statusLabel: "CANCELLED" };
   }
+  const hasActual = Boolean(options?.actualTime?.trim());
   if (
-    options?.actualTime?.trim() ||
+    hasActual ||
     normalised === "arrived" ||
     normalised.includes("land") ||
     normalised.includes("arrived") ||
@@ -304,8 +317,13 @@ export function categorizeFlightStatus(
   ) {
     return { statusCategory: "landed", statusLabel: "LANDED" };
   }
-  if (arrivalTimeClearlyPast(options?.bestArrivalIso, options?.nowMs)) {
-    return { statusCategory: "landed", statusLabel: "LANDED" };
+  const arrivalIso = anchorArrivalIso(
+    options?.bestArrivalIso,
+    options?.tripDate,
+  );
+  if (arrivalTimeClearlyPast(arrivalIso, options?.nowMs)) {
+    // ETA passed but provider has not confirmed runway/actual arrival.
+    return { statusCategory: "arrival_pending", statusLabel: "ARRIVAL PENDING" };
   }
   if (
     normalised.includes("delay") ||
@@ -326,7 +344,6 @@ export function categorizeFlightStatus(
     normalised.includes("departed") ||
     normalised.includes("approaching")
   ) {
-    // Departed/Approaching without a past ETA stay non-delayed unless delayMinutes says so.
     if (typeof delayMinutes === "number" && delayMinutes >= 5) {
       return { statusCategory: "delayed", statusLabel: "DELAYED" };
     }
@@ -339,6 +356,88 @@ export function categorizeFlightStatus(
     return { statusCategory: "unknown", statusLabel: rawStatus.trim().toUpperCase() };
   }
   return { statusCategory: "unknown", statusLabel: "STATUS UNKNOWN" };
+}
+
+/** Anchor HH:MM or undated local times onto the trip date (prevents “ETA on today” bugs). */
+export function anchorArrivalIso(
+  isoOrHm?: string | null,
+  tripDate?: string | null,
+): string | null {
+  const raw = isoOrHm?.trim() ?? "";
+  if (!raw) return null;
+  const date = (tripDate || "").trim();
+  const hm = raw.match(/(\d{2}:\d{2})/);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(date) && hm) {
+    // Prefer trip-date + clock so past-ETA checks survive provider HH:MM-only values.
+    if (!raw.includes("T") || !raw.startsWith(date)) {
+      return `${date}T${hm[1]}:00`;
+    }
+  }
+  if (raw.includes("T")) return raw;
+  if (/^\d{2}:\d{2}$/.test(raw) && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return `${date}T${raw}:00`;
+  }
+  return raw;
+}
+
+/**
+ * Pure status resolver for Owner Dashboard + regression tests.
+ * Pass scheduled / estimated / actual (runway) wall times with the trip date.
+ */
+export function resolveFlightStatusFromTimes(input: {
+  rawStatus?: string | null;
+  tripDate: string;
+  scheduledTime?: string | null;
+  estimatedTime?: string | null;
+  actualTime?: string | null;
+  nowMs?: number;
+}): {
+  statusCategory: NonNullable<VerifiedFlight["statusCategory"]>;
+  statusLabel: string;
+  scheduledTime?: string;
+  estimatedTime?: string;
+  actualTime?: string;
+  delayMinutes: number | null;
+  arrivalConfirmationPending: boolean;
+} {
+  const scheduledHm = extractHm(input.scheduledTime);
+  const estimatedHm = extractHm(input.estimatedTime);
+  const actualHm = extractHm(input.actualTime);
+  let delayMinutes: number | null = null;
+  const schedIso = anchorArrivalIso(scheduledHm || input.scheduledTime, input.tripDate);
+  const estIso = anchorArrivalIso(estimatedHm || input.estimatedTime, input.tripDate);
+  const actIso = anchorArrivalIso(actualHm || input.actualTime, input.tripDate);
+  if (schedIso && (actIso || estIso)) {
+    const a = parseLondonMs(schedIso);
+    const b = parseLondonMs(actIso || estIso || "");
+    if (a != null && b != null) delayMinutes = Math.round((b - a) / 60000);
+  }
+  const { statusCategory, statusLabel } = categorizeFlightStatus(
+    input.rawStatus || undefined,
+    delayMinutes,
+    {
+      actualTime: actualHm || undefined,
+      bestArrivalIso: actIso || estIso,
+      tripDate: input.tripDate,
+      nowMs: input.nowMs,
+    },
+  );
+  return {
+    statusCategory,
+    statusLabel,
+    scheduledTime: scheduledHm || undefined,
+    estimatedTime: estimatedHm || undefined,
+    actualTime: actualHm || undefined,
+    delayMinutes,
+    arrivalConfirmationPending: statusCategory === "arrival_pending",
+  };
+}
+
+function extractHm(value?: string | null): string | undefined {
+  const raw = value?.trim() ?? "";
+  if (!raw) return undefined;
+  const m = raw.match(/(\d{2}:\d{2})/);
+  return m?.[1];
 }
 
 /** True when an arrival wall-clock is ≥10 minutes in the past (London-local parse). */
@@ -372,6 +471,7 @@ export function flightStatusAutoRefreshMs(input: {
   if (input.statusCategory === "landed" || input.statusCategory === "cancelled") {
     return 0;
   }
+  // arrival_pending keeps polling for final runway/actual confirmation.
   const date = input.tripDate?.trim() ?? "";
   const time = (
     input.estimatedTime?.trim() ||
@@ -407,6 +507,7 @@ export function shouldBypassStaleFlightCache(flight: {
   const date = (flight.date || flight.tripDate || "").trim();
   const time = (flight.estimatedTime || flight.scheduledTime || "").trim().slice(0, 5);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{2}:\d{2}$/.test(time)) return false;
+  // Force refresh when ETA has passed (covers sticky DELAYED and arrival_pending).
   return arrivalTimeClearlyPast(`${date}T${time}:00`);
 }
 
@@ -419,8 +520,8 @@ export function preferFlightStatusSnapshot(
   const prevRank = statusPriorityRank(previous.statusCategory);
   const nextRank = statusPriorityRank(next.statusCategory);
   // Lower rank = higher priority (cancelled=0, landed=1, …)
-  if (prevRank <= 1 && nextRank > prevRank) {
-    // Never regress from LANDED/CANCELLED back to DELAYED from a stale cache hit.
+  if (prevRank <= 2 && nextRank > prevRank) {
+    // Never regress from LANDED / ARRIVAL PENDING / CANCELLED back to DELAYED.
     return previous;
   }
   // Both landed: keep a snapshot that already has actual arrival if the newer one lost it.
@@ -443,12 +544,14 @@ function statusPriorityRank(
       return 0;
     case "landed":
       return 1;
-    case "delayed":
+    case "arrival_pending":
       return 2;
-    case "on_time":
+    case "delayed":
       return 3;
-    default:
+    case "on_time":
       return 4;
+    default:
+      return 5;
   }
 }
 
@@ -464,6 +567,9 @@ export function flightStatusCacheMaxAgeSeconds(input: {
 }): number {
   if (input.statusCategory === "landed" || input.statusCategory === "cancelled") {
     return 60 * 60 * 12;
+  }
+  if (input.statusCategory === "arrival_pending") {
+    return 60;
   }
   const date = input.tripDate?.trim() ?? "";
   const time = (input.estimatedTime?.trim() || input.scheduledTime?.trim() || "12:00").slice(
@@ -517,15 +623,14 @@ function mapAeroFlight(
     }
   }
 
-  // Best known arrival clock: runway (actual) beats revised/predicted.
-  const bestArrivalIso = runwayRaw || estimatedRaw || null;
-  // If provider still says Departed/Delayed but ETA is well past and no runwayTime,
-  // promote revised/predicted time to actual arrival for Owner ops.
-  const inferredActualIso =
-    !runwayRaw && estimatedRaw && arrivalTimeClearlyPast(estimatedRaw)
-      ? estimatedRaw
-      : undefined;
-  const actualRaw = runwayRaw || inferredActualIso;
+  const flightDate =
+    formatIsoDate(scheduledRaw) || params.fallbackDate;
+  // Actual arrival ONLY from runwayTime (never invent actual from ETA).
+  const actualRaw = runwayRaw;
+  const bestArrivalIso = anchorArrivalIso(
+    runwayRaw || estimatedRaw || null,
+    flightDate,
+  );
 
   const { statusCategory, statusLabel } = categorizeFlightStatus(
     flight.status,
@@ -533,6 +638,7 @@ function mapAeroFlight(
     {
       actualTime: actualRaw ? formatLocalTime(actualRaw) : undefined,
       bestArrivalIso,
+      tripDate: flightDate,
     },
   );
 
@@ -590,7 +696,7 @@ function mapAeroFlight(
   return {
     flightNumber: formatFlightNumberForDisplay(flight.number ?? params.flightNumber),
     airline: readAirlineName(flight),
-    date: formatIsoDate(scheduledRaw) || params.fallbackDate,
+    date: flightDate,
     scheduledTime: formatLocalTime(scheduledRaw),
     scheduledTimeLabel: params.direction === "from-airport" ? "Arrives" : "Departs",
     airportCode: params.airportCode,
@@ -600,10 +706,12 @@ function mapAeroFlight(
     arrivalAirport:
       [arrAirport?.iata, arrAirport?.name].filter(Boolean).join(" · ") || "—",
     status: flight.status,
+    providerStatus: flight.status,
     statusCategory,
     statusLabel,
     estimatedTime: estimatedRaw ? formatLocalTime(estimatedRaw) : undefined,
     actualTime: actualRaw ? formatLocalTime(actualRaw) : undefined,
+    arrivalConfirmationPending: statusCategory === "arrival_pending",
     delayMinutes: resolvedDelay,
     terminal: movement?.terminal?.trim() || undefined,
     gate: movement?.gate?.trim() || undefined,
