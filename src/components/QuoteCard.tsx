@@ -116,6 +116,10 @@ import {
   savePickupAddressLabel,
 } from "@/lib/address-place-storage";
 import { scheduleQuoteLeadAlert } from "@/lib/submit-quote-lead";
+import {
+  captureAbandonedBooking,
+  fetchAbandonedBookingByToken,
+} from "@/lib/abandoned-bookings-api";
 import { getPaymentBookingBlockers } from "../../shared/paid-booking-gate";
 import FlightNumberField, { formatVerifiedFlightSummary } from "@/components/FlightNumberField";
 import GoogleAdsRequestQuote from "@/components/GoogleAdsRequestQuote";
@@ -402,6 +406,9 @@ function QuoteCard({
   const [customerEmail, setCustomerEmail] = useState("");
   const [mobileNumberError, setMobileNumberError] = useState("");
   const [emailAddressError, setEmailAddressError] = useState("");
+  const [abandonedBookingToken, setAbandonedBookingToken] = useState("");
+  const [recoveryAlreadyPaidNotice, setRecoveryAlreadyPaidNotice] = useState("");
+  const abandonedCaptureKeyRef = useRef("");
   const [tripMode, setTripMode] = useState<TripMode>(IS_A2A_PRIMARY ? "address" : "airport");
   const [tripDirection, setTripDirection] = useState<TripDirection>(initialDirection);
   const [airportCode, setAirportCode] = useState(initialAirportCode);
@@ -754,6 +761,82 @@ function QuoteCard({
     const existingCheckout = readOpenCheckoutSession();
     if (existingCheckout) {
       setOpenCheckout(existingCheckout);
+    }
+
+    // Opaque abandoned-booking recovery link: /?abr=<token>#quote
+    const abrToken = new URLSearchParams(window.location.search).get("abr")?.trim() || "";
+    if (abrToken) {
+      void fetchAbandonedBookingByToken(abrToken)
+        .then((resume) => {
+          if (!resume) {
+            setRecoveryAlreadyPaidNotice(
+              "This recovery link is invalid or has expired. Start a new quote below.",
+            );
+            return;
+          }
+          if (resume.alreadyPaid || resume.status === "recovered") {
+            setRecoveryAlreadyPaidNotice(
+              "This booking is already paid and confirmed. No further payment is needed.",
+            );
+            setAbandonedBookingToken(resume.token);
+            return;
+          }
+          const j = resume.journey;
+          if (j.pickupLabel) setPickupAddress(j.pickupLabel);
+          if (j.dropoffLabel) setDropoffAddress(j.dropoffLabel);
+          if (j.tripDate) setTripDate(j.tripDate);
+          if (j.tripTime) setTripTime(j.tripTime);
+          if (typeof j.returnJourney === "boolean") setReturnJourney(j.returnJourney);
+          if (j.returnDate) setReturnDate(j.returnDate);
+          if (j.returnTime) setReturnTime(j.returnTime);
+          if (typeof j.passengers === "number" && j.passengers > 0) setPassengers(j.passengers);
+          if (typeof j.suitcases === "number" && j.suitcases >= 0) setSuitcases(j.suitcases);
+          if (j.exactPassengers != null) setExactPassengers(j.exactPassengers);
+          if (j.flightNumber) setGoingFlightNumber(j.flightNumber);
+          if (j.returnFlightNumber) setCollectionFlightNumber(j.returnFlightNumber);
+          if (j.airportCode && isCustomerAirportCode(j.airportCode)) {
+            setIntentAirportCode(j.airportCode);
+            setAirportCode(j.airportCode);
+          }
+          if (j.journeyIntent) {
+            setJourneyIntent(j.journeyIntent as QuoteJourneyIntent);
+          }
+          if (resume.customerName) setCustomerName(resume.customerName);
+          if (resume.customerEmail) setCustomerEmail(resume.customerEmail);
+          if (resume.mobileNumber) setCustomerMobile(resume.mobileNumber);
+          setAbandonedBookingToken(resume.token);
+          setQuoteStep(j.quoteStep === 1 || j.quoteStep === 2 || j.quoteStep === 3 ? j.quoteStep : 3);
+          saveBookingFormDraft({
+            quoteStep: j.quoteStep === 1 || j.quoteStep === 2 || j.quoteStep === 3 ? j.quoteStep : 3,
+            pickupAddress: j.pickupLabel,
+            dropoffAddress: j.dropoffLabel,
+            tripDate: j.tripDate,
+            tripTime: j.tripTime,
+            returnJourney: j.returnJourney,
+            returnDate: j.returnDate,
+            returnTime: j.returnTime,
+            passengers: j.passengers,
+            suitcases: j.suitcases,
+            exactPassengers: j.exactPassengers,
+            customerName: resume.customerName,
+            customerEmail: resume.customerEmail,
+            customerMobile: resume.mobileNumber,
+            goingFlightNumber: j.flightNumber,
+            collectionFlightNumber: j.returnFlightNumber,
+            intentAirportCode: isCustomerAirportCode(j.airportCode || "")
+              ? (j.airportCode as CustomerAirportCode)
+              : "",
+          });
+          // Strip token from the URL without a navigation (never leave PII in history either).
+          const url = new URL(window.location.href);
+          url.searchParams.delete("abr");
+          window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash || "#quote"}`);
+        })
+        .catch(() => {
+          setRecoveryAlreadyPaidNotice(
+            "This recovery link could not be opened. Start a new quote below.",
+          );
+        });
     }
   }, [initialAddressHint, initialAirportCode, initialDirection, initialDropoffHint]);
 
@@ -1352,6 +1435,101 @@ function QuoteCard({
     returnJourney,
     returnTime,
     quoteStep,
+    suitcases,
+    tripDate,
+    tripTime,
+  ]);
+
+  // Capture abandoned-booking recovery once Step 3 has a valid email + journey.
+  // Not on mere quote viewing (step 1 fare). Debounced; upserts by fingerprint.
+  useEffect(() => {
+    if (quoteStep !== 3 || bookingSent || recoveryAlreadyPaidNotice) {
+      return;
+    }
+    const email = customerEmail.trim();
+    if (!isValidEmailAddress(email) || !pickupLabel.trim() || !dropoffLabel.trim()) {
+      return;
+    }
+
+    const fingerprint = [
+      email.toLowerCase(),
+      pickupLabel.trim().toLowerCase().slice(0, 80),
+      dropoffLabel.trim().toLowerCase().slice(0, 80),
+      tripDate,
+      tripTime,
+      String(passengers),
+      String(suitcases),
+    ].join("|");
+    if (abandonedCaptureKeyRef.current === fingerprint) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      abandonedCaptureKeyRef.current = fingerprint;
+      void captureAbandonedBooking({
+        customerName: customerName.trim(),
+        customerEmail: email,
+        mobileNumber: customerMobile.trim() || undefined,
+        journey: {
+          pickupLabel,
+          dropoffLabel,
+          airportCode: effectiveAirportCode || undefined,
+          isAirportTrip,
+          isFromAirport,
+          journeyIntent: journeyIntent || undefined,
+          tripDate,
+          tripTime,
+          returnJourney,
+          returnDate: returnDate || undefined,
+          returnTime: returnTime || undefined,
+          passengers,
+          suitcases,
+          exactPassengers,
+          vehicle: quoteVehicle,
+          flightNumber: goingFlightNumber.trim() || undefined,
+          returnFlightNumber: collectionFlightNumber.trim() || undefined,
+          quotedAmount: liveQuote?.amount,
+          quotedAmountLabel: liveQuote ? formatQuote(liveQuote.amount) : undefined,
+          quoteStep: 3,
+          pickupPlaceId: pickupPlace?.placeId,
+          dropoffPlaceId: dropoffPlace?.placeId,
+          pickupLat: pickupPlace?.lat ?? undefined,
+          pickupLng: pickupPlace?.lng ?? undefined,
+          dropoffLat: dropoffPlace?.lat ?? undefined,
+          dropoffLng: dropoffPlace?.lng ?? undefined,
+        },
+      }).then((result) => {
+        if (result.ok && result.token) {
+          setAbandonedBookingToken(result.token);
+        }
+      });
+    }, 2500);
+
+    return () => window.clearTimeout(timer);
+  }, [
+    bookingSent,
+    collectionFlightNumber,
+    customerEmail,
+    customerMobile,
+    customerName,
+    dropoffLabel,
+    dropoffPlace,
+    effectiveAirportCode,
+    exactPassengers,
+    goingFlightNumber,
+    isAirportTrip,
+    isFromAirport,
+    journeyIntent,
+    liveQuote,
+    passengers,
+    pickupLabel,
+    pickupPlace,
+    quoteStep,
+    quoteVehicle,
+    recoveryAlreadyPaidNotice,
+    returnDate,
+    returnJourney,
+    returnTime,
     suitcases,
     tripDate,
     tripTime,
@@ -2498,7 +2676,21 @@ function QuoteCard({
         </ol>
       </div>
 
-      <form id="quoteForm" onSubmit={handleSubmit} className="relative space-y-4 overflow-x-clip overflow-y-visible lg:space-y-3.5">
+      <form
+        id="quoteForm"
+        onSubmit={handleSubmit}
+        className="relative space-y-4 overflow-x-clip overflow-y-visible lg:space-y-3.5"
+        data-matni-abandoned-token={abandonedBookingToken || undefined}
+      >
+        {recoveryAlreadyPaidNotice ? (
+          <div
+            className="rounded-xl border border-emerald/30 bg-emerald/10 px-4 py-3 text-sm text-emerald"
+            role="status"
+            data-matni-recovery-paid-notice
+          >
+            {recoveryAlreadyPaidNotice}
+          </div>
+        ) : null}
         {testChargeAmount !== null && (
           <div className="rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
             <strong className="text-white">Test booking mode.</strong> SumUp will charge{" "}
@@ -3455,6 +3647,11 @@ function QuoteCard({
                 {canPayNowOnline
                   ? "We’ll email your booking confirmation and receipt after you pay with SumUp."
                   : "So we can email your booking confirmation and, when ready, your SumUp payment link."}
+              </p>
+              <p className="mt-1.5 text-[11px] leading-relaxed text-white/40">
+                If you start a booking and don’t complete payment, we may send one reminder email to
+                this address so you can finish your booking. This is not a marketing email and is
+                separate from the optional marketing checkbox.
               </p>
               {emailAddressError && (
                 <p className="mt-1.5 text-xs text-red-300">{emailAddressError}</p>
