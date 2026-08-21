@@ -286,11 +286,18 @@ import {
 } from "./quick-quote-store";
 import {
   normalizeQuickQuoteId,
+  parseQuickQuoteVehicleChoice,
   quickQuoteAmountsEqual,
-  QUICK_QUOTE_MAX_PASSENGERS,
+  quickQuoteCalculatedAmount,
+  quickQuoteMaxPassengersForVehicle,
   isQuickQuoteExpired,
 } from "../shared/quick-quote";
 import { calculateAuthoritativeWebsiteQuote } from "../../../src/lib/quote-service";
+import {
+  MINIBUS_VEHICLE,
+  selectVehicleForParty,
+} from "../../../src/lib/vehicle-selection";
+import type { VehicleType } from "../../../src/lib/data";
 
 type EmailBinding = {
   send(message: {
@@ -769,8 +776,15 @@ function parsePaidBookingDetails(body: Record<string, unknown>): PaidBookingDeta
     return null;
   }
 
+  if (details.passengers == null || details.suitcases == null) {
+    return null;
+  }
   const passengers = Number(details.passengers);
+  const suitcases = Number(details.suitcases);
   if (!isValidPassengerCount(passengers)) {
+    return null;
+  }
+  if (!Number.isFinite(suitcases) || suitcases < 0) {
     return null;
   }
 
@@ -789,7 +803,7 @@ function parsePaidBookingDetails(body: Record<string, unknown>): PaidBookingDeta
     flightNumber: String(details.flightNumber ?? "").trim(),
     returnFlightNumber: String(details.returnFlightNumber ?? "").trim() || undefined,
     passengers,
-    suitcases: Number(details.suitcases) || 0,
+    suitcases,
     vehicle: String(details.vehicle ?? "").trim(),
     journeyDistance: String(details.journeyDistance ?? "").trim() || undefined,
     journeyDuration: String(details.journeyDuration ?? "").trim() || undefined,
@@ -892,6 +906,9 @@ function parseQuoteLeadBody(body: QuoteLeadRequestBody): QuoteLeadDetails | null
     return null;
   }
 
+  if (body.passengers == null || body.suitcases == null) {
+    return null;
+  }
   const passengers = Number(body.passengers);
   const suitcases = Number(body.suitcases);
 
@@ -1365,10 +1382,14 @@ async function handlePaymentRequest(
     if (!booking) {
       return json({ error: "Missing customer booking details for this quote." }, 400, origin);
     }
-    if (booking.passengers > QUICK_QUOTE_MAX_PASSENGERS) {
+    const qqVehicleChoice = parseQuickQuoteVehicleChoice(
+      record.journey.vehicleChoice ?? record.journey.vehicleType,
+    );
+    const qqMaxPax = quickQuoteMaxPassengersForVehicle(qqVehicleChoice);
+    if (booking.passengers > qqMaxPax) {
       return json(
         {
-          error: `Online booking is limited to ${QUICK_QUOTE_MAX_PASSENGERS} passengers. Please contact My Airport Taxi NI.`,
+          error: `Online booking is limited to ${qqMaxPax} passengers. Please contact My Airport Taxi NI.`,
         },
         400,
         origin,
@@ -1384,6 +1405,13 @@ async function handlePaymentRequest(
 
     // Prefer locked journey from KV for fare; customer contact comes from booking.
     const j = record.journey;
+    const vehicleChoice = parseQuickQuoteVehicleChoice(j.vehicleChoice ?? j.vehicleType);
+    const vehicleType: VehicleType =
+      vehicleChoice === "Minibus" || String(j.vehicleType ?? "").toLowerCase().includes("minibus")
+        ? MINIBUS_VEHICLE
+        : j.vehicleType
+          ? (j.vehicleType as VehicleType)
+          : selectVehicleForParty(j.passengers, j.suitcases);
     const requote = calculateAuthoritativeWebsiteQuote({
       airportCode: j.airportCode ?? null,
       fromAirport: Boolean(j.fromAirport),
@@ -1396,11 +1424,15 @@ async function handlePaymentRequest(
       returnTime: j.returnTime,
       passengers: j.passengers,
       suitcases: j.suitcases,
+      vehicleType,
+      maxPassengers: quickQuoteMaxPassengersForVehicle(vehicleChoice),
     });
     if (!requote.ok) {
       return json({ error: requote.message }, 422, origin);
     }
-    if (!quickQuoteAmountsEqual(requote.amount, record.quotedAmount)) {
+    // Re-validate against the canonical engine fare (not the discounted customer price).
+    const expectedCalculated = quickQuoteCalculatedAmount(record);
+    if (!quickQuoteAmountsEqual(requote.amount, expectedCalculated)) {
       return json(
         {
           error:
@@ -1435,7 +1467,8 @@ async function handlePaymentRequest(
 
     quickQuoteId = record.id;
     amount = Math.round(record.quotedAmount * 100) / 100;
-    standardWebsiteAmount = amount;
+    // Genuine calculated fare for financial audit — distinct from discretionary discount.
+    standardWebsiteAmount = expectedCalculated;
     // Overlay locked journey labels onto booking for emails/calendar.
     booking = {
       ...booking,
@@ -2217,7 +2250,7 @@ export default {
       (url.pathname === "/quote/calculate" || url.pathname === "/api/quote/calculate") &&
       (request.method === "POST" || request.method === "OPTIONS")
     ) {
-      return handleQuoteCalculateRequest(request, origin);
+      return handleQuoteCalculateRequest(request, origin, env);
     }
 
     if (

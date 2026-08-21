@@ -1,7 +1,10 @@
+import { scheduleBookingNavAfterRender } from "@/lib/quote-step-nav-scroll";
+
 export const AIRPORT_PREFILL_KEY = "my-airport-taxi-ni-prefill-airport";
 export const QUOTE_DRAFT_PREFILL_KEY = "my-airport-taxi-ni-prefill-quote-draft";
+export const QUOTE_DIRECTION_PREFILL_KEY = "my-airport-taxi-ni-prefill-direction";
 
-/** Approximate sticky header height; `#quote` uses CSS scroll-mt-36. */
+/** Approximate sticky header height; `#quote` also uses measured offset via booking-nav. */
 export const HEADER_SCROLL_OFFSET = 144;
 
 export type QuoteDraftPrefill = {
@@ -13,18 +16,50 @@ export type QuoteDraftPrefill = {
   suitcases?: number;
   vehicle?: string;
   returnJourney?: boolean;
+  journeyMode?: "one-way" | "return";
   tripDate?: string;
   tripTime?: string;
   returnDate?: string;
   returnTime?: string;
 };
 
-export function prefillQuoteAirport(airportCode: string) {
-  sessionStorage.setItem(AIRPORT_PREFILL_KEY, airportCode);
-  window.dispatchEvent(
-    new CustomEvent("quote-prefill-airport", { detail: airportCode }),
-  );
+export type OpenQuoteOptions = {
+  airport?: string;
+  direction?: "to-airport" | "from-airport";
+  /** Preserve existing quote draft when only scrolling (default true). */
+  preserveState?: boolean;
+};
+
+/**
+ * Shared quote-opening handler for header CTAs, airport cards, flight cards,
+ * and page-local “Get a Quote” buttons. Works even when the URL already has #quote.
+ */
+export function openQuote(options: OpenQuoteOptions = {}) {
+  const { airport, direction, preserveState = true } = options;
+
+  if (airport) {
+    sessionStorage.setItem(AIRPORT_PREFILL_KEY, airport);
+    window.dispatchEvent(
+      new CustomEvent("quote-prefill-airport", { detail: airport }),
+    );
+  }
+
+  if (direction) {
+    sessionStorage.setItem(QUOTE_DIRECTION_PREFILL_KEY, direction);
+    window.dispatchEvent(
+      new CustomEvent("quote-prefill-direction", { detail: direction }),
+    );
+  }
+
+  if (!preserveState && !airport && !direction) {
+    // Explicit no-op placeholder for future reset+open flows.
+  }
+
   scrollToQuoteForm();
+}
+
+export function prefillQuoteAirport(airportCode: string) {
+  openQuote({ airport: airportCode });
 }
 
 /** Hand a completed chat quote into the live quote tool for booking. */
@@ -33,6 +68,9 @@ export function prefillQuoteFromAssistant(draft: QuoteDraftPrefill) {
   sessionStorage.setItem(QUOTE_DRAFT_PREFILL_KEY, JSON.stringify(payload));
   if (draft.airportCode) {
     sessionStorage.setItem(AIRPORT_PREFILL_KEY, draft.airportCode);
+  }
+  if (draft.direction) {
+    sessionStorage.setItem(QUOTE_DIRECTION_PREFILL_KEY, draft.direction);
   }
   window.dispatchEvent(
     new CustomEvent("quote-prefill-draft", { detail: payload }),
@@ -53,9 +91,7 @@ export function scrollToQuoteForm() {
     return;
   }
 
-  // CSS scroll-margin-top on `#quote` keeps the form clear of the sticky header.
-  quoteEl.scrollIntoView({ behavior: "smooth", block: "start" });
-
+  scheduleBookingNavAfterRender("quote", { focusHeading: true });
   const path = `${window.location.pathname}${window.location.search}`;
   window.history.replaceState(null, "", `${path}#quote`);
 }
@@ -66,6 +102,15 @@ export function readPrefillAirport(): string | null {
     sessionStorage.removeItem(AIRPORT_PREFILL_KEY);
   }
   return code;
+}
+
+export function readPrefillDirection(): "to-airport" | "from-airport" | null {
+  const raw = sessionStorage.getItem(QUOTE_DIRECTION_PREFILL_KEY);
+  if (raw) {
+    sessionStorage.removeItem(QUOTE_DIRECTION_PREFILL_KEY);
+  }
+  if (raw === "to-airport" || raw === "from-airport") return raw;
+  return null;
 }
 
 export function readPrefillQuoteDraft(): QuoteDraftPrefill | null {

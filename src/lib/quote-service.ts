@@ -9,7 +9,10 @@ import type { TripSchedule } from "./point-to-point-premium";
 import type { TripRouteMetrics } from "./trip-route";
 import { selectVehicleForParty } from "./vehicle-selection";
 import type { VehicleType } from "./data";
-import { INSTANT_QUOTE_MAX_PASSENGERS } from "../../shared/passenger-limits";
+import {
+  INSTANT_QUOTE_MAX_PASSENGERS,
+  MAX_PASSENGERS,
+} from "../../shared/passenger-limits";
 
 export const QUOTE_SERVICE_MAX_PASSENGERS = INSTANT_QUOTE_MAX_PASSENGERS; // 4
 
@@ -33,6 +36,12 @@ export type QuoteServiceInput = {
   routeMetrics?: TripRouteMetrics | null;
   /** Optional override — normally derived from passengers/suitcases. */
   vehicleType?: VehicleType;
+  /**
+   * Override passenger ceiling (default = instant quote band of 4).
+   * Owner/Driver Quick Quote Minibus may pass up to MAX_PASSENGERS (7).
+   * Public Live Quote must keep the default.
+   */
+  maxPassengers?: number;
 };
 
 export type QuoteServiceSuccess = {
@@ -77,8 +86,26 @@ function buildSchedule(input: QuoteServiceInput): TripSchedule {
 export function calculateAuthoritativeWebsiteQuote(
   input: QuoteServiceInput,
 ): QuoteServiceResult {
-  const passengers = Math.floor(Number(input.passengers));
-  const suitcases = Math.floor(Number(input.suitcases));
+  // Reject missing selections — never coerce null/undefined/"" to 1 passenger or 0 bags.
+  const rawPassengers = input.passengers as unknown;
+  const rawSuitcases = input.suitcases as unknown;
+  if (rawPassengers == null || rawPassengers === "") {
+    return {
+      ok: false,
+      reason: "incomplete",
+      message: "Passenger count is required.",
+    };
+  }
+  if (rawSuitcases == null || rawSuitcases === "") {
+    return {
+      ok: false,
+      reason: "incomplete",
+      message: "Luggage count is required.",
+    };
+  }
+
+  const passengers = Math.floor(Number(rawPassengers));
+  const suitcases = Math.floor(Number(rawSuitcases));
 
   if (!Number.isFinite(passengers) || passengers < 1) {
     return {
@@ -88,11 +115,22 @@ export function calculateAuthoritativeWebsiteQuote(
     };
   }
 
-  if (passengers > QUOTE_SERVICE_MAX_PASSENGERS) {
+  const maxPassengers = Math.min(
+    MAX_PASSENGERS,
+    Math.max(
+      QUOTE_SERVICE_MAX_PASSENGERS,
+      Math.floor(Number(input.maxPassengers) || QUOTE_SERVICE_MAX_PASSENGERS),
+    ),
+  );
+
+  if (passengers > maxPassengers) {
     return {
       ok: false,
       reason: "passenger_limit",
-      message: `Online quotes are limited to ${QUOTE_SERVICE_MAX_PASSENGERS} passengers. Please speak to Colin for larger parties.`,
+      message:
+        maxPassengers > QUOTE_SERVICE_MAX_PASSENGERS
+          ? `Quotes are limited to ${maxPassengers} passengers.`
+          : `Online quotes are limited to ${QUOTE_SERVICE_MAX_PASSENGERS} passengers. Please speak to Colin for larger parties.`,
     };
   }
 
@@ -116,10 +154,30 @@ export function calculateAuthoritativeWebsiteQuote(
   // Date/time are optional for quote calculation / Save Quote.
   // Booking and payment still require them via paid-booking-gate.
 
+  // Reject missing journey mode — never coerce undefined to One Way via Boolean().
+  const rawReturnJourney = (input as { returnJourney?: unknown }).returnJourney;
+  const rawJourneyMode = (input as { journeyMode?: unknown }).journeyMode;
+  let returnJourney: boolean;
+  if (typeof rawReturnJourney === "boolean") {
+    returnJourney = rawReturnJourney;
+  } else if (rawJourneyMode === "one-way") {
+    returnJourney = false;
+  } else if (rawJourneyMode === "return") {
+    returnJourney = true;
+  } else {
+    return {
+      ok: false,
+      reason: "incomplete",
+      message: "Journey mode (One Way or Return) is required.",
+    };
+  }
+
   const vehicleType =
     input.vehicleType ?? selectVehicleForParty(passengers, Math.max(0, suitcases));
-  const schedule = buildSchedule(input);
-  const returnJourney = Boolean(input.returnJourney);
+  const schedule = {
+    ...buildSchedule(input),
+    returnJourney,
+  };
   const airportCode = input.airportCode ?? null;
 
   let quote = null as ReturnType<typeof calculateQuote>;

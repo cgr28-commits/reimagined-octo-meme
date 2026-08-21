@@ -4,7 +4,7 @@ import { DRIVER_TRACKING_HIGHLIGHTS, SERVICE_FLAGS } from "@/lib/data";
 
 export default function DriverTrackingSection() {
   return (
-    <section id="driver-tracking" className="relative py-20 sm:py-28">
+    <section id="driver-tracking" className="relative scroll-mt-36 py-20 sm:py-28 xl:scroll-mt-28">
       <div className="absolute inset-0 bg-gradient-to-b from-navy via-navy-dark/40 to-navy" />
       <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <SectionHeading

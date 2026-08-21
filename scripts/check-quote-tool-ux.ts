@@ -54,7 +54,7 @@ check("Passenger and luggage use selectable buttons", () => {
   assert.match(progressive, /Passengers/);
   assert.match(progressive, /Suitcases \/ large bags/);
   assert.doesNotMatch(progressive, /Child seats/);
-  assert.match(progressive, /One Way/);
+  assert.match(progressive, /One way/);
   assert.match(progressive, /Return/);
 });
 
@@ -105,14 +105,18 @@ check("Step 2 travel details section scrolls only after explicit step navigation
   assert.match(card, /id="step2-travel-details"/);
   assert.match(card, /step2TravelDetailsRef/);
   assert.match(card, /pendingQuoteStepNavScrollRef/);
-  assert.match(card, /scheduleMobileQuoteStepNavScroll/);
+  assert.match(card, /scheduleBookingNavAfterRender/);
   assert.doesNotMatch(card, /pendingScrollToStep2DateRef/);
   assert.doesNotMatch(card, /scheduleSmoothScrollTo/);
 });
 
-check("Progressive quote sections stay in document flow without selection auto-scroll", () => {
+check("Progressive quote scrolls addresses → journey mode → party; no legacy selection-scroll helpers", () => {
   assert.match(progressive, /quote-section-passengers/);
   assert.match(progressive, /quote-section-suitcases/);
+  assert.match(progressive, /id="journey-type-selector"/);
+  assert.match(progressive, /id="passenger-luggage-section"/);
+  assert.match(progressive, /scheduleBookingNavAfterRender\("journey-type-selector"\)/);
+  assert.match(progressive, /scheduleBookingNavAfterRender\("passenger-luggage-section"\)/);
   assert.doesNotMatch(progressive, /scheduleQuoteSectionScroll/);
   assert.doesNotMatch(progressive, /scheduleQuoteFareResultScroll/);
   assert.doesNotMatch(progressive, /quote-mobile-scroll/);
@@ -120,7 +124,7 @@ check("Progressive quote sections stay in document flow without selection auto-s
   assert.match(card, /quote-step2-next/);
 });
 
-check("Public quote tool does not auto-scroll after selections", () => {
+check("Public quote tool uses booking-nav scroll (no scrollIntoView / legacy fare scroll)", () => {
   assert.equal(fs.existsSync(path.join(root, "src/lib/quote-mobile-scroll.ts")), false);
   assert.doesNotMatch(progressive, /scrollIntoView/);
   // QuoteCard must not call scrollIntoView directly; step nav uses the mobile helper.
@@ -128,7 +132,21 @@ check("Public quote tool does not auto-scroll after selections", () => {
   assert.doesNotMatch(card, /pendingScrollToStep2DateRef/);
   assert.doesNotMatch(card, /pendingScrollToStep3CustomerRef/);
   assert.doesNotMatch(card, /scheduleReadyForScrollRef/);
-  assert.match(card, /scheduleMobileQuoteStepNavScroll/);
+  assert.match(card, /scheduleBookingNavAfterRender/);
+  assert.match(card, /schedulePreciseResultsScroll/);
+});
+
+check("Journey mode, passengers and suitcases start unselected; results scroll once when ready", () => {
+  assert.match(card, /useState<"one-way" \| "return" \| null>\(null\)/);
+  assert.match(card, /useState<number \| null>\(null\)/);
+  assert.match(progressive, /Choose One way or Return to continue\./);
+  assert.match(progressive, /Select your passenger and suitcase numbers to see your fixed price\./);
+  assert.match(card, /canShowPrice = hasQuoteRoute && quoteChoicesReady/);
+  assert.match(card, /quote-route-summary/);
+  assert.match(card, /schedulePreciseResultsScroll\("quote-route-summary"\)/);
+  assert.doesNotMatch(card, /scheduleBookingNavAfterRender\("quote-results-summary"/);
+  assert.doesNotMatch(card, /setExactPassengers\(5\)/);
+  assert.doesNotMatch(progressive, /aria-pressed=\{!returnJourney\}/);
 });
 
 check("Suitcase selector is single 0–4|5+ row without Exact Large Bags", () => {

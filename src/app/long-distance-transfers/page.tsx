@@ -30,13 +30,13 @@ export default function LongDistanceTransfersPage() {
   return (
     <>
       <Header />
-      <main className="min-h-screen overflow-x-clip bg-navy pb-16 pt-36 md:pt-28">
+      <main className="min-h-screen overflow-x-clip bg-navy pb-16 pt-36 xl:pt-28">
         <div className="relative overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-b from-navy-light/40 via-navy to-navy" />
           <div className="relative mx-auto max-w-7xl px-4 pb-20 sm:px-6 lg:px-8">
             <Link
               href="/"
-              className="inline-flex items-center gap-2 text-sm text-white/50 transition-colors hover:text-emerald"
+              className="inline-flex min-h-11 items-center gap-2 text-sm text-white/50 transition-colors hover:text-emerald"
             >
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />

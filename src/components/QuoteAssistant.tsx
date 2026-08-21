@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type Ref } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type Ref } from "react";
 import { createPortal } from "react-dom";
 import AddressInput from "@/components/AddressInput";
 import { playBotOpenSound, playBotReplySound, playBotWorkingSound } from "@/lib/bot-sounds";
@@ -86,7 +86,9 @@ function loadPersistedChat(): PersistedChat | null {
     return {
       messages: parsed.messages,
       draft: parsed.draft ?? {},
-      quickReplies: parsed.quickReplies ?? ["Get a quote", "Save to contacts"],
+      quickReplies: (parsed.quickReplies ?? ["Start a chat quote", "Save to contacts"]).map((r) =>
+        r === "Get a quote" ? "Start a chat quote" : r,
+      ),
       consecutiveMisses: Number(parsed.consecutiveMisses) || 0,
     };
   } catch {
@@ -160,7 +162,7 @@ export default function QuoteAssistant() {
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<AssistantMessage[]>(() => createWelcomeMessages());
   const [quickReplies, setQuickReplies] = useState<string[]>([
-    "Get a quote",
+    "Start a chat quote",
     "Save to contacts",
   ]);
   const [draft, setDraft] = useState<QuoteDraft>({});
@@ -179,6 +181,8 @@ export default function QuoteAssistant() {
   const workingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const draftRef = useRef(draft);
   const missesRef = useRef(0);
+  const helpTitleId = useId();
+  const wasOpenRef = useRef(false);
   const qrSrc = withBasePath("/contact-qr.png");
   const awaitingField = !isWorking ? getNextQuoteField(draft) : null;
   const showAddressPicker = awaitingField === "address";
@@ -236,7 +240,7 @@ export default function QuoteAssistant() {
       setMessages(createWelcomeMessages());
       setDraft(emptyQuoteDraft());
       draftRef.current = {};
-      setQuickReplies(["Get a quote", "Save to contacts"]);
+      setQuickReplies(["Start a chat quote", "Save to contacts"]);
       setShowContactOffer(false);
       setAddressValue("");
       setInput("");
@@ -319,8 +323,16 @@ export default function QuoteAssistant() {
   }, [mounted, open, isMobile, pathname]);
 
   // Keep the page from sliding sideways while the chat is open.
+  // Focus trap, Escape to close, and restore focus to the launcher.
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      if (wasOpenRef.current) {
+        wasOpenRef.current = false;
+        launcherRef.current?.focus();
+      }
+      return;
+    }
+    wasOpenRef.current = true;
 
     const html = document.documentElement;
     const body = document.body;
@@ -355,8 +367,49 @@ export default function QuoteAssistant() {
       event.preventDefault();
     };
 
+    const getFocusable = () => {
+      const panel = panelRef.current;
+      if (!panel) return [] as HTMLElement[];
+      return Array.from(
+        panel.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        ),
+      ).filter((el) => !el.hasAttribute("disabled") && el.getAttribute("aria-hidden") !== "true");
+    };
+
+    // Move focus into the dialog once it mounts.
+    requestAnimationFrame(() => {
+      const nodes = getFocusable();
+      const preferred = inputRef.current && !showAddressPicker ? inputRef.current : nodes[0];
+      preferred?.focus();
+    });
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setOpen(false);
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const nodes = getFocusable();
+      if (nodes.length === 0) return;
+      const first = nodes[0];
+      const last = nodes[nodes.length - 1];
+      const active = document.activeElement as HTMLElement | null;
+      if (event.shiftKey) {
+        if (active === first || !panelRef.current?.contains(active)) {
+          event.preventDefault();
+          last.focus();
+        }
+      } else if (active === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
     window.addEventListener("scroll", keepHorizontalOrigin, { passive: true });
     document.addEventListener("touchmove", preventBackgroundTouchScroll, { passive: false });
+    document.addEventListener("keydown", onKeyDown);
 
     return () => {
       html.style.overflow = prevHtmlOverflow;
@@ -365,11 +418,12 @@ export default function QuoteAssistant() {
       body.style.overscrollBehaviorX = prevBodyOverscroll;
       window.removeEventListener("scroll", keepHorizontalOrigin);
       document.removeEventListener("touchmove", preventBackgroundTouchScroll);
+      document.removeEventListener("keydown", onKeyDown);
       if (window.scrollX !== 0) {
         window.scrollTo(0, window.scrollY);
       }
     };
-  }, [open]);
+  }, [open, showAddressPicker]);
 
   const latestQuoteIndex = (() => {
     for (let i = messages.length - 1; i >= 0; i -= 1) {
@@ -505,7 +559,7 @@ export default function QuoteAssistant() {
             nextDraft = emptyQuoteDraft();
             setDraft(nextDraft);
             draftRef.current = nextDraft;
-            setQuickReplies(["Get a quote", "Save to contacts"]);
+            setQuickReplies(["Start a chat quote", "Save to contacts"]);
           } else {
             setQuickReplies(["Confirm booking", "Another quote"]);
           }
@@ -538,7 +592,7 @@ export default function QuoteAssistant() {
     setMessages(createWelcomeMessages());
     setDraft(emptyQuoteDraft());
     draftRef.current = {};
-    setQuickReplies(["Get a quote", "Save to contacts"]);
+    setQuickReplies(["Start a chat quote", "Save to contacts"]);
     setShowContactOffer(false);
     setAddressValue("");
     setInput("");
@@ -601,6 +655,9 @@ export default function QuoteAssistant() {
       {open ? (
         <div
           ref={panelRef}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby={helpTitleId}
           className="fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom,0px))] left-3 right-3 z-[60] box-border flex h-[min(78dvh,36rem)] max-h-[min(78dvh,36rem)] w-auto min-w-0 max-w-[calc(100vw-1.5rem)] touch-pan-y flex-col overflow-hidden overscroll-x-none rounded-2xl border border-white/15 bg-navy-dark shadow-2xl sm:left-auto sm:right-[max(1.25rem,env(safe-area-inset-right))] sm:w-[24rem] sm:max-w-[min(24rem,calc(100%-2.75rem))]"
         >
           <div className="flex min-w-0 items-start justify-between gap-3 border-b border-white/10 bg-navy px-4 py-3">
@@ -615,7 +672,9 @@ export default function QuoteAssistant() {
                 />
               </div>
               <div className="min-w-0">
-                <p className="truncate text-sm font-bold text-white">Help</p>
+                <p id={helpTitleId} className="truncate text-sm font-bold text-white">
+                  Help
+                </p>
                 <p className="truncate text-xs text-white/55">Quotes · help · contact</p>
               </div>
             </div>

@@ -318,10 +318,13 @@ for (const width of [375, 390, 430]) {
 }
 assert.match(qqClient, /break-words|break-all/);
 assert.match(qqClient, /cleanExtractedText/);
-assert.match(qqClient, /type="text"/); // passengers/luggage avoid iOS number-input wipe
-assert.doesNotMatch(qqClient, /type="number"/);
+assert.match(qqClient, /FiniteOptionSelect/); // passengers/luggage — native select, not free number typing
+assert.doesNotMatch(qqClient, /Passengers[\s\S]{0,200}type="number"/);
+assert.doesNotMatch(qqClient, /Luggage[\s\S]{0,200}type="number"/);
 assert.match(qqClient, /autoSuggestToken/);
 assert.match(qqClient, /autoConfirmExactMatch/);
+assert.match(qqClient, /vehicleChoice/);
+assert.match(qqClient, /applyQuickQuoteManualDiscount/);
 assert.match(qqPage, /overflow-x-clip/);
 assert.match(qqPage, /min-w-0/);
 // 390px iPhone: container must not use fixed px wider than viewport

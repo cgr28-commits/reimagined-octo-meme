@@ -1,23 +1,34 @@
 /**
  * Quick Quote Worker APIs — owner create + public lookup.
  * Fares always from calculateAuthoritativeWebsiteQuote (never from client amount).
+ * Discretionary discounts are applied AFTER the engine fare and stored separately.
  */
 
 import { corsHeaders } from "../shared/google-places";
 import {
   QUICK_QUOTE_CREATE_RATE_LIMIT,
-  QUICK_QUOTE_MAX_PASSENGERS,
+  applyQuickQuoteManualDiscount,
   buildQuickQuoteCustomerUrl,
   buildQuickQuoteWhatsAppReply,
   formatQuickQuoteAmount,
   isQuickQuoteExpired,
   normalizeQuickQuoteId,
+  parseQuickQuoteDiscountType,
+  parseQuickQuoteVehicleChoice,
+  quickQuoteMaxPassengersForVehicle,
   toQuickQuotePublicSummary,
   type QuickQuoteAirportCode,
+  type QuickQuoteDiscountType,
   type QuickQuoteJourney,
+  type QuickQuoteVehicleChoice,
 } from "../shared/quick-quote";
 import { calculateAuthoritativeWebsiteQuote } from "../../../src/lib/quote-service";
 import { fetchTripRouteMetrics } from "../../../src/lib/trip-route";
+import {
+  MINIBUS_VEHICLE,
+  selectVehicleForParty,
+} from "../../../src/lib/vehicle-selection";
+import type { VehicleType } from "../../../src/lib/data";
 import { ownerAuthorized } from "./driver-auth";
 import {
   consumeQuickQuoteCreateQuota,
@@ -45,9 +56,32 @@ function parseAirport(value: unknown): QuickQuoteAirportCode | null {
   return null;
 }
 
-function parseJourney(body: Record<string, unknown>): QuickQuoteJourney | { error: string } {
+function resolveVehicle(
+  choice: QuickQuoteVehicleChoice,
+  passengers: number,
+  suitcases: number,
+): VehicleType {
+  if (choice === "Minibus") return MINIBUS_VEHICLE;
+  return selectVehicleForParty(passengers, Math.max(0, suitcases));
+}
+
+function parseJourney(
+  body: Record<string, unknown>,
+): (QuickQuoteJourney & { vehicleChoice: QuickQuoteVehicleChoice }) | { error: string } {
   const airportCode = parseAirport(body.airportCode);
-  const returnJourney = body.returnJourney === true;
+  let returnJourney: boolean;
+  if (typeof body.returnJourney === "boolean") {
+    returnJourney = body.returnJourney;
+  } else if (body.journeyMode === "one-way") {
+    returnJourney = false;
+  } else if (body.journeyMode === "return") {
+    returnJourney = true;
+  } else {
+    return { error: "Journey mode (One Way or Return) is required." };
+  }
+  if (body.passengers == null || body.suitcases == null) {
+    return { error: "Passenger and suitcase selections are required." };
+  }
   const passengers = Math.floor(Number(body.passengers));
   const suitcases = Math.floor(Number(body.suitcases));
   const outboundDate = String(body.outboundDate ?? "").trim();
@@ -57,6 +91,10 @@ function parseJourney(body: Record<string, unknown>): QuickQuoteJourney | { erro
   const pickupAddress = String(body.pickupAddress ?? "").trim();
   const dropoffAddress = String(body.dropoffAddress ?? "").trim();
   const fromAirport = body.fromAirport === true;
+  const vehicleChoice = parseQuickQuoteVehicleChoice(
+    body.vehicleChoice ?? body.vehiclePreference ?? body.vehicleType,
+  );
+  const maxPax = quickQuoteMaxPassengersForVehicle(vehicleChoice);
 
   if (!pickupAddress) return { error: "Pickup address is required." };
   if (!dropoffAddress) return { error: "Destination address is required." };
@@ -67,9 +105,12 @@ function parseJourney(body: Record<string, unknown>): QuickQuoteJourney | { erro
   if (!Number.isFinite(passengers) || passengers < 1) {
     return { error: "Passenger count is required." };
   }
-  if (passengers > QUICK_QUOTE_MAX_PASSENGERS) {
+  if (passengers > maxPax) {
     return {
-      error: `Online Quick Quotes are limited to ${QUICK_QUOTE_MAX_PASSENGERS} passengers. Speak to the customer for larger parties.`,
+      error:
+        vehicleChoice === "Minibus"
+          ? `Minibus Quick Quotes are limited to ${maxPax} passengers.`
+          : `Saloon Quick Quotes are limited to ${maxPax} passengers. Switch to Minibus for larger parties.`,
     };
   }
   if (!Number.isFinite(suitcases) || suitcases < 0) {
@@ -90,10 +131,26 @@ function parseJourney(body: Record<string, unknown>): QuickQuoteJourney | { erro
     childSeatRequired: body.childSeatRequired === true,
     flightNumber: String(body.flightNumber ?? "").trim() || undefined,
     returnFlightNumber: String(body.returnFlightNumber ?? "").trim() || undefined,
+    vehicleChoice,
   };
 }
 
-async function authoritativeAmount(journey: QuickQuoteJourney, body: Record<string, unknown>) {
+function parseDiscount(body: Record<string, unknown>): {
+  discountType: QuickQuoteDiscountType;
+  discountValue: number;
+} {
+  const discountType = parseQuickQuoteDiscountType(body.discountType);
+  const discountValue = Number(body.discountValue ?? body.discountAmount ?? 0);
+  return {
+    discountType,
+    discountValue: Number.isFinite(discountValue) ? discountValue : 0,
+  };
+}
+
+async function authoritativeAmount(
+  journey: QuickQuoteJourney & { vehicleChoice: QuickQuoteVehicleChoice },
+  body: Record<string, unknown>,
+) {
   const pickupLat = Number(body.pickupLat);
   const pickupLng = Number(body.pickupLng);
   const dropoffLat = Number(body.dropoffLat);
@@ -108,6 +165,12 @@ async function authoritativeAmount(journey: QuickQuoteJourney, body: Record<stri
     routeMetrics = await fetchTripRouteMetrics(pickupLat, pickupLng, dropoffLat, dropoffLng);
   }
 
+  const vehicleType = resolveVehicle(
+    journey.vehicleChoice,
+    journey.passengers,
+    journey.suitcases,
+  );
+
   return calculateAuthoritativeWebsiteQuote({
     airportCode: journey.airportCode ?? null,
     fromAirport: Boolean(journey.fromAirport),
@@ -121,6 +184,8 @@ async function authoritativeAmount(journey: QuickQuoteJourney, body: Record<stri
     passengers: journey.passengers,
     suitcases: journey.suitcases,
     routeMetrics,
+    vehicleType,
+    maxPassengers: quickQuoteMaxPassengersForVehicle(journey.vehicleChoice),
   });
 }
 
@@ -177,19 +242,32 @@ export async function handleOwnerCreateQuickQuote(
     );
   }
 
-  // Ignore any client-supplied amount — always recalculate.
+  // Ignore any client-supplied amount — always recalculate, then apply discount.
   const quote = await authoritativeAmount(journey, body);
   if (!quote.ok) {
     return json({ error: quote.message, reason: quote.reason }, 422, origin);
   }
 
+  const { discountType, discountValue } = parseDiscount(body);
+  const discounted = applyQuickQuoteManualDiscount(
+    quote.amount,
+    discountType,
+    discountValue,
+  );
+
   const record = await createQuickQuoteRecord(env.TRACKING_STORE, {
     journey: {
       ...journey,
       vehicleType: quote.vehicleType,
+      vehicleChoice: journey.vehicleChoice,
     },
-    quotedAmount: quote.amount,
-    quotedAmountLabel: quote.amountLabel || formatQuickQuoteAmount(quote.amount),
+    quotedAmount: discounted.customerFare,
+    quotedAmountLabel: formatQuickQuoteAmount(discounted.customerFare),
+    calculatedAmount: discounted.calculatedFare,
+    calculatedAmountLabel: formatQuickQuoteAmount(discounted.calculatedFare),
+    discountType: discounted.discountType,
+    discountValue: discounted.discountValue,
+    discountAmount: discounted.discountAmount,
     pricingSource: "website-pricing-engine",
     createdByOwner: true,
   });
@@ -204,7 +282,11 @@ export async function handleOwnerCreateQuickQuote(
     JSON.stringify({
       event: "quick_quote_created",
       idSuffix: record.id.slice(-6),
-      amount: record.quotedAmount,
+      calculatedAmount: record.calculatedAmount,
+      quotedAmount: record.quotedAmount,
+      discountType: record.discountType,
+      discountAmount: record.discountAmount,
+      vehicleChoice: journey.vehicleChoice,
       returnJourney: journey.returnJourney,
       airportCode: journey.airportCode ?? null,
     }),
@@ -213,7 +295,14 @@ export async function handleOwnerCreateQuickQuote(
   return json(
     {
       ok: true,
-      quote: toQuickQuotePublicSummary(record),
+      quote: {
+        ...toQuickQuotePublicSummary(record),
+        calculatedAmount: record.calculatedAmount,
+        calculatedAmountLabel: record.calculatedAmountLabel,
+        discountType: record.discountType,
+        discountValue: record.discountValue,
+        discountAmount: record.discountAmount,
+      },
       bookingUrl,
       whatsappReply,
     },

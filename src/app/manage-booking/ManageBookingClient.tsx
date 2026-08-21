@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { SITE } from "@/lib/data";
 import { whatsAppChatUrl } from "@/lib/contact-card";
 import { PLACES_LOOKUP_A2A } from "@/lib/selected-place";
 import AddressInput from "@/components/AddressInput";
+import QuoteNavLink from "@/components/QuoteNavLink";
 import {
   abandonPendingAmendment,
   amendBookingSchedule,
@@ -524,25 +524,37 @@ export default function ManageBookingClient() {
             <p className="text-sm text-emerald">Opening your booking…</p>
           ) : null}
           <div>
-            <label className="mb-1.5 block text-xs text-white/60">Booking reference</label>
+            <label htmlFor="manage-booking-reference" className="mb-1.5 block text-xs text-white/60">
+              Booking reference
+            </label>
             <input
+              id="manage-booking-reference"
+              name="bookingReference"
               className={fieldClass}
               value={paymentReference}
               onChange={(e) => setPaymentReference(e.target.value)}
               required
               autoComplete="off"
               placeholder="MAT-4827"
+              aria-invalid={Boolean(error) && !booking}
+              aria-describedby={error && !booking ? "manage-booking-error" : undefined}
             />
           </div>
           <div>
-            <label className="mb-1.5 block text-xs text-white/60">Email on the booking</label>
+            <label htmlFor="manage-booking-email" className="mb-1.5 block text-xs text-white/60">
+              Email on the booking
+            </label>
             <input
+              id="manage-booking-email"
+              name="email"
               type="email"
               className={fieldClass}
               value={customerEmail}
               onChange={(e) => setCustomerEmail(e.target.value)}
               required
               autoComplete="email"
+              aria-invalid={Boolean(error) && !booking}
+              aria-describedby={error && !booking ? "manage-booking-error" : undefined}
             />
           </div>
           <button
@@ -557,8 +569,10 @@ export default function ManageBookingClient() {
 
       {error ? (
         <p
+          id="manage-booking-error"
           className="rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-200"
           role="alert"
+          aria-live="assertive"
         >
           {error}
         </p>
@@ -722,25 +736,35 @@ export default function ManageBookingClient() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="mb-1.5 block text-xs text-white/60">Pickup date</label>
+                  <label htmlFor="manage-trip-date" className="mb-1.5 block text-xs text-white/60">
+                    Pickup date
+                  </label>
                   <input
+                    id="manage-trip-date"
+                    name="tripDate"
                     type="date"
                     className={fieldClass}
                     value={form.tripDate}
                     onChange={(e) => setForm({ ...form, tripDate: e.target.value })}
                     required
                     disabled={formLocked}
+                    autoComplete="off"
                   />
                 </div>
                 <div>
-                  <label className="mb-1.5 block text-xs text-white/60">Pickup time</label>
+                  <label htmlFor="manage-trip-time" className="mb-1.5 block text-xs text-white/60">
+                    Pickup time
+                  </label>
                   <input
+                    id="manage-trip-time"
+                    name="tripTime"
                     type="time"
                     className={fieldClass}
                     value={form.tripTime}
                     onChange={(e) => setForm({ ...form, tripTime: e.target.value })}
                     required
                     disabled={formLocked}
+                    autoComplete="off"
                   />
                 </div>
               </div>
@@ -789,14 +813,19 @@ export default function ManageBookingClient() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="mb-1.5 block text-xs text-white/60">Passengers</label>
+                  <label htmlFor="manage-passengers" className="mb-1.5 block text-xs text-white/60">
+                    Passengers
+                  </label>
                   <select
+                    id="manage-passengers"
+                    name="passengers"
                     className={fieldClass}
                     value={form.passengers}
                     onChange={(e) =>
                       setForm({ ...form, passengers: Number(e.target.value) || 1 })
                     }
                     disabled={formLocked}
+                    autoComplete="off"
                   >
                     {Array.from({ length: maxPassengers }, (_, i) => i + 1).map((n) => (
                       <option key={n} value={n}>
@@ -806,14 +835,19 @@ export default function ManageBookingClient() {
                   </select>
                 </div>
                 <div>
-                  <label className="mb-1.5 block text-xs text-white/60">Suitcases</label>
+                  <label htmlFor="manage-suitcases" className="mb-1.5 block text-xs text-white/60">
+                    Suitcases
+                  </label>
                   <select
+                    id="manage-suitcases"
+                    name="suitcases"
                     className={fieldClass}
                     value={form.suitcases}
                     onChange={(e) =>
                       setForm({ ...form, suitcases: Number(e.target.value) || 0 })
                     }
                     disabled={formLocked}
+                    autoComplete="off"
                   >
                     {Array.from({ length: 9 }, (_, i) => i).map((n) => (
                       <option key={n} value={n}>
@@ -825,14 +859,19 @@ export default function ManageBookingClient() {
               </div>
 
               <div>
-                <label className="mb-1.5 block text-xs text-white/60">Child seats</label>
+                <label htmlFor="manage-child-seats" className="mb-1.5 block text-xs text-white/60">
+                  Child seats
+                </label>
                 <select
+                  id="manage-child-seats"
+                  name="childSeats"
                   className={fieldClass}
                   value={form.childSeats}
                   onChange={(e) =>
                     setForm({ ...form, childSeats: Number(e.target.value) || 0 })
                   }
                   disabled={formLocked}
+                  autoComplete="off"
                 >
                   <option value={0}>None</option>
                   <option value={1}>1</option>
@@ -841,49 +880,70 @@ export default function ManageBookingClient() {
               </div>
               {form.childSeats > 0 ? (
                 <div>
-                  <label className="mb-1.5 block text-xs text-white/60">Child seat notes</label>
+                  <label htmlFor="manage-child-seat-notes" className="mb-1.5 block text-xs text-white/60">
+                    Child seat notes
+                  </label>
                   <input
+                    id="manage-child-seat-notes"
+                    name="childSeatNotes"
                     className={fieldClass}
                     value={form.childSeatNotes}
                     onChange={(e) => setForm({ ...form, childSeatNotes: e.target.value })}
                     placeholder="e.g. 1 infant seat, 1 booster"
                     disabled={formLocked}
+                    autoComplete="off"
                   />
                 </div>
               ) : null}
 
               {showFlight ? (
                 <div>
-                  <label className="mb-1.5 block text-xs text-white/60">Flight number</label>
+                  <label htmlFor="manage-flight-number" className="mb-1.5 block text-xs text-white/60">
+                    Flight number
+                  </label>
                   <input
+                    id="manage-flight-number"
+                    name="flightNumber"
                     className={fieldClass}
                     value={form.flightNumber}
                     onChange={(e) => setForm({ ...form, flightNumber: e.target.value })}
                     placeholder="e.g. EZY1234"
                     disabled={formLocked}
+                    autoComplete="off"
                   />
                 </div>
               ) : null}
 
               <div>
-                <label className="mb-1.5 block text-xs text-white/60">Mobile number</label>
+                <label htmlFor="manage-mobile-number" className="mb-1.5 block text-xs text-white/60">
+                  Mobile number
+                </label>
                 <input
+                  id="manage-mobile-number"
+                  name="mobileNumber"
+                  type="tel"
                   className={fieldClass}
                   value={form.mobileNumber}
                   onChange={(e) => setForm({ ...form, mobileNumber: e.target.value })}
                   required
                   disabled={formLocked}
+                  autoComplete="tel"
                 />
               </div>
 
               <div>
-                <label className="mb-1.5 block text-xs text-white/60">Email</label>
+                <label htmlFor="manage-booking-email-readonly" className="mb-1.5 block text-xs text-white/60">
+                  Email
+                </label>
                 <input
+                  id="manage-booking-email-readonly"
+                  name="bookingEmail"
                   type="email"
                   className={`${fieldClass} opacity-80`}
                   value={booking.customerEmail || customerEmail}
                   readOnly
                   aria-readonly="true"
+                  autoComplete="email"
                 />
                 <p className="mt-1 text-xs text-white/45">
                   Booking email cannot be changed online. Contact us if you need this updated.
@@ -917,9 +977,12 @@ export default function ManageBookingClient() {
             Look up a different booking
           </button>
 
-          <Link href="/#quote" className="block text-center text-sm text-emerald underline">
+          <QuoteNavLink
+            href="/#quote"
+            className="flex min-h-11 items-center justify-center text-center text-sm text-emerald underline"
+          >
             Get a new quote
-          </Link>
+          </QuoteNavLink>
         </div>
       ) : null}
     </div>

@@ -43,7 +43,7 @@ assert.doesNotMatch(card, /scheduleReadyForScrollRef/);
 // Selection-driven scrollIntoView must not live in QuoteCard body helpers —
 // only the dedicated mobile step-nav helper may call scrollIntoView.
 assert.doesNotMatch(card, /scrollIntoView/);
-assert.match(card, /scheduleMobileQuoteStepNavScroll/);
+assert.match(card, /scheduleBookingNavAfterRender/);
 assert.match(card, /pendingQuoteStepNavScrollRef/);
 assert.match(card, /from "@\/lib\/quote-step-nav-scroll"/);
 

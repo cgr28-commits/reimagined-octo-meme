@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import Footer from "@/components/Footer";
 import Header from "@/components/Header";
+import QuoteNavLink from "@/components/QuoteNavLink";
 import SectionHeading from "@/components/SectionHeading";
 import { AREAS, SERVICE_FLAGS, SITE } from "@/lib/data";
 import {
@@ -30,13 +31,13 @@ export default function LocationsPage() {
   return (
     <>
       <Header />
-      <main className="min-h-screen overflow-x-clip bg-navy pb-16 pt-36 md:pt-28">
+      <main className="min-h-screen overflow-x-clip bg-navy pb-16 pt-36 xl:pt-28">
         <div className="relative overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-b from-navy-light/40 via-navy to-navy" />
           <div className="relative mx-auto max-w-7xl px-4 pb-20 sm:px-6 lg:px-8">
             <Link
               href="/"
-              className="inline-flex items-center gap-2 text-sm text-white/50 transition-colors hover:text-emerald"
+              className="inline-flex min-h-11 items-center gap-2 text-sm text-white/50 transition-colors hover:text-emerald"
             >
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -46,6 +47,7 @@ export default function LocationsPage() {
 
             <div className="mt-8 max-w-3xl">
               <SectionHeading
+                as="h1"
                 align="left"
                 eyebrow="Locations"
                 title="Where we travel"
@@ -130,12 +132,12 @@ export default function LocationsPage() {
                 Enter your pickup and destination on the homepage quote form for an instant NI price
                 or to request a fixed cross-border quote.
               </p>
-              <Link
+              <QuoteNavLink
                 href="/#quote"
-                className="mt-6 inline-flex rounded-full bg-emerald px-8 py-3.5 text-sm font-bold text-navy shadow-lg shadow-emerald/25 transition-all hover:bg-emerald-light"
+                className="mt-6 inline-flex min-h-11 items-center rounded-full bg-emerald px-8 py-3.5 text-sm font-bold text-navy shadow-lg shadow-emerald/25 transition-all hover:bg-emerald-light"
               >
                 Get a live quote
-              </Link>
+              </QuoteNavLink>
             </div>
           </div>
         </div>
