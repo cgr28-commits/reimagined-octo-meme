@@ -11,6 +11,9 @@ import OwnerShortNoticePanel from "@/components/OwnerShortNoticePanel";
 import OwnerPersonalQuotesPanel from "@/components/OwnerPersonalQuotesPanel";
 import OwnerBookingCalendar from "@/components/OwnerBookingCalendar";
 import OwnerAccountProfilePanel from "@/components/OwnerAccountProfilePanel";
+import OwnerDashboardToolSwitcher, {
+  type OwnerDashboardToolTab,
+} from "@/components/OwnerDashboardToolSwitcher";
 import type { MapMarker, MapRoutePoint } from "@/components/LiveTrackMap";
 import {
   buildWhatsAppDriverDetailsLink,
@@ -861,20 +864,27 @@ function DriverJobCard({
     mapMarkers.length > 0 || (showRecordedRoute && recordedRoute.length > 0);
   const journeyStatus = job.journeyStatus ?? (job.sharingActive ? "tracking" : "idle");
   const journeyLabel = job.journeyStatusLabel ?? (job.sharingActive ? "Driver on the way" : "Driver preparing");
-  const allowedActions: JourneyAction[] =
-    job.allowedJourneyActions ??
-    (journeyStatus === "idle" || journeyStatus === "stopped"
-      ? ["start_tracking", "arrived_pickup"]
-      : journeyStatus === "tracking"
-        ? ["arrived_pickup", "stop_tracking"]
-        : journeyStatus === "arrived_pickup"
-          ? ["complete_journey", "stop_tracking"]
-          : journeyStatus === "en_route"
-            ? ["arrived_destination", "stop_tracking"]
-            : journeyStatus === "arrived_destination"
-              ? ["complete_journey", "stop_tracking"]
-              : []);
-  const canOperateJourney = canShare;
+  // Customer update actions must not wait for the GPS tracking window.
+  const canOperateJourney =
+    !isRefunded &&
+    (isOwner || isAcceptedAssignment) &&
+    journeyStatus !== "completed";
+  const allowedActions: JourneyAction[] = (() => {
+    const raw =
+      job.allowedJourneyActions ??
+      (journeyStatus === "idle" || journeyStatus === "stopped"
+        ? (["start_tracking", "arrived_pickup"] as JourneyAction[])
+        : journeyStatus === "tracking"
+          ? (["start_tracking", "arrived_pickup"] as JourneyAction[])
+          : journeyStatus === "arrived_pickup"
+            ? (["complete_journey"] as JourneyAction[])
+            : journeyStatus === "en_route"
+              ? (["arrived_destination"] as JourneyAction[])
+              : journeyStatus === "arrived_destination"
+                ? (["complete_journey"] as JourneyAction[])
+                : []);
+    return raw.filter((action) => action !== "stop_tracking");
+  })();
 
   useEffect(() => {
     if (!showRecordedRoute) {
@@ -1372,20 +1382,23 @@ function DriverJobCard({
           )}
           <p className="mt-2 text-sm font-semibold text-emerald">
             Journey: {journeyLabel}
-            {job.sharingActive ? " · GPS live" : ""}
+            {SERVICE_FLAGS.liveDriverTracking && job.sharingActive ? " · GPS live" : ""}
           </p>
-          {isActive && gpsStale && (
+          {SERVICE_FLAGS.liveDriverTracking && isActive && gpsStale && (
             <p className="mt-2 rounded-lg border border-amber-400/40 bg-amber-500/15 px-3 py-2 text-sm text-amber-100">
               Location has not updated for 2 minutes — reopen this page and keep it open while
               driving. iPhone may pause GPS when Safari is locked or in the background.
             </p>
           )}
-          {isActive && lastGpsAt && !gpsStale && (
+          {SERVICE_FLAGS.liveDriverTracking && isActive && lastGpsAt && !gpsStale && (
             <p className="mt-1 text-xs text-white/45">
               Last GPS update {Math.max(1, Math.round((Date.now() - lastGpsAt) / 1000))}s ago
             </p>
           )}
-          {isOwner && job.sharingActive && job.activeDriverName && (
+          {SERVICE_FLAGS.liveDriverTracking &&
+            isOwner &&
+            job.sharingActive &&
+            job.activeDriverName && (
             <p className="mt-2 text-sm font-semibold text-emerald">
               {job.activeDriverName} is sharing live location
             </p>
@@ -1393,7 +1406,9 @@ function DriverJobCard({
           {!isRefunded && !isOwner && !isPendingForDriver && (
             <p className="mt-2 text-sm text-white/55">{assignmentSummary(job)}</p>
           )}
-          {isOwner && (job.driverLocationPointCount ?? 0) > 0 && (
+          {SERVICE_FLAGS.liveDriverTracking &&
+            isOwner &&
+            (job.driverLocationPointCount ?? 0) > 0 && (
             <p className="mt-2 text-xs text-white/50">
               {job.driverLocationPointCount} GPS points recorded for journey evidence
             </p>
@@ -2016,6 +2031,7 @@ export default function DriverPageClient({
   const keyStorage = portalKeyStorage(portal);
   const [driverKey, setDriverKey] = useState("");
   const [savedKey, setSavedKey] = useState<string | null>(null);
+  const [ownerToolTab, setOwnerToolTab] = useState<OwnerDashboardToolTab>("jobs");
   const [sessionRole, setSessionRole] = useState<"owner" | "driver" | null>(
     isOwnerPortal ? "owner" : null,
   );
@@ -2733,15 +2749,42 @@ export default function DriverPageClient({
                 </button>
               </div>
 
+              {isOwnerView && savedKey ? (
+                <OwnerDashboardToolSwitcher
+                  value={ownerToolTab}
+                  onChange={setOwnerToolTab}
+                />
+              ) : null}
+
+              {isOwnerView && savedKey && ownerToolTab === "personal-quotes" ? (
+                <div
+                  id="owner-tool-panel-personal-quotes"
+                  role="tabpanel"
+                  aria-labelledby="owner-tool-tab-personal-quotes"
+                >
+                  <OwnerPersonalQuotesPanel ownerKey={savedKey} />
+                </div>
+              ) : null}
+
+              {isOwnerView && savedKey && ownerToolTab === "same-fare" ? (
+                <div
+                  id="owner-tool-panel-same-fare"
+                  role="tabpanel"
+                  aria-labelledby="owner-tool-tab-same-fare"
+                >
+                  <OwnerAmendmentTestPanel ownerKey={savedKey} />
+                </div>
+              ) : null}
+
+              {(!isOwnerView || !savedKey || ownerToolTab === "jobs") && (
+              <div
+                id="owner-tool-panel-jobs"
+                role={isOwnerView && savedKey ? "tabpanel" : undefined}
+                aria-labelledby={
+                  isOwnerView && savedKey ? "owner-tool-tab-jobs" : undefined
+                }
+              >
               {isOwnerView && savedKey ? <OwnerShortNoticePanel ownerKey={savedKey} /> : null}
-
-              {isOwnerView && savedKey ? (
-                <OwnerAmendmentTestPanel ownerKey={savedKey} />
-              ) : null}
-
-              {isOwnerView && savedKey ? (
-                <OwnerPersonalQuotesPanel ownerKey={savedKey} />
-              ) : null}
 
               {isOwnerView && savedKey ? (
                 <OwnerBookingCalendar
@@ -3142,6 +3185,8 @@ export default function DriverPageClient({
               ) : null}
               </>
               ) : null}
+              </div>
+              )}
 
               {/* Setup/settings at the bottom — Owner Profile then Additional Drivers (owner), or driver profile. */}
               {profilePanel ? <div className="mt-8">{profilePanel}</div> : null}

@@ -57,6 +57,8 @@ export type OwnerPaidBookingSummary = Pick<
   reviewRequest?: OwnerReviewRequestSummary;
   flightNumber?: string;
   returnFlightNumber?: string;
+  airportCode?: string;
+  isFromAirport?: boolean;
   passengers?: number;
   suitcases?: number;
   childSeats?: number;
@@ -78,6 +80,10 @@ export type OwnerPaidBookingSummary = Pick<
   nextUnfinishedLegDate?: string;
   nextUnfinishedLegTime?: string;
   editHistory?: PaidBookingRecord["editHistory"];
+  /** Owner-only £1 refund smoke-test — never show in operational lists. */
+  isRefundTest?: boolean;
+  /** Same-fare amendment fixture — never show in operational lists. */
+  isAmendmentTestFixture?: boolean;
 };
 
 export type OwnerPendingCheckoutSummary = {
