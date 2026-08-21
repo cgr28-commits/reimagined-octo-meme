@@ -135,6 +135,19 @@ import {
   resolvePersonalQuoteForPayment,
 } from "./personal-quote-handlers";
 import {
+  handleOwnerPricingIntelligenceGet,
+  handleOwnerPricingIntelligenceRun,
+  handleQuoteFunnelRequest,
+  isOwnerPricingIntelligencePath,
+  isPricingIntelligenceRunPath,
+  isQuoteFunnelPath,
+  persistQuoteLeadIntelligence,
+} from "./pricing-intelligence-handlers";
+import {
+  runDailyPricingIntelligenceReport,
+  shouldRunDailyPricingIntelligence,
+} from "./pricing-intelligence-job";
+import {
   isPersonalQuoteReservationActive,
   isValidPersonalQuotePassengerCount,
   normalizePersonalQuoteCode,
@@ -331,6 +344,10 @@ type QuoteLeadRequestBody = QuoteLeadDetails & {
   fingerprint?: string;
   /** When true, only record stats/dedupe — email already sent from the browser. */
   skipEmail?: boolean;
+  /** Analytics-only extras for pricing intelligence (not required for email). */
+  premiumApplied?: boolean;
+  airportCode?: string;
+  source?: "card" | "bot";
 };
 
 type BookingRequestBody = {
@@ -459,6 +476,7 @@ function routePath(
   | "geocode"
   | "bookings"
   | "quote-leads"
+  | "quote-funnel"
   | "quote-stats"
   | "payments"
   | "payments-confirm"
@@ -504,6 +522,10 @@ function routePath(
 
   if (pathname === "/quote-leads" || pathname === "/api/quote-leads") {
     return "quote-leads";
+  }
+
+  if (pathname === "/quote-funnel" || pathname === "/api/quote-funnel") {
+    return "quote-funnel";
   }
 
   if (pathname === "/quote-stats" || pathname === "/api/quote-stats") {
@@ -943,6 +965,16 @@ async function handleQuoteLeadRequest(
     } catch (error) {
       console.error("Quote lead dedupe counter failed", error);
     }
+    // Still ensure analytics event exists (idempotent by fingerprint/day id).
+    try {
+      await persistQuoteLeadIntelligence(env, details, fingerprint, {
+        premiumApplied: body.premiumApplied === true,
+        airportCode: body.airportCode?.trim() || undefined,
+        source: body.source === "bot" ? "bot" : "card",
+      });
+    } catch (error) {
+      console.error("Quote pricing intelligence persist (dedupe) failed", error);
+    }
     return json({ ok: true, emailed: false, deduplicated: true }, 200, origin);
   }
 
@@ -970,11 +1002,24 @@ async function handleQuoteLeadRequest(
     console.error("Quote lead counter failed", error);
   }
 
+  let pricingIntelSaved = false;
+  try {
+    const persist = await persistQuoteLeadIntelligence(env, details, fingerprint, {
+      premiumApplied: body.premiumApplied === true,
+      airportCode: body.airportCode?.trim() || undefined,
+      source: body.source === "bot" ? "bot" : "card",
+    });
+    pricingIntelSaved = persist.saved;
+  } catch (error) {
+    console.error("Quote pricing intelligence persist failed", error);
+  }
+
   return json(
     {
       ok: true,
       emailed: !skipEmail,
       recorded: true,
+      pricingIntelSaved,
       ...(quoteLeadsTotal !== null ? { quoteLeadsTotal } : {}),
     },
     200,
@@ -2586,6 +2631,18 @@ export default {
       return json({ error: "Method not allowed" }, 405, origin);
     }
 
+    if (isOwnerPricingIntelligencePath(url.pathname) && request.method === "GET") {
+      const result = await handleOwnerPricingIntelligenceGet(request, env);
+      if ("error" in result) return json({ error: result.error }, result.status, origin);
+      return json(result, 200, origin);
+    }
+
+    if (isPricingIntelligenceRunPath(url.pathname) && request.method === "POST") {
+      const result = await handleOwnerPricingIntelligenceRun(request, env);
+      if ("error" in result) return json({ error: result.error }, result.status, origin);
+      return json(result, 200, origin);
+    }
+
     if (isPublicPersonalQuoteValidatePath(url.pathname) && request.method === "POST") {
       if (!env.TRACKING_STORE) {
         return json({ error: "Storage is not configured" }, 503, origin);
@@ -2769,6 +2826,17 @@ export default {
       }
 
       return handleQuoteLeadRequest(request, env, origin);
+    }
+
+    if (route === "quote-funnel") {
+      if (request.method !== "POST") {
+        return json({ error: "Method not allowed" }, 405, origin);
+      }
+      const result = await handleQuoteFunnelRequest(request, env);
+      if (!result.ok) {
+        return json({ error: result.error }, result.status, origin);
+      }
+      return json({ ok: true, updated: result.updated }, 200, origin);
     }
 
     if (route === "quote-stats") {
@@ -3247,5 +3315,19 @@ export default {
           console.error("Paid checkout recovery cron failed", error);
         }),
     );
+
+    // Daily Quote Pricing & Competitor Report (~23:00 Europe/London).
+    // Analytics only — never changes pricing-config.json or live fares.
+    if (env.TRACKING_STORE && shouldRunDailyPricingIntelligence()) {
+      ctx.waitUntil(
+        runDailyPricingIntelligenceReport(env, { enrich: true })
+          .then((result) => {
+            console.log("Pricing intelligence daily report", JSON.stringify(result));
+          })
+          .catch((error) => {
+            console.error("Pricing intelligence daily report failed", error);
+          }),
+      );
+    }
   },
 };

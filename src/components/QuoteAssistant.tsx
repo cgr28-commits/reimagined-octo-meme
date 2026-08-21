@@ -407,7 +407,7 @@ export default function QuoteAssistant() {
             vehicle: card.vehicle,
             estimatedPrice: card.amountLabel,
             isAirportTrip: true,
-          });
+          }, { source: "bot" });
         }
 
         if (result.emailQuote) {

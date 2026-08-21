@@ -9,6 +9,7 @@ import OwnerPaidBookingsPanel from "@/components/OwnerPaidBookingsPanel";
 import OwnerAmendmentTestPanel from "@/components/OwnerAmendmentTestPanel";
 import OwnerShortNoticePanel from "@/components/OwnerShortNoticePanel";
 import OwnerPersonalQuotesPanel from "@/components/OwnerPersonalQuotesPanel";
+import OwnerPricingIntelligencePanel from "@/components/OwnerPricingIntelligencePanel";
 import OwnerBookingCalendar from "@/components/OwnerBookingCalendar";
 import OwnerAccountProfilePanel from "@/components/OwnerAccountProfilePanel";
 import type { MapMarker, MapRoutePoint } from "@/components/LiveTrackMap";
@@ -2741,6 +2742,10 @@ export default function DriverPageClient({
 
               {isOwnerView && savedKey ? (
                 <OwnerPersonalQuotesPanel ownerKey={savedKey} />
+              ) : null}
+
+              {isOwnerView && savedKey ? (
+                <OwnerPricingIntelligencePanel ownerKey={savedKey} />
               ) : null}
 
               {isOwnerView && savedKey ? (

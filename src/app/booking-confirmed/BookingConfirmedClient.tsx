@@ -12,6 +12,7 @@ import {
   type FinalizePaidBookingResult,
 } from "@/lib/finalize-paid-booking";
 import { readPendingPayment } from "@/lib/pending-payment";
+import { submitQuoteFunnelEvent } from "@/lib/submit-quote-funnel";
 
 type ViewStatus = "loading" | "confirmed" | "pending" | "missing" | "error";
 
@@ -112,6 +113,26 @@ export default function BookingConfirmedClient() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (status !== "confirmed") return;
+    const pending = readPendingPayment();
+    const booking = pending?.booking;
+    void submitQuoteFunnelEvent("paid", {
+      pickupLabel: booking?.pickupLabel,
+      dropoffLabel: booking?.dropoffLabel,
+      returnJourney: booking?.returnJourney,
+      estimatedPrice:
+        amountPaid ||
+        (typeof booking?.estimatedPrice === "string" ? booking.estimatedPrice : undefined) ||
+        (pending?.amountLabel ? String(pending.amountLabel) : undefined),
+      vehicle: booking?.vehicle,
+      passengers: booking?.passengers,
+      suitcases: booking?.suitcases,
+      isAirportTrip: booking?.isAirportTrip,
+      tripLabel: booking?.tripLabel,
+    });
+  }, [status, amountPaid]);
 
   const conversionValue = parseAmountValue(amountPaid);
 
