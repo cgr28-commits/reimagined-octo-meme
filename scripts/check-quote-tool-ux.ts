@@ -101,14 +101,16 @@ check("QuoteCard uses progressive route for A2A primary flow", () => {
   assert.match(card, /Your Journey/);
 });
 
-check("Step 2 travel details section remains in document flow (no auto-scroll)", () => {
+check("Step 2 travel details section scrolls only after explicit step navigation", () => {
   assert.match(card, /id="step2-travel-details"/);
   assert.match(card, /step2TravelDetailsRef/);
+  assert.match(card, /pendingQuoteStepNavScrollRef/);
+  assert.match(card, /scheduleMobileQuoteStepNavScroll/);
   assert.doesNotMatch(card, /pendingScrollToStep2DateRef/);
   assert.doesNotMatch(card, /scheduleSmoothScrollTo/);
 });
 
-check("Progressive quote sections stay in document flow without auto-scroll", () => {
+check("Progressive quote sections stay in document flow without selection auto-scroll", () => {
   assert.match(progressive, /quote-section-passengers/);
   assert.match(progressive, /quote-section-suitcases/);
   assert.doesNotMatch(progressive, /scheduleQuoteSectionScroll/);
@@ -121,9 +123,12 @@ check("Progressive quote sections stay in document flow without auto-scroll", ()
 check("Public quote tool does not auto-scroll after selections", () => {
   assert.equal(fs.existsSync(path.join(root, "src/lib/quote-mobile-scroll.ts")), false);
   assert.doesNotMatch(progressive, /scrollIntoView/);
+  // QuoteCard must not call scrollIntoView directly; step nav uses the mobile helper.
   assert.doesNotMatch(card, /scrollIntoView/);
-  assert.doesNotMatch(card, /pendingScrollToStep/);
+  assert.doesNotMatch(card, /pendingScrollToStep2DateRef/);
+  assert.doesNotMatch(card, /pendingScrollToStep3CustomerRef/);
   assert.doesNotMatch(card, /scheduleReadyForScrollRef/);
+  assert.match(card, /scheduleMobileQuoteStepNavScroll/);
 });
 
 check("Suitcase selector is single 0–4|5+ row without Exact Large Bags", () => {

@@ -11,6 +11,8 @@ import { buildMarketingOptInFields, recordMarketingOptIn } from "@/lib/marketing
 import { TERMS_LAST_UPDATED } from "@/lib/terms";
 import { CANCELLATION_POLICY_VERSION } from "../../shared/refund-ops";
 import { detectMobileDevice, useIsMobileDevice } from "@/lib/device";
+import { scheduleMobileQuoteStepNavScroll } from "@/lib/quote-step-nav-scroll";
+import type { QuoteStepNavTarget } from "@/lib/quote-step-nav-scroll";
 import { whatsAppChatUrl } from "@/lib/contact-card";
 import {
   AIRPORTS,
@@ -376,9 +378,12 @@ function QuoteCard({
   maxPassengers = MAX_ONLINE_PASSENGERS,
 }: QuoteCardProps) {
   const cardRef = useRef<HTMLDivElement>(null);
+  const step1JourneyRef = useRef<HTMLDivElement>(null);
   const step2TravelDetailsRef = useRef<HTMLDivElement>(null);
   const step3CustomerDetailsRef = useRef<HTMLDivElement>(null);
   const step3PaymentActionsRef = useRef<HTMLDivElement>(null);
+  /** Set only by explicit Book Now / Continue / Back — never by quote re-renders. */
+  const pendingQuoteStepNavScrollRef = useRef<QuoteStepNavTarget | null>(null);
   const passengerLimit = Math.min(
     Math.max(1, maxPassengers),
     SELECTOR_MAX_PASSENGERS,
@@ -2147,6 +2152,7 @@ function QuoteCard({
         return;
       }
       setSubmitError("");
+      pendingQuoteStepNavScrollRef.current = 2;
       setQuoteStep(2);
       return;
     }
@@ -2167,8 +2173,13 @@ function QuoteCard({
     }
   }
 
+  function navigateQuoteStep(step: QuoteStepNavTarget) {
+    pendingQuoteStepNavScrollRef.current = step;
+    setQuoteStep(step);
+  }
+
   function handleEditBooking() {
-    setQuoteStep(2);
+    navigateQuoteStep(2);
     setSubmitError("");
     setBookingSent(false);
     setBookingReference("");
@@ -2186,10 +2197,27 @@ function QuoteCard({
     }
     // Do not wait on flight lookup — unavailable/loading must not require a second click.
     clearFlightBlockingErrors();
+    pendingQuoteStepNavScrollRef.current = 3;
     setQuoteStep(3);
   }
 
   const usesWhatsApp = isMobileDevice === true;
+
+  // Mobile only: after explicit step CTAs, bring the active section into view once.
+  useEffect(() => {
+    const target = pendingQuoteStepNavScrollRef.current;
+    if (!target || target !== quoteStep) {
+      return;
+    }
+    pendingQuoteStepNavScrollRef.current = null;
+    const element =
+      target === 1
+        ? step1JourneyRef.current
+        : target === 2
+          ? step2TravelDetailsRef.current
+          : step3CustomerDetailsRef.current;
+    return scheduleMobileQuoteStepNavScroll(element);
+  }, [quoteStep]);
 
   const submitInProgressLabel = showsRequestQuoteFlow
     ? "Sending quote request…"
@@ -2481,6 +2509,11 @@ function QuoteCard({
         )}
         {quoteStep === 1 ? (
           <>
+        <div
+          id="step1-journey-details"
+          ref={step1JourneyRef}
+          className="scroll-mt-44 space-y-4 md:scroll-mt-28"
+        >
         {isA2AFlow ? (
           <>
             <QuoteProgressiveRoute
@@ -2913,6 +2946,7 @@ function QuoteCard({
           </p>
         </div>
         )}
+        </div>
           </>
         ) : null}
 
@@ -3095,7 +3129,7 @@ function QuoteCard({
           </p>
           <button
             type="button"
-            onClick={() => setQuoteStep(1)}
+            onClick={() => navigateQuoteStep(1)}
             className="mt-2 text-xs font-semibold text-emerald underline-offset-2 hover:underline"
           >
             Edit journey details
@@ -3846,7 +3880,7 @@ function QuoteCard({
               <button
                 type="button"
                 onClick={() => {
-                  setQuoteStep(1);
+                  navigateQuoteStep(1);
                   setGoingFlightError("");
                   setCollectionFlightError("");
                   setReturnDateError("");
