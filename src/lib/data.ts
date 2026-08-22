@@ -418,7 +418,7 @@ export const FAQS = [
   {
     question: "Are airport fees included?",
     answer:
-      "Yes where they apply to your journey. Airport pickups include the applicable express pickup fee in the fixed fare. Airport drop-offs include the applicable express drop-off fee. You only see the fees that match the direction of travel.",
+      "Yes where they apply — they are part of your fixed fare, not optional extras. Belfast International and Belfast City include the applicable airport pickup or drop-off fee. Dublin Airport includes M1 tolls on every leg and airport parking on pickups. City of Derry Airport has no airport fee. You only see the inclusions that match your direction of travel.",
   },
   {
     question: "How much airport waiting time is included?",
