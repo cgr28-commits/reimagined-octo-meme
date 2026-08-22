@@ -16,6 +16,7 @@ export default function AreasSection() {
               align="left"
               eyebrow="Coverage"
               title="Areas We Cover"
+              navId="areas"
               description="Based in Belfast, we provide airport transfers across all of Northern Ireland — from city centres to rural towns. Don't see your area? Get in touch; we cover the entire province."
             />
 

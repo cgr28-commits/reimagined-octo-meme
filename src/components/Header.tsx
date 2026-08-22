@@ -5,6 +5,7 @@ import { useEffect, useId, useState } from "react";
 import { createPortal } from "react-dom";
 import Logo from "./Logo";
 import QuoteNavLink from "./QuoteNavLink";
+import SiteNavLink from "./SiteNavLink";
 import { MOBILE_QUICK_LINKS, NAV_LINKS, SITE } from "@/lib/data";
 import { whatsAppChatUrl } from "@/lib/contact-card";
 
@@ -109,23 +110,23 @@ export default function Header() {
                 <p className="mb-3 text-sm text-white/60">Airport transfers across Northern Ireland.</p>
                 <div className="flex flex-col gap-1">
                   {NAV_LINKS.map((link) => (
-                    <Link
+                    <SiteNavLink
                       key={link.href}
                       href={link.href}
-                      onClick={closeMenu}
+                      onNavigate={closeMenu}
                       className="min-h-11 rounded-lg px-3 py-3 text-base font-medium text-white/90 transition-colors hover:bg-white/5 hover:text-emerald"
                     >
                       {link.label}
-                    </Link>
+                    </SiteNavLink>
                   ))}
                   <hr className="my-3 border-white/10" />
-                  <Link
+                  <SiteNavLink
                     href="/manage-booking/"
-                    onClick={closeMenu}
+                    onNavigate={closeMenu}
                     className="flex min-h-11 items-center justify-center rounded-full border border-white/20 px-5 py-3.5 text-center text-sm font-semibold text-white/90"
                   >
                     Manage Your Booking
-                  </Link>
+                  </SiteNavLink>
                   <QuoteNavLink
                     onNavigate={closeMenu}
                     className="flex min-h-11 items-center justify-center rounded-full bg-emerald px-5 py-3.5 text-center text-sm font-semibold text-navy"
@@ -148,13 +149,13 @@ export default function Header() {
                   >
                     WhatsApp @{SITE.whatsappUsername}
                   </a>
-                  <Link
+                  <SiteNavLink
                     href="/contact/"
-                    onClick={closeMenu}
+                    onNavigate={closeMenu}
                     className="flex min-h-11 items-center justify-center rounded-full border border-white/20 px-5 py-3 text-center text-sm font-semibold text-white/90"
                   >
                     Contact
-                  </Link>
+                  </SiteNavLink>
                 </div>
               </nav>
             </div>
@@ -199,23 +200,23 @@ export default function Header() {
             aria-label="Main navigation"
           >
             {NAV_LINKS.map((link) => (
-              <Link
+              <SiteNavLink
                 key={link.href}
                 href={link.href}
                 className="whitespace-nowrap text-sm font-medium text-white/70 transition-colors hover:text-emerald"
               >
                 {link.label}
-              </Link>
+              </SiteNavLink>
             ))}
           </nav>
 
           <div className="hidden items-center gap-3 xl:flex xl:justify-self-end">
-            <Link
+            <SiteNavLink
               href="/manage-booking/"
               className="whitespace-nowrap rounded-full border border-white/20 px-4 py-2 text-sm font-semibold text-white/90 transition-colors hover:border-emerald/50 hover:text-emerald lg:px-5"
             >
               Manage Your Booking
-            </Link>
+            </SiteNavLink>
             <QuoteNavLink className="rounded-full bg-emerald px-5 py-2 text-sm font-semibold text-navy transition-all hover:bg-emerald-light hover:shadow-lg hover:shadow-emerald/25 lg:px-6">
               Get a Quote
             </QuoteNavLink>
@@ -270,14 +271,14 @@ export default function Header() {
               }
 
               return (
-                <Link
+                <SiteNavLink
                   key={link.href}
                   href={link.href}
-                  onClick={closeMenu}
+                  onNavigate={closeMenu}
                   className={className}
                 >
                   {link.label}
-                </Link>
+                </SiteNavLink>
               );
             })}
             <a

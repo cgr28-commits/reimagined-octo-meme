@@ -23,6 +23,7 @@ export default function FAQSection() {
         <SectionHeading
           eyebrow="Help Centre"
           title="Frequently Asked Questions"
+          navId="faq"
           description="Everything you need to know about booking your airport transfer."
         />
 

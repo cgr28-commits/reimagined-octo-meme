@@ -10,6 +10,7 @@ export default function DriverTrackingSection() {
         <SectionHeading
           eyebrow="On travel day"
           title="Live driver tracking"
+          navId="driver-tracking"
           description="When you pay online, we send a tracking link with your invoice. On the day of your transfer, follow your driver's live location when they're on the way to you."
         />
 

@@ -8,6 +8,13 @@
  * - #quote-route-summary
  */
 
+import {
+  cancelCompetingScrollJobs,
+  getScrollJobGeneration,
+  isScrollJobGenerationCurrent,
+  trackScrollJob,
+} from "@/lib/scroll-jobs";
+
 export type BookingNavTargetId =
   | "quote"
   | "step1-journey-details"
@@ -47,15 +54,17 @@ export function getHeaderBottomPx(): number {
   if (header) {
     return Math.round(header.getBoundingClientRect().bottom);
   }
-  return 96;
+  // No site chrome (e.g. manage-booking) — do not invent a phantom offset.
+  return 0;
 }
 
 /** Legacy offset helper — header height + clearance. */
 export function getFixedHeaderOffsetPx(): number {
   if (typeof document === "undefined") return 144;
   const header = getFixedHeaderElement();
-  const height = header ? header.getBoundingClientRect().height : 0;
-  return Math.max(96, Math.round(height + HEADER_CLEARANCE_PX));
+  if (!header) return HEADER_CLEARANCE_PX;
+  const height = header.getBoundingClientRect().height;
+  return Math.max(HEADER_CLEARANCE_PX, Math.round(height + HEADER_CLEARANCE_PX));
 }
 
 export function resolveBookingNavElement(
@@ -87,9 +96,11 @@ export function computeScrollTopBelowHeader(
 
 function focusHeadingIn(element: HTMLElement): void {
   const heading =
-    element.matches("h1,h2,h3,h4,[data-booking-nav-heading]")
+    element.matches("h1,h2,h3,h4,[data-booking-nav-heading],[data-site-nav-heading]")
       ? element
-      : element.querySelector<HTMLElement>("h2,h3,[data-booking-nav-heading]");
+      : element.querySelector<HTMLElement>(
+          "h1,h2,h3,[data-booking-nav-heading],[data-site-nav-heading]",
+        );
   if (!heading) return;
   if (!heading.hasAttribute("tabindex")) {
     heading.tabIndex = -1;
@@ -143,26 +154,28 @@ export function scheduleBookingNavAfterRender(
     return () => {};
   }
 
+  const generation = getScrollJobGeneration();
   let cancelled = false;
   let raf2 = 0;
   const raf1 = window.requestAnimationFrame(() => {
     raf2 = window.requestAnimationFrame(() => {
-      if (cancelled) return;
+      if (cancelled || !isScrollJobGenerationCurrent(generation)) return;
       scrollBookingTargetIntoView(target, options);
     });
   });
 
-  return () => {
+  const cancel = () => {
     cancelled = true;
     window.cancelAnimationFrame(raf1);
     if (raf2) window.cancelAnimationFrame(raf2);
   };
+  return trackScrollJob(cancel);
 }
 
 /**
  * Final mobile/desktop results scroll to #quote-route-summary.
  * - Waits two animation frames for layout settle
- * - Uses behavior: "auto" to avoid Safari overshoot (unless reduced-motion already auto)
+ * - Uses behavior: "auto" to avoid Safari overshoot
  * - One corrective scroll ~150ms later if displaced by >4px
  * - Does not focus the price card or Book Now
  */
@@ -173,23 +186,24 @@ export function schedulePreciseResultsScroll(
     return () => {};
   }
 
+  const generation = getScrollJobGeneration();
   let cancelled = false;
   let raf2 = 0;
   let correctionTimer = 0;
 
   const applyScroll = () => {
     const element = resolveBookingNavElement(target);
-    if (!element || cancelled) return;
+    if (!element || cancelled || !isScrollJobGenerationCurrent(generation)) return;
     const nextTop = computeScrollTopBelowHeader(element, HEADER_CLEARANCE_PX);
     window.scrollTo({ top: nextTop, behavior: "auto" });
   };
 
   const raf1 = window.requestAnimationFrame(() => {
     raf2 = window.requestAnimationFrame(() => {
-      if (cancelled) return;
+      if (cancelled || !isScrollJobGenerationCurrent(generation)) return;
       applyScroll();
       correctionTimer = window.setTimeout(() => {
-        if (cancelled) return;
+        if (cancelled || !isScrollJobGenerationCurrent(generation)) return;
         const element = resolveBookingNavElement(target);
         if (!element) return;
         const desired = computeScrollTopBelowHeader(element, HEADER_CLEARANCE_PX);
@@ -200,12 +214,13 @@ export function schedulePreciseResultsScroll(
     });
   });
 
-  return () => {
+  const cancel = () => {
     cancelled = true;
     window.cancelAnimationFrame(raf1);
     if (raf2) window.cancelAnimationFrame(raf2);
     if (correctionTimer) window.clearTimeout(correctionTimer);
   };
+  return trackScrollJob(cancel);
 }
 
 /** Map quote step number → stable section id. */
@@ -252,3 +267,6 @@ export function focusFirstInvalidField(
   }
   return field;
 }
+
+/** Re-export for menu navigation callers that need to clear quote timers. */
+export { cancelCompetingScrollJobs };

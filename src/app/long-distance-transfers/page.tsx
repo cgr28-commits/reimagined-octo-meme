@@ -50,6 +50,7 @@ export default function LongDistanceTransfersPage() {
                 align="left"
                 eyebrow="Long-distance transfers"
                 title={LONG_DISTANCE_PAGE_TITLE}
+                navId="long-distance"
                 description={LONG_DISTANCE_INTRO}
               />
             </div>

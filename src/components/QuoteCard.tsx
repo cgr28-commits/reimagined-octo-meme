@@ -2953,7 +2953,13 @@ function QuoteCard({
   return (
     <div ref={cardRef} className="glass-card min-w-0 rounded-2xl p-4 sm:p-8 lg:p-6 xl:p-7">
       <div className="mb-4 lg:mb-4">
-        <h2 className="text-xl font-semibold tracking-tight text-white sm:text-2xl lg:text-[1.5rem]">Get a Live Quote</h2>
+        <h2
+          data-site-nav-heading="quote"
+          tabIndex={-1}
+          className="text-xl font-semibold tracking-tight text-white outline-none sm:text-2xl lg:text-[1.5rem]"
+        >
+          Get a Live Quote
+        </h2>
         <p className="mt-1.5 text-sm leading-relaxed text-white/60 sm:mt-2 lg:mt-1.5 lg:text-[0.875rem] lg:leading-snug">
           {pricingConfirmationRequired
             ? "Three quick steps — your journey, travel details, then your details. We’ll confirm your fare before any payment."

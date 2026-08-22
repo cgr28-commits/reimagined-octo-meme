@@ -7,12 +7,13 @@ const HERO_IMAGE = withBasePath("/images/vehicles/flyer-vehicle.jpg");
 
 export default function VehiclesSection() {
   return (
-    <section id="vehicles" className="relative py-20 sm:py-28 lg:py-32">
+    <section id="vehicles" className="relative scroll-mt-36 py-20 sm:py-28 lg:py-32 xl:scroll-mt-28">
       <div className="absolute inset-0 bg-gradient-to-b from-navy via-navy-light/15 to-navy" />
       <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:max-w-[1400px] lg:px-10 xl:px-12">
         <SectionHeading
           eyebrow="Your journey"
           title="Choose by passenger count"
+          navId="vehicles"
           description="The quote tool matches the right vehicle for your group. You don’t need to pick a fleet category first."
         />
 

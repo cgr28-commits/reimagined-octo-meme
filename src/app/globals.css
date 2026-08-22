@@ -23,9 +23,10 @@ html {
 }
 
 /*
- * Fixed header clearance: major homepage / landing sections with fragment ids
- * (airports, faq, areas, why-us, quote, …) should use scroll-mt-36 xl:scroll-mt-28
- * so in-page nav and Get a Quote land below the sticky header.
+ * Fixed header clearance: CSS scroll-mt-* on sections is a fallback only.
+ * Menu / hash navigation uses measured header height via site-nav-scroll
+ * (scrollY + heading.top - (header.bottom + 16)). Prefer data-site-nav-heading
+ * targets over relying solely on scroll-mt-36 xl:scroll-mt-28.
  */
 
 body {
