@@ -51,6 +51,7 @@ export default function LocationsPage() {
                 align="left"
                 eyebrow="Locations"
                 title="Where we travel"
+                navId="locations"
                 description={LOCATIONS_PAGE_INTRO}
               />
             </div>

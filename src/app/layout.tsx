@@ -7,7 +7,7 @@ import CookieConsent from "@/components/CookieConsent";
 import GoogleAdsTag from "@/components/GoogleAdsTag";
 import AdsAttributionCapture from "@/components/AdsAttributionCapture";
 import QuoteAssistant from "@/components/QuoteAssistant";
-import QuoteHashScroll from "@/components/QuoteHashScroll";
+import SiteHashScroll from "@/components/SiteHashScroll";
 import SiteOfflineGate from "@/components/SiteOfflineGate";
 import { SITE, SITE_OFFLINE } from "@/lib/data";
 import {
@@ -156,7 +156,7 @@ export default function RootLayout({
           {/* Outside the overflow clip so position:fixed is viewport-relative on mobile */}
           <GoogleAdsTag />
           <AdsAttributionCapture />
-          <QuoteHashScroll />
+          <SiteHashScroll />
           <QuoteAssistant />
           <CookieConsent />
         </SiteOfflineGate>

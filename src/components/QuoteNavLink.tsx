@@ -2,7 +2,11 @@
 
 import Link from "next/link";
 import type { ComponentProps, MouseEvent } from "react";
-import { openQuote, scrollToQuoteForm } from "@/lib/quote-prefill";
+import {
+  AIRPORT_PREFILL_KEY,
+  QUOTE_DIRECTION_PREFILL_KEY,
+} from "@/lib/quote-prefill";
+import { navigateSiteNav } from "@/lib/site-nav-scroll";
 
 type QuoteNavLinkProps = Omit<ComponentProps<typeof Link>, "href"> & {
   /** Fallback when the current page has no `#quote` section. */
@@ -15,10 +19,8 @@ type QuoteNavLinkProps = Omit<ComponentProps<typeof Link>, "href"> & {
 };
 
 /**
- * Shared “Get a Quote” CTA: scrolls to the on-page `#quote` tool when present,
- * otherwise navigates to the homepage quote (`/#quote`).
- *
- * Uses openQuote so presets apply and hash-only URLs still re-scroll.
+ * Shared “Get a Quote” CTA: uses the site-nav measured-header scroll to
+ * “Get a Live Quote”, or navigates to `/#quote` when the tool is absent.
  */
 export default function QuoteNavLink({
   href = "/#quote",
@@ -33,47 +35,30 @@ export default function QuoteNavLink({
     onClick?.(event);
     if (event.defaultPrevented) return;
 
-    const quoteEl = typeof document !== "undefined" ? document.getElementById("quote") : null;
-
-    if (quoteEl) {
-      event.preventDefault();
-      onNavigate?.();
-      if (airport || direction) {
-        openQuote({ airport, direction });
-      } else {
-        scrollToQuoteForm();
-      }
-      return;
-    }
-
-    // No local quote tool — ensure we land on the homepage quote section.
-    const onHome =
-      window.location.pathname === "/" || window.location.pathname === "";
-    if (onHome) {
-      event.preventDefault();
-      onNavigate?.();
-      if (airport || direction) {
-        openQuote({ airport, direction });
-      } else {
-        window.location.hash = "quote";
-        scrollToQuoteForm();
-      }
-      return;
-    }
-
     event.preventDefault();
-    onNavigate?.();
+
     if (airport) {
-      sessionStorage.setItem("my-airport-taxi-ni-prefill-airport", airport);
+      sessionStorage.setItem(AIRPORT_PREFILL_KEY, airport);
+      window.dispatchEvent(
+        new CustomEvent("quote-prefill-airport", { detail: airport }),
+      );
     }
     if (direction) {
-      sessionStorage.setItem("my-airport-taxi-ni-prefill-direction", direction);
+      sessionStorage.setItem(QUOTE_DIRECTION_PREFILL_KEY, direction);
+      window.dispatchEvent(
+        new CustomEvent("quote-prefill-direction", { detail: direction }),
+      );
     }
-    window.location.assign(href.startsWith("/") ? href : "/#quote");
+
+    navigateSiteNav(href.startsWith("/") ? href : "/#quote", {
+      onBeforeNavigate: () => {
+        onNavigate?.();
+      },
+    });
   }
 
   return (
-    <Link href={href} onClick={handleClick} {...rest}>
+    <Link href={href} scroll={false} onClick={handleClick} {...rest}>
       {children}
     </Link>
   );

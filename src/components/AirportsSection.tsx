@@ -17,6 +17,7 @@ export default function AirportsSection() {
         <SectionHeading
           eyebrow="Destinations"
           title="Airports We Serve"
+          navId="airports"
           description="Transfers to Belfast International, Belfast City, City of Derry, and Dublin — with flight monitoring and complimentary waiting where it applies."
         />
 

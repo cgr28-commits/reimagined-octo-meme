@@ -1,10 +1,10 @@
-import { scheduleBookingNavAfterRender } from "@/lib/quote-step-nav-scroll";
+import { scheduleSiteNavHeadingScroll, setLocationHashQuietly, normalizePathname } from "@/lib/site-nav-scroll";
 
 export const AIRPORT_PREFILL_KEY = "my-airport-taxi-ni-prefill-airport";
 export const QUOTE_DRAFT_PREFILL_KEY = "my-airport-taxi-ni-prefill-quote-draft";
 export const QUOTE_DIRECTION_PREFILL_KEY = "my-airport-taxi-ni-prefill-direction";
 
-/** Approximate sticky header height; `#quote` also uses measured offset via booking-nav. */
+/** Approximate sticky header height; `#quote` also uses measured offset via site-nav. */
 export const HEADER_SCROLL_OFFSET = 144;
 
 export type QuoteDraftPrefill = {
@@ -84,16 +84,24 @@ export function scrollToQuoteForm() {
     const onHome =
       window.location.pathname === "/" || window.location.pathname === "";
     if (onHome) {
-      window.location.hash = "quote";
+      setLocationHashQuietly("quote");
+      scheduleSiteNavHeadingScroll({
+        pathname: "/",
+        hash: "quote",
+        focusHeading: true,
+      });
       return;
     }
     window.location.assign("/#quote");
     return;
   }
 
-  scheduleBookingNavAfterRender("quote", { focusHeading: true });
-  const path = `${window.location.pathname}${window.location.search}`;
-  window.history.replaceState(null, "", `${path}#quote`);
+  setLocationHashQuietly("quote", normalizePathname(window.location.pathname));
+  scheduleSiteNavHeadingScroll({
+    pathname: normalizePathname(window.location.pathname),
+    hash: "quote",
+    focusHeading: true,
+  });
 }
 
 export function readPrefillAirport(): string | null {

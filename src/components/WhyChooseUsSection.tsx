@@ -9,6 +9,7 @@ export default function WhyChooseUsSection() {
         <SectionHeading
           eyebrow="Our Service"
           title="Why Choose Us"
+          navId="why-us"
           description="Clear fixed quotes, flight monitoring, and complimentary waiting — without the guesswork."
         />
 

@@ -10,6 +10,7 @@ export default function FlightStatusSection() {
         <SectionHeading
           eyebrow="Plan Your Pickup"
           title="Check Your Flight"
+          navId="flight-status"
           description="View live arrivals and departures on each airport's official flight board. Share your flight number when you book and we'll monitor it for your pickup."
         />
 

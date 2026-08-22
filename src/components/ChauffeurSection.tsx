@@ -10,6 +10,7 @@ export default function ChauffeurSection() {
         <SectionHeading
           eyebrow="Executive Travel"
           title="Chauffeur & private hire"
+          navId="chauffeur"
           description="Professional private hire for business travel, special occasions, and as-directed journeys across Northern Ireland — with the same reliable service as our airport transfers."
         />
 

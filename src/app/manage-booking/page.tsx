@@ -36,7 +36,13 @@ export default function ManageBookingPage() {
           <p className="text-sm font-semibold uppercase tracking-wider text-emerald">
             My Airport Taxi NI
           </p>
-          <h1 className="mt-2 text-2xl font-semibold text-white">Manage Your Booking</h1>
+          <h1
+            data-site-nav-heading="manage-booking"
+            tabIndex={-1}
+            className="mt-2 text-2xl font-semibold text-white outline-none"
+          >
+            Manage Your Booking
+          </h1>
         </div>
       </div>
       <ManageBookingClient />
