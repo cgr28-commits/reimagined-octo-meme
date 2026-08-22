@@ -198,7 +198,7 @@ check("entering date/time allows booking gate to pass schedule checks", () => {
 check("homepage benefits include Save 5% when you book a return", () => {
   const hero = fs.readFileSync(path.join(root, "src/components/HeroSlideshow.tsx"), "utf8");
   assert.match(hero, /Get your fixed price instantly/);
-  assert.match(hero, /Airport fees included where applicable/);
+  assert.match(hero, /Airport fees and applicable tolls included/);
   assert.match(hero, /Flight monitoring/);
   assert.match(hero, /60 minutes complimentary airport waiting/);
   assert.match(hero, /Secure online booking/);

@@ -468,7 +468,7 @@ export const FAQS = [
   {
     question: "What is included in the price?",
     answer:
-      "Your fixed price depends on the journey. Airport pickups: express pickup fee and 60 minutes complimentary waiting. Airport drop-offs: express drop-off fee. Dublin Airport: applicable tolls where they apply. Address-to-address: fixed price for your journey with 10 minutes complimentary waiting at non-airport pickups.",
+      "Your fixed price depends on the journey. Airport pickups: airport pickup fee (or Dublin parking and M1 tolls) and 60 minutes complimentary waiting. Airport drop-offs: airport drop-off fee where charged, or M1 tolls for Dublin. City of Derry Airport has no airport fee. Address-to-address: fixed price for your journey with 10 minutes complimentary waiting at non-airport pickups.",
   },
   {
     question: "Do you cover City of Derry Airport?",

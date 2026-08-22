@@ -84,7 +84,7 @@ console.log("=== 1. Routing: airport↔airport uses dedicated helper (not A2A fa
   );
   assert.match(
     quoteSrc,
-    /underlying address-to-address journey fare \+ genuine access fee/,
+    /underlying address-to-address journey fare \+ genuine fixed costs/,
   );
   assert.doesNotMatch(
     quoteSrc,
@@ -125,7 +125,7 @@ console.log("\n=== 2. Buggy A2A path still produces ~£170 (must not be used) ==
   console.log(`OK  Generic A2A undercuts at £${buggy!.amount} (regression guard)`);
 }
 
-console.log("\n=== 3. Belfast City ↔ Dublin Airport ≈ £230 (not ~£170) ===");
+console.log("\n=== 3. Belfast City ↔ Dublin Airport (zone + Dublin fixed costs; not ~£170) ===");
 {
   const bhd = airportPlace("BHD");
   const dub = airportPlace("DUB");
@@ -134,16 +134,27 @@ console.log("\n=== 3. Belfast City ↔ Dublin Airport ≈ £230 (not ~£170) ===
   assert.equal(detectJourneyKind(bhd, dub), "airport-to-airport");
   assert.equal(detectJourneyKind(dub, bhd), "airport-to-airport");
 
-  const intended = calculateQuote(
+  const intendedDrop = calculateQuote(
     bhd.formattedAddress,
     "DUB",
     SALOON,
     false,
     {},
     DUB_CROSS_BORDER_METRICS,
+    false,
   );
-  assert.ok(intended);
-  assert.equal(intended!.amount, 230, `intended DUB path must be £230, got £${intended!.amount}`);
+  const intendedPick = calculateQuote(
+    bhd.formattedAddress,
+    "DUB",
+    SALOON,
+    false,
+    {},
+    DUB_CROSS_BORDER_METRICS,
+    true,
+  );
+  assert.ok(intendedDrop && intendedPick);
+  assert.equal(intendedDrop!.amount, 234, `DUB drop-off must be £234, got £${intendedDrop!.amount}`);
+  assert.equal(intendedPick!.amount, 240, `DUB pickup must be £240 (238 rounded), got £${intendedPick!.amount}`);
 
   const bhdToDub = calculateAirportToAirportQuote(
     "BHD",
@@ -166,8 +177,8 @@ console.log("\n=== 3. Belfast City ↔ Dublin Airport ≈ £230 (not ~£170) ===
     DUB_CROSS_BORDER_METRICS,
   );
   assert.ok(bhdToDub && dubToBhd);
-  assert.equal(bhdToDub!.amount, 230);
-  assert.equal(dubToBhd!.amount, 230);
+  assert.equal(bhdToDub!.amount, 234);
+  assert.equal(dubToBhd!.amount, 240);
   assert.notEqual(bhdToDub!.amount, 170);
 
   const websiteBhdToDub = calculateWebsiteOneWayFare({
@@ -187,9 +198,9 @@ console.log("\n=== 3. Belfast City ↔ Dublin Airport ≈ £230 (not ~£170) ===
     routeMetrics: DUB_CROSS_BORDER_METRICS,
   });
   assert.ok(websiteBhdToDub && websiteDubToBhd);
-  assert.equal(websiteBhdToDub!.amount, 230);
-  assert.equal(websiteDubToBhd!.amount, 230);
-  console.log("OK  BHD ↔ DUB saloon £230 via airport helper + website-fare");
+  assert.equal(websiteBhdToDub!.amount, 234);
+  assert.equal(websiteDubToBhd!.amount, 240);
+  console.log("OK  BHD→DUB £234 / DUB→BHD £240 via airport helper + website-fare");
 }
 
 console.log("\n=== 4. Belfast International ↔ Dublin Airport ===");
@@ -198,15 +209,25 @@ console.log("\n=== 4. Belfast International ↔ Dublin Airport ===");
   const dub = airportPlace("DUB");
   assert.equal(detectJourneyKind(bfs, dub), "airport-to-airport");
 
-  const intended = calculateQuote(
+  const intendedDrop = calculateQuote(
     bfs.formattedAddress,
     "DUB",
     SALOON,
     false,
     {},
     DUB_CROSS_BORDER_METRICS,
+    false,
   );
-  assert.ok(intended);
+  const intendedPick = calculateQuote(
+    bfs.formattedAddress,
+    "DUB",
+    SALOON,
+    false,
+    {},
+    DUB_CROSS_BORDER_METRICS,
+    true,
+  );
+  assert.ok(intendedDrop && intendedPick);
 
   const bfsToDub = calculateAirportToAirportQuote(
     "BFS",
@@ -229,8 +250,8 @@ console.log("\n=== 4. Belfast International ↔ Dublin Airport ===");
     DUB_CROSS_BORDER_METRICS,
   );
   assert.ok(bfsToDub && dubToBfs);
-  assert.equal(bfsToDub!.amount, intended!.amount);
-  assert.equal(dubToBfs!.amount, intended!.amount);
+  assert.equal(bfsToDub!.amount, intendedDrop!.amount);
+  assert.equal(dubToBfs!.amount, intendedPick!.amount);
   assert.ok(
     bfsToDub!.amount > 180,
     `BFS↔DUB must use DUB floor path, got £${bfsToDub!.amount}`,
@@ -245,7 +266,7 @@ console.log("\n=== 4. Belfast International ↔ Dublin Airport ===");
     routeMetrics: DUB_CROSS_BORDER_METRICS,
   });
   assert.ok(website);
-  assert.equal(website!.amount, intended!.amount);
+  assert.equal(website!.amount, intendedDrop!.amount);
   console.log(`OK  BFS ↔ DUB saloon £${bfsToDub!.amount} (matches DUB airport path)`);
 }
 
@@ -256,15 +277,25 @@ console.log("\n=== 5. City of Derry Airport ↔ Dublin Airport ===");
   assert.equal(detectJourneyKind(ldy, dub), "airport-to-airport");
   assert.equal(detectJourneyKind(dub, ldy), "airport-to-airport");
 
-  const intended = calculateQuote(
+  const intendedDrop = calculateQuote(
     ldy.formattedAddress,
     "DUB",
     SALOON,
     false,
     {},
     LDY_DUB_METRICS,
+    false,
   );
-  assert.ok(intended);
+  const intendedPick = calculateQuote(
+    ldy.formattedAddress,
+    "DUB",
+    SALOON,
+    false,
+    {},
+    LDY_DUB_METRICS,
+    true,
+  );
+  assert.ok(intendedDrop && intendedPick);
 
   const ldyToDub = calculateAirportToAirportQuote(
     "LDY",
@@ -287,8 +318,8 @@ console.log("\n=== 5. City of Derry Airport ↔ Dublin Airport ===");
     LDY_DUB_METRICS,
   );
   assert.ok(ldyToDub && dubToLdy);
-  assert.equal(ldyToDub!.amount, intended!.amount);
-  assert.equal(dubToLdy!.amount, intended!.amount);
+  assert.equal(ldyToDub!.amount, intendedDrop!.amount);
+  assert.equal(dubToLdy!.amount, intendedPick!.amount);
   assert.ok(
     ldyToDub!.amount > 200,
     `LDY↔DUB must not use generic A2A undercut, got £${ldyToDub!.amount}`,
@@ -303,29 +334,37 @@ console.log("\n=== 5. City of Derry Airport ↔ Dublin Airport ===");
     routeMetrics: LDY_DUB_METRICS,
   });
   assert.ok(website);
-  assert.equal(website!.amount, intended!.amount);
-  console.log(`OK  LDY ↔ DUB saloon £${ldyToDub!.amount} (matches DUB airport path)`);
+  assert.equal(website!.amount, intendedDrop!.amount);
+  console.log(
+    `OK  LDY→DUB £${ldyToDub!.amount} / DUB→LDY £${dubToLdy!.amount} (DUB direction-aware path)`,
+  );
 }
 
-console.log("\n=== 6. Ordinary address ↔ Dublin Airport unchanged ===");
+console.log("\n=== 6. Ordinary address ↔ Dublin Airport (direction-aware fixed costs) ===");
 {
   const cityHall = "Belfast City Hall, Belfast BT1 5GS";
   const lisburn = "1 Market Square, Lisburn BT28 1XN";
   const bangor = "Main Street, Bangor BT20 5ED";
   const dub = airportPlace("DUB");
 
-  const baselines: Array<{ address: string; expected: number; lat: number; lng: number }> = [
-    { address: cityHall, expected: 230, lat: 54.5964, lng: -5.9301 },
-    { address: lisburn, expected: 240, lat: 54.5162, lng: -6.0583 },
-    { address: bangor, expected: 245, lat: 54.6538, lng: -5.6689 },
+  const baselines: Array<{
+    address: string;
+    dropExpected: number;
+    pickExpected: number;
+    lat: number;
+    lng: number;
+  }> = [
+    { address: cityHall, dropExpected: 234, pickExpected: 240, lat: 54.5964, lng: -5.9301 },
+    { address: lisburn, dropExpected: 244, pickExpected: 250, lat: 54.5162, lng: -6.0583 },
+    { address: bangor, dropExpected: 249, pickExpected: 255, lat: 54.6538, lng: -5.6689 },
   ];
 
   for (const row of baselines) {
-    const toDub = calculateQuote(row.address, "DUB", SALOON);
-    const fromDub = calculateQuote(row.address, "DUB", SALOON);
+    const toDub = calculateQuote(row.address, "DUB", SALOON, false, {}, null, false);
+    const fromDub = calculateQuote(row.address, "DUB", SALOON, false, {}, null, true);
     assert.ok(toDub && fromDub);
-    assert.equal(toDub!.amount, row.expected, `${row.address}→DUB`);
-    assert.equal(fromDub!.amount, row.expected, `DUB→${row.address}`);
+    assert.equal(toDub!.amount, row.dropExpected, `${row.address}→DUB`);
+    assert.equal(fromDub!.amount, row.pickExpected, `DUB→${row.address}`);
 
     const addr = addressPlace(row.address, row.lat, row.lng);
     assert.equal(detectJourneyKind(addr, dub), "address-to-airport");
@@ -348,10 +387,10 @@ console.log("\n=== 6. Ordinary address ↔ Dublin Airport unchanged ===");
       routeMetrics: null,
     });
     assert.ok(websiteTo && websiteFrom);
-    assert.equal(websiteTo!.amount, row.expected);
-    assert.equal(websiteFrom!.amount, row.expected);
+    assert.equal(websiteTo!.amount, row.dropExpected);
+    assert.equal(websiteFrom!.amount, row.pickExpected);
   }
-  console.log("OK  address→DUB and DUB→address fares unchanged (City Hall/Lisburn/Bangor)");
+  console.log("OK  address→DUB (+£4) and DUB→address (+£8) for City Hall/Lisburn/Bangor");
 }
 
 console.log("\n=== 7. Non-DUB airport↔airport = A2A underlying + access fees (not Antrim-zone max) ===");

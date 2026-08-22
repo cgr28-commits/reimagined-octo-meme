@@ -101,16 +101,16 @@ assert.equal(isRepublicOfIrelandJourney(belfastHome, dublinCity), true);
 console.log("OK  DUB place ID / geofence / city exclusion");
 
 console.log("\n=== Belfast City Centre ↔ Dublin Airport ===");
-const toDubS = calculateQuote(hall, "DUB", SALOON);
-const toDubE = calculateQuote(hall, "DUB", ESTATE);
-assert.equal(toDubS?.amount, 230);
+const toDubS = calculateQuote(hall, "DUB", SALOON, false, {}, null, false);
+const toDubE = calculateQuote(hall, "DUB", ESTATE, false, {}, null, false);
+assert.equal(toDubS?.amount, 234);
 assert.equal(toDubE?.amount, 240);
 console.log(`OK  City Hall → DUB  S £${toDubS?.amount} / E £${toDubE?.amount}`);
 
-const fromDubS = calculateQuote(hall, "DUB", SALOON); // same area formula either direction
-const fromDubE = calculateQuote(hall, "DUB", ESTATE);
-assert.equal(fromDubS?.amount, 230);
-assert.equal(fromDubE?.amount, 240);
+const fromDubS = calculateQuote(hall, "DUB", SALOON, false, {}, null, true);
+const fromDubE = calculateQuote(hall, "DUB", ESTATE, false, {}, null, true);
+assert.equal(fromDubS?.amount, 240);
+assert.equal(fromDubE?.amount, 245);
 console.log(`OK  DUB → City Hall  S £${fromDubS?.amount} / E £${fromDubE?.amount}`);
 
 console.log("\n=== Belfast City Centre → Dublin City Centre (must exceed DUB) ===");
@@ -119,22 +119,22 @@ const cityS = calculateDublinCityBeyondAirportQuote(hall, SALOON, cityMetrics);
 const cityE = calculateDublinCityBeyondAirportQuote(hall, ESTATE, cityMetrics);
 assert.ok(cityS && cityE);
 assert.ok(
-  cityS.amount > 230,
-  `Dublin city saloon £${cityS.amount} must be > DUB £230`,
+  cityS.amount > 234,
+  `Dublin city saloon £${cityS.amount} must be > DUB drop-off £234`,
 );
 assert.ok(
   cityE.amount > 240,
-  `Dublin city estate £${cityE.amount} must be > DUB £240`,
+  `Dublin city estate £${cityE.amount} must be > DUB drop-off £240`,
 );
 console.log(
-  `OK  City Hall → Dublin city centre  S £${cityS.amount} / E £${cityE.amount} (DUB was £230/£240)`,
+  `OK  City Hall → Dublin city centre  S £${cityS.amount} / E £${cityE.amount} (DUB drop-off £234/£240)`,
 );
 
 const hotelMetrics = { distanceKm: 170, durationMinutes: 122 };
 const hotelS = calculateDublinCityBeyondAirportQuote(hall, SALOON, hotelMetrics);
-assert.ok(hotelS && hotelS.amount > 230);
-assert.notEqual(hotelS.amount, 230, "Dublin hotel must not receive flat DUB airport fare");
-console.log(`OK  City Hall → Dublin hotel  S £${hotelS.amount} (not flat £230)`);
+assert.ok(hotelS && hotelS.amount > 234);
+assert.notEqual(hotelS.amount, 234, "Dublin hotel must not receive flat DUB airport fare");
+console.log(`OK  City Hall → Dublin hotel  S £${hotelS.amount} (not flat DUB airport)`);
 
 console.log("\n=== BFS → Enniskillen (near OTS, not deep undercut) ===");
 const bfsEnniS = calculateQuote(enni, "BFS", SALOON);

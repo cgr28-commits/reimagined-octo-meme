@@ -184,8 +184,13 @@ check("Server rejects missing journey mode / passenger / suitcase", () => {
   });
   assert.equal(ret.ok, true);
   if (oneWay.ok && ret.ok) {
-    // 5% return discount preserved (return ≈ one-way × 2 × 0.95)
-    assert.equal(ret.amount, Math.round(oneWay.amount * 2 * 0.95 * 100) / 100);
+    // 5% return discount applies to journey fare only; airport fixed costs are added full both legs.
+    assert.ok(ret.amount > oneWay.amount);
+    assert.ok(ret.amount < oneWay.amount * 2);
+    assert.ok(
+      ret.amount > Math.round(oneWay.amount * 2 * 0.95 * 100) / 100,
+      "return total must exceed a naïve 5% on the full one-way (fees not discounted)",
+    );
   }
 
   const minibus = calculateAuthoritativeWebsiteQuote({

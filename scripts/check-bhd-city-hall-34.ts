@@ -84,9 +84,9 @@ assert.equal(PRICING_CONFIG.airportBasePricesGbp.DUB, 180);
 
 const bfsCity = calculateQuote(cityHall, "BFS", SALOON);
 const dubCity = calculateQuote(cityHall, "DUB", SALOON);
-assert.equal(dubCity?.amount, 230, "DUB Belfast centre unchanged");
+assert.equal(dubCity?.amount, 234, "DUB Belfast centre drop-off = zone + £4 M1");
 console.log(`\nOK  BFS City Hall saloon £${bfsCity?.amount}`);
-console.log(`OK  DUB City Hall saloon £${dubCity?.amount} (untouched)`);
+console.log(`OK  DUB City Hall saloon £${dubCity?.amount}`);
 
 console.log("\n=== Vehicle selection ===");
 assert.equal(selectVehicleForParty(1, 0), SALOON);

@@ -206,6 +206,7 @@ export function calculateAuthoritativeWebsiteQuote(
       returnJourney,
       schedule,
       input.routeMetrics ?? null,
+      Boolean(input.fromAirport),
     );
   } else {
     const dropoff = (input.dropoffAddress ?? "").trim();

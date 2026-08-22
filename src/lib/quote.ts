@@ -1,6 +1,12 @@
 import { ALL_AIRPORTS as AIRPORTS, AREAS, VEHICLE_TYPES } from "./data";
 import { isLdyServiceAreaAddress } from "../../shared/ldy-service-area";
 import {
+  composeFareWithAirportFixedCosts,
+  getAirportLegFixedCostGbp,
+  getAirportToAirportFixedCostGbp,
+  getLegacyEmbeddedAccessFeeGbp,
+} from "../../shared/airport-fixed-costs";
+import {
   applyTripPremium,
   AIRPORT_TRIP_PREMIUM_RATE,
   getReturnJourneyFare,
@@ -10,7 +16,6 @@ import {
 import type { TripRouteMetrics } from "./trip-route";
 import {
   calculateOperationalSubtotal,
-  getAirportAccessFeeGbp,
   getAirportBasePrice,
   getAirportMinimumFare,
   hasOperationalRatesConfigured,
@@ -85,6 +90,10 @@ export type QuoteResult = {
     durationMinutes: number;
     band: "weekday" | "weekendAndBankHoliday";
   };
+  /** Undiscounted airport fixed costs included in `amount` (fees / parking / tolls). */
+  airportFixedCostsGbp?: number;
+  /** Journey subtotal before airport fixed costs (after return discount when booked). */
+  journeyFareGbp?: number;
   /** True when public display must wait for owner-approved pricing rules. */
   confirmationRequired?: boolean;
 };
@@ -635,6 +644,8 @@ export function calculateQuote(
   returnJourney = false,
   schedule: TripSchedule = {},
   routeMetrics?: TripRouteMetrics | null,
+  /** Airport → address when true; address → airport when false. */
+  fromAirport = false,
 ): QuoteResult | null {
   const trimmedAddress = address.trim();
   if (!trimmedAddress || !airportCode) {
@@ -702,6 +713,7 @@ export function calculateQuote(
   let oneWayFare = applyAirportVehiclePricing(saloonOneWay, vehicleType, airportCode);
 
   // When operational rates are filled, fold configured tolls + airport charges into the fare.
+  // Live config keeps these null — airport fixed costs are applied separately below.
   if (hasOperationalRatesConfigured()) {
     const ops = calculateOperationalSubtotal({
       distanceKm: 0,
@@ -718,10 +730,33 @@ export function calculateQuote(
     }
   }
 
-  const premium = applyTripPremium(oneWayFare, { ...schedule, returnJourney }, AIRPORT_TRIP_PREMIUM_RATE);
+  // Strip the legacy flat access fee that was commercially embedded in BFS/BHD
+  // zone fares, then re-add direction-aware fixed costs after the return discount.
+  const embeddedAccessFee = getLegacyEmbeddedAccessFeeGbp(airportCode);
+  const journeyOneWay = Math.max(0, oneWayFare - embeddedAccessFee);
+  const outboundFixed = getAirportLegFixedCostGbp(airportCode, fromAirport);
+  const returnFixed = returnJourney
+    ? getAirportLegFixedCostGbp(airportCode, !fromAirport)
+    : 0;
+
+  const premium = applyTripPremium(
+    journeyOneWay,
+    { ...schedule, returnJourney },
+    AIRPORT_TRIP_PREMIUM_RATE,
+  );
+  const composed = composeFareWithAirportFixedCosts({
+    journeyOneWayGbp: journeyOneWay,
+    returnJourney,
+    outboundFixedGbp: outboundFixed,
+    returnFixedGbp: returnFixed,
+    getReturnJourneyFare,
+  });
+  // premium.total = journey fare after return discount (+ weekend uplift when rate > 0).
+  // Fixed airport costs are added after and never discounted.
+  const totalBeforeRounding = premium.total + composed.fixedTotalGbp;
 
   return {
-    amount: roundFare(premium.total),
+    amount: roundFare(totalBeforeRounding),
     area: matchedArea,
     areaSurcharge: usedDistanceProtection
       ? Math.round(routeMetrics?.distanceKm ?? areaSurcharge)
@@ -730,6 +765,8 @@ export function calculateQuote(
     vehicleMultiplier,
     vehicleAdjustment,
     premiumApplied: premium.premiumApplied,
+    airportFixedCostsGbp: composed.fixedTotalGbp,
+    journeyFareGbp: premium.total,
     operational: isValidRouteMetrics(routeMetrics)
       ? {
           distanceKm: routeMetrics.distanceKm,
@@ -768,8 +805,8 @@ export function formatQuote(amount: number): string {
  *
  * - When Dublin Airport is one end: always use existing DUB airport pricing for
  *   the other airport address (anti-undercut; zone/floor rules unchanged).
- * - Otherwise: underlying address-to-address journey fare + genuine access fee
- *   for each identified airport end (BFS £5, BHD £4, etc.).
+ * - Otherwise: underlying address-to-address journey fare + genuine fixed costs
+ *   for each identified airport end (pickup-end pickup costs + dropoff-end drop-off).
  */
 export function calculateAirportToAirportQuote(
   pickupAirportCode: string,
@@ -792,6 +829,7 @@ export function calculateAirportToAirportQuote(
   // Dublin anti-undercut: never price DUB legs via A2A or the other NI airport scheme.
   if (pickupCode === "DUB" || dropoffCode === "DUB") {
     const otherAddress = pickupCode === "DUB" ? dropoff : pickup;
+    const fromAirport = pickupCode === "DUB";
     return calculateQuote(
       otherAddress,
       "DUB",
@@ -799,6 +837,7 @@ export function calculateAirportToAirportQuote(
       returnJourney,
       schedule,
       routeMetrics,
+      fromAirport,
     );
   }
 
@@ -806,28 +845,47 @@ export function calculateAirportToAirportQuote(
     return null;
   }
 
-  const underlying = calculatePointToPointQuote(
+  // Always price the underlying A2A journey one-way, then apply return discount
+  // to the journey only — airport fixed costs are added undiscounted per leg.
+  const underlyingOneWay = calculatePointToPointQuote(
     pickup,
     dropoff,
     vehicleType,
-    returnJourney,
-    schedule,
+    false,
+    { ...schedule, returnJourney: false },
     routeMetrics,
   );
-  if (!underlying) {
+  if (!underlyingOneWay) {
     return null;
   }
 
-  const pickupAccessFee = getAirportAccessFeeGbp(pickupCode);
-  const dropoffAccessFee = getAirportAccessFeeGbp(dropoffCode);
-  const withAccessFees = underlying.amount + pickupAccessFee + dropoffAccessFee;
+  const outboundFixed = getAirportToAirportFixedCostGbp(pickupCode, dropoffCode);
+  const returnFixed = returnJourney
+    ? getAirportToAirportFixedCostGbp(dropoffCode, pickupCode)
+    : 0;
+  const premium = applyTripPremium(
+    underlyingOneWay.amount,
+    { ...schedule, returnJourney },
+    AIRPORT_TRIP_PREMIUM_RATE,
+  );
+  const composed = composeFareWithAirportFixedCosts({
+    journeyOneWayGbp: underlyingOneWay.amount,
+    returnJourney,
+    outboundFixedGbp: outboundFixed,
+    returnFixedGbp: returnFixed,
+    getReturnJourneyFare,
+  });
+  const totalBeforeRounding = premium.total + composed.fixedTotalGbp;
 
   return {
-    ...underlying,
-    amount: roundFare(withAccessFees),
-    // Combined genuine access fees (not a town-zone surcharge).
-    areaSurcharge: pickupAccessFee + dropoffAccessFee,
-    airportBase: underlying.amount,
+    ...underlyingOneWay,
+    amount: roundFare(totalBeforeRounding),
+    // Combined genuine fixed costs (not a town-zone surcharge).
+    areaSurcharge: composed.fixedTotalGbp,
+    airportBase: underlyingOneWay.amount,
+    airportFixedCostsGbp: composed.fixedTotalGbp,
+    journeyFareGbp: premium.total,
+    premiumApplied: premium.premiumApplied,
   };
 }
 

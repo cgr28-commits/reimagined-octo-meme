@@ -125,8 +125,11 @@ check("Return engine discount stays inside calculated fare; manual discount is s
   assert.equal(ret.ok, true);
   if (!ret.ok) return;
 
-  const expectedReturn = getWebsiteReturnJourneyFare(oneWay.amount);
-  assert.equal(ret.amount, expectedReturn);
+  // Return discount applies to the journey fare only; airport fixed costs (£5+£5) stay full.
+  // One-way £55 = journey £50 + £5; return = £50×1.9 + £10 = £105 (not £55×1.9 = £104.5).
+  assert.equal(oneWay.amount, 55);
+  assert.equal(ret.amount, 105);
+  assert.ok(ret.amount > getWebsiteReturnJourneyFare(oneWay.amount));
 
   // Manual 10% is applied AFTER the return-discounted calculated fare — not instead of it.
   const manual = applyQuickQuoteManualDiscount(ret.amount, "percent", 10);
