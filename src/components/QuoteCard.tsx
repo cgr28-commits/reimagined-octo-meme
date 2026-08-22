@@ -1072,6 +1072,7 @@ function QuoteCard({
           returnJourney,
           schedule,
           routeMetrics,
+          false,
         );
       }
       if (journeyKind === "airport-to-address" && pickupAirportCode) {
@@ -1082,6 +1083,7 @@ function QuoteCard({
           returnJourney,
           schedule,
           routeMetrics,
+          true,
         );
       }
       if (
@@ -1133,6 +1135,7 @@ function QuoteCard({
         returnJourney,
         schedule,
         routeMetrics,
+        isFromAirport,
       );
     }
 

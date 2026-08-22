@@ -237,7 +237,7 @@ function knowledgeChunks(): Array<{ title: string; body: string }> {
     },
     {
       title: "Airports we cover",
-      body: `We cover ${AIRPORTS.map((a) => `${a.name} (${a.code}): ${a.description} ${a.distance}, ${a.duration}`).join(" ")} Airport pickups include the applicable express pickup fee and 60 minutes complimentary waiting after landing. Airport drop-offs include the applicable express drop-off fee. Dublin Airport fares include applicable tolls where they apply. Address-to-address journeys are a fixed price for your route.`,
+      body: `We cover ${AIRPORTS.map((a) => `${a.name} (${a.code}): ${a.description} ${a.distance}, ${a.duration}`).join(" ")} Airport pickups include the applicable airport pickup fee (or Dublin parking and M1 tolls) and 60 minutes complimentary waiting after landing. Airport drop-offs include the applicable airport drop-off fee where charged, or M1 tolls for Dublin. City of Derry Airport has no airport fee. Address-to-address journeys are a fixed price for your route.`,
     },
     {
       title: "Areas we cover",
@@ -276,7 +276,7 @@ function knowledgeChunks(): Array<{ title: string; body: string }> {
     {
       title: "Flight delays and waiting time",
       body:
-        "We monitor your flight where possible and adjust the planned collection time for early or delayed arrivals. Airport pickups include up to 60 minutes complimentary waiting time. Airport drop-offs include the applicable express drop-off fee. Non-airport pickups include 10 minutes complimentary waiting. Dublin Airport fares include applicable tolls where they apply.",
+        "We monitor your flight where possible and adjust the planned collection time for early or delayed arrivals. Airport pickups include up to 60 minutes complimentary waiting time. Airport drop-offs include the applicable airport drop-off fee where charged. Non-airport pickups include 10 minutes complimentary waiting. Dublin Airport fares include M1 tolls (and parking on pickups).",
     },
     {
       title: "Cash and payment options",
@@ -1602,6 +1602,8 @@ function tryBuildQuote(
     vehicle,
     draft.returnJourney,
     schedule,
+    null,
+    draft.direction === "from-airport",
   );
 
   if (!quote) {

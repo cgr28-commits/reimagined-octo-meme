@@ -77,6 +77,7 @@ export function calculateWebsiteOneWayFare(
         returnJourney,
         schedule,
         input.routeMetrics,
+        false,
       );
     }
     if (journeyKind === "airport-to-address" && pickupAirportCode) {
@@ -87,6 +88,7 @@ export function calculateWebsiteOneWayFare(
         returnJourney,
         schedule,
         input.routeMetrics,
+        true,
       );
     }
     if (

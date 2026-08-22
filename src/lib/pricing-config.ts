@@ -34,10 +34,25 @@ export type PricingConfig = {
   };
   airportMinimumFaresGbp: Record<string, number>;
   /**
-   * Genuine airport access fees (BFS £5, BHD £4). Applied on airport↔airport
-   * quotes — not by treating an airport postcode as a town under the other scheme.
+   * DEPRECATED flat per-airport access fee. Prefer airportFixedCostsGbp /
+   * shared/airport-fixed-costs.ts for live quotes.
    */
   airportAccessFeesGbp?: Partial<Record<AirportCode, number>> & { note?: string };
+  /**
+   * Direction-aware airport fixed costs (fees / parking / tolls) applied per leg
+   * after the journey fare and after the 5% return discount on that fare only.
+   */
+  airportFixedCostsGbp?: Partial<
+    Record<
+      AirportCode,
+      {
+        dropOffFeeGbp: number;
+        pickupFeeGbp: number;
+        parkingAllowanceGbp: number;
+        tollAllowanceGbp: number;
+      }
+    >
+  > & { note?: string };
   airportBasePricesGbp: Record<AirportCode, number>;
   airportEstatePremiumGbp: number;
   /** Tiered estate uplift for NI airports; excluded airports always use airportEstatePremiumGbp. */
@@ -159,7 +174,7 @@ export function getAirportBasePrice(airportCode: string): number | null {
   return isFiniteNumber(value) ? value : null;
 }
 
-/** Genuine airport access fee for an identified airport end (0 when unset). */
+/** @deprecated Prefer getAirportLegFixedCostGbp from shared/airport-fixed-costs. */
 export function getAirportAccessFeeGbp(airportCode: string): number {
   const fees = PRICING_CONFIG.airportAccessFeesGbp;
   if (!fees) {

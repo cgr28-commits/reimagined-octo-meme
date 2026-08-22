@@ -4,9 +4,10 @@
     "summary": "One engine for every eligible online journey: driving route (when available) → distance/time reference → distance-band adjustment → airport zone/minimum rules when an airport leg is present → vehicle supplement → optional return 5% discount → rounded fixed fare.",
     "addressToAddress": "OTS-style reference (vehicleBase + tier×(perKm×km + perMin×min)) + addressToAddressDistanceBands adjustment. Requires valid route metrics; otherwise no fare.",
     "airport": "Calibrated areaAirportSurchargesGbp zones supply short/medium airport fares (scales by origin zone, not a hard-coded town-pair). Estate uses tiered premium (≤£45 +£5; mid +£8; ≥£140 +£24; Dublin flat +£8). Airport-zone OTS calibration targets ~£3–£5 below OTS estate (airportOtsCalibration) without feeding live quotes. When route metrics exist: unknown origins use distance+airport minimum; long hauls (≥ airportRouteDistanceProtectFromKm) take max(zone, distance) for empty-return protection. BHD/BFS also apply belfastAirportDistanceFloor (MAX zone vs £65/£60 + £2/mile above 20 miles) so named zones do not flatten longer journeys. No weekend/Bank Holiday surcharge — weekday and weekend use the same base fare (airportTripPremiumRate / addressToAddressTripPremiumRate are 0).",
-    "dublinAirport": "£230/£240 Belfast-centre benchmark is DUB airport only (place ID / geofence / explicit airport name). Dublin city uses DUB fare + dublinCityBeyondAirport uplift.",
+    "dublinAirport": "Belfast-centre DUB journey fare remains the zone benchmark (£230 saloon / £238 estate before fixed costs). After airportFixedCostsGbp: drop-off +£4 M1 (customer £234 saloon); pickup +£8 parking+M1 (customer £240 saloon after roundFare). Dublin city uses DUB fare + dublinCityBeyondAirport uplift.",
     "vehicles": "Saloon 1–4 pax AND 0–2 large cases; Estate 1–4 pax AND 3–4 cases; Minibus 5–7 pax (or >4 large cases for capacity). Online Minibus fare: estateTier×1.55 airport / £60 A2A base.",
-    "returnDiscount": "returnJourneyDiscountRate (exactly 5%) applied once to (2 × oneWay).",
+    "returnDiscount": "returnJourneyDiscountRate (exactly 5%) applied once to (2 × oneWay journey fare). Airport fixed costs (fees / parking / M1 toll allowances) are added after and are never discounted.",
+    "airportFixedCosts": "Per-leg GBP from airportFixedCostsGbp: BFS £5/£5, BHD £4/£4, DUB drop-off £4 (M1 only), DUB pickup £8 (parking+M1), LDY £0/£0. Not applied to address-to-address. Not multiplied by vehicle or distance.",
     "rounding": "Prefer nearest £5; amounts ending in £x4 are kept (e.g. £34, £49)."
   },
   "pricingRulesApproved": true,
@@ -42,11 +43,38 @@
     "LDY": 35
   },
   "airportAccessFeesGbp": {
-    "note": "Genuine airport access / express fees. Used when both ends are airports (added once per airport end on top of the underlying journey fare). Not applied by re-classifying an airport address as a town zone. Address↔airport zone fares continue to treat fees as commercial inclusions in the fixed zone price. operational.airportChargesGbp stays null.",
+    "note": "DEPRECATED flat per-airport access fee (BFS £5 / BHD £4). Replaced by airportFixedCostsGbp for live quotes. Kept for calibration scripts that still read the flat map; do not add these on top of airportFixedCostsGbp.",
     "BFS": 5,
     "BHD": 4,
     "DUB": 0,
     "LDY": 0
+  },
+  "airportFixedCostsGbp": {
+    "note": "Central editable airport fixed costs (GBP) applied per leg AFTER the underlying journey fare and AFTER the 5% return discount on that journey fare only. Never multiply by distance, vehicle, or %. Address-to-address journeys add £0. Dublin: drop-off = £4 M1 toll; pickup = £4 parking + £4 M1 toll = £8. BFS/BHD zone fares previously embedded the flat access fee — strip legacyEmbeddedAccessFeeGbp once from the journey one-way before re-adding these costs.",
+    "BFS": {
+      "dropOffFeeGbp": 5,
+      "pickupFeeGbp": 5,
+      "parkingAllowanceGbp": 0,
+      "tollAllowanceGbp": 0
+    },
+    "BHD": {
+      "dropOffFeeGbp": 4,
+      "pickupFeeGbp": 4,
+      "parkingAllowanceGbp": 0,
+      "tollAllowanceGbp": 0
+    },
+    "DUB": {
+      "dropOffFeeGbp": 0,
+      "pickupFeeGbp": 0,
+      "parkingAllowanceGbp": 4,
+      "tollAllowanceGbp": 4
+    },
+    "LDY": {
+      "dropOffFeeGbp": 0,
+      "pickupFeeGbp": 0,
+      "parkingAllowanceGbp": 0,
+      "tollAllowanceGbp": 0
+    }
   },
   "airportBasePricesGbp": {
     "BFS": 45,

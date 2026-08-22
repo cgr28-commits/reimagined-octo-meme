@@ -173,7 +173,7 @@ console.log("\n=== 4. Approved route targets (BHD/BFS) ===");
       {},
       metricsForMiles(16),
     )?.amount,
-    50,
+    55,
   );
   assert.equal(
     calculateQuote("Ballymena BT43 6AN", "BFS", SALOON, false, {}, metricsForMiles(17.4))
@@ -219,19 +219,19 @@ console.log("\n=== 6. Monotonic: fares never fall as distance rises (fixed zone)
   console.log("OK  BHD floor curve non-decreasing for zone £65 and £80");
 }
 
-console.log("\n=== 7. Dublin unchanged ===");
+console.log("\n=== 7. Dublin unchanged by Belfast distance floor (fixed costs still apply) ===");
 {
   const hall = "Belfast City Hall, Belfast BT1 5GS";
   const longMetrics = metricsForMiles(100);
-  assert.equal(calculateQuote(hall, "DUB", SALOON)?.amount, 230);
+  assert.equal(calculateQuote(hall, "DUB", SALOON)?.amount, 234);
   assert.equal(calculateQuote(hall, "DUB", ESTATE)?.amount, 240);
   assert.equal(
     calculateQuote(hall, "DUB", SALOON, false, {}, longMetrics)?.amount,
-    230,
+    234,
   );
   assert.equal(applyBelfastAirportDistanceFloor(230, "DUB", milesToKm(100)), 230);
   assert.equal(applyBelfastAirportDistanceFloor(250, "LDY", milesToKm(30)), 250);
-  console.log("OK  DUB/LDY no-op for distance floor");
+  console.log("OK  DUB/LDY no-op for distance floor; City Hall→DUB £234");
 }
 
 console.log("\nAll belfast airport distance-floor checks passed.");

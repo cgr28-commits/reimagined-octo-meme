@@ -2,11 +2,15 @@
  * Central journey inclusion copy — airport pickup vs drop-off, waiting time, tolls.
  * Do not scatter contradictory fee wording across UI components.
  *
- * Note on fares: express pickup/drop-off fees and tolls are commercial inclusions
- * in the fixed quoted fare. `pricing-config.json` currently has
- * `operational.airportChargesGbp` and `defaultTollsGbp` set to null — they are
- * NOT separate calculator add-ons. This module only controls wording.
+ * Airport fixed costs (fees / parking / M1 toll allowances) are applied in the
+ * quote calculator via `shared/airport-fixed-costs.ts`. This module only controls
+ * customer-facing wording and must stay direction- and airport-specific.
  */
+
+import {
+  getAirportLegFixedCosts,
+  type AirportFixedCostCode,
+} from "./airport-fixed-costs";
 
 export type AirportCodeLike = "BFS" | "BHD" | "DUB" | "LDY" | string;
 
@@ -41,16 +45,26 @@ export type JourneyInclusions = {
   mentionsTolls: boolean;
 };
 
-const EXPRESS_PICKUP = "Express pickup fee included";
-const EXPRESS_DROPOFF = "Express drop-off fee included";
-const WAITING_60 = "60 minutes complimentary airport waiting time";
-const TOLLS = "Applicable tolls included";
+const GENERAL_FEES_AND_TOLLS = "Airport fees and applicable tolls included.";
+const DROPOFF_FEE = "Airport drop-off fee included.";
+const PICKUP_FEE = "Airport pickup fee included";
+const WAITING_60 = "60 minutes complimentary airport waiting.";
+const DUB_TOLLS = "M1 tolls included.";
+const DUB_PARKING_AND_TOLLS = "Airport parking and M1 tolls included";
 
 function isDublinAirport(code?: AirportCodeLike | null): boolean {
   return (code ?? "").trim().toUpperCase() === "DUB";
 }
 
-/** Tolls are only mentioned for Dublin Airport fixed fares (commercial inclusion). */
+function asFixedCostCode(code?: AirportCodeLike | null): AirportFixedCostCode | null {
+  const normalised = (code ?? "").trim().toUpperCase();
+  if (normalised === "BFS" || normalised === "BHD" || normalised === "DUB" || normalised === "LDY") {
+    return normalised;
+  }
+  return null;
+}
+
+/** Tolls are only mentioned for Dublin Airport legs that include an M1 allowance. */
 export function journeyIncludesApplicableTolls(
   airportCode?: AirportCodeLike | null,
   options?: { pickupIsAirport?: boolean; dropoffIsAirport?: boolean },
@@ -61,35 +75,77 @@ export function journeyIncludesApplicableTolls(
   return Boolean(options?.pickupIsAirport || options?.dropoffIsAirport);
 }
 
+/**
+ * Direction-specific inclusion bullets for one airport leg.
+ * Only lists a fee/parking/toll line when a genuine fixed cost was added.
+ */
 function bulletsForAirportLeg(options: {
   fromAirport: boolean;
   airportCode?: AirportCodeLike | null;
 }): string[] {
   const { fromAirport, airportCode } = options;
+  const costs = getAirportLegFixedCosts(airportCode, fromAirport);
   const items: string[] = [];
+  const code = asFixedCostCode(airportCode);
 
-  if (journeyIncludesApplicableTolls(airportCode, {
-    pickupIsAirport: fromAirport,
-    dropoffIsAirport: !fromAirport,
-  })) {
-    items.push(TOLLS);
+  if (code === "DUB") {
+    if (fromAirport) {
+      if (costs?.hasCharge) {
+        items.push(DUB_PARKING_AND_TOLLS);
+      }
+      items.push(WAITING_60);
+    } else if (costs && costs.tollAllowanceGbp > 0) {
+      items.push(DUB_TOLLS);
+    }
+    return items;
   }
 
+  if (code === "LDY") {
+    // Zero-fee airport: never claim an airport fee inclusion.
+    if (fromAirport) {
+      items.push(WAITING_60);
+    }
+    return items;
+  }
+
+  // BFS / BHD (and any future fee-bearing NI airport with the same pattern)
   if (fromAirport) {
-    items.push(EXPRESS_PICKUP);
+    if (costs && costs.pickupFeeGbp > 0) {
+      items.push(PICKUP_FEE);
+    }
     items.push(WAITING_60);
-  } else {
-    items.push(EXPRESS_DROPOFF);
+  } else if (costs && costs.dropOffFeeGbp > 0) {
+    items.push(DROPOFF_FEE);
   }
 
   return items;
 }
 
-function summaryForAirportLeg(fromAirport: boolean): string {
-  if (fromAirport) {
-    return "Fixed price including the applicable express pickup fee.";
+function summaryForAirportLeg(options: {
+  fromAirport: boolean;
+  airportCode?: AirportCodeLike | null;
+}): string {
+  const costs = getAirportLegFixedCosts(options.airportCode, options.fromAirport);
+  const code = asFixedCostCode(options.airportCode);
+
+  if (code === "LDY") {
+    return options.fromAirport
+      ? "Fixed price including 60 minutes complimentary airport waiting."
+      : "Fixed price for your journey.";
   }
-  return "Fixed price including the applicable express drop-off fee.";
+
+  if (code === "DUB") {
+    if (options.fromAirport) {
+      return "Fixed price including airport parking, M1 tolls, and waiting time.";
+    }
+    return "Fixed price including M1 tolls.";
+  }
+
+  if (costs?.hasCharge) {
+    return GENERAL_FEES_AND_TOLLS;
+  }
+
+  return "Fixed price for your journey.";
 }
 
 function withChecks(lines: string[]): string[] {
@@ -132,7 +188,7 @@ export function getJourneyInclusions(context: JourneyInclusionContext): JourneyI
       bulletsForAirportLeg({ fromAirport: outboundFromAirport, airportCode }),
     );
     return {
-      summary: summaryForAirportLeg(outboundFromAirport),
+      summary: summaryForAirportLeg({ fromAirport: outboundFromAirport, airportCode }),
       bullets,
       emailIncludeLines: withoutChecks(bullets),
       outboundBullets: bullets,
@@ -155,8 +211,8 @@ export function getJourneyInclusions(context: JourneyInclusionContext): JourneyI
   );
 
   const summaryParts = [
-    `Outbound: ${summaryForAirportLeg(outboundFromAirport)}`,
-    `Return: ${summaryForAirportLeg(returnFromAirport)}`,
+    `Outbound: ${summaryForAirportLeg({ fromAirport: outboundFromAirport, airportCode })}`,
+    `Return: ${summaryForAirportLeg({ fromAirport: returnFromAirport, airportCode })}`,
   ];
 
   const emailIncludeLines = [
@@ -303,7 +359,7 @@ function escapeHtml(value: string): string {
 
 /** Used for 5–7 / minibus transfers (online fixed fare). */
 export const GROUP_QUOTE_FEE_NOTE =
-  "Your fixed online fare lists only the inclusions that apply to your journey — express airport fees where relevant, and Dublin tolls only where they apply.";
+  "Your fixed online fare lists only the inclusions that apply to your journey — airport fees and applicable tolls where they apply.";
 
 /** Customer-facing waiting-time policy (source of truth for FAQ / UI helpers). */
 export const AIRPORT_PICKUP_WAITING_COPY =

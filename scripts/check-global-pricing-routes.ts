@@ -131,7 +131,7 @@ add(
   99,
   calculateQuote("Belfast City Hall, Belfast BT1 5GS", "DUB", S)?.amount,
   calculateQuote("Belfast City Hall, Belfast BT1 5GS", "DUB", E)?.amount,
-  "bench £230/£240",
+  "bench £234/£240",
 );
 
 // 8 Dublin city beyond airport
@@ -147,7 +147,7 @@ add(
     { distanceKm: 168.6, durationMinutes: 119.5 },
   )?.amount;
   add("City Hall → Dublin city centre", "DUB+", 105, s, e);
-  assert.ok((s ?? 0) > 230 && (e ?? 0) > 240);
+  assert.ok((s ?? 0) > 234 && (e ?? 0) > 240);
 }
 
 // 9 Medium NI — Newry
@@ -370,11 +370,11 @@ assert.equal(selectVehicleForParty(3, 0), S);
 assert.equal(selectVehicleForParty(3, 2), S);
 assert.equal(selectVehicleForParty(1, 3), E);
 
-// Return discount once
+// Return discount once on journey; airport fixed costs undiscounted both legs
 const oneWay = calculateQuote("Belfast City Hall, Belfast BT1 5GS", "BFS", S)?.amount ?? 0;
 const ret = calculateQuote("Belfast City Hall, Belfast BT1 5GS", "BFS", S, true)?.amount ?? 0;
-assert.equal(oneWay, 50);
-assert.equal(ret, 95, "BFS return is single 5% on 2×£50 → £95");
+assert.equal(oneWay, 55);
+assert.equal(ret, 105, "BFS return: journey £50×1.9 + fixed £10 → £105");
 assert.ok(ret < oneWay * 2);
 
 assert.ok(rows.length >= 15, `expected ≥15 journeys, got ${rows.length}`);
