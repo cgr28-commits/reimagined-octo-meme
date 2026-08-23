@@ -29,8 +29,10 @@ import {
   isPlaceSelected,
   placeDisplayText,
   quickSelectToPlace,
+  detectAirportCodeFromPlace,
   type SelectedPlace,
 } from "@/lib/selected-place";
+import { resolveAirportTransferIntent } from "../../shared/airport-transfer-intent";
 import FiniteOptionSelect, {
   ONLINE_PASSENGER_OPTIONS,
   ONLINE_SUITCASE_OPTIONS,
@@ -504,12 +506,30 @@ export default function QuickQuoteOwnerClient() {
         setLastRouteMetrics(routeMetrics);
       }
 
+      const inferred = resolveAirportTransferIntent({
+        airportCode: draft.airportCode || null,
+        fromAirport: draft.fromAirport,
+        pickupAddress,
+        dropoffAddress,
+      });
+      const airportCode =
+        inferred && inferred.airportCode !== "LDY"
+          ? inferred.airportCode
+          : draft.airportCode || null;
+      const fromAirport = inferred?.fromAirport ?? draft.fromAirport;
+      if (
+        airportCode &&
+        (airportCode !== draft.airportCode || fromAirport !== draft.fromAirport)
+      ) {
+        setDraft((d) => ({ ...d, airportCode, fromAirport }));
+      }
+
       const result = await calculateServerQuote(
         {
           pickupAddress,
           dropoffAddress,
-          airportCode: draft.airportCode || null,
-          fromAirport: draft.fromAirport,
+          airportCode,
+          fromAirport,
           returnJourney: draft.returnJourney,
           outboundDate: draft.outboundDate,
           outboundTime: draft.outboundTime,
@@ -591,11 +611,23 @@ export default function QuickQuoteOwnerClient() {
         }
       }
 
+      const inferred = resolveAirportTransferIntent({
+        airportCode: draft.airportCode || null,
+        fromAirport: draft.fromAirport,
+        pickupAddress,
+        dropoffAddress,
+      });
+      const airportCode =
+        inferred && inferred.airportCode !== "LDY"
+          ? inferred.airportCode
+          : draft.airportCode || null;
+      const fromAirport = inferred?.fromAirport ?? draft.fromAirport;
+
       const created = await createOwnerQuickQuote(ownerKey, {
         pickupAddress,
         dropoffAddress,
-        airportCode: draft.airportCode || null,
-        fromAirport: draft.fromAirport,
+        airportCode,
+        fromAirport,
         returnJourney: draft.returnJourney,
         outboundDate: draft.outboundDate,
         outboundTime: draft.outboundTime,
@@ -761,7 +793,29 @@ export default function QuickQuoteOwnerClient() {
             }}
             onSelectPlace={(place) => {
               setPickupPlace(place);
-              setDraft((d) => ({ ...d, pickupAddress: placeDisplayText(place) }));
+              setDraft((d) => {
+                const pickupAddress = placeDisplayText(place);
+                const next = { ...d, pickupAddress };
+                const inferred = resolveAirportTransferIntent({
+                  airportCode:
+                    detectAirportCodeFromPlace(place) ||
+                    detectAirportCodeFromPlace(dropoffPlace) ||
+                    d.airportCode ||
+                    null,
+                  fromAirport: detectAirportCodeFromPlace(place)
+                    ? true
+                    : detectAirportCodeFromPlace(dropoffPlace)
+                      ? false
+                      : d.fromAirport,
+                  pickupAddress,
+                  dropoffAddress: placeDisplayText(dropoffPlace) || d.dropoffAddress,
+                });
+                if (inferred && inferred.airportCode !== "LDY") {
+                  next.airportCode = inferred.airportCode;
+                  next.fromAirport = inferred.fromAirport;
+                }
+                return next;
+              });
               clearQuoteOutputs();
               setMissing((m) => m.filter((x) => x !== "pickupAddress"));
             }}
@@ -791,7 +845,29 @@ export default function QuickQuoteOwnerClient() {
             }}
             onSelectPlace={(place) => {
               setDropoffPlace(place);
-              setDraft((d) => ({ ...d, dropoffAddress: placeDisplayText(place) }));
+              setDraft((d) => {
+                const dropoffAddress = placeDisplayText(place);
+                const next = { ...d, dropoffAddress };
+                const inferred = resolveAirportTransferIntent({
+                  airportCode:
+                    detectAirportCodeFromPlace(pickupPlace) ||
+                    detectAirportCodeFromPlace(place) ||
+                    d.airportCode ||
+                    null,
+                  fromAirport: detectAirportCodeFromPlace(pickupPlace)
+                    ? true
+                    : detectAirportCodeFromPlace(place)
+                      ? false
+                      : d.fromAirport,
+                  pickupAddress: placeDisplayText(pickupPlace) || d.pickupAddress,
+                  dropoffAddress,
+                });
+                if (inferred && inferred.airportCode !== "LDY") {
+                  next.airportCode = inferred.airportCode;
+                  next.fromAirport = inferred.fromAirport;
+                }
+                return next;
+              });
               clearQuoteOutputs();
               setMissing((m) => m.filter((x) => x !== "dropoffAddress"));
             }}

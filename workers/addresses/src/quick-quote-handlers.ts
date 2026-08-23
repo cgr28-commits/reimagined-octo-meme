@@ -36,6 +36,7 @@ import {
 } from "./quick-quote-store";
 import { resolveWorkerTripRouteMetrics } from "./resolve-route-metrics";
 import { parseClientRouteMetrics } from "./parse-route-metrics";
+import { resolveAirportTransferIntent } from "../shared/airport-transfer-intent";
 
 function json(body: unknown, status: number, origin: string | null): Response {
   return new Response(JSON.stringify(body), {
@@ -69,7 +70,6 @@ function resolveVehicle(
 function parseJourney(
   body: Record<string, unknown>,
 ): (QuickQuoteJourney & { vehicleChoice: QuickQuoteVehicleChoice }) | { error: string } {
-  const airportCode = parseAirport(body.airportCode);
   let returnJourney: boolean;
   if (typeof body.returnJourney === "boolean") {
     returnJourney = body.returnJourney;
@@ -91,7 +91,15 @@ function parseJourney(
   const returnTime = String(body.returnTime ?? "").trim();
   const pickupAddress = String(body.pickupAddress ?? "").trim();
   const dropoffAddress = String(body.dropoffAddress ?? "").trim();
-  const fromAirport = body.fromAirport === true;
+  const inferred = resolveAirportTransferIntent({
+    airportCode: body.airportCode == null ? null : String(body.airportCode),
+    fromAirport: typeof body.fromAirport === "boolean" ? body.fromAirport : null,
+    pickupAddress,
+    dropoffAddress,
+  });
+  const airportCode =
+    parseAirport(inferred?.airportCode) ?? parseAirport(body.airportCode);
+  const fromAirport = inferred?.fromAirport ?? body.fromAirport === true;
   const vehicleChoice = parseQuickQuoteVehicleChoice(
     body.vehicleChoice ?? body.vehiclePreference ?? body.vehicleType,
   );
@@ -158,18 +166,18 @@ async function authoritativeAmount(
   const dropoffLat = Number(body.dropoffLat);
   const dropoffLng = Number(body.dropoffLng);
 
-  // Prefer browser-resolved metrics (public TripMap / Personal Quotes path).
-  let routeMetrics = parseClientRouteMetrics(body.routeMetrics);
+  // Worker resolve first; client metrics are fallback only (same as /quote/calculate).
+  let routeMetrics = await resolveWorkerTripRouteMetrics({
+    pickupAddress: journey.pickupAddress,
+    dropoffAddress: journey.dropoffAddress,
+    pickupLat: Number.isFinite(pickupLat) ? pickupLat : null,
+    pickupLng: Number.isFinite(pickupLng) ? pickupLng : null,
+    dropoffLat: Number.isFinite(dropoffLat) ? dropoffLat : null,
+    dropoffLng: Number.isFinite(dropoffLng) ? dropoffLng : null,
+    googlePlacesApiKey: env.GOOGLE_PLACES_API_KEY,
+  });
   if (!routeMetrics) {
-    routeMetrics = await resolveWorkerTripRouteMetrics({
-      pickupAddress: journey.pickupAddress,
-      dropoffAddress: journey.dropoffAddress,
-      pickupLat: Number.isFinite(pickupLat) ? pickupLat : null,
-      pickupLng: Number.isFinite(pickupLng) ? pickupLng : null,
-      dropoffLat: Number.isFinite(dropoffLat) ? dropoffLat : null,
-      dropoffLng: Number.isFinite(dropoffLng) ? dropoffLng : null,
-      googlePlacesApiKey: env.GOOGLE_PLACES_API_KEY,
-    });
+    routeMetrics = parseClientRouteMetrics(body.routeMetrics);
   }
 
   if (!routeMetrics) {

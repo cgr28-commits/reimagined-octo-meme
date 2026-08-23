@@ -48,6 +48,7 @@
     "check:quick-quote": "npx tsx scripts/check-quick-quote.ts",
     "check:quote-path-fare-parity": "npx tsx scripts/check-quote-path-fare-parity.ts",
     "check:trip-route-fallback": "npx tsx scripts/check-trip-route-fallback.ts",
+    "check:quick-quote-knocknagoney-e2e": "npx tsx scripts/check-quick-quote-knocknagoney-e2e.ts",
     "check:quick-quote-minibus-discount": "npx tsx scripts/check-quick-quote-minibus-discount.ts",
     "check:saved-quote": "npx tsx scripts/check-saved-quote.ts",
     "check:booking-amendment": "npx tsx scripts/check-booking-amendment.ts",

@@ -23,6 +23,8 @@ import type { VehicleType } from "../../../src/lib/data";
 import { ownerAuthorized } from "./driver-auth";
 import { resolveWorkerTripRouteMetrics } from "./resolve-route-metrics";
 import { parseClientRouteMetrics } from "./parse-route-metrics";
+import { resolveAirportTransferIntent } from "../shared/airport-transfer-intent";
+import { drivingMilesFromKm } from "../../../src/lib/quote";
 
 function json(body: unknown, status: number, origin: string | null): Response {
   return new Response(JSON.stringify(body), {
@@ -83,12 +85,6 @@ export async function handleQuoteCalculateRequest(
     return json({ error: "Invalid JSON" }, 400, origin);
   }
 
-  const airportRaw = String(body.airportCode ?? "").trim().toUpperCase();
-  const airportCode =
-    airportRaw === "BFS" || airportRaw === "BHD" || airportRaw === "DUB"
-      ? (airportRaw as QuoteServiceAirportCode)
-      : null;
-
   const pickupLat = Number(body.pickupLat);
   const pickupLng = Number(body.pickupLng);
   const dropoffLat = Number(body.dropoffLat);
@@ -97,19 +93,45 @@ export async function handleQuoteCalculateRequest(
   const pickupAddress = String(body.pickupAddress ?? "");
   const dropoffAddress = String(body.dropoffAddress ?? "");
 
-  // Prefer browser-resolved metrics (same TripMap / Personal Quotes path). The
-  // Worker may not be able to reach OSRM or geocode every premises pick.
-  let routeMetrics = parseClientRouteMetrics(body.routeMetrics);
-  if (!routeMetrics) {
-    routeMetrics = await resolveWorkerTripRouteMetrics({
-      pickupAddress,
-      dropoffAddress,
-      pickupLat: Number.isFinite(pickupLat) ? pickupLat : null,
-      pickupLng: Number.isFinite(pickupLng) ? pickupLng : null,
-      dropoffLat: Number.isFinite(dropoffLat) ? dropoffLat : null,
-      dropoffLng: Number.isFinite(dropoffLng) ? dropoffLng : null,
-      googlePlacesApiKey: env?.GOOGLE_PLACES_API_KEY,
-    });
+  // Infer BFS/BHD/DUB when the UI omitted airportCode (common when the airport
+  // was chosen from address suggestions rather than the Quick Quote chip).
+  // Missing airportCode previously forced point-to-point and skipped the BFS floor.
+  const inferred = resolveAirportTransferIntent({
+    airportCode: body.airportCode == null ? null : String(body.airportCode),
+    fromAirport: typeof body.fromAirport === "boolean" ? body.fromAirport : null,
+    pickupAddress,
+    dropoffAddress,
+  });
+  const airportCode = (inferred?.airportCode ?? null) as QuoteServiceAirportCode | null;
+  const fromAirport = inferred?.fromAirport ?? body.fromAirport === true;
+  const airportCodeSource =
+    String(body.airportCode ?? "").trim() &&
+    ["BFS", "BHD", "DUB", "LDY"].includes(String(body.airportCode).trim().toUpperCase())
+      ? "client"
+      : inferred
+        ? "inferred"
+        : "none";
+
+  // Worker resolve first (geocode + OSRM/haversine). Client metrics are fallback only —
+  // short/wrong browser metrics previously overrode a correct Worker resolve and
+  // produced £55 instead of the BFS floor £65.
+  let routeMetricsSource: "worker" | "client" | "none" = "none";
+  let routeMetrics = await resolveWorkerTripRouteMetrics({
+    pickupAddress,
+    dropoffAddress,
+    pickupLat: Number.isFinite(pickupLat) ? pickupLat : null,
+    pickupLng: Number.isFinite(pickupLng) ? pickupLng : null,
+    dropoffLat: Number.isFinite(dropoffLat) ? dropoffLat : null,
+    dropoffLng: Number.isFinite(dropoffLng) ? dropoffLng : null,
+    googlePlacesApiKey: env?.GOOGLE_PLACES_API_KEY,
+  });
+  if (routeMetrics) {
+    routeMetricsSource = "worker";
+  } else {
+    routeMetrics = parseClientRouteMetrics(body.routeMetrics);
+    if (routeMetrics) {
+      routeMetricsSource = "client";
+    }
   }
 
   if (!routeMetrics) {
@@ -119,6 +141,14 @@ export async function handleQuoteCalculateRequest(
         reason: "no_fare",
         message:
           "We could not measure that route confidently. Confirm both addresses from suggestions and try again.",
+        diagnostics: {
+          pickupAddress,
+          dropoffAddress,
+          airportCode,
+          fromAirport,
+          airportCodeSource,
+          routeMetricsSource,
+        },
       },
       422,
       origin,
@@ -193,7 +223,7 @@ export async function handleQuoteCalculateRequest(
 
   const result = calculateAuthoritativeWebsiteQuote({
     airportCode,
-    fromAirport: body.fromAirport === true,
+    fromAirport,
     pickupAddress,
     dropoffAddress,
     returnJourney,
@@ -208,27 +238,50 @@ export async function handleQuoteCalculateRequest(
     maxPassengers: resolved.maxPassengers,
   });
 
+  const miles = Math.round(drivingMilesFromKm(routeMetrics.distanceKm) * 10) / 10;
+  const diagnostics = {
+    pickupAddress,
+    dropoffAddress,
+    pickupLat: Number.isFinite(pickupLat) ? pickupLat : null,
+    pickupLng: Number.isFinite(pickupLng) ? pickupLng : null,
+    dropoffLat: Number.isFinite(dropoffLat) ? dropoffLat : null,
+    dropoffLng: Number.isFinite(dropoffLng) ? dropoffLng : null,
+    airportCode,
+    fromAirport,
+    airportCodeSource,
+    routeMetricsSource,
+    routeMiles: miles,
+    routeDurationMinutes: Math.round(routeMetrics.durationMinutes * 10) / 10,
+    distanceKm: Math.round(routeMetrics.distanceKm * 100) / 100,
+    workerHost: "reimagined-octo-meme.cgr28.workers.dev",
+  };
+
   console.log(
     JSON.stringify({
       event: "quote_calculate",
       ok: result.ok,
       reason: result.ok ? undefined : result.reason,
       airportCode,
+      fromAirport,
+      airportCodeSource,
+      routeMetricsSource,
       returnJourney,
       ownerMode,
       vehicleChoice: resolved.vehicleChoice,
       amount: result.ok ? result.amount : undefined,
+      miles,
     }),
   );
 
   if (!result.ok) {
-    return json(result, 422, origin);
+    return json({ ...result, diagnostics }, 422, origin);
   }
 
   return json(
     {
       ...result,
       vehicleChoice: resolved.vehicleChoice,
+      diagnostics,
     },
     200,
     origin,

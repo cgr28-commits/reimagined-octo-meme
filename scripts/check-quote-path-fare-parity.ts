@@ -226,6 +226,13 @@ check("Wiring: shared resolver + Quick Quote / Personal / TripMap", () => {
   assert.match(read("src/lib/google-maps.ts"), /fetchWorkerForwardGeocode/);
   assert.match(read("src/lib/trip-route.ts"), /ROAD_DISTANCE_FACTOR/);
   assert.match(read("workers/addresses/src/index.ts"), /forwardGeocode/);
+  assert.match(read("shared/airport-transfer-intent.ts"), /resolveAirportTransferIntent/);
+  assert.match(read("workers/addresses/src/quote-handlers.ts"), /resolveAirportTransferIntent/);
+  assert.match(read("workers/addresses/src/quote-handlers.ts"), /Worker resolve first/);
+  assert.match(
+    read("src/app/quick-quote/QuickQuoteOwnerClient.tsx"),
+    /resolveAirportTransferIntent/,
+  );
   assert.match(
     read("src/components/OwnerPersonalQuotesPanel.tsx"),
     /resolveTripRouteMetricsForAddresses/,
