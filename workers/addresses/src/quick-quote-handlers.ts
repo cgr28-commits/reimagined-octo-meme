@@ -35,6 +35,7 @@ import {
   getQuickQuote,
 } from "./quick-quote-store";
 import { resolveWorkerTripRouteMetrics } from "./resolve-route-metrics";
+import { parseClientRouteMetrics } from "./parse-route-metrics";
 
 function json(body: unknown, status: number, origin: string | null): Response {
   return new Response(JSON.stringify(body), {
@@ -157,18 +158,19 @@ async function authoritativeAmount(
   const dropoffLat = Number(body.dropoffLat);
   const dropoffLng = Number(body.dropoffLng);
 
-  // Same resolution path as public Live Quote / Personal Quotes: known coords →
-  // served-airport catalogue → geocode. Never price an airport journey with
-  // null metrics (that skips applyBelfastAirportDistanceFloor).
-  const routeMetrics = await resolveWorkerTripRouteMetrics({
-    pickupAddress: journey.pickupAddress,
-    dropoffAddress: journey.dropoffAddress,
-    pickupLat: Number.isFinite(pickupLat) ? pickupLat : null,
-    pickupLng: Number.isFinite(pickupLng) ? pickupLng : null,
-    dropoffLat: Number.isFinite(dropoffLat) ? dropoffLat : null,
-    dropoffLng: Number.isFinite(dropoffLng) ? dropoffLng : null,
-    googlePlacesApiKey: env.GOOGLE_PLACES_API_KEY,
-  });
+  // Prefer browser-resolved metrics (public TripMap / Personal Quotes path).
+  let routeMetrics = parseClientRouteMetrics(body.routeMetrics);
+  if (!routeMetrics) {
+    routeMetrics = await resolveWorkerTripRouteMetrics({
+      pickupAddress: journey.pickupAddress,
+      dropoffAddress: journey.dropoffAddress,
+      pickupLat: Number.isFinite(pickupLat) ? pickupLat : null,
+      pickupLng: Number.isFinite(pickupLng) ? pickupLng : null,
+      dropoffLat: Number.isFinite(dropoffLat) ? dropoffLat : null,
+      dropoffLng: Number.isFinite(dropoffLng) ? dropoffLng : null,
+      googlePlacesApiKey: env.GOOGLE_PLACES_API_KEY,
+    });
+  }
 
   if (!routeMetrics) {
     return {

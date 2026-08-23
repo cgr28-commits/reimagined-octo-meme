@@ -22,6 +22,8 @@ import {
   calculateServerQuote,
   createOwnerQuickQuote,
 } from "@/lib/quick-quote-api";
+import { resolveTripRouteMetricsForAddresses } from "@/lib/route-point-resolver";
+import type { TripRouteMetrics } from "@/lib/trip-route";
 import {
   emptySelectedPlace,
   isPlaceSelected,
@@ -135,6 +137,7 @@ export default function QuickQuoteOwnerClient() {
   const [fareLabel, setFareLabel] = useState("");
   const [fareAmount, setFareAmount] = useState<number | null>(null);
   const [calculatedFareAmount, setCalculatedFareAmount] = useState<number | null>(null);
+  const [lastRouteMetrics, setLastRouteMetrics] = useState<TripRouteMetrics | null>(null);
   const [vehicleType, setVehicleType] = useState("");
   const [discountType, setDiscountType] = useState<QuickQuoteDiscountType>("none");
   const [discountValue, setDiscountValue] = useState(0);
@@ -191,6 +194,7 @@ export default function QuickQuoteOwnerClient() {
     setFareAmount(null);
     setFareLabel("");
     setCalculatedFareAmount(null);
+    setLastRouteMetrics(null);
     setVehicleType("");
     setBookingUrl("");
     setWhatsappReply("");
@@ -478,6 +482,33 @@ export default function QuickQuoteOwnerClient() {
     }
     setBusy(true);
     try {
+      // Resolve driving distance in the browser (same path as public TripMap /
+      // Personal Quotes). Worker OSRM/geocode alone is not reliable for every
+      // premises pick, and missing metrics silently skipped the BFS floor.
+      const routeMetrics = await resolveTripRouteMetricsForAddresses(
+        {
+          address: pickupAddress,
+          lat: pickupPlace.lat,
+          lng: pickupPlace.lng,
+        },
+        {
+          address: dropoffAddress,
+          lat: dropoffPlace.lat,
+          lng: dropoffPlace.lng,
+        },
+      );
+      if (!routeMetrics) {
+        setFareAmount(null);
+        setFareLabel("");
+        setCalculatedFareAmount(null);
+        setLastRouteMetrics(null);
+        setError(
+          "We could not measure that route confidently. Confirm both addresses from suggestions and try again.",
+        );
+        return;
+      }
+      setLastRouteMetrics(routeMetrics);
+
       const result = await calculateServerQuote(
         {
           pickupAddress,
@@ -498,6 +529,7 @@ export default function QuickQuoteOwnerClient() {
           pickupLng: pickupPlace.lng ?? undefined,
           dropoffLat: dropoffPlace.lat ?? undefined,
           dropoffLng: dropoffPlace.lng ?? undefined,
+          routeMetrics,
         },
         ownerKey,
       );
@@ -545,6 +577,28 @@ export default function QuickQuoteOwnerClient() {
     );
     setBusy(true);
     try {
+      let routeMetrics = lastRouteMetrics;
+      if (!routeMetrics) {
+        routeMetrics = await resolveTripRouteMetricsForAddresses(
+          {
+            address: pickupAddress,
+            lat: pickupPlace.lat,
+            lng: pickupPlace.lng,
+          },
+          {
+            address: dropoffAddress,
+            lat: dropoffPlace.lat,
+            lng: dropoffPlace.lng,
+          },
+        );
+      }
+      if (!routeMetrics) {
+        setError(
+          "We could not measure that route confidently. Confirm both addresses from suggestions and calculate again.",
+        );
+        return;
+      }
+
       const created = await createOwnerQuickQuote(ownerKey, {
         pickupAddress,
         dropoffAddress,
@@ -567,6 +621,7 @@ export default function QuickQuoteOwnerClient() {
         pickupLng: pickupPlace.lng ?? undefined,
         dropoffLat: dropoffPlace.lat ?? undefined,
         dropoffLng: dropoffPlace.lng ?? undefined,
+        routeMetrics,
       });
       setBookingUrl(created.bookingUrl);
       setWhatsappReply(created.whatsappReply);

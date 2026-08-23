@@ -303,6 +303,8 @@ assert.match(qqClient, /countFieldValue/);
 assert.match(qqClient, /quote-text-input/);
 assert.match(qqClient, /calculateServerQuote/);
 assert.match(qqClient, /pickupLat/);
+assert.match(qqClient, /resolveTripRouteMetricsForAddresses/);
+assert.match(qqClient, /routeMetrics/);
 // Prefer 16px+ form text — text-sm inputs zoom/pan Safari sideways on iPhone.
 assert.doesNotMatch(qqClient, /className="[^"]*text-sm[^"]*min-h-11[^"]*w-full[^"]*rounded-xl border border-white\/15 bg-navy/);
 assert.match(qqClient, /countFieldValue\(parsed\.passengers\.value\)/);

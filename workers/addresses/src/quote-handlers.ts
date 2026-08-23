@@ -22,6 +22,7 @@ import {
 import type { VehicleType } from "../../../src/lib/data";
 import { ownerAuthorized } from "./driver-auth";
 import { resolveWorkerTripRouteMetrics } from "./resolve-route-metrics";
+import { parseClientRouteMetrics } from "./parse-route-metrics";
 
 function json(body: unknown, status: number, origin: string | null): Response {
   return new Response(JSON.stringify(body), {
@@ -96,15 +97,20 @@ export async function handleQuoteCalculateRequest(
   const pickupAddress = String(body.pickupAddress ?? "");
   const dropoffAddress = String(body.dropoffAddress ?? "");
 
-  const routeMetrics = await resolveWorkerTripRouteMetrics({
-    pickupAddress,
-    dropoffAddress,
-    pickupLat: Number.isFinite(pickupLat) ? pickupLat : null,
-    pickupLng: Number.isFinite(pickupLng) ? pickupLng : null,
-    dropoffLat: Number.isFinite(dropoffLat) ? dropoffLat : null,
-    dropoffLng: Number.isFinite(dropoffLng) ? dropoffLng : null,
-    googlePlacesApiKey: env?.GOOGLE_PLACES_API_KEY,
-  });
+  // Prefer browser-resolved metrics (same TripMap / Personal Quotes path). The
+  // Worker may not be able to reach OSRM or geocode every premises pick.
+  let routeMetrics = parseClientRouteMetrics(body.routeMetrics);
+  if (!routeMetrics) {
+    routeMetrics = await resolveWorkerTripRouteMetrics({
+      pickupAddress,
+      dropoffAddress,
+      pickupLat: Number.isFinite(pickupLat) ? pickupLat : null,
+      pickupLng: Number.isFinite(pickupLng) ? pickupLng : null,
+      dropoffLat: Number.isFinite(dropoffLat) ? dropoffLat : null,
+      dropoffLng: Number.isFinite(dropoffLng) ? dropoffLng : null,
+      googlePlacesApiKey: env?.GOOGLE_PLACES_API_KEY,
+    });
+  }
 
   if (!routeMetrics) {
     return json(
