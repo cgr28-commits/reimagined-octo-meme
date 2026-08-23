@@ -418,6 +418,9 @@ function QuoteCard({
   const step2TravelDetailsRef = useRef<HTMLDivElement>(null);
   const step3CustomerDetailsRef = useRef<HTMLDivElement>(null);
   const step3PaymentActionsRef = useRef<HTMLDivElement>(null);
+  const shortNoticeResultRef = useRef<HTMLDivElement>(null);
+  /** Scroll once when availability-confirmation result first appears (not on re-renders). */
+  const pendingShortNoticeScrollRef = useRef(false);
   /** Set only by explicit Book Now / Continue / Back — never by quote re-renders. */
   const pendingQuoteStepNavScrollRef = useRef<QuoteStepNavTarget | null>(null);
   const passengerLimit = Math.min(
@@ -1886,6 +1889,7 @@ function QuoteCard({
       });
 
       if (checkout.shortNotice && checkout.reference && checkout.whatsappUrl) {
+        pendingShortNoticeScrollRef.current = true;
         setShortNoticeResult({
           reference: checkout.reference,
           whatsappUrl: checkout.whatsappUrl,
@@ -2378,6 +2382,19 @@ function QuoteCard({
     });
   }, [quoteStep]);
 
+  // Availability-confirmation result: scroll once to the confirmation card
+  // (header-aware), not the previous page position / Airports We Serve.
+  useEffect(() => {
+    if (!shortNoticeResult || !pendingShortNoticeScrollRef.current) {
+      return;
+    }
+    pendingShortNoticeScrollRef.current = false;
+    return scheduleBookingNavAfterRender(
+      shortNoticeResultRef.current ?? "quote-availability-confirmation",
+      { focusHeading: true },
+    );
+  }, [shortNoticeResult]);
+
   // When the complete results first become ready, scroll once to Your Route.
   // Do not re-scroll when route/vehicle/price fields update individually.
   const hadQuoteResultsReadyRef = useRef(false);
@@ -2821,12 +2838,19 @@ function QuoteCard({
   if (shortNoticeResult) {
     return (
       <div
-        ref={cardRef}
-        id="quoteResult"
-        className="glass-card min-w-0 rounded-2xl p-6 sm:p-8"
+        ref={(node) => {
+          cardRef.current = node;
+          shortNoticeResultRef.current = node;
+        }}
+        id="quote-availability-confirmation"
+        className="glass-card min-w-0 scroll-mt-44 rounded-2xl p-6 sm:p-8"
       >
         <div className="rounded-xl border border-amber-400/30 bg-navy-dark/50 px-5 py-8 text-center sm:px-8 sm:py-10">
-          <p className="text-xs font-medium uppercase tracking-wider text-amber-200">
+          <p
+            data-booking-nav-heading
+            tabIndex={-1}
+            className="text-xs font-medium uppercase tracking-wider text-amber-200 outline-none"
+          >
             Booking requires availability confirmation
           </p>
           <h2 className="mt-2 text-2xl font-semibold tracking-tight text-white sm:text-3xl">

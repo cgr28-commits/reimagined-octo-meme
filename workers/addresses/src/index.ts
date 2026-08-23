@@ -114,6 +114,7 @@ import {
   handleOwnerDeclineShortNotice,
   handleOwnerGetBookingSettings,
   handleOwnerListShortNotice,
+  handleOwnerResendPaymentEmail,
   handleOwnerSaveBookingSettings,
   isOwnerBookingSettingsPath,
   isOwnerShortNoticePath,
@@ -2576,6 +2577,26 @@ export default {
           return json({ error: "Invalid JSON" }, 400, origin);
         }
         const result = await handleOwnerDeclineShortNotice(request, snEnv, body);
+        if ("error" in result) return json({ error: result.error }, result.status, origin);
+        return json(result, 200, origin);
+      }
+      if (
+        (url.pathname.endsWith("/resend-payment-email") ||
+          url.pathname.includes("/resend-payment-email")) &&
+        request.method === "POST"
+      ) {
+        let body: Record<string, unknown>;
+        try {
+          body = await request.json();
+        } catch {
+          return json({ error: "Invalid JSON" }, 400, origin);
+        }
+        const result = await handleOwnerResendPaymentEmail(
+          request,
+          snEnv,
+          body,
+          BUSINESS_WEBSITE,
+        );
         if ("error" in result) return json({ error: result.error }, result.status, origin);
         return json(result, 200, origin);
       }

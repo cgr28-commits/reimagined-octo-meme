@@ -26,7 +26,8 @@ export type BookingNavTargetId =
   | "quote-results-summary"
   | "quote-price-summary"
   | "quote-step1-next"
-  | "quote-step2-next";
+  | "quote-step2-next"
+  | "quote-availability-confirmation";
 
 export type QuoteStepNavTarget = 1 | 2 | 3;
 

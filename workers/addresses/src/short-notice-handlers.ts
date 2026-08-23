@@ -16,6 +16,10 @@ import {
   type ShortNoticeBookingRecord,
 } from "../shared/short-notice-booking";
 import {
+  buildShortNoticePaymentLinkEmail,
+  isValidCustomerEmail,
+} from "../shared/short-notice-payment-email";
+import {
   addUnavailablePeriod,
   bookingSettingsPublicView,
   deleteUnavailablePeriod,
@@ -31,12 +35,17 @@ import {
   saveShortNoticeBooking,
 } from "./short-notice-store";
 import { ownerAuthorized, type DriverAuthEnv } from "./driver-auth";
+import {
+  trySendBrandedCustomerEmail,
+  type WorkerEmailEnv,
+} from "./worker-email";
 
-export type ShortNoticeEnv = DriverAuthEnv & {
-  TRACKING_STORE: KVNamespace;
-  SUMUP_API_KEY?: string;
-  SUMUP_MERCHANT_CODE?: string;
-};
+export type ShortNoticeEnv = DriverAuthEnv &
+  WorkerEmailEnv & {
+    TRACKING_STORE: KVNamespace;
+    SUMUP_API_KEY?: string;
+    SUMUP_MERCHANT_CODE?: string;
+  };
 
 const WHATSAPP_DIGITS = "447549815538";
 
@@ -58,6 +67,71 @@ function buildOwnerWhatsAppPayUrl(record: ShortNoticeBookingRecord, payUrl: stri
   const mobile = record.booking.mobileNumber.replace(/\D/g, "").replace(/^0/, "44");
   return mobile ? `https://wa.me/${mobile}?text=${text}` : `https://wa.me/?text=${text}`;
 }
+
+export function buildShortNoticePayUrl(siteOrigin: string, paymentToken: string): string {
+  return `${siteOrigin.replace(/\/$/, "")}/pay/short-notice/?token=${encodeURIComponent(paymentToken)}`;
+}
+
+/**
+ * Auto-send eligibility: approved, unpaid, not cancelled/refunded/expired,
+ * valid email, and not already emailed for this exact pay URL.
+ * Owner Dashboard reload / list must never call this — only approve (and
+ * intentional resend, which bypasses the sent-at guard).
+ */
+export function shouldAutoSendPaymentLinkEmail(
+  record: ShortNoticeBookingRecord,
+  payUrl: string,
+  now = new Date(),
+): boolean {
+  if (
+    record.status === "SHORT_NOTICE_DECLINED" ||
+    record.status === "SHORT_NOTICE_EXPIRED" ||
+    record.status === "SHORT_NOTICE_PAID" ||
+    record.status === "SHORT_NOTICE_AWAITING_APPROVAL"
+  ) {
+    return false;
+  }
+  if (record.status !== "SHORT_NOTICE_APPROVED") return false;
+  if (!isShortNoticePayable(record, now)) return false;
+  if (record.paymentReference || record.paidAt) return false;
+  if (!isValidCustomerEmail(record.booking.customerEmail)) return false;
+  if (!payUrl.trim()) return false;
+  const sentFor = record.paymentLinkEmailPayUrl?.trim() ?? "";
+  if (record.paymentLinkEmailSentAt && sentFor === payUrl.trim()) {
+    return false;
+  }
+  return true;
+}
+
+async function sendPaymentLinkEmail(
+  env: ShortNoticeEnv,
+  record: ShortNoticeBookingRecord,
+  payUrl: string,
+): Promise<{ sent: boolean; error?: string }> {
+  if (!isValidCustomerEmail(record.booking.customerEmail)) {
+    return { sent: false, error: "Customer email is missing or invalid." };
+  }
+  const email = buildShortNoticePaymentLinkEmail({
+    customerName: record.booking.customerName,
+    customerEmail: record.booking.customerEmail.trim(),
+    pickupLabel: record.booking.pickupLabel,
+    dropoffLabel: record.booking.dropoffLabel,
+    tripDate: record.booking.tripDate,
+    tripTime: record.booking.tripTime,
+    amountLabel: formatAmountLabel(record.approvedAmount ?? record.amount),
+    reference: record.reference,
+    payUrl,
+  });
+  const result = await trySendBrandedCustomerEmail(env, {
+    to: record.booking.customerEmail.trim(),
+    toName: record.booking.customerName,
+    subject: email.subject,
+    body: email.text,
+    htmlBody: email.html,
+  });
+  return { sent: result.sent, error: result.error };
+}
+
 
 export function publicShortNoticeSummary(record: ShortNoticeBookingRecord) {
   return {
@@ -191,6 +265,8 @@ export async function handleOwnerApproveShortNotice(
       record: ShortNoticeBookingRecord;
       payUrl: string;
       whatsappPayUrl: string;
+      paymentEmailSent: boolean;
+      paymentEmailError?: string;
     }
   | { error: string; status: number }
 > {
@@ -243,21 +319,116 @@ export async function handleOwnerApproveShortNotice(
   const record: ShortNoticeBookingRecord = {
     ...existing,
     status: "SHORT_NOTICE_APPROVED",
-    approvedAt,
+    approvedAt: existing.approvedAt ?? approvedAt,
     approvedBy: "Owner",
     approvedAmount,
     approvedFingerprint,
     paymentExpiresAt,
     updatedAt: approvedAt,
   };
+
+  const payUrl = buildShortNoticePayUrl(siteOrigin, record.paymentToken);
+  let nextRecord = record;
+  let paymentEmailSent = false;
+  let paymentEmailError: string | undefined;
+
+  if (shouldAutoSendPaymentLinkEmail(record, payUrl, now)) {
+    const send = await sendPaymentLinkEmail(env, record, payUrl);
+    paymentEmailSent = send.sent;
+    paymentEmailError = send.error;
+    if (send.sent) {
+      nextRecord = {
+        ...record,
+        paymentLinkEmailSentAt: approvedAt,
+        paymentLinkEmailPayUrl: payUrl,
+        updatedAt: approvedAt,
+      };
+    }
+  }
+
+  await saveShortNoticeBooking(env.TRACKING_STORE, nextRecord);
+
+  return {
+    ok: true,
+    record: nextRecord,
+    payUrl,
+    whatsappPayUrl: buildOwnerWhatsAppPayUrl(nextRecord, payUrl),
+    paymentEmailSent,
+    ...(paymentEmailError ? { paymentEmailError } : {}),
+  };
+}
+
+/**
+ * Owner-only: intentionally resend the existing secure payment-link email.
+ * Does not create a new booking, payment, amount change, or SumUp checkout.
+ */
+export async function handleOwnerResendPaymentEmail(
+  request: Request,
+  env: ShortNoticeEnv,
+  body: Record<string, unknown>,
+  siteOrigin: string,
+): Promise<
+  | {
+      ok: true;
+      record: ShortNoticeBookingRecord;
+      payUrl: string;
+      paymentEmailSent: true;
+    }
+  | { error: string; status: number }
+> {
+  if (!ownerAuthorized(request, env)) {
+    return { error: "Unauthorized — owner access required.", status: 401 };
+  }
+  const reference = String(body.reference ?? "").trim();
+  if (!reference) return { error: "Missing booking reference.", status: 400 };
+
+  const existing = await getShortNoticeByReference(env.TRACKING_STORE, reference);
+  if (!existing) return { error: "Short-notice booking not found.", status: 404 };
+
+  if (existing.status === "SHORT_NOTICE_PAID" || existing.paymentReference || existing.paidAt) {
+    return { error: "Booking is already paid.", status: 409 };
+  }
+  if (
+    existing.status === "SHORT_NOTICE_DECLINED" ||
+    existing.status === "SHORT_NOTICE_EXPIRED"
+  ) {
+    return { error: "Booking is no longer awaiting payment.", status: 409 };
+  }
+  if (existing.status !== "SHORT_NOTICE_APPROVED") {
+    return { error: "Booking must be approved and awaiting payment first.", status: 409 };
+  }
+  if (!existing.paymentToken) {
+    return { error: "Secure payment link is not available yet.", status: 409 };
+  }
+  if (!isValidCustomerEmail(existing.booking.customerEmail)) {
+    return { error: "Customer email is missing or invalid.", status: 400 };
+  }
+
+  const now = new Date();
+  if (!isShortNoticePayable(existing, now)) {
+    return { error: "This payment link has expired.", status: 409 };
+  }
+
+  const payUrl = buildShortNoticePayUrl(siteOrigin, existing.paymentToken);
+  const send = await sendPaymentLinkEmail(env, existing, payUrl);
+  if (!send.sent) {
+    return { error: send.error || "Could not send payment email.", status: 502 };
+  }
+
+  const sentAt = now.toISOString();
+  const record: ShortNoticeBookingRecord = {
+    ...existing,
+    paymentLinkEmailSentAt: sentAt,
+    paymentLinkEmailPayUrl: payUrl,
+    updatedAt: sentAt,
+  };
   await saveShortNoticeBooking(env.TRACKING_STORE, record);
 
-  const payUrl = `${siteOrigin.replace(/\/$/, "")}/pay/short-notice/?token=${encodeURIComponent(record.paymentToken)}`;
   return {
     ok: true,
     record,
     payUrl,
-    whatsappPayUrl: buildOwnerWhatsAppPayUrl(record, payUrl),
+    paymentEmailSent: true,
   };
 }
 
@@ -463,7 +634,9 @@ export function isOwnerShortNoticePath(pathname: string): boolean {
     pathname === "/owner/short-notice/approve" ||
     pathname === "/api/owner/short-notice/approve" ||
     pathname === "/owner/short-notice/decline" ||
-    pathname === "/api/owner/short-notice/decline"
+    pathname === "/api/owner/short-notice/decline" ||
+    pathname === "/owner/short-notice/resend-payment-email" ||
+    pathname === "/api/owner/short-notice/resend-payment-email"
   );
 }
 

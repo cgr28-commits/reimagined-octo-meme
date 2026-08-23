@@ -107,6 +107,37 @@ check("Fleet / Saloon / Estate / Minibus remain public", () => {
   assert.match(card, /vehicleShortLabel/);
 });
 
+check("Blocked availability result scrolls to confirmation card on mobile", () => {
+  assert.match(helper, /quote-availability-confirmation/);
+  assert.match(card, /id="quote-availability-confirmation"/);
+  assert.match(card, /shortNoticeResultRef/);
+  assert.match(card, /pendingShortNoticeScrollRef/);
+  assert.match(
+    card,
+    /pendingShortNoticeScrollRef\.current = true;\s*setShortNoticeResult/,
+  );
+  assert.match(
+    card,
+    /pendingShortNoticeScrollRef\.current = false;[\s\S]*scheduleBookingNavAfterRender\(\s*shortNoticeResultRef\.current \?\? "quote-availability-confirmation"/,
+  );
+  assert.match(
+    card,
+    /useEffect\(\(\) => \{[\s\S]*if \(!shortNoticeResult \|\| !pendingShortNoticeScrollRef\.current\)[\s\S]*\}, \[shortNoticeResult\]\)/,
+  );
+  assert.match(card, /Booking requires availability confirmation/);
+  assert.match(card, /Message us on WhatsApp/);
+  assert.match(card, /scroll-mt-44/);
+  // Scroll runs only when the pending flag is set for the blocked result
+  assert.match(
+    card,
+    /if \(!shortNoticeResult \|\| !pendingShortNoticeScrollRef\.current\) \{\s*return;/,
+  );
+  // Header-aware clearance works at 320 / 375 / 390 / 430px (not viewport-hardcoded)
+  assert.match(helper, /HEADER_CLEARANCE_PX/);
+  assert.match(helper, /getHeaderBottomPx/);
+  assert.match(helper, /computeScrollTopBelowHeader/);
+});
+
 check("Validation focuses invalid fields", () => {
   assert.match(card, /focusFirstInvalidField/);
   assert.match(card, /aria-invalid=\{Boolean\(tripDateError\)\}/);

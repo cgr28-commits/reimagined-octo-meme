@@ -18,6 +18,8 @@ export type ShortNoticeBookingSummary = {
   approvedAmount?: number;
   paymentExpiresAt?: string;
   declinedAt?: string;
+  paymentLinkEmailSentAt?: string;
+  paymentLinkEmailPayUrl?: string;
   booking: {
     customerName: string;
     customerEmail: string;
@@ -110,6 +112,8 @@ export async function approveShortNoticeBooking(
   record: ShortNoticeBookingSummary;
   payUrl: string;
   whatsappPayUrl: string;
+  paymentEmailSent: boolean;
+  paymentEmailError?: string;
 }> {
   const response = await fetch(`${WORKER_BASE}/owner/short-notice/approve`, {
     method: "POST",
@@ -128,6 +132,38 @@ export async function approveShortNoticeBooking(
     record: payload.record as ShortNoticeBookingSummary,
     payUrl: String(payload.payUrl ?? ""),
     whatsappPayUrl: String(payload.whatsappPayUrl ?? ""),
+    paymentEmailSent: payload.paymentEmailSent === true,
+    ...(typeof payload.paymentEmailError === "string"
+      ? { paymentEmailError: payload.paymentEmailError }
+      : {}),
+  };
+}
+
+export async function resendShortNoticePaymentEmail(
+  ownerKey: string,
+  reference: string,
+): Promise<{
+  record: ShortNoticeBookingSummary;
+  payUrl: string;
+  paymentEmailSent: true;
+}> {
+  const response = await fetch(`${WORKER_BASE}/owner/short-notice/resend-payment-email`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      "X-Owner-Key": ownerKey.trim(),
+    },
+    body: JSON.stringify({ reference }),
+  });
+  const payload = await parseJson(response);
+  if (!response.ok) {
+    throw new Error(String(payload.error || "Could not resend payment email"));
+  }
+  return {
+    record: payload.record as ShortNoticeBookingSummary,
+    payUrl: String(payload.payUrl ?? ""),
+    paymentEmailSent: true,
   };
 }
 
