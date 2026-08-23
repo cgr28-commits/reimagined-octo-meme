@@ -28,7 +28,7 @@ import {
   type QuoteServiceAirportCode,
   type QuoteServiceResult,
 } from "../../../src/lib/quote-service";
-import { fetchTripRouteMetrics } from "../../../src/lib/trip-route";
+import { resolveWorkerTripRouteMetrics } from "./resolve-route-metrics";
 import {
   clearSavedQuoteReminderClaim,
   createSavedQuote,
@@ -44,6 +44,7 @@ import { trySendBrandedCustomerEmail, type WorkerEmailEnv } from "./worker-email
 export type SavedQuoteEnv = WorkerEmailEnv & {
   TRACKING_STORE: KVNamespace;
   SITE_ORIGIN?: string;
+  GOOGLE_PLACES_API_KEY?: string;
 };
 
 const DEFAULT_SITE_ORIGIN = "https://www.myairporttaxini.co.uk";
@@ -163,6 +164,7 @@ export async function buildAuthoritativeSavedQuotePricing(input: {
   /** Optional client amount for audit/mismatch logging only. */
   clientSubmittedAmount?: number;
   clientPricingMeta?: Record<string, unknown>;
+  googlePlacesApiKey?: string;
 }): Promise<
   | { ok: true; pricing: SavedQuotePricingSnapshot; quote: Extract<QuoteServiceResult, { ok: true }> }
   | { ok: false; message: string; reason: string }
@@ -171,24 +173,15 @@ export async function buildAuthoritativeSavedQuotePricing(input: {
   const airportCode = parseAirportCode(journey.airportCode);
   const isAirportTrip = Boolean(airportCode || journey.isAirportTrip);
 
-  let routeMetrics = null as Awaited<ReturnType<typeof fetchTripRouteMetrics>>;
-  if (
-    typeof journey.pickupLat === "number" &&
-    typeof journey.pickupLng === "number" &&
-    typeof journey.dropoffLat === "number" &&
-    typeof journey.dropoffLng === "number" &&
-    Number.isFinite(journey.pickupLat) &&
-    Number.isFinite(journey.pickupLng) &&
-    Number.isFinite(journey.dropoffLat) &&
-    Number.isFinite(journey.dropoffLng)
-  ) {
-    routeMetrics = await fetchTripRouteMetrics(
-      journey.pickupLat,
-      journey.pickupLng,
-      journey.dropoffLat,
-      journey.dropoffLng,
-    );
-  }
+  const routeMetrics = await resolveWorkerTripRouteMetrics({
+    pickupAddress: journey.pickupLabel,
+    dropoffAddress: journey.dropoffLabel,
+    pickupLat: journey.pickupLat,
+    pickupLng: journey.pickupLng,
+    dropoffLat: journey.dropoffLat,
+    dropoffLng: journey.dropoffLng,
+    googlePlacesApiKey: input.googlePlacesApiKey,
+  });
 
   const quote = calculateAuthoritativeWebsiteQuote({
     airportCode: isAirportTrip ? airportCode : null,
@@ -289,6 +282,7 @@ export async function handleCreateSavedQuote(
     journey: journeyBase,
     clientSubmittedAmount: clientPrice.amount,
     clientPricingMeta: clientPrice.meta,
+    googlePlacesApiKey: env.GOOGLE_PLACES_API_KEY,
   });
   if (!priced.ok) {
     return jsonResponse(

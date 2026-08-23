@@ -1529,6 +1529,7 @@ async function handlePaymentRequest(
           returnDate: booking.returnDate || sj.returnDate,
           returnTime: booking.returnTime || sj.returnTime,
         },
+        googlePlacesApiKey: env.GOOGLE_PLACES_API_KEY,
       });
       if (!priced.ok) {
         return json({ error: priced.message }, 422, origin);
@@ -2354,6 +2355,7 @@ export default {
           returnTime,
         },
         clientSubmittedAmount: Number(body.clientAmount) || undefined,
+        googlePlacesApiKey: env.GOOGLE_PLACES_API_KEY,
       });
       if (!priced.ok) {
         return json({ error: priced.message, reason: priced.reason }, 422, origin);

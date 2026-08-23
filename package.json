@@ -46,6 +46,7 @@
     "check:driver-profile-persist": "npx tsx scripts/check-driver-profile-persist.ts",
     "check:owner-profile-persist": "npx tsx scripts/check-owner-profile-persist.ts",
     "check:quick-quote": "npx tsx scripts/check-quick-quote.ts",
+    "check:quote-path-fare-parity": "npx tsx scripts/check-quote-path-fare-parity.ts",
     "check:quick-quote-minibus-discount": "npx tsx scripts/check-quick-quote-minibus-discount.ts",
     "check:saved-quote": "npx tsx scripts/check-saved-quote.ts",
     "check:booking-amendment": "npx tsx scripts/check-booking-amendment.ts",

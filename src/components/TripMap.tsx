@@ -3,7 +3,8 @@
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useState } from "react";
 import { AIRPORTS } from "@/lib/data";
-import { geocodePickupAddress, isGooglePlacesEnabled } from "@/lib/google-maps";
+import { isGooglePlacesEnabled } from "@/lib/google-maps";
+import { resolveRoutePoint } from "@/lib/route-point-resolver";
 import {
   fetchTripRouteMetrics,
   formatJourneyDistance,
@@ -80,7 +81,9 @@ async function resolveMapPoint(
     };
   }
 
-  const location = await geocodePickupAddress(trimmed);
+  // Shared resolver: recognises served airports by text, then falls back to
+  // geocoding — same resolution Quick Quote / Personal Quotes use.
+  const location = await resolveRoutePoint(trimmed);
   if (!location) {
     return null;
   }

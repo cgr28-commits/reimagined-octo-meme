@@ -94,6 +94,8 @@ check("Excessive percent discount capped at 100%", () => {
   assert.equal(result.customerFare, 0);
 });
 
+const cityBfsMetrics = { distanceKm: 14 / 0.621371, durationMinutes: 25 };
+
 check("Return engine discount stays inside calculated fare; manual discount is separate", () => {
   const oneWay = calculateAuthoritativeWebsiteQuote({
     airportCode: "BFS",
@@ -105,6 +107,7 @@ check("Return engine discount stays inside calculated fare; manual discount is s
     outboundTime: "10:00",
     passengers: 2,
     suitcases: 2,
+    routeMetrics: cityBfsMetrics,
   });
   assert.equal(oneWay.ok, true);
   if (!oneWay.ok) return;
@@ -121,6 +124,7 @@ check("Return engine discount stays inside calculated fare; manual discount is s
     returnTime: "18:00",
     passengers: 2,
     suitcases: 2,
+    routeMetrics: cityBfsMetrics,
   });
   assert.equal(ret.ok, true);
   if (!ret.ok) return;
@@ -152,6 +156,7 @@ check("Minibus uses existing central multiplier (forced vehicle, low pax)", () =
     outboundTime: "10:00",
     passengers: 2,
     suitcases: 2,
+    routeMetrics: cityBfsMetrics,
   });
   const minibus = calculateAuthoritativeWebsiteQuote({
     airportCode: "BFS",
@@ -165,6 +170,7 @@ check("Minibus uses existing central multiplier (forced vehicle, low pax)", () =
     suitcases: 2,
     vehicleType: MINIBUS_VEHICLE,
     maxPassengers: 7,
+    routeMetrics: cityBfsMetrics,
   });
   assert.equal(saloon.ok, true);
   assert.equal(minibus.ok, true);
@@ -186,6 +192,7 @@ check("Minibus allows 5–7 passengers when maxPassengers raised", () => {
     outboundTime: "10:00",
     passengers: 6,
     suitcases: 2,
+    routeMetrics: cityBfsMetrics,
   });
   assert.equal(blocked.ok, false);
 
@@ -201,6 +208,7 @@ check("Minibus allows 5–7 passengers when maxPassengers raised", () => {
     suitcases: 2,
     vehicleType: MINIBUS_VEHICLE,
     maxPassengers: 7,
+    routeMetrics: cityBfsMetrics,
   });
   assert.equal(allowed.ok, true);
   if (allowed.ok) {

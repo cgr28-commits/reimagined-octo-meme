@@ -206,6 +206,7 @@ const sparse = parseQuickQuoteMessage("Hi can I get a price please");
 assert.ok(sparse.missingMandatoryForQuote.length >= 3);
 
 console.log("=== Authoritative quote matches website engine ===");
+const cityBfsMetrics = { distanceKm: 14 / 0.621371, durationMinutes: 25 };
 const quote = calculateAuthoritativeWebsiteQuote({
   airportCode: "BFS",
   fromAirport: false,
@@ -216,6 +217,7 @@ const quote = calculateAuthoritativeWebsiteQuote({
   outboundTime: "10:00",
   passengers: 2,
   suitcases: 2,
+  routeMetrics: cityBfsMetrics,
 });
 assert.equal(quote.ok, true);
 if (quote.ok) {
@@ -225,6 +227,7 @@ if (quote.ok) {
     quote.vehicleType,
     false,
     { outboundDate: "2026-08-20", outboundTime: "10:00" },
+    cityBfsMetrics,
   );
   assert.ok(direct);
   assert.equal(quote.amount, direct!.amount);
@@ -242,6 +245,7 @@ const returnQuote = calculateAuthoritativeWebsiteQuote({
   returnTime: "18:00",
   passengers: 2,
   suitcases: 2,
+  routeMetrics: cityBfsMetrics,
 });
 assert.equal(returnQuote.ok, true);
 if (returnQuote.ok) {
@@ -258,6 +262,7 @@ const tooMany = calculateAuthoritativeWebsiteQuote({
   outboundTime: "10:00",
   passengers: 5,
   suitcases: 2,
+  routeMetrics: cityBfsMetrics,
 });
 assert.equal(tooMany.ok, false);
 

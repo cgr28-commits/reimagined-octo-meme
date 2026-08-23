@@ -15,13 +15,13 @@ import {
 } from "../shared/quick-quote";
 import { calculateAuthoritativeWebsiteQuote } from "../../../src/lib/quote-service";
 import type { QuoteServiceAirportCode } from "../../../src/lib/quote-service";
-import { fetchTripRouteMetrics } from "../../../src/lib/trip-route";
 import {
   MINIBUS_VEHICLE,
   selectVehicleForParty,
 } from "../../../src/lib/vehicle-selection";
 import type { VehicleType } from "../../../src/lib/data";
 import { ownerAuthorized } from "./driver-auth";
+import { resolveWorkerTripRouteMetrics } from "./resolve-route-metrics";
 
 function json(body: unknown, status: number, origin: string | null): Response {
   return new Response(JSON.stringify(body), {
@@ -62,7 +62,11 @@ function resolveVehicleType(
 export async function handleQuoteCalculateRequest(
   request: Request,
   origin: string | null,
-  env?: { OWNER_ACCESS_KEY?: string; DRIVER_ACCESS_KEY?: string },
+  env?: {
+    OWNER_ACCESS_KEY?: string;
+    DRIVER_ACCESS_KEY?: string;
+    GOOGLE_PLACES_API_KEY?: string;
+  },
 ): Promise<Response> {
   if (request.method === "OPTIONS") {
     return new Response(null, { status: 204, headers: corsHeaders(origin) });
@@ -89,14 +93,30 @@ export async function handleQuoteCalculateRequest(
   const dropoffLat = Number(body.dropoffLat);
   const dropoffLng = Number(body.dropoffLng);
 
-  let routeMetrics = null;
-  if (
-    Number.isFinite(pickupLat) &&
-    Number.isFinite(pickupLng) &&
-    Number.isFinite(dropoffLat) &&
-    Number.isFinite(dropoffLng)
-  ) {
-    routeMetrics = await fetchTripRouteMetrics(pickupLat, pickupLng, dropoffLat, dropoffLng);
+  const pickupAddress = String(body.pickupAddress ?? "");
+  const dropoffAddress = String(body.dropoffAddress ?? "");
+
+  const routeMetrics = await resolveWorkerTripRouteMetrics({
+    pickupAddress,
+    dropoffAddress,
+    pickupLat: Number.isFinite(pickupLat) ? pickupLat : null,
+    pickupLng: Number.isFinite(pickupLng) ? pickupLng : null,
+    dropoffLat: Number.isFinite(dropoffLat) ? dropoffLat : null,
+    dropoffLng: Number.isFinite(dropoffLng) ? dropoffLng : null,
+    googlePlacesApiKey: env?.GOOGLE_PLACES_API_KEY,
+  });
+
+  if (!routeMetrics) {
+    return json(
+      {
+        ok: false,
+        reason: "no_fare",
+        message:
+          "We could not measure that route confidently. Confirm both addresses from suggestions and try again.",
+      },
+      422,
+      origin,
+    );
   }
 
   // Require explicit One Way / Return — never treat a missing field as One Way.
@@ -168,8 +188,8 @@ export async function handleQuoteCalculateRequest(
   const result = calculateAuthoritativeWebsiteQuote({
     airportCode,
     fromAirport: body.fromAirport === true,
-    pickupAddress: String(body.pickupAddress ?? ""),
-    dropoffAddress: String(body.dropoffAddress ?? ""),
+    pickupAddress,
+    dropoffAddress,
     returnJourney,
     outboundDate: String(body.outboundDate ?? ""),
     outboundTime: String(body.outboundTime ?? ""),

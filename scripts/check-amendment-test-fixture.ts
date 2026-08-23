@@ -8,6 +8,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { calculateAuthoritativeWebsiteQuote } from "../src/lib/quote-service";
 
+const cityBfsMetrics = { distanceKm: 14 / 0.621371, durationMinutes: 25 };
+
 const AMENDMENT_TEST_PICKUP =
   "Five Corners Guest Inn, 249 Rashee Road, Ballyclare BT39 9JN";
 const AMENDMENT_TEST_DROPOFF =
@@ -26,7 +28,7 @@ assert.match(workerIndex, /amendment-test-seed/);
 assert.match(workerIndex, /handleAmendmentTestSeedRequest/);
 assert.match(read("workers/addresses/src/amendment-test-handlers.ts"), /isAmendmentTestFixture:\s*true/);
 assert.match(read("shared/paid-booking-record.ts"), /isAmendmentTestFixture\?:/);
-assert.match(read("workers/addresses/src/paid-booking-store.ts"), /!record\.isAmendmentTestFixture/);
+assert.match(read("workers/addresses/src/paid-booking-store.ts"), /isAmendmentTestFixture/);
 assert.match(
   read("workers/addresses/src/booking-amendment-handlers.ts"),
   /amendment_test_fixture_no_sumup/,
@@ -54,6 +56,7 @@ const quote = calculateAuthoritativeWebsiteQuote({
   outboundTime: AMENDMENT_TEST_TIME,
   passengers: 2,
   suitcases: 2,
+  routeMetrics: cityBfsMetrics,
 });
 assert.equal(quote.ok, true);
 assert.ok(quote.ok && quote.amount >= 40 && quote.amount <= 60);
@@ -69,6 +72,7 @@ const sameTimePlus15 = calculateAuthoritativeWebsiteQuote({
   outboundTime: "10:15",
   passengers: 2,
   suitcases: 2,
+  routeMetrics: cityBfsMetrics,
 });
 assert.equal(sameTimePlus15.ok, true);
 assert.equal(

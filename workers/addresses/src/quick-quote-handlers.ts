@@ -23,7 +23,6 @@ import {
   type QuickQuoteVehicleChoice,
 } from "../shared/quick-quote";
 import { calculateAuthoritativeWebsiteQuote } from "../../../src/lib/quote-service";
-import { fetchTripRouteMetrics } from "../../../src/lib/trip-route";
 import {
   MINIBUS_VEHICLE,
   selectVehicleForParty,
@@ -35,6 +34,7 @@ import {
   createQuickQuoteRecord,
   getQuickQuote,
 } from "./quick-quote-store";
+import { resolveWorkerTripRouteMetrics } from "./resolve-route-metrics";
 
 function json(body: unknown, status: number, origin: string | null): Response {
   return new Response(JSON.stringify(body), {
@@ -150,19 +150,33 @@ function parseDiscount(body: Record<string, unknown>): {
 async function authoritativeAmount(
   journey: QuickQuoteJourney & { vehicleChoice: QuickQuoteVehicleChoice },
   body: Record<string, unknown>,
+  env: { GOOGLE_PLACES_API_KEY?: string },
 ) {
   const pickupLat = Number(body.pickupLat);
   const pickupLng = Number(body.pickupLng);
   const dropoffLat = Number(body.dropoffLat);
   const dropoffLng = Number(body.dropoffLng);
-  let routeMetrics = null;
-  if (
-    Number.isFinite(pickupLat) &&
-    Number.isFinite(pickupLng) &&
-    Number.isFinite(dropoffLat) &&
-    Number.isFinite(dropoffLng)
-  ) {
-    routeMetrics = await fetchTripRouteMetrics(pickupLat, pickupLng, dropoffLat, dropoffLng);
+
+  // Same resolution path as public Live Quote / Personal Quotes: known coords →
+  // served-airport catalogue → geocode. Never price an airport journey with
+  // null metrics (that skips applyBelfastAirportDistanceFloor).
+  const routeMetrics = await resolveWorkerTripRouteMetrics({
+    pickupAddress: journey.pickupAddress,
+    dropoffAddress: journey.dropoffAddress,
+    pickupLat: Number.isFinite(pickupLat) ? pickupLat : null,
+    pickupLng: Number.isFinite(pickupLng) ? pickupLng : null,
+    dropoffLat: Number.isFinite(dropoffLat) ? dropoffLat : null,
+    dropoffLng: Number.isFinite(dropoffLng) ? dropoffLng : null,
+    googlePlacesApiKey: env.GOOGLE_PLACES_API_KEY,
+  });
+
+  if (!routeMetrics) {
+    return {
+      ok: false as const,
+      reason: "no_fare" as const,
+      message:
+        "We could not measure that route confidently. Confirm both addresses from suggestions (or ensure map coordinates are available) and try again.",
+    };
   }
 
   const vehicleType = resolveVehicle(
@@ -197,6 +211,7 @@ export async function handleOwnerCreateQuickQuote(
     OWNER_ACCESS_KEY?: string;
     DRIVER_ACCESS_KEY?: string;
     SITE_ORIGIN?: string;
+    GOOGLE_PLACES_API_KEY?: string;
   },
   origin: string | null,
 ): Promise<Response> {
@@ -243,7 +258,7 @@ export async function handleOwnerCreateQuickQuote(
   }
 
   // Ignore any client-supplied amount — always recalculate, then apply discount.
-  const quote = await authoritativeAmount(journey, body);
+  const quote = await authoritativeAmount(journey, body, env);
   if (!quote.ok) {
     return json({ error: quote.message, reason: quote.reason }, 422, origin);
   }
