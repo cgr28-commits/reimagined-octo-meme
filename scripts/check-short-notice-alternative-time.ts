@@ -16,6 +16,8 @@ import { materialJourneyFingerprint } from "../shared/booking-notice";
 import {
   buildShortNoticeAcceptUrl,
   buildShortNoticePayUrl,
+  isAllowedShortNoticeSiteOrigin,
+  resolveShortNoticeSiteOrigin,
   shouldAutoSendPaymentLinkEmail,
 } from "../workers/addresses/src/short-notice-handlers";
 import { calculateQuote } from "../src/lib/quote";
@@ -184,6 +186,49 @@ check("Accept URL helper points at accept-alternative-time page", () => {
     buildShortNoticeAcceptUrl("https://www.myairporttaxini.co.uk", "tok"),
     "https://www.myairporttaxini.co.uk/accept-alternative-time/?token=tok",
   );
+  assert.equal(
+    buildShortNoticeAcceptUrl(
+      "https://my-airport-taxi-ni-quote-git-cursor-no-weekend-b-cc80fd-colin15.vercel.app",
+      "tok",
+    ),
+    "https://my-airport-taxi-ni-quote-git-cursor-no-weekend-b-cc80fd-colin15.vercel.app/accept-alternative-time/?token=tok",
+  );
+});
+
+check("Site origin resolver prefers preview Origin over production fallback", () => {
+  assert.equal(
+    isAllowedShortNoticeSiteOrigin(
+      "https://my-airport-taxi-ni-quote-git-cursor-no-weekend-b-cc80fd-colin15.vercel.app",
+    ),
+    true,
+  );
+  assert.equal(isAllowedShortNoticeSiteOrigin("https://evil.example.com"), false);
+  const preview =
+    "https://my-airport-taxi-ni-quote-git-cursor-no-weekend-b-cc80fd-colin15.vercel.app";
+  const req = new Request("https://worker.example/owner/short-notice/offer-alternative", {
+    method: "POST",
+    headers: { Origin: preview },
+  });
+  assert.equal(
+    resolveShortNoticeSiteOrigin(req, {}, "https://www.myairporttaxini.co.uk"),
+    preview,
+  );
+  assert.equal(
+    resolveShortNoticeSiteOrigin(
+      new Request("https://worker.example/x", { method: "POST" }),
+      { siteOrigin: preview },
+      "https://www.myairporttaxini.co.uk",
+    ),
+    preview,
+  );
+});
+
+check("Client sends siteOrigin so emailed accept links hit the live preview", () => {
+  const api = read("src/lib/short-notice-api.ts");
+  assert.match(api, /function currentSiteOrigin/);
+  assert.match(api, /siteOrigin: currentSiteOrigin\(\)/);
+  assert.match(api, /offerAlternativeShortNoticeTime/);
+  assert.match(api, /acceptAlternativeShortNoticeTime/);
 });
 
 check("Shared alternative email synced into Worker", () => {

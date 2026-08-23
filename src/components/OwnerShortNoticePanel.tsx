@@ -281,7 +281,10 @@ export default function OwnerShortNoticePanel({ ownerKey }: OwnerShortNoticePane
         : result.alternativeEmailError
           ? ` Alternative-time email not sent (${result.alternativeEmailError}).`
           : " Alternative-time email not sent.";
-      setMessage(`Offered alternative time for ${booking.reference}.${emailNote}`);
+      const linkNote = result.acceptUrl
+        ? ` Accept link uses this site: ${result.acceptUrl.split("/accept-alternative-time")[0] || "current preview"}.`
+        : "";
+      setMessage(`Offered alternative time for ${booking.reference}.${emailNote}${linkNote}`);
       patchOfferDraft(booking.reference, { open: false });
       await load();
     } catch (err) {

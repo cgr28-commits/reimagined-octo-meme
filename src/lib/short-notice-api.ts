@@ -2,6 +2,13 @@ import { resolveWorkerBaseUrl } from "@/lib/worker-api";
 
 const WORKER_BASE = resolveWorkerBaseUrl();
 
+function currentSiteOrigin(): string {
+  if (typeof window !== "undefined" && window.location?.origin) {
+    return window.location.origin.replace(/\/$/, "");
+  }
+  return "";
+}
+
 export type ShortNoticeBookingSummary = {
   reference: string;
   paymentToken: string;
@@ -132,7 +139,7 @@ export async function approveShortNoticeBooking(
       Accept: "application/json",
       "X-Owner-Key": ownerKey.trim(),
     },
-    body: JSON.stringify({ reference }),
+    body: JSON.stringify({ reference, siteOrigin: currentSiteOrigin() }),
   });
   const payload = await parseJson(response);
   if (!response.ok) {
@@ -164,7 +171,7 @@ export async function resendShortNoticePaymentEmail(
       Accept: "application/json",
       "X-Owner-Key": ownerKey.trim(),
     },
-    body: JSON.stringify({ reference }),
+    body: JSON.stringify({ reference, siteOrigin: currentSiteOrigin() }),
   });
   const payload = await parseJson(response);
   if (!response.ok) {
@@ -199,6 +206,7 @@ export async function offerAlternativeShortNoticeTime(
       offeredDate: input.offeredDate,
       offeredTime: input.offeredTime,
       ownerNote: input.ownerNote ?? "",
+      siteOrigin: currentSiteOrigin(),
     }),
   });
   const payload = await parseJson(response);
@@ -230,7 +238,7 @@ export async function resendAlternativeShortNoticeEmail(
       Accept: "application/json",
       "X-Owner-Key": ownerKey.trim(),
     },
-    body: JSON.stringify({ reference }),
+    body: JSON.stringify({ reference, siteOrigin: currentSiteOrigin() }),
   });
   const payload = await parseJson(response);
   if (!response.ok) {
@@ -314,7 +322,7 @@ export async function acceptAlternativeShortNoticeTime(token: string): Promise<{
       "Content-Type": "application/json",
       Accept: "application/json",
     },
-    body: JSON.stringify({ token }),
+    body: JSON.stringify({ token, siteOrigin: currentSiteOrigin() }),
   });
   const payload = await parseJson(response);
   if (!response.ok) {

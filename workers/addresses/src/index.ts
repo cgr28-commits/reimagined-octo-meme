@@ -127,6 +127,7 @@ import {
   publicAlternativeOfferSummary,
   publicShortNoticeSummary,
   resolveShortNoticeForPayment,
+  resolveShortNoticeSiteOrigin,
   shouldForceShortNotice,
 } from "./short-notice-handlers";
 import {
@@ -2569,7 +2570,7 @@ export default {
           request,
           snEnv,
           body,
-          BUSINESS_WEBSITE,
+          resolveShortNoticeSiteOrigin(request, body, BUSINESS_WEBSITE),
         );
         if ("error" in result) return json({ error: result.error }, result.status, origin);
         return json(result, 200, origin);
@@ -2603,7 +2604,7 @@ export default {
           request,
           snEnv,
           body,
-          BUSINESS_WEBSITE,
+          resolveShortNoticeSiteOrigin(request, body, BUSINESS_WEBSITE),
         );
         if ("error" in result) return json({ error: result.error }, result.status, origin);
         return json(result, 200, origin);
@@ -2623,7 +2624,7 @@ export default {
           request,
           snEnv,
           body,
-          BUSINESS_WEBSITE,
+          resolveShortNoticeSiteOrigin(request, body, BUSINESS_WEBSITE),
         );
         if ("error" in result) return json({ error: result.error }, result.status, origin);
         return json(result, 200, origin);
@@ -2643,7 +2644,7 @@ export default {
           request,
           snEnv,
           body,
-          BUSINESS_WEBSITE,
+          resolveShortNoticeSiteOrigin(request, body, BUSINESS_WEBSITE),
         );
         if ("error" in result) return json({ error: result.error }, result.status, origin);
         return json(result, 200, origin);
@@ -2762,7 +2763,14 @@ export default {
         if (!token) return json({ error: "Missing acceptance token" }, 400, origin);
         const record = await getShortNoticeByAcceptToken(env.TRACKING_STORE, token);
         if (!record) {
-          return json({ error: "This acceptance link is invalid or has expired." }, 404, origin);
+          return json(
+            {
+              error:
+                "This acceptance link is no longer valid. The offer may have been withdrawn or replaced — contact us on WhatsApp if you still need a pickup.",
+            },
+            410,
+            origin,
+          );
         }
         return json({ ok: true, offer: publicAlternativeOfferSummary(record) }, 200, origin);
       }
@@ -2782,7 +2790,7 @@ export default {
           request,
           snEnv,
           body,
-          BUSINESS_WEBSITE,
+          resolveShortNoticeSiteOrigin(request, body, BUSINESS_WEBSITE),
         );
         if ("error" in result) return json({ error: result.error }, result.status, origin);
         return json(result, 200, origin);

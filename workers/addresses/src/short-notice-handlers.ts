@@ -79,6 +79,56 @@ export function buildShortNoticeAcceptUrl(siteOrigin: string, acceptToken: strin
   return `${siteOrigin.replace(/\/$/, "")}/accept-alternative-time/?token=${encodeURIComponent(acceptToken)}`;
 }
 
+/**
+ * Resolve the public website origin for customer email links.
+ * Prefer the Owner/customer browser origin (Vercel preview or production) so
+ * preview-generated emails do not 404 on production before the route is live.
+ */
+export function isAllowedShortNoticeSiteOrigin(origin: string): boolean {
+  try {
+    const url = new URL(origin.trim());
+    if (url.protocol !== "https:" && url.protocol !== "http:") return false;
+    const host = url.hostname.toLowerCase();
+    if (host === "www.myairporttaxini.co.uk" || host === "myairporttaxini.co.uk") {
+      return true;
+    }
+    // Project Vercel previews (and localhost for local Owner testing)
+    if (host === "localhost" || host === "127.0.0.1") return true;
+    if (host.endsWith(".vercel.app") && host.includes("my-airport-taxi-ni-quote")) {
+      return true;
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+export function resolveShortNoticeSiteOrigin(
+  request: Request,
+  body?: Record<string, unknown>,
+  fallback = "https://www.myairporttaxini.co.uk",
+): string {
+  const fromBody = typeof body?.siteOrigin === "string" ? body.siteOrigin.trim() : "";
+  const fromOrigin = (request.headers.get("Origin") || "").trim();
+  let fromReferer = "";
+  const referer = (request.headers.get("Referer") || "").trim();
+  if (referer) {
+    try {
+      fromReferer = new URL(referer).origin;
+    } catch {
+      fromReferer = "";
+    }
+  }
+
+  for (const candidate of [fromBody, fromOrigin, fromReferer]) {
+    const cleaned = candidate.replace(/\/$/, "");
+    if (cleaned && isAllowedShortNoticeSiteOrigin(cleaned)) {
+      return cleaned;
+    }
+  }
+  return fallback.replace(/\/$/, "");
+}
+
 function isValidTripDate(value: string): boolean {
   return /^\d{4}-\d{2}-\d{2}$/.test(value.trim());
 }
@@ -688,7 +738,13 @@ export async function handlePublicAcceptAlternativeTime(
   if (!token) return { error: "Missing acceptance token.", status: 400 };
 
   const existing = await getShortNoticeByAcceptToken(env.TRACKING_STORE, token);
-  if (!existing) return { error: "This acceptance link is invalid or has expired.", status: 404 };
+  if (!existing) {
+    return {
+      error:
+        "This acceptance link is no longer valid. The offer may have been withdrawn or replaced — contact us on WhatsApp if you still need a pickup.",
+      status: 410,
+    };
+  }
 
   // Idempotent: already approved after accepting this offer.
   if (existing.status === "SHORT_NOTICE_APPROVED" && existing.acceptedAlternativeAt) {
@@ -704,10 +760,17 @@ export async function handlePublicAcceptAlternativeTime(
   }
 
   if (existing.status === "SHORT_NOTICE_PAID") {
-    return { error: "This booking is already paid.", status: 409 };
+    return { error: "This booking is already paid and cannot be changed.", status: 409 };
   }
   if (existing.status === "SHORT_NOTICE_DECLINED") {
-    return { error: "This booking request was declined.", status: 409 };
+    return { error: "This booking request was declined and cannot be accepted.", status: 409 };
+  }
+  if (existing.status === "SHORT_NOTICE_AWAITING_APPROVAL") {
+    return {
+      error:
+        "This alternative-time offer was withdrawn. Please wait for a new update from My Airport Taxi NI.",
+      status: 409,
+    };
   }
   if (existing.status !== "SHORT_NOTICE_ALTERNATIVE_OFFERED") {
     return { error: "This alternative-time offer is no longer available.", status: 409 };
