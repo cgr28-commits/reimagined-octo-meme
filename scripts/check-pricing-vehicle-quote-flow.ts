@@ -1,3 +1,4 @@
+const cityBfsMetrics = { distanceKm: 14 / 0.621371, durationMinutes: 25 };
 /**
  * Combined regression: no weekend surcharge, 5% return discount, vehicle rule,
  * optional quote date/time, mandatory booking date/time, homepage benefit.
@@ -94,6 +95,7 @@ check("quote can be calculated without date/time (quote-service)", () => {
     passengers: 2,
     suitcases: 2,
     returnJourney: false,
+    routeMetrics: cityBfsMetrics,
   });
   assert.equal(result.ok, true);
   if (result.ok) {

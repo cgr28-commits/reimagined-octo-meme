@@ -198,6 +198,17 @@ export function calculateAuthoritativeWebsiteQuote(
       };
     }
 
+    // Airport transfers also need route metrics so distance floors / protection
+    // (e.g. applyBelfastAirportDistanceFloor) cannot be silently skipped.
+    if (!input.routeMetrics) {
+      return {
+        ok: false,
+        reason: "no_fare",
+        message:
+          "We could not measure that route confidently. Please confirm both addresses and try again.",
+      };
+    }
+
     // calculateQuote(address, airportCode) — address is the non-airport end.
     quote = calculateQuote(
       address,
@@ -205,7 +216,7 @@ export function calculateAuthoritativeWebsiteQuote(
       vehicleType,
       returnJourney,
       schedule,
-      input.routeMetrics ?? null,
+      input.routeMetrics,
       Boolean(input.fromAirport),
     );
   } else {

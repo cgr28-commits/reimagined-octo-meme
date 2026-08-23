@@ -14,6 +14,8 @@ import { calculateAuthoritativeWebsiteQuote } from "../src/lib/quote-service";
 import { lockSavedQuotePricingFromServer } from "../shared/saved-quote";
 import { isWithin24HoursOfPickup } from "../shared/refund-ops";
 
+const cityBfsMetrics = { distanceKm: 14 / 0.621371, durationMinutes: 25 };
+
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 function bookingBase(overrides: Record<string, unknown> = {}) {
@@ -115,6 +117,7 @@ function run() {
     outboundTime: "10:00",
     passengers: 2,
     suitcases: 2,
+    routeMetrics: cityBfsMetrics,
   });
   const weekend = calculateAuthoritativeWebsiteQuote({
     airportCode: "BFS",
@@ -126,6 +129,7 @@ function run() {
     outboundTime: "10:00",
     passengers: 2,
     suitcases: 2,
+    routeMetrics: cityBfsMetrics,
   });
   assert.equal(weekday.ok && weekend.ok, true);
   if (weekday.ok && weekend.ok) {

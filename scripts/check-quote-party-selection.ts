@@ -131,6 +131,8 @@ check("Server rejects missing journey mode / passenger / suitcase", () => {
   assert.match(quoteService, /Journey mode \(One Way or Return\) is required/);
   assert.match(quickQuoteHandlers, /typeof body\.returnJourney === "boolean"/);
 
+  const cityBfsMetrics = { distanceKm: 14 / 0.621371, durationMinutes: 25 };
+
   const missingMode = calculateAuthoritativeWebsiteQuote({
     airportCode: "BFS",
     fromAirport: false,
@@ -138,6 +140,7 @@ check("Server rejects missing journey mode / passenger / suitcase", () => {
     returnJourney: undefined as unknown as boolean,
     passengers: 1,
     suitcases: 0,
+    routeMetrics: cityBfsMetrics,
   });
   assert.equal(missingMode.ok, false);
 
@@ -148,6 +151,7 @@ check("Server rejects missing journey mode / passenger / suitcase", () => {
     returnJourney: false,
     passengers: null as unknown as number,
     suitcases: 0,
+    routeMetrics: cityBfsMetrics,
   });
   assert.equal(missingPax.ok, false);
 
@@ -158,6 +162,7 @@ check("Server rejects missing journey mode / passenger / suitcase", () => {
     returnJourney: false,
     passengers: 1,
     suitcases: null as unknown as number,
+    routeMetrics: cityBfsMetrics,
   });
   assert.equal(missingBags.ok, false);
 
@@ -168,6 +173,7 @@ check("Server rejects missing journey mode / passenger / suitcase", () => {
     returnJourney: false,
     passengers: 1,
     suitcases: 0,
+    routeMetrics: cityBfsMetrics,
   });
   assert.equal(oneWay.ok, true);
   if (oneWay.ok) {
@@ -181,6 +187,7 @@ check("Server rejects missing journey mode / passenger / suitcase", () => {
     returnJourney: true,
     passengers: 1,
     suitcases: 0,
+    routeMetrics: cityBfsMetrics,
   });
   assert.equal(ret.ok, true);
   if (oneWay.ok && ret.ok) {
@@ -201,6 +208,7 @@ check("Server rejects missing journey mode / passenger / suitcase", () => {
     passengers: 6,
     suitcases: 2,
     maxPassengers: 7,
+    routeMetrics: cityBfsMetrics,
   });
   assert.equal(minibus.ok, true);
 });

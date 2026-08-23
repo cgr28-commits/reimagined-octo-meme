@@ -93,6 +93,41 @@ export async function fetchWorkerAddressSuggestions(
   }
 }
 
+/** Forward-geocode an address string via the Worker (server Places key). */
+export async function fetchWorkerForwardGeocode(
+  address: string,
+): Promise<{ lat: number; lng: number } | null> {
+  const trimmed = address.trim();
+  if (trimmed.length < 8) {
+    return null;
+  }
+
+  const baseUrl = resolveAddressesApiUrl();
+  const url = new URL(baseUrl);
+  url.searchParams.set("forwardGeocode", trimmed);
+
+  try {
+    const response = await fetch(url.toString(), {
+      headers: { Accept: "application/json" },
+    });
+    if (!response.ok) {
+      return null;
+    }
+    const payload = (await response.json()) as { lat?: number; lng?: number };
+    if (
+      typeof payload.lat !== "number" ||
+      typeof payload.lng !== "number" ||
+      !Number.isFinite(payload.lat) ||
+      !Number.isFinite(payload.lng)
+    ) {
+      return null;
+    }
+    return { lat: payload.lat, lng: payload.lng };
+  } catch {
+    return null;
+  }
+}
+
 export async function fetchWorkerAddressDetails(
   placeId: string,
   airportCode: string,

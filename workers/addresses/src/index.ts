@@ -1529,6 +1529,7 @@ async function handlePaymentRequest(
           returnDate: booking.returnDate || sj.returnDate,
           returnTime: booking.returnTime || sj.returnTime,
         },
+        googlePlacesApiKey: env.GOOGLE_PLACES_API_KEY,
       });
       if (!priced.ok) {
         return json({ error: priced.message }, 422, origin);
@@ -2354,6 +2355,7 @@ export default {
           returnTime,
         },
         clientSubmittedAmount: Number(body.clientAmount) || undefined,
+        googlePlacesApiKey: env.GOOGLE_PLACES_API_KEY,
       });
       if (!priced.ok) {
         return json({ error: priced.message, reason: priced.reason }, 422, origin);
@@ -2901,6 +2903,37 @@ export default {
 
     if (!env.GOOGLE_PLACES_API_KEY && !env.GETADDRESS_API_KEY && !env.IDEAL_POSTCODES_API_KEY) {
       return json({ error: "Address lookup is not configured" }, 503, origin);
+    }
+
+    // Browser / Personal Quotes fallback when NEXT_PUBLIC_GOOGLE_PLACES_API_KEY
+    // is missing or referrer-blocked — Worker holds the server Places key.
+    const forwardGeocodeEarly = url.searchParams.get("forwardGeocode")?.trim() ?? "";
+    if (
+      forwardGeocodeEarly &&
+      (route === "addresses" || route === "geocode") &&
+      env.GOOGLE_PLACES_API_KEY
+    ) {
+      if (forwardGeocodeEarly.length < 8) {
+        return json({ error: "Address too short" }, 400, origin);
+      }
+      try {
+        const coords = await geocodeAddress(env.GOOGLE_PLACES_API_KEY, forwardGeocodeEarly);
+        if (!coords) {
+          return json({ error: "Address not found" }, 404, origin);
+        }
+        return json(
+          {
+            lat: coords.lat,
+            lng: coords.lng,
+            provider: "google",
+            address: forwardGeocodeEarly,
+          },
+          200,
+          origin,
+        );
+      } catch {
+        return json({ error: "Geocoding failed" }, 502, origin);
+      }
     }
 
     if (route === "geocode") {

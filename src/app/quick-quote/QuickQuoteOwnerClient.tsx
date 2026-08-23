@@ -22,13 +22,17 @@ import {
   calculateServerQuote,
   createOwnerQuickQuote,
 } from "@/lib/quick-quote-api";
+import { resolveTripRouteMetricsForAddresses } from "@/lib/route-point-resolver";
+import type { TripRouteMetrics } from "@/lib/trip-route";
 import {
   emptySelectedPlace,
   isPlaceSelected,
   placeDisplayText,
   quickSelectToPlace,
+  detectAirportCodeFromPlace,
   type SelectedPlace,
 } from "@/lib/selected-place";
+import { resolveAirportTransferIntent } from "../../../shared/airport-transfer-intent";
 import FiniteOptionSelect, {
   ONLINE_PASSENGER_OPTIONS,
   ONLINE_SUITCASE_OPTIONS,
@@ -135,6 +139,7 @@ export default function QuickQuoteOwnerClient() {
   const [fareLabel, setFareLabel] = useState("");
   const [fareAmount, setFareAmount] = useState<number | null>(null);
   const [calculatedFareAmount, setCalculatedFareAmount] = useState<number | null>(null);
+  const [lastRouteMetrics, setLastRouteMetrics] = useState<TripRouteMetrics | null>(null);
   const [vehicleType, setVehicleType] = useState("");
   const [discountType, setDiscountType] = useState<QuickQuoteDiscountType>("none");
   const [discountValue, setDiscountValue] = useState(0);
@@ -191,6 +196,7 @@ export default function QuickQuoteOwnerClient() {
     setFareAmount(null);
     setFareLabel("");
     setCalculatedFareAmount(null);
+    setLastRouteMetrics(null);
     setVehicleType("");
     setBookingUrl("");
     setWhatsappReply("");
@@ -478,12 +484,52 @@ export default function QuickQuoteOwnerClient() {
     }
     setBusy(true);
     try {
+      // Resolve driving distance in the browser (same path as public TripMap /
+      // Personal Quotes). Worker OSRM/geocode alone is not reliable for every
+      // premises pick, and missing metrics silently skipped the BFS floor.
+      // Prefer browser metrics (OSRM works in most browsers). If geocode/OSRM
+      // fail locally, still ask the Worker — it can geocode with the server
+      // Places key and estimate distance when OSRM is blocked from Cloudflare.
+      const routeMetrics = await resolveTripRouteMetricsForAddresses(
+        {
+          address: pickupAddress,
+          lat: pickupPlace.lat,
+          lng: pickupPlace.lng,
+        },
+        {
+          address: dropoffAddress,
+          lat: dropoffPlace.lat,
+          lng: dropoffPlace.lng,
+        },
+      );
+      if (routeMetrics) {
+        setLastRouteMetrics(routeMetrics);
+      }
+
+      const inferred = resolveAirportTransferIntent({
+        airportCode: draft.airportCode || null,
+        fromAirport: draft.fromAirport,
+        pickupAddress,
+        dropoffAddress,
+      });
+      const airportCode =
+        inferred && inferred.airportCode !== "LDY"
+          ? inferred.airportCode
+          : draft.airportCode || null;
+      const fromAirport = inferred?.fromAirport ?? draft.fromAirport;
+      if (
+        airportCode &&
+        (airportCode !== draft.airportCode || fromAirport !== draft.fromAirport)
+      ) {
+        setDraft((d) => ({ ...d, airportCode, fromAirport }));
+      }
+
       const result = await calculateServerQuote(
         {
           pickupAddress,
           dropoffAddress,
-          airportCode: draft.airportCode || null,
-          fromAirport: draft.fromAirport,
+          airportCode,
+          fromAirport,
           returnJourney: draft.returnJourney,
           outboundDate: draft.outboundDate,
           outboundTime: draft.outboundTime,
@@ -498,6 +544,7 @@ export default function QuickQuoteOwnerClient() {
           pickupLng: pickupPlace.lng ?? undefined,
           dropoffLat: dropoffPlace.lat ?? undefined,
           dropoffLng: dropoffPlace.lng ?? undefined,
+          routeMetrics: routeMetrics ?? undefined,
         },
         ownerKey,
       );
@@ -545,11 +592,42 @@ export default function QuickQuoteOwnerClient() {
     );
     setBusy(true);
     try {
+      let routeMetrics = lastRouteMetrics;
+      if (!routeMetrics) {
+        routeMetrics = await resolveTripRouteMetricsForAddresses(
+          {
+            address: pickupAddress,
+            lat: pickupPlace.lat,
+            lng: pickupPlace.lng,
+          },
+          {
+            address: dropoffAddress,
+            lat: dropoffPlace.lat,
+            lng: dropoffPlace.lng,
+          },
+        );
+        if (routeMetrics) {
+          setLastRouteMetrics(routeMetrics);
+        }
+      }
+
+      const inferred = resolveAirportTransferIntent({
+        airportCode: draft.airportCode || null,
+        fromAirport: draft.fromAirport,
+        pickupAddress,
+        dropoffAddress,
+      });
+      const airportCode =
+        inferred && inferred.airportCode !== "LDY"
+          ? inferred.airportCode
+          : draft.airportCode || null;
+      const fromAirport = inferred?.fromAirport ?? draft.fromAirport;
+
       const created = await createOwnerQuickQuote(ownerKey, {
         pickupAddress,
         dropoffAddress,
-        airportCode: draft.airportCode || null,
-        fromAirport: draft.fromAirport,
+        airportCode,
+        fromAirport,
         returnJourney: draft.returnJourney,
         outboundDate: draft.outboundDate,
         outboundTime: draft.outboundTime,
@@ -567,6 +645,7 @@ export default function QuickQuoteOwnerClient() {
         pickupLng: pickupPlace.lng ?? undefined,
         dropoffLat: dropoffPlace.lat ?? undefined,
         dropoffLng: dropoffPlace.lng ?? undefined,
+        routeMetrics: routeMetrics ?? undefined,
       });
       setBookingUrl(created.bookingUrl);
       setWhatsappReply(created.whatsappReply);
@@ -714,7 +793,29 @@ export default function QuickQuoteOwnerClient() {
             }}
             onSelectPlace={(place) => {
               setPickupPlace(place);
-              setDraft((d) => ({ ...d, pickupAddress: placeDisplayText(place) }));
+              setDraft((d) => {
+                const pickupAddress = placeDisplayText(place);
+                const next = { ...d, pickupAddress };
+                const inferred = resolveAirportTransferIntent({
+                  airportCode:
+                    detectAirportCodeFromPlace(place) ||
+                    detectAirportCodeFromPlace(dropoffPlace) ||
+                    d.airportCode ||
+                    null,
+                  fromAirport: detectAirportCodeFromPlace(place)
+                    ? true
+                    : detectAirportCodeFromPlace(dropoffPlace)
+                      ? false
+                      : d.fromAirport,
+                  pickupAddress,
+                  dropoffAddress: placeDisplayText(dropoffPlace) || d.dropoffAddress,
+                });
+                if (inferred && inferred.airportCode !== "LDY") {
+                  next.airportCode = inferred.airportCode;
+                  next.fromAirport = inferred.fromAirport;
+                }
+                return next;
+              });
               clearQuoteOutputs();
               setMissing((m) => m.filter((x) => x !== "pickupAddress"));
             }}
@@ -744,7 +845,29 @@ export default function QuickQuoteOwnerClient() {
             }}
             onSelectPlace={(place) => {
               setDropoffPlace(place);
-              setDraft((d) => ({ ...d, dropoffAddress: placeDisplayText(place) }));
+              setDraft((d) => {
+                const dropoffAddress = placeDisplayText(place);
+                const next = { ...d, dropoffAddress };
+                const inferred = resolveAirportTransferIntent({
+                  airportCode:
+                    detectAirportCodeFromPlace(pickupPlace) ||
+                    detectAirportCodeFromPlace(place) ||
+                    d.airportCode ||
+                    null,
+                  fromAirport: detectAirportCodeFromPlace(pickupPlace)
+                    ? true
+                    : detectAirportCodeFromPlace(place)
+                      ? false
+                      : d.fromAirport,
+                  pickupAddress: placeDisplayText(pickupPlace) || d.pickupAddress,
+                  dropoffAddress,
+                });
+                if (inferred && inferred.airportCode !== "LDY") {
+                  next.airportCode = inferred.airportCode;
+                  next.fromAirport = inferred.fromAirport;
+                }
+                return next;
+              });
               clearQuoteOutputs();
               setMissing((m) => m.filter((x) => x !== "dropoffAddress"));
             }}

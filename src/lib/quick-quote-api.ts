@@ -5,6 +5,7 @@ import type {
   QuickQuotePublicSummary,
   QuickQuoteVehicleChoice,
 } from "../../shared/quick-quote";
+import type { TripRouteMetrics } from "@/lib/trip-route";
 
 const WORKER_BASE = resolveWorkerBaseUrl();
 
@@ -40,6 +41,15 @@ export type QuickQuoteDiscountPayload = {
   discountValue?: number;
 };
 
+export type QuickQuoteRoutePayload = {
+  pickupLat?: number;
+  pickupLng?: number;
+  dropoffLat?: number;
+  dropoffLng?: number;
+  /** Browser-resolved driving metrics (same path as public TripMap / Personal Quotes). */
+  routeMetrics?: TripRouteMetrics | null;
+};
+
 async function parseJson(response: Response): Promise<Record<string, unknown>> {
   const payload = await response.json().catch(() => null);
   if (!payload || typeof payload !== "object") return {};
@@ -47,13 +57,10 @@ async function parseJson(response: Response): Promise<Record<string, unknown>> {
 }
 
 export async function calculateServerQuote(
-  journey: QuickQuoteJourney & {
-    pickupLat?: number;
-    pickupLng?: number;
-    dropoffLat?: number;
-    dropoffLng?: number;
-    vehicleChoice?: QuickQuoteVehicleChoice;
-  },
+  journey: QuickQuoteJourney &
+    QuickQuoteRoutePayload & {
+      vehicleChoice?: QuickQuoteVehicleChoice;
+    },
   ownerKey?: string,
 ): Promise<QuickQuoteCalculateResult> {
   const headers: Record<string, string> = {
@@ -101,12 +108,9 @@ export async function calculateServerQuote(
 export async function createOwnerQuickQuote(
   ownerKey: string,
   journey: QuickQuoteJourney &
-    QuickQuoteDiscountPayload & {
+    QuickQuoteDiscountPayload &
+    QuickQuoteRoutePayload & {
       vehicleChoice?: QuickQuoteVehicleChoice;
-      pickupLat?: number;
-      pickupLng?: number;
-      dropoffLat?: number;
-      dropoffLng?: number;
     },
 ): Promise<QuickQuoteCreateResult> {
   const response = await fetch(`${WORKER_BASE}/owner/quick-quotes`, {

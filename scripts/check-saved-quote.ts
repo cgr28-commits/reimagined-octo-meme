@@ -24,6 +24,8 @@ import {
   saveQuotePayloadBlockMessage,
 } from "../src/lib/save-quote-payload";
 
+const cityBfsMetrics = { distanceKm: 14 / 0.621371, durationMinutes: 25 };
+
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 function baseRecord(overrides: Partial<SavedQuoteRecord> = {}): SavedQuoteRecord {
@@ -129,6 +131,7 @@ function run() {
     outboundTime: "10:00",
     passengers: 2,
     suitcases: 2,
+    routeMetrics: cityBfsMetrics,
   });
   assert.equal(expected.ok, true);
   if (!expected.ok) throw new Error("expected quote to succeed");
@@ -194,6 +197,7 @@ function run() {
     outboundTime: "14:30",
     passengers: 2,
     suitcases: 2,
+    routeMetrics: cityBfsMetrics,
   });
   assert.equal(bangorFromBfs.ok, true);
   if (!bangorFromBfs.ok) throw new Error("Bangor←BFS fixture must price");
@@ -282,6 +286,7 @@ function run() {
       outboundTime: readyPayload.payload.journey.tripTime,
       passengers: readyPayload.payload.journey.passengers,
       suitcases: readyPayload.payload.journey.suitcases,
+      routeMetrics: cityBfsMetrics,
     });
     assert.equal(serverRecalc.ok, true);
     if (serverRecalc.ok) {
