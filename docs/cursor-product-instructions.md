@@ -101,3 +101,24 @@ Example: Friday 14:00 → Saturday 15:00 must keep the same fare when only the p
 * `operational.weekendAndBankHoliday.premiumRate: 0`
 
 Regression: `scripts/check-airport-weekend-premium.ts` and `scripts/check-pricing-vehicle-quote-flow.ts`.
+
+## 21. OFFER ALTERNATIVE TIME (SHORT-NOTICE / UNAVAILABLE)
+
+For bookings awaiting availability confirmation, Owner Dashboard shows:
+
+* **Approve requested time**
+* **Offer alternative time**
+* **Decline — no availability**
+
+Offer alternative time:
+
+* Owner enters alternative date/time (+ optional customer note)
+* Preserve original requested date/time for audit (`originalRequestedDate` / `originalRequestedTime`)
+* Email customer with secure **Accept new pickup time** link (`/accept-alternative-time/?token=…`)
+* Do **not** take payment or create SumUp until the customer accepts
+* On accept: update booking to offered time (amount unchanged), approve for payment, auto-send existing payment-link email
+* Acceptance is idempotent (repeat clicks do not duplicate booking/payment)
+
+While offered: show Requested / Offered / Status: Awaiting customer acceptance, plus Resend alternative-time email, Change offered time, Withdraw offer, Decline booking.
+
+Regression: `scripts/check-short-notice-alternative-time.ts`.

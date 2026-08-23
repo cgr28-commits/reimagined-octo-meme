@@ -7,6 +7,7 @@ import type { PaidBookingDetails } from "./booking-notifications";
 
 export const SHORT_NOTICE_STATUSES = [
   "SHORT_NOTICE_AWAITING_APPROVAL",
+  "SHORT_NOTICE_ALTERNATIVE_OFFERED",
   "SHORT_NOTICE_APPROVED",
   "SHORT_NOTICE_DECLINED",
   "SHORT_NOTICE_PAID",
@@ -58,6 +59,27 @@ export type ShortNoticeBookingRecord = {
   paymentLinkEmailSentAt?: string;
   /** Pay URL that was emailed (detect new-link eligibility). */
   paymentLinkEmailPayUrl?: string;
+  /**
+   * Snapshot of the customer’s originally requested pickup.
+   * Set when Owner first offers an alternative; immutable after that.
+   */
+  originalRequestedDate?: string;
+  originalRequestedTime?: string;
+  /** Owner-proposed alternative pickup (YYYY-MM-DD / HH:mm). */
+  offeredDate?: string;
+  offeredTime?: string;
+  offeredAt?: string;
+  offeredBy?: "Owner";
+  /** Optional private/customer note included in the alternative-time email. */
+  offeredNote?: string;
+  /** Opaque token for /accept-alternative-time/?token=… (not the payment token). */
+  acceptToken?: string;
+  /** When the alternative-time offer email was last sent for the current accept URL. */
+  alternativeTimeEmailSentAt?: string;
+  /** Accept URL fingerprint for idempotent auto-send of the offer email. */
+  alternativeTimeEmailAcceptUrl?: string;
+  /** When the customer accepted the offered pickup time. */
+  acceptedAlternativeAt?: string;
   /** Optional personal quote — marked used only after successful SumUp finalize. */
   personalQuoteCode?: string;
   standardWebsiteAmount?: number;
@@ -71,8 +93,20 @@ export function shortNoticeTokenKey(token: string): string {
   return `short-notice:token:${token.trim()}`;
 }
 
+export function shortNoticeAcceptTokenKey(token: string): string {
+  return `short-notice:accept:${token.trim()}`;
+}
+
 export function shortNoticeOpenIndexKey(): string {
   return "short-notice:open";
+}
+
+export function isShortNoticeOpenStatus(status: ShortNoticeStatus): boolean {
+  return (
+    status === "SHORT_NOTICE_AWAITING_APPROVAL" ||
+    status === "SHORT_NOTICE_ALTERNATIVE_OFFERED" ||
+    status === "SHORT_NOTICE_APPROVED"
+  );
 }
 
 export function isShortNoticePayable(record: ShortNoticeBookingRecord, now = new Date()): boolean {

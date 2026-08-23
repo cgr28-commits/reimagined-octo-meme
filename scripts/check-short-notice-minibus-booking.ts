@@ -247,7 +247,9 @@ check("Worker + UI wiring — unavailable periods replace hours/single-date rule
   assert.match(panel, /Booking Availability/);
   assert.match(panel, /Add unavailable period/);
   assert.match(panel, /Private Owner note/);
-  assert.match(panel, /Approve Short-Notice Booking/);
+  assert.match(panel, /Approve requested time/);
+  assert.match(panel, /Offer alternative time/);
+  assert.match(panel, /Decline — no availability/);
   assert.doesNotMatch(panel, /Automatic bookings available from/);
   assert.doesNotMatch(panel, /Minimum online booking notice/);
   assert.match(pay, /shortNoticeToken/);

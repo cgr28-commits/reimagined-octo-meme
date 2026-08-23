@@ -14,8 +14,11 @@ import {
   deleteUnavailablePeriod,
   fetchBookingSettings,
   fetchShortNoticeBookings,
+  offerAlternativeShortNoticeTime,
+  resendAlternativeShortNoticeEmail,
   resendShortNoticePaymentEmail,
   updateUnavailablePeriod,
+  withdrawAlternativeShortNoticeOffer,
   type ShortNoticeBookingSummary,
   type UnavailablePeriodSummary,
 } from "@/lib/short-notice-api";
@@ -44,10 +47,12 @@ function statusLabel(status: string): string {
   switch (status) {
     case "SHORT_NOTICE_AWAITING_APPROVAL":
       return "Awaiting approval";
+    case "SHORT_NOTICE_ALTERNATIVE_OFFERED":
+      return "Awaiting customer acceptance";
     case "SHORT_NOTICE_APPROVED":
       return "Approved — awaiting payment";
     case "SHORT_NOTICE_DECLINED":
-      return "Declined";
+      return "Declined — no availability";
     case "SHORT_NOTICE_PAID":
       return "Paid";
     case "SHORT_NOTICE_EXPIRED":
@@ -107,6 +112,30 @@ export default function OwnerShortNoticePanel({ ownerKey }: OwnerShortNoticePane
   const [payLinks, setPayLinks] = useState<
     Record<string, { payUrl: string; whatsappPayUrl: string }>
   >({});
+  const [offerDrafts, setOfferDrafts] = useState<
+    Record<string, { offeredDate: string; offeredTime: string; ownerNote: string; open: boolean }>
+  >({});
+
+  function offerDraftFor(reference: string) {
+    return (
+      offerDrafts[reference] ?? {
+        offeredDate: "",
+        offeredTime: "",
+        ownerNote: "",
+        open: false,
+      }
+    );
+  }
+
+  function patchOfferDraft(
+    reference: string,
+    patch: Partial<{ offeredDate: string; offeredTime: string; ownerNote: string; open: boolean }>,
+  ) {
+    setOfferDrafts((current) => ({
+      ...current,
+      [reference]: { ...offerDraftFor(reference), ...patch },
+    }));
+  }
 
   const applySettings = useCallback((settings: { unavailablePeriods?: UnavailablePeriodSummary[] }) => {
     setPeriods(Array.isArray(settings.unavailablePeriods) ? settings.unavailablePeriods : []);
@@ -228,6 +257,65 @@ export default function OwnerShortNoticePanel({ ownerKey }: OwnerShortNoticePane
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not resend payment email");
+    } finally {
+      setBusyRef("");
+    }
+  }
+
+  async function handleOfferAlternative(booking: ShortNoticeBookingSummary) {
+    const draft = offerDraftFor(booking.reference);
+    setBusyRef(booking.reference);
+    setError("");
+    setMessage("");
+    try {
+      if (!draft.offeredDate || !draft.offeredTime) {
+        throw new Error("Enter an alternative date and time.");
+      }
+      const result = await offerAlternativeShortNoticeTime(ownerKey, booking.reference, {
+        offeredDate: draft.offeredDate,
+        offeredTime: draft.offeredTime,
+        ownerNote: draft.ownerNote,
+      });
+      const emailNote = result.alternativeEmailSent
+        ? " Alternative-time email sent to the customer."
+        : result.alternativeEmailError
+          ? ` Alternative-time email not sent (${result.alternativeEmailError}).`
+          : " Alternative-time email not sent.";
+      setMessage(`Offered alternative time for ${booking.reference}.${emailNote}`);
+      patchOfferDraft(booking.reference, { open: false });
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not offer alternative time");
+    } finally {
+      setBusyRef("");
+    }
+  }
+
+  async function handleResendAlternativeEmail(booking: ShortNoticeBookingSummary) {
+    setBusyRef(booking.reference);
+    setError("");
+    setMessage("");
+    try {
+      await resendAlternativeShortNoticeEmail(ownerKey, booking.reference);
+      setMessage(`Alternative-time email resent for ${booking.reference}.`);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not resend alternative-time email");
+    } finally {
+      setBusyRef("");
+    }
+  }
+
+  async function handleWithdrawOffer(booking: ShortNoticeBookingSummary) {
+    setBusyRef(booking.reference);
+    setError("");
+    setMessage("");
+    try {
+      await withdrawAlternativeShortNoticeOffer(ownerKey, booking.reference);
+      setMessage(`Withdrawn alternative offer for ${booking.reference}.`);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not withdraw offer");
     } finally {
       setBusyRef("");
     }
@@ -536,24 +624,247 @@ export default function OwnerShortNoticePanel({ ownerKey }: OwnerShortNoticePane
                   </div>
                 </dl>
 
+                {booking.status === "SHORT_NOTICE_ALTERNATIVE_OFFERED" ||
+                booking.originalRequestedDate ? (
+                  <div className="mt-4 space-y-1 rounded-xl border border-amber-400/25 bg-amber-400/10 p-3 text-sm">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-amber-200">
+                      Alternative time offer
+                    </p>
+                    <p className="text-white/80">
+                      Requested:{" "}
+                      <span className="font-semibold text-white">
+                        {booking.originalRequestedDate ?? booking.booking.tripDate} ·{" "}
+                        {booking.originalRequestedTime ?? booking.booking.tripTime}
+                      </span>
+                    </p>
+                    {booking.offeredDate && booking.offeredTime ? (
+                      <p className="text-white/80">
+                        Offered:{" "}
+                        <span className="font-semibold text-emerald">
+                          {booking.offeredDate} · {booking.offeredTime}
+                        </span>
+                      </p>
+                    ) : null}
+                    {booking.status === "SHORT_NOTICE_ALTERNATIVE_OFFERED" ? (
+                      <p className="text-xs uppercase tracking-wider text-amber-200/90">
+                        Status: Awaiting customer acceptance
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
+
                 {booking.status === "SHORT_NOTICE_AWAITING_APPROVAL" ? (
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() => void handleApprove(booking)}
-                      className="min-h-11 rounded-xl bg-emerald px-4 py-2.5 text-sm font-bold text-navy disabled:opacity-60"
+                  <div className="mt-4 space-y-3">
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => void handleApprove(booking)}
+                        className="min-h-11 rounded-xl bg-emerald px-4 py-2.5 text-sm font-bold text-navy disabled:opacity-60"
+                      >
+                        {busy ? "Working…" : "Approve requested time"}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() =>
+                          patchOfferDraft(booking.reference, {
+                            open: !offerDraftFor(booking.reference).open,
+                            offeredDate:
+                              offerDraftFor(booking.reference).offeredDate ||
+                              booking.booking.tripDate,
+                            offeredTime:
+                              offerDraftFor(booking.reference).offeredTime || "",
+                          })
+                        }
+                        className="min-h-11 rounded-xl border border-amber-300/40 bg-amber-400/15 px-4 py-2.5 text-sm font-semibold text-amber-100 disabled:opacity-60"
+                      >
+                        Offer alternative time
+                      </button>
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => void handleDecline(booking)}
+                        className="min-h-11 rounded-xl border border-red-400/40 bg-red-500/15 px-4 py-2.5 text-sm font-semibold text-red-100 disabled:opacity-60"
+                      >
+                        Decline — no availability
+                      </button>
+                    </div>
+                    {offerDraftFor(booking.reference).open ? (
+                      <div className="rounded-xl border border-white/10 bg-navy/50 p-3">
+                        <p className="text-sm font-semibold text-white">
+                          Offer alternative pickup
+                        </p>
+                        <p className="mt-1 text-xs text-white/55">
+                          Fare stays {booking.amountLabel} — weekend/Bank Holiday does not change
+                          the price.
+                        </p>
+                        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                          <label className="block text-sm text-white/70">
+                            Alternative date
+                            <input
+                              type="date"
+                              value={offerDraftFor(booking.reference).offeredDate}
+                              onChange={(event) =>
+                                patchOfferDraft(booking.reference, {
+                                  offeredDate: event.target.value,
+                                })
+                              }
+                              className={fieldClass}
+                            />
+                          </label>
+                          <label className="block text-sm text-white/70">
+                            Alternative time
+                            <input
+                              type="time"
+                              value={offerDraftFor(booking.reference).offeredTime}
+                              onChange={(event) =>
+                                patchOfferDraft(booking.reference, {
+                                  offeredTime: event.target.value,
+                                })
+                              }
+                              className={fieldClass}
+                            />
+                          </label>
+                        </div>
+                        <label className="mt-3 block text-sm text-white/70">
+                          Optional note to customer
+                          <input
+                            type="text"
+                            maxLength={500}
+                            value={offerDraftFor(booking.reference).ownerNote}
+                            onChange={(event) =>
+                              patchOfferDraft(booking.reference, {
+                                ownerNote: event.target.value,
+                              })
+                            }
+                            className={fieldClass}
+                            placeholder="e.g. We can collect you at 3pm instead"
+                          />
+                        </label>
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => void handleOfferAlternative(booking)}
+                          className="mt-3 min-h-11 rounded-xl bg-emerald px-4 py-2.5 text-sm font-bold text-navy disabled:opacity-60"
+                        >
+                          {busy ? "Sending…" : "Send alternative-time email"}
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+
+                {booking.status === "SHORT_NOTICE_ALTERNATIVE_OFFERED" ? (
+                  <div className="mt-4 space-y-3">
+                    <p
+                      className={`text-xs font-semibold ${
+                        booking.alternativeTimeEmailSentAt
+                          ? "text-emerald"
+                          : "text-amber-200/90"
+                      }`}
                     >
-                      {busy ? "Working…" : "Approve Short-Notice Booking"}
-                    </button>
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() => void handleDecline(booking)}
-                      className="min-h-11 rounded-xl border border-red-400/40 bg-red-500/15 px-4 py-2.5 text-sm font-semibold text-red-100 disabled:opacity-60"
-                    >
-                      Decline
-                    </button>
+                      {booking.alternativeTimeEmailSentAt
+                        ? "Alternative-time email sent"
+                        : "Alternative-time email not sent"}
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => void handleResendAlternativeEmail(booking)}
+                        className="min-h-11 rounded-xl border border-white/15 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                      >
+                        {busy ? "Working…" : "Resend alternative-time email"}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() =>
+                          patchOfferDraft(booking.reference, {
+                            open: true,
+                            offeredDate:
+                              booking.offeredDate || booking.booking.tripDate,
+                            offeredTime: booking.offeredTime || "",
+                            ownerNote: booking.offeredNote || "",
+                          })
+                        }
+                        className="min-h-11 rounded-xl border border-amber-300/40 bg-amber-400/15 px-4 py-2 text-sm font-semibold text-amber-100 disabled:opacity-60"
+                      >
+                        Change offered time
+                      </button>
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => void handleWithdrawOffer(booking)}
+                        className="min-h-11 rounded-xl border border-white/15 px-4 py-2 text-sm font-semibold text-white/80 disabled:opacity-60"
+                      >
+                        Withdraw offer
+                      </button>
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => void handleDecline(booking)}
+                        className="min-h-11 rounded-xl border border-red-400/40 bg-red-500/15 px-4 py-2 text-sm font-semibold text-red-100 disabled:opacity-60"
+                      >
+                        Decline booking
+                      </button>
+                    </div>
+                    {offerDraftFor(booking.reference).open ? (
+                      <div className="rounded-xl border border-white/10 bg-navy/50 p-3">
+                        <p className="text-sm font-semibold text-white">Change offered time</p>
+                        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                          <label className="block text-sm text-white/70">
+                            Alternative date
+                            <input
+                              type="date"
+                              value={offerDraftFor(booking.reference).offeredDate}
+                              onChange={(event) =>
+                                patchOfferDraft(booking.reference, {
+                                  offeredDate: event.target.value,
+                                })
+                              }
+                              className={fieldClass}
+                            />
+                          </label>
+                          <label className="block text-sm text-white/70">
+                            Alternative time
+                            <input
+                              type="time"
+                              value={offerDraftFor(booking.reference).offeredTime}
+                              onChange={(event) =>
+                                patchOfferDraft(booking.reference, {
+                                  offeredTime: event.target.value,
+                                })
+                              }
+                              className={fieldClass}
+                            />
+                          </label>
+                        </div>
+                        <label className="mt-3 block text-sm text-white/70">
+                          Optional note to customer
+                          <input
+                            type="text"
+                            maxLength={500}
+                            value={offerDraftFor(booking.reference).ownerNote}
+                            onChange={(event) =>
+                              patchOfferDraft(booking.reference, {
+                                ownerNote: event.target.value,
+                              })
+                            }
+                            className={fieldClass}
+                          />
+                        </label>
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => void handleOfferAlternative(booking)}
+                          className="mt-3 min-h-11 rounded-xl bg-emerald px-4 py-2.5 text-sm font-bold text-navy disabled:opacity-60"
+                        >
+                          {busy ? "Updating…" : "Update offered time & email customer"}
+                        </button>
+                      </div>
+                    ) : null}
                   </div>
                 ) : null}
 
