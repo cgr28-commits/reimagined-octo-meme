@@ -6,6 +6,7 @@ import {
   isUnavailablePeriodExpired,
   vehicleServiceLabel,
 } from "../../shared/booking-notice";
+import { SITE } from "@/lib/data";
 import {
   addUnavailablePeriod,
   approveShortNoticeBooking,
@@ -13,6 +14,7 @@ import {
   deleteUnavailablePeriod,
   fetchBookingSettings,
   fetchShortNoticeBookings,
+  resendShortNoticePaymentEmail,
   updateUnavailablePeriod,
   type ShortNoticeBookingSummary,
   type UnavailablePeriodSummary,
@@ -71,6 +73,24 @@ function draftFromPeriod(period: UnavailablePeriodSummary): PeriodDraft {
     endTime: end.time || "00:00",
     note: period.note ?? "",
   };
+}
+
+function securePayUrlForBooking(booking: ShortNoticeBookingSummary): string {
+  const token = booking.paymentToken?.trim();
+  if (!token) return "";
+  const origin =
+    typeof window !== "undefined" && window.location?.origin
+      ? window.location.origin.replace(/\/$/, "")
+      : SITE.url.replace(/\/$/, "");
+  return `${origin}/pay/short-notice/?token=${encodeURIComponent(token)}`;
+}
+
+function whatsappShareUrl(booking: ShortNoticeBookingSummary, payUrl: string): string {
+  const text = encodeURIComponent(
+    `Hi ${booking.booking.customerName}, your short-notice booking ${booking.reference} is approved. Please pay securely here: ${payUrl}`,
+  );
+  const mobile = booking.booking.mobileNumber.replace(/\D/g, "").replace(/^0/, "44");
+  return mobile ? `https://wa.me/${mobile}?text=${text}` : `https://wa.me/?text=${text}`;
 }
 
 export default function OwnerShortNoticePanel({ ownerKey }: OwnerShortNoticePanelProps) {
@@ -182,10 +202,32 @@ export default function OwnerShortNoticePanel({ ownerKey }: OwnerShortNoticePane
           whatsappPayUrl: result.whatsappPayUrl,
         },
       }));
-      setMessage(`Approved ${booking.reference}. Share the secure payment link with the customer.`);
+      const emailNote = result.paymentEmailSent
+        ? " Payment email sent to the customer."
+        : result.paymentEmailError
+          ? ` Payment email not sent (${result.paymentEmailError}).`
+          : " Payment email not sent.";
+      setMessage(
+        `Approved ${booking.reference}. Share the secure payment link with the customer.${emailNote}`,
+      );
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not approve");
+    } finally {
+      setBusyRef("");
+    }
+  }
+
+  async function handleResendPaymentEmail(booking: ShortNoticeBookingSummary) {
+    setBusyRef(booking.reference);
+    setError("");
+    setMessage("");
+    try {
+      await resendShortNoticePaymentEmail(ownerKey, booking.reference);
+      setMessage(`Payment email resent for ${booking.reference}.`);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not resend payment email");
     } finally {
       setBusyRef("");
     }
@@ -419,6 +461,14 @@ export default function OwnerShortNoticePanel({ ownerKey }: OwnerShortNoticePane
             const busy = busyRef === booking.reference;
             const service = vehicleServiceLabel(booking.booking.vehicle);
             const links = payLinks[booking.reference];
+            const payUrl =
+              links?.payUrl ||
+              (booking.status === "SHORT_NOTICE_APPROVED"
+                ? securePayUrlForBooking(booking)
+                : "");
+            const whatsappPayUrl =
+              links?.whatsappPayUrl ||
+              (payUrl ? whatsappShareUrl(booking, payUrl) : "");
             return (
               <li
                 key={booking.reference}
@@ -510,39 +560,56 @@ export default function OwnerShortNoticePanel({ ownerKey }: OwnerShortNoticePane
                 {booking.status === "SHORT_NOTICE_APPROVED" || links ? (
                   <div className="mt-4 space-y-2 rounded-xl border border-emerald/25 bg-emerald/10 p-3">
                     <p className="text-sm font-semibold text-emerald">Secure payment link</p>
-                    {(links?.payUrl || booking.status === "SHORT_NOTICE_APPROVED") && (
-                      <>
-                        {links?.payUrl ? (
-                          <p className="break-all text-xs text-white/70">{links.payUrl}</p>
-                        ) : (
-                          <p className="text-xs text-white/55">
-                            Approve again or refresh if the link is not shown — payment uses the
-                            token saved on this booking.
-                          </p>
-                        )}
-                        <div className="flex flex-wrap gap-2">
-                          {links?.payUrl ? (
-                            <button
-                              type="button"
-                              onClick={() => void copyPayUrl(links.payUrl)}
-                              className="min-h-11 rounded-xl border border-white/15 px-4 py-2 text-sm font-semibold text-white"
-                            >
-                              Copy pay link
-                            </button>
-                          ) : null}
-                          {links?.whatsappPayUrl ? (
-                            <a
-                              href={links.whatsappPayUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex min-h-11 items-center rounded-xl bg-emerald px-4 py-2 text-sm font-bold text-navy"
-                            >
-                              Share on WhatsApp
-                            </a>
-                          ) : null}
-                        </div>
-                      </>
+                    {payUrl ? (
+                      <p className="break-all text-xs text-white/70">{payUrl}</p>
+                    ) : (
+                      <p className="text-xs text-white/55">
+                        Payment uses the secure token saved on this booking.
+                      </p>
                     )}
+                    <div className="flex flex-wrap gap-2">
+                      {payUrl ? (
+                        <button
+                          type="button"
+                          onClick={() => void copyPayUrl(payUrl)}
+                          className="min-h-11 rounded-xl border border-white/15 px-4 py-2 text-sm font-semibold text-white"
+                        >
+                          Copy pay link
+                        </button>
+                      ) : null}
+                      {whatsappPayUrl ? (
+                        <a
+                          href={whatsappPayUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex min-h-11 items-center rounded-xl bg-emerald px-4 py-2 text-sm font-bold text-navy"
+                        >
+                          Share on WhatsApp
+                        </a>
+                      ) : null}
+                    </div>
+                    <p
+                      className={`text-xs font-semibold ${
+                        booking.paymentLinkEmailSentAt
+                          ? "text-emerald"
+                          : "text-amber-200/90"
+                      }`}
+                      data-payment-email-status
+                    >
+                      {booking.paymentLinkEmailSentAt
+                        ? "Payment email sent"
+                        : "Payment email not sent"}
+                    </p>
+                    {booking.status === "SHORT_NOTICE_APPROVED" ? (
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => void handleResendPaymentEmail(booking)}
+                        className="min-h-11 rounded-xl border border-white/15 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                      >
+                        {busy ? "Working…" : "Resend payment email"}
+                      </button>
+                    ) : null}
                   </div>
                 ) : null}
               </li>

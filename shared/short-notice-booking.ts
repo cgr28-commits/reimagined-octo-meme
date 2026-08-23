@@ -50,6 +50,14 @@ export type ShortNoticeBookingRecord = {
   /** Set when paid — same paymentReference as the saved PaidBookingRecord. */
   paymentReference?: string;
   paidAt?: string;
+  /**
+   * When the automatic/manual “ready for payment” email was last sent for the
+   * current secure pay URL. Idempotent auto-send skips when this matches the
+   * current pay URL fingerprint.
+   */
+  paymentLinkEmailSentAt?: string;
+  /** Pay URL that was emailed (detect new-link eligibility). */
+  paymentLinkEmailPayUrl?: string;
   /** Optional personal quote — marked used only after successful SumUp finalize. */
   personalQuoteCode?: string;
   standardWebsiteAmount?: number;
