@@ -4,6 +4,8 @@
 
 import type { ShortNoticeBookingRecord } from "../shared/short-notice-booking";
 import {
+  isShortNoticeOpenStatus,
+  shortNoticeAcceptTokenKey,
   shortNoticeOpenIndexKey,
   shortNoticeRefKey,
   shortNoticeTokenKey,
@@ -35,12 +37,15 @@ export async function saveShortNoticeBooking(
   await store.put(shortNoticeTokenKey(record.paymentToken), record.reference, {
     expirationTtl: TTL_SECONDS,
   });
+  if (record.acceptToken?.trim()) {
+    await store.put(shortNoticeAcceptTokenKey(record.acceptToken), record.reference, {
+      expirationTtl: TTL_SECONDS,
+    });
+  }
 
   const open = await readOpenIndex(store);
-  const awaiting =
-    record.status === "SHORT_NOTICE_AWAITING_APPROVAL" ||
-    record.status === "SHORT_NOTICE_APPROVED";
-  const next = awaiting
+  const keepOpen = isShortNoticeOpenStatus(record.status);
+  const next = keepOpen
     ? [record.reference, ...open.filter((r) => r !== record.reference)]
     : open.filter((r) => r !== record.reference);
   await writeOpenIndex(store, next);
@@ -67,6 +72,15 @@ export async function getShortNoticeByToken(
   return getShortNoticeByReference(store, reference.trim());
 }
 
+export async function getShortNoticeByAcceptToken(
+  store: KVNamespace,
+  token: string,
+): Promise<ShortNoticeBookingRecord | null> {
+  const reference = await store.get(shortNoticeAcceptTokenKey(token.trim()));
+  if (!reference?.trim()) return null;
+  return getShortNoticeByReference(store, reference.trim());
+}
+
 export async function listOpenShortNoticeBookings(
   store: KVNamespace,
 ): Promise<ShortNoticeBookingRecord[]> {
@@ -74,11 +88,7 @@ export async function listOpenShortNoticeBookings(
   const records: ShortNoticeBookingRecord[] = [];
   for (const reference of refs) {
     const record = await getShortNoticeByReference(store, reference);
-    if (
-      record &&
-      (record.status === "SHORT_NOTICE_AWAITING_APPROVAL" ||
-        record.status === "SHORT_NOTICE_APPROVED")
-    ) {
+    if (record && isShortNoticeOpenStatus(record.status)) {
       records.push(record);
     }
   }

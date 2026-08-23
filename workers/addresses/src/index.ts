@@ -114,16 +114,27 @@ import {
   handleOwnerDeclineShortNotice,
   handleOwnerGetBookingSettings,
   handleOwnerListShortNotice,
+  handleOwnerOfferAlternativeTime,
+  handleOwnerResendAlternativeEmail,
   handleOwnerResendPaymentEmail,
   handleOwnerSaveBookingSettings,
+  handleOwnerWithdrawAlternativeOffer,
+  handlePublicAcceptAlternativeTime,
   isOwnerBookingSettingsPath,
   isOwnerShortNoticePath,
   isPublicShortNoticePath,
   markShortNoticePaid,
+  publicAlternativeOfferSummary,
   publicShortNoticeSummary,
   resolveShortNoticeForPayment,
+  resolveShortNoticeSiteOrigin,
   shouldForceShortNotice,
 } from "./short-notice-handlers";
+import {
+  getShortNoticeByAcceptToken,
+  getShortNoticeByToken,
+  saveShortNoticeBooking,
+} from "./short-notice-store";
 import {
   handleOwnerCreatePersonalQuote,
   handleOwnerDeactivatePersonalQuote,
@@ -149,9 +160,7 @@ import {
   getPersonalQuoteReservation,
   tryAcquirePersonalQuoteReservation,
 } from "./personal-quote-store";
-import { saveShortNoticeBooking } from "./short-notice-store";
 import { BUSINESS_WEBSITE } from "../shared/business-email";
-import { getShortNoticeByToken } from "./short-notice-store";
 import {
   handleReviewRequestSendRequest,
   isReviewRequestSendPath,
@@ -2561,7 +2570,7 @@ export default {
           request,
           snEnv,
           body,
-          BUSINESS_WEBSITE,
+          resolveShortNoticeSiteOrigin(request, body, BUSINESS_WEBSITE),
         );
         if ("error" in result) return json({ error: result.error }, result.status, origin);
         return json(result, 200, origin);
@@ -2595,8 +2604,63 @@ export default {
           request,
           snEnv,
           body,
-          BUSINESS_WEBSITE,
+          resolveShortNoticeSiteOrigin(request, body, BUSINESS_WEBSITE),
         );
+        if ("error" in result) return json({ error: result.error }, result.status, origin);
+        return json(result, 200, origin);
+      }
+      if (
+        (url.pathname.endsWith("/offer-alternative") ||
+          url.pathname.includes("/offer-alternative")) &&
+        request.method === "POST"
+      ) {
+        let body: Record<string, unknown>;
+        try {
+          body = await request.json();
+        } catch {
+          return json({ error: "Invalid JSON" }, 400, origin);
+        }
+        const result = await handleOwnerOfferAlternativeTime(
+          request,
+          snEnv,
+          body,
+          resolveShortNoticeSiteOrigin(request, body, BUSINESS_WEBSITE),
+        );
+        if ("error" in result) return json({ error: result.error }, result.status, origin);
+        return json(result, 200, origin);
+      }
+      if (
+        (url.pathname.endsWith("/resend-alternative-email") ||
+          url.pathname.includes("/resend-alternative-email")) &&
+        request.method === "POST"
+      ) {
+        let body: Record<string, unknown>;
+        try {
+          body = await request.json();
+        } catch {
+          return json({ error: "Invalid JSON" }, 400, origin);
+        }
+        const result = await handleOwnerResendAlternativeEmail(
+          request,
+          snEnv,
+          body,
+          resolveShortNoticeSiteOrigin(request, body, BUSINESS_WEBSITE),
+        );
+        if ("error" in result) return json({ error: result.error }, result.status, origin);
+        return json(result, 200, origin);
+      }
+      if (
+        (url.pathname.endsWith("/withdraw-alternative") ||
+          url.pathname.includes("/withdraw-alternative")) &&
+        request.method === "POST"
+      ) {
+        let body: Record<string, unknown>;
+        try {
+          body = await request.json();
+        } catch {
+          return json({ error: "Invalid JSON" }, 400, origin);
+        }
+        const result = await handleOwnerWithdrawAlternativeOffer(request, snEnv, body);
         if ("error" in result) return json({ error: result.error }, result.status, origin);
         return json(result, 200, origin);
       }
@@ -2684,16 +2748,64 @@ export default {
       return json(result, 200, origin);
     }
 
-    if (isPublicShortNoticePath(url.pathname) && request.method === "GET") {
+    if (isPublicShortNoticePath(url.pathname)) {
       if (!env.TRACKING_STORE) {
         return json({ error: "Storage is not configured" }, 503, origin);
       }
-      const token = (url.searchParams.get("token") ?? "").trim();
-      if (!token) return json({ error: "Missing payment token" }, 400, origin);
-      const record = await getShortNoticeByToken(env.TRACKING_STORE, token);
-      if (!record) return json({ error: "Payment link not found." }, 404, origin);
-      // Public summary — never expose the raw token again; payment still uses URL token.
-      return json({ ok: true, booking: publicShortNoticeSummary(record) }, 200, origin);
+      const snEnv = { ...env, TRACKING_STORE: env.TRACKING_STORE };
+
+      if (
+        (url.pathname.endsWith("/alternative-offer") ||
+          url.pathname.includes("/alternative-offer")) &&
+        request.method === "GET"
+      ) {
+        const token = (url.searchParams.get("token") ?? "").trim();
+        if (!token) return json({ error: "Missing acceptance token" }, 400, origin);
+        const record = await getShortNoticeByAcceptToken(env.TRACKING_STORE, token);
+        if (!record) {
+          return json(
+            {
+              error:
+                "This acceptance link is no longer valid. The offer may have been withdrawn or replaced — contact us on WhatsApp if you still need a pickup.",
+            },
+            410,
+            origin,
+          );
+        }
+        return json({ ok: true, offer: publicAlternativeOfferSummary(record) }, 200, origin);
+      }
+
+      if (
+        (url.pathname.endsWith("/accept-alternative") ||
+          url.pathname.includes("/accept-alternative")) &&
+        request.method === "POST"
+      ) {
+        let body: Record<string, unknown>;
+        try {
+          body = await request.json();
+        } catch {
+          return json({ error: "Invalid JSON" }, 400, origin);
+        }
+        const result = await handlePublicAcceptAlternativeTime(
+          request,
+          snEnv,
+          body,
+          resolveShortNoticeSiteOrigin(request, body, BUSINESS_WEBSITE),
+        );
+        if ("error" in result) return json({ error: result.error }, result.status, origin);
+        return json(result, 200, origin);
+      }
+
+      if (request.method === "GET") {
+        const token = (url.searchParams.get("token") ?? "").trim();
+        if (!token) return json({ error: "Missing payment token" }, 400, origin);
+        const record = await getShortNoticeByToken(env.TRACKING_STORE, token);
+        if (!record) return json({ error: "Payment link not found." }, 404, origin);
+        // Public summary — never expose the raw token again; payment still uses URL token.
+        return json({ ok: true, booking: publicShortNoticeSummary(record) }, 200, origin);
+      }
+
+      return json({ error: "Method not allowed" }, 405, origin);
     }
 
     if (!route) {

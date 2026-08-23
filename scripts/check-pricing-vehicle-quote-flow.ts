@@ -64,6 +64,20 @@ check("weekday fare = weekend fare = Bank Holiday fare", () => {
   assert.equal(weekday.premiumApplied, false);
   assert.equal(weekend.premiumApplied, false);
   assert.equal(bh.premiumApplied, false);
+
+  // Friday 14:00 → Saturday 15:00 (alternative pickup) must keep the same fare.
+  const friday = calculateQuote(cityHall, "BFS", SALOON_VEHICLE, false, {
+    outboundDate: "2026-08-21",
+    outboundTime: "14:00",
+  });
+  const saturdayAlt = calculateQuote(cityHall, "BFS", SALOON_VEHICLE, false, {
+    outboundDate: "2026-08-22",
+    outboundTime: "15:00",
+  });
+  assert.ok(friday && saturdayAlt);
+  assert.equal(saturdayAlt.amount, friday.amount);
+  assert.equal(friday.premiumApplied, false);
+  assert.equal(saturdayAlt.premiumApplied, false);
 });
 
 check("vehicle selection matrix (suitcase-based Estate)", () => {

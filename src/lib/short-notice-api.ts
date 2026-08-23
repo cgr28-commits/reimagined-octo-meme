@@ -2,6 +2,13 @@ import { resolveWorkerBaseUrl } from "@/lib/worker-api";
 
 const WORKER_BASE = resolveWorkerBaseUrl();
 
+function currentSiteOrigin(): string {
+  if (typeof window !== "undefined" && window.location?.origin) {
+    return window.location.origin.replace(/\/$/, "");
+  }
+  return "";
+}
+
 export type ShortNoticeBookingSummary = {
   reference: string;
   paymentToken: string;
@@ -20,6 +27,16 @@ export type ShortNoticeBookingSummary = {
   declinedAt?: string;
   paymentLinkEmailSentAt?: string;
   paymentLinkEmailPayUrl?: string;
+  originalRequestedDate?: string;
+  originalRequestedTime?: string;
+  offeredDate?: string;
+  offeredTime?: string;
+  offeredAt?: string;
+  offeredNote?: string;
+  acceptToken?: string;
+  alternativeTimeEmailSentAt?: string;
+  alternativeTimeEmailAcceptUrl?: string;
+  acceptedAlternativeAt?: string;
   booking: {
     customerName: string;
     customerEmail: string;
@@ -122,7 +139,7 @@ export async function approveShortNoticeBooking(
       Accept: "application/json",
       "X-Owner-Key": ownerKey.trim(),
     },
-    body: JSON.stringify({ reference }),
+    body: JSON.stringify({ reference, siteOrigin: currentSiteOrigin() }),
   });
   const payload = await parseJson(response);
   if (!response.ok) {
@@ -154,7 +171,7 @@ export async function resendShortNoticePaymentEmail(
       Accept: "application/json",
       "X-Owner-Key": ownerKey.trim(),
     },
-    body: JSON.stringify({ reference }),
+    body: JSON.stringify({ reference, siteOrigin: currentSiteOrigin() }),
   });
   const payload = await parseJson(response);
   if (!response.ok) {
@@ -164,6 +181,158 @@ export async function resendShortNoticePaymentEmail(
     record: payload.record as ShortNoticeBookingSummary,
     payUrl: String(payload.payUrl ?? ""),
     paymentEmailSent: true,
+  };
+}
+
+export async function offerAlternativeShortNoticeTime(
+  ownerKey: string,
+  reference: string,
+  input: { offeredDate: string; offeredTime: string; ownerNote?: string },
+): Promise<{
+  record: ShortNoticeBookingSummary;
+  acceptUrl: string;
+  alternativeEmailSent: boolean;
+  alternativeEmailError?: string;
+}> {
+  const response = await fetch(`${WORKER_BASE}/owner/short-notice/offer-alternative`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      "X-Owner-Key": ownerKey.trim(),
+    },
+    body: JSON.stringify({
+      reference,
+      offeredDate: input.offeredDate,
+      offeredTime: input.offeredTime,
+      ownerNote: input.ownerNote ?? "",
+      siteOrigin: currentSiteOrigin(),
+    }),
+  });
+  const payload = await parseJson(response);
+  if (!response.ok) {
+    throw new Error(String(payload.error || "Could not offer alternative time"));
+  }
+  return {
+    record: payload.record as ShortNoticeBookingSummary,
+    acceptUrl: String(payload.acceptUrl ?? ""),
+    alternativeEmailSent: payload.alternativeEmailSent === true,
+    ...(typeof payload.alternativeEmailError === "string"
+      ? { alternativeEmailError: payload.alternativeEmailError }
+      : {}),
+  };
+}
+
+export async function resendAlternativeShortNoticeEmail(
+  ownerKey: string,
+  reference: string,
+): Promise<{
+  record: ShortNoticeBookingSummary;
+  acceptUrl: string;
+  alternativeEmailSent: true;
+}> {
+  const response = await fetch(`${WORKER_BASE}/owner/short-notice/resend-alternative-email`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      "X-Owner-Key": ownerKey.trim(),
+    },
+    body: JSON.stringify({ reference, siteOrigin: currentSiteOrigin() }),
+  });
+  const payload = await parseJson(response);
+  if (!response.ok) {
+    throw new Error(String(payload.error || "Could not resend alternative-time email"));
+  }
+  return {
+    record: payload.record as ShortNoticeBookingSummary,
+    acceptUrl: String(payload.acceptUrl ?? ""),
+    alternativeEmailSent: true,
+  };
+}
+
+export async function withdrawAlternativeShortNoticeOffer(
+  ownerKey: string,
+  reference: string,
+): Promise<ShortNoticeBookingSummary> {
+  const response = await fetch(`${WORKER_BASE}/owner/short-notice/withdraw-alternative`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      "X-Owner-Key": ownerKey.trim(),
+    },
+    body: JSON.stringify({ reference }),
+  });
+  const payload = await parseJson(response);
+  if (!response.ok) {
+    throw new Error(String(payload.error || "Could not withdraw alternative offer"));
+  }
+  return payload.record as ShortNoticeBookingSummary;
+}
+
+export type PublicAlternativeOfferSummary = {
+  reference: string;
+  status: string;
+  amount: number;
+  amountLabel: string;
+  service: string;
+  vehicle: string;
+  customerName: string;
+  pickupLabel: string;
+  dropoffLabel: string;
+  requestedDate: string;
+  requestedTime: string;
+  offeredDate: string | null;
+  offeredTime: string | null;
+  offeredNote: string | null;
+  passengers: number;
+  suitcases: number;
+  flightNumber?: string;
+  acceptPending: boolean;
+  alreadyAccepted: boolean;
+};
+
+export async function fetchPublicAlternativeOffer(
+  token: string,
+): Promise<PublicAlternativeOfferSummary> {
+  const response = await fetch(
+    `${WORKER_BASE}/short-notice/alternative-offer?token=${encodeURIComponent(token.trim())}`,
+    {
+      headers: { Accept: "application/json" },
+      cache: "no-store",
+    },
+  );
+  const payload = await parseJson(response);
+  if (!response.ok) {
+    throw new Error(String(payload.error || "Acceptance link not found"));
+  }
+  return payload.offer as PublicAlternativeOfferSummary;
+}
+
+export async function acceptAlternativeShortNoticeTime(token: string): Promise<{
+  record: ShortNoticeBookingSummary;
+  payUrl: string;
+  paymentEmailSent: boolean;
+  alreadyAccepted?: boolean;
+}> {
+  const response = await fetch(`${WORKER_BASE}/short-notice/accept-alternative`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify({ token, siteOrigin: currentSiteOrigin() }),
+  });
+  const payload = await parseJson(response);
+  if (!response.ok) {
+    throw new Error(String(payload.error || "Could not accept alternative time"));
+  }
+  return {
+    record: payload.record as ShortNoticeBookingSummary,
+    payUrl: String(payload.payUrl ?? ""),
+    paymentEmailSent: payload.paymentEmailSent === true,
+    ...(payload.alreadyAccepted === true ? { alreadyAccepted: true } : {}),
   };
 }
 
