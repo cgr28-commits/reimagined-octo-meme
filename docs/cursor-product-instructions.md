@@ -70,3 +70,34 @@ Do not automatically make discounts available to customers on the public Live Qu
 If a return-booking discount already exists in the pricing engine, show it separately and make sure the manual discount does not accidentally replace or double-apply it.
 
 Add tests for percentage discounts, fixed discounts, zero discount, excessive discounts, return discount interaction, quote-to-booking conversion and stored financial totals.
+
+## 20. PRICING — NO WEEKEND / BANK HOLIDAY SURCHARGE (ALTERNATIVE-TIME SAFE)
+
+**Pricing — IMPORTANT**
+
+Do not apply any weekend or Bank Holiday surcharge.
+
+My Airport Taxi NI pricing is the same on weekdays, weekends and Bank Holidays.
+
+Offering the customer a different pickup time/date must therefore not change the fare merely because the alternative falls on a weekend or Bank Holiday.
+
+Preserve the customer’s existing quoted fare when offering an alternative pickup time unless another genuine journey input has changed that affects the canonical fare calculation.
+
+Also audit the canonical pricing configuration to ensure there is no active weekend or Bank Holiday multiplier/surcharge being applied by:
+
+* Public Live Quote
+* Personal Quote
+* Driver Quick Quote
+* alternative-time booking flow
+
+Do not change any other pricing rules.
+
+Example: Friday 14:00 → Saturday 15:00 must keep the same fare when only the pickup datetime changed.
+
+**Canonical config (current):**
+
+* `pricing-config.json` → `airportTripPremiumRate: 0`
+* `pricing-config.json` → `addressToAddressTripPremiumRate: 0`
+* `operational.weekendAndBankHoliday.premiumRate: 0`
+
+Regression: `scripts/check-airport-weekend-premium.ts` and `scripts/check-pricing-vehicle-quote-flow.ts`.

@@ -20,6 +20,7 @@ import { calculatePointToPointQuote, calculateQuote } from "../src/lib/quote";
 import { emptySelectedPlace, type SelectedPlace } from "../src/lib/selected-place";
 import { SALOON_VEHICLE } from "../src/lib/vehicle-selection";
 import { calculateWebsiteOneWayFare } from "../src/lib/website-fare";
+import { calculateAuthoritativeWebsiteQuote } from "../src/lib/quote-service";
 
 const SALOON = SALOON_VEHICLE;
 const cityHall = "Belfast City Hall, Belfast BT1 5GS";
@@ -80,6 +81,23 @@ console.log(
   `OK  1–4. BFS City Hall weekday/Sat/Sun/BH/no-date all £${weekday.amount}`,
 );
 
+// Friday 14:00 → Saturday 15:00 must not change fare merely because it is Saturday.
+const fridayAfternoon = calculateQuote(cityHall, "BFS", SALOON, false, {
+  outboundDate: "2026-08-21",
+  outboundTime: "14:00",
+});
+const saturdayAfternoon = calculateQuote(cityHall, "BFS", SALOON, false, {
+  outboundDate: "2026-08-22",
+  outboundTime: "15:00",
+});
+assert.ok(fridayAfternoon && saturdayAfternoon);
+assert.equal(fridayAfternoon.premiumApplied, false);
+assert.equal(saturdayAfternoon.premiumApplied, false);
+assert.equal(saturdayAfternoon.amount, fridayAfternoon.amount);
+console.log(
+  `OK  Public Live Quote: Friday 14:00 = Saturday 15:00 £${fridayAfternoon.amount}`,
+);
+
 const bfsPlace: SelectedPlace = {
   ...emptySelectedPlace(),
   placeId: "ChIJy4dKsjJVYEgRntaoTC4U5gw",
@@ -128,6 +146,69 @@ const ownerAirportWeekday = calculateWebsiteOneWayFare({
 assert.ok(ownerAirportWeekday);
 assert.equal(ownerAirportWeekday!.amount, weekday.amount);
 assert.equal(ownerAirportWeekday!.premiumApplied, false);
+
+const personalFriday = calculateWebsiteOneWayFare({
+  pickupAddress: cityHall,
+  dropoffAddress: "Belfast International Airport",
+  pickupPlace: cityPlace,
+  dropoffPlace: bfsPlace,
+  vehicleType: SALOON,
+  routeMetrics: null,
+  schedule: { outboundDate: "2026-08-21", outboundTime: "14:00", returnJourney: false },
+});
+const personalSaturday = calculateWebsiteOneWayFare({
+  pickupAddress: cityHall,
+  dropoffAddress: "Belfast International Airport",
+  pickupPlace: cityPlace,
+  dropoffPlace: bfsPlace,
+  vehicleType: SALOON,
+  routeMetrics: null,
+  schedule: { outboundDate: "2026-08-22", outboundTime: "15:00", returnJourney: false },
+});
+assert.ok(personalFriday && personalSaturday);
+assert.equal(personalFriday!.premiumApplied, false);
+assert.equal(personalSaturday!.premiumApplied, false);
+assert.equal(personalSaturday!.amount, personalFriday!.amount);
+assert.equal(personalFriday!.amount, fridayAfternoon.amount);
+console.log(
+  `OK  Personal Quote (website-fare): Friday 14:00 = Saturday 15:00 £${personalFriday!.amount}`,
+);
+
+const quickQuoteFriday = calculateAuthoritativeWebsiteQuote({
+  airportCode: "BFS",
+  fromAirport: false,
+  pickupAddress: cityHall,
+  dropoffAddress: "Belfast International Airport",
+  returnJourney: false,
+  outboundDate: "2026-08-21",
+  outboundTime: "14:00",
+  passengers: 2,
+  suitcases: 1,
+  routeMetrics: { distanceKm: 22, durationMinutes: 28 },
+});
+const quickQuoteSaturday = calculateAuthoritativeWebsiteQuote({
+  airportCode: "BFS",
+  fromAirport: false,
+  pickupAddress: cityHall,
+  dropoffAddress: "Belfast International Airport",
+  returnJourney: false,
+  outboundDate: "2026-08-22",
+  outboundTime: "15:00",
+  passengers: 2,
+  suitcases: 1,
+  routeMetrics: { distanceKm: 22, durationMinutes: 28 },
+});
+assert.equal(quickQuoteFriday.ok, true);
+assert.equal(quickQuoteSaturday.ok, true);
+if (quickQuoteFriday.ok && quickQuoteSaturday.ok) {
+  assert.equal(quickQuoteFriday.premiumApplied, false);
+  assert.equal(quickQuoteSaturday.premiumApplied, false);
+  assert.equal(quickQuoteSaturday.amount, quickQuoteFriday.amount);
+  assert.equal(quickQuoteFriday.amount, fridayAfternoon.amount);
+  console.log(
+    `OK  Driver Quick Quote (quote-service): Friday 14:00 = Saturday 15:00 £${quickQuoteFriday.amount}`,
+  );
+}
 
 const standardWebsiteAmount = ownerAirportWeekend!.amount;
 assert.equal(standardWebsiteAmount, saturday.amount);
@@ -191,5 +272,27 @@ const hero = fs.readFileSync(path.join(root, "src/components/HeroSlideshow.tsx")
 assert.match(hero, /Save 5% when you book a return/);
 assert.match(hero, /Secure online booking/);
 console.log("OK  Homepage benefits include return saving");
+
+// Alternative-time booking must not introduce a weekend/BH surcharge path.
+const altTimeGuards = [
+  "src/lib/pricing-config.json",
+  "src/lib/point-to-point-premium.ts",
+  "src/lib/quote.ts",
+  "src/lib/website-fare.ts",
+  "src/lib/quote-service.ts",
+  "workers/addresses/src/quote-handlers.ts",
+];
+for (const rel of altTimeGuards) {
+  const src = fs.readFileSync(path.join(root, rel), "utf8");
+  assert.doesNotMatch(
+    src,
+    /airportTripPremiumRate"\s*:\s*[1-9]|addressToAddressTripPremiumRate"\s*:\s*[1-9]/,
+  );
+}
+assert.equal(PRICING_CONFIG.airportTripPremiumRate, 0);
+assert.equal(PRICING_CONFIG.addressToAddressTripPremiumRate, 0);
+console.log(
+  "OK  Alternative-time / quote-path audit: no active weekend or Bank Holiday surcharge multiplier",
+);
 
 console.log("\nAll airport weekend premium (disabled) checks passed.");
