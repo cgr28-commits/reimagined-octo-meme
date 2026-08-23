@@ -32,7 +32,7 @@ import {
   detectAirportCodeFromPlace,
   type SelectedPlace,
 } from "@/lib/selected-place";
-import { resolveAirportTransferIntent } from "../../shared/airport-transfer-intent";
+import { resolveAirportTransferIntent } from "../../../shared/airport-transfer-intent";
 import FiniteOptionSelect, {
   ONLINE_PASSENGER_OPTIONS,
   ONLINE_SUITCASE_OPTIONS,
