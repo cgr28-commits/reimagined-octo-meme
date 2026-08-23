@@ -1,5 +1,6 @@
 import {
   fetchWorkerAddressDetails,
+  fetchWorkerForwardGeocode,
   fetchWorkerAddressSuggestions,
   resolveAddressesApiUrl,
 } from "@/lib/addresses-api";
@@ -140,11 +141,23 @@ export function isGooglePlacesEnabled(): boolean {
 export async function geocodePickupAddress(
   address: string,
 ): Promise<{ lat: number; lng: number } | null> {
-  if (!GOOGLE_API_KEY) {
+  const trimmed = address.trim();
+  if (trimmed.length < 8) {
     return null;
   }
 
-  return geocodeAddress(GOOGLE_API_KEY, address);
+  if (GOOGLE_API_KEY) {
+    try {
+      const direct = await geocodeAddress(GOOGLE_API_KEY, trimmed);
+      if (direct) {
+        return direct;
+      }
+    } catch {
+      // Fall through to Worker (preview/referrer-restricted browser keys).
+    }
+  }
+
+  return fetchWorkerForwardGeocode(trimmed);
 }
 
 function toPredictions(

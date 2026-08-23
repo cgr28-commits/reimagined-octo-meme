@@ -216,12 +216,22 @@ check("Wiring: shared resolver + Quick Quote / Personal / TripMap", () => {
     read("src/app/quick-quote/QuickQuoteOwnerClient.tsx"),
     /resolveTripRouteMetricsForAddresses/,
   );
+  // Browser metrics preferred; Worker still prices when browser resolve fails.
+  assert.match(
+    read("src/app/quick-quote/QuickQuoteOwnerClient.tsx"),
+    /routeMetrics: routeMetrics \?\? undefined/,
+  );
   assert.match(read("src/lib/quick-quote-api.ts"), /routeMetrics/);
+  assert.match(read("src/lib/addresses-api.ts"), /fetchWorkerForwardGeocode/);
+  assert.match(read("src/lib/google-maps.ts"), /fetchWorkerForwardGeocode/);
+  assert.match(read("src/lib/trip-route.ts"), /ROAD_DISTANCE_FACTOR/);
+  assert.match(read("workers/addresses/src/index.ts"), /forwardGeocode/);
   assert.match(
     read("src/components/OwnerPersonalQuotesPanel.tsx"),
     /resolveTripRouteMetricsForAddresses/,
   );
   assert.match(read("src/components/TripMap.tsx"), /resolveRoutePoint/);
+  assert.match(read("src/components/AddressInput.tsx"), /geocodePickupAddress/);
   assert.doesNotMatch(
     read("src/components/OwnerPersonalQuotesPanel.tsx"),
     /typeof pickupPlace\.lat === "number" &&\s*typeof pickupPlace\.lng === "number"/,

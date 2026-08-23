@@ -13,6 +13,7 @@ import {
   fetchAddressPredictionsDetailed,
   fetchPlaceDetails,
   fetchSelectedPlaceDetails,
+  geocodePickupAddress,
   isGooglePlacesEnabled,
   isPureFullNorthernIrelandPostcodeQuery,
   type AddressPrediction,
@@ -421,13 +422,24 @@ export default function AddressInput({
           : null);
 
       const displayAddress = buildDisplayAddress(placeName, postalWithNumber);
-      const nextPlace: SelectedPlace = {
+      let nextPlace: SelectedPlace = {
         ...place,
         formattedAddress: postalWithNumber,
         displayAddress,
         placeName,
         streetNumber: place.streetNumber || typedNumber || null,
       };
+      // Ideal/GetAddress picks often omit lat/lng — geocode so Quick Quote /
+      // TripMap can measure the route (BFS distance floor needs miles).
+      if (
+        (typeof nextPlace.lat !== "number" || typeof nextPlace.lng !== "number") &&
+        displayAddress.trim().length >= 8
+      ) {
+        const coords = await geocodePickupAddress(displayAddress);
+        if (coords) {
+          nextPlace = { ...nextPlace, lat: coords.lat, lng: coords.lng };
+        }
+      }
       selectedPlaceRef.current = nextPlace;
       onChange(displayAddress);
       onSelectAddress?.(displayAddress);
@@ -445,7 +457,7 @@ export default function AddressInput({
     const nextAddress =
       formatted ?? buildDisplayAddress(prediction.mainText, prediction.description);
     const typedNumber = value.trim().match(/^(\d+[a-zA-Z]?)\b/)?.[1];
-    const nextPlace: SelectedPlace = {
+    let nextPlace: SelectedPlace = {
       placeId: prediction.placeId,
       formattedAddress: prediction.description,
       displayAddress: nextAddress,
@@ -458,6 +470,12 @@ export default function AddressInput({
       route: null,
       locality: null,
     };
+    if (nextAddress.trim().length >= 8) {
+      const coords = await geocodePickupAddress(nextAddress);
+      if (coords) {
+        nextPlace = { ...nextPlace, lat: coords.lat, lng: coords.lng };
+      }
+    }
     selectedPlaceRef.current = nextPlace;
     onChange(nextAddress);
     onSelectAddress?.(nextAddress);
