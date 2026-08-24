@@ -29,7 +29,7 @@ import {
 import {
   driverAuthorized,
   ownerAuthorized,
-  resolveDriverSession,
+  resolveStoredDriverSession,
 } from "./driver-auth";
 import {
   createTrackingSession,
@@ -275,7 +275,7 @@ export async function handleJourneyTransitionRequest(
     return jsonResponse({ error: "Job not found" }, 404, origin);
   }
 
-  const session = resolveDriverSession(request, env);
+  const session = await resolveStoredDriverSession(request, env, env.TRACKING_STORE);
   const operateError = assertDriverCanOperateJob(record, session);
   if (operateError) {
     return jsonResponse({ error: operateError }, 409, origin);
@@ -500,7 +500,7 @@ export async function handleJourneySessionRequest(
     return jsonResponse({ error: "Job not found" }, 404, origin);
   }
 
-  const session = resolveDriverSession(request, env);
+  const session = await resolveStoredDriverSession(request, env, env.TRACKING_STORE);
   const operateError = assertDriverCanOperateJob(record, session);
   if (operateError) {
     return jsonResponse({ error: operateError }, 409, origin);

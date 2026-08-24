@@ -52,7 +52,7 @@ import {
   isDriverAuthConfigured,
   listConfiguredDrivers,
   ownerAuthorized,
-  resolveDriverSession,
+  resolveStoredDriverSession,
   sanitizeDriverJobForRole,
   type DashboardRole,
 } from "./driver-auth";
@@ -489,7 +489,7 @@ export async function handleDriverJobsRequest(
     );
   }
 
-  const session = resolveDriverSession(request, env);
+  const session = await resolveStoredDriverSession(request, env, trackingStore);
   const role: DashboardRole = session.authorized ? session.role : "driver";
 
   const url = new URL(request.url);
@@ -593,7 +593,12 @@ export async function handleDriverJobsRequest(
       if (status !== "pending" && status !== "accepted") {
         return false;
       }
-      return driverNamesMatch(booking.driverFirstName, session.driverName);
+      if (!driverNamesMatch(booking.driverFirstName, session.driverName)) {
+        return false;
+      }
+      const assignedEmail = booking.driverEmail?.trim().toLowerCase();
+      const sessionEmail = session.driverEmail?.trim().toLowerCase();
+      return !assignedEmail || !sessionEmail || assignedEmail === sessionEmail;
     });
 
     for (const booking of relevant) {
@@ -748,7 +753,7 @@ export async function handleDriverStatusRequest(
   origin: string | null,
 ): Promise<Response> {
   const authConfigured = isDriverAuthConfigured(env);
-  const session = resolveDriverSession(request, env);
+  const session = await resolveStoredDriverSession(request, env, env.TRACKING_STORE);
   const authorized = session.authorized;
   const keys = driverAuthStatus(env);
 
@@ -820,7 +825,7 @@ export async function handleDriverSharingRequest(
     return cancelled;
   }
 
-  const session = resolveDriverSession(request, env);
+  const session = await resolveStoredDriverSession(request, env, env.TRACKING_STORE);
   const operateError = assertDriverCanOperateJob(record, session);
   if (operateError && Boolean(active)) {
     return jsonResponse({ error: operateError }, 409, origin);
@@ -912,7 +917,7 @@ export async function handleDriverLocationRequest(
       driverName = trackingSession.driverName ?? driverName;
     } else if (driverAuthorized(request, env)) {
       // Fall back to owner/driver key if the short-lived session expired.
-      const session = resolveDriverSession(request, env);
+      const session = await resolveStoredDriverSession(request, env, env.TRACKING_STORE);
       const operateError = assertDriverCanOperateJob(record, session);
       if (operateError) {
         return jsonResponse({ error: operateError }, 409, origin);
@@ -928,7 +933,7 @@ export async function handleDriverLocationRequest(
     if (!driverAuthorized(request, env)) {
       return jsonResponse({ error: "Unauthorized" }, 401, origin);
     }
-    const session = resolveDriverSession(request, env);
+    const session = await resolveStoredDriverSession(request, env, env.TRACKING_STORE);
     const operateError = assertDriverCanOperateJob(record, session);
     if (operateError) {
       return jsonResponse({ error: operateError }, 409, origin);

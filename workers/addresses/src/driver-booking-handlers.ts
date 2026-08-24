@@ -23,7 +23,7 @@ import {
 import { publicTrackPayload } from "./tracking-handlers";
 import { corsHeaders } from "../shared/google-places";
 import { assertDriverCanViewJob } from "./driver-assignment-utils";
-import { driverAuthorized, resolveDriverSession, sanitizeDriverJobForRole, type DashboardRole } from "./driver-auth";
+import { driverAuthorized, resolveStoredDriverSession, sanitizeDriverJobForRole, type DashboardRole } from "./driver-auth";
 
 type Env = {
   TRACKING_STORE?: KVNamespace;
@@ -181,7 +181,7 @@ export async function handleDriverUpdateBookingRequest(
     return jsonResponse({ error: "Unauthorized" }, 401, origin);
   }
 
-  const session = resolveDriverSession(request, env);
+  const session = await resolveStoredDriverSession(request, env, env.TRACKING_STORE);
   const role: DashboardRole = session.authorized ? session.role : "driver";
 
   let body: DriverBookingUpdateBody;

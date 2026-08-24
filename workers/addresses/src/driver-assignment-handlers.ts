@@ -14,7 +14,7 @@ import {
   isConfiguredDriver,
   listConfiguredDrivers,
   ownerAuthorized,
-  resolveDriverSession,
+  resolveStoredDriverSession,
   type DashboardRole,
   type DriverAuthEnv,
 } from "./driver-auth";
@@ -417,7 +417,7 @@ export async function handleDriverAssignmentResponseRequest(
     return jsonResponse({ error: "Live tracking is not configured" }, 503, origin);
   }
 
-  const session = resolveDriverSession(request, env);
+  const session = await resolveStoredDriverSession(request, env, env.TRACKING_STORE);
   if (!session.authorized || session.role !== "driver" || !session.driverName) {
     return jsonResponse({ error: "Unauthorized — driver access required" }, 401, origin);
   }

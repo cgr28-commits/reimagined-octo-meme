@@ -1,3 +1,9 @@
+import { OWNER_VEHICLE_PROFILE_KEY } from "../shared/driver-vehicle";
+import {
+  getDriverVehicleProfile,
+  listOwnerVehicleProfileOptions,
+} from "./driver-vehicle-store";
+
 export type DriverAuthEnv = {
   DRIVER_ACCESS_KEY?: string;
   OWNER_ACCESS_KEY?: string;
@@ -16,7 +22,7 @@ export type DashboardRole = "owner" | "driver";
 
 export type DriverSession =
   | { authorized: false }
-  | { authorized: true; role: DashboardRole; driverName?: string };
+  | { authorized: true; role: DashboardRole; driverName?: string; driverEmail?: string };
 
 function normalizeKey(value: string): string {
   return value.replace(/^\uFEFF/, "").trim();
@@ -41,19 +47,6 @@ function driverDisplayName(env: DriverAuthEnv): string {
   const explicit = env.DRIVER_NAME?.trim();
   if (explicit) {
     return explicit;
-  }
-
-  // If DRIVER_NAME is unset, use the first roster entry (e.g. Gary) so
-  // /driver/jobs filters match assignments to that saved driver name.
-  const roster = env.DRIVER_ROSTER?.trim();
-  if (roster) {
-    const first = roster
-      .split(",")
-      .map((name) => name.trim())
-      .find(Boolean);
-    if (first) {
-      return first;
-    }
   }
 
   return "Driver";
@@ -112,6 +105,45 @@ export function resolveDriverSession(request: Request, env: DriverAuthEnv): Driv
   }
 
   return { authorized: false };
+}
+
+/**
+ * Resolve the saved-driver identity when a deployment has no DRIVER_NAME.
+ * One complete non-owner profile is unambiguous; multiple profiles fail closed.
+ */
+export async function resolveStoredDriverSession(
+  request: Request,
+  env: DriverAuthEnv,
+  store?: KVNamespace,
+): Promise<DriverSession> {
+  const session = resolveDriverSession(request, env);
+  if (
+    !session.authorized ||
+    session.role !== "driver" ||
+    session.driverName !== "Driver" ||
+    !store
+  ) {
+    return session;
+  }
+
+  const profiles = await listOwnerVehicleProfileOptions(store, []);
+  const external = profiles.filter(
+    (profile) =>
+      profile.profileKey !== OWNER_VEHICLE_PROFILE_KEY &&
+      profile.complete &&
+      Boolean(profile.displayName.trim()),
+  );
+  if (external.length !== 1) {
+    return session;
+  }
+  const saved = await getDriverVehicleProfile(store, external[0].profileKey);
+
+  return {
+    authorized: true,
+    role: "driver",
+    driverName: external[0].displayName.trim(),
+    ...(saved?.email.trim() ? { driverEmail: saved.email.trim().toLowerCase() } : {}),
+  };
 }
 
 export function driverAuthorized(request: Request, env: DriverAuthEnv): boolean {

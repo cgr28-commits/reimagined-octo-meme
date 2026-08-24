@@ -15,13 +15,17 @@ import {
 } from "../shared/tracking";
 import { buildDriverAssignmentEmail, type BookingJobRecord } from "../shared/booking-job";
 import { filterJobsForSession } from "../workers/addresses/src/driver-assignment-utils";
-import { sanitizeDriverJobForRole } from "../workers/addresses/src/driver-auth";
+import {
+  resolveStoredDriverSession,
+  sanitizeDriverJobForRole,
+} from "../workers/addresses/src/driver-auth";
 
 const root = process.cwd();
 function read(rel: string): string {
   return readFileSync(join(root, rel), "utf8");
 }
 
+async function main() {
 console.log("=== 1. Driver name matching (Gary ↔ session) ===");
 {
   assert.equal(driverNamesMatch("Gary", "Gary"), true);
@@ -34,6 +38,64 @@ console.log("=== 1. Driver name matching (Gary ↔ session) ===");
   assert.equal(jobVisibleToDriver({ assignedDriverName: "Gary", assignmentStatus: "declined" }, "Gary"), false);
   assert.equal(jobVisibleToDriver({ assignedDriverName: "Gary", assignmentStatus: "unassigned" }, "Gary"), false);
   console.log("OK  visibility rules for pending/accepted only");
+}
+
+console.log("\n=== 1b. Saved profile resolves missing deployed DRIVER_NAME ===");
+{
+  const records = new Map<string, unknown>([
+    ["driver:vehicle-index", ["gary"]],
+    [
+      "driver:vehicle:gary",
+      {
+        profileKey: "gary",
+        displayName: "Gary",
+        email: "gary@example.com",
+        mobile: "07700900123",
+        make: "Skoda",
+        model: "Superb",
+        colour: "Black",
+        registration: "ABC123",
+        updatedAt: "2026-08-24T12:00:00.000Z",
+      },
+    ],
+  ]);
+  const store = {
+    get: async (key: string) => records.get(key) ?? null,
+  } as unknown as KVNamespace;
+  const request = new Request("https://worker.example/driver/jobs?key=live-driver-key");
+  const resolved = await resolveStoredDriverSession(
+    request,
+    { DRIVER_ACCESS_KEY: "live-driver-key" },
+    store,
+  );
+  assert.deepEqual(resolved, {
+    authorized: true,
+    role: "driver",
+    driverName: "Gary",
+    driverEmail: "gary@example.com",
+  });
+
+  records.set("driver:vehicle-index", ["gary", "another-driver"]);
+  records.set("driver:vehicle:another-driver", {
+    profileKey: "another-driver",
+    displayName: "Another Driver",
+    email: "another@example.com",
+    make: "Ford",
+    model: "Galaxy",
+    colour: "Blue",
+    registration: "XYZ789",
+    updatedAt: "2026-08-24T12:00:00.000Z",
+  });
+  const ambiguous = await resolveStoredDriverSession(
+    request,
+    { DRIVER_ACCESS_KEY: "live-driver-key" },
+    store,
+  );
+  assert.equal(
+    ambiguous.authorized && ambiguous.role === "driver" ? ambiguous.driverName : null,
+    "Driver",
+  );
+  console.log("OK  one saved driver resolves by profile; multiple profiles fail closed");
 }
 
 console.log("\n=== 2. filterJobsForSession after accept / reassign ===");
@@ -203,3 +265,9 @@ console.log("\n=== 5. Source contracts (trackingToken sync + dashboard UI) ===")
 }
 
 console.log("\nDriver accept → dashboard checks passed");
+}
+
+void main().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});

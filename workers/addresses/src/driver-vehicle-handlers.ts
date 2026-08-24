@@ -8,6 +8,7 @@ import {
   driverAuthorized,
   listConfiguredDrivers,
   resolveDriverSession,
+  resolveStoredDriverSession,
   type DriverAuthEnv,
 } from "./driver-auth";
 import { corsHeaders } from "../shared/google-places";
@@ -111,7 +112,7 @@ export async function handleDriverVehicleProfilesRequest(
     return jsonResponse({ error: "Unauthorized" }, 401, origin);
   }
 
-  const session = resolveDriverSession(request, env);
+  const session = await resolveStoredDriverSession(request, env, env.TRACKING_STORE);
   if (!session.authorized) {
     return jsonResponse({ error: "Unauthorized" }, 401, origin);
   }
@@ -162,7 +163,7 @@ export async function handleDriverVehicleGetRequest(
     return jsonResponse({ error: "Unauthorized" }, 401, origin);
   }
 
-  const session = resolveDriverSession(request, env);
+  const session = await resolveStoredDriverSession(request, env, env.TRACKING_STORE);
   const url = new URL(request.url);
   const profileKey = resolveRequestedProfileKey(
     env,
@@ -238,7 +239,7 @@ export async function handleDriverVehicleSaveRequest(
     return jsonResponse({ error: "Unauthorized" }, 401, origin);
   }
 
-  const session = resolveDriverSession(request, env);
+  const session = await resolveStoredDriverSession(request, env, env.TRACKING_STORE);
 
   let body: Record<string, unknown>;
   try {
