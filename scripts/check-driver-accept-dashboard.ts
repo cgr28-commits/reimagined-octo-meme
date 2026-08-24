@@ -124,6 +124,7 @@ console.log("\n=== 3. Driver pay formatting + fare privacy ===");
       token: "t1",
       amountPaidLabel: "£85.00",
       paymentReference: "PAY-1",
+      bookingStatus: "partially_refunded",
       refundAmountLabel: "£10",
       customerMobile: "07700",
       driverPayAmount: "£40.00",
@@ -133,6 +134,8 @@ console.log("\n=== 3. Driver pay formatting + fare privacy ===");
   );
   assert.equal(sanitized.amountPaidLabel, undefined);
   assert.equal(sanitized.paymentReference, undefined);
+  assert.equal(sanitized.bookingStatus, undefined);
+  assert.equal(sanitized.refundAmountLabel, undefined);
   assert.equal(sanitized.driverPayAmount, "£40.00");
   console.log("OK  £40.00 pay shown; customer fare stripped");
 }

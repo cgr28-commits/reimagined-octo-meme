@@ -44,6 +44,7 @@ import {
 import {
   driverNamesMatch,
   jobAssignmentStatus,
+  formatDriverPayAmount,
 } from "../shared/tracking";
 import {
   driverAuthorized,
@@ -305,7 +306,6 @@ export async function handlePublicTrackRequest(
   if (!trackingStoreConfigured(env.TRACKING_STORE)) {
     return jsonResponse({ error: "Live tracking is not configured" }, 503, origin);
   }
-
   const trimmed = token.trim();
   if (!trimmed) {
     return jsonResponse({ error: "Missing tracking id" }, 400, origin);
@@ -476,6 +476,7 @@ export async function handleDriverJobsRequest(
   if (!trackingStoreConfigured(env.TRACKING_STORE)) {
     return jsonResponse({ error: "Live tracking is not configured" }, 503, origin);
   }
+  const trackingStore = env.TRACKING_STORE;
 
   if (!driverAuthorized(request, env)) {
     return jsonResponse(
@@ -583,7 +584,7 @@ export async function handleDriverJobsRequest(
           })();
 
     const bookingJobs = await listBookingJobsForDateRange(
-      env.TRACKING_STORE,
+      trackingStore,
       fromDate,
       toDate,
     );
@@ -596,10 +597,10 @@ export async function handleDriverJobsRequest(
     });
 
     for (const booking of relevant) {
-      await syncTrackingAssignmentFromBooking(env.TRACKING_STORE, booking);
+      await syncTrackingAssignmentFromBooking(trackingStore, booking);
       const token = booking.trackingToken?.trim();
       if (token && !jobs.some((entry) => entry.token === token)) {
-        const tracked = await getTrackingJob(env.TRACKING_STORE, token);
+        const tracked = await getTrackingJob(trackingStore, token);
         if (tracked && !isTrackingJobCancelled(tracked)) {
           jobs.push(tracked);
         }
@@ -608,7 +609,7 @@ export async function handleDriverJobsRequest(
 
     // Refresh any jobs already in the list that were just synced.
     jobs = await Promise.all(
-      jobs.map(async (job) => (await getTrackingJob(env.TRACKING_STORE, job.token)) ?? job),
+      jobs.map(async (job) => (await getTrackingJob(trackingStore, job.token)) ?? job),
     );
   }
 
@@ -700,7 +701,9 @@ export async function handleDriverJobsRequest(
           assignedDriverCarModel,
           assignedDriverCarColour,
           assignedDriverReg,
-          driverPayAmount,
+          driverPayAmount: driverPayAmount
+            ? formatDriverPayAmount(driverPayAmount)
+            : undefined,
           passengers,
           suitcases,
           driverLocationPointCount: job.driverLocationPointCount,

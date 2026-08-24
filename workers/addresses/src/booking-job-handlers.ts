@@ -8,6 +8,7 @@ import {
   appendDriverAssignmentHistory,
   driverNamesMatch,
   jobAssignmentStatus,
+  type TrackingJobRecord,
 } from "../shared/tracking";
 import { corsHeaders } from "../shared/google-places";
 import { ownerAuthorized, type DriverAuthEnv } from "./driver-auth";
@@ -36,10 +37,10 @@ export async function syncTrackingAssignmentFromBooking(
   store: KVNamespace,
   job: BookingJobRecord,
 ): Promise<void> {
-  const jobs: Awaited<ReturnType<typeof getTrackingJob>>[] = [];
+  const jobs: TrackingJobRecord[] = [];
   const seen = new Set<string>();
 
-  const push = (entry: Awaited<ReturnType<typeof getTrackingJob>>) => {
+  const push = (entry: TrackingJobRecord | null) => {
     if (!entry?.token || seen.has(entry.token)) return;
     seen.add(entry.token);
     jobs.push(entry);
@@ -96,7 +97,7 @@ export async function syncTrackingAssignmentFromBooking(
         Boolean(previousName) &&
         previousStatus !== "unassigned" &&
         nextName &&
-        !driverNamesMatch(previousName, nextName);
+        !driverNamesMatch(previousName ?? undefined, nextName);
 
       if (becomingReassigned) {
         Object.assign(
