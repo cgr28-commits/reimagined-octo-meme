@@ -315,6 +315,50 @@ export const OWNER_PRIMARY_JOURNEY_BUTTON_LABELS = {
   complete_journey: "Complete job",
 } as const;
 
+export type OwnerPrimaryJourneyAction = keyof typeof OWNER_PRIMARY_JOURNEY_BUTTON_LABELS;
+
+/** Distinct status colours for Owner primary journey CTAs (not all green). */
+export const OWNER_PRIMARY_JOURNEY_BUTTON_TONES = {
+  start_tracking: "on_the_way",
+  arrived_pickup: "arrived",
+  complete_journey: "complete",
+} as const;
+
+/**
+ * Two-stage confirmation copy shown after tapping a primary journey CTA.
+ * No status/email/WhatsApp side-effects until Confirm is pressed.
+ */
+export function ownerPrimaryJourneyConfirmCopy(
+  action: OwnerPrimaryJourneyAction,
+): {
+  title: string;
+  body?: string;
+  confirmLabel: string;
+  cancelLabel: string;
+} {
+  switch (action) {
+    case "start_tracking":
+      return {
+        title: 'Send “Driver on the way” update?',
+        confirmLabel: "Confirm",
+        cancelLabel: "Cancel",
+      };
+    case "arrived_pickup":
+      return {
+        title: "Confirm driver has arrived?",
+        confirmLabel: "Confirm",
+        cancelLabel: "Cancel",
+      };
+    case "complete_journey":
+      return {
+        title: "Complete this journey?",
+        body: "This will move it from Active jobs to Completed jobs.",
+        confirmLabel: "Confirm completion",
+        cancelLabel: "Cancel",
+      };
+  }
+}
+
 /**
  * Upcoming Jobs: real unfinished customer work whose next unfinished pickup
  * day is today or in the future. Excludes tests, cancelled/refunded, completed,

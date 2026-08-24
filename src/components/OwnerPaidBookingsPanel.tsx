@@ -9,10 +9,12 @@ import {
   journeyStatusLabel,
   nextUnfinishedSortKey,
   OWNER_PRIMARY_JOURNEY_BUTTON_LABELS,
+  ownerPrimaryJourneyConfirmCopy,
   ownerUpcomingPrimaryJourneyActions,
   relevantUpcomingJourneyDate,
   relevantUpcomingJourneyTime,
   resolveCompletionTimestamp,
+  type OwnerPrimaryJourneyAction,
 } from "../../shared/upcoming-jobs";
 import {
   activeLegPickupLabel,
@@ -446,6 +448,11 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
   const [fareAdjustMessage, setFareAdjustMessage] = useState("");
   const [refundConfirmRef, setRefundConfirmRef] = useState<string | null>(null);
   const [externalRefundConfirmRef, setExternalRefundConfirmRef] = useState<string | null>(null);
+  /** Two-stage confirm for primary journey CTAs — no side-effects until Confirm. */
+  const [journeyConfirm, setJourneyConfirm] = useState<{
+    paymentReference: string;
+    action: OwnerPrimaryJourneyAction;
+  } | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -899,26 +906,107 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
       return null;
     }
 
+    const pendingConfirm =
+      journeyConfirm?.paymentReference === booking.paymentReference
+        ? journeyConfirm.action
+        : null;
+
+    function primaryButtonClass(action: OwnerPrimaryJourneyAction): string {
+      const base =
+        "min-h-14 w-full rounded-xl px-4 py-3.5 text-base font-bold transition-colors disabled:opacity-60";
+      switch (action) {
+        case "start_tracking":
+          return `${base} bg-sky-400 text-navy hover:bg-sky-300`;
+        case "arrived_pickup":
+          return `${base} bg-amber-300 text-navy hover:bg-amber-200`;
+        case "complete_journey":
+          return `${base} bg-emerald text-navy hover:bg-emerald/90`;
+      }
+    }
+
     return (
-      <div className="space-y-2" data-owner-primary-journey-controls>
+      <div className="space-y-3" data-owner-primary-journey-controls>
         {status === "arrived_pickup" && booking.arrivedPickupAt ? (
           <p className="text-sm font-semibold text-emerald">
             Driver arrived · {formatArrivedPickupHhMm(booking.arrivedPickupAt)}
           </p>
         ) : null}
-        <div className="flex flex-col gap-2">
-          {primaryActions.map((item) => (
-            <button
-              key={item.action}
-              type="button"
-              disabled={busy}
-              data-owner-journey-action={item.action}
-              onClick={() => void handleJourneyAction(booking, item.action)}
-              className="min-h-12 w-full rounded-xl bg-emerald px-4 py-3 text-base font-bold text-navy transition-colors hover:bg-emerald/90 disabled:opacity-60"
-            >
-              {busy ? "Updating…" : item.label}
-            </button>
-          ))}
+        <div className="flex flex-col gap-3.5">
+          {primaryActions.map((item) => {
+            const confirming = pendingConfirm === item.action;
+            const confirmCopy = ownerPrimaryJourneyConfirmCopy(item.action);
+            return (
+              <div
+                key={item.action}
+                className="space-y-2"
+                data-owner-journey-action-wrap={item.action}
+              >
+                <button
+                  type="button"
+                  disabled={busy}
+                  data-owner-journey-action={item.action}
+                  aria-expanded={confirming}
+                  onClick={() => {
+                    if (busy) return;
+                    setJourneyConfirm((current) =>
+                      current?.paymentReference === booking.paymentReference &&
+                      current.action === item.action
+                        ? null
+                        : {
+                            paymentReference: booking.paymentReference,
+                            action: item.action,
+                          },
+                    );
+                  }}
+                  className={primaryButtonClass(item.action)}
+                >
+                  {busy && confirming ? "Updating…" : item.label}
+                </button>
+                {confirming ? (
+                  <div
+                    className="rounded-xl border border-white/15 bg-navy/80 p-3"
+                    data-owner-journey-confirm={item.action}
+                    role="group"
+                    aria-label={confirmCopy.title}
+                  >
+                    <p className="text-sm font-semibold text-white">{confirmCopy.title}</p>
+                    {confirmCopy.body ? (
+                      <p className="mt-1 text-xs leading-relaxed text-white/65">
+                        {confirmCopy.body}
+                      </p>
+                    ) : null}
+                    <div className="mt-3 flex flex-col gap-2">
+                      <button
+                        type="button"
+                        disabled={busy}
+                        data-owner-journey-confirm-yes={item.action}
+                        onClick={() => {
+                          setJourneyConfirm(null);
+                          void handleJourneyAction(booking, item.action);
+                        }}
+                        className={
+                          item.action === "complete_journey"
+                            ? "min-h-12 w-full rounded-xl bg-emerald px-4 py-3 text-sm font-bold text-navy disabled:opacity-60"
+                            : "min-h-12 w-full rounded-xl bg-white px-4 py-3 text-sm font-bold text-navy disabled:opacity-60"
+                        }
+                      >
+                        {busy ? "Updating…" : confirmCopy.confirmLabel}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={busy}
+                        data-owner-journey-confirm-cancel={item.action}
+                        onClick={() => setJourneyConfirm(null)}
+                        className="min-h-11 w-full rounded-xl border border-white/20 px-4 py-2.5 text-sm font-semibold text-white/85 disabled:opacity-60"
+                      >
+                        {confirmCopy.cancelLabel}
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            );
+          })}
         </div>
         {booking.arrivalNotificationStatus === "failed" ? (
           <button
