@@ -179,9 +179,9 @@ console.log("\n=== 3. Owner panel UI contracts ===");
   assert.match(panel, /groupOwnerScheduleByDay/);
   assert.match(panel, /completedOpenDays/);
   assert.match(panel, /overflow-x-hidden/);
+  assert.doesNotMatch(panel, /Status updates only/);
+  assert.doesNotMatch(panel, /No driver GPS or live map tracking/);
 
-  // Primary labels must appear in panel source (via constant usage is enough;
-  // also ensure Complete job is the third label constant).
   const shared = read("shared/upcoming-jobs.ts");
   assert.match(shared, /start_tracking:\s*"Driver on the way"/);
   assert.match(shared, /arrived_pickup:\s*"Driver arrived"/);
@@ -205,6 +205,25 @@ console.log("\n=== 3. Owner panel UI contracts ===");
   assert.doesNotMatch(panel, /SERVICE_FLAGS\.liveDriverTracking/);
   assert.doesNotMatch(panel, /postDriverLocation/);
 
+  // Customer email / WhatsApp notifications remain wired for journey CTAs.
+  assert.match(panel, /openOnTheWayWhatsAppForBooking/);
+  assert.match(panel, /openArrivalWhatsAppForBooking/);
+  assert.match(panel, /action === "start_tracking"/);
+  assert.match(panel, /action === "arrived_pickup"/);
+  assert.match(panel, /onTheWayNotificationStatus|Customer emailed \(Driver on the way\)/);
+
+  const shortNotice = read("src/components/OwnerShortNoticePanel.tsx");
+  assert.match(shortNotice, /View \/ Manage ▼/);
+  assert.match(shortNotice, /View \/ Manage ▲/);
+  assert.match(shortNotice, /data-owner-sn-card="collapsed"/);
+  assert.match(shortNotice, /expandedRefs/);
+  assert.match(shortNotice, /AWAITING OWNER APPROVAL/);
+  assert.match(shortNotice, /AWAITING CUSTOMER RESPONSE/);
+  assert.match(shortNotice, /APPROVED — AWAITING PAYMENT/);
+  assert.match(shortNotice, /Remove from dashboard/);
+  assert.match(shortNotice, /Archived \/ Removed bookings/);
+  assert.match(shortNotice, /SHORT_NOTICE_ALTERNATIVE_DECLINED/);
+
   const data = read("src/lib/data.ts");
   assert.match(data, /liveDriverTracking:\s*false/);
 
@@ -215,7 +234,7 @@ console.log("\n=== 3. Owner panel UI contracts ===");
   assert.match(page, /Active jobs/);
   assert.match(page, /Completed jobs \(/);
 
-  console.log("OK  Active/Completed UI · More options collapsed · no GPS live UI");
+  console.log("OK  Active/Completed UI · More options · pending collapse · no GPS live UI");
 }
 
 console.log("\nOwner daily-driver layout checks passed.");

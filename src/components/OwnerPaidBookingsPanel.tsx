@@ -934,10 +934,6 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
             {busy ? "Retrying…" : "Retry arrival notification"}
           </button>
         ) : null}
-        <p className="text-xs text-white/45">
-          Status updates only — may email the customer and open WhatsApp (you press Send). No
-          driver GPS or live map tracking.
-        </p>
       </div>
     );
   }

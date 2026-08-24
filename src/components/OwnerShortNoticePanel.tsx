@@ -198,14 +198,20 @@ export default function OwnerShortNoticePanel({ ownerKey }: OwnerShortNoticePane
     setLoading(true);
     setError("");
     try {
-      const [list, archivedList, settings] = await Promise.all([
+      // Load active + settings first so an older Worker without /archived
+      // does not blank the whole Short-notice panel.
+      const [list, settings] = await Promise.all([
         fetchShortNoticeBookings(ownerKey),
-        fetchArchivedShortNoticeBookings(ownerKey),
         fetchBookingSettings(ownerKey),
       ]);
       setBookings(list);
-      setArchived(archivedList);
       applySettings(settings);
+      try {
+        const archivedList = await fetchArchivedShortNoticeBookings(ownerKey);
+        setArchived(archivedList);
+      } catch {
+        setArchived([]);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load short-notice requests");
     } finally {
@@ -670,10 +676,18 @@ export default function OwnerShortNoticePanel({ ownerKey }: OwnerShortNoticePane
                   <button
                     type="button"
                     onClick={() => toggleExpanded(booking.reference)}
-                    className="flex w-full flex-col gap-1 rounded-xl text-left outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+                    className="flex w-full flex-col gap-1 overflow-x-hidden rounded-xl text-left outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+                    data-owner-sn-card="collapsed"
                   >
-                    <p className="text-base font-bold text-white sm:text-lg">
+                    <p className="break-words text-base font-bold text-white sm:text-lg">
                       {booking.booking.customerName}
+                      <span className="font-semibold text-white/85">
+                        {" "}
+                        — {booking.amountLabel.replace(/\.00$/, "")}
+                      </span>
+                    </p>
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-amber-200/90">
+                      {statusLabel(booking.status)}
                     </p>
                     {booking.status === "SHORT_NOTICE_ALTERNATIVE_OFFERED" ? (
                       <>
@@ -700,20 +714,18 @@ export default function OwnerShortNoticePanel({ ownerKey }: OwnerShortNoticePane
                       {truncateLabel(booking.booking.pickupLabel)} →{" "}
                       {truncateLabel(booking.booking.dropoffLabel)}
                     </p>
-                    <p className="text-sm font-semibold text-white">{booking.amountLabel}</p>
-                    <p className="text-[11px] font-semibold uppercase tracking-wider text-amber-200/90">
-                      {statusLabel(booking.status)}
-                    </p>
                     <span className="mt-1 text-sm font-semibold text-emerald">
-                      ▼ View booking
+                      View / Manage ▼
                     </span>
                   </button>
                 ) : (
                   <>
                 <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <p className="text-lg font-bold text-white">{booking.booking.customerName}</p>
-                    <p className="mt-1 text-sm text-white/65">
+                  <div className="min-w-0 flex-1">
+                    <p className="break-words text-lg font-bold text-white">
+                      {booking.booking.customerName}
+                    </p>
+                    <p className="mt-1 break-words text-sm text-white/65">
                       {booking.reference} · {booking.amountLabel} · {service}
                     </p>
                     <p className="mt-1 text-xs uppercase tracking-wider text-amber-200/90">
@@ -723,9 +735,10 @@ export default function OwnerShortNoticePanel({ ownerKey }: OwnerShortNoticePane
                   <button
                     type="button"
                     onClick={() => toggleExpanded(booking.reference)}
-                    className="min-h-10 rounded-xl border border-white/15 px-3 py-1.5 text-sm font-semibold text-white/80"
+                    className="min-h-11 shrink-0 rounded-xl border border-white/15 px-3 py-1.5 text-sm font-semibold text-white/80"
+                    data-owner-sn-card="expanded-toggle"
                   >
-                    ▲ Collapse
+                    View / Manage ▲
                   </button>
                 </div>
                 <dl className="mt-4 grid gap-2 text-sm text-white/70 sm:grid-cols-2">
@@ -1184,10 +1197,18 @@ export default function OwnerShortNoticePanel({ ownerKey }: OwnerShortNoticePane
                       <button
                         type="button"
                         onClick={() => toggleArchivedExpanded(booking.reference)}
-                        className="flex w-full flex-col gap-1 rounded-xl text-left outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+                        className="flex w-full flex-col gap-1 overflow-x-hidden rounded-xl text-left outline-none focus-visible:ring-2 focus-visible:ring-emerald"
                       >
-                        <p className="text-base font-bold text-white">
+                        <p className="break-words text-base font-bold text-white">
                           {booking.booking.customerName}
+                          <span className="font-semibold text-white/85">
+                            {" "}
+                            — {booking.amountLabel.replace(/\.00$/, "")}
+                          </span>
+                        </p>
+                        <p className="text-[11px] font-semibold uppercase tracking-wider text-white/50">
+                          {statusLabel(booking.status)}
+                          {booking.removedFromDashboardAt ? " · REMOVED" : ""}
                         </p>
                         <p className="text-sm text-white/70">
                           {formatCompactTripWhen(
@@ -1199,20 +1220,15 @@ export default function OwnerShortNoticePanel({ ownerKey }: OwnerShortNoticePane
                           {truncateLabel(booking.booking.pickupLabel)} →{" "}
                           {truncateLabel(booking.booking.dropoffLabel)}
                         </p>
-                        <p className="text-sm font-semibold text-white">{booking.amountLabel}</p>
-                        <p className="text-[11px] font-semibold uppercase tracking-wider text-white/50">
-                          {statusLabel(booking.status)}
-                          {booking.removedFromDashboardAt ? " · REMOVED" : ""}
-                        </p>
                         <span className="mt-1 text-sm font-semibold text-emerald">
-                          ▼ View booking
+                          View / Manage ▼
                         </span>
                       </button>
                     ) : (
                       <div className="space-y-3">
                         <div className="flex flex-wrap items-start justify-between gap-3">
-                          <div>
-                            <p className="text-lg font-bold text-white">
+                          <div className="min-w-0 flex-1">
+                            <p className="break-words text-lg font-bold text-white">
                               {booking.booking.customerName}
                             </p>
                             <p className="mt-1 text-sm text-white/65">
@@ -1226,9 +1242,9 @@ export default function OwnerShortNoticePanel({ ownerKey }: OwnerShortNoticePane
                           <button
                             type="button"
                             onClick={() => toggleArchivedExpanded(booking.reference)}
-                            className="min-h-10 rounded-xl border border-white/15 px-3 py-1.5 text-sm font-semibold text-white/80"
+                            className="min-h-11 shrink-0 rounded-xl border border-white/15 px-3 py-1.5 text-sm font-semibold text-white/80"
                           >
-                            ▲ Collapse
+                            View / Manage ▲
                           </button>
                         </div>
                         <dl className="grid gap-2 text-sm text-white/70 sm:grid-cols-2">

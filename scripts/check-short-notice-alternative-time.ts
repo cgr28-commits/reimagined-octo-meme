@@ -250,16 +250,27 @@ check("Worker + UI wiring for offer / accept / decline / collapse", () => {
   assert.match(panel, /Resend alternative-time email/);
   assert.match(panel, /Change offered time/);
   assert.match(panel, /Withdraw offer/);
-  assert.match(panel, /AWAITING CUSTOMER RESPONSE/);
+  assert.match(panel, /AWAITING OWNER APPROVAL|AWAITING CUSTOMER RESPONSE/);
   assert.match(panel, /APPROVED — AWAITING PAYMENT/);
-  assert.match(panel, /View booking/);
-  assert.match(panel, /Collapse/);
+  assert.match(panel, /View \/ Manage ▼/);
+  assert.match(panel, /View \/ Manage ▲/);
+  assert.match(panel, /data-owner-sn-card="collapsed"/);
   assert.match(panel, /expandedRefs/);
+  assert.doesNotMatch(panel, /▼ View booking/);
+  // Collapsed cards must not render the secure pay URL (only expanded branch does).
+  const collapsedIdx = panel.indexOf('data-owner-sn-card="collapsed"');
+  const expandedMarker = panel.indexOf('data-owner-sn-card="expanded-toggle"');
+  assert.ok(collapsedIdx > 0 && expandedMarker > collapsedIdx);
+  const collapsedSlice = panel.slice(collapsedIdx, expandedMarker);
+  assert.doesNotMatch(collapsedSlice, /Secure payment link|Copy pay link|break-all text-xs/);
   assert.match(panel, /Customer message/);
   assert.match(panel, /Remove from dashboard/);
   assert.match(panel, /Yes — remove/);
   assert.match(panel, /Archived \/ Removed bookings/);
   assert.match(panel, /Restore to dashboard/);
+  // Archived fetch failure must not blank active short-notice list.
+  assert.match(panel, /fetchArchivedShortNoticeBookings/);
+  assert.match(panel, /setArchived\(\[\]\)/);
   assert.match(api, /offerAlternativeShortNoticeTime/);
   assert.match(api, /acceptAlternativeShortNoticeTime/);
   assert.match(api, /declineAlternativeShortNoticeTime/);
