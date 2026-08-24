@@ -290,6 +290,9 @@ function acceptedAssignmentFields() {
     assignmentStatus: "accepted" as const,
     assignedAt: new Date().toISOString(),
     acceptedAt: new Date().toISOString(),
+    driverPayAmount: "£40.00",
+    passengers: 2,
+    suitcases: 2,
   };
 }
 
@@ -450,6 +453,9 @@ function buildDemoPendingJobRaw(): DriverJob {
     assignedDriverName: DEMO_DRIVER_NAME,
     assignmentStatus: "pending",
     assignedAt: new Date().toISOString(),
+    driverPayAmount: "£55",
+    passengers: 3,
+    suitcases: 4,
     bookingStatus: "confirmed",
     isAirportPickup: true,
     flightNumber: "BA1234",

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { SITE } from "@/lib/data";
 import { confirmDriverAcceptJob, lookupDriverAcceptJob } from "@/lib/booking-jobs-api";
+import { formatDriverPayAmount } from "../../../shared/tracking";
 
 type JobSummary = Awaited<ReturnType<typeof lookupDriverAcceptJob>>;
 
@@ -85,7 +86,7 @@ export default function DriverAcceptClient() {
               </p>
               <p className="mt-2">
                 <strong className="text-white">Your pay for this journey:</strong>{" "}
-                {job.driverPayAmount || "TBC"}
+                {formatDriverPayAmount(job.driverPayAmount)}
               </p>
               <p className="mt-2 text-white/55">
                 You will be paid after each journey (usually the next day).
@@ -94,7 +95,8 @@ export default function DriverAcceptClient() {
 
             {done ? (
               <p className="rounded-xl border border-emerald/35 bg-emerald/10 px-4 py-3 font-semibold text-emerald">
-                Thanks — this job is confirmed on the owner dashboard.
+                Thanks — this job is confirmed. It will appear on your Driver Dashboard under Today
+                or Upcoming.
               </p>
             ) : (
               <button

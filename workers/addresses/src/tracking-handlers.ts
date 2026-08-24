@@ -29,7 +29,9 @@ import { corsHeaders } from "../shared/google-places";
 import {
   bookingJobStoreConfigured,
   getBookingJob,
+  listBookingJobsForDateRange,
 } from "./booking-job-store";
+import { syncTrackingAssignmentFromBooking } from "./booking-job-handlers";
 import {
   getPaidBookingRecord,
   listPaymentRefsWithReturnDateInRange,
@@ -39,7 +41,10 @@ import {
   filterJobsForSession,
   assertDriverCanOperateJob,
 } from "./driver-assignment-utils";
-import { jobAssignmentStatus } from "../shared/tracking";
+import {
+  driverNamesMatch,
+  jobAssignmentStatus,
+} from "../shared/tracking";
 import {
   driverAuthorized,
   driverAuthStatus,
@@ -550,6 +555,63 @@ export async function handleDriverJobsRequest(
     jobs = await listTrackingJobsForDate(env.TRACKING_STORE, tripDate);
   }
 
+  // Self-heal: email accept updates booking-job first. Re-apply onto tracking jobs
+  // so /driver/jobs (which reads tracking) sees Accepted for this driver.
+  if (
+    role === "driver" &&
+    session.authorized &&
+    session.driverName &&
+    bookingJobStoreConfigured(env.TRACKING_STORE)
+  ) {
+    const today = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Europe/London",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(new Date());
+    const fromDate =
+      scope === "date"
+        ? tripDate
+        : today;
+    const toDate =
+      scope === "date"
+        ? tripDate
+        : (() => {
+            const end = new Date(`${today}T12:00:00Z`);
+            end.setUTCDate(end.getUTCDate() + daysAhead);
+            return end.toISOString().slice(0, 10);
+          })();
+
+    const bookingJobs = await listBookingJobsForDateRange(
+      env.TRACKING_STORE,
+      fromDate,
+      toDate,
+    );
+    const relevant = bookingJobs.filter((booking) => {
+      const status = booking.driverAssignmentStatus ?? "unassigned";
+      if (status !== "pending" && status !== "accepted") {
+        return false;
+      }
+      return driverNamesMatch(booking.driverFirstName, session.driverName);
+    });
+
+    for (const booking of relevant) {
+      await syncTrackingAssignmentFromBooking(env.TRACKING_STORE, booking);
+      const token = booking.trackingToken?.trim();
+      if (token && !jobs.some((entry) => entry.token === token)) {
+        const tracked = await getTrackingJob(env.TRACKING_STORE, token);
+        if (tracked && !isTrackingJobCancelled(tracked)) {
+          jobs.push(tracked);
+        }
+      }
+    }
+
+    // Refresh any jobs already in the list that were just synced.
+    jobs = await Promise.all(
+      jobs.map(async (job) => (await getTrackingJob(env.TRACKING_STORE, job.token)) ?? job),
+    );
+  }
+
   jobs = filterJobsForSession(jobs, session);
 
   const enrichedJobs = await Promise.all(
@@ -587,6 +649,36 @@ export async function handleDriverJobsRequest(
 
       const refundAmountLabel = paidRecord?.refundAmountLabel ?? job.refundAmountLabel;
 
+      let driverPayAmount: string | undefined;
+      let assignedDriverMobile: string | undefined;
+      let assignedDriverCarMake: string | undefined;
+      let assignedDriverCarModel: string | undefined;
+      let assignedDriverCarColour: string | undefined;
+      let assignedDriverReg: string | undefined;
+      let passengers: number | undefined;
+      let suitcases: number | undefined;
+
+      if (job.paymentReference && bookingJobStoreConfigured(env.TRACKING_STORE)) {
+        const bookingJob =
+          (await getBookingJob(env.TRACKING_STORE, job.paymentReference)) ??
+          (await getBookingJob(env.TRACKING_STORE, job.token));
+        if (bookingJob) {
+          driverPayAmount = bookingJob.driverPayAmount;
+          assignedDriverMobile = bookingJob.driverMobile;
+          assignedDriverCarMake = bookingJob.driverCarMake;
+          assignedDriverCarModel = bookingJob.driverCarModel;
+          assignedDriverCarColour = bookingJob.driverCarColour;
+          assignedDriverReg = bookingJob.driverReg;
+          passengers = bookingJob.passengers;
+          suitcases = bookingJob.suitcases;
+        }
+      }
+
+      if (paidRecord) {
+        passengers = passengers ?? paidRecord.passengers;
+        suitcases = suitcases ?? paidRecord.suitcases;
+      }
+
       return sanitizeDriverJobForRole(
         {
           ...publicTrackPayload(job, origin, { includeCustomerLocation: true }),
@@ -602,6 +694,15 @@ export async function handleDriverJobsRequest(
           assignedAt: job.assignedAt,
           acceptedAt: job.acceptedAt,
           declinedAt: job.declinedAt,
+          assignmentHistory: job.assignmentHistory ?? [],
+          assignedDriverMobile,
+          assignedDriverCarMake,
+          assignedDriverCarModel,
+          assignedDriverCarColour,
+          assignedDriverReg,
+          driverPayAmount,
+          passengers,
+          suitcases,
           driverLocationPointCount: job.driverLocationPointCount,
           driverLocationRecordedFrom: job.driverLocationRecordedFrom,
           driverLocationRecordedTo: job.driverLocationRecordedTo,

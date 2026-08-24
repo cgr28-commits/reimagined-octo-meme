@@ -4,6 +4,11 @@ import {
   type BookingJobKind,
   type BookingJobRecord,
 } from "../shared/booking-job";
+import {
+  appendDriverAssignmentHistory,
+  driverNamesMatch,
+  jobAssignmentStatus,
+} from "../shared/tracking";
 import { corsHeaders } from "../shared/google-places";
 import { ownerAuthorized, type DriverAuthEnv } from "./driver-auth";
 import { logBookingsToGoogleCalendar } from "./google-calendar";
@@ -23,32 +28,101 @@ import {
 } from "./tracking-store";
 import { trySendEmail, type WorkerEmailEnv } from "./worker-email";
 
-async function syncTrackingAssignmentFromBooking(
+/**
+ * Keep tracking jobs in lockstep with email accept/decline.
+ * Prefer explicit trackingToken (set at assign), then payment-ref index, then token==id legacy.
+ */
+export async function syncTrackingAssignmentFromBooking(
   store: KVNamespace,
   job: BookingJobRecord,
 ): Promise<void> {
-  const paymentRef = job.paymentReference?.trim() || job.id;
-  const tracked = await findTrackingJobsByPaymentReference(store, paymentRef);
-  const byId = await findTrackingJobsByPaymentReference(store, job.id);
-  const legacy = await getTrackingJob(store, job.id);
-  const jobs = [...tracked, ...byId];
-  if (legacy && !jobs.some((entry) => entry.token === legacy.token)) {
-    jobs.push(legacy);
+  const jobs: Awaited<ReturnType<typeof getTrackingJob>>[] = [];
+  const seen = new Set<string>();
+
+  const push = (entry: Awaited<ReturnType<typeof getTrackingJob>>) => {
+    if (!entry?.token || seen.has(entry.token)) return;
+    seen.add(entry.token);
+    jobs.push(entry);
+  };
+
+  const trackingToken = job.trackingToken?.trim();
+  if (trackingToken) {
+    push(await getTrackingJob(store, trackingToken));
   }
+
+  const paymentRef = job.paymentReference?.trim() || job.id;
+  for (const entry of await findTrackingJobsByPaymentReference(store, paymentRef)) {
+    push(entry);
+  }
+  if (job.id.trim() && job.id.trim() !== paymentRef) {
+    for (const entry of await findTrackingJobsByPaymentReference(store, job.id.trim())) {
+      push(entry);
+    }
+  }
+
+  push(await getTrackingJob(store, job.id));
+
   if (jobs.length === 0) {
     return;
   }
 
   const status = job.driverAssignmentStatus ?? "unassigned";
   for (const tracking of jobs) {
+    const previousName = tracking.assignedDriverName?.trim() || null;
+    const previousStatus = jobAssignmentStatus(tracking);
+    const nextName = job.driverFirstName?.trim() || tracking.assignedDriverName;
+
     if (status === "unassigned") {
+      if (previousStatus !== "unassigned") {
+        Object.assign(
+          tracking,
+          appendDriverAssignmentHistory(tracking, {
+            at: new Date().toISOString(),
+            action: "deassigned",
+            fromDriverName: previousName,
+            toDriverName: null,
+          }),
+        );
+      }
       delete tracking.assignedDriverName;
       delete tracking.assignmentStatus;
       delete tracking.assignedAt;
       delete tracking.acceptedAt;
       delete tracking.declinedAt;
     } else {
-      tracking.assignedDriverName = job.driverFirstName?.trim() || tracking.assignedDriverName;
+      const becomingAccepted =
+        status === "accepted" && previousStatus !== "accepted";
+      const becomingReassigned =
+        Boolean(previousName) &&
+        previousStatus !== "unassigned" &&
+        nextName &&
+        !driverNamesMatch(previousName, nextName);
+
+      if (becomingReassigned) {
+        Object.assign(
+          tracking,
+          appendDriverAssignmentHistory(tracking, {
+            at: new Date().toISOString(),
+            action: "reassigned",
+            fromDriverName: previousName,
+            toDriverName: nextName,
+          }),
+        );
+      } else if (becomingAccepted && previousStatus === "pending") {
+        // Keep the original "assigned" history entry; acceptance is recorded via acceptedAt.
+      } else if (previousStatus === "unassigned" && status === "pending") {
+        Object.assign(
+          tracking,
+          appendDriverAssignmentHistory(tracking, {
+            at: new Date().toISOString(),
+            action: "assigned",
+            fromDriverName: null,
+            toDriverName: nextName,
+          }),
+        );
+      }
+
+      tracking.assignedDriverName = nextName;
       tracking.assignmentStatus = status;
       tracking.assignedAt = job.assignedAt || tracking.assignedAt || new Date().toISOString();
       if (status === "accepted") {
@@ -414,7 +488,21 @@ export async function handleBookingJobAssignDriverRequest(
     assignedAt: new Date().toISOString(),
     driverAcceptedAt: undefined,
     driverDeclinedAt: undefined,
+    trackingToken: job.trackingToken,
   };
+
+  // Ensure we can always find the tracking job after email accept.
+  if (!updated.trackingToken?.trim()) {
+    const matches = await findTrackingJobsByPaymentReference(
+      env.TRACKING_STORE,
+      updated.paymentReference?.trim() || updated.id,
+    );
+    const primary =
+      matches.find((entry) => entry.journeyLeg !== "return") ?? matches[0] ?? null;
+    if (primary) {
+      updated.trackingToken = primary.token;
+    }
+  }
 
   await saveBookingJob(env.TRACKING_STORE, updated);
   await syncTrackingAssignmentFromBooking(env.TRACKING_STORE, updated);

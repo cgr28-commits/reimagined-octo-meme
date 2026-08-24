@@ -38,7 +38,25 @@ function driverKey(env: DriverAuthEnv): string {
 }
 
 function driverDisplayName(env: DriverAuthEnv): string {
-  return env.DRIVER_NAME?.trim() || "Driver";
+  const explicit = env.DRIVER_NAME?.trim();
+  if (explicit) {
+    return explicit;
+  }
+
+  // If DRIVER_NAME is unset, use the first roster entry (e.g. Gary) so
+  // /driver/jobs filters match assignments to that saved driver name.
+  const roster = env.DRIVER_ROSTER?.trim();
+  if (roster) {
+    const first = roster
+      .split(",")
+      .map((name) => name.trim())
+      .find(Boolean);
+    if (first) {
+      return first;
+    }
+  }
+
+  return "Driver";
 }
 
 export function listConfiguredDrivers(env: DriverAuthEnv): string[] {

@@ -1,5 +1,6 @@
 /** Owner-managed booking jobs: request → paid → assign driver by email. */
 
+import { formatDriverPayAmount } from "./tracking";
 
 function formatJobDateDmy(date: string): string {
   if (!date) return "";
@@ -59,6 +60,8 @@ export type BookingJobRecord = {
   assignedAt?: string;
   driverAcceptedAt?: string;
   driverDeclinedAt?: string;
+  /** Tracking job token this assignment belongs to (keeps email-accept in sync with /driver/jobs). */
+  trackingToken?: string;
 };
 
 export function bookingJobKey(id: string): string {
@@ -108,7 +111,7 @@ export function buildDriverAssignmentEmail(options: {
   const businessName = options.businessName ?? "My Airport Taxi NI";
   const job = options.job;
   const driverName = driverDisplayFirstName(job.driverFirstName) || "Driver";
-  const pay = job.driverPayAmount?.trim() || "TBC";
+  const pay = formatDriverPayAmount(job.driverPayAmount);
   const vehicleLine = [job.driverCarMake, job.driverCarModel, job.driverReg]
     .filter(Boolean)
     .join(" ");

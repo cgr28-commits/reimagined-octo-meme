@@ -277,6 +277,11 @@ export async function handleDriverAssignRequest(
       assignedAt: now,
       driverAcceptedAt: undefined,
       driverDeclinedAt: undefined,
+      trackingToken: token,
+      paymentReference:
+        bookingJob.paymentReference?.trim() ||
+        record.paymentReference?.trim() ||
+        bookingJob.id,
     };
 
     await saveBookingJob(env.TRACKING_STORE, updatedBooking);

@@ -42,6 +42,7 @@ import {
 } from "@/lib/tracking-api";
 import { issueBookingRefund, markBookingRefundedExternally } from "@/lib/refund-api";
 import { canMarkExternalRefund, isOperationallyCancelled } from "../../../shared/refund-ops";
+import { formatDriverPayAmount } from "../../../shared/tracking";
 import { DEMO_DRIVER_KEY, DEMO_DRIVER_NAME, DEMO_OWNER_KEY, DEMO_ROSTER } from "@/lib/tracking-demo";
 import { SERVICE_FLAGS, SITE } from "@/lib/data";
 import {
@@ -1389,12 +1390,25 @@ function DriverJobCard({
           {isOwner && job.amountPaidLabel && (
             <p className="mt-1 text-sm text-white/70">Paid: {job.amountPaidLabel}</p>
           )}
+          {!isOwner && job.driverPayAmount ? (
+            <p className="mt-2 text-sm font-semibold text-emerald">
+              Your pay for this journey:{" "}
+              {formatDriverPayAmount(job.driverPayAmount)}
+            </p>
+          ) : null}
+          {!isOwner && (job.passengers != null || job.suitcases != null) ? (
+            <p className="mt-1 text-sm text-white/65">
+              {job.passengers != null ? `${job.passengers} passenger${job.passengers === 1 ? "" : "s"}` : null}
+              {job.passengers != null && job.suitcases != null ? " · " : null}
+              {job.suitcases != null ? `${job.suitcases} suitcases` : null}
+            </p>
+          ) : null}
           {isOwner && isRefunded && (job.refundAmountLabel || job.amountPaidLabel) && (
             <p className="mt-1 text-sm font-semibold text-red-200">
               Refunded: {job.refundAmountLabel ?? job.amountPaidLabel}
             </p>
           )}
-          {(job.paymentReference || job.bookingReference) && (
+          {isOwner && (job.paymentReference || job.bookingReference) && (
             <p className="mt-1 text-xs text-white/40">
               Ref: {job.paymentReference ?? job.bookingReference}
             </p>

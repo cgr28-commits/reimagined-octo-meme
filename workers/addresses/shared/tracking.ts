@@ -268,6 +268,7 @@ export function normalizeDriverName(name: string): string {
   return name.trim();
 }
 
+/** Compare driver names for assignment visibility (case-insensitive, first-name aware). */
 export function driverNamesMatch(
   left: string | undefined,
   right: string | undefined,
@@ -276,7 +277,47 @@ export function driverNamesMatch(
     return false;
   }
 
-  return left.trim().toLowerCase() === right.trim().toLowerCase();
+  const a = left.trim().toLowerCase().replace(/\s+/g, " ");
+  const b = right.trim().toLowerCase().replace(/\s+/g, " ");
+  if (a === b) {
+    return true;
+  }
+
+  // "Gary Wilson" ↔ "Gary"
+  const aFirst = a.split(" ")[0] ?? a;
+  const bFirst = b.split(" ")[0] ?? b;
+  if (aFirst === bFirst) {
+    return true;
+  }
+
+  // Profile keys: "gary" ↔ "Gary"
+  const slug = (value: string) => value.replace(/[^a-z0-9]+/g, "");
+  return slug(a) === slug(b);
+}
+
+/**
+ * Format the agreed driver pay for driver-facing UI/email.
+ * Never use this helper for customer fare.
+ */
+export function formatDriverPayAmount(value: string | undefined | null): string {
+  const raw = String(value ?? "").trim();
+  if (!raw) {
+    return "TBC";
+  }
+
+  const normalised = raw.replace(/,/g, "").replace(/\s+/g, "");
+  const match = normalised.match(/^£?\s*(-?\d+(?:\.\d+)?)$/);
+  if (!match) {
+    // Already a label like "£40 + parking" — keep as-is if it has a pound sign.
+    return raw.includes("£") ? raw : `£${raw}`;
+  }
+
+  const amount = Number.parseFloat(match[1] ?? "");
+  if (!Number.isFinite(amount)) {
+    return raw.includes("£") ? raw : `£${raw}`;
+  }
+
+  return `£${amount.toFixed(2)}`;
 }
 
 export function jobAssignmentStatus(
