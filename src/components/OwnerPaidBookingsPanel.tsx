@@ -555,35 +555,6 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
     }
   }
 
-  async function handleEnsureTracking(booking: OwnerPaidBookingSummary) {
-    setBusyRef(booking.paymentReference);
-    setError("");
-    setMessage("");
-    try {
-      const result = await ensurePaidBookingTracking(ownerKey, booking.paymentReference);
-      setMessage(
-        result.alreadyExisted
-          ? `Tracking already exists — ${result.trackUrl}`
-          : `Tracking created — ${result.trackUrl}`,
-      );
-      setBookings((current) =>
-        current.map((entry) =>
-          entry.paymentReference === booking.paymentReference
-            ? {
-                ...entry,
-                trackingToken: result.token,
-                trackUrl: result.trackUrl,
-              }
-            : entry,
-        ),
-      );
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not create tracking for this booking");
-    } finally {
-      setBusyRef("");
-    }
-  }
-
   async function handleReviewRequest(booking: OwnerPaidBookingSummary, forceResend = false) {
     setBusyRef(booking.paymentReference);
     setError("");
