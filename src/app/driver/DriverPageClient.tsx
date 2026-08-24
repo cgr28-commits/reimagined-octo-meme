@@ -44,6 +44,10 @@ import {
 import { issueBookingRefund, markBookingRefundedExternally } from "@/lib/refund-api";
 import { canMarkExternalRefund, isOperationallyCancelled } from "../../../shared/refund-ops";
 import { formatDriverPayAmount } from "../../../shared/tracking";
+import {
+  ownerPrimaryJourneyConfirmCopy,
+  type OwnerPrimaryJourneyAction,
+} from "../../../shared/upcoming-jobs";
 import { DEMO_DRIVER_KEY, DEMO_DRIVER_NAME, DEMO_OWNER_KEY, DEMO_ROSTER } from "@/lib/tracking-demo";
 import { SERVICE_FLAGS, SITE } from "@/lib/data";
 import {
@@ -86,6 +90,42 @@ function portalKeyStorage(portal: "owner" | "driver"): string {
 }
 
 type DashboardView = "today" | "upcoming" | "date";
+
+const DRIVER_JOURNEY_STEPS = [
+  {
+    action: "start_tracking",
+    label: "Driver on way",
+    completedLabel: "On the way ✓",
+  },
+  {
+    action: "arrived_pickup",
+    label: "Driver arrived",
+    completedLabel: "Arrived ✓",
+  },
+  {
+    action: "complete_journey",
+    label: "Complete journey",
+    completedLabel: "Completed ✓",
+  },
+] as const satisfies ReadonlyArray<{
+  action: OwnerPrimaryJourneyAction;
+  label: string;
+  completedLabel: string;
+}>;
+
+/** Keep active Driver journey controls visually identical to the Owner controls. */
+function primaryJourneyButtonClass(action: OwnerPrimaryJourneyAction): string {
+  const base =
+    "min-h-14 w-full rounded-xl px-4 py-3.5 text-base font-bold transition-colors disabled:opacity-60";
+  switch (action) {
+    case "start_tracking":
+      return `${base} bg-sky-400 text-navy hover:bg-sky-300`;
+    case "arrived_pickup":
+      return `${base} bg-amber-300 text-navy hover:bg-amber-200`;
+    case "complete_journey":
+      return `${base} bg-emerald text-navy hover:bg-emerald/90`;
+  }
+}
 
 function todayLondonDate(): string {
   return new Intl.DateTimeFormat("en-CA", {
@@ -931,6 +971,9 @@ function DriverJobCard({
   const [paymentAmount, setPaymentAmount] = useState(
     job.driverPaymentAmount ?? job.driverPayAmount ?? "",
   );
+  const [journeyConfirmAction, setJourneyConfirmAction] =
+    useState<OwnerPrimaryJourneyAction | null>(null);
+  const journeyActionInFlightRef = useRef(false);
   const [recordedRoute, setRecordedRoute] = useState<MapRoutePoint[]>([]);
   const isActive = activeToken === job.token;
   const mapMarkers = jobMapMarkers(job, { isActiveDriver: isActive, isOwner });
@@ -957,8 +1000,8 @@ function DriverJobCard({
   const showDemoRefund = canIssueRefund && isDemoKey;
   const canEdit = !isRefunded && isOwner;
   const canShare =
+    isOwner &&
     !isRefunded &&
-    (isOwner || isAcceptedAssignment) &&
     !compactTracking &&
     (job.trackingWindow.open || job.sharingActive);
   const trackingAvailable = !compactTracking && job.trackingWindow.open && !isRefunded;
@@ -1061,6 +1104,15 @@ function DriverJobCard({
   };
 
   const runJourneyAction = async (action: JourneyAction) => {
+    if (journeyActionInFlightRef.current) {
+      return;
+    }
+    if (!isOwner && (!isAcceptedAssignment || !allowedActions.includes(action))) {
+      setError("Only the next journey action is available");
+      return;
+    }
+
+    journeyActionInFlightRef.current = true;
     setBusy(true);
     setError(null);
     try {
@@ -1173,6 +1225,7 @@ function DriverJobCard({
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not update journey");
     } finally {
+      journeyActionInFlightRef.current = false;
       setBusy(false);
     }
   };
@@ -1460,15 +1513,15 @@ function DriverJobCard({
             {isOwner && journeyStatus === "completed" && driverPaymentStatus === "due"
               ? "Completed — Payment Due"
               : journeyLabel}
-            {SERVICE_FLAGS.liveDriverTracking && job.sharingActive ? " · GPS live" : ""}
+            {SERVICE_FLAGS.liveDriverTracking && isOwner && job.sharingActive ? " · GPS live" : ""}
           </p>
-          {SERVICE_FLAGS.liveDriverTracking && isActive && gpsStale && (
+          {SERVICE_FLAGS.liveDriverTracking && isOwner && isActive && gpsStale && (
             <p className="mt-2 rounded-lg border border-amber-400/40 bg-amber-500/15 px-3 py-2 text-sm text-amber-100">
               Location has not updated for 2 minutes — reopen this page and keep it open while
               driving. iPhone may pause GPS when Safari is locked or in the background.
             </p>
           )}
-          {SERVICE_FLAGS.liveDriverTracking && isActive && lastGpsAt && !gpsStale && (
+          {SERVICE_FLAGS.liveDriverTracking && isOwner && isActive && lastGpsAt && !gpsStale && (
             <p className="mt-1 text-xs text-white/45">
               Last GPS update {Math.max(1, Math.round((Date.now() - lastGpsAt) / 1000))}s ago
             </p>
@@ -1624,34 +1677,90 @@ function DriverJobCard({
         )}
 
         {!isOwner && isAcceptedAssignment && !isRefunded && (
-          <div className="grid w-full grid-cols-1 gap-2 sm:grid-cols-3">
-            {(
-              [
-                ["start_tracking", "Driver on way"],
-                ["arrived_pickup", "Driver arrived"],
-                ["complete_journey", "Complete journey"],
-              ] as Array<[JourneyAction, string]>
-            ).map(([action, label], index) => {
+          <div className="w-full space-y-3" data-driver-primary-journey-controls>
+            <div className="flex flex-col gap-3.5">
+            {DRIVER_JOURNEY_STEPS.map((item, index) => {
               const complete = driverJourneyStep > index;
               const current = driverJourneyStep === index;
+              const enabled =
+                canOperateJourney && current && allowedActions.includes(item.action);
+              const confirming = enabled && journeyConfirmAction === item.action;
+              const confirmCopy = ownerPrimaryJourneyConfirmCopy(item.action);
               return (
-                <button
-                  key={action}
-                  type="button"
-                  disabled={busy || !current}
-                  onClick={() => void runJourneyAction(action)}
-                  className={`min-h-12 rounded-xl px-4 py-3 text-sm font-bold transition-colors disabled:cursor-default ${
-                    complete
-                      ? "border border-emerald/30 bg-emerald/10 text-emerald"
-                      : current
-                        ? "bg-emerald text-navy hover:bg-emerald/90 disabled:opacity-60"
-                        : "border border-white/10 bg-white/[0.02] text-white/35"
-                  }`}
+                <div
+                  key={item.action}
+                  className="space-y-2"
+                  data-driver-journey-action-wrap={item.action}
                 >
-                  {busy && current ? "Updating…" : complete ? `${label} ✓` : label}
-                </button>
+                  <button
+                    type="button"
+                    disabled={busy || !enabled}
+                    data-driver-journey-action={item.action}
+                    aria-expanded={confirming}
+                    onClick={() => {
+                      if (busy || !enabled) return;
+                      setJourneyConfirmAction((selected) =>
+                        selected === item.action ? null : item.action,
+                      );
+                    }}
+                    className={
+                      enabled
+                        ? primaryJourneyButtonClass(item.action)
+                        : "min-h-14 w-full cursor-default rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3.5 text-base font-bold text-white/45"
+                    }
+                  >
+                    {busy && confirming
+                      ? "Updating…"
+                      : complete
+                        ? item.completedLabel
+                        : item.label}
+                  </button>
+                  {confirming ? (
+                    <div
+                      className="rounded-xl border border-white/15 bg-navy/80 p-3"
+                      data-driver-journey-confirm={item.action}
+                      role="group"
+                      aria-label={confirmCopy.title}
+                    >
+                      <p className="text-sm font-semibold text-white">{confirmCopy.title}</p>
+                      {confirmCopy.body ? (
+                        <p className="mt-1 text-xs leading-relaxed text-white/65">
+                          {confirmCopy.body}
+                        </p>
+                      ) : null}
+                      <div className="mt-3 flex flex-col gap-2">
+                        <button
+                          type="button"
+                          disabled={busy}
+                          data-driver-journey-confirm-yes={item.action}
+                          onClick={() => {
+                            setJourneyConfirmAction(null);
+                            void runJourneyAction(item.action);
+                          }}
+                          className={
+                            item.action === "complete_journey"
+                              ? "min-h-12 w-full rounded-xl bg-emerald px-4 py-3 text-sm font-bold text-navy disabled:opacity-60"
+                              : "min-h-12 w-full rounded-xl bg-white px-4 py-3 text-sm font-bold text-navy disabled:opacity-60"
+                          }
+                        >
+                          {busy ? "Updating…" : confirmCopy.confirmLabel}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={busy}
+                          data-driver-journey-confirm-cancel={item.action}
+                          onClick={() => setJourneyConfirmAction(null)}
+                          className="min-h-11 w-full rounded-xl border border-white/20 px-4 py-2.5 text-sm font-semibold text-white/85 disabled:opacity-60"
+                        >
+                          {confirmCopy.cancelLabel}
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
               );
             })}
+            </div>
           </div>
         )}
 
@@ -2039,12 +2148,11 @@ function DriverJobCard({
 
       {isPendingForDriver && (
         <p className="mt-4 rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
-          You&apos;ve been assigned this job. Accept or decline at any time — live tracking opens on
-          the day of travel.
+          You&apos;ve been assigned this job. Accept or decline when you&apos;re ready.
         </p>
       )}
 
-      {isActive && (
+      {isOwner && isActive && (
         <p className="mt-4 text-sm text-emerald">
           Sharing live location for this job. Keep this page open while driving — GPS pauses if
           the phone locks or Safari goes to the background.
@@ -2733,13 +2841,13 @@ export default function DriverPageClient({
                     .
                   </>
                 ) : (
-                  <>Enter your driver access key to open today&apos;s jobs and live tracking.</>
+                  <>Enter your driver access key to open today&apos;s jobs.</>
                 )
               ) : (
                 <>
-                  Accept assigned jobs at any time — live tracking starts on the day of travel,
-                  from about 1 hour before pickup. For airport pickups, your flight number and
-                  live arrival status are shown on each job.
+                  Accept assigned jobs at any time. Journey actions follow in order, and each
+                  action asks for confirmation before it is sent. For airport pickups, your flight
+                  number and live arrival status are shown on each job.
                 </>
               )}
             </p>
@@ -3180,7 +3288,7 @@ export default function DriverPageClient({
                   </h2>
                   <p className="mb-4 text-sm text-white/60">
                     {viewRole === "driver"
-                      ? "Accept or decline at any time — live tracking opens on the day of travel."
+                      ? "Accept or decline when you are ready."
                       : "These jobs are assigned but not yet accepted by the driver."}
                   </p>
                   <div className="space-y-4">

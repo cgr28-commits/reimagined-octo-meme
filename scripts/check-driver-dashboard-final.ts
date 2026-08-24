@@ -78,6 +78,7 @@ const env = {
   DRIVER_ACCESS_KEY: "driver-key",
   DRIVER_NAME: "Gary",
   OWNER_ACCESS_KEY: "owner-key",
+  RESEND_API_KEY: "",
 };
 
 async function postJourney(action: string) {
@@ -258,14 +259,32 @@ async function main() {
   const beforeOnWay = await buildPublicTrackResponse(job, env, "https://example.com");
   assert.equal(beforeOnWay.vehicle, undefined);
 
+  const originalFetch = globalThis.fetch;
+  let journeyEmailCount = 0;
+  env.RESEND_API_KEY = "test-resend-key";
+  globalThis.fetch = async (input, init) => {
+    const url = input instanceof Request ? input.url : input.toString();
+    if (url === "https://api.resend.com/emails") {
+      journeyEmailCount += 1;
+      return new Response(JSON.stringify({ id: `email-${journeyEmailCount}` }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+    return originalFetch(input, init);
+  };
+
   const onWay = await postJourney("start_tracking");
   assert.equal(onWay.journeyStatus, "tracking");
   assert.equal(onWay.sharingActive, false);
   assert.equal(onWay.trackingSession, undefined);
   assert.deepEqual(onWay.allowedActions, ["arrived_pickup"]);
+  assert.equal(journeyEmailCount, 1);
   const onWayRetry = await postJourney("start_tracking");
+  assert.equal(onWayRetry.idempotent, true);
   assert.equal(onWayRetry.sharingActive, false);
   assert.equal(onWayRetry.trackingSession, undefined);
+  assert.equal(journeyEmailCount, 1, "duplicate on-way action must not resend email");
 
   const directSharing = await handleDriverSharingRequest(
     new Request("https://worker.example/driver/sharing?key=driver-key", {
@@ -290,6 +309,13 @@ async function main() {
   const arrived = await postJourney("arrived_pickup");
   assert.equal(arrived.sharingActive, false);
   assert.deepEqual(arrived.allowedActions, ["complete_journey"]);
+  assert.equal(journeyEmailCount, 2);
+  const arrivedRetry = await postJourney("arrived_pickup");
+  assert.equal(arrivedRetry.idempotent, true);
+  assert.equal(journeyEmailCount, 2, "duplicate arrived action must not resend email");
+
+  globalThis.fetch = originalFetch;
+  env.RESEND_API_KEY = "";
 
   const completed = await postJourney("complete_journey");
   assert.equal(completed.journeyStatus, "completed");
@@ -358,9 +384,37 @@ async function main() {
   assert.match(page, /const canEdit = !isRefunded && isOwner/);
   assert.match(page, /isOwner && action === "arrived_pickup"/);
   assert.match(page, /isOwner && action === "start_tracking"/);
-  assert.match(page, /\["start_tracking", "Driver on way"\]/);
-  assert.match(page, /\["arrived_pickup", "Driver arrived"\]/);
-  assert.match(page, /\["complete_journey", "Complete journey"\]/);
+  assert.match(page, /action: "start_tracking",[\s\S]*?label: "Driver on way"/);
+  assert.match(page, /action: "arrived_pickup",[\s\S]*?label: "Driver arrived"/);
+  assert.match(page, /action: "complete_journey",[\s\S]*?label: "Complete journey"/);
+  assert.match(page, /completedLabel: "On the way ✓"/);
+  assert.match(page, /completedLabel: "Arrived ✓"/);
+  assert.match(page, /completedLabel: "Completed ✓"/);
+  assert.match(page, /data-driver-primary-journey-controls/);
+  assert.match(page, /data-driver-journey-confirm=/);
+  assert.match(page, /data-driver-journey-confirm-yes=/);
+  assert.match(page, /data-driver-journey-confirm-cancel=/);
+  assert.match(page, /ownerPrimaryJourneyConfirmCopy/);
+  assert.match(page, /gap-3\.5/);
+  assert.match(page, /min-h-14/);
+  assert.match(page, /bg-sky-400/);
+  assert.match(page, /bg-amber-300/);
+  assert.match(page, /bg-emerald/);
+  assert.match(page, /canOperateJourney && current && allowedActions\.includes\(item\.action\)/);
+  assert.match(page, /journeyActionInFlightRef\.current/);
+  const actionButton = page.match(
+    /data-driver-journey-action=\{item\.action\}[\s\S]{0,500}?onClick=\{\(\) => \{([\s\S]{0,500}?)\}\}/,
+  );
+  assert.ok(actionButton, "driver primary action button onClick present");
+  assert.match(actionButton![1]!, /setJourneyConfirmAction/);
+  assert.doesNotMatch(actionButton![1]!, /runJourneyAction/);
+  assert.match(
+    page,
+    /data-driver-journey-confirm-yes=\{item\.action\}[\s\S]{0,350}?runJourneyAction\(item\.action\)/,
+  );
+  assert.doesNotMatch(page, /today&apos;s jobs and live tracking/);
+  assert.doesNotMatch(page, /live tracking opens on the day of travel/);
+  assert.doesNotMatch(page, /live tracking starts on the day of travel/);
   assert.match(page, /return visibleJobs\.filter\(\(job\) => !isOwnerCompletedDriverJob\(job\)\)/);
   assert.match(
     page,
