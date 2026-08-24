@@ -231,7 +231,7 @@ function ownerAccountAsDriverVehicle(
 }
 
 /**
- * Vehicle details for the customer tracking page while live sharing is on.
+ * Vehicle/contact details for the customer after Driver on the way is recorded.
  * Prefers the active/assigned driver's saved vehicle profile; if that is the
  * owner (or missing), falls back to the Owner account profile so the business
  * owner does not need a duplicate driver profile entry.
@@ -239,12 +239,11 @@ function ownerAccountAsDriverVehicle(
 export async function resolveCustomerVisibleVehicle(
   store: KVNamespace,
   options: {
-    trackingWindowOpen: boolean;
-    sharingActive: boolean;
+    contactRevealed: boolean;
     driverName?: string;
   },
 ): Promise<DriverVehicleProfile | null> {
-  if (!options.trackingWindowOpen || !options.sharingActive) {
+  if (!options.contactRevealed) {
     return null;
   }
 

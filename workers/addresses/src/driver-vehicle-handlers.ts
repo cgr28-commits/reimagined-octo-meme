@@ -9,6 +9,7 @@ import {
   listConfiguredDrivers,
   resolveDriverSession,
   resolveStoredDriverSession,
+  ownerAuthorized,
   type DriverAuthEnv,
 } from "./driver-auth";
 import { corsHeaders } from "../shared/google-places";
@@ -237,6 +238,10 @@ export async function handleDriverVehicleSaveRequest(
 
   if (!driverAuthorized(request, env)) {
     return jsonResponse({ error: "Unauthorized" }, 401, origin);
+  }
+
+  if (!ownerAuthorized(request, env)) {
+    return jsonResponse({ error: "Drivers cannot edit profiles" }, 403, origin);
   }
 
   const session = await resolveStoredDriverSession(request, env, env.TRACKING_STORE);

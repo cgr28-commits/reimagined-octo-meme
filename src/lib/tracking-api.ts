@@ -137,6 +137,7 @@ export type CustomerVehicleDetails = {
   colour: string;
   registration: string;
   driverName?: string;
+  mobile?: string;
 };
 
 export type DriverVehicleProfile = {
@@ -267,6 +268,16 @@ export type DriverJob = PublicTrackResponse & {
   journeyStartedAt?: string;
   arrivedDestinationAt?: string;
   journeyCompletedAt?: string;
+  driverPaymentStatus?: "due" | "sent";
+  driverPaymentAmount?: string;
+  driverPaymentDueAt?: string;
+  driverPaymentSentAt?: string;
+  driverPaymentHistory?: Array<{
+    at: string;
+    status: "due" | "sent";
+    amount: string;
+    actor: "system" | "owner";
+  }>;
   isAirportPickup?: boolean;
   flightNumber?: string | null;
   airportCode?: string | null;
@@ -540,6 +551,40 @@ export async function postJourneyAction(
   );
 
   return parseJsonResponse<JourneyTransitionResponse>(response);
+}
+
+export async function sendDriverPayment(
+  ownerKey: string,
+  token: string,
+  amount: string,
+): Promise<{
+  ok: true;
+  payment: {
+    status: "due" | "sent";
+    amount?: string;
+    sentAt?: string;
+    history: NonNullable<DriverJob["driverPaymentHistory"]>;
+  };
+  idempotent?: boolean;
+}> {
+  const response = await fetch(
+    `${WORKER_BASE}/driver/payment?key=${encodeURIComponent(ownerKey.trim())}`,
+    {
+      method: "POST",
+      headers: driverPostHeaders(ownerKey),
+      body: JSON.stringify({ token, amount }),
+    },
+  );
+  return parseJsonResponse<{
+    ok: true;
+    payment: {
+      status: "due" | "sent";
+      amount?: string;
+      sentAt?: string;
+      history: NonNullable<DriverJob["driverPaymentHistory"]>;
+    };
+    idempotent?: boolean;
+  }>(response);
 }
 
 export async function fetchJourneySession(

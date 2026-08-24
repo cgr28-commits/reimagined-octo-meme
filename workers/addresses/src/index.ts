@@ -215,6 +215,7 @@ import {
   handleDriverVehicleProfilesRequest,
   handleDriverVehicleSaveRequest,
 } from "./driver-vehicle-handlers";
+import { handleDriverPaymentRequest } from "./driver-payment-handlers";
 import {
   handleRefundDiagnosticsRequest,
   handleRefundRequest,
@@ -382,7 +383,7 @@ function json(body: unknown, status: number, origin: string | null): Response {
 
 function parseDriverRoute(
   pathname: string,
-): "jobs" | "sharing" | "location" | "location-history" | "bookings-update" | "status" | "assign" | "deassign" | "assignment-response" | "roster" | "vehicle" | "vehicle-profiles" | null {
+): "jobs" | "sharing" | "location" | "location-history" | "bookings-update" | "status" | "assign" | "deassign" | "assignment-response" | "roster" | "vehicle" | "vehicle-profiles" | "payment" | null {
   if (pathname === "/driver/jobs" || pathname === "/api/driver/jobs") {
     return "jobs";
   }
@@ -401,6 +402,10 @@ function parseDriverRoute(
 
   if (pathname === "/driver/vehicle" || pathname === "/api/driver/vehicle") {
     return "vehicle";
+  }
+
+  if (pathname === "/driver/payment" || pathname === "/api/driver/payment") {
+    return "payment";
   }
 
   if (pathname === "/driver/bookings/update" || pathname === "/api/driver/bookings/update") {
@@ -2475,6 +2480,10 @@ export default {
 
     if (driverRoute === "vehicle" && request.method === "POST") {
       return handleDriverVehicleSaveRequest(request, env, origin);
+    }
+
+    if (driverRoute === "payment" && request.method === "POST") {
+      return handleDriverPaymentRequest(request, env, origin);
     }
 
     if (driverRoute === "sharing" && request.method === "POST") {

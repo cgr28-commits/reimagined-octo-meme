@@ -88,6 +88,16 @@ export type TrackingJobRecord = {
   assignedAt?: string;
   acceptedAt?: string;
   declinedAt?: string;
+  /** Owner-entered driver fee for this job. Never derived from the customer fare. */
+  driverPayAmount?: string;
+  /** Customer contact details become visible only after Driver on the way is recorded. */
+  driverContactRevealedAt?: string;
+  /** Owner-only manual driver payout state. */
+  driverPaymentStatus?: "due" | "sent";
+  driverPaymentAmount?: string;
+  driverPaymentDueAt?: string;
+  driverPaymentSentAt?: string;
+  driverPaymentHistory?: DriverPaymentHistoryEntry[];
   /** Soft audit trail of assign / reassign / deassign events (newest last). */
   assignmentHistory?: DriverAssignmentHistoryEntry[];
   /** Count of GPS points retained for audit (owner only in API responses) */
@@ -137,6 +147,13 @@ export type DriverAssignmentHistoryEntry = {
   action: "assigned" | "reassigned" | "deassigned";
   fromDriverName?: string | null;
   toDriverName?: string | null;
+};
+
+export type DriverPaymentHistoryEntry = {
+  at: string;
+  status: "due" | "sent";
+  amount: string;
+  actor: "system" | "owner";
 };
 
 /** Append-only assignment audit (never deletes prior entries). */

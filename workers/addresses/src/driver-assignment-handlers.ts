@@ -226,6 +226,7 @@ export async function handleDriverAssignRequest(
   );
 
   record.assignedDriverName = driverFirstName;
+  record.driverPayAmount = driverPayAmount || undefined;
   record.assignmentStatus = "pending";
   record.assignedAt = now;
   delete record.acceptedAt;

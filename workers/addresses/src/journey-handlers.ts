@@ -9,6 +9,7 @@ import {
   buildPublicTrackUrl,
   customerJourneyLabel,
   ensureReviewRequestScheduled,
+  formatDriverPayAmount,
   formatLondonDateTime,
   journeyStatusOf,
   resolveReviewRequestDelayMs,
@@ -240,6 +241,29 @@ const JOURNEY_ACTIONS = new Set<JourneyAction>([
   "stop_tracking",
 ]);
 
+function driverJourneyActions(status: ReturnType<typeof journeyStatusOf>): JourneyAction[] {
+  switch (status) {
+    case "idle":
+    case "stopped":
+      return ["start_tracking"];
+    case "tracking":
+      return ["arrived_pickup"];
+    case "arrived_pickup":
+      return ["complete_journey"];
+    default:
+      return [];
+  }
+}
+
+function actionsForSession(
+  record: TrackingJobRecord,
+  session: Awaited<ReturnType<typeof resolveStoredDriverSession>>,
+): JourneyAction[] {
+  return session.authorized && session.role === "driver"
+    ? driverJourneyActions(journeyStatusOf(record))
+    : allowedJourneyActions(journeyStatusOf(record));
+}
+
 function parseJourneyAction(value: unknown): JourneyAction | null {
   const action = String(value ?? "").trim() as JourneyAction;
   return JOURNEY_ACTIONS.has(action) ? action : null;
@@ -290,15 +314,36 @@ export async function handleJourneyTransitionRequest(
     (journeyStatusOf(record) === "tracking" ||
       (journeyStatusOf(record) === "idle" && Boolean(record.sharingActive)));
 
+  if (
+    session.authorized &&
+    session.role === "driver" &&
+    !alreadyArrived &&
+    !alreadyOnTheWay &&
+    !driverJourneyActions(journeyStatusOf(record)).includes(action)
+  ) {
+    return jsonResponse(
+      { error: "Driver actions must follow Driver on way, Driver arrived, then Complete journey" },
+      409,
+      origin,
+    );
+  }
+
   // Idempotent Arrived at Pickup: keep original timestamp; optionally retry notification only.
   if (alreadyArrived) {
     let next = record;
+    if (session.authorized && session.role === "driver" && next.sharingActive) {
+      next = { ...next, sharingActive: false };
+      delete next.driverLat;
+      delete next.driverLng;
+      delete next.driverUpdatedAt;
+      delete next.activeDriverName;
+    }
     if (forceRetryArrival || record.arrivalNotificationStatus !== "sent") {
-      next = await sendArrivalNotificationIfNeeded(env, record, {
+      next = await sendArrivalNotificationIfNeeded(env, next, {
         forceRetry: forceRetryArrival,
       });
-      await saveTrackingJob(env.TRACKING_STORE, next);
     }
+    await saveTrackingJob(env.TRACKING_STORE, next);
     const channels = arrivalChannelReport(env);
     return jsonResponse(
       {
@@ -306,7 +351,7 @@ export async function handleJourneyTransitionRequest(
         token: next.token,
         journeyStatus: journeyStatusOf(next),
         journeyStatusLabel: customerJourneyLabel(next),
-        allowedActions: allowedJourneyActions(journeyStatusOf(next)),
+        allowedActions: actionsForSession(next, session),
         sharingActive: next.sharingActive,
         trackUrl: buildPublicTrackUrl(next.token),
         trackingStartedAt: next.trackingStartedAt,
@@ -335,12 +380,23 @@ export async function handleJourneyTransitionRequest(
   // Idempotent Driver on the way: keep status; optionally retry email; re-issue GPS session.
   if (alreadyOnTheWay) {
     let next = record;
+    if (session.authorized && session.role === "driver") {
+      next = {
+        ...next,
+        sharingActive: false,
+        driverContactRevealedAt: next.driverContactRevealedAt ?? new Date().toISOString(),
+      };
+      delete next.driverLat;
+      delete next.driverLng;
+      delete next.driverUpdatedAt;
+      delete next.activeDriverName;
+    }
     if (forceRetryOnTheWay || record.onTheWayNotificationStatus !== "sent") {
-      next = await sendOnTheWayNotificationIfNeeded(env, record, {
+      next = await sendOnTheWayNotificationIfNeeded(env, next, {
         forceRetry: forceRetryOnTheWay,
       });
-      await saveTrackingJob(env.TRACKING_STORE, next);
     }
+    await saveTrackingJob(env.TRACKING_STORE, next);
     let trackingSession: { sessionToken: string; expiresAt: string } | undefined;
     if (next.sharingActive) {
       const created = await createTrackingSession(env.TRACKING_STORE, {
@@ -363,7 +419,7 @@ export async function handleJourneyTransitionRequest(
         token: next.token,
         journeyStatus: journeyStatusOf(next),
         journeyStatusLabel: customerJourneyLabel(next),
-        allowedActions: allowedJourneyActions(journeyStatusOf(next)),
+        allowedActions: actionsForSession(next, session),
         sharingActive: next.sharingActive,
         trackUrl: buildPublicTrackUrl(next.token),
         trackingStartedAt: next.trackingStartedAt,
@@ -396,8 +452,13 @@ export async function handleJourneyTransitionRequest(
   }
 
   let next = applied.job;
-  if (session.authorized && session.role === "driver" && session.driverName && next.sharingActive) {
-    next.activeDriverName = session.driverName;
+  if (session.authorized && session.role === "driver") {
+    // Driver status buttons are status + email only. They never start browser/GPS sharing.
+    next.sharingActive = false;
+    delete next.driverLat;
+    delete next.driverLng;
+    delete next.driverUpdatedAt;
+    delete next.activeDriverName;
   } else if (session.authorized && session.role === "owner" && next.sharingActive) {
     next.activeDriverName = next.activeDriverName ?? "Owner";
   }
@@ -407,6 +468,17 @@ export async function handleJourneyTransitionRequest(
       next,
       resolveReviewRequestDelayMs(env.REVIEW_REQUEST_DELAY_MINUTES),
     );
+    if (next.driverPayAmount?.trim() && !next.driverPaymentStatus) {
+      const amount = formatDriverPayAmount(next.driverPayAmount);
+      const dueAt = next.journeyCompletedAt ?? new Date().toISOString();
+      next.driverPaymentStatus = "due";
+      next.driverPaymentAmount = amount;
+      next.driverPaymentDueAt = dueAt;
+      next.driverPaymentHistory = [
+        ...(next.driverPaymentHistory ?? []),
+        { at: dueAt, status: "due", amount, actor: "system" },
+      ];
+    }
   }
 
   if (action === "arrived_pickup") {
@@ -414,6 +486,7 @@ export async function handleJourneyTransitionRequest(
   }
 
   if (action === "start_tracking") {
+    next.driverContactRevealedAt = next.driverContactRevealedAt ?? new Date().toISOString();
     next = await sendOnTheWayNotificationIfNeeded(env, next, {
       forceRetry: forceRetryOnTheWay,
     });
@@ -445,7 +518,7 @@ export async function handleJourneyTransitionRequest(
       token: next.token,
       journeyStatus: journeyStatusOf(next),
       journeyStatusLabel: customerJourneyLabel(next),
-      allowedActions: allowedJourneyActions(journeyStatusOf(next)),
+      allowedActions: actionsForSession(next, session),
       sharingActive: next.sharingActive,
       trackUrl: buildPublicTrackUrl(next.token),
       trackingStartedAt: next.trackingStartedAt,
@@ -501,6 +574,9 @@ export async function handleJourneySessionRequest(
   }
 
   const session = await resolveStoredDriverSession(request, env, env.TRACKING_STORE);
+  if (session.authorized && session.role === "driver") {
+    return jsonResponse({ error: "Live location sharing is not available on the Driver Dashboard" }, 403, origin);
+  }
   const operateError = assertDriverCanOperateJob(record, session);
   if (operateError) {
     return jsonResponse({ error: operateError }, 409, origin);

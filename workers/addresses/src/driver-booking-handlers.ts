@@ -22,7 +22,6 @@ import {
 } from "./tracking-store";
 import { publicTrackPayload } from "./tracking-handlers";
 import { corsHeaders } from "../shared/google-places";
-import { assertDriverCanViewJob } from "./driver-assignment-utils";
 import { driverAuthorized, resolveStoredDriverSession, sanitizeDriverJobForRole, type DashboardRole } from "./driver-auth";
 
 type Env = {
@@ -183,6 +182,9 @@ export async function handleDriverUpdateBookingRequest(
 
   const session = await resolveStoredDriverSession(request, env, env.TRACKING_STORE);
   const role: DashboardRole = session.authorized ? session.role : "driver";
+  if (!session.authorized || role !== "owner") {
+    return jsonResponse({ error: "Drivers cannot edit booking details" }, 403, origin);
+  }
 
   let body: DriverBookingUpdateBody;
   try {
@@ -205,13 +207,6 @@ export async function handleDriverUpdateBookingRequest(
     const paidRecord = await getPaidBookingRecord(env.TRACKING_STORE, record.paymentReference);
     if (paidRecord?.status === "refunded" || paidRecord?.status === "cancelled") {
       return jsonResponse({ error: "This booking has been refunded" }, 409, origin);
-    }
-  }
-
-  if (role === "driver") {
-    const viewError = assertDriverCanViewJob(record, session);
-    if (viewError) {
-      return jsonResponse({ error: viewError }, 403, origin);
     }
   }
 

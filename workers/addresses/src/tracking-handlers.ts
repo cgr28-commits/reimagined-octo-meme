@@ -334,15 +334,12 @@ export async function buildPublicTrackResponse(
   origin: string | null,
 ): Promise<ReturnType<typeof publicTrackPayload> & { vehicle?: ReturnType<typeof toCustomerVehicleDetails> }> {
   const payload = publicTrackPayload(record, origin);
-  const window = getTrackingWindow(record.pickupAt);
-
   if (!trackingStoreConfigured(env.TRACKING_STORE)) {
     return payload;
   }
 
   const profile = await resolveCustomerVisibleVehicle(env.TRACKING_STORE, {
-    trackingWindowOpen: window.open,
-    sharingActive: record.sharingActive,
+    contactRevealed: Boolean(record.driverContactRevealedAt),
     driverName: record.activeDriverName ?? record.assignedDriverName,
   });
 
@@ -710,6 +707,17 @@ export async function handleDriverJobsRequest(
           driverPayAmount: driverPayAmount
             ? formatDriverPayAmount(driverPayAmount)
             : undefined,
+          driverPaymentStatus:
+            job.driverPaymentStatus ??
+            (journeyStatusOf(job) === "completed" && driverPayAmount ? "due" : undefined),
+          driverPaymentAmount:
+            job.driverPaymentAmount ??
+            (journeyStatusOf(job) === "completed" && driverPayAmount
+              ? formatDriverPayAmount(driverPayAmount)
+              : undefined),
+          driverPaymentDueAt: job.driverPaymentDueAt,
+          driverPaymentSentAt: job.driverPaymentSentAt,
+          driverPaymentHistory: job.driverPaymentHistory ?? [],
           passengers,
           suitcases,
           driverLocationPointCount: job.driverLocationPointCount,
@@ -827,6 +835,13 @@ export async function handleDriverSharingRequest(
   }
 
   const session = await resolveStoredDriverSession(request, env, env.TRACKING_STORE);
+  if (session.authorized && session.role === "driver" && active) {
+    return jsonResponse(
+      { error: "Live location sharing is not available on the Driver Dashboard" },
+      403,
+      origin,
+    );
+  }
   const operateError = assertDriverCanOperateJob(record, session);
   if (operateError && Boolean(active)) {
     return jsonResponse({ error: operateError }, 409, origin);

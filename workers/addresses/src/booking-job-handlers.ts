@@ -130,6 +130,7 @@ export async function syncTrackingAssignmentFromBooking(
       }
 
       tracking.assignedDriverName = nextName;
+      tracking.driverPayAmount = job.driverPayAmount;
       tracking.assignmentStatus = status;
       tracking.assignedAt = job.assignedAt || tracking.assignedAt || new Date().toISOString();
       if (status === "accepted") {
