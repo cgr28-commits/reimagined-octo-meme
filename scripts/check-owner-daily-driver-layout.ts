@@ -211,6 +211,12 @@ console.log("\n=== 3. Owner panel UI contracts ===");
   assert.match(panel, /action === "start_tracking"/);
   assert.match(panel, /action === "arrived_pickup"/);
   assert.match(panel, /onTheWayNotificationStatus|Customer emailed \(Driver on the way\)/);
+  assert.match(panel, /ownerPrimaryJourneyConfirmCopy/);
+  assert.match(panel, /data-owner-journey-confirm=/);
+  assert.match(panel, /gap-3\.5/);
+  assert.match(panel, /min-h-14/);
+  assert.match(panel, /bg-sky-400/);
+  assert.match(panel, /bg-amber-300/);
 
   const shortNotice = read("src/components/OwnerShortNoticePanel.tsx");
   assert.match(shortNotice, /View \/ Manage ▼/);
