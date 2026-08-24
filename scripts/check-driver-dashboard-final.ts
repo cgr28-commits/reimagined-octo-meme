@@ -415,6 +415,10 @@ async function main() {
   assert.doesNotMatch(page, /today&apos;s jobs and live tracking/);
   assert.doesNotMatch(page, /live tracking opens on the day of travel/);
   assert.doesNotMatch(page, /live tracking starts on the day of travel/);
+  assert.match(page, /const showMap =[\s\S]*?isOwner &&/);
+  assert.match(page, /isOwner && job\.customerSharingActive/);
+  assert.match(page, /isOwner && job\.customer && trackingAvailable/);
+  assert.match(page, /isOwner && job\.sharingActive && job\.activeDriverName/);
   assert.match(page, /return visibleJobs\.filter\(\(job\) => !isOwnerCompletedDriverJob\(job\)\)/);
   assert.match(
     page,

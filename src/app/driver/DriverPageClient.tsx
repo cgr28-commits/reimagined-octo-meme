@@ -1008,7 +1008,7 @@ function DriverJobCard({
   const driverSharingLive = Boolean(job.sharingActive && job.driver);
   const showRecordedRoute = isOwner && (job.driverLocationPointCount ?? 0) > 0;
   const showMap =
-    mapMarkers.length > 0 || (showRecordedRoute && recordedRoute.length > 0);
+    isOwner && (mapMarkers.length > 0 || (showRecordedRoute && recordedRoute.length > 0));
   const journeyStatus = job.journeyStatus ?? (job.sharingActive ? "tracking" : "idle");
   const journeyLabel = job.journeyStatusLabel ?? (job.sharingActive ? "Driver on the way" : "Driver preparing");
   const driverPaymentStatus =
@@ -1575,13 +1575,15 @@ function DriverJobCard({
                 job.trackingWindow.open ? "bg-emerald/15 text-emerald" : "bg-white/10 text-white/50"
               }`}
             >
-              {job.sharingActive && job.activeDriverName
+              {isOwner && job.sharingActive && job.activeDriverName
                 ? `${job.activeDriverName} live`
-                : job.trackingWindow.open
-                  ? "Window open"
-                  : compactTracking
-                    ? "Upcoming"
-                    : "Not yet open"}
+                : !isOwner && isAcceptedAssignment
+                  ? "Journey actions"
+                  : job.trackingWindow.open
+                    ? "Window open"
+                    : compactTracking
+                      ? "Upcoming"
+                      : "Not yet open"}
             </span>
           </div>
         )}
@@ -2165,13 +2167,13 @@ function DriverJobCard({
         </p>
       )}
 
-      {job.customerSharingActive && !job.customer && trackingAvailable && (
+      {isOwner && job.customerSharingActive && !job.customer && trackingAvailable && (
         <p className="mt-4 text-sm text-white/60">
           Customer has opted in to share location — waiting for their GPS update.
         </p>
       )}
 
-      {job.customer && trackingAvailable && (
+      {isOwner && job.customer && trackingAvailable && (
         <p className="mt-4 text-sm text-emerald">
           Customer location is live on the map below.
         </p>
