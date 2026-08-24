@@ -10,6 +10,7 @@ import {
   DEMO_OWNER_KEY,
   DEMO_ROSTER,
   getDemoDriverJobs,
+  getDemoDriverPendingJobRaw,
   getDemoDriverPendingJobs,
   getDemoDriverStatus,
   getDemoDriverVehicle,
@@ -88,6 +89,16 @@ check("driver pending job is accept-ready", () => {
   assert.equal(pending.flightNumber, undefined);
   assert.equal(pending.customerName, "Customer details available after acceptance");
   assert.equal(pending.trackUrl, undefined);
+
+  const accepted = sanitizeDemoJobForDriver({
+    ...getDemoDriverPendingJobRaw(),
+    assignmentStatus: "accepted",
+  });
+  assert.equal(accepted.customerName, "Jordan Demo");
+  assert.equal(accepted.customerMobile, "+447700900321");
+  assert.equal(accepted.dropoffLabel, "Grand Central Hotel, Belfast");
+  assert.equal(accepted.flightNumber, "BA1234");
+  assert.ok(accepted.journeyNotes);
 });
 
 check("owner today jobs include payments + unassigned", () => {

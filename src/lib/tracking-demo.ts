@@ -406,7 +406,7 @@ export function getDemoDriverUpcomingJobs(): DriverJobsResponse {
 }
 
 export function getDemoDriverPendingJobs(): DriverJobsResponse {
-  return demoDriverJobsResponse([buildDemoPendingJobRaw()], "pending", "pending");
+  return demoDriverJobsResponse([getDemoDriverPendingJobRaw()], "pending", "pending");
 }
 
 function buildDemoUnassignedJob(): DriverJob {
@@ -449,7 +449,7 @@ function buildDemoUnassignedJob(): DriverJob {
   };
 }
 
-function buildDemoPendingJobRaw(): DriverJob {
+export function getDemoDriverPendingJobRaw(): DriverJob {
   const futurePickup = addMinutes(new Date(), 5 * 24 * 60);
   const schedule = londonParts(futurePickup);
   const opensAt = addMinutes(futurePickup, -120);
@@ -459,6 +459,7 @@ function buildDemoPendingJobRaw(): DriverJob {
     ...getDemoTrackResponse("demo-waiting"),
     token: "demo-pending",
     customerName: "Jordan Demo",
+    customerMobile: "+447700900321",
     pickupLabel: "George Best Belfast City Airport (BHD)",
     dropoffLabel: "Grand Central Hotel, Belfast",
     tripDate: schedule.tripDate,
@@ -471,6 +472,7 @@ function buildDemoPendingJobRaw(): DriverJob {
     driverPayAmount: "£55",
     passengers: 3,
     suitcases: 4,
+    journeyNotes: "Meet the customer at arrivals after the flight lands.",
     bookingStatus: "confirmed",
     isAirportPickup: true,
     flightNumber: "BA1234",
@@ -519,7 +521,7 @@ export function getDemoOwnerUpcomingJobs(): DriverJobsResponse {
 }
 
 export function getDemoOwnerPendingJobs(): DriverJobsResponse {
-  return demoOwnerJobsResponse([buildDemoPendingJobRaw()], "pending", "pending");
+  return demoOwnerJobsResponse([getDemoDriverPendingJobRaw()], "pending", "pending");
 }
 
 export function getDemoOwnerLocationHistory(token: string) {

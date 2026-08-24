@@ -4,6 +4,7 @@ import {
   DEMO_OWNER_KEY,
   enrichDemoJobForOwner,
   getDemoDriverJobs,
+  getDemoDriverPendingJobRaw,
   getDemoDriverPendingJobs,
   getDemoDriverStatus,
   getDemoDriverUpcomingJobs,
@@ -1233,7 +1234,7 @@ export async function respondToJobAssignment(
     return {
       ok: true,
       job: sanitizeDemoJobForDriver({
-        ...pending,
+        ...getDemoDriverPendingJobRaw(),
         assignmentStatus: "accepted",
         acceptedAt: new Date().toISOString(),
       }),
