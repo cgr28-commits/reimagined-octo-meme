@@ -25,6 +25,7 @@ import {
   type ArrivalVehicleDetails,
 } from "../../shared/arrival-whatsapp";
 import { formatUkInstant } from "../../shared/uk-time";
+import { formatPassengerSuitcaseCounts } from "@/lib/party-size";
 import OwnerEditBookingModal from "@/components/OwnerEditBookingModal";
 import OwnerCancelRefundModal from "@/components/OwnerCancelRefundModal";
 import OwnerAssignDriverPanel from "@/components/OwnerAssignDriverPanel";
@@ -1575,13 +1576,9 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
           ) : null}
           {typeof booking.passengers === "number" || typeof booking.suitcases === "number" ? (
             <div className="col-span-2">
-              <dt className="text-[11px] text-white/40">Passengers / luggage</dt>
+              <dt className="text-[11px] text-white/40">Party size</dt>
               <dd>
-                {typeof booking.passengers === "number" ? `${booking.passengers} pax` : "—"}
-                {" · "}
-                {typeof booking.suitcases === "number"
-                  ? `${booking.suitcases} suitcases`
-                  : "—"}
+                {formatPassengerSuitcaseCounts(booking.passengers, booking.suitcases)}
               </dd>
             </div>
           ) : null}

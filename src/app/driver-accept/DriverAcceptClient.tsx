@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { SITE } from "@/lib/data";
 import { confirmDriverAcceptJob, lookupDriverAcceptJob } from "@/lib/booking-jobs-api";
 import { formatDriverPayAmount } from "../../../shared/tracking";
+import { formatPassengerSuitcaseCounts } from "@/lib/party-size";
 
 type JobSummary = Awaited<ReturnType<typeof lookupDriverAcceptJob>>;
 
@@ -101,8 +102,8 @@ export default function DriverAcceptClient() {
               ) : null}
               {job.passengers != null || job.suitcases != null ? (
                 <p className="mt-2">
-                  <strong className="text-white">Passengers / suitcases:</strong>{" "}
-                  {job.passengers ?? "—"} / {job.suitcases ?? "—"}
+                  <strong className="text-white">Party size:</strong>{" "}
+                  {formatPassengerSuitcaseCounts(job.passengers, job.suitcases)}
                 </p>
               ) : null}
               {job.journeyNotes ? (

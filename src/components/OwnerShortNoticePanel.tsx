@@ -7,6 +7,7 @@ import {
   vehicleServiceLabel,
 } from "../../shared/booking-notice";
 import { SITE } from "@/lib/data";
+import { formatPassengerSuitcaseCounts } from "@/lib/party-size";
 import {
   addUnavailablePeriod,
   approveShortNoticeBooking,
@@ -769,9 +770,12 @@ export default function OwnerShortNoticePanel({ ownerKey }: OwnerShortNoticePane
                     <dd className="font-semibold text-white">{service}</dd>
                   </div>
                   <div>
-                    <dt className="text-white/40">Passengers / luggage</dt>
+                    <dt className="text-white/40">Party size</dt>
                     <dd>
-                      {booking.booking.passengers} / {booking.booking.suitcases}
+                      {formatPassengerSuitcaseCounts(
+                        booking.booking.passengers,
+                        booking.booking.suitcases,
+                      )}
                     </dd>
                   </div>
                   <div>

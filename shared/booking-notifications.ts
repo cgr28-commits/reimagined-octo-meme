@@ -20,6 +20,7 @@ import {
   REFUND_REASON_LABELS,
   type RefundReasonCategory,
 } from "./refund-ops";
+import { formatPassengerSuitcaseCounts } from "./party-size";
 
 export type PaidBookingDetails = {
   customerName: string;
@@ -120,8 +121,7 @@ function formatTripScheduleLines(details: PaidBookingDetails): string[] {
   }
 
   lines.push(
-    `Passengers: ${details.passengers}`,
-    `Suitcases: ${details.suitcases}`,
+    `Party size: ${formatPassengerSuitcaseCounts(details.passengers, details.suitcases)}`,
     `Service: ${vehicleServiceLabel(details.vehicle)}`,
     `Vehicle: ${details.vehicle}`,
   );
@@ -172,8 +172,10 @@ function invoiceRows(details: PaidBookingReceipt): Array<{ label: string; value:
   }
 
   rows.push(
-    { label: "Passengers", value: String(details.passengers) },
-    { label: "Suitcases", value: String(details.suitcases) },
+    {
+      label: "Party size",
+      value: formatPassengerSuitcaseCounts(details.passengers, details.suitcases),
+    },
     { label: "Service", value: vehicleServiceLabel(details.vehicle) },
     { label: "Vehicle", value: details.vehicle },
   );

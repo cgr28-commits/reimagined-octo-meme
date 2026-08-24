@@ -7,6 +7,10 @@ import {
   resolveJourneyInclusions,
 } from "@/lib/journey-inclusions";
 import { formatMarketingOptInLine } from "../../shared/marketing";
+import {
+  formatPassengerCount,
+  formatPassengerSuitcaseCounts,
+} from "@/lib/party-size";
 
 export type BookingDetails = {
   customerName: string;
@@ -101,8 +105,7 @@ function buildTripDetailsBlock(details: BookingDetails, bookingReference?: strin
     (details.isAirportTrip && details.returnFlightNumber
       ? `Flight number for collection: ${details.returnFlightNumber}\n`
       : "") +
-    `Passengers: ${details.passengers}\n` +
-    `Suitcases: ${details.suitcases}\n` +
+    `Party size: ${formatPassengerSuitcaseCounts(details.passengers, details.suitcases)}\n` +
     (typeof details.childSeats === "number" && details.childSeats > 0
       ? `Child seats: ${details.childSeats}${details.childSeatNotes ? ` (${details.childSeatNotes})` : ""}\n`
       : "") +
@@ -157,8 +160,7 @@ export function buildGroupQuoteRequestMessage(
     `5–7 PASSENGER / MINIBUS QUOTE REQUEST\n` +
     `${"=".repeat(36)}\n` +
     (reference ? `Reference: ${reference}\n` : "") +
-    `Passengers: ${details.passengers}\n` +
-    `Luggage (large bags): ${details.suitcases}\n` +
+    `Party size: ${formatPassengerSuitcaseCounts(details.passengers, details.suitcases)}\n` +
     (typeof details.childSeats === "number" && details.childSeats > 0
       ? `Child seats: ${details.childSeats}${details.childSeatNotes ? ` (${details.childSeatNotes})` : ""}\n`
       : "") +
@@ -181,13 +183,12 @@ export function buildGroupQuoteRequestMessage(
     `\n--- Customer copy ---\n` +
     `Quote Request Received\n\n` +
     `Dear ${details.customerName},\n\n` +
-    `Thank you — we’ve received your journey details for a minibus transfer (${details.passengers} passengers).\n` +
+    `Thank you — we’ve received your journey details for a minibus transfer (${formatPassengerCount(details.passengers)}).\n` +
     `This is a quote request only. A tailored fixed price will be provided shortly. ` +
     `Nothing is confirmed until you accept the quote.\n\n` +
     `Pickup: ${details.pickupLabel}\n` +
     `Destination: ${details.dropoffLabel}\n` +
-    `Passengers: ${details.passengers}\n` +
-    `Luggage: ${details.suitcases}\n` +
+    `Party size: ${formatPassengerSuitcaseCounts(details.passengers, details.suitcases)}\n` +
     `${details.returnJourney ? "Outbound" : "Travel"}: ${formatUkDateTime(details.tripDate, details.tripTime)}\n` +
     (details.returnJourney
       ? `Return: ${formatUkDateTime(details.returnDate, details.returnTime)}\n`

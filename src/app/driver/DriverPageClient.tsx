@@ -44,6 +44,7 @@ import {
 import { issueBookingRefund, markBookingRefundedExternally } from "@/lib/refund-api";
 import { canMarkExternalRefund, isOperationallyCancelled } from "../../../shared/refund-ops";
 import { formatDriverPayAmount } from "../../../shared/tracking";
+import { formatPassengerSuitcaseCounts } from "@/lib/party-size";
 import {
   ownerPrimaryJourneyConfirmCopy,
   type OwnerPrimaryJourneyAction,
@@ -1493,9 +1494,7 @@ function DriverJobCard({
           ) : null}
           {!isOwner && (job.passengers != null || job.suitcases != null) ? (
             <p className="mt-1 text-sm text-white/65">
-              {job.passengers != null ? `${job.passengers} passenger${job.passengers === 1 ? "" : "s"}` : null}
-              {job.passengers != null && job.suitcases != null ? " · " : null}
-              {job.suitcases != null ? `${job.suitcases} suitcases` : null}
+              {formatPassengerSuitcaseCounts(job.passengers, job.suitcases)}
             </p>
           ) : null}
           {isOwner && isRefunded && (job.refundAmountLabel || job.amountPaidLabel) && (

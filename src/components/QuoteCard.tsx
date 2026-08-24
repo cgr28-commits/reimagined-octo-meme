@@ -42,6 +42,7 @@ import {
   vehicleShortLabel,
 } from "@/lib/vehicle-selection";
 import { parseLondonLocalDateTime } from "@/lib/london-time";
+import { formatPassengerSuitcaseCounts } from "@/lib/party-size";
 import { formatUkDate, formatUkTime, todayLondonDate, nowLondonTime } from "@/lib/format-datetime";
 import { BOOKING_FLIGHT_NUMBER_HELPER, resolveJourneyInclusions } from "@/lib/journey-inclusions";
 import {
@@ -2587,11 +2588,11 @@ function QuoteCard({
               </p>
               {effectivePassengers != null && effectivePassengers > 0 && (
                 <p>
-                  <span className="text-white/45">Passengers:</span>{" "}
-                  {formatPassengerChoice(effectivePassengers)}
-                  <span className="mx-2 text-white/35">·</span>
-                  <span className="text-white/45">Large bags:</span>{" "}
-                  {formatSuitcaseChoice(suitcases as number)}
+                  <span className="text-white/45">Party size:</span>{" "}
+                  {formatPassengerSuitcaseCounts(
+                    formatPassengerChoice(effectivePassengers),
+                    formatSuitcaseChoice(suitcases as number),
+                  )}
                 </p>
               )}
               {effectiveAirportCode && (
@@ -2658,9 +2659,10 @@ function QuoteCard({
             <p className="mt-3 text-sm text-white/75">
               Vehicle: {vehicleShortLabel(quoteVehicle)}
               <span className="mx-2 text-white/35">·</span>
-              Passengers: {formatPassengerChoice(effectivePassengers as number)}
-              <span className="mx-2 text-white/35">·</span>
-              Large suitcases: {formatSuitcaseChoice(suitcases as number)}
+              {formatPassengerSuitcaseCounts(
+                formatPassengerChoice(effectivePassengers as number),
+                formatSuitcaseChoice(suitcases as number),
+              )}
             </p>
             <p className="mt-2 text-xs leading-relaxed text-white/65">{MINIBUS_PARTNER_NOTE}</p>
             {journeyDistanceLabel && journeyDurationLabel && (
@@ -2730,9 +2732,10 @@ function QuoteCard({
             <p className="mt-3 text-sm text-white/75">
               Vehicle: {vehicleShortLabel(quoteVehicle)}
               <span className="mx-2 text-white/35">·</span>
-              Passengers: {formatPassengerChoice(effectivePassengers as number)}
-              <span className="mx-2 text-white/35">·</span>
-              Large suitcases: {formatSuitcaseChoice(suitcases as number)}
+              {formatPassengerSuitcaseCounts(
+                formatPassengerChoice(effectivePassengers as number),
+                formatSuitcaseChoice(suitcases as number),
+              )}
             </p>
             {testChargeAmount !== null && (
               <p className="mt-2 text-xs text-white/60">
@@ -3812,14 +3815,13 @@ function QuoteCard({
             </p>
           )}
           {partySelectionReady && effectivePassengers != null && suitcases != null ? (
-          <p className="mt-2 text-sm text-white/85">
-            {formatPassengerChoice(effectivePassengers)}{" "}
-            passenger
-            {effectivePassengers === 1 ? "" : "s"}{" "}
-            · {formatSuitcaseChoice(suitcases)} suitcase
-            {suitcases === 1 ? "" : "s"}
-            {!exceedsOnlineCapacity ? ` · ${vehicleShortLabel(quoteVehicle)}` : ""}
-          </p>
+            <p className="mt-2 text-sm text-white/85">
+              {formatPassengerSuitcaseCounts(
+                formatPassengerChoice(effectivePassengers),
+                formatSuitcaseChoice(suitcases),
+              )}
+              {!exceedsOnlineCapacity ? ` · ${vehicleShortLabel(quoteVehicle)}` : ""}
+            </p>
           ) : null}
           <button
             type="button"
@@ -4112,12 +4114,12 @@ function QuoteCard({
                 />
               )}
               <PreviewRow
-                label="Passengers"
-                value={effectivePassengers == null ? "—" : String(effectivePassengers)}
-              />
-              <PreviewRow
-                label="Suitcases"
-                value={suitcases == null ? "—" : String(suitcases)}
+                label="Party size"
+                value={
+                  effectivePassengers == null || suitcases == null
+                    ? "—"
+                    : formatPassengerSuitcaseCounts(effectivePassengers, suitcases)
+                }
               />
               {pricingConfirmationRequired ? (
                 <PreviewRow label="Pricing" value={priceConfirmationLabel} />

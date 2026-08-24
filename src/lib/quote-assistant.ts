@@ -18,6 +18,11 @@ import {
   showsOnlineGuidePrice,
 } from "@/lib/data";
 import { selectVehicleForParty } from "@/lib/vehicle-selection";
+import {
+  formatPassengerCount,
+  formatPassengerSuitcaseCounts,
+  formatSuitcaseCount,
+} from "@/lib/party-size";
 import { isValidPassengerCount, PASSENGER_LIMIT_ERROR } from "../../shared/passenger-limits";
 import { resolveJourneyInclusions } from "@/lib/journey-inclusions";
 import { BUSINESS_LEGAL } from "@/lib/business-legal";
@@ -647,12 +652,12 @@ function vehicleSuggestionNote(
     return `Vehicle: ${short}.`;
   }
   if (vehicle.startsWith("Minibus")) {
-    return `I’ve suggested a ${short} for ${passengers} passengers / ${suitcases} cases (arranged via a licensed transport partner).`;
+    return `I’ve suggested a ${short} for ${formatPassengerSuitcaseCounts(passengers, suitcases)} (arranged via a licensed transport partner).`;
   }
   if (vehicle.startsWith("Estate")) {
-    return `I’ve suggested an ${short} — better boot space for ${suitcases} cases.`;
+    return `I’ve suggested an ${short} — better boot space for ${formatSuitcaseCount(suitcases)}.`;
   }
-  return `I’ve suggested a ${short} for ${passengers} passenger${passengers === 1 ? "" : "s"}.`;
+  return `I’ve suggested a ${short} for ${formatPassengerCount(passengers)}.`;
 }
 
 function extractNumber(text: string, kind: "passenger" | "suitcase"): number | undefined {

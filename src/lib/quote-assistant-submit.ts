@@ -22,6 +22,7 @@ import { resolveJourneyInclusions } from "@/lib/journey-inclusions";
 import { sendViaFormSubmitEmail } from "../../shared/email-delivery";
 import { TERMS_LAST_UPDATED } from "@/lib/terms";
 import { CANCELLATION_POLICY_VERSION } from "../../shared/refund-ops";
+import { formatPassengerSuitcaseCounts } from "@/lib/party-size";
 
 const WEB3FORMS_ACCESS_KEY =
   process.env.NEXT_PUBLIC_WEB3FORMS_ACCESS_KEY?.trim() ?? "";
@@ -33,6 +34,10 @@ function buildAssistantQuoteEmail(draft: QuoteDraft): { subject: string; text: s
     draft.direction === "from-airport" ? `from ${airportName}` : `to ${airportName}`;
   const vehicle = (draft.vehicle ?? "Estate Car (1–4 passengers)").split(" (")[0];
   const price = draft.quotedAmountLabel ?? "See website quote";
+  const partySize =
+    draft.passengers == null || draft.suitcases == null
+      ? "Not set"
+      : formatPassengerSuitcaseCounts(draft.passengers, draft.suitcases);
   const returnLine = draft.returnJourney ? "Return journey (5% off)" : "One way";
   const inclusions = resolveJourneyInclusions({
     isAirportTrip: true,
@@ -49,8 +54,7 @@ function buildAssistantQuoteEmail(draft: QuoteDraft): { subject: string; text: s
     `Address: ${draft.address}`,
     returnLine,
     `Vehicle: ${vehicle}`,
-    `Passengers: ${draft.passengers ?? "—"}`,
-    `Suitcases: ${draft.suitcases ?? "—"}`,
+    `Party size: ${partySize}`,
     "",
     inclusions.summary,
     ...inclusions.emailIncludeLines.map((line) =>
@@ -80,8 +84,7 @@ function buildAssistantQuoteEmail(draft: QuoteDraft): { subject: string; text: s
       <p style="margin:0 0 8px"><strong>Address:</strong> ${draft.address}</p>
       <p style="margin:0 0 8px"><strong>Journey:</strong> ${returnLine}</p>
       <p style="margin:0 0 8px"><strong>Vehicle:</strong> ${vehicle}</p>
-      <p style="margin:0 0 8px"><strong>Passengers:</strong> ${draft.passengers ?? "—"}</p>
-      <p style="margin:0 0 16px"><strong>Suitcases:</strong> ${draft.suitcases ?? "—"}</p>
+      <p style="margin:0 0 16px"><strong>Party size:</strong> ${partySize}</p>
       ${includeHtml}
       <p style="margin:0 0 8px"><a href="${SITE.url}">Book online</a></p>
       <p style="margin:0">WhatsApp @${SITE.whatsappUsername} · ${SITE.landlineDisplay} · ${SITE.email}</p>
