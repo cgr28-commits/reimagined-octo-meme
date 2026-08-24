@@ -19,6 +19,8 @@ import {
   buildPublicTrackResponse,
   handleDriverSharingRequest,
 } from "../workers/addresses/src/tracking-handlers";
+import { postJourneyAction as postClientJourneyAction } from "../src/lib/tracking-api";
+import { DEMO_DRIVER_KEY } from "../src/lib/tracking-demo";
 
 const values = new Map<string, string>();
 const store = {
@@ -326,6 +328,34 @@ async function main() {
   assert.equal(completedJob.driverPaymentStatus, "due");
   assert.equal(completedJob.driverPaymentAmount, "£40.00");
   assert.equal(completedJob.driverPaymentHistory?.[0]?.status, "due");
+
+  console.log("=== Preview demo follows the real Driver journey state machine ===");
+  const demoOnWay = await postClientJourneyAction(
+    DEMO_DRIVER_KEY,
+    "demo-live",
+    "start_tracking",
+  );
+  assert.equal(demoOnWay.journeyStatus, "tracking");
+  assert.deepEqual(demoOnWay.allowedActions, ["arrived_pickup"]);
+  assert.equal(demoOnWay.sharingActive, false);
+  assert.equal(demoOnWay.trackingSession, undefined);
+  const demoArrived = await postClientJourneyAction(
+    DEMO_DRIVER_KEY,
+    "demo-live",
+    "arrived_pickup",
+  );
+  assert.equal(demoArrived.journeyStatus, "arrived_pickup");
+  assert.equal(demoArrived.journeyStatusLabel, "Driver has arrived");
+  assert.deepEqual(demoArrived.allowedActions, ["complete_journey"]);
+  assert.equal(demoArrived.sharingActive, false);
+  const demoCompleted = await postClientJourneyAction(
+    DEMO_DRIVER_KEY,
+    "demo-live",
+    "complete_journey",
+  );
+  assert.equal(demoCompleted.journeyStatus, "completed");
+  assert.equal(demoCompleted.journeyStatusLabel, "Journey completed");
+  assert.deepEqual(demoCompleted.allowedActions, []);
 
   console.log("=== Payment is owner-only and keeps amount/status/history ===");
   const driverAttempt = await handleDriverPaymentRequest(

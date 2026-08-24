@@ -524,18 +524,69 @@ export async function postJourneyAction(
     const trackUrl = isDemoTrackToken(token)
       ? getDemoTrackResponse(token).trackUrl
       : `https://www.myairporttaxini.co.uk/track/?id=${encodeURIComponent(token)}`;
+    const now = new Date().toISOString();
+    const transition: Record<
+      JourneyAction,
+      {
+        journeyStatus: JourneyStatus;
+        journeyStatusLabel: string;
+        allowedActions: JourneyAction[];
+      }
+    > = {
+      start_tracking: {
+        journeyStatus: "tracking",
+        journeyStatusLabel: "Driver on the way",
+        allowedActions: ["arrived_pickup"],
+      },
+      arrived_pickup: {
+        journeyStatus: "arrived_pickup",
+        journeyStatusLabel: "Driver has arrived",
+        allowedActions: ["complete_journey"],
+      },
+      start_journey: {
+        journeyStatus: "en_route",
+        journeyStatusLabel: "Journey underway",
+        allowedActions: ["arrived_destination"],
+      },
+      arrived_destination: {
+        journeyStatus: "arrived_destination",
+        journeyStatusLabel: "Arrived at destination",
+        allowedActions: ["complete_journey"],
+      },
+      complete_journey: {
+        journeyStatus: "completed",
+        journeyStatusLabel: "Journey completed",
+        allowedActions: [],
+      },
+      stop_tracking: {
+        journeyStatus: "stopped",
+        journeyStatusLabel: "Tracking stopped",
+        allowedActions: ["start_tracking"],
+      },
+    };
+    const next = transition[action];
+    const sharingActive =
+      isDemoOwnerKey(accessKey) && action !== "complete_journey" && action !== "stop_tracking";
     return {
       ok: true,
       token,
-      journeyStatus: action === "complete_journey" ? "completed" : action === "stop_tracking" ? "stopped" : "tracking",
-      journeyStatusLabel: "Demo journey",
-      allowedActions: [],
-      sharingActive: action !== "complete_journey" && action !== "stop_tracking",
+      ...next,
+      sharingActive,
       trackUrl,
-      trackingSession:
-        action === "complete_journey" || action === "stop_tracking"
-          ? undefined
-          : { sessionToken: "demo-session", expiresAt: new Date(Date.now() + 3_600_000).toISOString() },
+      ...(action === "start_tracking" ? { trackingStartedAt: now } : {}),
+      ...(action === "arrived_pickup" ? { arrivedPickupAt: now } : {}),
+      ...(action === "start_journey" ? { journeyStartedAt: now } : {}),
+      ...(action === "arrived_destination" ? { arrivedDestinationAt: now } : {}),
+      ...(action === "complete_journey" ? { journeyCompletedAt: now } : {}),
+      ...(action === "stop_tracking" ? { trackingStoppedAt: now } : {}),
+      ...(sharingActive
+        ? {
+            trackingSession: {
+              sessionToken: "demo-session",
+              expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
+            },
+          }
+        : {}),
     };
   }
 
