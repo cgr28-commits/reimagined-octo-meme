@@ -37,6 +37,10 @@ export type ShortNoticeBookingSummary = {
   alternativeTimeEmailSentAt?: string;
   alternativeTimeEmailAcceptUrl?: string;
   acceptedAlternativeAt?: string;
+  customerResponse?: "accepted" | "declined";
+  customerResponseNote?: string;
+  customerResponseAt?: string;
+  declinedAlternativeAt?: string;
   booking: {
     customerName: string;
     customerEmail: string;
@@ -286,11 +290,14 @@ export type PublicAlternativeOfferSummary = {
   offeredDate: string | null;
   offeredTime: string | null;
   offeredNote: string | null;
+  customerResponseNote: string | null;
   passengers: number;
   suitcases: number;
   flightNumber?: string;
   acceptPending: boolean;
   alreadyAccepted: boolean;
+  alreadyDeclined: boolean;
+  alreadyPaid: boolean;
 };
 
 export async function fetchPublicAlternativeOffer(
@@ -305,12 +312,15 @@ export async function fetchPublicAlternativeOffer(
   );
   const payload = await parseJson(response);
   if (!response.ok) {
-    throw new Error(String(payload.error || "Acceptance link not found"));
+    throw new Error(String(payload.error || "Response link not found"));
   }
   return payload.offer as PublicAlternativeOfferSummary;
 }
 
-export async function acceptAlternativeShortNoticeTime(token: string): Promise<{
+export async function acceptAlternativeShortNoticeTime(
+  token: string,
+  customerNote?: string,
+): Promise<{
   record: ShortNoticeBookingSummary;
   payUrl: string;
   paymentEmailSent: boolean;
@@ -322,7 +332,11 @@ export async function acceptAlternativeShortNoticeTime(token: string): Promise<{
       "Content-Type": "application/json",
       Accept: "application/json",
     },
-    body: JSON.stringify({ token, siteOrigin: currentSiteOrigin() }),
+    body: JSON.stringify({
+      token,
+      siteOrigin: currentSiteOrigin(),
+      customerNote: customerNote ?? "",
+    }),
   });
   const payload = await parseJson(response);
   if (!response.ok) {
@@ -333,6 +347,35 @@ export async function acceptAlternativeShortNoticeTime(token: string): Promise<{
     payUrl: String(payload.payUrl ?? ""),
     paymentEmailSent: payload.paymentEmailSent === true,
     ...(payload.alreadyAccepted === true ? { alreadyAccepted: true } : {}),
+  };
+}
+
+export async function declineAlternativeShortNoticeTime(
+  token: string,
+  customerNote?: string,
+): Promise<{
+  record: ShortNoticeBookingSummary;
+  alreadyDeclined?: boolean;
+}> {
+  const response = await fetch(`${WORKER_BASE}/short-notice/decline-alternative`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify({
+      token,
+      siteOrigin: currentSiteOrigin(),
+      customerNote: customerNote ?? "",
+    }),
+  });
+  const payload = await parseJson(response);
+  if (!response.ok) {
+    throw new Error(String(payload.error || "Could not decline alternative time"));
+  }
+  return {
+    record: payload.record as ShortNoticeBookingSummary,
+    ...(payload.alreadyDeclined === true ? { alreadyDeclined: true } : {}),
   };
 }
 

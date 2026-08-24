@@ -46,20 +46,42 @@ const EMPTY_DRAFT: PeriodDraft = {
 function statusLabel(status: string): string {
   switch (status) {
     case "SHORT_NOTICE_AWAITING_APPROVAL":
-      return "Awaiting approval";
+      return "AWAITING OWNER APPROVAL";
     case "SHORT_NOTICE_ALTERNATIVE_OFFERED":
-      return "Awaiting customer acceptance";
+      return "AWAITING CUSTOMER RESPONSE";
     case "SHORT_NOTICE_APPROVED":
-      return "Approved — awaiting payment";
+      return "APPROVED — AWAITING PAYMENT";
     case "SHORT_NOTICE_DECLINED":
-      return "Declined — no availability";
+      return "DECLINED — NO AVAILABILITY";
+    case "SHORT_NOTICE_ALTERNATIVE_DECLINED":
+      return "ALTERNATIVE TIME DECLINED";
     case "SHORT_NOTICE_PAID":
-      return "Paid";
+      return "PAID";
     case "SHORT_NOTICE_EXPIRED":
-      return "Expired";
+      return "EXPIRED";
     default:
       return status;
   }
+}
+
+function formatCompactTripWhen(date: string, time: string): string {
+  const raw = `${date}T${time || "00:00"}:00`;
+  const parsed = new Date(raw);
+  if (Number.isNaN(parsed.getTime())) {
+    return [date, time].filter(Boolean).join(" · ");
+  }
+  const day = new Intl.DateTimeFormat("en-GB", {
+    day: "numeric",
+    month: "short",
+    timeZone: "Europe/London",
+  }).format(parsed);
+  return `${day} · ${time || "—"}`;
+}
+
+function truncateLabel(value: string, max = 34): string {
+  const text = value.trim();
+  if (text.length <= max) return text;
+  return `${text.slice(0, Math.max(1, max - 1))}…`;
 }
 
 function splitLocal(value: string): { date: string; time: string } {
@@ -115,6 +137,19 @@ export default function OwnerShortNoticePanel({ ownerKey }: OwnerShortNoticePane
   const [offerDrafts, setOfferDrafts] = useState<
     Record<string, { offeredDate: string; offeredTime: string; ownerNote: string; open: boolean }>
   >({});
+  /** Collapsed by default — only expanded refs show full details/controls. */
+  const [expandedRefs, setExpandedRefs] = useState<Record<string, boolean>>({});
+
+  function isExpanded(reference: string): boolean {
+    return expandedRefs[reference] === true;
+  }
+
+  function toggleExpanded(reference: string) {
+    setExpandedRefs((current) => ({
+      ...current,
+      [reference]: !current[reference],
+    }));
+  }
 
   function offerDraftFor(reference: string) {
     return (
@@ -547,7 +582,7 @@ export default function OwnerShortNoticePanel({ ownerKey }: OwnerShortNoticePane
       ) : bookings.length === 0 ? (
         <p className="mt-4 text-sm text-white/55">No open short-notice requests.</p>
       ) : (
-        <ul className="mt-4 space-y-4">
+        <ul className="mt-4 space-y-3">
           {bookings.map((booking) => {
             const busy = busyRef === booking.reference;
             const service = vehicleServiceLabel(booking.booking.vehicle);
@@ -560,11 +595,68 @@ export default function OwnerShortNoticePanel({ ownerKey }: OwnerShortNoticePane
             const whatsappPayUrl =
               links?.whatsappPayUrl ||
               (payUrl ? whatsappShareUrl(booking, payUrl) : "");
+            const expanded = isExpanded(booking.reference);
+            const requestedDate =
+              booking.originalRequestedDate ?? booking.booking.tripDate;
+            const requestedTime =
+              booking.originalRequestedTime ?? booking.booking.tripTime;
+            const displayDate =
+              booking.status === "SHORT_NOTICE_ALTERNATIVE_OFFERED" && booking.offeredDate
+                ? booking.offeredDate
+                : booking.booking.tripDate;
+            const displayTime =
+              booking.status === "SHORT_NOTICE_ALTERNATIVE_OFFERED" && booking.offeredTime
+                ? booking.offeredTime
+                : booking.booking.tripTime;
             return (
               <li
                 key={booking.reference}
-                className="rounded-2xl border border-white/10 bg-navy/60 p-4 sm:p-5"
+                className="rounded-2xl border border-white/10 bg-navy/60 p-3 sm:p-4"
               >
+                {!expanded ? (
+                  <button
+                    type="button"
+                    onClick={() => toggleExpanded(booking.reference)}
+                    className="flex w-full flex-col gap-1 rounded-xl text-left outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+                  >
+                    <p className="text-base font-bold text-white sm:text-lg">
+                      {booking.booking.customerName}
+                    </p>
+                    {booking.status === "SHORT_NOTICE_ALTERNATIVE_OFFERED" ? (
+                      <>
+                        <p className="text-sm text-white/70">
+                          Requested:{" "}
+                          {formatCompactTripWhen(requestedDate, requestedTime)}
+                        </p>
+                        <p className="text-sm text-white/70">
+                          Offered:{" "}
+                          <span className="font-semibold text-emerald">
+                            {formatCompactTripWhen(
+                              booking.offeredDate || displayDate,
+                              booking.offeredTime || displayTime,
+                            )}
+                          </span>
+                        </p>
+                      </>
+                    ) : (
+                      <p className="text-sm text-white/70">
+                        {formatCompactTripWhen(displayDate, displayTime)}
+                      </p>
+                    )}
+                    <p className="truncate text-sm text-white/60">
+                      {truncateLabel(booking.booking.pickupLabel)} →{" "}
+                      {truncateLabel(booking.booking.dropoffLabel)}
+                    </p>
+                    <p className="text-sm font-semibold text-white">{booking.amountLabel}</p>
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-amber-200/90">
+                      {statusLabel(booking.status)}
+                    </p>
+                    <span className="mt-1 text-sm font-semibold text-emerald">
+                      ▼ View booking
+                    </span>
+                  </button>
+                ) : (
+                  <>
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <p className="text-lg font-bold text-white">{booking.booking.customerName}</p>
@@ -575,6 +667,13 @@ export default function OwnerShortNoticePanel({ ownerKey }: OwnerShortNoticePane
                       {statusLabel(booking.status)}
                     </p>
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => toggleExpanded(booking.reference)}
+                    className="min-h-10 rounded-xl border border-white/15 px-3 py-1.5 text-sm font-semibold text-white/80"
+                  >
+                    ▲ Collapse
+                  </button>
                 </div>
                 <dl className="mt-4 grid gap-2 text-sm text-white/70 sm:grid-cols-2">
                   <div>
@@ -627,6 +726,17 @@ export default function OwnerShortNoticePanel({ ownerKey }: OwnerShortNoticePane
                   </div>
                 </dl>
 
+                {booking.customerResponseNote ? (
+                  <div className="mt-4 rounded-xl border border-sky-400/30 bg-sky-400/10 p-3 text-sm">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-sky-200">
+                      Customer message
+                    </p>
+                    <p className="mt-1 whitespace-pre-wrap break-words text-white">
+                      {booking.customerResponseNote}
+                    </p>
+                  </div>
+                ) : null}
+
                 {booking.status === "SHORT_NOTICE_ALTERNATIVE_OFFERED" ||
                 booking.originalRequestedDate ? (
                   <div className="mt-4 space-y-1 rounded-xl border border-amber-400/25 bg-amber-400/10 p-3 text-sm">
@@ -636,8 +746,7 @@ export default function OwnerShortNoticePanel({ ownerKey }: OwnerShortNoticePane
                     <p className="text-white/80">
                       Requested:{" "}
                       <span className="font-semibold text-white">
-                        {booking.originalRequestedDate ?? booking.booking.tripDate} ·{" "}
-                        {booking.originalRequestedTime ?? booking.booking.tripTime}
+                        {requestedDate} · {requestedTime}
                       </span>
                     </p>
                     {booking.offeredDate && booking.offeredTime ? (
@@ -650,7 +759,7 @@ export default function OwnerShortNoticePanel({ ownerKey }: OwnerShortNoticePane
                     ) : null}
                     {booking.status === "SHORT_NOTICE_ALTERNATIVE_OFFERED" ? (
                       <p className="text-xs uppercase tracking-wider text-amber-200/90">
-                        Status: Awaiting customer acceptance
+                        Status: AWAITING CUSTOMER RESPONSE
                       </p>
                     ) : null}
                   </div>
@@ -926,6 +1035,8 @@ export default function OwnerShortNoticePanel({ ownerKey }: OwnerShortNoticePane
                     ) : null}
                   </div>
                 ) : null}
+                  </>
+                )}
               </li>
             );
           })}

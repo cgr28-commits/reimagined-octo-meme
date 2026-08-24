@@ -1,7 +1,7 @@
 /**
  * Customer email when Owner offers an alternative pickup time
  * for a short-notice / unavailable-period booking.
- * Includes a secure Accept link — never creates SumUp checkout.
+ * Links open the response page only — never mutates booking state via GET.
  */
 
 import {
@@ -41,7 +41,10 @@ export type ShortNoticeAlternativeOfferEmailDetails = {
   offeredTime: string;
   amountLabel: string;
   reference: string;
+  /** Secure response-page URL (Accept & pay / Decline both open this page). */
   acceptUrl: string;
+  /** Optional second CTA URL; defaults to acceptUrl (same response page). */
+  declineUrl?: string;
   ownerNote?: string;
 };
 
@@ -50,25 +53,27 @@ export function buildShortNoticeAlternativeOfferEmail(
   businessName = "My Airport Taxi NI",
 ): { subject: string; text: string; html: string } {
   const firstName = customerFirstName(details.customerName);
-  const subject = `Alternative pickup time for your ${businessName} booking`;
-  const acceptUrl = details.acceptUrl.trim();
+  const subject = `Alternative pickup time for your ${businessName} journey`;
+  const responseUrl = details.acceptUrl.trim();
+  const declineUrl = (details.declineUrl ?? details.acceptUrl).trim();
   const note = details.ownerNote?.trim() ?? "";
 
   const text =
     `Hi ${firstName},\n\n` +
-    `Thanks for your booking request with ${businessName}.\n\n` +
-    `We can't confirm your originally requested pickup time, but we can offer this alternative:\n\n` +
-    `Journey\n` +
+    `We're unable to accommodate your original requested pickup time:\n\n` +
+    `${details.originalDate} ${details.originalTime}\n\n` +
+    `However, we can offer:\n\n` +
+    `${details.offeredDate} ${details.offeredTime}\n\n` +
+    `Journey:\n` +
     `${details.pickupLabel} → ${details.dropoffLabel}\n\n` +
-    `Requested: ${details.originalDate} ${details.originalTime}\n` +
-    `Offered: ${details.offeredDate} ${details.offeredTime}\n\n` +
-    `Amount due (unchanged): ${details.amountLabel}\n` +
+    `Price: ${details.amountLabel}\n` +
     `Booking reference: ${details.reference}\n\n` +
     (note ? `Note from us:\n${note}\n\n` : "") +
-    `Please use the secure link below to accept this new pickup time:\n` +
-    `${acceptUrl}\n\n` +
-    `Payment is not taken until after you accept. Once you accept, we'll send a secure payment link.\n\n` +
-    `If this time doesn't work, reply to this email or contact us on WhatsApp.\n\n` +
+    `If this time works for you, open this link and select Accept new pickup time & pay:\n` +
+    `${responseUrl}\n\n` +
+    `If it doesn't suit, open this link and select Decline new pickup time:\n` +
+    `${declineUrl}\n\n` +
+    `No payment will be taken unless you accept the alternative pickup time and complete payment.\n\n` +
     `${businessName}\n` +
     `${BUSINESS_WEBSITE}\n` +
     `Phone: ${BUSINESS_PHONE_DISPLAY}\n` +
@@ -96,31 +101,41 @@ export function buildShortNoticeAlternativeOfferEmail(
           <tr>
             <td style="padding:28px 32px 8px;font-size:15px;line-height:1.7;color:#334155;">
               <p style="margin:0 0 16px;">Hi ${escapeHtml(firstName)},</p>
-              <p style="margin:0 0 16px;">Thanks for your booking request with ${escapeHtml(businessName)}. We can't confirm your originally requested pickup time, but we can offer this alternative:</p>
+              <p style="margin:0 0 16px;">We're unable to accommodate your original requested pickup time:</p>
+              <p style="margin:0 0 16px;font-weight:600;color:${NAVY};">${escapeHtml(details.originalDate)} · ${escapeHtml(details.originalTime)}</p>
+              <p style="margin:0 0 8px;">However, we can offer:</p>
+              <p style="margin:0 0 16px;font-weight:600;color:${NAVY};">${escapeHtml(details.offeredDate)} · ${escapeHtml(details.offeredTime)}</p>
               <div style="font-size:12px;letter-spacing:0.1em;text-transform:uppercase;color:${ACCENT};font-weight:bold;margin:0 0 10px;">Journey</div>
               <p style="margin:0 0 16px;font-weight:600;color:${NAVY};">${escapeHtml(details.pickupLabel)} → ${escapeHtml(details.dropoffLabel)}</p>
-              <p style="margin:0 0 6px;"><strong style="color:${NAVY};">Requested:</strong> ${escapeHtml(details.originalDate)} · ${escapeHtml(details.originalTime)}</p>
-              <p style="margin:0 0 16px;"><strong style="color:${NAVY};">Offered:</strong> ${escapeHtml(details.offeredDate)} · ${escapeHtml(details.offeredTime)}</p>
-              <p style="margin:0 0 8px;"><strong style="color:${NAVY};">Amount due (unchanged):</strong> ${escapeHtml(details.amountLabel)}</p>
+              <p style="margin:0 0 8px;"><strong style="color:${NAVY};">Price:</strong> ${escapeHtml(details.amountLabel)}</p>
               <p style="margin:0 0 20px;"><strong style="color:${NAVY};">Booking reference:</strong> ${escapeHtml(details.reference)}</p>
               ${
                 note
                   ? `<p style="margin:0 0 20px;padding:12px 14px;background:#f8fafc;border-radius:8px;"><strong style="color:${NAVY};">Note from us:</strong><br />${escapeHtml(note)}</p>`
                   : ""
               }
-              <p style="margin:0 0 8px;">Please use the secure button below to accept this new pickup time:</p>
+              <p style="margin:0 0 8px;">If this time works for you, select:</p>
             </td>
           </tr>
           <tr>
-            <td style="padding:8px 32px 24px;text-align:center;">
-              <a href="${escapeHtml(acceptUrl)}" style="display:inline-block;background:${ACCENT};color:${NAVY};text-decoration:none;font-size:16px;font-weight:bold;padding:14px 28px;border-radius:8px;">Accept new pickup time</a>
-              <p style="margin:16px 0 0;font-size:13px;line-height:1.6;color:#64748b;">Or copy this link:<br /><a href="${escapeHtml(acceptUrl)}" style="color:${NAVY};word-break:break-all;">${escapeHtml(acceptUrl)}</a></p>
+            <td style="padding:8px 32px 12px;text-align:center;">
+              <a href="${escapeHtml(responseUrl)}" style="display:inline-block;background:${ACCENT};color:${NAVY};text-decoration:none;font-size:16px;font-weight:bold;padding:14px 28px;border-radius:8px;">Accept new pickup time &amp; pay</a>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:4px 32px 8px;font-size:15px;line-height:1.7;color:#334155;text-align:center;">
+              <p style="margin:0 0 12px;">If it doesn't suit, select:</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:0 32px 24px;text-align:center;">
+              <a href="${escapeHtml(declineUrl)}" style="display:inline-block;background:#ffffff;color:${NAVY};text-decoration:none;font-size:15px;font-weight:bold;padding:12px 24px;border-radius:8px;border:2px solid ${NAVY};">Decline new pickup time</a>
+              <p style="margin:16px 0 0;font-size:13px;line-height:1.6;color:#64748b;">Or open this secure page:<br /><a href="${escapeHtml(responseUrl)}" style="color:${NAVY};word-break:break-all;">${escapeHtml(responseUrl)}</a></p>
             </td>
           </tr>
           <tr>
             <td style="padding:0 32px 28px;font-size:15px;line-height:1.7;color:#334155;">
-              <p style="margin:0 0 16px;">Payment is not taken until after you accept. Once you accept, we'll send a secure payment link.</p>
-              <p style="margin:0;">If this time doesn't work, reply to this email or contact us on WhatsApp.</p>
+              <p style="margin:0;">No payment will be taken unless you accept the alternative pickup time and complete payment.</p>
               <p style="margin:20px 0 0;"><strong>${escapeHtml(businessName)}</strong></p>
             </td>
           </tr>

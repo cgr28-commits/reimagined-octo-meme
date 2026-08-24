@@ -10,11 +10,27 @@ export const SHORT_NOTICE_STATUSES = [
   "SHORT_NOTICE_ALTERNATIVE_OFFERED",
   "SHORT_NOTICE_APPROVED",
   "SHORT_NOTICE_DECLINED",
+  "SHORT_NOTICE_ALTERNATIVE_DECLINED",
   "SHORT_NOTICE_PAID",
   "SHORT_NOTICE_EXPIRED",
 ] as const;
 
 export type ShortNoticeStatus = (typeof SHORT_NOTICE_STATUSES)[number];
+
+/** Customer response to an Owner alternative-time offer. */
+export type ShortNoticeCustomerResponse = "accepted" | "declined";
+
+/** Sanitize optional customer free-text before store/display (never blocks accept/decline). */
+export function sanitizeCustomerResponseNote(raw: unknown, maxLen = 500): string {
+  if (typeof raw !== "string") return "";
+  const stripped = raw
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, "")
+    .replace(/<[^>]*>/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!stripped) return "";
+  return stripped.length > maxLen ? stripped.slice(0, maxLen) : stripped;
+}
 
 export type ShortNoticeBookingRecord = {
   /** Public customer reference e.g. MATNI-SN-… */
@@ -80,6 +96,14 @@ export type ShortNoticeBookingRecord = {
   alternativeTimeEmailAcceptUrl?: string;
   /** When the customer accepted the offered pickup time. */
   acceptedAlternativeAt?: string;
+  /** Customer accept/decline of the alternative-time offer. */
+  customerResponse?: ShortNoticeCustomerResponse;
+  /** Optional note from the customer on the response page (sanitized). */
+  customerResponseNote?: string;
+  /** When the customer submitted accept or decline on the response page. */
+  customerResponseAt?: string;
+  /** When the customer declined the offered alternative time. */
+  declinedAlternativeAt?: string;
   /** Optional personal quote — marked used only after successful SumUp finalize. */
   personalQuoteCode?: string;
   standardWebsiteAmount?: number;

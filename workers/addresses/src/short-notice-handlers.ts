@@ -13,6 +13,7 @@ import {
 } from "../shared/booking-notice";
 import {
   isShortNoticePayable,
+  sanitizeCustomerResponseNote,
   type ShortNoticeBookingRecord,
 } from "../shared/short-notice-booking";
 import {
@@ -270,11 +271,14 @@ async function approveShortNoticeRecord(
     }
   | { error: string; status: number }
 > {
-  if (existing.status === "SHORT_NOTICE_DECLINED") {
+  if (
+    existing.status === "SHORT_NOTICE_DECLINED" ||
+    existing.status === "SHORT_NOTICE_ALTERNATIVE_DECLINED"
+  ) {
     return { error: "This request was declined and cannot be approved.", status: 409 };
   }
   if (existing.status === "SHORT_NOTICE_PAID") {
-    return { error: "This booking is already paid.", status: 409 };
+    return { error: "This booking has already been paid and confirmed.", status: 409 };
   }
 
   const approvedAt = now.toISOString();
@@ -558,7 +562,11 @@ export async function handleOwnerOfferAlternativeTime(
   if (existing.status === "SHORT_NOTICE_PAID") {
     return { error: "Booking is already paid.", status: 409 };
   }
-  if (existing.status === "SHORT_NOTICE_DECLINED" || existing.status === "SHORT_NOTICE_EXPIRED") {
+  if (
+    existing.status === "SHORT_NOTICE_DECLINED" ||
+    existing.status === "SHORT_NOTICE_ALTERNATIVE_DECLINED" ||
+    existing.status === "SHORT_NOTICE_EXPIRED"
+  ) {
     return { error: "Booking is no longer open.", status: 409 };
   }
   if (existing.status === "SHORT_NOTICE_APPROVED") {
@@ -716,6 +724,7 @@ export async function handleOwnerWithdrawAlternativeOffer(
 /**
  * Public: customer accepts the offered alternative pickup time.
  * Idempotent — repeated clicks do not create a second booking/payment/SumUp.
+ * Optional customer note never blocks acceptance.
  */
 export async function handlePublicAcceptAlternativeTime(
   request: Request,
@@ -736,6 +745,10 @@ export async function handlePublicAcceptAlternativeTime(
 > {
   const token = String(body.token ?? body.acceptToken ?? "").trim();
   if (!token) return { error: "Missing acceptance token.", status: 400 };
+
+  const customerNote = sanitizeCustomerResponseNote(
+    body.customerNote ?? body.note ?? body.message,
+  );
 
   const existing = await getShortNoticeByAcceptToken(env.TRACKING_STORE, token);
   if (!existing) {
@@ -760,10 +773,19 @@ export async function handlePublicAcceptAlternativeTime(
   }
 
   if (existing.status === "SHORT_NOTICE_PAID") {
-    return { error: "This booking is already paid and cannot be changed.", status: 409 };
+    return {
+      error: "This booking has already been paid and confirmed.",
+      status: 409,
+    };
   }
-  if (existing.status === "SHORT_NOTICE_DECLINED") {
-    return { error: "This booking request was declined and cannot be accepted.", status: 409 };
+  if (
+    existing.status === "SHORT_NOTICE_DECLINED" ||
+    existing.status === "SHORT_NOTICE_ALTERNATIVE_DECLINED"
+  ) {
+    return {
+      error: "This alternative pickup time was declined and cannot be accepted.",
+      status: 409,
+    };
   }
   if (existing.status === "SHORT_NOTICE_AWAITING_APPROVAL") {
     return {
@@ -800,22 +822,101 @@ export async function handlePublicAcceptAlternativeTime(
     amount: existing.amount,
   });
 
-  return approveShortNoticeRecord(
-    env,
-    existing,
-    siteOrigin,
-    now,
-    {
-      booking,
-      materialFingerprint,
-      originalRequestedDate,
-      originalRequestedTime,
-      acceptedAlternativeAt: acceptedAt,
-    },
-  );
+  return approveShortNoticeRecord(env, existing, siteOrigin, now, {
+    booking,
+    materialFingerprint,
+    originalRequestedDate,
+    originalRequestedTime,
+    acceptedAlternativeAt: acceptedAt,
+    customerResponse: "accepted",
+    customerResponseAt: acceptedAt,
+    ...(customerNote ? { customerResponseNote: customerNote } : {}),
+  });
 }
 
-/** Public GET summary for the accept-alternative page. */
+/**
+ * Public: customer declines the offered alternative pickup time.
+ * Idempotent — no SumUp, no payment email, removed from active Owner list, record retained.
+ */
+export async function handlePublicDeclineAlternativeTime(
+  request: Request,
+  env: ShortNoticeEnv,
+  body: Record<string, unknown>,
+): Promise<
+  | {
+      ok: true;
+      record: ShortNoticeBookingRecord;
+      alreadyDeclined?: boolean;
+    }
+  | { error: string; status: number }
+> {
+  const token = String(body.token ?? body.acceptToken ?? "").trim();
+  if (!token) return { error: "Missing response token.", status: 400 };
+
+  const customerNote = sanitizeCustomerResponseNote(
+    body.customerNote ?? body.note ?? body.message,
+  );
+
+  const existing = await getShortNoticeByAcceptToken(env.TRACKING_STORE, token);
+  if (!existing) {
+    return {
+      error:
+        "This link is no longer valid. The offer may have been withdrawn or replaced — contact us on WhatsApp if you still need a pickup.",
+      status: 410,
+    };
+  }
+
+  if (
+    existing.status === "SHORT_NOTICE_ALTERNATIVE_DECLINED" &&
+    existing.declinedAlternativeAt
+  ) {
+    return { ok: true, record: existing, alreadyDeclined: true };
+  }
+
+  if (existing.status === "SHORT_NOTICE_PAID") {
+    return {
+      error: "This booking has already been paid and confirmed.",
+      status: 409,
+    };
+  }
+  if (existing.status === "SHORT_NOTICE_APPROVED" && existing.acceptedAlternativeAt) {
+    return {
+      error: "This alternative pickup time was already accepted.",
+      status: 409,
+    };
+  }
+  if (existing.status === "SHORT_NOTICE_DECLINED") {
+    return { error: "This booking request was already declined.", status: 409 };
+  }
+  if (existing.status === "SHORT_NOTICE_AWAITING_APPROVAL") {
+    return {
+      error:
+        "This alternative-time offer was withdrawn. Please wait for a new update from My Airport Taxi NI.",
+      status: 409,
+    };
+  }
+  if (existing.status !== "SHORT_NOTICE_ALTERNATIVE_OFFERED") {
+    return { error: "This alternative-time offer is no longer available.", status: 409 };
+  }
+  if (existing.acceptToken !== token) {
+    return { error: "This link is no longer valid.", status: 409 };
+  }
+
+  const nowIso = new Date().toISOString();
+  const record: ShortNoticeBookingRecord = {
+    ...existing,
+    status: "SHORT_NOTICE_ALTERNATIVE_DECLINED",
+    customerResponse: "declined",
+    customerResponseAt: nowIso,
+    declinedAlternativeAt: nowIso,
+    ...(customerNote ? { customerResponseNote: customerNote } : {}),
+    updatedAt: nowIso,
+  };
+  await saveShortNoticeBooking(env.TRACKING_STORE, record);
+  return { ok: true, record };
+}
+
+/** Public GET summary for the alternative-time response page (read-only). */
 export function publicAlternativeOfferSummary(record: ShortNoticeBookingRecord) {
   return {
     reference: record.reference,
@@ -832,13 +933,19 @@ export function publicAlternativeOfferSummary(record: ShortNoticeBookingRecord) 
     offeredDate: record.offeredDate ?? null,
     offeredTime: record.offeredTime ?? null,
     offeredNote: record.offeredNote ?? null,
+    customerResponseNote: record.customerResponseNote ?? null,
     passengers: record.booking.passengers,
     suitcases: record.booking.suitcases,
     flightNumber: record.booking.flightNumber,
     acceptPending: record.status === "SHORT_NOTICE_ALTERNATIVE_OFFERED",
     alreadyAccepted: Boolean(
-      record.status === "SHORT_NOTICE_APPROVED" && record.acceptedAlternativeAt,
+      (record.status === "SHORT_NOTICE_APPROVED" || record.status === "SHORT_NOTICE_PAID") &&
+        record.acceptedAlternativeAt,
     ),
+    alreadyDeclined: Boolean(
+      record.status === "SHORT_NOTICE_ALTERNATIVE_DECLINED" && record.declinedAlternativeAt,
+    ),
+    alreadyPaid: record.status === "SHORT_NOTICE_PAID",
   };
 }
 
@@ -963,8 +1070,11 @@ export async function resolveShortNoticeForPayment(
   if (record.status === "SHORT_NOTICE_DECLINED") {
     return { error: "This booking request was declined.", status: 409 };
   }
+  if (record.status === "SHORT_NOTICE_ALTERNATIVE_DECLINED") {
+    return { error: "This alternative pickup time was declined.", status: 409 };
+  }
   if (record.status === "SHORT_NOTICE_PAID") {
-    return { error: "This booking is already paid.", status: 409 };
+    return { error: "This booking has already been paid and confirmed.", status: 409 };
   }
   if (record.status === "SHORT_NOTICE_AWAITING_APPROVAL") {
     return { error: "This booking is still awaiting Owner approval.", status: 409 };
@@ -1157,6 +1267,8 @@ export function isPublicShortNoticePath(pathname: string): boolean {
     pathname === "/api/payments/short-notice" ||
     pathname === "/short-notice/accept-alternative" ||
     pathname === "/api/short-notice/accept-alternative" ||
+    pathname === "/short-notice/decline-alternative" ||
+    pathname === "/api/short-notice/decline-alternative" ||
     pathname === "/short-notice/alternative-offer" ||
     pathname === "/api/short-notice/alternative-offer"
   );

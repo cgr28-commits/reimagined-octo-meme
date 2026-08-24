@@ -104,7 +104,7 @@ Regression: `scripts/check-airport-weekend-premium.ts` and `scripts/check-pricin
 
 ## 21. OFFER ALTERNATIVE TIME (SHORT-NOTICE / UNAVAILABLE)
 
-For bookings awaiting availability confirmation, Owner Dashboard shows:
+For bookings awaiting availability confirmation, Owner Dashboard shows collapsed cards by default (name, date/time, route, price, status, View booking). Expand for full details and controls:
 
 * **Approve requested time**
 * **Offer alternative time**
@@ -114,11 +114,14 @@ Offer alternative time:
 
 * Owner enters alternative date/time (+ optional customer note)
 * Preserve original requested date/time for audit (`originalRequestedDate` / `originalRequestedTime`)
-* Email customer with secure **Accept new pickup time** link (`/accept-alternative-time/?token=…`)
+* Status → **AWAITING CUSTOMER RESPONSE** (`SHORT_NOTICE_ALTERNATIVE_OFFERED`)
+* Email customer with secure response-page link (`/accept-alternative-time/?token=…`) — **Accept new pickup time & pay** and **Decline new pickup time** (GET never mutates)
+* Response page: optional customer driver note; POST accept or decline only
 * Do **not** take payment or create SumUp until the customer accepts
-* On accept: update booking to offered time (amount unchanged), approve for payment, auto-send existing payment-link email
-* Acceptance is idempotent (repeat clicks do not duplicate booking/payment)
+* On accept: save optional note, update booking to offered time (amount unchanged), approve for payment, auto-send payment-link email, redirect to secure pay page
+* On decline: `SHORT_NOTICE_ALTERNATIVE_DECLINED` — remove from active Owner list, keep audit/history, no SumUp / no payment email
+* Accept/decline are idempotent (repeat clicks do not duplicate booking/payment)
 
-While offered: show Requested / Offered / Status: Awaiting customer acceptance, plus Resend alternative-time email, Change offered time, Withdraw offer, Decline booking.
+While offered (expanded): Requested / Offered / AWAITING CUSTOMER RESPONSE, plus Resend alternative-time email, Change offered time, Withdraw offer, Decline booking. Show customer message when present.
 
 Regression: `scripts/check-short-notice-alternative-time.ts`.

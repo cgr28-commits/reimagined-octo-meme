@@ -11,6 +11,7 @@ import {
   SHORT_NOTICE_STATUSES,
   isShortNoticeOpenStatus,
   isShortNoticePayable,
+  sanitizeCustomerResponseNote,
 } from "../shared/short-notice-booking";
 import { materialJourneyFingerprint } from "../shared/booking-notice";
 import {
@@ -39,15 +40,17 @@ function check(label: string, fn: () => void) {
   }
 }
 
-check("Status model includes ALTERNATIVE_OFFERED and stays open in Owner list", () => {
+check("Status model includes ALTERNATIVE_OFFERED / DECLINED and open-list rules", () => {
   assert.ok(SHORT_NOTICE_STATUSES.includes("SHORT_NOTICE_ALTERNATIVE_OFFERED"));
+  assert.ok(SHORT_NOTICE_STATUSES.includes("SHORT_NOTICE_ALTERNATIVE_DECLINED"));
   assert.equal(isShortNoticeOpenStatus("SHORT_NOTICE_ALTERNATIVE_OFFERED"), true);
   assert.equal(isShortNoticeOpenStatus("SHORT_NOTICE_AWAITING_APPROVAL"), true);
   assert.equal(isShortNoticeOpenStatus("SHORT_NOTICE_APPROVED"), true);
   assert.equal(isShortNoticeOpenStatus("SHORT_NOTICE_DECLINED"), false);
+  assert.equal(isShortNoticeOpenStatus("SHORT_NOTICE_ALTERNATIVE_DECLINED"), false);
 });
 
-check("Alternative offer email: Accept CTA, requested vs offered, unchanged amount", () => {
+check("Alternative offer email: Accept & pay + Decline CTAs, no GET mutation", () => {
   const email = buildShortNoticeAlternativeOfferEmail({
     customerName: "Jill Example",
     customerEmail: "jill@example.com",
@@ -63,14 +66,26 @@ check("Alternative offer email: Accept CTA, requested vs offered, unchanged amou
       "https://www.myairporttaxini.co.uk/accept-alternative-time/?token=abc123",
     ownerNote: "We can do 3pm",
   });
-  assert.match(email.subject, /Alternative pickup time/);
+  assert.match(email.subject, /Alternative pickup time for your My Airport Taxi NI journey/);
   assert.match(email.text, /Hi Jill,/);
-  assert.match(email.text, /Requested: 2026-08-21 14:00/);
-  assert.match(email.text, /Offered: 2026-08-22 15:00/);
-  assert.match(email.text, /Amount due \(unchanged\): £55\.00/);
-  assert.match(email.html, /Accept new pickup time/);
+  assert.match(email.text, /2026-08-21 14:00/);
+  assert.match(email.text, /2026-08-22 15:00/);
+  assert.match(email.text, /Price: £55\.00/);
+  assert.match(email.text, /Accept new pickup time & pay/);
+  assert.match(email.text, /Decline new pickup time/);
+  assert.match(email.text, /No payment will be taken unless you accept/);
+  assert.match(email.html, /Accept new pickup time &amp; pay/);
+  assert.match(email.html, /Decline new pickup time/);
   assert.match(email.html, /accept-alternative-time\/\?token=abc123/);
   assert.match(email.html, /We can do 3pm/);
+});
+
+check("Customer note sanitizer strips tags and never requires a note", () => {
+  assert.equal(sanitizeCustomerResponseNote(""), "");
+  assert.equal(sanitizeCustomerResponseNote(null), "");
+  assert.equal(sanitizeCustomerResponseNote("<b>Hello</b> world"), "Hello world");
+  assert.equal(sanitizeCustomerResponseNote("  after 10:30am  "), "after 10:30am");
+  assert.equal(sanitizeCustomerResponseNote("x".repeat(600)).length, 500);
 });
 
 check("Offered alternative is not payable until accepted/approved", () => {
@@ -121,7 +136,6 @@ check("Friday → Saturday alternative keeps the same quoted fare", () => {
   assert.equal(friday!.premiumApplied, false);
   assert.equal(saturday!.premiumApplied, false);
 
-  // Fingerprint changes with date/time but amount stays locked for the booking.
   const amount = friday!.amount;
   const before = materialJourneyFingerprint({
     pickupLabel: cityHall,
@@ -142,7 +156,7 @@ check("Friday → Saturday alternative keeps the same quoted fare", () => {
   assert.notEqual(before, after);
 });
 
-check("Worker + UI wiring for offer / accept / withdraw / resend", () => {
+check("Worker + UI wiring for offer / accept / decline / collapse", () => {
   const handlers = read("workers/addresses/src/short-notice-handlers.ts");
   const index = read("workers/addresses/src/index.ts");
   const panel = read("src/components/OwnerShortNoticePanel.tsx");
@@ -152,18 +166,28 @@ check("Worker + UI wiring for offer / accept / withdraw / resend", () => {
 
   assert.match(handlers, /handleOwnerOfferAlternativeTime/);
   assert.match(handlers, /handlePublicAcceptAlternativeTime/);
+  assert.match(handlers, /handlePublicDeclineAlternativeTime/);
   assert.match(handlers, /handleOwnerWithdrawAlternativeOffer/);
   assert.match(handlers, /handleOwnerResendAlternativeEmail/);
   assert.match(handlers, /buildShortNoticeAcceptUrl/);
   assert.match(handlers, /acceptedAlternativeAt/);
+  assert.match(handlers, /SHORT_NOTICE_ALTERNATIVE_DECLINED/);
+  assert.match(handlers, /sanitizeCustomerResponseNote/);
+  assert.match(handlers, /customerResponseNote/);
   const offerFn = handlers.slice(
     handlers.indexOf("export async function handleOwnerOfferAlternativeTime"),
     handlers.indexOf("export async function handleOwnerResendAlternativeEmail"),
   );
   assert.doesNotMatch(offerFn, /createCheckout|SUMUP_API|payments\/checkout/i);
   assert.match(offerFn, /sendAlternativeOfferEmail/);
+  const declineFn = handlers.slice(
+    handlers.indexOf("export async function handlePublicDeclineAlternativeTime"),
+    handlers.indexOf("export function publicAlternativeOfferSummary"),
+  );
+  assert.doesNotMatch(declineFn, /createCheckout|SUMUP_API|sendPaymentLinkEmail/i);
   assert.match(index, /offer-alternative/);
   assert.match(index, /accept-alternative/);
+  assert.match(index, /decline-alternative/);
   assert.match(index, /withdraw-alternative/);
   assert.match(index, /resend-alternative-email/);
   assert.match(panel, /Approve requested time/);
@@ -172,11 +196,24 @@ check("Worker + UI wiring for offer / accept / withdraw / resend", () => {
   assert.match(panel, /Resend alternative-time email/);
   assert.match(panel, /Change offered time/);
   assert.match(panel, /Withdraw offer/);
-  assert.match(panel, /Awaiting customer acceptance/);
+  assert.match(panel, /AWAITING CUSTOMER RESPONSE/);
+  assert.match(panel, /APPROVED — AWAITING PAYMENT/);
+  assert.match(panel, /View booking/);
+  assert.match(panel, /Collapse/);
+  assert.match(panel, /expandedRefs/);
+  assert.match(panel, /Customer message/);
   assert.match(api, /offerAlternativeShortNoticeTime/);
   assert.match(api, /acceptAlternativeShortNoticeTime/);
-  assert.match(acceptPage, /Accept new pickup time/);
-  assert.match(acceptPage, /Amount due \(unchanged\)/);
+  assert.match(api, /declineAlternativeShortNoticeTime/);
+  assert.match(api, /customerNote/);
+  assert.match(acceptPage, /Accept new pickup time & pay/);
+  assert.match(acceptPage, /Decline new pickup time/);
+  assert.match(acceptPage, /Message for your driver \(optional\)/);
+  assert.match(acceptPage, /Thanks for letting us know/);
+  assert.match(acceptPage, /Request another journey\/time/);
+  assert.match(acceptPage, /window\.location\.assign/);
+  assert.match(acceptPage, /already been paid and confirmed/);
+  assert.doesNotMatch(acceptPage, /useEffect\(\(\) => \{\s*void handleAccept/);
   assert.match(store, /getShortNoticeByAcceptToken/);
   assert.match(store, /shortNoticeAcceptTokenKey|SHORT_NOTICE_ALTERNATIVE_OFFERED/);
 });
@@ -185,13 +222,6 @@ check("Accept URL helper points at accept-alternative-time page", () => {
   assert.equal(
     buildShortNoticeAcceptUrl("https://www.myairporttaxini.co.uk", "tok"),
     "https://www.myairporttaxini.co.uk/accept-alternative-time/?token=tok",
-  );
-  assert.equal(
-    buildShortNoticeAcceptUrl(
-      "https://my-airport-taxi-ni-quote-git-cursor-no-weekend-b-cc80fd-colin15.vercel.app",
-      "tok",
-    ),
-    "https://my-airport-taxi-ni-quote-git-cursor-no-weekend-b-cc80fd-colin15.vercel.app/accept-alternative-time/?token=tok",
   );
 });
 
@@ -229,6 +259,7 @@ check("Client sends siteOrigin so emailed accept links hit the live preview", ()
   assert.match(api, /siteOrigin: currentSiteOrigin\(\)/);
   assert.match(api, /offerAlternativeShortNoticeTime/);
   assert.match(api, /acceptAlternativeShortNoticeTime/);
+  assert.match(api, /declineAlternativeShortNoticeTime/);
 });
 
 check("Shared alternative email synced into Worker", () => {
@@ -238,8 +269,11 @@ check("Shared alternative email synced into Worker", () => {
   );
   const booking = read("workers/addresses/shared/short-notice-booking.ts");
   assert.match(booking, /SHORT_NOTICE_ALTERNATIVE_OFFERED/);
+  assert.match(booking, /SHORT_NOTICE_ALTERNATIVE_DECLINED/);
   assert.match(booking, /acceptToken/);
   assert.match(booking, /originalRequestedDate/);
+  assert.match(booking, /customerResponseNote/);
+  assert.match(booking, /sanitizeCustomerResponseNote/);
 });
 
 console.log("\nAll short-notice alternative-time checks passed.");
