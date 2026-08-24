@@ -4,17 +4,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   assignedDriverDisplay,
   formatDisplayTripDate,
-  groupCompletedBookingsByDay,
-  isCompletedWorkBooking,
+  groupOwnerScheduleByDay,
   isOwnerOperationalTestBooking,
-  isUpcomingWorkBooking,
   journeyStatusLabel,
   nextUnfinishedSortKey,
   ownerUpcomingPrimaryJourneyActions,
   relevantUpcomingJourneyDate,
   relevantUpcomingJourneyTime,
   resolveCompletionTimestamp,
-  upcomingBucketForTripDate,
 } from "../../shared/upcoming-jobs";
 import { JOURNEY_ACTION_LABELS } from "@/lib/tracking-api";
 import {
@@ -233,15 +230,6 @@ async function resolveArrivalVehicleForBooking(
 
 function sortByTripDateTime(a: OwnerPaidBookingSummary, b: OwnerPaidBookingSummary): number {
   return nextUnfinishedSortKey(a).localeCompare(nextUnfinishedSortKey(b));
-}
-
-function sortCompletedByCompletionTime(
-  a: OwnerPaidBookingSummary,
-  b: OwnerPaidBookingSummary,
-): number {
-  const aAt = resolveCompletionTimestamp(a)?.at || "";
-  const bAt = resolveCompletionTimestamp(b)?.at || "";
-  return bAt.localeCompare(aAt);
 }
 
 function PaidBookingLiveTracking({
@@ -899,27 +887,9 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
     [bookings],
   );
 
-  const upcomingJobs = useMemo(
-    () =>
-      operationalBookings
-        .filter((booking) => isUpcomingWorkBooking(booking))
-        .slice()
-        .sort(sortByTripDateTime),
+  const scheduleDayGroups = useMemo(
+    () => groupOwnerScheduleByDay(operationalBookings),
     [operationalBookings],
-  );
-
-  const completedRecent = useMemo(
-    () =>
-      operationalBookings
-        .filter(isCompletedWorkBooking)
-        .slice()
-        .sort(sortCompletedByCompletionTime),
-    [operationalBookings],
-  );
-
-  const completedDayGroups = useMemo(
-    () => groupCompletedBookingsByDay(completedRecent),
-    [completedRecent],
   );
 
   /** Compact ops list: money still owed back / retry-required refunds. */
@@ -935,23 +905,19 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
     [operationalBookings],
   );
 
-  const upcomingGroups = useMemo(() => {
-    const today: OwnerPaidBookingSummary[] = [];
-    const tomorrow: OwnerPaidBookingSummary[] = [];
-    const later: OwnerPaidBookingSummary[] = [];
-    for (const booking of upcomingJobs) {
-      const bucket = upcomingBucketForTripDate(relevantUpcomingJourneyDate(booking));
-      if (bucket === "tomorrow") tomorrow.push(booking);
-      else if (bucket === "later") later.push(booking);
-      else today.push(booking);
-    }
-    return [
-      { key: "today", title: "Today", items: today },
-      { key: "tomorrow", title: "Tomorrow", items: tomorrow },
-      { key: "later", title: "Later", items: later },
-    ] as const;
-  }, [upcomingJobs]);
+  /** Remember which days’ Completed sections the Owner has opened this session. */
+  const [completedOpenDays, setCompletedOpenDays] = useState<Record<string, boolean>>({});
 
+  function isCompletedSectionOpen(day: string): boolean {
+    return completedOpenDays[day] === true;
+  }
+
+  function toggleCompletedSection(day: string) {
+    setCompletedOpenDays((current) => ({
+      ...current,
+      [day]: !current[day],
+    }));
+  }
   async function handleResend(booking: OwnerPaidBookingSummary) {
     setBusyRef(booking.paymentReference);
     setError("");
@@ -2239,9 +2205,7 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
 
       {loading ? (
         <p className="text-sm text-white/60">Loading upcoming jobs…</p>
-      ) : upcomingJobs.length === 0 &&
-        refundsPending.length === 0 &&
-        completedRecent.length === 0 ? (
+      ) : scheduleDayGroups.length === 0 && refundsPending.length === 0 ? (
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm text-white/60">
             No upcoming jobs by journey date (looking ahead ~90 days, plus recent incomplete). If a
@@ -2257,11 +2221,11 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
         </div>
       ) : (
         <>
-          {upcomingJobs.length === 0 ? (
+          {scheduleDayGroups.length === 0 ? (
             <div className="flex flex-wrap items-center justify-between gap-3">
               <p className="text-sm text-white/60">
-                No open upcoming jobs right now. Refunds Pending (if any) and Completed Jobs appear
-                below.
+                No open upcoming jobs right now. Refunds Pending (if any) appear below. Completed
+                jobs for each day stay collapsed under that date after refresh.
               </p>
               <button
                 type="button"
@@ -2274,7 +2238,7 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
           ) : (
             <div className="space-y-8">
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <h3 className="text-base font-bold text-white">Upcoming Jobs</h3>
+                <h3 className="text-base font-bold text-white">Jobs by day</h3>
                 <button
                   type="button"
                   onClick={() => void load()}
@@ -2283,18 +2247,59 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
                   Refresh
                 </button>
               </div>
-              {upcomingGroups.map((group) =>
-                group.items.length === 0 ? null : (
-                  <div key={group.key}>
-                    <h4 className="text-sm font-semibold uppercase tracking-wider text-sky-200">
-                      {group.title}
-                    </h4>
-                    <ul className="mt-3 space-y-4">
-                      {group.items.map((booking) => renderBookingCard(booking))}
-                    </ul>
-                  </div>
-                ),
-              )}
+              {scheduleDayGroups.map((group) => (
+                <section key={group.day} className="space-y-3">
+                  <h4 className="text-base font-bold text-white sm:text-lg">{group.title}</h4>
+
+                  {group.upcoming.length > 0 ? (
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wider text-sky-200">
+                        Upcoming jobs
+                      </p>
+                      <ul className="mt-2 space-y-4">
+                        {group.upcoming.map((booking) => renderBookingCard(booking))}
+                      </ul>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-white/45">No upcoming jobs for this day.</p>
+                  )}
+
+                  {group.completed.length > 0 ? (
+                    <div className="rounded-xl border border-white/10 bg-navy/40">
+                      <button
+                        type="button"
+                        onClick={() => toggleCompletedSection(group.day)}
+                        className="flex min-h-11 w-full items-center justify-between gap-3 px-4 py-3 text-left text-sm font-semibold text-white/85"
+                        aria-expanded={isCompletedSectionOpen(group.day)}
+                      >
+                        <span>
+                          Completed jobs ({group.completed.length})
+                        </span>
+                        <span className="text-emerald" aria-hidden>
+                          {isCompletedSectionOpen(group.day) ? "▲" : "▼"}
+                        </span>
+                      </button>
+                      {isCompletedSectionOpen(group.day) ? (
+                        <ul className="space-y-4 border-t border-white/10 px-3 pb-3 pt-3">
+                          {group.completed.map((booking) => {
+                            const completion = resolveCompletionTimestamp(booking);
+                            return (
+                              <div key={booking.paymentReference}>
+                                {completion && completion.source !== "journeyCompletedAt" ? (
+                                  <p className="mb-1 px-1 text-[11px] text-white/40">
+                                    Grouped by {completion.source} (no journeyCompletedAt on record)
+                                  </p>
+                                ) : null}
+                                {renderBookingCard(booking, { compact: true })}
+                              </div>
+                            );
+                          })}
+                        </ul>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </section>
+              ))}
             </div>
           )}
 
@@ -2310,50 +2315,6 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
                   renderBookingCard(booking, { compact: true }),
                 )}
               </ul>
-            </div>
-          ) : null}
-
-          {completedDayGroups.length > 0 ? (
-            <div className="mt-10 border-t border-white/10 pt-8">
-              <h3 className="text-base font-bold text-white">Completed Jobs</h3>
-              <p className="mt-2 text-sm text-white/45">
-                Finished real bookings grouped by the day they were completed — this is not Upcoming.
-                Older days are collapsed; today stays open for review. Cancelled / refunded customer
-                bookings stay in this archive.
-              </p>
-              <div className="mt-3 space-y-3">
-                {completedDayGroups.map((group) => (
-                  <details
-                    key={group.day}
-                    className="rounded-xl border border-white/10 bg-navy/40"
-                    open={group.isToday}
-                  >
-                    <summary className="cursor-pointer list-none px-4 py-3 text-sm font-semibold text-white/85 marker:content-none [&::-webkit-details-marker]:hidden">
-                      <span className="inline-flex w-full items-center justify-between gap-3">
-                        <span>{group.title}</span>
-                        <span className="text-xs font-medium text-white/45">
-                          {group.items.length} job{group.items.length === 1 ? "" : "s"}
-                        </span>
-                      </span>
-                    </summary>
-                    <ul className="space-y-4 border-t border-white/10 px-3 pb-3 pt-3">
-                      {group.items.map((booking) => {
-                        const completion = resolveCompletionTimestamp(booking);
-                        return (
-                          <div key={booking.paymentReference}>
-                            {completion && completion.source !== "journeyCompletedAt" ? (
-                              <p className="mb-1 px-1 text-[11px] text-white/40">
-                                Grouped by {completion.source} (no journeyCompletedAt on record)
-                              </p>
-                            ) : null}
-                            {renderBookingCard(booking, { compact: true })}
-                          </div>
-                        );
-                      })}
-                    </ul>
-                  </details>
-                ))}
-              </div>
             </div>
           ) : null}
         </>

@@ -466,6 +466,22 @@ function formatCompletedDayHeading(day: string, today: string): string {
 }
 
 /**
+ * Weekday-inclusive heading for schedule day groups, e.g. "Monday 24 August".
+ * Today is prefixed for scanability.
+ */
+export function formatScheduleDayHeading(day: string, today = londonYmd()): string {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return day || "Unknown date";
+  const label = new Date(`${day}T12:00:00Z`).toLocaleDateString("en-GB", {
+    timeZone: "Europe/London",
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
+  if (day === today) return `Today — ${label}`;
+  return label;
+}
+
+/**
  * Group completed/history bookings by completion calendar day (newest day first).
  * Within each day, newest completion timestamp first.
  */
@@ -498,6 +514,103 @@ export function groupCompletedBookingsByDay<
       title: formatCompletedDayHeading(day, today),
       isToday: day === today,
       items: entries.map((entry) => entry.booking),
+    };
+  });
+}
+
+export type OwnerScheduleDayGroup<T> = {
+  day: string;
+  title: string;
+  isToday: boolean;
+  upcoming: T[];
+  completed: T[];
+};
+
+function scheduleDayForUpcoming(
+  booking: LegAwareBooking & OwnerTestBookingFlags,
+  today: string,
+): string {
+  const next = relevantUpcomingJourneyDate(booking, today).trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(next)) return next;
+  const trip = booking.tripDate?.trim() ?? "";
+  return /^\d{4}-\d{2}-\d{2}$/.test(trip) ? trip : "unknown";
+}
+
+function scheduleDayForCompleted(
+  booking: LegAwareBooking &
+    OwnerTestBookingFlags & {
+      journeyCompletedAt?: string;
+      cancelledAt?: string;
+      refundedAt?: string;
+      createdAt?: string;
+    },
+): string {
+  const trip = booking.tripDate?.trim() ?? "";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trip)) return trip;
+  return resolveCompletionTimestamp(booking)?.day || "unknown";
+}
+
+function sortScheduleDays(days: string[], today: string): string[] {
+  const known = days.filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d));
+  const unknown = days.filter((d) => !/^\d{4}-\d{2}-\d{2}$/.test(d));
+  const futureOrToday = known.filter((d) => d >= today).sort((a, b) => a.localeCompare(b));
+  const past = known.filter((d) => d < today).sort((a, b) => b.localeCompare(a));
+  return [...futureOrToday, ...past, ...unknown];
+}
+
+/**
+ * Owner schedule: one calendar day with upcoming jobs visible and completed
+ * jobs available under a collapsed “Completed jobs (N)” section.
+ */
+export function groupOwnerScheduleByDay<
+  T extends LegAwareBooking &
+    OwnerTestBookingFlags & {
+      journeyCompletedAt?: string;
+      cancelledAt?: string;
+      refundedAt?: string;
+      createdAt?: string;
+      paymentReference?: string;
+    },
+>(bookings: T[], today = londonYmd()): OwnerScheduleDayGroup<T>[] {
+  const operational = bookings.filter((booking) => !isOwnerOperationalTestBooking(booking));
+  const byDay = new Map<string, { upcoming: T[]; completed: T[] }>();
+
+  const ensure = (day: string) => {
+    const existing = byDay.get(day);
+    if (existing) return existing;
+    const created = { upcoming: [] as T[], completed: [] as T[] };
+    byDay.set(day, created);
+    return created;
+  };
+
+  for (const booking of operational) {
+    if (isUpcomingWorkBooking(booking, today)) {
+      ensure(scheduleDayForUpcoming(booking, today)).upcoming.push(booking);
+      continue;
+    }
+    if (isCompletedWorkBooking(booking)) {
+      ensure(scheduleDayForCompleted(booking)).completed.push(booking);
+    }
+  }
+
+  return sortScheduleDays([...byDay.keys()], today).map((day) => {
+    const bucket = byDay.get(day) ?? { upcoming: [], completed: [] };
+    const upcoming = bucket.upcoming.slice().sort((a, b) => {
+      const aKey = `${relevantUpcomingJourneyDate(a, today)}T${relevantUpcomingJourneyTime(a)}`;
+      const bKey = `${relevantUpcomingJourneyDate(b, today)}T${relevantUpcomingJourneyTime(b)}`;
+      return aKey.localeCompare(bKey);
+    });
+    const completed = bucket.completed.slice().sort((a, b) => {
+      const aAt = resolveCompletionTimestamp(a)?.at ?? "";
+      const bAt = resolveCompletionTimestamp(b)?.at ?? "";
+      return bAt.localeCompare(aAt);
+    });
+    return {
+      day,
+      title: formatScheduleDayHeading(day, today),
+      isToday: day === today,
+      upcoming,
+      completed,
     };
   });
 }

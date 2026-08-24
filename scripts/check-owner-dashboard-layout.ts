@@ -42,7 +42,7 @@ console.log("=== 1. Top tool switcher ===");
   console.log("OK  Jobs default · exclusive tools · no flight panel");
 }
 
-console.log("\n=== 2. Jobs section order: Financial → Upcoming → Refunds Pending → Completed ===");
+console.log("\n=== 2. Jobs section order: Financial → Short notice → Calendar → Paid (by day) ===");
 {
   const page = read("src/app/driver/DriverPageClient.tsx");
   assert.match(page, /OwnerFinancialSummaryPanel/);
@@ -59,11 +59,13 @@ console.log("\n=== 2. Jobs section order: Financial → Upcoming → Refunds Pen
   );
 
   const panel = read("src/components/OwnerPaidBookingsPanel.tsx");
-  assert.match(panel, /Upcoming Jobs/);
+  assert.match(panel, /Jobs by day/);
+  assert.match(panel, /Upcoming jobs/);
+  assert.match(panel, /Completed jobs \(/);
   assert.match(panel, /Refunds Pending/);
-  assert.match(panel, /Completed Jobs/);
   assert.match(panel, /refundsPending/);
-  assert.match(panel, /groupCompletedBookingsByDay/);
+  assert.match(panel, /groupOwnerScheduleByDay/);
+  assert.match(panel, /completedOpenDays/);
   assert.match(panel, /isOwnerOperationalTestBooking/);
   assert.doesNotMatch(panel, /OwnerFlightStatusPanel/);
   assert.doesNotMatch(panel, /Website card payments/i);
@@ -75,18 +77,15 @@ console.log("\n=== 2. Jobs section order: Financial → Upcoming → Refunds Pen
     "financial totals live at top of Jobs tab, not buried in paid panel",
   );
 
-  const upcomingAt = panel.indexOf("<h3 className=\"text-base font-bold text-white\">Upcoming Jobs</h3>");
+  const scheduleAt = panel.indexOf('<h3 className="text-base font-bold text-white">Jobs by day</h3>');
   const refundsAt = panel.indexOf(
-    "<h3 className=\"text-base font-bold text-amber-100\">Refunds Pending</h3>",
-  );
-  const completedAt = panel.indexOf(
-    "<h3 className=\"text-base font-bold text-white\">Completed Jobs</h3>",
+    '<h3 className="text-base font-bold text-amber-100">Refunds Pending</h3>',
   );
   assert.ok(
-    upcomingAt > 0 && refundsAt > upcomingAt && completedAt > refundsAt,
-    "section order must be Upcoming → Refunds Pending → Completed",
+    scheduleAt > 0 && refundsAt > scheduleAt,
+    "section order must be Jobs by day → Refunds Pending",
   );
-  console.log("OK  financial at top of Jobs · Upcoming → Refunds → Completed");
+  console.log("OK  financial at top of Jobs · per-day upcoming + collapsed completed → Refunds");
 }
 
 console.log("\nAll owner dashboard layout checks passed.");

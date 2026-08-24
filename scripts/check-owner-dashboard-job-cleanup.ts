@@ -9,6 +9,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   groupCompletedBookingsByDay,
+  groupOwnerScheduleByDay,
   isCompletedWorkBooking,
   isOwnerOperationalTestBooking,
   isUpcomingWorkBooking,
@@ -336,18 +337,53 @@ console.log("\n=== 3. Completion day grouping + legacy fallbacks ===");
     paymentReference: "REFUND-TEST-X",
   }];
   assert.equal(withTest.filter(isCompletedWorkBooking).length, 5);
+
+  const schedule = groupOwnerScheduleByDay(
+    [
+      {
+        status: "confirmed",
+        tripDate: "2026-08-20",
+        tripTime: "08:00",
+        journeyStatus: "idle",
+        customerName: "Active A",
+        paymentReference: "UP-A",
+      },
+      {
+        status: "confirmed",
+        tripDate: "2026-08-20",
+        tripTime: "11:30",
+        journeyStatus: "tracking",
+        customerName: "Active B",
+        paymentReference: "UP-B",
+      },
+      ...history,
+    ],
+    today,
+  );
+  const todayGroup = schedule.find((g) => g.day === "2026-08-20");
+  assert.ok(todayGroup);
+  assert.equal(todayGroup!.upcoming.length, 2);
+  assert.equal(todayGroup!.completed.length, 2);
+  assert.match(todayGroup!.title, /Today/);
+  assert.equal(todayGroup!.upcoming[0]?.paymentReference, "UP-A");
   console.log("OK  day groups + journeyCompletedAt / tripDateTime / cancelledAt fallbacks");
+  console.log("OK  schedule groups keep upcoming expanded and completed under same day");
 }
 
 console.log("\n=== 4. UI + worker wiring (source contracts) ===");
 {
   const panel = read("src/components/OwnerPaidBookingsPanel.tsx");
-  assert.match(panel, /groupCompletedBookingsByDay/);
+  assert.match(panel, /groupOwnerScheduleByDay/);
   assert.match(panel, /isOwnerOperationalTestBooking/);
   assert.match(panel, /pastDays:\s*60/);
-  assert.match(panel, /<details/);
-  assert.match(panel, /open=\{group\.isToday\}/);
-  assert.match(panel, /Completed Jobs/);
+  assert.match(panel, /Completed jobs \(/);
+  assert.match(panel, /completedOpenDays/);
+  assert.match(panel, /toggleCompletedSection/);
+  assert.doesNotMatch(panel, /open=\{group\.isToday\}/);
+
+  const page = read("src/app/driver/DriverPageClient.tsx");
+  assert.match(page, /groupOwnerJobsByDateWithCompleted/);
+  assert.match(page, /Completed jobs \(/);
 
   const calendar = read("src/components/OwnerBookingCalendar.tsx");
   assert.match(calendar, /isOwnerOperationalTestBooking/);
@@ -363,6 +399,8 @@ console.log("\n=== 4. UI + worker wiring (source contracts) ===");
   const shared = read("shared/upcoming-jobs.ts");
   const workerShared = read("workers/addresses/shared/upcoming-jobs.ts");
   assert.equal(shared, workerShared, "worker shared copy must stay in sync");
+  assert.match(shared, /groupOwnerScheduleByDay/);
+  assert.match(shared, /formatScheduleDayHeading/);
 
   console.log("OK  panel / calendar / handler / store / shared sync");
 }

@@ -127,6 +127,39 @@ function groupJobsByDate(jobs: DriverJob[]): Array<{ date: string; jobs: DriverJ
     }));
 }
 
+function isOwnerCompletedDriverJob(job: DriverJob): boolean {
+  return (
+    job.bookingStatus === "refunded" ||
+    job.bookingStatus === "cancelled" ||
+    (job.journeyStatus ?? "") === "completed"
+  );
+}
+
+function groupOwnerJobsByDateWithCompleted(
+  jobs: DriverJob[],
+): Array<{ date: string; upcoming: DriverJob[]; completed: DriverJob[] }> {
+  const groups = new Map<string, { upcoming: DriverJob[]; completed: DriverJob[] }>();
+
+  for (const job of jobs) {
+    const date = job.tripDate || "unknown";
+    const bucket = groups.get(date) ?? { upcoming: [], completed: [] };
+    if (isOwnerCompletedDriverJob(job)) {
+      bucket.completed.push(job);
+    } else {
+      bucket.upcoming.push(job);
+    }
+    groups.set(date, bucket);
+  }
+
+  return Array.from(groups.entries())
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([date, bucket]) => ({
+      date,
+      upcoming: bucket.upcoming.slice().sort((a, b) => a.pickupAt.localeCompare(b.pickupAt)),
+      completed: bucket.completed.slice().sort((a, b) => a.pickupAt.localeCompare(b.pickupAt)),
+    }));
+}
+
 function jobMapMarkers(
   job: DriverJob,
   options: { isActiveDriver: boolean; isOwner: boolean },
@@ -2198,26 +2231,32 @@ export default function DriverPageClient({
 
   const activeVisibleJobs = useMemo(() => {
     if (!isOwnerView) return visibleJobs;
-    return visibleJobs.filter(
-      (job) =>
-        job.bookingStatus !== "refunded" &&
-        (job.journeyStatus ?? (job.sharingActive ? "tracking" : "idle")) !== "completed",
-    );
+    return visibleJobs.filter((job) => !isOwnerCompletedDriverJob(job));
   }, [isOwnerView, visibleJobs]);
 
   const completedVisibleJobs = useMemo(() => {
     if (!isOwnerView) return [];
-    return visibleJobs.filter(
-      (job) =>
-        job.bookingStatus === "refunded" ||
-        (job.journeyStatus ?? "") === "completed",
-    );
+    return visibleJobs.filter((job) => isOwnerCompletedDriverJob(job));
   }, [isOwnerView, visibleJobs]);
 
   const groupedVisibleUpcoming = useMemo(
     () => groupJobsByDate(activeVisibleJobs),
     [activeVisibleJobs],
   );
+
+  const groupedOwnerSchedule = useMemo(
+    () => (isOwnerView ? groupOwnerJobsByDateWithCompleted(visibleJobs) : []),
+    [isOwnerView, visibleJobs],
+  );
+
+  const [completedOpenDays, setCompletedOpenDays] = useState<Record<string, boolean>>({});
+
+  function toggleCompletedDay(date: string) {
+    setCompletedOpenDays((current) => ({
+      ...current,
+      [date]: !current[date],
+    }));
+  }
 
   const loadJobs = useCallback(
     async (key: string) => {
@@ -3165,51 +3204,154 @@ export default function DriverPageClient({
 
               {view === "upcoming" ? (
                 <div className="space-y-8">
-                  {groupedVisibleUpcoming.map((group) => (
-                    <section key={group.date}>
-                      <h2 className="mb-4 text-lg font-semibold text-white">
-                        {formatDateHeading(group.date)}
-                      </h2>
-                      <div className="space-y-4">
-                        {group.jobs.map((job) => (
-                          <DriverJobCard
-                            key={job.token}
-                            job={job}
-                            driverKey={savedKey}
-                            activeToken={activeToken}
-                            onSharingChange={setActiveToken}
-                            onSessionChange={handleSessionChange}
-                            gpsStale={gpsStale}
-                            lastGpsAt={lastGpsAt}
-                            onRefunded={(token, refundAmount) => {
-                              setJobs((current) =>
-                                current.map((entry) =>
-                                  entry.token === token
-                                    ? {
-                                        ...entry,
-                                        bookingStatus: "refunded",
-                                        refundAmountLabel:
-                                          refundAmount ?? entry.refundAmountLabel,
-                                      }
-                                    : entry,
-                                ),
-                              );
-                              if (activeToken === token) {
-                                setActiveToken(null);
-                              }
-                            }}
-                            onUpdated={handleJobUpdated}
-                            onAssignmentUpdated={handleAssignmentUpdated}
-                            onRefreshJob={job.isAirportPickup ? refreshJobs : undefined}
-                            refreshingJob={loading}
-                            compactTracking
-                            isOwner={isOwnerView}
-                            availableDrivers={availableDrivers}
-                          />
-                        ))}
-                      </div>
-                    </section>
-                  ))}
+                  {isOwnerView
+                    ? groupedOwnerSchedule.map((group) => (
+                        <section key={group.date} className="space-y-3">
+                          <h2 className="text-lg font-semibold text-white">
+                            {formatDateHeading(group.date)}
+                          </h2>
+                          {group.upcoming.length > 0 ? (
+                            <div className="space-y-4">
+                              <p className="text-xs font-semibold uppercase tracking-wider text-sky-200">
+                                Upcoming jobs
+                              </p>
+                              {group.upcoming.map((job) => (
+                                <DriverJobCard
+                                  key={job.token}
+                                  job={job}
+                                  driverKey={savedKey}
+                                  activeToken={activeToken}
+                                  onSharingChange={setActiveToken}
+                                  onSessionChange={handleSessionChange}
+                                  gpsStale={gpsStale}
+                                  lastGpsAt={lastGpsAt}
+                                  onRefunded={(token, refundAmount) => {
+                                    setJobs((current) =>
+                                      current.map((entry) =>
+                                        entry.token === token
+                                          ? {
+                                              ...entry,
+                                              bookingStatus: "refunded",
+                                              refundAmountLabel:
+                                                refundAmount ?? entry.refundAmountLabel,
+                                            }
+                                          : entry,
+                                      ),
+                                    );
+                                    if (activeToken === token) {
+                                      setActiveToken(null);
+                                    }
+                                  }}
+                                  onUpdated={handleJobUpdated}
+                                  onAssignmentUpdated={handleAssignmentUpdated}
+                                  onRefreshJob={job.isAirportPickup ? refreshJobs : undefined}
+                                  refreshingJob={loading}
+                                  compactTracking
+                                  isOwner={isOwnerView}
+                                  availableDrivers={availableDrivers}
+                                />
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-sm text-white/45">No upcoming jobs for this day.</p>
+                          )}
+                          {group.completed.length > 0 ? (
+                            <div className="rounded-2xl border border-white/10 bg-white/[0.02]">
+                              <button
+                                type="button"
+                                onClick={() => toggleCompletedDay(group.date)}
+                                className="flex min-h-11 w-full items-center justify-between gap-3 px-4 py-3 text-left text-sm font-semibold text-white/80"
+                                aria-expanded={completedOpenDays[group.date] === true}
+                              >
+                                <span>Completed jobs ({group.completed.length})</span>
+                                <span className="text-emerald" aria-hidden>
+                                  {completedOpenDays[group.date] ? "▲" : "▼"}
+                                </span>
+                              </button>
+                              {completedOpenDays[group.date] ? (
+                                <div className="space-y-4 border-t border-white/10 px-3 pb-3 pt-3 sm:px-4">
+                                  {group.completed.map((job) => (
+                                    <DriverJobCard
+                                      key={`completed-${job.token}`}
+                                      job={job}
+                                      driverKey={savedKey}
+                                      activeToken={activeToken}
+                                      onSharingChange={setActiveToken}
+                                      onSessionChange={handleSessionChange}
+                                      gpsStale={gpsStale}
+                                      lastGpsAt={lastGpsAt}
+                                      onRefunded={(token, refundAmount) => {
+                                        setJobs((current) =>
+                                          current.map((entry) =>
+                                            entry.token === token
+                                              ? {
+                                                  ...entry,
+                                                  bookingStatus: "refunded",
+                                                  refundAmountLabel:
+                                                    refundAmount ?? entry.refundAmountLabel,
+                                                }
+                                              : entry,
+                                          ),
+                                        );
+                                      }}
+                                      onUpdated={handleJobUpdated}
+                                      onAssignmentUpdated={handleAssignmentUpdated}
+                                      compactTracking
+                                      isOwner={isOwnerView}
+                                      availableDrivers={availableDrivers}
+                                    />
+                                  ))}
+                                </div>
+                              ) : null}
+                            </div>
+                          ) : null}
+                        </section>
+                      ))
+                    : groupedVisibleUpcoming.map((group) => (
+                        <section key={group.date}>
+                          <h2 className="mb-4 text-lg font-semibold text-white">
+                            {formatDateHeading(group.date)}
+                          </h2>
+                          <div className="space-y-4">
+                            {group.jobs.map((job) => (
+                              <DriverJobCard
+                                key={job.token}
+                                job={job}
+                                driverKey={savedKey}
+                                activeToken={activeToken}
+                                onSharingChange={setActiveToken}
+                                onSessionChange={handleSessionChange}
+                                gpsStale={gpsStale}
+                                lastGpsAt={lastGpsAt}
+                                onRefunded={(token, refundAmount) => {
+                                  setJobs((current) =>
+                                    current.map((entry) =>
+                                      entry.token === token
+                                        ? {
+                                            ...entry,
+                                            bookingStatus: "refunded",
+                                            refundAmountLabel:
+                                              refundAmount ?? entry.refundAmountLabel,
+                                          }
+                                        : entry,
+                                    ),
+                                  );
+                                  if (activeToken === token) {
+                                    setActiveToken(null);
+                                  }
+                                }}
+                                onUpdated={handleJobUpdated}
+                                onAssignmentUpdated={handleAssignmentUpdated}
+                                onRefreshJob={job.isAirportPickup ? refreshJobs : undefined}
+                                refreshingJob={loading}
+                                compactTracking
+                                isOwner={isOwnerView}
+                                availableDrivers={availableDrivers}
+                              />
+                            ))}
+                          </div>
+                        </section>
+                      ))}
                 </div>
               ) : (
                 <div className="space-y-4">
@@ -3250,44 +3392,59 @@ export default function DriverPageClient({
                 </div>
               )}
 
-              {isOwnerView && completedVisibleJobs.length > 0 ? (
+              {isOwnerView && view !== "upcoming" && completedVisibleJobs.length > 0 ? (
                 <section className="mt-10 rounded-2xl border border-white/10 bg-white/[0.02] p-4 sm:p-6">
-                  <h2 className="text-lg font-semibold text-white/80">Completed Jobs</h2>
-                  <p className="mt-1 text-sm text-white/45">
-                    Finished tracking legs for this view — kept for records and evidence.
-                  </p>
-                  <div className="mt-4 space-y-4">
-                    {completedVisibleJobs.map((job) => (
-                      <DriverJobCard
-                        key={`completed-${job.token}`}
-                        job={job}
-                        driverKey={savedKey}
-                        activeToken={activeToken}
-                        onSharingChange={setActiveToken}
-                        onSessionChange={handleSessionChange}
-                        gpsStale={gpsStale}
-                        lastGpsAt={lastGpsAt}
-                        onRefunded={(token, refundAmount) => {
-                          setJobs((current) =>
-                            current.map((entry) =>
-                              entry.token === token
-                                ? {
-                                    ...entry,
-                                    bookingStatus: "refunded",
-                                    refundAmountLabel: refundAmount ?? entry.refundAmountLabel,
-                                  }
-                                : entry,
-                            ),
-                          );
-                        }}
-                        onUpdated={handleJobUpdated}
-                        onAssignmentUpdated={handleAssignmentUpdated}
-                        compactTracking={view === "upcoming"}
-                        isOwner={isOwnerView}
-                        availableDrivers={availableDrivers}
-                      />
-                    ))}
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => toggleCompletedDay(`view:${view}`)}
+                    className="flex min-h-11 w-full items-center justify-between gap-3 text-left"
+                    aria-expanded={completedOpenDays[`view:${view}`] === true}
+                  >
+                    <span>
+                      <span className="text-lg font-semibold text-white/80">
+                        Completed jobs ({completedVisibleJobs.length})
+                      </span>
+                      <span className="mt-1 block text-sm text-white/45">
+                        Finished tracking legs for this view — kept for records and evidence.
+                      </span>
+                    </span>
+                    <span className="text-emerald" aria-hidden>
+                      {completedOpenDays[`view:${view}`] ? "▲" : "▼"}
+                    </span>
+                  </button>
+                  {completedOpenDays[`view:${view}`] ? (
+                    <div className="mt-4 space-y-4">
+                      {completedVisibleJobs.map((job) => (
+                        <DriverJobCard
+                          key={`completed-${job.token}`}
+                          job={job}
+                          driverKey={savedKey}
+                          activeToken={activeToken}
+                          onSharingChange={setActiveToken}
+                          onSessionChange={handleSessionChange}
+                          gpsStale={gpsStale}
+                          lastGpsAt={lastGpsAt}
+                          onRefunded={(token, refundAmount) => {
+                            setJobs((current) =>
+                              current.map((entry) =>
+                                entry.token === token
+                                  ? {
+                                      ...entry,
+                                      bookingStatus: "refunded",
+                                      refundAmountLabel: refundAmount ?? entry.refundAmountLabel,
+                                    }
+                                  : entry,
+                              ),
+                            );
+                          }}
+                          onUpdated={handleJobUpdated}
+                          onAssignmentUpdated={handleAssignmentUpdated}
+                          isOwner={isOwnerView}
+                          availableDrivers={availableDrivers}
+                        />
+                      ))}
+                    </div>
+                  ) : null}
                 </section>
               ) : null}
               </>
