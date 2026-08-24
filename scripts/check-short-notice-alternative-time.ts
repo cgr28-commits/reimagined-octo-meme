@@ -9,6 +9,8 @@ import path from "node:path";
 import { buildShortNoticeAlternativeOfferEmail } from "../shared/short-notice-alternative-email";
 import {
   SHORT_NOTICE_STATUSES,
+  isShortNoticeActiveOnDashboard,
+  isShortNoticeArchivedRecord,
   isShortNoticeOpenStatus,
   isShortNoticePayable,
   sanitizeCustomerResponseNote,
@@ -48,6 +50,44 @@ check("Status model includes ALTERNATIVE_OFFERED / DECLINED and open-list rules"
   assert.equal(isShortNoticeOpenStatus("SHORT_NOTICE_APPROVED"), true);
   assert.equal(isShortNoticeOpenStatus("SHORT_NOTICE_DECLINED"), false);
   assert.equal(isShortNoticeOpenStatus("SHORT_NOTICE_ALTERNATIVE_DECLINED"), false);
+});
+
+check("Soft-remove / archive helpers keep records without hard delete", () => {
+  const base = {
+    reference: "MATNI-SN-1",
+    paymentToken: "pay",
+    status: "SHORT_NOTICE_APPROVED" as const,
+    amount: 45,
+    currency: "GBP",
+    amountLabel: "£45.00",
+    booking: {} as never,
+    materialFingerprint: "x",
+    createdAt: "2026-08-24T00:00:00.000Z",
+    updatedAt: "2026-08-24T00:00:00.000Z",
+  };
+  assert.equal(isShortNoticeActiveOnDashboard(base), true);
+  assert.equal(
+    isShortNoticeActiveOnDashboard({
+      ...base,
+      removedFromDashboardAt: "2026-08-24T01:00:00.000Z",
+    }),
+    false,
+  );
+  assert.equal(
+    isShortNoticeArchivedRecord({
+      ...base,
+      removedFromDashboardAt: "2026-08-24T01:00:00.000Z",
+    }),
+    true,
+  );
+  assert.equal(
+    isShortNoticeArchivedRecord({
+      ...base,
+      status: "SHORT_NOTICE_ALTERNATIVE_DECLINED",
+    }),
+    true,
+  );
+  assert.equal(isShortNoticeArchivedRecord(base), false);
 });
 
 check("Alternative offer email: Accept & pay + Decline CTAs, no GET mutation", () => {
@@ -169,11 +209,15 @@ check("Worker + UI wiring for offer / accept / decline / collapse", () => {
   assert.match(handlers, /handlePublicDeclineAlternativeTime/);
   assert.match(handlers, /handleOwnerWithdrawAlternativeOffer/);
   assert.match(handlers, /handleOwnerResendAlternativeEmail/);
+  assert.match(handlers, /handleOwnerRemoveFromDashboard/);
+  assert.match(handlers, /handleOwnerRestoreToDashboard/);
+  assert.match(handlers, /handleOwnerListArchivedShortNotice/);
   assert.match(handlers, /buildShortNoticeAcceptUrl/);
   assert.match(handlers, /acceptedAlternativeAt/);
   assert.match(handlers, /SHORT_NOTICE_ALTERNATIVE_DECLINED/);
   assert.match(handlers, /sanitizeCustomerResponseNote/);
   assert.match(handlers, /customerResponseNote/);
+  assert.match(handlers, /removedFromDashboardAt/);
   const offerFn = handlers.slice(
     handlers.indexOf("export async function handleOwnerOfferAlternativeTime"),
     handlers.indexOf("export async function handleOwnerResendAlternativeEmail"),
@@ -185,11 +229,21 @@ check("Worker + UI wiring for offer / accept / decline / collapse", () => {
     handlers.indexOf("export function publicAlternativeOfferSummary"),
   );
   assert.doesNotMatch(declineFn, /createCheckout|SUMUP_API|sendPaymentLinkEmail/i);
+  assert.doesNotMatch(
+    handlers.slice(
+      handlers.indexOf("export async function handleOwnerRemoveFromDashboard"),
+      handlers.indexOf("export async function handleOwnerRestoreToDashboard"),
+    ),
+    /createCheckout|SUMUP_API|trySendBrandedCustomerEmail|refund/i,
+  );
   assert.match(index, /offer-alternative/);
   assert.match(index, /accept-alternative/);
   assert.match(index, /decline-alternative/);
   assert.match(index, /withdraw-alternative/);
   assert.match(index, /resend-alternative-email/);
+  assert.match(index, /remove-from-dashboard/);
+  assert.match(index, /restore-to-dashboard/);
+  assert.match(index, /short-notice\/archived/);
   assert.match(panel, /Approve requested time/);
   assert.match(panel, /Offer alternative time/);
   assert.match(panel, /Decline — no availability/);
@@ -202,10 +256,17 @@ check("Worker + UI wiring for offer / accept / decline / collapse", () => {
   assert.match(panel, /Collapse/);
   assert.match(panel, /expandedRefs/);
   assert.match(panel, /Customer message/);
+  assert.match(panel, /Remove from dashboard/);
+  assert.match(panel, /Yes — remove/);
+  assert.match(panel, /Archived \/ Removed bookings/);
+  assert.match(panel, /Restore to dashboard/);
   assert.match(api, /offerAlternativeShortNoticeTime/);
   assert.match(api, /acceptAlternativeShortNoticeTime/);
   assert.match(api, /declineAlternativeShortNoticeTime/);
   assert.match(api, /customerNote/);
+  assert.match(api, /removeShortNoticeFromDashboard/);
+  assert.match(api, /restoreShortNoticeToDashboard/);
+  assert.match(api, /fetchArchivedShortNoticeBookings/);
   assert.match(acceptPage, /Accept new pickup time & pay/);
   assert.match(acceptPage, /Decline new pickup time/);
   assert.match(acceptPage, /Message for your driver \(optional\)/);
@@ -215,7 +276,8 @@ check("Worker + UI wiring for offer / accept / decline / collapse", () => {
   assert.match(acceptPage, /already been paid and confirmed/);
   assert.doesNotMatch(acceptPage, /useEffect\(\(\) => \{\s*void handleAccept/);
   assert.match(store, /getShortNoticeByAcceptToken/);
-  assert.match(store, /shortNoticeAcceptTokenKey|SHORT_NOTICE_ALTERNATIVE_OFFERED/);
+  assert.match(store, /listArchivedShortNoticeBookings/);
+  assert.match(store, /isShortNoticeActiveOnDashboard|shortNoticeArchivedIndexKey/);
 });
 
 check("Accept URL helper points at accept-alternative-time page", () => {

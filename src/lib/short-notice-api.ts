@@ -41,6 +41,9 @@ export type ShortNoticeBookingSummary = {
   customerResponseNote?: string;
   customerResponseAt?: string;
   declinedAlternativeAt?: string;
+  removedFromDashboardAt?: string;
+  removedFromDashboardBy?: "Owner";
+  restoredToDashboardAt?: string;
   booking: {
     customerName: string;
     customerEmail: string;
@@ -124,6 +127,65 @@ export async function fetchShortNoticeBookings(
   return Array.isArray(payload.bookings)
     ? (payload.bookings as ShortNoticeBookingSummary[])
     : [];
+}
+
+export async function fetchArchivedShortNoticeBookings(
+  ownerKey: string,
+): Promise<ShortNoticeBookingSummary[]> {
+  const response = await fetch(`${WORKER_BASE}/owner/short-notice/archived`, {
+    headers: {
+      Accept: "application/json",
+      "X-Owner-Key": ownerKey.trim(),
+    },
+    cache: "no-store",
+  });
+  const payload = await parseJson(response);
+  if (!response.ok) {
+    throw new Error(String(payload.error || "Could not load archived short-notice bookings"));
+  }
+  return Array.isArray(payload.bookings)
+    ? (payload.bookings as ShortNoticeBookingSummary[])
+    : [];
+}
+
+export async function removeShortNoticeFromDashboard(
+  ownerKey: string,
+  reference: string,
+): Promise<ShortNoticeBookingSummary> {
+  const response = await fetch(`${WORKER_BASE}/owner/short-notice/remove-from-dashboard`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      "X-Owner-Key": ownerKey.trim(),
+    },
+    body: JSON.stringify({ reference }),
+  });
+  const payload = await parseJson(response);
+  if (!response.ok) {
+    throw new Error(String(payload.error || "Could not remove booking from dashboard"));
+  }
+  return payload.record as ShortNoticeBookingSummary;
+}
+
+export async function restoreShortNoticeToDashboard(
+  ownerKey: string,
+  reference: string,
+): Promise<ShortNoticeBookingSummary> {
+  const response = await fetch(`${WORKER_BASE}/owner/short-notice/restore-to-dashboard`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      "X-Owner-Key": ownerKey.trim(),
+    },
+    body: JSON.stringify({ reference }),
+  });
+  const payload = await parseJson(response);
+  if (!response.ok) {
+    throw new Error(String(payload.error || "Could not restore booking to dashboard"));
+  }
+  return payload.record as ShortNoticeBookingSummary;
 }
 
 export async function approveShortNoticeBooking(

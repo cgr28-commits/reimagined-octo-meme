@@ -124,4 +124,6 @@ Offer alternative time:
 
 While offered (expanded): Requested / Offered / AWAITING CUSTOMER RESPONSE, plus Resend alternative-time email, Change offered time, Withdraw offer, Decline booking. Show customer message when present.
 
+Owner soft-remove: expanded cards include **Remove from dashboard** (confirm first). Soft-remove sets `removedFromDashboardAt` — leaves active list, keeps record/payment/audit, no refund/SumUp/email. **Archived / Removed bookings** lists soft-removed + declined + expired with **Restore to dashboard** when still open. No permanent delete of customer/payment records here.
+
 Regression: `scripts/check-short-notice-alternative-time.ts`.

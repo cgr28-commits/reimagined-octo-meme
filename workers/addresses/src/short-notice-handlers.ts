@@ -35,6 +35,7 @@ import {
   getShortNoticeByAcceptToken,
   getShortNoticeByReference,
   getShortNoticeByToken,
+  listArchivedShortNoticeBookings,
   listOpenShortNoticeBookings,
   saveShortNoticeBooking,
 } from "./short-notice-store";
@@ -484,6 +485,99 @@ export async function handleOwnerListShortNotice(
   }
   const bookings = await listOpenShortNoticeBookings(env.TRACKING_STORE);
   return { ok: true, bookings };
+}
+
+export async function handleOwnerListArchivedShortNotice(
+  request: Request,
+  env: ShortNoticeEnv,
+): Promise<
+  { ok: true; bookings: ShortNoticeBookingRecord[] } | { error: string; status: number }
+> {
+  if (!ownerAuthorized(request, env)) {
+    return { error: "Unauthorized — owner access required.", status: 401 };
+  }
+  const bookings = await listArchivedShortNoticeBookings(env.TRACKING_STORE);
+  return { ok: true, bookings };
+}
+
+/**
+ * Owner soft-remove from active dashboard. Keeps booking/payment/audit record.
+ * No refund, no SumUp change, no customer email.
+ */
+export async function handleOwnerRemoveFromDashboard(
+  request: Request,
+  env: ShortNoticeEnv,
+  body: Record<string, unknown>,
+): Promise<{ ok: true; record: ShortNoticeBookingRecord } | { error: string; status: number }> {
+  if (!ownerAuthorized(request, env)) {
+    return { error: "Unauthorized — owner access required.", status: 401 };
+  }
+  const reference = String(body.reference ?? "").trim();
+  if (!reference) return { error: "Missing booking reference.", status: 400 };
+
+  const existing = await getShortNoticeByReference(env.TRACKING_STORE, reference);
+  if (!existing) return { error: "Short-notice booking not found.", status: 404 };
+
+  if (existing.removedFromDashboardAt) {
+    return { ok: true, record: existing };
+  }
+
+  const nowIso = new Date().toISOString();
+  const record: ShortNoticeBookingRecord = {
+    ...existing,
+    removedFromDashboardAt: nowIso,
+    removedFromDashboardBy: "Owner",
+    updatedAt: nowIso,
+  };
+  await saveShortNoticeBooking(env.TRACKING_STORE, record);
+  return { ok: true, record };
+}
+
+/**
+ * Owner restore a soft-removed booking to the active dashboard when still open.
+ * Declined / expired history stays archived (not permanently deleted).
+ */
+export async function handleOwnerRestoreToDashboard(
+  request: Request,
+  env: ShortNoticeEnv,
+  body: Record<string, unknown>,
+): Promise<{ ok: true; record: ShortNoticeBookingRecord } | { error: string; status: number }> {
+  if (!ownerAuthorized(request, env)) {
+    return { error: "Unauthorized — owner access required.", status: 401 };
+  }
+  const reference = String(body.reference ?? "").trim();
+  if (!reference) return { error: "Missing booking reference.", status: 400 };
+
+  const existing = await getShortNoticeByReference(env.TRACKING_STORE, reference);
+  if (!existing) return { error: "Short-notice booking not found.", status: 404 };
+
+  if (
+    existing.status === "SHORT_NOTICE_DECLINED" ||
+    existing.status === "SHORT_NOTICE_ALTERNATIVE_DECLINED" ||
+    existing.status === "SHORT_NOTICE_EXPIRED" ||
+    existing.status === "SHORT_NOTICE_PAID"
+  ) {
+    return {
+      error:
+        "This booking has a final status and stays in Archived / Removed for history. It cannot return to the active approval list.",
+      status: 409,
+    };
+  }
+
+  if (!existing.removedFromDashboardAt) {
+    return { ok: true, record: existing };
+  }
+
+  const nowIso = new Date().toISOString();
+  const record: ShortNoticeBookingRecord = {
+    ...existing,
+    removedFromDashboardAt: undefined,
+    removedFromDashboardBy: undefined,
+    restoredToDashboardAt: nowIso,
+    updatedAt: nowIso,
+  };
+  await saveShortNoticeBooking(env.TRACKING_STORE, record);
+  return { ok: true, record };
 }
 
 export async function handleOwnerApproveShortNotice(
@@ -1238,10 +1332,16 @@ export function isOwnerShortNoticePath(pathname: string): boolean {
   return (
     pathname === "/owner/short-notice" ||
     pathname === "/api/owner/short-notice" ||
+    pathname === "/owner/short-notice/archived" ||
+    pathname === "/api/owner/short-notice/archived" ||
     pathname === "/owner/short-notice/approve" ||
     pathname === "/api/owner/short-notice/approve" ||
     pathname === "/owner/short-notice/decline" ||
     pathname === "/api/owner/short-notice/decline" ||
+    pathname === "/owner/short-notice/remove-from-dashboard" ||
+    pathname === "/api/owner/short-notice/remove-from-dashboard" ||
+    pathname === "/owner/short-notice/restore-to-dashboard" ||
+    pathname === "/api/owner/short-notice/restore-to-dashboard" ||
     pathname === "/owner/short-notice/resend-payment-email" ||
     pathname === "/api/owner/short-notice/resend-payment-email" ||
     pathname === "/owner/short-notice/offer-alternative" ||

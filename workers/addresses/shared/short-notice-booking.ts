@@ -104,6 +104,14 @@ export type ShortNoticeBookingRecord = {
   customerResponseAt?: string;
   /** When the customer declined the offered alternative time. */
   declinedAlternativeAt?: string;
+  /**
+   * Owner soft-removed this booking from the active dashboard.
+   * Record + payment/audit history are retained — never a hard delete.
+   */
+  removedFromDashboardAt?: string;
+  removedFromDashboardBy?: "Owner";
+  /** Cleared when Owner restores a soft-removed booking to the active list. */
+  restoredToDashboardAt?: string;
   /** Optional personal quote — marked used only after successful SumUp finalize. */
   personalQuoteCode?: string;
   standardWebsiteAmount?: number;
@@ -125,11 +133,31 @@ export function shortNoticeOpenIndexKey(): string {
   return "short-notice:open";
 }
 
+export function shortNoticeArchivedIndexKey(): string {
+  return "short-notice:archived";
+}
+
+/** Still in an actionable workflow status (before paid / terminal decline). */
 export function isShortNoticeOpenStatus(status: ShortNoticeStatus): boolean {
   return (
     status === "SHORT_NOTICE_AWAITING_APPROVAL" ||
     status === "SHORT_NOTICE_ALTERNATIVE_OFFERED" ||
     status === "SHORT_NOTICE_APPROVED"
+  );
+}
+
+/** Shown on the active Owner short-notice dashboard. */
+export function isShortNoticeActiveOnDashboard(record: ShortNoticeBookingRecord): boolean {
+  return isShortNoticeOpenStatus(record.status) && !record.removedFromDashboardAt;
+}
+
+/** Retained history: soft-removed, owner/customer declined, or expired. Not hard-deleted. */
+export function isShortNoticeArchivedRecord(record: ShortNoticeBookingRecord): boolean {
+  if (record.removedFromDashboardAt) return true;
+  return (
+    record.status === "SHORT_NOTICE_DECLINED" ||
+    record.status === "SHORT_NOTICE_ALTERNATIVE_DECLINED" ||
+    record.status === "SHORT_NOTICE_EXPIRED"
   );
 }
 
