@@ -176,6 +176,7 @@ export function sanitizeDriverJobForRole<T extends Record<string, unknown>>(
 
   const sanitized = { ...job };
   delete sanitized.paymentReference;
+  delete sanitized.bookingReference;
   delete sanitized.amountPaidLabel;
   delete sanitized.bookingStatus;
   delete sanitized.refundAmountLabel;
