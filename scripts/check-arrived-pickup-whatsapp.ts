@@ -90,13 +90,19 @@ console.log("\n=== 4. Owner panel wires existing arrived_pickup + WhatsApp ===")
   assert.match(panel, /buildArrivedPickupWhatsAppLink/);
   assert.match(panel, /resolveArrivalVehicleForBooking/);
   assert.match(panel, /activeLegPickupLabel/);
-  assert.match(panel, /🚕 Arrived at Pickup/);
+  assert.match(panel, /Driver arrived|OWNER_PRIMARY_JOURNEY_BUTTON_LABELS/);
   assert.match(panel, /fetchOwnerAccountProfile/);
   assert.match(panel, /fetchDriverVehicle/);
   assert.match(panel, /postJourneyAction/);
   assert.match(panel, /retryArrivalNotification/);
-  // Must show Arrived for idle/stopped — not only when status === "tracking"
-  assert.match(panel, /idle \/ stopped \/ tracking/);
+  // All three primary journey CTAs stay visible until Complete job.
+  assert.match(panel, /ownerUpcomingPrimaryJourneyActions/);
+  assert.match(panel, /OWNER_PRIMARY_JOURNEY_BUTTON_LABELS/);
+  const shared = read("shared/upcoming-jobs.ts");
+  assert.match(
+    shared,
+    /return \["start_tracking", "arrived_pickup", "complete_journey"\]/,
+  );
   assert.match(panel, /Open WhatsApp arrival message/);
   assert.doesNotMatch(panel, /WHATSAPP_BUSINESS_API_TOKEN/);
   console.log("OK  Extends existing arrival action; click-to-chat only");

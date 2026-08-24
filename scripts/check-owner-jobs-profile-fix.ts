@@ -49,13 +49,14 @@ console.log("\n=== 2. Leg-aware Upcoming vs Completed ===");
     allLegsCompleted: true,
   };
 
-  assert.equal(isUpcomingWorkBooking(oneWayOpen), true);
-  assert.equal(isUpcomingWorkBooking(oneWayDone), false);
+  const asOf = "2026-08-08";
+  assert.equal(isUpcomingWorkBooking(oneWayOpen, asOf), true);
+  assert.equal(isUpcomingWorkBooking(oneWayDone, asOf), false);
   assert.equal(isCompletedWorkBooking(oneWayDone), true);
-  assert.equal(isUpcomingWorkBooking(returnOutboundDone), true);
+  assert.equal(isUpcomingWorkBooking(returnOutboundDone, asOf), true);
   assert.equal(bookingFullyCompleted(returnOutboundDone), false);
   assert.equal(relevantUpcomingJourneyDate(returnOutboundDone), "2026-08-19");
-  assert.equal(isUpcomingWorkBooking(returnBothDone), false);
+  assert.equal(isUpcomingWorkBooking(returnBothDone, asOf), false);
   assert.equal(isCompletedWorkBooking(returnBothDone), true);
 
   const a = { nextUnfinishedLegDate: "2026-08-19", nextUnfinishedLegTime: "02:35" };
@@ -72,8 +73,8 @@ console.log("\n=== 3. API enrichment + Completed Jobs label ===");
   assert.match(handlers, /outboundJourneyStatus/);
 
   const panel = read("src/components/OwnerPaidBookingsPanel.tsx");
-  assert.match(panel, /Completed Jobs/);
-  assert.match(panel, /isCompletedWorkBooking/);
+  assert.match(panel, /Completed jobs \(/);
+  assert.match(panel, /groupOwnerScheduleByDay/);
   assert.match(panel, /nextUnfinishedSortKey/);
 
   const driverPage = read("src/app/driver/DriverPageClient.tsx");

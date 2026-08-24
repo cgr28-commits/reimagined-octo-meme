@@ -2,12 +2,13 @@ import type { Metadata } from "next";
 import AcceptAlternativeTimeClient from "./AcceptAlternativeTimeClient";
 
 export const metadata: Metadata = {
-  title: "Accept alternative pickup time | My Airport Taxi NI",
+  title: "Alternative pickup time | My Airport Taxi NI",
   robots: { index: false, follow: false },
 };
 
 /**
  * Static-export friendly: token is read from the URL in the client component.
+ * GET never accepts/declines — customer chooses on this branded response page.
  */
 export default function AcceptAlternativeTimePage() {
   return (

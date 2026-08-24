@@ -12,11 +12,14 @@ import {
   approveShortNoticeBooking,
   declineShortNoticeBooking,
   deleteUnavailablePeriod,
+  fetchArchivedShortNoticeBookings,
   fetchBookingSettings,
   fetchShortNoticeBookings,
   offerAlternativeShortNoticeTime,
+  removeShortNoticeFromDashboard,
   resendAlternativeShortNoticeEmail,
   resendShortNoticePaymentEmail,
+  restoreShortNoticeToDashboard,
   updateUnavailablePeriod,
   withdrawAlternativeShortNoticeOffer,
   type ShortNoticeBookingSummary,
@@ -46,20 +49,42 @@ const EMPTY_DRAFT: PeriodDraft = {
 function statusLabel(status: string): string {
   switch (status) {
     case "SHORT_NOTICE_AWAITING_APPROVAL":
-      return "Awaiting approval";
+      return "AWAITING OWNER APPROVAL";
     case "SHORT_NOTICE_ALTERNATIVE_OFFERED":
-      return "Awaiting customer acceptance";
+      return "AWAITING CUSTOMER RESPONSE";
     case "SHORT_NOTICE_APPROVED":
-      return "Approved — awaiting payment";
+      return "APPROVED — AWAITING PAYMENT";
     case "SHORT_NOTICE_DECLINED":
-      return "Declined — no availability";
+      return "DECLINED — NO AVAILABILITY";
+    case "SHORT_NOTICE_ALTERNATIVE_DECLINED":
+      return "ALTERNATIVE TIME DECLINED";
     case "SHORT_NOTICE_PAID":
-      return "Paid";
+      return "PAID";
     case "SHORT_NOTICE_EXPIRED":
-      return "Expired";
+      return "EXPIRED";
     default:
       return status;
   }
+}
+
+function formatCompactTripWhen(date: string, time: string): string {
+  const raw = `${date}T${time || "00:00"}:00`;
+  const parsed = new Date(raw);
+  if (Number.isNaN(parsed.getTime())) {
+    return [date, time].filter(Boolean).join(" · ");
+  }
+  const day = new Intl.DateTimeFormat("en-GB", {
+    day: "numeric",
+    month: "short",
+    timeZone: "Europe/London",
+  }).format(parsed);
+  return `${day} · ${time || "—"}`;
+}
+
+function truncateLabel(value: string, max = 34): string {
+  const text = value.trim();
+  if (text.length <= max) return text;
+  return `${text.slice(0, Math.max(1, max - 1))}…`;
 }
 
 function splitLocal(value: string): { date: string; time: string } {
@@ -100,6 +125,7 @@ function whatsappShareUrl(booking: ShortNoticeBookingSummary, payUrl: string): s
 
 export default function OwnerShortNoticePanel({ ownerKey }: OwnerShortNoticePanelProps) {
   const [bookings, setBookings] = useState<ShortNoticeBookingSummary[]>([]);
+  const [archived, setArchived] = useState<ShortNoticeBookingSummary[]>([]);
   const [periods, setPeriods] = useState<UnavailablePeriodSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyRef, setBusyRef] = useState("");
@@ -115,6 +141,33 @@ export default function OwnerShortNoticePanel({ ownerKey }: OwnerShortNoticePane
   const [offerDrafts, setOfferDrafts] = useState<
     Record<string, { offeredDate: string; offeredTime: string; ownerNote: string; open: boolean }>
   >({});
+  /** Collapsed by default — only expanded refs show full details/controls. */
+  const [expandedRefs, setExpandedRefs] = useState<Record<string, boolean>>({});
+  const [confirmRemoveRef, setConfirmRemoveRef] = useState<string | null>(null);
+  const [showArchived, setShowArchived] = useState(false);
+  const [expandedArchivedRefs, setExpandedArchivedRefs] = useState<Record<string, boolean>>({});
+
+  function isExpanded(reference: string): boolean {
+    return expandedRefs[reference] === true;
+  }
+
+  function toggleExpanded(reference: string) {
+    setExpandedRefs((current) => ({
+      ...current,
+      [reference]: !current[reference],
+    }));
+  }
+
+  function isArchivedExpanded(reference: string): boolean {
+    return expandedArchivedRefs[reference] === true;
+  }
+
+  function toggleArchivedExpanded(reference: string) {
+    setExpandedArchivedRefs((current) => ({
+      ...current,
+      [reference]: !current[reference],
+    }));
+  }
 
   function offerDraftFor(reference: string) {
     return (
@@ -145,12 +198,20 @@ export default function OwnerShortNoticePanel({ ownerKey }: OwnerShortNoticePane
     setLoading(true);
     setError("");
     try {
+      // Load active + settings first so an older Worker without /archived
+      // does not blank the whole Short-notice panel.
       const [list, settings] = await Promise.all([
         fetchShortNoticeBookings(ownerKey),
         fetchBookingSettings(ownerKey),
       ]);
       setBookings(list);
       applySettings(settings);
+      try {
+        const archivedList = await fetchArchivedShortNoticeBookings(ownerKey);
+        setArchived(archivedList);
+      } catch {
+        setArchived([]);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load short-notice requests");
     } finally {
@@ -334,6 +395,39 @@ export default function OwnerShortNoticePanel({ ownerKey }: OwnerShortNoticePane
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not decline");
+    } finally {
+      setBusyRef("");
+    }
+  }
+
+  async function handleRemoveFromDashboard(booking: ShortNoticeBookingSummary) {
+    setBusyRef(booking.reference);
+    setError("");
+    setMessage("");
+    try {
+      await removeShortNoticeFromDashboard(ownerKey, booking.reference);
+      setConfirmRemoveRef(null);
+      setMessage(
+        `Removed ${booking.reference} from the active dashboard. Record kept under Archived / Removed.`,
+      );
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not remove from dashboard");
+    } finally {
+      setBusyRef("");
+    }
+  }
+
+  async function handleRestoreToDashboard(booking: ShortNoticeBookingSummary) {
+    setBusyRef(booking.reference);
+    setError("");
+    setMessage("");
+    try {
+      await restoreShortNoticeToDashboard(ownerKey, booking.reference);
+      setMessage(`Restored ${booking.reference} to the active dashboard.`);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not restore to dashboard");
     } finally {
       setBusyRef("");
     }
@@ -547,7 +641,7 @@ export default function OwnerShortNoticePanel({ ownerKey }: OwnerShortNoticePane
       ) : bookings.length === 0 ? (
         <p className="mt-4 text-sm text-white/55">No open short-notice requests.</p>
       ) : (
-        <ul className="mt-4 space-y-4">
+        <ul className="mt-4 space-y-3">
           {bookings.map((booking) => {
             const busy = busyRef === booking.reference;
             const service = vehicleServiceLabel(booking.booking.vehicle);
@@ -560,21 +654,92 @@ export default function OwnerShortNoticePanel({ ownerKey }: OwnerShortNoticePane
             const whatsappPayUrl =
               links?.whatsappPayUrl ||
               (payUrl ? whatsappShareUrl(booking, payUrl) : "");
+            const expanded = isExpanded(booking.reference);
+            const requestedDate =
+              booking.originalRequestedDate ?? booking.booking.tripDate;
+            const requestedTime =
+              booking.originalRequestedTime ?? booking.booking.tripTime;
+            const displayDate =
+              booking.status === "SHORT_NOTICE_ALTERNATIVE_OFFERED" && booking.offeredDate
+                ? booking.offeredDate
+                : booking.booking.tripDate;
+            const displayTime =
+              booking.status === "SHORT_NOTICE_ALTERNATIVE_OFFERED" && booking.offeredTime
+                ? booking.offeredTime
+                : booking.booking.tripTime;
             return (
               <li
                 key={booking.reference}
-                className="rounded-2xl border border-white/10 bg-navy/60 p-4 sm:p-5"
+                className="rounded-2xl border border-white/10 bg-navy/60 p-3 sm:p-4"
               >
+                {!expanded ? (
+                  <button
+                    type="button"
+                    onClick={() => toggleExpanded(booking.reference)}
+                    className="flex w-full flex-col gap-1 overflow-x-hidden rounded-xl text-left outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+                    data-owner-sn-card="collapsed"
+                  >
+                    <p className="break-words text-base font-bold text-white sm:text-lg">
+                      {booking.booking.customerName}
+                      <span className="font-semibold text-white/85">
+                        {" "}
+                        — {booking.amountLabel.replace(/\.00$/, "")}
+                      </span>
+                    </p>
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-amber-200/90">
+                      {statusLabel(booking.status)}
+                    </p>
+                    {booking.status === "SHORT_NOTICE_ALTERNATIVE_OFFERED" ? (
+                      <>
+                        <p className="text-sm text-white/70">
+                          Requested:{" "}
+                          {formatCompactTripWhen(requestedDate, requestedTime)}
+                        </p>
+                        <p className="text-sm text-white/70">
+                          Offered:{" "}
+                          <span className="font-semibold text-emerald">
+                            {formatCompactTripWhen(
+                              booking.offeredDate || displayDate,
+                              booking.offeredTime || displayTime,
+                            )}
+                          </span>
+                        </p>
+                      </>
+                    ) : (
+                      <p className="text-sm text-white/70">
+                        {formatCompactTripWhen(displayDate, displayTime)}
+                      </p>
+                    )}
+                    <p className="truncate text-sm text-white/60">
+                      {truncateLabel(booking.booking.pickupLabel)} →{" "}
+                      {truncateLabel(booking.booking.dropoffLabel)}
+                    </p>
+                    <span className="mt-1 text-sm font-semibold text-emerald">
+                      View / Manage ▼
+                    </span>
+                  </button>
+                ) : (
+                  <>
                 <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <p className="text-lg font-bold text-white">{booking.booking.customerName}</p>
-                    <p className="mt-1 text-sm text-white/65">
+                  <div className="min-w-0 flex-1">
+                    <p className="break-words text-lg font-bold text-white">
+                      {booking.booking.customerName}
+                    </p>
+                    <p className="mt-1 break-words text-sm text-white/65">
                       {booking.reference} · {booking.amountLabel} · {service}
                     </p>
                     <p className="mt-1 text-xs uppercase tracking-wider text-amber-200/90">
                       {statusLabel(booking.status)}
                     </p>
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => toggleExpanded(booking.reference)}
+                    className="min-h-11 shrink-0 rounded-xl border border-white/15 px-3 py-1.5 text-sm font-semibold text-white/80"
+                    data-owner-sn-card="expanded-toggle"
+                  >
+                    View / Manage ▲
+                  </button>
                 </div>
                 <dl className="mt-4 grid gap-2 text-sm text-white/70 sm:grid-cols-2">
                   <div>
@@ -627,6 +792,17 @@ export default function OwnerShortNoticePanel({ ownerKey }: OwnerShortNoticePane
                   </div>
                 </dl>
 
+                {booking.customerResponseNote ? (
+                  <div className="mt-4 rounded-xl border border-sky-400/30 bg-sky-400/10 p-3 text-sm">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-sky-200">
+                      Customer message
+                    </p>
+                    <p className="mt-1 whitespace-pre-wrap break-words text-white">
+                      {booking.customerResponseNote}
+                    </p>
+                  </div>
+                ) : null}
+
                 {booking.status === "SHORT_NOTICE_ALTERNATIVE_OFFERED" ||
                 booking.originalRequestedDate ? (
                   <div className="mt-4 space-y-1 rounded-xl border border-amber-400/25 bg-amber-400/10 p-3 text-sm">
@@ -636,8 +812,7 @@ export default function OwnerShortNoticePanel({ ownerKey }: OwnerShortNoticePane
                     <p className="text-white/80">
                       Requested:{" "}
                       <span className="font-semibold text-white">
-                        {booking.originalRequestedDate ?? booking.booking.tripDate} ·{" "}
-                        {booking.originalRequestedTime ?? booking.booking.tripTime}
+                        {requestedDate} · {requestedTime}
                       </span>
                     </p>
                     {booking.offeredDate && booking.offeredTime ? (
@@ -650,7 +825,7 @@ export default function OwnerShortNoticePanel({ ownerKey }: OwnerShortNoticePane
                     ) : null}
                     {booking.status === "SHORT_NOTICE_ALTERNATIVE_OFFERED" ? (
                       <p className="text-xs uppercase tracking-wider text-amber-200/90">
-                        Status: Awaiting customer acceptance
+                        Status: AWAITING CUSTOMER RESPONSE
                       </p>
                     ) : null}
                   </div>
@@ -926,11 +1101,213 @@ export default function OwnerShortNoticePanel({ ownerKey }: OwnerShortNoticePane
                     ) : null}
                   </div>
                 ) : null}
+
+                <div className="mt-4 border-t border-white/10 pt-3">
+                  {confirmRemoveRef === booking.reference ? (
+                    <div className="rounded-xl border border-amber-400/30 bg-amber-400/10 p-3">
+                      <p className="text-sm font-semibold text-amber-100">
+                        Remove this booking from the Owner Dashboard?
+                      </p>
+                      <p className="mt-2 text-xs text-white/65">
+                        This will remove it from your active dashboard but retain the booking record
+                        and history for audit purposes. No refund, SumUp change, or customer email.
+                      </p>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => setConfirmRemoveRef(null)}
+                          className="min-h-11 rounded-xl border border-white/15 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => void handleRemoveFromDashboard(booking)}
+                          className="min-h-11 rounded-xl border border-red-400/40 bg-red-500/15 px-4 py-2 text-sm font-semibold text-red-100 disabled:opacity-60"
+                        >
+                          {busy ? "Removing…" : "Yes — remove"}
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => setConfirmRemoveRef(booking.reference)}
+                      className="min-h-11 rounded-xl border border-white/15 px-4 py-2 text-sm font-semibold text-white/70 disabled:opacity-60"
+                    >
+                      Remove from dashboard
+                    </button>
+                  )}
+                </div>
+                  </>
+                )}
               </li>
             );
           })}
         </ul>
       )}
+
+      <div className="mt-6 rounded-xl border border-white/10 bg-navy/50 p-3 sm:p-4">
+        <button
+          type="button"
+          onClick={() => setShowArchived((open) => !open)}
+          className="flex w-full items-center justify-between gap-3 text-left"
+        >
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wider text-white/45">
+              Archived / Removed bookings
+            </p>
+            <p className="mt-1 text-sm text-white/65">
+              Soft-removed, declined, or expired short-notice requests — records kept for audit
+              {archived.length ? ` · ${archived.length}` : ""}
+            </p>
+          </div>
+          <span className="shrink-0 text-sm font-semibold text-emerald">
+            {showArchived ? "▲ Hide" : "▼ Show"}
+          </span>
+        </button>
+
+        {showArchived ? (
+          archived.length === 0 ? (
+            <p className="mt-4 text-sm text-white/55">No archived short-notice bookings.</p>
+          ) : (
+            <ul className="mt-4 space-y-3">
+              {archived.map((booking) => {
+                const busy = busyRef === booking.reference;
+                const expanded = isArchivedExpanded(booking.reference);
+                const canRestore = Boolean(
+                  booking.removedFromDashboardAt &&
+                    (booking.status === "SHORT_NOTICE_AWAITING_APPROVAL" ||
+                      booking.status === "SHORT_NOTICE_ALTERNATIVE_OFFERED" ||
+                      booking.status === "SHORT_NOTICE_APPROVED"),
+                );
+                const requestedDate =
+                  booking.originalRequestedDate ?? booking.booking.tripDate;
+                const requestedTime =
+                  booking.originalRequestedTime ?? booking.booking.tripTime;
+                return (
+                  <li
+                    key={`archived-${booking.reference}`}
+                    className="rounded-2xl border border-white/10 bg-navy/60 p-3 sm:p-4"
+                  >
+                    {!expanded ? (
+                      <button
+                        type="button"
+                        onClick={() => toggleArchivedExpanded(booking.reference)}
+                        className="flex w-full flex-col gap-1 overflow-x-hidden rounded-xl text-left outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+                      >
+                        <p className="break-words text-base font-bold text-white">
+                          {booking.booking.customerName}
+                          <span className="font-semibold text-white/85">
+                            {" "}
+                            — {booking.amountLabel.replace(/\.00$/, "")}
+                          </span>
+                        </p>
+                        <p className="text-[11px] font-semibold uppercase tracking-wider text-white/50">
+                          {statusLabel(booking.status)}
+                          {booking.removedFromDashboardAt ? " · REMOVED" : ""}
+                        </p>
+                        <p className="text-sm text-white/70">
+                          {formatCompactTripWhen(
+                            booking.booking.tripDate,
+                            booking.booking.tripTime,
+                          )}
+                        </p>
+                        <p className="truncate text-sm text-white/60">
+                          {truncateLabel(booking.booking.pickupLabel)} →{" "}
+                          {truncateLabel(booking.booking.dropoffLabel)}
+                        </p>
+                        <span className="mt-1 text-sm font-semibold text-emerald">
+                          View / Manage ▼
+                        </span>
+                      </button>
+                    ) : (
+                      <div className="space-y-3">
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div className="min-w-0 flex-1">
+                            <p className="break-words text-lg font-bold text-white">
+                              {booking.booking.customerName}
+                            </p>
+                            <p className="mt-1 text-sm text-white/65">
+                              {booking.reference} · {booking.amountLabel}
+                            </p>
+                            <p className="mt-1 text-xs uppercase tracking-wider text-white/50">
+                              {statusLabel(booking.status)}
+                              {booking.removedFromDashboardAt ? " · Removed from dashboard" : ""}
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => toggleArchivedExpanded(booking.reference)}
+                            className="min-h-11 shrink-0 rounded-xl border border-white/15 px-3 py-1.5 text-sm font-semibold text-white/80"
+                          >
+                            View / Manage ▲
+                          </button>
+                        </div>
+                        <dl className="grid gap-2 text-sm text-white/70 sm:grid-cols-2">
+                          <div>
+                            <dt className="text-white/40">Pickup</dt>
+                            <dd className="break-words">{booking.booking.pickupLabel}</dd>
+                          </div>
+                          <div>
+                            <dt className="text-white/40">Destination</dt>
+                            <dd className="break-words">{booking.booking.dropoffLabel}</dd>
+                          </div>
+                          <div>
+                            <dt className="text-white/40">Pickup date/time</dt>
+                            <dd>
+                              {booking.booking.tripDate} · {booking.booking.tripTime}
+                            </dd>
+                          </div>
+                          <div>
+                            <dt className="text-white/40">Email</dt>
+                            <dd className="break-all">{booking.booking.customerEmail}</dd>
+                          </div>
+                        </dl>
+                        {booking.originalRequestedDate ? (
+                          <p className="text-sm text-white/65">
+                            Originally requested: {requestedDate} · {requestedTime}
+                            {booking.offeredDate
+                              ? ` · Offered: ${booking.offeredDate} · ${booking.offeredTime}`
+                              : ""}
+                          </p>
+                        ) : null}
+                        {booking.customerResponseNote ? (
+                          <div className="rounded-xl border border-sky-400/30 bg-sky-400/10 p-3 text-sm">
+                            <p className="text-xs font-semibold uppercase tracking-wider text-sky-200">
+                              Customer message
+                            </p>
+                            <p className="mt-1 whitespace-pre-wrap break-words text-white">
+                              {booking.customerResponseNote}
+                            </p>
+                          </div>
+                        ) : null}
+                        {canRestore ? (
+                          <button
+                            type="button"
+                            disabled={busy}
+                            onClick={() => void handleRestoreToDashboard(booking)}
+                            className="min-h-11 rounded-xl bg-emerald px-4 py-2.5 text-sm font-bold text-navy disabled:opacity-60"
+                          >
+                            {busy ? "Restoring…" : "Restore to dashboard"}
+                          </button>
+                        ) : (
+                          <p className="text-xs text-white/45">
+                            History only — retained for audit. Not permanently deleted.
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          )
+        ) : null}
+      </div>
     </section>
   );
 }

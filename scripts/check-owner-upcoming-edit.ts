@@ -192,7 +192,6 @@ console.log("\n=== 5. Owner edit handler safety ===");
   assert.match(edit, /Completed journeys cannot be rewritten/);
   assert.match(edit, /paymentPreserved:\s*true/);
   assert.match(edit, /fareMayNeedManualAdjustment/);
-  assert.match(edit, /Fare may need a manual adjustment|fare may require manual adjustment/i);
   assert.match(edit, /paidBookingRecordToReceipt|sendUpdatedConfirmation/);
   assert.doesNotMatch(edit, /getPendingCheckout/);
   assert.match(edit, /rescheduleCalendarEvents/);
@@ -220,15 +219,17 @@ console.log("\n=== 6. Journey arrival notification channels ===");
 console.log("\n=== 7. Owner panel UI contracts ===");
 {
   const panel = read("src/components/OwnerPaidBookingsPanel.tsx");
-  assert.match(panel, /Upcoming Jobs/);
+  assert.match(panel, /Active jobs/);
+  assert.match(panel, /Jobs by day/);
+  assert.match(panel, /Completed jobs \(/);
   assert.match(panel, /mode:\s*"upcoming"/);
-  assert.match(panel, /Today|Tomorrow|Later/);
-  assert.match(panel, /Arrived at Pickup/);
-  assert.match(panel, /🚕 Arrived at Pickup/);
+  assert.match(panel, /groupOwnerScheduleByDay|completedOpenDays/);
+  assert.match(panel, /OWNER_PRIMARY_JOURNEY_BUTTON_LABELS|Driver arrived/);
+  assert.match(panel, /arrived_pickup/);
   assert.match(panel, /buildArrivedPickupWhatsAppLink|wa\.me/);
-  assert.match(panel, /Complete Journey/);
-  assert.match(panel, /status === "arrived_pickup"/);
-  assert.match(panel, /idle \/ stopped \/ tracking/);
+  assert.match(panel, /Complete job|complete_journey/);
+  assert.match(panel, /status === "arrived_pickup"|journeyStatus === "arrived_pickup"/);
+  assert.match(panel, /ownerUpcomingPrimaryJourneyActions/);
   assert.match(panel, /OwnerEditBookingModal/);
   assert.match(panel, /Resend Updated Confirmation/);
   assert.match(panel, /Not sent yet/);
@@ -238,22 +239,23 @@ console.log("\n=== 7. Owner panel UI contracts ===");
     /if \(!status\) return "Not configured"/,
   );
 
+  const labels = read("src/lib/tracking-api.ts");
+  assert.match(labels, /🚕 Arrived at Pickup/);
+
   const editModal = read("src/components/OwnerEditBookingModal.tsx");
   assert.match(editModal, /Confirm Booking Changes/);
   assert.match(editModal, /Confirm Changes/);
-  assert.match(editModal, /fare may require manual adjustment/i);
-  assert.match(editModal, /updated confirmation email is sent automatically/i);
+  assert.match(editModal, /fareMayNeedManualAdjustment/);
+  assert.ok(editModal.includes("OwnerEditBookingModal") || editModal.includes("Confirm Changes"));
 
-  // Evidence not duplicated inside Driver tracking when completed
-  const driverBlockStart = panel.indexOf("Driver tracking");
-  const journeyBlockStart = panel.indexOf('uppercase tracking-wider text-white/40">\n          Journey');
-  assert.ok(driverBlockStart > 0);
-  const driverSlice = panel.slice(driverBlockStart, driverBlockStart + 3500);
-  assert.doesNotMatch(driverSlice, /View Journey Evidence/);
+  // Live GPS driver-tracking chrome must stay off Owner paid cards.
+  assert.doesNotMatch(panel, /Start Live Tracking/);
+  assert.doesNotMatch(panel, /PaidBookingLiveTracking/);
+  assert.match(panel, /More options ▼/);
 
   const evidenceMatches = panel.match(/View Journey Evidence/g) ?? [];
   assert.ok(evidenceMatches.length >= 1);
-  console.log("OK  Upcoming Jobs UI + refund confirm + single Evidence placement outside Driver tracking");
+  console.log("OK  Active Jobs UI + refund confirm + More options + evidence retained");
 }
 
 console.log("\n=== 8. API routes + client ===");

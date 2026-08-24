@@ -114,12 +114,16 @@ import {
   handleOwnerDeclineShortNotice,
   handleOwnerGetBookingSettings,
   handleOwnerListShortNotice,
+  handleOwnerListArchivedShortNotice,
   handleOwnerOfferAlternativeTime,
+  handleOwnerRemoveFromDashboard,
+  handleOwnerRestoreToDashboard,
   handleOwnerResendAlternativeEmail,
   handleOwnerResendPaymentEmail,
   handleOwnerSaveBookingSettings,
   handleOwnerWithdrawAlternativeOffer,
   handlePublicAcceptAlternativeTime,
+  handlePublicDeclineAlternativeTime,
   isOwnerBookingSettingsPath,
   isOwnerShortNoticePath,
   isPublicShortNoticePath,
@@ -2557,6 +2561,46 @@ export default {
         return json(result, 200, origin);
       }
       if (
+        (url.pathname === "/owner/short-notice/archived" ||
+          url.pathname === "/api/owner/short-notice/archived" ||
+          url.pathname.endsWith("/short-notice/archived")) &&
+        request.method === "GET"
+      ) {
+        const result = await handleOwnerListArchivedShortNotice(request, snEnv);
+        if ("error" in result) return json({ error: result.error }, result.status, origin);
+        return json(result, 200, origin);
+      }
+      if (
+        (url.pathname.endsWith("/remove-from-dashboard") ||
+          url.pathname.includes("/remove-from-dashboard")) &&
+        request.method === "POST"
+      ) {
+        let body: Record<string, unknown>;
+        try {
+          body = await request.json();
+        } catch {
+          return json({ error: "Invalid JSON" }, 400, origin);
+        }
+        const result = await handleOwnerRemoveFromDashboard(request, snEnv, body);
+        if ("error" in result) return json({ error: result.error }, result.status, origin);
+        return json(result, 200, origin);
+      }
+      if (
+        (url.pathname.endsWith("/restore-to-dashboard") ||
+          url.pathname.includes("/restore-to-dashboard")) &&
+        request.method === "POST"
+      ) {
+        let body: Record<string, unknown>;
+        try {
+          body = await request.json();
+        } catch {
+          return json({ error: "Invalid JSON" }, 400, origin);
+        }
+        const result = await handleOwnerRestoreToDashboard(request, snEnv, body);
+        if ("error" in result) return json({ error: result.error }, result.status, origin);
+        return json(result, 200, origin);
+      }
+      if (
         (url.pathname.endsWith("/approve") || url.pathname.includes("/approve")) &&
         request.method === "POST"
       ) {
@@ -2792,6 +2836,22 @@ export default {
           body,
           resolveShortNoticeSiteOrigin(request, body, BUSINESS_WEBSITE),
         );
+        if ("error" in result) return json({ error: result.error }, result.status, origin);
+        return json(result, 200, origin);
+      }
+
+      if (
+        (url.pathname.endsWith("/decline-alternative") ||
+          url.pathname.includes("/decline-alternative")) &&
+        request.method === "POST"
+      ) {
+        let body: Record<string, unknown>;
+        try {
+          body = await request.json();
+        } catch {
+          return json({ error: "Invalid JSON" }, 400, origin);
+        }
+        const result = await handlePublicDeclineAlternativeTime(request, snEnv, body);
         if ("error" in result) return json({ error: result.error }, result.status, origin);
         return json(result, 200, origin);
       }
