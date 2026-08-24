@@ -247,6 +247,7 @@ export type DriverJob = PublicTrackResponse & {
   driverPayAmount?: string;
   passengers?: number;
   suitcases?: number;
+  journeyNotes?: string;
   assignmentStatus?: JobAssignmentStatus;
   assignedAt?: string;
   acceptedAt?: string;

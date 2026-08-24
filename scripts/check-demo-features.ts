@@ -57,10 +57,11 @@ check("driver today jobs are sanitized", () => {
 
   for (const job of response.jobs) {
     assert.equal(job.assignmentStatus, "accepted");
-    assert.equal(job.customerMobile, undefined);
+    assert.equal(job.customerMobile, "+447700900456");
     assert.equal(job.paymentReference, undefined);
     assert.equal(job.amountPaidLabel, undefined);
     assert.equal(job.driverLocationPointCount, undefined);
+    assert.ok(job.journeyNotes);
   }
 
   const airport = response.jobs.find((job) => job.token === "demo-waiting");
@@ -84,8 +85,9 @@ check("driver pending job is accept-ready", () => {
   assert.equal(pending.assignmentStatus, "pending");
   assert.equal(pending.assignedDriverName, DEMO_DRIVER_NAME);
   assert.equal(pending.customerMobile, undefined);
-  assert.equal(pending.flightNumber, "BA1234");
-  assert.equal(pending.isAirportPickup, true);
+  assert.equal(pending.flightNumber, undefined);
+  assert.equal(pending.customerName, "Customer details available after acceptance");
+  assert.equal(pending.trackUrl, undefined);
 });
 
 check("owner today jobs include payments + unassigned", () => {
@@ -158,11 +160,11 @@ check("public track demos", () => {
   assert.ok(live.vehicle?.registration);
 });
 
-check("sanitize strips owner-only fields", () => {
+check("sanitize keeps accepted contact but strips owner-only fields", () => {
   const ownerJob = getDemoOwnerJobs().jobs.find((job) => job.token === "demo-live");
   assert.ok(ownerJob);
   const sanitized = sanitizeDemoJobForDriver(ownerJob);
-  assert.equal(sanitized.customerMobile, undefined);
+  assert.equal(sanitized.customerMobile, ownerJob.customerMobile);
   assert.equal(sanitized.paymentReference, undefined);
   assert.equal(sanitized.amountPaidLabel, undefined);
   assert.equal(sanitized.driverLocationPointCount, undefined);

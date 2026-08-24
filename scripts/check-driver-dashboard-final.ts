@@ -3,9 +3,18 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { TrackingJobRecord } from "../shared/tracking";
+import {
+  buildDriverAssignmentEmail,
+  toDriverAssignmentJobSummary,
+  type BookingJobRecord,
+} from "../shared/booking-job";
 import { sanitizeDriverJobForRole } from "../workers/addresses/src/driver-auth";
 import { handleJourneyTransitionRequest } from "../workers/addresses/src/journey-handlers";
 import { handleDriverPaymentRequest } from "../workers/addresses/src/driver-payment-handlers";
+import {
+  handleDriverAcceptConfirmRequest,
+  handleDriverAcceptLookupRequest,
+} from "../workers/addresses/src/booking-job-handlers";
 import {
   buildPublicTrackResponse,
   handleDriverSharingRequest,
@@ -87,6 +96,164 @@ async function postJourney(action: string) {
 }
 
 async function main() {
+  console.log("=== Pre-acceptance privacy gate and post-acceptance unlock ===");
+  const booking = {
+    id: "booking-private",
+    createdAt: "2026-08-24T08:00:00.000Z",
+    status: "paid",
+    kind: "booking-request",
+    customerName: "Jamie Private",
+    customerEmail: "jamie@example.com",
+    customerMobile: "07700111222",
+    tripLabel: "Airport transfer",
+    pickupLabel: "10 Donegall Square, Belfast, BT1 5GS",
+    dropoffLabel: "Grand Central Hotel, Belfast",
+    returnJourney: false,
+    tripDate: "2026-08-28",
+    tripTime: "10:00",
+    flightNumber: "BA1234",
+    passengers: 2,
+    suitcases: 2,
+    vehicle: "Estate",
+    isAirportTrip: true,
+    message: "Meet at reception; passenger has a blue suitcase.",
+    driverFirstName: "Gary",
+    driverEmail: "gary@example.com",
+    driverMobile: "07700900999",
+    driverPayAmount: "40",
+    amountPaidLabel: "£85.00",
+    paymentReference: "SUMUP-CUSTOMER-SECRET",
+    driverAssignmentStatus: "pending",
+    driverAcceptToken: "accept-secret",
+    trackingToken: token,
+  } as BookingJobRecord;
+
+  const pendingSummary = toDriverAssignmentJobSummary(booking);
+  assert.equal(pendingSummary.customerName, undefined);
+  assert.equal(pendingSummary.customerMobile, undefined);
+  assert.equal(pendingSummary.pickupLabel, "Belfast");
+  assert.equal(pendingSummary.dropoffLabel, "Belfast");
+  assert.equal(pendingSummary.flightNumber, undefined);
+  assert.equal(pendingSummary.journeyNotes, undefined);
+  assert.equal(pendingSummary.driverPayAmount, "£40.00");
+  assert.equal(
+    toDriverAssignmentJobSummary({
+      ...booking,
+      pickupLabel: "Ballyclare",
+      dropoffLabel: "42 Main Street",
+    }).pickupLabel,
+    "Ballyclare",
+  );
+  assert.equal(
+    toDriverAssignmentJobSummary({
+      ...booking,
+      pickupLabel: "Ballyclare",
+      dropoffLabel: "42 Main Street",
+    }).dropoffLabel,
+    "Area available after acceptance",
+  );
+  assert.equal(
+    toDriverAssignmentJobSummary({
+      ...booking,
+      pickupLabel: "Belfast International Airport, Airport Road, BT29 4AB",
+    }).pickupLabel,
+    "Belfast International Airport",
+  );
+  const pendingReturn = toDriverAssignmentJobSummary({
+    ...booking,
+    returnJourney: true,
+    returnDate: "2026-08-29",
+    returnTime: "15:30",
+  });
+  assert.equal(pendingReturn.returnJourney, true);
+  assert.equal(pendingReturn.returnDate, "2026-08-29");
+  assert.equal(pendingReturn.returnTime, "15:30");
+
+  const assignmentEmail = buildDriverAssignmentEmail({
+    job: booking,
+    acceptUrl: "https://example.com/driver-accept/?token=secret",
+  });
+  for (const body of [assignmentEmail.text, assignmentEmail.html]) {
+    assert.doesNotMatch(body, /Jamie Private|07700111222|10 Donegall Square|Grand Central Hotel|BA1234|blue suitcase/);
+    assert.match(body, /Belfast/);
+    assert.match(body, /£40\.00/);
+  }
+
+  const acceptedSummary = toDriverAssignmentJobSummary({
+    ...booking,
+    driverAssignmentStatus: "accepted",
+  });
+  assert.equal(acceptedSummary.customerName, "Jamie Private");
+  assert.equal(acceptedSummary.customerMobile, "07700111222");
+  assert.equal(acceptedSummary.pickupLabel, booking.pickupLabel);
+  assert.equal(acceptedSummary.dropoffLabel, booking.dropoffLabel);
+  assert.equal(acceptedSummary.flightNumber, "BA1234");
+  assert.equal(acceptedSummary.journeyNotes, booking.message);
+  assert.equal(acceptedSummary.driverPayAmount, "£40.00");
+
+  values.set(`booking-job:${booking.id}`, JSON.stringify(booking));
+  values.set("driver-accept:accept-secret", booking.id);
+  const lookupResponse = await handleDriverAcceptLookupRequest(
+    new Request("https://worker.example/driver-accept?token=accept-secret"),
+    env,
+    "https://example.com",
+  );
+  const lookupBody = (await lookupResponse.json()) as { job: Record<string, unknown> };
+  assert.equal(lookupBody.job.customerName, undefined);
+  assert.equal(lookupBody.job.customerMobile, undefined);
+  assert.equal(lookupBody.job.pickupLabel, "Belfast");
+
+  const confirmResponse = await handleDriverAcceptConfirmRequest(
+    new Request("https://worker.example/driver-accept/confirm", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token: "accept-secret", action: "accept" }),
+    }),
+    env,
+    "https://example.com",
+  );
+  const confirmBody = (await confirmResponse.json()) as { job: Record<string, unknown> };
+  assert.equal(confirmBody.job.customerName, booking.customerName);
+  assert.equal(confirmBody.job.customerMobile, booking.customerMobile);
+  assert.equal(confirmBody.job.pickupLabel, booking.pickupLabel);
+  assert.equal(confirmBody.job.journeyNotes, booking.message);
+  assert.equal(confirmBody.job.customerEmail, undefined);
+  assert.equal(confirmBody.job.amountPaidLabel, undefined);
+  assert.equal(confirmBody.job.paymentReference, undefined);
+  assert.equal(confirmBody.job.trackingToken, undefined);
+
+  const pendingDashboard = sanitizeDriverJobForRole(
+    {
+      assignmentStatus: "pending",
+      customerName: booking.customerName,
+      customerMobile: booking.customerMobile,
+      pickupLabel: booking.pickupLabel,
+      dropoffLabel: booking.dropoffLabel,
+      flightNumber: booking.flightNumber,
+      journeyNotes: booking.message,
+      driverPayAmount: "£40.00",
+      trackUrl: "https://example.com/track/private-token",
+    },
+    "driver",
+  );
+  assert.equal(pendingDashboard.customerMobile, undefined);
+  assert.equal(pendingDashboard.pickupLabel, "Belfast");
+  assert.equal(pendingDashboard.dropoffLabel, "Belfast");
+  assert.equal(pendingDashboard.flightNumber, undefined);
+  assert.equal(pendingDashboard.journeyNotes, undefined);
+  assert.equal(pendingDashboard.trackUrl, undefined);
+  assert.equal(pendingDashboard.driverPayAmount, "£40.00");
+
+  const acceptedDashboard = sanitizeDriverJobForRole(
+    { ...pendingDashboard, ...acceptedSummary, assignmentStatus: "accepted" },
+    "driver",
+  );
+  assert.equal(acceptedDashboard.customerName, "Jamie Private");
+  assert.equal(acceptedDashboard.customerMobile, "07700111222");
+  assert.equal(acceptedDashboard.pickupLabel, booking.pickupLabel);
+  assert.equal(acceptedDashboard.dropoffLabel, booking.dropoffLabel);
+  assert.equal(acceptedDashboard.journeyNotes, booking.message);
+
   console.log("=== Driver actions are ordered, email/status-only, and never start GPS ===");
   const beforeOnWay = await buildPublicTrackResponse(job, env, "https://example.com");
   assert.equal(beforeOnWay.vehicle, undefined);
@@ -164,6 +331,8 @@ async function main() {
   console.log("=== Driver response keeps pay and strips owner/customer financial metadata ===");
   const driverResponse = sanitizeDriverJobForRole(
     {
+      assignmentStatus: "accepted",
+      customerMobile: "07700900111",
       driverPayAmount: "£40.00",
       driverPaymentStatus: "sent",
       driverPaymentAmount: "£40.00",
@@ -176,6 +345,7 @@ async function main() {
     "driver",
   );
   assert.equal(driverResponse.driverPayAmount, "£40.00");
+  assert.equal(driverResponse.customerMobile, "07700900111");
   assert.equal(driverResponse.driverPaymentStatus, undefined);
   assert.equal(driverResponse.driverPaymentHistory, undefined);
   assert.equal(driverResponse.amountPaidLabel, undefined);

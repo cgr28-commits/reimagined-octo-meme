@@ -661,6 +661,7 @@ export async function handleDriverJobsRequest(
       let assignedDriverReg: string | undefined;
       let passengers: number | undefined;
       let suitcases: number | undefined;
+      let journeyNotes: string | undefined;
 
       if (job.paymentReference && bookingJobStoreConfigured(env.TRACKING_STORE)) {
         const bookingJob =
@@ -675,12 +676,14 @@ export async function handleDriverJobsRequest(
           assignedDriverReg = bookingJob.driverReg;
           passengers = bookingJob.passengers;
           suitcases = bookingJob.suitcases;
+          journeyNotes = bookingJob.message;
         }
       }
 
       if (paidRecord) {
         passengers = passengers ?? paidRecord.passengers;
         suitcases = suitcases ?? paidRecord.suitcases;
+        journeyNotes = journeyNotes ?? paidRecord.notes;
       }
 
       return sanitizeDriverJobForRole(
@@ -720,6 +723,7 @@ export async function handleDriverJobsRequest(
           driverPaymentHistory: job.driverPaymentHistory ?? [],
           passengers,
           suitcases,
+          journeyNotes,
           driverLocationPointCount: job.driverLocationPointCount,
           driverLocationRecordedFrom: job.driverLocationRecordedFrom,
           driverLocationRecordedTo: job.driverLocationRecordedTo,

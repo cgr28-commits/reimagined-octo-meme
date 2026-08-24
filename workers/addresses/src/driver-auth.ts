@@ -1,4 +1,5 @@
 import { OWNER_VEHICLE_PROFILE_KEY } from "../shared/driver-vehicle";
+import { generalDriverLocationLabel } from "../shared/tracking";
 import {
   getDriverVehicleProfile,
   listOwnerVehicleProfileOptions,
@@ -174,13 +175,12 @@ export function sanitizeDriverJobForRole<T extends Record<string, unknown>>(
     return job;
   }
 
-  const sanitized = { ...job };
+  const sanitized: Record<string, unknown> = { ...job };
   delete sanitized.paymentReference;
   delete sanitized.bookingReference;
   delete sanitized.amountPaidLabel;
   delete sanitized.bookingStatus;
   delete sanitized.refundAmountLabel;
-  delete sanitized.customerMobile;
   delete sanitized.customerEmail;
   delete sanitized.driverLocationPointCount;
   delete sanitized.driverLocationRecordedFrom;
@@ -191,7 +191,21 @@ export function sanitizeDriverJobForRole<T extends Record<string, unknown>>(
   delete sanitized.driverPaymentSentAt;
   delete sanitized.driverPaymentHistory;
   delete sanitized.driverContactRevealedAt;
-  // Drivers must never see what the customer paid.
-  // Flight fields (flightNumber, flight, isAirportPickup, airportCode) are retained for drivers.
+  const assignmentStatus = String(sanitized.assignmentStatus ?? "").trim();
+  if (assignmentStatus !== "accepted") {
+    sanitized["customerName"] = "Customer details available after acceptance";
+    sanitized["pickupLabel"] = generalDriverLocationLabel(String(sanitized.pickupLabel ?? ""));
+    sanitized["dropoffLabel"] = generalDriverLocationLabel(String(sanitized.dropoffLabel ?? ""));
+    delete sanitized.customerMobile;
+    delete sanitized.flightNumber;
+    delete sanitized.airportCode;
+    delete sanitized.flight;
+    delete sanitized.passengers;
+    delete sanitized.suitcases;
+    delete sanitized.journeyNotes;
+    delete sanitized.trackUrl;
+  }
+  // Drivers must never see what the customer paid. Operational fields are
+  // retained only for accepted assignments.
   return sanitized as T;
 }

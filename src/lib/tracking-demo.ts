@@ -1,6 +1,7 @@
 import type { DriverJob, DriverJobsResponse, PublicTrackResponse } from "@/lib/tracking-api";
 import { SITE } from "@/lib/data";
 import { formatUkInstant } from "../../shared/uk-time";
+import { generalDriverLocationLabel } from "../../shared/tracking";
 
 export const DEMO_TRACK_TOKENS = ["demo-early", "demo-waiting", "demo-live"] as const;
 export type DemoTrackToken = (typeof DEMO_TRACK_TOKENS)[number];
@@ -195,15 +196,27 @@ export function getDemoTrackResponse(token: DemoTrackToken): PublicTrackResponse
 
 /** Strip owner-only fields so demo matches live driver API responses. */
 export function sanitizeDemoJobForDriver(job: DriverJob): DriverJob {
-  const sanitized = { ...job };
+  const sanitized: Record<string, unknown> = { ...job };
   delete sanitized.paymentReference;
   delete sanitized.amountPaidLabel;
   delete sanitized.refundAmountLabel;
-  delete sanitized.customerMobile;
   delete sanitized.driverLocationPointCount;
   delete sanitized.driverLocationRecordedFrom;
   delete sanitized.driverLocationRecordedTo;
-  return sanitized;
+  if (sanitized.assignmentStatus !== "accepted") {
+    sanitized.customerName = "Customer details available after acceptance";
+    sanitized.pickupLabel = generalDriverLocationLabel(job.pickupLabel);
+    sanitized.dropoffLabel = generalDriverLocationLabel(job.dropoffLabel);
+    delete sanitized.customerMobile;
+    delete sanitized.flightNumber;
+    delete sanitized.airportCode;
+    delete sanitized.flight;
+    delete sanitized.passengers;
+    delete sanitized.suitcases;
+    delete sanitized.journeyNotes;
+    delete sanitized.trackUrl;
+  }
+  return sanitized as DriverJob;
 }
 
 const DEMO_OWNER_FIELDS: Record<
@@ -291,8 +304,10 @@ function acceptedAssignmentFields() {
     assignedAt: new Date().toISOString(),
     acceptedAt: new Date().toISOString(),
     driverPayAmount: "£40.00",
+    customerMobile: "+447700900456",
     passengers: 2,
     suitcases: 2,
+    journeyNotes: "Meet the customer at the agreed pickup point.",
   };
 }
 

@@ -153,7 +153,8 @@ export async function assignBookingJobDriver(
 
 export async function lookupDriverAcceptJob(token: string): Promise<{
   id: string;
-  customerName: string;
+  customerName?: string;
+  customerMobile?: string;
   pickupLabel: string;
   dropoffLabel: string;
   tripDate: string;
@@ -161,10 +162,15 @@ export async function lookupDriverAcceptJob(token: string): Promise<{
   driverFirstName?: string;
   driverPayAmount?: string;
   driverAssignmentStatus: string;
-  vehicle: string;
-  driverCarMake?: string;
-  driverCarModel?: string;
-  driverReg?: string;
+  returnJourney?: boolean;
+  returnDate?: string;
+  returnTime?: string;
+  flightNumber?: string;
+  returnFlightNumber?: string;
+  passengers?: number;
+  suitcases?: number;
+  vehicle?: string;
+  journeyNotes?: string;
 }> {
   const base = workerBaseUrl();
   if (!base) {
@@ -181,7 +187,8 @@ export async function lookupDriverAcceptJob(token: string): Promise<{
   }
   return payload.job as {
     id: string;
-    customerName: string;
+    customerName?: string;
+    customerMobile?: string;
     pickupLabel: string;
     dropoffLabel: string;
     tripDate: string;
@@ -189,17 +196,22 @@ export async function lookupDriverAcceptJob(token: string): Promise<{
     driverFirstName?: string;
     driverPayAmount?: string;
     driverAssignmentStatus: string;
-    vehicle: string;
-    driverCarMake?: string;
-    driverCarModel?: string;
-    driverReg?: string;
+    returnJourney?: boolean;
+    returnDate?: string;
+    returnTime?: string;
+    flightNumber?: string;
+    returnFlightNumber?: string;
+    passengers?: number;
+    suitcases?: number;
+    vehicle?: string;
+    journeyNotes?: string;
   };
 }
 
 export async function confirmDriverAcceptJob(
   token: string,
   action: "accept" | "decline" = "accept",
-): Promise<void> {
+): Promise<Awaited<ReturnType<typeof lookupDriverAcceptJob>>> {
   const base = workerBaseUrl();
   if (!base) {
     throw new Error("Bookings API is not configured");
@@ -214,7 +226,8 @@ export async function confirmDriverAcceptJob(
     body: JSON.stringify({ token, action }),
   });
   const payload = await parseJson(response);
-  if (!response.ok) {
+  if (!response.ok || !payload.job) {
     throw new Error(String(payload.error ?? "Could not confirm job"));
   }
+  return payload.job as Awaited<ReturnType<typeof lookupDriverAcceptJob>>;
 }

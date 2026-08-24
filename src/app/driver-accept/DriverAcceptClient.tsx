@@ -42,9 +42,9 @@ export default function DriverAcceptClient() {
     setConfirming(true);
     setError("");
     try {
-      await confirmDriverAcceptJob(token, "accept");
+      const accepted = await confirmDriverAcceptJob(token, "accept");
       setDone(true);
-      setJob((prev) => (prev ? { ...prev, driverAssignmentStatus: "accepted" } : prev));
+      setJob(accepted);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not confirm job");
     } finally {
@@ -71,15 +71,45 @@ export default function DriverAcceptClient() {
               Hi {job.driverFirstName || "there"} — please confirm you can cover this journey.
             </p>
             <div className="rounded-xl border border-white/10 bg-navy/50 p-4">
-              <p>
-                <strong className="text-white">Customer:</strong> {job.customerName}
-              </p>
+              {job.customerName ? (
+                <p>
+                  <strong className="text-white">Customer:</strong> {job.customerName}
+                </p>
+              ) : null}
               <p className="mt-2">
                 <strong className="text-white">Pickup:</strong> {job.pickupLabel}
               </p>
               <p className="mt-2">
                 <strong className="text-white">Drop-off:</strong> {job.dropoffLabel}
               </p>
+              {job.customerMobile ? (
+                <p className="mt-2">
+                  <strong className="text-white">Customer mobile:</strong> {job.customerMobile}
+                </p>
+              ) : null}
+              {job.flightNumber ? (
+                <p className="mt-2">
+                  <strong className="text-white">Flight:</strong> {job.flightNumber}
+                </p>
+              ) : null}
+              {job.returnJourney && job.returnDate ? (
+                <p className="mt-2">
+                  <strong className="text-white">Return journey:</strong> {job.returnDate}
+                  {job.returnTime ? ` at ${job.returnTime}` : ""}
+                  {job.returnFlightNumber ? ` · Flight ${job.returnFlightNumber}` : ""}
+                </p>
+              ) : null}
+              {job.passengers != null || job.suitcases != null ? (
+                <p className="mt-2">
+                  <strong className="text-white">Passengers / suitcases:</strong>{" "}
+                  {job.passengers ?? "—"} / {job.suitcases ?? "—"}
+                </p>
+              ) : null}
+              {job.journeyNotes ? (
+                <p className="mt-2">
+                  <strong className="text-white">Journey notes:</strong> {job.journeyNotes}
+                </p>
+              ) : null}
               <p className="mt-2">
                 <strong className="text-white">Date / pick up time:</strong> {job.tripDate} at{" "}
                 {job.tripTime}
@@ -94,10 +124,13 @@ export default function DriverAcceptClient() {
             </div>
 
             {done ? (
-              <p className="rounded-xl border border-emerald/35 bg-emerald/10 px-4 py-3 font-semibold text-emerald">
-                Thanks — this job is confirmed. It will appear on your Driver Dashboard under Today
-                or Upcoming.
-              </p>
+              <div className="rounded-xl border border-emerald/35 bg-emerald/10 px-4 py-3 text-emerald">
+                <p className="font-semibold">Thanks — this job is confirmed.</p>
+                <p className="mt-1 text-sm">
+                  The full operational details above are now unlocked and the job will appear on
+                  your Driver Dashboard under Today or Upcoming.
+                </p>
+              </div>
             ) : (
               <button
                 type="button"

@@ -1,6 +1,7 @@
 import {
   bookingJobAssignmentLabel,
   buildDriverAssignmentEmail,
+  toDriverAssignmentJobSummary,
   type BookingJobKind,
   type BookingJobRecord,
 } from "../shared/booking-job";
@@ -597,21 +598,7 @@ export async function handleDriverAcceptLookupRequest(
   return jsonResponse(
     {
       ok: true,
-      job: {
-        id: job.id,
-        customerName: job.customerName,
-        pickupLabel: job.pickupLabel,
-        dropoffLabel: job.dropoffLabel,
-        tripDate: job.tripDate,
-        tripTime: job.tripTime,
-        driverFirstName: job.driverFirstName,
-        driverPayAmount: job.driverPayAmount,
-        driverAssignmentStatus: job.driverAssignmentStatus ?? "unassigned",
-        vehicle: job.vehicle,
-        driverCarMake: job.driverCarMake,
-        driverCarModel: job.driverCarModel,
-        driverReg: job.driverReg,
-      },
+      job: toDriverAssignmentJobSummary(job),
     },
     200,
     origin,
@@ -646,7 +633,11 @@ export async function handleDriverAcceptConfirmRequest(
   }
 
   if (job.driverAssignmentStatus === "accepted") {
-    return jsonResponse({ ok: true, job, alreadyAccepted: true }, 200, origin);
+    return jsonResponse(
+      { ok: true, job: toDriverAssignmentJobSummary(job), alreadyAccepted: true },
+      200,
+      origin,
+    );
   }
 
   const updated: BookingJobRecord = {
@@ -658,5 +649,9 @@ export async function handleDriverAcceptConfirmRequest(
   await saveBookingJob(env.TRACKING_STORE, updated);
   await syncTrackingAssignmentFromBooking(env.TRACKING_STORE, updated);
 
-  return jsonResponse({ ok: true, job: updated }, 200, origin);
+  return jsonResponse(
+    { ok: true, job: toDriverAssignmentJobSummary(updated) },
+    200,
+    origin,
+  );
 }

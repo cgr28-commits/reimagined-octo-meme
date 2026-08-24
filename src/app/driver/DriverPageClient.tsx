@@ -1535,23 +1535,29 @@ function DriverJobCard({
       </div>
 
       {isPendingForDriver && (
-        <div className="mt-4 flex flex-wrap gap-3">
-          <button
-            type="button"
-            disabled={assignmentBusy}
-            onClick={() => void respondToAssignment("accept")}
-            className="rounded-xl bg-emerald px-5 py-3 text-sm font-bold text-navy transition-colors hover:bg-emerald/90 disabled:opacity-60"
-          >
-            {assignmentBusy ? "Saving…" : "Accept job"}
-          </button>
-          <button
-            type="button"
-            disabled={assignmentBusy}
-            onClick={() => void respondToAssignment("decline")}
-            className="rounded-xl border border-red-400/30 bg-red-500/10 px-5 py-3 text-sm font-semibold text-red-200 transition-colors hover:bg-red-500/20 disabled:opacity-60"
-          >
-            Decline
-          </button>
+        <div className="mt-4">
+          <p className="mb-3 text-sm text-white/60">
+            Customer name, mobile number, full addresses and journey details unlock immediately
+            after acceptance.
+          </p>
+          <div className="flex flex-wrap gap-3">
+            <button
+              type="button"
+              disabled={assignmentBusy}
+              onClick={() => void respondToAssignment("accept")}
+              className="rounded-xl bg-emerald px-5 py-3 text-sm font-bold text-navy transition-colors hover:bg-emerald/90 disabled:opacity-60"
+            >
+              {assignmentBusy ? "Saving…" : "Accept job"}
+            </button>
+            <button
+              type="button"
+              disabled={assignmentBusy}
+              onClick={() => void respondToAssignment("decline")}
+              className="rounded-xl border border-red-400/30 bg-red-500/10 px-5 py-3 text-sm font-semibold text-red-200 transition-colors hover:bg-red-500/20 disabled:opacity-60"
+            >
+              Decline
+            </button>
+          </div>
         </div>
       )}
 
@@ -1820,6 +1826,11 @@ function DriverJobCard({
                 {paymentBusy ? "Recording…" : "Confirm payment sent"}
               </button>
             </div>
+          ) : null}
+          {!isOwner && isAcceptedAssignment && job.journeyNotes ? (
+            <p className="mt-2 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-white/70">
+              Journey notes: {job.journeyNotes}
+            </p>
           ) : null}
           {(job.driverPaymentHistory?.length ?? 0) > 0 ? (
             <ul className="mt-4 space-y-1 text-xs text-white/55">

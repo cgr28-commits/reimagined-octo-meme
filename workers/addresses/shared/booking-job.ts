@@ -1,6 +1,6 @@
 /** Owner-managed booking jobs: request → paid → assign driver by email. */
 
-import { formatDriverPayAmount } from "./tracking";
+import { formatDriverPayAmount, generalDriverLocationLabel } from "./tracking";
 
 function formatJobDateDmy(date: string): string {
   if (!date) return "";
@@ -64,6 +64,67 @@ export type BookingJobRecord = {
   trackingToken?: string;
 };
 
+export type DriverAssignmentJobSummary = {
+  id: string;
+  pickupLabel: string;
+  dropoffLabel: string;
+  tripDate: string;
+  tripTime: string;
+  driverFirstName?: string;
+  driverPayAmount?: string;
+  driverAssignmentStatus: DriverAssignmentStatus;
+  customerName?: string;
+  customerMobile?: string;
+  returnJourney?: boolean;
+  returnDate?: string;
+  returnTime?: string;
+  flightNumber?: string;
+  returnFlightNumber?: string;
+  passengers?: number;
+  suitcases?: number;
+  vehicle?: string;
+  journeyNotes?: string;
+};
+
+/** Public accept-link payload with a strict pre-acceptance privacy gate. */
+export function toDriverAssignmentJobSummary(
+  job: BookingJobRecord,
+): DriverAssignmentJobSummary {
+  const status = job.driverAssignmentStatus ?? "unassigned";
+  const accepted = status === "accepted";
+  const summary: DriverAssignmentJobSummary = {
+    id: job.id,
+    pickupLabel: accepted
+      ? job.pickupLabel
+      : generalDriverLocationLabel(job.pickupLabel),
+    dropoffLabel: accepted
+      ? job.dropoffLabel
+      : generalDriverLocationLabel(job.dropoffLabel),
+    tripDate: job.tripDate,
+    tripTime: job.tripTime,
+    driverFirstName: job.driverFirstName,
+    driverPayAmount: formatDriverPayAmount(job.driverPayAmount),
+    driverAssignmentStatus: status,
+    returnJourney: job.returnJourney,
+    returnDate: job.returnDate,
+    returnTime: job.returnTime,
+  };
+
+  if (!accepted) return summary;
+
+  return {
+    ...summary,
+    customerName: job.customerName,
+    customerMobile: job.customerMobile,
+    flightNumber: job.flightNumber,
+    returnFlightNumber: job.returnFlightNumber,
+    passengers: job.passengers,
+    suitcases: job.suitcases,
+    vehicle: job.vehicle,
+    journeyNotes: job.message,
+  };
+}
+
 export function bookingJobKey(id: string): string {
   return `booking-job:${id.trim()}`;
 }
@@ -112,10 +173,6 @@ export function buildDriverAssignmentEmail(options: {
   const job = options.job;
   const driverName = driverDisplayFirstName(job.driverFirstName) || "Driver";
   const pay = formatDriverPayAmount(job.driverPayAmount);
-  const vehicleLine = [job.driverCarMake, job.driverCarModel, job.driverReg]
-    .filter(Boolean)
-    .join(" ");
-
   const subject = `Job assignment — ${formatJobDateDmy(job.tripDate)} ${job.tripTime} — please confirm`;
 
   const lines = [
@@ -124,30 +181,20 @@ export function buildDriverAssignmentEmail(options: {
     `You have been assigned a job with ${businessName}.`,
     "",
     "Job details",
-    `Customer: ${job.customerName}`,
-    `Mobile: ${job.customerMobile}`,
-    `Pickup: ${job.pickupLabel}`,
-    `Drop-off: ${job.dropoffLabel}`,
+    `Pickup area: ${generalDriverLocationLabel(job.pickupLabel)}`,
+    `Destination area: ${generalDriverLocationLabel(job.dropoffLabel)}`,
     `Date: ${formatJobDateDmy(job.tripDate)}`,
     `Pick up time: ${job.tripTime}`,
     job.returnJourney && job.returnDate
       ? `Return: ${formatJobDateDmy(job.returnDate)} at ${job.returnTime ?? ""}`
       : null,
-    job.flightNumber ? `Flight: ${job.flightNumber}` : null,
-    `Passengers: ${job.passengers}`,
-    `Suitcases: ${job.suitcases}`,
-    `Vehicle type booked: ${job.vehicle}`,
-    vehicleLine ? `Your vehicle on this job: ${vehicleLine}` : null,
-    job.driverMobile?.trim() ? `Your mobile on file: ${job.driverMobile.trim()}` : null,
     "",
     `Your pay for this journey: ${pay}`,
     "You will be paid after each journey (usually the next day).",
     "",
-    "You do not need a login or access key — everything is in this email.",
+    "Customer and full operational details unlock immediately after you accept.",
     "Please confirm you accept this job:",
     options.acceptUrl,
-    "",
-    `Reference: ${job.id}`,
     "",
     businessName,
   ].filter((line): line is string => line !== null);
@@ -162,28 +209,24 @@ export function buildDriverAssignmentEmail(options: {
     <p>Hi ${escapeHtml(driverName)},</p>
     <p>You have been assigned a job with <strong>${escapeHtml(businessName)}</strong>.</p>
     <div style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:12px;padding:16px;margin:20px 0;">
-      <p style="margin:0 0 8px;"><strong>Customer:</strong> ${escapeHtml(job.customerName)}</p>
-      <p style="margin:0 0 8px;"><strong>Mobile:</strong> ${escapeHtml(job.customerMobile)}</p>
-      <p style="margin:0 0 8px;"><strong>Pickup:</strong> ${escapeHtml(job.pickupLabel)}</p>
-      <p style="margin:0 0 8px;"><strong>Drop-off:</strong> ${escapeHtml(job.dropoffLabel)}</p>
+      <p style="margin:0 0 8px;"><strong>Pickup area:</strong> ${escapeHtml(generalDriverLocationLabel(job.pickupLabel))}</p>
+      <p style="margin:0 0 8px;"><strong>Destination area:</strong> ${escapeHtml(generalDriverLocationLabel(job.dropoffLabel))}</p>
       <p style="margin:0 0 8px;"><strong>Date:</strong> ${escapeHtml(formatJobDateDmy(job.tripDate))}</p>
       <p style="margin:0 0 8px;"><strong>Pick up time:</strong> ${escapeHtml(job.tripTime)}</p>
       ${
-        job.flightNumber
-          ? `<p style="margin:0 0 8px;"><strong>Flight:</strong> ${escapeHtml(job.flightNumber)}</p>`
+        job.returnJourney && job.returnDate
+          ? `<p style="margin:0 0 8px;"><strong>Return:</strong> ${escapeHtml(formatJobDateDmy(job.returnDate))} at ${escapeHtml(job.returnTime ?? "")}</p>`
           : ""
       }
-      <p style="margin:0 0 8px;"><strong>Passengers / suitcases:</strong> ${job.passengers} / ${job.suitcases}</p>
       <p style="margin:0;"><strong>Your pay for this journey:</strong> ${escapeHtml(pay)}</p>
     </div>
     <p style="color:#c5d0e0;font-size:14px;">You will be paid after each journey (usually the next day).</p>
-    <p style="color:#c5d0e0;font-size:14px;">You do not need a login or access key — everything is in this email.</p>
+    <p style="color:#c5d0e0;font-size:14px;">Customer and full operational details unlock immediately after you accept.</p>
     <p style="margin:28px 0;">
       <a href="${escapeHtml(options.acceptUrl)}" style="display:inline-block;background:#2fbf4a;color:#071c38;text-decoration:none;font-weight:700;padding:14px 22px;border-radius:10px;">
         Confirm I accept this job
       </a>
     </p>
-    <p style="font-size:12px;color:#8a97ab;">Reference: ${escapeHtml(job.id)}</p>
   </div>
 </body>
 </html>`;

@@ -337,6 +337,46 @@ export function formatDriverPayAmount(value: string | undefined | null): string 
   return `£${amount.toFixed(2)}`;
 }
 
+/** Area-level location for a driver deciding whether to accept; never returns a street/postcode. */
+export function generalDriverLocationLabel(value: string | undefined | null): string {
+  const raw = String(value ?? "").trim();
+  if (!raw) return "Area available after acceptance";
+
+  const postcodePattern = /\b(?:BT\d{1,2}|[A-Z]{1,2}\d[A-Z\d]?)\s*\d[A-Z]{2}\b/gi;
+  const parts = raw
+    .split(",")
+    .map((part) => part.replace(postcodePattern, "").trim())
+    .filter(Boolean);
+  const privatePremisesPattern =
+    /\b(?:road|rd|street|st|avenue|ave|lane|ln|drive|dr|court|close|way|hotel|house|apartment|flat)\b/i;
+  const airport = parts.find(
+    (part) => /\b(?:airport|aerfort|terminal)\b/i.test(part) && !privatePremisesPattern.test(part),
+  );
+  if (airport) return airport;
+
+  if (parts.length >= 2) {
+    const area = [...parts]
+      .reverse()
+      .find(
+        (part) =>
+          !/^\d/.test(part) &&
+          !/^(?:uk|united kingdom|northern ireland|ireland)$/i.test(part),
+      );
+    return area || "Area available after acceptance";
+  }
+
+  // A city/town-only value is already area-level. Keep it useful while treating
+  // anything that resembles a street, premises or postcode as private.
+  if (
+    !/\d/.test(raw) &&
+    !privatePremisesPattern.test(raw)
+  ) {
+    return raw;
+  }
+
+  return "Area available after acceptance";
+}
+
 export function jobAssignmentStatus(
   job: Pick<TrackingJobRecord, "assignmentStatus">,
 ): JobAssignmentStatus {
