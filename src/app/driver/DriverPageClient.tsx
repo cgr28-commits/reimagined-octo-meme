@@ -2353,6 +2353,10 @@ export default function DriverPageClient({
 
   const handleAssignmentUpdated = useCallback(
     (updatedJob: DriverJob) => {
+      if (viewRole === "driver" && updatedJob.assignmentStatus === "accepted") {
+        setView(updatedJob.tripDate === today ? "today" : "upcoming");
+      }
+
       setPendingJobs((current) => {
         if (updatedJob.assignmentStatus === "pending") {
           const exists = current.some((entry) => entry.token === updatedJob.token);
@@ -2383,7 +2387,7 @@ export default function DriverPageClient({
         return next.sort((a, b) => a.pickupAt.localeCompare(b.pickupAt));
       });
     },
-    [viewRole],
+    [today, viewRole],
   );
 
   const loadDriverRoster = useCallback(async (key: string) => {

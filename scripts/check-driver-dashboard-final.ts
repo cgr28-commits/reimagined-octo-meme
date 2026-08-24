@@ -362,6 +362,10 @@ async function main() {
   assert.match(page, /\["arrived_pickup", "Driver arrived"\]/);
   assert.match(page, /\["complete_journey", "Complete journey"\]/);
   assert.match(page, /return visibleJobs\.filter\(\(job\) => !isOwnerCompletedDriverJob\(job\)\)/);
+  assert.match(
+    page,
+    /updatedJob\.assignmentStatus === "accepted"[\s\S]*?setView\(updatedJob\.tripDate === today \? "today" : "upcoming"\)/,
+  );
   assert.match(page, /Completed — Payment Due/);
   assert.match(page, /Confirm payment sent/);
   const driverNotesIndex = page.indexOf("!isOwner && isAcceptedAssignment && job.journeyNotes");
