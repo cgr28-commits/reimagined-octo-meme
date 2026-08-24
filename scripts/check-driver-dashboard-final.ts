@@ -364,6 +364,11 @@ async function main() {
   assert.match(page, /return visibleJobs\.filter\(\(job\) => !isOwnerCompletedDriverJob\(job\)\)/);
   assert.match(page, /Completed — Payment Due/);
   assert.match(page, /Confirm payment sent/);
+  const driverNotesIndex = page.indexOf("!isOwner && isAcceptedAssignment && job.journeyNotes");
+  const ownerPaymentIndex = page.indexOf(
+    '{isOwner && journeyStatus === "completed" && driverPaymentStatus ? (',
+  );
+  assert.ok(driverNotesIndex >= 0 && driverNotesIndex < ownerPaymentIndex);
 
   console.log("\nFinal driver dashboard regression checks passed");
 }

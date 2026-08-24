@@ -1794,6 +1794,12 @@ function DriverJobCard({
         )}
       </div>
 
+      {!isOwner && isAcceptedAssignment && job.journeyNotes ? (
+        <p className="mt-4 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-white/70">
+          Journey notes: {job.journeyNotes}
+        </p>
+      ) : null}
+
       {isOwner && journeyStatus === "completed" && driverPaymentStatus ? (
         <div className="mt-4 rounded-xl border border-emerald/20 bg-emerald/[0.05] p-4">
           <p className="text-sm font-semibold text-white">
@@ -1826,11 +1832,6 @@ function DriverJobCard({
                 {paymentBusy ? "Recording…" : "Confirm payment sent"}
               </button>
             </div>
-          ) : null}
-          {!isOwner && isAcceptedAssignment && job.journeyNotes ? (
-            <p className="mt-2 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-white/70">
-              Journey notes: {job.journeyNotes}
-            </p>
           ) : null}
           {(job.driverPaymentHistory?.length ?? 0) > 0 ? (
             <ul className="mt-4 space-y-1 text-xs text-white/55">
