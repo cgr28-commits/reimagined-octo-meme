@@ -13,6 +13,95 @@ export const DEMO_OWNER_NAME = "Colin";
 /** Additional saved drivers shown in owner assign picker (beyond Owner / primary). */
 export const DEMO_ROSTER = ["Gary"] as const;
 let demoPendingAssignmentStatus: "pending" | "accepted" | "declined" = "pending";
+type DemoJourneyOverride = Pick<
+  DriverJob,
+  | "journeyStatus"
+  | "journeyStatusLabel"
+  | "allowedJourneyActions"
+  | "sharingActive"
+  | "trackingStartedAt"
+  | "arrivedPickupAt"
+  | "journeyStartedAt"
+  | "arrivedDestinationAt"
+  | "journeyCompletedAt"
+>;
+const demoJourneyOverrides = new Map<string, DemoJourneyOverride>();
+
+function demoJourneyStorageKey(token: string): string {
+  return `matni-demo-journey:${token}`;
+}
+
+function readDemoJourneyOverride(token: string): DemoJourneyOverride | undefined {
+  const inMemory = demoJourneyOverrides.get(token);
+  if (inMemory) return inMemory;
+  if (typeof window === "undefined") return undefined;
+
+  try {
+    const raw = window.sessionStorage.getItem(demoJourneyStorageKey(token));
+    if (!raw) return undefined;
+    const stored = JSON.parse(raw) as DemoJourneyOverride;
+    demoJourneyOverrides.set(token, stored);
+    return stored;
+  } catch {
+    return undefined;
+  }
+}
+
+function applyDemoJourneyOverride(job: DriverJob): DriverJob {
+  const override = readDemoJourneyOverride(job.token);
+  if (!override) return job;
+  return {
+    ...job,
+    ...override,
+    driver: override.sharingActive ? job.driver : null,
+    activeDriverName: override.sharingActive ? job.activeDriverName : undefined,
+  };
+}
+
+export function setDemoJourneyTransition(
+  token: string,
+  transition: {
+    journeyStatus: NonNullable<DriverJob["journeyStatus"]>;
+    journeyStatusLabel: string;
+    allowedActions: NonNullable<DriverJob["allowedJourneyActions"]>;
+    sharingActive: boolean;
+    trackingStartedAt?: string;
+    arrivedPickupAt?: string;
+    journeyStartedAt?: string;
+    arrivedDestinationAt?: string;
+    journeyCompletedAt?: string;
+  },
+) {
+  const override: DemoJourneyOverride = {
+    journeyStatus: transition.journeyStatus,
+    journeyStatusLabel: transition.journeyStatusLabel,
+    allowedJourneyActions: transition.allowedActions,
+    sharingActive: transition.sharingActive,
+    trackingStartedAt: transition.trackingStartedAt,
+    arrivedPickupAt: transition.arrivedPickupAt,
+    journeyStartedAt: transition.journeyStartedAt,
+    arrivedDestinationAt: transition.arrivedDestinationAt,
+    journeyCompletedAt: transition.journeyCompletedAt,
+  };
+  demoJourneyOverrides.set(token, override);
+  if (typeof window !== "undefined") {
+    try {
+      window.sessionStorage.setItem(demoJourneyStorageKey(token), JSON.stringify(override));
+    } catch {
+      // In-memory state still keeps polling consistent when storage is unavailable.
+    }
+  }
+}
+
+export function resetDemoJourneyTransitions() {
+  const tokens = [...demoJourneyOverrides.keys()];
+  demoJourneyOverrides.clear();
+  if (typeof window !== "undefined") {
+    for (const token of tokens) {
+      window.sessionStorage.removeItem(demoJourneyStorageKey(token));
+    }
+  }
+}
 
 export function setDemoDriverPendingAssignmentStatus(
   status: "pending" | "accepted" | "declined",
@@ -203,7 +292,7 @@ export function getDemoTrackResponse(token: DemoTrackToken): PublicTrackResponse
 
 /** Strip owner-only fields so demo matches live driver API responses. */
 export function sanitizeDemoJobForDriver(job: DriverJob): DriverJob {
-  const sanitized: Record<string, unknown> = { ...job };
+  const sanitized: Record<string, unknown> = { ...applyDemoJourneyOverride(job) };
   delete sanitized.paymentReference;
   delete sanitized.amountPaidLabel;
   delete sanitized.refundAmountLabel;

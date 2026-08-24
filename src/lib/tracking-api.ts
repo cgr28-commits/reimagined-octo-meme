@@ -22,6 +22,7 @@ import {
   isDemoOwnerKey,
   isDemoTrackToken,
   sanitizeDemoJobForDriver,
+  setDemoJourneyTransition,
   setDemoDriverPendingAssignmentStatus,
 } from "@/lib/tracking-demo";
 
@@ -567,7 +568,7 @@ export async function postJourneyAction(
     const next = transition[action];
     const sharingActive =
       isDemoOwnerKey(accessKey) && action !== "complete_journey" && action !== "stop_tracking";
-    return {
+    const result: JourneyTransitionResponse = {
       ok: true,
       token,
       ...next,
@@ -588,6 +589,8 @@ export async function postJourneyAction(
           }
         : {}),
     };
+    setDemoJourneyTransition(token, result);
+    return result;
   }
 
   const response = await fetch(

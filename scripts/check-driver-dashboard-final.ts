@@ -20,7 +20,11 @@ import {
   handleDriverSharingRequest,
 } from "../workers/addresses/src/tracking-handlers";
 import { postJourneyAction as postClientJourneyAction } from "../src/lib/tracking-api";
-import { DEMO_DRIVER_KEY } from "../src/lib/tracking-demo";
+import {
+  DEMO_DRIVER_KEY,
+  getDemoDriverJobs,
+  resetDemoJourneyTransitions,
+} from "../src/lib/tracking-demo";
 
 const values = new Map<string, string>();
 const store = {
@@ -356,6 +360,11 @@ async function main() {
   assert.equal(demoCompleted.journeyStatus, "completed");
   assert.equal(demoCompleted.journeyStatusLabel, "Journey completed");
   assert.deepEqual(demoCompleted.allowedActions, []);
+  const refreshedDemo = getDemoDriverJobs().jobs.find((entry) => entry.token === "demo-live");
+  assert.equal(refreshedDemo?.journeyStatus, "completed");
+  assert.deepEqual(refreshedDemo?.allowedJourneyActions, []);
+  assert.equal(refreshedDemo?.sharingActive, false);
+  resetDemoJourneyTransitions();
 
   console.log("=== Payment is owner-only and keeps amount/status/history ===");
   const driverAttempt = await handleDriverPaymentRequest(
