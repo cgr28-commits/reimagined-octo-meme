@@ -11,6 +11,7 @@ import OwnerShortNoticePanel from "@/components/OwnerShortNoticePanel";
 import OwnerPersonalQuotesPanel from "@/components/OwnerPersonalQuotesPanel";
 import OwnerBookingCalendar from "@/components/OwnerBookingCalendar";
 import OwnerAccountProfilePanel from "@/components/OwnerAccountProfilePanel";
+import OwnerAssignDriverPanel from "@/components/OwnerAssignDriverPanel";
 import OwnerFinancialSummaryPanel from "@/components/OwnerFinancialSummaryPanel";
 import OwnerDashboardToolSwitcher, {
   type OwnerDashboardToolTab,
@@ -27,7 +28,6 @@ import {
   updateDriverBooking,
   verifyDriverAccessKey,
   fetchDriverStatus,
-  assignJobToDriver,
   deassignJob,
   respondToJobAssignment,
   fetchDriverRoster,
@@ -361,6 +361,7 @@ function DriverProfilePanel({
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<string | null>(null);
+  const [addingNew, setAddingNew] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -500,10 +501,10 @@ function DriverProfilePanel({
   }, [accessKey, selectedProfile, profiles, isOwner]);
 
   const saveProfile = async () => {
-    if (!selectedProfile?.trim()) {
+    if (!selectedProfile?.trim() && !(addingNew && form.displayName.trim())) {
       setError(
         isOwner
-          ? "Add or select an additional driver before saving. Your Owner profile is already the default."
+          ? "Add a driver name before saving. Your Owner profile is already the default."
           : "Missing driver profile key.",
       );
       return;
@@ -514,8 +515,12 @@ function DriverProfilePanel({
     setError(null);
 
     try {
+      const profileKeyForSave = addingNew
+        ? form.displayName.trim()
+        : selectedProfile.trim() || form.displayName.trim();
+
       const result = await saveDriverVehicle(accessKey, {
-        profile: selectedProfile,
+        profile: profileKeyForSave,
         displayName: form.displayName,
         email: form.email,
         mobile: form.mobile,
@@ -539,6 +544,7 @@ function DriverProfilePanel({
         registration: result.profile.registration,
       });
       setSelectedProfile(result.profile.profileKey);
+      setAddingNew(false);
       setProfileComplete(true);
       setSavedAt(result.profile.updatedAt ?? new Date().toISOString());
       setCollapsed(true);
@@ -554,9 +560,7 @@ function DriverProfilePanel({
 
       setMessage(
         result.emailSent
-          ? isOwner
-            ? `Saved. Confirmation emailed to ${result.profile.email}.`
-            : `Saved. Confirmation emailed to ${result.profile.email}.`
+          ? `Saved. Confirmation emailed to ${result.profile.email}.`
           : result.emailWarning
             ? `Saved on the server, but the confirmation email could not be sent: ${result.emailWarning}`
             : "Saved.",
@@ -569,15 +573,18 @@ function DriverProfilePanel({
     }
   };
 
-  const showSetupPrompt = !loading && !profileComplete && Boolean(selectedProfile);
+  const showSetupPrompt = !loading && !profileComplete && Boolean(selectedProfile || addingNew);
   // Owner managing additional drivers can collapse when complete — do not force the editor open.
   // When there are no additional drivers, keep the default-driver notice visible (no empty form).
-  const ownerUsingDefaultDriver = isOwner && !selectedProfile;
+  const ownerUsingDefaultDriver = isOwner && !selectedProfile && !addingNew;
   const incompleteAdditional = isOwner
     ? profiles.filter((entry) => !entry.complete)
     : [];
+  const completeAdditional = isOwner
+    ? profiles.filter((entry) => entry.complete)
+    : [];
   const showEditor =
-    !ownerUsingDefaultDriver && (!collapsed || showSetupPrompt);
+    ((!ownerUsingDefaultDriver && (!collapsed || showSetupPrompt)) || addingNew);
 
   return (
     <section className="mb-8 rounded-2xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
@@ -596,6 +603,30 @@ function DriverProfilePanel({
               Using Owner profile as the default driver. No separate driver entry needed.
             </p>
           ) : null}
+          {isOwner && completeAdditional.length > 0 ? (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {completeAdditional.map((profile) => (
+                <button
+                  key={profile.profileKey}
+                  type="button"
+                  onClick={() => {
+                    setAddingNew(false);
+                    setSelectedProfile(profile.profileKey);
+                    setCollapsed(false);
+                    setProfileComplete(true);
+                  }}
+                  className={`rounded-xl border px-3 py-2 text-left text-xs font-semibold transition-colors ${
+                    selectedProfile === profile.profileKey
+                      ? "border-emerald bg-emerald/20 text-white"
+                      : "border-white/15 text-white/80 hover:border-white/30"
+                  }`}
+                >
+                  <span className="block text-sm font-bold">{profile.displayName}</span>
+                  <span className="text-white/50">Saved driver</span>
+                </button>
+              ))}
+            </div>
+          ) : null}
           {isOwner && ownerUsingDefaultDriver && incompleteAdditional.length > 0 ? (
             <div className="mt-3 flex flex-wrap gap-2">
               {incompleteAdditional.map((profile) => (
@@ -603,6 +634,7 @@ function DriverProfilePanel({
                   key={profile.profileKey}
                   type="button"
                   onClick={() => {
+                    setAddingNew(false);
                     setSelectedProfile(profile.profileKey);
                     setCollapsed(false);
                     setProfileComplete(false);
@@ -629,11 +661,37 @@ function DriverProfilePanel({
           ) : null}
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {isOwner && selectedProfile ? (
+          {isOwner ? (
+            <button
+              type="button"
+              onClick={() => {
+                setAddingNew(true);
+                setSelectedProfile("");
+                setCollapsed(false);
+                setProfileComplete(false);
+                setForm({
+                  displayName: "",
+                  email: "",
+                  mobile: "",
+                  make: "",
+                  model: "",
+                  colour: "",
+                  registration: "",
+                });
+                setMessage(null);
+                setError(null);
+              }}
+              className="rounded-xl border border-emerald/40 bg-emerald/15 px-4 py-2 text-sm font-semibold text-emerald transition-colors hover:bg-emerald/25"
+            >
+              Add saved driver
+            </button>
+          ) : null}
+          {isOwner && (selectedProfile || addingNew) ? (
             <button
               type="button"
               onClick={() => {
                 setSelectedProfile("");
+                setAddingNew(false);
                 setCollapsed(true);
                 setProfileComplete(true);
                 setMessage(null);
@@ -854,10 +912,6 @@ function DriverJobCard({
   const [assignBusy, setAssignBusy] = useState(false);
   const [assignFormOpen, setAssignFormOpen] = useState(false);
   const [assignMessage, setAssignMessage] = useState<string | null>(null);
-  const [assignProfiles, setAssignProfiles] = useState<
-    Array<{ profileKey: string; displayName: string }>
-  >([]);
-  const [assignProfileKey, setAssignProfileKey] = useState("");
   const [assignForm, setAssignForm] = useState({
     driverFirstName: "",
     driverEmail: "",
@@ -958,72 +1012,9 @@ function DriverJobCard({
     };
   }, [driverKey, job.token, job.driverLocationPointCount, showRecordedRoute]);
 
-  useEffect(() => {
-    if (!isOwner || !assignFormOpen) {
-      return;
-    }
-
-    let cancelled = false;
-    void fetchDriverVehicleProfiles(driverKey)
-      .then((profiles) => {
-        if (cancelled) {
-          return;
-        }
-        setAssignProfiles(profiles);
-        if (!assignProfileKey && profiles.length > 0) {
-          const first = profiles[0];
-          setAssignProfileKey(first.profileKey);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setAssignProfiles([]);
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [isOwner, assignFormOpen, driverKey, assignProfileKey]);
-
-  useEffect(() => {
-    if (!isOwner || !assignFormOpen || !assignProfileKey) {
-      return;
-    }
-
-    let cancelled = false;
-    void fetchDriverVehicle(driverKey, assignProfileKey)
-      .then((profile) => {
-        if (cancelled || !profile) {
-          return;
-        }
-        setAssignForm((prev) => ({
-          ...prev,
-          driverFirstName: profile.displayName || prev.driverFirstName,
-          driverEmail: profile.email || prev.driverEmail,
-          driverMobile: profile.mobile || prev.driverMobile,
-          driverCarMake: profile.make || prev.driverCarMake,
-          driverCarModel: profile.model || prev.driverCarModel,
-          driverCarColour: profile.colour || prev.driverCarColour,
-          driverReg: profile.registration || prev.driverReg,
-        }));
-      })
-      .catch(() => {
-        /* keep manual values */
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [isOwner, assignFormOpen, driverKey, assignProfileKey]);
-
   const openAssignForm = () => {
     setAssignMessage(null);
     setError(null);
-    setAssignForm((prev) => ({
-      ...prev,
-      driverFirstName: prev.driverFirstName || job.assignedDriverName || availableDrivers[0] || "",
-    }));
     setAssignFormOpen(true);
   };
 
@@ -1188,68 +1179,6 @@ function DriverJobCard({
       setError(err instanceof Error ? err.message : "Could not load journey record");
     } finally {
       setEvidenceBusy(false);
-    }
-  };
-
-  const assignToDriver = async () => {
-    const driverFirstName = assignForm.driverFirstName.trim();
-    const driverEmail = assignForm.driverEmail.trim();
-    const driverMobile = assignForm.driverMobile.trim();
-    const driverPayAmount = assignForm.driverPayAmount.trim();
-
-    if (!driverFirstName) {
-      setError("Enter the driver’s first name");
-      return;
-    }
-    if (!driverEmail || !driverEmail.includes("@")) {
-      setError("Enter a valid driver email");
-      return;
-    }
-    if (!driverMobile) {
-      setError("Enter the driver’s mobile number");
-      return;
-    }
-    if (!driverPayAmount) {
-      setError("Enter how much you are paying the driver for this journey");
-      return;
-    }
-
-    setAssignBusy(true);
-    setError(null);
-    setAssignMessage(null);
-
-    try {
-      const result = await assignJobToDriver(driverKey, job.token, {
-        driverFirstName,
-        driverEmail,
-        driverMobile,
-        driverCarMake: assignForm.driverCarMake,
-        driverCarModel: assignForm.driverCarModel,
-        driverCarColour: assignForm.driverCarColour,
-        driverReg: assignForm.driverReg,
-        driverPayAmount,
-      });
-      onAssignmentUpdated({
-        ...result.job,
-        assignedDriverName: driverFirstName,
-        assignedDriverMobile: driverMobile,
-        assignedDriverCarMake: assignForm.driverCarMake.trim() || result.job.assignedDriverCarMake,
-        assignedDriverCarModel: assignForm.driverCarModel.trim() || result.job.assignedDriverCarModel,
-        assignedDriverCarColour:
-          assignForm.driverCarColour.trim() || result.job.assignedDriverCarColour,
-        assignedDriverReg: assignForm.driverReg.trim() || result.job.assignedDriverReg,
-        driverPayAmount,
-      });
-      setAssignMessage(
-        result.emailed === false
-          ? "Driver assigned. Email may not have been sent — check worker email settings."
-          : `Assignment emailed to ${driverEmail}. A copy was sent to you. Waiting for them to confirm.`,
-      );
-      setAssignFormOpen(false);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not assign job");
-    } finally {
-      setAssignBusy(false);
     }
   };
 
@@ -1570,88 +1499,36 @@ function DriverJobCard({
       <DriverFlightPanel job={job} onRefresh={onRefreshJob} refreshing={refreshingJob} />
 
       {isOwner && !isRefunded && assignFormOpen ? (
-        <div className="mt-5 space-y-3 rounded-xl border border-emerald/30 bg-emerald/5 p-4">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <p className="text-sm font-semibold text-white">
-                {assignmentStatus === "pending" || assignmentStatus === "accepted"
-                  ? "Reassign driver"
-                  : "Assign driver"}
-              </p>
-              <p className="mt-1 text-xs text-white/55">
-                Enter driver details (including mobile), car details, and what you are paying them
-                for this journey — not what the customer paid. They get an email to confirm; you get
-                a copy.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setAssignFormOpen(false)}
-              className="rounded-xl border border-white/15 px-3 py-1.5 text-xs font-semibold text-white/70 transition-colors hover:border-white/30"
-            >
-              Close
-            </button>
-          </div>
-          {assignProfiles.length > 0 ? (
-            <label className="block text-xs text-white/50">
-              Prefill from saved driver profile
-              <select
-                value={assignProfileKey}
-                onChange={(event) => setAssignProfileKey(event.target.value)}
-                className="mt-1 w-full rounded-xl border border-white/15 bg-navy px-3 py-2 text-sm text-white outline-none focus:border-emerald"
-              >
-                {assignProfiles.map((profile) => (
-                  <option key={profile.profileKey} value={profile.profileKey}>
-                    {profile.displayName}
-                  </option>
-                ))}
-              </select>
-            </label>
-          ) : null}
-          <div className="grid gap-3 sm:grid-cols-2">
-            {(
-              [
-                ["driverFirstName", "Driver first name"],
-                ["driverEmail", "Driver email"],
-                ["driverMobile", "Driver mobile"],
-                ["driverCarMake", "Car make"],
-                ["driverCarModel", "Car model"],
-                ["driverCarColour", "Car colour"],
-                ["driverReg", "Registration"],
-                ["driverPayAmount", "Amount to pay driver (not customer price)"],
-              ] as const
-            ).map(([key, label]) => (
-              <label key={key} className="text-xs text-white/50">
-                {label}
-                <input
-                  value={assignForm[key]}
-                  onChange={(event) =>
-                    setAssignForm((prev) => ({ ...prev, [key]: event.target.value }))
-                  }
-                  placeholder={
-                    key === "driverPayAmount"
-                      ? "e.g. £80"
-                      : key === "driverMobile"
-                        ? "e.g. 07700 900123"
-                        : undefined
-                  }
-                  className="mt-1 w-full rounded-xl border border-white/15 bg-navy px-3 py-2 text-sm text-white outline-none focus:border-emerald"
-                />
-              </label>
-            ))}
-          </div>
-          <button
-            type="button"
-            disabled={assignBusy}
-            onClick={() => void assignToDriver()}
-            className="rounded-xl bg-emerald px-4 py-2.5 text-sm font-bold text-navy transition-colors hover:bg-emerald/90 disabled:opacity-60"
-          >
-            {assignBusy
-              ? "Sending…"
-              : assignmentStatus === "pending" || assignmentStatus === "accepted"
-                ? "Email reassignment to driver"
-                : "Email driver to confirm job"}
-          </button>
+        <div className="mt-5">
+          <OwnerAssignDriverPanel
+            ownerKey={driverKey}
+            trackingToken={job.token}
+            mode={
+              assignmentStatus === "pending" || assignmentStatus === "accepted"
+                ? "reassign"
+                : "assign"
+            }
+            currentDriverName={job.assignedDriverName}
+            assignmentHistory={job.assignmentHistory}
+            onClose={() => setAssignFormOpen(false)}
+            onAssigned={(nextJob) => {
+              onAssignmentUpdated(nextJob);
+              setAssignForm({
+                driverFirstName: nextJob.assignedDriverName ?? "",
+                driverEmail: "",
+                driverMobile: nextJob.assignedDriverMobile ?? "",
+                driverCarMake: nextJob.assignedDriverCarMake ?? "",
+                driverCarModel: nextJob.assignedDriverCarModel ?? "",
+                driverCarColour: nextJob.assignedDriverCarColour ?? "",
+                driverReg: nextJob.assignedDriverReg ?? "",
+                driverPayAmount: nextJob.driverPayAmount ?? "",
+              });
+              setAssignMessage(
+                `Assigned to ${nextJob.assignedDriverName ?? "driver"}. Waiting for them to confirm.`,
+              );
+              setAssignFormOpen(false);
+            }}
+          />
         </div>
       ) : null}
 
@@ -1665,8 +1542,8 @@ function DriverJobCard({
               className="rounded-xl bg-emerald px-4 py-2.5 text-sm font-semibold text-navy transition-colors hover:bg-emerald/90 disabled:opacity-60"
             >
               {assignmentStatus === "pending" || assignmentStatus === "accepted"
-                ? "Reassign job"
-                : "Assign job"}
+                ? "Reassign driver"
+                : "Assign driver"}
             </button>
             {isAssigned && (
               <button

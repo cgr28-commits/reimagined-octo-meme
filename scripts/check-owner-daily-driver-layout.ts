@@ -171,6 +171,8 @@ console.log("\n=== 3. Owner panel UI contracts ===");
   assert.match(panel, /Active jobs/);
   assert.match(panel, /Completed jobs \(/);
   assert.match(panel, /More options ▼/);
+  assert.match(panel, /Reassign driver/);
+  assert.match(panel, /OwnerAssignDriverPanel/);
   assert.match(panel, /data-owner-primary-journey-controls/);
   assert.match(panel, /data-owner-more-options/);
   assert.match(panel, /data-owner-journey-action=\{item\.action\}/);

@@ -68,6 +68,12 @@ export type OwnerPaidBookingSummary = Pick<
   assignedDriverName?: string;
   assignedDriverLabel?: string;
   assignmentStatus?: string;
+  assignmentHistory?: Array<{
+    at: string;
+    action: "assigned" | "reassigned" | "deassigned";
+    fromDriverName?: string | null;
+    toDriverName?: string | null;
+  }>;
   primaryDriverDefault?: boolean;
   arrivedPickupAt?: string;
   arrivalNotificationStatus?: "sent" | "failed" | "not_configured" | "skipped" | string;

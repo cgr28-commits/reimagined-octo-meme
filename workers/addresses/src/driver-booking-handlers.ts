@@ -121,6 +121,7 @@ export async function enrichDriverJob(
       assignedAt: job.assignedAt ?? bookingJob?.assignedAt,
       acceptedAt: job.acceptedAt ?? bookingJob?.driverAcceptedAt,
       declinedAt: job.declinedAt ?? bookingJob?.driverDeclinedAt,
+      assignmentHistory: job.assignmentHistory ?? [],
       assignedDriverMobile: bookingJob?.driverMobile,
       assignedDriverCarMake: bookingJob?.driverCarMake,
       assignedDriverCarModel: bookingJob?.driverCarModel,

@@ -88,6 +88,8 @@ export type TrackingJobRecord = {
   assignedAt?: string;
   acceptedAt?: string;
   declinedAt?: string;
+  /** Soft audit trail of assign / reassign / deassign events (newest last). */
+  assignmentHistory?: DriverAssignmentHistoryEntry[];
   /** Count of GPS points retained for audit (owner only in API responses) */
   driverLocationPointCount?: number;
   driverLocationRecordedFrom?: string;
@@ -129,6 +131,25 @@ export type DriverLocationPoint = {
 };
 
 export type JobAssignmentStatus = "unassigned" | "pending" | "accepted" | "declined";
+
+export type DriverAssignmentHistoryEntry = {
+  at: string;
+  action: "assigned" | "reassigned" | "deassigned";
+  fromDriverName?: string | null;
+  toDriverName?: string | null;
+};
+
+/** Append-only assignment audit (never deletes prior entries). */
+export function appendDriverAssignmentHistory(
+  job: TrackingJobRecord,
+  entry: DriverAssignmentHistoryEntry,
+): TrackingJobRecord {
+  const previous = Array.isArray(job.assignmentHistory) ? job.assignmentHistory : [];
+  return {
+    ...job,
+    assignmentHistory: [...previous, entry],
+  };
+}
 
 export type TrackingSessionRecord = {
   sessionToken: string;

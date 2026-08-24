@@ -125,8 +125,11 @@ check("owner GPS audit history for live job", () => {
 
 check("owner vehicle profiles roster", () => {
   const profiles = getDemoOwnerVehicleProfiles();
+  assert.ok(profiles.some((profile) => profile.profileKey === "owner"));
+  assert.ok(profiles.some((profile) => profile.displayName === "Colin"));
+  assert.ok(profiles.some((profile) => profile.displayName === "Gary"));
   assert.deepEqual(
-    profiles.map((profile) => profile.displayName),
+    profiles.filter((profile) => profile.profileKey !== "owner").map((p) => p.displayName),
     [...DEMO_ROSTER],
   );
 });

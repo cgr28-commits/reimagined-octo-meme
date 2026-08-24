@@ -164,9 +164,17 @@ export async function listOwnerVehicleProfileOptions(
 
   for (const key of indexed) {
     if (!byKey.has(key)) {
+      const pretty =
+        key === OWNER_VEHICLE_PROFILE_KEY
+          ? "Owner"
+          : key
+              .split(/[-_\s]+/)
+              .filter(Boolean)
+              .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+              .join(" ");
       byKey.set(key, {
         profileKey: key,
-        displayName: key === OWNER_VEHICLE_PROFILE_KEY ? "Owner" : key,
+        displayName: pretty,
         complete: false,
       });
     }

@@ -248,6 +248,12 @@ export type DriverJob = PublicTrackResponse & {
   assignedAt?: string;
   acceptedAt?: string;
   declinedAt?: string;
+  assignmentHistory?: Array<{
+    at: string;
+    action: "assigned" | "reassigned" | "deassigned";
+    fromDriverName?: string | null;
+    toDriverName?: string | null;
+  }>;
   driverLocationPointCount?: number;
   driverLocationRecordedFrom?: string;
   driverLocationRecordedTo?: string;
@@ -801,13 +807,13 @@ export async function fetchOwnerAccountProfile(
     return {
       profile: {
         profileKey: "owner",
-        displayName: "Owner",
-        email: "owner@example.com",
-        mobile: "07700900123",
-        make: "Mercedes-Benz",
-        model: "E-Class",
+        displayName: "Colin",
+        email: "colin@example.com",
+        mobile: "07700900111",
+        make: "Skoda",
+        model: "Superb",
         colour: "Black",
-        registration: "ABC 1234",
+        registration: "COL 1N",
         updatedAt: new Date().toISOString(),
       },
       complete: true,
@@ -1063,6 +1069,20 @@ export async function assignJobToDriver(
       throw new Error("Job not found");
     }
 
+    const previousName = job.assignedDriverName?.trim() || null;
+    const hadAssignment =
+      Boolean(previousName) && (job.assignmentStatus ?? "unassigned") !== "unassigned";
+    const at = new Date().toISOString();
+    const history = [
+      ...(job.assignmentHistory ?? []),
+      {
+        at,
+        action: (hadAssignment ? "reassigned" : "assigned") as "assigned" | "reassigned",
+        fromDriverName: hadAssignment ? previousName : null,
+        toDriverName: driverName,
+      },
+    ];
+
     return {
       ok: true,
       emailed: Boolean(details.driverEmail && details.driverPayAmount),
@@ -1070,7 +1090,14 @@ export async function assignJobToDriver(
         ...job,
         assignedDriverName: driverName,
         assignmentStatus: "pending",
-        assignedAt: new Date().toISOString(),
+        assignedAt: at,
+        assignmentHistory: history,
+        assignedDriverMobile: details.driverMobile,
+        assignedDriverCarMake: details.driverCarMake,
+        assignedDriverCarModel: details.driverCarModel,
+        assignedDriverCarColour: details.driverCarColour,
+        assignedDriverReg: details.driverReg,
+        driverPayAmount: details.driverPayAmount,
       }),
     };
   }

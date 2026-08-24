@@ -3,6 +3,7 @@ import {
   type BookingJobRecord,
 } from "../shared/booking-job";
 import {
+  appendDriverAssignmentHistory,
   driverNamesMatch,
   jobAssignmentStatus,
   type JobAssignmentStatus,
@@ -63,7 +64,17 @@ function stopDriverSharing(record: TrackingJobRecord): void {
   delete record.activeDriverName;
 }
 
-function clearJobAssignment(record: TrackingJobRecord): void {
+function clearJobAssignment(record: TrackingJobRecord, atIso: string): void {
+  const previousName = record.assignedDriverName?.trim() || null;
+  Object.assign(
+    record,
+    appendDriverAssignmentHistory(record, {
+      at: atIso,
+      action: "deassigned",
+      fromDriverName: previousName,
+      toDriverName: null,
+    }),
+  );
   delete record.assignedDriverName;
   delete record.assignmentStatus;
   delete record.assignedAt;
@@ -79,6 +90,7 @@ function assignmentFields(record: TrackingJobRecord) {
     assignedAt: record.assignedAt,
     acceptedAt: record.acceptedAt,
     declinedAt: record.declinedAt,
+    assignmentHistory: record.assignmentHistory ?? [],
   };
 }
 
@@ -199,6 +211,20 @@ export async function handleDriverAssignRequest(
   }
 
   const now = new Date().toISOString();
+  const previousName = record.assignedDriverName?.trim() || null;
+  const hadAssignment =
+    Boolean(previousName) && jobAssignmentStatus(record) !== "unassigned";
+
+  Object.assign(
+    record,
+    appendDriverAssignmentHistory(record, {
+      at: now,
+      action: hadAssignment ? "reassigned" : "assigned",
+      fromDriverName: hadAssignment ? previousName : null,
+      toDriverName: driverFirstName,
+    }),
+  );
+
   record.assignedDriverName = driverFirstName;
   record.assignmentStatus = "pending";
   record.assignedAt = now;
@@ -361,7 +387,7 @@ export async function handleDriverDeassignRequest(
     return jsonResponse({ error: "This job is not assigned to a driver" }, 409, origin);
   }
 
-  clearJobAssignment(record);
+  clearJobAssignment(record, new Date().toISOString());
   await saveTrackingJob(env.TRACKING_STORE, record);
 
   const job = await enrichDriverJob(record, env, origin, "owner");

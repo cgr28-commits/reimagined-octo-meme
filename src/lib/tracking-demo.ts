@@ -7,8 +7,10 @@ export type DemoTrackToken = (typeof DEMO_TRACK_TOKENS)[number];
 
 export const DEMO_DRIVER_KEY = "demo-driver-key";
 export const DEMO_OWNER_KEY = "demo-owner-key";
-export const DEMO_DRIVER_NAME = "Driver";
-export const DEMO_ROSTER = ["Driver"] as const;
+export const DEMO_DRIVER_NAME = "Gary";
+export const DEMO_OWNER_NAME = "Colin";
+/** Additional saved drivers shown in owner assign picker (beyond Owner / primary). */
+export const DEMO_ROSTER = ["Gary"] as const;
 
 export function isDemoDriverKey(key: string): boolean {
   return key.trim() === DEMO_DRIVER_KEY;
@@ -530,7 +532,7 @@ export function getDemoOwnerLocationHistory(token: string) {
 
 export function getDemoOwnerVehicleProfiles() {
   return [
-    { profileKey: "owner", displayName: "Owner", complete: true },
+    { profileKey: "owner", displayName: DEMO_OWNER_NAME, complete: true },
     ...DEMO_ROSTER.map((name) => ({
       profileKey: name.toLowerCase(),
       displayName: name,
@@ -541,20 +543,32 @@ export function getDemoOwnerVehicleProfiles() {
 
 export function getDemoOwnerVehicle(profile?: string) {
   const key = (profile ?? "owner").trim().toLowerCase();
+  if (key === "owner") {
+    return {
+      profileKey: "owner",
+      displayName: DEMO_OWNER_NAME,
+      email: "colin@example.com",
+      mobile: "07700900111",
+      make: "Skoda",
+      model: "Superb",
+      colour: "Black",
+      registration: "COL 1N",
+      updatedAt: new Date().toISOString(),
+    };
+  }
+
   const displayName =
-    key === "owner"
-      ? "Owner"
-      : DEMO_ROSTER.find((name) => name.toLowerCase() === key) ?? profile ?? DEMO_DRIVER_NAME;
+    DEMO_ROSTER.find((name) => name.toLowerCase() === key) ?? profile ?? DEMO_DRIVER_NAME;
 
   return {
-    profileKey: key === "owner" ? "owner" : displayName.toLowerCase(),
+    profileKey: String(displayName).toLowerCase(),
     displayName,
     email: `${String(displayName).toLowerCase().replace(/\s+/g, ".")}@example.com`,
     mobile: "07700900123",
     make: "Mercedes-Benz",
     model: "E-Class",
-    colour: "Black",
-    registration: "ABC 1234",
+    colour: "Silver",
+    registration: "GAR 1Y",
     updatedAt: new Date().toISOString(),
   };
 }
