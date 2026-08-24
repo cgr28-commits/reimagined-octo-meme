@@ -245,6 +245,7 @@ console.log("\n=== 5. Source contracts (trackingToken sync + dashboard UI) ===")
   const bookingHandlers = read("workers/addresses/src/booking-job-handlers.ts");
   assert.match(bookingHandlers, /trackingToken/);
   assert.match(bookingHandlers, /getTrackingJob\(store, trackingToken\)/);
+  assert.match(bookingHandlers, /job\.trackingToken = primary\.token/);
 
   const trackingHandlers = read("workers/addresses/src/tracking-handlers.ts");
   assert.match(trackingHandlers, /syncTrackingAssignmentFromBooking/);

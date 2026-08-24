@@ -602,11 +602,12 @@ export async function handleDriverJobsRequest(
     });
 
     for (const booking of relevant) {
-      await syncTrackingAssignmentFromBooking(trackingStore, booking);
-      const token = booking.trackingToken?.trim();
-      if (token && !jobs.some((entry) => entry.token === token)) {
-        const tracked = await getTrackingJob(trackingStore, token);
-        if (tracked && !isTrackingJobCancelled(tracked)) {
+      const synced = await syncTrackingAssignmentFromBooking(trackingStore, booking);
+      for (const tracked of synced) {
+        if (
+          !jobs.some((entry) => entry.token === tracked.token) &&
+          !isTrackingJobCancelled(tracked)
+        ) {
           jobs.push(tracked);
         }
       }

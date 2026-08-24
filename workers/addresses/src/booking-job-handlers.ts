@@ -36,7 +36,7 @@ import { trySendEmail, type WorkerEmailEnv } from "./worker-email";
 export async function syncTrackingAssignmentFromBooking(
   store: KVNamespace,
   job: BookingJobRecord,
-): Promise<void> {
+): Promise<TrackingJobRecord[]> {
   const jobs: TrackingJobRecord[] = [];
   const seen = new Set<string>();
 
@@ -64,7 +64,13 @@ export async function syncTrackingAssignmentFromBooking(
   push(await getTrackingJob(store, job.id));
 
   if (jobs.length === 0) {
-    return;
+    return [];
+  }
+
+  if (!trackingToken) {
+    const primary = jobs.find((entry) => entry.journeyLeg !== "return") ?? jobs[0];
+    job.trackingToken = primary.token;
+    await saveBookingJob(store, job);
   }
 
   const status = job.driverAssignmentStatus ?? "unassigned";
@@ -145,6 +151,8 @@ export async function syncTrackingAssignmentFromBooking(
 
     await saveTrackingJob(store, tracking);
   }
+
+  return jobs;
 }
 
 type Env = DriverAuthEnv &
