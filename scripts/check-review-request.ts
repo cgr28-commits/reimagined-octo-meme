@@ -252,12 +252,13 @@ console.log("\n=== 9–10. Manual send / already-sent protection (source) ===");
   assert.match(panel, /Resend review request/);
   assert.match(panel, /sendOwnerReviewRequest/);
   assert.match(panel, /Review request/);
-  assert.match(panel, /Complete Journey/);
+  assert.match(panel, /Complete job|complete_journey/);
   assert.match(panel, /complete_journey/);
-  assert.match(panel, /Stop Tracking \(GPS only\)|separate from Stop Tracking/);
+  assert.match(panel, /More options ▼/);
+  assert.doesNotMatch(panel, /Start Live Tracking/);
   assert.match(panel, /Failed:/);
   assert.match(panel, /via Resend/);
-  console.log("OK  owner Send + Complete Journey + Resend-required + email fallback");
+  console.log("OK  owner Send + Complete job + Resend-required + email fallback");
 }
 
 console.log("\n=== 11. Resend failure records Failed without changing completion ===");

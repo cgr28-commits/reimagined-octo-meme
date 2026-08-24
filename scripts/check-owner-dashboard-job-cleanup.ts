@@ -81,8 +81,8 @@ console.log("\n=== 2. Upcoming Jobs matrix ===");
       sharingActive: false,
       bookingStatus: "confirmed",
     }),
-    ["start_tracking", "arrived_pickup"],
-    "new genuine booking → Driver on the way + Driver has arrived",
+    ["start_tracking", "arrived_pickup", "complete_journey"],
+    "new genuine booking → Driver on the way + Driver arrived + Complete job",
   );
   assert.deepEqual(
     ownerUpcomingPrimaryJourneyActions({
@@ -90,16 +90,16 @@ console.log("\n=== 2. Upcoming Jobs matrix ===");
       sharingActive: true,
       bookingStatus: "confirmed",
     }),
-    ["start_tracking", "arrived_pickup"],
-    "tracking status still keeps both customer update actions",
+    ["start_tracking", "arrived_pickup", "complete_journey"],
+    "tracking status keeps all three primary journey actions",
   );
   assert.deepEqual(
     ownerUpcomingPrimaryJourneyActions({
       journeyStatus: "arrived_pickup",
       bookingStatus: "confirmed",
     }),
-    [],
-    "after arrival, primary on-the-way/arrived CTAs are done",
+    ["start_tracking", "arrived_pickup", "complete_journey"],
+    "after arrival, all three primary CTAs remain until Complete job",
   );
 
   const completedReal = {

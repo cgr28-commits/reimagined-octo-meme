@@ -3213,7 +3213,7 @@ export default function DriverPageClient({
                           {group.upcoming.length > 0 ? (
                             <div className="space-y-4">
                               <p className="text-xs font-semibold uppercase tracking-wider text-sky-200">
-                                Upcoming jobs
+                                Active jobs
                               </p>
                               {group.upcoming.map((job) => (
                                 <DriverJobCard
@@ -3253,7 +3253,7 @@ export default function DriverPageClient({
                               ))}
                             </div>
                           ) : (
-                            <p className="text-sm text-white/45">No upcoming jobs for this day.</p>
+                            <p className="text-sm text-white/45">No active jobs for this day.</p>
                           )}
                           {group.completed.length > 0 ? (
                             <div className="rounded-2xl border border-white/10 bg-white/[0.02]">

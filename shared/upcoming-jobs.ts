@@ -282,15 +282,17 @@ export function assignedDriverDisplay(label?: string | null, name?: string | nul
 }
 
 /**
- * Primary Owner Dashboard journey CTAs for an upcoming paid booking.
- * Independent of the GPS tracking window — customer updates must stay available
- * as soon as a genuine upcoming job exists.
+ * Primary Owner Dashboard journey CTAs for an active/upcoming paid booking.
+ * Exact order (status-only — not GPS/live map tracking):
+ * 1. Driver on the way
+ * 2. Driver arrived
+ * 3. Complete job
  */
 export function ownerUpcomingPrimaryJourneyActions(input: {
   journeyStatus?: string | null;
   sharingActive?: boolean | null;
   bookingStatus?: string | null;
-}): Array<"start_tracking" | "arrived_pickup"> {
+}): Array<"start_tracking" | "arrived_pickup" | "complete_journey"> {
   if (
     input.bookingStatus === "refunded" ||
     input.bookingStatus === "cancelled"
@@ -299,23 +301,19 @@ export function ownerUpcomingPrimaryJourneyActions(input: {
   }
 
   const raw = (input.journeyStatus || "idle").trim() || "idle";
-  const status =
-    input.sharingActive && (raw === "idle" || !input.journeyStatus)
-      ? "tracking"
-      : raw;
-
-  if (
-    status === "completed" ||
-    status === "arrived_pickup" ||
-    status === "en_route" ||
-    status === "arrived_destination"
-  ) {
+  if (raw === "completed") {
     return [];
   }
 
-  // idle / stopped / tracking — both customer update actions stay visible.
-  return ["start_tracking", "arrived_pickup"];
+  return ["start_tracking", "arrived_pickup", "complete_journey"];
 }
+
+/** Exact Owner Dashboard labels for the three primary journey buttons. */
+export const OWNER_PRIMARY_JOURNEY_BUTTON_LABELS = {
+  start_tracking: "Driver on the way",
+  arrived_pickup: "Driver arrived",
+  complete_journey: "Complete job",
+} as const;
 
 /**
  * Upcoming Jobs: real unfinished customer work whose next unfinished pickup

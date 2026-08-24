@@ -60,7 +60,7 @@ console.log("\n=== 2. Jobs section order: Financial → Short notice → Calenda
 
   const panel = read("src/components/OwnerPaidBookingsPanel.tsx");
   assert.match(panel, /Jobs by day/);
-  assert.match(panel, /Upcoming jobs/);
+  assert.match(panel, /Active jobs/);
   assert.match(panel, /Completed jobs \(/);
   assert.match(panel, /Refunds Pending/);
   assert.match(panel, /refundsPending/);

@@ -106,10 +106,17 @@ assert.match(driver, /action === "arrived_pickup"/);
 assert.match(driver, /action === "start_tracking"/);
 
 const owner = read("src/components/OwnerPaidBookingsPanel.tsx");
-assert.match(owner, /Driver on the way/);
-assert.match(owner, /🚕 Arrived at Pickup/);
+assert.match(owner, /OWNER_PRIMARY_JOURNEY_BUTTON_LABELS/);
+assert.match(owner, /ownerUpcomingPrimaryJourneyActions/);
 assert.match(owner, /openArrivalWhatsAppForBooking/);
 assert.match(owner, /openOnTheWayWhatsAppForBooking/);
+assert.doesNotMatch(owner, /Start Live Tracking/);
+assert.doesNotMatch(owner, /PaidBookingLiveTracking/);
+
+const primaryLabels = read("shared/upcoming-jobs.ts");
+assert.match(primaryLabels, /start_tracking:\s*"Driver on the way"/);
+assert.match(primaryLabels, /arrived_pickup:\s*"Driver arrived"/);
+assert.match(primaryLabels, /complete_journey:\s*"Complete job"/);
 
 const sharedWa = read("shared/arrival-whatsapp.ts");
 const workerWa = read("workers/addresses/shared/arrival-whatsapp.ts");

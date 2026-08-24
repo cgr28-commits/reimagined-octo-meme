@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   assignedDriverDisplay,
   formatDisplayTripDate,
@@ -8,12 +8,12 @@ import {
   isOwnerOperationalTestBooking,
   journeyStatusLabel,
   nextUnfinishedSortKey,
+  OWNER_PRIMARY_JOURNEY_BUTTON_LABELS,
   ownerUpcomingPrimaryJourneyActions,
   relevantUpcomingJourneyDate,
   relevantUpcomingJourneyTime,
   resolveCompletionTimestamp,
 } from "../../shared/upcoming-jobs";
-import { JOURNEY_ACTION_LABELS } from "@/lib/tracking-api";
 import {
   activeLegPickupLabel,
   buildArrivedPickupWhatsAppLink,
@@ -46,7 +46,6 @@ import {
   ensurePaidBookingTracking,
   fetchDriverVehicle,
   fetchOwnerAccountProfile,
-  postDriverLocation,
   postJourneyAction,
   type JourneyAction,
 } from "@/lib/tracking-api";
@@ -56,22 +55,9 @@ import {
   remainingRefundableBalance,
   roundGbp,
 } from "../../shared/refund-ops";
-import { SERVICE_FLAGS } from "@/lib/data";
 
 type OwnerPaidBookingsPanelProps = {
   ownerKey: string;
-};
-
-type LiveGpsState = {
-  token: string;
-  sessionToken: string;
-  lastAt: number | null;
-  accuracyMeters: number | null;
-  error: string | null;
-  /** True only after the Worker accepted at least one GPS post. */
-  serverConnected: boolean;
-  pointCount: number;
-  permissionDenied: boolean;
 };
 
 function reviewStatusLabel(
@@ -230,399 +216,6 @@ async function resolveArrivalVehicleForBooking(
 
 function sortByTripDateTime(a: OwnerPaidBookingSummary, b: OwnerPaidBookingSummary): number {
   return nextUnfinishedSortKey(a).localeCompare(nextUnfinishedSortKey(b));
-}
-
-function PaidBookingLiveTracking({
-  ownerKey,
-  booking,
-  onBusy,
-  onMessage,
-  onError,
-  onTrackingToken,
-  onSharingChange,
-  onJourneyStatus,
-}: {
-  ownerKey: string;
-  booking: OwnerPaidBookingSummary;
-  onBusy: (ref: string) => void;
-  onMessage: (message: string) => void;
-  onError: (message: string) => void;
-  onTrackingToken: (paymentReference: string, token: string, trackUrl: string) => void;
-  onSharingChange: (active: boolean) => void;
-  onJourneyStatus?: (paymentReference: string, journeyStatus: string) => void;
-}) {
-  const [localActive, setLocalActive] = useState(Boolean(booking.sharingActive));
-  const [gps, setGps] = useState<LiveGpsState | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [tick, setTick] = useState(0);
-  const watchIdRef = useRef<number | null>(null);
-  const sessionRef = useRef<string | null>(null);
-  const tokenRef = useRef<string | null>(booking.trackingToken ?? null);
-
-  useEffect(() => {
-    // Restore sharing flag from server, but never claim GPS connected without a fresh watch.
-    setLocalActive(Boolean(booking.sharingActive));
-    tokenRef.current = booking.trackingToken ?? null;
-    if (!booking.sharingActive) {
-      setGps(null);
-    }
-  }, [booking.sharingActive, booking.trackingToken]);
-
-  useEffect(() => {
-    const id = window.setInterval(() => setTick((n) => n + 1), 15_000);
-    return () => window.clearInterval(id);
-  }, []);
-
-  const clearWatch = useCallback(() => {
-    if (watchIdRef.current !== null) {
-      navigator.geolocation.clearWatch(watchIdRef.current);
-      watchIdRef.current = null;
-    }
-    sessionRef.current = null;
-  }, []);
-
-  useEffect(() => () => clearWatch(), [clearWatch]);
-
-  const uploadPosition = useCallback(
-    (
-      token: string,
-      sessionToken: string,
-      position: GeolocationPosition,
-    ) => {
-      const accuracy =
-        typeof position.coords.accuracy === "number" && Number.isFinite(position.coords.accuracy)
-          ? position.coords.accuracy
-          : null;
-
-      void postDriverLocation(
-        ownerKey,
-        token,
-        position.coords.latitude,
-        position.coords.longitude,
-        {
-          sessionToken,
-          ...(accuracy !== null ? { accuracy } : {}),
-          ...(typeof position.coords.speed === "number" && Number.isFinite(position.coords.speed)
-            ? { speed: position.coords.speed }
-            : {}),
-          ...(typeof position.coords.heading === "number" &&
-          Number.isFinite(position.coords.heading)
-            ? { heading: position.coords.heading }
-            : {}),
-        },
-      )
-        .then((result) => {
-          setGps((current) =>
-            current
-              ? {
-                  ...current,
-                  lastAt: Date.now(),
-                  accuracyMeters: accuracy,
-                  error: null,
-                  permissionDenied: false,
-                  serverConnected: true,
-                  pointCount:
-                    typeof result.pointCount === "number"
-                      ? Math.max(current.pointCount, result.pointCount)
-                      : Math.max(current.pointCount, 1),
-                }
-              : current,
-          );
-        })
-        .catch((err) => {
-          const message =
-            err instanceof Error && err.message.trim()
-              ? err.message
-              : "GPS upload failed — check connection and keep this page open.";
-          setGps((current) =>
-            current
-              ? {
-                  ...current,
-                  error: message,
-                  // Keep serverConnected if we already had a successful point.
-                }
-              : current,
-          );
-        });
-    },
-    [ownerKey],
-  );
-
-  const startGpsWatch = useCallback(
-    (token: string, sessionToken: string) => {
-      if (!navigator.geolocation) {
-        onError("This browser does not support live GPS tracking.");
-        setGps({
-          token,
-          sessionToken,
-          lastAt: null,
-          accuracyMeters: null,
-          error: "GPS NOT RECORDING — this browser has no geolocation API.",
-          serverConnected: false,
-          pointCount: 0,
-          permissionDenied: true,
-        });
-        return;
-      }
-
-      clearWatch();
-      sessionRef.current = sessionToken;
-      tokenRef.current = token;
-      setGps({
-        token,
-        sessionToken,
-        lastAt: null,
-        accuracyMeters: null,
-        error: null,
-        serverConnected: false,
-        pointCount: 0,
-        permissionDenied: false,
-      });
-
-      const onGeoError = (geoError: GeolocationPositionError) => {
-        const permissionDenied = geoError.code === geoError.PERMISSION_DENIED;
-        setGps((current) =>
-          current
-            ? {
-                ...current,
-                permissionDenied,
-                error: permissionDenied
-                  ? "GPS NOT RECORDING — location permission denied. Enable Precise Location for Safari, then try again."
-                  : "GPS NOT RECORDING — location unavailable. Keep this page open and check GPS.",
-              }
-            : current,
-        );
-      };
-
-      // Force the iPhone permission prompt + first fix before relying on watch alone.
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          uploadPosition(token, sessionToken, position);
-        },
-        onGeoError,
-        {
-          enableHighAccuracy: true,
-          maximumAge: 0,
-          timeout: 25_000,
-        },
-      );
-
-      watchIdRef.current = navigator.geolocation.watchPosition(
-        (position) => {
-          uploadPosition(token, sessionToken, position);
-        },
-        onGeoError,
-        {
-          enableHighAccuracy: true,
-          maximumAge: 15_000,
-          timeout: 20_000,
-        },
-      );
-    },
-    [clearWatch, onError, uploadPosition],
-  );
-
-  const startTracking = async () => {
-    setBusy(true);
-    onBusy(booking.paymentReference);
-    onError("");
-    onMessage("");
-    try {
-      let token = booking.trackingToken?.trim() ?? "";
-      if (!token) {
-        const created = await ensurePaidBookingTracking(ownerKey, booking.paymentReference);
-        token = created.token;
-        onTrackingToken(booking.paymentReference, created.token, created.trackUrl);
-      }
-
-      const result = await postJourneyAction(ownerKey, token, "start_tracking");
-      const sessionToken = result.trackingSession?.sessionToken;
-      if (!sessionToken) {
-        throw new Error("Tracking started but no GPS session was issued — try again.");
-      }
-
-      // Sharing is on server-side, but UI stays "waiting for GPS" until Worker accepts a point.
-      setLocalActive(true);
-      setGps({
-        token,
-        sessionToken,
-        lastAt: null,
-        accuracyMeters: null,
-        error: null,
-        serverConnected: false,
-        pointCount: 0,
-        permissionDenied: false,
-      });
-      startGpsWatch(token, sessionToken);
-      onSharingChange(true);
-      onJourneyStatus?.(booking.paymentReference, result.journeyStatus ?? "tracking");
-      onMessage(
-        "Waiting for GPS… Keep this Safari tab open in the foreground. GPS pauses if the screen locks or you switch apps.",
-      );
-    } catch (err) {
-      onError(err instanceof Error ? err.message : "Could not start live tracking");
-      setLocalActive(false);
-      clearWatch();
-      setGps(null);
-    } finally {
-      setBusy(false);
-      onBusy("");
-    }
-  };
-
-  const stopTracking = async () => {
-    setBusy(true);
-    onBusy(booking.paymentReference);
-    onError("");
-    try {
-      const token = tokenRef.current ?? booking.trackingToken?.trim();
-      if (token) {
-        const result = await postJourneyAction(ownerKey, token, "stop_tracking");
-        onJourneyStatus?.(booking.paymentReference, result.journeyStatus ?? "stopped");
-      }
-      setLocalActive(false);
-      clearWatch();
-      setGps(null);
-      onSharingChange(false);
-      onMessage(
-        "Live tracking stopped (GPS sharing off). Use Journey controls below when the passenger trip has finished.",
-      );
-    } catch (err) {
-      onError(err instanceof Error ? err.message : "Could not stop live tracking");
-    } finally {
-      setBusy(false);
-      onBusy("");
-    }
-  };
-
-  const sessionOn = localActive;
-  const journeyCompleted = booking.journeyStatus === "completed";
-  const gpsConnected = Boolean(gps?.serverConnected);
-  const gpsNotRecording = Boolean(
-    sessionOn && (gps?.permissionDenied || (gps?.error && !gpsConnected)),
-  );
-  const lastAt = gps?.lastAt ?? null;
-  const lastLabel =
-    lastAt && Number.isFinite(lastAt)
-      ? `${Math.max(1, Math.round((Date.now() - lastAt) / 1000))}s ago`
-      : null;
-  void tick;
-
-  const trackHref =
-    booking.trackUrl ||
-    (booking.trackingToken
-      ? `/track/?id=${encodeURIComponent(booking.trackingToken)}`
-      : null);
-
-  return (
-    <div className="mt-4 rounded-xl border border-emerald/30 bg-emerald/5 p-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wider text-emerald">
-            Driver tracking
-          </p>
-          <p className="mt-1 text-sm font-semibold text-white">
-            Status:{" "}
-            <span
-              className={
-                gpsConnected ? "text-emerald" : sessionOn ? "text-amber-200" : "text-white/70"
-              }
-            >
-              {gpsConnected ? "LIVE" : sessionOn ? "WAITING FOR GPS" : "OFF"}
-            </span>
-          </p>
-          {gpsConnected ? (
-            <>
-              <p className="mt-1 text-xs text-emerald">GPS: Connected</p>
-              {lastLabel ? (
-                <p className="mt-1 text-xs text-white/60">Last GPS update: {lastLabel}</p>
-              ) : null}
-              {typeof gps?.accuracyMeters === "number" ? (
-                <p className="mt-1 text-xs text-white/60">
-                  Accuracy: ±{Math.round(gps.accuracyMeters)} m
-                </p>
-              ) : null}
-              <p className="mt-1 text-xs text-white/60">
-                Points recorded: {gps?.pointCount ?? 0}
-              </p>
-            </>
-          ) : null}
-          {sessionOn && !gpsConnected && !gpsNotRecording ? (
-            <p className="mt-2 text-xs text-amber-100">
-              Waiting for the first GPS fix and server confirmation…
-            </p>
-          ) : null}
-          {gpsNotRecording ? (
-            <p className="mt-2 text-sm font-semibold text-amber-100">GPS NOT RECORDING</p>
-          ) : null}
-          {gps?.error ? <p className="mt-2 text-xs text-amber-100">{gps.error}</p> : null}
-          {sessionOn ? (
-            <p className="mt-2 text-xs text-white/45">
-              Keep this Safari tab open in the foreground. iPhone may pause GPS when the screen
-              locks, Safari backgrounds, or you open Maps/Waze.
-            </p>
-          ) : (
-            <p className="mt-2 text-xs text-white/45">
-              Customers only see your live location from about 1 hour before pickup. Historical
-              GPS stays owner-only.
-            </p>
-          )}
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {journeyCompleted ? (
-            <span className="inline-flex min-h-11 items-center rounded-xl border border-emerald/40 bg-emerald/15 px-4 py-2 text-sm font-semibold text-emerald">
-              Journey completed
-            </span>
-          ) : !sessionOn ? (
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => void startTracking()}
-              className="min-h-11 rounded-xl bg-emerald px-4 py-3 text-sm font-bold text-navy transition-colors hover:bg-emerald/90 disabled:opacity-60"
-            >
-              {busy ? "Starting…" : "Start Live Tracking"}
-            </button>
-          ) : (
-            <>
-              <span
-                className={`inline-flex min-h-11 items-center rounded-xl border px-4 py-2 text-sm font-semibold ${
-                  gpsConnected
-                    ? "border-emerald/40 bg-emerald/15 text-emerald"
-                    : gpsNotRecording
-                      ? "border-amber-400/40 bg-amber-500/15 text-amber-100"
-                      : "border-white/20 bg-white/5 text-white/80"
-                }`}
-              >
-                {gpsConnected
-                  ? "LIVE TRACKING ACTIVE"
-                  : gpsNotRecording
-                    ? "GPS NOT RECORDING"
-                    : "WAITING FOR GPS"}
-              </span>
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => void stopTracking()}
-                className="min-h-11 rounded-xl border border-red-400/40 bg-red-500/15 px-4 py-2.5 text-sm font-semibold text-red-100 transition-colors hover:bg-red-500/25 disabled:opacity-60"
-              >
-                {busy ? "Stopping…" : "Stop Tracking"}
-              </button>
-            </>
-          )}
-          {!journeyCompleted && trackHref ? (
-            <a
-              href={trackHref}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex min-h-11 items-center rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:border-white/30"
-            >
-              Open customer track link
-            </a>
-          ) : null}
-        </div>
-      </div>
-    </div>
-  );
 }
 
 function yesNo(value: boolean | undefined): string {
@@ -1320,256 +913,60 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
   const needsFinalize = pending.filter((item) => item.needsFinalize);
 
   function renderJourneyControls(booking: OwnerPaidBookingSummary) {
-    // Live sharing without an explicit status still counts as tracking for labels.
-    const rawStatus = booking.journeyStatus || "idle";
-    const status =
-      booking.sharingActive && (rawStatus === "idle" || !booking.journeyStatus)
-        ? "tracking"
-        : rawStatus;
+    const status = booking.journeyStatus || "idle";
     const busy = busyRef === booking.paymentReference;
-    const showEvidence =
-      status === "completed" ||
-      Boolean(booking.trackingToken) ||
-      (diagnostics[booking.paymentReference]?.gpsPointCount ?? 0) > 0;
-
     const primaryActions = ownerUpcomingPrimaryJourneyActions({
       journeyStatus: booking.journeyStatus,
       sharingActive: booking.sharingActive,
       bookingStatus: booking.status,
     }).map((action) => ({
       action,
-      label: JOURNEY_ACTION_LABELS[action],
+      label: OWNER_PRIMARY_JOURNEY_BUTTON_LABELS[action],
     }));
 
-    const secondaryActions: { action: JourneyAction; label: string }[] = [];
-    if (status === "arrived_pickup") {
-      secondaryActions.push({ action: "complete_journey", label: "Complete Journey" });
-    } else if (status === "en_route") {
-      secondaryActions.push({
-        action: "arrived_destination",
-        label: "Arrived at Destination",
-      });
-    } else if (status === "arrived_destination") {
-      secondaryActions.push({ action: "complete_journey", label: "Complete Journey" });
-    } else if (
-      status !== "completed" &&
-      !isOperationallyCancelled(booking.status) &&
-      (status === "idle" || status === "stopped" || status === "tracking")
-    ) {
-      secondaryActions.push({ action: "complete_journey", label: "Complete Journey" });
+    if (primaryActions.length === 0) {
+      return null;
     }
 
-    const paidNum = parseFloat(String(booking.amountPaid).replace(/[^\d.]/g, "") || "0");
-    const refundedNum =
-      typeof booking.amountRefunded === "number"
-        ? booking.amountRefunded
-        : booking.status === "refunded" || booking.status === "refunded_active"
-          ? paidNum
-          : 0;
-    const showMarkExternalRefund = canMarkExternalRefund({
-      status: booking.status,
-      operationalStatus: booking.operationalStatus,
-      paymentStatus: booking.paymentStatus,
-      amountPaid: paidNum,
-      amountRefunded: refundedNum,
-    });
-    const externalConfirmOpen = externalRefundConfirmRef === booking.paymentReference;
-
     return (
-      <div>
-        <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-white/40">
-          Driver updates
-        </p>
+      <div className="space-y-2" data-owner-primary-journey-controls>
         {status === "arrived_pickup" && booking.arrivedPickupAt ? (
-          <p className="mb-2 text-sm font-semibold text-emerald">
-            Driver has arrived · {formatArrivedPickupHhMm(booking.arrivedPickupAt)}
+          <p className="text-sm font-semibold text-emerald">
+            Driver arrived · {formatArrivedPickupHhMm(booking.arrivedPickupAt)}
           </p>
         ) : null}
-        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-          {status === "completed" ? (
-            <a
-              href={`/owner/journey-evidence/?ref=${encodeURIComponent(booking.paymentReference)}`}
-              className="inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-sky-500 px-4 py-2.5 text-sm font-bold text-navy transition-colors hover:bg-sky-400 sm:w-auto"
-            >
-              View Journey Evidence
-            </a>
-          ) : (
-            <>
-              {primaryActions.map((item) => {
-                const isArrivedCta = item.action === "arrived_pickup";
-                return (
-                  <button
-                    key={item.action}
-                    type="button"
-                    disabled={busy}
-                    onClick={() => void handleJourneyAction(booking, item.action)}
-                    className={
-                      isArrivedCta
-                        ? "min-h-12 w-full rounded-xl bg-emerald px-4 py-3 text-base font-bold text-navy transition-colors hover:bg-emerald/90 disabled:opacity-60 sm:w-auto"
-                        : "min-h-11 w-full rounded-xl border border-sky-400/40 bg-sky-500/15 px-4 py-2.5 text-sm font-bold text-sky-100 transition-colors hover:bg-sky-500/25 disabled:opacity-60 sm:w-auto"
-                    }
-                  >
-                    {busy ? "Updating…" : item.label}
-                  </button>
-                );
-              })}
-              {status === "arrived_pickup" ? (
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => {
-                    void (async () => {
-                      setBusyRef(booking.paymentReference);
-                      setError("");
-                      try {
-                        const outcome = await openArrivalWhatsAppForBooking(ownerKey, booking);
-                        setMessage(
-                          outcome === "opened"
-                            ? "WhatsApp arrival message opened — press Send to message the customer. Arrival time was not changed."
-                            : "No customer mobile on this booking for WhatsApp.",
-                        );
-                      } catch (err) {
-                        setError(
-                          err instanceof Error ? err.message : "Could not open WhatsApp",
-                        );
-                      } finally {
-                        setBusyRef("");
-                      }
-                    })();
-                  }}
-                  className="min-h-11 w-full rounded-xl border border-emerald/40 bg-emerald/15 px-4 py-2.5 text-sm font-bold text-emerald transition-colors hover:bg-emerald/25 disabled:opacity-60 sm:w-auto"
-                >
-                  Open WhatsApp arrival message
-                </button>
-              ) : null}
-            </>
-          )}
-          {booking.arrivalNotificationStatus === "failed" && status !== "completed" ? (
+        <div className="flex flex-col gap-2">
+          {primaryActions.map((item) => (
             <button
+              key={item.action}
               type="button"
               disabled={busy}
-              onClick={() =>
-                void handleJourneyAction(booking, "arrived_pickup", {
-                  retryArrivalNotification: true,
-                })
-              }
-              className="min-h-11 w-full rounded-xl border border-amber-400/40 bg-amber-500/15 px-4 py-2.5 text-sm font-semibold text-amber-100 transition-colors hover:bg-amber-500/25 disabled:opacity-60 sm:w-auto"
+              data-owner-journey-action={item.action}
+              onClick={() => void handleJourneyAction(booking, item.action)}
+              className="min-h-12 w-full rounded-xl bg-emerald px-4 py-3 text-base font-bold text-navy transition-colors hover:bg-emerald/90 disabled:opacity-60"
             >
-              {busy ? "Retrying…" : "Retry Notification"}
+              {busy ? "Updating…" : item.label}
             </button>
-          ) : null}
+          ))}
         </div>
-        {status !== "completed" && status !== "arrived_pickup" && status !== "arrived_destination" ? (
-          <p className="mt-2 text-xs text-white/45">
-            Driver on the way emails the customer and opens WhatsApp (you press Send). Driver has
-            arrived records the time, emails the customer, and opens WhatsApp. Live location sharing
-            stays manual in WhatsApp — not website map tracking.
-          </p>
+        {booking.arrivalNotificationStatus === "failed" ? (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() =>
+              void handleJourneyAction(booking, "arrived_pickup", {
+                retryArrivalNotification: true,
+              })
+            }
+            className="min-h-11 w-full rounded-xl border border-amber-400/40 bg-amber-500/15 px-4 py-2.5 text-sm font-semibold text-amber-100 disabled:opacity-60"
+          >
+            {busy ? "Retrying…" : "Retry arrival notification"}
+          </button>
         ) : null}
-        {status === "arrived_pickup" ? (
-          <p className="mt-2 text-xs text-white/45">
-            Arrival already recorded (timestamp kept). Re-open WhatsApp if needed, then Complete
-            Journey when the passenger trip has finished (under More actions).
-          </p>
-        ) : null}
-
-        {status !== "completed" ? (
-          <details className="mt-3 rounded-xl border border-white/10 bg-navy/40">
-            <summary className="cursor-pointer list-none px-3 py-2.5 text-xs font-semibold uppercase tracking-wider text-white/50 marker:content-none [&::-webkit-details-marker]:hidden">
-              More actions
-            </summary>
-            <div className="flex flex-col gap-2 border-t border-white/10 px-3 py-3 sm:flex-row sm:flex-wrap">
-              {secondaryActions.map((item) => (
-                <button
-                  key={item.action}
-                  type="button"
-                  disabled={busy}
-                  onClick={() => void handleJourneyAction(booking, item.action)}
-                  className="min-h-11 w-full rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:border-white/30 disabled:opacity-60 sm:w-auto"
-                >
-                  {busy ? "Updating…" : item.label}
-                </button>
-              ))}
-              {showMarkExternalRefund && !externalConfirmOpen ? (
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => {
-                    setRefundConfirmRef(null);
-                    setExternalRefundConfirmRef(booking.paymentReference);
-                  }}
-                  className="min-h-11 w-full rounded-xl border border-amber-400/40 bg-amber-500/10 px-4 py-2.5 text-sm font-semibold text-amber-100 transition-colors hover:bg-amber-500/20 disabled:opacity-60 sm:w-auto"
-                >
-                  Mark as refunded
-                </button>
-              ) : null}
-              {showEvidence ? (
-                <a
-                  href={`/owner/journey-evidence/?ref=${encodeURIComponent(booking.paymentReference)}`}
-                  className="inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-sky-400/40 bg-sky-500/15 px-4 py-2.5 text-sm font-bold text-sky-100 transition-colors hover:bg-sky-500/25 sm:w-auto"
-                >
-                  View Journey Evidence
-                </a>
-              ) : null}
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => void handleEnsureTracking(booking)}
-                className="min-h-11 w-full rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:border-white/30 disabled:opacity-60 sm:w-auto"
-              >
-                {booking.trackingToken ? "Refresh tracking link" : "Create tracking (no new charge)"}
-              </button>
-            </div>
-          </details>
-        ) : null}
-
-        {showMarkExternalRefund && status === "completed" && !externalConfirmOpen ? (
-          <div className="mt-3">
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => {
-                setRefundConfirmRef(null);
-                setExternalRefundConfirmRef(booking.paymentReference);
-              }}
-              className="min-h-11 w-full rounded-xl border border-amber-400/40 bg-amber-500/10 px-4 py-2.5 text-sm font-semibold text-amber-100 transition-colors hover:bg-amber-500/20 disabled:opacity-60 sm:w-auto"
-            >
-              Mark as refunded
-            </button>
-          </div>
-        ) : null}
-
-        {externalConfirmOpen ? (
-          <div className="mt-3 rounded-xl border border-amber-400/35 bg-amber-500/10 p-3">
-            <p className="text-sm font-semibold text-amber-50">
-              Has this customer already been refunded manually in SumUp?
-            </p>
-            <p className="mt-2 text-xs leading-relaxed text-amber-50/80">
-              Only use this if you have already refunded the customer outside this website. This
-              will NOT send money. It does not call SumUp, closes the booking as Cancelled /
-              Refunded, removes it from Upcoming, and keeps the original payment for audit. No
-              refund email is sent.
-            </p>
-            <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => void handleMarkExternalRefund(booking)}
-                className="min-h-11 w-full rounded-xl bg-amber-300 px-4 py-2.5 text-sm font-bold text-navy transition-colors hover:bg-amber-200 disabled:opacity-60 sm:w-auto"
-              >
-                {busy ? "Closing…" : "Yes — close as refunded"}
-              </button>
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => setExternalRefundConfirmRef(null)}
-                className="min-h-11 w-full rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:border-white/30 disabled:opacity-60 sm:w-auto"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        ) : null}
+        <p className="text-xs text-white/45">
+          Status updates only — may email the customer and open WhatsApp (you press Send). No
+          driver GPS or live map tracking.
+        </p>
       </div>
     );
   }
@@ -1577,6 +974,7 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
   function renderBookingCard(booking: OwnerPaidBookingSummary, options?: { compact?: boolean }) {
     const isClosed = isOperationallyCancelled(booking.status);
     const isCompleted = booking.journeyStatus === "completed";
+    const isActiveCard = !options?.compact && !isClosed && !isCompleted;
     const canEdit = !isClosed && !isCompleted;
     const canAdminConfirm = !isClosed && !isCompleted;
     const showOfferUpdated =
@@ -1590,8 +988,6 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
           ? paidNum
           : 0;
     const remainingNum = remainingRefundableBalance(paidNum, refundedNum);
-    // Allow cancel/refund while operationally open (incl. refunded_active → cancel-only),
-    // or when money remains on an already-cancelled booking.
     const canRefundOrCancel =
       !isOperationallyCancelled(booking) || remainingNum > 0.001;
     const showMarkExternalRefund = canMarkExternalRefund({
@@ -1602,558 +998,491 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
       amountRefunded: refundedNum,
     });
     const externalConfirmOpen = externalRefundConfirmRef === booking.paymentReference;
+    const showEvidence =
+      isCompleted ||
+      isClosed ||
+      Boolean(booking.trackingToken) ||
+      (diagnostics[booking.paymentReference]?.gpsPointCount ?? 0) > 0;
+    const nextDate = relevantUpcomingJourneyDate(booking);
+    const nextTime = relevantUpcomingJourneyTime(booking) || "—";
+    const isReturnNext =
+      Boolean(booking.returnJourney) &&
+      nextDate === (booking.returnDate || "").trim() &&
+      nextDate !== (booking.tripDate || "").trim();
+    const routeLabel = isReturnNext
+      ? `${booking.dropoffLabel} → ${booking.pickupLabel}`
+      : `${booking.pickupLabel} → ${booking.dropoffLabel}`;
+    const fareLabel =
+      typeof booking.amount === "number"
+        ? `£${booking.amount.toFixed(2)}`
+        : booking.amountPaid || "—";
+    const flightLabel = isReturnNext
+      ? booking.returnFlightNumber?.trim()
+      : booking.flightNumber?.trim();
+    const vehicleLabel = booking.vehicle
+      ? booking.vehicle.toLowerCase().includes("minibus")
+        ? "MINIBUS"
+        : booking.vehicle.toLowerCase().includes("estate")
+          ? "ESTATE"
+          : booking.vehicle.toLowerCase().includes("saloon") ||
+              booking.vehicle.toLowerCase().includes("standard")
+            ? "SALOON"
+            : booking.vehicle
+      : null;
+
+    const moreOptions = (
+      <details
+        className="rounded-xl border border-white/10 bg-navy/40"
+        data-owner-more-options
+      >
+        <summary className="cursor-pointer list-none px-3 py-2.5 text-sm font-semibold text-white/70 marker:content-none [&::-webkit-details-marker]:hidden">
+          More options ▼
+        </summary>
+        <div className="space-y-3 border-t border-white/10 px-3 py-3">
+          {(booking.customerEmail || booking.mobileNumber || booking.arrivedPickupAt) && (
+            <div>
+              <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-white/40">
+                Customer contact
+              </p>
+              <div className="flex flex-col gap-2">
+                {booking.customerEmail ? (
+                  <a
+                    href={`mailto:${encodeURIComponent(booking.customerEmail)}`}
+                    className="inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold text-white"
+                  >
+                    Email customer
+                  </a>
+                ) : null}
+                {booking.mobileNumber ? (
+                  <a
+                    href={`https://wa.me/${booking.mobileNumber.replace(/\D/g, "").replace(/^0/, "44")}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold text-white"
+                  >
+                    WhatsApp
+                  </a>
+                ) : null}
+              </div>
+              <div className="mt-2 space-y-1 text-sm text-white/70">
+                {booking.arrivedPickupAt ? (
+                  <p>
+                    Driver has arrived:{" "}
+                    <span className="font-semibold text-white">
+                      {formatArrivedPickupHhMm(booking.arrivedPickupAt)}
+                    </span>
+                  </p>
+                ) : null}
+                <p>
+                  Customer notification:{" "}
+                  <span className="font-semibold text-white">
+                    {arrivalNotificationLabel(booking)}
+                  </span>
+                </p>
+                {booking.arrivalNotificationStatus === "failed" &&
+                booking.arrivalNotificationError ? (
+                  <p className="text-xs text-red-200/80">{booking.arrivalNotificationError}</p>
+                ) : null}
+              </div>
+            </div>
+          )}
+
+          <div className="flex flex-col gap-2">
+            {booking.journeyStatus === "arrived_pickup" && !isCompleted && !isClosed ? (
+              <button
+                type="button"
+                disabled={busyRef === booking.paymentReference}
+                onClick={() => {
+                  void (async () => {
+                    setBusyRef(booking.paymentReference);
+                    setError("");
+                    try {
+                      const outcome = await openArrivalWhatsAppForBooking(ownerKey, booking);
+                      setMessage(
+                        outcome === "opened"
+                          ? "WhatsApp arrival message opened — press Send to message the customer."
+                          : "No customer mobile on this booking for WhatsApp.",
+                      );
+                    } catch (err) {
+                      setError(err instanceof Error ? err.message : "Could not open WhatsApp");
+                    } finally {
+                      setBusyRef("");
+                    }
+                  })();
+                }}
+                className="min-h-11 w-full rounded-xl border border-emerald/40 bg-emerald/15 px-4 py-2.5 text-sm font-bold text-emerald disabled:opacity-60"
+              >
+                Open WhatsApp arrival message
+              </button>
+            ) : null}
+            {canEdit ? (
+              <button
+                type="button"
+                disabled={busyRef === booking.paymentReference}
+                onClick={() => setEditingBooking(booking)}
+                className="min-h-11 w-full rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
+              >
+                Edit Booking
+              </button>
+            ) : null}
+            {canAdminConfirm ? (
+              <button
+                type="button"
+                disabled={busyRef === booking.paymentReference}
+                onClick={() => void handleSendUpdatedConfirmation(booking)}
+                className="min-h-11 w-full rounded-xl border border-sky-400/40 bg-sky-500/15 px-4 py-2.5 text-sm font-semibold text-sky-100 disabled:opacity-60"
+              >
+                {busyRef === booking.paymentReference
+                  ? "Sending…"
+                  : "Resend Updated Confirmation"}
+              </button>
+            ) : null}
+            <button
+              type="button"
+              disabled={busyRef === booking.paymentReference}
+              onClick={() => void handleResend(booking)}
+              className="min-h-11 w-full rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
+            >
+              {busyRef === booking.paymentReference ? "Sending…" : "Resend Confirmation"}
+            </button>
+            {isCompleted || booking.reviewRequest ? (
+              booking.reviewRequest?.status === "sent" ? (
+                <button
+                  type="button"
+                  disabled={busyRef === booking.paymentReference}
+                  onClick={() => {
+                    if (
+                      window.confirm(
+                        "A review request was already sent. Send another copy to the customer?",
+                      )
+                    ) {
+                      void handleReviewRequest(booking, true);
+                    }
+                  }}
+                  className="min-h-11 w-full rounded-xl border border-amber-300/40 px-4 py-2.5 text-sm font-semibold text-amber-100 disabled:opacity-60"
+                >
+                  Resend review request
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  disabled={busyRef === booking.paymentReference}
+                  onClick={() => void handleReviewRequest(booking, false)}
+                  className="min-h-11 w-full rounded-xl border border-emerald/40 bg-emerald/15 px-4 py-2.5 text-sm font-semibold text-emerald disabled:opacity-60"
+                >
+                  {booking.reviewRequest?.status === "failed"
+                    ? "Retry review request"
+                    : "Send review request"}
+                </button>
+              )
+            ) : null}
+            {showEvidence ? (
+              <a
+                href={`/owner/journey-evidence/?ref=${encodeURIComponent(booking.paymentReference)}`}
+                className="inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-sky-400/40 bg-sky-500/15 px-4 py-2.5 text-sm font-bold text-sky-100"
+              >
+                View Journey Evidence
+              </a>
+            ) : null}
+            <button
+              type="button"
+              disabled={
+                diagnosticBusyRef === booking.paymentReference ||
+                busyRef === booking.paymentReference
+              }
+              onClick={() => void handleTrackingDiagnostic(booking)}
+              className="min-h-11 w-full rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold text-white/80 disabled:opacity-60"
+            >
+              {diagnosticBusyRef === booking.paymentReference
+                ? "Loading diagnostic…"
+                : "Tracking diagnostic (read-only)"}
+            </button>
+            <button
+              type="button"
+              disabled={
+                refundDiagBusyRef === booking.paymentReference ||
+                busyRef === booking.paymentReference
+              }
+              onClick={() => void handleRefundDiagnostic(booking)}
+              className="min-h-11 w-full rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold text-white/80 disabled:opacity-60"
+            >
+              {refundDiagBusyRef === booking.paymentReference
+                ? "Loading refund diagnostics…"
+                : "Refund diagnostics (read-only)"}
+            </button>
+            {canRefundOrCancel ? (
+              <button
+                type="button"
+                disabled={busyRef === booking.paymentReference}
+                onClick={() => {
+                  setExternalRefundConfirmRef(null);
+                  setRefundConfirmRef(refundOpen ? null : booking.paymentReference);
+                }}
+                className="min-h-11 w-full rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-2.5 text-sm font-semibold text-red-200 disabled:opacity-60"
+              >
+                {isClosed ? "Issue refund on cancelled booking" : "Cancel / Refund"}
+              </button>
+            ) : null}
+            {showMarkExternalRefund && !externalConfirmOpen ? (
+              <button
+                type="button"
+                disabled={busyRef === booking.paymentReference}
+                onClick={() => {
+                  setRefundConfirmRef(null);
+                  setExternalRefundConfirmRef(booking.paymentReference);
+                }}
+                className="min-h-11 w-full rounded-xl border border-amber-400/40 bg-amber-500/10 px-4 py-2.5 text-sm font-semibold text-amber-100 disabled:opacity-60"
+              >
+                Mark as refunded
+              </button>
+            ) : null}
+          </div>
+
+          {showOfferUpdated ? (
+            <div className="rounded-xl border border-sky-400/30 bg-sky-500/10 p-3">
+              <p className="text-sm text-sky-100">
+                Booking saved. Send an updated confirmation to the customer?
+              </p>
+              {fareAdjustMessage ? (
+                <p className="mt-2 text-sm text-amber-100">{fareAdjustMessage}</p>
+              ) : null}
+              <button
+                type="button"
+                disabled={busyRef === booking.paymentReference}
+                onClick={() => void handleSendUpdatedConfirmation(booking)}
+                className="mt-3 min-h-11 w-full rounded-xl bg-sky-500 px-4 py-2.5 text-sm font-bold text-navy disabled:opacity-60"
+              >
+                Resend Updated Confirmation
+              </button>
+            </div>
+          ) : null}
+
+          {refundOpen ? (
+            <OwnerCancelRefundModal
+              ownerKey={ownerKey}
+              booking={booking}
+              busy={busyRef === booking.paymentReference}
+              onBusyChange={(next) => setBusyRef(next ? booking.paymentReference : "")}
+              onClose={() => setRefundConfirmRef(null)}
+              onSuccess={(result) => void handleCancelRefundSuccess(result, booking)}
+              onError={(message) => setError(message)}
+            />
+          ) : null}
+
+          {externalConfirmOpen ? (
+            <div className="rounded-xl border border-amber-400/35 bg-amber-500/10 p-3">
+              <p className="text-sm font-semibold text-amber-50">
+                Has this customer already been refunded manually in SumUp?
+              </p>
+              <p className="mt-2 text-xs leading-relaxed text-amber-50/80">
+                Only use this if you have already refunded the customer outside this website. This
+                will NOT send money. It does not call SumUp, closes the booking as Cancelled /
+                Refunded, removes it from active jobs, and keeps the original payment for audit. No
+                refund email is sent.
+              </p>
+              <div className="mt-3 flex flex-col gap-2">
+                <button
+                  type="button"
+                  disabled={busyRef === booking.paymentReference}
+                  onClick={() => void handleMarkExternalRefund(booking)}
+                  className="min-h-11 w-full rounded-xl bg-amber-300 px-4 py-2.5 text-sm font-bold text-navy disabled:opacity-60"
+                >
+                  {busyRef === booking.paymentReference
+                    ? "Closing…"
+                    : "Yes — close as refunded"}
+                </button>
+                <button
+                  type="button"
+                  disabled={busyRef === booking.paymentReference}
+                  onClick={() => setExternalRefundConfirmRef(null)}
+                  className="min-h-11 w-full rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : null}
+
+          <dl className="grid gap-2 text-xs text-white/55">
+            <div>
+              <dt className="text-white/35">Ref</dt>
+              <dd className="break-all text-white/70">{booking.paymentReference}</dd>
+            </div>
+            <div>
+              <dt className="text-white/35">Assigned driver</dt>
+              <dd>
+                {assignedDriverDisplay(booking.assignedDriverLabel, booking.assignedDriverName)}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-white/35">Mobile</dt>
+              <dd>{booking.mobileNumber || "—"}</dd>
+            </div>
+            <div>
+              <dt className="text-white/35">Email</dt>
+              <dd className="break-all">{booking.customerEmail || "—"}</dd>
+            </div>
+            {booking.returnJourney ? (
+              <div>
+                <dt className="text-white/35">Return</dt>
+                <dd>
+                  {booking.returnDate || "—"} · {booking.returnTime || "—"}
+                </dd>
+              </div>
+            ) : null}
+            {!options?.compact ? (
+              <div>
+                <dt className="text-white/35">Review request</dt>
+                <dd>
+                  {reviewStatusLabel(
+                    booking.reviewRequest?.status,
+                    booking.reviewRequest?.dueAt,
+                  )}
+                </dd>
+              </div>
+            ) : null}
+          </dl>
+        </div>
+      </details>
+    );
 
     return (
       <li
         key={booking.paymentReference}
-        className="rounded-2xl border border-white/10 bg-navy/60 p-4 sm:p-5"
+        className={`overflow-x-hidden rounded-2xl border p-3 sm:p-4 ${
+          options?.compact || isClosed || isCompleted
+            ? "border-white/10 bg-navy/40"
+            : "border-white/15 bg-navy/60"
+        }`}
+        data-owner-job-card={isActiveCard ? "active" : "history"}
       >
-        <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex flex-wrap items-start justify-between gap-2">
           <div className="min-w-0 flex-1">
-            <p className="break-words text-lg font-bold text-white">{booking.customerName}</p>
-            <p className="mt-1 break-words text-sm text-white/65">
-              {(() => {
-                const nextDate = relevantUpcomingJourneyDate(booking);
-                const nextTime = relevantUpcomingJourneyTime(booking) || "—";
-                const isReturnNext =
-                  Boolean(booking.returnJourney) &&
-                  nextDate === (booking.returnDate || "").trim() &&
-                  nextDate !== (booking.tripDate || "").trim();
-                return `${isReturnNext ? "Return · " : ""}${formatDisplayTripDate(nextDate)} · pick up ${nextTime}${
-                  booking.amountPaid ? ` · ${booking.amountPaid}` : ""
-                }`;
-              })()}
+            <p className="break-words text-base font-bold text-white sm:text-lg">
+              {booking.customerName}
             </p>
-            {(refundedNum > 0 || booking.status === "partially_refunded" || booking.status === "refunded_active") && (
+            <p className="mt-1 break-words text-sm text-white/65">
+              {isReturnNext ? "Return · " : ""}
+              {formatDisplayTripDate(nextDate)} · pick up {nextTime}
+              {fareLabel !== "—" ? ` · ${fareLabel}` : ""}
+            </p>
+            <p className="mt-1 break-words text-sm text-white/80">{routeLabel}</p>
+            {(refundedNum > 0 ||
+              booking.status === "partially_refunded" ||
+              booking.status === "refunded_active") && (
               <p className="mt-1 text-xs text-amber-100/90">
                 Paid {booking.amountPaid}
                 {` · refunded £${refundedNum.toFixed(2)}`}
                 {` · remaining £${remainingNum.toFixed(2)}`}
-                {booking.operationalStatus || booking.status
-                  ? ` · ${booking.operationalStatus ?? "—"} / ${booking.paymentStatus ?? booking.status}`
-                  : ""}
               </p>
             )}
-            <p className="mt-2 break-words text-sm text-white/80">
-              {(() => {
-                const nextDate = relevantUpcomingJourneyDate(booking);
-                const isReturnNext =
-                  Boolean(booking.returnJourney) &&
-                  nextDate === (booking.returnDate || "").trim() &&
-                  nextDate !== (booking.tripDate || "").trim();
-                return isReturnNext
-                  ? `${booking.dropoffLabel} → ${booking.pickupLabel}`
-                  : `${booking.pickupLabel} → ${booking.dropoffLabel}`;
-              })()}
-            </p>
-
-            <p className="mt-2 break-all text-xs text-white/45">
-              Ref {booking.paymentReference}
-              {booking.createdAt ? ` · paid ${formatUkInstant(booking.createdAt)}` : ""}
-            </p>
           </div>
           <span
-            className={`rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wider ${
+            className={`shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider ${
               isClosed
                 ? "border-red-400/30 bg-red-500/10 text-red-100"
-                : booking.status === "partially_refunded"
-                  ? "border-amber-400/30 bg-amber-500/10 text-amber-100"
-                  : "border-emerald/40 bg-emerald/15 text-emerald"
+                : isCompleted
+                  ? "border-white/20 bg-white/5 text-white/70"
+                  : booking.status === "partially_refunded"
+                    ? "border-amber-400/30 bg-amber-500/10 text-amber-100"
+                    : "border-emerald/40 bg-emerald/15 text-emerald"
             }`}
           >
             {isClosed
               ? booking.status === "cancelled"
                 ? "Cancelled"
                 : "Refunded"
-              : booking.status === "refunded_active"
-                ? "Fully refunded · Active"
-                : paymentStatusLabel(booking)}
+              : isCompleted
+                ? "Completed"
+                : booking.status === "refunded_active"
+                  ? "Fully refunded · Active"
+                  : journeyStatusLabel(booking.journeyStatus)}
           </span>
         </div>
 
-        <dl className="mt-4 grid gap-2 text-sm text-white/70 sm:grid-cols-2">
+        <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 text-sm text-white/70">
           <div>
-            <dt className="text-white/40">Date</dt>
-            <dd>{formatDisplayTripDate(booking.tripDate)}</dd>
+            <dt className="text-[11px] text-white/40">Pickup</dt>
+            <dd className="break-words">{booking.pickupLabel || "—"}</dd>
           </div>
           <div>
-            <dt className="text-white/40">Pickup time</dt>
-            <dd>{booking.tripTime || "—"}</dd>
+            <dt className="text-[11px] text-white/40">Destination</dt>
+            <dd className="break-words">{booking.dropoffLabel || "—"}</dd>
           </div>
           <div>
-            <dt className="text-white/40">Service</dt>
-            <dd className="font-semibold text-white">
-              {booking.vehicle
-                ? booking.vehicle.toLowerCase().includes("minibus")
-                  ? "MINIBUS"
-                  : booking.vehicle.toLowerCase().includes("estate")
-                    ? "ESTATE"
-                    : booking.vehicle.toLowerCase().includes("saloon") ||
-                        booking.vehicle.toLowerCase().includes("standard")
-                      ? "SALOON"
-                      : booking.vehicle
-                : "—"}
-            </dd>
+            <dt className="text-[11px] text-white/40">Fare</dt>
+            <dd>{fareLabel}</dd>
           </div>
           <div>
-            <dt className="text-white/40">Customer</dt>
-            <dd>{booking.customerName || "—"}</dd>
+            <dt className="text-[11px] text-white/40">Status</dt>
+            <dd>{journeyStatusLabel(booking.journeyStatus)}</dd>
           </div>
-          <div>
-            <dt className="text-white/40">Journey fare</dt>
-            <dd>
-              {typeof booking.amount === "number"
-                ? `£${booking.amount.toFixed(2)}`
-                : booking.amountPaid || "—"}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-white/40">Collected</dt>
-            <dd>{booking.amountPaid || "—"}</dd>
-          </div>
-          {typeof booking.amountRefunded === "number" && booking.amountRefunded > 0 ? (
+          {vehicleLabel ? (
             <div>
-              <dt className="text-white/40">Refunded</dt>
-              <dd>£{booking.amountRefunded.toFixed(2)}</dd>
+              <dt className="text-[11px] text-white/40">Service</dt>
+              <dd className="font-semibold text-white">{vehicleLabel}</dd>
+            </div>
+          ) : null}
+          {flightLabel ? (
+            <div>
+              <dt className="text-[11px] text-white/40">Flight</dt>
+              <dd className="font-semibold text-white">{flightLabel}</dd>
+            </div>
+          ) : null}
+          {typeof booking.passengers === "number" || typeof booking.suitcases === "number" ? (
+            <div className="col-span-2">
+              <dt className="text-[11px] text-white/40">Passengers / luggage</dt>
+              <dd>
+                {typeof booking.passengers === "number" ? `${booking.passengers} pax` : "—"}
+                {" · "}
+                {typeof booking.suitcases === "number"
+                  ? `${booking.suitcases} suitcases`
+                  : "—"}
+              </dd>
             </div>
           ) : null}
           {typeof booking.refundDueAmount === "number" && booking.refundDueAmount > 0 ? (
-            <div className="sm:col-span-2">
-              <dt className="text-amber-200/80">Refund due</dt>
+            <div className="col-span-2">
+              <dt className="text-[11px] text-amber-200/80">Refund due</dt>
               <dd className="font-semibold text-amber-100">
                 £{booking.refundDueAmount.toFixed(2)}
                 {booking.refundDueReason ? ` — ${booking.refundDueReason}` : ""}
-                {" "}(process via Cancel / Refund)
               </dd>
             </div>
           ) : null}
           {booking.lastUpdatedConfirmationError ? (
-            <div className="sm:col-span-2">
-              <dt className="text-red-200/80">Confirmation email</dt>
+            <div className="col-span-2">
+              <dt className="text-[11px] text-red-200/80">Confirmation email</dt>
               <dd className="text-red-100">
-                Delivery failed — {booking.lastUpdatedConfirmationError}. Use Resend Updated
-                Confirmation.
-              </dd>
-            </div>
-          ) : null}
-          <div>
-            <dt className="text-white/40">Pickup</dt>
-            <dd className="break-words">{booking.pickupLabel || "—"}</dd>
-          </div>
-          <div>
-            <dt className="text-white/40">Destination</dt>
-            <dd className="break-words">{booking.dropoffLabel || "—"}</dd>
-          </div>
-          <div>
-            <dt className="text-white/40">Payment status</dt>
-            <dd>{paymentStatusLabel(booking)}</dd>
-          </div>
-          <div>
-            <dt className="text-white/40">Assigned driver</dt>
-            <dd>
-              {assignedDriverDisplay(booking.assignedDriverLabel, booking.assignedDriverName)}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-white/40">Journey status</dt>
-            <dd>{journeyStatusLabel(booking.journeyStatus)}</dd>
-          </div>
-          <div>
-            <dt className="text-white/40">Mobile</dt>
-            <dd>{booking.mobileNumber || "—"}</dd>
-          </div>
-          <div>
-            <dt className="text-white/40">Email</dt>
-            <dd className="break-all">{booking.customerEmail || "—"}</dd>
-          </div>
-          <div>
-            <dt className="text-white/40">Return</dt>
-            <dd>
-              {booking.returnJourney
-                ? `${booking.returnDate || "—"} · ${booking.returnTime || "—"}`
-                : "No"}
-            </dd>
-          </div>
-          {!options?.compact ? (
-            <div className="sm:col-span-2">
-              <dt className="text-white/40">Review request</dt>
-              <dd className="mt-1">
-                <span
-                  className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wider ${
-                    booking.reviewRequest?.status === "sent"
-                      ? "border-emerald/40 bg-emerald/15 text-emerald"
-                      : booking.reviewRequest?.status === "failed"
-                        ? "border-red-400/30 bg-red-500/10 text-red-100"
-                        : booking.reviewRequest?.status === "scheduled"
-                          ? "border-sky-400/30 bg-sky-500/10 text-sky-100"
-                          : "border-white/15 bg-white/5 text-white/70"
-                  }`}
-                >
-                  {reviewStatusLabel(
-                    booking.reviewRequest?.status,
-                    booking.reviewRequest?.dueAt,
-                  )}
-                </span>
-                {booking.reviewRequest?.status === "scheduled" && booking.reviewRequest.dueAt ? (
-                  <span className="mt-2 block text-xs text-white/45">
-                    Auto-send around {formatUkInstant(booking.reviewRequest.dueAt)}
-                    {booking.reviewRequest.scheduledAt
-                      ? ` · scheduled ${formatUkInstant(booking.reviewRequest.scheduledAt)}`
-                      : ""}
-                  </span>
-                ) : null}
-                {booking.reviewRequest?.sentAt ? (
-                  <span className="mt-1 block text-xs text-white/45">
-                    Sent {formatUkInstant(booking.reviewRequest.sentAt)}
-                  </span>
-                ) : null}
-                {booking.reviewRequest?.status === "failed" && booking.reviewRequest.lastError ? (
-                  <span className="mt-1 block text-xs text-red-200/80">
-                    Failed: {booking.reviewRequest.lastError}
-                  </span>
-                ) : null}
+                Delivery failed — {booking.lastUpdatedConfirmationError}.
               </dd>
             </div>
           ) : null}
         </dl>
 
-        {!isClosed ? (
-          <>
-            {SERVICE_FLAGS.liveDriverTracking ? (
-            <PaidBookingLiveTracking
-              ownerKey={ownerKey}
-              booking={booking}
-              onBusy={setBusyRef}
-              onMessage={setMessage}
-              onError={setError}
-              onTrackingToken={onTrackingTokenUpdate}
-              onSharingChange={(active) => {
-                setBookings((current) =>
-                  current.map((entry) =>
-                    entry.paymentReference === booking.paymentReference
-                      ? { ...entry, sharingActive: active }
-                      : entry,
-                  ),
-                );
-              }}
-              onJourneyStatus={(paymentReference, journeyStatus) => {
-                setBookings((current) =>
-                  current.map((entry) =>
-                    entry.paymentReference === paymentReference
-                      ? { ...entry, journeyStatus }
-                      : entry,
-                  ),
-                );
-              }}
-            />
-            ) : null}
-
-            <div className="mt-4 space-y-4">
-              {renderJourneyControls(booking)}
-
-              {(booking.customerEmail || booking.mobileNumber || booking.arrivedPickupAt) && (
-                <div>
-                  <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-white/40">
-                    Customer contact
-                  </p>
-                  <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-                    {booking.customerEmail ? (
-                      <a
-                        href={`mailto:${encodeURIComponent(booking.customerEmail)}`}
-                        className="inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:border-white/30 sm:w-auto"
-                      >
-                        Email customer
-                      </a>
-                    ) : null}
-                    {booking.mobileNumber ? (
-                      <a
-                        href={`https://wa.me/${booking.mobileNumber.replace(/\D/g, "").replace(/^0/, "44")}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:border-white/30 sm:w-auto"
-                      >
-                        WhatsApp
-                      </a>
-                    ) : null}
-                  </div>
-                  <div className="mt-3 space-y-1 text-sm text-white/70">
-                    {booking.arrivedPickupAt ? (
-                      <p>
-                        Driver has arrived:{" "}
-                        <span className="font-semibold text-white">
-                          {formatArrivedPickupHhMm(booking.arrivedPickupAt)}
-                        </span>
-                      </p>
-                    ) : null}
-                    <p>
-                      Customer notification:{" "}
-                      <span className="font-semibold text-white">
-                        {arrivalNotificationLabel(booking)}
-                      </span>
-                    </p>
-                    {booking.arrivalNotificationStatus === "failed" &&
-                    booking.arrivalNotificationError ? (
-                      <p className="text-xs text-red-200/80">{booking.arrivalNotificationError}</p>
-                    ) : null}
-                  </div>
-                </div>
-              )}
-
-              <details className="rounded-xl border border-white/10 bg-navy/40">
-                <summary className="cursor-pointer list-none px-3 py-2.5 text-xs font-semibold uppercase tracking-wider text-white/50 marker:content-none [&::-webkit-details-marker]:hidden">
-                  Admin / More
-                </summary>
-                <div className="border-t border-white/10 px-3 py-3">
-                <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-                  {canEdit ? (
-                    <button
-                      type="button"
-                      disabled={busyRef === booking.paymentReference}
-                      onClick={() => setEditingBooking(booking)}
-                      className="min-h-11 w-full rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:border-white/30 disabled:opacity-60 sm:w-auto"
-                    >
-                      Edit Booking
-                    </button>
-                  ) : null}
-                  {canAdminConfirm ? (
-                    <button
-                      type="button"
-                      disabled={busyRef === booking.paymentReference}
-                      onClick={() => void handleSendUpdatedConfirmation(booking)}
-                      className="min-h-11 w-full rounded-xl border border-sky-400/40 bg-sky-500/15 px-4 py-2.5 text-sm font-semibold text-sky-100 transition-colors hover:bg-sky-500/25 disabled:opacity-60 sm:w-auto"
-                    >
-                      {busyRef === booking.paymentReference
-                        ? "Sending…"
-                        : "Resend Updated Confirmation"}
-                    </button>
-                  ) : null}
-                  <button
-                    type="button"
-                    disabled={busyRef === booking.paymentReference}
-                    onClick={() => void handleResend(booking)}
-                    className="min-h-11 w-full rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:border-white/30 disabled:opacity-60 sm:w-auto"
-                  >
-                    {busyRef === booking.paymentReference
-                      ? "Sending…"
-                      : "Resend Confirmation"}
-                  </button>
-                  {isCompleted || booking.reviewRequest ? (
-                    booking.reviewRequest?.status === "sent" ? (
-                      <button
-                        type="button"
-                        disabled={busyRef === booking.paymentReference}
-                        onClick={() => {
-                          if (
-                            window.confirm(
-                              "A review request was already sent. Send another copy to the customer?",
-                            )
-                          ) {
-                            void handleReviewRequest(booking, true);
-                          }
-                        }}
-                        className="min-h-11 w-full rounded-xl border border-amber-300/40 px-4 py-2.5 text-sm font-semibold text-amber-100 transition-colors hover:border-amber-200/60 disabled:opacity-60 sm:w-auto"
-                      >
-                        Resend review request
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        disabled={busyRef === booking.paymentReference}
-                        onClick={() => void handleReviewRequest(booking, false)}
-                        className="min-h-11 w-full rounded-xl border border-emerald/40 bg-emerald/15 px-4 py-2.5 text-sm font-semibold text-emerald transition-colors hover:bg-emerald/25 disabled:opacity-60 sm:w-auto"
-                      >
-                        {booking.reviewRequest?.status === "failed"
-                          ? "Retry review request"
-                          : "Send review request"}
-                      </button>
-                    )
-                  ) : null}
-                  <button
-                    type="button"
-                    disabled={
-                      diagnosticBusyRef === booking.paymentReference ||
-                      busyRef === booking.paymentReference
-                    }
-                    onClick={() => void handleTrackingDiagnostic(booking)}
-                    className="min-h-11 w-full rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold text-white/80 transition-colors hover:border-white/30 disabled:opacity-60 sm:w-auto"
-                  >
-                    {diagnosticBusyRef === booking.paymentReference
-                      ? "Loading diagnostic…"
-                      : "Tracking diagnostic (read-only)"}
-                  </button>
-                  <button
-                    type="button"
-                    disabled={
-                      refundDiagBusyRef === booking.paymentReference ||
-                      busyRef === booking.paymentReference
-                    }
-                    onClick={() => void handleRefundDiagnostic(booking)}
-                    className="min-h-11 w-full rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold text-white/80 transition-colors hover:border-white/30 disabled:opacity-60 sm:w-auto"
-                  >
-                    {refundDiagBusyRef === booking.paymentReference
-                      ? "Loading refund diagnostics…"
-                      : "Refund diagnostics (read-only)"}
-                  </button>
-                  {canRefundOrCancel ? (
-                    <button
-                      type="button"
-                      disabled={busyRef === booking.paymentReference}
-                      onClick={() => {
-                        setExternalRefundConfirmRef(null);
-                        setRefundConfirmRef(refundOpen ? null : booking.paymentReference);
-                      }}
-                      className="min-h-11 w-full rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-2.5 text-sm font-semibold text-red-200 transition-colors hover:bg-red-500/20 disabled:opacity-60 sm:w-auto"
-                    >
-                      Cancel / Refund
-                    </button>
-                  ) : null}
-                  {showMarkExternalRefund && !externalConfirmOpen ? (
-                    <button
-                      type="button"
-                      disabled={busyRef === booking.paymentReference}
-                      onClick={() => {
-                        setRefundConfirmRef(null);
-                        setExternalRefundConfirmRef(booking.paymentReference);
-                      }}
-                      className="min-h-11 w-full rounded-xl border border-amber-400/40 bg-amber-500/10 px-4 py-2.5 text-sm font-semibold text-amber-100 transition-colors hover:bg-amber-500/20 disabled:opacity-60 sm:w-auto"
-                    >
-                      Mark as refunded
-                    </button>
-                  ) : null}
-                </div>
-
-                {showOfferUpdated ? (
-                  <div className="mt-3 rounded-xl border border-sky-400/30 bg-sky-500/10 p-3">
-                    <p className="text-sm text-sky-100">
-                      Booking saved. Send an updated confirmation to the customer?
-                    </p>
-                    {fareAdjustMessage ? (
-                      <p className="mt-2 text-sm text-amber-100">{fareAdjustMessage}</p>
-                    ) : null}
-                    <button
-                      type="button"
-                      disabled={busyRef === booking.paymentReference}
-                      onClick={() => void handleSendUpdatedConfirmation(booking)}
-                      className="mt-3 min-h-11 w-full rounded-xl bg-sky-500 px-4 py-2.5 text-sm font-bold text-navy transition-colors hover:bg-sky-400 disabled:opacity-60 sm:w-auto"
-                    >
-                      Resend Updated Confirmation
-                    </button>
-                  </div>
-                ) : null}
-
-                {refundOpen ? (
-                  <OwnerCancelRefundModal
-                    ownerKey={ownerKey}
-                    booking={booking}
-                    busy={busyRef === booking.paymentReference}
-                    onBusyChange={(next) =>
-                      setBusyRef(next ? booking.paymentReference : "")
-                    }
-                    onClose={() => setRefundConfirmRef(null)}
-                    onSuccess={(result) => void handleCancelRefundSuccess(result, booking)}
-                    onError={(message) => setError(message)}
-                  />
-                ) : null}
-
-                {externalConfirmOpen ? (
-                  <div className="mt-3 rounded-xl border border-amber-400/35 bg-amber-500/10 p-3">
-                    <p className="text-sm font-semibold text-amber-50">
-                      Has this customer already been refunded manually in SumUp?
-                    </p>
-                    <p className="mt-2 text-xs leading-relaxed text-amber-50/80">
-                      Only use this if you have already refunded the customer outside this website.
-                      This will NOT send money. It does not call SumUp, closes the booking as
-                      Cancelled / Refunded, removes it from Upcoming, and keeps the original payment
-                      for audit. No refund email is sent.
-                    </p>
-                    <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-                      <button
-                        type="button"
-                        disabled={busyRef === booking.paymentReference}
-                        onClick={() => void handleMarkExternalRefund(booking)}
-                        className="min-h-11 w-full rounded-xl bg-amber-300 px-4 py-2.5 text-sm font-bold text-navy transition-colors hover:bg-amber-200 disabled:opacity-60 sm:w-auto"
-                      >
-                        {busyRef === booking.paymentReference
-                          ? "Closing…"
-                          : "Yes — close as refunded"}
-                      </button>
-                      <button
-                        type="button"
-                        disabled={busyRef === booking.paymentReference}
-                        onClick={() => setExternalRefundConfirmRef(null)}
-                        className="min-h-11 w-full rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:border-white/30 disabled:opacity-60 sm:w-auto"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                ) : null}
-                </div>
-              </details>
-            </div>
-
-            {diagnostics[booking.paymentReference] ? (
-              <TrackingDiagnosticView report={diagnostics[booking.paymentReference]} />
-            ) : null}
-            {refundDiagnostics[booking.paymentReference] ? (
-              <RefundDiagnosticView report={refundDiagnostics[booking.paymentReference]} />
-            ) : null}
-          </>
+        {isActiveCard ? (
+          <div className="mt-3 space-y-3">
+            {renderJourneyControls(booking)}
+            {moreOptions}
+          </div>
         ) : (
-          <div className="mt-4 space-y-3">
-            <p className="text-sm text-white/60">
-              This booking is {booking.status === "cancelled" ? "cancelled" : "fully refunded"}.
-              Journey evidence is retained.
-            </p>
-            <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-              <a
-                href={`/owner/journey-evidence/?ref=${encodeURIComponent(booking.paymentReference)}`}
-                className="inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-sky-400/40 bg-sky-500/15 px-4 py-2.5 text-sm font-bold text-sky-100 transition-colors hover:bg-sky-500/25 sm:w-auto"
-              >
-                View Journey Evidence
-              </a>
-              <button
-                type="button"
-                disabled={
-                  refundDiagBusyRef === booking.paymentReference ||
-                  busyRef === booking.paymentReference
-                }
-                onClick={() => void handleRefundDiagnostic(booking)}
-                className="min-h-11 w-full rounded-xl border border-amber-400/40 bg-amber-500/10 px-4 py-2.5 text-sm font-semibold text-amber-100 transition-colors hover:bg-amber-500/20 disabled:opacity-60 sm:w-auto"
-              >
-                {refundDiagBusyRef === booking.paymentReference
-                  ? "Loading refund diagnostics…"
-                  : "Refund diagnostics (read-only)"}
-              </button>
-              {canRefundOrCancel ? (
-                <button
-                  type="button"
-                  disabled={busyRef === booking.paymentReference}
-                  onClick={() =>
-                    setRefundConfirmRef(refundOpen ? null : booking.paymentReference)
-                  }
-                  className="min-h-11 w-full rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-2.5 text-sm font-semibold text-red-200 transition-colors hover:bg-red-500/20 disabled:opacity-60 sm:w-auto"
-                >
-                  Issue refund on cancelled booking
-                </button>
-              ) : null}
-            </div>
-            {refundOpen && booking.status === "cancelled" ? (
-              <OwnerCancelRefundModal
-                ownerKey={ownerKey}
-                booking={booking}
-                busy={busyRef === booking.paymentReference}
-                onBusyChange={(next) => setBusyRef(next ? booking.paymentReference : "")}
-                onClose={() => setRefundConfirmRef(null)}
-                onSuccess={(result) => void handleCancelRefundSuccess(result, booking)}
-                onError={(message) => setError(message)}
-              />
+          <div className="mt-3 space-y-3">
+            {isClosed ? (
+              <p className="text-sm text-white/60">
+                This booking is {booking.status === "cancelled" ? "cancelled" : "fully refunded"}.
+                Journey evidence is retained.
+              </p>
             ) : null}
-            {refundDiagnostics[booking.paymentReference] ? (
-              <RefundDiagnosticView report={refundDiagnostics[booking.paymentReference]} />
-            ) : null}
+            {moreOptions}
           </div>
         )}
+
+        {diagnostics[booking.paymentReference] ? (
+          <TrackingDiagnosticView report={diagnostics[booking.paymentReference]} />
+        ) : null}
+        {refundDiagnostics[booking.paymentReference] ? (
+          <RefundDiagnosticView report={refundDiagnostics[booking.paymentReference]} />
+        ) : null}
       </li>
     );
   }
@@ -2204,11 +1533,11 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
       ) : null}
 
       {loading ? (
-        <p className="text-sm text-white/60">Loading upcoming jobs…</p>
+        <p className="text-sm text-white/60">Loading jobs…</p>
       ) : scheduleDayGroups.length === 0 && refundsPending.length === 0 ? (
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm text-white/60">
-            No upcoming jobs by journey date (looking ahead ~90 days, plus recent incomplete). If a
+            No active jobs by journey date (looking ahead ~90 days, plus recent incomplete). If a
             customer just paid, tap Refresh or use Recover if SumUp shows PAID.
           </p>
           <button
@@ -2224,7 +1553,7 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
           {scheduleDayGroups.length === 0 ? (
             <div className="flex flex-wrap items-center justify-between gap-3">
               <p className="text-sm text-white/60">
-                No open upcoming jobs right now. Refunds Pending (if any) appear below. Completed
+                No open active jobs right now. Refunds Pending (if any) appear below. Completed
                 jobs for each day stay collapsed under that date after refresh.
               </p>
               <button
@@ -2254,14 +1583,14 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
                   {group.upcoming.length > 0 ? (
                     <div>
                       <p className="text-xs font-semibold uppercase tracking-wider text-sky-200">
-                        Upcoming jobs
+                        Active jobs
                       </p>
                       <ul className="mt-2 space-y-4">
                         {group.upcoming.map((booking) => renderBookingCard(booking))}
                       </ul>
                     </div>
                   ) : (
-                    <p className="text-sm text-white/45">No upcoming jobs for this day.</p>
+                    <p className="text-sm text-white/45">No active jobs for this day.</p>
                   )}
 
                   {group.completed.length > 0 ? (
