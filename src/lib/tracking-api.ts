@@ -22,6 +22,7 @@ import {
   isDemoOwnerKey,
   isDemoTrackToken,
   sanitizeDemoJobForDriver,
+  setDemoDriverPendingAssignmentStatus,
 } from "@/lib/tracking-demo";
 
 const DEFAULT_WORKER_BASE = "https://reimagined-octo-meme.cgr28.workers.dev";
@@ -1221,6 +1222,7 @@ export async function respondToJobAssignment(
     }
 
     if (action === "decline") {
+      setDemoDriverPendingAssignmentStatus("declined");
       return {
         ok: true,
         job: sanitizeDemoJobForDriver({
@@ -1231,6 +1233,7 @@ export async function respondToJobAssignment(
       };
     }
 
+    setDemoDriverPendingAssignmentStatus("accepted");
     return {
       ok: true,
       job: sanitizeDemoJobForDriver({

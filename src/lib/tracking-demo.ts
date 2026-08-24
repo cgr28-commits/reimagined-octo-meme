@@ -12,6 +12,13 @@ export const DEMO_DRIVER_NAME = "Gary";
 export const DEMO_OWNER_NAME = "Colin";
 /** Additional saved drivers shown in owner assign picker (beyond Owner / primary). */
 export const DEMO_ROSTER = ["Gary"] as const;
+let demoPendingAssignmentStatus: "pending" | "accepted" | "declined" = "pending";
+
+export function setDemoDriverPendingAssignmentStatus(
+  status: "pending" | "accepted" | "declined",
+) {
+  demoPendingAssignmentStatus = status;
+}
 
 export function isDemoDriverKey(key: string): boolean {
   return key.trim() === DEMO_DRIVER_KEY;
@@ -329,6 +336,14 @@ function buildDemoDriverJob(
 export function getDemoDriverJobs(date?: string): DriverJobsResponse {
   const waiting = getDemoTrackResponse("demo-waiting");
   const responseDate = date ?? waiting.tripDate;
+  const acceptedPendingJob =
+    demoPendingAssignmentStatus === "accepted"
+      ? sanitizeDemoJobForDriver({
+          ...getDemoDriverPendingJobRaw(),
+          assignmentStatus: "accepted",
+          acceptedAt: new Date().toISOString(),
+        })
+      : null;
 
   const jobs = [
     buildDemoDriverJob("demo-live", {
@@ -357,6 +372,7 @@ export function getDemoDriverJobs(date?: string): DriverJobsResponse {
         status: "Estimated arrival",
       },
     }),
+    ...(acceptedPendingJob ? [acceptedPendingJob] : []),
   ].filter((job) => !date || job.tripDate === date);
 
   return demoDriverJobsResponse(jobs, "date", responseDate);
@@ -406,7 +422,9 @@ export function getDemoDriverUpcomingJobs(): DriverJobsResponse {
 }
 
 export function getDemoDriverPendingJobs(): DriverJobsResponse {
-  return demoDriverJobsResponse([getDemoDriverPendingJobRaw()], "pending", "pending");
+  const jobs =
+    demoPendingAssignmentStatus === "pending" ? [getDemoDriverPendingJobRaw()] : [];
+  return demoDriverJobsResponse(jobs, "pending", "pending");
 }
 
 function buildDemoUnassignedJob(): DriverJob {
@@ -521,7 +539,9 @@ export function getDemoOwnerUpcomingJobs(): DriverJobsResponse {
 }
 
 export function getDemoOwnerPendingJobs(): DriverJobsResponse {
-  return demoOwnerJobsResponse([getDemoDriverPendingJobRaw()], "pending", "pending");
+  const jobs =
+    demoPendingAssignmentStatus === "pending" ? [getDemoDriverPendingJobRaw()] : [];
+  return demoOwnerJobsResponse(jobs, "pending", "pending");
 }
 
 export function getDemoOwnerLocationHistory(token: string) {

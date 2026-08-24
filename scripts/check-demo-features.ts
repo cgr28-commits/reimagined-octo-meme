@@ -13,6 +13,7 @@ import {
   getDemoDriverPendingJobRaw,
   getDemoDriverPendingJobs,
   getDemoDriverStatus,
+  getDemoDriverUpcomingJobs,
   getDemoDriverVehicle,
   getDemoOwnerJobs,
   getDemoOwnerLocationHistory,
@@ -21,6 +22,7 @@ import {
   getDemoOwnerVehicleProfiles,
   getDemoTrackResponse,
   sanitizeDemoJobForDriver,
+  setDemoDriverPendingAssignmentStatus,
 } from "../src/lib/tracking-demo";
 
 let passed = 0;
@@ -179,6 +181,18 @@ check("sanitize keeps accepted contact but strips owner-only fields", () => {
   assert.equal(sanitized.paymentReference, undefined);
   assert.equal(sanitized.amountPaidLabel, undefined);
   assert.equal(sanitized.driverLocationPointCount, undefined);
+});
+
+check("accepted demo assignment persists across Upcoming reload", () => {
+  setDemoDriverPendingAssignmentStatus("accepted");
+  assert.equal(getDemoDriverPendingJobs().jobs.length, 0);
+  const accepted = getDemoDriverUpcomingJobs().jobs.find((job) => job.token === "demo-pending");
+  assert.ok(accepted);
+  assert.equal(accepted.assignmentStatus, "accepted");
+  assert.equal(accepted.customerName, "Jordan Demo");
+  assert.equal(accepted.customerMobile, "+447700900321");
+  assert.ok(accepted.journeyNotes);
+  setDemoDriverPendingAssignmentStatus("pending");
 });
 
 console.log(`Demo feature integrity: ${passed} checks passed`);
