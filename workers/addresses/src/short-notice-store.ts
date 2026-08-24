@@ -4,8 +4,10 @@
 
 import type { ShortNoticeBookingRecord } from "../shared/short-notice-booking";
 import {
-  isShortNoticeOpenStatus,
+  isShortNoticeActiveOnDashboard,
+  isShortNoticeArchivedRecord,
   shortNoticeAcceptTokenKey,
+  shortNoticeArchivedIndexKey,
   shortNoticeOpenIndexKey,
   shortNoticeRefKey,
   shortNoticeTokenKey,
@@ -13,17 +15,21 @@ import {
 
 const TTL_SECONDS = 60 * 60 * 24 * 45;
 
-type OpenIndex = { references: string[]; updatedAt: string };
+type RefIndex = { references: string[]; updatedAt: string };
 
-async function readOpenIndex(store: KVNamespace): Promise<string[]> {
-  const index = await store.get<OpenIndex>(shortNoticeOpenIndexKey(), "json");
+async function readRefIndex(store: KVNamespace, key: string): Promise<string[]> {
+  const index = await store.get<RefIndex>(key, "json");
   return Array.isArray(index?.references) ? index.references.map(String) : [];
 }
 
-async function writeOpenIndex(store: KVNamespace, references: string[]): Promise<void> {
-  const unique = [...new Set(references.map((r) => r.trim()).filter(Boolean))].slice(0, 200);
-  const payload: OpenIndex = { references: unique, updatedAt: new Date().toISOString() };
-  await store.put(shortNoticeOpenIndexKey(), JSON.stringify(payload), {
+async function writeRefIndex(
+  store: KVNamespace,
+  key: string,
+  references: string[],
+): Promise<void> {
+  const unique = [...new Set(references.map((r) => r.trim()).filter(Boolean))].slice(0, 300);
+  const payload: RefIndex = { references: unique, updatedAt: new Date().toISOString() };
+  await store.put(key, JSON.stringify(payload), {
     expirationTtl: TTL_SECONDS,
   });
 }
@@ -43,12 +49,19 @@ export async function saveShortNoticeBooking(
     });
   }
 
-  const open = await readOpenIndex(store);
-  const keepOpen = isShortNoticeOpenStatus(record.status);
-  const next = keepOpen
+  const open = await readRefIndex(store, shortNoticeOpenIndexKey());
+  const keepOpen = isShortNoticeActiveOnDashboard(record);
+  const nextOpen = keepOpen
     ? [record.reference, ...open.filter((r) => r !== record.reference)]
     : open.filter((r) => r !== record.reference);
-  await writeOpenIndex(store, next);
+  await writeRefIndex(store, shortNoticeOpenIndexKey(), nextOpen);
+
+  const archived = await readRefIndex(store, shortNoticeArchivedIndexKey());
+  const keepArchived = isShortNoticeArchivedRecord(record);
+  const nextArchived = keepArchived
+    ? [record.reference, ...archived.filter((r) => r !== record.reference)]
+    : archived.filter((r) => r !== record.reference);
+  await writeRefIndex(store, shortNoticeArchivedIndexKey(), nextArchived);
 }
 
 export async function getShortNoticeByReference(
@@ -84,15 +97,33 @@ export async function getShortNoticeByAcceptToken(
 export async function listOpenShortNoticeBookings(
   store: KVNamespace,
 ): Promise<ShortNoticeBookingRecord[]> {
-  const refs = await readOpenIndex(store);
+  const refs = await readRefIndex(store, shortNoticeOpenIndexKey());
   const records: ShortNoticeBookingRecord[] = [];
   for (const reference of refs) {
     const record = await getShortNoticeByReference(store, reference);
-    if (record && isShortNoticeOpenStatus(record.status)) {
+    if (record && isShortNoticeActiveOnDashboard(record)) {
       records.push(record);
     }
   }
   return records.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
+export async function listArchivedShortNoticeBookings(
+  store: KVNamespace,
+): Promise<ShortNoticeBookingRecord[]> {
+  const refs = await readRefIndex(store, shortNoticeArchivedIndexKey());
+  const records: ShortNoticeBookingRecord[] = [];
+  for (const reference of refs) {
+    const record = await getShortNoticeByReference(store, reference);
+    if (record && isShortNoticeArchivedRecord(record)) {
+      records.push(record);
+    }
+  }
+  return records.sort((a, b) => {
+    const aAt = a.removedFromDashboardAt || a.declinedAlternativeAt || a.declinedAt || a.updatedAt;
+    const bAt = b.removedFromDashboardAt || b.declinedAlternativeAt || b.declinedAt || b.updatedAt;
+    return bAt.localeCompare(aAt);
+  });
 }
 
 export function generateShortNoticeReference(now = new Date()): string {
