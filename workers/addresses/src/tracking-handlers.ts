@@ -29,7 +29,9 @@ import { corsHeaders } from "../shared/google-places";
 import {
   bookingJobStoreConfigured,
   getBookingJob,
+  listBookingJobsForDateRange,
 } from "./booking-job-store";
+import { syncTrackingAssignmentFromBooking } from "./booking-job-handlers";
 import {
   getPaidBookingRecord,
   listPaymentRefsWithReturnDateInRange,
@@ -39,14 +41,18 @@ import {
   filterJobsForSession,
   assertDriverCanOperateJob,
 } from "./driver-assignment-utils";
-import { jobAssignmentStatus } from "../shared/tracking";
+import {
+  driverNamesMatch,
+  jobAssignmentStatus,
+  formatDriverPayAmount,
+} from "../shared/tracking";
 import {
   driverAuthorized,
   driverAuthStatus,
   isDriverAuthConfigured,
   listConfiguredDrivers,
   ownerAuthorized,
-  resolveDriverSession,
+  resolveStoredDriverSession,
   sanitizeDriverJobForRole,
   type DashboardRole,
 } from "./driver-auth";
@@ -300,7 +306,6 @@ export async function handlePublicTrackRequest(
   if (!trackingStoreConfigured(env.TRACKING_STORE)) {
     return jsonResponse({ error: "Live tracking is not configured" }, 503, origin);
   }
-
   const trimmed = token.trim();
   if (!trimmed) {
     return jsonResponse({ error: "Missing tracking id" }, 400, origin);
@@ -329,15 +334,12 @@ export async function buildPublicTrackResponse(
   origin: string | null,
 ): Promise<ReturnType<typeof publicTrackPayload> & { vehicle?: ReturnType<typeof toCustomerVehicleDetails> }> {
   const payload = publicTrackPayload(record, origin);
-  const window = getTrackingWindow(record.pickupAt);
-
   if (!trackingStoreConfigured(env.TRACKING_STORE)) {
     return payload;
   }
 
   const profile = await resolveCustomerVisibleVehicle(env.TRACKING_STORE, {
-    trackingWindowOpen: window.open,
-    sharingActive: record.sharingActive,
+    contactRevealed: Boolean(record.driverContactRevealedAt),
     driverName: record.activeDriverName ?? record.assignedDriverName,
   });
 
@@ -471,6 +473,7 @@ export async function handleDriverJobsRequest(
   if (!trackingStoreConfigured(env.TRACKING_STORE)) {
     return jsonResponse({ error: "Live tracking is not configured" }, 503, origin);
   }
+  const trackingStore = env.TRACKING_STORE;
 
   if (!driverAuthorized(request, env)) {
     return jsonResponse(
@@ -483,7 +486,7 @@ export async function handleDriverJobsRequest(
     );
   }
 
-  const session = resolveDriverSession(request, env);
+  const session = await resolveStoredDriverSession(request, env, trackingStore);
   const role: DashboardRole = session.authorized ? session.role : "driver";
 
   const url = new URL(request.url);
@@ -550,6 +553,69 @@ export async function handleDriverJobsRequest(
     jobs = await listTrackingJobsForDate(env.TRACKING_STORE, tripDate);
   }
 
+  // Self-heal: email accept updates booking-job first. Re-apply onto tracking jobs
+  // so /driver/jobs (which reads tracking) sees Accepted for this driver.
+  if (
+    role === "driver" &&
+    session.authorized &&
+    session.driverName &&
+    bookingJobStoreConfigured(env.TRACKING_STORE)
+  ) {
+    const today = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Europe/London",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(new Date());
+    const fromDate =
+      scope === "date"
+        ? tripDate
+        : today;
+    const toDate =
+      scope === "date"
+        ? tripDate
+        : (() => {
+            const end = new Date(`${today}T12:00:00Z`);
+            end.setUTCDate(end.getUTCDate() + daysAhead);
+            return end.toISOString().slice(0, 10);
+          })();
+
+    const bookingJobs = await listBookingJobsForDateRange(
+      trackingStore,
+      fromDate,
+      toDate,
+    );
+    const relevant = bookingJobs.filter((booking) => {
+      const status = booking.driverAssignmentStatus ?? "unassigned";
+      if (status !== "pending" && status !== "accepted") {
+        return false;
+      }
+      if (!driverNamesMatch(booking.driverFirstName, session.driverName)) {
+        return false;
+      }
+      const assignedEmail = booking.driverEmail?.trim().toLowerCase();
+      const sessionEmail = session.driverEmail?.trim().toLowerCase();
+      return !assignedEmail || !sessionEmail || assignedEmail === sessionEmail;
+    });
+
+    for (const booking of relevant) {
+      const synced = await syncTrackingAssignmentFromBooking(trackingStore, booking);
+      for (const tracked of synced) {
+        if (
+          !jobs.some((entry) => entry.token === tracked.token) &&
+          !isTrackingJobCancelled(tracked)
+        ) {
+          jobs.push(tracked);
+        }
+      }
+    }
+
+    // Refresh any jobs already in the list that were just synced.
+    jobs = await Promise.all(
+      jobs.map(async (job) => (await getTrackingJob(trackingStore, job.token)) ?? job),
+    );
+  }
+
   jobs = filterJobsForSession(jobs, session);
 
   const enrichedJobs = await Promise.all(
@@ -587,6 +653,39 @@ export async function handleDriverJobsRequest(
 
       const refundAmountLabel = paidRecord?.refundAmountLabel ?? job.refundAmountLabel;
 
+      let driverPayAmount: string | undefined;
+      let assignedDriverMobile: string | undefined;
+      let assignedDriverCarMake: string | undefined;
+      let assignedDriverCarModel: string | undefined;
+      let assignedDriverCarColour: string | undefined;
+      let assignedDriverReg: string | undefined;
+      let passengers: number | undefined;
+      let suitcases: number | undefined;
+      let journeyNotes: string | undefined;
+
+      if (job.paymentReference && bookingJobStoreConfigured(env.TRACKING_STORE)) {
+        const bookingJob =
+          (await getBookingJob(env.TRACKING_STORE, job.paymentReference)) ??
+          (await getBookingJob(env.TRACKING_STORE, job.token));
+        if (bookingJob) {
+          driverPayAmount = bookingJob.driverPayAmount;
+          assignedDriverMobile = bookingJob.driverMobile;
+          assignedDriverCarMake = bookingJob.driverCarMake;
+          assignedDriverCarModel = bookingJob.driverCarModel;
+          assignedDriverCarColour = bookingJob.driverCarColour;
+          assignedDriverReg = bookingJob.driverReg;
+          passengers = bookingJob.passengers;
+          suitcases = bookingJob.suitcases;
+          journeyNotes = bookingJob.message;
+        }
+      }
+
+      if (paidRecord) {
+        passengers = passengers ?? paidRecord.passengers;
+        suitcases = suitcases ?? paidRecord.suitcases;
+        journeyNotes = journeyNotes ?? paidRecord.notes;
+      }
+
       return sanitizeDriverJobForRole(
         {
           ...publicTrackPayload(job, origin, { includeCustomerLocation: true }),
@@ -602,6 +701,29 @@ export async function handleDriverJobsRequest(
           assignedAt: job.assignedAt,
           acceptedAt: job.acceptedAt,
           declinedAt: job.declinedAt,
+          assignmentHistory: job.assignmentHistory ?? [],
+          assignedDriverMobile,
+          assignedDriverCarMake,
+          assignedDriverCarModel,
+          assignedDriverCarColour,
+          assignedDriverReg,
+          driverPayAmount: driverPayAmount
+            ? formatDriverPayAmount(driverPayAmount)
+            : undefined,
+          driverPaymentStatus:
+            job.driverPaymentStatus ??
+            (journeyStatusOf(job) === "completed" && driverPayAmount ? "due" : undefined),
+          driverPaymentAmount:
+            job.driverPaymentAmount ??
+            (journeyStatusOf(job) === "completed" && driverPayAmount
+              ? formatDriverPayAmount(driverPayAmount)
+              : undefined),
+          driverPaymentDueAt: job.driverPaymentDueAt,
+          driverPaymentSentAt: job.driverPaymentSentAt,
+          driverPaymentHistory: job.driverPaymentHistory ?? [],
+          passengers,
+          suitcases,
+          journeyNotes,
           driverLocationPointCount: job.driverLocationPointCount,
           driverLocationRecordedFrom: job.driverLocationRecordedFrom,
           driverLocationRecordedTo: job.driverLocationRecordedTo,
@@ -644,7 +766,7 @@ export async function handleDriverStatusRequest(
   origin: string | null,
 ): Promise<Response> {
   const authConfigured = isDriverAuthConfigured(env);
-  const session = resolveDriverSession(request, env);
+  const session = await resolveStoredDriverSession(request, env, env.TRACKING_STORE);
   const authorized = session.authorized;
   const keys = driverAuthStatus(env);
 
@@ -716,7 +838,14 @@ export async function handleDriverSharingRequest(
     return cancelled;
   }
 
-  const session = resolveDriverSession(request, env);
+  const session = await resolveStoredDriverSession(request, env, env.TRACKING_STORE);
+  if (session.authorized && session.role === "driver" && active) {
+    return jsonResponse(
+      { error: "Live location sharing is not available on the Driver Dashboard" },
+      403,
+      origin,
+    );
+  }
   const operateError = assertDriverCanOperateJob(record, session);
   if (operateError && Boolean(active)) {
     return jsonResponse({ error: operateError }, 409, origin);
@@ -808,7 +937,7 @@ export async function handleDriverLocationRequest(
       driverName = trackingSession.driverName ?? driverName;
     } else if (driverAuthorized(request, env)) {
       // Fall back to owner/driver key if the short-lived session expired.
-      const session = resolveDriverSession(request, env);
+      const session = await resolveStoredDriverSession(request, env, env.TRACKING_STORE);
       const operateError = assertDriverCanOperateJob(record, session);
       if (operateError) {
         return jsonResponse({ error: operateError }, 409, origin);
@@ -824,7 +953,7 @@ export async function handleDriverLocationRequest(
     if (!driverAuthorized(request, env)) {
       return jsonResponse({ error: "Unauthorized" }, 401, origin);
     }
-    const session = resolveDriverSession(request, env);
+    const session = await resolveStoredDriverSession(request, env, env.TRACKING_STORE);
     const operateError = assertDriverCanOperateJob(record, session);
     if (operateError) {
       return jsonResponse({ error: operateError }, 409, origin);

@@ -1,3 +1,10 @@
+import { OWNER_VEHICLE_PROFILE_KEY } from "../shared/driver-vehicle";
+import { generalDriverLocationLabel } from "../shared/tracking";
+import {
+  getDriverVehicleProfile,
+  listOwnerVehicleProfileOptions,
+} from "./driver-vehicle-store";
+
 export type DriverAuthEnv = {
   DRIVER_ACCESS_KEY?: string;
   OWNER_ACCESS_KEY?: string;
@@ -16,7 +23,13 @@ export type DashboardRole = "owner" | "driver";
 
 export type DriverSession =
   | { authorized: false }
-  | { authorized: true; role: DashboardRole; driverName?: string };
+  | {
+      authorized: true;
+      role: DashboardRole;
+      driverName?: string;
+      driverEmail?: string;
+      driverMobile?: string;
+    };
 
 function normalizeKey(value: string): string {
   return value.replace(/^\uFEFF/, "").trim();
@@ -38,7 +51,12 @@ function driverKey(env: DriverAuthEnv): string {
 }
 
 function driverDisplayName(env: DriverAuthEnv): string {
-  return env.DRIVER_NAME?.trim() || "Driver";
+  const explicit = env.DRIVER_NAME?.trim();
+  if (explicit) {
+    return explicit;
+  }
+
+  return "Driver";
 }
 
 export function listConfiguredDrivers(env: DriverAuthEnv): string[] {
@@ -96,6 +114,54 @@ export function resolveDriverSession(request: Request, env: DriverAuthEnv): Driv
   return { authorized: false };
 }
 
+/**
+ * Resolve the saved-driver identity when a deployment has no DRIVER_NAME.
+ * One complete non-owner profile is unambiguous; multiple profiles fail closed.
+ */
+export async function resolveStoredDriverSession(
+  request: Request,
+  env: DriverAuthEnv,
+  store?: KVNamespace,
+): Promise<DriverSession> {
+  const session = resolveDriverSession(request, env);
+  if (!session.authorized || session.role !== "driver" || !store) {
+    return session;
+  }
+
+  if (session.driverName && session.driverName !== "Driver") {
+    const saved = await getDriverVehicleProfile(store, session.driverName);
+    if (!saved) {
+      return session;
+    }
+
+    return {
+      ...session,
+      ...(saved.email.trim() ? { driverEmail: saved.email.trim().toLowerCase() } : {}),
+      ...(saved.mobile?.trim() ? { driverMobile: saved.mobile.trim() } : {}),
+    };
+  }
+
+  const profiles = await listOwnerVehicleProfileOptions(store, []);
+  const external = profiles.filter(
+    (profile) =>
+      profile.profileKey !== OWNER_VEHICLE_PROFILE_KEY &&
+      profile.complete &&
+      Boolean(profile.displayName.trim()),
+  );
+  if (external.length !== 1) {
+    return session;
+  }
+  const saved = await getDriverVehicleProfile(store, external[0].profileKey);
+
+  return {
+    authorized: true,
+    role: "driver",
+    driverName: external[0].displayName.trim(),
+    ...(saved?.email.trim() ? { driverEmail: saved.email.trim().toLowerCase() } : {}),
+    ...(saved?.mobile?.trim() ? { driverMobile: saved.mobile.trim() } : {}),
+  };
+}
+
 export function driverAuthorized(request: Request, env: DriverAuthEnv): boolean {
   return resolveDriverSession(request, env).authorized;
 }
@@ -124,16 +190,36 @@ export function sanitizeDriverJobForRole<T extends Record<string, unknown>>(
     return job;
   }
 
-  const sanitized = { ...job };
+  const sanitized: Record<string, unknown> = { ...job };
   delete sanitized.paymentReference;
+  delete sanitized.bookingReference;
   delete sanitized.amountPaidLabel;
+  delete sanitized.bookingStatus;
   delete sanitized.refundAmountLabel;
-  delete sanitized.customerMobile;
   delete sanitized.customerEmail;
   delete sanitized.driverLocationPointCount;
   delete sanitized.driverLocationRecordedFrom;
   delete sanitized.driverLocationRecordedTo;
-  // Drivers must never see what the customer paid.
-  // Flight fields (flightNumber, flight, isAirportPickup, airportCode) are retained for drivers.
+  delete sanitized.driverPaymentAmount;
+  delete sanitized.driverPaymentDueAt;
+  delete sanitized.driverPaymentSentAt;
+  delete sanitized.driverPaymentHistory;
+  delete sanitized.driverContactRevealedAt;
+  const assignmentStatus = String(sanitized.assignmentStatus ?? "").trim();
+  if (assignmentStatus !== "accepted") {
+    sanitized["customerName"] = "Customer details available after acceptance";
+    sanitized["pickupLabel"] = generalDriverLocationLabel(String(sanitized.pickupLabel ?? ""));
+    sanitized["dropoffLabel"] = generalDriverLocationLabel(String(sanitized.dropoffLabel ?? ""));
+    delete sanitized.customerMobile;
+    delete sanitized.flightNumber;
+    delete sanitized.airportCode;
+    delete sanitized.flight;
+    delete sanitized.passengers;
+    delete sanitized.suitcases;
+    delete sanitized.journeyNotes;
+    delete sanitized.trackUrl;
+  }
+  // Drivers must never see what the customer paid. Operational fields are
+  // retained only for accepted assignments.
   return sanitized as T;
 }

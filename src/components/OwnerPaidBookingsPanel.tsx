@@ -25,8 +25,10 @@ import {
   type ArrivalVehicleDetails,
 } from "../../shared/arrival-whatsapp";
 import { formatUkInstant } from "../../shared/uk-time";
+import { formatPassengerSuitcaseCounts } from "@/lib/party-size";
 import OwnerEditBookingModal from "@/components/OwnerEditBookingModal";
 import OwnerCancelRefundModal from "@/components/OwnerCancelRefundModal";
+import OwnerAssignDriverPanel from "@/components/OwnerAssignDriverPanel";
 import {
   fetchOwnerPaidBookings,
   fetchOwnerPendingCheckouts,
@@ -49,6 +51,7 @@ import {
   fetchDriverVehicle,
   fetchOwnerAccountProfile,
   postJourneyAction,
+  type DriverJob,
   type JourneyAction,
 } from "@/lib/tracking-api";
 import {
@@ -453,6 +456,10 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
     paymentReference: string;
     action: OwnerPrimaryJourneyAction;
   } | null>(null);
+  const [assignPanelRef, setAssignPanelRef] = useState<string | null>(null);
+  const [assignTrackingTokenByRef, setAssignTrackingTokenByRef] = useState<
+    Record<string, string>
+  >({});
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -518,6 +525,54 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
       [day]: !current[day],
     }));
   }
+  async function openAssignPanel(booking: OwnerPaidBookingSummary) {
+    setBusyRef(booking.paymentReference);
+    setError("");
+    setMessage("");
+    try {
+      let token =
+        assignTrackingTokenByRef[booking.paymentReference]?.trim() ||
+        booking.trackingToken?.trim() ||
+        "";
+      if (!token) {
+        const created = await ensurePaidBookingTracking(ownerKey, booking.paymentReference);
+        token = created.token;
+        onTrackingTokenUpdate(booking.paymentReference, created.token, created.trackUrl);
+      }
+      setAssignTrackingTokenByRef((current) => ({
+        ...current,
+        [booking.paymentReference]: token,
+      }));
+      setAssignPanelRef(booking.paymentReference);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not open assign driver");
+    } finally {
+      setBusyRef("");
+    }
+  }
+
+  function handleAssignCompleted(booking: OwnerPaidBookingSummary, job: DriverJob) {
+    setBookings((current) =>
+      current.map((entry) =>
+        entry.paymentReference === booking.paymentReference
+          ? {
+              ...entry,
+              assignedDriverName: job.assignedDriverName,
+              assignedDriverLabel: job.assignedDriverName?.trim() || entry.assignedDriverLabel,
+              assignmentStatus: job.assignmentStatus,
+              assignmentHistory: job.assignmentHistory ?? entry.assignmentHistory,
+              primaryDriverDefault: !job.assignedDriverName?.trim(),
+              trackingToken: job.token || entry.trackingToken,
+            }
+          : entry,
+      ),
+    );
+    setMessage(
+      `Job assigned to ${job.assignedDriverName ?? "driver"}. Waiting for them to confirm.`,
+    );
+    setAssignPanelRef(null);
+  }
+
   async function handleResend(booking: OwnerPaidBookingSummary) {
     setBusyRef(booking.paymentReference);
     setError("");
@@ -1180,6 +1235,19 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
                 Edit Booking
               </button>
             ) : null}
+            {!isClosed && !isCompleted ? (
+              <button
+                type="button"
+                disabled={busyRef === booking.paymentReference}
+                onClick={() => void openAssignPanel(booking)}
+                className="min-h-11 w-full rounded-xl border border-emerald/40 bg-emerald/15 px-4 py-2.5 text-sm font-semibold text-emerald disabled:opacity-60"
+              >
+                {booking.assignedDriverName?.trim() ||
+                (booking.assignmentStatus && booking.assignmentStatus !== "unassigned")
+                  ? "Reassign driver"
+                  : "Assign driver"}
+              </button>
+            ) : null}
             {canAdminConfirm ? (
               <button
                 type="button"
@@ -1310,6 +1378,28 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
                 Resend Updated Confirmation
               </button>
             </div>
+          ) : null}
+
+          {assignPanelRef === booking.paymentReference &&
+          (assignTrackingTokenByRef[booking.paymentReference] || booking.trackingToken) ? (
+            <OwnerAssignDriverPanel
+              ownerKey={ownerKey}
+              trackingToken={
+                assignTrackingTokenByRef[booking.paymentReference] ||
+                booking.trackingToken ||
+                ""
+              }
+              mode={
+                booking.assignedDriverName?.trim() ||
+                (booking.assignmentStatus && booking.assignmentStatus !== "unassigned")
+                  ? "reassign"
+                  : "assign"
+              }
+              currentDriverName={booking.assignedDriverName}
+              assignmentHistory={booking.assignmentHistory}
+              onClose={() => setAssignPanelRef(null)}
+              onAssigned={(job) => handleAssignCompleted(booking, job)}
+            />
           ) : null}
 
           {refundOpen ? (
@@ -1486,13 +1576,9 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
           ) : null}
           {typeof booking.passengers === "number" || typeof booking.suitcases === "number" ? (
             <div className="col-span-2">
-              <dt className="text-[11px] text-white/40">Passengers / luggage</dt>
+              <dt className="text-[11px] text-white/40">Party size</dt>
               <dd>
-                {typeof booking.passengers === "number" ? `${booking.passengers} pax` : "—"}
-                {" · "}
-                {typeof booking.suitcases === "number"
-                  ? `${booking.suitcases} suitcases`
-                  : "—"}
+                {formatPassengerSuitcaseCounts(booking.passengers, booking.suitcases)}
               </dd>
             </div>
           ) : null}

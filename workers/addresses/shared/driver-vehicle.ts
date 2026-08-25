@@ -17,6 +17,8 @@ export type CustomerVehicleDetails = {
   colour: string;
   registration: string;
   driverName?: string;
+  /** Revealed to the customer only after Driver on the way is recorded. */
+  mobile?: string;
 };
 
 export const OWNER_VEHICLE_PROFILE_KEY = "owner";
@@ -128,5 +130,6 @@ export function toCustomerVehicleDetails(
     colour: profile.colour.trim(),
     registration: profile.registration.trim().toUpperCase(),
     driverName: profile.displayName,
+    mobile: profile.mobile?.trim() || undefined,
   };
 }

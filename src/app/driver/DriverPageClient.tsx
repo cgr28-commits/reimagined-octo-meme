@@ -11,6 +11,7 @@ import OwnerShortNoticePanel from "@/components/OwnerShortNoticePanel";
 import OwnerPersonalQuotesPanel from "@/components/OwnerPersonalQuotesPanel";
 import OwnerBookingCalendar from "@/components/OwnerBookingCalendar";
 import OwnerAccountProfilePanel from "@/components/OwnerAccountProfilePanel";
+import OwnerAssignDriverPanel from "@/components/OwnerAssignDriverPanel";
 import OwnerFinancialSummaryPanel from "@/components/OwnerFinancialSummaryPanel";
 import OwnerDashboardToolSwitcher, {
   type OwnerDashboardToolTab,
@@ -27,7 +28,6 @@ import {
   updateDriverBooking,
   verifyDriverAccessKey,
   fetchDriverStatus,
-  assignJobToDriver,
   deassignJob,
   respondToJobAssignment,
   fetchDriverRoster,
@@ -36,12 +36,19 @@ import {
   fetchDriverVehicle,
   fetchOwnerAccountProfile,
   saveDriverVehicle,
+  sendDriverPayment,
   type DriverJob,
   type JourneyAction,
   type JourneyEvidencePack,
 } from "@/lib/tracking-api";
 import { issueBookingRefund, markBookingRefundedExternally } from "@/lib/refund-api";
 import { canMarkExternalRefund, isOperationallyCancelled } from "../../../shared/refund-ops";
+import { formatDriverPayAmount } from "../../../shared/tracking";
+import { formatPassengerSuitcaseCounts } from "@/lib/party-size";
+import {
+  ownerPrimaryJourneyConfirmCopy,
+  type OwnerPrimaryJourneyAction,
+} from "../../../shared/upcoming-jobs";
 import { DEMO_DRIVER_KEY, DEMO_DRIVER_NAME, DEMO_OWNER_KEY, DEMO_ROSTER } from "@/lib/tracking-demo";
 import { SERVICE_FLAGS, SITE } from "@/lib/data";
 import {
@@ -84,6 +91,42 @@ function portalKeyStorage(portal: "owner" | "driver"): string {
 }
 
 type DashboardView = "today" | "upcoming" | "date";
+
+const DRIVER_JOURNEY_STEPS = [
+  {
+    action: "start_tracking",
+    label: "Driver on way",
+    completedLabel: "On the way ✓",
+  },
+  {
+    action: "arrived_pickup",
+    label: "Driver arrived",
+    completedLabel: "Arrived ✓",
+  },
+  {
+    action: "complete_journey",
+    label: "Complete journey",
+    completedLabel: "Completed ✓",
+  },
+] as const satisfies ReadonlyArray<{
+  action: OwnerPrimaryJourneyAction;
+  label: string;
+  completedLabel: string;
+}>;
+
+/** Keep active Driver journey controls visually identical to the Owner controls. */
+function primaryJourneyButtonClass(action: OwnerPrimaryJourneyAction): string {
+  const base =
+    "min-h-14 w-full rounded-xl px-4 py-3.5 text-base font-bold transition-colors disabled:opacity-60";
+  switch (action) {
+    case "start_tracking":
+      return `${base} bg-sky-400 text-navy hover:bg-sky-300`;
+    case "arrived_pickup":
+      return `${base} bg-amber-300 text-navy hover:bg-amber-200`;
+    case "complete_journey":
+      return `${base} bg-emerald text-navy hover:bg-emerald/90`;
+  }
+}
 
 function todayLondonDate(): string {
   return new Intl.DateTimeFormat("en-CA", {
@@ -361,6 +404,7 @@ function DriverProfilePanel({
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<string | null>(null);
+  const [addingNew, setAddingNew] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -500,10 +544,10 @@ function DriverProfilePanel({
   }, [accessKey, selectedProfile, profiles, isOwner]);
 
   const saveProfile = async () => {
-    if (!selectedProfile?.trim()) {
+    if (!selectedProfile?.trim() && !(addingNew && form.displayName.trim())) {
       setError(
         isOwner
-          ? "Add or select an additional driver before saving. Your Owner profile is already the default."
+          ? "Add a driver name before saving. Your Owner profile is already the default."
           : "Missing driver profile key.",
       );
       return;
@@ -514,8 +558,12 @@ function DriverProfilePanel({
     setError(null);
 
     try {
+      const profileKeyForSave = addingNew
+        ? form.displayName.trim()
+        : selectedProfile.trim() || form.displayName.trim();
+
       const result = await saveDriverVehicle(accessKey, {
-        profile: selectedProfile,
+        profile: profileKeyForSave,
         displayName: form.displayName,
         email: form.email,
         mobile: form.mobile,
@@ -539,6 +587,7 @@ function DriverProfilePanel({
         registration: result.profile.registration,
       });
       setSelectedProfile(result.profile.profileKey);
+      setAddingNew(false);
       setProfileComplete(true);
       setSavedAt(result.profile.updatedAt ?? new Date().toISOString());
       setCollapsed(true);
@@ -554,9 +603,7 @@ function DriverProfilePanel({
 
       setMessage(
         result.emailSent
-          ? isOwner
-            ? `Saved. Confirmation emailed to ${result.profile.email}.`
-            : `Saved. Confirmation emailed to ${result.profile.email}.`
+          ? `Saved. Confirmation emailed to ${result.profile.email}.`
           : result.emailWarning
             ? `Saved on the server, but the confirmation email could not be sent: ${result.emailWarning}`
             : "Saved.",
@@ -569,15 +616,18 @@ function DriverProfilePanel({
     }
   };
 
-  const showSetupPrompt = !loading && !profileComplete && Boolean(selectedProfile);
+  const showSetupPrompt = !loading && !profileComplete && Boolean(selectedProfile || addingNew);
   // Owner managing additional drivers can collapse when complete — do not force the editor open.
   // When there are no additional drivers, keep the default-driver notice visible (no empty form).
-  const ownerUsingDefaultDriver = isOwner && !selectedProfile;
+  const ownerUsingDefaultDriver = isOwner && !selectedProfile && !addingNew;
   const incompleteAdditional = isOwner
     ? profiles.filter((entry) => !entry.complete)
     : [];
+  const completeAdditional = isOwner
+    ? profiles.filter((entry) => entry.complete)
+    : [];
   const showEditor =
-    !ownerUsingDefaultDriver && (!collapsed || showSetupPrompt);
+    ((!ownerUsingDefaultDriver && (!collapsed || showSetupPrompt)) || addingNew);
 
   return (
     <section className="mb-8 rounded-2xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
@@ -596,6 +646,30 @@ function DriverProfilePanel({
               Using Owner profile as the default driver. No separate driver entry needed.
             </p>
           ) : null}
+          {isOwner && completeAdditional.length > 0 ? (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {completeAdditional.map((profile) => (
+                <button
+                  key={profile.profileKey}
+                  type="button"
+                  onClick={() => {
+                    setAddingNew(false);
+                    setSelectedProfile(profile.profileKey);
+                    setCollapsed(false);
+                    setProfileComplete(true);
+                  }}
+                  className={`rounded-xl border px-3 py-2 text-left text-xs font-semibold transition-colors ${
+                    selectedProfile === profile.profileKey
+                      ? "border-emerald bg-emerald/20 text-white"
+                      : "border-white/15 text-white/80 hover:border-white/30"
+                  }`}
+                >
+                  <span className="block text-sm font-bold">{profile.displayName}</span>
+                  <span className="text-white/50">Saved driver</span>
+                </button>
+              ))}
+            </div>
+          ) : null}
           {isOwner && ownerUsingDefaultDriver && incompleteAdditional.length > 0 ? (
             <div className="mt-3 flex flex-wrap gap-2">
               {incompleteAdditional.map((profile) => (
@@ -603,6 +677,7 @@ function DriverProfilePanel({
                   key={profile.profileKey}
                   type="button"
                   onClick={() => {
+                    setAddingNew(false);
                     setSelectedProfile(profile.profileKey);
                     setCollapsed(false);
                     setProfileComplete(false);
@@ -629,11 +704,37 @@ function DriverProfilePanel({
           ) : null}
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {isOwner && selectedProfile ? (
+          {isOwner ? (
+            <button
+              type="button"
+              onClick={() => {
+                setAddingNew(true);
+                setSelectedProfile("");
+                setCollapsed(false);
+                setProfileComplete(false);
+                setForm({
+                  displayName: "",
+                  email: "",
+                  mobile: "",
+                  make: "",
+                  model: "",
+                  colour: "",
+                  registration: "",
+                });
+                setMessage(null);
+                setError(null);
+              }}
+              className="rounded-xl border border-emerald/40 bg-emerald/15 px-4 py-2 text-sm font-semibold text-emerald transition-colors hover:bg-emerald/25"
+            >
+              Add saved driver
+            </button>
+          ) : null}
+          {isOwner && (selectedProfile || addingNew) ? (
             <button
               type="button"
               onClick={() => {
                 setSelectedProfile("");
+                setAddingNew(false);
                 setCollapsed(true);
                 setProfileComplete(true);
                 setMessage(null);
@@ -854,10 +955,6 @@ function DriverJobCard({
   const [assignBusy, setAssignBusy] = useState(false);
   const [assignFormOpen, setAssignFormOpen] = useState(false);
   const [assignMessage, setAssignMessage] = useState<string | null>(null);
-  const [assignProfiles, setAssignProfiles] = useState<
-    Array<{ profileKey: string; displayName: string }>
-  >([]);
-  const [assignProfileKey, setAssignProfileKey] = useState("");
   const [assignForm, setAssignForm] = useState({
     driverFirstName: "",
     driverEmail: "",
@@ -869,11 +966,19 @@ function DriverJobCard({
     driverPayAmount: "",
   });
   const [assignmentBusy, setAssignmentBusy] = useState(false);
+  const [paymentOpen, setPaymentOpen] = useState(false);
+  const [paymentBusy, setPaymentBusy] = useState(false);
+  const [paymentMessage, setPaymentMessage] = useState<string | null>(null);
+  const [paymentAmount, setPaymentAmount] = useState(
+    job.driverPaymentAmount ?? job.driverPayAmount ?? "",
+  );
+  const [journeyConfirmAction, setJourneyConfirmAction] =
+    useState<OwnerPrimaryJourneyAction | null>(null);
+  const journeyActionInFlightRef = useRef(false);
   const [recordedRoute, setRecordedRoute] = useState<MapRoutePoint[]>([]);
   const isActive = activeToken === job.token;
   const mapMarkers = jobMapMarkers(job, { isActiveDriver: isActive, isOwner });
   const isDemoKey = driverKey === DEMO_DRIVER_KEY || driverKey === DEMO_OWNER_KEY;
-  const isDemoDriver = driverKey === DEMO_DRIVER_KEY;
   const isRefunded = isOperationallyCancelled(job.bookingStatus);
   const assignmentStatus = job.assignmentStatus ?? "unassigned";
   const paidFromLabel = Number(String(job.amountPaidLabel ?? "").replace(/[^\d.]/g, "")) || 0;
@@ -894,21 +999,34 @@ function DriverJobCard({
     isOwner && Boolean(job.paymentReference?.trim()) && !isRefunded;
   const canRefund = canIssueRefund && !isDemoKey;
   const showDemoRefund = canIssueRefund && isDemoKey;
-  const canEdit =
-    !isRefunded &&
-    (isOwner || isAcceptedAssignment || (isPendingForDriver && job.isAirportPickup));
+  const canEdit = !isRefunded && isOwner;
   const canShare =
+    isOwner &&
     !isRefunded &&
-    (isOwner || isAcceptedAssignment) &&
     !compactTracking &&
     (job.trackingWindow.open || job.sharingActive);
   const trackingAvailable = !compactTracking && job.trackingWindow.open && !isRefunded;
   const driverSharingLive = Boolean(job.sharingActive && job.driver);
   const showRecordedRoute = isOwner && (job.driverLocationPointCount ?? 0) > 0;
   const showMap =
-    mapMarkers.length > 0 || (showRecordedRoute && recordedRoute.length > 0);
+    isOwner && (mapMarkers.length > 0 || (showRecordedRoute && recordedRoute.length > 0));
   const journeyStatus = job.journeyStatus ?? (job.sharingActive ? "tracking" : "idle");
   const journeyLabel = job.journeyStatusLabel ?? (job.sharingActive ? "Driver on the way" : "Driver preparing");
+  const driverPaymentStatus =
+    job.driverPaymentStatus ??
+    (journeyStatus === "completed" && job.driverPayAmount ? "due" : undefined);
+  const driverPaymentPaid =
+    driverPaymentStatus === "paid" || driverPaymentStatus === "sent";
+  const driverJourneyStep =
+    journeyStatus === "completed"
+      ? 3
+      : journeyStatus === "arrived_pickup" ||
+          journeyStatus === "en_route" ||
+          journeyStatus === "arrived_destination"
+        ? 2
+        : journeyStatus === "tracking"
+          ? 1
+          : 0;
   // Customer update actions must not wait for the GPS tracking window.
   const canOperateJourney =
     !isRefunded &&
@@ -958,72 +1076,9 @@ function DriverJobCard({
     };
   }, [driverKey, job.token, job.driverLocationPointCount, showRecordedRoute]);
 
-  useEffect(() => {
-    if (!isOwner || !assignFormOpen) {
-      return;
-    }
-
-    let cancelled = false;
-    void fetchDriverVehicleProfiles(driverKey)
-      .then((profiles) => {
-        if (cancelled) {
-          return;
-        }
-        setAssignProfiles(profiles);
-        if (!assignProfileKey && profiles.length > 0) {
-          const first = profiles[0];
-          setAssignProfileKey(first.profileKey);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setAssignProfiles([]);
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [isOwner, assignFormOpen, driverKey, assignProfileKey]);
-
-  useEffect(() => {
-    if (!isOwner || !assignFormOpen || !assignProfileKey) {
-      return;
-    }
-
-    let cancelled = false;
-    void fetchDriverVehicle(driverKey, assignProfileKey)
-      .then((profile) => {
-        if (cancelled || !profile) {
-          return;
-        }
-        setAssignForm((prev) => ({
-          ...prev,
-          driverFirstName: profile.displayName || prev.driverFirstName,
-          driverEmail: profile.email || prev.driverEmail,
-          driverMobile: profile.mobile || prev.driverMobile,
-          driverCarMake: profile.make || prev.driverCarMake,
-          driverCarModel: profile.model || prev.driverCarModel,
-          driverCarColour: profile.colour || prev.driverCarColour,
-          driverReg: profile.registration || prev.driverReg,
-        }));
-      })
-      .catch(() => {
-        /* keep manual values */
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [isOwner, assignFormOpen, driverKey, assignProfileKey]);
-
   const openAssignForm = () => {
     setAssignMessage(null);
     setError(null);
-    setAssignForm((prev) => ({
-      ...prev,
-      driverFirstName: prev.driverFirstName || job.assignedDriverName || availableDrivers[0] || "",
-    }));
     setAssignFormOpen(true);
   };
 
@@ -1052,6 +1107,15 @@ function DriverJobCard({
   };
 
   const runJourneyAction = async (action: JourneyAction) => {
+    if (journeyActionInFlightRef.current) {
+      return;
+    }
+    if (!isOwner && (!isAcceptedAssignment || !allowedActions.includes(action))) {
+      setError("Only the next journey action is available");
+      return;
+    }
+
+    journeyActionInFlightRef.current = true;
     setBusy(true);
     setError(null);
     try {
@@ -1082,7 +1146,7 @@ function DriverJobCard({
       onUpdated(nextJob);
 
       // WhatsApp click-to-chat after recording arrival (manual Send). Keep Resend/email as-is.
-      if (action === "arrived_pickup") {
+      if (isOwner && action === "arrived_pickup") {
         const mobile = job.customerMobile?.trim() || "";
         if (mobile) {
           let vehicle = null as
@@ -1141,7 +1205,7 @@ function DriverJobCard({
       }
 
       // Optional WhatsApp for Driver on the way (manual Send / Live Location).
-      if (action === "start_tracking") {
+      if (isOwner && action === "start_tracking") {
         const mobile = job.customerMobile?.trim() || "";
         if (mobile) {
           const href = buildDriverOnTheWayWhatsAppLink(mobile);
@@ -1164,6 +1228,7 @@ function DriverJobCard({
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not update journey");
     } finally {
+      journeyActionInFlightRef.current = false;
       setBusy(false);
     }
   };
@@ -1188,68 +1253,6 @@ function DriverJobCard({
       setError(err instanceof Error ? err.message : "Could not load journey record");
     } finally {
       setEvidenceBusy(false);
-    }
-  };
-
-  const assignToDriver = async () => {
-    const driverFirstName = assignForm.driverFirstName.trim();
-    const driverEmail = assignForm.driverEmail.trim();
-    const driverMobile = assignForm.driverMobile.trim();
-    const driverPayAmount = assignForm.driverPayAmount.trim();
-
-    if (!driverFirstName) {
-      setError("Enter the driver’s first name");
-      return;
-    }
-    if (!driverEmail || !driverEmail.includes("@")) {
-      setError("Enter a valid driver email");
-      return;
-    }
-    if (!driverMobile) {
-      setError("Enter the driver’s mobile number");
-      return;
-    }
-    if (!driverPayAmount) {
-      setError("Enter how much you are paying the driver for this journey");
-      return;
-    }
-
-    setAssignBusy(true);
-    setError(null);
-    setAssignMessage(null);
-
-    try {
-      const result = await assignJobToDriver(driverKey, job.token, {
-        driverFirstName,
-        driverEmail,
-        driverMobile,
-        driverCarMake: assignForm.driverCarMake,
-        driverCarModel: assignForm.driverCarModel,
-        driverCarColour: assignForm.driverCarColour,
-        driverReg: assignForm.driverReg,
-        driverPayAmount,
-      });
-      onAssignmentUpdated({
-        ...result.job,
-        assignedDriverName: driverFirstName,
-        assignedDriverMobile: driverMobile,
-        assignedDriverCarMake: assignForm.driverCarMake.trim() || result.job.assignedDriverCarMake,
-        assignedDriverCarModel: assignForm.driverCarModel.trim() || result.job.assignedDriverCarModel,
-        assignedDriverCarColour:
-          assignForm.driverCarColour.trim() || result.job.assignedDriverCarColour,
-        assignedDriverReg: assignForm.driverReg.trim() || result.job.assignedDriverReg,
-        driverPayAmount,
-      });
-      setAssignMessage(
-        result.emailed === false
-          ? "Driver assigned. Email may not have been sent — check worker email settings."
-          : `Assignment emailed to ${driverEmail}. A copy was sent to you. Waiting for them to confirm.`,
-      );
-      setAssignFormOpen(false);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not assign job");
-    } finally {
-      setAssignBusy(false);
     }
   };
 
@@ -1430,6 +1433,31 @@ function DriverJobCard({
     }
   };
 
+  const confirmDriverPayment = async () => {
+    setPaymentBusy(true);
+    setPaymentMessage(null);
+    try {
+      const result = await sendDriverPayment(driverKey, job.token, paymentAmount);
+      onUpdated({
+        ...job,
+        driverPaymentStatus: result.payment.status,
+        driverPaymentAmount: result.payment.amount,
+        driverPaymentSentAt: result.payment.sentAt,
+        driverPaymentHistory: result.payment.history,
+      });
+      setPaymentOpen(false);
+      setPaymentMessage(
+        result.idempotent
+          ? "Driver payment was already recorded as paid."
+          : `Payment recorded as paid: ${result.payment.amount}.`,
+      );
+    } catch (err) {
+      setPaymentMessage(err instanceof Error ? err.message : "Could not record driver payment");
+    } finally {
+      setPaymentBusy(false);
+    }
+  };
+
   return (
     <article
       id={`owner-job-${job.token}`}
@@ -1460,27 +1488,41 @@ function DriverJobCard({
           {isOwner && job.amountPaidLabel && (
             <p className="mt-1 text-sm text-white/70">Paid: {job.amountPaidLabel}</p>
           )}
+          {!isOwner && job.driverPayAmount ? (
+            <p className="mt-2 text-sm font-semibold text-emerald">
+              Your pay for this journey:{" "}
+              {formatDriverPayAmount(job.driverPayAmount)}
+            </p>
+          ) : null}
+          {!isOwner && (job.passengers != null || job.suitcases != null) ? (
+            <p className="mt-1 text-sm text-white/65">
+              {formatPassengerSuitcaseCounts(job.passengers, job.suitcases)}
+            </p>
+          ) : null}
           {isOwner && isRefunded && (job.refundAmountLabel || job.amountPaidLabel) && (
             <p className="mt-1 text-sm font-semibold text-red-200">
               Refunded: {job.refundAmountLabel ?? job.amountPaidLabel}
             </p>
           )}
-          {(job.paymentReference || job.bookingReference) && (
+          {isOwner && (job.paymentReference || job.bookingReference) && (
             <p className="mt-1 text-xs text-white/40">
               Ref: {job.paymentReference ?? job.bookingReference}
             </p>
           )}
           <p className="mt-2 text-sm font-semibold text-emerald">
-            Journey: {journeyLabel}
-            {SERVICE_FLAGS.liveDriverTracking && job.sharingActive ? " · GPS live" : ""}
+            Journey:{" "}
+            {isOwner && journeyStatus === "completed" && driverPaymentStatus === "due"
+              ? "Completed — Payment Due"
+              : journeyLabel}
+            {SERVICE_FLAGS.liveDriverTracking && isOwner && job.sharingActive ? " · GPS live" : ""}
           </p>
-          {SERVICE_FLAGS.liveDriverTracking && isActive && gpsStale && (
+          {SERVICE_FLAGS.liveDriverTracking && isOwner && isActive && gpsStale && (
             <p className="mt-2 rounded-lg border border-amber-400/40 bg-amber-500/15 px-3 py-2 text-sm text-amber-100">
               Location has not updated for 2 minutes — reopen this page and keep it open while
               driving. iPhone may pause GPS when Safari is locked or in the background.
             </p>
           )}
-          {SERVICE_FLAGS.liveDriverTracking && isActive && lastGpsAt && !gpsStale && (
+          {SERVICE_FLAGS.liveDriverTracking && isOwner && isActive && lastGpsAt && !gpsStale && (
             <p className="mt-1 text-xs text-white/45">
               Last GPS update {Math.max(1, Math.round((Date.now() - lastGpsAt) / 1000))}s ago
             </p>
@@ -1534,124 +1576,80 @@ function DriverJobCard({
                 job.trackingWindow.open ? "bg-emerald/15 text-emerald" : "bg-white/10 text-white/50"
               }`}
             >
-              {job.sharingActive && job.activeDriverName
+              {isOwner && job.sharingActive && job.activeDriverName
                 ? `${job.activeDriverName} live`
-                : job.trackingWindow.open
-                  ? "Window open"
-                  : compactTracking
-                    ? "Upcoming"
-                    : "Not yet open"}
+                : !isOwner && isAcceptedAssignment
+                  ? "Journey actions"
+                  : job.trackingWindow.open
+                    ? "Window open"
+                    : compactTracking
+                      ? "Upcoming"
+                      : "Not yet open"}
             </span>
           </div>
         )}
       </div>
 
       {isPendingForDriver && (
-        <div className="mt-4 flex flex-wrap gap-3">
-          <button
-            type="button"
-            disabled={assignmentBusy}
-            onClick={() => void respondToAssignment("accept")}
-            className="rounded-xl bg-emerald px-5 py-3 text-sm font-bold text-navy transition-colors hover:bg-emerald/90 disabled:opacity-60"
-          >
-            {assignmentBusy ? "Saving…" : "Accept job"}
-          </button>
-          <button
-            type="button"
-            disabled={assignmentBusy}
-            onClick={() => void respondToAssignment("decline")}
-            className="rounded-xl border border-red-400/30 bg-red-500/10 px-5 py-3 text-sm font-semibold text-red-200 transition-colors hover:bg-red-500/20 disabled:opacity-60"
-          >
-            Decline
-          </button>
+        <div className="mt-4">
+          <p className="mb-3 text-sm text-white/60">
+            Customer name, mobile number, full addresses and journey details unlock immediately
+            after acceptance.
+          </p>
+          <div className="flex flex-wrap gap-3">
+            <button
+              type="button"
+              disabled={assignmentBusy}
+              onClick={() => void respondToAssignment("accept")}
+              className="rounded-xl bg-emerald px-5 py-3 text-sm font-bold text-navy transition-colors hover:bg-emerald/90 disabled:opacity-60"
+            >
+              {assignmentBusy ? "Saving…" : "Accept job"}
+            </button>
+            <button
+              type="button"
+              disabled={assignmentBusy}
+              onClick={() => void respondToAssignment("decline")}
+              className="rounded-xl border border-red-400/30 bg-red-500/10 px-5 py-3 text-sm font-semibold text-red-200 transition-colors hover:bg-red-500/20 disabled:opacity-60"
+            >
+              Decline
+            </button>
+          </div>
         </div>
       )}
 
       <DriverFlightPanel job={job} onRefresh={onRefreshJob} refreshing={refreshingJob} />
 
       {isOwner && !isRefunded && assignFormOpen ? (
-        <div className="mt-5 space-y-3 rounded-xl border border-emerald/30 bg-emerald/5 p-4">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <p className="text-sm font-semibold text-white">
-                {assignmentStatus === "pending" || assignmentStatus === "accepted"
-                  ? "Reassign driver"
-                  : "Assign driver"}
-              </p>
-              <p className="mt-1 text-xs text-white/55">
-                Enter driver details (including mobile), car details, and what you are paying them
-                for this journey — not what the customer paid. They get an email to confirm; you get
-                a copy.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setAssignFormOpen(false)}
-              className="rounded-xl border border-white/15 px-3 py-1.5 text-xs font-semibold text-white/70 transition-colors hover:border-white/30"
-            >
-              Close
-            </button>
-          </div>
-          {assignProfiles.length > 0 ? (
-            <label className="block text-xs text-white/50">
-              Prefill from saved driver profile
-              <select
-                value={assignProfileKey}
-                onChange={(event) => setAssignProfileKey(event.target.value)}
-                className="mt-1 w-full rounded-xl border border-white/15 bg-navy px-3 py-2 text-sm text-white outline-none focus:border-emerald"
-              >
-                {assignProfiles.map((profile) => (
-                  <option key={profile.profileKey} value={profile.profileKey}>
-                    {profile.displayName}
-                  </option>
-                ))}
-              </select>
-            </label>
-          ) : null}
-          <div className="grid gap-3 sm:grid-cols-2">
-            {(
-              [
-                ["driverFirstName", "Driver first name"],
-                ["driverEmail", "Driver email"],
-                ["driverMobile", "Driver mobile"],
-                ["driverCarMake", "Car make"],
-                ["driverCarModel", "Car model"],
-                ["driverCarColour", "Car colour"],
-                ["driverReg", "Registration"],
-                ["driverPayAmount", "Amount to pay driver (not customer price)"],
-              ] as const
-            ).map(([key, label]) => (
-              <label key={key} className="text-xs text-white/50">
-                {label}
-                <input
-                  value={assignForm[key]}
-                  onChange={(event) =>
-                    setAssignForm((prev) => ({ ...prev, [key]: event.target.value }))
-                  }
-                  placeholder={
-                    key === "driverPayAmount"
-                      ? "e.g. £80"
-                      : key === "driverMobile"
-                        ? "e.g. 07700 900123"
-                        : undefined
-                  }
-                  className="mt-1 w-full rounded-xl border border-white/15 bg-navy px-3 py-2 text-sm text-white outline-none focus:border-emerald"
-                />
-              </label>
-            ))}
-          </div>
-          <button
-            type="button"
-            disabled={assignBusy}
-            onClick={() => void assignToDriver()}
-            className="rounded-xl bg-emerald px-4 py-2.5 text-sm font-bold text-navy transition-colors hover:bg-emerald/90 disabled:opacity-60"
-          >
-            {assignBusy
-              ? "Sending…"
-              : assignmentStatus === "pending" || assignmentStatus === "accepted"
-                ? "Email reassignment to driver"
-                : "Email driver to confirm job"}
-          </button>
+        <div className="mt-5">
+          <OwnerAssignDriverPanel
+            ownerKey={driverKey}
+            trackingToken={job.token}
+            mode={
+              assignmentStatus === "pending" || assignmentStatus === "accepted"
+                ? "reassign"
+                : "assign"
+            }
+            currentDriverName={job.assignedDriverName}
+            assignmentHistory={job.assignmentHistory}
+            onClose={() => setAssignFormOpen(false)}
+            onAssigned={(nextJob) => {
+              onAssignmentUpdated(nextJob);
+              setAssignForm({
+                driverFirstName: nextJob.assignedDriverName ?? "",
+                driverEmail: "",
+                driverMobile: nextJob.assignedDriverMobile ?? "",
+                driverCarMake: nextJob.assignedDriverCarMake ?? "",
+                driverCarModel: nextJob.assignedDriverCarModel ?? "",
+                driverCarColour: nextJob.assignedDriverCarColour ?? "",
+                driverReg: nextJob.assignedDriverReg ?? "",
+                driverPayAmount: nextJob.driverPayAmount ?? "",
+              });
+              setAssignMessage(
+                `Assigned to ${nextJob.assignedDriverName ?? "driver"}. Waiting for them to confirm.`,
+              );
+              setAssignFormOpen(false);
+            }}
+          />
         </div>
       ) : null}
 
@@ -1665,8 +1663,8 @@ function DriverJobCard({
               className="rounded-xl bg-emerald px-4 py-2.5 text-sm font-semibold text-navy transition-colors hover:bg-emerald/90 disabled:opacity-60"
             >
               {assignmentStatus === "pending" || assignmentStatus === "accepted"
-                ? "Reassign job"
-                : "Assign job"}
+                ? "Reassign driver"
+                : "Assign driver"}
             </button>
             {isAssigned && (
               <button
@@ -1681,7 +1679,95 @@ function DriverJobCard({
           </>
         )}
 
-        {canOperateJourney && (
+        {!isOwner && isAcceptedAssignment && !isRefunded && (
+          <div className="w-full space-y-3" data-driver-primary-journey-controls>
+            <div className="flex flex-col gap-3.5">
+            {DRIVER_JOURNEY_STEPS.map((item, index) => {
+              const complete = driverJourneyStep > index;
+              const current = driverJourneyStep === index;
+              const enabled =
+                canOperateJourney && current && allowedActions.includes(item.action);
+              const confirming = enabled && journeyConfirmAction === item.action;
+              const confirmCopy = ownerPrimaryJourneyConfirmCopy(item.action);
+              return (
+                <div
+                  key={item.action}
+                  className="space-y-2"
+                  data-driver-journey-action-wrap={item.action}
+                >
+                  <button
+                    type="button"
+                    disabled={busy || !enabled}
+                    data-driver-journey-action={item.action}
+                    aria-expanded={confirming}
+                    onClick={() => {
+                      if (busy || !enabled) return;
+                      setJourneyConfirmAction((selected) =>
+                        selected === item.action ? null : item.action,
+                      );
+                    }}
+                    className={
+                      enabled
+                        ? primaryJourneyButtonClass(item.action)
+                        : "min-h-14 w-full cursor-default rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3.5 text-base font-bold text-white/45"
+                    }
+                  >
+                    {busy && confirming
+                      ? "Updating…"
+                      : complete
+                        ? item.completedLabel
+                        : item.label}
+                  </button>
+                  {confirming ? (
+                    <div
+                      className="rounded-xl border border-white/15 bg-navy/80 p-3"
+                      data-driver-journey-confirm={item.action}
+                      role="group"
+                      aria-label={confirmCopy.title}
+                    >
+                      <p className="text-sm font-semibold text-white">{confirmCopy.title}</p>
+                      {confirmCopy.body ? (
+                        <p className="mt-1 text-xs leading-relaxed text-white/65">
+                          {confirmCopy.body}
+                        </p>
+                      ) : null}
+                      <div className="mt-3 flex flex-col gap-2">
+                        <button
+                          type="button"
+                          disabled={busy}
+                          data-driver-journey-confirm-yes={item.action}
+                          onClick={() => {
+                            setJourneyConfirmAction(null);
+                            void runJourneyAction(item.action);
+                          }}
+                          className={
+                            item.action === "complete_journey"
+                              ? "min-h-12 w-full rounded-xl bg-emerald px-4 py-3 text-sm font-bold text-navy disabled:opacity-60"
+                              : "min-h-12 w-full rounded-xl bg-white px-4 py-3 text-sm font-bold text-navy disabled:opacity-60"
+                          }
+                        >
+                          {busy ? "Updating…" : confirmCopy.confirmLabel}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={busy}
+                          data-driver-journey-confirm-cancel={item.action}
+                          onClick={() => setJourneyConfirmAction(null)}
+                          className="min-h-11 w-full rounded-xl border border-white/20 px-4 py-2.5 text-sm font-semibold text-white/85 disabled:opacity-60"
+                        >
+                          {confirmCopy.cancelLabel}
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              );
+            })}
+            </div>
+          </div>
+        )}
+
+        {canOperateJourney && isOwner && (
           <div className="flex w-full flex-wrap gap-2 sm:w-auto">
             {(journeyStatus === "arrived_pickup"
               ? allowedActions.filter(
@@ -1775,6 +1861,15 @@ function DriverJobCard({
             Edit booking
           </button>
         )}
+        {isOwner && journeyStatus === "completed" && driverPaymentStatus === "due" ? (
+          <button
+            type="button"
+            onClick={() => setPaymentOpen((open) => !open)}
+            className="rounded-xl bg-emerald px-4 py-2.5 text-sm font-semibold text-navy hover:bg-emerald/90"
+          >
+            Send Payment
+          </button>
+        ) : null}
         {canRefund && !refundConfirmOpen && !externalRefundConfirmOpen && (
           <button
             type="button"
@@ -1810,6 +1905,72 @@ function DriverJobCard({
           </button>
         )}
       </div>
+
+      {!isOwner && isAcceptedAssignment && job.journeyNotes ? (
+        <p className="mt-4 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-white/70">
+          Journey notes: {job.journeyNotes}
+        </p>
+      ) : null}
+
+      {!isOwner && journeyStatus === "completed" && driverPaymentStatus ? (
+        <div
+          className="mt-4 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3"
+          data-driver-payment-status
+        >
+          <p className="text-sm font-semibold text-white">
+            Payment status: {driverPaymentPaid ? "Paid" : "Payment pending"}
+          </p>
+          <p className="mt-1 text-sm text-white/60">
+            Your journey pay: {formatDriverPayAmount(job.driverPayAmount)}
+          </p>
+        </div>
+      ) : null}
+
+      {isOwner && journeyStatus === "completed" && driverPaymentStatus ? (
+        <div className="mt-4 rounded-xl border border-emerald/20 bg-emerald/[0.05] p-4">
+          <p className="text-sm font-semibold text-white">
+            Driver payment: {driverPaymentPaid ? "Paid" : "Payment Due"}
+          </p>
+          <p className="mt-1 text-sm text-white/65">
+            Amount: {job.driverPaymentAmount ?? formatDriverPayAmount(job.driverPayAmount)}
+          </p>
+          {paymentOpen && driverPaymentStatus === "due" ? (
+            <div className="mt-4 space-y-3">
+              <label className="block text-sm text-white/70">
+                Payment amount
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={paymentAmount}
+                  onChange={(event) => setPaymentAmount(event.target.value)}
+                  className="mt-2 w-full rounded-xl border border-white/15 bg-navy px-4 py-3 text-white outline-none focus:border-emerald sm:max-w-xs"
+                />
+              </label>
+              <p className="text-xs text-white/45">
+                This records the owner-authorised driver payout only. It does not charge or refund the customer.
+              </p>
+              <button
+                type="button"
+                disabled={paymentBusy}
+                onClick={() => void confirmDriverPayment()}
+                className="rounded-xl bg-emerald px-4 py-2.5 text-sm font-semibold text-navy disabled:opacity-60"
+              >
+                {paymentBusy ? "Recording…" : "Confirm payment paid"}
+              </button>
+            </div>
+          ) : null}
+          {(job.driverPaymentHistory?.length ?? 0) > 0 ? (
+            <ul className="mt-4 space-y-1 text-xs text-white/55">
+              {job.driverPaymentHistory?.map((entry, index) => (
+                <li key={`${entry.at}-${entry.status}-${index}`}>
+                  {new Date(entry.at).toLocaleString("en-GB")} — {entry.status === "due" ? "Payment due" : "Paid"} — {entry.amount}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          {paymentMessage ? <p className="mt-3 text-sm text-emerald">{paymentMessage}</p> : null}
+        </div>
+      ) : null}
 
       {canEdit && editOpen && (
         <div className="mt-4 rounded-xl border border-white/10 bg-navy/40 p-4">
@@ -2004,12 +2165,11 @@ function DriverJobCard({
 
       {isPendingForDriver && (
         <p className="mt-4 rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
-          You&apos;ve been assigned this job. Accept or decline at any time — live tracking opens on
-          the day of travel.
+          You&apos;ve been assigned this job. Accept or decline when you&apos;re ready.
         </p>
       )}
 
-      {isActive && (
+      {isOwner && isActive && (
         <p className="mt-4 text-sm text-emerald">
           Sharing live location for this job. Keep this page open while driving — GPS pauses if
           the phone locks or Safari goes to the background.
@@ -2022,13 +2182,13 @@ function DriverJobCard({
         </p>
       )}
 
-      {job.customerSharingActive && !job.customer && trackingAvailable && (
+      {isOwner && job.customerSharingActive && !job.customer && trackingAvailable && (
         <p className="mt-4 text-sm text-white/60">
           Customer has opted in to share location — waiting for their GPS update.
         </p>
       )}
 
-      {job.customer && trackingAvailable && (
+      {isOwner && job.customer && trackingAvailable && (
         <p className="mt-4 text-sm text-emerald">
           Customer location is live on the map below.
         </p>
@@ -2216,7 +2376,6 @@ export default function DriverPageClient({
   const isOwnerView = viewRole === "owner";
 
   const today = useMemo(() => todayLondonDate(), []);
-  const groupedUpcoming = useMemo(() => groupJobsByDate(jobs), [jobs]);
   const pendingTokens = useMemo(
     () => new Set(pendingJobs.map((job) => job.token)),
     [pendingJobs],
@@ -2230,14 +2389,12 @@ export default function DriverPageClient({
   }, [jobs, pendingTokens, viewRole]);
 
   const activeVisibleJobs = useMemo(() => {
-    if (!isOwnerView) return visibleJobs;
     return visibleJobs.filter((job) => !isOwnerCompletedDriverJob(job));
-  }, [isOwnerView, visibleJobs]);
+  }, [visibleJobs]);
 
   const completedVisibleJobs = useMemo(() => {
-    if (!isOwnerView) return [];
     return visibleJobs.filter((job) => isOwnerCompletedDriverJob(job));
-  }, [isOwnerView, visibleJobs]);
+  }, [visibleJobs]);
 
   const groupedVisibleUpcoming = useMemo(
     () => groupJobsByDate(activeVisibleJobs),
@@ -2321,6 +2478,10 @@ export default function DriverPageClient({
 
   const handleAssignmentUpdated = useCallback(
     (updatedJob: DriverJob) => {
+      if (viewRole === "driver" && updatedJob.assignmentStatus === "accepted") {
+        setView(updatedJob.tripDate === today ? "today" : "upcoming");
+      }
+
       setPendingJobs((current) => {
         if (updatedJob.assignmentStatus === "pending") {
           const exists = current.some((entry) => entry.token === updatedJob.token);
@@ -2351,7 +2512,7 @@ export default function DriverPageClient({
         return next.sort((a, b) => a.pickupAt.localeCompare(b.pickupAt));
       });
     },
-    [viewRole],
+    [today, viewRole],
   );
 
   const loadDriverRoster = useCallback(async (key: string) => {
@@ -2660,14 +2821,7 @@ export default function DriverPageClient({
           defaultCollapsed
         />
       </>
-    ) : (
-      <DriverProfilePanel
-        accessKey={savedKey}
-        isOwner={false}
-        driverName={viewDriverName}
-        defaultCollapsed={isDemoDriverSession}
-      />
-    )
+    ) : null
   ) : null;
 
   return (
@@ -2704,13 +2858,13 @@ export default function DriverPageClient({
                     .
                   </>
                 ) : (
-                  <>Enter your driver access key to open today&apos;s jobs and live tracking.</>
+                  <>Enter your driver access key to open today&apos;s jobs.</>
                 )
               ) : (
                 <>
-                  Accept assigned jobs at any time — live tracking starts on the day of travel,
-                  from about 1 hour before pickup. For airport pickups, your flight number and
-                  live arrival status are shown on each job.
+                  Accept assigned jobs at any time. Journey actions follow in order, and each
+                  action asks for confirmation before it is sent. For airport pickups, your flight
+                  number and live arrival status are shown on each job.
                 </>
               )}
             </p>
@@ -3151,7 +3305,7 @@ export default function DriverPageClient({
                   </h2>
                   <p className="mb-4 text-sm text-white/60">
                     {viewRole === "driver"
-                      ? "Accept or decline at any time — live tracking opens on the day of travel."
+                      ? "Accept or decline when you are ready."
                       : "These jobs are assigned but not yet accepted by the driver."}
                   </p>
                   <div className="space-y-4">
@@ -3392,7 +3546,7 @@ export default function DriverPageClient({
                 </div>
               )}
 
-              {isOwnerView && view !== "upcoming" && completedVisibleJobs.length > 0 ? (
+              {completedVisibleJobs.length > 0 ? (
                 <section className="mt-10 rounded-2xl border border-white/10 bg-white/[0.02] p-4 sm:p-6">
                   <button
                     type="button"
@@ -3405,7 +3559,9 @@ export default function DriverPageClient({
                         Completed jobs ({completedVisibleJobs.length})
                       </span>
                       <span className="mt-1 block text-sm text-white/45">
-                        Finished tracking legs for this view — kept for records and evidence.
+                        {isOwnerView
+                          ? "Finished journeys — kept for payment records and evidence."
+                          : "Finished journeys are kept here and removed from your active list."}
                       </span>
                     </span>
                     <span className="text-emerald" aria-hidden>

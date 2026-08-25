@@ -24,6 +24,7 @@ import {
 import { emailAssistantQuote, submitAssistantBooking } from "@/lib/quote-assistant-submit";
 import { START_NEW_QUOTE_EVENT } from "@/lib/reset-quote-journey";
 import { scheduleQuoteLeadAlert } from "@/lib/submit-quote-lead";
+import { formatPassengerSuitcaseCounts } from "@/lib/party-size";
 
 const BOT_WORKING_MS = 450;
 const SESSION_KEY = "matni-quote-assistant-v1";
@@ -130,9 +131,7 @@ function QuotePriceCard({
         <p>
           {card.returnJourney ? "Return (5% off)" : "One way"}
           <span className="text-white/55"> · </span>
-          {card.passengers} passengers
-          <span className="text-white/55"> · </span>
-          {card.suitcases} cases
+          {formatPassengerSuitcaseCounts(card.passengers, card.suitcases)}
         </p>
         {card.area ? (
           <p>

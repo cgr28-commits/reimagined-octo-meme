@@ -1,4 +1,5 @@
 import { formatUkDateTime, formatUkSubmissionTime } from "./uk-time";
+import { formatPassengerSuitcaseCounts } from "./party-size";
 
 export type QuoteLeadDetails = {
   tripLabel: string;
@@ -73,8 +74,7 @@ export function buildQuoteLeadMessage(details: QuoteLeadDetails): string {
   }
 
   lines.push(
-    `Passengers: ${details.passengers}`,
-    `Suitcases: ${details.suitcases}`,
+    `Party size: ${formatPassengerSuitcaseCounts(details.passengers, details.suitcases)}`,
     `Vehicle: ${details.vehicle}`,
     `Your fixed journey price: ${details.estimatedPrice}`,
   );

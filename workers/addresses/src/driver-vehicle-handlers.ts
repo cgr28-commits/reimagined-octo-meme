@@ -8,6 +8,8 @@ import {
   driverAuthorized,
   listConfiguredDrivers,
   resolveDriverSession,
+  resolveStoredDriverSession,
+  ownerAuthorized,
   type DriverAuthEnv,
 } from "./driver-auth";
 import { corsHeaders } from "../shared/google-places";
@@ -17,6 +19,7 @@ import {
   normalizeVehicleProfileKey,
   saveDriverVehicleProfile,
 } from "./driver-vehicle-store";
+import { getOwnerAccountProfile } from "./owner-profile-store";
 import { trackingStoreConfigured } from "./tracking-store";
 import { trySendBrandedCustomerEmail, type WorkerEmailEnv } from "./worker-email";
 
@@ -110,7 +113,7 @@ export async function handleDriverVehicleProfilesRequest(
     return jsonResponse({ error: "Unauthorized" }, 401, origin);
   }
 
-  const session = resolveDriverSession(request, env);
+  const session = await resolveStoredDriverSession(request, env, env.TRACKING_STORE);
   if (!session.authorized) {
     return jsonResponse({ error: "Unauthorized" }, 401, origin);
   }
@@ -161,7 +164,7 @@ export async function handleDriverVehicleGetRequest(
     return jsonResponse({ error: "Unauthorized" }, 401, origin);
   }
 
-  const session = resolveDriverSession(request, env);
+  const session = await resolveStoredDriverSession(request, env, env.TRACKING_STORE);
   const url = new URL(request.url);
   const profileKey = resolveRequestedProfileKey(
     env,
@@ -188,7 +191,29 @@ export async function handleDriverVehicleGetRequest(
     return jsonResponse({ error: "Unauthorized for this driver profile" }, 403, origin);
   }
 
-  const profile = await getDriverVehicleProfile(env.TRACKING_STORE, profileKey);
+  let profile = await getDriverVehicleProfile(env.TRACKING_STORE, profileKey);
+
+  // Owner account is the primary driver — fall back when vehicle mirror is empty.
+  if (
+    !profile &&
+    session.role === "owner" &&
+    profileKey === OWNER_VEHICLE_PROFILE_KEY
+  ) {
+    const ownerAccount = await getOwnerAccountProfile(env.TRACKING_STORE);
+    if (ownerAccount) {
+      profile = {
+        profileKey: OWNER_VEHICLE_PROFILE_KEY,
+        displayName: ownerAccount.displayName,
+        email: ownerAccount.email,
+        mobile: ownerAccount.mobile,
+        make: ownerAccount.make,
+        model: ownerAccount.model,
+        colour: ownerAccount.colour,
+        registration: ownerAccount.registration,
+        updatedAt: ownerAccount.updatedAt,
+      };
+    }
+  }
 
   return jsonResponse(
     {
@@ -215,7 +240,11 @@ export async function handleDriverVehicleSaveRequest(
     return jsonResponse({ error: "Unauthorized" }, 401, origin);
   }
 
-  const session = resolveDriverSession(request, env);
+  if (!ownerAuthorized(request, env)) {
+    return jsonResponse({ error: "Drivers cannot edit profiles" }, 403, origin);
+  }
+
+  const session = await resolveStoredDriverSession(request, env, env.TRACKING_STORE);
 
   let body: Record<string, unknown>;
   try {

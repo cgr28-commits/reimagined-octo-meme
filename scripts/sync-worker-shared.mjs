@@ -1,7 +1,8 @@
 import { cpSync, existsSync, mkdirSync, readdirSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const repoRoot = new URL("..", import.meta.url).pathname;
+const repoRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 const sourceDir = join(repoRoot, "shared");
 const targetDir = join(repoRoot, "workers/addresses/shared");
 

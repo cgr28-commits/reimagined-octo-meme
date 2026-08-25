@@ -4,6 +4,7 @@ import {
   DEMO_OWNER_KEY,
   enrichDemoJobForOwner,
   getDemoDriverJobs,
+  getDemoDriverPendingJobRaw,
   getDemoDriverPendingJobs,
   getDemoDriverStatus,
   getDemoDriverUpcomingJobs,
@@ -21,6 +22,8 @@ import {
   isDemoOwnerKey,
   isDemoTrackToken,
   sanitizeDemoJobForDriver,
+  setDemoJourneyTransition,
+  setDemoDriverPendingAssignmentStatus,
 } from "@/lib/tracking-demo";
 
 const DEFAULT_WORKER_BASE = "https://reimagined-octo-meme.cgr28.workers.dev";
@@ -137,6 +140,7 @@ export type CustomerVehicleDetails = {
   colour: string;
   registration: string;
   driverName?: string;
+  mobile?: string;
 };
 
 export type DriverVehicleProfile = {
@@ -244,10 +248,19 @@ export type DriverJob = PublicTrackResponse & {
   assignedDriverCarColour?: string;
   assignedDriverReg?: string;
   driverPayAmount?: string;
+  passengers?: number;
+  suitcases?: number;
+  journeyNotes?: string;
   assignmentStatus?: JobAssignmentStatus;
   assignedAt?: string;
   acceptedAt?: string;
   declinedAt?: string;
+  assignmentHistory?: Array<{
+    at: string;
+    action: "assigned" | "reassigned" | "deassigned";
+    fromDriverName?: string | null;
+    toDriverName?: string | null;
+  }>;
   driverLocationPointCount?: number;
   driverLocationRecordedFrom?: string;
   driverLocationRecordedTo?: string;
@@ -259,6 +272,16 @@ export type DriverJob = PublicTrackResponse & {
   journeyStartedAt?: string;
   arrivedDestinationAt?: string;
   journeyCompletedAt?: string;
+  driverPaymentStatus?: "due" | "paid" | "sent";
+  driverPaymentAmount?: string;
+  driverPaymentDueAt?: string;
+  driverPaymentSentAt?: string;
+  driverPaymentHistory?: Array<{
+    at: string;
+    status: "due" | "paid" | "sent";
+    amount: string;
+    actor: "system" | "owner";
+  }>;
   isAirportPickup?: boolean;
   flightNumber?: string | null;
   airportCode?: string | null;
@@ -502,19 +525,72 @@ export async function postJourneyAction(
     const trackUrl = isDemoTrackToken(token)
       ? getDemoTrackResponse(token).trackUrl
       : `https://www.myairporttaxini.co.uk/track/?id=${encodeURIComponent(token)}`;
-    return {
+    const now = new Date().toISOString();
+    const transition: Record<
+      JourneyAction,
+      {
+        journeyStatus: JourneyStatus;
+        journeyStatusLabel: string;
+        allowedActions: JourneyAction[];
+      }
+    > = {
+      start_tracking: {
+        journeyStatus: "tracking",
+        journeyStatusLabel: "Driver on the way",
+        allowedActions: ["arrived_pickup"],
+      },
+      arrived_pickup: {
+        journeyStatus: "arrived_pickup",
+        journeyStatusLabel: "Driver has arrived",
+        allowedActions: ["complete_journey"],
+      },
+      start_journey: {
+        journeyStatus: "en_route",
+        journeyStatusLabel: "Journey underway",
+        allowedActions: ["arrived_destination"],
+      },
+      arrived_destination: {
+        journeyStatus: "arrived_destination",
+        journeyStatusLabel: "Arrived at destination",
+        allowedActions: ["complete_journey"],
+      },
+      complete_journey: {
+        journeyStatus: "completed",
+        journeyStatusLabel: "Journey completed",
+        allowedActions: [],
+      },
+      stop_tracking: {
+        journeyStatus: "stopped",
+        journeyStatusLabel: "Tracking stopped",
+        allowedActions: ["start_tracking"],
+      },
+    };
+    const next = transition[action];
+    const sharingActive =
+      isDemoOwnerKey(accessKey) && action !== "complete_journey" && action !== "stop_tracking";
+    const result: JourneyTransitionResponse = {
       ok: true,
       token,
-      journeyStatus: action === "complete_journey" ? "completed" : action === "stop_tracking" ? "stopped" : "tracking",
-      journeyStatusLabel: "Demo journey",
-      allowedActions: [],
-      sharingActive: action !== "complete_journey" && action !== "stop_tracking",
+      ...next,
+      sharingActive,
       trackUrl,
-      trackingSession:
-        action === "complete_journey" || action === "stop_tracking"
-          ? undefined
-          : { sessionToken: "demo-session", expiresAt: new Date(Date.now() + 3_600_000).toISOString() },
+      ...(action === "start_tracking" ? { trackingStartedAt: now } : {}),
+      ...(action === "arrived_pickup" ? { arrivedPickupAt: now } : {}),
+      ...(action === "start_journey" ? { journeyStartedAt: now } : {}),
+      ...(action === "arrived_destination" ? { arrivedDestinationAt: now } : {}),
+      ...(action === "complete_journey" ? { journeyCompletedAt: now } : {}),
+      ...(action === "stop_tracking" ? { trackingStoppedAt: now } : {}),
+      ...(sharingActive
+        ? {
+            trackingSession: {
+              sessionToken: "demo-session",
+              expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
+            },
+          }
+        : {}),
     };
+    setDemoJourneyTransition(token, result);
+    return result;
   }
 
   const response = await fetch(
@@ -532,6 +608,40 @@ export async function postJourneyAction(
   );
 
   return parseJsonResponse<JourneyTransitionResponse>(response);
+}
+
+export async function sendDriverPayment(
+  ownerKey: string,
+  token: string,
+  amount: string,
+): Promise<{
+  ok: true;
+  payment: {
+    status: "due" | "paid" | "sent";
+    amount?: string;
+    sentAt?: string;
+    history: NonNullable<DriverJob["driverPaymentHistory"]>;
+  };
+  idempotent?: boolean;
+}> {
+  const response = await fetch(
+    `${WORKER_BASE}/driver/payment?key=${encodeURIComponent(ownerKey.trim())}`,
+    {
+      method: "POST",
+      headers: driverPostHeaders(ownerKey),
+      body: JSON.stringify({ token, amount }),
+    },
+  );
+  return parseJsonResponse<{
+    ok: true;
+    payment: {
+      status: "due" | "paid" | "sent";
+      amount?: string;
+      sentAt?: string;
+      history: NonNullable<DriverJob["driverPaymentHistory"]>;
+    };
+    idempotent?: boolean;
+  }>(response);
 }
 
 export async function fetchJourneySession(
@@ -801,13 +911,13 @@ export async function fetchOwnerAccountProfile(
     return {
       profile: {
         profileKey: "owner",
-        displayName: "Owner",
-        email: "owner@example.com",
-        mobile: "07700900123",
-        make: "Mercedes-Benz",
-        model: "E-Class",
+        displayName: "Colin",
+        email: "colin@example.com",
+        mobile: "07700900111",
+        make: "Skoda",
+        model: "Superb",
         colour: "Black",
-        registration: "ABC 1234",
+        registration: "COL 1N",
         updatedAt: new Date().toISOString(),
       },
       complete: true,
@@ -1063,6 +1173,20 @@ export async function assignJobToDriver(
       throw new Error("Job not found");
     }
 
+    const previousName = job.assignedDriverName?.trim() || null;
+    const hadAssignment =
+      Boolean(previousName) && (job.assignmentStatus ?? "unassigned") !== "unassigned";
+    const at = new Date().toISOString();
+    const history = [
+      ...(job.assignmentHistory ?? []),
+      {
+        at,
+        action: (hadAssignment ? "reassigned" : "assigned") as "assigned" | "reassigned",
+        fromDriverName: hadAssignment ? previousName : null,
+        toDriverName: driverName,
+      },
+    ];
+
     return {
       ok: true,
       emailed: Boolean(details.driverEmail && details.driverPayAmount),
@@ -1070,7 +1194,14 @@ export async function assignJobToDriver(
         ...job,
         assignedDriverName: driverName,
         assignmentStatus: "pending",
-        assignedAt: new Date().toISOString(),
+        assignedAt: at,
+        assignmentHistory: history,
+        assignedDriverMobile: details.driverMobile,
+        assignedDriverCarMake: details.driverCarMake,
+        assignedDriverCarModel: details.driverCarModel,
+        assignedDriverCarColour: details.driverCarColour,
+        assignedDriverReg: details.driverReg,
+        driverPayAmount: details.driverPayAmount,
       }),
     };
   }
@@ -1145,6 +1276,7 @@ export async function respondToJobAssignment(
     }
 
     if (action === "decline") {
+      setDemoDriverPendingAssignmentStatus("declined");
       return {
         ok: true,
         job: sanitizeDemoJobForDriver({
@@ -1155,10 +1287,11 @@ export async function respondToJobAssignment(
       };
     }
 
+    setDemoDriverPendingAssignmentStatus("accepted");
     return {
       ok: true,
       job: sanitizeDemoJobForDriver({
-        ...pending,
+        ...getDemoDriverPendingJobRaw(),
         assignmentStatus: "accepted",
         acceptedAt: new Date().toISOString(),
       }),

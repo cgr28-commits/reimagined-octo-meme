@@ -10,8 +10,10 @@ import {
   DEMO_OWNER_KEY,
   DEMO_ROSTER,
   getDemoDriverJobs,
+  getDemoDriverPendingJobRaw,
   getDemoDriverPendingJobs,
   getDemoDriverStatus,
+  getDemoDriverUpcomingJobs,
   getDemoDriverVehicle,
   getDemoOwnerJobs,
   getDemoOwnerLocationHistory,
@@ -20,6 +22,7 @@ import {
   getDemoOwnerVehicleProfiles,
   getDemoTrackResponse,
   sanitizeDemoJobForDriver,
+  setDemoDriverPendingAssignmentStatus,
 } from "../src/lib/tracking-demo";
 
 let passed = 0;
@@ -57,10 +60,11 @@ check("driver today jobs are sanitized", () => {
 
   for (const job of response.jobs) {
     assert.equal(job.assignmentStatus, "accepted");
-    assert.equal(job.customerMobile, undefined);
+    assert.equal(job.customerMobile, "+447700900456");
     assert.equal(job.paymentReference, undefined);
     assert.equal(job.amountPaidLabel, undefined);
     assert.equal(job.driverLocationPointCount, undefined);
+    assert.ok(job.journeyNotes);
   }
 
   const airport = response.jobs.find((job) => job.token === "demo-waiting");
@@ -84,8 +88,19 @@ check("driver pending job is accept-ready", () => {
   assert.equal(pending.assignmentStatus, "pending");
   assert.equal(pending.assignedDriverName, DEMO_DRIVER_NAME);
   assert.equal(pending.customerMobile, undefined);
-  assert.equal(pending.flightNumber, "BA1234");
-  assert.equal(pending.isAirportPickup, true);
+  assert.equal(pending.flightNumber, undefined);
+  assert.equal(pending.customerName, "Customer details available after acceptance");
+  assert.equal(pending.trackUrl, undefined);
+
+  const accepted = sanitizeDemoJobForDriver({
+    ...getDemoDriverPendingJobRaw(),
+    assignmentStatus: "accepted",
+  });
+  assert.equal(accepted.customerName, "Jordan Demo");
+  assert.equal(accepted.customerMobile, "+447700900321");
+  assert.equal(accepted.dropoffLabel, "Grand Central Hotel, Belfast");
+  assert.equal(accepted.flightNumber, "BA1234");
+  assert.ok(accepted.journeyNotes);
 });
 
 check("owner today jobs include payments + unassigned", () => {
@@ -125,8 +140,11 @@ check("owner GPS audit history for live job", () => {
 
 check("owner vehicle profiles roster", () => {
   const profiles = getDemoOwnerVehicleProfiles();
+  assert.ok(profiles.some((profile) => profile.profileKey === "owner"));
+  assert.ok(profiles.some((profile) => profile.displayName === "Colin"));
+  assert.ok(profiles.some((profile) => profile.displayName === "Gary"));
   assert.deepEqual(
-    profiles.map((profile) => profile.displayName),
+    profiles.filter((profile) => profile.profileKey !== "owner").map((p) => p.displayName),
     [...DEMO_ROSTER],
   );
 });
@@ -155,14 +173,26 @@ check("public track demos", () => {
   assert.ok(live.vehicle?.registration);
 });
 
-check("sanitize strips owner-only fields", () => {
+check("sanitize keeps accepted contact but strips owner-only fields", () => {
   const ownerJob = getDemoOwnerJobs().jobs.find((job) => job.token === "demo-live");
   assert.ok(ownerJob);
   const sanitized = sanitizeDemoJobForDriver(ownerJob);
-  assert.equal(sanitized.customerMobile, undefined);
+  assert.equal(sanitized.customerMobile, ownerJob.customerMobile);
   assert.equal(sanitized.paymentReference, undefined);
   assert.equal(sanitized.amountPaidLabel, undefined);
   assert.equal(sanitized.driverLocationPointCount, undefined);
+});
+
+check("accepted demo assignment persists across Upcoming reload", () => {
+  setDemoDriverPendingAssignmentStatus("accepted");
+  assert.equal(getDemoDriverPendingJobs().jobs.length, 0);
+  const accepted = getDemoDriverUpcomingJobs().jobs.find((job) => job.token === "demo-pending");
+  assert.ok(accepted);
+  assert.equal(accepted.assignmentStatus, "accepted");
+  assert.equal(accepted.customerName, "Jordan Demo");
+  assert.equal(accepted.customerMobile, "+447700900321");
+  assert.ok(accepted.journeyNotes);
+  setDemoDriverPendingAssignmentStatus("pending");
 });
 
 console.log(`Demo feature integrity: ${passed} checks passed`);

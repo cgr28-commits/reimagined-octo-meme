@@ -1,3 +1,5 @@
+import { formatPassengerSuitcaseCounts } from "../shared/party-size";
+
 const CALENDAR_SCOPE = "https://www.googleapis.com/auth/calendar";
 const TOKEN_URL = "https://oauth2.googleapis.com/token";
 const TIME_ZONE = "Europe/London";
@@ -264,8 +266,9 @@ function buildTransferDescription(booking: TransferBookingEvent, message?: strin
     booking.mobileNumber ? `Mobile: ${booking.mobileNumber}` : "",
     booking.flightNumber ? `Flight for going: ${booking.flightNumber}` : "",
     booking.returnFlightNumber ? `Flight for collection: ${booking.returnFlightNumber}` : "",
-    typeof booking.passengers === "number" ? `Passengers: ${booking.passengers}` : "",
-    typeof booking.suitcases === "number" ? `Suitcases: ${booking.suitcases}` : "",
+    typeof booking.passengers === "number" || typeof booking.suitcases === "number"
+      ? `Party size: ${formatPassengerSuitcaseCounts(booking.passengers, booking.suitcases)}`
+      : "",
     booking.vehicle ? `Vehicle: ${booking.vehicle}` : "",
     booking.estimatedPrice ? `Your fixed journey price: ${booking.estimatedPrice}` : "",
     booking.paid && booking.amountPaid ? `Amount paid: ${booking.amountPaid}` : "",

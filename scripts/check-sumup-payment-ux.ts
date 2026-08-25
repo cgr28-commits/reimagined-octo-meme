@@ -50,7 +50,7 @@ assert.match(attempt.body, /07700900123/);
 assert.match(attempt.body, /Alex Example/);
 assert.match(attempt.body, /Pickup:/);
 assert.match(attempt.body, /Drop-off:/);
-assert.match(attempt.body, /Passengers: 2/);
+assert.match(attempt.body, /Party size: 2 passengers • 2 suitcases/);
 assert.match(attempt.body, /Vehicle:/);
 assert.match(attempt.body, /Quoted fare: £50\.00/);
 assert.match(attempt.body, /Checkout \/ booking reference: MAT-TEST-001/);

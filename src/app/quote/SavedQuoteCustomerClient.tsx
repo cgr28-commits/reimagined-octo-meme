@@ -20,6 +20,7 @@ import { TERMS_LAST_UPDATED } from "@/lib/terms";
 import { CANCELLATION_POLICY_VERSION } from "../../../shared/refund-ops";
 import { getPaymentBookingBlockers } from "../../../shared/paid-booking-gate";
 import { savedQuoteScheduleChanged } from "../../../shared/booking-amendment";
+import { formatPassengerSuitcaseCounts } from "@/lib/party-size";
 
 const fieldClass =
   "quote-text-input min-h-12 rounded-xl border border-white/15 bg-navy px-3 text-base text-white placeholder:text-white/35";
@@ -406,15 +407,11 @@ function SavedQuoteInner() {
             Date and time can be added later — they are required before payment. Changing date or
             time recalculates the fare.
           </p>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <dt className="text-xs uppercase tracking-wider text-white/45">Passengers</dt>
-              <dd className="mt-0.5">{journey.passengers}</dd>
-            </div>
-            <div>
-              <dt className="text-xs uppercase tracking-wider text-white/45">Luggage</dt>
-              <dd className="mt-0.5">{journey.suitcases}</dd>
-            </div>
+          <div>
+            <dt className="text-xs uppercase tracking-wider text-white/45">Party size</dt>
+            <dd className="mt-0.5">
+              {formatPassengerSuitcaseCounts(journey.passengers, journey.suitcases)}
+            </dd>
           </div>
           {journey.flightNumber || flightNumber ? (
             <div>

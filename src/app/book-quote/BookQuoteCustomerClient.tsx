@@ -18,6 +18,7 @@ import { fetchQuickQuoteById, type QuickQuotePublicSummary } from "@/lib/quick-q
 import { TERMS_LAST_UPDATED } from "@/lib/terms";
 import { CANCELLATION_POLICY_VERSION } from "../../../shared/refund-ops";
 import { getPaymentBookingBlockers } from "../../../shared/paid-booking-gate";
+import { formatPassengerSuitcaseCounts } from "@/lib/party-size";
 
 const fieldClass =
   "quote-text-input min-h-12 rounded-xl border border-white/15 bg-navy px-3 text-base text-white placeholder:text-white/35";
@@ -313,8 +314,8 @@ function BookQuoteInner() {
           Date and time are required before secure payment. Empty fields show as Not set.
         </p>
         <p>
-          <span className="text-white/50">Passengers / bags:</span> {journey.passengers} /{" "}
-          {journey.suitcases}
+          <span className="text-white/50">Party size:</span>{" "}
+          {formatPassengerSuitcaseCounts(journey.passengers, journey.suitcases)}
         </p>
       </section>
 

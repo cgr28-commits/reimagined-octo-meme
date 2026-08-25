@@ -242,6 +242,7 @@ export async function handlePaidBookingsListRequest(
       let reviewRequest: ReturnType<typeof buildReviewRequestSummary> | undefined;
       let assignedDriverName: string | undefined;
       let assignmentStatus: string | undefined;
+      let assignmentHistory: TrackingJobRecord["assignmentHistory"];
       let arrivedPickupAt: string | undefined;
       let arrivalNotificationStatus: string | undefined;
       let arrivalNotificationSentAt: string | undefined;
@@ -359,6 +360,7 @@ export async function handlePaidBookingsListRequest(
         reviewRequest = buildReviewRequestSummary(job);
         assignedDriverName = job.assignedDriverName;
         assignmentStatus = job.assignmentStatus;
+        assignmentHistory = job.assignmentHistory;
         arrivedPickupAt = job.arrivedPickupAt;
         arrivalNotificationStatus = job.arrivalNotificationStatus;
         arrivalNotificationSentAt = job.arrivalNotificationSentAt;
@@ -442,6 +444,7 @@ export async function handlePaidBookingsListRequest(
         trackUrl,
         assignedDriverName,
         assignmentStatus,
+        assignmentHistory,
         assignedDriverLabel: resolveAssignedDriverLabel(assignedDriverName),
         primaryDriverDefault: !assignedDriverName?.trim(),
         arrivedPickupAt,

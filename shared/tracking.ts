@@ -88,6 +88,18 @@ export type TrackingJobRecord = {
   assignedAt?: string;
   acceptedAt?: string;
   declinedAt?: string;
+  /** Owner-entered driver fee for this job. Never derived from the customer fare. */
+  driverPayAmount?: string;
+  /** Customer contact details become visible only after Driver on the way is recorded. */
+  driverContactRevealedAt?: string;
+  /** Owner-recorded payout state. Drivers receive only the safe status; `sent` is legacy. */
+  driverPaymentStatus?: "due" | "paid" | "sent";
+  driverPaymentAmount?: string;
+  driverPaymentDueAt?: string;
+  driverPaymentSentAt?: string;
+  driverPaymentHistory?: DriverPaymentHistoryEntry[];
+  /** Soft audit trail of assign / reassign / deassign events (newest last). */
+  assignmentHistory?: DriverAssignmentHistoryEntry[];
   /** Count of GPS points retained for audit (owner only in API responses) */
   driverLocationPointCount?: number;
   driverLocationRecordedFrom?: string;
@@ -129,6 +141,33 @@ export type DriverLocationPoint = {
 };
 
 export type JobAssignmentStatus = "unassigned" | "pending" | "accepted" | "declined";
+
+export type DriverAssignmentHistoryEntry = {
+  at: string;
+  action: "assigned" | "reassigned" | "deassigned";
+  fromDriverName?: string | null;
+  toDriverName?: string | null;
+};
+
+export type DriverPaymentHistoryEntry = {
+  at: string;
+  /** `sent` is a legacy value; new owner confirmations are recorded as `paid`. */
+  status: "due" | "paid" | "sent";
+  amount: string;
+  actor: "system" | "owner";
+};
+
+/** Append-only assignment audit (never deletes prior entries). */
+export function appendDriverAssignmentHistory(
+  job: TrackingJobRecord,
+  entry: DriverAssignmentHistoryEntry,
+): TrackingJobRecord {
+  const previous = Array.isArray(job.assignmentHistory) ? job.assignmentHistory : [];
+  return {
+    ...job,
+    assignmentHistory: [...previous, entry],
+  };
+}
 
 export type TrackingSessionRecord = {
   sessionToken: string;
@@ -247,6 +286,7 @@ export function normalizeDriverName(name: string): string {
   return name.trim();
 }
 
+/** Compare driver names for assignment visibility (case-insensitive, first-name aware). */
 export function driverNamesMatch(
   left: string | undefined,
   right: string | undefined,
@@ -255,7 +295,87 @@ export function driverNamesMatch(
     return false;
   }
 
-  return left.trim().toLowerCase() === right.trim().toLowerCase();
+  const a = left.trim().toLowerCase().replace(/\s+/g, " ");
+  const b = right.trim().toLowerCase().replace(/\s+/g, " ");
+  if (a === b) {
+    return true;
+  }
+
+  // "Gary Wilson" ↔ "Gary"
+  const aFirst = a.split(" ")[0] ?? a;
+  const bFirst = b.split(" ")[0] ?? b;
+  if (aFirst === bFirst) {
+    return true;
+  }
+
+  // Profile keys: "gary" ↔ "Gary"
+  const slug = (value: string) => value.replace(/[^a-z0-9]+/g, "");
+  return slug(a) === slug(b);
+}
+
+/**
+ * Format the agreed driver pay for driver-facing UI/email.
+ * Never use this helper for customer fare.
+ */
+export function formatDriverPayAmount(value: string | undefined | null): string {
+  const raw = String(value ?? "").trim();
+  if (!raw) {
+    return "TBC";
+  }
+
+  const normalised = raw.replace(/,/g, "").replace(/\s+/g, "");
+  const match = normalised.match(/^£?\s*(-?\d+(?:\.\d+)?)$/);
+  if (!match) {
+    // Already a label like "£40 + parking" — keep as-is if it has a pound sign.
+    return raw.includes("£") ? raw : `£${raw}`;
+  }
+
+  const amount = Number.parseFloat(match[1] ?? "");
+  if (!Number.isFinite(amount)) {
+    return raw.includes("£") ? raw : `£${raw}`;
+  }
+
+  return `£${amount.toFixed(2)}`;
+}
+
+/** Area-level location for a driver deciding whether to accept; never returns a street/postcode. */
+export function generalDriverLocationLabel(value: string | undefined | null): string {
+  const raw = String(value ?? "").trim();
+  if (!raw) return "Area available after acceptance";
+
+  const postcodePattern = /\b(?:BT\d{1,2}|[A-Z]{1,2}\d[A-Z\d]?)\s*\d[A-Z]{2}\b/gi;
+  const parts = raw
+    .split(",")
+    .map((part) => part.replace(postcodePattern, "").trim())
+    .filter(Boolean);
+  const privatePremisesPattern =
+    /\b(?:road|rd|street|st|avenue|ave|lane|ln|drive|dr|court|close|way|hotel|house|apartment|flat)\b/i;
+  const airport = parts.find(
+    (part) => /\b(?:airport|aerfort|terminal)\b/i.test(part) && !privatePremisesPattern.test(part),
+  );
+  if (airport) return airport;
+
+  if (parts.length >= 2) {
+    const area = [...parts]
+      .reverse()
+      .find(
+        (part) =>
+          !/^\d/.test(part) &&
+          !/^(?:uk|united kingdom|northern ireland|ireland)$/i.test(part),
+      );
+    return area || "Area available after acceptance";
+  }
+
+  // A city/town-only value is already area-level. Keep it useful while treating
+  // anything that resembles a street, premises or postcode as private.
+  if (
+    !/\d/.test(raw) &&
+    !privatePremisesPattern.test(raw)
+  ) {
+    return raw;
+  }
+
+  return "Area available after acceptance";
 }
 
 export function jobAssignmentStatus(

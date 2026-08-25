@@ -1,14 +1,113 @@
 import type { DriverJob, DriverJobsResponse, PublicTrackResponse } from "@/lib/tracking-api";
 import { SITE } from "@/lib/data";
 import { formatUkInstant } from "../../shared/uk-time";
+import { generalDriverLocationLabel } from "../../shared/tracking";
 
 export const DEMO_TRACK_TOKENS = ["demo-early", "demo-waiting", "demo-live"] as const;
 export type DemoTrackToken = (typeof DEMO_TRACK_TOKENS)[number];
 
 export const DEMO_DRIVER_KEY = "demo-driver-key";
 export const DEMO_OWNER_KEY = "demo-owner-key";
-export const DEMO_DRIVER_NAME = "Driver";
-export const DEMO_ROSTER = ["Driver"] as const;
+export const DEMO_DRIVER_NAME = "Gary";
+export const DEMO_OWNER_NAME = "Colin";
+/** Additional saved drivers shown in owner assign picker (beyond Owner / primary). */
+export const DEMO_ROSTER = ["Gary"] as const;
+let demoPendingAssignmentStatus: "pending" | "accepted" | "declined" = "pending";
+type DemoJourneyOverride = Pick<
+  DriverJob,
+  | "journeyStatus"
+  | "journeyStatusLabel"
+  | "allowedJourneyActions"
+  | "sharingActive"
+  | "trackingStartedAt"
+  | "arrivedPickupAt"
+  | "journeyStartedAt"
+  | "arrivedDestinationAt"
+  | "journeyCompletedAt"
+>;
+const demoJourneyOverrides = new Map<string, DemoJourneyOverride>();
+
+function demoJourneyStorageKey(token: string): string {
+  return `matni-demo-journey:${token}`;
+}
+
+function readDemoJourneyOverride(token: string): DemoJourneyOverride | undefined {
+  const inMemory = demoJourneyOverrides.get(token);
+  if (inMemory) return inMemory;
+  if (typeof window === "undefined") return undefined;
+
+  try {
+    const raw = window.sessionStorage.getItem(demoJourneyStorageKey(token));
+    if (!raw) return undefined;
+    const stored = JSON.parse(raw) as DemoJourneyOverride;
+    demoJourneyOverrides.set(token, stored);
+    return stored;
+  } catch {
+    return undefined;
+  }
+}
+
+function applyDemoJourneyOverride(job: DriverJob): DriverJob {
+  const override = readDemoJourneyOverride(job.token);
+  if (!override) return job;
+  return {
+    ...job,
+    ...override,
+    driver: override.sharingActive ? job.driver : null,
+    activeDriverName: override.sharingActive ? job.activeDriverName : undefined,
+  };
+}
+
+export function setDemoJourneyTransition(
+  token: string,
+  transition: {
+    journeyStatus: NonNullable<DriverJob["journeyStatus"]>;
+    journeyStatusLabel: string;
+    allowedActions: NonNullable<DriverJob["allowedJourneyActions"]>;
+    sharingActive: boolean;
+    trackingStartedAt?: string;
+    arrivedPickupAt?: string;
+    journeyStartedAt?: string;
+    arrivedDestinationAt?: string;
+    journeyCompletedAt?: string;
+  },
+) {
+  const override: DemoJourneyOverride = {
+    journeyStatus: transition.journeyStatus,
+    journeyStatusLabel: transition.journeyStatusLabel,
+    allowedJourneyActions: transition.allowedActions,
+    sharingActive: transition.sharingActive,
+    trackingStartedAt: transition.trackingStartedAt,
+    arrivedPickupAt: transition.arrivedPickupAt,
+    journeyStartedAt: transition.journeyStartedAt,
+    arrivedDestinationAt: transition.arrivedDestinationAt,
+    journeyCompletedAt: transition.journeyCompletedAt,
+  };
+  demoJourneyOverrides.set(token, override);
+  if (typeof window !== "undefined") {
+    try {
+      window.sessionStorage.setItem(demoJourneyStorageKey(token), JSON.stringify(override));
+    } catch {
+      // In-memory state still keeps polling consistent when storage is unavailable.
+    }
+  }
+}
+
+export function resetDemoJourneyTransitions() {
+  const tokens = [...demoJourneyOverrides.keys()];
+  demoJourneyOverrides.clear();
+  if (typeof window !== "undefined") {
+    for (const token of tokens) {
+      window.sessionStorage.removeItem(demoJourneyStorageKey(token));
+    }
+  }
+}
+
+export function setDemoDriverPendingAssignmentStatus(
+  status: "pending" | "accepted" | "declined",
+) {
+  demoPendingAssignmentStatus = status;
+}
 
 export function isDemoDriverKey(key: string): boolean {
   return key.trim() === DEMO_DRIVER_KEY;
@@ -193,15 +292,27 @@ export function getDemoTrackResponse(token: DemoTrackToken): PublicTrackResponse
 
 /** Strip owner-only fields so demo matches live driver API responses. */
 export function sanitizeDemoJobForDriver(job: DriverJob): DriverJob {
-  const sanitized = { ...job };
+  const sanitized: Record<string, unknown> = { ...applyDemoJourneyOverride(job) };
   delete sanitized.paymentReference;
   delete sanitized.amountPaidLabel;
   delete sanitized.refundAmountLabel;
-  delete sanitized.customerMobile;
   delete sanitized.driverLocationPointCount;
   delete sanitized.driverLocationRecordedFrom;
   delete sanitized.driverLocationRecordedTo;
-  return sanitized;
+  if (sanitized.assignmentStatus !== "accepted") {
+    sanitized.customerName = "Customer details available after acceptance";
+    sanitized.pickupLabel = generalDriverLocationLabel(job.pickupLabel);
+    sanitized.dropoffLabel = generalDriverLocationLabel(job.dropoffLabel);
+    delete sanitized.customerMobile;
+    delete sanitized.flightNumber;
+    delete sanitized.airportCode;
+    delete sanitized.flight;
+    delete sanitized.passengers;
+    delete sanitized.suitcases;
+    delete sanitized.journeyNotes;
+    delete sanitized.trackUrl;
+  }
+  return sanitized as DriverJob;
 }
 
 const DEMO_OWNER_FIELDS: Record<
@@ -288,6 +399,11 @@ function acceptedAssignmentFields() {
     assignmentStatus: "accepted" as const,
     assignedAt: new Date().toISOString(),
     acceptedAt: new Date().toISOString(),
+    driverPayAmount: "£40.00",
+    customerMobile: "+447700900456",
+    passengers: 2,
+    suitcases: 2,
+    journeyNotes: "Meet the customer at the agreed pickup point.",
   };
 }
 
@@ -309,6 +425,14 @@ function buildDemoDriverJob(
 export function getDemoDriverJobs(date?: string): DriverJobsResponse {
   const waiting = getDemoTrackResponse("demo-waiting");
   const responseDate = date ?? waiting.tripDate;
+  const acceptedPendingJob =
+    demoPendingAssignmentStatus === "accepted"
+      ? sanitizeDemoJobForDriver({
+          ...getDemoDriverPendingJobRaw(),
+          assignmentStatus: "accepted",
+          acceptedAt: new Date().toISOString(),
+        })
+      : null;
 
   const jobs = [
     buildDemoDriverJob("demo-live", {
@@ -337,6 +461,7 @@ export function getDemoDriverJobs(date?: string): DriverJobsResponse {
         status: "Estimated arrival",
       },
     }),
+    ...(acceptedPendingJob ? [acceptedPendingJob] : []),
   ].filter((job) => !date || job.tripDate === date);
 
   return demoDriverJobsResponse(jobs, "date", responseDate);
@@ -386,7 +511,9 @@ export function getDemoDriverUpcomingJobs(): DriverJobsResponse {
 }
 
 export function getDemoDriverPendingJobs(): DriverJobsResponse {
-  return demoDriverJobsResponse([buildDemoPendingJobRaw()], "pending", "pending");
+  const jobs =
+    demoPendingAssignmentStatus === "pending" ? [getDemoDriverPendingJobRaw()] : [];
+  return demoDriverJobsResponse(jobs, "pending", "pending");
 }
 
 function buildDemoUnassignedJob(): DriverJob {
@@ -429,7 +556,7 @@ function buildDemoUnassignedJob(): DriverJob {
   };
 }
 
-function buildDemoPendingJobRaw(): DriverJob {
+export function getDemoDriverPendingJobRaw(): DriverJob {
   const futurePickup = addMinutes(new Date(), 5 * 24 * 60);
   const schedule = londonParts(futurePickup);
   const opensAt = addMinutes(futurePickup, -120);
@@ -439,6 +566,7 @@ function buildDemoPendingJobRaw(): DriverJob {
     ...getDemoTrackResponse("demo-waiting"),
     token: "demo-pending",
     customerName: "Jordan Demo",
+    customerMobile: "+447700900321",
     pickupLabel: "George Best Belfast City Airport (BHD)",
     dropoffLabel: "Grand Central Hotel, Belfast",
     tripDate: schedule.tripDate,
@@ -448,6 +576,10 @@ function buildDemoPendingJobRaw(): DriverJob {
     assignedDriverName: DEMO_DRIVER_NAME,
     assignmentStatus: "pending",
     assignedAt: new Date().toISOString(),
+    driverPayAmount: "£55",
+    passengers: 3,
+    suitcases: 4,
+    journeyNotes: "Meet the customer at arrivals after the flight lands.",
     bookingStatus: "confirmed",
     isAirportPickup: true,
     flightNumber: "BA1234",
@@ -496,7 +628,9 @@ export function getDemoOwnerUpcomingJobs(): DriverJobsResponse {
 }
 
 export function getDemoOwnerPendingJobs(): DriverJobsResponse {
-  return demoOwnerJobsResponse([buildDemoPendingJobRaw()], "pending", "pending");
+  const jobs =
+    demoPendingAssignmentStatus === "pending" ? [getDemoDriverPendingJobRaw()] : [];
+  return demoOwnerJobsResponse(jobs, "pending", "pending");
 }
 
 export function getDemoOwnerLocationHistory(token: string) {
@@ -530,7 +664,7 @@ export function getDemoOwnerLocationHistory(token: string) {
 
 export function getDemoOwnerVehicleProfiles() {
   return [
-    { profileKey: "owner", displayName: "Owner", complete: true },
+    { profileKey: "owner", displayName: DEMO_OWNER_NAME, complete: true },
     ...DEMO_ROSTER.map((name) => ({
       profileKey: name.toLowerCase(),
       displayName: name,
@@ -541,20 +675,32 @@ export function getDemoOwnerVehicleProfiles() {
 
 export function getDemoOwnerVehicle(profile?: string) {
   const key = (profile ?? "owner").trim().toLowerCase();
+  if (key === "owner") {
+    return {
+      profileKey: "owner",
+      displayName: DEMO_OWNER_NAME,
+      email: "colin@example.com",
+      mobile: "07700900111",
+      make: "Skoda",
+      model: "Superb",
+      colour: "Black",
+      registration: "COL 1N",
+      updatedAt: new Date().toISOString(),
+    };
+  }
+
   const displayName =
-    key === "owner"
-      ? "Owner"
-      : DEMO_ROSTER.find((name) => name.toLowerCase() === key) ?? profile ?? DEMO_DRIVER_NAME;
+    DEMO_ROSTER.find((name) => name.toLowerCase() === key) ?? profile ?? DEMO_DRIVER_NAME;
 
   return {
-    profileKey: key === "owner" ? "owner" : displayName.toLowerCase(),
+    profileKey: String(displayName).toLowerCase(),
     displayName,
     email: `${String(displayName).toLowerCase().replace(/\s+/g, ".")}@example.com`,
     mobile: "07700900123",
     make: "Mercedes-Benz",
     model: "E-Class",
-    colour: "Black",
-    registration: "ABC 1234",
+    colour: "Silver",
+    registration: "GAR 1Y",
     updatedAt: new Date().toISOString(),
   };
 }
