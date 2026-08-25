@@ -50,10 +50,10 @@ export async function handleDriverPaymentRequest(
   const record = await getTrackingJob(env.TRACKING_STORE, token);
   if (!record) return jsonResponse({ error: "Job not found" }, 404, origin);
   if (journeyStatusOf(record) !== "completed") {
-    return jsonResponse({ error: "The journey must be completed before payment is sent" }, 409, origin);
+    return jsonResponse({ error: "The journey must be completed before payment is recorded" }, 409, origin);
   }
 
-  if (record.driverPaymentStatus === "sent") {
+  if (record.driverPaymentStatus === "paid" || record.driverPaymentStatus === "sent") {
     return jsonResponse(
       {
         ok: true,
@@ -71,12 +71,12 @@ export async function handleDriverPaymentRequest(
   }
 
   const sentAt = new Date().toISOString();
-  record.driverPaymentStatus = "sent";
+  record.driverPaymentStatus = "paid";
   record.driverPaymentAmount = amount;
   record.driverPaymentSentAt = sentAt;
   record.driverPaymentHistory = [
     ...(record.driverPaymentHistory ?? []),
-    { at: sentAt, status: "sent", amount, actor: "owner" },
+    { at: sentAt, status: "paid", amount, actor: "owner" },
   ];
   await saveTrackingJob(env.TRACKING_STORE, record);
 

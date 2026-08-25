@@ -14,9 +14,12 @@ import { handleDriverPaymentRequest } from "../workers/addresses/src/driver-paym
 import {
   handleDriverAcceptConfirmRequest,
   handleDriverAcceptLookupRequest,
+  syncTrackingAssignmentFromBooking,
 } from "../workers/addresses/src/booking-job-handlers";
+import { handleDriverUpdateBookingRequest } from "../workers/addresses/src/driver-booking-handlers";
 import {
   buildPublicTrackResponse,
+  handleDriverJobsRequest,
   handleDriverSharingRequest,
 } from "../workers/addresses/src/tracking-handlers";
 import { postJourneyAction as postClientJourneyAction } from "../src/lib/tracking-api";
@@ -48,22 +51,27 @@ const token = "driver-final-regression";
 const job: TrackingJobRecord = {
   token,
   createdAt: "2026-08-24T08:00:00.000Z",
-  customerName: "Customer",
+  customerName: "Jamie Private",
   customerEmail: "customer@example.com",
-  customerMobile: "07700900111",
-  pickupLabel: "Belfast",
-  dropoffLabel: "Belfast International Airport",
+  customerMobile: "07700111222",
+  pickupLabel: "10 Donegall Square, Belfast, BT1 5GS",
+  dropoffLabel: "Grand Central Hotel, Belfast",
   tripDate: "2026-08-24",
   tripTime: "10:00",
   pickupAt: "2026-08-24T10:00",
+  paymentReference: "booking-private",
+  isAirportTrip: true,
+  airportCode: "BFS",
+  flightNumber: "BA1234",
   sharingActive: false,
   assignedDriverName: "Gary",
-  assignmentStatus: "accepted",
-  acceptedAt: "2026-08-24T08:10:00.000Z",
+  assignmentStatus: "pending",
+  assignedAt: "2026-08-24T08:05:00.000Z",
   driverPayAmount: "40",
 };
 
 values.set(`track:job:${token}`, JSON.stringify(job));
+values.set("track:day:2026-08-24", JSON.stringify([token]));
 values.set(
   "driver:vehicle:gary",
   JSON.stringify({
@@ -200,6 +208,30 @@ async function main() {
 
   values.set(`booking-job:${booking.id}`, JSON.stringify(booking));
   values.set("driver-accept:accept-secret", booking.id);
+
+  const pendingApiResponse = await handleDriverJobsRequest(
+    new Request("https://worker.example/driver/jobs?key=driver-key&date=2026-08-24", {
+      headers: { "X-Driver-Key": "driver-key" },
+    }),
+    env,
+    "https://example.com",
+  );
+  const pendingApiBody = (await pendingApiResponse.json()) as {
+    jobs?: Array<Record<string, unknown>>;
+  };
+  assert.equal(pendingApiResponse.status, 200);
+  assert.equal(pendingApiBody.jobs?.length, 1);
+  const pendingApiJob = pendingApiBody.jobs?.[0] ?? {};
+  assert.equal(pendingApiJob.assignmentStatus, "pending");
+  assert.equal(pendingApiJob.customerName, "Customer details available after acceptance");
+  assert.equal(pendingApiJob.customerMobile, undefined);
+  assert.equal(pendingApiJob.pickupLabel, "Belfast");
+  assert.equal(pendingApiJob.dropoffLabel, "Belfast");
+  assert.equal(pendingApiJob.flightNumber, undefined);
+  assert.equal(pendingApiJob.journeyNotes, undefined);
+  assert.equal(pendingApiJob.driverPayAmount, "£40.00");
+  assert.equal(pendingApiJob.amountPaidLabel, undefined);
+
   const lookupResponse = await handleDriverAcceptLookupRequest(
     new Request("https://worker.example/driver-accept?token=accept-secret"),
     env,
@@ -228,6 +260,82 @@ async function main() {
   assert.equal(confirmBody.job.amountPaidLabel, undefined);
   assert.equal(confirmBody.job.paymentReference, undefined);
   assert.equal(confirmBody.job.trackingToken, undefined);
+
+  const dashboardResponse = await handleDriverJobsRequest(
+    new Request("https://worker.example/driver/jobs?key=driver-key&date=2026-08-24", {
+      headers: { "X-Driver-Key": "driver-key" },
+    }),
+    env,
+    "https://example.com",
+  );
+  const dashboardBody = (await dashboardResponse.json()) as {
+    role?: string;
+    driverName?: string;
+    jobs?: Array<Record<string, unknown>>;
+  };
+  assert.equal(dashboardResponse.status, 200);
+  assert.equal(dashboardBody.role, "driver");
+  assert.equal(dashboardBody.driverName, "Gary");
+  assert.equal(dashboardBody.jobs?.length, 1);
+  const acceptedApiJob = dashboardBody.jobs?.[0] ?? {};
+  assert.equal(acceptedApiJob.assignmentStatus, "accepted");
+  assert.equal(acceptedApiJob.customerName, booking.customerName);
+  assert.equal(acceptedApiJob.customerMobile, booking.customerMobile);
+  assert.equal(acceptedApiJob.pickupLabel, booking.pickupLabel);
+  assert.equal(acceptedApiJob.dropoffLabel, booking.dropoffLabel);
+  assert.equal(acceptedApiJob.flightNumber, booking.flightNumber);
+  assert.equal(acceptedApiJob.journeyNotes, booking.message);
+  assert.equal(acceptedApiJob.driverPayAmount, "£40.00");
+  assert.equal(acceptedApiJob.amountPaidLabel, undefined);
+  assert.equal(acceptedApiJob.paymentReference, undefined);
+  assert.equal(acceptedApiJob.refundAmountLabel, undefined);
+
+  const driverEditResponse = await handleDriverUpdateBookingRequest(
+    new Request("https://worker.example/driver/booking?key=driver-key", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Driver-Key": "driver-key" },
+      body: JSON.stringify({ token, pickupLabel: "Driver must not change this" }),
+    }),
+    env,
+    "https://example.com",
+  );
+  assert.equal(driverEditResponse.status, 403);
+  const afterBlockedEdit = JSON.parse(values.get(`track:job:${token}`) ?? "null") as TrackingJobRecord;
+  assert.equal(afterBlockedEdit.pickupLabel, booking.pickupLabel);
+
+  await syncTrackingAssignmentFromBooking(store, {
+    ...booking,
+    driverFirstName: "Colin",
+    driverEmail: "colin@example.com",
+    driverMobile: "07700900888",
+    driverAssignmentStatus: "pending",
+    driverAcceptedAt: undefined,
+  });
+  const afterReassignResponse = await handleDriverJobsRequest(
+    new Request("https://worker.example/driver/jobs?key=driver-key&date=2026-08-24", {
+      headers: { "X-Driver-Key": "driver-key" },
+    }),
+    env,
+    "https://example.com",
+  );
+  const afterReassignBody = (await afterReassignResponse.json()) as {
+    jobs?: Array<Record<string, unknown>>;
+  };
+  assert.equal(afterReassignResponse.status, 200);
+  assert.equal(afterReassignBody.jobs?.length, 0);
+  const reassignedTracking = JSON.parse(values.get(`track:job:${token}`) ?? "null") as TrackingJobRecord;
+  assert.deepEqual(reassignedTracking.assignmentHistory?.at(-1), {
+    at: reassignedTracking.assignmentHistory?.at(-1)?.at,
+    action: "reassigned",
+    fromDriverName: "Gary",
+    toDriverName: "Colin",
+  });
+
+  await syncTrackingAssignmentFromBooking(store, {
+    ...booking,
+    driverAssignmentStatus: "accepted",
+    driverAcceptedAt: "2026-08-24T08:10:00.000Z",
+  });
 
   const pendingDashboard = sanitizeDriverJobForRole(
     {
@@ -267,11 +375,13 @@ async function main() {
 
   const originalFetch = globalThis.fetch;
   let journeyEmailCount = 0;
+  const journeyEmailBodies: string[] = [];
   env.RESEND_API_KEY = "test-resend-key";
   globalThis.fetch = async (input, init) => {
     const url = input instanceof Request ? input.url : input.toString();
     if (url === "https://api.resend.com/emails") {
       journeyEmailCount += 1;
+      journeyEmailBodies.push(String(init?.body ?? ""));
       return new Response(JSON.stringify({ id: `email-${journeyEmailCount}` }), {
         status: 200,
         headers: { "Content-Type": "application/json" },
@@ -286,6 +396,8 @@ async function main() {
   assert.equal(onWay.trackingSession, undefined);
   assert.deepEqual(onWay.allowedActions, ["arrived_pickup"]);
   assert.equal(journeyEmailCount, 1);
+  assert.match(journeyEmailBodies[0] ?? "", /07700900999/);
+  assert.doesNotMatch(journeyEmailBodies[0] ?? "", /live location|whatsapp/i);
   const onWayRetry = await postJourney("start_tracking");
   assert.equal(onWayRetry.idempotent, true);
   assert.equal(onWayRetry.sharingActive, false);
@@ -389,9 +501,24 @@ async function main() {
   );
   assert.equal(ownerPayment.status, 200);
   const paid = JSON.parse(values.get(`track:job:${token}`) ?? "null") as TrackingJobRecord;
-  assert.equal(paid.driverPaymentStatus, "sent");
+  assert.equal(paid.driverPaymentStatus, "paid");
   assert.equal(paid.driverPaymentAmount, "£40.00");
-  assert.deepEqual(paid.driverPaymentHistory?.map((entry) => entry.status), ["due", "sent"]);
+  assert.deepEqual(paid.driverPaymentHistory?.map((entry) => entry.status), ["due", "paid"]);
+
+  const repeatedOwnerPayment = await handleDriverPaymentRequest(
+    new Request("https://worker.example/driver/payment?key=owner-key", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Driver-Key": "owner-key" },
+      body: JSON.stringify({ token, amount: "40" }),
+    }),
+    env,
+    "https://example.com",
+  );
+  const repeatedPaymentBody = (await repeatedOwnerPayment.json()) as { idempotent?: boolean };
+  assert.equal(repeatedOwnerPayment.status, 200);
+  assert.equal(repeatedPaymentBody.idempotent, true);
+  const repeatedlyPaid = JSON.parse(values.get(`track:job:${token}`) ?? "null") as TrackingJobRecord;
+  assert.deepEqual(repeatedlyPaid.driverPaymentHistory?.map((entry) => entry.status), ["due", "paid"]);
 
   console.log("=== Driver response keeps pay and strips owner/customer financial metadata ===");
   const driverResponse = sanitizeDriverJobForRole(
@@ -399,7 +526,7 @@ async function main() {
       assignmentStatus: "accepted",
       customerMobile: "07700900111",
       driverPayAmount: "£40.00",
-      driverPaymentStatus: "sent",
+      driverPaymentStatus: "paid",
       driverPaymentAmount: "£40.00",
       driverPaymentHistory: paid.driverPaymentHistory,
       amountPaidLabel: "£85.00",
@@ -411,12 +538,32 @@ async function main() {
   );
   assert.equal(driverResponse.driverPayAmount, "£40.00");
   assert.equal(driverResponse.customerMobile, "07700900111");
-  assert.equal(driverResponse.driverPaymentStatus, undefined);
+  assert.equal(driverResponse.driverPaymentStatus, "paid");
+  assert.equal(driverResponse.driverPaymentAmount, undefined);
   assert.equal(driverResponse.driverPaymentHistory, undefined);
   assert.equal(driverResponse.amountPaidLabel, undefined);
   assert.equal(driverResponse.paymentReference, undefined);
   assert.equal(driverResponse.bookingReference, undefined);
   assert.equal(driverResponse.refundAmountLabel, undefined);
+
+  const paidDashboardResponse = await handleDriverJobsRequest(
+    new Request("https://worker.example/driver/jobs?key=driver-key&date=2026-08-24", {
+      headers: { "X-Driver-Key": "driver-key" },
+    }),
+    env,
+    "https://example.com",
+  );
+  const paidDashboardBody = (await paidDashboardResponse.json()) as {
+    jobs?: Array<Record<string, unknown>>;
+  };
+  const paidApiJob = paidDashboardBody.jobs?.[0] ?? {};
+  assert.equal(paidDashboardResponse.status, 200);
+  assert.equal(paidApiJob.driverPaymentStatus, "paid");
+  assert.equal(paidApiJob.driverPaymentAmount, undefined);
+  assert.equal(paidApiJob.driverPaymentHistory, undefined);
+  assert.equal(paidApiJob.driverPayAmount, "£40.00");
+  assert.equal(paidApiJob.amountPaidLabel, undefined);
+  assert.equal(paidApiJob.paymentReference, undefined);
 
   console.log("=== UI contracts: no driver editing/WhatsApp, persistent steps, completed split ===");
   const page = readFileSync(join(process.cwd(), "src/app/driver/DriverPageClient.tsx"), "utf8");
@@ -464,7 +611,9 @@ async function main() {
     /updatedJob\.assignmentStatus === "accepted"[\s\S]*?setView\(updatedJob\.tripDate === today \? "today" : "upcoming"\)/,
   );
   assert.match(page, /Completed — Payment Due/);
-  assert.match(page, /Confirm payment sent/);
+  assert.match(page, /Confirm payment paid/);
+  assert.match(page, /data-driver-payment-status/);
+  assert.match(page, /Payment status: \{driverPaymentPaid \? "Paid" : "Payment pending"\}/);
   const driverNotesIndex = page.indexOf("!isOwner && isAcceptedAssignment && job.journeyNotes");
   const ownerPaymentIndex = page.indexOf(
     '{isOwner && journeyStatus === "completed" && driverPaymentStatus ? (',

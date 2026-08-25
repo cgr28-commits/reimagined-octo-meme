@@ -1015,6 +1015,8 @@ function DriverJobCard({
   const driverPaymentStatus =
     job.driverPaymentStatus ??
     (journeyStatus === "completed" && job.driverPayAmount ? "due" : undefined);
+  const driverPaymentPaid =
+    driverPaymentStatus === "paid" || driverPaymentStatus === "sent";
   const driverJourneyStep =
     journeyStatus === "completed"
       ? 3
@@ -1446,8 +1448,8 @@ function DriverJobCard({
       setPaymentOpen(false);
       setPaymentMessage(
         result.idempotent
-          ? "Driver payment was already recorded as sent."
-          : `Payment sent recorded: ${result.payment.amount}.`,
+          ? "Driver payment was already recorded as paid."
+          : `Payment recorded as paid: ${result.payment.amount}.`,
       );
     } catch (err) {
       setPaymentMessage(err instanceof Error ? err.message : "Could not record driver payment");
@@ -1910,10 +1912,24 @@ function DriverJobCard({
         </p>
       ) : null}
 
+      {!isOwner && journeyStatus === "completed" && driverPaymentStatus ? (
+        <div
+          className="mt-4 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3"
+          data-driver-payment-status
+        >
+          <p className="text-sm font-semibold text-white">
+            Payment status: {driverPaymentPaid ? "Paid" : "Payment pending"}
+          </p>
+          <p className="mt-1 text-sm text-white/60">
+            Your journey pay: {formatDriverPayAmount(job.driverPayAmount)}
+          </p>
+        </div>
+      ) : null}
+
       {isOwner && journeyStatus === "completed" && driverPaymentStatus ? (
         <div className="mt-4 rounded-xl border border-emerald/20 bg-emerald/[0.05] p-4">
           <p className="text-sm font-semibold text-white">
-            Driver payment: {driverPaymentStatus === "sent" ? "Sent" : "Payment Due"}
+            Driver payment: {driverPaymentPaid ? "Paid" : "Payment Due"}
           </p>
           <p className="mt-1 text-sm text-white/65">
             Amount: {job.driverPaymentAmount ?? formatDriverPayAmount(job.driverPayAmount)}
@@ -1939,7 +1955,7 @@ function DriverJobCard({
                 onClick={() => void confirmDriverPayment()}
                 className="rounded-xl bg-emerald px-4 py-2.5 text-sm font-semibold text-navy disabled:opacity-60"
               >
-                {paymentBusy ? "Recording…" : "Confirm payment sent"}
+                {paymentBusy ? "Recording…" : "Confirm payment paid"}
               </button>
             </div>
           ) : null}
@@ -1947,7 +1963,7 @@ function DriverJobCard({
             <ul className="mt-4 space-y-1 text-xs text-white/55">
               {job.driverPaymentHistory?.map((entry, index) => (
                 <li key={`${entry.at}-${entry.status}-${index}`}>
-                  {new Date(entry.at).toLocaleString("en-GB")} — {entry.status === "sent" ? "Payment sent" : "Payment due"} — {entry.amount}
+                  {new Date(entry.at).toLocaleString("en-GB")} — {entry.status === "due" ? "Payment due" : "Paid"} — {entry.amount}
                 </li>
               ))}
             </ul>

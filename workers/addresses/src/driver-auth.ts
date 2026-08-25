@@ -23,7 +23,13 @@ export type DashboardRole = "owner" | "driver";
 
 export type DriverSession =
   | { authorized: false }
-  | { authorized: true; role: DashboardRole; driverName?: string; driverEmail?: string };
+  | {
+      authorized: true;
+      role: DashboardRole;
+      driverName?: string;
+      driverEmail?: string;
+      driverMobile?: string;
+    };
 
 function normalizeKey(value: string): string {
   return value.replace(/^\uFEFF/, "").trim();
@@ -118,13 +124,21 @@ export async function resolveStoredDriverSession(
   store?: KVNamespace,
 ): Promise<DriverSession> {
   const session = resolveDriverSession(request, env);
-  if (
-    !session.authorized ||
-    session.role !== "driver" ||
-    session.driverName !== "Driver" ||
-    !store
-  ) {
+  if (!session.authorized || session.role !== "driver" || !store) {
     return session;
+  }
+
+  if (session.driverName && session.driverName !== "Driver") {
+    const saved = await getDriverVehicleProfile(store, session.driverName);
+    if (!saved) {
+      return session;
+    }
+
+    return {
+      ...session,
+      ...(saved.email.trim() ? { driverEmail: saved.email.trim().toLowerCase() } : {}),
+      ...(saved.mobile?.trim() ? { driverMobile: saved.mobile.trim() } : {}),
+    };
   }
 
   const profiles = await listOwnerVehicleProfileOptions(store, []);
@@ -144,6 +158,7 @@ export async function resolveStoredDriverSession(
     role: "driver",
     driverName: external[0].displayName.trim(),
     ...(saved?.email.trim() ? { driverEmail: saved.email.trim().toLowerCase() } : {}),
+    ...(saved?.mobile?.trim() ? { driverMobile: saved.mobile.trim() } : {}),
   };
 }
 
@@ -185,7 +200,6 @@ export function sanitizeDriverJobForRole<T extends Record<string, unknown>>(
   delete sanitized.driverLocationPointCount;
   delete sanitized.driverLocationRecordedFrom;
   delete sanitized.driverLocationRecordedTo;
-  delete sanitized.driverPaymentStatus;
   delete sanitized.driverPaymentAmount;
   delete sanitized.driverPaymentDueAt;
   delete sanitized.driverPaymentSentAt;

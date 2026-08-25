@@ -272,13 +272,13 @@ export type DriverJob = PublicTrackResponse & {
   journeyStartedAt?: string;
   arrivedDestinationAt?: string;
   journeyCompletedAt?: string;
-  driverPaymentStatus?: "due" | "sent";
+  driverPaymentStatus?: "due" | "paid" | "sent";
   driverPaymentAmount?: string;
   driverPaymentDueAt?: string;
   driverPaymentSentAt?: string;
   driverPaymentHistory?: Array<{
     at: string;
-    status: "due" | "sent";
+    status: "due" | "paid" | "sent";
     amount: string;
     actor: "system" | "owner";
   }>;
@@ -617,7 +617,7 @@ export async function sendDriverPayment(
 ): Promise<{
   ok: true;
   payment: {
-    status: "due" | "sent";
+    status: "due" | "paid" | "sent";
     amount?: string;
     sentAt?: string;
     history: NonNullable<DriverJob["driverPaymentHistory"]>;
@@ -635,7 +635,7 @@ export async function sendDriverPayment(
   return parseJsonResponse<{
     ok: true;
     payment: {
-      status: "due" | "sent";
+      status: "due" | "paid" | "sent";
       amount?: string;
       sentAt?: string;
       history: NonNullable<DriverJob["driverPaymentHistory"]>;

@@ -44,6 +44,7 @@ import {
   trackingStoreConfigured,
 } from "./tracking-store";
 import { getPaidBookingRecord, paidBookingStoreConfigured, savePaidBookingRecord } from "./paid-booking-store";
+import { getBookingJob } from "./booking-job-store";
 import type { PaidBookingDetails } from "../shared/booking-notifications";
 import { buildReviewRequestSummary } from "./review-request-handlers";
 import {
@@ -169,7 +170,7 @@ export async function sendArrivalNotificationIfNeeded(
 export async function sendOnTheWayNotificationIfNeeded(
   env: Env,
   job: TrackingJobRecord,
-  options?: { forceRetry?: boolean },
+  options?: { forceRetry?: boolean; driverMobile?: string },
 ): Promise<TrackingJobRecord> {
   if (job.onTheWayNotificationStatus === "sent" && !options?.forceRetry) {
     return job;
@@ -198,7 +199,10 @@ export async function sendOnTheWayNotificationIfNeeded(
   }
 
   const email = buildDriverOnTheWayEmail(
-    { customerName: job.customerName || customerFirstName(emailAddress) },
+    {
+      customerName: job.customerName || customerFirstName(emailAddress),
+      driverMobile: options?.driverMobile,
+    },
     BUSINESS_NAME,
   );
   const result = await trySendBrandedCustomerEmail(env, {
@@ -220,6 +224,25 @@ export async function sendOnTheWayNotificationIfNeeded(
   }
 
   return next;
+}
+
+async function driverMobileForNotification(
+  env: Env,
+  job: TrackingJobRecord,
+  session: Awaited<ReturnType<typeof resolveStoredDriverSession>>,
+): Promise<string | undefined> {
+  if (session.authorized && session.role === "driver" && session.driverMobile?.trim()) {
+    return session.driverMobile.trim();
+  }
+  if (!env.TRACKING_STORE) {
+    return undefined;
+  }
+
+  const booking = job.paymentReference?.trim()
+    ? (await getBookingJob(env.TRACKING_STORE, job.paymentReference)) ??
+      (await getBookingJob(env.TRACKING_STORE, job.token))
+    : await getBookingJob(env.TRACKING_STORE, job.token);
+  return booking?.driverMobile?.trim() || undefined;
 }
 
 function jsonResponse(body: unknown, status: number, origin: string | null) {
@@ -392,8 +415,10 @@ export async function handleJourneyTransitionRequest(
       delete next.activeDriverName;
     }
     if (forceRetryOnTheWay || record.onTheWayNotificationStatus !== "sent") {
+      const driverMobile = await driverMobileForNotification(env, next, session);
       next = await sendOnTheWayNotificationIfNeeded(env, next, {
         forceRetry: forceRetryOnTheWay,
+        driverMobile,
       });
     }
     await saveTrackingJob(env.TRACKING_STORE, next);
@@ -487,8 +512,10 @@ export async function handleJourneyTransitionRequest(
 
   if (action === "start_tracking") {
     next.driverContactRevealedAt = next.driverContactRevealedAt ?? new Date().toISOString();
+    const driverMobile = await driverMobileForNotification(env, next, session);
     next = await sendOnTheWayNotificationIfNeeded(env, next, {
       forceRetry: forceRetryOnTheWay,
+      driverMobile,
     });
   }
 

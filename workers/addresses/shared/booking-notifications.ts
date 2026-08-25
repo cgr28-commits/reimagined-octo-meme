@@ -1397,6 +1397,7 @@ export function buildGoogleReviewRequestEmail(
 
 export type ArrivalNotificationDetails = {
   customerName: string;
+  driverMobile?: string;
 };
 
 /** Customer message when the driver taps Arrived at Pickup. */
@@ -1465,15 +1466,18 @@ export function buildDriverOnTheWayEmail(
   const firstName = customerFirstName(details.customerName);
   const subject = `Driver on the way — ${businessName}`;
   const statusHeading = "Driver on the way";
-  const bodyLine =
-    "Your driver is on the way to collect you. Your driver may share their live location with you via WhatsApp when appropriate.";
+  const bodyLine = "Your driver is on the way to collect you.";
+  const driverMobile = details.driverMobile?.trim();
+  const driverContactLine = driverMobile
+    ? `Your driver's mobile number is ${driverMobile}.`
+    : "Please contact us if you need help reaching your driver.";
   const greeting = `Hi ${firstName},`;
 
   const text =
     `${greeting}\n\n` +
     `${statusHeading}\n\n` +
     `${bodyLine}\n\n` +
-    `You can also message us on WhatsApp or call ${BUSINESS_PHONE_DISPLAY} if you need anything.\n\n` +
+    `${driverContactLine}\n\n` +
     `Questions? Contact us at ${BUSINESS_EMAIL} or ${BUSINESS_PHONE_DISPLAY}.\n\n` +
     `${businessName}\n${BUSINESS_WEBSITE}`;
 
@@ -1500,9 +1504,7 @@ export function buildDriverOnTheWayEmail(
             <td style="padding:28px 32px;font-size:15px;line-height:1.7;color:#334155;">
               <p style="margin:0 0 14px;">${escapeHtml(greeting)}</p>
               <p style="margin:0;">${escapeHtml(bodyLine)}</p>
-              <p style="margin:16px 0 0;font-size:14px;color:#64748b;">
-                WhatsApp remains available for messages. Live location sharing, when used, is sent manually by your driver in WhatsApp.
-              </p>
+              <p style="margin:16px 0 0;font-size:14px;color:#334155;">${escapeHtml(driverContactLine)}</p>
             </td>
           </tr>
           <tr>

@@ -73,6 +73,7 @@ console.log("\n=== 1b. Saved profile resolves missing deployed DRIVER_NAME ===")
     role: "driver",
     driverName: "Gary",
     driverEmail: "gary@example.com",
+    driverMobile: "07700900123",
   });
 
   records.set("driver:vehicle-index", ["gary", "another-driver"]);

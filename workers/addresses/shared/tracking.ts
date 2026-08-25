@@ -92,8 +92,8 @@ export type TrackingJobRecord = {
   driverPayAmount?: string;
   /** Customer contact details become visible only after Driver on the way is recorded. */
   driverContactRevealedAt?: string;
-  /** Owner-only manual driver payout state. */
-  driverPaymentStatus?: "due" | "sent";
+  /** Owner-recorded payout state. Drivers receive only the safe status; `sent` is legacy. */
+  driverPaymentStatus?: "due" | "paid" | "sent";
   driverPaymentAmount?: string;
   driverPaymentDueAt?: string;
   driverPaymentSentAt?: string;
@@ -151,7 +151,8 @@ export type DriverAssignmentHistoryEntry = {
 
 export type DriverPaymentHistoryEntry = {
   at: string;
-  status: "due" | "sent";
+  /** `sent` is a legacy value; new owner confirmations are recorded as `paid`. */
+  status: "due" | "paid" | "sent";
   amount: string;
   actor: "system" | "owner";
 };
