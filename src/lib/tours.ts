@@ -27,7 +27,7 @@ export const TOURS: readonly Tour[] = [
       "We take you to the UNESCO World Heritage Giant's Causeway with a private driver who knows the best viewpoints, quieter stops, and photo spots along the Causeway Coast. We tailor the route to your pace — whether you want the full coastal experience or a focused visit to the stones and nearby attractions.",
     duration: "Full day (~8 hours)",
     price: "Get a quote",
-    priceNote: "Based on estate car from Belfast. Minibus options available for 5–7 passengers via licensed transport partners.",
+    priceNote: "Based on estate car from Belfast. Private day trips for up to 4 passengers (Saloon or Estate).",
     highlights: [
       "Giant's Causeway UNESCO World Heritage Site",
       "Carrick-a-Rede Rope Bridge (seasonal access)",

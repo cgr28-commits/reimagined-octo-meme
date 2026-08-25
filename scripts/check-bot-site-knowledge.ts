@@ -34,12 +34,12 @@ async function main() {
       "greater belfast",
       "republic of ireland",
       "out-of-area",
-      "licensed transport partners",
+      "up to 4 passengers",
       "google places",
       "more than 24 hours",
       "belfast international",
       "dublin airport",
-      "minibus",
+      "saloon",
       "sumup",
     ]) {
       assert.ok(body.includes(needle), `missing knowledge for: ${needle}`);
@@ -78,9 +78,9 @@ async function main() {
     assert.match(reply.toLowerCase(), /greater belfast|republic|ireland|fixed quote|long-distance/);
   });
 
-  await check("Bot answers minibus / partner question", async () => {
-    const reply = await ask("Do you offer minibus transfers through licensed transport partners?");
-    assert.match(reply.toLowerCase(), /minibus|partner|5|8|request/);
+  await check("Bot answers passenger capacity question", async () => {
+    const reply = await ask("How many passengers can I book for?");
+    assert.match(reply.toLowerCase(), /up to 4|1–4|1-4|four passengers/);
   });
 
   await check("Bot answers Dublin Airport question with site airport copy", async () => {

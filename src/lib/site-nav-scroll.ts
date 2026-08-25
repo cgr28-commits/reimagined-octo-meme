@@ -62,7 +62,7 @@ export const SITE_NAV_DESTINATIONS: readonly SiteNavDestination[] = [
     label: "Vehicles",
     href: "/#vehicles",
     hash: "vehicles",
-    heading: "Choose by passenger count",
+    heading: "Private transfers for up to 4",
     navId: "vehicles",
   },
   {

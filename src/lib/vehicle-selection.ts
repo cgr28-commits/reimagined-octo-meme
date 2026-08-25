@@ -2,10 +2,12 @@
  * Passenger / luggage → vehicle classification for the public quote form.
  * Monetary rates live in pricing-config.json and are not defined here.
  *
- * Shared business rule (source of truth):
+ * Public website (source of truth for customers):
  * - Standard Saloon: 1–4 passengers AND 0–2 suitcases
  * - Estate Car: 1–4 passengers AND 3–4 suitcases
- * - Minibus: 5–7 passengers (also used when suitcases > 4 for capacity)
+ *
+ * Owner/Driver Quick Quote may still select Minibus (5–7) via the owner tool —
+ * that is not offered on the public Live Quote.
  *
  * Passenger count of 3 or 4 does NOT by itself trigger Estate.
  */
@@ -15,24 +17,28 @@ import {
   GROUP_PASSENGER_MAX,
   GROUP_PASSENGER_MIN,
   MAX_PASSENGERS,
+  OWNER_QUICK_QUOTE_MAX_PASSENGERS,
 } from "../../shared/passenger-limits";
 
 export const SALOON_VEHICLE: VehicleType = "Standard Saloon (1–4 passengers)";
 export const ESTATE_VEHICLE: VehicleType = "Estate Car (1–4 passengers)";
 export const MINIBUS_VEHICLE: VehicleType = MINIBUS_VEHICLE_TYPE;
 
-/** Sentinel value for the “5–7” tap on the quote form. */
+/** @deprecated Public selector no longer offers a 5–7 band. */
 export const FIVE_PLUS_PASSENGERS = GROUP_PASSENGER_MIN;
+/** Public suitcase selector max is 4; 5+ is not offered online. */
 export const FIVE_PLUS_SUITCASES = 5;
+/** Public luggage selector options are 0–4 only. */
+export const MAX_PUBLIC_SUITCASES = 4;
 
-export { GROUP_PASSENGER_MAX, GROUP_PASSENGER_MIN, MAX_PASSENGERS };
+export { GROUP_PASSENGER_MAX, GROUP_PASSENGER_MIN, MAX_PASSENGERS, OWNER_QUICK_QUOTE_MAX_PASSENGERS };
 
 /**
- * True when the party needs a Minibus (5–7 passengers, or more than 4 large cases).
- * Minibus uses existing pricing and is bookable online via SumUp.
+ * True when the party would historically need a Minibus.
+ * Public quotes reject passengers/suitcases that trigger this; Owner QQ may still use it.
  */
 export function requiresMinibus(passengers: number, suitcases: number): boolean {
-  return passengers > 4 || suitcases > 4;
+  return passengers > MAX_PASSENGERS || suitcases > MAX_PUBLIC_SUITCASES;
 }
 
 /**
@@ -69,11 +75,11 @@ export function vehicleShortLabel(vehicleType: VehicleType | string): string {
   return String(vehicleType);
 }
 
-/** Main passenger selector label (1–4 or the 5–7 band). */
+/** Public passenger selector label (1–4 only). */
 export function formatPassengerChoice(count: number): string {
-  return count >= FIVE_PLUS_PASSENGERS ? "5–7" : String(count);
+  return String(count);
 }
 
 export function formatSuitcaseChoice(count: number): string {
-  return count >= FIVE_PLUS_SUITCASES ? "5+" : String(count);
+  return String(count);
 }

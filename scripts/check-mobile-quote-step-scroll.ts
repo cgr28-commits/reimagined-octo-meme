@@ -96,13 +96,13 @@ check("Selection-driven auto-scroll stays removed", () => {
   assert.doesNotMatch(card, /quote-mobile-scroll/);
 });
 
-check("Fleet / Saloon / Estate / Minibus remain public", () => {
+check("Fleet / Saloon / Estate public capacity is up to 4", () => {
   assert.match(page, /VehiclesSection/);
   assert.match(data, /href: "\/#vehicles"/);
-  assert.match(data, /1–4 or 5–7 made simple/);
-  assert.match(vehicles, /Minibus — 5–7 passengers/);
-  assert.match(progressive, /FIVE_PLUS_PASSENGERS/);
-  assert.match(progressive, /Travelling with 5–7 passengers/);
+  assert.match(data, /Private transfers for 1–4 passengers/);
+  assert.match(vehicles, /Private transfers for up to 4/);
+  assert.match(vehicles, /Up to 4 passengers/);
+  assert.doesNotMatch(vehicles, /Minibus — 5–7 passengers/);
   assert.match(card, /Vehicle for this journey/);
   assert.match(card, /vehicleShortLabel/);
 });

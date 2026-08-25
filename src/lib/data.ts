@@ -367,9 +367,9 @@ export const WHY_CHOOSE_US = [
       "Early morning and late-night transfers are our speciality — including bank holidays and Christmas.",
   },
   {
-    title: "1–4 or 5–7 made simple",
+    title: "Private transfers for 1–4 passengers",
     description:
-      "1–4 passengers get an instant Saloon or Estate quote online where eligible. 5–7 passengers get a fixed Minibus fare online using our existing minibus pricing. We do not offer journeys for more than 7 passengers.",
+      "Professional private airport transfer for up to 4 passengers. Get an instant Saloon or Estate quote online where eligible — clear fixed prices, no vehicle shopping list.",
   },
 ] as const;
 
@@ -438,7 +438,7 @@ export const FAQS = [
   {
     question: "How many passengers can I book for?",
     answer:
-      "Our online service accommodates up to 7 passengers. Journeys for 1–4 passengers can receive an instant Saloon or Estate quote where eligible. For 5–7 passengers, we show a fixed Minibus fare online (Minibus — 5–7 passengers) using our existing minibus pricing.",
+      "My Airport Taxi NI provides private airport transfers for up to 4 passengers. Select 1–4 passengers on the quote form for an instant Saloon or Estate fare where eligible.",
   },
   {
     question: "Are tolls included?",
@@ -453,7 +453,7 @@ export const FAQS = [
   {
     question: "How do I pay?",
     answer:
-      "Get your fixed price online. Eligible Saloon, Estate, and Minibus bookings can be confirmed securely by card via SumUp. Short-notice pickups may need Owner availability confirmation before payment. Cash or bank transfer can be arranged where agreed.",
+      "Get your fixed price online. Eligible Saloon and Estate bookings can be confirmed securely by card via SumUp. Short-notice pickups may need Owner availability confirmation before payment. Cash or bank transfer can be arranged where agreed.",
   },
   {
     question: "Can I cancel my booking?",
@@ -523,15 +523,6 @@ export const VEHICLE_FLEET = [
     requestQuote: false,
     partnerOperated: false,
   },
-  {
-    name: "Minibus — 5–7 passengers",
-    capacity: "5–7 passengers",
-    description:
-      "For groups of 5–7 passengers, get a fixed Minibus fare online using our existing minibus pricing. Pay securely to confirm. We do not offer journeys for more than 7 passengers.",
-    enquiryOnly: false,
-    requestQuote: false,
-    partnerOperated: false,
-  },
 ] as const;
 
 export const VEHICLE_TYPES = [
@@ -546,30 +537,31 @@ export type VehicleType = (typeof VEHICLE_TYPES)[number];
 export const MINIBUS_VEHICLE_TYPE: VehicleType = "Minibus (5–7 passengers)";
 
 /** Maximum passengers accepted on the online quote and booking form / APIs. */
-export const MAX_ONLINE_PASSENGERS = 7;
+export const MAX_ONLINE_PASSENGERS = 4;
 
 /** Vehicles that cannot be instantly confirmed — enquiry / request-a-quote flow. */
 export const ENQUIRY_ONLY_VEHICLE_TYPES: readonly VehicleType[] = [
   "Executive Saloon (1–4 passengers)",
 ];
 
-/** @deprecated Minibus is instant-pay again — kept empty for callers. */
+/** @deprecated Public site no longer offers Minibus quote-request — kept empty. */
 export const REQUEST_QUOTE_VEHICLE_TYPES: readonly VehicleType[] = [];
 
-/** Saloon, estate, and minibus can pay online at quote time when an instant fare is shown. */
+/** Saloon/Estate for public pay; Minibus kept for owner short-notice / Quick Quote only. */
 export const INSTANT_PAY_VEHICLE_TYPES: readonly VehicleType[] = [
   "Standard Saloon (1–4 passengers)",
   "Estate Car (1–4 passengers)",
   MINIBUS_VEHICLE_TYPE,
 ];
 
+/** @deprecated Not shown on the public site — retained for owner Quick Quote tooling. */
 export const MINIBUS_PARTNER_NOTE =
-  "Minibus (5–7 passengers): fixed online fare using our existing minibus pricing. Pay securely online to confirm. Maximum 7 passengers.";
+  "Owner/Driver Quick Quote only: Minibus (5–7 passengers) uses existing central pricing for partner work. Not offered on the public website.";
 
 /** Short guidance kept for ops/docs — not shown in the public quote UI. */
 export const VEHICLE_BOOKING_GUIDANCE = [
   "1–4 passengers: Saloon or Estate instant quote where eligible. Pay online by card to confirm.",
-  "5–7 passengers: Minibus instant quote where eligible. Pay online by card to confirm. Maximum 7 passengers.",
+  "Public website capacity is up to 4 passengers only.",
 ] as const;
 
 /** Legacy hook retained for quote form — capacity above 7 is blocked elsewhere. */

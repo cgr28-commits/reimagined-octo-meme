@@ -383,12 +383,13 @@ export default function TourBookingForm({
               }}
               className={inputClassName}
             >
-              {Array.from({ length: 8 }, (_, index) => index + 1).map((size) => (
+              {Array.from({ length: 4 }, (_, index) => index + 1).map((size) => (
                 <option key={size} value={size}>
                   {size} {size === 1 ? "person" : "people"}
                 </option>
               ))}
             </select>
+            <p className="mt-1.5 text-xs text-white/40">Up to 4 passengers</p>
           </div>
         </div>
 
