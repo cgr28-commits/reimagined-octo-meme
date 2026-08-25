@@ -30,6 +30,7 @@
     "check:uk-time": "npx tsx scripts/check-uk-time.ts",
     "check:google-ads": "npx tsx scripts/check-google-ads-request-quote.ts",
     "check:conversion-tracking": "npx tsx scripts/check-conversion-tracking.ts",
+    "check:sumup-booking-conversion": "npx tsx scripts/check-sumup-booking-conversion.ts",
     "check:emerge-belfast": "npx tsx scripts/check-emerge-belfast-page.ts",
     "check:journey-tracking": "npx tsx scripts/check-journey-tracking.ts",
     "check:review-request": "npx tsx scripts/check-review-request.ts",

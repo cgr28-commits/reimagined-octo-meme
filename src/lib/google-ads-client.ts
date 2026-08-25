@@ -119,6 +119,11 @@ export function setEnhancedConversionUserData(userData?: AdsUserData): void {
 
 type DedupeStorage = "session" | "local";
 
+type TrackedEventDelivery = {
+  onComplete: () => void;
+  timeoutMs: number;
+};
+
 function eventStorage(kind: DedupeStorage): Storage | null {
   if (typeof window === "undefined") return null;
   try {
@@ -158,9 +163,16 @@ function fireTrackedEvent(options: {
   params: Record<string, unknown>;
   dedupeKey: string;
   dedupeStorage: DedupeStorage;
+  delivery?: TrackedEventDelivery;
 }): boolean {
-  if (typeof window === "undefined" || !hasMarketingCookieConsent()) return false;
-  if (alreadyFired(options.dedupeKey, options.dedupeStorage)) return true;
+  if (typeof window === "undefined" || !hasMarketingCookieConsent()) {
+    options.delivery?.onComplete();
+    return false;
+  }
+  if (alreadyFired(options.dedupeKey, options.dedupeStorage)) {
+    options.delivery?.onComplete();
+    return true;
+  }
 
   ensureGtagStub();
   window.dataLayer = window.dataLayer || [];
@@ -168,14 +180,39 @@ function fireTrackedEvent(options: {
 
   // Direct Ads conversion is optional. Named events are emitted exactly once to
   // dataLayer for GTM/GA4 even when a verified Ads label has not been configured.
+  let deliveryHandled = false;
   if (options.directAds !== false && options.sendTo && typeof window.gtag === "function") {
-    window.gtag("event", "conversion", {
+    const conversionParams: Record<string, unknown> = {
       ...options.params,
       send_to: options.sendTo,
-    });
+    };
+
+    if (options.delivery) {
+      deliveryHandled = true;
+      const timeoutMs = Math.max(0, Math.min(Math.trunc(options.delivery.timeoutMs), 2000));
+      let completed = false;
+      const completeOnce = () => {
+        if (completed) return;
+        completed = true;
+        window.clearTimeout(timeoutId);
+        options.delivery?.onComplete();
+      };
+      const timeoutId = window.setTimeout(completeOnce, timeoutMs);
+      conversionParams.event_callback = completeOnce;
+      conversionParams.event_timeout = timeoutMs;
+      try {
+        window.gtag("event", "conversion", conversionParams);
+      } catch {
+        // Tracking must never block a customer from reaching the payment provider.
+        completeOnce();
+      }
+    } else {
+      window.gtag("event", "conversion", conversionParams);
+    }
   }
 
   markFired(options.dedupeKey, options.dedupeStorage);
+  if (options.delivery && !deliveryHandled) options.delivery.onComplete();
   return true;
 }
 
@@ -258,8 +295,16 @@ export function trackRequestQuote(options: AdsConversionPayload = {}): boolean {
   return trackRequestQuoteConversion(options);
 }
 
+type BookingRequestDeliveryOptions = {
+  onComplete: () => void;
+  timeoutMs?: number;
+};
+
 /** Fire once after the Worker confirms that a booking request was persisted. */
-export function trackBookingRequestSubmitted(options: AdsConversionPayload): boolean {
+export function trackBookingRequestSubmitted(
+  options: AdsConversionPayload,
+  delivery?: BookingRequestDeliveryOptions,
+): boolean {
   const config = getGoogleAdsConfig();
   const bookingReference = options.bookingReference?.trim() || options.transactionId?.trim();
   if (!bookingReference || !hasMarketingCookieConsent()) return false;
@@ -279,6 +324,36 @@ export function trackBookingRequestSubmitted(options: AdsConversionPayload): boo
     params,
     dedupeKey: `${FIRED_BOOKING_REQUEST_PREFIX}${bookingReference}`,
     dedupeStorage: "local",
+    ...(delivery
+      ? {
+          delivery: {
+            onComplete: delivery.onComplete,
+            timeoutMs: delivery.timeoutMs ?? 1000,
+          },
+        }
+      : {}),
+  });
+}
+
+/**
+ * Wait briefly for the labelled Ads request to be accepted before leaving for
+ * an external payment page. The timeout is deliberately bounded so tracking
+ * or an ad blocker can never strand the customer on the booking form.
+ */
+export function trackBookingRequestSubmittedBeforeNavigation(
+  options: AdsConversionPayload,
+  timeoutMs = 1000,
+): Promise<boolean> {
+  return new Promise((resolve) => {
+    let tracked: boolean | undefined = undefined;
+    let completed = false;
+    const onComplete = () => {
+      completed = true;
+      if (tracked !== undefined) resolve(tracked);
+    };
+
+    tracked = trackBookingRequestSubmitted(options, { onComplete, timeoutMs });
+    if (!tracked || completed) resolve(tracked);
   });
 }
 

@@ -1934,6 +1934,11 @@ async function handlePaymentRequest(
         paymentUrl: checkout.paymentUrl,
         checkoutId: checkout.checkoutId,
         checkoutReference: checkout.checkoutReference,
+        // Emitted only after savePendingCheckout succeeds above. The browser
+        // uses this explicit persistence acknowledgement as its conversion gate.
+        bookingSaved: true,
+        bookingReference: checkout.checkoutReference,
+        amount: Math.round(amount * 100) / 100,
         ownerAttemptEmailSent: attemptSend.sent,
         ...(shortNoticeReference ? { shortNoticeReference } : {}),
       },

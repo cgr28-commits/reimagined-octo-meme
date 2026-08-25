@@ -44,6 +44,10 @@ export type PaymentCheckoutResult = {
   paymentUrl?: string;
   checkoutId?: string;
   checkoutReference?: string;
+  /** True only after the Worker has persisted the pending paid-booking record. */
+  bookingSaved?: boolean;
+  /** Stable server-issued reference for booking-request conversion deduplication. */
+  bookingReference?: string;
   ownerAttemptEmailSent?: boolean;
   /** Server diverted to Owner approval instead of SumUp. */
   shortNotice?: boolean;

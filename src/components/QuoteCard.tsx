@@ -128,6 +128,7 @@ import type { AdsQuotePageType } from "@/lib/google-ads";
 import {
   createQuoteTransactionId,
   resetRequestQuoteConversion,
+  trackBookingRequestSubmittedBeforeNavigation,
 } from "@/lib/google-ads-client";
 import type { VerifiedFlight } from "@/lib/flight-lookup";
 import {
@@ -1976,6 +1977,23 @@ function QuoteCard({
       };
       saveOpenCheckoutSession(session);
       setOpenCheckout(session);
+
+      if (checkout.bookingSaved === true && checkout.bookingReference) {
+        // The Worker has persisted the pending booking. Give the labelled Ads
+        // request a brief chance to leave before navigating off-site; tracking
+        // failure or blocking must never prevent the customer reaching SumUp.
+        await trackBookingRequestSubmittedBeforeNavigation({
+          bookingReference: checkout.bookingReference,
+          transactionId: checkout.bookingReference,
+          airport: bookingDetails.airportCode,
+          journeyType: bookingDetails.tripLabel,
+          value:
+            typeof checkout.amount === "number" && Number.isFinite(checkout.amount)
+              ? checkout.amount
+              : paymentAmount ?? liveQuote.amount,
+          currency: "GBP",
+        }).catch(() => false);
+      }
 
       // Same-tab redirect — reliable on iPhone Safari / Android / desktop (no popup).
       window.location.assign(checkout.paymentUrl);
