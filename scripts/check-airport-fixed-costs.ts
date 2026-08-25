@@ -137,10 +137,10 @@ check("Return: BFS fixed £0; 5% discount only on journey fare", () => {
   assert.equal(ret.airportFixedCostsGbp, 0);
   assert.equal(ret.amount, 95);
 
-  // Legacy strip still £5 — if that were wrongly folded into the discount base, total would be lower.
-  const wronglyDiscountedFixed = getReturnJourneyFare(journeyOneWay + embedded);
-  assert.notEqual(ret.amount, wronglyDiscountedFixed);
-  assert.ok(ret.amount > wronglyDiscountedFixed - 0.01);
+  // Legacy strip still £5 — without it, discounted return on £54 journey would exceed £95.
+  const unstripJourney = journeyOneWay + embedded;
+  assert.equal(unstripJourney, 54);
+  assert.ok(getReturnJourneyFare(unstripJourney) > ret.amount);
 
   const composed = composeFareWithAirportFixedCosts({
     journeyOneWayGbp: journeyOneWay,

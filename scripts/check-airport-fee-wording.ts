@@ -21,7 +21,7 @@ function check(label: string, fn: () => void) {
 
 check("Airport pickup: 60 min waiting only for BFS (no pickup fee line)", () => {
   const inc = getAirportTripInclusions({ isFromAirport: true, airportCode: "BFS" });
-  assert.equal(inc.summary, "Fixed price including 60 minutes complimentary airport waiting.");
+  assert.equal(inc.summary, "Fixed price for your journey.");
   assert.doesNotMatch(inc.summary, /drop-off|fee|toll/i);
   assert.ok(!inc.bullets.some((b) => /pickup fee|drop-off/i.test(b)));
   assert.ok(inc.bullets.some((b) => /60 minutes complimentary airport waiting/.test(b)));
@@ -119,10 +119,8 @@ check("resolveJourneyInclusions A2A vs airport", () => {
     isFromAirport: true,
     airportCode: "BHD",
   });
-  assert.equal(
-    airport.summary,
-    "Fixed price including 60 minutes complimentary airport waiting.",
-  );
+  assert.equal(airport.summary, "Fixed price for your journey.");
+  assert.ok(airport.bullets.some((b) => /60 minutes complimentary airport waiting/.test(b)));
   assert.ok(!airport.bullets.some((b) => /fee included/i.test(b)));
 });
 
