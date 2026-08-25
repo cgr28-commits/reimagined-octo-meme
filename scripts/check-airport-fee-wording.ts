@@ -19,24 +19,21 @@ function check(label: string, fn: () => void) {
   }
 }
 
-check("Airport pickup: pickup fee + 60 min waiting (no drop-off fee)", () => {
+check("Airport pickup: 60 min waiting only for BFS (no pickup fee line)", () => {
   const inc = getAirportTripInclusions({ isFromAirport: true, airportCode: "BFS" });
-  assert.match(inc.summary, /Airport fees and applicable tolls included/i);
-  assert.doesNotMatch(inc.summary, /drop-off/i);
-  assert.ok(inc.bullets.some((b) => /Airport pickup fee included/.test(b)));
+  assert.equal(inc.summary, "Fixed price for your journey.");
+  assert.doesNotMatch(inc.summary, /drop-off|fee|toll/i);
+  assert.ok(!inc.bullets.some((b) => /pickup fee|drop-off/i.test(b)));
   assert.ok(inc.bullets.some((b) => /60 minutes complimentary airport waiting/.test(b)));
-  assert.ok(!inc.bullets.some((b) => /drop-off/i.test(b)));
   assert.equal(inc.complimentaryWaitingMinutes, 60);
   assert.equal(inc.mentionsTolls, false);
 });
 
-check("Airport drop-off: drop-off fee only (no 60 min waiting)", () => {
+check("Airport drop-off: no fee bullets for BHD (no 60 min waiting)", () => {
   const inc = getAirportTripInclusions({ isFromAirport: false, airportCode: "BHD" });
-  assert.match(inc.summary, /Airport fees and applicable tolls included/i);
-  assert.doesNotMatch(inc.summary, /pickup fee/i);
-  assert.ok(inc.bullets.some((b) => /Airport drop-off fee included/.test(b)));
-  assert.ok(!inc.bullets.some((b) => /60 minutes/.test(b)));
-  assert.ok(!inc.bullets.some((b) => /pickup fee/i.test(b)));
+  assert.equal(inc.summary, "Fixed price for your journey.");
+  assert.doesNotMatch(inc.summary, /pickup fee|fee|toll/i);
+  assert.ok(!inc.bullets.some((b) => /fee|toll|parking|60 minutes/.test(b)));
   assert.equal(inc.complimentaryWaitingMinutes, 10);
 });
 
@@ -79,18 +76,16 @@ check("Address-to-address: fixed price + 10 min waiting, no airport fees/tolls",
   assert.equal(inc.complimentaryWaitingMinutes, 10);
 });
 
-check("Return home→BFS then BFS→home evaluates each leg", () => {
+check("Return home→BFS then BFS→home: outbound no drop-off fee; return pickup waiting only", () => {
   const inc = getAirportTripInclusions({
     isFromAirport: false,
     returnJourney: true,
     airportCode: "BFS",
   });
-  assert.ok(inc.outboundBullets.some((b) => /drop-off/i.test(b)));
+  assert.ok(!inc.outboundBullets.some((b) => /drop-off|fee/i.test(b)));
   assert.ok(!inc.outboundBullets.some((b) => /60 minutes/.test(b)));
-  assert.ok(inc.returnBullets.some((b) => /pickup/i.test(b)));
   assert.ok(inc.returnBullets.some((b) => /60 minutes/.test(b)));
-  assert.ok(!inc.outboundBullets.some((b) => /pickup fee/i.test(b)));
-  assert.ok(!inc.returnBullets.some((b) => /drop-off/i.test(b)));
+  assert.ok(!inc.returnBullets.some((b) => /pickup fee|drop-off|fee/i.test(b)));
 });
 
 check("Email includes block matches customer examples", () => {
@@ -99,9 +94,8 @@ check("Email includes block matches customer examples", () => {
     "£55.00",
   );
   assert.match(pickup, /Fixed fare: £55\.00/);
-  assert.match(pickup, /Airport pickup fee included/);
+  assert.doesNotMatch(pickup, /pickup fee|drop-off|fee included/i);
   assert.match(pickup, /60 minutes complimentary airport waiting/);
-  assert.doesNotMatch(pickup, /drop-off/i);
 
   const dropoff = formatEmailFareIncludesBlock(
     getAirportTripInclusions({ isFromAirport: false, airportCode: "DUB" }),
@@ -125,8 +119,9 @@ check("resolveJourneyInclusions A2A vs airport", () => {
     isFromAirport: true,
     airportCode: "BHD",
   });
-  assert.match(airport.summary, /Airport fees and applicable tolls included/i);
-  assert.ok(airport.bullets.some((b) => /Airport pickup fee included/.test(b)));
+  assert.equal(airport.summary, "Fixed price for your journey.");
+  assert.ok(airport.bullets.some((b) => /60 minutes complimentary airport waiting/.test(b)));
+  assert.ok(!airport.bullets.some((b) => /fee included/i.test(b)));
 });
 
 check("No contradictory dual fee wording helpers remain in QuoteCard", async () => {

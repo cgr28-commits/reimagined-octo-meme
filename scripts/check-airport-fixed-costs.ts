@@ -42,11 +42,11 @@ function check(label: string, fn: () => void) {
   }
 }
 
-check("Config: BFS £5/£5, BHD £4/£4, DUB £4 drop / £8 pickup, LDY £0/£0", () => {
-  assert.equal(getAirportLegFixedCostGbp("BFS", false), 5);
-  assert.equal(getAirportLegFixedCostGbp("BFS", true), 5);
-  assert.equal(getAirportLegFixedCostGbp("BHD", false), 4);
-  assert.equal(getAirportLegFixedCostGbp("BHD", true), 4);
+check("Config: BFS/BHD £0/£0, DUB £4 drop / £8 pickup, LDY £0/£0", () => {
+  assert.equal(getAirportLegFixedCostGbp("BFS", false), 0);
+  assert.equal(getAirportLegFixedCostGbp("BFS", true), 0);
+  assert.equal(getAirportLegFixedCostGbp("BHD", false), 0);
+  assert.equal(getAirportLegFixedCostGbp("BHD", true), 0);
   assert.equal(getAirportLegFixedCostGbp("DUB", false), 4);
   assert.equal(getAirportLegFixedCostGbp("DUB", true), 8);
   assert.equal(getAirportLegFixedCostGbp("LDY", false), 0);
@@ -54,34 +54,34 @@ check("Config: BFS £5/£5, BHD £4/£4, DUB £4 drop / £8 pickup, LDY £0/£0"
   assert.equal(AIRPORT_FIXED_COSTS_GBP.DUB.dropOffFeeGbp, 0);
   assert.equal(AIRPORT_FIXED_COSTS_GBP.DUB.parkingAllowanceGbp, 4);
   assert.equal(AIRPORT_FIXED_COSTS_GBP.DUB.tollAllowanceGbp, 4);
-  assert.equal(PRICING_CONFIG.airportFixedCostsGbp?.BFS?.dropOffFeeGbp, 5);
+  assert.equal(PRICING_CONFIG.airportFixedCostsGbp?.BFS?.dropOffFeeGbp, 0);
   assert.equal(PRICING_CONFIG.airportFixedCostsGbp?.DUB?.tollAllowanceGbp, 4);
 });
 
-check("BFS drop-off and pickup (Antrim strip+re-add keeps commercial total)", () => {
+check("BFS drop-off and pickup (Antrim £40; legacy strip only — no fixed add-on)", () => {
   const drop = calculateQuote(ANTRIM, "BFS", S, false, {}, null, false)!;
   const pick = calculateQuote(ANTRIM, "BFS", S, false, {}, null, true)!;
-  assert.equal(drop.airportFixedCostsGbp, 5);
-  assert.equal(pick.airportFixedCostsGbp, 5);
-  assert.ok(drop.journeyFareGbp !== undefined);
-  assert.equal(drop.amount, (drop.journeyFareGbp ?? 0) + 5);
-  assert.equal(pick.amount, (pick.journeyFareGbp ?? 0) + 5);
-  // Same direction fees on BFS → totals match either direction for one-way.
+  assert.equal(drop.airportFixedCostsGbp, 0);
+  assert.equal(pick.airportFixedCostsGbp, 0);
+  assert.equal(drop.amount, 40);
+  assert.equal(pick.amount, 40);
+  assert.equal(drop.amount, drop.journeyFareGbp);
+  assert.equal(pick.amount, pick.journeyFareGbp);
   assert.equal(drop.amount, pick.amount);
 });
 
-check("BHD drop-off and pickup (City Hall £34; Antrim £69)", () => {
+check("BHD drop-off and pickup (City Hall £30; Antrim £65)", () => {
   const cityDrop = calculateQuote(CITY, "BHD", S, false, {}, null, false)!;
   const cityPick = calculateQuote(CITY, "BHD", S, false, {}, null, true)!;
-  assert.equal(cityDrop.amount, 34);
-  assert.equal(cityPick.amount, 34);
-  assert.equal(cityDrop.airportFixedCostsGbp, 4);
+  assert.equal(cityDrop.amount, 30);
+  assert.equal(cityPick.amount, 30);
+  assert.equal(cityDrop.airportFixedCostsGbp, 0);
 
   const antrimDrop = calculateQuote(ANTRIM, "BHD", S, false, {}, null, false)!;
   const antrimPick = calculateQuote(ANTRIM, "BHD", S, false, {}, null, true)!;
-  assert.equal(antrimDrop.amount, 69);
-  assert.equal(antrimPick.amount, 69);
-  assert.equal(antrimDrop.airportFixedCostsGbp, 4);
+  assert.equal(antrimDrop.amount, 65);
+  assert.equal(antrimPick.amount, 65);
+  assert.equal(antrimDrop.airportFixedCostsGbp, 0);
 });
 
 check("Dublin drop-off £4 M1; pickup £8 parking+M1 (not a drop-off fee)", () => {
@@ -122,35 +122,34 @@ check("Address-to-address: no airport fixed costs", () => {
   assert.ok(!a2aInc.bullets.some((b) => /airport fee|toll|parking/i.test(b)));
 });
 
-check("Return: fixed costs on both legs; 5% discount only on journey fare", () => {
+check("Return: BFS fixed £0; 5% discount only on journey fare", () => {
   const oneWay = calculateQuote(CITY, "BFS", S, false, {}, null, false)!;
   const ret = calculateQuote(CITY, "BFS", S, true, {}, null, false)!;
 
   const embedded = getLegacyEmbeddedAccessFeeGbp("BFS");
-  const journeyOneWay = (oneWay.journeyFareGbp ?? 0);
-  // one-way journey already excludes fixed cost
-  assert.equal(oneWay.airportFixedCostsGbp, 5);
-  assert.equal(journeyOneWay + 5, oneWay.amount);
+  const journeyOneWay = oneWay.journeyFareGbp ?? 0;
+  assert.equal(oneWay.airportFixedCostsGbp, 0);
+  assert.equal(oneWay.amount, 49);
+  assert.equal(journeyOneWay, oneWay.amount);
 
   const expectedJourney = getReturnJourneyFare(journeyOneWay);
-  const expectedFixed = 5 + 5; // outbound drop-off + return pickup
   assert.equal(ret.journeyFareGbp, expectedJourney);
-  assert.equal(ret.airportFixedCostsGbp, expectedFixed);
-  assert.equal(ret.amount, expectedJourney + expectedFixed);
+  assert.equal(ret.airportFixedCostsGbp, 0);
+  assert.equal(ret.amount, 95);
 
-  // Discount must NOT apply to the £10 fixed block.
-  const wronglyDiscountedFixed = getReturnJourneyFare(journeyOneWay + embedded);
-  assert.notEqual(ret.amount, wronglyDiscountedFixed);
-  assert.ok(ret.amount > wronglyDiscountedFixed - 0.01);
+  // Legacy strip still £5 — without it, discounted return on £54 journey would exceed £95.
+  const unstripJourney = journeyOneWay + embedded;
+  assert.equal(unstripJourney, 54);
+  assert.ok(getReturnJourneyFare(unstripJourney) > ret.amount);
 
   const composed = composeFareWithAirportFixedCosts({
     journeyOneWayGbp: journeyOneWay,
     returnJourney: true,
-    outboundFixedGbp: 5,
-    returnFixedGbp: 5,
+    outboundFixedGbp: 0,
+    returnFixedGbp: 0,
     getReturnJourneyFare,
   });
-  assert.equal(composed.fixedTotalGbp, 10);
+  assert.equal(composed.fixedTotalGbp, 0);
   assert.equal(composed.journeyTotalGbp, expectedJourney);
 });
 
@@ -167,7 +166,7 @@ check("Airport costs are not multiplied by vehicle / estate premium", () => {
   );
 });
 
-check("Airport↔airport adds both-end fixed costs once per direction (no stack on A2A)", () => {
+check("Airport↔airport BFS↔BHD: waive collection surcharge only (not £9)", () => {
   const metrics = { distanceKm: 17 / 0.621371, durationMinutes: 32 };
   const underlying = calculatePointToPointQuote(
     bfs.formattedAddress,
@@ -177,7 +176,7 @@ check("Airport↔airport adds both-end fixed costs once per direction (no stack 
     {},
     metrics,
   )!;
-  const q = calculateAirportToAirportQuote(
+  const bfsBhd = calculateAirportToAirportQuote(
     "BFS",
     "BHD",
     bfs.formattedAddress,
@@ -187,8 +186,23 @@ check("Airport↔airport adds both-end fixed costs once per direction (no stack 
     {},
     metrics,
   )!;
-  assert.equal(q.airportFixedCostsGbp, 5 + 4);
-  assert.equal(q.amount, underlying.amount + 9);
+  // Collection BFS £5 waived; retain BHD destination £4 → underlying+4 (was +9).
+  assert.equal(bfsBhd.airportFixedCostsGbp, 4);
+  assert.equal(bfsBhd.amount, underlying.amount + 4);
+
+  const bhdBfs = calculateAirportToAirportQuote(
+    "BHD",
+    "BFS",
+    bhd.formattedAddress,
+    bfs.formattedAddress,
+    S,
+    false,
+    {},
+    metrics,
+  )!;
+  // Collection BHD £4 waived; retain BFS destination £5 → underlying+5.
+  assert.equal(bhdBfs.airportFixedCostsGbp, 5);
+  assert.equal(bhdBfs.amount, underlying.amount + 5);
 
   const ret = calculateAirportToAirportQuote(
     "BFS",
@@ -200,21 +214,23 @@ check("Airport↔airport adds both-end fixed costs once per direction (no stack 
     {},
     metrics,
   )!;
-  assert.equal(ret.airportFixedCostsGbp, 9 + 9);
+  // Outbound destination BHD £4 + return destination BFS £5 = £9.
+  assert.equal(ret.airportFixedCostsGbp, 4 + 5);
   assert.equal(ret.journeyFareGbp, getReturnJourneyFare(underlying.amount));
-  // Customer total may snap via roundFare; composition before rounding is journey + £18.
-  assert.equal(ret.journeyFareGbp! + ret.airportFixedCostsGbp!, getReturnJourneyFare(underlying.amount) + 18);
+  assert.equal(
+    ret.journeyFareGbp! + ret.airportFixedCostsGbp!,
+    getReturnJourneyFare(underlying.amount) + 9,
+  );
   assert.ok(Math.abs(ret.amount - (ret.journeyFareGbp! + ret.airportFixedCostsGbp!)) <= 3);
 });
 
-check("Wording: BFS/BHD direction-specific fee lines", () => {
+check("Wording: BFS/BHD like LDY — no fee bullets; pickup still has 60 min waiting", () => {
   const bfsDrop = getAirportTripInclusions({ isFromAirport: false, airportCode: "BFS" });
-  assert.ok(bfsDrop.bullets.some((b) => /Airport drop-off fee included/.test(b)));
-  assert.ok(!bfsDrop.bullets.some((b) => /pickup fee|waiting/i.test(b)));
-  assert.match(bfsDrop.summary, /Airport fees and applicable tolls included/i);
+  assert.ok(!bfsDrop.bullets.some((b) => /fee|toll|parking/i.test(b)));
+  assert.doesNotMatch(bfsDrop.summary, /fee|toll/i);
 
   const bfsPick = getAirportTripInclusions({ isFromAirport: true, airportCode: "BHD" });
-  assert.ok(bfsPick.bullets.some((b) => /Airport pickup fee included/.test(b)));
+  assert.ok(!bfsPick.bullets.some((b) => /fee|toll|parking/i.test(b)));
   assert.ok(bfsPick.bullets.some((b) => /60 minutes complimentary airport waiting/.test(b)));
   assert.ok(!bfsPick.bullets.some((b) => /drop-off/i.test(b)));
 });

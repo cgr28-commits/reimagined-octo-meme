@@ -60,9 +60,9 @@ console.log("OK  Estate tiers +£5 / +£8 / +£24; Dublin flat £8");
 const bhdCity = calculateQuote(cityHall, "BHD", SALOON);
 assert.ok(bhdCity);
 assert.equal(bhdCity.airportBase, 34);
-assert.equal(bhdCity.amount, 34, "BHD city saloon keeps £x4");
+assert.equal(bhdCity.amount, 30, "BHD city saloon £30 (base £34 minus legacy strip)");
 const bhdCityEstate = calculateQuote(cityHall, "BHD", ESTATE);
-assert.equal(bhdCityEstate?.amount, 39, "BHD city estate = 34+5");
+assert.equal(bhdCityEstate?.amount, 35, "BHD city estate = 30+5");
 console.log(`OK  BHD City Hall saloon £${bhdCity.amount} / estate £${bhdCityEstate?.amount}`);
 
 const bfsCity = calculateQuote(cityHall, "BFS", SALOON);
@@ -99,7 +99,7 @@ console.log(
 );
 
 const x4 = calculateQuote(cityHall, "BHD", SALOON);
-assert.equal(x4?.amount, 34);
+assert.equal(x4?.amount, 30);
 const nearest5 = calculateQuote("7 Castle Street, Ballymena, BT42 3AB", "BFS", SALOON);
 assert.ok(nearest5);
 assert.equal(nearest5.amount % 5 === 0 || nearest5.amount % 5 === 4, true);

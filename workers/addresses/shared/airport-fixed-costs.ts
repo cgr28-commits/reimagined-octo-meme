@@ -25,17 +25,21 @@ export type AirportFixedCostRow = {
 /**
  * Editable source of truth for airport fixed costs.
  * Keep in sync with `pricing-config.json` → `airportFixedCostsGbp`.
+ *
+ * BFS/BHD address↔airport access fees are waived (£0) so customer totals fall by
+ * the former surcharges via legacy strip only. Airport↔airport BFS↔BHD still
+ * retains the destination-end historical fee — see getAirportToAirportFixedCostGbp.
  */
 export const AIRPORT_FIXED_COSTS_GBP: Record<AirportFixedCostCode, AirportFixedCostRow> = {
   BFS: {
-    dropOffFeeGbp: 5,
-    pickupFeeGbp: 5,
+    dropOffFeeGbp: 0,
+    pickupFeeGbp: 0,
     parkingAllowanceGbp: 0,
     tollAllowanceGbp: 0,
   },
   BHD: {
-    dropOffFeeGbp: 4,
-    pickupFeeGbp: 4,
+    dropOffFeeGbp: 0,
+    pickupFeeGbp: 0,
     parkingAllowanceGbp: 0,
     tollAllowanceGbp: 0,
   },
@@ -52,6 +56,27 @@ export const AIRPORT_FIXED_COSTS_GBP: Record<AirportFixedCostCode, AirportFixedC
     tollAllowanceGbp: 0,
   },
 };
+
+/**
+ * Former BFS/BHD access surcharges (£5 / £4).
+ * Waived on address↔airport legs; still used when composing airport↔airport
+ * fixed costs so we can waive only the collection-airport end.
+ */
+export const NI_AIRPORT_ACCESS_SURCHARGE_GBP: Partial<
+  Record<AirportFixedCostCode, number>
+> = {
+  BFS: 5,
+  BHD: 4,
+};
+
+function niAccessSurchargeGbp(code: AirportFixedCostCode | null): number {
+  if (!code) return 0;
+  return NI_AIRPORT_ACCESS_SURCHARGE_GBP[code] ?? 0;
+}
+
+function isNiAccessAirport(code: AirportFixedCostCode | null): code is "BFS" | "BHD" {
+  return code === "BFS" || code === "BHD";
+}
 
 export type AirportLegFixedCostBreakdown = {
   airportCode: AirportFixedCostCode;
@@ -136,31 +161,51 @@ export function getAirportLegFixedCostGbp(
 }
 
 /**
- * Airport ↔ airport one-way: pickup-end pickup costs + dropoff-end drop-off costs.
+ * Airport ↔ airport one-way fixed costs.
+ *
+ * Default: pickup-end pickup costs + dropoff-end drop-off costs from
+ * AIRPORT_FIXED_COSTS_GBP.
+ *
+ * BFS ↔ BHD exception: waive only the collection-airport surcharge
+ * (BFS £5 / BHD £4). Keep the destination-end historical surcharge so the
+ * fare falls by £5 or £4 — never by £9.
+ *
+ * Mixed A2A with LDY (etc.): still apply the historical BFS/BHD surcharge on
+ * that end so non-BFS↔BHD airport pairs are unchanged vs the pre-waiver model.
  */
 export function getAirportToAirportFixedCostGbp(
   pickupAirportCode: string,
   dropoffAirportCode: string,
 ): number {
-  return (
-    getAirportLegFixedCostGbp(pickupAirportCode, true) +
-    getAirportLegFixedCostGbp(dropoffAirportCode, false)
-  );
+  const pickupCode = normaliseCode(pickupAirportCode);
+  const dropoffCode = normaliseCode(dropoffAirportCode);
+
+  if (isNiAccessAirport(pickupCode) && isNiAccessAirport(dropoffCode)) {
+    // Collection surcharge waived; destination drop-off surcharge retained.
+    return niAccessSurchargeGbp(dropoffCode);
+  }
+
+  const pickupPart = isNiAccessAirport(pickupCode)
+    ? niAccessSurchargeGbp(pickupCode)
+    : getAirportLegFixedCostGbp(pickupAirportCode, true);
+  const dropoffPart = isNiAccessAirport(dropoffCode)
+    ? niAccessSurchargeGbp(dropoffCode)
+    : getAirportLegFixedCostGbp(dropoffAirportCode, false);
+  return pickupPart + dropoffPart;
 }
 
 /**
  * Previously, BFS/BHD zone fares treated a flat access fee as a commercial
- * inclusion inside the journey price. When re-applying direction-aware fixed
- * costs after the return discount, strip that embedded amount once from the
- * one-way journey fare so it is not double-counted.
+ * inclusion inside the journey price. When direction-aware fixed costs were
+ * re-applied after the return discount, that embedded amount was stripped once
+ * from the one-way journey fare so it was not double-counted.
  *
- * Dublin / LDY had no numeric access-fee add-on in the zone model (0).
+ * BFS/BHD address↔airport fixed charges are now £0, but zone/base fares were
+ * not recalibrated — keep stripping these amounts so address↔airport totals
+ * fall by exactly the former surcharges (£5 BFS / £4 BHD). Dublin / LDY stay 0.
  */
 export function getLegacyEmbeddedAccessFeeGbp(airportCode: string | null | undefined): number {
-  const code = normaliseCode(airportCode);
-  if (code === "BFS") return 5;
-  if (code === "BHD") return 4;
-  return 0;
+  return niAccessSurchargeGbp(normaliseCode(airportCode));
 }
 
 /**
