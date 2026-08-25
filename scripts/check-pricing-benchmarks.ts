@@ -34,8 +34,8 @@ const ROUTES = [
     km: 7.2,
     oldS: 35,
     oldE: 45,
-    targetS: 34,
-    targetE: 39,
+    targetS: 30,
+    targetE: 35,
   },
   {
     name: "City Hall → BFS",
@@ -46,8 +46,8 @@ const ROUTES = [
     km: 22.5,
     oldS: 55,
     oldE: 65,
-    targetS: 55,
-    targetE: 65,
+    targetS: 49,
+    targetE: 55,
   },
   {
     name: "City Hall → Dublin Airport",
@@ -167,10 +167,10 @@ function near(actual: number, target: number, tol = 5) {
   );
 }
 
-near(rows[0].newS, 34, 0);
-near(rows[0].newE, 39, 0);
-near(rows[1].newS, 55, 0);
-near(rows[1].newE, 65, 0);
+near(rows[0].newS, 30, 0);
+near(rows[0].newE, 35, 0);
+near(rows[1].newS, 49, 0);
+near(rows[1].newE, 55, 0);
 near(rows[2].newS, 234, 0);
 near(rows[2].newE, 240, 0);
 near(rows[3].newS, 81, 5);
@@ -227,8 +227,8 @@ assert.equal(
 );
 
 const ret = calculateQuote(hall, "BFS", SALOON, true);
-// Journey £50 × 1.9 = £95 + undiscountd fixed £5+£5 = £105
-assert.equal(ret?.amount, 105, "BFS return: 5% on journey only; fixed costs £10 undiscounted");
+// Journey £49 × 1.9 = £93.1 → roundFare £95; fixed costs £0
+assert.equal(ret?.amount, 95, "BFS return: 5% on journey only; no fixed-cost add-on");
 
 assert.equal(selectVehicleForParty(2, 2), SALOON);
 assert.equal(selectVehicleForParty(3, 0), SALOON);

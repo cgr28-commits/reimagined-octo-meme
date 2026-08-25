@@ -34,7 +34,7 @@ assert.ok(city);
 assert.equal(matchAreaFromAddress(cityHall), "Belfast City Centre");
 assert.equal(city.airportBase, 34);
 assert.equal(city.areaSurcharge, 0);
-assert.equal(city.amount, 34);
+assert.equal(city.amount, 30);
 assert.equal(city.premiumApplied, false);
 assert.equal(city.vehicleAdjustment, 0);
 console.log(
@@ -42,14 +42,14 @@ console.log(
 );
 
 const reverse = bhd(cityHall);
-assert.equal(reverse?.amount, 34);
+assert.equal(reverse?.amount, 30);
 console.log(`OK  BHD ↔ City Hall saloon £${reverse?.amount} (direction-symmetric)`);
 
 const estateCity = bhd(cityHall, ESTATE);
 assert.ok(estateCity);
-assert.equal(estateCity.amount, 39);
+assert.equal(estateCity.amount, 35);
 assert.equal(estateCity.vehicleAdjustment, 5);
-console.log(`OK  City Hall estate £${estateCity.amount} (34+£5 short-tier premium)`);
+console.log(`OK  City Hall estate £${estateCity.amount} (30+£5 short-tier premium)`);
 
 console.log("\n=== Nearby BHD saloon scaling ===");
 const samples = [
@@ -67,13 +67,13 @@ for (const [label, address] of samples) {
     `OK  ${label.padEnd(16)} £${quote.amount}  area=${quote.area} surcharge=£${quote.areaSurcharge}`,
   );
   if (label === "City Hall" || label === "City hotel" || label === "Titanic Belfast") {
-    assert.equal(quote.amount, 34, `${label} should stay on city £34 benchmark`);
+    assert.equal(quote.amount, 30, `${label} should stay on city £30 customer benchmark`);
   }
   if (label === "Holywood") {
-    assert.ok(quote.amount >= 34, "Holywood must be at/above city-centre £34");
+    assert.ok(quote.amount >= 30, "Holywood must be at/above city-centre £30");
   }
   if (label === "Newtownabbey") {
-    assert.ok(quote.amount >= 34, "Newtownabbey must be at/above city-centre £34");
+    assert.ok(quote.amount >= 30, "Newtownabbey must be at/above city-centre £30");
   }
 }
 

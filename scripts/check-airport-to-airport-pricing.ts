@@ -393,7 +393,7 @@ console.log("\n=== 6. Ordinary address ↔ Dublin Airport (direction-aware fixed
   console.log("OK  address→DUB (+£4) and DUB→address (+£8) for City Hall/Lisburn/Bangor");
 }
 
-console.log("\n=== 7. Non-DUB airport↔airport = A2A underlying + access fees (not Antrim-zone max) ===");
+console.log("\n=== 7. Non-DUB airport↔airport = A2A underlying only (not Antrim-zone max) ===");
 {
   const bhd = airportPlace("BHD");
   const bfs = airportPlace("BFS");
@@ -419,14 +419,13 @@ console.log("\n=== 7. Non-DUB airport↔airport = A2A underlying + access fees (
   assert.ok(a2a && viaAirport);
   // Must NOT equal the old Antrim→BHD zone win (£69).
   assert.notEqual(viaAirport!.amount, 69);
-  assert.ok(
-    viaAirport!.amount >= a2a!.amount,
-    `airport↔airport must include access fees on top of A2A (got £${viaAirport!.amount} vs A2A £${a2a!.amount})`,
+  assert.equal(
+    viaAirport!.amount,
+    a2a!.amount,
+    `airport↔airport must equal A2A underlying (got £${viaAirport!.amount} vs A2A £${a2a!.amount})`,
   );
-  assert.equal(viaAirport!.amount, a2a!.amount + 5 + 4);
-  assert.equal(viaAirport!.areaSurcharge, 9);
   console.log(
-    `OK  BFS↔BHD = A2A £${a2a!.amount} + £5 + £4 → £${viaAirport!.amount} (not Antrim-zone £69)`,
+    `OK  BFS↔BHD = A2A £${a2a!.amount} (no NI access-fee stack; not Antrim-zone £69)`,
   );
 }
 

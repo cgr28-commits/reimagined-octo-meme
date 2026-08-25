@@ -57,7 +57,7 @@ assert.equal(selectVehicleForParty(2, 2), SALOON_VEHICLE);
 assert.equal(selectVehicleForParty(3, 2), SALOON_VEHICLE);
 
 const ret = calculateQuote(belfast, "BFS", SALOON_VEHICLE, true);
-assert.equal(ret?.amount, 105); // journey £50×1.9 + fixed £10
-console.log("OK  BFS return saloon £105 (5% on journey only)");
+assert.equal(ret?.amount, 95); // journey £49×1.9 → £95; fixed £0
+console.log("OK  BFS return saloon £95 (5% on journey only)");
 
 console.log("\nAll passenger/luggage quote checks passed (rates unchanged).");

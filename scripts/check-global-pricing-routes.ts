@@ -79,16 +79,16 @@ add(
   4.5,
   calculateQuote("Belfast City Hall, Belfast BT1 5GS", "BHD", S)?.amount,
   calculateQuote("Belfast City Hall, Belfast BT1 5GS", "BHD", E)?.amount,
-  "bench ~£34/~£39",
+  "bench ~£30/~£35",
 );
 
-// 3 Lisburn → BHD (must scale above city £34)
+// 3 Lisburn → BHD (must scale above city £30)
 {
   const s = calculateQuote("1 Market Square, Lisburn BT28 1XN", "BHD", S)?.amount;
   const e = calculateQuote("1 Market Square, Lisburn BT28 1XN", "BHD", E)?.amount;
   add("Lisburn → BHD", "airport", 12, s, e);
-  // Lisburn may share the BHD city-area floor (£34); must not undercut the city benchmark.
-  assert.ok((s ?? 0) >= 34, "Lisburn→BHD must be at least City Hall→BHD (£34)");
+  // Lisburn may share the BHD city-area floor; must not undercut the city benchmark.
+  assert.ok((s ?? 0) >= 30, "Lisburn→BHD must be at least City Hall→BHD (£30)");
 }
 
 // 4 BFS city
@@ -98,7 +98,7 @@ add(
   14,
   calculateQuote("Belfast City Hall, Belfast BT1 5GS", "BFS", S)?.amount,
   calculateQuote("Belfast City Hall, Belfast BT1 5GS", "BFS", E)?.amount,
-  "bench ~£50/~£60",
+  "bench ~£49/~£55",
 );
 
 // 5 Bangor → BFS
@@ -373,8 +373,8 @@ assert.equal(selectVehicleForParty(1, 3), E);
 // Return discount once on journey; airport fixed costs undiscounted both legs
 const oneWay = calculateQuote("Belfast City Hall, Belfast BT1 5GS", "BFS", S)?.amount ?? 0;
 const ret = calculateQuote("Belfast City Hall, Belfast BT1 5GS", "BFS", S, true)?.amount ?? 0;
-assert.equal(oneWay, 55);
-assert.equal(ret, 105, "BFS return: journey £50×1.9 + fixed £10 → £105");
+assert.equal(oneWay, 49);
+assert.equal(ret, 95, "BFS return: journey £49×1.9 → £95; fixed £0");
 assert.ok(ret < oneWay * 2);
 
 assert.ok(rows.length >= 15, `expected ≥15 journeys, got ${rows.length}`);

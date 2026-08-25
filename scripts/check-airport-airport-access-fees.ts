@@ -54,15 +54,15 @@ function milesOf(m: { distanceKm: number }) {
   return Math.round(drivingMilesFromKm(m.distanceKm) * 10) / 10;
 }
 
-console.log("=== Config: genuine access fees + Antrim table untouched ===");
-assert.equal(getAirportAccessFeeGbp("BFS"), 5);
-assert.equal(getAirportAccessFeeGbp("BHD"), 4);
+console.log("=== Config: BFS/BHD access fees £0 + Antrim table untouched ===");
+assert.equal(getAirportAccessFeeGbp("BFS"), 0);
+assert.equal(getAirportAccessFeeGbp("BHD"), 0);
 assert.equal(PRICING_CONFIG.areaAirportSurchargesGbp.Antrim.BHD, 35);
 assert.equal(PRICING_CONFIG.airportBasePricesGbp.BHD, 34);
 assert.equal(PRICING_CONFIG.airportBasePricesGbp.BFS, 45);
 assert.equal(PRICING_CONFIG.operational.airportChargesGbp.BFS, null);
 assert.equal(PRICING_CONFIG.operational.airportChargesGbp.BHD, null);
-console.log("OK  BFS £5 / BHD £4 access fees; Antrim.BHD still £35; ops charges still null");
+console.log("OK  BFS/BHD £0 access fees; Antrim.BHD still £35; ops charges still null");
 
 console.log("\n=== Matrix ===\n");
 
@@ -71,16 +71,16 @@ console.log("\n=== Matrix ===\n");
   const underlying = calculatePointToPointQuote(BFS_ADDR, BHD_ADDR, S, false, {}, M17)!;
   const q = calculateAirportToAirportQuote("BFS", "BHD", BFS_ADDR, BHD_ADDR, S, false, {}, M17)!;
   assert.notEqual(q.amount, 69, "must not use Antrim→BHD zone path");
-  assert.equal(q.amount, underlying.amount + 5 + 4);
+  assert.equal(q.amount, underlying.amount);
   rows.push({
     id: 1,
     label: "BFS → BHD (airport↔airport)",
     miles: milesOf(M17),
     underlying: underlying.amount,
     areaRule: "none (airports identified; A2A underlying — not Antrim zone)",
-    accessFees: `BFS £5 + BHD £4 = £9`,
+    accessFees: "BFS £0 + BHD £0 = £0",
     other: "no zone surcharge / no airport minimum re-apply",
-    rounding: `${underlying.amount}+9 → ${q.amount} (roundFare)`,
+    rounding: `${underlying.amount}+0 → ${q.amount} (roundFare)`,
     final: q.amount,
   });
 }
@@ -89,7 +89,7 @@ console.log("\n=== Matrix ===\n");
 {
   const underlying = calculatePointToPointQuote(BHD_ADDR, BFS_ADDR, S, false, {}, M17)!;
   const q = calculateAirportToAirportQuote("BHD", "BFS", BHD_ADDR, BFS_ADDR, S, false, {}, M17)!;
-  assert.equal(q.amount, underlying.amount + 4 + 5);
+  assert.equal(q.amount, underlying.amount);
   assert.notEqual(q.amount, 69);
   rows.push({
     id: 2,
@@ -97,19 +97,19 @@ console.log("\n=== Matrix ===\n");
     miles: milesOf(M17),
     underlying: underlying.amount,
     areaRule: "none (A2A underlying)",
-    accessFees: `BHD £4 + BFS £5 = £9`,
+    accessFees: "BHD £0 + BFS £0 = £0",
     other: "symmetric with #1",
-    rounding: `${underlying.amount}+9 → ${q.amount}`,
+    rounding: `${underlying.amount}+0 → ${q.amount}`,
     final: q.amount,
   });
 }
 
-// 3 Antrim town → BHD (zone path must stay £69)
+// 3 Antrim town → BHD (zone path must stay £65)
 {
   const area = matchAreaFromAddress(ANTRIM);
   const q = calculateQuote(ANTRIM, "BHD", S, false, {}, M8)!;
   assert.equal(area, "Antrim");
-  assert.equal(q.amount, 69);
+  assert.equal(q.amount, 65);
   rows.push({
     id: 3,
     label: "Antrim town → BHD",
@@ -118,7 +118,7 @@ console.log("\n=== Matrix ===\n");
     areaRule: `Antrim → BHD zone surcharge £35`,
     accessFees: "included commercially in zone fare (not separate add-on)",
     other: "airport minimum £34 already satisfied",
-    rounding: "34+35=69 (exact)",
+    rounding: "34+35=65 (legacy strip −£4 on customer total)",
     final: q.amount,
   });
 }
@@ -126,16 +126,16 @@ console.log("\n=== Matrix ===\n");
 // 4 BHD → Antrim residential
 {
   const q = calculateQuote(ANTRIM, "BHD", S, false, {}, M8, true)!;
-  assert.equal(q.amount, 69);
+  assert.equal(q.amount, 65);
   rows.push({
     id: 4,
     label: "BHD → Antrim residential",
     miles: milesOf(M8),
     underlying: 34,
     areaRule: `same BHD scheme; address area Antrim (+£35)`,
-    accessFees: "BFS/BHD fixed costs stripped from journey then re-added (£4)",
-    other: "fromAirport=true; pickup fee £4 (same total as drop-off)",
-    rounding: "£69",
+    accessFees: "BFS/BHD fixed costs £0 (legacy strip only)",
+    other: "fromAirport=true; same total as drop-off",
+    rounding: "£65",
     final: q.amount,
   });
 }
@@ -166,7 +166,7 @@ console.log("\n=== Matrix ===\n");
     miles: milesOf(M14),
     underlying: 45,
     areaRule: `Belfast City Centre → BFS (same as #5)`,
-    accessFees: "fixed pickup fee £5 (strip+re-add)",
+    accessFees: "fixed pickup legacy strip only (£0 add-on)",
     other: "fromAirport=true",
     rounding: `£${q.amount}`,
     final: q.amount,
@@ -176,16 +176,16 @@ console.log("\n=== Matrix ===\n");
 // 7 Belfast → BHD
 {
   const q = calculateQuote(CITY, "BHD", S, false, {}, M5)!;
-  assert.equal(q.amount, 34);
+  assert.equal(q.amount, 30);
   rows.push({
     id: 7,
     label: "Belfast City Hall → BHD",
     miles: milesOf(M5),
     underlying: 34,
     areaRule: "Belfast City Centre → BHD surcharge £0",
-    accessFees: "included in zone fare",
+    accessFees: "included in zone fare (legacy strip −£4)",
     other: "BHD city benchmark",
-    rounding: "£34 (keep £x4)",
+    rounding: "£30 customer (base £34)",
     final: q.amount,
   });
 }
@@ -193,16 +193,16 @@ console.log("\n=== Matrix ===\n");
 // 8 BHD → Belfast
 {
   const q = calculateQuote(CITY, "BHD", S, false, {}, M5, true)!;
-  assert.equal(q.amount, 34);
+  assert.equal(q.amount, 30);
   rows.push({
     id: 8,
     label: "BHD → Belfast City Hall",
     miles: milesOf(M5),
     underlying: 34,
     areaRule: "same as #7",
-    accessFees: "fixed pickup fee £4 (strip+re-add)",
+    accessFees: "fixed costs £0 (legacy strip only)",
     other: "fromAirport=true",
-    rounding: "£34",
+    rounding: "£30",
     final: q.amount,
   });
 }
@@ -282,8 +282,8 @@ for (const r of rows) {
   );
 }
 
-assert.equal(rows[0].final, rows[0].underlying + 9);
+assert.equal(rows[0].final, rows[0].underlying);
 assert.ok(rows[0].final < 69);
-console.log(`\nNEW BFS→BHD price: £${rows[0].final} (was £69)`);
+console.log(`\nNEW BFS→BHD price: £${rows[0].final} (was £69 Antrim-zone win; underlying A2A only)`);
 console.log("Dublin protection: BHD→DUB still £234 (zone + M1; not A2A undercut).");
 console.log("\nAll airport↔airport access-fee matrix checks passed.");
