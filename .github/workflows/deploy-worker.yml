@@ -152,7 +152,7 @@ jobs:
           fi
           npm run deploy
 
-      - name: Recover PAID-but-unfinalized SumUp checkouts (no new charge)
+      - name: Check for PAID-but-unfinalized SumUp checkouts (read-only)
         env:
           OWNER_ACCESS_KEY: ${{ secrets.OWNER_ACCESS_KEY }}
           DRIVER_ACCESS_KEY: ${{ secrets.DRIVER_ACCESS_KEY }}
@@ -160,28 +160,35 @@ jobs:
         run: |
           ACCESS_KEY="${OWNER_ACCESS_KEY:-$DRIVER_ACCESS_KEY}"
           if [ -z "$ACCESS_KEY" ]; then
-            echo "::notice::OWNER_ACCESS_KEY / DRIVER_ACCESS_KEY not set — skipping paid checkout recovery."
+            echo "::warning::Read-only pending checkout check unavailable; no recovery attempted."
             exit 0
           fi
-          echo "Scanning for SumUp PAID checkouts that never finalized (email/calendar)…"
-          for i in 1 2 3 4 5 6; do
-            code=$(curl -sS -o /tmp/recover.json -w "%{http_code}" \
-              -X POST \
-              -H "Accept: application/json" \
-              -H "Content-Type: application/json" \
-              -H "X-Owner-Key: $ACCESS_KEY" \
-              -d '{"scan":true,"preferTestOnePound":true}' \
-              "$WORKER_BASE_URL/api/paid-bookings/finalize-checkout" || true)
-            if [ "$code" = "200" ] || [ "$code" = "402" ]; then
-              echo "Recovery HTTP $code:"
-              head -c 2000 /tmp/recover.json || true
-              echo
-              exit 0
-            fi
-            echo "finalize-checkout returned $code — waiting… body=$(head -c 200 /tmp/recover.json)"
-            sleep 15
-          done
-          echo "::warning::Paid checkout recovery did not succeed after retries (worker may still cron-sweep)."
+
+          response_file="$(mktemp)"
+          trap 'rm -f "$response_file"' EXIT
+          code=$(curl -sS -o "$response_file" -w "%{http_code}" \
+            -H "Accept: application/json" \
+            -H "X-Owner-Key: $ACCESS_KEY" \
+            "$WORKER_BASE_URL/api/paid-bookings/pending?limit=40" || true)
+
+          if [ "$code" != "200" ]; then
+            echo "::warning::Read-only pending checkout check unavailable; no recovery attempted."
+            exit 0
+          fi
+
+          pending_count=$(jq -r \
+            'if (.needsFinalizeCount | type) == "number" then .needsFinalizeCount else empty end' \
+            "$response_file" 2>/dev/null || true)
+          if ! [[ "$pending_count" =~ ^[0-9]+$ ]]; then
+            echo "::warning::Read-only pending checkout check returned an invalid count; no recovery attempted."
+            exit 0
+          fi
+
+          if [ "$pending_count" -gt 0 ]; then
+            echo "::warning::Read-only pending checkout candidates: $pending_count. Manual owner review required; no recovery was attempted."
+          else
+            echo "Read-only pending checkout candidates: 0."
+          fi
 
       - name: Seed same-fare amendment test fixture
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.seed_same_fare_amendment_test }}

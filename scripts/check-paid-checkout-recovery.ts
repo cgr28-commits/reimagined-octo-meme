@@ -53,9 +53,22 @@ assert.match(confirmed, /hasPaymentReturn/);
 console.log("OK  booking-confirmed does not fake success without payment return");
 
 const deploy = read(".github/workflows/deploy-worker.yml");
-assert.match(deploy, /finalize-checkout/);
-assert.match(deploy, /preferTestOnePound/);
-console.log("OK  deploy recovers PAID-but-unfinalized checkouts");
+const deployGuardStart = deploy.indexOf(
+  "- name: Check for PAID-but-unfinalized SumUp checkouts (read-only)",
+);
+const deployGuardEnd = deploy.indexOf(
+  "- name: Seed same-fare amendment test fixture",
+  deployGuardStart,
+);
+assert.ok(deployGuardStart >= 0 && deployGuardEnd > deployGuardStart);
+const deployGuard = deploy.slice(deployGuardStart, deployGuardEnd);
+assert.match(deployGuard, /\/api\/paid-bookings\/pending\?limit=40/);
+assert.match(deployGuard, /needsFinalizeCount/);
+assert.doesNotMatch(deploy, /\/api\/paid-bookings\/finalize-checkout/);
+assert.doesNotMatch(deployGuard, /["']scan["']\s*:\s*true/);
+assert.doesNotMatch(deployGuard, /-X\s+POST|sleep\s+\d+/);
+assert.doesNotMatch(deployGuard, /recover\.json|head\s+-c|body=\$\(|cat\s+/);
+console.log("OK  deploy performs a count-only read-only pending check");
 
 const panel = read("src/components/OwnerPaidBookingsPanel.tsx");
 assert.match(panel, /Recover PAID checkouts/);
