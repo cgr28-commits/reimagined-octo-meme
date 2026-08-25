@@ -7,6 +7,7 @@ import {
   resolveJourneyInclusions,
 } from "@/lib/journey-inclusions";
 import { formatMarketingOptInLine } from "../../shared/marketing";
+import type { AdsAttribution } from "../../shared/ads-attribution";
 
 export type BookingDetails = {
   customerName: string;
@@ -41,6 +42,8 @@ export type BookingDetails = {
   marketingOptIn?: boolean;
   marketingOptInAt?: string;
   marketingConsentVersion?: string;
+  /** Consented, non-PII campaign attribution; never rendered in customer copy. */
+  attribution?: AdsAttribution;
 };
 
 export function isValidMobileNumber(value: string): boolean {

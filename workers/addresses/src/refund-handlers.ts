@@ -1761,6 +1761,7 @@ export async function savePaidBookingRecordFromConfirm(input: {
     termsAcceptedAt: input.booking.termsAcceptedAt,
     termsVersion: input.booking.termsVersion,
     cancellationPolicyVersion: input.booking.cancellationPolicyVersion,
+    attribution: input.booking.attribution,
     trackingToken: input.trackingToken,
     calendarEventIds: input.calendarEventIds,
     status: "confirmed",

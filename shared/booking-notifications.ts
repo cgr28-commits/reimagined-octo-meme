@@ -20,6 +20,10 @@ import {
   REFUND_REASON_LABELS,
   type RefundReasonCategory,
 } from "./refund-ops";
+import {
+  formatAdsAttributionForOwner,
+  type AdsAttribution,
+} from "./ads-attribution";
 
 export type PaidBookingDetails = {
   customerName: string;
@@ -49,6 +53,8 @@ export type PaidBookingDetails = {
   marketingOptIn?: boolean;
   marketingOptInAt?: string;
   marketingConsentVersion?: string;
+  /** Consented, non-PII campaign attribution; owner/server use only. */
+  attribution?: AdsAttribution;
 };
 
 export type PaidBookingReceipt = PaidBookingDetails & {
@@ -135,6 +141,13 @@ function formatTripScheduleLines(details: PaidBookingDetails): string[] {
 
 function formatTripSchedule(details: PaidBookingDetails): string {
   return formatTripScheduleLines(details).join("\n");
+}
+
+function formatOwnerAttributionBlock(details: Pick<PaidBookingDetails, "attribution">): string {
+  const lines = formatAdsAttributionForOwner(details.attribution);
+  return lines.length > 0
+    ? `\n\nATTRIBUTION\n${"=".repeat(40)}\n${lines.join("\n")}`
+    : "";
 }
 
 function invoiceRows(details: PaidBookingReceipt): Array<{ label: string; value: string }> {
@@ -472,7 +485,8 @@ export function buildOwnerPaidBookingEmail(
     (() => {
       const marketingLine = formatMarketingOptInLine(details);
       return marketingLine ? `\n${marketingLine}` : "";
-    })();
+    })() +
+    formatOwnerAttributionBlock(details);
 
   return { subject, body };
 }
@@ -509,7 +523,8 @@ export function buildOwnerPaymentAttemptEmail(
     (details.termsAcceptedAt
       ? `Terms accepted: ${details.termsAcceptedAt}${details.termsVersion ? ` (${details.termsVersion})` : ""}\n`
       : "") +
-    `\nYou will get a separate “Paid booking” email if SumUp confirms payment.`;
+    `\nYou will get a separate “Paid booking” email if SumUp confirms payment.` +
+    formatOwnerAttributionBlock(details);
 
   return { subject, body };
 }
@@ -544,7 +559,8 @@ export function buildOwnerPaymentUnsuccessfulEmail(
     `Quoted amount: ${options.amountLabel}\n` +
     `Checkout id: ${options.checkoutId}\n` +
     (options.checkoutReference ? `Checkout reference: ${options.checkoutReference}\n` : "") +
-    `Status: ${status} (not paid)\n`;
+    `Status: ${status} (not paid)\n` +
+    formatOwnerAttributionBlock(details);
 
   return { subject, body };
 }

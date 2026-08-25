@@ -1,5 +1,6 @@
 /** Owner-managed booking jobs: request → paid → assign driver by email. */
 
+import type { AdsAttribution } from "./ads-attribution";
 
 function formatJobDateDmy(date: string): string {
   if (!date) return "";
@@ -40,6 +41,8 @@ export type BookingJobRecord = {
   airportCode?: string;
   isFromAirport?: boolean;
   message?: string;
+  /** Consented campaign attribution, visible only in the owner booking record. */
+  attribution?: AdsAttribution;
   amountPaidLabel?: string;
   paymentReference?: string;
   paidAt?: string;

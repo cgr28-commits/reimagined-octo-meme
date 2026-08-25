@@ -4,9 +4,9 @@
  */
 
 import {
-  ADS_EVENT_BOOKING_COMPLETE,
+  ADS_EVENT_BOOKING_REQUEST_SUBMITTED,
+  ADS_EVENT_PURCHASE,
   ADS_EVENT_QUOTE_GENERATED,
-  ADS_EVENT_REQUEST_QUOTE,
   getGoogleAdsConfig,
   type AdsQuotePageType,
 } from "@/lib/google-ads";
@@ -20,10 +20,8 @@ declare global {
 }
 
 const FIRED_QUOTE_PREFIX = "matni-ads-fired-quote:";
-const FIRED_BOOKING_PREFIX = "matni-ads-fired-booking:";
-
-/** Once-per successful quote interaction (module scope). */
-let requestQuoteConversionSent = false;
+const FIRED_BOOKING_REQUEST_PREFIX = "matni-ads-fired-booking-request:";
+const FIRED_PURCHASE_PREFIX = "matni-ads-fired-purchase:";
 
 export type AdsUserData = {
   email?: string;
@@ -34,6 +32,11 @@ export type AdsConversionPayload = {
   value?: number;
   currency?: string;
   transactionId?: string;
+  bookingReference?: string;
+  airport?: string;
+  journeyType?: string;
+  passengers?: number;
+  returnJourney?: boolean;
   /** Custom page context — e.g. emerge_belfast. Never send PII here. */
   pageType?: AdsQuotePageType;
   /**
@@ -76,8 +79,7 @@ export function updateGoogleConsent(granted: boolean): void {
     ad_storage: value,
     ad_user_data: value,
     ad_personalization: value,
-    // We do not run general site analytics; keep analytics storage denied.
-    analytics_storage: "denied",
+    analytics_storage: value,
   });
 }
 
@@ -115,60 +117,59 @@ export function setEnhancedConversionUserData(userData?: AdsUserData): void {
   window.gtag("set", "user_data", payload);
 }
 
-function alreadyFired(storageKey: string): boolean {
+type DedupeStorage = "session" | "local";
+
+function eventStorage(kind: DedupeStorage): Storage | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return kind === "local" ? window.localStorage : window.sessionStorage;
+  } catch {
+    return null;
+  }
+}
+
+function alreadyFired(storageKey: string, kind: DedupeStorage): boolean {
   if (typeof window === "undefined") return true;
   try {
-    return window.sessionStorage.getItem(storageKey) === "1";
+    return eventStorage(kind)?.getItem(storageKey) === "1";
   } catch {
     return false;
   }
 }
 
-function markFired(storageKey: string): void {
+function markFired(storageKey: string, kind: DedupeStorage): void {
   if (typeof window === "undefined") return;
   try {
-    window.sessionStorage.setItem(storageKey, "1");
+    eventStorage(kind)?.setItem(storageKey, "1");
   } catch {
     // Ignore storage failures.
   }
 }
 
-function fireAdsConversion(options: {
+function fireTrackedEvent(options: {
   sendTo: string;
   eventName: string;
-  value?: number;
-  currency: string;
-  transactionId?: string;
-  userData?: AdsUserData;
+  params: Record<string, unknown>;
+  dedupeKey: string;
+  dedupeStorage: DedupeStorage;
 }): boolean {
-  if (typeof window === "undefined" || typeof window.gtag !== "function") {
-    return false;
-  }
-  if (!hasMarketingCookieConsent()) {
-    return false;
-  }
+  if (typeof window === "undefined" || !hasMarketingCookieConsent()) return false;
+  if (alreadyFired(options.dedupeKey, options.dedupeStorage)) return true;
 
-  setEnhancedConversionUserData(options.userData);
+  ensureGtagStub();
+  window.dataLayer = window.dataLayer || [];
+  window.dataLayer.push({ event: options.eventName, ...options.params });
 
-  const shared: Record<string, unknown> = {
-    currency: options.currency,
-  };
-  if (typeof options.value === "number" && Number.isFinite(options.value)) {
-    shared.value = options.value;
-  }
-  if (options.transactionId?.trim()) {
-    shared.transaction_id = options.transactionId.trim();
-  }
-
-  window.gtag("event", options.eventName, { ...shared });
-
-  if (options.sendTo) {
+  // Direct Ads conversion is optional. Named events are emitted exactly once to
+  // dataLayer for GTM/GA4 even when a verified Ads label has not been configured.
+  if (options.sendTo && typeof window.gtag === "function") {
     window.gtag("event", "conversion", {
-      ...shared,
+      ...options.params,
       send_to: options.sendTo,
     });
   }
 
+  markFired(options.dedupeKey, options.dedupeStorage);
   return true;
 }
 
@@ -177,26 +178,13 @@ function isValidQuoteValue(value: unknown): value is number {
 }
 
 /**
- * Google Ads quote conversion (`quote_generated` + conversion send_to).
- * Call only after a successful priced quote is confirmed (`#quoteResult`).
+ * Google Ads quote conversion (`quote_generated` + optional conversion send_to).
+ * Call only after a successful fixed-price quote is calculated and displayed.
  * Requires a positive numeric value and a unique transaction/quote ID.
  * Never call on page load, button click alone, validation failure, or API failure.
  */
 export function trackRequestQuoteConversion(options: AdsConversionPayload = {}): boolean {
-  if (requestQuoteConversionSent) {
-    return true;
-  }
   if (typeof window === "undefined") {
-    return false;
-  }
-
-  ensureGtagStub();
-  if (typeof window.gtag !== "function") {
-    return false;
-  }
-
-  const config = getGoogleAdsConfig();
-  if (!config.quoteEnabled || !config.quoteSendTo) {
     return false;
   }
   if (!hasMarketingCookieConsent()) {
@@ -217,15 +205,7 @@ export function trackRequestQuoteConversion(options: AdsConversionPayload = {}):
   const currency = options.currency?.trim() || "GBP";
   const pageType = options.pageType?.trim() || undefined;
   const dedupeKey = `${FIRED_QUOTE_PREFIX}${transactionId}`;
-  if (alreadyFired(dedupeKey)) {
-    requestQuoteConversionSent = true;
-    return true;
-  }
-
-  const allowUserData = options.includeUserData === true && pageType !== "emerge_belfast";
-  if (allowUserData) {
-    setEnhancedConversionUserData(options.userData);
-  }
+  const config = getGoogleAdsConfig();
 
   const shared: Record<string, unknown> = {
     value: options.value,
@@ -235,40 +215,31 @@ export function trackRequestQuoteConversion(options: AdsConversionPayload = {}):
   if (pageType) {
     shared.page_type = pageType;
   }
+  if (options.airport?.trim()) shared.airport = options.airport.trim();
+  if (options.journeyType?.trim()) shared.journey_type = options.journeyType.trim();
+  if (
+    typeof options.passengers === "number" &&
+    Number.isInteger(options.passengers) &&
+    options.passengers > 0
+  ) {
+    shared.passengers = options.passengers;
+  }
+  if (typeof options.returnJourney === "boolean") {
+    shared.return_journey = options.returnJourney;
+  }
 
-  // dataLayer push for GTM (and debugging) — no PII fields.
-  window.dataLayer = window.dataLayer || [];
-  window.dataLayer.push({
-    event: ADS_EVENT_QUOTE_GENERATED,
-    ...shared,
+  return fireTrackedEvent({
+    sendTo: config.quoteSendTo,
+    eventName: ADS_EVENT_QUOTE_GENERATED,
+    params: shared,
+    dedupeKey,
+    dedupeStorage: "session",
   });
-
-  // Preferred named event.
-  window.gtag("event", ADS_EVENT_QUOTE_GENERATED, {
-    send_to: config.quoteSendTo,
-    ...shared,
-  });
-
-  // Keep legacy request_quote listeners working without a second conversion hit.
-  window.gtag("event", ADS_EVENT_REQUEST_QUOTE, {
-    send_to: config.quoteSendTo,
-    ...shared,
-  });
-
-  // Standard Google Ads conversion (counts once toward the Request quote action).
-  window.gtag("event", "conversion", {
-    send_to: config.quoteSendTo,
-    ...shared,
-  });
-
-  requestQuoteConversionSent = true;
-  markFired(dedupeKey);
-  return true;
 }
 
-/** Allow a fresh quote interaction (e.g. “Get another quote”) to convert once. */
+/** Fresh calculations receive a new transaction ID; retained for older callers. */
 export function resetRequestQuoteConversion(): void {
-  requestQuoteConversionSent = false;
+  // No module-level latch: transaction ID + session storage provide deduplication.
 }
 
 /**
@@ -278,47 +249,64 @@ export function trackRequestQuote(options: AdsConversionPayload = {}): boolean {
   return trackRequestQuoteConversion(options);
 }
 
-/**
- * Fire booking_complete only after a genuinely confirmed paid booking,
- * and only when a dedicated Booking complete conversion label exists.
- * Never falls back to the Request quote label.
- * Requires transaction_id for deduplication across refreshes.
- */
-export function trackBookingComplete(options: AdsConversionPayload): boolean {
+/** Fire once after the Worker confirms that a booking request was persisted. */
+export function trackBookingRequestSubmitted(options: AdsConversionPayload): boolean {
   const config = getGoogleAdsConfig();
-  if (!config.bookingEnabled || !config.bookingSendTo) {
-    return false;
-  }
-  if (config.quoteSendTo && config.bookingSendTo === config.quoteSendTo) {
-    return false;
-  }
-  if (!hasMarketingCookieConsent()) {
-    return false;
-  }
+  const bookingReference = options.bookingReference?.trim() || options.transactionId?.trim();
+  if (!bookingReference || !hasMarketingCookieConsent()) return false;
 
-  const transactionId = options.transactionId?.trim();
-  if (!transactionId) {
-    return false;
-  }
+  const params: Record<string, unknown> = {
+    booking_reference: bookingReference,
+    transaction_id: bookingReference,
+    currency: options.currency?.trim() || "GBP",
+  };
+  if (isValidQuoteValue(options.value)) params.value = options.value;
+  if (options.airport?.trim()) params.airport = options.airport.trim();
+  if (options.journeyType?.trim()) params.journey_type = options.journeyType.trim();
 
-  const dedupeKey = `${FIRED_BOOKING_PREFIX}${transactionId}`;
-  if (alreadyFired(dedupeKey)) {
-    return true;
-  }
-
-  const ok = fireAdsConversion({
-    sendTo: config.bookingSendTo,
-    eventName: ADS_EVENT_BOOKING_COMPLETE,
-    value: options.value,
-    currency: options.currency ?? "GBP",
-    transactionId,
-    userData: options.includeUserData === true ? options.userData : undefined,
+  return fireTrackedEvent({
+    sendTo: config.bookingRequestSendTo,
+    eventName: ADS_EVENT_BOOKING_REQUEST_SUBMITTED,
+    params,
+    dedupeKey: `${FIRED_BOOKING_REQUEST_PREFIX}${bookingReference}`,
+    dedupeStorage: "local",
   });
+}
 
-  if (ok) {
-    markFired(dedupeKey);
+/** Fire a GA4-standard purchase only from a SumUp-verified server result. */
+export function trackPurchase(options: AdsConversionPayload): boolean {
+  const config = getGoogleAdsConfig();
+  const transactionId = options.transactionId?.trim();
+  if (!transactionId || !isValidQuoteValue(options.value) || !hasMarketingCookieConsent()) {
+    return false;
   }
-  return ok;
+
+  if (options.includeUserData === true) {
+    ensureGtagStub();
+    setEnhancedConversionUserData(options.userData);
+  }
+
+  const params: Record<string, unknown> = {
+    transaction_id: transactionId,
+    value: options.value,
+    currency: options.currency?.trim() || "GBP",
+  };
+  if (options.bookingReference?.trim()) {
+    params.booking_reference = options.bookingReference.trim();
+  }
+
+  return fireTrackedEvent({
+    sendTo: config.purchaseSendTo,
+    eventName: ADS_EVENT_PURCHASE,
+    params,
+    dedupeKey: `${FIRED_PURCHASE_PREFIX}${transactionId}`,
+    dedupeStorage: "local",
+  });
+}
+
+/** @deprecated Paid bookings now use the standard purchase event. */
+export function trackBookingComplete(options: AdsConversionPayload): boolean {
+  return trackPurchase(options);
 }
 
 export function isGtagReady(): boolean {
@@ -327,7 +315,16 @@ export function isGtagReady(): boolean {
 
 /** Test helper — current once-per-interaction latch. */
 export function hasRequestQuoteConversionBeenSent(): boolean {
-  return requestQuoteConversionSent;
+  if (typeof window === "undefined") return false;
+  try {
+    for (let index = 0; index < window.sessionStorage.length; index += 1) {
+      const key = window.sessionStorage.key(index);
+      if (key?.startsWith(FIRED_QUOTE_PREFIX)) return true;
+    }
+  } catch {
+    return false;
+  }
+  return false;
 }
 
 /** Stable client-side quote ID for Ads deduplication when no booking reference yet. */

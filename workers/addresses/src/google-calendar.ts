@@ -1,3 +1,5 @@
+import type { AdsAttribution } from "../shared/ads-attribution";
+
 const CALENDAR_SCOPE = "https://www.googleapis.com/auth/calendar";
 const TOKEN_URL = "https://oauth2.googleapis.com/token";
 const TIME_ZONE = "Europe/London";
@@ -32,6 +34,7 @@ export type TransferBookingEvent = {
   marketingOptIn?: boolean;
   marketingOptInAt?: string;
   marketingConsentVersion?: string;
+  attribution?: AdsAttribution;
 };
 
 export type TourBookingEvent = {

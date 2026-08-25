@@ -129,7 +129,6 @@ import {
   createQuoteTransactionId,
   resetRequestQuoteConversion,
 } from "@/lib/google-ads-client";
-import { withAdsAttribution } from "@/lib/ads-attribution";
 import type { VerifiedFlight } from "@/lib/flight-lookup";
 import {
   detectAirportCodeFromPlace,
@@ -434,6 +433,7 @@ function QuoteCard({
   const [bookingSent, setBookingSent] = useState(false);
   const [bookingReference, setBookingReference] = useState("");
   const [quoteTransactionId, setQuoteTransactionId] = useState("");
+  const quoteCalculationFingerprintRef = useRef("");
   const [bookingDelivery, setBookingDelivery] = useState<BookingDelivery | null>(null);
   const [quoteStep, setQuoteStep] = useState<1 | 2 | 3>(1);
   const [customerName, setCustomerName] = useState("");
@@ -673,7 +673,7 @@ function QuoteCard({
     params.forEach((value, key) => {
       confirmedUrl.searchParams.set(key, value);
     });
-    window.location.replace(withAdsAttribution(confirmedUrl.toString()));
+    window.location.replace(confirmedUrl.toString());
   }, []);
 
   useEffect(() => {
@@ -1420,6 +1420,56 @@ function QuoteCard({
         : airportName
       : dropoffAddress.trim();
 
+  const quoteAnalyticsValue =
+    quoteResultsReady &&
+    liveQuote &&
+    testChargeAmount === null &&
+    !isRequestQuote &&
+    !isEnquiryOnly &&
+    !isManualQuoteJourney &&
+    !pricingConfirmationRequired &&
+    !exceedsOnlineCapacity
+      ? (appliedPersonalQuote?.agreedAmount ?? liveQuote.amount)
+      : null;
+  const quoteAnalyticsJourneyType =
+    isA2AFlow && journeyKind
+      ? journeyKindLabel(journeyKind)
+      : isAirportTrip
+        ? isFromAirport
+          ? "Airport pickup"
+          : "Airport drop-off"
+        : "Address to address";
+  const quoteCalculationFingerprint =
+    quoteAnalyticsValue && effectivePassengers != null
+      ? JSON.stringify([
+          pickupLabel,
+          dropoffLabel,
+          effectiveAirportCode,
+          quoteAnalyticsJourneyType,
+          effectivePassengers,
+          suitcases,
+          returnJourney,
+          quoteVehicle,
+          quoteAnalyticsValue,
+        ])
+      : "";
+
+  useEffect(() => {
+    // The result must actually be visible. Moving to later form steps keeps the
+    // same quote ID; returning with a changed calculation creates a new one.
+    if (quoteStep !== 1) return;
+    if (!quoteCalculationFingerprint) {
+      quoteCalculationFingerprintRef.current = "";
+      if (quoteTransactionId) setQuoteTransactionId("");
+      return;
+    }
+    if (quoteCalculationFingerprintRef.current === quoteCalculationFingerprint) return;
+    quoteCalculationFingerprintRef.current = quoteCalculationFingerprint;
+    setQuoteTransactionId(
+      createQuoteTransactionId(pageType === "emerge_belfast" ? "emerge" : "quote"),
+    );
+  }, [pageType, quoteCalculationFingerprint, quoteStep, quoteTransactionId]);
+
   useEffect(() => {
     if (!liveQuote || bookingSent || quoteStep !== 1) {
       return;
@@ -2012,6 +2062,7 @@ function QuoteCard({
     setSubmitError("");
     setBookingSent(false);
     setBookingReference("");
+    quoteCalculationFingerprintRef.current = "";
     setQuoteTransactionId("");
     setBookingDelivery(null);
     setQuoteStep(1);
@@ -2900,23 +2951,13 @@ function QuoteCard({
       typeof liveQuote?.amount === "number" && Number.isFinite(liveQuote.amount) && liveQuote.amount > 0
         ? liveQuote.amount
         : undefined;
-    const adsTransactionId = (bookingReference || quoteTransactionId).trim();
-    const canFireQuoteConversion = Boolean(quoteConversionValue && adsTransactionId);
 
     return (
       <div
         ref={cardRef}
-        id="quoteResult"
+        id="bookingRequestResult"
         className="glass-card min-w-0 rounded-2xl p-6 sm:p-8"
       >
-        <GoogleAdsRequestQuote
-          fire={canFireQuoteConversion}
-          value={quoteConversionValue}
-          currency="GBP"
-          transactionId={adsTransactionId || undefined}
-          pageType={pageType}
-          includeUserData={false}
-        />
         <div className="rounded-xl border border-white/10 bg-navy-dark/50 px-5 py-8 text-center sm:px-8 sm:py-10">
           <p className="text-xs font-medium uppercase tracking-wider text-emerald">
             {exceedsOnlineCapacity
@@ -3022,6 +3063,20 @@ function QuoteCard({
       </div>
 
       <form id="quoteForm" onSubmit={handleSubmit} className="relative space-y-4 overflow-x-clip overflow-y-visible lg:space-y-3.5">
+        <GoogleAdsRequestQuote
+          fire={Boolean(
+            quoteStep === 1 && quoteAnalyticsValue && quoteTransactionId,
+          )}
+          value={quoteAnalyticsValue ?? undefined}
+          currency="GBP"
+          transactionId={quoteTransactionId || undefined}
+          pageType={pageType}
+          airport={effectiveAirportCode || undefined}
+          journeyType={quoteAnalyticsJourneyType}
+          passengers={effectivePassengers ?? undefined}
+          returnJourney={returnJourney}
+          includeUserData={false}
+        />
         {testChargeAmount !== null && (
           <div className="rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
             <strong className="text-white">Test booking mode.</strong> SumUp will charge{" "}

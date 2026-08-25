@@ -5,6 +5,7 @@ import {
   type BookingJobRecord,
 } from "../shared/booking-job";
 import { corsHeaders } from "../shared/google-places";
+import { sanitizeAdsAttribution } from "../shared/ads-attribution";
 import { ownerAuthorized, type DriverAuthEnv } from "./driver-auth";
 import { logBookingsToGoogleCalendar } from "./google-calendar";
 import {
@@ -158,6 +159,7 @@ export async function createBookingJobFromSubmission(
         : null,
     isAirportTrip: b.isAirportTrip === true,
     message: options.message?.trim() || undefined,
+    attribution: sanitizeAdsAttribution(b.attribution),
     driverAssignmentStatus: "unassigned",
   };
 

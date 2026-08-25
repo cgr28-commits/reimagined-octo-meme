@@ -13,7 +13,6 @@ import {
   getGoogleAdsConfig,
 } from "../src/lib/google-ads";
 import {
-  hasRequestQuoteConversionBeenSent,
   resetRequestQuoteConversion,
   trackRequestQuoteConversion,
 } from "../src/lib/google-ads-client";
@@ -112,11 +111,19 @@ function main() {
     delete process.env.NEXT_PUBLIC_GOOGLE_ADS_QUOTE_CONVERSION_LABEL;
   });
 
-  check("Quote form and quoteResult IDs exist in QuoteCard", () => {
+  check("Public Ads environment values use statically inlined Next.js reads", () => {
+    const source = readFileSync(join(process.cwd(), "src/lib/google-ads.ts"), "utf8");
+    assert.match(source, /process\.env\.NEXT_PUBLIC_GOOGLE_ADS_BOOKING_REQUEST_CONVERSION_LABEL/);
+    assert.match(source, /process\.env\.NEXT_PUBLIC_GOOGLE_ADS_PURCHASE_CONVERSION_LABEL/);
+    assert.doesNotMatch(source, /process\.env\[name\]/);
+  });
+
+  check("Quote tracking is mounted in the live quote form, not booking success", () => {
     const source = readFileSync(join(process.cwd(), "src/components/QuoteCard.tsx"), "utf8");
     assert.match(source, /id=["']quoteForm["']/);
-    assert.match(source, /id=["']quoteResult["']/);
+    assert.match(source, /id=["']bookingRequestResult["']/);
     assert.match(source, /GoogleAdsRequestQuote/);
+    assert.match(source, /quoteAnalyticsValue/);
     assert.match(source, /resetRequestQuoteConversion/);
     assert.match(source, /pageType/);
     assert.match(source, /includeUserData=\{false\}/);
@@ -211,7 +218,6 @@ function main() {
     assert.equal(trackRequestQuoteConversion({ transactionId: "TEST-NO-VALUE" }), false);
     assert.equal(trackRequestQuoteConversion({ value: 50 }), false);
     assert.equal(trackRequestQuoteConversion({ transactionId: "TEST-ZERO", value: 0 }), false);
-    assert.equal(hasRequestQuoteConversionBeenSent(), false);
     assert.equal(
       mocks.gtagCalls.filter((call) => call[0] === "event" && call[1] === "conversion").length,
       0,
@@ -237,7 +243,6 @@ function main() {
     });
     assert.equal(first, true);
     assert.equal(second, true);
-    assert.equal(hasRequestQuoteConversionBeenSent(), true);
 
     const conversionEvents = mocks.gtagCalls.filter(
       (call) => call[0] === "event" && call[1] === "conversion",
@@ -259,11 +264,6 @@ function main() {
     assert.equal(payload.page_type, "emerge_belfast");
     assert.equal(payload.email, undefined);
     assert.equal(payload.phone, undefined);
-
-    const quoteGenerated = mocks.gtagCalls.filter(
-      (call) => call[0] === "event" && call[1] === "quote_generated",
-    );
-    assert.equal(quoteGenerated.length, 1);
 
     assert.ok(
       mocks.dataLayer.some(

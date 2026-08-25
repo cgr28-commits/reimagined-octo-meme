@@ -3,7 +3,7 @@
  * Override via GitHub Actions secrets → NEXT_PUBLIC_* at build time.
  *
  * These values appear in the client bundle by design (same as Google’s tag snippet).
- * Booking complete stays disabled until GOOGLE_ADS_BOOKING_CONVERSION_LABEL is set.
+ * Lead/purchase Ads destinations stay disabled until distinct verified labels are set.
  */
 
 /** My Airport Taxi NI Google Ads account tag (Request quote conversion lives here). */
@@ -20,18 +20,41 @@ export type GoogleAdsConfig = {
   adsId: string;
   /** Conversion label for successful quote / enquiry requests. */
   quoteConversionLabel: string;
-  /** Conversion label for confirmed paid bookings (empty until created in Ads). */
-  bookingConversionLabel: string;
+  /** Optional verified label for a saved booking request (lead). */
+  bookingRequestConversionLabel: string;
+  /** Optional verified label for a SumUp-verified purchase. */
+  purchaseConversionLabel: string;
   quoteSendTo: string;
-  bookingSendTo: string;
+  bookingRequestSendTo: string;
+  purchaseSendTo: string;
   /** True when the Google tag ID is configured (sitewide tag can load). */
   tagEnabled: boolean;
   quoteEnabled: boolean;
-  bookingEnabled: boolean;
+  bookingRequestEnabled: boolean;
+  purchaseEnabled: boolean;
 };
 
-function env(name: string): string {
-  return process.env[name]?.trim() ?? "";
+type PublicGoogleAdsEnvName =
+  | "NEXT_PUBLIC_GOOGLE_ADS_ID"
+  | "NEXT_PUBLIC_GOOGLE_ADS_QUOTE_CONVERSION_LABEL"
+  | "NEXT_PUBLIC_GOOGLE_ADS_BOOKING_REQUEST_CONVERSION_LABEL"
+  | "NEXT_PUBLIC_GOOGLE_ADS_PURCHASE_CONVERSION_LABEL"
+  | "NEXT_PUBLIC_GOOGLE_ADS_BOOKING_CONVERSION_LABEL";
+
+/** Direct property reads are required so Next.js inlines NEXT_PUBLIC values in browser bundles. */
+function env(name: PublicGoogleAdsEnvName): string {
+  switch (name) {
+    case "NEXT_PUBLIC_GOOGLE_ADS_ID":
+      return process.env.NEXT_PUBLIC_GOOGLE_ADS_ID?.trim() ?? "";
+    case "NEXT_PUBLIC_GOOGLE_ADS_QUOTE_CONVERSION_LABEL":
+      return process.env.NEXT_PUBLIC_GOOGLE_ADS_QUOTE_CONVERSION_LABEL?.trim() ?? "";
+    case "NEXT_PUBLIC_GOOGLE_ADS_BOOKING_REQUEST_CONVERSION_LABEL":
+      return process.env.NEXT_PUBLIC_GOOGLE_ADS_BOOKING_REQUEST_CONVERSION_LABEL?.trim() ?? "";
+    case "NEXT_PUBLIC_GOOGLE_ADS_PURCHASE_CONVERSION_LABEL":
+      return process.env.NEXT_PUBLIC_GOOGLE_ADS_PURCHASE_CONVERSION_LABEL?.trim() ?? "";
+    case "NEXT_PUBLIC_GOOGLE_ADS_BOOKING_CONVERSION_LABEL":
+      return process.env.NEXT_PUBLIC_GOOGLE_ADS_BOOKING_CONVERSION_LABEL?.trim() ?? "";
+  }
 }
 
 function resolveAdsId(raw: string): string {
@@ -50,52 +73,75 @@ function resolveQuoteLabel(raw: string): string {
 
 /**
  * Reads Ads config. Env/secrets win unless they contain known-bad typo values;
- * otherwise the account defaults above are used for the tag + request_quote.
+ * otherwise the account defaults above are used for the tag + quote_generated.
  *
  * Important: the account currently has Calls + Request quote only. Never reuse the
  * quote label for bookings — that would mix quotes with completed bookings in Ads.
- * booking_complete stays fully disabled until a distinct booking label is set.
+ * Lead and purchase direct Ads calls stay disabled until distinct labels are set.
  */
 export function getGoogleAdsConfig(): GoogleAdsConfig {
   const adsId = resolveAdsId(env("NEXT_PUBLIC_GOOGLE_ADS_ID") || DEFAULT_GOOGLE_ADS_ID);
   const quoteConversionLabel = resolveQuoteLabel(
     env("NEXT_PUBLIC_GOOGLE_ADS_QUOTE_CONVERSION_LABEL") || DEFAULT_QUOTE_CONVERSION_LABEL,
   );
-  // Distinct booking label only — no legacy fallback, no quote-label reuse.
-  let bookingConversionLabel = env("NEXT_PUBLIC_GOOGLE_ADS_BOOKING_CONVERSION_LABEL");
+  let bookingRequestConversionLabel = env(
+    "NEXT_PUBLIC_GOOGLE_ADS_BOOKING_REQUEST_CONVERSION_LABEL",
+  );
+  // The existing BOOKING label was documented for confirmed paid bookings. Keep it
+  // as the backwards-compatible purchase label; never reinterpret it as a lead.
+  let purchaseConversionLabel =
+    env("NEXT_PUBLIC_GOOGLE_ADS_PURCHASE_CONVERSION_LABEL") ||
+    env("NEXT_PUBLIC_GOOGLE_ADS_BOOKING_CONVERSION_LABEL");
   if (
-    bookingConversionLabel &&
+    bookingRequestConversionLabel &&
     quoteConversionLabel &&
-    bookingConversionLabel === quoteConversionLabel
+    bookingRequestConversionLabel === quoteConversionLabel
   ) {
-    bookingConversionLabel = "";
+    bookingRequestConversionLabel = "";
+  }
+  if (
+    purchaseConversionLabel &&
+    (purchaseConversionLabel === quoteConversionLabel ||
+      purchaseConversionLabel === bookingRequestConversionLabel)
+  ) {
+    purchaseConversionLabel = "";
   }
 
   const quoteSendTo =
     adsId && quoteConversionLabel ? `${adsId}/${quoteConversionLabel}` : "";
-  const bookingSendTo =
-    adsId && bookingConversionLabel ? `${adsId}/${bookingConversionLabel}` : "";
+  const bookingRequestSendTo =
+    adsId && bookingRequestConversionLabel
+      ? `${adsId}/${bookingRequestConversionLabel}`
+      : "";
+  const purchaseSendTo =
+    adsId && purchaseConversionLabel ? `${adsId}/${purchaseConversionLabel}` : "";
 
   return {
     adsId,
     quoteConversionLabel,
-    bookingConversionLabel,
+    bookingRequestConversionLabel,
+    purchaseConversionLabel,
     quoteSendTo,
-    bookingSendTo,
+    bookingRequestSendTo,
+    purchaseSendTo,
     tagEnabled: Boolean(adsId),
     quoteEnabled: Boolean(quoteSendTo),
     // Requires its own label — tag ID alone is not enough.
-    bookingEnabled: Boolean(bookingSendTo),
+    bookingRequestEnabled: Boolean(bookingRequestSendTo),
+    purchaseEnabled: Boolean(purchaseSendTo),
   };
 }
 
 export const BOOKING_CONFIRMED_PATH = "/booking-confirmed/";
 
-/** Legacy / Ads named event for successful priced quote requests. */
+/** @deprecated Legacy event name retained for older imports only. */
 export const ADS_EVENT_REQUEST_QUOTE = "request_quote";
 /** Preferred named event for a successful priced quote (value + GBP + quote ID). */
 export const ADS_EVENT_QUOTE_GENERATED = "quote_generated";
-export const ADS_EVENT_BOOKING_COMPLETE = "booking_complete";
+export const ADS_EVENT_BOOKING_REQUEST_SUBMITTED = "booking_request_submitted";
+export const ADS_EVENT_PURCHASE = "purchase";
+/** @deprecated Purchase now uses the GA4-standard event name. */
+export const ADS_EVENT_BOOKING_COMPLETE = ADS_EVENT_PURCHASE;
 
 /** Page context for Ads custom parameters (e.g. EMERGE landing). */
 export type AdsQuotePageType = "main" | "emerge_belfast" | (string & {});

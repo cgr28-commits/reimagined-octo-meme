@@ -2,6 +2,8 @@ import { SITE } from "@/lib/data";
 import type { BookingDetails } from "@/lib/booking-message";
 import { buildBookingMessage } from "@/lib/booking-message";
 import { resolveBookingsApiUrl } from "@/lib/worker-api";
+import { readConsentedAdsAttribution } from "@/lib/ads-attribution";
+import { trackBookingRequestSubmitted } from "@/lib/google-ads-client";
 import { isValidPassengerCount, PASSENGER_LIMIT_ERROR } from "../../shared/passenger-limits";
 
 import type { TourEnquiryDetails } from "@/lib/tour-enquiry-message";
@@ -41,9 +43,22 @@ function readBookingReference(payload: unknown): string {
 type WorkerSubmitResult = {
   bookingReference: string;
   emailSent: boolean;
+  bookingSaved: boolean;
 };
 
+function parseBookingValue(label: string | null | undefined): number | undefined {
+  if (!label) return undefined;
+  const match = label.replace(/,/g, "").match(/(\d+(?:\.\d{1,2})?)/);
+  if (!match) return undefined;
+  const value = Number(match[1]);
+  return Number.isFinite(value) && value > 0 ? value : undefined;
+}
+
 async function submitViaWorker(submission: EnquirySubmission): Promise<WorkerSubmitResult> {
+  const attribution = readConsentedAdsAttribution();
+  const booking = submission.booking
+    ? { ...submission.booking, ...(attribution ? { attribution } : {}) }
+    : undefined;
   const response = await fetch(BOOKINGS_API_URL, {
     method: "POST",
     headers: {
@@ -54,7 +69,7 @@ async function submitViaWorker(submission: EnquirySubmission): Promise<WorkerSub
       customerName: submission.customerName,
       message: submission.message,
       sendEmail: submission.sendEmail !== false,
-      booking: submission.booking,
+      booking,
       tour: submission.tour,
     }),
   });
@@ -63,13 +78,27 @@ async function submitViaWorker(submission: EnquirySubmission): Promise<WorkerSub
     ok?: boolean;
     bookingReference?: string;
     emailSent?: boolean;
+    bookingSaved?: boolean;
     error?: string;
   } | null;
 
   if (payload?.ok) {
+    const bookingReference = readBookingReference(payload);
+    const bookingSaved = payload.bookingSaved === true;
+    if (booking && bookingSaved && bookingReference) {
+      trackBookingRequestSubmitted({
+        bookingReference,
+        transactionId: bookingReference,
+        airport: booking.airportCode,
+        journeyType: booking.tripLabel,
+        value: parseBookingValue(booking.estimatedPrice),
+        currency: "GBP",
+      });
+    }
     return {
-      bookingReference: readBookingReference(payload),
+      bookingReference,
       emailSent: payload.emailSent === true || submission.sendEmail === false,
+      bookingSaved,
     };
   }
 

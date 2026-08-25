@@ -6,9 +6,8 @@ import {
   hasMarketingCookieConsent,
   type CookieConsentChoice,
 } from "@/lib/cookie-consent";
-import { getGoogleAdsConfig, type AdsQuotePageType } from "@/lib/google-ads";
+import type { AdsQuotePageType } from "@/lib/google-ads";
 import {
-  isGtagReady,
   trackRequestQuoteConversion,
   type AdsUserData,
 } from "@/lib/google-ads-client";
@@ -16,7 +15,7 @@ import {
 type GoogleAdsRequestQuoteProps = {
   /**
    * Fire quote_generated / Request quote conversion once this becomes true —
-   * only when `#quoteResult` confirmation is shown after a successful priced quote.
+   * only after the fixed-price result is successfully calculated and displayed.
    */
   fire: boolean;
   /** Required — conversion is skipped without a positive numeric quote amount. */
@@ -25,6 +24,10 @@ type GoogleAdsRequestQuoteProps = {
   /** Required — unique quote / booking reference for deduplication. */
   transactionId?: string;
   pageType?: AdsQuotePageType;
+  airport?: string;
+  journeyType?: string;
+  passengers?: number;
+  returnJourney?: boolean;
   /** Off by default; never enabled for emerge_belfast. */
   includeUserData?: boolean;
   userData?: AdsUserData;
@@ -40,11 +43,14 @@ export default function GoogleAdsRequestQuote({
   currency = "GBP",
   transactionId,
   pageType,
+  airport,
+  journeyType,
+  passengers,
+  returnJourney,
   includeUserData = false,
   userData,
 }: GoogleAdsRequestQuoteProps) {
-  const config = getGoogleAdsConfig();
-  const firedRef = useRef(false);
+  const lastFiredTransactionIdRef = useRef("");
   const [marketingAllowed, setMarketingAllowed] = useState(false);
 
   useEffect(() => {
@@ -63,7 +69,7 @@ export default function GoogleAdsRequestQuote({
   const allowPii = includeUserData === true && pageType !== "emerge_belfast";
 
   useEffect(() => {
-    if (!fire || !config.quoteEnabled || !marketingAllowed || firedRef.current) {
+    if (!fire || !marketingAllowed) {
       return;
     }
 
@@ -74,42 +80,32 @@ export default function GoogleAdsRequestQuote({
       return;
     }
 
-    // Only fire when the success panel (#quoteResult) is in the document.
-    if (typeof document !== "undefined" && !document.getElementById("quoteResult")) {
-      return;
-    }
-
-    let attempts = 0;
-    const timer = window.setInterval(() => {
-      attempts += 1;
-      if (!isGtagReady() && attempts < 20) {
-        return;
-      }
-      const ok = trackRequestQuoteConversion({
-        value,
-        currency,
-        transactionId,
-        pageType,
-        includeUserData: allowPii,
-        userData: allowPii ? { email: userEmail, phone: userPhone } : undefined,
-      });
-      if (ok || attempts >= 20) {
-        if (ok) {
-          firedRef.current = true;
-        }
-        window.clearInterval(timer);
-      }
-    }, 250);
-
-    return () => window.clearInterval(timer);
+    const normalizedId = transactionId.trim();
+    if (lastFiredTransactionIdRef.current === normalizedId) return;
+    const ok = trackRequestQuoteConversion({
+      value,
+      currency,
+      transactionId: normalizedId,
+      pageType,
+      airport,
+      journeyType,
+      passengers,
+      returnJourney,
+      includeUserData: allowPii,
+      userData: allowPii ? { email: userEmail, phone: userPhone } : undefined,
+    });
+    if (ok) lastFiredTransactionIdRef.current = normalizedId;
   }, [
     fire,
     marketingAllowed,
-    config.quoteEnabled,
     value,
     currency,
     transactionId,
     pageType,
+    airport,
+    journeyType,
+    passengers,
+    returnJourney,
     allowPii,
     userEmail,
     userPhone,

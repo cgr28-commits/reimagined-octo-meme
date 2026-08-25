@@ -6,26 +6,25 @@ import {
   hasMarketingCookieConsent,
   type CookieConsentChoice,
 } from "@/lib/cookie-consent";
-import { getGoogleAdsConfig } from "@/lib/google-ads";
 import {
-  isGtagReady,
-  trackBookingComplete,
+  trackPurchase,
   type AdsUserData,
 } from "@/lib/google-ads-client";
 
 type GoogleAdsConversionProps = {
-  /** Fire booking_complete once this becomes true (paid booking confirmed). */
+  /** Fire purchase once this becomes true (paid booking confirmed by the server). */
   fire: boolean;
   value?: number;
   currency?: string;
   /** Unique booking / payment reference — required to prevent refresh double-counting. */
   transactionId?: string;
+  bookingReference?: string;
   /** Optional enhanced-conversion fields (hashed by gtag when consented). */
   userData?: AdsUserData;
 };
 
 /**
- * Fires the booking_complete / Ads conversion event after a genuine paid booking.
+ * Fires the purchase / Ads conversion event after a genuine paid booking.
  * Relies on the sitewide GoogleAdsTag for gtag.js — does not load scripts itself.
  */
 export default function GoogleAdsConversion({
@@ -33,9 +32,9 @@ export default function GoogleAdsConversion({
   value,
   currency = "GBP",
   transactionId,
+  bookingReference,
   userData,
 }: GoogleAdsConversionProps) {
-  const config = getGoogleAdsConfig();
   const firedRef = useRef(false);
   const [marketingAllowed, setMarketingAllowed] = useState(false);
 
@@ -56,7 +55,6 @@ export default function GoogleAdsConversion({
   useEffect(() => {
     if (
       !fire ||
-      (!config.tagEnabled && !config.bookingEnabled) ||
       !marketingAllowed ||
       firedRef.current ||
       !transactionId?.trim()
@@ -64,35 +62,22 @@ export default function GoogleAdsConversion({
       return;
     }
 
-    let attempts = 0;
-    const timer = window.setInterval(() => {
-      attempts += 1;
-      if (!isGtagReady() && attempts < 20) {
-        return;
-      }
-      const ok = trackBookingComplete({
-        value,
-        currency,
-        transactionId,
-        userData: { email: userEmail, phone: userPhone },
-      });
-      if (ok || attempts >= 20) {
-        if (ok) {
-          firedRef.current = true;
-        }
-        window.clearInterval(timer);
-      }
-    }, 250);
-
-    return () => window.clearInterval(timer);
+    const ok = trackPurchase({
+      value,
+      currency,
+      transactionId,
+      bookingReference,
+      includeUserData: true,
+      userData: { email: userEmail, phone: userPhone },
+    });
+    if (ok) firedRef.current = true;
   }, [
     fire,
     marketingAllowed,
-    config.tagEnabled,
-    config.bookingEnabled,
     value,
     currency,
     transactionId,
+    bookingReference,
     userEmail,
     userPhone,
   ]);

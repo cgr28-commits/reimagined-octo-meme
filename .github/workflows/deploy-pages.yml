@@ -39,6 +39,8 @@ jobs:
           WEB3FORMS_ACCESS_KEY: ${{ secrets.WEB3FORMS_ACCESS_KEY }}
           GOOGLE_ADS_ID: ${{ secrets.GOOGLE_ADS_ID }}
           GOOGLE_ADS_QUOTE_CONVERSION_LABEL: ${{ secrets.GOOGLE_ADS_QUOTE_CONVERSION_LABEL }}
+          GOOGLE_ADS_BOOKING_REQUEST_CONVERSION_LABEL: ${{ secrets.GOOGLE_ADS_BOOKING_REQUEST_CONVERSION_LABEL }}
+          GOOGLE_ADS_PURCHASE_CONVERSION_LABEL: ${{ secrets.GOOGLE_ADS_PURCHASE_CONVERSION_LABEL }}
           GOOGLE_ADS_BOOKING_CONVERSION_LABEL: ${{ secrets.GOOGLE_ADS_BOOKING_CONVERSION_LABEL }}
         run: |
           KEY="${GOOGLE_PLACES_API_KEY:-${GOOGLE_API_KEY:-${GOOGLE_MAPS_API_KEY}}}"
@@ -61,8 +63,8 @@ jobs:
           fi
           ADDRESSES_API_URL="${BOOKINGS_API_URL%/bookings}/addresses"
           echo "Using ADDRESSES_API_URL ($ADDRESSES_API_URL)"
-          # Secrets optional — src/lib/google-ads.ts has account defaults for tag + request_quote.
-          # Leave GOOGLE_ADS_BOOKING_CONVERSION_LABEL unset until a Booking complete action exists in Ads.
+          # Secrets optional — src/lib/google-ads.ts has account defaults for tag + quote_generated.
+          # Lead/purchase labels stay optional until their distinct Ads actions are verified.
           NEXT_PUBLIC_GOOGLE_PLACES_API_KEY="$KEY" \
           NEXT_PUBLIC_GETADDRESS_API_KEY="$GETADDRESS_DOMAIN_TOKEN" \
           NEXT_PUBLIC_BOOKINGS_API_URL="$BOOKINGS_API_URL" \
@@ -70,12 +72,14 @@ jobs:
           NEXT_PUBLIC_WEB3FORMS_ACCESS_KEY="$WEB3FORMS_ACCESS_KEY" \
           NEXT_PUBLIC_GOOGLE_ADS_ID="$GOOGLE_ADS_ID" \
           NEXT_PUBLIC_GOOGLE_ADS_QUOTE_CONVERSION_LABEL="$GOOGLE_ADS_QUOTE_CONVERSION_LABEL" \
+          NEXT_PUBLIC_GOOGLE_ADS_BOOKING_REQUEST_CONVERSION_LABEL="$GOOGLE_ADS_BOOKING_REQUEST_CONVERSION_LABEL" \
+          NEXT_PUBLIC_GOOGLE_ADS_PURCHASE_CONVERSION_LABEL="$GOOGLE_ADS_PURCHASE_CONVERSION_LABEL" \
           NEXT_PUBLIC_GOOGLE_ADS_BOOKING_CONVERSION_LABEL="$GOOGLE_ADS_BOOKING_CONVERSION_LABEL" \
           GITHUB_PAGES=true npm run build
-          if [ -n "$GOOGLE_ADS_BOOKING_CONVERSION_LABEL" ]; then
-            echo "Google Ads booking_complete conversion label override configured"
+          if [ -n "$GOOGLE_ADS_PURCHASE_CONVERSION_LABEL" ] || [ -n "$GOOGLE_ADS_BOOKING_CONVERSION_LABEL" ]; then
+            echo "Google Ads purchase conversion label override configured"
           else
-            echo "::notice::No GOOGLE_ADS_BOOKING_CONVERSION_LABEL — booking Ads send_to stays off (request_quote uses code defaults)."
+            echo "::notice::No Google Ads purchase label — purchase remains available via dataLayer for GTM/GA4."
           fi
       - run: node scripts/fix-github-pages-paths.mjs
       - uses: actions/upload-pages-artifact@v3

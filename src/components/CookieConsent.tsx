@@ -37,8 +37,8 @@ export default function CookieConsent() {
           <p className="text-sm font-semibold text-white">Cookies &amp; advertising measurement</p>
           <p className="mt-1.5 text-sm leading-relaxed text-white/70">
             We use essential storage for booking checkout. Optional Google Ads cookies may measure
-            successful quote requests and completed paid bookings — only if you accept. Address
-            suggestions use Google Places. See our{" "}
+            fixed-price quotes, saved booking requests and completed paid bookings — only if you
+            accept. Address suggestions use Google Places. See our{" "}
             <Link href="/privacy/" className="font-medium text-emerald underline-offset-2 hover:underline">
               Privacy Policy
             </Link>

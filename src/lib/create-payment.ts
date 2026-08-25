@@ -10,6 +10,7 @@ import {
   PERSONAL_QUOTE_PASSENGER_LIMIT_ERROR,
 } from "../../shared/personal-quote";
 import { getPaymentBookingBlockers } from "../../shared/paid-booking-gate";
+import { readConsentedAdsAttribution } from "@/lib/ads-attribution";
 
 export type PaymentCheckoutRequest = {
   amount: number;
@@ -75,6 +76,13 @@ export type PaymentConfirmationResult = {
   amendmentTopUp?: boolean;
   bookingPaymentReference?: string;
   manageBookingPath?: string;
+  /** Server-authored only after SumUp reports the checkout paid. */
+  purchase?: {
+    transactionId: string;
+    bookingReference: string;
+    value: number;
+    currency: string;
+  };
   booking?: {
     paymentReference: string;
     customerReference?: string;
@@ -135,6 +143,11 @@ export async function createPaymentCheckout(
     }
   }
 
+  const attribution = readConsentedAdsAttribution();
+  const booking = request.booking
+    ? { ...request.booking, ...(attribution ? { attribution } : {}) }
+    : undefined;
+
   const response = await fetch(PAYMENTS_API_URL, {
     method: "POST",
     headers: {
@@ -146,7 +159,7 @@ export async function createPaymentCheckout(
       description: request.description,
       checkoutReference: request.checkoutReference,
       redirectUrl: request.redirectUrl ?? buildPaymentRedirectUrl(),
-      ...(request.booking ? { booking: request.booking } : {}),
+      ...(booking ? { booking } : {}),
       ...(request.shortNoticeToken ? { shortNoticeToken: request.shortNoticeToken } : {}),
       ...(request.personalQuoteCode ? { personalQuoteCode: request.personalQuoteCode } : {}),
       ...(request.quickQuoteId ? { quickQuoteId: request.quickQuoteId } : {}),

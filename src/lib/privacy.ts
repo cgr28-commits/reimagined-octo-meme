@@ -121,7 +121,7 @@ export const PRIVACY_SECTIONS = [
     title: "Cookies",
     content: [
       "This website uses essential browser storage to remember payment return state during checkout and to store your cookie preference.",
-      "Optional Google Ads cookies are used only if you choose “Accept measurement cookies” on our consent banner. When accepted, we load the Google tag sitewide with Google Consent Mode so Google Ads may measure both successful quote requests and completed paid bookings, subject to that consent choice.",
+      "Optional Google Ads cookies are used only if you choose “Accept measurement cookies” on our consent banner. When accepted, we load the Google tag sitewide with Google Consent Mode so Google may measure fixed-price quotes, saved booking requests and completed paid bookings, subject to that consent choice.",
       "The Google tag may set Google cookies used for conversion measurement. It is not used for general site analytics browsing tracking.",
       "With your consent, we may also send securely hashed booking contact details (such as email or phone) to Google as enhanced conversions to improve measurement accuracy. These details are hashed in the browser before they are sent.",
       "You can change your mind later by clearing site data for this website in your browser settings; the consent banner will appear again if no preference is stored.",

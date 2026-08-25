@@ -4,6 +4,10 @@ import {
 } from "../shared/passenger-limits";
 import { getPaymentBookingBlockers } from "../shared/paid-booking-gate";
 import {
+  formatAdsAttributionForOwner,
+  sanitizeAdsAttribution,
+} from "../shared/ads-attribution";
+import {
   buildQuoteLeadMessage,
   buildQuoteLeadSubject,
   type QuoteLeadDetails,
@@ -660,11 +664,16 @@ async function sendBookingEmail(
   customerName: string,
   message: string,
   bookingReference: string | null,
+  attribution?: unknown,
 ): Promise<void> {
   const toEmail = ownerInbox(env);
-  const body = bookingReference
+  const referencedBody = bookingReference
     ? prependBookingReference(message, bookingReference)
     : message;
+  const attributionLines = formatAdsAttributionForOwner(attribution);
+  const body = attributionLines.length > 0
+    ? `${referencedBody}\n\nATTRIBUTION\n${"=".repeat(40)}\n${attributionLines.join("\n")}`
+    : referencedBody;
   const subject = bookingReference
     ? `New booking ${bookingReference} — ${customerName}`
     : `New booking — ${customerName}`;
@@ -829,6 +838,7 @@ function parsePaidBookingDetails(body: Record<string, unknown>): PaidBookingDeta
     marketingOptIn: details.marketingOptIn === true ? true : undefined,
     marketingOptInAt: String(details.marketingOptInAt ?? "").trim() || undefined,
     marketingConsentVersion: String(details.marketingConsentVersion ?? "").trim() || undefined,
+    attribution: sanitizeAdsAttribution(details.attribution),
   };
 
   // Hard gate — incomplete bookings must never open SumUp.
@@ -1055,31 +1065,9 @@ async function handleBookingRequest(
     console.error("Booking reference allocation failed", error);
   }
 
-  let emailSent = false;
-
-  if (shouldSendEmail) {
-    try {
-      await sendBookingEmail(env, customerName, message, bookingReference);
-      emailSent = true;
-    } catch (error) {
-      // Keep 502 so the live site falls through to browser FormSubmit/Web3Forms
-      // (customer IP), which is how email kept working when the worker path failed.
-      console.error("Booking email failed", error);
-      const detail = error instanceof Error ? error.message : "Unknown email error";
-      return json(
-        {
-          error: "Failed to send booking email",
-          detail,
-          web3formsConfigured: Boolean(env.WEB3FORMS_ACCESS_KEY?.trim()),
-        },
-        502,
-        origin,
-      );
-    }
-  }
-
   // Calendar is created only after the owner marks the booking as paid.
   let bookingJobId: string | undefined;
+  let bookingSaved = false;
   if (
     bookingReference &&
     body.booking &&
@@ -1102,8 +1090,39 @@ async function handleBookingRequest(
         message,
       });
       bookingJobId = job?.id;
+      bookingSaved = Boolean(job?.id);
     } catch (error) {
       console.error("Failed to create booking job", error);
+    }
+  }
+
+  let emailSent = false;
+  if (shouldSendEmail) {
+    try {
+      await sendBookingEmail(
+        env,
+        customerName,
+        message,
+        bookingReference,
+        body.booking?.attribution,
+      );
+      emailSent = true;
+    } catch (error) {
+      // A persisted request is still accepted: tell the browser to use its email
+      // fallback without encouraging a second database submission.
+      console.error("Booking email failed", error);
+      if (!bookingSaved) {
+        const detail = error instanceof Error ? error.message : "Unknown email error";
+        return json(
+          {
+            error: "Failed to save and email booking",
+            detail,
+            web3formsConfigured: Boolean(env.WEB3FORMS_ACCESS_KEY?.trim()),
+          },
+          502,
+          origin,
+        );
+      }
     }
   }
 
@@ -1123,6 +1142,7 @@ async function handleBookingRequest(
       ok: true,
       bookingReference: bookingReference ?? undefined,
       bookingJobId,
+      bookingSaved,
       emailSent,
       calendarLogged: false,
       calendarEvents: 0,
@@ -2128,6 +2148,7 @@ async function handlePaymentConfirmRequest(
         trackingCreated: result.trackingCreated,
         ...(result.trackUrl ? { trackUrl: result.trackUrl } : {}),
         ...(result.alreadyFinalized ? { alreadyFinalized: true } : {}),
+        ...(result.purchase ? { purchase: result.purchase } : {}),
         ...(result.amendmentTopUp
           ? {
               amendmentTopUp: true,

@@ -78,7 +78,31 @@ export type FinalizePaidCheckoutResult = {
   bookingPaymentReference?: string;
   manageBookingPath?: string;
   amendmentBooking?: FinalizeAmendmentTopUpResult["booking"];
+  /** Safe measurement payload authored only after SumUp PAID verification. */
+  purchase?: {
+    transactionId: string;
+    bookingReference: string;
+    value: number;
+    currency: string;
+  };
 };
+
+function verifiedPurchase(input: {
+  paymentReference: string;
+  customerReference?: string;
+  amount: number;
+  currency?: string;
+}): NonNullable<FinalizePaidCheckoutResult["purchase"]> | undefined {
+  const paymentReference = input.paymentReference.trim();
+  const bookingReference = input.customerReference?.trim() || paymentReference;
+  if (!bookingReference || !Number.isFinite(input.amount) || input.amount <= 0) return undefined;
+  return {
+    transactionId: bookingReference,
+    bookingReference,
+    value: Math.round(input.amount * 100) / 100,
+    currency: input.currency?.trim().toUpperCase() || "GBP",
+  };
+}
 
 function ownerInbox(env: FinalizeEnv): string {
   return env.BOOKING_TO_EMAIL?.trim() || "bookings@myairporttaxini.co.uk";
@@ -146,6 +170,12 @@ export async function finalizePaidCheckout(input: {
           calendarLogged: (existing.calendarEventIds?.length ?? 0) > 0,
           calendarEvents: existing.calendarEventIds?.length ?? 0,
           trackingCreated: Boolean(existing.trackingToken),
+          purchase: verifiedPurchase({
+            paymentReference: existing.paymentReference,
+            customerReference: existing.customerReference,
+            amount: existing.amount,
+            currency: existing.currency,
+          }),
         };
       }
     }
@@ -166,6 +196,11 @@ export async function finalizePaidCheckout(input: {
         calendarLogged: false,
         calendarEvents: 0,
         trackingCreated: false,
+        purchase: verifiedPurchase({
+          paymentReference: pending.paymentReference,
+          amount: pending.amount,
+          currency: "GBP",
+        }),
       };
     }
   }
@@ -446,6 +481,12 @@ export async function finalizePaidCheckout(input: {
     ...(calendar.error ? { calendarWarning: calendar.error } : {}),
     trackingCreated: tracking.created,
     ...(tracking.trackUrl ? { trackUrl: tracking.trackUrl } : {}),
+    purchase: verifiedPurchase({
+      paymentReference,
+      customerReference,
+      amount: checkout.amount ?? 0,
+      currency: checkout.currency,
+    }),
   };
 }
 

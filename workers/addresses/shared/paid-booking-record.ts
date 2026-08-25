@@ -1,5 +1,6 @@
 import type { RefundAuditEntry, PaidBookingMoneyStatus } from "./refund-ops";
 import type { DateTimeAmendmentAuditEntry } from "./booking-amendment";
+import type { AdsAttribution } from "./ads-attribution";
 
 export type PaidBookingStatus = PaidBookingMoneyStatus;
 
@@ -164,6 +165,8 @@ export type PaidBookingRecord = {
   termsVersion?: string;
   /** Cancellation / checkout policy version shown beside Terms acceptance. */
   cancellationPolicyVersion?: string;
+  /** Consented campaign attribution retained for owner reporting. */
+  attribution?: AdsAttribution;
   trackingToken?: string;
   calendarEventIds: string[];
   /**

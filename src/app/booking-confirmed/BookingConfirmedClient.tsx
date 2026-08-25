@@ -8,7 +8,6 @@ import { SITE } from "@/lib/data";
 import {
   finalizePaidBookingFromUrl,
   isPaymentReturnSearch,
-  parseAmountValue,
   type FinalizePaidBookingResult,
 } from "@/lib/finalize-paid-booking";
 import { readPendingPayment } from "@/lib/pending-payment";
@@ -22,6 +21,9 @@ export default function BookingConfirmedClient() {
   const [paymentReference, setPaymentReference] = useState<string | undefined>();
   const [customerReference, setCustomerReference] = useState<string | undefined>();
   const [transactionId, setTransactionId] = useState<string | undefined>();
+  const [purchaseValue, setPurchaseValue] = useState<number | undefined>();
+  const [purchaseCurrency, setPurchaseCurrency] = useState("GBP");
+  const [purchaseBookingReference, setPurchaseBookingReference] = useState<string | undefined>();
   const [fireConversion, setFireConversion] = useState(false);
   const [customerEmail, setCustomerEmail] = useState<string | undefined>();
   const [customerPhone, setCustomerPhone] = useState<string | undefined>();
@@ -41,7 +43,7 @@ export default function BookingConfirmedClient() {
       Boolean(params.get("checkoutId"));
 
     // Clean tracking params from the address bar after first load, keep stable /booking-confirmed/
-    if (hasPaymentReturn || params.get("paid") === "1") {
+    if (hasPaymentReturn) {
       window.history.replaceState(null, "", "/booking-confirmed/");
     }
 
@@ -54,29 +56,6 @@ export default function BookingConfirmedClient() {
     let cancelled = false;
 
     void (async () => {
-      // Arrival from owner-approved SumUp flow (/booking-payment → here after pay).
-      // That path only redirects with paid=1 after server-side confirmation.
-      if (params.get("paid") === "1") {
-        if (!cancelled) {
-          const amount = params.get("amount")?.trim() || undefined;
-          const ref = params.get("ref")?.trim() || undefined;
-          setAmountPaid(amount);
-          setPaymentReference(ref);
-          setCustomerReference(undefined);
-          setTransactionId(ref);
-          setStatus("confirmed");
-          setSummary(
-            amount
-              ? `Payment of ${amount} received. Your booking is confirmed — we’ve emailed your confirmation.`
-              : "Thank you — your booking payment is complete. We’ve emailed your confirmation.",
-          );
-          if (ref) {
-            setFireConversion(true);
-          }
-        }
-        return;
-      }
-
       // Direct visits must NOT show a fake booking success. Ads destination
       // goals can still use this URL; the event tag only fires after confirm.
       if (!hasPaymentReturn) {
@@ -96,14 +75,13 @@ export default function BookingConfirmedClient() {
       setAmountPaid(result.amountPaid);
       setPaymentReference(result.paymentReference);
       setCustomerReference(result.customerReference || result.result?.customerReference);
-      const orderId =
-        result.customerReference?.trim() ||
-        result.result?.customerReference?.trim() ||
-        result.paymentReference?.trim() ||
-        result.checkoutId?.trim();
-      setTransactionId(orderId);
+      const purchase = result.result?.purchase;
+      setTransactionId(purchase?.transactionId);
+      setPurchaseValue(purchase?.value);
+      setPurchaseCurrency(purchase?.currency || "GBP");
+      setPurchaseBookingReference(purchase?.bookingReference);
       setStatus(result.status === "confirmed" ? "confirmed" : result.status);
-      if (result.status === "confirmed" && orderId) {
+      if (result.status === "confirmed" && purchase) {
         setFireConversion(true);
       }
     })();
@@ -113,14 +91,14 @@ export default function BookingConfirmedClient() {
     };
   }, []);
 
-  const conversionValue = parseAmountValue(amountPaid);
-
   return (
     <>
       <GoogleAdsConversion
         fire={fireConversion}
-        value={conversionValue}
+        value={purchaseValue}
+        currency={purchaseCurrency}
         transactionId={transactionId}
+        bookingReference={purchaseBookingReference}
         userData={{
           email: customerEmail,
           phone: customerPhone,
