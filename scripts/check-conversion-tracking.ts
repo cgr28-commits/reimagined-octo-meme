@@ -84,6 +84,15 @@ assert.equal(
   true,
 );
 assert.equal(countEvent(ADS_EVENT_QUOTE_GENERATED), 1, "rerender must not duplicate quote");
+assert.equal(
+  gtagCalls.filter(
+    (call) =>
+      call[0] === "event" &&
+      call[1] === "conversion",
+  ).length,
+  0,
+  "quote_generated is the sole Request quote delivery path",
+);
 const quote = dataLayer.find(
   (item) => item && typeof item === "object" && (item as { event?: string }).event === ADS_EVENT_QUOTE_GENERATED,
 ) as Record<string, unknown>;

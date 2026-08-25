@@ -224,7 +224,7 @@ function main() {
     );
   });
 
-  check("Successful priced quote fires one conversion with quote_generated", () => {
+  check("Successful priced quote emits one Request quote trigger after rerenders", () => {
     resetRequestQuoteConversion();
     mocks.gtagCalls.length = 0;
     mocks.dataLayer.length = 0;
@@ -241,15 +241,36 @@ function main() {
       currency: "GBP",
       pageType: "emerge_belfast",
     });
+    const rerender = trackRequestQuoteConversion({
+      transactionId: "TEST-VALID-1",
+      value: 45,
+      currency: "GBP",
+      pageType: "emerge_belfast",
+    });
     assert.equal(first, true);
     assert.equal(second, true);
+    assert.equal(rerender, true);
 
-    const conversionEvents = mocks.gtagCalls.filter(
+    const directConversionEvents = mocks.gtagCalls.filter(
       (call) => call[0] === "event" && call[1] === "conversion",
     );
-    assert.equal(conversionEvents.length, 1);
-    const payload = conversionEvents[0]?.[2] as {
-      send_to?: string;
+    assert.equal(
+      directConversionEvents.filter(
+        (call) =>
+          (call[2] as { send_to?: string } | undefined)?.send_to === expectedSendTo,
+      ).length,
+      0,
+      "quote_generated is already mapped to Request quote; do not send a direct duplicate",
+    );
+
+    const quoteGeneratedEvents = mocks.dataLayer.filter(
+      (entry) =>
+        entry &&
+        typeof entry === "object" &&
+        (entry as { event?: string }).event === ADS_EVENT_QUOTE_GENERATED,
+    );
+    assert.equal(quoteGeneratedEvents.length, 1);
+    const payload = quoteGeneratedEvents[0] as {
       value?: number;
       currency?: string;
       transaction_id?: string;
@@ -257,7 +278,6 @@ function main() {
       email?: string;
       phone?: string;
     };
-    assert.equal(payload.send_to, "AW-18303631278/_hcXCPSz7cscEK7_7JdE");
     assert.equal(payload.value, 45);
     assert.equal(payload.currency, "GBP");
     assert.equal(payload.transaction_id, "TEST-VALID-1");
@@ -265,18 +285,18 @@ function main() {
     assert.equal(payload.email, undefined);
     assert.equal(payload.phone, undefined);
 
-    assert.ok(
-      mocks.dataLayer.some(
-        (entry) =>
-          entry &&
-          typeof entry === "object" &&
-          (entry as { event?: string }).event === "quote_generated",
-      ),
-    );
+    const modeledRequestQuoteHits =
+      quoteGeneratedEvents.length +
+      directConversionEvents.filter(
+        (call) =>
+          (call[2] as { send_to?: string } | undefined)?.send_to === expectedSendTo,
+      ).length;
+    assert.equal(modeledRequestQuoteHits, 1, "one quote calculation must yield one Ads hit");
   });
 
-  check("Repeated clicks / reset: one conversion per successful interaction", () => {
+  check("A genuinely new quote ID emits one new Request quote trigger", () => {
     mocks.gtagCalls.length = 0;
+    mocks.dataLayer.length = 0;
     resetRequestQuoteConversion();
     mocks.acceptConsent();
     assert.equal(
@@ -288,8 +308,22 @@ function main() {
       true,
     );
     assert.equal(
-      mocks.gtagCalls.filter((call) => call[0] === "event" && call[1] === "conversion").length,
+      mocks.dataLayer.filter(
+        (entry) =>
+          entry &&
+          typeof entry === "object" &&
+          (entry as { event?: string }).event === ADS_EVENT_QUOTE_GENERATED,
+      ).length,
       1,
+    );
+    assert.equal(
+      mocks.gtagCalls.filter(
+        (call) =>
+          call[0] === "event" &&
+          call[1] === "conversion" &&
+          (call[2] as { send_to?: string } | undefined)?.send_to === expectedSendTo,
+      ).length,
+      0,
     );
   });
 

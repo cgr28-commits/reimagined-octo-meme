@@ -148,6 +148,12 @@ function markFired(storageKey: string, kind: DedupeStorage): void {
 
 function fireTrackedEvent(options: {
   sendTo: string;
+  /**
+   * Send a labelled Google Ads conversion directly as well as emitting the
+   * named dataLayer event. Disable this when the named event is already wired
+   * to the same Ads destination in Google tag / GTM.
+   */
+  directAds?: boolean;
   eventName: string;
   params: Record<string, unknown>;
   dedupeKey: string;
@@ -162,7 +168,7 @@ function fireTrackedEvent(options: {
 
   // Direct Ads conversion is optional. Named events are emitted exactly once to
   // dataLayer for GTM/GA4 even when a verified Ads label has not been configured.
-  if (options.sendTo && typeof window.gtag === "function") {
+  if (options.directAds !== false && options.sendTo && typeof window.gtag === "function") {
     window.gtag("event", "conversion", {
       ...options.params,
       send_to: options.sendTo,
@@ -230,6 +236,9 @@ export function trackRequestQuoteConversion(options: AdsConversionPayload = {}):
 
   return fireTrackedEvent({
     sendTo: config.quoteSendTo,
+    // Production Google tag already maps quote_generated to the Request quote
+    // destination. A second direct `conversion` send_to duplicates the hit.
+    directAds: false,
     eventName: ADS_EVENT_QUOTE_GENERATED,
     params: shared,
     dedupeKey,
