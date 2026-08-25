@@ -6,7 +6,6 @@ import {
   DRIVER_TRACKING_HIGHLIGHTS,
   FAQS,
   MAX_ONLINE_PASSENGERS,
-  MINIBUS_PARTNER_NOTE,
   SERVICE_FLAGS,
   SITE,
   VEHICLE_BOOKING_GUIDANCE,
@@ -228,7 +227,7 @@ function knowledgeChunks(): Array<{ title: string; body: string }> {
     {
       title: "How booking works",
       body:
-        "Standard process: (1) Get a Live Quote on the website or in this chat for your fixed journey price. (2) When an instant fare is shown, you can pay online with SumUp to confirm. Otherwise Request to book / enquire with your date, time, and contact details — we confirm the job and email a SumUp payment link; booking is confirmed after payment. Online quotes cover 1–7 passengers. For 5–7 passengers we arrange a suitable minibus (Minibus — 5–7 passengers) via licensed transport partners (tailored quote, subject to availability). We do not offer journeys for more than 7 passengers.",
+        "Standard process: (1) Get a Live Quote on the website or in this chat for your fixed journey price. (2) When an instant fare is shown, you can pay online with SumUp to confirm. Otherwise Request to book / enquire with your date, time, and contact details — we confirm the job and email a SumUp payment link; booking is confirmed after payment. Online quotes cover 1–4 passengers only (Saloon or Estate). My Airport Taxi NI provides private airport transfers for up to 4 passengers.",
     },
     {
       title: "Quote tool flow",
@@ -252,8 +251,9 @@ function knowledgeChunks(): Array<{ title: string; body: string }> {
       body: VEHICLE_BOOKING_GUIDANCE.join(" "),
     },
     {
-      title: "Minibus partners",
-      body: MINIBUS_PARTNER_NOTE,
+      title: "Passenger capacity",
+      body:
+        "My Airport Taxi NI provides private airport transfers for up to 4 passengers. Online quotes and bookings are for 1–4 passengers in a Saloon or Estate car. We do not offer public online quotes for larger groups.",
     },
     {
       title: "Operator and business details",
@@ -409,7 +409,7 @@ function matchKnowledge(text: string): string | null {
     if (/child.?seat|booster|baby seat|car seat/.test(lower) && /child|booster|seat/.test(haystack)) score += 5;
     if (/parking|park at (the )?airport/.test(lower) && /parking|airport/.test(haystack)) score += 5;
     if (/cash|pay (by |with )?cash|card or cash/.test(lower) && /cash|pay|card|sumup|payment/.test(haystack)) score += 5;
-    if (/vehicle|minibus|estate|saloon|executive|fleet|partner/.test(lower) && /vehicle|fleet|saloon|estate|minibus|partner/.test(haystack)) score += 3;
+    if (/vehicle|estate|saloon|executive|fleet/.test(lower) && /vehicle|fleet|saloon|estate/.test(haystack)) score += 3;
     if (/book|confirm|payment|sumup|pay/.test(lower) && /book|confirm|payment|sumup|pay/.test(haystack)) score += 3;
     if (/privacy|data|gdpr|marketing email|cookie|google places|google ads/.test(lower) && /privacy|data|marketing|personal|cookie|places|ads/.test(haystack)) score += 5;
     if (/track|driver location|live track/.test(lower) && /track|driver|location/.test(haystack)) score += 4;
@@ -430,7 +430,7 @@ function matchKnowledge(text: string): string | null {
     ) {
       score += 4;
     }
-    if (/partner|subcontract|psv|minibus|5.?7|five|group/.test(lower) && /partner|minibus|5–7|group/.test(haystack)) {
+    if (/capacity|passengers?|how many|up to 4|1.?4/.test(lower) && /passenger|capacity|1–4|up to 4|saloon|estate/.test(haystack)) {
       score += 4;
     }
     if (
@@ -646,9 +646,6 @@ function vehicleSuggestionNote(
   if (explicit) {
     return `Vehicle: ${short}.`;
   }
-  if (vehicle.startsWith("Minibus")) {
-    return `I’ve suggested a ${short} for ${passengers} passengers / ${suitcases} cases (arranged via a licensed transport partner).`;
-  }
   if (vehicle.startsWith("Estate")) {
     return `I’ve suggested an ${short} — better boot space for ${suitcases} cases.`;
   }
@@ -689,7 +686,7 @@ function extractBareCount(text: string): number | undefined {
   const match = text.trim().match(/^(\d+)$/);
   if (!match) return undefined;
   const value = Number(match[1]);
-  // Bare numbers may be passengers (1–7) or suitcases (0–16). Cap at 16 for suitcases;
+  // Bare numbers may be passengers (1–4) or suitcases (0–16). Cap at 16 for suitcases;
   // passenger extraction elsewhere uses MAX_ONLINE_PASSENGERS.
   if (!Number.isFinite(value) || value < 0 || value > 16) return undefined;
   return value;
@@ -701,7 +698,6 @@ function pickVehicle(passengers: number, suitcases: number): (typeof VEHICLE_TYP
 
 function matchExplicitVehicle(text: string): (typeof VEHICLE_TYPES)[number] | undefined {
   const lower = text.toLowerCase();
-  if (/\bminibus\b/.test(lower)) return "Minibus (5–7 passengers)";
   if (/\bexecutive\b/.test(lower)) return "Executive Saloon (1–4 passengers)";
   if (/\bestate\b/.test(lower)) return "Estate Car (1–4 passengers)";
   if (/\bsaloon\b/.test(lower)) return "Standard Saloon (1–4 passengers)";
@@ -1052,16 +1048,13 @@ function promptForField(field: MissingField, draft: QuoteDraft): AssistantRespon
       };
     case "passengers":
       return {
-        reply: "How many passengers?",
+        reply: "How many passengers? (Up to 4.)",
         draft,
         quickReplies: [
           "1 passenger",
           "2 passengers",
           "3 passengers",
           "4 passengers",
-          "5 passengers",
-          "6 passengers",
-          "7 passengers",
         ],
       };
     case "suitcases":
@@ -1664,8 +1657,7 @@ function tryBuildQuote(
       enquiryOnly: true,
       quoteCard,
       text:
-        `${vehicleNote} Guide price ${formatQuote(quote.amount)} for ${airportName} — subject to partner availability. ` +
-        `${MINIBUS_PARTNER_NOTE}${capacityNote}\n\n` +
+        `${vehicleNote} Guide price ${formatQuote(quote.amount)} for ${airportName}. ` +
         `This is not an instant confirmation. Would you like to request this quote (I can take date, time and your details here)?`,
     };
   }
@@ -1950,9 +1942,6 @@ export async function respondToAssistantMessage(
         "2 passengers",
         "3 passengers",
         "4 passengers",
-        "5 passengers",
-        "6 passengers",
-        "7 passengers",
       ],
     };
   }

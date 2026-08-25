@@ -131,7 +131,7 @@ export function buildBookingMessage(details: BookingDetails, bookingReference?: 
   return `Hi, I would like to book the following.\n\n` + buildTripDetailsBlock(details, bookingReference);
 }
 
-/** Executive / Minibus enquiry — no online price; ask the team to quote and confirm. */
+/** Executive / enquiry-only booking — no online price; ask the team to quote and confirm. */
 export function buildEnquiryBookingMessage(
   details: BookingDetails,
   bookingReference?: string,
@@ -144,8 +144,8 @@ export function buildEnquiryBookingMessage(
 }
 
 /**
- * Business-facing 5–7 / minibus quote request.
- * Scannable on mobile — no invented price, no false "fee included" claims.
+ * Legacy group/minibus quote helper — public site is 1–4 only.
+ * Kept for callers; messaging states the capacity limit rather than advertising 5–7.
  */
 export function buildGroupQuoteRequestMessage(
   details: BookingDetails,
@@ -157,7 +157,7 @@ export function buildGroupQuoteRequestMessage(
     : "Non-airport pickup waiting policy: up to 10 minutes complimentary waiting time from the agreed pickup time.";
 
   return (
-    `5–7 PASSENGER / MINIBUS QUOTE REQUEST\n` +
+    `CAPACITY ENQUIRY (PUBLIC SITE MAX 4 PASSENGERS)\n` +
     `${"=".repeat(36)}\n` +
     (reference ? `Reference: ${reference}\n` : "") +
     `Passengers: ${details.passengers}\n` +
@@ -179,14 +179,14 @@ export function buildGroupQuoteRequestMessage(
     `Mobile: ${details.mobileNumber}\n` +
     `Email: ${details.customerEmail}\n` +
     `\n${waitingNote}\n` +
-    `Note: Tailored quote will list only journey-specific inclusions (express airport fees where relevant; Dublin tolls only where they apply).\n` +
+    `Note: Public website quotes and bookings are for up to 4 passengers (Saloon / Estate) only.\n` +
     `Submitted: ${formatUkSubmissionTime()}\n` +
     `\n--- Customer copy ---\n` +
-    `Quote Request Received\n\n` +
+    `Enquiry Received\n\n` +
     `Dear ${details.customerName},\n\n` +
-    `Thank you — we’ve received your journey details for a minibus transfer (${details.passengers} passengers).\n` +
-    `This is a quote request only. A tailored fixed price will be provided shortly. ` +
-    `Nothing is confirmed until you accept the quote.\n\n` +
+    `Thank you — we’ve received your enquiry (${details.passengers} passengers).\n` +
+    `My Airport Taxi NI provides private airport transfers for up to 4 passengers. ` +
+    `If your party is larger than 4, please contact us and we can advise on options.\n\n` +
     `Pickup: ${details.pickupLabel}\n` +
     `Destination: ${details.dropoffLabel}\n` +
     `Passengers: ${details.passengers}\n` +

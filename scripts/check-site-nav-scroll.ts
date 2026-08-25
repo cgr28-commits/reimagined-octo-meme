@@ -38,7 +38,7 @@ check("Canonical destinations map covers acceptance matrix", () => {
     ["Airports", "/#airports", "Airports We Serve"],
     ["Long-Distance Transfers", "/long-distance-transfers/", "Private Long-Distance Transfers from Anywhere in Greater Belfast"],
     ["Locations", "/locations/", "Where we travel"],
-    ["Vehicles", "/#vehicles", "Choose by passenger count"],
+    ["Vehicles", "/#vehicles", "Private transfers for up to 4"],
     ["Check Flights", "/#flight-status", "Check Your Flight"],
     ["Areas We Cover", "/#areas", "Areas We Cover"],
     ["Why Us", "/#why-us", "Why Choose Us"],

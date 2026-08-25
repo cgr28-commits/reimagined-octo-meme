@@ -12,9 +12,9 @@ export default function VehiclesSection() {
       <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:max-w-[1400px] lg:px-10 xl:px-12">
         <SectionHeading
           eyebrow="Your journey"
-          title="Choose by passenger count"
+          title="Private transfers for up to 4"
           navId="vehicles"
-          description="The quote tool matches the right vehicle for your group. You don’t need to pick a fleet category first."
+          description="Professional private airport transfer in a Saloon or Estate — the quote tool picks the right car from your passengers and luggage."
         />
 
         <div className="mt-12 grid items-center gap-10 lg:mt-16 lg:grid-cols-2 lg:gap-16">
@@ -33,24 +33,12 @@ export default function VehiclesSection() {
           <div className="space-y-5">
             <div className="rounded-2xl border border-emerald/30 bg-emerald/10 px-5 py-5">
               <p className="text-xs font-semibold uppercase tracking-wider text-emerald">
-                1–4 passengers
+                Up to 4 passengers
               </p>
-              <p className="mt-1 text-xl font-bold text-white">Instant Fixed Quote</p>
+              <p className="mt-1 text-xl font-bold text-white">Saloon &amp; Estate</p>
               <p className="mt-2 text-sm leading-relaxed text-white/70">
                 Instant quote where eligible. Standard or estate car selected automatically from your
                 passengers and luggage. Pay securely online where an instant fare is shown.
-              </p>
-            </div>
-
-            <div className="rounded-2xl border border-white/15 bg-white/[0.03] px-5 py-5">
-              <p className="text-xs font-semibold uppercase tracking-wider text-white/55">
-                Minibus — 5–7 passengers
-              </p>
-              <p className="mt-1 text-xl font-bold text-white">Fixed online fare</p>
-              <p className="mt-2 text-sm leading-relaxed text-white/70">
-                For groups of 5–7 passengers, we provide a fixed Minibus fare online using our
-                existing minibus pricing. Pay securely to confirm. We do not offer journeys for more
-                than 7 passengers.
               </p>
             </div>
 

@@ -6,7 +6,7 @@ import QuoteProgressiveRoute from "@/components/QuoteProgressiveRoute";
 import BookingTermsConsent from "@/components/BookingTermsConsent";
 import MarketingOptIn from "@/components/MarketingOptIn";
 import TripMap from "@/components/TripMap";
-import { buildBookingMessage, buildEnquiryBookingMessage, buildGroupQuoteRequestMessage, isValidEmailAddress, isValidMobileNumber, type BookingDetails } from "@/lib/booking-message";
+import { buildBookingMessage, buildEnquiryBookingMessage, isValidEmailAddress, isValidMobileNumber, type BookingDetails } from "@/lib/booking-message";
 import { buildMarketingOptInFields, recordMarketingOptIn } from "@/lib/marketing-api";
 import { TERMS_LAST_UPDATED } from "@/lib/terms";
 import { CANCELLATION_POLICY_VERSION } from "../../shared/refund-ops";
@@ -18,14 +18,12 @@ import {
   schedulePreciseResultsScroll,
   type QuoteStepNavTarget,
 } from "@/lib/quote-step-nav-scroll";
-import { whatsAppChatUrl } from "@/lib/contact-card";
 import {
   AIRPORTS,
   isInstantPayVehicle,
   isVehicleEnquiryOnly,
   isVehicleRequestQuote,
   MAX_ONLINE_PASSENGERS,
-  MINIBUS_PARTNER_NOTE,
   needsLuggageCapacityConfirmation,
   SERVICE_FLAGS,
   showsOnlineGuidePrice,
@@ -33,14 +31,16 @@ import {
   VEHICLE_TYPES,
 } from "@/lib/data";
 import {
-  FIVE_PLUS_PASSENGERS,
-  FIVE_PLUS_SUITCASES,
   formatPassengerChoice,
   formatSuitcaseChoice,
-  requiresMinibus,
+  MAX_PUBLIC_SUITCASES,
   selectVehicleForParty,
   vehicleShortLabel,
 } from "@/lib/vehicle-selection";
+import {
+  clampPassengerCount,
+  PASSENGER_LIMIT_ERROR,
+} from "../../shared/passenger-limits";
 import { parseLondonLocalDateTime } from "@/lib/london-time";
 import { formatUkDate, formatUkTime, todayLondonDate, nowLondonTime } from "@/lib/format-datetime";
 import { BOOKING_FLIGHT_NUMBER_HELPER, resolveJourneyInclusions } from "@/lib/journey-inclusions";
@@ -170,52 +170,49 @@ const BOOKING_HELPER_CLASS = "quote-helper-text mt-1.5 text-xs text-white/55";
 
 const ESTATE = "Estate Car (1–4 passengers)" as const;
 
-/** Instant online booking covers Saloon, Estate, and Minibus (existing pricing). */
-/** Quote form “5–7” tap uses sentinel value 5. */
-const SELECTOR_MAX_PASSENGERS = FIVE_PLUS_PASSENGERS;
-const SELECTOR_MAX_SUITCASES = FIVE_PLUS_SUITCASES;
-
-const CAPACITY_WHATSAPP_MESSAGE =
-  "Hi, I need help with a minibus booking (5–7 passengers or extra luggage).";
+/** Public online booking: Saloon / Estate only (1–4 passengers). */
+const SELECTOR_MAX_PASSENGERS = MAX_ONLINE_PASSENGERS;
+const SELECTOR_MAX_SUITCASES = MAX_PUBLIC_SUITCASES;
 
 type VehicleType = (typeof VEHICLE_TYPES)[number];
 
-/** Previously blocked 5–7 from online fares; Minibus is bookable online again. */
-function exceedsOnlineVehicleOptions(_passengers: number, _suitcases: number): boolean {
-  void _passengers;
-  void _suitcases;
-  return false;
+/** Public site never offers 5–7 / minibus online — always false after clamping. */
+function exceedsOnlineVehicleOptions(passengers: number, suitcases: number): boolean {
+  return passengers > MAX_ONLINE_PASSENGERS || suitcases > SELECTOR_MAX_SUITCASES;
 }
 
-/** True only when the customer has deliberately chosen both party fields. */
+/** True only when the customer has deliberately chosen both party fields (1–4 + bags). */
 function isPartySelectionComplete(
   passengers: number | null,
   suitcases: number | null,
-  exactPassengers: number | null,
 ): boolean {
   if (passengers == null || suitcases == null) return false;
-  if (passengers >= FIVE_PLUS_PASSENGERS) {
-    return (
-      exactPassengers != null &&
-      Number.isInteger(exactPassengers) &&
-      exactPassengers >= 5 &&
-      exactPassengers <= 7
-    );
-  }
-  return Number.isInteger(passengers) && passengers >= 1 && passengers <= 4 && suitcases >= 0;
+  return (
+    Number.isInteger(passengers) &&
+    passengers >= 1 &&
+    passengers <= MAX_ONLINE_PASSENGERS &&
+    Number.isInteger(suitcases) &&
+    suitcases >= 0 &&
+    suitcases <= SELECTOR_MAX_SUITCASES
+  );
 }
 
-function effectivePartyPassengers(
-  passengers: number | null,
-  exactPassengers: number | null,
-): number | null {
+function effectivePartyPassengers(passengers: number | null): number | null {
   if (passengers == null) return null;
-  if (passengers >= FIVE_PLUS_PASSENGERS) {
-    return exactPassengers != null && exactPassengers >= 5 && exactPassengers <= 7
-      ? exactPassengers
-      : null;
+  if (
+    !Number.isInteger(passengers) ||
+    passengers < 1 ||
+    passengers > MAX_ONLINE_PASSENGERS
+  ) {
+    return null;
   }
   return passengers;
+}
+
+function clampPublicSuitcases(value: unknown, fallback = 0): number {
+  const n = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(SELECTOR_MAX_SUITCASES, Math.max(0, Math.trunc(n)));
 }
 
 function getAutoVehicle(passengers: number, suitcases: number, _a2aPrimary = false): VehicleType {
@@ -560,7 +557,7 @@ function QuoteCard({
     passengers != null &&
     suitcases != null &&
     needsLuggageCapacityConfirmation(
-      effectivePartyPassengers(passengers, exactPassengers) ?? passengers,
+      effectivePartyPassengers(passengers) ?? passengers,
       suitcases,
     );
   const [capacityConfirmed, setCapacityConfirmed] = useState(false);
@@ -569,12 +566,12 @@ function QuoteCard({
   const [formResetKey, setFormResetKey] = useState(0);
 
   useEffect(() => {
-    const pax = effectivePartyPassengers(passengers, exactPassengers);
+    const pax = effectivePartyPassengers(passengers);
     if (pax == null || suitcases == null) {
       return;
     }
     setVehicle(getAutoVehicle(pax, suitcases, IS_A2A_PRIMARY));
-  }, [passengers, suitcases, exactPassengers]);
+  }, [passengers, suitcases]);
   const [capacityError, setCapacityError] = useState("");
 
   const isA2AFlow = IS_A2A_PRIMARY;
@@ -631,19 +628,15 @@ function QuoteCard({
       : "BFS";
 
   useEffect(() => {
-    // Instant online path is 1–4. Group / 5–7 uses exact passenger counts (max 7).
+    // Public online path is 1–4 only.
     if (passengers == null) return;
-    if (passengers >= FIVE_PLUS_PASSENGERS) {
-      if (passengers > MAX_ONLINE_PASSENGERS) {
-        setPassengers(MAX_ONLINE_PASSENGERS);
-        setExactPassengers(MAX_ONLINE_PASSENGERS);
-      }
-      return;
-    }
     if (passengers > passengerLimit) {
       setPassengers(passengerLimit);
     }
-  }, [passengerLimit, passengers]);
+    if (exactPassengers != null) {
+      setExactPassengers(null);
+    }
+  }, [passengerLimit, passengers, exactPassengers]);
 
   useEffect(() => {
     if (suitcases == null) return;
@@ -688,8 +681,9 @@ function QuoteCard({
       setPickupAddress(testBooking.pickupAddress);
       setTripDate(testBooking.tripDate);
       setTripTime(testBooking.tripTime);
-      setPassengers(testBooking.passengers);
-      setSuitcases(testBooking.suitcases);
+      setPassengers(clampPassengerCount(testBooking.passengers));
+      setSuitcases(clampPublicSuitcases(testBooking.suitcases));
+      setExactPassengers(null);
       setVehicle(testBooking.vehicle);
       setGoingFlightNumber(testBooking.flightNumber);
       return;
@@ -770,12 +764,12 @@ function QuoteCard({
       if (draft.returnDate) setReturnDate(draft.returnDate);
       if (draft.returnTime) setReturnTime(draft.returnTime);
       if (typeof draft.passengers === "number" && draft.passengers > 0) {
-        setPassengers(draft.passengers);
+        setPassengers(clampPassengerCount(draft.passengers));
       }
       if (typeof draft.suitcases === "number" && draft.suitcases >= 0) {
-        setSuitcases(draft.suitcases);
+        setSuitcases(clampPublicSuitcases(draft.suitcases));
       }
-      if (draft.exactPassengers != null) setExactPassengers(draft.exactPassengers);
+      setExactPassengers(null);
       if (
         draft.vehicle &&
         (VEHICLE_TYPES as readonly string[]).includes(String(draft.vehicle))
@@ -887,11 +881,12 @@ function QuoteCard({
       if (draft.returnDate) setReturnDate(draft.returnDate);
       if (draft.returnTime) setReturnTime(draft.returnTime);
       if (typeof draft.passengers === "number" && draft.passengers > 0) {
-        setPassengers(draft.passengers);
+        setPassengers(clampPassengerCount(draft.passengers));
       }
       if (typeof draft.suitcases === "number" && draft.suitcases >= 0) {
-        setSuitcases(draft.suitcases);
+        setSuitcases(clampPublicSuitcases(draft.suitcases));
       }
+      setExactPassengers(null);
       if (
         draft.vehicle &&
         (VEHICLE_TYPES as readonly string[]).includes(draft.vehicle)
@@ -950,8 +945,8 @@ function QuoteCard({
       (Boolean(returnDate && returnTime) &&
         isReturnAfterOutbound(tripDate, tripTime, returnDate, returnTime)));
 
-  const partySelectionReady = isPartySelectionComplete(passengers, suitcases, exactPassengers);
-  const effectivePassengers = effectivePartyPassengers(passengers, exactPassengers);
+  const partySelectionReady = isPartySelectionComplete(passengers, suitcases);
+  const effectivePassengers = effectivePartyPassengers(passengers);
   const quoteChoicesReady = journeyMode !== null && partySelectionReady;
 
   const hasCompatibleVehicle = quoteChoicesReady && Boolean(quoteVehicle);
@@ -1003,16 +998,12 @@ function QuoteCard({
         : isAddressPairComplete);
 
   // Fixed price only after route + deliberate journey mode, passengers AND suitcases.
+  // Public flow clamps to 1–4 / 0–4, so this stays false; kept as a hard guard.
   const exceedsOnlineCapacity =
     quoteChoicesReady &&
     effectivePassengers != null &&
     suitcases != null &&
     exceedsOnlineVehicleOptions(effectivePassengers, suitcases);
-  const isMinibusParty =
-    quoteChoicesReady &&
-    effectivePassengers != null &&
-    suitcases != null &&
-    requiresMinibus(effectivePassengers, suitcases);
   const canShowPrice = hasQuoteRoute && quoteChoicesReady && !exceedsOnlineCapacity;
 
   const tripDetailsReady = hasQuoteRoute && isScheduleComplete;
@@ -1189,7 +1180,7 @@ function QuoteCard({
     ? formatJourneyDuration(routeMetrics.durationMinutes)
     : "";
 
-  /** Pay online at quote time — saloon/estate/minibus when SumUp enabled. */
+  /** Pay online at quote time — saloon/estate when SumUp enabled. */
   const canPayNowOnline =
     SERVICE_FLAGS.customerSumUpPay &&
     isSumUpPaymentEnabled() &&
@@ -1663,9 +1654,7 @@ function QuoteCard({
   }
 
   function buildBookingDetails(): BookingDetails {
-    const tripLabel = exceedsOnlineCapacity
-      ? "Minibus — 5–7 passenger quote request"
-      : isOutOfAreaPickupJourney
+    const tripLabel = isOutOfAreaPickupJourney
       ? "Out-of-area pickup — manual quote request"
       : isRoiJourney
         ? "Republic of Ireland long-distance transfer"
@@ -1677,9 +1666,7 @@ function QuoteCard({
               : "Airport drop-off"
             : "Address to address";
 
-    const estimatedPrice = exceedsOnlineCapacity
-      ? null
-      : pricingConfirmationRequired
+    const estimatedPrice = pricingConfirmationRequired
       ? priceConfirmationLabel
       : liveQuote
       ? isRequestQuote
@@ -2247,12 +2234,8 @@ function QuoteCard({
     let reference = "";
     try {
       if (isEnquiryOnly || isManualQuoteJourney || pricingConfirmationRequired || exceedsOnlineCapacity) {
-        const enquiryMessage = exceedsOnlineCapacity
-          ? buildGroupQuoteRequestMessage(details)
-          : buildEnquiryBookingMessage(details);
-        const subject = exceedsOnlineCapacity
-          ? `5–7 PASSENGER / MINIBUS QUOTE REQUEST — ${details.customerName}`
-          : pricingConfirmationRequired
+        const enquiryMessage = buildEnquiryBookingMessage(details);
+        const subject = pricingConfirmationRequired
           ? `Price confirmation request — ${details.customerName}`
           : isOutOfAreaPickupJourney
           ? `Out-of-area pickup quote request — ${details.customerName}`
@@ -2311,11 +2294,9 @@ function QuoteCard({
 
     if (isMobile && delivery === "whatsapp") {
       openWhatsAppBookingMessage(
-        exceedsOnlineCapacity
-          ? buildGroupQuoteRequestMessage(details, reference)
-          : isEnquiryOnly
-            ? buildEnquiryBookingMessage(details, reference)
-            : buildBookingMessage(details, reference),
+        isEnquiryOnly || exceedsOnlineCapacity
+          ? buildEnquiryBookingMessage(details, reference)
+          : buildBookingMessage(details, reference),
       );
     }
   }
@@ -2364,19 +2345,20 @@ function QuoteCard({
         scheduleBookingNavAfterRender("passenger-luggage-section");
         return;
       }
-      if (passengers != null && passengers > MAX_ONLINE_PASSENGERS) {
-        setSubmitError("We can only quote for up to 7 passengers.");
+      if (
+        passengers != null &&
+        (passengers > MAX_ONLINE_PASSENGERS || passengers < 1)
+      ) {
+        setSubmitError(PASSENGER_LIMIT_ERROR);
         return;
       }
       if (
-        passengers != null &&
-        passengers >= FIVE_PLUS_PASSENGERS &&
-        (exactPassengers == null || exactPassengers < 5 || exactPassengers > 7)
+        suitcases != null &&
+        (suitcases < 0 || suitcases > SELECTOR_MAX_SUITCASES)
       ) {
-        setSubmitError("Please select 5, 6, or 7 passengers.");
+        setSubmitError("Please select 0–4 large suitcases.");
         return;
       }
-      // 5–7 continues into the tailored quote request path (no invented price).
       if (!exceedsOnlineCapacity && !isEnquiryOnly && !isManualQuoteJourney && !pricingConfirmationRequired && !liveQuote) {
         return;
       }
@@ -2515,9 +2497,7 @@ function QuoteCard({
       ? "Sending enquiry…"
       : "Sending booking…";
 
-  const confirmButtonLabel = exceedsOnlineCapacity
-    ? "Request Minibus Quote"
-    : showsRequestQuoteFlow
+  const confirmButtonLabel = showsRequestQuoteFlow
     ? pricingConfirmationRequired || isManualQuoteJourney
       ? "Request Fixed Quote"
       : liveQuote
@@ -2529,9 +2509,7 @@ function QuoteCard({
         ? `Confirm & book for ${formatQuote(liveQuote.amount)}`
         : "Confirm & book";
 
-  const whatsAppConfirmLabel = exceedsOnlineCapacity
-    ? "Request Minibus Quote via WhatsApp"
-    : showsRequestQuoteFlow
+  const whatsAppConfirmLabel = showsRequestQuoteFlow
     ? pricingConfirmationRequired || isManualQuoteJourney
       ? "Request Fixed Quote via WhatsApp"
       : liveQuote
@@ -2543,9 +2521,7 @@ function QuoteCard({
         ? `Send via WhatsApp — ${formatQuote(liveQuote.amount)}`
         : "Confirm & send via WhatsApp";
 
-  const quoteHint = exceedsOnlineCapacity
-    ? "This party size needs a tailored minibus quote — we don’t show an automatic online fare."
-    : pricingConfirmationRequired
+  const quoteHint = pricingConfirmationRequired
     ? hasQuoteRoute
       ? "Continue to request your price — we’ll confirm the fare before payment."
       : isA2AFlow && !isAddressPairComplete
@@ -2566,16 +2542,16 @@ function QuoteCard({
         : "Larger-vehicle transfers via licensed partners — continue to request a quote."
       : isAirportTrip
         ? !airportCode
-          ? "Select an airport to see a minibus guide price"
+          ? "Select an airport to see a guide price"
           : ldyServiceAreaInvalid
             ? isFromAirport
               ? "We transfer from Derry Airport to the greater Belfast area — enter a Belfast-area drop-off address"
               : "Pickups for Derry Airport must be in the greater Belfast area — enter a Belfast-area pickup address"
             : !isAirportAddressComplete
-              ? `Enter your ${isFromAirport ? "drop-off" : "pickup"} address to see a minibus guide price`
+              ? `Enter your ${isFromAirport ? "drop-off" : "pickup"} address to see a guide price`
               : ""
         : !isAddressPairComplete
-          ? "Enter pickup and drop-off addresses to see a minibus guide price"
+          ? "Enter pickup and drop-off addresses to see a guide price"
           : ""
     : isEnquiryOnly
     ? hasQuoteRoute
@@ -2642,57 +2618,6 @@ function QuoteCard({
               </p>
             )}
           </>
-        ) : exceedsOnlineCapacity ? (
-          <>
-            <p className="text-xs font-medium uppercase tracking-wider text-emerald">
-              Tailored Quote Required
-            </p>
-            <p className="mt-1 text-xl font-semibold tracking-tight text-white sm:text-2xl">
-              Minibus — 5–7 passengers
-            </p>
-            <div className="mt-3 space-y-1 text-sm text-white/80">
-              <p>
-                <span className="text-white/45">Journey:</span> {pickupLabel} → {dropoffLabel}
-              </p>
-              {effectivePassengers != null && effectivePassengers > 0 && (
-                <p>
-                  <span className="text-white/45">Passengers:</span>{" "}
-                  {formatPassengerChoice(effectivePassengers)}
-                  <span className="mx-2 text-white/35">·</span>
-                  <span className="text-white/45">Large bags:</span>{" "}
-                  {formatSuitcaseChoice(suitcases as number)}
-                </p>
-              )}
-              {effectiveAirportCode && (
-                <p>
-                  <span className="text-white/45">Airport:</span>{" "}
-                  {airportName || effectiveAirportCode}
-                </p>
-              )}
-              {returnJourney && (
-                <p>
-                  <span className="text-white/45">Return:</span> Yes
-                </p>
-              )}
-            </div>
-            <p className="mt-3 text-xs leading-relaxed text-white/65">
-              We don&apos;t show an automatic online fare for 5–7 passengers. Continue to request a
-              tailored fixed-price quote. Your quote will list only the inclusions that apply to
-              your journey — express airport fees where relevant, and Dublin tolls only where they
-              apply.
-            </p>
-            <p className="mt-3 text-xs leading-relaxed text-white/55">
-              Prefer WhatsApp?{" "}
-              <a
-                href={whatsAppChatUrl(CAPACITY_WHATSAPP_MESSAGE)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="font-semibold text-emerald underline-offset-2 hover:underline"
-              >
-                Message us for a minibus quote
-              </a>
-            </p>
-          </>
         ) : isManualQuoteJourney ? (
           <>
             <p className="text-xs font-medium uppercase tracking-wider text-emerald">
@@ -2731,7 +2656,6 @@ function QuoteCard({
               <span className="mx-2 text-white/35">·</span>
               Large suitcases: {formatSuitcaseChoice(suitcases as number)}
             </p>
-            <p className="mt-2 text-xs leading-relaxed text-white/65">{MINIBUS_PARTNER_NOTE}</p>
             {journeyDistanceLabel && journeyDurationLabel && (
               <p className="mt-2 text-xs text-white/60">
                 Approx. {journeyDistanceLabel} · {journeyDurationLabel}
@@ -2835,7 +2759,7 @@ function QuoteCard({
           </>
         )}
         <p className="mt-3 text-[11px] text-white/40">
-          {pricingConfirmationRequired || isManualQuoteJourney || exceedsOnlineCapacity
+          {pricingConfirmationRequired || isManualQuoteJourney
             ? "Request Fixed Quote — we’ll confirm your personal price before any payment is taken."
             : showsRequestQuoteFlow
               ? "Request a quote — we’ll confirm availability before the booking is accepted. No online payment until confirmed."
@@ -2861,10 +2785,10 @@ function QuoteCard({
           disabled={
             submitted ||
             !quoteChoicesReady ||
-            (exceedsOnlineCapacity ||
-            isEnquiryOnly ||
+            (isEnquiryOnly ||
             isManualQuoteJourney ||
-            pricingConfirmationRequired
+            pricingConfirmationRequired ||
+            exceedsOnlineCapacity
               ? !hasQuoteRoute
               : !liveQuote)
           }
@@ -2872,11 +2796,9 @@ function QuoteCard({
         >
           {submitted
             ? submitInProgressLabel
-            : exceedsOnlineCapacity
-              ? "Continue to request quote"
-              : liveQuote && canPayNowOnline && !isEnquiryOnly && !showsRequestQuoteFlow
-                ? "Book Now"
-                : "Continue to travel details"}
+            : liveQuote && canPayNowOnline && !isEnquiryOnly && !showsRequestQuoteFlow
+              ? "Book Now"
+              : "Continue to travel details"}
         </button>
         {liveQuote &&
         canPayNowOnline &&
@@ -2978,9 +2900,7 @@ function QuoteCard({
       >
         <div className="rounded-xl border border-white/10 bg-navy-dark/50 px-5 py-8 text-center sm:px-8 sm:py-10">
           <p className="text-xs font-medium uppercase tracking-wider text-emerald">
-            {exceedsOnlineCapacity
-              ? "Quote Request Received"
-              : showsRequestQuoteFlow
+            {showsRequestQuoteFlow || exceedsOnlineCapacity
               ? "Quote request submitted"
               : isEnquiryOnly
                 ? "Enquiry submitted"
@@ -2993,14 +2913,12 @@ function QuoteCard({
             </p>
           ) : null}
           <p className="mx-auto mt-4 max-w-md text-sm leading-relaxed text-white/80 sm:text-base">
-            {exceedsOnlineCapacity
-              ? "We’ve received your journey details for a minibus (5–7 passengers). This is a quote request only — a tailored fixed price will be provided shortly. Nothing is confirmed until you accept the quote."
-              : showsRequestQuoteFlow
+            {showsRequestQuoteFlow || exceedsOnlineCapacity
               ? isOutOfAreaPickupJourney
                 ? "We’ve received your out-of-area pickup request. We’ll review it manually, confirm availability, and send your personal fixed quote shortly. No payment is taken until the fare is confirmed."
                 : isRoiJourney
                   ? "We’ve received your Republic of Ireland long-distance transfer request. We’ll confirm your fixed price and send your personal quote shortly."
-                  : "We’ve received your minibus quote request. These transfers are subject to partner availability — we’ll confirm capacity and send your personal quote shortly."
+                  : "We’ve received your quote request. We’ll confirm availability and send your personal quote shortly."
               : isEnquiryOnly
                 ? "We’ve received your enquiry. We’ll confirm availability and send your personal quote shortly. When you’re ready to book, we’ll send a SumUp payment link — your trip is confirmed after payment."
                 : "We’ve received your booking request. If you paid online with SumUp, your booking is confirmed. Otherwise we’ll confirm the job and email a SumUp payment link — your trip is confirmed after payment."}
@@ -3054,7 +2972,7 @@ function QuoteCard({
         <ol className="mt-3 grid grid-cols-3 gap-2 lg:mt-3 lg:gap-2" aria-label="Booking steps">
           {[
             { step: 1 as const, label: isA2AFlow ? "Your journey" : "Airport & address" },
-            { step: 2 as const, label: exceedsOnlineCapacity ? "Request quote" : "Price & travel" },
+            { step: 2 as const, label: "Price & travel" },
             { step: 3 as const, label: canPayNowOnline ? "Pay & confirm" : "Your details" },
           ].map((item) => {
             const active = quoteStep === item.step;
@@ -3155,7 +3073,7 @@ function QuoteCard({
               onExactPassengersChange={setExactPassengers}
               suitcases={suitcases}
               onSuitcasesChange={setSuitcases}
-              isGroupQuote={exceedsOnlineCapacity}
+              isGroupQuote={false}
               showRouteFields={Boolean(journeyIntent)}
               showJourneyModeFields={
                 journeyIntent === "address-to-address"
@@ -3593,7 +3511,7 @@ function QuoteCard({
             />
             <TapChoiceRow
               label="Large suitcases (23kg)"
-              options={[0, 1, 2, 3, 4, 5].filter((count) => count <= SELECTOR_MAX_SUITCASES)}
+              options={[0, 1, 2, 3, 4].filter((count) => count <= SELECTOR_MAX_SUITCASES)}
               value={suitcases == null ? null : Math.min(suitcases, SELECTOR_MAX_SUITCASES)}
               onChange={setSuitcases}
               formatOption={formatSuitcaseChoice}
@@ -3620,8 +3538,8 @@ function QuoteCard({
             value={suitcases == null ? "" : String(suitcases)}
           />
           <p className="text-xs leading-relaxed text-white/55">
-            Saloon, Estate, or Minibus is chosen automatically from your party size. All three can
-            be quoted and paid online.
+            Up to 4 passengers. Saloon or Estate is chosen automatically from your party size and
+            luggage — private airport transfer for 1–4 passengers.
           </p>
         </div>
         )}
@@ -3666,12 +3584,7 @@ function QuoteCard({
                 <p className="mt-1 text-lg font-semibold tracking-tight text-white sm:text-xl">
                   {vehicleShortLabel(quoteVehicle)}
                 </p>
-                {isMinibusParty ? (
-                  <p className="mt-1.5 text-xs leading-relaxed text-white/70">
-                    Minibus selected for your party size (5–7 passengers or extra luggage). Your
-                    fixed online fare uses our existing minibus pricing — pay securely to confirm.
-                  </p>
-                ) : quoteVehicle === ESTATE ? (
+                {quoteVehicle === ESTATE ? (
                   <p className="mt-1.5 text-xs leading-relaxed text-white/70">
                     Estate selected automatically from your passengers and luggage.
                   </p>
@@ -4120,7 +4033,7 @@ function QuoteCard({
                     ? "Check your details, then request your fixed price — out-of-area pickups need manual approval."
                     : isRoiJourney
                       ? "Check your details, then request your fixed Republic of Ireland price."
-                      : "Check your details, then request a quote — minibus transfers via licensed partners are subject to availability and are not instantly confirmed."
+                      : "Check your details, then request a quote — we’ll confirm availability before the booking is accepted."
                   : isEnquiryOnly
                     ? "Check your details, then send an enquiry — we’ll quote you and confirm availability."
                     : "Please check everything is correct before booking — wrong details can change your price."}
@@ -4229,9 +4142,6 @@ function QuoteCard({
                   label="Standard website fare"
                   value={formatQuote(liveQuote.amount)}
                 />
-              ) : null}
-              {isRequestQuote && !isManualQuoteJourney ? (
-                <PreviewRow label="Fulfilment" value={MINIBUS_PARTNER_NOTE} />
               ) : null}
             </dl>
           </div>
@@ -4504,9 +4414,7 @@ function QuoteCard({
               </p>
             ) : (
               <p className="text-center text-xs text-white/45">
-                {exceedsOnlineCapacity
-                  ? "Next: your contact details for the tailored quote request."
-                  : "Next: your contact details to confirm the booking."}
+                Next: your contact details to confirm the booking.
               </p>
             )}
           </div>

@@ -12,13 +12,10 @@ import {
 import { SERVICE_FLAGS } from "@/lib/data";
 import {
   AIRPORT_PICKUP_WAITING_COPY,
-  GROUP_QUOTE_FEE_NOTE,
   NON_AIRPORT_WAITING_COPY,
 } from "@/lib/journey-inclusions";
 import { scheduleBookingNavAfterRender } from "@/lib/quote-step-nav-scroll";
 import {
-  FIVE_PLUS_PASSENGERS,
-  FIVE_PLUS_SUITCASES,
   formatPassengerChoice,
   formatSuitcaseChoice,
 } from "@/lib/vehicle-selection";
@@ -144,11 +141,11 @@ export default function QuoteProgressiveRoute({
   onJourneyModeChange,
   passengers,
   onPassengersChange,
-  exactPassengers,
+  exactPassengers: _exactPassengers,
   onExactPassengersChange,
   suitcases,
   onSuitcasesChange,
-  isGroupQuote,
+  isGroupQuote: _isGroupQuote,
   showRouteFields,
   showJourneyModeFields,
   showPartyFields,
@@ -199,20 +196,13 @@ export default function QuoteProgressiveRoute({
   }, [showPartyFields, journeyMode]);
 
   function handlePassengersChange(value: number) {
-    onPassengersChange(value);
-    if (value < FIVE_PLUS_PASSENGERS) {
-      onExactPassengersChange(null);
-      return;
-    }
-    // Require an explicit 5 / 6 / 7 tap — do not assume 5.
+    const next = Math.min(4, Math.max(1, value));
+    onPassengersChange(next);
     onExactPassengersChange(null);
   }
 
-  function handleExactPassengersChange(value: number) {
-    const next = Math.min(7, Math.max(5, value));
-    onPassengersChange(next);
-    onExactPassengersChange(next);
-  }
+  void _exactPassengers;
+  void _isGroupQuote;
 
   return (
     <div className="quote-field space-y-5 lg:space-y-4">
@@ -400,69 +390,28 @@ export default function QuoteProgressiveRoute({
             <div id="quote-section-passengers" className="space-y-5 lg:space-y-3.5">
               <ChoiceGrid
                 label="Passengers"
-                options={[1, 2, 3, 4, FIVE_PLUS_PASSENGERS]}
-                value={
-                  passengers == null
-                    ? null
-                    : passengers >= FIVE_PLUS_PASSENGERS
-                      ? FIVE_PLUS_PASSENGERS
-                      : passengers
-                }
+                options={[1, 2, 3, 4]}
+                value={passengers == null ? null : Math.min(4, Math.max(1, passengers))}
                 onChange={handlePassengersChange}
                 formatOption={formatPassengerChoice}
               />
-
-              {passengers != null && passengers >= FIVE_PLUS_PASSENGERS && (
-                <div
-                  id="quote-section-exact-passengers"
-                  className="space-y-3 rounded-2xl border border-amber-400/25 bg-amber-400/10 px-4 py-4"
-                >
-                  <p className="text-sm font-semibold text-amber-100">
-                    Travelling with 5–7 passengers?
-                  </p>
-                  <p className="text-xs leading-relaxed text-white/75">
-                    We can quote a fixed Minibus fare online for your journey (Minibus — 5–7
-                    passengers). Enter your details, see the exact price, and pay securely to
-                    confirm.
-                  </p>
-                  <ChoiceGrid
-                    label="Exact passengers"
-                    options={[5, 6, 7]}
-                    value={
-                      exactPassengers != null && exactPassengers >= 5 && exactPassengers <= 7
-                        ? exactPassengers
-                        : null
-                    }
-                    onChange={handleExactPassengersChange}
-                    formatOption={(value) => String(value)}
-                    columns={3}
-                  />
-                  <p className="text-xs text-white/65">{GROUP_QUOTE_FEE_NOTE}</p>
-                </div>
-              )}
+              <p className="text-xs text-white/55">
+                Private airport transfer for 1–4 passengers.
+              </p>
             </div>
 
             <div id="quote-section-suitcases" className="space-y-5 lg:space-y-3.5">
-              {/* Single row 0–4|5+ — no secondary exact-bags step (avoids duplicate 5+ controls). */}
               <ChoiceGrid
                 label="Suitcases / large bags"
-                options={[0, 1, 2, 3, 4, FIVE_PLUS_SUITCASES]}
-                value={
-                  suitcases == null
-                    ? null
-                    : suitcases >= FIVE_PLUS_SUITCASES
-                      ? FIVE_PLUS_SUITCASES
-                      : suitcases
-                }
+                options={[0, 1, 2, 3, 4]}
+                value={suitcases == null ? null : Math.min(4, Math.max(0, suitcases))}
                 onChange={onSuitcasesChange}
                 formatOption={formatSuitcaseChoice}
               />
             </div>
           </div>
 
-          {(passengers == null ||
-            suitcases == null ||
-            (passengers >= FIVE_PLUS_PASSENGERS && exactPassengers == null)) && (
+          {(passengers == null || suitcases == null) && (
             <p
               id="quote-party-prompt"
               className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white/80"
@@ -472,12 +421,7 @@ export default function QuoteProgressiveRoute({
             </p>
           )}
 
-          {isGroupQuote ? (
-            <div className="rounded-xl border border-white/10 bg-navy-dark/40 px-4 py-3 text-xs leading-relaxed text-white/70">
-              <p>{AIRPORT_PICKUP_WAITING_COPY}</p>
-              <p className="mt-2">{NON_AIRPORT_WAITING_COPY}</p>
-            </div>
-          ) : journeyIntent === "from-airport" ? (
+          {journeyIntent === "from-airport" ? (
             <div className="rounded-xl border border-white/10 bg-navy-dark/40 px-4 py-3 text-xs leading-relaxed text-white/70">
               <p>{AIRPORT_PICKUP_WAITING_COPY}</p>
             </div>

@@ -11,7 +11,8 @@ import { selectVehicleForParty } from "./vehicle-selection";
 import type { VehicleType } from "./data";
 import {
   INSTANT_QUOTE_MAX_PASSENGERS,
-  MAX_PASSENGERS,
+  OWNER_QUICK_QUOTE_MAX_PASSENGERS,
+  PASSENGER_LIMIT_ERROR,
 } from "../../shared/passenger-limits";
 
 export const QUOTE_SERVICE_MAX_PASSENGERS = INSTANT_QUOTE_MAX_PASSENGERS; // 4
@@ -38,8 +39,8 @@ export type QuoteServiceInput = {
   vehicleType?: VehicleType;
   /**
    * Override passenger ceiling (default = instant quote band of 4).
-   * Owner/Driver Quick Quote Minibus may pass up to MAX_PASSENGERS (7).
-   * Public Live Quote must keep the default.
+   * Owner/Driver Quick Quote Minibus may pass up to
+   * OWNER_QUICK_QUOTE_MAX_PASSENGERS (7). Public Live Quote must keep the default.
    */
   maxPassengers?: number;
 };
@@ -115,12 +116,14 @@ export function calculateAuthoritativeWebsiteQuote(
     };
   }
 
+  // Public default is 4. Owner Quick Quote may raise the ceiling up to 7 for
+  // partner Minibus pricing only — never above OWNER_QUICK_QUOTE_MAX_PASSENGERS.
+  const requestedCeiling = Math.floor(
+    Number(input.maxPassengers) || QUOTE_SERVICE_MAX_PASSENGERS,
+  );
   const maxPassengers = Math.min(
-    MAX_PASSENGERS,
-    Math.max(
-      QUOTE_SERVICE_MAX_PASSENGERS,
-      Math.floor(Number(input.maxPassengers) || QUOTE_SERVICE_MAX_PASSENGERS),
-    ),
+    OWNER_QUICK_QUOTE_MAX_PASSENGERS,
+    Math.max(QUOTE_SERVICE_MAX_PASSENGERS, requestedCeiling),
   );
 
   if (passengers > maxPassengers) {
@@ -130,7 +133,7 @@ export function calculateAuthoritativeWebsiteQuote(
       message:
         maxPassengers > QUOTE_SERVICE_MAX_PASSENGERS
           ? `Quotes are limited to ${maxPassengers} passengers.`
-          : `Online quotes are limited to ${QUOTE_SERVICE_MAX_PASSENGERS} passengers. Please speak to Colin for larger parties.`,
+          : PASSENGER_LIMIT_ERROR,
     };
   }
 

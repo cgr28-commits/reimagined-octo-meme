@@ -41,7 +41,7 @@ export const TERMS_SECTIONS = [
       "Pickups from elsewhere in Northern Ireland to a Greater Belfast destination receive a live online quote where route pricing is available. Other out-of-area pickups (for example outside Northern Ireland, or NI pickups to destinations outside Greater Belfast) require manual approval, do not receive an automatic online price, and cannot be paid for immediately online until we confirm a fixed quote.",
     ],
     footer:
-      "All journeys are subject to vehicle availability. Saloon and estate cars (and executive on enquiry) cover up to four passengers. For 5–7 passengers, a licensed transport partner minibus may fulfil the journey subject to availability. We do not offer journeys for more than 7 passengers.",
+      "All journeys are subject to vehicle availability. My Airport Taxi NI provides private airport transfers for up to 4 passengers in Saloon or Estate cars (executive on enquiry). We do not offer online bookings for more than 4 passengers.",
   },
   {
     title: "Cross-border & Republic of Ireland journeys",
@@ -54,14 +54,11 @@ export const TERMS_SECTIONS = [
     ],
   },
   {
-    title: "Licensed partner operators",
+    title: "Vehicles & capacity",
     content: [
-      "Most saloon and estate car transfers (typically 1–4 passengers) are fulfilled by My Airport Taxi NI using our own licensed vehicles and drivers.",
-      "Where a minibus is required for 5–7 passengers, or where operational needs require it, your journey may be fulfilled by another fully licensed and insured private hire / PSV operator working as our transport partner (subcontracted fulfilment).",
-      "By requesting a quotation or making a booking, you agree that we may arrange for a suitable licensed partner operator to carry out all or part of the transfer.",
-      "Partner-operated journeys remain subject to these Terms & Conditions. We remain your point of contact for booking, payment (where applicable), and customer service, and we will only use operators who hold the licences and insurance required for the journey.",
-      "Minibus transfers (5–7 passengers) are subject to partner availability and are not instantly confirmed online — a booking is confirmed only when we accept it in writing (including by email).",
-      "We do not offer journeys for more than 7 passengers.",
+      "Saloon and estate car transfers for up to 4 passengers are fulfilled by My Airport Taxi NI using our own licensed vehicles and drivers.",
+      "Online quotes and bookings are limited to 1–4 passengers. Executive saloon transfers are available on enquiry.",
+      "We remain your point of contact for booking, payment (where applicable), and customer service.",
     ],
   },
   {
@@ -80,7 +77,7 @@ export const TERMS_SECTIONS = [
       "Child seat requirements",
     ],
     footer:
-      "Incorrect or incomplete information may result in delays, additional charges, cancellation, or the booking being treated as a no-show without refund. Minibus and group bookings are subject to vehicle availability and are not confirmed until we accept the booking in writing (including by email).",
+      "Incorrect or incomplete information may result in delays, additional charges, cancellation, or the booking being treated as a no-show without refund. Bookings are subject to vehicle availability and are not confirmed until we accept the booking in writing (including by email) or payment is completed where an instant online fare applies.",
   },
   {
     title: "Quotations & Fares",
@@ -101,7 +98,7 @@ export const TERMS_SECTIONS = [
     title: "Booking & Payment",
     content: [
       "For standard saloon and estate car transfers where an instant fare is shown, you may pay online by card via SumUp at the end of the website quote. Your booking is confirmed once payment is completed.",
-      "For minibus or executive bookings, out-of-area pickup requests, and Republic of Ireland city destinations that require a fixed quote, the process is: request a quote or booking, wait for us to confirm the fare and job, then pay via the SumUp payment link we email. Your booking is confirmed after payment is received.",
+      "For executive bookings, out-of-area pickup requests, and Republic of Ireland city destinations that require a fixed quote, the process is: request a quote or booking, wait for us to confirm the fare and job, then pay via the SumUp payment link we email. Your booking is confirmed after payment is received.",
       "Payment may be made:",
     ],
     list: [
@@ -237,7 +234,7 @@ export const TERMS_SECTIONS = [
       "Oversized luggage is advised in advance.",
     ],
     footer:
-      "We reserve the right to refuse luggage that cannot safely be accommodated, or to require a partner minibus (which may change the fare). We do not offer journeys for more than 7 passengers.",
+      "We reserve the right to refuse luggage that cannot safely be accommodated in a Saloon or Estate car for your passenger count (which may require a different vehicle or change the fare). Online bookings are limited to up to 4 passengers.",
   },
   {
     title: "Lost Property",

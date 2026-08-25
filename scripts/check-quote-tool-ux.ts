@@ -1,5 +1,5 @@
 /**
- * Smoke checks for the progressive quote-tool UX (journey intent, 5–7 path, flight gating).
+ * Smoke checks for the progressive quote-tool UX (journey intent, 1–4 capacity).
  */
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -64,15 +64,16 @@ check("Public quote tool has no child/car seat question", () => {
   assert.doesNotMatch(card, /label=\"Child seats\"/);
 });
 
-check("5–7 path is Minibus online quote + SumUp (existing pricing)", () => {
-  assert.match(progressive, /Travelling with 5–7 passengers\?/);
-  assert.match(progressive, /Minibus/);
-  assert.match(progressive, /fixed Minibus fare online|pay securely/i);
-  assert.match(data, /INSTANT_PAY_VEHICLE_TYPES/);
-  assert.match(data, /MINIBUS_VEHICLE_TYPE/);
-  assert.match(card, /Minibus selected for your party size/);
+check("Public quote is 1–4 passengers only (no 5–7 / minibus path)", () => {
+  assert.match(progressive, /options=\{\[1, 2, 3, 4\]\}/);
+  assert.match(progressive, /Private airport transfer for 1–4 passengers/);
+  assert.doesNotMatch(progressive, /Travelling with 5–7 passengers\?/);
+  assert.doesNotMatch(progressive, /FIVE_PLUS_PASSENGERS/);
+  assert.doesNotMatch(progressive, /options=\{\[5, 6, 7\]\}/);
+  assert.doesNotMatch(progressive, /Minibus — 5–7/);
+  assert.match(data, /MAX_ONLINE_PASSENGERS = 4/);
+  assert.match(card, /PASSENGER_LIMIT_ERROR/);
   assert.match(card, /canPayNowOnline/);
-  assert.match(inclusions, /GROUP_QUOTE_FEE_NOTE/);
   assert.doesNotMatch(progressive, /10\+|up to 8|5 or more passengers/);
 });
 
@@ -149,16 +150,17 @@ check("Journey mode, passengers and suitcases start unselected; results scroll o
   assert.doesNotMatch(progressive, /aria-pressed=\{!returnJourney\}/);
 });
 
-check("Suitcase selector is single 0–4|5+ row without Exact Large Bags", () => {
+check("Suitcase selector is 0–4 only (no 5+ public option)", () => {
   assert.match(progressive, /formatSuitcaseChoice/);
-  assert.match(progressive, /options=\{\[0, 1, 2, 3, 4, FIVE_PLUS_SUITCASES\]\}/);
+  assert.match(progressive, /options=\{\[0, 1, 2, 3, 4\]\}/);
+  assert.doesNotMatch(progressive, /FIVE_PLUS_SUITCASES/);
   assert.doesNotMatch(progressive, /label="Exact large bags/);
   assert.doesNotMatch(progressive, /quote-section-exact-suitcases/);
 });
 
-check("Exact passengers still available for 5–7; no fare auto-scroll", () => {
-  assert.match(progressive, /quote-section-exact-passengers/);
-  assert.match(progressive, /handleExactPassengersChange|Exact passengers/);
+check("No public 5–7 exact-passengers band", () => {
+  assert.doesNotMatch(progressive, /quote-section-exact-passengers/);
+  assert.doesNotMatch(progressive, /Travelling with 5–7 passengers/);
   assert.doesNotMatch(progressive, /pendingScrollToExactPassengersRef/);
   assert.doesNotMatch(progressive, /scheduleQuoteFareResultScroll/);
 });
