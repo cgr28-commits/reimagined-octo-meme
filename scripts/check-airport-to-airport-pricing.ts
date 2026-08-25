@@ -419,13 +419,26 @@ console.log("\n=== 7. Non-DUB airport↔airport = A2A underlying only (not Antri
   assert.ok(a2a && viaAirport);
   // Must NOT equal the old Antrim→BHD zone win (£69).
   assert.notEqual(viaAirport!.amount, 69);
+  // Collection BFS £5 waived; retain BHD destination £4 (never −£9).
   assert.equal(
     viaAirport!.amount,
-    a2a!.amount,
-    `airport↔airport must equal A2A underlying (got £${viaAirport!.amount} vs A2A £${a2a!.amount})`,
+    a2a!.amount + 4,
+    `BFS→BHD must be A2A + destination £4 only (got £${viaAirport!.amount} vs A2A £${a2a!.amount})`,
   );
+  const reverse = calculateAirportToAirportQuote(
+    "BHD",
+    "BFS",
+    bhd.formattedAddress,
+    bfs.formattedAddress,
+    SALOON,
+    false,
+    {},
+    metrics,
+  );
+  assert.ok(reverse);
+  assert.equal(reverse!.amount, a2a!.amount + 5);
   console.log(
-    `OK  BFS↔BHD = A2A £${a2a!.amount} (no NI access-fee stack; not Antrim-zone £69)`,
+    `OK  BFS→BHD = A2A £${a2a!.amount} + £4 → £${viaAirport!.amount}; BHD→BFS + £5 → £${reverse!.amount}`,
   );
 }
 

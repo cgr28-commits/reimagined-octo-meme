@@ -166,7 +166,7 @@ check("Airport costs are not multiplied by vehicle / estate premium", () => {
   );
 });
 
-check("Airport↔airport adds both-end fixed costs once per direction (no stack on A2A)", () => {
+check("Airport↔airport BFS↔BHD: waive collection surcharge only (not £9)", () => {
   const metrics = { distanceKm: 17 / 0.621371, durationMinutes: 32 };
   const underlying = calculatePointToPointQuote(
     bfs.formattedAddress,
@@ -176,7 +176,7 @@ check("Airport↔airport adds both-end fixed costs once per direction (no stack 
     {},
     metrics,
   )!;
-  const q = calculateAirportToAirportQuote(
+  const bfsBhd = calculateAirportToAirportQuote(
     "BFS",
     "BHD",
     bfs.formattedAddress,
@@ -186,8 +186,23 @@ check("Airport↔airport adds both-end fixed costs once per direction (no stack 
     {},
     metrics,
   )!;
-  assert.equal(q.airportFixedCostsGbp, 0);
-  assert.equal(q.amount, underlying.amount);
+  // Collection BFS £5 waived; retain BHD destination £4 → underlying+4 (was +9).
+  assert.equal(bfsBhd.airportFixedCostsGbp, 4);
+  assert.equal(bfsBhd.amount, underlying.amount + 4);
+
+  const bhdBfs = calculateAirportToAirportQuote(
+    "BHD",
+    "BFS",
+    bhd.formattedAddress,
+    bfs.formattedAddress,
+    S,
+    false,
+    {},
+    metrics,
+  )!;
+  // Collection BHD £4 waived; retain BFS destination £5 → underlying+5.
+  assert.equal(bhdBfs.airportFixedCostsGbp, 5);
+  assert.equal(bhdBfs.amount, underlying.amount + 5);
 
   const ret = calculateAirportToAirportQuote(
     "BFS",
@@ -199,9 +214,13 @@ check("Airport↔airport adds both-end fixed costs once per direction (no stack 
     {},
     metrics,
   )!;
-  assert.equal(ret.airportFixedCostsGbp, 0);
+  // Outbound destination BHD £4 + return destination BFS £5 = £9.
+  assert.equal(ret.airportFixedCostsGbp, 4 + 5);
   assert.equal(ret.journeyFareGbp, getReturnJourneyFare(underlying.amount));
-  assert.equal(ret.journeyFareGbp! + ret.airportFixedCostsGbp!, getReturnJourneyFare(underlying.amount));
+  assert.equal(
+    ret.journeyFareGbp! + ret.airportFixedCostsGbp!,
+    getReturnJourneyFare(underlying.amount) + 9,
+  );
   assert.ok(Math.abs(ret.amount - (ret.journeyFareGbp! + ret.airportFixedCostsGbp!)) <= 3);
 });
 

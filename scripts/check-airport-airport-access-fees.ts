@@ -71,16 +71,16 @@ console.log("\n=== Matrix ===\n");
   const underlying = calculatePointToPointQuote(BFS_ADDR, BHD_ADDR, S, false, {}, M17)!;
   const q = calculateAirportToAirportQuote("BFS", "BHD", BFS_ADDR, BHD_ADDR, S, false, {}, M17)!;
   assert.notEqual(q.amount, 69, "must not use Antrim→BHD zone path");
-  assert.equal(q.amount, underlying.amount);
+  assert.equal(q.amount, underlying.amount + 4);
   rows.push({
     id: 1,
     label: "BFS → BHD (airport↔airport)",
     miles: milesOf(M17),
     underlying: underlying.amount,
     areaRule: "none (airports identified; A2A underlying — not Antrim zone)",
-    accessFees: "BFS £0 + BHD £0 = £0",
+    accessFees: "collection BFS waived; retain BHD destination £4",
     other: "no zone surcharge / no airport minimum re-apply",
-    rounding: `${underlying.amount}+0 → ${q.amount} (roundFare)`,
+    rounding: `${underlying.amount}+4 → ${q.amount} (roundFare)`,
     final: q.amount,
   });
 }
@@ -89,7 +89,7 @@ console.log("\n=== Matrix ===\n");
 {
   const underlying = calculatePointToPointQuote(BHD_ADDR, BFS_ADDR, S, false, {}, M17)!;
   const q = calculateAirportToAirportQuote("BHD", "BFS", BHD_ADDR, BFS_ADDR, S, false, {}, M17)!;
-  assert.equal(q.amount, underlying.amount);
+  assert.equal(q.amount, underlying.amount + 5);
   assert.notEqual(q.amount, 69);
   rows.push({
     id: 2,
@@ -97,9 +97,9 @@ console.log("\n=== Matrix ===\n");
     miles: milesOf(M17),
     underlying: underlying.amount,
     areaRule: "none (A2A underlying)",
-    accessFees: "BHD £0 + BFS £0 = £0",
-    other: "symmetric with #1",
-    rounding: `${underlying.amount}+0 → ${q.amount}`,
+    accessFees: "collection BHD waived; retain BFS destination £5",
+    other: "collection-only waiver (not symmetric £ amounts)",
+    rounding: `${underlying.amount}+5 → ${q.amount}`,
     final: q.amount,
   });
 }
@@ -282,8 +282,11 @@ for (const r of rows) {
   );
 }
 
-assert.equal(rows[0].final, rows[0].underlying);
+assert.equal(rows[0].final, rows[0].underlying + 4);
+assert.equal(rows[1].final, rows[1].underlying + 5);
 assert.ok(rows[0].final < 69);
-console.log(`\nNEW BFS→BHD price: £${rows[0].final} (was £69 Antrim-zone win; underlying A2A only)`);
+console.log(
+  `\nNEW BFS→BHD price: £${rows[0].final} (was £59 with both fees; now −£5 collection only)`,
+);
 console.log("Dublin protection: BHD→DUB still £234 (zone + M1; not A2A undercut).");
 console.log("\nAll airport↔airport access-fee matrix checks passed.");
