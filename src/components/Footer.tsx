@@ -1,7 +1,7 @@
 import Link from "next/link";
 import Logo from "./Logo";
 import FooterContact from "./FooterContact";
-import { NAV_LINKS, SERVICE_FLAGS, SITE } from "@/lib/data";
+import { NAV_LINKS, SERVICE_FLAGS, SITE, SITE_PUBLIC_SEO_BLURB } from "@/lib/data";
 import { AIRPORT_PAGES } from "@/lib/location-pages";
 import { TOURS } from "@/lib/tours";
 
@@ -19,8 +19,7 @@ export default function Footer() {
           <div className="sm:col-span-2 lg:col-span-1">
             <Logo className="h-16" />
             <p className="mt-4 max-w-xs text-sm leading-relaxed text-white/50">
-              Professional airport transfers across Northern Ireland and beyond. Clear fixed
-              prices and 24/7 availability.
+              {SITE_PUBLIC_SEO_BLURB}
             </p>
           </div>
 

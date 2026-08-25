@@ -1,8 +1,7 @@
-import { FAQS, SITE } from "./data";
+import { FAQS, SITE, SITE_PUBLIC_SEO_DESCRIPTION } from "./data";
 import { TOURS } from "./tours";
 
-const DESCRIPTION =
-  "Professional airport transfers across Northern Ireland and beyond. Clear fixed prices, airport pickup and drop-off options, flight monitoring and secure online booking.";
+const DESCRIPTION = SITE_PUBLIC_SEO_DESCRIPTION;
 
 export function getWebSiteJsonLd() {
   return {

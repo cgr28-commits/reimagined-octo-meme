@@ -13,6 +13,16 @@ export const SITE = {
 } as const;
 
 /**
+ * Public SEO / snippet-safe brand blurb — no “from £X” or starting-price marketing.
+ * Prefer this in meta, JSON-LD, and footer so search snippets stay aligned.
+ */
+export const SITE_PUBLIC_SEO_BLURB =
+  "Professional airport transfers with clear fixed pricing and 24/7 availability.";
+
+/** Longer homepage / LocalBusiness description (still no static £ amounts). */
+export const SITE_PUBLIC_SEO_DESCRIPTION = `${SITE_PUBLIC_SEO_BLURB} Airport pickup and drop-off, flight monitoring, and secure online booking across Northern Ireland and beyond.`;
+
+/**
  * Temporary public holding page. When enabled and before `until`, the site shows
  * a branded offline page (ops routes stay available). After `until`, the full
  * site returns automatically — set enabled back to false when you tidy up.
