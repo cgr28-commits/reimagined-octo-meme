@@ -118,11 +118,13 @@ check("Party fields wait for journey mode", () => {
   assert.match(progressive, /id="passenger-luggage-section"/);
 });
 
-check("5–7 / Minibus path retained", () => {
-  assert.match(progressive, /FIVE_PLUS_PASSENGERS/);
-  assert.match(progressive, /options=\{\[5, 6, 7\]\}/);
+check("Public party selector is 1–4 only; engine still maps 5+ to Minibus for owner tools", () => {
+  assert.match(progressive, /options=\{\[1, 2, 3, 4\]\}/);
+  assert.doesNotMatch(progressive, /FIVE_PLUS_PASSENGERS/);
+  assert.doesNotMatch(progressive, /options=\{\[5, 6, 7\]\}/);
   assert.equal(selectVehicleForParty(5, 0), MINIBUS_VEHICLE);
   assert.equal(selectVehicleForParty(7, 2), MINIBUS_VEHICLE);
+  assert.equal(selectVehicleForParty(4, 2), "Standard Saloon (1–4 passengers)");
 });
 
 check("Server rejects missing journey mode / passenger / suitcase", () => {
@@ -200,6 +202,22 @@ check("Server rejects missing journey mode / passenger / suitcase", () => {
     );
   }
 
+  // Public path (default ceiling 4) must reject >4.
+  const publicOverCap = calculateAuthoritativeWebsiteQuote({
+    airportCode: "BFS",
+    fromAirport: false,
+    pickupAddress: "10 Donegall Square North, Belfast BT1 5GB",
+    returnJourney: false,
+    passengers: 6,
+    suitcases: 2,
+    routeMetrics: cityBfsMetrics,
+  });
+  assert.equal(publicOverCap.ok, false);
+  if (!publicOverCap.ok) {
+    assert.equal(publicOverCap.reason, "passenger_limit");
+  }
+
+  // Owner Quick Quote Minibus may still price up to 7 via maxPassengers override.
   const minibus = calculateAuthoritativeWebsiteQuote({
     airportCode: "BFS",
     fromAirport: false,

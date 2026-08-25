@@ -28,7 +28,11 @@ import {
 } from "../shared/booking-amendment";
 import { hoursUntilPickup, isWithin24HoursOfPickup } from "../shared/refund-ops";
 import { corsHeaders } from "../shared/google-places";
-import { INSTANT_QUOTE_MAX_PASSENGERS } from "../shared/passenger-limits";
+import {
+  INSTANT_QUOTE_MAX_PASSENGERS,
+  PASSENGER_LIMIT_ERROR,
+  isValidPassengerCount,
+} from "../shared/passenger-limits";
 import { buildManageBookingUrl } from "../shared/manage-booking-token";
 import { matchServedAirportCode } from "../shared/served-airports";
 import type { PaidBookingAmendmentEvent, PaidBookingRecord } from "../shared/paid-booking-record";
@@ -215,14 +219,10 @@ function parseProposedFromBody(
   }
   if (body.passengers !== undefined) {
     const passengers = Math.floor(Number(body.passengers));
-    if (
-      !Number.isFinite(passengers) ||
-      passengers < 1 ||
-      passengers > INSTANT_QUOTE_MAX_PASSENGERS
-    ) {
+    if (!isValidPassengerCount(passengers)) {
       return {
         ok: false,
-        error: `Online bookings support up to ${INSTANT_QUOTE_MAX_PASSENGERS} passengers. Please contact us for larger groups.`,
+        error: PASSENGER_LIMIT_ERROR,
       };
     }
     proposed.passengers = passengers;

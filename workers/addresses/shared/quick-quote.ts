@@ -9,13 +9,13 @@
 
 import {
   INSTANT_QUOTE_MAX_PASSENGERS,
-  MAX_PASSENGERS,
+  OWNER_QUICK_QUOTE_MAX_PASSENGERS,
 } from "./passenger-limits";
 
 /** Saloon / Estate public-style capacity (instant quote band). */
 export const QUICK_QUOTE_SALOON_MAX_PASSENGERS = INSTANT_QUOTE_MAX_PASSENGERS; // 4
-/** Minibus capacity — Owner/Driver Quick Quote only (matches engine max). */
-export const QUICK_QUOTE_MINIBUS_MAX_PASSENGERS = MAX_PASSENGERS; // 7
+/** Minibus capacity — Owner/Driver Quick Quote only (not public Live Quote). */
+export const QUICK_QUOTE_MINIBUS_MAX_PASSENGERS = OWNER_QUICK_QUOTE_MAX_PASSENGERS; // 7
 /** @deprecated Prefer QUICK_QUOTE_SALOON_MAX_PASSENGERS / vehicle-aware helpers. */
 export const QUICK_QUOTE_MAX_PASSENGERS = QUICK_QUOTE_SALOON_MAX_PASSENGERS;
 export const QUICK_QUOTE_TTL_SECONDS = 60 * 60 * 24; // 24 hours
