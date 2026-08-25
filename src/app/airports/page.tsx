@@ -9,7 +9,7 @@ import { getBreadcrumbJsonLd } from "@/lib/structured-data";
 export const metadata: Metadata = {
   title: `Airport Transfers | ${SITE.name}`,
   description:
-    "Private airport taxi transfers for Belfast International, Belfast City, Dublin, and City of Derry airports. Fixed prices, flight tracking, and 24/7 licensed drivers.",
+    "Professional airport transfers with clear fixed pricing and 24/7 availability for Belfast International, Belfast City, Dublin, and City of Derry airports. Flight monitoring and licensed drivers.",
   alternates: { canonical: "/airports/" },
 };
 

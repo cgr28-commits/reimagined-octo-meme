@@ -44,7 +44,7 @@ const AIRPORT_PAGES_ALL: AirportPage[] = [
     shortName: "Belfast International",
     title: "Belfast International Airport Transfers",
     metaDescription:
-      "Private taxi transfers to and from Belfast International Airport (BFS / Aldergrove). Fixed prices, flight monitoring, meet & greet on request, and up to 60 minutes complimentary waiting time on airport pickups.",
+      "Professional airport transfers with clear fixed pricing and 24/7 availability to and from Belfast International Airport (BFS / Aldergrove). Flight monitoring, meet & greet on request, and up to 60 minutes complimentary waiting on airport pickups.",
     intro:
       "Belfast International (Aldergrove) is Northern Ireland’s main long-haul and holiday airport. We provide door-to-door private transfers across Greater Belfast and beyond. We monitor your flight where possible and adjust the planned collection time for early or delayed arrivals. Airport pickups include up to 60 minutes complimentary waiting time.",
     highlights: [
@@ -71,7 +71,7 @@ const AIRPORT_PAGES_ALL: AirportPage[] = [
     shortName: "Belfast City Airport",
     title: "Belfast City Airport Transfers",
     metaDescription:
-      "Quick private transfers to and from George Best Belfast City Airport (BHD). Ideal for business trips and short-haul flights with flight monitoring, meet & greet on request, and up to 60 minutes complimentary waiting on airport pickups.",
+      "Professional airport transfers with clear fixed pricing and 24/7 availability to and from George Best Belfast City Airport (BHD). Flight monitoring, meet & greet on request, and up to 60 minutes complimentary waiting on airport pickups.",
     intro:
       "George Best Belfast City Airport sits close to the Titanic Quarter and city centre — ideal for short-haul and business travel. Our drivers know the Sydenham Bypass and airport approach roads for punctual drop-offs and collections.",
     highlights: [
@@ -98,7 +98,7 @@ const AIRPORT_PAGES_ALL: AirportPage[] = [
     shortName: "Dublin Airport",
     title: "Dublin Airport Transfers from Northern Ireland",
     metaDescription:
-      "Cross-border private transfers between Northern Ireland and Dublin Airport (DUB). Fixed prices, flight monitoring, applicable tolls included, and up to 60 minutes complimentary waiting on airport pickups.",
+      "Professional airport transfers with clear fixed pricing and 24/7 availability between Northern Ireland and Dublin Airport (DUB). Flight monitoring, applicable tolls included, and up to 60 minutes complimentary waiting on airport pickups.",
     intro:
       "Dublin Airport is a major gateway for Northern Ireland travellers. We run comfortable cross-border transfers with drivers who know the A1/M1 corridor, border timing, and terminal pickup arrangements. We monitor your flight where possible and adjust the planned collection time for early or delayed arrivals.",
     highlights: [
@@ -125,7 +125,7 @@ const AIRPORT_PAGES_ALL: AirportPage[] = [
     shortName: "City of Derry Airport",
     title: "City of Derry Airport Transfers",
     metaDescription:
-      "Transfers between City of Derry Airport (LDY) and the greater Belfast area — Bangor, Belfast, Lisburn and surrounds. Flight monitoring, meet & greet on request, and up to 60 minutes complimentary waiting time on airport pickups.",
+      "Professional airport transfers with clear fixed pricing and 24/7 availability between City of Derry Airport (LDY) and the greater Belfast area — Bangor, Belfast, Lisburn and surrounds. Flight monitoring and up to 60 minutes complimentary waiting on airport pickups.",
     intro:
       "City of Derry Airport (Eglinton) connects the north-west with UK routes. We specialise in transfers between LDY and the greater Belfast area — not short local Derry city hops — so Bangor, Belfast, and Lisburn travellers can travel with one clear booked price.",
     highlights: [
@@ -226,7 +226,7 @@ export function getTransferRoutePages(): TransferRoutePage[] {
         town,
         airport,
         title: `${town.name} to ${airport.shortName} Taxi`,
-        metaDescription: `Private airport taxi from ${town.name} to ${airport.name}. Fixed prices, flight monitoring, and 24/7 licensed transfers with ${"My Airport Taxi NI"}.`,
+        metaDescription: `Professional airport transfers with clear fixed pricing and 24/7 availability from ${town.name} to ${airport.name}. Flight monitoring and licensed transfers with ${"My Airport Taxi NI"}.`,
         intro: `${town.blurb} This page is for ${town.name} ↔ ${airport.shortName} transfers — get a live quote with the airport already selected.`,
         journeyNotes: buildRouteNotes(town, airport),
       });

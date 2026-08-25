@@ -9,7 +9,7 @@ import AdsAttributionCapture from "@/components/AdsAttributionCapture";
 import QuoteAssistant from "@/components/QuoteAssistant";
 import SiteHashScroll from "@/components/SiteHashScroll";
 import SiteOfflineGate from "@/components/SiteOfflineGate";
-import { SITE, SITE_OFFLINE } from "@/lib/data";
+import { SITE, SITE_OFFLINE, SITE_PUBLIC_SEO_DESCRIPTION } from "@/lib/data";
 import {
   arePublicLivePricesEnabled,
   getPublicUnapprovedPriceLabel,
@@ -26,13 +26,11 @@ const inter = Inter({
 const offlineActive = SITE_OFFLINE.enabled && Date.parse(SITE_OFFLINE.until) > Date.now();
 
 const livePrices = arePublicLivePricesEnabled();
-const defaultSiteDescription =
-  "Professional airport transfers across Northern Ireland and beyond. Clear fixed prices, airport pickup and drop-off options, flight monitoring and secure online booking.";
 const description = offlineActive
   ? `${SITE.name} is temporarily offline. Call ${SITE.landlineDisplay} or WhatsApp @${SITE.whatsappUsername} for bookings.`
   : livePrices
-    ? defaultSiteDescription
-    : `${defaultSiteDescription} ${getPublicUnapprovedPriceLabel()} — request a quote online.`;
+    ? SITE_PUBLIC_SEO_DESCRIPTION
+    : `${SITE_PUBLIC_SEO_DESCRIPTION} ${getPublicUnapprovedPriceLabel()} — request a quote online.`;
 
 const ogImage = {
   url: absoluteSiteUrl("/og-image-square.png"),
