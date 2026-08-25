@@ -84,15 +84,21 @@ assert.equal(
   true,
 );
 assert.equal(countEvent(ADS_EVENT_QUOTE_GENERATED), 1, "rerender must not duplicate quote");
-assert.equal(
-  gtagCalls.filter(
-    (call) =>
-      call[0] === "event" &&
-      call[1] === "conversion",
-  ).length,
-  0,
-  "quote_generated is the sole Request quote delivery path",
+const directQuoteConversions = gtagCalls.filter(
+  (call) =>
+    call[0] === "event" &&
+    call[1] === "conversion",
 );
+assert.equal(
+  directQuoteConversions.length,
+  1,
+  "a rerender must produce exactly one direct Request quote conversion",
+);
+const directQuotePayload = directQuoteConversions[0]?.[2] as Record<string, unknown>;
+assert.equal(directQuotePayload.send_to, "AW-18303631278/_hcXCPSz7cscEK7_7JdE");
+assert.equal(directQuotePayload.value, 52.5);
+assert.equal(directQuotePayload.currency, "GBP");
+assert.equal(directQuotePayload.transaction_id, "Q-1001");
 const quote = dataLayer.find(
   (item) => item && typeof item === "object" && (item as { event?: string }).event === ADS_EVENT_QUOTE_GENERATED,
 ) as Record<string, unknown>;

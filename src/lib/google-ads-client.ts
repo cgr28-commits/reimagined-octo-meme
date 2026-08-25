@@ -236,9 +236,9 @@ export function trackRequestQuoteConversion(options: AdsConversionPayload = {}):
 
   return fireTrackedEvent({
     sendTo: config.quoteSendTo,
-    // Production Google tag already maps quote_generated to the Request quote
-    // destination. A second direct `conversion` send_to duplicates the hit.
-    directAds: false,
+    // Tag Assistant confirms quote_generated is not mapped to the Ads action.
+    // Send the verified Request quote destination directly exactly once.
+    directAds: true,
     eventName: ADS_EVENT_QUOTE_GENERATED,
     params: shared,
     dedupeKey,

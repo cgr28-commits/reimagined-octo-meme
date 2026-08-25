@@ -224,7 +224,7 @@ function main() {
     );
   });
 
-  check("Successful priced quote emits one Request quote trigger after rerenders", () => {
+  check("Successful priced quote emits one named event and one direct Ads hit after rerenders", () => {
     resetRequestQuoteConversion();
     mocks.gtagCalls.length = 0;
     mocks.dataLayer.length = 0;
@@ -254,14 +254,23 @@ function main() {
     const directConversionEvents = mocks.gtagCalls.filter(
       (call) => call[0] === "event" && call[1] === "conversion",
     );
-    assert.equal(
-      directConversionEvents.filter(
-        (call) =>
-          (call[2] as { send_to?: string } | undefined)?.send_to === expectedSendTo,
-      ).length,
-      0,
-      "quote_generated is already mapped to Request quote; do not send a direct duplicate",
+    const directQuoteConversionEvents = directConversionEvents.filter(
+      (call) =>
+        (call[2] as { send_to?: string } | undefined)?.send_to === expectedSendTo,
     );
+    assert.equal(
+      directQuoteConversionEvents.length,
+      1,
+      "the helper must send exactly one direct Request quote conversion",
+    );
+    const directQuotePayload = directQuoteConversionEvents[0]?.[2] as Record<string, unknown>;
+    assert.equal(directQuotePayload.send_to, expectedSendTo);
+    assert.equal(directQuotePayload.value, 45);
+    assert.equal(directQuotePayload.currency, "GBP");
+    assert.equal(directQuotePayload.transaction_id, "TEST-VALID-1");
+    assert.equal(directQuotePayload.page_type, "emerge_belfast");
+    assert.equal(directQuotePayload.email, undefined);
+    assert.equal(directQuotePayload.phone, undefined);
 
     const quoteGeneratedEvents = mocks.dataLayer.filter(
       (entry) =>
@@ -285,16 +294,14 @@ function main() {
     assert.equal(payload.email, undefined);
     assert.equal(payload.phone, undefined);
 
-    const modeledRequestQuoteHits =
-      quoteGeneratedEvents.length +
-      directConversionEvents.filter(
-        (call) =>
-          (call[2] as { send_to?: string } | undefined)?.send_to === expectedSendTo,
-      ).length;
-    assert.equal(modeledRequestQuoteHits, 1, "one quote calculation must yield one Ads hit");
+    assert.equal(
+      quoteGeneratedEvents.length,
+      1,
+      "one quote calculation must yield exactly one quote_generated event",
+    );
   });
 
-  check("A genuinely new quote ID emits one new Request quote trigger", () => {
+  check("A genuinely new quote ID emits one named event and one direct Ads hit", () => {
     mocks.gtagCalls.length = 0;
     mocks.dataLayer.length = 0;
     resetRequestQuoteConversion();
@@ -323,7 +330,7 @@ function main() {
           call[1] === "conversion" &&
           (call[2] as { send_to?: string } | undefined)?.send_to === expectedSendTo,
       ).length,
-      0,
+      1,
     );
   });
 
