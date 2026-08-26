@@ -398,6 +398,7 @@ export async function searchGoogleStreetAddresses(
       id?: string;
       formattedAddress?: string;
       addressComponents?: GoogleAddressComponent[];
+      location?: { latitude?: number; longitude?: number };
     }>;
   };
 
@@ -424,6 +425,8 @@ export async function searchGoogleStreetAddresses(
       !isAddressAllowedForAirport(normaliseAirportCode(airportCode), {
         ...parts,
         displayName: formatted,
+        lat: place.location?.latitude ?? null,
+        lng: place.location?.longitude ?? null,
       })
     ) {
       continue;
@@ -801,11 +804,15 @@ export async function resolveGooglePlaceDetails(
     location?: { latitude?: number; longitude?: number };
   };
   const parts = parseGoogleAddressComponents(data.addressComponents);
+  const lat = data.location?.latitude ?? null;
+  const lng = data.location?.longitude ?? null;
 
   if (
     !isAddressAllowedForAirport(normaliseAirportCode(airportCode), {
       ...parts,
       displayName: data.displayName?.text || data.formattedAddress,
+      lat,
+      lng,
     })
   ) {
     return null;

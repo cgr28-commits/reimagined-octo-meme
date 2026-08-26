@@ -100,9 +100,11 @@ export function normaliseNorthernIrelandPostcode(postcode: string): string {
   return postcode.trim().toUpperCase();
 }
 
-/** Common NI towns/cities that autocomplete often omits “Northern Ireland” / BT postcode. */
+/** Common NI towns/cities that autocomplete often omits “Northern Ireland” / BT postcode.
+ * Fallback only — prefer BT postcode, “Northern Ireland”, county, or coordinates.
+ */
 const NI_PLACE_NAME_PATTERN =
-  /\b(belfast|newtownabbey|lisburn|bangor|holywood|carrickfergus|antrim|ballymena|larne|newtownards|comber|dundonald|hillsborough|ballyclare|downpatrick|newcastle|banbridge|newry|armagh|portadown|lurgan|cookstown|coleraine|portrush|portstewart|omagh|enniskillen|derry|londonderry|strabane|limavady|magherafelt|craigavon|aldergrove)\b/i;
+  /\b(belfast|newtownabbey|lisburn|bangor|holywood|carrickfergus|antrim|ballymena|larne|newtownards|comber|dundonald|hillsborough|ballyclare|downpatrick|newcastle|banbridge|newry|armagh|portadown|lurgan|cookstown|coleraine|portrush|portstewart|omagh|enniskillen|derry|londonderry|strabane|limavady|magherafelt|craigavon|aldergrove|donaghadee|groomsport|millisle|ballywalter|portaferry|greyabbey|kircubbin|ballygowan|moneyreagh|carryduff|saintfield|ballynahinch|greenisland|whiteabbey|jordanstown|warrenpoint|kilkeel|dungannon|ballymoney|ballycastle|castlederg|coalisland|ahoghill|broughshane)\b/i;
 
 export function isNorthernIrelandPlaceName(value: string): boolean {
   return NI_PLACE_NAME_PATTERN.test(value);
@@ -136,14 +138,42 @@ export function isNorthernIrelandAddressParts(parts: {
   state?: string;
   city?: string;
   town?: string;
+  country?: string;
   displayName?: string;
+  lat?: number | null;
+  lng?: number | null;
 }): boolean {
   if (isNorthernIrelandPostcode(parts.postcode)) {
     return true;
   }
 
-  if (parts.state?.toLowerCase() === "northern ireland") {
+  const state = parts.state?.toLowerCase().trim() ?? "";
+  if (state === "northern ireland" || state === "ni") {
     return true;
+  }
+
+  // Structured Google Places / geocode signal: GB/UK (or unspecified country) with
+  // coordinates inside the NI bounding box — do not require town-name whitelist.
+  if (
+    typeof parts.lat === "number" &&
+    typeof parts.lng === "number" &&
+    Number.isFinite(parts.lat) &&
+    Number.isFinite(parts.lng) &&
+    isNorthernIrelandCoordinates(parts.lat, parts.lng)
+  ) {
+    const country = parts.country?.toLowerCase().trim() ?? "";
+    const countryOk =
+      !country ||
+      country === "united kingdom" ||
+      country === "uk" ||
+      country === "gb" ||
+      country === "great britain";
+    const display = [parts.displayName, parts.city, parts.town, parts.county]
+      .filter(Boolean)
+      .join(", ");
+    if (countryOk && !isGreatBritainMainlandText(display)) {
+      return true;
+    }
   }
 
   const combined = [parts.county, parts.city, parts.town, parts.displayName]
@@ -252,6 +282,8 @@ export function isAddressAllowedForAirport(
     town?: string;
     country?: string;
     displayName?: string;
+    lat?: number | null;
+    lng?: number | null;
   },
 ): boolean {
   const code = normaliseAirportCode(airportCode);
@@ -389,6 +421,11 @@ export function isGreatBritainMainlandText(value: string): boolean {
  * Filter autocomplete labels before place details are loaded.
  * Allowed service area: Northern Ireland + Republic of Ireland only.
  * Never allow England / Scotland / Wales (GB region codes alone are insufficient).
+ *
+ * Labels without an explicit NI/ROI marker (common when Google omits “Northern
+ * Ireland” / BT postcode) are provisionally allowed when they are not clear
+ * mainland-GB matches — Place Details (components + coordinates) is the
+ * authoritative gate after selection.
  */
 export function isAllowedAutocompleteLabel(label: string, airportCode: string): boolean {
   const text = label.trim();
@@ -418,12 +455,78 @@ export function isAllowedAutocompleteLabel(label: string, airportCode: string): 
   }
 
   if (code === "A2A" || code === "DUB") {
-    // Require a positive NI or ROI signal — do not pass ambiguous GB mainland labels.
-    return isNi || isRoi;
+    if (isNi || isRoi) {
+      return true;
+    }
+    // Provisional UK/local labels (e.g. “Clifton Cove, Donaghadee, UK”) — details confirm.
+    return isProvisionalServiceAreaAutocompleteLabel(text, code);
   }
 
   // BFS / BHD / other NI airport modes — Northern Ireland only (airports handled above).
-  return isNi;
+  if (isNi) {
+    return true;
+  }
+
+  // Do not soft-pass clear ROI labels into NI-airport modes.
+  if (isRoi) {
+    return false;
+  }
+
+  return isProvisionalServiceAreaAutocompleteLabel(text, code);
+}
+
+/**
+ * Soft autocomplete pass for UK/local labels that lack an explicit NI town/BT
+ * marker. Still blocks mainland GB. Place Details must confirm NI (or ROI when
+ * the mode allows it) via components / coordinates before booking.
+ */
+export function isProvisionalServiceAreaAutocompleteLabel(
+  label: string,
+  airportCode: string,
+): boolean {
+  const text = label.trim();
+  if (!text || isGreatBritainMainlandText(text)) {
+    return false;
+  }
+
+  const code = normaliseAirportCode(airportCode);
+  const lower = text.toLowerCase();
+
+  // Clear non-UK / non-Ireland foreign countries are out of service area.
+  if (
+    /\b(france|spain|germany|usa|united states|canada|australia|netherlands|belgium|italy|portugal)\b/i.test(
+      text,
+    )
+  ) {
+    return false;
+  }
+
+  // ROI-looking labels only provisionally pass in ROI-capable modes.
+  if (isRepublicOfIrelandText(text) && code !== "A2A" && code !== "DUB") {
+    return false;
+  }
+
+  // Explicit UK / GB suffix (Google often returns “Town, UK” without “Northern Ireland”).
+  if (/\b(uk|u\.k\.|united kingdom|great britain|gb)\b/i.test(text)) {
+    return true;
+  }
+
+  // ROI modes: Ireland-suffixed labels without a known city whitelist hit.
+  if ((code === "A2A" || code === "DUB") && /\b(ireland|éire|eire)\b/i.test(lower)) {
+    return true;
+  }
+
+  // Multi-part local labels (“Clifton Cove, Donaghadee”) — not bare street-only text.
+  // Place Details confirms NI via components / coordinates after selection.
+  const segments = text
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean);
+  if (segments.length >= 2) {
+    return true;
+  }
+
+  return false;
 }
 
 export function hasLeadingStreetNumber(text: string): boolean {
