@@ -14,7 +14,7 @@ on:
       seed_same_fare_amendment_test:
         description: "After deploy, seed isolated same-fare Manage Booking fixture (no SumUp / no card charge)"
         type: boolean
-        default: true
+        default: false
       manage_booking_base_url:
         description: "Pages Preview origin for Manage Booking links (no trailing slash)"
         required: false
@@ -217,8 +217,9 @@ jobs:
             -d "$BODY")
           OK=$(echo "$RESP" | jq -r '.ok // false')
           if [ "$OK" != "true" ]; then
-            echo "::error::Seed failed: $(echo "$RESP" | jq -r '.error // "unknown"')"
-            exit 1
+            # Fixture seed is optional post-deploy QA — do not fail the Worker publish.
+            echo "::warning::Seed failed (non-blocking): $(echo "$RESP" | jq -r '.error // "unknown"')"
+            exit 0
           fi
           MAT=$(echo "$RESP" | jq -r '.fixture.customerReference')
           URL=$(echo "$RESP" | jq -r '.fixture.manageBookingUrl')
