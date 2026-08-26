@@ -93,7 +93,6 @@ import ExpressDropOffChoice from "@/components/ExpressDropOffChoice";
 import {
   canProceedWithoutExpressDropOff,
   composeFareWithExpressDropOff,
-  expressDropOffBreakdownLabel,
   resolveExpressDropOff,
   shouldDefaultExpressSelectedOnNewEligibility,
 } from "../../shared/express-drop-off";
@@ -1960,11 +1959,14 @@ function QuoteCard({
         eligible: expressSelection.eligible,
         selected: expressDropOffSelected,
         removalAcknowledged: expressRemovalAck,
+        freeAlternativeAvailable: expressSelection.freeAlternativeAvailable,
       })
     ) {
       setExpressAckRequired(true);
       setPaymentError(
-        "Please confirm you understand the free drop-off area before continuing without Express Drop-Off.",
+        expressSelection.service === "pick-up"
+          ? "Please confirm you understand the free pick-up area before continuing without Express Pick-Up."
+          : "Please confirm you understand the free drop-off area before continuing without Express Drop-Off.",
       );
       return;
     }
@@ -2474,11 +2476,14 @@ function QuoteCard({
           eligible: expressSelection.eligible,
           selected: expressDropOffSelected,
           removalAcknowledged: expressRemovalAck,
+          freeAlternativeAvailable: expressSelection.freeAlternativeAvailable,
         })
       ) {
         setExpressAckRequired(true);
         setSubmitError(
-          "Please confirm you understand the free drop-off area before continuing without Express Drop-Off.",
+          expressSelection.service === "pick-up"
+            ? "Please confirm you understand the free pick-up area before continuing without Express Pick-Up."
+            : "Please confirm you understand the free drop-off area before continuing without Express Drop-Off.",
         );
         return;
       }
@@ -2720,6 +2725,41 @@ function QuoteCard({
               ? "Price ready — add your date and time when you’re ready to book"
               : "";
 
+  function renderExpressChoiceInPriceCard(mode: "full" | "summary") {
+    if (
+      !expressSelection.eligible ||
+      !expressSelection.airportCode ||
+      !expressSelection.service ||
+      testChargeAmount !== null
+    ) {
+      return null;
+    }
+    return (
+      <div className="mt-3 text-left" data-express-airport-choice>
+        <ExpressDropOffChoice
+          mode={mode}
+          editing={expressEditing}
+          onEditingChange={setExpressEditing}
+          airportCode={expressSelection.airportCode}
+          service={expressSelection.service}
+          allowFreeAlternative={expressSelection.freeAlternativeAvailable}
+          selected={expressDropOffSelected}
+          removalAcknowledged={expressRemovalAck}
+          requireAcknowledgement={expressAckRequired}
+          onSelectedChange={(selected) => {
+            setExpressDropOffSelected(selected);
+            setExpressAckRequired(false);
+            if (selected) setExpressRemovalAck(false);
+          }}
+          onRemovalAcknowledgedChange={(ack) => {
+            setExpressRemovalAck(ack);
+            if (ack) setExpressAckRequired(false);
+          }}
+        />
+      </div>
+    );
+  }
+
   function renderQuotePriceSummaryBody() {
     return (
       <>
@@ -2770,14 +2810,7 @@ function QuoteCard({
             <p className="mt-1 text-3xl font-semibold tracking-tight text-white">
               {formatQuote(pricedFare?.totalGbp ?? liveQuote.amount)}
             </p>
-            {expressSelection.eligible && expressSelection.airportCode ? (
-              <p className="mt-2 text-sm text-white/75">
-                {expressDropOffBreakdownLabel(
-                  expressSelection.airportCode,
-                  expressDropOffSelected,
-                )}
-              </p>
-            ) : null}
+            {renderExpressChoiceInPriceCard(quoteStep === 1 ? "full" : "summary")}
             <p className="mt-3 text-sm text-white/75">
               Vehicle: {vehicleShortLabel(quoteVehicle)}
               <span className="mx-2 text-white/35">·</span>
@@ -2803,28 +2836,6 @@ function QuoteCard({
                 Includes 5% return booking discount on the guide price.
               </p>
             )}
-            {expressSelection.eligible && expressSelection.airportCode ? (
-              <div className="mt-4 text-left">
-                <ExpressDropOffChoice
-                  mode={quoteStep === 1 ? "full" : "summary"}
-                  editing={expressEditing}
-                  onEditingChange={setExpressEditing}
-                  airportCode={expressSelection.airportCode}
-                  selected={expressDropOffSelected}
-                  removalAcknowledged={expressRemovalAck}
-                  requireAcknowledgement={expressAckRequired}
-                  onSelectedChange={(selected) => {
-                    setExpressDropOffSelected(selected);
-                    setExpressAckRequired(false);
-                    if (selected) setExpressRemovalAck(false);
-                  }}
-                  onRemovalAcknowledgedChange={(ack) => {
-                    setExpressRemovalAck(ack);
-                    if (ack) setExpressAckRequired(false);
-                  }}
-                />
-              </div>
-            ) : null}
           </>
         ) : isEnquiryOnly ? (
           <>
@@ -2866,16 +2877,7 @@ function QuoteCard({
                   liveQuote.amount,
               )}
             </p>
-            {expressSelection.eligible &&
-            expressSelection.airportCode &&
-            testChargeAmount === null ? (
-              <p className="mt-2 text-sm text-white/75">
-                {expressDropOffBreakdownLabel(
-                  expressSelection.airportCode,
-                  expressDropOffSelected,
-                )}
-              </p>
-            ) : null}
+            {renderExpressChoiceInPriceCard(quoteStep === 1 ? "full" : "summary")}
             {appliedPersonalQuote && testChargeAmount === null ? (
               <p className="mt-2 text-sm text-emerald/90">
                 Personal quote applied
@@ -2913,30 +2915,6 @@ function QuoteCard({
                 Includes 5% return booking discount.
               </p>
             )}
-            {expressSelection.eligible &&
-            expressSelection.airportCode &&
-            testChargeAmount === null ? (
-              <div className="mt-4 text-left">
-                <ExpressDropOffChoice
-                  mode={quoteStep === 1 ? "full" : "summary"}
-                  editing={expressEditing}
-                  onEditingChange={setExpressEditing}
-                  airportCode={expressSelection.airportCode}
-                  selected={expressDropOffSelected}
-                  removalAcknowledged={expressRemovalAck}
-                  requireAcknowledgement={expressAckRequired}
-                  onSelectedChange={(selected) => {
-                    setExpressDropOffSelected(selected);
-                    setExpressAckRequired(false);
-                    if (selected) setExpressRemovalAck(false);
-                  }}
-                  onRemovalAcknowledgedChange={(ack) => {
-                    setExpressRemovalAck(ack);
-                    if (ack) setExpressAckRequired(false);
-                  }}
-                />
-              </div>
-            ) : null}
           </>
         ) : (
           <>

@@ -1188,6 +1188,8 @@ export default function QuickQuoteOwnerClient() {
           {expressSelection.eligible && expressSelection.airportCode ? (
             <ExpressDropOffSelector
               airportCode={expressSelection.airportCode as ExpressDropOffAirportCode}
+              service={expressSelection.service ?? "drop-off"}
+              allowFreeAlternative={expressSelection.freeAlternativeAvailable}
               selected={expressDropOffSelected}
               removalAcknowledged={expressRemovalAck}
               requireAcknowledgement={expressAckRequired}
@@ -1314,6 +1316,7 @@ export default function QuickQuoteOwnerClient() {
                 {expressDropOffBreakdownLabel(
                   expressSelection.airportCode,
                   expressDropOffSelected,
+                  expressSelection.service ?? "drop-off",
                 )}
               </p>
             ) : null}

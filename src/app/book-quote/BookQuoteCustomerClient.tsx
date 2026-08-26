@@ -308,6 +308,7 @@ function BookQuoteInner() {
               {expressDropOffBreakdownLabel(
                 expressSelection.airportCode,
                 expressDropOffSelected,
+                expressSelection.service ?? "drop-off",
               )}
             </p>
           </div>
@@ -326,6 +327,8 @@ function BookQuoteInner() {
           editing={expressEditing}
           onEditingChange={setExpressEditing}
           airportCode={expressSelection.airportCode}
+          service={expressSelection.service ?? "drop-off"}
+          allowFreeAlternative={expressSelection.freeAlternativeAvailable}
           selected={expressDropOffSelected}
           removalAcknowledged={expressRemovalAck}
           requireAcknowledgement={expressAckRequired}

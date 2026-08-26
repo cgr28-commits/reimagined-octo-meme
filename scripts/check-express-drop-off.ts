@@ -62,6 +62,7 @@ check("Central fees: BFS £5, BHD £4, DUB/LDY not charged", () => {
   assert.equal(resolveExpressDropOff({ airportCode: "DUB", fromAirport: false }).eligible, false);
   assert.equal(resolveExpressDropOff({ airportCode: "LDY", fromAirport: false }).eligible, false);
   assert.ok(read("src/lib/pricing-config.json").includes('"expressDropOffFeesGbp"'));
+  assert.ok(read("src/lib/pricing-config.json").includes('"expressFreePickupConfigured"'));
   assert.ok(read("src/lib/pricing-config.json").includes('"BFS": 5'));
   assert.ok(read("src/lib/pricing-config.json").includes('"BHD": 4'));
 });
@@ -73,6 +74,7 @@ check("BFS departure with Express Drop-Off: +£5", () => {
     selected: true,
   });
   assert.equal(sel.eligible, true);
+  assert.equal(sel.service, "drop-off");
   assert.equal(sel.feeGbp, 5);
   assert.equal(sel.airportCode, "BFS");
   const total = composeFareWithExpressDropOff({
@@ -119,16 +121,26 @@ check("BHD departure without Express Drop-Off: +£0", () => {
   );
 });
 
-check("Airport pickup: no charge or eligibility", () => {
+check("Airport pickup: Express Pick-Up eligible when free collection configured", () => {
   for (const code of ["BFS", "BHD"] as const) {
     const sel = resolveExpressDropOff({
       airportCode: code,
       fromAirport: true,
       selected: true,
     });
-    assert.equal(sel.eligible, false);
-    assert.equal(sel.feeGbp, 0);
-    assert.equal(sel.airportCode, null);
+    assert.equal(sel.eligible, true);
+    assert.equal(sel.service, "pick-up");
+    assert.equal(sel.freeAlternativeAvailable, true);
+    assert.equal(sel.feeGbp, EXPRESS_DROP_OFF_FEES_GBP[code]);
+    assert.equal(sel.airportCode, code);
+
+    const removed = resolveExpressDropOff({
+      airportCode: code,
+      fromAirport: true,
+      selected: false,
+    });
+    assert.equal(removed.feeGbp, 0);
+    assert.equal(removed.selected, false);
   }
 });
 
@@ -140,16 +152,16 @@ check("Dublin Airport: no charge or eligibility", () => {
   assert.equal(drop.feeGbp, 0);
 });
 
-check("Return booking: charge only eligible airport-bound legs", () => {
-  // Home → BFS → home: outbound drop-off only
+check("Return booking: charge Express once with direction-correct service", () => {
+  // Home → BFS → home: drop-off wording, one fee
   const homeToAirport = resolveExpressDropOffLegs({
     airportCode: "BFS",
     fromAirport: false,
     returnJourney: true,
   });
   assert.deepEqual(
-    homeToAirport.map((l) => l.leg),
-    ["outbound"],
+    homeToAirport.map((l) => ({ leg: l.leg, service: l.service })),
+    [{ leg: "outbound", service: "drop-off" }],
   );
   assert.equal(
     resolveExpressDropOff({
@@ -161,15 +173,15 @@ check("Return booking: charge only eligible airport-bound legs", () => {
     5,
   );
 
-  // BFS → home → BFS: return leg drop-off only
+  // BFS → home → BFS: pick-up wording (outbound from airport), one fee
   const airportToHome = resolveExpressDropOffLegs({
     airportCode: "BFS",
     fromAirport: true,
     returnJourney: true,
   });
   assert.deepEqual(
-    airportToHome.map((l) => l.leg),
-    ["return"],
+    airportToHome.map((l) => ({ leg: l.leg, service: l.service })),
+    [{ leg: "outbound", service: "pick-up" }],
   );
   assert.equal(
     resolveExpressDropOff({
@@ -182,7 +194,7 @@ check("Return booking: charge only eligible airport-bound legs", () => {
   );
 });
 
-check("Switching airports removes obsolete charge", () => {
+check("Switching airports / direction removes obsolete drop-off-only assumption", () => {
   const bfs = toExpressDropOffPersistedFields(
     resolveExpressDropOff({ airportCode: "BFS", fromAirport: false, selected: true }),
   );
@@ -192,9 +204,9 @@ check("Switching airports removes obsolete charge", () => {
   const pickup = toExpressDropOffPersistedFields(
     resolveExpressDropOff({ airportCode: "BFS", fromAirport: true, selected: true }),
   );
-  assert.equal(pickup.expressDropOffFee, 0);
-  assert.equal(pickup.expressDropOffAirport, null);
-  assert.equal(pickup.expressDropOffSelected, false);
+  assert.equal(pickup.expressDropOffFee, 5);
+  assert.equal(pickup.expressDropOffAirport, "BFS");
+  assert.equal(pickup.expressDropOffSelected, true);
 
   const dub = toExpressDropOffPersistedFields(
     resolveExpressDropOff({ airportCode: "DUB", fromAirport: false, selected: true }),
@@ -260,11 +272,19 @@ check("Personal quote public summary + payment display carry Express fields", ()
 check("Breakdown / customer copy wording", () => {
   assert.equal(
     expressDropOffRecommendedLabel("BFS"),
-    "Express terminal drop-off — £5 (Recommended)",
+    "Keep Express terminal drop-off — £5 (Recommended)",
   );
   assert.equal(
     expressDropOffRecommendedLabel("BHD"),
-    "Express terminal drop-off — £4 (Recommended)",
+    "Keep Express terminal drop-off — £4 (Recommended)",
+  );
+  assert.equal(
+    expressDropOffRecommendedLabel("BFS", "pick-up"),
+    "Keep Express airport pick-up — £5 (Recommended)",
+  );
+  assert.equal(
+    expressDropOffRecommendedLabel("BHD", "pick-up"),
+    "Keep Express airport pick-up — £4 (Recommended)",
   );
   assert.equal(
     expressDropOffRemoveLabel("BFS"),
@@ -275,10 +295,26 @@ check("Breakdown / customer copy wording", () => {
     "Use the designated free drop-off area and save £4",
   );
   assert.equal(
+    expressDropOffRemoveLabel("BFS", "pick-up"),
+    "Meet your driver at the designated free pick-up area and save £5",
+  );
+  assert.equal(
+    expressDropOffRemoveLabel("BHD", "pick-up"),
+    "Meet your driver at the designated free pick-up area and save £4",
+  );
+  assert.equal(
     expressDropOffBreakdownLabel("BFS", true),
     "Belfast International Express Drop-Off: £5",
   );
   assert.equal(expressDropOffBreakdownLabel("BFS", false), "Express Drop-Off removed: −£5");
+  assert.equal(
+    expressDropOffBreakdownLabel("BFS", true, "pick-up"),
+    "Belfast International Express Pick-Up: £5",
+  );
+  assert.equal(
+    expressDropOffBreakdownLabel("BFS", false, "pick-up"),
+    "Express Pick-Up removed: −£5",
+  );
   assert.equal(
     EXPRESS_DROP_OFF_PASSED_ON_NOTE,
     "Airport access charges are passed on at cost.",
@@ -380,20 +416,28 @@ check("QuoteCard shows Express under initial price; payment uses summary + Chang
   const card = read("src/components/QuoteCard.tsx");
   const choice = read("src/components/ExpressDropOffChoice.tsx");
 
-  // Initial quote surfaces the choice via ExpressDropOffChoice.
+  // Exact order inside the fixed-price card: title → large price → Express → vehicle details.
+  assert.match(
+    card,
+    /Your Fixed Journey Price[\s\S]*?text-3xl[\s\S]*?renderExpressChoiceInPriceCard[\s\S]*?Vehicle:/,
+  );
+  assert.match(card, /data-express-airport-choice/);
+  assert.match(card, /renderExpressChoiceInPriceCard/);
+  assert.match(card, /service=\{expressSelection\.service\}/);
   assert.match(card, /ExpressDropOffChoice/);
   assert.match(card, /pricedFare/);
   assert.match(card, /composeFareWithExpressDropOff/);
   assert.match(card, /resolveExpressDropOff/);
   assert.match(card, /expressDropOffSelected/);
-  assert.match(card, /mode=\{quoteStep === 1 \? "full" : "summary"\}/);
-  assert.match(card, /expressDropOffBreakdownLabel/);
+  assert.match(card, /renderExpressChoiceInPriceCard\(quoteStep === 1 \? "full" : "summary"\)/);
   // Browser sends transfer fare + boolean — never trusts a client fee for SumUp.
   assert.match(card, /amount: transferFareGbp/);
   assert.match(card, /expressDropOffSelected: expressSelection\.eligible/);
   assert.match(card, /canProceedWithoutExpressDropOff/);
-  // Persist selection across steps / drafts.
+  // Persist selection across steps / drafts / Book Now + Save Quote.
   assert.match(card, /expressDropOffSelected:/);
+  assert.match(card, /Book Now/);
+  assert.match(card, /Save Quote/);
   assert.match(read("src/lib/booking-draft-storage.ts"), /expressDropOffSelected\?: boolean/);
 
   // Choice component: full under initial price; summary + Change on payment pages.
@@ -402,13 +446,14 @@ check("QuoteCard shows Express under initial price; payment uses summary + Chang
   assert.match(choice, /ExpressDropOffSelector/);
   assert.match(choice, /expressDropOffBreakdownLabel/);
 
-  // Selector copy matches product wording.
+  // Selector copy matches product wording (direction-aware).
   const selector = read("src/components/ExpressDropOffSelector.tsx");
   assert.match(selector, /expressDropOffRecommendedLabel/);
   assert.match(selector, /expressDropOffRemoveLabel/);
-  assert.match(selector, /EXPRESS_DROP_OFF_REMOVED_EXPLANATION/);
+  assert.match(selector, /expressDropOffRemovedExplanation/);
   assert.match(selector, /role="radiogroup"/);
   assert.match(selector, /min-h-11/);
+  assert.match(selector, /service/);
 });
 
 check("Removing Express reduces total immediately without changing transfer fare", () => {
@@ -455,10 +500,10 @@ check("Open website booking (QuoteCard) re-composes Express server-side", () => 
   assert.doesNotMatch(index, /expressDropOffFee:\s*Number\(body\.expressDropOffFee/);
 });
 
-check("Ineligible journeys hide Express (pickup / Dublin / non-airport / away legs)", () => {
+check("Ineligible journeys hide Express (Dublin / non-airport); pickups stay eligible", () => {
   assert.equal(
     resolveExpressDropOff({ airportCode: "BFS", fromAirport: true, selected: true }).eligible,
-    false,
+    true,
   );
   assert.equal(
     resolveExpressDropOff({ airportCode: "DUB", fromAirport: false, selected: true }).eligible,
@@ -468,31 +513,21 @@ check("Ineligible journeys hide Express (pickup / Dublin / non-airport / away le
     resolveExpressDropOff({ airportCode: null, fromAirport: false, selected: true }).eligible,
     false,
   );
-  assert.equal(
-    resolveExpressDropOff({
-      airportCode: "BFS",
-      fromAirport: true,
-      returnJourney: false,
-      selected: true,
-    }).feeGbp,
-    0,
-  );
-  // Changing direction away from airport clears obsolete fee.
+  // Changing airport to Dublin clears obsolete fee.
   const toAirport = resolveExpressDropOff({
     airportCode: "BHD",
     fromAirport: false,
     selected: true,
   });
   assert.equal(toAirport.feeGbp, 4);
-  const fromAirport = resolveExpressDropOff({
-    airportCode: "BHD",
-    fromAirport: true,
-    returnJourney: false,
+  const dublin = resolveExpressDropOff({
+    airportCode: "DUB",
+    fromAirport: false,
     selected: true,
   });
-  assert.equal(fromAirport.eligible, false);
-  assert.equal(fromAirport.feeGbp, 0);
-  assert.equal(toExpressDropOffPersistedFields(fromAirport).expressDropOffFee, 0);
+  assert.equal(dublin.eligible, false);
+  assert.equal(dublin.feeGbp, 0);
+  assert.equal(toExpressDropOffPersistedFields(dublin).expressDropOffFee, 0);
 });
 
 check("Payment pages show saved Express selection with Change (not forced re-choice)", () => {
@@ -672,19 +707,16 @@ check("SumUp receives recalculated server-authoritative amount after customer re
   assert.notEqual(authoritative.totalGbp, record.quotedAmount);
 });
 
-check("From-airport Personal Quote with return adds Express only on airport-bound return leg", () => {
-  // BFS → home one-way: no Express
-  assert.equal(
-    resolveExpressDropOff({
-      airportCode: "BFS",
-      fromAirport: true,
-      returnJourney: false,
-      selected: true,
-    }).feeGbp,
-    0,
-  );
+check("From-airport Personal Quote uses Pick-Up Express (once, including returns)", () => {
+  const oneWay = resolveExpressDropOff({
+    airportCode: "BFS",
+    fromAirport: true,
+    returnJourney: false,
+    selected: true,
+  });
+  assert.equal(oneWay.feeGbp, 5);
+  assert.equal(oneWay.service, "pick-up");
 
-  // BFS → home → BFS: Express once on return drop-off
   const returnPickup = resolveExpressDropOff({
     airportCode: "BFS",
     fromAirport: true,
@@ -692,9 +724,10 @@ check("From-airport Personal Quote with return adds Express only on airport-boun
     selected: true,
   });
   assert.equal(returnPickup.feeGbp, 5);
+  assert.equal(returnPickup.service, "pick-up");
   assert.deepEqual(
-    returnPickup.legs.map((l) => l.leg),
-    ["return"],
+    returnPickup.legs.map((l) => l.service),
+    ["pick-up"],
   );
 
   const pay = resolvePersonalQuoteCheckoutAmount({
@@ -702,10 +735,8 @@ check("From-airport Personal Quote with return adds Express only on airport-boun
     returnJourney: true,
     expressDropOffFee: returnPickup.feeGbp,
   });
-  // 2 × £40 transfer + £5 Express once
   assert.equal(pay, 85);
 
-  // Home → BFS → home: Express once on outbound
   const homeToAirport = resolveExpressDropOff({
     airportCode: "BHD",
     fromAirport: false,
@@ -713,45 +744,41 @@ check("From-airport Personal Quote with return adds Express only on airport-boun
     selected: true,
   });
   assert.equal(homeToAirport.feeGbp, 4);
+  assert.equal(homeToAirport.service, "drop-off");
   assert.deepEqual(
     homeToAirport.legs.map((l) => l.leg),
     ["outbound"],
   );
 });
 
-check("BFS/BHD → home one-way ineligible → enable return defaults Express selected (+fee once)", () => {
-  // Simulate saved PQ: airport pickup one-way stored as ineligible / false.
+check("BFS/BHD pickup already eligible — enabling return keeps Express selected", () => {
   const oneWayPickup = resolveExpressDropOff({
     airportCode: "BFS",
     fromAirport: true,
     returnJourney: false,
-    selected: false,
+    selected: true,
   });
-  assert.equal(oneWayPickup.eligible, false);
-  assert.equal(oneWayPickup.feeGbp, 0);
-  assert.equal(toExpressDropOffPersistedFields(oneWayPickup).expressDropOffSelected, false);
+  assert.equal(oneWayPickup.eligible, true);
+  assert.equal(oneWayPickup.feeGbp, 5);
+  assert.equal(toExpressDropOffPersistedFields(oneWayPickup).expressDropOffSelected, true);
 
-  // Customer enables return — eligibility is newly created.
   assert.equal(
     shouldDefaultExpressSelectedOnNewEligibility({
       wasEligible: oneWayPickup.eligible,
       nowEligible: true,
     }),
-    true,
+    false,
   );
 
   const afterReturn = resolveExpressDropOff({
     airportCode: "BFS",
     fromAirport: true,
     returnJourney: true,
-    selected: true, // defaulted selected
+    selected: true,
   });
   assert.equal(afterReturn.eligible, true);
   assert.equal(afterReturn.feeGbp, 5);
-  assert.deepEqual(
-    afterReturn.legs.map((l) => l.leg),
-    ["return"],
-  );
+  assert.equal(afterReturn.service, "pick-up");
 
   const bhd = resolveExpressDropOff({
     airportCode: "BHD",
@@ -770,7 +797,6 @@ check("BFS/BHD → home one-way ineligible → enable return defaults Express se
   });
   assert.equal(display.paymentAmount, 85);
 
-  // Already-eligible journey with explicit remove must NOT be force-selected.
   assert.equal(
     shouldDefaultExpressSelectedOnNewEligibility({
       wasEligible: true,
