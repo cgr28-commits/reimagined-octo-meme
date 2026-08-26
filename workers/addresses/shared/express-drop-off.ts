@@ -37,10 +37,10 @@ export const EXPRESS_DROP_OFF_PASSED_ON_NOTE =
   "Airport access charges are passed on at cost.";
 
 export const EXPRESS_DROP_OFF_REMOVED_EXPLANATION =
-  "You will be dropped at the airport’s designated free drop-off area rather than the Express terminal area. Additional walking or onward transfer may be required.";
+  "You will be dropped at the airport’s designated free drop-off area rather than the Express terminal area. It’s only a short walk to the terminal.";
 
 export const EXPRESS_PICK_UP_REMOVED_EXPLANATION =
-  "You will meet your driver at the airport’s designated free pick-up area rather than the Express terminal area. Additional walking or onward transfer may be required.";
+  "You will meet your driver at the airport’s designated free pick-up area rather than the Express terminal area. It’s only a short walk from the terminal.";
 
 function roundGbp(amount: number): number {
   return Math.round(Number(amount) * 100) / 100;
@@ -289,9 +289,9 @@ export function expressDropOffConfirmRemovalLabel(
   service: ExpressAirportService = "drop-off",
 ): string {
   if (service === "pick-up") {
-    return "I understand I will meet my driver at the free pick-up area, not the Express terminal.";
+    return "I understand I will meet my driver at the designated free pick-up area rather than the Express terminal.";
   }
-  return "I understand I will be dropped at the free drop-off area, not the Express terminal.";
+  return "I understand I will be dropped at the designated free drop-off area rather than the Express terminal.";
 }
 
 export function expressAirportLegendLabel(

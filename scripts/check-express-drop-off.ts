@@ -10,11 +10,15 @@ import path from "node:path";
 import {
   EXPRESS_DROP_OFF_FEES_GBP,
   EXPRESS_DROP_OFF_PASSED_ON_NOTE,
+  EXPRESS_DROP_OFF_REMOVED_EXPLANATION,
+  EXPRESS_PICK_UP_REMOVED_EXPLANATION,
   canProceedWithoutExpressDropOff,
   composeFareWithExpressDropOff,
   expressDropOffBreakdownLabel,
+  expressDropOffConfirmRemovalLabel,
   expressDropOffRecommendedLabel,
   expressDropOffRemoveLabel,
+  expressDropOffRemovedExplanation,
   formatExpressDropOffSummaryLine,
   parseCustomerExpressDropOffSelected,
   resolveExpressDropOff,
@@ -315,6 +319,41 @@ check("Breakdown / customer copy wording", () => {
     expressDropOffBreakdownLabel("BFS", false, "pick-up"),
     "Express Pick-Up removed: −£5",
   );
+  assert.equal(
+    EXPRESS_DROP_OFF_REMOVED_EXPLANATION,
+    "You will be dropped at the airport’s designated free drop-off area rather than the Express terminal area. It’s only a short walk to the terminal.",
+  );
+  assert.equal(
+    EXPRESS_PICK_UP_REMOVED_EXPLANATION,
+    "You will meet your driver at the airport’s designated free pick-up area rather than the Express terminal area. It’s only a short walk from the terminal.",
+  );
+  assert.equal(
+    expressDropOffRemovedExplanation("drop-off"),
+    EXPRESS_DROP_OFF_REMOVED_EXPLANATION,
+  );
+  assert.equal(
+    expressDropOffRemovedExplanation("pick-up"),
+    EXPRESS_PICK_UP_REMOVED_EXPLANATION,
+  );
+  assert.equal(
+    expressDropOffConfirmRemovalLabel("drop-off"),
+    "I understand I will be dropped at the designated free drop-off area rather than the Express terminal.",
+  );
+  assert.equal(
+    expressDropOffConfirmRemovalLabel("pick-up"),
+    "I understand I will meet my driver at the designated free pick-up area rather than the Express terminal.",
+  );
+  // Direction comes from resolveExpressDropOff(...).service (fromAirport), not duplicate UI state.
+  assert.equal(
+    resolveExpressDropOff({ airportCode: "BFS", fromAirport: false }).service,
+    "drop-off",
+  );
+  assert.equal(
+    resolveExpressDropOff({ airportCode: "BFS", fromAirport: true }).service,
+    "pick-up",
+  );
+  assert.doesNotMatch(read("shared/express-drop-off.ts"), /onward transfer/i);
+  assert.doesNotMatch(read("src/components/ExpressDropOffSelector.tsx"), /onward transfer/i);
   assert.equal(
     EXPRESS_DROP_OFF_PASSED_ON_NOTE,
     "Airport access charges are passed on at cost.",
