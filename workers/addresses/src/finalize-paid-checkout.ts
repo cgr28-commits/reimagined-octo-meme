@@ -208,8 +208,6 @@ export async function finalizePaidCheckout(input: {
           amount: pending.amount,
           currency: "GBP",
           attribution: pending.booking?.attribution ?? booking.attribution,
-          isRefundTest: pending.isRefundTest === true,
-          isAmendmentTopUp: pending.checkoutKind === "amendment-topup",
         });
       }
       return {
