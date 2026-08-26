@@ -2701,11 +2701,7 @@ function QuoteCard({
         : "Enter your journey details to request a confirmed price."
     : isManualQuoteJourney
     ? hasQuoteRoute
-      ? journeyKind === "address-to-address"
-        ? "Continue to request a personalised quote — no instant price for address-to-address."
-        : isOutOfAreaPickupJourney
-        ? "Continue to request your fixed price — out-of-area pickups need manual approval."
-        : "Continue to request your personalised quote."
+      ? "Continue with your travel details to send your personalised quote request."
       : "Select pickup and drop-off addresses from the suggestions."
     : isA2AFlow && !isAddressPairComplete
       ? "Select pickup and drop-off addresses from the suggestions to see your price."
@@ -2833,14 +2829,14 @@ function QuoteCard({
               Personalised Quote
             </p>
             <p className="mt-1 text-xl font-semibold tracking-tight text-white sm:text-2xl">
-              Please contact us for availability and a personalised quote.
+              Get a personalised quote for your journey
             </p>
             <p className="mt-2 text-sm leading-relaxed text-white/70">
-              {isOutOfAreaPickupJourney
-                ? "This pickup needs manual review. Continue with WhatsApp or Request a Quote — we’ll confirm availability and your personal price. No automatic fare or online payment until approved."
-                : journeyKind === "address-to-address"
-                  ? "Address-to-address journeys are quoted personally. Enter your details, then chat on WhatsApp or Request a Quote — we won’t show an instant price."
-                  : "Continue to send your trip details and we’ll email your personal fixed price. No automatic fare or online payment until confirmed."}
+              {journeyKind === "address-to-address"
+                ? "Address-to-address journeys are individually priced. Continue with your travel details and send us your quote request."
+                : isOutOfAreaPickupJourney
+                  ? "This journey needs a personalised quote. Continue with your travel details and send us your quote request."
+                  : "Continue with your travel details and send us your quote request — we’ll confirm your personal price before any payment is taken."}
             </p>
             {journeyDistanceLabel && journeyDurationLabel && (
               <p className="mt-2 text-xs text-white/60">
@@ -2974,7 +2970,7 @@ function QuoteCard({
         )}
         <p className="mt-3 text-[11px] text-white/40">
           {pricingConfirmationRequired || isManualQuoteJourney
-            ? "Request a Quote — we’ll confirm your personal price before any payment is taken."
+            ? "We’ll confirm your price before any payment is taken."
             : showsRequestQuoteFlow
               ? "Request a quote — we’ll confirm availability before the booking is accepted. No online payment until confirmed."
               : isEnquiryOnly
@@ -4336,7 +4332,7 @@ function QuoteCard({
               ) : isManualQuoteJourney ? (
                 <PreviewRow
                   label="Pricing"
-                  value="Personalised quote — Request a Quote"
+                  value="Personalised quote — continue with travel details"
                 />
               ) : showsRequestQuoteFlow && liveQuote ? (
                 <PreviewRow
