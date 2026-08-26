@@ -10,9 +10,12 @@ import {
   a2aQuoteStatusLabel,
   computeA2aQuoteExpiresAtIso,
   formatA2aQuoteValidityLabel,
+  isA2aCounterOffer,
   isA2aQuotePayable,
+  listA2aJourneyChanges,
   normalizeA2aQuotedPriceGbp,
   normalizeA2aQuoteValidityMinutes,
+  resolveA2aOriginalBooking,
   type A2aQuoteRequestRecord,
 } from "../shared/a2a-personalised-quote";
 import { buildA2aQuotePaymentLinkEmail } from "../shared/a2a-quote-payment-email";
@@ -38,6 +41,7 @@ import {
 } from "./pending-checkout-store";
 import { resolveWorkerTripRouteMetrics } from "./resolve-route-metrics";
 import {
+  DEFAULT_BOOKING_EMAIL,
   trySendResendOnlyCustomerEmail,
   type WorkerEmailEnv,
 } from "./worker-email";
@@ -73,6 +77,9 @@ export function buildA2aQuotePayUrl(siteOrigin: string, paymentToken: string): s
 }
 
 function toOwnerSummary(record: A2aQuoteRequestRecord) {
+  const original = resolveA2aOriginalBooking(record);
+  const changes = listA2aJourneyChanges(original, record.booking, normaliseJourneyAddressLabel);
+  const counterOffer = changes.length > 0;
   return {
     reference: record.reference,
     status: record.status,
@@ -110,6 +117,16 @@ function toOwnerSummary(record: A2aQuoteRequestRecord) {
     paidAt: record.paidAt ?? null,
     paymentLinkEmailSentAt: record.paymentLinkEmailSentAt ?? null,
     payable: isA2aQuotePayable(record),
+    isCounterOffer: counterOffer,
+    journeyChanges: changes,
+    originalPickupLabel: normaliseJourneyAddressLabel(original.pickupLabel),
+    originalDropoffLabel: normaliseJourneyAddressLabel(original.dropoffLabel),
+    originalTripDate: original.tripDate,
+    originalTripTime: original.tripTime,
+    originalReturnDate: original.returnDate || "",
+    originalReturnTime: original.returnTime || "",
+    originalPassengers: original.passengers,
+    originalSuitcases: original.suitcases,
   };
 }
 
@@ -120,6 +137,12 @@ export function publicA2aQuoteSummary(record: A2aQuoteRequestRecord) {
       !Number.isNaN(new Date(record.quoteExpiresAt).getTime()) &&
       new Date(record.quoteExpiresAt).getTime() <= Date.now() &&
       record.status === "QUOTE_APPROVED_AWAITING_PAYMENT");
+
+  const original = resolveA2aOriginalBooking(record);
+  const changes = listA2aJourneyChanges(original, record.booking, normaliseJourneyAddressLabel);
+  const counterOffer =
+    Boolean(record.isCounterOffer) ||
+    (record.status === "QUOTE_APPROVED_AWAITING_PAYMENT" && changes.length > 0);
 
   return {
     reference: record.reference,
@@ -149,6 +172,17 @@ export function publicA2aQuoteSummary(record: A2aQuoteRequestRecord) {
     payable: !expired && isA2aQuotePayable(record),
     expired,
     expiredMessage: expired ? A2A_QUOTE_EXPIRED_CUSTOMER_MESSAGE : null,
+    isCounterOffer: counterOffer,
+    journeyChanges: changes,
+    originalPickupLabel: normaliseJourneyAddressLabel(original.pickupLabel),
+    originalDropoffLabel: normaliseJourneyAddressLabel(original.dropoffLabel),
+    originalTripDate: original.tripDate,
+    originalTripTime: original.tripTime,
+    originalReturnJourney: Boolean(original.returnJourney),
+    originalReturnDate: original.returnDate || "",
+    originalReturnTime: original.returnTime || "",
+    originalPassengers: original.passengers,
+    originalSuitcases: original.suitcases,
   };
 }
 
@@ -184,6 +218,7 @@ export async function createA2aQuoteRequest(options: {
     paymentToken: generateA2aPaymentToken(),
     status: "AWAITING_QUOTE",
     booking: options.booking,
+    originalBooking: { ...options.booking },
     createdAt,
     updatedAt: createdAt,
   };
@@ -331,12 +366,18 @@ async function sendA2aPaymentEmail(
   env: A2aQuoteEnv,
   record: A2aQuoteRequestRecord,
   payUrl: string,
-): Promise<{ sent: boolean; error?: string }> {
+): Promise<{ sent: boolean; error?: string; provider?: string }> {
   if (!isValidCustomerEmail(record.booking.customerEmail)) {
     return { sent: false, error: "Customer email is missing or invalid." };
   }
   const validityMinutes =
     record.quoteValidityMinutes ?? A2A_QUOTE_VALIDITY_DEFAULT_MINUTES;
+  const original = resolveA2aOriginalBooking(record);
+  const counterOffer = isA2aCounterOffer(
+    original,
+    record.booking,
+    normaliseJourneyAddressLabel,
+  );
   const email = buildA2aQuotePaymentLinkEmail({
     customerName: record.booking.customerName,
     customerEmail: record.booking.customerEmail.trim(),
@@ -347,10 +388,22 @@ async function sendA2aPaymentEmail(
     returnJourney: Boolean(record.booking.returnJourney),
     returnDate: String(record.booking.returnDate ?? "").trim(),
     returnTime: String(record.booking.returnTime ?? "").trim(),
+    passengers: Number(record.booking.passengers) || 1,
+    suitcases: Number(record.booking.suitcases) || 0,
     amountLabel: formatAmountLabel(record.quotedPrice ?? 0),
     reference: record.reference,
     payUrl,
     validityMinutes,
+    isCounterOffer: counterOffer,
+    originalPickupLabel: normaliseJourneyAddressLabel(original.pickupLabel),
+    originalDropoffLabel: normaliseJourneyAddressLabel(original.dropoffLabel),
+    originalTripDate: original.tripDate,
+    originalTripTime: original.tripTime,
+    originalReturnJourney: Boolean(original.returnJourney),
+    originalReturnDate: String(original.returnDate ?? "").trim(),
+    originalReturnTime: String(original.returnTime ?? "").trim(),
+    originalPassengers: Number(original.passengers) || 1,
+    originalSuitcases: Number(original.suitcases) || 0,
   });
   const result = await trySendResendOnlyCustomerEmail(env, {
     to: record.booking.customerEmail.trim(),
@@ -359,6 +412,20 @@ async function sendA2aPaymentEmail(
     body: email.text,
     htmlBody: email.html,
   });
+  if (result.sent) {
+    // Owner/business copy of exactly what the customer received.
+    const ownerTo =
+      env.BOOKING_NOTIFICATION_EMAIL?.trim() ||
+      env.BOOKING_TO_EMAIL?.trim() ||
+      DEFAULT_BOOKING_EMAIL;
+    void trySendResendOnlyCustomerEmail(env, {
+      to: ownerTo,
+      toName: "Bookings",
+      subject: `[Bookings copy] ${email.subject}`,
+      body: email.text,
+      htmlBody: email.html,
+    }).catch(() => undefined);
+  }
   return {
     sent: result.sent,
     error: result.error,
@@ -428,6 +495,17 @@ export async function handleOwnerUpdateA2aQuoteJourney(
     returnTime = "";
   }
 
+  const passengersRaw = body.passengers;
+  const suitcasesRaw = body.suitcases;
+  const passengers =
+    passengersRaw === undefined || passengersRaw === null || passengersRaw === ""
+      ? Number(existing.booking.passengers) || 1
+      : Math.max(1, Math.min(7, Math.floor(Number(passengersRaw)) || 1));
+  const suitcases =
+    suitcasesRaw === undefined || suitcasesRaw === null || suitcasesRaw === ""
+      ? Number(existing.booking.suitcases) || 0
+      : Math.max(0, Math.min(20, Math.floor(Number(suitcasesRaw)) || 0));
+
   const addressesChanged =
     pickupLabel !== normaliseJourneyAddressLabel(existing.booking.pickupLabel) ||
     dropoffLabel !== normaliseJourneyAddressLabel(existing.booking.dropoffLabel);
@@ -458,6 +536,9 @@ export async function handleOwnerUpdateA2aQuoteJourney(
   }
 
   const nowIso = new Date().toISOString();
+  const originalBooking = existing.originalBooking
+    ? existing.originalBooking
+    : { ...existing.booking };
   const nextBooking = {
     ...existing.booking,
     pickupLabel,
@@ -467,6 +548,8 @@ export async function handleOwnerUpdateA2aQuoteJourney(
     returnJourney,
     returnDate,
     returnTime,
+    passengers,
+    suitcases,
   } as A2aQuoteRequestRecord["booking"];
   if (journeyDistance) nextBooking.journeyDistance = journeyDistance;
   else delete nextBooking.journeyDistance;
@@ -475,6 +558,7 @@ export async function handleOwnerUpdateA2aQuoteJourney(
 
   const next: A2aQuoteRequestRecord = {
     ...existing,
+    originalBooking,
     booking: nextBooking,
     updatedAt: nowIso,
   };
@@ -574,8 +658,18 @@ export async function handleOwnerApproveA2aQuote(
     a2aQuoteReference: existing.reference,
   });
 
+  const originalBooking = existing.originalBooking
+    ? existing.originalBooking
+    : { ...existing.booking };
+  const counterOffer = isA2aCounterOffer(
+    originalBooking,
+    existing.booking,
+    normaliseJourneyAddressLabel,
+  );
+
   const record: A2aQuoteRequestRecord = {
     ...existing,
+    originalBooking,
     status: "QUOTE_APPROVED_AWAITING_PAYMENT",
     quotedPrice,
     quoteApprovedAt: approvedAt,
@@ -584,6 +678,7 @@ export async function handleOwnerApproveA2aQuote(
     checkoutId: checkout.checkoutId,
     checkoutReference: checkout.checkoutReference,
     paymentUrl: checkout.paymentUrl,
+    isCounterOffer: counterOffer,
     updatedAt: approvedAt,
   };
 

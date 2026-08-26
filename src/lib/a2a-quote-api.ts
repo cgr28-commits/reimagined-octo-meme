@@ -12,6 +12,13 @@ export type A2aQuoteOwnerFilter =
   | "history"
   | "all";
 
+export type A2aJourneyChangeSummary = {
+  field: string;
+  label: string;
+  requested: string;
+  offered: string;
+};
+
 export type A2aQuoteOwnerSummary = {
   reference: string;
   status: string;
@@ -45,6 +52,16 @@ export type A2aQuoteOwnerSummary = {
   paidAt: string | null;
   paymentLinkEmailSentAt: string | null;
   payable: boolean;
+  isCounterOffer?: boolean;
+  journeyChanges?: A2aJourneyChangeSummary[];
+  originalPickupLabel?: string;
+  originalDropoffLabel?: string;
+  originalTripDate?: string;
+  originalTripTime?: string;
+  originalReturnDate?: string;
+  originalReturnTime?: string;
+  originalPassengers?: number;
+  originalSuitcases?: number;
 };
 
 export type PublicA2aQuoteSummary = {
@@ -71,6 +88,17 @@ export type PublicA2aQuoteSummary = {
   payable: boolean;
   expired: boolean;
   expiredMessage: string | null;
+  isCounterOffer?: boolean;
+  journeyChanges?: A2aJourneyChangeSummary[];
+  originalPickupLabel?: string;
+  originalDropoffLabel?: string;
+  originalTripDate?: string;
+  originalTripTime?: string;
+  originalReturnJourney?: boolean;
+  originalReturnDate?: string;
+  originalReturnTime?: string;
+  originalPassengers?: number;
+  originalSuitcases?: number;
 };
 
 export async function createA2aQuoteRequest(
@@ -134,6 +162,8 @@ export async function updateOwnerA2aQuoteJourney(
     returnJourney?: boolean;
     returnDate?: string;
     returnTime?: string;
+    passengers?: number;
+    suitcases?: number;
     journeyDistance?: string;
     journeyDuration?: string;
   },

@@ -38,6 +38,8 @@ type JourneyDraft = {
   tripTime: string;
   returnDate: string;
   returnTime: string;
+  passengers: string;
+  suitcases: string;
   pickupPlace: SelectedPlace;
   dropoffPlace: SelectedPlace;
 };
@@ -93,6 +95,8 @@ function draftFromQuote(quote: A2aQuoteOwnerSummary): JourneyDraft {
     tripTime: quote.tripTime,
     returnDate: quote.returnDate || "",
     returnTime: quote.returnTime || "",
+    passengers: String(quote.passengers ?? 1),
+    suitcases: String(quote.suitcases ?? 0),
     pickupPlace: emptySelectedPlace(),
     dropoffPlace: emptySelectedPlace(),
   };
@@ -230,6 +234,8 @@ export default function OwnerA2aQuotesPanel({ ownerKey }: OwnerA2aQuotesPanelPro
         returnJourney: quote.returnJourney,
         returnDate: quote.returnJourney ? journeyDraft.returnDate.trim() : "",
         returnTime: quote.returnJourney ? journeyDraft.returnTime.trim() : "",
+        passengers: Math.max(1, Math.min(7, Number(journeyDraft.passengers) || 1)),
+        suitcases: Math.max(0, Math.min(20, Number(journeyDraft.suitcases) || 0)),
         ...(journeyDistance ? { journeyDistance } : {}),
         ...(journeyDuration ? { journeyDuration } : {}),
       });
@@ -237,10 +243,14 @@ export default function OwnerA2aQuotesPanel({ ownerKey }: OwnerA2aQuotesPanelPro
       setQuotes((prev) => prev.map((row) => (row.reference === record.reference ? record : row)));
       setEditingRef(null);
       setJourneyDraft(null);
+      const changeNote =
+        record.isCounterOffer && record.journeyChanges?.length
+          ? ` Counter-offer ready (${record.journeyChanges.map((c) => c.label).join(", ")} changed).`
+          : "";
       setMessage(
         journeyDistance
-          ? `Journey updated (${journeyDistance}${journeyDuration ? ` · ${journeyDuration}` : ""}). Enter the final price and Approve Quote.`
-          : "Journey updated. Enter the final price and Approve Quote.",
+          ? `Journey updated (${journeyDistance}${journeyDuration ? ` · ${journeyDuration}` : ""}).${changeNote} Enter the final price and Approve Quote.`
+          : `Journey updated.${changeNote} Enter the final price and Approve Quote.`,
       );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save journey changes");
@@ -456,56 +466,84 @@ export default function OwnerA2aQuotesPanel({ ownerKey }: OwnerA2aQuotesPanelPro
               </div>
 
               {!isEditing ? (
-                <dl className="mt-3 grid w-full min-w-0 grid-cols-1 gap-2 text-sm text-white/80 sm:grid-cols-2">
-                  <div className="min-w-0">
-                    <dt className="text-xs text-white/45">Pickup</dt>
-                    <dd className="break-words">{quote.pickupLabel}</dd>
-                  </div>
-                  <div className="min-w-0">
-                    <dt className="text-xs text-white/45">Destination</dt>
-                    <dd className="break-words">{quote.dropoffLabel}</dd>
-                  </div>
-                  <div className="min-w-0">
-                    <dt className="text-xs text-white/45">Date / time</dt>
-                    <dd className="break-words">
-                      {quote.tripDate} · {quote.tripTime}
-                    </dd>
-                  </div>
-                  {quote.returnJourney ? (
+                <>
+                  <dl className="mt-3 grid w-full min-w-0 grid-cols-1 gap-2 text-sm text-white/80 sm:grid-cols-2">
                     <div className="min-w-0">
-                      <dt className="text-xs text-white/45">Return date / time</dt>
+                      <dt className="text-xs text-white/45">Pickup</dt>
+                      <dd className="break-words">{quote.pickupLabel}</dd>
+                    </div>
+                    <div className="min-w-0">
+                      <dt className="text-xs text-white/45">Destination</dt>
+                      <dd className="break-words">{quote.dropoffLabel}</dd>
+                    </div>
+                    <div className="min-w-0">
+                      <dt className="text-xs text-white/45">Date / time</dt>
                       <dd className="break-words">
-                        {[quote.returnDate, quote.returnTime].filter(Boolean).join(" · ") || "—"}
+                        {quote.tripDate} · {quote.tripTime}
                       </dd>
+                    </div>
+                    {quote.returnJourney ? (
+                      <div className="min-w-0">
+                        <dt className="text-xs text-white/45">Return date / time</dt>
+                        <dd className="break-words">
+                          {[quote.returnDate, quote.returnTime].filter(Boolean).join(" · ") || "—"}
+                        </dd>
+                      </div>
+                    ) : null}
+                    <div className="min-w-0">
+                      <dt className="text-xs text-white/45">Passengers / luggage</dt>
+                      <dd className="break-words">
+                        {quote.passengers} pax · {quote.suitcases} cases · {quote.vehicle}
+                      </dd>
+                    </div>
+                    {(quote.journeyDistance || quote.journeyDuration) && (
+                      <div className="min-w-0 sm:col-span-2">
+                        <dt className="text-xs text-white/45">Journey</dt>
+                        <dd className="break-words">
+                          {[quote.journeyDistance, quote.journeyDuration]
+                            .filter(Boolean)
+                            .join(" · ")}
+                        </dd>
+                      </div>
+                    )}
+                    {quote.quotedPriceLabel ? (
+                      <div className="min-w-0 sm:col-span-2">
+                        <dt className="text-xs text-white/45">Quoted price</dt>
+                        <dd className="break-words">
+                          {quote.quotedPriceLabel}
+                          {quote.quoteValidityLabel ? ` · valid ${quote.quoteValidityLabel}` : ""}
+                          {quote.quoteExpiresAt
+                            ? ` · expires ${formatExpires(quote.quoteExpiresAt)}`
+                            : ""}
+                        </dd>
+                      </div>
+                    ) : null}
+                  </dl>
+
+                  {quote.isCounterOffer && quote.journeyChanges && quote.journeyChanges.length > 0 ? (
+                    <div className="mt-3 w-full min-w-0 max-w-full rounded-xl border border-amber-300/40 bg-amber-500/10 px-3 py-3">
+                      <p className="text-xs font-semibold uppercase tracking-wider text-amber-100">
+                        Counter-offer — fields changed
+                      </p>
+                      <ul className="mt-2 space-y-1.5 text-sm text-amber-50">
+                        {quote.journeyChanges.map((change) => (
+                          <li key={change.field} className="break-words">
+                            <span className="font-semibold">{change.label}:</span>{" "}
+                            <span className="text-white/55">Requested: {change.requested}</span>
+                            {" → "}
+                            <span className="font-semibold text-white">
+                              Offered: {change.offered}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                      <p className="mt-2 break-words text-xs text-amber-100/80">
+                        Approving will email this as an alternative offer. Payment accepts the
+                        amended journey.
+                      </p>
                     </div>
                   ) : null}
-                  <div className="min-w-0">
-                    <dt className="text-xs text-white/45">Passengers / luggage</dt>
-                    <dd className="break-words">
-                      {quote.passengers} pax · {quote.suitcases} cases · {quote.vehicle}
-                    </dd>
-                  </div>
-                  {(quote.journeyDistance || quote.journeyDuration) && (
-                    <div className="min-w-0 sm:col-span-2">
-                      <dt className="text-xs text-white/45">Journey</dt>
-                      <dd className="break-words">
-                        {[quote.journeyDistance, quote.journeyDuration].filter(Boolean).join(" · ")}
-                      </dd>
-                    </div>
-                  )}
-                  {quote.quotedPriceLabel ? (
-                    <div className="min-w-0 sm:col-span-2">
-                      <dt className="text-xs text-white/45">Quoted price</dt>
-                      <dd className="break-words">
-                        {quote.quotedPriceLabel}
-                        {quote.quoteValidityLabel ? ` · valid ${quote.quoteValidityLabel}` : ""}
-                        {quote.quoteExpiresAt
-                          ? ` · expires ${formatExpires(quote.quoteExpiresAt)}`
-                          : ""}
-                      </dd>
-                    </div>
-                  ) : null}
-                </dl>
+                </>
               ) : (
                 <div className="mt-3 grid w-full min-w-0 max-w-full grid-cols-1 gap-3 sm:grid-cols-2">
                   <div className="min-w-0 sm:col-span-2">
@@ -638,6 +676,38 @@ export default function OwnerA2aQuotesPanel({ ownerKey }: OwnerA2aQuotesPanelPro
                       </label>
                     </>
                   ) : null}
+                  <label className="block min-w-0 text-sm text-white/80">
+                    Passengers
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      min={1}
+                      max={7}
+                      value={journeyDraft.passengers}
+                      onChange={(e) =>
+                        setJourneyDraft((prev) =>
+                          prev ? { ...prev, passengers: e.target.value } : prev,
+                        )
+                      }
+                      className={fieldClass}
+                    />
+                  </label>
+                  <label className="block min-w-0 text-sm text-white/80">
+                    Luggage (suitcases)
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      min={0}
+                      max={20}
+                      value={journeyDraft.suitcases}
+                      onChange={(e) =>
+                        setJourneyDraft((prev) =>
+                          prev ? { ...prev, suitcases: e.target.value } : prev,
+                        )
+                      }
+                      className={fieldClass}
+                    />
+                  </label>
                   <div className="flex w-full min-w-0 max-w-full flex-col gap-2 sm:col-span-2 sm:flex-row">
                     <button
                       type="button"

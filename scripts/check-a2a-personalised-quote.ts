@@ -15,12 +15,17 @@ import {
   buildA2aPickupValidityWarning,
   computeA2aQuoteExpiresAtIso,
   formatA2aQuoteValidityLabel,
+  isA2aCounterOffer,
   isA2aQuotePayable,
+  listA2aJourneyChanges,
   normalizeA2aQuotedPriceGbp,
   normalizeA2aQuoteValidityMinutes,
   type A2aQuoteRequestRecord,
 } from "../shared/a2a-personalised-quote";
+import { buildA2aQuotePaymentLinkEmail } from "../shared/a2a-quote-payment-email";
+import { normaliseJourneyAddressLabel } from "../shared/journey-address-label";
 import { needsManualQuoteApproval, type SelectedPlace } from "../src/lib/selected-place";
+import type { PaidBookingDetails } from "../shared/booking-notifications";
 
 function read(rel: string): string {
   return readFileSync(join(process.cwd(), rel), "utf8");
@@ -144,6 +149,80 @@ const boucher = place({
 assert.equal(needsManualQuoteApproval(city, boucher), true);
 console.log("OK  Boucher↔city centre needs personalised quote");
 
+console.log("\n=== Counter-offer detection + email wording ===");
+{
+  const base: PaidBookingDetails = {
+    customerName: "Test Customer",
+    customerEmail: "test@example.com",
+    mobileNumber: "07123456789",
+    tripLabel: "Address to Address",
+    pickupLabel: "25 Tobar-Glen Avenue, Newtownabbey",
+    dropoffLabel: "22 Sunnyside Dr, Belfast BT7 3EE, UK",
+    returnJourney: false,
+    tripDate: "2026-08-30",
+    tripTime: "10:00",
+    returnDate: "",
+    returnTime: "",
+    flightNumber: "",
+    passengers: 2,
+    suitcases: 1,
+    vehicle: "Saloon",
+    isAirportTrip: false,
+  };
+  const offered: PaidBookingDetails = {
+    ...base,
+    tripDate: "2026-08-31",
+    tripTime: "11:30",
+  };
+  const changes = listA2aJourneyChanges(base, offered, normaliseJourneyAddressLabel);
+  assert.equal(isA2aCounterOffer(base, offered, normaliseJourneyAddressLabel), true);
+  assert.ok(changes.some((c) => c.field === "tripDate" && c.requested === "2026-08-30"));
+  assert.ok(changes.some((c) => c.field === "tripTime" && c.offered === "11:30"));
+  assert.equal(isA2aCounterOffer(base, base, normaliseJourneyAddressLabel), false);
+
+  const counterEmail = buildA2aQuotePaymentLinkEmail({
+    customerName: base.customerName,
+    customerEmail: base.customerEmail,
+    pickupLabel: offered.pickupLabel,
+    dropoffLabel: offered.dropoffLabel,
+    tripDate: offered.tripDate,
+    tripTime: offered.tripTime,
+    amountLabel: "£42.00",
+    reference: "MATNI-AQ-TEST",
+    payUrl: "https://example.com/pay",
+    validityMinutes: 60,
+    isCounterOffer: true,
+    originalPickupLabel: base.pickupLabel,
+    originalDropoffLabel: base.dropoffLabel,
+    originalTripDate: base.tripDate,
+    originalTripTime: base.tripTime,
+  });
+  assert.match(counterEmail.text, /Your original request/);
+  assert.match(counterEmail.text, /What we can offer/);
+  assert.match(counterEmail.text, /30 August|2026-08-30/);
+  assert.match(counterEmail.text, /11:30/);
+  assert.match(counterEmail.text, /Accept Changes & Pay Securely/);
+  assert.match(counterEmail.html, /Accept Changes &amp; Pay Securely/);
+
+  const simpleEmail = buildA2aQuotePaymentLinkEmail({
+    customerName: base.customerName,
+    customerEmail: base.customerEmail,
+    pickupLabel: base.pickupLabel,
+    dropoffLabel: base.dropoffLabel,
+    tripDate: base.tripDate,
+    tripTime: base.tripTime,
+    amountLabel: "£42.00",
+    reference: "MATNI-AQ-TEST",
+    payUrl: "https://example.com/pay",
+    validityMinutes: 60,
+    isCounterOffer: false,
+  });
+  assert.match(simpleEmail.text, /approved at £42\.00/);
+  assert.match(simpleEmail.html, />Pay Securely</);
+  assert.doesNotMatch(simpleEmail.text, /Your original request/);
+  console.log("OK  date/time change → counter-offer email; unchanged → simple approval");
+}
+
 console.log("\n=== Customer quote-request submit UX ===");
 const quoteCard = read("src/components/QuoteCard.tsx");
 const consent = read("src/components/BookingTermsConsent.tsx");
@@ -204,6 +283,9 @@ console.log("\n=== Owner A2A quote queue + honest payment email ===");
   assert.match(panel, /Personalised Quotes — \{awaitingCount\} awaiting approval/);
   assert.match(panel, /Edit journey/);
   assert.match(panel, /Save changes/);
+  assert.match(panel, /Counter-offer — fields changed/);
+  assert.match(panel, /Requested:/);
+  assert.match(panel, /Offered:/);
   assert.match(panel, /Resend payment email/);
   assert.match(panel, /Email failed — resend/);
   assert.match(panel, /paymentEmailSent/);
@@ -213,9 +295,23 @@ console.log("\n=== Owner A2A quote queue + honest payment email ===");
   assert.match(panel, /break-words|break-all/);
   assert.doesNotMatch(handlers, /trySendBrandedCustomerEmail/);
   const email = read("shared/a2a-quote-payment-email.ts");
-  assert.match(email, /returnJourney/);
-  assert.match(email, /Pickup:/);
-  console.log("OK  Resend-only email + edit journey + queue queue filters + mobile overflow guards");
+  assert.match(email, /isCounterOffer/);
+  assert.match(email, /Your original request/);
+  assert.match(email, /What we can offer/);
+  assert.match(email, /Accept Changes &amp; Pay Securely|Accept Changes & Pay Securely/);
+  assert.match(email, /unable to offer your journey exactly as originally requested/);
+  assert.match(email, /Your requested journey has been approved/);
+  assert.match(handlers, /\[Bookings copy\]/);
+  assert.match(handlers, /originalBooking/);
+  assert.match(handlers, /isCounterOffer/);
+  const pay = read("src/app/pay/a2a-quote/A2aQuotePayClient.tsx");
+  assert.match(pay, /Accept Changes & Pay Securely/);
+  assert.match(pay, /What we can offer/);
+  assert.match(pay, /Your original request/);
+  const shared = read("shared/a2a-personalised-quote.ts");
+  assert.match(shared, /listA2aJourneyChanges/);
+  assert.match(shared, /isA2aCounterOffer/);
+  console.log("OK  Counter-offer email/pay + edit journey + queue + bookings copy");
 }
 
 console.log("\nAll A2A personalised quote checks passed.");

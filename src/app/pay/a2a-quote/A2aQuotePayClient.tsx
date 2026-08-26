@@ -136,10 +136,13 @@ function A2aQuotePayInner() {
 
   if (!summary) return null;
 
+  const isCounterOffer = Boolean(summary.isCounterOffer);
+  const payLabel = isCounterOffer ? "Accept Changes & Pay Securely" : "Pay Securely";
+
   return (
     <div className="mx-auto max-w-lg rounded-2xl border border-white/10 bg-navy/80 p-6 text-white sm:p-8">
       <p className="text-xs font-semibold uppercase tracking-wider text-emerald">
-        Personalised Quote
+        {isCounterOffer ? "Alternative Journey Offer" : "Personalised Quote"}
       </p>
       <h1 className="mt-2 text-2xl font-bold tracking-tight">
         {summary.amountLabel ?? "Your quote"}
@@ -149,35 +152,111 @@ function A2aQuotePayInner() {
         {summary.quoteValidityLabel ? ` · valid for ${summary.quoteValidityLabel}` : ""}
       </p>
 
-      <dl className="mt-6 grid gap-3 text-sm text-white/75">
-        <div>
-          <dt className="text-white/40">Pickup</dt>
-          <dd className="break-words text-white">{summary.pickupLabel}</dd>
-        </div>
-        <div>
-          <dt className="text-white/40">Destination</dt>
-          <dd className="break-words text-white">{summary.dropoffLabel}</dd>
-        </div>
-        <div>
-          <dt className="text-white/40">Pickup date / time</dt>
-          <dd className="text-white">
-            {summary.tripDate} · {summary.tripTime}
-          </dd>
-        </div>
-        {summary.returnJourney && (summary.returnDate || summary.returnTime) ? (
-          <div>
-            <dt className="text-white/40">Return date / time</dt>
-            <dd className="text-white">
-              {[summary.returnDate, summary.returnTime].filter(Boolean).join(" · ")}
-            </dd>
+      {isCounterOffer ? (
+        <div className="mt-6 space-y-4 text-sm">
+          <p className="text-white/75">
+            Unfortunately, we’re unable to offer your journey exactly as originally requested.
+            However, we can offer the alternative shown below. Please review the updated journey
+            details carefully before making payment.
+          </p>
+          <div className="rounded-xl border border-white/10 bg-white/[0.04] p-4">
+            <p className="text-xs font-semibold uppercase tracking-wider text-white/45">
+              Your original request
+            </p>
+            <dl className="mt-3 grid gap-2 text-white/75">
+              <div>
+                <dt className="text-white/40">Pickup</dt>
+                <dd className="break-words text-white">
+                  {summary.originalPickupLabel || summary.pickupLabel}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-white/40">Destination</dt>
+                <dd className="break-words text-white">
+                  {summary.originalDropoffLabel || summary.dropoffLabel}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-white/40">Date / time</dt>
+                <dd className="text-white">
+                  {summary.originalTripDate || summary.tripDate} ·{" "}
+                  {summary.originalTripTime || summary.tripTime}
+                </dd>
+              </div>
+            </dl>
           </div>
-        ) : null}
-      </dl>
+          <div className="rounded-xl border border-emerald/35 bg-emerald/10 p-4">
+            <p className="text-xs font-semibold uppercase tracking-wider text-emerald">
+              What we can offer
+            </p>
+            <dl className="mt-3 grid gap-2 text-white/75">
+              <div>
+                <dt className="text-white/40">Pickup</dt>
+                <dd className="break-words text-white">{summary.pickupLabel}</dd>
+              </div>
+              <div>
+                <dt className="text-white/40">Destination</dt>
+                <dd className="break-words text-white">{summary.dropoffLabel}</dd>
+              </div>
+              <div>
+                <dt className="text-white/40">Date / time</dt>
+                <dd className="text-white">
+                  {summary.tripDate} · {summary.tripTime}
+                </dd>
+              </div>
+              {summary.returnJourney && (summary.returnDate || summary.returnTime) ? (
+                <div>
+                  <dt className="text-white/40">Return date / time</dt>
+                  <dd className="text-white">
+                    {[summary.returnDate, summary.returnTime].filter(Boolean).join(" · ")}
+                  </dd>
+                </div>
+              ) : null}
+              <div>
+                <dt className="text-white/40">Fixed price</dt>
+                <dd className="font-semibold text-white">{summary.amountLabel}</dd>
+              </div>
+            </dl>
+          </div>
+          <p className="text-white/70">
+            Payment accepts these amended journey details. Your booking is only confirmed once
+            payment has been completed.
+          </p>
+        </div>
+      ) : (
+        <>
+          <dl className="mt-6 grid gap-3 text-sm text-white/75">
+            <div>
+              <dt className="text-white/40">Pickup</dt>
+              <dd className="break-words text-white">{summary.pickupLabel}</dd>
+            </div>
+            <div>
+              <dt className="text-white/40">Destination</dt>
+              <dd className="break-words text-white">{summary.dropoffLabel}</dd>
+            </div>
+            <div>
+              <dt className="text-white/40">Pickup date / time</dt>
+              <dd className="text-white">
+                {summary.tripDate} · {summary.tripTime}
+              </dd>
+            </div>
+            {summary.returnJourney && (summary.returnDate || summary.returnTime) ? (
+              <div>
+                <dt className="text-white/40">Return date / time</dt>
+                <dd className="text-white">
+                  {[summary.returnDate, summary.returnTime].filter(Boolean).join(" · ")}
+                </dd>
+              </div>
+            ) : null}
+          </dl>
 
-      <p className="mt-4 text-sm text-white/70">
-        Your booking is only confirmed once payment has been completed. Availability may change if
-        payment is not made within the quote time.
-      </p>
+          <p className="mt-4 text-sm text-white/70">
+            Your requested journey has been approved. Your booking is only confirmed once payment
+            has been completed. Availability may change if payment is not made within the quote
+            time.
+          </p>
+        </>
+      )}
 
       {error ? <p className="mt-4 text-sm text-red-300">{error}</p> : null}
 
@@ -189,7 +268,7 @@ function A2aQuotePayInner() {
             onClick={() => void handlePay()}
             className="mt-6 inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-emerald px-5 py-3 text-base font-bold text-navy disabled:opacity-60"
           >
-            {paying ? "Opening secure payment…" : "Pay Securely"}
+            {paying ? "Opening secure payment…" : payLabel}
           </button>
           <p className="mt-3 text-center text-xs text-white/50">
             Secure card payment powered by SumUp.

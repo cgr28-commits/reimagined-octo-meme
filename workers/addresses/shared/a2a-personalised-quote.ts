@@ -61,7 +61,13 @@ export type A2aQuoteRequestRecord = {
   /** Non-guessable payment token (URL secret). */
   paymentToken: string;
   status: A2aQuoteStatus;
+  /** Current offered / approved journey (may differ from originalRequest). */
   booking: PaidBookingDetails;
+  /**
+   * Immutable snapshot of what the customer originally submitted.
+   * Used to detect counter-offers when Owner edits before approval.
+   */
+  originalBooking?: PaidBookingDetails;
   createdAt: string;
   updatedAt: string;
   /** Owner-entered quote price (GBP) — set on approve. */
@@ -78,9 +84,136 @@ export type A2aQuoteRequestRecord = {
   paidAt?: string;
   paymentLinkEmailSentAt?: string;
   paymentLinkEmailPayUrl?: string;
+  /** True when approval email was framed as a counter-offer. */
+  isCounterOffer?: boolean;
   expiredAt?: string;
   cancelledAt?: string;
 };
+
+/** Material journey fields Owner may amend before approval. */
+export type A2aMaterialJourneyField =
+  | "pickupLabel"
+  | "dropoffLabel"
+  | "tripDate"
+  | "tripTime"
+  | "returnDate"
+  | "returnTime"
+  | "passengers"
+  | "suitcases";
+
+export type A2aJourneyChange = {
+  field: A2aMaterialJourneyField;
+  label: string;
+  requested: string;
+  offered: string;
+};
+
+function normText(value: unknown): string {
+  return String(value ?? "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function journeyFieldLabel(field: A2aMaterialJourneyField): string {
+  switch (field) {
+    case "pickupLabel":
+      return "Pickup";
+    case "dropoffLabel":
+      return "Destination";
+    case "tripDate":
+      return "Date";
+    case "tripTime":
+      return "Time";
+    case "returnDate":
+      return "Return date";
+    case "returnTime":
+      return "Return time";
+    case "passengers":
+      return "Passengers";
+    case "suitcases":
+      return "Luggage";
+    default:
+      return field;
+  }
+}
+
+function fieldDisplayValue(
+  booking: PaidBookingDetails,
+  field: A2aMaterialJourneyField,
+  normaliseAddress: (label: string) => string,
+): string {
+  switch (field) {
+    case "pickupLabel":
+      return normaliseAddress(booking.pickupLabel);
+    case "dropoffLabel":
+      return normaliseAddress(booking.dropoffLabel);
+    case "tripDate":
+      return normText(booking.tripDate);
+    case "tripTime":
+      return normText(booking.tripTime);
+    case "returnDate":
+      return booking.returnJourney ? normText(booking.returnDate) : "";
+    case "returnTime":
+      return booking.returnJourney ? normText(booking.returnTime) : "";
+    case "passengers":
+      return String(Number(booking.passengers) || 1);
+    case "suitcases":
+      return String(Number(booking.suitcases) || 0);
+    default:
+      return "";
+  }
+}
+
+/**
+ * Compare original customer request vs current offered booking.
+ * Address labels should already be normalised (or pass a normaliser).
+ */
+export function listA2aJourneyChanges(
+  original: PaidBookingDetails | null | undefined,
+  offered: PaidBookingDetails,
+  normaliseAddress: (label: string) => string = (v) => normText(v),
+): A2aJourneyChange[] {
+  if (!original) return [];
+  const fields: A2aMaterialJourneyField[] = [
+    "pickupLabel",
+    "dropoffLabel",
+    "tripDate",
+    "tripTime",
+    "returnDate",
+    "returnTime",
+    "passengers",
+    "suitcases",
+  ];
+  const changes: A2aJourneyChange[] = [];
+  for (const field of fields) {
+    const requested = fieldDisplayValue(original, field, normaliseAddress);
+    const next = fieldDisplayValue(offered, field, normaliseAddress);
+    if (requested.toLowerCase() !== next.toLowerCase()) {
+      changes.push({
+        field,
+        label: journeyFieldLabel(field),
+        requested: requested || "—",
+        offered: next || "—",
+      });
+    }
+  }
+  return changes;
+}
+
+export function isA2aCounterOffer(
+  original: PaidBookingDetails | null | undefined,
+  offered: PaidBookingDetails,
+  normaliseAddress?: (label: string) => string,
+): boolean {
+  return listA2aJourneyChanges(original, offered, normaliseAddress).length > 0;
+}
+
+/** Prefer stored original snapshot; fall back to current booking for legacy rows. */
+export function resolveA2aOriginalBooking(
+  record: Pick<A2aQuoteRequestRecord, "booking" | "originalBooking">,
+): PaidBookingDetails {
+  return record.originalBooking ?? record.booking;
+}
 
 export function a2aQuoteRefKey(reference: string): string {
   return `a2a-quote:ref:${reference.trim()}`;
