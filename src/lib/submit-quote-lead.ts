@@ -2,7 +2,6 @@ import {
   buildQuoteLeadFingerprint,
   type QuoteLeadDetails,
 } from "../../shared/quote-lead";
-import { readConsentedAdsAttribution } from "@/lib/ads-attribution";
 
 const SESSION_STORAGE_KEY = "matni-quote-lead-sent";
 const DEBOUNCE_MS = 4000;
@@ -66,15 +65,6 @@ function rememberSentFingerprint(fingerprint: string): void {
   }
 }
 
-function withAttribution(details: QuoteLeadDetails): QuoteLeadDetails {
-  if (details.attribution) {
-    return details;
-  }
-
-  const attribution = readConsentedAdsAttribution();
-  return attribution ? { ...details, attribution } : details;
-}
-
 async function postQuoteLeadToWorker(
   details: QuoteLeadDetails,
   fingerprint: string,
@@ -89,8 +79,8 @@ async function postQuoteLeadToWorker(
       body: JSON.stringify({
         ...details,
         fingerprint,
-        // Always let the Worker send via Resend / operational providers.
-        // Browser FormSubmit previously returned false "success" and skipped email.
+        // Always let the Worker send (existing Resend / operational chain).
+        // Do not skip after a browser FormSubmit "success" — that caused the regression.
         skipEmail: false,
       }),
     });
@@ -112,15 +102,14 @@ async function postQuoteLeadToWorker(
 }
 
 export async function submitQuoteLead(details: QuoteLeadDetails): Promise<void> {
-  const enriched = withAttribution(details);
-  const fingerprint = buildQuoteLeadFingerprint(enriched);
+  const fingerprint = buildQuoteLeadFingerprint(details);
   const sent = readSentFingerprints();
   if (sent.has(fingerprint)) {
     return;
   }
 
-  // Worker-only (Resend / preferWorkerProviders). Do not trust FormSubmit success.
-  const worker = await postQuoteLeadToWorker(enriched, fingerprint);
+  // Restore pre-regression behaviour: Worker sends the owner quote alert once.
+  const worker = await postQuoteLeadToWorker(details, fingerprint);
   if (worker.deduplicated || worker.emailed) {
     rememberSentFingerprint(fingerprint);
     return;

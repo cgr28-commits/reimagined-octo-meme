@@ -991,8 +991,6 @@ function parseQuoteLeadBody(body: QuoteLeadRequestBody): QuoteLeadDetails | null
     return null;
   }
 
-  const attribution = sanitizeAdsAttribution(body.attribution);
-
   return {
     tripLabel,
     pickupLabel,
@@ -1009,7 +1007,6 @@ function parseQuoteLeadBody(body: QuoteLeadRequestBody): QuoteLeadDetails | null
     journeyDistance: body.journeyDistance?.trim() || undefined,
     journeyDuration: body.journeyDuration?.trim() || undefined,
     isAirportTrip: Boolean(body.isAirportTrip),
-    ...(attribution ? { attribution } : {}),
   };
 }
 
