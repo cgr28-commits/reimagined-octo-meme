@@ -8,7 +8,9 @@ import {
   A2A_QUOTE_VALIDITY_DEFAULT_MINUTES,
   A2A_QUOTE_VALIDITY_MAX_MINUTES,
   A2A_QUOTE_VALIDITY_MIN_MINUTES,
+  A2A_QUOTE_VALIDITY_PRESETS_MINUTES,
   a2aQuoteStatusLabel,
+  buildA2aPickupValidityWarning,
   computeA2aQuoteExpiresAtIso,
   formatA2aQuoteValidityLabel,
   isA2aQuotePayable,
@@ -45,7 +47,30 @@ assert.equal(A2A_QUOTE_VALIDITY_DEFAULT_MINUTES, 60);
 assert.equal(formatA2aQuoteValidityLabel(1), "1 minute");
 assert.equal(formatA2aQuoteValidityLabel(10), "10 minutes");
 assert.equal(formatA2aQuoteValidityLabel(60), "1 hour");
+assert.deepEqual([...A2A_QUOTE_VALIDITY_PRESETS_MINUTES], [5, 10, 15, 30, 60]);
 console.log("OK  1 / 10 / 60 minutes and rejection of invalid values");
+
+console.log("\n=== Near-pickup validity warning ===");
+assert.match(
+  buildA2aPickupValidityWarning({ minutesUntilPickup: 42 }) ?? "",
+  /Pickup is in 42 minutes — consider a shorter quote validity/,
+);
+assert.match(
+  buildA2aPickupValidityWarning({
+    minutesUntilPickup: 42,
+    selectedValidityMinutes: 60,
+  }) ?? "",
+  /60-minute validity is longer than time to pickup/,
+);
+assert.equal(
+  buildA2aPickupValidityWarning({ minutesUntilPickup: 240 }),
+  null,
+);
+assert.equal(
+  buildA2aPickupValidityWarning({ minutesUntilPickup: -5 }),
+  null,
+);
+console.log("OK  warning for near pickups; quiet when far or past");
 
 console.log("\n=== Server-side expiry ===");
 const approvedAt = "2026-08-26T12:00:00.000Z";

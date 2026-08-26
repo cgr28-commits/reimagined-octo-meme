@@ -22,6 +22,39 @@ export const A2A_QUOTE_VALIDITY_MIN_MINUTES = 1;
 export const A2A_QUOTE_VALIDITY_MAX_MINUTES = 24 * 60;
 export const A2A_QUOTE_VALIDITY_DEFAULT_MINUTES = 60;
 
+/** Quick-pick chips on the Owner approve form (free-form minutes still allowed). */
+export const A2A_QUOTE_VALIDITY_PRESETS_MINUTES = [5, 10, 15, 30, 60] as const;
+
+/**
+ * Warn when pickup is soon so Owner can shorten quote validity.
+ * Returns null when pickup is unknown, already past, or more than 3 hours away.
+ */
+export function buildA2aPickupValidityWarning(options: {
+  minutesUntilPickup: number | null;
+  selectedValidityMinutes?: number | null;
+}): string | null {
+  const mins = options.minutesUntilPickup;
+  if (mins == null || !Number.isFinite(mins) || mins <= 0) {
+    return null;
+  }
+  const rounded = Math.max(1, Math.round(mins));
+  // Only nudge when pickup is within 3 hours.
+  if (rounded > 180) {
+    return null;
+  }
+
+  const selected = options.selectedValidityMinutes;
+  if (
+    typeof selected === "number" &&
+    Number.isFinite(selected) &&
+    selected > rounded
+  ) {
+    return `Pickup is in ${rounded} minutes — your ${selected}-minute validity is longer than time to pickup. Consider a shorter quote validity.`;
+  }
+
+  return `Pickup is in ${rounded} minutes — consider a shorter quote validity.`;
+}
+
 export type A2aQuoteRequestRecord = {
   /** Public reference e.g. MATNI-AQ-… */
   reference: string;

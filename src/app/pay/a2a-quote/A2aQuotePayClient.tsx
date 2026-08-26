@@ -84,13 +84,13 @@ function A2aQuotePayInner() {
         {
           checkoutId: checkout.checkoutId,
           paymentUrl: checkout.paymentUrl,
-          amount: summary.amount,
-          description: `Personalised quote ${summary.reference}`,
+          checkoutReference: checkout.checkoutReference,
+          amountLabel: summary.amountLabel ?? undefined,
           booking: {
             customerName: summary.customerName,
             customerEmail: "",
             mobileNumber: "",
-            tripLabel: "Address to Address",
+            tripLabel: `${summary.pickupLabel} → ${summary.dropoffLabel}`,
             pickupLabel: summary.pickupLabel,
             dropoffLabel: summary.dropoffLabel,
             returnJourney: summary.returnJourney,
