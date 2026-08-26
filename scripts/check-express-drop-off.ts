@@ -581,6 +581,24 @@ check("Payment pages show saved Express selection with Change (not forced re-cho
   assert.match(choice, />\s*Done\s*</);
 });
 
+check("Mobile: ticking free Express acknowledgement scrolls to Book Now", () => {
+  const card = read("src/components/QuoteCard.tsx");
+  const scrollLib = read("src/lib/quote-step-nav-scroll.ts");
+  assert.match(scrollLib, /scheduleScrollToBookNowAfterExpressAck/);
+  assert.match(scrollLib, /quote-step1-next/);
+  assert.match(scrollLib, /block:\s*"center"/);
+  assert.match(scrollLib, /behavior:\s*prefersReducedMotion\(\) \? "auto" : "smooth"/);
+  assert.match(card, /scheduleScrollToBookNowAfterExpressAck/);
+  assert.match(card, /onRemovalAcknowledgedChange/);
+  // Only after ack becomes true — not on free-option select alone.
+  assert.match(
+    card,
+    /onRemovalAcknowledgedChange=\{\(ack\) => \{[\s\S]*?if \(ack\) \{[\s\S]*?scheduleScrollToBookNowAfterExpressAck/,
+  );
+  assert.match(card, /isMobileDevice \?\? detectMobileDevice\(\)/);
+  assert.match(card, /id="quote-step1-next"/);
+});
+
 check("Customer can remove Express on a Quick Quote booking link (display + total)", () => {
   const record: QuickQuoteRecord = {
     id: "a".repeat(48),

@@ -16,6 +16,7 @@ import {
   quoteStepTargetId,
   scheduleBookingNavAfterRender,
   schedulePreciseResultsScroll,
+  scheduleScrollToBookNowAfterExpressAck,
   type QuoteStepNavTarget,
 } from "@/lib/quote-step-nav-scroll";
 import {
@@ -2753,7 +2754,15 @@ function QuoteCard({
           }}
           onRemovalAcknowledgedChange={(ack) => {
             setExpressRemovalAck(ack);
-            if (ack) setExpressAckRequired(false);
+            if (ack) {
+              setExpressAckRequired(false);
+              // Mobile only: after the free-area acknowledgement is ticked,
+              // bring Book Now into view (not when the free option is first selected).
+              const isMobile = isMobileDevice ?? detectMobileDevice();
+              if (isMobile) {
+                scheduleScrollToBookNowAfterExpressAck();
+              }
+            }
           }}
         />
       </div>

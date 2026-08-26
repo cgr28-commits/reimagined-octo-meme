@@ -174,6 +174,39 @@ export function scheduleBookingNavAfterRender(
 }
 
 /**
+ * Mobile Express free-area acknowledgement → bring #quote-step1-next (Book Now)
+ * into comfortable view. Uses the action section ref/id + scroll-margin for the
+ * sticky header; does not use a hard-coded pixel distance.
+ */
+export function scheduleScrollToBookNowAfterExpressAck(): () => void {
+  if (typeof window === "undefined") {
+    return () => {};
+  }
+
+  const generation = getScrollJobGeneration();
+  let cancelled = false;
+  let raf2 = 0;
+  const raf1 = window.requestAnimationFrame(() => {
+    raf2 = window.requestAnimationFrame(() => {
+      if (cancelled || !isScrollJobGenerationCurrent(generation)) return;
+      const element = resolveBookingNavElement("quote-step1-next");
+      if (!element) return;
+      element.scrollIntoView({
+        behavior: prefersReducedMotion() ? "auto" : "smooth",
+        block: "center",
+      });
+    });
+  });
+
+  const cancel = () => {
+    cancelled = true;
+    window.cancelAnimationFrame(raf1);
+    if (raf2) window.cancelAnimationFrame(raf2);
+  };
+  return trackScrollJob(cancel);
+}
+
+/**
  * Final mobile/desktop results scroll to #quote-route-summary.
  * - Waits two animation frames for layout settle
  * - Uses behavior: "auto" to avoid Safari overshoot
