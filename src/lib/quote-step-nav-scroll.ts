@@ -176,9 +176,12 @@ export function scheduleBookingNavAfterRender(
 /**
  * Mobile Express free-area acknowledgement → bring Book Now into comfortable view.
  *
- * Do not rely on scrollIntoView() of the sticky `#quote-step1-next` wrapper —
- * iOS often treats sticky CTAs as already “visible” and does not move the page.
- * Scroll the document using the Book Now button’s layout position instead.
+ * iOS Safari often:
+ * 1) ignores scrollIntoView on sticky CTA wrappers, and
+ * 2) re-scrolls to keep the just-ticked checkbox in view, undoing an immediate scroll.
+ *
+ * Call this after paint (e.g. from a useEffect when ack becomes true), blur the
+ * checkbox first, then scroll the document to the Book Now button with retries.
  */
 export function scheduleScrollToBookNowAfterExpressAck(): () => void {
   if (typeof window === "undefined") {
@@ -187,67 +190,96 @@ export function scheduleScrollToBookNowAfterExpressAck(): () => void {
 
   const generation = getScrollJobGeneration();
   let cancelled = false;
+  const timers: number[] = [];
   let raf2 = 0;
-  let retryTimer = 0;
-  let secondRetryTimer = 0;
 
-  const resolveBookNowButton = (): HTMLElement | null => {
-    const byId = document.getElementById("quote-book-now-button");
-    if (byId instanceof HTMLElement && byId.getClientRects().length > 0) {
-      return byId;
+  const resolveBookNowAnchor = (): HTMLElement | null => {
+    const anchors = document.querySelectorAll<HTMLElement>("#quote-book-now-anchor");
+    for (const anchor of anchors) {
+      // Zero-size anchors still count if they have a layout box via getBoundingClientRect.
+      if (anchor.isConnected) return anchor;
     }
-    const buttons = document.querySelectorAll<HTMLElement>(
-      "#quote-step1-next button[type='submit'], button#quote-book-now-button",
-    );
+    const buttons = document.querySelectorAll<HTMLElement>("#quote-book-now-button");
     for (const button of buttons) {
       if (button.getClientRects().length > 0) return button;
     }
     return null;
   };
 
-  const scrollBookNowIntoComfortableView = (behavior: ScrollBehavior) => {
-    const element = resolveBookNowButton();
+  const bookNowNeedsScroll = (element: HTMLElement): boolean => {
+    const rect = element.getBoundingClientRect();
+    const headerBottom = getHeaderBottomPx();
+    const minTop = headerBottom + 12;
+    const maxBottom = window.innerHeight - Math.max(72, window.innerHeight * 0.18);
+    return rect.top < minTop || rect.bottom > maxBottom || rect.top > window.innerHeight - 100;
+  };
+
+  const scrollBookNowIntoComfortableView = (behavior: ScrollBehavior): boolean => {
+    const element = resolveBookNowAnchor();
     if (!element) return false;
 
     const rect = element.getBoundingClientRect();
     const headerBottom = getHeaderBottomPx();
     const usableHeight = Math.max(220, window.innerHeight - headerBottom);
-    // Lower-middle of the area below the sticky header (not flush to the bottom).
-    const targetViewportY = headerBottom + usableHeight * 0.58;
+    // Lower-middle of the area below the sticky header.
+    const targetViewportY = headerBottom + usableHeight * 0.55;
     const nextTop = Math.max(0, Math.round(window.scrollY + rect.top - targetViewportY));
 
+    const html = document.documentElement;
+    const body = document.body;
+    const prevHtmlAnchor = html.style.overflowAnchor;
+    const prevBodyAnchor = body.style.overflowAnchor;
+    html.style.overflowAnchor = "none";
+    body.style.overflowAnchor = "none";
+
     window.scrollTo({ top: nextTop, behavior });
+    try {
+      html.scrollTo({ top: nextTop, behavior });
+    } catch {
+      // Older WebKit may not support Element.scrollTo options the same way.
+      html.scrollTop = nextTop;
+    }
+
+    window.setTimeout(() => {
+      html.style.overflowAnchor = prevHtmlAnchor;
+      body.style.overflowAnchor = prevBodyAnchor;
+    }, 500);
+
     return true;
   };
 
-  const run = (behavior: ScrollBehavior) => {
+  const run = (behavior: ScrollBehavior, force = false) => {
     if (cancelled || !isScrollJobGenerationCurrent(generation)) return;
+    const element = resolveBookNowAnchor();
+    if (!element) return;
+    if (!force && !bookNowNeedsScroll(element)) return;
     scrollBookNowIntoComfortableView(behavior);
   };
+
+  // Blur the acknowledgement checkbox so iOS stops anchoring the viewport to it.
+  const active = document.activeElement;
+  if (active instanceof HTMLElement) {
+    active.blur();
+  }
 
   const behavior: ScrollBehavior = prefersReducedMotion() ? "auto" : "smooth";
 
   const raf1 = window.requestAnimationFrame(() => {
     raf2 = window.requestAnimationFrame(() => {
-      run(behavior);
-      // iOS often cancels scrolls started in the same turn as a checkbox change —
-      // retry after layout settles, then once more with instant scroll if still off-screen.
-      retryTimer = window.setTimeout(() => {
-        if (cancelled || !isScrollJobGenerationCurrent(generation)) return;
-        run(behavior);
-        secondRetryTimer = window.setTimeout(() => {
-          if (cancelled || !isScrollJobGenerationCurrent(generation)) return;
-          const element = resolveBookNowButton();
-          if (!element) return;
-          const rect = element.getBoundingClientRect();
-          const headerBottom = getHeaderBottomPx();
-          const stillHidden =
-            rect.top > window.innerHeight - 80 || rect.bottom < headerBottom + 40;
-          if (stillHidden) {
-            run("auto");
-          }
-        }, 280);
-      }, 100);
+      run(behavior, true);
+      // Retries beat iOS checkbox focus/scroll restoration.
+      for (const delay of [80, 200, 400, 700]) {
+        timers.push(
+          window.setTimeout(() => {
+            if (cancelled || !isScrollJobGenerationCurrent(generation)) return;
+            const element = resolveBookNowAnchor();
+            if (!element) return;
+            if (bookNowNeedsScroll(element)) {
+              run(delay >= 400 ? "auto" : behavior, true);
+            }
+          }, delay),
+        );
+      }
     });
   });
 
@@ -255,8 +287,7 @@ export function scheduleScrollToBookNowAfterExpressAck(): () => void {
     cancelled = true;
     window.cancelAnimationFrame(raf1);
     if (raf2) window.cancelAnimationFrame(raf2);
-    if (retryTimer) window.clearTimeout(retryTimer);
-    if (secondRetryTimer) window.clearTimeout(secondRetryTimer);
+    for (const timer of timers) window.clearTimeout(timer);
   };
   return trackScrollJob(cancel);
 }

@@ -553,6 +553,7 @@ function QuoteCard({
   const [expressEditing, setExpressEditing] = useState(false);
   const expressEligibilityPrimedRef = useRef(false);
   const expressWasEligibleRef = useRef(false);
+  const expressRemovalAckWasCheckedRef = useRef(false);
   const [termsError, setTermsError] = useState("");
   const [marketingOptIn, setMarketingOptIn] = useState(false);
   const [testChargeAmount, setTestChargeAmount] = useState<number | null>(null);
@@ -1241,6 +1242,19 @@ function QuoteCard({
     }
     expressWasEligibleRef.current = nowEligible;
   }, [effectiveAirportCode, isFromAirport, returnJourney]);
+
+  // After the free Express acknowledgement is ticked, scroll Book Now into view on mobile.
+  // Runs post-paint (not inside the checkbox event) so iOS cannot immediately undo the scroll.
+  useEffect(() => {
+    const justChecked = expressRemovalAck && !expressRemovalAckWasCheckedRef.current;
+    expressRemovalAckWasCheckedRef.current = expressRemovalAck;
+    if (!justChecked) return;
+
+    const isMobile = isMobileDevice ?? detectMobileDevice();
+    if (!isMobile) return;
+
+    return scheduleScrollToBookNowAfterExpressAck();
+  }, [expressRemovalAck, isMobileDevice]);
 
   const transferFareGbp = useMemo(() => {
     if (testChargeAmount != null) return testChargeAmount;
@@ -2754,15 +2768,7 @@ function QuoteCard({
           }}
           onRemovalAcknowledgedChange={(ack) => {
             setExpressRemovalAck(ack);
-            if (ack) {
-              setExpressAckRequired(false);
-              // Mobile only: after the free-area acknowledgement is ticked,
-              // bring Book Now into view (not when the free option is first selected).
-              const isMobile = isMobileDevice ?? detectMobileDevice();
-              if (isMobile) {
-                scheduleScrollToBookNowAfterExpressAck();
-              }
-            }
+            if (ack) setExpressAckRequired(false);
           }}
         />
       </div>
@@ -3366,6 +3372,12 @@ function QuoteCard({
                       {renderQuotePriceSummaryBody()}
                     </div>
 
+                    {/* Non-sticky scroll target — sticky Book Now wrappers defeat iOS scrollIntoView/rect math. */}
+                    <div
+                      id="quote-book-now-anchor"
+                      className="h-px w-full scroll-mt-44 md:scroll-mt-28"
+                      aria-hidden="true"
+                    />
                     <div
                       id="quote-step1-next"
                       className="sticky bottom-0 z-20 -mx-1 space-y-2 border-t border-white/10 bg-navy/95 px-1 py-3 backdrop-blur-md supports-[padding:max(0px)]:pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:static sm:z-auto sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-none"
@@ -3777,6 +3789,11 @@ function QuoteCard({
             >
               {renderQuotePriceSummaryBody()}
             </div>
+            <div
+              id="quote-book-now-anchor"
+              className="h-px w-full scroll-mt-44 md:scroll-mt-28"
+              aria-hidden="true"
+            />
             <div
               id="quote-step1-next"
               className="sticky bottom-0 z-20 -mx-1 space-y-2 border-t border-white/10 bg-navy/95 px-1 py-3 backdrop-blur-md supports-[padding:max(0px)]:pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:static sm:z-auto sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-none"
@@ -4595,9 +4612,16 @@ function QuoteCard({
             )}
           </div>
         ) : quoteResultsReady ? null : (
-          <div id="quote-step1-next" className="flex w-full scroll-mt-44 flex-col gap-2 md:scroll-mt-28">
-            {renderStep1PrimaryActions()}
-          </div>
+          <>
+            <div
+              id="quote-book-now-anchor"
+              className="h-px w-full scroll-mt-44 md:scroll-mt-28"
+              aria-hidden="true"
+            />
+            <div id="quote-step1-next" className="flex w-full scroll-mt-44 flex-col gap-2 md:scroll-mt-28">
+              {renderStep1PrimaryActions()}
+            </div>
+          </>
         )}
       </form>
       <SaveQuoteModal

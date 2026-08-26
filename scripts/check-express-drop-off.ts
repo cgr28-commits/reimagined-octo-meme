@@ -585,23 +585,27 @@ check("Mobile: ticking free Express acknowledgement scrolls to Book Now", () => 
   const card = read("src/components/QuoteCard.tsx");
   const scrollLib = read("src/lib/quote-step-nav-scroll.ts");
   assert.match(scrollLib, /scheduleScrollToBookNowAfterExpressAck/);
+  assert.match(scrollLib, /quote-book-now-anchor/);
   assert.match(scrollLib, /quote-book-now-button/);
   assert.match(scrollLib, /window\.scrollTo/);
   assert.match(scrollLib, /getHeaderBottomPx/);
+  assert.match(scrollLib, /active\.blur/);
+  assert.match(scrollLib, /overflowAnchor/);
   assert.doesNotMatch(
     scrollLib.match(
       /export function scheduleScrollToBookNowAfterExpressAck[\s\S]*?export function schedulePreciseResultsScroll/,
     )?.[0] ?? "",
     /scrollIntoView/,
   );
-  assert.match(card, /scheduleScrollToBookNowAfterExpressAck/);
+  assert.match(card, /id="quote-book-now-anchor"/);
   assert.match(card, /id="quote-book-now-button"/);
-  assert.match(card, /onRemovalAcknowledgedChange/);
+  assert.match(card, /scheduleScrollToBookNowAfterExpressAck/);
+  assert.match(card, /expressRemovalAckWasCheckedRef/);
+  // Trigger after paint via useEffect when ack becomes true — not in the checkbox event.
   assert.match(
     card,
-    /onRemovalAcknowledgedChange=\{\(ack\) => \{[\s\S]*?if \(ack\) \{[\s\S]*?scheduleScrollToBookNowAfterExpressAck/,
+    /justChecked = expressRemovalAck && !expressRemovalAckWasCheckedRef[\s\S]*?scheduleScrollToBookNowAfterExpressAck/,
   );
-  assert.match(card, /isMobileDevice \?\? detectMobileDevice\(\)/);
 });
 
 check("Customer can remove Express on a Quick Quote booking link (display + total)", () => {
