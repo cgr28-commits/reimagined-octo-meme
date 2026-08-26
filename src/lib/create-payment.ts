@@ -113,10 +113,13 @@ export function isSumUpPaymentEnabled(): boolean {
   return Boolean(PAYMENTS_API_URL);
 }
 
-/** SumUp returns customers here — dedicated thank-you URL for Google Ads conversion. */
+/**
+ * SumUp returns customers here — dedicated thank-you URL for Google Ads conversion.
+ * Always use the canonical www origin (never apex or the current page host).
+ * Apex myairporttaxini.co.uk/booking-confirmed/ 404s; www serves the page.
+ */
 export function buildPaymentRedirectUrl(returnToken?: string): string {
-  const origin =
-    typeof window !== "undefined" ? window.location.origin : SITE.url.replace(/\/$/, "");
+  const origin = SITE.url.replace(/\/$/, "");
   const url = new URL("/booking-confirmed/", `${origin}/`);
   url.searchParams.set("payment", "return");
   if (returnToken) {

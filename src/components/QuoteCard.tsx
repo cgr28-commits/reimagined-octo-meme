@@ -678,7 +678,8 @@ function QuoteCard({
     }
 
     // Paid checkout lands on the dedicated thank-you URL for Google Ads.
-    const confirmedUrl = new URL("/booking-confirmed/", window.location.origin);
+    // Always www — apex /booking-confirmed/ 404s.
+    const confirmedUrl = new URL("/booking-confirmed/", `${SITE.url.replace(/\/$/, "")}/`);
     params.forEach((value, key) => {
       confirmedUrl.searchParams.set(key, value);
     });
