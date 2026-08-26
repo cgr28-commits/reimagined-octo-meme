@@ -555,7 +555,7 @@ export function calculatePointToPointQuote(
   const vehicleMultiplier = VEHICLE_MULTIPLIERS[vehicleType] ?? 1;
   const vehicleAdjustment = POINT_TO_POINT_VEHICLE_ADJUSTMENTS[vehicleType] ?? 0;
 
-  // Temporary EMERGE weekend fare (29–30 Aug 2026 only) — date-gated; auto-expires.
+  // Temporary EMERGE weekend fare £24 (29–30 Aug 2026 only) — date-gated; auto-expires.
   const festivalOneWay = resolveEmergeBoucherCityCentreOneWayGbp({
     pickup: {
       address: pickup,

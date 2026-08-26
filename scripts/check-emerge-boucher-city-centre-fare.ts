@@ -1,5 +1,5 @@
 /**
- * Temporary EMERGE Boucher ↔ Belfast city centre £29 fare (29–30 Aug 2026 only).
+ * Temporary EMERGE Boucher ↔ Belfast city centre £24 fare (29–30 Aug 2026 only).
  * Run: npx tsx scripts/check-emerge-boucher-city-centre-fare.ts
  */
 
@@ -70,19 +70,19 @@ assert.equal(isEmergeBoucherCityCentreFixedFareDate("2026-08-30"), true);
 assert.equal(isEmergeBoucherCityCentreFixedFareDate("2026-08-28"), false);
 assert.equal(isEmergeBoucherCityCentreFixedFareDate("2026-08-31"), false);
 assert.equal(isEmergeBoucherCityCentreFixedFareDate(""), false);
-assert.equal(EMERGE_BOUCHER_CITY_CENTRE_FIXED_FARE_GBP, 29);
+assert.equal(EMERGE_BOUCHER_CITY_CENTRE_FIXED_FARE_GBP, 24);
 console.log("OK  only 29–30 Aug 2026; 31 Aug onward is off");
 
-console.log("\n=== Fixed £29 on festival dates (both directions) ===");
-assert.equal(fare(CITY_HALL, BOUCHER, "2026-08-29"), 29);
-assert.equal(fare(BOUCHER, CITY_HALL, "2026-08-30"), 29);
+console.log("\n=== Fixed £24 on festival dates (both directions) ===");
+assert.equal(fare(CITY_HALL, BOUCHER, "2026-08-29"), 24);
+assert.equal(fare(BOUCHER, CITY_HALL, "2026-08-30"), 24);
 assert.equal(
   resolveEmergeBoucherCityCentreOneWayGbp({
     pickup: { address: CITY_HALL },
     dropoff: { address: BOUCHER },
     outboundDate: "2026-08-29",
   }),
-  29,
+  24,
 );
 assert.equal(
   resolveEmergeBoucherCityCentreOneWayGbp({
@@ -90,19 +90,19 @@ assert.equal(
     dropoff: { address: CITY_HALL },
     outboundDate: "2026-08-30",
   }),
-  29,
+  24,
 );
-console.log("OK  29 Aug centre→Boucher £29; 30 Aug Boucher→centre £29");
+console.log("OK  29 Aug centre→Boucher £24; 30 Aug Boucher→centre £24");
 
 console.log("\n=== Same route outside festival weekend = normal fare ===");
 const fri28 = fare(CITY_HALL, BOUCHER, "2026-08-28");
 const mon31 = fare(CITY_HALL, BOUCHER, "2026-08-31");
 assert.ok(fri28 != null && fri28 > 0);
 assert.ok(mon31 != null && mon31 > 0);
-assert.notEqual(fri28, 29, `28 Aug should not be £29 (got ${fri28})`);
-assert.notEqual(mon31, 29, `31 Aug should not be £29 (got ${mon31})`);
+assert.notEqual(fri28, 24, `28 Aug should not be £24 (got ${fri28})`);
+assert.notEqual(mon31, 24, `31 Aug should not be £24 (got ${mon31})`);
 assert.equal(fri28, mon31, "normal engine should match for same route off-weekend");
-console.log(`OK  28 Aug = £${fri28}; 31 Aug = £${mon31} (normal, not £29)`);
+console.log(`OK  28 Aug = £${fri28}; 31 Aug = £${mon31} (normal, not £24)`);
 
 console.log("\n=== Unrelated routes unaffected on festival dates ===");
 const maloneBoucher = fare(MALONE, BOUCHER, "2026-08-29");
@@ -111,9 +111,9 @@ const centreBangor = fare(CITY_HALL, BANGOR, "2026-08-29");
 assert.ok(maloneBoucher != null);
 assert.ok(bangorBoucher != null);
 assert.ok(centreBangor != null);
-assert.notEqual(maloneBoucher, 29, "Malone (BT9) ↔ Boucher must not get £29");
-assert.notEqual(bangorBoucher, 29, "Bangor ↔ Boucher must not get £29");
-assert.notEqual(centreBangor, 29, "City centre ↔ Bangor must not get £29");
+assert.notEqual(maloneBoucher, 24, "Malone (BT9) ↔ Boucher must not get £24");
+assert.notEqual(bangorBoucher, 24, "Bangor ↔ Boucher must not get £24");
+assert.notEqual(centreBangor, 24, "City centre ↔ Bangor must not get £24");
 console.log("OK  non city-centre/Boucher pairs keep normal pricing");
 
 console.log("\n=== Uses selected pickup date, not 'today' ===");
@@ -124,7 +124,7 @@ assert.equal(
     dropoff: { address: BOUCHER },
     outboundDate: "2026-08-29",
   }),
-  29,
+  24,
 );
 assert.equal(
   resolveEmergeBoucherCityCentreOneWayGbp({

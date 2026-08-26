@@ -6,7 +6,7 @@
   "venue": "Boucher Playing Fields, Belfast",
   "destinationPrefill": "Boucher Playing Fields, Belfast",
   "festivalCityCentreFixedFare": {
-    "amountGbp": 29,
+    "amountGbp": 24,
     "activeDates": ["2026-08-29", "2026-08-30"],
     "boucher": {
       "lat": 54.578938,

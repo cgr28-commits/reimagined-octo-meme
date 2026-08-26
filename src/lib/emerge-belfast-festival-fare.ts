@@ -1,6 +1,6 @@
 /**
  * Temporary EMERGE Belfast weekend fixed fare:
- * Boucher Playing Fields ↔ Belfast city centre = £29 on 29–30 Aug 2026 only.
+ * Boucher Playing Fields ↔ Belfast city centre = £24 on 29–30 Aug 2026 only.
  *
  * Uses the customer's selected pickup (outbound) date. After 30 Aug 2026 the
  * date gate fails automatically and normal A2A pricing applies — no manual off-switch.
@@ -44,7 +44,7 @@ type FestivalFareConfig = {
 const FARE = (emergeConfig as { festivalCityCentreFixedFare?: FestivalFareConfig })
   .festivalCityCentreFixedFare;
 
-export const EMERGE_BOUCHER_CITY_CENTRE_FIXED_FARE_GBP = FARE?.amountGbp ?? 29;
+export const EMERGE_BOUCHER_CITY_CENTRE_FIXED_FARE_GBP = FARE?.amountGbp ?? 24;
 
 /** Inclusive active dates — after the last date the rule never matches. */
 export const EMERGE_BOUCHER_CITY_CENTRE_FIXED_FARE_DATES: readonly string[] =
