@@ -25,6 +25,7 @@
     "check:express-drop-off": "npx tsx scripts/check-express-drop-off.ts",
     "check:pricing-confirmation": "npx tsx scripts/check-pricing-confirmation.ts",
     "check:pricing-vehicle-quote-flow": "npx tsx scripts/check-pricing-vehicle-quote-flow.ts",
+    "check:quote-lead-email": "npx tsx scripts/check-quote-lead-email.ts",
     "check:quote-flight-booking-stage": "npx tsx scripts/check-quote-flight-booking-stage.ts",
     "check:final-correction": "npx tsx scripts/check-final-correction-pass.ts",
     "check:bot-knowledge": "npx tsx scripts/check-bot-site-knowledge.ts",

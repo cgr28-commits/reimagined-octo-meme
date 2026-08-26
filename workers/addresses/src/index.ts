@@ -917,7 +917,8 @@ async function isDuplicateQuoteLead(
   fingerprint: string,
   env: Env,
 ): Promise<boolean> {
-  // Prefer KV so dedupe works across colo edges (Cache API often missed).
+  // Claim the fingerprint up front to avoid duplicate emails under concurrency.
+  // On send failure the caller must release the claim so retries can email.
   if (env.BOOKING_COUNTER) {
     const key = `quote_lead_fp:${fingerprint}`;
     const existing = await env.BOOKING_COUNTER.get(key);
@@ -943,6 +944,25 @@ async function isDuplicateQuoteLead(
   );
 
   return false;
+}
+
+async function releaseQuoteLeadFingerprint(
+  fingerprint: string,
+  env: Env,
+): Promise<void> {
+  if (env.BOOKING_COUNTER) {
+    await env.BOOKING_COUNTER.delete(`quote_lead_fp:${fingerprint}`);
+    return;
+  }
+
+  // Cache API has no reliable delete across edges; short TTL already limits damage.
+  const cache = (caches as unknown as { default: Cache }).default;
+  const cacheKey = new Request(`https://quote-lead-dedup.internal/${encodeURIComponent(fingerprint)}`);
+  try {
+    await cache.delete(cacheKey);
+  } catch {
+    // ignore
+  }
 }
 
 function parseQuoteLeadBody(body: QuoteLeadRequestBody): QuoteLeadDetails | null {
@@ -1023,20 +1043,27 @@ async function handleQuoteLeadRequest(
   }
 
   const skipEmail = body.skipEmail === true;
+  let emailed = false;
 
   if (!skipEmail) {
     const toEmail = ownerInbox(env);
 
-    try {
-      await sendEmail(env, {
-        to: toEmail,
-        subject: buildQuoteLeadSubject(details),
-        body: buildQuoteLeadMessage(details),
-      });
-    } catch (error) {
-      console.error("Quote lead email failed", error);
+    // Prefer Resend / Cloudflare Email — FormSubmit often returns success without delivery.
+    const send = await trySendOwnerOperationalEmail(env, {
+      to: toEmail,
+      subject: buildQuoteLeadSubject(details),
+      body: buildQuoteLeadMessage(details),
+    });
+    if (!send.sent) {
+      console.error("Quote lead email failed", send.error);
+      try {
+        await releaseQuoteLeadFingerprint(fingerprint, env);
+      } catch (error) {
+        console.error("Quote lead fingerprint release failed", error);
+      }
       return json({ error: "Failed to send quote alert email" }, 502, origin);
     }
+    emailed = true;
   }
 
   let quoteLeadsTotal: number | null = null;
@@ -1049,7 +1076,7 @@ async function handleQuoteLeadRequest(
   return json(
     {
       ok: true,
-      emailed: !skipEmail,
+      emailed,
       recorded: true,
       ...(quoteLeadsTotal !== null ? { quoteLeadsTotal } : {}),
     },
