@@ -260,6 +260,18 @@ export function parseCustomerExpressDropOffSelected(
   return fallbackWhenMissing;
 }
 
+/**
+ * When Express becomes newly eligible (e.g. airport pickup one-way → return),
+ * default the customer choice to selected. Do not override an explicit remove
+ * when the journey was already eligible.
+ */
+export function shouldDefaultExpressSelectedOnNewEligibility(input: {
+  wasEligible: boolean;
+  nowEligible: boolean;
+}): boolean {
+  return Boolean(input.nowEligible) && !Boolean(input.wasEligible);
+}
+
 /** Email / summary line when Express Drop-Off applies or was declined. */
 export function formatExpressDropOffSummaryLine(input: {
   expressDropOffSelected?: boolean | null;

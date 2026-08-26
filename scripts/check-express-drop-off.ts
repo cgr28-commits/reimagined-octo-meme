@@ -19,6 +19,7 @@ import {
   parseCustomerExpressDropOffSelected,
   resolveExpressDropOff,
   resolveExpressDropOffLegs,
+  shouldDefaultExpressSelectedOnNewEligibility,
   toExpressDropOffPersistedFields,
 } from "../shared/express-drop-off";
 import {
@@ -583,6 +584,71 @@ check("From-airport Personal Quote with return adds Express only on airport-boun
     homeToAirport.legs.map((l) => l.leg),
     ["outbound"],
   );
+});
+
+check("BFS/BHD → home one-way ineligible → enable return defaults Express selected (+fee once)", () => {
+  // Simulate saved PQ: airport pickup one-way stored as ineligible / false.
+  const oneWayPickup = resolveExpressDropOff({
+    airportCode: "BFS",
+    fromAirport: true,
+    returnJourney: false,
+    selected: false,
+  });
+  assert.equal(oneWayPickup.eligible, false);
+  assert.equal(oneWayPickup.feeGbp, 0);
+  assert.equal(toExpressDropOffPersistedFields(oneWayPickup).expressDropOffSelected, false);
+
+  // Customer enables return — eligibility is newly created.
+  assert.equal(
+    shouldDefaultExpressSelectedOnNewEligibility({
+      wasEligible: oneWayPickup.eligible,
+      nowEligible: true,
+    }),
+    true,
+  );
+
+  const afterReturn = resolveExpressDropOff({
+    airportCode: "BFS",
+    fromAirport: true,
+    returnJourney: true,
+    selected: true, // defaulted selected
+  });
+  assert.equal(afterReturn.eligible, true);
+  assert.equal(afterReturn.feeGbp, 5);
+  assert.deepEqual(
+    afterReturn.legs.map((l) => l.leg),
+    ["return"],
+  );
+
+  const bhd = resolveExpressDropOff({
+    airportCode: "BHD",
+    fromAirport: true,
+    returnJourney: true,
+    selected: true,
+  });
+  assert.equal(bhd.feeGbp, 4);
+
+  const display = describePersonalQuotePayment({
+    agreedAmount: 40,
+    returnJourney: true,
+    expressDropOffSelected: true,
+    expressDropOffFee: afterReturn.feeGbp,
+    expressDropOffAirport: "BFS",
+  });
+  assert.equal(display.paymentAmount, 85);
+
+  // Already-eligible journey with explicit remove must NOT be force-selected.
+  assert.equal(
+    shouldDefaultExpressSelectedOnNewEligibility({
+      wasEligible: true,
+      nowEligible: true,
+    }),
+    false,
+  );
+
+  const pqPage = read("src/app/personal-quote/PersonalQuoteCustomerClient.tsx");
+  assert.match(pqPage, /shouldDefaultExpressSelectedOnNewEligibility/);
+  assert.match(pqPage, /expressWasEligibleRef/);
 });
 
 check("Emails and booking records show the customer’s final Express choice", () => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import BookingTermsConsent from "@/components/BookingTermsConsent";
 import {
@@ -28,6 +28,7 @@ import {
   canProceedWithoutExpressDropOff,
   expressDropOffBreakdownLabel,
   resolveExpressDropOff,
+  shouldDefaultExpressSelectedOnNewEligibility,
 } from "../../../shared/express-drop-off";
 import { resolveAirportTransferIntent } from "../../../shared/airport-transfer-intent";
 
@@ -93,6 +94,8 @@ function PersonalQuoteInner() {
   const [expressDropOffSelected, setExpressDropOffSelected] = useState(true);
   const [expressRemovalAck, setExpressRemovalAck] = useState(false);
   const [expressAckRequired, setExpressAckRequired] = useState(false);
+  const expressEligibilityPrimedRef = useRef(false);
+  const expressWasEligibleRef = useRef(false);
 
   useEffect(() => {
     const fromUrl = searchParams.get("t")?.trim() ?? readTokenFromLocation();
@@ -121,6 +124,7 @@ function PersonalQuoteInner() {
         setExpressDropOffSelected(loaded.expressDropOffSelected !== false);
         setExpressRemovalAck(false);
         setExpressAckRequired(false);
+        expressEligibilityPrimedRef.current = false;
         // Email/mobile are never returned by the public token endpoint — customer enters them.
       } catch (err) {
         if (!cancelled) {
@@ -165,6 +169,36 @@ function PersonalQuoteInner() {
       }),
     [journeyIntent, quote?.expressDropOffAirport, returnJourney, expressDropOffSelected],
   );
+
+  // Airport pickup one-way stores Express as ineligible/false. Enabling return makes the
+  // return leg eligible — default to selected. Keep an explicit remove when already eligible.
+  useEffect(() => {
+    if (!quote) return;
+    const nowEligible = resolveExpressDropOff({
+      airportCode: journeyIntent?.airportCode ?? quote.expressDropOffAirport ?? null,
+      fromAirport: journeyIntent?.fromAirport ?? false,
+      returnJourney,
+      selected: true,
+    }).eligible;
+
+    if (!expressEligibilityPrimedRef.current) {
+      expressEligibilityPrimedRef.current = true;
+      expressWasEligibleRef.current = nowEligible;
+      return;
+    }
+
+    if (
+      shouldDefaultExpressSelectedOnNewEligibility({
+        wasEligible: expressWasEligibleRef.current,
+        nowEligible,
+      })
+    ) {
+      setExpressDropOffSelected(true);
+      setExpressRemovalAck(false);
+      setExpressAckRequired(false);
+    }
+    expressWasEligibleRef.current = nowEligible;
+  }, [quote, journeyIntent, returnJourney]);
 
   const paymentDisplay = useMemo(() => {
     if (!quote) return null;
