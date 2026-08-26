@@ -6,6 +6,8 @@
  * - #journey-type-selector
  * - #passenger-luggage-section
  * - #quote-route-summary
+ * - #quote-actions (Book Now / Save / Start New Quote confirm)
+ * - #quote-section-journey (initial journey intent buttons)
  */
 
 import {
@@ -25,6 +27,8 @@ export type BookingNavTargetId =
   | "quote-route-summary"
   | "quote-results-summary"
   | "quote-price-summary"
+  | "quote-actions"
+  | "quote-section-journey"
   | "quote-step1-next"
   | "quote-step2-next"
   | "quote-availability-confirmation";
@@ -36,6 +40,8 @@ export const HEADER_CLEARANCE_PX = 16;
 const LONG_JUMP_PX = 900;
 const RESULTS_CORRECTION_MS = 150;
 const RESULTS_CORRECTION_TOLERANCE_PX = 4;
+const ACTIONS_BOTTOM_CLEARANCE_PX = 16;
+const ACTIONS_CLIP_TOLERANCE_PX = 4;
 
 export function prefersReducedMotion(): boolean {
   if (typeof window === "undefined") return true;
@@ -93,6 +99,122 @@ export function computeScrollTopBelowHeader(
   const headerBottom = getHeaderBottomPx();
   const top = element.getBoundingClientRect().top;
   return Math.max(0, Math.round(window.scrollY + top - (headerBottom + clearancePx)));
+}
+
+/** Visible viewport band using visualViewport when available (iOS Safari toolbar). */
+export function getVisibleViewportBand(): {
+  offsetTop: number;
+  height: number;
+  bottom: number;
+} {
+  const vv = typeof window !== "undefined" ? window.visualViewport : null;
+  const offsetTop = vv ? Math.round(vv.offsetTop) : 0;
+  const height = vv ? Math.round(vv.height) : typeof window !== "undefined" ? window.innerHeight : 800;
+  return { offsetTop, height, bottom: offsetTop + height };
+}
+
+/**
+ * Minimum scrollY so `#quote-actions` (or similar) is fully visible between the
+ * fixed header and the bottom of the visual viewport, with ~16px below the last button.
+ * Returns null when no scroll is needed.
+ */
+export function computeScrollTopToRevealActions(
+  element: HTMLElement,
+  options?: {
+    bottomClearancePx?: number;
+    topClearancePx?: number;
+  },
+): number | null {
+  if (typeof window === "undefined") return null;
+
+  const bottomClearance = options?.bottomClearancePx ?? ACTIONS_BOTTOM_CLEARANCE_PX;
+  const topClearance = options?.topClearancePx ?? HEADER_CLEARANCE_PX;
+  const headerBottom = getHeaderBottomPx();
+  const { offsetTop, bottom: viewportBottom } = getVisibleViewportBand();
+  const visibleTop = Math.max(headerBottom + topClearance, offsetTop + topClearance);
+  const visibleBottom = viewportBottom - bottomClearance;
+  const available = visibleBottom - visibleTop;
+  if (available <= 0) return null;
+
+  const rect = element.getBoundingClientRect();
+  const fullyVisible =
+    rect.top >= visibleTop - ACTIONS_CLIP_TOLERANCE_PX &&
+    rect.bottom <= visibleBottom + ACTIONS_CLIP_TOLERANCE_PX;
+  if (fullyVisible) return null;
+
+  let delta = 0;
+  if (rect.height <= available) {
+    // Fit the whole action area in the visible band; prefer keeping the bottom clear.
+    if (rect.bottom > visibleBottom) {
+      delta = rect.bottom - visibleBottom;
+    } else if (rect.top < visibleTop) {
+      delta = rect.top - visibleTop;
+    }
+    const topAfter = rect.top - delta;
+    if (topAfter < visibleTop) {
+      delta = rect.top - visibleTop;
+    }
+  } else {
+    // Taller than the band — prioritise the bottom confirmation buttons.
+    delta = rect.bottom - visibleBottom;
+  }
+
+  if (Math.abs(delta) <= ACTIONS_CLIP_TOLERANCE_PX) return null;
+  return Math.max(0, Math.round(window.scrollY + delta));
+}
+
+/**
+ * After expanding Start New Quote confirmation, scroll the minimum distance so
+ * Book Now / Save Quote / Start New Quote / Keep Current Quote are all visible.
+ * Does not clear the quote. Uses behavior: "auto" (no scrollIntoView).
+ */
+export function scheduleRevealQuoteActionsScroll(
+  target: BookingNavTargetId | string = "quote-actions",
+): () => void {
+  if (typeof window === "undefined") {
+    return () => {};
+  }
+
+  let cancelled = false;
+  let raf2 = 0;
+  let correctionTimer = 0;
+
+  const applyScroll = () => {
+    const element = resolveBookingNavElement(target);
+    if (!element || cancelled) return;
+    const nextTop = computeScrollTopToRevealActions(element);
+    if (nextTop == null) return;
+    window.scrollTo({ top: nextTop, behavior: "auto" });
+  };
+
+  const raf1 = window.requestAnimationFrame(() => {
+    raf2 = window.requestAnimationFrame(() => {
+      if (cancelled) return;
+      applyScroll();
+      correctionTimer = window.setTimeout(() => {
+        if (cancelled) return;
+        const element = resolveBookingNavElement(target);
+        if (!element) return;
+        const { bottom: viewportBottom } = getVisibleViewportBand();
+        const rect = element.getBoundingClientRect();
+        const clipped =
+          rect.bottom > viewportBottom - ACTIONS_BOTTOM_CLEARANCE_PX + ACTIONS_CLIP_TOLERANCE_PX;
+        if (!clipped) return;
+        const desired = computeScrollTopToRevealActions(element);
+        if (desired == null) return;
+        if (Math.abs(window.scrollY - desired) > ACTIONS_CLIP_TOLERANCE_PX) {
+          window.scrollTo({ top: desired, behavior: "auto" });
+        }
+      }, RESULTS_CORRECTION_MS);
+    });
+  });
+
+  return () => {
+    cancelled = true;
+    window.cancelAnimationFrame(raf1);
+    if (raf2) window.cancelAnimationFrame(raf2);
+    if (correctionTimer) window.clearTimeout(correctionTimer);
+  };
 }
 
 function focusHeadingIn(element: HTMLElement): void {
