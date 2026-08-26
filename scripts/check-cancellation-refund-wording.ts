@@ -99,3 +99,4 @@ assert.match(read("src/components/OwnerJourneyEvidenceClient.tsx"), /Cancellatio
 console.log("OK  booking/evidence still store and show versions internally");
 
 console.log("\nAll cancellation/refund wording checks passed.");
+
