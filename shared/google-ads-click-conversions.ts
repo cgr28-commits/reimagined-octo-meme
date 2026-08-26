@@ -12,16 +12,31 @@ import { UK_TIME_ZONE } from "./uk-time";
 
 export const GOOGLE_ADS_API_VERSION = "v19";
 
+/**
+ * Google Ads *account* customer ID (digits only, no dashes).
+ * This is NOT the website tag ID `AW-18303631278` — that tag is for gtag/send_to only.
+ */
+export const DEFAULT_GOOGLE_ADS_CUSTOMER_ID = "4955115517";
+
+/** Numeric conversion action id for the Paid Booking action in account 495-511-5517. */
+export const DEFAULT_GOOGLE_ADS_PAID_BOOKING_CONVERSION_ACTION_ID = "7733724411";
+
 export type GoogleAdsClickConversionEnv = {
   GOOGLE_ADS_DEVELOPER_TOKEN?: string;
   GOOGLE_ADS_CLIENT_ID?: string;
   GOOGLE_ADS_CLIENT_SECRET?: string;
   GOOGLE_ADS_REFRESH_TOKEN?: string;
-  /** Numeric customer id without dashes, e.g. 18303631278 */
+  /**
+   * Numeric Google Ads customer id without dashes (default {@link DEFAULT_GOOGLE_ADS_CUSTOMER_ID}).
+   * Do not set this to the AW- tag number (18303631278).
+   */
   GOOGLE_ADS_CUSTOMER_ID?: string;
   /** Optional manager / MCC login customer id (no dashes). */
   GOOGLE_ADS_LOGIN_CUSTOMER_ID?: string;
-  /** Numeric conversion action id for the Paid Booking action. */
+  /**
+   * Numeric Paid Booking conversion action id
+   * (default {@link DEFAULT_GOOGLE_ADS_PAID_BOOKING_CONVERSION_ACTION_ID}).
+   */
   GOOGLE_ADS_PAID_BOOKING_CONVERSION_ACTION_ID?: string;
 };
 
@@ -59,9 +74,22 @@ export function isGoogleAdsClickConversionConfigured(
     trimSecret(env.GOOGLE_ADS_DEVELOPER_TOKEN) &&
       trimSecret(env.GOOGLE_ADS_CLIENT_ID) &&
       trimSecret(env.GOOGLE_ADS_CLIENT_SECRET) &&
-      trimSecret(env.GOOGLE_ADS_REFRESH_TOKEN) &&
-      trimSecret(env.GOOGLE_ADS_CUSTOMER_ID) &&
-      trimSecret(env.GOOGLE_ADS_PAID_BOOKING_CONVERSION_ACTION_ID),
+      trimSecret(env.GOOGLE_ADS_REFRESH_TOKEN),
+  );
+}
+
+export function resolveGoogleAdsCustomerId(env: GoogleAdsClickConversionEnv): string {
+  return digitsOnlyCustomerId(
+    trimSecret(env.GOOGLE_ADS_CUSTOMER_ID) || DEFAULT_GOOGLE_ADS_CUSTOMER_ID,
+  );
+}
+
+export function resolvePaidBookingConversionActionId(
+  env: GoogleAdsClickConversionEnv,
+): string {
+  return digitsOnlyCustomerId(
+    trimSecret(env.GOOGLE_ADS_PAID_BOOKING_CONVERSION_ACTION_ID) ||
+      DEFAULT_GOOGLE_ADS_PAID_BOOKING_CONVERSION_ACTION_ID,
   );
 }
 
@@ -186,10 +214,8 @@ export async function uploadPaidBookingClickConversion(
     return { status: "skipped_no_click_id", orderId };
   }
 
-  const customerId = digitsOnlyCustomerId(trimSecret(env.GOOGLE_ADS_CUSTOMER_ID));
-  const actionId = digitsOnlyCustomerId(
-    trimSecret(env.GOOGLE_ADS_PAID_BOOKING_CONVERSION_ACTION_ID),
-  );
+  const customerId = resolveGoogleAdsCustomerId(env);
+  const actionId = resolvePaidBookingConversionActionId(env);
   const loginCustomerId = digitsOnlyCustomerId(
     trimSecret(env.GOOGLE_ADS_LOGIN_CUSTOMER_ID),
   );
