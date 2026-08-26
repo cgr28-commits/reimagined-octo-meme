@@ -4,5 +4,38 @@
   "expiresOn": "2026-08-31",
   "eventDatesShort": "29–30 August 2026",
   "venue": "Boucher Playing Fields, Belfast",
-  "destinationPrefill": "Boucher Playing Fields, Belfast"
+  "destinationPrefill": "Boucher Playing Fields, Belfast",
+  "festivalCityCentreFixedFare": {
+    "amountGbp": 29,
+    "activeDates": ["2026-08-29", "2026-08-30"],
+    "boucher": {
+      "lat": 54.578938,
+      "lng": -5.963782,
+      "radiusMeters": 900,
+      "nameNeedles": [
+        "boucher playing fields",
+        "boucher road playing fields",
+        "boucher playing field",
+        "boucher road playing field"
+      ],
+      "postcodes": ["BT12 6EU", "BT12 6HR"]
+    },
+    "cityCentre": {
+      "lat": 54.5964,
+      "lng": -5.9301,
+      "radiusMeters": 1600,
+      "postcodeDistricts": ["BT1", "BT2"],
+      "nameNeedles": [
+        "belfast city centre",
+        "belfast city center",
+        "city hall, belfast",
+        "belfast city hall",
+        "donegall square",
+        "donegall place",
+        "laganside",
+        "victoria square, belfast",
+        "castlecourt"
+      ]
+    }
+  }
 }

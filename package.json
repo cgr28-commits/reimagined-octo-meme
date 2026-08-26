@@ -35,6 +35,7 @@
     "check:paid-booking-ads-conversion": "npx tsx scripts/check-paid-booking-ads-conversion.ts",
     "check:sumup-booking-conversion": "npx tsx scripts/check-sumup-booking-conversion.ts",
     "check:emerge-belfast": "npx tsx scripts/check-emerge-belfast-page.ts",
+    "check:emerge-boucher-city-centre-fare": "npx tsx scripts/check-emerge-boucher-city-centre-fare.ts",
     "check:journey-tracking": "npx tsx scripts/check-journey-tracking.ts",
     "check:review-request": "npx tsx scripts/check-review-request.ts",
     "check:tracking-email-delivery": "npx tsx scripts/check-tracking-email-delivery.ts",
