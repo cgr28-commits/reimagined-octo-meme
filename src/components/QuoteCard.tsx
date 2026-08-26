@@ -1117,7 +1117,7 @@ function QuoteCard({
           routeMetrics,
         );
       }
-      // Address↔address (incl. temporary EMERGE Boucher↔city-centre £29 fare).
+      // Address↔address (incl. temporary EMERGE Boucher↔city-centre £24 fare).
       // Festival fixed fare can resolve without route metrics; normal A2A still needs them.
       if (!routeMetrics) {
         const festivalProbe = calculatePointToPointQuote(
