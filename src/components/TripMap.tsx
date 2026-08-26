@@ -239,10 +239,16 @@ export default function TripMap({
     return (
       <div
         id={id}
-        className="rounded-xl border border-white/10 bg-white/5 px-4 py-3"
+        className="scroll-mt-44 rounded-xl border border-white/10 bg-white/5 px-4 py-3 md:scroll-mt-28"
         style={{ overflowAnchor: "none" }}
       >
-        <p className="text-xs font-medium uppercase tracking-wider text-emerald">Your Route</p>
+        <p
+          data-booking-nav-heading
+          tabIndex={-1}
+          className="text-xs font-medium uppercase tracking-wider text-emerald outline-none"
+        >
+          Your Route
+        </p>
         <p className="mt-1 text-sm text-white/70">{links.routeLabel}</p>
         {routeMetrics ? (
           <p className="mt-1.5 text-sm font-semibold text-white">

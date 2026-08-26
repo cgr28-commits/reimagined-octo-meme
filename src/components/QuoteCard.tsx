@@ -14,7 +14,6 @@ import { detectMobileDevice, useIsMobileDevice } from "@/lib/device";
 import {
   focusFirstInvalidField,
   quoteStepTargetId,
-  schedulePreciseResultsScroll,
   scheduleScrollToBookNowAfterExpressAck,
   scrollQuoteStage,
   type QuoteStepNavTarget,
@@ -1392,6 +1391,16 @@ function QuoteCard({
     if (addressChanged) {
       clearDownstreamQuoteChoices();
     }
+    // Completing the address pair: blur so iOS autocomplete cannot steal a second scroll.
+    if (
+      isA2AFlow &&
+      isPlaceSelected(place) &&
+      isPlaceSelected(dropoffPlace) &&
+      typeof document !== "undefined" &&
+      document.activeElement instanceof HTMLElement
+    ) {
+      document.activeElement.blur();
+    }
   }
 
   function handleDropoffPlaceSelect(place: SelectedPlace) {
@@ -1414,6 +1423,15 @@ function QuoteCard({
     }
     if (addressChanged) {
       clearDownstreamQuoteChoices();
+    }
+    if (
+      isA2AFlow &&
+      isPlaceSelected(pickupPlace) &&
+      isPlaceSelected(place) &&
+      typeof document !== "undefined" &&
+      document.activeElement instanceof HTMLElement
+    ) {
+      document.activeElement.blur();
     }
   }
 
@@ -2653,8 +2671,9 @@ function QuoteCard({
 
   // -------------------------------------------------------------------------
   // Consolidated progressive scroll (A2A primary + legacy).
-  // One deliberate target per user transition — always via scrollQuoteStage
-  // (cancels competing jobs). Never targets homepage / #airports sections.
+  // ONE action → ONE scroll → ONE destination via scrollQuoteStage.
+  // Never targets homepage / #airports. Never scrolls on field keystrokes,
+  // route-metric updates, or time onChange while the iOS picker is open.
   // -------------------------------------------------------------------------
   const a2aShowJourneyMode =
     isA2AFlow &&
@@ -2672,10 +2691,14 @@ function QuoteCard({
   const hadA2aAddressesScrollRef = useRef(false);
   const hadA2aJourneyTypeScrollRef = useRef(false);
   const hadA2aPartyScrollRef = useRef(false);
-  const hadStep1ReadyScrollRef = useRef(false);
-  const hadStep2ScheduleScrollRef = useRef(false);
+  /** Capacity incomplete→complete arms a pending Your Route scroll (once). */
+  const pendingRouteSummaryScrollRef = useRef(false);
+  const hadRouteSummaryScrollRef = useRef(false);
+  /** Time picker Done/blur → Your Journey (once per step-2 visit). */
+  const hadJourneySummaryScrollRef = useRef(false);
   const hadLegacyJourneyModeScrollRef = useRef(false);
   const hadLegacyPartyScrollRef = useRef(false);
+  const prevPartyCompleteRef = useRef(false);
 
   // Stage 1: Address to Address tapped → PICKUP / DESTINATION fields.
   useEffect(() => {
@@ -2690,10 +2713,12 @@ function QuoteCard({
     prevJourneyIntentRef.current = journeyIntent;
     if (!becameAddressToAddress || hadA2aAddressesScrollRef.current) return;
     hadA2aAddressesScrollRef.current = true;
-    return scrollQuoteStage("quote-section-addresses");
+    // No layout-correction pulse — stage scrolls are precise one-shots (avoids judder).
+    return scrollQuoteStage("quote-section-addresses", { correctAfterMs: 0 });
   }, [isA2AFlow, journeyIntent, quoteStep]);
 
-  // Stage 2: both addresses selected → JOURNEY One way / Return.
+  // Stage 3: both addresses selected → JOURNEY (One way / Return) only.
+  // Pickup alone must not scroll. Route/vehicle renders must not steal viewport.
   useEffect(() => {
     if (!isA2AFlow || quoteStep !== 1) {
       hadA2aJourneyTypeScrollRef.current = false;
@@ -2707,10 +2732,10 @@ function QuoteCard({
     }
     if (hadA2aJourneyTypeScrollRef.current) return;
     hadA2aJourneyTypeScrollRef.current = true;
-    return scrollQuoteStage("journey-type-selector");
+    return scrollQuoteStage("journey-type-selector", { correctAfterMs: 0 });
   }, [a2aShowJourneyMode, isA2AFlow, journeyMode, quoteStep]);
 
-  // Stage 3: One way / Return selected → passenger / luggage.
+  // Stage 4: One way / Return selected → passenger / luggage (not bags→route yet).
   useEffect(() => {
     if (!isA2AFlow || quoteStep !== 1) {
       hadA2aPartyScrollRef.current = false;
@@ -2722,67 +2747,53 @@ function QuoteCard({
     }
     if (hadA2aPartyScrollRef.current) return;
     hadA2aPartyScrollRef.current = true;
-    return scrollQuoteStage("passenger-luggage-section");
+    return scrollQuoteStage("passenger-luggage-section", { correctAfterMs: 0 });
   }, [a2aShowParty, isA2AFlow, quoteStep]);
 
-  // Stage 4: party + route ready → next action (Continue / Book Now).
-  // Address-to-Address personalised quotes: land on Continue anchor — NOT the
-  // map / route card (that overshoot was landing users near homepage airports).
-  // Instant-fare paths still use precise scroll to Your Route summary.
+  // Stage 6: capacity incomplete → complete → YOUR ROUTE (once).
+  // Suitcase 2→3 after complete must not re-scroll. Metric/vehicle updates must not.
+  // Arms on incomplete→complete; fires once when #quote-route-summary is mounted
+  // (quoteResultsReady). Waiting is silent — not a second “metrics arrived” scroll.
   useEffect(() => {
     if (quoteStep !== 1) {
-      hadStep1ReadyScrollRef.current = false;
+      prevPartyCompleteRef.current = false;
+      pendingRouteSummaryScrollRef.current = false;
+      hadRouteSummaryScrollRef.current = false;
       return;
     }
-    if (!quoteChoicesReady || !hasQuoteRoute) {
-      hadStep1ReadyScrollRef.current = false;
+
+    const capacityComplete = quoteChoicesReady && hasQuoteRoute;
+    const becameComplete = capacityComplete && !prevPartyCompleteRef.current;
+    prevPartyCompleteRef.current = capacityComplete;
+
+    if (!capacityComplete) {
+      pendingRouteSummaryScrollRef.current = false;
+      hadRouteSummaryScrollRef.current = false;
+      return;
+    }
+
+    if (becameComplete) {
+      pendingRouteSummaryScrollRef.current = true;
+    }
+
+    if (!pendingRouteSummaryScrollRef.current || hadRouteSummaryScrollRef.current) {
       return;
     }
     if (!quoteResultsReady) {
-      // Wait for metrics — do NOT reset the one-shot flag on metric flicker.
       return;
     }
-    if (hadStep1ReadyScrollRef.current) return;
-    hadStep1ReadyScrollRef.current = true;
 
-    const preferContinueCta =
-      isA2AFlow &&
-      (journeyIntent === "address-to-address" ||
-        isManualQuoteJourney ||
-        pricingConfirmationRequired ||
-        !liveQuote);
+    hadRouteSummaryScrollRef.current = true;
+    pendingRouteSummaryScrollRef.current = false;
+    return scrollQuoteStage("quote-route-summary", { correctAfterMs: 0 });
+  }, [hasQuoteRoute, quoteChoicesReady, quoteResultsReady, quoteStep]);
 
-    if (preferContinueCta) {
-      return scrollQuoteStage("quote-book-now-anchor");
-    }
-    return schedulePreciseResultsScroll("quote-route-summary");
-  }, [
-    hasQuoteRoute,
-    isA2AFlow,
-    isManualQuoteJourney,
-    journeyIntent,
-    liveQuote,
-    pricingConfirmationRequired,
-    quoteChoicesReady,
-    quoteResultsReady,
-    quoteStep,
-  ]);
-
-  // Stage 6: date + pickup time complete → YOUR JOURNEY summary.
+  // Reset time→Your Journey one-shot when leaving travel-details step.
   useEffect(() => {
     if (quoteStep !== 2) {
-      hadStep2ScheduleScrollRef.current = false;
-      return;
+      hadJourneySummaryScrollRef.current = false;
     }
-    if (!isScheduleComplete) {
-      return;
-    }
-    if (hadStep2ScheduleScrollRef.current) return;
-    hadStep2ScheduleScrollRef.current = true;
-    return scrollQuoteStage(
-      step2JourneySummaryRef.current ?? "step2-journey-summary",
-    );
-  }, [isScheduleComplete, quoteStep]);
+  }, [quoteStep]);
 
   // Legacy (non-A2A) form: addresses → One Way/Return, then passengers after mode chosen.
   useEffect(() => {
@@ -2800,12 +2811,38 @@ function QuoteCard({
       hadLegacyPartyScrollRef.current = false;
       if (hadLegacyJourneyModeScrollRef.current) return;
       hadLegacyJourneyModeScrollRef.current = true;
-      return scrollQuoteStage("journey-type-selector");
+      return scrollQuoteStage("journey-type-selector", { correctAfterMs: 0 });
     }
     if (hadLegacyPartyScrollRef.current) return;
     hadLegacyPartyScrollRef.current = true;
-    return scrollQuoteStage("passenger-luggage-section");
+    return scrollQuoteStage("passenger-luggage-section", { correctAfterMs: 0 });
   }, [hasQuoteRoute, isA2AFlow, journeyMode, quoteStep]);
+
+  /**
+   * Stage 10→11: iPhone time picker Done / blur only.
+   * Never called from onChange — customer must finish the picker first.
+   */
+  function requestJourneySummaryScrollAfterTimeConfirm() {
+    if (quoteStep !== 2) return;
+    if (hadJourneySummaryScrollRef.current) return;
+    const schedule = syncScheduleFieldsFromInputs();
+    const date = schedule.tripDate;
+    const time = schedule.tripTime;
+    const retDate = schedule.returnDate;
+    const retTime = schedule.returnTime;
+    const complete =
+      Boolean(date && time) &&
+      isTripDateOnOrAfterToday(date) &&
+      isTripDateTimeNotInPast(date, time) &&
+      (!returnJourney ||
+        (Boolean(retDate && retTime) &&
+          isReturnAfterOutbound(date, time, retDate, retTime)));
+    if (!complete) return;
+    hadJourneySummaryScrollRef.current = true;
+    scrollQuoteStage(step2JourneySummaryRef.current ?? "step2-journey-summary", {
+      correctAfterMs: 0,
+    });
+  }
 
   const submitInProgressLabel = isManualQuoteJourney
     ? "Submitting quote request…"
@@ -4072,6 +4109,10 @@ function QuoteCard({
                 setTripDateError("");
                 setReturnDateError("");
               }}
+              onBlur={() => {
+                // iPhone Done / tick dismisses the picker → blur. Scroll only then.
+                requestJourneySummaryScrollAfterTimeConfirm();
+              }}
               className="box-border h-12 w-full min-w-0 rounded-xl border border-white/10 bg-white/5 px-4 text-base text-white outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30 [color-scheme:dark]"
             />
           </div>
@@ -4143,6 +4184,9 @@ function QuoteCard({
                   onInput={(e) => {
                     setReturnTime((e.target as HTMLInputElement).value);
                     setReturnDateError("");
+                  }}
+                  onBlur={() => {
+                    requestJourneySummaryScrollAfterTimeConfirm();
                   }}
                   className="box-border h-12 w-full min-w-0 rounded-xl border border-white/10 bg-white/5 px-4 text-base text-white outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30 [color-scheme:dark]"
                 />

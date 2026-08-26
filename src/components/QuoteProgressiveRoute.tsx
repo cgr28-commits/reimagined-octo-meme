@@ -299,7 +299,11 @@ export default function QuoteProgressiveRoute({
           id="journey-type-selector"
           className="scroll-mt-44 space-y-3 md:scroll-mt-28"
         >
-          <p className="mb-2 text-xs font-medium uppercase tracking-wider text-white/50">
+          <p
+            data-booking-nav-heading
+            tabIndex={-1}
+            className="mb-2 text-xs font-medium uppercase tracking-wider text-white/50 outline-none"
+          >
             Journey
           </p>
           <div

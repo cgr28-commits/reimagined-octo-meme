@@ -48,10 +48,12 @@ assert.match(card, /pendingQuoteStepNavScrollRef/);
 assert.match(card, /from "@\/lib\/quote-step-nav-scroll"/);
 
 // Allowed one-shot guided stages (not every keystroke).
-assert.match(card, /hadStep2ScheduleScrollRef/);
+assert.match(card, /hadJourneySummaryScrollRef/);
+assert.match(card, /requestJourneySummaryScrollAfterTimeConfirm/);
 assert.match(card, /id="step2-journey-summary"/);
-assert.match(card, /scrollQuoteStage\("quote-section-addresses"\)/);
-assert.match(card, /scrollQuoteStage\("quote-book-now-anchor"\)/);
+assert.match(card, /scrollQuoteStage\("quote-section-addresses"/);
+assert.match(card, /scrollQuoteStage\("quote-route-summary"/);
+assert.doesNotMatch(card, /hadStep2ScheduleScrollRef/);
 
 // Section ids remain in normal document flow.
 assert.match(progressive, /id="quote-section-passengers"/);

@@ -135,7 +135,7 @@ check("Public quote tool uses booking-nav scroll (no scrollIntoView / legacy far
   assert.doesNotMatch(card, /pendingScrollToStep3CustomerRef/);
   assert.doesNotMatch(card, /scheduleReadyForScrollRef/);
   assert.match(card, /scrollQuoteStage/);
-  assert.match(card, /schedulePreciseResultsScroll/);
+  assert.doesNotMatch(card, /schedulePreciseResultsScroll/);
 });
 
 check("Journey mode, passengers and suitcases start unselected; results scroll once when ready", () => {
@@ -145,7 +145,9 @@ check("Journey mode, passengers and suitcases start unselected; results scroll o
   assert.match(progressive, /Select your passenger and suitcase numbers to see your fixed price\./);
   assert.match(card, /canShowPrice = hasQuoteRoute && quoteChoicesReady/);
   assert.match(card, /quote-route-summary/);
-  assert.match(card, /schedulePreciseResultsScroll\("quote-route-summary"\)/);
+  assert.match(card, /scrollQuoteStage\("quote-route-summary"/);
+  assert.match(card, /hadRouteSummaryScrollRef/);
+  assert.doesNotMatch(card, /schedulePreciseResultsScroll\("quote-route-summary"\)/);
   assert.doesNotMatch(card, /scheduleBookingNavAfterRender\("quote-results-summary"/);
   assert.doesNotMatch(card, /setExactPassengers\(5\)/);
   assert.doesNotMatch(progressive, /aria-pressed=\{!returnJourney\}/);

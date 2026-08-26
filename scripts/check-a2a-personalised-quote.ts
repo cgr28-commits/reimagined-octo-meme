@@ -161,11 +161,13 @@ assert.match(
 );
 assert.match(quoteCard, /pendingBookingResultScrollRef/);
 assert.match(quoteCard, /scrollQuoteStage\(bookingResultRef\.current \?\? "bookingRequestResult"/);
-assert.match(quoteCard, /hadStep2ScheduleScrollRef/);
+assert.match(quoteCard, /hadJourneySummaryScrollRef/);
+assert.match(quoteCard, /requestJourneySummaryScrollAfterTimeConfirm/);
 assert.match(quoteCard, /id="step2-journey-summary"/);
-assert.match(quoteCard, /scrollQuoteStage\("quote-section-addresses"\)/);
-assert.match(quoteCard, /scrollQuoteStage\("quote-book-now-anchor"\)/);
-assert.match(quoteCard, /preferContinueCta/);
+assert.match(quoteCard, /scrollQuoteStage\("quote-section-addresses"/);
+assert.match(quoteCard, /scrollQuoteStage\("quote-route-summary"/);
+assert.doesNotMatch(quoteCard, /preferContinueCta/);
+assert.doesNotMatch(quoteCard, /hadStep2ScheduleScrollRef/);
 const actionsStart = quoteCard.indexOf('id="step3-payment-actions"');
 assert.ok(actionsStart > 0);
 const actionsEnd = quoteCard.indexOf("{renderStartNewQuoteControls()}", actionsStart);
@@ -178,6 +180,6 @@ assert.doesNotMatch(
 );
 console.log("OK  single Submit Quote Request + Agreement wording (no WhatsApp/email chooser)");
 console.log("OK  confirmation card scrolls into view after submit");
-console.log("OK  consolidated A2A stage scrolls (addresses → continue CTA)");
+console.log("OK  consolidated A2A stage scrolls (addresses → YOUR ROUTE)");
 
 console.log("\nAll A2A personalised quote checks passed.");

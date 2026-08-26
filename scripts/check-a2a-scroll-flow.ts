@@ -19,7 +19,7 @@ console.log("=== Central scrollQuoteStage helper ===");
 assert.match(helper, /export function scrollQuoteStage/);
 assert.match(helper, /cancelCompetingScrollJobs\(\)/);
 assert.match(helper, /quote-section-addresses/);
-assert.match(helper, /quote-book-now-anchor/);
+assert.match(helper, /quote-route-summary/);
 assert.match(helper, /step2-journey-summary/);
 assert.match(helper, /bookingRequestResult/);
 console.log("OK  scrollQuoteStage cancels competitors first");
@@ -36,34 +36,55 @@ assert.match(progressive, /id="passenger-luggage-section"/);
 console.log("OK  QuoteProgressiveRoute is scroll-target only");
 
 console.log("\n=== QuoteCard owns A2A stage sequence ===");
-assert.match(card, /scrollQuoteStage\("quote-section-addresses"\)/);
-assert.match(card, /scrollQuoteStage\("journey-type-selector"\)/);
-assert.match(card, /scrollQuoteStage\("passenger-luggage-section"\)/);
-assert.match(card, /scrollQuoteStage\("quote-book-now-anchor"\)/);
+assert.match(card, /scrollQuoteStage\("quote-section-addresses"/);
+assert.match(card, /scrollQuoteStage\("journey-type-selector"/);
+assert.match(card, /scrollQuoteStage\("passenger-luggage-section"/);
+assert.match(card, /scrollQuoteStage\("quote-route-summary"/);
 assert.match(card, /id="step2-journey-summary"/);
 assert.match(card, /scrollQuoteStage\(\s*step2JourneySummaryRef/);
 assert.match(card, /scrollQuoteStage\(bookingResultRef\.current \?\? "bookingRequestResult"/);
 assert.match(card, /becameAddressToAddress/);
-assert.match(card, /preferContinueCta/);
 assert.match(card, /hadA2aAddressesScrollRef/);
 assert.match(card, /hadA2aJourneyTypeScrollRef/);
 assert.match(card, /hadA2aPartyScrollRef/);
-assert.match(card, /hadStep1ReadyScrollRef/);
-assert.match(card, /hadStep2ScheduleScrollRef/);
-// Must not reset ready-scroll on metric flicker
-assert.doesNotMatch(
-  card,
-  /if \(!quoteResultsReady\) \{\s*hadStep1ReadyScrollRef\.current = false/,
-);
-console.log("OK  stages 1–8 wired with one-shot refs");
+assert.match(card, /hadRouteSummaryScrollRef/);
+assert.match(card, /pendingRouteSummaryScrollRef/);
+assert.match(card, /hadJourneySummaryScrollRef/);
+assert.match(card, /requestJourneySummaryScrollAfterTimeConfirm/);
+assert.doesNotMatch(card, /preferContinueCta/);
+assert.doesNotMatch(card, /hadStep1ReadyScrollRef/);
+assert.doesNotMatch(card, /hadStep2ScheduleScrollRef/);
+assert.doesNotMatch(card, /schedulePreciseResultsScroll/);
+console.log("OK  stages wired with one-shot refs (bags → YOUR ROUTE)");
 
-console.log("\n=== A2A personalised does not force route-map scroll ===");
+console.log("\n=== Time scroll only after picker Done / blur ===");
+assert.match(card, /requestJourneySummaryScrollAfterTimeConfirm/);
 assert.match(
   card,
-  /preferContinueCta[\s\S]*scrollQuoteStage\("quote-book-now-anchor"\)[\s\S]*schedulePreciseResultsScroll\("quote-route-summary"\)/,
+  /id="time"[\s\S]*?onBlur=\{\(\) => \{[\s\S]*?requestJourneySummaryScrollAfterTimeConfirm\(\);/,
 );
-assert.match(card, /journeyIntent === "address-to-address"/);
-console.log("OK  A2A continue CTA preferred over quote-route-summary");
+assert.match(
+  card,
+  /id="returnTime"[\s\S]*?onBlur=\{\(\) => \{[\s\S]*?requestJourneySummaryScrollAfterTimeConfirm\(\);/,
+);
+assert.doesNotMatch(
+  card,
+  /useEffect\(\(\) => \{[\s\S]*if \(quoteStep !== 2\)[\s\S]*isScheduleComplete[\s\S]*\}, \[isScheduleComplete, quoteStep\]\)/,
+);
+console.log("OK  time → Your Journey uses blur, not isScheduleComplete effect");
+
+console.log("\n=== Capacity incomplete→complete → quote-route-summary ===");
+assert.match(card, /becameComplete/);
+assert.match(card, /capacityComplete/);
+assert.match(
+  card,
+  /scrollQuoteStage\("quote-route-summary", \{ correctAfterMs: 0 \}\)/,
+);
+assert.doesNotMatch(
+  card,
+  /preferContinueCta[\s\S]*scrollQuoteStage\("quote-book-now-anchor"\)/,
+);
+console.log("OK  bags complete lands on YOUR ROUTE (not Continue CTA)");
 
 console.log("\n=== No homepage airport targets in quote stage scrolls ===");
 const stageBlock = card.slice(
@@ -73,6 +94,7 @@ const stageBlock = card.slice(
 assert.doesNotMatch(stageBlock, /["']airports["']/);
 assert.doesNotMatch(stageBlock, /Airports We Serve/);
 assert.doesNotMatch(stageBlock, /getElementById\(["']airports/);
-console.log("OK  no #airports / homepage targets in A2A stages");
+assert.doesNotMatch(stageBlock, /quote-book-now-anchor/);
+console.log("OK  no #airports / homepage / Continue-overshoot targets in A2A stages");
 
 console.log("\nAll A2A scroll-flow checks passed.");

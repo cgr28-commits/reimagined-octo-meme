@@ -167,17 +167,20 @@ check("Quote/booking submission confirmation scrolls into view", () => {
   assert.match(card, /Quote request received/);
 });
 
-check("Step 2 schedule-complete scrolls once to YOUR JOURNEY summary", () => {
+check("Step 2 time Done/blur scrolls once to YOUR JOURNEY summary", () => {
   assert.match(helper, /step2-journey-summary/);
   assert.match(card, /id="step2-journey-summary"/);
   assert.match(card, /step2JourneySummaryRef/);
-  assert.match(card, /hadStep2ScheduleScrollRef/);
-  assert.match(card, /isScheduleComplete/);
+  assert.match(card, /hadJourneySummaryScrollRef/);
+  assert.match(card, /requestJourneySummaryScrollAfterTimeConfirm/);
   assert.match(
     card,
-    /hadStep2ScheduleScrollRef\.current = true;[\s\S]*scrollQuoteStage\(\s*step2JourneySummaryRef\.current \?\? "step2-journey-summary"/,
+    /hadJourneySummaryScrollRef\.current = true;[\s\S]*scrollQuoteStage\(\s*step2JourneySummaryRef\.current \?\? "step2-journey-summary"/,
   );
-  assert.match(
+  assert.match(card, /id="time"[\s\S]*onBlur=\{\(\) => \{[\s\S]*requestJourneySummaryScrollAfterTimeConfirm/);
+  assert.match(card, /id="returnTime"[\s\S]*onBlur=\{\(\) => \{[\s\S]*requestJourneySummaryScrollAfterTimeConfirm/);
+  assert.doesNotMatch(card, /hadStep2ScheduleScrollRef/);
+  assert.doesNotMatch(
     card,
     /useEffect\(\(\) => \{[\s\S]*if \(quoteStep !== 2\)[\s\S]*isScheduleComplete[\s\S]*\}, \[isScheduleComplete, quoteStep\]\)/,
   );
