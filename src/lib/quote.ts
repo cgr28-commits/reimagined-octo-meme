@@ -555,7 +555,7 @@ export function calculatePointToPointQuote(
   const vehicleMultiplier = VEHICLE_MULTIPLIERS[vehicleType] ?? 1;
   const vehicleAdjustment = POINT_TO_POINT_VEHICLE_ADJUSTMENTS[vehicleType] ?? 0;
 
-  // Temporary EMERGE weekend fare £24 (29–30 Aug 2026 only) — date-gated; auto-expires.
+  // Temporary EMERGE Boucher↔city-centre £24 — route-only (no date); remove 31 Aug 2026.
   const festivalOneWay = resolveEmergeBoucherCityCentreOneWayGbp({
     pickup: {
       address: pickup,

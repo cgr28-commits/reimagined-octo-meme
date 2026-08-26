@@ -1,9 +1,11 @@
 /**
- * Temporary EMERGE Belfast weekend fixed fare:
- * Boucher Playing Fields ↔ Belfast city centre = £24 on 29–30 Aug 2026 only.
+ * Temporary EMERGE Belfast fixed fare:
+ * Boucher Playing Fields ↔ Belfast city centre = £24 one-way, either direction.
  *
- * Uses the customer's selected pickup (outbound) date. After 30 Aug 2026 the
- * date gate fails automatically and normal A2A pricing applies — no manual off-switch.
+ * Applied by route/location only — no journey date required — so the initial
+ * quote (before the customer picks a travel date) shows £24.
+ *
+ * Reminder: remove this override on Monday 31 August 2026 and restore normal pricing.
  */
 
 import emergeConfig from "@/lib/emerge-belfast-config.json";
@@ -22,8 +24,6 @@ export type FestivalEndpoint = {
 
 type FestivalFareConfig = {
   amountGbp: number;
-  /** Inclusive UK calendar dates (YYYY-MM-DD) when the fixed fare applies. */
-  activeDates: string[];
   boucher: {
     lat: number;
     lng: number;
@@ -45,10 +45,6 @@ const FARE = (emergeConfig as { festivalCityCentreFixedFare?: FestivalFareConfig
   .festivalCityCentreFixedFare;
 
 export const EMERGE_BOUCHER_CITY_CENTRE_FIXED_FARE_GBP = FARE?.amountGbp ?? 24;
-
-/** Inclusive active dates — after the last date the rule never matches. */
-export const EMERGE_BOUCHER_CITY_CENTRE_FIXED_FARE_DATES: readonly string[] =
-  FARE?.activeDates ?? ["2026-08-29", "2026-08-30"];
 
 function normalisedBlob(endpoint: FestivalEndpoint): string {
   return [
@@ -173,28 +169,19 @@ export function isBelfastCityCentreEndpoint(endpoint: FestivalEndpoint): boolean
   return false;
 }
 
-export function isEmergeBoucherCityCentreFixedFareDate(outboundDate?: string | null): boolean {
-  const date = outboundDate?.trim() ?? "";
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-    return false;
-  }
-  return EMERGE_BOUCHER_CITY_CENTRE_FIXED_FARE_DATES.includes(date);
-}
-
 /**
- * Returns the fixed one-way GBP amount when the temporary EMERGE rule applies,
+ * Returns the fixed one-way GBP amount when the temporary EMERGE route rule applies,
  * otherwise null (caller continues with the normal pricing engine).
+ *
+ * Journey date is ignored — the rule is route/location only.
  */
 export function resolveEmergeBoucherCityCentreOneWayGbp(input: {
   pickup: FestivalEndpoint;
   dropoff: FestivalEndpoint;
-  /** Customer's selected pickup / outbound date (YYYY-MM-DD). */
+  /** Ignored — kept for call-site compatibility. */
   outboundDate?: string | null;
 }): number | null {
   if (!FARE) return null;
-  if (!isEmergeBoucherCityCentreFixedFareDate(input.outboundDate)) {
-    return null;
-  }
 
   const pickupBoucher = isBoucherPlayingFieldsEndpoint(input.pickup);
   const dropoffBoucher = isBoucherPlayingFieldsEndpoint(input.dropoff);

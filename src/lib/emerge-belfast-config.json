@@ -7,7 +7,6 @@
   "destinationPrefill": "Boucher Playing Fields, Belfast",
   "festivalCityCentreFixedFare": {
     "amountGbp": 24,
-    "activeDates": ["2026-08-29", "2026-08-30"],
     "boucher": {
       "lat": 54.578938,
       "lng": -5.963782,
