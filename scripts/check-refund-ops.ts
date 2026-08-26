@@ -173,9 +173,9 @@ assert.match(handlers, /customerEmailStatus/);
 console.log("OK  processor_accepted before side effects; reconcile on retry");
 
 console.log("=== Terms / Privacy unchanged good parts ===");
-assert.equal(TERMS_LAST_UPDATED, "August 2026 v2");
-assert.equal(CANCELLATION_POLICY_VERSION, "August 2026 v2");
-assert.equal(PRIVACY_LAST_UPDATED, "August 2026 v2");
+assert.equal(TERMS_LAST_UPDATED, "August 2026 v4");
+assert.equal(CANCELLATION_POLICY_VERSION, "August 2026 v3");
+assert.equal(PRIVACY_LAST_UPDATED, "August 2026 v3");
 assert.match(read("src/lib/terms.ts"), /Vehicle Cleaning and Damage/);
 assert.match(read("src/components/OwnerJourneyEvidenceClient.tsx"), /Export dispute evidence/);
 assert.match(read("src/components/OwnerCancelRefundModal.tsx"), /Partial refund only/);

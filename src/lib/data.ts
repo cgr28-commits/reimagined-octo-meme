@@ -468,7 +468,7 @@ export const FAQS = [
   {
     question: "Can I cancel my booking?",
     answer:
-      "Cancel more than 24 hours before pickup for a full refund of the fare paid. Cancellations with less than 24 hours’ notice and no-shows are non-refundable. Full details are in our Terms & Conditions.",
+      "Cancel more than 24 hours before your scheduled pickup and you’ll receive a full refund. Cancellations within 24 hours of pickup are normally non-refundable because your driver and time have already been reserved, though we may provide a full or partial refund where appropriate depending on the circumstances. If we cancel and cannot provide the journey, you’ll receive a full refund. Your statutory rights are not affected. Full details are in our Terms & Conditions.",
   },
   {
     question: "Can I change the date or time of my booking?",

@@ -369,7 +369,10 @@ function buildInvoiceHtml(
             <td style="padding:8px 32px 8px;">
               <div style="font-size:13px;line-height:1.7;color:#64748b;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:16px 20px;">
                 <strong style="color:#92400e;">Cancellation policy:</strong>
-                With at least 24 hours’ notice we issue a full refund of the fare paid. Bookings cancelled within 24 hours of pickup are non-refundable.
+                Cancel more than 24 hours before your scheduled pickup and you’ll receive a full refund.
+                Cancellations within 24 hours are normally non-refundable because your driver and time have already been reserved;
+                we may provide a full or partial refund where appropriate depending on the circumstances.
+                If we cancel and cannot provide the journey, you’ll receive a full refund. Your statutory rights are not affected.
                 See our <a href="${BUSINESS_WEBSITE}/terms/" style="color:${NAVY};">Terms &amp; Conditions</a> for full details.
               </div>
             </td>
@@ -1163,9 +1166,9 @@ export function buildCustomerCancellationEmails(
       (when ? `When: ${when}\n` : "") +
       `Pickup: ${details.pickupLabel}\n` +
       `Drop-off: ${details.dropoffLabel}\n\n` +
-      `Your cancellation was received within 24 hours of the scheduled pickup. Under our short-notice cancellation terms a refund is not normally due because vehicle/driver capacity had been reserved and short-notice replacement work may not be available.\n\n` +
-      `Any amount retained remains subject to applicable consumer law. We will not retain more than our reasonable loss resulting from the cancellation. If there are exceptional circumstances, or you believe an adjustment is appropriate, please contact us.\n\n` +
-      `This does not affect your statutory consumer rights.\n\n` +
+      `Your cancellation was received within 24 hours of the scheduled pickup. Cancellations within 24 hours are normally non-refundable because your driver and time have already been reserved. We may provide a full or partial refund where appropriate depending on the circumstances.\n\n` +
+      `If you believe a refund is appropriate in your circumstances, please contact us.\n\n` +
+      `Your statutory rights are not affected.\n\n` +
       `${businessName}\n${BUSINESS_WEBSITE}`;
     const html = buildSimpleBrandedEmailHtml({
       title: "Cancellation confirmed",
@@ -1173,8 +1176,8 @@ export function buildCustomerCancellationEmails(
       bodyHtml:
         `<p>Your booking has been cancelled.</p>` +
         `<p>${escapeHtml(details.tripLabel)}${when ? `<br/>${escapeHtml(when)}` : ""}</p>` +
-        `<p>Your cancellation was received within 24 hours of pickup. Under our short-notice terms a refund is not normally due because capacity had been reserved. Any amount retained will not exceed our reasonable loss. This does not affect your statutory consumer rights.</p>` +
-        `<p>Contact us if there are exceptional circumstances.</p>`,
+        `<p>Your cancellation was received within 24 hours of pickup. Cancellations within 24 hours are normally non-refundable because your driver and time have already been reserved. We may provide a full or partial refund where appropriate depending on the circumstances.</p>` +
+        `<p>Your statutory rights are not affected. Contact us if you believe a refund is appropriate.</p>`,
       businessName,
     });
     return {
