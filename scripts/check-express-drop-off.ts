@@ -266,8 +266,14 @@ check("Breakdown / customer copy wording", () => {
     expressDropOffRecommendedLabel("BHD"),
     "Express terminal drop-off — £4 (Recommended)",
   );
-  assert.equal(expressDropOffRemoveLabel("BFS"), "Remove Express Drop-Off and save £5");
-  assert.equal(expressDropOffRemoveLabel("BHD"), "Remove Express Drop-Off and save £4");
+  assert.equal(
+    expressDropOffRemoveLabel("BFS"),
+    "Use the designated free drop-off area and save £5",
+  );
+  assert.equal(
+    expressDropOffRemoveLabel("BHD"),
+    "Use the designated free drop-off area and save £4",
+  );
   assert.equal(
     expressDropOffBreakdownLabel("BFS", true),
     "Belfast International Express Drop-Off: £5",
@@ -307,7 +313,8 @@ check("Quick Quote wiring: selector, compose on create, no hard-coded fees in UI
   assert.match(handler, /expressDropOffSelected !== false/);
 
   const book = read("src/app/book-quote/BookQuoteCustomerClient.tsx");
-  assert.match(book, /ExpressDropOffSelector/);
+  assert.match(book, /ExpressDropOffChoice/);
+  assert.match(book, /mode="summary"/);
   assert.match(book, /canProceedWithoutExpressDropOff/);
   assert.match(book, /expressDropOffSelected:/);
   assert.match(book, /createPaymentCheckout\(/);
@@ -330,7 +337,8 @@ check("Personal Quote wiring: selector, persist, checkout + emails", () => {
   assert.match(handlers, /returnJourney: Boolean\(options\?\.returnJourney\)/);
 
   const customer = read("src/app/personal-quote/PersonalQuoteCustomerClient.tsx");
-  assert.match(customer, /ExpressDropOffSelector/);
+  assert.match(customer, /ExpressDropOffChoice/);
+  assert.match(customer, /mode="summary"/);
   assert.match(customer, /canProceedWithoutExpressDropOff/);
   assert.match(customer, /expressDropOffSelected:/);
 
@@ -368,10 +376,135 @@ check("Shared module mirrored into worker", () => {
   assert.equal(read("shared/quick-quote.ts"), read("workers/addresses/shared/quick-quote.ts"));
 });
 
-check("QuoteCard stays free of Express Drop-Off owner UI", () => {
+check("QuoteCard shows Express under initial price; payment uses summary + Change", () => {
   const card = read("src/components/QuoteCard.tsx");
-  assert.doesNotMatch(card, /ExpressDropOffSelector/);
-  assert.doesNotMatch(card, /expressDropOffSelected/);
+  const choice = read("src/components/ExpressDropOffChoice.tsx");
+
+  // Initial quote surfaces the choice via ExpressDropOffChoice.
+  assert.match(card, /ExpressDropOffChoice/);
+  assert.match(card, /pricedFare/);
+  assert.match(card, /composeFareWithExpressDropOff/);
+  assert.match(card, /resolveExpressDropOff/);
+  assert.match(card, /expressDropOffSelected/);
+  assert.match(card, /mode=\{quoteStep === 1 \? "full" : "summary"\}/);
+  assert.match(card, /expressDropOffBreakdownLabel/);
+  // Browser sends transfer fare + boolean — never trusts a client fee for SumUp.
+  assert.match(card, /amount: transferFareGbp/);
+  assert.match(card, /expressDropOffSelected: expressSelection\.eligible/);
+  assert.match(card, /canProceedWithoutExpressDropOff/);
+  // Persist selection across steps / drafts.
+  assert.match(card, /expressDropOffSelected:/);
+  assert.match(read("src/lib/booking-draft-storage.ts"), /expressDropOffSelected\?: boolean/);
+
+  // Choice component: full under initial price; summary + Change on payment pages.
+  assert.match(choice, /mode\?: "full" \| "summary"/);
+  assert.match(choice, />\s*Change\s*</);
+  assert.match(choice, /ExpressDropOffSelector/);
+  assert.match(choice, /expressDropOffBreakdownLabel/);
+
+  // Selector copy matches product wording.
+  const selector = read("src/components/ExpressDropOffSelector.tsx");
+  assert.match(selector, /expressDropOffRecommendedLabel/);
+  assert.match(selector, /expressDropOffRemoveLabel/);
+  assert.match(selector, /EXPRESS_DROP_OFF_REMOVED_EXPLANATION/);
+  assert.match(selector, /role="radiogroup"/);
+  assert.match(selector, /min-h-11/);
+});
+
+check("Removing Express reduces total immediately without changing transfer fare", () => {
+  const transfer = 42;
+  const withExpress = composeFareWithExpressDropOff({
+    transferFareGbp: transfer,
+    expressDropOffFeeGbp: EXPRESS_DROP_OFF_FEES_GBP.BFS,
+  });
+  assert.equal(withExpress.transferFareGbp, 42);
+  assert.equal(withExpress.expressDropOffFeeGbp, 5);
+  assert.equal(withExpress.totalGbp, 47);
+
+  const without = composeFareWithExpressDropOff({
+    transferFareGbp: transfer,
+    expressDropOffFeeGbp: 0,
+  });
+  assert.equal(without.transferFareGbp, 42);
+  assert.equal(without.expressDropOffFeeGbp, 0);
+  assert.equal(without.totalGbp, 42);
+  assert.equal(without.totalGbp, withExpress.totalGbp - 5);
+  assert.equal(expressDropOffBreakdownLabel("BFS", false), "Express Drop-Off removed: −£5");
+
+  const bhdWith = composeFareWithExpressDropOff({
+    transferFareGbp: 30,
+    expressDropOffFeeGbp: EXPRESS_DROP_OFF_FEES_GBP.BHD,
+  });
+  const bhdWithout = composeFareWithExpressDropOff({
+    transferFareGbp: 30,
+    expressDropOffFeeGbp: 0,
+  });
+  assert.equal(bhdWith.totalGbp - bhdWithout.totalGbp, 4);
+  assert.equal(bhdWithout.transferFareGbp, bhdWith.transferFareGbp);
+  assert.equal(expressDropOffBreakdownLabel("BHD", false), "Express Drop-Off removed: −£4");
+});
+
+check("Open website booking (QuoteCard) re-composes Express server-side", () => {
+  const index = read("workers/addresses/src/index.ts");
+  assert.match(index, /Open website booking \(QuoteCard\)/);
+  assert.match(index, /composeFareWithExpressDropOff/);
+  assert.match(index, /parseCustomerExpressDropOffSelected/);
+  assert.match(index, /resolveExpressDropOff/);
+  assert.match(index, /toExpressDropOffPersistedFields/);
+  // Must not trust a client-supplied Express fee for open bookings either.
+  assert.doesNotMatch(index, /expressDropOffFee:\s*Number\(body\.expressDropOffFee/);
+});
+
+check("Ineligible journeys hide Express (pickup / Dublin / non-airport / away legs)", () => {
+  assert.equal(
+    resolveExpressDropOff({ airportCode: "BFS", fromAirport: true, selected: true }).eligible,
+    false,
+  );
+  assert.equal(
+    resolveExpressDropOff({ airportCode: "DUB", fromAirport: false, selected: true }).eligible,
+    false,
+  );
+  assert.equal(
+    resolveExpressDropOff({ airportCode: null, fromAirport: false, selected: true }).eligible,
+    false,
+  );
+  assert.equal(
+    resolveExpressDropOff({
+      airportCode: "BFS",
+      fromAirport: true,
+      returnJourney: false,
+      selected: true,
+    }).feeGbp,
+    0,
+  );
+  // Changing direction away from airport clears obsolete fee.
+  const toAirport = resolveExpressDropOff({
+    airportCode: "BHD",
+    fromAirport: false,
+    selected: true,
+  });
+  assert.equal(toAirport.feeGbp, 4);
+  const fromAirport = resolveExpressDropOff({
+    airportCode: "BHD",
+    fromAirport: true,
+    returnJourney: false,
+    selected: true,
+  });
+  assert.equal(fromAirport.eligible, false);
+  assert.equal(fromAirport.feeGbp, 0);
+  assert.equal(toExpressDropOffPersistedFields(fromAirport).expressDropOffFee, 0);
+});
+
+check("Payment pages show saved Express selection with Change (not forced re-choice)", () => {
+  const book = read("src/app/book-quote/BookQuoteCustomerClient.tsx");
+  const pq = read("src/app/personal-quote/PersonalQuoteCustomerClient.tsx");
+  const choice = read("src/components/ExpressDropOffChoice.tsx");
+  assert.match(book, /mode="summary"/);
+  assert.match(book, /expressEditing/);
+  assert.match(pq, /mode="summary"/);
+  assert.match(pq, /expressEditing/);
+  assert.match(choice, />\s*Change\s*</);
+  assert.match(choice, />\s*Done\s*</);
 });
 
 check("Customer can remove Express on a Quick Quote booking link (display + total)", () => {

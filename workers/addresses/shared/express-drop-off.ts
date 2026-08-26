@@ -201,7 +201,7 @@ export function expressDropOffRemoveLabel(
   airportCode: ExpressDropOffAirportCode,
 ): string {
   const fee = EXPRESS_DROP_OFF_FEES_GBP[airportCode];
-  return `Remove Express Drop-Off and save ${formatExpressDropOffGbp(fee)}`;
+  return `Use the designated free drop-off area and save ${formatExpressDropOffGbp(fee)}`;
 }
 
 export function expressDropOffBreakdownLabel(

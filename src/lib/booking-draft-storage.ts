@@ -40,6 +40,8 @@ export type BookingFormDraft = {
   marketingOptIn?: boolean;
   /** Persist code only — amount is always re-validated from the server on restore. */
   personalQuoteCode?: string;
+  /** Customer Express Drop-Off choice — restored across SumUp tab switches. */
+  expressDropOffSelected?: boolean;
   savedAt?: string;
 };
 

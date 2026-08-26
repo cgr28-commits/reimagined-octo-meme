@@ -313,7 +313,12 @@ import {
   isQuickQuoteExpired,
   resolveQuickQuoteCheckoutAmount,
 } from "../shared/quick-quote";
-import { parseCustomerExpressDropOffSelected } from "../shared/express-drop-off";
+import {
+  composeFareWithExpressDropOff,
+  parseCustomerExpressDropOffSelected,
+  resolveExpressDropOff,
+  toExpressDropOffPersistedFields,
+} from "../shared/express-drop-off";
 import { calculateAuthoritativeWebsiteQuote } from "../../../src/lib/quote-service";
 import {
   MINIBUS_VEHICLE,
@@ -1687,6 +1692,39 @@ async function handlePaymentRequest(
         journeyDuration: sj.journeyDuration,
       };
     }
+  }
+
+  // Open website booking (QuoteCard): client amount is the transfer fare only.
+  // Express Drop-Off is re-derived server-side from journey + selection boolean.
+  if (
+    booking &&
+    !shortNoticeToken &&
+    !personalQuoteCode &&
+    !quickQuoteId &&
+    !savedQuoteToken
+  ) {
+    const customerExpressSelected = parseCustomerExpressDropOffSelected(
+      body.expressDropOffSelected ?? booking.expressDropOffSelected,
+      true,
+    );
+    const express = resolveExpressDropOff({
+      airportCode: booking.airportCode,
+      fromAirport: booking.isFromAirport,
+      returnJourney: booking.returnJourney,
+      selected: customerExpressSelected,
+    });
+    const persisted = toExpressDropOffPersistedFields(express);
+    const composed = composeFareWithExpressDropOff({
+      transferFareGbp: amount,
+      expressDropOffFeeGbp: persisted.expressDropOffFee,
+    });
+    amount = composed.totalGbp;
+    booking = {
+      ...booking,
+      expressDropOffSelected: persisted.expressDropOffSelected,
+      expressDropOffFee: persisted.expressDropOffFee,
+      expressDropOffAirport: persisted.expressDropOffAirport,
+    };
   }
 
   if (!Number.isFinite(amount) || amount < 1 || amount > 5000) {

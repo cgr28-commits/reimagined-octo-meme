@@ -89,6 +89,14 @@ import {
   type PersonalQuotePublicSummary,
 } from "@/lib/personal-quote-api";
 import SaveQuoteModal from "@/components/SaveQuoteModal";
+import ExpressDropOffChoice from "@/components/ExpressDropOffChoice";
+import {
+  canProceedWithoutExpressDropOff,
+  composeFareWithExpressDropOff,
+  expressDropOffBreakdownLabel,
+  resolveExpressDropOff,
+  shouldDefaultExpressSelectedOnNewEligibility,
+} from "../../shared/express-drop-off";
 import {
   buildSaveQuotePayloadFromLiveQuote,
   type BuildSaveQuotePayloadResult,
@@ -539,6 +547,12 @@ function QuoteCard({
     amountLabel?: string;
   } | null>(null);
   const [termsAccepted, setTermsAccepted] = useState(false);
+  const [expressDropOffSelected, setExpressDropOffSelected] = useState(true);
+  const [expressRemovalAck, setExpressRemovalAck] = useState(false);
+  const [expressAckRequired, setExpressAckRequired] = useState(false);
+  const [expressEditing, setExpressEditing] = useState(false);
+  const expressEligibilityPrimedRef = useRef(false);
+  const expressWasEligibleRef = useRef(false);
   const [termsError, setTermsError] = useState("");
   const [marketingOptIn, setMarketingOptIn] = useState(false);
   const [testChargeAmount, setTestChargeAmount] = useState<number | null>(null);
@@ -785,6 +799,10 @@ function QuoteCard({
       if (draft.intentAirportCode) setIntentAirportCode(draft.intentAirportCode);
       if (typeof draft.termsAccepted === "boolean") setTermsAccepted(draft.termsAccepted);
       if (typeof draft.marketingOptIn === "boolean") setMarketingOptIn(draft.marketingOptIn);
+      if (typeof draft.expressDropOffSelected === "boolean") {
+        setExpressDropOffSelected(draft.expressDropOffSelected);
+        expressEligibilityPrimedRef.current = false;
+      }
       if (draft.personalQuoteCode?.trim()) {
         const code = draft.personalQuoteCode.trim().toUpperCase();
         // Re-validate from server — never trust a cached agreed amount from sessionStorage.
@@ -1179,6 +1197,73 @@ function QuoteCard({
   const journeyDurationLabel = routeMetrics
     ? formatJourneyDuration(routeMetrics.durationMinutes)
     : "";
+
+  const expressSelection = useMemo(
+    () =>
+      resolveExpressDropOff({
+        airportCode: effectiveAirportCode || null,
+        fromAirport: isFromAirport,
+        returnJourney,
+        selected: expressDropOffSelected,
+      }),
+    [effectiveAirportCode, isFromAirport, returnJourney, expressDropOffSelected],
+  );
+
+  // Recalculate Express eligibility when airport / direction / return changes.
+  useEffect(() => {
+    const nowEligible = resolveExpressDropOff({
+      airportCode: effectiveAirportCode || null,
+      fromAirport: isFromAirport,
+      returnJourney,
+      selected: true,
+    }).eligible;
+
+    if (!expressEligibilityPrimedRef.current) {
+      expressEligibilityPrimedRef.current = true;
+      expressWasEligibleRef.current = nowEligible;
+      return;
+    }
+
+    if (
+      shouldDefaultExpressSelectedOnNewEligibility({
+        wasEligible: expressWasEligibleRef.current,
+        nowEligible,
+      })
+    ) {
+      setExpressDropOffSelected(true);
+      setExpressRemovalAck(false);
+      setExpressAckRequired(false);
+    }
+    if (!nowEligible) {
+      setExpressRemovalAck(false);
+      setExpressAckRequired(false);
+      setExpressEditing(false);
+    }
+    expressWasEligibleRef.current = nowEligible;
+  }, [effectiveAirportCode, isFromAirport, returnJourney]);
+
+  const transferFareGbp = useMemo(() => {
+    if (testChargeAmount != null) return testChargeAmount;
+    if (appliedPersonalQuote && typeof appliedPersonalQuote.agreedAmount === "number") {
+      return appliedPersonalQuote.agreedAmount;
+    }
+    return liveQuote?.amount ?? null;
+  }, [testChargeAmount, appliedPersonalQuote, liveQuote?.amount]);
+
+  const pricedFare = useMemo(() => {
+    if (transferFareGbp == null || !Number.isFinite(transferFareGbp)) return null;
+    // Test £1 charge: do not add Express.
+    if (testChargeAmount != null) {
+      return composeFareWithExpressDropOff({
+        transferFareGbp: testChargeAmount,
+        expressDropOffFeeGbp: 0,
+      });
+    }
+    return composeFareWithExpressDropOff({
+      transferFareGbp,
+      expressDropOffFeeGbp: expressSelection.feeGbp,
+    });
+  }, [transferFareGbp, testChargeAmount, expressSelection.feeGbp]);
 
   /** Pay online at quote time — saloon/estate when SumUp enabled. */
   const canPayNowOnline =
@@ -1670,9 +1755,9 @@ function QuoteCard({
       ? priceConfirmationLabel
       : liveQuote
       ? isRequestQuote
-        ? `Guide price ${formatQuote(liveQuote.amount)} (subject to availability)`
+        ? `Guide price ${formatQuote(pricedFare?.totalGbp ?? liveQuote.amount)} (subject to availability)`
         : !isEnquiryOnly && !isManualQuoteJourney
-          ? formatQuote(liveQuote.amount)
+          ? formatQuote(pricedFare?.totalGbp ?? liveQuote.amount)
           : null
       : isManualQuoteJourney
         ? "Request fixed quote"
@@ -1703,6 +1788,9 @@ function QuoteCard({
       isAirportTrip: isAirportTrip || Boolean(journeyKind && journeyKind !== "address-to-address"),
       airportCode: effectiveAirportCode || undefined,
       isFromAirport: isAirportTrip || isFromAirport ? isFromAirport : undefined,
+      expressDropOffSelected: expressSelection.eligible ? expressDropOffSelected : false,
+      expressDropOffFee: expressSelection.feeGbp,
+      expressDropOffAirport: expressSelection.airportCode,
     };
   }
 
@@ -1829,7 +1917,8 @@ function QuoteCard({
   }
 
   const paymentAmount =
-    testChargeAmount ?? appliedPersonalQuote?.agreedAmount ?? liveQuote?.amount ?? null;
+    testChargeAmount ??
+    (pricedFare?.totalGbp != null ? pricedFare.totalGbp : liveQuote?.amount ?? null);
 
   async function handlePayNow() {
     if (!liveQuote || paymentLoading || !canPayNowOnline) {
@@ -1863,6 +1952,20 @@ function QuoteCard({
     }
 
     if (!requireTermsAccepted()) {
+      return;
+    }
+
+    if (
+      !canProceedWithoutExpressDropOff({
+        eligible: expressSelection.eligible,
+        selected: expressDropOffSelected,
+        removalAcknowledged: expressRemovalAck,
+      })
+    ) {
+      setExpressAckRequired(true);
+      setPaymentError(
+        "Please confirm you understand the free drop-off area before continuing without Express Drop-Off.",
+      );
       return;
     }
 
@@ -1909,15 +2012,19 @@ function QuoteCard({
       termsAccepted,
       marketingOptIn,
       personalQuoteCode: appliedPersonalQuote?.code,
+      expressDropOffSelected: expressSelection.eligible ? expressDropOffSelected : false,
     });
 
     try {
       const returnToken = createPaymentReturnToken();
       const checkout = await createPaymentCheckout({
-        amount: paymentAmount ?? liveQuote.amount,
+        amount: transferFareGbp ?? liveQuote.amount,
         description: buildPaymentDescription(),
         redirectUrl: buildPaymentRedirectUrl(returnToken),
         booking: bookingDetails,
+        expressDropOffSelected: expressSelection.eligible
+          ? expressDropOffSelected
+          : false,
         ...(appliedPersonalQuote && testChargeAmount === null
           ? {
               personalQuoteCode: appliedPersonalQuote.code,
@@ -2362,7 +2469,21 @@ function QuoteCard({
       if (!exceedsOnlineCapacity && !isEnquiryOnly && !isManualQuoteJourney && !pricingConfirmationRequired && !liveQuote) {
         return;
       }
+      if (
+        !canProceedWithoutExpressDropOff({
+          eligible: expressSelection.eligible,
+          selected: expressDropOffSelected,
+          removalAcknowledged: expressRemovalAck,
+        })
+      ) {
+        setExpressAckRequired(true);
+        setSubmitError(
+          "Please confirm you understand the free drop-off area before continuing without Express Drop-Off.",
+        );
+        return;
+      }
       setSubmitError("");
+      setExpressEditing(false);
       pendingQuoteStepNavScrollRef.current = 2;
       setQuoteStep(2);
       return;
@@ -2647,8 +2768,16 @@ function QuoteCard({
                 : "Guide price · request a quote"}
             </p>
             <p className="mt-1 text-3xl font-semibold tracking-tight text-white">
-              {formatQuote(liveQuote.amount)}
+              {formatQuote(pricedFare?.totalGbp ?? liveQuote.amount)}
             </p>
+            {expressSelection.eligible && expressSelection.airportCode ? (
+              <p className="mt-2 text-sm text-white/75">
+                {expressDropOffBreakdownLabel(
+                  expressSelection.airportCode,
+                  expressDropOffSelected,
+                )}
+              </p>
+            ) : null}
             <p className="mt-3 text-sm text-white/75">
               Vehicle: {vehicleShortLabel(quoteVehicle)}
               <span className="mx-2 text-white/35">·</span>
@@ -2674,6 +2803,28 @@ function QuoteCard({
                 Includes 5% return booking discount on the guide price.
               </p>
             )}
+            {expressSelection.eligible && expressSelection.airportCode ? (
+              <div className="mt-4 text-left">
+                <ExpressDropOffChoice
+                  mode={quoteStep === 1 ? "full" : "summary"}
+                  editing={expressEditing}
+                  onEditingChange={setExpressEditing}
+                  airportCode={expressSelection.airportCode}
+                  selected={expressDropOffSelected}
+                  removalAcknowledged={expressRemovalAck}
+                  requireAcknowledgement={expressAckRequired}
+                  onSelectedChange={(selected) => {
+                    setExpressDropOffSelected(selected);
+                    setExpressAckRequired(false);
+                    if (selected) setExpressRemovalAck(false);
+                  }}
+                  onRemovalAcknowledgedChange={(ack) => {
+                    setExpressRemovalAck(ack);
+                    if (ack) setExpressAckRequired(false);
+                  }}
+                />
+              </div>
+            ) : null}
           </>
         ) : isEnquiryOnly ? (
           <>
@@ -2709,9 +2860,22 @@ function QuoteCard({
             </p>
             <p className="mt-1 text-3xl font-semibold tracking-tight text-white">
               {formatQuote(
-                testChargeAmount ?? appliedPersonalQuote?.agreedAmount ?? liveQuote.amount,
+                testChargeAmount ??
+                  pricedFare?.totalGbp ??
+                  appliedPersonalQuote?.agreedAmount ??
+                  liveQuote.amount,
               )}
             </p>
+            {expressSelection.eligible &&
+            expressSelection.airportCode &&
+            testChargeAmount === null ? (
+              <p className="mt-2 text-sm text-white/75">
+                {expressDropOffBreakdownLabel(
+                  expressSelection.airportCode,
+                  expressDropOffSelected,
+                )}
+              </p>
+            ) : null}
             {appliedPersonalQuote && testChargeAmount === null ? (
               <p className="mt-2 text-sm text-emerald/90">
                 Personal quote applied
@@ -2749,6 +2913,30 @@ function QuoteCard({
                 Includes 5% return booking discount.
               </p>
             )}
+            {expressSelection.eligible &&
+            expressSelection.airportCode &&
+            testChargeAmount === null ? (
+              <div className="mt-4 text-left">
+                <ExpressDropOffChoice
+                  mode={quoteStep === 1 ? "full" : "summary"}
+                  editing={expressEditing}
+                  onEditingChange={setExpressEditing}
+                  airportCode={expressSelection.airportCode}
+                  selected={expressDropOffSelected}
+                  removalAcknowledged={expressRemovalAck}
+                  requireAcknowledgement={expressAckRequired}
+                  onSelectedChange={(selected) => {
+                    setExpressDropOffSelected(selected);
+                    setExpressAckRequired(false);
+                    if (selected) setExpressRemovalAck(false);
+                  }}
+                  onRemovalAcknowledgedChange={(ack) => {
+                    setExpressRemovalAck(ack);
+                    if (ack) setExpressAckRequired(false);
+                  }}
+                />
+              </div>
+            ) : null}
           </>
         ) : (
           <>
