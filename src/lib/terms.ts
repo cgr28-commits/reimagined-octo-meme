@@ -1,4 +1,4 @@
-export const TERMS_LAST_UPDATED = "August 2026 v3";
+export const TERMS_LAST_UPDATED = "August 2026 v4";
 
 export const TERMS_SECTIONS = [
   {
@@ -142,31 +142,25 @@ export const TERMS_SECTIONS = [
   {
     title: "Cancellations & Refunds",
     content: [
-      "The same cancellation rule applies to airport, long-distance and cross-border transfers:",
+      "The same cancellation and refund policy applies to airport, long-distance and cross-border transfers.",
     ],
     subsections: [
       {
-        subtitle: "More than 24 hours before pickup",
+        subtitle: "Cancellation by the customer",
         content: [
-          "If you cancel more than 24 hours before the scheduled pickup time, we will refund the fare paid in full.",
+          "Customers who cancel more than 24 hours before their scheduled pickup will receive a full refund.",
+          "Cancellations made within 24 hours of the scheduled pickup are normally non-refundable because a driver and time have been reserved for the booking. However, My Airport Taxi NI may, where appropriate, provide a full or partial refund depending on the circumstances.",
         ],
       },
       {
-        subtitle: "Within 24 hours of pickup",
+        subtitle: "Cancellation by My Airport Taxi NI",
         content: [
-          "Cancellations made within 24 hours are normally non-refundable because a vehicle/driver and booking capacity have been reserved and short-notice replacement work may not be available.",
-          "Any amount retained will not exceed the reasonable loss directly resulting from the cancellation, taking account of costs saved and, where relevant, replacement work. Where the amount retained would exceed that loss, an appropriate refund will be made.",
-        ],
-      },
-      {
-        subtitle: "Cancellation by us",
-        content: [
-          "If My Airport Taxi NI cancels and cannot provide the agreed service, sums paid for the service not provided will normally be refunded in full, subject to your statutory rights.",
+          "If My Airport Taxi NI cancels a booking and is unable to provide the booked journey, any amount paid for that journey will be refunded in full.",
         ],
       },
     ],
     footer:
-      "Nothing in these terms excludes or limits your statutory consumer rights.",
+      "Nothing in this cancellation and refund policy affects the customer’s statutory rights.",
   },
   {
     title: "Changes to Your Booking",
@@ -190,7 +184,7 @@ export const TERMS_SECTIONS = [
       "The customer leaves the airport without contacting us.",
     ],
     footer:
-      "No Shows are normally non-refundable for the same capacity reasons as short-notice cancellations, subject to the reasonable-loss approach above and your statutory rights.",
+      "No Shows are normally non-refundable for the same capacity reasons as short-notice cancellations. My Airport Taxi NI may, where appropriate, provide a full or partial refund depending on the circumstances. Nothing in this policy affects your statutory rights.",
   },
   {
     title: "Child Seats",

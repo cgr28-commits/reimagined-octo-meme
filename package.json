@@ -66,6 +66,7 @@
     "check:book-quote-mobile": "npx tsx scripts/check-book-quote-mobile.ts",
     "check:mobile-menu-scroll": "npx tsx scripts/check-mobile-menu-scroll.ts",
     "check:refund-ops": "npx tsx scripts/check-refund-ops.ts",
+    "check:cancellation-refund-wording": "npx tsx scripts/check-cancellation-refund-wording.ts",
     "check:sumup-refund-reconcile": "npx tsx scripts/check-sumup-refund-reconcile.ts",
     "check:refund-prod-readiness": "npx tsx scripts/check-refund-prod-readiness.ts",
     "check:refund-test-one-pound": "npx tsx scripts/check-refund-test-one-pound.ts",
