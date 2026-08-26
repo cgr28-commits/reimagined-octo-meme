@@ -78,12 +78,17 @@ check("One way / Return centre divider and equal-width buttons", () => {
   assert.match(card, /border-l border-white\/40/);
 });
 
-check("Scroll sequence: journey-type → passengers → quote-route-summary once", () => {
-  assert.match(progressive, /scheduleBookingNavAfterRender\("journey-type-selector"\)/);
-  assert.match(progressive, /scheduleBookingNavAfterRender\("passenger-luggage-section"\)/);
+check("Scroll sequence: journey-type → passengers → ready (owned by QuoteCard)", () => {
+  // Progressive route exposes targets only — QuoteCard owns scrollQuoteStage.
+  assert.doesNotMatch(progressive, /scheduleBookingNavAfterRender/);
+  assert.match(progressive, /id="journey-type-selector"/);
+  assert.match(progressive, /id="passenger-luggage-section"/);
+  assert.match(card, /scrollQuoteStage\("journey-type-selector"\)/);
+  assert.match(card, /scrollQuoteStage\("passenger-luggage-section"\)/);
+  assert.match(card, /scrollQuoteStage\("quote-book-now-anchor"\)/);
   assert.match(card, /schedulePreciseResultsScroll\("quote-route-summary"\)/);
   assert.match(card, /id="quote-route-summary"|id=\{quoteResultsReady && quoteStep === 1 \? "quote-route-summary"/);
-  assert.match(card, /hadQuoteResultsReadyRef/);
+  assert.match(card, /hadStep1ReadyScrollRef/);
   assert.match(card, /quoteResultsReady/);
   assert.doesNotMatch(card, /scheduleBookingNavAfterRender\("quote-price-summary"/);
   assert.doesNotMatch(card, /scheduleBookingNavAfterRender\("quote-results-summary"/);

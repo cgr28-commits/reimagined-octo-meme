@@ -45,7 +45,7 @@ check("Step section anchors exist for 1 / 2 / 3", () => {
 check("Explicit step CTAs set pending nav scroll then change step", () => {
   assert.match(card, /pendingQuoteStepNavScrollRef/);
   assert.match(card, /navigateQuoteStep/);
-  assert.match(card, /scheduleBookingNavAfterRender/);
+  assert.match(card, /scrollQuoteStage/);
   // Book Now / Continue to travel details (step 1 → 2)
   assert.match(
     card,
@@ -66,7 +66,7 @@ check("Explicit step CTAs set pending nav scroll then change step", () => {
 check("Scroll effect consumes pending flag once and is quoteStep-gated", () => {
   assert.match(
     card,
-    /pendingQuoteStepNavScrollRef\.current = null;[\s\S]*scheduleBookingNavAfterRender/,
+    /pendingQuoteStepNavScrollRef\.current = null;[\s\S]*scrollQuoteStage/,
   );
   assert.match(card, /useEffect\(\(\) => \{[\s\S]*pendingQuoteStepNavScrollRef[\s\S]*\}, \[quoteStep\]\)/);
   assert.match(card, /correctAfterMs:\s*150/);
@@ -80,6 +80,7 @@ check("Helper measures header offset and respects reduced motion", () => {
   assert.match(helper, /getFixedHeaderOffsetPx/);
   assert.match(helper, /prefersReducedMotion/);
   assert.match(helper, /scheduleBookingNavAfterRender/);
+  assert.match(helper, /scrollQuoteStage/);
   assert.match(helper, /focusFirstInvalidField/);
   assert.match(helper, /requestAnimationFrame/);
   assert.match(helper, /cancelled/);
@@ -87,7 +88,7 @@ check("Helper measures header offset and respects reduced motion", () => {
   assert.match(helper, /bookingRequestResult/);
 });
 
-check("Selection-driven auto-scroll stays removed", () => {
+check("Selection-driven auto-scroll stays removed from progressive", () => {
   assert.equal(
     fs.existsSync(path.join(root, "src/lib/quote-mobile-scroll.ts")),
     false,
@@ -96,6 +97,7 @@ check("Selection-driven auto-scroll stays removed", () => {
   assert.doesNotMatch(progressive, /scheduleQuoteSectionScroll/);
   assert.doesNotMatch(progressive, /scheduleQuoteFareResultScroll/);
   assert.doesNotMatch(progressive, /pendingScroll/);
+  assert.doesNotMatch(progressive, /scheduleBookingNavAfterRender/);
   assert.doesNotMatch(card, /scheduleQuoteFareResultScroll/);
   assert.doesNotMatch(card, /scheduleReadyForScrollRef/);
   assert.doesNotMatch(card, /pendingScrollToStep2DateRef/);
@@ -125,7 +127,7 @@ check("Blocked availability result scrolls to confirmation card on mobile", () =
   );
   assert.match(
     card,
-    /pendingShortNoticeScrollRef\.current = false;[\s\S]*scheduleBookingNavAfterRender\(\s*shortNoticeResultRef\.current \?\? "quote-availability-confirmation"/,
+    /pendingShortNoticeScrollRef\.current = false;[\s\S]*scrollQuoteStage\(\s*shortNoticeResultRef\.current \?\? "quote-availability-confirmation"/,
   );
   assert.match(
     card,
@@ -155,7 +157,7 @@ check("Quote/booking submission confirmation scrolls into view", () => {
   );
   assert.match(
     card,
-    /pendingBookingResultScrollRef\.current = false;[\s\S]*scheduleBookingNavAfterRender\(\s*bookingResultRef\.current \?\? "bookingRequestResult"/,
+    /pendingBookingResultScrollRef\.current = false;[\s\S]*scrollQuoteStage\(bookingResultRef\.current \?\? "bookingRequestResult"/,
   );
   assert.match(
     card,
@@ -173,19 +175,11 @@ check("Step 2 schedule-complete scrolls once to YOUR JOURNEY summary", () => {
   assert.match(card, /isScheduleComplete/);
   assert.match(
     card,
-    /hadStep2ScheduleScrollRef\.current = true;[\s\S]*scheduleBookingNavAfterRender\(\s*step2JourneySummaryRef\.current \?\? "step2-journey-summary"/,
+    /hadStep2ScheduleScrollRef\.current = true;[\s\S]*scrollQuoteStage\(\s*step2JourneySummaryRef\.current \?\? "step2-journey-summary"/,
   );
   assert.match(
     card,
     /useEffect\(\(\) => \{[\s\S]*if \(quoteStep !== 2\)[\s\S]*isScheduleComplete[\s\S]*\}, \[isScheduleComplete, quoteStep\]\)/,
-  );
-  // Must target journey summary — not Personalised Quote / Continue CTAs
-  assert.doesNotMatch(
-    card.slice(
-      card.indexOf("hadStep2ScheduleScrollRef"),
-      card.indexOf("Legacy (non-A2A) form"),
-    ),
-    /quote-price-summary|quote-step2-next|Continue to your details/,
   );
 });
 

@@ -106,21 +106,22 @@ check("Step 2 travel details section scrolls only after explicit step navigation
   assert.match(card, /id="step2-travel-details"/);
   assert.match(card, /step2TravelDetailsRef/);
   assert.match(card, /pendingQuoteStepNavScrollRef/);
-  assert.match(card, /scheduleBookingNavAfterRender/);
+  assert.match(card, /scrollQuoteStage/);
   assert.doesNotMatch(card, /pendingScrollToStep2DateRef/);
   assert.doesNotMatch(card, /scheduleSmoothScrollTo/);
 });
 
-check("Progressive quote scrolls addresses → journey mode → party; no legacy selection-scroll helpers", () => {
+check("Progressive quote scrolls owned by QuoteCard; progressive exposes targets only", () => {
   assert.match(progressive, /quote-section-passengers/);
   assert.match(progressive, /quote-section-suitcases/);
   assert.match(progressive, /id="journey-type-selector"/);
   assert.match(progressive, /id="passenger-luggage-section"/);
-  assert.match(progressive, /scheduleBookingNavAfterRender\("journey-type-selector"\)/);
-  assert.match(progressive, /scheduleBookingNavAfterRender\("passenger-luggage-section"\)/);
+  assert.doesNotMatch(progressive, /scheduleBookingNavAfterRender/);
   assert.doesNotMatch(progressive, /scheduleQuoteSectionScroll/);
   assert.doesNotMatch(progressive, /scheduleQuoteFareResultScroll/);
   assert.doesNotMatch(progressive, /quote-mobile-scroll/);
+  assert.match(card, /scrollQuoteStage\("journey-type-selector"\)/);
+  assert.match(card, /scrollQuoteStage\("passenger-luggage-section"\)/);
   assert.match(card, /quote-step1-next/);
   assert.match(card, /quote-step2-next/);
 });
@@ -128,12 +129,12 @@ check("Progressive quote scrolls addresses → journey mode → party; no legacy
 check("Public quote tool uses booking-nav scroll (no scrollIntoView / legacy fare scroll)", () => {
   assert.equal(fs.existsSync(path.join(root, "src/lib/quote-mobile-scroll.ts")), false);
   assert.doesNotMatch(progressive, /scrollIntoView/);
-  // QuoteCard must not call scrollIntoView directly; step nav uses the mobile helper.
-  assert.doesNotMatch(card, /scrollIntoView/);
+  // QuoteCard must not call scrollIntoView directly; step nav uses the helper.
+  assert.doesNotMatch(card, /\.scrollIntoView\s*\(/);
   assert.doesNotMatch(card, /pendingScrollToStep2DateRef/);
   assert.doesNotMatch(card, /pendingScrollToStep3CustomerRef/);
   assert.doesNotMatch(card, /scheduleReadyForScrollRef/);
-  assert.match(card, /scheduleBookingNavAfterRender/);
+  assert.match(card, /scrollQuoteStage/);
   assert.match(card, /schedulePreciseResultsScroll/);
 });
 

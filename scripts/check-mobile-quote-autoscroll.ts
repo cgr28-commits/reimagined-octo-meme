@@ -1,6 +1,6 @@
 /**
- * Public quote tool must NOT auto-scroll after customer selections.
- * Explicit Book Now / Continue / Back step navigation may scroll on mobile only.
+ * Public quote tool must NOT auto-scroll after every customer selection keystroke.
+ * Guided stage scrolls are owned by QuoteCard via scrollQuoteStage (one-shot).
  * Run: npx tsx scripts/check-mobile-quote-autoscroll.ts
  */
 
@@ -31,6 +31,7 @@ assert.doesNotMatch(progressive, /scheduleQuoteSectionScrollById/);
 assert.doesNotMatch(progressive, /pendingScroll/);
 assert.doesNotMatch(progressive, /scrollIntoView/);
 assert.doesNotMatch(progressive, /clearScheduledQuoteSectionScroll/);
+assert.doesNotMatch(progressive, /scheduleBookingNavAfterRender/);
 
 assert.doesNotMatch(card, /quote-mobile-scroll/);
 assert.doesNotMatch(card, /scheduleQuoteSectionScroll/);
@@ -42,16 +43,17 @@ assert.doesNotMatch(card, /scheduleReadyForScrollRef/);
 
 // No direct element.scrollIntoView in QuoteCard — booking-nav helper owns scrolling.
 assert.doesNotMatch(card, /\.scrollIntoView\s*\(/);
-assert.match(card, /scheduleBookingNavAfterRender/);
+assert.match(card, /scrollQuoteStage/);
 assert.match(card, /pendingQuoteStepNavScrollRef/);
 assert.match(card, /from "@\/lib\/quote-step-nav-scroll"/);
 
-// Allowed one-shot: step-2 schedule complete → YOUR JOURNEY (not every keystroke).
+// Allowed one-shot guided stages (not every keystroke).
 assert.match(card, /hadStep2ScheduleScrollRef/);
 assert.match(card, /id="step2-journey-summary"/);
-assert.match(card, /step2JourneySummaryRef\.current \?\? "step2-journey-summary"/);
+assert.match(card, /scrollQuoteStage\("quote-section-addresses"\)/);
+assert.match(card, /scrollQuoteStage\("quote-book-now-anchor"\)/);
 
-// Section ids remain in normal document flow (customers scroll manually for selections).
+// Section ids remain in normal document flow.
 assert.match(progressive, /id="quote-section-passengers"/);
 assert.match(progressive, /id="quote-section-suitcases"/);
 assert.match(progressive, /id="quote-section-journey"/);
@@ -69,9 +71,9 @@ assert.doesNotMatch(card, /id="personal-quote-code"/);
 assert.doesNotMatch(card, /placeholder="Quote code"/);
 
 console.log("OK  quote-mobile-scroll helper removed");
-console.log("OK  progressive route has no auto-scroll after selections");
-console.log("OK  QuoteCard has no per-selection auto-scroll (step-nav + schedule-complete allowed)");
-console.log("OK  step-2 schedule-complete scrolls to YOUR JOURNEY once");
+console.log("OK  progressive route has no scroll effects (targets only)");
+console.log("OK  QuoteCard uses consolidated scrollQuoteStage");
+console.log("OK  guided one-shot stages present");
 console.log("OK  luggage is single 0–4|5+ row (no Exact Large Bags)");
 console.log("OK  personal quote code-entry UI remains removed");
 console.log("\nAll quote no-autoscroll checks passed.");

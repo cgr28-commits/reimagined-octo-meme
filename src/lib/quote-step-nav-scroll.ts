@@ -29,7 +29,9 @@ export type BookingNavTargetId =
   | "quote-step2-next"
   | "quote-availability-confirmation"
   | "bookingRequestResult"
-  | "step2-journey-summary";
+  | "step2-journey-summary"
+  | "quote-section-addresses"
+  | "quote-book-now-anchor";
 
 export type QuoteStepNavTarget = 1 | 2 | 3;
 
@@ -203,6 +205,31 @@ export function scheduleBookingNavAfterRender(
     if (correctionTimer) window.clearTimeout(correctionTimer);
   };
   return trackScrollJob(cancel);
+}
+
+/**
+ * Guided quote-flow scroll: cancel any in-flight scroll job, then scroll once.
+ * Use for every deliberate A2A/booking stage transition so effects cannot fight.
+ */
+export function scrollQuoteStage(
+  target: BookingNavTargetId | HTMLElement | string | null | undefined,
+  options?: {
+    focusHeading?: boolean;
+    behavior?: ScrollBehavior;
+    clearancePx?: number;
+    correctAfterMs?: number;
+  },
+): () => void {
+  cancelCompetingScrollJobs();
+  if (typeof document !== "undefined" && document.activeElement instanceof HTMLElement) {
+    document.activeElement.blur();
+  }
+  return scheduleBookingNavAfterRender(target, {
+    focusHeading: options?.focusHeading ?? true,
+    correctAfterMs: options?.correctAfterMs ?? 150,
+    behavior: options?.behavior,
+    clearancePx: options?.clearancePx,
+  });
 }
 
 /**

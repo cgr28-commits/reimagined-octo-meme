@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useRef } from "react";
 import type { SelectedPlace } from "@/lib/selected-place";
 import AddressInput from "@/components/AddressInput";
 import {
@@ -14,7 +13,6 @@ import {
   AIRPORT_PICKUP_WAITING_COPY,
   NON_AIRPORT_WAITING_COPY,
 } from "@/lib/journey-inclusions";
-import { scheduleBookingNavAfterRender } from "@/lib/quote-step-nav-scroll";
 import {
   formatPassengerChoice,
   formatSuitcaseChoice,
@@ -112,7 +110,7 @@ export type QuoteProgressiveRouteProps = {
   showJourneyModeFields: boolean;
   /** Journey mode chosen — show passenger / suitcase controls. */
   showPartyFields: boolean;
-  /** Bumped when addresses/intent change so stage scrolls can re-run cleanly. */
+  /** Bumped when addresses/intent change (kept for parent; scroll owned by QuoteCard). */
   showStageScrollKey?: string;
   journeyKindLabel?: string;
 };
@@ -149,9 +147,10 @@ export default function QuoteProgressiveRoute({
   showRouteFields,
   showJourneyModeFields,
   showPartyFields,
-  showStageScrollKey = "",
+  showStageScrollKey: _showStageScrollKey = "",
   journeyKindLabel,
 }: QuoteProgressiveRouteProps) {
+  void _showStageScrollKey;
   const showAirportPicker =
     journeyIntent === "to-airport" || journeyIntent === "from-airport";
   const airportChosen = Boolean(selectedAirportCode);
@@ -159,41 +158,8 @@ export default function QuoteProgressiveRoute({
     journeyIntent === "address-to-address" || (showAirportPicker && airportChosen);
   const returnJourney = journeyMode === "return";
 
-  // Addresses complete → stop at One Way / Return (never skip to passengers).
-  const hadJourneyModeScrollRef = useRef(false);
-  useEffect(() => {
-    hadJourneyModeScrollRef.current = false;
-  }, [showStageScrollKey]);
-  useEffect(() => {
-    if (!showJourneyModeFields || journeyMode != null) {
-      if (!showJourneyModeFields) {
-        hadJourneyModeScrollRef.current = false;
-      }
-      return;
-    }
-    if (hadJourneyModeScrollRef.current) return;
-    hadJourneyModeScrollRef.current = true;
-    // Blur active address field so suggestion overlays dismiss before scroll.
-    if (typeof document !== "undefined" && document.activeElement instanceof HTMLElement) {
-      document.activeElement.blur();
-    }
-    return scheduleBookingNavAfterRender("journey-type-selector");
-  }, [showJourneyModeFields, journeyMode]);
-
-  // One Way / Return chosen → then move to passengers / suitcases.
-  const hadPartyFieldsScrollRef = useRef(false);
-  useEffect(() => {
-    hadPartyFieldsScrollRef.current = false;
-  }, [showStageScrollKey]);
-  useEffect(() => {
-    if (!showPartyFields || journeyMode == null) {
-      hadPartyFieldsScrollRef.current = false;
-      return;
-    }
-    if (hadPartyFieldsScrollRef.current) return;
-    hadPartyFieldsScrollRef.current = true;
-    return scheduleBookingNavAfterRender("passenger-luggage-section");
-  }, [showPartyFields, journeyMode]);
+  // Progressive stage scrolling is owned exclusively by QuoteCard so only one
+  // deliberate target fires per user action.
 
   function handlePassengersChange(value: number) {
     const next = Math.min(4, Math.max(1, value));
@@ -268,7 +234,7 @@ export default function QuoteProgressiveRoute({
       )}
 
       {showAddresses && showRouteFields && (
-        <div id="quote-section-addresses" className="space-y-4">
+        <div id="quote-section-addresses" className="scroll-mt-44 space-y-4 md:scroll-mt-28">
           {(journeyIntent === "to-airport" || journeyIntent === "address-to-address") && (
             <AddressInput
               id="pickup"
@@ -329,7 +295,10 @@ export default function QuoteProgressiveRoute({
       )}
 
       {showJourneyModeFields && (
-        <div id="journey-type-selector" className="space-y-3">
+        <div
+          id="journey-type-selector"
+          className="scroll-mt-44 space-y-3 md:scroll-mt-28"
+        >
           <p className="mb-2 text-xs font-medium uppercase tracking-wider text-white/50">
             Journey
           </p>
@@ -385,7 +354,10 @@ export default function QuoteProgressiveRoute({
       )}
 
       {showPartyFields && (
-        <div id="passenger-luggage-section" className="space-y-5 lg:space-y-4">
+        <div
+          id="passenger-luggage-section"
+          className="scroll-mt-44 space-y-5 lg:space-y-4 md:scroll-mt-28"
+        >
           <div className="grid gap-5 lg:grid-cols-2 lg:items-start lg:gap-3.5">
             <div id="quote-section-passengers" className="space-y-5 lg:space-y-3.5">
               <ChoiceGrid

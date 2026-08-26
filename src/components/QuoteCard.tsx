@@ -14,9 +14,9 @@ import { detectMobileDevice, useIsMobileDevice } from "@/lib/device";
 import {
   focusFirstInvalidField,
   quoteStepTargetId,
-  scheduleBookingNavAfterRender,
   schedulePreciseResultsScroll,
   scheduleScrollToBookNowAfterExpressAck,
+  scrollQuoteStage,
   type QuoteStepNavTarget,
 } from "@/lib/quote-step-nav-scroll";
 import {
@@ -2297,7 +2297,7 @@ function QuoteCard({
     // Return the customer to the start of the form after reset.
     pendingQuoteStepNavScrollRef.current = 1;
     window.setTimeout(() => {
-      scheduleBookingNavAfterRender("quote", { focusHeading: true });
+      scrollQuoteStage("quote", { focusHeading: true });
     }, 0);
   }
 
@@ -2505,12 +2505,12 @@ function QuoteCard({
       }
       if (journeyMode == null) {
         setSubmitError("Choose One way or Return to continue.");
-        scheduleBookingNavAfterRender("journey-type-selector");
+        scrollQuoteStage("journey-type-selector");
         return;
       }
       if (!partySelectionReady) {
         setSubmitError("Select your passenger and suitcase numbers to see your fixed price.");
-        scheduleBookingNavAfterRender("passenger-luggage-section");
+        scrollQuoteStage("passenger-luggage-section");
         return;
       }
       if (
@@ -2609,7 +2609,6 @@ function QuoteCard({
 
   // After explicit step CTAs (Book Now / Continue / Back / Edit / Start New Quote),
   // bring the active section clearly below the fixed header and focus its heading.
-  // correctAfterMs covers document-height collapse when step 1 (tall results) → step 2.
   useEffect(() => {
     const target = pendingQuoteStepNavScrollRef.current;
     if (!target || target !== quoteStep) {
@@ -2622,66 +2621,154 @@ function QuoteCard({
         : target === 2
           ? step2TravelDetailsRef.current
           : step3CustomerDetailsRef.current;
-    return scheduleBookingNavAfterRender(element ?? quoteStepTargetId(target), {
+    return scrollQuoteStage(element ?? quoteStepTargetId(target), {
       focusHeading: true,
       correctAfterMs: 150,
     });
   }, [quoteStep]);
 
-  // Availability-confirmation result: scroll once to the confirmation card
-  // (header-aware), not the previous page position / Airports We Serve.
+  // Availability-confirmation result: scroll once to the confirmation card.
   useEffect(() => {
     if (!shortNoticeResult || !pendingShortNoticeScrollRef.current) {
       return;
     }
     pendingShortNoticeScrollRef.current = false;
-    if (typeof document !== "undefined" && document.activeElement instanceof HTMLElement) {
-      document.activeElement.blur();
-    }
-    return scheduleBookingNavAfterRender(
+    return scrollQuoteStage(
       shortNoticeResultRef.current ?? "quote-availability-confirmation",
       { focusHeading: true, correctAfterMs: 150 },
     );
   }, [shortNoticeResult]);
 
-  // Quote/booking submission success: scroll once to the confirmation card
-  // (header-aware). Without this, mobile stays at the old step-3 scroll Y and
-  // visually lands on homepage sections below #quote (e.g. Airports We Serve).
+  // Quote/booking submission success: scroll once to the confirmation card.
   useEffect(() => {
     if (!bookingSent || !pendingBookingResultScrollRef.current) {
       return;
     }
     pendingBookingResultScrollRef.current = false;
-    if (typeof document !== "undefined" && document.activeElement instanceof HTMLElement) {
-      document.activeElement.blur();
-    }
-    return scheduleBookingNavAfterRender(
-      bookingResultRef.current ?? "bookingRequestResult",
-      { focusHeading: true, correctAfterMs: 150 },
-    );
+    return scrollQuoteStage(bookingResultRef.current ?? "bookingRequestResult", {
+      focusHeading: true,
+      correctAfterMs: 150,
+    });
   }, [bookingSent]);
 
-  // When the complete results first become ready, scroll once to Your Route.
-  // Do not re-scroll when route/vehicle/price fields update individually.
-  const hadQuoteResultsReadyRef = useRef(false);
+  // -------------------------------------------------------------------------
+  // Consolidated progressive scroll (A2A primary + legacy).
+  // One deliberate target per user transition — always via scrollQuoteStage
+  // (cancels competing jobs). Never targets homepage / #airports sections.
+  // -------------------------------------------------------------------------
+  const a2aShowJourneyMode =
+    isA2AFlow &&
+    quoteStep === 1 &&
+    (journeyIntent === "address-to-address"
+      ? isPlaceSelected(pickupPlace) && isPlaceSelected(dropoffPlace)
+      : journeyIntent === "to-airport"
+        ? Boolean(intentAirportCode) && isPlaceSelected(pickupPlace)
+        : journeyIntent === "from-airport"
+          ? Boolean(intentAirportCode) && isPlaceSelected(dropoffPlace)
+          : false);
+  const a2aShowParty = a2aShowJourneyMode && journeyMode != null;
+
+  const prevJourneyIntentRef = useRef<QuoteJourneyIntent | null>(null);
+  const hadA2aAddressesScrollRef = useRef(false);
+  const hadA2aJourneyTypeScrollRef = useRef(false);
+  const hadA2aPartyScrollRef = useRef(false);
+  const hadStep1ReadyScrollRef = useRef(false);
+  const hadStep2ScheduleScrollRef = useRef(false);
+  const hadLegacyJourneyModeScrollRef = useRef(false);
+  const hadLegacyPartyScrollRef = useRef(false);
+
+  // Stage 1: Address to Address tapped → PICKUP / DESTINATION fields.
+  useEffect(() => {
+    if (!isA2AFlow || quoteStep !== 1) {
+      prevJourneyIntentRef.current = journeyIntent;
+      hadA2aAddressesScrollRef.current = false;
+      return;
+    }
+    const becameAddressToAddress =
+      journeyIntent === "address-to-address" &&
+      prevJourneyIntentRef.current !== "address-to-address";
+    prevJourneyIntentRef.current = journeyIntent;
+    if (!becameAddressToAddress || hadA2aAddressesScrollRef.current) return;
+    hadA2aAddressesScrollRef.current = true;
+    return scrollQuoteStage("quote-section-addresses");
+  }, [isA2AFlow, journeyIntent, quoteStep]);
+
+  // Stage 2: both addresses selected → JOURNEY One way / Return.
+  useEffect(() => {
+    if (!isA2AFlow || quoteStep !== 1) {
+      hadA2aJourneyTypeScrollRef.current = false;
+      return;
+    }
+    if (!a2aShowJourneyMode || journeyMode != null) {
+      if (!a2aShowJourneyMode) {
+        hadA2aJourneyTypeScrollRef.current = false;
+      }
+      return;
+    }
+    if (hadA2aJourneyTypeScrollRef.current) return;
+    hadA2aJourneyTypeScrollRef.current = true;
+    return scrollQuoteStage("journey-type-selector");
+  }, [a2aShowJourneyMode, isA2AFlow, journeyMode, quoteStep]);
+
+  // Stage 3: One way / Return selected → passenger / luggage.
+  useEffect(() => {
+    if (!isA2AFlow || quoteStep !== 1) {
+      hadA2aPartyScrollRef.current = false;
+      return;
+    }
+    if (!a2aShowParty) {
+      hadA2aPartyScrollRef.current = false;
+      return;
+    }
+    if (hadA2aPartyScrollRef.current) return;
+    hadA2aPartyScrollRef.current = true;
+    return scrollQuoteStage("passenger-luggage-section");
+  }, [a2aShowParty, isA2AFlow, quoteStep]);
+
+  // Stage 4: party + route ready → next action (Continue / Book Now).
+  // Address-to-Address personalised quotes: land on Continue anchor — NOT the
+  // map / route card (that overshoot was landing users near homepage airports).
+  // Instant-fare paths still use precise scroll to Your Route summary.
   useEffect(() => {
     if (quoteStep !== 1) {
-      hadQuoteResultsReadyRef.current = false;
+      hadStep1ReadyScrollRef.current = false;
+      return;
+    }
+    if (!quoteChoicesReady || !hasQuoteRoute) {
+      hadStep1ReadyScrollRef.current = false;
       return;
     }
     if (!quoteResultsReady) {
-      hadQuoteResultsReadyRef.current = false;
+      // Wait for metrics — do NOT reset the one-shot flag on metric flicker.
       return;
     }
-    if (hadQuoteResultsReadyRef.current) return;
-    hadQuoteResultsReadyRef.current = true;
-    return schedulePreciseResultsScroll("quote-route-summary");
-  }, [quoteResultsReady, quoteStep]);
+    if (hadStep1ReadyScrollRef.current) return;
+    hadStep1ReadyScrollRef.current = true;
 
-  // Step 2: when date + pickup time first become a valid schedule, scroll once to
-  // the YOUR JOURNEY summary (not Personalised Quote / Continue). One-shot per
-  // step-2 visit so later time edits do not re-scroll.
-  const hadStep2ScheduleScrollRef = useRef(false);
+    const preferContinueCta =
+      isA2AFlow &&
+      (journeyIntent === "address-to-address" ||
+        isManualQuoteJourney ||
+        pricingConfirmationRequired ||
+        !liveQuote);
+
+    if (preferContinueCta) {
+      return scrollQuoteStage("quote-book-now-anchor");
+    }
+    return schedulePreciseResultsScroll("quote-route-summary");
+  }, [
+    hasQuoteRoute,
+    isA2AFlow,
+    isManualQuoteJourney,
+    journeyIntent,
+    liveQuote,
+    pricingConfirmationRequired,
+    quoteChoicesReady,
+    quoteResultsReady,
+    quoteStep,
+  ]);
+
+  // Stage 6: date + pickup time complete → YOUR JOURNEY summary.
   useEffect(() => {
     if (quoteStep !== 2) {
       hadStep2ScheduleScrollRef.current = false;
@@ -2692,19 +2779,12 @@ function QuoteCard({
     }
     if (hadStep2ScheduleScrollRef.current) return;
     hadStep2ScheduleScrollRef.current = true;
-    // Dismiss iOS time picker / keyboard before measuring scroll.
-    if (typeof document !== "undefined" && document.activeElement instanceof HTMLElement) {
-      document.activeElement.blur();
-    }
-    return scheduleBookingNavAfterRender(
+    return scrollQuoteStage(
       step2JourneySummaryRef.current ?? "step2-journey-summary",
-      { focusHeading: true, correctAfterMs: 150 },
     );
   }, [isScheduleComplete, quoteStep]);
 
   // Legacy (non-A2A) form: addresses → One Way/Return, then passengers after mode chosen.
-  const hadLegacyJourneyModeScrollRef = useRef(false);
-  const hadLegacyPartyScrollRef = useRef(false);
   useEffect(() => {
     if (isA2AFlow || quoteStep !== 1) {
       hadLegacyJourneyModeScrollRef.current = false;
@@ -2720,14 +2800,11 @@ function QuoteCard({
       hadLegacyPartyScrollRef.current = false;
       if (hadLegacyJourneyModeScrollRef.current) return;
       hadLegacyJourneyModeScrollRef.current = true;
-      if (typeof document !== "undefined" && document.activeElement instanceof HTMLElement) {
-        document.activeElement.blur();
-      }
-      return scheduleBookingNavAfterRender("journey-type-selector");
+      return scrollQuoteStage("journey-type-selector");
     }
     if (hadLegacyPartyScrollRef.current) return;
     hadLegacyPartyScrollRef.current = true;
-    return scheduleBookingNavAfterRender("passenger-luggage-section");
+    return scrollQuoteStage("passenger-luggage-section");
   }, [hasQuoteRoute, isA2AFlow, journeyMode, quoteStep]);
 
   const submitInProgressLabel = isManualQuoteJourney

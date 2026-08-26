@@ -160,10 +160,12 @@ assert.match(
   /We’ve received your journey details\. We’ll review your request and send you your personalised price\. No payment has been taken\./,
 );
 assert.match(quoteCard, /pendingBookingResultScrollRef/);
-assert.match(quoteCard, /bookingResultRef\.current \?\? "bookingRequestResult"/);
+assert.match(quoteCard, /scrollQuoteStage\(bookingResultRef\.current \?\? "bookingRequestResult"/);
 assert.match(quoteCard, /hadStep2ScheduleScrollRef/);
 assert.match(quoteCard, /id="step2-journey-summary"/);
-assert.match(quoteCard, /step2JourneySummaryRef\.current \?\? "step2-journey-summary"/);
+assert.match(quoteCard, /scrollQuoteStage\("quote-section-addresses"\)/);
+assert.match(quoteCard, /scrollQuoteStage\("quote-book-now-anchor"\)/);
+assert.match(quoteCard, /preferContinueCta/);
 const actionsStart = quoteCard.indexOf('id="step3-payment-actions"');
 assert.ok(actionsStart > 0);
 const actionsEnd = quoteCard.indexOf("{renderStartNewQuoteControls()}", actionsStart);
@@ -176,6 +178,6 @@ assert.doesNotMatch(
 );
 console.log("OK  single Submit Quote Request + Agreement wording (no WhatsApp/email chooser)");
 console.log("OK  confirmation card scrolls into view after submit");
-console.log("OK  pickup-time complete scrolls once to YOUR JOURNEY summary");
+console.log("OK  consolidated A2A stage scrolls (addresses → continue CTA)");
 
 console.log("\nAll A2A personalised quote checks passed.");
