@@ -525,6 +525,7 @@ export async function searchGooglePostcodePremises(
         id?: string;
         formattedAddress?: string;
         addressComponents?: GoogleAddressComponent[];
+        location?: { latitude?: number; longitude?: number };
       }>;
     };
 
@@ -547,6 +548,8 @@ export async function searchGooglePostcodePremises(
         !isAddressAllowedForAirport(code, {
           ...parts,
           displayName: formatted,
+          lat: place.location?.latitude ?? null,
+          lng: place.location?.longitude ?? null,
         })
       ) {
         continue;

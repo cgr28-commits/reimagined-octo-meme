@@ -96,7 +96,7 @@ assert.equal(isDublinCityNotAirportPlace(dubAirport), false);
 assert.equal(isDublinCityCorridorJourney(belfastHome, dublinCity), true);
 assert.equal(isDublinCityCorridorJourney(belfastHome, dubAirport), false);
 assert.equal(needsManualQuoteApproval(belfastHome, dubAirport), false);
-assert.equal(needsManualQuoteApproval(belfastHome, dublinCity), false);
+assert.equal(needsManualQuoteApproval(belfastHome, dublinCity), true);
 assert.equal(isRepublicOfIrelandJourney(belfastHome, dublinCity), true);
 console.log("OK  DUB place ID / geofence / city exclusion");
 

@@ -19,7 +19,7 @@ import {
   type AddressPrediction,
 } from "@/lib/google-maps";
 import type { SelectedPlace } from "@/lib/selected-place";
-import { buildDisplayAddress } from "@/lib/selected-place";
+import { buildDisplayAddress, looksLikeStreetAddressLine, normaliseAddressCompareKey } from "@/lib/selected-place";
 import { isHighConfidenceAddressMatch } from "@/lib/address-match";
 
 type AddressInputProps = {
@@ -285,8 +285,9 @@ export default function AddressInput({
       const numberMatch = next.match(/^(\d+[a-zA-Z]?)\b/);
       const refined: SelectedPlace = {
         ...previous,
-        // Keep exact typed text (including spaces) — do not trim on each keystroke.
-        formattedAddress: next,
+        // Keep the structured postal address for area/geo checks — only the
+        // visible display line tracks what the customer is typing.
+        formattedAddress: previous.formattedAddress || next,
         displayAddress: next,
         streetNumber: numberMatch?.[1] ?? previous.streetNumber ?? null,
       };
@@ -414,18 +415,32 @@ export default function AddressInput({
           ? prediction.description
           : postal;
 
-      const placeName =
-        place.placeName ||
-        (prediction.mainText &&
-        !postalWithNumber.toLowerCase().includes(prediction.mainText.trim().toLowerCase())
-          ? prediction.mainText.trim()
-          : null);
+      // Never treat a street-line suggestion ("18 Collingwood Avenue") as a
+      // venue name — that duplicates Ave/Avenue (and Rd/Road) onto the postal.
+      const suggestionName = prediction.mainText?.trim() || "";
+      const suggestionIsStreetLine = looksLikeStreetAddressLine(suggestionName);
+      const apiPlaceName = place.placeName?.trim() || "";
+      const apiNameIsStreetLine = looksLikeStreetAddressLine(apiPlaceName);
+      const postalKey = normaliseAddressCompareKey(postalWithNumber);
+      const suggestionKey = normaliseAddressCompareKey(suggestionName);
 
-      const displayAddress = buildDisplayAddress(placeName, postalWithNumber);
+      let placeName: string | null = null;
+      if (apiPlaceName && !apiNameIsStreetLine) {
+        placeName = apiPlaceName;
+      } else if (
+        suggestionName &&
+        !suggestionIsStreetLine &&
+        suggestionKey &&
+        !postalKey.includes(suggestionKey)
+      ) {
+        placeName = suggestionName;
+      }
+
+      const resolvedDisplay = buildDisplayAddress(placeName, postalWithNumber);
       let nextPlace: SelectedPlace = {
         ...place,
         formattedAddress: postalWithNumber,
-        displayAddress,
+        displayAddress: resolvedDisplay,
         placeName,
         streetNumber: place.streetNumber || typedNumber || null,
       };
@@ -433,16 +448,16 @@ export default function AddressInput({
       // TripMap can measure the route (BFS distance floor needs miles).
       if (
         (typeof nextPlace.lat !== "number" || typeof nextPlace.lng !== "number") &&
-        displayAddress.trim().length >= 8
+        resolvedDisplay.trim().length >= 8
       ) {
-        const coords = await geocodePickupAddress(displayAddress);
+        const coords = await geocodePickupAddress(resolvedDisplay);
         if (coords) {
           nextPlace = { ...nextPlace, lat: coords.lat, lng: coords.lng };
         }
       }
       selectedPlaceRef.current = nextPlace;
-      onChange(displayAddress);
-      onSelectAddress?.(displayAddress);
+      onChange(resolvedDisplay);
+      onSelectAddress?.(resolvedDisplay);
       onSelectPlace?.(nextPlace);
       setLoadError(null);
       return;

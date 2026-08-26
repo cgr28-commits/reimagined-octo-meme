@@ -219,13 +219,12 @@ async function main() {
     assert.match(text, /completed paid bookings/i);
   });
 
-  await check("Belfast → Dublin city is a live priced corridor (not manual ROI)", () => {
+  await check("Belfast → Dublin city is personalised A2A quote (no public live £)", () => {
     assert.equal(isStandardInstantPickup(belfast), true);
     assert.equal(isRepublicOfIrelandJourney(belfast, dublinCity), true);
     assert.equal(isDublinCityCorridorJourney(belfast, dublinCity), true);
-    // Intended behaviour: Greater Belfast ↔ Dublin city gets a live fixed quote
-    // (DUB airport fare + beyond uplift). Do not force manual approval.
-    assert.equal(needsManualQuoteApproval(belfast, dublinCity), false);
+    // Public Address-to-Address journeys require a personalised quote.
+    assert.equal(needsManualQuoteApproval(belfast, dublinCity), true);
 
     const dubAirport = calculateQuote(
       "10 Donegall Square North, Belfast BT1 5GB, UK",
@@ -277,9 +276,9 @@ async function main() {
     assert.equal(needsManualQuoteApproval(dub!, belfast), false);
   });
 
-  await check("Omagh → Greater Belfast gets a live quote; Omagh remains non-standard pickup", () => {
+  await check("Omagh → Greater Belfast is personalised A2A quote; Omagh remains non-standard pickup", () => {
     assert.equal(isOutOfAreaPickup(omagh), true);
-    assert.equal(needsManualQuoteApproval(omagh, belfast), false);
+    assert.equal(needsManualQuoteApproval(omagh, belfast), true);
   });
 
   await check("Typed address without suggestion is not selected", () => {

@@ -144,6 +144,17 @@ import {
   saveShortNoticeBooking,
 } from "./short-notice-store";
 import {
+  handleCreateA2aQuoteRequest,
+  handleOwnerApproveA2aQuote,
+  handleOwnerListA2aQuotes,
+  handlePublicA2aQuote,
+  resolveA2aQuoteForPayment,
+} from "./a2a-quote-handlers";
+import {
+  getA2aQuoteByToken,
+  saveA2aQuoteRequest,
+} from "./a2a-quote-store";
+import {
   handleOwnerCreatePersonalQuote,
   handleOwnerDeactivatePersonalQuote,
   handleOwnerListPersonalQuotes,
@@ -1350,6 +1361,7 @@ async function handlePaymentRequest(
   }
 
   const shortNoticeToken = String(body.shortNoticeToken ?? "").trim();
+  const a2aQuoteToken = String(body.a2aQuoteToken ?? "").trim();
   const personalQuoteCodeRaw = String(body.personalQuoteCode ?? "").trim();
   const quickQuoteIdRaw = String(body.quickQuoteId ?? "").trim();
   const savedQuoteTokenRaw = String(body.savedQuoteToken ?? "").trim();
@@ -1362,6 +1374,7 @@ async function handlePaymentRequest(
   );
   let booking = parsePaidBookingDetails(body);
   let shortNoticeReference: string | undefined;
+  let a2aQuoteReference: string | undefined;
   let personalQuoteCode: string | undefined;
   let quickQuoteId: string | undefined;
   let savedQuoteToken: string | undefined;
@@ -1408,6 +1421,45 @@ async function handlePaymentRequest(
             checkoutId: record.checkoutId,
             checkoutReference: record.checkoutReference,
             shortNoticeReference: record.reference,
+          },
+          200,
+          origin,
+        );
+      } catch {
+        // Fall through and create a fresh checkout.
+      }
+    }
+  } else if (a2aQuoteToken) {
+    // Approved A2A personalised quote: amount + journey locked; reject if expired.
+    if (!pendingCheckoutStoreConfigured(env.TRACKING_STORE)) {
+      return json(
+        { error: "Booking store is not configured — cannot start a paid checkout safely" },
+        503,
+        origin,
+      );
+    }
+    const resolved = await resolveA2aQuoteForPayment(env.TRACKING_STORE, a2aQuoteToken);
+    if ("error" in resolved) {
+      return json({ error: resolved.error }, resolved.status, origin);
+    }
+    const record = resolved.record;
+    amount = Math.round((record.quotedPrice ?? 0) * 100) / 100;
+    booking = record.booking;
+    a2aQuoteReference = record.reference;
+
+    if (record.checkoutId && record.paymentUrl) {
+      try {
+        const existingCheckout = await getSumUpCheckout(apiKey, record.checkoutId);
+        if (isSumUpCheckoutPaid(existingCheckout)) {
+          return json({ error: "This quote has already been paid." }, 409, origin);
+        }
+        return json(
+          {
+            ok: true,
+            paymentUrl: record.paymentUrl,
+            checkoutId: record.checkoutId,
+            checkoutReference: record.checkoutReference,
+            a2aQuoteReference: record.reference,
           },
           200,
           origin,
@@ -1736,6 +1788,7 @@ async function handlePaymentRequest(
   if (
     booking &&
     !shortNoticeToken &&
+    !a2aQuoteToken &&
     !personalQuoteCode &&
     !quickQuoteId &&
     !savedQuoteToken
@@ -1768,7 +1821,7 @@ async function handlePaymentRequest(
     return json({ error: "Invalid payment amount" }, 400, origin);
   }
 
-  if (!description && !shortNoticeToken) {
+  if (!description && !shortNoticeToken && !a2aQuoteToken) {
     return json({ error: "Missing payment description" }, 400, origin);
   }
 
@@ -1808,7 +1861,7 @@ async function handlePaymentRequest(
   }
 
   // Short-notice window: save request for Owner approval — do NOT open SumUp.
-  if (!shortNoticeToken) {
+  if (!shortNoticeToken && !a2aQuoteToken) {
     const notice = await shouldForceShortNotice(env.TRACKING_STORE, booking);
     if (notice.shortNotice) {
       try {
@@ -2019,6 +2072,7 @@ async function handlePaymentRequest(
       ...(shortNoticeToken
         ? { shortNoticeToken, shortNoticeReference }
         : {}),
+      ...(a2aQuoteToken ? { a2aQuoteToken, a2aQuoteReference } : {}),
       ...(personalQuoteCode ? { personalQuoteCode } : {}),
       ...(quickQuoteId ? { quickQuoteId } : {}),
       ...(savedQuoteToken ? { savedQuoteToken, savedQuoteReference } : {}),
@@ -2043,6 +2097,19 @@ async function handlePaymentRequest(
       if (sn) {
         await saveShortNoticeBooking(env.TRACKING_STORE, {
           ...sn,
+          checkoutId: checkout.checkoutId,
+          checkoutReference: checkout.checkoutReference,
+          paymentUrl: checkout.paymentUrl,
+          updatedAt: new Date().toISOString(),
+        });
+      }
+    }
+
+    if (a2aQuoteToken) {
+      const aq = await getA2aQuoteByToken(env.TRACKING_STORE, a2aQuoteToken);
+      if (aq) {
+        await saveA2aQuoteRequest(env.TRACKING_STORE, {
+          ...aq,
           checkoutId: checkout.checkoutId,
           checkoutReference: checkout.checkoutReference,
           paymentUrl: checkout.paymentUrl,
@@ -2714,6 +2781,88 @@ export default {
         return json(result, 200, origin);
       }
       return json({ error: "Method not allowed" }, 405, origin);
+    }
+
+    // Address-to-Address personalised quote requests
+    if (
+      (url.pathname === "/a2a-quotes" ||
+        url.pathname === "/api/a2a-quotes" ||
+        url.pathname.endsWith("/a2a-quotes")) &&
+      request.method === "POST"
+    ) {
+      if (!env.TRACKING_STORE) {
+        return json({ error: "Storage is not configured" }, 503, origin);
+      }
+      let body: Record<string, unknown>;
+      try {
+        body = await request.json();
+      } catch {
+        return json({ error: "Invalid JSON" }, 400, origin);
+      }
+      const result = await handleCreateA2aQuoteRequest(
+        { ...env, TRACKING_STORE: env.TRACKING_STORE },
+        body,
+      );
+      if ("error" in result) return json({ error: result.error }, result.status, origin);
+      return json(result, 200, origin);
+    }
+
+    if (
+      (url.pathname === "/owner/a2a-quotes" || url.pathname === "/api/owner/a2a-quotes") &&
+      request.method === "GET"
+    ) {
+      if (!env.TRACKING_STORE) {
+        return json({ error: "Storage is not configured" }, 503, origin);
+      }
+      const result = await handleOwnerListA2aQuotes(request, {
+        ...env,
+        TRACKING_STORE: env.TRACKING_STORE,
+      });
+      if ("error" in result) return json({ error: result.error }, result.status, origin);
+      return json(result, 200, origin);
+    }
+
+    if (
+      (url.pathname === "/owner/a2a-quotes/approve" ||
+        url.pathname === "/api/owner/a2a-quotes/approve" ||
+        url.pathname.endsWith("/a2a-quotes/approve")) &&
+      request.method === "POST"
+    ) {
+      if (!env.TRACKING_STORE) {
+        return json({ error: "Storage is not configured" }, 503, origin);
+      }
+      let body: Record<string, unknown>;
+      try {
+        body = await request.json();
+      } catch {
+        return json({ error: "Invalid JSON" }, 400, origin);
+      }
+      const result = await handleOwnerApproveA2aQuote(
+        request,
+        { ...env, TRACKING_STORE: env.TRACKING_STORE },
+        body,
+      );
+      if ("error" in result) return json({ error: result.error }, result.status, origin);
+      return json(result, 200, origin);
+    }
+
+    if (
+      (url.pathname === "/a2a-quotes/by-token" ||
+        url.pathname === "/api/a2a-quotes/by-token" ||
+        url.pathname.endsWith("/a2a-quotes/by-token")) &&
+      request.method === "GET"
+    ) {
+      if (!env.TRACKING_STORE) {
+        return json({ error: "Storage is not configured" }, 503, origin);
+      }
+      const token = (url.searchParams.get("token") ?? "").trim();
+      if (!token) return json({ error: "Missing payment token" }, 400, origin);
+      const result = await handlePublicA2aQuote(
+        { ...env, TRACKING_STORE: env.TRACKING_STORE },
+        token,
+      );
+      if ("error" in result) return json({ error: result.error }, result.status, origin);
+      return json(result, 200, origin);
     }
 
     if (isOwnerShortNoticePath(url.pathname)) {

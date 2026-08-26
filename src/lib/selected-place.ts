@@ -89,9 +89,45 @@ export function placeDisplayText(place: SelectedPlace | null | undefined): strin
   return (place.displayAddress || place.formattedAddress || "").trim();
 }
 
+/** Collapse Road/Rd, Avenue/Ave, etc. so street-line comparisons ignore Google abbreviations. */
+const STREET_TYPE_NORMALISE: Array<[RegExp, string]> = [
+  [/\b(avenue|ave)\b/gi, "ave"],
+  [/\b(road|rd)\b/gi, "rd"],
+  [/\b(street|st)\b/gi, "st"],
+  [/\b(drive|dr)\b/gi, "dr"],
+  [/\b(lane|ln)\b/gi, "ln"],
+  [/\b(close|cl)\b/gi, "cl"],
+  [/\b(court|ct)\b/gi, "ct"],
+  [/\b(crescent|cres)\b/gi, "cres"],
+  [/\b(terrace|ter)\b/gi, "ter"],
+  [/\b(boulevard|blvd)\b/gi, "blvd"],
+  [/\b(place|pl)\b/gi, "pl"],
+  [/\b(square|sq)\b/gi, "sq"],
+  [/\b(gardens|gdns)\b/gi, "gdns"],
+  [/\b(park|pk)\b/gi, "pk"],
+  [/\b(mount|mt)\b/gi, "mt"],
+];
+
+export function normaliseAddressCompareKey(value: string): string {
+  let text = value
+    .toLowerCase()
+    .replace(/[.,#]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  for (const [pattern, replacement] of STREET_TYPE_NORMALISE) {
+    text = text.replace(pattern, replacement);
+  }
+  return text.replace(/\s+/g, " ").trim();
+}
+
+/** True when text looks like "12 High Street" rather than a venue/business name. */
+export function looksLikeStreetAddressLine(value: string): boolean {
+  return /^\d+[a-zA-Z]?\s+\S+/.test(value.trim());
+}
+
 /**
  * Build "{place name}, {formatted address}" without duplicating the name when
- * Google already included it in the formatted address.
+ * Google already included it in the formatted address (including Ave/Avenue etc.).
  */
 export function buildDisplayAddress(
   placeName: string | null | undefined,
@@ -106,16 +142,28 @@ export function buildDisplayAddress(
     return formatted;
   }
 
-  const normalisedFormatted = formatted.toLowerCase();
-  const normalisedName = name.toLowerCase();
+  const nameKey = normaliseAddressCompareKey(name);
+  const formattedKey = normaliseAddressCompareKey(formatted);
+  const formattedFirstSegment = formattedKey.split(",")[0]?.trim() || formattedKey;
+
   if (
-    normalisedFormatted === normalisedName ||
-    normalisedFormatted.startsWith(`${normalisedName},`) ||
-    normalisedFormatted.startsWith(`${normalisedName} `) ||
-    normalisedFormatted.includes(`, ${normalisedName}`) ||
-    normalisedFormatted.includes(normalisedName)
+    !nameKey ||
+    formattedKey === nameKey ||
+    formattedKey.startsWith(`${nameKey} `) ||
+    formattedKey.startsWith(`${nameKey},`) ||
+    formattedFirstSegment === nameKey ||
+    formattedKey.includes(nameKey)
   ) {
     return formatted;
+  }
+
+  // "18 Collingwood Avenue" + "18 Collingwood Ave, Belfast…" → use formatted only.
+  if (looksLikeStreetAddressLine(name) && looksLikeStreetAddressLine(formatted)) {
+    const nameNum = name.match(/^(\d+[a-zA-Z]?)\b/i)?.[1]?.toLowerCase();
+    const formattedNum = formatted.match(/^(\d+[a-zA-Z]?)\b/i)?.[1]?.toLowerCase();
+    if (nameNum && formattedNum && nameNum === formattedNum) {
+      return formatted;
+    }
   }
 
   return `${name}, ${formatted}`;
@@ -363,6 +411,10 @@ export function isStandardInstantPickup(place: SelectedPlace): boolean {
   if (airportCode && STANDARD_INSTANT_PICKUP_AIRPORTS.has(airportCode)) {
     return true;
   }
+  // Prefer structured postcode when the visible/formatted string was polluted.
+  if (place.postalCode && isGreaterBelfastServiceAddress(place.postalCode)) {
+    return true;
+  }
   return isGreaterBelfastServiceAddress(place.formattedAddress);
 }
 
@@ -413,11 +465,11 @@ export function isGreaterBelfastDestination(place: SelectedPlace): boolean {
 }
 
 /**
- * Journeys that must not show an automatic fare or immediate payment —
- * ROI city destinations (not DUB), or pickups outside NI / not into Greater Belfast.
+ * Journeys that must not show an automatic fare or immediate payment:
+ * - Pure Address-to-Address (no airport on either leg) — personalised quote
+ * - ROI city destinations (not DUB airport), or pickups outside NI / not into Greater Belfast
  *
- * Live quotes are allowed for Northern Ireland pickups (anywhere in NI) when the
- * destination is within Greater Belfast — priced via the existing A2A / airport path.
+ * Airport journeys (BFS / BHD / DUB / LDY) keep the instant-quote path.
  */
 export function needsManualQuoteApproval(
   pickup: SelectedPlace,
@@ -426,6 +478,14 @@ export function needsManualQuoteApproval(
   if (!isPlaceSelected(pickup) || !isPlaceSelected(dropoff)) {
     return false;
   }
+
+  // All pure address↔address journeys require a personalised quote (no live £).
+  const pickupAirport = detectAirportCodeFromPlace(pickup);
+  const dropoffAirport = detectAirportCodeFromPlace(dropoff);
+  if (!pickupAirport && !dropoffAirport) {
+    return true;
+  }
+
   if (isOutOfAreaPickup(pickup)) {
     if (isNorthernIrelandPlace(pickup) && isGreaterBelfastDestination(dropoff)) {
       return false;

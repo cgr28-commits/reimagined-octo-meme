@@ -14,9 +14,9 @@ import { detectMobileDevice, useIsMobileDevice } from "@/lib/device";
 import {
   focusFirstInvalidField,
   quoteStepTargetId,
-  scheduleBookingNavAfterRender,
-  schedulePreciseResultsScroll,
   scheduleScrollToBookNowAfterExpressAck,
+  scrollJourneySummaryAfterTimeConfirm,
+  scrollQuoteStage,
   type QuoteStepNavTarget,
 } from "@/lib/quote-step-nav-scroll";
 import {
@@ -420,12 +420,18 @@ function QuoteCard({
 }: QuoteCardProps) {
   const cardRef = useRef<HTMLDivElement>(null);
   const step1JourneyRef = useRef<HTMLDivElement>(null);
+  /** Stage 6: YOUR ROUTE / results stack after bags complete. */
+  const routeSummaryRef = useRef<HTMLDivElement>(null);
   const step2TravelDetailsRef = useRef<HTMLDivElement>(null);
+  const step2JourneySummaryRef = useRef<HTMLDivElement>(null);
   const step3CustomerDetailsRef = useRef<HTMLDivElement>(null);
   const step3PaymentActionsRef = useRef<HTMLDivElement>(null);
   const shortNoticeResultRef = useRef<HTMLDivElement>(null);
+  const bookingResultRef = useRef<HTMLDivElement>(null);
   /** Scroll once when availability-confirmation result first appears (not on re-renders). */
   const pendingShortNoticeScrollRef = useRef(false);
+  /** Scroll once when booking/quote-request confirmation card first appears. */
+  const pendingBookingResultScrollRef = useRef(false);
   /** Set only by explicit Book Now / Continue / Back — never by quote re-renders. */
   const pendingQuoteStepNavScrollRef = useRef<QuoteStepNavTarget | null>(null);
   const passengerLimit = Math.min(
@@ -1117,25 +1123,9 @@ function QuoteCard({
           routeMetrics,
         );
       }
-      // Address↔address (incl. temporary EMERGE Boucher↔city-centre £24 fare).
-      // Festival fixed fare can resolve without route metrics; normal A2A still needs them.
+      // Address↔address: no live public price (personalised quote). Needs route metrics
+      // only if owner tools compute a guide fare via calculatePointToPointQuote.
       if (!routeMetrics) {
-        const festivalProbe = calculatePointToPointQuote(
-          pickupAddress,
-          dropoffAddress,
-          quoteVehicle,
-          returnJourney,
-          schedule,
-          null,
-          null,
-          {
-            pickup: pickupPlace ?? undefined,
-            dropoff: dropoffPlace ?? undefined,
-          },
-        );
-        if (festivalProbe) {
-          return festivalProbe;
-        }
         return null;
       }
       if (isDublinCityCorridor) {
@@ -1158,10 +1148,6 @@ function QuoteCard({
         schedule,
         routeMetrics,
         null,
-        {
-          pickup: pickupPlace ?? undefined,
-          dropoff: dropoffPlace ?? undefined,
-        },
       );
     }
 
@@ -1408,6 +1394,16 @@ function QuoteCard({
     if (addressChanged) {
       clearDownstreamQuoteChoices();
     }
+    // Completing the address pair: blur so iOS autocomplete cannot steal a second scroll.
+    if (
+      isA2AFlow &&
+      isPlaceSelected(place) &&
+      isPlaceSelected(dropoffPlace) &&
+      typeof document !== "undefined" &&
+      document.activeElement instanceof HTMLElement
+    ) {
+      document.activeElement.blur();
+    }
   }
 
   function handleDropoffPlaceSelect(place: SelectedPlace) {
@@ -1430,6 +1426,15 @@ function QuoteCard({
     }
     if (addressChanged) {
       clearDownstreamQuoteChoices();
+    }
+    if (
+      isA2AFlow &&
+      isPlaceSelected(pickupPlace) &&
+      isPlaceSelected(place) &&
+      typeof document !== "undefined" &&
+      document.activeElement instanceof HTMLElement
+    ) {
+      document.activeElement.blur();
     }
   }
 
@@ -2219,6 +2224,7 @@ function QuoteCard({
     setSubmitted(false);
     setSubmitError("");
     setBookingSent(false);
+    pendingBookingResultScrollRef.current = false;
     setBookingReference("");
     quoteCalculationFingerprintRef.current = "";
     setQuoteTransactionId("");
@@ -2312,7 +2318,7 @@ function QuoteCard({
     // Return the customer to the start of the form after reset.
     pendingQuoteStepNavScrollRef.current = 1;
     window.setTimeout(() => {
-      scheduleBookingNavAfterRender("quote", { focusHeading: true });
+      scrollQuoteStage("quote", { focusHeading: true });
     }, 0);
   }
 
@@ -2390,25 +2396,49 @@ function QuoteCard({
         const enquiryMessage = buildEnquiryBookingMessage(details);
         const subject = pricingConfirmationRequired
           ? `Price confirmation request — ${details.customerName}`
+          : journeyKind === "address-to-address"
+            ? `Address-to-Address quote request — ${details.customerName}`
           : isOutOfAreaPickupJourney
           ? `Out-of-area pickup quote request — ${details.customerName}`
           : isRoiJourney
             ? `ROI long-distance quote request — ${details.customerName}`
             : `New vehicle enquiry — ${details.customerName}`;
-        if (!isMobile || delivery === "email") {
-          reference = await submitEnquiryByEmail({
+
+        // Persist A2A personalised-quote requests into Owner dashboard (Awaiting Quote).
+        if (journeyKind === "address-to-address" && isManualQuoteJourney) {
+          try {
+            const { createA2aQuoteRequest } = await import("@/lib/a2a-quote-api");
+            const created = await createA2aQuoteRequest({
+              ...details,
+              estimatedPrice: null,
+              isAirportTrip: false,
+            });
+            if (created.reference) {
+              reference = created.reference;
+            }
+          } catch (persistErr) {
+            console.error("A2A quote request persist failed", persistErr);
+          }
+        }
+
+        // Personalised quote requests always go through the website (Owner A2A Quotes).
+        // WhatsApp remains a help option in the site chrome — not a submit channel here.
+        if (isManualQuoteJourney || !isMobile || delivery === "email") {
+          const emailRef = await submitEnquiryByEmail({
             customerName: details.customerName,
             message: enquiryMessage,
             subject,
             booking: details,
           });
+          if (!reference) reference = emailRef;
         } else {
-          reference = await submitMobileWhatsAppEnquiry({
+          const waRef = await submitMobileWhatsAppEnquiry({
             customerName: details.customerName,
             message: enquiryMessage,
             subject,
             booking: details,
           });
+          if (!reference) reference = waRef;
         }
       } else if (!isMobile || delivery === "email") {
         reference = await submitBookingByEmail(details);
@@ -2419,9 +2449,11 @@ function QuoteCard({
     } catch (error) {
       console.error("Booking submission failed", error);
       setSubmitError(
-        delivery === "email" || !isMobile
-          ? `We couldn't send your ${isEnquiryOnly ? "enquiry" : "booking"} by email. Please try WhatsApp or contact ${SITE.email} with your trip details.`
-          : `We couldn't log your ${isEnquiryOnly ? "enquiry" : "booking"}. Please try email instead or contact ${SITE.email}.`,
+        isManualQuoteJourney
+          ? `We couldn't submit your quote request. Please try again or contact ${SITE.email} with your trip details.`
+          : delivery === "email" || !isMobile
+            ? `We couldn't send your ${isEnquiryOnly ? "enquiry" : "booking"} by email. Please try WhatsApp or contact ${SITE.email} with your trip details.`
+            : `We couldn't log your ${isEnquiryOnly ? "enquiry" : "booking"}. Please try email instead or contact ${SITE.email}.`,
       );
       setSubmitted(false);
       return;
@@ -2432,7 +2464,10 @@ function QuoteCard({
       quoteTransactionId ||
       createQuoteTransactionId(pageType === "emerge_belfast" ? "emerge" : "quote");
     setQuoteTransactionId(adsQuoteId);
-    setBookingDelivery(delivery);
+    setBookingDelivery(isManualQuoteJourney ? "email" : delivery);
+    // Tall step-3 form unmounts → short confirmation card; scroll after render
+    // so mobile does not remain on homepage sections below the quote.
+    pendingBookingResultScrollRef.current = true;
     setBookingSent(true);
     setSubmitted(false);
 
@@ -2445,7 +2480,7 @@ function QuoteCard({
       });
     }
 
-    if (isMobile && delivery === "whatsapp") {
+    if (isMobile && delivery === "whatsapp" && !isManualQuoteJourney) {
       openWhatsAppBookingMessage(
         isEnquiryOnly || exceedsOnlineCapacity
           ? buildEnquiryBookingMessage(details, reference)
@@ -2458,6 +2493,7 @@ function QuoteCard({
     e.preventDefault();
     setSubmitError("");
     setBookingSent(false);
+    pendingBookingResultScrollRef.current = false;
     setBookingReference("");
     setBookingDelivery(null);
 
@@ -2490,12 +2526,12 @@ function QuoteCard({
       }
       if (journeyMode == null) {
         setSubmitError("Choose One way or Return to continue.");
-        scheduleBookingNavAfterRender("journey-type-selector");
+        scrollQuoteStage("journey-type-selector");
         return;
       }
       if (!partySelectionReady) {
         setSubmitError("Select your passenger and suitcase numbers to see your fixed price.");
-        scheduleBookingNavAfterRender("passenger-luggage-section");
+        scrollQuoteStage("passenger-luggage-section");
         return;
       }
       if (
@@ -2533,6 +2569,10 @@ function QuoteCard({
       }
       setSubmitError("");
       setExpressEditing(false);
+      // Blur CTA before DOM swap so iOS does not keep scroll anchored to the old button.
+      if (typeof document !== "undefined" && document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
       pendingQuoteStepNavScrollRef.current = 2;
       setQuoteStep(2);
       return;
@@ -2546,7 +2586,7 @@ function QuoteCard({
     if (!validateContactDetails()) {
       return;
     }
-    if (!usesWhatsApp) {
+    if (!usesWhatsApp || isManualQuoteJourney) {
       if (!requireTermsAccepted()) {
         return;
       }
@@ -2563,6 +2603,7 @@ function QuoteCard({
     navigateQuoteStep(2);
     setSubmitError("");
     setBookingSent(false);
+    pendingBookingResultScrollRef.current = false;
     setBookingReference("");
     setBookingDelivery(null);
     setTermsAccepted(false);
@@ -2578,6 +2619,9 @@ function QuoteCard({
     }
     // Do not wait on flight lookup — unavailable/loading must not require a second click.
     clearFlightBlockingErrors();
+    if (typeof document !== "undefined" && document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
     pendingQuoteStepNavScrollRef.current = 3;
     setQuoteStep(3);
   }
@@ -2598,44 +2642,159 @@ function QuoteCard({
         : target === 2
           ? step2TravelDetailsRef.current
           : step3CustomerDetailsRef.current;
-    return scheduleBookingNavAfterRender(element ?? quoteStepTargetId(target), {
+    return scrollQuoteStage(element ?? quoteStepTargetId(target), {
       focusHeading: true,
+      correctAfterMs: 150,
     });
   }, [quoteStep]);
 
-  // Availability-confirmation result: scroll once to the confirmation card
-  // (header-aware), not the previous page position / Airports We Serve.
+  // Availability-confirmation result: scroll once to the confirmation card.
   useEffect(() => {
     if (!shortNoticeResult || !pendingShortNoticeScrollRef.current) {
       return;
     }
     pendingShortNoticeScrollRef.current = false;
-    return scheduleBookingNavAfterRender(
+    return scrollQuoteStage(
       shortNoticeResultRef.current ?? "quote-availability-confirmation",
-      { focusHeading: true },
+      { focusHeading: true, correctAfterMs: 150 },
     );
   }, [shortNoticeResult]);
 
-  // When the complete results first become ready, scroll once to Your Route.
-  // Do not re-scroll when route/vehicle/price fields update individually.
-  const hadQuoteResultsReadyRef = useRef(false);
+  // Quote/booking submission success: scroll once to the confirmation card.
   useEffect(() => {
-    if (quoteStep !== 1) {
-      hadQuoteResultsReadyRef.current = false;
+    if (!bookingSent || !pendingBookingResultScrollRef.current) {
       return;
     }
-    if (!quoteResultsReady) {
-      hadQuoteResultsReadyRef.current = false;
-      return;
-    }
-    if (hadQuoteResultsReadyRef.current) return;
-    hadQuoteResultsReadyRef.current = true;
-    return schedulePreciseResultsScroll("quote-route-summary");
-  }, [quoteResultsReady, quoteStep]);
+    pendingBookingResultScrollRef.current = false;
+    return scrollQuoteStage(bookingResultRef.current ?? "bookingRequestResult", {
+      focusHeading: true,
+      correctAfterMs: 150,
+    });
+  }, [bookingSent]);
 
-  // Legacy (non-A2A) form: addresses → One Way/Return, then passengers after mode chosen.
+  // -------------------------------------------------------------------------
+  // Consolidated progressive scroll (A2A primary + legacy).
+  // ONE action → ONE scroll → ONE destination via scrollQuoteStage.
+  // Never targets homepage / #airports. Never scrolls on field keystrokes,
+  // route-metric updates, or time onChange while the iOS picker is open.
+  // -------------------------------------------------------------------------
+  const a2aShowJourneyMode =
+    isA2AFlow &&
+    quoteStep === 1 &&
+    (journeyIntent === "address-to-address"
+      ? isPlaceSelected(pickupPlace) && isPlaceSelected(dropoffPlace)
+      : journeyIntent === "to-airport"
+        ? Boolean(intentAirportCode) && isPlaceSelected(pickupPlace)
+        : journeyIntent === "from-airport"
+          ? Boolean(intentAirportCode) && isPlaceSelected(dropoffPlace)
+          : false);
+  const a2aShowParty = a2aShowJourneyMode && journeyMode != null;
+
+  const prevJourneyIntentRef = useRef<QuoteJourneyIntent | null>(null);
+  const hadA2aAddressesScrollRef = useRef(false);
+  const hadA2aJourneyTypeScrollRef = useRef(false);
+  const hadA2aPartyScrollRef = useRef(false);
+  /** Capacity incomplete→complete arms a pending Your Route scroll (once). */
+  const pendingRouteSummaryScrollRef = useRef(false);
+  const hadRouteSummaryScrollRef = useRef(false);
+  /** Time picker Done/blur → Your Journey (once per step-2 visit). */
+  const hadJourneySummaryScrollRef = useRef(false);
   const hadLegacyJourneyModeScrollRef = useRef(false);
   const hadLegacyPartyScrollRef = useRef(false);
+  const prevPartyCompleteRef = useRef(false);
+
+  // Stage 1: Address to Address tapped → PICKUP / DESTINATION fields.
+  useEffect(() => {
+    if (!isA2AFlow || quoteStep !== 1) {
+      prevJourneyIntentRef.current = journeyIntent;
+      hadA2aAddressesScrollRef.current = false;
+      return;
+    }
+    const becameAddressToAddress =
+      journeyIntent === "address-to-address" &&
+      prevJourneyIntentRef.current !== "address-to-address";
+    prevJourneyIntentRef.current = journeyIntent;
+    if (!becameAddressToAddress || hadA2aAddressesScrollRef.current) return;
+    hadA2aAddressesScrollRef.current = true;
+    // No layout-correction pulse — stage scrolls are precise one-shots (avoids judder).
+    return scrollQuoteStage("quote-section-addresses", { correctAfterMs: 0 });
+  }, [isA2AFlow, journeyIntent, quoteStep]);
+
+  // Stage 3: both addresses selected → JOURNEY (One way / Return) only.
+  // Pickup alone must not scroll. Route/vehicle renders must not steal viewport.
+  useEffect(() => {
+    if (!isA2AFlow || quoteStep !== 1) {
+      hadA2aJourneyTypeScrollRef.current = false;
+      return;
+    }
+    if (!a2aShowJourneyMode || journeyMode != null) {
+      if (!a2aShowJourneyMode) {
+        hadA2aJourneyTypeScrollRef.current = false;
+      }
+      return;
+    }
+    if (hadA2aJourneyTypeScrollRef.current) return;
+    hadA2aJourneyTypeScrollRef.current = true;
+    return scrollQuoteStage("journey-type-selector", { correctAfterMs: 0 });
+  }, [a2aShowJourneyMode, isA2AFlow, journeyMode, quoteStep]);
+
+  // Stage 4: One way / Return selected → passenger / luggage (not bags→route yet).
+  useEffect(() => {
+    if (!isA2AFlow || quoteStep !== 1) {
+      hadA2aPartyScrollRef.current = false;
+      return;
+    }
+    if (!a2aShowParty) {
+      hadA2aPartyScrollRef.current = false;
+      return;
+    }
+    if (hadA2aPartyScrollRef.current) return;
+    hadA2aPartyScrollRef.current = true;
+    return scrollQuoteStage("passenger-luggage-section", { correctAfterMs: 0 });
+  }, [a2aShowParty, isA2AFlow, quoteStep]);
+
+  // Stage 6: capacity incomplete → complete → YOUR ROUTE stack (once).
+  // Lands on the results block that starts with YOUR ROUTE (vehicle + personalised
+  // quote sit underneath). Suitcase 2→3 after complete must not re-scroll.
+  // Metrics/vehicle renders must not steal the viewport.
+  useEffect(() => {
+    if (quoteStep !== 1) {
+      prevPartyCompleteRef.current = false;
+      pendingRouteSummaryScrollRef.current = false;
+      hadRouteSummaryScrollRef.current = false;
+      return;
+    }
+
+    const capacityComplete = quoteChoicesReady && hasQuoteRoute;
+    const becameComplete = capacityComplete && !prevPartyCompleteRef.current;
+    prevPartyCompleteRef.current = capacityComplete;
+
+    if (!capacityComplete) {
+      pendingRouteSummaryScrollRef.current = false;
+      hadRouteSummaryScrollRef.current = false;
+      return;
+    }
+
+    if (!becameComplete || hadRouteSummaryScrollRef.current) {
+      return;
+    }
+
+    hadRouteSummaryScrollRef.current = true;
+    pendingRouteSummaryScrollRef.current = false;
+    // Prefer the dedicated ref — matches the YOUR ROUTE → vehicle → quote stack.
+    return scrollQuoteStage(routeSummaryRef.current ?? "quote-route-summary", {
+      correctAfterMs: 0,
+    });
+  }, [hasQuoteRoute, quoteChoicesReady, quoteStep]);
+
+  // Reset time→Your Journey one-shot when leaving travel-details step.
+  useEffect(() => {
+    if (quoteStep !== 2) {
+      hadJourneySummaryScrollRef.current = false;
+    }
+  }, [quoteStep]);
+
+  // Legacy (non-A2A) form: addresses → One Way/Return, then passengers after mode chosen.
   useEffect(() => {
     if (isA2AFlow || quoteStep !== 1) {
       hadLegacyJourneyModeScrollRef.current = false;
@@ -2651,28 +2810,57 @@ function QuoteCard({
       hadLegacyPartyScrollRef.current = false;
       if (hadLegacyJourneyModeScrollRef.current) return;
       hadLegacyJourneyModeScrollRef.current = true;
-      if (typeof document !== "undefined" && document.activeElement instanceof HTMLElement) {
-        document.activeElement.blur();
-      }
-      return scheduleBookingNavAfterRender("journey-type-selector");
+      return scrollQuoteStage("journey-type-selector", { correctAfterMs: 0 });
     }
     if (hadLegacyPartyScrollRef.current) return;
     hadLegacyPartyScrollRef.current = true;
-    return scheduleBookingNavAfterRender("passenger-luggage-section");
+    return scrollQuoteStage("passenger-luggage-section", { correctAfterMs: 0 });
   }, [hasQuoteRoute, isA2AFlow, journeyMode, quoteStep]);
 
-  const submitInProgressLabel = showsRequestQuoteFlow
+  /**
+   * Stage 10→11: iPhone time picker Done / blur only.
+   * Never called from onChange — customer must finish the picker first.
+   * Lands on YOUR JOURNEY but clamps so Continue stays fully visible (no overshoot).
+   */
+  function requestJourneySummaryScrollAfterTimeConfirm() {
+    if (quoteStep !== 2) return;
+    if (hadJourneySummaryScrollRef.current) return;
+    const schedule = syncScheduleFieldsFromInputs();
+    const date = schedule.tripDate;
+    const time = schedule.tripTime;
+    const retDate = schedule.returnDate;
+    const retTime = schedule.returnTime;
+    const complete =
+      Boolean(date && time) &&
+      isTripDateOnOrAfterToday(date) &&
+      isTripDateTimeNotInPast(date, time) &&
+      (!returnJourney ||
+        (Boolean(retDate && retTime) &&
+          isReturnAfterOutbound(date, time, retDate, retTime)));
+    if (!complete) return;
+    hadJourneySummaryScrollRef.current = true;
+    scrollJourneySummaryAfterTimeConfirm(
+      step2JourneySummaryRef.current ?? "step2-journey-summary",
+      "quote-step2-next",
+    );
+  }
+
+  const submitInProgressLabel = isManualQuoteJourney
+    ? "Submitting quote request…"
+    : showsRequestQuoteFlow
     ? "Sending quote request…"
     : isEnquiryOnly
       ? "Sending enquiry…"
       : "Sending booking…";
 
-  const confirmButtonLabel = showsRequestQuoteFlow
-    ? pricingConfirmationRequired || isManualQuoteJourney
-      ? "Request Fixed Quote"
+  const confirmButtonLabel = isManualQuoteJourney
+    ? "Submit Quote Request"
+    : showsRequestQuoteFlow
+    ? pricingConfirmationRequired
+      ? "Request a Quote"
       : liveQuote
         ? `Request quote · ${formatQuote(liveQuote.amount)}`
-        : "Request a quote"
+        : "Request a Quote"
     : isEnquiryOnly
       ? "Send enquiry"
       : liveQuote
@@ -2681,10 +2869,10 @@ function QuoteCard({
 
   const whatsAppConfirmLabel = showsRequestQuoteFlow
     ? pricingConfirmationRequired || isManualQuoteJourney
-      ? "Request Fixed Quote via WhatsApp"
+      ? "Chat on WhatsApp"
       : liveQuote
         ? `Request quote via WhatsApp — ${formatQuote(liveQuote.amount)}`
-        : "Request quote via WhatsApp"
+        : "Chat on WhatsApp"
     : isEnquiryOnly
       ? "Send enquiry via WhatsApp"
       : liveQuote
@@ -2699,9 +2887,7 @@ function QuoteCard({
         : "Enter your journey details to request a confirmed price."
     : isManualQuoteJourney
     ? hasQuoteRoute
-      ? isOutOfAreaPickupJourney
-        ? "Continue to request your fixed price — out-of-area pickups need manual approval."
-        : "Continue to request your fixed Republic of Ireland price."
+      ? "Continue with your travel details to send your personalised quote request."
       : "Select pickup and drop-off addresses from the suggestions."
     : isA2AFlow && !isAddressPairComplete
       ? "Select pickup and drop-off addresses from the suggestions to see your price."
@@ -2826,17 +3012,17 @@ function QuoteCard({
         ) : isManualQuoteJourney ? (
           <>
             <p className="text-xs font-medium uppercase tracking-wider text-emerald">
-              {isOutOfAreaPickupJourney
-                ? "Out-of-area pickup"
-                : "Republic of Ireland long-distance transfer"}
+              Personalised Quote
             </p>
             <p className="mt-1 text-xl font-semibold tracking-tight text-white sm:text-2xl">
-              Request your fixed price
+              Get a personalised quote for your journey
             </p>
             <p className="mt-2 text-sm leading-relaxed text-white/70">
-              {isOutOfAreaPickupJourney
-                ? "This pickup is outside our standard Greater Belfast area and needs manual approval. Continue to send your trip details — we’ll email your personal fixed price. No automatic fare or online payment until confirmed."
-                : "Republic of Ireland city destinations are quoted individually. Continue to send your trip details and we’ll email your personal fixed price."}
+              {journeyKind === "address-to-address"
+                ? "Address-to-address journeys are individually priced. Continue with your travel details and submit your quote request."
+                : isOutOfAreaPickupJourney
+                  ? "This journey needs a personalised quote. Continue with your travel details and submit your quote request."
+                  : "Continue with your travel details and submit your quote request — we’ll confirm your personal price before any payment is taken."}
             </p>
             {journeyDistanceLabel && journeyDurationLabel && (
               <p className="mt-2 text-xs text-white/60">
@@ -2970,7 +3156,7 @@ function QuoteCard({
         )}
         <p className="mt-3 text-[11px] text-white/40">
           {pricingConfirmationRequired || isManualQuoteJourney
-            ? "Request Fixed Quote — we’ll confirm your personal price before any payment is taken."
+            ? "We’ll confirm your price before any payment is taken."
             : showsRequestQuoteFlow
               ? "Request a quote — we’ll confirm availability before the booking is accepted. No online payment until confirmed."
               : isEnquiryOnly
@@ -3105,26 +3291,39 @@ function QuoteCard({
 
     return (
       <div
-        ref={cardRef}
+        ref={(node) => {
+          cardRef.current = node;
+          bookingResultRef.current = node;
+        }}
         id="bookingRequestResult"
-        className="glass-card min-w-0 rounded-2xl p-6 sm:p-8"
+        className="glass-card min-w-0 scroll-mt-44 rounded-2xl p-6 sm:p-8 md:scroll-mt-28"
       >
         <div className="rounded-xl border border-white/10 bg-navy-dark/50 px-5 py-8 text-center sm:px-8 sm:py-10">
-          <p className="text-xs font-medium uppercase tracking-wider text-emerald">
-            {showsRequestQuoteFlow || exceedsOnlineCapacity
+          <p
+            data-booking-nav-heading
+            tabIndex={-1}
+            className="text-xs font-medium uppercase tracking-wider text-emerald outline-none"
+          >
+            {isManualQuoteJourney
+              ? "Quote request received"
+              : showsRequestQuoteFlow || exceedsOnlineCapacity
               ? "Quote request submitted"
               : isEnquiryOnly
                 ? "Enquiry submitted"
                 : "Booking submitted"}
           </p>
-          <h2 className="mt-2 text-2xl font-semibold tracking-tight text-white sm:text-3xl">Thank you</h2>
-          {quoteConversionValue ? (
+          <h2 className="mt-2 text-2xl font-semibold tracking-tight text-white sm:text-3xl">
+            Thank you
+          </h2>
+          {quoteConversionValue && !isManualQuoteJourney ? (
             <p className="mt-4 text-3xl font-bold text-white sm:text-4xl">
               {formatQuote(quoteConversionValue)}
             </p>
           ) : null}
           <p className="mx-auto mt-4 max-w-md text-sm leading-relaxed text-white/80 sm:text-base">
-            {showsRequestQuoteFlow || exceedsOnlineCapacity
+            {isManualQuoteJourney
+              ? "We’ve received your journey details. We’ll review your request and send you your personalised price. No payment has been taken."
+              : showsRequestQuoteFlow || exceedsOnlineCapacity
               ? isOutOfAreaPickupJourney
                 ? "We’ve received your out-of-area pickup request. We’ll review it manually, confirm availability, and send your personal fixed quote shortly. No payment is taken until the fare is confirmed."
                 : isRoiJourney
@@ -3139,13 +3338,13 @@ function QuoteCard({
               Reference: {bookingReference || quoteTransactionId}
             </p>
           )}
-          {bookingDelivery === "whatsapp" && (
+          {!isManualQuoteJourney && bookingDelivery === "whatsapp" && (
             <p className="mx-auto mt-4 max-w-md text-sm text-white/60">
               Your {isEnquiryOnly ? "enquiry" : "booking"} message should open in WhatsApp. If it
               didn&apos;t, open WhatsApp and message @{SITE.whatsappUsername}.
             </p>
           )}
-          {bookingDelivery === "email" && (
+          {!isManualQuoteJourney && bookingDelivery === "email" && (
             <p className="mx-auto mt-4 max-w-md text-sm text-white/60">
               Your {isEnquiryOnly ? "enquiry" : "booking"} has been sent by email. We&apos;ll
               confirm at {customerEmail.trim()}.
@@ -3346,26 +3545,44 @@ function QuoteCard({
 
             {addressesReadyForRoute && (
               <div
-                id={quoteResultsReady && quoteStep === 1 ? "quote-results-summary" : undefined}
+                ref={routeSummaryRef}
+                id={
+                  quoteChoicesReady && hasQuoteRoute && quoteStep === 1
+                    ? "quote-results-summary"
+                    : undefined
+                }
                 className={
-                  quoteResultsReady && quoteStep === 1
+                  quoteChoicesReady && hasQuoteRoute && quoteStep === 1
                     ? "scroll-mt-44 space-y-3 outline-none md:scroll-mt-28"
                     : undefined
                 }
                 style={
-                  quoteResultsReady && quoteStep === 1
+                  quoteChoicesReady && hasQuoteRoute && quoteStep === 1
                     ? { overflowAnchor: "none" }
                     : undefined
                 }
               >
+                {/*
+                  Show YOUR ROUTE as soon as bags/capacity are complete so Stage 6
+                  can scroll here immediately (do not wait for metrics). Prefetch
+                  stays sr-only while the customer is still on passengers/bags.
+                */}
                 <div
                   className={
-                    quoteResultsReady && quoteStep === 1 ? undefined : "sr-only"
+                    quoteChoicesReady && hasQuoteRoute && quoteStep === 1
+                      ? undefined
+                      : "sr-only"
                   }
-                  aria-hidden={!(quoteResultsReady && quoteStep === 1)}
+                  aria-hidden={
+                    !(quoteChoicesReady && hasQuoteRoute && quoteStep === 1)
+                  }
                 >
                   <TripMap
-                    id={quoteResultsReady && quoteStep === 1 ? "quote-route-summary" : undefined}
+                    id={
+                      quoteChoicesReady && hasQuoteRoute && quoteStep === 1
+                        ? "quote-route-summary"
+                        : undefined
+                    }
                     tripMode="address"
                     originAddress={pickupAddress}
                     destinationAddress={dropoffAddress}
@@ -3401,7 +3618,7 @@ function QuoteCard({
                       {renderQuotePriceSummaryBody()}
                     </div>
 
-                    {/* Non-sticky scroll target — sticky Book Now wrappers defeat iOS scrollIntoView/rect math. */}
+                    {/* Non-sticky scroll target — sticky Book Now wrappers defeat iOS scroll rect math. */}
                     <div
                       id="quote-book-now-anchor"
                       className="h-px w-full scroll-mt-44 md:scroll-mt-28"
@@ -3911,6 +4128,10 @@ function QuoteCard({
                 setTripDateError("");
                 setReturnDateError("");
               }}
+              onBlur={() => {
+                // iPhone Done / tick dismisses the picker → blur. Scroll only then.
+                requestJourneySummaryScrollAfterTimeConfirm();
+              }}
               className="box-border h-12 w-full min-w-0 rounded-xl border border-white/10 bg-white/5 px-4 text-base text-white outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30 [color-scheme:dark]"
             />
           </div>
@@ -3983,6 +4204,9 @@ function QuoteCard({
                     setReturnTime((e.target as HTMLInputElement).value);
                     setReturnDateError("");
                   }}
+                  onBlur={() => {
+                    requestJourneySummaryScrollAfterTimeConfirm();
+                  }}
                   className="box-border h-12 w-full min-w-0 rounded-xl border border-white/10 bg-white/5 px-4 text-base text-white outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30 [color-scheme:dark]"
                 />
               </div>
@@ -3993,8 +4217,18 @@ function QuoteCard({
           </div>
         </div>
 
-        <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3">
-          <p className="text-xs font-medium uppercase tracking-wider text-white/50">Your Journey</p>
+        <div
+          id="step2-journey-summary"
+          ref={step2JourneySummaryRef}
+          className="scroll-mt-44 rounded-xl border border-white/10 bg-white/5 px-4 py-3 md:scroll-mt-28"
+        >
+          <p
+            data-booking-nav-heading
+            tabIndex={-1}
+            className="text-xs font-medium uppercase tracking-wider text-white/50 outline-none"
+          >
+            Your Journey
+          </p>
           <p className="mt-2 text-sm font-semibold text-white">
             {pickupLabel || "Pickup"}
           </p>
@@ -4067,9 +4301,11 @@ function QuoteCard({
             Your details
           </p>
           <p className="mt-1 mb-4 text-sm text-white/75">
-            {canPayNowOnline
-              ? "Enter your details, accept the terms, then pay securely with SumUp to confirm your booking."
-              : "We need these details for your booking request. For journeys that need manual confirmation, we’ll email a SumUp payment link after we confirm the job."}
+            {isManualQuoteJourney
+              ? "Enter your details and submit your quote request. We’ll review it and send your personalised price — no payment is taken now."
+              : canPayNowOnline
+                ? "Enter your details, accept the terms, then pay securely with SumUp to confirm your booking."
+                : "We need these details for your booking request. For journeys that need manual confirmation, we’ll email a SumUp payment link after we confirm the job."}
           </p>
           <div className="space-y-4 lg:space-y-3.5">
             <div className="grid gap-4 lg:grid-cols-2 lg:gap-3.5">
@@ -4241,24 +4477,26 @@ function QuoteCard({
                   <div id="step3-booking-review" className={`${BOOKING_PANEL_CLASS} scroll-mt-44 md:scroll-mt-28`}>
             <div className="mb-4">
               <p className="text-xs font-medium uppercase tracking-wider text-emerald">
-                {showsRequestQuoteFlow
-                  ? isManualQuoteJourney
-                    ? "Review your fixed quote request"
-                    : "Review your quote request"
-                  : isEnquiryOnly
-                    ? "Review your enquiry"
-                    : "Review your booking"}
+                {isManualQuoteJourney
+                  ? "Review your quote request"
+                  : showsRequestQuoteFlow
+                    ? "Review your quote request"
+                    : isEnquiryOnly
+                      ? "Review your enquiry"
+                      : "Review your booking"}
               </p>
               <p className="mt-1 text-sm text-white/75">
-                {showsRequestQuoteFlow
-                  ? isOutOfAreaPickupJourney
-                    ? "Check your details, then request your fixed price — out-of-area pickups need manual approval."
-                    : isRoiJourney
-                      ? "Check your details, then request your fixed Republic of Ireland price."
-                      : "Check your details, then request a quote — we’ll confirm availability before the booking is accepted."
-                  : isEnquiryOnly
-                    ? "Check your details, then send an enquiry — we’ll quote you and confirm availability."
-                    : "Please check everything is correct before booking — wrong details can change your price."}
+                {isManualQuoteJourney
+                  ? "Check your details, then submit your quote request — we’ll review it and send your personalised price."
+                  : showsRequestQuoteFlow
+                    ? isOutOfAreaPickupJourney
+                      ? "Check your details, then request your fixed price — out-of-area pickups need manual approval."
+                      : isRoiJourney
+                        ? "Check your details, then request your fixed Republic of Ireland price."
+                        : "Check your details, then request a quote — we’ll confirm availability before the booking is accepted."
+                    : isEnquiryOnly
+                      ? "Check your details, then send an enquiry — we’ll quote you and confirm availability."
+                      : "Please check everything is correct before booking — wrong details can change your price."}
               </p>
             </div>
             <dl>
@@ -4332,11 +4570,7 @@ function QuoteCard({
               ) : isManualQuoteJourney ? (
                 <PreviewRow
                   label="Pricing"
-                  value={
-                    isOutOfAreaPickupJourney
-                      ? "Out-of-area pickup — request fixed quote (manual approval)"
-                      : "Request fixed quote — we’ll email your price"
-                  }
+                  value="Personalised quote — we’ll confirm your price"
                 />
               ) : showsRequestQuoteFlow && liveQuote ? (
                 <PreviewRow
@@ -4411,9 +4645,15 @@ function QuoteCard({
                 }
               }}
               error={termsError}
-              mode={canPayNowOnline ? "card-payment" : "booking-request"}
+              mode={
+                isManualQuoteJourney
+                  ? "quote-request"
+                  : canPayNowOnline
+                    ? "card-payment"
+                    : "booking-request"
+              }
               paymentAmountLabel={
-                isEnquiryOnly
+                isEnquiryOnly || isManualQuoteJourney
                   ? undefined
                   : testChargeAmount !== null
                     ? "£1.00"
@@ -4526,6 +4766,23 @@ function QuoteCard({
               >
                 Back to travel details
               </button>
+            ) : isManualQuoteJourney ? (
+              <div className="grid gap-3 sm:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={handleEditBooking}
+                  className="w-full rounded-xl border border-white/15 bg-white/5 py-3.5 text-sm font-semibold text-white transition-all hover:bg-white/10"
+                >
+                  Back to travel details
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitted || !termsAccepted}
+                  className="w-full rounded-xl bg-emerald py-3.5 text-sm font-bold text-navy transition-all hover:bg-emerald-light disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  {submitted ? submitInProgressLabel : confirmButtonLabel}
+                </button>
+              </div>
             ) : usesWhatsApp ? (
               <>
                 <p className="text-xs text-white/55">

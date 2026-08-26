@@ -27,6 +27,7 @@ import {
 } from "./pending-checkout-store";
 import { finalizeAmendmentTopUpCheckout, type FinalizeAmendmentTopUpResult } from "./amendment-topup";
 import { markShortNoticePaid } from "./short-notice-handlers";
+import { markA2aQuotePaid } from "./a2a-quote-handlers";
 import { markPersonalQuoteUsed } from "./personal-quote-store";
 import { markQuickQuotePaid } from "./quick-quote-store";
 import { markSavedQuoteBookedFromPayment } from "./saved-quote-handlers";
@@ -449,6 +450,14 @@ export async function finalizePaidCheckout(input: {
       await markShortNoticePaid(
         env.TRACKING_STORE,
         pending.shortNoticeToken,
+        paymentReference,
+        checkoutId,
+      );
+    }
+    if (pending?.a2aQuoteToken) {
+      await markA2aQuotePaid(
+        env.TRACKING_STORE,
+        pending.a2aQuoteToken,
         paymentReference,
         checkoutId,
       );

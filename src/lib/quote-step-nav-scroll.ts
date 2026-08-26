@@ -27,7 +27,11 @@ export type BookingNavTargetId =
   | "quote-price-summary"
   | "quote-step1-next"
   | "quote-step2-next"
-  | "quote-availability-confirmation";
+  | "quote-availability-confirmation"
+  | "bookingRequestResult"
+  | "step2-journey-summary"
+  | "quote-section-addresses"
+  | "quote-book-now-anchor";
 
 export type QuoteStepNavTarget = 1 | 2 | 3;
 
@@ -142,6 +146,9 @@ export function scrollBookingTargetIntoView(
 /**
  * After React commits, scroll (and optionally focus) the target.
  * Cancel the returned cleanup if another navigation supersedes this one.
+ *
+ * Pass `correctAfterMs` after large DOM swaps (step change / success card) so
+ * iOS layout settle / document-height collapse cannot leave the user mid-page.
  */
 export function scheduleBookingNavAfterRender(
   target: BookingNavTargetId | HTMLElement | string | null | undefined,
@@ -149,6 +156,8 @@ export function scheduleBookingNavAfterRender(
     focusHeading?: boolean;
     behavior?: ScrollBehavior;
     clearancePx?: number;
+    /** Re-measure and correct if layout shifted after the first scroll. */
+    correctAfterMs?: number;
   },
 ): () => void {
   if (typeof window === "undefined") {
@@ -158,10 +167,134 @@ export function scheduleBookingNavAfterRender(
   const generation = getScrollJobGeneration();
   let cancelled = false;
   let raf2 = 0;
+  let correctionTimer = 0;
+  const clearancePx = options?.clearancePx ?? HEADER_CLEARANCE_PX;
+
+  const apply = (behavior?: ScrollBehavior) => {
+    scrollBookingTargetIntoView(target, {
+      focusHeading: options?.focusHeading,
+      behavior,
+      clearancePx,
+    });
+  };
+
   const raf1 = window.requestAnimationFrame(() => {
     raf2 = window.requestAnimationFrame(() => {
       if (cancelled || !isScrollJobGenerationCurrent(generation)) return;
-      scrollBookingTargetIntoView(target, options);
+      apply(options?.behavior);
+
+      const correctAfterMs = options?.correctAfterMs;
+      if (correctAfterMs == null || correctAfterMs <= 0) return;
+
+      correctionTimer = window.setTimeout(() => {
+        if (cancelled || !isScrollJobGenerationCurrent(generation)) return;
+        const element = resolveBookingNavElement(target);
+        if (!element) return;
+        const desired = computeScrollTopBelowHeader(element, clearancePx);
+        if (Math.abs(window.scrollY - desired) > RESULTS_CORRECTION_TOLERANCE_PX) {
+          window.scrollTo({ top: desired, behavior: "auto" });
+        }
+      }, correctAfterMs);
+    });
+  });
+
+  const cancel = () => {
+    cancelled = true;
+    window.cancelAnimationFrame(raf1);
+    if (raf2) window.cancelAnimationFrame(raf2);
+    if (correctionTimer) window.clearTimeout(correctionTimer);
+  };
+  return trackScrollJob(cancel);
+}
+
+/**
+ * Guided quote-flow scroll: cancel any in-flight scroll job, then scroll once.
+ * Use for every deliberate A2A/booking stage transition so effects cannot fight.
+ */
+export function scrollQuoteStage(
+  target: BookingNavTargetId | HTMLElement | string | null | undefined,
+  options?: {
+    focusHeading?: boolean;
+    behavior?: ScrollBehavior;
+    clearancePx?: number;
+    correctAfterMs?: number;
+  },
+): () => void {
+  cancelCompetingScrollJobs();
+  if (typeof document !== "undefined" && document.activeElement instanceof HTMLElement) {
+    document.activeElement.blur();
+  }
+  return scheduleBookingNavAfterRender(target, {
+    focusHeading: options?.focusHeading ?? true,
+    correctAfterMs: options?.correctAfterMs ?? 150,
+    behavior: options?.behavior,
+    clearancePx: options?.clearancePx,
+  });
+}
+
+/**
+ * After iPhone time picker Done/blur: land on YOUR JOURNEY without covering
+ * "Continue to your details".
+ *
+ * Aligns the journey summary under the sticky header, then clamps so
+ * `#quote-step2-next` (Back + Continue) stays fully visible. Does not focus
+ * headings — iOS focus scrolling was overshooting past the CTA.
+ */
+export function scrollJourneySummaryAfterTimeConfirm(
+  summary: BookingNavTargetId | HTMLElement | string | null | undefined,
+  continueCta: BookingNavTargetId | HTMLElement | string | null | undefined = "quote-step2-next",
+): () => void {
+  if (typeof window === "undefined") {
+    return () => {};
+  }
+
+  cancelCompetingScrollJobs();
+
+  const generation = getScrollJobGeneration();
+  let cancelled = false;
+  let raf2 = 0;
+
+  const apply = () => {
+    if (cancelled || !isScrollJobGenerationCurrent(generation)) return;
+
+    const summaryEl = resolveBookingNavElement(summary);
+    if (!summaryEl) return;
+
+    const clearancePx = HEADER_CLEARANCE_PX;
+    let nextTop = computeScrollTopBelowHeader(summaryEl, clearancePx);
+
+    const ctaEl = resolveBookingNavElement(continueCta);
+    if (ctaEl) {
+      const viewportHeight =
+        window.visualViewport?.height != null
+          ? Math.round(window.visualViewport.height + (window.visualViewport.offsetTop ?? 0))
+          : window.innerHeight;
+      const bottomPad = 16;
+      const ctaRect = ctaEl.getBoundingClientRect();
+      const ctaBottomDoc = window.scrollY + ctaRect.bottom;
+      // Do not scroll so far that Continue sits below the fold.
+      const maxKeepCtaInView = Math.max(0, Math.round(ctaBottomDoc - viewportHeight + bottomPad));
+      // Do not scroll so far that Continue is covered by the sticky header.
+      const headerBottom = getHeaderBottomPx();
+      const ctaTopDoc = window.scrollY + ctaRect.top;
+      const maxKeepCtaBelowHeader = Math.max(
+        0,
+        Math.round(ctaTopDoc - (headerBottom + clearancePx)),
+      );
+      nextTop = Math.min(nextTop, maxKeepCtaInView, maxKeepCtaBelowHeader);
+    }
+
+    nextTop = Math.max(0, nextTop);
+    const distance = Math.abs(window.scrollY - nextTop);
+    if (distance <= RESULTS_CORRECTION_TOLERANCE_PX) return;
+
+    const behavior = scrollBehaviorForDistance(distance);
+    window.scrollTo({ top: nextTop, behavior });
+  };
+
+  const raf1 = window.requestAnimationFrame(() => {
+    raf2 = window.requestAnimationFrame(() => {
+      apply();
     });
   });
 
