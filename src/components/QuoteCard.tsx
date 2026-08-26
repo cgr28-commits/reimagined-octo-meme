@@ -421,6 +421,7 @@ function QuoteCard({
   const cardRef = useRef<HTMLDivElement>(null);
   const step1JourneyRef = useRef<HTMLDivElement>(null);
   const step2TravelDetailsRef = useRef<HTMLDivElement>(null);
+  const step2JourneySummaryRef = useRef<HTMLDivElement>(null);
   const step3CustomerDetailsRef = useRef<HTMLDivElement>(null);
   const step3PaymentActionsRef = useRef<HTMLDivElement>(null);
   const shortNoticeResultRef = useRef<HTMLDivElement>(null);
@@ -2677,6 +2678,30 @@ function QuoteCard({
     return schedulePreciseResultsScroll("quote-route-summary");
   }, [quoteResultsReady, quoteStep]);
 
+  // Step 2: when date + pickup time first become a valid schedule, scroll once to
+  // the YOUR JOURNEY summary (not Personalised Quote / Continue). One-shot per
+  // step-2 visit so later time edits do not re-scroll.
+  const hadStep2ScheduleScrollRef = useRef(false);
+  useEffect(() => {
+    if (quoteStep !== 2) {
+      hadStep2ScheduleScrollRef.current = false;
+      return;
+    }
+    if (!isScheduleComplete) {
+      return;
+    }
+    if (hadStep2ScheduleScrollRef.current) return;
+    hadStep2ScheduleScrollRef.current = true;
+    // Dismiss iOS time picker / keyboard before measuring scroll.
+    if (typeof document !== "undefined" && document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+    return scheduleBookingNavAfterRender(
+      step2JourneySummaryRef.current ?? "step2-journey-summary",
+      { focusHeading: true, correctAfterMs: 150 },
+    );
+  }, [isScheduleComplete, quoteStep]);
+
   // Legacy (non-A2A) form: addresses → One Way/Return, then passengers after mode chosen.
   const hadLegacyJourneyModeScrollRef = useRef(false);
   const hadLegacyPartyScrollRef = useRef(false);
@@ -3460,7 +3485,7 @@ function QuoteCard({
                       {renderQuotePriceSummaryBody()}
                     </div>
 
-                    {/* Non-sticky scroll target — sticky Book Now wrappers defeat iOS scrollIntoView/rect math. */}
+                    {/* Non-sticky scroll target — sticky Book Now wrappers defeat iOS scroll rect math. */}
                     <div
                       id="quote-book-now-anchor"
                       className="h-px w-full scroll-mt-44 md:scroll-mt-28"
@@ -4052,8 +4077,18 @@ function QuoteCard({
           </div>
         </div>
 
-        <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3">
-          <p className="text-xs font-medium uppercase tracking-wider text-white/50">Your Journey</p>
+        <div
+          id="step2-journey-summary"
+          ref={step2JourneySummaryRef}
+          className="scroll-mt-44 rounded-xl border border-white/10 bg-white/5 px-4 py-3 md:scroll-mt-28"
+        >
+          <p
+            data-booking-nav-heading
+            tabIndex={-1}
+            className="text-xs font-medium uppercase tracking-wider text-white/50 outline-none"
+          >
+            Your Journey
+          </p>
           <p className="mt-2 text-sm font-semibold text-white">
             {pickupLabel || "Pickup"}
           </p>

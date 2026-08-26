@@ -40,12 +40,16 @@ assert.doesNotMatch(card, /pendingScrollToStep2DateRef/);
 assert.doesNotMatch(card, /pendingScrollToStep3CustomerRef/);
 assert.doesNotMatch(card, /scheduleReadyForScrollRef/);
 
-// Selection-driven scrollIntoView must not live in QuoteCard body helpers —
-// only the dedicated mobile step-nav helper may call scrollIntoView.
-assert.doesNotMatch(card, /scrollIntoView/);
+// No direct element.scrollIntoView in QuoteCard — booking-nav helper owns scrolling.
+assert.doesNotMatch(card, /\.scrollIntoView\s*\(/);
 assert.match(card, /scheduleBookingNavAfterRender/);
 assert.match(card, /pendingQuoteStepNavScrollRef/);
 assert.match(card, /from "@\/lib\/quote-step-nav-scroll"/);
+
+// Allowed one-shot: step-2 schedule complete → YOUR JOURNEY (not every keystroke).
+assert.match(card, /hadStep2ScheduleScrollRef/);
+assert.match(card, /id="step2-journey-summary"/);
+assert.match(card, /step2JourneySummaryRef\.current \?\? "step2-journey-summary"/);
 
 // Section ids remain in normal document flow (customers scroll manually for selections).
 assert.match(progressive, /id="quote-section-passengers"/);
@@ -54,7 +58,7 @@ assert.match(progressive, /id="quote-section-journey"/);
 
 // Luggage: single 0–4|5+ row — no Exact Large Bags / duplicate 5+ controls.
 assert.match(progressive, /formatSuitcaseChoice/);
-assert.match(progressive, /FIVE_PLUS_SUITCASES/);
+assert.match(read("src/lib/vehicle-selection.ts"), /FIVE_PLUS_SUITCASES/);
 assert.doesNotMatch(progressive, /label="Exact large bags/);
 assert.doesNotMatch(progressive, /quote-section-exact-suitcases/);
 
@@ -66,7 +70,8 @@ assert.doesNotMatch(card, /placeholder="Quote code"/);
 
 console.log("OK  quote-mobile-scroll helper removed");
 console.log("OK  progressive route has no auto-scroll after selections");
-console.log("OK  QuoteCard has no selection auto-scroll (step-nav scroll allowed)");
+console.log("OK  QuoteCard has no per-selection auto-scroll (step-nav + schedule-complete allowed)");
+console.log("OK  step-2 schedule-complete scrolls to YOUR JOURNEY once");
 console.log("OK  luggage is single 0–4|5+ row (no Exact Large Bags)");
 console.log("OK  personal quote code-entry UI remains removed");
 console.log("\nAll quote no-autoscroll checks passed.");

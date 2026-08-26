@@ -165,6 +165,30 @@ check("Quote/booking submission confirmation scrolls into view", () => {
   assert.match(card, /Quote request received/);
 });
 
+check("Step 2 schedule-complete scrolls once to YOUR JOURNEY summary", () => {
+  assert.match(helper, /step2-journey-summary/);
+  assert.match(card, /id="step2-journey-summary"/);
+  assert.match(card, /step2JourneySummaryRef/);
+  assert.match(card, /hadStep2ScheduleScrollRef/);
+  assert.match(card, /isScheduleComplete/);
+  assert.match(
+    card,
+    /hadStep2ScheduleScrollRef\.current = true;[\s\S]*scheduleBookingNavAfterRender\(\s*step2JourneySummaryRef\.current \?\? "step2-journey-summary"/,
+  );
+  assert.match(
+    card,
+    /useEffect\(\(\) => \{[\s\S]*if \(quoteStep !== 2\)[\s\S]*isScheduleComplete[\s\S]*\}, \[isScheduleComplete, quoteStep\]\)/,
+  );
+  // Must target journey summary — not Personalised Quote / Continue CTAs
+  assert.doesNotMatch(
+    card.slice(
+      card.indexOf("hadStep2ScheduleScrollRef"),
+      card.indexOf("Legacy (non-A2A) form"),
+    ),
+    /quote-price-summary|quote-step2-next|Continue to your details/,
+  );
+});
+
 check("Validation focuses invalid fields", () => {
   assert.match(card, /focusFirstInvalidField/);
   assert.match(card, /aria-invalid=\{Boolean\(tripDateError\)\}/);
