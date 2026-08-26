@@ -21,6 +21,8 @@ export type PaymentCheckoutRequest = {
   booking?: BookingDetails;
   /** After Owner approval — pay the locked short-notice booking (no re-entry). */
   shortNoticeToken?: string;
+  /** After Owner A2A quote approval — pay the locked personalised quote. */
+  a2aQuoteToken?: string;
   /**
    * Personal quote code. Server re-validates and overwrites `amount` from KV.
    * Never rely on the client amount when this is set.
@@ -135,7 +137,7 @@ export async function createPaymentCheckout(
     throw new Error("Online payment is not configured");
   }
 
-  if (!request.shortNoticeToken) {
+  if (!request.shortNoticeToken && !request.a2aQuoteToken) {
     if (!request.booking) {
       throw new Error("Missing booking details");
     }
@@ -173,6 +175,7 @@ export async function createPaymentCheckout(
       redirectUrl: request.redirectUrl ?? buildPaymentRedirectUrl(),
       ...(booking ? { booking } : {}),
       ...(request.shortNoticeToken ? { shortNoticeToken: request.shortNoticeToken } : {}),
+      ...(request.a2aQuoteToken ? { a2aQuoteToken: request.a2aQuoteToken } : {}),
       ...(request.personalQuoteCode ? { personalQuoteCode: request.personalQuoteCode } : {}),
       ...(request.quickQuoteId ? { quickQuoteId: request.quickQuoteId } : {}),
       ...(request.savedQuoteToken ? { savedQuoteToken: request.savedQuoteToken } : {}),

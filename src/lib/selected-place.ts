@@ -413,11 +413,11 @@ export function isGreaterBelfastDestination(place: SelectedPlace): boolean {
 }
 
 /**
- * Journeys that must not show an automatic fare or immediate payment —
- * ROI city destinations (not DUB), or pickups outside NI / not into Greater Belfast.
+ * Journeys that must not show an automatic fare or immediate payment:
+ * - Pure Address-to-Address (no airport on either leg) — personalised quote
+ * - ROI city destinations (not DUB airport), or pickups outside NI / not into Greater Belfast
  *
- * Live quotes are allowed for Northern Ireland pickups (anywhere in NI) when the
- * destination is within Greater Belfast — priced via the existing A2A / airport path.
+ * Airport journeys (BFS / BHD / DUB / LDY) keep the instant-quote path.
  */
 export function needsManualQuoteApproval(
   pickup: SelectedPlace,
@@ -426,6 +426,14 @@ export function needsManualQuoteApproval(
   if (!isPlaceSelected(pickup) || !isPlaceSelected(dropoff)) {
     return false;
   }
+
+  // All pure address↔address journeys require a personalised quote (no live £).
+  const pickupAirport = detectAirportCodeFromPlace(pickup);
+  const dropoffAirport = detectAirportCodeFromPlace(dropoff);
+  if (!pickupAirport && !dropoffAirport) {
+    return true;
+  }
+
   if (isOutOfAreaPickup(pickup)) {
     if (isNorthernIrelandPlace(pickup) && isGreaterBelfastDestination(dropoff)) {
       return false;

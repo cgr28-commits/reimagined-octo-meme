@@ -35,7 +35,6 @@
     "check:paid-booking-ads-conversion": "npx tsx scripts/check-paid-booking-ads-conversion.ts",
     "check:sumup-booking-conversion": "npx tsx scripts/check-sumup-booking-conversion.ts",
     "check:emerge-belfast": "npx tsx scripts/check-emerge-belfast-page.ts",
-    "check:emerge-boucher-city-centre-fare": "npx tsx scripts/check-emerge-boucher-city-centre-fare.ts",
     "check:journey-tracking": "npx tsx scripts/check-journey-tracking.ts",
     "check:review-request": "npx tsx scripts/check-review-request.ts",
     "check:tracking-email-delivery": "npx tsx scripts/check-tracking-email-delivery.ts",
@@ -71,7 +70,8 @@
     "check:sumup-refund-reconcile": "npx tsx scripts/check-sumup-refund-reconcile.ts",
     "check:refund-prod-readiness": "npx tsx scripts/check-refund-prod-readiness.ts",
     "check:refund-test-one-pound": "npx tsx scripts/check-refund-test-one-pound.ts",
-    "check:refund-workflow-ui": "npx tsx scripts/check-refund-workflow-ui.ts"
+    "check:refund-workflow-ui": "npx tsx scripts/check-refund-workflow-ui.ts",
+    "check:a2a-personalised-quote": "npx tsx scripts/check-a2a-personalised-quote.ts"
   },
   "dependencies": {
     "leaflet": "^1.9.4",

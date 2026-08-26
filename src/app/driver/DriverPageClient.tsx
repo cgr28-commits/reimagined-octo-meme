@@ -9,6 +9,7 @@ import OwnerPaidBookingsPanel from "@/components/OwnerPaidBookingsPanel";
 import OwnerAmendmentTestPanel from "@/components/OwnerAmendmentTestPanel";
 import OwnerShortNoticePanel from "@/components/OwnerShortNoticePanel";
 import OwnerPersonalQuotesPanel from "@/components/OwnerPersonalQuotesPanel";
+import OwnerA2aQuotesPanel from "@/components/OwnerA2aQuotesPanel";
 import OwnerBookingCalendar from "@/components/OwnerBookingCalendar";
 import OwnerAccountProfilePanel from "@/components/OwnerAccountProfilePanel";
 import OwnerFinancialSummaryPanel from "@/components/OwnerFinancialSummaryPanel";
@@ -2896,6 +2897,16 @@ export default function DriverPageClient({
                   value={ownerToolTab}
                   onChange={setOwnerToolTab}
                 />
+              ) : null}
+
+              {isOwnerView && savedKey && ownerToolTab === "a2a-quotes" ? (
+                <div
+                  id="owner-tool-panel-a2a-quotes"
+                  role="tabpanel"
+                  aria-labelledby="owner-tool-tab-a2a-quotes"
+                >
+                  <OwnerA2aQuotesPanel ownerKey={savedKey} />
+                </div>
               ) : null}
 
               {isOwnerView && savedKey && ownerToolTab === "personal-quotes" ? (

@@ -1117,25 +1117,9 @@ function QuoteCard({
           routeMetrics,
         );
       }
-      // Address↔address (incl. temporary EMERGE Boucher↔city-centre £24 fare).
-      // Festival fixed fare can resolve without route metrics; normal A2A still needs them.
+      // Address↔address: no live public price (personalised quote). Needs route metrics
+      // only if owner tools compute a guide fare via calculatePointToPointQuote.
       if (!routeMetrics) {
-        const festivalProbe = calculatePointToPointQuote(
-          pickupAddress,
-          dropoffAddress,
-          quoteVehicle,
-          returnJourney,
-          schedule,
-          null,
-          null,
-          {
-            pickup: pickupPlace ?? undefined,
-            dropoff: dropoffPlace ?? undefined,
-          },
-        );
-        if (festivalProbe) {
-          return festivalProbe;
-        }
         return null;
       }
       if (isDublinCityCorridor) {
@@ -1158,10 +1142,6 @@ function QuoteCard({
         schedule,
         routeMetrics,
         null,
-        {
-          pickup: pickupPlace ?? undefined,
-          dropoff: dropoffPlace ?? undefined,
-        },
       );
     }
 
@@ -2390,25 +2370,47 @@ function QuoteCard({
         const enquiryMessage = buildEnquiryBookingMessage(details);
         const subject = pricingConfirmationRequired
           ? `Price confirmation request — ${details.customerName}`
+          : journeyKind === "address-to-address"
+            ? `Address-to-Address quote request — ${details.customerName}`
           : isOutOfAreaPickupJourney
           ? `Out-of-area pickup quote request — ${details.customerName}`
           : isRoiJourney
             ? `ROI long-distance quote request — ${details.customerName}`
             : `New vehicle enquiry — ${details.customerName}`;
+
+        // Persist A2A personalised-quote requests into Owner dashboard (Awaiting Quote).
+        if (journeyKind === "address-to-address" && isManualQuoteJourney) {
+          try {
+            const { createA2aQuoteRequest } = await import("@/lib/a2a-quote-api");
+            const created = await createA2aQuoteRequest({
+              ...details,
+              estimatedPrice: null,
+              isAirportTrip: false,
+            });
+            if (created.reference) {
+              reference = created.reference;
+            }
+          } catch (persistErr) {
+            console.error("A2A quote request persist failed", persistErr);
+          }
+        }
+
         if (!isMobile || delivery === "email") {
-          reference = await submitEnquiryByEmail({
+          const emailRef = await submitEnquiryByEmail({
             customerName: details.customerName,
             message: enquiryMessage,
             subject,
             booking: details,
           });
+          if (!reference) reference = emailRef;
         } else {
-          reference = await submitMobileWhatsAppEnquiry({
+          const waRef = await submitMobileWhatsAppEnquiry({
             customerName: details.customerName,
             message: enquiryMessage,
             subject,
             booking: details,
           });
+          if (!reference) reference = waRef;
         }
       } else if (!isMobile || delivery === "email") {
         reference = await submitBookingByEmail(details);
@@ -2669,10 +2671,10 @@ function QuoteCard({
 
   const confirmButtonLabel = showsRequestQuoteFlow
     ? pricingConfirmationRequired || isManualQuoteJourney
-      ? "Request Fixed Quote"
+      ? "Request a Quote"
       : liveQuote
         ? `Request quote · ${formatQuote(liveQuote.amount)}`
-        : "Request a quote"
+        : "Request a Quote"
     : isEnquiryOnly
       ? "Send enquiry"
       : liveQuote
@@ -2681,10 +2683,10 @@ function QuoteCard({
 
   const whatsAppConfirmLabel = showsRequestQuoteFlow
     ? pricingConfirmationRequired || isManualQuoteJourney
-      ? "Request Fixed Quote via WhatsApp"
+      ? "Chat on WhatsApp"
       : liveQuote
         ? `Request quote via WhatsApp — ${formatQuote(liveQuote.amount)}`
-        : "Request quote via WhatsApp"
+        : "Chat on WhatsApp"
     : isEnquiryOnly
       ? "Send enquiry via WhatsApp"
       : liveQuote
@@ -2699,9 +2701,11 @@ function QuoteCard({
         : "Enter your journey details to request a confirmed price."
     : isManualQuoteJourney
     ? hasQuoteRoute
-      ? isOutOfAreaPickupJourney
+      ? journeyKind === "address-to-address"
+        ? "Continue to request a personalised quote — no instant price for address-to-address."
+        : isOutOfAreaPickupJourney
         ? "Continue to request your fixed price — out-of-area pickups need manual approval."
-        : "Continue to request your fixed Republic of Ireland price."
+        : "Continue to request your personalised quote."
       : "Select pickup and drop-off addresses from the suggestions."
     : isA2AFlow && !isAddressPairComplete
       ? "Select pickup and drop-off addresses from the suggestions to see your price."
@@ -2826,17 +2830,17 @@ function QuoteCard({
         ) : isManualQuoteJourney ? (
           <>
             <p className="text-xs font-medium uppercase tracking-wider text-emerald">
-              {isOutOfAreaPickupJourney
-                ? "Out-of-area pickup"
-                : "Republic of Ireland long-distance transfer"}
+              Personalised Quote
             </p>
             <p className="mt-1 text-xl font-semibold tracking-tight text-white sm:text-2xl">
-              Request your fixed price
+              Please contact us for availability and a personalised quote.
             </p>
             <p className="mt-2 text-sm leading-relaxed text-white/70">
               {isOutOfAreaPickupJourney
-                ? "This pickup is outside our standard Greater Belfast area and needs manual approval. Continue to send your trip details — we’ll email your personal fixed price. No automatic fare or online payment until confirmed."
-                : "Republic of Ireland city destinations are quoted individually. Continue to send your trip details and we’ll email your personal fixed price."}
+                ? "This pickup needs manual review. Continue with WhatsApp or Request a Quote — we’ll confirm availability and your personal price. No automatic fare or online payment until approved."
+                : journeyKind === "address-to-address"
+                  ? "Address-to-address journeys are quoted personally. Enter your details, then chat on WhatsApp or Request a Quote — we won’t show an instant price."
+                  : "Continue to send your trip details and we’ll email your personal fixed price. No automatic fare or online payment until confirmed."}
             </p>
             {journeyDistanceLabel && journeyDurationLabel && (
               <p className="mt-2 text-xs text-white/60">
@@ -2970,7 +2974,7 @@ function QuoteCard({
         )}
         <p className="mt-3 text-[11px] text-white/40">
           {pricingConfirmationRequired || isManualQuoteJourney
-            ? "Request Fixed Quote — we’ll confirm your personal price before any payment is taken."
+            ? "Request a Quote — we’ll confirm your personal price before any payment is taken."
             : showsRequestQuoteFlow
               ? "Request a quote — we’ll confirm availability before the booking is accepted. No online payment until confirmed."
               : isEnquiryOnly
@@ -4332,11 +4336,7 @@ function QuoteCard({
               ) : isManualQuoteJourney ? (
                 <PreviewRow
                   label="Pricing"
-                  value={
-                    isOutOfAreaPickupJourney
-                      ? "Out-of-area pickup — request fixed quote (manual approval)"
-                      : "Request fixed quote — we’ll email your price"
-                  }
+                  value="Personalised quote — Request a Quote"
                 />
               ) : showsRequestQuoteFlow && liveQuote ? (
                 <PreviewRow

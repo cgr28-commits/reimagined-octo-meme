@@ -22,10 +22,6 @@ import {
   PRICING_CONFIG,
   type AirportCode,
 } from "./pricing-config";
-import {
-  resolveEmergeBoucherCityCentreOneWayGbp,
-  type FestivalEndpoint,
-} from "./emerge-belfast-festival-fare";
 
 type Area = (typeof AREAS)[number];
 
@@ -529,11 +525,6 @@ export function matchAreaFromAddress(address: string): Area | null {
   return null;
 }
 
-export type PointToPointEndpoints = {
-  pickup?: FestivalEndpoint;
-  dropoff?: FestivalEndpoint;
-};
-
 export function calculatePointToPointQuote(
   pickupAddress: string,
   dropoffAddress: string,
@@ -542,7 +533,10 @@ export function calculatePointToPointQuote(
   schedule: TripSchedule = {},
   routeMetrics?: TripRouteMetrics | null,
   airportCode?: string | null,
-  endpoints?: PointToPointEndpoints,
+  _endpoints?: {
+    pickup?: { address?: string | null; placeName?: string | null; lat?: number | null; lng?: number | null; postalCode?: string | null };
+    dropoff?: { address?: string | null; placeName?: string | null; lat?: number | null; lng?: number | null; postalCode?: string | null };
+  },
 ): QuoteResult | null {
   const pickup = pickupAddress.trim();
   const dropoff = dropoffAddress.trim();
@@ -554,33 +548,6 @@ export function calculatePointToPointQuote(
   const dropoffArea = matchAreaFromAddress(dropoff);
   const vehicleMultiplier = VEHICLE_MULTIPLIERS[vehicleType] ?? 1;
   const vehicleAdjustment = POINT_TO_POINT_VEHICLE_ADJUSTMENTS[vehicleType] ?? 0;
-
-  // Temporary EMERGE weekend fare £24 (29–30 Aug 2026 only) — date-gated; auto-expires.
-  const festivalOneWay = resolveEmergeBoucherCityCentreOneWayGbp({
-    pickup: {
-      address: pickup,
-      ...(endpoints?.pickup ?? {}),
-    },
-    dropoff: {
-      address: dropoff,
-      ...(endpoints?.dropoff ?? {}),
-    },
-    outboundDate: schedule.outboundDate,
-  });
-  if (festivalOneWay != null) {
-    const total = returnJourney ? getReturnJourneyFare(festivalOneWay) : festivalOneWay;
-    return {
-      amount: roundFare(total),
-      area: dropoffArea ?? pickupArea,
-      areaSurcharge: 0,
-      airportBase: festivalOneWay,
-      vehicleMultiplier,
-      vehicleAdjustment,
-      pickupArea,
-      dropoffArea,
-      premiumApplied: false,
-    };
-  }
 
   // Do not invent A2A fares without a real driving route (prevents silent low fallbacks).
   if (!isValidRouteMetrics(routeMetrics)) {

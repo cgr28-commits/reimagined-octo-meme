@@ -155,9 +155,10 @@ check("Dublin Airport keeps instant quote (not ROI fixed-quote)", () => {
   assert.equal(needsManualQuoteApproval(dub!, belfastHome), false);
 });
 
-check("Dublin city is a priced corridor (DUB fare + beyond), not a blank ROI quote", () => {
+check("Dublin city address↔address requires personalised quote (no live £)", () => {
   assert.equal(isRepublicOfIrelandJourney(belfastHome, dublinCity), true);
-  assert.equal(needsManualQuoteApproval(belfastHome, dublinCity), false);
+  assert.equal(detectJourneyKind(belfastHome, dublinCity), "address-to-address");
+  assert.equal(needsManualQuoteApproval(belfastHome, dublinCity), true);
 });
 
 check("Greater Belfast address is a standard instant pickup", () => {
@@ -172,19 +173,19 @@ check("BFS, BHD and DUB airports are standard instant pickups", () => {
   assert.equal(isStandardInstantPickup(dub!), true);
 });
 
-check("NI pickup outside Greater Belfast → Greater Belfast gets a live quote", () => {
+check("NI pickup outside Greater Belfast → Greater Belfast is personalised A2A quote", () => {
   assert.equal(isOutOfAreaPickup(newryPickup), true);
   assert.equal(isStandardInstantPickup(newryPickup), false);
-  assert.equal(needsManualQuoteApproval(newryPickup, bangorHome), false);
+  assert.equal(needsManualQuoteApproval(newryPickup, bangorHome), true);
   assert.equal(needsManualQuoteApproval(newryPickup, dublinCity), true);
 });
 
-check("NI pickup (Derry city) → Belfast gets a live quote", () => {
+check("NI pickup (Derry city) → Belfast is personalised A2A quote", () => {
   assert.equal(isOutOfAreaPickup(derryCityPickup), true);
-  assert.equal(needsManualQuoteApproval(derryCityPickup, belfastHome), false);
+  assert.equal(needsManualQuoteApproval(derryCityPickup, belfastHome), true);
 });
 
-check("Omagh / short NI label → Boucher Playing Fields gets a live quote", () => {
+check("Omagh → Boucher Playing Fields is personalised A2A quote (no live £)", () => {
   const omaghUk = place({
     placeId: "omagh-uk",
     formattedAddress: "Omagh, UK",
@@ -196,7 +197,7 @@ check("Omagh / short NI label → Boucher Playing Fields gets a live quote", () 
     countryCode: "GB",
   });
   assert.equal(isOutOfAreaPickup(omaghUk), true);
-  assert.equal(needsManualQuoteApproval(omaghUk, boucher), false);
+  assert.equal(needsManualQuoteApproval(omaghUk, boucher), true);
 });
 
 check("Bangor to Cork is ROI manual quote (standard Greater Belfast pickup)", () => {
@@ -205,8 +206,21 @@ check("Bangor to Cork is ROI manual quote (standard Greater Belfast pickup)", ()
   assert.equal(needsManualQuoteApproval(bangorHome, corkCity), true);
 });
 
-check("Belfast to Bangor keeps instant quote (NI A2A, standard pickup)", () => {
-  assert.equal(needsManualQuoteApproval(belfastHome, bangorHome), false);
+check("Belfast to Bangor is personalised A2A quote (no instant price)", () => {
+  assert.equal(detectJourneyKind(belfastHome, bangorHome), "address-to-address");
+  assert.equal(needsManualQuoteApproval(belfastHome, bangorHome), true);
+});
+
+check("Boucher Playing Fields ↔ Belfast city centre is personalised A2A quote", () => {
+  const boucher = place({
+    placeId: "boucher",
+    formattedAddress: "Boucher Playing Fields, Belfast BT12 6HR, UK",
+    countryCode: "GB",
+    postalCode: "BT12 6HR",
+  });
+  assert.equal(detectJourneyKind(belfastHome, boucher), "address-to-address");
+  assert.equal(needsManualQuoteApproval(belfastHome, boucher), true);
+  assert.equal(needsManualQuoteApproval(boucher, belfastHome), true);
 });
 
 check("A2A Places mode allows NI and ROI labels", () => {
