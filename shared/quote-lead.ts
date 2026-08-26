@@ -1,3 +1,7 @@
+import {
+  formatAdsAttributionForOwner,
+  type AdsAttribution,
+} from "./ads-attribution";
 import { formatUkDateTime, formatUkSubmissionTime } from "./uk-time";
 
 export type QuoteLeadDetails = {
@@ -17,6 +21,8 @@ export type QuoteLeadDetails = {
   journeyDistance?: string;
   journeyDuration?: string;
   isAirportTrip: boolean;
+  /** Consent-gated Ads/UTM attribution when available at quote time. */
+  attribution?: AdsAttribution;
 };
 
 function scheduleLabel(date?: string, time?: string): string {
@@ -81,6 +87,11 @@ export function buildQuoteLeadMessage(details: QuoteLeadDetails): string {
 
   if (details.journeyDistance && details.journeyDuration) {
     lines.push(`Journey: ${details.journeyDistance} · ${details.journeyDuration}`);
+  }
+
+  const attributionLines = formatAdsAttributionForOwner(details.attribution);
+  if (attributionLines.length > 0) {
+    lines.push("", "ATTRIBUTION", "=".repeat(40), ...attributionLines);
   }
 
   lines.push(

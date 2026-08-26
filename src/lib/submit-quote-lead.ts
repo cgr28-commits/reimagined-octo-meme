@@ -1,11 +1,8 @@
 import {
   buildQuoteLeadFingerprint,
-  buildQuoteLeadMessage,
-  buildQuoteLeadSubject,
   type QuoteLeadDetails,
 } from "../../shared/quote-lead";
-import { SITE } from "@/lib/data";
-import { sendViaFormSubmitEmail } from "../../shared/email-delivery";
+import { readConsentedAdsAttribution } from "@/lib/ads-attribution";
 
 const SESSION_STORAGE_KEY = "matni-quote-lead-sent";
 const DEBOUNCE_MS = 4000;
@@ -69,19 +66,18 @@ function rememberSentFingerprint(fingerprint: string): void {
   }
 }
 
-async function submitQuoteLeadViaBrowser(details: QuoteLeadDetails): Promise<boolean> {
-  return sendViaFormSubmitEmail({
-    to: SITE.email,
-    subject: buildQuoteLeadSubject(details),
-    textBody: buildQuoteLeadMessage(details),
-    fromName: SITE.name,
-  });
+function withAttribution(details: QuoteLeadDetails): QuoteLeadDetails {
+  if (details.attribution) {
+    return details;
+  }
+
+  const attribution = readConsentedAdsAttribution();
+  return attribution ? { ...details, attribution } : details;
 }
 
 async function postQuoteLeadToWorker(
   details: QuoteLeadDetails,
   fingerprint: string,
-  options: { skipEmail?: boolean },
 ): Promise<{ ok: boolean; emailed: boolean; deduplicated: boolean }> {
   try {
     const response = await fetch(QUOTE_LEADS_API_URL, {
@@ -93,7 +89,9 @@ async function postQuoteLeadToWorker(
       body: JSON.stringify({
         ...details,
         fingerprint,
-        skipEmail: options.skipEmail === true,
+        // Always let the Worker send via Resend / operational providers.
+        // Browser FormSubmit previously returned false "success" and skipped email.
+        skipEmail: false,
       }),
     });
 
@@ -114,29 +112,21 @@ async function postQuoteLeadToWorker(
 }
 
 export async function submitQuoteLead(details: QuoteLeadDetails): Promise<void> {
-  const fingerprint = buildQuoteLeadFingerprint(details);
+  const enriched = withAttribution(details);
+  const fingerprint = buildQuoteLeadFingerprint(enriched);
   const sent = readSentFingerprints();
   if (sent.has(fingerprint)) {
     return;
   }
 
-  // Prefer browser FormSubmit (visitor IP). The shared worker IP is often
-  // rate-limited by FormSubmit/Web3Forms, which caused silent missed alerts.
-  const browserSent = await submitQuoteLeadViaBrowser(details).catch(() => false);
-
-  if (browserSent) {
-    await postQuoteLeadToWorker(details, fingerprint, { skipEmail: true });
-    rememberSentFingerprint(fingerprint);
-    return;
-  }
-
-  const worker = await postQuoteLeadToWorker(details, fingerprint, { skipEmail: false });
+  // Worker-only (Resend / preferWorkerProviders). Do not trust FormSubmit success.
+  const worker = await postQuoteLeadToWorker(enriched, fingerprint);
   if (worker.deduplicated || worker.emailed) {
     rememberSentFingerprint(fingerprint);
     return;
   }
 
-  throw new Error("Quote lead email failed via browser and worker");
+  throw new Error("Quote lead email failed via worker");
 }
 
 export function scheduleQuoteLeadAlert(
