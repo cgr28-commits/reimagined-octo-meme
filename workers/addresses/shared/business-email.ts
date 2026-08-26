@@ -16,3 +16,29 @@ export function businessMailbox(_candidate?: string | null): string {
 export function isBusinessMailbox(email: string | null | undefined): boolean {
   return (email ?? "").trim().toLowerCase() === BUSINESS_MAILBOX;
 }
+
+/**
+ * Force SumUp browser returns for /booking-confirmed/ onto the canonical www host.
+ * Apex myairporttaxini.co.uk does not serve this route (404).
+ */
+export function canonicalizeBookingConfirmedRedirectUrl(redirectUrl: string): string {
+  const trimmed = redirectUrl.trim();
+  if (!trimmed) return trimmed;
+  try {
+    const parsed = new URL(trimmed);
+    const normalizedPath = parsed.pathname.replace(/\/+$/, "") || "/";
+    if (normalizedPath !== "/booking-confirmed") {
+      return trimmed;
+    }
+    const canonical = new URL("/booking-confirmed/", `${BUSINESS_WEBSITE}/`);
+    parsed.searchParams.forEach((value, key) => {
+      canonical.searchParams.set(key, value);
+    });
+    if (parsed.hash) {
+      canonical.hash = parsed.hash;
+    }
+    return canonical.toString();
+  } catch {
+    return trimmed;
+  }
+}

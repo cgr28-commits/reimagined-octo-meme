@@ -104,8 +104,25 @@ console.log("OK  short-notice pay also uses same-tab assign");
 const createPayment = read("src/lib/create-payment.ts");
 assert.match(createPayment, /buildPaymentRedirectUrl/);
 assert.match(createPayment, /booking-confirmed/);
+assert.match(createPayment, /SITE\.url\.replace/);
+assert.doesNotMatch(createPayment, /window\.location\.origin/);
 assert.doesNotMatch(createPayment, /SUMUP_API_KEY|SUMUP_MERCHANT/);
-console.log("OK  create-payment has return URL; no SumUp secrets in frontend");
+console.log("OK  create-payment has canonical www return URL; no SumUp secrets in frontend");
+
+const quoteCard = read("src/components/QuoteCard.tsx");
+assert.match(quoteCard, /SITE\.url\.replace/);
+assert.doesNotMatch(
+  quoteCard,
+  /new URL\("\/booking-confirmed\/", window\.location\.origin\)/,
+);
+console.log("OK  QuoteCard payment=return hop uses www, not location.origin");
+
+const businessEmail = read("shared/business-email.ts");
+assert.match(businessEmail, /canonicalizeBookingConfirmedRedirectUrl/);
+assert.match(businessEmail, /www\.myairporttaxini\.co\.uk/);
+const workerPayments = read("workers/addresses/src/index.ts");
+assert.match(workerPayments, /canonicalizeBookingConfirmedRedirectUrl/);
+console.log("OK  Worker rewrites booking-confirmed redirects onto www");
 
 const finalize = read("src/lib/finalize-paid-booking.ts");
 assert.match(finalize, /confirmPaidBooking/);

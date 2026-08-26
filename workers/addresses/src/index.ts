@@ -168,7 +168,7 @@ import {
   getPersonalQuoteReservation,
   tryAcquirePersonalQuoteReservation,
 } from "./personal-quote-store";
-import { BUSINESS_WEBSITE } from "../shared/business-email";
+import { BUSINESS_WEBSITE, canonicalizeBookingConfirmedRedirectUrl } from "../shared/business-email";
 import {
   handleReviewRequestSendRequest,
   isReviewRequestSendPath,
@@ -1322,7 +1322,9 @@ async function handlePaymentRequest(
   /** Client-reported website fare for audit only — never used as SumUp amount when a quote applies. */
   const clientStandardWebsiteAmount = Number(body.standardWebsiteAmount);
   const description = String(body.description ?? "").trim();
-  const redirectUrl = String(body.redirectUrl ?? "").trim();
+  const redirectUrl = canonicalizeBookingConfirmedRedirectUrl(
+    String(body.redirectUrl ?? "").trim(),
+  );
   let booking = parsePaidBookingDetails(body);
   let shortNoticeReference: string | undefined;
   let personalQuoteCode: string | undefined;
