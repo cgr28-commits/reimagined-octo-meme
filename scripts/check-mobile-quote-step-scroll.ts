@@ -69,6 +69,11 @@ check("Scroll effect consumes pending flag once and is quoteStep-gated", () => {
     /pendingQuoteStepNavScrollRef\.current = null;[\s\S]*scheduleBookingNavAfterRender/,
   );
   assert.match(card, /useEffect\(\(\) => \{[\s\S]*pendingQuoteStepNavScrollRef[\s\S]*\}, \[quoteStep\]\)/);
+  assert.match(card, /correctAfterMs:\s*150/);
+  assert.match(
+    card,
+    /document\.activeElement\.blur\(\);[\s\S]*pendingQuoteStepNavScrollRef\.current = 2/,
+  );
 });
 
 check("Helper measures header offset and respects reduced motion", () => {
@@ -78,6 +83,8 @@ check("Helper measures header offset and respects reduced motion", () => {
   assert.match(helper, /focusFirstInvalidField/);
   assert.match(helper, /requestAnimationFrame/);
   assert.match(helper, /cancelled/);
+  assert.match(helper, /correctAfterMs/);
+  assert.match(helper, /bookingRequestResult/);
 });
 
 check("Selection-driven auto-scroll stays removed", () => {
@@ -136,6 +143,26 @@ check("Blocked availability result scrolls to confirmation card on mobile", () =
   assert.match(helper, /HEADER_CLEARANCE_PX/);
   assert.match(helper, /getHeaderBottomPx/);
   assert.match(helper, /computeScrollTopBelowHeader/);
+});
+
+check("Quote/booking submission confirmation scrolls into view", () => {
+  assert.match(card, /id="bookingRequestResult"/);
+  assert.match(card, /bookingResultRef/);
+  assert.match(card, /pendingBookingResultScrollRef/);
+  assert.match(
+    card,
+    /pendingBookingResultScrollRef\.current = true;\s*setBookingSent\(true\)/,
+  );
+  assert.match(
+    card,
+    /pendingBookingResultScrollRef\.current = false;[\s\S]*scheduleBookingNavAfterRender\(\s*bookingResultRef\.current \?\? "bookingRequestResult"/,
+  );
+  assert.match(
+    card,
+    /useEffect\(\(\) => \{[\s\S]*if \(!bookingSent \|\| !pendingBookingResultScrollRef\.current\)[\s\S]*\}, \[bookingSent\]\)/,
+  );
+  assert.match(card, /data-booking-nav-heading/);
+  assert.match(card, /Quote request received/);
 });
 
 check("Validation focuses invalid fields", () => {

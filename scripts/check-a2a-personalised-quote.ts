@@ -159,6 +159,8 @@ assert.match(
   quoteCard,
   /We’ve received your journey details\. We’ll review your request and send you your personalised price\. No payment has been taken\./,
 );
+assert.match(quoteCard, /pendingBookingResultScrollRef/);
+assert.match(quoteCard, /bookingResultRef\.current \?\? "bookingRequestResult"/);
 const actionsStart = quoteCard.indexOf('id="step3-payment-actions"');
 assert.ok(actionsStart > 0);
 const actionsEnd = quoteCard.indexOf("{renderStartNewQuoteControls()}", actionsStart);
@@ -170,5 +172,6 @@ assert.doesNotMatch(
   /Choose how to send|Chat on WhatsApp|Send booking via email/,
 );
 console.log("OK  single Submit Quote Request + Agreement wording (no WhatsApp/email chooser)");
+console.log("OK  confirmation card scrolls into view after submit");
 
 console.log("\nAll A2A personalised quote checks passed.");

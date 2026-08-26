@@ -27,7 +27,8 @@ export type BookingNavTargetId =
   | "quote-price-summary"
   | "quote-step1-next"
   | "quote-step2-next"
-  | "quote-availability-confirmation";
+  | "quote-availability-confirmation"
+  | "bookingRequestResult";
 
 export type QuoteStepNavTarget = 1 | 2 | 3;
 
@@ -142,6 +143,9 @@ export function scrollBookingTargetIntoView(
 /**
  * After React commits, scroll (and optionally focus) the target.
  * Cancel the returned cleanup if another navigation supersedes this one.
+ *
+ * Pass `correctAfterMs` after large DOM swaps (step change / success card) so
+ * iOS layout settle / document-height collapse cannot leave the user mid-page.
  */
 export function scheduleBookingNavAfterRender(
   target: BookingNavTargetId | HTMLElement | string | null | undefined,
@@ -149,6 +153,8 @@ export function scheduleBookingNavAfterRender(
     focusHeading?: boolean;
     behavior?: ScrollBehavior;
     clearancePx?: number;
+    /** Re-measure and correct if layout shifted after the first scroll. */
+    correctAfterMs?: number;
   },
 ): () => void {
   if (typeof window === "undefined") {
@@ -158,10 +164,34 @@ export function scheduleBookingNavAfterRender(
   const generation = getScrollJobGeneration();
   let cancelled = false;
   let raf2 = 0;
+  let correctionTimer = 0;
+  const clearancePx = options?.clearancePx ?? HEADER_CLEARANCE_PX;
+
+  const apply = (behavior?: ScrollBehavior) => {
+    scrollBookingTargetIntoView(target, {
+      focusHeading: options?.focusHeading,
+      behavior,
+      clearancePx,
+    });
+  };
+
   const raf1 = window.requestAnimationFrame(() => {
     raf2 = window.requestAnimationFrame(() => {
       if (cancelled || !isScrollJobGenerationCurrent(generation)) return;
-      scrollBookingTargetIntoView(target, options);
+      apply(options?.behavior);
+
+      const correctAfterMs = options?.correctAfterMs;
+      if (correctAfterMs == null || correctAfterMs <= 0) return;
+
+      correctionTimer = window.setTimeout(() => {
+        if (cancelled || !isScrollJobGenerationCurrent(generation)) return;
+        const element = resolveBookingNavElement(target);
+        if (!element) return;
+        const desired = computeScrollTopBelowHeader(element, clearancePx);
+        if (Math.abs(window.scrollY - desired) > RESULTS_CORRECTION_TOLERANCE_PX) {
+          window.scrollTo({ top: desired, behavior: "auto" });
+        }
+      }, correctAfterMs);
     });
   });
 
@@ -169,6 +199,7 @@ export function scheduleBookingNavAfterRender(
     cancelled = true;
     window.cancelAnimationFrame(raf1);
     if (raf2) window.cancelAnimationFrame(raf2);
+    if (correctionTimer) window.clearTimeout(correctionTimer);
   };
   return trackScrollJob(cancel);
 }

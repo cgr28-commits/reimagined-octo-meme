@@ -424,8 +424,11 @@ function QuoteCard({
   const step3CustomerDetailsRef = useRef<HTMLDivElement>(null);
   const step3PaymentActionsRef = useRef<HTMLDivElement>(null);
   const shortNoticeResultRef = useRef<HTMLDivElement>(null);
+  const bookingResultRef = useRef<HTMLDivElement>(null);
   /** Scroll once when availability-confirmation result first appears (not on re-renders). */
   const pendingShortNoticeScrollRef = useRef(false);
+  /** Scroll once when booking/quote-request confirmation card first appears. */
+  const pendingBookingResultScrollRef = useRef(false);
   /** Set only by explicit Book Now / Continue / Back — never by quote re-renders. */
   const pendingQuoteStepNavScrollRef = useRef<QuoteStepNavTarget | null>(null);
   const passengerLimit = Math.min(
@@ -2199,6 +2202,7 @@ function QuoteCard({
     setSubmitted(false);
     setSubmitError("");
     setBookingSent(false);
+    pendingBookingResultScrollRef.current = false;
     setBookingReference("");
     quoteCalculationFingerprintRef.current = "";
     setQuoteTransactionId("");
@@ -2439,6 +2443,9 @@ function QuoteCard({
       createQuoteTransactionId(pageType === "emerge_belfast" ? "emerge" : "quote");
     setQuoteTransactionId(adsQuoteId);
     setBookingDelivery(isManualQuoteJourney ? "email" : delivery);
+    // Tall step-3 form unmounts → short confirmation card; scroll after render
+    // so mobile does not remain on homepage sections below the quote.
+    pendingBookingResultScrollRef.current = true;
     setBookingSent(true);
     setSubmitted(false);
 
@@ -2464,6 +2471,7 @@ function QuoteCard({
     e.preventDefault();
     setSubmitError("");
     setBookingSent(false);
+    pendingBookingResultScrollRef.current = false;
     setBookingReference("");
     setBookingDelivery(null);
 
@@ -2539,6 +2547,10 @@ function QuoteCard({
       }
       setSubmitError("");
       setExpressEditing(false);
+      // Blur CTA before DOM swap so iOS does not keep scroll anchored to the old button.
+      if (typeof document !== "undefined" && document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
       pendingQuoteStepNavScrollRef.current = 2;
       setQuoteStep(2);
       return;
@@ -2569,6 +2581,7 @@ function QuoteCard({
     navigateQuoteStep(2);
     setSubmitError("");
     setBookingSent(false);
+    pendingBookingResultScrollRef.current = false;
     setBookingReference("");
     setBookingDelivery(null);
     setTermsAccepted(false);
@@ -2584,6 +2597,9 @@ function QuoteCard({
     }
     // Do not wait on flight lookup — unavailable/loading must not require a second click.
     clearFlightBlockingErrors();
+    if (typeof document !== "undefined" && document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
     pendingQuoteStepNavScrollRef.current = 3;
     setQuoteStep(3);
   }
@@ -2592,6 +2608,7 @@ function QuoteCard({
 
   // After explicit step CTAs (Book Now / Continue / Back / Edit / Start New Quote),
   // bring the active section clearly below the fixed header and focus its heading.
+  // correctAfterMs covers document-height collapse when step 1 (tall results) → step 2.
   useEffect(() => {
     const target = pendingQuoteStepNavScrollRef.current;
     if (!target || target !== quoteStep) {
@@ -2606,6 +2623,7 @@ function QuoteCard({
           : step3CustomerDetailsRef.current;
     return scheduleBookingNavAfterRender(element ?? quoteStepTargetId(target), {
       focusHeading: true,
+      correctAfterMs: 150,
     });
   }, [quoteStep]);
 
@@ -2616,11 +2634,31 @@ function QuoteCard({
       return;
     }
     pendingShortNoticeScrollRef.current = false;
+    if (typeof document !== "undefined" && document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
     return scheduleBookingNavAfterRender(
       shortNoticeResultRef.current ?? "quote-availability-confirmation",
-      { focusHeading: true },
+      { focusHeading: true, correctAfterMs: 150 },
     );
   }, [shortNoticeResult]);
+
+  // Quote/booking submission success: scroll once to the confirmation card
+  // (header-aware). Without this, mobile stays at the old step-3 scroll Y and
+  // visually lands on homepage sections below #quote (e.g. Airports We Serve).
+  useEffect(() => {
+    if (!bookingSent || !pendingBookingResultScrollRef.current) {
+      return;
+    }
+    pendingBookingResultScrollRef.current = false;
+    if (typeof document !== "undefined" && document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+    return scheduleBookingNavAfterRender(
+      bookingResultRef.current ?? "bookingRequestResult",
+      { focusHeading: true, correctAfterMs: 150 },
+    );
+  }, [bookingSent]);
 
   // When the complete results first become ready, scroll once to Your Route.
   // Do not re-scroll when route/vehicle/price fields update individually.
@@ -3113,12 +3151,19 @@ function QuoteCard({
 
     return (
       <div
-        ref={cardRef}
+        ref={(node) => {
+          cardRef.current = node;
+          bookingResultRef.current = node;
+        }}
         id="bookingRequestResult"
-        className="glass-card min-w-0 rounded-2xl p-6 sm:p-8"
+        className="glass-card min-w-0 scroll-mt-44 rounded-2xl p-6 sm:p-8 md:scroll-mt-28"
       >
         <div className="rounded-xl border border-white/10 bg-navy-dark/50 px-5 py-8 text-center sm:px-8 sm:py-10">
-          <p className="text-xs font-medium uppercase tracking-wider text-emerald">
+          <p
+            data-booking-nav-heading
+            tabIndex={-1}
+            className="text-xs font-medium uppercase tracking-wider text-emerald outline-none"
+          >
             {isManualQuoteJourney
               ? "Quote request received"
               : showsRequestQuoteFlow || exceedsOnlineCapacity
