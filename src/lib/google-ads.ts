@@ -87,24 +87,17 @@ export function getGoogleAdsConfig(): GoogleAdsConfig {
   let bookingRequestConversionLabel = env(
     "NEXT_PUBLIC_GOOGLE_ADS_BOOKING_REQUEST_CONVERSION_LABEL",
   );
-  // The existing BOOKING label was documented for confirmed paid bookings. Keep it
-  // as the backwards-compatible purchase label; never reinterpret it as a lead.
-  let purchaseConversionLabel =
-    env("NEXT_PUBLIC_GOOGLE_ADS_PURCHASE_CONVERSION_LABEL") ||
-    env("NEXT_PUBLIC_GOOGLE_ADS_BOOKING_CONVERSION_LABEL");
+  // Option A: Paid Booking is uploaded server-side (Worker UploadClickConversions)
+  // after SumUp PAID. Never fire a labelled browser Ads conversion for purchase —
+  // that would double-count when the customer also returns to /booking-confirmed/.
+  // Request quote + Booking Request Submitted browser tags are unchanged.
+  const purchaseConversionLabel = "";
   if (
     bookingRequestConversionLabel &&
     quoteConversionLabel &&
     bookingRequestConversionLabel === quoteConversionLabel
   ) {
     bookingRequestConversionLabel = "";
-  }
-  if (
-    purchaseConversionLabel &&
-    (purchaseConversionLabel === quoteConversionLabel ||
-      purchaseConversionLabel === bookingRequestConversionLabel)
-  ) {
-    purchaseConversionLabel = "";
   }
 
   const quoteSendTo =

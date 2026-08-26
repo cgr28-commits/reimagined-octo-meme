@@ -167,6 +167,20 @@ export type PaidBookingRecord = {
   cancellationPolicyVersion?: string;
   /** Consented campaign attribution retained for owner reporting. */
   attribution?: AdsAttribution;
+  /**
+   * Server-side Google Ads Paid Booking click conversion (UploadClickConversions).
+   * Set only after SumUp PAID finalize attempts an upload — used for idempotency.
+   */
+  googleAdsPaidConversionSentAt?: string;
+  googleAdsPaidConversionOrderId?: string;
+  googleAdsPaidConversionStatus?:
+    | "sent"
+    | "skipped_no_click_id"
+    | "skipped_not_configured"
+    | "skipped_duplicate"
+    | "failed";
+  googleAdsPaidConversionLastError?: string;
+  googleAdsPaidConversionClickIdType?: "gclid" | "gbraid" | "wbraid";
   trackingToken?: string;
   calendarEventIds: string[];
   /**

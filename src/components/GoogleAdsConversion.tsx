@@ -24,8 +24,9 @@ type GoogleAdsConversionProps = {
 };
 
 /**
- * Fires the purchase / Ads conversion event after a genuine paid booking.
- * Relies on the sitewide GoogleAdsTag for gtag.js — does not load scripts itself.
+ * Fires a dataLayer `purchase` event after a genuine paid booking confirmation.
+ * Option A: labelled Google Ads Paid Booking conversion is uploaded server-side
+ * after SumUp PAID — this component must not send a browser Ads `send_to`.
  */
 export default function GoogleAdsConversion({
   fire,

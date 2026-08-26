@@ -145,6 +145,9 @@ console.log("=== Verified purchase boundary ===");
 assert.equal(trackPurchase({ transactionId: "MAT-9001", value: 0 }), false);
 assert.equal(trackPurchase({ value: 52.5 }), false);
 assert.equal(countEvent(ADS_EVENT_PURCHASE), 0);
+const conversionsBeforePurchase = gtagCalls.filter(
+  (args) => args[0] === "event" && args[1] === "conversion",
+).length;
 assert.equal(
   trackPurchase({
     transactionId: "MAT-9001",
@@ -164,7 +167,12 @@ assert.equal(
   true,
 );
 assert.equal(countEvent(ADS_EVENT_PURCHASE), 1, "refresh must not duplicate purchase");
-console.log("OK  positive server payload required; refresh is idempotent");
+assert.equal(
+  gtagCalls.filter((args) => args[0] === "event" && args[1] === "conversion").length,
+  conversionsBeforePurchase,
+  "Option A: browser must not fire labelled Paid Booking Ads conversion",
+);
+console.log("OK  positive server payload required; refresh is idempotent; no browser Ads send_to");
 
 console.log("=== Attribution persistence and sanitisation ===");
 const captured = captureAdsAttributionFromLocation(
@@ -210,8 +218,14 @@ assert.match(submitBooking, /bookingSaved && bookingReference/);
 assert.match(worker, /bookingSaved,/);
 assert.match(finalize, /if \(!isSumUpCheckoutPaid\(checkout\)\)/);
 assert.match(finalize, /purchase: verifiedPurchase/);
+assert.match(finalize, /maybeUploadPaidBookingAdsConversion/);
 assert.doesNotMatch(confirmation, /params\.get\(["']paid["']\) === ["']1["']/);
 assert.match(confirmation, /result\.result\?\.purchase/);
 console.log("OK  no click/page-load conversions; purchase is server-authored after SumUp PAID");
+
+const adsConfigSource = readFileSync(join(process.cwd(), "src/lib/google-ads.ts"), "utf8");
+assert.match(adsConfigSource, /Option A: Paid Booking is uploaded server-side/);
+assert.match(adsConfigSource, /const purchaseConversionLabel = "";/);
+console.log("OK  browser Paid Booking send_to disabled (server-side only)");
 
 console.log("\nAll conversion tracking checks passed.");

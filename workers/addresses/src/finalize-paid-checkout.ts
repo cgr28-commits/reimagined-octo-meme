@@ -32,6 +32,7 @@ import { markQuickQuotePaid } from "./quick-quote-store";
 import { markSavedQuoteBookedFromPayment } from "./saved-quote-handlers";
 import { maybeRecordMarketingFromPayload } from "./marketing-handlers";
 import { trySendBrandedCustomerEmail, trySendOwnerOperationalEmail } from "./worker-email";
+import { maybeUploadPaidBookingAdsConversion } from "./paid-booking-ads-conversion";
 
 const BUSINESS_NAME = "My Airport Taxi NI";
 
@@ -53,6 +54,13 @@ type FinalizeEnv = {
   TRACKING_STORE?: KVNamespace;
   GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON?: string;
   GOOGLE_CALENDAR_ID?: string;
+  GOOGLE_ADS_DEVELOPER_TOKEN?: string;
+  GOOGLE_ADS_CLIENT_ID?: string;
+  GOOGLE_ADS_CLIENT_SECRET?: string;
+  GOOGLE_ADS_REFRESH_TOKEN?: string;
+  GOOGLE_ADS_CUSTOMER_ID?: string;
+  GOOGLE_ADS_LOGIN_CUSTOMER_ID?: string;
+  GOOGLE_ADS_PAID_BOOKING_CONVERSION_ACTION_ID?: string;
 };
 
 export type FinalizePaidCheckoutResult = {
@@ -157,6 +165,15 @@ export async function finalizePaidCheckout(input: {
     } else {
       const existing = await getPaidBookingRecordByCheckoutId(env.TRACKING_STORE, checkoutId);
       if (existing) {
+        if (!existing.isRefundTest) {
+          await maybeUploadPaidBookingAdsConversion({
+            env,
+            paymentReference: existing.paymentReference,
+            amount: existing.amount,
+            currency: existing.currency,
+            attribution: existing.attribution ?? booking.attribution,
+          });
+        }
         return {
           ok: true,
           paid: true,
@@ -184,6 +201,15 @@ export async function finalizePaidCheckout(input: {
   if (pendingCheckoutStoreConfigured(env.TRACKING_STORE)) {
     const pending = await getPendingCheckout(env.TRACKING_STORE, checkoutId);
     if (pending?.finalizedAt && pending.paymentReference) {
+      if (pending.checkoutKind !== "amendment-topup" && pending.isRefundTest !== true) {
+        await maybeUploadPaidBookingAdsConversion({
+          env,
+          paymentReference: pending.paymentReference,
+          amount: pending.amount,
+          currency: "GBP",
+          attribution: pending.booking?.attribution ?? booking.attribution,
+        });
+      }
       return {
         ok: true,
         paid: true,
@@ -465,6 +491,14 @@ export async function finalizePaidCheckout(input: {
         : "Owner notification email failed",
     );
   }
+
+  await maybeUploadPaidBookingAdsConversion({
+    env,
+    paymentReference,
+    amount: checkout.amount ?? 0,
+    currency: checkout.currency ?? "GBP",
+    attribution: booking.attribution,
+  });
 
   return {
     ok: true,

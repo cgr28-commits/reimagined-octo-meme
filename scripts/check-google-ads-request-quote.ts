@@ -118,6 +118,17 @@ function main() {
     assert.doesNotMatch(source, /process\.env\[name\]/);
   });
 
+  check("Option A disables browser Paid Booking Ads send_to", () => {
+    process.env.NEXT_PUBLIC_GOOGLE_ADS_PURCHASE_CONVERSION_LABEL = "GoTQCPuJ3eccEK7_7JdE";
+    process.env.NEXT_PUBLIC_GOOGLE_ADS_BOOKING_CONVERSION_LABEL = "legacy-should-not-apply";
+    const config = getGoogleAdsConfig();
+    assert.equal(config.purchaseSendTo, "");
+    assert.equal(config.purchaseEnabled, false);
+    assert.equal(config.purchaseConversionLabel, "");
+    delete process.env.NEXT_PUBLIC_GOOGLE_ADS_PURCHASE_CONVERSION_LABEL;
+    delete process.env.NEXT_PUBLIC_GOOGLE_ADS_BOOKING_CONVERSION_LABEL;
+  });
+
   check("Quote tracking is mounted in the live quote form, not booking success", () => {
     const source = readFileSync(join(process.cwd(), "src/components/QuoteCard.tsx"), "utf8");
     assert.match(source, /id=["']quoteForm["']/);

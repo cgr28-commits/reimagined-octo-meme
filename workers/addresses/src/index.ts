@@ -361,6 +361,14 @@ type Env = {
   TRACKING_GPS_HISTORY_TTL_SECONDS?: string;
   /** Per-booking refund serialization (Durable Object). */
   REFUND_COORDINATOR?: DurableObjectNamespace;
+  /** Google Ads API — Paid Booking click conversion upload after SumUp PAID. */
+  GOOGLE_ADS_DEVELOPER_TOKEN?: string;
+  GOOGLE_ADS_CLIENT_ID?: string;
+  GOOGLE_ADS_CLIENT_SECRET?: string;
+  GOOGLE_ADS_REFRESH_TOKEN?: string;
+  GOOGLE_ADS_CUSTOMER_ID?: string;
+  GOOGLE_ADS_LOGIN_CUSTOMER_ID?: string;
+  GOOGLE_ADS_PAID_BOOKING_CONVERSION_ACTION_ID?: string;
 };
 
 type QuoteLeadRequestBody = QuoteLeadDetails & {
