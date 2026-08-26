@@ -15,6 +15,7 @@ import {
   focusFirstInvalidField,
   quoteStepTargetId,
   scheduleScrollToBookNowAfterExpressAck,
+  scrollJourneySummaryAfterTimeConfirm,
   scrollQuoteStage,
   type QuoteStepNavTarget,
 } from "@/lib/quote-step-nav-scroll";
@@ -2819,6 +2820,7 @@ function QuoteCard({
   /**
    * Stage 10→11: iPhone time picker Done / blur only.
    * Never called from onChange — customer must finish the picker first.
+   * Lands on YOUR JOURNEY but clamps so Continue stays fully visible (no overshoot).
    */
   function requestJourneySummaryScrollAfterTimeConfirm() {
     if (quoteStep !== 2) return;
@@ -2837,9 +2839,10 @@ function QuoteCard({
           isReturnAfterOutbound(date, time, retDate, retTime)));
     if (!complete) return;
     hadJourneySummaryScrollRef.current = true;
-    scrollQuoteStage(step2JourneySummaryRef.current ?? "step2-journey-summary", {
-      correctAfterMs: 0,
-    });
+    scrollJourneySummaryAfterTimeConfirm(
+      step2JourneySummaryRef.current ?? "step2-journey-summary",
+      "quote-step2-next",
+    );
   }
 
   const submitInProgressLabel = isManualQuoteJourney

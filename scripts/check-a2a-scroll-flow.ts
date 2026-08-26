@@ -41,7 +41,7 @@ assert.match(card, /scrollQuoteStage\("journey-type-selector"/);
 assert.match(card, /scrollQuoteStage\("passenger-luggage-section"/);
 assert.match(card, /scrollQuoteStage\(routeSummaryRef\.current \?\? "quote-route-summary"/);
 assert.match(card, /id="step2-journey-summary"/);
-assert.match(card, /scrollQuoteStage\(\s*step2JourneySummaryRef/);
+assert.match(card, /scrollJourneySummaryAfterTimeConfirm\(\s*step2JourneySummaryRef/);
 assert.match(card, /scrollQuoteStage\(bookingResultRef\.current \?\? "bookingRequestResult"/);
 assert.match(card, /becameAddressToAddress/);
 assert.match(card, /hadA2aAddressesScrollRef/);

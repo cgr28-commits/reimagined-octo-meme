@@ -169,13 +169,17 @@ check("Quote/booking submission confirmation scrolls into view", () => {
 
 check("Step 2 time Done/blur scrolls once to YOUR JOURNEY summary", () => {
   assert.match(helper, /step2-journey-summary/);
+  assert.match(helper, /export function scrollJourneySummaryAfterTimeConfirm/);
+  assert.match(helper, /quote-step2-next/);
+  assert.match(helper, /maxKeepCtaInView/);
   assert.match(card, /id="step2-journey-summary"/);
   assert.match(card, /step2JourneySummaryRef/);
   assert.match(card, /hadJourneySummaryScrollRef/);
   assert.match(card, /requestJourneySummaryScrollAfterTimeConfirm/);
+  assert.match(card, /scrollJourneySummaryAfterTimeConfirm/);
   assert.match(
     card,
-    /hadJourneySummaryScrollRef\.current = true;[\s\S]*scrollQuoteStage\(\s*step2JourneySummaryRef\.current \?\? "step2-journey-summary"/,
+    /hadJourneySummaryScrollRef\.current = true;[\s\S]*scrollJourneySummaryAfterTimeConfirm\(\s*step2JourneySummaryRef\.current \?\? "step2-journey-summary"/,
   );
   assert.match(card, /id="time"[\s\S]*onBlur=\{\(\) => \{[\s\S]*requestJourneySummaryScrollAfterTimeConfirm/);
   assert.match(card, /id="returnTime"[\s\S]*onBlur=\{\(\) => \{[\s\S]*requestJourneySummaryScrollAfterTimeConfirm/);

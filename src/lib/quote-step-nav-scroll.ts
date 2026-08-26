@@ -233,6 +233,80 @@ export function scrollQuoteStage(
 }
 
 /**
+ * After iPhone time picker Done/blur: land on YOUR JOURNEY without covering
+ * "Continue to your details".
+ *
+ * Aligns the journey summary under the sticky header, then clamps so
+ * `#quote-step2-next` (Back + Continue) stays fully visible. Does not focus
+ * headings — iOS focus scrolling was overshooting past the CTA.
+ */
+export function scrollJourneySummaryAfterTimeConfirm(
+  summary: BookingNavTargetId | HTMLElement | string | null | undefined,
+  continueCta: BookingNavTargetId | HTMLElement | string | null | undefined = "quote-step2-next",
+): () => void {
+  if (typeof window === "undefined") {
+    return () => {};
+  }
+
+  cancelCompetingScrollJobs();
+
+  const generation = getScrollJobGeneration();
+  let cancelled = false;
+  let raf2 = 0;
+
+  const apply = () => {
+    if (cancelled || !isScrollJobGenerationCurrent(generation)) return;
+
+    const summaryEl = resolveBookingNavElement(summary);
+    if (!summaryEl) return;
+
+    const clearancePx = HEADER_CLEARANCE_PX;
+    let nextTop = computeScrollTopBelowHeader(summaryEl, clearancePx);
+
+    const ctaEl = resolveBookingNavElement(continueCta);
+    if (ctaEl) {
+      const viewportHeight =
+        window.visualViewport?.height != null
+          ? Math.round(window.visualViewport.height + (window.visualViewport.offsetTop ?? 0))
+          : window.innerHeight;
+      const bottomPad = 16;
+      const ctaRect = ctaEl.getBoundingClientRect();
+      const ctaBottomDoc = window.scrollY + ctaRect.bottom;
+      // Do not scroll so far that Continue sits below the fold.
+      const maxKeepCtaInView = Math.max(0, Math.round(ctaBottomDoc - viewportHeight + bottomPad));
+      // Do not scroll so far that Continue is covered by the sticky header.
+      const headerBottom = getHeaderBottomPx();
+      const ctaTopDoc = window.scrollY + ctaRect.top;
+      const maxKeepCtaBelowHeader = Math.max(
+        0,
+        Math.round(ctaTopDoc - (headerBottom + clearancePx)),
+      );
+      nextTop = Math.min(nextTop, maxKeepCtaInView, maxKeepCtaBelowHeader);
+    }
+
+    nextTop = Math.max(0, nextTop);
+    const distance = Math.abs(window.scrollY - nextTop);
+    if (distance <= RESULTS_CORRECTION_TOLERANCE_PX) return;
+
+    const behavior = scrollBehaviorForDistance(distance);
+    window.scrollTo({ top: nextTop, behavior });
+  };
+
+  const raf1 = window.requestAnimationFrame(() => {
+    raf2 = window.requestAnimationFrame(() => {
+      apply();
+    });
+  });
+
+  const cancel = () => {
+    cancelled = true;
+    window.cancelAnimationFrame(raf1);
+    if (raf2) window.cancelAnimationFrame(raf2);
+  };
+  return trackScrollJob(cancel);
+}
+
+/**
  * Mobile Express free-area acknowledgement → reveal Book Now with a short, calm scroll.
  *
  * Only scrolls by the amount the Book Now CTA is still below the fold — does not
