@@ -19,7 +19,7 @@ export const GOOGLE_ADS_API_VERSION = "v19";
 export const DEFAULT_GOOGLE_ADS_CUSTOMER_ID = "4955115517";
 
 /** Numeric conversion action id for the Paid Booking action in account 495-511-5517. */
-export const DEFAULT_GOOGLE_ADS_PAID_BOOKING_CONVERSION_ACTION_ID = "7733724411";
+export const DEFAULT_GOOGLE_ADS_PAID_BOOKING_CONVERSION_ACTION_ID = "77347686808";
 
 export type GoogleAdsClickConversionEnv = {
   GOOGLE_ADS_DEVELOPER_TOKEN?: string;

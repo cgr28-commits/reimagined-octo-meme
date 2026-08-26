@@ -26,19 +26,19 @@ async function main() {
   console.log("=== Account vs website tag IDs ===");
   assert.equal(DEFAULT_GOOGLE_ADS_ID, "AW-18303631278");
   assert.equal(DEFAULT_GOOGLE_ADS_CUSTOMER_ID, "4955115517");
-  assert.equal(DEFAULT_GOOGLE_ADS_PAID_BOOKING_CONVERSION_ACTION_ID, "7733724411");
+  assert.equal(DEFAULT_GOOGLE_ADS_PAID_BOOKING_CONVERSION_ACTION_ID, "77347686808");
   assert.notEqual(
     DEFAULT_GOOGLE_ADS_CUSTOMER_ID,
     DEFAULT_GOOGLE_ADS_ID.replace(/^AW-/, ""),
     "customer ID must not be the AW- tag number",
   );
   assert.equal(resolveGoogleAdsCustomerId({}), "4955115517");
-  assert.equal(resolvePaidBookingConversionActionId({}), "7733724411");
+  assert.equal(resolvePaidBookingConversionActionId({}), "77347686808");
   assert.equal(
     resolveGoogleAdsCustomerId({ GOOGLE_ADS_CUSTOMER_ID: "495-511-5517" }),
     "4955115517",
   );
-  console.log("OK  tag AW-18303631278 ≠ customer 4955115517; action 7733724411");
+  console.log("OK  tag AW-18303631278 ≠ customer 4955115517; action 77347686808");
 
   console.log("=== Click id selection ===");
   assert.deepEqual(pickAdsClickIdentifier({ gclid: "abc", wbraid: "wb", gbraid: "gb" }), {
@@ -84,7 +84,7 @@ async function main() {
         GOOGLE_ADS_CLIENT_SECRET: "secret",
         GOOGLE_ADS_REFRESH_TOKEN: "refresh",
         GOOGLE_ADS_CUSTOMER_ID: "4955115517",
-        GOOGLE_ADS_PAID_BOOKING_CONVERSION_ACTION_ID: "7733724411",
+        GOOGLE_ADS_PAID_BOOKING_CONVERSION_ACTION_ID: "77347686808",
       },
       {
         orderId: "PAY-1",
@@ -122,7 +122,7 @@ async function main() {
 
   const envExample = read("env.example");
   assert.match(envExample, /GOOGLE_ADS_CUSTOMER_ID=4955115517/);
-  assert.match(envExample, /GOOGLE_ADS_PAID_BOOKING_CONVERSION_ACTION_ID=7733724411/);
+  assert.match(envExample, /GOOGLE_ADS_PAID_BOOKING_CONVERSION_ACTION_ID=77347686808/);
   assert.match(envExample, /Do NOT use the AW- tag number 18303631278/);
   assert.doesNotMatch(envExample, /GOOGLE_ADS_CUSTOMER_ID=18303631278/);
 
@@ -136,8 +136,8 @@ async function main() {
     );
     assert.match(source, /4955115517/);
   }
-  assert.match(sharedModule, /7733724411/);
-  assert.match(workerModule, /7733724411/);
+  assert.match(sharedModule, /77347686808/);
+  assert.match(workerModule, /77347686808/);
   console.log("OK  Worker uploads after PAID; browser send_to off; IDs corrected");
 
   console.log("\nAll Paid Booking Ads conversion checks passed.");
