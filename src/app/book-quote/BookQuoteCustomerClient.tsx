@@ -18,10 +18,13 @@ import { fetchQuickQuoteById, type QuickQuotePublicSummary } from "@/lib/quick-q
 import { TERMS_LAST_UPDATED } from "@/lib/terms";
 import { CANCELLATION_POLICY_VERSION } from "../../../shared/refund-ops";
 import { getPaymentBookingBlockers } from "../../../shared/paid-booking-gate";
+import ExpressDropOffSelector from "@/components/ExpressDropOffSelector";
+import { formatQuickQuoteAmount } from "../../../shared/quick-quote";
 import {
-  EXPRESS_DROP_OFF_PASSED_ON_NOTE,
+  canProceedWithoutExpressDropOff,
+  composeFareWithExpressDropOff,
   expressDropOffBreakdownLabel,
-  normaliseExpressDropOffAirport,
+  resolveExpressDropOff,
 } from "../../../shared/express-drop-off";
 
 const fieldClass =
@@ -51,6 +54,9 @@ function BookQuoteInner() {
   const [returnTime, setReturnTime] = useState("");
   const [childSeatRequired, setChildSeatRequired] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
+  const [expressDropOffSelected, setExpressDropOffSelected] = useState(true);
+  const [expressRemovalAck, setExpressRemovalAck] = useState(false);
+  const [expressAckRequired, setExpressAckRequired] = useState(false);
 
   useEffect(() => {
     const fromUrl = searchParams.get("id")?.trim() ?? readIdFromLocation();
@@ -82,6 +88,9 @@ function BookQuoteInner() {
         setTripTime(loaded.journey.outboundTime?.trim() || "");
         setReturnDate(loaded.journey.returnDate?.trim() || "");
         setReturnTime(loaded.journey.returnTime?.trim() || "");
+        setExpressDropOffSelected(loaded.journey.expressDropOffSelected !== false);
+        setExpressRemovalAck(false);
+        setExpressAckRequired(false);
       } catch (err) {
         if (!cancelled) {
           setError(
@@ -101,8 +110,33 @@ function BookQuoteInner() {
 
   const journey = quote?.journey;
 
-  const booking = useMemo((): BookingDetails | null => {
+  const expressSelection = useMemo(() => {
+    if (!journey) {
+      return resolveExpressDropOff({ selected: expressDropOffSelected });
+    }
+    return resolveExpressDropOff({
+      airportCode: journey.airportCode,
+      fromAirport: journey.fromAirport,
+      returnJourney: journey.returnJourney,
+      selected: expressDropOffSelected,
+    });
+  }, [journey, expressDropOffSelected]);
+
+  const displayPricing = useMemo(() => {
     if (!quote || !journey) return null;
+    const storedFee =
+      typeof journey.expressDropOffFee === "number" && Number.isFinite(journey.expressDropOffFee)
+        ? Math.max(0, journey.expressDropOffFee)
+        : 0;
+    const transferFareGbp = Math.round((quote.quotedAmount - storedFee) * 100) / 100;
+    return composeFareWithExpressDropOff({
+      transferFareGbp,
+      expressDropOffFeeGbp: expressSelection.feeGbp,
+    });
+  }, [quote, journey, expressSelection.feeGbp]);
+
+  const booking = useMemo((): BookingDetails | null => {
+    if (!quote || !journey || !displayPricing) return null;
     return {
       customerName: customerName.trim(),
       customerEmail: customerEmail.trim(),
@@ -126,16 +160,12 @@ function BookQuoteInner() {
       isAirportTrip: Boolean(journey.airportCode),
       airportCode: journey.airportCode ?? undefined,
       isFromAirport: journey.fromAirport,
-      estimatedPrice: quote.quotedAmountLabel,
-      ...(typeof journey.expressDropOffSelected === "boolean"
-        ? { expressDropOffSelected: journey.expressDropOffSelected }
-        : {}),
-      ...(typeof journey.expressDropOffFee === "number"
-        ? { expressDropOffFee: journey.expressDropOffFee }
-        : {}),
-      ...(journey.expressDropOffAirport !== undefined
-        ? { expressDropOffAirport: journey.expressDropOffAirport }
-        : {}),
+      estimatedPrice: formatQuickQuoteAmount(displayPricing.totalGbp),
+      expressDropOffSelected: expressSelection.eligible
+        ? expressDropOffSelected
+        : false,
+      expressDropOffFee: expressSelection.feeGbp,
+      expressDropOffAirport: expressSelection.airportCode,
       termsAcceptedAt: termsAccepted ? new Date().toISOString() : undefined,
       termsVersion: TERMS_LAST_UPDATED,
       cancellationPolicyVersion: CANCELLATION_POLICY_VERSION,
@@ -143,6 +173,9 @@ function BookQuoteInner() {
   }, [
     quote,
     journey,
+    displayPricing,
+    expressSelection,
+    expressDropOffSelected,
     customerName,
     customerEmail,
     mobileNumber,
@@ -158,7 +191,7 @@ function BookQuoteInner() {
 
   async function pay() {
     setError("");
-    if (!quote || !booking) return;
+    if (!quote || !booking || !displayPricing) return;
     if (!isSumUpPaymentEnabled()) {
       setError("Secure payment is not available right now. Please contact My Airport Taxi NI.");
       return;
@@ -183,6 +216,19 @@ function BookQuoteInner() {
       setError("Please enter your return date and time before paying.");
       return;
     }
+    if (
+      !canProceedWithoutExpressDropOff({
+        eligible: expressSelection.eligible,
+        selected: expressDropOffSelected,
+        removalAcknowledged: expressRemovalAck,
+      })
+    ) {
+      setExpressAckRequired(true);
+      setError(
+        "Please confirm you understand the free drop-off area before continuing without Express Drop-Off.",
+      );
+      return;
+    }
     const blockers = getPaymentBookingBlockers(booking);
     if (blockers.length) {
       setError(blockers[0]);
@@ -193,12 +239,15 @@ function BookQuoteInner() {
     try {
       const returnToken = createPaymentReturnToken();
       const checkout = await createPaymentCheckout({
-        amount: quote.quotedAmount,
+        amount: displayPricing.totalGbp,
         description: `My Airport Taxi NI booking`,
         redirectUrl: buildPaymentRedirectUrl(returnToken),
         booking,
         quickQuoteId: quote.id,
-        standardWebsiteAmount: quote.quotedAmount,
+        standardWebsiteAmount: displayPricing.transferFareGbp,
+        expressDropOffSelected: expressSelection.eligible
+          ? expressDropOffSelected
+          : false,
       });
       if (checkout.shortNotice && checkout.whatsappUrl) {
         window.location.href = checkout.whatsappUrl;
@@ -212,7 +261,7 @@ function BookQuoteInner() {
           checkoutId: checkout.checkoutId,
           paymentUrl: checkout.paymentUrl,
           checkoutReference: checkout.checkoutReference,
-          amountLabel: quote.quotedAmountLabel,
+          amountLabel: formatQuickQuoteAmount(displayPricing.totalGbp),
           booking,
         },
         returnToken,
@@ -246,25 +295,21 @@ function BookQuoteInner() {
     <div className="mx-auto w-full min-w-0 max-w-lg space-y-5">
       <section className="min-w-0 overflow-hidden rounded-2xl border border-emerald/35 bg-emerald/10 px-4 py-6 text-center sm:px-5">
         <p className="text-xs font-semibold uppercase tracking-wider text-emerald">Fixed fare</p>
-        <p className="mt-1 break-words font-display text-4xl text-white">{quote.quotedAmountLabel}</p>
-        {(() => {
-          const airport = normaliseExpressDropOffAirport(
-            journey.expressDropOffAirport ?? journey.airportCode,
-          );
-          if (!airport || journey.expressDropOffSelected == null) return null;
-          return (
-            <div className="mt-3 space-y-1 text-sm text-white/75">
-              <p>
-                {expressDropOffBreakdownLabel(
-                  airport,
-                  Boolean(journey.expressDropOffSelected) &&
-                    Number(journey.expressDropOffFee ?? 0) > 0,
-                )}
-              </p>
-              <p className="text-xs text-white/50">{EXPRESS_DROP_OFF_PASSED_ON_NOTE}</p>
-            </div>
-          );
-        })()}
+        <p className="mt-1 break-words font-display text-4xl text-white">
+          {displayPricing
+            ? formatQuickQuoteAmount(displayPricing.totalGbp)
+            : quote.quotedAmountLabel}
+        </p>
+        {expressSelection.eligible && expressSelection.airportCode ? (
+          <div className="mt-3 space-y-1 text-left text-sm text-white/80">
+            <p>
+              {expressDropOffBreakdownLabel(
+                expressSelection.airportCode,
+                expressDropOffSelected,
+              )}
+            </p>
+          </div>
+        ) : null}
         <p className="mt-2 break-words text-sm text-white/60">
           Secure card payment · quote expires{" "}
           {new Date(quote.expiresAt).toLocaleString("en-GB", {
@@ -272,6 +317,24 @@ function BookQuoteInner() {
           })}
         </p>
       </section>
+
+      {expressSelection.eligible && expressSelection.airportCode ? (
+        <ExpressDropOffSelector
+          airportCode={expressSelection.airportCode}
+          selected={expressDropOffSelected}
+          removalAcknowledged={expressRemovalAck}
+          requireAcknowledgement={expressAckRequired}
+          onSelectedChange={(selected) => {
+            setExpressDropOffSelected(selected);
+            setExpressAckRequired(false);
+            if (selected) setExpressRemovalAck(false);
+          }}
+          onRemovalAcknowledgedChange={(ack) => {
+            setExpressRemovalAck(ack);
+            if (ack) setExpressAckRequired(false);
+          }}
+        />
+      ) : null}
 
       <section className="min-w-0 space-y-2 overflow-hidden rounded-2xl border border-white/10 bg-navy-dark/70 p-4 text-sm text-white/80 sm:p-5">
         <p className="text-xs font-semibold uppercase tracking-wide text-white/45">Journey</p>
@@ -442,7 +505,11 @@ function BookQuoteInner() {
           accepted={termsAccepted}
           onAcceptedChange={setTermsAccepted}
           mode="card-payment"
-          paymentAmountLabel={quote.quotedAmountLabel}
+          paymentAmountLabel={
+            displayPricing
+              ? formatQuickQuoteAmount(displayPricing.totalGbp)
+              : quote.quotedAmountLabel
+          }
           error={!termsAccepted && error.includes("Terms") ? error : undefined}
         />
       </div>
@@ -457,7 +524,11 @@ function BookQuoteInner() {
       >
         {paying
           ? "Starting secure payment…"
-          : `Confirm Booking & Pay ${quote.quotedAmountLabel}`}
+          : `Confirm Booking & Pay ${
+              displayPricing
+                ? formatQuickQuoteAmount(displayPricing.totalGbp)
+                : quote.quotedAmountLabel
+            }`}
       </button>
       <p className="break-words px-1 pb-[max(1rem,env(safe-area-inset-bottom))] text-center text-xs text-white/45">
         You will complete payment on SumUp’s secure hosted checkout. Card details are never entered

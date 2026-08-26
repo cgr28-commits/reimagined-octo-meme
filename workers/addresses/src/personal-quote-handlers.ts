@@ -268,9 +268,21 @@ export async function handlePublicPersonalQuoteByToken(
 export async function resolvePersonalQuoteForPayment(
   store: KVNamespace,
   code: string,
-  options?: { returnJourney?: boolean },
+  options?: {
+    returnJourney?: boolean;
+    /** Customer Express choice only — fee is re-derived server-side. */
+    expressDropOffSelected?: boolean | null;
+  },
 ): Promise<
-  | { ok: true; record: PersonalQuoteRecord; amount: number; oneWayAgreedAmount: number }
+  | {
+      ok: true;
+      record: PersonalQuoteRecord;
+      amount: number;
+      oneWayAgreedAmount: number;
+      expressDropOffSelected: boolean;
+      expressDropOffFee: number;
+      expressDropOffAirport: "BFS" | "BHD" | null;
+    }
   | { ok: false; error: string; status: number }
 > {
   const normalized = normalizePersonalQuoteCode(code);
@@ -287,12 +299,41 @@ export async function resolvePersonalQuoteForPayment(
     };
   }
 
-  const oneWayAgreedAmount = Math.round(evaluated.record.agreedAmount * 100) / 100;
+  const stored = evaluated.record;
+  const inferred = resolveAirportTransferIntent({
+    airportCode: stored.airportCode ?? null,
+    fromAirport: typeof stored.fromAirport === "boolean" ? stored.fromAirport : null,
+    pickupAddress: stored.pickupLabel ?? "",
+    dropoffAddress: stored.dropoffLabel ?? "",
+  });
+  const airportCodeRaw = String(inferred?.airportCode ?? stored.airportCode ?? "")
+    .trim()
+    .toUpperCase();
+  const airportCode =
+    airportCodeRaw === "BFS" ||
+    airportCodeRaw === "BHD" ||
+    airportCodeRaw === "DUB" ||
+    airportCodeRaw === "LDY"
+      ? airportCodeRaw
+      : null;
+  const fromAirport =
+    inferred?.fromAirport ??
+    (typeof stored.fromAirport === "boolean" ? stored.fromAirport : false);
+
+  const expressSelection = resolveExpressDropOff({
+    airportCode,
+    fromAirport,
+    returnJourney: Boolean(options?.returnJourney),
+    selected: options?.expressDropOffSelected,
+  });
+  const expressFields = toExpressDropOffPersistedFields(expressSelection);
+
+  const oneWayAgreedAmount = Math.round(stored.agreedAmount * 100) / 100;
   const amount = resolvePersonalQuoteCheckoutAmount({
     agreedAmount: oneWayAgreedAmount,
-    standardWebsiteAmount: evaluated.record.standardWebsiteAmount,
+    standardWebsiteAmount: stored.standardWebsiteAmount,
     returnJourney: Boolean(options?.returnJourney),
-    expressDropOffFee: evaluated.record.expressDropOffFee ?? 0,
+    expressDropOffFee: expressFields.expressDropOffFee,
   });
   if (!Number.isFinite(amount) || amount < 1) {
     return { ok: false, error: personalQuoteCustomerError("invalid_amount"), status: 400 };
@@ -300,8 +341,11 @@ export async function resolvePersonalQuoteForPayment(
 
   return {
     ok: true,
-    record: evaluated.record,
+    record: stored,
     amount,
     oneWayAgreedAmount,
+    expressDropOffSelected: expressFields.expressDropOffSelected,
+    expressDropOffFee: expressFields.expressDropOffFee,
+    expressDropOffAirport: expressFields.expressDropOffAirport,
   };
 }

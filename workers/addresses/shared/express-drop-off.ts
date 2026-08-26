@@ -237,6 +237,29 @@ export function toExpressDropOffPersistedFields(
   };
 }
 
+/**
+ * Payment / booking may continue when Express is kept, ineligible, or removal is acknowledged.
+ */
+export function canProceedWithoutExpressDropOff(input: {
+  eligible: boolean;
+  selected: boolean;
+  removalAcknowledged: boolean;
+}): boolean {
+  if (!input.eligible || input.selected) return true;
+  return Boolean(input.removalAcknowledged);
+}
+
+/** Parse customer Express choice — fee amounts from the browser are ignored. */
+export function parseCustomerExpressDropOffSelected(
+  value: unknown,
+  fallbackWhenMissing = true,
+): boolean {
+  if (typeof value === "boolean") return value;
+  if (value === "true" || value === "1") return true;
+  if (value === "false" || value === "0") return false;
+  return fallbackWhenMissing;
+}
+
 /** Email / summary line when Express Drop-Off applies or was declined. */
 export function formatExpressDropOffSummaryLine(input: {
   expressDropOffSelected?: boolean | null;
