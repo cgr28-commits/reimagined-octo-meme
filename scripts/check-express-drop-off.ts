@@ -356,7 +356,7 @@ check("Breakdown / customer copy wording", () => {
   assert.doesNotMatch(read("src/components/ExpressDropOffSelector.tsx"), /onward transfer/i);
   assert.equal(
     EXPRESS_DROP_OFF_PASSED_ON_NOTE,
-    "Airport access charges are passed on at cost.",
+    "Airport-imposed Express access charges are passed on at cost with no markup.",
   );
   assert.equal(
     formatExpressDropOffSummaryLine({
@@ -878,7 +878,7 @@ check("Emails and booking records show the customer’s final Express choice", (
 
   const enquiry = buildBookingMessage(removedBooking);
   assert.match(enquiry, /Express Drop-Off removed: −£5/);
-  assert.match(enquiry, /Airport access charges are passed on at cost/);
+  assert.match(enquiry, /Airport-imposed Express access charges are passed on at cost with no markup/);
 
   const receipt: PaidBookingReceipt = {
     ...removedBooking,

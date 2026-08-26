@@ -34,7 +34,7 @@ export const EXPRESS_FREE_PICKUP_CONFIGURED: Record<ExpressDropOffAirportCode, b
 };
 
 export const EXPRESS_DROP_OFF_PASSED_ON_NOTE =
-  "Airport access charges are passed on at cost.";
+  "Airport-imposed Express access charges are passed on at cost with no markup.";
 
 export const EXPRESS_DROP_OFF_REMOVED_EXPLANATION =
   "You will be dropped at the airport’s designated free drop-off area rather than the Express terminal area. It’s only a short walk to the terminal.";
