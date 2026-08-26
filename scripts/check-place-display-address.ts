@@ -6,6 +6,8 @@
 import assert from "node:assert/strict";
 import {
   buildDisplayAddress,
+  isOutOfAreaPickup,
+  isStandardInstantPickup,
   placeDisplayText,
   selectedPlaceFromParts,
 } from "../src/lib/selected-place";
@@ -67,6 +69,28 @@ check(
   "7 Abbey Street, Bangor BT20 4JB, UK",
 );
 
+// Regression: Avenue vs Ave / Road vs Rd must not duplicate the street line
+check(
+  "Collingwood Avenue vs Ave (no duplicate)",
+  "18 Collingwood Avenue",
+  "18 Collingwood Ave, Belfast BT15 3AB, UK",
+  "18 Collingwood Ave, Belfast BT15 3AB, UK",
+);
+
+check(
+  "Glen Manor Road vs Rd (no duplicate)",
+  "7 Glen Manor Road",
+  "7 Glen Manor Rd, Newtownabbey BT36 1XX, UK",
+  "7 Glen Manor Rd, Newtownabbey BT36 1XX, UK",
+);
+
+check(
+  "Identical street line already in formatted",
+  "10 Donegall Square North",
+  "10 Donegall Square North, Belfast BT1 5GB, UK",
+  "10 Donegall Square North, Belfast BT1 5GB, UK",
+);
+
 // Structured SelectedPlace → visible input uses displayAddress
 const titanic = selectedPlaceFromParts({
   placeId: "ChIJ_titanic_test",
@@ -97,5 +121,35 @@ const residential = selectedPlaceFromParts({
 assert.equal(placeDisplayText(residential), "42 Belmont Road, Belfast BT4 2AN, UK");
 assert.equal(residential.placeName, null);
 console.log("OK  Residential SelectedPlace stays clean");
+
+const collingwood = selectedPlaceFromParts({
+  placeId: "ChIJ_collingwood_test",
+  formattedAddress: "18 Collingwood Ave, Belfast BT15 3AB, UK",
+  placeName: "18 Collingwood Avenue",
+  lat: 54.64,
+  lng: -5.93,
+  postalCode: "BT15 3AB",
+});
+assert.equal(
+  placeDisplayText(collingwood),
+  "18 Collingwood Ave, Belfast BT15 3AB, UK",
+  "selectedPlaceFromParts must not duplicate Avenue/Ave",
+);
+assert.equal(isStandardInstantPickup(collingwood), true);
+assert.equal(isOutOfAreaPickup(collingwood), false);
+console.log("OK  Collingwood Ave Belfast is standard pickup (not out-of-area)");
+
+// Postcode-only safety net if formatted text was polluted
+const polluted = selectedPlaceFromParts({
+  placeId: "ChIJ_polluted_test",
+  formattedAddress: "18 Collingwood Avenue, 18 Collingwood Ave",
+  placeName: null,
+  lat: 54.64,
+  lng: -5.93,
+  postalCode: "BT15 3AB",
+});
+assert.equal(isStandardInstantPickup(polluted), true);
+assert.equal(isOutOfAreaPickup(polluted), false);
+console.log("OK  postalCode still classifies Greater Belfast when formatted is polluted");
 
 console.log("\nAll place-display checks passed.");
