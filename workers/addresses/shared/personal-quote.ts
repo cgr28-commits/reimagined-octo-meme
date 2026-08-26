@@ -3,6 +3,7 @@
  * Authorised amount always lives server-side in KV; the browser never decides the price.
  */
 
+import { composeFareWithExpressDropOff } from "./express-drop-off";
 import { getWebsiteReturnJourneyFare } from "./return-journey-discount";
 
 export type PersonalQuoteRecord = {
@@ -35,6 +36,13 @@ export type PersonalQuoteRecord = {
   usedAt?: string;
   associatedPaymentReference?: string;
   associatedCheckoutId?: string;
+  /** Optional Express Drop-Off (BFS/BHD departures). */
+  expressDropOffSelected?: boolean;
+  expressDropOffFee?: number;
+  expressDropOffAirport?: "BFS" | "BHD" | null;
+  /** Journey direction hints for Express Drop-Off eligibility. */
+  airportCode?: "BFS" | "BHD" | "DUB" | "LDY" | null;
+  fromAirport?: boolean;
 };
 
 /**
@@ -55,6 +63,9 @@ export type PersonalQuotePublicSummary = {
   notes?: string;
   expiresOn: string;
   singleUse: boolean;
+  expressDropOffSelected?: boolean;
+  expressDropOffFee?: number;
+  expressDropOffAirport?: "BFS" | "BHD" | null;
 };
 
 /** Personal-quote payment links are limited to saloon/estate capacity (not minibus). */
@@ -114,28 +125,41 @@ export function resolvePersonalQuoteCheckoutAmount(input: {
   agreedAmount: number;
   standardWebsiteAmount?: number | null;
   returnJourney: boolean;
+  /** Express Drop-Off fee (GBP) — added once after return-leg transfer total. */
+  expressDropOffFee?: number | null;
 }): number {
   const agreed = roundGbp(Number(input.agreedAmount));
   if (!Number.isFinite(agreed) || agreed < 1) {
     return NaN;
   }
+
+  let transferTotal: number;
   if (!input.returnJourney) {
-    return agreed;
+    transferTotal = agreed;
+  } else {
+    const standard =
+      typeof input.standardWebsiteAmount === "number" &&
+      Number.isFinite(input.standardWebsiteAmount)
+        ? roundGbp(input.standardWebsiteAmount)
+        : undefined;
+
+    const personallyDiscounted =
+      standard == null || isPersonallyDiscountedPersonalQuote(agreed, standard);
+
+    if (!personallyDiscounted && standard != null) {
+      transferTotal = getWebsiteReturnJourneyFare(agreed);
+    } else {
+      transferTotal = roundGbp(agreed * 2);
+    }
   }
 
-  const standard =
-    typeof input.standardWebsiteAmount === "number" &&
-    Number.isFinite(input.standardWebsiteAmount)
-      ? roundGbp(input.standardWebsiteAmount)
-      : undefined;
-
-  const personallyDiscounted =
-    standard == null || isPersonallyDiscountedPersonalQuote(agreed, standard);
-
-  if (!personallyDiscounted && standard != null) {
-    return getWebsiteReturnJourneyFare(agreed);
-  }
-  return roundGbp(agreed * 2);
+  const expressDropOffFeeGbp = roundGbp(
+    Math.max(0, Number(input.expressDropOffFee) || 0),
+  );
+  return composeFareWithExpressDropOff({
+    transferFareGbp: transferTotal,
+    expressDropOffFeeGbp,
+  }).totalGbp;
 }
 
 export type PersonalQuotePaymentDisplay = {
@@ -148,12 +172,18 @@ export type PersonalQuotePaymentDisplay = {
   appliesWebsiteReturnDiscount: boolean;
   standardWebsiteAmount?: number;
   standardWebsiteAmountLabel?: string;
+  expressDropOffSelected?: boolean;
+  expressDropOffFee?: number;
+  expressDropOffAirport?: "BFS" | "BHD" | null;
 };
 
 export function describePersonalQuotePayment(input: {
   agreedAmount: number;
   standardWebsiteAmount?: number | null;
   returnJourney: boolean;
+  expressDropOffSelected?: boolean | null;
+  expressDropOffFee?: number | null;
+  expressDropOffAirport?: "BFS" | "BHD" | null;
 }): PersonalQuotePaymentDisplay {
   const oneWay = roundGbp(input.agreedAmount);
   const standard =
@@ -164,10 +194,12 @@ export function describePersonalQuotePayment(input: {
   const personallyDiscounted = isPersonallyDiscountedPersonalQuote(oneWay, standard);
   const appliesWebsiteReturnDiscount =
     Boolean(input.returnJourney) && !personallyDiscounted && standard != null;
+  const expressDropOffFee = roundGbp(Math.max(0, Number(input.expressDropOffFee) || 0));
   const paymentAmount = resolvePersonalQuoteCheckoutAmount({
     agreedAmount: oneWay,
     standardWebsiteAmount: standard,
     returnJourney: input.returnJourney,
+    expressDropOffFee,
   });
 
   return {
@@ -183,6 +215,15 @@ export function describePersonalQuotePayment(input: {
           standardWebsiteAmount: standard,
           standardWebsiteAmountLabel: formatPersonalQuoteAmount(standard),
         }
+      : {}),
+    ...(typeof input.expressDropOffSelected === "boolean"
+      ? { expressDropOffSelected: input.expressDropOffSelected }
+      : {}),
+    ...(expressDropOffFee > 0 || input.expressDropOffSelected === false
+      ? { expressDropOffFee }
+      : {}),
+    ...(input.expressDropOffAirport !== undefined
+      ? { expressDropOffAirport: input.expressDropOffAirport }
       : {}),
   };
 }
@@ -537,6 +578,15 @@ export function toPersonalQuotePublicSummary(
     ...(record.notes ? { notes: record.notes } : {}),
     expiresOn: record.expiresOn,
     singleUse: record.singleUse,
+    ...(typeof record.expressDropOffSelected === "boolean"
+      ? { expressDropOffSelected: record.expressDropOffSelected }
+      : {}),
+    ...(typeof record.expressDropOffFee === "number"
+      ? { expressDropOffFee: roundGbp(record.expressDropOffFee) }
+      : {}),
+    ...(record.expressDropOffAirport !== undefined
+      ? { expressDropOffAirport: record.expressDropOffAirport }
+      : {}),
   };
 }
 

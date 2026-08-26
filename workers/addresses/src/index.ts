@@ -301,15 +301,19 @@ import {
   getQuickQuote,
   markQuickQuoteCheckout,
   markQuickQuotePaid,
+  saveQuickQuote,
 } from "./quick-quote-store";
 import {
+  formatQuickQuoteAmount,
   normalizeQuickQuoteId,
   parseQuickQuoteVehicleChoice,
   quickQuoteAmountsEqual,
   quickQuoteCalculatedAmount,
   quickQuoteMaxPassengersForVehicle,
   isQuickQuoteExpired,
+  resolveQuickQuoteCheckoutAmount,
 } from "../shared/quick-quote";
+import { parseCustomerExpressDropOffSelected } from "../shared/express-drop-off";
 import { calculateAuthoritativeWebsiteQuote } from "../../../src/lib/quote-service";
 import {
   MINIBUS_VEHICLE,
@@ -833,6 +837,17 @@ function parsePaidBookingDetails(body: Record<string, unknown>): PaidBookingDeta
     isAirportTrip: Boolean(details.isAirportTrip),
     airportCode: String(details.airportCode ?? "").trim().toUpperCase() || undefined,
     isFromAirport: details.isFromAirport === undefined ? undefined : Boolean(details.isFromAirport),
+    ...(typeof details.expressDropOffSelected === "boolean"
+      ? { expressDropOffSelected: details.expressDropOffSelected }
+      : {}),
+    ...(typeof details.expressDropOffFee === "number" && Number.isFinite(details.expressDropOffFee)
+      ? { expressDropOffFee: Math.round(Number(details.expressDropOffFee) * 100) / 100 }
+      : {}),
+    ...(details.expressDropOffAirport === "BFS" || details.expressDropOffAirport === "BHD"
+      ? { expressDropOffAirport: details.expressDropOffAirport }
+      : details.expressDropOffAirport === null
+        ? { expressDropOffAirport: null }
+        : {}),
     termsAcceptedAt: String(details.termsAcceptedAt ?? "").trim() || undefined,
     termsVersion: String(details.termsVersion ?? "").trim() || undefined,
     marketingOptIn: details.marketingOptIn === true ? true : undefined,
@@ -1368,10 +1383,17 @@ async function handlePaymentRequest(
         origin,
       );
     }
+    const customerExpressSelected = parseCustomerExpressDropOffSelected(
+      body.expressDropOffSelected ?? booking?.expressDropOffSelected,
+      true,
+    );
     const resolved = await resolvePersonalQuoteForPayment(
       env.TRACKING_STORE,
       personalQuoteCodeRaw,
-      { returnJourney: Boolean(booking?.returnJourney) },
+      {
+        returnJourney: Boolean(booking?.returnJourney),
+        expressDropOffSelected: customerExpressSelected,
+      },
     );
     if (!resolved.ok) {
       return json({ error: resolved.error }, resolved.status, origin);
@@ -1389,6 +1411,15 @@ async function handlePaymentRequest(
     personalQuoteCode = resolved.record.code;
     personalQuotedAmount = resolved.amount;
     amount = resolved.amount;
+    // Customer’s final Express choice (re-resolved server-side) — never trust client fee.
+    if (booking) {
+      booking = {
+        ...booking,
+        expressDropOffSelected: resolved.expressDropOffSelected,
+        expressDropOffFee: resolved.expressDropOffFee,
+        expressDropOffAirport: resolved.expressDropOffAirport,
+      };
+    }
   } else if (quickQuoteIdRaw) {
     // Quick Quote: fixed fare from KV; recalculate to block price/journey tampering.
     if (!pendingCheckoutStoreConfigured(env.TRACKING_STORE)) {
@@ -1399,7 +1430,7 @@ async function handlePaymentRequest(
       );
     }
     const qid = normalizeQuickQuoteId(quickQuoteIdRaw);
-    const record = await getQuickQuote(env.TRACKING_STORE, qid);
+    let record = await getQuickQuote(env.TRACKING_STORE, qid);
     if (!record) {
       return json({ error: "This quote link is invalid or no longer available." }, 404, origin);
     }
@@ -1477,7 +1508,41 @@ async function handlePaymentRequest(
       );
     }
 
-    // Reuse unpaid checkout when present (blocks duplicate SumUp sessions).
+    // Customer Express choice only — fee/total recomputed from journey + selection.
+    const customerExpressSelected = parseCustomerExpressDropOffSelected(
+      body.expressDropOffSelected ?? booking?.expressDropOffSelected,
+      j.expressDropOffSelected !== false,
+    );
+    const checkoutPricing = resolveQuickQuoteCheckoutAmount(record, customerExpressSelected);
+    const nextQuotedAmount = checkoutPricing.totalGbp;
+    const expressChanged =
+      checkoutPricing.persisted.expressDropOffSelected !==
+        Boolean(j.expressDropOffSelected) ||
+      checkoutPricing.persisted.expressDropOffFee !==
+        Number(j.expressDropOffFee ?? 0) ||
+      !quickQuoteAmountsEqual(nextQuotedAmount, record.quotedAmount);
+
+    if (expressChanged) {
+      // Drop any prior unpaid SumUp session so the new authoritative amount is charged.
+      record = {
+        ...record,
+        journey: {
+          ...j,
+          expressDropOffSelected: checkoutPricing.persisted.expressDropOffSelected,
+          expressDropOffFee: checkoutPricing.persisted.expressDropOffFee,
+          expressDropOffAirport: checkoutPricing.persisted.expressDropOffAirport,
+        },
+        quotedAmount: nextQuotedAmount,
+        quotedAmountLabel: formatQuickQuoteAmount(nextQuotedAmount),
+        status: "open",
+        checkoutId: undefined,
+        checkoutReference: undefined,
+        paymentUrl: undefined,
+      };
+      await saveQuickQuote(env.TRACKING_STORE, record);
+    }
+
+    // Reuse unpaid checkout when present and amount still matches.
     if (record.checkoutId && record.paymentUrl) {
       try {
         const existingCheckout = await getSumUpCheckout(apiKey, record.checkoutId);
@@ -1521,6 +1586,9 @@ async function handlePaymentRequest(
       isAirportTrip: Boolean(j.airportCode),
       airportCode: j.airportCode ?? booking.airportCode,
       isFromAirport: j.fromAirport,
+      expressDropOffSelected: checkoutPricing.persisted.expressDropOffSelected,
+      expressDropOffFee: checkoutPricing.persisted.expressDropOffFee,
+      expressDropOffAirport: checkoutPricing.persisted.expressDropOffAirport,
       tripLabel: j.childSeatRequired
         ? `${booking.tripLabel || "Airport transfer"} · Child seat required`
         : booking.tripLabel || "Airport transfer",

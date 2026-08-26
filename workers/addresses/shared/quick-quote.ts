@@ -11,6 +11,13 @@ import {
   INSTANT_QUOTE_MAX_PASSENGERS,
   OWNER_QUICK_QUOTE_MAX_PASSENGERS,
 } from "./passenger-limits";
+import {
+  composeFareWithExpressDropOff,
+  resolveExpressDropOff,
+  toExpressDropOffPersistedFields,
+  type ExpressDropOffPersistedFields,
+  type ExpressDropOffSelection,
+} from "./express-drop-off";
 
 /** Saloon / Estate public-style capacity (instant quote band). */
 export const QUICK_QUOTE_SALOON_MAX_PASSENGERS = INSTANT_QUOTE_MAX_PASSENGERS; // 4
@@ -58,6 +65,12 @@ export type QuickQuoteJourney = {
   vehicleType?: string;
   /** Owner/Driver manual choice when set (Saloon | Minibus). */
   vehicleChoice?: QuickQuoteVehicleChoice;
+  /** Express Drop-Off: customer/owner choice (default true when eligible). */
+  expressDropOffSelected?: boolean;
+  /** Fee charged in GBP (0 when not eligible or not selected). */
+  expressDropOffFee?: number;
+  /** Airport the optional Express Drop-Off relates to. */
+  expressDropOffAirport?: "BFS" | "BHD" | null;
 };
 
 export type QuickQuoteRecord = {
@@ -266,4 +279,62 @@ export function quickQuoteCalculatedAmount(record: Pick<QuickQuoteRecord, "quote
     return roundQuickQuoteGbp(record.calculatedAmount);
   }
   return roundQuickQuoteGbp(record.quotedAmount);
+}
+
+/**
+ * Transfer fare after discretionary discount (excludes Express Drop-Off).
+ * Used so customer Express choice can be reapplied without trusting browser totals.
+ */
+export function quickQuoteTransferFareGbp(record: QuickQuoteRecord): number {
+  const calculated = quickQuoteCalculatedAmount(record);
+  // Legacy records may have baked Express into quotedAmount without calculatedAmount.
+  // Prefer calculatedAmount path; when missing, peel any stored Express fee off quotedAmount.
+  if (
+    typeof record.calculatedAmount !== "number" ||
+    !Number.isFinite(record.calculatedAmount)
+  ) {
+    const storedFee =
+      typeof record.journey.expressDropOffFee === "number" &&
+      Number.isFinite(record.journey.expressDropOffFee)
+        ? roundQuickQuoteGbp(Math.max(0, record.journey.expressDropOffFee))
+        : 0;
+    return roundQuickQuoteGbp(Math.max(0, record.quotedAmount - storedFee));
+  }
+  return applyQuickQuoteManualDiscount(
+    calculated,
+    record.discountType ?? "none",
+    record.discountValue ?? 0,
+  ).customerFare;
+}
+
+/**
+ * Authoritative Quick Quote checkout total for a customer Express Drop-Off choice.
+ * Ignores any client-supplied fee/total — only the boolean selection is used.
+ */
+export function resolveQuickQuoteCheckoutAmount(
+  record: QuickQuoteRecord,
+  expressDropOffSelected?: boolean | null,
+): {
+  transferFareGbp: number;
+  express: ExpressDropOffSelection;
+  totalGbp: number;
+  persisted: ExpressDropOffPersistedFields;
+} {
+  const transferFareGbp = quickQuoteTransferFareGbp(record);
+  const express = resolveExpressDropOff({
+    airportCode: record.journey.airportCode,
+    fromAirport: record.journey.fromAirport,
+    returnJourney: record.journey.returnJourney,
+    selected: expressDropOffSelected,
+  });
+  const composed = composeFareWithExpressDropOff({
+    transferFareGbp,
+    expressDropOffFeeGbp: express.feeGbp,
+  });
+  return {
+    transferFareGbp,
+    express,
+    totalGbp: composed.totalGbp,
+    persisted: toExpressDropOffPersistedFields(express),
+  };
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import BookingTermsConsent from "@/components/BookingTermsConsent";
 import {
@@ -23,6 +23,14 @@ import {
 } from "../../../shared/personal-quote";
 import { getPaymentBookingBlockers } from "../../../shared/paid-booking-gate";
 import { formatReturnJourneyDiscountPercent } from "../../../shared/return-journey-discount";
+import ExpressDropOffSelector from "@/components/ExpressDropOffSelector";
+import {
+  canProceedWithoutExpressDropOff,
+  expressDropOffBreakdownLabel,
+  resolveExpressDropOff,
+  shouldDefaultExpressSelectedOnNewEligibility,
+} from "../../../shared/express-drop-off";
+import { resolveAirportTransferIntent } from "../../../shared/airport-transfer-intent";
 
 /** Personal-quote links: saloon/estate only — no minibus / 5–7 options. */
 const PERSONAL_QUOTE_VEHICLE_TYPES = VEHICLE_TYPES.filter(
@@ -83,6 +91,11 @@ function PersonalQuoteInner() {
   const [flightNumber, setFlightNumber] = useState("");
   const [returnFlightNumber, setReturnFlightNumber] = useState("");
   const [termsAccepted, setTermsAccepted] = useState(false);
+  const [expressDropOffSelected, setExpressDropOffSelected] = useState(true);
+  const [expressRemovalAck, setExpressRemovalAck] = useState(false);
+  const [expressAckRequired, setExpressAckRequired] = useState(false);
+  const expressEligibilityPrimedRef = useRef(false);
+  const expressWasEligibleRef = useRef(false);
 
   useEffect(() => {
     const fromUrl = searchParams.get("t")?.trim() ?? readTokenFromLocation();
@@ -108,6 +121,10 @@ function PersonalQuoteInner() {
         if (cancelled) return;
         setQuote(loaded);
         setCustomerName(loaded.customerName || "");
+        setExpressDropOffSelected(loaded.expressDropOffSelected !== false);
+        setExpressRemovalAck(false);
+        setExpressAckRequired(false);
+        expressEligibilityPrimedRef.current = false;
         // Email/mobile are never returned by the public token endpoint — customer enters them.
       } catch (err) {
         if (!cancelled) {
@@ -131,14 +148,69 @@ function PersonalQuoteInner() {
     return detectAirport(quote.pickupLabel || "", quote.dropoffLabel || "");
   }, [quote]);
 
+  const journeyIntent = useMemo(() => {
+    if (!quote) return null;
+    return resolveAirportTransferIntent({
+      airportCode: quote.expressDropOffAirport ?? airportMeta.airportCode ?? null,
+      fromAirport:
+        typeof airportMeta.isFromAirport === "boolean" ? airportMeta.isFromAirport : null,
+      pickupAddress: quote.pickupLabel || "",
+      dropoffAddress: quote.dropoffLabel || "",
+    });
+  }, [quote, airportMeta]);
+
+  const expressSelection = useMemo(
+    () =>
+      resolveExpressDropOff({
+        airportCode: journeyIntent?.airportCode ?? quote?.expressDropOffAirport ?? null,
+        fromAirport: journeyIntent?.fromAirport ?? false,
+        returnJourney,
+        selected: expressDropOffSelected,
+      }),
+    [journeyIntent, quote?.expressDropOffAirport, returnJourney, expressDropOffSelected],
+  );
+
+  // Airport pickup one-way stores Express as ineligible/false. Enabling return makes the
+  // return leg eligible — default to selected. Keep an explicit remove when already eligible.
+  useEffect(() => {
+    if (!quote) return;
+    const nowEligible = resolveExpressDropOff({
+      airportCode: journeyIntent?.airportCode ?? quote.expressDropOffAirport ?? null,
+      fromAirport: journeyIntent?.fromAirport ?? false,
+      returnJourney,
+      selected: true,
+    }).eligible;
+
+    if (!expressEligibilityPrimedRef.current) {
+      expressEligibilityPrimedRef.current = true;
+      expressWasEligibleRef.current = nowEligible;
+      return;
+    }
+
+    if (
+      shouldDefaultExpressSelectedOnNewEligibility({
+        wasEligible: expressWasEligibleRef.current,
+        nowEligible,
+      })
+    ) {
+      setExpressDropOffSelected(true);
+      setExpressRemovalAck(false);
+      setExpressAckRequired(false);
+    }
+    expressWasEligibleRef.current = nowEligible;
+  }, [quote, journeyIntent, returnJourney]);
+
   const paymentDisplay = useMemo(() => {
     if (!quote) return null;
     return describePersonalQuotePayment({
       agreedAmount: quote.agreedAmount,
       standardWebsiteAmount: quote.standardWebsiteAmount,
       returnJourney,
+      expressDropOffSelected: expressSelection.eligible ? expressDropOffSelected : false,
+      expressDropOffFee: expressSelection.feeGbp,
+      expressDropOffAirport: expressSelection.airportCode,
     });
-  }, [quote, returnJourney]);
+  }, [quote, returnJourney, expressSelection, expressDropOffSelected]);
 
   function buildBooking(): BookingDetails | null {
     if (!quote || !paymentDisplay) return null;
@@ -173,6 +245,9 @@ function PersonalQuoteInner() {
       ...(typeof airportMeta.isFromAirport === "boolean"
         ? { isFromAirport: airportMeta.isFromAirport }
         : {}),
+      expressDropOffSelected: expressSelection.eligible ? expressDropOffSelected : false,
+      expressDropOffFee: expressSelection.feeGbp,
+      expressDropOffAirport: expressSelection.airportCode,
       termsAcceptedAt: new Date().toISOString(),
       termsVersion: TERMS_LAST_UPDATED,
       cancellationPolicyVersion: CANCELLATION_POLICY_VERSION,
@@ -203,6 +278,18 @@ function PersonalQuoteInner() {
       if (!paymentDisplay) {
         throw new Error("Could not calculate payment amount.");
       }
+      if (
+        !canProceedWithoutExpressDropOff({
+          eligible: expressSelection.eligible,
+          selected: expressDropOffSelected,
+          removalAcknowledged: expressRemovalAck,
+        })
+      ) {
+        setExpressAckRequired(true);
+        throw new Error(
+          "Please confirm you understand the free drop-off area before continuing without Express Drop-Off.",
+        );
+      }
       const booking = buildBooking();
       if (!booking) throw new Error("Quote details are missing.");
       if (!booking.pickupLabel || !booking.dropoffLabel) {
@@ -215,7 +302,7 @@ function PersonalQuoteInner() {
         throw new Error(blockers[0]);
       }
 
-      // Amount here is display-only — Worker recalculates from KV + returnJourney.
+      // Amount here is display-only — Worker recalculates from KV + returnJourney + Express choice.
       const returnToken = createPaymentReturnToken();
       const checkout = await createPaymentCheckout({
         amount: paymentDisplay!.paymentAmount,
@@ -223,6 +310,9 @@ function PersonalQuoteInner() {
         redirectUrl: buildPaymentRedirectUrl(returnToken),
         booking,
         personalQuoteCode: quote.code,
+        expressDropOffSelected: expressSelection.eligible
+          ? expressDropOffSelected
+          : false,
         ...(typeof quote.standardWebsiteAmount === "number"
           ? { standardWebsiteAmount: quote.standardWebsiteAmount }
           : {}),
@@ -360,11 +450,42 @@ function PersonalQuoteInner() {
           </p>
         )}
 
+        {expressSelection.eligible && expressSelection.airportCode ? (
+          <div className="mt-3 space-y-1 border-t border-white/10 pt-3 text-left text-sm text-white/75">
+            <p>
+              {expressDropOffBreakdownLabel(
+                expressSelection.airportCode,
+                expressDropOffSelected,
+              )}
+            </p>
+          </div>
+        ) : null}
+
         <p className="mt-2 text-xs text-white/55">
           Fixed price — your payment amount is authorised server-side and cannot be changed via this
           link.
         </p>
       </div>
+
+      {expressSelection.eligible && expressSelection.airportCode ? (
+        <div className="mt-5">
+          <ExpressDropOffSelector
+            airportCode={expressSelection.airportCode}
+            selected={expressDropOffSelected}
+            removalAcknowledged={expressRemovalAck}
+            requireAcknowledgement={expressAckRequired}
+            onSelectedChange={(selected) => {
+              setExpressDropOffSelected(selected);
+              setExpressAckRequired(false);
+              if (selected) setExpressRemovalAck(false);
+            }}
+            onRemovalAcknowledgedChange={(ack) => {
+              setExpressRemovalAck(ack);
+              if (ack) setExpressAckRequired(false);
+            }}
+          />
+        </div>
+      ) : null}
 
       <form onSubmit={(e) => void handlePay(e)} className="mt-6 grid gap-3">
         <label className="block text-sm text-white/80">

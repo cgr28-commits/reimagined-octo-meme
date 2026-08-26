@@ -148,6 +148,11 @@ export async function createPersonalQuote(
     notes?: string;
     singleUse: boolean;
     expiresOn: string;
+    expressDropOffSelected?: boolean;
+    expressDropOffFee?: number;
+    expressDropOffAirport?: "BFS" | "BHD" | null;
+    airportCode?: "BFS" | "BHD" | "DUB" | "LDY" | null;
+    fromAirport?: boolean;
   },
 ): Promise<PersonalQuoteRecord> {
   const pricing = resolvePersonalQuotePricing({
@@ -196,6 +201,17 @@ export async function createPersonalQuote(
     ...(input.pickupLabel?.trim() ? { pickupLabel: input.pickupLabel.trim() } : {}),
     ...(input.dropoffLabel?.trim() ? { dropoffLabel: input.dropoffLabel.trim() } : {}),
     ...(input.notes?.trim() ? { notes: input.notes.trim().slice(0, 500) } : {}),
+    ...(typeof input.expressDropOffSelected === "boolean"
+      ? { expressDropOffSelected: input.expressDropOffSelected }
+      : {}),
+    ...(typeof input.expressDropOffFee === "number"
+      ? { expressDropOffFee: Math.round(input.expressDropOffFee * 100) / 100 }
+      : {}),
+    ...(input.expressDropOffAirport !== undefined
+      ? { expressDropOffAirport: input.expressDropOffAirport }
+      : {}),
+    ...(input.airportCode !== undefined ? { airportCode: input.airportCode } : {}),
+    ...(typeof input.fromAirport === "boolean" ? { fromAirport: input.fromAirport } : {}),
     singleUse: Boolean(input.singleUse),
     active: true,
     createdAt: new Date().toISOString(),

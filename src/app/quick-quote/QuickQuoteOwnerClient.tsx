@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import AddressInput from "@/components/AddressInput";
+import ExpressDropOffSelector from "@/components/ExpressDropOffSelector";
 import {
   airportLabel,
   cleanExtractedText,
@@ -17,6 +18,12 @@ import {
   type QuickQuoteDiscountType,
   type QuickQuoteVehicleChoice,
 } from "../../../shared/quick-quote";
+import {
+  composeFareWithExpressDropOff,
+  expressDropOffBreakdownLabel,
+  resolveExpressDropOff,
+  type ExpressDropOffAirportCode,
+} from "../../../shared/express-drop-off";
 import { formatReturnJourneyDiscountPercent } from "../../../shared/return-journey-discount";
 import {
   calculateServerQuote,
@@ -144,6 +151,9 @@ export default function QuickQuoteOwnerClient() {
   const [discountType, setDiscountType] = useState<QuickQuoteDiscountType>("none");
   const [discountValue, setDiscountValue] = useState(0);
   const [customDiscountInput, setCustomDiscountInput] = useState("");
+  const [expressDropOffSelected, setExpressDropOffSelected] = useState(true);
+  const [expressRemovalAck, setExpressRemovalAck] = useState(false);
+  const [expressAckRequired, setExpressAckRequired] = useState(false);
   const [bookingUrl, setBookingUrl] = useState("");
   const [whatsappReply, setWhatsappReply] = useState("");
   const [flightTimeHint, setFlightTimeHint] = useState("");
@@ -163,6 +173,37 @@ export default function QuickQuoteOwnerClient() {
     if (calculatedFareAmount == null) return null;
     return applyQuickQuoteManualDiscount(calculatedFareAmount, discountType, discountValue);
   }, [calculatedFareAmount, discountType, discountValue]);
+
+  const expressSelection = useMemo(
+    () =>
+      resolveExpressDropOff({
+        airportCode: draft.airportCode || null,
+        fromAirport: draft.fromAirport,
+        returnJourney: draft.returnJourney,
+        selected: expressDropOffSelected,
+      }),
+    [
+      draft.airportCode,
+      draft.fromAirport,
+      draft.returnJourney,
+      expressDropOffSelected,
+    ],
+  );
+
+  const pricedFare = useMemo(() => {
+    if (!discountBreakdown) return null;
+    return composeFareWithExpressDropOff({
+      transferFareGbp: discountBreakdown.customerFare,
+      expressDropOffFeeGbp: expressSelection.feeGbp,
+    });
+  }, [discountBreakdown, expressSelection.feeGbp]);
+
+  // Changing airport / direction / return mode clears stale Express Drop-Off choice.
+  useEffect(() => {
+    setExpressDropOffSelected(true);
+    setExpressRemovalAck(false);
+    setExpressAckRequired(false);
+  }, [draft.airportCode, draft.fromAirport, draft.returnJourney]);
 
   const flagFor = (name: string): "missing" | "uncertain" | null => {
     if (missing.includes(name)) return "missing";
@@ -208,6 +249,12 @@ export default function QuickQuoteOwnerClient() {
     setCustomDiscountInput("");
   }
 
+  function resetExpressDropOff() {
+    setExpressDropOffSelected(true);
+    setExpressRemovalAck(false);
+    setExpressAckRequired(false);
+  }
+
   function setVehicleChoice(choice: QuickQuoteVehicleChoice) {
     const maxPax = quickQuoteMaxPassengersForVehicle(choice);
     setDraft((d) => {
@@ -227,8 +274,17 @@ export default function QuickQuoteOwnerClient() {
     setWhatsappReply("");
     if (calculatedFareAmount != null) {
       const next = applyQuickQuoteManualDiscount(calculatedFareAmount, type, value);
-      setFareAmount(next.customerFare);
-      setFareLabel(formatQuickQuoteAmount(next.customerFare));
+      const composed = composeFareWithExpressDropOff({
+        transferFareGbp: next.customerFare,
+        expressDropOffFeeGbp: resolveExpressDropOff({
+          airportCode: draft.airportCode || null,
+          fromAirport: draft.fromAirport,
+          returnJourney: draft.returnJourney,
+          selected: expressDropOffSelected,
+        }).feeGbp,
+      });
+      setFareAmount(composed.totalGbp);
+      setFareLabel(formatQuickQuoteAmount(composed.totalGbp));
     }
   }
 
@@ -262,6 +318,7 @@ export default function QuickQuoteOwnerClient() {
     setMissing([]);
     clearQuoteOutputs();
     resetDiscount();
+    resetExpressDropOff();
     setFlightTimeHint("");
     setError("");
     setNotice("Started again.");
@@ -561,11 +618,23 @@ export default function QuickQuoteOwnerClient() {
         discountType,
         discountValue,
       );
-      setFareAmount(discounted.customerFare);
-      setFareLabel(formatQuickQuoteAmount(discounted.customerFare));
+      const express = resolveExpressDropOff({
+        airportCode: airportCode,
+        fromAirport,
+        returnJourney: draft.returnJourney,
+        selected: expressDropOffSelected,
+      });
+      const composed = composeFareWithExpressDropOff({
+        transferFareGbp: discounted.customerFare,
+        expressDropOffFeeGbp: express.feeGbp,
+      });
+      setFareAmount(composed.totalGbp);
+      setFareLabel(formatQuickQuoteAmount(composed.totalGbp));
       setVehicleType(result.vehicleType);
       setNotice(
-        "Calculated fare ready. Apply an optional discount if needed, then generate a booking link.",
+        express.eligible
+          ? "Calculated fare ready. Confirm Express Drop-Off, apply an optional discount if needed, then generate a booking link."
+          : "Calculated fare ready. Apply an optional discount if needed, then generate a booking link.",
       );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not calculate fare");
@@ -583,6 +652,17 @@ export default function QuickQuoteOwnerClient() {
     }
     if (calculatedFareAmount == null || fareAmount == null) {
       setError("Calculate the quote first.");
+      return;
+    }
+    if (
+      expressSelection.eligible &&
+      !expressDropOffSelected &&
+      !expressRemovalAck
+    ) {
+      setExpressAckRequired(true);
+      setError(
+        "Please confirm you understand the free drop-off area before continuing without Express Drop-Off.",
+      );
       return;
     }
     const { pickupAddress, dropoffAddress } = resolveJourneyAddresses(
@@ -641,6 +721,9 @@ export default function QuickQuoteOwnerClient() {
         vehicleType: vehicleType || undefined,
         discountType,
         discountValue,
+        expressDropOffSelected: expressSelection.eligible
+          ? expressDropOffSelected
+          : false,
         pickupLat: pickupPlace.lat ?? undefined,
         pickupLng: pickupPlace.lng ?? undefined,
         dropoffLat: dropoffPlace.lat ?? undefined,
@@ -1082,7 +1165,7 @@ export default function QuickQuoteOwnerClient() {
         ) : null}
       </section>
 
-      {calculatedFareAmount != null && discountBreakdown ? (
+      {calculatedFareAmount != null && discountBreakdown && pricedFare ? (
         <section className="min-w-0 space-y-4 overflow-hidden rounded-2xl border border-emerald/40 bg-emerald/10 px-4 py-5">
           <div className="text-center">
             <p className="text-xs font-semibold uppercase tracking-wider text-emerald">
@@ -1101,6 +1184,44 @@ export default function QuickQuoteOwnerClient() {
               </p>
             ) : null}
           </div>
+
+          {expressSelection.eligible && expressSelection.airportCode ? (
+            <ExpressDropOffSelector
+              airportCode={expressSelection.airportCode as ExpressDropOffAirportCode}
+              selected={expressDropOffSelected}
+              removalAcknowledged={expressRemovalAck}
+              requireAcknowledgement={expressAckRequired}
+              onSelectedChange={(selected) => {
+                setExpressDropOffSelected(selected);
+                setExpressAckRequired(false);
+                setBookingUrl("");
+                setWhatsappReply("");
+                if (calculatedFareAmount != null) {
+                  const next = applyQuickQuoteManualDiscount(
+                    calculatedFareAmount,
+                    discountType,
+                    discountValue,
+                  );
+                  const fee = resolveExpressDropOff({
+                    airportCode: draft.airportCode || null,
+                    fromAirport: draft.fromAirport,
+                    returnJourney: draft.returnJourney,
+                    selected,
+                  }).feeGbp;
+                  const composed = composeFareWithExpressDropOff({
+                    transferFareGbp: next.customerFare,
+                    expressDropOffFeeGbp: fee,
+                  });
+                  setFareAmount(composed.totalGbp);
+                  setFareLabel(formatQuickQuoteAmount(composed.totalGbp));
+                }
+              }}
+              onRemovalAcknowledgedChange={(ack) => {
+                setExpressRemovalAck(ack);
+                if (ack) setExpressAckRequired(false);
+              }}
+            />
+          ) : null}
 
           <div className="min-w-0 space-y-2 border-t border-white/10 pt-4">
             <p className="text-sm font-semibold text-white">Optional discount</p>
@@ -1173,7 +1294,7 @@ export default function QuickQuoteOwnerClient() {
 
           <div className="space-y-1 border-t border-white/10 pt-4 text-sm text-white/80">
             <p>
-              Original fare:{" "}
+              Transfer fare:{" "}
               <span className="text-white">
                 {formatQuickQuoteAmount(discountBreakdown.calculatedFare)}
               </span>
@@ -1188,8 +1309,16 @@ export default function QuickQuoteOwnerClient() {
                     : `−${formatQuickQuoteAmount(discountBreakdown.discountAmount)}`}
               </span>
             </p>
+            {expressSelection.eligible && expressSelection.airportCode ? (
+              <p>
+                {expressDropOffBreakdownLabel(
+                  expressSelection.airportCode,
+                  expressDropOffSelected,
+                )}
+              </p>
+            ) : null}
             <p className="pt-1 text-base font-semibold text-white">
-              Customer price: {formatQuickQuoteAmount(discountBreakdown.customerFare)}
+              Customer price: {formatQuickQuoteAmount(pricedFare.totalGbp)}
             </p>
           </div>
         </section>

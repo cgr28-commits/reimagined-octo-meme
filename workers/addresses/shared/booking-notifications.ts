@@ -16,6 +16,10 @@ import {
   resolveJourneyInclusions,
 } from "./journey-inclusions";
 import {
+  EXPRESS_DROP_OFF_PASSED_ON_NOTE,
+  formatExpressDropOffSummaryLine,
+} from "./express-drop-off";
+import {
   REFUND_FUNDS_TIMING,
   REFUND_REASON_LABELS,
   type RefundReasonCategory,
@@ -47,6 +51,9 @@ export type PaidBookingDetails = {
   isAirportTrip: boolean;
   airportCode?: string;
   isFromAirport?: boolean;
+  expressDropOffSelected?: boolean;
+  expressDropOffFee?: number;
+  expressDropOffAirport?: "BFS" | "BHD" | null;
   termsAcceptedAt?: string;
   termsVersion?: string;
   cancellationPolicyVersion?: string;
@@ -425,7 +432,15 @@ export function buildCustomerConfirmationEmail(
         addressToAddress: !details.isAirportTrip,
       }),
       details.amountPaid,
-    )}\n\n` +
+    )}\n` +
+    (() => {
+      const expressLine = formatExpressDropOffSummaryLine({
+        expressDropOffSelected: details.expressDropOffSelected,
+        expressDropOffFee: details.expressDropOffFee,
+        expressDropOffAirport: details.expressDropOffAirport ?? details.airportCode,
+      });
+      return expressLine ? `${expressLine}\n${EXPRESS_DROP_OFF_PASSED_ON_NOTE}\n\n` : "\n";
+    })() +
     `PAYMENT / INVOICE\n` +
     `${"=".repeat(40)}\n` +
     `Amount paid: ${details.amountPaid}\n` +
@@ -468,7 +483,16 @@ export function buildOwnerPaidBookingEmail(
     `Mobile: ${details.mobileNumber || "Not provided"}\n\n` +
     `TRIP\n` +
     `${"=".repeat(40)}\n` +
-    `${formatTripSchedule(details)}\n\n` +
+    `${formatTripSchedule(details)}\n` +
+    (() => {
+      const expressLine = formatExpressDropOffSummaryLine({
+        expressDropOffSelected: details.expressDropOffSelected,
+        expressDropOffFee: details.expressDropOffFee,
+        expressDropOffAirport: details.expressDropOffAirport ?? details.airportCode,
+      });
+      return expressLine ? `\n${expressLine}\n${EXPRESS_DROP_OFF_PASSED_ON_NOTE}\n` : "";
+    })() +
+    `\n` +
     `PAYMENT\n` +
     `${"=".repeat(40)}\n` +
     `Amount paid: ${details.amountPaid}\n` +

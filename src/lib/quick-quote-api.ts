@@ -39,6 +39,7 @@ export type QuickQuoteCreateResult = {
 export type QuickQuoteDiscountPayload = {
   discountType?: QuickQuoteDiscountType;
   discountValue?: number;
+  expressDropOffSelected?: boolean;
 };
 
 export type QuickQuoteRoutePayload = {

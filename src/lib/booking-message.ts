@@ -8,6 +8,10 @@ import {
 } from "@/lib/journey-inclusions";
 import { formatMarketingOptInLine } from "../../shared/marketing";
 import type { AdsAttribution } from "../../shared/ads-attribution";
+import {
+  EXPRESS_DROP_OFF_PASSED_ON_NOTE,
+  formatExpressDropOffSummaryLine,
+} from "../../shared/express-drop-off";
 
 export type BookingDetails = {
   customerName: string;
@@ -32,6 +36,10 @@ export type BookingDetails = {
   isAirportTrip: boolean;
   airportCode?: string;
   isFromAirport?: boolean;
+  /** Optional Express Drop-Off add-on (BFS/BHD departures). */
+  expressDropOffSelected?: boolean;
+  expressDropOffFee?: number;
+  expressDropOffAirport?: "BFS" | "BHD" | null;
   /** Number of child / booster seats requested (0–2). */
   childSeats?: number;
   childSeatNotes?: string;
@@ -114,6 +122,16 @@ function buildTripDetailsBlock(details: BookingDetails, bookingReference?: strin
       ? `Journey: ${details.journeyDistance} · ${details.journeyDuration}\n`
       : "") +
     (details.estimatedPrice ? `Your fixed journey price: ${details.estimatedPrice}\n` : "") +
+    (() => {
+      const expressLine = formatExpressDropOffSummaryLine({
+        expressDropOffSelected: details.expressDropOffSelected,
+        expressDropOffFee: details.expressDropOffFee,
+        expressDropOffAirport: details.expressDropOffAirport ?? details.airportCode,
+      });
+      return expressLine
+        ? `${expressLine}\n${EXPRESS_DROP_OFF_PASSED_ON_NOTE}\n`
+        : "";
+    })() +
     includesBlock +
     (details.returnJourney && details.estimatedPrice ? "Return booking discount: 5% applied\n" : "") +
     (details.termsAcceptedAt

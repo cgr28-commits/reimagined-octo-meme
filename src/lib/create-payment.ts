@@ -38,6 +38,11 @@ export type PaymentCheckoutRequest = {
   savedQuoteToken?: string;
   /** Website-calculated fare for audit only when a personal quote is applied. */
   standardWebsiteAmount?: number;
+  /**
+   * Customer Express Drop-Off choice only (true/false).
+   * Server derives eligibility and fee — never trust a browser-supplied fee/total.
+   */
+  expressDropOffSelected?: boolean;
 };
 
 export type PaymentCheckoutResult = {
@@ -170,6 +175,9 @@ export async function createPaymentCheckout(
       ...(request.savedQuoteToken ? { savedQuoteToken: request.savedQuoteToken } : {}),
       ...(typeof request.standardWebsiteAmount === "number"
         ? { standardWebsiteAmount: request.standardWebsiteAmount }
+        : {}),
+      ...(typeof request.expressDropOffSelected === "boolean"
+        ? { expressDropOffSelected: request.expressDropOffSelected }
         : {}),
     }),
   });
