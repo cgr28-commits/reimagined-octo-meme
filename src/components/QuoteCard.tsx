@@ -2957,6 +2957,7 @@ function QuoteCard({
       <>
         <button
           type="submit"
+          id="quote-book-now-button"
           disabled={
             submitted ||
             !quoteChoicesReady ||

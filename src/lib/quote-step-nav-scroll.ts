@@ -174,9 +174,11 @@ export function scheduleBookingNavAfterRender(
 }
 
 /**
- * Mobile Express free-area acknowledgement → bring #quote-step1-next (Book Now)
- * into comfortable view. Uses the action section ref/id + scroll-margin for the
- * sticky header; does not use a hard-coded pixel distance.
+ * Mobile Express free-area acknowledgement → bring Book Now into comfortable view.
+ *
+ * Do not rely on scrollIntoView() of the sticky `#quote-step1-next` wrapper —
+ * iOS often treats sticky CTAs as already “visible” and does not move the page.
+ * Scroll the document using the Book Now button’s layout position instead.
  */
 export function scheduleScrollToBookNowAfterExpressAck(): () => void {
   if (typeof window === "undefined") {
@@ -186,15 +188,66 @@ export function scheduleScrollToBookNowAfterExpressAck(): () => void {
   const generation = getScrollJobGeneration();
   let cancelled = false;
   let raf2 = 0;
+  let retryTimer = 0;
+  let secondRetryTimer = 0;
+
+  const resolveBookNowButton = (): HTMLElement | null => {
+    const byId = document.getElementById("quote-book-now-button");
+    if (byId instanceof HTMLElement && byId.getClientRects().length > 0) {
+      return byId;
+    }
+    const buttons = document.querySelectorAll<HTMLElement>(
+      "#quote-step1-next button[type='submit'], button#quote-book-now-button",
+    );
+    for (const button of buttons) {
+      if (button.getClientRects().length > 0) return button;
+    }
+    return null;
+  };
+
+  const scrollBookNowIntoComfortableView = (behavior: ScrollBehavior) => {
+    const element = resolveBookNowButton();
+    if (!element) return false;
+
+    const rect = element.getBoundingClientRect();
+    const headerBottom = getHeaderBottomPx();
+    const usableHeight = Math.max(220, window.innerHeight - headerBottom);
+    // Lower-middle of the area below the sticky header (not flush to the bottom).
+    const targetViewportY = headerBottom + usableHeight * 0.58;
+    const nextTop = Math.max(0, Math.round(window.scrollY + rect.top - targetViewportY));
+
+    window.scrollTo({ top: nextTop, behavior });
+    return true;
+  };
+
+  const run = (behavior: ScrollBehavior) => {
+    if (cancelled || !isScrollJobGenerationCurrent(generation)) return;
+    scrollBookNowIntoComfortableView(behavior);
+  };
+
+  const behavior: ScrollBehavior = prefersReducedMotion() ? "auto" : "smooth";
+
   const raf1 = window.requestAnimationFrame(() => {
     raf2 = window.requestAnimationFrame(() => {
-      if (cancelled || !isScrollJobGenerationCurrent(generation)) return;
-      const element = resolveBookingNavElement("quote-step1-next");
-      if (!element) return;
-      element.scrollIntoView({
-        behavior: prefersReducedMotion() ? "auto" : "smooth",
-        block: "center",
-      });
+      run(behavior);
+      // iOS often cancels scrolls started in the same turn as a checkbox change —
+      // retry after layout settles, then once more with instant scroll if still off-screen.
+      retryTimer = window.setTimeout(() => {
+        if (cancelled || !isScrollJobGenerationCurrent(generation)) return;
+        run(behavior);
+        secondRetryTimer = window.setTimeout(() => {
+          if (cancelled || !isScrollJobGenerationCurrent(generation)) return;
+          const element = resolveBookNowButton();
+          if (!element) return;
+          const rect = element.getBoundingClientRect();
+          const headerBottom = getHeaderBottomPx();
+          const stillHidden =
+            rect.top > window.innerHeight - 80 || rect.bottom < headerBottom + 40;
+          if (stillHidden) {
+            run("auto");
+          }
+        }, 280);
+      }, 100);
     });
   });
 
@@ -202,6 +255,8 @@ export function scheduleScrollToBookNowAfterExpressAck(): () => void {
     cancelled = true;
     window.cancelAnimationFrame(raf1);
     if (raf2) window.cancelAnimationFrame(raf2);
+    if (retryTimer) window.clearTimeout(retryTimer);
+    if (secondRetryTimer) window.clearTimeout(secondRetryTimer);
   };
   return trackScrollJob(cancel);
 }
