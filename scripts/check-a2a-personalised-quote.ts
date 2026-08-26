@@ -4,6 +4,8 @@
  */
 
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import {
   A2A_QUOTE_VALIDITY_DEFAULT_MINUTES,
   A2A_QUOTE_VALIDITY_MAX_MINUTES,
@@ -20,6 +22,9 @@ import {
 } from "../shared/a2a-personalised-quote";
 import { needsManualQuoteApproval, type SelectedPlace } from "../src/lib/selected-place";
 
+function read(rel: string): string {
+  return readFileSync(join(process.cwd(), rel), "utf8");
+}
 function place(partial: Partial<SelectedPlace> & Pick<SelectedPlace, "formattedAddress">): SelectedPlace {
   return {
     placeId: partial.placeId ?? `test:${partial.formattedAddress.slice(0, 12)}`,
@@ -138,5 +143,32 @@ const boucher = place({
 });
 assert.equal(needsManualQuoteApproval(city, boucher), true);
 console.log("OK  Boucher↔city centre needs personalised quote");
+
+console.log("\n=== Customer quote-request submit UX ===");
+const quoteCard = read("src/components/QuoteCard.tsx");
+const consent = read("src/components/BookingTermsConsent.tsx");
+assert.match(consent, /mode: "card-payment" \| "booking-request" \| "quote-request"/);
+assert.match(
+  consent,
+  /I understand this is a quote request\. My journey is not booked yet\. If the quote is\s+approved, I’ll receive my personalised price and a secure SumUp payment link/,
+);
+assert.match(quoteCard, /isManualQuoteJourney\s*\?\s*"quote-request"/);
+assert.match(quoteCard, /"Submit Quote Request"/);
+assert.match(quoteCard, /"Quote request received"/);
+assert.match(
+  quoteCard,
+  /We’ve received your journey details\. We’ll review your request and send you your personalised price\. No payment has been taken\./,
+);
+const actionsStart = quoteCard.indexOf('id="step3-payment-actions"');
+assert.ok(actionsStart > 0);
+const actionsEnd = quoteCard.indexOf("{renderStartNewQuoteControls()}", actionsStart);
+const actionsBlock = quoteCard.slice(actionsStart, actionsEnd);
+assert.match(actionsBlock, /isManualQuoteJourney \? \(/);
+assert.match(actionsBlock, /confirmButtonLabel/);
+assert.doesNotMatch(
+  actionsBlock.slice(actionsBlock.indexOf("isManualQuoteJourney ? ("), actionsBlock.indexOf("usesWhatsApp ? (")),
+  /Choose how to send|Chat on WhatsApp|Send booking via email/,
+);
+console.log("OK  single Submit Quote Request + Agreement wording (no WhatsApp/email chooser)");
 
 console.log("\nAll A2A personalised quote checks passed.");

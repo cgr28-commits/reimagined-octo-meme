@@ -2395,7 +2395,9 @@ function QuoteCard({
           }
         }
 
-        if (!isMobile || delivery === "email") {
+        // Personalised quote requests always go through the website (Owner A2A Quotes).
+        // WhatsApp remains a help option in the site chrome — not a submit channel here.
+        if (isManualQuoteJourney || !isMobile || delivery === "email") {
           const emailRef = await submitEnquiryByEmail({
             customerName: details.customerName,
             message: enquiryMessage,
@@ -2421,9 +2423,11 @@ function QuoteCard({
     } catch (error) {
       console.error("Booking submission failed", error);
       setSubmitError(
-        delivery === "email" || !isMobile
-          ? `We couldn't send your ${isEnquiryOnly ? "enquiry" : "booking"} by email. Please try WhatsApp or contact ${SITE.email} with your trip details.`
-          : `We couldn't log your ${isEnquiryOnly ? "enquiry" : "booking"}. Please try email instead or contact ${SITE.email}.`,
+        isManualQuoteJourney
+          ? `We couldn't submit your quote request. Please try again or contact ${SITE.email} with your trip details.`
+          : delivery === "email" || !isMobile
+            ? `We couldn't send your ${isEnquiryOnly ? "enquiry" : "booking"} by email. Please try WhatsApp or contact ${SITE.email} with your trip details.`
+            : `We couldn't log your ${isEnquiryOnly ? "enquiry" : "booking"}. Please try email instead or contact ${SITE.email}.`,
       );
       setSubmitted(false);
       return;
@@ -2434,7 +2438,7 @@ function QuoteCard({
       quoteTransactionId ||
       createQuoteTransactionId(pageType === "emerge_belfast" ? "emerge" : "quote");
     setQuoteTransactionId(adsQuoteId);
-    setBookingDelivery(delivery);
+    setBookingDelivery(isManualQuoteJourney ? "email" : delivery);
     setBookingSent(true);
     setSubmitted(false);
 
@@ -2447,7 +2451,7 @@ function QuoteCard({
       });
     }
 
-    if (isMobile && delivery === "whatsapp") {
+    if (isMobile && delivery === "whatsapp" && !isManualQuoteJourney) {
       openWhatsAppBookingMessage(
         isEnquiryOnly || exceedsOnlineCapacity
           ? buildEnquiryBookingMessage(details, reference)
@@ -2548,7 +2552,7 @@ function QuoteCard({
     if (!validateContactDetails()) {
       return;
     }
-    if (!usesWhatsApp) {
+    if (!usesWhatsApp || isManualQuoteJourney) {
       if (!requireTermsAccepted()) {
         return;
       }
@@ -2663,14 +2667,18 @@ function QuoteCard({
     return scheduleBookingNavAfterRender("passenger-luggage-section");
   }, [hasQuoteRoute, isA2AFlow, journeyMode, quoteStep]);
 
-  const submitInProgressLabel = showsRequestQuoteFlow
+  const submitInProgressLabel = isManualQuoteJourney
+    ? "Submitting quote request…"
+    : showsRequestQuoteFlow
     ? "Sending quote request…"
     : isEnquiryOnly
       ? "Sending enquiry…"
       : "Sending booking…";
 
-  const confirmButtonLabel = showsRequestQuoteFlow
-    ? pricingConfirmationRequired || isManualQuoteJourney
+  const confirmButtonLabel = isManualQuoteJourney
+    ? "Submit Quote Request"
+    : showsRequestQuoteFlow
+    ? pricingConfirmationRequired
       ? "Request a Quote"
       : liveQuote
         ? `Request quote · ${formatQuote(liveQuote.amount)}`
@@ -2833,10 +2841,10 @@ function QuoteCard({
             </p>
             <p className="mt-2 text-sm leading-relaxed text-white/70">
               {journeyKind === "address-to-address"
-                ? "Address-to-address journeys are individually priced. Continue with your travel details and send us your quote request."
+                ? "Address-to-address journeys are individually priced. Continue with your travel details and submit your quote request."
                 : isOutOfAreaPickupJourney
-                  ? "This journey needs a personalised quote. Continue with your travel details and send us your quote request."
-                  : "Continue with your travel details and send us your quote request — we’ll confirm your personal price before any payment is taken."}
+                  ? "This journey needs a personalised quote. Continue with your travel details and submit your quote request."
+                  : "Continue with your travel details and submit your quote request — we’ll confirm your personal price before any payment is taken."}
             </p>
             {journeyDistanceLabel && journeyDurationLabel && (
               <p className="mt-2 text-xs text-white/60">
@@ -3111,20 +3119,26 @@ function QuoteCard({
       >
         <div className="rounded-xl border border-white/10 bg-navy-dark/50 px-5 py-8 text-center sm:px-8 sm:py-10">
           <p className="text-xs font-medium uppercase tracking-wider text-emerald">
-            {showsRequestQuoteFlow || exceedsOnlineCapacity
+            {isManualQuoteJourney
+              ? "Quote request received"
+              : showsRequestQuoteFlow || exceedsOnlineCapacity
               ? "Quote request submitted"
               : isEnquiryOnly
                 ? "Enquiry submitted"
                 : "Booking submitted"}
           </p>
-          <h2 className="mt-2 text-2xl font-semibold tracking-tight text-white sm:text-3xl">Thank you</h2>
-          {quoteConversionValue ? (
+          <h2 className="mt-2 text-2xl font-semibold tracking-tight text-white sm:text-3xl">
+            Thank you
+          </h2>
+          {quoteConversionValue && !isManualQuoteJourney ? (
             <p className="mt-4 text-3xl font-bold text-white sm:text-4xl">
               {formatQuote(quoteConversionValue)}
             </p>
           ) : null}
           <p className="mx-auto mt-4 max-w-md text-sm leading-relaxed text-white/80 sm:text-base">
-            {showsRequestQuoteFlow || exceedsOnlineCapacity
+            {isManualQuoteJourney
+              ? "We’ve received your journey details. We’ll review your request and send you your personalised price. No payment has been taken."
+              : showsRequestQuoteFlow || exceedsOnlineCapacity
               ? isOutOfAreaPickupJourney
                 ? "We’ve received your out-of-area pickup request. We’ll review it manually, confirm availability, and send your personal fixed quote shortly. No payment is taken until the fare is confirmed."
                 : isRoiJourney
@@ -3139,13 +3153,13 @@ function QuoteCard({
               Reference: {bookingReference || quoteTransactionId}
             </p>
           )}
-          {bookingDelivery === "whatsapp" && (
+          {!isManualQuoteJourney && bookingDelivery === "whatsapp" && (
             <p className="mx-auto mt-4 max-w-md text-sm text-white/60">
               Your {isEnquiryOnly ? "enquiry" : "booking"} message should open in WhatsApp. If it
               didn&apos;t, open WhatsApp and message @{SITE.whatsappUsername}.
             </p>
           )}
-          {bookingDelivery === "email" && (
+          {!isManualQuoteJourney && bookingDelivery === "email" && (
             <p className="mx-auto mt-4 max-w-md text-sm text-white/60">
               Your {isEnquiryOnly ? "enquiry" : "booking"} has been sent by email. We&apos;ll
               confirm at {customerEmail.trim()}.
@@ -4067,9 +4081,11 @@ function QuoteCard({
             Your details
           </p>
           <p className="mt-1 mb-4 text-sm text-white/75">
-            {canPayNowOnline
-              ? "Enter your details, accept the terms, then pay securely with SumUp to confirm your booking."
-              : "We need these details for your booking request. For journeys that need manual confirmation, we’ll email a SumUp payment link after we confirm the job."}
+            {isManualQuoteJourney
+              ? "Enter your details and submit your quote request. We’ll review it and send your personalised price — no payment is taken now."
+              : canPayNowOnline
+                ? "Enter your details, accept the terms, then pay securely with SumUp to confirm your booking."
+                : "We need these details for your booking request. For journeys that need manual confirmation, we’ll email a SumUp payment link after we confirm the job."}
           </p>
           <div className="space-y-4 lg:space-y-3.5">
             <div className="grid gap-4 lg:grid-cols-2 lg:gap-3.5">
@@ -4241,24 +4257,26 @@ function QuoteCard({
                   <div id="step3-booking-review" className={`${BOOKING_PANEL_CLASS} scroll-mt-44 md:scroll-mt-28`}>
             <div className="mb-4">
               <p className="text-xs font-medium uppercase tracking-wider text-emerald">
-                {showsRequestQuoteFlow
-                  ? isManualQuoteJourney
-                    ? "Review your fixed quote request"
-                    : "Review your quote request"
-                  : isEnquiryOnly
-                    ? "Review your enquiry"
-                    : "Review your booking"}
+                {isManualQuoteJourney
+                  ? "Review your quote request"
+                  : showsRequestQuoteFlow
+                    ? "Review your quote request"
+                    : isEnquiryOnly
+                      ? "Review your enquiry"
+                      : "Review your booking"}
               </p>
               <p className="mt-1 text-sm text-white/75">
-                {showsRequestQuoteFlow
-                  ? isOutOfAreaPickupJourney
-                    ? "Check your details, then request your fixed price — out-of-area pickups need manual approval."
-                    : isRoiJourney
-                      ? "Check your details, then request your fixed Republic of Ireland price."
-                      : "Check your details, then request a quote — we’ll confirm availability before the booking is accepted."
-                  : isEnquiryOnly
-                    ? "Check your details, then send an enquiry — we’ll quote you and confirm availability."
-                    : "Please check everything is correct before booking — wrong details can change your price."}
+                {isManualQuoteJourney
+                  ? "Check your details, then submit your quote request — we’ll review it and send your personalised price."
+                  : showsRequestQuoteFlow
+                    ? isOutOfAreaPickupJourney
+                      ? "Check your details, then request your fixed price — out-of-area pickups need manual approval."
+                      : isRoiJourney
+                        ? "Check your details, then request your fixed Republic of Ireland price."
+                        : "Check your details, then request a quote — we’ll confirm availability before the booking is accepted."
+                    : isEnquiryOnly
+                      ? "Check your details, then send an enquiry — we’ll quote you and confirm availability."
+                      : "Please check everything is correct before booking — wrong details can change your price."}
               </p>
             </div>
             <dl>
@@ -4332,7 +4350,7 @@ function QuoteCard({
               ) : isManualQuoteJourney ? (
                 <PreviewRow
                   label="Pricing"
-                  value="Personalised quote — continue with travel details"
+                  value="Personalised quote — we’ll confirm your price"
                 />
               ) : showsRequestQuoteFlow && liveQuote ? (
                 <PreviewRow
@@ -4407,9 +4425,15 @@ function QuoteCard({
                 }
               }}
               error={termsError}
-              mode={canPayNowOnline ? "card-payment" : "booking-request"}
+              mode={
+                isManualQuoteJourney
+                  ? "quote-request"
+                  : canPayNowOnline
+                    ? "card-payment"
+                    : "booking-request"
+              }
               paymentAmountLabel={
-                isEnquiryOnly
+                isEnquiryOnly || isManualQuoteJourney
                   ? undefined
                   : testChargeAmount !== null
                     ? "£1.00"
@@ -4522,6 +4546,23 @@ function QuoteCard({
               >
                 Back to travel details
               </button>
+            ) : isManualQuoteJourney ? (
+              <div className="grid gap-3 sm:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={handleEditBooking}
+                  className="w-full rounded-xl border border-white/15 bg-white/5 py-3.5 text-sm font-semibold text-white transition-all hover:bg-white/10"
+                >
+                  Back to travel details
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitted || !termsAccepted}
+                  className="w-full rounded-xl bg-emerald py-3.5 text-sm font-bold text-navy transition-all hover:bg-emerald-light disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  {submitted ? submitInProgressLabel : confirmButtonLabel}
+                </button>
+              </div>
             ) : usesWhatsApp ? (
               <>
                 <p className="text-xs text-white/55">

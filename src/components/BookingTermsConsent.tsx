@@ -4,7 +4,7 @@ type BookingTermsConsentProps = {
   accepted: boolean;
   onAcceptedChange: (accepted: boolean) => void;
   error?: string;
-  mode: "card-payment" | "booking-request";
+  mode: "card-payment" | "booking-request" | "quote-request";
   paymentAmountLabel?: string;
 };
 
@@ -36,6 +36,16 @@ export default function BookingTermsConsent({
           <p>Your statutory rights are not affected.</p>
         </div>
       </div>
+      {mode === "quote-request" ? (
+        <div className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm leading-relaxed text-white/75">
+          <p className="font-semibold text-white/90">Agreement</p>
+          <p className="mt-1.5">
+            I understand this is a quote request. My journey is not booked yet. If the quote is
+            approved, I’ll receive my personalised price and a secure SumUp payment link. My booking
+            is confirmed only after payment is received.
+          </p>
+        </div>
+      ) : null}
       <label className="flex min-w-0 cursor-pointer items-start gap-3 rounded-xl border border-white/15 bg-white/[0.04] px-4 py-3 text-left">
         <input
           type="checkbox"
@@ -66,6 +76,28 @@ export default function BookingTermsConsent({
               </Link>
               , including the cancellation policy above, and authorise payment of {fareLabel}. My
               booking is confirmed once payment is completed.
+            </>
+          ) : mode === "quote-request" ? (
+            <>
+              I agree to the{" "}
+              <Link
+                href="/terms/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-medium text-emerald underline decoration-emerald/40 underline-offset-2 hover:text-emerald-light"
+              >
+                Terms &amp; Conditions
+              </Link>{" "}
+              and{" "}
+              <Link
+                href="/privacy/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-medium text-emerald underline decoration-emerald/40 underline-offset-2 hover:text-emerald-light"
+              >
+                Privacy Policy
+              </Link>
+              , including the cancellation policy and quote-request agreement above.
             </>
           ) : (
             <>
