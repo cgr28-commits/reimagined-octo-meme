@@ -14,6 +14,11 @@ import {
   toPersonalQuotePublicSummary,
   type PersonalQuoteRecord,
 } from "../shared/personal-quote";
+import {
+  resolveExpressDropOff,
+  toExpressDropOffPersistedFields,
+} from "../shared/express-drop-off";
+import { resolveAirportTransferIntent } from "../shared/airport-transfer-intent";
 import { ownerAuthorized, type DriverAuthEnv } from "./driver-auth";
 import {
   createPersonalQuote,
@@ -103,6 +108,35 @@ export async function handleOwnerCreatePersonalQuote(
   }
 
   try {
+    const pickupLabel = body.pickupLabel ? String(body.pickupLabel) : undefined;
+    const dropoffLabel = body.dropoffLabel ? String(body.dropoffLabel) : undefined;
+    const inferred = resolveAirportTransferIntent({
+      airportCode: body.airportCode == null ? null : String(body.airportCode),
+      fromAirport: typeof body.fromAirport === "boolean" ? body.fromAirport : null,
+      pickupAddress: pickupLabel ?? "",
+      dropoffAddress: dropoffLabel ?? "",
+    });
+    const airportCodeRaw = String(
+      inferred?.airportCode ?? body.airportCode ?? "",
+    )
+      .trim()
+      .toUpperCase();
+    const airportCode =
+      airportCodeRaw === "BFS" ||
+      airportCodeRaw === "BHD" ||
+      airportCodeRaw === "DUB" ||
+      airportCodeRaw === "LDY"
+        ? airportCodeRaw
+        : null;
+    const fromAirport = inferred?.fromAirport ?? body.fromAirport === true;
+    const expressSelection = resolveExpressDropOff({
+      airportCode,
+      fromAirport,
+      returnJourney: false,
+      selected: body.expressDropOffSelected !== false,
+    });
+    const expressFields = toExpressDropOffPersistedFields(expressSelection);
+
     const quote = await createPersonalQuote(env.TRACKING_STORE, {
       customerName: String(body.customerName ?? ""),
       customerEmail: body.customerEmail ? String(body.customerEmail) : undefined,
@@ -116,11 +150,16 @@ export async function handleOwnerCreatePersonalQuote(
         body.discountAmount != null && body.discountAmount !== ""
           ? Number(body.discountAmount)
           : undefined,
-      pickupLabel: body.pickupLabel ? String(body.pickupLabel) : undefined,
-      dropoffLabel: body.dropoffLabel ? String(body.dropoffLabel) : undefined,
+      pickupLabel,
+      dropoffLabel,
       notes: body.notes ? String(body.notes) : undefined,
       singleUse: body.singleUse !== false && body.singleUse !== "false" && body.singleUse !== 0,
       expiresOn: String(body.expiresOn ?? "").trim(),
+      expressDropOffSelected: expressFields.expressDropOffSelected,
+      expressDropOffFee: expressFields.expressDropOffFee,
+      expressDropOffAirport: expressFields.expressDropOffAirport,
+      airportCode,
+      fromAirport,
     });
     return { ok: true, quote: ownerView(quote, siteOrigin(env)) };
   } catch (error) {
@@ -253,6 +292,7 @@ export async function resolvePersonalQuoteForPayment(
     agreedAmount: oneWayAgreedAmount,
     standardWebsiteAmount: evaluated.record.standardWebsiteAmount,
     returnJourney: Boolean(options?.returnJourney),
+    expressDropOffFee: evaluated.record.expressDropOffFee ?? 0,
   });
   if (!Number.isFinite(amount) || amount < 1) {
     return { ok: false, error: personalQuoteCustomerError("invalid_amount"), status: 400 };

@@ -368,5 +368,12 @@
     "minimumUpliftGbp": 25
   },
   "airportTripPremiumRate": 0,
-  "addressToAddressTripPremiumRate": 0
+  "addressToAddressTripPremiumRate": 0,
+  "expressDropOffFeesGbp": {
+    "note": "Optional customer Express Drop-Off add-on on BFS/BHD departure legs only. Not the waived automatic access fee. Keep in sync with shared/express-drop-off.ts.",
+    "BFS": 5,
+    "BHD": 4,
+    "DUB": 0,
+    "LDY": 0
+  }
 }

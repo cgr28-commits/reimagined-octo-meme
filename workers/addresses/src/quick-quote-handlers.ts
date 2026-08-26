@@ -37,6 +37,11 @@ import {
 import { resolveWorkerTripRouteMetrics } from "./resolve-route-metrics";
 import { parseClientRouteMetrics } from "./parse-route-metrics";
 import { resolveAirportTransferIntent } from "../shared/airport-transfer-intent";
+import {
+  composeFareWithExpressDropOff,
+  resolveExpressDropOff,
+  toExpressDropOffPersistedFields,
+} from "../shared/express-drop-off";
 
 function json(body: unknown, status: number, origin: string | null): Response {
   return new Response(JSON.stringify(body), {
@@ -280,14 +285,31 @@ export async function handleOwnerCreateQuickQuote(
     discountValue,
   );
 
+  // Express Drop-Off is recomputed server-side from journey + selection boolean.
+  // Client-supplied fee amounts are ignored to prevent duplicate / tampered charges.
+  const expressSelection = resolveExpressDropOff({
+    airportCode: journey.airportCode,
+    fromAirport: journey.fromAirport,
+    returnJourney: journey.returnJourney,
+    selected: body.expressDropOffSelected !== false,
+  });
+  const expressFields = toExpressDropOffPersistedFields(expressSelection);
+  const composed = composeFareWithExpressDropOff({
+    transferFareGbp: discounted.customerFare,
+    expressDropOffFeeGbp: expressFields.expressDropOffFee,
+  });
+
   const record = await createQuickQuoteRecord(env.TRACKING_STORE, {
     journey: {
       ...journey,
       vehicleType: quote.vehicleType,
       vehicleChoice: journey.vehicleChoice,
+      expressDropOffSelected: expressFields.expressDropOffSelected,
+      expressDropOffFee: expressFields.expressDropOffFee,
+      expressDropOffAirport: expressFields.expressDropOffAirport,
     },
-    quotedAmount: discounted.customerFare,
-    quotedAmountLabel: formatQuickQuoteAmount(discounted.customerFare),
+    quotedAmount: composed.totalGbp,
+    quotedAmountLabel: formatQuickQuoteAmount(composed.totalGbp),
     calculatedAmount: discounted.calculatedFare,
     calculatedAmountLabel: formatQuickQuoteAmount(discounted.calculatedFare),
     discountType: discounted.discountType,
@@ -314,6 +336,9 @@ export async function handleOwnerCreateQuickQuote(
       vehicleChoice: journey.vehicleChoice,
       returnJourney: journey.returnJourney,
       airportCode: journey.airportCode ?? null,
+      expressDropOffSelected: expressFields.expressDropOffSelected,
+      expressDropOffFee: expressFields.expressDropOffFee,
+      expressDropOffAirport: expressFields.expressDropOffAirport,
     }),
   );
 

@@ -23,6 +23,11 @@ import {
 } from "../../../shared/personal-quote";
 import { getPaymentBookingBlockers } from "../../../shared/paid-booking-gate";
 import { formatReturnJourneyDiscountPercent } from "../../../shared/return-journey-discount";
+import {
+  EXPRESS_DROP_OFF_PASSED_ON_NOTE,
+  expressDropOffBreakdownLabel,
+  normaliseExpressDropOffAirport,
+} from "../../../shared/express-drop-off";
 
 /** Personal-quote links: saloon/estate only — no minibus / 5–7 options. */
 const PERSONAL_QUOTE_VEHICLE_TYPES = VEHICLE_TYPES.filter(
@@ -137,6 +142,9 @@ function PersonalQuoteInner() {
       agreedAmount: quote.agreedAmount,
       standardWebsiteAmount: quote.standardWebsiteAmount,
       returnJourney,
+      expressDropOffSelected: quote.expressDropOffSelected,
+      expressDropOffFee: quote.expressDropOffFee,
+      expressDropOffAirport: quote.expressDropOffAirport,
     });
   }, [quote, returnJourney]);
 
@@ -172,6 +180,15 @@ function PersonalQuoteInner() {
       ...(airportMeta.airportCode ? { airportCode: airportMeta.airportCode } : {}),
       ...(typeof airportMeta.isFromAirport === "boolean"
         ? { isFromAirport: airportMeta.isFromAirport }
+        : {}),
+      ...(typeof quote.expressDropOffSelected === "boolean"
+        ? { expressDropOffSelected: quote.expressDropOffSelected }
+        : {}),
+      ...(typeof quote.expressDropOffFee === "number"
+        ? { expressDropOffFee: quote.expressDropOffFee }
+        : {}),
+      ...(quote.expressDropOffAirport !== undefined
+        ? { expressDropOffAirport: quote.expressDropOffAirport }
         : {}),
       termsAcceptedAt: new Date().toISOString(),
       termsVersion: TERMS_LAST_UPDATED,
@@ -359,6 +376,25 @@ function PersonalQuoteInner() {
             Total to pay: {paymentDisplay.paymentAmountLabel}
           </p>
         )}
+
+        {(() => {
+          const airport = normaliseExpressDropOffAirport(
+            quote.expressDropOffAirport ?? paymentDisplay.expressDropOffAirport,
+          );
+          if (!airport || quote.expressDropOffSelected == null) return null;
+          return (
+            <div className="mt-3 space-y-1 border-t border-white/10 pt-3 text-sm text-white/75">
+              <p>
+                {expressDropOffBreakdownLabel(
+                  airport,
+                  Boolean(quote.expressDropOffSelected) &&
+                    Number(quote.expressDropOffFee ?? 0) > 0,
+                )}
+              </p>
+              <p className="text-xs text-white/50">{EXPRESS_DROP_OFF_PASSED_ON_NOTE}</p>
+            </div>
+          );
+        })()}
 
         <p className="mt-2 text-xs text-white/55">
           Fixed price — your payment amount is authorised server-side and cannot be changed via this

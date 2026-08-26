@@ -126,6 +126,11 @@ export type CreatePersonalQuoteInput = {
   notes?: string;
   singleUse: boolean;
   expiresOn: string;
+  expressDropOffSelected?: boolean;
+  expressDropOffFee?: number;
+  expressDropOffAirport?: "BFS" | "BHD" | null;
+  airportCode?: "BFS" | "BHD" | "DUB" | "LDY" | null;
+  fromAirport?: boolean;
 };
 
 export async function createOwnerPersonalQuote(

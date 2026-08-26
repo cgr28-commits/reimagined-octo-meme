@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import AddressInput from "@/components/AddressInput";
+import ExpressDropOffSelector from "@/components/ExpressDropOffSelector";
 import { VEHICLE_TYPES, type VehicleType } from "@/lib/data";
 import { formatQuote } from "@/lib/quote";
 import {
@@ -19,6 +20,13 @@ import {
 import { resolveTripRouteMetricsForAddresses } from "@/lib/route-point-resolver";
 import { selectVehicleForParty } from "@/lib/vehicle-selection";
 import { calculateWebsiteOneWayFare } from "@/lib/website-fare";
+import { resolveAirportTransferIntent } from "../../shared/airport-transfer-intent";
+import {
+  composeFareWithExpressDropOff,
+  expressDropOffBreakdownLabel,
+  resolveExpressDropOff,
+  toExpressDropOffPersistedFields,
+} from "../../shared/express-drop-off";
 import {
   buildPersonalQuoteWhatsAppMessage,
   computeLinkedPersonalQuoteFares,
@@ -77,6 +85,36 @@ export default function OwnerPersonalQuotesPanel({ ownerKey }: OwnerPersonalQuot
   const [vehicle, setVehicle] = useState<VehicleType>(OWNER_PQ_VEHICLES[0] ?? VEHICLE_TYPES[0]);
   const [journeyDate, setJourneyDate] = useState("");
   const [journeyTime, setJourneyTime] = useState("10:00");
+  const [expressDropOffSelected, setExpressDropOffSelected] = useState(true);
+  const [expressRemovalAck, setExpressRemovalAck] = useState(false);
+  const [expressAckRequired, setExpressAckRequired] = useState(false);
+
+  const journeyIntent = useMemo(() => {
+    const pickup = pickupLabel.trim() || placeDisplayText(pickupPlace);
+    const dropoff = dropoffLabel.trim() || placeDisplayText(dropoffPlace);
+    return resolveAirportTransferIntent({
+      airportCode: null,
+      fromAirport: null,
+      pickupAddress: pickup,
+      dropoffAddress: dropoff,
+    });
+  }, [pickupLabel, dropoffLabel, pickupPlace, dropoffPlace]);
+
+  const expressSelection = useMemo(
+    () =>
+      resolveExpressDropOff({
+        airportCode: journeyIntent?.airportCode ?? null,
+        fromAirport: journeyIntent?.fromAirport ?? false,
+        returnJourney: false,
+        selected: expressDropOffSelected,
+      }),
+    [journeyIntent, expressDropOffSelected],
+  );
+
+  const expressPersisted = useMemo(
+    () => toExpressDropOffPersistedFields(expressSelection),
+    [expressSelection],
+  );
 
   const savingsPreview = useMemo(() => {
     const standard = parseMoney(standardWebsiteAmount);
@@ -86,6 +124,21 @@ export default function OwnerPersonalQuotesPanel({ ownerKey }: OwnerPersonalQuot
     if (save <= 0) return null;
     return save;
   }, [standardWebsiteAmount, agreedAmount]);
+
+  const customerTotalPreview = useMemo(() => {
+    const agreed = parseMoney(agreedAmount);
+    if (agreed == null) return null;
+    return composeFareWithExpressDropOff({
+      transferFareGbp: agreed,
+      expressDropOffFeeGbp: expressPersisted.expressDropOffFee,
+    });
+  }, [agreedAmount, expressPersisted.expressDropOffFee]);
+
+  useEffect(() => {
+    setExpressDropOffSelected(true);
+    setExpressRemovalAck(false);
+    setExpressAckRequired(false);
+  }, [journeyIntent?.airportCode, journeyIntent?.fromAirport]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -208,6 +261,26 @@ export default function OwnerPersonalQuotesPanel({ ownerKey }: OwnerPersonalQuot
     setMessage("");
     setLastCreated(null);
     try {
+      if (
+        expressSelection.eligible &&
+        !expressDropOffSelected &&
+        !expressRemovalAck
+      ) {
+        setExpressAckRequired(true);
+        throw new Error(
+          "Please confirm you understand the free drop-off area before continuing without Express Drop-Off.",
+        );
+      }
+      const airportCodeRaw = String(journeyIntent?.airportCode ?? "")
+        .trim()
+        .toUpperCase();
+      const airportCode =
+        airportCodeRaw === "BFS" ||
+        airportCodeRaw === "BHD" ||
+        airportCodeRaw === "DUB" ||
+        airportCodeRaw === "LDY"
+          ? airportCodeRaw
+          : null;
       const quote = await createOwnerPersonalQuote(ownerKey, {
         customerName,
         customerEmail: customerEmail.trim() || undefined,
@@ -222,6 +295,11 @@ export default function OwnerPersonalQuotesPanel({ ownerKey }: OwnerPersonalQuot
         notes: notes.trim() || undefined,
         pickupLabel: pickupLabel.trim() || undefined,
         dropoffLabel: dropoffLabel.trim() || undefined,
+        expressDropOffSelected: expressPersisted.expressDropOffSelected,
+        expressDropOffFee: expressPersisted.expressDropOffFee,
+        expressDropOffAirport: expressPersisted.expressDropOffAirport,
+        airportCode,
+        fromAirport: Boolean(journeyIntent?.fromAirport),
       });
       setLastCreated(quote);
       setMessage(`Personal quote created: ${quote.code} · ${quote.amountLabel}`);
@@ -243,6 +321,9 @@ export default function OwnerPersonalQuotesPanel({ ownerKey }: OwnerPersonalQuot
       setFareHint("");
       setExpiresOn(defaultExpiry());
       setSingleUse(true);
+      setExpressDropOffSelected(true);
+      setExpressRemovalAck(false);
+      setExpressAckRequired(false);
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not create personal quote");
@@ -517,6 +598,43 @@ export default function OwnerPersonalQuotesPanel({ ownerKey }: OwnerPersonalQuot
             <p className="text-white/40">No personal discount</p>
           )}
         </div>
+
+        {expressSelection.eligible && expressSelection.airportCode ? (
+          <div className="min-w-0 space-y-2 sm:col-span-2">
+            <ExpressDropOffSelector
+              airportCode={expressSelection.airportCode}
+              selected={expressDropOffSelected}
+              removalAcknowledged={expressRemovalAck}
+              requireAcknowledgement={expressAckRequired}
+              onSelectedChange={(selected) => {
+                setExpressDropOffSelected(selected);
+                setExpressAckRequired(false);
+              }}
+              onRemovalAcknowledgedChange={(ack) => {
+                setExpressRemovalAck(ack);
+                if (ack) setExpressAckRequired(false);
+              }}
+            />
+            {customerTotalPreview ? (
+              <div className="space-y-1 text-sm text-white/80">
+                <p>
+                  {expressDropOffBreakdownLabel(
+                    expressSelection.airportCode,
+                    expressDropOffSelected,
+                  )}
+                </p>
+                <p className="font-semibold text-white">
+                  One-way total with Express Drop-Off:{" "}
+                  {formatPersonalQuoteAmount(customerTotalPreview.totalGbp)}
+                </p>
+                <p className="text-xs text-white/50">
+                  Personal fare stays {formatPersonalQuoteAmount(customerTotalPreview.transferFareGbp)};
+                  Express Drop-Off is added at payment (not a taxi-fare discount).
+                </p>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
 
         <label className="block min-w-0 text-sm text-white/80">
           Expiry date

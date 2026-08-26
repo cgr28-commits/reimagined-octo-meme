@@ -833,6 +833,17 @@ function parsePaidBookingDetails(body: Record<string, unknown>): PaidBookingDeta
     isAirportTrip: Boolean(details.isAirportTrip),
     airportCode: String(details.airportCode ?? "").trim().toUpperCase() || undefined,
     isFromAirport: details.isFromAirport === undefined ? undefined : Boolean(details.isFromAirport),
+    ...(typeof details.expressDropOffSelected === "boolean"
+      ? { expressDropOffSelected: details.expressDropOffSelected }
+      : {}),
+    ...(typeof details.expressDropOffFee === "number" && Number.isFinite(details.expressDropOffFee)
+      ? { expressDropOffFee: Math.round(Number(details.expressDropOffFee) * 100) / 100 }
+      : {}),
+    ...(details.expressDropOffAirport === "BFS" || details.expressDropOffAirport === "BHD"
+      ? { expressDropOffAirport: details.expressDropOffAirport }
+      : details.expressDropOffAirport === null
+        ? { expressDropOffAirport: null }
+        : {}),
     termsAcceptedAt: String(details.termsAcceptedAt ?? "").trim() || undefined,
     termsVersion: String(details.termsVersion ?? "").trim() || undefined,
     marketingOptIn: details.marketingOptIn === true ? true : undefined,
@@ -1521,6 +1532,15 @@ async function handlePaymentRequest(
       isAirportTrip: Boolean(j.airportCode),
       airportCode: j.airportCode ?? booking.airportCode,
       isFromAirport: j.fromAirport,
+      ...(typeof j.expressDropOffSelected === "boolean"
+        ? { expressDropOffSelected: j.expressDropOffSelected }
+        : {}),
+      ...(typeof j.expressDropOffFee === "number"
+        ? { expressDropOffFee: j.expressDropOffFee }
+        : {}),
+      ...(j.expressDropOffAirport !== undefined
+        ? { expressDropOffAirport: j.expressDropOffAirport }
+        : {}),
       tripLabel: j.childSeatRequired
         ? `${booking.tripLabel || "Airport transfer"} · Child seat required`
         : booking.tripLabel || "Airport transfer",

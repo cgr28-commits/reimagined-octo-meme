@@ -18,6 +18,11 @@ import { fetchQuickQuoteById, type QuickQuotePublicSummary } from "@/lib/quick-q
 import { TERMS_LAST_UPDATED } from "@/lib/terms";
 import { CANCELLATION_POLICY_VERSION } from "../../../shared/refund-ops";
 import { getPaymentBookingBlockers } from "../../../shared/paid-booking-gate";
+import {
+  EXPRESS_DROP_OFF_PASSED_ON_NOTE,
+  expressDropOffBreakdownLabel,
+  normaliseExpressDropOffAirport,
+} from "../../../shared/express-drop-off";
 
 const fieldClass =
   "quote-text-input min-h-12 rounded-xl border border-white/15 bg-navy px-3 text-base text-white placeholder:text-white/35";
@@ -122,6 +127,15 @@ function BookQuoteInner() {
       airportCode: journey.airportCode ?? undefined,
       isFromAirport: journey.fromAirport,
       estimatedPrice: quote.quotedAmountLabel,
+      ...(typeof journey.expressDropOffSelected === "boolean"
+        ? { expressDropOffSelected: journey.expressDropOffSelected }
+        : {}),
+      ...(typeof journey.expressDropOffFee === "number"
+        ? { expressDropOffFee: journey.expressDropOffFee }
+        : {}),
+      ...(journey.expressDropOffAirport !== undefined
+        ? { expressDropOffAirport: journey.expressDropOffAirport }
+        : {}),
       termsAcceptedAt: termsAccepted ? new Date().toISOString() : undefined,
       termsVersion: TERMS_LAST_UPDATED,
       cancellationPolicyVersion: CANCELLATION_POLICY_VERSION,
@@ -233,6 +247,24 @@ function BookQuoteInner() {
       <section className="min-w-0 overflow-hidden rounded-2xl border border-emerald/35 bg-emerald/10 px-4 py-6 text-center sm:px-5">
         <p className="text-xs font-semibold uppercase tracking-wider text-emerald">Fixed fare</p>
         <p className="mt-1 break-words font-display text-4xl text-white">{quote.quotedAmountLabel}</p>
+        {(() => {
+          const airport = normaliseExpressDropOffAirport(
+            journey.expressDropOffAirport ?? journey.airportCode,
+          );
+          if (!airport || journey.expressDropOffSelected == null) return null;
+          return (
+            <div className="mt-3 space-y-1 text-sm text-white/75">
+              <p>
+                {expressDropOffBreakdownLabel(
+                  airport,
+                  Boolean(journey.expressDropOffSelected) &&
+                    Number(journey.expressDropOffFee ?? 0) > 0,
+                )}
+              </p>
+              <p className="text-xs text-white/50">{EXPRESS_DROP_OFF_PASSED_ON_NOTE}</p>
+            </div>
+          );
+        })()}
         <p className="mt-2 break-words text-sm text-white/60">
           Secure card payment · quote expires{" "}
           {new Date(quote.expiresAt).toLocaleString("en-GB", {

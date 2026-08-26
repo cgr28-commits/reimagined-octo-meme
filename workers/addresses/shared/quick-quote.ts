@@ -58,6 +58,12 @@ export type QuickQuoteJourney = {
   vehicleType?: string;
   /** Owner/Driver manual choice when set (Saloon | Minibus). */
   vehicleChoice?: QuickQuoteVehicleChoice;
+  /** Express Drop-Off: customer/owner choice (default true when eligible). */
+  expressDropOffSelected?: boolean;
+  /** Fee charged in GBP (0 when not eligible or not selected). */
+  expressDropOffFee?: number;
+  /** Airport the optional Express Drop-Off relates to. */
+  expressDropOffAirport?: "BFS" | "BHD" | null;
 };
 
 export type QuickQuoteRecord = {
