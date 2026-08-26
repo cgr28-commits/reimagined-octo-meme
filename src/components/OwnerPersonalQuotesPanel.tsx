@@ -603,6 +603,8 @@ export default function OwnerPersonalQuotesPanel({ ownerKey }: OwnerPersonalQuot
           <div className="min-w-0 space-y-2 sm:col-span-2">
             <ExpressDropOffSelector
               airportCode={expressSelection.airportCode}
+              service={expressSelection.service ?? "drop-off"}
+              allowFreeAlternative={expressSelection.freeAlternativeAvailable}
               selected={expressDropOffSelected}
               removalAcknowledged={expressRemovalAck}
               requireAcknowledgement={expressAckRequired}
@@ -621,10 +623,11 @@ export default function OwnerPersonalQuotesPanel({ ownerKey }: OwnerPersonalQuot
                   {expressDropOffBreakdownLabel(
                     expressSelection.airportCode,
                     expressDropOffSelected,
+                    expressSelection.service ?? "drop-off",
                   )}
                 </p>
                 <p className="font-semibold text-white">
-                  One-way total with Express Drop-Off:{" "}
+                  One-way total with Express:{" "}
                   {formatPersonalQuoteAmount(customerTotalPreview.totalGbp)}
                 </p>
                 <p className="text-xs text-white/50">

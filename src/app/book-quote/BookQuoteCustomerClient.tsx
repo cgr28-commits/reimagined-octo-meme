@@ -18,7 +18,7 @@ import { fetchQuickQuoteById, type QuickQuotePublicSummary } from "@/lib/quick-q
 import { TERMS_LAST_UPDATED } from "@/lib/terms";
 import { CANCELLATION_POLICY_VERSION } from "../../../shared/refund-ops";
 import { getPaymentBookingBlockers } from "../../../shared/paid-booking-gate";
-import ExpressDropOffSelector from "@/components/ExpressDropOffSelector";
+import ExpressDropOffChoice from "@/components/ExpressDropOffChoice";
 import { formatQuickQuoteAmount } from "../../../shared/quick-quote";
 import {
   canProceedWithoutExpressDropOff,
@@ -57,6 +57,7 @@ function BookQuoteInner() {
   const [expressDropOffSelected, setExpressDropOffSelected] = useState(true);
   const [expressRemovalAck, setExpressRemovalAck] = useState(false);
   const [expressAckRequired, setExpressAckRequired] = useState(false);
+  const [expressEditing, setExpressEditing] = useState(false);
 
   useEffect(() => {
     const fromUrl = searchParams.get("id")?.trim() ?? readIdFromLocation();
@@ -91,6 +92,7 @@ function BookQuoteInner() {
         setExpressDropOffSelected(loaded.journey.expressDropOffSelected !== false);
         setExpressRemovalAck(false);
         setExpressAckRequired(false);
+        setExpressEditing(false);
       } catch (err) {
         if (!cancelled) {
           setError(
@@ -306,6 +308,7 @@ function BookQuoteInner() {
               {expressDropOffBreakdownLabel(
                 expressSelection.airportCode,
                 expressDropOffSelected,
+                expressSelection.service ?? "drop-off",
               )}
             </p>
           </div>
@@ -319,8 +322,13 @@ function BookQuoteInner() {
       </section>
 
       {expressSelection.eligible && expressSelection.airportCode ? (
-        <ExpressDropOffSelector
+        <ExpressDropOffChoice
+          mode="summary"
+          editing={expressEditing}
+          onEditingChange={setExpressEditing}
           airportCode={expressSelection.airportCode}
+          service={expressSelection.service ?? "drop-off"}
+          allowFreeAlternative={expressSelection.freeAlternativeAvailable}
           selected={expressDropOffSelected}
           removalAcknowledged={expressRemovalAck}
           requireAcknowledgement={expressAckRequired}

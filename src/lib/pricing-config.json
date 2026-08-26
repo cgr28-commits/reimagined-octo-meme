@@ -370,10 +370,17 @@
   "airportTripPremiumRate": 0,
   "addressToAddressTripPremiumRate": 0,
   "expressDropOffFeesGbp": {
-    "note": "Optional customer Express Drop-Off add-on on BFS/BHD departure legs only. Not the waived automatic access fee. Keep in sync with shared/express-drop-off.ts.",
+    "note": "Optional customer Express Drop-Off/Pick-Up add-on on BFS/BHD airport journeys (once per booking). Not the waived automatic access fee. Keep in sync with shared/express-drop-off.ts.",
     "BFS": 5,
     "BHD": 4,
     "DUB": 0,
     "LDY": 0
+  },
+  "expressFreePickupConfigured": {
+    "note": "Free pick-up / collection alternative only when true. Free drop-off is always offered for BFS/BHD. Keep in sync with EXPRESS_FREE_PICKUP_CONFIGURED in shared/express-drop-off.ts.",
+    "BFS": true,
+    "BHD": true,
+    "DUB": false,
+    "LDY": false
   }
 }

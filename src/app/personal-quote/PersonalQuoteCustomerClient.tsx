@@ -23,7 +23,7 @@ import {
 } from "../../../shared/personal-quote";
 import { getPaymentBookingBlockers } from "../../../shared/paid-booking-gate";
 import { formatReturnJourneyDiscountPercent } from "../../../shared/return-journey-discount";
-import ExpressDropOffSelector from "@/components/ExpressDropOffSelector";
+import ExpressDropOffChoice from "@/components/ExpressDropOffChoice";
 import {
   canProceedWithoutExpressDropOff,
   expressDropOffBreakdownLabel,
@@ -94,6 +94,7 @@ function PersonalQuoteInner() {
   const [expressDropOffSelected, setExpressDropOffSelected] = useState(true);
   const [expressRemovalAck, setExpressRemovalAck] = useState(false);
   const [expressAckRequired, setExpressAckRequired] = useState(false);
+  const [expressEditing, setExpressEditing] = useState(false);
   const expressEligibilityPrimedRef = useRef(false);
   const expressWasEligibleRef = useRef(false);
 
@@ -124,6 +125,7 @@ function PersonalQuoteInner() {
         setExpressDropOffSelected(loaded.expressDropOffSelected !== false);
         setExpressRemovalAck(false);
         setExpressAckRequired(false);
+        setExpressEditing(false);
         expressEligibilityPrimedRef.current = false;
         // Email/mobile are never returned by the public token endpoint — customer enters them.
       } catch (err) {
@@ -456,6 +458,7 @@ function PersonalQuoteInner() {
               {expressDropOffBreakdownLabel(
                 expressSelection.airportCode,
                 expressDropOffSelected,
+                expressSelection.service ?? "drop-off",
               )}
             </p>
           </div>
@@ -469,8 +472,13 @@ function PersonalQuoteInner() {
 
       {expressSelection.eligible && expressSelection.airportCode ? (
         <div className="mt-5">
-          <ExpressDropOffSelector
+          <ExpressDropOffChoice
+            mode="summary"
+            editing={expressEditing}
+            onEditingChange={setExpressEditing}
             airportCode={expressSelection.airportCode}
+            service={expressSelection.service ?? "drop-off"}
+            allowFreeAlternative={expressSelection.freeAlternativeAvailable}
             selected={expressDropOffSelected}
             removalAcknowledged={expressRemovalAck}
             requireAcknowledgement={expressAckRequired}

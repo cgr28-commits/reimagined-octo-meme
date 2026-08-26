@@ -2,37 +2,49 @@
 
 import {
   EXPRESS_DROP_OFF_PASSED_ON_NOTE,
-  EXPRESS_DROP_OFF_REMOVED_EXPLANATION,
+  canOfferExpressFreeAlternative,
+  expressAirportLegendLabel,
   expressDropOffConfirmRemovalLabel,
   expressDropOffRecommendedLabel,
   expressDropOffRemoveLabel,
+  expressDropOffRemovedExplanation,
+  type ExpressAirportService,
   type ExpressDropOffAirportCode,
 } from "../../shared/express-drop-off";
 
 type Props = {
   airportCode: ExpressDropOffAirportCode;
+  service?: ExpressAirportService;
   selected: boolean;
   removalAcknowledged: boolean;
   onSelectedChange: (selected: boolean) => void;
   onRemovalAcknowledgedChange: (acknowledged: boolean) => void;
   /** When true, block continuing without acknowledgement (visual emphasis). */
   requireAcknowledgement?: boolean;
+  /** Override free-alternative gate (defaults from shared config + service). */
+  allowFreeAlternative?: boolean;
   className?: string;
 };
 
 /**
- * Accessible Express Drop-Off selector — default recommended / optional remove.
+ * Accessible Express Drop-Off / Pick-Up selector — default recommended / optional free area.
  */
 export default function ExpressDropOffSelector({
   airportCode,
+  service = "drop-off",
   selected,
   removalAcknowledged,
   onSelectedChange,
   onRemovalAcknowledgedChange,
   requireAcknowledgement = false,
+  allowFreeAlternative,
   className = "",
 }: Props) {
-  const groupName = `express-drop-off-${airportCode}`;
+  const groupName = `express-airport-${service}-${airportCode}`;
+  const freeAvailable =
+    typeof allowFreeAlternative === "boolean"
+      ? allowFreeAlternative
+      : canOfferExpressFreeAlternative({ airportCode, service });
 
   return (
     <fieldset
@@ -40,10 +52,14 @@ export default function ExpressDropOffSelector({
       aria-describedby={`${groupName}-note`}
     >
       <legend className="px-1 text-sm font-semibold text-white">
-        Airport Express Drop-Off
+        {expressAirportLegendLabel(service)}
       </legend>
 
-      <div role="radiogroup" aria-label="Express Drop-Off options" className="space-y-2">
+      <div
+        role="radiogroup"
+        aria-label={`${expressAirportLegendLabel(service)} options`}
+        className="space-y-2"
+      >
         <label
           className={`flex min-h-11 cursor-pointer items-start gap-3 rounded-xl border px-3 py-2.5 text-sm transition-colors ${
             selected
@@ -62,34 +78,36 @@ export default function ExpressDropOffSelector({
             className="mt-1 h-4 w-4 shrink-0 border-white/30 accent-emerald"
           />
           <span className="min-w-0 leading-snug">
-            {expressDropOffRecommendedLabel(airportCode)}
+            {expressDropOffRecommendedLabel(airportCode, service)}
           </span>
         </label>
 
-        <label
-          className={`flex min-h-11 cursor-pointer items-start gap-3 rounded-xl border px-3 py-2.5 text-sm transition-colors ${
-            !selected
-              ? "border-amber-400/50 bg-amber-500/10 text-white"
-              : "border-white/15 text-white/80 hover:border-white/30"
-          }`}
-        >
-          <input
-            type="radio"
-            name={groupName}
-            checked={!selected}
-            onChange={() => onSelectedChange(false)}
-            className="mt-1 h-4 w-4 shrink-0 border-white/30 accent-emerald"
-          />
-          <span className="min-w-0 leading-snug">
-            {expressDropOffRemoveLabel(airportCode)}
-          </span>
-        </label>
+        {freeAvailable ? (
+          <label
+            className={`flex min-h-11 cursor-pointer items-start gap-3 rounded-xl border px-3 py-2.5 text-sm transition-colors ${
+              !selected
+                ? "border-amber-400/50 bg-amber-500/10 text-white"
+                : "border-white/15 text-white/80 hover:border-white/30"
+            }`}
+          >
+            <input
+              type="radio"
+              name={groupName}
+              checked={!selected}
+              onChange={() => onSelectedChange(false)}
+              className="mt-1 h-4 w-4 shrink-0 border-white/30 accent-emerald"
+            />
+            <span className="min-w-0 leading-snug">
+              {expressDropOffRemoveLabel(airportCode, service)}
+            </span>
+          </label>
+        ) : null}
       </div>
 
-      {!selected ? (
+      {freeAvailable && !selected ? (
         <div className="space-y-2 rounded-lg border border-amber-400/30 bg-amber-500/5 px-3 py-2.5">
           <p className="text-xs leading-relaxed text-amber-100/90">
-            {EXPRESS_DROP_OFF_REMOVED_EXPLANATION}
+            {expressDropOffRemovedExplanation(service)}
           </p>
           <label
             className={`flex min-h-11 cursor-pointer items-start gap-3 text-sm ${
@@ -106,7 +124,7 @@ export default function ExpressDropOffSelector({
               aria-required={requireAcknowledgement}
             />
             <span className="min-w-0 leading-snug">
-              {expressDropOffConfirmRemovalLabel()}
+              {expressDropOffConfirmRemovalLabel(service)}
             </span>
           </label>
         </div>

@@ -174,6 +174,98 @@ export function scheduleBookingNavAfterRender(
 }
 
 /**
+ * Mobile Express free-area acknowledgement → reveal Book Now with a short, calm scroll.
+ *
+ * Only scrolls by the amount the Book Now CTA is still below the fold — does not
+ * centre the page (that felt like “too high”). One smooth move, plus a single
+ * quiet correction if iOS undoes it; no multi-retry judder.
+ */
+export function scheduleScrollToBookNowAfterExpressAck(): () => void {
+  if (typeof window === "undefined") {
+    return () => {};
+  }
+
+  const generation = getScrollJobGeneration();
+  let cancelled = false;
+  let raf2 = 0;
+  let correctTimer = 0;
+
+  const resolveCta = (): HTMLElement | null => {
+    const buttons = document.querySelectorAll<HTMLElement>("#quote-book-now-button");
+    for (const button of buttons) {
+      if (button.getClientRects().length > 0) return button;
+    }
+    const sections = document.querySelectorAll<HTMLElement>("#quote-step1-next");
+    for (const section of sections) {
+      if (section.getClientRects().length > 0) return section;
+    }
+    return null;
+  };
+
+  /** Pixels the CTA still sits below the comfortable bottom of the viewport. */
+  const overflowBelowFoldPx = (element: HTMLElement): number => {
+    const rect = element.getBoundingClientRect();
+    const bottomGap = Math.max(20, 12 + (window.visualViewport?.offsetTop ?? 0));
+    const comfortableBottom = window.innerHeight - bottomGap;
+    return Math.round(rect.bottom - comfortableBottom);
+  };
+
+  const revealBookNow = (behavior: ScrollBehavior): boolean => {
+    const element = resolveCta();
+    if (!element) return false;
+
+    const overflow = overflowBelowFoldPx(element);
+    // Already fully visible with a little breathing room — do nothing.
+    if (overflow <= 8) return false;
+
+    const html = document.documentElement;
+    const prevAnchor = html.style.overflowAnchor;
+    html.style.overflowAnchor = "none";
+
+    // Minimal move: only as far as needed to bring Book Now onto the screen.
+    window.scrollBy({ top: overflow + 12, behavior });
+
+    window.setTimeout(() => {
+      html.style.overflowAnchor = prevAnchor;
+    }, 400);
+
+    return true;
+  };
+
+  const active = document.activeElement;
+  if (active instanceof HTMLElement) {
+    active.blur();
+  }
+
+  const behavior: ScrollBehavior = prefersReducedMotion() ? "auto" : "smooth";
+
+  const raf1 = window.requestAnimationFrame(() => {
+    raf2 = window.requestAnimationFrame(() => {
+      if (cancelled || !isScrollJobGenerationCurrent(generation)) return;
+      revealBookNow(behavior);
+
+      // One delayed correction only — avoids the judder from stacked smooth scrolls.
+      correctTimer = window.setTimeout(() => {
+        if (cancelled || !isScrollJobGenerationCurrent(generation)) return;
+        const element = resolveCta();
+        if (!element) return;
+        if (overflowBelowFoldPx(element) > 24) {
+          revealBookNow("auto");
+        }
+      }, 320);
+    });
+  });
+
+  const cancel = () => {
+    cancelled = true;
+    window.cancelAnimationFrame(raf1);
+    if (raf2) window.cancelAnimationFrame(raf2);
+    if (correctTimer) window.clearTimeout(correctTimer);
+  };
+  return trackScrollJob(cancel);
+}
+
+/**
  * Final mobile/desktop results scroll to #quote-route-summary.
  * - Waits two animation frames for layout settle
  * - Uses behavior: "auto" to avoid Safari overshoot
