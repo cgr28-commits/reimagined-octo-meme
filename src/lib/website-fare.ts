@@ -108,6 +108,22 @@ export function calculateWebsiteOneWayFare(
       );
     }
     if (!input.routeMetrics) {
+      const festivalProbe = calculatePointToPointQuote(
+        pickupAddress,
+        dropoffAddress,
+        vehicleType,
+        returnJourney,
+        schedule,
+        null,
+        null,
+        {
+          pickup: pickup ?? undefined,
+          dropoff: dropoff ?? undefined,
+        },
+      );
+      if (festivalProbe) {
+        return festivalProbe;
+      }
       return null;
     }
     if (isDublinCityCorridorJourney(pickup, dropoff)) {
@@ -129,10 +145,27 @@ export function calculateWebsiteOneWayFare(
       returnJourney,
       schedule,
       input.routeMetrics,
+      null,
+      {
+        pickup: pickup ?? undefined,
+        dropoff: dropoff ?? undefined,
+      },
     );
   }
 
-  // Fallback when places are incomplete: A2A path needs route metrics.
+  // Fallback when places are incomplete: festival fare can still match on addresses.
+  const festivalFallback = calculatePointToPointQuote(
+    pickupAddress,
+    dropoffAddress,
+    vehicleType,
+    returnJourney,
+    schedule,
+    input.routeMetrics ?? null,
+    null,
+  );
+  if (festivalFallback && !input.routeMetrics) {
+    return festivalFallback;
+  }
   if (!input.routeMetrics) {
     return null;
   }
