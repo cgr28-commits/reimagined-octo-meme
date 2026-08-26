@@ -165,7 +165,7 @@ assert.match(quoteCard, /hadJourneySummaryScrollRef/);
 assert.match(quoteCard, /requestJourneySummaryScrollAfterTimeConfirm/);
 assert.match(quoteCard, /id="step2-journey-summary"/);
 assert.match(quoteCard, /scrollQuoteStage\("quote-section-addresses"/);
-assert.match(quoteCard, /scrollQuoteStage\("quote-route-summary"/);
+assert.match(quoteCard, /scrollQuoteStage\(routeSummaryRef\.current \?\? "quote-route-summary"/);
 assert.doesNotMatch(quoteCard, /preferContinueCta/);
 assert.doesNotMatch(quoteCard, /hadStep2ScheduleScrollRef/);
 const actionsStart = quoteCard.indexOf('id="step3-payment-actions"');

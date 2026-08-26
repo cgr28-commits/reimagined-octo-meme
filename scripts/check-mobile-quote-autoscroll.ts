@@ -52,7 +52,7 @@ assert.match(card, /hadJourneySummaryScrollRef/);
 assert.match(card, /requestJourneySummaryScrollAfterTimeConfirm/);
 assert.match(card, /id="step2-journey-summary"/);
 assert.match(card, /scrollQuoteStage\("quote-section-addresses"/);
-assert.match(card, /scrollQuoteStage\("quote-route-summary"/);
+assert.match(card, /scrollQuoteStage\(routeSummaryRef\.current \?\? "quote-route-summary"/);
 assert.doesNotMatch(card, /hadStep2ScheduleScrollRef/);
 
 // Section ids remain in normal document flow.

@@ -145,7 +145,7 @@ check("Journey mode, passengers and suitcases start unselected; results scroll o
   assert.match(progressive, /Select your passenger and suitcase numbers to see your fixed price\./);
   assert.match(card, /canShowPrice = hasQuoteRoute && quoteChoicesReady/);
   assert.match(card, /quote-route-summary/);
-  assert.match(card, /scrollQuoteStage\("quote-route-summary"/);
+  assert.match(card, /scrollQuoteStage\(routeSummaryRef\.current \?\? "quote-route-summary"/);
   assert.match(card, /hadRouteSummaryScrollRef/);
   assert.doesNotMatch(card, /schedulePreciseResultsScroll\("quote-route-summary"\)/);
   assert.doesNotMatch(card, /scheduleBookingNavAfterRender\("quote-results-summary"/);

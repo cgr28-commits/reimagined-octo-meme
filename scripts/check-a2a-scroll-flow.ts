@@ -39,7 +39,7 @@ console.log("\n=== QuoteCard owns A2A stage sequence ===");
 assert.match(card, /scrollQuoteStage\("quote-section-addresses"/);
 assert.match(card, /scrollQuoteStage\("journey-type-selector"/);
 assert.match(card, /scrollQuoteStage\("passenger-luggage-section"/);
-assert.match(card, /scrollQuoteStage\("quote-route-summary"/);
+assert.match(card, /scrollQuoteStage\(routeSummaryRef\.current \?\? "quote-route-summary"/);
 assert.match(card, /id="step2-journey-summary"/);
 assert.match(card, /scrollQuoteStage\(\s*step2JourneySummaryRef/);
 assert.match(card, /scrollQuoteStage\(bookingResultRef\.current \?\? "bookingRequestResult"/);
@@ -73,18 +73,24 @@ assert.doesNotMatch(
 );
 console.log("OK  time → Your Journey uses blur, not isScheduleComplete effect");
 
-console.log("\n=== Capacity incomplete→complete → quote-route-summary ===");
+console.log("\n=== Capacity incomplete→complete → YOUR ROUTE stack ===");
 assert.match(card, /becameComplete/);
 assert.match(card, /capacityComplete/);
+assert.match(card, /routeSummaryRef/);
 assert.match(
   card,
-  /scrollQuoteStage\("quote-route-summary", \{ correctAfterMs: 0 \}\)/,
+  /scrollQuoteStage\(routeSummaryRef\.current \?\? "quote-route-summary"/,
 );
 assert.doesNotMatch(
   card,
   /preferContinueCta[\s\S]*scrollQuoteStage\("quote-book-now-anchor"\)/,
 );
-console.log("OK  bags complete lands on YOUR ROUTE (not Continue CTA)");
+// Must not wait on metric flicker before the bags→route scroll
+assert.doesNotMatch(
+  card,
+  /if \(!quoteResultsReady\) \{\s*return;\s*\}\s*hadRouteSummaryScrollRef/,
+);
+console.log("OK  bags complete lands on YOUR ROUTE stack immediately");
 
 console.log("\n=== No homepage airport targets in quote stage scrolls ===");
 const stageBlock = card.slice(

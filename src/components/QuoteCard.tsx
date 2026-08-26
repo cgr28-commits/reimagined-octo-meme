@@ -419,6 +419,8 @@ function QuoteCard({
 }: QuoteCardProps) {
   const cardRef = useRef<HTMLDivElement>(null);
   const step1JourneyRef = useRef<HTMLDivElement>(null);
+  /** Stage 6: YOUR ROUTE / results stack after bags complete. */
+  const routeSummaryRef = useRef<HTMLDivElement>(null);
   const step2TravelDetailsRef = useRef<HTMLDivElement>(null);
   const step2JourneySummaryRef = useRef<HTMLDivElement>(null);
   const step3CustomerDetailsRef = useRef<HTMLDivElement>(null);
@@ -2750,10 +2752,10 @@ function QuoteCard({
     return scrollQuoteStage("passenger-luggage-section", { correctAfterMs: 0 });
   }, [a2aShowParty, isA2AFlow, quoteStep]);
 
-  // Stage 6: capacity incomplete → complete → YOUR ROUTE (once).
-  // Suitcase 2→3 after complete must not re-scroll. Metric/vehicle updates must not.
-  // Arms on incomplete→complete; fires once when #quote-route-summary is mounted
-  // (quoteResultsReady). Waiting is silent — not a second “metrics arrived” scroll.
+  // Stage 6: capacity incomplete → complete → YOUR ROUTE stack (once).
+  // Lands on the results block that starts with YOUR ROUTE (vehicle + personalised
+  // quote sit underneath). Suitcase 2→3 after complete must not re-scroll.
+  // Metrics/vehicle renders must not steal the viewport.
   useEffect(() => {
     if (quoteStep !== 1) {
       prevPartyCompleteRef.current = false;
@@ -2772,21 +2774,17 @@ function QuoteCard({
       return;
     }
 
-    if (becameComplete) {
-      pendingRouteSummaryScrollRef.current = true;
-    }
-
-    if (!pendingRouteSummaryScrollRef.current || hadRouteSummaryScrollRef.current) {
-      return;
-    }
-    if (!quoteResultsReady) {
+    if (!becameComplete || hadRouteSummaryScrollRef.current) {
       return;
     }
 
     hadRouteSummaryScrollRef.current = true;
     pendingRouteSummaryScrollRef.current = false;
-    return scrollQuoteStage("quote-route-summary", { correctAfterMs: 0 });
-  }, [hasQuoteRoute, quoteChoicesReady, quoteResultsReady, quoteStep]);
+    // Prefer the dedicated ref — matches the YOUR ROUTE → vehicle → quote stack.
+    return scrollQuoteStage(routeSummaryRef.current ?? "quote-route-summary", {
+      correctAfterMs: 0,
+    });
+  }, [hasQuoteRoute, quoteChoicesReady, quoteStep]);
 
   // Reset time→Your Journey one-shot when leaving travel-details step.
   useEffect(() => {
@@ -3544,26 +3542,44 @@ function QuoteCard({
 
             {addressesReadyForRoute && (
               <div
-                id={quoteResultsReady && quoteStep === 1 ? "quote-results-summary" : undefined}
+                ref={routeSummaryRef}
+                id={
+                  quoteChoicesReady && hasQuoteRoute && quoteStep === 1
+                    ? "quote-results-summary"
+                    : undefined
+                }
                 className={
-                  quoteResultsReady && quoteStep === 1
+                  quoteChoicesReady && hasQuoteRoute && quoteStep === 1
                     ? "scroll-mt-44 space-y-3 outline-none md:scroll-mt-28"
                     : undefined
                 }
                 style={
-                  quoteResultsReady && quoteStep === 1
+                  quoteChoicesReady && hasQuoteRoute && quoteStep === 1
                     ? { overflowAnchor: "none" }
                     : undefined
                 }
               >
+                {/*
+                  Show YOUR ROUTE as soon as bags/capacity are complete so Stage 6
+                  can scroll here immediately (do not wait for metrics). Prefetch
+                  stays sr-only while the customer is still on passengers/bags.
+                */}
                 <div
                   className={
-                    quoteResultsReady && quoteStep === 1 ? undefined : "sr-only"
+                    quoteChoicesReady && hasQuoteRoute && quoteStep === 1
+                      ? undefined
+                      : "sr-only"
                   }
-                  aria-hidden={!(quoteResultsReady && quoteStep === 1)}
+                  aria-hidden={
+                    !(quoteChoicesReady && hasQuoteRoute && quoteStep === 1)
+                  }
                 >
                   <TripMap
-                    id={quoteResultsReady && quoteStep === 1 ? "quote-route-summary" : undefined}
+                    id={
+                      quoteChoicesReady && hasQuoteRoute && quoteStep === 1
+                        ? "quote-route-summary"
+                        : undefined
+                    }
                     tripMode="address"
                     originAddress={pickupAddress}
                     destinationAddress={dropoffAddress}

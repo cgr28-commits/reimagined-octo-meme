@@ -85,10 +85,9 @@ check("Scroll sequence: journey-type → passengers → YOUR ROUTE (owned by Quo
   assert.match(progressive, /id="passenger-luggage-section"/);
   assert.match(card, /scrollQuoteStage\("journey-type-selector"/);
   assert.match(card, /scrollQuoteStage\("passenger-luggage-section"/);
-  assert.match(card, /scrollQuoteStage\("quote-route-summary"/);
-  assert.match(card, /id="quote-route-summary"|id=\{quoteResultsReady && quoteStep === 1 \? "quote-route-summary"/);
+  assert.match(card, /scrollQuoteStage\(routeSummaryRef\.current \?\? "quote-route-summary"/);
+  assert.match(card, /id="quote-route-summary"|id=\{\s*quoteChoicesReady && hasQuoteRoute && quoteStep === 1/);
   assert.match(card, /hadRouteSummaryScrollRef/);
-  assert.match(card, /pendingRouteSummaryScrollRef/);
   assert.match(card, /becameComplete/);
   assert.match(card, /quoteResultsReady/);
   assert.doesNotMatch(card, /preferContinueCta/);
