@@ -148,6 +148,7 @@ import {
   handleOwnerApproveA2aQuote,
   handleOwnerListA2aQuotes,
   handleOwnerResendA2aPaymentEmail,
+  handleOwnerUpdateA2aQuoteJourney,
   handlePublicA2aQuote,
   resolveA2aQuoteForPayment,
 } from "./a2a-quote-handlers";
@@ -2839,6 +2840,30 @@ export default {
         return json({ error: "Invalid JSON" }, 400, origin);
       }
       const result = await handleOwnerApproveA2aQuote(
+        request,
+        { ...env, TRACKING_STORE: env.TRACKING_STORE },
+        body,
+      );
+      if ("error" in result) return json({ error: result.error }, result.status, origin);
+      return json(result, 200, origin);
+    }
+
+    if (
+      (url.pathname === "/owner/a2a-quotes/update-journey" ||
+        url.pathname === "/api/owner/a2a-quotes/update-journey" ||
+        url.pathname.endsWith("/a2a-quotes/update-journey")) &&
+      request.method === "POST"
+    ) {
+      if (!env.TRACKING_STORE) {
+        return json({ error: "Storage is not configured" }, 503, origin);
+      }
+      let body: Record<string, unknown>;
+      try {
+        body = await request.json();
+      } catch {
+        return json({ error: "Invalid JSON" }, 400, origin);
+      }
+      const result = await handleOwnerUpdateA2aQuoteJourney(
         request,
         { ...env, TRACKING_STORE: env.TRACKING_STORE },
         body,

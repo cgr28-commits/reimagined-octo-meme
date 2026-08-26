@@ -96,8 +96,8 @@ function A2aQuotePayInner() {
             returnJourney: summary.returnJourney,
             tripDate: summary.tripDate,
             tripTime: summary.tripTime,
-            returnDate: "",
-            returnTime: "",
+            returnDate: summary.returnDate || "",
+            returnTime: summary.returnTime || "",
             flightNumber: "",
             passengers: summary.passengers,
             suitcases: summary.suitcases,
@@ -164,6 +164,14 @@ function A2aQuotePayInner() {
             {summary.tripDate} · {summary.tripTime}
           </dd>
         </div>
+        {summary.returnJourney && (summary.returnDate || summary.returnTime) ? (
+          <div>
+            <dt className="text-white/40">Return date / time</dt>
+            <dd className="text-white">
+              {[summary.returnDate, summary.returnTime].filter(Boolean).join(" · ")}
+            </dd>
+          </div>
+        ) : null}
       </dl>
 
       <p className="mt-4 text-sm text-white/70">

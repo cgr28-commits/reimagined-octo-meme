@@ -59,6 +59,8 @@ export type PublicA2aQuoteSummary = {
   tripDate: string;
   tripTime: string;
   returnJourney: boolean;
+  returnDate?: string;
+  returnTime?: string;
   passengers: number;
   suitcases: number;
   vehicle: string;
@@ -119,6 +121,44 @@ export async function fetchOwnerA2aQuotes(
         ? Math.max(0, Math.floor(payload.awaitingCount))
         : 0,
   };
+}
+
+export async function updateOwnerA2aQuoteJourney(
+  ownerKey: string,
+  input: {
+    reference: string;
+    pickupLabel: string;
+    dropoffLabel: string;
+    tripDate: string;
+    tripTime: string;
+    returnJourney?: boolean;
+    returnDate?: string;
+    returnTime?: string;
+    journeyDistance?: string;
+    journeyDuration?: string;
+  },
+): Promise<A2aQuoteOwnerSummary> {
+  const response = await fetch(`${WORKER_BASE}/owner/a2a-quotes/update-journey`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      "X-Owner-Key": ownerKey.trim(),
+    },
+    body: JSON.stringify({
+      key: ownerKey.trim(),
+      ...input,
+    }),
+  });
+  const payload = (await response.json().catch(() => null)) as {
+    ok?: boolean;
+    record?: A2aQuoteOwnerSummary;
+    error?: string;
+  } | null;
+  if (!response.ok || !payload?.record) {
+    throw new Error(String(payload?.error || "Could not save journey changes"));
+  }
+  return payload.record;
 }
 
 export async function approveOwnerA2aQuote(

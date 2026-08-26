@@ -36,10 +36,15 @@ import {
   savePendingCheckout,
   pendingCheckoutStoreConfigured,
 } from "./pending-checkout-store";
+import { resolveWorkerTripRouteMetrics } from "./resolve-route-metrics";
 import {
   trySendResendOnlyCustomerEmail,
   type WorkerEmailEnv,
 } from "./worker-email";
+import {
+  formatJourneyDistance,
+  formatJourneyDuration,
+} from "../../../src/lib/trip-route";
 
 export type A2aQuoteEnv = DriverAuthEnv &
   WorkerEmailEnv & {
@@ -47,6 +52,7 @@ export type A2aQuoteEnv = DriverAuthEnv &
     SUMUP_API_KEY?: string;
     SUMUP_MERCHANT_CODE?: string;
     PUBLIC_SITE_ORIGIN?: string;
+    GOOGLE_PLACES_API_KEY?: string;
   };
 
 function formatAmountLabel(amount: number): string {
@@ -128,6 +134,8 @@ export function publicA2aQuoteSummary(record: A2aQuoteRequestRecord) {
     tripDate: record.booking.tripDate,
     tripTime: record.booking.tripTime,
     returnJourney: record.booking.returnJourney,
+    returnDate: record.booking.returnDate || "",
+    returnTime: record.booking.returnTime || "",
     passengers: record.booking.passengers,
     suitcases: record.booking.suitcases,
     vehicle: record.booking.vehicle,
@@ -332,10 +340,13 @@ async function sendA2aPaymentEmail(
   const email = buildA2aQuotePaymentLinkEmail({
     customerName: record.booking.customerName,
     customerEmail: record.booking.customerEmail.trim(),
-    pickupLabel: record.booking.pickupLabel,
-    dropoffLabel: record.booking.dropoffLabel,
+    pickupLabel: normaliseJourneyAddressLabel(record.booking.pickupLabel),
+    dropoffLabel: normaliseJourneyAddressLabel(record.booking.dropoffLabel),
     tripDate: record.booking.tripDate,
     tripTime: record.booking.tripTime,
+    returnJourney: Boolean(record.booking.returnJourney),
+    returnDate: String(record.booking.returnDate ?? "").trim(),
+    returnTime: String(record.booking.returnTime ?? "").trim(),
     amountLabel: formatAmountLabel(record.quotedPrice ?? 0),
     reference: record.reference,
     payUrl,
@@ -353,6 +364,123 @@ async function sendA2aPaymentEmail(
     error: result.error,
     ...(result.provider ? { provider: result.provider } : {}),
   };
+}
+
+/**
+ * Owner edits journey details on an awaiting A2A quote before approving.
+ * Saved pickup / destination / date / time (and return) become what the
+ * customer sees in the payment email and pay page after Approve Quote.
+ */
+export async function handleOwnerUpdateA2aQuoteJourney(
+  request: Request,
+  env: A2aQuoteEnv,
+  body: Record<string, unknown>,
+): Promise<
+  | { ok: true; record: ReturnType<typeof toOwnerSummary> }
+  | { error: string; status: number }
+> {
+  if (!ownerAuthorized(request, env)) {
+    return { error: "Unauthorized", status: 401 };
+  }
+
+  const reference = String(body.reference ?? "").trim();
+  if (!reference) return { error: "Reference is required.", status: 400 };
+
+  const existing = await getA2aQuoteByReference(env.TRACKING_STORE, reference);
+  if (!existing) return { error: "Quote request not found.", status: 404 };
+  if (existing.status !== "AWAITING_QUOTE") {
+    return {
+      error: "Journey details can only be edited before the quote is approved.",
+      status: 409,
+    };
+  }
+
+  const pickupLabel = normaliseJourneyAddressLabel(String(body.pickupLabel ?? ""));
+  const dropoffLabel = normaliseJourneyAddressLabel(String(body.dropoffLabel ?? ""));
+  const tripDate = String(body.tripDate ?? "").trim();
+  const tripTime = String(body.tripTime ?? "").trim();
+  if (!pickupLabel || !dropoffLabel) {
+    return { error: "Pickup and destination are required.", status: 400 };
+  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(tripDate)) {
+    return { error: "Enter a valid pickup date (YYYY-MM-DD).", status: 400 };
+  }
+  if (!/^\d{2}:\d{2}$/.test(tripTime)) {
+    return { error: "Enter a valid pickup time (HH:MM).", status: 400 };
+  }
+
+  const returnJourney = Boolean(
+    body.returnJourney === true ||
+      body.returnJourney === "true" ||
+      existing.booking.returnJourney,
+  );
+  let returnDate = String(body.returnDate ?? existing.booking.returnDate ?? "").trim();
+  let returnTime = String(body.returnTime ?? existing.booking.returnTime ?? "").trim();
+  if (returnJourney) {
+    if (returnDate && !/^\d{4}-\d{2}-\d{2}$/.test(returnDate)) {
+      return { error: "Enter a valid return date (YYYY-MM-DD).", status: 400 };
+    }
+    if (returnTime && !/^\d{2}:\d{2}$/.test(returnTime)) {
+      return { error: "Enter a valid return time (HH:MM).", status: 400 };
+    }
+  } else {
+    returnDate = "";
+    returnTime = "";
+  }
+
+  const addressesChanged =
+    pickupLabel !== normaliseJourneyAddressLabel(existing.booking.pickupLabel) ||
+    dropoffLabel !== normaliseJourneyAddressLabel(existing.booking.dropoffLabel);
+
+  let journeyDistance = String(existing.booking.journeyDistance ?? "").trim();
+  let journeyDuration = String(existing.booking.journeyDuration ?? "").trim();
+
+  const bodyDistance = String(body.journeyDistance ?? "").trim();
+  const bodyDuration = String(body.journeyDuration ?? "").trim();
+  if (bodyDistance) journeyDistance = bodyDistance;
+  if (bodyDuration) journeyDuration = bodyDuration;
+
+  // When addresses change and the client did not supply fresh metrics, try the Worker resolver.
+  if (addressesChanged && (!bodyDistance || !bodyDuration)) {
+    try {
+      const metrics = await resolveWorkerTripRouteMetrics({
+        pickupAddress: pickupLabel,
+        dropoffAddress: dropoffLabel,
+        googlePlacesApiKey: env.GOOGLE_PLACES_API_KEY,
+      });
+      if (metrics) {
+        journeyDistance = formatJourneyDistance(metrics.distanceKm);
+        journeyDuration = formatJourneyDuration(metrics.durationMinutes);
+      }
+    } catch {
+      // Keep previous / client-supplied metrics if Worker route lookup fails.
+    }
+  }
+
+  const nowIso = new Date().toISOString();
+  const nextBooking = {
+    ...existing.booking,
+    pickupLabel,
+    dropoffLabel,
+    tripDate,
+    tripTime,
+    returnJourney,
+    returnDate,
+    returnTime,
+  } as A2aQuoteRequestRecord["booking"];
+  if (journeyDistance) nextBooking.journeyDistance = journeyDistance;
+  else delete nextBooking.journeyDistance;
+  if (journeyDuration) nextBooking.journeyDuration = journeyDuration;
+  else delete nextBooking.journeyDuration;
+
+  const next: A2aQuoteRequestRecord = {
+    ...existing,
+    booking: nextBooking,
+    updatedAt: nowIso,
+  };
+
+  await saveA2aQuoteRequest(env.TRACKING_STORE, next);
+  return { ok: true, record: toOwnerSummary(next) };
 }
 
 /**

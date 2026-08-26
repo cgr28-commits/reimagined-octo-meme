@@ -9,16 +9,37 @@ import {
   buildA2aPickupValidityWarning,
 } from "../../shared/a2a-personalised-quote";
 import { parseLondonLocalDateTime } from "../../shared/uk-time";
+import AddressInput from "@/components/AddressInput";
 import {
   approveOwnerA2aQuote,
   fetchOwnerA2aQuotes,
   resendOwnerA2aPaymentEmail,
+  updateOwnerA2aQuoteJourney,
   type A2aQuoteOwnerFilter,
   type A2aQuoteOwnerSummary,
 } from "@/lib/a2a-quote-api";
+import { resolveTripRouteMetricsForAddresses } from "@/lib/route-point-resolver";
+import {
+  emptySelectedPlace,
+  isPlaceSelected,
+  placeDisplayText,
+  type SelectedPlace,
+} from "@/lib/selected-place";
+import { formatJourneyDistance, formatJourneyDuration } from "@/lib/trip-route";
 
 type OwnerA2aQuotesPanelProps = {
   ownerKey: string;
+};
+
+type JourneyDraft = {
+  pickupLabel: string;
+  dropoffLabel: string;
+  tripDate: string;
+  tripTime: string;
+  returnDate: string;
+  returnTime: string;
+  pickupPlace: SelectedPlace;
+  dropoffPlace: SelectedPlace;
 };
 
 const FILTERS: Array<{ id: A2aQuoteOwnerFilter; label: string }> = [
@@ -64,6 +85,19 @@ function formatExpires(iso: string | null | undefined): string {
   }
 }
 
+function draftFromQuote(quote: A2aQuoteOwnerSummary): JourneyDraft {
+  return {
+    pickupLabel: quote.pickupLabel,
+    dropoffLabel: quote.dropoffLabel,
+    tripDate: quote.tripDate,
+    tripTime: quote.tripTime,
+    returnDate: quote.returnDate || "",
+    returnTime: quote.returnTime || "",
+    pickupPlace: emptySelectedPlace(),
+    dropoffPlace: emptySelectedPlace(),
+  };
+}
+
 export default function OwnerA2aQuotesPanel({ ownerKey }: OwnerA2aQuotesPanelProps) {
   const [filter, setFilter] = useState<A2aQuoteOwnerFilter>("awaiting");
   const [quotes, setQuotes] = useState<A2aQuoteOwnerSummary[]>([]);
@@ -76,6 +110,9 @@ export default function OwnerA2aQuotesPanel({ ownerKey }: OwnerA2aQuotesPanelPro
   const [approvingRef, setApprovingRef] = useState<string | null>(null);
   const [resendingRef, setResendingRef] = useState<string | null>(null);
   const [emailFailedByRef, setEmailFailedByRef] = useState<Record<string, string>>({});
+  const [editingRef, setEditingRef] = useState<string | null>(null);
+  const [journeyDraft, setJourneyDraft] = useState<JourneyDraft | null>(null);
+  const [savingJourneyRef, setSavingJourneyRef] = useState<string | null>(null);
 
   const fieldClass =
     "box-border mt-1 block min-h-11 w-full min-w-0 max-w-full rounded-xl border border-white/15 bg-navy/60 px-3 py-2.5 text-base text-white outline-none focus:border-emerald [color-scheme:dark]";
@@ -110,7 +147,113 @@ export default function OwnerA2aQuotesPanel({ ownerKey }: OwnerA2aQuotesPanelPro
     void load(filter);
   }, [load, filter]);
 
+  function startEditJourney(quote: A2aQuoteOwnerSummary) {
+    setEditingRef(quote.reference);
+    setJourneyDraft(draftFromQuote(quote));
+    setError("");
+    setMessage("");
+  }
+
+  function cancelEditJourney() {
+    setEditingRef(null);
+    setJourneyDraft(null);
+  }
+
+  async function handleSaveJourney(quote: A2aQuoteOwnerSummary) {
+    if (!journeyDraft || editingRef !== quote.reference) return;
+    const pickup =
+      journeyDraft.pickupLabel.trim() || placeDisplayText(journeyDraft.pickupPlace);
+    const dropoff =
+      journeyDraft.dropoffLabel.trim() || placeDisplayText(journeyDraft.dropoffPlace);
+    if (!pickup || !dropoff) {
+      setError("Pickup and destination are required.");
+      return;
+    }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(journeyDraft.tripDate.trim())) {
+      setError("Enter a valid pickup date.");
+      return;
+    }
+    if (!/^\d{2}:\d{2}$/.test(journeyDraft.tripTime.trim())) {
+      setError("Enter a valid pickup time.");
+      return;
+    }
+    if (quote.returnJourney) {
+      if (
+        journeyDraft.returnDate.trim() &&
+        !/^\d{4}-\d{2}-\d{2}$/.test(journeyDraft.returnDate.trim())
+      ) {
+        setError("Enter a valid return date.");
+        return;
+      }
+      if (
+        journeyDraft.returnTime.trim() &&
+        !/^\d{2}:\d{2}$/.test(journeyDraft.returnTime.trim())
+      ) {
+        setError("Enter a valid return time.");
+        return;
+      }
+    }
+
+    setSavingJourneyRef(quote.reference);
+    setError("");
+    setMessage("");
+    try {
+      let journeyDistance: string | undefined;
+      let journeyDuration: string | undefined;
+      const addressesChanged =
+        pickup !== quote.pickupLabel.trim() || dropoff !== quote.dropoffLabel.trim();
+      if (addressesChanged) {
+        const metrics = await resolveTripRouteMetricsForAddresses(
+          {
+            address: pickup,
+            lat: journeyDraft.pickupPlace.lat,
+            lng: journeyDraft.pickupPlace.lng,
+          },
+          {
+            address: dropoff,
+            lat: journeyDraft.dropoffPlace.lat,
+            lng: journeyDraft.dropoffPlace.lng,
+          },
+        );
+        if (metrics) {
+          journeyDistance = formatJourneyDistance(metrics.distanceKm);
+          journeyDuration = formatJourneyDuration(metrics.durationMinutes);
+        }
+      }
+
+      const record = await updateOwnerA2aQuoteJourney(ownerKey, {
+        reference: quote.reference,
+        pickupLabel: pickup,
+        dropoffLabel: dropoff,
+        tripDate: journeyDraft.tripDate.trim(),
+        tripTime: journeyDraft.tripTime.trim(),
+        returnJourney: quote.returnJourney,
+        returnDate: quote.returnJourney ? journeyDraft.returnDate.trim() : "",
+        returnTime: quote.returnJourney ? journeyDraft.returnTime.trim() : "",
+        ...(journeyDistance ? { journeyDistance } : {}),
+        ...(journeyDuration ? { journeyDuration } : {}),
+      });
+
+      setQuotes((prev) => prev.map((row) => (row.reference === record.reference ? record : row)));
+      setEditingRef(null);
+      setJourneyDraft(null);
+      setMessage(
+        journeyDistance
+          ? `Journey updated (${journeyDistance}${journeyDuration ? ` · ${journeyDuration}` : ""}). Enter the final price and Approve Quote.`
+          : "Journey updated. Enter the final price and Approve Quote.",
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not save journey changes");
+    } finally {
+      setSavingJourneyRef(null);
+    }
+  }
+
   async function handleApprove(quote: A2aQuoteOwnerSummary) {
+    if (editingRef === quote.reference) {
+      setError("Save or cancel journey edits before approving.");
+      return;
+    }
     const quotedPrice = parseMoney(priceByRef[quote.reference] ?? "");
     const validityMinutes = parseMinutes(
       validityByRef[quote.reference] ?? String(A2A_QUOTE_VALIDITY_DEFAULT_MINUTES),
@@ -142,7 +285,7 @@ export default function OwnerA2aQuotesPanel({ ownerKey }: OwnerA2aQuotesPanelPro
           return next;
         });
         setMessage(
-          `Approved ${result.record.reference} at ${result.record.quotedPriceLabel} — valid ${result.record.quoteValidityLabel}. Payment email sent.`,
+          `Approved ${result.record.reference} at ${result.record.quotedPriceLabel} — valid ${result.record.quoteValidityLabel}. Payment email sent with the final journey details.`,
         );
       } else {
         const failText = result.paymentEmailError || "Email provider did not accept the message.";
@@ -152,7 +295,6 @@ export default function OwnerA2aQuotesPanel({ ownerKey }: OwnerA2aQuotesPanelPro
         );
         setError(`Email failed — ${failText}`);
       }
-      // Approved quotes leave the default awaiting queue.
       if (filter === "awaiting") {
         await load("awaiting");
       } else {
@@ -213,8 +355,8 @@ export default function OwnerA2aQuotesPanel({ ownerKey }: OwnerA2aQuotesPanelPro
               Personalised Quotes — {awaitingCount} awaiting approval
             </h2>
             <p className="mt-1 break-words text-sm text-white/65">
-              Enter Quote Price (£), choose how long the customer has to pay, then Approve Quote.
-              Payment email is only marked sent after the email provider accepts it.
+              Edit the journey if needed, then enter Quote Price (£) and Approve Quote. The customer
+              receives the final pickup, destination, date, time and price you approved.
             </p>
           </div>
           <button
@@ -282,6 +424,7 @@ export default function OwnerA2aQuotesPanel({ ownerKey }: OwnerA2aQuotesPanelPro
           });
           const failed = emailFailed(quote);
           const failedDetail = emailFailedByRef[quote.reference];
+          const isEditing = editingRef === quote.reference && journeyDraft != null;
 
           return (
             <article
@@ -312,46 +455,209 @@ export default function OwnerA2aQuotesPanel({ ownerKey }: OwnerA2aQuotesPanelPro
                 </p>
               </div>
 
-              <dl className="mt-3 grid w-full min-w-0 grid-cols-1 gap-2 text-sm text-white/80 sm:grid-cols-2">
-                <div className="min-w-0">
-                  <dt className="text-xs text-white/45">Pickup</dt>
-                  <dd className="break-words">{quote.pickupLabel}</dd>
-                </div>
-                <div className="min-w-0">
-                  <dt className="text-xs text-white/45">Destination</dt>
-                  <dd className="break-words">{quote.dropoffLabel}</dd>
-                </div>
-                <div className="min-w-0">
-                  <dt className="text-xs text-white/45">Date / time</dt>
-                  <dd className="break-words">
-                    {quote.tripDate} · {quote.tripTime}
-                  </dd>
-                </div>
-                <div className="min-w-0">
-                  <dt className="text-xs text-white/45">Passengers / luggage</dt>
-                  <dd className="break-words">
-                    {quote.passengers} pax · {quote.suitcases} cases · {quote.vehicle}
-                  </dd>
-                </div>
-                {(quote.journeyDistance || quote.journeyDuration) && (
-                  <div className="min-w-0 sm:col-span-2">
-                    <dt className="text-xs text-white/45">Journey</dt>
+              {!isEditing ? (
+                <dl className="mt-3 grid w-full min-w-0 grid-cols-1 gap-2 text-sm text-white/80 sm:grid-cols-2">
+                  <div className="min-w-0">
+                    <dt className="text-xs text-white/45">Pickup</dt>
+                    <dd className="break-words">{quote.pickupLabel}</dd>
+                  </div>
+                  <div className="min-w-0">
+                    <dt className="text-xs text-white/45">Destination</dt>
+                    <dd className="break-words">{quote.dropoffLabel}</dd>
+                  </div>
+                  <div className="min-w-0">
+                    <dt className="text-xs text-white/45">Date / time</dt>
                     <dd className="break-words">
-                      {[quote.journeyDistance, quote.journeyDuration].filter(Boolean).join(" · ")}
+                      {quote.tripDate} · {quote.tripTime}
                     </dd>
                   </div>
-                )}
-                {quote.quotedPriceLabel ? (
-                  <div className="min-w-0 sm:col-span-2">
-                    <dt className="text-xs text-white/45">Quoted price</dt>
+                  {quote.returnJourney ? (
+                    <div className="min-w-0">
+                      <dt className="text-xs text-white/45">Return date / time</dt>
+                      <dd className="break-words">
+                        {[quote.returnDate, quote.returnTime].filter(Boolean).join(" · ") || "—"}
+                      </dd>
+                    </div>
+                  ) : null}
+                  <div className="min-w-0">
+                    <dt className="text-xs text-white/45">Passengers / luggage</dt>
                     <dd className="break-words">
-                      {quote.quotedPriceLabel}
-                      {quote.quoteValidityLabel ? ` · valid ${quote.quoteValidityLabel}` : ""}
-                      {quote.quoteExpiresAt ? ` · expires ${formatExpires(quote.quoteExpiresAt)}` : ""}
+                      {quote.passengers} pax · {quote.suitcases} cases · {quote.vehicle}
                     </dd>
                   </div>
-                ) : null}
-              </dl>
+                  {(quote.journeyDistance || quote.journeyDuration) && (
+                    <div className="min-w-0 sm:col-span-2">
+                      <dt className="text-xs text-white/45">Journey</dt>
+                      <dd className="break-words">
+                        {[quote.journeyDistance, quote.journeyDuration].filter(Boolean).join(" · ")}
+                      </dd>
+                    </div>
+                  )}
+                  {quote.quotedPriceLabel ? (
+                    <div className="min-w-0 sm:col-span-2">
+                      <dt className="text-xs text-white/45">Quoted price</dt>
+                      <dd className="break-words">
+                        {quote.quotedPriceLabel}
+                        {quote.quoteValidityLabel ? ` · valid ${quote.quoteValidityLabel}` : ""}
+                        {quote.quoteExpiresAt
+                          ? ` · expires ${formatExpires(quote.quoteExpiresAt)}`
+                          : ""}
+                      </dd>
+                    </div>
+                  ) : null}
+                </dl>
+              ) : (
+                <div className="mt-3 grid w-full min-w-0 max-w-full grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div className="min-w-0 sm:col-span-2">
+                    <AddressInput
+                      id={`a2a-edit-pickup-${quote.reference}`}
+                      name={`a2a-edit-pickup-${quote.reference}`}
+                      label="Pickup address"
+                      value={journeyDraft.pickupLabel}
+                      onChange={(value) =>
+                        setJourneyDraft((prev) =>
+                          prev
+                            ? {
+                                ...prev,
+                                pickupLabel: value,
+                                pickupPlace: emptySelectedPlace(),
+                              }
+                            : prev,
+                        )
+                      }
+                      onSelectPlace={(place) =>
+                        setJourneyDraft((prev) =>
+                          prev
+                            ? {
+                                ...prev,
+                                pickupPlace: place,
+                                pickupLabel: placeDisplayText(place),
+                              }
+                            : prev,
+                        )
+                      }
+                      confirmedPlace={
+                        isPlaceSelected(journeyDraft.pickupPlace)
+                          ? journeyDraft.pickupPlace
+                          : null
+                      }
+                      requireSuggestion={false}
+                      placeholder="Pickup address"
+                    />
+                  </div>
+                  <div className="min-w-0 sm:col-span-2">
+                    <AddressInput
+                      id={`a2a-edit-dropoff-${quote.reference}`}
+                      name={`a2a-edit-dropoff-${quote.reference}`}
+                      label="Destination address"
+                      value={journeyDraft.dropoffLabel}
+                      onChange={(value) =>
+                        setJourneyDraft((prev) =>
+                          prev
+                            ? {
+                                ...prev,
+                                dropoffLabel: value,
+                                dropoffPlace: emptySelectedPlace(),
+                              }
+                            : prev,
+                        )
+                      }
+                      onSelectPlace={(place) =>
+                        setJourneyDraft((prev) =>
+                          prev
+                            ? {
+                                ...prev,
+                                dropoffPlace: place,
+                                dropoffLabel: placeDisplayText(place),
+                              }
+                            : prev,
+                        )
+                      }
+                      confirmedPlace={
+                        isPlaceSelected(journeyDraft.dropoffPlace)
+                          ? journeyDraft.dropoffPlace
+                          : null
+                      }
+                      requireSuggestion={false}
+                      placeholder="Destination address"
+                    />
+                  </div>
+                  <label className="block min-w-0 text-sm text-white/80">
+                    Pickup date
+                    <input
+                      type="date"
+                      value={journeyDraft.tripDate}
+                      onChange={(e) =>
+                        setJourneyDraft((prev) =>
+                          prev ? { ...prev, tripDate: e.target.value } : prev,
+                        )
+                      }
+                      className={fieldClass}
+                    />
+                  </label>
+                  <label className="block min-w-0 text-sm text-white/80">
+                    Pickup time
+                    <input
+                      type="time"
+                      value={journeyDraft.tripTime}
+                      onChange={(e) =>
+                        setJourneyDraft((prev) =>
+                          prev ? { ...prev, tripTime: e.target.value } : prev,
+                        )
+                      }
+                      className={fieldClass}
+                    />
+                  </label>
+                  {quote.returnJourney ? (
+                    <>
+                      <label className="block min-w-0 text-sm text-white/80">
+                        Return date
+                        <input
+                          type="date"
+                          value={journeyDraft.returnDate}
+                          onChange={(e) =>
+                            setJourneyDraft((prev) =>
+                              prev ? { ...prev, returnDate: e.target.value } : prev,
+                            )
+                          }
+                          className={fieldClass}
+                        />
+                      </label>
+                      <label className="block min-w-0 text-sm text-white/80">
+                        Return time
+                        <input
+                          type="time"
+                          value={journeyDraft.returnTime}
+                          onChange={(e) =>
+                            setJourneyDraft((prev) =>
+                              prev ? { ...prev, returnTime: e.target.value } : prev,
+                            )
+                          }
+                          className={fieldClass}
+                        />
+                      </label>
+                    </>
+                  ) : null}
+                  <div className="flex w-full min-w-0 max-w-full flex-col gap-2 sm:col-span-2 sm:flex-row">
+                    <button
+                      type="button"
+                      disabled={savingJourneyRef === quote.reference}
+                      onClick={() => void handleSaveJourney(quote)}
+                      className="min-h-11 w-full min-w-0 max-w-full rounded-xl bg-emerald px-4 py-2.5 text-sm font-semibold text-navy disabled:opacity-60 sm:w-auto"
+                    >
+                      {savingJourneyRef === quote.reference ? "Saving…" : "Save changes"}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={savingJourneyRef === quote.reference}
+                      onClick={cancelEditJourney}
+                      className="min-h-11 w-full min-w-0 max-w-full rounded-xl border border-white/20 px-4 py-2.5 text-sm font-semibold text-white/85 hover:bg-white/10 disabled:opacity-60 sm:w-auto"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {failed ? (
                 <div className="mt-3 w-full min-w-0 max-w-full space-y-2 rounded-xl border border-red-400/35 bg-red-500/10 px-3 py-2">
@@ -362,7 +668,8 @@ export default function OwnerA2aQuotesPanel({ ownerKey }: OwnerA2aQuotesPanelPro
                     <p className="break-words text-xs text-red-100/80">{failedDetail}</p>
                   ) : (
                     <p className="break-words text-xs text-red-100/80">
-                      Quote is approved, but the payment email was not accepted by the email provider.
+                      Quote is approved, but the payment email was not accepted by the email
+                      provider.
                     </p>
                   )}
                   <button
@@ -376,8 +683,18 @@ export default function OwnerA2aQuotesPanel({ ownerKey }: OwnerA2aQuotesPanelPro
                 </div>
               ) : null}
 
-              {showApproveForm(quote) ? (
+              {showApproveForm(quote) && !isEditing ? (
                 <>
+                  <div className="mt-3">
+                    <button
+                      type="button"
+                      onClick={() => startEditJourney(quote)}
+                      className="min-h-10 w-full min-w-0 max-w-full rounded-xl border border-white/20 px-3 py-2 text-sm font-semibold text-white/85 hover:bg-white/10 sm:w-auto"
+                    >
+                      Edit journey
+                    </button>
+                  </div>
+
                   {pickupWarning ? (
                     <p
                       role="status"

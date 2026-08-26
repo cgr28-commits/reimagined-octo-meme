@@ -1,5 +1,6 @@
 /**
  * Customer email after Owner approves an Address-to-Address personalised quote.
+ * Always shows the final approved journey details (after any Owner edits).
  */
 
 import {
@@ -36,6 +37,9 @@ export type A2aQuotePaymentLinkEmailDetails = {
   dropoffLabel: string;
   tripDate: string;
   tripTime: string;
+  returnJourney?: boolean;
+  returnDate?: string;
+  returnTime?: string;
   amountLabel: string;
   reference: string;
   payUrl: string;
@@ -50,8 +54,12 @@ export function buildA2aQuotePaymentLinkEmail(details: A2aQuotePaymentLinkEmailD
   const first = customerFirstName(details.customerName);
   const validity = formatA2aQuoteValidityLabel(details.validityMinutes);
   const subject = `Your personalised quote ${details.amountLabel} — valid for ${validity}`;
+  const hasReturn =
+    Boolean(details.returnJourney) &&
+    Boolean(String(details.returnDate ?? "").trim() || String(details.returnTime ?? "").trim());
+  const returnWhen = [details.returnDate, details.returnTime].filter(Boolean).join(" · ");
 
-  const text = [
+  const textLines = [
     `Hi ${first},`,
     "",
     `Your personalised quote is ${details.amountLabel}.`,
@@ -65,6 +73,11 @@ export function buildA2aQuotePaymentLinkEmail(details: A2aQuotePaymentLinkEmailD
     `Drop-off: ${details.dropoffLabel}`,
     `Date: ${details.tripDate}`,
     `Time: ${details.tripTime}`,
+  ];
+  if (hasReturn) {
+    textLines.push(`Return: ${returnWhen || "yes"}`);
+  }
+  textLines.push(
     `Reference: ${details.reference}`,
     "",
     `Pay Securely: ${details.payUrl}`,
@@ -73,7 +86,13 @@ export function buildA2aQuotePaymentLinkEmail(details: A2aQuotePaymentLinkEmailD
     "",
     `My Airport Taxi NI · ${BUSINESS_PHONE_DISPLAY} · ${BUSINESS_EMAIL}`,
     BUSINESS_WEBSITE,
-  ].join("\n");
+  );
+  const text = textLines.join("\n");
+
+  const returnHtml = hasReturn
+    ? `<p style="margin:0 0 4px;font-size:13px;color:#9fb0c0;">Return</p>
+          <p style="margin:0 0 20px;color:#fff;">${escapeHtml(returnWhen || "Return journey")}</p>`
+    : "";
 
   const html = `<!DOCTYPE html>
 <html lang="en">
@@ -98,7 +117,8 @@ export function buildA2aQuotePaymentLinkEmail(details: A2aQuotePaymentLinkEmailD
           <p style="margin:0 0 4px;font-size:13px;color:#9fb0c0;">Drop-off</p>
           <p style="margin:0 0 12px;color:#fff;">${escapeHtml(details.dropoffLabel)}</p>
           <p style="margin:0 0 4px;font-size:13px;color:#9fb0c0;">When</p>
-          <p style="margin:0 0 20px;color:#fff;">${escapeHtml(details.tripDate)} · ${escapeHtml(details.tripTime)}</p>
+          <p style="margin:0 0 ${hasReturn ? "12" : "20"}px;color:#fff;">${escapeHtml(details.tripDate)} · ${escapeHtml(details.tripTime)}</p>
+          ${returnHtml}
           <p style="margin:0 0 24px;text-align:center;">
             <a href="${escapeHtml(details.payUrl)}" style="display:inline-block;background:${ACCENT};color:${NAVY};text-decoration:none;font-weight:700;padding:14px 28px;border-radius:999px;font-size:16px;">Pay Securely</a>
           </p>

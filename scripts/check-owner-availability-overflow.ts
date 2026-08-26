@@ -85,7 +85,9 @@ console.log("\n=== 5. A2A personalised quotes panel stays inside iPhone viewport
   assert.match(panel, /break-words|break-all/);
   assert.match(panel, /grid w-full min-w-0 max-w-full grid-cols-1/);
   assert.match(panel, /Personalised Quotes — \{awaitingCount\} awaiting approval/);
-  console.log("OK  A2A quotes panel min-w-0 + break long refs/emails");
+  assert.match(panel, /Edit journey/);
+  assert.match(panel, /Save changes/);
+  console.log("OK  A2A quotes panel min-w-0 + break long refs/emails + edit journey");
 }
 
 console.log("\nAll owner availability overflow checks passed.");
