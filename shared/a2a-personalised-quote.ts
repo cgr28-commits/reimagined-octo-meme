@@ -98,6 +98,11 @@ export function a2aQuoteOpenIndexKey(): string {
   return "a2a-quote:open";
 }
 
+/** All A2A quote refs (including paid / expired) for owner history filters. */
+export function a2aQuoteHistoryIndexKey(): string {
+  return "a2a-quote:history";
+}
+
 export function isA2aQuoteOpenStatus(status: A2aQuoteStatus): boolean {
   return status === "AWAITING_QUOTE" || status === "QUOTE_APPROVED_AWAITING_PAYMENT";
 }

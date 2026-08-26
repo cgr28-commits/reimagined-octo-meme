@@ -182,4 +182,31 @@ console.log("OK  single Submit Quote Request + Agreement wording (no WhatsApp/em
 console.log("OK  confirmation card scrolls into view after submit");
 console.log("OK  consolidated A2A stage scrolls (addresses → YOUR ROUTE)");
 
+console.log("\n=== Owner A2A quote queue + honest payment email ===");
+{
+  const handlers = read("workers/addresses/src/a2a-quote-handlers.ts");
+  const index = read("workers/addresses/src/index.ts");
+  const panel = read("src/components/OwnerA2aQuotesPanel.tsx");
+  const api = read("src/lib/a2a-quote-api.ts");
+  assert.match(handlers, /trySendResendOnlyCustomerEmail/);
+  assert.match(handlers, /handleOwnerResendA2aPaymentEmail/);
+  assert.match(handlers, /paymentEmailSent: send\.sent/);
+  assert.match(handlers, /normaliseJourneyAddressLabel/);
+  assert.match(handlers, /awaitingCount/);
+  assert.match(index, /handleOwnerResendA2aPaymentEmail/);
+  assert.match(index, /a2a-quotes\/resend-payment-email/);
+  assert.match(api, /resendOwnerA2aPaymentEmail/);
+  assert.match(api, /awaitingCount/);
+  assert.match(panel, /Personalised Quotes — \{awaitingCount\} awaiting approval/);
+  assert.match(panel, /Resend payment email/);
+  assert.match(panel, /Email failed — resend/);
+  assert.match(panel, /paymentEmailSent/);
+  assert.match(panel, /History \/ Approved/);
+  assert.match(panel, /Approved \/ Waiting Payment/);
+  assert.match(panel, /w-full min-w-0 max-w-full/);
+  assert.match(panel, /break-words|break-all/);
+  assert.doesNotMatch(handlers, /trySendBrandedCustomerEmail/);
+  console.log("OK  Resend-only email + queue queue filters + mobile overflow guards");
+}
+
 console.log("\nAll A2A personalised quote checks passed.");

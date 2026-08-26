@@ -16,6 +16,7 @@ import {
   type A2aQuoteRequestRecord,
 } from "../shared/a2a-personalised-quote";
 import { buildA2aQuotePaymentLinkEmail } from "../shared/a2a-quote-payment-email";
+import { normaliseJourneyAddressLabel } from "../shared/journey-address-label";
 import { isValidCustomerEmail } from "../shared/short-notice-payment-email";
 import {
   createSumUpHostedCheckout,
@@ -27,6 +28,7 @@ import {
   generateA2aQuoteReference,
   getA2aQuoteByReference,
   getA2aQuoteByToken,
+  listA2aQuoteHistory,
   listOpenA2aQuoteRequests,
   saveA2aQuoteRequest,
 } from "./a2a-quote-store";
@@ -35,7 +37,7 @@ import {
   pendingCheckoutStoreConfigured,
 } from "./pending-checkout-store";
 import {
-  trySendBrandedCustomerEmail,
+  trySendResendOnlyCustomerEmail,
   type WorkerEmailEnv,
 } from "./worker-email";
 
@@ -72,8 +74,8 @@ function toOwnerSummary(record: A2aQuoteRequestRecord) {
     customerName: record.booking.customerName,
     customerEmail: record.booking.customerEmail,
     customerMobile: record.booking.mobileNumber,
-    pickupLabel: record.booking.pickupLabel,
-    dropoffLabel: record.booking.dropoffLabel,
+    pickupLabel: normaliseJourneyAddressLabel(record.booking.pickupLabel),
+    dropoffLabel: normaliseJourneyAddressLabel(record.booking.dropoffLabel),
     tripDate: record.booking.tripDate,
     tripTime: record.booking.tripTime,
     returnJourney: record.booking.returnJourney,
@@ -100,6 +102,7 @@ function toOwnerSummary(record: A2aQuoteRequestRecord) {
     paymentUrl: record.paymentUrl ?? null,
     paymentReference: record.paymentReference ?? null,
     paidAt: record.paidAt ?? null,
+    paymentLinkEmailSentAt: record.paymentLinkEmailSentAt ?? null,
     payable: isA2aQuotePayable(record),
   };
 }
@@ -120,8 +123,8 @@ export function publicA2aQuoteSummary(record: A2aQuoteRequestRecord) {
     amountLabel:
       typeof record.quotedPrice === "number" ? formatAmountLabel(record.quotedPrice) : null,
     customerName: record.booking.customerName,
-    pickupLabel: record.booking.pickupLabel,
-    dropoffLabel: record.booking.dropoffLabel,
+    pickupLabel: normaliseJourneyAddressLabel(record.booking.pickupLabel),
+    dropoffLabel: normaliseJourneyAddressLabel(record.booking.dropoffLabel),
     tripDate: record.booking.tripDate,
     tripTime: record.booking.tripTime,
     returnJourney: record.booking.returnJourney,
@@ -202,8 +205,8 @@ export async function handleCreateA2aQuoteRequest(
       customerEmail: booking.customerEmail.trim(),
       mobileNumber: String(booking.mobileNumber ?? "").trim(),
       tripLabel: String(booking.tripLabel ?? "Address to Address").trim() || "Address to Address",
-      pickupLabel: booking.pickupLabel.trim(),
-      dropoffLabel: booking.dropoffLabel.trim(),
+      pickupLabel: normaliseJourneyAddressLabel(booking.pickupLabel),
+      dropoffLabel: normaliseJourneyAddressLabel(booking.dropoffLabel),
       returnJourney: Boolean(booking.returnJourney),
       tripDate: booking.tripDate.trim(),
       tripTime: booking.tripTime.trim(),
@@ -235,18 +238,69 @@ export async function handleCreateA2aQuoteRequest(
 export async function handleOwnerListA2aQuotes(
   request: Request,
   env: A2aQuoteEnv,
-): Promise<{ ok: true; quotes: ReturnType<typeof toOwnerSummary>[] } | { error: string; status: number }> {
+): Promise<
+  | {
+      ok: true;
+      quotes: ReturnType<typeof toOwnerSummary>[];
+      awaitingCount: number;
+    }
+  | { error: string; status: number }
+> {
   if (!ownerAuthorized(request, env)) {
     return { error: "Unauthorized", status: 401 };
   }
-  const records = await listOpenA2aQuoteRequests(env.TRACKING_STORE);
+  const url = new URL(request.url);
+  const filter = String(url.searchParams.get("filter") ?? "awaiting").trim().toLowerCase();
+  const includeHistory =
+    filter === "all" ||
+    filter === "history" ||
+    filter === "paid" ||
+    filter === "expired" ||
+    filter === "cancelled" ||
+    filter === "approved" ||
+    filter === "awaiting-payment";
+
+  const baseRecords = includeHistory
+    ? await listA2aQuoteHistory(env.TRACKING_STORE)
+    : await listOpenA2aQuoteRequests(env.TRACKING_STORE);
+
   const refreshed: A2aQuoteRequestRecord[] = [];
-  for (const record of records) {
+  for (const record of baseRecords) {
     refreshed.push(await maybeExpireRecord(env.TRACKING_STORE, record));
   }
+
+  // Count only open AWAITING_QUOTE rows for the queue header (never history noise).
+  const openForCount =
+    includeHistory ? await listOpenA2aQuoteRequests(env.TRACKING_STORE) : refreshed;
+  const awaitingCount = openForCount.filter((r) => r.status === "AWAITING_QUOTE").length;
+
+  const filtered = refreshed.filter((r) => {
+    switch (filter) {
+      case "awaiting":
+        return r.status === "AWAITING_QUOTE";
+      case "approved":
+      case "awaiting-payment":
+        return r.status === "QUOTE_APPROVED_AWAITING_PAYMENT";
+      case "paid":
+      case "confirmed":
+        return r.status === "CONFIRMED";
+      case "expired":
+        return r.status === "EXPIRED" || r.status === "CANCELLED";
+      case "cancelled":
+        return r.status === "CANCELLED";
+      case "history":
+        return r.status !== "AWAITING_QUOTE";
+      case "all":
+        return true;
+      default:
+        return r.status === "AWAITING_QUOTE";
+    }
+  });
+
   return {
     ok: true,
-    quotes: refreshed.filter((r) => r.status === "AWAITING_QUOTE" || r.status === "QUOTE_APPROVED_AWAITING_PAYMENT").map(toOwnerSummary),
+    awaitingCount,
+    quotes: filtered.map(toOwnerSummary),
   };
 }
 
@@ -287,14 +341,18 @@ async function sendA2aPaymentEmail(
     payUrl,
     validityMinutes,
   });
-  const result = await trySendBrandedCustomerEmail(env, {
+  const result = await trySendResendOnlyCustomerEmail(env, {
     to: record.booking.customerEmail.trim(),
     toName: record.booking.customerName,
     subject: email.subject,
     body: email.text,
     htmlBody: email.html,
   });
-  return { sent: result.sent, error: result.error };
+  return {
+    sent: result.sent,
+    error: result.error,
+    ...(result.provider ? { provider: result.provider } : {}),
+  };
 }
 
 /**
@@ -420,6 +478,80 @@ export async function handleOwnerApproveA2aQuote(
     payUrl: emailPayUrl,
     paymentEmailSent: send.sent,
     ...(send.error ? { paymentEmailError: send.error } : {}),
+  };
+}
+
+/**
+ * Resend the personalised price + SumUp payment link email for an approved quote.
+ * Only reports success when Resend accepts the message.
+ */
+export async function handleOwnerResendA2aPaymentEmail(
+  request: Request,
+  env: A2aQuoteEnv,
+  body: Record<string, unknown>,
+): Promise<
+  | {
+      ok: true;
+      record: ReturnType<typeof toOwnerSummary>;
+      payUrl: string;
+      paymentEmailSent: true;
+    }
+  | { error: string; status: number }
+> {
+  if (!ownerAuthorized(request, env)) {
+    return { error: "Unauthorized", status: 401 };
+  }
+
+  const reference = String(body.reference ?? "").trim();
+  if (!reference) return { error: "Reference is required.", status: 400 };
+
+  const existing = await getA2aQuoteByReference(env.TRACKING_STORE, reference);
+  if (!existing) return { error: "Quote request not found.", status: 404 };
+
+  const record = await maybeExpireRecord(env.TRACKING_STORE, existing);
+  if (record.status === "CONFIRMED" || record.paymentReference || record.paidAt) {
+    return { error: "This quote has already been paid.", status: 409 };
+  }
+  if (record.status === "CANCELLED") {
+    return { error: "This quote request was cancelled.", status: 409 };
+  }
+  if (record.status === "EXPIRED") {
+    return { error: "This quote has expired.", status: 409 };
+  }
+  if (record.status !== "QUOTE_APPROVED_AWAITING_PAYMENT") {
+    return { error: "Approve the quote before sending a payment email.", status: 409 };
+  }
+  if (!isA2aQuotePayable(record)) {
+    return { error: A2A_QUOTE_EXPIRED_CUSTOMER_MESSAGE, status: 409 };
+  }
+  if (!isValidCustomerEmail(record.booking.customerEmail)) {
+    return { error: "Customer email is missing or invalid.", status: 400 };
+  }
+
+  const siteOrigin = siteOriginFrom(env, request);
+  const payPageUrl = buildA2aQuotePayUrl(siteOrigin, record.paymentToken);
+  const emailPayUrl =
+    (record.paymentUrl || record.paymentLinkEmailPayUrl || "").trim() || payPageUrl;
+
+  const send = await sendA2aPaymentEmail(env, record, emailPayUrl);
+  if (!send.sent) {
+    return { error: send.error || "Could not send payment email.", status: 502 };
+  }
+
+  const sentAt = new Date().toISOString();
+  const next: A2aQuoteRequestRecord = {
+    ...record,
+    paymentLinkEmailSentAt: sentAt,
+    paymentLinkEmailPayUrl: emailPayUrl,
+    updatedAt: sentAt,
+  };
+  await saveA2aQuoteRequest(env.TRACKING_STORE, next);
+
+  return {
+    ok: true,
+    record: toOwnerSummary(next),
+    payUrl: emailPayUrl,
+    paymentEmailSent: true,
   };
 }
 

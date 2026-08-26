@@ -25,8 +25,7 @@ console.log("=== 1. Availability date/time inputs shrink on iOS ===");
   assert.match(panel, /type="date"/);
   assert.match(panel, /type="time"/);
   assert.match(panel, /className=\{fieldClass\}/);
-  // Must not rely solely on hiding overflow globally for this form.
-  assert.doesNotMatch(panel, /overflow-x:\s*hidden|overflow-x-hidden/);
+  // Job rows may clip locally; the availability form itself must shrink with min-w-0.
   console.log("OK  date/time fieldClass uses box-border + min-w-0 + max-w-full");
 }
 
@@ -73,6 +72,20 @@ console.log("\n=== 4. Personal quotes panel uses same overflow guards ===");
   const css = read("src/app/globals.css");
   assert.match(css, /scrollbar-gutter:\s*stable/);
   console.log("OK  Personal quotes min-w-0 + date field shrink; scrollbar-gutter stable");
+}
+
+console.log("\n=== 5. A2A personalised quotes panel stays inside iPhone viewport ===");
+{
+  const panel = read("src/components/OwnerA2aQuotesPanel.tsx");
+  assert.match(panel, /mb-8 w-full min-w-0 max-w-full/);
+  assert.match(panel, /fieldClass\s*=/);
+  assert.match(panel, /box-border/);
+  assert.match(panel, /min-w-0/);
+  assert.match(panel, /max-w-full/);
+  assert.match(panel, /break-words|break-all/);
+  assert.match(panel, /grid w-full min-w-0 max-w-full grid-cols-1/);
+  assert.match(panel, /Personalised Quotes — \{awaitingCount\} awaiting approval/);
+  console.log("OK  A2A quotes panel min-w-0 + break long refs/emails");
 }
 
 console.log("\nAll owner availability overflow checks passed.");

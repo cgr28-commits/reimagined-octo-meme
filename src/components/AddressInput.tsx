@@ -20,6 +20,7 @@ import {
 } from "@/lib/google-maps";
 import type { SelectedPlace } from "@/lib/selected-place";
 import { buildDisplayAddress, looksLikeStreetAddressLine, normaliseAddressCompareKey } from "@/lib/selected-place";
+import { hasLeadingStreetNumber } from "../../shared/journey-address-label";
 import { isHighConfidenceAddressMatch } from "@/lib/address-match";
 
 type AddressInputProps = {
@@ -408,8 +409,8 @@ export default function AddressInput({
     if (place) {
       const typedNumber = value.trim().match(/^(\d+[a-zA-Z]?)\b/)?.[1];
       const postal = place.formattedAddress;
-      const resolvedHasNumber = /^\d+[a-zA-Z]?\s/.test(postal);
-      const suggestionHasNumber = /^\d+[a-zA-Z]?\s/.test(prediction.description);
+      const resolvedHasNumber = hasLeadingStreetNumber(postal);
+      const suggestionHasNumber = hasLeadingStreetNumber(prediction.description);
       const postalWithNumber =
         typedNumber && !resolvedHasNumber && suggestionHasNumber
           ? prediction.description
