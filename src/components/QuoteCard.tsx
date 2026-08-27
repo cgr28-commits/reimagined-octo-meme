@@ -3313,7 +3313,12 @@ function QuoteCard({
               guideSuffix="This is a guide price only — not an instant confirmation."
             />
             {returnJourney && openWebsiteFareBreakdown ? (
-              <PromotionalPriceBreakdown breakdown={openWebsiteFareBreakdown} />
+              <PromotionalPriceBreakdown
+                breakdown={openWebsiteFareBreakdown}
+                freeAirportAccessSelected={
+                  expressSelection.eligible && expressSelection.feeGbp === 0
+                }
+              />
             ) : returnJourney ? (
               <p className="mt-2 text-xs font-medium text-emerald/90">
                 Includes 5% return booking discount on the guide price.
@@ -3359,7 +3364,12 @@ function QuoteCard({
               <FixedPriceAssurance />
             ) : null}
             {testChargeAmount === null && !appliedPersonalQuote && openWebsiteFareBreakdown ? (
-              <PromotionalPriceBreakdown breakdown={openWebsiteFareBreakdown} />
+              <PromotionalPriceBreakdown
+                breakdown={openWebsiteFareBreakdown}
+                freeAirportAccessSelected={
+                  expressSelection.eligible && expressSelection.feeGbp === 0
+                }
+              />
             ) : null}
             {renderExpressChoiceInPriceCard(quoteStep === 1 ? "full" : "summary")}
             {appliedPersonalQuote && testChargeAmount === null ? (
@@ -5036,7 +5046,12 @@ function QuoteCard({
             testChargeAmount === null &&
             !appliedPersonalQuote &&
             openWebsiteFareBreakdown ? (
-              <FinalPayableBreakdown breakdown={openWebsiteFareBreakdown} />
+              <FinalPayableBreakdown
+                breakdown={openWebsiteFareBreakdown}
+                freeAirportAccessSelected={
+                  expressSelection.eligible && expressSelection.feeGbp === 0
+                }
+              />
             ) : null}
 
             {canPayNowOnline && liveQuote && testChargeAmount === null ? (
