@@ -59,6 +59,11 @@ export type OwnerPaidBookingSummary = Pick<
   returnFlightNumber?: string;
   airportCode?: string;
   isFromAirport?: boolean;
+  /** Explicit Express vs free airport access — present on bookings after option was offered. */
+  expressDropOffSelected?: boolean;
+  expressDropOffFee?: number;
+  expressDropOffAirport?: "BFS" | "BHD" | null;
+  airportAccessOption?: "express" | "free" | null;
   passengers?: number;
   suitcases?: number;
   childSeats?: number;

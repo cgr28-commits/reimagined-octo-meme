@@ -25,6 +25,7 @@ import {
   type ArrivalVehicleDetails,
 } from "../../shared/arrival-whatsapp";
 import { formatUkInstant } from "../../shared/uk-time";
+import { formatAirportAccessOptionDashboardValue } from "../../shared/express-drop-off";
 import OwnerEditBookingModal from "@/components/OwnerEditBookingModal";
 import OwnerCancelRefundModal from "@/components/OwnerCancelRefundModal";
 import {
@@ -1084,6 +1085,12 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
             ? "SALOON"
             : booking.vehicle
       : null;
+    const airportAccessLabel = formatAirportAccessOptionDashboardValue({
+      expressDropOffSelected: booking.expressDropOffSelected,
+      expressDropOffFee: booking.expressDropOffFee,
+      expressDropOffAirport: booking.expressDropOffAirport ?? booking.airportCode,
+      fromAirport: booking.isFromAirport,
+    });
 
     const moreOptions = (
       <details
@@ -1482,6 +1489,12 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
             <div>
               <dt className="text-[11px] text-white/40">Flight</dt>
               <dd className="font-semibold text-white">{flightLabel}</dd>
+            </div>
+          ) : null}
+          {airportAccessLabel ? (
+            <div className="col-span-2">
+              <dt className="text-[11px] text-white/40">Airport access</dt>
+              <dd className="font-semibold text-white">{airportAccessLabel}</dd>
             </div>
           ) : null}
           {typeof booking.passengers === "number" || typeof booking.suitcases === "number" ? (

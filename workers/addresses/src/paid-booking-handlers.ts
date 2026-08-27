@@ -428,6 +428,21 @@ export async function handlePaidBookingsListRequest(
           typeof booking.isFromAirport === "boolean"
             ? booking.isFromAirport
             : undefined,
+        expressDropOffSelected:
+          typeof booking.expressDropOffSelected === "boolean"
+            ? booking.expressDropOffSelected
+            : undefined,
+        expressDropOffFee:
+          typeof booking.expressDropOffFee === "number" &&
+          Number.isFinite(booking.expressDropOffFee)
+            ? booking.expressDropOffFee
+            : undefined,
+        expressDropOffAirport: booking.expressDropOffAirport || undefined,
+        airportAccessOption:
+          booking.airportAccessOption === "express" ||
+          booking.airportAccessOption === "free"
+            ? booking.airportAccessOption
+            : undefined,
         passengers,
         suitcases,
         childSeats,
