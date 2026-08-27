@@ -160,4 +160,26 @@ check("display and SumUp totals agree for stacked return + first booking + Expre
   assert.equal(displayed.finalAmountPayableGbp, sumUp.finalAmountPayableGbp);
 });
 
+check("toggling Express changes payable by the access fee (not a second journey discount)", () => {
+  const withExpress = composeWebsiteFareBreakdown({
+    journeyFareBeforeAirportAccessGbp: 40,
+    airportAccessChargeGbp: 5,
+    claimFirstBookingOffer: true,
+  });
+  const freeArea = composeWebsiteFareBreakdown({
+    journeyFareBeforeAirportAccessGbp: 40,
+    airportAccessChargeGbp: 0,
+    claimFirstBookingOffer: true,
+  });
+  assert.equal(withExpress.firstBookingSavingGbp, 5);
+  assert.equal(freeArea.firstBookingSavingGbp, 5);
+  assert.equal(withExpress.journeyFareAfterPromotionsGbp, 35);
+  assert.equal(freeArea.journeyFareAfterPromotionsGbp, 35);
+  assert.equal(withExpress.finalAmountPayableGbp, 40);
+  assert.equal(freeArea.finalAmountPayableGbp, 35);
+  assert.equal(withExpress.finalAmountPayableGbp - freeArea.finalAmountPayableGbp, 5);
+  // Free area must not invent an extra promotional −£5.
+  assert.equal(freeArea.totalPromotionalSavingGbp, 5);
+});
+
 console.log("\nAll first-booking / fare-breakdown checks passed.");
