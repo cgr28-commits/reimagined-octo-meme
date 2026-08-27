@@ -39,6 +39,7 @@ console.log("=== Shell owns the visible border ===");
   assert.match(inner, /border-0/);
   assert.match(inner, /min-w-0/);
   assert.match(inner, /max-w-full/);
+  assert.match(inner, /text-\[1\.125rem\]|text-lg|1\.125rem/);
   assert.match(inner, /\[color-scheme:dark\]/);
   assert.doesNotMatch(inner, /\bborder border-/);
 
@@ -77,7 +78,10 @@ console.log("\n=== globals containment ===");
   assert.match(css, /overflow:\s*hidden/);
   assert.match(css, /quote-datetime-input/);
   assert.match(css, /-webkit-appearance:\s*none/);
-  console.log("OK  shell + appearance reset present in globals.css");
+  assert.match(css, /::-webkit-date-and-time-value/);
+  assert.match(css, /::-webkit-datetime-edit/);
+  assert.match(css, /font-size:\s*1\.125rem/);
+  console.log("OK  shell + appearance reset + larger centred value text");
 }
 
 console.log("\nAll quote datetime overflow checks passed.");
