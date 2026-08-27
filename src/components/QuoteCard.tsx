@@ -1366,12 +1366,14 @@ function QuoteCard({
     return { journeyFareGbp: journey, airportFixedCostsGbp: fixed };
   }, [liveQuote]);
 
-  const firstBookingFareEligible =
+  const firstBookingBookingValueEligible =
     useOpenWebsitePromoPricing &&
     FIRST_BOOKING_OFFER_CONFIG.enabled &&
     journeyFareParts.journeyFareGbp != null &&
-    journeyFareParts.journeyFareGbp >=
-      FIRST_BOOKING_OFFER_CONFIG.minimumEligibleJourneyFareGbp;
+    journeyFareParts.journeyFareGbp +
+      journeyFareParts.airportFixedCostsGbp +
+      expressSelection.feeGbp >=
+      FIRST_BOOKING_OFFER_CONFIG.minimumEligibleBookingValueGbp;
 
   const customerEmailNormalised = normalizeFirstBookingEmail(customerEmail);
   const firstBookingEligibilityVerified =
@@ -1381,17 +1383,17 @@ function QuoteCard({
 
   /**
    * Apply £5 in displayed totals only on Step 3 after Worker confirms the email
-   * has not already redeemed the offer. Steps 1–2 always show the full journey price.
+   * has not already redeemed the offer. Steps 1–2 always show the full booking total.
    */
   const applyFirstBookingOffer =
     quoteStep === 3 &&
-    firstBookingFareEligible &&
+    firstBookingBookingValueEligible &&
     firstBookingEligibilityVerified &&
     !firstBookingRedeemStatus!.alreadyRedeemed;
 
   /** Advertise on Steps 1–3 until applied (hide once we know this email already used it). */
   const advertiseFirstBookingOffer =
-    firstBookingFareEligible &&
+    firstBookingBookingValueEligible &&
     !applyFirstBookingOffer &&
     !(
       firstBookingEligibilityVerified && firstBookingRedeemStatus!.alreadyRedeemed
@@ -2345,11 +2347,17 @@ function QuoteCard({
 
     // Re-verify first-booking eligibility at pay time so displayed/claim flags match Worker.
     let claimFirstBookingForCheckout = false;
+    const payTimeBookingValue =
+      journeyFareParts.journeyFareGbp == null
+        ? 0
+        : journeyFareParts.journeyFareGbp +
+          journeyFareParts.airportFixedCostsGbp +
+          expressSelection.feeGbp;
     if (
       useOpenWebsitePromoPricing &&
       journeyFareParts.journeyFareGbp != null &&
-      journeyFareParts.journeyFareGbp >=
-        FIRST_BOOKING_OFFER_CONFIG.minimumEligibleJourneyFareGbp &&
+      payTimeBookingValue >=
+        FIRST_BOOKING_OFFER_CONFIG.minimumEligibleBookingValueGbp &&
       isValidEmailAddress(customerEmail)
     ) {
       try {
@@ -3476,8 +3484,8 @@ function QuoteCard({
             {advertiseFirstBookingOffer ? (
               <FirstBookingOfferAdvert
                 discountAmountGbp={FIRST_BOOKING_OFFER_CONFIG.discountAmountGbp}
-                minimumJourneyFareGbp={
-                  FIRST_BOOKING_OFFER_CONFIG.minimumEligibleJourneyFareGbp
+                minimumBookingValueGbp={
+                  FIRST_BOOKING_OFFER_CONFIG.minimumEligibleBookingValueGbp
                 }
               />
             ) : null}
@@ -5171,26 +5179,22 @@ function QuoteCard({
             testChargeAmount === null &&
             !appliedPersonalQuote &&
             openWebsiteFareBreakdown ? (
-<<<<<<< HEAD
               <>
                 {advertiseFirstBookingOffer ? (
                   <FirstBookingOfferAdvert
                     discountAmountGbp={FIRST_BOOKING_OFFER_CONFIG.discountAmountGbp}
-                    minimumJourneyFareGbp={
-                      FIRST_BOOKING_OFFER_CONFIG.minimumEligibleJourneyFareGbp
+                    minimumBookingValueGbp={
+                      FIRST_BOOKING_OFFER_CONFIG.minimumEligibleBookingValueGbp
                     }
                   />
                 ) : null}
-                <FinalPayableBreakdown breakdown={openWebsiteFareBreakdown} />
+                <FinalPayableBreakdown
+                  breakdown={openWebsiteFareBreakdown}
+                  freeAirportAccessSelected={
+                    expressSelection.eligible && expressSelection.feeGbp === 0
+                  }
+                />
               </>
-=======
-              <FinalPayableBreakdown
-                breakdown={openWebsiteFareBreakdown}
-                freeAirportAccessSelected={
-                  expressSelection.eligible && expressSelection.feeGbp === 0
-                }
-              />
->>>>>>> origin/cursor/express-access-fare-display-514b
             ) : null}
 
             {canPayNowOnline && liveQuote && testChargeAmount === null ? (

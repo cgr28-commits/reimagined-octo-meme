@@ -38,16 +38,16 @@ export function buildOpenWebsiteFareBreakdown(input: {
  */
 export function FirstBookingOfferAdvert({
   discountAmountGbp,
-  minimumJourneyFareGbp,
+  minimumBookingValueGbp,
   className = "",
 }: {
   discountAmountGbp: number;
-  minimumJourneyFareGbp: number;
+  minimumBookingValueGbp: number;
   className?: string;
 }) {
   const amount = Math.round(Number(discountAmountGbp) || 0);
-  const minFare = Math.round(Number(minimumJourneyFareGbp) || 0);
-  if (amount <= 0 || minFare <= 0) return null;
+  const minValue = Math.round(Number(minimumBookingValueGbp) || 0);
+  if (amount <= 0 || minValue <= 0) return null;
 
   return (
     <div
@@ -58,7 +58,7 @@ export function FirstBookingOfferAdvert({
         New customer? Save £{amount} on your first booking
       </p>
       <p className="mt-0.5 text-[11px] leading-snug text-white/55">
-        Journey fare £{minFare}+. Eligibility confirmed before payment.
+        £{minValue} minimum booking value · Eligibility confirmed before payment
       </p>
     </div>
   );
@@ -228,9 +228,8 @@ export function PromotionalPriceBreakdown({
         </div>
       </dl>
       {freeAirportAccessSelected && !hasAccess ? (
-        <p className="text-[11px] leading-snug text-white/50">
-          Free area selected — the Express access charge is not added to your fare.
-          Choosing Express adds it back on top.
+        <p className="text-[11px] leading-snug text-emerald/85">
+          ✓ You’ve avoided the Express Drop-Off charge
         </p>
       ) : null}
     </div>

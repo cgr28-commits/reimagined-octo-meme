@@ -22,7 +22,7 @@ console.log("=== Express access visible in quote fare UI ===");
   assert.match(trust, /Amount payable/);
   assert.match(
     trust,
-    /Free area selected — the Express access charge is not added/,
+    /You’ve avoided the Express Drop-Off charge|You've avoided the Express Drop-Off charge/,
   );
   assert.match(card, /freeAirportAccessSelected=\{/);
   assert.match(card, /expressSelection\.feeGbp === 0/);

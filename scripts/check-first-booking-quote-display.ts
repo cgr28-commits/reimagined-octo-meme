@@ -31,7 +31,7 @@ console.log("=== 1. Advertise without applying until verified ===");
   );
   assert.match(trust, /FirstBookingOfferAdvert/);
   assert.match(trust, /New customer\? Save £\{amount\} on your first booking/);
-  assert.match(trust, /Journey fare £\{minFare\}\+\. Eligibility confirmed before payment\./);
+  assert.match(trust, /£\{minValue\} minimum booking value · Eligibility confirmed before payment/);
   assert.match(trust, /claimFirstBookingOffer: input\.claimFirstBookingOffer === true/);
   console.log("OK  quote UI gates £5 until eligibility verification");
 }

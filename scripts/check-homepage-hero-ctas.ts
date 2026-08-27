@@ -49,7 +49,7 @@ console.log("\n=== 4. First-booking offer promo near quote CTA ===");
   assert.match(hero, /Fixed fares\. Reliable airport transfers\. No surprises\./);
   assert.match(strip, /£\{amount\} OFF/);
   assert.match(strip, /YOUR FIRST BOOKING/);
-  assert.match(strip, /Journey fare £\{minFare\}\+ · Eligibility confirmed before payment/);
+  assert.match(strip, /£\{minValue\} minimum booking value · Eligibility confirmed before payment/);
   assert.match(strip, /New customer offer/i);
   assert.match(strip, /data-offer-layout="compact-v2"/);
   // Desktop keeps CTA; mobile strip must not show Get a Quote.

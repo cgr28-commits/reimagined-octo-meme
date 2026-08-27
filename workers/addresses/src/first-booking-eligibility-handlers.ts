@@ -70,8 +70,8 @@ export async function handleFirstBookingEligibilityRequest(
       eligible: enabled && !alreadyRedeemed,
       email: normalised,
       discountAmountGbp: FIRST_BOOKING_OFFER_CONFIG.discountAmountGbp,
-      minimumEligibleJourneyFareGbp:
-        FIRST_BOOKING_OFFER_CONFIG.minimumEligibleJourneyFareGbp,
+      minimumEligibleBookingValueGbp:
+        FIRST_BOOKING_OFFER_CONFIG.minimumEligibleBookingValueGbp,
     },
     200,
     origin,

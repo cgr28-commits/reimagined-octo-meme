@@ -18,7 +18,7 @@ export default function FirstBookingOfferStrip() {
   }
 
   const amount = FIRST_BOOKING_OFFER_CONFIG.discountAmountGbp;
-  const minFare = FIRST_BOOKING_OFFER_CONFIG.minimumEligibleJourneyFareGbp;
+  const minValue = FIRST_BOOKING_OFFER_CONFIG.minimumEligibleBookingValueGbp;
 
   return (
     <aside
@@ -26,7 +26,7 @@ export default function FirstBookingOfferStrip() {
       aria-label={`New customer offer: £${amount} off first booking`}
       data-offer-layout="compact-v2"
     >
-      {/* Mobile: two tight lines */}
+      {/* Mobile: compact strip */}
       <div className="md:hidden">
         <p className="text-[0.58rem] font-semibold uppercase tracking-[0.12em] text-emerald">
           New customer offer
@@ -36,7 +36,7 @@ export default function FirstBookingOfferStrip() {
           {" YOUR FIRST BOOKING"}
         </p>
         <p className="mt-0.5 text-[0.65rem] leading-snug text-white/55">
-          Journey fare £{minFare}+ · Eligibility confirmed before payment
+          £{minValue} minimum booking value · Eligibility confirmed before payment
         </p>
       </div>
 
@@ -50,8 +50,7 @@ export default function FirstBookingOfferStrip() {
           {" YOUR FIRST BOOKING"}
         </p>
         <p className="mt-1 text-[0.8125rem] leading-snug text-white/68">
-          New customer? Get £{amount} off your first airport transfer when your
-          journey fare is £{minFare} or more.
+          £{amount} off your first booking when you spend £{minValue} or more.
         </p>
         <QuoteNavLink
           href="/#quote"
