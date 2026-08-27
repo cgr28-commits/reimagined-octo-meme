@@ -14,15 +14,54 @@ export function buildOpenWebsiteFareBreakdown(input: {
   airportFixedCostsGbp?: number;
   airportAccessChargeGbp?: number;
   returnJourney?: boolean;
+  /**
+   * Apply the £5 first-booking offer in displayed/payable totals.
+   * Must be true only after email eligibility is verified (not redeemed).
+   */
   claimFirstBookingOffer?: boolean;
+  alreadyRedeemedFirstBookingOffer?: boolean;
 }): WebsiteFareBreakdown {
   return composeWebsiteFareBreakdown({
     journeyFareBeforeAirportAccessGbp: input.journeyFareBeforeAirportAccessGbp,
     airportFixedCostsGbp: input.airportFixedCostsGbp ?? 0,
     airportAccessChargeGbp: input.airportAccessChargeGbp ?? 0,
     returnJourney: Boolean(input.returnJourney),
-    claimFirstBookingOffer: input.claimFirstBookingOffer !== false,
+    claimFirstBookingOffer: input.claimFirstBookingOffer === true,
+    alreadyRedeemedFirstBookingOffer:
+      input.alreadyRedeemedFirstBookingOffer === true,
   });
+}
+
+/**
+ * Advertise the first-booking welcome offer without applying it to the price.
+ * Emerald/navy premium tone — never sale-banner styling.
+ */
+export function FirstBookingOfferAdvert({
+  discountAmountGbp,
+  minimumJourneyFareGbp,
+  className = "",
+}: {
+  discountAmountGbp: number;
+  minimumJourneyFareGbp: number;
+  className?: string;
+}) {
+  const amount = Math.round(Number(discountAmountGbp) || 0);
+  const minFare = Math.round(Number(minimumJourneyFareGbp) || 0);
+  if (amount <= 0 || minFare <= 0) return null;
+
+  return (
+    <div
+      className={`mt-2.5 rounded-lg border border-emerald/25 bg-emerald/[0.06] px-3 py-2.5 ${className}`}
+      aria-label={`New customer offer: save £${amount} on your first booking`}
+    >
+      <p className="text-xs font-semibold leading-snug text-emerald">
+        New customer? Save £{amount} on your first booking
+      </p>
+      <p className="mt-0.5 text-[11px] leading-snug text-white/55">
+        Journey fare £{minFare}+. Eligibility confirmed before payment.
+      </p>
+    </div>
+  );
 }
 
 /** Compact reinforcement directly under the dominant fixed price. */
