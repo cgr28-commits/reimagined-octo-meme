@@ -3174,9 +3174,9 @@ function QuoteCard({
               We’ll confirm your fare once journey details are reviewed. Continue to send your trip
               details — no online payment until the price is confirmed.
             </p>
-            {journeyDistanceLabel && journeyDurationLabel && (
+            {journeyDurationLabel && (
               <p className="quote-secondary mt-2 text-xs">
-                Approx. {journeyDistanceLabel} · {journeyDurationLabel}
+                Approx. {journeyDurationLabel}
               </p>
             )}
           </>
@@ -3195,9 +3195,9 @@ function QuoteCard({
                   ? "This journey needs a personalised quote. Continue with your travel details and submit your quote request."
                   : "Continue with your travel details and submit your quote request — we’ll confirm your personal price before any payment is taken."}
             </p>
-            {journeyDistanceLabel && journeyDurationLabel && (
+            {journeyDurationLabel && (
               <p className="quote-secondary mt-2 text-xs">
-                Approx. {journeyDistanceLabel} · {journeyDurationLabel}
+                Approx. {journeyDurationLabel}
               </p>
             )}
           </>
@@ -3219,9 +3219,9 @@ function QuoteCard({
               <span className="mx-2 text-white/35">·</span>
               Large suitcases: {formatSuitcaseChoice(suitcases as number)}
             </p>
-            {journeyDistanceLabel && journeyDurationLabel && (
+            {journeyDurationLabel && (
               <p className="quote-secondary mt-2 text-xs">
-                Approx. {journeyDistanceLabel} · {journeyDurationLabel}
+                Approx. {journeyDurationLabel}
               </p>
             )}
             <PriceInclusionBlock
@@ -3250,9 +3250,9 @@ function QuoteCard({
               Send an enquiry with your trip details and we&apos;ll confirm availability and quote
               you personally.
             </p>
-            {journeyDistanceLabel && journeyDurationLabel && (
+            {journeyDurationLabel && (
               <p className="quote-secondary mt-2 text-xs">
-                Approx. {journeyDistanceLabel} · {journeyDurationLabel}
+                Approx. {journeyDurationLabel}
               </p>
             )}
             {!tripDetailsReady && quoteHint ? (
@@ -3299,9 +3299,9 @@ function QuoteCard({
                 Route price would be {formatQuote(liveQuote.amount)} — not charged in test mode.
               </p>
             )}
-            {journeyDistanceLabel && journeyDurationLabel && (
+            {journeyDurationLabel && (
               <p className="quote-secondary mt-2 text-xs">
-                Approx. {journeyDistanceLabel} · {journeyDurationLabel}
+                Approx. {journeyDurationLabel}
               </p>
             )}
             <PriceInclusionBlock
@@ -4806,10 +4806,10 @@ function QuoteCard({
               )}
               <PreviewRow label="Pickup" value={pickupLabel} />
               <PreviewRow label="Drop-off" value={dropoffLabel} />
-              {journeyDistanceLabel && journeyDurationLabel && (
+              {journeyDurationLabel && (
                 <PreviewRow
-                  label="Journey"
-                  value={`${journeyDistanceLabel} · ${journeyDurationLabel}`}
+                  label="Estimated journey time"
+                  value={journeyDurationLabel}
                 />
               )}
               <PreviewRow
