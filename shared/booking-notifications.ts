@@ -1165,7 +1165,7 @@ export function buildCustomerCancellationEmails(
       (when ? `When: ${when}\n` : "") +
       `Pickup: ${details.pickupLabel}\n` +
       `Drop-off: ${details.dropoffLabel}\n\n` +
-      `Your cancellation was received within 24 hours of the scheduled pickup. A cancellation charge of up to the full booking price may apply because a driver and time have been reserved specifically for your journey. The charge will not exceed the reasonable loss caused by the cancellation. If we are able to reduce that loss, including by accepting another booking for the reserved time, any excess will be refunded.\n\n` +
+      `Your cancellation was received less than 24 hours before the scheduled pickup. A cancellation charge of up to the full booking price may apply because a driver and time have been reserved specifically for your journey. The charge will not exceed the reasonable loss caused by the cancellation. If we are able to reduce that loss, including by accepting another booking for the reserved time, any excess will be refunded.\n\n` +
       `If you believe a refund is appropriate in your circumstances, please contact us.\n\n` +
       `Your statutory rights are not affected.\n\n` +
       `${businessName}\n${BUSINESS_WEBSITE}`;
@@ -1175,7 +1175,7 @@ export function buildCustomerCancellationEmails(
       bodyHtml:
         `<p>Your booking has been cancelled.</p>` +
         `<p>${escapeHtml(details.tripLabel)}${when ? `<br/>${escapeHtml(when)}` : ""}</p>` +
-        `<p>Your cancellation was received within 24 hours of pickup. A cancellation charge of up to the full booking price may apply because a driver and time have been reserved specifically for your journey. The charge will not exceed the reasonable loss caused by the cancellation. If we are able to reduce that loss, including by accepting another booking for the reserved time, any excess will be refunded.</p>` +
+        `<p>Your cancellation was received less than 24 hours before pickup. A cancellation charge of up to the full booking price may apply because a driver and time have been reserved specifically for your journey. The charge will not exceed the reasonable loss caused by the cancellation. If we are able to reduce that loss, including by accepting another booking for the reserved time, any excess will be refunded.</p>` +
         `<p>Your statutory rights are not affected. Contact us if you believe a refund is appropriate.</p>`,
       businessName,
     });
