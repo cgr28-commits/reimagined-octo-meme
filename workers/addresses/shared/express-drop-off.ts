@@ -410,6 +410,34 @@ export function formatAirportAccessOptionOwnerLine(input: {
 }
 
 /**
+ * Owner dashboard detail value (compact, under "Airport access" label).
+ * Example: "Express — £5 paid"
+ * Example: "Free drop-off area"
+ */
+export function formatAirportAccessOptionDashboardValue(input: {
+  expressDropOffSelected?: boolean | null;
+  expressDropOffFee?: number | null;
+  expressDropOffAirport?: string | null;
+  fromAirport?: boolean | null;
+  service?: ExpressAirportService | null;
+}): string | null {
+  const option = resolveAirportAccessOption(input);
+  if (!option) return null;
+  const airport = normaliseExpressDropOffAirport(input.expressDropOffAirport);
+  if (!airport) return null;
+  const service =
+    input.service ?? resolveExpressAirportService({ fromAirport: input.fromAirport });
+  if (option === "express") {
+    const fee =
+      typeof input.expressDropOffFee === "number" && input.expressDropOffFee > 0
+        ? roundGbp(input.expressDropOffFee)
+        : EXPRESS_DROP_OFF_FEES_GBP[airport];
+    return `Express — ${formatExpressDropOffGbp(fee)} paid`;
+  }
+  return service === "pick-up" ? "Free pick-up area" : "Free drop-off area";
+}
+
+/**
  * Payment / booking may continue when Express is kept, ineligible, or removal is acknowledged.
  */
 export function canProceedWithoutExpressDropOff(input: {

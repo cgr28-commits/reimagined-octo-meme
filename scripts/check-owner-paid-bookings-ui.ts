@@ -36,7 +36,16 @@ assert.doesNotMatch(panel, /latestPaid/);
 assert.doesNotMatch(panel, /Open Refund Test/);
 assert.match(panel, /Cancel \/ Refund|OwnerCancelRefundModal/);
 assert.match(panel, /Refund diagnostics \(read-only\)|fetchRefundDiagnostics/);
+assert.match(panel, /formatAirportAccessOptionDashboardValue/);
+assert.match(panel, /Airport access/);
+assert.match(api, /expressDropOffSelected\?:/);
+assert.match(api, /airportAccessOption\?:/);
 console.log("OK  OwnerPaidBookingsPanel (no Paid Jobs summary chrome)");
+
+const handlers = read("workers/addresses/src/paid-booking-handlers.ts");
+assert.match(handlers, /expressDropOffSelected:/);
+assert.match(handlers, /airportAccessOption:/);
+console.log("OK  paid-bookings list returns airport access fields");
 
 const page = read("src/app/driver/DriverPageClient.tsx");
 assert.match(page, /OwnerPaidBookingsPanel/);

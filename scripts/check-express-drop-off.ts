@@ -20,6 +20,7 @@ import {
   expressDropOffRemoveLabel,
   expressDropOffRemovedExplanation,
   formatAirportAccessOptionCustomerLine,
+  formatAirportAccessOptionDashboardValue,
   formatAirportAccessOptionOwnerLine,
   formatExpressDropOffSummaryLine,
   parseCustomerExpressDropOffSelected,
@@ -994,7 +995,56 @@ check("Paid booking record + confirmation page persist airport access option", (
   assert.match(confirmed, /formatAirportAccessOptionCustomerLine/);
   assert.match(express, /formatAirportAccessOptionCustomerLine/);
   assert.match(express, /formatAirportAccessOptionOwnerLine/);
+  assert.match(express, /formatAirportAccessOptionDashboardValue/);
   assert.match(express, /resolveAirportAccessOption/);
+});
+
+check("Owner dashboard surfaces paid vs free airport access", () => {
+  const handlers = read("workers/addresses/src/paid-booking-handlers.ts");
+  const api = read("src/lib/paid-bookings-api.ts");
+  const panel = read("src/components/OwnerPaidBookingsPanel.tsx");
+
+  assert.match(handlers, /expressDropOffSelected:/);
+  assert.match(handlers, /expressDropOffFee:/);
+  assert.match(handlers, /expressDropOffAirport:/);
+  assert.match(handlers, /airportAccessOption:/);
+  assert.match(api, /expressDropOffSelected\?:/);
+  assert.match(api, /airportAccessOption\?:/);
+  assert.match(panel, /formatAirportAccessOptionDashboardValue/);
+  assert.match(panel, /Airport access/);
+  assert.match(panel, /airportAccessLabel/);
+
+  assert.equal(
+    formatAirportAccessOptionDashboardValue({
+      expressDropOffSelected: true,
+      expressDropOffFee: 5,
+      expressDropOffAirport: "BFS",
+    }),
+    "Express — £5 paid",
+  );
+  assert.equal(
+    formatAirportAccessOptionDashboardValue({
+      expressDropOffSelected: false,
+      expressDropOffFee: 0,
+      expressDropOffAirport: "BFS",
+    }),
+    "Free drop-off area",
+  );
+  assert.equal(
+    formatAirportAccessOptionDashboardValue({
+      expressDropOffSelected: false,
+      expressDropOffFee: 0,
+      expressDropOffAirport: "BFS",
+      fromAirport: true,
+    }),
+    "Free pick-up area",
+  );
+  assert.equal(
+    formatAirportAccessOptionDashboardValue({
+      expressDropOffAirport: null,
+    }),
+    null,
+  );
 });
 
 console.log("\nAll Express Drop-Off checks passed.");
