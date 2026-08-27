@@ -7,24 +7,27 @@ export type QuoteFieldHighlightState = "default" | "needs" | "complete" | "error
 
 /** Shared shell for rounded text/date inputs (fixed height — no layout shift). */
 export function quoteTextFieldClass(state: QuoteFieldHighlightState): string {
+  // max-w-full + min-w-0: native date/time controls have a large intrinsic min-width;
+  // without these they overflow grid cells. ring-inset keeps focus rings inside the box
+  // so form overflow-x-clip cannot hide the right border/radius.
   const base =
-    "box-border h-12 w-full min-w-0 rounded-[0.75rem] bg-white/[0.045] px-4 text-base text-white outline-none transition-[border-color,box-shadow] duration-150 [color-scheme:dark]";
+    "quote-text-input box-border h-12 w-full min-w-0 max-w-full rounded-[0.75rem] bg-white/[0.045] px-4 text-base text-white outline-none transition-[border-color,box-shadow] duration-150 [color-scheme:dark]";
   switch (state) {
     case "error":
-      return `${base} border border-red-400/55 ring-1 ring-red-400/30 focus:border-red-400/70 focus:ring-red-400/40`;
+      return `${base} border border-red-400/55 ring-1 ring-inset ring-red-400/30 focus:border-red-400/70 focus:ring-red-400/40`;
     case "needs":
-      return `${base} border border-emerald/50 ring-1 ring-emerald/25 focus:border-emerald focus:ring-emerald/35`;
+      return `${base} border border-emerald/50 ring-1 ring-inset ring-emerald/25 focus:border-emerald focus:ring-emerald/35`;
     case "complete":
-      return `${base} border border-emerald/30 focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30`;
+      return `${base} border border-emerald/30 focus:border-emerald/50 focus:ring-1 focus:ring-inset focus:ring-emerald/30`;
     default:
-      return `${base} border border-white/12 focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30`;
+      return `${base} border border-white/12 focus:border-emerald/50 focus:ring-1 focus:ring-inset focus:ring-emerald/30`;
   }
 }
 
 /** Booking panel text inputs (slightly stronger default border). */
 export function bookingTextFieldClass(state: QuoteFieldHighlightState): string {
   const base =
-    "quote-text-input box-border h-12 w-full min-w-0 rounded-[0.75rem] bg-navy-dark px-4 text-white placeholder:text-white/45 outline-none transition-[border-color,box-shadow] duration-150";
+    "quote-text-input box-border h-12 w-full min-w-0 max-w-full rounded-[0.75rem] bg-navy-dark px-4 text-white placeholder:text-white/45 outline-none transition-[border-color,box-shadow] duration-150";
   switch (state) {
     case "error":
       return `${base} border border-red-400/55 ring-1 ring-inset ring-red-400/30 focus:border-red-400/70`;

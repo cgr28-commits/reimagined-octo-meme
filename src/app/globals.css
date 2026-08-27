@@ -419,6 +419,15 @@ main {
   min-width: 0;
 }
 
+/* Native date/time controls report a large intrinsic min-width; force shrink inside grids. */
+#quoteForm input[type="date"],
+#quoteForm input[type="time"] {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
 .quote-helper-text {
   max-width: 100%;
   overflow-wrap: anywhere;

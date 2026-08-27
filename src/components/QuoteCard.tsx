@@ -4292,8 +4292,8 @@ function QuoteCard({
         >
           Step 2 — Travel details
         </h2>
-        <div className="grid gap-4 sm:grid-cols-2 lg:gap-3.5">
-          <div>
+        <div className="grid w-full min-w-0 max-w-full gap-4 sm:grid-cols-2 lg:gap-3.5">
+          <div className="min-w-0 max-w-full">
             <label
               htmlFor="date"
               className="form-label"
@@ -4331,7 +4331,7 @@ function QuoteCard({
               )}
             />
           </div>
-          <div>
+          <div className="min-w-0 max-w-full">
             <label
               htmlFor="time"
               className="form-label"
@@ -4388,8 +4388,8 @@ function QuoteCard({
           }`}
         >
           <div className="min-h-0 overflow-hidden">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div>
+            <div className="grid w-full min-w-0 max-w-full gap-4 sm:grid-cols-2">
+              <div className="min-w-0 max-w-full">
                 <label
                   htmlFor="returnDate"
                   className="form-label"
@@ -4423,7 +4423,7 @@ function QuoteCard({
                   )}
                 />
               </div>
-              <div>
+              <div className="min-w-0 max-w-full">
                 <label
                   htmlFor="returnTime"
                   className="form-label"
