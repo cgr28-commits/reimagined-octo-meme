@@ -2,6 +2,9 @@
 
 import { SERVICE_FLAGS } from "@/lib/data";
 import { whatsAppChatUrl } from "@/lib/contact-card";
+import FirstBookingOfferStrip, {
+  FirstBookingOfferBadge,
+} from "./FirstBookingOfferStrip";
 import QuoteCard from "./QuoteCard";
 
 export default function HeroSlideshow() {
@@ -10,14 +13,14 @@ export default function HeroSlideshow() {
     : "Belfast International, City of Derry and Dublin";
 
   return (
-    <section className="relative min-h-screen max-w-full overflow-x-clip overflow-y-hidden pt-28 md:pt-28">
+    <section className="relative min-h-screen max-w-full overflow-x-clip overflow-y-hidden pt-[4.5rem] md:pt-28">
       <div className="absolute inset-0 overflow-hidden bg-navy" aria-hidden="true">
         <div className="absolute inset-0 bg-gradient-to-b from-navy-light/20 via-navy to-navy-dark" />
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_75%_50%_at_12%_0%,rgba(12,42,82,0.5),transparent_58%)]" />
       </div>
 
       {/* Mobile: quote first so “Where are you travelling?” is above the fold. Desktop: copy | quote. */}
-      <div className="relative mx-auto grid w-full min-w-0 max-w-7xl grid-cols-1 gap-8 px-4 py-4 sm:px-6 md:gap-12 md:py-16 lg:max-w-[1400px] lg:grid-cols-[minmax(0,1fr)_minmax(500px,600px)] lg:items-start lg:gap-14 lg:px-10 lg:py-14 xl:gap-16 xl:px-12 xl:py-16">
+      <div className="relative mx-auto grid w-full min-w-0 max-w-7xl grid-cols-1 gap-3 px-3 py-1.5 sm:px-6 md:gap-12 md:px-6 md:py-16 lg:max-w-[1400px] lg:grid-cols-[minmax(0,1fr)_minmax(500px,600px)] lg:items-start lg:gap-14 lg:px-10 lg:py-14 xl:gap-16 xl:px-12 xl:py-16">
         <div className="order-2 min-w-0 lg:order-1 lg:pt-2">
           <p className="section-eyebrow mb-5 lg:mb-6">Private airport transfers</p>
 
@@ -29,6 +32,14 @@ export default function HeroSlideshow() {
             Fixed-price chauffeur-style transfers to {airportList} airports — and door-to-door
             journeys across Northern Ireland and the Republic of Ireland.
           </p>
+
+          <p className="mt-4 max-w-xl text-sm font-medium leading-snug text-white/78 sm:text-[0.95rem]">
+            Fixed fares. Reliable airport transfers. No surprises.
+          </p>
+
+          <div className="mt-4">
+            <FirstBookingOfferBadge />
+          </div>
 
           <ul className="mt-8 grid gap-3.5 text-sm text-white/62 sm:grid-cols-2 lg:mt-10 lg:gap-x-8 lg:gap-y-3.5">
             {[
@@ -55,11 +66,12 @@ export default function HeroSlideshow() {
         </div>
 
         <div
-          className="order-1 min-w-0 w-full scroll-mt-28 xl:scroll-mt-28 lg:order-2 lg:justify-self-stretch"
+          className="order-1 min-w-0 w-full scroll-mt-[4.5rem] md:scroll-mt-28 xl:scroll-mt-28 lg:order-2 lg:justify-self-stretch"
           id="quote"
         >
+          <FirstBookingOfferStrip />
           <QuoteCard />
-          <p className="mt-4 px-1 text-center text-sm leading-relaxed quote-secondary">
+          <p className="mt-3 px-1 text-center text-sm leading-relaxed quote-secondary md:mt-4">
             Need help?{" "}
             <a
               href={whatsAppChatUrl()}

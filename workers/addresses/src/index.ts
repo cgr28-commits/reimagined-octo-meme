@@ -334,10 +334,6 @@ import {
 } from "../shared/express-drop-off";
 import { composeWebsiteFareBreakdown } from "../shared/website-fare-breakdown";
 import { promoFieldsFromFareBreakdown } from "../shared/website-promo-pricing";
-import {
-  hasRedeemedFirstBookingOffer,
-  markFirstBookingOfferRedeemed,
-} from "./first-booking-offer-store";
 import { calculateAuthoritativeWebsiteQuote } from "../../../src/lib/quote-service";
 import {
   MINIBUS_VEHICLE,
@@ -1894,9 +1890,6 @@ async function handlePaymentRequest(
     }
 
     const claimFirstBookingOffer = body.claimFirstBookingOffer !== false;
-    const alreadyRedeemed = claimFirstBookingOffer
-      ? await hasRedeemedFirstBookingOffer(env.TRACKING_STORE, booking.customerEmail)
-      : false;
 
     const breakdown = composeWebsiteFareBreakdown({
       journeyFareBeforeAirportAccessGbp: journeyFareGbp,
@@ -1904,7 +1897,6 @@ async function handlePaymentRequest(
       airportAccessChargeGbp: persisted.expressDropOffFee,
       returnJourney: Boolean(booking.returnJourney),
       claimFirstBookingOffer,
-      alreadyRedeemedFirstBookingOffer: alreadyRedeemed,
     });
 
     amount = breakdown.finalAmountPayableGbp;

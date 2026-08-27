@@ -34,7 +34,6 @@ import { markSavedQuoteBookedFromPayment } from "./saved-quote-handlers";
 import { maybeRecordMarketingFromPayload } from "./marketing-handlers";
 import { trySendBrandedCustomerEmail, trySendOwnerOperationalEmail } from "./worker-email";
 import { maybeUploadPaidBookingAdsConversion } from "./paid-booking-ads-conversion";
-import { markFirstBookingOfferRedeemed } from "./first-booking-offer-store";
 
 const BUSINESS_NAME = "My Airport Taxi NI";
 
@@ -410,14 +409,6 @@ export async function finalizePaidCheckout(input: {
   const ownerEmail = buildOwnerPaidBookingEmail(receipt, BUSINESS_NAME, {
     trackUrl: tracking.trackUrl,
   });
-
-  if (booking.firstBookingOfferApplied === true) {
-    await markFirstBookingOfferRedeemed(
-      env.TRACKING_STORE,
-      booking.customerEmail,
-      paymentReference,
-    );
-  }
 
   const customerEmailResult = await trySendBrandedCustomerEmail(env, {
     to: booking.customerEmail,

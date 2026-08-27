@@ -7,7 +7,7 @@ import type { WebsiteFareBreakdown } from "./website-fare-breakdown";
 import { formatGbpFare } from "./website-fare-breakdown";
 
 export type WebsitePromoPricingFields = {
-  /** Journey fare after return discount, before first-booking and before Express. */
+  /** Journey fare after return discount, before £5 booking saving and before Express. */
   journeyFareBeforePromotionsGbp?: number;
   /** Undiscounted return (2× one-way) when return journey; else same as journey before promos. */
   originalEligibleJourneyPriceGbp?: number;
@@ -78,7 +78,7 @@ export function formatCustomerPromoPricingLines(
   }
   if ((fields.firstBookingSavingGbp ?? 0) > 0) {
     lines.push(
-      `First booking saving: −${formatGbpFare(fields.firstBookingSavingGbp ?? 0)}`,
+      `£5 Booking Saving: −${formatGbpFare(fields.firstBookingSavingGbp ?? 0)}`,
     );
   }
   if ((fields.airportAccessChargeGbp ?? 0) > 0) {
@@ -121,7 +121,7 @@ export function formatCustomerPromoPricingHtmlRows(
   }
   if ((fields.firstBookingSavingGbp ?? 0) > 0) {
     rows.push({
-      label: "First booking saving",
+      label: "£5 Booking Saving",
       value: `−${formatGbpFare(fields.firstBookingSavingGbp ?? 0)}`,
     });
   }

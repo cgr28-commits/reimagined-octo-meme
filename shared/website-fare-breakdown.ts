@@ -1,11 +1,19 @@
 /**
  * Authoritative public-website fare breakdown for display + SumUp parity.
  *
- * Layers (never reorder casually):
+ * Exact order (do not reorder):
  * 1. Journey fare (after 5% return discount when booked)
- * 2. Promotional discounts (first-booking £5; return saving is already in layer 1)
- * 3. Airport access charges (Express — never discounted, never in promo totals)
- * 4. Final amount payable
+ * 2. Add currently selected airport access charge (Express)
+ * 3. prePromotionBookingValue = journey + fixed costs + Express
+ * 4. If prePromotionBookingValue >= £40, apply £5 Booking Saving
+ * 5. finalAmountPayable = prePromotionBookingValue − bookingSaving
+ *
+ * Equivalent composition used here:
+ *   journeyAfterSaving + fixedCosts + Express
+ * (saving is taken from the journey portion only; Express is never discounted)
+ *
+ * Avoided Express (free drop-off) is NOT a promotional saving.
+ * No email / customer-history / redemption gate.
  */
 
 import {
@@ -48,21 +56,23 @@ export function getReturnJourneySavingGbp(
 
 export type WebsiteFareBreakdownInput = {
   /**
-   * Taxi/journey fare after return discount (when booked), before first-booking
-   * offer and before Express airport access.
+   * Taxi/journey fare after return discount (when booked), before the £5
+   * booking saving and before Express airport access.
    */
   journeyFareBeforeAirportAccessGbp: number;
   /**
    * Operational airport fixed costs already folded into the quoted transfer
-   * (e.g. Dublin parking/toll). Never discounted; excluded from £40 threshold.
+   * (e.g. Dublin parking/toll). Never discounted; counts toward £40 booking value.
    */
   airportFixedCostsGbp?: number;
   /** Express Drop-Off / Pick-Up fee when selected (0 when free option chosen). */
   airportAccessChargeGbp?: number;
   returnJourney?: boolean;
-  /** Apply first-booking offer when fare-eligible (default true for open website). */
+  /**
+   * Apply the £5 booking saving when booking-value-eligible.
+   * Default true for open website. Pass false only for personal/quick-quote paths.
+   */
   claimFirstBookingOffer?: boolean;
-  alreadyRedeemedFirstBookingOffer?: boolean;
   firstBookingConfig?: Partial<FirstBookingOfferConfig>;
 };
 
@@ -79,6 +89,8 @@ export type WebsiteFareBreakdown = {
   /** Transfer subtotal after promos + undiscounted fixed costs (no Express). */
   transferFareAfterPromotionsGbp: number;
   airportAccessChargeGbp: number;
+  /** Journey + fixed costs + Express, before the £5 booking saving. */
+  bookingValueBeforeFirstBookingOfferGbp: number;
   totalPromotionalSavingGbp: number;
   /** Strikethrough / original eligible price (journey before promos only). */
   originalEligibleJourneyPriceGbp: number;
@@ -112,11 +124,16 @@ export function composeWebsiteFareBreakdown(
     ? getUndiscountedReturnJourneyFareGbp(journeyBeforePromo)
     : journeyBeforePromo;
 
+  const bookingValueBeforeFirstBookingOfferGbp = roundGbp(
+    journeyBeforePromo + airportFixedCostsGbp + airportAccessChargeGbp,
+  );
+
   const firstBooking = resolveFirstBookingOffer({
     journeyFareBeforeAirportAccessGbp: journeyBeforePromo,
+    airportAccessChargeGbp,
+    airportFixedCostsGbp,
     claimOffer: input.claimFirstBookingOffer !== false,
     returnJourneyDiscountApplied: returnJourney,
-    alreadyRedeemed: input.alreadyRedeemedFirstBookingOffer === true,
     config: input.firstBookingConfig,
   });
 
@@ -146,6 +163,7 @@ export function composeWebsiteFareBreakdown(
     journeyFareAfterPromotionsGbp,
     transferFareAfterPromotionsGbp,
     airportAccessChargeGbp,
+    bookingValueBeforeFirstBookingOfferGbp,
     totalPromotionalSavingGbp,
     originalEligibleJourneyPriceGbp: journeyFareBeforeReturnDiscountGbp,
     finalAmountPayableGbp,

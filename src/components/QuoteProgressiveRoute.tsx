@@ -25,7 +25,7 @@ const SELECTABLE_AIRPORTS = CUSTOMER_AIRPORTS.filter(
 );
 
 const SELECT_CARD =
-  "flex min-h-[4.5rem] flex-col items-start justify-center rounded-2xl border px-4 py-3 text-left transition-all lg:min-h-[3.75rem] lg:px-3.5 lg:py-2.5";
+  "flex min-h-[4.25rem] flex-col items-start justify-center rounded-2xl border px-3.5 py-2.5 text-left transition-all sm:min-h-[4.5rem] sm:px-4 sm:py-3 lg:min-h-[3.75rem] lg:px-3.5 lg:py-2.5";
 const SELECT_CARD_ON = "border-emerald bg-emerald text-navy shadow-sm";
 const SELECT_CARD_OFF =
   "border-white/15 bg-white/5 text-white hover:border-emerald/40 hover:bg-emerald/10";
@@ -183,16 +183,18 @@ export default function QuoteProgressiveRoute({
   void _isGroupQuote;
 
   return (
-    <div className="quote-field space-y-5 lg:space-y-4">
-      <div id="quote-section-journey" className="min-h-[3.25rem] lg:min-h-0">
-        <h3 className="text-base font-semibold text-white sm:text-lg lg:text-base">Where are you travelling?</h3>
-        <p className="quote-secondary mt-1 min-h-[1rem] text-xs lg:min-h-0">
+    <div className="quote-field space-y-2.5 sm:space-y-5 lg:space-y-4">
+      <div id="quote-section-journey" className="lg:min-h-0">
+        <h3 className="text-[0.9rem] font-semibold text-white sm:text-lg lg:text-base">
+          Where are you travelling?
+        </h3>
+        <p className="quote-secondary mt-0.5 hidden text-xs sm:mt-1 sm:block">
           {journeyKindLabel || "Choose how you’d like to travel"}
         </p>
       </div>
 
       <div
-        className={`grid gap-3 sm:grid-cols-3 lg:gap-2.5 ${choiceGroupNeedsClass(!journeyIntent)}`}
+        className={`grid gap-2 sm:grid-cols-3 sm:gap-3 lg:gap-2.5 ${choiceGroupNeedsClass(!journeyIntent)}`}
         role="group"
         aria-label="Journey type"
       >
