@@ -45,6 +45,18 @@ export type PaymentCheckoutRequest = {
    * Server derives eligibility and fee — never trust a browser-supplied fee/total.
    */
   expressDropOffSelected?: boolean;
+  /**
+   * Journey fare before airport access and before the first-booking offer.
+   * Used with the authoritative website fare composer on open-website checkout.
+   */
+  journeyFareGbp?: number;
+  /** Undiscounted airport fixed costs already in `amount` (e.g. Dublin parking). */
+  airportFixedCostsGbp?: number;
+  /**
+   * When true (default for open website), apply the £5 first-booking offer if eligible.
+   * Personal / Quick / Saved quotes must pass false.
+   */
+  claimFirstBookingOffer?: boolean;
 };
 
 export type PaymentCheckoutResult = {
@@ -184,6 +196,15 @@ export async function createPaymentCheckout(
         : {}),
       ...(typeof request.expressDropOffSelected === "boolean"
         ? { expressDropOffSelected: request.expressDropOffSelected }
+        : {}),
+      ...(typeof request.journeyFareGbp === "number"
+        ? { journeyFareGbp: request.journeyFareGbp }
+        : {}),
+      ...(typeof request.airportFixedCostsGbp === "number"
+        ? { airportFixedCostsGbp: request.airportFixedCostsGbp }
+        : {}),
+      ...(typeof request.claimFirstBookingOffer === "boolean"
+        ? { claimFirstBookingOffer: request.claimFirstBookingOffer }
         : {}),
     }),
   });

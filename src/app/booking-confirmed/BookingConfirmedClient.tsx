@@ -11,6 +11,10 @@ import {
   type FinalizePaidBookingResult,
 } from "@/lib/finalize-paid-booking";
 import { readPendingPayment } from "@/lib/pending-payment";
+import {
+  formatCustomerPromoPricingLines,
+  type WebsitePromoPricingFields,
+} from "../../../shared/website-promo-pricing";
 
 type ViewStatus = "loading" | "confirmed" | "pending" | "missing" | "error";
 
@@ -28,6 +32,7 @@ export default function BookingConfirmedClient() {
   const [customerEmail, setCustomerEmail] = useState<string | undefined>();
   const [customerPhone, setCustomerPhone] = useState<string | undefined>();
   const [contactsHref, setContactsHref] = useState("/My-Airport-Taxi-NI.vcf");
+  const [promoLines, setPromoLines] = useState<string[]>([]);
 
   useEffect(() => {
     setContactsHref(saveToContactsHref());
@@ -51,6 +56,21 @@ export default function BookingConfirmedClient() {
     if (pending?.booking) {
       setCustomerEmail(pending.booking.customerEmail?.trim() || undefined);
       setCustomerPhone(pending.booking.mobileNumber?.trim() || undefined);
+      const promoFields: WebsitePromoPricingFields = {
+        journeyFareBeforePromotionsGbp: pending.booking.journeyFareBeforePromotionsGbp,
+        originalEligibleJourneyPriceGbp: pending.booking.originalEligibleJourneyPriceGbp,
+        returnJourneySavingGbp: pending.booking.returnJourneySavingGbp,
+        firstBookingOfferApplied: pending.booking.firstBookingOfferApplied,
+        firstBookingSavingGbp: pending.booking.firstBookingSavingGbp,
+        totalPromotionalSavingGbp: pending.booking.totalPromotionalSavingGbp,
+        airportAccessChargeGbp: pending.booking.airportAccessChargeGbp,
+        journeyFareAfterPromotionsGbp: pending.booking.journeyFareAfterPromotionsGbp,
+        finalAmountPayableGbp: pending.booking.finalAmountPayableGbp,
+      };
+      const lines = formatCustomerPromoPricingLines(promoFields).filter(
+        (line) => !line.startsWith("Amount paid:"),
+      );
+      setPromoLines(lines);
     }
 
     let cancelled = false;
@@ -143,6 +163,13 @@ export default function BookingConfirmedClient() {
           <p className="mt-1 text-sm text-white/50">
             If you requested a fixed quote, we&apos;ll email your personal price shortly.
           </p>
+        ) : null}
+        {status === "confirmed" && promoLines.length > 0 ? (
+          <ul className="mt-3 space-y-1 text-sm text-white/65">
+            {promoLines.map((line) => (
+              <li key={line}>{line}</li>
+            ))}
+          </ul>
         ) : null}
         {status === "confirmed" ? (
           <p className="mt-1 text-xs text-white/40">Payment method: Card (SumUp)</p>

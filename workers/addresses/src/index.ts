@@ -332,6 +332,12 @@ import {
   resolveExpressDropOff,
   toExpressDropOffPersistedFields,
 } from "../shared/express-drop-off";
+import { composeWebsiteFareBreakdown } from "../shared/website-fare-breakdown";
+import { promoFieldsFromFareBreakdown } from "../shared/website-promo-pricing";
+import {
+  hasRedeemedFirstBookingOffer,
+  markFirstBookingOfferRedeemed,
+} from "./first-booking-offer-store";
 import { calculateAuthoritativeWebsiteQuote } from "../../../src/lib/quote-service";
 import {
   MINIBUS_VEHICLE,
@@ -874,6 +880,65 @@ function parsePaidBookingDetails(body: Record<string, unknown>): PaidBookingDeta
       : details.expressDropOffAirport === null
         ? { expressDropOffAirport: null }
         : {}),
+    ...(typeof details.journeyFareBeforePromotionsGbp === "number" &&
+    Number.isFinite(details.journeyFareBeforePromotionsGbp)
+      ? {
+          journeyFareBeforePromotionsGbp:
+            Math.round(Number(details.journeyFareBeforePromotionsGbp) * 100) / 100,
+        }
+      : {}),
+    ...(typeof details.originalEligibleJourneyPriceGbp === "number" &&
+    Number.isFinite(details.originalEligibleJourneyPriceGbp)
+      ? {
+          originalEligibleJourneyPriceGbp:
+            Math.round(Number(details.originalEligibleJourneyPriceGbp) * 100) / 100,
+        }
+      : {}),
+    ...(typeof details.returnJourneySavingGbp === "number" &&
+    Number.isFinite(details.returnJourneySavingGbp)
+      ? {
+          returnJourneySavingGbp:
+            Math.round(Number(details.returnJourneySavingGbp) * 100) / 100,
+        }
+      : {}),
+    ...(details.firstBookingOfferApplied === true
+      ? { firstBookingOfferApplied: true }
+      : {}),
+    ...(typeof details.firstBookingSavingGbp === "number" &&
+    Number.isFinite(details.firstBookingSavingGbp)
+      ? {
+          firstBookingSavingGbp:
+            Math.round(Number(details.firstBookingSavingGbp) * 100) / 100,
+        }
+      : {}),
+    ...(typeof details.totalPromotionalSavingGbp === "number" &&
+    Number.isFinite(details.totalPromotionalSavingGbp)
+      ? {
+          totalPromotionalSavingGbp:
+            Math.round(Number(details.totalPromotionalSavingGbp) * 100) / 100,
+        }
+      : {}),
+    ...(typeof details.airportAccessChargeGbp === "number" &&
+    Number.isFinite(details.airportAccessChargeGbp)
+      ? {
+          airportAccessChargeGbp:
+            Math.round(Number(details.airportAccessChargeGbp) * 100) / 100,
+        }
+      : {}),
+    ...(typeof details.journeyFareAfterPromotionsGbp === "number" &&
+    Number.isFinite(details.journeyFareAfterPromotionsGbp)
+      ? {
+          journeyFareAfterPromotionsGbp:
+            Math.round(Number(details.journeyFareAfterPromotionsGbp) * 100) / 100,
+        }
+      : {}),
+    ...(typeof details.finalAmountPayableGbp === "number" &&
+    Number.isFinite(details.finalAmountPayableGbp)
+      ? {
+          finalAmountPayableGbp:
+            Math.round(Number(details.finalAmountPayableGbp) * 100) / 100,
+        }
+      : {}),
     termsAcceptedAt: String(details.termsAcceptedAt ?? "").trim() || undefined,
     termsVersion: String(details.termsVersion ?? "").trim() || undefined,
     marketingOptIn: details.marketingOptIn === true ? true : undefined,
@@ -1785,8 +1850,9 @@ async function handlePaymentRequest(
     }
   }
 
-  // Open website booking (QuoteCard): client amount is the transfer fare only.
-  // Express Drop-Off is re-derived server-side from journey + selection boolean.
+  // Open website booking (QuoteCard): client amount is the transfer fare only
+  // (journey + any embedded airport fixed costs, BEFORE first-booking offer and
+  // BEFORE Express). First-booking + Express are composed authoritatively here.
   if (
     booking &&
     !shortNoticeToken &&
@@ -1806,16 +1872,48 @@ async function handlePaymentRequest(
       selected: customerExpressSelected,
     });
     const persisted = toExpressDropOffPersistedFields(express);
-    const composed = composeFareWithExpressDropOff({
-      transferFareGbp: amount,
-      expressDropOffFeeGbp: persisted.expressDropOffFee,
+
+    const transferPrePromo = Math.round(Number(amount) * 100) / 100;
+    const claimedJourney = Number(body.journeyFareGbp);
+    const claimedFixed = Number(body.airportFixedCostsGbp);
+    let journeyFareGbp = transferPrePromo;
+    let airportFixedCostsGbp = 0;
+    if (Number.isFinite(claimedJourney) && claimedJourney >= 0) {
+      journeyFareGbp = Math.round(claimedJourney * 100) / 100;
+      airportFixedCostsGbp =
+        Number.isFinite(claimedFixed) && claimedFixed >= 0
+          ? Math.round(claimedFixed * 100) / 100
+          : Math.max(0, Math.round((transferPrePromo - journeyFareGbp) * 100) / 100);
+      // Guard against client tampering that splits transfer inconsistently.
+      const recomposedTransfer =
+        Math.round((journeyFareGbp + airportFixedCostsGbp) * 100) / 100;
+      if (Math.abs(recomposedTransfer - transferPrePromo) > 0.02) {
+        journeyFareGbp = transferPrePromo;
+        airportFixedCostsGbp = 0;
+      }
+    }
+
+    const claimFirstBookingOffer = body.claimFirstBookingOffer !== false;
+    const alreadyRedeemed = claimFirstBookingOffer
+      ? await hasRedeemedFirstBookingOffer(env.TRACKING_STORE, booking.customerEmail)
+      : false;
+
+    const breakdown = composeWebsiteFareBreakdown({
+      journeyFareBeforeAirportAccessGbp: journeyFareGbp,
+      airportFixedCostsGbp,
+      airportAccessChargeGbp: persisted.expressDropOffFee,
+      returnJourney: Boolean(booking.returnJourney),
+      claimFirstBookingOffer,
+      alreadyRedeemedFirstBookingOffer: alreadyRedeemed,
     });
-    amount = composed.totalGbp;
+
+    amount = breakdown.finalAmountPayableGbp;
     booking = {
       ...booking,
       expressDropOffSelected: persisted.expressDropOffSelected,
       expressDropOffFee: persisted.expressDropOffFee,
       expressDropOffAirport: persisted.expressDropOffAirport,
+      ...promoFieldsFromFareBreakdown(breakdown),
     };
   }
 
