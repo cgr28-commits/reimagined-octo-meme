@@ -7,9 +7,7 @@ import { isGooglePlacesEnabled } from "@/lib/google-maps";
 import { resolveRoutePoint } from "@/lib/route-point-resolver";
 import {
   fetchTripRouteMetrics,
-  formatJourneyDistance,
   formatJourneyDuration,
-  formatJourneyDurationApprox,
   type TripRouteMetrics,
 } from "@/lib/trip-route";
 
@@ -252,12 +250,10 @@ export default function TripMap({
         <p className="mt-1 text-sm text-white/70">{links.routeLabel}</p>
         {routeMetrics ? (
           <p className="mt-1.5 text-sm font-semibold text-white">
-            {formatJourneyDistance(routeMetrics.distanceKm)}
-            <span className="mx-2 font-normal text-white/40">·</span>
-            {formatJourneyDurationApprox(routeMetrics.durationMinutes)}
+            Approx. {formatJourneyDuration(routeMetrics.durationMinutes)}
           </p>
         ) : originPoint && destinationPoint ? (
-          <p className="mt-1.5 text-xs text-white/50">Calculating distance and time…</p>
+          <p className="mt-1.5 text-xs text-white/50">Calculating journey time…</p>
         ) : mapError ? (
           <p className="mt-1.5 text-xs text-white/50">{mapError}</p>
         ) : (
@@ -306,13 +302,10 @@ export default function TripMap({
         <p className="mt-1 text-sm text-white/70">{links.routeLabel}</p>
         {routeMetrics ? (
           <p className="mt-1.5 text-sm font-semibold text-white">
-            {formatJourneyDistance(routeMetrics.distanceKm)}
-            <span className="mx-2 font-normal text-white/40">·</span>
-            {formatJourneyDuration(routeMetrics.durationMinutes)}
-            <span className="ml-1.5 text-xs font-normal text-white/50">(approx.)</span>
+            Approx. {formatJourneyDuration(routeMetrics.durationMinutes)}
           </p>
         ) : originPoint && destinationPoint ? (
-          <p className="mt-1.5 text-xs text-white/50">Calculating distance and time…</p>
+          <p className="mt-1.5 text-xs text-white/50">Calculating journey time…</p>
         ) : null}
       </div>
 
