@@ -3201,12 +3201,12 @@ function QuoteCard({
           </>
         ) : showsRequestQuoteFlow && liveQuote ? (
           <>
-            <p className="text-xs font-medium uppercase tracking-wider text-emerald">
+            <p className="quote-price-label">
               {returnJourney
                 ? "Guide return price · request a quote"
                 : "Guide price · request a quote"}
             </p>
-            <p className="mt-1 text-3xl font-semibold tracking-tight text-white">
+            <p className="quote-price-figure mt-2">
               {formatQuote(pricedFare?.totalGbp ?? liveQuote.amount)}
             </p>
             {renderExpressChoiceInPriceCard(quoteStep === 1 ? "full" : "summary")}
@@ -3259,7 +3259,7 @@ function QuoteCard({
           </>
         ) : liveQuote ? (
           <>
-            <p className="text-xs font-medium uppercase tracking-wider text-emerald">
+            <p className="quote-price-label">
               {testChargeAmount !== null
                 ? "Test SumUp charge"
                 : appliedPersonalQuote
@@ -3268,7 +3268,7 @@ function QuoteCard({
                     ? "Your Fixed Return Journey Price"
                     : "Your Fixed Journey Price"}
             </p>
-            <p className="mt-1 text-3xl font-semibold tracking-tight text-white">
+            <p className="quote-price-figure mt-2">
               {formatQuote(
                 testChargeAmount ??
                   pricedFare?.totalGbp ??
@@ -3317,13 +3317,13 @@ function QuoteCard({
           </>
         ) : (
           <>
-            <p className="text-xs font-medium uppercase tracking-wider text-white/50">
+            <p className="quote-price-label !text-white/50">
               Your Fixed Journey Price
             </p>
-            <p className="mt-1 text-sm text-white/70">{quoteHint}</p>
+            <p className="mt-2 text-sm leading-relaxed text-white/70">{quoteHint}</p>
           </>
         )}
-        <p className="mt-3 text-[11px] text-white/40">
+        <p className="mt-3.5 text-xs leading-relaxed text-white/45">
           {pricingConfirmationRequired || isManualQuoteJourney
             ? "We’ll confirm your price before any payment is taken."
             : showsRequestQuoteFlow
@@ -3358,7 +3358,7 @@ function QuoteCard({
               ? !hasQuoteRoute
               : !liveQuote)
           }
-          className="w-full rounded-xl bg-emerald py-3.5 text-sm font-bold text-navy transition-all hover:bg-emerald-light disabled:cursor-not-allowed disabled:opacity-50"
+          className="btn-primary w-full"
         >
           {submitted
             ? submitInProgressLabel
@@ -3375,7 +3375,7 @@ function QuoteCard({
           <button
             type="button"
             onClick={handleSaveQuoteClick}
-            className="w-full rounded-xl border border-white/25 bg-transparent py-3 text-sm font-semibold text-white transition-all hover:bg-white/5"
+            className="btn-secondary w-full"
           >
             Save Quote
           </button>
@@ -3414,7 +3414,7 @@ function QuoteCard({
             Thanks — we&apos;ve received your journey details.
           </h2>
           {shortNoticeResult.amountLabel ? (
-            <p className="mt-4 text-3xl font-bold text-white sm:text-4xl">
+            <p className="quote-price-figure mt-4">
               {shortNoticeResult.amountLabel}
             </p>
           ) : null}
@@ -3434,7 +3434,7 @@ function QuoteCard({
             href={shortNoticeResult.whatsappUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="mt-6 inline-flex min-h-12 w-full max-w-sm items-center justify-center rounded-xl bg-emerald px-5 py-3 text-base font-bold text-navy transition-colors hover:bg-emerald/90 sm:w-auto"
+            className="btn-primary mt-6 w-full max-w-sm sm:w-auto sm:px-8"
           >
             Message us on WhatsApp
           </a>
@@ -3485,7 +3485,7 @@ function QuoteCard({
             Thank you
           </h2>
           {quoteConversionValue && !isManualQuoteJourney ? (
-            <p className="mt-4 text-3xl font-bold text-white sm:text-4xl">
+            <p className="quote-price-figure mt-4">
               {formatQuote(quoteConversionValue)}
             </p>
           ) : null}
@@ -3524,7 +3524,7 @@ function QuoteCard({
             onClick={() => {
               performStartNewQuote();
             }}
-            className="mt-6 w-full rounded-xl bg-emerald px-4 py-3 text-sm font-bold text-navy transition-colors hover:bg-emerald-light sm:w-auto sm:px-8"
+            className="btn-primary mt-6 w-full sm:w-auto sm:px-8"
           >
             Start a New Quote
           </button>
@@ -3534,21 +3534,21 @@ function QuoteCard({
   }
 
   return (
-    <div ref={cardRef} className="glass-card min-w-0 rounded-2xl p-4 sm:p-8 lg:p-6 xl:p-7">
-      <div className="mb-4 lg:mb-4">
+    <div ref={cardRef} className="glass-card min-w-0 rounded-[1.05rem] p-4 sm:p-7 lg:p-6 xl:p-7">
+      <div className="mb-5 lg:mb-5">
         <h2
           data-site-nav-heading="quote"
           tabIndex={-1}
-          className="text-xl font-semibold tracking-tight text-white outline-none sm:text-2xl lg:text-[1.5rem]"
+          className="font-display text-[1.65rem] font-semibold leading-tight tracking-tight text-white outline-none sm:text-[1.85rem] lg:text-[1.75rem]"
         >
           Get a Live Quote
         </h2>
-        <p className="mt-1.5 text-sm leading-relaxed text-white/60 sm:mt-2 lg:mt-1.5 lg:text-[0.875rem] lg:leading-snug">
+        <p className="mt-2 text-sm leading-relaxed text-white/58 sm:mt-2.5 lg:text-[0.9rem] lg:leading-relaxed">
           {pricingConfirmationRequired
             ? "Three quick steps — your journey, travel details, then your details. We’ll confirm your fare before any payment."
             : "Three quick steps — your journey, travel details, then your details. Instant fares can be paid online by card to confirm; otherwise Request to book and we’ll email a SumUp link after we confirm."}
         </p>
-        <ol className="mt-3 grid grid-cols-3 gap-1.5 sm:gap-2 lg:mt-3 lg:gap-2" aria-label="Booking steps">
+        <ol className="mt-4 grid grid-cols-3 gap-1.5 sm:gap-2" aria-label="Booking steps">
           {[
             { step: 1 as const, label: isA2AFlow ? "Your journey" : "Airport & address" },
             { step: 2 as const, label: "Price & travel" },
@@ -3560,12 +3560,8 @@ function QuoteCard({
               <li
                 key={item.step}
                 aria-current={active ? "step" : undefined}
-                className={`min-h-[3.25rem] rounded-lg border px-1.5 py-2 text-center sm:px-2 ${
-                  active
-                    ? "border-emerald bg-emerald/15 text-white shadow-sm shadow-emerald/10 ring-1 ring-emerald/40"
-                    : done
-                      ? "border-emerald/40 bg-emerald/5 text-emerald"
-                      : "border-white/10 bg-transparent text-white/45"
+                className={`quote-step ${
+                  active ? "quote-step-active" : done ? "quote-step-done" : ""
                 }`}
               >
                 <span className="flex items-center justify-center gap-1 text-[10px] font-semibold uppercase tracking-wider">
@@ -3795,14 +3791,14 @@ function QuoteCard({
                 {quoteResultsReady && quoteStep === 1 && (
                   <>
                     {!exceedsOnlineCapacity && (
-                      <div className="rounded-xl border border-emerald/30 bg-emerald/10 px-3 py-2.5 sm:px-4 sm:py-3">
-                        <p className="text-xs font-medium uppercase tracking-wider text-emerald">
+                      <div className="rounded-xl border border-white/12 bg-white/[0.03] px-3 py-3 sm:px-4 sm:py-3.5">
+                        <p className="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-white/50">
                           Vehicle for this journey
                         </p>
-                        <p className="mt-1 text-lg font-semibold tracking-tight text-white sm:text-xl">
+                        <p className="mt-1.5 font-display text-xl font-semibold tracking-tight text-white sm:text-[1.35rem]">
                           {vehicleShortLabel(quoteVehicle)}
                         </p>
-                        <p className="mt-1.5 text-xs leading-relaxed text-white/70">
+                        <p className="mt-1.5 text-xs leading-relaxed text-white/60">
                           Selected automatically from your passengers and luggage.
                         </p>
                       </div>
@@ -3810,7 +3806,7 @@ function QuoteCard({
 
                     <div
                       id="quote-price-summary"
-                      className="rounded-xl border border-white/10 bg-navy-dark/40 px-3 py-4 sm:px-4 sm:py-5"
+                      className="quote-price-panel"
                     >
                       {renderQuotePriceSummaryBody()}
                     </div>
@@ -4260,7 +4256,7 @@ function QuoteCard({
             )}
             <div
               id="quote-price-summary"
-              className="rounded-xl border border-white/10 bg-navy-dark/40 px-3 py-4 sm:px-4 sm:py-5"
+              className="quote-price-panel"
             >
               {renderQuotePriceSummaryBody()}
             </div>
@@ -4534,7 +4530,7 @@ function QuoteCard({
           id="quote-price-summary"
           data-booking-nav-heading
           tabIndex={-1}
-          className="scroll-mt-44 rounded-xl border border-white/10 bg-navy-dark/40 px-4 py-5 outline-none md:scroll-mt-28"
+          className="quote-price-panel scroll-mt-44 outline-none md:scroll-mt-28"
         >
           {renderQuotePriceSummaryBody()}
         </div>
@@ -4967,7 +4963,7 @@ function QuoteCard({
                       <button
                         type="button"
                         onClick={handleReturnToEditBooking}
-                        className="w-full rounded-xl border border-white/20 bg-white/5 py-3 text-sm font-semibold text-white transition-all hover:bg-white/10"
+                        className="btn-secondary w-full"
                       >
                         Return to / Edit booking
                       </button>
@@ -4975,7 +4971,7 @@ function QuoteCard({
                         type="button"
                         onClick={handleOpenPaymentAgain}
                         disabled={paymentLoading}
-                        className="w-full rounded-xl bg-white py-3 text-sm font-bold text-navy transition-all hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-70"
+                        className="btn-pay w-full disabled:cursor-not-allowed disabled:opacity-70"
                       >
                         {paymentLoading ? "Opening secure payment…" : "Continue to SumUp"}
                       </button>
@@ -5006,7 +5002,7 @@ function QuoteCard({
                         !customerMobile.trim() ||
                         !tripDetailsReady
                       }
-                      className="w-full rounded-xl bg-white py-3.5 text-sm font-bold text-navy transition-all hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-70"
+                      className="btn-pay w-full disabled:cursor-not-allowed disabled:opacity-70"
                     >
                       {paymentLoading
                         ? "Opening secure payment…"
@@ -5034,7 +5030,7 @@ function QuoteCard({
               <button
                 type="button"
                 onClick={handleEditBooking}
-                className="w-full rounded-xl border border-white/15 bg-white/5 py-3.5 text-sm font-semibold text-white transition-all hover:bg-white/10"
+                className="btn-secondary w-full"
               >
                 Back to travel details
               </button>
@@ -5043,14 +5039,14 @@ function QuoteCard({
                 <button
                   type="button"
                   onClick={handleEditBooking}
-                  className="w-full rounded-xl border border-white/15 bg-white/5 py-3.5 text-sm font-semibold text-white transition-all hover:bg-white/10"
+                  className="btn-secondary w-full"
                 >
                   Back to travel details
                 </button>
                 <button
                   type="submit"
                   disabled={submitted || !termsAccepted}
-                  className="w-full rounded-xl bg-emerald py-3.5 text-sm font-bold text-navy transition-all hover:bg-emerald-light disabled:cursor-not-allowed disabled:opacity-70"
+                  className="btn-primary w-full disabled:cursor-not-allowed disabled:opacity-70"
                 >
                   {submitted ? submitInProgressLabel : confirmButtonLabel}
                 </button>
@@ -5065,7 +5061,7 @@ function QuoteCard({
                 <button
                   type="button"
                   onClick={handleEditBooking}
-                  className="w-full rounded-xl border border-white/15 bg-white/5 py-3.5 text-sm font-semibold text-white transition-all hover:bg-white/10"
+                  className="btn-secondary w-full"
                 >
                   Back to travel details
                 </button>
@@ -5073,7 +5069,7 @@ function QuoteCard({
                   type="button"
                   disabled={submitted || !termsAccepted}
                   onClick={() => void confirmBooking("whatsapp")}
-                  className="w-full rounded-xl bg-emerald py-3.5 text-sm font-bold text-navy transition-all hover:bg-emerald-light disabled:cursor-not-allowed disabled:opacity-70"
+                  className="btn-primary w-full disabled:cursor-not-allowed disabled:opacity-70"
                 >
                   {submitted ? submitInProgressLabel : whatsAppConfirmLabel}
                 </button>
@@ -5081,7 +5077,7 @@ function QuoteCard({
                   type="button"
                   disabled={submitted || !termsAccepted}
                   onClick={() => void confirmBooking("email")}
-                  className="w-full rounded-xl border border-white/20 bg-white/5 py-3.5 text-sm font-semibold text-white transition-all hover:border-emerald/40 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-70"
+                  className="btn-secondary w-full disabled:cursor-not-allowed disabled:opacity-70"
                 >
                   {submitted
                     ? submitInProgressLabel
@@ -5098,14 +5094,14 @@ function QuoteCard({
                 <button
                   type="button"
                   onClick={handleEditBooking}
-                  className="w-full rounded-xl border border-white/15 bg-white/5 py-3.5 text-sm font-semibold text-white transition-all hover:bg-white/10"
+                  className="btn-secondary w-full"
                 >
                   Back to travel details
                 </button>
                 <button
                   type="submit"
                   disabled={submitted || !termsAccepted}
-                  className="w-full rounded-xl bg-emerald py-3.5 text-sm font-bold text-navy transition-all hover:bg-emerald-light disabled:cursor-not-allowed disabled:opacity-70"
+                  className="btn-primary w-full disabled:cursor-not-allowed disabled:opacity-70"
                 >
                   {submitted ? submitInProgressLabel : confirmButtonLabel}
                 </button>
@@ -5126,7 +5122,7 @@ function QuoteCard({
                   setCollectionFlightError("");
                   setReturnDateError("");
                 }}
-                className="w-full rounded-xl border border-white/15 bg-white/5 py-3.5 text-sm font-semibold text-white transition-all hover:bg-white/10"
+                className="btn-secondary w-full"
               >
                 Back
               </button>
@@ -5134,7 +5130,7 @@ function QuoteCard({
                 type="button"
                 disabled={submitted}
                 onClick={handleContinueTravelDetails}
-                className="w-full rounded-xl bg-emerald py-3.5 text-sm font-bold text-navy transition-all hover:bg-emerald-light disabled:cursor-not-allowed disabled:opacity-70"
+                className="btn-primary w-full disabled:cursor-not-allowed disabled:opacity-70"
               >
                 Continue to your details
               </button>

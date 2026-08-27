@@ -58,7 +58,7 @@ export default function CookieConsent() {
   return (
     <div
       ref={bannerRef}
-      className="fixed inset-x-0 bottom-0 z-[70] border-t border-white/15 bg-navy-dark/95 p-3 shadow-2xl backdrop-blur-xl sm:p-5"
+      className="fixed inset-x-0 bottom-0 z-[70] border-t border-white/12 bg-navy-dark/96 p-3 shadow-[0_-8px_32px_rgba(2,8,20,0.45)] backdrop-blur-xl sm:p-4"
       role="dialog"
       aria-label="Cookie consent"
     >
@@ -84,17 +84,17 @@ export default function CookieConsent() {
           <button
             type="button"
             onClick={() => choose("rejected")}
-            className="min-h-11 flex-1 rounded-full border border-white/20 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/5 sm:flex-none sm:px-5"
+            className="btn-secondary min-h-11 flex-1 px-4 sm:flex-none sm:px-5"
           >
             Essential only
           </button>
           <button
             type="button"
             onClick={() => choose("accepted")}
-            className="min-h-11 flex-1 rounded-full bg-emerald px-4 py-2.5 text-sm font-bold text-navy transition-colors hover:bg-emerald-light sm:flex-none sm:px-5"
+            className="btn-primary min-h-11 flex-1 px-4 sm:flex-none sm:px-5"
           >
             Accept
-            <span className="hidden sm:inline"> measurement cookies</span>
+            <span className="hidden sm:inline">&nbsp;measurement cookies</span>
           </button>
         </div>
       </div>

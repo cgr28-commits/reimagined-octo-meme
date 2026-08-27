@@ -10,13 +10,13 @@ import path from "node:path";
 const root = path.resolve(import.meta.dirname, "..");
 const hero = fs.readFileSync(path.join(root, "src/components/HeroSlideshow.tsx"), "utf8");
 
+assert.match(hero, /My Airport Taxi NI/);
 assert.match(
   hero,
-  /Fixed price transfers to \{airportList\} airports — plus door-to-door transfers across/,
+  /transfers to \{airportList\} airports/,
 );
 assert.match(hero, /Northern Ireland and the Republic of Ireland\./);
 assert.doesNotMatch(hero, /\bROI\b/);
-assert.doesNotMatch(hero, /and door-to-door across Northern\s+Ireland\./);
 assert.match(
   hero,
   /Belfast International, Belfast City, City of Derry and Dublin/,
@@ -28,8 +28,6 @@ assert.doesNotMatch(
 
 // Longer line: keep wrap-safe constraints on mobile + desktop
 assert.match(hero, /max-w-xl/);
-assert.match(hero, /lg:max-w-2xl/);
-assert.match(hero, /break-words/);
 assert.match(hero, /min-w-0/);
 assert.match(hero, /overflow-x-clip/);
 

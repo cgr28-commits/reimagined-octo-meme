@@ -24,7 +24,7 @@ export default function Footer() {
           </div>
 
           <div>
-            <h3 className="text-sm font-semibold uppercase tracking-wider text-white">
+            <h3 className="text-[0.6875rem] font-semibold uppercase tracking-[0.14em] text-white/70">
               Quick Links
             </h3>
             <ul className="mt-4 space-y-2">
@@ -58,7 +58,7 @@ export default function Footer() {
           </div>
 
           <div>
-            <h3 className="text-sm font-semibold uppercase tracking-wider text-white">
+            <h3 className="text-[0.6875rem] font-semibold uppercase tracking-[0.14em] text-white/70">
               Airports
             </h3>
             <ul className="mt-4 space-y-2">
@@ -77,7 +77,7 @@ export default function Footer() {
 
           {SERVICE_FLAGS.dayTrips ? (
             <div>
-              <h3 className="text-sm font-semibold uppercase tracking-wider text-white">
+              <h3 className="text-[0.6875rem] font-semibold uppercase tracking-[0.14em] text-white/70">
                 Day Trips
               </h3>
               <ul className="mt-4 space-y-2">
@@ -101,14 +101,14 @@ export default function Footer() {
           ) : null}
 
           <div>
-            <h3 className="text-sm font-semibold uppercase tracking-wider text-white">
+            <h3 className="text-[0.6875rem] font-semibold uppercase tracking-[0.14em] text-white/70">
               Contact
             </h3>
             <FooterContact />
           </div>
 
           <div>
-            <h3 className="text-sm font-semibold uppercase tracking-wider text-white">
+            <h3 className="text-[0.6875rem] font-semibold uppercase tracking-[0.14em] text-white/70">
               Service Hours
             </h3>
             <p className="mt-4 text-sm text-white/50">
@@ -128,7 +128,7 @@ export default function Footer() {
           <div className="flex flex-wrap items-center justify-center gap-4 text-xs text-white/40">
             <Link
               href="/contact/"
-              className="rounded-full border border-emerald/40 bg-emerald/10 px-3 py-1.5 text-xs font-semibold text-emerald transition-colors hover:bg-emerald/20"
+              className="rounded-[0.55rem] border border-white/18 px-3 py-1.5 text-xs font-semibold text-white/75 transition-colors hover:border-emerald/40 hover:text-emerald"
             >
               Save to contacts
             </Link>

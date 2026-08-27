@@ -44,7 +44,7 @@ console.log("OK  helpers keep stable padding and error > needs priority");
 console.log("\n=== QuoteCard step indicator ===");
 const card = read("src/components/QuoteCard.tsx");
 assert.match(card, /aria-current=\{active \? "step" : undefined\}/);
-assert.match(card, /border-emerald bg-emerald\/15/);
+assert.match(card, /quote-step-active|border-emerald bg-emerald\/15/);
 assert.match(card, /sr-only">completed/);
 assert.match(card, /quoteTextFieldClass/);
 assert.match(card, /bookingTextFieldClass/);

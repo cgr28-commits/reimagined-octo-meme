@@ -8,7 +8,7 @@ export type QuoteFieldHighlightState = "default" | "needs" | "complete" | "error
 /** Shared shell for rounded text/date inputs (fixed height — no layout shift). */
 export function quoteTextFieldClass(state: QuoteFieldHighlightState): string {
   const base =
-    "box-border h-12 w-full min-w-0 rounded-xl bg-white/5 px-4 text-base text-white outline-none transition-[border-color,box-shadow] duration-150 [color-scheme:dark]";
+    "box-border h-12 w-full min-w-0 rounded-[0.75rem] bg-white/[0.045] px-4 text-base text-white outline-none transition-[border-color,box-shadow] duration-150 [color-scheme:dark]";
   switch (state) {
     case "error":
       return `${base} border border-red-400/55 ring-1 ring-red-400/30 focus:border-red-400/70 focus:ring-red-400/40`;
@@ -17,14 +17,14 @@ export function quoteTextFieldClass(state: QuoteFieldHighlightState): string {
     case "complete":
       return `${base} border border-emerald/30 focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30`;
     default:
-      return `${base} border border-white/10 focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30`;
+      return `${base} border border-white/12 focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30`;
   }
 }
 
 /** Booking panel text inputs (slightly stronger default border). */
 export function bookingTextFieldClass(state: QuoteFieldHighlightState): string {
   const base =
-    "quote-text-input box-border h-12 w-full min-w-0 rounded-xl bg-navy-dark px-4 text-white placeholder:text-white/45 outline-none transition-[border-color,box-shadow] duration-150";
+    "quote-text-input box-border h-12 w-full min-w-0 rounded-[0.75rem] bg-navy-dark px-4 text-white placeholder:text-white/45 outline-none transition-[border-color,box-shadow] duration-150";
   switch (state) {
     case "error":
       return `${base} border border-red-400/55 ring-1 ring-inset ring-red-400/30 focus:border-red-400/70`;
@@ -33,7 +33,7 @@ export function bookingTextFieldClass(state: QuoteFieldHighlightState): string {
     case "complete":
       return `${base} border border-emerald/35 focus:border-emerald focus:ring-2 focus:ring-inset focus:ring-emerald/25`;
     default:
-      return `${base} border border-white/25 focus:border-emerald focus:ring-2 focus:ring-inset focus:ring-emerald/25 md:border-white/30`;
+      return `${base} border border-white/22 focus:border-emerald focus:ring-2 focus:ring-inset focus:ring-emerald/25 md:border-white/28`;
   }
 }
 
@@ -44,7 +44,8 @@ export function addressFieldShellClass(options: {
   isComplete: boolean;
   isActiveUi: boolean;
 }): string {
-  const base = "rounded-xl border bg-white/5 transition-[border-color,box-shadow] duration-150";
+  const base =
+    "rounded-[0.75rem] border bg-white/[0.045] transition-[border-color,box-shadow] duration-150";
   if (options.hasError) {
     return `${base} border-red-400/55 ring-1 ring-red-400/30`;
   }
@@ -57,7 +58,7 @@ export function addressFieldShellClass(options: {
   if (options.isComplete) {
     return `${base} border-emerald/30 focus-within:border-emerald/50 focus-within:ring-1 focus-within:ring-emerald/30`;
   }
-  return `${base} border-white/10 focus-within:border-emerald/50 focus-within:ring-1 focus-within:ring-emerald/30`;
+  return `${base} border-white/12 focus-within:border-emerald/50 focus-within:ring-1 focus-within:ring-emerald/30`;
 }
 
 /** Soft emerald outline around a choice-card group that still needs a selection. */

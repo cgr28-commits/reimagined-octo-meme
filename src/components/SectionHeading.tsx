@@ -26,7 +26,7 @@ export default function SectionHeading({
     <div className={`section-header max-w-2xl lg:max-w-3xl ${alignClass} ${className}`}>
       <p className="section-eyebrow">{eyebrow}</p>
       <HeadingTag
-        className="section-heading mt-4 text-3xl font-bold tracking-tight text-white outline-none sm:text-4xl lg:text-[2.75rem] lg:leading-tight"
+        className="section-heading mt-5 text-[2rem] tracking-tight text-white outline-none sm:text-4xl lg:mt-6 lg:text-[2.65rem] lg:leading-[1.12]"
         {...(navId
           ? {
               "data-site-nav-heading": navId,
@@ -37,7 +37,7 @@ export default function SectionHeading({
         {title}
       </HeadingTag>
       {description ? (
-        <p className="section-description mt-5 text-base leading-relaxed text-white/60 lg:mt-6 lg:text-[1.0625rem] lg:leading-relaxed">
+        <p className="section-description mt-5 text-[0.9875rem] leading-relaxed lg:mt-6 lg:text-[1.0625rem] lg:leading-relaxed">
           {description}
         </p>
       ) : null}
