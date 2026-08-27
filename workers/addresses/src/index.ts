@@ -296,10 +296,6 @@ import {
   maybeRecordMarketingFromPayload,
 } from "./marketing-handlers";
 import {
-  handleFirstBookingEligibilityRequest,
-  isFirstBookingEligibilityPath,
-} from "./first-booking-eligibility-handlers";
-import {
   handleTestDriverDetailEmails,
   isTestDriverDetailEmailsPath,
 } from "./test-email-handlers";
@@ -338,10 +334,6 @@ import {
 } from "../shared/express-drop-off";
 import { composeWebsiteFareBreakdown } from "../shared/website-fare-breakdown";
 import { promoFieldsFromFareBreakdown } from "../shared/website-promo-pricing";
-import {
-  hasRedeemedFirstBookingOffer,
-  markFirstBookingOfferRedeemed,
-} from "./first-booking-offer-store";
 import { calculateAuthoritativeWebsiteQuote } from "../../../src/lib/quote-service";
 import {
   MINIBUS_VEHICLE,
@@ -557,7 +549,6 @@ function routePath(
   | "payment-status"
   | "marketing-opt-in"
   | "marketing-unsubscribe"
-  | "first-booking-eligibility"
   | null {
   if (pathname === "/addresses" || pathname === "/api/addresses") {
     return "addresses";
@@ -695,10 +686,6 @@ function routePath(
 
   if (pathname === "/marketing/unsubscribe" || pathname === "/api/marketing/unsubscribe") {
     return "marketing-unsubscribe";
-  }
-
-  if (isFirstBookingEligibilityPath(pathname)) {
-    return "first-booking-eligibility";
   }
 
   return null;
@@ -1903,9 +1890,6 @@ async function handlePaymentRequest(
     }
 
     const claimFirstBookingOffer = body.claimFirstBookingOffer !== false;
-    const alreadyRedeemed = claimFirstBookingOffer
-      ? await hasRedeemedFirstBookingOffer(env.TRACKING_STORE, booking.customerEmail)
-      : false;
 
     const breakdown = composeWebsiteFareBreakdown({
       journeyFareBeforeAirportAccessGbp: journeyFareGbp,
@@ -1913,7 +1897,6 @@ async function handlePaymentRequest(
       airportAccessChargeGbp: persisted.expressDropOffFee,
       returnJourney: Boolean(booking.returnJourney),
       claimFirstBookingOffer,
-      alreadyRedeemedFirstBookingOffer: alreadyRedeemed,
     });
 
     amount = breakdown.finalAmountPayableGbp;
@@ -3563,13 +3546,6 @@ export default {
       }
 
       return handleMarketingUnsubscribeRequest(request, env, origin);
-    }
-
-    if (route === "first-booking-eligibility") {
-      if (request.method !== "GET" && request.method !== "POST") {
-        return json({ error: "Method not allowed" }, 405, origin);
-      }
-      return handleFirstBookingEligibilityRequest(request, env, origin);
     }
 
     if (request.method !== "GET") {

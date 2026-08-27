@@ -1,17 +1,19 @@
 /**
- * Public-website £5 first-booking offer.
+ * Public-website £5 booking saving.
  *
- * Simple rule: £5 off your first booking when you spend £40 or more.
+ * Simple rule: £5 off when the current booking value is £40 or more.
+ * Applies to every customer — no email / history / redemption check.
  *
- * The £40 minimum uses the customer’s total booking value BEFORE this £5 offer:
- * journey fare (after any 5% return discount) + airport fixed costs + Express
- * airport access. Express therefore counts toward the £40 minimum.
+ * Booking value (before this £5) =
+ *   journey fare (after any 5% return discount)
+ *   + airport fixed costs
+ *   + Express airport access
  *
- * The £5 itself is taken from the journey/transfer portion (never from Express).
+ * The £5 is taken from the journey/transfer portion (never from Express).
  * Avoided Express (free drop-off area) is not a promotional saving.
  *
- * When stackWithReturnJourneyDiscount is true, the offer stacks on top of the
- * existing 5% return-journey saving (return discount first, then £5).
+ * When stackWithReturnJourneyDiscount is true, stacks on top of the 5% return
+ * saving (return discount first, then £5).
  *
  * Change `shared/first-booking-offer.json` only — QuoteCard + Worker pick it up.
  */
@@ -39,19 +41,15 @@ export const FIRST_BOOKING_OFFER_CONFIG: FirstBookingOfferConfig = {
   minimumEligibleBookingValueGbp: roundGbp(
     Number(
       rawConfig.minimumEligibleBookingValueGbp ??
-        // Legacy key from the old “journey fare only” rule.
         rawConfig.minimumEligibleJourneyFareGbp,
     ) || 0,
   ),
   stackWithReturnJourneyDiscount: Boolean(rawConfig.stackWithReturnJourneyDiscount),
 };
 
-/** @deprecated Use minimumEligibleBookingValueGbp — kept for gradual call-site migration. */
-export const minimumEligibleJourneyFareGbpAlias =
-  FIRST_BOOKING_OFFER_CONFIG.minimumEligibleBookingValueGbp;
-
-export const FIRST_BOOKING_OFFER_LABEL = "£5 FIRST BOOKING OFFER";
-export const FIRST_BOOKING_OFFER_SHORT_LABEL = "First Booking Offer";
+/** Customer-facing labels — not limited to first bookings. */
+export const FIRST_BOOKING_OFFER_LABEL = "£5 BOOKING SAVING";
+export const FIRST_BOOKING_OFFER_SHORT_LABEL = "£5 Booking Saving";
 
 export type FirstBookingOfferInput = {
   /**
@@ -59,27 +57,16 @@ export type FirstBookingOfferInput = {
    * and before Express airport access.
    */
   journeyFareBeforeAirportAccessGbp: number;
-  /**
-   * Express Drop-Off / Pick-Up fee included in booking value for the £40 check.
-   * Not discounted by this offer.
-   */
+  /** Express fee included in booking value for the £40 check. Not discounted. */
   airportAccessChargeGbp?: number;
-  /**
-   * Operational airport fixed costs (e.g. Dublin parking/toll) included in
-   * booking value for the £40 check. Not discounted by this offer.
-   */
+  /** Airport fixed costs included in booking value. Not discounted. */
   airportFixedCostsGbp?: number;
-  /** When false, do not apply even if value-eligible (e.g. personal/quick quote). */
+  /** When false, do not apply (e.g. personal/quick quote). */
   claimOffer?: boolean;
   /** True when the existing 5% return discount is already in the journey fare. */
   returnJourneyDiscountApplied?: boolean;
   /** Override config (tests). */
   config?: Partial<FirstBookingOfferConfig>;
-  /**
-   * When true, this email has already redeemed the first-booking offer.
-   * Server sets this from KV; client leaves unset until verification.
-   */
-  alreadyRedeemed?: boolean;
 };
 
 export type FirstBookingOfferResult = {
@@ -95,7 +82,6 @@ export type FirstBookingOfferResult = {
     | "disabled"
     | "not_claimed"
     | "below_minimum"
-    | "already_redeemed"
     | "return_stack_blocked"
     | "invalid_fare";
 };
@@ -140,9 +126,6 @@ export function resolveFirstBookingOffer(
   if (input.claimOffer === false) {
     return { ...base, eligible: false, applied: false, reason: "not_claimed" };
   }
-  if (input.alreadyRedeemed === true) {
-    return { ...base, eligible: false, applied: false, reason: "already_redeemed" };
-  }
   if (
     input.returnJourneyDiscountApplied &&
     cfg.stackWithReturnJourneyDiscount === false
@@ -158,13 +141,10 @@ export function resolveFirstBookingOffer(
     return { ...base, eligible: false, applied: false, reason: "below_minimum" };
   }
   if (journeyFare <= 0) {
-    // Qualifying value came only from access/fixed costs — nothing left to discount.
     return { ...base, eligible: true, applied: false, reason: "invalid_fare" };
   }
 
-  const discountGbp = roundGbp(
-    Math.min(cfg.discountAmountGbp, journeyFare),
-  );
+  const discountGbp = roundGbp(Math.min(cfg.discountAmountGbp, journeyFare));
   return {
     enabled: cfg.enabled,
     eligible: true,
@@ -175,15 +155,4 @@ export function resolveFirstBookingOffer(
     minimumEligibleBookingValueGbp: cfg.minimumEligibleBookingValueGbp,
     reason: "applied",
   };
-}
-
-/** Normalise email for first-booking redemption keys. */
-export function normalizeFirstBookingEmail(email: string): string {
-  return String(email ?? "")
-    .trim()
-    .toLowerCase();
-}
-
-export function firstBookingOfferRedeemedKey(email: string): string {
-  return `promo:first-booking-offer:${normalizeFirstBookingEmail(email)}`;
 }

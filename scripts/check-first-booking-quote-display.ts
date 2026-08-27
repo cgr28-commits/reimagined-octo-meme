@@ -1,50 +1,69 @@
 /**
- * Quote UI must advertise the £5 first-booking offer before email verification,
- * and must not apply it to displayed totals until eligibility is verified.
+ * Quote UI must apply the £5 booking saving immediately when booking value ≥ £40,
+ * with no email / customer-history eligibility lookup.
  */
 import assert from "node:assert/strict";
-import fs from "node:fs";
-import path from "node:path";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 
-const root = path.resolve(import.meta.dirname, "..");
+const root = resolve(process.cwd());
 
 function read(rel: string): string {
-  return fs.readFileSync(path.join(root, rel), "utf8");
+  return readFileSync(resolve(root, rel), "utf8");
 }
 
 const card = read("src/components/QuoteCard.tsx");
 const trust = read("src/components/QuoteFareTrust.tsx");
-const api = read("src/lib/first-booking-eligibility-api.ts");
-const worker = read("workers/addresses/src/first-booking-eligibility-handlers.ts");
+const strip = read("src/components/FirstBookingOfferStrip.tsx");
+const offer = read("shared/first-booking-offer.ts");
+const breakdown = read("shared/website-fare-breakdown.ts");
+const index = read("workers/addresses/src/index.ts");
+const finalize = read("workers/addresses/src/finalize-paid-checkout.ts");
 
-console.log("=== 1. Advertise without applying until verified ===");
-{
-  assert.match(card, /advertiseFirstBookingOffer/);
-  assert.match(card, /applyFirstBookingOffer/);
-  assert.match(card, /FirstBookingOfferAdvert/);
-  assert.match(card, /checkFirstBookingOfferEligibility/);
-  assert.match(card, /claimFirstBookingOffer: applyFirstBookingOffer/);
-  assert.match(card, /claimFirstBookingForCheckout/);
-  assert.match(
-    card,
-    /const applyFirstBookingOffer =\s*quoteStep === 3 &&/s,
-  );
-  assert.match(trust, /FirstBookingOfferAdvert/);
-  assert.match(trust, /New customer\? Save £\{amount\} on your first booking/);
-  assert.match(trust, /£\{minValue\} minimum booking value · Eligibility confirmed before payment/);
-  assert.match(trust, /claimFirstBookingOffer: input\.claimFirstBookingOffer === true/);
-  console.log("OK  quote UI gates £5 until eligibility verification");
-}
+assert.match(card, /applyBookingSavingOffer/);
+assert.match(card, /claimFirstBookingOffer: applyBookingSavingOffer/);
+assert.doesNotMatch(card, /checkFirstBookingOfferEligibility/);
+assert.doesNotMatch(card, /firstBookingRedeemStatus/);
+assert.doesNotMatch(card, /normalizeFirstBookingEmail/);
+assert.doesNotMatch(card, /FirstBookingOfferAdvert/);
+assert.doesNotMatch(card, /advertiseFirstBookingOffer/);
+assert.doesNotMatch(card, /claimFirstBookingForCheckout/);
 
-console.log("\n=== 2. Eligibility API + Worker route ===");
-{
-  assert.match(api, /\/promo\/first-booking-eligibility/);
-  assert.match(worker, /hasRedeemedFirstBookingOffer/);
-  assert.match(worker, /isFirstBookingEligibilityPath/);
-  const index = read("workers/addresses/src/index.ts");
-  assert.match(index, /first-booking-eligibility/);
-  assert.match(index, /handleFirstBookingEligibilityRequest/);
-  console.log("OK  worker eligibility endpoint wired");
-}
+assert.doesNotMatch(trust, /FirstBookingOfferAdvert/);
+assert.doesNotMatch(trust, /New customer/);
+assert.doesNotMatch(trust, /first booking/i);
+assert.match(trust, /£5 Booking Saving/);
+assert.match(trust, /claimFirstBookingOffer: input\.claimFirstBookingOffer === true/);
+assert.doesNotMatch(trust, /alreadyRedeemedFirstBookingOffer/);
 
-console.log("\nAll first-booking quote-display checks passed.");
+assert.match(strip, /BOOKINGS £\$\{minValue\}\+/);
+assert.match(strip, /Save £\{amount\} when your booking value is £\{minValue\} or more/);
+assert.doesNotMatch(strip, /first booking/i);
+assert.doesNotMatch(strip, /New customer/i);
+
+assert.doesNotMatch(offer, /alreadyRedeemed/);
+assert.doesNotMatch(offer, /normalizeFirstBookingEmail/);
+assert.match(offer, /£5 BOOKING SAVING/);
+assert.match(breakdown, /No email \/ customer-history \/ redemption gate/);
+assert.doesNotMatch(breakdown, /alreadyRedeemed/);
+
+assert.doesNotMatch(index, /first-booking-eligibility/);
+assert.doesNotMatch(index, /hasRedeemedFirstBookingOffer/);
+assert.doesNotMatch(index, /markFirstBookingOfferRedeemed/);
+assert.doesNotMatch(finalize, /markFirstBookingOfferRedeemed/);
+assert.doesNotMatch(finalize, /first-booking-offer-store/);
+
+assert.throws(
+  () => read("src/lib/first-booking-eligibility-api.ts"),
+  /ENOENT/,
+);
+assert.throws(
+  () => read("workers/addresses/src/first-booking-eligibility-handlers.ts"),
+  /ENOENT/,
+);
+assert.throws(
+  () => read("workers/addresses/src/first-booking-offer-store.ts"),
+  /ENOENT/,
+);
+
+console.log("\nAll £5 booking-saving quote-display checks passed.");

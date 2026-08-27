@@ -46,14 +46,15 @@ export type PaymentCheckoutRequest = {
    */
   expressDropOffSelected?: boolean;
   /**
-   * Journey fare before airport access and before the first-booking offer.
+   * Journey fare before airport access and before the £5 booking saving.
    * Used with the authoritative website fare composer on open-website checkout.
    */
   journeyFareGbp?: number;
   /** Undiscounted airport fixed costs already in `amount` (e.g. Dublin parking). */
   airportFixedCostsGbp?: number;
   /**
-   * When true (default for open website), apply the £5 first-booking offer if eligible.
+   * When true (default for open website), apply the £5 booking saving when the
+   * current booking value is £40 or more. No email / redemption check.
    * Personal / Quick / Saved quotes must pass false.
    */
   claimFirstBookingOffer?: boolean;

@@ -40,7 +40,7 @@ console.log("\n=== 3. Nav Get a Quote + coverage text preserved ===");
   console.log("OK  header CTA + destination coverage text present");
 }
 
-console.log("\n=== 4. First-booking offer promo near quote CTA ===");
+console.log("\n=== 4. £5 booking offer promo near quote CTA ===");
 {
   const strip = read("src/components/FirstBookingOfferStrip.tsx");
   const css = read("src/app/globals.css");
@@ -48,9 +48,10 @@ console.log("\n=== 4. First-booking offer promo near quote CTA ===");
   assert.match(hero, /FirstBookingOfferBadge/);
   assert.match(hero, /Fixed fares\. Reliable airport transfers\. No surprises\./);
   assert.match(strip, /£\{amount\} OFF/);
-  assert.match(strip, /YOUR FIRST BOOKING/);
-  assert.match(strip, /£\{minValue\} minimum booking value · Eligibility confirmed before payment/);
-  assert.match(strip, /New customer offer/i);
+  assert.match(strip, /BOOKINGS £\$\{minValue\}\+/);
+  assert.match(strip, /Save £\{amount\} when your booking value is £\{minValue\} or more/);
+  assert.match(strip, /£\{amount\} booking offer/i);
+  assert.doesNotMatch(strip, /YOUR FIRST BOOKING|New customer|first booking/i);
   assert.match(strip, /data-offer-layout="compact-v2"/);
   // Desktop keeps CTA; mobile strip must not show Get a Quote.
   assert.match(strip, /hidden md:block/);
@@ -61,7 +62,7 @@ console.log("\n=== 4. First-booking offer promo near quote CTA ===");
   assert.match(css, /first-booking-offer-enter/);
   assert.match(css, /prefers-reduced-motion/);
   assert.doesNotMatch(strip, /createPayment|resolveFirstBookingOffer|claimOffer/);
-  console.log("OK  homepage advertises £5 first-booking offer without applying it");
+  console.log("OK  homepage advertises £5 booking offer without applying it");
 }
 
 console.log("\n=== 5. Mobile above-the-fold compaction ===");

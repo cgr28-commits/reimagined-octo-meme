@@ -15,11 +15,10 @@ export function buildOpenWebsiteFareBreakdown(input: {
   airportAccessChargeGbp?: number;
   returnJourney?: boolean;
   /**
-   * Apply the £5 first-booking offer in displayed/payable totals.
-   * Must be true only after email eligibility is verified (not redeemed).
+   * Apply the £5 booking saving in displayed/payable totals when booking value ≥ £40.
+   * No email / customer-history gate — pass true whenever the current booking qualifies.
    */
   claimFirstBookingOffer?: boolean;
-  alreadyRedeemedFirstBookingOffer?: boolean;
 }): WebsiteFareBreakdown {
   return composeWebsiteFareBreakdown({
     journeyFareBeforeAirportAccessGbp: input.journeyFareBeforeAirportAccessGbp,
@@ -27,41 +26,7 @@ export function buildOpenWebsiteFareBreakdown(input: {
     airportAccessChargeGbp: input.airportAccessChargeGbp ?? 0,
     returnJourney: Boolean(input.returnJourney),
     claimFirstBookingOffer: input.claimFirstBookingOffer === true,
-    alreadyRedeemedFirstBookingOffer:
-      input.alreadyRedeemedFirstBookingOffer === true,
   });
-}
-
-/**
- * Advertise the first-booking welcome offer without applying it to the price.
- * Emerald/navy premium tone — never sale-banner styling.
- */
-export function FirstBookingOfferAdvert({
-  discountAmountGbp,
-  minimumBookingValueGbp,
-  className = "",
-}: {
-  discountAmountGbp: number;
-  minimumBookingValueGbp: number;
-  className?: string;
-}) {
-  const amount = Math.round(Number(discountAmountGbp) || 0);
-  const minValue = Math.round(Number(minimumBookingValueGbp) || 0);
-  if (amount <= 0 || minValue <= 0) return null;
-
-  return (
-    <div
-      className={`mt-2.5 rounded-lg border border-emerald/25 bg-emerald/[0.06] px-3 py-2.5 ${className}`}
-      aria-label={`New customer offer: save £${amount} on your first booking`}
-    >
-      <p className="text-xs font-semibold leading-snug text-emerald">
-        New customer? Save £{amount} on your first booking
-      </p>
-      <p className="mt-0.5 text-[11px] leading-snug text-white/55">
-        £{minValue} minimum booking value · Eligibility confirmed before payment
-      </p>
-    </div>
-  );
 }
 
 /** Compact reinforcement directly under the dominant fixed price. */
@@ -262,7 +227,7 @@ export function FinalPayableBreakdown({
         </div>
         {breakdown.returnJourneySavingGbp > 0 ? (
           <div className="flex justify-between gap-3 text-emerald/90">
-            <dt>Return journey saving</dt>
+            <dt>Return Journey Saving</dt>
             <dd className="shrink-0 tabular-nums">
               −{formatGbpFare(breakdown.returnJourneySavingGbp)}
             </dd>
@@ -270,7 +235,7 @@ export function FinalPayableBreakdown({
         ) : null}
         {breakdown.firstBookingSavingGbp > 0 ? (
           <div className="flex justify-between gap-3 text-emerald/90">
-            <dt>First booking saving</dt>
+            <dt>£5 Booking Saving</dt>
             <dd className="shrink-0 tabular-nums">
               −{formatGbpFare(breakdown.firstBookingSavingGbp)}
             </dd>
