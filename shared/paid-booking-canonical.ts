@@ -39,6 +39,22 @@ export function paidBookingRecordToDetails(record: PaidBookingRecord): PaidBooki
       /airport/i.test(`${record.tripLabel} ${record.pickupLabel} ${record.dropoffLabel}`),
     airportCode: record.airportCode,
     isFromAirport: record.isFromAirport,
+    ...(typeof record.expressDropOffSelected === "boolean"
+      ? { expressDropOffSelected: record.expressDropOffSelected }
+      : {}),
+    ...(typeof record.expressDropOffFee === "number"
+      ? { expressDropOffFee: record.expressDropOffFee }
+      : {}),
+    ...(record.expressDropOffAirport === "BFS" ||
+    record.expressDropOffAirport === "BHD" ||
+    record.expressDropOffAirport === null
+      ? { expressDropOffAirport: record.expressDropOffAirport }
+      : {}),
+    ...(record.airportAccessOption === "express" ||
+    record.airportAccessOption === "free" ||
+    record.airportAccessOption === null
+      ? { airportAccessOption: record.airportAccessOption }
+      : {}),
     termsAcceptedAt: record.termsAcceptedAt,
     termsVersion: record.termsVersion,
     cancellationPolicyVersion: record.cancellationPolicyVersion,

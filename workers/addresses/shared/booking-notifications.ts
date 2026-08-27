@@ -17,6 +17,8 @@ import {
 } from "./journey-inclusions";
 import {
   EXPRESS_DROP_OFF_PASSED_ON_NOTE,
+  formatAirportAccessOptionCustomerLine,
+  formatAirportAccessOptionOwnerLine,
   formatExpressDropOffSummaryLine,
 } from "./express-drop-off";
 import {
@@ -58,6 +60,8 @@ export type PaidBookingDetails = {
   expressDropOffSelected?: boolean;
   expressDropOffFee?: number;
   expressDropOffAirport?: "BFS" | "BHD" | null;
+  /** Explicit access choice stored with the booking ("express" | "free"). */
+  airportAccessOption?: "express" | "free" | null;
   /** Snapshot of applied promotional pricing (open website). */
   journeyFareBeforePromotionsGbp?: number;
   originalEligibleJourneyPriceGbp?: number;
@@ -249,6 +253,17 @@ function invoiceRows(details: PaidBookingReceipt): Array<{ label: string; value:
 
   if (details.isAirportTrip && details.returnFlightNumber) {
     rows.push({ label: "Flight for collection", value: details.returnFlightNumber });
+  }
+
+  const accessOption = formatAirportAccessOptionCustomerLine({
+    expressDropOffSelected: details.expressDropOffSelected,
+    expressDropOffFee: details.expressDropOffFee,
+    expressDropOffAirport: details.expressDropOffAirport ?? details.airportCode,
+    fromAirport: details.isFromAirport,
+  });
+  if (accessOption) {
+    const value = accessOption.replace(/^Airport access option:\s*/i, "");
+    rows.push({ label: "Airport access option", value });
   }
 
   rows.push(
@@ -512,12 +527,24 @@ export function buildCustomerConfirmationEmail(
       details.amountPaid,
     )}\n` +
     (() => {
-      const expressLine = formatExpressDropOffSummaryLine({
+      const accessLine = formatAirportAccessOptionCustomerLine({
         expressDropOffSelected: details.expressDropOffSelected,
         expressDropOffFee: details.expressDropOffFee,
         expressDropOffAirport: details.expressDropOffAirport ?? details.airportCode,
+        fromAirport: details.isFromAirport,
       });
-      return expressLine ? `${expressLine}\n${EXPRESS_DROP_OFF_PASSED_ON_NOTE}\n\n` : "\n";
+      if (!accessLine) return "\n";
+      const breakdown = formatExpressDropOffSummaryLine({
+        expressDropOffSelected: details.expressDropOffSelected,
+        expressDropOffFee: details.expressDropOffFee,
+        expressDropOffAirport: details.expressDropOffAirport ?? details.airportCode,
+        fromAirport: details.isFromAirport,
+      });
+      return (
+        `${accessLine}\n` +
+        (breakdown && breakdown !== accessLine ? `${breakdown}\n` : "") +
+        `${EXPRESS_DROP_OFF_PASSED_ON_NOTE}\n\n`
+      );
     })() +
     `PAYMENT / INVOICE\n` +
     `${"=".repeat(40)}\n` +
@@ -569,12 +596,24 @@ export function buildOwnerPaidBookingEmail(
     `${"=".repeat(40)}\n` +
     `${formatTripSchedule(details)}\n` +
     (() => {
-      const expressLine = formatExpressDropOffSummaryLine({
+      const ownerAccess = formatAirportAccessOptionOwnerLine({
         expressDropOffSelected: details.expressDropOffSelected,
         expressDropOffFee: details.expressDropOffFee,
         expressDropOffAirport: details.expressDropOffAirport ?? details.airportCode,
+        fromAirport: details.isFromAirport,
       });
-      return expressLine ? `\n${expressLine}\n${EXPRESS_DROP_OFF_PASSED_ON_NOTE}\n` : "";
+      if (!ownerAccess) return "";
+      const detail = formatAirportAccessOptionCustomerLine({
+        expressDropOffSelected: details.expressDropOffSelected,
+        expressDropOffFee: details.expressDropOffFee,
+        expressDropOffAirport: details.expressDropOffAirport ?? details.airportCode,
+        fromAirport: details.isFromAirport,
+      });
+      return (
+        `\n${ownerAccess}\n` +
+        (detail ? `${detail}\n` : "") +
+        `${EXPRESS_DROP_OFF_PASSED_ON_NOTE}\n`
+      );
     })() +
     `\n` +
     `PAYMENT\n` +
