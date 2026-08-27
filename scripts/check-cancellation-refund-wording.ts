@@ -30,6 +30,10 @@ assert.match(
 assert.match(consent, /No-shows: A booking will only be treated as a no-show after/);
 assert.match(
   consent,
+  /The charge will not exceed the reasonable loss caused by the no-show/,
+);
+assert.match(
+  consent,
   /Flight delays: Where a correct flight number has been provided/,
 );
 assert.match(

@@ -36,7 +36,7 @@ export default function BookingTermsConsent({
             No-shows: A booking will only be treated as a no-show after the applicable complimentary
             waiting period has ended and we have made reasonable attempts to contact you. A charge
             of up to the full booking price may apply to cover the driver’s reserved time and costs
-            incurred.
+            incurred. The charge will not exceed the reasonable loss caused by the no-show.
           </p>
           <p>
             Flight delays: Where a correct flight number has been provided, a flight delay will not
