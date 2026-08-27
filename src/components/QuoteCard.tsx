@@ -29,6 +29,11 @@ import {
   trackQuoteValidationError,
 } from "@/lib/quote-funnel-analytics";
 import {
+  bookingTextFieldClass,
+  quoteTextFieldClass,
+  type QuoteFieldHighlightState,
+} from "@/lib/quote-ui-highlight";
+import {
   AIRPORTS,
   isInstantPayVehicle,
   isVehicleEnquiryOnly,
@@ -181,9 +186,18 @@ const BOOKING_PANEL_CLASS =
   "rounded-xl border border-white/25 bg-navy-light px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] sm:px-5 md:border-white/30 md:shadow-lg md:shadow-black/20";
 const BOOKING_LABEL_CLASS =
   "mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/80";
-const BOOKING_INPUT_CLASS =
-  "quote-text-input h-12 rounded-xl border border-white/25 bg-navy-dark px-4 text-white placeholder:text-white/45 outline-none transition-colors focus:border-emerald focus:ring-2 focus:ring-inset focus:ring-emerald/25 md:border-white/30";
 const BOOKING_HELPER_CLASS = "quote-helper-text mt-1.5 text-xs text-white/55";
+
+function fieldState(options: {
+  hasError?: boolean;
+  complete: boolean;
+  activeStep: boolean;
+}): QuoteFieldHighlightState {
+  if (options.hasError) return "error";
+  if (!options.activeStep) return "default";
+  if (options.complete) return "complete";
+  return "needs";
+}
 
 const ESTATE = "Estate Car (1–4 passengers)" as const;
 
@@ -243,19 +257,36 @@ function TapChoiceRow({
   value,
   onChange,
   formatOption,
+  needsCompletion = false,
 }: {
   label: string;
   options: number[];
   value: number | null;
   onChange: (value: number) => void;
   formatOption?: (value: number) => string;
+  needsCompletion?: boolean;
 }) {
   return (
-    <div>
-      <p className="mb-2 text-xs font-medium uppercase tracking-wider text-white/50">{label}</p>
+    <div
+      className={
+        needsCompletion && value == null
+          ? "rounded-2xl border border-emerald/45 bg-emerald/[0.04] p-2 ring-1 ring-emerald/20"
+          : "rounded-2xl border border-transparent p-2"
+      }
+    >
+      <p className="mb-2 text-xs font-medium uppercase tracking-wider text-white/50">
+        {label}
+        {needsCompletion && value == null ? (
+          <span className="ml-1 font-normal normal-case tracking-normal text-emerald/80">
+            (required)
+          </span>
+        ) : null}
+      </p>
       <div
         className="grid gap-2"
         style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }}
+        role="group"
+        aria-label={label}
       >
         {options.map((option) => {
           const selected = value !== null && value === option;
@@ -3517,7 +3548,7 @@ function QuoteCard({
             ? "Three quick steps — your journey, travel details, then your details. We’ll confirm your fare before any payment."
             : "Three quick steps — your journey, travel details, then your details. Instant fares can be paid online by card to confirm; otherwise Request to book and we’ll email a SumUp link after we confirm."}
         </p>
-        <ol className="mt-3 grid grid-cols-3 gap-2 lg:mt-3 lg:gap-2" aria-label="Booking steps">
+        <ol className="mt-3 grid grid-cols-3 gap-1.5 sm:gap-2 lg:mt-3 lg:gap-2" aria-label="Booking steps">
           {[
             { step: 1 as const, label: isA2AFlow ? "Your journey" : "Airport & address" },
             { step: 2 as const, label: "Price & travel" },
@@ -3528,18 +3559,39 @@ function QuoteCard({
             return (
               <li
                 key={item.step}
-                className={`rounded-lg border px-2 py-2 text-center ${
+                aria-current={active ? "step" : undefined}
+                className={`min-h-[3.25rem] rounded-lg border px-1.5 py-2 text-center sm:px-2 ${
                   active
-                    ? "border-white/25 bg-white/[0.06] text-white"
+                    ? "border-emerald bg-emerald/15 text-white shadow-sm shadow-emerald/10 ring-1 ring-emerald/40"
                     : done
-                      ? "border-white/15 bg-white/[0.03] text-white/70"
-                      : "border-white/10 text-white/40"
+                      ? "border-emerald/40 bg-emerald/5 text-emerald"
+                      : "border-white/10 bg-transparent text-white/45"
                 }`}
               >
-                <span className="block text-[10px] font-semibold uppercase tracking-wider">
-                  Step {item.step}
+                <span className="flex items-center justify-center gap-1 text-[10px] font-semibold uppercase tracking-wider">
+                  {done ? (
+                    <svg
+                      className="h-3 w-3 shrink-0 text-emerald"
+                      viewBox="0 0 16 16"
+                      fill="none"
+                      aria-hidden
+                    >
+                      <path
+                        d="M3.5 8.5 6.5 11.5 12.5 4.5"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  ) : null}
+                  <span>Step {item.step}</span>
+                  {done ? <span className="sr-only">completed</span> : null}
+                  {active ? <span className="sr-only">current</span> : null}
                 </span>
-                <span className="mt-0.5 block text-xs font-semibold">{item.label}</span>
+                <span className="mt-0.5 block text-[11px] font-semibold leading-tight sm:text-xs">
+                  {item.label}
+                </span>
               </li>
             );
           })}
@@ -3799,11 +3851,20 @@ function QuoteCard({
         <div id="journey-type-selector">
           <p className="mb-2 text-xs font-medium uppercase tracking-wider text-white/50">
             Journey
+            {journeyMode == null ? (
+              <span className="ml-1 font-normal normal-case tracking-normal text-emerald/80">
+                (required)
+              </span>
+            ) : null}
           </p>
           <div
             role="group"
             aria-label="One way or return"
-            className="grid grid-cols-2 overflow-hidden rounded-xl border border-white/15 bg-white/[0.06]"
+            className={`grid grid-cols-2 overflow-hidden rounded-xl border bg-white/[0.06] ${
+              journeyMode == null
+                ? "border-emerald/50 ring-1 ring-emerald/25"
+                : "border-white/15"
+            }`}
           >
             <button
               type="button"
@@ -3960,6 +4021,11 @@ function QuoteCard({
                 name="dropoff"
                 value={dropoffAddress}
                 onChange={handleDropoffChange}
+                onSelectPlace={handleDropoffPlacesSuggestionSelect}
+                requireSuggestion
+                confirmedPlace={isQuoteReadyPlace(dropoffPlace) ? dropoffPlace : null}
+                needsCompletion={quoteStep === 1 && !isPlaceSelected(dropoffPlace)}
+                selectionError={dropoffPlaceError}
                 airportCode={addressLookupCode}
                 label={
                   isLdyTrip
@@ -3995,6 +4061,11 @@ function QuoteCard({
                 name="pickup"
                 value={pickupAddress}
                 onChange={handlePickupChange}
+                onSelectPlace={handlePickupPlacesSuggestionSelect}
+                requireSuggestion
+                confirmedPlace={isQuoteReadyPlace(pickupPlace) ? pickupPlace : null}
+                needsCompletion={quoteStep === 1 && !isPlaceSelected(pickupPlace)}
+                selectionError={pickupPlaceError}
                 airportCode={addressLookupCode}
                 label={isLdyTrip ? "Your Belfast-area Pickup Address" : "Your Pickup Address"}
                 placeholder={
@@ -4025,6 +4096,11 @@ function QuoteCard({
               name="pickup"
               value={pickupAddress}
               onChange={handlePickupChange}
+              onSelectPlace={handlePickupPlacesSuggestionSelect}
+              requireSuggestion
+              confirmedPlace={isQuoteReadyPlace(pickupPlace) ? pickupPlace : null}
+              needsCompletion={quoteStep === 1 && !isPlaceSelected(pickupPlace)}
+              selectionError={pickupPlaceError}
               airportCode={addressLookupCode}
               label="Pickup Address"
               placeholder="e.g. 12 High Street, Bangor"
@@ -4036,6 +4112,11 @@ function QuoteCard({
               name="dropoff"
               value={dropoffAddress}
               onChange={handleDropoffChange}
+              onSelectPlace={handleDropoffPlacesSuggestionSelect}
+              requireSuggestion
+              confirmedPlace={isQuoteReadyPlace(dropoffPlace) ? dropoffPlace : null}
+              needsCompletion={quoteStep === 1 && !isPlaceSelected(dropoffPlace)}
+              selectionError={dropoffPlaceError}
               airportCode={addressLookupCode}
               label="Drop-off Address"
               placeholder="e.g. 45 Main Street, Lisburn"
@@ -4088,6 +4169,7 @@ function QuoteCard({
               value={passengers == null ? null : Math.min(passengers, passengerLimit)}
               onChange={setPassengers}
               formatOption={formatPassengerChoice}
+              needsCompletion={quoteStep === 1 && passengers == null}
             />
             <TapChoiceRow
               label="Large suitcases (23kg)"
@@ -4095,6 +4177,7 @@ function QuoteCard({
               value={suitcases == null ? null : Math.min(suitcases, SELECTOR_MAX_SUITCASES)}
               onChange={setSuitcases}
               formatOption={formatSuitcaseChoice}
+              needsCompletion={quoteStep === 1 && suitcases == null}
             />
           </div>
           {!partySelectionReady && (
@@ -4243,7 +4326,13 @@ function QuoteCard({
                 setTripDateError("");
                 setReturnDateError("");
               }}
-              className="box-border h-12 w-full min-w-0 rounded-xl border border-white/10 bg-white/5 px-4 text-base text-white outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30 [color-scheme:dark]"
+              className={quoteTextFieldClass(
+                fieldState({
+                  hasError: Boolean(tripDateError),
+                  complete: Boolean(tripDate.trim()),
+                  activeStep: quoteStep === 2,
+                }),
+              )}
             />
           </div>
           <div>
@@ -4279,7 +4368,13 @@ function QuoteCard({
                 // iPhone Done / tick dismisses the picker → blur. Scroll only then.
                 requestJourneySummaryScrollAfterTimeConfirm();
               }}
-              className="box-border h-12 w-full min-w-0 rounded-xl border border-white/10 bg-white/5 px-4 text-base text-white outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30 [color-scheme:dark]"
+              className={quoteTextFieldClass(
+                fieldState({
+                  hasError: Boolean(tripDateError),
+                  complete: Boolean(tripTime.trim()),
+                  activeStep: quoteStep === 2,
+                }),
+              )}
             />
           </div>
           <p
@@ -4323,7 +4418,13 @@ function QuoteCard({
                     setReturnDate((e.target as HTMLInputElement).value);
                     setReturnDateError("");
                   }}
-                  className="box-border h-12 w-full min-w-0 rounded-xl border border-white/10 bg-white/5 px-4 text-base text-white outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30 [color-scheme:dark]"
+                  className={quoteTextFieldClass(
+                    fieldState({
+                      hasError: Boolean(returnDateError),
+                      complete: Boolean(returnDate.trim()),
+                      activeStep: quoteStep === 2 && returnJourney,
+                    }),
+                  )}
                 />
               </div>
               <div>
@@ -4354,7 +4455,13 @@ function QuoteCard({
                   onBlur={() => {
                     requestJourneySummaryScrollAfterTimeConfirm();
                   }}
-                  className="box-border h-12 w-full min-w-0 rounded-xl border border-white/10 bg-white/5 px-4 text-base text-white outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30 [color-scheme:dark]"
+                  className={quoteTextFieldClass(
+                    fieldState({
+                      hasError: Boolean(returnDateError),
+                      complete: Boolean(returnTime.trim()),
+                      activeStep: quoteStep === 2 && returnJourney,
+                    }),
+                  )}
                 />
               </div>
               <p className="sm:col-span-2 min-h-[1.1rem] text-xs text-red-400">
@@ -4475,7 +4582,13 @@ function QuoteCard({
                     }
                   }}
                   placeholder="John Smith"
-                  className={BOOKING_INPUT_CLASS}
+                  className={bookingTextFieldClass(
+                    fieldState({
+                      hasError: Boolean(customerNameError),
+                      complete: Boolean(customerName.trim()),
+                      activeStep: quoteStep === 3,
+                    }),
+                  )}
                 />
                 {customerNameError && (
                   <p id="customer-name-error" role="alert" className="mt-1.5 text-xs text-red-300">
@@ -4503,7 +4616,13 @@ function QuoteCard({
                     }
                   }}
                   placeholder="07xxx xxxxxx"
-                  className={BOOKING_INPUT_CLASS}
+                  className={bookingTextFieldClass(
+                    fieldState({
+                      hasError: Boolean(mobileNumberError),
+                      complete: isValidMobileNumber(customerMobile),
+                      activeStep: quoteStep === 3,
+                    }),
+                  )}
                 />
                 <p id="mobile-helper" className={BOOKING_HELPER_CLASS}>
                   So we can call or text if we need to reach you about your booking.
@@ -4535,7 +4654,13 @@ function QuoteCard({
                   }
                 }}
                 placeholder="you@example.com"
-                className={BOOKING_INPUT_CLASS}
+                className={bookingTextFieldClass(
+                  fieldState({
+                    hasError: Boolean(emailAddressError),
+                    complete: isValidEmailAddress(customerEmail),
+                    activeStep: quoteStep === 3,
+                  }),
+                )}
               />
               <p id="email-helper" className={BOOKING_HELPER_CLASS}>
                 {canPayNowOnline

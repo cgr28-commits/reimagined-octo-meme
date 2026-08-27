@@ -19,6 +19,7 @@ import {
   type AddressPrediction,
 } from "@/lib/google-maps";
 import type { SelectedPlace } from "@/lib/selected-place";
+import { addressFieldShellClass } from "@/lib/quote-ui-highlight";
 import { buildDisplayAddress, looksLikeStreetAddressLine, normaliseAddressCompareKey } from "@/lib/selected-place";
 import { hasLeadingStreetNumber } from "../../shared/journey-address-label";
 import { isHighConfidenceAddressMatch } from "@/lib/address-match";
@@ -54,6 +55,11 @@ type AddressInputProps = {
   restoredHint?: boolean;
   onClear?: () => void;
   selectionError?: string;
+  /**
+   * Soft emerald “still needed” border for required empty / unconfirmed fields.
+   * Ignored when selectionError is set (error styling wins).
+   */
+  needsCompletion?: boolean;
   /**
    * below = suggestions float under the field.
    * above = suggestions float above the field (quote bot typing bar).
@@ -93,6 +99,7 @@ export default function AddressInput({
   restoredHint = false,
   onClear,
   selectionError,
+  needsCompletion = false,
   suggestionsPlacement = "below",
   hideLabel = false,
   className = "",
@@ -503,6 +510,11 @@ export default function AddressInput({
   const showSuggestions = suggestionsOpen && suggestions.length > 0;
   const showHouseStep = needsHouseNumber || Boolean(lockedPostcode && houseOrBuilding);
   const hasConfirmedSelection = Boolean(confirmedPlace?.placeId?.trim());
+  const placeComplete = requireSuggestion
+    ? hasConfirmedSelection
+    : Boolean(value.trim());
+  const showNeedsCompletion =
+    needsCompletion && !selectionError && !loadError && !placeComplete;
   const hintMessage =
     selectionError ??
     loadError ??
@@ -510,6 +522,8 @@ export default function AddressInput({
       ? "Using your previous address — edit or clear to choose a different one."
       : hasConfirmedSelection && requireSuggestion
         ? "Address confirmed — edit to choose a different one."
+        : showNeedsCompletion && requireSuggestion
+          ? "Required — type, then tap a suggestion from the list."
         : autocompleteEnabled
           ? helperText ??
             (requireSuggestion
@@ -520,6 +534,8 @@ export default function AddressInput({
   const hintToneClass =
     selectionError || loadError
       ? "text-red-300"
+      : showNeedsCompletion
+        ? "text-emerald/85"
       : restoredHint && hasConfirmedSelection
         ? "text-emerald/80"
         : "text-white/40";
@@ -610,11 +626,12 @@ export default function AddressInput({
 
       <div className="relative min-w-0" ref={fieldShellRef}>
         <div
-          className={`rounded-xl border bg-white/5 transition-colors ${
-            showSuggestions || showHouseStep
-              ? "border-emerald/50 ring-1 ring-emerald/30"
-              : "border-white/10 focus-within:border-emerald/50 focus-within:ring-1 focus-within:ring-emerald/30"
-          }`}
+          className={addressFieldShellClass({
+            hasError: Boolean(selectionError || loadError),
+            needsCompletion: showNeedsCompletion,
+            isComplete: placeComplete,
+            isActiveUi: showSuggestions || showHouseStep,
+          })}
         >
           <div className="relative">
             <input

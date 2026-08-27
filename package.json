@@ -33,6 +33,7 @@
     "check:google-ads": "npx tsx scripts/check-google-ads-request-quote.ts",
     "check:conversion-tracking": "npx tsx scripts/check-conversion-tracking.ts",
     "check:quote-funnel-analytics": "npx tsx scripts/check-quote-funnel-analytics.ts",
+    "check:quote-step-highlight": "npx tsx scripts/check-quote-step-highlight.ts",
     "check:paid-booking-ads-conversion": "npx tsx scripts/check-paid-booking-ads-conversion.ts",
     "check:sumup-booking-conversion": "npx tsx scripts/check-sumup-booking-conversion.ts",
     "check:emerge-belfast": "npx tsx scripts/check-emerge-belfast-page.ts",
