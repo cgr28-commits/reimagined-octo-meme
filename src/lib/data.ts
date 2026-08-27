@@ -107,12 +107,11 @@ export const NAV_LINKS = ALL_NAV_LINKS.filter((link) => isServiceEnabled(link.se
   ({ label, href }) => ({ label, href }),
 );
 
-/** Always visible on mobile — key services beyond airport transfers. */
+/**
+ * Compact mobile header CTAs only (logo + Menu stay in the bar).
+ * Airports / Manage Your Booking live in the hamburger menu on mobile.
+ */
 export const ALL_MOBILE_QUICK_LINKS = [
-  { label: "Day Trips", href: "/tours/", service: "dayTrips" as const },
-  { label: "Chauffeur Hire", href: "/#chauffeur", service: "chauffeur" as const },
-  { label: "Airports", href: "/#airports", service: null },
-  { label: "Manage Your Booking", href: "/manage-booking/", service: null },
   { label: "Get a Quote", href: "/#quote", highlight: true, service: null },
 ] as const;
 

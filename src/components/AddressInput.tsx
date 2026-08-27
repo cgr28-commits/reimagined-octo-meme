@@ -617,7 +617,7 @@ export default function AddressInput({
         </label>
       ) : (
         <div className="mb-1.5 flex items-center justify-between gap-3">
-          <label htmlFor={id} className="text-xs font-medium uppercase tracking-wider text-white/50">
+          <label htmlFor={id} className="form-label">
             {label}
           </label>
           {action}
@@ -683,7 +683,7 @@ export default function AddressInput({
               <div className="border-t border-white/10 bg-white/5 px-3 py-3">
                 <label
                   htmlFor={`${id}-house`}
-                  className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/55"
+                  className="mb-1.5 block form-label"
                 >
                   House number or building name
                 </label>
@@ -700,7 +700,7 @@ export default function AddressInput({
                   tabIndex={showHouseStep ? 0 : -1}
                   className="box-border h-12 w-full min-w-0 rounded-lg border border-white/15 bg-white px-4 text-base font-semibold text-navy placeholder:font-normal placeholder:text-navy/35 outline-none focus:border-emerald focus:ring-1 focus:ring-emerald/40"
                 />
-                <p id={houseHintId} className="mt-1.5 min-h-[1rem] text-xs text-white/45">
+                <p id={houseHintId} className="quote-secondary mt-1.5 min-h-[1rem] text-xs">
                   {lockedPostcode
                     ? `Finding addresses at ${lockedPostcode} — type your number, then tap your address.`
                     : "Type your house number or building name, then tap your address."}

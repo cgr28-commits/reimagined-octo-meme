@@ -5,7 +5,7 @@ export const QUOTE_DRAFT_PREFILL_KEY = "my-airport-taxi-ni-prefill-quote-draft";
 export const QUOTE_DIRECTION_PREFILL_KEY = "my-airport-taxi-ni-prefill-direction";
 
 /** Approximate sticky header height; `#quote` also uses measured offset via site-nav. */
-export const HEADER_SCROLL_OFFSET = 144;
+export const HEADER_SCROLL_OFFSET = 112;
 
 export type QuoteDraftPrefill = {
   source?: "assistant";

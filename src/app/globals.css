@@ -9,6 +9,8 @@
   --color-emerald-dark: #1f9a36;
   --color-mist: #e8edf5;
   --color-ink-muted: rgba(232, 237, 245, 0.68);
+  /* Readable secondary copy on navy (~#AEB9C8–#BCC6D2) */
+  --color-ink-secondary: #b5c0cd;
   --font-sans: var(--font-manrope);
   --font-display: var(--font-cormorant);
   --radius-control: 0.75rem;
@@ -228,7 +230,12 @@ main {
   font-weight: 650;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.55);
+  color: var(--color-ink-secondary);
+}
+
+/* Quote / booking secondary body copy — secondary to headings, still readable on iPhone */
+.quote-secondary {
+  color: var(--color-ink-secondary);
 }
 
 @keyframes contact-fade-up {
@@ -416,6 +423,7 @@ main {
   max-width: 100%;
   overflow-wrap: anywhere;
   word-break: break-word;
+  color: var(--color-ink-secondary);
 }
 
 .address-suggestions {
