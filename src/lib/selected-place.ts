@@ -5,6 +5,12 @@
 
 import { isGreaterBelfastServiceAddress } from "../../shared/ldy-service-area";
 import {
+  collapseDuplicateStreetAddressLabel,
+  hasLeadingStreetNumber,
+  normaliseJourneyAddressCompareKey,
+  normaliseJourneyAddressLabel,
+} from "../../shared/journey-address-label";
+import {
   isNorthernIrelandCoordinates,
   isNorthernIrelandPostcode,
   isNorthernIrelandText,
@@ -86,59 +92,46 @@ export function placeDisplayText(place: SelectedPlace | null | undefined): strin
   if (!place) {
     return "";
   }
-  return (place.displayAddress || place.formattedAddress || "").trim();
+  const raw = (place.displayAddress || place.formattedAddress || "").trim();
+  return normaliseJourneyAddressLabel(raw);
 }
 
-/** Collapse Road/Rd, Avenue/Ave, etc. so street-line comparisons ignore Google abbreviations. */
-const STREET_TYPE_NORMALISE: Array<[RegExp, string]> = [
-  [/\b(avenue|ave)\b/gi, "ave"],
-  [/\b(road|rd)\b/gi, "rd"],
-  [/\b(street|st)\b/gi, "st"],
-  [/\b(drive|dr)\b/gi, "dr"],
-  [/\b(lane|ln)\b/gi, "ln"],
-  [/\b(close|cl)\b/gi, "cl"],
-  [/\b(court|ct)\b/gi, "ct"],
-  [/\b(crescent|cres)\b/gi, "cres"],
-  [/\b(terrace|ter)\b/gi, "ter"],
-  [/\b(boulevard|blvd)\b/gi, "blvd"],
-  [/\b(place|pl)\b/gi, "pl"],
-  [/\b(square|sq)\b/gi, "sq"],
-  [/\b(gardens|gdns)\b/gi, "gdns"],
-  [/\b(park|pk)\b/gi, "pk"],
-  [/\b(mount|mt)\b/gi, "mt"],
-];
-
 export function normaliseAddressCompareKey(value: string): string {
-  let text = value
-    .toLowerCase()
-    .replace(/[.,#]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-  for (const [pattern, replacement] of STREET_TYPE_NORMALISE) {
-    text = text.replace(pattern, replacement);
-  }
-  return text.replace(/\s+/g, " ").trim();
+  return normaliseJourneyAddressCompareKey(value);
 }
 
 /** True when text looks like "12 High Street" rather than a venue/business name. */
 export function looksLikeStreetAddressLine(value: string): boolean {
-  return /^\d+[a-zA-Z]?\s+\S+/.test(value.trim());
+  const trimmed = value.trim();
+  if (!trimmed) return false;
+  if (/^\d+[a-zA-Z]?$/.test(trimmed)) return true;
+  if (hasLeadingStreetNumber(trimmed)) return true;
+  return /^\d+[a-zA-Z]?\s+\S+/.test(trimmed);
 }
 
 /**
  * Build "{place name}, {formatted address}" without duplicating the name when
  * Google already included it in the formatted address (including Ave/Avenue etc.).
+ * Never prepend a bare number / range onto an address that already starts with one.
  */
 export function buildDisplayAddress(
   placeName: string | null | undefined,
   formattedAddress: string,
 ): string {
-  const formatted = formattedAddress.trim();
+  const formatted = normaliseJourneyAddressLabel(formattedAddress);
   const name = placeName?.trim() || "";
   if (!formatted) {
     return name;
   }
   if (!name) {
+    return formatted;
+  }
+
+  // Bare number or street-line "name" must not be prefixed onto a numbered/range address.
+  if (
+    /^\d+[a-zA-Z]?$/.test(name) ||
+    (looksLikeStreetAddressLine(name) && hasLeadingStreetNumber(formatted))
+  ) {
     return formatted;
   }
 
@@ -166,7 +159,7 @@ export function buildDisplayAddress(
     }
   }
 
-  return `${name}, ${formatted}`;
+  return normaliseJourneyAddressLabel(`${name}, ${formatted}`);
 }
 
 export function isPlaceSelected(place: SelectedPlace | null | undefined): boolean {
@@ -560,10 +553,20 @@ export function selectedPlaceFromParts(options: {
   route?: string | null;
   locality?: string | null;
 }): SelectedPlace {
-  const postal = options.formattedAddress.trim();
-  const placeName = options.placeName?.trim() || null;
-  const displayAddress =
-    options.displayAddress?.trim() || buildDisplayAddress(placeName, postal);
+  const postal = normaliseJourneyAddressLabel(options.formattedAddress);
+  let placeName = options.placeName?.trim() || null;
+  // Bare numbers and street-line labels are not venue names when the postal
+  // address already carries a house number / building range.
+  if (
+    placeName &&
+    (/^\d+[a-zA-Z]?$/.test(placeName) ||
+      (looksLikeStreetAddressLine(placeName) && hasLeadingStreetNumber(postal)))
+  ) {
+    placeName = null;
+  }
+  const displayAddress = normaliseJourneyAddressLabel(
+    options.displayAddress?.trim() || buildDisplayAddress(placeName, postal),
+  );
 
   return {
     placeId: options.placeId.trim(),

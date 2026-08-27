@@ -5,6 +5,7 @@
 import type { A2aQuoteRequestRecord } from "../shared/a2a-personalised-quote";
 import {
   a2aQuoteCheckoutKey,
+  a2aQuoteHistoryIndexKey,
   a2aQuoteOpenIndexKey,
   a2aQuoteRefKey,
   a2aQuoteTokenKey,
@@ -12,6 +13,7 @@ import {
 } from "../shared/a2a-personalised-quote";
 
 const TTL_SECONDS = 60 * 60 * 24 * 45;
+const HISTORY_LIMIT = 400;
 
 type RefIndex = { references: string[]; updatedAt: string };
 
@@ -24,8 +26,9 @@ async function writeRefIndex(
   store: KVNamespace,
   key: string,
   references: string[],
+  limit = 300,
 ): Promise<void> {
-  const unique = [...new Set(references.map((r) => r.trim()).filter(Boolean))].slice(0, 300);
+  const unique = [...new Set(references.map((r) => r.trim()).filter(Boolean))].slice(0, limit);
   const payload: RefIndex = { references: unique, updatedAt: new Date().toISOString() };
   await store.put(key, JSON.stringify(payload), { expirationTtl: TTL_SECONDS });
 }
@@ -51,6 +54,10 @@ export async function saveA2aQuoteRequest(
     ? [record.reference, ...open.filter((r) => r !== record.reference)]
     : open.filter((r) => r !== record.reference);
   await writeRefIndex(store, a2aQuoteOpenIndexKey(), nextOpen);
+
+  const history = await readRefIndex(store, a2aQuoteHistoryIndexKey());
+  const nextHistory = [record.reference, ...history.filter((r) => r !== record.reference)];
+  await writeRefIndex(store, a2aQuoteHistoryIndexKey(), nextHistory, HISTORY_LIMIT);
 }
 
 export async function getA2aQuoteByReference(
@@ -83,6 +90,21 @@ export async function listOpenA2aQuoteRequests(
     }
   }
   return records.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
+/** Owner history: open + recently closed (paid / expired / cancelled). */
+export async function listA2aQuoteHistory(
+  store: KVNamespace,
+): Promise<A2aQuoteRequestRecord[]> {
+  const refs = await readRefIndex(store, a2aQuoteHistoryIndexKey());
+  const openRefs = await readRefIndex(store, a2aQuoteOpenIndexKey());
+  const combined = [...new Set([...openRefs, ...refs])];
+  const records: A2aQuoteRequestRecord[] = [];
+  for (const reference of combined) {
+    const record = await getA2aQuoteByReference(store, reference);
+    if (record) records.push(record);
+  }
+  return records.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 }
 
 export function generateA2aQuoteReference(now = new Date()): string {

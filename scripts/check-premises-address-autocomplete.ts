@@ -18,8 +18,16 @@ assert.equal(isNumberedAddressQuery("7 Glen Manor Road"), true);
 assert.equal(isStreetOnlyQuery("7 Glen Manor Road"), false);
 assert.equal(isStreetOnlyQuery("Glen Manor Road"), true);
 assert.equal(hasLeadingStreetNumber("7 Glen Manor Road, Bangor BT20"), true);
+assert.equal(hasLeadingStreetNumber("1-11 May St, Belfast BT1 4NA, UK"), true);
+assert.equal(hasLeadingStreetNumber("1–11 May St, Belfast BT1 4NA, UK"), true);
+assert.equal(hasLeadingStreetNumber("May St, Belfast"), false);
 assert.equal(withStreetNumber("7", "Glen Manor Road, Bangor"), "7 Glen Manor Road, Bangor");
 assert.equal(withStreetNumber("7", "7 Glen Manor Road, Bangor"), "7 Glen Manor Road, Bangor");
+assert.equal(
+  withStreetNumber("11", "1-11 May St, Belfast BT1 4NA, UK"),
+  "1-11 May St, Belfast BT1 4NA, UK",
+  "must not prepend typed number onto an existing building range",
+);
 
 assert.equal(shouldUseGetAddress("BFS", "7 Glen Manor Road"), true);
 assert.equal(shouldUseGetAddress("A2A", "7 Glen Manor Road"), true);

@@ -11,6 +11,11 @@ import {
   placeDisplayText,
   selectedPlaceFromParts,
 } from "../src/lib/selected-place";
+import {
+  hasLeadingStreetNumber,
+  normaliseJourneyAddressLabel,
+  withStreetNumber,
+} from "../shared/journey-address-label";
 
 function check(
   label: string,
@@ -91,6 +96,28 @@ check(
   "10 Donegall Square North, Belfast BT1 5GB, UK",
 );
 
+// Regression: do not prepend a typed/suggestion number onto a building range
+check(
+  "May St range — bare 11 must not prefix 1-11",
+  "11",
+  "1-11 May St, Belfast BT1 4NA, UK",
+  "1-11 May St, Belfast BT1 4NA, UK",
+);
+
+check(
+  "May St range — polluted display cleans to range only",
+  null,
+  "11 1-11 May St, Belfast BT1 4NA, UK",
+  "1-11 May St, Belfast BT1 4NA, UK",
+);
+
+check(
+  "Sunnyside Drive vs Dr (no duplicate)",
+  "22 Sunnyside Drive",
+  "22 Sunnyside Dr, Belfast BT7 3EE, UK",
+  "22 Sunnyside Dr, Belfast BT7 3EE, UK",
+);
+
 // Structured SelectedPlace → visible input uses displayAddress
 const titanic = selectedPlaceFromParts({
   placeId: "ChIJ_titanic_test",
@@ -151,5 +178,32 @@ const polluted = selectedPlaceFromParts({
 assert.equal(isStandardInstantPickup(polluted), true);
 assert.equal(isOutOfAreaPickup(polluted), false);
 console.log("OK  postalCode still classifies Greater Belfast when formatted is polluted");
+
+console.log("\n=== Central normalisation (May St range + Sunnyside) ===");
+assert.equal(hasLeadingStreetNumber("1-11 May St, Belfast BT1 4NA, UK"), true);
+assert.equal(
+  withStreetNumber("11", "1-11 May St, Belfast BT1 4NA, UK"),
+  "1-11 May St, Belfast BT1 4NA, UK",
+);
+assert.equal(
+  normaliseJourneyAddressLabel("11 1-11 May St, Belfast BT1 4NA, UK"),
+  "1-11 May St, Belfast BT1 4NA, UK",
+);
+assert.equal(
+  normaliseJourneyAddressLabel("22 Sunnyside Drive, 22 Sunnyside Dr, Belfast BT7 3EE, UK"),
+  "22 Sunnyside Dr, Belfast BT7 3EE, UK",
+);
+const maySt = selectedPlaceFromParts({
+  placeId: "ChIJ_may_st_test",
+  formattedAddress: "11 1-11 May St, Belfast BT1 4NA, UK",
+  placeName: "11",
+  lat: 54.595,
+  lng: -5.93,
+  postalCode: "BT1 4NA",
+});
+assert.equal(placeDisplayText(maySt), "1-11 May St, Belfast BT1 4NA, UK");
+assert.equal(maySt.formattedAddress, "1-11 May St, Belfast BT1 4NA, UK");
+assert.equal(maySt.placeName, null);
+console.log("OK  May St range + Sunnyside Drive/Dr cleaned at central normaliser");
 
 console.log("\nAll place-display checks passed.");

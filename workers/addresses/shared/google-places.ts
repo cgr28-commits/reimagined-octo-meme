@@ -10,7 +10,19 @@ import {
   normaliseAirportCode,
   sortSuggestionsByStreetNumber,
 } from "./address-validation";
+import {
+  extractLeadingStreetNumber,
+  hasLeadingStreetNumber,
+  normaliseJourneyAddressLabel,
+  withStreetNumber,
+} from "./journey-address-label";
 import { getLdyLocationRestriction } from "./ldy-service-area";
+
+export {
+  extractLeadingStreetNumber,
+  hasLeadingStreetNumber,
+  withStreetNumber,
+} from "./journey-address-label";
 
 export type AddressSuggestion = {
   id: string;
@@ -159,15 +171,6 @@ function parseLegacyGeocodeComponents(
   };
 }
 
-export function extractLeadingStreetNumber(input: string): string | null {
-  const match = input.trim().match(/^(\d+[a-zA-Z]?)\s+/);
-  return match ? match[1] : null;
-}
-
-export function hasLeadingStreetNumber(text: string): boolean {
-  return /^\d+[a-zA-Z]?\s/.test(text.trim());
-}
-
 export function isStreetOnlyQuery(query: string): boolean {
   if (isPureFullNorthernIrelandPostcodeQuery(query)) {
     return false;
@@ -188,14 +191,6 @@ export function isStreetOnlyQuery(query: string): boolean {
 /** True when the customer typed a house/flat number before the street. */
 export function isNumberedAddressQuery(query: string): boolean {
   return Boolean(extractLeadingStreetNumber(query));
-}
-
-export function withStreetNumber(number: string, addressLine: string): string {
-  const trimmed = addressLine.trim();
-  if (!trimmed || hasLeadingStreetNumber(trimmed)) {
-    return trimmed;
-  }
-  return `${number} ${trimmed}`;
 }
 
 function formatSuggestion(
@@ -709,12 +704,17 @@ function buildGoogleDisplayAddress(
   placeName: string | null | undefined,
   formattedAddress: string,
 ): string {
-  const formatted = formattedAddress.trim();
+  const formatted = normaliseJourneyAddressLabel(formattedAddress);
   const name = placeName?.trim() || "";
   if (!formatted) {
     return name;
   }
   if (!name) {
+    return formatted;
+  }
+
+  // Never treat a bare / range number as a venue name to prepend.
+  if (hasLeadingStreetNumber(name) || /^\d+[a-zA-Z]?$/.test(name)) {
     return formatted;
   }
 
@@ -730,7 +730,7 @@ function buildGoogleDisplayAddress(
     return formatted;
   }
 
-  return `${name}, ${formatted}`;
+  return normaliseJourneyAddressLabel(`${name}, ${formatted}`);
 }
 
 /**
@@ -830,11 +830,14 @@ export async function resolveGooglePlaceDetails(
   let streetNumber = parts.streetNumber?.trim() || null;
   if (userNumber && !hasLeadingStreetNumber(formatted)) {
     // Never silently drop the customer's typed house number for a route-only place.
+    // Ranges like "1-11 May St" already count as numbered — do not prepend "11".
     formatted = withStreetNumber(userNumber, formatted);
     streetNumber = streetNumber || userNumber;
   } else if (userNumber && !streetNumber) {
     streetNumber = userNumber;
   }
+
+  formatted = normaliseJourneyAddressLabel(formatted);
 
   const placeName = resolvePlaceName(
     data.displayName?.text,

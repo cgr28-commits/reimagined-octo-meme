@@ -3,6 +3,22 @@ import type { BookingDetails } from "@/lib/booking-message";
 
 const WORKER_BASE = resolveWorkerBaseUrl();
 
+export type A2aQuoteOwnerFilter =
+  | "awaiting"
+  | "approved"
+  | "paid"
+  | "expired"
+  | "cancelled"
+  | "history"
+  | "all";
+
+export type A2aJourneyChangeSummary = {
+  field: string;
+  label: string;
+  requested: string;
+  offered: string;
+};
+
 export type A2aQuoteOwnerSummary = {
   reference: string;
   status: string;
@@ -34,7 +50,18 @@ export type A2aQuoteOwnerSummary = {
   paymentUrl: string | null;
   paymentReference: string | null;
   paidAt: string | null;
+  paymentLinkEmailSentAt: string | null;
   payable: boolean;
+  isCounterOffer?: boolean;
+  journeyChanges?: A2aJourneyChangeSummary[];
+  originalPickupLabel?: string;
+  originalDropoffLabel?: string;
+  originalTripDate?: string;
+  originalTripTime?: string;
+  originalReturnDate?: string;
+  originalReturnTime?: string;
+  originalPassengers?: number;
+  originalSuitcases?: number;
 };
 
 export type PublicA2aQuoteSummary = {
@@ -49,6 +76,8 @@ export type PublicA2aQuoteSummary = {
   tripDate: string;
   tripTime: string;
   returnJourney: boolean;
+  returnDate?: string;
+  returnTime?: string;
   passengers: number;
   suitcases: number;
   vehicle: string;
@@ -59,6 +88,17 @@ export type PublicA2aQuoteSummary = {
   payable: boolean;
   expired: boolean;
   expiredMessage: string | null;
+  isCounterOffer?: boolean;
+  journeyChanges?: A2aJourneyChangeSummary[];
+  originalPickupLabel?: string;
+  originalDropoffLabel?: string;
+  originalTripDate?: string;
+  originalTripTime?: string;
+  originalReturnJourney?: boolean;
+  originalReturnDate?: string;
+  originalReturnTime?: string;
+  originalPassengers?: number;
+  originalSuitcases?: number;
 };
 
 export async function createA2aQuoteRequest(
@@ -81,8 +121,13 @@ export async function createA2aQuoteRequest(
   return { reference: payload.reference, status: String(payload.status || "AWAITING_QUOTE") };
 }
 
-export async function fetchOwnerA2aQuotes(ownerKey: string): Promise<A2aQuoteOwnerSummary[]> {
-  const response = await fetch(`${WORKER_BASE}/owner/a2a-quotes`, {
+export async function fetchOwnerA2aQuotes(
+  ownerKey: string,
+  filter: A2aQuoteOwnerFilter = "awaiting",
+): Promise<{ quotes: A2aQuoteOwnerSummary[]; awaitingCount: number }> {
+  const url = new URL(`${WORKER_BASE}/owner/a2a-quotes`);
+  url.searchParams.set("filter", filter);
+  const response = await fetch(url.toString(), {
     headers: {
       Accept: "application/json",
       "X-Owner-Key": ownerKey.trim(),
@@ -91,12 +136,59 @@ export async function fetchOwnerA2aQuotes(ownerKey: string): Promise<A2aQuoteOwn
   const payload = (await response.json().catch(() => null)) as {
     ok?: boolean;
     quotes?: A2aQuoteOwnerSummary[];
+    awaitingCount?: number;
     error?: string;
   } | null;
   if (!response.ok) {
     throw new Error(String(payload?.error || "Could not load A2A quotes"));
   }
-  return Array.isArray(payload?.quotes) ? payload!.quotes! : [];
+  return {
+    quotes: Array.isArray(payload?.quotes) ? payload!.quotes! : [],
+    awaitingCount:
+      typeof payload?.awaitingCount === "number" && Number.isFinite(payload.awaitingCount)
+        ? Math.max(0, Math.floor(payload.awaitingCount))
+        : 0,
+  };
+}
+
+export async function updateOwnerA2aQuoteJourney(
+  ownerKey: string,
+  input: {
+    reference: string;
+    pickupLabel: string;
+    dropoffLabel: string;
+    tripDate: string;
+    tripTime: string;
+    returnJourney?: boolean;
+    returnDate?: string;
+    returnTime?: string;
+    passengers?: number;
+    suitcases?: number;
+    journeyDistance?: string;
+    journeyDuration?: string;
+  },
+): Promise<A2aQuoteOwnerSummary> {
+  const response = await fetch(`${WORKER_BASE}/owner/a2a-quotes/update-journey`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      "X-Owner-Key": ownerKey.trim(),
+    },
+    body: JSON.stringify({
+      key: ownerKey.trim(),
+      ...input,
+    }),
+  });
+  const payload = (await response.json().catch(() => null)) as {
+    ok?: boolean;
+    record?: A2aQuoteOwnerSummary;
+    error?: string;
+  } | null;
+  if (!response.ok || !payload?.record) {
+    throw new Error(String(payload?.error || "Could not save journey changes"));
+  }
+  return payload.record;
 }
 
 export async function approveOwnerA2aQuote(
@@ -138,6 +230,43 @@ export async function approveOwnerA2aQuote(
     payUrl: payload.payUrl,
     paymentEmailSent: Boolean(payload.paymentEmailSent),
     ...(payload.paymentEmailError ? { paymentEmailError: payload.paymentEmailError } : {}),
+  };
+}
+
+export async function resendOwnerA2aPaymentEmail(
+  ownerKey: string,
+  reference: string,
+): Promise<{
+  record: A2aQuoteOwnerSummary;
+  payUrl: string;
+  paymentEmailSent: true;
+}> {
+  const response = await fetch(`${WORKER_BASE}/owner/a2a-quotes/resend-payment-email`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      "X-Owner-Key": ownerKey.trim(),
+    },
+    body: JSON.stringify({
+      key: ownerKey.trim(),
+      reference: reference.trim(),
+    }),
+  });
+  const payload = (await response.json().catch(() => null)) as {
+    ok?: boolean;
+    record?: A2aQuoteOwnerSummary;
+    payUrl?: string;
+    paymentEmailSent?: boolean;
+    error?: string;
+  } | null;
+  if (!response.ok || !payload?.record || !payload.payUrl || !payload.paymentEmailSent) {
+    throw new Error(String(payload?.error || "Could not resend payment email"));
+  }
+  return {
+    record: payload.record,
+    payUrl: payload.payUrl,
+    paymentEmailSent: true,
   };
 }
 

@@ -59,15 +59,13 @@ export type AddressPrediction = {
   secondaryText: string;
 };
 
+import { hasLeadingStreetNumber } from "../../shared/journey-address-label";
+
 function createSessionToken(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
     return crypto.randomUUID();
   }
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-}
-
-function hasLeadingStreetNumber(text: string): boolean {
-  return /^\d+[a-zA-Z]?\s/.test(text.trim());
 }
 
 function mergePredictions(
