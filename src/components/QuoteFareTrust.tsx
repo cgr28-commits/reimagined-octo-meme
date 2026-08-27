@@ -1,0 +1,224 @@
+/**
+ * Compact fixed-price trust + promotional savings presentation for the quote tool.
+ * Emerald visual language only — never sale-banner styling.
+ */
+
+import {
+  composeWebsiteFareBreakdown,
+  formatGbpFare,
+  type WebsiteFareBreakdown,
+} from "../../shared/website-fare-breakdown";
+
+export function buildOpenWebsiteFareBreakdown(input: {
+  journeyFareBeforeAirportAccessGbp: number;
+  airportFixedCostsGbp?: number;
+  airportAccessChargeGbp?: number;
+  returnJourney?: boolean;
+  claimFirstBookingOffer?: boolean;
+}): WebsiteFareBreakdown {
+  return composeWebsiteFareBreakdown({
+    journeyFareBeforeAirportAccessGbp: input.journeyFareBeforeAirportAccessGbp,
+    airportFixedCostsGbp: input.airportFixedCostsGbp ?? 0,
+    airportAccessChargeGbp: input.airportAccessChargeGbp ?? 0,
+    returnJourney: Boolean(input.returnJourney),
+    claimFirstBookingOffer: input.claimFirstBookingOffer !== false,
+  });
+}
+
+/** Compact reinforcement directly under the dominant fixed price. */
+export function FixedPriceAssurance({ className = "" }: { className?: string }) {
+  return (
+    <div className={`mt-1.5 space-y-0.5 ${className}`}>
+      <p className="text-sm font-semibold text-emerald">✓ Fixed price. No surprises.</p>
+      <p className="text-xs leading-snug text-white/55">
+        The price you book is the price you pay.
+      </p>
+    </div>
+  );
+}
+
+/** Compact reliability list — keep above the final CTA, not a large feature card. */
+export function BookWithConfidence({ className = "" }: { className?: string }) {
+  const items = [
+    "Fixed price — no surprises",
+    "Reliable, pre-booked airport transfer",
+    "Flight monitoring for airport collections",
+    "Free cancellation up to 24 hours before pickup",
+    "Secure online payment",
+  ];
+  return (
+    <div
+      className={`rounded-xl border border-emerald/25 bg-emerald/[0.06] px-3.5 py-3 ${className}`}
+    >
+      <p className="text-sm font-semibold text-emerald">Book with confidence</p>
+      <ul className="mt-2 space-y-1.5">
+        {items.map((item) => (
+          <li key={item} className="flex gap-2 text-xs leading-snug text-white/75">
+            <span className="shrink-0 font-semibold text-emerald" aria-hidden>
+              ✓
+            </span>
+            <span>{item}</span>
+          </li>
+        ))}
+      </ul>
+      <p className="quote-secondary mt-2 text-[11px] leading-snug">
+        Plans change? Cancel more than 24 hours before pickup for a full refund.
+      </p>
+    </div>
+  );
+}
+
+export function PromotionalSavingsSummary({
+  breakdown,
+  className = "",
+}: {
+  breakdown: WebsiteFareBreakdown;
+  className?: string;
+}) {
+  const hasPromo = breakdown.totalPromotionalSavingGbp > 0;
+  if (!hasPromo) return null;
+
+  return (
+    <div className={`mt-2.5 space-y-1.5 ${className}`}>
+      {breakdown.returnJourneySavingGbp > 0 ? (
+        <p className="text-xs font-semibold uppercase tracking-wide text-emerald">
+          ✓ {breakdown.returnJourneyDiscountPercentLabel} RETURN JOURNEY SAVING — YOU SAVE{" "}
+          {formatGbpFare(breakdown.returnJourneySavingGbp)}
+        </p>
+      ) : null}
+      {breakdown.firstBookingSavingGbp > 0 ? (
+        <p className="text-xs font-semibold uppercase tracking-wide text-emerald">
+          ✓ {breakdown.firstBookingLabel}
+          <span className="ml-1.5 font-medium normal-case tracking-normal text-emerald/90">
+            — you save {formatGbpFare(breakdown.firstBookingSavingGbp)}
+          </span>
+        </p>
+      ) : null}
+      {breakdown.totalPromotionalSavingGbp > 0 ? (
+        <p className="text-xs font-medium text-emerald/90">
+          ✓ YOU SAVE {formatGbpFare(breakdown.totalPromotionalSavingGbp)}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+/** Compact original → final + line items when any promotional discount applies. */
+export function PromotionalPriceBreakdown({
+  breakdown,
+  className = "",
+}: {
+  breakdown: WebsiteFareBreakdown;
+  className?: string;
+}) {
+  const hasPromo = breakdown.totalPromotionalSavingGbp > 0;
+  if (!hasPromo) return null;
+
+  return (
+    <div className={`mt-2 space-y-1.5 text-xs leading-snug ${className}`}>
+      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+        <span className="text-white/45 line-through">
+          {formatGbpFare(breakdown.originalEligibleJourneyPriceGbp)}
+        </span>
+        <span className="text-sm font-semibold text-white">
+          {formatGbpFare(breakdown.journeyFareAfterPromotionsGbp)}
+        </span>
+        <span className="font-semibold text-emerald">
+          ✓ YOU SAVE {formatGbpFare(breakdown.totalPromotionalSavingGbp)}
+        </span>
+      </div>
+      <dl className="space-y-0.5 text-white/60">
+        {breakdown.returnJourneySavingGbp > 0 ? (
+          <div className="flex justify-between gap-3">
+            <dt>
+              Return Journey Saving ({breakdown.returnJourneyDiscountPercentLabel})
+            </dt>
+            <dd className="shrink-0 text-emerald/90">
+              −{formatGbpFare(breakdown.returnJourneySavingGbp)}
+            </dd>
+          </div>
+        ) : null}
+        {breakdown.firstBookingSavingGbp > 0 ? (
+          <div className="flex justify-between gap-3">
+            <dt>{breakdown.firstBookingShortLabel}</dt>
+            <dd className="shrink-0 text-emerald/90">
+              −{formatGbpFare(breakdown.firstBookingSavingGbp)}
+            </dd>
+          </div>
+        ) : null}
+        <div className="flex justify-between gap-3 border-t border-white/10 pt-1 font-medium text-white/75">
+          <dt>Total Saving</dt>
+          <dd className="shrink-0 text-emerald">
+            {formatGbpFare(breakdown.totalPromotionalSavingGbp)}
+          </dd>
+        </div>
+      </dl>
+    </div>
+  );
+}
+
+/** Step 3 / Pay & Confirm — full payable breakdown before SumUp. */
+export function FinalPayableBreakdown({
+  breakdown,
+  className = "",
+}: {
+  breakdown: WebsiteFareBreakdown;
+  className?: string;
+}) {
+  return (
+    <div
+      className={`rounded-xl border border-white/10 bg-white/[0.03] px-3.5 py-3 ${className}`}
+    >
+      <p className="text-xs font-semibold uppercase tracking-wider text-emerald">
+        Price breakdown
+      </p>
+      <dl className="mt-2 space-y-1.5 text-sm">
+        <div className="flex justify-between gap-3 text-white/75">
+          <dt>Journey fare</dt>
+          <dd className="shrink-0 tabular-nums">
+            {formatGbpFare(breakdown.originalEligibleJourneyPriceGbp)}
+          </dd>
+        </div>
+        {breakdown.returnJourneySavingGbp > 0 ? (
+          <div className="flex justify-between gap-3 text-emerald/90">
+            <dt>Return journey saving</dt>
+            <dd className="shrink-0 tabular-nums">
+              −{formatGbpFare(breakdown.returnJourneySavingGbp)}
+            </dd>
+          </div>
+        ) : null}
+        {breakdown.firstBookingSavingGbp > 0 ? (
+          <div className="flex justify-between gap-3 text-emerald/90">
+            <dt>First booking saving</dt>
+            <dd className="shrink-0 tabular-nums">
+              −{formatGbpFare(breakdown.firstBookingSavingGbp)}
+            </dd>
+          </div>
+        ) : null}
+        {breakdown.airportAccessChargeGbp > 0 ? (
+          <div className="flex justify-between gap-3 text-white/75">
+            <dt>Airport access charge</dt>
+            <dd className="shrink-0 tabular-nums">
+              {formatGbpFare(breakdown.airportAccessChargeGbp)}
+            </dd>
+          </div>
+        ) : null}
+        {breakdown.totalPromotionalSavingGbp > 0 ? (
+          <div className="flex justify-between gap-3 border-t border-white/10 pt-1.5 font-medium text-emerald">
+            <dt>Total promotional savings</dt>
+            <dd className="shrink-0 tabular-nums">
+              {formatGbpFare(breakdown.totalPromotionalSavingGbp)}
+            </dd>
+          </div>
+        ) : null}
+        <div className="flex justify-between gap-3 border-t border-white/10 pt-1.5 text-base font-semibold text-white">
+          <dt>Final amount payable</dt>
+          <dd className="shrink-0 tabular-nums">
+            {formatGbpFare(breakdown.finalAmountPayableGbp)}
+          </dd>
+        </div>
+      </dl>
+      <FixedPriceAssurance className="mt-2.5" />
+    </div>
+  );
+}

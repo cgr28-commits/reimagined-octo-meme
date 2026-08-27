@@ -20,6 +20,10 @@ import {
   formatExpressDropOffSummaryLine,
 } from "./express-drop-off";
 import {
+  formatCustomerPromoPricingHtmlRows,
+  formatCustomerPromoPricingLines,
+} from "./website-promo-pricing";
+import {
   REFUND_FUNDS_TIMING,
   REFUND_REASON_LABELS,
   type RefundReasonCategory,
@@ -54,6 +58,16 @@ export type PaidBookingDetails = {
   expressDropOffSelected?: boolean;
   expressDropOffFee?: number;
   expressDropOffAirport?: "BFS" | "BHD" | null;
+  /** Snapshot of applied promotional pricing (open website). */
+  journeyFareBeforePromotionsGbp?: number;
+  originalEligibleJourneyPriceGbp?: number;
+  returnJourneySavingGbp?: number;
+  firstBookingOfferApplied?: boolean;
+  firstBookingSavingGbp?: number;
+  totalPromotionalSavingGbp?: number;
+  airportAccessChargeGbp?: number;
+  journeyFareAfterPromotionsGbp?: number;
+  finalAmountPayableGbp?: number;
   termsAcceptedAt?: string;
   termsVersion?: string;
   cancellationPolicyVersion?: string;
@@ -341,6 +355,21 @@ function buildInvoiceHtml(
                     <div style="font-size:28px;font-weight:bold;color:${NAVY};line-height:1.2;margin-bottom:12px;">${escapeHtml(details.amountPaid)}</div>
                     <div style="display:inline-block;background:${ACCENT};color:${NAVY};font-size:12px;font-weight:bold;letter-spacing:0.06em;text-transform:uppercase;padding:6px 12px;border-radius:999px;margin-bottom:12px;">Paid in full</div>
                     <div style="font-size:14px;line-height:1.8;color:#475569;">
+                      ${(() => {
+                        const promoRows = formatCustomerPromoPricingHtmlRows(
+                          details,
+                          details.amountPaid,
+                        );
+                        if (promoRows.length > 1) {
+                          return promoRows
+                            .map(
+                              (row) =>
+                                `<strong>${escapeHtml(row.label)}:</strong> ${escapeHtml(row.value)}<br />`,
+                            )
+                            .join("");
+                        }
+                        return "";
+                      })()}
                       ${customerRef ? `<strong>Booking reference:</strong> ${escapeHtml(customerRef)}<br />` : ""}
                       <strong>Payment method:</strong> Card (SumUp)<br />
                       <strong>Status:</strong> Paid &amp; confirmed
@@ -492,7 +521,13 @@ export function buildCustomerConfirmationEmail(
     })() +
     `PAYMENT / INVOICE\n` +
     `${"=".repeat(40)}\n` +
-    `Amount paid: ${details.amountPaid}\n` +
+    (() => {
+      const promoLines = formatCustomerPromoPricingLines(details, details.amountPaid);
+      if (promoLines.length > 1) {
+        return `${promoLines.join("\n")}\n`;
+      }
+      return `Amount paid: ${details.amountPaid}\n`;
+    })() +
     (customerRef ? `Booking reference: ${customerRef}\n` : "") +
     `Payment method: Card (SumUp)\n` +
     `Status: Paid & confirmed\n` +

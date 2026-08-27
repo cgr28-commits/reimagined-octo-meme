@@ -108,11 +108,19 @@ import {
 import SaveQuoteModal from "@/components/SaveQuoteModal";
 import ExpressDropOffChoice from "@/components/ExpressDropOffChoice";
 import {
+  BookWithConfidence,
+  FinalPayableBreakdown,
+  FixedPriceAssurance,
+  PromotionalPriceBreakdown,
+  buildOpenWebsiteFareBreakdown,
+} from "@/components/QuoteFareTrust";
+import {
   canProceedWithoutExpressDropOff,
   composeFareWithExpressDropOff,
   resolveExpressDropOff,
   shouldDefaultExpressSelectedOnNewEligibility,
 } from "../../shared/express-drop-off";
+import { promoFieldsFromFareBreakdown } from "../../shared/website-promo-pricing";
 import {
   buildSaveQuotePayloadFromLiveQuote,
   type BuildSaveQuotePayloadResult,
@@ -1317,15 +1325,82 @@ function QuoteCard({
     return scheduleScrollToBookNowAfterExpressAck();
   }, [expressRemovalAck, isMobileDevice]);
 
+  const claimFirstBookingOffer =
+    testChargeAmount == null &&
+    !appliedPersonalQuote &&
+    Boolean(liveQuote) &&
+    !showsRequestQuoteFlow &&
+    !isEnquiryOnly &&
+    !pricingConfirmationRequired &&
+    !isManualQuoteJourney;
+
+  const journeyFareParts = useMemo(() => {
+    if (!liveQuote || typeof liveQuote.amount !== "number") {
+      return { journeyFareGbp: null as number | null, airportFixedCostsGbp: 0 };
+    }
+    const fixed =
+      typeof liveQuote.airportFixedCostsGbp === "number" &&
+      Number.isFinite(liveQuote.airportFixedCostsGbp)
+        ? Math.max(0, Math.round(liveQuote.airportFixedCostsGbp * 100) / 100)
+        : 0;
+    const journey =
+      typeof liveQuote.journeyFareGbp === "number" && Number.isFinite(liveQuote.journeyFareGbp)
+        ? Math.max(0, Math.round(liveQuote.journeyFareGbp * 100) / 100)
+        : Math.max(0, Math.round((liveQuote.amount - fixed) * 100) / 100);
+    return { journeyFareGbp: journey, airportFixedCostsGbp: fixed };
+  }, [liveQuote]);
+
+  const openWebsiteFareBreakdown = useMemo(() => {
+    if (
+      !claimFirstBookingOffer ||
+      journeyFareParts.journeyFareGbp == null ||
+      testChargeAmount != null ||
+      appliedPersonalQuote
+    ) {
+      return null;
+    }
+    return buildOpenWebsiteFareBreakdown({
+      journeyFareBeforeAirportAccessGbp: journeyFareParts.journeyFareGbp,
+      airportFixedCostsGbp: journeyFareParts.airportFixedCostsGbp,
+      airportAccessChargeGbp: expressSelection.feeGbp,
+      returnJourney,
+      claimFirstBookingOffer: true,
+    });
+  }, [
+    claimFirstBookingOffer,
+    journeyFareParts.journeyFareGbp,
+    journeyFareParts.airportFixedCostsGbp,
+    expressSelection.feeGbp,
+    returnJourney,
+    testChargeAmount,
+    appliedPersonalQuote,
+  ]);
+
   const transferFareGbp = useMemo(() => {
     if (testChargeAmount != null) return testChargeAmount;
     if (appliedPersonalQuote && typeof appliedPersonalQuote.agreedAmount === "number") {
       return appliedPersonalQuote.agreedAmount;
     }
+    if (openWebsiteFareBreakdown) {
+      return openWebsiteFareBreakdown.transferFareAfterPromotionsGbp;
+    }
     return liveQuote?.amount ?? null;
-  }, [testChargeAmount, appliedPersonalQuote, liveQuote?.amount]);
+  }, [
+    testChargeAmount,
+    appliedPersonalQuote,
+    openWebsiteFareBreakdown,
+    liveQuote?.amount,
+  ]);
 
   const pricedFare = useMemo(() => {
+    if (openWebsiteFareBreakdown) {
+      return {
+        transferFareGbp: openWebsiteFareBreakdown.transferFareAfterPromotionsGbp,
+        extrasGbp: 0,
+        expressDropOffFeeGbp: openWebsiteFareBreakdown.airportAccessChargeGbp,
+        totalGbp: openWebsiteFareBreakdown.finalAmountPayableGbp,
+      };
+    }
     if (transferFareGbp == null || !Number.isFinite(transferFareGbp)) return null;
     // Test £1 charge: do not add Express.
     if (testChargeAmount != null) {
@@ -1338,7 +1413,12 @@ function QuoteCard({
       transferFareGbp,
       expressDropOffFeeGbp: expressSelection.feeGbp,
     });
-  }, [transferFareGbp, testChargeAmount, expressSelection.feeGbp]);
+  }, [
+    openWebsiteFareBreakdown,
+    transferFareGbp,
+    testChargeAmount,
+    expressSelection.feeGbp,
+  ]);
 
   /** Pay online at quote time — saloon/estate when SumUp enabled. */
   const canPayNowOnline =
@@ -1984,6 +2064,9 @@ function QuoteCard({
       expressDropOffSelected: expressSelection.eligible ? expressDropOffSelected : false,
       expressDropOffFee: expressSelection.feeGbp,
       expressDropOffAirport: expressSelection.airportCode,
+      ...(openWebsiteFareBreakdown
+        ? promoFieldsFromFareBreakdown(openWebsiteFareBreakdown)
+        : {}),
     };
   }
 
@@ -2214,13 +2297,25 @@ function QuoteCard({
     try {
       const returnToken = createPaymentReturnToken();
       const checkout = await createPaymentCheckout({
-        amount: transferFareGbp ?? liveQuote.amount,
+        amount:
+          testChargeAmount != null
+            ? testChargeAmount
+            : appliedPersonalQuote
+              ? appliedPersonalQuote.agreedAmount
+              : (liveQuote.amount ?? 0),
         description: buildPaymentDescription(),
         redirectUrl: buildPaymentRedirectUrl(returnToken),
         booking: bookingDetails,
         expressDropOffSelected: expressSelection.eligible
           ? expressDropOffSelected
           : false,
+        ...(claimFirstBookingOffer && journeyFareParts.journeyFareGbp != null
+          ? {
+              journeyFareGbp: journeyFareParts.journeyFareGbp,
+              airportFixedCostsGbp: journeyFareParts.airportFixedCostsGbp,
+              claimFirstBookingOffer: true,
+            }
+          : { claimFirstBookingOffer: false }),
         ...(appliedPersonalQuote && testChargeAmount === null
           ? {
               personalQuoteCode: appliedPersonalQuote.code,
@@ -3030,24 +3125,24 @@ function QuoteCard({
     ? pricingConfirmationRequired
       ? "Request a Quote"
       : liveQuote
-        ? `Request quote · ${formatQuote(liveQuote.amount)}`
+        ? `Request quote · ${formatQuote(pricedFare?.totalGbp ?? liveQuote.amount)}`
         : "Request a Quote"
     : isEnquiryOnly
       ? "Send enquiry"
       : liveQuote
-        ? `Confirm & book for ${formatQuote(liveQuote.amount)}`
+        ? `Confirm & book for ${formatQuote(pricedFare?.totalGbp ?? liveQuote.amount)}`
         : "Confirm & book";
 
   const whatsAppConfirmLabel = showsRequestQuoteFlow
     ? pricingConfirmationRequired || isManualQuoteJourney
       ? "Chat on WhatsApp"
       : liveQuote
-        ? `Request quote via WhatsApp — ${formatQuote(liveQuote.amount)}`
+        ? `Request quote via WhatsApp — ${formatQuote(pricedFare?.totalGbp ?? liveQuote.amount)}`
         : "Chat on WhatsApp"
     : isEnquiryOnly
       ? "Send enquiry via WhatsApp"
       : liveQuote
-        ? `Send via WhatsApp — ${formatQuote(liveQuote.amount)}`
+        ? `Send via WhatsApp — ${formatQuote(pricedFare?.totalGbp ?? liveQuote.amount)}`
         : "Confirm & send via WhatsApp";
 
   const quoteHint = pricingConfirmationRequired
@@ -3217,11 +3312,13 @@ function QuoteCard({
               addressToAddress={isAddressToAddressInclusions}
               guideSuffix="This is a guide price only — not an instant confirmation."
             />
-            {returnJourney && (
+            {returnJourney && openWebsiteFareBreakdown ? (
+              <PromotionalPriceBreakdown breakdown={openWebsiteFareBreakdown} />
+            ) : returnJourney ? (
               <p className="mt-2 text-xs font-medium text-emerald/90">
                 Includes 5% return booking discount on the guide price.
               </p>
-            )}
+            ) : null}
           </>
         ) : isEnquiryOnly ? (
           <>
@@ -3258,6 +3355,12 @@ function QuoteCard({
                   liveQuote.amount,
               )}
             </p>
+            {testChargeAmount === null && !appliedPersonalQuote ? (
+              <FixedPriceAssurance />
+            ) : null}
+            {testChargeAmount === null && !appliedPersonalQuote && openWebsiteFareBreakdown ? (
+              <PromotionalPriceBreakdown breakdown={openWebsiteFareBreakdown} />
+            ) : null}
             {renderExpressChoiceInPriceCard(quoteStep === 1 ? "full" : "summary")}
             {appliedPersonalQuote && testChargeAmount === null ? (
               <p className="mt-2 text-sm text-emerald/90">
@@ -3286,11 +3389,6 @@ function QuoteCard({
               airportCode={effectiveAirportCode}
               addressToAddress={isAddressToAddressInclusions}
             />
-            {returnJourney && !appliedPersonalQuote && (
-              <p className="mt-2 text-xs font-medium text-emerald/90">
-                Includes 5% return booking discount.
-              </p>
-            )}
           </>
         ) : (
           <>
@@ -4850,7 +4948,10 @@ function QuoteCard({
                         : "Your fixed journey price"
                   }
                   value={formatQuote(
-                    testChargeAmount ?? appliedPersonalQuote?.agreedAmount ?? liveQuote.amount,
+                    testChargeAmount ??
+                      pricedFare?.totalGbp ??
+                      appliedPersonalQuote?.agreedAmount ??
+                      liveQuote.amount,
                   )}
                 />
               ) : null}
@@ -4921,12 +5022,26 @@ function QuoteCard({
                     : appliedPersonalQuote
                       ? formatQuote(appliedPersonalQuote.agreedAmount)
                       : liveQuote
-                        ? formatQuote(liveQuote.amount)
+                        ? formatQuote(
+                            pricedFare?.totalGbp ?? liveQuote.amount,
+                          )
                         : undefined
               }
             />
 
             <MarketingOptIn checked={marketingOptIn} onCheckedChange={setMarketingOptIn} />
+
+            {canPayNowOnline &&
+            liveQuote &&
+            testChargeAmount === null &&
+            !appliedPersonalQuote &&
+            openWebsiteFareBreakdown ? (
+              <FinalPayableBreakdown breakdown={openWebsiteFareBreakdown} />
+            ) : null}
+
+            {canPayNowOnline && liveQuote && testChargeAmount === null ? (
+              <BookWithConfidence />
+            ) : null}
 
             <div
               id="step3-payment-actions"
@@ -5001,7 +5116,7 @@ function QuoteCard({
                         ? "Opening secure payment…"
                         : testChargeAmount !== null
                           ? "Pay £1.00 test charge with SumUp"
-                          : `Pay ${formatQuote(appliedPersonalQuote?.agreedAmount ?? liveQuote.amount)} now with SumUp`}
+                          : `Pay ${formatQuote(appliedPersonalQuote?.agreedAmount ?? pricedFare?.totalGbp ?? liveQuote.amount)} now with SumUp`}
                     </button>
                     {(!customerName.trim() ||
                       !customerEmail.trim() ||

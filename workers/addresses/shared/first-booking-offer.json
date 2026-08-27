@@ -1,0 +1,6 @@
+{
+  "enabled": true,
+  "discountAmountGbp": 5,
+  "minimumEligibleJourneyFareGbp": 40,
+  "stackWithReturnJourneyDiscount": true
+}

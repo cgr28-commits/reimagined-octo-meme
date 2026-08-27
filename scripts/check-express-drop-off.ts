@@ -310,22 +310,22 @@ check("Breakdown / customer copy wording", () => {
     expressDropOffBreakdownLabel("BFS", true),
     "Belfast International Express Drop-Off: £5",
   );
-  assert.equal(expressDropOffBreakdownLabel("BFS", false), "Express Drop-Off removed: −£5");
+  assert.equal(expressDropOffBreakdownLabel("BFS", false), "Free drop-off selected — you save £5");
   assert.equal(
     expressDropOffBreakdownLabel("BFS", true, "pick-up"),
     "Belfast International Express Pick-Up: £5",
   );
   assert.equal(
     expressDropOffBreakdownLabel("BFS", false, "pick-up"),
-    "Express Pick-Up removed: −£5",
+    "Free pick-up selected — you save £5",
   );
   assert.equal(
     EXPRESS_DROP_OFF_REMOVED_EXPLANATION,
-    "You will be dropped at the airport’s designated free drop-off area rather than the Express terminal area. It’s only a short walk to the terminal.",
+    "You’ll be dropped at the designated free drop-off area instead of Express Drop-Off. It’s only a short walk to the terminal.",
   );
   assert.equal(
     EXPRESS_PICK_UP_REMOVED_EXPLANATION,
-    "You will meet your driver at the airport’s designated free pick-up area rather than the Express terminal area. It’s only a short walk from the terminal.",
+    "You’ll meet your driver at the designated free pick-up area instead of Express Pick-Up. It’s only a short walk from the terminal.",
   );
   assert.equal(
     expressDropOffRemovedExplanation("drop-off"),
@@ -458,7 +458,7 @@ check("QuoteCard shows Express under initial price; payment uses summary + Chang
   // Exact order inside the fixed-price card: title → large price → Express → vehicle details.
   assert.match(
     card,
-    /Your Fixed Journey Price[\s\S]*?text-3xl[\s\S]*?renderExpressChoiceInPriceCard[\s\S]*?Vehicle:/,
+    /Your Fixed Journey Price[\s\S]*?quote-price-figure[\s\S]*?FixedPriceAssurance[\s\S]*?renderExpressChoiceInPriceCard[\s\S]*?Vehicle:/,
   );
   assert.match(card, /data-express-airport-choice/);
   assert.match(card, /renderExpressChoiceInPriceCard/);
@@ -470,7 +470,9 @@ check("QuoteCard shows Express under initial price; payment uses summary + Chang
   assert.match(card, /expressDropOffSelected/);
   assert.match(card, /renderExpressChoiceInPriceCard\(quoteStep === 1 \? "full" : "summary"\)/);
   // Browser sends transfer fare + boolean — never trusts a client fee for SumUp.
-  assert.match(card, /amount: transferFareGbp/);
+  assert.match(card, /createPaymentCheckout\(\{/);
+  assert.match(card, /claimFirstBookingOffer/);
+  assert.match(card, /journeyFareGbp/);
   assert.match(card, /expressDropOffSelected: expressSelection\.eligible/);
   assert.match(card, /canProceedWithoutExpressDropOff/);
   // Persist selection across steps / drafts / Book Now + Save Quote.
@@ -513,7 +515,7 @@ check("Removing Express reduces total immediately without changing transfer fare
   assert.equal(without.expressDropOffFeeGbp, 0);
   assert.equal(without.totalGbp, 42);
   assert.equal(without.totalGbp, withExpress.totalGbp - 5);
-  assert.equal(expressDropOffBreakdownLabel("BFS", false), "Express Drop-Off removed: −£5");
+  assert.equal(expressDropOffBreakdownLabel("BFS", false), "Free drop-off selected — you save £5");
 
   const bhdWith = composeFareWithExpressDropOff({
     transferFareGbp: 30,
@@ -525,7 +527,7 @@ check("Removing Express reduces total immediately without changing transfer fare
   });
   assert.equal(bhdWith.totalGbp - bhdWithout.totalGbp, 4);
   assert.equal(bhdWithout.transferFareGbp, bhdWith.transferFareGbp);
-  assert.equal(expressDropOffBreakdownLabel("BHD", false), "Express Drop-Off removed: −£4");
+  assert.equal(expressDropOffBreakdownLabel("BHD", false), "Free drop-off selected — you save £4");
 });
 
 check("Open website booking (QuoteCard) re-composes Express server-side", () => {
@@ -653,7 +655,7 @@ check("Customer can remove Express on a Quick Quote booking link (display + tota
   assert.equal(without.totalGbp, withExpress.totalGbp - 5);
   assert.equal(
     expressDropOffBreakdownLabel("BFS", false),
-    "Express Drop-Off removed: −£5",
+    "Free drop-off selected — you save £5",
   );
 
   // Tampered browser fee must be ignored — only boolean selection matters.
@@ -697,7 +699,7 @@ check("Customer can remove Express on a Personal Quote link (display + total)", 
   assert.equal(bhd.paymentAmount, 34);
   assert.equal(
     expressDropOffBreakdownLabel("BHD", false),
-    "Express Drop-Off removed: −£4",
+    "Free drop-off selected — you save £4",
   );
 });
 
@@ -907,7 +909,7 @@ check("Emails and booking records show the customer’s final Express choice", (
   };
 
   const enquiry = buildBookingMessage(removedBooking);
-  assert.match(enquiry, /Express Drop-Off removed: −£5/);
+  assert.match(enquiry, /Free drop-off selected — you save £5/);
   assert.match(enquiry, /Airport-imposed Express access charges are passed on at cost with no markup/);
 
   const receipt: PaidBookingReceipt = {
@@ -917,9 +919,9 @@ check("Emails and booking records show the customer’s final Express choice", (
     customerReference: "MAT-1001",
   };
   const customerEmail = buildCustomerConfirmationEmail(receipt);
-  assert.match(customerEmail.text, /Express Drop-Off removed: −£5/);
+  assert.match(customerEmail.text, /Free drop-off selected — you save £5/);
   const ownerEmail = buildOwnerPaidBookingEmail(receipt);
-  assert.match(ownerEmail.body, /Express Drop-Off removed: −£5/);
+  assert.match(ownerEmail.body, /Free drop-off selected — you save £5/);
 
   const kept = formatExpressDropOffSummaryLine({
     expressDropOffSelected: true,

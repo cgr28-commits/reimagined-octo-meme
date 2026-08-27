@@ -40,6 +40,15 @@ export type BookingDetails = {
   expressDropOffSelected?: boolean;
   expressDropOffFee?: number;
   expressDropOffAirport?: "BFS" | "BHD" | null;
+  journeyFareBeforePromotionsGbp?: number;
+  originalEligibleJourneyPriceGbp?: number;
+  returnJourneySavingGbp?: number;
+  firstBookingOfferApplied?: boolean;
+  firstBookingSavingGbp?: number;
+  totalPromotionalSavingGbp?: number;
+  airportAccessChargeGbp?: number;
+  journeyFareAfterPromotionsGbp?: number;
+  finalAmountPayableGbp?: number;
   /** Number of child / booster seats requested (0–2). */
   childSeats?: number;
   childSeatNotes?: string;
