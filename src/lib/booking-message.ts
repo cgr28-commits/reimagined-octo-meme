@@ -10,6 +10,7 @@ import { formatMarketingOptInLine } from "../../shared/marketing";
 import type { AdsAttribution } from "../../shared/ads-attribution";
 import {
   EXPRESS_DROP_OFF_PASSED_ON_NOTE,
+  formatAirportAccessOptionCustomerLine,
   formatExpressDropOffSummaryLine,
 } from "../../shared/express-drop-off";
 
@@ -128,14 +129,24 @@ function buildTripDetailsBlock(details: BookingDetails, bookingReference?: strin
     `Vehicle: ${details.vehicle}\n` +
     (details.estimatedPrice ? `Your fixed journey price: ${details.estimatedPrice}\n` : "") +
     (() => {
+      const accessLine = formatAirportAccessOptionCustomerLine({
+        expressDropOffSelected: details.expressDropOffSelected,
+        expressDropOffFee: details.expressDropOffFee,
+        expressDropOffAirport: details.expressDropOffAirport ?? details.airportCode,
+        fromAirport: details.isFromAirport,
+      });
       const expressLine = formatExpressDropOffSummaryLine({
         expressDropOffSelected: details.expressDropOffSelected,
         expressDropOffFee: details.expressDropOffFee,
         expressDropOffAirport: details.expressDropOffAirport ?? details.airportCode,
+        fromAirport: details.isFromAirport,
       });
-      return expressLine
-        ? `${expressLine}\n${EXPRESS_DROP_OFF_PASSED_ON_NOTE}\n`
-        : "";
+      if (!accessLine && !expressLine) return "";
+      return (
+        (accessLine ? `${accessLine}\n` : "") +
+        (expressLine ? `${expressLine}\n` : "") +
+        `${EXPRESS_DROP_OFF_PASSED_ON_NOTE}\n`
+      );
     })() +
     includesBlock +
     (details.returnJourney && details.estimatedPrice ? "Return booking discount: 5% applied\n" : "") +

@@ -161,6 +161,12 @@ export type PaidBookingRecord = {
   isAirportTrip?: boolean;
   airportCode?: string;
   isFromAirport?: boolean;
+  /** Customer Express choice — explicit, not inferred from final price. */
+  expressDropOffSelected?: boolean;
+  expressDropOffFee?: number;
+  expressDropOffAirport?: "BFS" | "BHD" | null;
+  /** "express" | "free" — stored for confirmation/resend clarity. */
+  airportAccessOption?: "express" | "free" | null;
   termsAcceptedAt?: string;
   termsVersion?: string;
   /** Cancellation / checkout policy version shown beside Terms acceptance. */

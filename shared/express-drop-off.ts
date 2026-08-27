@@ -310,6 +310,9 @@ export type ExpressDropOffPersistedFields = {
   expressDropOffAirport: ExpressDropOffAirportCode | null;
 };
 
+/** Explicit customer choice — never infer from final price alone. */
+export type AirportAccessOption = "express" | "free";
+
 export function toExpressDropOffPersistedFields(
   selection: ExpressDropOffSelection,
 ): ExpressDropOffPersistedFields {
@@ -318,6 +321,92 @@ export function toExpressDropOffPersistedFields(
     expressDropOffFee: selection.feeGbp,
     expressDropOffAirport: selection.eligible ? selection.airportCode : null,
   };
+}
+
+/**
+ * Resolve the explicit airport-access choice from persisted Express fields.
+ * Returns null when Express was not offered for this journey.
+ */
+export function resolveAirportAccessOption(input: {
+  expressDropOffSelected?: boolean | null;
+  expressDropOffFee?: number | null;
+  expressDropOffAirport?: string | null;
+}): AirportAccessOption | null {
+  const airport = normaliseExpressDropOffAirport(input.expressDropOffAirport);
+  if (!airport) {
+    return null;
+  }
+  if (typeof input.expressDropOffSelected !== "boolean") {
+    // Fee alone can still indicate a charged Express selection.
+    if (typeof input.expressDropOffFee === "number" && input.expressDropOffFee > 0) {
+      return "express";
+    }
+    return null;
+  }
+  return input.expressDropOffSelected ? "express" : "free";
+}
+
+/**
+ * Customer journey-details line (confirmation page + email).
+ * Example: "Airport access option: Express Drop-Off — £5.00"
+ * Example: "Airport access option: Free designated drop-off area — short walk to terminal"
+ */
+export function formatAirportAccessOptionCustomerLine(input: {
+  expressDropOffSelected?: boolean | null;
+  expressDropOffFee?: number | null;
+  expressDropOffAirport?: string | null;
+  fromAirport?: boolean | null;
+  service?: ExpressAirportService | null;
+}): string | null {
+  const option = resolveAirportAccessOption(input);
+  if (!option) return null;
+  const airport = normaliseExpressDropOffAirport(input.expressDropOffAirport);
+  if (!airport) return null;
+  const service =
+    input.service ?? resolveExpressAirportService({ fromAirport: input.fromAirport });
+  const product = service === "pick-up" ? "Express Pick-Up" : "Express Drop-Off";
+  if (option === "express") {
+    const fee =
+      typeof input.expressDropOffFee === "number" && input.expressDropOffFee > 0
+        ? roundGbp(input.expressDropOffFee)
+        : EXPRESS_DROP_OFF_FEES_GBP[airport];
+    return `Airport access option: ${product} — ${formatExpressDropOffGbp(fee)}`;
+  }
+  if (service === "pick-up") {
+    return "Airport access option: Free designated pick-up area — short walk from terminal";
+  }
+  return "Airport access option: Free designated drop-off area — short walk to terminal";
+}
+
+/**
+ * Owner/admin alert line — intentionally loud for phone scanning.
+ * Example: "AIRPORT ACCESS: EXPRESS — £5 PAID"
+ * Example: "AIRPORT ACCESS: FREE DROP-OFF AREA"
+ */
+export function formatAirportAccessOptionOwnerLine(input: {
+  expressDropOffSelected?: boolean | null;
+  expressDropOffFee?: number | null;
+  expressDropOffAirport?: string | null;
+  fromAirport?: boolean | null;
+  service?: ExpressAirportService | null;
+}): string | null {
+  const option = resolveAirportAccessOption(input);
+  if (!option) return null;
+  const airport = normaliseExpressDropOffAirport(input.expressDropOffAirport);
+  if (!airport) return null;
+  const service =
+    input.service ?? resolveExpressAirportService({ fromAirport: input.fromAirport });
+  if (option === "express") {
+    const fee =
+      typeof input.expressDropOffFee === "number" && input.expressDropOffFee > 0
+        ? roundGbp(input.expressDropOffFee)
+        : EXPRESS_DROP_OFF_FEES_GBP[airport];
+    const feeLabel = formatExpressDropOffGbp(fee).replace(/^£/, "£");
+    return `AIRPORT ACCESS: EXPRESS — ${feeLabel} PAID`;
+  }
+  return service === "pick-up"
+    ? "AIRPORT ACCESS: FREE PICK-UP AREA"
+    : "AIRPORT ACCESS: FREE DROP-OFF AREA";
 }
 
 /**

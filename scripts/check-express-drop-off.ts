@@ -19,6 +19,8 @@ import {
   expressDropOffRecommendedLabel,
   expressDropOffRemoveLabel,
   expressDropOffRemovedExplanation,
+  formatAirportAccessOptionCustomerLine,
+  formatAirportAccessOptionOwnerLine,
   formatExpressDropOffSummaryLine,
   parseCustomerExpressDropOffSelected,
   resolveExpressDropOff,
@@ -915,6 +917,7 @@ check("Emails and booking records show the customer’s final Express choice", (
   };
 
   const enquiry = buildBookingMessage(removedBooking);
+  assert.match(enquiry, /Airport access option: Free designated drop-off area/);
   assert.match(enquiry, /Free drop-off selected — you save £5/);
   assert.match(enquiry, /Airport-imposed Express access charges are passed on at cost with no markup/);
 
@@ -925,9 +928,47 @@ check("Emails and booking records show the customer’s final Express choice", (
     customerReference: "MAT-1001",
   };
   const customerEmail = buildCustomerConfirmationEmail(receipt);
-  assert.match(customerEmail.text, /Free drop-off selected — you save £5/);
+  assert.match(customerEmail.text, /Airport access option: Free designated drop-off area/);
+  assert.match(customerEmail.html, /Airport access option/);
+  assert.match(customerEmail.html, /Free designated drop-off area/);
   const ownerEmail = buildOwnerPaidBookingEmail(receipt);
-  assert.match(ownerEmail.body, /Free drop-off selected — you save £5/);
+  assert.match(ownerEmail.body, /AIRPORT ACCESS: FREE DROP-OFF AREA/);
+  assert.match(ownerEmail.body, /Airport access option: Free designated drop-off area/);
+
+  const keptExpressBooking = {
+    ...removedBooking,
+    expressDropOffSelected: true,
+    expressDropOffFee: 5,
+  };
+  const keptReceipt: PaidBookingReceipt = {
+    ...keptExpressBooking,
+    amountPaid: "£45.00",
+    paymentReference: "PAY-EXPRESS",
+    customerReference: "MAT-1002",
+  };
+  const keptCustomer = buildCustomerConfirmationEmail(keptReceipt);
+  assert.match(keptCustomer.text, /Airport access option: Express Drop-Off — £5/);
+  assert.match(keptCustomer.html, /Express Drop-Off — £5/);
+  const keptOwner = buildOwnerPaidBookingEmail(keptReceipt);
+  assert.match(keptOwner.body, /AIRPORT ACCESS: EXPRESS — £5 PAID/);
+
+  // Switching Free → Express before payment stores the final selection.
+  const switched = formatAirportAccessOptionCustomerLine({
+    expressDropOffSelected: true,
+    expressDropOffFee: 5,
+    expressDropOffAirport: "BFS",
+    fromAirport: false,
+  });
+  assert.equal(switched, "Airport access option: Express Drop-Off — £5");
+  assert.equal(
+    formatAirportAccessOptionOwnerLine({
+      expressDropOffSelected: false,
+      expressDropOffFee: 0,
+      expressDropOffAirport: "BFS",
+      fromAirport: false,
+    }),
+    "AIRPORT ACCESS: FREE DROP-OFF AREA",
+  );
 
   const kept = formatExpressDropOffSummaryLine({
     expressDropOffSelected: true,
@@ -935,6 +976,25 @@ check("Emails and booking records show the customer’s final Express choice", (
     expressDropOffAirport: "BHD",
   });
   assert.equal(kept, "Belfast City Airport Express Drop-Off: £4");
+});
+
+check("Paid booking record + confirmation page persist airport access option", () => {
+  const record = read("shared/paid-booking-record.ts");
+  const canonical = read("shared/paid-booking-canonical.ts");
+  const save = read("workers/addresses/src/refund-handlers.ts");
+  const confirmed = read("src/app/booking-confirmed/BookingConfirmedClient.tsx");
+  const express = read("shared/express-drop-off.ts");
+
+  assert.match(record, /expressDropOffSelected\?:/);
+  assert.match(record, /airportAccessOption\?:/);
+  assert.match(canonical, /expressDropOffSelected/);
+  assert.match(canonical, /airportAccessOption/);
+  assert.match(save, /expressDropOffSelected: input\.booking\.expressDropOffSelected/);
+  assert.match(save, /airportAccessOption:/);
+  assert.match(confirmed, /formatAirportAccessOptionCustomerLine/);
+  assert.match(express, /formatAirportAccessOptionCustomerLine/);
+  assert.match(express, /formatAirportAccessOptionOwnerLine/);
+  assert.match(express, /resolveAirportAccessOption/);
 });
 
 console.log("\nAll Express Drop-Off checks passed.");

@@ -15,6 +15,7 @@ import {
   formatCustomerPromoPricingLines,
   type WebsitePromoPricingFields,
 } from "../../../shared/website-promo-pricing";
+import { formatAirportAccessOptionCustomerLine } from "../../../shared/express-drop-off";
 
 type ViewStatus = "loading" | "confirmed" | "pending" | "missing" | "error";
 
@@ -70,7 +71,14 @@ export default function BookingConfirmedClient() {
       const lines = formatCustomerPromoPricingLines(promoFields).filter(
         (line) => !line.startsWith("Amount paid:"),
       );
-      setPromoLines(lines);
+      const accessLine = formatAirportAccessOptionCustomerLine({
+        expressDropOffSelected: pending.booking.expressDropOffSelected,
+        expressDropOffFee: pending.booking.expressDropOffFee,
+        expressDropOffAirport:
+          pending.booking.expressDropOffAirport ?? pending.booking.airportCode,
+        fromAirport: pending.booking.isFromAirport,
+      });
+      setPromoLines(accessLine ? [accessLine, ...lines] : lines);
     }
 
     let cancelled = false;

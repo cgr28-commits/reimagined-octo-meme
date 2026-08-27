@@ -1758,6 +1758,37 @@ export async function savePaidBookingRecordFromConfirm(input: {
     isAirportTrip: input.booking.isAirportTrip,
     airportCode: input.booking.airportCode,
     isFromAirport: input.booking.isFromAirport,
+    ...(typeof input.booking.expressDropOffSelected === "boolean"
+      ? { expressDropOffSelected: input.booking.expressDropOffSelected }
+      : {}),
+    ...(typeof input.booking.expressDropOffFee === "number" &&
+    Number.isFinite(input.booking.expressDropOffFee)
+      ? {
+          expressDropOffFee:
+            Math.round(Number(input.booking.expressDropOffFee) * 100) / 100,
+        }
+      : {}),
+    ...(input.booking.expressDropOffAirport === "BFS" ||
+    input.booking.expressDropOffAirport === "BHD"
+      ? { expressDropOffAirport: input.booking.expressDropOffAirport }
+      : input.booking.expressDropOffAirport === null
+        ? { expressDropOffAirport: null }
+        : {}),
+    ...(input.booking.expressDropOffAirport === "BFS" ||
+    input.booking.expressDropOffAirport === "BHD" ||
+    typeof input.booking.expressDropOffSelected === "boolean"
+      ? {
+          airportAccessOption:
+            input.booking.expressDropOffSelected === true
+              ? "express"
+              : input.booking.expressDropOffSelected === false
+                ? "free"
+                : typeof input.booking.expressDropOffFee === "number" &&
+                    input.booking.expressDropOffFee > 0
+                  ? "express"
+                  : null,
+        }
+      : {}),
     termsAcceptedAt: input.booking.termsAcceptedAt,
     termsVersion: input.booking.termsVersion,
     cancellationPolicyVersion: input.booking.cancellationPolicyVersion,
