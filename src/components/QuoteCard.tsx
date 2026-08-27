@@ -20,6 +20,15 @@ import {
   type QuoteStepNavTarget,
 } from "@/lib/quote-step-nav-scroll";
 import {
+  trackDropoffPlaceSelected,
+  trackPickupPlaceSelected,
+  trackQuoteManualEnquiry,
+  trackQuoteRequestClicked,
+  trackQuoteStarted,
+  trackQuoteToolViewed,
+  trackQuoteValidationError,
+} from "@/lib/quote-funnel-analytics";
+import {
   AIRPORTS,
   isInstantPayVehicle,
   isVehicleEnquiryOnly,
@@ -434,6 +443,10 @@ function QuoteCard({
   const pendingBookingResultScrollRef = useRef(false);
   /** Set only by explicit Book Now / Continue / Back — never by quote re-renders. */
   const pendingQuoteStepNavScrollRef = useRef<QuoteStepNavTarget | null>(null);
+  /** Stable id for once-per-attempt Step 1 funnel diagnostics (not PII). */
+  const quoteFunnelAttemptIdRef = useRef(
+    `q${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`,
+  );
   const passengerLimit = Math.min(
     Math.max(1, maxPassengers),
     SELECTOR_MAX_PASSENGERS,
@@ -1406,6 +1419,19 @@ function QuoteCard({
     }
   }
 
+  /** Places autocomplete selection only (not airport quick-select). */
+  function handlePickupPlacesSuggestionSelect(place: SelectedPlace) {
+    handlePickupPlaceSelect(place);
+    if (isQuoteReadyPlace(place) && place.placeId?.trim()) {
+      markQuoteFunnelStarted();
+      trackPickupPlaceSelected(
+        quoteFunnelAttemptIdRef.current,
+        place.placeId,
+        quoteFunnelParams(),
+      );
+    }
+  }
+
   function handleDropoffPlaceSelect(place: SelectedPlace) {
     const addressChanged = Boolean(place.placeId?.trim()) && place.placeId !== dropoffPlace.placeId;
     setDropoffPlace(place);
@@ -1438,10 +1464,24 @@ function QuoteCard({
     }
   }
 
+  /** Places autocomplete selection only (not airport quick-select). */
+  function handleDropoffPlacesSuggestionSelect(place: SelectedPlace) {
+    handleDropoffPlaceSelect(place);
+    if (isQuoteReadyPlace(place) && place.placeId?.trim()) {
+      markQuoteFunnelStarted();
+      trackDropoffPlaceSelected(
+        quoteFunnelAttemptIdRef.current,
+        place.placeId,
+        quoteFunnelParams(),
+      );
+    }
+  }
+
   function applyJourneyIntent(intent: QuoteJourneyIntent) {
     if (intent !== journeyIntent) {
       clearDownstreamQuoteChoices();
     }
+    markQuoteFunnelStarted();
     setJourneyIntent(intent);
     setTripMode("address");
     if (intent === "to-airport") {
@@ -1489,6 +1529,7 @@ function QuoteCard({
     }
     setIntentAirportCode(code);
     setAirportCode(code);
+    markQuoteFunnelStarted();
     const intent = journeyIntent ?? (tripDirection === "from-airport" ? "from-airport" : "to-airport");
     if (intent === "from-airport") {
       handlePickupPlaceSelect(place);
@@ -1564,6 +1605,77 @@ function QuoteCard({
           ? "Airport pickup"
           : "Airport drop-off"
         : "Address to address";
+
+  function quoteFunnelParams(extra: {
+    cta?: string | null;
+    validation_reason?: string | null;
+    pricing_path?: string | null;
+  } = {}) {
+    return {
+      quote_step: quoteStep,
+      journey_intent: journeyIntent,
+      airport_code: intentAirportCode || (isAirportTrip ? airportCode : null),
+      passengers,
+      suitcases,
+      return_journey: journeyMode == null ? null : journeyMode === "return",
+      page_type: pageType ?? null,
+      ...extra,
+    };
+  }
+
+  function markQuoteFunnelStarted() {
+    trackQuoteStarted(quoteFunnelAttemptIdRef.current, quoteFunnelParams());
+  }
+
+  // Diagnostic: Step 1 quote calculator became visible (once per page/session + pageType).
+  useEffect(() => {
+    if (quoteStep !== 1) return;
+    const target = step1JourneyRef.current ?? cardRef.current;
+    if (!target || typeof IntersectionObserver === "undefined") {
+      trackQuoteToolViewed(quoteFunnelParams());
+      return;
+    }
+    let fired = false;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (fired) return;
+        if (entries.some((entry) => entry.isIntersecting && entry.intersectionRatio > 0.15)) {
+          fired = true;
+          trackQuoteToolViewed(quoteFunnelParams());
+          observer.disconnect();
+        }
+      },
+      { threshold: [0.15, 0.35] },
+    );
+    observer.observe(target);
+    return () => observer.disconnect();
+    // Intentionally once when Step 1 mounts / returns — not on every field change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [quoteStep, pageType]);
+
+  // Diagnostic: journey cannot use automatic fixed price (manual / enquiry path).
+  useEffect(() => {
+    if (quoteStep !== 1 || !hasQuoteRoute) return;
+    if (!(isManualQuoteJourney || isEnquiryOnly || pricingConfirmationRequired)) return;
+    trackQuoteManualEnquiry(
+      quoteFunnelAttemptIdRef.current,
+      quoteFunnelParams({
+        pricing_path: isManualQuoteJourney
+          ? "manual_quote"
+          : pricingConfirmationRequired
+            ? "pricing_confirmation"
+            : "enquiry_only",
+      }),
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    quoteStep,
+    hasQuoteRoute,
+    isManualQuoteJourney,
+    isEnquiryOnly,
+    pricingConfirmationRequired,
+  ]);
+
   const quoteCalculationFingerprint =
     quoteAnalyticsValue && effectivePassengers != null
       ? JSON.stringify([
@@ -2212,6 +2324,7 @@ function QuoteCard({
   function performStartNewQuote() {
     clearAbandonedQuotePersistence();
     resetRequestQuoteConversion();
+    quoteFunnelAttemptIdRef.current = `q${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
     setFormResetKey((key) => key + 1);
 
     const airportPlace = isCustomerAirportCode(initialAirportCode)
@@ -2498,24 +2611,44 @@ function QuoteCard({
     setBookingDelivery(null);
 
     if (quoteStep === 1) {
+      const step1Cta =
+        liveQuote && canPayNowOnline && !isEnquiryOnly && !showsRequestQuoteFlow
+          ? "book_now"
+          : "continue_to_travel_details";
+      trackQuoteRequestClicked(quoteFunnelParams({ cta: step1Cta }));
+
+      const failStep1 = (reason: string, message: string) => {
+        trackQuoteValidationError(reason, quoteFunnelParams({ cta: step1Cta }));
+        setSubmitError(message);
+      };
+
       if (isA2AFlow) {
         if (!journeyIntent) {
-          setSubmitError("Please choose where you are travelling.");
+          failStep1("missing_journey_intent", "Please choose where you are travelling.");
           return;
         }
         if (
           (journeyIntent === "to-airport" || journeyIntent === "from-airport") &&
           !intentAirportCode
         ) {
-          setSubmitError("Please choose an airport.");
+          failStep1("missing_airport", "Please choose an airport.");
           return;
         }
         if (!validateA2APlaces()) {
+          trackQuoteValidationError(
+            !isPlaceSelected(pickupPlace)
+              ? "places_pickup_not_selected"
+              : !isPlaceSelected(dropoffPlace)
+                ? "places_dropoff_not_selected"
+                : "places_same_pickup_dropoff",
+            quoteFunnelParams({ cta: step1Cta }),
+          );
           return;
         }
       }
       if (!hasQuoteRoute) {
-        setSubmitError(
+        failStep1(
+          "incomplete_route",
           isA2AFlow && journeyIntent === "to-airport"
             ? "Please select your pickup address."
             : isA2AFlow && journeyIntent === "from-airport"
@@ -2525,12 +2658,15 @@ function QuoteCard({
         return;
       }
       if (journeyMode == null) {
-        setSubmitError("Choose One way or Return to continue.");
+        failStep1("missing_journey_mode", "Choose One way or Return to continue.");
         scrollQuoteStage("journey-type-selector");
         return;
       }
       if (!partySelectionReady) {
-        setSubmitError("Select your passenger and suitcase numbers to see your fixed price.");
+        failStep1(
+          "missing_party",
+          "Select your passenger and suitcase numbers to see your fixed price.",
+        );
         scrollQuoteStage("passenger-luggage-section");
         return;
       }
@@ -2538,17 +2674,18 @@ function QuoteCard({
         passengers != null &&
         (passengers > MAX_ONLINE_PASSENGERS || passengers < 1)
       ) {
-        setSubmitError(PASSENGER_LIMIT_ERROR);
+        failStep1("invalid_passengers", PASSENGER_LIMIT_ERROR);
         return;
       }
       if (
         suitcases != null &&
         (suitcases < 0 || suitcases > SELECTOR_MAX_SUITCASES)
       ) {
-        setSubmitError("Please select 0–4 large suitcases.");
+        failStep1("invalid_suitcases", "Please select 0–4 large suitcases.");
         return;
       }
       if (!exceedsOnlineCapacity && !isEnquiryOnly && !isManualQuoteJourney && !pricingConfirmationRequired && !liveQuote) {
+        trackQuoteValidationError("price_not_ready", quoteFunnelParams({ cta: step1Cta }));
         return;
       }
       if (
@@ -2560,7 +2697,8 @@ function QuoteCard({
         })
       ) {
         setExpressAckRequired(true);
-        setSubmitError(
+        failStep1(
+          "express_ack_required",
           expressSelection.service === "pick-up"
             ? "Please confirm you understand the free pick-up area before continuing without Express Pick-Up."
             : "Please confirm you understand the free drop-off area before continuing without Express Drop-Off.",
@@ -3457,8 +3595,8 @@ function QuoteCard({
               dropoffAddress={dropoffAddress}
               onPickupChange={handlePickupChange}
               onDropoffChange={handleDropoffChange}
-              onPickupPlaceSelect={handlePickupPlaceSelect}
-              onDropoffPlaceSelect={handleDropoffPlaceSelect}
+              onPickupPlaceSelect={handlePickupPlacesSuggestionSelect}
+              onDropoffPlaceSelect={handleDropoffPlacesSuggestionSelect}
               pickupPlaceError={pickupPlaceError}
               dropoffPlaceError={dropoffPlaceError}
               pickupConfirmedPlace={isQuoteReadyPlace(pickupPlace) ? pickupPlace : null}
@@ -3474,15 +3612,22 @@ function QuoteCard({
               addressLookupCode={addressLookupCode}
               journeyMode={journeyMode}
               onJourneyModeChange={(value) => {
+                markQuoteFunnelStarted();
                 setJourneyMode(value);
                 if (value === "one-way") setReturnDateError("");
               }}
               passengers={passengers}
-              onPassengersChange={setPassengers}
+              onPassengersChange={(value) => {
+                markQuoteFunnelStarted();
+                setPassengers(value);
+              }}
               exactPassengers={exactPassengers}
               onExactPassengersChange={setExactPassengers}
               suitcases={suitcases}
-              onSuitcasesChange={setSuitcases}
+              onSuitcasesChange={(value) => {
+                markQuoteFunnelStarted();
+                setSuitcases(value);
+              }}
               isGroupQuote={false}
               showRouteFields={Boolean(journeyIntent)}
               showJourneyModeFields={
@@ -3626,7 +3771,8 @@ function QuoteCard({
                     />
                     <div
                       id="quote-step1-next"
-                      className="sticky bottom-0 z-20 -mx-1 space-y-2 border-t border-white/10 bg-navy/95 px-1 py-3 backdrop-blur-md supports-[padding:max(0px)]:pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:static sm:z-auto sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-none"
+                      className="sticky z-20 -mx-1 space-y-2 border-t border-white/10 bg-navy/95 px-1 py-3 backdrop-blur-md supports-[padding:max(0px)]:pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:static sm:z-auto sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-none"
+                      style={{ bottom: "var(--matni-cookie-banner-offset, 0px)" }}
                     >
                       {renderStep1PrimaryActions()}
                     </div>
@@ -4042,7 +4188,8 @@ function QuoteCard({
             />
             <div
               id="quote-step1-next"
-              className="sticky bottom-0 z-20 -mx-1 space-y-2 border-t border-white/10 bg-navy/95 px-1 py-3 backdrop-blur-md supports-[padding:max(0px)]:pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:static sm:z-auto sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-none"
+              className="sticky z-20 -mx-1 space-y-2 border-t border-white/10 bg-navy/95 px-1 py-3 backdrop-blur-md supports-[padding:max(0px)]:pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:static sm:z-auto sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-none"
+              style={{ bottom: "var(--matni-cookie-banner-offset, 0px)" }}
             >
               {renderStep1PrimaryActions()}
             </div>

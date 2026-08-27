@@ -512,7 +512,9 @@ export default function AddressInput({
         ? "Address confirmed — edit to choose a different one."
         : autocompleteEnabled
           ? helperText ??
-            "Type a street, hotel or landmark — or a postcode, then your house number."
+            (requireSuggestion
+              ? "Type your address, then tap a suggestion from the list — typing alone is not enough."
+              : "Type a street, hotel or landmark — or a postcode, then your house number.")
           : "Enter your full address including town and postcode");
 
   const hintToneClass =

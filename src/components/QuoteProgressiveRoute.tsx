@@ -250,7 +250,7 @@ export default function QuoteProgressiveRoute({
               airportCode={addressLookupCode}
               label={journeyIntent === "to-airport" ? "Where should we pick you up?" : "Pickup address"}
               placeholder="Enter pickup address or hotel"
-              helperText="Pick a complete address from the suggestions"
+              helperText="Type your address, then tap a suggestion — typing alone is not enough"
             />
           )}
           {(journeyIntent === "from-airport" || journeyIntent === "address-to-address") && (
@@ -271,7 +271,7 @@ export default function QuoteProgressiveRoute({
                   journeyIntent === "from-airport" ? "Where are you travelling to?" : "Destination"
                 }
                 placeholder="Enter destination address or hotel"
-                helperText="Pick a complete address from the suggestions"
+                helperText="Type your address, then tap a suggestion — typing alone is not enough"
               />
             </div>
           )}
