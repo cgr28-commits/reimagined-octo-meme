@@ -1,11 +1,11 @@
 "use client";
 
 import { SERVICE_FLAGS } from "@/lib/data";
-import { whatsAppChatUrl } from "@/lib/contact-card";
 import FirstBookingOfferStrip, {
   FirstBookingOfferBadge,
 } from "./FirstBookingOfferStrip";
 import QuoteCard from "./QuoteCard";
+import QuoteHelpContact from "./QuoteHelpContact";
 
 export default function HeroSlideshow() {
   const airportList = SERVICE_FLAGS.belfastCityAirport
@@ -71,17 +71,7 @@ export default function HeroSlideshow() {
         >
           <FirstBookingOfferStrip />
           <QuoteCard />
-          <p className="mt-3 px-1 text-center text-sm leading-relaxed quote-secondary md:mt-4">
-            Need help?{" "}
-            <a
-              href={whatsAppChatUrl()}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="font-medium text-emerald underline-offset-2 transition-colors hover:text-emerald-light hover:underline"
-            >
-              WhatsApp us
-            </a>
-          </p>
+          <QuoteHelpContact />
         </div>
       </div>
     </section>
