@@ -99,8 +99,7 @@ function buildTripDetailsBlock(details: BookingDetails, bookingReference?: strin
     `Trip: ${details.tripLabel}\n` +
     `Pickup: ${details.pickupLabel}\n` +
     `Drop-off: ${details.dropoffLabel}\n` +
-    (details.journeyDistance ? `Journey distance: ${details.journeyDistance}\n` : "") +
-    (details.journeyDuration ? `Estimated journey time: ${details.journeyDuration}\n` : "") +
+    (details.journeyDuration ? `Approx. ${details.journeyDuration}\n` : "") +
     `Return journey: ${details.returnJourney ? "Yes" : "No"}\n` +
     `${details.returnJourney ? "Outbound date & time" : "Date & time"}: ${formatUkDateTime(details.tripDate, details.tripTime)}\n` +
     (details.returnJourney
@@ -118,9 +117,6 @@ function buildTripDetailsBlock(details: BookingDetails, bookingReference?: strin
       ? `Child seats: ${details.childSeats}${details.childSeatNotes ? ` (${details.childSeatNotes})` : ""}\n`
       : "") +
     `Vehicle: ${details.vehicle}\n` +
-    (details.journeyDistance && details.journeyDuration
-      ? `Journey: ${details.journeyDistance} · ${details.journeyDuration}\n`
-      : "") +
     (details.estimatedPrice ? `Your fixed journey price: ${details.estimatedPrice}\n` : "") +
     (() => {
       const expressLine = formatExpressDropOffSummaryLine({

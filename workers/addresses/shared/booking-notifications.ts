@@ -139,8 +139,50 @@ function formatTripScheduleLines(details: PaidBookingDetails): string[] {
     `Vehicle: ${details.vehicle}`,
   );
 
+  // Owner/ops: keep distance when present. Customer-facing uses duration only.
   if (details.journeyDistance && details.journeyDuration) {
     lines.push(`Journey: ${details.journeyDistance} · ${details.journeyDuration}`);
+  } else if (details.journeyDuration) {
+    lines.push(`Estimated journey time: ${details.journeyDuration}`);
+  }
+
+  return lines;
+}
+
+function formatCustomerTripScheduleLines(details: PaidBookingDetails): string[] {
+  const lines = [
+    `Trip: ${details.tripLabel}`,
+    `Pickup: ${details.pickupLabel}`,
+    `Drop-off: ${details.dropoffLabel}`,
+    `Return journey: ${details.returnJourney ? "Yes" : "No"}`,
+    `${details.returnJourney ? "Outbound date" : "Date"}: ${formatDisplayDateDmy(details.tripDate)}`,
+    `${details.returnJourney ? "Outbound time" : "Time"}: ${formatDisplayTime(details.tripTime)} (${UK_LOCAL_TIME_LABEL})`,
+  ];
+
+  if (details.returnJourney) {
+    lines.push(
+      `Return date: ${formatDisplayDateDmy(details.returnDate)}`,
+      `Return time: ${formatDisplayTime(details.returnTime)} (${UK_LOCAL_TIME_LABEL})`,
+    );
+  }
+
+  if (details.isAirportTrip && details.flightNumber) {
+    lines.push(`Flight number for going: ${details.flightNumber}`);
+  }
+
+  if (details.isAirportTrip && details.returnFlightNumber) {
+    lines.push(`Flight number for collection: ${details.returnFlightNumber}`);
+  }
+
+  lines.push(
+    `Passengers: ${details.passengers}`,
+    `Suitcases: ${details.suitcases}`,
+    `Service: ${vehicleServiceLabel(details.vehicle)}`,
+    `Vehicle: ${details.vehicle}`,
+  );
+
+  if (details.journeyDuration) {
+    lines.push(`Approx. ${details.journeyDuration}`);
   }
 
   return lines;
@@ -148,6 +190,10 @@ function formatTripScheduleLines(details: PaidBookingDetails): string[] {
 
 function formatTripSchedule(details: PaidBookingDetails): string {
   return formatTripScheduleLines(details).join("\n");
+}
+
+function formatCustomerTripSchedule(details: PaidBookingDetails): string {
+  return formatCustomerTripScheduleLines(details).join("\n");
 }
 
 function formatOwnerAttributionBlock(details: Pick<PaidBookingDetails, "attribution">): string {
@@ -198,10 +244,11 @@ function invoiceRows(details: PaidBookingReceipt): Array<{ label: string; value:
     { label: "Vehicle", value: details.vehicle },
   );
 
-  if (details.journeyDistance && details.journeyDuration) {
+  // Customer invoice: show estimated time only — distance stays internal/ops.
+  if (details.journeyDuration) {
     rows.push({
-      label: "Journey",
-      value: `${details.journeyDistance} · ${details.journeyDuration}`,
+      label: "Estimated journey time",
+      value: details.journeyDuration,
     });
   }
 
@@ -423,7 +470,7 @@ export function buildCustomerConfirmationEmail(
     `Customer: ${details.customerName}\n` +
     `Email: ${details.customerEmail}\n` +
     `Mobile: ${details.mobileNumber || "Not provided"}\n` +
-    `${formatTripSchedule(details)}\n` +
+    `${formatCustomerTripSchedule(details)}\n` +
     `\n` +
     `${formatEmailFareIncludesBlock(
       resolveJourneyInclusions({
