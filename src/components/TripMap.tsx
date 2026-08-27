@@ -7,7 +7,7 @@ import { isGooglePlacesEnabled } from "@/lib/google-maps";
 import { resolveRoutePoint } from "@/lib/route-point-resolver";
 import {
   fetchTripRouteMetrics,
-  formatJourneyDuration,
+  formatRouteCardJourneyTime,
   type TripRouteMetrics,
 } from "@/lib/trip-route";
 
@@ -250,7 +250,7 @@ export default function TripMap({
         <p className="mt-1 text-sm text-white/70">{links.routeLabel}</p>
         {routeMetrics ? (
           <p className="mt-1.5 text-sm font-semibold text-white">
-            Approx. {formatJourneyDuration(routeMetrics.durationMinutes)}
+            {formatRouteCardJourneyTime(routeMetrics.durationMinutes)}
           </p>
         ) : originPoint && destinationPoint ? (
           <p className="mt-1.5 text-xs text-white/50">Calculating journey time…</p>
@@ -302,7 +302,7 @@ export default function TripMap({
         <p className="mt-1 text-sm text-white/70">{links.routeLabel}</p>
         {routeMetrics ? (
           <p className="mt-1.5 text-sm font-semibold text-white">
-            Approx. {formatJourneyDuration(routeMetrics.durationMinutes)}
+            {formatRouteCardJourneyTime(routeMetrics.durationMinutes)}
           </p>
         ) : originPoint && destinationPoint ? (
           <p className="mt-1.5 text-xs text-white/50">Calculating journey time…</p>
