@@ -30,6 +30,8 @@ import {
 } from "@/lib/quote-funnel-analytics";
 import {
   bookingTextFieldClass,
+  quoteDateTimeFieldShellClass,
+  quoteDateTimeInputClass,
   quoteTextFieldClass,
   type QuoteFieldHighlightState,
 } from "@/lib/quote-ui-highlight";
@@ -4303,33 +4305,37 @@ function QuoteCard({
                 (needed to book)
               </span>
             </label>
-            <input
-              id="date"
-              ref={tripDateInputRef}
-              name="date"
-              type="date"
-              min={minTripDate}
-              value={tripDate}
-              aria-invalid={Boolean(tripDateError)}
-              aria-describedby={tripDateError ? "trip-date-error" : undefined}
-              onChange={(e) => {
-                setTripDate(e.target.value);
-                setTripDateError("");
-                setReturnDateError("");
-              }}
-              onInput={(e) => {
-                setTripDate((e.target as HTMLInputElement).value);
-                setTripDateError("");
-                setReturnDateError("");
-              }}
-              className={quoteTextFieldClass(
+            <div
+              className={quoteDateTimeFieldShellClass(
                 fieldState({
                   hasError: Boolean(tripDateError),
                   complete: Boolean(tripDate.trim()),
                   activeStep: quoteStep === 2,
                 }),
               )}
-            />
+            >
+              <input
+                id="date"
+                ref={tripDateInputRef}
+                name="date"
+                type="date"
+                min={minTripDate}
+                value={tripDate}
+                aria-invalid={Boolean(tripDateError)}
+                aria-describedby={tripDateError ? "trip-date-error" : undefined}
+                onChange={(e) => {
+                  setTripDate(e.target.value);
+                  setTripDateError("");
+                  setReturnDateError("");
+                }}
+                onInput={(e) => {
+                  setTripDate((e.target as HTMLInputElement).value);
+                  setTripDateError("");
+                  setReturnDateError("");
+                }}
+                className={quoteDateTimeInputClass()}
+              />
+            </div>
           </div>
           <div className="min-w-0 max-w-full">
             <label
@@ -4341,37 +4347,41 @@ function QuoteCard({
                 (needed to book)
               </span>
             </label>
-            <input
-              id="time"
-              ref={tripTimeInputRef}
-              name="time"
-              type="time"
-              min={minTripTime}
-              value={tripTime}
-              aria-invalid={Boolean(tripDateError)}
-              aria-describedby={tripDateError ? "trip-date-error" : undefined}
-              onChange={(e) => {
-                setTripTime(e.target.value);
-                setTripDateError("");
-                setReturnDateError("");
-              }}
-              onInput={(e) => {
-                setTripTime((e.target as HTMLInputElement).value);
-                setTripDateError("");
-                setReturnDateError("");
-              }}
-              onBlur={() => {
-                // iPhone Done / tick dismisses the picker → blur. Scroll only then.
-                requestJourneySummaryScrollAfterTimeConfirm();
-              }}
-              className={quoteTextFieldClass(
+            <div
+              className={quoteDateTimeFieldShellClass(
                 fieldState({
                   hasError: Boolean(tripDateError),
                   complete: Boolean(tripTime.trim()),
                   activeStep: quoteStep === 2,
                 }),
               )}
-            />
+            >
+              <input
+                id="time"
+                ref={tripTimeInputRef}
+                name="time"
+                type="time"
+                min={minTripTime}
+                value={tripTime}
+                aria-invalid={Boolean(tripDateError)}
+                aria-describedby={tripDateError ? "trip-date-error" : undefined}
+                onChange={(e) => {
+                  setTripTime(e.target.value);
+                  setTripDateError("");
+                  setReturnDateError("");
+                }}
+                onInput={(e) => {
+                  setTripTime((e.target as HTMLInputElement).value);
+                  setTripDateError("");
+                  setReturnDateError("");
+                }}
+                onBlur={() => {
+                  // iPhone Done / tick dismisses the picker → blur. Scroll only then.
+                  requestJourneySummaryScrollAfterTimeConfirm();
+                }}
+                className={quoteDateTimeInputClass()}
+              />
+            </div>
           </div>
           <p
             id="trip-date-error"
@@ -4399,29 +4409,33 @@ function QuoteCard({
                     (needed to book)
                   </span>
                 </label>
-                <input
-                  id="returnDate"
-                  ref={returnDateInputRef}
-                  name="returnDate"
-                  type="date"
-                  min={minReturnDate}
-                  value={returnDate}
-                  onChange={(e) => {
-                    setReturnDate(e.target.value);
-                    setReturnDateError("");
-                  }}
-                  onInput={(e) => {
-                    setReturnDate((e.target as HTMLInputElement).value);
-                    setReturnDateError("");
-                  }}
-                  className={quoteTextFieldClass(
+                <div
+                  className={quoteDateTimeFieldShellClass(
                     fieldState({
                       hasError: Boolean(returnDateError),
                       complete: Boolean(returnDate.trim()),
                       activeStep: quoteStep === 2 && returnJourney,
                     }),
                   )}
-                />
+                >
+                  <input
+                    id="returnDate"
+                    ref={returnDateInputRef}
+                    name="returnDate"
+                    type="date"
+                    min={minReturnDate}
+                    value={returnDate}
+                    onChange={(e) => {
+                      setReturnDate(e.target.value);
+                      setReturnDateError("");
+                    }}
+                    onInput={(e) => {
+                      setReturnDate((e.target as HTMLInputElement).value);
+                      setReturnDateError("");
+                    }}
+                    className={quoteDateTimeInputClass()}
+                  />
+                </div>
               </div>
               <div className="min-w-0 max-w-full">
                 <label
@@ -4433,32 +4447,36 @@ function QuoteCard({
                     (needed to book)
                   </span>
                 </label>
-                <input
-                  id="returnTime"
-                  ref={returnTimeInputRef}
-                  name="returnTime"
-                  type="time"
-                  min={minReturnTime}
-                  value={returnTime}
-                  onChange={(e) => {
-                    setReturnTime(e.target.value);
-                    setReturnDateError("");
-                  }}
-                  onInput={(e) => {
-                    setReturnTime((e.target as HTMLInputElement).value);
-                    setReturnDateError("");
-                  }}
-                  onBlur={() => {
-                    requestJourneySummaryScrollAfterTimeConfirm();
-                  }}
-                  className={quoteTextFieldClass(
+                <div
+                  className={quoteDateTimeFieldShellClass(
                     fieldState({
                       hasError: Boolean(returnDateError),
                       complete: Boolean(returnTime.trim()),
                       activeStep: quoteStep === 2 && returnJourney,
                     }),
                   )}
-                />
+                >
+                  <input
+                    id="returnTime"
+                    ref={returnTimeInputRef}
+                    name="returnTime"
+                    type="time"
+                    min={minReturnTime}
+                    value={returnTime}
+                    onChange={(e) => {
+                      setReturnTime(e.target.value);
+                      setReturnDateError("");
+                    }}
+                    onInput={(e) => {
+                      setReturnTime((e.target as HTMLInputElement).value);
+                      setReturnDateError("");
+                    }}
+                    onBlur={() => {
+                      requestJourneySummaryScrollAfterTimeConfirm();
+                    }}
+                    className={quoteDateTimeInputClass()}
+                  />
+                </div>
               </div>
               <p className="sm:col-span-2 min-h-[1.1rem] text-xs text-red-400">
                 {returnDateError || "\u00a0"}

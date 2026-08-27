@@ -419,13 +419,33 @@ main {
   min-width: 0;
 }
 
-/* Native date/time controls report a large intrinsic min-width; force shrink inside grids. */
-#quoteForm input[type="date"],
-#quoteForm input[type="time"] {
+/* Native date/time: visible border lives on .quote-datetime-shell (see QuoteCard).
+   Safari ignores min-width on these replaced controls, so chrome must not sit on <input>. */
+.quote-datetime-shell {
   box-sizing: border-box;
   width: 100%;
   max-width: 100%;
   min-width: 0;
+  overflow: hidden;
+}
+
+#quoteForm input[type="date"].quote-datetime-input,
+#quoteForm input[type="time"].quote-datetime-input {
+  box-sizing: border-box;
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+#quoteForm input[type="date"].quote-datetime-input::-webkit-date-and-time-value,
+#quoteForm input[type="time"].quote-datetime-input::-webkit-date-and-time-value {
+  text-align: left;
 }
 
 .quote-helper-text {

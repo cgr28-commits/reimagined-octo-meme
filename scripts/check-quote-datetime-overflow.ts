@@ -1,14 +1,22 @@
 /**
- * Quote Step 2 date/time fields must shrink inside the card on iPhone widths.
- * Root cause previously: grid min-width:auto + native date/time intrinsic size,
- * clipped by form overflow-x-clip (right border/radius disappeared).
+ * Quote Step 2 date/time fields must keep a full visible border on iPhone.
+ *
+ * Root cause: WebKit/iOS native date|time controls ignore min-width and keep a
+ * large intrinsic size. Borders painted on the <input> overflow and get clipped
+ * by #quoteForm { overflow-x: clip }. Fix: visible chrome on a wrapping shell
+ * (overflow:hidden); input is borderless inside — same pattern as AddressInput.
+ *
  * Run: npx tsx scripts/check-quote-datetime-overflow.ts
  */
 
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { quoteTextFieldClass } from "../src/lib/quote-ui-highlight";
+import {
+  quoteDateTimeFieldShellClass,
+  quoteDateTimeInputClass,
+  quoteTextFieldClass,
+} from "../src/lib/quote-ui-highlight";
 
 const root = process.cwd();
 
@@ -16,47 +24,60 @@ function read(rel: string): string {
   return readFileSync(join(root, rel), "utf8");
 }
 
-console.log("=== quoteTextFieldClass shrink guards ===");
+console.log("=== Shell owns the visible border ===");
 {
-  const cls = quoteTextFieldClass("needs");
-  assert.match(cls, /box-border/);
-  assert.match(cls, /\bw-full\b/);
-  assert.match(cls, /min-w-0/);
-  assert.match(cls, /max-w-full/);
-  assert.match(cls, /ring-inset/);
-  assert.match(cls, /quote-text-input/);
-  console.log("OK  shared field class has box-border + min-w-0 + max-w-full + ring-inset");
+  const shell = quoteDateTimeFieldShellClass("needs");
+  assert.match(shell, /quote-datetime-shell/);
+  assert.match(shell, /overflow-hidden|overflow-hidden/);
+  assert.match(shell, /min-w-0/);
+  assert.match(shell, /max-w-full/);
+  assert.match(shell, /border-emerald\/50/);
+  assert.match(shell, /ring-inset/);
+
+  const inner = quoteDateTimeInputClass();
+  assert.match(inner, /quote-datetime-input/);
+  assert.match(inner, /border-0/);
+  assert.match(inner, /min-w-0/);
+  assert.match(inner, /max-w-full/);
+  assert.match(inner, /\[color-scheme:dark\]/);
+  assert.doesNotMatch(inner, /\bborder border-/);
+
+  // Text fields still use the bordered class helper.
+  assert.match(quoteTextFieldClass("needs"), /border-emerald\/50/);
+  console.log("OK  date/time shell has border; inner input is borderless");
 }
 
-console.log("\n=== QuoteCard date/time grid cells ===");
+console.log("\n=== QuoteCard wires shell around all date/time inputs ===");
 {
   const card = read("src/components/QuoteCard.tsx");
-  assert.match(card, /type="date"/);
-  assert.match(card, /type="time"/);
-  assert.match(
+  assert.match(card, /quoteDateTimeFieldShellClass/);
+  assert.match(card, /quoteDateTimeInputClass/);
+  const dateCount = (card.match(/type="date"/g) || []).length;
+  const timeCount = (card.match(/type="time"/g) || []).length;
+  assert.equal(dateCount, 2);
+  assert.equal(timeCount, 2);
+  assert.equal((card.match(/quoteDateTimeFieldShellClass\(/g) || []).length, 4);
+  assert.equal((card.match(/quoteDateTimeInputClass\(\)/g) || []).length, 4);
+  // No date/time input should still paint its own border via quoteTextFieldClass.
+  assert.doesNotMatch(
     card,
-    /grid w-full min-w-0 max-w-full gap-4 sm:grid-cols-2[\s\S]*htmlFor="date"/,
+    /type="date"[\s\S]{0,500}?quoteTextFieldClass\(/,
   );
-  assert.match(card, /htmlFor="date"[\s\S]*?<div className="min-w-0 max-w-full">[\s\S]*?htmlFor="time"/);
-  assert.match(
+  assert.doesNotMatch(
     card,
-    /grid w-full min-w-0 max-w-full gap-4 sm:grid-cols-2[\s\S]*htmlFor="returnDate"/,
+    /type="time"[\s\S]{0,500}?quoteTextFieldClass\(/,
   );
-  assert.match(card, /quoteTextFieldClass/);
-  assert.match(card, /overflow-x-clip/);
-  console.log("OK  date/time wrappers use min-w-0 max-w-full inside shrinkable grids");
+  console.log("OK  all four date/time inputs use the shell pattern");
 }
 
-console.log("\n=== globals date/time containment ===");
+console.log("\n=== globals containment ===");
 {
   const css = read("src/app/globals.css");
-  assert.match(css, /#quoteForm input\[type="date"\]/);
-  assert.match(css, /#quoteForm input\[type="time"\]/);
-  assert.match(
-    css,
-    /#quoteForm input\[type="date"\][\s\S]*?min-width:\s*0;[\s\S]*?max-width:\s*100%|#quoteForm input\[type="date"\],\s*\n#quoteForm input\[type="time"\][\s\S]*min-width:\s*0/,
-  );
-  console.log("OK  #quoteForm date/time forced to box-border width 100% / min-width 0");
+  assert.match(css, /\.quote-datetime-shell/);
+  assert.match(css, /overflow:\s*hidden/);
+  assert.match(css, /quote-datetime-input/);
+  assert.match(css, /-webkit-appearance:\s*none/);
+  console.log("OK  shell + appearance reset present in globals.css");
 }
 
 console.log("\nAll quote datetime overflow checks passed.");
