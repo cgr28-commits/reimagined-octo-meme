@@ -2,6 +2,9 @@
 
 import { SERVICE_FLAGS } from "@/lib/data";
 import { whatsAppChatUrl } from "@/lib/contact-card";
+import FirstBookingOfferStrip, {
+  FirstBookingOfferBadge,
+} from "./FirstBookingOfferStrip";
 import QuoteCard from "./QuoteCard";
 
 export default function HeroSlideshow() {
@@ -29,6 +32,14 @@ export default function HeroSlideshow() {
             Fixed-price chauffeur-style transfers to {airportList} airports — and door-to-door
             journeys across Northern Ireland and the Republic of Ireland.
           </p>
+
+          <p className="mt-4 max-w-xl text-sm font-medium leading-snug text-white/78 sm:text-[0.95rem]">
+            Fixed fares. Reliable airport transfers. No surprises.
+          </p>
+
+          <div className="mt-4">
+            <FirstBookingOfferBadge />
+          </div>
 
           <ul className="mt-8 grid gap-3.5 text-sm text-white/62 sm:grid-cols-2 lg:mt-10 lg:gap-x-8 lg:gap-y-3.5">
             {[
@@ -58,6 +69,7 @@ export default function HeroSlideshow() {
           className="order-1 min-w-0 w-full scroll-mt-28 xl:scroll-mt-28 lg:order-2 lg:justify-self-stretch"
           id="quote"
         >
+          <FirstBookingOfferStrip />
           <QuoteCard />
           <p className="mt-4 px-1 text-center text-sm leading-relaxed quote-secondary">
             Need help?{" "}

@@ -40,4 +40,19 @@ console.log("\n=== 3. Nav Get a Quote + coverage text preserved ===");
   console.log("OK  header CTA + destination coverage text present");
 }
 
+console.log("\n=== 4. First-booking offer promo near quote CTA ===");
+{
+  const strip = read("src/components/FirstBookingOfferStrip.tsx");
+  assert.match(hero, /FirstBookingOfferStrip/);
+  assert.match(hero, /FirstBookingOfferBadge/);
+  assert.match(hero, /Fixed fares\. Reliable airport transfers\. No surprises\./);
+  assert.match(strip, /£\{amount\} OFF YOUR FIRST BOOKING/);
+  assert.match(strip, /journey fare is £\{minFare\} or more/);
+  assert.match(strip, /New customer offer · £\{amount\} off/i);
+  assert.match(strip, /QuoteNavLink/);
+  assert.match(strip, /href="\/#quote"/);
+  assert.doesNotMatch(strip, /createPayment|resolveFirstBookingOffer|claimOffer/);
+  console.log("OK  homepage advertises £5 first-booking offer without applying it");
+}
+
 console.log("\nAll homepage hero CTA checks passed.");
