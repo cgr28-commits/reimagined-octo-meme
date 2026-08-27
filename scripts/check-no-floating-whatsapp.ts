@@ -31,10 +31,17 @@ assert.doesNotMatch(layout, /<WhatsAppButton/);
 assert.match(header, /data-matni-whatsapp-quick/);
 assert.match(assistant, /isMobile !== false/);
 
-assert.match(hero, /Need help\?/);
-assert.match(hero, /WhatsApp us/);
-assert.match(hero, /whatsAppChatUrl\(\)/);
+assert.match(hero, /QuoteHelpContact/);
 assert.doesNotMatch(hero, /data-matni-whatsapp/);
+
+const quoteHelp = read("src/components/QuoteHelpContact.tsx");
+assert.match(quoteHelp, /Need help\?/);
+assert.match(quoteHelp, /WhatsApp us/);
+assert.match(quoteHelp, /whatsAppChatUrl\(\)/);
+assert.match(quoteHelp, /Call \{SITE\.landlineDisplay\}/);
+assert.match(quoteHelp, /tel:\$\{SITE\.landline\}/);
+assert.match(quoteHelp, /028 9602 2952|landlineDisplay/);
+assert.doesNotMatch(quoteHelp, /btn-primary|btn-secondary|min-h-11/);
 
 assert.match(header, /WhatsApp @\{SITE\.whatsappUsername\}/);
 assert.match(header, /whatsAppChatUrl/);
