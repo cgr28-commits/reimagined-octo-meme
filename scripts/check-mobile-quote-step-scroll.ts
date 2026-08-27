@@ -177,9 +177,10 @@ check("Step 2 time Done/blur scrolls once to YOUR JOURNEY summary", () => {
   assert.match(card, /hadJourneySummaryScrollRef/);
   assert.match(card, /requestJourneySummaryScrollAfterTimeConfirm/);
   assert.match(card, /scrollJourneySummaryAfterTimeConfirm/);
+  assert.match(card, /hadJourneySummaryScrollRef\.current = true;/);
   assert.match(
     card,
-    /hadJourneySummaryScrollRef\.current = true;[\s\S]*scrollJourneySummaryAfterTimeConfirm\(\s*step2JourneySummaryRef\.current \?\? "step2-journey-summary"/,
+    /preferFlightDetails[\s\S]*step2-flight-details[\s\S]*step2-journey-summary|step2-flight-details[\s\S]*step2JourneySummaryRef/,
   );
   assert.match(card, /id="time"[\s\S]*onBlur=\{\(\) => \{[\s\S]*requestJourneySummaryScrollAfterTimeConfirm/);
   assert.match(card, /id="returnTime"[\s\S]*onBlur=\{\(\) => \{[\s\S]*requestJourneySummaryScrollAfterTimeConfirm/);

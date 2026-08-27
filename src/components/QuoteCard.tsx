@@ -689,6 +689,24 @@ function QuoteCard({
   const isFromAirport = isA2AFlow
     ? Boolean(pickupAirportCode)
     : tripDirection === "from-airport";
+  /**
+   * Outbound flight number: airport pickup only (collecting the customer from an airport).
+   * To-airport / address-to-address do not ask for an outbound flight.
+   */
+  const needsOutboundFlightNumber =
+    (isAirportTrip && isFromAirport) ||
+    (isA2AFlow && Boolean(pickupAirportCode)) ||
+    journeyKind === "airport-to-address" ||
+    journeyKind === "airport-to-airport";
+  /**
+   * Return/collection flight: only when returning from an airport drop-off
+   * (customer is collected at the airport on the return leg).
+   */
+  const needsReturnCollectionFlightNumber =
+    returnJourney &&
+    ((isAirportTrip && !isFromAirport) ||
+      (isA2AFlow && Boolean(dropoffAirportCode)) ||
+      journeyKind === "address-to-airport");
   /** Airport fee wording applies to classic airport trips and A2A legs that touch an airport. */
   const isAirportLegForInclusions =
     isAirportTrip ||
@@ -2963,7 +2981,7 @@ function QuoteCard({
   /** Capacity incomplete→complete arms a pending Your Route scroll (once). */
   const pendingRouteSummaryScrollRef = useRef(false);
   const hadRouteSummaryScrollRef = useRef(false);
-  /** Time picker Done/blur → Your Journey (once per step-2 visit). */
+  /** Time picker Done/blur → flight number (when shown) or Your Journey (once per step-2 visit). */
   const hadJourneySummaryScrollRef = useRef(false);
   const hadLegacyJourneyModeScrollRef = useRef(false);
   const hadLegacyPartyScrollRef = useRef(false);
@@ -3086,7 +3104,8 @@ function QuoteCard({
   /**
    * Stage 10→11: iPhone time picker Done / blur only.
    * Never called from onChange — customer must finish the picker first.
-   * Lands on YOUR JOURNEY but clamps so Continue stays fully visible (no overshoot).
+   * Prefer the flight-number block when shown (airport pickup), otherwise
+   * YOUR JOURNEY — and clamp so Continue stays fully visible (no overshoot).
    */
   function requestJourneySummaryScrollAfterTimeConfirm() {
     if (quoteStep !== 2) return;
@@ -3105,8 +3124,12 @@ function QuoteCard({
           isReturnAfterOutbound(date, time, retDate, retTime)));
     if (!complete) return;
     hadJourneySummaryScrollRef.current = true;
+    const preferFlightDetails =
+      needsOutboundFlightNumber || needsReturnCollectionFlightNumber;
     scrollJourneySummaryAfterTimeConfirm(
-      step2JourneySummaryRef.current ?? "step2-journey-summary",
+      preferFlightDetails
+        ? "step2-flight-details"
+        : (step2JourneySummaryRef.current ?? "step2-journey-summary"),
       "quote-step2-next",
     );
   }
@@ -3220,6 +3243,74 @@ function QuoteCard({
             : !isScheduleComplete
               ? "Price ready — add your date and time when you’re ready to book"
               : "";
+
+  /**
+   * Airport-pickup flight number — collected on Step 2 (Travel details).
+   * Optional by product design; never shown for pure to-airport one-ways.
+   */
+  function renderFlightDetailsSection(activeOnStep: 2 | 3) {
+    if (!needsOutboundFlightNumber && !needsReturnCollectionFlightNumber) {
+      return null;
+    }
+    return (
+      <div
+        id={activeOnStep === 2 ? "step2-flight-details" : "step3-flight-details"}
+        className="scroll-mt-44 space-y-4 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-4 md:scroll-mt-28"
+      >
+        <div>
+          <p className="text-xs font-medium uppercase tracking-wider text-emerald">
+            Flight number{" "}
+            <span className="font-normal text-ink-secondary">(optional)</span>
+          </p>
+          <p className="mt-1 text-sm text-white/60">{BOOKING_FLIGHT_NUMBER_HELPER}</p>
+        </div>
+        {needsOutboundFlightNumber ? (
+          <FlightNumberField
+            id="goingFlightNumber"
+            label="Flight number"
+            helperText={BOOKING_FLIGHT_NUMBER_HELPER}
+            value={goingFlightNumber}
+            onChange={(value) => {
+              setGoingFlightNumber(value);
+              if (value.trim()) {
+                setGoingFlightError("");
+              }
+            }}
+            tripDate={tripDate}
+            airportCode={effectiveAirportCode}
+            direction={isA2AFlow ? "from-airport" : tripDirection}
+            enabled={quoteStep === activeOnStep}
+            error={goingFlightError}
+            onVerifiedChange={(flight) => {
+              setVerifiedGoingFlight(flight);
+            }}
+          />
+        ) : null}
+        {needsReturnCollectionFlightNumber ? (
+          <FlightNumberField
+            id="collectionFlightNumber"
+            label="Return flight number"
+            helperText={BOOKING_FLIGHT_NUMBER_HELPER}
+            value={collectionFlightNumber}
+            onChange={(value) => {
+              setCollectionFlightNumber(value);
+              if (value.trim()) {
+                setCollectionFlightError("");
+              }
+            }}
+            tripDate={returnDate}
+            airportCode={effectiveAirportCode}
+            direction="from-airport"
+            enabled={quoteStep === activeOnStep}
+            error={collectionFlightError}
+            onVerifiedChange={(flight) => {
+              setVerifiedCollectionFlight(flight);
+            }}
+          />
+        ) : null}
+      </div>
+    );
+  }
 
   function renderExpressChoiceInPriceCard(mode: "full" | "summary") {
     if (
@@ -4575,6 +4666,8 @@ function QuoteCard({
           </div>
         </div>
 
+        {renderFlightDetailsSection(2)}
+
         <div
           id="step2-journey-summary"
           ref={step2JourneySummaryRef}
@@ -4777,70 +4870,6 @@ function QuoteCard({
                 </p>
               )}
             </div>
-
-            {((isAirportTrip && isFromAirport) || (isA2AFlow && Boolean(pickupAirportCode))) ||
-            (returnJourney &&
-              ((isAirportTrip && !isFromAirport) ||
-                (isA2AFlow && Boolean(dropoffAirportCode)))) ? (
-              <div
-                id="step3-flight-details"
-                className="scroll-mt-44 space-y-4 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-4 md:scroll-mt-28"
-              >
-                <div>
-                  <p className="text-xs font-medium uppercase tracking-wider text-emerald">
-                    Flight number <span className="font-normal text-ink-secondary">(optional)</span>
-                  </p>
-                  <p className="mt-1 text-sm text-white/60">{BOOKING_FLIGHT_NUMBER_HELPER}</p>
-                </div>
-                {((isAirportTrip && isFromAirport) ||
-                  (isA2AFlow && Boolean(pickupAirportCode))) && (
-                  <FlightNumberField
-                    id="goingFlightNumber"
-                    label="Flight number"
-                    helperText={BOOKING_FLIGHT_NUMBER_HELPER}
-                    value={goingFlightNumber}
-                    onChange={(value) => {
-                      setGoingFlightNumber(value);
-                      if (value.trim()) {
-                        setGoingFlightError("");
-                      }
-                    }}
-                    tripDate={tripDate}
-                    airportCode={effectiveAirportCode}
-                    direction={isA2AFlow ? "from-airport" : tripDirection}
-                    enabled={quoteStep === 3}
-                    error={goingFlightError}
-                    onVerifiedChange={(flight) => {
-                      setVerifiedGoingFlight(flight);
-                    }}
-                  />
-                )}
-                {returnJourney &&
-                  ((isAirportTrip && !isFromAirport) ||
-                    (isA2AFlow && Boolean(dropoffAirportCode))) && (
-                    <FlightNumberField
-                      id="collectionFlightNumber"
-                      label="Return flight number"
-                      helperText={BOOKING_FLIGHT_NUMBER_HELPER}
-                      value={collectionFlightNumber}
-                      onChange={(value) => {
-                        setCollectionFlightNumber(value);
-                        if (value.trim()) {
-                          setCollectionFlightError("");
-                        }
-                      }}
-                      tripDate={returnDate}
-                      airportCode={effectiveAirportCode}
-                      direction="from-airport"
-                      enabled={quoteStep === 3}
-                      error={collectionFlightError}
-                      onVerifiedChange={(flight) => {
-                        setVerifiedCollectionFlight(flight);
-                      }}
-                    />
-                  )}
-              </div>
-            ) : null}
           </div>
         </div>
 
@@ -4912,7 +4941,7 @@ function QuoteCard({
                   value={`${formatDisplayDate(returnDate)} at ${formatDisplayTime(returnTime)} (UK local time)`}
                 />
               )}
-              {((isAirportTrip && isFromAirport) || (isA2AFlow && pickupAirportCode)) && (
+              {needsOutboundFlightNumber && (
                 <PreviewRow
                   label="Flight for going"
                   value={
@@ -4922,8 +4951,7 @@ function QuoteCard({
                   }
                 />
               )}
-              {returnJourney &&
-                ((isAirportTrip && !isFromAirport) || (isA2AFlow && dropoffAirportCode)) && (
+              {needsReturnCollectionFlightNumber && (
                 <PreviewRow
                   label="Flight for collection"
                   value={
