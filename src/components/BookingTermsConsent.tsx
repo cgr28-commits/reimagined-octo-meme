@@ -23,17 +23,31 @@ export default function BookingTermsConsent({
         <p className="font-semibold text-white/80">Cancellation summary</p>
         <div className="mt-1.5 space-y-2">
           <p>
-            Cancel more than 24 hours before your scheduled pickup: You’ll receive a full refund.
+            Cancel at least 24 hours before your scheduled pickup: You’ll receive a full refund.
           </p>
           <p>
-            Cancel within 24 hours of your scheduled pickup: Your booking is normally
-            non-refundable because your driver and time have already been reserved. We may provide
-            a full or partial refund where appropriate depending on the circumstances.
+            Cancel less than 24 hours before your scheduled pickup: A cancellation charge of up to
+            the full booking price may apply because a driver and time have been reserved
+            specifically for your journey. The charge will not exceed the reasonable loss caused by
+            the cancellation. If we are able to reduce that loss, including by accepting another
+            booking for the reserved time, any excess will be refunded.
           </p>
           <p>
-            If we cancel your booking and cannot provide the journey: You’ll receive a full refund.
+            No-shows: A booking will only be treated as a no-show after the applicable complimentary
+            waiting period has ended and we have made reasonable attempts to contact you. A charge
+            of up to the full booking price may apply to cover the driver’s reserved time and costs
+            incurred. The charge will not exceed the reasonable loss caused by the no-show.
           </p>
-          <p>Your statutory rights are not affected.</p>
+          <p>
+            Flight delays: Where a correct flight number has been provided, a flight delay will not
+            normally be treated as a cancellation or no-show. The collection time will be adjusted
+            in accordance with the waiting-time policy.
+          </p>
+          <p>
+            If My Airport Taxi NI cancels the booking and cannot provide the journey: The customer
+            will receive a full refund.
+          </p>
+          <p>The customer’s statutory rights are not affected.</p>
         </div>
       </div>
       {mode === "quote-request" ? (

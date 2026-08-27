@@ -369,9 +369,8 @@ function buildInvoiceHtml(
             <td style="padding:8px 32px 8px;">
               <div style="font-size:13px;line-height:1.7;color:#64748b;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:16px 20px;">
                 <strong style="color:#92400e;">Cancellation policy:</strong>
-                Cancel more than 24 hours before your scheduled pickup and you’ll receive a full refund.
-                Cancellations within 24 hours are normally non-refundable because your driver and time have already been reserved;
-                we may provide a full or partial refund where appropriate depending on the circumstances.
+                Cancel at least 24 hours before your scheduled pickup and you’ll receive a full refund.
+                Cancel less than 24 hours before pickup and a cancellation charge of up to the full booking price may apply because a driver and time have been reserved specifically for your journey; the charge will not exceed the reasonable loss caused by the cancellation.
                 If we cancel and cannot provide the journey, you’ll receive a full refund. Your statutory rights are not affected.
                 See our <a href="${BUSINESS_WEBSITE}/terms/" style="color:${NAVY};">Terms &amp; Conditions</a> for full details.
               </div>
@@ -1166,7 +1165,7 @@ export function buildCustomerCancellationEmails(
       (when ? `When: ${when}\n` : "") +
       `Pickup: ${details.pickupLabel}\n` +
       `Drop-off: ${details.dropoffLabel}\n\n` +
-      `Your cancellation was received within 24 hours of the scheduled pickup. Cancellations within 24 hours are normally non-refundable because your driver and time have already been reserved. We may provide a full or partial refund where appropriate depending on the circumstances.\n\n` +
+      `Your cancellation was received less than 24 hours before the scheduled pickup. A cancellation charge of up to the full booking price may apply because a driver and time have been reserved specifically for your journey. The charge will not exceed the reasonable loss caused by the cancellation. If we are able to reduce that loss, including by accepting another booking for the reserved time, any excess will be refunded.\n\n` +
       `If you believe a refund is appropriate in your circumstances, please contact us.\n\n` +
       `Your statutory rights are not affected.\n\n` +
       `${businessName}\n${BUSINESS_WEBSITE}`;
@@ -1176,7 +1175,7 @@ export function buildCustomerCancellationEmails(
       bodyHtml:
         `<p>Your booking has been cancelled.</p>` +
         `<p>${escapeHtml(details.tripLabel)}${when ? `<br/>${escapeHtml(when)}` : ""}</p>` +
-        `<p>Your cancellation was received within 24 hours of pickup. Cancellations within 24 hours are normally non-refundable because your driver and time have already been reserved. We may provide a full or partial refund where appropriate depending on the circumstances.</p>` +
+        `<p>Your cancellation was received less than 24 hours before pickup. A cancellation charge of up to the full booking price may apply because a driver and time have been reserved specifically for your journey. The charge will not exceed the reasonable loss caused by the cancellation. If we are able to reduce that loss, including by accepting another booking for the reserved time, any excess will be refunded.</p>` +
         `<p>Your statutory rights are not affected. Contact us if you believe a refund is appropriate.</p>`,
       businessName,
     });
@@ -1204,7 +1203,7 @@ export function buildCustomerCancellationEmails(
     const text =
       `Hi ${details.customerName},\n\n` +
       `${intentText}\n\n` +
-      `Your cancellation was received more than 24 hours before pickup.\n\n` +
+      `Your cancellation was received at least 24 hours before pickup.\n\n` +
       `${detailsBlock.text}\n` +
       `We'd be glad to welcome you again — book anytime at ${BUSINESS_WEBSITE}.\n\n` +
       `${businessName}\n${BUSINESS_WEBSITE}`;
@@ -1213,7 +1212,7 @@ export function buildCustomerCancellationEmails(
       headline: `Booking cancelled — full refund`,
       bodyHtml:
         intentHtml +
-        `<p>Your cancellation was received more than 24 hours before pickup.</p>` +
+        `<p>Your cancellation was received at least 24 hours before pickup.</p>` +
         detailsBlock.html +
         `<p>We'd love to welcome you again soon.</p>`,
       businessName,

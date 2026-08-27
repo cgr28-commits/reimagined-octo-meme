@@ -142,25 +142,36 @@ export const TERMS_SECTIONS = [
   {
     title: "Cancellations & Refunds",
     content: [
-      "The same cancellation and refund policy applies to airport, long-distance and cross-border transfers.",
+      "The same cancellation policy applies to airport, long-distance and cross-border transfers.",
     ],
     subsections: [
       {
-        subtitle: "Cancellation by the customer",
+        subtitle: "At least 24 hours before pickup",
         content: [
-          "Customers who cancel more than 24 hours before their scheduled pickup will receive a full refund.",
-          "Cancellations made within 24 hours of the scheduled pickup are normally non-refundable because a driver and time have been reserved for the booking. However, My Airport Taxi NI may, where appropriate, provide a full or partial refund depending on the circumstances.",
+          "If we receive the cancellation at least 24 hours before the scheduled pickup time, we will issue a full refund of the fare paid.",
         ],
       },
       {
-        subtitle: "Cancellation by My Airport Taxi NI",
+        subtitle: "Less than 24 hours before pickup",
         content: [
-          "If My Airport Taxi NI cancels a booking and is unable to provide the booked journey, any amount paid for that journey will be refunded in full.",
+          "If we receive the cancellation less than 24 hours before the scheduled pickup time, a cancellation charge of up to the full booking price may apply because a driver and time have been reserved specifically for the journey.",
+          "The cancellation charge will not exceed the reasonable loss directly caused by the cancellation. We will take account of costs saved and whether we are able to accept another booking for the reserved time. Any amount paid above our reasonable loss will be refunded.",
+        ],
+      },
+      {
+        subtitle: "Flight delays",
+        content: [
+          "Where a correct flight number has been provided, a flight delay will not normally be treated as a cancellation or no-show. We will adjust the planned collection time in accordance with Sections 9 and 10 of these Terms.",
+        ],
+      },
+      {
+        subtitle: "Cancellations by us",
+        content: [
+          "If we cancel a confirmed booking and cannot provide the journey, we will issue a full refund.",
         ],
       },
     ],
-    footer:
-      "Nothing in this cancellation and refund policy affects the customer’s statutory rights.",
+    footer: "These terms do not affect the customer’s statutory rights.",
   },
   {
     title: "Changes to Your Booking",
@@ -175,16 +186,17 @@ export const TERMS_SECTIONS = [
     ],
   },
   {
-    title: "No Shows",
-    content: ["A booking may be treated as a No Show where:"],
+    title: "No-Shows",
+    content: ["A booking may be treated as a no-show where:"],
     list: [
-      "The customer cannot be contacted.",
-      "The customer fails to attend the agreed pickup point.",
-      "Incorrect booking information has been provided.",
-      "The customer leaves the airport without contacting us.",
+      "The passenger has not attended the agreed pickup point by the end of the applicable complimentary waiting period described in Section 9; and",
+      "We have made reasonable attempts to contact the passenger without success.",
     ],
-    footer:
-      "No Shows are normally non-refundable for the same capacity reasons as short-notice cancellations. My Airport Taxi NI may, where appropriate, provide a full or partial refund depending on the circumstances. Nothing in this policy affects your statutory rights.",
+    contentAfterList: [
+      "A customer leaving the airport or another pickup location without contacting us may also be treated as a no-show where this prevents the journey from being provided.",
+      "Incorrect booking information will only result in a booking being treated as a no-show where it prevents us from providing the journey after reasonable attempts to contact the customer.",
+      "A no-show charge of up to the full booking price may apply to cover the driver’s reserved time, travel, waiting time and other reasonable costs incurred. The charge will not exceed the reasonable loss caused by the no-show.",
+    ],
   },
   {
     title: "Child Seats",

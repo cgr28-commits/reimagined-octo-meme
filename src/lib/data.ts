@@ -468,7 +468,7 @@ export const FAQS = [
   {
     question: "Can I cancel my booking?",
     answer:
-      "Cancel more than 24 hours before your scheduled pickup and you’ll receive a full refund. Cancellations within 24 hours of pickup are normally non-refundable because your driver and time have already been reserved, though we may provide a full or partial refund where appropriate depending on the circumstances. If we cancel and cannot provide the journey, you’ll receive a full refund. Your statutory rights are not affected. Full details are in our Terms & Conditions.",
+      "Cancel at least 24 hours before your scheduled pickup and you’ll receive a full refund. Cancel less than 24 hours before pickup and a cancellation charge of up to the full booking price may apply because a driver and time have been reserved specifically for your journey; the charge will not exceed the reasonable loss caused by the cancellation. No-shows may incur a charge of up to the full booking price after the complimentary waiting period and reasonable contact attempts. If My Airport Taxi NI cancels and cannot provide the journey, you’ll receive a full refund. Your statutory rights are not affected. Full details are in our Terms & Conditions.",
   },
   {
     question: "Can I change the date or time of my booking?",
