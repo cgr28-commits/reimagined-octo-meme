@@ -43,16 +43,37 @@ console.log("\n=== 3. Nav Get a Quote + coverage text preserved ===");
 console.log("\n=== 4. First-booking offer promo near quote CTA ===");
 {
   const strip = read("src/components/FirstBookingOfferStrip.tsx");
+  const css = read("src/app/globals.css");
   assert.match(hero, /FirstBookingOfferStrip/);
   assert.match(hero, /FirstBookingOfferBadge/);
   assert.match(hero, /Fixed fares\. Reliable airport transfers\. No surprises\./);
-  assert.match(strip, /£\{amount\} OFF YOUR FIRST BOOKING/);
-  assert.match(strip, /journey fare is £\{minFare\} or more/);
-  assert.match(strip, /New customer offer · £\{amount\} off/i);
+  assert.match(strip, /£\{amount\} OFF/);
+  assert.match(strip, /YOUR FIRST BOOKING/);
+  assert.match(strip, /Journey fare £\{minFare\}\+ · Eligibility confirmed before payment/);
+  assert.match(strip, /New customer offer/i);
+  // Desktop keeps CTA; mobile strip must not show Get a Quote (md:inline-flex / md:hidden pattern).
+  assert.match(strip, /hidden[\s\S]*md:inline-flex/);
+  assert.match(strip, /md:hidden/);
   assert.match(strip, /QuoteNavLink/);
   assert.match(strip, /href="\/#quote"/);
+  assert.doesNotMatch(strip, /animate-pulse|@keyframes[\s\S]*pulse|infinite/);
+  assert.match(css, /first-booking-offer-enter/);
+  assert.match(css, /prefers-reduced-motion/);
   assert.doesNotMatch(strip, /createPayment|resolveFirstBookingOffer|claimOffer/);
   console.log("OK  homepage advertises £5 first-booking offer without applying it");
+}
+
+console.log("\n=== 5. Mobile above-the-fold compaction ===");
+{
+  const strip = read("src/components/FirstBookingOfferStrip.tsx");
+  const card = read("src/components/QuoteCard.tsx");
+  assert.match(hero, /pt-\[4\.75rem\]/);
+  assert.match(strip, /first-booking-offer-enter/);
+  assert.match(card, /Get your fixed price in three quick steps\./);
+  assert.match(card, /Book and pay securely online\./);
+  assert.match(card, /md:hidden/);
+  assert.match(card, /Three quick steps — your journey/);
+  console.log("OK  mobile offer + quote intro are compacted; desktop copy retained");
 }
 
 console.log("\nAll homepage hero CTA checks passed.");
