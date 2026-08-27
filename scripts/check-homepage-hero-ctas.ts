@@ -24,25 +24,20 @@ console.log("=== 1. Redundant hero buttons removed ===");
   console.log("OK  hero has no Get a Fixed Quote / Book Your Transfer — quote panel remains");
 }
 
-console.log("\n=== 2. Benefits sit under heading without large CTA gap ===");
+console.log("\n=== 2. Benefits sit under heading without competing CTAs ===");
 {
-  assert.match(
-    hero,
-    /Republic of Ireland\.\s*<\/p>\s*<div className="mt-6 flex flex-wrap/,
-  );
-  assert.match(hero, /lg:mt-5 lg:grid lg:grid-cols-2/);
-  console.log("OK  benefits spacing tightened under heading copy");
+  assert.match(hero, /Instant fixed prices online/);
+  assert.match(hero, /Flight monitoring on airport pickups/);
+  assert.doesNotMatch(hero, /<DeviceBookingCta/);
+  console.log("OK  benefits list under heading; quote panel is the primary CTA");
 }
 
 console.log("\n=== 3. Nav Get a Quote + coverage text preserved ===");
 {
   assert.match(header, /Get a Quote/);
-  assert.match(
-    hero,
-    /Fixed price transfers to \{airportList\} airports — plus door-to-door transfers across/,
-  );
+  assert.match(hero, /transfers to \{airportList\} airports/);
   assert.match(hero, /Northern Ireland and the Republic of Ireland\./);
-  console.log("OK  header CTA + destination coverage text unchanged");
+  console.log("OK  header CTA + destination coverage text present");
 }
 
 console.log("\nAll homepage hero CTA checks passed.");

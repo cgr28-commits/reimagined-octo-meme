@@ -17,10 +17,12 @@ export default function WhyChooseUsSection() {
           {WHY_CHOOSE_US.map((item) => (
             <article
               key={item.title}
-              className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 transition-all hover:border-emerald/20 hover:bg-white/[0.05]"
+              className="border-t border-white/12 pt-6 transition-colors sm:border sm:rounded-2xl sm:border-white/10 sm:bg-white/[0.025] sm:p-7 sm:pt-7"
             >
-              <h3 className="text-lg font-bold text-white">{item.title}</h3>
-              <p className="mt-3 text-sm leading-relaxed text-white/70">{item.description}</p>
+              <h3 className="font-display text-xl font-semibold tracking-tight text-white">
+                {item.title}
+              </h3>
+              <p className="mt-3 text-sm leading-relaxed text-white/62">{item.description}</p>
             </article>
           ))}
         </div>

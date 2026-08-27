@@ -18,6 +18,7 @@ import {
   formatSuitcaseChoice,
 } from "@/lib/vehicle-selection";
 import type { QuickSelectAirportCode } from "@/lib/selected-place";
+import { choiceGroupNeedsClass } from "@/lib/quote-ui-highlight";
 
 const SELECTABLE_AIRPORTS = CUSTOMER_AIRPORTS.filter(
   (airport) => SERVICE_FLAGS.belfastCityAirport || airport.code !== "BHD",
@@ -36,6 +37,7 @@ function ChoiceGrid({
   onChange,
   formatOption,
   columns,
+  needsCompletion = false,
 }: {
   label: string;
   options: number[];
@@ -43,14 +45,24 @@ function ChoiceGrid({
   onChange: (value: number) => void;
   formatOption?: (value: number) => string;
   columns?: number;
+  needsCompletion?: boolean;
 }) {
   const cols = columns ?? options.length;
   return (
-    <div>
-      <p className="mb-2 text-xs font-medium uppercase tracking-wider text-white/50">{label}</p>
+    <div className={choiceGroupNeedsClass(needsCompletion && value == null)}>
+      <p className="mb-2 text-xs font-medium uppercase tracking-wider text-white/50">
+        {label}
+        {needsCompletion && value == null ? (
+          <span className="ml-1 font-normal normal-case tracking-normal text-emerald/80">
+            (required)
+          </span>
+        ) : null}
+      </p>
       <div
         className="grid gap-2"
         style={{ gridTemplateColumns: `repeat(${Math.min(cols, options.length)}, minmax(0, 1fr))` }}
+        role="group"
+        aria-label={label}
       >
         {options.map((option) => {
           const selected = value !== null && value === option;
@@ -179,7 +191,11 @@ export default function QuoteProgressiveRoute({
         </p>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-3 lg:gap-2.5" role="group" aria-label="Journey type">
+      <div
+        className={`grid gap-3 sm:grid-cols-3 lg:gap-2.5 ${choiceGroupNeedsClass(!journeyIntent)}`}
+        role="group"
+        aria-label="Journey type"
+      >
         {QUOTE_JOURNEY_INTENT_OPTIONS.map((option) => {
           const selected = journeyIntent === option.id;
           return (
@@ -205,8 +221,17 @@ export default function QuoteProgressiveRoute({
         <div id="quote-section-airport" className="space-y-3">
           <p className="text-xs font-medium uppercase tracking-wider text-white/50">
             Which airport?
+            {!airportChosen ? (
+              <span className="ml-1 font-normal normal-case tracking-normal text-emerald/80">
+                (required)
+              </span>
+            ) : null}
           </p>
-          <div className="grid gap-2 lg:grid-cols-2" role="group" aria-label="Airport">
+          <div
+            className={`grid gap-2 lg:grid-cols-2 ${choiceGroupNeedsClass(!airportChosen)}`}
+            role="group"
+            aria-label="Airport"
+          >
             {SELECTABLE_AIRPORTS.map((airport) => {
               const selected = selectedAirportCode === airport.code;
               return (
@@ -223,7 +248,7 @@ export default function QuoteProgressiveRoute({
             })}
           </div>
           {!airportChosen && (
-            <p className="text-xs text-amber-200/90">Please choose an airport.</p>
+            <p className="text-xs text-emerald/85">Please choose an airport.</p>
           )}
           {selectedAirportCode === "LDY" && (
             <p className="rounded-xl border border-white/10 bg-navy-dark/40 px-3 py-2 text-xs text-white/70">
@@ -247,10 +272,11 @@ export default function QuoteProgressiveRoute({
               restoredHint={pickupRestoredHint}
               onClear={onClearPickup}
               selectionError={pickupPlaceError}
+              needsCompletion={!pickupConfirmedPlace?.placeId?.trim()}
               airportCode={addressLookupCode}
               label={journeyIntent === "to-airport" ? "Where should we pick you up?" : "Pickup address"}
               placeholder="Enter pickup address or hotel"
-              helperText="Pick a complete address from the suggestions"
+              helperText="Type your address, then tap a suggestion — typing alone is not enough"
             />
           )}
           {(journeyIntent === "from-airport" || journeyIntent === "address-to-address") && (
@@ -266,12 +292,13 @@ export default function QuoteProgressiveRoute({
                 restoredHint={dropoffRestoredHint}
                 onClear={onClearDropoff}
                 selectionError={dropoffPlaceError}
+                needsCompletion={!dropoffConfirmedPlace?.placeId?.trim()}
                 airportCode={addressLookupCode}
                 label={
                   journeyIntent === "from-airport" ? "Where are you travelling to?" : "Destination"
                 }
                 placeholder="Enter destination address or hotel"
-                helperText="Pick a complete address from the suggestions"
+                helperText="Type your address, then tap a suggestion — typing alone is not enough"
               />
             </div>
           )}
@@ -305,11 +332,20 @@ export default function QuoteProgressiveRoute({
             className="mb-2 text-xs font-medium uppercase tracking-wider text-white/50 outline-none"
           >
             Journey
+            {journeyMode == null ? (
+              <span className="ml-1 font-normal normal-case tracking-normal text-emerald/80">
+                (required)
+              </span>
+            ) : null}
           </p>
           <div
             role="group"
             aria-label="One way or return"
-            className="grid grid-cols-2 overflow-hidden rounded-xl border border-white/15 bg-white/[0.06]"
+            className={`grid grid-cols-2 overflow-hidden rounded-xl border bg-white/[0.06] ${
+              journeyMode == null
+                ? "border-emerald/50 ring-1 ring-emerald/25"
+                : "border-white/15"
+            }`}
           >
             <button
               type="button"
@@ -370,6 +406,7 @@ export default function QuoteProgressiveRoute({
                 value={passengers == null ? null : Math.min(4, Math.max(1, passengers))}
                 onChange={handlePassengersChange}
                 formatOption={formatPassengerChoice}
+                needsCompletion={passengers == null}
               />
               <p className="text-xs text-white/55">
                 Private airport transfer for 1–4 passengers.
@@ -383,6 +420,7 @@ export default function QuoteProgressiveRoute({
                 value={suitcases == null ? null : Math.min(4, Math.max(0, suitcases))}
                 onChange={onSuitcasesChange}
                 formatOption={formatSuitcaseChoice}
+                needsCompletion={suitcases == null}
               />
             </div>
           </div>

@@ -20,6 +20,20 @@ import {
   type QuoteStepNavTarget,
 } from "@/lib/quote-step-nav-scroll";
 import {
+  trackDropoffPlaceSelected,
+  trackPickupPlaceSelected,
+  trackQuoteManualEnquiry,
+  trackQuoteRequestClicked,
+  trackQuoteStarted,
+  trackQuoteToolViewed,
+  trackQuoteValidationError,
+} from "@/lib/quote-funnel-analytics";
+import {
+  bookingTextFieldClass,
+  quoteTextFieldClass,
+  type QuoteFieldHighlightState,
+} from "@/lib/quote-ui-highlight";
+import {
   AIRPORTS,
   isInstantPayVehicle,
   isVehicleEnquiryOnly,
@@ -172,9 +186,18 @@ const BOOKING_PANEL_CLASS =
   "rounded-xl border border-white/25 bg-navy-light px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] sm:px-5 md:border-white/30 md:shadow-lg md:shadow-black/20";
 const BOOKING_LABEL_CLASS =
   "mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/80";
-const BOOKING_INPUT_CLASS =
-  "quote-text-input h-12 rounded-xl border border-white/25 bg-navy-dark px-4 text-white placeholder:text-white/45 outline-none transition-colors focus:border-emerald focus:ring-2 focus:ring-inset focus:ring-emerald/25 md:border-white/30";
 const BOOKING_HELPER_CLASS = "quote-helper-text mt-1.5 text-xs text-white/55";
+
+function fieldState(options: {
+  hasError?: boolean;
+  complete: boolean;
+  activeStep: boolean;
+}): QuoteFieldHighlightState {
+  if (options.hasError) return "error";
+  if (!options.activeStep) return "default";
+  if (options.complete) return "complete";
+  return "needs";
+}
 
 const ESTATE = "Estate Car (1–4 passengers)" as const;
 
@@ -234,19 +257,36 @@ function TapChoiceRow({
   value,
   onChange,
   formatOption,
+  needsCompletion = false,
 }: {
   label: string;
   options: number[];
   value: number | null;
   onChange: (value: number) => void;
   formatOption?: (value: number) => string;
+  needsCompletion?: boolean;
 }) {
   return (
-    <div>
-      <p className="mb-2 text-xs font-medium uppercase tracking-wider text-white/50">{label}</p>
+    <div
+      className={
+        needsCompletion && value == null
+          ? "rounded-2xl border border-emerald/45 bg-emerald/[0.04] p-2 ring-1 ring-emerald/20"
+          : "rounded-2xl border border-transparent p-2"
+      }
+    >
+      <p className="mb-2 text-xs font-medium uppercase tracking-wider text-white/50">
+        {label}
+        {needsCompletion && value == null ? (
+          <span className="ml-1 font-normal normal-case tracking-normal text-emerald/80">
+            (required)
+          </span>
+        ) : null}
+      </p>
       <div
         className="grid gap-2"
         style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }}
+        role="group"
+        aria-label={label}
       >
         {options.map((option) => {
           const selected = value !== null && value === option;
@@ -434,6 +474,10 @@ function QuoteCard({
   const pendingBookingResultScrollRef = useRef(false);
   /** Set only by explicit Book Now / Continue / Back — never by quote re-renders. */
   const pendingQuoteStepNavScrollRef = useRef<QuoteStepNavTarget | null>(null);
+  /** Stable id for once-per-attempt Step 1 funnel diagnostics (not PII). */
+  const quoteFunnelAttemptIdRef = useRef(
+    `q${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`,
+  );
   const passengerLimit = Math.min(
     Math.max(1, maxPassengers),
     SELECTOR_MAX_PASSENGERS,
@@ -1406,6 +1450,19 @@ function QuoteCard({
     }
   }
 
+  /** Places autocomplete selection only (not airport quick-select). */
+  function handlePickupPlacesSuggestionSelect(place: SelectedPlace) {
+    handlePickupPlaceSelect(place);
+    if (isQuoteReadyPlace(place) && place.placeId?.trim()) {
+      markQuoteFunnelStarted();
+      trackPickupPlaceSelected(
+        quoteFunnelAttemptIdRef.current,
+        place.placeId,
+        quoteFunnelParams(),
+      );
+    }
+  }
+
   function handleDropoffPlaceSelect(place: SelectedPlace) {
     const addressChanged = Boolean(place.placeId?.trim()) && place.placeId !== dropoffPlace.placeId;
     setDropoffPlace(place);
@@ -1438,10 +1495,24 @@ function QuoteCard({
     }
   }
 
+  /** Places autocomplete selection only (not airport quick-select). */
+  function handleDropoffPlacesSuggestionSelect(place: SelectedPlace) {
+    handleDropoffPlaceSelect(place);
+    if (isQuoteReadyPlace(place) && place.placeId?.trim()) {
+      markQuoteFunnelStarted();
+      trackDropoffPlaceSelected(
+        quoteFunnelAttemptIdRef.current,
+        place.placeId,
+        quoteFunnelParams(),
+      );
+    }
+  }
+
   function applyJourneyIntent(intent: QuoteJourneyIntent) {
     if (intent !== journeyIntent) {
       clearDownstreamQuoteChoices();
     }
+    markQuoteFunnelStarted();
     setJourneyIntent(intent);
     setTripMode("address");
     if (intent === "to-airport") {
@@ -1489,6 +1560,7 @@ function QuoteCard({
     }
     setIntentAirportCode(code);
     setAirportCode(code);
+    markQuoteFunnelStarted();
     const intent = journeyIntent ?? (tripDirection === "from-airport" ? "from-airport" : "to-airport");
     if (intent === "from-airport") {
       handlePickupPlaceSelect(place);
@@ -1564,6 +1636,77 @@ function QuoteCard({
           ? "Airport pickup"
           : "Airport drop-off"
         : "Address to address";
+
+  function quoteFunnelParams(extra: {
+    cta?: string | null;
+    validation_reason?: string | null;
+    pricing_path?: string | null;
+  } = {}) {
+    return {
+      quote_step: quoteStep,
+      journey_intent: journeyIntent,
+      airport_code: intentAirportCode || (isAirportTrip ? airportCode : null),
+      passengers,
+      suitcases,
+      return_journey: journeyMode == null ? null : journeyMode === "return",
+      page_type: pageType ?? null,
+      ...extra,
+    };
+  }
+
+  function markQuoteFunnelStarted() {
+    trackQuoteStarted(quoteFunnelAttemptIdRef.current, quoteFunnelParams());
+  }
+
+  // Diagnostic: Step 1 quote calculator became visible (once per page/session + pageType).
+  useEffect(() => {
+    if (quoteStep !== 1) return;
+    const target = step1JourneyRef.current ?? cardRef.current;
+    if (!target || typeof IntersectionObserver === "undefined") {
+      trackQuoteToolViewed(quoteFunnelParams());
+      return;
+    }
+    let fired = false;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (fired) return;
+        if (entries.some((entry) => entry.isIntersecting && entry.intersectionRatio > 0.15)) {
+          fired = true;
+          trackQuoteToolViewed(quoteFunnelParams());
+          observer.disconnect();
+        }
+      },
+      { threshold: [0.15, 0.35] },
+    );
+    observer.observe(target);
+    return () => observer.disconnect();
+    // Intentionally once when Step 1 mounts / returns — not on every field change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [quoteStep, pageType]);
+
+  // Diagnostic: journey cannot use automatic fixed price (manual / enquiry path).
+  useEffect(() => {
+    if (quoteStep !== 1 || !hasQuoteRoute) return;
+    if (!(isManualQuoteJourney || isEnquiryOnly || pricingConfirmationRequired)) return;
+    trackQuoteManualEnquiry(
+      quoteFunnelAttemptIdRef.current,
+      quoteFunnelParams({
+        pricing_path: isManualQuoteJourney
+          ? "manual_quote"
+          : pricingConfirmationRequired
+            ? "pricing_confirmation"
+            : "enquiry_only",
+      }),
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    quoteStep,
+    hasQuoteRoute,
+    isManualQuoteJourney,
+    isEnquiryOnly,
+    pricingConfirmationRequired,
+  ]);
+
   const quoteCalculationFingerprint =
     quoteAnalyticsValue && effectivePassengers != null
       ? JSON.stringify([
@@ -2212,6 +2355,7 @@ function QuoteCard({
   function performStartNewQuote() {
     clearAbandonedQuotePersistence();
     resetRequestQuoteConversion();
+    quoteFunnelAttemptIdRef.current = `q${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
     setFormResetKey((key) => key + 1);
 
     const airportPlace = isCustomerAirportCode(initialAirportCode)
@@ -2498,24 +2642,44 @@ function QuoteCard({
     setBookingDelivery(null);
 
     if (quoteStep === 1) {
+      const step1Cta =
+        liveQuote && canPayNowOnline && !isEnquiryOnly && !showsRequestQuoteFlow
+          ? "book_now"
+          : "continue_to_travel_details";
+      trackQuoteRequestClicked(quoteFunnelParams({ cta: step1Cta }));
+
+      const failStep1 = (reason: string, message: string) => {
+        trackQuoteValidationError(reason, quoteFunnelParams({ cta: step1Cta }));
+        setSubmitError(message);
+      };
+
       if (isA2AFlow) {
         if (!journeyIntent) {
-          setSubmitError("Please choose where you are travelling.");
+          failStep1("missing_journey_intent", "Please choose where you are travelling.");
           return;
         }
         if (
           (journeyIntent === "to-airport" || journeyIntent === "from-airport") &&
           !intentAirportCode
         ) {
-          setSubmitError("Please choose an airport.");
+          failStep1("missing_airport", "Please choose an airport.");
           return;
         }
         if (!validateA2APlaces()) {
+          trackQuoteValidationError(
+            !isPlaceSelected(pickupPlace)
+              ? "places_pickup_not_selected"
+              : !isPlaceSelected(dropoffPlace)
+                ? "places_dropoff_not_selected"
+                : "places_same_pickup_dropoff",
+            quoteFunnelParams({ cta: step1Cta }),
+          );
           return;
         }
       }
       if (!hasQuoteRoute) {
-        setSubmitError(
+        failStep1(
+          "incomplete_route",
           isA2AFlow && journeyIntent === "to-airport"
             ? "Please select your pickup address."
             : isA2AFlow && journeyIntent === "from-airport"
@@ -2525,12 +2689,15 @@ function QuoteCard({
         return;
       }
       if (journeyMode == null) {
-        setSubmitError("Choose One way or Return to continue.");
+        failStep1("missing_journey_mode", "Choose One way or Return to continue.");
         scrollQuoteStage("journey-type-selector");
         return;
       }
       if (!partySelectionReady) {
-        setSubmitError("Select your passenger and suitcase numbers to see your fixed price.");
+        failStep1(
+          "missing_party",
+          "Select your passenger and suitcase numbers to see your fixed price.",
+        );
         scrollQuoteStage("passenger-luggage-section");
         return;
       }
@@ -2538,17 +2705,18 @@ function QuoteCard({
         passengers != null &&
         (passengers > MAX_ONLINE_PASSENGERS || passengers < 1)
       ) {
-        setSubmitError(PASSENGER_LIMIT_ERROR);
+        failStep1("invalid_passengers", PASSENGER_LIMIT_ERROR);
         return;
       }
       if (
         suitcases != null &&
         (suitcases < 0 || suitcases > SELECTOR_MAX_SUITCASES)
       ) {
-        setSubmitError("Please select 0–4 large suitcases.");
+        failStep1("invalid_suitcases", "Please select 0–4 large suitcases.");
         return;
       }
       if (!exceedsOnlineCapacity && !isEnquiryOnly && !isManualQuoteJourney && !pricingConfirmationRequired && !liveQuote) {
+        trackQuoteValidationError("price_not_ready", quoteFunnelParams({ cta: step1Cta }));
         return;
       }
       if (
@@ -2560,7 +2728,8 @@ function QuoteCard({
         })
       ) {
         setExpressAckRequired(true);
-        setSubmitError(
+        failStep1(
+          "express_ack_required",
           expressSelection.service === "pick-up"
             ? "Please confirm you understand the free pick-up area before continuing without Express Pick-Up."
             : "Please confirm you understand the free drop-off area before continuing without Express Drop-Off.",
@@ -3032,12 +3201,12 @@ function QuoteCard({
           </>
         ) : showsRequestQuoteFlow && liveQuote ? (
           <>
-            <p className="text-xs font-medium uppercase tracking-wider text-emerald">
+            <p className="quote-price-label">
               {returnJourney
                 ? "Guide return price · request a quote"
                 : "Guide price · request a quote"}
             </p>
-            <p className="mt-1 text-3xl font-semibold tracking-tight text-white">
+            <p className="quote-price-figure mt-2">
               {formatQuote(pricedFare?.totalGbp ?? liveQuote.amount)}
             </p>
             {renderExpressChoiceInPriceCard(quoteStep === 1 ? "full" : "summary")}
@@ -3090,7 +3259,7 @@ function QuoteCard({
           </>
         ) : liveQuote ? (
           <>
-            <p className="text-xs font-medium uppercase tracking-wider text-emerald">
+            <p className="quote-price-label">
               {testChargeAmount !== null
                 ? "Test SumUp charge"
                 : appliedPersonalQuote
@@ -3099,7 +3268,7 @@ function QuoteCard({
                     ? "Your Fixed Return Journey Price"
                     : "Your Fixed Journey Price"}
             </p>
-            <p className="mt-1 text-3xl font-semibold tracking-tight text-white">
+            <p className="quote-price-figure mt-2">
               {formatQuote(
                 testChargeAmount ??
                   pricedFare?.totalGbp ??
@@ -3148,13 +3317,13 @@ function QuoteCard({
           </>
         ) : (
           <>
-            <p className="text-xs font-medium uppercase tracking-wider text-white/50">
+            <p className="quote-price-label !text-white/50">
               Your Fixed Journey Price
             </p>
-            <p className="mt-1 text-sm text-white/70">{quoteHint}</p>
+            <p className="mt-2 text-sm leading-relaxed text-white/70">{quoteHint}</p>
           </>
         )}
-        <p className="mt-3 text-[11px] text-white/40">
+        <p className="mt-3.5 text-xs leading-relaxed text-white/45">
           {pricingConfirmationRequired || isManualQuoteJourney
             ? "We’ll confirm your price before any payment is taken."
             : showsRequestQuoteFlow
@@ -3189,7 +3358,7 @@ function QuoteCard({
               ? !hasQuoteRoute
               : !liveQuote)
           }
-          className="w-full rounded-xl bg-emerald py-3.5 text-sm font-bold text-navy transition-all hover:bg-emerald-light disabled:cursor-not-allowed disabled:opacity-50"
+          className="btn-primary w-full"
         >
           {submitted
             ? submitInProgressLabel
@@ -3206,7 +3375,7 @@ function QuoteCard({
           <button
             type="button"
             onClick={handleSaveQuoteClick}
-            className="w-full rounded-xl border border-white/25 bg-transparent py-3 text-sm font-semibold text-white transition-all hover:bg-white/5"
+            className="btn-secondary w-full"
           >
             Save Quote
           </button>
@@ -3245,7 +3414,7 @@ function QuoteCard({
             Thanks — we&apos;ve received your journey details.
           </h2>
           {shortNoticeResult.amountLabel ? (
-            <p className="mt-4 text-3xl font-bold text-white sm:text-4xl">
+            <p className="quote-price-figure mt-4">
               {shortNoticeResult.amountLabel}
             </p>
           ) : null}
@@ -3265,7 +3434,7 @@ function QuoteCard({
             href={shortNoticeResult.whatsappUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="mt-6 inline-flex min-h-12 w-full max-w-sm items-center justify-center rounded-xl bg-emerald px-5 py-3 text-base font-bold text-navy transition-colors hover:bg-emerald/90 sm:w-auto"
+            className="btn-primary mt-6 w-full max-w-sm sm:w-auto sm:px-8"
           >
             Message us on WhatsApp
           </a>
@@ -3316,7 +3485,7 @@ function QuoteCard({
             Thank you
           </h2>
           {quoteConversionValue && !isManualQuoteJourney ? (
-            <p className="mt-4 text-3xl font-bold text-white sm:text-4xl">
+            <p className="quote-price-figure mt-4">
               {formatQuote(quoteConversionValue)}
             </p>
           ) : null}
@@ -3355,7 +3524,7 @@ function QuoteCard({
             onClick={() => {
               performStartNewQuote();
             }}
-            className="mt-6 w-full rounded-xl bg-emerald px-4 py-3 text-sm font-bold text-navy transition-colors hover:bg-emerald-light sm:w-auto sm:px-8"
+            className="btn-primary mt-6 w-full sm:w-auto sm:px-8"
           >
             Start a New Quote
           </button>
@@ -3365,21 +3534,21 @@ function QuoteCard({
   }
 
   return (
-    <div ref={cardRef} className="glass-card min-w-0 rounded-2xl p-4 sm:p-8 lg:p-6 xl:p-7">
-      <div className="mb-4 lg:mb-4">
+    <div ref={cardRef} className="glass-card min-w-0 rounded-[1.05rem] p-4 sm:p-7 lg:p-6 xl:p-7">
+      <div className="mb-5 lg:mb-5">
         <h2
           data-site-nav-heading="quote"
           tabIndex={-1}
-          className="text-xl font-semibold tracking-tight text-white outline-none sm:text-2xl lg:text-[1.5rem]"
+          className="font-display text-[1.65rem] font-semibold leading-tight tracking-tight text-white outline-none sm:text-[1.85rem] lg:text-[1.75rem]"
         >
           Get a Live Quote
         </h2>
-        <p className="mt-1.5 text-sm leading-relaxed text-white/60 sm:mt-2 lg:mt-1.5 lg:text-[0.875rem] lg:leading-snug">
+        <p className="mt-2 text-sm leading-relaxed text-white/58 sm:mt-2.5 lg:text-[0.9rem] lg:leading-relaxed">
           {pricingConfirmationRequired
             ? "Three quick steps — your journey, travel details, then your details. We’ll confirm your fare before any payment."
             : "Three quick steps — your journey, travel details, then your details. Instant fares can be paid online by card to confirm; otherwise Request to book and we’ll email a SumUp link after we confirm."}
         </p>
-        <ol className="mt-3 grid grid-cols-3 gap-2 lg:mt-3 lg:gap-2" aria-label="Booking steps">
+        <ol className="mt-4 grid grid-cols-3 gap-1.5 sm:gap-2" aria-label="Booking steps">
           {[
             { step: 1 as const, label: isA2AFlow ? "Your journey" : "Airport & address" },
             { step: 2 as const, label: "Price & travel" },
@@ -3390,18 +3559,35 @@ function QuoteCard({
             return (
               <li
                 key={item.step}
-                className={`rounded-lg border px-2 py-2 text-center ${
-                  active
-                    ? "border-white/25 bg-white/[0.06] text-white"
-                    : done
-                      ? "border-white/15 bg-white/[0.03] text-white/70"
-                      : "border-white/10 text-white/40"
+                aria-current={active ? "step" : undefined}
+                className={`quote-step ${
+                  active ? "quote-step-active" : done ? "quote-step-done" : ""
                 }`}
               >
-                <span className="block text-[10px] font-semibold uppercase tracking-wider">
-                  Step {item.step}
+                <span className="flex items-center justify-center gap-1 text-[10px] font-semibold uppercase tracking-wider">
+                  {done ? (
+                    <svg
+                      className="h-3 w-3 shrink-0 text-emerald"
+                      viewBox="0 0 16 16"
+                      fill="none"
+                      aria-hidden
+                    >
+                      <path
+                        d="M3.5 8.5 6.5 11.5 12.5 4.5"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  ) : null}
+                  <span>Step {item.step}</span>
+                  {done ? <span className="sr-only">completed</span> : null}
+                  {active ? <span className="sr-only">current</span> : null}
                 </span>
-                <span className="mt-0.5 block text-xs font-semibold">{item.label}</span>
+                <span className="mt-0.5 block text-[11px] font-semibold leading-tight sm:text-xs">
+                  {item.label}
+                </span>
               </li>
             );
           })}
@@ -3457,8 +3643,8 @@ function QuoteCard({
               dropoffAddress={dropoffAddress}
               onPickupChange={handlePickupChange}
               onDropoffChange={handleDropoffChange}
-              onPickupPlaceSelect={handlePickupPlaceSelect}
-              onDropoffPlaceSelect={handleDropoffPlaceSelect}
+              onPickupPlaceSelect={handlePickupPlacesSuggestionSelect}
+              onDropoffPlaceSelect={handleDropoffPlacesSuggestionSelect}
               pickupPlaceError={pickupPlaceError}
               dropoffPlaceError={dropoffPlaceError}
               pickupConfirmedPlace={isQuoteReadyPlace(pickupPlace) ? pickupPlace : null}
@@ -3474,15 +3660,22 @@ function QuoteCard({
               addressLookupCode={addressLookupCode}
               journeyMode={journeyMode}
               onJourneyModeChange={(value) => {
+                markQuoteFunnelStarted();
                 setJourneyMode(value);
                 if (value === "one-way") setReturnDateError("");
               }}
               passengers={passengers}
-              onPassengersChange={setPassengers}
+              onPassengersChange={(value) => {
+                markQuoteFunnelStarted();
+                setPassengers(value);
+              }}
               exactPassengers={exactPassengers}
               onExactPassengersChange={setExactPassengers}
               suitcases={suitcases}
-              onSuitcasesChange={setSuitcases}
+              onSuitcasesChange={(value) => {
+                markQuoteFunnelStarted();
+                setSuitcases(value);
+              }}
               isGroupQuote={false}
               showRouteFields={Boolean(journeyIntent)}
               showJourneyModeFields={
@@ -3598,14 +3791,14 @@ function QuoteCard({
                 {quoteResultsReady && quoteStep === 1 && (
                   <>
                     {!exceedsOnlineCapacity && (
-                      <div className="rounded-xl border border-emerald/30 bg-emerald/10 px-3 py-2.5 sm:px-4 sm:py-3">
-                        <p className="text-xs font-medium uppercase tracking-wider text-emerald">
+                      <div className="rounded-xl border border-white/12 bg-white/[0.03] px-3 py-3 sm:px-4 sm:py-3.5">
+                        <p className="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-white/50">
                           Vehicle for this journey
                         </p>
-                        <p className="mt-1 text-lg font-semibold tracking-tight text-white sm:text-xl">
+                        <p className="mt-1.5 font-display text-xl font-semibold tracking-tight text-white sm:text-[1.35rem]">
                           {vehicleShortLabel(quoteVehicle)}
                         </p>
-                        <p className="mt-1.5 text-xs leading-relaxed text-white/70">
+                        <p className="mt-1.5 text-xs leading-relaxed text-white/60">
                           Selected automatically from your passengers and luggage.
                         </p>
                       </div>
@@ -3613,7 +3806,7 @@ function QuoteCard({
 
                     <div
                       id="quote-price-summary"
-                      className="rounded-xl border border-white/10 bg-navy-dark/40 px-3 py-4 sm:px-4 sm:py-5"
+                      className="quote-price-panel"
                     >
                       {renderQuotePriceSummaryBody()}
                     </div>
@@ -3626,7 +3819,8 @@ function QuoteCard({
                     />
                     <div
                       id="quote-step1-next"
-                      className="sticky bottom-0 z-20 -mx-1 space-y-2 border-t border-white/10 bg-navy/95 px-1 py-3 backdrop-blur-md supports-[padding:max(0px)]:pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:static sm:z-auto sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-none"
+                      className="sticky z-20 -mx-1 space-y-2 border-t border-white/10 bg-navy/95 px-1 py-3 backdrop-blur-md supports-[padding:max(0px)]:pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:static sm:z-auto sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-none"
+                      style={{ bottom: "var(--matni-cookie-banner-offset, 0px)" }}
                     >
                       {renderStep1PrimaryActions()}
                     </div>
@@ -3653,11 +3847,20 @@ function QuoteCard({
         <div id="journey-type-selector">
           <p className="mb-2 text-xs font-medium uppercase tracking-wider text-white/50">
             Journey
+            {journeyMode == null ? (
+              <span className="ml-1 font-normal normal-case tracking-normal text-emerald/80">
+                (required)
+              </span>
+            ) : null}
           </p>
           <div
             role="group"
             aria-label="One way or return"
-            className="grid grid-cols-2 overflow-hidden rounded-xl border border-white/15 bg-white/[0.06]"
+            className={`grid grid-cols-2 overflow-hidden rounded-xl border bg-white/[0.06] ${
+              journeyMode == null
+                ? "border-emerald/50 ring-1 ring-emerald/25"
+                : "border-white/15"
+            }`}
           >
             <button
               type="button"
@@ -3814,6 +4017,11 @@ function QuoteCard({
                 name="dropoff"
                 value={dropoffAddress}
                 onChange={handleDropoffChange}
+                onSelectPlace={handleDropoffPlacesSuggestionSelect}
+                requireSuggestion
+                confirmedPlace={isQuoteReadyPlace(dropoffPlace) ? dropoffPlace : null}
+                needsCompletion={quoteStep === 1 && !isPlaceSelected(dropoffPlace)}
+                selectionError={dropoffPlaceError}
                 airportCode={addressLookupCode}
                 label={
                   isLdyTrip
@@ -3849,6 +4057,11 @@ function QuoteCard({
                 name="pickup"
                 value={pickupAddress}
                 onChange={handlePickupChange}
+                onSelectPlace={handlePickupPlacesSuggestionSelect}
+                requireSuggestion
+                confirmedPlace={isQuoteReadyPlace(pickupPlace) ? pickupPlace : null}
+                needsCompletion={quoteStep === 1 && !isPlaceSelected(pickupPlace)}
+                selectionError={pickupPlaceError}
                 airportCode={addressLookupCode}
                 label={isLdyTrip ? "Your Belfast-area Pickup Address" : "Your Pickup Address"}
                 placeholder={
@@ -3879,6 +4092,11 @@ function QuoteCard({
               name="pickup"
               value={pickupAddress}
               onChange={handlePickupChange}
+              onSelectPlace={handlePickupPlacesSuggestionSelect}
+              requireSuggestion
+              confirmedPlace={isQuoteReadyPlace(pickupPlace) ? pickupPlace : null}
+              needsCompletion={quoteStep === 1 && !isPlaceSelected(pickupPlace)}
+              selectionError={pickupPlaceError}
               airportCode={addressLookupCode}
               label="Pickup Address"
               placeholder="e.g. 12 High Street, Bangor"
@@ -3890,6 +4108,11 @@ function QuoteCard({
               name="dropoff"
               value={dropoffAddress}
               onChange={handleDropoffChange}
+              onSelectPlace={handleDropoffPlacesSuggestionSelect}
+              requireSuggestion
+              confirmedPlace={isQuoteReadyPlace(dropoffPlace) ? dropoffPlace : null}
+              needsCompletion={quoteStep === 1 && !isPlaceSelected(dropoffPlace)}
+              selectionError={dropoffPlaceError}
               airportCode={addressLookupCode}
               label="Drop-off Address"
               placeholder="e.g. 45 Main Street, Lisburn"
@@ -3942,6 +4165,7 @@ function QuoteCard({
               value={passengers == null ? null : Math.min(passengers, passengerLimit)}
               onChange={setPassengers}
               formatOption={formatPassengerChoice}
+              needsCompletion={quoteStep === 1 && passengers == null}
             />
             <TapChoiceRow
               label="Large suitcases (23kg)"
@@ -3949,6 +4173,7 @@ function QuoteCard({
               value={suitcases == null ? null : Math.min(suitcases, SELECTOR_MAX_SUITCASES)}
               onChange={setSuitcases}
               formatOption={formatSuitcaseChoice}
+              needsCompletion={quoteStep === 1 && suitcases == null}
             />
           </div>
           {!partySelectionReady && (
@@ -4031,7 +4256,7 @@ function QuoteCard({
             )}
             <div
               id="quote-price-summary"
-              className="rounded-xl border border-white/10 bg-navy-dark/40 px-3 py-4 sm:px-4 sm:py-5"
+              className="quote-price-panel"
             >
               {renderQuotePriceSummaryBody()}
             </div>
@@ -4042,7 +4267,8 @@ function QuoteCard({
             />
             <div
               id="quote-step1-next"
-              className="sticky bottom-0 z-20 -mx-1 space-y-2 border-t border-white/10 bg-navy/95 px-1 py-3 backdrop-blur-md supports-[padding:max(0px)]:pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:static sm:z-auto sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-none"
+              className="sticky z-20 -mx-1 space-y-2 border-t border-white/10 bg-navy/95 px-1 py-3 backdrop-blur-md supports-[padding:max(0px)]:pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:static sm:z-auto sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-none"
+              style={{ bottom: "var(--matni-cookie-banner-offset, 0px)" }}
             >
               {renderStep1PrimaryActions()}
             </div>
@@ -4096,7 +4322,13 @@ function QuoteCard({
                 setTripDateError("");
                 setReturnDateError("");
               }}
-              className="box-border h-12 w-full min-w-0 rounded-xl border border-white/10 bg-white/5 px-4 text-base text-white outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30 [color-scheme:dark]"
+              className={quoteTextFieldClass(
+                fieldState({
+                  hasError: Boolean(tripDateError),
+                  complete: Boolean(tripDate.trim()),
+                  activeStep: quoteStep === 2,
+                }),
+              )}
             />
           </div>
           <div>
@@ -4132,7 +4364,13 @@ function QuoteCard({
                 // iPhone Done / tick dismisses the picker → blur. Scroll only then.
                 requestJourneySummaryScrollAfterTimeConfirm();
               }}
-              className="box-border h-12 w-full min-w-0 rounded-xl border border-white/10 bg-white/5 px-4 text-base text-white outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30 [color-scheme:dark]"
+              className={quoteTextFieldClass(
+                fieldState({
+                  hasError: Boolean(tripDateError),
+                  complete: Boolean(tripTime.trim()),
+                  activeStep: quoteStep === 2,
+                }),
+              )}
             />
           </div>
           <p
@@ -4176,7 +4414,13 @@ function QuoteCard({
                     setReturnDate((e.target as HTMLInputElement).value);
                     setReturnDateError("");
                   }}
-                  className="box-border h-12 w-full min-w-0 rounded-xl border border-white/10 bg-white/5 px-4 text-base text-white outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30 [color-scheme:dark]"
+                  className={quoteTextFieldClass(
+                    fieldState({
+                      hasError: Boolean(returnDateError),
+                      complete: Boolean(returnDate.trim()),
+                      activeStep: quoteStep === 2 && returnJourney,
+                    }),
+                  )}
                 />
               </div>
               <div>
@@ -4207,7 +4451,13 @@ function QuoteCard({
                   onBlur={() => {
                     requestJourneySummaryScrollAfterTimeConfirm();
                   }}
-                  className="box-border h-12 w-full min-w-0 rounded-xl border border-white/10 bg-white/5 px-4 text-base text-white outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30 [color-scheme:dark]"
+                  className={quoteTextFieldClass(
+                    fieldState({
+                      hasError: Boolean(returnDateError),
+                      complete: Boolean(returnTime.trim()),
+                      activeStep: quoteStep === 2 && returnJourney,
+                    }),
+                  )}
                 />
               </div>
               <p className="sm:col-span-2 min-h-[1.1rem] text-xs text-red-400">
@@ -4280,7 +4530,7 @@ function QuoteCard({
           id="quote-price-summary"
           data-booking-nav-heading
           tabIndex={-1}
-          className="scroll-mt-44 rounded-xl border border-white/10 bg-navy-dark/40 px-4 py-5 outline-none md:scroll-mt-28"
+          className="quote-price-panel scroll-mt-44 outline-none md:scroll-mt-28"
         >
           {renderQuotePriceSummaryBody()}
         </div>
@@ -4328,7 +4578,13 @@ function QuoteCard({
                     }
                   }}
                   placeholder="John Smith"
-                  className={BOOKING_INPUT_CLASS}
+                  className={bookingTextFieldClass(
+                    fieldState({
+                      hasError: Boolean(customerNameError),
+                      complete: Boolean(customerName.trim()),
+                      activeStep: quoteStep === 3,
+                    }),
+                  )}
                 />
                 {customerNameError && (
                   <p id="customer-name-error" role="alert" className="mt-1.5 text-xs text-red-300">
@@ -4356,7 +4612,13 @@ function QuoteCard({
                     }
                   }}
                   placeholder="07xxx xxxxxx"
-                  className={BOOKING_INPUT_CLASS}
+                  className={bookingTextFieldClass(
+                    fieldState({
+                      hasError: Boolean(mobileNumberError),
+                      complete: isValidMobileNumber(customerMobile),
+                      activeStep: quoteStep === 3,
+                    }),
+                  )}
                 />
                 <p id="mobile-helper" className={BOOKING_HELPER_CLASS}>
                   So we can call or text if we need to reach you about your booking.
@@ -4388,7 +4650,13 @@ function QuoteCard({
                   }
                 }}
                 placeholder="you@example.com"
-                className={BOOKING_INPUT_CLASS}
+                className={bookingTextFieldClass(
+                  fieldState({
+                    hasError: Boolean(emailAddressError),
+                    complete: isValidEmailAddress(customerEmail),
+                    activeStep: quoteStep === 3,
+                  }),
+                )}
               />
               <p id="email-helper" className={BOOKING_HELPER_CLASS}>
                 {canPayNowOnline
@@ -4695,7 +4963,7 @@ function QuoteCard({
                       <button
                         type="button"
                         onClick={handleReturnToEditBooking}
-                        className="w-full rounded-xl border border-white/20 bg-white/5 py-3 text-sm font-semibold text-white transition-all hover:bg-white/10"
+                        className="btn-secondary w-full"
                       >
                         Return to / Edit booking
                       </button>
@@ -4703,7 +4971,7 @@ function QuoteCard({
                         type="button"
                         onClick={handleOpenPaymentAgain}
                         disabled={paymentLoading}
-                        className="w-full rounded-xl bg-white py-3 text-sm font-bold text-navy transition-all hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-70"
+                        className="btn-pay w-full disabled:cursor-not-allowed disabled:opacity-70"
                       >
                         {paymentLoading ? "Opening secure payment…" : "Continue to SumUp"}
                       </button>
@@ -4734,7 +5002,7 @@ function QuoteCard({
                         !customerMobile.trim() ||
                         !tripDetailsReady
                       }
-                      className="w-full rounded-xl bg-white py-3.5 text-sm font-bold text-navy transition-all hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-70"
+                      className="btn-pay w-full disabled:cursor-not-allowed disabled:opacity-70"
                     >
                       {paymentLoading
                         ? "Opening secure payment…"
@@ -4762,7 +5030,7 @@ function QuoteCard({
               <button
                 type="button"
                 onClick={handleEditBooking}
-                className="w-full rounded-xl border border-white/15 bg-white/5 py-3.5 text-sm font-semibold text-white transition-all hover:bg-white/10"
+                className="btn-secondary w-full"
               >
                 Back to travel details
               </button>
@@ -4771,14 +5039,14 @@ function QuoteCard({
                 <button
                   type="button"
                   onClick={handleEditBooking}
-                  className="w-full rounded-xl border border-white/15 bg-white/5 py-3.5 text-sm font-semibold text-white transition-all hover:bg-white/10"
+                  className="btn-secondary w-full"
                 >
                   Back to travel details
                 </button>
                 <button
                   type="submit"
                   disabled={submitted || !termsAccepted}
-                  className="w-full rounded-xl bg-emerald py-3.5 text-sm font-bold text-navy transition-all hover:bg-emerald-light disabled:cursor-not-allowed disabled:opacity-70"
+                  className="btn-primary w-full disabled:cursor-not-allowed disabled:opacity-70"
                 >
                   {submitted ? submitInProgressLabel : confirmButtonLabel}
                 </button>
@@ -4793,7 +5061,7 @@ function QuoteCard({
                 <button
                   type="button"
                   onClick={handleEditBooking}
-                  className="w-full rounded-xl border border-white/15 bg-white/5 py-3.5 text-sm font-semibold text-white transition-all hover:bg-white/10"
+                  className="btn-secondary w-full"
                 >
                   Back to travel details
                 </button>
@@ -4801,7 +5069,7 @@ function QuoteCard({
                   type="button"
                   disabled={submitted || !termsAccepted}
                   onClick={() => void confirmBooking("whatsapp")}
-                  className="w-full rounded-xl bg-emerald py-3.5 text-sm font-bold text-navy transition-all hover:bg-emerald-light disabled:cursor-not-allowed disabled:opacity-70"
+                  className="btn-primary w-full disabled:cursor-not-allowed disabled:opacity-70"
                 >
                   {submitted ? submitInProgressLabel : whatsAppConfirmLabel}
                 </button>
@@ -4809,7 +5077,7 @@ function QuoteCard({
                   type="button"
                   disabled={submitted || !termsAccepted}
                   onClick={() => void confirmBooking("email")}
-                  className="w-full rounded-xl border border-white/20 bg-white/5 py-3.5 text-sm font-semibold text-white transition-all hover:border-emerald/40 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-70"
+                  className="btn-secondary w-full disabled:cursor-not-allowed disabled:opacity-70"
                 >
                   {submitted
                     ? submitInProgressLabel
@@ -4826,14 +5094,14 @@ function QuoteCard({
                 <button
                   type="button"
                   onClick={handleEditBooking}
-                  className="w-full rounded-xl border border-white/15 bg-white/5 py-3.5 text-sm font-semibold text-white transition-all hover:bg-white/10"
+                  className="btn-secondary w-full"
                 >
                   Back to travel details
                 </button>
                 <button
                   type="submit"
                   disabled={submitted || !termsAccepted}
-                  className="w-full rounded-xl bg-emerald py-3.5 text-sm font-bold text-navy transition-all hover:bg-emerald-light disabled:cursor-not-allowed disabled:opacity-70"
+                  className="btn-primary w-full disabled:cursor-not-allowed disabled:opacity-70"
                 >
                   {submitted ? submitInProgressLabel : confirmButtonLabel}
                 </button>
@@ -4854,7 +5122,7 @@ function QuoteCard({
                   setCollectionFlightError("");
                   setReturnDateError("");
                 }}
-                className="w-full rounded-xl border border-white/15 bg-white/5 py-3.5 text-sm font-semibold text-white transition-all hover:bg-white/10"
+                className="btn-secondary w-full"
               >
                 Back
               </button>
@@ -4862,7 +5130,7 @@ function QuoteCard({
                 type="button"
                 disabled={submitted}
                 onClick={handleContinueTravelDetails}
-                className="w-full rounded-xl bg-emerald py-3.5 text-sm font-bold text-navy transition-all hover:bg-emerald-light disabled:cursor-not-allowed disabled:opacity-70"
+                className="btn-primary w-full disabled:cursor-not-allowed disabled:opacity-70"
               >
                 Continue to your details
               </button>

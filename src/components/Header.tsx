@@ -123,13 +123,13 @@ export default function Header() {
                   <SiteNavLink
                     href="/manage-booking/"
                     onNavigate={closeMenu}
-                    className="flex min-h-11 items-center justify-center rounded-full border border-white/20 px-5 py-3.5 text-center text-sm font-semibold text-white/90"
+                    className="btn-secondary flex min-h-11 w-full items-center justify-center px-5 text-sm"
                   >
                     Manage Your Booking
                   </SiteNavLink>
                   <QuoteNavLink
                     onNavigate={closeMenu}
-                    className="flex min-h-11 items-center justify-center rounded-full bg-emerald px-5 py-3.5 text-center text-sm font-semibold text-navy"
+                    className="btn-primary flex min-h-11 w-full items-center justify-center px-5 text-sm"
                   >
                     Get a Quote
                   </QuoteNavLink>
@@ -186,7 +186,9 @@ export default function Header() {
               </span>
               <span className="text-emerald/90">Secure SumUp payment</span>
             </p>
-            <p className="hidden text-white/40 lg:block">24/7 airport transfers across Northern Ireland</p>
+            <p className="hidden text-[0.8125rem] tracking-wide text-white/45 lg:block">
+              Private airport transfers across Northern Ireland
+            </p>
           </div>
         </div>
 
@@ -213,11 +215,11 @@ export default function Header() {
           <div className="hidden items-center gap-3 xl:flex xl:justify-self-end">
             <SiteNavLink
               href="/manage-booking/"
-              className="whitespace-nowrap rounded-full border border-white/20 px-4 py-2 text-sm font-semibold text-white/90 transition-colors hover:border-emerald/50 hover:text-emerald lg:px-5"
+              className="whitespace-nowrap rounded-[0.65rem] border border-white/18 px-4 py-2 text-sm font-semibold text-white/85 transition-colors hover:border-white/35 hover:text-white lg:px-5"
             >
               Manage Your Booking
             </SiteNavLink>
-            <QuoteNavLink className="rounded-full bg-emerald px-5 py-2 text-sm font-semibold text-navy transition-all hover:bg-emerald-light hover:shadow-lg hover:shadow-emerald/25 lg:px-6">
+            <QuoteNavLink className="btn-primary px-5 text-sm lg:px-6">
               Get a Quote
             </QuoteNavLink>
           </div>
