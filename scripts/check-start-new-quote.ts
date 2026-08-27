@@ -29,7 +29,8 @@ assert.doesNotMatch(header, />\s*Manage Booking\s*</);
 assert.doesNotMatch(footer, />\s*Manage Booking\s*</);
 assert.match(header, /href="\/manage-booking\/"/);
 assert.match(footer, /href="\/manage-booking\/"/);
-assert.match(data, /href: "\/manage-booking\/"/);
+// Mobile quick pills no longer include Manage Your Booking (lives in the drawer + desktop nav).
+assert.match(header, /aria-label="Mobile navigation"/);
 
 const quoteCard = read("src/components/QuoteCard.tsx");
 assert.match(quoteCard, /performStartNewQuote/);

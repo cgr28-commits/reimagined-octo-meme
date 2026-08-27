@@ -9,6 +9,8 @@
   --color-emerald-dark: #1f9a36;
   --color-mist: #e8edf5;
   --color-ink-muted: rgba(232, 237, 245, 0.68);
+  /* Readable secondary copy on navy (~#AEB9C8–#BCC6D2) */
+  --color-ink-secondary: #b5c0cd;
   --font-sans: var(--font-manrope);
   --font-display: var(--font-cormorant);
   --radius-control: 0.75rem;
@@ -228,7 +230,12 @@ main {
   font-weight: 650;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.55);
+  color: var(--color-ink-secondary);
+}
+
+/* Quote / booking secondary body copy — secondary to headings, still readable on iPhone */
+.quote-secondary {
+  color: var(--color-ink-secondary);
 }
 
 @keyframes contact-fade-up {
@@ -412,10 +419,75 @@ main {
   min-width: 0;
 }
 
+/* Native date/time: visible border lives on .quote-datetime-shell (see QuoteCard).
+   Safari ignores min-width on these replaced controls, so chrome must not sit on <input>. */
+.quote-datetime-shell {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  min-height: 3rem;
+  overflow: hidden;
+}
+
+#quoteForm input[type="date"].quote-datetime-input,
+#quoteForm input[type="time"].quote-datetime-input {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  height: 3rem;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+  line-height: 3rem;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+/* iOS paints the value via these pseudos — size/centre them to the field height. */
+#quoteForm input[type="date"].quote-datetime-input::-webkit-datetime-edit,
+#quoteForm input[type="time"].quote-datetime-input::-webkit-datetime-edit {
+  display: flex;
+  align-items: center;
+  height: 3rem;
+  padding: 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+  line-height: 3rem;
+}
+
+#quoteForm input[type="date"].quote-datetime-input::-webkit-datetime-edit-fields-wrapper,
+#quoteForm input[type="time"].quote-datetime-input::-webkit-datetime-edit-fields-wrapper {
+  display: flex;
+  align-items: center;
+  padding: 0;
+}
+
+#quoteForm input[type="date"].quote-datetime-input::-webkit-date-and-time-value,
+#quoteForm input[type="time"].quote-datetime-input::-webkit-date-and-time-value {
+  display: flex;
+  align-items: center;
+  height: 3rem;
+  margin: 0;
+  padding: 0;
+  text-align: left;
+  font-size: 1.125rem;
+  font-weight: 600;
+  line-height: 3rem;
+}
+
 .quote-helper-text {
   max-width: 100%;
   overflow-wrap: anywhere;
   word-break: break-word;
+  color: var(--color-ink-secondary);
 }
 
 .address-suggestions {

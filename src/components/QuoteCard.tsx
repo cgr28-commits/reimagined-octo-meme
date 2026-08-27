@@ -30,6 +30,8 @@ import {
 } from "@/lib/quote-funnel-analytics";
 import {
   bookingTextFieldClass,
+  quoteDateTimeFieldShellClass,
+  quoteDateTimeInputClass,
   quoteTextFieldClass,
   type QuoteFieldHighlightState,
 } from "@/lib/quote-ui-highlight";
@@ -186,7 +188,7 @@ const BOOKING_PANEL_CLASS =
   "rounded-xl border border-white/25 bg-navy-light px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] sm:px-5 md:border-white/30 md:shadow-lg md:shadow-black/20";
 const BOOKING_LABEL_CLASS =
   "mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/80";
-const BOOKING_HELPER_CLASS = "quote-helper-text mt-1.5 text-xs text-white/55";
+const BOOKING_HELPER_CLASS = "quote-helper-text mt-1.5 text-xs";
 
 function fieldState(options: {
   hasError?: boolean;
@@ -274,7 +276,7 @@ function TapChoiceRow({
           : "rounded-2xl border border-transparent p-2"
       }
     >
-      <p className="mb-2 text-xs font-medium uppercase tracking-wider text-white/50">
+      <p className="form-label mb-2">
         {label}
         {needsCompletion && value == null ? (
           <span className="ml-1 font-normal normal-case tracking-normal text-emerald/80">
@@ -383,7 +385,7 @@ function PriceInclusionBlock({
 function PreviewRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex flex-col gap-0.5 border-b border-white/10 py-2.5 last:border-b-0 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
-      <dt className="text-xs font-medium uppercase tracking-wider text-white/45">{label}</dt>
+      <dt className="form-label mb-0">{label}</dt>
       <dd className="text-sm text-white sm:max-w-[65%] sm:text-right">{value}</dd>
     </div>
   );
@@ -2485,7 +2487,7 @@ function QuoteCard({
           <p id="start-new-quote-title" className="text-sm font-semibold text-white">
             Start a new quote?
           </p>
-          <p className="mt-1 text-xs text-white/60">Your current quote details will be cleared.</p>
+          <p className="quote-secondary mt-1 text-xs">Your current quote details will be cleared.</p>
           <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:justify-center">
             <button
               type="button"
@@ -3173,7 +3175,7 @@ function QuoteCard({
               details — no online payment until the price is confirmed.
             </p>
             {journeyDistanceLabel && journeyDurationLabel && (
-              <p className="mt-2 text-xs text-white/60">
+              <p className="quote-secondary mt-2 text-xs">
                 Approx. {journeyDistanceLabel} · {journeyDurationLabel}
               </p>
             )}
@@ -3194,7 +3196,7 @@ function QuoteCard({
                   : "Continue with your travel details and submit your quote request — we’ll confirm your personal price before any payment is taken."}
             </p>
             {journeyDistanceLabel && journeyDurationLabel && (
-              <p className="mt-2 text-xs text-white/60">
+              <p className="quote-secondary mt-2 text-xs">
                 Approx. {journeyDistanceLabel} · {journeyDurationLabel}
               </p>
             )}
@@ -3218,7 +3220,7 @@ function QuoteCard({
               Large suitcases: {formatSuitcaseChoice(suitcases as number)}
             </p>
             {journeyDistanceLabel && journeyDurationLabel && (
-              <p className="mt-2 text-xs text-white/60">
+              <p className="quote-secondary mt-2 text-xs">
                 Approx. {journeyDistanceLabel} · {journeyDurationLabel}
               </p>
             )}
@@ -3249,7 +3251,7 @@ function QuoteCard({
               you personally.
             </p>
             {journeyDistanceLabel && journeyDurationLabel && (
-              <p className="mt-2 text-xs text-white/60">
+              <p className="quote-secondary mt-2 text-xs">
                 Approx. {journeyDistanceLabel} · {journeyDurationLabel}
               </p>
             )}
@@ -3280,7 +3282,7 @@ function QuoteCard({
             {appliedPersonalQuote && testChargeAmount === null ? (
               <p className="mt-2 text-sm text-emerald/90">
                 Personal quote applied
-                <span className="mt-1 block text-xs text-white/55">
+                <span className="quote-secondary mt-1 block text-xs">
                   Standard website fare: {formatQuote(liveQuote.amount)}
                 </span>
               </p>
@@ -3293,12 +3295,12 @@ function QuoteCard({
               Large suitcases: {formatSuitcaseChoice(suitcases as number)}
             </p>
             {testChargeAmount !== null && (
-              <p className="mt-2 text-xs text-white/60">
+              <p className="quote-secondary mt-2 text-xs">
                 Route price would be {formatQuote(liveQuote.amount)} — not charged in test mode.
               </p>
             )}
             {journeyDistanceLabel && journeyDurationLabel && (
-              <p className="mt-2 text-xs text-white/60">
+              <p className="quote-secondary mt-2 text-xs">
                 Approx. {journeyDistanceLabel} · {journeyDurationLabel}
               </p>
             )}
@@ -3317,13 +3319,13 @@ function QuoteCard({
           </>
         ) : (
           <>
-            <p className="quote-price-label !text-white/50">
+            <p className="quote-price-label">
               Your Fixed Journey Price
             </p>
             <p className="mt-2 text-sm leading-relaxed text-white/70">{quoteHint}</p>
           </>
         )}
-        <p className="mt-3.5 text-xs leading-relaxed text-white/45">
+        <p className="quote-secondary mt-3.5 text-xs leading-relaxed">
           {pricingConfirmationRequired || isManualQuoteJourney
             ? "We’ll confirm your price before any payment is taken."
             : showsRequestQuoteFlow
@@ -3543,7 +3545,7 @@ function QuoteCard({
         >
           Get a Live Quote
         </h2>
-        <p className="mt-2 text-sm leading-relaxed text-white/58 sm:mt-2.5 lg:text-[0.9rem] lg:leading-relaxed">
+        <p className="mt-2 text-sm leading-relaxed quote-secondary sm:mt-2.5 lg:text-[0.9rem] lg:leading-relaxed">
           {pricingConfirmationRequired
             ? "Three quick steps — your journey, travel details, then your details. We’ll confirm your fare before any payment."
             : "Three quick steps — your journey, travel details, then your details. Instant fares can be paid online by card to confirm; otherwise Request to book and we’ll email a SumUp link after we confirm."}
@@ -3792,13 +3794,13 @@ function QuoteCard({
                   <>
                     {!exceedsOnlineCapacity && (
                       <div className="rounded-xl border border-white/12 bg-white/[0.03] px-3 py-3 sm:px-4 sm:py-3.5">
-                        <p className="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-white/50">
+                        <p className="form-label mb-0">
                           Vehicle for this journey
                         </p>
                         <p className="mt-1.5 font-display text-xl font-semibold tracking-tight text-white sm:text-[1.35rem]">
                           {vehicleShortLabel(quoteVehicle)}
                         </p>
-                        <p className="mt-1.5 text-xs leading-relaxed text-white/60">
+                        <p className="quote-secondary mt-1.5 text-xs leading-relaxed">
                           Selected automatically from your passengers and luggage.
                         </p>
                       </div>
@@ -3845,7 +3847,7 @@ function QuoteCard({
         {/* Legacy airport transfer UI when addressToAddress is disabled */}
         {hasQuoteRoute ? (
         <div id="journey-type-selector">
-          <p className="mb-2 text-xs font-medium uppercase tracking-wider text-white/50">
+          <p className="form-label mb-2">
             Journey
             {journeyMode == null ? (
               <span className="ml-1 font-normal normal-case tracking-normal text-emerald/80">
@@ -3904,7 +3906,7 @@ function QuoteCard({
 
         {isAirportTrip && (
           <div>
-            <p className="mb-2 text-xs font-medium uppercase tracking-wider text-white/50">
+            <p className="form-label mb-2">
               Trip Type
             </p>
             {isLdyTrip ? (
@@ -3974,12 +3976,12 @@ function QuoteCard({
           <div>
             <label
               htmlFor="destination"
-              className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/50"
+              className="form-label"
             >
               {isFromAirport ? "Pickup Airport" : "Destination Airport"}
             </label>
             {isLdyTrip && (
-              <p className="mb-2 text-xs text-white/45">
+              <p className="quote-secondary mb-2 text-xs">
                 {isFromAirport
                   ? "Drop-off must be in the greater Belfast area"
                   : "Pickup must be in the greater Belfast area (e.g. Bangor, Belfast, Lisburn)"}
@@ -4196,7 +4198,7 @@ function QuoteCard({
             name="suitcases"
             value={suitcases == null ? "" : String(suitcases)}
           />
-          <p className="text-xs leading-relaxed text-white/55">
+          <p className="quote-secondary text-xs leading-relaxed">
             Up to 4 passengers. Saloon or Estate is chosen automatically from your party size and
             luggage — private airport transfer for 1–4 passengers.
           </p>
@@ -4292,86 +4294,94 @@ function QuoteCard({
         >
           Step 2 — Travel details
         </h2>
-        <div className="grid gap-4 sm:grid-cols-2 lg:gap-3.5">
-          <div>
+        <div className="grid w-full min-w-0 max-w-full gap-4 sm:grid-cols-2 lg:gap-3.5">
+          <div className="min-w-0 max-w-full">
             <label
               htmlFor="date"
-              className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/50"
+              className="form-label"
             >
               {returnJourney ? "Outbound Date" : "Date"}{" "}
-              <span className="font-normal normal-case tracking-normal text-white/40">
+              <span className="font-normal normal-case tracking-normal text-ink-secondary/80">
                 (needed to book)
               </span>
             </label>
-            <input
-              id="date"
-              ref={tripDateInputRef}
-              name="date"
-              type="date"
-              min={minTripDate}
-              value={tripDate}
-              aria-invalid={Boolean(tripDateError)}
-              aria-describedby={tripDateError ? "trip-date-error" : undefined}
-              onChange={(e) => {
-                setTripDate(e.target.value);
-                setTripDateError("");
-                setReturnDateError("");
-              }}
-              onInput={(e) => {
-                setTripDate((e.target as HTMLInputElement).value);
-                setTripDateError("");
-                setReturnDateError("");
-              }}
-              className={quoteTextFieldClass(
+            <div
+              className={quoteDateTimeFieldShellClass(
                 fieldState({
                   hasError: Boolean(tripDateError),
                   complete: Boolean(tripDate.trim()),
                   activeStep: quoteStep === 2,
                 }),
               )}
-            />
+            >
+              <input
+                id="date"
+                ref={tripDateInputRef}
+                name="date"
+                type="date"
+                min={minTripDate}
+                value={tripDate}
+                aria-invalid={Boolean(tripDateError)}
+                aria-describedby={tripDateError ? "trip-date-error" : undefined}
+                onChange={(e) => {
+                  setTripDate(e.target.value);
+                  setTripDateError("");
+                  setReturnDateError("");
+                }}
+                onInput={(e) => {
+                  setTripDate((e.target as HTMLInputElement).value);
+                  setTripDateError("");
+                  setReturnDateError("");
+                }}
+                className={quoteDateTimeInputClass()}
+              />
+            </div>
           </div>
-          <div>
+          <div className="min-w-0 max-w-full">
             <label
               htmlFor="time"
-              className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/50"
+              className="form-label"
             >
               {returnJourney ? "Outbound pick up time" : "Pick up time"}{" "}
-              <span className="font-normal normal-case tracking-normal text-white/40">
+              <span className="font-normal normal-case tracking-normal text-ink-secondary/80">
                 (needed to book)
               </span>
             </label>
-            <input
-              id="time"
-              ref={tripTimeInputRef}
-              name="time"
-              type="time"
-              min={minTripTime}
-              value={tripTime}
-              aria-invalid={Boolean(tripDateError)}
-              aria-describedby={tripDateError ? "trip-date-error" : undefined}
-              onChange={(e) => {
-                setTripTime(e.target.value);
-                setTripDateError("");
-                setReturnDateError("");
-              }}
-              onInput={(e) => {
-                setTripTime((e.target as HTMLInputElement).value);
-                setTripDateError("");
-                setReturnDateError("");
-              }}
-              onBlur={() => {
-                // iPhone Done / tick dismisses the picker → blur. Scroll only then.
-                requestJourneySummaryScrollAfterTimeConfirm();
-              }}
-              className={quoteTextFieldClass(
+            <div
+              className={quoteDateTimeFieldShellClass(
                 fieldState({
                   hasError: Boolean(tripDateError),
                   complete: Boolean(tripTime.trim()),
                   activeStep: quoteStep === 2,
                 }),
               )}
-            />
+            >
+              <input
+                id="time"
+                ref={tripTimeInputRef}
+                name="time"
+                type="time"
+                min={minTripTime}
+                value={tripTime}
+                aria-invalid={Boolean(tripDateError)}
+                aria-describedby={tripDateError ? "trip-date-error" : undefined}
+                onChange={(e) => {
+                  setTripTime(e.target.value);
+                  setTripDateError("");
+                  setReturnDateError("");
+                }}
+                onInput={(e) => {
+                  setTripTime((e.target as HTMLInputElement).value);
+                  setTripDateError("");
+                  setReturnDateError("");
+                }}
+                onBlur={() => {
+                  // iPhone Done / tick dismisses the picker → blur. Scroll only then.
+                  requestJourneySummaryScrollAfterTimeConfirm();
+                }}
+                className={quoteDateTimeInputClass()}
+              />
+            </div>
           </div>
           <p
             id="trip-date-error"
@@ -4388,77 +4398,85 @@ function QuoteCard({
           }`}
         >
           <div className="min-h-0 overflow-hidden">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div>
+            <div className="grid w-full min-w-0 max-w-full gap-4 sm:grid-cols-2">
+              <div className="min-w-0 max-w-full">
                 <label
                   htmlFor="returnDate"
-                  className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/50"
+                  className="form-label"
                 >
                   Return Date{" "}
-                  <span className="font-normal normal-case tracking-normal text-white/40">
+                  <span className="font-normal normal-case tracking-normal text-ink-secondary/80">
                     (needed to book)
                   </span>
                 </label>
-                <input
-                  id="returnDate"
-                  ref={returnDateInputRef}
-                  name="returnDate"
-                  type="date"
-                  min={minReturnDate}
-                  value={returnDate}
-                  onChange={(e) => {
-                    setReturnDate(e.target.value);
-                    setReturnDateError("");
-                  }}
-                  onInput={(e) => {
-                    setReturnDate((e.target as HTMLInputElement).value);
-                    setReturnDateError("");
-                  }}
-                  className={quoteTextFieldClass(
+                <div
+                  className={quoteDateTimeFieldShellClass(
                     fieldState({
                       hasError: Boolean(returnDateError),
                       complete: Boolean(returnDate.trim()),
                       activeStep: quoteStep === 2 && returnJourney,
                     }),
                   )}
-                />
+                >
+                  <input
+                    id="returnDate"
+                    ref={returnDateInputRef}
+                    name="returnDate"
+                    type="date"
+                    min={minReturnDate}
+                    value={returnDate}
+                    onChange={(e) => {
+                      setReturnDate(e.target.value);
+                      setReturnDateError("");
+                    }}
+                    onInput={(e) => {
+                      setReturnDate((e.target as HTMLInputElement).value);
+                      setReturnDateError("");
+                    }}
+                    className={quoteDateTimeInputClass()}
+                  />
+                </div>
               </div>
-              <div>
+              <div className="min-w-0 max-w-full">
                 <label
                   htmlFor="returnTime"
-                  className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/50"
+                  className="form-label"
                 >
                   Return pick up time{" "}
-                  <span className="font-normal normal-case tracking-normal text-white/40">
+                  <span className="font-normal normal-case tracking-normal text-ink-secondary/80">
                     (needed to book)
                   </span>
                 </label>
-                <input
-                  id="returnTime"
-                  ref={returnTimeInputRef}
-                  name="returnTime"
-                  type="time"
-                  min={minReturnTime}
-                  value={returnTime}
-                  onChange={(e) => {
-                    setReturnTime(e.target.value);
-                    setReturnDateError("");
-                  }}
-                  onInput={(e) => {
-                    setReturnTime((e.target as HTMLInputElement).value);
-                    setReturnDateError("");
-                  }}
-                  onBlur={() => {
-                    requestJourneySummaryScrollAfterTimeConfirm();
-                  }}
-                  className={quoteTextFieldClass(
+                <div
+                  className={quoteDateTimeFieldShellClass(
                     fieldState({
                       hasError: Boolean(returnDateError),
                       complete: Boolean(returnTime.trim()),
                       activeStep: quoteStep === 2 && returnJourney,
                     }),
                   )}
-                />
+                >
+                  <input
+                    id="returnTime"
+                    ref={returnTimeInputRef}
+                    name="returnTime"
+                    type="time"
+                    min={minReturnTime}
+                    value={returnTime}
+                    onChange={(e) => {
+                      setReturnTime(e.target.value);
+                      setReturnDateError("");
+                    }}
+                    onInput={(e) => {
+                      setReturnTime((e.target as HTMLInputElement).value);
+                      setReturnDateError("");
+                    }}
+                    onBlur={() => {
+                      requestJourneySummaryScrollAfterTimeConfirm();
+                    }}
+                    className={quoteDateTimeInputClass()}
+                  />
+                </div>
               </div>
               <p className="sm:col-span-2 min-h-[1.1rem] text-xs text-red-400">
                 {returnDateError || "\u00a0"}
@@ -4475,7 +4493,7 @@ function QuoteCard({
           <p
             data-booking-nav-heading
             tabIndex={-1}
-            className="text-xs font-medium uppercase tracking-wider text-white/50 outline-none"
+            className="form-label mb-0 outline-none"
           >
             Your Journey
           </p>
@@ -4680,7 +4698,7 @@ function QuoteCard({
               >
                 <div>
                   <p className="text-xs font-medium uppercase tracking-wider text-emerald">
-                    Flight number <span className="font-normal text-white/45">(optional)</span>
+                    Flight number <span className="font-normal text-ink-secondary">(optional)</span>
                   </p>
                   <p className="mt-1 text-sm text-white/60">{BOOKING_FLIGHT_NUMBER_HELPER}</p>
                 </div>
@@ -4986,7 +5004,7 @@ function QuoteCard({
                   </div>
                 ) : (
                   <>
-                    <p className="text-xs leading-relaxed text-white/50">
+                    <p className="quote-secondary text-xs leading-relaxed">
                       You’ll be securely redirected to SumUp to complete your payment. Your booking
                       details stay saved if you return to this page.
                     </p>
@@ -5018,7 +5036,7 @@ function QuoteCard({
                         Enter your name, mobile, email and accept the terms before paying.
                       </p>
                     )}
-                    <p className="text-center text-xs text-white/50">
+                    <p className="quote-secondary text-center text-xs">
                       Card payments are processed securely by SumUp. You&apos;ll receive a branded
                       invoice by email after payment.
                     </p>
@@ -5053,7 +5071,7 @@ function QuoteCard({
               </div>
             ) : usesWhatsApp ? (
               <>
-                <p className="text-xs text-white/55">
+                <p className="quote-secondary text-xs">
                   {isEnquiryOnly
                     ? "Choose how to send your enquiry:"
                     : "Choose how to send your booking:"}
@@ -5085,7 +5103,7 @@ function QuoteCard({
                       ? "Send enquiry via email"
                       : "Send booking via email"}
                 </button>
-                <p className="text-xs leading-relaxed text-white/45">
+                <p className="quote-secondary text-xs leading-relaxed">
                   No WhatsApp? Email works too — we&apos;ll confirm at {customerEmail.trim()}.
                 </p>
               </>
@@ -5156,11 +5174,11 @@ function QuoteCard({
               </p>
             ) : null}
             {travelDetailsBlocker ? (
-              <p className="text-center text-xs text-white/55" role="status">
+              <p className="quote-secondary text-center text-xs" role="status">
                 {travelDetailsBlocker}
               </p>
             ) : (
-              <p className="text-center text-xs text-white/45">
+              <p className="quote-secondary text-center text-xs">
                 Next: your contact details to confirm the booking.
               </p>
             )}
