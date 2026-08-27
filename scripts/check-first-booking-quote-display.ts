@@ -1,6 +1,7 @@
 /**
- * Quote UI must apply the £5 booking saving immediately when booking value ≥ £40,
- * with no email / customer-history eligibility lookup.
+ * Quote UI must apply the £5 booking saving from live Express selection,
+ * show final payable (not journey-after-promo alone), and never gate payment
+ * on customer-history / first-booking eligibility.
  */
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -20,31 +21,43 @@ const breakdown = read("shared/website-fare-breakdown.ts");
 const index = read("workers/addresses/src/index.ts");
 const finalize = read("workers/addresses/src/finalize-paid-checkout.ts");
 
-assert.match(card, /applyBookingSavingOffer/);
-assert.match(card, /claimFirstBookingOffer: applyBookingSavingOffer/);
+/** Test H — payment button does not depend on customer-history checks */
 assert.doesNotMatch(card, /checkFirstBookingOfferEligibility/);
 assert.doesNotMatch(card, /firstBookingRedeemStatus/);
 assert.doesNotMatch(card, /normalizeFirstBookingEmail/);
-assert.doesNotMatch(card, /FirstBookingOfferAdvert/);
-assert.doesNotMatch(card, /advertiseFirstBookingOffer/);
 assert.doesNotMatch(card, /claimFirstBookingForCheckout/);
+assert.doesNotMatch(card, /advertiseFirstBookingOffer/);
+assert.doesNotMatch(card, /FirstBookingOfferAdvert/);
 
-assert.doesNotMatch(trust, /FirstBookingOfferAdvert/);
-assert.doesNotMatch(trust, /New customer/);
-assert.doesNotMatch(trust, /first booking/i);
-assert.match(trust, /£5 Booking Saving/);
-assert.match(trust, /claimFirstBookingOffer: input\.claimFirstBookingOffer === true/);
-assert.doesNotMatch(trust, /alreadyRedeemedFirstBookingOffer/);
+/** Live Express fee drives the authoritative composer */
+assert.match(card, /airportAccessChargeGbp: expressSelection\.feeGbp/);
+assert.match(card, /claimFirstBookingOffer: true/);
+assert.match(card, /expressSelection\.feeGbp/);
+assert.match(
+  card,
+  /disabled=\{\s*paymentLoading \|\|[\s\S]*?termsAccepted[\s\S]*?customerName[\s\S]*?customerEmail[\s\S]*?customerMobile[\s\S]*?tripDetailsReady/,
+);
+
+/** Dominant / payable totals must use finalAmountPayableGbp, not journey-after-promo alone */
+assert.match(card, /totalGbp: openWebsiteFareBreakdown\.finalAmountPayableGbp/);
+assert.match(trust, /bookingValueBeforeFirstBookingOfferGbp/);
+assert.match(trust, /finalAmountPayableGbp/);
+assert.match(trust, /Original booking value/);
+assert.doesNotMatch(
+  trust,
+  /line-through[\s\S]{0,120}originalEligibleJourneyPriceGbp[\s\S]{0,80}journeyFareAfterPromotionsGbp/,
+);
+assert.match(trust, /formatGbpFare\(prePromoBookingValueGbp\)/);
+assert.match(trust, /formatGbpFare\(finalPayableGbp\)/);
+assert.match(trust, /£5 Booking Saving|firstBookingShortLabel/);
+assert.doesNotMatch(trust, /New customer|first booking/i);
 
 assert.match(strip, /BOOKINGS £\$\{minValue\}\+/);
-assert.match(strip, /Save £\{amount\} when your booking value is £\{minValue\} or more/);
-assert.doesNotMatch(strip, /first booking/i);
-assert.doesNotMatch(strip, /New customer/i);
+assert.doesNotMatch(strip, /YOUR FIRST BOOKING|New customer|first booking/i);
 
 assert.doesNotMatch(offer, /alreadyRedeemed/);
 assert.doesNotMatch(offer, /normalizeFirstBookingEmail/);
-assert.match(offer, /£5 BOOKING SAVING/);
-assert.match(breakdown, /No email \/ customer-history \/ redemption gate/);
+assert.match(breakdown, /prePromotionBookingValue|bookingValueBeforeFirstBookingOfferGbp/);
 assert.doesNotMatch(breakdown, /alreadyRedeemed/);
 
 assert.doesNotMatch(index, /first-booking-eligibility/);
@@ -53,17 +66,11 @@ assert.doesNotMatch(index, /markFirstBookingOfferRedeemed/);
 assert.doesNotMatch(finalize, /markFirstBookingOfferRedeemed/);
 assert.doesNotMatch(finalize, /first-booking-offer-store/);
 
-assert.throws(
-  () => read("src/lib/first-booking-eligibility-api.ts"),
-  /ENOENT/,
-);
+assert.throws(() => read("src/lib/first-booking-eligibility-api.ts"), /ENOENT/);
 assert.throws(
   () => read("workers/addresses/src/first-booking-eligibility-handlers.ts"),
   /ENOENT/,
 );
-assert.throws(
-  () => read("workers/addresses/src/first-booking-offer-store.ts"),
-  /ENOENT/,
-);
+assert.throws(() => read("workers/addresses/src/first-booking-offer-store.ts"), /ENOENT/);
 
 console.log("\nAll £5 booking-saving quote-display checks passed.");

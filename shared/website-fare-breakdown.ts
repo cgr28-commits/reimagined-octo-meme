@@ -1,14 +1,18 @@
 /**
  * Authoritative public-website fare breakdown for display + SumUp parity.
  *
- * Layers (never reorder casually):
+ * Exact order (do not reorder):
  * 1. Journey fare (after 5% return discount when booked)
- * 2. Promotional discounts (£5 booking saving; return saving is already in layer 1)
- * 3. Airport access charges (Express — never discounted, never in promo totals)
- * 4. Final amount payable
+ * 2. Add currently selected airport access charge (Express)
+ * 3. prePromotionBookingValue = journey + fixed costs + Express
+ * 4. If prePromotionBookingValue >= £40, apply £5 Booking Saving
+ * 5. finalAmountPayable = prePromotionBookingValue − bookingSaving
  *
- * £40 minimum uses booking value before the £5 offer:
- * journey + airport fixed costs + Express access.
+ * Equivalent composition used here:
+ *   journeyAfterSaving + fixedCosts + Express
+ * (saving is taken from the journey portion only; Express is never discounted)
+ *
+ * Avoided Express (free drop-off) is NOT a promotional saving.
  * No email / customer-history / redemption gate.
  */
 

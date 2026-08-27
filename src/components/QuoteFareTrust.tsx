@@ -107,7 +107,7 @@ export function PromotionalSavingsSummary({
   );
 }
 
-/** Compact original → payable + line items for promos and Express access. */
+/** Compact booking-value → payable + line items for promos and Express access. */
 export function PromotionalPriceBreakdown({
   breakdown,
   freeAirportAccessSelected = false,
@@ -124,53 +124,51 @@ export function PromotionalPriceBreakdown({
   const hasPromo = breakdown.totalPromotionalSavingGbp > 0;
   const accessGbp = breakdown.airportAccessChargeGbp;
   const hasAccess = accessGbp > 0;
+  const prePromoBookingValueGbp = breakdown.bookingValueBeforeFirstBookingOfferGbp;
+  const finalPayableGbp = breakdown.finalAmountPayableGbp;
   if (!hasPromo && !hasAccess && !freeAirportAccessSelected) return null;
 
   return (
     <div className={`mt-2 space-y-1.5 text-xs leading-snug ${className}`}>
       {hasPromo ? (
-        <>
-          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-            <span className="text-white/45 line-through">
-              {formatGbpFare(breakdown.originalEligibleJourneyPriceGbp)}
-            </span>
-            <span className="text-sm font-semibold text-white">
-              {formatGbpFare(breakdown.journeyFareAfterPromotionsGbp)}
-            </span>
-            <span className="font-semibold text-emerald">
-              ✓ YOU SAVE {formatGbpFare(breakdown.totalPromotionalSavingGbp)}
-            </span>
-          </div>
-          <dl className="space-y-0.5 text-white/60">
-            {breakdown.returnJourneySavingGbp > 0 ? (
-              <div className="flex justify-between gap-3">
-                <dt>
-                  Return Journey Saving ({breakdown.returnJourneyDiscountPercentLabel})
-                </dt>
-                <dd className="shrink-0 text-emerald/90">
-                  −{formatGbpFare(breakdown.returnJourneySavingGbp)}
-                </dd>
-              </div>
-            ) : null}
-            {breakdown.firstBookingSavingGbp > 0 ? (
-              <div className="flex justify-between gap-3">
-                <dt>{breakdown.firstBookingShortLabel}</dt>
-                <dd className="shrink-0 text-emerald/90">
-                  −{formatGbpFare(breakdown.firstBookingSavingGbp)}
-                </dd>
-              </div>
-            ) : null}
-            <div className="flex justify-between gap-3 border-t border-white/10 pt-1 font-medium text-white/75">
-              <dt>Total promotional saving</dt>
-              <dd className="shrink-0 text-emerald">
-                {formatGbpFare(breakdown.totalPromotionalSavingGbp)}
-              </dd>
-            </div>
-          </dl>
-        </>
+        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+          <span className="text-white/45 line-through">
+            {formatGbpFare(prePromoBookingValueGbp)}
+          </span>
+          <span className="text-sm font-semibold text-white">
+            {formatGbpFare(finalPayableGbp)}
+          </span>
+          <span className="font-semibold text-emerald">
+            ✓ YOU SAVE {formatGbpFare(breakdown.totalPromotionalSavingGbp)}
+          </span>
+        </div>
       ) : null}
 
       <dl className="space-y-0.5 text-white/60">
+        <div className="flex justify-between gap-3">
+          <dt>Original booking value</dt>
+          <dd className="shrink-0 tabular-nums text-white/80">
+            {formatGbpFare(prePromoBookingValueGbp)}
+          </dd>
+        </div>
+        {breakdown.returnJourneySavingGbp > 0 ? (
+          <div className="flex justify-between gap-3">
+            <dt>
+              Return Journey Saving ({breakdown.returnJourneyDiscountPercentLabel})
+            </dt>
+            <dd className="shrink-0 text-emerald/90">
+              −{formatGbpFare(breakdown.returnJourneySavingGbp)}
+            </dd>
+          </div>
+        ) : null}
+        {breakdown.firstBookingSavingGbp > 0 ? (
+          <div className="flex justify-between gap-3">
+            <dt>{breakdown.firstBookingShortLabel}</dt>
+            <dd className="shrink-0 text-emerald/90">
+              −{formatGbpFare(breakdown.firstBookingSavingGbp)}
+            </dd>
+          </div>
+        ) : null}
         {hasAccess ? (
           <div className="flex justify-between gap-3">
             <dt>Airport Express access</dt>
@@ -185,10 +183,18 @@ export function PromotionalPriceBreakdown({
             <dd className="shrink-0 tabular-nums">Not added</dd>
           </div>
         ) : null}
+        {hasPromo ? (
+          <div className="flex justify-between gap-3 border-t border-white/10 pt-1 font-medium text-white/75">
+            <dt>Total promotional saving</dt>
+            <dd className="shrink-0 text-emerald">
+              {formatGbpFare(breakdown.totalPromotionalSavingGbp)}
+            </dd>
+          </div>
+        ) : null}
         <div className="flex justify-between gap-3 border-t border-white/10 pt-1 font-semibold text-white">
           <dt>Amount payable</dt>
           <dd className="shrink-0 tabular-nums">
-            {formatGbpFare(breakdown.finalAmountPayableGbp)}
+            {formatGbpFare(finalPayableGbp)}
           </dd>
         </div>
       </dl>
@@ -220,9 +226,9 @@ export function FinalPayableBreakdown({
       </p>
       <dl className="mt-2 space-y-1.5 text-sm">
         <div className="flex justify-between gap-3 text-white/75">
-          <dt>Journey fare</dt>
+          <dt>Original booking value</dt>
           <dd className="shrink-0 tabular-nums">
-            {formatGbpFare(breakdown.originalEligibleJourneyPriceGbp)}
+            {formatGbpFare(breakdown.bookingValueBeforeFirstBookingOfferGbp)}
           </dd>
         </div>
         {breakdown.returnJourneySavingGbp > 0 ? (

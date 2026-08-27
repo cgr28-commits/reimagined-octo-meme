@@ -20,6 +20,14 @@ console.log("=== Express access visible in quote fare UI ===");
   assert.match(trust, /Not added/);
   assert.match(trust, /freeAirportAccessSelected/);
   assert.match(trust, /Amount payable/);
+  assert.match(trust, /Original booking value/);
+  assert.match(trust, /bookingValueBeforeFirstBookingOfferGbp|prePromoBookingValueGbp/);
+  assert.match(trust, /finalAmountPayableGbp|finalPayableGbp/);
+  // Must not promote journey-after-promo as the payable (Express would look stuck).
+  assert.doesNotMatch(
+    trust,
+    /line-through[\s\S]{0,120}originalEligibleJourneyPriceGbp[\s\S]{0,80}journeyFareAfterPromotionsGbp/,
+  );
   assert.match(
     trust,
     /You’ve avoided the Express Drop-Off charge|You've avoided the Express Drop-Off charge/,

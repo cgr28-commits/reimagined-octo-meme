@@ -114,7 +114,6 @@ import {
   PromotionalPriceBreakdown,
   buildOpenWebsiteFareBreakdown,
 } from "@/components/QuoteFareTrust";
-import { FIRST_BOOKING_OFFER_CONFIG } from "../../shared/first-booking-offer";
 import {
   canProceedWithoutExpressDropOff,
   composeFareWithExpressDropOff,
@@ -1328,8 +1327,8 @@ function QuoteCard({
 
   /**
    * Open-website promotional fare path (return discount + £5 booking saving).
-   * £5 applies immediately when booking value (journey + fixed + Express) ≥ £40.
-   * No email / customer-history / redemption check.
+   * Always recompose from the current Express fee — never cache a prior selection.
+   * Composer applies £5 only when pre-promo booking value ≥ £40.
    */
   const useOpenWebsitePromoPricing =
     testChargeAmount == null &&
@@ -1356,26 +1355,18 @@ function QuoteCard({
     return { journeyFareGbp: journey, airportFixedCostsGbp: fixed };
   }, [liveQuote]);
 
-  /** Apply £5 whenever current booking value meets the £40 threshold. */
-  const applyBookingSavingOffer =
-    useOpenWebsitePromoPricing &&
-    FIRST_BOOKING_OFFER_CONFIG.enabled &&
-    journeyFareParts.journeyFareGbp != null &&
-    journeyFareParts.journeyFareGbp +
-      journeyFareParts.airportFixedCostsGbp +
-      expressSelection.feeGbp >=
-      FIRST_BOOKING_OFFER_CONFIG.minimumEligibleBookingValueGbp;
-
   const openWebsiteFareBreakdown = useMemo(() => {
     if (!useOpenWebsitePromoPricing || journeyFareParts.journeyFareGbp == null) {
       return null;
     }
+    // claimFirstBookingOffer true: composer decides eligibility from booking value
+    // including the live Express fee (no separate client-side threshold gate).
     return buildOpenWebsiteFareBreakdown({
       journeyFareBeforeAirportAccessGbp: journeyFareParts.journeyFareGbp,
       airportFixedCostsGbp: journeyFareParts.airportFixedCostsGbp,
       airportAccessChargeGbp: expressSelection.feeGbp,
       returnJourney,
-      claimFirstBookingOffer: applyBookingSavingOffer,
+      claimFirstBookingOffer: true,
     });
   }, [
     useOpenWebsitePromoPricing,
@@ -1383,7 +1374,6 @@ function QuoteCard({
     journeyFareParts.airportFixedCostsGbp,
     expressSelection.feeGbp,
     returnJourney,
-    applyBookingSavingOffer,
   ]);
 
   const transferFareGbp = useMemo(() => {
@@ -2323,7 +2313,7 @@ function QuoteCard({
           ? {
               journeyFareGbp: journeyFareParts.journeyFareGbp,
               airportFixedCostsGbp: journeyFareParts.airportFixedCostsGbp,
-              claimFirstBookingOffer: applyBookingSavingOffer,
+              claimFirstBookingOffer: true,
             }
           : { claimFirstBookingOffer: false }),
         ...(appliedPersonalQuote && testChargeAmount === null
