@@ -557,6 +557,7 @@ function routePath(
   | "payment-status"
   | "marketing-opt-in"
   | "marketing-unsubscribe"
+  | "first-booking-eligibility"
   | null {
   if (pathname === "/addresses" || pathname === "/api/addresses") {
     return "addresses";
