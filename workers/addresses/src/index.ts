@@ -296,6 +296,10 @@ import {
   maybeRecordMarketingFromPayload,
 } from "./marketing-handlers";
 import {
+  handleFirstBookingEligibilityRequest,
+  isFirstBookingEligibilityPath,
+} from "./first-booking-eligibility-handlers";
+import {
   handleTestDriverDetailEmails,
   isTestDriverDetailEmailsPath,
 } from "./test-email-handlers";
@@ -553,6 +557,7 @@ function routePath(
   | "payment-status"
   | "marketing-opt-in"
   | "marketing-unsubscribe"
+  | "first-booking-eligibility"
   | null {
   if (pathname === "/addresses" || pathname === "/api/addresses") {
     return "addresses";
@@ -690,6 +695,10 @@ function routePath(
 
   if (pathname === "/marketing/unsubscribe" || pathname === "/api/marketing/unsubscribe") {
     return "marketing-unsubscribe";
+  }
+
+  if (isFirstBookingEligibilityPath(pathname)) {
+    return "first-booking-eligibility";
   }
 
   return null;
@@ -3554,6 +3563,13 @@ export default {
       }
 
       return handleMarketingUnsubscribeRequest(request, env, origin);
+    }
+
+    if (route === "first-booking-eligibility") {
+      if (request.method !== "GET" && request.method !== "POST") {
+        return json({ error: "Method not allowed" }, 405, origin);
+      }
+      return handleFirstBookingEligibilityRequest(request, env, origin);
     }
 
     if (request.method !== "GET") {

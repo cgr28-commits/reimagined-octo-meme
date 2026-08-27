@@ -110,10 +110,16 @@ import ExpressDropOffChoice from "@/components/ExpressDropOffChoice";
 import {
   BookWithConfidence,
   FinalPayableBreakdown,
+  FirstBookingOfferAdvert,
   FixedPriceAssurance,
   PromotionalPriceBreakdown,
   buildOpenWebsiteFareBreakdown,
 } from "@/components/QuoteFareTrust";
+import { checkFirstBookingOfferEligibility } from "@/lib/first-booking-eligibility-api";
+import {
+  FIRST_BOOKING_OFFER_CONFIG,
+  normalizeFirstBookingEmail,
+} from "../../shared/first-booking-offer";
 import {
   canProceedWithoutExpressDropOff,
   composeFareWithExpressDropOff,
@@ -505,6 +511,12 @@ function QuoteCard({
   const [customerName, setCustomerName] = useState("");
   const [customerMobile, setCustomerMobile] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
+  /** Set after Worker confirms whether this email already redeemed the £5 offer. */
+  const [firstBookingRedeemStatus, setFirstBookingRedeemStatus] = useState<{
+    email: string;
+    alreadyRedeemed: boolean;
+  } | null>(null);
+  const firstBookingEligibilityRequestId = useRef(0);
   const [mobileNumberError, setMobileNumberError] = useState("");
   const [emailAddressError, setEmailAddressError] = useState("");
   const [tripMode, setTripMode] = useState<TripMode>(IS_A2A_PRIMARY ? "address" : "airport");
@@ -1325,7 +1337,11 @@ function QuoteCard({
     return scheduleScrollToBookNowAfterExpressAck();
   }, [expressRemovalAck, isMobileDevice]);
 
-  const claimFirstBookingOffer =
+  /**
+   * Open-website promotional fare path (return discount display + optional first-booking).
+   * First-booking £5 is advertised early but applied only after email eligibility is verified.
+   */
+  const useOpenWebsitePromoPricing =
     testChargeAmount == null &&
     !appliedPersonalQuote &&
     Boolean(liveQuote) &&
@@ -1350,13 +1366,80 @@ function QuoteCard({
     return { journeyFareGbp: journey, airportFixedCostsGbp: fixed };
   }, [liveQuote]);
 
+  const firstBookingFareEligible =
+    useOpenWebsitePromoPricing &&
+    FIRST_BOOKING_OFFER_CONFIG.enabled &&
+    journeyFareParts.journeyFareGbp != null &&
+    journeyFareParts.journeyFareGbp >=
+      FIRST_BOOKING_OFFER_CONFIG.minimumEligibleJourneyFareGbp;
+
+  const customerEmailNormalised = normalizeFirstBookingEmail(customerEmail);
+  const firstBookingEligibilityVerified =
+    Boolean(firstBookingRedeemStatus) &&
+    firstBookingRedeemStatus!.email === customerEmailNormalised &&
+    isValidEmailAddress(customerEmail);
+
+  /**
+   * Apply £5 in displayed totals only on Step 3 after Worker confirms the email
+   * has not already redeemed the offer. Steps 1–2 always show the full journey price.
+   */
+  const applyFirstBookingOffer =
+    quoteStep === 3 &&
+    firstBookingFareEligible &&
+    firstBookingEligibilityVerified &&
+    !firstBookingRedeemStatus!.alreadyRedeemed;
+
+  /** Advertise on Steps 1–3 until applied (hide once we know this email already used it). */
+  const advertiseFirstBookingOffer =
+    firstBookingFareEligible &&
+    !applyFirstBookingOffer &&
+    !(
+      firstBookingEligibilityVerified && firstBookingRedeemStatus!.alreadyRedeemed
+    );
+
+  // Verify first-booking eligibility when a valid email is present on Step 3.
+  useEffect(() => {
+    if (!useOpenWebsitePromoPricing || quoteStep !== 3) {
+      return;
+    }
+    const raw = customerEmail.trim();
+    if (!isValidEmailAddress(raw)) {
+      setFirstBookingRedeemStatus((prev) => (prev ? null : prev));
+      return;
+    }
+    const normalised = normalizeFirstBookingEmail(raw);
+
+    let cancelled = false;
+    const requestId = ++firstBookingEligibilityRequestId.current;
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        try {
+          const result = await checkFirstBookingOfferEligibility(normalised);
+          if (cancelled || firstBookingEligibilityRequestId.current !== requestId) {
+            return;
+          }
+          setFirstBookingRedeemStatus({
+            email: result.email || normalised,
+            alreadyRedeemed: result.alreadyRedeemed,
+          });
+        } catch {
+          if (cancelled || firstBookingEligibilityRequestId.current !== requestId) {
+            return;
+          }
+          // Fail closed: keep full price until verification succeeds.
+          setFirstBookingRedeemStatus(null);
+        }
+      })();
+    }, 450);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [quoteStep, customerEmail, useOpenWebsitePromoPricing]);
+
   const openWebsiteFareBreakdown = useMemo(() => {
-    if (
-      !claimFirstBookingOffer ||
-      journeyFareParts.journeyFareGbp == null ||
-      testChargeAmount != null ||
-      appliedPersonalQuote
-    ) {
+    if (!useOpenWebsitePromoPricing || journeyFareParts.journeyFareGbp == null) {
       return null;
     }
     return buildOpenWebsiteFareBreakdown({
@@ -1364,16 +1447,21 @@ function QuoteCard({
       airportFixedCostsGbp: journeyFareParts.airportFixedCostsGbp,
       airportAccessChargeGbp: expressSelection.feeGbp,
       returnJourney,
-      claimFirstBookingOffer: true,
+      claimFirstBookingOffer: applyFirstBookingOffer,
+      alreadyRedeemedFirstBookingOffer:
+        firstBookingEligibilityVerified &&
+        Boolean(firstBookingRedeemStatus?.alreadyRedeemed),
     });
   }, [
-    claimFirstBookingOffer,
+    useOpenWebsitePromoPricing,
     journeyFareParts.journeyFareGbp,
     journeyFareParts.airportFixedCostsGbp,
     expressSelection.feeGbp,
     returnJourney,
-    testChargeAmount,
-    appliedPersonalQuote,
+    applyFirstBookingOffer,
+    firstBookingEligibilityVerified,
+    firstBookingRedeemStatus?.alreadyRedeemed,
+    quoteStep,
   ]);
 
   const transferFareGbp = useMemo(() => {
@@ -2255,6 +2343,28 @@ function QuoteCard({
       return;
     }
 
+    // Re-verify first-booking eligibility at pay time so displayed/claim flags match Worker.
+    let claimFirstBookingForCheckout = false;
+    if (
+      useOpenWebsitePromoPricing &&
+      journeyFareParts.journeyFareGbp != null &&
+      journeyFareParts.journeyFareGbp >=
+        FIRST_BOOKING_OFFER_CONFIG.minimumEligibleJourneyFareGbp &&
+      isValidEmailAddress(customerEmail)
+    ) {
+      try {
+        const eligibility = await checkFirstBookingOfferEligibility(customerEmail);
+        setFirstBookingRedeemStatus({
+          email: eligibility.email || normalizeFirstBookingEmail(customerEmail),
+          alreadyRedeemed: eligibility.alreadyRedeemed,
+        });
+        claimFirstBookingForCheckout =
+          eligibility.eligible && !eligibility.alreadyRedeemed;
+      } catch {
+        claimFirstBookingForCheckout = false;
+      }
+    }
+
     // Persist draft + pending payment, then same-tab redirect to SumUp Hosted Checkout.
     // window.open after await is blocked on iPhone Safari (no user-gesture), which looks like a dead button.
     setPaymentLoading(true);
@@ -2309,11 +2419,11 @@ function QuoteCard({
         expressDropOffSelected: expressSelection.eligible
           ? expressDropOffSelected
           : false,
-        ...(claimFirstBookingOffer && journeyFareParts.journeyFareGbp != null
+        ...(useOpenWebsitePromoPricing && journeyFareParts.journeyFareGbp != null
           ? {
               journeyFareGbp: journeyFareParts.journeyFareGbp,
               airportFixedCostsGbp: journeyFareParts.airportFixedCostsGbp,
-              claimFirstBookingOffer: true,
+              claimFirstBookingOffer: claimFirstBookingForCheckout,
             }
           : { claimFirstBookingOffer: false }),
         ...(appliedPersonalQuote && testChargeAmount === null
@@ -3357,6 +3467,14 @@ function QuoteCard({
             </p>
             {testChargeAmount === null && !appliedPersonalQuote ? (
               <FixedPriceAssurance />
+            ) : null}
+            {advertiseFirstBookingOffer ? (
+              <FirstBookingOfferAdvert
+                discountAmountGbp={FIRST_BOOKING_OFFER_CONFIG.discountAmountGbp}
+                minimumJourneyFareGbp={
+                  FIRST_BOOKING_OFFER_CONFIG.minimumEligibleJourneyFareGbp
+                }
+              />
             ) : null}
             {testChargeAmount === null && !appliedPersonalQuote && openWebsiteFareBreakdown ? (
               <PromotionalPriceBreakdown breakdown={openWebsiteFareBreakdown} />
@@ -5043,7 +5161,17 @@ function QuoteCard({
             testChargeAmount === null &&
             !appliedPersonalQuote &&
             openWebsiteFareBreakdown ? (
-              <FinalPayableBreakdown breakdown={openWebsiteFareBreakdown} />
+              <>
+                {advertiseFirstBookingOffer ? (
+                  <FirstBookingOfferAdvert
+                    discountAmountGbp={FIRST_BOOKING_OFFER_CONFIG.discountAmountGbp}
+                    minimumJourneyFareGbp={
+                      FIRST_BOOKING_OFFER_CONFIG.minimumEligibleJourneyFareGbp
+                    }
+                  />
+                ) : null}
+                <FinalPayableBreakdown breakdown={openWebsiteFareBreakdown} />
+              </>
             ) : null}
 
             {canPayNowOnline && liveQuote && testChargeAmount === null ? (

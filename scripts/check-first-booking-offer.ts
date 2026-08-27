@@ -106,6 +106,31 @@ check("already redeemed blocks first-booking offer", () => {
   assert.equal(breakdown.finalAmountPayableGbp, 55);
 });
 
+check("claimFirstBookingOffer false keeps full price (advertise-only stage)", () => {
+  const breakdown = composeWebsiteFareBreakdown({
+    journeyFareBeforeAirportAccessGbp: 40,
+    airportAccessChargeGbp: 5,
+    claimFirstBookingOffer: false,
+  });
+  assert.equal(breakdown.firstBookingSavingGbp, 0);
+  assert.equal(breakdown.journeyFareAfterPromotionsGbp, 40);
+  assert.equal(breakdown.finalAmountPayableGbp, 45);
+  assert.equal(breakdown.totalPromotionalSavingGbp, 0);
+});
+
+check("return discount still applies when first-booking claim is false", () => {
+  const breakdown = composeWebsiteFareBreakdown({
+    journeyFareBeforeAirportAccessGbp: 85.5,
+    airportAccessChargeGbp: 5,
+    returnJourney: true,
+    claimFirstBookingOffer: false,
+  });
+  assert.equal(breakdown.returnJourneySavingGbp, 4.5);
+  assert.equal(breakdown.firstBookingSavingGbp, 0);
+  assert.equal(breakdown.totalPromotionalSavingGbp, 4.5);
+  assert.equal(breakdown.finalAmountPayableGbp, 90.5);
+});
+
 check("airport fixed costs never discounted or counted toward £40", () => {
   // Journey £39 + fixed £8 would be £47 transfer, but journey is below £40.
   const breakdown = composeWebsiteFareBreakdown({
