@@ -55,6 +55,9 @@ check("QuoteCard asks for flight number on Step 2 travel details (not Step 1)", 
   assert.match(card, /step2-flight-details/);
   assert.match(card, /BOOKING_FLIGHT_NUMBER_HELPER/);
   assert.match(card, /enabled=\{quoteStep === activeOnStep\}/);
+  // After time Done, scroll to flight block when shown — not past it to journey summary.
+  assert.match(card, /preferFlightDetails/);
+  assert.match(card, /"step2-flight-details"/);
   // Must not reintroduce a second editable flight block on Step 3
   assert.doesNotMatch(card, /renderFlightDetailsSection\(3\)/);
   assert.doesNotMatch(card, /Providing your flight number helps us monitor your arrival/);

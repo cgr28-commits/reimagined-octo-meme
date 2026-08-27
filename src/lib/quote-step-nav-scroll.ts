@@ -30,6 +30,7 @@ export type BookingNavTargetId =
   | "quote-availability-confirmation"
   | "bookingRequestResult"
   | "step2-journey-summary"
+  | "step2-flight-details"
   | "quote-section-addresses"
   | "quote-book-now-anchor";
 
@@ -233,10 +234,11 @@ export function scrollQuoteStage(
 }
 
 /**
- * After iPhone time picker Done/blur: land on YOUR JOURNEY without covering
+ * After iPhone time picker Done/blur: land on the next booking block
+ * (flight number when shown, otherwise YOUR JOURNEY) without covering
  * "Continue to your details".
  *
- * Aligns the journey summary under the sticky header, then clamps so
+ * Aligns the target under the sticky header, then clamps so
  * `#quote-step2-next` (Back + Continue) stays fully visible. Does not focus
  * headings — iOS focus scrolling was overshooting past the CTA.
  */

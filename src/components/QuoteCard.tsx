@@ -2981,7 +2981,7 @@ function QuoteCard({
   /** Capacity incomplete→complete arms a pending Your Route scroll (once). */
   const pendingRouteSummaryScrollRef = useRef(false);
   const hadRouteSummaryScrollRef = useRef(false);
-  /** Time picker Done/blur → Your Journey (once per step-2 visit). */
+  /** Time picker Done/blur → flight number (when shown) or Your Journey (once per step-2 visit). */
   const hadJourneySummaryScrollRef = useRef(false);
   const hadLegacyJourneyModeScrollRef = useRef(false);
   const hadLegacyPartyScrollRef = useRef(false);
@@ -3104,7 +3104,8 @@ function QuoteCard({
   /**
    * Stage 10→11: iPhone time picker Done / blur only.
    * Never called from onChange — customer must finish the picker first.
-   * Lands on YOUR JOURNEY but clamps so Continue stays fully visible (no overshoot).
+   * Prefer the flight-number block when shown (airport pickup), otherwise
+   * YOUR JOURNEY — and clamp so Continue stays fully visible (no overshoot).
    */
   function requestJourneySummaryScrollAfterTimeConfirm() {
     if (quoteStep !== 2) return;
@@ -3123,8 +3124,12 @@ function QuoteCard({
           isReturnAfterOutbound(date, time, retDate, retTime)));
     if (!complete) return;
     hadJourneySummaryScrollRef.current = true;
+    const preferFlightDetails =
+      needsOutboundFlightNumber || needsReturnCollectionFlightNumber;
     scrollJourneySummaryAfterTimeConfirm(
-      step2JourneySummaryRef.current ?? "step2-journey-summary",
+      preferFlightDetails
+        ? "step2-flight-details"
+        : (step2JourneySummaryRef.current ?? "step2-journey-summary"),
       "quote-step2-next",
     );
   }
