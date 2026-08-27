@@ -1,6 +1,6 @@
 /**
- * Flight number is collected at booking/checkout for airport pickups only —
- * not during the public Get a Quote calculation stage.
+ * Flight number is collected on Step 2 (Travel details) for airport pickups only —
+ * not during the public Get a Quote calculation stage (Step 1).
  * Run: npx tsx scripts/check-quote-flight-booking-stage.ts
  */
 
@@ -49,20 +49,23 @@ check("Get a Quote progressive route does not ask for flight number", () => {
   assert.match(progressive, /AIRPORT_PICKUP_WAITING_COPY/);
 });
 
-check("QuoteCard asks for flight number only on booking step 3", () => {
+check("QuoteCard asks for flight number on Step 2 travel details (not Step 1)", () => {
+  assert.match(card, /needsOutboundFlightNumber/);
+  assert.match(card, /renderFlightDetailsSection\(2\)/);
+  assert.match(card, /step2-flight-details/);
   assert.match(card, /BOOKING_FLIGHT_NUMBER_HELPER/);
-  assert.match(card, /enabled=\{quoteStep === 3\}/);
-  assert.doesNotMatch(card, /enabled=\{quoteStep === 2\}/);
+  assert.match(card, /enabled=\{quoteStep === activeOnStep\}/);
+  // Must not reintroduce a second editable flight block on Step 3
+  assert.doesNotMatch(card, /renderFlightDetailsSection\(3\)/);
   assert.doesNotMatch(card, /Providing your flight number helps us monitor your arrival/);
   assert.doesNotMatch(card, /flightNumber=\{goingFlightNumber\}/);
 });
 
 check("Airport drop-offs do not request an outbound flight number", () => {
-  // Going flight gated on isFromAirport / pickupAirportCode
-  assert.match(card, /isAirportTrip && isFromAirport/);
+  assert.match(card, /needsOutboundFlightNumber/);
   assert.match(card, /pickupAirportCode/);
-  // Drop-off outbound uses !isFromAirport only for return collection flight
-  assert.match(card, /isAirportTrip && !isFromAirport/);
+  assert.match(card, /airport-to-address/);
+  assert.match(card, /needsReturnCollectionFlightNumber/);
 });
 
 check("Book / saved / personal quote booking UIs request flight for pickups only", () => {
@@ -77,6 +80,13 @@ check("Book / saved / personal quote booking UIs request flight for pickups only
 check("Flight monitoring + booking record still support flight numbers", () => {
   assert.match(flightLookup, /flightNumber/);
   assert.match(paidRecord, /flightNumber\?:/);
+  assert.match(card, /flightNumber: goingFlightNumber/);
+});
+
+check("Flight remains optional (approved fallback — never blocks payment)", () => {
+  assert.match(card, /Flight numbers are optional/);
+  assert.match(card, /clearFlightBlockingErrors/);
+  assert.match(card, /\(optional\)/);
 });
 
 console.log("\nAll quote-flight-booking-stage checks passed.");
