@@ -3174,11 +3174,6 @@ function QuoteCard({
               We’ll confirm your fare once journey details are reviewed. Continue to send your trip
               details — no online payment until the price is confirmed.
             </p>
-            {journeyDurationLabel && (
-              <p className="quote-secondary mt-2 text-xs">
-                Approx. {journeyDurationLabel}
-              </p>
-            )}
           </>
         ) : isManualQuoteJourney ? (
           <>
@@ -3195,11 +3190,6 @@ function QuoteCard({
                   ? "This journey needs a personalised quote. Continue with your travel details and submit your quote request."
                   : "Continue with your travel details and submit your quote request — we’ll confirm your personal price before any payment is taken."}
             </p>
-            {journeyDurationLabel && (
-              <p className="quote-secondary mt-2 text-xs">
-                Approx. {journeyDurationLabel}
-              </p>
-            )}
           </>
         ) : showsRequestQuoteFlow && liveQuote ? (
           <>
@@ -3219,11 +3209,6 @@ function QuoteCard({
               <span className="mx-2 text-white/35">·</span>
               Large suitcases: {formatSuitcaseChoice(suitcases as number)}
             </p>
-            {journeyDurationLabel && (
-              <p className="quote-secondary mt-2 text-xs">
-                Approx. {journeyDurationLabel}
-              </p>
-            )}
             <PriceInclusionBlock
               isAirportTrip={isAirportLegForInclusions}
               isFromAirport={isFromAirport}
@@ -3250,11 +3235,6 @@ function QuoteCard({
               Send an enquiry with your trip details and we&apos;ll confirm availability and quote
               you personally.
             </p>
-            {journeyDurationLabel && (
-              <p className="quote-secondary mt-2 text-xs">
-                Approx. {journeyDurationLabel}
-              </p>
-            )}
             {!tripDetailsReady && quoteHint ? (
               <p className="mt-3 text-sm text-white/70">{quoteHint}</p>
             ) : null}
@@ -3297,11 +3277,6 @@ function QuoteCard({
             {testChargeAmount !== null && (
               <p className="quote-secondary mt-2 text-xs">
                 Route price would be {formatQuote(liveQuote.amount)} — not charged in test mode.
-              </p>
-            )}
-            {journeyDurationLabel && (
-              <p className="quote-secondary mt-2 text-xs">
-                Approx. {journeyDurationLabel}
               </p>
             )}
             <PriceInclusionBlock

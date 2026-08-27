@@ -143,6 +143,26 @@ export function formatJourneyDuration(durationMinutes: number): string {
   return `${hours} hr ${minutes} min`;
 }
 
+/**
+ * Customer-facing YOUR ROUTE line — time only, no mileage.
+ * e.g. "Journey time: approx. 18 mins"
+ */
+export function formatRouteCardJourneyTime(durationMinutes: number): string {
+  const totalMinutes = Math.max(1, Math.round(durationMinutes));
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+
+  if (hours === 0) {
+    return `Journey time: approx. ${totalMinutes} mins`;
+  }
+
+  if (minutes === 0) {
+    return `Journey time: approx. ${hours} ${hours === 1 ? "hr" : "hrs"}`;
+  }
+
+  return `Journey time: approx. ${hours} ${hours === 1 ? "hr" : "hrs"} ${minutes} mins`;
+}
+
 /** Longer copy for route summaries, e.g. "approximately 25 minutes". */
 export function formatJourneyDurationApprox(durationMinutes: number): string {
   const totalMinutes = Math.max(1, Math.round(durationMinutes));
