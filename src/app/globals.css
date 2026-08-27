@@ -200,12 +200,12 @@ main {
 }
 
 .quote-step {
-  min-height: 2.85rem;
+  min-height: 2.55rem;
   border-radius: 0.65rem;
   border: 1px solid rgba(255, 255, 255, 0.1);
   background: transparent;
   color: rgba(255, 255, 255, 0.45);
-  padding: 0.4rem 0.35rem;
+  padding: 0.3rem 0.3rem;
   text-align: center;
   transition: border-color 0.16s ease, background-color 0.16s ease, color 0.16s ease;
 }

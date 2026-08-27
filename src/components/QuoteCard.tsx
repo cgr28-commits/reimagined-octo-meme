@@ -3609,22 +3609,19 @@ function QuoteCard({
   }
 
   return (
-    <div ref={cardRef} className="glass-card min-w-0 rounded-[1.05rem] p-3.5 sm:p-7 lg:p-6 xl:p-7">
-      <div className="mb-3 sm:mb-5 lg:mb-5">
+    <div ref={cardRef} className="glass-card min-w-0 rounded-[1.05rem] p-3 sm:p-7 lg:p-6 xl:p-7">
+      <div className="mb-2.5 sm:mb-5 lg:mb-5">
         <h2
           data-site-nav-heading="quote"
           tabIndex={-1}
-          className="font-display text-[1.45rem] font-semibold leading-tight tracking-tight text-white outline-none sm:text-[1.85rem] lg:text-[1.75rem]"
+          className="font-display text-[1.35rem] font-semibold leading-tight tracking-tight text-white outline-none sm:text-[1.85rem] lg:text-[1.75rem]"
         >
           Get a Live Quote
         </h2>
-        <div className="mt-1.5 text-sm leading-snug quote-secondary sm:mt-2.5 sm:leading-relaxed lg:text-[0.9rem] lg:leading-relaxed">
+        <div className="mt-1 text-sm leading-snug quote-secondary sm:mt-2.5 sm:leading-relaxed lg:text-[0.9rem] lg:leading-relaxed">
           {/* Mobile: compact — frees space for journey choices above the fold */}
-          <p className="md:hidden">
+          <p className="md:hidden text-[0.8125rem]">
             Get your fixed price in three quick steps.
-            <span className="mt-0.5 block text-xs text-white/50">
-              Book and pay securely online.
-            </span>
           </p>
           {/* Desktop: fuller explanation */}
           <p className="hidden md:block">
@@ -3633,7 +3630,7 @@ function QuoteCard({
               : "Three quick steps — your journey, travel details, then your details. Instant fares can be paid online by card to confirm; otherwise Request to book and we’ll email a SumUp link after we confirm."}
           </p>
         </div>
-        <ol className="mt-2.5 grid grid-cols-3 gap-1.5 sm:mt-4 sm:gap-2" aria-label="Booking steps">
+        <ol className="mt-2 grid grid-cols-3 gap-1 sm:mt-4 sm:gap-2" aria-label="Booking steps">
           {[
             { step: 1 as const, label: isA2AFlow ? "Your journey" : "Airport & address" },
             { step: 2 as const, label: "Price & travel" },

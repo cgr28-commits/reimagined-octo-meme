@@ -183,18 +183,18 @@ export default function QuoteProgressiveRoute({
   void _isGroupQuote;
 
   return (
-    <div className="quote-field space-y-3.5 sm:space-y-5 lg:space-y-4">
+    <div className="quote-field space-y-2.5 sm:space-y-5 lg:space-y-4">
       <div id="quote-section-journey" className="lg:min-h-0">
-        <h3 className="text-[0.95rem] font-semibold text-white sm:text-lg lg:text-base">
+        <h3 className="text-[0.9rem] font-semibold text-white sm:text-lg lg:text-base">
           Where are you travelling?
         </h3>
-        <p className="quote-secondary mt-0.5 text-xs sm:mt-1">
+        <p className="quote-secondary mt-0.5 hidden text-xs sm:mt-1 sm:block">
           {journeyKindLabel || "Choose how you’d like to travel"}
         </p>
       </div>
 
       <div
-        className={`grid gap-2.5 sm:grid-cols-3 sm:gap-3 lg:gap-2.5 ${choiceGroupNeedsClass(!journeyIntent)}`}
+        className={`grid gap-2 sm:grid-cols-3 sm:gap-3 lg:gap-2.5 ${choiceGroupNeedsClass(!journeyIntent)}`}
         role="group"
         aria-label="Journey type"
       >

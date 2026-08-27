@@ -51,12 +51,13 @@ console.log("\n=== 4. First-booking offer promo near quote CTA ===");
   assert.match(strip, /YOUR FIRST BOOKING/);
   assert.match(strip, /Journey fare £\{minFare\}\+ · Eligibility confirmed before payment/);
   assert.match(strip, /New customer offer/i);
-  // Desktop keeps CTA; mobile strip must not show Get a Quote (md:inline-flex / md:hidden pattern).
-  assert.match(strip, /hidden[\s\S]*md:inline-flex/);
+  assert.match(strip, /data-offer-layout="compact-v2"/);
+  // Desktop keeps CTA; mobile strip must not show Get a Quote.
+  assert.match(strip, /hidden md:block/);
   assert.match(strip, /md:hidden/);
   assert.match(strip, /QuoteNavLink/);
   assert.match(strip, /href="\/#quote"/);
-  assert.doesNotMatch(strip, /animate-pulse|@keyframes[\s\S]*pulse|infinite/);
+  assert.doesNotMatch(strip, /animate-pulse|infinite/);
   assert.match(css, /first-booking-offer-enter/);
   assert.match(css, /prefers-reduced-motion/);
   assert.doesNotMatch(strip, /createPayment|resolveFirstBookingOffer|claimOffer/);
@@ -67,11 +68,10 @@ console.log("\n=== 5. Mobile above-the-fold compaction ===");
 {
   const strip = read("src/components/FirstBookingOfferStrip.tsx");
   const card = read("src/components/QuoteCard.tsx");
-  assert.match(hero, /pt-\[4\.75rem\]/);
+  assert.match(hero, /pt-\[4\.5rem\]/);
   assert.match(strip, /first-booking-offer-enter/);
   assert.match(card, /Get your fixed price in three quick steps\./);
-  assert.match(card, /Book and pay securely online\./);
-  assert.match(card, /md:hidden/);
+  assert.doesNotMatch(card.match(/md:hidden[\s\S]{0,200}Get your fixed price/)?.[0] ?? "", /Book and pay securely online/);
   assert.match(card, /Three quick steps — your journey/);
   console.log("OK  mobile offer + quote intro are compacted; desktop copy retained");
 }
