@@ -10,6 +10,8 @@ import {
   PERSONAL_QUOTE_PASSENGER_LIMIT_ERROR,
 } from "../../shared/personal-quote";
 import { getPaymentBookingBlockers } from "../../shared/paid-booking-gate";
+import { getAirportPickupFlightNumberBlockers } from "../../shared/flight-lookup";
+import { resolvePaymentAirportContextFromAddresses } from "../../shared/open-website-payment-fares";
 import { readConsentedAdsAttribution } from "@/lib/ads-attribution";
 
 export type PaymentCheckoutRequest = {
@@ -187,6 +189,22 @@ export async function createPaymentCheckout(
     const blockers = getPaymentBookingBlockers(request.booking);
     if (blockers.length > 0) {
       throw new Error(blockers[0]);
+    }
+
+    const flightAirportCtx = resolvePaymentAirportContextFromAddresses(
+      request.booking.pickupLabel ?? "",
+      request.booking.dropoffLabel ?? "",
+    );
+    if (flightAirportCtx.ok) {
+      const flightBlockers = getAirportPickupFlightNumberBlockers({
+        airportContext: flightAirportCtx.context,
+        returnJourney: Boolean(request.booking.returnJourney),
+        flightNumber: request.booking.flightNumber,
+        returnFlightNumber: request.booking.returnFlightNumber,
+      });
+      if (flightBlockers.length > 0) {
+        throw new Error(flightBlockers[0]);
+      }
     }
 
     if (!isValidPassengerCount(request.booking.passengers)) {

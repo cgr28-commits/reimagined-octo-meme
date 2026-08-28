@@ -58,6 +58,7 @@ import {
   type PaidBookingDetails,
 } from "../shared/booking-notifications";
 import {
+  getAirportPickupFlightNumberBlockers,
   lookupFlight,
   type TripDirection,
 } from "../shared/flight-lookup";
@@ -2222,6 +2223,35 @@ async function handlePaymentRequest(
   }
 
   try {
+    // Hard gate: airport-pickup (and A2A / return airport collection) flight numbers
+    // must be present and format-valid before any SumUp checkout is created.
+    // Uses address-derived airport context — never client isFromAirport flags alone.
+    if (booking?.pickupLabel && booking?.dropoffLabel) {
+      const flightAirportCtx = resolvePaymentAirportContextFromAddresses(
+        booking.pickupLabel,
+        booking.dropoffLabel,
+      );
+      if (flightAirportCtx.ok) {
+        const flightBlockers = getAirportPickupFlightNumberBlockers({
+          airportContext: flightAirportCtx.context,
+          returnJourney: Boolean(booking.returnJourney),
+          flightNumber: booking.flightNumber,
+          returnFlightNumber: booking.returnFlightNumber,
+        });
+        if (flightBlockers.length > 0) {
+          return json(
+            {
+              error: flightBlockers[0],
+              code: "invalid_flight_number",
+              blockers: flightBlockers,
+            },
+            400,
+            origin,
+          );
+        }
+      }
+    }
+
     const checkoutReference =
       String(body.checkoutReference ?? "").trim() || buildCheckoutReference();
     const returnUrl = new URL("/payments/webhook", request.url).toString();

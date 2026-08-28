@@ -167,6 +167,10 @@ import {
 } from "@/lib/google-ads-client";
 import type { VerifiedFlight } from "@/lib/flight-lookup";
 import {
+  FLIGHT_NUMBER_FORMAT_ERROR,
+  isValidFlightNumberFormat,
+} from "@/lib/flight-lookup";
+import {
   detectAirportCodeFromPlace,
   detectJourneyKind,
   emptySelectedPlace,
@@ -555,6 +559,12 @@ function QuoteCard({
   const [collectionFlightNumber, setCollectionFlightNumber] = useState("");
   const [goingFlightError, setGoingFlightError] = useState("");
   const [collectionFlightError, setCollectionFlightError] = useState("");
+  const [goingFlightLookupStatus, setGoingFlightLookupStatus] = useState<
+    "idle" | "loading" | "verified" | "error" | "unavailable"
+  >("idle");
+  const [collectionFlightLookupStatus, setCollectionFlightLookupStatus] = useState<
+    "idle" | "loading" | "verified" | "error" | "unavailable"
+  >("idle");
   const [verifiedGoingFlight, setVerifiedGoingFlight] = useState<VerifiedFlight | null>(null);
   const [verifiedCollectionFlight, setVerifiedCollectionFlight] = useState<VerifiedFlight | null>(
     null,
@@ -2073,10 +2083,49 @@ function QuoteCard({
   ]);
 
   /**
-   * Flight numbers are optional and must never block Step 2 continue.
-   * Verification loading / unavailable / soft failures are informational only.
+   * Airport-pickup flight numbers are required (format-valid) whenever the journey
+   * collects the customer from an airport. Soft AeroDataBox failures do not block;
+   * blank / malformed / hard lookup errors do.
    */
-  function clearFlightBlockingErrors(): void {
+  function validateRequiredFlightNumbers(): boolean {
+    let ok = true;
+
+    if (needsOutboundFlightNumber) {
+      const trimmed = goingFlightNumber.trim();
+      if (
+        !trimmed ||
+        !isValidFlightNumberFormat(trimmed) ||
+        goingFlightLookupStatus === "error"
+      ) {
+        setGoingFlightError(FLIGHT_NUMBER_FORMAT_ERROR);
+        ok = false;
+      } else {
+        setGoingFlightError("");
+      }
+    } else {
+      setGoingFlightError("");
+    }
+
+    if (needsReturnCollectionFlightNumber) {
+      const trimmed = collectionFlightNumber.trim();
+      if (
+        !trimmed ||
+        !isValidFlightNumberFormat(trimmed) ||
+        collectionFlightLookupStatus === "error"
+      ) {
+        setCollectionFlightError(FLIGHT_NUMBER_FORMAT_ERROR);
+        ok = false;
+      } else {
+        setCollectionFlightError("");
+      }
+    } else {
+      setCollectionFlightError("");
+    }
+
+    return ok;
+  }
+
+  function clearFlightFieldErrors(): void {
     setGoingFlightError("");
     setCollectionFlightError("");
   }
@@ -2413,7 +2462,11 @@ function QuoteCard({
       return;
     }
 
-    clearFlightBlockingErrors();
+    if (!validateRequiredFlightNumbers()) {
+      setPaymentError(FLIGHT_NUMBER_FORMAT_ERROR);
+      setQuoteStep(2);
+      return;
+    }
 
     if (!requireCapacityConfirmed()) {
       return;
@@ -3096,8 +3149,11 @@ function QuoteCard({
     if (!validateTripForBooking(schedule)) {
       return;
     }
-    // Do not wait on flight lookup — unavailable/loading must not require a second click.
-    clearFlightBlockingErrors();
+    // Soft lookup loading/unavailable must not require a second click — format validity is the gate.
+    if (!validateRequiredFlightNumbers()) {
+      setSubmitError(FLIGHT_NUMBER_FORMAT_ERROR);
+      return;
+    }
     if (typeof document !== "undefined" && document.activeElement instanceof HTMLElement) {
       document.activeElement.blur();
     }
@@ -3441,7 +3497,7 @@ function QuoteCard({
 
   /**
    * Airport-pickup flight number — collected on Step 2 (Travel details).
-   * Optional by product design; never shown for pure to-airport one-ways.
+   * Required for airport collections; never shown for pure to-airport one-ways.
    */
   function renderFlightDetailsSection(activeOnStep: 2 | 3) {
     if (!needsOutboundFlightNumber && !needsReturnCollectionFlightNumber) {
@@ -3455,7 +3511,7 @@ function QuoteCard({
         <div>
           <p className="text-xs font-medium uppercase tracking-wider text-emerald">
             Flight number{" "}
-            <span className="font-normal text-ink-secondary">(optional)</span>
+            <span className="font-normal text-ink-secondary">(required)</span>
           </p>
           <p className="mt-1 text-sm text-white/60">{BOOKING_FLIGHT_NUMBER_HELPER}</p>
         </div>
@@ -3476,6 +3532,7 @@ function QuoteCard({
             direction={isA2AFlow ? "from-airport" : tripDirection}
             enabled={quoteStep === activeOnStep}
             error={goingFlightError}
+            onStatusChange={setGoingFlightLookupStatus}
             onVerifiedChange={(flight) => {
               setVerifiedGoingFlight(flight);
             }}
@@ -3498,6 +3555,7 @@ function QuoteCard({
             direction="from-airport"
             enabled={quoteStep === activeOnStep}
             error={collectionFlightError}
+            onStatusChange={setCollectionFlightLookupStatus}
             onVerifiedChange={(flight) => {
               setVerifiedCollectionFlight(flight);
             }}
@@ -5537,8 +5595,7 @@ function QuoteCard({
                 type="button"
                 onClick={() => {
                   navigateQuoteStep(1);
-                  setGoingFlightError("");
-                  setCollectionFlightError("");
+                  clearFlightFieldErrors();
                   setReturnDateError("");
                 }}
                 className="btn-secondary w-full"

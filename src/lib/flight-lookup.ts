@@ -2,10 +2,15 @@ import { resolveAddressesApiUrl } from "@/lib/addresses-api";
 import type { TripDirection, VerifiedFlight } from "../../shared/flight-lookup";
 export type { TripDirection, VerifiedFlight } from "../../shared/flight-lookup";
 export {
+  FLIGHT_NUMBER_FORMAT_ERROR,
   formatFlightNumberForDisplay,
+  getAirportPickupFlightNumberBlockers,
   isValidFlightNumberFormat,
   normalizeFlightNumber,
+  requiresOutboundAirportPickupFlight,
+  requiresReturnAirportPickupFlight,
 } from "../../shared/flight-lookup";
+export type { AirportPickupFlightContext } from "../../shared/flight-lookup";
 
 export type ClientFlightLookupResult =
   | { ok: true; flight: VerifiedFlight; configured: boolean }
