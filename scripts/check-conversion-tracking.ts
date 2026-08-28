@@ -169,10 +169,10 @@ assert.equal(
 assert.equal(countEvent(ADS_EVENT_PURCHASE), 1, "refresh must not duplicate purchase");
 assert.equal(
   gtagCalls.filter((args) => args[0] === "event" && args[1] === "conversion").length,
-  conversionsBeforePurchase,
-  "Option A: browser must not fire labelled Paid Booking Ads conversion",
+  conversionsBeforePurchase + 1,
+  "verified purchase must fire one labelled Paid Booking Ads conversion",
 );
-console.log("OK  positive server payload required; refresh is idempotent; no browser Ads send_to");
+console.log("OK  positive server payload required; refresh is idempotent; one browser Ads send_to");
 
 console.log("=== Attribution persistence and sanitisation ===");
 const captured = captureAdsAttributionFromLocation(
@@ -224,8 +224,8 @@ assert.match(confirmation, /result\.result\?\.purchase/);
 console.log("OK  no click/page-load conversions; purchase is server-authored after SumUp PAID");
 
 const adsConfigSource = readFileSync(join(process.cwd(), "src/lib/google-ads.ts"), "utf8");
-assert.match(adsConfigSource, /Option A: Paid Booking is uploaded server-side/);
-assert.match(adsConfigSource, /const purchaseConversionLabel = "";/);
-console.log("OK  browser Paid Booking send_to disabled (server-side only)");
+assert.match(adsConfigSource, /DEFAULT_PURCHASE_CONVERSION_LABEL/);
+assert.match(adsConfigSource, /NEXT_PUBLIC_GOOGLE_ADS_PURCHASE_CONVERSION_LABEL/);
+console.log("OK  verified Paid Booking uses its dedicated browser Ads destination");
 
 console.log("\nAll conversion tracking checks passed.");

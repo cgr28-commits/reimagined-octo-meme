@@ -9,6 +9,7 @@ import { join } from "node:path";
 import {
   ADS_EVENT_QUOTE_GENERATED,
   DEFAULT_GOOGLE_ADS_ID,
+  DEFAULT_PURCHASE_CONVERSION_LABEL,
   DEFAULT_QUOTE_CONVERSION_LABEL,
   getGoogleAdsConfig,
 } from "../src/lib/google-ads";
@@ -118,13 +119,17 @@ function main() {
     assert.doesNotMatch(source, /process\.env\[name\]/);
   });
 
-  check("Option A disables browser Paid Booking Ads send_to", () => {
+  check("Paid Booking uses its verified website conversion label", () => {
     process.env.NEXT_PUBLIC_GOOGLE_ADS_PURCHASE_CONVERSION_LABEL = "GoTQCPuJ3eccEK7_7JdE";
     process.env.NEXT_PUBLIC_GOOGLE_ADS_BOOKING_CONVERSION_LABEL = "legacy-should-not-apply";
     const config = getGoogleAdsConfig();
-    assert.equal(config.purchaseSendTo, "");
-    assert.equal(config.purchaseEnabled, false);
-    assert.equal(config.purchaseConversionLabel, "");
+    assert.equal(DEFAULT_PURCHASE_CONVERSION_LABEL, "GoTQCPuJ3eccEK7_7JdE");
+    assert.equal(
+      config.purchaseSendTo,
+      `${DEFAULT_GOOGLE_ADS_ID}/${DEFAULT_PURCHASE_CONVERSION_LABEL}`,
+    );
+    assert.equal(config.purchaseEnabled, true);
+    assert.equal(config.purchaseConversionLabel, DEFAULT_PURCHASE_CONVERSION_LABEL);
     delete process.env.NEXT_PUBLIC_GOOGLE_ADS_PURCHASE_CONVERSION_LABEL;
     delete process.env.NEXT_PUBLIC_GOOGLE_ADS_BOOKING_CONVERSION_LABEL;
   });

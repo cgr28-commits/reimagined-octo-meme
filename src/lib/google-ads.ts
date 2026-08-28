@@ -12,6 +12,9 @@ export const DEFAULT_GOOGLE_ADS_ID = "AW-18303631278";
 /** Request quote conversion label from Google Ads. */
 export const DEFAULT_QUOTE_CONVERSION_LABEL = "_hcXCPSz7cscEK7_7JdE";
 
+/** Paid Booking website conversion — fired only after SumUp PAID is verified. */
+export const DEFAULT_PURCHASE_CONVERSION_LABEL = "GoTQCPuJ3eccEK7_7JdE";
+
 /** Known incorrect historical values — never use even if present in env/secrets. */
 const KNOWN_BAD_ADS_IDS = new Set(["AW-10303631278"]);
 const KNOWN_BAD_QUOTE_LABELS = new Set(["_hcXCP5z7cscEK7_73dE"]);
@@ -75,9 +78,9 @@ function resolveQuoteLabel(raw: string): string {
  * Reads Ads config. Env/secrets win unless they contain known-bad typo values;
  * otherwise the account defaults above are used for the tag + quote_generated.
  *
- * Important: the account currently has Calls + Request quote only. Never reuse the
- * quote label for bookings — that would mix quotes with completed bookings in Ads.
- * Lead and purchase direct Ads calls stay disabled until distinct labels are set.
+ * Never reuse the quote label for bookings — that would mix quotes with completed
+ * bookings in Ads. Paid Booking has its own verified website conversion label and
+ * is fired only from the server-authored SumUp PAID confirmation payload.
  */
 export function getGoogleAdsConfig(): GoogleAdsConfig {
   const adsId = resolveAdsId(env("NEXT_PUBLIC_GOOGLE_ADS_ID") || DEFAULT_GOOGLE_ADS_ID);
@@ -87,11 +90,9 @@ export function getGoogleAdsConfig(): GoogleAdsConfig {
   let bookingRequestConversionLabel = env(
     "NEXT_PUBLIC_GOOGLE_ADS_BOOKING_REQUEST_CONVERSION_LABEL",
   );
-  // Option A: Paid Booking is uploaded server-side (Worker UploadClickConversions)
-  // after SumUp PAID. Never fire a labelled browser Ads conversion for purchase —
-  // that would double-count when the customer also returns to /booking-confirmed/.
-  // Request quote + Booking Request Submitted browser tags are unchanged.
-  const purchaseConversionLabel = "";
+  const purchaseConversionLabel =
+    env("NEXT_PUBLIC_GOOGLE_ADS_PURCHASE_CONVERSION_LABEL") ||
+    DEFAULT_PURCHASE_CONVERSION_LABEL;
   if (
     bookingRequestConversionLabel &&
     quoteConversionLabel &&
@@ -138,4 +139,3 @@ export const ADS_EVENT_BOOKING_COMPLETE = ADS_EVENT_PURCHASE;
 
 /** Page context for Ads custom parameters (e.g. EMERGE landing). */
 export type AdsQuotePageType = "main" | "emerge_belfast" | (string & {});
-
