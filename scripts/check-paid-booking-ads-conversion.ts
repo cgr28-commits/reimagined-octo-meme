@@ -103,7 +103,7 @@ async function main() {
   }
   console.log("OK  upload refuses missing click id or secrets");
 
-  console.log("=== Wire-up, Option A, and no tag-as-customer docs ===");
+  console.log("=== Offline fallback and browser purchase destination ===");
   const finalize = read("workers/addresses/src/finalize-paid-checkout.ts");
   assert.match(finalize, /maybeUploadPaidBookingAdsConversion/);
   assert.doesNotMatch(finalize, /window\.gtag|gtag\(/);
@@ -113,12 +113,8 @@ async function main() {
   assert.match(helper, /isRefundTest/);
   assert.match(helper, /isAmendmentTopUp/);
   const browserAds = read("src/lib/google-ads.ts");
-  assert.match(browserAds, /const purchaseConversionLabel = "";/);
-  assert.match(browserAds, /Option A/);
-  assert.doesNotMatch(
-    browserAds,
-    /purchaseConversionLabel =\s*\n?\s*env\("NEXT_PUBLIC_GOOGLE_ADS_PURCHASE_CONVERSION_LABEL"\)/,
-  );
+  assert.match(browserAds, /DEFAULT_PURCHASE_CONVERSION_LABEL/);
+  assert.match(browserAds, /NEXT_PUBLIC_GOOGLE_ADS_PURCHASE_CONVERSION_LABEL/);
 
   const envExample = read("env.example");
   assert.match(envExample, /GOOGLE_ADS_CUSTOMER_ID=4955115517/);
@@ -138,7 +134,7 @@ async function main() {
   }
   assert.match(sharedModule, /77347686808/);
   assert.match(workerModule, /77347686808/);
-  console.log("OK  Worker uploads after PAID; browser send_to off; IDs corrected");
+  console.log("OK  browser Paid Booking is live; Worker upload remains a separate fallback");
 
   console.log("\nAll Paid Booking Ads conversion checks passed.");
 }

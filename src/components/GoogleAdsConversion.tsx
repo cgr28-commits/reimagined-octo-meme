@@ -24,9 +24,9 @@ type GoogleAdsConversionProps = {
 };
 
 /**
- * Fires a dataLayer `purchase` event after a genuine paid booking confirmation.
- * Option A: labelled Google Ads Paid Booking conversion is uploaded server-side
- * after SumUp PAID — this component must not send a browser Ads `send_to`.
+ * Fires the labelled Google Ads Paid Booking conversion only after the Worker
+ * returns a genuine SumUp PAID confirmation. The unique transaction ID and
+ * local-storage guard make refreshes idempotent.
  */
 export default function GoogleAdsConversion({
   fire,
