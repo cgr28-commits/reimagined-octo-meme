@@ -75,8 +75,22 @@ function main() {
     assert.match(client, /QuoteCard/);
     assert.match(client, /pageType=["']emerge_belfast["']/);
     assert.match(client, /maxPassengers=\{4\}/);
+    assert.match(client, /initialJourneyIntent=["']address-to-address["']/);
     assert.match(quoteCard, /initialDropoffHint/);
+    assert.match(quoteCard, /initialJourneyIntent/);
     assert.match(quoteCard, /pageType/);
+  });
+
+  check("EMERGE quote CTA opens address-to-address live quote (not airport)", () => {
+    assert.match(client, /href="#quote"/);
+    assert.match(client, /initialJourneyIntent=["']address-to-address["']/);
+    assert.match(client, /initialDropoffHint=\{EMERGE_BELFAST_DESTINATION\}/);
+    assert.doesNotMatch(client, /initialAirportCode|initialDirection/);
+    assert.match(quoteCard, /resolveLandingJourneyIntent/);
+    assert.match(
+      quoteCard,
+      /initialDropoffHint[\s\S]*address-to-address|Venue \/ event pages[\s\S]*address-to-address/,
+    );
   });
 
   check("After expiry: noindex ended page, no 301, runtime switch", () => {
