@@ -342,6 +342,7 @@ import {
   resolveOpenWebsitePaymentTransferFares,
   resolvePaymentAirportContextFromAddresses,
   checkoutAmountsMatch,
+  resolveSumUpChargeAmountGbp,
   buildFareMismatchPaymentError,
 } from "../shared/open-website-payment-fares";
 import { resolveWorkerTripRouteMetrics } from "./resolve-route-metrics";
@@ -2079,7 +2080,20 @@ async function handlePaymentRequest(
       );
     }
 
-    amount = serverFinalAmountGbp;
+    // Security validator passed — charge the exact accepted amount (never £138.01 when they agreed £138).
+    const sumUpChargeGbp = resolveSumUpChargeAmountGbp(
+      acceptedFinalRaw,
+      serverFinalAmountGbp,
+    );
+    if (sumUpChargeGbp == null) {
+      return json(
+        buildFareMismatchPaymentError(acceptedFinalRaw, serverFinalAmountGbp),
+        409,
+        origin,
+      );
+    }
+
+    amount = sumUpChargeGbp;
     booking = {
       ...booking,
       // Persist server-derived airport identity (not client-tampered fields).
@@ -2099,6 +2113,8 @@ async function handlePaymentRequest(
       expressDropOffFee: persisted.expressDropOffFee,
       expressDropOffAirport: persisted.expressDropOffAirport,
       ...promoFieldsFromFareBreakdown(breakdown),
+      // Persist the amount the customer accepted and SumUp will charge.
+      finalAmountPayableGbp: sumUpChargeGbp,
     };
   }
 

@@ -1292,79 +1292,68 @@ function QuoteCard({
 
   // Prefer Worker-authoritative fare (same resolveWorkerTripRouteMetrics + engine as SumUp)
   // so the displayed/consent amount matches checkout. Browser metrics stay for map display.
-  useEffect(() => {
+  const refreshAuthoritativeServerQuote = useCallback(async (): Promise<boolean> => {
     if (!canShowPrice || isManualQuoteJourney || pricingConfirmationRequired) {
       setServerFareParts(null);
-      return;
+      return false;
     }
     if (isEnquiryOnly && !showGuidePrice) {
       setServerFareParts(null);
-      return;
+      return false;
     }
     const pickup = pickupAddress.trim();
     const dropoff = dropoffAddress.trim();
     if (!pickup || !dropoff || passengers == null || suitcases == null || journeyMode == null) {
       setServerFareParts(null);
-      return;
+      return false;
     }
-    if (!tripDate.trim() || !tripTime.trim()) {
-      // Still allow early quotes without schedule — Worker treats dates as optional.
-    }
-    let cancelled = false;
-    const timer = window.setTimeout(() => {
-      void (async () => {
-        try {
-          const result = await calculateServerQuote({
-            pickupAddress: pickup,
-            dropoffAddress: dropoff,
-            // Omit client airportCode — Worker derives from addresses (payment parity).
-            returnJourney,
-            outboundDate: tripDate.trim(),
-            outboundTime: tripTime.trim(),
-            returnDate: returnJourney ? returnDate.trim() : undefined,
-            returnTime: returnJourney ? returnTime.trim() : undefined,
-            passengers,
-            suitcases,
-            // Do not send browser routeMetrics/latLng — Worker resolves server-side.
+    try {
+      const result = await calculateServerQuote({
+        pickupAddress: pickup,
+        dropoffAddress: dropoff,
+        // Omit client airportCode — Worker derives from addresses (payment parity).
+        returnJourney,
+        outboundDate: tripDate.trim(),
+        outboundTime: tripTime.trim(),
+        returnDate: returnJourney ? returnDate.trim() : undefined,
+        returnTime: returnJourney ? returnTime.trim() : undefined,
+        passengers,
+        suitcases,
+        // Do not send browser routeMetrics/latLng — Worker resolves server-side.
+      });
+      if (
+        result.ok &&
+        Number.isFinite(result.amount) &&
+        typeof result.journeyFareGbp === "number" &&
+        Number.isFinite(result.journeyFareGbp)
+      ) {
+        setServerFareParts({
+          journeyFareGbp: Math.round(result.journeyFareGbp * 100) / 100,
+          airportFixedCostsGbp:
+            typeof result.airportFixedCostsGbp === "number"
+              ? Math.round(result.airportFixedCostsGbp * 100) / 100
+              : 0,
+          amountGbp: Math.round(result.amount * 100) / 100,
+        });
+        if (
+          Number.isFinite(result.distanceKm) &&
+          Number.isFinite(result.durationMinutes) &&
+          (result.distanceKm ?? 0) > 0 &&
+          (result.durationMinutes ?? 0) > 0
+        ) {
+          setRouteMetrics({
+            distanceKm: result.distanceKm!,
+            durationMinutes: result.durationMinutes!,
           });
-          if (cancelled) return;
-          if (
-            result.ok &&
-            Number.isFinite(result.amount) &&
-            typeof result.journeyFareGbp === "number" &&
-            Number.isFinite(result.journeyFareGbp)
-          ) {
-            setServerFareParts({
-              journeyFareGbp: Math.round(result.journeyFareGbp * 100) / 100,
-              airportFixedCostsGbp:
-                typeof result.airportFixedCostsGbp === "number"
-                  ? Math.round(result.airportFixedCostsGbp * 100) / 100
-                  : 0,
-              amountGbp: Math.round(result.amount * 100) / 100,
-            });
-            if (
-              Number.isFinite(result.distanceKm) &&
-              Number.isFinite(result.durationMinutes) &&
-              (result.distanceKm ?? 0) > 0 &&
-              (result.durationMinutes ?? 0) > 0
-            ) {
-              setRouteMetrics({
-                distanceKm: result.distanceKm!,
-                durationMinutes: result.durationMinutes!,
-              });
-            }
-          } else {
-            setServerFareParts(null);
-          }
-        } catch {
-          if (!cancelled) setServerFareParts(null);
         }
-      })();
-    }, 280);
-    return () => {
-      cancelled = true;
-      window.clearTimeout(timer);
-    };
+        return true;
+      }
+      setServerFareParts(null);
+      return false;
+    } catch {
+      setServerFareParts(null);
+      return false;
+    }
   }, [
     canShowPrice,
     dropoffAddress,
@@ -1381,8 +1370,21 @@ function QuoteCard({
     suitcases,
     tripDate,
     tripTime,
-    quoteVehicle,
   ]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        if (cancelled) return;
+        await refreshAuthoritativeServerQuote();
+      })();
+    }, 280);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [refreshAuthoritativeServerQuote, quoteVehicle]);
 
   const journeyDistanceLabel = routeMetrics
     ? formatJourneyDistance(routeMetrics.distanceKm)
@@ -2583,37 +2585,15 @@ function QuoteCard({
       return;
     } catch (error) {
       if (isPaymentFareMismatchError(error)) {
-        const server = error.serverAmountGbp;
-        // Update displayed fare to the authoritative amount and require re-consent.
-        setServerFareParts((prev) =>
-          prev
-            ? {
-                ...prev,
-                // Keep journey/fixed; pricedFare recomposes with Express — if the
-                // delta is mostly journey, approximate by adjusting journey fare.
-                journeyFareGbp: Math.max(
-                  0,
-                  Math.round(
-                    (server -
-                      (prev.airportFixedCostsGbp || 0) -
-                      (expressSelection.feeGbp || 0)) *
-                      100,
-                  ) / 100,
-                ),
-                amountGbp: server,
-              }
-            : {
-                journeyFareGbp: Math.max(
-                  0,
-                  Math.round((server - (expressSelection.feeGbp || 0)) * 100) / 100,
-                ),
-                airportFixedCostsGbp: 0,
-                amountGbp: server,
-              },
-        );
+        // Never approximate journey/fixed by subtracting Express — re-quote from the engine.
+        const refreshed = await refreshAuthoritativeServerQuote();
         setTermsAccepted(false);
         setTermsError("Please review the updated fare and accept the terms again.");
-        setPaymentError(error.message);
+        setPaymentError(
+          refreshed
+            ? error.message
+            : `${error.message} We could not refresh the live quote automatically — please check your journey details.`,
+        );
         setPaymentLoading(false);
         return;
       }

@@ -288,6 +288,22 @@ export function checkoutAmountsMatch(
   return Math.abs(Math.round(displayed * 100) - Math.round(server * 100)) <= tolerancePence;
 }
 
+/**
+ * When validation passes, SumUp must charge the exact customer-accepted amount
+ * (not the server figure that was only used as a security check).
+ * Returns null when outside tolerance — caller must 409 / not create checkout.
+ */
+export function resolveSumUpChargeAmountGbp(
+  acceptedFinalAmountGbp: number,
+  serverFinalAmountGbp: number,
+  toleranceGbp = 0.02,
+): number | null {
+  if (!checkoutAmountsMatch(acceptedFinalAmountGbp, serverFinalAmountGbp, toleranceGbp)) {
+    return null;
+  }
+  return roundGbp(acceptedFinalAmountGbp);
+}
+
 export function buildFareMismatchPaymentError(
   displayedFinalAmountGbp: number,
   serverFinalAmountGbp: number,
