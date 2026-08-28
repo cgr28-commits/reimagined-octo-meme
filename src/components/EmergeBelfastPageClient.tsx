@@ -189,6 +189,7 @@ export default function EmergeBelfastPageClient() {
           </div>
           <QuoteCard
             initialDropoffHint={EMERGE_BELFAST_DESTINATION}
+            initialJourneyIntent="address-to-address"
             pageType="emerge_belfast"
             maxPassengers={4}
           />

@@ -154,6 +154,7 @@ function main() {
     assert.match(emerge, /pageType=["']emerge_belfast["']/);
     assert.match(emerge, /maxPassengers=\{4\}/);
     assert.match(emerge, /initialDropoffHint=\{EMERGE_BELFAST_DESTINATION\}/);
+    assert.match(emerge, /initialJourneyIntent=["']address-to-address["']/);
     assert.doesNotMatch(emerge, /calculateQuote|calculatePointToPointQuote|£\d+/);
   });
 

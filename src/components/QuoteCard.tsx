@@ -461,17 +461,44 @@ type QuoteCardProps = {
   initialAddressHint?: string;
   /** Optional A2A drop-off hint (e.g. event venue). User should still pick a Places suggestion. */
   initialDropoffHint?: string;
+  /**
+   * Force the progressive journey choice (e.g. EMERGE → address-to-address).
+   * When omitted, airport landings use direction; venue/drop-off hints without an
+   * airport default to address-to-address.
+   */
+  initialJourneyIntent?: QuoteJourneyIntent;
   /** Ads page_type custom parameter (e.g. emerge_belfast). */
   pageType?: AdsQuotePageType;
   /** Cap passenger selector (EMERGE online capacity is 4). */
   maxPassengers?: number;
 };
 
+function resolveLandingJourneyIntent(params: {
+  initialJourneyIntent?: QuoteJourneyIntent;
+  initialAirportCode: string;
+  initialDirection: TripDirection;
+  initialAddressHint: string;
+  initialDropoffHint: string;
+}): QuoteJourneyIntent | null {
+  if (params.initialJourneyIntent) {
+    return params.initialJourneyIntent;
+  }
+  if (isCustomerAirportCode(params.initialAirportCode)) {
+    return intentFromDirection(params.initialDirection);
+  }
+  // Venue / event pages (drop-off or address hint, no airport) → door-to-door.
+  if (params.initialDropoffHint || params.initialAddressHint) {
+    return "address-to-address";
+  }
+  return null;
+}
+
 function QuoteCard({
   initialAirportCode = "",
   initialDirection = "to-airport",
   initialAddressHint = "",
   initialDropoffHint = "",
+  initialJourneyIntent,
   pageType = "main",
   maxPassengers = MAX_ONLINE_PASSENGERS,
 }: QuoteCardProps) {
@@ -592,17 +619,15 @@ function QuoteCard({
   const [exactPassengers, setExactPassengers] = useState<number | null>(null);
   const [saveQuoteOpen, setSaveQuoteOpen] = useState(false);
   const [saveQuotePrompt, setSaveQuotePrompt] = useState("");
-  const [journeyIntent, setJourneyIntent] = useState<QuoteJourneyIntent | null>(() => {
-    if (isCustomerAirportCode(initialAirportCode)) {
-      return intentFromDirection(initialDirection);
-    }
-    if (initialAddressHint || initialDropoffHint) {
-      return initialDirection === "from-airport" || initialDirection === "to-airport"
-        ? intentFromDirection(initialDirection)
-        : "address-to-address";
-    }
-    return null;
-  });
+  const [journeyIntent, setJourneyIntent] = useState<QuoteJourneyIntent | null>(() =>
+    resolveLandingJourneyIntent({
+      initialJourneyIntent,
+      initialAirportCode,
+      initialDirection,
+      initialAddressHint,
+      initialDropoffHint,
+    }),
+  );
   const [intentAirportCode, setIntentAirportCode] = useState<CustomerAirportCode | "">(() => {
     if (isCustomerAirportCode(initialAirportCode)) {
       return initialAirportCode;
@@ -2790,13 +2815,13 @@ function QuoteCard({
     setSaveQuoteOpen(false);
     setSaveQuotePrompt("");
     setJourneyIntent(
-      isCustomerAirportCode(initialAirportCode)
-        ? intentFromDirection(initialDirection)
-        : initialAddressHint || initialDropoffHint
-          ? initialDirection === "from-airport" || initialDirection === "to-airport"
-            ? intentFromDirection(initialDirection)
-            : "address-to-address"
-          : null,
+      resolveLandingJourneyIntent({
+        initialJourneyIntent,
+        initialAirportCode,
+        initialDirection,
+        initialAddressHint,
+        initialDropoffHint,
+      }),
     );
     setIntentAirportCode(isCustomerAirportCode(initialAirportCode) ? initialAirportCode : "");
     setRouteMetrics(null);
