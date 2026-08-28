@@ -9,10 +9,12 @@ import fs from "node:fs";
 import path from "node:path";
 import {
   resolveOpenWebsitePaymentTransferFares,
+  resolvePaymentAirportContextFromAddresses,
   parseJourneyDistanceKmLabel,
   parseJourneyDurationMinutesLabel,
 } from "../shared/open-website-payment-fares";
 import { composeWebsiteFareBreakdown } from "../shared/website-fare-breakdown";
+import { resolveJourneyAirportFees } from "../shared/airport-fixed-costs";
 import { calculateQuote } from "../src/lib/quote";
 import { SALOON_VEHICLE, ESTATE_VEHICLE } from "../src/lib/vehicle-selection";
 import { calculateAuthoritativeWebsiteQuote } from "../src/lib/quote-service";
@@ -44,7 +46,7 @@ check("parsers round-trip distance/duration labels", () => {
   assert.equal(parseJourneyDurationMinutesLabel("1 hr 5 min"), 65);
 });
 
-check("payment handler resolves route server-side; never trusts body.routeMetrics", () => {
+check("payment handler resolves route + airport context server-side", () => {
   const index = fs.readFileSync(
     path.join(root, "workers/addresses/src/index.ts"),
     "utf8",
@@ -54,6 +56,12 @@ check("payment handler resolves route server-side; never trusts body.routeMetric
   assert.match(
     index,
     /Never trust body\.routeMetrics[\s\S]*resolveWorkerTripRouteMetrics/,
+  );
+  // Airport identity from addresses via SERVED_AIRPORTS — not client fields.
+  assert.match(index, /resolvePaymentAirportContextFromAddresses/);
+  assert.match(
+    index,
+    /Never trust client airportCode[\s\S]*resolvePaymentAirportContextFromAddresses/,
   );
   // Must not wire body.routeMetrics into payment requote metrics.
   assert.doesNotMatch(
@@ -630,6 +638,362 @@ check("LDY: tampered metrics ignored when server quote is used", () => {
     claimFirstBookingOffer: true,
   }).finalAmountPayableGbp;
   assert.equal(charged, expected);
+});
+
+// --- Airport-field tampering: labels (SERVED_AIRPORTS) own fee identity ---
+
+const DUB_LABEL = "Dublin Airport, Co. Dublin, Ireland";
+const LDY_LABEL = "City of Derry Airport, Airport Road, Eglinton BT47 3GY, UK";
+const BFS_AIRPORT_LABEL = "Belfast International Airport, Airport Rd, Aldergrove BT29 4AB, UK";
+const BHD_AIRPORT_LABEL = "George Best Belfast City Airport, Airport Rd, Belfast BT3 9JH, UK";
+
+check("derive: Dublin pickup from labels → fromAirport + DUB", () => {
+  const ctx = resolvePaymentAirportContextFromAddresses(DUB_LABEL, CITY);
+  assert.equal(ctx.ok, true);
+  if (!ctx.ok) return;
+  assert.equal(ctx.context.airportCode, "DUB");
+  assert.equal(ctx.context.fromAirport, true);
+  assert.equal(ctx.context.isAirportToAirport, false);
+});
+
+check("1. DUB pickup: airportCode removed still charges £5 parking + £4 M1", () => {
+  const ctx = resolvePaymentAirportContextFromAddresses(DUB_LABEL, CITY);
+  assert.equal(ctx.ok, true);
+  if (!ctx.ok) return;
+  const requote = calculateAuthoritativeWebsiteQuote({
+    airportCode: ctx.context.airportCode,
+    fromAirport: ctx.context.fromAirport,
+    pickupAddress: DUB_LABEL,
+    dropoffAddress: CITY,
+    returnJourney: false,
+    passengers: 2,
+    suitcases: 1,
+    routeMetrics: DUB_METRICS,
+    vehicleType: SALOON_VEHICLE,
+  });
+  assert.equal(requote.ok, true);
+  if (!requote.ok) return;
+  const resolved = resolveOpenWebsitePaymentTransferFares({
+    clientTransferAmountGbp: 1,
+    claimedJourneyFareGbp: 1,
+    claimedAirportFixedCostsGbp: 0,
+    removedAirportFeeIds: ["outbound:DUB:pickup", "outbound:DUB:toll"],
+    booking: {
+      pickupLabel: DUB_LABEL,
+      dropoffLabel: CITY,
+      // Client stripped airport identity fields:
+      airportCode: undefined,
+      isFromAirport: undefined,
+      journeyKind: undefined,
+      pickupAirportCode: undefined,
+      dropoffAirportCode: undefined,
+      isAirportToAirport: undefined,
+      returnJourney: false,
+      passengers: 2,
+      suitcases: 1,
+      vehicle: "Saloon",
+    },
+    airportContext: ctx.context,
+    authoritativeQuote: {
+      amountGbp: requote.amount,
+      journeyFareGbp: requote.journeyFareGbp ?? 230,
+      airportFixedCostsGbp: requote.airportFixedCostsGbp ?? 9,
+    },
+  });
+  assert.equal(resolved.ok, true);
+  if (!resolved.ok) return;
+  assert.equal(resolved.airportFixedCostsGbp, 9);
+  assert.equal(resolved.airportContext.airportCode, "DUB");
+  assert.equal(resolved.airportContext.fromAirport, true);
+  const payable = composeWebsiteFareBreakdown({
+    journeyFareBeforeAirportAccessGbp: resolved.journeyFareGbp,
+    airportFixedCostsGbp: resolved.airportFixedCostsGbp,
+    airportAccessChargeGbp: 0,
+    claimFirstBookingOffer: true,
+  });
+  assert.equal(payable.finalAmountPayableGbp, 239);
+});
+
+check("2. DUB pickup: isFromAirport=false cannot avoid £5", () => {
+  const ctx = resolvePaymentAirportContextFromAddresses(DUB_LABEL, CITY);
+  assert.equal(ctx.ok, true);
+  if (!ctx.ok) return;
+  const requote = calculateAuthoritativeWebsiteQuote({
+    airportCode: ctx.context.airportCode,
+    fromAirport: ctx.context.fromAirport, // server true
+    pickupAddress: DUB_LABEL,
+    dropoffAddress: CITY,
+    returnJourney: false,
+    passengers: 2,
+    suitcases: 1,
+    routeMetrics: DUB_METRICS,
+    vehicleType: SALOON_VEHICLE,
+  });
+  assert.equal(requote.ok, true);
+  if (!requote.ok) return;
+  const resolved = resolveOpenWebsitePaymentTransferFares({
+    clientTransferAmountGbp: 1,
+    claimedJourneyFareGbp: 1,
+    booking: {
+      pickupLabel: DUB_LABEL,
+      dropoffLabel: CITY,
+      airportCode: "DUB",
+      isFromAirport: false, // tamper: claim drop-off direction
+      returnJourney: false,
+      passengers: 2,
+      suitcases: 1,
+      vehicle: "Saloon",
+    },
+    airportContext: ctx.context,
+    authoritativeQuote: {
+      amountGbp: requote.amount,
+      journeyFareGbp: requote.journeyFareGbp ?? 230,
+      airportFixedCostsGbp: requote.airportFixedCostsGbp ?? 9,
+    },
+  });
+  assert.equal(resolved.ok, true);
+  if (!resolved.ok) return;
+  assert.equal(resolved.airportContext.fromAirport, true);
+  assert.equal(resolved.airportFixedCostsGbp, 9); // parking £5 + M1 £4
+});
+
+check("3. Belfast → Dublin: client wrong airport still keeps DUB M1 £4", () => {
+  const ctx = resolvePaymentAirportContextFromAddresses(CITY, DUB_LABEL);
+  assert.equal(ctx.ok, true);
+  if (!ctx.ok) return;
+  assert.equal(ctx.context.airportCode, "DUB");
+  assert.equal(ctx.context.fromAirport, false);
+  const requote = calculateAuthoritativeWebsiteQuote({
+    airportCode: ctx.context.airportCode,
+    fromAirport: ctx.context.fromAirport,
+    pickupAddress: CITY,
+    dropoffAddress: DUB_LABEL,
+    returnJourney: false,
+    passengers: 2,
+    suitcases: 1,
+    routeMetrics: DUB_METRICS,
+    vehicleType: SALOON_VEHICLE,
+  });
+  assert.equal(requote.ok, true);
+  if (!requote.ok) return;
+  const resolved = resolveOpenWebsitePaymentTransferFares({
+    clientTransferAmountGbp: 1,
+    claimedJourneyFareGbp: 1,
+    booking: {
+      pickupLabel: CITY,
+      dropoffLabel: DUB_LABEL,
+      airportCode: "BFS", // wrong
+      isFromAirport: true, // wrong
+      journeyKind: "airport-to-address",
+      pickupAirportCode: "BFS",
+      dropoffAirportCode: null,
+      returnJourney: false,
+      passengers: 2,
+      suitcases: 1,
+      vehicle: "Saloon",
+    },
+    airportContext: ctx.context,
+    authoritativeQuote: {
+      amountGbp: requote.amount,
+      journeyFareGbp: requote.journeyFareGbp ?? 230,
+      airportFixedCostsGbp: requote.airportFixedCostsGbp ?? 4,
+    },
+  });
+  assert.equal(resolved.ok, true);
+  if (!resolved.ok) return;
+  assert.equal(resolved.airportContext.airportCode, "DUB");
+  assert.equal(resolved.airportFixedCostsGbp, 4); // M1 only; drop-off fee £0
+  const payable = composeWebsiteFareBreakdown({
+    journeyFareBeforeAirportAccessGbp: resolved.journeyFareGbp,
+    airportFixedCostsGbp: resolved.airportFixedCostsGbp,
+    airportAccessChargeGbp: 0,
+    claimFirstBookingOffer: true,
+  });
+  assert.equal(payable.finalAmountPayableGbp, 234);
+});
+
+check("4. LDY pickup: cannot avoid £2.50 by altering airport fields", () => {
+  const ctx = resolvePaymentAirportContextFromAddresses(LDY_LABEL, CITY);
+  assert.equal(ctx.ok, true);
+  if (!ctx.ok) return;
+  assert.equal(ctx.context.airportCode, "LDY");
+  assert.equal(ctx.context.fromAirport, true);
+  const fees = resolveJourneyAirportFees({
+    isAirportToAirport: false,
+    airportCode: ctx.context.airportCode,
+    fromAirport: ctx.context.fromAirport,
+    removedFeeIds: ["outbound:LDY:pickup"],
+  });
+  assert.equal(fees.totalAppliedGbp, 2.5);
+  const resolved = resolveOpenWebsitePaymentTransferFares({
+    clientTransferAmountGbp: 1,
+    claimedJourneyFareGbp: 1,
+    removedAirportFeeIds: ["outbound:LDY:pickup"],
+    booking: {
+      pickupLabel: LDY_LABEL,
+      dropoffLabel: CITY,
+      airportCode: "BFS",
+      isFromAirport: false,
+      returnJourney: false,
+      passengers: 2,
+      suitcases: 1,
+      vehicle: "Saloon",
+    },
+    airportContext: ctx.context,
+    authoritativeQuote: {
+      amountGbp: 100,
+      journeyFareGbp: 97.5,
+      airportFixedCostsGbp: 2.5,
+    },
+  });
+  assert.equal(resolved.ok, true);
+  if (!resolved.ok) return;
+  assert.equal(resolved.airportFixedCostsGbp, 2.5);
+});
+
+check("5. LDY drop-off: cannot avoid £1 by altering airport fields", () => {
+  const ctx = resolvePaymentAirportContextFromAddresses(CITY, LDY_LABEL);
+  assert.equal(ctx.ok, true);
+  if (!ctx.ok) return;
+  assert.equal(ctx.context.airportCode, "LDY");
+  assert.equal(ctx.context.fromAirport, false);
+  const resolved = resolveOpenWebsitePaymentTransferFares({
+    clientTransferAmountGbp: 1,
+    claimedJourneyFareGbp: 1,
+    removedAirportFeeIds: ["outbound:LDY:drop-off"],
+    booking: {
+      pickupLabel: CITY,
+      dropoffLabel: LDY_LABEL,
+      airportCode: undefined,
+      isFromAirport: true,
+      returnJourney: false,
+      passengers: 2,
+      suitcases: 1,
+      vehicle: "Saloon",
+    },
+    airportContext: ctx.context,
+    authoritativeQuote: {
+      amountGbp: 140,
+      journeyFareGbp: 139,
+      airportFixedCostsGbp: 1,
+    },
+  });
+  assert.equal(resolved.ok, true);
+  if (!resolved.ok) return;
+  assert.equal(resolved.airportFixedCostsGbp, 1);
+});
+
+check("6. DUB → LDY A2A: all mandatory DUB/LDY charges apply from labels", () => {
+  const ctx = resolvePaymentAirportContextFromAddresses(DUB_LABEL, LDY_LABEL);
+  assert.equal(ctx.ok, true);
+  if (!ctx.ok) return;
+  assert.equal(ctx.context.isAirportToAirport, true);
+  assert.equal(ctx.context.pickupAirportCode, "DUB");
+  assert.equal(ctx.context.dropoffAirportCode, "LDY");
+  const fees = resolveJourneyAirportFees({
+    isAirportToAirport: true,
+    pickupAirportCode: ctx.context.pickupAirportCode,
+    dropoffAirportCode: ctx.context.dropoffAirportCode,
+    removedFeeIds: [
+      "outbound:DUB:pickup",
+      "outbound:DUB:toll",
+      "outbound:LDY:drop-off",
+    ],
+  });
+  // DUB pickup £5 + M1 £4 + LDY drop £1 = £10; none removable
+  assert.equal(fees.totalAppliedGbp, 10);
+  assert.ok(fees.lines.every((l) => !l.removable || !l.removed));
+  const resolved = resolveOpenWebsitePaymentTransferFares({
+    clientTransferAmountGbp: 1,
+    claimedJourneyFareGbp: 1,
+    removedAirportFeeIds: [
+      "outbound:DUB:pickup",
+      "outbound:DUB:toll",
+      "outbound:LDY:drop-off",
+    ],
+    booking: {
+      pickupLabel: DUB_LABEL,
+      dropoffLabel: LDY_LABEL,
+      airportCode: "BFS",
+      isFromAirport: false,
+      isAirportToAirport: false,
+      journeyKind: "address-to-address",
+      returnJourney: false,
+      passengers: 2,
+      suitcases: 1,
+      vehicle: "Saloon",
+    },
+    airportContext: ctx.context,
+    authoritativeQuote: {
+      amountGbp: 200,
+      journeyFareGbp: 190,
+      airportFixedCostsGbp: 10,
+    },
+  });
+  assert.equal(resolved.ok, true);
+  if (!resolved.ok) return;
+  assert.equal(resolved.airportFixedCostsGbp, 10);
+  assert.equal(resolved.airportContext.isAirportToAirport, true);
+});
+
+check("7. BFS/BHD free-area choice still works on A2A", () => {
+  const ctx = resolvePaymentAirportContextFromAddresses(BFS_AIRPORT_LABEL, BHD_AIRPORT_LABEL);
+  assert.equal(ctx.ok, true);
+  if (!ctx.ok) return;
+  assert.equal(ctx.context.isAirportToAirport, true);
+  assert.equal(ctx.context.pickupAirportCode, "BFS");
+  assert.equal(ctx.context.dropoffAirportCode, "BHD");
+  // BFS↔BHD: collection waived; destination BHD surcharge removable.
+  const withRemoval = resolveJourneyAirportFees({
+    isAirportToAirport: true,
+    pickupAirportCode: ctx.context.pickupAirportCode,
+    dropoffAirportCode: ctx.context.dropoffAirportCode,
+    removedFeeIds: ["outbound:BHD:drop-off"],
+  });
+  const bhd = withRemoval.lines.find((l) => l.airportCode === "BHD");
+  assert.ok(bhd);
+  assert.equal(bhd!.removable, true);
+  assert.equal(bhd!.removed, true);
+  assert.equal(bhd!.appliedAmountGbp, 0);
+
+  const withoutRemoval = resolveJourneyAirportFees({
+    isAirportToAirport: true,
+    pickupAirportCode: ctx.context.pickupAirportCode,
+    dropoffAirportCode: ctx.context.dropoffAirportCode,
+  });
+  const bhdKept = withoutRemoval.lines.find((l) => l.airportCode === "BHD");
+  assert.ok(bhdKept);
+  assert.equal(bhdKept!.removable, true);
+  assert.equal(bhdKept!.removed, false);
+  assert.ok((bhdKept!.appliedAmountGbp ?? 0) > 0);
+
+  const resolved = resolveOpenWebsitePaymentTransferFares({
+    clientTransferAmountGbp: 50,
+    claimedJourneyFareGbp: 50,
+    removedAirportFeeIds: ["outbound:BHD:drop-off"],
+    booking: {
+      pickupLabel: BFS_AIRPORT_LABEL,
+      dropoffLabel: BHD_AIRPORT_LABEL,
+      returnJourney: false,
+      passengers: 2,
+      suitcases: 1,
+      vehicle: "Saloon",
+    },
+    airportContext: ctx.context,
+    authoritativeQuote: {
+      amountGbp: 50,
+      journeyFareGbp: 50,
+      airportFixedCostsGbp: 0,
+    },
+  });
+  assert.equal(resolved.ok, true);
+  if (!resolved.ok) return;
+  assert.equal(resolved.airportFixedCostsGbp, 0);
+});
+
+check("ambiguous same-airport both ends rejected", () => {
+  const ctx = resolvePaymentAirportContextFromAddresses(DUB_LABEL, DUB_LABEL);
+  assert.equal(ctx.ok, false);
 });
 
 console.log("\nAll open-website payment fare checks passed.");

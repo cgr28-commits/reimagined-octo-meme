@@ -9,12 +9,21 @@
  * `resolveWorkerTripRouteMetrics` (see quote-handlers / payment handler).
  * Never treat body.routeMetrics or client journeyDistance/Duration labels as
  * authoritative payment inputs — those helpers below are for display/parsing only.
+ *
+ * Airport identity / direction for SumUp must be derived from pickup/drop-off
+ * labels against SERVED_AIRPORTS (BFS/BHD/DUB/LDY). Never trust client
+ * airportCode / isFromAirport / journeyKind / pickupAirportCode /
+ * dropoffAirportCode / isAirportToAirport as payment authority.
  */
 
 import {
   resolveJourneyAirportFees,
   type JourneyAirportFeeResolution,
 } from "./airport-fixed-costs";
+import {
+  matchServedAirportCode,
+  type ServedAirportCode,
+} from "./served-airports";
 
 export type OpenWebsitePaymentBookingLike = {
   pickupLabel?: string;
@@ -27,6 +36,7 @@ export type OpenWebsitePaymentBookingLike = {
   passengers?: number;
   suitcases?: number;
   vehicle?: string;
+  /** Client hint only — ignored for fee authority; labels win. */
   airportCode?: string | null;
   isFromAirport?: boolean;
   journeyKind?: string | null;
@@ -36,6 +46,113 @@ export type OpenWebsitePaymentBookingLike = {
   journeyDistance?: string;
   journeyDuration?: string;
 };
+
+/**
+ * Server-derived airport identity for open-website SumUp.
+ * Built only from pickup/drop-off text via SERVED_AIRPORTS matchers.
+ */
+export type PaymentAirportContext = {
+  pickupAirportCode: ServedAirportCode | null;
+  dropoffAirportCode: ServedAirportCode | null;
+  isAirportToAirport: boolean;
+  /** Single served airport when exactly one end is an airport. */
+  airportCode: ServedAirportCode | null;
+  /** true = pickup is the airport (airport → address). */
+  fromAirport: boolean;
+  isAirportTrip: boolean;
+};
+
+export type PaymentAirportContextResult =
+  | { ok: true; context: PaymentAirportContext }
+  | { ok: false; error: string };
+
+/**
+ * Derive airport identity and direction from booking addresses.
+ * Does not read client airportCode / isFromAirport / journeyKind fields.
+ */
+export function resolvePaymentAirportContextFromAddresses(
+  pickupLabel: string,
+  dropoffLabel: string,
+): PaymentAirportContextResult {
+  const pickup = String(pickupLabel ?? "").trim();
+  const dropoff = String(dropoffLabel ?? "").trim();
+  if (!pickup || !dropoff) {
+    return {
+      ok: false,
+      error: "Quote amount is out of date. Please refresh your quote and try again.",
+    };
+  }
+
+  const pickupAirportCode = matchServedAirportCode(pickup);
+  const dropoffAirportCode = matchServedAirportCode(dropoff);
+
+  if (pickupAirportCode && dropoffAirportCode && pickupAirportCode === dropoffAirportCode) {
+    // Same airport both ends — not a confident transfer context.
+    return {
+      ok: false,
+      error: "Quote amount is out of date. Please refresh your quote and try again.",
+    };
+  }
+
+  const isAirportToAirport = Boolean(
+    pickupAirportCode && dropoffAirportCode && pickupAirportCode !== dropoffAirportCode,
+  );
+
+  if (isAirportToAirport) {
+    return {
+      ok: true,
+      context: {
+        pickupAirportCode,
+        dropoffAirportCode,
+        isAirportToAirport: true,
+        airportCode: null,
+        fromAirport: true,
+        isAirportTrip: true,
+      },
+    };
+  }
+
+  if (pickupAirportCode && !dropoffAirportCode) {
+    return {
+      ok: true,
+      context: {
+        pickupAirportCode,
+        dropoffAirportCode: null,
+        isAirportToAirport: false,
+        airportCode: pickupAirportCode,
+        fromAirport: true,
+        isAirportTrip: true,
+      },
+    };
+  }
+
+  if (dropoffAirportCode && !pickupAirportCode) {
+    return {
+      ok: true,
+      context: {
+        pickupAirportCode: null,
+        dropoffAirportCode,
+        isAirportToAirport: false,
+        airportCode: dropoffAirportCode,
+        fromAirport: false,
+        isAirportTrip: true,
+      },
+    };
+  }
+
+  // Address ↔ address (or unrecognised ends): confident non-airport-fee journey.
+  return {
+    ok: true,
+    context: {
+      pickupAirportCode: null,
+      dropoffAirportCode: null,
+      isAirportToAirport: false,
+      airportCode: null,
+      fromAirport: false,
+      isAirportTrip: false,
+    },
+  };
+}
 
 export type OpenWebsitePaymentTransferInput = {
   /** Client-claimed transfer total (journey + fixed costs) before Express / promos. */
@@ -59,6 +176,11 @@ export type OpenWebsitePaymentTransferInput = {
     journeyFareGbp: number;
     airportFixedCostsGbp: number;
   } | null;
+  /**
+   * Server-derived airport context (from addresses). Required for fee authority.
+   * When omitted, derived from booking pickup/drop-off labels.
+   */
+  airportContext?: PaymentAirportContext | null;
 };
 
 export type OpenWebsitePaymentTransferResult =
@@ -67,12 +189,14 @@ export type OpenWebsitePaymentTransferResult =
       journeyFareGbp: number;
       airportFixedCostsGbp: number;
       feeResolution: JourneyAirportFeeResolution;
+      airportContext: PaymentAirportContext;
       source: "canonical-quote" | "reconciled-client-transfer";
     }
   | {
       ok: false;
       error: string;
       feeResolution: JourneyAirportFeeResolution;
+      airportContext: PaymentAirportContext | null;
     };
 
 function roundGbp(amount: number): number {
@@ -134,45 +258,42 @@ export function resolveRouteMetricsForPayment(input: {
   return { distanceKm, durationMinutes };
 }
 
-function bookingAirportContext(booking: OpenWebsitePaymentBookingLike): {
-  isAirportToAirport: boolean;
-  pickupAirportCode: string | null;
-  dropoffAirportCode: string | null;
-  airportCode: string | null;
-  fromAirport: boolean;
-} {
-  const pickupCode =
-    (typeof booking.pickupAirportCode === "string" && booking.pickupAirportCode.trim()) ||
-    (booking.isFromAirport && typeof booking.airportCode === "string"
-      ? booking.airportCode
-      : null);
-  const dropoffCode =
-    (typeof booking.dropoffAirportCode === "string" && booking.dropoffAirportCode.trim()) ||
-    (booking.isFromAirport === false && typeof booking.airportCode === "string"
-      ? booking.airportCode
-      : null);
-  const isAirportToAirport = Boolean(
-    booking.journeyKind === "airport-to-airport" ||
-      booking.isAirportToAirport === true ||
-      (pickupCode && dropoffCode),
+function paymentAirportContextForBooking(
+  booking: OpenWebsitePaymentBookingLike,
+  explicit?: PaymentAirportContext | null,
+): PaymentAirportContextResult {
+  if (explicit) {
+    return { ok: true, context: explicit };
+  }
+  return resolvePaymentAirportContextFromAddresses(
+    String(booking.pickupLabel ?? ""),
+    String(booking.dropoffLabel ?? ""),
   );
-  return {
-    isAirportToAirport: Boolean(isAirportToAirport && pickupCode && dropoffCode),
-    pickupAirportCode: pickupCode,
-    dropoffAirportCode: dropoffCode,
-    airportCode: typeof booking.airportCode === "string" ? booking.airportCode : null,
-    fromAirport: Boolean(booking.isFromAirport),
-  };
 }
 
 /**
  * Resolve journey + airport fixed costs for open-website SumUp checkout.
  * Illegal DUB/LDY removals are ignored by resolveJourneyAirportFees.
+ * Airport identity comes from address labels (SERVED_AIRPORTS), not client fields.
  */
 export function resolveOpenWebsitePaymentTransferFares(
   input: OpenWebsitePaymentTransferInput,
 ): OpenWebsitePaymentTransferResult {
-  const ctx = bookingAirportContext(input.booking);
+  const ctxResult = paymentAirportContextForBooking(input.booking, input.airportContext);
+  if (!ctxResult.ok) {
+    return {
+      ok: false,
+      error: ctxResult.error,
+      feeResolution: {
+        isAirportToAirport: false,
+        lines: [],
+        totalOriginalGbp: 0,
+        totalAppliedGbp: 0,
+      },
+      airportContext: null,
+    };
+  }
+  const ctx = ctxResult.context;
   const feeResolution = resolveJourneyAirportFees({
     isAirportToAirport: ctx.isAirportToAirport,
     pickupAirportCode: ctx.pickupAirportCode,
@@ -199,6 +320,7 @@ export function resolveOpenWebsitePaymentTransferFares(
       journeyFareGbp: roundGbp(quote.journeyFareGbp),
       airportFixedCostsGbp,
       feeResolution,
+      airportContext: ctx,
       source: "canonical-quote",
     };
   }
@@ -210,6 +332,7 @@ export function resolveOpenWebsitePaymentTransferFares(
       ok: false,
       error: "Quote amount is out of date. Please refresh your quote and try again.",
       feeResolution,
+      airportContext: ctx,
     };
   }
 
@@ -223,6 +346,7 @@ export function resolveOpenWebsitePaymentTransferFares(
         journeyFareGbp: roundGbp(claimedJourney),
         airportFixedCostsGbp,
         feeResolution,
+        airportContext: ctx,
         source: "reconciled-client-transfer",
       };
     }
@@ -230,6 +354,7 @@ export function resolveOpenWebsitePaymentTransferFares(
       ok: false,
       error: "Quote amount is out of date. Please refresh your quote and try again.",
       feeResolution,
+      airportContext: ctx,
     };
   }
 
@@ -239,6 +364,7 @@ export function resolveOpenWebsitePaymentTransferFares(
       journeyFareGbp: roundGbp(clientTransfer),
       airportFixedCostsGbp,
       feeResolution,
+      airportContext: ctx,
       source: "reconciled-client-transfer",
     };
   }
@@ -247,5 +373,6 @@ export function resolveOpenWebsitePaymentTransferFares(
     ok: false,
     error: "Quote amount is out of date. Please refresh your quote and try again.",
     feeResolution,
+    airportContext: ctx,
   };
 }

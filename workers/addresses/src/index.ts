@@ -340,6 +340,7 @@ import {
 } from "../../../src/lib/quote";
 import {
   resolveOpenWebsitePaymentTransferFares,
+  resolvePaymentAirportContextFromAddresses,
 } from "../shared/open-website-payment-fares";
 import { resolveWorkerTripRouteMetrics } from "./resolve-route-metrics";
 import {
@@ -1902,6 +1903,17 @@ async function handlePaymentRequest(
       );
     }
 
+    // Airport identity / direction from pickup/drop-off labels vs SERVED_AIRPORTS.
+    // Never trust client airportCode / isFromAirport / journeyKind / A2A flags.
+    const airportCtxResult = resolvePaymentAirportContextFromAddresses(
+      booking.pickupLabel,
+      booking.dropoffLabel,
+    );
+    if (!airportCtxResult.ok) {
+      return json({ error: airportCtxResult.error }, 409, origin);
+    }
+    const airportContext = airportCtxResult.context;
+
     let authoritativeQuote: {
       amountGbp: number;
       journeyFareGbp: number;
@@ -1920,27 +1932,15 @@ async function handlePaymentRequest(
       returnTime: booking.returnTime,
       returnJourney: Boolean(booking.returnJourney),
     };
-    const pickupCode =
-      typeof booking.pickupAirportCode === "string"
-        ? booking.pickupAirportCode.trim().toUpperCase()
-        : "";
-    const dropoffCode =
-      typeof booking.dropoffAirportCode === "string"
-        ? booking.dropoffAirportCode.trim().toUpperCase()
-        : "";
-    const isA2a =
-      booking.journeyKind === "airport-to-airport" ||
-      booking.isAirportToAirport === true ||
-      (Boolean(pickupCode) && Boolean(dropoffCode));
 
     if (
-      isA2a &&
-      ["BFS", "BHD", "DUB", "LDY"].includes(pickupCode) &&
-      ["BFS", "BHD", "DUB", "LDY"].includes(dropoffCode)
+      airportContext.isAirportToAirport &&
+      airportContext.pickupAirportCode &&
+      airportContext.dropoffAirportCode
     ) {
       const a2aQuote = calculateAirportToAirportQuote(
-        pickupCode,
-        dropoffCode,
+        airportContext.pickupAirportCode,
+        airportContext.dropoffAirportCode,
         booking.pickupLabel,
         booking.dropoffLabel,
         vehicleType,
@@ -1967,14 +1967,9 @@ async function handlePaymentRequest(
         };
       }
     } else {
-      const airportCode =
-        typeof booking.airportCode === "string" &&
-        ["BFS", "BHD", "DUB", "LDY"].includes(booking.airportCode)
-          ? (booking.airportCode as "BFS" | "BHD" | "DUB" | "LDY")
-          : null;
       const requote = calculateAuthoritativeWebsiteQuote({
-        airportCode,
-        fromAirport: Boolean(booking.isFromAirport),
+        airportCode: airportContext.airportCode,
+        fromAirport: airportContext.fromAirport,
         pickupAddress: booking.pickupLabel,
         dropoffAddress: booking.dropoffLabel,
         returnJourney: Boolean(booking.returnJourney),
@@ -2025,6 +2020,7 @@ async function handlePaymentRequest(
       // Server-resolved metrics only — never body.routeMetrics / client labels.
       routeMetrics,
       authoritativeQuote,
+      airportContext,
     });
     if (!transferResolution.ok) {
       return json({ error: transferResolution.error }, 409, origin);
@@ -2037,8 +2033,8 @@ async function handlePaymentRequest(
       true,
     );
     const express = resolveExpressDropOff({
-      airportCode: booking.airportCode,
-      fromAirport: booking.isFromAirport,
+      airportCode: airportContext.airportCode,
+      fromAirport: airportContext.fromAirport,
       returnJourney: booking.returnJourney,
       selected: customerExpressSelected,
     });
@@ -2057,6 +2053,19 @@ async function handlePaymentRequest(
     amount = breakdown.finalAmountPayableGbp;
     booking = {
       ...booking,
+      // Persist server-derived airport identity (not client-tampered fields).
+      airportCode: airportContext.airportCode ?? undefined,
+      isFromAirport: airportContext.isAirportTrip
+        ? airportContext.fromAirport
+        : booking.isFromAirport,
+      isAirportTrip: airportContext.isAirportTrip || booking.isAirportTrip,
+      ...(airportContext.pickupAirportCode
+        ? { pickupAirportCode: airportContext.pickupAirportCode }
+        : {}),
+      ...(airportContext.dropoffAirportCode
+        ? { dropoffAirportCode: airportContext.dropoffAirportCode }
+        : {}),
+      ...(airportContext.isAirportToAirport ? { isAirportToAirport: true } : {}),
       expressDropOffSelected: persisted.expressDropOffSelected,
       expressDropOffFee: persisted.expressDropOffFee,
       expressDropOffAirport: persisted.expressDropOffAirport,
