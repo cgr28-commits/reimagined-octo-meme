@@ -340,8 +340,8 @@ import {
 } from "../../../src/lib/quote";
 import {
   resolveOpenWebsitePaymentTransferFares,
-  resolveRouteMetricsForPayment,
 } from "../shared/open-website-payment-fares";
+import { resolveWorkerTripRouteMetrics } from "./resolve-route-metrics";
 import {
   ESTATE_VEHICLE,
   MINIBUS_VEHICLE,
@@ -1883,127 +1883,137 @@ async function handlePaymentRequest(
       ? body.removedAirportFeeIds.map((id: unknown) => String(id).trim()).filter(Boolean)
       : [];
 
-    const bodyMetrics =
-      body.routeMetrics && typeof body.routeMetrics === "object"
-        ? (body.routeMetrics as { distanceKm?: unknown; durationMinutes?: unknown })
-        : null;
-    const routeMetrics = resolveRouteMetricsForPayment({
-      routeMetrics:
-        bodyMetrics &&
-        Number.isFinite(Number(bodyMetrics.distanceKm)) &&
-        Number.isFinite(Number(bodyMetrics.durationMinutes))
-          ? {
-              distanceKm: Number(bodyMetrics.distanceKm),
-              durationMinutes: Number(bodyMetrics.durationMinutes),
-            }
-          : null,
-      journeyDistance: booking.journeyDistance,
-      journeyDuration: booking.journeyDuration,
+    // Never trust body.routeMetrics / client journeyDistance|Duration for SumUp.
+    // Resolve driving metrics server-side from addresses (same path as quote-handlers).
+    // Deliberately omit client lat/lng so coords cannot be spoofed short either.
+    const routeMetrics = await resolveWorkerTripRouteMetrics({
+      pickupAddress: booking.pickupLabel,
+      dropoffAddress: booking.dropoffLabel,
+      googlePlacesApiKey: env.GOOGLE_PLACES_API_KEY,
     });
+    if (!routeMetrics) {
+      return json(
+        {
+          error:
+            "Quote amount is out of date. Please refresh your quote and try again.",
+        },
+        409,
+        origin,
+      );
+    }
 
     let authoritativeQuote: {
       amountGbp: number;
       journeyFareGbp: number;
       airportFixedCostsGbp: number;
     } | null = null;
-    if (routeMetrics) {
-      const vehicleRaw = String(booking.vehicle ?? "");
-      const vehicleType: VehicleType = /estate/i.test(vehicleRaw)
-        ? ESTATE_VEHICLE
-        : /minibus/i.test(vehicleRaw)
-          ? MINIBUS_VEHICLE
-          : SALOON_VEHICLE;
-      const schedule = {
+    const vehicleRaw = String(booking.vehicle ?? "");
+    const vehicleType: VehicleType = /estate/i.test(vehicleRaw)
+      ? ESTATE_VEHICLE
+      : /minibus/i.test(vehicleRaw)
+        ? MINIBUS_VEHICLE
+        : SALOON_VEHICLE;
+    const schedule = {
+      outboundDate: booking.tripDate,
+      outboundTime: booking.tripTime,
+      returnDate: booking.returnDate,
+      returnTime: booking.returnTime,
+      returnJourney: Boolean(booking.returnJourney),
+    };
+    const pickupCode =
+      typeof booking.pickupAirportCode === "string"
+        ? booking.pickupAirportCode.trim().toUpperCase()
+        : "";
+    const dropoffCode =
+      typeof booking.dropoffAirportCode === "string"
+        ? booking.dropoffAirportCode.trim().toUpperCase()
+        : "";
+    const isA2a =
+      booking.journeyKind === "airport-to-airport" ||
+      booking.isAirportToAirport === true ||
+      (Boolean(pickupCode) && Boolean(dropoffCode));
+
+    if (
+      isA2a &&
+      ["BFS", "BHD", "DUB", "LDY"].includes(pickupCode) &&
+      ["BFS", "BHD", "DUB", "LDY"].includes(dropoffCode)
+    ) {
+      const a2aQuote = calculateAirportToAirportQuote(
+        pickupCode,
+        dropoffCode,
+        booking.pickupLabel,
+        booking.dropoffLabel,
+        vehicleType,
+        Boolean(booking.returnJourney),
+        schedule,
+        routeMetrics,
+      );
+      if (a2aQuote && Number.isFinite(a2aQuote.amount) && a2aQuote.amount >= 1) {
+        authoritativeQuote = {
+          amountGbp: Math.round(a2aQuote.amount * 100) / 100,
+          journeyFareGbp:
+            typeof a2aQuote.journeyFareGbp === "number"
+              ? Math.round(a2aQuote.journeyFareGbp * 100) / 100
+              : Math.max(
+                  0,
+                  Math.round(
+                    (a2aQuote.amount - (a2aQuote.airportFixedCostsGbp ?? 0)) * 100,
+                  ) / 100,
+                ),
+          airportFixedCostsGbp:
+            typeof a2aQuote.airportFixedCostsGbp === "number"
+              ? Math.round(a2aQuote.airportFixedCostsGbp * 100) / 100
+              : 0,
+        };
+      }
+    } else {
+      const airportCode =
+        typeof booking.airportCode === "string" &&
+        ["BFS", "BHD", "DUB", "LDY"].includes(booking.airportCode)
+          ? (booking.airportCode as "BFS" | "BHD" | "DUB" | "LDY")
+          : null;
+      const requote = calculateAuthoritativeWebsiteQuote({
+        airportCode,
+        fromAirport: Boolean(booking.isFromAirport),
+        pickupAddress: booking.pickupLabel,
+        dropoffAddress: booking.dropoffLabel,
+        returnJourney: Boolean(booking.returnJourney),
         outboundDate: booking.tripDate,
         outboundTime: booking.tripTime,
         returnDate: booking.returnDate,
         returnTime: booking.returnTime,
-        returnJourney: Boolean(booking.returnJourney),
-      };
-      const pickupCode =
-        typeof booking.pickupAirportCode === "string"
-          ? booking.pickupAirportCode.trim().toUpperCase()
-          : "";
-      const dropoffCode =
-        typeof booking.dropoffAirportCode === "string"
-          ? booking.dropoffAirportCode.trim().toUpperCase()
-          : "";
-      const isA2a =
-        booking.journeyKind === "airport-to-airport" ||
-        booking.isAirportToAirport === true ||
-        (Boolean(pickupCode) && Boolean(dropoffCode));
-
-      if (
-        isA2a &&
-        ["BFS", "BHD", "DUB", "LDY"].includes(pickupCode) &&
-        ["BFS", "BHD", "DUB", "LDY"].includes(dropoffCode)
-      ) {
-        const a2aQuote = calculateAirportToAirportQuote(
-          pickupCode,
-          dropoffCode,
-          booking.pickupLabel,
-          booking.dropoffLabel,
-          vehicleType,
-          Boolean(booking.returnJourney),
-          schedule,
-          routeMetrics,
-        );
-        if (a2aQuote && Number.isFinite(a2aQuote.amount) && a2aQuote.amount >= 1) {
-          authoritativeQuote = {
-            amountGbp: Math.round(a2aQuote.amount * 100) / 100,
-            journeyFareGbp:
-              typeof a2aQuote.journeyFareGbp === "number"
-                ? Math.round(a2aQuote.journeyFareGbp * 100) / 100
-                : Math.max(
-                    0,
-                    Math.round(
-                      (a2aQuote.amount - (a2aQuote.airportFixedCostsGbp ?? 0)) * 100,
-                    ) / 100,
-                  ),
-            airportFixedCostsGbp:
-              typeof a2aQuote.airportFixedCostsGbp === "number"
-                ? Math.round(a2aQuote.airportFixedCostsGbp * 100) / 100
-                : 0,
-          };
-        }
-      } else {
-        const airportCode =
-          typeof booking.airportCode === "string" &&
-          ["BFS", "BHD", "DUB", "LDY"].includes(booking.airportCode)
-            ? (booking.airportCode as "BFS" | "BHD" | "DUB" | "LDY")
-            : null;
-        const requote = calculateAuthoritativeWebsiteQuote({
-          airportCode,
-          fromAirport: Boolean(booking.isFromAirport),
-          pickupAddress: booking.pickupLabel,
-          dropoffAddress: booking.dropoffLabel,
-          returnJourney: Boolean(booking.returnJourney),
-          outboundDate: booking.tripDate,
-          outboundTime: booking.tripTime,
-          returnDate: booking.returnDate,
-          returnTime: booking.returnTime,
-          passengers: Number(booking.passengers),
-          suitcases: Number(booking.suitcases),
-          routeMetrics,
-          vehicleType,
-        });
-        if (requote.ok) {
-          const journeyFareGbp =
-            typeof requote.journeyFareGbp === "number"
-              ? requote.journeyFareGbp
-              : Math.max(
-                  0,
-                  Math.round(
-                    (requote.amount - (requote.airportFixedCostsGbp ?? 0)) * 100,
-                  ) / 100,
-                );
-          authoritativeQuote = {
-            amountGbp: requote.amount,
-            journeyFareGbp,
-            airportFixedCostsGbp: requote.airportFixedCostsGbp ?? 0,
-          };
-        }
+        passengers: Number(booking.passengers),
+        suitcases: Number(booking.suitcases),
+        routeMetrics,
+        vehicleType,
+      });
+      if (requote.ok) {
+        const journeyFareGbp =
+          typeof requote.journeyFareGbp === "number"
+            ? requote.journeyFareGbp
+            : Math.max(
+                0,
+                Math.round(
+                  (requote.amount - (requote.airportFixedCostsGbp ?? 0)) * 100,
+                ) / 100,
+              );
+        authoritativeQuote = {
+          amountGbp: requote.amount,
+          journeyFareGbp,
+          airportFixedCostsGbp: requote.airportFixedCostsGbp ?? 0,
+        };
       }
+    }
+
+    if (!authoritativeQuote) {
+      return json(
+        {
+          error:
+            "Quote amount is out of date. Please refresh your quote and try again.",
+        },
+        409,
+        origin,
+      );
     }
 
     const transferResolution = resolveOpenWebsitePaymentTransferFares({
@@ -2012,6 +2022,7 @@ async function handlePaymentRequest(
       claimedAirportFixedCostsGbp: Number.isFinite(claimedFixed) ? claimedFixed : null,
       removedAirportFeeIds,
       booking,
+      // Server-resolved metrics only — never body.routeMetrics / client labels.
       routeMetrics,
       authoritativeQuote,
     });

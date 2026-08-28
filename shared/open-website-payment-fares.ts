@@ -4,6 +4,11 @@
  * Never trust client journeyFareGbp / airportFixedCostsGbp / amount alone.
  * Prefer the canonical website quote engine; always apply airport-fee rules
  * (including airport-specific removal permissions) server-side.
+ *
+ * Route distance/duration for SumUp must be resolved on the Worker via
+ * `resolveWorkerTripRouteMetrics` (see quote-handlers / payment handler).
+ * Never treat body.routeMetrics or client journeyDistance/Duration labels as
+ * authoritative payment inputs — those helpers below are for display/parsing only.
  */
 
 import {
@@ -40,7 +45,9 @@ export type OpenWebsitePaymentTransferInput = {
   removedAirportFeeIds?: Iterable<string>;
   booking: OpenWebsitePaymentBookingLike;
   /**
-   * Optional live route metrics from the browser (preferred over parsing labels).
+   * Server-resolved route metrics only (from resolveWorkerTripRouteMetrics).
+   * Informational / audit — fare authority is `authoritativeQuote`.
+   * Never pass browser body.routeMetrics here for payment.
    */
   routeMetrics?: { distanceKm: number; durationMinutes: number } | null;
   /**
@@ -99,6 +106,10 @@ export function parseJourneyDurationMinutesLabel(label?: string | null): number 
   return null;
 }
 
+/**
+ * Parse display labels into metrics. For UI / diagnostics only —
+ * do NOT use as SumUp payment authority (use resolveWorkerTripRouteMetrics).
+ */
 export function resolveRouteMetricsForPayment(input: {
   routeMetrics?: { distanceKm: number; durationMinutes: number } | null;
   journeyDistance?: string | null;
