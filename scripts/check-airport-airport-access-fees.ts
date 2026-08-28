@@ -207,7 +207,7 @@ console.log("\n=== Matrix ===\n");
   });
 }
 
-// 9 Address → DUB (ordinary) — journey + £4 M1 toll allowance
+// 9 Address → DUB (ordinary) — journey + £4 M1 (drop-off fee £0)
 {
   const q = calculateQuote(CITY, "DUB", S, false, {}, DUB_METRICS, false)!;
   assert.equal(q.amount, 234);
@@ -218,7 +218,7 @@ console.log("\n=== Matrix ===\n");
     miles: Math.round(drivingMilesFromKm(DUB_METRICS.distanceKm) * 10) / 10,
     underlying: 180,
     areaRule: "Belfast City Centre → DUB +£50",
-    accessFees: "M1 toll allowance £4 (no Dublin drop-off fee)",
+    accessFees: "Dublin drop-off fee £0 + M1 £4",
     other: "zone journey £230 + fixed £4",
     rounding: "£234",
     final: q.amount,

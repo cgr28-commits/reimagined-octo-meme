@@ -25,12 +25,24 @@ function check(name: string, fn: () => void) {
   }
 }
 
+check("Default config: £5-over-£40 offer is disabled", () => {
+  const breakdown = composeWebsiteFareBreakdown({
+    journeyFareBeforeAirportAccessGbp: 50,
+    airportAccessChargeGbp: 5,
+    claimFirstBookingOffer: true,
+  });
+  assert.equal(breakdown.firstBookingSavingGbp, 0);
+  assert.equal(breakdown.finalAmountPayableGbp, 55);
+  assert.equal(breakdown.firstBooking.reason, "disabled");
+});
+
 /** Test A */
 check("A: Journey £40 + Express £5 → pre £45, saving £5, final £40", () => {
   const breakdown = composeWebsiteFareBreakdown({
     journeyFareBeforeAirportAccessGbp: 40,
     airportAccessChargeGbp: 5,
     claimFirstBookingOffer: true,
+    firstBookingConfig: { enabled: true },
   });
   assert.equal(breakdown.bookingValueBeforeFirstBookingOfferGbp, 45);
   assert.equal(breakdown.firstBookingSavingGbp, 5);
@@ -45,6 +57,7 @@ check("B: Journey £40 + Express £0 → pre £40, saving £5, final £35", () =
     journeyFareBeforeAirportAccessGbp: 40,
     airportAccessChargeGbp: 0,
     claimFirstBookingOffer: true,
+    firstBookingConfig: { enabled: true },
   });
   assert.equal(breakdown.bookingValueBeforeFirstBookingOfferGbp, 40);
   assert.equal(breakdown.firstBookingSavingGbp, 5);
@@ -59,6 +72,7 @@ check("C: Journey £35 + Express £5 → pre £40, saving £5, final £35", () =
     journeyFareBeforeAirportAccessGbp: 35,
     airportAccessChargeGbp: 5,
     claimFirstBookingOffer: true,
+    firstBookingConfig: { enabled: true },
   });
   assert.equal(breakdown.bookingValueBeforeFirstBookingOfferGbp, 40);
   assert.equal(breakdown.firstBookingSavingGbp, 5);
@@ -71,6 +85,7 @@ check("D: Journey £35 + Express £0 → pre £35, saving £0, final £35", () =
     journeyFareBeforeAirportAccessGbp: 35,
     airportAccessChargeGbp: 0,
     claimFirstBookingOffer: true,
+    firstBookingConfig: { enabled: true },
   });
   assert.equal(breakdown.bookingValueBeforeFirstBookingOfferGbp, 35);
   assert.equal(breakdown.firstBookingSavingGbp, 0);
@@ -84,11 +99,13 @@ check("E: Toggle Express → Free on £40 journey: final £40 → £35", () => {
     journeyFareBeforeAirportAccessGbp: 40,
     airportAccessChargeGbp: 5,
     claimFirstBookingOffer: true,
+    firstBookingConfig: { enabled: true },
   });
   const freeArea = composeWebsiteFareBreakdown({
     journeyFareBeforeAirportAccessGbp: 40,
     airportAccessChargeGbp: 0,
     claimFirstBookingOffer: true,
+    firstBookingConfig: { enabled: true },
   });
   assert.equal(withExpress.finalAmountPayableGbp, 40);
   assert.equal(freeArea.finalAmountPayableGbp, 35);
@@ -100,11 +117,13 @@ check("F: Toggle Free → Express on £40 journey: final £35 → £40", () => {
     journeyFareBeforeAirportAccessGbp: 40,
     airportAccessChargeGbp: 0,
     claimFirstBookingOffer: true,
+    firstBookingConfig: { enabled: true },
   });
   const withExpress = composeWebsiteFareBreakdown({
     journeyFareBeforeAirportAccessGbp: 40,
     airportAccessChargeGbp: 5,
     claimFirstBookingOffer: true,
+    firstBookingConfig: { enabled: true },
   });
   assert.equal(freeArea.finalAmountPayableGbp, 35);
   assert.equal(withExpress.finalAmountPayableGbp, 40);
@@ -117,16 +136,19 @@ check("G: Step 2, Step 3 and SumUp amounts match in both Express states", () => 
       journeyFareBeforeAirportAccessGbp: 40,
       airportAccessChargeGbp: access,
       claimFirstBookingOffer: true,
+    firstBookingConfig: { enabled: true },
     });
     const step3 = composeWebsiteFareBreakdown({
       journeyFareBeforeAirportAccessGbp: 40,
       airportAccessChargeGbp: access,
       claimFirstBookingOffer: true,
+    firstBookingConfig: { enabled: true },
     });
     const sumUp = composeWebsiteFareBreakdown({
       journeyFareBeforeAirportAccessGbp: 40,
       airportAccessChargeGbp: access,
       claimFirstBookingOffer: true,
+    firstBookingConfig: { enabled: true },
     });
     assert.equal(step2.finalAmountPayableGbp, step3.finalAmountPayableGbp);
     assert.equal(step3.finalAmountPayableGbp, sumUp.finalAmountPayableGbp);
@@ -139,6 +161,7 @@ check("£39 booking → no £5 discount", () => {
     journeyFareBeforeAirportAccessGbp: 39,
     airportAccessChargeGbp: 0,
     claimFirstBookingOffer: true,
+    firstBookingConfig: { enabled: true },
   });
   assert.equal(breakdown.firstBookingSavingGbp, 0);
   assert.equal(breakdown.finalAmountPayableGbp, 39);
@@ -149,6 +172,7 @@ check("£45 booking (journey £40 + Express £5) → £5 discount → final £40
     journeyFareBeforeAirportAccessGbp: 40,
     airportAccessChargeGbp: 5,
     claimFirstBookingOffer: true,
+    firstBookingConfig: { enabled: true },
   });
   assert.equal(breakdown.finalAmountPayableGbp, 40);
 });
@@ -158,6 +182,7 @@ check("avoided Express is not a promotional saving", () => {
     journeyFareBeforeAirportAccessGbp: 40,
     airportAccessChargeGbp: 0,
     claimFirstBookingOffer: true,
+    firstBookingConfig: { enabled: true },
   });
   assert.equal(breakdown.totalPromotionalSavingGbp, 5);
   assert.equal(breakdown.airportAccessChargeGbp, 0);
@@ -183,6 +208,7 @@ check("stacked return + £5 promotion totals correctly", () => {
     airportAccessChargeGbp: 5,
     returnJourney: true,
     claimFirstBookingOffer: true,
+    firstBookingConfig: { enabled: true },
   });
   assert.equal(breakdown.returnJourneySavingGbp, 4.5);
   assert.equal(breakdown.firstBookingSavingGbp, 5);
@@ -202,6 +228,7 @@ check("final equals pre-promo booking value minus booking saving", () => {
       journeyFareBeforeAirportAccessGbp: c.journey,
       airportAccessChargeGbp: c.access,
       claimFirstBookingOffer: true,
+    firstBookingConfig: { enabled: true },
     });
     const expectedSaving = b.bookingValueBeforeFirstBookingOfferGbp >= 40 ? 5 : 0;
     assert.equal(
@@ -217,6 +244,7 @@ check("no alreadyRedeemed / email redemption in resolver", () => {
     journeyFareBeforeAirportAccessGbp: 40,
     airportAccessChargeGbp: 5,
     claimOffer: true,
+    config: { enabled: true },
   });
   assert.equal(offer.applied, true);
   assert.doesNotMatch(String(resolveFirstBookingOffer), /alreadyRedeemed/);

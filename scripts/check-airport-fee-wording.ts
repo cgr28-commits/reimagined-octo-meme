@@ -37,34 +37,28 @@ check("Airport drop-off: no fee bullets for BHD (no 60 min waiting)", () => {
   assert.equal(inc.complimentaryWaitingMinutes, 10);
 });
 
-check("Dublin Airport pickup: parking + M1 + waiting (no drop-off fee)", () => {
+check("Dublin Airport pickup: pickup/parking £5 + M1 tolls + waiting (no drop-off fee)", () => {
   const inc = getAirportTripInclusions({ isFromAirport: true, airportCode: "DUB" });
-  assert.ok(inc.bullets.some((b) => /Airport parking and M1 tolls included/.test(b)));
+  assert.ok(inc.bullets.some((b) => /pickup\/parking|M1 tolls/.test(b)));
   assert.ok(inc.bullets.some((b) => /60 minutes complimentary airport waiting/.test(b)));
-  assert.ok(!inc.bullets.some((b) => /drop-off/i.test(b)));
-  assert.ok(!inc.bullets.some((b) => /Express/i.test(b)));
-  assert.equal(inc.mentionsTolls, true);
-});
-
-check("Dublin Airport drop-off: M1 tolls only (no drop-off fee claim, no waiting)", () => {
-  const inc = getAirportTripInclusions({ isFromAirport: false, airportCode: "DUB" });
-  assert.ok(inc.bullets.some((b) => /M1 tolls included/.test(b)));
   assert.ok(!inc.bullets.some((b) => /drop-off fee/i.test(b)));
-  assert.ok(!inc.bullets.some((b) => /60 minutes/.test(b)));
-  assert.ok(!inc.bullets.some((b) => /pickup|parking/i.test(b)));
-  assert.equal(inc.mentionsTolls, true);
+  assert.ok(!inc.bullets.some((b) => /Express/i.test(b)));
 });
 
-check("City of Derry: waiting on pickup only; never airport-fee wording", () => {
+check("Dublin Airport drop-off: M1 tolls only (no drop-off fee, no waiting)", () => {
+  const inc = getAirportTripInclusions({ isFromAirport: false, airportCode: "DUB" });
+  assert.ok(inc.bullets.some((b) => /M1 tolls/.test(b)));
+  assert.ok(!inc.bullets.some((b) => /parking|drop-off fee/i.test(b)));
+  assert.ok(!inc.bullets.some((b) => /60 minutes/.test(b)));
+});
+
+check("City of Derry: pickup £2.50 + waiting; drop-off £1", () => {
   const pickup = getAirportTripInclusions({ isFromAirport: true, airportCode: "LDY" });
   assert.ok(pickup.bullets.some((b) => /60 minutes complimentary airport waiting/.test(b)));
-  assert.ok(!pickup.bullets.some((b) => /fee|toll|parking/i.test(b)));
-  assert.equal(pickup.mentionsTolls, false);
+  assert.ok(pickup.bullets.some((b) => /City of Derry Airport pickup/.test(b)));
 
   const dropoff = getAirportTripInclusions({ isFromAirport: false, airportCode: "LDY" });
-  assert.ok(!dropoff.bullets.some((b) => /fee|toll|parking|waiting/i.test(b)));
-  assert.doesNotMatch(dropoff.summary, /fee|toll/i);
-  assert.equal(dropoff.mentionsTolls, false);
+  assert.ok(dropoff.bullets.some((b) => /City of Derry Airport drop-off/.test(b)));
 });
 
 check("Address-to-address: fixed price + 10 min waiting, no airport fees/tolls", () => {

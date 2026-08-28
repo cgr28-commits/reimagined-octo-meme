@@ -57,6 +57,11 @@ export type PaidBookingDetails = {
   isAirportTrip: boolean;
   airportCode?: string;
   isFromAirport?: boolean;
+  /** Open-website quote context for authoritative requote / fee resolution. */
+  journeyKind?: string;
+  pickupAirportCode?: string;
+  dropoffAirportCode?: string;
+  isAirportToAirport?: boolean;
   expressDropOffSelected?: boolean;
   expressDropOffFee?: number;
   expressDropOffAirport?: "BFS" | "BHD" | null;

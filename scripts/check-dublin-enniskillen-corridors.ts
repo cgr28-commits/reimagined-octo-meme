@@ -109,7 +109,7 @@ console.log(`OK  City Hall → DUB  S £${toDubS?.amount} / E £${toDubE?.amount
 
 const fromDubS = calculateQuote(hall, "DUB", SALOON, false, {}, null, true);
 const fromDubE = calculateQuote(hall, "DUB", ESTATE, false, {}, null, true);
-assert.equal(fromDubS?.amount, 240);
+assert.equal(fromDubS?.amount, 239);
 assert.equal(fromDubE?.amount, 245);
 console.log(`OK  DUB → City Hall  S £${fromDubS?.amount} / E £${fromDubE?.amount}`);
 

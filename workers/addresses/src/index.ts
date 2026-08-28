@@ -336,7 +336,17 @@ import { composeWebsiteFareBreakdown } from "../shared/website-fare-breakdown";
 import { promoFieldsFromFareBreakdown } from "../shared/website-promo-pricing";
 import { calculateAuthoritativeWebsiteQuote } from "../../../src/lib/quote-service";
 import {
+  calculateAirportToAirportQuote,
+} from "../../../src/lib/quote";
+import {
+  resolveOpenWebsitePaymentTransferFares,
+  resolvePaymentAirportContextFromAddresses,
+} from "../shared/open-website-payment-fares";
+import { resolveWorkerTripRouteMetrics } from "./resolve-route-metrics";
+import {
+  ESTATE_VEHICLE,
   MINIBUS_VEHICLE,
+  SALOON_VEHICLE,
   selectVehicleForParty,
 } from "../../../src/lib/vehicle-selection";
 import type { VehicleType } from "../../../src/lib/data";
@@ -865,6 +875,16 @@ function parsePaidBookingDetails(body: Record<string, unknown>): PaidBookingDeta
     isAirportTrip: Boolean(details.isAirportTrip),
     airportCode: String(details.airportCode ?? "").trim().toUpperCase() || undefined,
     isFromAirport: details.isFromAirport === undefined ? undefined : Boolean(details.isFromAirport),
+    ...(typeof details.journeyKind === "string" && details.journeyKind.trim()
+      ? { journeyKind: details.journeyKind.trim() }
+      : {}),
+    ...(typeof details.pickupAirportCode === "string" && details.pickupAirportCode.trim()
+      ? { pickupAirportCode: details.pickupAirportCode.trim().toUpperCase() }
+      : {}),
+    ...(typeof details.dropoffAirportCode === "string" && details.dropoffAirportCode.trim()
+      ? { dropoffAirportCode: details.dropoffAirportCode.trim().toUpperCase() }
+      : {}),
+    ...(details.isAirportToAirport === true ? { isAirportToAirport: true } : {}),
     ...(typeof details.expressDropOffSelected === "boolean"
       ? { expressDropOffSelected: details.expressDropOffSelected }
       : {}),
@@ -1857,37 +1877,168 @@ async function handlePaymentRequest(
     !quickQuoteId &&
     !savedQuoteToken
   ) {
+    const transferPrePromo = Math.round(Number(amount) * 100) / 100;
+    const claimedJourney = Number(body.journeyFareGbp);
+    const claimedFixed = Number(body.airportFixedCostsGbp);
+    const removedAirportFeeIds = Array.isArray(body.removedAirportFeeIds)
+      ? body.removedAirportFeeIds.map((id: unknown) => String(id).trim()).filter(Boolean)
+      : [];
+
+    // Never trust body.routeMetrics / client journeyDistance|Duration for SumUp.
+    // Resolve driving metrics server-side from addresses (same path as quote-handlers).
+    // Deliberately omit client lat/lng so coords cannot be spoofed short either.
+    const routeMetrics = await resolveWorkerTripRouteMetrics({
+      pickupAddress: booking.pickupLabel,
+      dropoffAddress: booking.dropoffLabel,
+      googlePlacesApiKey: env.GOOGLE_PLACES_API_KEY,
+    });
+    if (!routeMetrics) {
+      return json(
+        {
+          error:
+            "Quote amount is out of date. Please refresh your quote and try again.",
+        },
+        409,
+        origin,
+      );
+    }
+
+    // Airport identity / direction from pickup/drop-off labels vs SERVED_AIRPORTS.
+    // Never trust client airportCode / isFromAirport / journeyKind / A2A flags.
+    const airportCtxResult = resolvePaymentAirportContextFromAddresses(
+      booking.pickupLabel,
+      booking.dropoffLabel,
+    );
+    if (!airportCtxResult.ok) {
+      return json({ error: airportCtxResult.error }, 409, origin);
+    }
+    const airportContext = airportCtxResult.context;
+
+    let authoritativeQuote: {
+      amountGbp: number;
+      journeyFareGbp: number;
+      airportFixedCostsGbp: number;
+    } | null = null;
+    const vehicleRaw = String(booking.vehicle ?? "");
+    const vehicleType: VehicleType = /estate/i.test(vehicleRaw)
+      ? ESTATE_VEHICLE
+      : /minibus/i.test(vehicleRaw)
+        ? MINIBUS_VEHICLE
+        : SALOON_VEHICLE;
+    const schedule = {
+      outboundDate: booking.tripDate,
+      outboundTime: booking.tripTime,
+      returnDate: booking.returnDate,
+      returnTime: booking.returnTime,
+      returnJourney: Boolean(booking.returnJourney),
+    };
+
+    if (
+      airportContext.isAirportToAirport &&
+      airportContext.pickupAirportCode &&
+      airportContext.dropoffAirportCode
+    ) {
+      const a2aQuote = calculateAirportToAirportQuote(
+        airportContext.pickupAirportCode,
+        airportContext.dropoffAirportCode,
+        booking.pickupLabel,
+        booking.dropoffLabel,
+        vehicleType,
+        Boolean(booking.returnJourney),
+        schedule,
+        routeMetrics,
+      );
+      if (a2aQuote && Number.isFinite(a2aQuote.amount) && a2aQuote.amount >= 1) {
+        authoritativeQuote = {
+          amountGbp: Math.round(a2aQuote.amount * 100) / 100,
+          journeyFareGbp:
+            typeof a2aQuote.journeyFareGbp === "number"
+              ? Math.round(a2aQuote.journeyFareGbp * 100) / 100
+              : Math.max(
+                  0,
+                  Math.round(
+                    (a2aQuote.amount - (a2aQuote.airportFixedCostsGbp ?? 0)) * 100,
+                  ) / 100,
+                ),
+          airportFixedCostsGbp:
+            typeof a2aQuote.airportFixedCostsGbp === "number"
+              ? Math.round(a2aQuote.airportFixedCostsGbp * 100) / 100
+              : 0,
+        };
+      }
+    } else {
+      const requote = calculateAuthoritativeWebsiteQuote({
+        airportCode: airportContext.airportCode,
+        fromAirport: airportContext.fromAirport,
+        pickupAddress: booking.pickupLabel,
+        dropoffAddress: booking.dropoffLabel,
+        returnJourney: Boolean(booking.returnJourney),
+        outboundDate: booking.tripDate,
+        outboundTime: booking.tripTime,
+        returnDate: booking.returnDate,
+        returnTime: booking.returnTime,
+        passengers: Number(booking.passengers),
+        suitcases: Number(booking.suitcases),
+        routeMetrics,
+        vehicleType,
+      });
+      if (requote.ok) {
+        const journeyFareGbp =
+          typeof requote.journeyFareGbp === "number"
+            ? requote.journeyFareGbp
+            : Math.max(
+                0,
+                Math.round(
+                  (requote.amount - (requote.airportFixedCostsGbp ?? 0)) * 100,
+                ) / 100,
+              );
+        authoritativeQuote = {
+          amountGbp: requote.amount,
+          journeyFareGbp,
+          airportFixedCostsGbp: requote.airportFixedCostsGbp ?? 0,
+        };
+      }
+    }
+
+    if (!authoritativeQuote) {
+      return json(
+        {
+          error:
+            "Quote amount is out of date. Please refresh your quote and try again.",
+        },
+        409,
+        origin,
+      );
+    }
+
+    const transferResolution = resolveOpenWebsitePaymentTransferFares({
+      clientTransferAmountGbp: transferPrePromo,
+      claimedJourneyFareGbp: Number.isFinite(claimedJourney) ? claimedJourney : null,
+      claimedAirportFixedCostsGbp: Number.isFinite(claimedFixed) ? claimedFixed : null,
+      removedAirportFeeIds,
+      booking,
+      // Server-resolved metrics only — never body.routeMetrics / client labels.
+      routeMetrics,
+      authoritativeQuote,
+      airportContext,
+    });
+    if (!transferResolution.ok) {
+      return json({ error: transferResolution.error }, 409, origin);
+    }
+    const journeyFareGbp = transferResolution.journeyFareGbp;
+    const airportFixedCostsGbp = transferResolution.airportFixedCostsGbp;
+
     const customerExpressSelected = parseCustomerExpressDropOffSelected(
       body.expressDropOffSelected ?? booking.expressDropOffSelected,
       true,
     );
     const express = resolveExpressDropOff({
-      airportCode: booking.airportCode,
-      fromAirport: booking.isFromAirport,
+      airportCode: airportContext.airportCode,
+      fromAirport: airportContext.fromAirport,
       returnJourney: booking.returnJourney,
       selected: customerExpressSelected,
     });
     const persisted = toExpressDropOffPersistedFields(express);
-
-    const transferPrePromo = Math.round(Number(amount) * 100) / 100;
-    const claimedJourney = Number(body.journeyFareGbp);
-    const claimedFixed = Number(body.airportFixedCostsGbp);
-    let journeyFareGbp = transferPrePromo;
-    let airportFixedCostsGbp = 0;
-    if (Number.isFinite(claimedJourney) && claimedJourney >= 0) {
-      journeyFareGbp = Math.round(claimedJourney * 100) / 100;
-      airportFixedCostsGbp =
-        Number.isFinite(claimedFixed) && claimedFixed >= 0
-          ? Math.round(claimedFixed * 100) / 100
-          : Math.max(0, Math.round((transferPrePromo - journeyFareGbp) * 100) / 100);
-      // Guard against client tampering that splits transfer inconsistently.
-      const recomposedTransfer =
-        Math.round((journeyFareGbp + airportFixedCostsGbp) * 100) / 100;
-      if (Math.abs(recomposedTransfer - transferPrePromo) > 0.02) {
-        journeyFareGbp = transferPrePromo;
-        airportFixedCostsGbp = 0;
-      }
-    }
 
     const claimFirstBookingOffer = body.claimFirstBookingOffer !== false;
 
@@ -1902,6 +2053,19 @@ async function handlePaymentRequest(
     amount = breakdown.finalAmountPayableGbp;
     booking = {
       ...booking,
+      // Persist server-derived airport identity (not client-tampered fields).
+      airportCode: airportContext.airportCode ?? undefined,
+      isFromAirport: airportContext.isAirportTrip
+        ? airportContext.fromAirport
+        : booking.isFromAirport,
+      isAirportTrip: airportContext.isAirportTrip || booking.isAirportTrip,
+      ...(airportContext.pickupAirportCode
+        ? { pickupAirportCode: airportContext.pickupAirportCode }
+        : {}),
+      ...(airportContext.dropoffAirportCode
+        ? { dropoffAirportCode: airportContext.dropoffAirportCode }
+        : {}),
+      ...(airportContext.isAirportToAirport ? { isAirportToAirport: true } : {}),
       expressDropOffSelected: persisted.expressDropOffSelected,
       expressDropOffFee: persisted.expressDropOffFee,
       expressDropOffAirport: persisted.expressDropOffAirport,

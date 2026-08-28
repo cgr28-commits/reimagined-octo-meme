@@ -427,7 +427,7 @@ export const FAQS = [
   {
     question: "Are airport fees included?",
     answer:
-      "Yes where they apply — they are part of your fixed fare, not optional extras. Dublin Airport includes M1 tolls on every leg and airport parking on pickups. Belfast International, Belfast City, and City of Derry Airport do not add a separate airport access fee on top of your journey fare. You only see the inclusions that match your direction of travel.",
+      "Yes where they apply — they are part of your fixed fare, not optional extras. Dublin Airport pickup/parking (£5) is included on airport pickups together with M1 tolls where they apply; Dublin Airport drop-off fee is £0 (M1 tolls still apply). City of Derry Airport pickup (£2.50) and drop-off (£1) are included where they apply. Belfast International and Belfast City use the Express / free-area choice where offered. You only see the inclusions that match your direction of travel.",
   },
   {
     question: "How much airport waiting time is included?",
@@ -452,7 +452,7 @@ export const FAQS = [
   {
     question: "Are tolls included?",
     answer:
-      "Dublin Airport fares include applicable road tolls where they form part of that route. Ordinary Northern Ireland address-to-address journeys do not add separate toll charges. Toll wording only appears when it applies to your quote.",
+      "Applicable road tolls are only mentioned when they form part of your quoted fare. Dublin Airport journeys include the M1 toll allowance on both pickup and drop-off legs. Ordinary Northern Ireland address-to-address journeys do not add separate toll charges.",
   },
   {
     question: "Can I book a return journey?",
@@ -477,12 +477,12 @@ export const FAQS = [
   {
     question: "What is included in the price?",
     answer:
-      "Your fixed price depends on the journey. Airport pickups: 60 minutes complimentary waiting, plus Dublin parking and M1 tolls where they apply. Airport drop-offs: M1 tolls for Dublin where charged. Belfast International, Belfast City, and City of Derry Airport do not add a separate airport access fee. Address-to-address: fixed price for your journey with 10 minutes complimentary waiting at non-airport pickups.",
+      "Your fixed price depends on the journey. Airport pickups: 60 minutes complimentary waiting, plus Dublin Airport pickup/parking (£5) and M1 tolls where they apply, or City of Derry Airport pickup (£2.50) where charged. Airport drop-offs: City of Derry Airport drop-off (£1) where charged; Dublin Airport drop-off fee is £0 (M1 tolls still apply). Belfast International and Belfast City use Express / free-area options where offered. Address-to-address: fixed price for your journey with 10 minutes complimentary waiting at non-airport pickups.",
   },
   {
     question: "Do you cover City of Derry Airport?",
     answer:
-      "Yes. City of Derry Airport (LDY) transfers are between LDY and the greater Belfast area (for example Belfast, Bangor, Lisburn and surrounds). Select City of Derry Airport in the quote tool — the same express pickup/drop-off wording applies; Dublin toll wording does not.",
+      "Yes. City of Derry Airport (LDY) transfers are between LDY and the greater Belfast area (for example Belfast, Bangor, Lisburn and surrounds). Select City of Derry Airport in the quote tool — pickup (£2.50) or drop-off (£1) is included in your fixed fare where it applies.",
   },
   {
     question: "Do you cover journeys in the Republic of Ireland?",

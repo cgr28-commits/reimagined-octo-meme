@@ -4,6 +4,11 @@
  * These are operational add-ons applied per journey leg after the underlying
  * journey fare (and after the 5% return discount on that journey fare).
  * They must never be multiplied by distance, vehicle multipliers, or %.
+ *
+ * Customer choice (remove / free-area) is AIRPORT-SPECIFIC:
+ * - DUB / LDY: NEVER removable
+ * - BFS / BHD: removable only where a legitimate free-area alternative applies
+ *   (A2A historical access surcharge lines; Express Drop-Off stays separate)
  */
 
 export type AirportFixedCostCode = "BFS" | "BHD" | "DUB" | "LDY";
@@ -13,11 +18,12 @@ export type AirportFixedCostRow = {
   dropOffFeeGbp: number;
   /** Official airport pickup / access fee charged on airport → address legs. */
   pickupFeeGbp: number;
-  /** Pickup parking allowance (Dublin). */
+  /** Pickup parking allowance (Dublin pickup/parking charge). */
   parkingAllowanceGbp: number;
   /**
    * Toll allowance per Dublin leg (covers the driver’s journey down and return north).
-   * Applied on both Dublin pickup and Dublin drop-off legs.
+   * Applied on both Dublin pickup and Dublin drop-off legs when non-zero.
+   * Separate from the Dublin pickup/parking charge.
    */
   tollAllowanceGbp: number;
 };
@@ -29,6 +35,9 @@ export type AirportFixedCostRow = {
  * BFS/BHD address↔airport access fees are waived (£0) so customer totals fall by
  * the former surcharges via legacy strip only. Airport↔airport BFS↔BHD still
  * retains the destination-end historical fee — see getAirportToAirportFixedCostGbp.
+ *
+ * DUB: pickup/parking £5 + M1 toll £4 on pickup; drop-off fee £0 + M1 toll £4.
+ * LDY: pickup £2.50; drop-off £1. Never removable.
  */
 export const AIRPORT_FIXED_COSTS_GBP: Record<AirportFixedCostCode, AirportFixedCostRow> = {
   BFS: {
@@ -46,12 +55,12 @@ export const AIRPORT_FIXED_COSTS_GBP: Record<AirportFixedCostCode, AirportFixedC
   DUB: {
     dropOffFeeGbp: 0,
     pickupFeeGbp: 0,
-    parkingAllowanceGbp: 4,
+    parkingAllowanceGbp: 5,
     tollAllowanceGbp: 4,
   },
   LDY: {
-    dropOffFeeGbp: 0,
-    pickupFeeGbp: 0,
+    dropOffFeeGbp: 1,
+    pickupFeeGbp: 2.5,
     parkingAllowanceGbp: 0,
     tollAllowanceGbp: 0,
   },
@@ -67,6 +76,49 @@ export const NI_AIRPORT_ACCESS_SURCHARGE_GBP: Partial<
 > = {
   BFS: 5,
   BHD: 4,
+};
+
+const AIRPORT_DISPLAY_NAMES: Record<AirportFixedCostCode, string> = {
+  BFS: "Belfast International Airport",
+  BHD: "George Best Belfast City Airport",
+  DUB: "Dublin Airport",
+  LDY: "City of Derry Airport",
+};
+
+export type AirportFeeDirection = "pickup" | "drop-off";
+export type AirportFeeLeg = "outbound" | "return";
+
+/**
+ * One applicable airport charge — never collapsed into a single generic fee.
+ * Parking/access and M1 toll are separate lines when both apply.
+ */
+export type AirportFeeLine = {
+  /** Stable id, e.g. "outbound:DUB:pickup" or "outbound:DUB:toll". */
+  id: string;
+  leg: AirportFeeLeg;
+  airportCode: AirportFixedCostCode;
+  airportName: string;
+  direction: AirportFeeDirection | "toll";
+  originalAmountGbp: number;
+  /**
+   * True only when this airport offers a legitimate free-area alternative
+   * (BFS/BHD) AND the journey context allows customer choice.
+   * DUB and LDY are always false.
+   */
+  removable: boolean;
+  /** Alias of removable — whether customer choice is permitted. */
+  customerChoiceAllowed: boolean;
+  removed: boolean;
+  appliedAmountGbp: number;
+  /** Customer-facing breakdown label. */
+  label: string;
+};
+
+export type JourneyAirportFeeResolution = {
+  isAirportToAirport: boolean;
+  lines: AirportFeeLine[];
+  totalOriginalGbp: number;
+  totalAppliedGbp: number;
 };
 
 function niAccessSurchargeGbp(code: AirportFixedCostCode | null): number {
@@ -100,6 +152,10 @@ function normaliseCode(code: string | null | undefined): AirportFixedCostCode | 
   return null;
 }
 
+function roundGbp(amount: number): number {
+  return Math.round(Number(amount) * 100) / 100;
+}
+
 export function getAirportFixedCostRow(
   airportCode: string | null | undefined,
 ): AirportFixedCostRow | null {
@@ -108,9 +164,84 @@ export function getAirportFixedCostRow(
   return AIRPORT_FIXED_COSTS_GBP[code];
 }
 
+export function getAirportDisplayName(airportCode: string | null | undefined): string {
+  const code = normaliseCode(airportCode);
+  if (!code) return "Airport";
+  return AIRPORT_DISPLAY_NAMES[code];
+}
+
+/**
+ * Customer-facing label for one airport charge.
+ * Dublin pickup uses “pickup/parking” because Dublin drop-off fee is £0
+ * (M1 tolls are a separate line when configured).
+ */
+export function formatAirportFeeLabel(
+  airportCode: AirportFixedCostCode,
+  direction: AirportFeeDirection | "toll",
+): string {
+  if (direction === "toll") {
+    return "M1 tolls";
+  }
+  const name = AIRPORT_DISPLAY_NAMES[airportCode];
+  if (airportCode === "DUB" && direction === "pickup") {
+    return `${name} pickup/parking`;
+  }
+  if (direction === "pickup") {
+    return `${name} pickup`;
+  }
+  return `${name} drop-off`;
+}
+
+/**
+ * DUB and LDY never allow customer removal / free-area choice.
+ * BFS and BHD may, when the journey context supplies a legitimate alternative.
+ */
+export function isAirportFeeCustomerChoiceAllowed(
+  airportCode: string | null | undefined,
+): boolean {
+  const code = normaliseCode(airportCode);
+  return code === "BFS" || code === "BHD";
+}
+
+function feeLineId(
+  leg: AirportFeeLeg,
+  airportCode: AirportFixedCostCode,
+  direction: AirportFeeDirection | "toll",
+): string {
+  return `${leg}:${airportCode}:${direction}`;
+}
+
+function makeFeeLine(input: {
+  leg: AirportFeeLeg;
+  airportCode: AirportFixedCostCode;
+  direction: AirportFeeDirection | "toll";
+  amountGbp: number;
+  customerChoiceAllowed: boolean;
+  removedFeeIds: Set<string>;
+}): AirportFeeLine | null {
+  const originalAmountGbp = roundGbp(input.amountGbp);
+  if (originalAmountGbp <= 0) return null;
+  const id = feeLineId(input.leg, input.airportCode, input.direction);
+  const removable = input.customerChoiceAllowed;
+  const removed = removable && input.removedFeeIds.has(id);
+  return {
+    id,
+    leg: input.leg,
+    airportCode: input.airportCode,
+    airportName: AIRPORT_DISPLAY_NAMES[input.airportCode],
+    direction: input.direction,
+    originalAmountGbp,
+    removable,
+    customerChoiceAllowed: removable,
+    removed,
+    appliedAmountGbp: removed ? 0 : originalAmountGbp,
+    label: formatAirportFeeLabel(input.airportCode, input.direction),
+  };
+}
+
 /**
  * Fixed operational costs for one airport leg.
- * Drop-off: drop-off fee + toll allowance (Dublin).
+ * Drop-off: drop-off fee + toll allowance (when configured).
  * Pickup: pickup fee + parking allowance + toll allowance.
  */
 export function getAirportLegFixedCosts(
@@ -161,37 +292,267 @@ export function getAirportLegFixedCostGbp(
 }
 
 /**
- * Airport ↔ airport one-way fixed costs.
- *
- * Default: pickup-end pickup costs + dropoff-end drop-off costs from
- * AIRPORT_FIXED_COSTS_GBP.
- *
- * BFS ↔ BHD exception: waive only the collection-airport surcharge
- * (BFS £5 / BHD £4). Keep the destination-end historical surcharge so the
- * fare falls by £5 or £4 — never by £9.
- *
- * Mixed A2A with LDY (etc.): still apply the historical BFS/BHD surcharge on
- * that end so non-BFS↔BHD airport pairs are unchanged vs the pre-waiver model.
+ * Fee line(s) for one airport end using configured fixed costs.
+ * Parking/access and M1 toll are emitted as separate lines when both apply.
+ * DUB / LDY are never removable.
+ */
+function buildConfiguredFeeLines(input: {
+  leg: AirportFeeLeg;
+  airportCode: AirportFixedCostCode;
+  fromAirport: boolean;
+  /** Ignored for DUB/LDY — always false. */
+  customerChoiceAllowed: boolean;
+  removedFeeIds: Set<string>;
+}): AirportFeeLine[] {
+  const costs = getAirportLegFixedCosts(input.airportCode, input.fromAirport);
+  if (!costs || costs.totalGbp <= 0) return [];
+  // DUB / LDY: never allow customer removal, even on A2A.
+  const choiceAllowed =
+    input.customerChoiceAllowed && isAirportFeeCustomerChoiceAllowed(input.airportCode);
+  const lines: AirportFeeLine[] = [];
+
+  if (input.fromAirport) {
+    const parkingOrPickup = costs.pickupFeeGbp + costs.parkingAllowanceGbp;
+    const access = makeFeeLine({
+      leg: input.leg,
+      airportCode: input.airportCode,
+      direction: "pickup",
+      amountGbp: parkingOrPickup,
+      customerChoiceAllowed: choiceAllowed,
+      removedFeeIds: input.removedFeeIds,
+    });
+    if (access) lines.push(access);
+  } else if (costs.dropOffFeeGbp > 0) {
+    const drop = makeFeeLine({
+      leg: input.leg,
+      airportCode: input.airportCode,
+      direction: "drop-off",
+      amountGbp: costs.dropOffFeeGbp,
+      customerChoiceAllowed: choiceAllowed,
+      removedFeeIds: input.removedFeeIds,
+    });
+    if (drop) lines.push(drop);
+  }
+
+  if (costs.tollAllowanceGbp > 0) {
+    const toll = makeFeeLine({
+      leg: input.leg,
+      airportCode: input.airportCode,
+      direction: "toll",
+      amountGbp: costs.tollAllowanceGbp,
+      // Tolls are never a free-area customer choice.
+      customerChoiceAllowed: false,
+      removedFeeIds: input.removedFeeIds,
+    });
+    if (toll) lines.push(toll);
+  }
+
+  return lines;
+}
+
+/**
+ * BFS/BHD A2A historical access surcharge as one fee line.
+ * Removable only when a legitimate free-area alternative applies (BFS/BHD).
+ */
+function buildNiAccessFeeLine(input: {
+  leg: AirportFeeLeg;
+  airportCode: "BFS" | "BHD";
+  direction: AirportFeeDirection;
+  customerChoiceAllowed: boolean;
+  removedFeeIds: Set<string>;
+}): AirportFeeLine | null {
+  return makeFeeLine({
+    leg: input.leg,
+    airportCode: input.airportCode,
+    direction: input.direction,
+    amountGbp: niAccessSurchargeGbp(input.airportCode),
+    customerChoiceAllowed:
+      input.customerChoiceAllowed && isAirportFeeCustomerChoiceAllowed(input.airportCode),
+    removedFeeIds: input.removedFeeIds,
+  });
+}
+
+/**
+ * Airport ↔ airport one-way fee lines (pickup-end + dropoff-end).
+ * Mirrors getAirportToAirportFixedCostGbp composition rules.
+ * Removals honour airport-specific permissions (BFS/BHD only).
+ */
+export function resolveAirportToAirportFeeLines(input: {
+  pickupAirportCode: string;
+  dropoffAirportCode: string;
+  leg?: AirportFeeLeg;
+  removedFeeIds?: Iterable<string>;
+}): AirportFeeLine[] {
+  const leg = input.leg ?? "outbound";
+  const removedFeeIds = new Set(
+    Array.from(input.removedFeeIds ?? []).map((id) => String(id).trim()).filter(Boolean),
+  );
+  const pickupCode = normaliseCode(input.pickupAirportCode);
+  const dropoffCode = normaliseCode(input.dropoffAirportCode);
+  if (!pickupCode || !dropoffCode) return [];
+
+  const lines: AirportFeeLine[] = [];
+
+  if (isNiAccessAirport(pickupCode) && isNiAccessAirport(dropoffCode)) {
+    // Collection surcharge waived; destination drop-off surcharge retained.
+    const dest = buildNiAccessFeeLine({
+      leg,
+      airportCode: dropoffCode,
+      direction: "drop-off",
+      customerChoiceAllowed: true,
+      removedFeeIds,
+    });
+    if (dest) lines.push(dest);
+    return lines;
+  }
+
+  if (isNiAccessAirport(pickupCode)) {
+    const pickup = buildNiAccessFeeLine({
+      leg,
+      airportCode: pickupCode,
+      direction: "pickup",
+      customerChoiceAllowed: true,
+      removedFeeIds,
+    });
+    if (pickup) lines.push(pickup);
+  } else {
+    lines.push(
+      ...buildConfiguredFeeLines({
+        leg,
+        airportCode: pickupCode,
+        fromAirport: true,
+        customerChoiceAllowed: false,
+        removedFeeIds,
+      }),
+    );
+  }
+
+  if (isNiAccessAirport(dropoffCode)) {
+    const drop = buildNiAccessFeeLine({
+      leg,
+      airportCode: dropoffCode,
+      direction: "drop-off",
+      customerChoiceAllowed: true,
+      removedFeeIds,
+    });
+    if (drop) lines.push(drop);
+  } else {
+    lines.push(
+      ...buildConfiguredFeeLines({
+        leg,
+        airportCode: dropoffCode,
+        fromAirport: false,
+        customerChoiceAllowed: false,
+        removedFeeIds,
+      }),
+    );
+  }
+
+  return lines;
+}
+
+/**
+ * Airport ↔ airport one-way fixed costs (sum of applicable fee lines, no removals).
  */
 export function getAirportToAirportFixedCostGbp(
   pickupAirportCode: string,
   dropoffAirportCode: string,
 ): number {
-  const pickupCode = normaliseCode(pickupAirportCode);
-  const dropoffCode = normaliseCode(dropoffAirportCode);
+  return resolveAirportToAirportFeeLines({
+    pickupAirportCode,
+    dropoffAirportCode,
+  }).reduce((sum, line) => sum + line.originalAmountGbp, 0);
+}
 
-  if (isNiAccessAirport(pickupCode) && isNiAccessAirport(dropoffCode)) {
-    // Collection surcharge waived; destination drop-off surcharge retained.
-    return niAccessSurchargeGbp(dropoffCode);
+/**
+ * Resolve all airport fee lines for a journey.
+ *
+ * Removals are airport-specific:
+ * - DUB / LDY: never removable (client removedFeeIds ignored)
+ * - BFS / BHD: removable only on A2A when a free-area alternative applies
+ */
+export function resolveJourneyAirportFees(input: {
+  /** Both ends identified as airports. */
+  isAirportToAirport: boolean;
+  pickupAirportCode?: string | null;
+  dropoffAirportCode?: string | null;
+  /** Classic single-airport trip code (when not A2A). */
+  airportCode?: string | null;
+  /** Classic direction: true = airport → address. */
+  fromAirport?: boolean;
+  returnJourney?: boolean;
+  /** Client-submitted removals — only applied when the matching line is removable. */
+  removedFeeIds?: Iterable<string>;
+}): JourneyAirportFeeResolution {
+  const removedFeeIds = new Set(
+    Array.from(input.removedFeeIds ?? []).map((id) => String(id).trim()).filter(Boolean),
+  );
+  const returnJourney = Boolean(input.returnJourney);
+  const lines: AirportFeeLine[] = [];
+
+  if (input.isAirportToAirport) {
+    const pickup = normaliseCode(input.pickupAirportCode);
+    const dropoff = normaliseCode(input.dropoffAirportCode);
+    if (pickup && dropoff) {
+      lines.push(
+        ...resolveAirportToAirportFeeLines({
+          pickupAirportCode: pickup,
+          dropoffAirportCode: dropoff,
+          leg: "outbound",
+          removedFeeIds,
+        }),
+      );
+      if (returnJourney) {
+        lines.push(
+          ...resolveAirportToAirportFeeLines({
+            pickupAirportCode: dropoff,
+            dropoffAirportCode: pickup,
+            leg: "return",
+            removedFeeIds,
+          }),
+        );
+      }
+    }
+  } else {
+    const code = normaliseCode(input.airportCode);
+    if (code) {
+      const fromAirport = Boolean(input.fromAirport);
+      lines.push(
+        ...buildConfiguredFeeLines({
+          leg: "outbound",
+          airportCode: code,
+          fromAirport,
+          customerChoiceAllowed: false,
+          removedFeeIds,
+        }),
+      );
+      if (returnJourney) {
+        lines.push(
+          ...buildConfiguredFeeLines({
+            leg: "return",
+            airportCode: code,
+            fromAirport: !fromAirport,
+            customerChoiceAllowed: false,
+            removedFeeIds,
+          }),
+        );
+      }
+    }
   }
 
-  const pickupPart = isNiAccessAirport(pickupCode)
-    ? niAccessSurchargeGbp(pickupCode)
-    : getAirportLegFixedCostGbp(pickupAirportCode, true);
-  const dropoffPart = isNiAccessAirport(dropoffCode)
-    ? niAccessSurchargeGbp(dropoffCode)
-    : getAirportLegFixedCostGbp(dropoffAirportCode, false);
-  return pickupPart + dropoffPart;
+  const totalOriginalGbp = roundGbp(
+    lines.reduce((sum, line) => sum + line.originalAmountGbp, 0),
+  );
+  const totalAppliedGbp = roundGbp(
+    lines.reduce((sum, line) => sum + line.appliedAmountGbp, 0),
+  );
+
+  return {
+    isAirportToAirport: Boolean(input.isAirportToAirport),
+    lines,
+    totalOriginalGbp,
+    totalAppliedGbp,
+  };
 }
 
 /**

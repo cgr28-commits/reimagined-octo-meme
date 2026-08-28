@@ -5,7 +5,7 @@
  * 1. Journey fare (after 5% return discount when booked)
  * 2. Add currently selected airport access charge (Express)
  * 3. prePromotionBookingValue = journey + fixed costs + Express
- * 4. If prePromotionBookingValue >= £40, apply £5 Booking Saving
+ * 4. Optional £5 Booking Saving when enabled in config (currently disabled)
  * 5. finalAmountPayable = prePromotionBookingValue − bookingSaving
  *
  * Equivalent composition used here:

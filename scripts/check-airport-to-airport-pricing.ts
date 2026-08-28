@@ -154,7 +154,7 @@ console.log("\n=== 3. Belfast City ↔ Dublin Airport (zone + Dublin fixed costs
   );
   assert.ok(intendedDrop && intendedPick);
   assert.equal(intendedDrop!.amount, 234, `DUB drop-off must be £234, got £${intendedDrop!.amount}`);
-  assert.equal(intendedPick!.amount, 240, `DUB pickup must be £240 (238 rounded), got £${intendedPick!.amount}`);
+  assert.equal(intendedPick!.amount, 239, `DUB pickup must be £239, got £${intendedPick!.amount}`);
 
   const bhdToDub = calculateAirportToAirportQuote(
     "BHD",
@@ -178,7 +178,7 @@ console.log("\n=== 3. Belfast City ↔ Dublin Airport (zone + Dublin fixed costs
   );
   assert.ok(bhdToDub && dubToBhd);
   assert.equal(bhdToDub!.amount, 234);
-  assert.equal(dubToBhd!.amount, 240);
+  assert.equal(dubToBhd!.amount, 239);
   assert.notEqual(bhdToDub!.amount, 170);
 
   const websiteBhdToDub = calculateWebsiteOneWayFare({
@@ -199,8 +199,8 @@ console.log("\n=== 3. Belfast City ↔ Dublin Airport (zone + Dublin fixed costs
   });
   assert.ok(websiteBhdToDub && websiteDubToBhd);
   assert.equal(websiteBhdToDub!.amount, 234);
-  assert.equal(websiteDubToBhd!.amount, 240);
-  console.log("OK  BHD→DUB £234 / DUB→BHD £240 via airport helper + website-fare");
+  assert.equal(websiteDubToBhd!.amount, 239);
+  console.log("OK  BHD→DUB £234 / DUB→BHD £239 via airport helper + website-fare");
 }
 
 console.log("\n=== 4. Belfast International ↔ Dublin Airport ===");
@@ -354,9 +354,10 @@ console.log("\n=== 6. Ordinary address ↔ Dublin Airport (direction-aware fixed
     lat: number;
     lng: number;
   }> = [
-    { address: cityHall, dropExpected: 234, pickExpected: 240, lat: 54.5964, lng: -5.9301 },
-    { address: lisburn, dropExpected: 244, pickExpected: 250, lat: 54.5162, lng: -6.0583 },
-    { address: bangor, dropExpected: 249, pickExpected: 255, lat: 54.6538, lng: -5.6689 },
+    { address: cityHall, dropExpected: 234, pickExpected: 239, lat: 54.5964, lng: -5.9301 },
+    // DUB drop-off fee £0 + M1 £4; pickup/parking £5 + M1 £4.
+    { address: lisburn, dropExpected: 244, pickExpected: 249, lat: 54.5162, lng: -6.0583 },
+    { address: bangor, dropExpected: 249, pickExpected: 254, lat: 54.6538, lng: -5.6689 },
   ];
 
   for (const row of baselines) {
@@ -390,7 +391,7 @@ console.log("\n=== 6. Ordinary address ↔ Dublin Airport (direction-aware fixed
     assert.equal(websiteTo!.amount, row.dropExpected);
     assert.equal(websiteFrom!.amount, row.pickExpected);
   }
-  console.log("OK  address→DUB (+£4) and DUB→address (+£8) for City Hall/Lisburn/Bangor");
+  console.log("OK  address→DUB (+£4 M1) and DUB→address (+£5 parking +£4 M1) for City Hall/Lisburn/Bangor");
 }
 
 console.log("\n=== 7. Non-DUB airport↔airport = A2A underlying only (not Antrim-zone max) ===");

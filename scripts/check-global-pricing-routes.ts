@@ -98,7 +98,7 @@ add(
   14,
   calculateQuote("Belfast City Hall, Belfast BT1 5GS", "BFS", S)?.amount,
   calculateQuote("Belfast City Hall, Belfast BT1 5GS", "BFS", E)?.amount,
-  "bench ~£49/~£55",
+  "bench ~£44/~£50",
 );
 
 // 5 Bangor → BFS
@@ -373,8 +373,8 @@ assert.equal(selectVehicleForParty(1, 3), E);
 // Return discount once on journey; airport fixed costs undiscounted both legs
 const oneWay = calculateQuote("Belfast City Hall, Belfast BT1 5GS", "BFS", S)?.amount ?? 0;
 const ret = calculateQuote("Belfast City Hall, Belfast BT1 5GS", "BFS", S, true)?.amount ?? 0;
-assert.equal(oneWay, 49);
-assert.equal(ret, 95, "BFS return: journey £49×1.9 → £95; fixed £0");
+assert.equal(oneWay, 44);
+assert.equal(ret, 84, "BFS return: journey £44×1.9 → £84; fixed £0");
 assert.ok(ret < oneWay * 2);
 
 assert.ok(rows.length >= 15, `expected ≥15 journeys, got ${rows.length}`);

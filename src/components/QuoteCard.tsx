@@ -120,6 +120,7 @@ import {
   resolveExpressDropOff,
   shouldDefaultExpressSelectedOnNewEligibility,
 } from "../../shared/express-drop-off";
+import { resolveJourneyAirportFees } from "../../shared/airport-fixed-costs";
 import { promoFieldsFromFareBreakdown } from "../../shared/website-promo-pricing";
 import {
   buildSaveQuotePayloadFromLiveQuote,
@@ -611,6 +612,8 @@ function QuoteCard({
   const [expressRemovalAck, setExpressRemovalAck] = useState(false);
   const [expressAckRequired, setExpressAckRequired] = useState(false);
   const [expressEditing, setExpressEditing] = useState(false);
+  /** A2A-only: fee line ids the customer independently removed. */
+  const [removedAirportFeeIds, setRemovedAirportFeeIds] = useState<string[]>([]);
   const expressEligibilityPrimedRef = useRef(false);
   const expressWasEligibleRef = useRef(false);
   const expressRemovalAckWasCheckedRef = useRef(false);
@@ -1344,9 +1347,8 @@ function QuoteCard({
   }, [expressRemovalAck, isMobileDevice]);
 
   /**
-   * Open-website promotional fare path (return discount + £5 booking saving).
+   * Open-website promotional fare path (return discount; £5-over-£40 offer disabled).
    * Always recompose from the current Express fee — never cache a prior selection.
-   * Composer applies £5 only when pre-promo booking value ≥ £40.
    */
   const useOpenWebsitePromoPricing =
     testChargeAmount == null &&
@@ -1357,11 +1359,60 @@ function QuoteCard({
     !pricingConfirmationRequired &&
     !isManualQuoteJourney;
 
+  const isAirportToAirportJourney = journeyKind === "airport-to-airport";
+
+  const airportFeeResolution = useMemo(() => {
+    if (isAirportToAirportJourney && pickupAirportCode && dropoffAirportCode) {
+      return resolveJourneyAirportFees({
+        isAirportToAirport: true,
+        pickupAirportCode,
+        dropoffAirportCode,
+        returnJourney,
+        removedFeeIds: removedAirportFeeIds,
+      });
+    }
+    if (effectiveAirportCode && (isAirportTrip || journeyKind === "airport-to-address" || journeyKind === "address-to-airport")) {
+      return resolveJourneyAirportFees({
+        isAirportToAirport: false,
+        airportCode: effectiveAirportCode,
+        fromAirport: isFromAirport,
+        returnJourney,
+        removedFeeIds: removedAirportFeeIds,
+      });
+    }
+    return resolveJourneyAirportFees({
+      isAirportToAirport: false,
+      removedFeeIds: [],
+    });
+  }, [
+    isAirportToAirportJourney,
+    pickupAirportCode,
+    dropoffAirportCode,
+    effectiveAirportCode,
+    isAirportTrip,
+    journeyKind,
+    isFromAirport,
+    returnJourney,
+    removedAirportFeeIds,
+  ]);
+
+  // Drop stale A2A removals when the route or journey kind changes.
+  useEffect(() => {
+    setRemovedAirportFeeIds([]);
+  }, [
+    pickupAirportCode,
+    dropoffAirportCode,
+    effectiveAirportCode,
+    journeyKind,
+    isFromAirport,
+    returnJourney,
+  ]);
+
   const journeyFareParts = useMemo(() => {
     if (!liveQuote || typeof liveQuote.amount !== "number") {
       return { journeyFareGbp: null as number | null, airportFixedCostsGbp: 0 };
     }
-    const fixed =
+    const quotedFixed =
       typeof liveQuote.airportFixedCostsGbp === "number" &&
       Number.isFinite(liveQuote.airportFixedCostsGbp)
         ? Math.max(0, Math.round(liveQuote.airportFixedCostsGbp * 100) / 100)
@@ -1369,16 +1420,19 @@ function QuoteCard({
     const journey =
       typeof liveQuote.journeyFareGbp === "number" && Number.isFinite(liveQuote.journeyFareGbp)
         ? Math.max(0, Math.round(liveQuote.journeyFareGbp * 100) / 100)
-        : Math.max(0, Math.round((liveQuote.amount - fixed) * 100) / 100);
+        : Math.max(0, Math.round((liveQuote.amount - quotedFixed) * 100) / 100);
+    // Prefer authoritative fee-line total (honours A2A removals; mandatory otherwise).
+    const fixed =
+      airportFeeResolution.lines.length > 0
+        ? airportFeeResolution.totalAppliedGbp
+        : quotedFixed;
     return { journeyFareGbp: journey, airportFixedCostsGbp: fixed };
-  }, [liveQuote]);
+  }, [liveQuote, airportFeeResolution]);
 
   const openWebsiteFareBreakdown = useMemo(() => {
     if (!useOpenWebsitePromoPricing || journeyFareParts.journeyFareGbp == null) {
       return null;
     }
-    // claimFirstBookingOffer true: composer decides eligibility from booking value
-    // including the live Express fee (no separate client-side threshold gate).
     return buildOpenWebsiteFareBreakdown({
       journeyFareBeforeAirportAccessGbp: journeyFareParts.journeyFareGbp,
       airportFixedCostsGbp: journeyFareParts.airportFixedCostsGbp,
@@ -2079,6 +2133,10 @@ function QuoteCard({
       isAirportTrip: isAirportTrip || Boolean(journeyKind && journeyKind !== "address-to-address"),
       airportCode: effectiveAirportCode || undefined,
       isFromAirport: isAirportTrip || isFromAirport ? isFromAirport : undefined,
+      ...(journeyKind ? { journeyKind } : {}),
+      ...(pickupAirportCode ? { pickupAirportCode } : {}),
+      ...(dropoffAirportCode ? { dropoffAirportCode } : {}),
+      ...(isAirportToAirportJourney ? { isAirportToAirport: true } : {}),
       expressDropOffSelected: expressSelection.eligible ? expressDropOffSelected : false,
       expressDropOffFee: expressSelection.feeGbp,
       expressDropOffAirport: expressSelection.airportCode,
@@ -2320,7 +2378,13 @@ function QuoteCard({
             ? testChargeAmount
             : appliedPersonalQuote
               ? appliedPersonalQuote.agreedAmount
-              : (liveQuote.amount ?? 0),
+              : useOpenWebsitePromoPricing && journeyFareParts.journeyFareGbp != null
+                ? Math.round(
+                    (journeyFareParts.journeyFareGbp +
+                      journeyFareParts.airportFixedCostsGbp) *
+                      100,
+                  ) / 100
+                : (liveQuote.amount ?? 0),
         description: buildPaymentDescription(),
         redirectUrl: buildPaymentRedirectUrl(returnToken),
         booking: bookingDetails,
@@ -2331,6 +2395,17 @@ function QuoteCard({
           ? {
               journeyFareGbp: journeyFareParts.journeyFareGbp,
               airportFixedCostsGbp: journeyFareParts.airportFixedCostsGbp,
+              removedAirportFeeIds: isAirportToAirportJourney
+                ? removedAirportFeeIds
+                : [],
+              ...(routeMetrics
+                ? {
+                    routeMetrics: {
+                      distanceKm: routeMetrics.distanceKm,
+                      durationMinutes: routeMetrics.durationMinutes,
+                    },
+                  }
+                : {}),
               claimFirstBookingOffer: true,
             }
           : { claimFirstBookingOffer: false }),
@@ -3312,6 +3387,71 @@ function QuoteCard({
     );
   }
 
+  function renderAirportFeeLines() {
+    if (airportFeeResolution.lines.length === 0 || testChargeAmount !== null) {
+      return null;
+    }
+    return (
+      <div className="mt-3 space-y-2 text-left" data-airport-fee-lines>
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-white/45">
+          Airport charges
+        </p>
+        <ul className="space-y-2">
+          {airportFeeResolution.lines.map((line) => (
+            <li
+              key={line.id}
+              className="rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2"
+            >
+              <div className="flex items-start justify-between gap-3 text-sm">
+                <div className="min-w-0">
+                  <p className="font-medium text-white">
+                    {line.label}
+                    {line.leg === "return" ? (
+                      <span className="ml-1.5 text-xs font-normal text-white/45">
+                        (return)
+                      </span>
+                    ) : null}
+                  </p>
+                  <p className="mt-0.5 text-xs text-white/55">
+                    {line.removed
+                      ? "Removed — free-area alternative selected"
+                      : line.removable
+                        ? "Free-area alternative available"
+                        : "Included in your fixed price"}
+                  </p>
+                </div>
+                <p
+                  className={`shrink-0 tabular-nums font-semibold ${
+                    line.removed ? "text-white/40 line-through" : "text-white"
+                  }`}
+                >
+                  £{line.originalAmountGbp.toFixed(2)}
+                </p>
+              </div>
+              {line.removable ? (
+                <button
+                  type="button"
+                  className="mt-2 text-xs font-semibold text-emerald underline-offset-2 hover:underline"
+                  onClick={() => {
+                    setRemovedAirportFeeIds((current) =>
+                      line.removed
+                        ? current.filter((id) => id !== line.id)
+                        : current.includes(line.id)
+                          ? current
+                          : [...current, line.id],
+                    );
+                  }}
+                >
+                  {line.removed ? "Add this charge back" : "Remove this charge"}
+                </button>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
+  }
+
   function renderExpressChoiceInPriceCard(mode: "full" | "summary") {
     if (
       !expressSelection.eligible ||
@@ -3462,6 +3602,7 @@ function QuoteCard({
                 }
               />
             ) : null}
+            {renderAirportFeeLines()}
             {renderExpressChoiceInPriceCard(quoteStep === 1 ? "full" : "summary")}
             {appliedPersonalQuote && testChargeAmount === null ? (
               <p className="mt-2 text-sm text-emerald/90">
@@ -3710,8 +3851,8 @@ function QuoteCard({
   }
 
   return (
-    <div ref={cardRef} className="glass-card min-w-0 rounded-[1.05rem] p-3 sm:p-7 lg:p-6 xl:p-7">
-      <div className="mb-2.5 sm:mb-5 lg:mb-5">
+    <div ref={cardRef} className="glass-card min-w-0 rounded-[1.05rem] p-4 sm:p-7 lg:p-6 xl:p-7">
+      <div className="mb-4 sm:mb-5 lg:mb-5">
         <h2
           data-site-nav-heading="quote"
           tabIndex={-1}

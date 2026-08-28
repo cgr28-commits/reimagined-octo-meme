@@ -37,6 +37,11 @@ export type BookingDetails = {
   isAirportTrip: boolean;
   airportCode?: string;
   isFromAirport?: boolean;
+  /** Present when both ends are recognised airports. */
+  journeyKind?: string;
+  pickupAirportCode?: string | null;
+  dropoffAirportCode?: string | null;
+  isAirportToAirport?: boolean;
   /** Optional Express Drop-Off add-on (BFS/BHD departures). */
   expressDropOffSelected?: boolean;
   expressDropOffFee?: number;

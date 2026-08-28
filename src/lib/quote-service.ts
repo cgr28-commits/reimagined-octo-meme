@@ -54,6 +54,10 @@ export type QuoteServiceSuccess = {
   premiumApplied: boolean;
   returnJourney: boolean;
   oneWayAmount?: number;
+  /** Journey fare before airport fixed costs (when the engine exposes it). */
+  journeyFareGbp?: number;
+  /** Airport fixed costs included in `amount` (before Express / promos). */
+  airportFixedCostsGbp?: number;
   source: "website-pricing-engine";
 };
 
@@ -259,6 +263,15 @@ export function calculateAuthoritativeWebsiteQuote(
   }
 
   const amount = Math.round(quote.amount * 100) / 100;
+  const journeyFareGbp =
+    typeof quote.journeyFareGbp === "number" && Number.isFinite(quote.journeyFareGbp)
+      ? Math.round(quote.journeyFareGbp * 100) / 100
+      : undefined;
+  const airportFixedCostsGbp =
+    typeof quote.airportFixedCostsGbp === "number" &&
+    Number.isFinite(quote.airportFixedCostsGbp)
+      ? Math.round(quote.airportFixedCostsGbp * 100) / 100
+      : undefined;
 
   return {
     ok: true,
@@ -268,6 +281,8 @@ export function calculateAuthoritativeWebsiteQuote(
     vehicleType,
     premiumApplied: Boolean(quote.premiumApplied),
     returnJourney,
+    ...(journeyFareGbp != null ? { journeyFareGbp } : {}),
+    ...(airportFixedCostsGbp != null ? { airportFixedCostsGbp } : {}),
     source: "website-pricing-engine",
   };
 }
