@@ -236,7 +236,7 @@ function knowledgeChunks(): Array<{ title: string; body: string }> {
     },
     {
       title: "Airports we cover",
-      body: `We cover ${AIRPORTS.map((a) => `${a.name} (${a.code}): ${a.description} ${a.distance}, ${a.duration}`).join(" ")} Airport pickups include the applicable airport pickup fee (Dublin Airport pickup/parking £5, or City of Derry Airport pickup £2.50) and 60 minutes complimentary waiting after landing. Airport drop-offs include the applicable airport drop-off fee where charged (City of Derry Airport £1; Dublin Airport drop-off £0). Belfast International and Belfast City do not add a separate access fee on ordinary address↔airport journeys. Address-to-address journeys are a fixed price for your route.`,
+      body: `We cover ${AIRPORTS.map((a) => `${a.name} (${a.code}): ${a.description} ${a.distance}, ${a.duration}`).join(" ")} Airport pickups include the applicable airport pickup fee (Dublin Airport pickup/parking £5 plus M1 tolls, or City of Derry Airport pickup £2.50) and 60 minutes complimentary waiting after landing. Airport drop-offs include the applicable airport drop-off fee where charged (City of Derry Airport £1; Dublin Airport drop-off fee £0 with M1 tolls). Belfast International and Belfast City offer Express / free-area choice where configured. Address-to-address journeys are a fixed price for your route.`,
     },
     {
       title: "Areas we cover",
@@ -276,7 +276,7 @@ function knowledgeChunks(): Array<{ title: string; body: string }> {
     {
       title: "Flight delays and waiting time",
       body:
-        "We monitor your flight where possible and adjust the planned collection time for early or delayed arrivals. Airport pickups include up to 60 minutes complimentary waiting time. Airport drop-offs include the applicable airport drop-off fee where charged. Non-airport pickups include 10 minutes complimentary waiting. Dublin Airport pickups include pickup/parking (£5); Dublin drop-off is £0. City of Derry Airport pickup is £2.50 and drop-off is £1.",
+        "We monitor your flight where possible and adjust the planned collection time for early or delayed arrivals. Airport pickups include up to 60 minutes complimentary waiting time. Airport drop-offs include the applicable airport drop-off fee where charged. Non-airport pickups include 10 minutes complimentary waiting. Dublin Airport pickups include pickup/parking (£5) and M1 tolls; Dublin drop-off fee is £0 with M1 tolls still included. City of Derry Airport pickup is £2.50 and drop-off is £1.",
     },
     {
       title: "Cash and payment options",

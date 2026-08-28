@@ -131,7 +131,7 @@ add(
   99,
   calculateQuote("Belfast City Hall, Belfast BT1 5GS", "DUB", S)?.amount,
   calculateQuote("Belfast City Hall, Belfast BT1 5GS", "DUB", E)?.amount,
-  "bench £230/£240",
+  "bench £234/£240",
 );
 
 // 8 Dublin city beyond airport
@@ -147,7 +147,7 @@ add(
     { distanceKm: 168.6, durationMinutes: 119.5 },
   )?.amount;
   add("City Hall → Dublin city centre", "DUB+", 105, s, e);
-  assert.ok((s ?? 0) > 230 && (e ?? 0) > 240);
+  assert.ok((s ?? 0) > 234 && (e ?? 0) > 240);
 }
 
 // 9 Medium NI — Newry

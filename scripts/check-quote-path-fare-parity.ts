@@ -322,7 +322,7 @@ check("Dublin Airport drop-off", () => {
     airportCode: "DUB",
     fromAirport: false,
     metrics: CITY_DUB_METRICS,
-    expected: 230,
+    expected: 234,
   });
 });
 

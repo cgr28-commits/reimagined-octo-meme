@@ -58,7 +58,7 @@ const ROUTES = [
     km: 160,
     oldS: 230,
     oldE: 240,
-    targetS: 230,
+    targetS: 234,
     targetE: 240,
   },
   {
@@ -171,7 +171,7 @@ near(rows[0].newS, 30, 0);
 near(rows[0].newE, 35, 0);
 near(rows[1].newS, 44, 0);
 near(rows[1].newE, 50, 0);
-near(rows[2].newS, 230, 0);
+near(rows[2].newS, 234, 0);
 near(rows[2].newE, 240, 0);
 near(rows[3].newS, 81, 5);
 near(rows[3].newE, 93, 5);

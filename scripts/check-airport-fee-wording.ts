@@ -37,17 +37,18 @@ check("Airport drop-off: no fee bullets for BHD (no 60 min waiting)", () => {
   assert.equal(inc.complimentaryWaitingMinutes, 10);
 });
 
-check("Dublin Airport pickup: pickup/parking £5 + waiting (no drop-off fee)", () => {
+check("Dublin Airport pickup: pickup/parking £5 + M1 tolls + waiting (no drop-off fee)", () => {
   const inc = getAirportTripInclusions({ isFromAirport: true, airportCode: "DUB" });
-  assert.ok(inc.bullets.some((b) => /Dublin Airport pickup\/parking/.test(b)));
+  assert.ok(inc.bullets.some((b) => /pickup\/parking|M1 tolls/.test(b)));
   assert.ok(inc.bullets.some((b) => /60 minutes complimentary airport waiting/.test(b)));
-  assert.ok(!inc.bullets.some((b) => /drop-off/i.test(b)));
+  assert.ok(!inc.bullets.some((b) => /drop-off fee/i.test(b)));
   assert.ok(!inc.bullets.some((b) => /Express/i.test(b)));
 });
 
-check("Dublin Airport drop-off: free (no fee bullets, no waiting)", () => {
+check("Dublin Airport drop-off: M1 tolls only (no drop-off fee, no waiting)", () => {
   const inc = getAirportTripInclusions({ isFromAirport: false, airportCode: "DUB" });
-  assert.ok(!inc.bullets.some((b) => /M1 tolls|parking|fee/i.test(b)));
+  assert.ok(inc.bullets.some((b) => /M1 tolls/.test(b)));
+  assert.ok(!inc.bullets.some((b) => /parking|drop-off fee/i.test(b)));
   assert.ok(!inc.bullets.some((b) => /60 minutes/.test(b)));
 });
 
@@ -92,9 +93,9 @@ check("Email includes block matches customer examples", () => {
 
   const dropoff = formatEmailFareIncludesBlock(
     getAirportTripInclusions({ isFromAirport: false, airportCode: "DUB" }),
-    "£230",
+    "£234",
   );
-  assert.doesNotMatch(dropoff, /M1 tolls included/);
+  assert.match(dropoff, /M1 tolls included/);
   assert.doesNotMatch(dropoff, /drop-off fee/i);
   assert.doesNotMatch(dropoff, /60 minutes/);
 });

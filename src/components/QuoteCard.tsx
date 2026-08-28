@@ -3406,9 +3406,9 @@ function QuoteCard({
                   </p>
                   <p className="mt-0.5 text-xs text-white/55">
                     {line.removed
-                      ? "Removed from this quote"
+                      ? "Removed — free-area alternative selected"
                       : line.removable
-                        ? "Airport-to-airport — optional"
+                        ? "Free-area alternative available"
                         : "Included in your fixed price"}
                   </p>
                 </div>
@@ -3843,8 +3843,8 @@ function QuoteCard({
   }
 
   return (
-    <div ref={cardRef} className="glass-card min-w-0 rounded-[1.05rem] p-3 sm:p-7 lg:p-6 xl:p-7">
-      <div className="mb-2.5 sm:mb-5 lg:mb-5">
+    <div ref={cardRef} className="glass-card min-w-0 rounded-[1.05rem] p-4 sm:p-7 lg:p-6 xl:p-7">
+      <div className="mb-4 sm:mb-5 lg:mb-5">
         <h2
           data-site-nav-heading="quote"
           tabIndex={-1}

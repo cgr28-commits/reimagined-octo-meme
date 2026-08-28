@@ -42,20 +42,21 @@ function check(label: string, fn: () => void) {
   }
 }
 
-check("Config: BFS/BHD £0/£0, DUB £0 drop / £5 pickup, LDY £1 drop / £2.50 pickup", () => {
+check("Config: BFS/BHD £0/£0, DUB £4 drop (M1) / £9 pickup (parking+M1), LDY £1/£2.50", () => {
   assert.equal(getAirportLegFixedCostGbp("BFS", false), 0);
   assert.equal(getAirportLegFixedCostGbp("BFS", true), 0);
   assert.equal(getAirportLegFixedCostGbp("BHD", false), 0);
   assert.equal(getAirportLegFixedCostGbp("BHD", true), 0);
-  assert.equal(getAirportLegFixedCostGbp("DUB", false), 0);
-  assert.equal(getAirportLegFixedCostGbp("DUB", true), 5);
+  assert.equal(getAirportLegFixedCostGbp("DUB", false), 4);
+  assert.equal(getAirportLegFixedCostGbp("DUB", true), 9);
   assert.equal(getAirportLegFixedCostGbp("LDY", false), 1);
   assert.equal(getAirportLegFixedCostGbp("LDY", true), 2.5);
   assert.equal(AIRPORT_FIXED_COSTS_GBP.DUB.dropOffFeeGbp, 0);
   assert.equal(AIRPORT_FIXED_COSTS_GBP.DUB.parkingAllowanceGbp, 5);
-  assert.equal(AIRPORT_FIXED_COSTS_GBP.DUB.tollAllowanceGbp, 0);
+  assert.equal(AIRPORT_FIXED_COSTS_GBP.DUB.tollAllowanceGbp, 4);
   assert.equal(PRICING_CONFIG.airportFixedCostsGbp?.BFS?.dropOffFeeGbp, 0);
   assert.equal(PRICING_CONFIG.airportFixedCostsGbp?.DUB?.parkingAllowanceGbp, 5);
+  assert.equal(PRICING_CONFIG.airportFixedCostsGbp?.DUB?.tollAllowanceGbp, 4);
   assert.equal(PRICING_CONFIG.airportFixedCostsGbp?.LDY?.dropOffFeeGbp, 1);
   assert.equal(PRICING_CONFIG.airportFixedCostsGbp?.LDY?.pickupFeeGbp, 2.5);
 });
@@ -86,15 +87,15 @@ check("BHD drop-off and pickup (City Hall £30; Antrim £65)", () => {
   assert.equal(antrimDrop.airportFixedCostsGbp, 0);
 });
 
-check("Dublin drop-off £0; pickup £5 parking (mandatory)", () => {
+check("Dublin drop-off fee £0 + M1 £4; pickup parking £5 + M1 £4 (mandatory)", () => {
   const drop = calculateQuote(CITY, "DUB", S, false, {}, null, false)!;
   const pick = calculateQuote(CITY, "DUB", S, false, {}, null, true)!;
-  assert.equal(drop.airportFixedCostsGbp, 0);
-  assert.equal(pick.airportFixedCostsGbp, 5);
+  assert.equal(drop.airportFixedCostsGbp, 4);
+  assert.equal(pick.airportFixedCostsGbp, 9);
   assert.equal(drop.journeyFareGbp, 230);
   assert.equal(pick.journeyFareGbp, 230);
-  assert.equal(drop.amount, 230);
-  assert.equal(pick.amount, 235);
+  assert.equal(drop.amount, 234);
+  assert.equal(pick.amount, 239);
 });
 
 check("City of Derry: drop-off £1; pickup £2.50 (mandatory)", () => {
@@ -156,8 +157,8 @@ check("Return: BFS fixed £0; 5% discount only on journey fare", () => {
 check("Airport costs are not multiplied by vehicle / estate premium", () => {
   const saloon = calculateQuote(CITY, "DUB", S, false, {}, null, false)!;
   const estate = calculateQuote(CITY, "DUB", E, false, {}, null, false)!;
-  assert.equal(saloon.airportFixedCostsGbp, 0);
-  assert.equal(estate.airportFixedCostsGbp, 0);
+  assert.equal(saloon.airportFixedCostsGbp, 4);
+  assert.equal(estate.airportFixedCostsGbp, 4);
   // Estate uplift lives in journey fare only — fixed block identical.
   assert.ok((estate.journeyFareGbp ?? 0) > (saloon.journeyFareGbp ?? 0));
   assert.equal(
@@ -235,12 +236,13 @@ check("Wording: BFS/BHD like LDY — no fee bullets; pickup still has 60 min wai
   assert.ok(!bfsPick.bullets.some((b) => /drop-off/i.test(b)));
 });
 
-check("Wording: Dublin drop-off free; pickup/parking £5 + waiting; never drop-off fee", () => {
+check("Wording: Dublin drop-off shows M1 tolls; pickup/parking + M1 + waiting; never drop-off fee", () => {
   const drop = getAirportTripInclusions({ isFromAirport: false, airportCode: "DUB" });
-  assert.ok(!drop.bullets.some((b) => /M1 tolls|parking|fee/i.test(b)));
+  assert.ok(drop.bullets.some((b) => /M1 tolls/.test(b)));
+  assert.ok(!drop.bullets.some((b) => /drop-off fee|parking/i.test(b)));
 
   const pick = getAirportTripInclusions({ isFromAirport: true, airportCode: "DUB" });
-  assert.ok(pick.bullets.some((b) => /Dublin Airport pickup\/parking/.test(b)));
+  assert.ok(pick.bullets.some((b) => /pickup\/parking|M1 tolls/.test(b)));
   assert.ok(pick.bullets.some((b) => /60 minutes complimentary airport waiting/.test(b)));
   assert.ok(!pick.bullets.some((b) => /drop-off fee/i.test(b)));
 });
