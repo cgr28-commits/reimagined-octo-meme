@@ -272,6 +272,44 @@ function paymentAirportContextForBooking(
 }
 
 /**
+ * SumUp checkout must charge exactly what the customer was shown and agreed.
+ * Allow a £0.02 rounding tolerance only.
+ */
+export function checkoutAmountsMatch(
+  displayedFinalAmountGbp: number,
+  serverFinalAmountGbp: number,
+  toleranceGbp = 0.02,
+): boolean {
+  const displayed = roundGbp(displayedFinalAmountGbp);
+  const server = roundGbp(serverFinalAmountGbp);
+  if (!Number.isFinite(displayed) || !Number.isFinite(server)) return false;
+  if (displayed < 1 || server < 1) return false;
+  const tolerancePence = Math.round(toleranceGbp * 100);
+  return Math.abs(Math.round(displayed * 100) - Math.round(server * 100)) <= tolerancePence;
+}
+
+export function buildFareMismatchPaymentError(
+  displayedFinalAmountGbp: number,
+  serverFinalAmountGbp: number,
+): {
+  error: string;
+  code: "fare_mismatch";
+  displayedAmountGbp: number;
+  serverAmountGbp: number;
+} {
+  const displayed = roundGbp(displayedFinalAmountGbp);
+  const server = roundGbp(serverFinalAmountGbp);
+  const displayedLabel = `£${displayed.toFixed(displayed % 1 === 0 ? 0 : 2)}`;
+  const serverLabel = `£${server.toFixed(server % 1 === 0 ? 0 : 2)}`;
+  return {
+    error: `Your fare has changed from ${displayedLabel} to ${serverLabel}. Please review the updated price before continuing to payment.`,
+    code: "fare_mismatch",
+    displayedAmountGbp: displayed,
+    serverAmountGbp: server,
+  };
+}
+
+/**
  * Resolve journey + airport fixed costs for open-website SumUp checkout.
  * Illegal DUB/LDY removals are ignored by resolveJourneyAirportFees.
  * Airport identity comes from address labels (SERVED_AIRPORTS), not client fields.

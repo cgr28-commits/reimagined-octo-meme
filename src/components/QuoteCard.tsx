@@ -99,8 +99,10 @@ import {
 import {
   buildPaymentRedirectUrl,
   createPaymentCheckout,
+  isPaymentFareMismatchError,
   isSumUpPaymentEnabled,
 } from "@/lib/create-payment";
+import { calculateServerQuote } from "@/lib/quick-quote-api";
 import {
   validatePersonalQuoteCode,
   type PersonalQuotePublicSummary,
@@ -598,6 +600,12 @@ function QuoteCard({
     return "";
   });
   const [routeMetrics, setRouteMetrics] = useState<TripRouteMetrics | null>(null);
+  /** Worker-authoritative journey/fixed split (same engine as SumUp). Prefer over browser metrics. */
+  const [serverFareParts, setServerFareParts] = useState<{
+    journeyFareGbp: number;
+    airportFixedCostsGbp: number;
+    amountGbp: number;
+  } | null>(null);
   const [paymentLoading, setPaymentLoading] = useState(false);
   const [paymentError, setPaymentError] = useState("");
   const [openCheckout, setOpenCheckout] = useState<OpenCheckoutSession | null>(null);
@@ -1282,6 +1290,100 @@ function QuoteCard({
     quoteVehicle,
   ]);
 
+  // Prefer Worker-authoritative fare (same resolveWorkerTripRouteMetrics + engine as SumUp)
+  // so the displayed/consent amount matches checkout. Browser metrics stay for map display.
+  useEffect(() => {
+    if (!canShowPrice || isManualQuoteJourney || pricingConfirmationRequired) {
+      setServerFareParts(null);
+      return;
+    }
+    if (isEnquiryOnly && !showGuidePrice) {
+      setServerFareParts(null);
+      return;
+    }
+    const pickup = pickupAddress.trim();
+    const dropoff = dropoffAddress.trim();
+    if (!pickup || !dropoff || passengers == null || suitcases == null || journeyMode == null) {
+      setServerFareParts(null);
+      return;
+    }
+    if (!tripDate.trim() || !tripTime.trim()) {
+      // Still allow early quotes without schedule — Worker treats dates as optional.
+    }
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        try {
+          const result = await calculateServerQuote({
+            pickupAddress: pickup,
+            dropoffAddress: dropoff,
+            // Omit client airportCode — Worker derives from addresses (payment parity).
+            returnJourney,
+            outboundDate: tripDate.trim(),
+            outboundTime: tripTime.trim(),
+            returnDate: returnJourney ? returnDate.trim() : undefined,
+            returnTime: returnJourney ? returnTime.trim() : undefined,
+            passengers,
+            suitcases,
+            // Do not send browser routeMetrics/latLng — Worker resolves server-side.
+          });
+          if (cancelled) return;
+          if (
+            result.ok &&
+            Number.isFinite(result.amount) &&
+            typeof result.journeyFareGbp === "number" &&
+            Number.isFinite(result.journeyFareGbp)
+          ) {
+            setServerFareParts({
+              journeyFareGbp: Math.round(result.journeyFareGbp * 100) / 100,
+              airportFixedCostsGbp:
+                typeof result.airportFixedCostsGbp === "number"
+                  ? Math.round(result.airportFixedCostsGbp * 100) / 100
+                  : 0,
+              amountGbp: Math.round(result.amount * 100) / 100,
+            });
+            if (
+              Number.isFinite(result.distanceKm) &&
+              Number.isFinite(result.durationMinutes) &&
+              (result.distanceKm ?? 0) > 0 &&
+              (result.durationMinutes ?? 0) > 0
+            ) {
+              setRouteMetrics({
+                distanceKm: result.distanceKm!,
+                durationMinutes: result.durationMinutes!,
+              });
+            }
+          } else {
+            setServerFareParts(null);
+          }
+        } catch {
+          if (!cancelled) setServerFareParts(null);
+        }
+      })();
+    }, 280);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [
+    canShowPrice,
+    dropoffAddress,
+    isEnquiryOnly,
+    isManualQuoteJourney,
+    journeyMode,
+    passengers,
+    pickupAddress,
+    pricingConfirmationRequired,
+    returnDate,
+    returnJourney,
+    returnTime,
+    showGuidePrice,
+    suitcases,
+    tripDate,
+    tripTime,
+    quoteVehicle,
+  ]);
+
   const journeyDistanceLabel = routeMetrics
     ? formatJourneyDistance(routeMetrics.distanceKm)
     : "";
@@ -1409,6 +1511,17 @@ function QuoteCard({
   ]);
 
   const journeyFareParts = useMemo(() => {
+    // Prefer Worker-authoritative split so consent amount matches SumUp requote.
+    if (serverFareParts) {
+      const fixedFromLines =
+        airportFeeResolution.lines.length > 0
+          ? airportFeeResolution.totalAppliedGbp
+          : serverFareParts.airportFixedCostsGbp;
+      return {
+        journeyFareGbp: serverFareParts.journeyFareGbp,
+        airportFixedCostsGbp: fixedFromLines,
+      };
+    }
     if (!liveQuote || typeof liveQuote.amount !== "number") {
       return { journeyFareGbp: null as number | null, airportFixedCostsGbp: 0 };
     }
@@ -1427,7 +1540,7 @@ function QuoteCard({
         ? airportFeeResolution.totalAppliedGbp
         : quotedFixed;
     return { journeyFareGbp: journey, airportFixedCostsGbp: fixed };
-  }, [liveQuote, airportFeeResolution]);
+  }, [liveQuote, airportFeeResolution, serverFareParts]);
 
   const openWebsiteFareBreakdown = useMemo(() => {
     if (!useOpenWebsitePromoPricing || journeyFareParts.journeyFareGbp == null) {
@@ -1527,6 +1640,7 @@ function QuoteCard({
     setSuitcases(null);
     setExactPassengers(null);
     setRouteMetrics(null);
+    setServerFareParts(null);
   }
 
   function handlePickupChange(value: string) {
@@ -2378,13 +2492,7 @@ function QuoteCard({
             ? testChargeAmount
             : appliedPersonalQuote
               ? appliedPersonalQuote.agreedAmount
-              : useOpenWebsitePromoPricing && journeyFareParts.journeyFareGbp != null
-                ? Math.round(
-                    (journeyFareParts.journeyFareGbp +
-                      journeyFareParts.airportFixedCostsGbp) *
-                      100,
-                  ) / 100
-                : (liveQuote.amount ?? 0),
+              : paymentAmount ?? liveQuote.amount ?? 0,
         description: buildPaymentDescription(),
         redirectUrl: buildPaymentRedirectUrl(returnToken),
         booking: bookingDetails,
@@ -2398,17 +2506,13 @@ function QuoteCard({
               removedAirportFeeIds: isAirportToAirportJourney
                 ? removedAirportFeeIds
                 : [],
-              ...(routeMetrics
-                ? {
-                    routeMetrics: {
-                      distanceKm: routeMetrics.distanceKm,
-                      durationMinutes: routeMetrics.durationMinutes,
-                    },
-                  }
-                : {}),
+              acceptedFinalAmountGbp: paymentAmount ?? undefined,
               claimFirstBookingOffer: true,
             }
-          : { claimFirstBookingOffer: false }),
+          : {
+              acceptedFinalAmountGbp: paymentAmount ?? undefined,
+              claimFirstBookingOffer: false,
+            }),
         ...(appliedPersonalQuote && testChargeAmount === null
           ? {
               personalQuoteCode: appliedPersonalQuote.code,
@@ -2478,6 +2582,41 @@ function QuoteCard({
       // Keep loading state until navigation completes; re-enable only if assign somehow fails.
       return;
     } catch (error) {
+      if (isPaymentFareMismatchError(error)) {
+        const server = error.serverAmountGbp;
+        // Update displayed fare to the authoritative amount and require re-consent.
+        setServerFareParts((prev) =>
+          prev
+            ? {
+                ...prev,
+                // Keep journey/fixed; pricedFare recomposes with Express — if the
+                // delta is mostly journey, approximate by adjusting journey fare.
+                journeyFareGbp: Math.max(
+                  0,
+                  Math.round(
+                    (server -
+                      (prev.airportFixedCostsGbp || 0) -
+                      (expressSelection.feeGbp || 0)) *
+                      100,
+                  ) / 100,
+                ),
+                amountGbp: server,
+              }
+            : {
+                journeyFareGbp: Math.max(
+                  0,
+                  Math.round((server - (expressSelection.feeGbp || 0)) * 100) / 100,
+                ),
+                airportFixedCostsGbp: 0,
+                amountGbp: server,
+              },
+        );
+        setTermsAccepted(false);
+        setTermsError("Please review the updated fare and accept the terms again.");
+        setPaymentError(error.message);
+        setPaymentLoading(false);
+        return;
+      }
       setPaymentError(
         error instanceof Error
           ? error.message
@@ -2628,6 +2767,7 @@ function QuoteCard({
     );
     setIntentAirportCode(isCustomerAirportCode(initialAirportCode) ? initialAirportCode : "");
     setRouteMetrics(null);
+    setServerFareParts(null);
     setPaymentLoading(false);
     setPaymentError("");
     setOpenCheckout(null);

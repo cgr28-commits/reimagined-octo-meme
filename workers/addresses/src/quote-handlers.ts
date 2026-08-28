@@ -24,6 +24,8 @@ import { ownerAuthorized } from "./driver-auth";
 import { resolveWorkerTripRouteMetrics } from "./resolve-route-metrics";
 import { parseClientRouteMetrics } from "./parse-route-metrics";
 import { resolveAirportTransferIntent } from "../shared/airport-transfer-intent";
+import { resolvePaymentAirportContextFromAddresses } from "../shared/open-website-payment-fares";
+import { calculateAirportToAirportQuote, formatQuote } from "../../../src/lib/quote";
 import { drivingMilesFromKm } from "../../../src/lib/quote";
 
 function json(body: unknown, status: number, origin: string | null): Response {
@@ -93,24 +95,40 @@ export async function handleQuoteCalculateRequest(
   const pickupAddress = String(body.pickupAddress ?? "");
   const dropoffAddress = String(body.dropoffAddress ?? "");
 
-  // Infer BFS/BHD/DUB when the UI omitted airportCode (common when the airport
-  // was chosen from address suggestions rather than the Quick Quote chip).
-  // Missing airportCode previously forced point-to-point and skipped the BFS floor.
+  // Prefer address-derived airport identity (same as SumUp payment) so display
+  // and checkout share one SERVED_AIRPORTS match. Client airportCode is a hint
+  // only when labels do not identify a served airport.
+  const addressAirport = resolvePaymentAirportContextFromAddresses(
+    pickupAddress,
+    dropoffAddress,
+  );
   const inferred = resolveAirportTransferIntent({
     airportCode: body.airportCode == null ? null : String(body.airportCode),
     fromAirport: typeof body.fromAirport === "boolean" ? body.fromAirport : null,
     pickupAddress,
     dropoffAddress,
   });
-  const airportCode = (inferred?.airportCode ?? null) as QuoteServiceAirportCode | null;
-  const fromAirport = inferred?.fromAirport ?? body.fromAirport === true;
+  const airportCode = (
+    addressAirport.ok && addressAirport.context.airportCode
+      ? addressAirport.context.airportCode
+      : (inferred?.airportCode ?? null)
+  ) as QuoteServiceAirportCode | null;
+  const fromAirport =
+    addressAirport.ok && addressAirport.context.isAirportTrip
+      ? addressAirport.context.fromAirport
+      : (inferred?.fromAirport ?? body.fromAirport === true);
+  const isAirportToAirport =
+    addressAirport.ok && addressAirport.context.isAirportToAirport;
   const airportCodeSource =
-    String(body.airportCode ?? "").trim() &&
-    ["BFS", "BHD", "DUB", "LDY"].includes(String(body.airportCode).trim().toUpperCase())
-      ? "client"
-      : inferred
-        ? "inferred"
-        : "none";
+    addressAirport.ok &&
+    (addressAirport.context.airportCode || addressAirport.context.isAirportToAirport)
+      ? "addresses"
+      : String(body.airportCode ?? "").trim() &&
+          ["BFS", "BHD", "DUB", "LDY"].includes(String(body.airportCode).trim().toUpperCase())
+        ? "client"
+        : inferred
+          ? "inferred"
+          : "none";
 
   // Worker resolve first (geocode + OSRM/haversine). Client metrics are fallback only —
   // short/wrong browser metrics previously overrode a correct Worker resolve and
@@ -221,22 +239,77 @@ export async function handleQuoteCalculateRequest(
     ownerMode,
   );
 
-  const result = calculateAuthoritativeWebsiteQuote({
-    airportCode,
-    fromAirport,
-    pickupAddress,
-    dropoffAddress,
-    returnJourney,
+  const schedule = {
     outboundDate: String(body.outboundDate ?? ""),
     outboundTime: String(body.outboundTime ?? ""),
     returnDate: String(body.returnDate ?? "") || undefined,
     returnTime: String(body.returnTime ?? "") || undefined,
-    passengers,
-    suitcases,
-    routeMetrics,
-    vehicleType: resolved.vehicleType,
-    maxPassengers: resolved.maxPassengers,
-  });
+    returnJourney,
+  };
+
+  let result: ReturnType<typeof calculateAuthoritativeWebsiteQuote>;
+
+  if (
+    isAirportToAirport &&
+    addressAirport.ok &&
+    addressAirport.context.pickupAirportCode &&
+    addressAirport.context.dropoffAirportCode
+  ) {
+    const a2a = calculateAirportToAirportQuote(
+      addressAirport.context.pickupAirportCode,
+      addressAirport.context.dropoffAirportCode,
+      pickupAddress,
+      dropoffAddress,
+      resolved.vehicleType,
+      returnJourney,
+      schedule,
+      routeMetrics,
+    );
+    if (a2a && Number.isFinite(a2a.amount) && a2a.amount >= 1) {
+      result = {
+        ok: true,
+        amount: Math.round(a2a.amount * 100) / 100,
+        amountLabel: formatQuote(a2a.amount),
+        currency: "GBP",
+        vehicleType: resolved.vehicleType,
+        premiumApplied: Boolean(a2a.premiumApplied),
+        returnJourney,
+        journeyFareGbp:
+          typeof a2a.journeyFareGbp === "number"
+            ? Math.round(a2a.journeyFareGbp * 100) / 100
+            : undefined,
+        airportFixedCostsGbp:
+          typeof a2a.airportFixedCostsGbp === "number"
+            ? Math.round(a2a.airportFixedCostsGbp * 100) / 100
+            : undefined,
+        source: "website-pricing-engine",
+      };
+    } else {
+      result = {
+        ok: false,
+        reason: "no_fare",
+        message:
+          "We could not calculate a fixed online fare for that journey. Please speak to Colin and we will help.",
+      };
+    }
+  } else {
+    result = calculateAuthoritativeWebsiteQuote({
+      airportCode,
+      fromAirport,
+      pickupAddress,
+      dropoffAddress,
+      returnJourney,
+      outboundDate: String(body.outboundDate ?? ""),
+      outboundTime: String(body.outboundTime ?? ""),
+      returnDate: String(body.returnDate ?? "") || undefined,
+      returnTime: String(body.returnTime ?? "") || undefined,
+      passengers,
+      suitcases,
+      routeMetrics,
+      vehicleType: resolved.vehicleType,
+      maxPassengers: resolved.maxPassengers,
+    });
+  }
 
   const miles = Math.round(drivingMilesFromKm(routeMetrics.distanceKm) * 10) / 10;
   const diagnostics = {

@@ -341,6 +341,8 @@ import {
 import {
   resolveOpenWebsitePaymentTransferFares,
   resolvePaymentAirportContextFromAddresses,
+  checkoutAmountsMatch,
+  buildFareMismatchPaymentError,
 } from "../shared/open-website-payment-fares";
 import { resolveWorkerTripRouteMetrics } from "./resolve-route-metrics";
 import {
@@ -2050,7 +2052,34 @@ async function handlePaymentRequest(
       claimFirstBookingOffer,
     });
 
-    amount = breakdown.finalAmountPayableGbp;
+    const serverFinalAmountGbp = breakdown.finalAmountPayableGbp;
+    // Customer must have been shown/agreed this exact final amount (consent + breakdown).
+    // Never silently substitute a recalculated SumUp charge.
+    const acceptedFinalRaw = Number(
+      body.acceptedFinalAmountGbp ?? body.customerDisplayedFinalAmountGbp,
+    );
+    if (!Number.isFinite(acceptedFinalRaw) || acceptedFinalRaw < 1) {
+      return json(
+        {
+          error:
+            "Quote amount is out of date. Please refresh your quote and try again.",
+          code: "fare_mismatch",
+          displayedAmountGbp: null,
+          serverAmountGbp: serverFinalAmountGbp,
+        },
+        409,
+        origin,
+      );
+    }
+    if (!checkoutAmountsMatch(acceptedFinalRaw, serverFinalAmountGbp)) {
+      return json(
+        buildFareMismatchPaymentError(acceptedFinalRaw, serverFinalAmountGbp),
+        409,
+        origin,
+      );
+    }
+
+    amount = serverFinalAmountGbp;
     booking = {
       ...booking,
       // Persist server-derived airport identity (not client-tampered fields).

@@ -10,6 +10,8 @@ import path from "node:path";
 import {
   resolveOpenWebsitePaymentTransferFares,
   resolvePaymentAirportContextFromAddresses,
+  checkoutAmountsMatch,
+  buildFareMismatchPaymentError,
   parseJourneyDistanceKmLabel,
   parseJourneyDurationMinutesLabel,
 } from "../shared/open-website-payment-fares";
@@ -63,6 +65,11 @@ check("payment handler resolves route + airport context server-side", () => {
     index,
     /Never trust client airportCode[\s\S]*resolvePaymentAirportContextFromAddresses/,
   );
+  // Must never silently replace the customer-agreed amount.
+  assert.match(index, /acceptedFinalAmountGbp/);
+  assert.match(index, /checkoutAmountsMatch/);
+  assert.match(index, /buildFareMismatchPaymentError/);
+  assert.match(index, /code: "fare_mismatch"/);
   // Must not wire body.routeMetrics into payment requote metrics.
   assert.doesNotMatch(
     index,
@@ -78,6 +85,7 @@ check("payment handler resolves route + airport context server-side", () => {
     "utf8",
   );
   assert.match(quoteHandlers, /resolveWorkerTripRouteMetrics/);
+  assert.match(quoteHandlers, /resolvePaymentAirportContextFromAddresses/);
 });
 
 check("honest City→DUB transfer uses canonical quote", () => {
@@ -994,6 +1002,56 @@ check("7. BFS/BHD free-area choice still works on A2A", () => {
 check("ambiguous same-airport both ends rejected", () => {
   const ctx = resolvePaymentAirportContextFromAddresses(DUB_LABEL, DUB_LABEL);
   assert.equal(ctx.ok, false);
+});
+
+// --- Consent amount must equal SumUp amount (never silent £138 → £200) ---
+
+check("1. displayed £138 / server £138 → match (SumUp may proceed)", () => {
+  assert.equal(checkoutAmountsMatch(138, 138), true);
+});
+
+check("2. displayed £138 / server £138.01 → within £0.02 tolerance", () => {
+  assert.equal(checkoutAmountsMatch(138, 138.01), true);
+  assert.equal(checkoutAmountsMatch(138, 138.02), true);
+});
+
+check("3. displayed £138 / server £200 → rejected mismatch", () => {
+  assert.equal(checkoutAmountsMatch(138, 200), false);
+  const err = buildFareMismatchPaymentError(138, 200);
+  assert.equal(err.code, "fare_mismatch");
+  assert.equal(err.displayedAmountGbp, 138);
+  assert.equal(err.serverAmountGbp, 200);
+  assert.match(err.error, /£138/);
+  assert.match(err.error, /£200/);
+  assert.match(err.error, /review the updated price/i);
+});
+
+check("4. displayed £200 / server £138 → rejected mismatch", () => {
+  assert.equal(checkoutAmountsMatch(200, 138), false);
+});
+
+check("5. manipulated client amount £1 vs server £138 → rejected", () => {
+  assert.equal(checkoutAmountsMatch(1, 138), false);
+});
+
+check("payment path: £138 accepted vs £200 server never creates checkout (static)", () => {
+  // Simulate the Worker gate: mismatch → fare_mismatch payload, no SumUp.
+  const accepted = 138;
+  const serverFinal = 200;
+  assert.equal(checkoutAmountsMatch(accepted, serverFinal), false);
+  const payload = buildFareMismatchPaymentError(accepted, serverFinal);
+  assert.equal(payload.code, "fare_mismatch");
+  // Confirm create-payment + QuoteCard wire acceptedFinalAmountGbp.
+  const createPayment = fs.readFileSync(
+    path.join(root, "src/lib/create-payment.ts"),
+    "utf8",
+  );
+  assert.match(createPayment, /acceptedFinalAmountGbp/);
+  assert.match(createPayment, /fare_mismatch/);
+  const card = fs.readFileSync(path.join(root, "src/components/QuoteCard.tsx"), "utf8");
+  assert.match(card, /acceptedFinalAmountGbp:\s*paymentAmount/);
+  assert.match(card, /isPaymentFareMismatchError/);
+  assert.match(card, /calculateServerQuote/);
 });
 
 console.log("\nAll open-website payment fare checks passed.");
