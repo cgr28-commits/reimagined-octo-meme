@@ -50,11 +50,16 @@ export type PaymentCheckoutRequest = {
    * Used with the authoritative website fare composer on open-website checkout.
    */
   journeyFareGbp?: number;
-  /** Undiscounted airport fixed costs already in `amount` (e.g. Dublin parking). */
+  /** Undiscounted airport fixed costs already in `amount` (after any valid A2A removals). */
   airportFixedCostsGbp?: number;
   /**
-   * When true (default for open website), apply the £5 booking saving when the
-   * current booking value is £40 or more. No email / redemption check.
+   * Airport-to-airport only: fee line ids the customer independently removed.
+   * Ignored for normal airport↔address journeys (fees stay mandatory).
+   */
+  removedAirportFeeIds?: string[];
+  /**
+   * When true (default for open website), apply the £5 booking saving when enabled
+   * and booking value ≥ £40. Offer is currently disabled in config.
    * Personal / Quick / Saved quotes must pass false.
    */
   claimFirstBookingOffer?: boolean;
@@ -203,6 +208,13 @@ export async function createPaymentCheckout(
         : {}),
       ...(typeof request.airportFixedCostsGbp === "number"
         ? { airportFixedCostsGbp: request.airportFixedCostsGbp }
+        : {}),
+      ...(Array.isArray(request.removedAirportFeeIds)
+        ? {
+            removedAirportFeeIds: request.removedAirportFeeIds
+              .map((id) => String(id).trim())
+              .filter(Boolean),
+          }
         : {}),
       ...(typeof request.claimFirstBookingOffer === "boolean"
         ? { claimFirstBookingOffer: request.claimFirstBookingOffer }

@@ -4,10 +4,10 @@
     "summary": "One engine for every eligible online journey: driving route (when available) \u2192 distance/time reference \u2192 distance-band adjustment \u2192 airport zone/minimum rules when an airport leg is present \u2192 vehicle supplement \u2192 optional return 5% discount \u2192 rounded fixed fare.",
     "addressToAddress": "OTS-style reference (vehicleBase + tier\u00d7(perKm\u00d7km + perMin\u00d7min)) + addressToAddressDistanceBands adjustment. Requires valid route metrics; otherwise no fare.",
     "airport": "Calibrated areaAirportSurchargesGbp zones supply short/medium airport fares (scales by origin zone, not a hard-coded town-pair). Estate uses tiered premium (\u2264\u00a345 +\u00a35; mid +\u00a38; \u2265\u00a3140 +\u00a324; Dublin flat +\u00a38). Airport-zone OTS calibration targets ~\u00a33\u2013\u00a35 below OTS estate (airportOtsCalibration) without feeding live quotes. When route metrics exist: unknown origins use distance+airport minimum; long hauls (\u2265 airportRouteDistanceProtectFromKm) take max(zone, distance) for empty-return protection. BHD/BFS also apply belfastAirportDistanceFloor (MAX zone vs \u00a365/\u00a360 + \u00a32/mile above 20 miles) so named zones do not flatten longer journeys. No weekend/Bank Holiday surcharge \u2014 weekday and weekend use the same base fare (airportTripPremiumRate / addressToAddressTripPremiumRate are 0).",
-    "dublinAirport": "Belfast-centre DUB journey fare remains the zone benchmark (\u00a3230 saloon / \u00a3238 estate before fixed costs). After airportFixedCostsGbp: drop-off +\u00a34 M1 (customer \u00a3234 saloon); pickup +\u00a38 parking+M1 (customer \u00a3240 saloon after roundFare). Dublin city uses DUB fare + dublinCityBeyondAirport uplift.",
+    "dublinAirport": "Belfast-centre DUB journey fare remains the zone benchmark (\u00a3230 saloon / \u00a3238 estate before fixed costs). After airportFixedCostsGbp: drop-off \u00a30; pickup/parking +\u00a35 (customer \u00a3235 saloon). Dublin city uses DUB fare + dublinCityBeyondAirport uplift.",
     "vehicles": "Saloon 1\u20134 pax AND 0\u20132 large cases; Estate 1\u20134 pax AND 3\u20134 cases; Minibus 5\u20137 pax (or >4 large cases for capacity). Online Minibus fare: estateTier\u00d71.55 airport / \u00a360 A2A base.",
     "returnDiscount": "returnJourneyDiscountRate (exactly 5%) applied once to (2 \u00d7 oneWay journey fare). Airport fixed costs (fees / parking / M1 toll allowances) are added after and are never discounted.",
-    "airportFixedCosts": "Per-leg: BFS/BHD \u00a30 on address\u2194airport; DUB drop \u00a34 / pick \u00a38; LDY \u00a30. A2A BFS\u2194BHD retains destination-end historical surcharge only (not \u00a39).",
+    "airportFixedCosts": "Per-leg: BFS/BHD \u00a30 on address\u2194airport; DUB drop \u00a30 / pick \u00a35 parking; LDY drop \u00a31 / pick \u00a32.50. A2A only: each non-zero fee independently removable. A2A BFS\u2194BHD retains destination-end historical surcharge only (not \u00a39).",
     "rounding": "Prefer nearest \u00a35; amounts ending in \u00a3x4 are kept (e.g. \u00a334, \u00a349)."
   },
   "pricingRulesApproved": true,
@@ -50,7 +50,7 @@
     "LDY": 0
   },
   "airportFixedCostsGbp": {
-    "note": "BFS/BHD drop-off and pickup fees \u00a30 on address\u2194airport. Dublin unchanged. A2A BFS\u2194BHD waives collection surcharge only (keep destination \u00a35/\u00a34) \u2014 see shared/airport-fixed-costs.ts.",
+    "note": "BFS/BHD drop-off and pickup fees \u00a30 on address\u2194airport. DUB pickup/parking \u00a35, drop-off \u00a30. LDY pickup \u00a32.50, drop-off \u00a31. A2A BFS\u2194BHD waives collection surcharge only (keep destination \u00a35/\u00a34) \u2014 see shared/airport-fixed-costs.ts. Non-zero A2A fees are independently removable.",
     "BFS": {
       "dropOffFeeGbp": 0,
       "pickupFeeGbp": 0,
@@ -66,12 +66,12 @@
     "DUB": {
       "dropOffFeeGbp": 0,
       "pickupFeeGbp": 0,
-      "parkingAllowanceGbp": 4,
-      "tollAllowanceGbp": 4
+      "parkingAllowanceGbp": 5,
+      "tollAllowanceGbp": 0
     },
     "LDY": {
-      "dropOffFeeGbp": 0,
-      "pickupFeeGbp": 0,
+      "dropOffFeeGbp": 1,
+      "pickupFeeGbp": 2.5,
       "parkingAllowanceGbp": 0,
       "tollAllowanceGbp": 0
     }

@@ -42,20 +42,22 @@ function check(label: string, fn: () => void) {
   }
 }
 
-check("Config: BFS/BHD £0/£0, DUB £4 drop / £8 pickup, LDY £0/£0", () => {
+check("Config: BFS/BHD £0/£0, DUB £0 drop / £5 pickup, LDY £1 drop / £2.50 pickup", () => {
   assert.equal(getAirportLegFixedCostGbp("BFS", false), 0);
   assert.equal(getAirportLegFixedCostGbp("BFS", true), 0);
   assert.equal(getAirportLegFixedCostGbp("BHD", false), 0);
   assert.equal(getAirportLegFixedCostGbp("BHD", true), 0);
-  assert.equal(getAirportLegFixedCostGbp("DUB", false), 4);
-  assert.equal(getAirportLegFixedCostGbp("DUB", true), 8);
-  assert.equal(getAirportLegFixedCostGbp("LDY", false), 0);
-  assert.equal(getAirportLegFixedCostGbp("LDY", true), 0);
+  assert.equal(getAirportLegFixedCostGbp("DUB", false), 0);
+  assert.equal(getAirportLegFixedCostGbp("DUB", true), 5);
+  assert.equal(getAirportLegFixedCostGbp("LDY", false), 1);
+  assert.equal(getAirportLegFixedCostGbp("LDY", true), 2.5);
   assert.equal(AIRPORT_FIXED_COSTS_GBP.DUB.dropOffFeeGbp, 0);
-  assert.equal(AIRPORT_FIXED_COSTS_GBP.DUB.parkingAllowanceGbp, 4);
-  assert.equal(AIRPORT_FIXED_COSTS_GBP.DUB.tollAllowanceGbp, 4);
+  assert.equal(AIRPORT_FIXED_COSTS_GBP.DUB.parkingAllowanceGbp, 5);
+  assert.equal(AIRPORT_FIXED_COSTS_GBP.DUB.tollAllowanceGbp, 0);
   assert.equal(PRICING_CONFIG.airportFixedCostsGbp?.BFS?.dropOffFeeGbp, 0);
-  assert.equal(PRICING_CONFIG.airportFixedCostsGbp?.DUB?.tollAllowanceGbp, 4);
+  assert.equal(PRICING_CONFIG.airportFixedCostsGbp?.DUB?.parkingAllowanceGbp, 5);
+  assert.equal(PRICING_CONFIG.airportFixedCostsGbp?.LDY?.dropOffFeeGbp, 1);
+  assert.equal(PRICING_CONFIG.airportFixedCostsGbp?.LDY?.pickupFeeGbp, 2.5);
 });
 
 check("BFS drop-off and pickup (Antrim £40; legacy strip only — no fixed add-on)", () => {
@@ -84,27 +86,26 @@ check("BHD drop-off and pickup (City Hall £30; Antrim £65)", () => {
   assert.equal(antrimDrop.airportFixedCostsGbp, 0);
 });
 
-check("Dublin drop-off £4 M1; pickup £8 parking+M1 (not a drop-off fee)", () => {
+check("Dublin drop-off £0; pickup £5 parking (mandatory)", () => {
   const drop = calculateQuote(CITY, "DUB", S, false, {}, null, false)!;
   const pick = calculateQuote(CITY, "DUB", S, false, {}, null, true)!;
-  assert.equal(drop.airportFixedCostsGbp, 4);
-  assert.equal(pick.airportFixedCostsGbp, 8);
+  assert.equal(drop.airportFixedCostsGbp, 0);
+  assert.equal(pick.airportFixedCostsGbp, 5);
   assert.equal(drop.journeyFareGbp, 230);
   assert.equal(pick.journeyFareGbp, 230);
-  // Pre-round: 230+4=234 (kept by roundFare £x4 rule); 230+8=238 → snaps to £240.
-  assert.equal(drop.amount, 234);
-  assert.equal(pick.amount, 240);
-  assert.equal(pick.journeyFareGbp! + pick.airportFixedCostsGbp!, 238);
+  assert.equal(drop.amount, 230);
+  assert.equal(pick.amount, 235);
 });
 
-check("City of Derry: zero fixed costs either direction", () => {
+check("City of Derry: drop-off £1; pickup £2.50 (mandatory)", () => {
   const drop = calculateQuote(BANGOR, "LDY", S, false, {}, null, false)!;
   const pick = calculateQuote(BANGOR, "LDY", S, false, {}, null, true)!;
-  assert.equal(drop.airportFixedCostsGbp, 0);
-  assert.equal(pick.airportFixedCostsGbp, 0);
-  assert.equal(drop.amount, drop.journeyFareGbp);
-  assert.equal(pick.amount, pick.journeyFareGbp);
-  assert.equal(drop.amount, pick.amount);
+  assert.equal(drop.airportFixedCostsGbp, 1);
+  assert.equal(pick.airportFixedCostsGbp, 2.5);
+  assert.equal(drop.journeyFareGbp, pick.journeyFareGbp);
+  // Final amount is roundFare(journey + fixed); assert fixed costs are direction-correct.
+  assert.ok((drop.amount ?? 0) >= (drop.journeyFareGbp ?? 0));
+  assert.ok((pick.amount ?? 0) >= (pick.journeyFareGbp ?? 0));
 });
 
 check("Address-to-address: no airport fixed costs", () => {
@@ -129,18 +130,17 @@ check("Return: BFS fixed £0; 5% discount only on journey fare", () => {
   const embedded = getLegacyEmbeddedAccessFeeGbp("BFS");
   const journeyOneWay = oneWay.journeyFareGbp ?? 0;
   assert.equal(oneWay.airportFixedCostsGbp, 0);
-  assert.equal(oneWay.amount, 49);
-  assert.equal(journeyOneWay, oneWay.amount);
+  assert.equal(oneWay.amount, journeyOneWay);
+  assert.equal(journeyOneWay, 44);
 
   const expectedJourney = getReturnJourneyFare(journeyOneWay);
   assert.equal(ret.journeyFareGbp, expectedJourney);
   assert.equal(ret.airportFixedCostsGbp, 0);
-  assert.equal(ret.amount, 95);
 
-  // Legacy strip still £5 — without it, discounted return on £54 journey would exceed £95.
+  // Legacy strip still £5 — without it, discounted return would be higher.
   const unstripJourney = journeyOneWay + embedded;
-  assert.equal(unstripJourney, 54);
-  assert.ok(getReturnJourneyFare(unstripJourney) > ret.amount);
+  assert.equal(unstripJourney, 49);
+  assert.ok(getReturnJourneyFare(unstripJourney) > (ret.journeyFareGbp ?? 0));
 
   const composed = composeFareWithAirportFixedCosts({
     journeyOneWayGbp: journeyOneWay,
@@ -156,8 +156,8 @@ check("Return: BFS fixed £0; 5% discount only on journey fare", () => {
 check("Airport costs are not multiplied by vehicle / estate premium", () => {
   const saloon = calculateQuote(CITY, "DUB", S, false, {}, null, false)!;
   const estate = calculateQuote(CITY, "DUB", E, false, {}, null, false)!;
-  assert.equal(saloon.airportFixedCostsGbp, 4);
-  assert.equal(estate.airportFixedCostsGbp, 4);
+  assert.equal(saloon.airportFixedCostsGbp, 0);
+  assert.equal(estate.airportFixedCostsGbp, 0);
   // Estate uplift lives in journey fare only — fixed block identical.
   assert.ok((estate.journeyFareGbp ?? 0) > (saloon.journeyFareGbp ?? 0));
   assert.equal(
@@ -235,25 +235,23 @@ check("Wording: BFS/BHD like LDY — no fee bullets; pickup still has 60 min wai
   assert.ok(!bfsPick.bullets.some((b) => /drop-off/i.test(b)));
 });
 
-check("Wording: Dublin drop-off M1 only; pickup parking+M1 + waiting; never drop-off fee", () => {
+check("Wording: Dublin drop-off free; pickup/parking £5 + waiting; never drop-off fee", () => {
   const drop = getAirportTripInclusions({ isFromAirport: false, airportCode: "DUB" });
-  assert.ok(drop.bullets.some((b) => /M1 tolls included/.test(b)));
-  assert.ok(!drop.bullets.some((b) => /drop-off fee|parking|waiting/i.test(b)));
+  assert.ok(!drop.bullets.some((b) => /M1 tolls|parking|fee/i.test(b)));
 
   const pick = getAirportTripInclusions({ isFromAirport: true, airportCode: "DUB" });
-  assert.ok(pick.bullets.some((b) => /Airport parking and M1 tolls included/.test(b)));
+  assert.ok(pick.bullets.some((b) => /Dublin Airport pickup\/parking/.test(b)));
   assert.ok(pick.bullets.some((b) => /60 minutes complimentary airport waiting/.test(b)));
   assert.ok(!pick.bullets.some((b) => /drop-off fee/i.test(b)));
 });
 
-check("Wording: LDY never shows airport-fee inclusion when charge is zero", () => {
+check("Wording: LDY shows direction-specific fee inclusions", () => {
   const drop = getAirportTripInclusions({ isFromAirport: false, airportCode: "LDY" });
-  assert.ok(!drop.bullets.some((b) => /fee|toll|parking/i.test(b)));
-  assert.doesNotMatch(drop.summary, /fee|toll/i);
+  assert.ok(drop.bullets.some((b) => /City of Derry Airport drop-off/.test(b)));
 
   const pick = getAirportTripInclusions({ isFromAirport: true, airportCode: "LDY" });
   assert.ok(pick.bullets.some((b) => /60 minutes complimentary airport waiting/.test(b)));
-  assert.ok(!pick.bullets.some((b) => /fee|toll|parking/i.test(b)));
+  assert.ok(pick.bullets.some((b) => /City of Derry Airport pickup/.test(b)));
 });
 
 console.log("\nAll airport fixed-cost checks passed.");

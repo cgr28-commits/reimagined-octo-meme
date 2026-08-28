@@ -51,6 +51,9 @@ const PICKUP_FEE = "Airport pickup fee included";
 const WAITING_60 = "60 minutes complimentary airport waiting.";
 const DUB_TOLLS = "M1 tolls included.";
 const DUB_PARKING_AND_TOLLS = "Airport parking and M1 tolls included";
+const DUB_PICKUP_PARKING = "Dublin Airport pickup/parking (£5) included.";
+const LDY_PICKUP_FEE = "City of Derry Airport pickup (£2.50) included.";
+const LDY_DROPOFF_FEE = "City of Derry Airport drop-off (£1) included.";
 
 function isDublinAirport(code?: AirportCodeLike | null): boolean {
   return (code ?? "").trim().toUpperCase() === "DUB";
@@ -72,7 +75,12 @@ export function journeyIncludesApplicableTolls(
   if (!isDublinAirport(airportCode)) {
     return false;
   }
-  return Boolean(options?.pickupIsAirport || options?.dropoffIsAirport);
+  if (!options?.pickupIsAirport && !options?.dropoffIsAirport) {
+    return false;
+  }
+  const fromAirport = Boolean(options?.pickupIsAirport);
+  const costs = getAirportLegFixedCosts(airportCode, fromAirport);
+  return Boolean(costs && costs.tollAllowanceGbp > 0);
 }
 
 /**
@@ -91,7 +99,9 @@ function bulletsForAirportLeg(options: {
   if (code === "DUB") {
     if (fromAirport) {
       if (costs?.hasCharge) {
-        items.push(DUB_PARKING_AND_TOLLS);
+        items.push(
+          costs.tollAllowanceGbp > 0 ? DUB_PARKING_AND_TOLLS : DUB_PICKUP_PARKING,
+        );
       }
       items.push(WAITING_60);
     } else if (costs && costs.tollAllowanceGbp > 0) {
@@ -101,9 +111,13 @@ function bulletsForAirportLeg(options: {
   }
 
   if (code === "LDY") {
-    // Zero-fee airport: never claim an airport fee inclusion.
     if (fromAirport) {
+      if (costs && costs.totalGbp > 0) {
+        items.push(LDY_PICKUP_FEE);
+      }
       items.push(WAITING_60);
+    } else if (costs && costs.totalGbp > 0) {
+      items.push(LDY_DROPOFF_FEE);
     }
     return items;
   }
@@ -129,16 +143,25 @@ function summaryForAirportLeg(options: {
   const code = asFixedCostCode(options.airportCode);
 
   if (code === "LDY") {
-    return options.fromAirport
-      ? "Fixed price including 60 minutes complimentary airport waiting."
+    if (options.fromAirport) {
+      return costs?.hasCharge
+        ? "Fixed price including City of Derry Airport pickup and 60 minutes complimentary waiting."
+        : "Fixed price including 60 minutes complimentary airport waiting.";
+    }
+    return costs?.hasCharge
+      ? "Fixed price including City of Derry Airport drop-off."
       : "Fixed price for your journey.";
   }
 
   if (code === "DUB") {
     if (options.fromAirport) {
-      return "Fixed price including airport parking, M1 tolls, and waiting time.";
+      return costs?.tollAllowanceGbp && costs.tollAllowanceGbp > 0
+        ? "Fixed price including airport parking, M1 tolls, and waiting time."
+        : "Fixed price including Dublin Airport pickup/parking and waiting time.";
     }
-    return "Fixed price including M1 tolls.";
+    return costs?.tollAllowanceGbp && costs.tollAllowanceGbp > 0
+      ? "Fixed price including M1 tolls."
+      : "Fixed price for your journey.";
   }
 
   if (costs?.hasCharge) {

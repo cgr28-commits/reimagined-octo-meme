@@ -334,6 +334,7 @@ import {
 } from "../shared/express-drop-off";
 import { composeWebsiteFareBreakdown } from "../shared/website-fare-breakdown";
 import { promoFieldsFromFareBreakdown } from "../shared/website-promo-pricing";
+import { resolveJourneyAirportFees } from "../shared/airport-fixed-costs";
 import { calculateAuthoritativeWebsiteQuote } from "../../../src/lib/quote-service";
 import {
   MINIBUS_VEHICLE,
@@ -1872,21 +1873,59 @@ async function handlePaymentRequest(
     const transferPrePromo = Math.round(Number(amount) * 100) / 100;
     const claimedJourney = Number(body.journeyFareGbp);
     const claimedFixed = Number(body.airportFixedCostsGbp);
+    const removedAirportFeeIds = Array.isArray(body.removedAirportFeeIds)
+      ? body.removedAirportFeeIds.map((id: unknown) => String(id).trim()).filter(Boolean)
+      : [];
     let journeyFareGbp = transferPrePromo;
     let airportFixedCostsGbp = 0;
+
+    const pickupCode =
+      (typeof booking.pickupAirportCode === "string" && booking.pickupAirportCode.trim()) ||
+      (booking.isFromAirport && typeof booking.airportCode === "string"
+        ? booking.airportCode
+        : null);
+    const dropoffCode =
+      (typeof booking.dropoffAirportCode === "string" && booking.dropoffAirportCode.trim()) ||
+      (booking.isFromAirport === false && typeof booking.airportCode === "string"
+        ? booking.airportCode
+        : null);
+    const isA2aBooking = Boolean(
+      booking.journeyKind === "airport-to-airport" ||
+        booking.isAirportToAirport === true ||
+        (pickupCode && dropoffCode),
+    );
+    const authoritativeFees = resolveJourneyAirportFees({
+      isAirportToAirport: Boolean(isA2aBooking && pickupCode && dropoffCode),
+      pickupAirportCode: pickupCode,
+      dropoffAirportCode: dropoffCode,
+      airportCode: booking.airportCode,
+      fromAirport: booking.isFromAirport,
+      returnJourney: Boolean(booking.returnJourney),
+      removedFeeIds: removedAirportFeeIds,
+    });
+
     if (Number.isFinite(claimedJourney) && claimedJourney >= 0) {
       journeyFareGbp = Math.round(claimedJourney * 100) / 100;
-      airportFixedCostsGbp =
-        Number.isFinite(claimedFixed) && claimedFixed >= 0
-          ? Math.round(claimedFixed * 100) / 100
-          : Math.max(0, Math.round((transferPrePromo - journeyFareGbp) * 100) / 100);
-      // Guard against client tampering that splits transfer inconsistently.
-      const recomposedTransfer =
-        Math.round((journeyFareGbp + airportFixedCostsGbp) * 100) / 100;
-      if (Math.abs(recomposedTransfer - transferPrePromo) > 0.02) {
-        journeyFareGbp = transferPrePromo;
-        airportFixedCostsGbp = 0;
+      if (authoritativeFees.lines.length > 0) {
+        airportFixedCostsGbp = authoritativeFees.totalAppliedGbp;
+      } else {
+        airportFixedCostsGbp =
+          Number.isFinite(claimedFixed) && claimedFixed >= 0
+            ? Math.round(claimedFixed * 100) / 100
+            : Math.max(0, Math.round((transferPrePromo - journeyFareGbp) * 100) / 100);
+        const recomposedTransfer =
+          Math.round((journeyFareGbp + airportFixedCostsGbp) * 100) / 100;
+        if (Math.abs(recomposedTransfer - transferPrePromo) > 0.02) {
+          journeyFareGbp = transferPrePromo;
+          airportFixedCostsGbp = 0;
+        }
       }
+    } else if (authoritativeFees.lines.length > 0) {
+      airportFixedCostsGbp = authoritativeFees.totalAppliedGbp;
+      journeyFareGbp = Math.max(
+        0,
+        Math.round((transferPrePromo - airportFixedCostsGbp) * 100) / 100,
+      );
     }
 
     const claimFirstBookingOffer = body.claimFirstBookingOffer !== false;

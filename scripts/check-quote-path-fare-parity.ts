@@ -249,9 +249,9 @@ check("Wiring: shared resolver + Quick Quote / Personal / TripMap", () => {
   );
 });
 
-check("Test A: Knocknagoney → BFS (floor raises £55 → £65)", () => {
+check("Test A: Knocknagoney → BFS (floor raises zone → £60 after legacy strip)", () => {
   const zoneOnly = calculateQuote(KNOCKNAGONEY, "BFS", SALOON_VEHICLE, false, {}, null, false);
-  assert.equal(zoneOnly?.amount, 55, "zone-only without metrics is £55");
+  assert.equal(zoneOnly?.amount, 44, "zone-only without metrics is £44 after legacy strip");
 
   compareThree({
     label: "A Knocknagoney → BFS",
@@ -259,7 +259,7 @@ check("Test A: Knocknagoney → BFS (floor raises £55 → £65)", () => {
     airportCode: "BFS",
     fromAirport: false,
     metrics: KNOCK_BFS_METRICS,
-    expected: 65,
+    expected: 60,
   });
 });
 
@@ -270,7 +270,7 @@ check("Test B: BFS → Knocknagoney (same metrics, pickup direction)", () => {
     airportCode: "BFS",
     fromAirport: true,
     metrics: KNOCK_BFS_METRICS,
-    expected: 65,
+    expected: 60,
   });
 });
 
@@ -281,7 +281,7 @@ check("Short Belfast City Hall → BFS (below floor; still needs metrics)", () =
     airportCode: "BFS",
     fromAirport: false,
     metrics: CITY_BFS_METRICS,
-    expected: 55,
+    expected: 44,
   });
 });
 
@@ -292,7 +292,7 @@ check("BHD drop-off and pickup (City Hall)", () => {
     airportCode: "BHD",
     fromAirport: false,
     metrics: CITY_BHD_METRICS,
-    expected: 34,
+    expected: 30,
   });
   compareThree({
     label: "BHD → City Hall",
@@ -300,7 +300,7 @@ check("BHD drop-off and pickup (City Hall)", () => {
     airportCode: "BHD",
     fromAirport: true,
     metrics: CITY_BHD_METRICS,
-    expected: 34,
+    expected: 30,
   });
 });
 
@@ -311,7 +311,7 @@ check("BFS pickup (City Hall reverse)", () => {
     airportCode: "BFS",
     fromAirport: true,
     metrics: CITY_BFS_METRICS,
-    expected: 55,
+    expected: 44,
   });
 });
 
@@ -322,7 +322,7 @@ check("Dublin Airport drop-off", () => {
     airportCode: "DUB",
     fromAirport: false,
     metrics: CITY_DUB_METRICS,
-    expected: 234,
+    expected: 230,
   });
 });
 

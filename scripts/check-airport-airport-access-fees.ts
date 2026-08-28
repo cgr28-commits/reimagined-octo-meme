@@ -207,20 +207,20 @@ console.log("\n=== Matrix ===\n");
   });
 }
 
-// 9 Address → DUB (ordinary) — journey + £4 M1 toll allowance
+// 9 Address → DUB (ordinary) — journey + £0 airport fee
 {
   const q = calculateQuote(CITY, "DUB", S, false, {}, DUB_METRICS, false)!;
-  assert.equal(q.amount, 234);
-  assert.equal(q.airportFixedCostsGbp, 4);
+  assert.equal(q.amount, 230);
+  assert.equal(q.airportFixedCostsGbp, 0);
   rows.push({
     id: 9,
     label: "Belfast City Hall → DUB",
     miles: Math.round(drivingMilesFromKm(DUB_METRICS.distanceKm) * 10) / 10,
     underlying: 180,
     areaRule: "Belfast City Centre → DUB +£50",
-    accessFees: "M1 toll allowance £4 (no Dublin drop-off fee)",
-    other: "zone journey £230 + fixed £4",
-    rounding: "£234",
+    accessFees: "Dublin drop-off £0",
+    other: "zone journey £230 + fixed £0",
+    rounding: "£230",
     final: q.amount,
   });
 }
@@ -240,7 +240,7 @@ console.log("\n=== Matrix ===\n");
   )!;
   const intended = calculateQuote(BHD_ADDR, "DUB", S, false, {}, DUB_METRICS, false)!;
   assert.equal(q.amount, intended.amount);
-  assert.equal(q.amount, 234);
+  assert.equal(q.amount, 230);
   assert.ok(q.amount > buggyA2a.amount, "must not fall to A2A undercut");
   rows.push({
     id: 10,
@@ -248,9 +248,9 @@ console.log("\n=== Matrix ===\n");
     miles: Math.round(drivingMilesFromKm(DUB_METRICS.distanceKm) * 10) / 10,
     underlying: 180,
     areaRule: "DUB scheme for BHD address (City Centre +£50) — NOT A2A+fees",
-    accessFees: "DUB drop-off path (+£4 M1); NI access fees not stacked",
+    accessFees: "DUB drop-off path (+£0); NI access fees not stacked",
     other: `A2A undercut would be £${buggyA2a.amount}; anti-undercut keeps DUB`,
-    rounding: "£234",
+    rounding: "£230",
     final: q.amount,
   });
 }
@@ -269,7 +269,7 @@ console.log("\n=== Matrix ===\n");
   )!;
   const intended = calculateQuote(BFS_ADDR, "DUB", S, false, {}, DUB_METRICS, false)!;
   assert.equal(q.amount, intended.amount);
-  assert.ok(q.amount >= 234);
+  assert.ok(q.amount >= 230);
   console.log(`OK  BFS→DUB airport↔airport £${q.amount} (matches DUB path £${intended.amount})`);
 }
 
@@ -288,5 +288,5 @@ assert.ok(rows[0].final < 69);
 console.log(
   `\nNEW BFS→BHD price: £${rows[0].final} (was £59 with both fees; now −£5 collection only)`,
 );
-console.log("Dublin protection: BHD→DUB still £234 (zone + M1; not A2A undercut).");
+console.log("Dublin protection: BHD→DUB still £230 (zone; not A2A undercut).");
 console.log("\nAll airport↔airport access-fee matrix checks passed.");

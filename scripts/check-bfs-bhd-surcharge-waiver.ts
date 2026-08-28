@@ -29,13 +29,14 @@ assert.equal(NI_AIRPORT_ACCESS_SURCHARGE_GBP.BFS, 5);
 assert.equal(NI_AIRPORT_ACCESS_SURCHARGE_GBP.BHD, 4);
 assert.equal(getAirportLegFixedCostGbp("BFS", false), 0);
 assert.equal(getAirportLegFixedCostGbp("BHD", false), 0);
-assert.equal(getAirportLegFixedCostGbp("DUB", false), 4);
+assert.equal(getAirportLegFixedCostGbp("DUB", false), 0);
+assert.equal(getAirportLegFixedCostGbp("DUB", true), 5);
 assert.equal(getLegacyEmbeddedAccessFeeGbp("BFS"), 5);
 assert.equal(getLegacyEmbeddedAccessFeeGbp("BHD"), 4);
 
-// Address ↔ airport (baseline before waiver: £54 / £34)
-assert.equal(calculateQuote(CITY, "BFS", S, false, {}, null, false)!.amount, 49);
-assert.equal(calculateQuote(CITY, "BFS", S, false, {}, null, true)!.amount, 49);
+// Address ↔ airport (legacy strip −£5 BFS / −£4 BHD on customer total)
+assert.equal(calculateQuote(CITY, "BFS", S, false, {}, null, false)!.amount, 44);
+assert.equal(calculateQuote(CITY, "BFS", S, false, {}, null, true)!.amount, 44);
 assert.equal(calculateQuote(CITY, "BHD", S, false, {}, null, false)!.amount, 30);
 assert.equal(calculateQuote(CITY, "BHD", S, false, {}, null, true)!.amount, 30);
 
@@ -76,8 +77,8 @@ assert.equal(bhdBfs.amount, 55); // was 59 (−£4)
 assert.equal(bfsBhd.airportFixedCostsGbp, 4);
 assert.equal(bhdBfs.airportFixedCostsGbp, 5);
 
-// Dublin unchanged
-assert.equal(calculateQuote(CITY, "DUB", S, false, {}, null, false)!.amount, 234);
-assert.equal(calculateQuote(CITY, "DUB", S, false, {}, null, true)!.amount, 240);
+// Dublin: drop-off £0 / pickup-parking £5 (no M1 toll allowance)
+assert.equal(calculateQuote(CITY, "DUB", S, false, {}, null, false)!.amount, 230);
+assert.equal(calculateQuote(CITY, "DUB", S, false, {}, null, true)!.amount, 235);
 
-console.log("OK  six surcharge-waiver scenarios + Dublin unchanged");
+console.log("OK  six surcharge-waiver scenarios + Dublin fixed costs");

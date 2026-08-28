@@ -67,8 +67,8 @@ console.log(`OK  BHD City Hall saloon £${bhdCity.amount} / estate £${bhdCityEs
 
 const bfsCity = calculateQuote(cityHall, "BFS", SALOON);
 const dubCity = calculateQuote(cityHall, "DUB", SALOON);
-assert.equal(dubCity?.amount, 234, "DUB Belfast centre = zone + £4 M1");
-assert.ok(bfsCity && bfsCity.amount >= 45);
+assert.equal(dubCity?.amount, 230, "DUB Belfast centre drop-off = zone + £0 fixed");
+assert.ok(bfsCity && bfsCity.amount >= 40 && bfsCity.amount <= 55);
 console.log(`OK  DUB City Hall £${dubCity?.amount}; BFS City Hall £${bfsCity?.amount}`);
 
 const toAirport = calculateQuote(holywood, "BHD", SALOON);

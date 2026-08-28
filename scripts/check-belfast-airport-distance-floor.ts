@@ -80,8 +80,8 @@ console.log("\n=== 2. Threshold gate (1dp) — Carrickfergus ~20.015 stays zone 
   const withMetrics = calculateQuote(carrick, "BFS", SALOON, false, {}, metricsForMiles(20.015));
   const zoneOnly = calculateQuote(carrick, "BFS", SALOON, false, {}, null);
   assert.equal(withMetrics?.amount, zoneOnly?.amount);
-  assert.equal(withMetrics?.amount, 64);
-  console.log("OK  threshold 20.0 skips floor; Carrickfergus → BFS stays zone £64");
+  assert.equal(withMetrics?.amount, 59);
+  console.log("OK  threshold 20.0 skips floor; Carrickfergus → BFS stays zone £59");
 }
 
 console.log("\n=== 3. Zone wins unchanged; floor wins nearest £5 ===");
@@ -111,28 +111,28 @@ console.log("\n=== 4. Approved route targets (BHD/BFS) ===");
     miles: number;
     saloon: number;
   }> = [
-    { name: "Larne → BHD", address: "Larne BT40 1AA", airport: "BHD", miles: 24.6, saloon: 80 },
+    { name: "Larne → BHD", address: "Larne BT40 1AA", airport: "BHD", miles: 24.6, saloon: 75 },
     {
       name: "Ballygally → BHD",
       address: "Ballygally, Larne BT40 2QZ",
       airport: "BHD",
       miles: 27.6,
-      saloon: 80,
+      saloon: 75,
     },
     {
       name: "Ballymena → BHD",
       address: "Ballymena BT43 6AN",
       airport: "BHD",
       miles: 29.4,
-      saloon: 89,
+      saloon: 85,
     },
-    { name: "Larne → BFS", address: "Larne BT40 1AA", airport: "BFS", miles: 22.3, saloon: 65 },
+    { name: "Larne → BFS", address: "Larne BT40 1AA", airport: "BFS", miles: 22.3, saloon: 60 },
     {
       name: "Ballygally → BFS",
       address: "Ballygally, Larne BT40 2QZ",
       airport: "BFS",
       miles: 25.3,
-      saloon: 70,
+      saloon: 65,
     },
   ];
 
@@ -148,10 +148,10 @@ console.log("\n=== 4. Approved route targets (BHD/BFS) ===");
     assert.equal(q?.amount, item.saloon, `${item.name} expected £${item.saloon}, got £${q?.amount}`);
   }
 
-  // Short / local unchanged (no metrics or short metrics).
+  // Short / local unchanged (no metrics or short metrics). Legacy BFS/BHD strip applied.
   assert.equal(
     calculateQuote("Belfast City Hall, Belfast BT1 5GS", "BHD", SALOON)?.amount,
-    34,
+    30,
   );
   assert.equal(
     calculateQuote(
@@ -162,7 +162,7 @@ console.log("\n=== 4. Approved route targets (BHD/BFS) ===");
       {},
       metricsForMiles(4.6),
     )?.amount,
-    34,
+    30,
   );
   assert.equal(
     calculateQuote(
@@ -173,12 +173,12 @@ console.log("\n=== 4. Approved route targets (BHD/BFS) ===");
       {},
       metricsForMiles(16),
     )?.amount,
-    55,
+    44,
   );
   assert.equal(
     calculateQuote("Ballymena BT43 6AN", "BFS", SALOON, false, {}, metricsForMiles(17.4))
       ?.amount,
-    49,
+    44,
   );
   console.log("OK  long-distance floor routes + short fares at revised zone prices");
 }
@@ -191,11 +191,10 @@ console.log("\n=== 5. Estate / Minibus / return relationships ===");
   const e = calculateQuote(addr, "BHD", ESTATE, false, {}, m)?.amount;
   const mb = calculateQuote(addr, "BHD", MINIBUS, false, {}, m)?.amount;
   const sR = calculateQuote(addr, "BHD", SALOON, true, {}, m)?.amount;
-  assert.equal(s, 80);
-  assert.equal(e, 90); // 80+8 → roundFare
-  assert.equal(mb, 135); // round5((80+8)*1.55)=round5(136.4)=135? Wait roundToNearestFive(88*1.55)=roundToNearestFive(136.4)=135
-  assert.equal(sR, 150); // 80*1.9=152 → roundFare → 150? 152%5=2 → nearest 5 = 150
-  // Actually 80*1.9=152, Math.round=152, 152%5=2, roundToNearestFive(152)=150. Yes.
+  assert.equal(s, 75);
+  assert.equal(e, 84);
+  assert.equal(mb, 130);
+  assert.equal(sR, 144);
   console.log("OK  Estate/Minibus/return follow existing relationships from new saloon");
 }
 
@@ -223,15 +222,15 @@ console.log("\n=== 7. Dublin unchanged by Belfast distance floor (fixed costs st
 {
   const hall = "Belfast City Hall, Belfast BT1 5GS";
   const longMetrics = metricsForMiles(100);
-  assert.equal(calculateQuote(hall, "DUB", SALOON)?.amount, 234);
+  assert.equal(calculateQuote(hall, "DUB", SALOON)?.amount, 230);
   assert.equal(calculateQuote(hall, "DUB", ESTATE)?.amount, 240);
   assert.equal(
     calculateQuote(hall, "DUB", SALOON, false, {}, longMetrics)?.amount,
-    234,
+    230,
   );
   assert.equal(applyBelfastAirportDistanceFloor(230, "DUB", milesToKm(100)), 230);
   assert.equal(applyBelfastAirportDistanceFloor(250, "LDY", milesToKm(30)), 250);
-  console.log("OK  DUB/LDY no-op for distance floor; City Hall→DUB £234");
+  console.log("OK  DUB/LDY no-op for distance floor; City Hall→DUB £230");
 }
 
 console.log("\nAll belfast airport distance-floor checks passed.");
