@@ -48,15 +48,18 @@ export type PaymentCheckoutRequest = {
   /**
    * Journey fare before airport access and before the £5 booking saving.
    * Used with the authoritative website fare composer on open-website checkout.
+   * Server reconciles / requotes — never trusts this alone for SumUp.
    */
   journeyFareGbp?: number;
   /** Undiscounted airport fixed costs already in `amount` (after any valid A2A removals). */
   airportFixedCostsGbp?: number;
   /**
    * Airport-to-airport only: fee line ids the customer independently removed.
-   * Ignored for normal airport↔address journeys (fees stay mandatory).
+   * Ignored unless that airport allows a free-area choice (BFS/BHD).
    */
   removedAirportFeeIds?: string[];
+  /** Live route metrics so the Worker can requote with the canonical engine. */
+  routeMetrics?: { distanceKm: number; durationMinutes: number } | null;
   /**
    * When true (default for open website), apply the £5 booking saving when enabled
    * and booking value ≥ £40. Offer is currently disabled in config.
@@ -214,6 +217,16 @@ export async function createPaymentCheckout(
             removedAirportFeeIds: request.removedAirportFeeIds
               .map((id) => String(id).trim())
               .filter(Boolean),
+          }
+        : {}),
+      ...(request.routeMetrics &&
+      Number.isFinite(request.routeMetrics.distanceKm) &&
+      Number.isFinite(request.routeMetrics.durationMinutes)
+        ? {
+            routeMetrics: {
+              distanceKm: request.routeMetrics.distanceKm,
+              durationMinutes: request.routeMetrics.durationMinutes,
+            },
           }
         : {}),
       ...(typeof request.claimFirstBookingOffer === "boolean"

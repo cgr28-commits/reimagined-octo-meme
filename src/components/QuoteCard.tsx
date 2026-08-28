@@ -2398,6 +2398,14 @@ function QuoteCard({
               removedAirportFeeIds: isAirportToAirportJourney
                 ? removedAirportFeeIds
                 : [],
+              ...(routeMetrics
+                ? {
+                    routeMetrics: {
+                      distanceKm: routeMetrics.distanceKm,
+                      durationMinutes: routeMetrics.durationMinutes,
+                    },
+                  }
+                : {}),
               claimFirstBookingOffer: true,
             }
           : { claimFirstBookingOffer: false }),

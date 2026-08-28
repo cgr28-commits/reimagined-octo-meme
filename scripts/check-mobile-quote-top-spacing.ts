@@ -24,18 +24,19 @@ assert.match(hero, /order-1[\s\S]*id="quote"|id="quote"[\s\S]*order-1/);
 assert.match(hero, /order-2 min-w-0 lg:order-1/);
 assert.match(hero, /lg:order-2/);
 
-// Natural mobile hero breathing room under sticky header (desktop stays md:pt-28).
-// Restored from the post-#366 / pre-crush proportions — not the later pt-[4.5rem] squeeze.
-assert.match(hero, /pt-36 md:pt-28/);
+// Mobile top clearance matches fixed header (~logo h-12 + py-2 ≈ 4rem) + small gap.
+// Desktop stays md:pt-28. Do not leave a large empty navy band above the quote card.
+assert.match(hero, /pt-20 md:pt-28/);
+assert.doesNotMatch(hero, /pt-36/);
 assert.doesNotMatch(hero, /pt-\[4\.5rem\]/);
 assert.doesNotMatch(hero, /pt-\[4\.75rem\]/);
 assert.doesNotMatch(hero, /pt-44/);
 assert.match(hero, /gap-8/);
-assert.match(hero, /py-5/);
+assert.match(hero, /py-2/);
 assert.match(hero, /md:py-16/);
 
-// Sticky #quote offset matches restored mobile hero padding.
-assert.match(hero, /scroll-mt-36 md:scroll-mt-28/);
+// Sticky #quote offset matches mobile header clearance.
+assert.match(hero, /scroll-mt-20 md:scroll-mt-28/);
 assert.match(prefill, /HEADER_SCROLL_OFFSET = 112/);
 
 // Mobile header: logo + Get a Quote + WhatsApp + Menu; Airports/Manage only in drawer data/menu.
@@ -61,7 +62,7 @@ assert.match(card, /Where are you travelling\?|QuoteProgressiveRoute/);
 assert.match(card, /quote-secondary|Get a Live Quote/);
 
 console.log("OK  mobile hero places quote above marketing copy");
-console.log("OK  mobile top padding / scroll-mt restored (pt-36 / py-5 — not crushed)");
+console.log("OK  mobile top padding clears fixed header without a large empty band (pt-20 / py-2)");
 console.log("OK  header CTAs reduced; Airports/Manage live in menu");
 console.log("OK  quote card mobile padding preserved");
 console.log("\nAll mobile quote top-spacing checks passed.");
