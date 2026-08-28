@@ -99,8 +99,10 @@ import {
 import {
   buildPaymentRedirectUrl,
   createPaymentCheckout,
+  isPaymentFareMismatchError,
   isSumUpPaymentEnabled,
 } from "@/lib/create-payment";
+import { calculateServerQuote } from "@/lib/quick-quote-api";
 import {
   validatePersonalQuoteCode,
   type PersonalQuotePublicSummary,
@@ -164,6 +166,10 @@ import {
   trackBookingRequestSubmittedBeforeNavigation,
 } from "@/lib/google-ads-client";
 import type { VerifiedFlight } from "@/lib/flight-lookup";
+import {
+  FLIGHT_NUMBER_FORMAT_ERROR,
+  isValidFlightNumberFormat,
+} from "@/lib/flight-lookup";
 import {
   detectAirportCodeFromPlace,
   detectJourneyKind,
@@ -553,6 +559,12 @@ function QuoteCard({
   const [collectionFlightNumber, setCollectionFlightNumber] = useState("");
   const [goingFlightError, setGoingFlightError] = useState("");
   const [collectionFlightError, setCollectionFlightError] = useState("");
+  const [goingFlightLookupStatus, setGoingFlightLookupStatus] = useState<
+    "idle" | "loading" | "verified" | "error" | "unavailable"
+  >("idle");
+  const [collectionFlightLookupStatus, setCollectionFlightLookupStatus] = useState<
+    "idle" | "loading" | "verified" | "error" | "unavailable"
+  >("idle");
   const [verifiedGoingFlight, setVerifiedGoingFlight] = useState<VerifiedFlight | null>(null);
   const [verifiedCollectionFlight, setVerifiedCollectionFlight] = useState<VerifiedFlight | null>(
     null,
@@ -598,6 +610,12 @@ function QuoteCard({
     return "";
   });
   const [routeMetrics, setRouteMetrics] = useState<TripRouteMetrics | null>(null);
+  /** Worker-authoritative journey/fixed split (same engine as SumUp). Prefer over browser metrics. */
+  const [serverFareParts, setServerFareParts] = useState<{
+    journeyFareGbp: number;
+    airportFixedCostsGbp: number;
+    amountGbp: number;
+  } | null>(null);
   const [paymentLoading, setPaymentLoading] = useState(false);
   const [paymentError, setPaymentError] = useState("");
   const [openCheckout, setOpenCheckout] = useState<OpenCheckoutSession | null>(null);
@@ -1282,6 +1300,102 @@ function QuoteCard({
     quoteVehicle,
   ]);
 
+  // Prefer Worker-authoritative fare (same resolveWorkerTripRouteMetrics + engine as SumUp)
+  // so the displayed/consent amount matches checkout. Browser metrics stay for map display.
+  const refreshAuthoritativeServerQuote = useCallback(async (): Promise<boolean> => {
+    if (!canShowPrice || isManualQuoteJourney || pricingConfirmationRequired) {
+      setServerFareParts(null);
+      return false;
+    }
+    if (isEnquiryOnly && !showGuidePrice) {
+      setServerFareParts(null);
+      return false;
+    }
+    const pickup = pickupAddress.trim();
+    const dropoff = dropoffAddress.trim();
+    if (!pickup || !dropoff || passengers == null || suitcases == null || journeyMode == null) {
+      setServerFareParts(null);
+      return false;
+    }
+    try {
+      const result = await calculateServerQuote({
+        pickupAddress: pickup,
+        dropoffAddress: dropoff,
+        // Omit client airportCode — Worker derives from addresses (payment parity).
+        returnJourney,
+        outboundDate: tripDate.trim(),
+        outboundTime: tripTime.trim(),
+        returnDate: returnJourney ? returnDate.trim() : undefined,
+        returnTime: returnJourney ? returnTime.trim() : undefined,
+        passengers,
+        suitcases,
+        // Do not send browser routeMetrics/latLng — Worker resolves server-side.
+      });
+      if (
+        result.ok &&
+        Number.isFinite(result.amount) &&
+        typeof result.journeyFareGbp === "number" &&
+        Number.isFinite(result.journeyFareGbp)
+      ) {
+        setServerFareParts({
+          journeyFareGbp: Math.round(result.journeyFareGbp * 100) / 100,
+          airportFixedCostsGbp:
+            typeof result.airportFixedCostsGbp === "number"
+              ? Math.round(result.airportFixedCostsGbp * 100) / 100
+              : 0,
+          amountGbp: Math.round(result.amount * 100) / 100,
+        });
+        if (
+          Number.isFinite(result.distanceKm) &&
+          Number.isFinite(result.durationMinutes) &&
+          (result.distanceKm ?? 0) > 0 &&
+          (result.durationMinutes ?? 0) > 0
+        ) {
+          setRouteMetrics({
+            distanceKm: result.distanceKm!,
+            durationMinutes: result.durationMinutes!,
+          });
+        }
+        return true;
+      }
+      setServerFareParts(null);
+      return false;
+    } catch {
+      setServerFareParts(null);
+      return false;
+    }
+  }, [
+    canShowPrice,
+    dropoffAddress,
+    isEnquiryOnly,
+    isManualQuoteJourney,
+    journeyMode,
+    passengers,
+    pickupAddress,
+    pricingConfirmationRequired,
+    returnDate,
+    returnJourney,
+    returnTime,
+    showGuidePrice,
+    suitcases,
+    tripDate,
+    tripTime,
+  ]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        if (cancelled) return;
+        await refreshAuthoritativeServerQuote();
+      })();
+    }, 280);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [refreshAuthoritativeServerQuote, quoteVehicle]);
+
   const journeyDistanceLabel = routeMetrics
     ? formatJourneyDistance(routeMetrics.distanceKm)
     : "";
@@ -1409,6 +1523,17 @@ function QuoteCard({
   ]);
 
   const journeyFareParts = useMemo(() => {
+    // Prefer Worker-authoritative split so consent amount matches SumUp requote.
+    if (serverFareParts) {
+      const fixedFromLines =
+        airportFeeResolution.lines.length > 0
+          ? airportFeeResolution.totalAppliedGbp
+          : serverFareParts.airportFixedCostsGbp;
+      return {
+        journeyFareGbp: serverFareParts.journeyFareGbp,
+        airportFixedCostsGbp: fixedFromLines,
+      };
+    }
     if (!liveQuote || typeof liveQuote.amount !== "number") {
       return { journeyFareGbp: null as number | null, airportFixedCostsGbp: 0 };
     }
@@ -1427,7 +1552,7 @@ function QuoteCard({
         ? airportFeeResolution.totalAppliedGbp
         : quotedFixed;
     return { journeyFareGbp: journey, airportFixedCostsGbp: fixed };
-  }, [liveQuote, airportFeeResolution]);
+  }, [liveQuote, airportFeeResolution, serverFareParts]);
 
   const openWebsiteFareBreakdown = useMemo(() => {
     if (!useOpenWebsitePromoPricing || journeyFareParts.journeyFareGbp == null) {
@@ -1527,6 +1652,7 @@ function QuoteCard({
     setSuitcases(null);
     setExactPassengers(null);
     setRouteMetrics(null);
+    setServerFareParts(null);
   }
 
   function handlePickupChange(value: string) {
@@ -1957,10 +2083,49 @@ function QuoteCard({
   ]);
 
   /**
-   * Flight numbers are optional and must never block Step 2 continue.
-   * Verification loading / unavailable / soft failures are informational only.
+   * Airport-pickup flight numbers are required (format-valid) whenever the journey
+   * collects the customer from an airport. Soft AeroDataBox failures do not block;
+   * blank / malformed / hard lookup errors do.
    */
-  function clearFlightBlockingErrors(): void {
+  function validateRequiredFlightNumbers(): boolean {
+    let ok = true;
+
+    if (needsOutboundFlightNumber) {
+      const trimmed = goingFlightNumber.trim();
+      if (
+        !trimmed ||
+        !isValidFlightNumberFormat(trimmed) ||
+        goingFlightLookupStatus === "error"
+      ) {
+        setGoingFlightError(FLIGHT_NUMBER_FORMAT_ERROR);
+        ok = false;
+      } else {
+        setGoingFlightError("");
+      }
+    } else {
+      setGoingFlightError("");
+    }
+
+    if (needsReturnCollectionFlightNumber) {
+      const trimmed = collectionFlightNumber.trim();
+      if (
+        !trimmed ||
+        !isValidFlightNumberFormat(trimmed) ||
+        collectionFlightLookupStatus === "error"
+      ) {
+        setCollectionFlightError(FLIGHT_NUMBER_FORMAT_ERROR);
+        ok = false;
+      } else {
+        setCollectionFlightError("");
+      }
+    } else {
+      setCollectionFlightError("");
+    }
+
+    return ok;
+  }
+
+  function clearFlightFieldErrors(): void {
     setGoingFlightError("");
     setCollectionFlightError("");
   }
@@ -2297,7 +2462,11 @@ function QuoteCard({
       return;
     }
 
-    clearFlightBlockingErrors();
+    if (!validateRequiredFlightNumbers()) {
+      setPaymentError(FLIGHT_NUMBER_FORMAT_ERROR);
+      setQuoteStep(2);
+      return;
+    }
 
     if (!requireCapacityConfirmed()) {
       return;
@@ -2378,13 +2547,7 @@ function QuoteCard({
             ? testChargeAmount
             : appliedPersonalQuote
               ? appliedPersonalQuote.agreedAmount
-              : useOpenWebsitePromoPricing && journeyFareParts.journeyFareGbp != null
-                ? Math.round(
-                    (journeyFareParts.journeyFareGbp +
-                      journeyFareParts.airportFixedCostsGbp) *
-                      100,
-                  ) / 100
-                : (liveQuote.amount ?? 0),
+              : paymentAmount ?? liveQuote.amount ?? 0,
         description: buildPaymentDescription(),
         redirectUrl: buildPaymentRedirectUrl(returnToken),
         booking: bookingDetails,
@@ -2398,17 +2561,13 @@ function QuoteCard({
               removedAirportFeeIds: isAirportToAirportJourney
                 ? removedAirportFeeIds
                 : [],
-              ...(routeMetrics
-                ? {
-                    routeMetrics: {
-                      distanceKm: routeMetrics.distanceKm,
-                      durationMinutes: routeMetrics.durationMinutes,
-                    },
-                  }
-                : {}),
+              acceptedFinalAmountGbp: paymentAmount ?? undefined,
               claimFirstBookingOffer: true,
             }
-          : { claimFirstBookingOffer: false }),
+          : {
+              acceptedFinalAmountGbp: paymentAmount ?? undefined,
+              claimFirstBookingOffer: false,
+            }),
         ...(appliedPersonalQuote && testChargeAmount === null
           ? {
               personalQuoteCode: appliedPersonalQuote.code,
@@ -2478,6 +2637,19 @@ function QuoteCard({
       // Keep loading state until navigation completes; re-enable only if assign somehow fails.
       return;
     } catch (error) {
+      if (isPaymentFareMismatchError(error)) {
+        // Never approximate journey/fixed by subtracting Express — re-quote from the engine.
+        const refreshed = await refreshAuthoritativeServerQuote();
+        setTermsAccepted(false);
+        setTermsError("Please review the updated fare and accept the terms again.");
+        setPaymentError(
+          refreshed
+            ? error.message
+            : `${error.message} We could not refresh the live quote automatically — please check your journey details.`,
+        );
+        setPaymentLoading(false);
+        return;
+      }
       setPaymentError(
         error instanceof Error
           ? error.message
@@ -2628,6 +2800,7 @@ function QuoteCard({
     );
     setIntentAirportCode(isCustomerAirportCode(initialAirportCode) ? initialAirportCode : "");
     setRouteMetrics(null);
+    setServerFareParts(null);
     setPaymentLoading(false);
     setPaymentError("");
     setOpenCheckout(null);
@@ -2976,8 +3149,11 @@ function QuoteCard({
     if (!validateTripForBooking(schedule)) {
       return;
     }
-    // Do not wait on flight lookup — unavailable/loading must not require a second click.
-    clearFlightBlockingErrors();
+    // Soft lookup loading/unavailable must not require a second click — format validity is the gate.
+    if (!validateRequiredFlightNumbers()) {
+      setSubmitError(FLIGHT_NUMBER_FORMAT_ERROR);
+      return;
+    }
     if (typeof document !== "undefined" && document.activeElement instanceof HTMLElement) {
       document.activeElement.blur();
     }
@@ -3321,7 +3497,7 @@ function QuoteCard({
 
   /**
    * Airport-pickup flight number — collected on Step 2 (Travel details).
-   * Optional by product design; never shown for pure to-airport one-ways.
+   * Required for airport collections; never shown for pure to-airport one-ways.
    */
   function renderFlightDetailsSection(activeOnStep: 2 | 3) {
     if (!needsOutboundFlightNumber && !needsReturnCollectionFlightNumber) {
@@ -3335,7 +3511,7 @@ function QuoteCard({
         <div>
           <p className="text-xs font-medium uppercase tracking-wider text-emerald">
             Flight number{" "}
-            <span className="font-normal text-ink-secondary">(optional)</span>
+            <span className="font-normal text-ink-secondary">(required)</span>
           </p>
           <p className="mt-1 text-sm text-white/60">{BOOKING_FLIGHT_NUMBER_HELPER}</p>
         </div>
@@ -3356,6 +3532,7 @@ function QuoteCard({
             direction={isA2AFlow ? "from-airport" : tripDirection}
             enabled={quoteStep === activeOnStep}
             error={goingFlightError}
+            onStatusChange={setGoingFlightLookupStatus}
             onVerifiedChange={(flight) => {
               setVerifiedGoingFlight(flight);
             }}
@@ -3378,6 +3555,7 @@ function QuoteCard({
             direction="from-airport"
             enabled={quoteStep === activeOnStep}
             error={collectionFlightError}
+            onStatusChange={setCollectionFlightLookupStatus}
             onVerifiedChange={(flight) => {
               setVerifiedCollectionFlight(flight);
             }}
@@ -5417,8 +5595,7 @@ function QuoteCard({
                 type="button"
                 onClick={() => {
                   navigateQuoteStep(1);
-                  setGoingFlightError("");
-                  setCollectionFlightError("");
+                  clearFlightFieldErrors();
                   setReturnDateError("");
                 }}
                 className="btn-secondary w-full"

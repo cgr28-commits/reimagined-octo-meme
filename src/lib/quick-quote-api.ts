@@ -20,6 +20,10 @@ export type QuickQuoteCalculateResult =
       vehicleChoice?: QuickQuoteVehicleChoice;
       premiumApplied: boolean;
       returnJourney: boolean;
+      journeyFareGbp?: number;
+      airportFixedCostsGbp?: number;
+      distanceKm?: number;
+      durationMinutes?: number;
     }
   | { ok: false; reason?: string; message: string; error?: string };
 
@@ -103,6 +107,22 @@ export async function calculateServerQuote(
         : undefined,
     premiumApplied: payload.premiumApplied === true,
     returnJourney: payload.returnJourney === true,
+    ...(typeof payload.journeyFareGbp === "number"
+      ? { journeyFareGbp: Number(payload.journeyFareGbp) }
+      : {}),
+    ...(typeof payload.airportFixedCostsGbp === "number"
+      ? { airportFixedCostsGbp: Number(payload.airportFixedCostsGbp) }
+      : {}),
+    ...(payload.diagnostics &&
+    typeof payload.diagnostics === "object" &&
+    Number.isFinite(Number((payload.diagnostics as { distanceKm?: unknown }).distanceKm))
+      ? {
+          distanceKm: Number((payload.diagnostics as { distanceKm: number }).distanceKm),
+          durationMinutes: Number(
+            (payload.diagnostics as { routeDurationMinutes?: number }).routeDurationMinutes,
+          ),
+        }
+      : {}),
   };
 }
 

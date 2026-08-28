@@ -86,10 +86,22 @@ check("Flight monitoring + booking record still support flight numbers", () => {
   assert.match(card, /flightNumber: goingFlightNumber/);
 });
 
-check("Flight remains optional (approved fallback — never blocks payment)", () => {
-  assert.match(card, /Flight numbers are optional/);
-  assert.match(card, /clearFlightBlockingErrors/);
-  assert.match(card, /\(optional\)/);
+check("Flight number is required for airport pickups (blocks continue + payment)", () => {
+  assert.match(card, /validateRequiredFlightNumbers/);
+  assert.match(card, /FLIGHT_NUMBER_FORMAT_ERROR/);
+  assert.match(card, /needsOutboundFlightNumber/);
+  assert.match(card, /\(required\)/);
+  assert.doesNotMatch(card, /Flight numbers are optional/);
+  assert.doesNotMatch(card, /clearFlightBlockingErrors/);
+  assert.doesNotMatch(card, /\(optional\)/);
+});
+
+check("Worker rejects invalid airport-pickup flight before SumUp", () => {
+  const index = read("workers/addresses/src/index.ts");
+  assert.match(index, /getAirportPickupFlightNumberBlockers/);
+  assert.match(index, /invalid_flight_number/);
+  const createPayment = read("src/lib/create-payment.ts");
+  assert.match(createPayment, /getAirportPickupFlightNumberBlockers/);
 });
 
 console.log("\nAll quote-flight-booking-stage checks passed.");

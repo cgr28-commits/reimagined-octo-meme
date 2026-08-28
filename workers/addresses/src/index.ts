@@ -58,6 +58,7 @@ import {
   type PaidBookingDetails,
 } from "../shared/booking-notifications";
 import {
+  getAirportPickupFlightNumberBlockers,
   lookupFlight,
   type TripDirection,
 } from "../shared/flight-lookup";
@@ -341,6 +342,9 @@ import {
 import {
   resolveOpenWebsitePaymentTransferFares,
   resolvePaymentAirportContextFromAddresses,
+  checkoutAmountsMatch,
+  resolveSumUpChargeAmountGbp,
+  buildFareMismatchPaymentError,
 } from "../shared/open-website-payment-fares";
 import { resolveWorkerTripRouteMetrics } from "./resolve-route-metrics";
 import {
@@ -2050,7 +2054,47 @@ async function handlePaymentRequest(
       claimFirstBookingOffer,
     });
 
-    amount = breakdown.finalAmountPayableGbp;
+    const serverFinalAmountGbp = breakdown.finalAmountPayableGbp;
+    // Customer must have been shown/agreed this exact final amount (consent + breakdown).
+    // Never silently substitute a recalculated SumUp charge.
+    const acceptedFinalRaw = Number(
+      body.acceptedFinalAmountGbp ?? body.customerDisplayedFinalAmountGbp,
+    );
+    if (!Number.isFinite(acceptedFinalRaw) || acceptedFinalRaw < 1) {
+      return json(
+        {
+          error:
+            "Quote amount is out of date. Please refresh your quote and try again.",
+          code: "fare_mismatch",
+          displayedAmountGbp: null,
+          serverAmountGbp: serverFinalAmountGbp,
+        },
+        409,
+        origin,
+      );
+    }
+    if (!checkoutAmountsMatch(acceptedFinalRaw, serverFinalAmountGbp)) {
+      return json(
+        buildFareMismatchPaymentError(acceptedFinalRaw, serverFinalAmountGbp),
+        409,
+        origin,
+      );
+    }
+
+    // Security validator passed — charge the exact accepted amount (never £138.01 when they agreed £138).
+    const sumUpChargeGbp = resolveSumUpChargeAmountGbp(
+      acceptedFinalRaw,
+      serverFinalAmountGbp,
+    );
+    if (sumUpChargeGbp == null) {
+      return json(
+        buildFareMismatchPaymentError(acceptedFinalRaw, serverFinalAmountGbp),
+        409,
+        origin,
+      );
+    }
+
+    amount = sumUpChargeGbp;
     booking = {
       ...booking,
       // Persist server-derived airport identity (not client-tampered fields).
@@ -2070,6 +2114,8 @@ async function handlePaymentRequest(
       expressDropOffFee: persisted.expressDropOffFee,
       expressDropOffAirport: persisted.expressDropOffAirport,
       ...promoFieldsFromFareBreakdown(breakdown),
+      // Persist the amount the customer accepted and SumUp will charge.
+      finalAmountPayableGbp: sumUpChargeGbp,
     };
   }
 
@@ -2177,6 +2223,35 @@ async function handlePaymentRequest(
   }
 
   try {
+    // Hard gate: airport-pickup (and A2A / return airport collection) flight numbers
+    // must be present and format-valid before any SumUp checkout is created.
+    // Uses address-derived airport context — never client isFromAirport flags alone.
+    if (booking?.pickupLabel && booking?.dropoffLabel) {
+      const flightAirportCtx = resolvePaymentAirportContextFromAddresses(
+        booking.pickupLabel,
+        booking.dropoffLabel,
+      );
+      if (flightAirportCtx.ok) {
+        const flightBlockers = getAirportPickupFlightNumberBlockers({
+          airportContext: flightAirportCtx.context,
+          returnJourney: Boolean(booking.returnJourney),
+          flightNumber: booking.flightNumber,
+          returnFlightNumber: booking.returnFlightNumber,
+        });
+        if (flightBlockers.length > 0) {
+          return json(
+            {
+              error: flightBlockers[0],
+              code: "invalid_flight_number",
+              blockers: flightBlockers,
+            },
+            400,
+            origin,
+          );
+        }
+      }
+    }
+
     const checkoutReference =
       String(body.checkoutReference ?? "").trim() || buildCheckoutReference();
     const returnUrl = new URL("/payments/webhook", request.url).toString();

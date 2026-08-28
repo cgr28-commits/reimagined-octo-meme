@@ -10,6 +10,8 @@ import {
   PERSONAL_QUOTE_PASSENGER_LIMIT_ERROR,
 } from "../../shared/personal-quote";
 import { getPaymentBookingBlockers } from "../../shared/paid-booking-gate";
+import { getAirportPickupFlightNumberBlockers } from "../../shared/flight-lookup";
+import { resolvePaymentAirportContextFromAddresses } from "../../shared/open-website-payment-fares";
 import { readConsentedAdsAttribution } from "@/lib/ads-attribution";
 
 export type PaymentCheckoutRequest = {
@@ -61,6 +63,11 @@ export type PaymentCheckoutRequest = {
   /** Live route metrics so the Worker can requote with the canonical engine. */
   routeMetrics?: { distanceKm: number; durationMinutes: number } | null;
   /**
+   * Final amount shown on the quote card / consent checkbox / price breakdown.
+   * Worker compares this to its authoritative final — mismatch → 409, never silent replace.
+   */
+  acceptedFinalAmountGbp?: number;
+  /**
    * When true (default for open website), apply the £5 booking saving when enabled
    * and booking value ≥ £40. Offer is currently disabled in config.
    * Personal / Quick / Saved quotes must pass false.
@@ -92,6 +99,23 @@ export type PaymentCheckoutResult = {
   status?: string;
   shortNoticeReference?: string;
 };
+
+export type PaymentFareMismatchError = Error & {
+  code: "fare_mismatch";
+  displayedAmountGbp: number;
+  serverAmountGbp: number;
+};
+
+export function isPaymentFareMismatchError(
+  error: unknown,
+): error is PaymentFareMismatchError {
+  return (
+    error instanceof Error &&
+    (error as PaymentFareMismatchError).code === "fare_mismatch" &&
+    Number.isFinite((error as PaymentFareMismatchError).displayedAmountGbp) &&
+    Number.isFinite((error as PaymentFareMismatchError).serverAmountGbp)
+  );
+}
 
 export type PaymentConfirmationResult = {
   amountPaid: string;
@@ -167,6 +191,22 @@ export async function createPaymentCheckout(
       throw new Error(blockers[0]);
     }
 
+    const flightAirportCtx = resolvePaymentAirportContextFromAddresses(
+      request.booking.pickupLabel ?? "",
+      request.booking.dropoffLabel ?? "",
+    );
+    if (flightAirportCtx.ok) {
+      const flightBlockers = getAirportPickupFlightNumberBlockers({
+        airportContext: flightAirportCtx.context,
+        returnJourney: Boolean(request.booking.returnJourney),
+        flightNumber: request.booking.flightNumber,
+        returnFlightNumber: request.booking.returnFlightNumber,
+      });
+      if (flightBlockers.length > 0) {
+        throw new Error(flightBlockers[0]);
+      }
+    }
+
     if (!isValidPassengerCount(request.booking.passengers)) {
       throw new Error(PASSENGER_LIMIT_ERROR);
     }
@@ -229,6 +269,13 @@ export async function createPaymentCheckout(
             },
           }
         : {}),
+      ...(typeof request.acceptedFinalAmountGbp === "number" &&
+      Number.isFinite(request.acceptedFinalAmountGbp)
+        ? {
+            acceptedFinalAmountGbp:
+              Math.round(Number(request.acceptedFinalAmountGbp) * 100) / 100,
+          }
+        : {}),
       ...(typeof request.claimFirstBookingOffer === "boolean"
         ? { claimFirstBookingOffer: request.claimFirstBookingOffer }
         : {}),
@@ -238,6 +285,24 @@ export async function createPaymentCheckout(
   const payload = await response.json().catch(() => null);
 
   if (!response.ok) {
+    if (
+      response.status === 409 &&
+      payload &&
+      typeof payload === "object" &&
+      (payload as { code?: unknown }).code === "fare_mismatch"
+    ) {
+      const displayed = Number((payload as { displayedAmountGbp?: unknown }).displayedAmountGbp);
+      const server = Number((payload as { serverAmountGbp?: unknown }).serverAmountGbp);
+      const message =
+        typeof (payload as { error?: unknown }).error === "string"
+          ? String((payload as { error: string }).error)
+          : "Your fare has changed. Please review the updated price before continuing to payment.";
+      const mismatch = new Error(message) as PaymentFareMismatchError;
+      mismatch.code = "fare_mismatch";
+      mismatch.displayedAmountGbp = Number.isFinite(displayed) ? displayed : 0;
+      mismatch.serverAmountGbp = Number.isFinite(server) ? server : 0;
+      throw mismatch;
+    }
     const message =
       payload && typeof payload === "object" && "error" in payload
         ? String((payload as { error?: unknown }).error)

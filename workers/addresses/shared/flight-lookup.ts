@@ -37,6 +37,10 @@ export const SERVED_AIRPORT_IATA: Record<string, string[]> = {
 
 const FLIGHT_NUMBER_PATTERN = /^([A-Z0-9]{2,3})\s*(\d{1,4}[A-Z]?)$/i;
 
+/** Customer-facing format / required message (keep in sync with FlightNumberField). */
+export const FLIGHT_NUMBER_FORMAT_ERROR =
+  "Enter a valid flight number (e.g. BA1234 or EZY456).";
+
 export function normalizeFlightNumber(value: string): string {
   return value.trim().toUpperCase().replace(/\s+/g, "");
 }
@@ -46,7 +50,79 @@ export function isValidFlightNumberFormat(value: string): boolean {
   if (normalised.length < 3) {
     return false;
   }
-  return FLIGHT_NUMBER_PATTERN.test(normalised);
+  if (!FLIGHT_NUMBER_PATTERN.test(normalised)) {
+    return false;
+  }
+  // Airline designator must include a letter (reject pure numerics like "12345").
+  const match = normalised.match(/^([A-Z0-9]{2,3})(\d{1,4}[A-Z]?)$/i);
+  if (!match) {
+    return false;
+  }
+  return /[A-Z]/i.test(match[1]);
+}
+
+/**
+ * Airport-pickup flight requirements derived from server address context
+ * (or equivalent UI journey flags). Does not trust client airportCode alone.
+ *
+ * - From airport / A2A pickup → outbound flight required
+ * - To airport one-way → not required
+ * - Return where return leg starts at an airport → return flight required
+ */
+export type AirportPickupFlightContext = {
+  fromAirport: boolean;
+  isAirportTrip: boolean;
+  isAirportToAirport: boolean;
+};
+
+export function requiresOutboundAirportPickupFlight(
+  ctx: AirportPickupFlightContext,
+): boolean {
+  return Boolean(ctx.fromAirport || ctx.isAirportToAirport);
+}
+
+export function requiresReturnAirportPickupFlight(
+  ctx: AirportPickupFlightContext,
+  returnJourney: boolean,
+): boolean {
+  if (!returnJourney) return false;
+  if (ctx.isAirportToAirport) return true;
+  // Outbound was to-airport → return collects from the airport.
+  return Boolean(ctx.isAirportTrip && !ctx.fromAirport);
+}
+
+/**
+ * Hard blockers for SumUp / booking continue when an airport collection needs
+ * a valid flight number. Soft AeroDataBox lookup failures are not blockers —
+ * format validity is the gate.
+ */
+export function getAirportPickupFlightNumberBlockers(params: {
+  airportContext: AirportPickupFlightContext;
+  returnJourney?: boolean | null;
+  flightNumber?: string | null;
+  returnFlightNumber?: string | null;
+}): string[] {
+  const blockers: string[] = [];
+  const returnJourney = Boolean(params.returnJourney);
+  const outbound = String(params.flightNumber ?? "").trim();
+  const inbound = String(params.returnFlightNumber ?? "").trim();
+
+  if (requiresOutboundAirportPickupFlight(params.airportContext)) {
+    if (!outbound || !isValidFlightNumberFormat(outbound)) {
+      blockers.push(FLIGHT_NUMBER_FORMAT_ERROR);
+    }
+  }
+
+  if (requiresReturnAirportPickupFlight(params.airportContext, returnJourney)) {
+    if (!inbound || !isValidFlightNumberFormat(inbound)) {
+      // Same customer-facing copy; distinguishes via which field is required.
+      if (!blockers.includes(FLIGHT_NUMBER_FORMAT_ERROR)) {
+        blockers.push(FLIGHT_NUMBER_FORMAT_ERROR);
+      }
+    }
+  }
+
+  return blockers;
 }
 
 export function formatFlightNumberForDisplay(value: string): string {
