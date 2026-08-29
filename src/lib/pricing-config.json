@@ -114,13 +114,13 @@
   "airportExecutiveMinimumFareGbp": 105,
   "areaAirportSurchargesGbp": {
     "Belfast City Centre": {
-      "BFS": 6,
+      "BFS": 14,
       "BHD": 0,
       "DUB": 50,
       "LDY": 104
     },
     "Holywood": {
-      "BFS": 13,
+      "BFS": 18,
       "BHD": 0,
       "DUB": 58,
       "LDY": 104
@@ -132,8 +132,8 @@
       "LDY": 94
     },
     "Lisburn": {
-      "BFS": 3,
-      "BHD": 0,
+      "BFS": 4,
+      "BHD": 15,
       "DUB": 60,
       "LDY": 104
     },
