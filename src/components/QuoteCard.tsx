@@ -2797,8 +2797,18 @@ function QuoteCard({
         setRouteReconfirmationRequired(true);
         setRouteMetrics(null);
         setServerFareParts(null);
-        setPickupPlaceError(ROUTE_RECONFIRMATION_MESSAGE);
-        setDropoffPlaceError(ROUTE_RECONFIRMATION_MESSAGE);
+        const endpoint = error.endpoint ?? "both";
+        // Identify only the affected field when the Worker reports which end failed.
+        if (endpoint === "pickup") {
+          setPickupPlaceError(ROUTE_RECONFIRMATION_MESSAGE);
+          setDropoffPlaceError("");
+        } else if (endpoint === "dropoff") {
+          setPickupPlaceError("");
+          setDropoffPlaceError(ROUTE_RECONFIRMATION_MESSAGE);
+        } else {
+          setPickupPlaceError(ROUTE_RECONFIRMATION_MESSAGE);
+          setDropoffPlaceError(ROUTE_RECONFIRMATION_MESSAGE);
+        }
         setPaymentError(error.message || ROUTE_RECONFIRMATION_MESSAGE);
         setQuoteStep(1);
         setPaymentLoading(false);

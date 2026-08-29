@@ -88,9 +88,13 @@ export function restoredPlacesReadyForPayment(params: {
   );
 }
 
+export type RouteReconfirmationEndpoint = "pickup" | "dropoff" | "both";
+
 export type RouteReconfirmationPaymentErrorBody = {
   error: string;
   code: typeof ROUTE_RECONFIRMATION_CODE;
+  /** Which address field(s) need reselection when known. */
+  endpoint?: RouteReconfirmationEndpoint;
 };
 
 export type RouteServiceUnavailablePaymentErrorBody = {
@@ -98,10 +102,13 @@ export type RouteServiceUnavailablePaymentErrorBody = {
   code: typeof ROUTE_SERVICE_UNAVAILABLE_CODE;
 };
 
-export function buildRouteReconfirmationPaymentError(): RouteReconfirmationPaymentErrorBody {
+export function buildRouteReconfirmationPaymentError(
+  endpoint: RouteReconfirmationEndpoint = "both",
+): RouteReconfirmationPaymentErrorBody {
   return {
     error: ROUTE_RECONFIRMATION_MESSAGE,
     code: ROUTE_RECONFIRMATION_CODE,
+    endpoint,
   };
 }
 
@@ -115,11 +122,14 @@ export function buildRouteServiceUnavailablePaymentError(): RouteServiceUnavaila
 /** Map resolver failure reasons onto payment HTTP error bodies. */
 export function paymentErrorForRouteFailure(
   reason: RouteResolveFailureReason,
+  endpoint?: "pickup" | "dropoff" | "route",
 ): RouteReconfirmationPaymentErrorBody | RouteServiceUnavailablePaymentErrorBody {
   if (reason === "provider_unavailable" || reason === "routing_unavailable") {
     return buildRouteServiceUnavailablePaymentError();
   }
-  return buildRouteReconfirmationPaymentError();
+  const field: RouteReconfirmationEndpoint =
+    endpoint === "pickup" || endpoint === "dropoff" ? endpoint : "both";
+  return buildRouteReconfirmationPaymentError(field);
 }
 
 /**

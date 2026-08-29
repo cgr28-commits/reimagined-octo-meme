@@ -238,7 +238,7 @@ async function main() {
     }
   });
 
-  await check("8. unresolved place → route_reconfirmation_required", async () => {
+  await check("8. unresolved place → route_reconfirmation_required (pickup only)", async () => {
     const outcome = await resolveTripRouteMetricsOutcome({
       pickupAddress: "Unknown lane that never matched",
       dropoffAddress: bfs.formattedAddress,
@@ -252,9 +252,35 @@ async function main() {
     assert.equal(outcome.ok, false);
     if (!outcome.ok) {
       assert.equal(outcome.reason, "place_unresolved");
-      const err = paymentErrorForRouteFailure(outcome.reason);
+      assert.equal(outcome.endpoint, "pickup");
+      const err = paymentErrorForRouteFailure(outcome.reason, outcome.endpoint);
       assert.equal(err.code, ROUTE_RECONFIRMATION_CODE);
       assert.equal(err.error, ROUTE_RECONFIRMATION_MESSAGE);
+      assert.equal("endpoint" in err && err.endpoint, "pickup");
+    }
+  });
+
+  await check("8b. unresolved dropoff only marks dropoff endpoint", async () => {
+    const outcome = await resolveTripRouteMetricsOutcome({
+      pickupAddress: CITY_HALL.displayAddress,
+      dropoffAddress: "Nowhere that resolves",
+      pickupPlaceId: CITY_HALL.placeId,
+      dropoffPlaceId: "ChIJmissing-drop",
+      trustClientCoordinates: false,
+      geocode: async () => null,
+      resolvePlaceId: async (placeId) => {
+        if (placeId === CITY_HALL.placeId) {
+          return { point: { lat: CITY_HALL.lat, lng: CITY_HALL.lng } };
+        }
+        return { point: null };
+      },
+      fetchRouteMetrics: async () => null,
+    });
+    assert.equal(outcome.ok, false);
+    if (!outcome.ok) {
+      assert.equal(outcome.endpoint, "dropoff");
+      const err = paymentErrorForRouteFailure(outcome.reason, outcome.endpoint);
+      assert.equal("endpoint" in err && err.endpoint, "dropoff");
     }
   });
 
@@ -326,6 +352,10 @@ async function main() {
       /isPaymentRouteServiceUnavailableError[\s\S]*setPaymentError[\s\S]*setPaymentLoading\(false\)/,
     );
     assert.match(card, /setPaymentError\(""\)/);
+    // Genuine invalid address marks only the affected field.
+    assert.match(card, /endpoint === "pickup"/);
+    assert.match(card, /endpoint === "dropoff"/);
+    assert.match(card, /error\.endpoint/);
 
     const createPayment = fs.readFileSync(
       path.join(root, "src/lib/create-payment.ts"),
@@ -335,6 +365,7 @@ async function main() {
     assert.match(createPayment, /dropoffPlaceId/);
     assert.match(createPayment, /route_service_unavailable/);
     assert.match(createPayment, /isPaymentRouteServiceUnavailableError/);
+    assert.match(createPayment, /reconfirm\.endpoint/);
 
     const index = fs.readFileSync(
       path.join(root, "workers/addresses/src/index.ts"),
@@ -345,8 +376,11 @@ async function main() {
     assert.match(index, /body\.dropoffPlaceId/);
     assert.match(index, /trustClientCoordinates:\s*false|Never trust[\s\S]*client lat\/lng/);
     assert.match(index, /route_service_unavailable|paymentErrorForRouteFailure/);
+    assert.match(index, /routeOutcome\.endpoint/);
     // Still never trust client routeMetrics for SumUp fare authority.
     assert.match(index, /Never trust body\.routeMetrics/);
+    assert.match(index, /resolveSumUpChargeAmountGbp/);
+    assert.match(index, /sumUpChargeGbp/);
 
     const resolve = fs.readFileSync(
       path.join(root, "workers/addresses/src/resolve-route-metrics.ts"),
@@ -355,10 +389,17 @@ async function main() {
     assert.match(resolve, /resolveGooglePlaceLocation/);
     assert.match(resolve, /resolveIdealPostcodesDetails/);
     assert.match(resolve, /servedAirportFromPlaceId|resolveTripRouteMetricsOutcome/);
+    assert.match(resolve, /isGetAddressPlaceId|resolveGetAddressDetails/);
 
     assert.deepEqual(buildRouteReconfirmationPaymentError(), {
       error: ROUTE_RECONFIRMATION_MESSAGE,
       code: ROUTE_RECONFIRMATION_CODE,
+      endpoint: "both",
+    });
+    assert.deepEqual(buildRouteReconfirmationPaymentError("pickup"), {
+      error: ROUTE_RECONFIRMATION_MESSAGE,
+      code: ROUTE_RECONFIRMATION_CODE,
+      endpoint: "pickup",
     });
     assert.deepEqual(buildRouteServiceUnavailablePaymentError(), {
       error: ROUTE_SERVICE_UNAVAILABLE_MESSAGE,
@@ -373,6 +414,26 @@ async function main() {
     assert.doesNotMatch(card, /window\.open\(checkout\.paymentUrl/);
     // Payment button still gated on confirmed places + route.
     assert.match(card, /routeValidationBlockingPayment/);
+  });
+
+  await check("13. mocked SumUp checkout receives exact accepted server-verified amount", async () => {
+    const { checkoutAmountsMatch, resolveSumUpChargeAmountGbp } = await import(
+      "../shared/open-website-payment-fares"
+    );
+    const accepted = 180.5;
+    const server = 180.5;
+    assert.equal(checkoutAmountsMatch(accepted, server), true);
+    const charge = resolveSumUpChargeAmountGbp(accepted, server);
+    assert.equal(charge, 180.5);
+    // Mock SumUp Hosted Checkout payload — no live API call.
+    const mockSumUpCheckout = {
+      amount: charge!,
+      currency: "GBP" as const,
+      description: "My Airport Taxi NI transfer",
+    };
+    assert.equal(mockSumUpCheckout.amount, accepted);
+    assert.equal(mockSumUpCheckout.amount, server);
+    assert.equal(resolveSumUpChargeAmountGbp(100, 100.03), null);
   });
 
   console.log("\nAll payment place-ID route-resolve checks passed.");

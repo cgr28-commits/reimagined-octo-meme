@@ -1915,7 +1915,10 @@ async function handlePaymentRequest(
       }),
     );
     if (!routeOutcome.ok) {
-      const errBody = paymentErrorForRouteFailure(routeOutcome.reason);
+      const errBody = paymentErrorForRouteFailure(
+        routeOutcome.reason,
+        routeOutcome.endpoint,
+      );
       const status =
         errBody.code === "route_service_unavailable" ? 503 : 409;
       return json(errBody, status, origin);

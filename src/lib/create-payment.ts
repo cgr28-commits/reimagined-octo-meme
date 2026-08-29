@@ -125,6 +125,7 @@ export function isPaymentFareMismatchError(
 
 export type PaymentRouteReconfirmationError = Error & {
   code: "route_reconfirmation_required";
+  endpoint?: "pickup" | "dropoff" | "both";
 };
 
 export function isPaymentRouteReconfirmationError(
@@ -351,8 +352,14 @@ export async function createPaymentCheckout(
         typeof (payload as { error?: unknown }).error === "string"
           ? String((payload as { error: string }).error)
           : "Please select your pickup and drop-off addresses again from the suggestions";
+      const endpointRaw = String((payload as { endpoint?: unknown }).endpoint ?? "both");
+      const endpoint =
+        endpointRaw === "pickup" || endpointRaw === "dropoff" || endpointRaw === "both"
+          ? endpointRaw
+          : "both";
       const reconfirm = new Error(message) as PaymentRouteReconfirmationError;
       reconfirm.code = "route_reconfirmation_required";
+      reconfirm.endpoint = endpoint;
       throw reconfirm;
     }
     if (
