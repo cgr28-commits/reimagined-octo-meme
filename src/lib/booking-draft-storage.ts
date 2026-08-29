@@ -4,6 +4,7 @@
  */
 
 import type { SelectedPlace } from "@/lib/selected-place";
+import { isQuoteReadyPlace } from "@/lib/selected-place";
 import type { QuoteJourneyIntent, CustomerAirportCode } from "@/lib/quote-journey-intent";
 import type { VehicleType } from "@/lib/data";
 
@@ -63,9 +64,18 @@ export function saveBookingFormDraft(draft: BookingFormDraft): void {
     return;
   }
   try {
+    const pickupPlace =
+      draft.pickupPlace && isQuoteReadyPlace(draft.pickupPlace) ? draft.pickupPlace : null;
+    const dropoffPlace =
+      draft.dropoffPlace && isQuoteReadyPlace(draft.dropoffPlace) ? draft.dropoffPlace : null;
     sessionStorage.setItem(
       BOOKING_DRAFT_KEY,
-      JSON.stringify({ ...draft, savedAt: new Date().toISOString() }),
+      JSON.stringify({
+        ...draft,
+        pickupPlace,
+        dropoffPlace,
+        savedAt: new Date().toISOString(),
+      }),
     );
   } catch {
     // Ignore quota / private mode failures — in-memory React state still holds the form.
@@ -85,7 +95,24 @@ export function readBookingFormDraft(): BookingFormDraft | null {
     if (!parsed || typeof parsed !== "object") {
       return null;
     }
-    return parsed;
+    // Never restore incomplete Places as confirmed — text alone is not enough.
+    const pickupPlace =
+      parsed.pickupPlace &&
+      typeof parsed.pickupPlace === "object" &&
+      isQuoteReadyPlace(parsed.pickupPlace)
+        ? parsed.pickupPlace
+        : null;
+    const dropoffPlace =
+      parsed.dropoffPlace &&
+      typeof parsed.dropoffPlace === "object" &&
+      isQuoteReadyPlace(parsed.dropoffPlace)
+        ? parsed.dropoffPlace
+        : null;
+    return {
+      ...parsed,
+      pickupPlace,
+      dropoffPlace,
+    };
   } catch {
     return null;
   }

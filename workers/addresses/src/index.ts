@@ -346,6 +346,10 @@ import {
   resolveSumUpChargeAmountGbp,
   buildFareMismatchPaymentError,
 } from "../shared/open-website-payment-fares";
+import {
+  buildRouteReconfirmationPaymentError,
+  resolveRouteMetricsWithRetry,
+} from "../shared/route-reconfirmation";
 import { resolveWorkerTripRouteMetrics } from "./resolve-route-metrics";
 import {
   ESTATE_VEHICLE,
@@ -1891,20 +1895,16 @@ async function handlePaymentRequest(
     // Never trust body.routeMetrics / client journeyDistance|Duration for SumUp.
     // Resolve driving metrics server-side from addresses (same path as quote-handlers).
     // Deliberately omit client lat/lng so coords cannot be spoofed short either.
-    const routeMetrics = await resolveWorkerTripRouteMetrics({
-      pickupAddress: booking.pickupLabel,
-      dropoffAddress: booking.dropoffLabel,
-      googlePlacesApiKey: env.GOOGLE_PLACES_API_KEY,
-    });
+    // Retry once for transient geocode/route failures.
+    const routeMetrics = await resolveRouteMetricsWithRetry(() =>
+      resolveWorkerTripRouteMetrics({
+        pickupAddress: booking.pickupLabel,
+        dropoffAddress: booking.dropoffLabel,
+        googlePlacesApiKey: env.GOOGLE_PLACES_API_KEY,
+      }),
+    );
     if (!routeMetrics) {
-      return json(
-        {
-          error:
-            "Quote amount is out of date. Please refresh your quote and try again.",
-        },
-        409,
-        origin,
-      );
+      return json(buildRouteReconfirmationPaymentError(), 409, origin);
     }
 
     // Airport identity / direction from pickup/drop-off labels vs SERVED_AIRPORTS.
