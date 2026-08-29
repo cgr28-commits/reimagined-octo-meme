@@ -263,15 +263,12 @@ export async function sendOnTheWayNotificationIfNeeded(
     ownerIsActiveDriver: Boolean(ownerIsActiveDriver),
   });
 
-  const trackUrl = buildPublicTrackUrl(job.token);
-
   const email = buildDriverOnTheWayEmail(
     {
       customerName: job.customerName || customerFirstName(emailAddress),
       driverFirstName: details.driverFirstName || undefined,
       vehicleColour: details.carColour || undefined,
       partialRegistration: details.registrationPartial || undefined,
-      trackUrl: trackUrl || undefined,
     },
     BUSINESS_NAME,
   );

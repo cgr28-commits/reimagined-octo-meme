@@ -167,7 +167,6 @@ function openOnTheWayWhatsAppForBooking(
   openWhatsAppDeepLink(
     buildDriverOnTheWayWhatsAppLink(mobile, {
       driverFirstName: booking.assignedDriverName?.trim().split(/\s+/)[0] || undefined,
-      trackUrl: booking.trackUrl?.trim() || undefined,
     }),
   );
   return "opened";

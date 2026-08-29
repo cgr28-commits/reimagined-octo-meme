@@ -1166,7 +1166,6 @@ function DriverJobCard({
               undefined,
             vehicleColour: job.assignedDriverCarColour?.trim() || undefined,
             partialRegistration: formatPartialRegistration(job.assignedDriverReg) || undefined,
-            trackUrl: job.trackUrl?.trim() || undefined,
           });
           const opened = window.open(href, "_blank", "noopener,noreferrer");
           if (!opened) {

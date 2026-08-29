@@ -1570,7 +1570,9 @@ export type ArrivalNotificationDetails = {
   vehicleColour?: string;
   /** Privacy-safe partial registration only — never full plate. */
   partialRegistration?: string;
-  /** Optional live tracking URL when available for this booking. */
+  /**
+   * @deprecated Website GPS tracking is retired — ignored for Driver on the way email.
+   */
   trackUrl?: string;
 };
 
@@ -1632,12 +1634,14 @@ export function buildDriverArrivedPickupEmail(
 /**
  * Customer message when driver/owner marks Driver on the way.
  * Privacy-safe assigned-driver details only — never driver mobile.
- * Live WhatsApp location/contact is optional (“may”).
+ * Website GPS / Track Your Driver links are retired; WhatsApp Live Location is optional (“may”).
  */
 export function buildDriverOnTheWayEmail(
   details: ArrivalNotificationDetails,
   businessName = "My Airport Taxi NI",
 ): CustomerPaidBookingEmail {
+  void details.trackUrl;
+  void details.driverMobile;
   const firstName = customerFirstName(details.customerName);
   const subject = `Your driver is on the way — ${businessName}`;
   const statusHeading = "Your driver is on the way";
@@ -1648,9 +1652,8 @@ export function buildDriverOnTheWayEmail(
     : `Your ${businessName} driver is now on the way to your pickup location.`;
   const colour = details.vehicleColour?.trim() || "";
   const partialReg = details.partialRegistration?.trim() || "";
-  const trackUrl = details.trackUrl?.trim() || "";
   const mayContact =
-    "Your driver may also contact you or share their live location with you through WhatsApp.";
+    "Your driver may contact you through WhatsApp if necessary and may also choose to share their live location with you directly through WhatsApp.";
 
   const detailLines: string[] = [];
   if (colour) detailLines.push(`Vehicle colour: ${colour}`);
@@ -1665,9 +1668,6 @@ export function buildDriverOnTheWayEmail(
     "",
     ...detailLines,
     detailLines.length > 0 ? "" : null,
-    trackUrl
-      ? `You can follow your driver using the live tracking link below.\n${trackUrl}\n`
-      : null,
     mayContact,
     "",
     `You can also message us on WhatsApp or call ${BUSINESS_PHONE_DISPLAY} if you need anything.`,
@@ -1686,11 +1686,6 @@ export function buildDriverOnTheWayEmail(
         `<p style="margin:0 0 8px;font-size:15px;line-height:1.6;color:#334155;">${escapeHtml(line)}</p>`,
     )
     .join("");
-
-  const trackHtml = trackUrl
-    ? `<p style="margin:16px 0 0;font-size:15px;line-height:1.7;color:#334155;">You can follow your driver using the live tracking link below.</p>
-              <p style="margin:8px 0 0;"><a href="${escapeHtml(trackUrl)}" style="color:${NAVY};font-weight:bold;">Open live tracking</a></p>`
-    : "";
 
   const html = `<!DOCTYPE html>
 <html lang="en">
@@ -1716,10 +1711,9 @@ export function buildDriverOnTheWayEmail(
               <p style="margin:0 0 14px;">${escapeHtml(greeting)}</p>
               <p style="margin:0 0 16px;">${escapeHtml(intro)}</p>
               ${detailHtml}
-              ${trackHtml}
               <p style="margin:16px 0 0;font-size:15px;line-height:1.7;color:#334155;">${escapeHtml(mayContact)}</p>
               <p style="margin:16px 0 0;font-size:14px;color:#64748b;">
-                WhatsApp contact and live location sharing, when used, are sent manually by your driver — they are not automatic.
+                WhatsApp contact and live location sharing, when used, are sent manually by your driver — they are not automatic and are not a website tracking link.
               </p>
             </td>
           </tr>

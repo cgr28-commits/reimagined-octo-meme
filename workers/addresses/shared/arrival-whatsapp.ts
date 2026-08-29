@@ -122,7 +122,7 @@ export function buildArrivedPickupWhatsAppLink(
  * Prefill WhatsApp message opened by the assigned driver to the customer.
  * Written in the driver’s voice so the customer knows who is messaging them.
  * Manual Send only — does not automate WhatsApp Live Location.
- * Never includes the driver’s phone number (WhatsApp already identifies the sender).
+ * Never includes the driver’s phone number or retired website /track links.
  */
 export function buildDriverOnTheWayWhatsAppMessage(options?: {
   driverFirstName?: string;
@@ -130,13 +130,14 @@ export function buildDriverOnTheWayWhatsAppMessage(options?: {
   partialRegistration?: string;
   /** @deprecated Never included in customer-facing copy. */
   driverMobile?: string;
+  /** @deprecated Website GPS tracking is retired — ignored. */
   trackUrl?: string;
 }): string {
   const driverFirst = options?.driverFirstName?.trim() || "";
   const colour = options?.vehicleColour?.trim() || "";
   const partialReg = options?.partialRegistration?.trim() || "";
-  const trackUrl = options?.trackUrl?.trim() || "";
   void options?.driverMobile;
+  void options?.trackUrl;
 
   const intro = driverFirst
     ? `Hi, I'm ${driverFirst}, your driver for My Airport Taxi NI. I'm now on the way to your pickup location.`
@@ -146,10 +147,6 @@ export function buildDriverOnTheWayWhatsAppMessage(options?: {
   if (colour) lines.push(`Vehicle: ${colour}`);
   if (partialReg) lines.push(`Registration: ${partialReg}`);
   if (colour || partialReg) lines.push("");
-  if (trackUrl) {
-    lines.push(`You can follow my journey here: ${trackUrl}`);
-    lines.push("");
-  }
   lines.push("I may also share my live location with you here on WhatsApp.");
   return lines.join("\n");
 }

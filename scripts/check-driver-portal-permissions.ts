@@ -115,7 +115,7 @@ check("Customer-facing vehicle details use partial reg and no driver mobile", ()
   assert.equal("mobile" in vehicle, false);
 });
 
-check("Driver on the way email — no driver mobile; colour + partial reg; may contact", () => {
+check("Driver on the way email — no driver mobile; colour + partial reg; no website tracking", () => {
   const email = buildDriverOnTheWayEmail({
     customerName: "Alex Customer",
     driverFirstName: "John",
@@ -129,16 +129,18 @@ check("Driver on the way email — no driver mobile; colour + partial reg; may c
   assert.match(email.text, /Registration: AB12…/);
   assert.doesNotMatch(email.text, /AB12 CDE/);
   assert.doesNotMatch(email.text, /Driver mobile|07700 900123|07700900999/i);
-  assert.match(email.text, /track\/\?id=tok-1/);
+  assert.doesNotMatch(email.text, /\/track\/\?id=/i);
+  assert.doesNotMatch(email.text, /Track Your Driver|follow your driver|live tracking link/i);
+  assert.doesNotMatch(email.html, /\/track\/\?id=|Track Your Driver|follow your driver|Open live tracking/i);
   assert.match(
     email.text,
-    /Your driver may also contact you or share their live location with you through WhatsApp/,
+    /Your driver may contact you through WhatsApp if necessary and may also choose to share their live location with you directly through WhatsApp/,
   );
   assert.doesNotMatch(email.text, /£80|£120|SumUp|driver pay|amountPaid/i);
   assert.doesNotMatch(email.html, /07700 900123|Driver mobile/i);
 });
 
-check("Driver on the way WhatsApp — driver voice, no mobile, colour + partial reg", () => {
+check("Driver on the way WhatsApp — driver voice, no mobile, no website tracking", () => {
   const wa = buildDriverOnTheWayWhatsAppMessage({
     driverFirstName: "John",
     driverMobile: "07700 900123",
@@ -151,7 +153,8 @@ check("Driver on the way WhatsApp — driver voice, no mobile, colour + partial 
   assert.match(wa, /Registration: AB12…/);
   assert.doesNotMatch(wa, /AB12 CDE/);
   assert.doesNotMatch(wa, /Driver mobile|Mobile:|07700 900123/i);
-  assert.match(wa, /You can follow my journey here: /);
+  assert.doesNotMatch(wa, /\/track\/\?id=/i);
+  assert.doesNotMatch(wa, /follow my journey|Track Your Driver|live tracking link/i);
   assert.match(wa, /I may also share my live location with you here on WhatsApp/);
   assert.doesNotMatch(wa, /£80|£120/);
 
