@@ -1563,6 +1563,14 @@ export function buildGoogleReviewRequestEmail(
 
 export type ArrivalNotificationDetails = {
   customerName: string;
+  /** Driver first name for customer-facing copy (never surname). */
+  driverFirstName?: string;
+  driverMobile?: string;
+  vehicleColour?: string;
+  /** Privacy-safe partial registration only — never full plate. */
+  partialRegistration?: string;
+  /** Optional live tracking URL when available for this booking. */
+  trackUrl?: string;
 };
 
 /** Customer message when the driver taps Arrived at Pickup. */
@@ -1622,26 +1630,67 @@ export function buildDriverArrivedPickupEmail(
 
 /**
  * Customer message when driver/owner marks Driver on the way.
- * Status/email only — no website tracking CTA and no automated WhatsApp Live Location promise.
+ * Includes privacy-safe assigned-driver details. Live WhatsApp location is optional (“may share”).
  */
 export function buildDriverOnTheWayEmail(
   details: ArrivalNotificationDetails,
   businessName = "My Airport Taxi NI",
 ): CustomerPaidBookingEmail {
   const firstName = customerFirstName(details.customerName);
-  const subject = `Driver on the way — ${businessName}`;
-  const statusHeading = "Driver on the way";
-  const bodyLine =
-    "Your driver is on the way to collect you. Your driver may share their live location with you via WhatsApp when appropriate.";
+  const subject = `Your driver is on the way — ${businessName}`;
+  const statusHeading = "Your driver is on the way";
   const greeting = `Hi ${firstName},`;
+  const intro =
+    "Your driver is now on the way to your pickup location.";
+  const driverFirst = details.driverFirstName?.trim() || "";
+  const colour = details.vehicleColour?.trim() || "";
+  const partialReg = details.partialRegistration?.trim() || "";
+  const mobile = details.driverMobile?.trim() || "";
+  const trackUrl = details.trackUrl?.trim() || "";
+  const mayShare =
+    "Your driver may also share their live location with you directly on WhatsApp.";
 
-  const text =
-    `${greeting}\n\n` +
-    `${statusHeading}\n\n` +
-    `${bodyLine}\n\n` +
-    `You can also message us on WhatsApp or call ${BUSINESS_PHONE_DISPLAY} if you need anything.\n\n` +
-    `Questions? Contact us at ${BUSINESS_EMAIL} or ${BUSINESS_PHONE_DISPLAY}.\n\n` +
-    `${businessName}\n${BUSINESS_WEBSITE}`;
+  const detailLines: string[] = [];
+  if (driverFirst) detailLines.push(`Driver: ${driverFirst}`);
+  if (colour) detailLines.push(`Vehicle colour: ${colour}`);
+  if (partialReg) detailLines.push(`Registration: ${partialReg}`);
+  if (mobile) detailLines.push(`Driver mobile: ${mobile}`);
+
+  const textParts = [
+    greeting,
+    "",
+    statusHeading,
+    "",
+    intro,
+    "",
+    ...detailLines,
+    detailLines.length > 0 ? "" : null,
+    trackUrl
+      ? `You can follow your driver using the live tracking link below.\n${trackUrl}\n`
+      : null,
+    mayShare,
+    "",
+    `You can also message us on WhatsApp or call ${BUSINESS_PHONE_DISPLAY} if you need anything.`,
+    "",
+    `Questions? Contact us at ${BUSINESS_EMAIL} or ${BUSINESS_PHONE_DISPLAY}.`,
+    "",
+    businessName,
+    BUSINESS_WEBSITE,
+  ].filter((line): line is string => line !== null);
+
+  const text = textParts.join("\n");
+
+  const detailHtml = detailLines
+    .map(
+      (line) =>
+        `<p style="margin:0 0 8px;font-size:15px;line-height:1.6;color:#334155;">${escapeHtml(line)}</p>`,
+    )
+    .join("");
+
+  const trackHtml = trackUrl
+    ? `<p style="margin:16px 0 0;font-size:15px;line-height:1.7;color:#334155;">You can follow your driver using the live tracking link below.</p>
+              <p style="margin:8px 0 0;"><a href="${escapeHtml(trackUrl)}" style="color:${NAVY};font-weight:bold;">Open live tracking</a></p>`
+    : "";
 
   const html = `<!DOCTYPE html>
 <html lang="en">
@@ -1665,9 +1714,12 @@ export function buildDriverOnTheWayEmail(
           <tr>
             <td style="padding:28px 32px;font-size:15px;line-height:1.7;color:#334155;">
               <p style="margin:0 0 14px;">${escapeHtml(greeting)}</p>
-              <p style="margin:0;">${escapeHtml(bodyLine)}</p>
+              <p style="margin:0 0 16px;">${escapeHtml(intro)}</p>
+              ${detailHtml}
+              ${trackHtml}
+              <p style="margin:16px 0 0;font-size:15px;line-height:1.7;color:#334155;">${escapeHtml(mayShare)}</p>
               <p style="margin:16px 0 0;font-size:14px;color:#64748b;">
-                WhatsApp remains available for messages. Live location sharing, when used, is sent manually by your driver in WhatsApp.
+                Live location sharing on WhatsApp, when used, is sent manually by your driver — it is not automatic.
               </p>
             </td>
           </tr>

@@ -122,16 +122,50 @@ export function buildArrivedPickupWhatsAppLink(
  * Optional pre-filled WhatsApp for Driver on the way.
  * Manual Send only — does not automate WhatsApp Live Location.
  */
-export function buildDriverOnTheWayWhatsAppMessage(): string {
-  return [
-    "🚗 Driver on the way",
+export function buildDriverOnTheWayWhatsAppMessage(options?: {
+  driverFirstName?: string;
+  vehicleColour?: string;
+  partialRegistration?: string;
+  driverMobile?: string;
+  trackUrl?: string;
+}): string {
+  const driverFirst = options?.driverFirstName?.trim() || "";
+  const colour = options?.vehicleColour?.trim() || "";
+  const partialReg = options?.partialRegistration?.trim() || "";
+  const mobile = options?.driverMobile?.trim() || "";
+  const trackUrl = options?.trackUrl?.trim() || "";
+
+  const lines = [
+    "Hi, your My Airport Taxi NI driver is now on the way.",
     "",
-    "Your My Airport Taxi NI driver is on the way to collect you.",
-    "",
-    "Your driver may share their live location with you via WhatsApp when appropriate.",
-  ].join("\n");
+  ];
+  if (driverFirst) lines.push(`Driver: ${driverFirst}`);
+  if (colour) lines.push(`Vehicle: ${colour}`);
+  if (partialReg) lines.push(`Registration: ${partialReg}`);
+  if (mobile) lines.push(`Driver mobile: ${mobile}`);
+  if (driverFirst || colour || partialReg || mobile) lines.push("");
+  if (trackUrl) {
+    lines.push(`You can follow the journey using your live tracking link: ${trackUrl}`);
+    lines.push("");
+  }
+  lines.push(
+    "Your driver may also share their live location with you directly here on WhatsApp.",
+  );
+  return lines.join("\n");
 }
 
-export function buildDriverOnTheWayWhatsAppLink(customerMobile: string): string {
-  return buildArrivedPickupWhatsAppLink(customerMobile, buildDriverOnTheWayWhatsAppMessage());
+export function buildDriverOnTheWayWhatsAppLink(
+  customerMobile: string,
+  options?: {
+    driverFirstName?: string;
+    vehicleColour?: string;
+    partialRegistration?: string;
+    driverMobile?: string;
+    trackUrl?: string;
+  },
+): string {
+  return buildArrivedPickupWhatsAppLink(
+    customerMobile,
+    buildDriverOnTheWayWhatsAppMessage(options),
+  );
 }

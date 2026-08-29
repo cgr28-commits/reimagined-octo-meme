@@ -1,6 +1,7 @@
 import type { DriverJob, DriverJobsResponse, PublicTrackResponse } from "@/lib/tracking-api";
 import { SITE } from "@/lib/data";
 import { formatUkInstant } from "../../shared/uk-time";
+import { sanitizeJobForDriver } from "../../shared/driver-job-sanitize";
 
 export const DEMO_TRACK_TOKENS = ["demo-early", "demo-waiting", "demo-live"] as const;
 export type DemoTrackToken = (typeof DEMO_TRACK_TOKENS)[number];
@@ -191,17 +192,9 @@ export function getDemoTrackResponse(token: DemoTrackToken): PublicTrackResponse
   });
 }
 
-/** Strip owner-only fields so demo matches live driver API responses. */
+/** Strip owner-only fields so demo matches live driver API whitelist sanitisation. */
 export function sanitizeDemoJobForDriver(job: DriverJob): DriverJob {
-  const sanitized = { ...job };
-  delete sanitized.paymentReference;
-  delete sanitized.amountPaidLabel;
-  delete sanitized.refundAmountLabel;
-  delete sanitized.customerMobile;
-  delete sanitized.driverLocationPointCount;
-  delete sanitized.driverLocationRecordedFrom;
-  delete sanitized.driverLocationRecordedTo;
-  return sanitized;
+  return sanitizeJobForDriver(job as unknown as Record<string, unknown>) as DriverJob;
 }
 
 const DEMO_OWNER_FIELDS: Record<
@@ -288,6 +281,12 @@ function acceptedAssignmentFields() {
     assignmentStatus: "accepted" as const,
     assignedAt: new Date().toISOString(),
     acceptedAt: new Date().toISOString(),
+    assignedDriverMobile: "+447700900999",
+    assignedDriverCarMake: "Mercedes",
+    assignedDriverCarModel: "E-Class",
+    assignedDriverCarColour: "Silver",
+    assignedDriverReg: "AB12 CDE",
+    driverPayAmount: "£80",
   };
 }
 
@@ -298,10 +297,13 @@ function buildDemoDriverJob(
   },
 ): DriverJob {
   const base = getDemoTrackResponse(token);
+  const ownerExtras = DEMO_OWNER_FIELDS[extras.token] ?? DEMO_OWNER_FIELDS[token] ?? {};
   return {
     ...base,
     ...acceptedAssignmentFields(),
     bookingStatus: "confirmed",
+    customerMobile: ownerExtras.customerMobile,
+    bookingReference: ownerExtras.paymentReference,
     ...extras,
   };
 }
@@ -449,6 +451,14 @@ function buildDemoPendingJobRaw(): DriverJob {
     assignmentStatus: "pending",
     assignedAt: new Date().toISOString(),
     bookingStatus: "confirmed",
+    customerMobile: DEMO_OWNER_FIELDS["demo-pending"]?.customerMobile,
+    bookingReference: DEMO_OWNER_FIELDS["demo-pending"]?.paymentReference,
+    assignedDriverMobile: "+447700900999",
+    assignedDriverCarMake: "Mercedes",
+    assignedDriverCarModel: "E-Class",
+    assignedDriverCarColour: "Silver",
+    assignedDriverReg: "AB12 CDE",
+    driverPayAmount: "£80",
     isAirportPickup: true,
     flightNumber: "BA1234",
     airportCode: "BHD",

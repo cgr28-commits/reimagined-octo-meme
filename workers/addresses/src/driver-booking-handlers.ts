@@ -22,8 +22,11 @@ import {
 } from "./tracking-store";
 import { publicTrackPayload } from "./tracking-handlers";
 import { corsHeaders } from "../shared/google-places";
-import { assertDriverCanViewJob } from "./driver-assignment-utils";
-import { driverAuthorized, resolveDriverSession, sanitizeDriverJobForRole, type DashboardRole } from "./driver-auth";
+import {
+  ownerAuthorized,
+  sanitizeDriverJobForRole,
+  type DashboardRole,
+} from "./driver-auth";
 
 type Env = {
   TRACKING_STORE?: KVNamespace;
@@ -106,27 +109,48 @@ export async function enrichDriverJob(
     paidRecord?.status ??
     (job.refundedAt ? "refunded" : "confirmed");
 
+  // Snapshot priority: tracking job assignment snapshot → booking job → (name from assignment).
+  const assignedDriverName =
+    job.assignedDriverName?.trim() || bookingJob?.driverFirstName?.trim() || undefined;
+  const assignedDriverMobile =
+    job.assignedDriverMobile?.trim() || bookingJob?.driverMobile?.trim() || undefined;
+  const assignedDriverCarMake =
+    job.assignedDriverCarMake?.trim() || bookingJob?.driverCarMake?.trim() || undefined;
+  const assignedDriverCarModel =
+    job.assignedDriverCarModel?.trim() || bookingJob?.driverCarModel?.trim() || undefined;
+  const assignedDriverCarColour =
+    job.assignedDriverCarColour?.trim() || bookingJob?.driverCarColour?.trim() || undefined;
+  const assignedDriverReg =
+    job.assignedDriverReg?.trim() || bookingJob?.driverReg?.trim() || undefined;
+  const driverPayAmount =
+    job.driverPayAmount?.trim() || bookingJob?.driverPayAmount?.trim() || undefined;
+
+  const customerFacingRef =
+    paidRecord?.customerReference?.trim() ||
+    (role === "owner" ? job.paymentReference : undefined);
+
   return sanitizeDriverJobForRole(
     {
       ...publicTrackPayload(job, origin, { includeCustomerLocation: true }),
       token: job.token,
       customerMobile: job.customerMobile,
       paymentReference: job.paymentReference,
+      bookingReference: customerFacingRef,
       amountPaidLabel: paidRecord?.amountPaidLabel,
       bookingStatus,
       refundAmountLabel: paidRecord?.refundAmountLabel ?? job.refundAmountLabel,
       activeDriverName: job.activeDriverName,
-      assignedDriverName: job.assignedDriverName ?? bookingJob?.driverFirstName,
+      assignedDriverName,
       assignmentStatus: job.assignmentStatus ?? bookingJob?.driverAssignmentStatus ?? "unassigned",
       assignedAt: job.assignedAt ?? bookingJob?.assignedAt,
       acceptedAt: job.acceptedAt ?? bookingJob?.driverAcceptedAt,
       declinedAt: job.declinedAt ?? bookingJob?.driverDeclinedAt,
-      assignedDriverMobile: bookingJob?.driverMobile,
-      assignedDriverCarMake: bookingJob?.driverCarMake,
-      assignedDriverCarModel: bookingJob?.driverCarModel,
-      assignedDriverCarColour: bookingJob?.driverCarColour,
-      assignedDriverReg: bookingJob?.driverReg,
-      driverPayAmount: bookingJob?.driverPayAmount,
+      assignedDriverMobile,
+      assignedDriverCarMake,
+      assignedDriverCarModel,
+      assignedDriverCarColour,
+      assignedDriverReg,
+      driverPayAmount,
       driverLocationPointCount: job.driverLocationPointCount,
       driverLocationRecordedFrom: job.driverLocationRecordedFrom,
       driverLocationRecordedTo: job.driverLocationRecordedTo,
@@ -176,12 +200,16 @@ export async function handleDriverUpdateBookingRequest(
     return jsonResponse({ error: "Live tracking is not configured" }, 503, origin);
   }
 
-  if (!driverAuthorized(request, env)) {
-    return jsonResponse({ error: "Unauthorized" }, 401, origin);
+  // Booking edits are owner-only. Driver keys must not update trip/customer fields.
+  if (!ownerAuthorized(request, env)) {
+    return jsonResponse(
+      { error: "Unauthorized — booking edits require the owner access key" },
+      401,
+      origin,
+    );
   }
 
-  const session = resolveDriverSession(request, env);
-  const role: DashboardRole = session.authorized ? session.role : "driver";
+  const role: DashboardRole = "owner";
 
   let body: DriverBookingUpdateBody;
   try {
@@ -204,13 +232,6 @@ export async function handleDriverUpdateBookingRequest(
     const paidRecord = await getPaidBookingRecord(env.TRACKING_STORE, record.paymentReference);
     if (paidRecord?.status === "refunded" || paidRecord?.status === "cancelled") {
       return jsonResponse({ error: "This booking has been refunded" }, 409, origin);
-    }
-  }
-
-  if (role === "driver") {
-    const viewError = assertDriverCanViewJob(record, session);
-    if (viewError) {
-      return jsonResponse({ error: viewError }, 403, origin);
     }
   }
 
@@ -246,9 +267,7 @@ export async function handleDriverUpdateBookingRequest(
   }
 
   if (body.customerMobile !== undefined) {
-    if (role === "owner") {
-      record.customerMobile = String(body.customerMobile).trim();
-    }
+    record.customerMobile = String(body.customerMobile).trim();
   }
 
   if (body.flightNumber !== undefined) {

@@ -33,7 +33,18 @@ export function vehicleProfileComplete(
   );
 }
 
+/** Profile ready to assign to a booking (includes contact details). */
 export function driverProfileComplete(profile: DriverVehicleProfile): boolean {
+  return (
+    Boolean(profile.displayName?.trim()) &&
+    Boolean(profile.email?.trim()) &&
+    Boolean(profile.mobile?.trim()) &&
+    vehicleProfileComplete(profile)
+  );
+}
+
+/** Soft complete for vehicle-only checks (legacy); prefer driverProfileComplete for assign. */
+export function driverProfileVehicleComplete(profile: DriverVehicleProfile): boolean {
   return (
     Boolean(profile.displayName?.trim()) &&
     Boolean(profile.email?.trim()) &&

@@ -164,7 +164,12 @@ function openOnTheWayWhatsAppForBooking(
 ): "opened" | "no_mobile" {
   const mobile = bookingCustomerMobile(booking);
   if (!mobile) return "no_mobile";
-  openWhatsAppDeepLink(buildDriverOnTheWayWhatsAppLink(mobile));
+  openWhatsAppDeepLink(
+    buildDriverOnTheWayWhatsAppLink(mobile, {
+      driverFirstName: booking.assignedDriverName?.trim().split(/\s+/)[0] || undefined,
+      trackUrl: booking.trackUrl?.trim() || undefined,
+    }),
+  );
   return "opened";
 }
 
