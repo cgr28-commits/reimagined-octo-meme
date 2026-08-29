@@ -178,10 +178,11 @@ export function composeWebsiteFareBreakdown(
   };
 }
 
+import { formatGbpAmount } from "./gbp";
+
+/** Same display rules as formatQuote / formatGbpAmount (whole £241; pence £179.50). */
 export function formatGbpFare(amount: number): string {
-  const rounded = roundGbp(amount);
-  if (!Number.isFinite(rounded)) return "£—";
-  return `£${rounded.toFixed(2)}`;
+  return formatGbpAmount(amount);
 }
 
 export { FIRST_BOOKING_OFFER_CONFIG, FIRST_BOOKING_OFFER_LABEL };
