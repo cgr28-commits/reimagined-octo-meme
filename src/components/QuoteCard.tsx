@@ -4945,6 +4945,7 @@ function QuoteCard({
             className="scroll-mt-44 space-y-3 outline-none md:scroll-mt-28"
             style={{ overflowAnchor: "none" }}
           >
+            {renderStartNewQuoteControls()}
             <TripMap
               id="quote-route-summary"
               tripMode={tripMode}
