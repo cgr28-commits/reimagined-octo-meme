@@ -25,6 +25,14 @@ const OSRM_ROUTE_BASES = [
 ] as const;
 
 /**
+ * Identifying headers required by public OSRM mirrors (403 without them from
+ * Cloudflare Workers). Never set User-Agent in the browser — forbidden there.
+ */
+export const OSRM_USER_AGENT =
+  "MyAirportTaxiNI/1.0 (+https://www.myairporttaxini.co.uk/contact/)";
+export const OSRM_REFERER = "https://www.myairporttaxini.co.uk/";
+
+/**
  * NI roads are rarely near great-circle distance. Empirically Knocknagoney→BFS
  * is ~1.47× haversine; 1.48 is retained for display-only estimates when OSRM is
  * unreachable. It must never determine a customer fare.
@@ -32,6 +40,77 @@ const OSRM_ROUTE_BASES = [
 const ROAD_DISTANCE_FACTOR = 1.48;
 /** Assumed average speed when estimating duration without OSRM (km/h). */
 const ESTIMATED_AVG_SPEED_KMH = 48;
+
+/** Server / Worker only — browsers must not set User-Agent. */
+export function isOsrmServerRuntime(): boolean {
+  // Equivalent to `typeof window === "undefined"`, written so Worker tsc
+  // (no DOM lib) still typechecks. Browsers define window; Node/Workers do not.
+  return typeof (globalThis as { window?: unknown }).window === "undefined";
+}
+
+/**
+ * OSRM fetch headers. Always send Accept. Add User-Agent + Referer only when
+ * running server-side or inside the Cloudflare Worker.
+ */
+export function buildOsrmFetchHeaders(): Record<string, string> {
+  const headers: Record<string, string> = {
+    Accept: "application/json",
+  };
+  if (isOsrmServerRuntime()) {
+    headers["User-Agent"] = OSRM_USER_AGENT;
+    headers.Referer = OSRM_REFERER;
+  }
+  return headers;
+}
+
+function osrmHostnameFromBase(base: string): string {
+  try {
+    return new URL(base).hostname;
+  } catch {
+    return "unknown";
+  }
+}
+
+/**
+ * Safe server-side OSRM diagnostics — hostname, HTTP status or network-error
+ * category, and attempt number only. Never log addresses, coordinates,
+ * customer details, or API keys.
+ */
+function logOsrmDiagnostic(input: {
+  hostname: string;
+  attempt: number;
+  status?: number;
+  category?: string;
+}): void {
+  if (!isOsrmServerRuntime()) {
+    return;
+  }
+  if (typeof input.status === "number") {
+    console.warn(
+      `[osrm] attempt=${input.attempt} host=${input.hostname} status=${input.status}`,
+    );
+    return;
+  }
+  console.warn(
+    `[osrm] attempt=${input.attempt} host=${input.hostname} error=${input.category ?? "network"}`,
+  );
+}
+
+function classifyOsrmNetworkError(error: unknown): string {
+  if (error instanceof TypeError) {
+    return "network";
+  }
+  if (error instanceof Error) {
+    const name = error.name.toLowerCase();
+    if (name.includes("abort")) {
+      return "abort";
+    }
+    if (name.includes("timeout")) {
+      return "timeout";
+    }
+  }
+  return "network";
+}
 
 function haversineKm(
   originLat: number,
@@ -78,17 +157,30 @@ export async function fetchOsrmTripRouteMetrics(
 ): Promise<ResolvedTripRouteMetrics | null> {
   const path =
     `${originLng},${originLat};${destinationLng},${destinationLat}?overview=false`;
+  const headers = buildOsrmFetchHeaders();
 
-  for (const base of OSRM_ROUTE_BASES) {
+  for (let attempt = 1; attempt <= OSRM_ROUTE_BASES.length; attempt += 1) {
+    const base = OSRM_ROUTE_BASES[attempt - 1];
+    const hostname = osrmHostnameFromBase(base);
     try {
-      const response = await fetch(`${base}/${path}`);
+      const response = await fetch(`${base}/${path}`, { headers });
       if (!response.ok) {
+        logOsrmDiagnostic({
+          hostname,
+          attempt,
+          status: response.status,
+        });
         continue;
       }
 
       const data = (await response.json()) as OsrmRouteResponse;
       const route = data.routes?.[0];
       if (!route?.distance || !route.duration) {
+        logOsrmDiagnostic({
+          hostname,
+          attempt,
+          category: "empty_route",
+        });
         continue;
       }
 
@@ -97,8 +189,13 @@ export async function fetchOsrmTripRouteMetrics(
         durationMinutes: route.duration / 60,
         source: "osrm",
       };
-    } catch {
+    } catch (error) {
       // Try the next mirror (Workers often block one host but not another).
+      logOsrmDiagnostic({
+        hostname,
+        attempt,
+        category: classifyOsrmNetworkError(error),
+      });
     }
   }
 

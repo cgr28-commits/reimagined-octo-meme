@@ -104,6 +104,10 @@ async function main() {
     console.log("OK  live OSRM unreachable in this environment (expected in some CI)");
   }
 
+  // Source assertions: commercial helpers never promote estimates.
+  assert.equal(isRoadRouteMetrics({ distanceKm: 20, durationMinutes: 30, source: "estimate" }), false);
+  assert.equal(isRoadRouteMetrics({ distanceKm: 20, durationMinutes: 30, source: "osrm" }), true);
+
   console.log("OK  haversine is display-only; commercial fetch requires OSRM");
 }
 
