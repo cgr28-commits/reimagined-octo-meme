@@ -86,6 +86,14 @@ export type PricingConfig = {
     perExtraMileGbp: number;
     baseFloorGbp: Partial<Record<"BHD" | "BFS", number>>;
   };
+  /** Live universal road-distance journey fares (replaces zone + Belfast floor). */
+  universalDistancePricing?: {
+    enabled: boolean;
+    note?: string;
+    estatePremiumGbp: number;
+    saloonMinimumGbp: number;
+    roundToNearestGbp: number;
+  };
   airportExecutiveMinimumFareGbp: number;
   areaAirportSurchargesGbp: Record<string, Record<AirportCode, number>>;
   defaultAreaSurchargeGbp: Record<AirportCode, number>;

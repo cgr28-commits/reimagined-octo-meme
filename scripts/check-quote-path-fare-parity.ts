@@ -1,12 +1,8 @@
 /**
  * Fare parity: Public Live Quote engine = Quick Quote authoritative service =
- * Personal Quotes website-fare wrapper — including when Belfast International /
- * Belfast City distance floors need route metrics.
+ * Personal Quotes website-fare wrapper under universal distance pricing.
  *
- * Bug: Quick Quote Worker (and previously Personal Quotes) could price with
- * `routeMetrics = null` when lat/lng were missing on a selected premises address.
- * That silently skipped `applyBelfastAirportDistanceFloor`, e.g.
- *   66 Knocknagoney Park → BFS: public £65 vs Quick Quote £55 (zone-only).
+ * All paths must require road metrics (no zone-only silent fallback).
  *
  * Run: npx tsx scripts/check-quote-path-fare-parity.ts
  */
@@ -228,7 +224,7 @@ check("Wiring: shared resolver + Quick Quote / Personal / TripMap", () => {
   assert.match(read("workers/addresses/src/index.ts"), /forwardGeocode/);
   assert.match(read("shared/airport-transfer-intent.ts"), /resolveAirportTransferIntent/);
   assert.match(read("workers/addresses/src/quote-handlers.ts"), /resolveAirportTransferIntent/);
-  assert.match(read("workers/addresses/src/quote-handlers.ts"), /Worker resolve first/);
+  assert.match(read("workers/addresses/src/quote-handlers.ts"), /roadRoutingRequired|routing_unavailable|Commercial fare requires/);
   assert.match(
     read("src/app/quick-quote/QuickQuoteOwnerClient.tsx"),
     /resolveAirportTransferIntent/,
@@ -249,9 +245,9 @@ check("Wiring: shared resolver + Quick Quote / Personal / TripMap", () => {
   );
 });
 
-check("Test A: Knocknagoney → BFS (floor raises zone → £60 after legacy strip)", () => {
+check("Test A: Knocknagoney → BFS (universal ~22 mi → £62)", () => {
   const zoneOnly = calculateQuote(KNOCKNAGONEY, "BFS", SALOON_VEHICLE, false, {}, null, false);
-  assert.equal(zoneOnly?.amount, 44, "zone-only without metrics is £44 after legacy strip");
+  assert.equal(zoneOnly, null, "null metrics must refuse fare (no zone fallback)");
 
   compareThree({
     label: "A Knocknagoney → BFS",
@@ -259,7 +255,7 @@ check("Test A: Knocknagoney → BFS (floor raises zone → £60 after legacy str
     airportCode: "BFS",
     fromAirport: false,
     metrics: KNOCK_BFS_METRICS,
-    expected: 60,
+    expected: 62,
   });
 });
 
@@ -270,29 +266,29 @@ check("Test B: BFS → Knocknagoney (same metrics, pickup direction)", () => {
     airportCode: "BFS",
     fromAirport: true,
     metrics: KNOCK_BFS_METRICS,
-    expected: 60,
+    expected: 62,
   });
 });
 
-check("Short Belfast City Hall → BFS (below floor; still needs metrics)", () => {
+check("Short Belfast City Hall → BFS (~14 mi → £48)", () => {
   compareThree({
     label: "City Hall → BFS",
     address: CITY_HALL,
     airportCode: "BFS",
     fromAirport: false,
     metrics: CITY_BFS_METRICS,
-    expected: 44,
+    expected: 48,
   });
 });
 
-check("BHD drop-off and pickup (City Hall)", () => {
+check("BHD drop-off and pickup (City Hall ~4.5 mi → £31)", () => {
   compareThree({
     label: "City Hall → BHD",
     address: CITY_HALL,
     airportCode: "BHD",
     fromAirport: false,
     metrics: CITY_BHD_METRICS,
-    expected: 30,
+    expected: 31,
   });
   compareThree({
     label: "BHD → City Hall",
@@ -300,7 +296,7 @@ check("BHD drop-off and pickup (City Hall)", () => {
     airportCode: "BHD",
     fromAirport: true,
     metrics: CITY_BHD_METRICS,
-    expected: 30,
+    expected: 31,
   });
 });
 
@@ -311,18 +307,18 @@ check("BFS pickup (City Hall reverse)", () => {
     airportCode: "BFS",
     fromAirport: true,
     metrics: CITY_BFS_METRICS,
-    expected: 44,
+    expected: 48,
   });
 });
 
-check("Dublin Airport drop-off", () => {
+check("Dublin Airport drop-off (~104 mi → £245 + £4 fixed)", () => {
   compareThree({
     label: "City Hall → DUB",
     address: CITY_HALL,
     airportCode: "DUB",
     fromAirport: false,
     metrics: CITY_DUB_METRICS,
-    expected: 234,
+    expected: 249,
   });
 });
 
