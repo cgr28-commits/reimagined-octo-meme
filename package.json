@@ -29,7 +29,7 @@
     "check:quote-flight-booking-stage": "npx tsx scripts/check-quote-flight-booking-stage.ts",
     "check:airport-pickup-flight": "npx tsx scripts/check-airport-pickup-flight-required.ts",
     "check:restored-places-route": "npx tsx scripts/check-restored-places-route-payment.ts",
-    "check:quote-error-help": "npx tsx scripts/check-quote-error-help-start-new.ts",
+    "check:quote-error-help": "npx tsx scripts/check-quote-error-help-start-new.ts && npx tsx scripts/check-quote-error-help-render.tsx",
     "check:final-correction": "npx tsx scripts/check-final-correction-pass.ts",
     "check:bot-knowledge": "npx tsx scripts/check-bot-site-knowledge.ts",
     "check:uk-time": "npx tsx scripts/check-uk-time.ts",

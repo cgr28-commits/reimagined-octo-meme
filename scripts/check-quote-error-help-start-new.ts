@@ -42,39 +42,57 @@ check("WhatsApp help URL uses business number and fixed support message (no PII)
   assert.doesNotMatch(href, /customerEmail|pickupAddress|mobileNumber/i);
 });
 
-check("QuoteCard shows WhatsApp help only for unresolved booking errors", () => {
+check("QuoteCard shows WhatsApp help only for unresolved booking errors (single placement)", () => {
   const card = read("src/components/QuoteCard.tsx");
+  const help = read("src/components/QuoteBookingHelpControls.tsx");
   assert.match(card, /showBookingErrorWhatsAppHelp/);
-  assert.match(card, /renderBookingErrorWhatsAppHelp/);
-  assert.match(card, /Need help completing your booking\?/);
-  assert.match(card, /Get Booking Help on WhatsApp/);
-  assert.match(card, /Message us on WhatsApp and we/);
-  assert.match(card, /bookingHelpWhatsAppUrl/);
-  assert.match(card, /target="_blank"/);
-  assert.match(card, /rel="noopener noreferrer"/);
+  assert.match(card, /errorHelpPlacement/);
+  assert.match(card, /renderBookingErrorHelp/);
+  assert.match(card, /BookingErrorHelpCluster/);
+  assert.match(help, /Need help completing your booking\?/);
+  assert.match(help, /Get Booking Help on WhatsApp/);
+  assert.match(help, /Message us on WhatsApp and we/);
+  assert.match(help, /bookingHelpWhatsAppUrl/);
+  assert.match(help, /target="_blank"/);
+  assert.match(help, /rel="noopener noreferrer"/);
+  assert.match(help, /data-booking-error-whatsapp-help/);
   assert.match(card, /trackWhatsAppBookingHelpClick/);
-  assert.match(card, /data-booking-error-whatsapp-help/);
   // Must gate on errors — not always visible.
   assert.match(card, /paymentError[\s\S]*showBookingErrorWhatsAppHelp|showBookingErrorWhatsAppHelp[\s\S]*paymentError/);
   assert.match(card, /if \(!showBookingErrorWhatsAppHelp\)/);
+  // Single-placement API — call sites pass an explicit slot, never a bare invoke.
+  assert.doesNotMatch(card, /renderBookingErrorHelp\(\s*\)/);
+  assert.doesNotMatch(card, /renderStartNewQuoteControls\(\s*\)/);
+  assert.doesNotMatch(card, /renderBookingErrorWhatsAppHelp/);
 });
 
-check("Start New Quote is a clear outlined control with confirm copy", () => {
+check("Start New Quote is a clear outlined control with confirm copy + unique dialog ids", () => {
   const card = read("src/components/QuoteCard.tsx");
-  assert.match(card, /Clear Details &amp; Start a New Quote|Clear Details & Start a New Quote/);
-  assert.match(card, /Need a quote for a different journey\?/);
+  const help = read("src/components/QuoteBookingHelpControls.tsx");
+  assert.match(help, /Clear Details &amp; Start a New Quote|Clear Details & Start a New Quote/);
+  assert.match(help, /Need a quote for a different journey\?/);
   assert.match(
-    card,
+    help,
     /This will clear your current journey details and start a new quote\. Continue\?/,
   );
-  assert.match(card, /Keep Current Quote/);
-  assert.match(card, />\s*Start New Quote\s*</);
+  assert.match(help, /Keep Current Quote/);
+  assert.match(help, />\s*Start New Quote\s*</);
+  assert.match(help, /useId/);
+  assert.match(help, /data-start-new-quote-controls/);
   assert.match(card, /performStartNewQuote/);
   assert.match(card, /trackStartNewQuoteClick/);
-  assert.match(card, /data-start-new-quote-controls/);
+  assert.match(card, /startNewQuotePlacement/);
+  // Error help hides the normal results Start New Quote.
+  assert.match(card, /if \(errorHelpPlacement\)[\s\S]*return null/);
+  assert.match(card, /renderStartNewQuoteControls\("results"\)/);
   // Still uses the existing reset path — no parallel clear logic.
   assert.match(card, /clearAbandonedQuotePersistence/);
   assert.match(card, /matni-payment-confirmed|payment records|paid booking/i);
+  // Hard-coded dialog ids must not be reintroduced (duplicate DOM id risk).
+  assert.doesNotMatch(help, /id="start-new-quote-title"/);
+  assert.doesNotMatch(help, /id="start-new-quote-desc"/);
+  assert.doesNotMatch(card, /id="start-new-quote-title"/);
+  assert.doesNotMatch(card, /id="start-new-quote-desc"/);
 });
 
 check("Analytics event names match product requirements", () => {

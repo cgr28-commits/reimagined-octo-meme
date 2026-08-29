@@ -249,7 +249,7 @@ assert.doesNotMatch(quoteCard, /preferContinueCta/);
 assert.doesNotMatch(quoteCard, /hadStep2ScheduleScrollRef/);
 const actionsStart = quoteCard.indexOf('id="step3-payment-actions"');
 assert.ok(actionsStart > 0);
-const actionsEnd = quoteCard.indexOf("{renderStartNewQuoteControls()}", actionsStart);
+const actionsEnd = quoteCard.indexOf('{renderStartNewQuoteControls("step3")}', actionsStart);
 const actionsBlock = quoteCard.slice(actionsStart, actionsEnd);
 assert.match(actionsBlock, /isManualQuoteJourney \? \(/);
 assert.match(actionsBlock, /confirmButtonLabel/);
