@@ -1486,9 +1486,14 @@ function DriverJobCard({
               {job.airportCode ? ` · ${job.airportCode}` : ""}
             </p>
           )}
-          {(isOwner || isAcceptedAssignment || isPendingForDriver) && job.customerMobile && (
+          {(isOwner || isAcceptedAssignment) && job.customerMobile && (
             <p className="mt-2 text-sm text-emerald">{job.customerMobile}</p>
           )}
+          {!isOwner && isPendingForDriver ? (
+            <p className="mt-2 text-xs text-white/45">
+              Customer mobile is shown after you accept this job.
+            </p>
+          ) : null}
           {!isOwner && job.driverPayAmount && (
             <p className="mt-2 text-base font-bold text-emerald">
               Your pay for this journey: {job.driverPayAmount}

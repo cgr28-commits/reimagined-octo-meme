@@ -119,14 +119,16 @@ export function buildArrivedPickupWhatsAppLink(
 }
 
 /**
- * Optional pre-filled WhatsApp for Driver on the way.
+ * Prefill WhatsApp message opened by the assigned driver to the customer.
+ * Written in the driver’s voice so the customer knows who is messaging them.
  * Manual Send only — does not automate WhatsApp Live Location.
+ * Never includes the driver’s phone number (WhatsApp already identifies the sender).
  */
 export function buildDriverOnTheWayWhatsAppMessage(options?: {
   driverFirstName?: string;
   vehicleColour?: string;
   partialRegistration?: string;
-  /** @deprecated Not shown to customers — kept optional for call-site compatibility. */
+  /** @deprecated Never included in customer-facing copy. */
   driverMobile?: string;
   trackUrl?: string;
 }): string {
@@ -136,21 +138,19 @@ export function buildDriverOnTheWayWhatsAppMessage(options?: {
   const trackUrl = options?.trackUrl?.trim() || "";
   void options?.driverMobile;
 
-  const lines = [
-    "Hi, your My Airport Taxi NI driver is now on the way.",
-    "",
-  ];
-  if (driverFirst) lines.push(`Driver: ${driverFirst}`);
+  const intro = driverFirst
+    ? `Hi, I'm ${driverFirst}, your driver for My Airport Taxi NI. I'm now on the way to your pickup location.`
+    : "Hi, I'm your driver for My Airport Taxi NI. I'm now on the way to your pickup location.";
+
+  const lines = [intro, ""];
   if (colour) lines.push(`Vehicle: ${colour}`);
   if (partialReg) lines.push(`Registration: ${partialReg}`);
-  if (driverFirst || colour || partialReg) lines.push("");
+  if (colour || partialReg) lines.push("");
   if (trackUrl) {
-    lines.push(`You can follow the journey using your live tracking link: ${trackUrl}`);
+    lines.push(`You can follow my journey here: ${trackUrl}`);
     lines.push("");
   }
-  lines.push(
-    "Your driver may also share their live location with you directly here on WhatsApp.",
-  );
+  lines.push("I may also share my live location with you here on WhatsApp.");
   return lines.join("\n");
 }
 

@@ -95,14 +95,24 @@ export const DRIVER_FORBIDDEN_FINANCIAL_KEYS = [
 /**
  * Whitelist-only copy for driver role. Prefer this over denylist deletes.
  * Also attaches assignedDriverRegPartial when a full registration snapshot exists.
+ *
+ * Customer mobile is only included after the driver has accepted the job
+ * (`includeCustomerMobile: true`). Pending drivers do not receive it.
  */
-export function sanitizeJobForDriver<T extends Record<string, unknown>>(job: T): Record<string, unknown> {
+export function sanitizeJobForDriver<T extends Record<string, unknown>>(
+  job: T,
+  options?: { includeCustomerMobile?: boolean },
+): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   for (const key of Object.keys(job)) {
     if (!DRIVER_JOB_WHITELIST_SET.has(key)) {
       continue;
     }
     out[key] = job[key];
+  }
+
+  if (!options?.includeCustomerMobile) {
+    delete out.customerMobile;
   }
 
   const fullReg =
@@ -119,11 +129,12 @@ export function sanitizeJobForDriver<T extends Record<string, unknown>>(job: T):
 export function sanitizeDriverJobForRole<T extends Record<string, unknown>>(
   job: T,
   role: "owner" | "driver",
+  options?: { includeCustomerMobile?: boolean },
 ): T | Record<string, unknown> {
   if (role === "owner") {
     return job;
   }
-  return sanitizeJobForDriver(job);
+  return sanitizeJobForDriver(job, options);
 }
 
 export function assertNoDriverForbiddenFields(job: Record<string, unknown>): string[] {

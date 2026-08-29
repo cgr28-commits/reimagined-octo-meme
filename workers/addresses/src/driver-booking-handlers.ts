@@ -125,6 +125,9 @@ export async function enrichDriverJob(
   const driverPayAmount =
     job.driverPayAmount?.trim() || bookingJob?.driverPayAmount?.trim() || undefined;
 
+  const assignmentStatus =
+    job.assignmentStatus ?? bookingJob?.driverAssignmentStatus ?? "unassigned";
+
   const customerFacingRef =
     paidRecord?.customerReference?.trim() ||
     (role === "owner" ? job.paymentReference : undefined);
@@ -141,7 +144,7 @@ export async function enrichDriverJob(
       refundAmountLabel: paidRecord?.refundAmountLabel ?? job.refundAmountLabel,
       activeDriverName: job.activeDriverName,
       assignedDriverName,
-      assignmentStatus: job.assignmentStatus ?? bookingJob?.driverAssignmentStatus ?? "unassigned",
+      assignmentStatus,
       assignedAt: job.assignedAt ?? bookingJob?.assignedAt,
       acceptedAt: job.acceptedAt ?? bookingJob?.driverAcceptedAt,
       declinedAt: job.declinedAt ?? bookingJob?.driverDeclinedAt,
@@ -160,6 +163,10 @@ export async function enrichDriverJob(
       flight,
     },
     role,
+    {
+      // Customer mobile only after the driver accepts — not while pending.
+      includeCustomerMobile: role === "owner" || assignmentStatus === "accepted",
+    },
   );
 }
 

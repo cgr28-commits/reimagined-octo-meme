@@ -84,7 +84,7 @@ check("driver pending job is accept-ready", () => {
   assert.equal(pending.token, "demo-pending");
   assert.equal(pending.assignmentStatus, "pending");
   assert.equal(pending.assignedDriverName, DEMO_DRIVER_NAME);
-  assert.ok(pending.customerMobile);
+  assert.equal(pending.customerMobile, undefined);
   assert.ok(pending.driverPayAmount);
   assert.equal(pending.amountPaidLabel, undefined);
   assert.equal(pending.flightNumber, "BA1234");
@@ -145,6 +145,14 @@ check("driver today jobs hide customer fare and show driver pay", () => {
     assert.ok(job.driverPayAmount);
     assert.ok(job.customerMobile);
   }
+});
+
+check("pending driver does not receive customer mobile until accept", () => {
+  const pending = getDemoDriverPendingJobs().jobs[0];
+  assert.ok(pending);
+  assert.equal(pending.assignmentStatus, "pending");
+  assert.equal(pending.customerMobile, undefined);
+  assert.ok(pending.customerName);
 });
 
 check("driver vehicle profile", () => {

@@ -125,7 +125,6 @@ export function buildDriverAssignmentEmail(options: {
     "",
     "Job details",
     `Customer: ${job.customerName}`,
-    `Mobile: ${job.customerMobile}`,
     `Pickup: ${job.pickupLabel}`,
     `Drop-off: ${job.dropoffLabel}`,
     `Date: ${formatJobDateDmy(job.tripDate)}`,
@@ -143,6 +142,7 @@ export function buildDriverAssignmentEmail(options: {
     `Your pay for this journey: ${pay}`,
     "You will be paid after each journey (usually the next day).",
     "",
+    "Customer contact details are shown in your driver portal after you accept this job.",
     "You do not need a login or access key — everything is in this email.",
     "Please confirm you accept this job:",
     options.acceptUrl,
@@ -163,7 +163,6 @@ export function buildDriverAssignmentEmail(options: {
     <p>You have been assigned a job with <strong>${escapeHtml(businessName)}</strong>.</p>
     <div style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:12px;padding:16px;margin:20px 0;">
       <p style="margin:0 0 8px;"><strong>Customer:</strong> ${escapeHtml(job.customerName)}</p>
-      <p style="margin:0 0 8px;"><strong>Mobile:</strong> ${escapeHtml(job.customerMobile)}</p>
       <p style="margin:0 0 8px;"><strong>Pickup:</strong> ${escapeHtml(job.pickupLabel)}</p>
       <p style="margin:0 0 8px;"><strong>Drop-off:</strong> ${escapeHtml(job.dropoffLabel)}</p>
       <p style="margin:0 0 8px;"><strong>Date:</strong> ${escapeHtml(formatJobDateDmy(job.tripDate))}</p>
@@ -177,6 +176,7 @@ export function buildDriverAssignmentEmail(options: {
       <p style="margin:0;"><strong>Your pay for this journey:</strong> ${escapeHtml(pay)}</p>
     </div>
     <p style="color:#c5d0e0;font-size:14px;">You will be paid after each journey (usually the next day).</p>
+    <p style="color:#c5d0e0;font-size:14px;">Customer contact details appear in your driver portal after you accept.</p>
     <p style="color:#c5d0e0;font-size:14px;">You do not need a login or access key — everything is in this email.</p>
     <p style="margin:28px 0;">
       <a href="${escapeHtml(options.acceptUrl)}" style="display:inline-block;background:#2fbf4a;color:#071c38;text-decoration:none;font-weight:700;padding:14px 22px;border-radius:10px;">

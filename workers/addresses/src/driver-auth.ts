@@ -121,14 +121,17 @@ export function isDriverAuthConfigured(env: DriverAuthEnv): boolean {
   return Boolean(ownerKey(env) || driverKey(env));
 }
 
-/** @deprecated Prefer sanitizeJobForDriver — kept as named export for existing imports. */
 export function sanitizeDriverJobForRole<T extends Record<string, unknown>>(
   job: T,
   role: DashboardRole,
+  options?: { includeCustomerMobile?: boolean },
 ): T {
-  return sanitizeDriverJobForRoleShared(job, role) as T;
+  return sanitizeDriverJobForRoleShared(job, role, options) as T;
 }
 
-export function sanitizeJobForDriver<T extends Record<string, unknown>>(job: T): Record<string, unknown> {
-  return sanitizeJobForDriverShared(job);
+export function sanitizeJobForDriver<T extends Record<string, unknown>>(
+  job: T,
+  options?: { includeCustomerMobile?: boolean },
+): Record<string, unknown> {
+  return sanitizeJobForDriverShared(job, options);
 }

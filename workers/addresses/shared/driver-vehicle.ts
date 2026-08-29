@@ -1,3 +1,5 @@
+import { formatPartialRegistration } from "./partial-registration";
+
 export type DriverVehicleProfile = {
   profileKey: string;
   displayName: string;
@@ -15,7 +17,9 @@ export type CustomerVehicleDetails = {
   make: string;
   model: string;
   colour: string;
+  /** Privacy-safe partial registration only — never the full plate. */
   registration: string;
+  /** First name only when provided. */
   driverName?: string;
 };
 
@@ -130,14 +134,16 @@ export function buildDriverProfileConfirmationEmail(
   return { subject, text, html };
 }
 
+/** Customer-facing vehicle card — partial registration only; never includes driver mobile. */
 export function toCustomerVehicleDetails(
   profile: DriverVehicleProfile,
 ): CustomerVehicleDetails {
+  const firstName = profile.displayName.trim().split(/\s+/)[0] || undefined;
   return {
     make: profile.make.trim(),
     model: profile.model.trim(),
     colour: profile.colour.trim(),
-    registration: profile.registration.trim().toUpperCase(),
-    driverName: profile.displayName,
+    registration: formatPartialRegistration(profile.registration),
+    driverName: firstName,
   };
 }

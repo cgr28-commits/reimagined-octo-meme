@@ -1631,7 +1631,8 @@ export function buildDriverArrivedPickupEmail(
 
 /**
  * Customer message when driver/owner marks Driver on the way.
- * Includes privacy-safe assigned-driver details. Live WhatsApp location is optional (“may share”).
+ * Privacy-safe assigned-driver details only — never driver mobile.
+ * Live WhatsApp location/contact is optional (“may”).
  */
 export function buildDriverOnTheWayEmail(
   details: ArrivalNotificationDetails,
@@ -1641,17 +1642,17 @@ export function buildDriverOnTheWayEmail(
   const subject = `Your driver is on the way — ${businessName}`;
   const statusHeading = "Your driver is on the way";
   const greeting = `Hi ${firstName},`;
-  const intro =
-    "Your driver is now on the way to your pickup location.";
   const driverFirst = details.driverFirstName?.trim() || "";
+  const intro = driverFirst
+    ? `Your ${businessName} driver, ${driverFirst}, is now on the way to your pickup location.`
+    : `Your ${businessName} driver is now on the way to your pickup location.`;
   const colour = details.vehicleColour?.trim() || "";
   const partialReg = details.partialRegistration?.trim() || "";
   const trackUrl = details.trackUrl?.trim() || "";
-  const mayShare =
-    "Your driver may also share their live location with you directly on WhatsApp.";
+  const mayContact =
+    "Your driver may also contact you or share their live location with you through WhatsApp.";
 
   const detailLines: string[] = [];
-  if (driverFirst) detailLines.push(`Driver: ${driverFirst}`);
   if (colour) detailLines.push(`Vehicle colour: ${colour}`);
   if (partialReg) detailLines.push(`Registration: ${partialReg}`);
 
@@ -1667,7 +1668,7 @@ export function buildDriverOnTheWayEmail(
     trackUrl
       ? `You can follow your driver using the live tracking link below.\n${trackUrl}\n`
       : null,
-    mayShare,
+    mayContact,
     "",
     `You can also message us on WhatsApp or call ${BUSINESS_PHONE_DISPLAY} if you need anything.`,
     "",
@@ -1716,9 +1717,9 @@ export function buildDriverOnTheWayEmail(
               <p style="margin:0 0 16px;">${escapeHtml(intro)}</p>
               ${detailHtml}
               ${trackHtml}
-              <p style="margin:16px 0 0;font-size:15px;line-height:1.7;color:#334155;">${escapeHtml(mayShare)}</p>
+              <p style="margin:16px 0 0;font-size:15px;line-height:1.7;color:#334155;">${escapeHtml(mayContact)}</p>
               <p style="margin:16px 0 0;font-size:14px;color:#64748b;">
-                Live location sharing on WhatsApp, when used, is sent manually by your driver — it is not automatic.
+                WhatsApp contact and live location sharing, when used, are sent manually by your driver — they are not automatic.
               </p>
             </td>
           </tr>

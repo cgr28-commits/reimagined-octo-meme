@@ -194,7 +194,9 @@ export function getDemoTrackResponse(token: DemoTrackToken): PublicTrackResponse
 
 /** Strip owner-only fields so demo matches live driver API whitelist sanitisation. */
 export function sanitizeDemoJobForDriver(job: DriverJob): DriverJob {
-  return sanitizeJobForDriver(job as unknown as Record<string, unknown>) as DriverJob;
+  return sanitizeJobForDriver(job as unknown as Record<string, unknown>, {
+    includeCustomerMobile: job.assignmentStatus === "accepted",
+  }) as DriverJob;
 }
 
 const DEMO_OWNER_FIELDS: Record<
