@@ -117,6 +117,19 @@ export function isPaymentFareMismatchError(
   );
 }
 
+export type PaymentRouteReconfirmationError = Error & {
+  code: "route_reconfirmation_required";
+};
+
+export function isPaymentRouteReconfirmationError(
+  error: unknown,
+): error is PaymentRouteReconfirmationError {
+  return (
+    error instanceof Error &&
+    (error as PaymentRouteReconfirmationError).code === "route_reconfirmation_required"
+  );
+}
+
 export type PaymentConfirmationResult = {
   amountPaid: string;
   paymentReference: string;
@@ -302,6 +315,20 @@ export async function createPaymentCheckout(
       mismatch.displayedAmountGbp = Number.isFinite(displayed) ? displayed : 0;
       mismatch.serverAmountGbp = Number.isFinite(server) ? server : 0;
       throw mismatch;
+    }
+    if (
+      (response.status === 409 || response.status === 400 || response.status === 422) &&
+      payload &&
+      typeof payload === "object" &&
+      (payload as { code?: unknown }).code === "route_reconfirmation_required"
+    ) {
+      const message =
+        typeof (payload as { error?: unknown }).error === "string"
+          ? String((payload as { error: string }).error)
+          : "Please select your pickup and drop-off addresses again from the suggestions";
+      const reconfirm = new Error(message) as PaymentRouteReconfirmationError;
+      reconfirm.code = "route_reconfirmation_required";
+      throw reconfirm;
     }
     const message =
       payload && typeof payload === "object" && "error" in payload

@@ -100,8 +100,15 @@ import {
   buildPaymentRedirectUrl,
   createPaymentCheckout,
   isPaymentFareMismatchError,
+  isPaymentRouteReconfirmationError,
   isSumUpPaymentEnabled,
 } from "@/lib/create-payment";
+import {
+  ROUTE_RECONFIRMATION_MESSAGE,
+  addressTextMatchesPlace,
+  placeDisplayLabel,
+  restoredPlacesReadyForPayment,
+} from "../../shared/route-reconfirmation";
 import { calculateServerQuote } from "@/lib/quick-quote-api";
 import {
   validatePersonalQuoteCode,
@@ -574,6 +581,8 @@ function QuoteCard({
   );
   const [pickupPlaceError, setPickupPlaceError] = useState("");
   const [dropoffPlaceError, setDropoffPlaceError] = useState("");
+  /** Returning customer must re-pick Places when restore lacked coords / mismatched text. */
+  const [routeReconfirmationRequired, setRouteReconfirmationRequired] = useState(false);
   const [pickupRestoredHint, setPickupRestoredHint] = useState(false);
   const [dropoffRestoredHint, setDropoffRestoredHint] = useState(false);
   /** Explicit One Way / Return — null until the customer taps a choice. */
@@ -840,59 +849,81 @@ function QuoteCard({
       Boolean(initialDropoffHint) ||
       (initialDirection === "from-airport" && Boolean(initialAddressHint)) ||
       (initialDirection === "to-airport" && isCustomerAirportCode(initialAirportCode));
-    if (savedPickup && !keepInitialPickup) {
-      setPickupAddress(savedPickup);
-    }
-    if (savedDropoff && !keepInitialDropoff) {
-      setDropoffAddress(savedDropoff);
-    }
-
-    // Restore previously confirmed autocomplete places (placeId + coords) so the
-    // customer can continue without tapping the same suggestion again.
-    if (!keepInitialPickup) {
-      const storedPickupPlace = readConfirmedPickupPlace();
-      if (storedPickupPlace) {
-        setPickupPlace(storedPickupPlace);
-        setPickupAddress(
-          storedPickupPlace.displayAddress ||
-            storedPickupPlace.formattedAddress ||
-            savedPickup ||
-            "",
-        );
-        setPickupRestoredHint(true);
-      }
-    }
-    if (!keepInitialDropoff) {
-      const storedDropoffPlace = readConfirmedDropoffPlace();
-      if (storedDropoffPlace) {
-        setDropoffPlace(storedDropoffPlace);
-        setDropoffAddress(
-          storedDropoffPlace.displayAddress ||
-            storedDropoffPlace.formattedAddress ||
-            savedDropoff ||
-            "",
-        );
-        setDropoffRestoredHint(true);
-      }
-    }
 
     // Restore quote + customer details after SumUp tab switches / accidental reloads.
     const draft = readBookingFormDraft();
-    if (draft && !testBooking) {
-      if (draft.pickupAddress?.trim() && !keepInitialPickup) {
-        setPickupAddress(draft.pickupAddress);
-      }
-      if (draft.dropoffAddress?.trim() && !keepInitialDropoff) {
-        setDropoffAddress(draft.dropoffAddress);
-      }
-      if (draft.pickupPlace && isQuoteReadyPlace(draft.pickupPlace) && !keepInitialPickup) {
-        setPickupPlace(draft.pickupPlace);
+
+    // Places first: only quote-ready objects (placeId + lat/lng) count as confirmed.
+    // Address text alone must never unlock payment.
+    const restoredPickupPlace =
+      !keepInitialPickup && draft?.pickupPlace && isQuoteReadyPlace(draft.pickupPlace)
+        ? draft.pickupPlace
+        : !keepInitialPickup
+          ? readConfirmedPickupPlace()
+          : null;
+    const restoredDropoffPlace =
+      !keepInitialDropoff && draft?.dropoffPlace && isQuoteReadyPlace(draft.dropoffPlace)
+        ? draft.dropoffPlace
+        : !keepInitialDropoff
+          ? readConfirmedDropoffPlace()
+          : null;
+
+    const draftPickupText = !keepInitialPickup
+      ? (draft?.pickupAddress?.trim() || savedPickup?.trim() || "")
+      : "";
+    const draftDropoffText = !keepInitialDropoff
+      ? (draft?.dropoffAddress?.trim() || savedDropoff?.trim() || "")
+      : "";
+
+    let needsRouteReconfirm = false;
+
+    if (!keepInitialPickup) {
+      if (
+        restoredPickupPlace &&
+        (!draftPickupText || addressTextMatchesPlace(draftPickupText, restoredPickupPlace))
+      ) {
+        setPickupPlace(restoredPickupPlace);
+        setPickupAddress(placeDisplayLabel(restoredPickupPlace) || draftPickupText);
         setPickupRestoredHint(true);
+        setPickupPlaceError("");
+      } else if (draftPickupText) {
+        // Text without matching confirmed place — show it, but force reselection.
+        setPickupAddress(draftPickupText);
+        setPickupPlace(emptySelectedPlace());
+        setPickupRestoredHint(false);
+        setPickupPlaceError(ROUTE_RECONFIRMATION_MESSAGE);
+        needsRouteReconfirm = true;
+        clearConfirmedPickupPlace();
       }
-      if (draft.dropoffPlace && isQuoteReadyPlace(draft.dropoffPlace) && !keepInitialDropoff) {
-        setDropoffPlace(draft.dropoffPlace);
+    }
+
+    if (!keepInitialDropoff) {
+      if (
+        restoredDropoffPlace &&
+        (!draftDropoffText || addressTextMatchesPlace(draftDropoffText, restoredDropoffPlace))
+      ) {
+        setDropoffPlace(restoredDropoffPlace);
+        setDropoffAddress(placeDisplayLabel(restoredDropoffPlace) || draftDropoffText);
         setDropoffRestoredHint(true);
+        setDropoffPlaceError("");
+      } else if (draftDropoffText) {
+        setDropoffAddress(draftDropoffText);
+        setDropoffPlace(emptySelectedPlace());
+        setDropoffRestoredHint(false);
+        setDropoffPlaceError(ROUTE_RECONFIRMATION_MESSAGE);
+        needsRouteReconfirm = true;
+        clearConfirmedDropoffPlace();
       }
+    }
+
+    if (needsRouteReconfirm) {
+      setRouteReconfirmationRequired(true);
+      setRouteMetrics(null);
+      setServerFareParts(null);
+    }
+
+    if (draft && !testBooking) {
+      // Address/place restore handled above — do not re-apply text-only as confirmed.
       if (draft.tripDate) setTripDate(draft.tripDate);
       if (draft.tripTime) setTripTime(draft.tripTime);
       if (typeof draft.returnJourney === "boolean") {
@@ -1643,6 +1674,18 @@ function QuoteCard({
   ]);
 
   /** Pay online at quote time — saloon/estate when SumUp enabled. */
+  const placesConfirmedForPayment = restoredPlacesReadyForPayment({
+    pickupAddress,
+    dropoffAddress,
+    pickupPlace,
+    dropoffPlace,
+  });
+  const routeValidationBlockingPayment =
+    routeReconfirmationRequired ||
+    Boolean(pickupPlaceError) ||
+    Boolean(dropoffPlaceError) ||
+    !placesConfirmedForPayment ||
+    !routeMetrics;
   const canPayNowOnline =
     SERVICE_FLAGS.customerSumUpPay &&
     isSumUpPaymentEnabled() &&
@@ -1650,7 +1693,8 @@ function QuoteCard({
     !isManualQuoteJourney &&
     !pricingConfirmationRequired &&
     isInstantPayVehicle(quoteVehicle) &&
-    Boolean(liveQuote);
+    Boolean(liveQuote) &&
+    !routeValidationBlockingPayment;
 
   /**
    * Complete results (route + vehicle + price) ready to show and scroll once.
@@ -1680,17 +1724,49 @@ function QuoteCard({
     setServerFareParts(null);
   }
 
+  /** Any address text edit clears stale route/price — never pay on a previous pair's metrics. */
+  function clearStaleRouteAndPriceAfterAddressEdit() {
+    setRouteMetrics(null);
+    setServerFareParts(null);
+    setRouteReconfirmationRequired(false);
+  }
+
+  function requireConfirmedPlacesForPayment(): boolean {
+    const pickupOk = addressTextMatchesPlace(pickupAddress, pickupPlace);
+    const dropoffOk = addressTextMatchesPlace(dropoffAddress, dropoffPlace);
+    if (pickupOk && dropoffOk && routeMetrics) {
+      setPickupPlaceError("");
+      setDropoffPlaceError("");
+      setRouteReconfirmationRequired(false);
+      return true;
+    }
+    if (!pickupOk) {
+      setPickupPlaceError(ROUTE_RECONFIRMATION_MESSAGE);
+    }
+    if (!dropoffOk) {
+      setDropoffPlaceError(ROUTE_RECONFIRMATION_MESSAGE);
+    }
+    setRouteReconfirmationRequired(true);
+    setRouteMetrics(null);
+    setServerFareParts(null);
+    setPaymentError(ROUTE_RECONFIRMATION_MESSAGE);
+    setQuoteStep(1);
+    window.setTimeout(() => {
+      focusFirstInvalidField(cardRef.current ?? document);
+    }, 80);
+    return false;
+  }
+
   function handlePickupChange(value: string) {
     setPickupAddress(value);
     setPickupRestoredHint(false);
-    if (isA2AFlow) {
-      const hadConfirmed = isPlaceSelected(pickupPlace);
-      setPickupPlace(emptySelectedPlace());
-      setPickupPlaceError("");
-      clearConfirmedPickupPlace();
-      if (hadConfirmed) {
-        clearDownstreamQuoteChoices();
-      }
+    const hadConfirmed = isPlaceSelected(pickupPlace) || isQuoteReadyPlace(pickupPlace);
+    setPickupPlace(emptySelectedPlace());
+    setPickupPlaceError("");
+    clearConfirmedPickupPlace();
+    clearStaleRouteAndPriceAfterAddressEdit();
+    if (hadConfirmed || isA2AFlow) {
+      clearDownstreamQuoteChoices();
     }
     if (value.trim()) {
       savePickupAddressLabel(value);
@@ -1702,14 +1778,13 @@ function QuoteCard({
   function handleDropoffChange(value: string) {
     setDropoffAddress(value);
     setDropoffRestoredHint(false);
-    if (isA2AFlow) {
-      const hadConfirmed = isPlaceSelected(dropoffPlace);
-      setDropoffPlace(emptySelectedPlace());
-      setDropoffPlaceError("");
-      clearConfirmedDropoffPlace();
-      if (hadConfirmed) {
-        clearDownstreamQuoteChoices();
-      }
+    const hadConfirmed = isPlaceSelected(dropoffPlace) || isQuoteReadyPlace(dropoffPlace);
+    setDropoffPlace(emptySelectedPlace());
+    setDropoffPlaceError("");
+    clearConfirmedDropoffPlace();
+    clearStaleRouteAndPriceAfterAddressEdit();
+    if (hadConfirmed || isA2AFlow) {
+      clearDownstreamQuoteChoices();
     }
     if (value.trim()) {
       saveDropoffAddressLabel(value);
@@ -1736,6 +1811,8 @@ function QuoteCard({
     setPickupRestoredHint(false);
     if (isQuoteReadyPlace(place)) {
       saveConfirmedPickupPlace(place);
+      setRouteReconfirmationRequired(false);
+      setPickupPlaceError("");
     } else if (display.trim()) {
       savePickupAddressLabel(display);
       clearConfirmedPickupPlace();
@@ -1782,6 +1859,8 @@ function QuoteCard({
     setDropoffRestoredHint(false);
     if (isQuoteReadyPlace(place)) {
       saveConfirmedDropoffPlace(place);
+      setRouteReconfirmationRequired(false);
+      setDropoffPlaceError("");
     } else if (display.trim()) {
       saveDropoffAddressLabel(display);
       clearConfirmedDropoffPlace();
@@ -2465,10 +2544,21 @@ function QuoteCard({
   async function handlePayNow() {
     if (!liveQuote || paymentLoading || !canPayNowOnline) {
       if (!canPayNowOnline) {
+        if (routeValidationBlockingPayment) {
+          if (!requireConfirmedPlacesForPayment()) {
+            return;
+          }
+          setPaymentError(ROUTE_RECONFIRMATION_MESSAGE);
+          return;
+        }
         setPaymentError(
           "Online payment is available when an instant fare is shown. Request to book instead and we’ll email a SumUp link once confirmed.",
         );
       }
+      return;
+    }
+
+    if (!requireConfirmedPlacesForPayment()) {
       return;
     }
 
@@ -2675,6 +2765,20 @@ function QuoteCard({
         setPaymentLoading(false);
         return;
       }
+      if (isPaymentRouteReconfirmationError(error)) {
+        setRouteReconfirmationRequired(true);
+        setRouteMetrics(null);
+        setServerFareParts(null);
+        setPickupPlaceError(ROUTE_RECONFIRMATION_MESSAGE);
+        setDropoffPlaceError(ROUTE_RECONFIRMATION_MESSAGE);
+        setPaymentError(error.message || ROUTE_RECONFIRMATION_MESSAGE);
+        setQuoteStep(1);
+        setPaymentLoading(false);
+        window.setTimeout(() => {
+          focusFirstInvalidField(cardRef.current ?? document);
+        }, 80);
+        return;
+      }
       setPaymentError(
         error instanceof Error
           ? error.message
@@ -2826,6 +2930,9 @@ function QuoteCard({
     setIntentAirportCode(isCustomerAirportCode(initialAirportCode) ? initialAirportCode : "");
     setRouteMetrics(null);
     setServerFareParts(null);
+    setRouteReconfirmationRequired(false);
+    setPickupPlaceError("");
+    setDropoffPlaceError("");
     setPaymentLoading(false);
     setPaymentError("");
     setOpenCheckout(null);
@@ -4144,6 +4251,15 @@ function QuoteCard({
             invoice email.
           </div>
         )}
+        {routeReconfirmationRequired || pickupPlaceError || dropoffPlaceError ? (
+          <p
+            role="alert"
+            data-field-error
+            className="rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-100"
+          >
+            {ROUTE_RECONFIRMATION_MESSAGE}
+          </p>
+        ) : null}
         {quoteStep === 1 ? (
           <>
         <div
@@ -5502,7 +5618,8 @@ function QuoteCard({
                         !customerName.trim() ||
                         !customerEmail.trim() ||
                         !customerMobile.trim() ||
-                        !tripDetailsReady
+                        !tripDetailsReady ||
+                        routeValidationBlockingPayment
                       }
                       className="btn-pay w-full disabled:cursor-not-allowed disabled:opacity-70"
                     >
