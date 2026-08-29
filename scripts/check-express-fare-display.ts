@@ -1,10 +1,11 @@
 /**
- * Express access must appear in the quote fare breakdown so free-area selection
- * clearly removes the add-on (it is not a second promotional −£5 on the journey).
+ * Express Drop-Off must appear as a separate line under Journey fare —
+ * never folded into “Original booking value” and shown again as +Express.
  */
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+import { composeWebsiteFareBreakdown } from "../shared/website-fare-breakdown";
 
 const root = path.resolve(import.meta.dirname, "..");
 function read(rel: string): string {
@@ -16,14 +17,14 @@ const card = read("src/components/QuoteCard.tsx");
 
 console.log("=== Express access visible in quote fare UI ===");
 {
-  assert.match(trust, /Airport Express access/);
+  assert.match(trust, /Journey fare/);
+  assert.match(trust, /Airport Express Drop-Off/);
   assert.match(trust, /Not added/);
   assert.match(trust, /freeAirportAccessSelected/);
   assert.match(trust, /Amount payable/);
-  assert.match(trust, /Original booking value/);
-  assert.match(trust, /bookingValueBeforeFirstBookingOfferGbp|prePromoBookingValueGbp/);
+  assert.match(trust, /journeyFareDisplayGbp/);
   assert.match(trust, /finalAmountPayableGbp|finalPayableGbp/);
-  // Must not promote journey-after-promo as the payable (Express would look stuck).
+  assert.doesNotMatch(trust, /Original booking value/);
   assert.doesNotMatch(
     trust,
     /line-through[\s\S]{0,120}originalEligibleJourneyPriceGbp[\s\S]{0,80}journeyFareAfterPromotionsGbp/,
@@ -35,7 +36,25 @@ console.log("=== Express access visible in quote fare UI ===");
   assert.match(card, /freeAirportAccessSelected=\{/);
   assert.match(card, /expressSelection\.feeGbp === 0/);
   assert.doesNotMatch(trust, /totalPromotionalSavingGbp \+ access/);
-  console.log("OK  Express add-on / free-area state is shown in the fare breakdown");
+  console.log("OK  Journey fare + Express Drop-Off + Amount payable");
+}
+
+console.log("\n=== Breakdown composition — Express not double-counted in display field ===");
+{
+  const breakdown = composeWebsiteFareBreakdown({
+    journeyFareBeforeAirportAccessGbp: 50,
+    airportFixedCostsGbp: 0,
+    airportAccessChargeGbp: 5,
+    returnJourney: false,
+    claimFirstBookingOffer: false,
+  });
+  assert.equal(breakdown.journeyFareDisplayGbp, 50);
+  assert.equal(breakdown.airportAccessChargeGbp, 5);
+  assert.equal(breakdown.finalAmountPayableGbp, 55);
+  // Eligibility may still include Express, but display journey must not.
+  assert.equal(breakdown.bookingValueBeforeFirstBookingOfferGbp, 55);
+  assert.ok(breakdown.journeyFareDisplayGbp + breakdown.airportAccessChargeGbp === breakdown.finalAmountPayableGbp);
+  console.log("OK  Journey £50 + Express £5 = payable £55");
 }
 
 console.log("\nAll express fare-display checks passed.");

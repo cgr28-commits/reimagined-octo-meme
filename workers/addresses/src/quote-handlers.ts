@@ -130,9 +130,9 @@ export async function handleQuoteCalculateRequest(
           ? "inferred"
           : "none";
 
-  // Worker resolve first (geocode + OSRM/haversine). Client metrics are fallback only —
-  // short/wrong browser metrics previously overrode a correct Worker resolve and
-  // produced £55 instead of the BFS floor £65.
+  // Commercial fare requires real road routing (OSRM). Haversine×1.48 must never
+  // set the price. Prefer Worker OSRM; if Workers cannot reach OSRM, accept the
+  // browser's OSRM metrics (same TripMap path) rather than inventing a fare.
   let routeMetricsSource: "worker" | "client" | "none" = "none";
   let routeMetrics = await resolveWorkerTripRouteMetrics({
     pickupAddress,
@@ -156,9 +156,9 @@ export async function handleQuoteCalculateRequest(
     return json(
       {
         ok: false,
-        reason: "no_fare",
+        reason: "routing_unavailable",
         message:
-          "We could not measure that route confidently. Confirm both addresses from suggestions and try again.",
+          "We could not measure that road route yet. Please confirm both addresses from suggestions and try again in a moment.",
         diagnostics: {
           pickupAddress,
           dropoffAddress,
@@ -166,6 +166,7 @@ export async function handleQuoteCalculateRequest(
           fromAirport,
           airportCodeSource,
           routeMetricsSource,
+          roadRoutingRequired: true,
         },
       },
       422,

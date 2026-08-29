@@ -21,6 +21,8 @@ export type RoutePoint = { lat: number; lng: number };
 export type TripRouteMetricsLike = {
   distanceKm: number;
   durationMinutes: number;
+  /** Present when resolved via trip-route helpers — only `osrm` may price. */
+  source?: "osrm" | "estimate";
 };
 
 export type GeocodeAddressFn = (

@@ -6,7 +6,8 @@ import { AIRPORTS } from "@/lib/data";
 import { isGooglePlacesEnabled } from "@/lib/google-maps";
 import { resolveRoutePoint } from "@/lib/route-point-resolver";
 import {
-  fetchTripRouteMetrics,
+  estimateTripRouteMetrics,
+  fetchRoadTripRouteMetrics,
   formatRouteCardJourneyTime,
   type TripRouteMetrics,
 } from "@/lib/trip-route";
@@ -192,15 +193,27 @@ export default function TripMap({
           setDestinationPoint(destination);
           setMapError(null);
 
-          const metrics = await fetchTripRouteMetrics(
+          const road = await fetchRoadTripRouteMetrics(
             origin.lat,
             origin.lng,
             destination.lat,
             destination.lng,
           );
           if (!cancelled) {
-            setRouteMetrics(metrics);
-            onRouteMetrics?.(metrics);
+            if (road) {
+              setRouteMetrics(road);
+              onRouteMetrics?.(road);
+            } else {
+              // Display-only estimate — never forward to commercial pricing.
+              const estimate = estimateTripRouteMetrics(
+                origin.lat,
+                origin.lng,
+                destination.lat,
+                destination.lng,
+              );
+              setRouteMetrics(estimate);
+              onRouteMetrics?.(null);
+            }
           }
         })
         .catch(() => {

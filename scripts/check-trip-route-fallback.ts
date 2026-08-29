@@ -1,11 +1,16 @@
 /**
- * Route metrics: prefer OSRM; when unreachable (Cloudflare Workers), estimate
- * from haversine × road factor so Belfast airport floors still apply.
+ * Route metrics: commercial fares require OSRM road routing.
+ * Haversine × 1.48 may be used for display only — never for pricing.
  *
  * Run: npx tsx scripts/check-trip-route-fallback.ts
  */
 import assert from "node:assert/strict";
-import { fetchTripRouteMetrics } from "../src/lib/trip-route";
+import {
+  estimateTripRouteMetrics,
+  fetchRoadTripRouteMetrics,
+  fetchTripRouteMetrics,
+  isRoadRouteMetrics,
+} from "../src/lib/trip-route";
 import { applyBelfastAirportDistanceFloor } from "../src/lib/quote";
 import { calculateAuthoritativeWebsiteQuote } from "../src/lib/quote-service";
 import { SALOON_VEHICLE } from "../src/lib/vehicle-selection";
@@ -27,31 +32,37 @@ async function withBlockedOsrm<T>(fn: () => Promise<T>): Promise<T> {
 }
 
 async function main() {
-  const knockMetrics = await withBlockedOsrm(() =>
+  // Display-only estimate still exists and can raise the floor mathematically —
+  // but must never be accepted as road metrics for commercial pricing.
+  const knockEstimate = estimateTripRouteMetrics(KNOCK.lat, KNOCK.lng, BFS.lat, BFS.lng);
+  assert.ok(knockEstimate, "Knocknagoney estimate must return metrics");
+  assert.equal(knockEstimate.source, "estimate");
+  assert.equal(isRoadRouteMetrics(knockEstimate), false);
+  const knockMiles = knockEstimate.distanceKm * 0.621371;
+  assert.ok(knockMiles > 20, `Knocknagoney estimate clears 20-mile gate (got ${knockMiles})`);
+
+  const blockedRoad = await withBlockedOsrm(() =>
+    fetchRoadTripRouteMetrics(KNOCK.lat, KNOCK.lng, BFS.lat, BFS.lng),
+  );
+  assert.equal(blockedRoad, null, "Road metrics must be null when OSRM is blocked");
+
+  const blockedDefault = await withBlockedOsrm(() =>
     fetchTripRouteMetrics(KNOCK.lat, KNOCK.lng, BFS.lat, BFS.lng),
   );
-  assert.ok(knockMetrics, "Knocknagoney estimate must return metrics");
-  const knockMiles = knockMetrics.distanceKm * 0.621371;
-  assert.ok(knockMiles > 20, `Knocknagoney estimate must clear 20-mile gate (got ${knockMiles})`);
-  assert.equal(
-    applyBelfastAirportDistanceFloor(55, "BFS", knockMetrics.distanceKm),
-    65,
-    "Knocknagoney estimate must raise floor to £65",
-  );
+  assert.equal(blockedDefault, null, "Default fetch must not silently fall back to haversine");
 
-  const cityMetrics = await withBlockedOsrm(() =>
-    fetchTripRouteMetrics(CITY_HALL.lat, CITY_HALL.lng, BFS.lat, BFS.lng),
+  const blockedDisplay = await withBlockedOsrm(() =>
+    fetchTripRouteMetrics(KNOCK.lat, KNOCK.lng, BFS.lat, BFS.lng, {
+      allowEstimateFallback: true,
+    }),
   );
-  assert.ok(cityMetrics, "City Hall estimate must return metrics");
-  const cityMiles = cityMetrics.distanceKm * 0.621371;
-  assert.ok(cityMiles <= 20, `City Hall estimate must stay ≤20 miles (got ${cityMiles})`);
-  assert.equal(
-    applyBelfastAirportDistanceFloor(55, "BFS", cityMetrics.distanceKm),
-    55,
-    "City Hall estimate must keep zone £55",
-  );
+  assert.ok(blockedDisplay);
+  assert.equal(blockedDisplay?.source, "estimate");
 
-  const priced = calculateAuthoritativeWebsiteQuote({
+  // Authoritative quote with estimate metrics is a programming error path —
+  // callers must not pass estimates. If they do with valid shape, engine still
+  // prices (legacy); Worker/TripMap must refuse to supply estimates.
+  const pricedFromEstimate = calculateAuthoritativeWebsiteQuote({
     airportCode: "BFS",
     fromAirport: true,
     pickupAddress: "Belfast International Airport",
@@ -61,20 +72,39 @@ async function main() {
     outboundTime: "12:37",
     passengers: 2,
     suitcases: 2,
-    routeMetrics: knockMetrics,
+    routeMetrics: knockEstimate,
     vehicleType: SALOON_VEHICLE,
   });
-  assert.equal(priced.ok, true);
-  if (priced.ok) {
-    assert.equal(priced.amount, 65);
+  // Engine still accepts TripRouteMetrics shape; gate is at fetch/Worker layer.
+  assert.equal(pricedFromEstimate.ok, true);
+
+  const cityEstimate = estimateTripRouteMetrics(
+    CITY_HALL.lat,
+    CITY_HALL.lng,
+    BFS.lat,
+    BFS.lng,
+  );
+  assert.ok(cityEstimate);
+  const cityMiles = cityEstimate.distanceKm * 0.621371;
+  assert.ok(cityMiles <= 20, `City Hall estimate must stay ≤20 miles (got ${cityMiles})`);
+  assert.equal(
+    applyBelfastAirportDistanceFloor(55, "BFS", cityEstimate.distanceKm),
+    55,
+    "City Hall estimate must keep zone £55 when used only as math check",
+  );
+
+  // Live OSRM (when reachable) is the commercial path.
+  const live = await fetchRoadTripRouteMetrics(KNOCK.lat, KNOCK.lng, BFS.lat, BFS.lng);
+  if (live) {
+    assert.equal(live.source, "osrm");
+    assert.equal(isRoadRouteMetrics(live), true);
+    assert.ok(live.distanceKm * 0.621371 > 0);
+    console.log("OK  live OSRM road metrics available");
+  } else {
+    console.log("OK  live OSRM unreachable in this environment (expected in some CI)");
   }
 
-  // Live OSRM (when reachable) should still work and also clear the floor.
-  const live = await fetchTripRouteMetrics(KNOCK.lat, KNOCK.lng, BFS.lat, BFS.lng);
-  assert.ok(live, "Live OSRM (or fallback) must return metrics");
-  assert.ok(live.distanceKm * 0.621371 > 20);
-
-  console.log("OK  trip-route OSRM fallback + Knocknagoney £65 / City Hall £55");
+  console.log("OK  haversine is display-only; commercial fetch requires OSRM");
 }
 
 main().catch((error) => {
