@@ -1,22 +1,22 @@
 {
-  "$schemaComment": "CENTRAL PRICING CONFIG \u2014 all commercial \u00a3 values for the public quote engine. UI components must not hard-code fares. See `pricingModel` for the formula.",
+  "$schemaComment": "CENTRAL PRICING CONFIG — all commercial £ values for the public quote engine. UI components must not hard-code fares. See `pricingModel` for the formula.",
   "pricingModel": {
-    "summary": "One engine for every eligible online journey: driving route (when available) \u2192 distance/time reference \u2192 distance-band adjustment \u2192 airport zone/minimum rules when an airport leg is present \u2192 vehicle supplement \u2192 optional return 5% discount \u2192 rounded fixed fare.",
-    "addressToAddress": "OTS-style reference (vehicleBase + tier\u00d7(perKm\u00d7km + perMin\u00d7min)) + addressToAddressDistanceBands adjustment. Requires valid route metrics; otherwise no fare.",
-    "airport": "Calibrated areaAirportSurchargesGbp zones supply short/medium airport fares (scales by origin zone, not a hard-coded town-pair). Estate uses tiered premium (\u2264\u00a345 +\u00a35; mid +\u00a38; \u2265\u00a3140 +\u00a324; Dublin flat +\u00a38). Airport-zone OTS calibration targets ~\u00a33\u2013\u00a35 below OTS estate (airportOtsCalibration) without feeding live quotes. When route metrics exist: unknown origins use distance+airport minimum; long hauls (\u2265 airportRouteDistanceProtectFromKm) take max(zone, distance) for empty-return protection. BHD/BFS also apply belfastAirportDistanceFloor (MAX zone vs \u00a365/\u00a360 + \u00a32/mile above 20 miles) so named zones do not flatten longer journeys. No weekend/Bank Holiday surcharge \u2014 weekday and weekend use the same base fare (airportTripPremiumRate / addressToAddressTripPremiumRate are 0).",
-    "dublinAirport": "Belfast-centre DUB journey fare remains the zone benchmark (\u00a3230 saloon / \u00a3238 estate before fixed costs). After airportFixedCostsGbp: drop-off +\u00a34 M1 (customer \u00a3234 saloon); pickup +\u00a35 parking +\u00a34 M1 (customer \u00a3239 saloon). Dublin city uses DUB fare + dublinCityBeyondAirport uplift.",
-    "vehicles": "Saloon 1\u20134 pax AND 0\u20132 large cases; Estate 1\u20134 pax AND 3\u20134 cases; Minibus 5\u20137 pax (or >4 large cases for capacity). Online Minibus fare: estateTier\u00d71.55 airport / \u00a360 A2A base.",
-    "returnDiscount": "returnJourneyDiscountRate (exactly 5%) applied once to (2 \u00d7 oneWay journey fare). Airport fixed costs (fees / parking / M1 toll allowances) are added after and are never discounted.",
-    "airportFixedCosts": "Per-leg: BFS/BHD \u00a30 on address\u2194airport; DUB drop \u00a34 M1 / pick \u00a35 parking +\u00a34 M1; LDY drop \u00a31 / pick \u00a32.50. DUB/LDY never removable. BFS/BHD A2A free-area choice retained. A2A BFS\u2194BHD retains destination-end historical surcharge only (not \u00a39).",
-    "rounding": "Prefer nearest \u00a35; amounts ending in \u00a3x4 are kept (e.g. \u00a334, \u00a349)."
+    "summary": "Universal road-distance journey fare (shared/universal-distance-pricing.ts) → vehicle (Estate = Saloon + £6) → optional 5% return discount → airport fixed costs → Express/access add-on in UI. Zone tables and Belfast mile floor are retired for live quotes.",
+    "addressToAddress": "Same universal distance curve as airport transfers. Requires valid OSRM road metrics; otherwise no fare.",
+    "airport": "Journey fare from road miles only (piecewise Saloon: 4→£30, 15→£50, 32→£80, 98→£230; nearest £1). Estate = Saloon + £6. Zone surcharges and belfastAirportDistanceFloor do not override. No weekend/Bank Holiday journey surcharge (premium rates are 0).",
+    "dublinAirport": "Priced on the same universal distance curve for the road miles to/from DUB, then airportFixedCostsGbp (drop-off +£4 M1; pickup +£5 parking +£4 M1). Long-distance ~98 miles targets ~£230 Saloon journey before fixed costs.",
+    "vehicles": "Saloon 1–4 pax AND 0–2 large cases; Estate 1–4 pax AND 3–4 cases (+£6 vs Saloon); Minibus 5–7 (builds from Estate × multiplier).",
+    "returnDiscount": "returnJourneyDiscountRate (exactly 5%) applied once to (2 × oneWay journey fare). Airport fixed costs and Express are added after and are never discounted.",
+    "airportFixedCosts": "Per-leg: BFS/BHD £0 on address↔airport; DUB drop £4 M1 / pick £5 parking +£4 M1; LDY drop £1 / pick £2.50. Express Drop-Off is a separate optional add-on (BFS £5 / BHD £4).",
+    "rounding": "Universal journey: Saloon rounded to nearest £1; Estate = that Saloon + £6 (not re-rounded). Website, email, booking and payment use the same journey amount."
   },
   "pricingRulesApproved": true,
   "publicUnapprovedPriceLabel": "Price confirmation required",
   "currency": "GBP",
   "operational": {
-    "description": "Optional cost breakdown fields (empty return, time, tolls, airport charges). When weekday/weekend \u00a3 rates are filled, A2A quotes use this model; otherwise the OTS reference model is used.",
-    "emptyReturnMileageFactor": 1.0,
-    "emptyReturnTimeFactor": 1.0,
+    "description": "Optional cost breakdown fields (empty return, time, tolls, airport charges). When weekday/weekend £ rates are filled, A2A quotes use this model; otherwise the OTS reference model is used.",
+    "emptyReturnMileageFactor": 1,
+    "emptyReturnTimeFactor": 1,
     "weekday": {
       "baseFeeGbp": null,
       "perKmGbp": null,
@@ -43,14 +43,14 @@
     "LDY": 35
   },
   "airportAccessFeesGbp": {
-    "note": "DEPRECATED. Live address\u2194airport BFS/BHD fees are \u00a30; A2A BFS\u2194BHD retains destination-end historical surcharge via shared/airport-fixed-costs getAirportToAirportFixedCostGbp.",
+    "note": "DEPRECATED. Live address↔airport BFS/BHD fees are £0; A2A BFS↔BHD retains destination-end historical surcharge via shared/airport-fixed-costs getAirportToAirportFixedCostGbp.",
     "BFS": 0,
     "BHD": 0,
     "DUB": 0,
     "LDY": 0
   },
   "airportFixedCostsGbp": {
-    "note": "BFS/BHD drop-off and pickup fees \u00a30 on address\u2194airport. DUB pickup/parking \u00a35 + M1 toll \u00a34; drop-off fee \u00a30 + M1 toll \u00a34. LDY pickup \u00a32.50, drop-off \u00a31. DUB/LDY never removable; BFS/BHD keep free-area choice. A2A BFS\u2194BHD waives collection surcharge only (keep destination \u00a35/\u00a34) \u2014 see shared/airport-fixed-costs.ts.",
+    "note": "BFS/BHD drop-off and pickup fees £0 on address↔airport. DUB pickup/parking £5 + M1 toll £4; drop-off fee £0 + M1 toll £4. LDY pickup £2.50, drop-off £1. DUB/LDY never removable; BFS/BHD keep free-area choice. A2A BFS↔BHD waives collection surcharge only (keep destination £5/£4) — see shared/airport-fixed-costs.ts.",
     "BFS": {
       "dropOffFeeGbp": 0,
       "pickupFeeGbp": 0,
@@ -84,8 +84,8 @@
   },
   "airportEstatePremiumGbp": 8,
   "airportEstatePremiumTiers": {
-    "enabled": true,
-    "note": "BFS/BHD/LDY estate uplift by rounded saloon fare: \u2264\u00a345 \u2192 +\u00a35; \u00a346\u2013\u00a3139 \u2192 +\u00a38; \u2265\u00a3140 \u2192 +\u00a324. Dublin Airport always uses airportEstatePremiumGbp (\u00a38).",
+    "enabled": false,
+    "note": "RETIRED for live quotes. Estate is always rounded Saloon + £6 via universalDistancePricing. Historical tiers retained for calibration scripts only.",
     "shortMaxSaloonFareGbp": 45,
     "shortPremiumGbp": 5,
     "midPremiumGbp": 8,
@@ -96,14 +96,14 @@
     ]
   },
   "airportOtsCalibration": {
-    "note": "Calibration-only target vs live OTS estate for BFS/BHD/LDY zone surcharges. Does not feed the live customer quote formula. Midpoint ~\u00a34 undercut.",
+    "note": "Calibration-only target vs live OTS estate for BFS/BHD/LDY zone surcharges. Does not feed the live customer quote formula. Midpoint ~£4 undercut.",
     "undercutMinGbp": 3,
     "undercutMaxGbp": 5
   },
   "airportRouteDistanceProtectFromKm": 100,
   "belfastAirportDistanceFloor": {
-    "enabled": true,
-    "note": "BHD/BFS only: when OSRM miles (1dp) > 20, final saloon = max(zone/existing, floor). Floor uses raw miles. Floor-winning fares snap to nearest \u00a35; zone-winning fares stay exact. Does not change roundFare globally or Dublin.",
+    "enabled": false,
+    "note": "RETIRED for live quotes. Universal distance pricing replaces the £65/£60 + £2/mile-over-20 floor. Kept for historical reference only.",
     "thresholdMiles": 20,
     "perExtraMileGbp": 2,
     "baseFloorGbp": {
@@ -277,16 +277,16 @@
     "LDY": 93
   },
   "vehicleMultipliers": {
-    "Estate Car (1\u20134 passengers)": 1,
-    "Standard Saloon (1\u20134 passengers)": 1,
-    "Executive Saloon (1\u20134 passengers)": 1.2,
-    "Minibus (5\u20137 passengers)": 1.55
+    "Estate Car (1–4 passengers)": 1,
+    "Standard Saloon (1–4 passengers)": 1,
+    "Executive Saloon (1–4 passengers)": 1.2,
+    "Minibus (5–7 passengers)": 1.55
   },
   "pointToPointVehicleAdjustmentsGbp": {
-    "Estate Car (1\u20134 passengers)": 0,
-    "Standard Saloon (1\u20134 passengers)": -10,
-    "Executive Saloon (1\u20134 passengers)": 0,
-    "Minibus (5\u20137 passengers)": 0
+    "Estate Car (1–4 passengers)": 0,
+    "Standard Saloon (1–4 passengers)": -10,
+    "Executive Saloon (1–4 passengers)": 0,
+    "Minibus (5–7 passengers)": 0
   },
   "pointToPointBaseGbp": 35,
   "pointToPointAreaRatesGbp": {
@@ -319,22 +319,22 @@
     "default": 20
   },
   "otsReferenceModel": {
-    "note": "Distance/time reference for public A2A quotes. Commercial position vs OTS is applied via addressToAddressDistanceBands (short undercut, long empty-return uplift) \u2014 not a flat undercut on every journey. undercutMin/Max here are A2A-oriented fallbacks only; airport-zone calibration uses airportOtsCalibration (\u00a33\u2013\u00a35).",
+    "note": "Distance/time reference for public A2A quotes. Commercial position vs OTS is applied via addressToAddressDistanceBands (short undercut, long empty-return uplift) — not a flat undercut on every journey. undercutMin/Max here are A2A-oriented fallbacks only; airport-zone calibration uses airportOtsCalibration (£3–£5).",
     "estateBaseGbp": 40,
     "perKmGbp": 0.482,
     "perMinuteGbp": 0.554,
     "vehicleBaseGbp": {
-      "Standard Saloon (1\u20134 passengers)": 35,
-      "Estate Car (1\u20134 passengers)": 40,
-      "Executive Saloon (1\u20134 passengers)": 45,
-      "Minibus (5\u20137 passengers)": 60
+      "Standard Saloon (1–4 passengers)": 35,
+      "Estate Car (1–4 passengers)": 40,
+      "Executive Saloon (1–4 passengers)": 45,
+      "Minibus (5–7 passengers)": 60
     },
     "undercutMinGbp": 8,
     "undercutMaxGbp": 10
   },
   "addressToAddressDistanceBands": {
     "enabled": true,
-    "note": "Adjustment applied to the OTS-style reference fare by loaded distance. Negative = short-trip undercut; positive = long-haul empty-return protection. Benchmarks (Belfast centre): Newry ~\u00a381/\u00a393, Derry ~\u00a3127/\u00a3146, Enniskillen ~\u00a3145/\u00a3165.",
+    "note": "Adjustment applied to the OTS-style reference fare by loaded distance. Negative = short-trip undercut; positive = long-haul empty-return protection. Benchmarks (Belfast centre): Newry ~£81/£93, Derry ~£127/£146, Enniskillen ~£145/£165.",
     "floorGbp": 35,
     "bands": [
       {
@@ -382,5 +382,12 @@
     "BHD": true,
     "DUB": false,
     "LDY": false
+  },
+  "universalDistancePricing": {
+    "enabled": true,
+    "note": "Live airport and address↔address journey fares use road miles only. Piecewise Saloon knots: 4→£30, 15→£50, 32→£80, 98→£230. Round Saloon to nearest £1; Estate = Saloon + £6. Zone surcharges and Belfast floor do not override. Express/access added after journey fare.",
+    "estatePremiumGbp": 6,
+    "saloonMinimumGbp": 30,
+    "roundToNearestGbp": 1
   }
 }

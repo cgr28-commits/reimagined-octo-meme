@@ -571,7 +571,9 @@ export function resolveJourneyAirportFees(input: {
  * as an explicit optional add-on. A2A still uses NI_AIRPORT_ACCESS_SURCHARGE_GBP.
  */
 export function getLegacyEmbeddedAccessFeeGbp(airportCode: string | null | undefined): number {
-  return niAccessSurchargeGbp(normaliseCode(airportCode));
+  // Universal distance journey fares are pure road-miles — no embedded access to strip.
+  void airportCode;
+  return 0;
 }
 
 /**

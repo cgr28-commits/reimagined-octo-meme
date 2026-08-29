@@ -4,8 +4,13 @@ import {
   composeFareWithAirportFixedCosts,
   getAirportLegFixedCostGbp,
   getAirportToAirportFixedCostGbp,
-  getLegacyEmbeddedAccessFeeGbp,
 } from "../../shared/airport-fixed-costs";
+import {
+  calculateUniversalJourneyFareGbp,
+  universalDrivingMilesFromKm,
+  UNIVERSAL_ESTATE_PREMIUM_GBP,
+  UNIVERSAL_SALOON_MINIMUM_GBP,
+} from "../../shared/universal-distance-pricing";
 import {
   applyTripPremium,
   AIRPORT_TRIP_PREMIUM_RATE,
@@ -176,33 +181,50 @@ function applyAirportVehiclePricing(
   vehicleType: (typeof VEHICLE_TYPES)[number],
   airportCode: string,
 ): number {
-  const airportMinimum = AIRPORT_MINIMUM_FARE[airportCode] ?? 0;
-  const saloonFare = Math.max(saloonOneWay, airportMinimum);
-  const estatePremium = getAirportEstatePremiumGbp(airportCode, saloonFare);
-  const estateTier = saloonFare + estatePremium;
-
-  switch (vehicleType) {
-    case "Standard Saloon (1–4 passengers)":
-      return saloonFare;
-    case "Estate Car (1–4 passengers)":
-      return estateTier;
-    case "Executive Saloon (1–4 passengers)":
-      return Math.max(
-        AIRPORT_EXECUTIVE_MINIMUM_FARE,
-        roundToNearestFive(estateTier * VEHICLE_MULTIPLIERS[vehicleType]),
-      );
-    case "Minibus (5–7 passengers)":
-      return roundToNearestFive(estateTier * VEHICLE_MULTIPLIERS[vehicleType]);
-    default:
-      return saloonFare;
+  // Live path: Estate = Saloon + £6. Minibus/Executive build from Estate.
+  const priced = calculateUniversalJourneyFareGbp(
+    // saloonOneWay is already the rounded Saloon journey; recover miles is unnecessary —
+    // pass through via vehicle helpers using the saloon amount directly.
+    0,
+    vehicleType,
+    {
+      executiveMinimumGbp: AIRPORT_EXECUTIVE_MINIMUM_FARE,
+      minibusMultiplier: VEHICLE_MULTIPLIERS["Minibus (5–7 passengers)"] ?? 1.55,
+      executiveMultiplier: VEHICLE_MULTIPLIERS["Executive Saloon (1–4 passengers)"] ?? 1.2,
+    },
+  );
+  void airportCode;
+  void saloonOneWay;
+  // Recompute from the provided rounded saloon so callers stay in control of Saloon.
+  const saloon = Math.round(saloonOneWay);
+  if (vehicleType === "Standard Saloon (1–4 passengers)") return saloon;
+  if (vehicleType === "Estate Car (1–4 passengers)") {
+    return saloon + UNIVERSAL_ESTATE_PREMIUM_GBP;
   }
+  const estate = saloon + UNIVERSAL_ESTATE_PREMIUM_GBP;
+  if (vehicleType === "Executive Saloon (1–4 passengers)") {
+    return Math.max(
+      AIRPORT_EXECUTIVE_MINIMUM_FARE,
+      roundToNearestFive(estate * (VEHICLE_MULTIPLIERS[vehicleType] ?? 1.2)),
+    );
+  }
+  if (vehicleType === "Minibus (5–7 passengers)") {
+    return roundToNearestFive(estate * (VEHICLE_MULTIPLIERS[vehicleType] ?? 1.55));
+  }
+  void priced;
+  return saloon;
 }
 
 /**
- * Estate premium for airport transfers from the rounded saloon fare.
- * Dublin keeps the flat airportEstatePremiumGbp; other airports use tiers.
+ * Estate premium for airport transfers — live quotes use a flat £6.
+ * Tier table remains in config for calibration scripts only.
  */
 export function getAirportEstatePremiumGbp(airportCode: string, saloonFare: number): number {
+  void airportCode;
+  void saloonFare;
+  if (PRICING_CONFIG.universalDistancePricing?.enabled !== false) {
+    return UNIVERSAL_ESTATE_PREMIUM_GBP;
+  }
   const tiers = PRICING_CONFIG.airportEstatePremiumTiers;
   const excluded = new Set(tiers?.excludeAirports ?? []);
 
@@ -546,88 +568,44 @@ export function calculatePointToPointQuote(
 
   const pickupArea = matchAreaFromAddress(pickup);
   const dropoffArea = matchAreaFromAddress(dropoff);
-  const vehicleMultiplier = VEHICLE_MULTIPLIERS[vehicleType] ?? 1;
-  const vehicleAdjustment = POINT_TO_POINT_VEHICLE_ADJUSTMENTS[vehicleType] ?? 0;
 
-  // Do not invent A2A fares without a real driving route (prevents silent low fallbacks).
+  // Universal distance pricing — same curve as airport transfers.
   if (!isValidRouteMetrics(routeMetrics)) {
     return null;
   }
 
+  void airportCode;
+  const roadMiles = universalDrivingMilesFromKm(routeMetrics.distanceKm);
+  const universal = calculateUniversalJourneyFareGbp(roadMiles, vehicleType, {
+    executiveMinimumGbp: AIRPORT_EXECUTIVE_MINIMUM_FARE,
+    minibusMultiplier: VEHICLE_MULTIPLIERS["Minibus (5–7 passengers)"] ?? 1.55,
+    executiveMultiplier: VEHICLE_MULTIPLIERS["Executive Saloon (1–4 passengers)"] ?? 1.2,
+  });
+  const oneWay = universal.journeyFareGbp;
+  const vehicleMultiplier = VEHICLE_MULTIPLIERS[vehicleType] ?? 1;
+  const vehicleAdjustment = universal.vehicleAdjustmentGbp;
 
-  let oneWay: number;
-  let areaSurcharge: number;
-  let airportBase = OTS_ESTATE_BASE;
-  let operationalMeta: QuoteResult["operational"] | undefined;
-  let premiumAppliedFromOps = false;
-
-  const premiumSchedule =
-    Boolean(schedule.outboundDate && schedule.outboundTime
-      ? isTripPremiumDateTime(schedule.outboundDate, schedule.outboundTime)
-      : false) ||
-    Boolean(
-      schedule.returnJourney &&
-        schedule.returnDate &&
-        schedule.returnTime &&
-        isTripPremiumDateTime(schedule.returnDate, schedule.returnTime),
-    );
-
-  if (hasOperationalRatesConfigured()) {
-    const ops = calculateOperationalSubtotal({
-      distanceKm: routeMetrics.distanceKm,
-      durationMinutes: routeMetrics.durationMinutes,
-      premiumSchedule,
-      airportCode,
-    });
-    if (!ops) {
-      return null;
-    }
-    oneWay = ops.subtotalGbp;
-    areaSurcharge = Math.round(ops.operationalDistanceKm);
-    airportBase = ops.baseFeeGbp;
-    premiumAppliedFromOps = ops.premiumApplied;
-    operationalMeta = {
-      distanceKm: ops.operationalDistanceKm,
-      durationMinutes: ops.operationalDurationMinutes,
-      band: ops.band,
-    };
-  } else {
-    // OTS-style reference + distance-band commercial adjustment (not a flat undercut).
-    const saloonFloor = A2A_DISTANCE_BANDS?.floorGbp ?? OTS_VEHICLE_BASE["Standard Saloon (1–4 passengers)"] ?? 35;
-    oneWay = applyA2aCommercialFare(
-      calculateOtsPointToPointOneWay(
-        routeMetrics.distanceKm,
-        routeMetrics.durationMinutes,
-        vehicleType,
-      ),
-      routeMetrics.distanceKm,
-      saloonFloor,
-    );
-    areaSurcharge = Math.round(routeMetrics.distanceKm);
-  }
-
-  // When operational weekend band already priced the trip, skip double-counting premium.
-  const premium = operationalMeta
-    ? {
-        total: schedule.returnJourney ? getReturnJourneyFare(oneWay) : oneWay,
-        premiumApplied: premiumAppliedFromOps,
-      }
-    : applyTripPremium(oneWay, {
-        ...schedule,
-        returnJourney,
-      });
+  const premium = applyTripPremium(oneWay, {
+    ...schedule,
+    returnJourney,
+  });
 
   return {
-    amount: roundFare(premium.total),
+    amount: premium.total,
     area: dropoffArea ?? pickupArea,
-    areaSurcharge,
-    airportBase,
+    areaSurcharge: Math.round(roadMiles * 10) / 10,
+    airportBase: UNIVERSAL_SALOON_MINIMUM_GBP,
     vehicleMultiplier,
     vehicleAdjustment,
     pickupArea,
     dropoffArea,
     premiumApplied: premium.premiumApplied,
-    operational: operationalMeta,
+    journeyFareGbp: premium.total,
+    operational: {
+      distanceKm: routeMetrics.distanceKm,
+      durationMinutes: routeMetrics.durationMinutes,
+      band: "weekday",
+    },
   };
 }
 
@@ -665,122 +643,64 @@ export function calculateQuote(
     return null;
   }
 
-  const matchedArea = matchAreaFromAddress(trimmedAddress);
-  const areaSurcharge = getAreaSurcharge(airportCode, matchedArea);
-  const configuredBase = getAirportBasePrice(airportCode);
-  const airportBase = configuredBase ?? airport.basePrice;
-  const airportMinimum = getAirportMinimumFare(airportCode) ?? AIRPORT_MINIMUM_FARE[airportCode] ?? 0;
-  const zoneSaloonOneWay = computeSaloonAirportOneWay(
-    airportCode,
-    airportBase + areaSurcharge,
-  );
-
-  let saloonOneWay = zoneSaloonOneWay;
-  let usedDistanceProtection = false;
-
-  if (isValidRouteMetrics(routeMetrics)) {
-    const distanceSaloon = applyA2aCommercialFare(
-      calculateOtsPointToPointOneWay(
-        routeMetrics.distanceKm,
-        routeMetrics.durationMinutes,
-        "Standard Saloon (1–4 passengers)",
-      ),
-      routeMetrics.distanceKm,
-      Math.max(airportMinimum, A2A_DISTANCE_BANDS?.floorGbp ?? POINT_TO_POINT_BASE),
-    );
-    const protectFromKm = PRICING_CONFIG.airportRouteDistanceProtectFromKm ?? 100;
-
-    if (!matchedArea) {
-      // Arbitrary address not in the zone table — generalise from the driving route.
-      saloonOneWay = Math.max(airportMinimum, distanceSaloon);
-      usedDistanceProtection = true;
-    } else if (routeMetrics.distanceKm >= protectFromKm) {
-      // Long airport legs: protect empty-return economics globally (not only named towns).
-      saloonOneWay = Math.max(zoneSaloonOneWay, distanceSaloon);
-      usedDistanceProtection = saloonOneWay > zoneSaloonOneWay;
-    }
-
-    // BHD/BFS: long-distance floor so named zones do not flatten >20 mile journeys.
-    // Zone-winning fares stay exact; floor-winning fares use nearest £5 only.
-    saloonOneWay = applyBelfastAirportDistanceFloor(
-      saloonOneWay,
-      airportCode,
-      routeMetrics.distanceKm,
-    );
+  // Universal distance pricing requires genuine road metrics (OSRM).
+  if (!isValidRouteMetrics(routeMetrics)) {
+    return null;
   }
 
+  const roadMiles = universalDrivingMilesFromKm(routeMetrics.distanceKm);
+  const universal = calculateUniversalJourneyFareGbp(roadMiles, vehicleType, {
+    executiveMinimumGbp: AIRPORT_EXECUTIVE_MINIMUM_FARE,
+    minibusMultiplier: VEHICLE_MULTIPLIERS["Minibus (5–7 passengers)"] ?? 1.55,
+    executiveMultiplier: VEHICLE_MULTIPLIERS["Executive Saloon (1–4 passengers)"] ?? 1.2,
+  });
+  const oneWayFare = universal.journeyFareGbp;
+  const matchedArea = matchAreaFromAddress(trimmedAddress);
   const { vehicleMultiplier, vehicleAdjustment } = getAirportVehiclePricingMeta(
     vehicleType,
-    saloonOneWay,
+    universal.saloonGbp,
     airportCode,
   );
-  let oneWayFare = applyAirportVehiclePricing(saloonOneWay, vehicleType, airportCode);
 
-  // When operational rates are filled, fold configured tolls + airport charges into the fare.
-  // Live config keeps these null — airport fixed costs are applied separately below.
-  if (hasOperationalRatesConfigured()) {
-    const ops = calculateOperationalSubtotal({
-      distanceKm: 0,
-      durationMinutes: 0,
-      premiumSchedule: Boolean(
-        schedule.outboundDate &&
-          schedule.outboundTime &&
-          isTripPremiumDateTime(schedule.outboundDate, schedule.outboundTime),
-      ),
-      airportCode,
-    });
-    if (ops) {
-      oneWayFare += ops.tollsGbp + ops.airportChargesGbp;
-    }
-  }
-
-  // Strip the legacy flat access fee that was commercially embedded in BFS/BHD
-  // zone fares, then re-add direction-aware fixed costs after the return discount.
-  const embeddedAccessFee = getLegacyEmbeddedAccessFeeGbp(airportCode);
-  const journeyOneWay = Math.max(0, oneWayFare - embeddedAccessFee);
+  // Direction-aware fixed costs only (DUB/LDY). BFS/BHD address↔airport = £0.
+  // No legacy embed/strip — journey fare is pure distance.
   const outboundFixed = getAirportLegFixedCostGbp(airportCode, fromAirport);
   const returnFixed = returnJourney
     ? getAirportLegFixedCostGbp(airportCode, !fromAirport)
     : 0;
 
   const premium = applyTripPremium(
-    journeyOneWay,
+    oneWayFare,
     { ...schedule, returnJourney },
     AIRPORT_TRIP_PREMIUM_RATE,
   );
   const composed = composeFareWithAirportFixedCosts({
-    journeyOneWayGbp: journeyOneWay,
+    journeyOneWayGbp: oneWayFare,
     returnJourney,
     outboundFixedGbp: outboundFixed,
     returnFixedGbp: returnFixed,
     getReturnJourneyFare,
   });
-  // premium.total = journey fare after return discount (+ weekend uplift when rate > 0).
-  // Fixed airport costs are added after and never discounted.
-  // Round journey and total with the same roundFare so website / email / booking
-  // never disagree (e.g. £96 vs £95) when fixed costs are £0.
-  const roundedJourneyFare = roundFare(premium.total);
-  const totalBeforeRounding = premium.total + composed.fixedTotalGbp;
+  // Journey already nearest-£1 (Estate exactly +£6). Keep that amount for
+  // website / email / booking parity when fixed costs are £0.
+  const roundedJourneyFare = premium.total;
+  const totalWithFixed = premium.total + composed.fixedTotalGbp;
 
   return {
-    amount: roundFare(totalBeforeRounding),
+    amount: composed.fixedTotalGbp > 0 ? Math.round(totalWithFixed) : roundedJourneyFare,
     area: matchedArea,
-    areaSurcharge: usedDistanceProtection
-      ? Math.round(routeMetrics?.distanceKm ?? areaSurcharge)
-      : areaSurcharge,
-    airportBase,
+    areaSurcharge: Math.round(roadMiles * 10) / 10,
+    airportBase: UNIVERSAL_SALOON_MINIMUM_GBP,
     vehicleMultiplier,
     vehicleAdjustment,
     premiumApplied: premium.premiumApplied,
     airportFixedCostsGbp: composed.fixedTotalGbp,
     journeyFareGbp: roundedJourneyFare,
-    operational: isValidRouteMetrics(routeMetrics)
-      ? {
-          distanceKm: routeMetrics.distanceKm,
-          durationMinutes: routeMetrics.durationMinutes,
-          band: "weekday",
-        }
-      : undefined,
+    operational: {
+      distanceKm: routeMetrics.distanceKm,
+      durationMinutes: routeMetrics.durationMinutes,
+      band: "weekday",
+    },
   };
 }
 
@@ -794,11 +714,13 @@ export function getAirportFromPrice(
     return null;
   }
 
-  const configuredBase = getAirportBasePrice(airportCode);
-  const airportBase = configuredBase ?? airport.basePrice;
-  const saloonOneWay = computeSaloonAirportOneWay(airportCode, airportBase);
-  const oneWay = applyAirportVehiclePricing(saloonOneWay, vehicleType, airportCode);
-  return returnJourney ? roundToNearestFive(getReturnJourneyFare(oneWay)) : oneWay;
+  // Marketing “from” price = universal minimum at 0–4 miles.
+  const oneWay = applyAirportVehiclePricing(
+    UNIVERSAL_SALOON_MINIMUM_GBP,
+    vehicleType,
+    airportCode,
+  );
+  return returnJourney ? Math.round(getReturnJourneyFare(oneWay)) : oneWay;
 }
 
 export function formatQuote(amount: number): string {
@@ -882,12 +804,14 @@ export function calculateAirportToAirportQuote(
     returnFixedGbp: returnFixed,
     getReturnJourneyFare,
   });
-  const roundedJourneyFare = roundFare(premium.total);
-  const totalBeforeRounding = premium.total + composed.fixedTotalGbp;
+  // Journey already nearest-£1 from universal pricing — do not re-apply roundFare
+  // (nearest £5) or Estate/fixed totals drift (e.g. £54+£4 → £60).
+  const roundedJourneyFare = premium.total;
+  const totalWithFixed = premium.total + composed.fixedTotalGbp;
 
   return {
     ...underlyingOneWay,
-    amount: roundFare(totalBeforeRounding),
+    amount: Math.round(totalWithFixed),
     // Combined genuine fixed costs (not a town-zone surcharge).
     areaSurcharge: composed.fixedTotalGbp,
     airportBase: underlyingOneWay.amount,
@@ -909,44 +833,19 @@ export function calculateDublinCityBeyondAirportQuote(
   returnJourney = false,
   schedule: TripSchedule = {},
 ): QuoteResult | null {
-  const cfg = PRICING_CONFIG.dublinCityBeyondAirport;
-  if (!cfg?.enabled || !isValidRouteMetrics(routeMetrics)) {
+  // Full NI → Dublin city road miles on the universal curve (no zone DUB stack).
+  if (!isValidRouteMetrics(routeMetrics)) {
     return null;
   }
-
-  const airportLeg = calculateQuote(niAddress, "DUB", vehicleType, false, {});
-  if (!airportLeg) {
-    return null;
-  }
-
-  const extraKm = Math.max(
-    0,
-    routeMetrics.distanceKm - cfg.referenceLoadedKmFromBelfastCentre,
+  void niAddress;
+  return calculatePointToPointQuote(
+    niAddress || "Northern Ireland",
+    "Dublin city",
+    vehicleType,
+    returnJourney,
+    schedule,
+    routeMetrics,
   );
-  const extraMin = Math.max(
-    0,
-    routeMetrics.durationMinutes - cfg.referenceLoadedMinutesFromBelfastCentre,
-  );
-  const rawUplift = extraKm * cfg.perKmGbp + extraMin * cfg.perMinuteGbp;
-  const uplift = Math.max(cfg.minimumUpliftGbp, rawUplift);
-  const oneWay = airportLeg.amount + uplift;
-
-  const premium = applyTripPremium(oneWay, { ...schedule, returnJourney });
-
-  return {
-    amount: roundFare(premium.total),
-    area: airportLeg.area,
-    areaSurcharge: Math.round(routeMetrics.distanceKm),
-    airportBase: airportLeg.airportBase,
-    vehicleMultiplier: airportLeg.vehicleMultiplier,
-    vehicleAdjustment: airportLeg.vehicleAdjustment,
-    premiumApplied: premium.premiumApplied,
-    operational: {
-      distanceKm: routeMetrics.distanceKm,
-      durationMinutes: routeMetrics.durationMinutes,
-      band: "weekday",
-    },
-  };
 }
 
 export {
