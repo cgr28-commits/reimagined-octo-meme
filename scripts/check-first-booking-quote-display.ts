@@ -40,15 +40,16 @@ assert.match(
 
 /** Dominant / payable totals must use finalAmountPayableGbp, not journey-after-promo alone */
 assert.match(card, /totalGbp: openWebsiteFareBreakdown\.finalAmountPayableGbp/);
-assert.match(trust, /bookingValueBeforeFirstBookingOfferGbp/);
+assert.match(trust, /journeyFareDisplayGbp/);
 assert.match(trust, /finalAmountPayableGbp/);
-assert.match(trust, /Original booking value/);
+assert.match(trust, /Journey fare/);
+assert.doesNotMatch(trust, /Original booking value/);
 assert.doesNotMatch(
   trust,
   /line-through[\s\S]{0,120}originalEligibleJourneyPriceGbp[\s\S]{0,80}journeyFareAfterPromotionsGbp/,
 );
-assert.match(trust, /formatGbpFare\(prePromoBookingValueGbp\)/);
-assert.match(trust, /formatGbpFare\(finalPayableGbp\)/);
+assert.match(trust, /formatGbpFare\(journeyDisplayGbp\)|formatGbpFare\(breakdown\.journeyFareDisplayGbp\)/);
+assert.match(trust, /formatGbpFare\(finalPayableGbp\)|formatGbpFare\(breakdown\.finalAmountPayableGbp\)/);
 assert.match(trust, /£5 Booking Saving|firstBookingShortLabel/);
 assert.doesNotMatch(trust, /New customer|first booking/i);
 

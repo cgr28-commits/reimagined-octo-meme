@@ -1391,7 +1391,12 @@ function QuoteCard({
         returnTime: returnJourney ? returnTime.trim() : undefined,
         passengers,
         suitcases,
-        // Do not send browser routeMetrics/latLng — Worker resolves server-side.
+        // Prefer Worker OSRM; if Workers cannot reach OSRM, use browser road metrics.
+        pickupLat: pickupPlace?.lat ?? undefined,
+        pickupLng: pickupPlace?.lng ?? undefined,
+        dropoffLat: dropoffPlace?.lat ?? undefined,
+        dropoffLng: dropoffPlace?.lng ?? undefined,
+        routeMetrics: routeMetrics ?? undefined,
       });
       if (
         result.ok &&
@@ -1429,15 +1434,20 @@ function QuoteCard({
   }, [
     canShowPrice,
     dropoffAddress,
+    dropoffPlace?.lat,
+    dropoffPlace?.lng,
     isEnquiryOnly,
     isManualQuoteJourney,
     journeyMode,
     passengers,
     pickupAddress,
+    pickupPlace?.lat,
+    pickupPlace?.lng,
     pricingConfirmationRequired,
     returnDate,
     returnJourney,
     returnTime,
+    routeMetrics,
     showGuidePrice,
     suitcases,
     tripDate,
@@ -2167,7 +2177,9 @@ function QuoteCard({
       passengers: effectivePassengers as number,
       suitcases: suitcases as number,
       vehicle: quoteVehicle,
-      estimatedPrice: formatQuote(liveQuote.amount),
+      estimatedPrice: formatQuote(
+        serverFareParts?.amountGbp ?? liveQuote.amount,
+      ),
       journeyDistance: journeyDistanceLabel || undefined,
       journeyDuration: journeyDurationLabel || undefined,
       isAirportTrip,
@@ -2187,6 +2199,7 @@ function QuoteCard({
     returnJourney,
     returnTime,
     quoteStep,
+    serverFareParts?.amountGbp,
     suitcases,
     tripDate,
     tripTime,

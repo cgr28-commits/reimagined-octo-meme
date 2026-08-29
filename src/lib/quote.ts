@@ -757,6 +757,9 @@ export function calculateQuote(
   });
   // premium.total = journey fare after return discount (+ weekend uplift when rate > 0).
   // Fixed airport costs are added after and never discounted.
+  // Round journey and total with the same roundFare so website / email / booking
+  // never disagree (e.g. £96 vs £95) when fixed costs are £0.
+  const roundedJourneyFare = roundFare(premium.total);
   const totalBeforeRounding = premium.total + composed.fixedTotalGbp;
 
   return {
@@ -770,7 +773,7 @@ export function calculateQuote(
     vehicleAdjustment,
     premiumApplied: premium.premiumApplied,
     airportFixedCostsGbp: composed.fixedTotalGbp,
-    journeyFareGbp: premium.total,
+    journeyFareGbp: roundedJourneyFare,
     operational: isValidRouteMetrics(routeMetrics)
       ? {
           distanceKm: routeMetrics.distanceKm,
@@ -879,6 +882,7 @@ export function calculateAirportToAirportQuote(
     returnFixedGbp: returnFixed,
     getReturnJourneyFare,
   });
+  const roundedJourneyFare = roundFare(premium.total);
   const totalBeforeRounding = premium.total + composed.fixedTotalGbp;
 
   return {
@@ -888,7 +892,7 @@ export function calculateAirportToAirportQuote(
     areaSurcharge: composed.fixedTotalGbp,
     airportBase: underlyingOneWay.amount,
     airportFixedCostsGbp: composed.fixedTotalGbp,
-    journeyFareGbp: premium.total,
+    journeyFareGbp: roundedJourneyFare,
     premiumApplied: premium.premiumApplied,
   };
 }

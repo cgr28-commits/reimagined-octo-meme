@@ -2,15 +2,13 @@
  * Authoritative public-website fare breakdown for display + SumUp parity.
  *
  * Exact order (do not reorder):
- * 1. Journey fare (after 5% return discount when booked)
- * 2. Add currently selected airport access charge (Express)
- * 3. prePromotionBookingValue = journey + fixed costs + Express
- * 4. Optional £5 Booking Saving when enabled in config (currently disabled)
- * 5. finalAmountPayable = prePromotionBookingValue − bookingSaving
+ * 1. Journey fare (after 5% return discount when booked) + fixed costs
+ * 2. Optional promotional savings on the journey portion only
+ * 3. Add currently selected airport access charge (Express)
+ * 4. finalAmountPayable = transferAfterPromos + Express
  *
- * Equivalent composition used here:
- *   journeyAfterSaving + fixedCosts + Express
- * (saving is taken from the journey portion only; Express is never discounted)
+ * Display should show Journey fare and Express separately — never fold Express
+ * into an “Original booking value” that is then shown again as +Express.
  *
  * Avoided Express (free drop-off) is NOT a promotional saving.
  * No email / customer-history / redemption gate.
@@ -89,8 +87,15 @@ export type WebsiteFareBreakdown = {
   /** Transfer subtotal after promos + undiscounted fixed costs (no Express). */
   transferFareAfterPromotionsGbp: number;
   airportAccessChargeGbp: number;
-  /** Journey + fixed costs + Express, before the £5 booking saving. */
+  /**
+   * Journey + fixed costs + Express — used only for £40 booking-value eligibility.
+   * Do not display this as “Original booking value” when Express is also listed.
+   */
   bookingValueBeforeFirstBookingOfferGbp: number;
+  /**
+   * Journey (+ fixed costs) after promos, before Express — customer “Journey fare” line.
+   */
+  journeyFareDisplayGbp: number;
   totalPromotionalSavingGbp: number;
   /** Strikethrough / original eligible price (journey before promos only). */
   originalEligibleJourneyPriceGbp: number;
@@ -164,6 +169,7 @@ export function composeWebsiteFareBreakdown(
     transferFareAfterPromotionsGbp,
     airportAccessChargeGbp,
     bookingValueBeforeFirstBookingOfferGbp,
+    journeyFareDisplayGbp: transferFareAfterPromotionsGbp,
     totalPromotionalSavingGbp,
     originalEligibleJourneyPriceGbp: journeyFareBeforeReturnDiscountGbp,
     finalAmountPayableGbp,

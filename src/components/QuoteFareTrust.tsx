@@ -107,7 +107,7 @@ export function PromotionalSavingsSummary({
   );
 }
 
-/** Compact booking-value → payable + line items for promos and Express access. */
+/** Compact journey fare → Express → payable (Express never folded into journey). */
 export function PromotionalPriceBreakdown({
   breakdown,
   freeAirportAccessSelected = false,
@@ -124,7 +124,7 @@ export function PromotionalPriceBreakdown({
   const hasPromo = breakdown.totalPromotionalSavingGbp > 0;
   const accessGbp = breakdown.airportAccessChargeGbp;
   const hasAccess = accessGbp > 0;
-  const prePromoBookingValueGbp = breakdown.bookingValueBeforeFirstBookingOfferGbp;
+  const journeyDisplayGbp = breakdown.journeyFareDisplayGbp;
   const finalPayableGbp = breakdown.finalAmountPayableGbp;
   if (!hasPromo && !hasAccess && !freeAirportAccessSelected) return null;
 
@@ -133,7 +133,9 @@ export function PromotionalPriceBreakdown({
       {hasPromo ? (
         <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
           <span className="text-white/45 line-through">
-            {formatGbpFare(prePromoBookingValueGbp)}
+            {formatGbpFare(
+              breakdown.journeyFareBeforePromotionsGbp + breakdown.airportFixedCostsGbp,
+            )}
           </span>
           <span className="text-sm font-semibold text-white">
             {formatGbpFare(finalPayableGbp)}
@@ -146,9 +148,9 @@ export function PromotionalPriceBreakdown({
 
       <dl className="space-y-0.5 text-white/60">
         <div className="flex justify-between gap-3">
-          <dt>Original booking value</dt>
+          <dt>Journey fare</dt>
           <dd className="shrink-0 tabular-nums text-white/80">
-            {formatGbpFare(prePromoBookingValueGbp)}
+            {formatGbpFare(journeyDisplayGbp)}
           </dd>
         </div>
         {breakdown.returnJourneySavingGbp > 0 ? (
@@ -171,7 +173,7 @@ export function PromotionalPriceBreakdown({
         ) : null}
         {hasAccess ? (
           <div className="flex justify-between gap-3">
-            <dt>Airport Express access</dt>
+            <dt>Airport Express Drop-Off</dt>
             <dd className="shrink-0 tabular-nums text-white/80">
               +{formatGbpFare(accessGbp)}
             </dd>
@@ -179,7 +181,7 @@ export function PromotionalPriceBreakdown({
         ) : null}
         {freeAirportAccessSelected && !hasAccess ? (
           <div className="flex justify-between gap-3 text-white/55">
-            <dt>Airport Express access</dt>
+            <dt>Airport Express Drop-Off</dt>
             <dd className="shrink-0 tabular-nums">Not added</dd>
           </div>
         ) : null}
@@ -226,9 +228,9 @@ export function FinalPayableBreakdown({
       </p>
       <dl className="mt-2 space-y-1.5 text-sm">
         <div className="flex justify-between gap-3 text-white/75">
-          <dt>Original booking value</dt>
+          <dt>Journey fare</dt>
           <dd className="shrink-0 tabular-nums">
-            {formatGbpFare(breakdown.bookingValueBeforeFirstBookingOfferGbp)}
+            {formatGbpFare(breakdown.journeyFareDisplayGbp)}
           </dd>
         </div>
         {breakdown.returnJourneySavingGbp > 0 ? (
@@ -249,14 +251,14 @@ export function FinalPayableBreakdown({
         ) : null}
         {breakdown.airportAccessChargeGbp > 0 ? (
           <div className="flex justify-between gap-3 text-white/75">
-            <dt>Airport Express access</dt>
+            <dt>Airport Express Drop-Off</dt>
             <dd className="shrink-0 tabular-nums">
               +{formatGbpFare(breakdown.airportAccessChargeGbp)}
             </dd>
           </div>
         ) : freeAirportAccessSelected ? (
           <div className="flex justify-between gap-3 text-white/55">
-            <dt>Airport Express access</dt>
+            <dt>Airport Express Drop-Off</dt>
             <dd className="shrink-0 tabular-nums">Not added</dd>
           </div>
         ) : null}
@@ -269,7 +271,7 @@ export function FinalPayableBreakdown({
           </div>
         ) : null}
         <div className="flex justify-between gap-3 border-t border-white/10 pt-1.5 text-base font-semibold text-white">
-          <dt>Final amount payable</dt>
+          <dt>Amount payable</dt>
           <dd className="shrink-0 tabular-nums">
             {formatGbpFare(breakdown.finalAmountPayableGbp)}
           </dd>

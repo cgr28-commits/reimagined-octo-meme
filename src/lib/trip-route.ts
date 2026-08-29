@@ -3,6 +3,13 @@ export type TripRouteMetrics = {
   durationMinutes: number;
 };
 
+/** Where the metrics came from — only `osrm` may set a commercial fare. */
+export type TripRouteMetricsSource = "osrm" | "estimate";
+
+export type ResolvedTripRouteMetrics = TripRouteMetrics & {
+  source: TripRouteMetricsSource;
+};
+
 type OsrmRouteResponse = {
   code?: string;
   routes?: Array<{
@@ -19,8 +26,8 @@ const OSRM_ROUTE_BASES = [
 
 /**
  * NI roads are rarely near great-circle distance. Empirically Knocknagoney→BFS
- * is ~1.47× haversine; 1.48 keeps the BFS >20-mile floor honest when OSRM is down
- * without pushing City Hall→BFS over the gate.
+ * is ~1.47× haversine; 1.48 is retained for display-only estimates when OSRM is
+ * unreachable. It must never determine a customer fare.
  */
 const ROAD_DISTANCE_FACTOR = 1.48;
 /** Assumed average speed when estimating duration without OSRM (km/h). */
@@ -44,27 +51,31 @@ function haversineKm(
   return 2 * earthKm * Math.asin(Math.sqrt(a));
 }
 
-function estimateTripRouteMetrics(
+/**
+ * Display-only fallback when OSRM is unreachable.
+ * Never use for commercial fare / distance-floor pricing.
+ */
+export function estimateTripRouteMetrics(
   originLat: number,
   originLng: number,
   destinationLat: number,
   destinationLng: number,
-): TripRouteMetrics | null {
+): ResolvedTripRouteMetrics | null {
   const straightKm = haversineKm(originLat, originLng, destinationLat, destinationLng);
   if (!Number.isFinite(straightKm) || straightKm < 0.3) {
     return null;
   }
   const distanceKm = straightKm * ROAD_DISTANCE_FACTOR;
   const durationMinutes = (distanceKm / ESTIMATED_AVG_SPEED_KMH) * 60;
-  return { distanceKm, durationMinutes };
+  return { distanceKm, durationMinutes, source: "estimate" };
 }
 
-async function fetchOsrmTripRouteMetrics(
+export async function fetchOsrmTripRouteMetrics(
   originLat: number,
   originLng: number,
   destinationLat: number,
   destinationLng: number,
-): Promise<TripRouteMetrics | null> {
+): Promise<ResolvedTripRouteMetrics | null> {
   const path =
     `${originLng},${originLat};${destinationLng},${destinationLat}?overview=false`;
 
@@ -84,6 +95,7 @@ async function fetchOsrmTripRouteMetrics(
       return {
         distanceKm: route.distance / 1000,
         durationMinutes: route.duration / 60,
+        source: "osrm",
       };
     } catch {
       // Try the next mirror (Workers often block one host but not another).
@@ -93,12 +105,35 @@ async function fetchOsrmTripRouteMetrics(
   return null;
 }
 
+/**
+ * Road routing for commercial pricing — OSRM only.
+ * Returns null when OSRM is unreachable (caller must error/retry, not price).
+ */
+export async function fetchRoadTripRouteMetrics(
+  originLat: number,
+  originLng: number,
+  destinationLat: number,
+  destinationLng: number,
+): Promise<ResolvedTripRouteMetrics | null> {
+  return fetchOsrmTripRouteMetrics(
+    originLat,
+    originLng,
+    destinationLat,
+    destinationLng,
+  );
+}
+
+/**
+ * Prefer OSRM; optionally fall back to haversine×1.48 for display only.
+ * Pricing callers must use `fetchRoadTripRouteMetrics` or reject `source !== "osrm"`.
+ */
 export async function fetchTripRouteMetrics(
   originLat: number,
   originLng: number,
   destinationLat: number,
   destinationLng: number,
-): Promise<TripRouteMetrics | null> {
+  options?: { allowEstimateFallback?: boolean },
+): Promise<ResolvedTripRouteMetrics | null> {
   const osrm = await fetchOsrmTripRouteMetrics(
     originLat,
     originLng,
@@ -109,12 +144,29 @@ export async function fetchTripRouteMetrics(
     return osrm;
   }
 
-  // Last resort when OSRM is unreachable (common from Cloudflare Workers).
-  return estimateTripRouteMetrics(
-    originLat,
-    originLng,
-    destinationLat,
-    destinationLng,
+  if (options?.allowEstimateFallback) {
+    return estimateTripRouteMetrics(
+      originLat,
+      originLng,
+      destinationLat,
+      destinationLng,
+    );
+  }
+
+  return null;
+}
+
+/** True when metrics came from real road routing and may set a fare. */
+export function isRoadRouteMetrics(
+  metrics: TripRouteMetrics | ResolvedTripRouteMetrics | null | undefined,
+): metrics is ResolvedTripRouteMetrics {
+  return Boolean(
+    metrics &&
+      Number.isFinite(metrics.distanceKm) &&
+      metrics.distanceKm > 0.5 &&
+      Number.isFinite(metrics.durationMinutes) &&
+      metrics.durationMinutes > 0 &&
+      (metrics as ResolvedTripRouteMetrics).source === "osrm",
   );
 }
 

@@ -1,6 +1,8 @@
 /**
  * Cloudflare Worker helper: resolve driving-route metrics the same way the
  * public site / Personal Quotes do (known coords → airport catalogue → geocode).
+ *
+ * Commercial pricing uses road routing (OSRM) only — never haversine×1.48.
  */
 
 import { geocodeAddress } from "../shared/google-places";
@@ -8,7 +10,7 @@ import {
   resolveTripRouteMetricsForAddresses,
   type TripRouteMetricsLike,
 } from "../shared/route-metrics-resolver";
-import { fetchTripRouteMetrics } from "../../../src/lib/trip-route";
+import { fetchRoadTripRouteMetrics } from "../../../src/lib/trip-route";
 
 export async function resolveWorkerTripRouteMetrics(options: {
   pickupAddress: string;
@@ -38,7 +40,7 @@ export async function resolveWorkerTripRouteMetrics(options: {
     },
     {
       geocode,
-      fetchRouteMetrics: fetchTripRouteMetrics,
+      fetchRouteMetrics: fetchRoadTripRouteMetrics,
     },
   );
 }

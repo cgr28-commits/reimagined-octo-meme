@@ -564,6 +564,11 @@ export function resolveJourneyAirportFees(input: {
  * BFS/BHD address↔airport fixed charges are now £0, but zone/base fares were
  * not recalibrated — keep stripping these amounts so address↔airport totals
  * fall by exactly the former surcharges (£5 BFS / £4 BHD). Dublin / LDY stay 0.
+ *
+ * Do not remove this strip until universal distance pricing (or a dedicated
+ * recalibration) lands — otherwise every BFS/BHD address↔airport fare rises
+ * by £5/£4. Ideal end state: no embedded access in journey fare; Express only
+ * as an explicit optional add-on. A2A still uses NI_AIRPORT_ACCESS_SURCHARGE_GBP.
  */
 export function getLegacyEmbeddedAccessFeeGbp(airportCode: string | null | undefined): number {
   return niAccessSurchargeGbp(normaliseCode(airportCode));
