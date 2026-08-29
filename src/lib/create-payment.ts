@@ -60,6 +60,12 @@ export type PaymentCheckoutRequest = {
    * Ignored unless that airport allows a free-area choice (BFS/BHD).
    */
   removedAirportFeeIds?: string[];
+  /**
+   * Selected Google / Ideal / GetAddress place IDs from autocomplete.
+   * Worker resolves these with its own API keys for OSRM — never trusts client lat/lng.
+   */
+  pickupPlaceId?: string;
+  dropoffPlaceId?: string;
   /** Live route metrics so the Worker can requote with the canonical engine. */
   routeMetrics?: { distanceKm: number; durationMinutes: number } | null;
   /**
@@ -127,6 +133,19 @@ export function isPaymentRouteReconfirmationError(
   return (
     error instanceof Error &&
     (error as PaymentRouteReconfirmationError).code === "route_reconfirmation_required"
+  );
+}
+
+export type PaymentRouteServiceUnavailableError = Error & {
+  code: "route_service_unavailable";
+};
+
+export function isPaymentRouteServiceUnavailableError(
+  error: unknown,
+): error is PaymentRouteServiceUnavailableError {
+  return (
+    error instanceof Error &&
+    (error as PaymentRouteServiceUnavailableError).code === "route_service_unavailable"
   );
 }
 
@@ -272,6 +291,12 @@ export async function createPaymentCheckout(
               .filter(Boolean),
           }
         : {}),
+      ...(request.pickupPlaceId?.trim()
+        ? { pickupPlaceId: request.pickupPlaceId.trim() }
+        : {}),
+      ...(request.dropoffPlaceId?.trim()
+        ? { dropoffPlaceId: request.dropoffPlaceId.trim() }
+        : {}),
       ...(request.routeMetrics &&
       Number.isFinite(request.routeMetrics.distanceKm) &&
       Number.isFinite(request.routeMetrics.durationMinutes)
@@ -329,6 +354,20 @@ export async function createPaymentCheckout(
       const reconfirm = new Error(message) as PaymentRouteReconfirmationError;
       reconfirm.code = "route_reconfirmation_required";
       throw reconfirm;
+    }
+    if (
+      (response.status === 503 || response.status === 409 || response.status === 502) &&
+      payload &&
+      typeof payload === "object" &&
+      (payload as { code?: unknown }).code === "route_service_unavailable"
+    ) {
+      const message =
+        typeof (payload as { error?: unknown }).error === "string"
+          ? String((payload as { error: string }).error)
+          : "We could not verify the road route just now. Your addresses look fine — please try payment again in a moment.";
+      const unavailable = new Error(message) as PaymentRouteServiceUnavailableError;
+      unavailable.code = "route_service_unavailable";
+      throw unavailable;
     }
     const message =
       payload && typeof payload === "object" && "error" in payload

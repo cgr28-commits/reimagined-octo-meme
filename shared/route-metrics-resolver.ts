@@ -3,17 +3,20 @@
  *
  * UK premises picks (GetAddress / Ideal Postcodes) often have placeId + formatted
  * address but `lat/lng = null`. Pricing that skips `fetchTripRouteMetrics` then
- * silently omits `applyBelfastAirportDistanceFloor` inside `calculateQuote()`.
+ * silently omits distance-based floors / universal road miles.
  *
  * Resolution order for each end:
- * 1. Already-known coordinates
- * 2. Served-airport catalogue (exact coords, no network)
- * 3. Optional geocode callback (Google Places text search)
+ * 1. Served-airport catalogue by placeId (exact coords, no network)
+ * 2. Served-airport catalogue by address label
+ * 3. Already-known coordinates (quote path only — payment must not trust client lat/lng)
+ * 4. Place-ID lookup via provider callback (Google / Ideal / GetAddress)
+ * 5. Optional text geocode callback (Google Places text search) as fallback
  */
 
 import {
   getServedAirport,
   matchServedAirportCode,
+  servedAirportFromPlaceId,
 } from "./served-airports";
 
 export type RoutePoint = { lat: number; lng: number };
@@ -36,19 +39,50 @@ export type FetchTripRouteMetricsFn = (
   destinationLng: number,
 ) => Promise<TripRouteMetricsLike | null>;
 
+/**
+ * Resolve a selected place ID to coordinates using server-side provider keys.
+ * `providerError` means Google/GetAddress failed transiently — not a bad selection.
+ */
+export type ResolvePlaceIdCoordinatesFn = (
+  placeId: string,
+  addressHint?: string,
+) => Promise<{
+  point: RoutePoint | null;
+  providerError?: boolean;
+}>;
+
+export type RouteResolveFailureReason =
+  | "missing_endpoint"
+  | "place_unresolved"
+  | "provider_unavailable"
+  | "routing_unavailable";
+
+export type RouteResolveOutcome =
+  | { ok: true; metrics: TripRouteMetricsLike }
+  | {
+      ok: false;
+      reason: RouteResolveFailureReason;
+      /** Which end failed when known. */
+      endpoint?: "pickup" | "dropoff" | "route";
+    };
+
+function isFiniteCoord(lat: number | null | undefined, lng: number | null | undefined): boolean {
+  return (
+    typeof lat === "number" &&
+    typeof lng === "number" &&
+    Number.isFinite(lat) &&
+    Number.isFinite(lng)
+  );
+}
+
 export async function resolveRoutePoint(
   address: string,
   knownLat: number | null | undefined,
   knownLng: number | null | undefined,
   geocode: GeocodeAddressFn,
 ): Promise<RoutePoint | null> {
-  if (
-    typeof knownLat === "number" &&
-    typeof knownLng === "number" &&
-    Number.isFinite(knownLat) &&
-    Number.isFinite(knownLng)
-  ) {
-    return { lat: knownLat, lng: knownLng };
+  if (isFiniteCoord(knownLat, knownLng)) {
+    return { lat: knownLat as number, lng: knownLng as number };
   }
 
   const trimmed = address.trim();
@@ -67,6 +101,85 @@ export async function resolveRoutePoint(
   }
 
   return geocode(trimmed);
+}
+
+/**
+ * Payment / quote resolution with place IDs.
+ * Prefer catalogue + place-ID lookup; text geocode is fallback only.
+ */
+export async function resolveRoutePointWithPlaceId(options: {
+  address: string;
+  placeId?: string | null;
+  /** When true, trust knownLat/Lng (quote surfaces). Payment must pass false. */
+  trustClientCoordinates?: boolean;
+  knownLat?: number | null;
+  knownLng?: number | null;
+  geocode: GeocodeAddressFn;
+  resolvePlaceId?: ResolvePlaceIdCoordinatesFn;
+}): Promise<{
+  point: RoutePoint | null;
+  providerError?: boolean;
+  source?: "served-airport" | "client-coords" | "place-id" | "geocode";
+}> {
+  const placeId = String(options.placeId ?? "").trim();
+  const trimmed = options.address.trim();
+
+  if (placeId) {
+    const servedById = servedAirportFromPlaceId(placeId);
+    if (servedById) {
+      return {
+        point: { lat: servedById.lat, lng: servedById.lng },
+        source: "served-airport",
+      };
+    }
+  }
+
+  if (trimmed) {
+    const airportCode = matchServedAirportCode(trimmed);
+    const airport = airportCode ? getServedAirport(airportCode) : undefined;
+    if (airport) {
+      return {
+        point: { lat: airport.lat, lng: airport.lng },
+        source: "served-airport",
+      };
+    }
+  }
+
+  if (
+    options.trustClientCoordinates &&
+    isFiniteCoord(options.knownLat, options.knownLng)
+  ) {
+    return {
+      point: { lat: options.knownLat as number, lng: options.knownLng as number },
+      source: "client-coords",
+    };
+  }
+
+  if (placeId && options.resolvePlaceId) {
+    const resolved = await options.resolvePlaceId(placeId, trimmed || undefined);
+    if (resolved.point) {
+      return { point: resolved.point, source: "place-id" };
+    }
+    if (resolved.providerError) {
+      // Still try text geocode as a soft fallback when the place provider blipped.
+      if (trimmed.length >= 8) {
+        const geocoded = await options.geocode(trimmed);
+        if (geocoded) {
+          return { point: geocoded, source: "geocode" };
+        }
+      }
+      return { point: null, providerError: true };
+    }
+  }
+
+  if (trimmed.length >= 8) {
+    const geocoded = await options.geocode(trimmed);
+    if (geocoded) {
+      return { point: geocoded, source: "geocode" };
+    }
+  }
+
+  return { point: null };
 }
 
 export async function resolveTripRouteMetricsForAddresses(
@@ -97,4 +210,75 @@ export async function resolveTripRouteMetricsForAddresses(
     destinationPoint.lat,
     destinationPoint.lng,
   );
+}
+
+/**
+ * Full outcome-aware resolve used by SumUp payment (and tests).
+ * Never invents metrics. Distinguishes bad places from temporary provider/OSRM failures.
+ */
+export async function resolveTripRouteMetricsOutcome(options: {
+  pickupAddress: string;
+  dropoffAddress: string;
+  pickupPlaceId?: string | null;
+  dropoffPlaceId?: string | null;
+  /** Payment must leave this false — never trust browser lat/lng for SumUp. */
+  trustClientCoordinates?: boolean;
+  pickupLat?: number | null;
+  pickupLng?: number | null;
+  dropoffLat?: number | null;
+  dropoffLng?: number | null;
+  geocode: GeocodeAddressFn;
+  resolvePlaceId?: ResolvePlaceIdCoordinatesFn;
+  fetchRouteMetrics: FetchTripRouteMetricsFn;
+}): Promise<RouteResolveOutcome> {
+  const pickupLabel = options.pickupAddress.trim();
+  const dropoffLabel = options.dropoffAddress.trim();
+  if (!pickupLabel || !dropoffLabel) {
+    return { ok: false, reason: "missing_endpoint" };
+  }
+
+  const [origin, destination] = await Promise.all([
+    resolveRoutePointWithPlaceId({
+      address: pickupLabel,
+      placeId: options.pickupPlaceId,
+      trustClientCoordinates: options.trustClientCoordinates,
+      knownLat: options.pickupLat,
+      knownLng: options.pickupLng,
+      geocode: options.geocode,
+      resolvePlaceId: options.resolvePlaceId,
+    }),
+    resolveRoutePointWithPlaceId({
+      address: dropoffLabel,
+      placeId: options.dropoffPlaceId,
+      trustClientCoordinates: options.trustClientCoordinates,
+      knownLat: options.dropoffLat,
+      knownLng: options.dropoffLng,
+      geocode: options.geocode,
+      resolvePlaceId: options.resolvePlaceId,
+    }),
+  ]);
+
+  if (!origin.point && origin.providerError) {
+    return { ok: false, reason: "provider_unavailable", endpoint: "pickup" };
+  }
+  if (!destination.point && destination.providerError) {
+    return { ok: false, reason: "provider_unavailable", endpoint: "dropoff" };
+  }
+  if (!origin.point) {
+    return { ok: false, reason: "place_unresolved", endpoint: "pickup" };
+  }
+  if (!destination.point) {
+    return { ok: false, reason: "place_unresolved", endpoint: "dropoff" };
+  }
+
+  const metrics = await options.fetchRouteMetrics(
+    origin.point.lat,
+    origin.point.lng,
+    destination.point.lat,
+    destination.point.lng,
+  );
+  if (!metrics) {
+    return { ok: false, reason: "routing_unavailable", endpoint: "route" };
+  }
+  return { ok: true, metrics };
 }
