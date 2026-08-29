@@ -126,14 +126,15 @@ export function buildDriverOnTheWayWhatsAppMessage(options?: {
   driverFirstName?: string;
   vehicleColour?: string;
   partialRegistration?: string;
+  /** @deprecated Not shown to customers — kept optional for call-site compatibility. */
   driverMobile?: string;
   trackUrl?: string;
 }): string {
   const driverFirst = options?.driverFirstName?.trim() || "";
   const colour = options?.vehicleColour?.trim() || "";
   const partialReg = options?.partialRegistration?.trim() || "";
-  const mobile = options?.driverMobile?.trim() || "";
   const trackUrl = options?.trackUrl?.trim() || "";
+  void options?.driverMobile;
 
   const lines = [
     "Hi, your My Airport Taxi NI driver is now on the way.",
@@ -142,8 +143,7 @@ export function buildDriverOnTheWayWhatsAppMessage(options?: {
   if (driverFirst) lines.push(`Driver: ${driverFirst}`);
   if (colour) lines.push(`Vehicle: ${colour}`);
   if (partialReg) lines.push(`Registration: ${partialReg}`);
-  if (mobile) lines.push(`Driver mobile: ${mobile}`);
-  if (driverFirst || colour || partialReg || mobile) lines.push("");
+  if (driverFirst || colour || partialReg) lines.push("");
   if (trackUrl) {
     lines.push(`You can follow the journey using your live tracking link: ${trackUrl}`);
     lines.push("");

@@ -269,7 +269,6 @@ export async function sendOnTheWayNotificationIfNeeded(
     {
       customerName: job.customerName || customerFirstName(emailAddress),
       driverFirstName: details.driverFirstName || undefined,
-      driverMobile: details.driverMobile || undefined,
       vehicleColour: details.carColour || undefined,
       partialRegistration: details.registrationPartial || undefined,
       trackUrl: trackUrl || undefined,

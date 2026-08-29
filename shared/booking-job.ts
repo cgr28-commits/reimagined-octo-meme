@@ -218,7 +218,6 @@ export function buildCustomerDriverDetailsEmail(options: {
       : "Here are your driver details for your airport transfer:",
     "",
     `Driver: ${driverFirst}`,
-    job.driverMobile?.trim() ? `Mobile: ${job.driverMobile.trim()}` : null,
     vehicle ? `Vehicle: ${vehicle}` : null,
     job.driverReg?.trim() ? `Registration: ${job.driverReg.trim().toUpperCase()}` : null,
     "",
@@ -245,11 +244,6 @@ export function buildCustomerDriverDetailsEmail(options: {
     }</p>
     <div style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:12px;padding:16px;margin:20px 0;">
       <p style="margin:0 0 8px;"><strong>Driver:</strong> ${escapeHtml(driverFirst)}</p>
-      ${
-        job.driverMobile?.trim()
-          ? `<p style="margin:0 0 8px;"><strong>Mobile:</strong> ${escapeHtml(job.driverMobile.trim())}</p>`
-          : ""
-      }
       ${vehicle ? `<p style="margin:0 0 8px;"><strong>Vehicle:</strong> ${escapeHtml(vehicle)}</p>` : ""}
       ${
         job.driverReg?.trim()

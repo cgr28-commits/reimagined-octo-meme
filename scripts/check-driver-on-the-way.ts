@@ -40,7 +40,6 @@ console.log("\n=== Driver on the way email wording ===");
 const email = buildDriverOnTheWayEmail({
   customerName: "Alex Customer",
   driverFirstName: "John",
-  driverMobile: "07700 900123",
   vehicleColour: "Silver",
   partialRegistration: formatPartialRegistration("AB12 CDE"),
   trackUrl: "https://www.myairporttaxini.co.uk/track/?id=demo",
@@ -50,6 +49,7 @@ assert.match(email.text, /Your driver is on the way/);
 assert.match(email.text, /Vehicle colour: Silver/);
 assert.match(email.text, /Registration: AB12…/);
 assert.doesNotMatch(email.text, /AB12 CDE/);
+assert.doesNotMatch(email.text, /Driver mobile|07700 900123/i);
 assert.match(
   email.text,
   /Your driver may also share their live location with you directly on WhatsApp/,
@@ -69,12 +69,12 @@ const wa = buildDriverOnTheWayWhatsAppMessage({
   driverFirstName: "John",
   vehicleColour: "Silver",
   partialRegistration: "AB12…",
-  driverMobile: "07700 900123",
   trackUrl: "https://www.myairporttaxini.co.uk/track/?id=demo",
 });
 assert.match(wa, /on the way/);
 assert.match(wa, /may also share their live location with you directly here on WhatsApp/);
 assert.match(wa, /Registration: AB12…/);
+assert.doesNotMatch(wa, /Driver mobile|07700 900123/i);
 assert.match(wa, /track\/\?id=demo/);
 console.log("OK  optional on-the-way WhatsApp matches email privacy rules");
 

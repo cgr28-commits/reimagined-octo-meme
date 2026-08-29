@@ -127,7 +127,6 @@ check("Driver on the way email — privacy-safe details, may share, no fare/pay"
   const email = buildDriverOnTheWayEmail({
     customerName: "Alex Customer",
     driverFirstName: "John",
-    driverMobile: "07700 900123",
     vehicleColour: "Silver",
     partialRegistration: "AB12…",
     trackUrl: "https://www.myairporttaxini.co.uk/track/?id=tok-1",
@@ -138,7 +137,7 @@ check("Driver on the way email — privacy-safe details, may share, no fare/pay"
   assert.match(email.text, /Vehicle colour: Silver/);
   assert.match(email.text, /Registration: AB12…/);
   assert.doesNotMatch(email.text, /AB12 CDE/);
-  assert.match(email.text, /Driver mobile: 07700 900123/);
+  assert.doesNotMatch(email.text, /Driver mobile|07700 900123/i);
   assert.match(email.text, /track\/\?id=tok-1/);
   assert.match(
     email.text,
@@ -152,14 +151,13 @@ check("Driver on the way WhatsApp — matching privacy-safe details + may share"
     driverFirstName: "John",
     vehicleColour: "Silver",
     partialRegistration: "AB12…",
-    driverMobile: "07700 900123",
     trackUrl: "https://www.myairporttaxini.co.uk/track/?id=tok-1",
   });
   assert.match(wa, /Driver: John/);
   assert.match(wa, /Vehicle: Silver/);
   assert.match(wa, /Registration: AB12…/);
   assert.doesNotMatch(wa, /AB12 CDE/);
-  assert.match(wa, /Driver mobile: 07700 900123/);
+  assert.doesNotMatch(wa, /Driver mobile|07700 900123/i);
   assert.match(wa, /track\/\?id=tok-1/);
   assert.match(wa, /may also share their live location with you directly here on WhatsApp/);
   assert.doesNotMatch(wa, /will share|automatically share|£120|£80/i);

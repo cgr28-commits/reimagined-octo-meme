@@ -2,7 +2,7 @@ export type DriverVehicleProfile = {
   profileKey: string;
   displayName: string;
   email: string;
-  /** Driver mobile for customer WhatsApp details (not shown as email to customers). */
+  /** Driver mobile for assignment/ops — never included in customer email or WhatsApp copy. */
   mobile?: string;
   make: string;
   model: string;

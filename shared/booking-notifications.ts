@@ -1565,6 +1565,7 @@ export type ArrivalNotificationDetails = {
   customerName: string;
   /** Driver first name for customer-facing copy (never surname). */
   driverFirstName?: string;
+  /** @deprecated Not shown to customers — kept optional for call-site compatibility. */
   driverMobile?: string;
   vehicleColour?: string;
   /** Privacy-safe partial registration only — never full plate. */
@@ -1645,7 +1646,6 @@ export function buildDriverOnTheWayEmail(
   const driverFirst = details.driverFirstName?.trim() || "";
   const colour = details.vehicleColour?.trim() || "";
   const partialReg = details.partialRegistration?.trim() || "";
-  const mobile = details.driverMobile?.trim() || "";
   const trackUrl = details.trackUrl?.trim() || "";
   const mayShare =
     "Your driver may also share their live location with you directly on WhatsApp.";
@@ -1654,7 +1654,6 @@ export function buildDriverOnTheWayEmail(
   if (driverFirst) detailLines.push(`Driver: ${driverFirst}`);
   if (colour) detailLines.push(`Vehicle colour: ${colour}`);
   if (partialReg) detailLines.push(`Registration: ${partialReg}`);
-  if (mobile) detailLines.push(`Driver mobile: ${mobile}`);
 
   const textParts = [
     greeting,

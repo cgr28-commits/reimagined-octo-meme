@@ -1166,7 +1166,6 @@ function DriverJobCard({
               undefined,
             vehicleColour: job.assignedDriverCarColour?.trim() || undefined,
             partialRegistration: formatPartialRegistration(job.assignedDriverReg) || undefined,
-            driverMobile: job.assignedDriverMobile?.trim() || undefined,
             trackUrl: job.trackUrl?.trim() || undefined,
           });
           const opened = window.open(href, "_blank", "noopener,noreferrer");
@@ -1802,7 +1801,6 @@ function DriverJobCard({
               tripDate: job.tripDate,
               tripTime: job.tripTime,
               driverName: job.assignedDriverName || assignForm.driverFirstName,
-              driverMobile: job.assignedDriverMobile || assignForm.driverMobile,
               carMake: job.assignedDriverCarMake || assignForm.driverCarMake,
               carModel: job.assignedDriverCarModel || assignForm.driverCarModel,
               carColour: job.assignedDriverCarColour || assignForm.driverCarColour,
