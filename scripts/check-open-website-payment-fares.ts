@@ -34,8 +34,8 @@ const LDY_METRICS = { distanceKm: 120, durationMinutes: 90 };
 const DUB_JOURNEY = calculateUniversalSaloonJourneyFareGbp(
   universalDrivingMilesFromKm(DUB_METRICS.distanceKm),
 );
-const DUB_DROP_TOTAL = DUB_JOURNEY + 4;
-const DUB_PICK_TOTAL = DUB_JOURNEY + 9;
+const DUB_DROP_TOTAL = DUB_JOURNEY + 4; // + M1 toll
+const DUB_PICK_TOTAL = DUB_JOURNEY + 9; // + parking £5 + M1 £4
 const DUB_ESTATE_JOURNEY = calculateUniversalEstateJourneyFareGbp(DUB_JOURNEY);
 /** Genuine long-distance BFS metrics vs client-spoofed 1km/1min. */
 const COLERAINE = "Coleraine, Northern Ireland";
@@ -409,12 +409,10 @@ check("5% return discount still applies on canonical DUB journey", () => {
   // Journey portion only is discounted; fixed costs (outbound toll + return parking+toll) are not.
   assert.ok((ret.journeyFareGbp ?? 0) < (oneWay.journeyFareGbp ?? 0) * 2);
   assert.equal(ret.airportFixedCostsGbp, 13); // £4 + £5 + £4
-  // Fixed costs must not be discounted; total is journey (with 5%) + £13.
+  // PR #436 pence-safe total: universal journey £245 → return £465.50 + fixed £13 = £478.50
   assert.equal(ret.journeyFareGbp, DUB_JOURNEY * 1.9);
-  assert.ok(
-    Math.abs(ret.amount - ((ret.journeyFareGbp ?? 0) + 13)) < 1.01,
-    `return total should be journey+fixed (got £${ret.amount})`,
-  );
+  assert.equal(ret.amount, DUB_JOURNEY * 1.9 + 13);
+  assert.equal(ret.amount, 478.5);
 });
 
 // --- Route-metric tampering: client distance/duration must never cut SumUp ---

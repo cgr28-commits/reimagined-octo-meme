@@ -47,17 +47,18 @@ check("weekday fare = weekend fare = Bank Holiday fare", () => {
   const weekday = calculateQuote(cityHall, "BFS", SALOON_VEHICLE, false, {
     outboundDate: "2026-08-19",
     outboundTime: "10:00",
-  });
+  }, cityBfsMetrics);
   const weekend = calculateQuote(cityHall, "BFS", SALOON_VEHICLE, false, {
     outboundDate: "2026-08-22",
     outboundTime: "10:00",
-  });
+  }, cityBfsMetrics);
   const bh = calculateQuote(cityHall, "BFS", SALOON_VEHICLE, false, {
     outboundDate: "2026-05-04",
     outboundTime: "10:00",
-  });
-  const noDate = calculateQuote(cityHall, "BFS", SALOON_VEHICLE, false, {});
+  }, cityBfsMetrics);
+  const noDate = calculateQuote(cityHall, "BFS", SALOON_VEHICLE, false, {}, cityBfsMetrics);
   assert.ok(weekday && weekend && bh && noDate);
+  assert.equal(weekday.amount, 48, "14 mi City→BFS saloon = £48");
   assert.equal(weekday.amount, weekend.amount);
   assert.equal(weekday.amount, bh.amount);
   assert.equal(weekday.amount, noDate.amount);
@@ -69,13 +70,14 @@ check("weekday fare = weekend fare = Bank Holiday fare", () => {
   const friday = calculateQuote(cityHall, "BFS", SALOON_VEHICLE, false, {
     outboundDate: "2026-08-21",
     outboundTime: "14:00",
-  });
+  }, cityBfsMetrics);
   const saturdayAlt = calculateQuote(cityHall, "BFS", SALOON_VEHICLE, false, {
     outboundDate: "2026-08-22",
     outboundTime: "15:00",
-  });
+  }, cityBfsMetrics);
   assert.ok(friday && saturdayAlt);
   assert.equal(saturdayAlt.amount, friday.amount);
+  assert.equal(friday.amount, 48);
   assert.equal(friday.premiumApplied, false);
   assert.equal(saturdayAlt.premiumApplied, false);
 });
@@ -211,14 +213,14 @@ check("entering date/time allows booking gate to pass schedule checks", () => {
   assert.deepEqual(blockers, []);
 });
 
-check("homepage benefits include Save 5% when you book a return", () => {
+check("homepage benefits include 5% off when you book a return", () => {
   const hero = fs.readFileSync(path.join(root, "src/components/HeroSlideshow.tsx"), "utf8");
-  assert.match(hero, /Get your fixed price instantly/);
-  assert.match(hero, /Airport fees and applicable tolls included/);
+  assert.match(hero, /Get your fixed price below/);
+  assert.match(hero, /Airport fees & applicable tolls included/);
   assert.match(hero, /Flight monitoring/);
   assert.match(hero, /60 minutes complimentary airport waiting/);
-  assert.match(hero, /Secure online booking/);
-  assert.match(hero, /Save 5% when you book a return/);
+  assert.match(hero, /Secure card booking where eligible/);
+  assert.match(hero, /5% off when you book a return/);
 });
 
 check("public quote tool does not ask for child/car seats", () => {
