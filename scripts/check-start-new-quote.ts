@@ -33,10 +33,13 @@ assert.match(footer, /href="\/manage-booking\/"/);
 assert.match(header, /aria-label="Mobile navigation"/);
 
 const quoteCard = read("src/components/QuoteCard.tsx");
+const quoteHelp = read("src/components/QuoteBookingHelpControls.tsx");
 assert.match(quoteCard, /performStartNewQuote/);
 assert.match(quoteCard, /clearAbandonedQuotePersistence/);
-assert.match(quoteCard, /Start a New Quote/);
-assert.match(quoteCard, /Keep Current Quote/);
+assert.match(quoteHelp, /Clear Details &amp; Start a New Quote|Clear Details & Start a New Quote/);
+assert.match(quoteHelp, /Keep Current Quote/);
+assert.match(quoteCard, /trackStartNewQuoteClick/);
+assert.match(quoteCard, /StartNewQuoteControls/);
 console.log("OK  Manage Your Booking nav + Start a New Quote wiring");
 
 console.log("\n=== Persistence clear (jsdom-less memory polyfill) ===");

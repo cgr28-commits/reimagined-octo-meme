@@ -21,6 +21,8 @@ export const QUOTE_FUNNEL_EVENTS = {
   REQUEST_CLICKED: "quote_request_clicked",
   VALIDATION_ERROR: "quote_validation_error",
   MANUAL_ENQUIRY: "quote_manual_enquiry",
+  WHATSAPP_BOOKING_HELP_CLICK: "whatsapp_booking_help_click",
+  START_NEW_QUOTE_CLICK: "start_new_quote_click",
 } as const;
 
 export type QuoteFunnelEventName =
@@ -189,6 +191,16 @@ export function trackQuoteManualEnquiry(
   const ok = trackQuoteFunnelEvent(QUOTE_FUNNEL_EVENTS.MANUAL_ENQUIRY, params);
   if (ok) sessionSet(key, "1");
   return ok;
+}
+
+/** Error-help WhatsApp support click (diagnostic; no Ads send_to). */
+export function trackWhatsAppBookingHelpClick(params: QuoteFunnelParams = {}): boolean {
+  return trackQuoteFunnelEvent(QUOTE_FUNNEL_EVENTS.WHATSAPP_BOOKING_HELP_CLICK, params);
+}
+
+/** Confirmed Start New Quote reset (diagnostic; no Ads send_to). */
+export function trackStartNewQuoteClick(params: QuoteFunnelParams = {}): boolean {
+  return trackQuoteFunnelEvent(QUOTE_FUNNEL_EVENTS.START_NEW_QUOTE_CLICK, params);
 }
 
 /** Test helper — clears funnel dedupe keys from session storage. */
