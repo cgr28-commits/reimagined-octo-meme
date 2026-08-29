@@ -27,7 +27,13 @@ import {
   trackQuoteStarted,
   trackQuoteToolViewed,
   trackQuoteValidationError,
+  trackStartNewQuoteClick,
+  trackWhatsAppBookingHelpClick,
 } from "@/lib/quote-funnel-analytics";
+import {
+  BOOKING_HELP_WHATSAPP_MESSAGE,
+  bookingHelpWhatsAppUrl,
+} from "@/lib/booking-help-whatsapp";
 import {
   bookingTextFieldClass,
   quoteDateTimeFieldShellClass,
@@ -2844,6 +2850,7 @@ function QuoteCard({
    * Clears QuoteCard React state + quote persistence only — never touches paid bookings.
    */
   function performStartNewQuote() {
+    trackStartNewQuoteClick(quoteFunnelParams({ cta: "clear_details_start_new_quote" }));
     clearAbandonedQuotePersistence();
     resetRequestQuoteConversion();
     quoteFunnelAttemptIdRef.current = `q${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
@@ -2957,7 +2964,21 @@ function QuoteCard({
     // Return the customer to the start of the form after reset.
     pendingQuoteStepNavScrollRef.current = 1;
     window.setTimeout(() => {
-      scrollQuoteStage("quote", { focusHeading: true });
+      scrollQuoteStage(step1JourneyRef.current ?? "step1-journey-details", {
+        focusHeading: true,
+      });
+      const root = cardRef.current ?? document;
+      const firstField =
+        root.querySelector<HTMLElement>(
+          '[data-journey-intent-option], button[aria-pressed], input:not([type="hidden"]), select, textarea',
+        ) ?? root.querySelector<HTMLElement>("#step1-journey-details");
+      if (firstField) {
+        try {
+          firstField.focus({ preventScroll: true });
+        } catch {
+          firstField.focus();
+        }
+      }
     }, 0);
   }
 
@@ -2969,32 +2990,96 @@ function QuoteCard({
     performStartNewQuote();
   }
 
-  function renderStartNewQuoteControls() {
+  const showBookingErrorWhatsAppHelp =
+    Boolean(paymentError.trim()) ||
+    Boolean(submitError.trim()) ||
+    Boolean(pickupPlaceError.trim()) ||
+    Boolean(dropoffPlaceError.trim()) ||
+    routeReconfirmationRequired ||
+    paymentPopupBlocked ||
+    Boolean(tripDateError.trim()) ||
+    Boolean(returnDateError.trim()) ||
+    Boolean(customerNameError.trim()) ||
+    Boolean(mobileNumberError.trim()) ||
+    Boolean(emailAddressError.trim()) ||
+    Boolean(termsError.trim()) ||
+    Boolean(goingFlightError.trim()) ||
+    Boolean(collectionFlightError.trim()) ||
+    Boolean(capacityError.trim());
+
+  function renderBookingErrorWhatsAppHelp() {
+    if (!showBookingErrorWhatsAppHelp) {
+      return null;
+    }
+    const href = bookingHelpWhatsAppUrl(BOOKING_HELP_WHATSAPP_MESSAGE);
+    return (
+      <div
+        className="rounded-xl border border-emerald/30 bg-emerald/10 px-4 py-4 text-left"
+        role="region"
+        aria-label="WhatsApp booking help"
+        data-booking-error-whatsapp-help
+      >
+        <p className="text-sm font-semibold text-white">Need help completing your booking?</p>
+        <p className="mt-1.5 text-sm leading-relaxed text-white/75">
+          Message us on WhatsApp and we’ll help you complete your online booking.
+        </p>
+        <a
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={() => {
+            trackWhatsAppBookingHelpClick(
+              quoteFunnelParams({ cta: "get_booking_help_whatsapp" }),
+            );
+          }}
+          className="mt-3 inline-flex w-full items-center justify-center rounded-xl border border-emerald/50 bg-navy-dark/50 px-4 py-3 text-sm font-semibold text-emerald transition-colors hover:border-emerald hover:bg-emerald/15 sm:w-auto"
+        >
+          Get Booking Help on WhatsApp
+        </a>
+      </div>
+    );
+  }
+
+  function renderStartNewQuoteControls(options?: { showWhenEmpty?: boolean }) {
+    const show =
+      options?.showWhenEmpty ||
+      Boolean(liveQuote) ||
+      quoteResultsReady ||
+      hasQuoteRoute ||
+      showBookingErrorWhatsAppHelp ||
+      hasSubstantialQuoteInput();
+    if (!show) {
+      return null;
+    }
+
     if (confirmStartNewQuote) {
       return (
         <div
-          className="rounded-xl border border-white/20 bg-navy-dark/60 px-4 py-3 text-center"
+          className="rounded-xl border border-white/20 bg-navy-dark/60 px-4 py-4 text-center"
           role="alertdialog"
           aria-labelledby="start-new-quote-title"
+          aria-describedby="start-new-quote-desc"
         >
           <p id="start-new-quote-title" className="text-sm font-semibold text-white">
-            Start a new quote?
+            Need a quote for a different journey?
           </p>
-          <p className="quote-secondary mt-1 text-xs">Your current quote details will be cleared.</p>
-          <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:justify-center">
-            <button
-              type="button"
-              onClick={performStartNewQuote}
-              className="rounded-xl bg-emerald px-4 py-2.5 text-sm font-bold text-navy"
-            >
-              Start New Quote
-            </button>
+          <p id="start-new-quote-desc" className="quote-secondary mt-2 text-sm leading-relaxed">
+            This will clear your current journey details and start a new quote. Continue?
+          </p>
+          <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:justify-center">
             <button
               type="button"
               onClick={() => setConfirmStartNewQuote(false)}
-              className="rounded-xl border border-white/20 px-4 py-2.5 text-sm font-semibold text-white/85"
+              className="rounded-xl border border-white/25 bg-transparent px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/5"
             >
               Keep Current Quote
+            </button>
+            <button
+              type="button"
+              onClick={performStartNewQuote}
+              className="rounded-xl bg-emerald px-4 py-3 text-sm font-bold text-navy"
+            >
+              Start New Quote
             </button>
           </div>
         </div>
@@ -3002,13 +3087,16 @@ function QuoteCard({
     }
 
     return (
-      <button
-        type="button"
-        onClick={requestStartNewQuote}
-        className="w-full text-center text-sm font-medium text-white/55 underline-offset-2 transition-colors hover:text-white/80 hover:underline"
-      >
-        Start a New Quote
-      </button>
+      <div className="space-y-2 text-center" data-start-new-quote-controls>
+        <p className="text-sm text-white/70">Need a quote for a different journey?</p>
+        <button
+          type="button"
+          onClick={requestStartNewQuote}
+          className="w-full rounded-xl border border-white/30 bg-transparent px-4 py-3 text-sm font-semibold text-white transition-colors hover:border-emerald/50 hover:bg-white/5"
+        >
+          Clear Details &amp; Start a New Quote
+        </button>
+      </div>
     );
   }
 
@@ -4252,13 +4340,17 @@ function QuoteCard({
           </div>
         )}
         {routeReconfirmationRequired || pickupPlaceError || dropoffPlaceError ? (
-          <p
-            role="alert"
-            data-field-error
-            className="rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-100"
-          >
-            {ROUTE_RECONFIRMATION_MESSAGE}
-          </p>
+          <div className="space-y-3">
+            <p
+              role="alert"
+              data-field-error
+              className="rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-100"
+            >
+              {ROUTE_RECONFIRMATION_MESSAGE}
+            </p>
+            {renderBookingErrorWhatsAppHelp()}
+            {renderStartNewQuoteControls()}
+          </div>
         ) : null}
         {quoteStep === 1 ? (
           <>
@@ -4433,6 +4525,7 @@ function QuoteCard({
 
                 {quoteResultsReady && quoteStep === 1 && (
                   <>
+                    {renderStartNewQuoteControls()}
                     {!exceedsOnlineCapacity && (
                       <div className="rounded-xl border border-white/12 bg-white/[0.03] px-3 py-3 sm:px-4 sm:py-3.5">
                         <p className="form-label mb-0">
@@ -5333,11 +5426,15 @@ function QuoteCard({
           </div>
         </div>
 
-        {paymentError && (
-          <p className="rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-100">
-            {paymentError}
-          </p>
-        )}
+        {paymentError && !(canPayNowOnline && liveQuote) ? (
+          <div className="space-y-3">
+            <p className="rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-100">
+              {paymentError}
+            </p>
+            {renderBookingErrorWhatsAppHelp()}
+            {renderStartNewQuoteControls()}
+          </div>
+        ) : null}
 
                   <div id="step3-booking-review" className={`${BOOKING_PANEL_CLASS} scroll-mt-44 md:scroll-mt-28`}>
             <div className="mb-4">
@@ -5470,13 +5567,17 @@ function QuoteCard({
           </div>
 
         {submitError && (
-          <p
-            id="quote-submit-error"
-            role="alert"
-            className="rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-100"
-          >
-            {submitError}
-          </p>
+          <div className="space-y-3">
+            <p
+              id="quote-submit-error"
+              role="alert"
+              className="rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-100"
+            >
+              {submitError}
+            </p>
+            {renderBookingErrorWhatsAppHelp()}
+            {renderStartNewQuoteControls()}
+          </div>
         )}
 
         <div className="space-y-3">
@@ -5561,9 +5662,22 @@ function QuoteCard({
             {canPayNowOnline && liveQuote && (
               <div className="space-y-3">
                 {paymentError ? (
-                  <p className="rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-100">
-                    {paymentError}
-                  </p>
+                  <div className="space-y-3">
+                    <p className="rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-100">
+                      {paymentError}
+                    </p>
+                    {renderBookingErrorWhatsAppHelp()}
+                    {renderStartNewQuoteControls()}
+                  </div>
+                ) : null}
+                {paymentPopupBlocked && !paymentError ? (
+                  <div className="space-y-3">
+                    <p className="rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+                      Payment could not open automatically. Tap “Continue to SumUp” below, or message
+                      us on WhatsApp if you still need help.
+                    </p>
+                    {renderBookingErrorWhatsAppHelp()}
+                  </div>
                 ) : null}
                 {openCheckout ? (
                   <div className="space-y-3 rounded-2xl border border-emerald/35 bg-emerald/10 px-4 py-4">

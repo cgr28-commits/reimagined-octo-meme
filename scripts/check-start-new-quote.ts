@@ -35,8 +35,9 @@ assert.match(header, /aria-label="Mobile navigation"/);
 const quoteCard = read("src/components/QuoteCard.tsx");
 assert.match(quoteCard, /performStartNewQuote/);
 assert.match(quoteCard, /clearAbandonedQuotePersistence/);
-assert.match(quoteCard, /Start a New Quote/);
+assert.match(quoteCard, /Clear Details &amp; Start a New Quote|Clear Details & Start a New Quote/);
 assert.match(quoteCard, /Keep Current Quote/);
+assert.match(quoteCard, /trackStartNewQuoteClick/);
 console.log("OK  Manage Your Booking nav + Start a New Quote wiring");
 
 console.log("\n=== Persistence clear (jsdom-less memory polyfill) ===");
