@@ -11,6 +11,7 @@ import {
   UNIVERSAL_ESTATE_PREMIUM_GBP,
   UNIVERSAL_SALOON_MINIMUM_GBP,
 } from "../../shared/universal-distance-pricing";
+import { formatGbpAmount, roundGbp } from "../../shared/gbp";
 import {
   applyTripPremium,
   AIRPORT_TRIP_PREMIUM_RATE,
@@ -590,8 +591,10 @@ export function calculatePointToPointQuote(
     returnJourney,
   });
 
+  const journeyFareGbp = roundGbp(premium.total);
+
   return {
-    amount: premium.total,
+    amount: journeyFareGbp,
     area: dropoffArea ?? pickupArea,
     areaSurcharge: Math.round(roadMiles * 10) / 10,
     airportBase: UNIVERSAL_SALOON_MINIMUM_GBP,
@@ -600,7 +603,7 @@ export function calculatePointToPointQuote(
     pickupArea,
     dropoffArea,
     premiumApplied: premium.premiumApplied,
-    journeyFareGbp: premium.total,
+    journeyFareGbp,
     operational: {
       distanceKm: routeMetrics.distanceKm,
       durationMinutes: routeMetrics.durationMinutes,
@@ -681,20 +684,21 @@ export function calculateQuote(
     returnFixedGbp: returnFixed,
     getReturnJourneyFare,
   });
-  // Journey already nearest-£1 (Estate exactly +£6). Keep that amount for
-  // website / email / booking parity when fixed costs are £0.
-  const roundedJourneyFare = premium.total;
-  const totalWithFixed = premium.total + composed.fixedTotalGbp;
+  // Journey: Saloon nearest £1 (Estate +£6). Return discount may introduce pence.
+  // Fixed airport costs keep 50p etc. Final amount = journey + fixed, both to pence.
+  const roundedJourneyFare = roundGbp(premium.total);
+  const roundedFixed = roundGbp(composed.fixedTotalGbp);
+  const amount = roundGbp(roundedJourneyFare + roundedFixed);
 
   return {
-    amount: composed.fixedTotalGbp > 0 ? Math.round(totalWithFixed) : roundedJourneyFare,
+    amount,
     area: matchedArea,
     areaSurcharge: Math.round(roadMiles * 10) / 10,
     airportBase: UNIVERSAL_SALOON_MINIMUM_GBP,
     vehicleMultiplier,
     vehicleAdjustment,
     premiumApplied: premium.premiumApplied,
-    airportFixedCostsGbp: composed.fixedTotalGbp,
+    airportFixedCostsGbp: roundedFixed,
     journeyFareGbp: roundedJourneyFare,
     operational: {
       distanceKm: routeMetrics.distanceKm,
@@ -724,8 +728,10 @@ export function getAirportFromPrice(
 }
 
 export function formatQuote(amount: number): string {
-  return `£${amount}`;
+  return formatGbpAmount(amount);
 }
+
+export { roundGbp, formatGbpAmount };
 
 /**
  * Airport ↔ airport transfers must never treat one airport’s address as a town
@@ -804,18 +810,19 @@ export function calculateAirportToAirportQuote(
     returnFixedGbp: returnFixed,
     getReturnJourneyFare,
   });
-  // Journey already nearest-£1 from universal pricing — do not re-apply roundFare
-  // (nearest £5) or Estate/fixed totals drift (e.g. £54+£4 → £60).
-  const roundedJourneyFare = premium.total;
-  const totalWithFixed = premium.total + composed.fixedTotalGbp;
+  // Journey already nearest-£1 from universal pricing (return may add pence).
+  // Keep fixed costs (incl. 50p) — amount === journey + fixed at pence precision.
+  const roundedJourneyFare = roundGbp(premium.total);
+  const roundedFixed = roundGbp(composed.fixedTotalGbp);
+  const amount = roundGbp(roundedJourneyFare + roundedFixed);
 
   return {
     ...underlyingOneWay,
-    amount: Math.round(totalWithFixed),
+    amount,
     // Combined genuine fixed costs (not a town-zone surcharge).
-    areaSurcharge: composed.fixedTotalGbp,
+    areaSurcharge: roundedFixed,
     airportBase: underlyingOneWay.amount,
-    airportFixedCostsGbp: composed.fixedTotalGbp,
+    airportFixedCostsGbp: roundedFixed,
     journeyFareGbp: roundedJourneyFare,
     premiumApplied: premium.premiumApplied,
   };

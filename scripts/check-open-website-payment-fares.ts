@@ -21,10 +21,22 @@ import { resolveJourneyAirportFees } from "../shared/airport-fixed-costs";
 import { calculateQuote } from "../src/lib/quote";
 import { SALOON_VEHICLE, ESTATE_VEHICLE } from "../src/lib/vehicle-selection";
 import { calculateAuthoritativeWebsiteQuote } from "../src/lib/quote-service";
+import {
+  calculateUniversalEstateJourneyFareGbp,
+  calculateUniversalSaloonJourneyFareGbp,
+  universalDrivingMilesFromKm,
+} from "../shared/universal-distance-pricing";
 
 const CITY = "Belfast City Hall, Belfast BT1 5GS";
 const DUB_METRICS = { distanceKm: 168, durationMinutes: 115 };
 const LDY_METRICS = { distanceKm: 120, durationMinutes: 90 };
+/** PR #435 expectations for DUB_METRICS (road miles → universal Saloon). */
+const DUB_JOURNEY = calculateUniversalSaloonJourneyFareGbp(
+  universalDrivingMilesFromKm(DUB_METRICS.distanceKm),
+);
+const DUB_DROP_TOTAL = DUB_JOURNEY + 4; // + M1 toll
+const DUB_PICK_TOTAL = DUB_JOURNEY + 9; // + parking £5 + M1 £4
+const DUB_ESTATE_JOURNEY = calculateUniversalEstateJourneyFareGbp(DUB_JOURNEY);
 /** Genuine long-distance BFS metrics vs client-spoofed 1km/1min. */
 const COLERAINE = "Coleraine, Northern Ireland";
 const BFS_LABEL = "Belfast International Airport";
@@ -124,13 +136,13 @@ check("honest City→DUB transfer uses canonical quote", () => {
     routeMetrics: DUB_METRICS,
     authoritativeQuote: {
       amountGbp: requote.amount,
-      journeyFareGbp: requote.journeyFareGbp ?? 230,
+      journeyFareGbp: requote.journeyFareGbp ?? DUB_JOURNEY,
       airportFixedCostsGbp: requote.airportFixedCostsGbp ?? 4,
     },
   });
   assert.equal(resolved.ok, true);
   if (!resolved.ok) return;
-  assert.equal(resolved.journeyFareGbp, 230);
+  assert.equal(resolved.journeyFareGbp, DUB_JOURNEY);
   assert.equal(resolved.airportFixedCostsGbp, 4);
   assert.equal(resolved.source, "canonical-quote");
 });
@@ -206,14 +218,14 @@ check("canonical quote overrides client £0/£1 journey tampering", () => {
     routeMetrics: DUB_METRICS,
     authoritativeQuote: {
       amountGbp: requote.amount,
-      journeyFareGbp: requote.journeyFareGbp ?? 230,
+      journeyFareGbp: requote.journeyFareGbp ?? DUB_JOURNEY,
       airportFixedCostsGbp: requote.airportFixedCostsGbp ?? 4,
     },
   });
   assert.equal(resolved.ok, true);
   if (!resolved.ok) return;
   assert.equal(resolved.source, "canonical-quote");
-  assert.equal(resolved.journeyFareGbp, 230);
+  assert.equal(resolved.journeyFareGbp, DUB_JOURNEY);
   assert.equal(resolved.airportFixedCostsGbp, 4); // toll still applied; removal ignored
   const payable = composeWebsiteFareBreakdown({
     journeyFareBeforeAirportAccessGbp: resolved.journeyFareGbp,
@@ -221,7 +233,7 @@ check("canonical quote overrides client £0/£1 journey tampering", () => {
     airportAccessChargeGbp: 0,
     claimFirstBookingOffer: true,
   });
-  assert.equal(payable.finalAmountPayableGbp, 234);
+  assert.equal(payable.finalAmountPayableGbp, DUB_DROP_TOTAL);
   assert.equal(payable.firstBookingSavingGbp, 0);
 });
 
@@ -255,7 +267,7 @@ check("DUB pickup: £5 parking + £4 toll mandatory even if client removes", () 
     },
     authoritativeQuote: {
       amountGbp: requote.amount,
-      journeyFareGbp: requote.journeyFareGbp ?? 230,
+      journeyFareGbp: requote.journeyFareGbp ?? DUB_JOURNEY,
       airportFixedCostsGbp: requote.airportFixedCostsGbp ?? 9,
     },
   });
@@ -268,7 +280,7 @@ check("DUB pickup: £5 parking + £4 toll mandatory even if client removes", () 
     airportAccessChargeGbp: 0,
     claimFirstBookingOffer: true,
   });
-  assert.equal(payable.finalAmountPayableGbp, 239);
+  assert.equal(payable.finalAmountPayableGbp, DUB_PICK_TOTAL);
 });
 
 check("Estate City→DUB canonical journey uplift preserved", () => {
@@ -285,12 +297,12 @@ check("Estate City→DUB canonical journey uplift preserved", () => {
   });
   assert.equal(requote.ok, true);
   if (!requote.ok) return;
-  assert.equal(requote.journeyFareGbp, 238);
+  assert.equal(requote.journeyFareGbp, DUB_ESTATE_JOURNEY);
   assert.equal(requote.airportFixedCostsGbp, 4);
 });
 
 check("LDY fee removal ignored with canonical quote", () => {
-  const q = calculateQuote(CITY, "LDY", SALOON_VEHICLE, false, {}, null, false)!;
+  const q = calculateQuote(CITY, "LDY", SALOON_VEHICLE, false, {}, LDY_METRICS, false)!;
   assert.ok(q && q.airportFixedCostsGbp === 1);
   const resolved = resolveOpenWebsitePaymentTransferFares({
     clientTransferAmountGbp: 1,
@@ -350,7 +362,7 @@ check("SumUp payable ignores client transfer and uses canonical journey + fees",
     },
     authoritativeQuote: {
       amountGbp: requote.amount,
-      journeyFareGbp: requote.journeyFareGbp ?? 230,
+      journeyFareGbp: requote.journeyFareGbp ?? DUB_JOURNEY,
       airportFixedCostsGbp: requote.airportFixedCostsGbp ?? 4,
     },
   });
@@ -362,7 +374,7 @@ check("SumUp payable ignores client transfer and uses canonical journey + fees",
     airportAccessChargeGbp: 0,
     claimFirstBookingOffer: true,
   });
-  assert.equal(payable.finalAmountPayableGbp, 234);
+  assert.equal(payable.finalAmountPayableGbp, DUB_DROP_TOTAL);
   assert.equal(payable.firstBookingSavingGbp, 0);
 });
 
@@ -394,7 +406,9 @@ check("5% return discount still applies on canonical DUB journey", () => {
   // Journey portion only is discounted; fixed costs (outbound toll + return parking+toll) are not.
   assert.ok((ret.journeyFareGbp ?? 0) < (oneWay.journeyFareGbp ?? 0) * 2);
   assert.equal(ret.airportFixedCostsGbp, 13); // £4 + £5 + £4
-  assert.equal(ret.amount, 450);
+  // Universal journey £245 → return £465.50 + fixed £13 = £478.50
+  assert.equal(ret.amount, DUB_JOURNEY * 1.9 + 13);
+  assert.equal(ret.amount, 478.5);
 });
 
 // --- Route-metric tampering: client distance/duration must never cut SumUp ---
@@ -615,7 +629,7 @@ check("DUB: tampered metrics ignored when server quote is used", () => {
       routeMetrics: TAMPERED_METRICS,
     },
   );
-  assert.equal(charged, 234);
+  assert.equal(charged, DUB_DROP_TOTAL);
 });
 
 check("LDY: tampered metrics ignored when server quote is used", () => {
@@ -708,7 +722,7 @@ check("1. DUB pickup: airportCode removed still charges £5 parking + £4 M1", (
     airportContext: ctx.context,
     authoritativeQuote: {
       amountGbp: requote.amount,
-      journeyFareGbp: requote.journeyFareGbp ?? 230,
+      journeyFareGbp: requote.journeyFareGbp ?? DUB_JOURNEY,
       airportFixedCostsGbp: requote.airportFixedCostsGbp ?? 9,
     },
   });
@@ -723,7 +737,7 @@ check("1. DUB pickup: airportCode removed still charges £5 parking + £4 M1", (
     airportAccessChargeGbp: 0,
     claimFirstBookingOffer: true,
   });
-  assert.equal(payable.finalAmountPayableGbp, 239);
+  assert.equal(payable.finalAmountPayableGbp, DUB_PICK_TOTAL);
 });
 
 check("2. DUB pickup: isFromAirport=false cannot avoid £5", () => {
@@ -759,7 +773,7 @@ check("2. DUB pickup: isFromAirport=false cannot avoid £5", () => {
     airportContext: ctx.context,
     authoritativeQuote: {
       amountGbp: requote.amount,
-      journeyFareGbp: requote.journeyFareGbp ?? 230,
+      journeyFareGbp: requote.journeyFareGbp ?? DUB_JOURNEY,
       airportFixedCostsGbp: requote.airportFixedCostsGbp ?? 9,
     },
   });
@@ -807,7 +821,7 @@ check("3. Belfast → Dublin: client wrong airport still keeps DUB M1 £4", () =
     airportContext: ctx.context,
     authoritativeQuote: {
       amountGbp: requote.amount,
-      journeyFareGbp: requote.journeyFareGbp ?? 230,
+      journeyFareGbp: requote.journeyFareGbp ?? DUB_JOURNEY,
       airportFixedCostsGbp: requote.airportFixedCostsGbp ?? 4,
     },
   });
@@ -821,7 +835,7 @@ check("3. Belfast → Dublin: client wrong airport still keeps DUB M1 £4", () =
     airportAccessChargeGbp: 0,
     claimFirstBookingOffer: true,
   });
-  assert.equal(payable.finalAmountPayableGbp, 234);
+  assert.equal(payable.finalAmountPayableGbp, DUB_DROP_TOTAL);
 });
 
 check("4. LDY pickup: cannot avoid £2.50 by altering airport fields", () => {

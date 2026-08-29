@@ -1,6 +1,7 @@
 /**
  * Airport fee product rules: DUB/LDY amounts + tolls, airport-specific
  * removability, and confirmation that the £5-over-£40 offer is disabled.
+ * Expectations use PR #435 universal distance pricing (with route metrics).
  * Run: npx tsx scripts/check-airport-fee-product-rules.ts
  */
 
@@ -20,6 +21,11 @@ import {
 import { composeWebsiteFareBreakdown } from "../shared/website-fare-breakdown";
 import { FIRST_BOOKING_OFFER_CONFIG } from "../shared/first-booking-offer";
 import { SERVED_AIRPORTS } from "../shared/served-airports";
+import {
+  calculateUniversalSaloonJourneyFareGbp,
+  calculateUniversalEstateJourneyFareGbp,
+} from "../shared/universal-distance-pricing";
+import { roundGbp } from "../shared/gbp";
 
 const S = SALOON_VEHICLE;
 const E = ESTATE_VEHICLE;
@@ -28,6 +34,11 @@ const bfs = SERVED_AIRPORTS.find((a) => a.code === "BFS")!;
 const bhd = SERVED_AIRPORTS.find((a) => a.code === "BHD")!;
 const dub = SERVED_AIRPORTS.find((a) => a.code === "DUB")!;
 const ldy = SERVED_AIRPORTS.find((a) => a.code === "LDY")!;
+
+/** Approved DUB calibration knot (~98 mi → £230 Saloon). */
+const DUB_M98 = { distanceKm: 98 / 0.621371, durationMinutes: 115 };
+/** Representative LDY corridor (~75 mi → £178 Saloon). */
+const LDY_M75 = { distanceKm: 75 / 0.621371, durationMinutes: 90 };
 
 function check(label: string, fn: () => void) {
   try {
@@ -66,7 +77,7 @@ check("£5-over-£40 booking saving is disabled", () => {
 });
 
 check("City Hall → Dublin: base £230 + M1 £4; drop-off fee £0; no removal", () => {
-  const q = calculateQuote(CITY, "DUB", S, false, {}, null, false)!;
+  const q = calculateQuote(CITY, "DUB", S, false, {}, DUB_M98, false)!;
   assert.equal(q.journeyFareGbp, 230);
   assert.equal(q.airportFixedCostsGbp, 4);
   assert.equal(q.amount, 234);
@@ -84,7 +95,7 @@ check("City Hall → Dublin: base £230 + M1 £4; drop-off fee £0; no removal",
 });
 
 check("Dublin → City Hall: £5 parking + £4 toll mandatory", () => {
-  const q = calculateQuote(CITY, "DUB", S, false, {}, null, true)!;
+  const q = calculateQuote(CITY, "DUB", S, false, {}, DUB_M98, true)!;
   assert.equal(q.journeyFareGbp, 230);
   assert.equal(q.airportFixedCostsGbp, 9);
   assert.equal(q.amount, 239);
@@ -105,11 +116,12 @@ check("Dublin → City Hall: £5 parking + £4 toll mandatory", () => {
 });
 
 check("City Hall → Dublin RETURN: outbound toll £4 + return parking £5 + toll £4; 5% return", () => {
-  const oneWay = calculateQuote(CITY, "DUB", S, false, {}, null, false)!;
-  const ret = calculateQuote(CITY, "DUB", S, true, {}, null, false)!;
+  const oneWay = calculateQuote(CITY, "DUB", S, false, {}, DUB_M98, false)!;
+  const ret = calculateQuote(CITY, "DUB", S, true, {}, DUB_M98, false)!;
   assert.equal(oneWay.journeyFareGbp, 230);
-  assert.equal(ret.journeyFareGbp, getReturnJourneyFare(230));
+  assert.equal(ret.journeyFareGbp, getReturnJourneyFare(230)); // 437
   assert.equal(ret.airportFixedCostsGbp, 4 + 9); // outbound toll + return parking+toll
+  assert.equal(ret.amount, roundGbp(437 + 13));
   const fees = resolveJourneyAirportFees({
     isAirportToAirport: false,
     airportCode: "DUB",
@@ -122,8 +134,10 @@ check("City Hall → Dublin RETURN: outbound toll £4 + return parking £5 + tol
 });
 
 check("City Hall → LDY: £1 drop-off mandatory", () => {
-  const q = calculateQuote(CITY, "LDY", S, false, {}, null, false)!;
+  const q = calculateQuote(CITY, "LDY", S, false, {}, LDY_M75, false)!;
   assert.equal(q.airportFixedCostsGbp, 1);
+  assert.equal(q.journeyFareGbp, calculateUniversalSaloonJourneyFareGbp(75));
+  assert.equal(q.amount, roundGbp(q.journeyFareGbp! + 1));
   const fees = resolveJourneyAirportFees({
     isAirportToAirport: false,
     airportCode: "LDY",
@@ -135,8 +149,9 @@ check("City Hall → LDY: £1 drop-off mandatory", () => {
 });
 
 check("LDY → City Hall: £2.50 pickup mandatory", () => {
-  const q = calculateQuote(CITY, "LDY", S, false, {}, null, true)!;
+  const q = calculateQuote(CITY, "LDY", S, false, {}, LDY_M75, true)!;
   assert.equal(q.airportFixedCostsGbp, 2.5);
+  assert.equal(q.amount, roundGbp(q.journeyFareGbp! + 2.5));
   const fees = resolveJourneyAirportFees({
     isAirportToAirport: false,
     airportCode: "LDY",
@@ -184,15 +199,15 @@ check("DUB → BFS A2A: DUB fees mandatory; BFS destination may be removable", (
   });
   const dubPickup = fees.lines.find((l) => l.id === "outbound:DUB:pickup")!;
   const dubToll = fees.lines.find((l) => l.id === "outbound:DUB:toll")!;
-  const bfs = fees.lines.find((l) => l.airportCode === "BFS")!;
+  const bfsLine = fees.lines.find((l) => l.airportCode === "BFS")!;
   assert.equal(dubPickup.removable, false);
   assert.equal(dubPickup.removed, false);
   assert.equal(dubPickup.appliedAmountGbp, 5);
   assert.equal(dubToll.removable, false);
   assert.equal(dubToll.appliedAmountGbp, 4);
-  assert.equal(bfs.removable, true);
-  assert.equal(bfs.removed, true);
-  assert.equal(bfs.appliedAmountGbp, 0);
+  assert.equal(bfsLine.removable, true);
+  assert.equal(bfsLine.removed, true);
+  assert.equal(bfsLine.appliedAmountGbp, 0);
   assert.equal(fees.totalAppliedGbp, 9);
 });
 
@@ -203,10 +218,10 @@ check("BFS → DUB A2A: BFS may be removable; DUB drop £0 + toll mandatory", ()
     dropoffAirportCode: "DUB",
     removedFeeIds: ["outbound:BFS:pickup", "outbound:DUB:toll"],
   });
-  const bfs = fees.lines.find((l) => l.airportCode === "BFS")!;
+  const bfsLine = fees.lines.find((l) => l.airportCode === "BFS")!;
   const toll = fees.lines.find((l) => l.direction === "toll")!;
-  assert.equal(bfs.removable, true);
-  assert.equal(bfs.removed, true);
+  assert.equal(bfsLine.removable, true);
+  assert.equal(bfsLine.removed, true);
   assert.equal(toll.removable, false);
   assert.equal(toll.removed, false);
   assert.equal(fees.totalAppliedGbp, 4);
@@ -224,19 +239,25 @@ check("BHD → LDY A2A: BHD removable; LDY £1 mandatory", () => {
   assert.equal(fees.totalAppliedGbp, 1);
 });
 
-check("Estate Dublin base uplift unchanged; toll + parking compose correctly", () => {
-  const saloonDrop = calculateQuote(CITY, "DUB", S, false, {}, null, false)!;
-  const estateDrop = calculateQuote(CITY, "DUB", E, false, {}, null, false)!;
+check("Estate Dublin = Saloon + £6; toll + parking compose correctly", () => {
+  const saloonDrop = calculateQuote(CITY, "DUB", S, false, {}, DUB_M98, false)!;
+  const estateDrop = calculateQuote(CITY, "DUB", E, false, {}, DUB_M98, false)!;
   assert.equal(saloonDrop.journeyFareGbp, 230);
-  assert.equal(estateDrop.journeyFareGbp, 238);
+  assert.equal(
+    estateDrop.journeyFareGbp,
+    calculateUniversalEstateJourneyFareGbp(230),
+  ); // 236
+  assert.equal(estateDrop.journeyFareGbp! - saloonDrop.journeyFareGbp!, 6);
   assert.equal(saloonDrop.airportFixedCostsGbp, 4);
   assert.equal(estateDrop.airportFixedCostsGbp, 4);
   assert.equal(saloonDrop.amount, 234);
-  const saloonPick = calculateQuote(CITY, "DUB", S, false, {}, null, true)!;
-  const estatePick = calculateQuote(CITY, "DUB", E, false, {}, null, true)!;
+  assert.equal(estateDrop.amount, 240);
+  const saloonPick = calculateQuote(CITY, "DUB", S, false, {}, DUB_M98, true)!;
+  const estatePick = calculateQuote(CITY, "DUB", E, false, {}, DUB_M98, true)!;
   assert.equal(saloonPick.airportFixedCostsGbp, 9);
   assert.equal(estatePick.airportFixedCostsGbp, 9);
   assert.equal(saloonPick.amount, 239);
+  assert.equal(estatePick.amount, 245);
 });
 
 check("Labels", () => {
@@ -260,6 +281,7 @@ check("A2A quote still composes fixed costs into amount", () => {
   assert.ok(q);
   // DUB↔LDY uses the DUB directional pricing path; fixed costs still present.
   assert.ok(typeof q!.amount === "number" && q!.amount > 0);
+  assert.ok((q!.airportFixedCostsGbp ?? 0) > 0);
   void bfs;
   void bhd;
 });
