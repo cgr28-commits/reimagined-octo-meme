@@ -1896,10 +1896,12 @@ async function handlePaymentRequest(
     // Resolve driving metrics server-side from addresses (same path as quote-handlers).
     // Deliberately omit client lat/lng so coords cannot be spoofed short either.
     // Retry once for transient geocode/route failures.
+    const paymentPickupLabel = String(booking.pickupLabel ?? "");
+    const paymentDropoffLabel = String(booking.dropoffLabel ?? "");
     const routeMetrics = await resolveRouteMetricsWithRetry(() =>
       resolveWorkerTripRouteMetrics({
-        pickupAddress: booking.pickupLabel,
-        dropoffAddress: booking.dropoffLabel,
+        pickupAddress: paymentPickupLabel,
+        dropoffAddress: paymentDropoffLabel,
         googlePlacesApiKey: env.GOOGLE_PLACES_API_KEY,
       }),
     );
@@ -1910,8 +1912,8 @@ async function handlePaymentRequest(
     // Airport identity / direction from pickup/drop-off labels vs SERVED_AIRPORTS.
     // Never trust client airportCode / isFromAirport / journeyKind / A2A flags.
     const airportCtxResult = resolvePaymentAirportContextFromAddresses(
-      booking.pickupLabel,
-      booking.dropoffLabel,
+      paymentPickupLabel,
+      paymentDropoffLabel,
     );
     if (!airportCtxResult.ok) {
       return json({ error: airportCtxResult.error }, 409, origin);
