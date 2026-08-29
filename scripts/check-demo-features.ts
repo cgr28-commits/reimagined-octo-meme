@@ -57,7 +57,8 @@ check("driver today jobs are sanitized", () => {
 
   for (const job of response.jobs) {
     assert.equal(job.assignmentStatus, "accepted");
-    assert.equal(job.customerMobile, undefined);
+    assert.ok(job.customerMobile);
+    assert.ok(job.driverPayAmount);
     assert.equal(job.paymentReference, undefined);
     assert.equal(job.amountPaidLabel, undefined);
     assert.equal(job.driverLocationPointCount, undefined);
@@ -84,6 +85,8 @@ check("driver pending job is accept-ready", () => {
   assert.equal(pending.assignmentStatus, "pending");
   assert.equal(pending.assignedDriverName, DEMO_DRIVER_NAME);
   assert.equal(pending.customerMobile, undefined);
+  assert.ok(pending.driverPayAmount);
+  assert.equal(pending.amountPaidLabel, undefined);
   assert.equal(pending.flightNumber, "BA1234");
   assert.equal(pending.isAirportPickup, true);
 });
@@ -127,8 +130,29 @@ check("owner vehicle profiles roster", () => {
   const profiles = getDemoOwnerVehicleProfiles();
   assert.deepEqual(
     profiles.map((profile) => profile.displayName),
-    [...DEMO_ROSTER],
+    ["Owner", ...DEMO_ROSTER],
   );
+  assert.ok(profiles.every((profile) => profile.complete));
+});
+
+check("driver today jobs hide customer fare and show driver pay", () => {
+  const response = getDemoDriverJobs();
+  assert.ok(response.jobs.length > 0);
+  for (const job of response.jobs) {
+    assert.equal(job.amountPaidLabel, undefined);
+    assert.equal(job.paymentReference, undefined);
+    assert.equal(job.refundAmountLabel, undefined);
+    assert.ok(job.driverPayAmount);
+    assert.ok(job.customerMobile);
+  }
+});
+
+check("pending driver does not receive customer mobile until accept", () => {
+  const pending = getDemoDriverPendingJobs().jobs[0];
+  assert.ok(pending);
+  assert.equal(pending.assignmentStatus, "pending");
+  assert.equal(pending.customerMobile, undefined);
+  assert.ok(pending.customerName);
 });
 
 check("driver vehicle profile", () => {
@@ -159,7 +183,8 @@ check("sanitize strips owner-only fields", () => {
   const ownerJob = getDemoOwnerJobs().jobs.find((job) => job.token === "demo-live");
   assert.ok(ownerJob);
   const sanitized = sanitizeDemoJobForDriver(ownerJob);
-  assert.equal(sanitized.customerMobile, undefined);
+  assert.ok(sanitized.customerMobile);
+  assert.ok(sanitized.driverPayAmount);
   assert.equal(sanitized.paymentReference, undefined);
   assert.equal(sanitized.amountPaidLabel, undefined);
   assert.equal(sanitized.driverLocationPointCount, undefined);

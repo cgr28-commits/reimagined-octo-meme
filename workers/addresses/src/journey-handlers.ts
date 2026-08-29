@@ -22,6 +22,7 @@ import {
   buildDriverOnTheWayEmail,
   customerFirstName,
 } from "../shared/booking-notifications";
+import { resolveAssignedDriverDetails } from "../shared/assigned-driver-details";
 import { corsHeaders } from "../shared/google-places";
 import {
   assertDriverCanOperateJob,
@@ -31,6 +32,7 @@ import {
   ownerAuthorized,
   resolveDriverSession,
 } from "./driver-auth";
+import { getBookingJob } from "./booking-job-store";
 import {
   createTrackingSession,
   createTrackingJobFromBooking,
@@ -42,6 +44,8 @@ import {
   TRACKING_JOB_TTL_SECONDS,
   trackingStoreConfigured,
 } from "./tracking-store";
+import { getDriverVehicleProfile } from "./driver-vehicle-store";
+import { OWNER_VEHICLE_PROFILE_KEY } from "../shared/driver-vehicle";
 import { getPaidBookingRecord, paidBookingStoreConfigured, savePaidBookingRecord } from "./paid-booking-store";
 import type { PaidBookingDetails } from "../shared/booking-notifications";
 import { buildReviewRequestSummary } from "./review-request-handlers";
@@ -163,7 +167,7 @@ export async function sendArrivalNotificationIfNeeded(
 
 /**
  * Idempotent customer "Driver on the way" notification.
- * Email/status only — no website track link and no automated WhatsApp Live Location.
+ * Email with privacy-safe assigned-driver details; WhatsApp live location is optional (“may share”).
  */
 export async function sendOnTheWayNotificationIfNeeded(
   env: Env,
@@ -196,8 +200,76 @@ export async function sendOnTheWayNotificationIfNeeded(
     return next;
   }
 
+  const bookingJob =
+    job.paymentReference && env.TRACKING_STORE
+      ? (await getBookingJob(env.TRACKING_STORE, job.paymentReference)) ??
+        (await getBookingJob(env.TRACKING_STORE, job.token))
+      : null;
+
+  const ownerIsActiveDriver =
+    !job.assignedDriverName?.trim() ||
+    (env.DRIVER_NAME?.trim() &&
+      job.assignedDriverName.trim().toLowerCase() === env.DRIVER_NAME.trim().toLowerCase() &&
+      job.assignmentStatus === "accepted");
+
+  let ownerFallback = null as
+    | {
+        driverName?: string;
+        driverMobile?: string;
+        carMake?: string;
+        carModel?: string;
+        carColour?: string;
+        registration?: string;
+      }
+    | null;
+  if (ownerIsActiveDriver && env.TRACKING_STORE) {
+    try {
+      const ownerProfile = await getDriverVehicleProfile(env.TRACKING_STORE, OWNER_VEHICLE_PROFILE_KEY);
+      if (ownerProfile) {
+        ownerFallback = {
+          driverName: ownerProfile.displayName,
+          driverMobile: ownerProfile.mobile,
+          carMake: ownerProfile.make,
+          carModel: ownerProfile.model,
+          carColour: ownerProfile.colour,
+          registration: ownerProfile.registration,
+        };
+      }
+    } catch {
+      /* optional */
+    }
+  }
+
+  const details = resolveAssignedDriverDetails({
+    tracking: {
+      driverName: job.assignedDriverName,
+      driverMobile: job.assignedDriverMobile,
+      carMake: job.assignedDriverCarMake,
+      carModel: job.assignedDriverCarModel,
+      carColour: job.assignedDriverCarColour,
+      registration: job.assignedDriverReg,
+    },
+    booking: bookingJob
+      ? {
+          driverName: bookingJob.driverFirstName,
+          driverMobile: bookingJob.driverMobile,
+          carMake: bookingJob.driverCarMake,
+          carModel: bookingJob.driverCarModel,
+          carColour: bookingJob.driverCarColour,
+          registration: bookingJob.driverReg,
+        }
+      : null,
+    ownerFallback,
+    ownerIsActiveDriver: Boolean(ownerIsActiveDriver),
+  });
+
   const email = buildDriverOnTheWayEmail(
-    { customerName: job.customerName || customerFirstName(emailAddress) },
+    {
+      customerName: job.customerName || customerFirstName(emailAddress),
+      driverFirstName: details.driverFirstName || undefined,
+      vehicleColour: details.carColour || undefined,
+      partialRegistration: details.registrationPartial || undefined,
+    },
     BUSINESS_NAME,
   );
   const result = await trySendBrandedCustomerEmail(env, {

@@ -88,6 +88,18 @@ export type TrackingJobRecord = {
   assignedAt?: string;
   acceptedAt?: string;
   declinedAt?: string;
+  /**
+   * Snapshot of assigned-driver operational details at assignment time.
+   * Immutable for the journey even if the saved driver profile is edited later.
+   */
+  assignedDriverMobile?: string;
+  assignedDriverEmail?: string;
+  assignedDriverCarMake?: string;
+  assignedDriverCarModel?: string;
+  assignedDriverCarColour?: string;
+  assignedDriverReg?: string;
+  /** Owner-entered amount paid to the driver for this journey (not the customer fare). */
+  driverPayAmount?: string;
   /** Count of GPS points retained for audit (owner only in API responses) */
   driverLocationPointCount?: number;
   driverLocationRecordedFrom?: string;

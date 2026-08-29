@@ -69,6 +69,13 @@ function clearJobAssignment(record: TrackingJobRecord): void {
   delete record.assignedAt;
   delete record.acceptedAt;
   delete record.declinedAt;
+  delete record.assignedDriverMobile;
+  delete record.assignedDriverEmail;
+  delete record.assignedDriverCarMake;
+  delete record.assignedDriverCarModel;
+  delete record.assignedDriverCarColour;
+  delete record.assignedDriverReg;
+  delete record.driverPayAmount;
   stopDriverSharing(record);
 }
 
@@ -178,6 +185,13 @@ export async function handleDriverAssignRequest(
     if (!driverMobile) {
       return jsonResponse({ error: "Enter the driver’s mobile number" }, 400, origin);
     }
+    if (!driverCarMake || !driverCarModel || !driverCarColour || !driverReg) {
+      return jsonResponse(
+        { error: "Complete the driver’s vehicle details (make, model, colour, registration) before assigning" },
+        400,
+        origin,
+      );
+    }
     if (!driverEmail.includes("@")) {
       return jsonResponse({ error: "Enter a valid driver email" }, 400, origin);
     }
@@ -204,6 +218,21 @@ export async function handleDriverAssignRequest(
   record.assignedAt = now;
   delete record.acceptedAt;
   delete record.declinedAt;
+  // Snapshot operational driver details onto the tracking job (immutable for this journey).
+  if (driverMobile) record.assignedDriverMobile = driverMobile;
+  else delete record.assignedDriverMobile;
+  if (driverEmail) record.assignedDriverEmail = driverEmail;
+  else delete record.assignedDriverEmail;
+  if (driverCarMake) record.assignedDriverCarMake = driverCarMake;
+  else delete record.assignedDriverCarMake;
+  if (driverCarModel) record.assignedDriverCarModel = driverCarModel;
+  else delete record.assignedDriverCarModel;
+  if (driverCarColour) record.assignedDriverCarColour = driverCarColour;
+  else delete record.assignedDriverCarColour;
+  if (driverReg) record.assignedDriverReg = driverReg;
+  else delete record.assignedDriverReg;
+  if (driverPayAmount) record.driverPayAmount = driverPayAmount;
+  else delete record.driverPayAmount;
   stopDriverSharing(record);
 
   await saveTrackingJob(env.TRACKING_STORE, record);

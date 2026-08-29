@@ -244,6 +244,7 @@ export type DriverJob = PublicTrackResponse & {
   assignedDriverCarColour?: string;
   assignedDriverReg?: string;
   driverPayAmount?: string;
+  bookingReference?: string;
   assignmentStatus?: JobAssignmentStatus;
   assignedAt?: string;
   acceptedAt?: string;
@@ -1346,7 +1347,6 @@ export function buildWhatsAppDriverDetailsLink(options: {
       ? `Here are your driver details for ${when}:`
       : "Here are your driver details for your airport transfer:",
     driverFirst ? `Driver: ${driverFirst}` : null,
-    options.driverMobile?.trim() ? `Mobile: ${options.driverMobile.trim()}` : null,
     vehicle ? `Vehicle: ${vehicle}` : null,
     options.reg?.trim() ? `Registration: ${options.reg.trim().toUpperCase()}` : null,
     "",

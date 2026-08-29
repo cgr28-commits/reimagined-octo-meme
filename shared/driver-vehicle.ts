@@ -1,8 +1,10 @@
+import { formatPartialRegistration } from "./partial-registration";
+
 export type DriverVehicleProfile = {
   profileKey: string;
   displayName: string;
   email: string;
-  /** Driver mobile for customer WhatsApp details (not shown as email to customers). */
+  /** Driver mobile for assignment/ops — never included in customer email or WhatsApp copy. */
   mobile?: string;
   make: string;
   model: string;
@@ -15,7 +17,9 @@ export type CustomerVehicleDetails = {
   make: string;
   model: string;
   colour: string;
+  /** Privacy-safe partial registration only — never the full plate. */
   registration: string;
+  /** First name only when provided. */
   driverName?: string;
 };
 
@@ -33,7 +37,18 @@ export function vehicleProfileComplete(
   );
 }
 
+/** Profile ready to assign to a booking (includes contact details). */
 export function driverProfileComplete(profile: DriverVehicleProfile): boolean {
+  return (
+    Boolean(profile.displayName?.trim()) &&
+    Boolean(profile.email?.trim()) &&
+    Boolean(profile.mobile?.trim()) &&
+    vehicleProfileComplete(profile)
+  );
+}
+
+/** Soft complete for vehicle-only checks (legacy); prefer driverProfileComplete for assign. */
+export function driverProfileVehicleComplete(profile: DriverVehicleProfile): boolean {
   return (
     Boolean(profile.displayName?.trim()) &&
     Boolean(profile.email?.trim()) &&
@@ -119,14 +134,16 @@ export function buildDriverProfileConfirmationEmail(
   return { subject, text, html };
 }
 
+/** Customer-facing vehicle card — partial registration only; never includes driver mobile. */
 export function toCustomerVehicleDetails(
   profile: DriverVehicleProfile,
 ): CustomerVehicleDetails {
+  const firstName = profile.displayName.trim().split(/\s+/)[0] || undefined;
   return {
     make: profile.make.trim(),
     model: profile.model.trim(),
     colour: profile.colour.trim(),
-    registration: profile.registration.trim().toUpperCase(),
-    driverName: profile.displayName,
+    registration: formatPartialRegistration(profile.registration),
+    driverName: firstName,
   };
 }

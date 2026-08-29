@@ -38,6 +38,7 @@ import {
   fetchOwnerAccountProfile,
   saveDriverVehicle,
   type DriverJob,
+  type DriverVehicleProfile,
   type JourneyAction,
   type JourneyEvidencePack,
 } from "@/lib/tracking-api";
@@ -51,6 +52,9 @@ import {
   buildDriverOnTheWayWhatsAppLink,
   isAirportPickupLabel,
 } from "../../../shared/arrival-whatsapp";
+import { driverDisplayFirstName } from "../../../shared/booking-job";
+import { formatPartialRegistration } from "../../../shared/partial-registration";
+import { driverProfileComplete } from "../../../shared/driver-vehicle";
 
 /** Mirror of shared DRIVER_GPS_STALE_MS — warn when browser GPS stops updating. */
 const DRIVER_GPS_STALE_MS = 2 * 60 * 1000;
@@ -855,9 +859,7 @@ function DriverJobCard({
   const [assignBusy, setAssignBusy] = useState(false);
   const [assignFormOpen, setAssignFormOpen] = useState(false);
   const [assignMessage, setAssignMessage] = useState<string | null>(null);
-  const [assignProfiles, setAssignProfiles] = useState<
-    Array<{ profileKey: string; displayName: string }>
-  >([]);
+  const [assignProfiles, setAssignProfiles] = useState<DriverVehicleProfile[]>([]);
   const [assignProfileKey, setAssignProfileKey] = useState("");
   const [assignForm, setAssignForm] = useState({
     driverFirstName: "",
@@ -895,9 +897,7 @@ function DriverJobCard({
     isOwner && Boolean(job.paymentReference?.trim()) && !isRefunded;
   const canRefund = canIssueRefund && !isDemoKey;
   const showDemoRefund = canIssueRefund && isDemoKey;
-  const canEdit =
-    !isRefunded &&
-    (isOwner || isAcceptedAssignment || (isPendingForDriver && job.isAirportPickup));
+  const canEdit = isOwner && !isRefunded;
   const canShare =
     !isRefunded &&
     (isOwner || isAcceptedAssignment) &&
@@ -966,14 +966,28 @@ function DriverJobCard({
 
     let cancelled = false;
     void fetchDriverVehicleProfiles(driverKey)
-      .then((profiles) => {
+      .then(async (summaries) => {
         if (cancelled) {
           return;
         }
-        setAssignProfiles(profiles);
-        if (!assignProfileKey && profiles.length > 0) {
-          const first = profiles[0];
-          setAssignProfileKey(first.profileKey);
+        const loaded: DriverVehicleProfile[] = [];
+        for (const summary of summaries) {
+          try {
+            const profile = await fetchDriverVehicle(driverKey, summary.profileKey);
+            if (profile) {
+              loaded.push(profile);
+            }
+          } catch {
+            /* skip incomplete fetch */
+          }
+        }
+        if (cancelled) {
+          return;
+        }
+        setAssignProfiles(loaded);
+        const complete = loaded.filter(driverProfileComplete);
+        if (!assignProfileKey && complete.length > 0) {
+          setAssignProfileKey(complete[0]!.profileKey);
         }
       })
       .catch(() => {
@@ -1145,7 +1159,14 @@ function DriverJobCard({
       if (action === "start_tracking") {
         const mobile = job.customerMobile?.trim() || "";
         if (mobile) {
-          const href = buildDriverOnTheWayWhatsAppLink(mobile);
+          const href = buildDriverOnTheWayWhatsAppLink(mobile, {
+            driverFirstName:
+              driverDisplayFirstName(job.assignedDriverName) ||
+              driverDisplayFirstName(assignForm.driverFirstName) ||
+              undefined,
+            vehicleColour: job.assignedDriverCarColour?.trim() || undefined,
+            partialRegistration: formatPartialRegistration(job.assignedDriverReg) || undefined,
+          });
           const opened = window.open(href, "_blank", "noopener,noreferrer");
           if (!opened) {
             window.location.assign(href);
@@ -1212,6 +1233,15 @@ function DriverJobCard({
     }
     if (!driverPayAmount) {
       setError("Enter how much you are paying the driver for this journey");
+      return;
+    }
+    if (
+      !assignForm.driverCarMake.trim() ||
+      !assignForm.driverCarModel.trim() ||
+      !assignForm.driverCarColour.trim() ||
+      !assignForm.driverReg.trim()
+    ) {
+      setError("Select a complete saved driver profile (vehicle details required)");
       return;
     }
 
@@ -1458,6 +1488,19 @@ function DriverJobCard({
           {(isOwner || isAcceptedAssignment) && job.customerMobile && (
             <p className="mt-2 text-sm text-emerald">{job.customerMobile}</p>
           )}
+          {!isOwner && isPendingForDriver ? (
+            <p className="mt-2 text-xs text-white/45">
+              Customer mobile is shown after you accept this job.
+            </p>
+          ) : null}
+          {!isOwner && job.driverPayAmount && (
+            <p className="mt-2 text-base font-bold text-emerald">
+              Your pay for this journey: {job.driverPayAmount}
+            </p>
+          )}
+          {isOwner && job.driverPayAmount && (
+            <p className="mt-1 text-sm text-white/70">Driver pay: {job.driverPayAmount}</p>
+          )}
           {isOwner && job.amountPaidLabel && (
             <p className="mt-1 text-sm text-white/70">Paid: {job.amountPaidLabel}</p>
           )}
@@ -1466,10 +1509,13 @@ function DriverJobCard({
               Refunded: {job.refundAmountLabel ?? job.amountPaidLabel}
             </p>
           )}
-          {(job.paymentReference || job.bookingReference) && (
+          {isOwner && (job.paymentReference || job.bookingReference) && (
             <p className="mt-1 text-xs text-white/40">
               Ref: {job.paymentReference ?? job.bookingReference}
             </p>
+          )}
+          {!isOwner && job.bookingReference && (
+            <p className="mt-1 text-xs text-white/40">Ref: {job.bookingReference}</p>
           )}
           <p className="mt-2 text-sm font-semibold text-emerald">
             Journey: {journeyLabel}
@@ -1580,9 +1626,9 @@ function DriverJobCard({
                   : "Assign driver"}
               </p>
               <p className="mt-1 text-xs text-white/55">
-                Enter driver details (including mobile), car details, and what you are paying them
-                for this journey — not what the customer paid. They get an email to confirm; you get
-                a copy.
+                Choose a saved complete driver profile, then enter only the amount you are paying
+                them for this journey — not what the customer paid. Incomplete profiles cannot be
+                assigned.
               </p>
             </div>
             <button
@@ -1593,57 +1639,62 @@ function DriverJobCard({
               Close
             </button>
           </div>
-          {assignProfiles.length > 0 ? (
-            <label className="block text-xs text-white/50">
-              Prefill from saved driver profile
-              <select
-                value={assignProfileKey}
-                onChange={(event) => setAssignProfileKey(event.target.value)}
-                className="mt-1 w-full rounded-xl border border-white/15 bg-navy px-3 py-2 text-sm text-white outline-none focus:border-emerald"
-              >
-                {assignProfiles.map((profile) => (
-                  <option key={profile.profileKey} value={profile.profileKey}>
+          <label className="block text-xs text-white/50">
+            Saved driver profile
+            <select
+              value={assignProfileKey}
+              onChange={(event) => setAssignProfileKey(event.target.value)}
+              className="mt-1 w-full rounded-xl border border-white/15 bg-navy px-3 py-2 text-sm text-white outline-none focus:border-emerald"
+            >
+              <option value="">Select a driver…</option>
+              {assignProfiles.map((profile) => {
+                const complete = driverProfileComplete(profile);
+                return (
+                  <option key={profile.profileKey} value={profile.profileKey} disabled={!complete}>
                     {profile.displayName}
+                    {complete ? "" : " (incomplete — finish in driver profiles)"}
                   </option>
-                ))}
-              </select>
-            </label>
+                );
+              })}
+            </select>
+          </label>
+          {assignForm.driverFirstName ? (
+            <div className="rounded-xl border border-white/10 bg-navy/40 px-3 py-3 text-sm text-white/75">
+              <p>
+                <span className="text-white/45">Driver:</span> {assignForm.driverFirstName}
+              </p>
+              <p className="mt-1">
+                <span className="text-white/45">Email:</span> {assignForm.driverEmail || "—"}
+              </p>
+              <p className="mt-1">
+                <span className="text-white/45">Mobile:</span> {assignForm.driverMobile || "—"}
+              </p>
+              <p className="mt-1">
+                <span className="text-white/45">Vehicle:</span>{" "}
+                {[assignForm.driverCarColour, assignForm.driverCarMake, assignForm.driverCarModel]
+                  .filter(Boolean)
+                  .join(" ") || "—"}
+              </p>
+              <p className="mt-1">
+                <span className="text-white/45">Registration:</span>{" "}
+                {assignForm.driverReg || "—"}
+              </p>
+            </div>
           ) : null}
-          <div className="grid gap-3 sm:grid-cols-2">
-            {(
-              [
-                ["driverFirstName", "Driver first name"],
-                ["driverEmail", "Driver email"],
-                ["driverMobile", "Driver mobile"],
-                ["driverCarMake", "Car make"],
-                ["driverCarModel", "Car model"],
-                ["driverCarColour", "Car colour"],
-                ["driverReg", "Registration"],
-                ["driverPayAmount", "Amount to pay driver (not customer price)"],
-              ] as const
-            ).map(([key, label]) => (
-              <label key={key} className="text-xs text-white/50">
-                {label}
-                <input
-                  value={assignForm[key]}
-                  onChange={(event) =>
-                    setAssignForm((prev) => ({ ...prev, [key]: event.target.value }))
-                  }
-                  placeholder={
-                    key === "driverPayAmount"
-                      ? "e.g. £80"
-                      : key === "driverMobile"
-                        ? "e.g. 07700 900123"
-                        : undefined
-                  }
-                  className="mt-1 w-full rounded-xl border border-white/15 bg-navy px-3 py-2 text-sm text-white outline-none focus:border-emerald"
-                />
-              </label>
-            ))}
-          </div>
+          <label className="block text-xs text-white/50">
+            Amount I am paying this driver
+            <input
+              value={assignForm.driverPayAmount}
+              onChange={(event) =>
+                setAssignForm((prev) => ({ ...prev, driverPayAmount: event.target.value }))
+              }
+              placeholder="e.g. £80"
+              className="mt-1 w-full rounded-xl border border-white/15 bg-navy px-3 py-2 text-sm text-white outline-none focus:border-emerald"
+            />
+          </label>
           <button
             type="button"
-            disabled={assignBusy}
+            disabled={assignBusy || !assignProfileKey || !assignForm.driverPayAmount.trim()}
             onClick={() => void assignToDriver()}
             className="rounded-xl bg-emerald px-4 py-2.5 text-sm font-bold text-navy transition-colors hover:bg-emerald/90 disabled:opacity-60"
           >
@@ -1754,7 +1805,6 @@ function DriverJobCard({
               tripDate: job.tripDate,
               tripTime: job.tripTime,
               driverName: job.assignedDriverName || assignForm.driverFirstName,
-              driverMobile: job.assignedDriverMobile || assignForm.driverMobile,
               carMake: job.assignedDriverCarMake || assignForm.driverCarMake,
               carModel: job.assignedDriverCarModel || assignForm.driverCarModel,
               carColour: job.assignedDriverCarColour || assignForm.driverCarColour,

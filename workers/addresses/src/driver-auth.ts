@@ -1,3 +1,8 @@
+import {
+  sanitizeDriverJobForRole as sanitizeDriverJobForRoleShared,
+  sanitizeJobForDriver as sanitizeJobForDriverShared,
+} from "../shared/driver-job-sanitize";
+
 export type DriverAuthEnv = {
   DRIVER_ACCESS_KEY?: string;
   OWNER_ACCESS_KEY?: string;
@@ -119,21 +124,14 @@ export function isDriverAuthConfigured(env: DriverAuthEnv): boolean {
 export function sanitizeDriverJobForRole<T extends Record<string, unknown>>(
   job: T,
   role: DashboardRole,
+  options?: { includeCustomerMobile?: boolean },
 ): T {
-  if (role === "owner") {
-    return job;
-  }
+  return sanitizeDriverJobForRoleShared(job, role, options) as T;
+}
 
-  const sanitized = { ...job };
-  delete sanitized.paymentReference;
-  delete sanitized.amountPaidLabel;
-  delete sanitized.refundAmountLabel;
-  delete sanitized.customerMobile;
-  delete sanitized.customerEmail;
-  delete sanitized.driverLocationPointCount;
-  delete sanitized.driverLocationRecordedFrom;
-  delete sanitized.driverLocationRecordedTo;
-  // Drivers must never see what the customer paid.
-  // Flight fields (flightNumber, flight, isAirportPickup, airportCode) are retained for drivers.
-  return sanitized as T;
+export function sanitizeJobForDriver<T extends Record<string, unknown>>(
+  job: T,
+  options?: { includeCustomerMobile?: boolean },
+): Record<string, unknown> {
+  return sanitizeJobForDriverShared(job, options);
 }
