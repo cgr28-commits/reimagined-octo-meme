@@ -51,6 +51,8 @@ export type QuickQuoteRoutePayload = {
   pickupLng?: number;
   dropoffLat?: number;
   dropoffLng?: number;
+  pickupPlaceId?: string;
+  dropoffPlaceId?: string;
   /** Browser-resolved driving metrics (same path as public TripMap / Personal Quotes). */
   routeMetrics?: TripRouteMetrics | null;
 };

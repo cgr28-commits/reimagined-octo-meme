@@ -347,10 +347,12 @@ import {
   buildFareMismatchPaymentError,
 } from "../shared/open-website-payment-fares";
 import {
-  buildRouteReconfirmationPaymentError,
-  resolveRouteMetricsWithRetry,
+  paymentErrorForRouteFailure,
+  resolveRouteOutcomeWithRetry,
 } from "../shared/route-reconfirmation";
-import { resolveWorkerTripRouteMetrics } from "./resolve-route-metrics";
+import {
+  resolveWorkerTripRouteMetricsForPayment,
+} from "./resolve-route-metrics";
 import {
   ESTATE_VEHICLE,
   MINIBUS_VEHICLE,
@@ -1892,22 +1894,36 @@ async function handlePaymentRequest(
       ? body.removedAirportFeeIds.map((id: unknown) => String(id).trim()).filter(Boolean)
       : [];
 
-    // Never trust body.routeMetrics / client journeyDistance|Duration for SumUp.
-    // Resolve driving metrics server-side from addresses (same path as quote-handlers).
-    // Deliberately omit client lat/lng so coords cannot be spoofed short either.
-    // Retry once for transient geocode/route failures.
+    // Never trust body.routeMetrics / client journeyDistance|Duration / client lat/lng
+    // for SumUp. Resolve driving metrics server-side from selected place IDs
+    // (Worker Google/Ideal/GetAddress keys → coords → OSRM). Served airports use
+    // catalogue coordinates. Text-label geocode is fallback only.
+    // Retry once for transient Google/OSRM failures — do not tell the customer
+    // to reselect addresses when the route service itself failed.
     const paymentPickupLabel = String(booking.pickupLabel ?? "");
     const paymentDropoffLabel = String(booking.dropoffLabel ?? "");
-    const routeMetrics = await resolveRouteMetricsWithRetry(() =>
-      resolveWorkerTripRouteMetrics({
+    const paymentPickupPlaceId = String(body.pickupPlaceId ?? "").trim();
+    const paymentDropoffPlaceId = String(body.dropoffPlaceId ?? "").trim();
+    const routeOutcome = await resolveRouteOutcomeWithRetry(() =>
+      resolveWorkerTripRouteMetricsForPayment({
         pickupAddress: paymentPickupLabel,
         dropoffAddress: paymentDropoffLabel,
+        pickupPlaceId: paymentPickupPlaceId || null,
+        dropoffPlaceId: paymentDropoffPlaceId || null,
         googlePlacesApiKey: env.GOOGLE_PLACES_API_KEY,
+        getAddressApiKey: env.GETADDRESS_API_KEY,
       }),
     );
-    if (!routeMetrics) {
-      return json(buildRouteReconfirmationPaymentError(), 409, origin);
+    if (!routeOutcome.ok) {
+      const errBody = paymentErrorForRouteFailure(
+        routeOutcome.reason,
+        routeOutcome.endpoint,
+      );
+      const status =
+        errBody.code === "route_service_unavailable" ? 503 : 409;
+      return json(errBody, status, origin);
     }
+    const routeMetrics = routeOutcome.metrics;
 
     // Airport identity / direction from pickup/drop-off labels vs SERVED_AIRPORTS.
     // Never trust client airportCode / isFromAirport / journeyKind / A2A flags.

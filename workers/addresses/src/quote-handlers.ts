@@ -71,6 +71,7 @@ export async function handleQuoteCalculateRequest(
     OWNER_ACCESS_KEY?: string;
     DRIVER_ACCESS_KEY?: string;
     GOOGLE_PLACES_API_KEY?: string;
+    GETADDRESS_API_KEY?: string;
   },
 ): Promise<Response> {
   if (request.method === "OPTIONS") {
@@ -91,6 +92,8 @@ export async function handleQuoteCalculateRequest(
   const pickupLng = Number(body.pickupLng);
   const dropoffLat = Number(body.dropoffLat);
   const dropoffLng = Number(body.dropoffLng);
+  const pickupPlaceId = String(body.pickupPlaceId ?? "").trim() || null;
+  const dropoffPlaceId = String(body.dropoffPlaceId ?? "").trim() || null;
 
   const pickupAddress = String(body.pickupAddress ?? "");
   const dropoffAddress = String(body.dropoffAddress ?? "");
@@ -137,11 +140,15 @@ export async function handleQuoteCalculateRequest(
   let routeMetrics = await resolveWorkerTripRouteMetrics({
     pickupAddress,
     dropoffAddress,
+    pickupPlaceId,
+    dropoffPlaceId,
     pickupLat: Number.isFinite(pickupLat) ? pickupLat : null,
     pickupLng: Number.isFinite(pickupLng) ? pickupLng : null,
     dropoffLat: Number.isFinite(dropoffLat) ? dropoffLat : null,
     dropoffLng: Number.isFinite(dropoffLng) ? dropoffLng : null,
     googlePlacesApiKey: env?.GOOGLE_PLACES_API_KEY,
+    getAddressApiKey: env?.GETADDRESS_API_KEY,
+    trustClientCoordinates: true,
   });
   if (routeMetrics) {
     routeMetricsSource = "worker";

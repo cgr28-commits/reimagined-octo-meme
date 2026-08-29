@@ -5,11 +5,16 @@
  */
 
 import { normaliseJourneyAddressCompareKey } from "./journey-address-label";
+import type { RouteResolveFailureReason } from "./route-metrics-resolver";
 
 export const ROUTE_RECONFIRMATION_CODE = "route_reconfirmation_required" as const;
+export const ROUTE_SERVICE_UNAVAILABLE_CODE = "route_service_unavailable" as const;
 
 export const ROUTE_RECONFIRMATION_MESSAGE =
   "Please select your pickup and drop-off addresses again from the suggestions";
+
+export const ROUTE_SERVICE_UNAVAILABLE_MESSAGE =
+  "We could not verify the road route just now. Your addresses look fine — please try payment again in a moment.";
 
 export type RestorablePlace = {
   placeId?: string | null;
@@ -83,16 +88,48 @@ export function restoredPlacesReadyForPayment(params: {
   );
 }
 
+export type RouteReconfirmationEndpoint = "pickup" | "dropoff" | "both";
+
 export type RouteReconfirmationPaymentErrorBody = {
   error: string;
   code: typeof ROUTE_RECONFIRMATION_CODE;
+  /** Which address field(s) need reselection when known. */
+  endpoint?: RouteReconfirmationEndpoint;
 };
 
-export function buildRouteReconfirmationPaymentError(): RouteReconfirmationPaymentErrorBody {
+export type RouteServiceUnavailablePaymentErrorBody = {
+  error: string;
+  code: typeof ROUTE_SERVICE_UNAVAILABLE_CODE;
+};
+
+export function buildRouteReconfirmationPaymentError(
+  endpoint: RouteReconfirmationEndpoint = "both",
+): RouteReconfirmationPaymentErrorBody {
   return {
     error: ROUTE_RECONFIRMATION_MESSAGE,
     code: ROUTE_RECONFIRMATION_CODE,
+    endpoint,
   };
+}
+
+export function buildRouteServiceUnavailablePaymentError(): RouteServiceUnavailablePaymentErrorBody {
+  return {
+    error: ROUTE_SERVICE_UNAVAILABLE_MESSAGE,
+    code: ROUTE_SERVICE_UNAVAILABLE_CODE,
+  };
+}
+
+/** Map resolver failure reasons onto payment HTTP error bodies. */
+export function paymentErrorForRouteFailure(
+  reason: RouteResolveFailureReason,
+  endpoint?: "pickup" | "dropoff" | "route",
+): RouteReconfirmationPaymentErrorBody | RouteServiceUnavailablePaymentErrorBody {
+  if (reason === "provider_unavailable" || reason === "routing_unavailable") {
+    return buildRouteServiceUnavailablePaymentError();
+  }
+  const field: RouteReconfirmationEndpoint =
+    endpoint === "pickup" || endpoint === "dropoff" ? endpoint : "both";
+  return buildRouteReconfirmationPaymentError(field);
 }
 
 /**
@@ -105,4 +142,21 @@ export async function resolveRouteMetricsWithRetry<T>(
   const first = await resolve();
   if (first) return first;
   return resolve();
+}
+
+/**
+ * Retry an outcome-aware route resolve once when the failure looks transient.
+ */
+export async function resolveRouteOutcomeWithRetry<T extends { ok: boolean; reason?: string }>(
+  resolve: () => Promise<T>,
+): Promise<T> {
+  const first = await resolve();
+  if (first.ok) return first;
+  if (
+    first.reason === "provider_unavailable" ||
+    first.reason === "routing_unavailable"
+  ) {
+    return resolve();
+  }
+  return first;
 }

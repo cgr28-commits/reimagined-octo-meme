@@ -66,12 +66,15 @@ check("payment handler resolves route + airport context server-side", () => {
     path.join(root, "workers/addresses/src/index.ts"),
     "utf8",
   );
-  // Open-website SumUp block must call Worker route resolve.
-  assert.match(index, /resolveWorkerTripRouteMetrics/);
+  // Open-website SumUp block must call Worker route resolve with place IDs.
+  assert.match(index, /resolveWorkerTripRouteMetricsForPayment/);
   assert.match(
     index,
-    /Never trust body\.routeMetrics[\s\S]*resolveWorkerTripRouteMetrics/,
+    /Never trust body\.routeMetrics[\s\S]*resolveWorkerTripRouteMetricsForPayment/,
   );
+  assert.match(index, /body\.pickupPlaceId/);
+  assert.match(index, /body\.dropoffPlaceId/);
+  assert.match(index, /paymentErrorForRouteFailure|route_service_unavailable/);
   // Airport identity from addresses via SERVED_AIRPORTS — not client fields.
   assert.match(index, /resolvePaymentAirportContextFromAddresses/);
   assert.match(
@@ -406,7 +409,8 @@ check("5% return discount still applies on canonical DUB journey", () => {
   // Journey portion only is discounted; fixed costs (outbound toll + return parking+toll) are not.
   assert.ok((ret.journeyFareGbp ?? 0) < (oneWay.journeyFareGbp ?? 0) * 2);
   assert.equal(ret.airportFixedCostsGbp, 13); // £4 + £5 + £4
-  // Universal journey £245 → return £465.50 + fixed £13 = £478.50
+  // PR #436 pence-safe total: universal journey £245 → return £465.50 + fixed £13 = £478.50
+  assert.equal(ret.journeyFareGbp, DUB_JOURNEY * 1.9);
   assert.equal(ret.amount, DUB_JOURNEY * 1.9 + 13);
   assert.equal(ret.amount, 478.5);
 });

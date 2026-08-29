@@ -686,6 +686,58 @@ export async function geocodeAddress(
   return { lat: location.latitude, lng: location.longitude };
 }
 
+/**
+ * Resolve lat/lng for a Google Place ID using the server API key.
+ * No airport-area filter — used for payment/OSRM routing after the customer
+ * already selected a suggestion. Distinguishes provider errors from not-found.
+ */
+export async function resolveGooglePlaceLocation(
+  apiKey: string,
+  placeId: string,
+): Promise<
+  | { ok: true; lat: number; lng: number }
+  | { ok: false; reason: "not_found" | "provider_error" }
+> {
+  const id = placeId.trim();
+  if (!id || id.startsWith("ip:") || id.startsWith("ga:") || id.startsWith("quickselect-")) {
+    return { ok: false, reason: "not_found" };
+  }
+
+  try {
+    const url = new URL(`https://places.googleapis.com/v1/places/${encodeURIComponent(id)}`);
+    const response = await fetch(url, {
+      headers: {
+        "X-Goog-Api-Key": apiKey,
+        "X-Goog-FieldMask": "id,location",
+      },
+    });
+
+    if (response.status === 404) {
+      return { ok: false, reason: "not_found" };
+    }
+    if (!response.ok) {
+      return { ok: false, reason: "provider_error" };
+    }
+
+    const data = (await response.json()) as {
+      location?: { latitude?: number; longitude?: number };
+    };
+    const lat = data.location?.latitude;
+    const lng = data.location?.longitude;
+    if (
+      typeof lat !== "number" ||
+      typeof lng !== "number" ||
+      !Number.isFinite(lat) ||
+      !Number.isFinite(lng)
+    ) {
+      return { ok: false, reason: "not_found" };
+    }
+    return { ok: true, lat, lng };
+  } catch {
+    return { ok: false, reason: "provider_error" };
+  }
+}
+
 export type ResolvedGooglePlace = {
   formattedAddress: string;
   displayAddress: string;

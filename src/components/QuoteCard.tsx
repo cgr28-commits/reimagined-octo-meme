@@ -107,10 +107,12 @@ import {
   createPaymentCheckout,
   isPaymentFareMismatchError,
   isPaymentRouteReconfirmationError,
+  isPaymentRouteServiceUnavailableError,
   isSumUpPaymentEnabled,
 } from "@/lib/create-payment";
 import {
   ROUTE_RECONFIRMATION_MESSAGE,
+  ROUTE_SERVICE_UNAVAILABLE_MESSAGE,
   addressTextMatchesPlace,
   placeDisplayLabel,
   restoredPlacesReadyForPayment,
@@ -1396,6 +1398,8 @@ function QuoteCard({
         pickupLng: pickupPlace?.lng ?? undefined,
         dropoffLat: dropoffPlace?.lat ?? undefined,
         dropoffLng: dropoffPlace?.lng ?? undefined,
+        pickupPlaceId: pickupPlace?.placeId?.trim() || undefined,
+        dropoffPlaceId: dropoffPlace?.placeId?.trim() || undefined,
         routeMetrics: routeMetrics ?? undefined,
       });
       if (
@@ -1745,6 +1749,7 @@ function QuoteCard({
     setRouteMetrics(null);
     setServerFareParts(null);
     setRouteReconfirmationRequired(false);
+    setPaymentError("");
   }
 
   function requireConfirmedPlacesForPayment(): boolean {
@@ -1829,6 +1834,7 @@ function QuoteCard({
       saveConfirmedPickupPlace(place);
       setRouteReconfirmationRequired(false);
       setPickupPlaceError("");
+      setPaymentError("");
     } else if (display.trim()) {
       savePickupAddressLabel(display);
       clearConfirmedPickupPlace();
@@ -1877,6 +1883,7 @@ function QuoteCard({
       saveConfirmedDropoffPlace(place);
       setRouteReconfirmationRequired(false);
       setDropoffPlaceError("");
+      setPaymentError("");
     } else if (display.trim()) {
       saveDropoffAddressLabel(display);
       clearConfirmedDropoffPlace();
@@ -2685,6 +2692,8 @@ function QuoteCard({
         description: buildPaymentDescription(),
         redirectUrl: buildPaymentRedirectUrl(returnToken),
         booking: bookingDetails,
+        pickupPlaceId: pickupPlace?.placeId?.trim() || undefined,
+        dropoffPlaceId: dropoffPlace?.placeId?.trim() || undefined,
         expressDropOffSelected: expressSelection.eligible
           ? expressDropOffSelected
           : false,
@@ -2788,14 +2797,30 @@ function QuoteCard({
         setRouteReconfirmationRequired(true);
         setRouteMetrics(null);
         setServerFareParts(null);
-        setPickupPlaceError(ROUTE_RECONFIRMATION_MESSAGE);
-        setDropoffPlaceError(ROUTE_RECONFIRMATION_MESSAGE);
+        const endpoint = error.endpoint ?? "both";
+        // Identify only the affected field when the Worker reports which end failed.
+        if (endpoint === "pickup") {
+          setPickupPlaceError(ROUTE_RECONFIRMATION_MESSAGE);
+          setDropoffPlaceError("");
+        } else if (endpoint === "dropoff") {
+          setPickupPlaceError("");
+          setDropoffPlaceError(ROUTE_RECONFIRMATION_MESSAGE);
+        } else {
+          setPickupPlaceError(ROUTE_RECONFIRMATION_MESSAGE);
+          setDropoffPlaceError(ROUTE_RECONFIRMATION_MESSAGE);
+        }
         setPaymentError(error.message || ROUTE_RECONFIRMATION_MESSAGE);
         setQuoteStep(1);
         setPaymentLoading(false);
         window.setTimeout(() => {
           focusFirstInvalidField(cardRef.current ?? document);
         }, 80);
+        return;
+      }
+      if (isPaymentRouteServiceUnavailableError(error)) {
+        // Do not clear confirmed places or force Step 1 reselection — backend blip.
+        setPaymentError(error.message || ROUTE_SERVICE_UNAVAILABLE_MESSAGE);
+        setPaymentLoading(false);
         return;
       }
       setPaymentError(

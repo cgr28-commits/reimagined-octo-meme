@@ -145,31 +145,37 @@ async function main() {
       path.join(root, "workers/addresses/src/index.ts"),
       "utf8",
     );
-    assert.match(index, /resolveRouteMetricsWithRetry/);
-    assert.match(index, /buildRouteReconfirmationPaymentError/);
-    // Still never trust client route metrics for SumUp fare authority.
+    assert.match(index, /resolveRouteOutcomeWithRetry|resolveWorkerTripRouteMetricsForPayment/);
+    assert.match(index, /paymentErrorForRouteFailure|buildRouteReconfirmationPaymentError/);
+    // Still never trust client route metrics / lat/lng for SumUp fare authority.
     assert.match(index, /Never trust body\.routeMetrics/);
-    assert.match(index, /omit client lat\/lng|Deliberately omit client lat/);
+    assert.match(index, /pickupPlaceId|dropoffPlaceId/);
+    assert.match(index, /trustClientCoordinates:\s*false|client lat\/lng/);
 
     const shared = fs.readFileSync(
       path.join(root, "shared/route-reconfirmation.ts"),
       "utf8",
     );
     assert.match(shared, /route_reconfirmation_required/);
-    assert.match(shared, /resolveRouteMetricsWithRetry/);
+    assert.match(shared, /route_service_unavailable/);
+    assert.match(shared, /resolveRouteOutcomeWithRetry|resolveRouteMetricsWithRetry/);
 
     const createPayment = fs.readFileSync(
       path.join(root, "src/lib/create-payment.ts"),
       "utf8",
     );
     assert.match(createPayment, /isPaymentRouteReconfirmationError/);
+    assert.match(createPayment, /isPaymentRouteServiceUnavailableError/);
     assert.match(createPayment, /route_reconfirmation_required/);
+    assert.match(createPayment, /pickupPlaceId/);
+    assert.match(createPayment, /dropoffPlaceId/);
 
     const card = fs.readFileSync(path.join(root, "src/components/QuoteCard.tsx"), "utf8");
     assert.match(card, /routeReconfirmationRequired/);
     assert.match(card, /routeValidationBlockingPayment/);
     assert.match(card, /requireConfirmedPlacesForPayment/);
     assert.match(card, /isPaymentRouteReconfirmationError/);
+    assert.match(card, /isPaymentRouteServiceUnavailableError/);
     assert.match(card, /ROUTE_RECONFIRMATION_MESSAGE/);
     assert.match(card, /clearStaleRouteAndPriceAfterAddressEdit/);
     // Payment disabled while route validation errors present.
