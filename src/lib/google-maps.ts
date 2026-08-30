@@ -359,6 +359,7 @@ export async function fetchSelectedPlaceDetails(
       streetNumber: null,
       route: null,
       locality: null,
+      administrativeArea: null,
     };
   }
 
@@ -382,6 +383,7 @@ export async function fetchSelectedPlaceDetails(
         streetNumber: workerPlace.streetNumber,
         route: workerPlace.route,
         locality: workerPlace.locality,
+        administrativeArea: workerPlace.administrativeArea,
       });
     }
   }
@@ -403,6 +405,7 @@ export async function fetchSelectedPlaceDetails(
       streetNumber: details.streetNumber,
       route: details.route,
       locality: details.locality,
+      administrativeArea: null,
     });
   }
 
@@ -427,6 +430,7 @@ export async function fetchSelectedPlaceDetails(
       streetNumber: details.streetNumber,
       route: details.route,
       locality: details.locality,
+      administrativeArea: null,
     });
   }
 
@@ -459,5 +463,6 @@ export async function fetchSelectedPlaceDetails(
     streetNumber: details.streetNumber,
     route: details.route,
     locality: details.locality,
+    administrativeArea: details.administrativeArea,
   });
 }

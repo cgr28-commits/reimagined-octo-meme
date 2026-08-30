@@ -35,10 +35,16 @@ function place( partial: Partial<SelectedPlace> & Pick<SelectedPlace, "formatted
   return {
     placeId: partial.placeId ?? `test:${partial.formattedAddress.slice(0, 12)}`,
     formattedAddress: partial.formattedAddress,
+    displayAddress: partial.displayAddress ?? partial.formattedAddress,
+    placeName: partial.placeName ?? null,
     lat: partial.lat ?? null,
     lng: partial.lng ?? null,
     countryCode: partial.countryCode ?? null,
     postalCode: partial.postalCode ?? null,
+    streetNumber: partial.streetNumber ?? null,
+    route: partial.route ?? null,
+    locality: partial.locality ?? null,
+    administrativeArea: partial.administrativeArea ?? null,
   };
 }
 
@@ -56,6 +62,8 @@ const bangorHome = place({
   formattedAddress: "12 Main Street, Bangor BT20 5AF, Northern Ireland",
   countryCode: "GB",
   postalCode: "BT20 5AF",
+  lat: 54.663,
+  lng: -5.668,
 });
 
 const newryPickup = place({
@@ -188,13 +196,21 @@ check("NI pickup (Derry city) → Belfast is personalised A2A quote", () => {
 check("Omagh → Boucher Playing Fields is personalised A2A quote (no live £)", () => {
   const omaghUk = place({
     placeId: "omagh-uk",
-    formattedAddress: "Omagh, UK",
+    formattedAddress: "1 High Street, Omagh BT78 1AB, UK",
+    postalCode: "BT78 1AB",
+    streetNumber: "1",
     countryCode: "GB",
+    lat: 54.5977,
+    lng: -7.3101,
   });
   const boucher = place({
     placeId: "boucher",
-    formattedAddress: "Boucher Playing Fields, Belfast",
+    formattedAddress: "Boucher Playing Fields, Belfast BT12 6HR, UK",
+    placeName: "Boucher Playing Fields",
+    postalCode: "BT12 6HR",
     countryCode: "GB",
+    lat: 54.58,
+    lng: -5.96,
   });
   assert.equal(isOutOfAreaPickup(omaghUk), true);
   assert.equal(needsManualQuoteApproval(omaghUk, boucher), true);
@@ -215,8 +231,11 @@ check("Boucher Playing Fields ↔ Belfast city centre is personalised A2A quote"
   const boucher = place({
     placeId: "boucher",
     formattedAddress: "Boucher Playing Fields, Belfast BT12 6HR, UK",
+    placeName: "Boucher Playing Fields",
     countryCode: "GB",
     postalCode: "BT12 6HR",
+    lat: 54.58,
+    lng: -5.96,
   });
   assert.equal(detectJourneyKind(belfastHome, boucher), "address-to-address");
   assert.equal(needsManualQuoteApproval(belfastHome, boucher), true);

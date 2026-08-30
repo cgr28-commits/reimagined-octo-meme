@@ -4,7 +4,6 @@ import {
 } from "../../shared/quote-lead";
 
 const SESSION_STORAGE_KEY = "matni-quote-lead-sent";
-const DEBOUNCE_MS = 4000;
 
 const DEFAULT_WORKER_QUOTE_LEADS =
   "https://reimagined-octo-meme.cgr28.workers.dev/quote-leads";
@@ -118,6 +117,12 @@ export async function submitQuoteLead(details: QuoteLeadDetails): Promise<void> 
   throw new Error("Quote lead email failed via worker");
 }
 
+/**
+ * Fire the owner “Quote viewed” alert immediately for every visitor who sees a
+ * live quote. Not gated on marketing consent or conversion tracking. Cleanup is
+ * a no-op so leaving Step 1 (or any remount) cannot cancel the send. Dedupe is
+ * by quote transaction id when provided.
+ */
 export function scheduleQuoteLeadAlert(
   details: QuoteLeadDetails,
   options?: { enabled?: boolean },
@@ -131,11 +136,10 @@ export function scheduleQuoteLeadAlert(
     return () => {};
   }
 
-  const timer = window.setTimeout(() => {
-    void submitQuoteLead(details).catch((error) => {
-      console.error("Quote lead alert failed", error);
-    });
-  }, DEBOUNCE_MS);
+  void submitQuoteLead(details).catch((error) => {
+    console.error("Quote lead alert failed", error);
+  });
 
-  return () => window.clearTimeout(timer);
+  // Intentionally no-op: must not cancel the in-flight send on effect cleanup.
+  return () => {};
 }

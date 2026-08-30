@@ -750,6 +750,7 @@ export type ResolvedGooglePlace = {
   streetNumber: string | null;
   route: string | null;
   locality: string | null;
+  administrativeArea: string | null;
 };
 
 function buildGoogleDisplayAddress(
@@ -915,6 +916,7 @@ export async function resolveGooglePlaceDetails(
     streetNumber,
     route: parts.route?.trim() || null,
     locality: (parts.town ?? parts.city)?.trim() || null,
+    administrativeArea: (parts.county ?? parts.state)?.trim() || null,
   };
 }
 

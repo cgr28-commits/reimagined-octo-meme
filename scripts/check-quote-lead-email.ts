@@ -18,22 +18,30 @@ function read(rel: string): string {
   return readFileSync(join(root, rel), "utf8");
 }
 
-console.log("=== Client quote-lead submit path (restored) ===");
+console.log("=== Client quote-lead submit path (immediate, txn-deduped) ===");
 const client = read("src/lib/submit-quote-lead.ts");
 assert.doesNotMatch(client, /sendViaFormSubmitEmail/);
 assert.doesNotMatch(client, /submitQuoteLeadViaBrowser/);
+assert.doesNotMatch(client, /DEBOUNCE_MS/);
+assert.doesNotMatch(client, /setTimeout/);
+assert.doesNotMatch(client, /clearTimeout/);
 assert.match(client, /skipEmail:\s*false/);
 assert.match(client, /Quote lead email failed via worker/);
 assert.match(client, /scheduleQuoteLeadAlert/);
-console.log("OK  client posts to Worker only (no FormSubmit / skipEmail:true)");
+assert.match(client, /Intentionally no-op/);
+assert.doesNotMatch(client, /marketingConsent|adsConsent|gtag\(/);
+assert.doesNotMatch(client, /consent.*skip|skip.*consent/i);
+console.log("OK  client posts immediately to Worker (no delay / cancel / Ads gate)");
 
-console.log("\n=== QuoteCard / bot still schedule on live quote ===");
+console.log("\n=== QuoteCard / bot fire with quoteTransactionId ===");
 const quoteCard = read("src/components/QuoteCard.tsx");
 assert.match(quoteCard, /scheduleQuoteLeadAlert\(/);
+assert.match(quoteCard, /quoteTransactionId/);
 assert.match(quoteCard, /quoteStep !== 1/);
 const assistant = read("src/components/QuoteAssistant.tsx");
 assert.match(assistant, /scheduleQuoteLeadAlert\(/);
-console.log("OK  existing live-quote triggers unchanged");
+assert.match(assistant, /quoteTransactionId:\s*createQuoteTransactionId/);
+console.log("OK  existing live-quote triggers pass transaction id");
 
 console.log("\n=== Worker quote-lead handler (existing Resend operational chain) ===");
 const worker = read("workers/addresses/src/index.ts");
@@ -51,7 +59,7 @@ assert.doesNotMatch(
 );
 console.log("OK  Worker uses existing owner operational email chain (Resend-first)");
 
-console.log("\n=== Same subject/body as before + fingerprint dedupe ===");
+console.log("\n=== Same subject/body as before + transaction-id fingerprint dedupe ===");
 const details = {
   tripLabel: "Airport drop-off",
   pickupLabel: "249 Rashee Road, Ballyclare",
@@ -76,9 +84,20 @@ assert.match(message, /Your fixed journey price: £45\.00/);
 assert.match(message, /Passengers: 2/);
 assert.match(message, /No contact details yet/);
 assert.doesNotMatch(message, /ATTRIBUTION/);
-const fp = buildQuoteLeadFingerprint(details);
-assert.match(fp, /249 rashee road/);
-assert.equal(fp, buildQuoteLeadFingerprint({ ...details }));
-console.log("OK  classic Quote viewed subject/body preserved; fingerprint stable");
+
+const legacyFp = buildQuoteLeadFingerprint(details);
+assert.match(legacyFp, /249 rashee road/);
+assert.equal(legacyFp, buildQuoteLeadFingerprint({ ...details }));
+
+const withTxn = { ...details, quoteTransactionId: "quote_abc123XYZ" };
+const txnFp = buildQuoteLeadFingerprint(withTxn);
+assert.equal(txnFp, "txn:quote_abc123xyz");
+assert.equal(
+  buildQuoteLeadFingerprint({ ...withTxn, pickupLabel: "Different Road" }),
+  txnFp,
+  "transaction id must dominate fingerprint even if journey fields change",
+);
+assert.notEqual(txnFp, legacyFp);
+console.log("OK  classic Quote viewed subject/body preserved; txn fingerprint preferred");
 
 console.log("\nAll quote-lead email restore checks passed.");

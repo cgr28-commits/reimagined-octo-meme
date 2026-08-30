@@ -195,6 +195,8 @@ import {
   isDublinCityCorridorJourney,
   isDublinCityNotAirportPlace,
   isOutOfAreaPickup,
+  isIncompleteAddressPlace,
+  INCOMPLETE_PICKUP_ADDRESS_MESSAGE,
   isPlaceSelected,
   isRepublicOfIrelandJourney,
   journeyKindLabel,
@@ -744,6 +746,12 @@ function QuoteCard({
   /** Amber banner only when an out-of-area pickup still needs manual approval. */
   const isOutOfAreaPickupJourney =
     isManualQuoteJourney && isOutOfAreaPickup(pickupPlace);
+  /** Incomplete place selection — never show out-of-area for these. */
+  const isIncompletePickupAddress =
+    isA2AFlow &&
+    isPlaceSelected(pickupPlace) &&
+    isIncompleteAddressPlace(pickupPlace) &&
+    !detectAirportCodeFromPlace(pickupPlace);
   const showsRequestQuoteFlow =
     isRequestQuote || isManualQuoteJourney || pricingConfirmationRequired;
   const effectiveAirportCode = isA2AFlow
@@ -2149,6 +2157,10 @@ function QuoteCard({
     if (!liveQuote || bookingSent || quoteStep !== 1) {
       return;
     }
+    // Wait for the Ads/quote transaction id so owner-email dedupe is by txn.
+    if (!quoteTransactionId) {
+      return;
+    }
 
     // Fire as soon as a live price is shown — date/time may still be empty.
     if (tripDate && !isTripDateOnOrAfterToday(tripDate)) {
@@ -2172,6 +2184,7 @@ function QuoteCard({
               : "Airport drop-off"
             : "Address to address";
 
+    // Immediate send; cleanup is a no-op so leaving Step 1 cannot cancel.
     return scheduleQuoteLeadAlert({
       tripLabel,
       pickupLabel,
@@ -2190,6 +2203,7 @@ function QuoteCard({
       journeyDistance: journeyDistanceLabel || undefined,
       journeyDuration: journeyDurationLabel || undefined,
       isAirportTrip,
+      quoteTransactionId,
     });
   }, [
     bookingSent,
@@ -2206,6 +2220,7 @@ function QuoteCard({
     returnJourney,
     returnTime,
     quoteStep,
+    quoteTransactionId,
     serverFareParts?.amountGbp,
     suitcases,
     tripDate,
@@ -4495,11 +4510,20 @@ function QuoteCard({
 
             <div
               className={`grid transition-[grid-template-rows] duration-200 ease-out ${
-                isOutOfAreaPickupJourney || isRoiJourney ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+                isIncompletePickupAddress || isOutOfAreaPickupJourney || isRoiJourney
+                  ? "grid-rows-[1fr]"
+                  : "grid-rows-[0fr]"
               }`}
             >
               <div className="min-h-0 overflow-hidden">
-                {isOutOfAreaPickupJourney ? (
+                {isIncompletePickupAddress ? (
+                  <div
+                    role="alert"
+                    className="rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-100"
+                  >
+                    <p className="font-semibold text-red-100">{INCOMPLETE_PICKUP_ADDRESS_MESSAGE}</p>
+                  </div>
+                ) : isOutOfAreaPickupJourney ? (
                   <div className="rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-white/85">
                     <p className="font-semibold text-amber-200">Out-of-area pickup – request your fixed price</p>
                     <p className="mt-1 text-xs leading-relaxed text-white/70">

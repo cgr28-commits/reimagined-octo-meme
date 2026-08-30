@@ -23,6 +23,7 @@ import {
 } from "@/lib/quote-assistant";
 import { emailAssistantQuote, submitAssistantBooking } from "@/lib/quote-assistant-submit";
 import { START_NEW_QUOTE_EVENT } from "@/lib/reset-quote-journey";
+import { createQuoteTransactionId } from "@/lib/google-ads-client";
 import { scheduleQuoteLeadAlert } from "@/lib/submit-quote-lead";
 
 const BOT_WORKING_MS = 450;
@@ -530,6 +531,7 @@ export default function QuoteAssistant() {
             vehicle: card.vehicle,
             estimatedPrice: card.amountLabel,
             isAirportTrip: true,
+            quoteTransactionId: createQuoteTransactionId("bot"),
           });
         }
 

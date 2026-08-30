@@ -45,10 +45,16 @@ function place(
   return {
     placeId: partial.placeId ?? `test:${partial.formattedAddress.slice(0, 12)}`,
     formattedAddress: partial.formattedAddress,
+    displayAddress: partial.displayAddress ?? partial.formattedAddress,
+    placeName: partial.placeName ?? null,
     lat: partial.lat ?? null,
     lng: partial.lng ?? null,
     countryCode: partial.countryCode ?? null,
     postalCode: partial.postalCode ?? null,
+    streetNumber: partial.streetNumber ?? null,
+    route: partial.route ?? null,
+    locality: partial.locality ?? null,
+    administrativeArea: partial.administrativeArea ?? null,
   };
 }
 
@@ -57,42 +63,56 @@ const belfast = place({
   formattedAddress: "10 Donegall Square North, Belfast BT1 5GB, UK",
   countryCode: "GB",
   postalCode: "BT1 5GB",
+  lat: 54.5973,
+  lng: -5.9301,
 });
 const bangor = place({
   placeId: "bangor",
   formattedAddress: "12 Main Street, Bangor BT20 5AF, Northern Ireland",
   countryCode: "GB",
   postalCode: "BT20 5AF",
+  lat: 54.663,
+  lng: -5.668,
 });
 const lisburn = place({
   placeId: "lisburn",
   formattedAddress: "1 Market Square, Lisburn BT28 1AG, Northern Ireland",
   countryCode: "GB",
   postalCode: "BT28 1AG",
+  lat: 54.511,
+  lng: -6.037,
 });
 const omagh = place({
   placeId: "omagh",
   formattedAddress: "1 High Street, Omagh BT78 1AB, Northern Ireland",
   countryCode: "GB",
   postalCode: "BT78 1AB",
+  lat: 54.5977,
+  lng: -7.3101,
 });
 const dublinCity = place({
   placeId: "dublin-city",
   formattedAddress: "1 Grafton Street, Dublin, D02 HX96, Ireland",
   countryCode: "IE",
   postalCode: "D02 HX96",
+  lat: 53.342,
+  lng: -6.26,
 });
 const cork = place({
   placeId: "cork",
-  formattedAddress: "Patrick Street, Cork, T12, Ireland",
+  formattedAddress: "10 Patrick Street, Cork, T12, Ireland",
   countryCode: "IE",
   postalCode: "T12",
+  lat: 51.8985,
+  lng: -8.4756,
 });
 const galway = place({
   placeId: "galway",
-  formattedAddress: "Eyre Square, Galway, H91, Ireland",
+  formattedAddress: "1 Eyre Square, Galway, H91, Ireland",
   countryCode: "IE",
   postalCode: "H91",
+  lat: 53.274,
+  lng: -9.049,
 });
 const typedOnly = place({
   placeId: "",
@@ -170,7 +190,7 @@ async function main() {
     assert.match(text, /pounds sterling \(GBP\)/i);
     assert.match(text, /Applicable tolls/i);
     assert.match(text, /more than 24 hours/i);
-    assert.match(text, /non-refundable/i);
+    assert.match(text, /full refund of the fare paid/i);
     assert.equal(/administration charge of|10%|£5 .*cancel/i.test(text), false);
     assert.match(text, /up to 4 passengers|Vehicles & capacity/i);
     assert.equal(/licensed partner operators|transport partner minibus|5–7 passengers/i.test(text), false);
@@ -215,8 +235,8 @@ async function main() {
       [s.title, ...(s.content ?? []), ...((s as { list?: string[] }).list ?? [])].join(" "),
     ).join("\n");
     assert.match(text, /Google Places/i);
-    assert.match(text, /successful quote requests/i);
-    assert.match(text, /completed paid bookings/i);
+    assert.match(text, /fixed-price quotes|quote form|Google Ads/i);
+    assert.match(text, /completed paid bookings|card payments via SumUp/i);
   });
 
   await check("Belfast → Dublin city is personalised A2A quote (no public live £)", () => {
@@ -226,10 +246,14 @@ async function main() {
     // Public Address-to-Address journeys require a personalised quote.
     assert.equal(needsManualQuoteApproval(belfast, dublinCity), true);
 
+    // Universal distance pricing requires genuine road metrics (City Hall → DUB ≈ 98 mi).
     const dubAirport = calculateQuote(
       "10 Donegall Square North, Belfast BT1 5GB, UK",
       "DUB",
       "Standard Saloon (1–4 passengers)",
+      false,
+      {},
+      { distanceKm: 98 / 0.621371, durationMinutes: 115 },
     );
     const cityQuote = calculateDublinCityBeyondAirportQuote(
       "10 Donegall Square North, Belfast BT1 5GB, UK",

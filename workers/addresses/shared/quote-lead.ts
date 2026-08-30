@@ -17,6 +17,11 @@ export type QuoteLeadDetails = {
   journeyDistance?: string;
   journeyDuration?: string;
   isAirportTrip: boolean;
+  /**
+   * Client quote transaction id — preferred dedupe key so the same viewed
+   * quote is emailed once even if journey fields change slightly.
+   */
+  quoteTransactionId?: string;
 };
 
 function scheduleLabel(date?: string, time?: string): string {
@@ -29,6 +34,12 @@ function scheduleLabel(date?: string, time?: string): string {
 }
 
 export function buildQuoteLeadFingerprint(details: QuoteLeadDetails): string {
+  const txn = details.quoteTransactionId?.trim();
+  if (txn) {
+    return `txn:${txn.toLowerCase()}`;
+  }
+
+  // Legacy fallback when no transaction id is available (e.g. older callers).
   return [
     details.tripLabel,
     details.pickupLabel,
