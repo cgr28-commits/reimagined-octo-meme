@@ -117,23 +117,23 @@
       "BFS": 14,
       "BHD": 0,
       "DUB": 50,
-      "LDY": 104
+      "LDY": 107
     },
     "Holywood": {
-      "BFS": 18,
+      "BFS": 14,
       "BHD": 0,
       "DUB": 58,
-      "LDY": 104
+      "LDY": 114
     },
     "Newtownabbey": {
-      "BFS": 0,
+      "BFS": 4,
       "BHD": 5,
       "DUB": 60,
       "LDY": 94
     },
     "Lisburn": {
-      "BFS": 4,
-      "BHD": 15,
+      "BFS": 9,
+      "BHD": 8,
       "DUB": 60,
       "LDY": 104
     },
@@ -151,15 +151,15 @@
     },
     "Ballyclare": {
       "BFS": 0,
-      "BHD": 19,
-      "DUB": 65,
-      "LDY": 88
-    },
-    "Hillsborough": {
-      "BFS": 8,
       "BHD": 25,
       "DUB": 65,
-      "LDY": 109
+      "LDY": 94
+    },
+    "Hillsborough": {
+      "BFS": 14,
+      "BHD": 25,
+      "DUB": 65,
+      "LDY": 124
     },
     "Carrickfergus": {
       "BFS": 19,
@@ -168,14 +168,14 @@
       "LDY": 104
     },
     "Comber": {
-      "BFS": 28,
+      "BFS": 34,
       "BHD": 9,
       "DUB": 62,
-      "LDY": 103
+      "LDY": 124
     },
     "Larne": {
-      "BFS": 18,
-      "BHD": 44,
+      "BFS": 24,
+      "BHD": 50,
       "DUB": 72,
       "LDY": 104
     },
@@ -183,19 +183,19 @@
       "BFS": 34,
       "BHD": 9,
       "DUB": 65,
-      "LDY": 109
+      "LDY": 129
     },
     "Newtownards": {
       "BFS": 28,
-      "BHD": 9,
+      "BHD": 10,
       "DUB": 62,
-      "LDY": 103
+      "LDY": 124
     },
     "Ballymena": {
       "BFS": 4,
       "BHD": 55,
       "DUB": 78,
-      "LDY": 63
+      "LDY": 69
     },
     "Downpatrick": {
       "BFS": 43,
@@ -205,13 +205,13 @@
     },
     "Banbridge": {
       "BFS": 44,
-      "BHD": 49,
+      "BHD": 55,
       "DUB": 75,
       "LDY": 78
     },
     "Newcastle": {
       "BFS": 69,
-      "BHD": 64,
+      "BHD": 70,
       "DUB": 80,
       "LDY": 90
     },
@@ -222,7 +222,7 @@
       "LDY": 72
     },
     "Portadown": {
-      "BFS": 28,
+      "BFS": 34,
       "BHD": 60,
       "DUB": 85,
       "LDY": 70
@@ -235,13 +235,13 @@
     },
     "Newry": {
       "BFS": 69,
-      "BHD": 69,
+      "BHD": 75,
       "DUB": 40,
       "LDY": 88
     },
     "Cookstown": {
       "BFS": 33,
-      "BHD": 84,
+      "BHD": 90,
       "DUB": 95,
       "LDY": 28
     },
@@ -258,7 +258,7 @@
       "LDY": 22
     },
     "Derry / Londonderry": {
-      "BFS": 88,
+      "BFS": 94,
       "BHD": 120,
       "DUB": 105,
       "LDY": 0
