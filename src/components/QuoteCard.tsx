@@ -2157,6 +2157,10 @@ function QuoteCard({
     if (!liveQuote || bookingSent || quoteStep !== 1) {
       return;
     }
+    // Wait for the Ads/quote transaction id so owner-email dedupe is by txn.
+    if (!quoteTransactionId) {
+      return;
+    }
 
     // Fire as soon as a live price is shown — date/time may still be empty.
     if (tripDate && !isTripDateOnOrAfterToday(tripDate)) {
@@ -2180,6 +2184,7 @@ function QuoteCard({
               : "Airport drop-off"
             : "Address to address";
 
+    // Immediate send; cleanup is a no-op so leaving Step 1 cannot cancel.
     return scheduleQuoteLeadAlert({
       tripLabel,
       pickupLabel,
@@ -2198,6 +2203,7 @@ function QuoteCard({
       journeyDistance: journeyDistanceLabel || undefined,
       journeyDuration: journeyDurationLabel || undefined,
       isAirportTrip,
+      quoteTransactionId,
     });
   }, [
     bookingSent,
@@ -2214,6 +2220,7 @@ function QuoteCard({
     returnJourney,
     returnTime,
     quoteStep,
+    quoteTransactionId,
     serverFareParts?.amountGbp,
     suitcases,
     tripDate,

@@ -8,6 +8,7 @@ import {
   classifyGreaterBelfastServiceArea,
   isWithinGreaterBelfastGeofence,
 } from "../shared/ldy-service-area";
+import { calculateQuote } from "../src/lib/quote";
 import {
   INCOMPLETE_PICKUP_ADDRESS_MESSAGE,
   classifyPickupArea,
@@ -197,6 +198,110 @@ check("7. Restored quote retains the same classification", () => {
 
 check("Swapped lat/lng are not treated as inside the geofence", () => {
   assert.equal(isWithinGreaterBelfastGeofence(-5.93, 54.6), false);
+});
+
+/**
+ * Exact regression: 18 Collingwood Avenue, Belfast, BT7 1QT → Dublin Airport.
+ * Fixture mirrors a realistic Google Places (New) details payload + Worker/OSRM
+ * route metrics (not placeholder coords). Expected: inside Greater Belfast,
+ * automatic fixed price, normal booking (not manual / out-of-area).
+ */
+check("8. 18 Collingwood Avenue BT7 1QT → DUB: inside area, automatic fixed fare", () => {
+  // Realistic Places API (New) place details shape → SelectedPlace fields.
+  const googlePlacesDetailsFixture = {
+    id: "ChIJCollingwoodAveBT71QT",
+    formattedAddress: "18 Collingwood Avenue, Belfast BT7 1QT, UK",
+    location: { latitude: 54.5833206, longitude: -5.9244653 },
+    displayName: { text: "18 Collingwood Avenue" },
+    addressComponents: [
+      { longText: "18", shortText: "18", types: ["street_number"] },
+      { longText: "Collingwood Avenue", shortText: "Collingwood Ave", types: ["route"] },
+      { longText: "Belfast", shortText: "Belfast", types: ["postal_town", "locality"] },
+      {
+        longText: "County Antrim",
+        shortText: "County Antrim",
+        types: ["administrative_area_level_2"],
+      },
+      {
+        longText: "Northern Ireland",
+        shortText: "Northern Ireland",
+        types: ["administrative_area_level_1"],
+      },
+      { longText: "BT7 1QT", shortText: "BT7 1QT", types: ["postal_code"] },
+      { longText: "United Kingdom", shortText: "GB", types: ["country"] },
+    ],
+  };
+
+  const streetNumber = googlePlacesDetailsFixture.addressComponents.find((c) =>
+    c.types.includes("street_number"),
+  )!.longText;
+  const route = googlePlacesDetailsFixture.addressComponents.find((c) =>
+    c.types.includes("route"),
+  )!.longText;
+  const postalCode = googlePlacesDetailsFixture.addressComponents.find((c) =>
+    c.types.includes("postal_code"),
+  )!.longText;
+  const locality = googlePlacesDetailsFixture.addressComponents.find((c) =>
+    c.types.includes("postal_town"),
+  )!.longText;
+  const administrativeArea = googlePlacesDetailsFixture.addressComponents.find((c) =>
+    c.types.includes("administrative_area_level_2"),
+  )!.longText;
+  const countryCode = googlePlacesDetailsFixture.addressComponents.find((c) =>
+    c.types.includes("country"),
+  )!.shortText;
+
+  assert.equal(postalCode, "BT7 1QT");
+  assert.equal(googlePlacesDetailsFixture.location.latitude, 54.5833206);
+  assert.equal(googlePlacesDetailsFixture.location.longitude, -5.9244653);
+
+  const collingwood = place({
+    placeId: googlePlacesDetailsFixture.id,
+    formattedAddress: googlePlacesDetailsFixture.formattedAddress,
+    placeName: googlePlacesDetailsFixture.displayName.text,
+    lat: googlePlacesDetailsFixture.location.latitude,
+    lng: googlePlacesDetailsFixture.location.longitude,
+    streetNumber,
+    route,
+    postalCode,
+    locality,
+    administrativeArea,
+    countryCode,
+  });
+
+  // Worker/OSRM-shaped metrics for Collingwood Ave → Dublin Airport
+  // (project-osrm.org driving: ~159.3 km / ~6793 s).
+  const workerRouteMetrics = {
+    distanceKm: 159.2679,
+    durationMinutes: 6793.4 / 60,
+    source: "worker" as const,
+  };
+
+  assert.equal(isWithinGreaterBelfastGeofence(collingwood.lat!, collingwood.lng!), true);
+  assert.equal(classifyPickupArea(collingwood).inside, true);
+  assert.equal(classifyPickupArea(collingwood).incomplete, false);
+  assert.ok(
+    classifyPickupArea(collingwood).reason === "geofence" ||
+      classifyPickupArea(collingwood).reason === "postcode",
+  );
+  assert.equal(isStandardInstantPickup(collingwood), true);
+  assert.equal(isOutOfAreaPickup(collingwood), false);
+  assert.equal(needsManualQuoteApproval(collingwood, dub), false);
+
+  const fare = calculateQuote(
+    collingwood.formattedAddress,
+    "DUB",
+    "Standard Saloon (1–4 passengers)",
+    false,
+    {},
+    {
+      distanceKm: workerRouteMetrics.distanceKm,
+      durationMinutes: workerRouteMetrics.durationMinutes,
+    },
+    false,
+  );
+  assert.ok(fare, "Collingwood → DUB must return an automatic fixed fare");
+  assert.ok(fare.amount > 0, "fixed fare must be a positive GBP amount");
 });
 
 console.log("\nAll Greater Belfast area-classification checks passed.");

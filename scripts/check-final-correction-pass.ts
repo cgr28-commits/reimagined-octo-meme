@@ -246,10 +246,14 @@ async function main() {
     // Public Address-to-Address journeys require a personalised quote.
     assert.equal(needsManualQuoteApproval(belfast, dublinCity), true);
 
+    // Universal distance pricing requires genuine road metrics (City Hall → DUB ≈ 98 mi).
     const dubAirport = calculateQuote(
       "10 Donegall Square North, Belfast BT1 5GB, UK",
       "DUB",
       "Standard Saloon (1–4 passengers)",
+      false,
+      {},
+      { distanceKm: 98 / 0.621371, durationMinutes: 115 },
     );
     const cityQuote = calculateDublinCityBeyondAirportQuote(
       "10 Donegall Square North, Belfast BT1 5GB, UK",
