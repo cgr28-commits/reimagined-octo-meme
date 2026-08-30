@@ -66,6 +66,7 @@
     "check:quote-path-fare-parity": "npx tsx scripts/check-quote-path-fare-parity.ts",
     "check:trip-route-fallback": "npx tsx scripts/check-trip-route-fallback.ts",
     "check:osrm-identifying-headers": "npx tsx scripts/check-osrm-identifying-headers.ts",
+    "check:greater-belfast-area": "npx tsx scripts/check-greater-belfast-area-classify.ts",
     "check:universal-distance-pricing": "npx tsx scripts/check-universal-distance-pricing.ts",
     "check:pr435-price-consistency": "npx tsx scripts/check-pr435-price-consistency.ts",
     "check:quick-quote-knocknagoney-e2e": "npx tsx scripts/check-quick-quote-knocknagoney-e2e.ts",

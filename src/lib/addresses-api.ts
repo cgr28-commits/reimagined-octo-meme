@@ -45,6 +45,7 @@ export type WorkerResolvedAddress = {
   streetNumber: string | null;
   route: string | null;
   locality: string | null;
+  administrativeArea?: string | null;
   provider?: string;
 };
 
@@ -177,6 +178,7 @@ export async function fetchWorkerAddressDetails(
       streetNumber: payload.streetNumber?.trim() || null,
       route: payload.route?.trim() || null,
       locality: payload.locality?.trim() || null,
+      administrativeArea: payload.administrativeArea?.trim() || null,
       provider: payload.provider,
     };
   } catch {

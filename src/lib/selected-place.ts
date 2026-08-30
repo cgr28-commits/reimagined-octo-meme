@@ -3,7 +3,12 @@
  * Customers must pick a Google suggestion — free-typed text alone is invalid.
  */
 
-import { isGreaterBelfastServiceAddress } from "../../shared/ldy-service-area";
+import {
+  classifyGreaterBelfastServiceArea,
+  isGreaterBelfastServiceAddress,
+  isWithinGreaterBelfastGeofence,
+  type GreaterBelfastClassifyReason,
+} from "../../shared/ldy-service-area";
 import {
   collapseDuplicateStreetAddressLabel,
   hasLeadingStreetNumber,
@@ -36,6 +41,8 @@ export type SelectedPlace = {
   streetNumber?: string | null;
   route?: string | null;
   locality?: string | null;
+  /** Google administrative_area_level_1/2 when available. */
+  administrativeArea?: string | null;
 };
 
 export type JourneyKind =
@@ -45,6 +52,9 @@ export type JourneyKind =
   | "airport-to-airport";
 
 export const PLACES_LOOKUP_A2A = "A2A";
+
+export const INCOMPLETE_PICKUP_ADDRESS_MESSAGE =
+  "Please enter and select your complete pickup address, including the house number or building name.";
 
 /** Quick-select airports shown under the address fields. */
 export const QUICK_SELECT_AIRPORTS = SERVED_AIRPORTS.map((airport) => ({
@@ -84,6 +94,7 @@ export function emptySelectedPlace(): SelectedPlace {
     streetNumber: null,
     route: null,
     locality: null,
+    administrativeArea: null,
   };
 }
 
@@ -327,7 +338,14 @@ export function isDublinCityCorridorJourney(
   if (niAirport === "BFS" || niAirport === "BHD" || niAirport === "LDY") {
     return true;
   }
-  return isGreaterBelfastServiceAddress(niLeg.formattedAddress);
+  return classifyGreaterBelfastServiceArea({
+    lat: niLeg.lat,
+    lng: niLeg.lng,
+    postalCode: niLeg.postalCode,
+    addressText: [niLeg.formattedAddress, niLeg.locality, niLeg.administrativeArea]
+      .filter(Boolean)
+      .join(", "),
+  }).inside;
 }
 
 export function detectJourneyKind(
@@ -391,31 +409,155 @@ const STANDARD_INSTANT_PICKUP_AIRPORTS = new Set(["BFS", "BHD", "DUB", "LDY"]);
 /** Belfast-area airport drop-offs that count as Greater Belfast destinations for live NI pickups. */
 const GREATER_BELFAST_DESTINATION_AIRPORTS = new Set(["BFS", "BHD"]);
 
+export type PickupAreaClassifyReason =
+  | "airport"
+  | GreaterBelfastClassifyReason
+  | "incomplete"
+  | "not_selected";
+
+export type PickupAreaClassification = {
+  /** True when the pickup is a standard Greater Belfast / served-airport pickup. */
+  inside: boolean;
+  reason: PickupAreaClassifyReason;
+  incomplete: boolean;
+};
+
+/** Usable WGS84 for NI/ROI routing — rejects missing or clearly swapped values. */
+export function hasUsablePlaceCoordinates(place: SelectedPlace): boolean {
+  if (
+    typeof place.lat !== "number" ||
+    typeof place.lng !== "number" ||
+    !Number.isFinite(place.lat) ||
+    !Number.isFinite(place.lng)
+  ) {
+    return false;
+  }
+  // Ireland / NI band; swapped lng-in-lat fails this check.
+  return place.lat >= 51 && place.lat <= 56 && place.lng <= -5 && place.lng >= -11;
+}
+
+function hasHouseOrBuildingIdentifier(place: SelectedPlace): boolean {
+  if (place.placeName?.trim()) {
+    return true;
+  }
+  if (place.streetNumber?.trim()) {
+    return true;
+  }
+  if (hasLeadingStreetNumber(place.formattedAddress)) {
+    return true;
+  }
+  if (place.displayAddress && hasLeadingStreetNumber(place.displayAddress)) {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Incomplete for pricing / area banners: missing place selection, house/building
+ * identifier, or usable coordinates. Airports are never incomplete.
+ */
+export function isIncompleteAddressPlace(place: SelectedPlace): boolean {
+  if (!isPlaceSelected(place)) {
+    return true;
+  }
+  if (detectAirportCodeFromPlace(place)) {
+    return false;
+  }
+  if (!hasHouseOrBuildingIdentifier(place)) {
+    return true;
+  }
+  if (!hasUsablePlaceCoordinates(place)) {
+    return true;
+  }
+  return false;
+}
+
+function logAreaClassification(result: PickupAreaClassification): void {
+  if (typeof console === "undefined" || typeof console.info !== "function") {
+    return;
+  }
+  // Safe diagnostics only — no addresses, coordinates, place IDs, or customer data.
+  console.info("[area-classify]", {
+    inside: result.inside,
+    reason: result.reason,
+    incomplete: result.incomplete,
+  });
+}
+
+/**
+ * Classify whether a place is a standard Greater Belfast (or served-airport) pickup.
+ * Coordinates/geofence are primary; postcode and address text are supporting.
+ * Destination (e.g. Dublin Airport) must not be passed in — pickup-only.
+ */
+export function classifyPickupArea(place: SelectedPlace): PickupAreaClassification {
+  if (!isPlaceSelected(place)) {
+    const result: PickupAreaClassification = {
+      inside: false,
+      reason: "not_selected",
+      incomplete: true,
+    };
+    logAreaClassification(result);
+    return result;
+  }
+
+  const airportCode = detectAirportCodeFromPlace(place);
+  if (airportCode && STANDARD_INSTANT_PICKUP_AIRPORTS.has(airportCode)) {
+    const result: PickupAreaClassification = {
+      inside: true,
+      reason: "airport",
+      incomplete: false,
+    };
+    logAreaClassification(result);
+    return result;
+  }
+
+  if (isIncompleteAddressPlace(place)) {
+    const result: PickupAreaClassification = {
+      inside: false,
+      reason: "incomplete",
+      incomplete: true,
+    };
+    logAreaClassification(result);
+    return result;
+  }
+
+  const area = classifyGreaterBelfastServiceArea({
+    lat: place.lat,
+    lng: place.lng,
+    postalCode: place.postalCode,
+    addressText: [place.formattedAddress, place.locality, place.administrativeArea]
+      .filter(Boolean)
+      .join(", "),
+  });
+
+  const result: PickupAreaClassification = {
+    inside: area.inside,
+    reason: area.reason,
+    incomplete: false,
+  };
+  logAreaClassification(result);
+  return result;
+}
+
 /**
  * Standard pickups: Greater Belfast addresses, or BFS / BHD / DUB / LDY airports.
  * Other NI addresses are not “standard” pickups, but may still receive a live quote
  * when the destination is within Greater Belfast (see needsManualQuoteApproval).
  */
 export function isStandardInstantPickup(place: SelectedPlace): boolean {
-  if (!isPlaceSelected(place)) {
-    return false;
-  }
-  const airportCode = detectAirportCodeFromPlace(place);
-  if (airportCode && STANDARD_INSTANT_PICKUP_AIRPORTS.has(airportCode)) {
-    return true;
-  }
-  // Prefer structured postcode when the visible/formatted string was polluted.
-  if (place.postalCode && isGreaterBelfastServiceAddress(place.postalCode)) {
-    return true;
-  }
-  return isGreaterBelfastServiceAddress(place.formattedAddress);
+  return classifyPickupArea(place).inside;
 }
 
+/**
+ * True only when valid location data confirms the pickup is outside the supported
+ * area. Incomplete selections are not out-of-area.
+ */
 export function isOutOfAreaPickup(place: SelectedPlace): boolean {
-  if (!isPlaceSelected(place)) {
+  const classification = classifyPickupArea(place);
+  if (classification.incomplete || classification.reason === "not_selected") {
     return false;
   }
-  return !isStandardInstantPickup(place);
+  return !classification.inside;
 }
 
 /** True when the place is in Northern Ireland (BT postcode / NI text / coords). */
@@ -436,12 +578,18 @@ export function isNorthernIrelandPlace(place: SelectedPlace): boolean {
   ) {
     return true;
   }
+  // Geofence interior is always NI for our product boundary.
+  if (isWithinGreaterBelfastGeofence(place.lat, place.lng)) {
+    return true;
+  }
   return false;
 }
 
 /**
  * Destinations that unlock live online quotes for pickups from elsewhere in NI:
  * Greater Belfast addresses, plus Belfast International / Belfast City airports.
+ * Dublin Airport is not a Greater Belfast destination — but pickup classification
+ * itself must not change when DUB is selected (see classifyPickupArea).
  */
 export function isGreaterBelfastDestination(place: SelectedPlace): boolean {
   if (!isPlaceSelected(place)) {
@@ -454,7 +602,14 @@ export function isGreaterBelfastDestination(place: SelectedPlace): boolean {
   if (airportCode) {
     return false;
   }
-  return isGreaterBelfastServiceAddress(place.formattedAddress);
+  return classifyGreaterBelfastServiceArea({
+    lat: place.lat,
+    lng: place.lng,
+    postalCode: place.postalCode,
+    addressText: [place.formattedAddress, place.locality, place.administrativeArea]
+      .filter(Boolean)
+      .join(", "),
+  }).inside;
 }
 
 /**
@@ -463,12 +618,17 @@ export function isGreaterBelfastDestination(place: SelectedPlace): boolean {
  * - ROI city destinations (not DUB airport), or pickups outside NI / not into Greater Belfast
  *
  * Airport journeys (BFS / BHD / DUB / LDY) keep the instant-quote path.
+ * Incomplete addresses are validation errors, not manual-quote / out-of-area.
  */
 export function needsManualQuoteApproval(
   pickup: SelectedPlace,
   dropoff: SelectedPlace,
 ): boolean {
   if (!isPlaceSelected(pickup) || !isPlaceSelected(dropoff)) {
+    return false;
+  }
+
+  if (isIncompleteAddressPlace(pickup)) {
     return false;
   }
 
@@ -536,6 +696,7 @@ export function quickSelectToPlace(
     lng: airport.lng,
     countryCode: airport.countryCode,
     postalCode: airport.postalCode,
+    administrativeArea: null,
   };
 }
 
@@ -552,6 +713,7 @@ export function selectedPlaceFromParts(options: {
   streetNumber?: string | null;
   route?: string | null;
   locality?: string | null;
+  administrativeArea?: string | null;
 }): SelectedPlace {
   const postal = normaliseJourneyAddressLabel(options.formattedAddress);
   let placeName = options.placeName?.trim() || null;
@@ -580,5 +742,6 @@ export function selectedPlaceFromParts(options: {
     streetNumber: options.streetNumber?.trim() || null,
     route: options.route?.trim() || null,
     locality: options.locality?.trim() || null,
+    administrativeArea: options.administrativeArea?.trim() || null,
   };
 }
