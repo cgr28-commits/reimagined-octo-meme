@@ -17,6 +17,7 @@ import {
   emergeWhatsAppHref,
   getEmergeServiceJsonLd,
   isEmergeBelfastCampaignActive,
+  isEmergeBelfastPubliclyVisible,
 } from "../src/lib/emerge-belfast";
 import { SITE } from "../src/lib/data";
 import { parseLondonLocalIso } from "../shared/uk-time";
@@ -56,14 +57,18 @@ function main() {
     assert.match(EMERGE_BELFAST_META.description, /4 passengers/);
   });
 
-  check("Campaign expires 31 August 2026 (UK inclusive)", () => {
+  check("Campaign expires 31 August 2026 (UK inclusive); publiclyVisible gates promotion", () => {
     assert.equal(EMERGE_BELFAST_EXPIRES_ON, "2026-08-31");
     assert.equal(EMERGE_BELFAST_CONFIG.campaignYear, 2026);
     assert.match(configJson, /"expiresOn": "2026-08-31"/);
+    assert.match(configJson, /"publiclyVisible": false/);
+    assert.equal(EMERGE_BELFAST_CONFIG.publiclyVisible, false);
+    assert.equal(isEmergeBelfastPubliclyVisible(), false);
     const stillActive = parseLondonLocalIso("2026-08-31T23:30:00");
     const endedDay = parseLondonLocalIso("2026-09-01T00:30:00");
     assert.ok(stillActive && endedDay);
-    assert.equal(isEmergeBelfastCampaignActive(stillActive!), true);
+    // While hidden, helpers stay off even on the last calendar day of the campaign.
+    assert.equal(isEmergeBelfastCampaignActive(stillActive!), false);
     assert.equal(isEmergeBelfastCampaignActive(endedDay!), false);
   });
 
@@ -104,6 +109,14 @@ function main() {
     assert.doesNotMatch(page, /redirect\(|permanentRedirect|NextResponse\.redirect/i);
     assert.doesNotMatch(ended, /redirect\(|permanentRedirect|NextResponse\.redirect/i);
     assert.match(ended, /no 301/);
+  });
+
+  check("Temporary hide: publiclyVisible=false → notFound (no redirect)", () => {
+    assert.match(page, /notFound\(/);
+    assert.match(page, /isEmergeBelfastPubliclyVisible/);
+    assert.match(content, /isEmergeBelfastPubliclyVisible/);
+    assert.match(sitemapScript, /publiclyVisible/);
+    assert.doesNotMatch(page, /redirect\(|permanentRedirect|NextResponse\.redirect/i);
   });
 
   check("Destination prefill and WhatsApp reuse existing SITE number", () => {

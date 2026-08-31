@@ -4,5 +4,6 @@
   "expiresOn": "2026-08-31",
   "eventDatesShort": "29–30 August 2026",
   "venue": "Boucher Playing Fields, Belfast",
-  "destinationPrefill": "Boucher Playing Fields, Belfast"
+  "destinationPrefill": "Boucher Playing Fields, Belfast",
+  "publiclyVisible": false
 }
