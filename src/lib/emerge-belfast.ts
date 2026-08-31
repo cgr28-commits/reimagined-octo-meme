@@ -18,10 +18,23 @@ export const EMERGE_BELFAST_DESTINATION = EMERGE_BELFAST_CONFIG.destinationPrefi
 export const EMERGE_BELFAST_EXPIRES_ON = EMERGE_BELFAST_CONFIG.expiresOn;
 
 /**
+ * Master kill-switch for customer-facing EMERGE promotion and the public URL.
+ * Flip `publiclyVisible` back to `true` in emerge-belfast-config.json to restore.
+ * Page source is retained; when false the route returns notFound() and promos hide.
+ */
+export function isEmergeBelfastPubliclyVisible(): boolean {
+  return EMERGE_BELFAST_CONFIG.publiclyVisible !== false;
+}
+
+/**
  * True while the live EMERGE campaign should promote, index and accept
- * festival-specific discovery. Uses Europe/London civil dates.
+ * festival-specific discovery. Requires publiclyVisible and a UK civil date
+ * on or before expiresOn.
  */
 export function isEmergeBelfastCampaignActive(now: Date = new Date()): boolean {
+  if (!isEmergeBelfastPubliclyVisible()) {
+    return false;
+  }
   return todayLondonDate(now) <= EMERGE_BELFAST_EXPIRES_ON;
 }
 

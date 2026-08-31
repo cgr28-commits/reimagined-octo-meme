@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 import Footer from "@/components/Footer";
 import Header from "@/components/Header";
 import EmergeBelfastRouteClient from "@/components/EmergeBelfastRouteClient";
@@ -8,11 +9,24 @@ import {
   EMERGE_BELFAST_PATH,
   getEmergeServiceJsonLd,
   isEmergeBelfastCampaignActive,
+  isEmergeBelfastPubliclyVisible,
 } from "@/lib/emerge-belfast";
 import { absoluteSiteUrl, withBasePath } from "@/lib/paths";
 import { getBreadcrumbJsonLd } from "@/lib/structured-data";
 
 export function generateMetadata(): Metadata {
+  // Temporary hide: do not expose SEO for a page that returns notFound().
+  if (!isEmergeBelfastPubliclyVisible()) {
+    return {
+      title: "Not Found",
+      robots: {
+        index: false,
+        follow: false,
+        googleBot: { index: false, follow: false },
+      },
+    };
+  }
+
   if (!isEmergeBelfastCampaignActive()) {
     return {
       title: EMERGE_BELFAST_ENDED_META.title,
@@ -54,6 +68,11 @@ export function generateMetadata(): Metadata {
 }
 
 export default function EmergeBelfastTaxiPage() {
+  // Keep page source; flip publiclyVisible back to true to restore the URL.
+  if (!isEmergeBelfastPubliclyVisible()) {
+    notFound();
+  }
+
   const active = isEmergeBelfastCampaignActive();
   const breadcrumb = getBreadcrumbJsonLd([
     { name: "Home", path: "/" },

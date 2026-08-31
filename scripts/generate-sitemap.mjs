@@ -17,7 +17,10 @@ function todayLondonDate(now = new Date()) {
 const emergeConfig = JSON.parse(
   readFileSync(join(process.cwd(), "src/lib/emerge-belfast-config.json"), "utf8"),
 );
-const EMERGE_CAMPAIGN_ACTIVE = todayLondonDate() <= emergeConfig.expiresOn;
+// Match isEmergeBelfastCampaignActive — omit when hidden or past expiresOn.
+const EMERGE_CAMPAIGN_ACTIVE =
+  emergeConfig.publiclyVisible !== false &&
+  todayLondonDate() <= emergeConfig.expiresOn;
 
 const tourSlugs = [
   "giants-causeway",
