@@ -65,6 +65,7 @@ assert.equal(isQuickQuoteExpired(open), false);
 const expired = { ...open, expiresAt: new Date(Date.now() - 1000).toISOString() };
 assert.equal(isQuickQuoteExpired(expired), true);
 assert.equal(isQuickQuoteExpired({ ...open, status: "expired" }), true);
+assert.equal(isQuickQuoteExpired({ ...open, expiresAt: null }), false);
 
 console.log("=== Price equality / tampering helper ===");
 assert.equal(quickQuoteAmountsEqual(50, 50), true);

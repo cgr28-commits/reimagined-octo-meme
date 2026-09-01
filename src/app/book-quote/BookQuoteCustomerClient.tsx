@@ -314,10 +314,11 @@ function BookQuoteInner() {
           </div>
         ) : null}
         <p className="mt-2 break-words text-sm text-white/60">
-          Secure card payment · quote expires{" "}
-          {new Date(quote.expiresAt).toLocaleString("en-GB", {
-            timeZone: "Europe/London",
-          })}
+          {quote.expiresAt == null || quote.expiresAt === ""
+            ? "Secure card payment · no expiry date"
+            : `Secure card payment · quote expires ${new Date(quote.expiresAt).toLocaleString("en-GB", {
+                timeZone: "Europe/London",
+              })}`}
         </p>
       </section>
 

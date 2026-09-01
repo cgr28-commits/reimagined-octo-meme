@@ -2,14 +2,23 @@ import { resolveWorkerBaseUrl } from "@/lib/worker-api";
 import type {
   QuickQuoteDiscountType,
   QuickQuoteJourney,
+  QuickQuotePriceSource,
   QuickQuotePublicSummary,
+  QuickQuoteValidityMode,
   QuickQuoteVehicleChoice,
 } from "../../shared/quick-quote";
 import type { TripRouteMetrics } from "@/lib/trip-route";
 
 const WORKER_BASE = resolveWorkerBaseUrl();
 
-export type { QuickQuoteJourney, QuickQuotePublicSummary, QuickQuoteVehicleChoice, QuickQuoteDiscountType };
+export type {
+  QuickQuoteJourney,
+  QuickQuotePublicSummary,
+  QuickQuoteVehicleChoice,
+  QuickQuoteDiscountType,
+  QuickQuotePriceSource,
+  QuickQuoteValidityMode,
+};
 
 export type QuickQuoteCalculateResult =
   | {
@@ -44,6 +53,14 @@ export type QuickQuoteDiscountPayload = {
   discountType?: QuickQuoteDiscountType;
   discountValue?: number;
   expressDropOffSelected?: boolean;
+  /** website-pricing-engine (default) | owner-manual */
+  priceSource?: QuickQuotePriceSource;
+  /** Transfer fare before discount when priceSource is owner-manual. */
+  manualTransferFare?: number;
+  /** Link validity — omit entirely for legacy 24h Worker default. */
+  validityMode?: QuickQuoteValidityMode;
+  /** Required when validityMode is custom (1–365). */
+  validityDays?: number;
 };
 
 export type QuickQuoteRoutePayload = {

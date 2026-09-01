@@ -1,25 +1,31 @@
 /**
  * Quick Quote Worker APIs — owner create + public lookup.
- * Fares always from calculateAuthoritativeWebsiteQuote (never from client amount).
- * Discretionary discounts are applied AFTER the engine fare and stored separately.
+ * Website fares always from calculateAuthoritativeWebsiteQuote (never from client amount).
+ * Owner-manual fares use an authenticated transfer amount stored in KV; browsers never alter it.
+ * Discretionary discounts are applied AFTER the transfer fare and stored separately.
  */
 
 import { corsHeaders } from "../shared/google-places";
 import {
   QUICK_QUOTE_CREATE_RATE_LIMIT,
   applyQuickQuoteManualDiscount,
+  assertQuickQuoteTransferFareFloor,
   buildQuickQuoteCustomerUrl,
   buildQuickQuoteWhatsAppReply,
   formatQuickQuoteAmount,
   isQuickQuoteExpired,
   normalizeQuickQuoteId,
   parseQuickQuoteDiscountType,
+  parseQuickQuoteManualTransferFare,
+  parseQuickQuotePriceSource,
   parseQuickQuoteVehicleChoice,
   quickQuoteMaxPassengersForVehicle,
+  resolveQuickQuoteTtlSeconds,
   toQuickQuotePublicSummary,
   type QuickQuoteAirportCode,
   type QuickQuoteDiscountType,
   type QuickQuoteJourney,
+  type QuickQuotePriceSource,
   type QuickQuoteVehicleChoice,
 } from "../shared/quick-quote";
 import { calculateAuthoritativeWebsiteQuote } from "../../../src/lib/quote-service";
@@ -112,7 +118,6 @@ function parseJourney(
 
   if (!pickupAddress) return { error: "Pickup address is required." };
   if (!dropoffAddress) return { error: "Destination address is required." };
-  // Outbound date/time optional for quote calculation; payment still requires them.
   if (returnJourney && ((returnDate && !returnTime) || (!returnDate && returnTime))) {
     return { error: "Return journeys need both return date and return time, or leave both blank." };
   }
@@ -171,7 +176,6 @@ async function authoritativeAmount(
   const dropoffLat = Number(body.dropoffLat);
   const dropoffLng = Number(body.dropoffLng);
 
-  // Worker resolve first; client metrics are fallback only (same as /quote/calculate).
   let routeMetrics = await resolveWorkerTripRouteMetrics({
     pickupAddress: journey.pickupAddress,
     dropoffAddress: journey.dropoffAddress,
@@ -272,21 +276,60 @@ export async function handleOwnerCreateQuickQuote(
     );
   }
 
-  // Ignore any client-supplied amount — always recalculate, then apply discount.
-  const quote = await authoritativeAmount(journey, body, env);
-  if (!quote.ok) {
-    return json({ error: quote.message, reason: quote.reason }, 422, origin);
+  const pricingSource: QuickQuotePriceSource = parseQuickQuotePriceSource(
+    body.priceSource ?? body.pricingSource,
+  );
+  const { discountType, discountValue } = parseDiscount(body);
+
+  let transferFareBeforeDiscount: number;
+  let vehicleTypeLabel: string | undefined = journey.vehicleType;
+
+  if (pricingSource === "owner-manual") {
+    const manual = parseQuickQuoteManualTransferFare(
+      body.manualTransferFare ?? body.manualAmount ?? body.transferFareGbp,
+    );
+    if (!manual.ok) {
+      return json({ error: manual.message }, 400, origin);
+    }
+    transferFareBeforeDiscount = manual.amount;
+    vehicleTypeLabel =
+      journey.vehicleChoice === "Minibus"
+        ? "Minibus (partner / on request)"
+        : resolveVehicle(journey.vehicleChoice, journey.passengers, journey.suitcases);
+  } else {
+    const quote = await authoritativeAmount(journey, body, env);
+    if (!quote.ok) {
+      return json({ error: quote.message, reason: quote.reason }, 422, origin);
+    }
+    transferFareBeforeDiscount = quote.amount;
+    vehicleTypeLabel = quote.vehicleType;
   }
 
-  const { discountType, discountValue } = parseDiscount(body);
   const discounted = applyQuickQuoteManualDiscount(
-    quote.amount,
+    transferFareBeforeDiscount,
     discountType,
     discountValue,
   );
+  const floor = assertQuickQuoteTransferFareFloor(discounted.customerFare);
+  if (!floor.ok) {
+    return json({ error: floor.message }, 400, origin);
+  }
 
-  // Express Drop-Off is recomputed server-side from journey + selection boolean.
-  // Client-supplied fee amounts are ignored to prevent duplicate / tampered charges.
+  let ttlSeconds: number | null;
+  try {
+    ttlSeconds = resolveQuickQuoteTtlSeconds({
+      validityMode: body.validityMode,
+      validityDays: body.validityDays,
+      ttlSeconds: body.ttlSeconds,
+    });
+  } catch (err) {
+    return json(
+      { error: err instanceof Error ? err.message : "Invalid quote validity." },
+      400,
+      origin,
+    );
+  }
+
   const expressSelection = resolveExpressDropOff({
     airportCode: journey.airportCode,
     fromAirport: journey.fromAirport,
@@ -302,7 +345,7 @@ export async function handleOwnerCreateQuickQuote(
   const record = await createQuickQuoteRecord(env.TRACKING_STORE, {
     journey: {
       ...journey,
-      vehicleType: quote.vehicleType,
+      vehicleType: vehicleTypeLabel,
       vehicleChoice: journey.vehicleChoice,
       expressDropOffSelected: expressFields.expressDropOffSelected,
       expressDropOffFee: expressFields.expressDropOffFee,
@@ -315,8 +358,9 @@ export async function handleOwnerCreateQuickQuote(
     discountType: discounted.discountType,
     discountValue: discounted.discountValue,
     discountAmount: discounted.discountAmount,
-    pricingSource: "website-pricing-engine",
+    pricingSource,
     createdByOwner: true,
+    ttlSeconds,
   });
 
   const bookingUrl = buildQuickQuoteCustomerUrl(record.id, siteOrigin(env));
@@ -329,10 +373,12 @@ export async function handleOwnerCreateQuickQuote(
     JSON.stringify({
       event: "quick_quote_created",
       idSuffix: record.id.slice(-6),
+      pricingSource: record.pricingSource,
       calculatedAmount: record.calculatedAmount,
       quotedAmount: record.quotedAmount,
       discountType: record.discountType,
       discountAmount: record.discountAmount,
+      expiresAt: record.expiresAt,
       vehicleChoice: journey.vehicleChoice,
       returnJourney: journey.returnJourney,
       airportCode: journey.airportCode ?? null,

@@ -28,6 +28,14 @@ export async function saveQuickQuote(
   record: QuickQuoteRecord,
 ): Promise<void> {
   const id = normalizeQuickQuoteId(record.id);
+  const payload = JSON.stringify({ ...record, id });
+
+  // No time limit — persist without a KV expiration setting.
+  if (record.expiresAt == null || record.expiresAt === "") {
+    await store.put(quickQuoteKey(id), payload);
+    return;
+  }
+
   const ttl = Math.max(
     60,
     Math.min(
@@ -35,27 +43,32 @@ export async function saveQuickQuote(
       Math.floor((Date.parse(record.expiresAt) - Date.now()) / 1000) + 60 * 60 * 24 * 7,
     ),
   );
-  await store.put(
-    quickQuoteKey(id),
-    JSON.stringify({ ...record, id }),
-    { expirationTtl: Number.isFinite(ttl) && ttl > 0 ? ttl : QUICK_QUOTE_TTL_SECONDS + 60 * 60 },
-  );
+  await store.put(quickQuoteKey(id), payload, {
+    expirationTtl: Number.isFinite(ttl) && ttl > 0 ? ttl : QUICK_QUOTE_TTL_SECONDS + 60 * 60,
+  });
 }
 
 export async function createQuickQuoteRecord(
   store: KVNamespace,
   input: Omit<QuickQuoteRecord, "id" | "createdAt" | "expiresAt" | "status"> & {
-    ttlSeconds?: number;
+    /** Seconds until expiry, or `null` for no expiry. Defaults to legacy 24h. */
+    ttlSeconds?: number | null;
   },
 ): Promise<QuickQuoteRecord> {
   const id = generateQuickQuoteId();
   const now = Date.now();
-  const ttl = input.ttlSeconds ?? QUICK_QUOTE_TTL_SECONDS;
+  const ttl =
+    input.ttlSeconds === null
+      ? null
+      : typeof input.ttlSeconds === "number"
+        ? input.ttlSeconds
+        : QUICK_QUOTE_TTL_SECONDS;
+  const { ttlSeconds: _omit, ...rest } = input;
   const record: QuickQuoteRecord = {
-    ...input,
+    ...rest,
     id,
     createdAt: new Date(now).toISOString(),
-    expiresAt: new Date(now + ttl * 1000).toISOString(),
+    expiresAt: ttl == null ? null : new Date(now + ttl * 1000).toISOString(),
     status: "open",
   };
   await saveQuickQuote(store, record);
