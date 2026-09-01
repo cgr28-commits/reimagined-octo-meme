@@ -64,6 +64,7 @@
     "check:owner-profile-persist": "npx tsx scripts/check-owner-profile-persist.ts",
     "check:quick-quote": "npx tsx scripts/check-quick-quote.ts",
     "check:quick-quote-roi-manual": "npx tsx scripts/check-quick-quote-roi-manual-price.ts",
+    "check:quick-quote-checkout-expiry-hotfix": "npx tsx scripts/check-quick-quote-checkout-expiry-hotfix.ts",
     "check:quote-path-fare-parity": "npx tsx scripts/check-quote-path-fare-parity.ts",
     "check:trip-route-fallback": "npx tsx scripts/check-trip-route-fallback.ts",
     "check:osrm-identifying-headers": "npx tsx scripts/check-osrm-identifying-headers.ts",

@@ -244,11 +244,18 @@ check("Owner auth required for manual create; price source audit tags", () => {
   assert.equal(parseQuickQuotePriceSource("website"), "website-pricing-engine");
 
   const index = read("workers/addresses/src/index.ts");
-  assert.match(index, /pricingSource !== ["']owner-manual["']/);
+  assert.match(index, /isApprovedQuickQuoteStoredFare/);
   assert.match(index, /Never trust a customer-supplied amount/);
+  assert.doesNotMatch(
+    index.slice(
+      index.indexOf("} else if (quickQuoteIdRaw) {"),
+      index.indexOf("} else if (savedQuoteTokenRaw) {"),
+    ),
+    /calculateAuthoritativeWebsiteQuote/,
+  );
 
   const store = read("workers/addresses/src/quick-quote-store.ts");
-  assert.match(store, /expiresAt == null/);
+  assert.match(store, /expiresAt == null|quickQuoteKvExpirationTtlSeconds/);
   assert.match(store, /without a KV expiration|No time limit/i);
 
   const book = read("src/app/book-quote/BookQuoteCustomerClient.tsx");

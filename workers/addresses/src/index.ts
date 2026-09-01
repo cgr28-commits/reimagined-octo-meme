@@ -323,7 +323,9 @@ import {
   parseQuickQuoteVehicleChoice,
   quickQuoteAmountsEqual,
   quickQuoteCalculatedAmount,
+  quickQuoteCheckoutStandardWebsiteAmount,
   quickQuoteMaxPassengersForVehicle,
+  isApprovedQuickQuoteStoredFare,
   isQuickQuoteExpired,
   resolveQuickQuoteCheckoutAmount,
 } from "../shared/quick-quote";
@@ -1657,46 +1659,17 @@ async function handlePaymentRequest(
 
     // Prefer locked journey from KV for fare; customer contact comes from booking.
     const j = record.journey;
-    const vehicleChoice = parseQuickQuoteVehicleChoice(j.vehicleChoice ?? j.vehicleType);
-    const vehicleType: VehicleType =
-      vehicleChoice === "Minibus" || String(j.vehicleType ?? "").toLowerCase().includes("minibus")
-        ? MINIBUS_VEHICLE
-        : j.vehicleType
-          ? (j.vehicleType as VehicleType)
-          : selectVehicleForParty(j.passengers, j.suitcases);
 
-    // Owner-manual quotes: never re-run the website engine — use the approved KV fare.
-    // Website-engine quotes: re-validate against the engine to block journey/price tampering.
+    // Quick Quotes are owner-approved and stored in KV. Use the stored base fare for
+    // both website-priced and manual quotes — do not re-run the website engine here
+    // (route-less recalculation can return no_fare for valid long-distance links).
     const expectedCalculated = quickQuoteCalculatedAmount(record);
-    if (record.pricingSource !== "owner-manual") {
-      const requote = calculateAuthoritativeWebsiteQuote({
-        airportCode: j.airportCode ?? null,
-        fromAirport: Boolean(j.fromAirport),
-        pickupAddress: j.pickupAddress,
-        dropoffAddress: j.dropoffAddress,
-        returnJourney: Boolean(j.returnJourney),
-        outboundDate: j.outboundDate,
-        outboundTime: j.outboundTime,
-        returnDate: j.returnDate,
-        returnTime: j.returnTime,
-        passengers: j.passengers,
-        suitcases: j.suitcases,
-        vehicleType,
-        maxPassengers: quickQuoteMaxPassengersForVehicle(vehicleChoice),
-      });
-      if (!requote.ok) {
-        return json({ error: requote.message }, 422, origin);
-      }
-      if (!quickQuoteAmountsEqual(requote.amount, expectedCalculated)) {
-        return json(
-          {
-            error:
-              "The stored fare could not be re-validated. Please contact My Airport Taxi NI for a fresh quote.",
-          },
-          409,
-          origin,
-        );
-      }
+    if (!isApprovedQuickQuoteStoredFare(expectedCalculated)) {
+      return json(
+        { error: "Quote amount is invalid. Please create a new quote." },
+        400,
+        origin,
+      );
     }
 
     // Customer Express choice only — fee/total recomputed from journey + selection.
@@ -1758,8 +1731,8 @@ async function handlePaymentRequest(
 
     quickQuoteId = record.id;
     amount = Math.round(record.quotedAmount * 100) / 100;
-    // Genuine calculated fare for financial audit — distinct from discretionary discount.
-    standardWebsiteAmount = expectedCalculated;
+    // Website-engine quotes only — never mislabel an owner-manual fare as a website price.
+    standardWebsiteAmount = quickQuoteCheckoutStandardWebsiteAmount(record);
     // Overlay locked journey labels onto booking for emails/calendar.
     booking = {
       ...booking,
