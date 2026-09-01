@@ -439,6 +439,7 @@ export default function OwnerPersonalQuotesPanel({ ownerKey }: OwnerPersonalQuot
             confirmedPlace={isPlaceSelected(pickupPlace) ? pickupPlace : null}
             requireSuggestion={false}
             placeholder="Start typing an address or airport"
+            airportCode="A2A"
           />
         </div>
         <div className="min-w-0 sm:col-span-2">
@@ -460,6 +461,7 @@ export default function OwnerPersonalQuotesPanel({ ownerKey }: OwnerPersonalQuot
             confirmedPlace={isPlaceSelected(dropoffPlace) ? dropoffPlace : null}
             requireSuggestion={false}
             placeholder="Start typing an address or airport"
+            airportCode="A2A"
           />
         </div>
         <label className="block min-w-0 text-sm text-white/80">

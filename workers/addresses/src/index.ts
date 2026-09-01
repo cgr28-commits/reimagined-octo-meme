@@ -1664,38 +1664,43 @@ async function handlePaymentRequest(
         : j.vehicleType
           ? (j.vehicleType as VehicleType)
           : selectVehicleForParty(j.passengers, j.suitcases);
-    const requote = calculateAuthoritativeWebsiteQuote({
-      airportCode: j.airportCode ?? null,
-      fromAirport: Boolean(j.fromAirport),
-      pickupAddress: j.pickupAddress,
-      dropoffAddress: j.dropoffAddress,
-      returnJourney: Boolean(j.returnJourney),
-      outboundDate: j.outboundDate,
-      outboundTime: j.outboundTime,
-      returnDate: j.returnDate,
-      returnTime: j.returnTime,
-      passengers: j.passengers,
-      suitcases: j.suitcases,
-      vehicleType,
-      maxPassengers: quickQuoteMaxPassengersForVehicle(vehicleChoice),
-    });
-    if (!requote.ok) {
-      return json({ error: requote.message }, 422, origin);
-    }
-    // Re-validate against the canonical engine fare (not the discounted customer price).
+
+    // Owner-manual quotes: never re-run the website engine — use the approved KV fare.
+    // Website-engine quotes: re-validate against the engine to block journey/price tampering.
     const expectedCalculated = quickQuoteCalculatedAmount(record);
-    if (!quickQuoteAmountsEqual(requote.amount, expectedCalculated)) {
-      return json(
-        {
-          error:
-            "The stored fare could not be re-validated. Please contact My Airport Taxi NI for a fresh quote.",
-        },
-        409,
-        origin,
-      );
+    if (record.pricingSource !== "owner-manual") {
+      const requote = calculateAuthoritativeWebsiteQuote({
+        airportCode: j.airportCode ?? null,
+        fromAirport: Boolean(j.fromAirport),
+        pickupAddress: j.pickupAddress,
+        dropoffAddress: j.dropoffAddress,
+        returnJourney: Boolean(j.returnJourney),
+        outboundDate: j.outboundDate,
+        outboundTime: j.outboundTime,
+        returnDate: j.returnDate,
+        returnTime: j.returnTime,
+        passengers: j.passengers,
+        suitcases: j.suitcases,
+        vehicleType,
+        maxPassengers: quickQuoteMaxPassengersForVehicle(vehicleChoice),
+      });
+      if (!requote.ok) {
+        return json({ error: requote.message }, 422, origin);
+      }
+      if (!quickQuoteAmountsEqual(requote.amount, expectedCalculated)) {
+        return json(
+          {
+            error:
+              "The stored fare could not be re-validated. Please contact My Airport Taxi NI for a fresh quote.",
+          },
+          409,
+          origin,
+        );
+      }
     }
 
     // Customer Express choice only — fee/total recomputed from journey + selection.
+    // Never trust a customer-supplied amount or Express fee.
     const customerExpressSelected = parseCustomerExpressDropOffSelected(
       body.expressDropOffSelected ?? booking?.expressDropOffSelected,
       j.expressDropOffSelected !== false,

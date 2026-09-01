@@ -25,8 +25,13 @@ export const QUICK_QUOTE_SALOON_MAX_PASSENGERS = INSTANT_QUOTE_MAX_PASSENGERS; /
 export const QUICK_QUOTE_MINIBUS_MAX_PASSENGERS = OWNER_QUICK_QUOTE_MAX_PASSENGERS; // 7
 /** @deprecated Prefer QUICK_QUOTE_SALOON_MAX_PASSENGERS / vehicle-aware helpers. */
 export const QUICK_QUOTE_MAX_PASSENGERS = QUICK_QUOTE_SALOON_MAX_PASSENGERS;
-export const QUICK_QUOTE_TTL_SECONDS = 60 * 60 * 24; // 24 hours
+export const QUICK_QUOTE_TTL_SECONDS = 60 * 60 * 24; // 24 hours (legacy default when validity omitted)
 export const QUICK_QUOTE_CREATE_RATE_LIMIT = 30; // per owner key per hour
+/** Manual transfer fare bounds (GBP) before discount. */
+export const QUICK_QUOTE_MANUAL_FARE_MIN_GBP = 1;
+export const QUICK_QUOTE_MANUAL_FARE_MAX_GBP = 5000;
+/** Final transfer fare after discount must stay at or above this. */
+export const QUICK_QUOTE_MIN_TRANSFER_FARE_GBP = 1;
 
 /**
  * Owner/Driver Quick Quote vehicle choice.
@@ -36,6 +41,16 @@ export const QUICK_QUOTE_CREATE_RATE_LIMIT = 30; // per owner key per hour
 export type QuickQuoteVehicleChoice = "Saloon" | "Minibus";
 
 export type QuickQuoteDiscountType = "none" | "percent" | "fixed";
+
+/** Owner create: website engine vs typed transfer fare. */
+export type QuickQuotePriceSource = "website-pricing-engine" | "owner-manual";
+
+/**
+ * Link validity for new Quick Quotes.
+ * `none` = no expiry (default in the current owner UI).
+ * When `validityMode` is omitted by an older client, the Worker keeps the legacy 24h TTL.
+ */
+export type QuickQuoteValidityMode = "none" | "24h" | "7d" | "30d" | "custom";
 
 export type QuickQuoteAirportCode = "BFS" | "BHD" | "DUB";
 
@@ -76,18 +91,22 @@ export type QuickQuoteJourney = {
 export type QuickQuoteRecord = {
   id: string;
   createdAt: string;
-  expiresAt: string;
+  /**
+   * ISO expiry timestamp, or `null` when the link has no time limit.
+   * Legacy records always have a string.
+   */
+  expiresAt: string | null;
   status: QuickQuoteStatus;
   journey: QuickQuoteJourney;
   /**
    * Customer-facing fare (GBP) after any Owner/Driver discretionary discount.
-   * This is what the customer pays and what SumUp is charged.
+   * This is what the customer pays and what SumUp is charged (plus Express when selected).
    */
   quotedAmount: number;
   quotedAmountLabel: string;
   /**
-   * Canonical pricing-engine fare BEFORE discretionary discount.
-   * Equals quotedAmount when discountType is none.
+   * Transfer fare BEFORE discretionary discount (website engine or owner-manual entry).
+   * Equals the pre-discount transfer amount when discountType is none.
    */
   calculatedAmount?: number;
   calculatedAmountLabel?: string;
@@ -97,8 +116,8 @@ export type QuickQuoteRecord = {
   discountValue?: number;
   /** Absolute GBP taken off calculatedAmount. */
   discountAmount?: number;
-  /** Optional audit — pricing engine source tag. */
-  pricingSource: "website-pricing-engine";
+  /** Audit — how the transfer fare was set. */
+  pricingSource: QuickQuotePriceSource;
   pricingVersion?: string;
   checkoutId?: string;
   checkoutReference?: string;
@@ -111,11 +130,12 @@ export type QuickQuoteRecord = {
 export type QuickQuotePublicSummary = {
   id: string;
   status: QuickQuoteStatus;
-  expiresAt: string;
+  expiresAt: string | null;
   expired: boolean;
   quotedAmount: number;
   quotedAmountLabel: string;
   journey: QuickQuoteJourney;
+  pricingSource?: QuickQuotePriceSource;
 };
 
 export function quickQuoteKey(id: string): string {
@@ -140,6 +160,10 @@ export function normalizeQuickQuoteId(id: string): string {
 export function isQuickQuoteExpired(record: Pick<QuickQuoteRecord, "expiresAt" | "status">): boolean {
   if (record.status === "expired" || record.status === "cancelled" || record.status === "paid") {
     return record.status === "expired" || record.status === "cancelled";
+  }
+  // No time limit — stays open until paid / cancelled.
+  if (record.expiresAt == null || record.expiresAt === "") {
+    return false;
   }
   const expires = Date.parse(record.expiresAt);
   return Number.isFinite(expires) && expires <= Date.now();
@@ -182,6 +206,7 @@ export function toQuickQuotePublicSummary(record: QuickQuoteRecord): QuickQuoteP
     quotedAmount: record.quotedAmount,
     quotedAmountLabel: record.quotedAmountLabel,
     journey: record.journey,
+    pricingSource: record.pricingSource,
   };
 }
 
@@ -271,6 +296,113 @@ export function parseQuickQuoteDiscountType(value: unknown): QuickQuoteDiscountT
   if (raw === "percent" || raw === "percentage" || raw === "%") return "percent";
   if (raw === "fixed" || raw === "amount" || raw === "gbp" || raw === "£") return "fixed";
   return "none";
+}
+
+export function parseQuickQuotePriceSource(value: unknown): QuickQuotePriceSource {
+  const raw = String(value ?? "").trim().toLowerCase();
+  if (
+    raw === "owner-manual" ||
+    raw === "manual" ||
+    raw === "owner_manual" ||
+    raw === "manual-price"
+  ) {
+    return "owner-manual";
+  }
+  return "website-pricing-engine";
+}
+
+export function parseQuickQuoteValidityMode(value: unknown): QuickQuoteValidityMode | null {
+  const raw = String(value ?? "").trim().toLowerCase();
+  if (!raw) return null;
+  if (raw === "none" || raw === "no_limit" || raw === "no-limit" || raw === "unlimited") {
+    return "none";
+  }
+  if (raw === "24h" || raw === "24" || raw === "day") return "24h";
+  if (raw === "7d" || raw === "7" || raw === "week") return "7d";
+  if (raw === "30d" || raw === "30" || raw === "month") return "30d";
+  if (raw === "custom") return "custom";
+  return null;
+}
+
+/**
+ * Resolve KV / record TTL for a new Quick Quote.
+ * - `null` → no expiry (store without KV expiration)
+ * - number → seconds until expiry
+ * - When both `validityMode` and `ttlSeconds` are omitted → legacy 24h default
+ */
+export function resolveQuickQuoteTtlSeconds(input: {
+  validityMode?: unknown;
+  validityDays?: unknown;
+  ttlSeconds?: unknown;
+}): number | null {
+  const mode = parseQuickQuoteValidityMode(input.validityMode);
+  const hasLegacyTtl =
+    input.ttlSeconds != null && String(input.ttlSeconds).trim() !== "";
+
+  if (mode == null && !hasLegacyTtl) {
+    // Older clients that never send validityMode keep the historic 24h default.
+    return QUICK_QUOTE_TTL_SECONDS;
+  }
+
+  if (mode === "none") {
+    return null;
+  }
+  if (mode === "24h") {
+    return 60 * 60 * 24;
+  }
+  if (mode === "7d") {
+    return 60 * 60 * 24 * 7;
+  }
+  if (mode === "30d") {
+    return 60 * 60 * 24 * 30;
+  }
+  if (mode === "custom") {
+    const days = Math.floor(Number(input.validityDays));
+    if (!Number.isFinite(days) || days < 1 || days > 365) {
+      throw new Error("Custom validity must be between 1 and 365 days.");
+    }
+    return days * 60 * 60 * 24;
+  }
+
+  // Explicit ttlSeconds from a client that skipped validityMode.
+  const ttl = Math.floor(Number(input.ttlSeconds));
+  if (!Number.isFinite(ttl) || ttl < 60) {
+    return QUICK_QUOTE_TTL_SECONDS;
+  }
+  return Math.min(ttl, 60 * 60 * 24 * 365);
+}
+
+/**
+ * Validate an owner-entered transfer fare (before discount). £1–£5,000.
+ */
+export function parseQuickQuoteManualTransferFare(
+  value: unknown,
+): { ok: true; amount: number } | { ok: false; message: string } {
+  const amount = Number(value);
+  if (!Number.isFinite(amount)) {
+    return { ok: false, message: "Enter a valid manual transfer price in GBP." };
+  }
+  const rounded = roundQuickQuoteGbp(amount);
+  if (rounded < QUICK_QUOTE_MANUAL_FARE_MIN_GBP || rounded > QUICK_QUOTE_MANUAL_FARE_MAX_GBP) {
+    return {
+      ok: false,
+      message: `Manual transfer price must be between £${QUICK_QUOTE_MANUAL_FARE_MIN_GBP} and £${QUICK_QUOTE_MANUAL_FARE_MAX_GBP.toLocaleString("en-GB")}.`,
+    };
+  }
+  return { ok: true, amount: rounded };
+}
+
+export function assertQuickQuoteTransferFareFloor(
+  transferFareGbp: number,
+): { ok: true } | { ok: false; message: string } {
+  const amount = roundQuickQuoteGbp(transferFareGbp);
+  if (!Number.isFinite(amount) || amount < QUICK_QUOTE_MIN_TRANSFER_FARE_GBP) {
+    return {
+      ok: false,
+      message: `Final transfer price must be at least £${QUICK_QUOTE_MIN_TRANSFER_FARE_GBP}.`,
+    };
+  }
+  return { ok: true };
 }
 
 /** Engine fare used for re-validation (falls back to quotedAmount for legacy records). */

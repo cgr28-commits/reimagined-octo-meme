@@ -13,9 +13,13 @@ import {
 } from "../../../shared/quick-quote-parse";
 import {
   applyQuickQuoteManualDiscount,
+  assertQuickQuoteTransferFareFloor,
   formatQuickQuoteAmount,
+  parseQuickQuoteManualTransferFare,
   quickQuoteMaxPassengersForVehicle,
   type QuickQuoteDiscountType,
+  type QuickQuotePriceSource,
+  type QuickQuoteValidityMode,
   type QuickQuoteVehicleChoice,
 } from "../../../shared/quick-quote";
 import {
@@ -151,6 +155,10 @@ export default function QuickQuoteOwnerClient() {
   const [discountType, setDiscountType] = useState<QuickQuoteDiscountType>("none");
   const [discountValue, setDiscountValue] = useState(0);
   const [customDiscountInput, setCustomDiscountInput] = useState("");
+  const [priceSource, setPriceSource] = useState<QuickQuotePriceSource>("website-pricing-engine");
+  const [manualTransferFareInput, setManualTransferFareInput] = useState("");
+  const [validityMode, setValidityMode] = useState<QuickQuoteValidityMode>("none");
+  const [customValidityDays, setCustomValidityDays] = useState("14");
   const [expressDropOffSelected, setExpressDropOffSelected] = useState(true);
   const [expressRemovalAck, setExpressRemovalAck] = useState(false);
   const [expressAckRequired, setExpressAckRequired] = useState(false);
@@ -249,6 +257,50 @@ export default function QuickQuoteOwnerClient() {
     setCustomDiscountInput("");
   }
 
+  function resetPriceSource() {
+    setPriceSource("website-pricing-engine");
+    setManualTransferFareInput("");
+  }
+
+  function resetValidity() {
+    setValidityMode("none");
+    setCustomValidityDays("14");
+  }
+
+  function applyManualTransferFare() {
+    const parsed = parseQuickQuoteManualTransferFare(manualTransferFareInput);
+    if (!parsed.ok) {
+      setError(parsed.message);
+      return;
+    }
+    const discounted = applyQuickQuoteManualDiscount(parsed.amount, discountType, discountValue);
+    const floor = assertQuickQuoteTransferFareFloor(discounted.customerFare);
+    if (!floor.ok) {
+      setError(floor.message);
+      return;
+    }
+    setError("");
+    setPriceSource("owner-manual");
+    setCalculatedFareAmount(parsed.amount);
+    const composed = composeFareWithExpressDropOff({
+      transferFareGbp: discounted.customerFare,
+      expressDropOffFeeGbp: resolveExpressDropOff({
+        airportCode: draft.airportCode || null,
+        fromAirport: draft.fromAirport,
+        returnJourney: draft.returnJourney,
+        selected: expressDropOffSelected,
+      }).feeGbp,
+    });
+    setFareAmount(composed.totalGbp);
+    setFareLabel(formatQuickQuoteAmount(composed.totalGbp));
+    setVehicleType(
+      draft.vehicleChoice === "Minibus" ? "Minibus (partner / on request)" : "Standard Saloon",
+    );
+    setBookingUrl("");
+    setWhatsappReply("");
+    setNotice("Manual transfer price applied — generate the booking link when ready.");
+  }
+
   function resetExpressDropOff() {
     setExpressDropOffSelected(true);
     setExpressRemovalAck(false);
@@ -318,6 +370,8 @@ export default function QuickQuoteOwnerClient() {
     setMissing([]);
     clearQuoteOutputs();
     resetDiscount();
+    resetPriceSource();
+    resetValidity();
     resetExpressDropOff();
     setFlightTimeHint("");
     setError("");
@@ -613,6 +667,7 @@ export default function QuickQuoteOwnerClient() {
         return;
       }
       setCalculatedFareAmount(result.amount);
+      setPriceSource("website-pricing-engine");
       const discounted = applyQuickQuoteManualDiscount(
         result.amount,
         discountType,
@@ -721,6 +776,14 @@ export default function QuickQuoteOwnerClient() {
         vehicleType: vehicleType || undefined,
         discountType,
         discountValue,
+        priceSource,
+        ...(priceSource === "owner-manual" && calculatedFareAmount != null
+          ? { manualTransferFare: calculatedFareAmount }
+          : {}),
+        validityMode,
+        ...(validityMode === "custom"
+          ? { validityDays: Math.floor(Number(customValidityDays)) }
+          : {}),
         expressDropOffSelected: expressSelection.eligible
           ? expressDropOffSelected
           : false,
@@ -909,7 +972,7 @@ export default function QuickQuoteOwnerClient() {
             autoConfirmExactMatch
             placeholder="Type address — then tap a suggestion"
             helperText="Suggestions open after extract — tap once to confirm"
-            airportCode={draft.airportCode || ""}
+            airportCode="A2A"
             className="min-w-0"
           />
         </div>
@@ -961,7 +1024,7 @@ export default function QuickQuoteOwnerClient() {
             autoConfirmExactMatch
             placeholder="Type address — then tap a suggestion"
             helperText="Suggestions open after extract — tap once to confirm"
-            airportCode={draft.airportCode || ""}
+            airportCode="A2A"
             className="min-w-0"
           />
         </div>
@@ -1165,6 +1228,101 @@ export default function QuickQuoteOwnerClient() {
         ) : null}
       </section>
 
+      <section className="min-w-0 space-y-3 overflow-hidden rounded-2xl border border-white/10 bg-navy-dark/60 p-4">
+        <p className="text-sm font-semibold text-white">Price source</p>
+        <div className="grid min-w-0 grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              setPriceSource("website-pricing-engine");
+              clearQuoteOutputs();
+            }}
+            className={`min-h-11 rounded-xl border text-sm ${
+              priceSource === "website-pricing-engine"
+                ? "border-emerald text-emerald"
+                : "border-white/15 text-white/80"
+            }`}
+          >
+            Website price
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setPriceSource("owner-manual");
+              clearQuoteOutputs();
+            }}
+            className={`min-h-11 rounded-xl border text-sm ${
+              priceSource === "owner-manual"
+                ? "border-emerald text-emerald"
+                : "border-white/15 text-white/80"
+            }`}
+          >
+            Manual price
+          </button>
+        </div>
+        {priceSource === "owner-manual" ? (
+          <div className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-[1fr_auto]">
+            <input
+              type="text"
+              inputMode="decimal"
+              value={manualTransferFareInput}
+              onChange={(e) => setManualTransferFareInput(e.target.value)}
+              placeholder="Transfer fare £1–£5,000 (before discount)"
+              className={fieldClass}
+            />
+            <button
+              type="button"
+              onClick={() => applyManualTransferFare()}
+              className="min-h-12 rounded-xl bg-emerald px-4 text-sm font-semibold text-navy"
+            >
+              Apply manual £
+            </button>
+          </div>
+        ) : (
+          <p className="text-xs text-white/55">
+            Uses the same website pricing engine as the public quote tool. ROI and NI addresses are
+            allowed via A2A lookup; the real airport code is still used for pricing.
+          </p>
+        )}
+
+        <p className="pt-2 text-sm font-semibold text-white">Link validity</p>
+        <div className="flex min-w-0 flex-wrap gap-2">
+          {(
+            [
+              ["none", "No time limit"],
+              ["24h", "24 hours"],
+              ["7d", "7 days"],
+              ["30d", "30 days"],
+              ["custom", "Custom days"],
+            ] as const
+          ).map(([mode, label]) => (
+            <button
+              key={mode}
+              type="button"
+              onClick={() => setValidityMode(mode)}
+              className={`min-h-10 rounded-xl border px-3 text-sm ${
+                validityMode === mode
+                  ? "border-emerald text-emerald"
+                  : "border-white/15 text-white/80"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        {validityMode === "custom" ? (
+          <input
+            type="number"
+            min={1}
+            max={365}
+            value={customValidityDays}
+            onChange={(e) => setCustomValidityDays(e.target.value)}
+            placeholder="1–365 days"
+            className={fieldClass}
+          />
+        ) : null}
+      </section>
+
       {calculatedFareAmount != null && discountBreakdown && pricedFare ? (
         <section className="min-w-0 space-y-4 overflow-hidden rounded-2xl border border-emerald/40 bg-emerald/10 px-4 py-5">
           <div className="text-center">
@@ -1333,11 +1491,17 @@ export default function QuickQuoteOwnerClient() {
       <div className="grid min-w-0 gap-2">
         <button
           type="button"
-          disabled={busy || !canCalculate}
-          onClick={() => void calculate()}
+          disabled={busy || (priceSource === "website-pricing-engine" ? !canCalculate : false)}
+          onClick={() =>
+            void (priceSource === "owner-manual" ? Promise.resolve(applyManualTransferFare()) : calculate())
+          }
           className="min-h-12 w-full max-w-full rounded-xl bg-emerald px-4 text-base font-semibold text-navy disabled:opacity-40"
         >
-          {busy ? "Working…" : "Calculate Quote"}
+          {busy
+            ? "Working…"
+            : priceSource === "owner-manual"
+              ? "Apply Manual Price"
+              : "Calculate Quote"}
         </button>
         <button
           type="button"
