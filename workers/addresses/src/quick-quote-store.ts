@@ -8,6 +8,7 @@ import {
   isQuickQuoteExpired,
   normalizeQuickQuoteId,
   quickQuoteKey,
+  quickQuoteKvExpirationTtlSeconds,
   quickQuoteRateLimitKey,
   type QuickQuoteRecord,
 } from "../shared/quick-quote";
@@ -31,20 +32,14 @@ export async function saveQuickQuote(
   const payload = JSON.stringify({ ...record, id });
 
   // No time limit — persist without a KV expiration setting.
-  if (record.expiresAt == null || record.expiresAt === "") {
+  const expirationTtl = quickQuoteKvExpirationTtlSeconds(record.expiresAt);
+  if (expirationTtl == null) {
     await store.put(quickQuoteKey(id), payload);
     return;
   }
 
-  const ttl = Math.max(
-    60,
-    Math.min(
-      QUICK_QUOTE_TTL_SECONDS + 60 * 60 * 24 * 7,
-      Math.floor((Date.parse(record.expiresAt) - Date.now()) / 1000) + 60 * 60 * 24 * 7,
-    ),
-  );
   await store.put(quickQuoteKey(id), payload, {
-    expirationTtl: Number.isFinite(ttl) && ttl > 0 ? ttl : QUICK_QUOTE_TTL_SECONDS + 60 * 60,
+    expirationTtl,
   });
 }
 

@@ -27,6 +27,13 @@ export const QUICK_QUOTE_MINIBUS_MAX_PASSENGERS = OWNER_QUICK_QUOTE_MAX_PASSENGE
 export const QUICK_QUOTE_MAX_PASSENGERS = QUICK_QUOTE_SALOON_MAX_PASSENGERS;
 export const QUICK_QUOTE_TTL_SECONDS = 60 * 60 * 24; // 24 hours (legacy default when validity omitted)
 export const QUICK_QUOTE_CREATE_RATE_LIMIT = 30; // per owner key per hour
+/** Keep timed Quick Quote KV records for this long after expiresAt (audit / late finalize). */
+export const QUICK_QUOTE_EXPIRED_RETENTION_SECONDS = 60 * 60 * 24 * 7;
+/**
+ * Cloudflare KV maximum expirationTtl (1 year).
+ * Long-validity quotes use up to this cap; no-expiry quotes omit TTL entirely.
+ */
+export const QUICK_QUOTE_KV_MAX_EXPIRATION_TTL_SECONDS = 60 * 60 * 24 * 365;
 /** Manual transfer fare bounds (GBP) before discount. */
 export const QUICK_QUOTE_MANUAL_FARE_MIN_GBP = 1;
 export const QUICK_QUOTE_MANUAL_FARE_MAX_GBP = 5000;
@@ -405,12 +412,57 @@ export function assertQuickQuoteTransferFareFloor(
   return { ok: true };
 }
 
-/** Engine fare used for re-validation (falls back to quotedAmount for legacy records). */
+/**
+ * Approved stored base fare from KV (falls back to quotedAmount for legacy records).
+ * Checkout must use this — never re-run the website engine without route metrics.
+ */
 export function quickQuoteCalculatedAmount(record: Pick<QuickQuoteRecord, "quotedAmount" | "calculatedAmount">): number {
   if (typeof record.calculatedAmount === "number" && Number.isFinite(record.calculatedAmount)) {
     return roundQuickQuoteGbp(record.calculatedAmount);
   }
   return roundQuickQuoteGbp(record.quotedAmount);
+}
+
+/** True when a stored Quick Quote base fare is finite and within the approved £1–£5,000 band. */
+export function isApprovedQuickQuoteStoredFare(amount: number): boolean {
+  return (
+    Number.isFinite(amount) &&
+    amount >= QUICK_QUOTE_MANUAL_FARE_MIN_GBP &&
+    amount <= QUICK_QUOTE_MANUAL_FARE_MAX_GBP
+  );
+}
+
+/**
+ * Accounting field for checkout: only website-engine quotes expose a standard website amount.
+ * Owner-manual quotes leave this undefined so the manual fare is not mislabelled.
+ */
+export function quickQuoteCheckoutStandardWebsiteAmount(
+  record: Pick<QuickQuoteRecord, "pricingSource" | "quotedAmount" | "calculatedAmount">,
+): number | undefined {
+  if (record.pricingSource !== "website-pricing-engine") return undefined;
+  const amount = quickQuoteCalculatedAmount(record);
+  return isApprovedQuickQuoteStoredFare(amount) ? amount : undefined;
+}
+
+/**
+ * KV `expirationTtl` for a timed Quick Quote, or `undefined` when the record
+ * should be stored with no KV expiration (no time limit).
+ *
+ * Retention is time-until-expiresAt plus a 7-day grace window, capped only by
+ * Cloudflare's 365-day max TTL — never by the legacy 24h+7d (8-day) ceiling.
+ */
+export function quickQuoteKvExpirationTtlSeconds(
+  expiresAt: string | null | undefined,
+  nowMs: number = Date.now(),
+): number | undefined {
+  if (expiresAt == null || expiresAt === "") return undefined;
+  const expiresMs = Date.parse(expiresAt);
+  if (!Number.isFinite(expiresMs)) {
+    return QUICK_QUOTE_TTL_SECONDS + QUICK_QUOTE_EXPIRED_RETENTION_SECONDS;
+  }
+  const secondsUntilExpiry = Math.max(0, Math.ceil((expiresMs - nowMs) / 1000));
+  const withGrace = secondsUntilExpiry + QUICK_QUOTE_EXPIRED_RETENTION_SECONDS;
+  return Math.max(60, Math.min(withGrace, QUICK_QUOTE_KV_MAX_EXPIRATION_TTL_SECONDS));
 }
 
 /**
