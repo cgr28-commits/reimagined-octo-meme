@@ -27,17 +27,17 @@ export default function AirportsSection() {
             return (
               <article
                 key={airport.code}
-                className="group rounded-2xl border border-white/10 bg-white/[0.025] p-6 transition-colors hover:border-white/20 sm:p-7"
+                className="group rounded-2xl border border-white/10 bg-white/[0.03] p-6 transition-all hover:border-emerald/30 hover:bg-white/[0.06] hover:shadow-xl hover:shadow-emerald/5"
               >
-                <div className="flex items-start justify-between gap-3">
-                  <span className="text-[0.6875rem] font-semibold uppercase tracking-[0.14em] text-emerald">
+                <div className="flex items-start justify-between">
+                  <span className="rounded-lg bg-emerald/15 px-3 py-1 text-xs font-bold tracking-wider text-emerald">
                     {airport.code}
                   </span>
-                  <span className="text-sm font-medium text-white/55">
+                  <span className="text-sm font-semibold text-emerald">
                     {airport.distance}
                   </span>
                 </div>
-                <h3 className="mt-4 font-display text-xl font-semibold tracking-tight text-white">
+                <h3 className="mt-4 text-lg font-bold text-white">
                   {href ? (
                     <Link href={href} className="transition-colors hover:text-emerald">
                       {airport.name}
@@ -47,7 +47,7 @@ export default function AirportsSection() {
                   )}
                 </h3>
                 <p className="mt-1 text-sm text-white/50">{airport.duration}</p>
-                <p className="mt-3 text-sm leading-relaxed text-white/62">
+                <p className="mt-3 text-sm leading-relaxed text-white/65">
                   {airport.description}
                 </p>
                 <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-2">
@@ -58,7 +58,7 @@ export default function AirportsSection() {
                   {href ? (
                     <Link
                       href={href}
-                      className="text-sm font-medium text-white/50 transition-colors hover:text-white/80"
+                      className="text-sm font-semibold text-white/55 transition-colors hover:text-emerald"
                     >
                       Transfer guide →
                     </Link>
