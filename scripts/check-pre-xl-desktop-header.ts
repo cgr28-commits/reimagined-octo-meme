@@ -51,6 +51,21 @@ const hero = readFileSync(join(root, "src/components/HeroSlideshow.tsx"), "utf8"
 assert.match(hero, /md:pt-28/);
 assert.match(hero, /md:scroll-mt-28/);
 assert.doesNotMatch(hero, /xl:scroll-mt-28/);
+// Full-bleed hero shell (background extends to viewport edges; inner content stays max-w)
+assert.match(hero, /absolute inset-0 overflow-hidden bg-navy/);
+assert.match(hero, /mx-auto grid w-full min-w-0 max-w-7xl[\s\S]*lg:max-w-\[1400px\]/);
+
+// Full-bleed header chrome; constrained inner nav/CTAs only
+assert.match(header, /fixed inset-x-0 top-0 z-\[60\] max-w-\[100%\]/);
+
+const globals = readFileSync(join(root, "src/app/globals.css"), "utf8");
+assert.match(globals, /html\s*\{[\s\S]*?background-color:\s*var\(--color-navy\)/);
+assert.match(globals, /body\s*\{[\s\S]*?background-color:\s*var\(--color-navy\)/);
+assert.match(globals, /scrollbar-gutter:\s*stable/);
+
+const layout = readFileSync(join(root, "src/app/layout.tsx"), "utf8");
+assert.match(layout, /relative w-full max-w-full overflow-x-clip/);
+assert.doesNotMatch(layout, /body className="[^"]*max-w-/);
 
 // Landing pages / sections must clear the desktop header from md (not only xl)
 for (const rel of [
@@ -79,4 +94,5 @@ console.log("OK  desktop: gradient chrome, md/lg grid, slim rounded-full CTAs");
 console.log("OK  mobile: Quote/WhatsApp/Menu remain md:hidden");
 console.log("OK  no xl-gated desktop nav / no laptop secondary nav / no btn-primary header CTA");
 console.log("OK  landing/section header clearance uses md: (not xl:)");
+console.log("OK  full-bleed root/header/hero backgrounds; inner content stays max-w-[1400px]");
 console.log("\nAll pre-xl desktop header checks passed.");

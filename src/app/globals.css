@@ -23,6 +23,8 @@ html {
   overscroll-behavior-x: none;
   width: 100%;
   max-width: 100%;
+  /* Same navy as body so scrollbar-gutter / root canvas never flash a light strip. */
+  background-color: var(--color-navy);
   scrollbar-gutter: stable;
   touch-action: pan-y pinch-zoom;
 }
