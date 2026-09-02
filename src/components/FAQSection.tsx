@@ -17,7 +17,7 @@ export default function FAQSection() {
   });
 
   return (
-    <section id="faq" className="relative scroll-mt-36 py-20 sm:py-28 lg:py-32 xl:scroll-mt-28">
+    <section id="faq" className="relative scroll-mt-36 md:scroll-mt-28 py-20 sm:py-28 lg:py-32">
       <div className="absolute inset-0 bg-navy-dark" />
       <div className="relative mx-auto max-w-3xl px-4 sm:px-6 lg:max-w-4xl lg:px-10 xl:px-12">
         <SectionHeading

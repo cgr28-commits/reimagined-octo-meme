@@ -88,7 +88,8 @@
     "check:refund-test-one-pound": "npx tsx scripts/check-refund-test-one-pound.ts",
     "check:refund-workflow-ui": "npx tsx scripts/check-refund-workflow-ui.ts",
     "check:a2a-personalised-quote": "npx tsx scripts/check-a2a-personalised-quote.ts",
-    "check:ad-fraud-monitoring": "npx tsx scripts/check-ad-fraud-monitoring.ts"
+    "check:ad-fraud-monitoring": "npx tsx scripts/check-ad-fraud-monitoring.ts",
+    "check:pre-xl-desktop-header": "npx tsx scripts/check-pre-xl-desktop-header.ts"
   },
   "dependencies": {
     "leaflet": "^1.9.4",

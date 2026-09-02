@@ -67,7 +67,7 @@ export default function HeroSlideshow() {
         </div>
 
         <div
-          className="order-1 min-w-0 w-full scroll-mt-20 md:scroll-mt-28 xl:scroll-mt-28 lg:order-2 lg:justify-self-stretch"
+          className="order-1 min-w-0 w-full scroll-mt-20 md:scroll-mt-28 lg:order-2 lg:justify-self-stretch"
           id="quote"
         >
           <FirstBookingOfferStrip />

@@ -170,9 +170,10 @@ export default function Header() {
         className={`fixed inset-x-0 top-0 z-[60] max-w-[100%] transition-[background-color,backdrop-filter,border-color] duration-200 ${
           scrolled
             ? "border-b border-white/10 bg-navy/95 backdrop-blur-md"
-            : "border-b border-white/5 bg-navy/90 backdrop-blur-sm"
+            : "bg-gradient-to-b from-navy via-navy/70 to-transparent"
         }`}
       >
+        {/* Desktop/laptop trust strip — visible from md (768px+), matching pre-xl breakpoint layout */}
         <div className="hidden md:block">
           <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-x-6 gap-y-1 px-4 py-2 text-xs font-medium text-white/55 sm:justify-between sm:px-6 sm:text-sm lg:max-w-[1400px] lg:px-10 xl:px-12">
             <p className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1">
@@ -186,14 +187,13 @@ export default function Header() {
               </span>
               <span className="text-emerald/90">Secure SumUp payment</span>
             </p>
-            <p className="hidden text-[0.8125rem] tracking-wide text-white/45 lg:block">
-              Private airport transfers across Northern Ireland
-            </p>
+            <p className="hidden text-white/40 lg:block">24/7 airport transfers across Northern Ireland</p>
           </div>
         </div>
 
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-2 px-4 py-2 sm:gap-3 sm:px-6 md:py-3 lg:grid lg:max-w-[1400px] lg:grid-cols-[auto_minmax(0,1fr)_auto] lg:items-center lg:gap-x-6 lg:px-10 xl:gap-x-8 xl:px-12">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-2 sm:px-6 md:py-3 lg:grid lg:max-w-[1400px] lg:grid-cols-[auto_minmax(0,1fr)_auto] lg:items-center lg:gap-x-6 lg:px-10 xl:gap-x-8 xl:px-12">
           <Link href="/" aria-label={`${SITE.name} home`} className="shrink-0">
+            {/* Mobile keeps compact h-12; md+ restores pre-8d153752 desktop logo scale */}
             <Logo className="h-12 sm:h-16 md:h-20" />
           </Link>
 
@@ -212,19 +212,20 @@ export default function Header() {
             ))}
           </nav>
 
+          {/* Desktop/laptop CTAs — slim pre-xl styles (not btn-primary / mobile chrome) */}
           <div className="hidden items-center gap-3 md:flex lg:justify-self-end">
             <SiteNavLink
               href="/manage-booking/"
-              className="whitespace-nowrap rounded-[0.65rem] border border-white/18 px-4 py-2 text-sm font-semibold text-white/85 transition-colors hover:border-white/35 hover:text-white lg:px-5"
+              className="whitespace-nowrap rounded-full border border-white/20 px-4 py-2 text-sm font-semibold text-white/90 transition-colors hover:border-emerald/50 hover:text-emerald lg:px-5"
             >
               Manage Your Booking
             </SiteNavLink>
-            <QuoteNavLink className="btn-primary px-5 text-sm lg:px-6">
+            <QuoteNavLink className="rounded-full bg-emerald px-5 py-2 text-sm font-semibold text-navy transition-all hover:bg-emerald-light hover:shadow-lg hover:shadow-emerald/25 lg:px-6">
               Get a Quote
             </QuoteNavLink>
           </div>
 
-          {/* Mobile only (< md): logo + Get a Quote + WhatsApp + Menu. Do not show on desktop/laptop. */}
+          {/* Mobile only (< md): logo + Get a Quote + WhatsApp + Menu. Unchanged mobile chrome. */}
           <div className="flex min-w-0 items-center justify-end gap-1.5 sm:gap-2 md:hidden">
             {MOBILE_QUICK_LINKS.map((link) => (
               <QuoteNavLink
