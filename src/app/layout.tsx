@@ -133,6 +133,30 @@ export default function RootLayout({
   return (
     <html lang="en-GB" className={`${manrope.variable} ${cormorant.variable}`}>
       <body className="overflow-x-clip antialiased">
+        {/* TrafficGuard sitewide pageview tracking */}
+        <Script id="trafficguard-init" strategy="afterInteractive">
+          {`
+            window.dataTrafficGuard = window.dataTrafficGuard || [];
+            window.dataTrafficGuard.push(['property_group_id', 'tg-g-026255-001']);
+            window.dataTrafficGuard.push(['event', 'pageview']);
+          `}
+        </Script>
+        <Script
+          id="trafficguard-script"
+          src="https://tgtag.io/tg.js?pid=tg-g-026255-001"
+          strategy="afterInteractive"
+        />
+        <noscript>
+          {/* TrafficGuard requires a raw tracking pixel when JavaScript is disabled. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="https://p.tgtag.io/event?property_group_id=tg-g-026255-001&event_name=pageview&no_script=1"
+            width="1"
+            height="1"
+            style={{ border: 0 }}
+            alt=""
+          />
+        </noscript>
         {googleAdsConfig.tagEnabled ? (
           <Script id="google-consent-default" strategy="beforeInteractive">
             {`
