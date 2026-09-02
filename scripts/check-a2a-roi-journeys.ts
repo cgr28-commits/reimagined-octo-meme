@@ -222,6 +222,17 @@ check("Bangor to Cork is ROI manual quote (standard Greater Belfast pickup)", ()
   assert.equal(needsManualQuoteApproval(bangorHome, corkCity), true);
 });
 
+check("BFS ↔ Cork is instant quote (existing pricing engine; eligibility unlock)", () => {
+  assert.equal(isRepublicOfIrelandJourney(bfs!, corkCity), true);
+  assert.equal(needsManualQuoteApproval(bfs!, corkCity), false);
+  assert.equal(needsManualQuoteApproval(corkCity, bfs!), false);
+});
+
+check("BHD ↔ Dublin city is instant quote (existing pricing engine; eligibility unlock)", () => {
+  assert.equal(needsManualQuoteApproval(bhd!, dublinCity), false);
+  assert.equal(needsManualQuoteApproval(dublinCity, bhd!), false);
+});
+
 check("Belfast to Bangor is personalised A2A quote (no instant price)", () => {
   assert.equal(detectJourneyKind(belfastHome, bangorHome), "address-to-address");
   assert.equal(needsManualQuoteApproval(belfastHome, bangorHome), true);

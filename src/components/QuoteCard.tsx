@@ -198,6 +198,7 @@ import {
   isIncompleteAddressPlace,
   INCOMPLETE_PICKUP_ADDRESS_MESSAGE,
   isPlaceSelected,
+  isBelfastAirportRoiInstantJourney,
   isRepublicOfIrelandJourney,
   journeyKindLabel,
   needsManualQuoteApproval,
@@ -729,7 +730,8 @@ function QuoteCard({
     isPlaceSelected(pickupPlace) &&
     isPlaceSelected(dropoffPlace) &&
     isRepublicOfIrelandJourney(pickupPlace, dropoffPlace) &&
-    !isDublinCityCorridorJourney(pickupPlace, dropoffPlace);
+    !isDublinCityCorridorJourney(pickupPlace, dropoffPlace) &&
+    !isBelfastAirportRoiInstantJourney(pickupPlace, dropoffPlace);
   const isDublinCityCorridor =
     isA2AFlow &&
     isPlaceSelected(pickupPlace) &&
