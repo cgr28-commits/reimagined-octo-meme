@@ -394,12 +394,39 @@ export function normaliseCountryCode(country?: string | null): string | null {
  * (Dublin city, Cork, Galway, Eircode addresses, etc.).
  *
  * Dublin Airport (DUB) keeps the existing instant quote + online book flow.
+ * Belfast International / Belfast City ↔ ROI addresses are instant via
+ * {@link isBelfastAirportRoiInstantJourney} (same pricing engine; eligibility only).
  */
 export function isRepublicOfIrelandJourney(
   pickup: SelectedPlace,
   dropoff: SelectedPlace,
 ): boolean {
   return isRoiNonAirportLeg(pickup) || isRoiNonAirportLeg(dropoff);
+}
+
+/**
+ * Instant-quote corridor: exactly one end is BFS or BHD, the other is a
+ * Republic of Ireland address that is not an airport. Reuses the existing
+ * distance pricing engine — eligibility only, not a separate ROI formula.
+ */
+export function isBelfastAirportRoiInstantJourney(
+  pickup: SelectedPlace,
+  dropoff: SelectedPlace,
+): boolean {
+  if (!isPlaceSelected(pickup) || !isPlaceSelected(dropoff)) {
+    return false;
+  }
+  const pickupAirport = detectAirportCodeFromPlace(pickup);
+  const dropoffAirport = detectAirportCodeFromPlace(dropoff);
+  const isBelfastAirport = (code: string | null) => code === "BFS" || code === "BHD";
+
+  if (isBelfastAirport(pickupAirport) && !dropoffAirport) {
+    return isRoiNonAirportLeg(dropoff);
+  }
+  if (isBelfastAirport(dropoffAirport) && !pickupAirport) {
+    return isRoiNonAirportLeg(pickup);
+  }
+  return false;
 }
 
 /** Airports allowed as standard/instant pickups (with Greater Belfast addresses).
@@ -616,6 +643,7 @@ export function isGreaterBelfastDestination(place: SelectedPlace): boolean {
  * Journeys that must not show an automatic fare or immediate payment:
  * - Pure Address-to-Address (no airport on either leg) — personalised quote
  * - ROI city destinations (not DUB airport), or pickups outside NI / not into Greater Belfast
+ *   — except BFS/BHD ↔ ROI address (instant via existing pricing engine)
  *
  * Airport journeys (BFS / BHD / DUB / LDY) keep the instant-quote path.
  * Incomplete addresses are validation errors, not manual-quote / out-of-area.
@@ -637,6 +665,11 @@ export function needsManualQuoteApproval(
   const dropoffAirport = detectAirportCodeFromPlace(dropoff);
   if (!pickupAirport && !dropoffAirport) {
     return true;
+  }
+
+  // BFS/BHD ↔ Republic of Ireland address: unlock instant quote (eligibility only).
+  if (isBelfastAirportRoiInstantJourney(pickup, dropoff)) {
+    return false;
   }
 
   if (isOutOfAreaPickup(pickup)) {
