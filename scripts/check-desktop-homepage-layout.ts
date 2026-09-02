@@ -26,8 +26,9 @@ console.log("OK  hero uses balanced desktop grid + top-aligned columns (no max-w
 
 const header = read("src/components/Header.tsx");
 assert.match(header, /xl:grid-cols-\[auto_minmax\(0,1fr\)_auto\]/);
-assert.match(header, /xl:justify-center|xl:flex xl:justify-center/);
-assert.match(header, /xl:hidden/);
+assert.match(header, /aria-label="Laptop navigation"/);
+assert.match(header, /md:block xl:hidden/);
+assert.match(header, /md:hidden/);
 assert.match(header, /Get a Quote/);
 assert.match(header, /Manage Your Booking/);
 assert.match(header, /aria-label="Main navigation"/);

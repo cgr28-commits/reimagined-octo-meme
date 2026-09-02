@@ -71,7 +71,7 @@ export default function Header() {
     mounted && menuOpen
       ? createPortal(
           <div
-            className="fixed inset-0 z-[80] flex h-[100dvh] max-h-[100dvh] flex-col xl:hidden"
+            className="fixed inset-0 z-[80] flex h-[100dvh] max-h-[100dvh] flex-col md:hidden"
             role="dialog"
             aria-modal="true"
             aria-label="Site menu"
@@ -173,7 +173,7 @@ export default function Header() {
             : "border-b border-white/5 bg-navy/90 backdrop-blur-sm"
         }`}
       >
-        <div className="hidden xl:block">
+        <div className="hidden md:block">
           <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-x-6 gap-y-1 px-4 py-2 text-xs font-medium text-white/55 sm:justify-between sm:px-6 sm:text-sm lg:max-w-[1400px] lg:px-10 xl:px-12">
             <p className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1">
               <span className="text-emerald/90">Licensed &amp; insured</span>
@@ -212,7 +212,7 @@ export default function Header() {
             ))}
           </nav>
 
-          <div className="hidden items-center gap-3 xl:flex xl:justify-self-end">
+          <div className="hidden items-center gap-3 md:flex lg:justify-self-end">
             <SiteNavLink
               href="/manage-booking/"
               className="whitespace-nowrap rounded-[0.65rem] border border-white/18 px-4 py-2 text-sm font-semibold text-white/85 transition-colors hover:border-white/35 hover:text-white lg:px-5"
@@ -225,7 +225,7 @@ export default function Header() {
           </div>
 
           {/* Mobile: logo + Get a Quote + WhatsApp + Menu (Airports / Manage live in the drawer) */}
-          <div className="flex min-w-0 items-center justify-end gap-1.5 sm:gap-2 xl:hidden">
+          <div className="flex min-w-0 items-center justify-end gap-1.5 sm:gap-2 md:hidden">
             {MOBILE_QUICK_LINKS.map((link) => (
               <QuoteNavLink
                 key={link.href}
@@ -270,6 +270,23 @@ export default function Header() {
             </button>
           </div>
         </div>
+
+        <nav
+          className="hidden border-t border-white/8 px-6 py-1.5 md:block xl:hidden"
+          aria-label="Laptop navigation"
+        >
+          <div className="mx-auto flex max-w-7xl items-center justify-center gap-x-5">
+            {NAV_LINKS.map((link) => (
+              <SiteNavLink
+                key={link.href}
+                href={link.href}
+                className="whitespace-nowrap text-xs font-medium text-white/70 transition-colors hover:text-emerald"
+              >
+                {link.label}
+              </SiteNavLink>
+            ))}
+          </div>
+        </nav>
       </header>
 
       {mobileMenu}
