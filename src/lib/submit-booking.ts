@@ -94,6 +94,11 @@ async function submitViaWorker(submission: EnquirySubmission): Promise<WorkerSub
         value: parseBookingValue(booking.estimatedPrice),
         currency: "GBP",
       });
+      void import("@/lib/ad-fraud-events").then(({ recordAdFraudBehaviour }) => {
+        recordAdFraudBehaviour("booking_completed", {
+          ref: bookingReference.slice(0, 40),
+        });
+      });
     }
     return {
       bookingReference,

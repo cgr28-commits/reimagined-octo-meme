@@ -6,6 +6,7 @@ import PreventHorizontalScroll from "@/components/PreventHorizontalScroll";
 import CookieConsent from "@/components/CookieConsent";
 import GoogleAdsTag from "@/components/GoogleAdsTag";
 import AdsAttributionCapture from "@/components/AdsAttributionCapture";
+import AdFraudMonitor from "@/components/AdFraudMonitor";
 import QuoteAssistant from "@/components/QuoteAssistant";
 import SiteHashScroll from "@/components/SiteHashScroll";
 import SiteOfflineGate from "@/components/SiteOfflineGate";
@@ -186,6 +187,7 @@ export default function RootLayout({
           {/* Outside the overflow clip so position:fixed is viewport-relative on mobile */}
           <GoogleAdsTag />
           <AdsAttributionCapture />
+          <AdFraudMonitor />
           <SiteHashScroll />
           <QuoteAssistant />
           <CookieConsent />

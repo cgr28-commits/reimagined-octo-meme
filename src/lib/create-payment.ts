@@ -256,6 +256,10 @@ export async function createPaymentCheckout(
     ? { ...request.booking, ...(attribution ? { attribution } : {}) }
     : undefined;
 
+  void import("@/lib/ad-fraud-events").then(({ recordAdFraudBehaviour }) => {
+    recordAdFraudBehaviour("payment_started");
+  });
+
   const response = await fetch(PAYMENTS_API_URL, {
     method: "POST",
     headers: {

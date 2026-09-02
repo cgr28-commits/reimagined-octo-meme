@@ -238,6 +238,15 @@ import {
   handleRefundRequest,
   isRefundDiagnosticsPath,
 } from "./refund-handlers";
+import {
+  handleAdFraudAdminSummaryRequest,
+  handleAdFraudAdminVisitorRequest,
+  handleAdFraudIngestRequest,
+  isAdFraudAdminSummaryPath,
+  isAdFraudAdminVisitorPath,
+  isAdFraudIngestPath,
+  runAdFraudRetentionCleanup,
+} from "./ad-fraud-handlers";
 export { RefundCoordinator } from "./refund-coordinator";
 import {
   handleRefundTestCheckoutRequest,
@@ -406,6 +415,8 @@ type Env = {
   GOOGLE_ADS_CUSTOMER_ID?: string;
   GOOGLE_ADS_LOGIN_CUSTOMER_ID?: string;
   GOOGLE_ADS_PAID_BOOKING_CONVERSION_ACTION_ID?: string;
+  /** Salt for irreversible Ad Fraud visitor/IP hashes (Worker secret). */
+  AD_FRAUD_HASH_SALT?: string;
 };
 
 type QuoteLeadRequestBody = QuoteLeadDetails & {
@@ -545,6 +556,9 @@ function routePath(
   | "payments-confirm"
   | "payments-webhook"
   | "bookings-refund"
+  | "ad-fraud-ingest"
+  | "ad-fraud-admin"
+  | "ad-fraud-admin-visitor"
   | "paid-bookings-refund-diagnostics"
   | "paid-bookings-refund-test-checkout"
   | "paid-bookings-refund-test-list"
@@ -606,6 +620,15 @@ function routePath(
 
   if (pathname === "/bookings/refund" || pathname === "/api/bookings/refund") {
     return "bookings-refund";
+  }
+  if (isAdFraudIngestPath(pathname)) {
+    return "ad-fraud-ingest";
+  }
+  if (isAdFraudAdminVisitorPath(pathname)) {
+    return "ad-fraud-admin-visitor";
+  }
+  if (isAdFraudAdminSummaryPath(pathname)) {
+    return "ad-fraud-admin";
   }
 
   if (isRefundDiagnosticsPath(pathname)) {
@@ -3581,6 +3604,16 @@ export default {
       return handleRefundRequest(request, env, origin);
     }
 
+    if (route === "ad-fraud-ingest") {
+      return handleAdFraudIngestRequest(request, env, origin);
+    }
+    if (route === "ad-fraud-admin") {
+      return handleAdFraudAdminSummaryRequest(request, env, origin);
+    }
+    if (route === "ad-fraud-admin-visitor") {
+      return handleAdFraudAdminVisitorRequest(request, env, origin);
+    }
+
     if (route === "paid-bookings-refund-diagnostics") {
       if (request.method !== "GET") {
         return json({ error: "Method not allowed" }, 405, origin);
@@ -4209,6 +4242,13 @@ export default {
         .catch((error) => {
           console.error("Paid checkout recovery cron failed", error);
         }),
+    );
+
+    // Ad Fraud monitoring: prune stale events from recent visitor aggregates (KV TTL is primary).
+    ctx.waitUntil(
+      runAdFraudRetentionCleanup(env).catch((error) => {
+        console.error("Ad fraud retention cron failed", error);
+      }),
     );
   },
 };

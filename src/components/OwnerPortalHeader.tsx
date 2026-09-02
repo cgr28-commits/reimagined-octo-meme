@@ -116,6 +116,13 @@ export default function OwnerPortalHeader({
                       >
                         Issue refund
                       </Link>
+                      <Link
+                        href="/admin/ad-fraud/"
+                        onClick={closeMenu}
+                        className="rounded-xl px-3 py-3 text-base font-semibold text-white hover:bg-white/5"
+                      >
+                        Ad Fraud
+                      </Link>
                     </>
                   )}
                   <Link
@@ -168,6 +175,12 @@ export default function OwnerPortalHeader({
                   className="rounded-lg px-3 py-2 text-sm font-semibold text-white/80 transition-colors hover:bg-white/5 hover:text-white"
                 >
                   Refunds
+                </Link>
+                <Link
+                  href="/admin/ad-fraud/"
+                  className="rounded-lg px-3 py-2 text-sm font-semibold text-white/80 transition-colors hover:bg-white/5 hover:text-white"
+                >
+                  Ad Fraud
                 </Link>
               </>
             )}
