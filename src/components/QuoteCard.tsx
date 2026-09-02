@@ -2071,6 +2071,9 @@ function QuoteCard({
 
   function markQuoteFunnelStarted() {
     trackQuoteStarted(quoteFunnelAttemptIdRef.current, quoteFunnelParams());
+    void import("@/lib/ad-fraud-events").then(({ recordAdFraudBehaviour }) => {
+      recordAdFraudBehaviour("quote_started");
+    });
   }
 
   // Diagnostic: Step 1 quote calculator became visible (once per page/session + pageType).
@@ -2185,6 +2188,9 @@ function QuoteCard({
             : "Address to address";
 
     // Immediate send; cleanup is a no-op so leaving Step 1 cannot cancel.
+    void import("@/lib/ad-fraud-events").then(({ recordAdFraudBehaviour }) => {
+      recordAdFraudBehaviour("quote_completed");
+    });
     return scheduleQuoteLeadAlert({
       tripLabel,
       pickupLabel,
@@ -2598,6 +2604,10 @@ function QuoteCard({
       }
       return;
     }
+
+    void import("@/lib/ad-fraud-events").then(({ recordAdFraudBehaviour }) => {
+      recordAdFraudBehaviour("booking_started", { path: "pay_now" });
+    });
 
     if (!requireConfirmedPlacesForPayment()) {
       return;
@@ -3182,6 +3192,10 @@ function QuoteCard({
     if (!requireTermsAccepted()) {
       return;
     }
+
+    void import("@/lib/ad-fraud-events").then(({ recordAdFraudBehaviour }) => {
+      recordAdFraudBehaviour("booking_started", { path: delivery });
+    });
 
     const details = buildConfirmedBookingDetails();
     const isMobile = isMobileDevice ?? detectMobileDevice();

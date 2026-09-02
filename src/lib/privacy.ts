@@ -1,6 +1,6 @@
 import { BUSINESS_LEGAL } from "@/lib/business-legal";
 
-export const PRIVACY_LAST_UPDATED = "August 2026 v3";
+export const PRIVACY_LAST_UPDATED = "September 2026 v1";
 
 export const PRIVACY_SECTIONS = [
   {
@@ -25,6 +25,7 @@ export const PRIVACY_SECTIONS = [
       "Optional live location if a customer chooses to share it via WhatsApp",
       "Driver GPS location history may be recorded during booked journeys for operational/dispute evidence",
       "Marketing preferences if you opt in to receive updates (optional)",
+      "Limited technical signals for security, fraud prevention and advertising abuse monitoring (such as hashed network identifiers, coarse browser/device category, landing page, referrer host, and advertising campaign parameters when present)",
     ],
   },
   {
@@ -42,6 +43,7 @@ export const PRIVACY_SECTIONS = [
       "Log bookings in our business calendar",
       "Respond to enquiries and complaints",
       "Send occasional marketing emails if you have opted in (offers, travel tips and service news)",
+      "Monitor for security, fraud prevention and advertising abuse (for example repetitive paid-advertising clicks with no genuine booking activity)",
     ],
   },
   {
@@ -108,6 +110,7 @@ export const PRIVACY_SECTIONS = [
       "Driver GPS journey evidence is retained as an operational/dispute record for a configurable period (default around 13 months / ~400 days unless a longer period is set for the business). It is not retained indefinitely.",
       "Journey records and any operational GPS evidence are retained only as needed for disputes, safety, and legal requirements. Optional WhatsApp live location is controlled by the sender inside WhatsApp.",
       "Refund and cancellation audit records are kept with the related booking for the same accounting/dispute retention period.",
+      "Advertising abuse / security monitoring event records are retained for about 90 days, then removed or anonymised. Aggregated non-identifying statistics may be kept longer.",
     ],
   },
   {
@@ -121,9 +124,11 @@ export const PRIVACY_SECTIONS = [
     title: "Cookies",
     content: [
       "This website uses essential browser storage to remember payment return state during checkout and to store your cookie preference.",
+      "We may also use a short-lived essential session identifier for security, fraud prevention and advertising abuse monitoring. This is separate from optional marketing measurement and is not used to identify individual competitors.",
       "Optional Google Ads cookies are used only if you choose “Accept measurement cookies” on our consent banner. When accepted, we load the Google tag sitewide with Google Consent Mode so Google may measure fixed-price quotes, saved booking requests and completed paid bookings, subject to that consent choice.",
       "The Google tag may set Google cookies used for conversion measurement. It is not used for general site analytics browsing tracking.",
       "With your consent, we may also send securely hashed booking contact details (such as email or phone) to Google as enhanced conversions to improve measurement accuracy. These details are hashed in the browser before they are sent.",
+      "A third-party traffic-quality provider (TrafficGuard) may load for advertising traffic quality measurement. Our own advertising-abuse monitoring complements that provider and does not replace it.",
       "You can change your mind later by clearing site data for this website in your browser settings; the consent banner will appear again if no preference is stored.",
     ],
   },

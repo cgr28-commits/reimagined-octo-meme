@@ -83,6 +83,7 @@ jobs:
           SUMUP_MERCHANT_CODE: ${{ secrets.SUMUP_MERCHANT_CODE }}
           DRIVER_ACCESS_KEY: ${{ secrets.DRIVER_ACCESS_KEY }}
           OWNER_ACCESS_KEY: ${{ secrets.OWNER_ACCESS_KEY }}
+          AD_FRAUD_HASH_SALT: ${{ secrets.AD_FRAUD_HASH_SALT }}
           GOOGLE_PLACES_API_KEY: ${{ secrets.GOOGLE_PLACES_API_KEY || secrets.GOOGLE_API_KEY || secrets.GOOGLE_MAPS_API_KEY }}
           IDEAL_POSTCODES_API_KEY: ${{ secrets.IDEAL_POSTCODES_API_KEY }}
           GETADDRESS_API_KEY: ${{ secrets.GETADDRESS_API_KEY }}
@@ -149,6 +150,12 @@ jobs:
           if [ -n "$OWNER_ACCESS_KEY" ]; then
             echo "Syncing OWNER_ACCESS_KEY secret…"
             printf '%s' "$OWNER_ACCESS_KEY" | npx wrangler secret put OWNER_ACCESS_KEY
+          fi
+          if [ -n "$AD_FRAUD_HASH_SALT" ]; then
+            echo "Syncing AD_FRAUD_HASH_SALT secret…"
+            printf '%s' "$AD_FRAUD_HASH_SALT" | npx wrangler secret put AD_FRAUD_HASH_SALT
+          else
+            echo "::notice::AD_FRAUD_HASH_SALT not set — Ad Fraud ingest returns 503 until the Worker secret is configured."
           fi
           npm run deploy
 

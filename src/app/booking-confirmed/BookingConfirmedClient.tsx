@@ -111,6 +111,9 @@ export default function BookingConfirmedClient() {
       setStatus(result.status === "confirmed" ? "confirmed" : result.status);
       if (result.status === "confirmed" && purchase) {
         setFireConversion(true);
+        void import("@/lib/ad-fraud-events").then(({ recordAdFraudBehaviour }) => {
+          recordAdFraudBehaviour("payment_completed");
+        });
       }
     })();
 
