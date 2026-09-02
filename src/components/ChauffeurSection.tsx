@@ -4,7 +4,7 @@ import SectionHeading from "./SectionHeading";
 
 export default function ChauffeurSection() {
   return (
-    <section id="chauffeur" className="relative scroll-mt-36 py-20 sm:py-28 xl:scroll-mt-28">
+    <section id="chauffeur" className="relative scroll-mt-36 md:scroll-mt-28 py-20 sm:py-28">
       <div className="absolute inset-0 bg-gradient-to-b from-navy via-navy-light/20 to-navy" />
       <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <SectionHeading

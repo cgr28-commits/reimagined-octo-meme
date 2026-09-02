@@ -77,7 +77,7 @@ export default async function AirportTransferPage({ params }: Props) {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(serviceLd) }}
       />
       <Header />
-      <main className="min-h-screen overflow-x-clip bg-navy pb-16 pt-36 xl:pt-28">
+      <main className="min-h-screen overflow-x-clip bg-navy pb-16 pt-36 md:pt-28">
         <div className="relative h-64 overflow-hidden sm:h-80 lg:h-[22rem]">
           <OptimizedHeroPicture baseName={page.heroBase} alt={page.heroAlt} priority />
           <div className="absolute inset-0 bg-gradient-to-t from-navy via-navy/50 to-navy/20" />
