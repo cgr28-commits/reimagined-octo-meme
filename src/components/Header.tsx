@@ -192,13 +192,13 @@ export default function Header() {
           </div>
         </div>
 
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-2 px-4 py-2 sm:gap-3 sm:px-6 md:py-3 xl:grid xl:max-w-[1400px] xl:grid-cols-[auto_minmax(0,1fr)_auto] xl:items-center xl:gap-x-6 xl:px-10 2xl:gap-x-8 2xl:px-12">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-2 px-4 py-2 sm:gap-3 sm:px-6 md:py-3 lg:grid lg:max-w-[1400px] lg:grid-cols-[auto_minmax(0,1fr)_auto] lg:items-center lg:gap-x-6 lg:px-10 xl:gap-x-8 xl:px-12">
           <Link href="/" aria-label={`${SITE.name} home`} className="shrink-0">
             <Logo className="h-12 sm:h-16 md:h-20" />
           </Link>
 
           <nav
-            className="hidden items-center gap-6 xl:flex xl:justify-center xl:gap-5 2xl:gap-7"
+            className="hidden items-center gap-6 md:flex lg:justify-center lg:gap-5 xl:gap-7"
             aria-label="Main navigation"
           >
             {NAV_LINKS.map((link) => (
@@ -224,7 +224,7 @@ export default function Header() {
             </QuoteNavLink>
           </div>
 
-          {/* Mobile: logo + Get a Quote + WhatsApp + Menu (Airports / Manage live in the drawer) */}
+          {/* Mobile only (< md): logo + Get a Quote + WhatsApp + Menu. Do not show on desktop/laptop. */}
           <div className="flex min-w-0 items-center justify-end gap-1.5 sm:gap-2 md:hidden">
             {MOBILE_QUICK_LINKS.map((link) => (
               <QuoteNavLink
@@ -270,23 +270,6 @@ export default function Header() {
             </button>
           </div>
         </div>
-
-        <nav
-          className="hidden border-t border-white/8 px-6 py-1.5 md:block xl:hidden"
-          aria-label="Laptop navigation"
-        >
-          <div className="mx-auto flex max-w-7xl items-center justify-center gap-x-5">
-            {NAV_LINKS.map((link) => (
-              <SiteNavLink
-                key={link.href}
-                href={link.href}
-                className="whitespace-nowrap text-xs font-medium text-white/70 transition-colors hover:text-emerald"
-              >
-                {link.label}
-              </SiteNavLink>
-            ))}
-          </div>
-        </nav>
       </header>
 
       {mobileMenu}

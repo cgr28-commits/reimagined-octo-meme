@@ -25,14 +25,16 @@ assert.match(hero, /id="quote"/);
 console.log("OK  hero uses balanced desktop grid + top-aligned columns (no max-w-md quote cap)");
 
 const header = read("src/components/Header.tsx");
-assert.match(header, /xl:grid-cols-\[auto_minmax\(0,1fr\)_auto\]/);
-assert.match(header, /aria-label="Laptop navigation"/);
-assert.match(header, /md:block xl:hidden/);
-assert.match(header, /md:hidden/);
+assert.match(header, /lg:grid-cols-\[auto_minmax\(0,1fr\)_auto\]/);
+assert.match(header, /hidden items-center gap-6 md:flex/);
+assert.match(header, /hidden items-center gap-3 md:flex/);
+assert.match(header, /sm:gap-2 md:hidden/);
+assert.doesNotMatch(header, /aria-label="Laptop navigation"/);
+assert.doesNotMatch(header, /xl:flex xl:justify-center/);
 assert.match(header, /Get a Quote/);
 assert.match(header, /Manage Your Booking/);
 assert.match(header, /aria-label="Main navigation"/);
-console.log("OK  header desktop grid; mobile CTAs compact (no quick-pill row)");
+console.log("OK  header desktop grid at lg+; main nav/CTAs from md; mobile chrome md:hidden only");
 
 const quote = read("src/components/QuoteCard.tsx");
 assert.match(quote, /lg:grid-cols-2/);
