@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { hasMarketingCookieConsent } from "@/lib/cookie-consent";
 import {
   trackPurchase,
   type AdsUserData,
@@ -45,13 +46,14 @@ export default function GoogleAdsConversion({
       return;
     }
 
+    const includeUserData = hasMarketingCookieConsent();
     const ok = trackPurchase({
       value,
       currency,
       transactionId,
       bookingReference,
-      includeUserData: true,
-      userData: { email: userEmail, phone: userPhone },
+      includeUserData,
+      userData: includeUserData ? { email: userEmail, phone: userPhone } : undefined,
     });
     if (ok) firedRef.current = true;
   }, [
