@@ -10,7 +10,7 @@ import type { AdsAttribution } from "./ads-attribution";
 import { sanitizeAdsAttribution } from "./ads-attribution";
 import { UK_TIME_ZONE } from "./uk-time";
 
-export const GOOGLE_ADS_API_VERSION = "v19";
+export const GOOGLE_ADS_API_VERSION = "v25";
 
 /**
  * Google Ads *account* customer ID (digits only, no dashes).
@@ -19,7 +19,10 @@ export const GOOGLE_ADS_API_VERSION = "v19";
 export const DEFAULT_GOOGLE_ADS_CUSTOMER_ID = "4955115517";
 
 /** Numeric conversion action id for the Paid Booking action in account 495-511-5517. */
-export const DEFAULT_GOOGLE_ADS_PAID_BOOKING_CONVERSION_ACTION_ID = "77347686808";
+export const DEFAULT_GOOGLE_ADS_PAID_BOOKING_CONVERSION_ACTION_ID = "7734768680";
+
+const STALE_GOOGLE_ADS_CUSTOMER_IDS = new Set(["18303631278", "10303631278"]);
+const STALE_PAID_BOOKING_ACTION_IDS = new Set(["77347686808", "7733724411"]);
 
 export type GoogleAdsClickConversionEnv = {
   GOOGLE_ADS_DEVELOPER_TOKEN?: string;
@@ -79,18 +82,24 @@ export function isGoogleAdsClickConversionConfigured(
 }
 
 export function resolveGoogleAdsCustomerId(env: GoogleAdsClickConversionEnv): string {
-  return digitsOnlyCustomerId(
+  const candidate = digitsOnlyCustomerId(
     trimSecret(env.GOOGLE_ADS_CUSTOMER_ID) || DEFAULT_GOOGLE_ADS_CUSTOMER_ID,
   );
+  return STALE_GOOGLE_ADS_CUSTOMER_IDS.has(candidate)
+    ? DEFAULT_GOOGLE_ADS_CUSTOMER_ID
+    : candidate;
 }
 
 export function resolvePaidBookingConversionActionId(
   env: GoogleAdsClickConversionEnv,
 ): string {
-  return digitsOnlyCustomerId(
+  const candidate = digitsOnlyCustomerId(
     trimSecret(env.GOOGLE_ADS_PAID_BOOKING_CONVERSION_ACTION_ID) ||
       DEFAULT_GOOGLE_ADS_PAID_BOOKING_CONVERSION_ACTION_ID,
   );
+  return STALE_PAID_BOOKING_ACTION_IDS.has(candidate)
+    ? DEFAULT_GOOGLE_ADS_PAID_BOOKING_CONVERSION_ACTION_ID
+    : candidate;
 }
 
 /** Prefer gclid, then wbraid (iOS web), then gbraid — exactly one id per upload. */

@@ -1,11 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import {
-  COOKIE_CONSENT_EVENT,
-  hasMarketingCookieConsent,
-  type CookieConsentChoice,
-} from "@/lib/cookie-consent";
+import { useEffect, useRef } from "react";
 import {
   trackPurchase,
   type AdsUserData,
@@ -37,18 +32,6 @@ export default function GoogleAdsConversion({
   userData,
 }: GoogleAdsConversionProps) {
   const firedRef = useRef(false);
-  const [marketingAllowed, setMarketingAllowed] = useState(false);
-
-  useEffect(() => {
-    const sync = () => setMarketingAllowed(hasMarketingCookieConsent());
-    sync();
-    const onChange = (event: Event) => {
-      const detail = (event as CustomEvent<CookieConsentChoice>).detail;
-      setMarketingAllowed(detail === "accepted");
-    };
-    window.addEventListener(COOKIE_CONSENT_EVENT, onChange);
-    return () => window.removeEventListener(COOKIE_CONSENT_EVENT, onChange);
-  }, []);
 
   const userEmail = userData?.email;
   const userPhone = userData?.phone;
@@ -56,7 +39,6 @@ export default function GoogleAdsConversion({
   useEffect(() => {
     if (
       !fire ||
-      !marketingAllowed ||
       firedRef.current ||
       !transactionId?.trim()
     ) {
@@ -74,7 +56,6 @@ export default function GoogleAdsConversion({
     if (ok) firedRef.current = true;
   }, [
     fire,
-    marketingAllowed,
     value,
     currency,
     transactionId,

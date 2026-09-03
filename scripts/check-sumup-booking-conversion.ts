@@ -136,6 +136,29 @@ async function main(): Promise<void> {
   );
   console.log("OK  a missing callback cannot block SumUp navigation");
 
+  console.log("=== Denied consent still sends a cookieless booking conversion ===");
+  local.set(COOKIE_CONSENT_KEY, "rejected");
+  const cookielessPromise = trackBookingRequestSubmittedBeforeNavigation(
+    { bookingReference: "matni-checkout-cookieless", value: 70, currency: "GBP" },
+    50,
+  );
+  await Promise.resolve();
+  const cookielessEvent = gtagCalls.find(
+    (call) =>
+      call[0] === "event" &&
+      call[1] === "conversion" &&
+      (call[2] as { transaction_id?: string } | undefined)?.transaction_id ===
+        "matni-checkout-cookieless",
+  );
+  assert.ok(cookielessEvent, "denied consent must still emit a Consent Mode ping");
+  const cookielessPayload = cookielessEvent![2] as Record<string, unknown>;
+  assert.equal(cookielessPayload.email, undefined);
+  assert.equal(cookielessPayload.phone_number, undefined);
+  (cookielessPayload.event_callback as () => void)();
+  assert.equal(await cookielessPromise, true);
+  local.set(COOKIE_CONSENT_KEY, "accepted");
+  console.log("OK  booking conversion is cookieless; no enhanced user data");
+
   console.log("=== Persistence acknowledgement gates the live Pay handler ===");
   const card = read("src/components/QuoteCard.tsx");
   const worker = read("workers/addresses/src/index.ts");

@@ -10,6 +10,10 @@ compatibility_date = "2025-08-01"
 # - WEB3FORMS_ACCESS_KEY
 # - RESEND_API_KEY           (preferred branded HTML invoices — never expose to the browser)
 # - SUMUP_API_KEY / SUMUP_MERCHANT_CODE  (hosted checkout — Worker-only secrets)
+# - GOOGLE_ADS_DEVELOPER_TOKEN / GOOGLE_ADS_CLIENT_ID / GOOGLE_ADS_CLIENT_SECRET /
+#   GOOGLE_ADS_REFRESH_TOKEN (all four required for server Paid Booking conversions)
+# - GOOGLE_ADS_LOGIN_CUSTOMER_ID (optional manager/MCC customer id)
+# Customer/action IDs have guarded code defaults: 4955115517 / 7734768680.
 # - GOOGLE_REVIEW_URL  (Google Business "Write a review" link for post-trip emails)
 # - OWNER_ACCESS_KEY   (optional — defaults to DRIVER_ACCESS_KEY for /admin/refund/)
 # Redeploy after changing worker code: wrangler deploy (or Cloudflare dashboard → Deploy)

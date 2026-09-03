@@ -165,7 +165,7 @@ function main() {
       returnDate: "",
       returnTime: "",
     };
-    const metrics = { distanceKm: 108, durationMinutes: 77 };
+    const metrics = { distanceKm: 108, durationMinutes: 77, source: "osrm" as const };
     const vehicle = VEHICLE_TYPES[0];
     const a2a = calculatePointToPointQuote(
       "1 High Street, Omagh BT78 1AB, Northern Ireland",
@@ -193,6 +193,7 @@ function main() {
       vehicle,
       false,
       schedule,
+      metrics,
     );
     const airportAgain = calculateQuote(
       "10 Donegall Square, Belfast BT1 5GS",
@@ -200,6 +201,7 @@ function main() {
       vehicle,
       false,
       schedule,
+      metrics,
     );
     assert.ok(airport);
     assert.equal(airport!.amount, airportAgain!.amount);
@@ -221,13 +223,21 @@ function main() {
     assert.match(locationQuote, /QuoteCard/);
   });
 
-  check("Invalid / no-consent / missing value or id does not fire a conversion", () => {
+  check("Undecided consent sends cookieless; invalid value/id still does not fire", () => {
     resetRequestQuoteConversion();
     mocks.gtagCalls.length = 0;
     mocks.dataLayer.length = 0;
     mocks.clearConsent();
     assert.equal(
-      trackRequestQuoteConversion({ transactionId: "TEST-INVALID", value: 50 }),
+      trackRequestQuoteConversion({ transactionId: "TEST-COOKIELESS", value: 50 }),
+      true,
+    );
+    assert.equal(
+      mocks.gtagCalls.filter((call) => call[0] === "event" && call[1] === "conversion").length,
+      1,
+    );
+    assert.equal(
+      mocks.gtagCalls.some((call) => call[0] === "set" && call[1] === "user_data"),
       false,
     );
 
@@ -237,7 +247,7 @@ function main() {
     assert.equal(trackRequestQuoteConversion({ transactionId: "TEST-ZERO", value: 0 }), false);
     assert.equal(
       mocks.gtagCalls.filter((call) => call[0] === "event" && call[1] === "conversion").length,
-      0,
+      1,
     );
   });
 

@@ -1,11 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import {
-  COOKIE_CONSENT_EVENT,
-  hasMarketingCookieConsent,
-  type CookieConsentChoice,
-} from "@/lib/cookie-consent";
+import { useEffect, useRef } from "react";
 import type { AdsQuotePageType } from "@/lib/google-ads";
 import {
   trackRequestQuoteConversion,
@@ -51,25 +46,13 @@ export default function GoogleAdsRequestQuote({
   userData,
 }: GoogleAdsRequestQuoteProps) {
   const lastFiredTransactionIdRef = useRef("");
-  const [marketingAllowed, setMarketingAllowed] = useState(false);
-
-  useEffect(() => {
-    const sync = () => setMarketingAllowed(hasMarketingCookieConsent());
-    sync();
-    const onChange = (event: Event) => {
-      const detail = (event as CustomEvent<CookieConsentChoice>).detail;
-      setMarketingAllowed(detail === "accepted");
-    };
-    window.addEventListener(COOKIE_CONSENT_EVENT, onChange);
-    return () => window.removeEventListener(COOKIE_CONSENT_EVENT, onChange);
-  }, []);
 
   const userEmail = userData?.email;
   const userPhone = userData?.phone;
   const allowPii = includeUserData === true && pageType !== "emerge_belfast";
 
   useEffect(() => {
-    if (!fire || !marketingAllowed) {
+    if (!fire) {
       return;
     }
 
@@ -97,7 +80,6 @@ export default function GoogleAdsRequestQuote({
     if (ok) lastFiredTransactionIdRef.current = normalizedId;
   }, [
     fire,
-    marketingAllowed,
     value,
     currency,
     transactionId,

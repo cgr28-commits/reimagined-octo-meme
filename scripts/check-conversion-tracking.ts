@@ -174,7 +174,60 @@ assert.equal(
 );
 console.log("OK  positive server payload required; refresh is idempotent; one browser Ads send_to");
 
+console.log("=== Consent Mode cookieless conversions ===");
+local.delete(COOKIE_CONSENT_KEY);
+gtagCalls.length = 0;
+dataLayer.length = 0;
+assert.equal(
+  trackRequestQuoteConversion({
+    transactionId: "Q-COOKIELESS",
+    value: 61,
+    currency: "GBP",
+  }),
+  true,
+  "undecided consent must allow a cookieless quote conversion",
+);
+local.set(COOKIE_CONSENT_KEY, "rejected");
+assert.equal(
+  trackBookingRequestSubmitted({
+    bookingReference: "MATNI-COOKIELESS",
+    value: 61,
+    currency: "GBP",
+  }),
+  true,
+  "denied consent must allow a cookieless persisted-booking conversion",
+);
+assert.equal(
+  trackPurchase({
+    transactionId: "PAY-COOKIELESS",
+    bookingReference: "MATNI-COOKIELESS",
+    value: 61,
+    currency: "GBP",
+    includeUserData: true,
+    userData: { email: "private@example.com", phone: "07700900000" },
+  }),
+  true,
+  "denied consent must allow a cookieless verified purchase",
+);
+assert.equal(countEvent(ADS_EVENT_QUOTE_GENERATED), 1);
+assert.equal(countEvent(ADS_EVENT_BOOKING_REQUEST_SUBMITTED), 1);
+assert.equal(countEvent(ADS_EVENT_PURCHASE), 1);
+assert.equal(
+  gtagCalls.some(
+    (call) => call[0] === "set" && call[1] === "user_data",
+  ),
+  false,
+  "enhanced email/phone data must remain suppressed without accepted consent",
+);
+for (const call of gtagCalls) {
+  const payload = call[2] as Record<string, unknown> | undefined;
+  assert.equal(payload?.email, undefined);
+  assert.equal(payload?.phone_number, undefined);
+}
+console.log("OK  quote/booking/purchase ping cookieless; enhanced user data remains gated");
+
 console.log("=== Attribution persistence and sanitisation ===");
+local.set(COOKIE_CONSENT_KEY, "accepted");
 const captured = captureAdsAttributionFromLocation(
   "?gclid=click-123&utm_source=google&utm_medium=cpc&utm_campaign=airport&utm_term=belfast+taxi&utm_content=ad-a&ignored=secret",
 );

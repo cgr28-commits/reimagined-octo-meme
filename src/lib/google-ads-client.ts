@@ -165,7 +165,7 @@ function fireTrackedEvent(options: {
   dedupeStorage: DedupeStorage;
   delivery?: TrackedEventDelivery;
 }): boolean {
-  if (typeof window === "undefined" || !hasMarketingCookieConsent()) {
+  if (typeof window === "undefined") {
     options.delivery?.onComplete();
     return false;
   }
@@ -228,9 +228,6 @@ function isValidQuoteValue(value: unknown): value is number {
  */
 export function trackRequestQuoteConversion(options: AdsConversionPayload = {}): boolean {
   if (typeof window === "undefined") {
-    return false;
-  }
-  if (!hasMarketingCookieConsent()) {
     return false;
   }
 
@@ -307,7 +304,7 @@ export function trackBookingRequestSubmitted(
 ): boolean {
   const config = getGoogleAdsConfig();
   const bookingReference = options.bookingReference?.trim() || options.transactionId?.trim();
-  if (!bookingReference || !hasMarketingCookieConsent()) return false;
+  if (!bookingReference) return false;
 
   const params: Record<string, unknown> = {
     booking_reference: bookingReference,
@@ -361,7 +358,7 @@ export function trackBookingRequestSubmittedBeforeNavigation(
 export function trackPurchase(options: AdsConversionPayload): boolean {
   const config = getGoogleAdsConfig();
   const transactionId = options.transactionId?.trim();
-  if (!transactionId || !isValidQuoteValue(options.value) || !hasMarketingCookieConsent()) {
+  if (!transactionId || !isValidQuoteValue(options.value)) {
     return false;
   }
 

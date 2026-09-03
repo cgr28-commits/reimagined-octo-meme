@@ -13,6 +13,7 @@ import {
 import type { PaidBookingRecord } from "../shared/paid-booking-record";
 import {
   getPaidBookingRecord,
+  listRecentPaidBookings,
   paidBookingStoreConfigured,
   savePaidBookingRecord,
 } from "./paid-booking-store";
@@ -86,6 +87,8 @@ export async function maybeUploadPaidBookingAdsConversion(input: {
   isRefundTest?: boolean;
   /** Amendment top-ups are not a new Paid Booking conversion. */
   isAmendmentTopUp?: boolean;
+  /** Preserve the original paid-booking timestamp on delayed/retry uploads. */
+  conversionTime?: Date;
 }): Promise<void> {
   const paymentReference = input.paymentReference.trim();
   if (!paymentReference) return;
@@ -129,6 +132,11 @@ export async function maybeUploadPaidBookingAdsConversion(input: {
     orderId: paymentReference,
     conversionValue: amount,
     currencyCode: currency,
+    conversionTime:
+      input.conversionTime ??
+      (existing?.createdAt && !Number.isNaN(Date.parse(existing.createdAt))
+        ? new Date(existing.createdAt)
+        : undefined),
   });
 
   await persistConversionOutcome(store, paymentReference, {
@@ -150,4 +158,77 @@ export async function maybeUploadPaidBookingAdsConversion(input: {
       clickIdType: result.clickIdType,
     });
   }
+}
+
+export type PaidBookingAdsRetryResult = {
+  scanned: number;
+  eligible: number;
+  attempted: number;
+  errors: number;
+};
+
+/**
+ * Hourly recovery for recent uploads that failed or ran before credentials
+ * were configured. Terminal statuses are never retried. The original booking
+ * reference/timestamp are retained for Google order-id dedupe and attribution.
+ */
+export async function retryRecentPaidBookingAdsConversions(
+  env: PaidBookingAdsConversionEnv,
+): Promise<PaidBookingAdsRetryResult> {
+  const result: PaidBookingAdsRetryResult = {
+    scanned: 0,
+    eligible: 0,
+    attempted: 0,
+    errors: 0,
+  };
+  if (!paidBookingStoreConfigured(env.TRACKING_STORE)) {
+    return result;
+  }
+
+  const records = await listRecentPaidBookings(env.TRACKING_STORE, {
+    days: 30,
+    limit: 50,
+  });
+  result.scanned = records.length;
+  const cutoffMs = Date.now() - 30 * 24 * 60 * 60 * 1000;
+
+  for (const record of records) {
+    if (
+      record.googleAdsPaidConversionStatus !== "failed" &&
+      record.googleAdsPaidConversionStatus !== "skipped_not_configured"
+    ) {
+      continue;
+    }
+    if (record.isRefundTest || record.isAmendmentTestFixture) {
+      continue;
+    }
+    const createdAt = new Date(record.createdAt);
+    if (Number.isNaN(createdAt.getTime()) || createdAt.getTime() < cutoffMs) {
+      continue;
+    }
+
+    result.eligible += 1;
+    try {
+      await maybeUploadPaidBookingAdsConversion({
+        env,
+        paymentReference: record.paymentReference,
+        amount:
+          typeof record.originalAmount === "number" && record.originalAmount > 0
+            ? record.originalAmount
+            : record.amount,
+        currency: record.currency,
+        attribution: record.attribution,
+        conversionTime: createdAt,
+      });
+      result.attempted += 1;
+    } catch (error) {
+      result.errors += 1;
+      console.error("Google Ads Paid Booking retry failed", {
+        paymentReference: record.paymentReference,
+        error: error instanceof Error ? error.message : "Unknown retry error",
+      });
+    }
+  }
+
+  return result;
 }
