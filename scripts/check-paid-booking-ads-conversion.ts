@@ -210,13 +210,15 @@ async function main() {
   const sharedModule = read("shared/google-ads-click-conversions.ts");
   const workerModule = read("workers/addresses/shared/google-ads-click-conversions.ts");
   for (const source of [sharedModule, workerModule, envExample]) {
-    assert.doesNotMatch(
-      source,
-      /GOOGLE_ADS_CUSTOMER_ID[^\n]{0,40}18303631278/,
-      "must not set/document AW-tag digits as GOOGLE_ADS_CUSTOMER_ID",
-    );
     assert.match(source, /4955115517/);
   }
+  assert.doesNotMatch(
+    envExample,
+    /GOOGLE_ADS_CUSTOMER_ID\s*=\s*(?:18303631278|10303631278)/,
+    "env example must not configure AW-tag digits as the customer id",
+  );
+  assert.match(sharedModule, /STALE_GOOGLE_ADS_CUSTOMER_IDS/);
+  assert.match(workerModule, /STALE_GOOGLE_ADS_CUSTOMER_IDS/);
   assert.match(sharedModule, /GOOGLE_ADS_API_VERSION = "v25"/);
   assert.match(workerModule, /GOOGLE_ADS_API_VERSION = "v25"/);
   assert.match(sharedModule, /DEFAULT_GOOGLE_ADS_PAID_BOOKING_CONVERSION_ACTION_ID = "7734768680"/);
