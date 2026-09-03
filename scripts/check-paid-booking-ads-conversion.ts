@@ -9,6 +9,7 @@ import { join } from "node:path";
 import {
   DEFAULT_GOOGLE_ADS_CUSTOMER_ID,
   DEFAULT_GOOGLE_ADS_PAID_BOOKING_CONVERSION_ACTION_ID,
+  GOOGLE_ADS_API_VERSION,
   formatGoogleAdsConversionDateTime,
   isGoogleAdsClickConversionConfigured,
   pickAdsClickIdentifier,
@@ -26,19 +27,40 @@ async function main() {
   console.log("=== Account vs website tag IDs ===");
   assert.equal(DEFAULT_GOOGLE_ADS_ID, "AW-18303631278");
   assert.equal(DEFAULT_GOOGLE_ADS_CUSTOMER_ID, "4955115517");
-  assert.equal(DEFAULT_GOOGLE_ADS_PAID_BOOKING_CONVERSION_ACTION_ID, "77347686808");
+  assert.equal(DEFAULT_GOOGLE_ADS_PAID_BOOKING_CONVERSION_ACTION_ID, "7734768680");
+  assert.equal(GOOGLE_ADS_API_VERSION, "v25");
   assert.notEqual(
     DEFAULT_GOOGLE_ADS_CUSTOMER_ID,
     DEFAULT_GOOGLE_ADS_ID.replace(/^AW-/, ""),
     "customer ID must not be the AW- tag number",
   );
   assert.equal(resolveGoogleAdsCustomerId({}), "4955115517");
-  assert.equal(resolvePaidBookingConversionActionId({}), "77347686808");
+  assert.equal(resolvePaidBookingConversionActionId({}), "7734768680");
   assert.equal(
     resolveGoogleAdsCustomerId({ GOOGLE_ADS_CUSTOMER_ID: "495-511-5517" }),
     "4955115517",
   );
-  console.log("OK  tag AW-18303631278 ≠ customer 4955115517; action 77347686808");
+  assert.equal(
+    resolveGoogleAdsCustomerId({ GOOGLE_ADS_CUSTOMER_ID: "18303631278" }),
+    "4955115517",
+  );
+  assert.equal(
+    resolveGoogleAdsCustomerId({ GOOGLE_ADS_CUSTOMER_ID: "10303631278" }),
+    "4955115517",
+  );
+  assert.equal(
+    resolvePaidBookingConversionActionId({
+      GOOGLE_ADS_PAID_BOOKING_CONVERSION_ACTION_ID: "77347686808",
+    }),
+    "7734768680",
+  );
+  assert.equal(
+    resolvePaidBookingConversionActionId({
+      GOOGLE_ADS_PAID_BOOKING_CONVERSION_ACTION_ID: "7733724411",
+    }),
+    "7734768680",
+  );
+  console.log("OK  v25; customer 4955115517; action 7734768680; stale IDs guarded");
 
   console.log("=== Click id selection ===");
   assert.deepEqual(pickAdsClickIdentifier({ gclid: "abc", wbraid: "wb", gbraid: "gb" }), {
@@ -84,7 +106,7 @@ async function main() {
         GOOGLE_ADS_CLIENT_SECRET: "secret",
         GOOGLE_ADS_REFRESH_TOKEN: "refresh",
         GOOGLE_ADS_CUSTOMER_ID: "4955115517",
-        GOOGLE_ADS_PAID_BOOKING_CONVERSION_ACTION_ID: "77347686808",
+        GOOGLE_ADS_PAID_BOOKING_CONVERSION_ACTION_ID: "7734768680",
       },
       {
         orderId: "PAY-1",
@@ -103,6 +125,61 @@ async function main() {
   }
   console.log("OK  upload refuses missing click id or secrets");
 
+  console.log("=== v25 upload endpoint and conversion action resource ===");
+  {
+    const originalFetch = globalThis.fetch;
+    const calls: Array<{ url: string; init?: RequestInit }> = [];
+    globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
+      const url = String(input);
+      calls.push({ url, init });
+      if (url === "https://oauth2.googleapis.com/token") {
+        return new Response(JSON.stringify({ access_token: "access" }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      return new Response(JSON.stringify({ results: [{ orderId: "PAY-V25" }] }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }) as typeof fetch;
+    try {
+      const uploaded = await uploadPaidBookingClickConversion(
+        {
+          GOOGLE_ADS_DEVELOPER_TOKEN: "dev",
+          GOOGLE_ADS_CLIENT_ID: "id",
+          GOOGLE_ADS_CLIENT_SECRET: "secret",
+          GOOGLE_ADS_REFRESH_TOKEN: "refresh",
+          // Deliberately stale values must be remapped.
+          GOOGLE_ADS_CUSTOMER_ID: "18303631278",
+          GOOGLE_ADS_PAID_BOOKING_CONVERSION_ACTION_ID: "7733724411",
+        },
+        {
+          orderId: "PAY-V25",
+          conversionValue: 75,
+          attribution: { gclid: "click-v25" },
+          conversionTime: new Date("2026-09-01T12:00:00.000Z"),
+        },
+      );
+      assert.equal(uploaded.status, "sent");
+      assert.equal(
+        calls[1]?.url,
+        "https://googleads.googleapis.com/v25/customers/4955115517:uploadClickConversions",
+      );
+      const body = JSON.parse(String(calls[1]?.init?.body)) as {
+        conversions: Array<{ conversionAction: string; orderId: string }>;
+      };
+      assert.equal(
+        body.conversions[0]?.conversionAction,
+        "customers/4955115517/conversionActions/7734768680",
+      );
+      assert.equal(body.conversions[0]?.orderId, "PAY-V25");
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  }
+  console.log("OK  v25 endpoint + corrected account/action resource");
+
   console.log("=== Offline fallback and browser purchase destination ===");
   const finalize = read("workers/addresses/src/finalize-paid-checkout.ts");
   assert.match(finalize, /maybeUploadPaidBookingAdsConversion/);
@@ -112,13 +189,21 @@ async function main() {
   assert.match(helper, /shouldSkipUpload/);
   assert.match(helper, /isRefundTest/);
   assert.match(helper, /isAmendmentTopUp/);
+  assert.match(helper, /retryRecentPaidBookingAdsConversions/);
+  assert.match(helper, /days:\s*30/);
+  assert.match(helper, /limit:\s*50/);
+  assert.match(helper, /conversionTime:\s*createdAt/);
+  assert.match(helper, /record\.originalAmount/);
+  assert.match(helper, /record\.isRefundTest \|\| record\.isAmendmentTestFixture/);
+  const workerIndex = read("workers/addresses/src/index.ts");
+  assert.match(workerIndex, /retryRecentPaidBookingAdsConversions\(env\)/);
   const browserAds = read("src/lib/google-ads.ts");
   assert.match(browserAds, /DEFAULT_PURCHASE_CONVERSION_LABEL/);
   assert.match(browserAds, /NEXT_PUBLIC_GOOGLE_ADS_PURCHASE_CONVERSION_LABEL/);
 
   const envExample = read("env.example");
   assert.match(envExample, /GOOGLE_ADS_CUSTOMER_ID=4955115517/);
-  assert.match(envExample, /GOOGLE_ADS_PAID_BOOKING_CONVERSION_ACTION_ID=77347686808/);
+  assert.match(envExample, /GOOGLE_ADS_PAID_BOOKING_CONVERSION_ACTION_ID=7734768680/);
   assert.match(envExample, /Do NOT use the AW- tag number 18303631278/);
   assert.doesNotMatch(envExample, /GOOGLE_ADS_CUSTOMER_ID=18303631278/);
 
@@ -132,8 +217,26 @@ async function main() {
     );
     assert.match(source, /4955115517/);
   }
-  assert.match(sharedModule, /77347686808/);
-  assert.match(workerModule, /77347686808/);
+  assert.match(sharedModule, /GOOGLE_ADS_API_VERSION = "v25"/);
+  assert.match(workerModule, /GOOGLE_ADS_API_VERSION = "v25"/);
+  assert.match(sharedModule, /DEFAULT_GOOGLE_ADS_PAID_BOOKING_CONVERSION_ACTION_ID = "7734768680"/);
+  assert.match(workerModule, /DEFAULT_GOOGLE_ADS_PAID_BOOKING_CONVERSION_ACTION_ID = "7734768680"/);
+
+  const deployWorkflow = read(".github/workflows/deploy-worker.yml");
+  for (const secret of [
+    "GOOGLE_ADS_DEVELOPER_TOKEN",
+    "GOOGLE_ADS_CLIENT_ID",
+    "GOOGLE_ADS_CLIENT_SECRET",
+    "GOOGLE_ADS_REFRESH_TOKEN",
+    "GOOGLE_ADS_LOGIN_CUSTOMER_ID",
+  ]) {
+    assert.match(deployWorkflow, new RegExp(`secrets\\.${secret}`));
+    assert.match(deployWorkflow, new RegExp(`wrangler secret put ${secret}`));
+  }
+  assert.match(
+    deployWorkflow,
+    /Google Ads API credentials are incomplete — existing Cloudflare Worker secrets are left unchanged/,
+  );
   console.log("OK  browser Paid Booking is live; Worker upload remains a separate fallback");
 
   console.log("\nAll Paid Booking Ads conversion checks passed.");

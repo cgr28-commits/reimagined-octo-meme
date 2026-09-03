@@ -84,6 +84,11 @@ jobs:
           DRIVER_ACCESS_KEY: ${{ secrets.DRIVER_ACCESS_KEY }}
           OWNER_ACCESS_KEY: ${{ secrets.OWNER_ACCESS_KEY }}
           AD_FRAUD_HASH_SALT: ${{ secrets.AD_FRAUD_HASH_SALT }}
+          GOOGLE_ADS_DEVELOPER_TOKEN: ${{ secrets.GOOGLE_ADS_DEVELOPER_TOKEN }}
+          GOOGLE_ADS_CLIENT_ID: ${{ secrets.GOOGLE_ADS_CLIENT_ID }}
+          GOOGLE_ADS_CLIENT_SECRET: ${{ secrets.GOOGLE_ADS_CLIENT_SECRET }}
+          GOOGLE_ADS_REFRESH_TOKEN: ${{ secrets.GOOGLE_ADS_REFRESH_TOKEN }}
+          GOOGLE_ADS_LOGIN_CUSTOMER_ID: ${{ secrets.GOOGLE_ADS_LOGIN_CUSTOMER_ID }}
           GOOGLE_PLACES_API_KEY: ${{ secrets.GOOGLE_PLACES_API_KEY || secrets.GOOGLE_API_KEY || secrets.GOOGLE_MAPS_API_KEY }}
           IDEAL_POSTCODES_API_KEY: ${{ secrets.IDEAL_POSTCODES_API_KEY }}
           GETADDRESS_API_KEY: ${{ secrets.GETADDRESS_API_KEY }}
@@ -156,6 +161,21 @@ jobs:
             printf '%s' "$AD_FRAUD_HASH_SALT" | npx wrangler secret put AD_FRAUD_HASH_SALT
           else
             echo "::notice::AD_FRAUD_HASH_SALT not set — Ad Fraud ingest returns 503 until the Worker secret is configured."
+          fi
+          if [ -n "$GOOGLE_ADS_DEVELOPER_TOKEN" ] \
+            && [ -n "$GOOGLE_ADS_CLIENT_ID" ] \
+            && [ -n "$GOOGLE_ADS_CLIENT_SECRET" ] \
+            && [ -n "$GOOGLE_ADS_REFRESH_TOKEN" ]; then
+            echo "Syncing Google Ads API credentials…"
+            printf '%s' "$GOOGLE_ADS_DEVELOPER_TOKEN" | npx wrangler secret put GOOGLE_ADS_DEVELOPER_TOKEN
+            printf '%s' "$GOOGLE_ADS_CLIENT_ID" | npx wrangler secret put GOOGLE_ADS_CLIENT_ID
+            printf '%s' "$GOOGLE_ADS_CLIENT_SECRET" | npx wrangler secret put GOOGLE_ADS_CLIENT_SECRET
+            printf '%s' "$GOOGLE_ADS_REFRESH_TOKEN" | npx wrangler secret put GOOGLE_ADS_REFRESH_TOKEN
+            if [ -n "$GOOGLE_ADS_LOGIN_CUSTOMER_ID" ]; then
+              printf '%s' "$GOOGLE_ADS_LOGIN_CUSTOMER_ID" | npx wrangler secret put GOOGLE_ADS_LOGIN_CUSTOMER_ID
+            fi
+          else
+            echo "::notice::Google Ads API credentials are incomplete — existing Cloudflare Worker secrets are left unchanged."
           fi
           npm run deploy
 

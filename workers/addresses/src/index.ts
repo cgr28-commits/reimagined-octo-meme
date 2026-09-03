@@ -287,6 +287,7 @@ import {
   finalizePaidCheckout,
   resolveBookingForCheckout,
 } from "./finalize-paid-checkout";
+import { retryRecentPaidBookingAdsConversions } from "./paid-booking-ads-conversion";
 import {
   getPendingCheckout,
   pendingCheckoutStoreConfigured,
@@ -4241,6 +4242,20 @@ export default {
         })
         .catch((error) => {
           console.error("Paid checkout recovery cron failed", error);
+        }),
+    );
+
+    // Retry recent Google Ads Paid Booking uploads that failed or ran before
+    // credentials were configured. Terminal/no-click records remain untouched.
+    ctx.waitUntil(
+      retryRecentPaidBookingAdsConversions(env)
+        .then((result) => {
+          if (result.attempted > 0 || result.errors > 0) {
+            console.log("Google Ads Paid Booking retry cron", JSON.stringify(result));
+          }
+        })
+        .catch((error) => {
+          console.error("Google Ads Paid Booking retry cron failed", error);
         }),
     );
 
