@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { hasMarketingCookieConsent } from "@/lib/cookie-consent";
 import type { AdsQuotePageType } from "@/lib/google-ads";
 import {
   trackRequestQuoteConversion,
@@ -49,7 +50,10 @@ export default function GoogleAdsRequestQuote({
 
   const userEmail = userData?.email;
   const userPhone = userData?.phone;
-  const allowPii = includeUserData === true && pageType !== "emerge_belfast";
+  const allowPii =
+    includeUserData === true &&
+    pageType !== "emerge_belfast" &&
+    hasMarketingCookieConsent();
 
   useEffect(() => {
     if (!fire) {
