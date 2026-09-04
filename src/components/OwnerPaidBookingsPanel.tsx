@@ -35,6 +35,7 @@ import {
   fetchTrackingDiagnostic,
   finalizePaidCheckoutRecovery,
   resendPaidBookingConfirmation,
+  sendManualReturnOfferNow,
   sendOwnerReviewRequest,
   sendUpdatedBookingConfirmation,
   type OwnerPaidBookingSummary,
@@ -539,6 +540,44 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
       );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not resend booking confirmation");
+    } finally {
+      setBusyRef("");
+    }
+  }
+
+  async function handleSendReturnOfferNow(booking: OwnerPaidBookingSummary) {
+    const email = booking.customerEmail?.trim() || "the customer";
+    if (
+      !window.confirm(
+        `Send the 5% Return Journey Offer email to ${email} now?\n\nThis uses the same secure return-booking link as the automatic offer. It will not send a second copy later.`,
+      )
+    ) {
+      return;
+    }
+    setBusyRef(booking.paymentReference);
+    setError("");
+    setMessage("");
+    try {
+      const result = await sendManualReturnOfferNow(ownerKey, booking.paymentReference);
+      if (result.returnOffer) {
+        setBookings((current) =>
+          current.map((entry) =>
+            entry.paymentReference === booking.paymentReference
+              ? { ...entry, returnOffer: result.returnOffer }
+              : entry,
+          ),
+        );
+      }
+      if (!result.ok) {
+        throw new Error(result.error || "Return offer could not be sent");
+      }
+      setMessage(
+        result.customerEmail
+          ? `5% Return Journey Offer sent to ${result.customerEmail}.`
+          : "5% Return Journey Offer sent.",
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not send return offer");
     } finally {
       setBusyRef("");
     }
@@ -1191,6 +1230,18 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
                 Edit Booking
               </button>
             ) : null}
+            {booking.returnOffer?.canSendNow ? (
+              <button
+                type="button"
+                disabled={busyRef === booking.paymentReference}
+                onClick={() => void handleSendReturnOfferNow(booking)}
+                className="min-h-11 w-full rounded-xl border border-emerald/50 bg-emerald/20 px-4 py-2.5 text-sm font-bold text-emerald disabled:opacity-60"
+              >
+                {busyRef === booking.paymentReference
+                  ? "Sending…"
+                  : "Send 5% Return Offer Now"}
+              </button>
+            ) : null}
             {canAdminConfirm ? (
               <button
                 type="button"
@@ -1410,7 +1461,7 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
             {booking.returnOffer ? (
               <div className="col-span-2">
                 <dt className="text-white/35">Return Offer</dt>
-                <dd className="space-y-0.5 text-white/70">
+                <dd className="space-y-1.5 text-white/70">
                   <p>
                     Eligible: {booking.returnOffer.eligible ? "Yes" : "No"}
                     {booking.returnOffer.reason ? ` · ${booking.returnOffer.reason}` : ""}
@@ -1429,6 +1480,23 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
                       ? ` · ${booking.returnOffer.returnBookingPaymentReference}`
                       : " · Return booking: —"}
                   </p>
+                  {booking.returnOffer.canSendNow ? (
+                    <button
+                      type="button"
+                      disabled={busyRef === booking.paymentReference}
+                      onClick={() => void handleSendReturnOfferNow(booking)}
+                      className="mt-1 min-h-11 w-full rounded-xl border border-emerald/50 bg-emerald/20 px-4 py-2.5 text-sm font-bold text-emerald disabled:opacity-60"
+                    >
+                      {busyRef === booking.paymentReference
+                        ? "Sending…"
+                        : "Send 5% Return Offer Now"}
+                    </button>
+                  ) : booking.returnOffer.status === "SENT" ? null : booking.returnOffer
+                      .sendBlockedReason ? (
+                    <p className="text-xs text-amber-100/90">
+                      Send now unavailable: {booking.returnOffer.sendBlockedReason}
+                    </p>
+                  ) : null}
                 </dd>
               </div>
             ) : null}

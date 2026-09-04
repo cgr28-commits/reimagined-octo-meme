@@ -348,6 +348,8 @@ import {
 import { composeWebsiteFareBreakdown } from "../shared/website-fare-breakdown";
 import {
   handleGetReturnOffer,
+  handleManualReturnOfferSend,
+  isManualReturnOfferSendPath,
   isReturnOfferLookupPath,
   processDueReturnOffers,
   resolveReturnOfferForPayment,
@@ -580,6 +582,7 @@ function routePath(
   | "paid-bookings-financial-summary"
   | "paid-bookings"
   | "paid-bookings-resend"
+  | "paid-bookings-return-offer-send"
   | "paid-bookings-edit"
   | "paid-bookings-updated-confirmation"
   | "paid-bookings-review-request"
@@ -667,6 +670,10 @@ function routePath(
 
   if (isPaidBookingResendPath(pathname)) {
     return "paid-bookings-resend";
+  }
+
+  if (isManualReturnOfferSendPath(pathname)) {
+    return "paid-bookings-return-offer-send";
   }
 
   if (isPaidBookingEditPath(pathname)) {
@@ -3704,6 +3711,20 @@ export default {
         return json({ error: "Method not allowed" }, 405, origin);
       }
       return handlePaidBookingResendRequest(request, env, origin);
+    }
+
+    if (route === "paid-bookings-return-offer-send") {
+      if (request.method !== "POST") {
+        return json({ error: "Method not allowed" }, 405, origin);
+      }
+      if (!env.TRACKING_STORE) {
+        return json({ error: "Storage is not configured" }, 503, origin);
+      }
+      return handleManualReturnOfferSend(
+        request,
+        { ...env, TRACKING_STORE: env.TRACKING_STORE },
+        origin,
+      );
     }
 
     if (route === "paid-bookings-edit") {

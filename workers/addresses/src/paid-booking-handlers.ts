@@ -496,6 +496,7 @@ export async function handlePaidBookingsListRequest(
               booking: snapshot,
               record: offerRecord,
               correspondingReturnBooked,
+              journeyCompletedAt,
             }),
           };
         })()),

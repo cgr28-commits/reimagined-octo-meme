@@ -7,6 +7,7 @@ import { BUSINESS_WEBSITE } from "../shared/business-email";
 import {
   RETURN_OFFER_CONFIG,
   airportDisplayName,
+  buildReturnOfferAdminSummary,
   buildReturnOfferCustomerUrl,
   buildReturnOfferPublicSnapshot,
   evaluateReturnOfferAccess,
@@ -16,6 +17,7 @@ import {
   hashReturnOfferToken,
   normalizeReturnOfferToken,
   paidBookingToReturnOfferSnapshot,
+  planManualReturnOfferSend,
   planReturnOfferProcessing,
   resolveReturnOfferConfig,
   shouldApplyReturnOfferDiscount,
@@ -36,14 +38,16 @@ import {
   tryClaimReturnOfferSend,
 } from "./return-offer-store";
 import { trySendBrandedCustomerEmail, type WorkerEmailEnv } from "./worker-email";
+import { ownerAuthorized, type DriverAuthEnv } from "./driver-auth";
 
-export type ReturnOfferEnv = WorkerEmailEnv & {
-  TRACKING_STORE: KVNamespace;
-  SITE_ORIGIN?: string;
-  RETURN_OFFER_LOCAL_TO_AIRPORT_DELAY_HOURS?: string;
-  RETURN_OFFER_LAST_MINUTE_LOCAL_DELAY_HOURS?: string;
-  RETURN_OFFER_AIRPORT_TO_LOCAL_DELAY_HOURS?: string;
-};
+export type ReturnOfferEnv = WorkerEmailEnv &
+  DriverAuthEnv & {
+    TRACKING_STORE: KVNamespace;
+    SITE_ORIGIN?: string;
+    RETURN_OFFER_LOCAL_TO_AIRPORT_DELAY_HOURS?: string;
+    RETURN_OFFER_LAST_MINUTE_LOCAL_DELAY_HOURS?: string;
+    RETURN_OFFER_AIRPORT_TO_LOCAL_DELAY_HOURS?: string;
+  };
 
 const DEFAULT_SITE_ORIGIN = BUSINESS_WEBSITE;
 
@@ -64,6 +68,13 @@ function jsonResponse(body: unknown, status: number, origin: string | null): Res
 export function isReturnOfferLookupPath(pathname: string): boolean {
   return (
     pathname === "/return-offers/by-token" || pathname === "/api/return-offers/by-token"
+  );
+}
+
+export function isManualReturnOfferSendPath(pathname: string): boolean {
+  return (
+    pathname === "/paid-bookings/return-offer/send" ||
+    pathname === "/api/paid-bookings/return-offer/send"
   );
 }
 
@@ -122,6 +133,84 @@ async function upsertFromPlan(
   return record;
 }
 
+async function deliverClaimedReturnOfferEmail(input: {
+  env: ReturnOfferEnv;
+  booking: ReturnType<typeof paidBookingToReturnOfferSnapshot>;
+  record: ReturnOfferRecord;
+  journeyCompletedAt: string | null;
+  candidates: ReturnType<typeof paidBookingToReturnOfferSnapshot>[];
+  now: Date;
+  config: ReturnType<typeof resolveReturnOfferConfig>;
+  planner: "scheduled" | "manual";
+}): Promise<"sent" | "skipped" | "error"> {
+  const store = input.env.TRACKING_STORE;
+  const claim = await tryClaimReturnOfferSend(store, input.booking.paymentReference);
+  if (!claim.ok) {
+    return "skipped";
+  }
+
+  const recheck =
+    input.planner === "manual"
+      ? planManualReturnOfferSend({
+          booking: input.booking,
+          existing: { ...claim.record, status: "ELIGIBLE", emailSentAt: undefined },
+          correspondingReturnBooked: hasCorrespondingReturnBooking(
+            input.booking,
+            input.candidates,
+          ),
+          journeyCompletedAt: input.journeyCompletedAt,
+          now: input.now,
+          config: input.config,
+        })
+      : planReturnOfferProcessing({
+          booking: input.booking,
+          existing: { ...claim.record, status: "SCHEDULED", emailSentAt: undefined },
+          correspondingReturnBooked: hasCorrespondingReturnBooking(
+            input.booking,
+            input.candidates,
+          ),
+          journeyCompletedAt: input.journeyCompletedAt,
+          now: input.now,
+          config: input.config,
+        });
+  if (!recheck.shouldSend || !recheck.eligible) {
+    await clearReturnOfferSendClaim(store, input.booking.paymentReference, claim.claimId);
+    await upsertFromPlan(store, claim.record, input.booking, recheck);
+    return "skipped";
+  }
+
+  const rawToken = generateReturnOfferToken();
+  const tokenHash = await hashReturnOfferToken(rawToken);
+  const ctaUrl = buildReturnOfferCustomerUrl(siteOrigin(input.env), rawToken);
+  const email = buildReturnOfferEmail({
+    direction: input.record.direction,
+    customerName: input.record.customerName,
+    airportName: input.record.airportName,
+    ctaUrl,
+  });
+  const send = await trySendBrandedCustomerEmail(input.env, {
+    to: input.record.customerEmail,
+    toName: input.record.customerName,
+    subject: email.subject,
+    body: email.text,
+    htmlBody: email.html,
+  });
+  if (!send.sent) {
+    await clearReturnOfferSendClaim(store, input.booking.paymentReference, claim.claimId);
+    return "error";
+  }
+
+  const expires = new Date(
+    input.now.getTime() + input.config.offerExpiryDays * 24 * 60 * 60 * 1000,
+  ).toISOString();
+  await markReturnOfferSent(store, input.booking.paymentReference, {
+    tokenHash,
+    claimId: claim.claimId,
+    expiresAt: expires,
+  });
+  return "sent";
+}
+
 export async function processDueReturnOffers(
   env: ReturnOfferEnv,
 ): Promise<{ scanned: number; scheduled: number; sent: number; skipped: number; errors: number }> {
@@ -174,58 +263,19 @@ export async function processDueReturnOffers(
         continue;
       }
 
-      const claim = await tryClaimReturnOfferSend(store, booking.paymentReference);
-      if (!claim.ok) {
-        result.skipped += 1;
-        continue;
-      }
-
-      const recheck = planReturnOfferProcessing({
+      const delivered = await deliverClaimedReturnOfferEmail({
+        env,
         booking,
-        existing: { ...claim.record, status: "SCHEDULED", emailSentAt: undefined },
-        correspondingReturnBooked: hasCorrespondingReturnBooking(booking, candidates),
+        record,
         journeyCompletedAt,
+        candidates,
         now,
         config,
+        planner: "scheduled",
       });
-      if (!recheck.shouldSend || !recheck.eligible) {
-        await clearReturnOfferSendClaim(store, booking.paymentReference, claim.claimId);
-        await upsertFromPlan(store, claim.record, booking, recheck);
-        result.skipped += 1;
-        continue;
-      }
-
-      const rawToken = generateReturnOfferToken();
-      const tokenHash = await hashReturnOfferToken(rawToken);
-      const ctaUrl = buildReturnOfferCustomerUrl(siteOrigin(env), rawToken);
-      const email = buildReturnOfferEmail({
-        direction: record.direction,
-        customerName: record.customerName,
-        airportName: record.airportName,
-        ctaUrl,
-      });
-      const send = await trySendBrandedCustomerEmail(env, {
-        to: record.customerEmail,
-        toName: record.customerName,
-        subject: email.subject,
-        body: email.text,
-        htmlBody: email.html,
-      });
-      if (!send.sent) {
-        await clearReturnOfferSendClaim(store, booking.paymentReference, claim.claimId);
-        result.errors += 1;
-        continue;
-      }
-
-      const expires = new Date(
-        now.getTime() + config.offerExpiryDays * 24 * 60 * 60 * 1000,
-      ).toISOString();
-      await markReturnOfferSent(store, booking.paymentReference, {
-        tokenHash,
-        claimId: claim.claimId,
-        expiresAt: expires,
-      });
-      result.sent += 1;
+      if (delivered === "sent") result.sent += 1;
+      else if (delivered === "error") result.errors += 1;
+      else result.skipped += 1;
     } catch {
       result.errors += 1;
     }
@@ -301,6 +351,140 @@ export async function handleGetReturnOffer(
       ok: true,
       tokenValid: true,
       quote,
+    },
+    200,
+    origin,
+  );
+}
+
+export async function handleManualReturnOfferSend(
+  request: Request,
+  env: ReturnOfferEnv,
+  origin: string | null,
+): Promise<Response> {
+  if (!ownerAuthorized(request, env)) {
+    return jsonResponse(
+      { error: "Unauthorized — use OWNER_ACCESS_KEY to send a return offer." },
+      401,
+      origin,
+    );
+  }
+  if (request.method !== "POST") {
+    return jsonResponse({ error: "Method not allowed" }, 405, origin);
+  }
+
+  const body = (await request.json().catch(() => null)) as
+    | { paymentReference?: string }
+    | null;
+  const paymentReference = String(body?.paymentReference ?? "").trim();
+  if (!paymentReference) {
+    return jsonResponse({ error: "Missing paymentReference" }, 400, origin);
+  }
+
+  const store = env.TRACKING_STORE;
+  const paid = await getPaidBookingRecord(store, paymentReference);
+  if (!paid) {
+    return jsonResponse({ error: "Booking not found" }, 404, origin);
+  }
+
+  const booking = paidBookingToReturnOfferSnapshot(paid);
+  const existing = await getReturnOfferByPaymentReference(store, paymentReference);
+  const recent = await listRecentPaidBookings(store, { days: 90, limit: 200 });
+  const candidates = recent.map(paidBookingToReturnOfferSnapshot);
+  if (!candidates.some((row) => row.paymentReference === booking.paymentReference)) {
+    candidates.push(booking);
+  }
+  const correspondingReturnBooked = hasCorrespondingReturnBooking(booking, candidates);
+  const journeyCompletedAt = await resolveJourneyCompletedAt(store, paymentReference);
+  const now = new Date();
+  const config = resolveReturnOfferConfig(env);
+  const plan = planManualReturnOfferSend({
+    booking,
+    existing,
+    correspondingReturnBooked,
+    journeyCompletedAt,
+    now,
+    config,
+  });
+
+  const summary = () =>
+    buildReturnOfferAdminSummary({
+      booking,
+      record: existing,
+      correspondingReturnBooked,
+      now,
+    });
+
+  if (!plan.shouldSend) {
+    const status =
+      plan.reason === "offer_already_sent" || plan.reason === "offer_already_redeemed"
+        ? 409
+        : 400;
+    return jsonResponse(
+      {
+        ok: false,
+        error:
+          plan.reason === "offer_already_sent"
+            ? "Return offer already sent."
+            : plan.reason === "offer_already_redeemed"
+              ? "Return offer already redeemed."
+              : plan.reason === "corresponding_return_booked"
+                ? "A corresponding return booking already exists."
+                : "This booking is not eligible for a return offer.",
+        reason: plan.reason,
+        returnOffer: summary(),
+      },
+      status,
+      origin,
+    );
+  }
+
+  const record = await upsertFromPlan(store, existing, booking, {
+    ...plan,
+    status: "ELIGIBLE",
+  });
+  const delivered = await deliverClaimedReturnOfferEmail({
+    env,
+    booking,
+    record,
+    journeyCompletedAt,
+    candidates,
+    now,
+    config,
+    planner: "manual",
+  });
+
+  const sentRecord = await getReturnOfferByPaymentReference(store, paymentReference);
+  const returnOffer = buildReturnOfferAdminSummary({
+    booking,
+    record: sentRecord,
+    correspondingReturnBooked,
+    now,
+  });
+
+  if (delivered !== "sent") {
+    return jsonResponse(
+      {
+        ok: false,
+        error:
+          delivered === "error"
+            ? "Return offer email could not be sent. Try again."
+            : "Return offer was not sent.",
+        reason: delivered,
+        returnOffer,
+      },
+      delivered === "error" ? 502 : 409,
+      origin,
+    );
+  }
+
+  return jsonResponse(
+    {
+      ok: true,
+      paymentReference,
+      customerEmail: record.customerEmail,
+      sentAt: sentRecord?.emailSentAt,
+      returnOffer,
     },
     200,
     origin,

@@ -554,6 +554,12 @@ export function returnOfferIneligibleReasonLabel(reason: string): string {
       return "Not a supported airport transfer";
     case "offer_already_sent":
       return "Offer already sent";
+    case "offer_already_redeemed":
+      return "Offer already redeemed";
+    case "not_paid":
+      return "Booking is not a paid airport transfer";
+    case "manual_send":
+      return "";
     case "operational_test":
       return "Operational test booking";
     case "awaiting_completion":
@@ -698,10 +704,107 @@ export function planReturnOfferProcessing(input: {
   };
 }
 
+/**
+ * Owner “Send now” planner. Reuses eligibility/security, but skips the
+ * automatic waiting delay (48h / 12h / 24h after completion).
+ */
+export function planManualReturnOfferSend(input: {
+  booking: ReturnOfferBookingSnapshot;
+  existing?: Pick<ReturnOfferRecord, "status" | "emailSentAt"> | null;
+  correspondingReturnBooked: boolean;
+  journeyCompletedAt?: string | null;
+  now?: Date;
+  config?: ReturnOfferConfig;
+}): ReturnOfferProcessPlan {
+  const now = input.now ?? new Date();
+  const alreadySent =
+    input.existing?.status === "SENT" ||
+    input.existing?.status === "REDEEMED" ||
+    Boolean(input.existing?.emailSentAt);
+
+  if (input.existing?.status === "REDEEMED") {
+    return {
+      eligible: false,
+      reason: "offer_already_redeemed",
+      status: "REDEEMED",
+      shouldSend: false,
+    };
+  }
+
+  if (alreadySent) {
+    return {
+      eligible: false,
+      reason: "offer_already_sent",
+      status: "SENT",
+      shouldSend: false,
+    };
+  }
+
+  const paidStatus = String(input.booking.paymentStatus ?? "").toLowerCase();
+  if (paidStatus && paidStatus !== "paid" && paidStatus !== "partially_refunded") {
+    return {
+      eligible: false,
+      reason: "not_paid",
+      status: "NOT_ELIGIBLE",
+      shouldSend: false,
+    };
+  }
+
+  const eligibility = isEligibleForReturnOffer(input.booking, {
+    offerAlreadySent: false,
+    correspondingReturnBooked: input.correspondingReturnBooked,
+    now,
+  });
+
+  if (!eligibility.eligible) {
+    const status: ReturnOfferStatus =
+      eligibility.reason === "cancelled_or_refunded" ||
+      eligibility.reason === "corresponding_return_booked"
+        ? "CANCELLED"
+        : "NOT_ELIGIBLE";
+    return {
+      eligible: false,
+      reason: eligibility.reason,
+      direction: eligibility.direction,
+      airportCode: eligibility.airportCode,
+      status,
+      shouldSend: false,
+    };
+  }
+
+  if (eligibility.direction === "airport_to_local") {
+    const completedAt = resolveAirportToLocalCompletionAt(
+      input.booking,
+      input.journeyCompletedAt,
+      input.config,
+    );
+    if (!completedAt || now.getTime() < completedAt.getTime()) {
+      return {
+        eligible: true,
+        reason: "awaiting_completion",
+        direction: eligibility.direction,
+        airportCode: eligibility.airportCode,
+        status: "ELIGIBLE",
+        shouldSend: false,
+      };
+    }
+  }
+
+  return {
+    eligible: true,
+    reason: "manual_send",
+    direction: eligibility.direction,
+    airportCode: eligibility.airportCode,
+    status: "ELIGIBLE",
+    shouldSend: true,
+  };
+}
+
 export function buildReturnOfferAdminSummary(input: {
   booking: ReturnOfferBookingSnapshot;
   record?: ReturnOfferRecord | null;
   correspondingReturnBooked?: boolean;
+  journeyCompletedAt?: string | null;
   now?: Date;
 }): {
   eligible: boolean;
@@ -712,7 +815,16 @@ export function buildReturnOfferAdminSummary(input: {
   sentAt?: string;
   redeemed: boolean;
   returnBookingPaymentReference?: string;
+  canSendNow?: boolean;
+  sendBlockedReason?: string;
 } {
+  const manual = planManualReturnOfferSend({
+    booking: input.booking,
+    existing: input.record,
+    correspondingReturnBooked: Boolean(input.correspondingReturnBooked),
+    journeyCompletedAt: input.journeyCompletedAt,
+    now: input.now,
+  });
   const record = input.record;
   if (record) {
     return {
@@ -724,6 +836,10 @@ export function buildReturnOfferAdminSummary(input: {
       sentAt: record.emailSentAt,
       redeemed: record.status === "REDEEMED",
       returnBookingPaymentReference: record.returnBookingPaymentReference,
+      canSendNow: manual.shouldSend,
+      sendBlockedReason: manual.shouldSend
+        ? undefined
+        : returnOfferIneligibleReasonLabel(manual.reason),
     };
   }
   const plan = planReturnOfferProcessing({
@@ -738,5 +854,9 @@ export function buildReturnOfferAdminSummary(input: {
     status: plan.status,
     scheduledAt: plan.scheduledAt,
     redeemed: false,
+    canSendNow: manual.shouldSend,
+    sendBlockedReason: manual.shouldSend
+      ? undefined
+      : returnOfferIneligibleReasonLabel(manual.reason),
   };
 }
