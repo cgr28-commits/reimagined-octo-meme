@@ -169,7 +169,6 @@ console.log("\n=== Quote / breakdown / SumUp charge agree to the penny ===");
     journeyFareBeforeAirportAccessGbp: q.journeyFareGbp!,
     airportFixedCostsGbp: q.airportFixedCostsGbp!,
     airportAccessChargeGbp: 0,
-    claimFirstBookingOffer: false,
   });
   assert.equal(breakdown.finalAmountPayableGbp, q.amount);
   const charge = resolveSumUpChargeAmountGbp(q.amount, q.amount);

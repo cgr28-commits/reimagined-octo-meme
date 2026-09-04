@@ -46,13 +46,11 @@ console.log("\n=== Breakdown composition — Express not double-counted in displ
     airportFixedCostsGbp: 0,
     airportAccessChargeGbp: 5,
     returnJourney: false,
-    claimFirstBookingOffer: false,
   });
   assert.equal(breakdown.journeyFareDisplayGbp, 50);
   assert.equal(breakdown.airportAccessChargeGbp, 5);
   assert.equal(breakdown.finalAmountPayableGbp, 55);
-  // Eligibility may still include Express, but display journey must not.
-  assert.equal(breakdown.bookingValueBeforeFirstBookingOfferGbp, 55);
+  assert.equal(breakdown.bookingValueBeforePromotionsGbp, 55);
   assert.ok(breakdown.journeyFareDisplayGbp + breakdown.airportAccessChargeGbp === breakdown.finalAmountPayableGbp);
   console.log("OK  Journey £50 + Express £5 = payable £55");
 }

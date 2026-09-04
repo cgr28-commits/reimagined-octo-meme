@@ -1561,7 +1561,7 @@ function QuoteCard({
   }, [expressRemovalAck, isMobileDevice]);
 
   /**
-   * Open-website promotional fare path (return discount; £5-over-£40 offer disabled).
+   * Open-website promotional fare path (same-order return discount + return offer).
    * Always recompose from the current Express fee — never cache a prior selection.
    */
   const useOpenWebsitePromoPricing =
@@ -1667,7 +1667,6 @@ function QuoteCard({
       airportFixedCostsGbp: journeyFareParts.airportFixedCostsGbp,
       airportAccessChargeGbp: expressSelection.feeGbp,
       returnJourney,
-      claimFirstBookingOffer: true,
       ...(applyReturnOffer
         ? { returnOfferDiscountRate: RETURN_OFFER_CONFIG.discountRate }
         : {}),
@@ -2756,7 +2755,6 @@ function QuoteCard({
                 ? removedAirportFeeIds
                 : [],
               acceptedFinalAmountGbp: paymentAmount ?? undefined,
-              claimFirstBookingOffer: true,
               ...(returnOfferToken &&
               !returnJourney &&
               isReturnOfferAirportJourney(pickupAddress, dropoffAddress)
@@ -2765,7 +2763,6 @@ function QuoteCard({
             }
           : {
               acceptedFinalAmountGbp: paymentAmount ?? undefined,
-              claimFirstBookingOffer: false,
             }),
         ...(appliedPersonalQuote && testChargeAmount === null
           ? {

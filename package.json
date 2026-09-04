@@ -56,8 +56,6 @@
     "check:owner-dashboard-layout": "npx tsx scripts/check-owner-dashboard-layout.ts",
     "check:public-help-fabs": "npx tsx scripts/check-public-help-fabs.ts",
     "check:homepage-hero-ctas": "npx tsx scripts/check-homepage-hero-ctas.ts",
-    "check:first-booking-offer": "npx tsx scripts/check-first-booking-offer.ts",
-    "check:first-booking-quote-display": "npx tsx scripts/check-first-booking-quote-display.ts",
     "check:express-fare-display": "npx tsx scripts/check-express-fare-display.ts",
     "check:gps-session-cors": "npx tsx scripts/check-gps-session-cors.ts",
     "check:gps-ingestion": "npx tsx scripts/check-gps-ingestion.ts",

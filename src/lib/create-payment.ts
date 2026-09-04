@@ -48,7 +48,7 @@ export type PaymentCheckoutRequest = {
    */
   expressDropOffSelected?: boolean;
   /**
-   * Journey fare before airport access and before the £5 booking saving.
+   * Journey fare before airport access.
    * Used with the authoritative website fare composer on open-website checkout.
    * Server reconciles / requotes — never trusts this alone for SumUp.
    */
@@ -73,12 +73,6 @@ export type PaymentCheckoutRequest = {
    * Worker compares this to its authoritative final — mismatch → 409, never silent replace.
    */
   acceptedFinalAmountGbp?: number;
-  /**
-   * When true (default for open website), apply the £5 booking saving when enabled
-   * and booking value ≥ £40. Offer is currently disabled in config.
-   * Personal / Quick / Saved quotes must pass false.
-   */
-  claimFirstBookingOffer?: boolean;
   /** Secure return-offer token from /book?returnOffer= — server validates and applies 5%. */
   returnOfferToken?: string;
 };
@@ -320,9 +314,6 @@ export async function createPaymentCheckout(
             acceptedFinalAmountGbp:
               Math.round(Number(request.acceptedFinalAmountGbp) * 100) / 100,
           }
-        : {}),
-      ...(typeof request.claimFirstBookingOffer === "boolean"
-        ? { claimFirstBookingOffer: request.claimFirstBookingOffer }
         : {}),
       ...(request.returnOfferToken?.trim()
         ? { returnOfferToken: request.returnOfferToken.trim() }

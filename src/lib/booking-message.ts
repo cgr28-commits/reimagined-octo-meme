@@ -49,8 +49,6 @@ export type BookingDetails = {
   journeyFareBeforePromotionsGbp?: number;
   originalEligibleJourneyPriceGbp?: number;
   returnJourneySavingGbp?: number;
-  firstBookingOfferApplied?: boolean;
-  firstBookingSavingGbp?: number;
   totalPromotionalSavingGbp?: number;
   airportAccessChargeGbp?: number;
   journeyFareAfterPromotionsGbp?: number;

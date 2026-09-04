@@ -7,13 +7,11 @@ import type { WebsiteFareBreakdown } from "./website-fare-breakdown";
 import { formatGbpFare } from "./website-fare-breakdown";
 
 export type WebsitePromoPricingFields = {
-  /** Journey fare after return discount, before £5 booking saving and before Express. */
+  /** Journey fare after return discount, before Express. */
   journeyFareBeforePromotionsGbp?: number;
   /** Undiscounted return (2× one-way) when return journey; else same as journey before promos. */
   originalEligibleJourneyPriceGbp?: number;
   returnJourneySavingGbp?: number;
-  firstBookingOfferApplied?: boolean;
-  firstBookingSavingGbp?: number;
   returnOfferSavingGbp?: number;
   totalPromotionalSavingGbp?: number;
   /** Express fee charged (0 when free option selected). */
@@ -29,8 +27,6 @@ export function promoFieldsFromFareBreakdown(
     journeyFareBeforePromotionsGbp: breakdown.journeyFareBeforePromotionsGbp,
     originalEligibleJourneyPriceGbp: breakdown.originalEligibleJourneyPriceGbp,
     returnJourneySavingGbp: breakdown.returnJourneySavingGbp,
-    firstBookingOfferApplied: breakdown.firstBooking.applied,
-    firstBookingSavingGbp: breakdown.firstBookingSavingGbp,
     returnOfferSavingGbp: breakdown.returnOfferSavingGbp,
     totalPromotionalSavingGbp: breakdown.totalPromotionalSavingGbp,
     airportAccessChargeGbp: breakdown.airportAccessChargeGbp,
@@ -52,8 +48,6 @@ export function parseWebsitePromoPricingFields(
     journeyFareBeforePromotionsGbp: num("journeyFareBeforePromotionsGbp"),
     originalEligibleJourneyPriceGbp: num("originalEligibleJourneyPriceGbp"),
     returnJourneySavingGbp: num("returnJourneySavingGbp"),
-    firstBookingOfferApplied: input.firstBookingOfferApplied === true,
-    firstBookingSavingGbp: num("firstBookingSavingGbp"),
     returnOfferSavingGbp: num("returnOfferSavingGbp"),
     totalPromotionalSavingGbp: num("totalPromotionalSavingGbp"),
     airportAccessChargeGbp: num("airportAccessChargeGbp"),
@@ -77,11 +71,6 @@ export function formatCustomerPromoPricingLines(
   if ((fields.returnJourneySavingGbp ?? 0) > 0) {
     lines.push(
       `Return journey saving: −${formatGbpFare(fields.returnJourneySavingGbp ?? 0)}`,
-    );
-  }
-  if ((fields.firstBookingSavingGbp ?? 0) > 0) {
-    lines.push(
-      `£5 Booking Saving: −${formatGbpFare(fields.firstBookingSavingGbp ?? 0)}`,
     );
   }
   if ((fields.returnOfferSavingGbp ?? 0) > 0) {
@@ -125,12 +114,6 @@ export function formatCustomerPromoPricingHtmlRows(
     rows.push({
       label: "Return journey saving",
       value: `−${formatGbpFare(fields.returnJourneySavingGbp ?? 0)}`,
-    });
-  }
-  if ((fields.firstBookingSavingGbp ?? 0) > 0) {
-    rows.push({
-      label: "£5 Booking Saving",
-      value: `−${formatGbpFare(fields.firstBookingSavingGbp ?? 0)}`,
     });
   }
   if ((fields.returnOfferSavingGbp ?? 0) > 0) {

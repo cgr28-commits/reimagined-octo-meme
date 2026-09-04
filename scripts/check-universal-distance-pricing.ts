@@ -125,7 +125,6 @@ console.log("\n=== Express remains separate ===");
     journeyFareBeforeAirportAccessGbp: journey,
     airportFixedCostsGbp: 0,
     airportAccessChargeGbp: 4,
-    claimFirstBookingOffer: false,
   });
   assert.equal(breakdown.journeyFareDisplayGbp, 50);
   assert.equal(breakdown.airportAccessChargeGbp, 4);

@@ -234,10 +234,8 @@ check("canonical quote overrides client £0/£1 journey tampering", () => {
     journeyFareBeforeAirportAccessGbp: resolved.journeyFareGbp,
     airportFixedCostsGbp: resolved.airportFixedCostsGbp,
     airportAccessChargeGbp: 0,
-    claimFirstBookingOffer: true,
   });
   assert.equal(payable.finalAmountPayableGbp, DUB_DROP_TOTAL);
-  assert.equal(payable.firstBookingSavingGbp, 0);
 });
 
 check("DUB pickup: £5 parking + £4 toll mandatory even if client removes", () => {
@@ -281,7 +279,6 @@ check("DUB pickup: £5 parking + £4 toll mandatory even if client removes", () 
     journeyFareBeforeAirportAccessGbp: resolved.journeyFareGbp,
     airportFixedCostsGbp: resolved.airportFixedCostsGbp,
     airportAccessChargeGbp: 0,
-    claimFirstBookingOffer: true,
   });
   assert.equal(payable.finalAmountPayableGbp, DUB_PICK_TOTAL);
 });
@@ -375,10 +372,8 @@ check("SumUp payable ignores client transfer and uses canonical journey + fees",
     journeyFareBeforeAirportAccessGbp: resolved.journeyFareGbp,
     airportFixedCostsGbp: resolved.airportFixedCostsGbp,
     airportAccessChargeGbp: 0,
-    claimFirstBookingOffer: true,
   });
   assert.equal(payable.finalAmountPayableGbp, DUB_DROP_TOTAL);
-  assert.equal(payable.firstBookingSavingGbp, 0);
 });
 
 check("5% return discount still applies on canonical DUB journey", () => {
@@ -477,7 +472,6 @@ function payableFromServerQuote(
     journeyFareBeforeAirportAccessGbp: resolved.journeyFareGbp,
     airportFixedCostsGbp: resolved.airportFixedCostsGbp,
     airportAccessChargeGbp: 0,
-    claimFirstBookingOffer: true,
   });
   return payable.finalAmountPayableGbp;
 }
@@ -665,7 +659,6 @@ check("LDY: tampered metrics ignored when server quote is used", () => {
     journeyFareBeforeAirportAccessGbp: genuine.journeyFareGbp ?? genuine.amount,
     airportFixedCostsGbp: genuine.airportFixedCostsGbp ?? 1,
     airportAccessChargeGbp: 0,
-    claimFirstBookingOffer: true,
   }).finalAmountPayableGbp;
   assert.equal(charged, expected);
 });
@@ -739,7 +732,6 @@ check("1. DUB pickup: airportCode removed still charges £5 parking + £4 M1", (
     journeyFareBeforeAirportAccessGbp: resolved.journeyFareGbp,
     airportFixedCostsGbp: resolved.airportFixedCostsGbp,
     airportAccessChargeGbp: 0,
-    claimFirstBookingOffer: true,
   });
   assert.equal(payable.finalAmountPayableGbp, DUB_PICK_TOTAL);
 });
@@ -837,7 +829,6 @@ check("3. Belfast → Dublin: client wrong airport still keeps DUB M1 £4", () =
     journeyFareBeforeAirportAccessGbp: resolved.journeyFareGbp,
     airportFixedCostsGbp: resolved.airportFixedCostsGbp,
     airportAccessChargeGbp: 0,
-    claimFirstBookingOffer: true,
   });
   assert.equal(payable.finalAmountPayableGbp, DUB_DROP_TOTAL);
 });

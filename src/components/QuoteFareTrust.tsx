@@ -14,11 +14,6 @@ export function buildOpenWebsiteFareBreakdown(input: {
   airportFixedCostsGbp?: number;
   airportAccessChargeGbp?: number;
   returnJourney?: boolean;
-  /**
-   * Apply the £5 booking saving in displayed/payable totals when booking value ≥ £40.
-   * No email / customer-history gate — pass true whenever the current booking qualifies.
-   */
-  claimFirstBookingOffer?: boolean;
   returnOfferDiscountRate?: number;
 }): WebsiteFareBreakdown {
   return composeWebsiteFareBreakdown({
@@ -26,7 +21,6 @@ export function buildOpenWebsiteFareBreakdown(input: {
     airportFixedCostsGbp: input.airportFixedCostsGbp ?? 0,
     airportAccessChargeGbp: input.airportAccessChargeGbp ?? 0,
     returnJourney: Boolean(input.returnJourney),
-    claimFirstBookingOffer: input.claimFirstBookingOffer === true,
     ...(typeof input.returnOfferDiscountRate === "number"
       ? { returnOfferDiscountRate: input.returnOfferDiscountRate }
       : {}),
@@ -92,14 +86,6 @@ export function PromotionalSavingsSummary({
         <p className="text-xs font-semibold uppercase tracking-wide text-emerald">
           ✓ {breakdown.returnJourneyDiscountPercentLabel} RETURN JOURNEY SAVING — YOU SAVE{" "}
           {formatGbpFare(breakdown.returnJourneySavingGbp)}
-        </p>
-      ) : null}
-      {breakdown.firstBookingSavingGbp > 0 ? (
-        <p className="text-xs font-semibold uppercase tracking-wide text-emerald">
-          ✓ {breakdown.firstBookingLabel}
-          <span className="ml-1.5 font-medium normal-case tracking-normal text-emerald/90">
-            — you save {formatGbpFare(breakdown.firstBookingSavingGbp)}
-          </span>
         </p>
       ) : null}
       {breakdown.returnOfferSavingGbp > 0 ? (
@@ -170,14 +156,6 @@ export function PromotionalPriceBreakdown({
             </dt>
             <dd className="shrink-0 text-emerald/90">
               −{formatGbpFare(breakdown.returnJourneySavingGbp)}
-            </dd>
-          </div>
-        ) : null}
-        {breakdown.firstBookingSavingGbp > 0 ? (
-          <div className="flex justify-between gap-3">
-            <dt>{breakdown.firstBookingShortLabel}</dt>
-            <dd className="shrink-0 text-emerald/90">
-              −{formatGbpFare(breakdown.firstBookingSavingGbp)}
             </dd>
           </div>
         ) : null}
@@ -256,14 +234,6 @@ export function FinalPayableBreakdown({
             <dt>Return Journey Saving</dt>
             <dd className="shrink-0 tabular-nums">
               −{formatGbpFare(breakdown.returnJourneySavingGbp)}
-            </dd>
-          </div>
-        ) : null}
-        {breakdown.firstBookingSavingGbp > 0 ? (
-          <div className="flex justify-between gap-3 text-emerald/90">
-            <dt>£5 Booking Saving</dt>
-            <dd className="shrink-0 tabular-nums">
-              −{formatGbpFare(breakdown.firstBookingSavingGbp)}
             </dd>
           </div>
         ) : null}

@@ -963,16 +963,6 @@ function parsePaidBookingDetails(body: Record<string, unknown>): PaidBookingDeta
             Math.round(Number(details.returnJourneySavingGbp) * 100) / 100,
         }
       : {}),
-    ...(details.firstBookingOfferApplied === true
-      ? { firstBookingOfferApplied: true }
-      : {}),
-    ...(typeof details.firstBookingSavingGbp === "number" &&
-    Number.isFinite(details.firstBookingSavingGbp)
-      ? {
-          firstBookingSavingGbp:
-            Math.round(Number(details.firstBookingSavingGbp) * 100) / 100,
-        }
-      : {}),
     ...(typeof details.totalPromotionalSavingGbp === "number" &&
     Number.isFinite(details.totalPromotionalSavingGbp)
       ? {
@@ -1891,8 +1881,8 @@ async function handlePaymentRequest(
   }
 
   // Open website booking (QuoteCard): client amount is the transfer fare only
-  // (journey + any embedded airport fixed costs, BEFORE first-booking offer and
-  // BEFORE Express). First-booking + Express are composed authoritatively here.
+  // (journey + any embedded airport fixed costs, BEFORE Express).
+  // Express and any return-offer 5% are composed authoritatively here.
   if (
     booking &&
     !shortNoticeToken &&
@@ -2089,14 +2079,11 @@ async function handlePaymentRequest(
       }
     }
 
-    const claimFirstBookingOffer = body.claimFirstBookingOffer !== false;
-
     const breakdown = composeWebsiteFareBreakdown({
       journeyFareBeforeAirportAccessGbp: journeyFareGbp,
       airportFixedCostsGbp,
       airportAccessChargeGbp: persisted.expressDropOffFee,
       returnJourney: Boolean(booking.returnJourney),
-      claimFirstBookingOffer,
       ...(returnOfferDiscountRate > 0 ? { returnOfferDiscountRate } : {}),
     });
 
