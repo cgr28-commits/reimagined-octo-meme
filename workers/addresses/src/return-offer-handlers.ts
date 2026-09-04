@@ -2,12 +2,13 @@
  * Return Journey Offer: hourly processor + public token lookup.
  */
 
-import { corsHeaders } from "../shared/google-places";
+import { corsHeaders, resolvePlaceFromAddressLabel } from "../shared/google-places";
 import { BUSINESS_WEBSITE } from "../shared/business-email";
 import {
   RETURN_OFFER_CONFIG,
   airportDisplayName,
   buildReturnOfferAdminSummary,
+  buildReturnOfferConfirmedPlaces,
   buildReturnOfferCustomerUrl,
   buildReturnOfferPublicSnapshot,
   evaluateReturnOfferAccess,
@@ -15,12 +16,16 @@ import {
   generateReturnOfferToken,
   hasCorrespondingReturnBooking,
   hashReturnOfferToken,
+  isConfirmedReturnOfferPlace,
+  normalizeReturnOfferPlace,
   normalizeReturnOfferToken,
+  returnOfferPlaceFromServedAirport,
   paidBookingToReturnOfferSnapshot,
   planManualReturnOfferSend,
   planReturnOfferProcessing,
   resolveReturnOfferConfig,
   shouldApplyReturnOfferDiscount,
+  type ReturnOfferPlaceSnapshot,
   type ReturnOfferPublicSnapshot,
   type ReturnOfferRecord,
 } from "../shared/return-offer";
@@ -44,6 +49,7 @@ export type ReturnOfferEnv = WorkerEmailEnv &
   DriverAuthEnv & {
     TRACKING_STORE: KVNamespace;
     SITE_ORIGIN?: string;
+    GOOGLE_PLACES_API_KEY?: string;
     RETURN_OFFER_LOCAL_TO_AIRPORT_DELAY_HOURS?: string;
     RETURN_OFFER_LAST_MINUTE_LOCAL_DELAY_HOURS?: string;
     RETURN_OFFER_AIRPORT_TO_LOCAL_DELAY_HOURS?: string;
@@ -126,6 +132,8 @@ async function upsertFromPlan(
     redeemedAt: existing?.redeemedAt,
     returnBookingPaymentReference: existing?.returnBookingPaymentReference,
     expiresAt: existing?.expiresAt,
+    reversedPickupPlace: existing?.reversedPickupPlace,
+    reversedDropoffPlace: existing?.reversedDropoffPlace,
     createdAt: existing?.createdAt || nowIso,
     updatedAt: nowIso,
   };
@@ -315,6 +323,83 @@ export async function resolveReturnOfferForPayment(
   return { ok: true, record, discountRate: RETURN_OFFER_CONFIG.discountRate };
 }
 
+function placeFromResolvedLabel(
+  resolved: {
+    placeId: string;
+    formattedAddress: string;
+    displayAddress: string;
+    placeName: string | null;
+    lat: number | null;
+    lng: number | null;
+    postalCode: string | null;
+    countryCode: string | null;
+    streetNumber: string | null;
+    route: string | null;
+    locality: string | null;
+    administrativeArea: string | null;
+  },
+  originalLabel: string,
+): ReturnOfferPlaceSnapshot | undefined {
+  const label = originalLabel.trim();
+  return normalizeReturnOfferPlace({
+    placeId: resolved.placeId,
+    formattedAddress: resolved.formattedAddress || label,
+    displayAddress: label || resolved.displayAddress,
+    placeName: resolved.placeName,
+    lat: resolved.lat ?? undefined,
+    lng: resolved.lng ?? undefined,
+    postalCode: resolved.postalCode,
+    countryCode: resolved.countryCode,
+    streetNumber: resolved.streetNumber,
+    route: resolved.route,
+    locality: resolved.locality,
+    administrativeArea: resolved.administrativeArea,
+  });
+}
+
+async function enrichReturnOfferSnapshotPlaces(
+  env: ReturnOfferEnv,
+  record: ReturnOfferRecord,
+): Promise<ReturnOfferPublicSnapshot> {
+  const snapshot = buildReturnOfferPublicSnapshot(record);
+  if (
+    isConfirmedReturnOfferPlace(snapshot.pickupPlace) &&
+    isConfirmedReturnOfferPlace(snapshot.dropoffPlace)
+  ) {
+    return snapshot;
+  }
+
+  const localLabel = snapshot.localAddressLabel.trim();
+  const apiKey = env.GOOGLE_PLACES_API_KEY?.trim() || "";
+  if (!apiKey || !localLabel) {
+    return snapshot;
+  }
+
+  const resolved = await resolvePlaceFromAddressLabel(apiKey, localLabel);
+  if (!resolved) {
+    return snapshot;
+  }
+  const localPlace = placeFromResolvedLabel(resolved, snapshot.localAddressLabel);
+  if (!localPlace) {
+    return snapshot;
+  }
+
+  const places = buildReturnOfferConfirmedPlaces({
+    direction: record.direction,
+    airportCode: record.airportCode,
+    localPlace,
+    localAddressLabel: snapshot.localAddressLabel,
+  });
+  const enriched: ReturnOfferRecord = {
+    ...record,
+    reversedPickupPlace: places.pickupPlace,
+    reversedDropoffPlace: places.dropoffPlace,
+    updatedAt: new Date().toISOString(),
+  };
+  await saveReturnOfferRecord(env.TRACKING_STORE, enriched);
+  return buildReturnOfferPublicSnapshot(enriched);
+}
+
 export async function handleGetReturnOffer(
   request: Request,
   env: ReturnOfferEnv,
@@ -345,7 +430,7 @@ export async function handleGetReturnOffer(
     );
   }
 
-  const quote: ReturnOfferPublicSnapshot = buildReturnOfferPublicSnapshot(record);
+  const quote: ReturnOfferPublicSnapshot = await enrichReturnOfferSnapshotPlaces(env, record);
   return jsonResponse(
     {
       ok: true,

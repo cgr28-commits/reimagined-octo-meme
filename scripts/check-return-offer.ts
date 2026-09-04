@@ -8,8 +8,11 @@ import { fileURLToPath } from "node:url";
 import {
   applyReturnOfferSaving,
   buildReturnOfferAdminSummary,
+  buildReturnOfferConfirmedPlaces,
   buildReturnOfferCustomerUrl,
   buildReturnOfferPublicSnapshot,
+  isConfirmedReturnOfferPlace,
+  returnOfferPlacesReadyForQuote,
   evaluateReturnOfferAccess,
   generateReturnOfferToken,
   hasCorrespondingReturnBooking,
@@ -244,6 +247,9 @@ async function run() {
     assert.equal(snapshot.pickupLabel, "Belfast International Airport");
     assert.equal(snapshot.dropoffLabel, "Newtownabbey, County Antrim");
     assert.equal(snapshot.localAddressLabel, "Newtownabbey, County Antrim");
+    assert.equal(isConfirmedReturnOfferPlace(snapshot.pickupPlace), true);
+    assert.equal(isConfirmedReturnOfferPlace(snapshot.dropoffPlace), false);
+    assert.equal(returnOfferPlacesReadyForQuote(snapshot), false);
     const url = buildReturnOfferCustomerUrl("https://www.myairporttaxini.co.uk", "abc");
     assert.match(url, /\/book\?returnOffer=/);
     assert.doesNotMatch(url, /pat@example/);

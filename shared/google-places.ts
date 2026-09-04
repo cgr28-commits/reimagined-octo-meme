@@ -687,6 +687,95 @@ export async function geocodeAddress(
 }
 
 /**
+ * Resolve a previously booked address label to a quote-ready place.
+ * Used after a Return Offer token is validated — not for free-typed URL text.
+ */
+export async function resolvePlaceFromAddressLabel(
+  apiKey: string,
+  address: string,
+): Promise<ResolvedGooglePlace | null> {
+  const trimmed = address.trim();
+  if (!apiKey || trimmed.length < 5) {
+    return null;
+  }
+
+  const response = await fetch("https://places.googleapis.com/v1/places:searchText", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Goog-Api-Key": apiKey,
+      "X-Goog-FieldMask":
+        "places.id,places.formattedAddress,places.displayName,places.location,places.addressComponents,places.types",
+    },
+    body: JSON.stringify({
+      textQuery: trimmed,
+      regionCode: "gb",
+      languageCode: "en-GB",
+      maxResultCount: 3,
+    }),
+  });
+
+  if (!response.ok) {
+    return null;
+  }
+
+  const data = (await response.json()) as {
+    places?: Array<
+      GooglePlaceDetails & {
+        id?: string;
+        location?: { latitude?: number; longitude?: number };
+      }
+    >;
+  };
+
+  const match =
+    data.places?.find((place) => {
+      const formatted = String(place.formattedAddress ?? "").trim();
+      const lat = place.location?.latitude;
+      const lng = place.location?.longitude;
+      return Boolean(
+        place.id?.trim() &&
+          formatted &&
+          typeof lat === "number" &&
+          typeof lng === "number" &&
+          Number.isFinite(lat) &&
+          Number.isFinite(lng),
+      );
+    }) ?? null;
+  if (!match?.id) {
+    return null;
+  }
+
+  const parts = parseGoogleAddressComponents(match.addressComponents);
+  const formatted = normaliseJourneyAddressLabel(match.formattedAddress ?? "");
+  if (!formatted) {
+    return null;
+  }
+  const placeName = resolvePlaceName(match.displayName?.text, null, formatted, match.types);
+  const countryShort =
+    match.addressComponents?.find((component) => component.types?.includes("country"))
+      ?.shortText ?? parts.country;
+
+  return {
+    placeId: match.id,
+    formattedAddress: formatted,
+    displayAddress: buildGoogleDisplayAddress(placeName, formatted),
+    placeName,
+    lat: match.location?.latitude ?? null,
+    lng: match.location?.longitude ?? null,
+    countryCode:
+      countryShort?.trim().toUpperCase() === "UK"
+        ? "GB"
+        : countryShort?.trim().toUpperCase() ?? null,
+    postalCode: parts.postcode ?? null,
+    streetNumber: parts.streetNumber?.trim() || null,
+    route: parts.route?.trim() || null,
+    locality: (parts.town ?? parts.city)?.trim() || null,
+    administrativeArea: (parts.county ?? parts.state)?.trim() || null,
+  };
+}
+
+/**
  * Resolve lat/lng for a Google Place ID using the server API key.
  * No airport-area filter — used for payment/OSRM routing after the customer
  * already selected a suggestion. Distinguishes provider errors from not-found.
