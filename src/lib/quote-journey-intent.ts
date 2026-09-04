@@ -46,3 +46,7 @@ export function intentFromDirection(direction: "to-airport" | "from-airport"): Q
 export function isAirportIntent(intent: QuoteJourneyIntent | null | undefined): boolean {
   return intent === "to-airport" || intent === "from-airport";
 }
+
+export function customerAirportTitle(code: string): string {
+  return CUSTOMER_AIRPORTS.find((airport) => airport.code === code)?.title ?? code;
+}

@@ -450,7 +450,8 @@ async function run() {
     assert.match(worker, /returnOfferToken/);
     assert.match(wrangler, /RETURN_OFFER_LOCAL_TO_AIRPORT_DELAY_HOURS/);
     assert.match(card, /returnOfferToken/);
-    assert.match(card, /Your 5% return journey saving has been applied/);
+    assert.match(card, /Your 5% Return Journey Offer/);
+    assert.match(card, /Your 5% saving has been applied automatically/);
     assert.match(owner, /Return Offer/);
     assert.match(read("src/app/book/page.tsx"), /returnOffer/);
   });

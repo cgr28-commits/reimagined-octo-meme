@@ -19,8 +19,11 @@ export default function BookReturnOfferPage() {
           My Airport Taxi NI
         </p>
         <h1 className="mt-2 break-words font-display text-3xl text-white">
-          Book your return
+          Your 5% Return Journey Offer
         </h1>
+        <p className="mt-2 text-sm text-white/70">
+          Your 5% saving has been applied automatically.
+        </p>
       </div>
       <div className="mx-auto w-full min-w-0 max-w-lg">
         <ReturnOfferBookClient />

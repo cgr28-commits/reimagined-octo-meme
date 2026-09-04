@@ -1012,8 +1012,10 @@ function QuoteCard({
       if (draft.customerMobile) setCustomerMobile(draft.customerMobile);
       if (draft.goingFlightNumber) setGoingFlightNumber(draft.goingFlightNumber);
       if (draft.collectionFlightNumber) setCollectionFlightNumber(draft.collectionFlightNumber);
-      if (draft.journeyIntent) setJourneyIntent(draft.journeyIntent);
-      if (draft.intentAirportCode) setIntentAirportCode(draft.intentAirportCode);
+      if (!returnOfferToken) {
+        if (draft.journeyIntent) setJourneyIntent(draft.journeyIntent);
+        if (draft.intentAirportCode) setIntentAirportCode(draft.intentAirportCode);
+      }
       if (typeof draft.termsAccepted === "boolean") setTermsAccepted(draft.termsAccepted);
       if (typeof draft.marketingOptIn === "boolean") setMarketingOptIn(draft.marketingOptIn);
       if (typeof draft.expressDropOffSelected === "boolean") {
@@ -1140,7 +1142,7 @@ function QuoteCard({
       setQuoteStep(1);
     }
 
-    if (window.location.hash === "#quote") {
+    if (!returnOfferToken && window.location.hash === "#quote") {
       const params = new URLSearchParams(window.location.search);
       const airportFromQuery = params.get("airport")?.trim().toUpperCase();
       if (airportFromQuery) {
@@ -1148,17 +1150,20 @@ function QuoteCard({
       }
     }
 
-    const draftPrefill = readPrefillQuoteDraft();
-    if (draftPrefill) {
-      applyDraftPrefill(draftPrefill);
-    } else {
-      const stored = readPrefillAirport();
-      if (stored) {
-        applyAirportPrefill(stored);
+    if (!returnOfferToken) {
+      const draftPrefill = readPrefillQuoteDraft();
+      if (draftPrefill) {
+        applyDraftPrefill(draftPrefill);
+      } else {
+        const stored = readPrefillAirport();
+        if (stored) {
+          applyAirportPrefill(stored);
+        }
       }
     }
 
     function handlePrefill(event: Event) {
+      if (returnOfferToken) return;
       const code = (event as CustomEvent<string>).detail;
       if (code) {
         applyAirportPrefill(code);
@@ -1166,6 +1171,7 @@ function QuoteCard({
     }
 
     function handleDraftPrefill(event: Event) {
+      if (returnOfferToken) return;
       const draft = (event as CustomEvent<QuoteDraftPrefill>).detail;
       if (draft) {
         applyDraftPrefill(draft);
@@ -1178,7 +1184,7 @@ function QuoteCard({
       window.removeEventListener("quote-prefill-airport", handlePrefill);
       window.removeEventListener("quote-prefill-draft", handleDraftPrefill);
     };
-  }, []);
+  }, [returnOfferToken]);
 
   const isScheduleComplete =
     Boolean(tripDate && tripTime) &&
@@ -1985,6 +1991,9 @@ function QuoteCard({
   }
 
   function applyJourneyIntent(intent: QuoteJourneyIntent) {
+    if (returnOfferToken) {
+      return;
+    }
     if (intent !== journeyIntent) {
       clearDownstreamQuoteChoices();
     }
@@ -2027,6 +2036,9 @@ function QuoteCard({
   }
 
   function applyIntentAirport(code: CustomerAirportCode) {
+    if (returnOfferToken) {
+      return;
+    }
     const place = quickSelectToPlace(code);
     if (!place) {
       return;
@@ -4423,18 +4435,13 @@ function QuoteCard({
         </h2>
         {returnOfferToken ? (
           <div className="mt-3 rounded-xl border border-emerald/30 bg-emerald/[0.08] px-3.5 py-3">
-            {isReturnOfferAirportJourney(pickupAddress, dropoffAddress) && !returnJourney ? (
-              <p className="text-sm font-semibold text-emerald">
-                Your 5% return journey saving has been applied.
-              </p>
-            ) : (
-              <p className="text-sm font-semibold text-emerald">
-                Your 5% return saving applies to airport transfers.
-              </p>
-            )}
+            <p className="text-sm font-semibold text-emerald">Your 5% Return Journey Offer</p>
+            <p className="mt-1 text-sm font-semibold text-white">
+              Your 5% saving has been applied automatically.
+            </p>
             <p className="mt-1 text-xs leading-snug text-white/70">
-              We’ve reversed your previous journey to make booking your return easier. You can
-              change the date, time or locations below.
+              You are booking one return journey from your original trip. There is no extra
+              discount option to choose.
             </p>
           </div>
         ) : null}
@@ -4574,10 +4581,14 @@ function QuoteCard({
               addressLookupCode={addressLookupCode}
               journeyMode={journeyMode}
               onJourneyModeChange={(value) => {
+                if (returnOfferToken) {
+                  return;
+                }
                 markQuoteFunnelStarted();
                 setJourneyMode(value);
                 if (value === "one-way") setReturnDateError("");
               }}
+              lockReturnOfferJourney={Boolean(returnOfferToken)}
               passengers={passengers}
               onPassengersChange={(value) => {
                 markQuoteFunnelStarted();
@@ -4593,13 +4604,15 @@ function QuoteCard({
               isGroupQuote={false}
               showRouteFields={Boolean(journeyIntent)}
               showJourneyModeFields={
-                journeyIntent === "address-to-address"
-                  ? isPlaceSelected(pickupPlace) && isPlaceSelected(dropoffPlace)
-                  : journeyIntent === "to-airport"
-                    ? Boolean(intentAirportCode) && isPlaceSelected(pickupPlace)
-                    : journeyIntent === "from-airport"
-                      ? Boolean(intentAirportCode) && isPlaceSelected(dropoffPlace)
-                      : false
+                returnOfferToken
+                  ? false
+                  : journeyIntent === "address-to-address"
+                    ? isPlaceSelected(pickupPlace) && isPlaceSelected(dropoffPlace)
+                    : journeyIntent === "to-airport"
+                      ? Boolean(intentAirportCode) && isPlaceSelected(pickupPlace)
+                      : journeyIntent === "from-airport"
+                        ? Boolean(intentAirportCode) && isPlaceSelected(dropoffPlace)
+                        : false
               }
               showPartyFields={
                 journeyMode != null &&
@@ -4768,7 +4781,7 @@ function QuoteCard({
         ) : (
           <>
         {/* Legacy airport transfer UI when addressToAddress is disabled */}
-        {hasQuoteRoute ? (
+        {hasQuoteRoute && !returnOfferToken ? (
         <div id="journey-type-selector">
           <p className="form-label mb-2">
             Journey
