@@ -25,6 +25,10 @@ import {
   SERVED_AIRPORTS,
   type ServedAirportCode,
 } from "../../shared/served-airports";
+import {
+  isConfirmedReturnOfferPlace,
+  type ReturnOfferPlaceSnapshot,
+} from "../../shared/return-offer";
 
 export type SelectedPlace = {
   placeId: string;
@@ -731,6 +735,29 @@ export function quickSelectToPlace(
     postalCode: airport.postalCode,
     administrativeArea: null,
   };
+}
+
+/** Hydrate a quote-ready SelectedPlace from a validated Return Offer snapshot only. */
+export function selectedPlaceFromReturnOffer(
+  place?: ReturnOfferPlaceSnapshot | null,
+): SelectedPlace | null {
+  const confirmed = isConfirmedReturnOfferPlace(place) ? place : undefined;
+  if (!confirmed) return null;
+  const next = selectedPlaceFromParts({
+    placeId: confirmed.placeId,
+    formattedAddress: confirmed.formattedAddress,
+    displayAddress: confirmed.displayAddress,
+    placeName: confirmed.placeName,
+    lat: confirmed.lat,
+    lng: confirmed.lng,
+    countryCode: confirmed.countryCode,
+    postalCode: confirmed.postalCode,
+    streetNumber: confirmed.streetNumber,
+    route: confirmed.route,
+    locality: confirmed.locality,
+    administrativeArea: confirmed.administrativeArea,
+  });
+  return isQuoteReadyPlace(next) ? next : null;
 }
 
 export function selectedPlaceFromParts(options: {

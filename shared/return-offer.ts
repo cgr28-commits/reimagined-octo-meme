@@ -5,6 +5,7 @@
 
 import rawConfig from "./return-offer-config.json";
 import {
+  getServedAirport,
   matchServedAirportCode,
   type ServedAirportCode,
 } from "./served-airports";
@@ -100,6 +101,21 @@ export type ReturnOfferBookingSnapshot = {
   isAmendmentTestFixture?: boolean;
 };
 
+export type ReturnOfferPlaceSnapshot = {
+  placeId: string;
+  formattedAddress: string;
+  displayAddress?: string;
+  placeName?: string | null;
+  lat: number;
+  lng: number;
+  postalCode?: string | null;
+  countryCode?: string | null;
+  streetNumber?: string | null;
+  route?: string | null;
+  locality?: string | null;
+  administrativeArea?: string | null;
+};
+
 export type ReturnOfferRecord = {
   id: string;
   originalPaymentReference: string;
@@ -112,6 +128,10 @@ export type ReturnOfferRecord = {
   originalDropoffLabel: string;
   reversedPickupLabel: string;
   reversedDropoffLabel: string;
+  /** Quote-ready reversed pickup when the original booking had validated place data. */
+  reversedPickupPlace?: ReturnOfferPlaceSnapshot;
+  /** Quote-ready reversed drop-off when the original booking had validated place data. */
+  reversedDropoffPlace?: ReturnOfferPlaceSnapshot;
   tokenHash: string;
   status: ReturnOfferStatus;
   ineligibleReason?: string;
@@ -134,6 +154,8 @@ export type ReturnOfferPublicSnapshot = {
   dropoffLabel: string;
   localAddressLabel: string;
   discountPercentLabel: string;
+  pickupPlace?: ReturnOfferPlaceSnapshot;
+  dropoffPlace?: ReturnOfferPlaceSnapshot;
 };
 
 export type ReturnOfferEligibilityResult = {
@@ -441,6 +463,98 @@ export function returnOfferOpenIndexKey(): string {
   return "return-offer:open-index";
 }
 
+export function isConfirmedReturnOfferPlace(
+  place?: ReturnOfferPlaceSnapshot | null,
+): place is ReturnOfferPlaceSnapshot {
+  return Boolean(
+    place?.placeId?.trim() &&
+      place.formattedAddress?.trim() &&
+      typeof place.lat === "number" &&
+      typeof place.lng === "number" &&
+      Number.isFinite(place.lat) &&
+      Number.isFinite(place.lng),
+  );
+}
+
+export function normalizeReturnOfferPlace(
+  place?: Partial<ReturnOfferPlaceSnapshot> | null,
+): ReturnOfferPlaceSnapshot | undefined {
+  if (!place) return undefined;
+  const next: ReturnOfferPlaceSnapshot = {
+    placeId: String(place.placeId ?? "").trim(),
+    formattedAddress: String(place.formattedAddress ?? "").trim(),
+    displayAddress: String(place.displayAddress ?? place.formattedAddress ?? "").trim() || undefined,
+    placeName: place.placeName ?? null,
+    lat: Number(place.lat),
+    lng: Number(place.lng),
+    postalCode: place.postalCode ?? null,
+    countryCode: place.countryCode ?? null,
+    streetNumber: place.streetNumber ?? null,
+    route: place.route ?? null,
+    locality: place.locality ?? null,
+    administrativeArea: place.administrativeArea ?? null,
+  };
+  return isConfirmedReturnOfferPlace(next) ? next : undefined;
+}
+
+export function returnOfferPlaceFromServedAirport(
+  airportCode: ServedAirportCode,
+): ReturnOfferPlaceSnapshot | undefined {
+  const airport = getServedAirport(airportCode);
+  if (!airport) return undefined;
+  return normalizeReturnOfferPlace({
+    placeId: airport.placeId,
+    formattedAddress: airport.formattedAddress,
+    displayAddress: airport.formattedAddress,
+    placeName: airport.name,
+    lat: airport.lat,
+    lng: airport.lng,
+    postalCode: airport.postalCode,
+    countryCode: airport.countryCode,
+  });
+}
+
+/**
+ * Confirmed pickup/drop-off for the reversed return journey.
+ * Airport side always comes from the served-airport catalogue.
+ * Local side is confirmed only when original-booking place metadata is present.
+ */
+export function buildReturnOfferConfirmedPlaces(input: {
+  direction: ReturnOfferDirection;
+  airportCode: ServedAirportCode;
+  localPlace?: ReturnOfferPlaceSnapshot | null;
+  localAddressLabel?: string;
+}): {
+  pickupPlace?: ReturnOfferPlaceSnapshot;
+  dropoffPlace?: ReturnOfferPlaceSnapshot;
+} {
+  const airport = returnOfferPlaceFromServedAirport(input.airportCode);
+  const local = normalizeReturnOfferPlace(input.localPlace);
+  const labelledLocal =
+    local && input.localAddressLabel?.trim()
+      ? {
+          ...local,
+          displayAddress: input.localAddressLabel.trim(),
+          formattedAddress: local.formattedAddress || input.localAddressLabel.trim(),
+        }
+      : local;
+
+  if (input.direction === "local_to_airport") {
+    return { pickupPlace: airport, dropoffPlace: labelledLocal };
+  }
+  return { pickupPlace: labelledLocal, dropoffPlace: airport };
+}
+
+export function returnOfferPlacesReadyForQuote(snapshot: {
+  pickupPlace?: ReturnOfferPlaceSnapshot | null;
+  dropoffPlace?: ReturnOfferPlaceSnapshot | null;
+}): boolean {
+  return (
+    isConfirmedReturnOfferPlace(snapshot.pickupPlace) &&
+    isConfirmedReturnOfferPlace(snapshot.dropoffPlace)
+  );
+}
+
 export function buildReturnOfferPublicSnapshot(
   record: Pick<
     ReturnOfferRecord,
@@ -449,12 +563,24 @@ export function buildReturnOfferPublicSnapshot(
     | "airportName"
     | "reversedPickupLabel"
     | "reversedDropoffLabel"
+    | "reversedPickupPlace"
+    | "reversedDropoffPlace"
   >,
 ): ReturnOfferPublicSnapshot {
   const localAddressLabel =
     record.direction === "local_to_airport"
       ? record.reversedDropoffLabel
       : record.reversedPickupLabel;
+  const storedLocal =
+    record.direction === "local_to_airport"
+      ? record.reversedDropoffPlace
+      : record.reversedPickupPlace;
+  const places = buildReturnOfferConfirmedPlaces({
+    direction: record.direction,
+    airportCode: record.airportCode,
+    localPlace: storedLocal,
+    localAddressLabel,
+  });
   return {
     direction: record.direction,
     airportCode: record.airportCode,
@@ -463,6 +589,7 @@ export function buildReturnOfferPublicSnapshot(
     dropoffLabel: record.reversedDropoffLabel,
     localAddressLabel,
     discountPercentLabel: formatReturnOfferPercent(),
+    ...places,
   };
 }
 

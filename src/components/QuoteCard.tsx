@@ -495,6 +495,16 @@ type QuoteCardProps = {
   maxPassengers?: number;
   /** Secure follow-up return-offer token — server applies the 5% saving. */
   returnOfferToken?: string;
+  /**
+   * Quote-ready pickup from a validated Return Offer token only.
+   * Never pass URL/query-string address text here.
+   */
+  initialPickupPlace?: SelectedPlace | null;
+  /**
+   * Quote-ready drop-off from a validated Return Offer token only.
+   * Never pass URL/query-string address text here.
+   */
+  initialDropoffPlace?: SelectedPlace | null;
 };
 
 function resolveLandingJourneyIntent(params: {
@@ -526,6 +536,8 @@ function QuoteCard({
   pageType = "main",
   maxPassengers = MAX_ONLINE_PASSENGERS,
   returnOfferToken = "",
+  initialPickupPlace = null,
+  initialDropoffPlace = null,
 }: QuoteCardProps) {
   const cardRef = useRef<HTMLDivElement>(null);
   const step1JourneyRef = useRef<HTMLDivElement>(null);
@@ -572,30 +584,44 @@ function QuoteCard({
   const initialAirportPlace = isCustomerAirportCode(initialAirportCode)
     ? quickSelectToPlace(initialAirportCode)
     : null;
+  const confirmedInitialPickup = isQuoteReadyPlace(initialPickupPlace)
+    ? initialPickupPlace
+    : null;
+  const confirmedInitialDropoff = isQuoteReadyPlace(initialDropoffPlace)
+    ? initialDropoffPlace
+    : null;
   const [pickupAddress, setPickupAddress] = useState(
-    initialDirection === "from-airport" && initialAirportPlace
-      ? initialAirportPlace.displayAddress || initialAirportPlace.formattedAddress
-      : initialDirection === "to-airport"
-        ? initialAddressHint
-        : "",
+    confirmedInitialPickup
+      ? confirmedInitialPickup.displayAddress || confirmedInitialPickup.formattedAddress
+      : initialDirection === "from-airport" && initialAirportPlace
+        ? initialAirportPlace.displayAddress || initialAirportPlace.formattedAddress
+        : initialDirection === "to-airport"
+          ? initialAddressHint
+          : "",
   );
   const [dropoffAddress, setDropoffAddress] = useState(
-    initialDropoffHint ||
-      (initialDirection === "to-airport" && initialAirportPlace
-        ? initialAirportPlace.displayAddress || initialAirportPlace.formattedAddress
-        : initialDirection === "from-airport"
-          ? initialAddressHint
-          : ""),
+    confirmedInitialDropoff
+      ? confirmedInitialDropoff.displayAddress || confirmedInitialDropoff.formattedAddress
+      : initialDropoffHint ||
+        (initialDirection === "to-airport" && initialAirportPlace
+          ? initialAirportPlace.displayAddress || initialAirportPlace.formattedAddress
+          : initialDirection === "from-airport"
+            ? initialAddressHint
+            : ""),
   );
   const [pickupPlace, setPickupPlace] = useState<SelectedPlace>(() =>
-    initialDirection === "from-airport" && initialAirportPlace
-      ? initialAirportPlace
-      : emptySelectedPlace(),
+    confirmedInitialPickup
+      ? confirmedInitialPickup
+      : initialDirection === "from-airport" && initialAirportPlace
+        ? initialAirportPlace
+        : emptySelectedPlace(),
   );
   const [dropoffPlace, setDropoffPlace] = useState<SelectedPlace>(() =>
-    initialDirection === "to-airport" && initialAirportPlace
-      ? initialAirportPlace
-      : emptySelectedPlace(),
+    confirmedInitialDropoff
+      ? confirmedInitialDropoff
+      : initialDirection === "to-airport" && initialAirportPlace
+        ? initialAirportPlace
+        : emptySelectedPlace(),
   );
   const [pickupPlaceError, setPickupPlaceError] = useState("");
   const [dropoffPlaceError, setDropoffPlaceError] = useState("");
@@ -871,10 +897,12 @@ function QuoteCard({
     // Also keep the route-page airport place so transfer landings stay preselected.
     const keepInitialPickup =
       Boolean(returnOfferToken) ||
+      isQuoteReadyPlace(initialPickupPlace) ||
       (initialDirection === "to-airport" && Boolean(initialAddressHint)) ||
       (initialDirection === "from-airport" && isCustomerAirportCode(initialAirportCode));
     const keepInitialDropoff =
       Boolean(returnOfferToken) ||
+      isQuoteReadyPlace(initialDropoffPlace) ||
       Boolean(initialDropoffHint) ||
       (initialDirection === "from-airport" && Boolean(initialAddressHint)) ||
       (initialDirection === "to-airport" && isCustomerAirportCode(initialAirportCode));
@@ -1015,7 +1043,15 @@ function QuoteCard({
     if (existingCheckout) {
       setOpenCheckout(existingCheckout);
     }
-  }, [initialAddressHint, initialAirportCode, initialDirection, initialDropoffHint, returnOfferToken]);
+  }, [
+    initialAddressHint,
+    initialAirportCode,
+    initialDirection,
+    initialDropoffHint,
+    initialDropoffPlace,
+    initialPickupPlace,
+    returnOfferToken,
+  ]);
 
   const isLdyTrip = effectiveAirportCode === "LDY";
   const ldyServiceAddress = isFromAirport ? dropoffAddress : pickupAddress;
@@ -2972,25 +3008,37 @@ function QuoteCard({
     setTripDirection(nextDirection);
     setAirportCode(nextAirport);
     setPickupAddress(
-      nextDirection === "from-airport" && airportPlace
-        ? airportPlace.displayAddress || airportPlace.formattedAddress
-        : nextDirection === "to-airport"
-          ? initialAddressHint
-          : "",
+      confirmedInitialPickup
+        ? confirmedInitialPickup.displayAddress || confirmedInitialPickup.formattedAddress
+        : nextDirection === "from-airport" && airportPlace
+          ? airportPlace.displayAddress || airportPlace.formattedAddress
+          : nextDirection === "to-airport"
+            ? initialAddressHint
+            : "",
     );
     setDropoffAddress(
-      initialDropoffHint ||
-        (nextDirection === "to-airport" && airportPlace
-          ? airportPlace.displayAddress || airportPlace.formattedAddress
-          : nextDirection === "from-airport"
-            ? initialAddressHint
-            : ""),
+      confirmedInitialDropoff
+        ? confirmedInitialDropoff.displayAddress || confirmedInitialDropoff.formattedAddress
+        : initialDropoffHint ||
+          (nextDirection === "to-airport" && airportPlace
+            ? airportPlace.displayAddress || airportPlace.formattedAddress
+            : nextDirection === "from-airport"
+              ? initialAddressHint
+              : ""),
     );
     setPickupPlace(
-      nextDirection === "from-airport" && airportPlace ? airportPlace : emptySelectedPlace(),
+      confirmedInitialPickup
+        ? confirmedInitialPickup
+        : nextDirection === "from-airport" && airportPlace
+          ? airportPlace
+          : emptySelectedPlace(),
     );
     setDropoffPlace(
-      nextDirection === "to-airport" && airportPlace ? airportPlace : emptySelectedPlace(),
+      confirmedInitialDropoff
+        ? confirmedInitialDropoff
+        : nextDirection === "to-airport" && airportPlace
+          ? airportPlace
+          : emptySelectedPlace(),
     );
     setPickupPlaceError("");
     setDropoffPlaceError("");

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import QuoteCard from "@/components/QuoteCard";
 import { fetchReturnOfferByToken } from "@/lib/return-offer-api";
+import { selectedPlaceFromReturnOffer } from "@/lib/selected-place";
 import type { ReturnOfferPublicSnapshot } from "../../../shared/return-offer";
 
 type TripDirection = "to-airport" | "from-airport";
@@ -73,12 +74,17 @@ function ReturnOfferInner() {
   const direction: TripDirection =
     quote.direction === "airport_to_local" ? "to-airport" : "from-airport";
   const localAddress = quote.localAddressLabel;
+  const confirmedPickup = selectedPlaceFromReturnOffer(quote.pickupPlace);
+  const confirmedDropoff = selectedPlaceFromReturnOffer(quote.dropoffPlace);
 
   return (
     <QuoteCard
       initialAirportCode={quote.airportCode}
       initialDirection={direction}
       initialAddressHint={localAddress}
+      initialJourneyIntent={direction}
+      initialPickupPlace={confirmedPickup}
+      initialDropoffPlace={confirmedDropoff}
       returnOfferToken={token}
     />
   );
