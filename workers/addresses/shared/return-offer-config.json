@@ -1,0 +1,9 @@
+{
+  "discountRate": 0.05,
+  "localToAirportOfferDelayHours": 48,
+  "lastMinuteLocalOfferDelayHours": 12,
+  "localToAirportMinLeadHours": 48,
+  "airportToLocalOfferDelayHoursAfterCompletion": 24,
+  "assumedAirportToLocalDurationMinutes": 120,
+  "offerExpiryDays": 30
+}

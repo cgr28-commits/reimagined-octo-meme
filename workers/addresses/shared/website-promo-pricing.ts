@@ -14,6 +14,7 @@ export type WebsitePromoPricingFields = {
   returnJourneySavingGbp?: number;
   firstBookingOfferApplied?: boolean;
   firstBookingSavingGbp?: number;
+  returnOfferSavingGbp?: number;
   totalPromotionalSavingGbp?: number;
   /** Express fee charged (0 when free option selected). */
   airportAccessChargeGbp?: number;
@@ -30,6 +31,7 @@ export function promoFieldsFromFareBreakdown(
     returnJourneySavingGbp: breakdown.returnJourneySavingGbp,
     firstBookingOfferApplied: breakdown.firstBooking.applied,
     firstBookingSavingGbp: breakdown.firstBookingSavingGbp,
+    returnOfferSavingGbp: breakdown.returnOfferSavingGbp,
     totalPromotionalSavingGbp: breakdown.totalPromotionalSavingGbp,
     airportAccessChargeGbp: breakdown.airportAccessChargeGbp,
     journeyFareAfterPromotionsGbp: breakdown.journeyFareAfterPromotionsGbp,
@@ -52,6 +54,7 @@ export function parseWebsitePromoPricingFields(
     returnJourneySavingGbp: num("returnJourneySavingGbp"),
     firstBookingOfferApplied: input.firstBookingOfferApplied === true,
     firstBookingSavingGbp: num("firstBookingSavingGbp"),
+    returnOfferSavingGbp: num("returnOfferSavingGbp"),
     totalPromotionalSavingGbp: num("totalPromotionalSavingGbp"),
     airportAccessChargeGbp: num("airportAccessChargeGbp"),
     journeyFareAfterPromotionsGbp: num("journeyFareAfterPromotionsGbp"),
@@ -79,6 +82,11 @@ export function formatCustomerPromoPricingLines(
   if ((fields.firstBookingSavingGbp ?? 0) > 0) {
     lines.push(
       `£5 Booking Saving: −${formatGbpFare(fields.firstBookingSavingGbp ?? 0)}`,
+    );
+  }
+  if ((fields.returnOfferSavingGbp ?? 0) > 0) {
+    lines.push(
+      `Return journey saving 5%: −${formatGbpFare(fields.returnOfferSavingGbp ?? 0)}`,
     );
   }
   if ((fields.airportAccessChargeGbp ?? 0) > 0) {
@@ -123,6 +131,12 @@ export function formatCustomerPromoPricingHtmlRows(
     rows.push({
       label: "£5 Booking Saving",
       value: `−${formatGbpFare(fields.firstBookingSavingGbp ?? 0)}`,
+    });
+  }
+  if ((fields.returnOfferSavingGbp ?? 0) > 0) {
+    rows.push({
+      label: "Return journey saving 5%",
+      value: `−${formatGbpFare(fields.returnOfferSavingGbp ?? 0)}`,
     });
   }
   if ((fields.airportAccessChargeGbp ?? 0) > 0) {

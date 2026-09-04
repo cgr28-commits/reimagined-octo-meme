@@ -19,6 +19,7 @@ export function buildOpenWebsiteFareBreakdown(input: {
    * No email / customer-history gate — pass true whenever the current booking qualifies.
    */
   claimFirstBookingOffer?: boolean;
+  returnOfferDiscountRate?: number;
 }): WebsiteFareBreakdown {
   return composeWebsiteFareBreakdown({
     journeyFareBeforeAirportAccessGbp: input.journeyFareBeforeAirportAccessGbp,
@@ -26,6 +27,9 @@ export function buildOpenWebsiteFareBreakdown(input: {
     airportAccessChargeGbp: input.airportAccessChargeGbp ?? 0,
     returnJourney: Boolean(input.returnJourney),
     claimFirstBookingOffer: input.claimFirstBookingOffer === true,
+    ...(typeof input.returnOfferDiscountRate === "number"
+      ? { returnOfferDiscountRate: input.returnOfferDiscountRate }
+      : {}),
   });
 }
 
@@ -98,6 +102,12 @@ export function PromotionalSavingsSummary({
           </span>
         </p>
       ) : null}
+      {breakdown.returnOfferSavingGbp > 0 ? (
+        <p className="text-xs font-semibold uppercase tracking-wide text-emerald">
+          ✓ {breakdown.returnOfferDiscountPercentLabel} RETURN JOURNEY SAVING — YOU SAVE{" "}
+          {formatGbpFare(breakdown.returnOfferSavingGbp)}
+        </p>
+      ) : null}
       {breakdown.totalPromotionalSavingGbp > 0 ? (
         <p className="text-xs font-medium text-emerald/90">
           ✓ YOU SAVE {formatGbpFare(breakdown.totalPromotionalSavingGbp)}
@@ -168,6 +178,14 @@ export function PromotionalPriceBreakdown({
             <dt>{breakdown.firstBookingShortLabel}</dt>
             <dd className="shrink-0 text-emerald/90">
               −{formatGbpFare(breakdown.firstBookingSavingGbp)}
+            </dd>
+          </div>
+        ) : null}
+        {breakdown.returnOfferSavingGbp > 0 ? (
+          <div className="flex justify-between gap-3">
+            <dt>Return journey saving ({breakdown.returnOfferDiscountPercentLabel})</dt>
+            <dd className="shrink-0 text-emerald/90">
+              −{formatGbpFare(breakdown.returnOfferSavingGbp)}
             </dd>
           </div>
         ) : null}

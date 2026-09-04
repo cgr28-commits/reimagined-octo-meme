@@ -1807,6 +1807,19 @@ export async function savePaidBookingRecordFromConfirm(input: {
     ...(typeof input.personalQuotedAmount === "number"
       ? { personalQuotedAmount: input.personalQuotedAmount }
       : {}),
+    ...(input.booking.returnOfferOriginalPaymentReference?.trim()
+      ? {
+          returnOfferOriginalPaymentReference:
+            input.booking.returnOfferOriginalPaymentReference.trim(),
+        }
+      : {}),
+    ...(typeof input.booking.returnOfferSavingGbp === "number" &&
+    Number.isFinite(input.booking.returnOfferSavingGbp)
+      ? {
+          returnOfferSavingGbp:
+            Math.round(Number(input.booking.returnOfferSavingGbp) * 100) / 100,
+        }
+      : {}),
   };
 
   await savePaidBookingRecord(input.env.TRACKING_STORE, record);

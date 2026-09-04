@@ -137,6 +137,10 @@ import {
   resolveExpressDropOff,
   shouldDefaultExpressSelectedOnNewEligibility,
 } from "../../shared/express-drop-off";
+import {
+  RETURN_OFFER_CONFIG,
+  isReturnOfferAirportJourney,
+} from "../../shared/return-offer";
 import { resolveJourneyAirportFees } from "../../shared/airport-fixed-costs";
 import { promoFieldsFromFareBreakdown } from "../../shared/website-promo-pricing";
 import {
@@ -489,6 +493,8 @@ type QuoteCardProps = {
   pageType?: AdsQuotePageType;
   /** Cap passenger selector (EMERGE online capacity is 4). */
   maxPassengers?: number;
+  /** Secure follow-up return-offer token — server applies the 5% saving. */
+  returnOfferToken?: string;
 };
 
 function resolveLandingJourneyIntent(params: {
@@ -519,6 +525,7 @@ function QuoteCard({
   initialJourneyIntent,
   pageType = "main",
   maxPassengers = MAX_ONLINE_PASSENGERS,
+  returnOfferToken = "",
 }: QuoteCardProps) {
   const cardRef = useRef<HTMLDivElement>(null);
   const step1JourneyRef = useRef<HTMLDivElement>(null);
@@ -597,7 +604,9 @@ function QuoteCard({
   const [pickupRestoredHint, setPickupRestoredHint] = useState(false);
   const [dropoffRestoredHint, setDropoffRestoredHint] = useState(false);
   /** Explicit One Way / Return — null until the customer taps a choice. */
-  const [journeyMode, setJourneyMode] = useState<"one-way" | "return" | null>(null);
+  const [journeyMode, setJourneyMode] = useState<"one-way" | "return" | null>(
+    returnOfferToken ? "one-way" : null,
+  );
   const returnJourney = journeyMode === "return";
   const [tripDateError, setTripDateError] = useState("");
   const [returnDateError, setReturnDateError] = useState("");
@@ -861,9 +870,11 @@ function QuoteCard({
     // Keep dedicated landing-page address hints (e.g. Bangor / event venues) over stale localStorage.
     // Also keep the route-page airport place so transfer landings stay preselected.
     const keepInitialPickup =
+      Boolean(returnOfferToken) ||
       (initialDirection === "to-airport" && Boolean(initialAddressHint)) ||
       (initialDirection === "from-airport" && isCustomerAirportCode(initialAirportCode));
     const keepInitialDropoff =
+      Boolean(returnOfferToken) ||
       Boolean(initialDropoffHint) ||
       (initialDirection === "from-airport" && Boolean(initialAddressHint)) ||
       (initialDirection === "to-airport" && isCustomerAirportCode(initialAirportCode));
@@ -944,10 +955,13 @@ function QuoteCard({
       // Address/place restore handled above — do not re-apply text-only as confirmed.
       if (draft.tripDate) setTripDate(draft.tripDate);
       if (draft.tripTime) setTripTime(draft.tripTime);
-      if (typeof draft.returnJourney === "boolean") {
+      if (!returnOfferToken && typeof draft.returnJourney === "boolean") {
         setJourneyMode(draft.returnJourney ? "return" : "one-way");
       }
-      if (draft.journeyMode === "one-way" || draft.journeyMode === "return") {
+      if (
+        !returnOfferToken &&
+        (draft.journeyMode === "one-way" || draft.journeyMode === "return")
+      ) {
         setJourneyMode(draft.journeyMode);
       }
       if (draft.returnDate) setReturnDate(draft.returnDate);
@@ -1001,7 +1015,7 @@ function QuoteCard({
     if (existingCheckout) {
       setOpenCheckout(existingCheckout);
     }
-  }, [initialAddressHint, initialAirportCode, initialDirection, initialDropoffHint]);
+  }, [initialAddressHint, initialAirportCode, initialDirection, initialDropoffHint, returnOfferToken]);
 
   const isLdyTrip = effectiveAirportCode === "LDY";
   const ldyServiceAddress = isFromAirport ? dropoffAddress : pickupAddress;
@@ -1644,12 +1658,19 @@ function QuoteCard({
     if (!useOpenWebsitePromoPricing || journeyFareParts.journeyFareGbp == null) {
       return null;
     }
+    const applyReturnOffer =
+      Boolean(returnOfferToken) &&
+      !returnJourney &&
+      isReturnOfferAirportJourney(pickupAddress, dropoffAddress);
     return buildOpenWebsiteFareBreakdown({
       journeyFareBeforeAirportAccessGbp: journeyFareParts.journeyFareGbp,
       airportFixedCostsGbp: journeyFareParts.airportFixedCostsGbp,
       airportAccessChargeGbp: expressSelection.feeGbp,
       returnJourney,
-      claimFirstBookingOffer: true,
+      claimFirstBookingOffer: !applyReturnOffer,
+      ...(applyReturnOffer
+        ? { returnOfferDiscountRate: RETURN_OFFER_CONFIG.discountRate }
+        : {}),
     });
   }, [
     useOpenWebsitePromoPricing,
@@ -1657,6 +1678,9 @@ function QuoteCard({
     journeyFareParts.airportFixedCostsGbp,
     expressSelection.feeGbp,
     returnJourney,
+    returnOfferToken,
+    pickupAddress,
+    dropoffAddress,
   ]);
 
   const transferFareGbp = useMemo(() => {
@@ -2732,7 +2756,15 @@ function QuoteCard({
                 ? removedAirportFeeIds
                 : [],
               acceptedFinalAmountGbp: paymentAmount ?? undefined,
-              claimFirstBookingOffer: true,
+              claimFirstBookingOffer:
+                !returnOfferToken ||
+                returnJourney ||
+                !isReturnOfferAirportJourney(pickupAddress, dropoffAddress),
+              ...(returnOfferToken &&
+              !returnJourney &&
+              isReturnOfferAirportJourney(pickupAddress, dropoffAddress)
+                ? { returnOfferToken }
+                : {}),
             }
           : {
               acceptedFinalAmountGbp: paymentAmount ?? undefined,
@@ -2970,7 +3002,7 @@ function QuoteCard({
     setDropoffPlaceError("");
     setPickupRestoredHint(false);
     setDropoffRestoredHint(false);
-    setJourneyMode(null);
+    setJourneyMode(returnOfferToken ? "one-way" : null);
     setTripDateError("");
     setReturnDateError("");
     setCustomerNameError("");
@@ -4347,6 +4379,23 @@ function QuoteCard({
         >
           Get a Live Quote
         </h2>
+        {returnOfferToken ? (
+          <div className="mt-3 rounded-xl border border-emerald/30 bg-emerald/[0.08] px-3.5 py-3">
+            {isReturnOfferAirportJourney(pickupAddress, dropoffAddress) && !returnJourney ? (
+              <p className="text-sm font-semibold text-emerald">
+                Your 5% return journey saving has been applied.
+              </p>
+            ) : (
+              <p className="text-sm font-semibold text-emerald">
+                Your 5% return saving applies to airport transfers.
+              </p>
+            )}
+            <p className="mt-1 text-xs leading-snug text-white/70">
+              We’ve reversed your previous journey to make booking your return easier. You can
+              change the date, time or locations below.
+            </p>
+          </div>
+        ) : null}
         <div className="mt-1 text-sm leading-snug quote-secondary sm:mt-2.5 sm:leading-relaxed lg:text-[0.9rem] lg:leading-relaxed">
           {/* Mobile: compact — frees space for journey choices above the fold */}
           <p className="md:hidden text-[0.8125rem]">

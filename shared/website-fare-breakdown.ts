@@ -26,6 +26,10 @@ import {
   type FirstBookingOfferConfig,
   type FirstBookingOfferResult,
 } from "./first-booking-offer";
+import {
+  applyReturnOfferSaving,
+  formatReturnOfferPercent,
+} from "./return-offer";
 
 function roundGbp(amount: number): number {
   return Math.round(Number(amount) * 100) / 100;
@@ -72,6 +76,12 @@ export type WebsiteFareBreakdownInput = {
    */
   claimFirstBookingOffer?: boolean;
   firstBookingConfig?: Partial<FirstBookingOfferConfig>;
+  /**
+   * Secure follow-up return-offer rate (e.g. 0.05). Applied to the journey
+   * fare only — never airport fixed costs or Express. Do not stack with the
+   * £5 first-booking offer.
+   */
+  returnOfferDiscountRate?: number;
 };
 
 export type WebsiteFareBreakdown = {
@@ -83,6 +93,8 @@ export type WebsiteFareBreakdown = {
   returnJourneyDiscountPercentLabel: string;
   firstBooking: FirstBookingOfferResult;
   firstBookingSavingGbp: number;
+  returnOfferSavingGbp: number;
+  returnOfferDiscountPercentLabel: string;
   journeyFareAfterPromotionsGbp: number;
   /** Transfer subtotal after promos + undiscounted fixed costs (no Express). */
   transferFareAfterPromotionsGbp: number;
@@ -133,24 +145,34 @@ export function composeWebsiteFareBreakdown(
     journeyBeforePromo + airportFixedCostsGbp + airportAccessChargeGbp,
   );
 
+  const returnOfferRate = Number(input.returnOfferDiscountRate);
+  const applyReturnOffer =
+    Number.isFinite(returnOfferRate) && returnOfferRate > 0 && returnOfferRate < 1;
+  const returnOffer = applyReturnOffer
+    ? applyReturnOfferSaving(journeyBeforePromo, returnOfferRate)
+    : { savingGbp: 0, fareAfterGbp: journeyBeforePromo };
+  const returnOfferSavingGbp = returnOffer.savingGbp;
+
   const firstBooking = resolveFirstBookingOffer({
     journeyFareBeforeAirportAccessGbp: journeyBeforePromo,
     airportAccessChargeGbp,
     airportFixedCostsGbp,
-    claimOffer: input.claimFirstBookingOffer !== false,
+    claimOffer: input.claimFirstBookingOffer !== false && !applyReturnOffer,
     returnJourneyDiscountApplied: returnJourney,
     config: input.firstBookingConfig,
   });
 
   const firstBookingSavingGbp = firstBooking.applied ? firstBooking.discountGbp : 0;
-  const journeyFareAfterPromotionsGbp = firstBooking.applied
-    ? firstBooking.journeyFareAfterOfferGbp
-    : journeyBeforePromo;
+  const journeyFareAfterPromotionsGbp = applyReturnOffer
+    ? returnOffer.fareAfterGbp
+    : firstBooking.applied
+      ? firstBooking.journeyFareAfterOfferGbp
+      : journeyBeforePromo;
   const transferFareAfterPromotionsGbp = roundGbp(
     journeyFareAfterPromotionsGbp + airportFixedCostsGbp,
   );
   const totalPromotionalSavingGbp = roundGbp(
-    returnJourneySavingGbp + firstBookingSavingGbp,
+    returnJourneySavingGbp + firstBookingSavingGbp + returnOfferSavingGbp,
   );
   const finalAmountPayableGbp = roundGbp(
     transferFareAfterPromotionsGbp + airportAccessChargeGbp,
@@ -165,6 +187,10 @@ export function composeWebsiteFareBreakdown(
     returnJourneyDiscountPercentLabel: formatReturnJourneyDiscountPercent(),
     firstBooking,
     firstBookingSavingGbp,
+    returnOfferSavingGbp,
+    returnOfferDiscountPercentLabel: formatReturnOfferPercent(
+      applyReturnOffer ? returnOfferRate : undefined,
+    ),
     journeyFareAfterPromotionsGbp,
     transferFareAfterPromotionsGbp,
     airportAccessChargeGbp,

@@ -79,6 +79,8 @@ export type PaymentCheckoutRequest = {
    * Personal / Quick / Saved quotes must pass false.
    */
   claimFirstBookingOffer?: boolean;
+  /** Secure return-offer token from /book?returnOffer= — server validates and applies 5%. */
+  returnOfferToken?: string;
 };
 
 export type PaymentCheckoutResult = {
@@ -321,6 +323,9 @@ export async function createPaymentCheckout(
         : {}),
       ...(typeof request.claimFirstBookingOffer === "boolean"
         ? { claimFirstBookingOffer: request.claimFirstBookingOffer }
+        : {}),
+      ...(request.returnOfferToken?.trim()
+        ? { returnOfferToken: request.returnOfferToken.trim() }
         : {}),
     }),
   });

@@ -29,6 +29,9 @@ export type PendingCheckoutRecord = {
   quickQuoteId?: string;
   /** Saved Quote opaque token — fixed price from KV for 7-day validity. */
   savedQuoteToken?: string;
+  /** Secure return-offer token — redeemed only after SumUp PAID finalize. */
+  returnOfferToken?: string;
+  returnOfferOriginalPaymentReference?: string;
   /** Human-readable saved quote reference (audit / conversion tracking). */
   savedQuoteReference?: string;
   /**

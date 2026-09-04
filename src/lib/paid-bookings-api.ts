@@ -89,6 +89,16 @@ export type OwnerPaidBookingSummary = Pick<
   isRefundTest?: boolean;
   /** Same-fare amendment fixture — never show in operational lists. */
   isAmendmentTestFixture?: boolean;
+  returnOffer?: {
+    eligible: boolean;
+    reason?: string;
+    type?: string;
+    status?: string;
+    scheduledAt?: string;
+    sentAt?: string;
+    redeemed?: boolean;
+    returnBookingPaymentReference?: string;
+  };
 };
 
 export type OwnerPendingCheckoutSummary = {
