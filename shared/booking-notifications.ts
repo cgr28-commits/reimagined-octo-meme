@@ -6,6 +6,8 @@ import {
   BUSINESS_PHONE_DISPLAY,
   BUSINESS_PHONE_TEL,
   BUSINESS_WEBSITE as CANONICAL_BUSINESS_WEBSITE,
+  businessWhatsAppChatUrl,
+  businessWhatsAppPublicPageUrl,
 } from "./business-email";
 import { contactVCardPublicUrl } from "./business-links";
 import { vehicleServiceLabel } from "./booking-notice";
@@ -119,6 +121,30 @@ function escapeHtml(value: string): string {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
+}
+
+const JOURNEY_STATUS_WHATSAPP_LINK_LABEL = "Chat with us on WhatsApp";
+
+/** Driver on the way / arrived emails only — email + WhatsApp, no landline. */
+function journeyStatusContactText(businessName: string): string {
+  return (
+    `Questions? Email us at ${BUSINESS_EMAIL} or chat with us on WhatsApp.\n` +
+    `${businessWhatsAppPublicPageUrl()}\n\n` +
+    `${businessName}\n${BUSINESS_WEBSITE}`
+  );
+}
+
+function journeyStatusContactHtml(businessName: string): string {
+  const whatsappHref = businessWhatsAppChatUrl();
+  return `<tr>
+            <td style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:20px 32px;font-size:13px;line-height:1.7;color:#64748b;">
+              <strong style="color:${NAVY};">${escapeHtml(businessName)}</strong>
+              <p style="margin:12px 0 0;">Questions? Email us at <a href="mailto:${BUSINESS_EMAIL}" style="color:${NAVY};">${BUSINESS_EMAIL}</a> or</p>
+              <p style="margin:14px 0 0;">
+                <a href="${escapeHtml(whatsappHref)}" style="display:inline-block;background:#25D366;color:#ffffff;text-decoration:none;font-weight:bold;font-size:14px;line-height:1.2;padding:12px 18px;border-radius:8px;">${JOURNEY_STATUS_WHATSAPP_LINK_LABEL}</a>
+              </p>
+            </td>
+          </tr>`;
 }
 
 
@@ -1585,10 +1611,7 @@ export function buildDriverArrivedPickupEmail(
   const subject = `Your driver has arrived — ${businessName}`;
   const bodyLine = `Hi ${firstName}, your ${businessName} driver has arrived at your pickup location. Please make your way to the vehicle when ready.`;
 
-  const text =
-    `${bodyLine}\n\n` +
-    `Questions? Contact us at ${BUSINESS_EMAIL} or ${BUSINESS_PHONE_DISPLAY}.\n\n` +
-    `${businessName}\n${BUSINESS_WEBSITE}`;
+  const text = `${bodyLine}\n\n${journeyStatusContactText(businessName)}`;
 
   const html = `<!DOCTYPE html>
 <html lang="en">
@@ -1614,13 +1637,7 @@ export function buildDriverArrivedPickupEmail(
               <p style="margin:0;">${escapeHtml(bodyLine)}</p>
             </td>
           </tr>
-          <tr>
-            <td style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:20px 32px;font-size:13px;line-height:1.7;color:#64748b;">
-              <strong style="color:${NAVY};">${escapeHtml(businessName)}</strong><br />
-              <a href="mailto:${BUSINESS_EMAIL}" style="color:${NAVY};">${BUSINESS_EMAIL}</a> ·
-              <a href="tel:${BUSINESS_PHONE_TEL}" style="color:${NAVY};">${BUSINESS_PHONE_DISPLAY}</a>
-            </td>
-          </tr>
+          ${journeyStatusContactHtml(businessName)}
         </table>
       </td>
     </tr>
@@ -1670,12 +1687,7 @@ export function buildDriverOnTheWayEmail(
     detailLines.length > 0 ? "" : null,
     mayContact,
     "",
-    `You can also message us on WhatsApp or call ${BUSINESS_PHONE_DISPLAY} if you need anything.`,
-    "",
-    `Questions? Contact us at ${BUSINESS_EMAIL} or ${BUSINESS_PHONE_DISPLAY}.`,
-    "",
-    businessName,
-    BUSINESS_WEBSITE,
+    journeyStatusContactText(businessName),
   ].filter((line): line is string => line !== null);
 
   const text = textParts.join("\n");
@@ -1717,13 +1729,7 @@ export function buildDriverOnTheWayEmail(
               </p>
             </td>
           </tr>
-          <tr>
-            <td style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:20px 32px;font-size:13px;line-height:1.7;color:#64748b;">
-              <strong style="color:${NAVY};">${escapeHtml(businessName)}</strong><br />
-              <a href="mailto:${BUSINESS_EMAIL}" style="color:${NAVY};">${BUSINESS_EMAIL}</a> ·
-              <a href="tel:${BUSINESS_PHONE_TEL}" style="color:${NAVY};">${BUSINESS_PHONE_DISPLAY}</a>
-            </td>
-          </tr>
+          ${journeyStatusContactHtml(businessName)}
         </table>
       </td>
     </tr>

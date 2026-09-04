@@ -1,5 +1,6 @@
 import { SITE } from "@/lib/data";
 import { withBasePath } from "@/lib/paths";
+import { businessWhatsAppChatUrl } from "../../shared/business-email";
 
 export const CONTACT_CARD_PATH = "/contact/";
 /** Legacy lowercase path (still served). Prefer CONTACT_VCARD_PATH for new links. */
@@ -116,8 +117,7 @@ export function androidAddContactIntentUrl(): string {
 }
 
 export function whatsAppChatUrl(message: string = SITE.whatsappDefaultMessage): string {
-  const text = encodeURIComponent(message);
-  return `https://wa.me/${SITE.whatsapp}?text=${text}`;
+  return businessWhatsAppChatUrl(message);
 }
 
 export function isAppleMobile(): boolean {

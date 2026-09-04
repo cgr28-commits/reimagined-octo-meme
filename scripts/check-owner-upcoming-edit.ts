@@ -156,7 +156,17 @@ console.log("\n=== 4. Arrival + updated confirmation emails (no send) ===");
   assert.match(arrival.subject, /arrived/i);
   assert.match(arrival.text, /Alex/);
   assert.match(arrival.text, /arrived at your pickup location/i);
-  assert.doesNotMatch(arrival.text, /wa\.me/);
+  assert.match(
+    arrival.text,
+    /Questions\? Email us at bookings@myairporttaxini\.co\.uk or chat with us on WhatsApp\./,
+  );
+  assert.match(arrival.text, /https:\/\/www\.myairporttaxini\.co\.uk\/contact\//);
+  assert.doesNotMatch(arrival.text, /wa\.me\/\d+/);
+  assert.doesNotMatch(arrival.text, /028\s*9602\s*2952/);
+  assert.match(
+    arrival.html,
+    /<a href="https:\/\/wa\.me\/447549815538\?text=[^"]*"[^>]*>Chat with us on WhatsApp<\/a>/,
+  );
 
   const receipt: PaidBookingReceipt = {
     customerName: "Alex Customer",
