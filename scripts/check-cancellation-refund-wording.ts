@@ -19,6 +19,10 @@ function read(rel: string): string {
 console.log("=== Checkout cancellation summary + consent ===");
 const consent = read("src/components/BookingTermsConsent.tsx");
 assert.match(consent, /Cancellation summary/);
+assert.match(consent, /<details/);
+assert.match(consent, /<summary/);
+assert.match(consent, /Read the full cancellation and no-show policy/);
+assert.match(consent, /Cancel at least 24 hours before pickup: full refund/);
 assert.match(
   consent,
   /Cancel at least 24 hours before your scheduled pickup: You’ll receive a full refund/,

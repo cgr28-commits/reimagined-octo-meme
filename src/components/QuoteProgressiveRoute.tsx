@@ -20,6 +20,10 @@ import {
 } from "@/lib/vehicle-selection";
 import type { QuickSelectAirportCode } from "@/lib/selected-place";
 import { choiceGroupNeedsClass } from "@/lib/quote-ui-highlight";
+import {
+  QUOTE_ADDRESS_HELPER,
+  QUOTE_ADDRESS_PLACEHOLDER,
+} from "@/lib/quote-address-copy";
 
 const SELECTABLE_AIRPORTS = CUSTOMER_AIRPORTS.filter(
   (airport) => SERVICE_FLAGS.belfastCityAirport || airport.code !== "BHD",
@@ -314,8 +318,8 @@ export default function QuoteProgressiveRoute({
               needsCompletion={!pickupConfirmedPlace?.placeId?.trim()}
               airportCode={addressLookupCode}
               label={journeyIntent === "to-airport" ? "Where should we pick you up?" : "Pickup address"}
-              placeholder="Enter pickup address or hotel"
-              helperText="Type your address, then tap a suggestion — typing alone is not enough"
+              placeholder={QUOTE_ADDRESS_PLACEHOLDER}
+              helperText={QUOTE_ADDRESS_HELPER}
             />
           )}
           {(journeyIntent === "from-airport" || journeyIntent === "address-to-address") && (
@@ -336,8 +340,8 @@ export default function QuoteProgressiveRoute({
                 label={
                   journeyIntent === "from-airport" ? "Where are you travelling to?" : "Destination"
                 }
-                placeholder="Enter destination address or hotel"
-                helperText="Type your address, then tap a suggestion — typing alone is not enough"
+                placeholder={QUOTE_ADDRESS_PLACEHOLDER}
+                helperText={QUOTE_ADDRESS_HELPER}
               />
             </div>
           )}

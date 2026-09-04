@@ -23,6 +23,10 @@ import { addressFieldShellClass } from "@/lib/quote-ui-highlight";
 import { buildDisplayAddress, looksLikeStreetAddressLine, normaliseAddressCompareKey } from "@/lib/selected-place";
 import { hasLeadingStreetNumber } from "../../shared/journey-address-label";
 import { isHighConfidenceAddressMatch } from "@/lib/address-match";
+import {
+  QUOTE_ADDRESS_HELPER,
+  QUOTE_HOUSE_FLAT_LABEL,
+} from "@/lib/quote-address-copy";
 
 type AddressInputProps = {
   id: string;
@@ -527,7 +531,7 @@ export default function AddressInput({
         : autocompleteEnabled
           ? helperText ??
             (requireSuggestion
-              ? "Type your address, then tap a suggestion from the list — typing alone is not enough."
+              ? QUOTE_ADDRESS_HELPER
               : "Type a street, hotel or landmark — or a postcode, then your house number.")
           : "Enter your full address including town and postcode");
 
@@ -685,7 +689,7 @@ export default function AddressInput({
                   htmlFor={`${id}-house`}
                   className="mb-1.5 block form-label"
                 >
-                  House number or building name
+                  {QUOTE_HOUSE_FLAT_LABEL}
                 </label>
                 <input
                   ref={houseInputRef}

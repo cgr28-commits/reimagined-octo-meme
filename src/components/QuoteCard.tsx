@@ -73,6 +73,12 @@ import {
   type CustomerAirportCode,
   type QuoteJourneyIntent,
 } from "@/lib/quote-journey-intent";
+import {
+  QUOTE_ADDRESS_HELPER,
+  QUOTE_ADDRESS_PLACEHOLDER,
+  QUOTE_STEP_LABELS,
+} from "@/lib/quote-address-copy";
+import { remapPlacesForJourneyIntent } from "@/lib/quote-journey-remap";
 
 import {
   readPrefillAirport,
@@ -2000,6 +2006,36 @@ function QuoteCard({
     markQuoteFunnelStarted();
     setJourneyIntent(intent);
     setTripMode("address");
+    const remapped = remapPlacesForJourneyIntent({
+      nextIntent: intent,
+      pickup: pickupPlace,
+      dropoff: dropoffPlace,
+      pickupAddress,
+      dropoffAddress,
+    });
+    setPickupPlace(remapped.pickup);
+    setDropoffPlace(remapped.dropoff);
+    setPickupAddress(remapped.pickupAddress);
+    setDropoffAddress(remapped.dropoffAddress);
+    setPickupRestoredHint(false);
+    setDropoffRestoredHint(false);
+    setPickupPlaceError(
+      remapped.pickupNeedsReselect
+        ? "Please select your pickup address again."
+        : "",
+    );
+    setDropoffPlaceError(
+      remapped.dropoffNeedsReselect
+        ? "Please select your destination address again."
+        : "",
+    );
+    if (!remapped.pickup.placeId) {
+      clearPickupAddressStorage();
+    }
+    if (!remapped.dropoff.placeId) {
+      clearDropoffAddressStorage();
+    }
+    clearStaleRouteAndPriceAfterAddressEdit();
     if (intent === "to-airport") {
       setTripDirection("to-airport");
       if (intentAirportCode) {
@@ -2020,18 +2056,6 @@ function QuoteCard({
       }
     } else {
       setIntentAirportCode("");
-      if (detectAirportCodeFromPlace(pickupPlace)) {
-        setPickupPlace(emptySelectedPlace());
-        setPickupAddress("");
-        setPickupRestoredHint(false);
-        clearPickupAddressStorage();
-      }
-      if (detectAirportCodeFromPlace(dropoffPlace)) {
-        setDropoffPlace(emptySelectedPlace());
-        setDropoffAddress("");
-        setDropoffRestoredHint(false);
-        clearDropoffAddressStorage();
-      }
     }
   }
 
@@ -4459,9 +4483,9 @@ function QuoteCard({
         </div>
         <ol className="mt-2 grid grid-cols-3 gap-1 sm:mt-4 sm:gap-2" aria-label="Booking steps">
           {[
-            { step: 1 as const, label: isA2AFlow ? "Your journey" : "Airport & address" },
-            { step: 2 as const, label: "Price & travel" },
-            { step: 3 as const, label: canPayNowOnline ? "Pay & confirm" : "Your details" },
+            { step: 1 as const, label: QUOTE_STEP_LABELS[0] },
+            { step: 2 as const, label: QUOTE_STEP_LABELS[1] },
+            { step: 3 as const, label: QUOTE_STEP_LABELS[2] },
           ].map((item) => {
             const active = quoteStep === item.step;
             const done = quoteStep > item.step;
@@ -4968,15 +4992,11 @@ function QuoteCard({
                       : "Your Belfast-area Pickup Address"
                     : "Your Drop-off Address"
                 }
-                placeholder={
-                  isLdyTrip
-                    ? "e.g. Main Street, Bangor or Donegall Square, Belfast"
-                    : "e.g. Donegall Square, Belfast or 12 Donegall Square"
-                }
+                placeholder={QUOTE_ADDRESS_PLACEHOLDER}
                 helperText={
                   isLdyTrip
                     ? "Bangor, Belfast, Lisburn, Newtownabbey, and surrounding towns only"
-                    : "Type a street name, business name, or full address — pick from the list"
+                    : QUOTE_ADDRESS_HELPER
                 }
               />
               {ldyServiceAreaInvalid && isFromAirport && (
@@ -5002,15 +5022,11 @@ function QuoteCard({
                 selectionError={pickupPlaceError}
                 airportCode={addressLookupCode}
                 label={isLdyTrip ? "Your Belfast-area Pickup Address" : "Your Pickup Address"}
-                placeholder={
-                  isLdyTrip
-                    ? "e.g. Main Street, Bangor or Donegall Square, Belfast"
-                    : "e.g. Donegall Square, Belfast or 12 Donegall Square"
-                }
+                placeholder={QUOTE_ADDRESS_PLACEHOLDER}
                 helperText={
                   isLdyTrip
                     ? "Bangor, Belfast, Lisburn, Newtownabbey, and surrounding towns only"
-                    : "Type a street name, business name, or full address — pick from the list"
+                    : QUOTE_ADDRESS_HELPER
                 }
               />
               {ldyServiceAreaInvalid && !isFromAirport && (
@@ -5037,8 +5053,8 @@ function QuoteCard({
               selectionError={pickupPlaceError}
               airportCode={addressLookupCode}
               label="Pickup Address"
-              placeholder="e.g. 12 High Street, Bangor"
-              helperText="Where should we collect you?"
+              placeholder={QUOTE_ADDRESS_PLACEHOLDER}
+              helperText={QUOTE_ADDRESS_HELPER}
             />
             <AddressInput
               key={`a2a-dropoff-${formResetKey}`}
@@ -5053,8 +5069,8 @@ function QuoteCard({
               selectionError={dropoffPlaceError}
               airportCode={addressLookupCode}
               label="Drop-off Address"
-              placeholder="e.g. 45 Main Street, Lisburn"
-              helperText="Where are you going?"
+              placeholder={QUOTE_ADDRESS_PLACEHOLDER}
+              helperText={QUOTE_ADDRESS_HELPER}
             />
           </>
         )}
@@ -5330,12 +5346,7 @@ function QuoteCard({
           </p>
         </div>
 
-        <div
-          className={`grid transition-[grid-template-rows] duration-200 ease-out ${
-            returnJourney ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
-          }`}
-        >
-          <div className="min-h-0 overflow-hidden">
+        {returnJourney ? (
             <div className="grid w-full min-w-0 max-w-full gap-4 sm:grid-cols-2">
               <div className="min-w-0 max-w-full">
                 <label
@@ -5420,8 +5431,7 @@ function QuoteCard({
                 {returnDateError || "\u00a0"}
               </p>
             </div>
-          </div>
-        </div>
+        ) : null}
 
         {renderFlightDetailsSection(2)}
 
@@ -5806,6 +5816,19 @@ function QuoteCard({
               </label>
             ) : null}
 
+            {canPayNowOnline &&
+            liveQuote &&
+            testChargeAmount === null &&
+            !appliedPersonalQuote &&
+            openWebsiteFareBreakdown ? (
+              <FinalPayableBreakdown
+                breakdown={openWebsiteFareBreakdown}
+                freeAirportAccessSelected={
+                  expressSelection.eligible && expressSelection.feeGbp === 0
+                }
+              />
+            ) : null}
+
             <BookingTermsConsent
               accepted={termsAccepted}
               onAcceptedChange={(checked) => {
@@ -5838,19 +5861,6 @@ function QuoteCard({
             />
 
             <MarketingOptIn checked={marketingOptIn} onCheckedChange={setMarketingOptIn} />
-
-            {canPayNowOnline &&
-            liveQuote &&
-            testChargeAmount === null &&
-            !appliedPersonalQuote &&
-            openWebsiteFareBreakdown ? (
-              <FinalPayableBreakdown
-                breakdown={openWebsiteFareBreakdown}
-                freeAirportAccessSelected={
-                  expressSelection.eligible && expressSelection.feeGbp === 0
-                }
-              />
-            ) : null}
 
             {canPayNowOnline && liveQuote && testChargeAmount === null ? (
               <BookWithConfidence />
