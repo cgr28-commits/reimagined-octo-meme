@@ -98,6 +98,8 @@ export type OwnerPaidBookingSummary = Pick<
     sentAt?: string;
     redeemed?: boolean;
     returnBookingPaymentReference?: string;
+    canSendNow?: boolean;
+    sendBlockedReason?: string;
   };
 };
 
@@ -599,6 +601,52 @@ export async function editOwnerPaidBooking(
     warnings: Array.isArray(payload.warnings)
       ? payload.warnings.map((w) => String(w))
       : undefined,
+  };
+}
+
+export type SendManualReturnOfferResult = {
+  ok: boolean;
+  paymentReference: string;
+  customerEmail?: string;
+  sentAt?: string;
+  returnOffer?: OwnerPaidBookingSummary["returnOffer"];
+  error?: string;
+  reason?: string;
+};
+
+export async function sendManualReturnOfferNow(
+  ownerKey: string,
+  paymentReference: string,
+): Promise<SendManualReturnOfferResult> {
+  const response = await fetch(`${WORKER_BASE}/paid-bookings/return-offer/send`, {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      "X-Owner-Key": ownerKey.trim(),
+    },
+    body: JSON.stringify({ paymentReference }),
+  });
+  const payload = await parseJson(response);
+  const returnOffer =
+    payload.returnOffer && typeof payload.returnOffer === "object"
+      ? (payload.returnOffer as OwnerPaidBookingSummary["returnOffer"])
+      : undefined;
+  if (!response.ok || payload.ok !== true) {
+    return {
+      ok: false,
+      paymentReference,
+      returnOffer,
+      reason: typeof payload.reason === "string" ? payload.reason : undefined,
+      error: String(payload.error ?? "Failed to send return offer"),
+    };
+  }
+  return {
+    ok: true,
+    paymentReference: String(payload.paymentReference ?? paymentReference),
+    customerEmail: typeof payload.customerEmail === "string" ? payload.customerEmail : undefined,
+    sentAt: typeof payload.sentAt === "string" ? payload.sentAt : undefined,
+    returnOffer,
   };
 }
 

@@ -7,6 +7,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   applyReturnOfferSaving,
+  buildReturnOfferAdminSummary,
   buildReturnOfferCustomerUrl,
   buildReturnOfferPublicSnapshot,
   evaluateReturnOfferAccess,
@@ -17,6 +18,7 @@ import {
   isReturnOfferAirportJourney,
   normalizeReturnOfferToken,
   paidBookingToReturnOfferSnapshot,
+  planManualReturnOfferSend,
   planReturnOfferProcessing,
   resolveReturnOfferDirection,
   resolveReturnOfferSchedule,
@@ -445,6 +447,173 @@ async function run() {
     assert.match(card, /Your 5% return journey saving has been applied/);
     assert.match(owner, /Return Offer/);
     assert.match(read("src/app/book/page.tsx"), /returnOffer/);
+  });
+
+  await check("Manual send bypasses the waiting delay for a local→airport booking", () => {
+    const booking = baseBooking({ createdAt: "2026-09-04T08:00:00.000Z" });
+    const now = new Date("2026-09-04T09:00:00.000Z");
+    const scheduled = planReturnOfferProcessing({
+      booking,
+      correspondingReturnBooked: false,
+      now,
+    });
+    assert.equal(scheduled.shouldSend, false);
+    const manual = planManualReturnOfferSend({
+      booking,
+      correspondingReturnBooked: false,
+      now,
+    });
+    assert.equal(manual.shouldSend, true);
+    assert.equal(manual.eligible, true);
+    assert.equal(manual.reason, "manual_send");
+  });
+
+  await check("Manual send after airport→local completion skips the 24h wait", () => {
+    const booking = visitorBooking({
+      createdAt: "2026-09-03T10:00:00.000Z",
+      tripDate: "2026-09-04",
+      tripTime: "08:00",
+    });
+    const now = new Date("2026-09-04T10:30:00.000Z");
+    const scheduled = planReturnOfferProcessing({
+      booking,
+      correspondingReturnBooked: false,
+      journeyCompletedAt: "2026-09-04T10:00:00.000Z",
+      now,
+    });
+    assert.equal(scheduled.shouldSend, false);
+    const manual = planManualReturnOfferSend({
+      booking,
+      correspondingReturnBooked: false,
+      journeyCompletedAt: "2026-09-04T10:00:00.000Z",
+      now,
+    });
+    assert.equal(manual.shouldSend, true);
+  });
+
+  await check("Manual send blocked while airport→local journey is still in progress", () => {
+    const booking = visitorBooking({
+      tripDate: "2026-09-04",
+      tripTime: "14:00",
+    });
+    const manual = planManualReturnOfferSend({
+      booking,
+      correspondingReturnBooked: false,
+      now: new Date("2026-09-04T13:00:00.000Z"),
+    });
+    assert.equal(manual.shouldSend, false);
+    assert.equal(manual.reason, "awaiting_completion");
+  });
+
+  await check("Manual send is blocked after the offer was already sent", () => {
+    const manual = planManualReturnOfferSend({
+      booking: baseBooking(),
+      existing: { status: "SENT", emailSentAt: "2026-09-03T12:00:00.000Z" },
+      correspondingReturnBooked: false,
+      now: new Date("2026-09-04T09:00:00.000Z"),
+    });
+    assert.equal(manual.shouldSend, false);
+    assert.equal(manual.reason, "offer_already_sent");
+  });
+
+  await check("Manual send is blocked after the offer was redeemed", () => {
+    const manual = planManualReturnOfferSend({
+      booking: baseBooking(),
+      existing: { status: "REDEEMED", emailSentAt: "2026-09-03T12:00:00.000Z" },
+      correspondingReturnBooked: false,
+      now: new Date("2026-09-04T09:00:00.000Z"),
+    });
+    assert.equal(manual.shouldSend, false);
+    assert.equal(manual.reason, "offer_already_redeemed");
+  });
+
+  await check("Manual send is blocked when a reverse booking already exists", () => {
+    const original = baseBooking();
+    const reverse = baseBooking({
+      paymentReference: "pay-return-1",
+      pickupLabel: original.dropoffLabel,
+      dropoffLabel: original.pickupLabel,
+    });
+    assert.equal(hasCorrespondingReturnBooking(original, [original, reverse]), true);
+    const manual = planManualReturnOfferSend({
+      booking: original,
+      correspondingReturnBooked: true,
+      now: new Date("2026-09-04T09:00:00.000Z"),
+    });
+    assert.equal(manual.shouldSend, false);
+    assert.equal(manual.reason, "corresponding_return_booked");
+  });
+
+  await check("Manual send is blocked for ineligible original bookings", () => {
+    const withReturn = planManualReturnOfferSend({
+      booking: baseBooking({ returnJourney: true, returnDate: "2026-09-12" }),
+      correspondingReturnBooked: false,
+    });
+    assert.equal(withReturn.shouldSend, false);
+    assert.equal(withReturn.reason, "return_already_included");
+
+    const cancelled = planManualReturnOfferSend({
+      booking: baseBooking({ operationalStatus: "cancelled" }),
+      correspondingReturnBooked: false,
+    });
+    assert.equal(cancelled.shouldSend, false);
+    assert.equal(cancelled.reason, "cancelled_or_refunded");
+
+    const noEmail = planManualReturnOfferSend({
+      booking: baseBooking({ customerEmail: "" }),
+      correspondingReturnBooked: false,
+    });
+    assert.equal(noEmail.shouldSend, false);
+    assert.equal(noEmail.reason, "missing_email");
+  });
+
+  await check("Owner summary canSendNow is true before the automatic delay", () => {
+    const booking = baseBooking({ createdAt: "2026-09-04T08:00:00.000Z" });
+    const now = new Date("2026-09-04T09:00:00.000Z");
+    const summary = buildReturnOfferAdminSummary({
+      booking,
+      correspondingReturnBooked: false,
+      now,
+    });
+    assert.equal(summary.canSendNow, true);
+    assert.equal(summary.status, "SCHEDULED");
+  });
+
+  await check("Manual send still uses live fare 5% — not the original paid amount", () => {
+    const originalPaid = 80;
+    const newJourneyFare = 62;
+    const breakdown = composeWebsiteFareBreakdown({
+      journeyFareBeforeAirportAccessGbp: newJourneyFare,
+      airportFixedCostsGbp: 9,
+      airportAccessChargeGbp: 5,
+      returnOfferDiscountRate: 0.05,
+    });
+    assert.equal(breakdown.returnOfferSavingGbp, 3.1);
+    assert.notEqual(breakdown.returnOfferSavingGbp, originalPaid * 0.05);
+    assert.equal(breakdown.airportFixedCostsGbp, 9);
+    assert.equal(breakdown.airportAccessChargeGbp, 5);
+    assert.equal(breakdown.finalAmountPayableGbp, 72.9);
+  });
+
+  await check("Owner dashboard wires confirmed manual send without changing hourly cron", () => {
+    const owner = read("src/components/OwnerPaidBookingsPanel.tsx");
+    const handlers = read("workers/addresses/src/return-offer-handlers.ts");
+    const worker = read("workers/addresses/src/index.ts");
+    const api = read("src/lib/paid-bookings-api.ts");
+    assert.match(owner, /Send 5% Return Offer Now/);
+    assert.match(owner, /window\.confirm/);
+    assert.match(owner, /sendManualReturnOfferNow/);
+    assert.match(api, /paid-bookings\/return-offer\/send/);
+    assert.match(handlers, /handleManualReturnOfferSend/);
+    assert.match(handlers, /planManualReturnOfferSend/);
+    assert.match(handlers, /processDueReturnOffers/);
+    assert.match(worker, /processDueReturnOffers/);
+    assert.match(worker, /isManualReturnOfferSendPath/);
+    assert.match(worker, /paid-bookings-return-offer-send/);
+    assert.match(
+      read("workers/addresses/src/paid-booking-handlers.ts"),
+      /returnOffer: buildReturnOfferAdminSummary\(\{[\s\S]*journeyCompletedAt,/,
+    );
   });
 }
 
