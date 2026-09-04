@@ -19,6 +19,7 @@ import {
   isConfirmedReturnOfferPlace,
   normalizeReturnOfferPlace,
   normalizeReturnOfferToken,
+  returnOfferPlaceFromServedAirport,
   paidBookingToReturnOfferSnapshot,
   planManualReturnOfferSend,
   planReturnOfferProcessing,
@@ -368,12 +369,13 @@ async function enrichReturnOfferSnapshotPlaces(
     return snapshot;
   }
 
+  const localLabel = snapshot.localAddressLabel.trim();
   const apiKey = env.GOOGLE_PLACES_API_KEY?.trim() || "";
-  if (!apiKey || !snapshot.localAddressLabel.trim()) {
+  if (!apiKey || !localLabel) {
     return snapshot;
   }
 
-  const resolved = await resolvePlaceFromAddressLabel(apiKey, snapshot.localAddressLabel);
+  const resolved = await resolvePlaceFromAddressLabel(apiKey, localLabel);
   if (!resolved) {
     return snapshot;
   }

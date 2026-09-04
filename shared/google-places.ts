@@ -17,7 +17,6 @@ import {
   withStreetNumber,
 } from "./journey-address-label";
 import { getLdyLocationRestriction } from "./ldy-service-area";
-import { getServedAirport, matchServedAirportCode } from "./served-airports";
 
 export {
   extractLeadingStreetNumber,
@@ -698,25 +697,6 @@ export async function resolvePlaceFromAddressLabel(
   const trimmed = address.trim();
   if (!apiKey || trimmed.length < 5) {
     return null;
-  }
-
-  const airportCode = matchServedAirportCode(trimmed);
-  const airport = airportCode ? getServedAirport(airportCode) : undefined;
-  if (airport) {
-    return {
-      placeId: airport.placeId,
-      formattedAddress: airport.formattedAddress,
-      displayAddress: airport.formattedAddress,
-      placeName: airport.name,
-      lat: airport.lat,
-      lng: airport.lng,
-      countryCode: airport.countryCode,
-      postalCode: airport.postalCode,
-      streetNumber: null,
-      route: null,
-      locality: null,
-      administrativeArea: null,
-    };
   }
 
   const response = await fetch("https://places.googleapis.com/v1/places:searchText", {
