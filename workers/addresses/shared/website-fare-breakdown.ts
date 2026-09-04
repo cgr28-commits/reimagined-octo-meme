@@ -77,9 +77,8 @@ export type WebsiteFareBreakdownInput = {
   claimFirstBookingOffer?: boolean;
   firstBookingConfig?: Partial<FirstBookingOfferConfig>;
   /**
-   * Secure follow-up return-offer rate (e.g. 0.05). Applied to the journey
-   * fare only — never airport fixed costs or Express. Do not stack with the
-   * £5 first-booking offer.
+   * Secure follow-up return-offer rate (e.g. 0.05). Applied to the current
+   * live journey fare only — never airport fixed costs or Express.
    */
   returnOfferDiscountRate?: number;
 };
@@ -157,7 +156,7 @@ export function composeWebsiteFareBreakdown(
     journeyFareBeforeAirportAccessGbp: journeyBeforePromo,
     airportAccessChargeGbp,
     airportFixedCostsGbp,
-    claimOffer: input.claimFirstBookingOffer !== false && !applyReturnOffer,
+    claimOffer: input.claimFirstBookingOffer !== false,
     returnJourneyDiscountApplied: returnJourney,
     config: input.firstBookingConfig,
   });

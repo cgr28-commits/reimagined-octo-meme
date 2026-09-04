@@ -2089,8 +2089,7 @@ async function handlePaymentRequest(
       }
     }
 
-    const claimFirstBookingOffer =
-      body.claimFirstBookingOffer !== false && returnOfferDiscountRate <= 0;
+    const claimFirstBookingOffer = body.claimFirstBookingOffer !== false;
 
     const breakdown = composeWebsiteFareBreakdown({
       journeyFareBeforeAirportAccessGbp: journeyFareGbp,

@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useState } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import QuoteCard from "@/components/QuoteCard";
 import { fetchReturnOfferByToken } from "@/lib/return-offer-api";
@@ -62,9 +63,9 @@ function ReturnOfferInner() {
       <div className="mx-auto max-w-lg rounded-2xl border border-white/10 bg-navy/60 p-6 text-center">
         <p className="text-sm font-semibold text-white">Return offer unavailable</p>
         <p className="mt-2 text-sm text-white/70">{error}</p>
-        <a href="/#quote" className="btn-primary mt-5 inline-flex">
+        <Link href="/#quote" className="btn-primary mt-5 inline-flex">
           Get a live quote
-        </a>
+        </Link>
       </div>
     );
   }

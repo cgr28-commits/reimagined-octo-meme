@@ -1667,7 +1667,7 @@ function QuoteCard({
       airportFixedCostsGbp: journeyFareParts.airportFixedCostsGbp,
       airportAccessChargeGbp: expressSelection.feeGbp,
       returnJourney,
-      claimFirstBookingOffer: !applyReturnOffer,
+      claimFirstBookingOffer: true,
       ...(applyReturnOffer
         ? { returnOfferDiscountRate: RETURN_OFFER_CONFIG.discountRate }
         : {}),
@@ -2756,10 +2756,7 @@ function QuoteCard({
                 ? removedAirportFeeIds
                 : [],
               acceptedFinalAmountGbp: paymentAmount ?? undefined,
-              claimFirstBookingOffer:
-                !returnOfferToken ||
-                returnJourney ||
-                !isReturnOfferAirportJourney(pickupAddress, dropoffAddress),
+              claimFirstBookingOffer: true,
               ...(returnOfferToken &&
               !returnJourney &&
               isReturnOfferAirportJourney(pickupAddress, dropoffAddress)

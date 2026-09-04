@@ -269,14 +269,12 @@ async function run() {
       journeyFareBeforeAirportAccessGbp: 60,
       airportFixedCostsGbp: 0,
       airportAccessChargeGbp: 5,
-      claimFirstBookingOffer: false,
       returnOfferDiscountRate: 0.05,
     });
     const after = composeWebsiteFareBreakdown({
       journeyFareBeforeAirportAccessGbp: 72,
       airportFixedCostsGbp: 0,
       airportAccessChargeGbp: 5,
-      claimFirstBookingOffer: false,
       returnOfferDiscountRate: 0.05,
     });
     assert.equal(before.returnOfferSavingGbp, 3);
@@ -373,11 +371,10 @@ async function run() {
       journeyFareBeforeAirportAccessGbp: 60,
       airportFixedCostsGbp: 8,
       airportAccessChargeGbp: 5,
-      claimFirstBookingOffer: true,
       returnOfferDiscountRate: 0.05,
     });
     assert.equal(breakdown.returnOfferSavingGbp, 3);
-    assert.equal(breakdown.firstBookingSavingGbp, 0);
+    assert.equal(breakdown.journeyFareAfterPromotionsGbp, 57);
     assert.equal(breakdown.airportFixedCostsGbp, 8);
     assert.equal(breakdown.airportAccessChargeGbp, 5);
     assert.equal(breakdown.finalAmountPayableGbp, 70);
