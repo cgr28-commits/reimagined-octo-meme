@@ -223,6 +223,9 @@ export type PaidBookingRecord = {
    * Must never appear as a real customer journey / Upcoming Job.
    */
   isAmendmentTestFixture?: boolean;
+  /** Original paid booking that generated a follow-up return offer. */
+  returnOfferOriginalPaymentReference?: string;
+  returnOfferSavingGbp?: number;
 };
 
 /** Default driver label when no other driver is assigned (multi-driver capable later). */

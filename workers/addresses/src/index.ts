@@ -346,6 +346,12 @@ import {
   toExpressDropOffPersistedFields,
 } from "../shared/express-drop-off";
 import { composeWebsiteFareBreakdown } from "../shared/website-fare-breakdown";
+import {
+  handleGetReturnOffer,
+  isReturnOfferLookupPath,
+  processDueReturnOffers,
+  resolveReturnOfferForPayment,
+} from "./return-offer-handlers";
 import { promoFieldsFromFareBreakdown } from "../shared/website-promo-pricing";
 import { calculateAuthoritativeWebsiteQuote } from "../../../src/lib/quote-service";
 import {
@@ -418,6 +424,10 @@ type Env = {
   GOOGLE_ADS_PAID_BOOKING_CONVERSION_ACTION_ID?: string;
   /** Salt for irreversible Ad Fraud visitor/IP hashes (Worker secret). */
   AD_FRAUD_HASH_SALT?: string;
+  SITE_ORIGIN?: string;
+  RETURN_OFFER_LOCAL_TO_AIRPORT_DELAY_HOURS?: string;
+  RETURN_OFFER_LAST_MINUTE_LOCAL_DELAY_HOURS?: string;
+  RETURN_OFFER_AIRPORT_TO_LOCAL_DELAY_HOURS?: string;
 };
 
 type QuoteLeadRequestBody = QuoteLeadDetails & {
@@ -951,16 +961,6 @@ function parsePaidBookingDetails(body: Record<string, unknown>): PaidBookingDeta
       ? {
           returnJourneySavingGbp:
             Math.round(Number(details.returnJourneySavingGbp) * 100) / 100,
-        }
-      : {}),
-    ...(details.firstBookingOfferApplied === true
-      ? { firstBookingOfferApplied: true }
-      : {}),
-    ...(typeof details.firstBookingSavingGbp === "number" &&
-    Number.isFinite(details.firstBookingSavingGbp)
-      ? {
-          firstBookingSavingGbp:
-            Math.round(Number(details.firstBookingSavingGbp) * 100) / 100,
         }
       : {}),
     ...(typeof details.totalPromotionalSavingGbp === "number" &&
@@ -1500,6 +1500,8 @@ async function handlePaymentRequest(
   let savedQuoteReference: string | undefined;
   let standardWebsiteAmount: number | undefined;
   let personalQuotedAmount: number | undefined;
+  const returnOfferToken = String(body.returnOfferToken ?? "").trim() || undefined;
+  let returnOfferOriginalPaymentReference: string | undefined;
 
   // Approved short-notice pay: amount + journey locked server-side (ignore client fare).
   if (shortNoticeToken) {
@@ -1879,8 +1881,8 @@ async function handlePaymentRequest(
   }
 
   // Open website booking (QuoteCard): client amount is the transfer fare only
-  // (journey + any embedded airport fixed costs, BEFORE first-booking offer and
-  // BEFORE Express). First-booking + Express are composed authoritatively here.
+  // (journey + any embedded airport fixed costs, BEFORE Express).
+  // Express and any return-offer 5% are composed authoritatively here.
   if (
     booking &&
     !shortNoticeToken &&
@@ -2064,14 +2066,25 @@ async function handlePaymentRequest(
     });
     const persisted = toExpressDropOffPersistedFields(express);
 
-    const claimFirstBookingOffer = body.claimFirstBookingOffer !== false;
+    let returnOfferDiscountRate = 0;
+    if (returnOfferToken && env.TRACKING_STORE) {
+      const resolvedOffer = await resolveReturnOfferForPayment(env.TRACKING_STORE, returnOfferToken, {
+        pickupLabel: booking.pickupLabel,
+        dropoffLabel: booking.dropoffLabel,
+        returnJourney: Boolean(booking.returnJourney),
+      });
+      if (resolvedOffer.ok) {
+        returnOfferDiscountRate = resolvedOffer.discountRate;
+        returnOfferOriginalPaymentReference = resolvedOffer.record.originalPaymentReference;
+      }
+    }
 
     const breakdown = composeWebsiteFareBreakdown({
       journeyFareBeforeAirportAccessGbp: journeyFareGbp,
       airportFixedCostsGbp,
       airportAccessChargeGbp: persisted.expressDropOffFee,
       returnJourney: Boolean(booking.returnJourney),
-      claimFirstBookingOffer,
+      ...(returnOfferDiscountRate > 0 ? { returnOfferDiscountRate } : {}),
     });
 
     const serverFinalAmountGbp = breakdown.finalAmountPayableGbp;
@@ -2136,6 +2149,12 @@ async function handlePaymentRequest(
       ...promoFieldsFromFareBreakdown(breakdown),
       // Persist the amount the customer accepted and SumUp will charge.
       finalAmountPayableGbp: sumUpChargeGbp,
+      ...(returnOfferOriginalPaymentReference
+        ? { returnOfferOriginalPaymentReference }
+        : {}),
+      ...(breakdown.returnOfferSavingGbp > 0
+        ? { returnOfferSavingGbp: breakdown.returnOfferSavingGbp }
+        : {}),
     };
   }
 
@@ -2427,6 +2446,9 @@ async function handlePaymentRequest(
       ...(personalQuoteCode ? { personalQuoteCode } : {}),
       ...(quickQuoteId ? { quickQuoteId } : {}),
       ...(savedQuoteToken ? { savedQuoteToken, savedQuoteReference } : {}),
+      ...(returnOfferToken && returnOfferOriginalPaymentReference
+        ? { returnOfferToken, returnOfferOriginalPaymentReference }
+        : {}),
       ...(typeof standardWebsiteAmount === "number" ? { standardWebsiteAmount } : {}),
       ...(typeof personalQuotedAmount === "number"
         ? { personalQuotedAmount }
@@ -2874,6 +2896,17 @@ export default {
         return json({ error: "Storage is not configured" }, 503, origin);
       }
       return handleCreateSavedQuote(
+        request,
+        { ...env, TRACKING_STORE: env.TRACKING_STORE },
+        origin,
+      );
+    }
+
+    if (isReturnOfferLookupPath(url.pathname) && request.method === "GET") {
+      if (!env.TRACKING_STORE) {
+        return json({ error: "Storage is not configured" }, 503, origin);
+      }
+      return handleGetReturnOffer(
         request,
         { ...env, TRACKING_STORE: env.TRACKING_STORE },
         origin,
@@ -4212,6 +4245,13 @@ export default {
     // Saved Quote follow-ups: ~24h reminder, ~day-5 final reminder, expire open quotes.
     // Re-checks status before every send; idempotent via sent-at timestamps.
     if (env.TRACKING_STORE) {
+      ctx.waitUntil(
+        processDueReturnOffers({ ...env, TRACKING_STORE: env.TRACKING_STORE }).then((result) => {
+          if (result.sent > 0 || result.errors > 0 || result.scheduled > 0) {
+            console.log("Return journey offer cron", JSON.stringify(result));
+          }
+        }),
+      );
       ctx.waitUntil(
         processSavedQuoteReminders({ ...env, TRACKING_STORE: env.TRACKING_STORE }).then((result) => {
           if (

@@ -11,7 +11,6 @@
  * into an “Original booking value” that is then shown again as +Express.
  *
  * Avoided Express (free drop-off) is NOT a promotional saving.
- * No email / customer-history / redemption gate.
  */
 
 import {
@@ -19,13 +18,9 @@ import {
   formatReturnJourneyDiscountPercent,
 } from "./return-journey-discount";
 import {
-  FIRST_BOOKING_OFFER_CONFIG,
-  FIRST_BOOKING_OFFER_LABEL,
-  FIRST_BOOKING_OFFER_SHORT_LABEL,
-  resolveFirstBookingOffer,
-  type FirstBookingOfferConfig,
-  type FirstBookingOfferResult,
-} from "./first-booking-offer";
+  applyReturnOfferSaving,
+  formatReturnOfferPercent,
+} from "./return-offer";
 
 function roundGbp(amount: number): number {
   return Math.round(Number(amount) * 100) / 100;
@@ -54,24 +49,23 @@ export function getReturnJourneySavingGbp(
 
 export type WebsiteFareBreakdownInput = {
   /**
-   * Taxi/journey fare after return discount (when booked), before the £5
-   * booking saving and before Express airport access.
+   * Taxi/journey fare after same-order return discount (when booked),
+   * before Express airport access.
    */
   journeyFareBeforeAirportAccessGbp: number;
   /**
    * Operational airport fixed costs already folded into the quoted transfer
-   * (e.g. Dublin parking/toll). Never discounted; counts toward £40 booking value.
+   * (e.g. Dublin parking/toll). Never discounted.
    */
   airportFixedCostsGbp?: number;
   /** Express Drop-Off / Pick-Up fee when selected (0 when free option chosen). */
   airportAccessChargeGbp?: number;
   returnJourney?: boolean;
   /**
-   * Apply the £5 booking saving when booking-value-eligible.
-   * Default true for open website. Pass false only for personal/quick-quote paths.
+   * Secure follow-up return-offer rate (e.g. 0.05). Applied to the current
+   * live journey fare only — never airport fixed costs or Express.
    */
-  claimFirstBookingOffer?: boolean;
-  firstBookingConfig?: Partial<FirstBookingOfferConfig>;
+  returnOfferDiscountRate?: number;
 };
 
 export type WebsiteFareBreakdown = {
@@ -81,17 +75,14 @@ export type WebsiteFareBreakdown = {
   returnJourney: boolean;
   returnJourneySavingGbp: number;
   returnJourneyDiscountPercentLabel: string;
-  firstBooking: FirstBookingOfferResult;
-  firstBookingSavingGbp: number;
+  returnOfferSavingGbp: number;
+  returnOfferDiscountPercentLabel: string;
   journeyFareAfterPromotionsGbp: number;
   /** Transfer subtotal after promos + undiscounted fixed costs (no Express). */
   transferFareAfterPromotionsGbp: number;
   airportAccessChargeGbp: number;
-  /**
-   * Journey + fixed costs + Express — used only for £40 booking-value eligibility.
-   * Do not display this as “Original booking value” when Express is also listed.
-   */
-  bookingValueBeforeFirstBookingOfferGbp: number;
+  /** Journey + fixed costs + Express (display/audit total before any promo). */
+  bookingValueBeforePromotionsGbp: number;
   /**
    * Journey (+ fixed costs) after promos, before Express — customer “Journey fare” line.
    */
@@ -100,8 +91,6 @@ export type WebsiteFareBreakdown = {
   /** Strikethrough / original eligible price (journey before promos only). */
   originalEligibleJourneyPriceGbp: number;
   finalAmountPayableGbp: number;
-  firstBookingLabel: string;
-  firstBookingShortLabel: string;
 };
 
 /**
@@ -129,28 +118,26 @@ export function composeWebsiteFareBreakdown(
     ? getUndiscountedReturnJourneyFareGbp(journeyBeforePromo)
     : journeyBeforePromo;
 
-  const bookingValueBeforeFirstBookingOfferGbp = roundGbp(
+  const bookingValueBeforePromotionsGbp = roundGbp(
     journeyBeforePromo + airportFixedCostsGbp + airportAccessChargeGbp,
   );
 
-  const firstBooking = resolveFirstBookingOffer({
-    journeyFareBeforeAirportAccessGbp: journeyBeforePromo,
-    airportAccessChargeGbp,
-    airportFixedCostsGbp,
-    claimOffer: input.claimFirstBookingOffer !== false,
-    returnJourneyDiscountApplied: returnJourney,
-    config: input.firstBookingConfig,
-  });
+  const returnOfferRate = Number(input.returnOfferDiscountRate);
+  const applyReturnOffer =
+    Number.isFinite(returnOfferRate) && returnOfferRate > 0 && returnOfferRate < 1;
+  const returnOffer = applyReturnOffer
+    ? applyReturnOfferSaving(journeyBeforePromo, returnOfferRate)
+    : { savingGbp: 0, fareAfterGbp: journeyBeforePromo };
+  const returnOfferSavingGbp = returnOffer.savingGbp;
 
-  const firstBookingSavingGbp = firstBooking.applied ? firstBooking.discountGbp : 0;
-  const journeyFareAfterPromotionsGbp = firstBooking.applied
-    ? firstBooking.journeyFareAfterOfferGbp
+  const journeyFareAfterPromotionsGbp = applyReturnOffer
+    ? returnOffer.fareAfterGbp
     : journeyBeforePromo;
   const transferFareAfterPromotionsGbp = roundGbp(
     journeyFareAfterPromotionsGbp + airportFixedCostsGbp,
   );
   const totalPromotionalSavingGbp = roundGbp(
-    returnJourneySavingGbp + firstBookingSavingGbp,
+    returnJourneySavingGbp + returnOfferSavingGbp,
   );
   const finalAmountPayableGbp = roundGbp(
     transferFareAfterPromotionsGbp + airportAccessChargeGbp,
@@ -163,18 +150,18 @@ export function composeWebsiteFareBreakdown(
     returnJourney,
     returnJourneySavingGbp,
     returnJourneyDiscountPercentLabel: formatReturnJourneyDiscountPercent(),
-    firstBooking,
-    firstBookingSavingGbp,
+    returnOfferSavingGbp,
+    returnOfferDiscountPercentLabel: formatReturnOfferPercent(
+      applyReturnOffer ? returnOfferRate : undefined,
+    ),
     journeyFareAfterPromotionsGbp,
     transferFareAfterPromotionsGbp,
     airportAccessChargeGbp,
-    bookingValueBeforeFirstBookingOfferGbp,
+    bookingValueBeforePromotionsGbp,
     journeyFareDisplayGbp: transferFareAfterPromotionsGbp,
     totalPromotionalSavingGbp,
     originalEligibleJourneyPriceGbp: journeyFareBeforeReturnDiscountGbp,
     finalAmountPayableGbp,
-    firstBookingLabel: FIRST_BOOKING_OFFER_LABEL,
-    firstBookingShortLabel: FIRST_BOOKING_OFFER_SHORT_LABEL,
   };
 }
 
@@ -184,5 +171,3 @@ import { formatGbpAmount } from "./gbp";
 export function formatGbpFare(amount: number): string {
   return formatGbpAmount(amount);
 }
-
-export { FIRST_BOOKING_OFFER_CONFIG, FIRST_BOOKING_OFFER_LABEL };

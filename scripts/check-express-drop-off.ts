@@ -474,10 +474,9 @@ check("QuoteCard shows Express under initial price; payment uses summary + Chang
   assert.match(card, /renderExpressChoiceInPriceCard\(quoteStep === 1 \? "full" : "summary"\)/);
   // Browser sends transfer fare + boolean — never trusts a client fee for SumUp.
   assert.match(card, /createPaymentCheckout\(\{/);
-  assert.match(card, /claimFirstBookingOffer/);
-  assert.match(card, /claimFirstBookingOffer: true/);
   assert.match(card, /journeyFareGbp/);
   assert.match(card, /airportAccessChargeGbp: expressSelection\.feeGbp/);
+  assert.doesNotMatch(card, /claimFirstBookingOffer/);
   assert.doesNotMatch(card, /claimFirstBookingForCheckout/);
   assert.doesNotMatch(card, /FirstBookingOfferAdvert/);
   assert.doesNotMatch(card, /checkFirstBookingOfferEligibility/);

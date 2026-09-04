@@ -1,6 +1,7 @@
 /**
  * Airport fee product rules: DUB/LDY amounts + tolls, airport-specific
- * removability, and confirmation that the £5-over-£40 offer is disabled.
+ * removability, and confirmation that journey fares are not reduced by a
+ * discontinued introductory booking saving.
  * Expectations use PR #435 universal distance pricing (with route metrics).
  * Run: npx tsx scripts/check-airport-fee-product-rules.ts
  */
@@ -19,7 +20,6 @@ import {
   resolveJourneyAirportFees,
 } from "../shared/airport-fixed-costs";
 import { composeWebsiteFareBreakdown } from "../shared/website-fare-breakdown";
-import { FIRST_BOOKING_OFFER_CONFIG } from "../shared/first-booking-offer";
 import { SERVED_AIRPORTS } from "../shared/served-airports";
 import {
   calculateUniversalSaloonJourneyFareGbp,
@@ -62,17 +62,15 @@ check("Config: DUB parking £5 + M1 toll £4; LDY fees; choice permissions", () 
   assert.equal(isAirportFeeCustomerChoiceAllowed("BHD"), true);
 });
 
-check("£5-over-£40 booking saving is disabled", () => {
-  assert.equal(FIRST_BOOKING_OFFER_CONFIG.enabled, false);
+check("Journey fare is charged in full with no introductory booking saving", () => {
   for (const journey of [40, 41, 50, 100, 237]) {
     const breakdown = composeWebsiteFareBreakdown({
       journeyFareBeforeAirportAccessGbp: journey,
       airportFixedCostsGbp: 0,
       airportAccessChargeGbp: 0,
-      claimFirstBookingOffer: true,
     });
-    assert.equal(breakdown.firstBookingSavingGbp, 0);
     assert.equal(breakdown.finalAmountPayableGbp, journey);
+    assert.equal(breakdown.totalPromotionalSavingGbp, 0);
   }
 });
 

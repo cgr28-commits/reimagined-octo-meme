@@ -35,6 +35,12 @@ import {
   listTrackingJobsForDateRange,
 } from "./tracking-store";
 import {
+  buildReturnOfferAdminSummary,
+  hasCorrespondingReturnBooking,
+  paidBookingToReturnOfferSnapshot,
+} from "../shared/return-offer";
+import { getReturnOfferByPaymentReference } from "./return-offer-store";
+import {
   buildPublicTrackUrl,
   journeyStatusOf,
   resolveEmailTrackUrl,
@@ -474,6 +480,25 @@ export async function handlePaidBookingsListRequest(
         isAmendmentTestFixture:
           booking.isAmendmentTestFixture === true ? true : undefined,
         ...(reviewRequest ? { reviewRequest } : {}),
+        ...(await (async () => {
+          if (!booking.paymentReference) return {};
+          const offerRecord = await getReturnOfferByPaymentReference(
+            store,
+            booking.paymentReference,
+          );
+          const snapshot = paidBookingToReturnOfferSnapshot(booking);
+          const correspondingReturnBooked = hasCorrespondingReturnBooking(
+            snapshot,
+            bookings.map(paidBookingToReturnOfferSnapshot),
+          );
+          return {
+            returnOffer: buildReturnOfferAdminSummary({
+              booking: snapshot,
+              record: offerRecord,
+              correspondingReturnBooked,
+            }),
+          };
+        })()),
       };
     }),
   );

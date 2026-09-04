@@ -31,6 +31,8 @@ import { markA2aQuotePaid } from "./a2a-quote-handlers";
 import { markPersonalQuoteUsed } from "./personal-quote-store";
 import { markQuickQuotePaid } from "./quick-quote-store";
 import { markSavedQuoteBookedFromPayment } from "./saved-quote-handlers";
+import { getReturnOfferByTokenHash, markReturnOfferRedeemed } from "./return-offer-store";
+import { hashReturnOfferToken } from "../shared/return-offer";
 import { maybeRecordMarketingFromPayload } from "./marketing-handlers";
 import { trySendBrandedCustomerEmail, trySendOwnerOperationalEmail } from "./worker-email";
 import { maybeUploadPaidBookingAdsConversion } from "./paid-booking-ads-conversion";
@@ -479,6 +481,17 @@ export async function finalizePaidCheckout(input: {
         paymentReference,
         checkoutId,
       });
+    }
+    if (pending?.returnOfferToken && pending.returnOfferOriginalPaymentReference) {
+      const tokenHash = await hashReturnOfferToken(pending.returnOfferToken);
+      const offer = await getReturnOfferByTokenHash(env.TRACKING_STORE, tokenHash);
+      if (offer && offer.status === "SENT") {
+        await markReturnOfferRedeemed(
+          env.TRACKING_STORE,
+          offer.originalPaymentReference,
+          paymentReference,
+        );
+      }
     }
   }
 

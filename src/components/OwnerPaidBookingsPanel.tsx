@@ -1407,6 +1407,31 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
                 </dd>
               </div>
             ) : null}
+            {booking.returnOffer ? (
+              <div className="col-span-2">
+                <dt className="text-white/35">Return Offer</dt>
+                <dd className="space-y-0.5 text-white/70">
+                  <p>
+                    Eligible: {booking.returnOffer.eligible ? "Yes" : "No"}
+                    {booking.returnOffer.reason ? ` · ${booking.returnOffer.reason}` : ""}
+                  </p>
+                  {booking.returnOffer.type ? <p>Type: {booking.returnOffer.type}</p> : null}
+                  {booking.returnOffer.status ? <p>Status: {booking.returnOffer.status}</p> : null}
+                  {booking.returnOffer.scheduledAt ? (
+                    <p>Scheduled: {formatUkInstant(booking.returnOffer.scheduledAt)}</p>
+                  ) : null}
+                  {booking.returnOffer.sentAt ? (
+                    <p>Sent: {formatUkInstant(booking.returnOffer.sentAt)}</p>
+                  ) : null}
+                  <p>
+                    Redeemed: {booking.returnOffer.redeemed ? "Yes" : "No"}
+                    {booking.returnOffer.returnBookingPaymentReference
+                      ? ` · ${booking.returnOffer.returnBookingPaymentReference}`
+                      : " · Return booking: —"}
+                  </p>
+                </dd>
+              </div>
+            ) : null}
           </dl>
         </div>
       </details>

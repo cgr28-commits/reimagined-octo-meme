@@ -61,8 +61,6 @@ export default function BookingConfirmedClient() {
         journeyFareBeforePromotionsGbp: pending.booking.journeyFareBeforePromotionsGbp,
         originalEligibleJourneyPriceGbp: pending.booking.originalEligibleJourneyPriceGbp,
         returnJourneySavingGbp: pending.booking.returnJourneySavingGbp,
-        firstBookingOfferApplied: pending.booking.firstBookingOfferApplied,
-        firstBookingSavingGbp: pending.booking.firstBookingSavingGbp,
         totalPromotionalSavingGbp: pending.booking.totalPromotionalSavingGbp,
         airportAccessChargeGbp: pending.booking.airportAccessChargeGbp,
         journeyFareAfterPromotionsGbp: pending.booking.journeyFareAfterPromotionsGbp,

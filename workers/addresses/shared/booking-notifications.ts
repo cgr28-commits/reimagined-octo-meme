@@ -71,12 +71,12 @@ export type PaidBookingDetails = {
   journeyFareBeforePromotionsGbp?: number;
   originalEligibleJourneyPriceGbp?: number;
   returnJourneySavingGbp?: number;
-  firstBookingOfferApplied?: boolean;
-  firstBookingSavingGbp?: number;
   totalPromotionalSavingGbp?: number;
   airportAccessChargeGbp?: number;
   journeyFareAfterPromotionsGbp?: number;
   finalAmountPayableGbp?: number;
+  returnOfferSavingGbp?: number;
+  returnOfferOriginalPaymentReference?: string;
   termsAcceptedAt?: string;
   termsVersion?: string;
   cancellationPolicyVersion?: string;

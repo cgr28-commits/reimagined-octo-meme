@@ -1,6 +1,0 @@
-{
-  "enabled": false,
-  "discountAmountGbp": 5,
-  "minimumEligibleBookingValueGbp": 40,
-  "stackWithReturnJourneyDiscount": true
-}

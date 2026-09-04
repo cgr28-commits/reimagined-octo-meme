@@ -1,9 +1,6 @@
 "use client";
 
 import { SERVICE_FLAGS } from "@/lib/data";
-import FirstBookingOfferStrip, {
-  FirstBookingOfferBadge,
-} from "./FirstBookingOfferStrip";
 import QuoteCard from "./QuoteCard";
 import QuoteHelpContact from "./QuoteHelpContact";
 
@@ -38,10 +35,6 @@ export default function HeroSlideshow() {
             Fixed fares. Reliable airport transfers. No surprises.
           </p>
 
-          <div className="mt-4">
-            <FirstBookingOfferBadge />
-          </div>
-
           <ul className="mt-8 grid gap-3.5 text-sm text-white/62 sm:grid-cols-2 lg:mt-10 lg:gap-x-8 lg:gap-y-3.5">
             {[
               "Instant fixed prices online",
@@ -70,7 +63,6 @@ export default function HeroSlideshow() {
           className="order-1 min-w-0 w-full scroll-mt-20 md:scroll-mt-28 lg:order-2 lg:justify-self-stretch"
           id="quote"
         >
-          <FirstBookingOfferStrip />
           <QuoteCard />
           <QuoteHelpContact />
         </div>
