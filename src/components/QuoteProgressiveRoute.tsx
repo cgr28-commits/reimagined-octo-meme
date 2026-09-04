@@ -5,6 +5,7 @@ import AddressInput from "@/components/AddressInput";
 import {
   CUSTOMER_AIRPORTS,
   QUOTE_JOURNEY_INTENT_OPTIONS,
+  customerAirportTitle,
   type CustomerAirportCode,
   type QuoteJourneyIntent,
 } from "@/lib/quote-journey-intent";
@@ -125,6 +126,11 @@ export type QuoteProgressiveRouteProps = {
   /** Bumped when addresses/intent change (kept for parent; scroll owned by QuoteCard). */
   showStageScrollKey?: string;
   journeyKindLabel?: string;
+  /**
+   * Valid Return Offer only: lock direction/airport and hide the same-order
+   * One way / Return · 5% toggle. Ordinary bookings must leave this unset.
+   */
+  lockReturnOfferJourney?: boolean;
 };
 
 export default function QuoteProgressiveRoute({
@@ -161,6 +167,7 @@ export default function QuoteProgressiveRoute({
   showPartyFields,
   showStageScrollKey: _showStageScrollKey = "",
   journeyKindLabel,
+  lockReturnOfferJourney = false,
 }: QuoteProgressiveRouteProps) {
   void _showStageScrollKey;
   const showAirportPicker =
@@ -193,71 +200,101 @@ export default function QuoteProgressiveRoute({
         </p>
       </div>
 
-      <div
-        className={`grid gap-2 sm:grid-cols-3 sm:gap-3 lg:gap-2.5 ${choiceGroupNeedsClass(!journeyIntent)}`}
-        role="group"
-        aria-label="Journey type"
-      >
-        {QUOTE_JOURNEY_INTENT_OPTIONS.map((option) => {
-          const selected = journeyIntent === option.id;
-          return (
-            <button
-              key={option.id}
-              type="button"
-              aria-pressed={selected}
-              onClick={() => onJourneyIntentChange(option.id)}
-              className={`${SELECT_CARD} ${selected ? SELECT_CARD_ON : SELECT_CARD_OFF}`}
-            >
-              <span className="text-sm font-bold sm:text-base">{option.title}</span>
-              <span
-                className={`mt-1 text-xs leading-snug ${selected ? "text-navy/80" : "quote-secondary"}`}
-              >
-                {option.description}
-              </span>
-            </button>
-          );
-        })}
-      </div>
-
-      {showAirportPicker && (
-        <div id="quote-section-airport" className="space-y-3">
-          <p className="form-label mb-0">
-            Which airport?
-            {!airportChosen ? (
-              <span className="ml-1 font-normal normal-case tracking-normal text-emerald/80">
-                (required)
-              </span>
-            ) : null}
-          </p>
+      {lockReturnOfferJourney ? (
+        <div className="space-y-3">
           <div
-            className={`grid gap-2 lg:grid-cols-2 ${choiceGroupNeedsClass(!airportChosen)}`}
-            role="group"
-            aria-label="Airport"
+            className="rounded-2xl border border-emerald/35 bg-emerald/10 px-4 py-3"
+            data-return-offer-direction={journeyIntent ?? ""}
           >
-            {SELECTABLE_AIRPORTS.map((airport) => {
-              const selected = selectedAirportCode === airport.code;
+            <p className="text-sm font-bold text-white">
+              {QUOTE_JOURNEY_INTENT_OPTIONS.find((option) => option.id === journeyIntent)?.title ||
+                "Airport transfer"}
+            </p>
+            <p className="mt-1 text-xs leading-snug text-white/70">
+              Single return journey from your original trip — direction is set from your booking.
+            </p>
+          </div>
+          {airportChosen ? (
+            <div id="quote-section-airport" className="space-y-2">
+              <p className="form-label mb-0">Airport</p>
+              <p
+                className="rounded-2xl border border-emerald/35 bg-emerald/10 px-4 py-3 text-sm font-bold text-white"
+                data-return-offer-airport={selectedAirportCode}
+              >
+                {customerAirportTitle(selectedAirportCode)}
+              </p>
+            </div>
+          ) : null}
+        </div>
+      ) : (
+        <>
+          <div
+            className={`grid gap-2 sm:grid-cols-3 sm:gap-3 lg:gap-2.5 ${choiceGroupNeedsClass(!journeyIntent)}`}
+            role="group"
+            aria-label="Journey type"
+          >
+            {QUOTE_JOURNEY_INTENT_OPTIONS.map((option) => {
+              const selected = journeyIntent === option.id;
               return (
                 <button
-                  key={airport.code}
+                  key={option.id}
                   type="button"
                   aria-pressed={selected}
-                  onClick={() => onAirportSelect(airport.code)}
+                  onClick={() => onJourneyIntentChange(option.id)}
                   className={`${SELECT_CARD} ${selected ? SELECT_CARD_ON : SELECT_CARD_OFF}`}
                 >
-                  <span className="text-sm font-bold">{airport.title}</span>
+                  <span className="text-sm font-bold sm:text-base">{option.title}</span>
+                  <span
+                    className={`mt-1 text-xs leading-snug ${selected ? "text-navy/80" : "quote-secondary"}`}
+                  >
+                    {option.description}
+                  </span>
                 </button>
               );
             })}
           </div>
-          {!airportChosen && (
-            <p className="text-xs text-emerald/85">Please choose an airport.</p>
+
+          {showAirportPicker && (
+            <div id="quote-section-airport" className="space-y-3">
+              <p className="form-label mb-0">
+                Which airport?
+                {!airportChosen ? (
+                  <span className="ml-1 font-normal normal-case tracking-normal text-emerald/80">
+                    (required)
+                  </span>
+                ) : null}
+              </p>
+              <div
+                className={`grid gap-2 lg:grid-cols-2 ${choiceGroupNeedsClass(!airportChosen)}`}
+                role="group"
+                aria-label="Airport"
+              >
+                {SELECTABLE_AIRPORTS.map((airport) => {
+                  const selected = selectedAirportCode === airport.code;
+                  return (
+                    <button
+                      key={airport.code}
+                      type="button"
+                      aria-pressed={selected}
+                      onClick={() => onAirportSelect(airport.code)}
+                      className={`${SELECT_CARD} ${selected ? SELECT_CARD_ON : SELECT_CARD_OFF}`}
+                    >
+                      <span className="text-sm font-bold">{airport.title}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              {!airportChosen && (
+                <p className="text-xs text-emerald/85">Please choose an airport.</p>
+              )}
+              {selectedAirportCode === "LDY" && (
+                <p className="rounded-xl border border-white/10 bg-navy-dark/40 px-3 py-2 quote-secondary text-xs">
+                  City of Derry Airport transfers are between LDY and the greater Belfast area.
+                </p>
+              )}
+            </div>
           )}
-          {selectedAirportCode === "LDY" && (
-            <p className="rounded-xl border border-white/10 bg-navy-dark/40 px-3 py-2 quote-secondary text-xs">
-              City of Derry Airport transfers are between LDY and the greater Belfast area.
-            </p>
-          )}
-        </div>
+        </>
       )}
 
       {showAddresses && showRouteFields && (
@@ -323,7 +360,7 @@ export default function QuoteProgressiveRoute({
         </div>
       )}
 
-      {showJourneyModeFields && (
+      {showJourneyModeFields && !lockReturnOfferJourney && (
         <div
           id="journey-type-selector"
           className="scroll-mt-44 space-y-3 md:scroll-mt-28"
