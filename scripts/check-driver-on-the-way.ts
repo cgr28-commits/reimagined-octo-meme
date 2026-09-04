@@ -11,9 +11,16 @@ import {
   buildDriverOnTheWayEmail,
 } from "../shared/booking-notifications";
 import {
+  BUSINESS_MAILBOX,
+  BUSINESS_WHATSAPP_DIGITS,
+  businessWhatsAppChatUrl,
+  businessWhatsAppPublicPageUrl,
+} from "../shared/business-email";
+import {
   buildArrivedPickupWhatsAppMessage,
   buildDriverOnTheWayWhatsAppMessage,
 } from "../shared/arrival-whatsapp";
+import { SITE } from "../src/lib/data";
 import { formatPartialRegistration } from "../shared/partial-registration";
 import { applyJourneyAction, customerJourneyLabel } from "../shared/tracking";
 
@@ -21,6 +28,48 @@ const root = process.cwd();
 
 function read(rel: string): string {
   return fs.readFileSync(path.join(root, rel), "utf8");
+}
+
+function visibleHtmlText(html: string): string {
+  return html.replace(/<style[\s\S]*?<\/style>/gi, " ").replace(/<[^>]+>/g, " ");
+}
+
+function assertJourneyStatusContactFooter(
+  email: { text: string; html: string },
+  label: string,
+) {
+  const visible = visibleHtmlText(email.html);
+  assert.match(
+    email.text,
+    /Questions\? Email us at bookings@myairporttaxini\.co\.uk or chat with us on WhatsApp\./,
+    `${label}: exact questions footer`,
+  );
+  assert.match(email.text, new RegExp(BUSINESS_MAILBOX.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  assert.match(
+    email.text,
+    new RegExp(businessWhatsAppPublicPageUrl().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
+  );
+  assert.doesNotMatch(email.text, /wa\.me\/\d+/, `${label}: plain-text must not expose a WhatsApp number`);
+  assert.doesNotMatch(email.text, /028\s*9602\s*2952|02896022952/);
+  assert.doesNotMatch(email.text, /\+44\s*2896\s*022952|442896022952/);
+  assert.doesNotMatch(email.text, /07549\s*815538|07549815538|447549815538/);
+  assert.doesNotMatch(email.text, /07700\s*900123|07700900123/);
+  assert.doesNotMatch(email.text, /tel:/);
+  assert.doesNotMatch(email.html, /028\s*9602\s*2952|tel:\+442896022952/);
+  assert.doesNotMatch(email.html, /07700\s*900123|07549\s*815538|07549815538/);
+  assert.doesNotMatch(visible, /028\s*9602|07\d{3}\s*\d{6}|447549815538/);
+  assert.match(email.html, new RegExp(BUSINESS_MAILBOX.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  const chatHref = businessWhatsAppChatUrl().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  assert.match(
+    email.html,
+    new RegExp(`<a href="${chatHref}"[^>]*>Chat with us on WhatsApp</a>`),
+    `${label}: HTML WhatsApp control must be a clickable Chat with us on WhatsApp link`,
+  );
+  assert.equal(
+    businessWhatsAppChatUrl(),
+    `https://wa.me/${SITE.whatsapp}?text=${encodeURIComponent(SITE.whatsappDefaultMessage)}`,
+  );
+  assert.equal(BUSINESS_WHATSAPP_DIGITS, SITE.whatsapp);
 }
 
 /** Retired website GPS / Track Your Driver wording must never appear in customer on-the-way copy. */
@@ -69,13 +118,18 @@ assert.match(
 assertNoWebsiteTrackingCopy(email.text, "on-the-way email text");
 assertNoWebsiteTrackingCopy(email.html, "on-the-way email html");
 assert.doesNotMatch(email.text, /£80|£120|SumUp|driver pay/i);
+assertJourneyStatusContactFooter(email, "on-the-way email");
 console.log("OK  on-the-way email generated; no website tracking; WhatsApp Live Location wording kept");
 
 console.log("\n=== Arrival email still separate ===");
-const arrival = buildDriverArrivedPickupEmail({ customerName: "Alex Customer" });
+const arrival = buildDriverArrivedPickupEmail({
+  customerName: "Alex Customer",
+  driverMobile: "07700 900123",
+});
 assert.match(arrival.subject, /Your driver has arrived/);
 assert.doesNotMatch(arrival.subject, /Driver on the way/);
-console.log("OK  arrival email untouched");
+assertJourneyStatusContactFooter(arrival, "arrival email");
+console.log("OK  arrival email separate; landline removed; WhatsApp chat link added");
 
 console.log("\n=== On-the-way WhatsApp (driver voice) ===");
 const wa = buildDriverOnTheWayWhatsAppMessage({

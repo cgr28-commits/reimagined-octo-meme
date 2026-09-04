@@ -138,6 +138,14 @@ check("Driver on the way email — no driver mobile; colour + partial reg; no we
   );
   assert.doesNotMatch(email.text, /£80|£120|SumUp|driver pay|amountPaid/i);
   assert.doesNotMatch(email.html, /07700 900123|Driver mobile/i);
+  assert.match(
+    email.text,
+    /Questions\? Email us at bookings@myairporttaxini\.co\.uk or chat with us on WhatsApp\./,
+  );
+  assert.doesNotMatch(email.text, /028\s*9602\s*2952|tel:/);
+  assert.doesNotMatch(email.html, /028\s*9602\s*2952|tel:\+442896022952/);
+  assert.match(email.html, /<a href="https:\/\/wa\.me\/447549815538\?text=[^"]*"[^>]*>Chat with us on WhatsApp<\/a>/);
+  assert.match(email.html, /bookings@myairporttaxini\.co\.uk/);
 });
 
 check("Driver on the way WhatsApp — driver voice, no mobile, no website tracking", () => {
