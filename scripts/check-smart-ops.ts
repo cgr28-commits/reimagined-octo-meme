@@ -25,12 +25,14 @@ import {
   unavailableFormFromRule,
 } from "../shared/smart-availability";
 import {
+  coordsFromAirportHint,
   coordsFromPlaceLabel,
   customerAvailabilityMessage,
   evaluateSmartAvailability,
   labelsLikelySamePlace,
   occupiedJobsFromPaidBooking,
   repositionMinutes,
+  resolveSmartOpsPoint,
   type SmartOccupiedJob,
 } from "../shared/smart-conflict";
 import {
@@ -1627,6 +1629,96 @@ console.log("\n=== Geographical positioning: previous booking destination → pr
   assert.equal(proposed0700.diagnostics.positioningToLabel, "12 Wyncairn Gardens, Larne");
   assert.equal(proposed0700.available, false);
   console.log("OK  previous-booking City→Larne positioning");
+}
+
+console.log("\n=== Live 05:45 case: airport code must not move Larne onto BHD ===");
+{
+  const cityToBhd = repositionMinutes(BELFAST, BHD, {
+    fromLabel: "Belfast City Centre",
+    toLabel: "George Best Belfast City Airport",
+  });
+  const cityToLarne = repositionMinutes(BELFAST, LARNE, {
+    fromLabel: "Belfast City Centre",
+    toLabel: "12 Wyncairn Gardens, Larne BT40 2EB",
+  });
+  assert.ok(cityToBhd > 0 && cityToBhd < 25, `City→BHD should be the short ~14 min hop, got ${cityToBhd}`);
+  assert.ok(cityToLarne >= 40, `City→Larne must stay a real drive, got ${cityToLarne}`);
+  assert.notEqual(cityToLarne, cityToBhd);
+
+  assert.equal(coordsFromAirportHint("12 Wyncairn Gardens, Larne BT40 2EB", "BHD"), null);
+  const recovered = resolveSmartOpsPoint(BHD, "12 Wyncairn Gardens, Larne BT40 2EB", "BHD");
+  assert.ok(recovered);
+  assert.ok(Math.abs(recovered.lat - LARNE.lat) < 0.02);
+
+  const fromPaid = occupiedJobsFromPaidBooking({
+    id: "JOB-LARNE-0700-LIVE",
+    pickupLabel: "12 Wyncairn Gardens, Larne BT40 2EB",
+    dropoffLabel: "George Best Belfast City Airport",
+    tripDate: MONDAY,
+    tripTime: "07:00",
+    airportCode: "BHD",
+    pickupLat: BHD.lat,
+    pickupLng: BHD.lng,
+    dropoffLat: BHD.lat,
+    dropoffLng: BHD.lng,
+    routeDurationMinutes: 14,
+  });
+  assert.equal(fromPaid.length, 1);
+  assert.ok(fromPaid[0].pickup);
+  assert.ok(Math.abs((fromPaid[0].pickup?.lat || 0) - LARNE.lat) < 0.02);
+  assert.ok(fromPaid[0].dropoff);
+  assert.ok(Math.abs((fromPaid[0].dropoff?.lat || 0) - BHD.lat) < 0.02);
+
+  const proposed0545 = evaluateSmartAvailability({
+    requested: {
+      pickupLabel: "Belfast International Airport",
+      dropoffLabel: "Belfast City Centre",
+      tripDate: MONDAY,
+      tripTime: "05:45",
+      durationMinutes: 30,
+      airportCode: "BFS",
+      isFromAirport: true,
+    },
+    occupied: fromPaid,
+    config,
+    now: new Date("2026-09-06T12:00:00+01:00"),
+  });
+  assert.equal(proposed0545.available, false);
+  assert.equal(proposed0545.diagnostics.positioningMinutes, cityToLarne);
+  assert.notEqual(proposed0545.diagnostics.positioningMinutes, cityToBhd);
+  assert.ok((proposed0545.diagnostics.positioningToCoords?.lat || 0) > 54.8);
+  assert.ok(!(proposed0545.alternatives || []).some((item) => item.tripTime === "05:30"));
+
+  const reverse = evaluateSmartAvailability({
+    requested: {
+      pickupLabel: "12 Wyncairn Gardens, Larne BT40 2EB",
+      dropoffLabel: "George Best Belfast City Airport",
+      tripDate: MONDAY,
+      tripTime: "07:00",
+      durationMinutes: 35,
+      airportCode: "BHD",
+    },
+    occupied: [
+      {
+        id: "JOB-BFS-CITY-0545-LIVE",
+        pickupLabel: "Belfast International Airport",
+        dropoffLabel: "Belfast City Centre",
+        tripDate: MONDAY,
+        tripTime: "05:45",
+        durationMinutes: 30,
+        airportCode: "BFS",
+        isFromAirport: true,
+      },
+    ],
+    config,
+    searchAlternatives: false,
+    now: new Date("2026-09-06T12:00:00+01:00"),
+  });
+  assert.equal(reverse.available, false);
+  assert.equal(reverse.diagnostics.positioningMinutes, cityToLarne);
+  assert.equal(reverse.diagnostics.positioningFromLabel, "Belfast City Centre");
+  assert.equal(reverse.diagnostics.positioningToLabel, "12 Wyncairn Gardens, Larne BT40 2EB");
+  console.log(`OK  live 05:45 trap: City→BHD ${cityToBhd} min vs City→Larne ${cityToLarne} min; 05:45 unavailable`);
 }
 
 console.log("\nAll Smart Availability / Smart Return checks passed.");

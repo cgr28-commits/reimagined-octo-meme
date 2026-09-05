@@ -4,7 +4,7 @@
  */
 
 import { parseLondonLocalDateTime } from "./uk-time";
-import { matchServedAirportCode, getServedAirport } from "./served-airports";
+import { matchServedAirportCode, getServedAirport, SERVED_AIRPORTS } from "./served-airports";
 import {
   SMART_OPS_REASON,
   type SmartOpsConfig,
@@ -93,6 +93,8 @@ export type SmartAvailabilityDiagnostics = {
   positioningMinutes: number | null;
   positioningFromLabel: string | null;
   positioningToLabel: string | null;
+  positioningFromCoords: SmartCoords | null;
+  positioningToCoords: SmartCoords | null;
   positioningCoordsKnown: boolean;
   blockedTimeOverlap: boolean;
   blockingInterval: {
@@ -181,10 +183,46 @@ export function roadMilesEstimate(a: SmartCoords, b: SmartCoords): number {
 }
 
 export function coordsFromAirportHint(label?: string | null, code?: string | null): SmartCoords | null {
-  const matched = matchServedAirportCode(label || "") || (code || "").trim().toUpperCase();
-  if (!matched) return null;
-  const airport = getServedAirport(matched);
+  const fromLabel = matchServedAirportCode(label || "");
+  if (fromLabel) {
+    const airport = getServedAirport(fromLabel);
+    return airport ? { lat: airport.lat, lng: airport.lng } : null;
+  }
+  // A journey airport code must not move a house address (e.g. Larne → BHD)
+  // onto the airport coordinates. Only use the code when there is no label.
+  if (String(label || "").trim()) return null;
+  const fromCode = (code || "").trim().toUpperCase();
+  if (!fromCode) return null;
+  const airport = getServedAirport(fromCode);
   return airport ? { lat: airport.lat, lng: airport.lng } : null;
+}
+
+export function pointLooksLikeServedAirport(point: SmartCoords, maxMiles = 1.2): boolean {
+  return SERVED_AIRPORTS.some((airport) => haversineMiles(point, { lat: airport.lat, lng: airport.lng }) <= maxMiles);
+}
+
+/**
+ * Resolve one end of a journey for positioning.
+ * House-address labels win over a journey airport code and over stored
+ * coordinates that sit on an airport the label does not name.
+ */
+export function resolveSmartOpsPoint(
+  explicit: SmartCoords | null | undefined,
+  label?: string | null,
+  airportCode?: string | null,
+): SmartCoords | null {
+  const labelAirport = coordsFromAirportHint(label, null);
+  if (labelAirport) return labelAirport;
+  const place = coordsFromPlaceLabel(label);
+  if (explicit && Number.isFinite(explicit.lat) && Number.isFinite(explicit.lng)) {
+    if (place && pointLooksLikeServedAirport(explicit) && !matchServedAirportCode(label || "")) {
+      return place;
+    }
+    return { lat: explicit.lat, lng: explicit.lng };
+  }
+  if (place) return place;
+  if (!String(label || "").trim()) return coordsFromAirportHint(null, airportCode);
+  return null;
 }
 
 export function parseJourneyDurationMinutes(value?: string | null): number {
@@ -241,8 +279,8 @@ export function estimateDurationMinutes(input: {
   if (input.durationMinutes && input.durationMinutes > 0) {
     return Math.round(input.durationMinutes);
   }
-  const pickup = input.pickup || coordsFromAirportHint(input.pickupLabel, input.airportCode);
-  const dropoff = input.dropoff || coordsFromAirportHint(input.dropoffLabel, input.airportCode);
+  const pickup = input.pickup || resolveSmartOpsPoint(null, input.pickupLabel, input.airportCode);
+  const dropoff = input.dropoff || resolveSmartOpsPoint(null, input.dropoffLabel, input.airportCode);
   if (pickup && dropoff) {
     const miles = roadMilesEstimate(pickup, dropoff);
     return Math.max(20, Math.round((miles / REPOSITION_SPEED_MPH) * 60) + 5);
@@ -398,8 +436,7 @@ function resolvePoint(
   label?: string | null,
   airportCode?: string | null,
 ): SmartCoords | null {
-  if (explicit && Number.isFinite(explicit.lat) && Number.isFinite(explicit.lng)) return explicit;
-  return coordsFromAirportHint(label, airportCode) || coordsFromPlaceLabel(label);
+  return resolveSmartOpsPoint(explicit, label, airportCode);
 }
 
 type JobWindow = {
@@ -519,7 +556,6 @@ function conflictAgainstJob(
   if (requestedEnd <= window.start) {
     const gap = (window.start - requestedEnd) / 60000;
     const travel = repositionMinutes(requestedDropoff, window.pickup, {
-      knownTravelMinutes: occupied.knownTravelMinutes,
       fromLabel: requestedDropoffLabel,
       toLabel: window.pickupLabel,
     });
@@ -616,6 +652,8 @@ function emptyDiagnostics(
     positioningMinutes: null,
     positioningFromLabel: null,
     positioningToLabel: null,
+    positioningFromCoords: null,
+    positioningToCoords: null,
     positioningCoordsKnown: false,
     blockedTimeOverlap: false,
     blockingInterval: null,
@@ -734,12 +772,16 @@ export function evaluateSmartAvailability(input: {
     diagnostics.positioningMinutes = diagnostics.nextPositioningMinutes;
     diagnostics.positioningFromLabel = input.requested.dropoffLabel;
     diagnostics.positioningToLabel = next.pickupLabel;
+    diagnostics.positioningFromCoords = window.dropoff;
+    diagnostics.positioningToCoords = nextWindow.pickup;
     diagnostics.positioningCoordsKnown = Boolean(window.dropoff && nextWindow.pickup);
   } else if (previous) {
     const prevWindow = jobWindow(previous, input.config);
     diagnostics.positioningMinutes = diagnostics.previousPositioningMinutes;
     diagnostics.positioningFromLabel = previous.dropoffLabel;
     diagnostics.positioningToLabel = input.requested.pickupLabel;
+    diagnostics.positioningFromCoords = prevWindow.dropoff;
+    diagnostics.positioningToCoords = window.pickup;
     diagnostics.positioningCoordsKnown = Boolean(prevWindow.dropoff && window.pickup);
   }
 
@@ -961,12 +1003,16 @@ export function occupiedJobsFromPaidBooking(
       ? Math.round(booking.routeDurationMinutes)
       : 0) || parseJourneyDurationMinutes(booking.journeyDuration);
 
-  const pickup = finiteCoord(booking.pickupLat, booking.pickupLng) ||
-    coordsFromAirportHint(booking.pickupLabel, booking.airportCode) ||
-    coordsFromPlaceLabel(booking.pickupLabel);
-  const dropoff = finiteCoord(booking.dropoffLat, booking.dropoffLng) ||
-    coordsFromAirportHint(booking.dropoffLabel, booking.airportCode) ||
-    coordsFromPlaceLabel(booking.dropoffLabel);
+  const pickup = resolveSmartOpsPoint(
+    finiteCoord(booking.pickupLat, booking.pickupLng),
+    booking.pickupLabel,
+    booking.airportCode,
+  );
+  const dropoff = resolveSmartOpsPoint(
+    finiteCoord(booking.dropoffLat, booking.dropoffLng),
+    booking.dropoffLabel,
+    booking.airportCode,
+  );
 
   const outbound: SmartOccupiedJob = {
     id,
