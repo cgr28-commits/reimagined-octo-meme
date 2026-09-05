@@ -124,13 +124,38 @@ export async function handleOwnerSaveSmartOps(
   const action = String(body.action || "save_config");
 
   if (action === "save_config") {
+    const incoming = body.config && typeof body.config === "object" ? body.config : {};
+    const incomingFlags =
+      incoming && typeof incoming === "object" && "flags" in incoming && incoming.flags && typeof incoming.flags === "object"
+        ? (incoming.flags as Record<string, unknown>)
+        : {};
     const config = normalizeSmartOpsConfig({
       ...current.config,
-      ...(body.config && typeof body.config === "object" ? body.config : {}),
+      ...incoming,
+      flags: {
+        ...current.config.flags,
+        ...incomingFlags,
+        // Locked until this draft is signed off. Owner Test Tool still evaluates fully.
+        smartAvailability: false,
+        alternativeTimeSuggestions: false,
+        smartReturnPricing: false,
+        shadowMode: true,
+      },
       updatedAt: new Date().toISOString(),
     });
     const state = await saveSmartOpsState(env.TRACKING_STORE, { ...current, config });
-    return { ok: true, state };
+    const triedCustomerOn =
+      incomingFlags.smartAvailability === true ||
+      incomingFlags.alternativeTimeSuggestions === true ||
+      incomingFlags.smartReturnPricing === true;
+    return {
+      ok: true,
+      state,
+      locked:
+        triedCustomerOn || incomingFlags.shadowMode === false
+          ? "Customer-facing Smart Availability, Alternative Times and Smart Return stay OFF. Shadow mode stays ON."
+          : undefined,
+    };
   }
 
   if (action === "quick_block") {

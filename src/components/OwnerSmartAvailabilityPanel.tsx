@@ -139,27 +139,32 @@ export default function OwnerSmartAvailabilityPanel({ ownerKey }: OwnerSmartAvai
         <div className="mt-3 grid gap-2">
           {(
             [
-              ["smartAvailability", "Smart Availability (customer)"],
-              ["alternativeTimeSuggestions", "Alternative time suggestions (customer)"],
-              ["smartReturnPricing", "Smart Return Pricing (customer)"],
-              ["returnCorridorMatching", "Return corridor matching"],
-              ["backupDriverCapacity", "Backup driver capacity"],
-              ["shadowMode", "Shadow test mode"],
+              ["smartAvailability", "Smart Availability (customer)", true],
+              ["alternativeTimeSuggestions", "Alternative time suggestions (customer)", true],
+              ["smartReturnPricing", "Smart Return Pricing (customer)", true],
+              ["returnCorridorMatching", "Return corridor matching", false],
+              ["backupDriverCapacity", "Backup driver capacity", false],
+              ["shadowMode", "Shadow test mode", true],
             ] as const
-          ).map(([key, label]) => (
+          ).map(([key, label, locked]) => (
             <label key={key} className="flex min-h-11 items-center justify-between gap-3 text-sm text-white">
-              <span>{label}</span>
+              <span>
+                {label}
+                {locked ? <span className="ml-2 text-xs text-amber-100/80">locked</span> : null}
+              </span>
               <input
                 type="checkbox"
                 checked={Boolean(config.flags[key])}
+                disabled={locked || busy}
                 onChange={(event) => void saveFlags({ [key]: event.target.checked })}
-                className="h-5 w-5 accent-emerald"
+                className="h-5 w-5 accent-emerald disabled:opacity-60"
               />
             </label>
           ))}
         </div>
         <p className="mt-2 text-xs text-amber-100/90">
-          Keep the three customer flags off until testing is signed off.
+          The three customer flags stay OFF and shadow mode stays ON. Calendar and Owner Test Tool
+          still run against real bookings. Live customer quotes are unchanged.
         </p>
       </div>
 
