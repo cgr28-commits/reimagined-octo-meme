@@ -611,18 +611,19 @@ export default function OwnerSmartAvailabilityPanel({ ownerKey }: OwnerSmartAvai
                   {(diag.estimatedCompletionLocal || diag.estimatedCompletion) &&
                   diag.positioningNeededMinutes != null ? (
                     <span className="mt-1 block text-xs font-normal opacity-90">
-                      Finishes{" "}
-                      {String(diag.estimatedCompletionLocal || diag.estimatedCompletion).slice(11, 16)},
-                      needs{" "}
-                      {String(diag.positioningNeededMinutes)} min positioning
-                      {diag.earliestReadyLocal
-                        ? `, earliest ready ${String(diag.earliestReadyLocal).slice(11, 16)}`
+                      Finishes {String(diag.estimatedCompletionLocal || diag.estimatedCompletion)},
+                      needs {String(diag.positioningNeededMinutes)} min positioning
+                      {diag.earliestReadyLocal ? `, earliest ready ${String(diag.earliestReadyLocal)}` : ""}
+                      {diag.nextBookingResolvedLocal || diag.nextPickupLocal
+                        ? `, next pickup ${String(diag.nextBookingResolvedLocal || diag.nextPickupLocal)}`
                         : ""}
-                      {diag.nextPickupLocal
-                        ? `, next pickup ${String(diag.nextPickupLocal).slice(11, 16)}`
+                      {diag.nextBookingTripDate
+                        ? ` [${String(diag.nextBookingTripDate)} ${String(diag.nextBookingTripTime || "")}]`
                         : ""}
                       {typeof diag.positioningGapMinutes === "number"
-                        ? ` (gap ${diag.positioningGapMinutes} min)`
+                        ? ` (gap ${diag.positioningGapMinutes} min${
+                            diag.sameCalendarDayAsNext === false ? ", different calendar day" : ""
+                          })`
                         : ""}
                     </span>
                   ) : null}

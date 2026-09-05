@@ -31,6 +31,8 @@ import {
   evaluateSmartAvailability,
   findLatestSafePickup,
   labelsLikelySamePlace,
+  normalizeSmartTripDate,
+  normalizeSmartTripTime,
   occupiedJobsFromPaidBooking,
   positioningOverrunsDeadline,
   positioningTimeNeededMinutes,
@@ -61,6 +63,7 @@ const NEWRY = { lat: 54.175, lng: -6.337 };
 const GALWAY = { lat: 53.2707, lng: -9.0568 };
 
 const NOW = new Date("2026-09-06T12:00:00+01:00");
+const SATURDAY = "2026-09-06";
 const MONDAY = "2026-09-07";
 const NEXT_MONDAY = "2026-09-14";
 
@@ -1848,6 +1851,124 @@ console.log("\n=== Decision must enforce 58-minute City→Larne need after 05:45
   assert.equal(justLate.reason, SMART_OPS_REASON.CONFLICT_NEXT_BOOKING);
   assert.equal(justLate.diagnostics.earliestReadyLocal, `${MONDAY}T07:01`);
   console.log("OK  05:45 rejected; latest safe pickup before 07:00 Larne is 05:32");
+}
+
+console.log("\n=== Same-morning 6 Sep 05:45 vs 6 Sep 07:00 Larne uses full dates ===");
+{
+  assert.equal(normalizeSmartTripDate("06/09/2026"), SATURDAY);
+  assert.equal(normalizeSmartTripDate("2026-09-06T00:00:00.000Z"), SATURDAY);
+  assert.equal(normalizeSmartTripTime("7:00"), "07:00");
+  assert.equal(normalizeSmartTripTime("07:00:00.000Z"), "07:00");
+
+  const sameMorning = occupiedJobsFromPaidBooking({
+    id: "JOB-LARNE-6SEP-0700",
+    pickupLabel: "12 Wyncairn Gardens, Larne BT40 2EB",
+    dropoffLabel: "George Best Belfast City Airport",
+    tripDate: "2026-09-06T00:00:00.000Z",
+    tripTime: "07:00:00",
+    airportCode: "BHD",
+    pickupLat: BHD.lat,
+    pickupLng: BHD.lng,
+    dropoffLat: BHD.lat,
+    dropoffLng: BHD.lng,
+    routeDurationMinutes: 14,
+  });
+  assert.equal(sameMorning[0].tripDate, SATURDAY);
+  assert.equal(sameMorning[0].tripTime, "07:00");
+
+  const proposed = evaluateSmartAvailability({
+    requested: {
+      pickupLabel: "Belfast International Airport",
+      dropoffLabel: "Belfast City Centre",
+      tripDate: SATURDAY,
+      tripTime: "05:45",
+      durationMinutes: 30,
+      airportCode: "BFS",
+      isFromAirport: true,
+    },
+    occupied: sameMorning,
+    config,
+    searchAlternatives: false,
+    now: new Date("2026-09-05T12:00:00+01:00"),
+  });
+  assert.equal(proposed.available, false);
+  assert.equal(proposed.reason, SMART_OPS_REASON.CONFLICT_NEXT_BOOKING);
+  assert.equal(proposed.diagnostics.estimatedCompletionLocal, `${SATURDAY}T06:15`);
+  assert.equal(proposed.diagnostics.earliestReadyLocal, `${SATURDAY}T07:13`);
+  assert.equal(proposed.diagnostics.nextBookingTripDate, SATURDAY);
+  assert.equal(proposed.diagnostics.nextBookingTripTime, "07:00");
+  assert.equal(proposed.diagnostics.nextBookingResolvedLocal, `${SATURDAY}T07:00`);
+  assert.equal(proposed.diagnostics.sameCalendarDayAsNext, true);
+  assert.equal(proposed.diagnostics.positioningGapMinutes, 45);
+  assert.equal(proposed.diagnostics.comparisonFromLocal, `${SATURDAY}T06:15`);
+  assert.equal(proposed.diagnostics.comparisonToLocal, `${SATURDAY}T07:00`);
+
+  const nextMorningOnly = evaluateSmartAvailability({
+    requested: {
+      pickupLabel: "Belfast International Airport",
+      dropoffLabel: "Belfast City Centre",
+      tripDate: SATURDAY,
+      tripTime: "05:45",
+      durationMinutes: 30,
+      airportCode: "BFS",
+      isFromAirport: true,
+    },
+    occupied: [
+      {
+        id: "JOB-LARNE-7SEP-0700",
+        pickupLabel: "12 Wyncairn Gardens, Larne BT40 2EB",
+        dropoffLabel: "George Best Belfast City Airport",
+        pickup: LARNE,
+        dropoff: BHD,
+        tripDate: MONDAY,
+        tripTime: "07:00",
+        durationMinutes: 35,
+        airportCode: "BHD",
+      },
+    ],
+    config,
+    searchAlternatives: false,
+    now: new Date("2026-09-05T12:00:00+01:00"),
+  });
+  assert.equal(nextMorningOnly.available, true);
+  assert.equal(nextMorningOnly.diagnostics.sameCalendarDayAsNext, false);
+  assert.equal(nextMorningOnly.diagnostics.nextBookingTripDate, MONDAY);
+  assert.equal(nextMorningOnly.diagnostics.nextBookingResolvedLocal, `${MONDAY}T07:00`);
+  assert.equal(nextMorningOnly.diagnostics.earliestReadyLocal, `${SATURDAY}T07:13`);
+  assert.equal(nextMorningOnly.diagnostics.positioningGapMinutes, 1485);
+
+  const messySameMorning = evaluateSmartAvailability({
+    requested: {
+      pickupLabel: "Belfast International Airport",
+      dropoffLabel: "Belfast City Centre",
+      tripDate: SATURDAY,
+      tripTime: "05:45",
+      durationMinutes: 30,
+      airportCode: "BFS",
+      isFromAirport: true,
+    },
+    occupied: [
+      {
+        id: "JOB-LARNE-DMY",
+        pickupLabel: "12 Wyncairn Gardens, Larne",
+        dropoffLabel: "George Best Belfast City Airport",
+        pickup: LARNE,
+        dropoff: BHD,
+        tripDate: "06/09/2026",
+        tripTime: "7:00",
+        durationMinutes: 35,
+        airportCode: "BHD",
+      },
+    ],
+    config,
+    searchAlternatives: false,
+    now: new Date("2026-09-05T12:00:00+01:00"),
+  });
+  assert.equal(messySameMorning.available, false);
+  assert.equal(messySameMorning.reason, SMART_OPS_REASON.CONFLICT_NEXT_BOOKING);
+  assert.equal(messySameMorning.diagnostics.nextBookingTripDate, SATURDAY);
+  assert.equal(messySameMorning.diagnostics.sameCalendarDayAsNext, true);
+  console.log("OK  6 Sep 05:45 vs same-morning 07:00 is a conflict; next-day 07:00 is not");
 }
 
 console.log("\nAll Smart Availability / Smart Return checks passed.");

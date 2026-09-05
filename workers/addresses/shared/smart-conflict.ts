@@ -19,7 +19,7 @@ import {
   type SmartBlockedInterval,
 } from "./smart-availability";
 import type { UnavailablePeriod } from "./booking-notice";
-import { addDaysYmd } from "./upcoming-jobs";
+import { addDaysYmd, londonYmd } from "./upcoming-jobs";
 
 export type SmartCoords = { lat: number; lng: number };
 
@@ -102,6 +102,14 @@ export type SmartAvailabilityDiagnostics = {
   /** Estimated drop-off plus positioningNeededMinutes. */
   earliestReadyLocal: string | null;
   nextPickupLocal: string | null;
+  nextBookingTripDate: string | null;
+  nextBookingTripTime: string | null;
+  nextBookingResolvedLocal: string | null;
+  proposedPickupResolvedLocal: string | null;
+  proposedCompletionResolvedLocal: string | null;
+  comparisonFromLocal: string | null;
+  comparisonToLocal: string | null;
+  sameCalendarDayAsNext: boolean | null;
   blockedTimeOverlap: boolean;
   blockingInterval: {
     startLocal: string;
@@ -400,8 +408,36 @@ export function positioningTimeNeededMinutes(
   return travel + turnaround;
 }
 
+/** UK local calendar date from owner/KV values that may be ISO instants or DD/MM/YYYY. */
+export function normalizeSmartTripDate(value?: string | null): string | null {
+  const raw = String(value || "").trim();
+  if (!raw) return null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+  if (/^\d{4}-\d{2}-\d{2}T/.test(raw)) {
+    if (/Z$/i.test(raw) || /[+-]\d{2}:\d{2}$/.test(raw)) {
+      const instant = new Date(raw);
+      if (!Number.isNaN(instant.getTime())) return londonYmd(instant);
+    }
+    return raw.slice(0, 10);
+  }
+  const dmy = raw.match(/^(\d{1,2})[/.](\d{1,2})[/.](\d{4})$/);
+  if (dmy) {
+    return `${dmy[3]}-${String(dmy[2]).padStart(2, "0")}-${String(dmy[1]).padStart(2, "0")}`;
+  }
+  return null;
+}
+
+export function normalizeSmartTripTime(value?: string | null): string | null {
+  const match = String(value || "").trim().match(/^(\d{1,2}):(\d{2})/);
+  if (!match) return null;
+  return `${String(match[1]).padStart(2, "0")}:${match[2]}`;
+}
+
 function pickupMs(date: string, time: string): number | null {
-  const instant = parseLondonLocalDateTime(date, time);
+  const ymd = normalizeSmartTripDate(date);
+  const hm = normalizeSmartTripTime(time);
+  if (!ymd || !hm) return null;
+  const instant = parseLondonLocalDateTime(ymd, hm);
   return instant ? instant.getTime() : null;
 }
 
@@ -700,6 +736,14 @@ function emptyDiagnostics(
     positioningGapMinutes: null,
     earliestReadyLocal: null,
     nextPickupLocal: null,
+    nextBookingTripDate: null,
+    nextBookingTripTime: null,
+    nextBookingResolvedLocal: null,
+    proposedPickupResolvedLocal: null,
+    proposedCompletionResolvedLocal: null,
+    comparisonFromLocal: null,
+    comparisonToLocal: null,
+    sameCalendarDayAsNext: null,
     blockedTimeOverlap: false,
     blockingInterval: null,
   };
@@ -786,19 +830,17 @@ export function evaluateSmartAvailability(input: {
     : null;
 
   const activeJobs = input.occupied.filter((job) => !isCancelledJob(job));
-  const sorted = [...activeJobs].sort((a, b) => {
-    const aMs = pickupMs(a.tripDate, a.tripTime) || 0;
-    const bMs = pickupMs(b.tripDate, b.tripTime) || 0;
-    return aMs - bMs;
-  });
-  const previous = [...sorted].reverse().find((job) => {
-    const ms = pickupMs(job.tripDate, job.tripTime);
-    return ms != null && ms < start;
-  });
-  const next = sorted.find((job) => {
-    const ms = pickupMs(job.tripDate, job.tripTime);
-    return ms != null && ms >= start;
-  });
+  const timedJobs = activeJobs
+    .map((job) => ({ job, ms: pickupMs(job.tripDate, job.tripTime) }))
+    .filter((item): item is { job: SmartOccupiedJob; ms: number } => item.ms != null)
+    .sort((a, b) => a.ms - b.ms);
+  const previous = [...timedJobs].reverse().find((item) => item.ms < start)?.job || null;
+  const laterJobs = timedJobs.filter((item) => item.ms >= start).map((item) => item.job);
+  const requestedDay = normalizeSmartTripDate(input.requested.tripDate);
+  const next =
+    laterJobs.find((job) => normalizeSmartTripDate(job.tripDate) === requestedDay) ||
+    laterJobs[0] ||
+    null;
   diagnostics.previousBookingId = previous?.id || null;
   diagnostics.nextBookingId = next?.id || null;
   if (previous) {
@@ -835,9 +877,19 @@ export function evaluateSmartAvailability(input: {
       input.config.buffers.minTurnaroundMinutes,
     );
   }
+  diagnostics.proposedPickupResolvedLocal = localFromMs(start);
+  diagnostics.proposedCompletionResolvedLocal = localFromMs(window.journeyEnd);
   if (next) {
     const nextWindow = jobWindow(next, input.config);
-    diagnostics.nextPickupLocal = localFromMs(nextWindow.pickupMs);
+    diagnostics.nextBookingTripDate = normalizeSmartTripDate(next.tripDate);
+    diagnostics.nextBookingTripTime = normalizeSmartTripTime(next.tripTime);
+    diagnostics.nextBookingResolvedLocal = localFromMs(nextWindow.pickupMs);
+    diagnostics.nextPickupLocal = diagnostics.nextBookingResolvedLocal;
+    diagnostics.sameCalendarDayAsNext = Boolean(
+      requestedDay && diagnostics.nextBookingTripDate === requestedDay,
+    );
+    diagnostics.comparisonFromLocal = localFromMs(window.journeyEnd);
+    diagnostics.comparisonToLocal = localFromMs(nextWindow.start);
     if (window.journeyEnd != null && nextWindow.start != null) {
       diagnostics.positioningGapMinutes = Math.round((nextWindow.start - window.journeyEnd) / 60_000);
     }
@@ -1153,7 +1205,9 @@ export function occupiedJobsFromPaidBooking(
     return [];
   }
   const id = String(booking.paymentReference || booking.id || "").trim();
-  if (!id || !booking.tripDate || !booking.tripTime) return [];
+  const tripDate = normalizeSmartTripDate(booking.tripDate);
+  const tripTime = normalizeSmartTripTime(booking.tripTime);
+  if (!id || !tripDate || !tripTime) return [];
 
   const duration =
     (booking.routeDurationMinutes && booking.routeDurationMinutes > 0
@@ -1177,8 +1231,8 @@ export function occupiedJobsFromPaidBooking(
     dropoffLabel: booking.dropoffLabel || "",
     pickup,
     dropoff,
-    tripDate: booking.tripDate,
-    tripTime: booking.tripTime,
+    tripDate,
+    tripTime,
     durationMinutes: duration,
     airportCode: booking.airportCode,
     isFromAirport: booking.isFromAirport,
@@ -1192,7 +1246,9 @@ export function occupiedJobsFromPaidBooking(
   };
 
   const jobs: SmartOccupiedJob[] = [outbound];
-  if (booking.returnJourney && booking.returnDate && booking.returnTime) {
+  const returnDate = normalizeSmartTripDate(booking.returnDate);
+  const returnTime = normalizeSmartTripTime(booking.returnTime);
+  if (booking.returnJourney && returnDate && returnTime) {
     jobs.push({
       ...outbound,
       id: `${id}:return`,
@@ -1200,8 +1256,8 @@ export function occupiedJobsFromPaidBooking(
       dropoffLabel: booking.pickupLabel || "",
       pickup: dropoff,
       dropoff: pickup,
-      tripDate: booking.returnDate,
-      tripTime: booking.returnTime,
+      tripDate: returnDate,
+      tripTime: returnTime,
       airportCode: matchServedAirportCode(booking.dropoffLabel || "") || booking.airportCode,
       isFromAirport: Boolean(matchServedAirportCode(booking.dropoffLabel || "")),
       leg: "return",
