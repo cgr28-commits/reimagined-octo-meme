@@ -59,7 +59,6 @@ function buildAssistantQuoteEmail(draft: QuoteDraft): { subject: string; text: s
     "",
     `Book online: ${SITE.url}`,
     `WhatsApp: @${SITE.whatsappUsername}`,
-    `Call: ${SITE.landlineDisplay}`,
     `Email: ${SITE.email}`,
   ];
 
@@ -84,7 +83,7 @@ function buildAssistantQuoteEmail(draft: QuoteDraft): { subject: string; text: s
       <p style="margin:0 0 16px"><strong>Suitcases:</strong> ${draft.suitcases ?? "—"}</p>
       ${includeHtml}
       <p style="margin:0 0 8px"><a href="${SITE.url}">Book online</a></p>
-      <p style="margin:0">WhatsApp @${SITE.whatsappUsername} · ${SITE.landlineDisplay} · ${SITE.email}</p>
+      <p style="margin:0">WhatsApp @${SITE.whatsappUsername} · ${SITE.email}</p>
     </div>
   `.trim();
 
@@ -292,7 +291,7 @@ export async function submitAssistantBooking(draft: QuoteDraft): Promise<{
     const detail = error instanceof Error ? error.message : "Booking could not be sent.";
     return {
       ok: false,
-      message: `${detail} You can try again here in chat, or call ${SITE.landlineDisplay}.`,
+      message: `${detail} You can try again here in chat, or message us on WhatsApp.`,
     };
   }
 }
@@ -349,7 +348,7 @@ export async function emailAssistantQuote(draft: QuoteDraft): Promise<{
     const detail = error instanceof Error ? error.message : "Could not send the quote email.";
     return {
       ok: false,
-      message: `${detail} You can try again here in chat, or call ${SITE.landlineDisplay}.`,
+      message: `${detail} You can try again here in chat, or message us on WhatsApp.`,
     };
   }
 }

@@ -58,7 +58,6 @@ export function getLocalBusinessJsonLd() {
     logo: `${SITE.url}/logo.png`,
     image: `${SITE.url}/og-image-square.png`,
     email: SITE.email,
-    telephone: SITE.landline,
     areaServed: {
       "@type": "AdministrativeArea",
       name: "Northern Ireland",
@@ -81,7 +80,6 @@ export function getLocalBusinessJsonLd() {
     },
     contactPoint: {
       "@type": "ContactPoint",
-      telephone: SITE.landline,
       email: SITE.email,
       contactType: "customer service",
       availableLanguage: "English",
@@ -136,7 +134,6 @@ export function getServiceAreaJsonLd(opts: {
       "@id": `${SITE.url}/#business`,
     },
     email: SITE.email,
-    telephone: SITE.landline,
     priceRange: "££",
     serviceType: "Airport Transfer",
     openingHoursSpecification: openingHours,
@@ -146,7 +143,6 @@ export function getServiceAreaJsonLd(opts: {
     })),
     contactPoint: {
       "@type": "ContactPoint",
-      telephone: SITE.landline,
       email: SITE.email,
       contactType: "customer service",
       availableLanguage: "English",

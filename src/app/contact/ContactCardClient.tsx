@@ -161,28 +161,6 @@ export default function ContactCardClient() {
             </Link>
 
             <a
-              href={`tel:${SITE.landline}`}
-              className="flex min-w-0 items-center gap-4 rounded-2xl border border-emerald/40 bg-emerald/10 px-5 py-4 text-white transition-colors hover:border-emerald hover:bg-emerald/15"
-            >
-              <ActionIcon>
-                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"
-                  />
-                </svg>
-              </ActionIcon>
-              <span className="min-w-0">
-                <span className="block text-xs font-semibold uppercase tracking-wider text-emerald">
-                  Call
-                </span>
-                <span className="mt-0.5 block text-lg font-bold">{SITE.landlineDisplay}</span>
-              </span>
-            </a>
-
-            <a
               href={whatsAppChatUrl()}
               target="_blank"
               rel="noopener noreferrer"

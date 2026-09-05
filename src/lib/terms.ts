@@ -15,7 +15,7 @@ export const TERMS_SECTIONS = [
     list: [
       "Trading name: My Airport Taxi NI",
       "Email: bookings@myairporttaxini.co.uk",
-      "Telephone: 028 9602 2952",
+      "WhatsApp: @belfasttaxi",
       "Website: www.myairporttaxini.co.uk",
       "Service area: Greater Belfast and across Northern Ireland",
       "Business address: Available on request (email bookings@myairporttaxini.co.uk)",

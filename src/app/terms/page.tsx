@@ -53,9 +53,9 @@ export default function TermsPage() {
                   {BUSINESS_LEGAL.email}
                 </a>
                 {" · "}
-                Tel:{" "}
-                <a href={`tel:${BUSINESS_LEGAL.phoneTel}`} className="text-emerald hover:underline">
-                  {BUSINESS_LEGAL.phoneDisplay}
+                WhatsApp:{" "}
+                <a href="/contact/" className="text-emerald hover:underline">
+                  @{SITE.whatsappUsername}
                 </a>
               </p>
               <p className="mt-2">

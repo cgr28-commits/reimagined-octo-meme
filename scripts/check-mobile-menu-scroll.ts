@@ -54,7 +54,6 @@ const navBlock = header.slice(navStart, navEnd);
 const order = [
   "Manage Your Booking",
   "Get a Quote",
-  "Call {SITE.landlineDisplay}",
   "WhatsApp @{SITE.whatsappUsername}",
   'href="/contact/"',
 ];
@@ -71,9 +70,9 @@ assert.ok(
 );
 console.log("OK  contact action order preserved; Contact remains the final reachable action");
 
-// Destinations / phone unchanged.
+// Destinations / WhatsApp + email contact unchanged.
 assert.match(header, /href="\/manage-booking\/"/);
-assert.match(header, /href=\{`tel:\$\{SITE\.landline\}`\}/);
+assert.doesNotMatch(header, /tel:|landlineDisplay|Call \{SITE/);
 assert.match(header, /whatsAppChatUrl\(\)/);
 console.log("OK  navigation destinations and contact details unchanged");
 

@@ -257,11 +257,11 @@ function knowledgeChunks(): Array<{ title: string; body: string }> {
     },
     {
       title: "Operator and business details",
-      body: `${BUSINESS_LEGAL.tradingName} — ${BUSINESS_LEGAL.operatorNote}. Service area: ${BUSINESS_LEGAL.serviceArea}. Jurisdiction: ${BUSINESS_LEGAL.jurisdiction}. Email ${BUSINESS_LEGAL.email}, telephone ${BUSINESS_LEGAL.phoneDisplay}. ${BUSINESS_LEGAL.addressOnRequestNote} Website ${BUSINESS_LEGAL.website}.`,
+      body: `${BUSINESS_LEGAL.tradingName} — ${BUSINESS_LEGAL.operatorNote}. Service area: ${BUSINESS_LEGAL.serviceArea}. Jurisdiction: ${BUSINESS_LEGAL.jurisdiction}. Email ${BUSINESS_LEGAL.email}, WhatsApp @${SITE.whatsappUsername}. ${BUSINESS_LEGAL.addressOnRequestNote} Website ${BUSINESS_LEGAL.website}.`,
     },
     {
       title: "Contact details",
-      body: `Call ${SITE.landlineDisplay}, WhatsApp @${SITE.whatsappUsername}, email ${SITE.email}, or save our contact card from this chat or ${SITE.url}/contact/.`,
+      body: `WhatsApp @${SITE.whatsappUsername}, email ${SITE.email}, or save our contact card from this chat or ${SITE.url}/contact/.`,
     },
     {
       title: "Booster seats and child seats",
@@ -565,7 +565,7 @@ function humanHandoffReply(draft: QuoteDraft): AssistantResponse {
   return {
     reply:
       `No problem — you can reach us directly.\n\n` +
-      `Call ${SITE.landlineDisplay} or email ${SITE.email}.\n\n` +
+      `WhatsApp @${SITE.whatsappUsername} or email ${SITE.email}.\n\n` +
       `Or save our contact card below — for quotes and bookings, this chat is the fastest way.`,
     draft,
     quickReplies: ["Save to contacts", "Get a quote"],
@@ -1567,7 +1567,7 @@ function tryBuildQuote(
       text:
         `This journey is enquiry only for ${airportName}. ` +
         `Would you like to book? I can take the date, time, and your details here in chat — then we’ll confirm availability and price. ` +
-        `Or call ${SITE.landlineDisplay}.`,
+        `Or message us on WhatsApp @${SITE.whatsappUsername}.`,
     };
   }
 
@@ -1577,7 +1577,7 @@ function tryBuildQuote(
       text:
         `${getPublicUnapprovedPriceLabel()} for ${airportName}. ` +
         `I can take your trip details here and we’ll confirm the fare before any payment. ` +
-        `Or call ${SITE.landlineDisplay}.${capacityNote}`,
+        `Or message us on WhatsApp @${SITE.whatsappUsername}.${capacityNote}`
     };
   }
 
@@ -1709,7 +1709,7 @@ export async function respondToAssistantMessage(
       consecutiveMisses,
       reply:
         `${response.reply}\n\n` +
-        `You can also call ${SITE.landlineDisplay} or email ${SITE.email}, or say “Get a quote” to price a trip here.`,
+        `You can also WhatsApp @${SITE.whatsappUsername} or email ${SITE.email}, or say “Get a quote” to price a trip here.`,
       quickReplies: (response.quickReplies ?? ["Get a quote", "Save to contacts"]).filter(
         (item, index, all) => all.indexOf(item) === index,
       ),
@@ -1842,7 +1842,7 @@ export async function respondToAssistantMessage(
 
   if (/whatsapp|call|phone|email|contact you|landline/.test(lower) && !/quote|price|how much/.test(lower)) {
     return understood({
-      reply: `You can call ${SITE.landlineDisplay} or email ${SITE.email}. Tap “Save to contacts” to open our contact card. For quotes and bookings, continue here in chat — it’s the fastest way.`,
+      reply: `You can WhatsApp @${SITE.whatsappUsername} or email ${SITE.email}. Tap “Save to contacts” to open our contact card. For quotes and bookings, continue here in chat — it’s the fastest way.`,
       draft: nextDraft,
       quickReplies: ["Save to contacts", "Get a quote"],
     });
