@@ -25,9 +25,12 @@ import {
   unavailableFormFromRule,
 } from "../shared/smart-availability";
 import {
+  coordsFromPlaceLabel,
   customerAvailabilityMessage,
   evaluateSmartAvailability,
+  labelsLikelySamePlace,
   occupiedJobsFromPaidBooking,
+  repositionMinutes,
   type SmartOccupiedJob,
 } from "../shared/smart-conflict";
 import {
@@ -46,6 +49,8 @@ function read(rel: string): string {
 
 const BFS = { lat: 54.6575, lng: -6.2158 };
 const BELFAST = { lat: 54.5964, lng: -5.9302 };
+const BHD = { lat: 54.6181, lng: -5.8724 };
+const LARNE = { lat: 54.851, lng: -5.811 };
 const DUB = { lat: 53.4264, lng: -6.2499 };
 const NEWRY = { lat: 54.175, lng: -6.337 };
 const GALWAY = { lat: 53.2707, lng: -9.0568 };
@@ -1450,6 +1455,178 @@ console.log("\n=== Add unavailable time: tomorrow 00:00–10:00 one-off ===");
   assert.match(handlers, /backupDriverCapacity: false/);
   assert.match(handlers, /ruleId: interval.ruleId/);
   console.log("OK  add unavailable time 00:00–10:00");
+}
+
+console.log("\n=== Geographical positioning: City Centre → Larne after 05:45 ===");
+{
+  assert.equal(labelsLikelySamePlace("Belfast", "George Best Belfast City Airport"), false);
+  assert.equal(labelsLikelySamePlace("Belfast City Centre", "12 Wyncairn Gardens, Larne"), false);
+  const cityCentre = coordsFromPlaceLabel("Belfast City Centre");
+  const larnePlace = coordsFromPlaceLabel("12 Wyncairn Gardens, Larne");
+  assert.ok(cityCentre);
+  assert.ok(larnePlace);
+  assert.ok(Math.abs(cityCentre.lat - BELFAST.lat) < 0.02);
+  assert.ok(cityCentre.lat !== 54.6181);
+
+  const cityToLarne = repositionMinutes(BELFAST, LARNE, {
+    fromLabel: "Belfast City Centre",
+    toLabel: "12 Wyncairn Gardens, Larne",
+  });
+  assert.ok(cityToLarne > 30, `City→Larne should be a real drive, got ${cityToLarne}`);
+  assert.notEqual(cityToLarne, 0);
+
+  const larneAt0700: SmartOccupiedJob = {
+    id: "JOB-LARNE-0700",
+    pickupLabel: "12 Wyncairn Gardens, Larne",
+    dropoffLabel: "George Best Belfast City Airport",
+    pickup: LARNE,
+    dropoff: BHD,
+    tripDate: MONDAY,
+    tripTime: "07:00",
+    durationMinutes: 35,
+    airportCode: "BHD",
+  };
+
+  const proposed0545 = evaluateSmartAvailability({
+    requested: {
+      pickupLabel: "Belfast International Airport",
+      dropoffLabel: "Belfast City Centre",
+      pickup: BFS,
+      dropoff: BELFAST,
+      tripDate: MONDAY,
+      tripTime: "05:45",
+      durationMinutes: 30,
+      airportCode: "BFS",
+      isFromAirport: true,
+    },
+    occupied: [larneAt0700],
+    config,
+    now: new Date("2026-09-06T12:00:00+01:00"),
+  });
+  assert.equal(proposed0545.available, false);
+  assert.ok(
+    proposed0545.diagnostics.nextPositioningMinutes === cityToLarne,
+    `next positioning should be City→Larne ${cityToLarne}, got ${proposed0545.diagnostics.nextPositioningMinutes}`,
+  );
+  assert.equal(proposed0545.diagnostics.positioningMinutes, cityToLarne);
+  assert.equal(proposed0545.diagnostics.positioningFromLabel, "Belfast City Centre");
+  assert.equal(proposed0545.diagnostics.positioningToLabel, "12 Wyncairn Gardens, Larne");
+  assert.equal(proposed0545.diagnostics.positioningCoordsKnown, true);
+  assert.ok(proposed0545.diagnostics.positioningMinutes !== 0);
+
+  const earlier = proposed0545.alternatives.map((item) => item.tripTime);
+  const alt0530 = evaluateSmartAvailability({
+    requested: {
+      pickupLabel: "Belfast International Airport",
+      dropoffLabel: "Belfast City Centre",
+      pickup: BFS,
+      dropoff: BELFAST,
+      tripDate: MONDAY,
+      tripTime: "05:30",
+      durationMinutes: 30,
+      airportCode: "BFS",
+      isFromAirport: true,
+    },
+    occupied: [larneAt0700],
+    config,
+    searchAlternatives: false,
+    now: new Date("2026-09-06T12:00:00+01:00"),
+  });
+  // 05:30 finishes 06:00 + 15 min buffer = 06:15. Gap to 07:00 is 45 minutes.
+  const gap0530 = 45;
+  if (cityToLarne > gap0530) {
+    assert.equal(alt0530.available, false);
+    assert.ok(!earlier.includes("05:30"));
+  } else {
+    assert.equal(alt0530.available, true);
+  }
+
+  const alt0515 = evaluateSmartAvailability({
+    requested: {
+      pickupLabel: "Belfast International Airport",
+      dropoffLabel: "Belfast City Centre",
+      pickup: BFS,
+      dropoff: BELFAST,
+      tripDate: MONDAY,
+      tripTime: "05:15",
+      durationMinutes: 30,
+      airportCode: "BFS",
+      isFromAirport: true,
+    },
+    occupied: [larneAt0700],
+    config,
+    searchAlternatives: false,
+    now: new Date("2026-09-06T12:00:00+01:00"),
+  });
+  assert.equal(alt0515.available, cityToLarne <= 60);
+
+  const fromLabelsOnly = evaluateSmartAvailability({
+    requested: {
+      pickupLabel: "Belfast International Airport",
+      dropoffLabel: "Belfast City Centre",
+      tripDate: MONDAY,
+      tripTime: "05:45",
+      durationMinutes: 30,
+      airportCode: "BFS",
+      isFromAirport: true,
+    },
+    occupied: [
+      {
+        ...larneAt0700,
+        pickup: undefined,
+        dropoff: undefined,
+      },
+    ],
+    config,
+    searchAlternatives: false,
+    now: new Date("2026-09-06T12:00:00+01:00"),
+  });
+  assert.ok((fromLabelsOnly.diagnostics.nextPositioningMinutes || 0) > 0);
+  assert.equal(fromLabelsOnly.diagnostics.positioningCoordsKnown, true);
+  console.log(`OK  next-booking City→Larne positioning ${cityToLarne} min`);
+}
+
+console.log("\n=== Geographical positioning: previous booking destination → proposed pickup ===");
+{
+  const existing0545: SmartOccupiedJob = {
+    id: "JOB-BFS-CITY-0545",
+    pickupLabel: "Belfast International Airport",
+    dropoffLabel: "Belfast City Centre",
+    pickup: BFS,
+    dropoff: BELFAST,
+    tripDate: MONDAY,
+    tripTime: "05:45",
+    durationMinutes: 30,
+    airportCode: "BFS",
+    isFromAirport: true,
+  };
+  const cityToLarne = repositionMinutes(BELFAST, LARNE, {
+    fromLabel: "Belfast City Centre",
+    toLabel: "12 Wyncairn Gardens, Larne",
+  });
+  const proposed0700 = evaluateSmartAvailability({
+    requested: {
+      pickupLabel: "12 Wyncairn Gardens, Larne",
+      dropoffLabel: "George Best Belfast City Airport",
+      pickup: LARNE,
+      dropoff: BHD,
+      tripDate: MONDAY,
+      tripTime: "07:00",
+      durationMinutes: 35,
+      airportCode: "BHD",
+    },
+    occupied: [existing0545],
+    config,
+    searchAlternatives: false,
+    now: new Date("2026-09-06T12:00:00+01:00"),
+  });
+  assert.equal(proposed0700.diagnostics.previousBookingId, "JOB-BFS-CITY-0545");
+  assert.equal(proposed0700.diagnostics.previousPositioningMinutes, cityToLarne);
+  assert.equal(proposed0700.diagnostics.positioningMinutes, cityToLarne);
+  assert.equal(proposed0700.diagnostics.positioningFromLabel, "Belfast City Centre");
+  assert.equal(proposed0700.diagnostics.positioningToLabel, "12 Wyncairn Gardens, Larne");
+  assert.equal(proposed0700.available, false);
+  console.log("OK  previous-booking City→Larne positioning");
 }
 
 console.log("\nAll Smart Availability / Smart Return checks passed.");

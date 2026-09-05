@@ -327,7 +327,12 @@ export async function handleOwnerEvaluateSmartOps(
       nextBooking: next
         ? { id: next.id, tripDate: next.tripDate, tripTime: next.tripTime, label: `${next.pickupLabel} → ${next.dropoffLabel}` }
         : null,
+      previousPositioningMinutes: availability.diagnostics.previousPositioningMinutes,
+      nextPositioningMinutes: availability.diagnostics.nextPositioningMinutes,
       positioningMinutes: availability.diagnostics.positioningMinutes,
+      positioningFrom: availability.diagnostics.positioningFromLabel,
+      positioningTo: availability.diagnostics.positioningToLabel,
+      positioningCoordsKnown: availability.diagnostics.positioningCoordsKnown,
       blockedTimeOverlap: availability.diagnostics.blockedTimeOverlap,
       blockingInterval: availability.diagnostics.blockingInterval,
       available: availability.available,

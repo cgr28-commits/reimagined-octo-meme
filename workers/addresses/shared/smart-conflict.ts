@@ -85,7 +85,15 @@ export type SmartAvailabilityDiagnostics = {
   expectedFinishingLocation: string;
   previousBookingId: string | null;
   nextBookingId: string | null;
+  /** Travel from previous dropoff → this pickup. */
+  previousPositioningMinutes: number | null;
+  /** Travel from this dropoff → next pickup. */
+  nextPositioningMinutes: number | null;
+  /** The hop that matters for this request: next if present, otherwise previous. */
   positioningMinutes: number | null;
+  positioningFromLabel: string | null;
+  positioningToLabel: string | null;
+  positioningCoordsKnown: boolean;
   blockedTimeOverlap: boolean;
   blockingInterval: {
     startLocal: string;
@@ -114,6 +122,43 @@ const LONG_DISTANCE_MILES = 50;
 const REPOSITION_SPEED_MPH = 40;
 const REPOSITION_OVERHEAD_MINUTES = 8;
 const UNKNOWN_LOCATION_REPOSITION_MINUTES = 45;
+
+/** Town / city centres used only for owner positioning — not customer fare quotes. */
+export const POSITIONING_PLACE_COORDS: Record<string, SmartCoords> = {
+  belfast_centre: { lat: 54.5964, lng: -5.9302 },
+  larne: { lat: 54.851, lng: -5.811 },
+  bangor: { lat: 54.653, lng: -5.669 },
+  lisburn: { lat: 54.516, lng: -6.058 },
+  newry: { lat: 54.175, lng: -6.337 },
+};
+
+/**
+ * Resolve a non-airport place for positioning. Must not treat “Belfast City Centre”
+ * as Belfast City Airport.
+ */
+export function coordsFromPlaceLabel(label?: string | null): SmartCoords | null {
+  const value = String(label || "").trim();
+  if (!value) return null;
+  if (coordsFromAirportHint(value)) return coordsFromAirportHint(value);
+  const hay = value.toLowerCase();
+  if (/larne/.test(hay)) return POSITIONING_PLACE_COORDS.larne;
+  if (/bangor/.test(hay)) return POSITIONING_PLACE_COORDS.bangor;
+  if (/lisburn/.test(hay)) return POSITIONING_PLACE_COORDS.lisburn;
+  if (/newry/.test(hay)) return POSITIONING_PLACE_COORDS.newry;
+  if (
+    /city\s*centre|city\s*center|city\s*hall|donegall\s*place|donegall\s*square/.test(hay) &&
+    !/airport|george\s+best|\bbhd\b/.test(hay)
+  ) {
+    return POSITIONING_PLACE_COORDS.belfast_centre;
+  }
+  if (
+    /\bbelfast\b/.test(hay) &&
+    !/airport|international|aldergrove|george\s+best|city\s+airport|\bbfs\b|\bbhd\b/.test(hay)
+  ) {
+    return POSITIONING_PLACE_COORDS.belfast_centre;
+  }
+  return null;
+}
 
 function toRad(value: number): number {
   return (value * Math.PI) / 180;
@@ -260,7 +305,12 @@ export function labelsLikelySamePlace(a?: string | null, b?: string | null): boo
   const left = normalizeLabel(a);
   const right = normalizeLabel(b);
   if (!left || !right) return false;
-  return left === right || left.includes(right) || right.includes(left);
+  if (left === right) return true;
+  const [shorter, longer] = left.length <= right.length ? [left, right] : [right, left];
+  if (!longer.includes(shorter)) return false;
+  // “Belfast” must not match “George Best Belfast City Airport” or Larne addresses.
+  const words = shorter.split(" ").filter(Boolean);
+  return shorter.length >= 12 || words.length >= 3;
 }
 
 /**
@@ -349,7 +399,7 @@ function resolvePoint(
   airportCode?: string | null,
 ): SmartCoords | null {
   if (explicit && Number.isFinite(explicit.lat) && Number.isFinite(explicit.lng)) return explicit;
-  return coordsFromAirportHint(label, airportCode);
+  return coordsFromAirportHint(label, airportCode) || coordsFromPlaceLabel(label);
 }
 
 type JobWindow = {
@@ -561,7 +611,12 @@ function emptyDiagnostics(
     expectedFinishingLocation: requested.dropoffLabel,
     previousBookingId: null,
     nextBookingId: null,
+    previousPositioningMinutes: null,
+    nextPositioningMinutes: null,
     positioningMinutes: null,
+    positioningFromLabel: null,
+    positioningToLabel: null,
+    positioningCoordsKnown: false,
     blockedTimeOverlap: false,
     blockingInterval: null,
   };
@@ -664,19 +719,28 @@ export function evaluateSmartAvailability(input: {
   diagnostics.previousBookingId = previous?.id || null;
   diagnostics.nextBookingId = next?.id || null;
   if (previous) {
-    diagnostics.positioningMinutes = repositionMinutes(
-      jobWindow(previous, input.config).dropoff,
-      window.pickup,
-      {
-        fromLabel: previous.dropoffLabel,
-        toLabel: input.requested.pickupLabel,
-      },
-    );
-  } else if (next) {
-    diagnostics.positioningMinutes = repositionMinutes(window.dropoff, jobWindow(next, input.config).pickup, {
+    const prevWindow = jobWindow(previous, input.config);
+    diagnostics.previousPositioningMinutes = repositionMinutes(prevWindow.dropoff, window.pickup, {
+      fromLabel: previous.dropoffLabel,
+      toLabel: input.requested.pickupLabel,
+    });
+  }
+  if (next) {
+    const nextWindow = jobWindow(next, input.config);
+    diagnostics.nextPositioningMinutes = repositionMinutes(window.dropoff, nextWindow.pickup, {
       fromLabel: input.requested.dropoffLabel,
       toLabel: next.pickupLabel,
     });
+    diagnostics.positioningMinutes = diagnostics.nextPositioningMinutes;
+    diagnostics.positioningFromLabel = input.requested.dropoffLabel;
+    diagnostics.positioningToLabel = next.pickupLabel;
+    diagnostics.positioningCoordsKnown = Boolean(window.dropoff && nextWindow.pickup);
+  } else if (previous) {
+    const prevWindow = jobWindow(previous, input.config);
+    diagnostics.positioningMinutes = diagnostics.previousPositioningMinutes;
+    diagnostics.positioningFromLabel = previous.dropoffLabel;
+    diagnostics.positioningToLabel = input.requested.pickupLabel;
+    diagnostics.positioningCoordsKnown = Boolean(prevWindow.dropoff && window.pickup);
   }
 
   const warnings: SmartConflictWarning[] = [];
@@ -898,9 +962,11 @@ export function occupiedJobsFromPaidBooking(
       : 0) || parseJourneyDurationMinutes(booking.journeyDuration);
 
   const pickup = finiteCoord(booking.pickupLat, booking.pickupLng) ||
-    coordsFromAirportHint(booking.pickupLabel, booking.airportCode);
+    coordsFromAirportHint(booking.pickupLabel, booking.airportCode) ||
+    coordsFromPlaceLabel(booking.pickupLabel);
   const dropoff = finiteCoord(booking.dropoffLat, booking.dropoffLng) ||
-    coordsFromAirportHint(booking.dropoffLabel, booking.airportCode);
+    coordsFromAirportHint(booking.dropoffLabel, booking.airportCode) ||
+    coordsFromPlaceLabel(booking.dropoffLabel);
 
   const outbound: SmartOccupiedJob = {
     id,
