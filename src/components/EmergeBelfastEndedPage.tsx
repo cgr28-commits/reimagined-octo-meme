@@ -49,7 +49,7 @@ export default function EmergeBelfastEndedPage() {
             </Link>
           </div>
           <p className="mt-6 text-sm text-white/50">
-            Call {SITE.landlineDisplay} · {SITE.email}
+            WhatsApp @{SITE.whatsappUsername} · {SITE.email}
           </p>
         </div>
       </section>

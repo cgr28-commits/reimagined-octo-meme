@@ -84,6 +84,7 @@
     "check:customer-booking-reference": "npx tsx scripts/check-customer-booking-reference.ts",
     "check:book-quote-mobile": "npx tsx scripts/check-book-quote-mobile.ts",
     "check:mobile-menu-scroll": "npx tsx scripts/check-mobile-menu-scroll.ts",
+    "check:public-nav-no-landline": "npx tsx scripts/check-public-nav-no-landline.ts",
     "check:refund-ops": "npx tsx scripts/check-refund-ops.ts",
     "check:cancellation-refund-wording": "npx tsx scripts/check-cancellation-refund-wording.ts",
     "check:sumup-refund-reconcile": "npx tsx scripts/check-sumup-refund-reconcile.ts",

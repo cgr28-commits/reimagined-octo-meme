@@ -12,17 +12,6 @@ export default function FooterContact() {
         </a>
       </li>
       <li>
-        <span className="block text-xs font-semibold uppercase tracking-wider text-white/35">
-          Business Line
-        </span>
-        <a
-          href={`tel:${SITE.landline}`}
-          className="mt-1 inline-block transition-colors hover:text-emerald"
-        >
-          {SITE.landlineDisplay}
-        </a>
-      </li>
-      <li>
         <a
           href={whatsAppChatUrl()}
           target="_blank"

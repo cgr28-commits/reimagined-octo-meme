@@ -36,7 +36,7 @@ const offlineActive = SITE_OFFLINE.enabled && Date.parse(SITE_OFFLINE.until) > D
 
 const livePrices = arePublicLivePricesEnabled();
 const description = offlineActive
-  ? `${SITE.name} is temporarily offline. Call ${SITE.landlineDisplay} or WhatsApp @${SITE.whatsappUsername} for bookings.`
+  ? `${SITE.name} is temporarily offline. WhatsApp @${SITE.whatsappUsername} for bookings.`
   : livePrices
     ? SITE_PUBLIC_SEO_DESCRIPTION
     : `${SITE_PUBLIC_SEO_DESCRIPTION} ${getPublicUnapprovedPriceLabel()} — request a quote online.`;

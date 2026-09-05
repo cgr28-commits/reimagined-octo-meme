@@ -134,18 +134,11 @@ export default function Header() {
                     Get a Quote
                   </QuoteNavLink>
                   <a
-                    href={`tel:${SITE.landline}`}
-                    onClick={closeMenu}
-                    className="mt-2 flex min-h-11 items-center justify-center rounded-full border border-white/20 px-5 py-3 text-center text-sm font-semibold text-white/90"
-                  >
-                    Call {SITE.landlineDisplay}
-                  </a>
-                  <a
                     href={whatsAppChatUrl()}
                     target="_blank"
                     rel="noopener noreferrer"
                     onClick={closeMenu}
-                    className="flex min-h-11 items-center justify-center rounded-full border border-white/20 px-5 py-3 text-center text-sm font-semibold text-white/90"
+                    className="mt-2 flex min-h-11 items-center justify-center rounded-full border border-white/20 px-5 py-3 text-center text-sm font-semibold text-white/90"
                   >
                     WhatsApp @{SITE.whatsappUsername}
                   </a>
