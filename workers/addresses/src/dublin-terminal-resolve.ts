@@ -66,13 +66,7 @@ export async function resolveDublinArrivalTerminalForJob(
 
   const resolved = chooseDublinArrivalTerminal({ stored, source, fromFlight });
 
-  if (
-    resolved &&
-    paid &&
-    env.TRACKING_STORE &&
-    source !== "owner" &&
-    stored !== resolved
-  ) {
+  if (resolved && paid && env.TRACKING_STORE && stored !== resolved) {
     try {
       await updatePaidBookingFields(
         env.TRACKING_STORE,
