@@ -140,6 +140,13 @@ import {
   shouldForceShortNotice,
 } from "./short-notice-handlers";
 import {
+  handleOwnerEvaluateSmartOps,
+  handleOwnerGetSmartOps,
+  handleOwnerSaveSmartOps,
+  handleOwnerSmartOpsCalendar,
+  isOwnerSmartOpsPath,
+} from "./smart-ops-handlers";
+import {
   getShortNoticeByAcceptToken,
   getShortNoticeByToken,
   saveShortNoticeBooking,
@@ -3168,6 +3175,60 @@ export default {
           { ...env, TRACKING_STORE: env.TRACKING_STORE },
           body,
         );
+        if ("error" in result) return json({ error: result.error }, result.status, origin);
+        return json(result, 200, origin);
+      }
+      return json({ error: "Method not allowed" }, 405, origin);
+    }
+
+    if (isOwnerSmartOpsPath(url.pathname)) {
+      if (!env.TRACKING_STORE) {
+        return json({ error: "Storage is not configured" }, 503, origin);
+      }
+      const smartEnv = { ...env, TRACKING_STORE: env.TRACKING_STORE };
+      if (
+        (url.pathname === "/owner/smart-ops" || url.pathname === "/api/owner/smart-ops") &&
+        request.method === "GET"
+      ) {
+        const result = await handleOwnerGetSmartOps(request, smartEnv);
+        if ("error" in result) return json({ error: result.error }, result.status, origin);
+        return json(result, 200, origin);
+      }
+      if (
+        (url.pathname === "/owner/smart-ops" || url.pathname === "/api/owner/smart-ops") &&
+        request.method === "POST"
+      ) {
+        let body: Record<string, unknown>;
+        try {
+          body = await request.json();
+        } catch {
+          return json({ error: "Invalid JSON" }, 400, origin);
+        }
+        const result = await handleOwnerSaveSmartOps(request, smartEnv, body);
+        if ("error" in result) return json({ error: result.error }, result.status, origin);
+        return json(result, 200, origin);
+      }
+      if (
+        (url.pathname === "/owner/smart-ops/evaluate" ||
+          url.pathname === "/api/owner/smart-ops/evaluate") &&
+        request.method === "POST"
+      ) {
+        let body: Record<string, unknown>;
+        try {
+          body = await request.json();
+        } catch {
+          return json({ error: "Invalid JSON" }, 400, origin);
+        }
+        const result = await handleOwnerEvaluateSmartOps(request, smartEnv, body);
+        if ("error" in result) return json({ error: result.error }, result.status, origin);
+        return json(result, 200, origin);
+      }
+      if (
+        (url.pathname === "/owner/smart-ops/calendar" ||
+          url.pathname === "/api/owner/smart-ops/calendar") &&
+        request.method === "GET"
+      ) {
+        const result = await handleOwnerSmartOpsCalendar(request, smartEnv);
         if ("error" in result) return json({ error: result.error }, result.status, origin);
         return json(result, 200, origin);
       }

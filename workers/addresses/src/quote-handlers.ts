@@ -21,6 +21,7 @@ import {
 } from "../../../src/lib/vehicle-selection";
 import type { VehicleType } from "../../../src/lib/data";
 import { ownerAuthorized } from "./driver-auth";
+import { recordQuoteShadowSafely } from "./smart-ops-handlers";
 import { resolveWorkerTripRouteMetrics } from "./resolve-route-metrics";
 import { parseClientRouteMetrics } from "./parse-route-metrics";
 import { resolveAirportTransferIntent } from "../shared/airport-transfer-intent";
@@ -72,6 +73,7 @@ export async function handleQuoteCalculateRequest(
     DRIVER_ACCESS_KEY?: string;
     GOOGLE_PLACES_API_KEY?: string;
     GETADDRESS_API_KEY?: string;
+    TRACKING_STORE?: KVNamespace;
   },
 ): Promise<Response> {
   if (request.method === "OPTIONS") {
@@ -358,13 +360,31 @@ export async function handleQuoteCalculateRequest(
     return json({ ...result, diagnostics }, 422, origin);
   }
 
-  return json(
-    {
-      ...result,
-      vehicleChoice: resolved.vehicleChoice,
-      diagnostics,
-    },
-    200,
-    origin,
-  );
+  const quoteBody = {
+    ...result,
+    vehicleChoice: resolved.vehicleChoice,
+    diagnostics,
+  };
+
+  if (env?.TRACKING_STORE) {
+    const outboundDate = String(body.outboundDate ?? schedule.outboundDate ?? "");
+    const outboundTime = String(body.outboundTime ?? schedule.outboundTime ?? "");
+    void recordQuoteShadowSafely({
+      store: env.TRACKING_STORE,
+      requested: {
+        pickupLabel: pickupAddress,
+        dropoffLabel: dropoffAddress,
+        tripDate: outboundDate,
+        tripTime: outboundTime,
+        vehicle: resolved.vehicleType,
+        airportCode,
+        isFromAirport: fromAirport,
+        durationMinutes: routeMetrics.durationMinutes,
+      },
+      liveQuoted: true,
+      liveAmountGbp: result.amount,
+    });
+  }
+
+  return json(quoteBody, 200, origin);
 }

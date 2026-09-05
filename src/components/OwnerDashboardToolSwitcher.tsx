@@ -1,6 +1,11 @@
 "use client";
 
-export type OwnerDashboardToolTab = "jobs" | "a2a-quotes" | "personal-quotes" | "same-fare";
+export type OwnerDashboardToolTab =
+  | "jobs"
+  | "availability"
+  | "a2a-quotes"
+  | "personal-quotes"
+  | "same-fare";
 
 type OwnerDashboardToolSwitcherProps = {
   value: OwnerDashboardToolTab;
@@ -9,6 +14,7 @@ type OwnerDashboardToolSwitcherProps = {
 
 const OPTIONS: { id: OwnerDashboardToolTab; label: string }[] = [
   { id: "jobs", label: "Jobs" },
+  { id: "availability", label: "Availability" },
   { id: "a2a-quotes", label: "A2A Quotes" },
   { id: "personal-quotes", label: "Personal Quotes" },
   { id: "same-fare", label: "Same Fare Test" },
@@ -28,7 +34,7 @@ export default function OwnerDashboardToolSwitcher({
       role="tablist"
       aria-label="Owner dashboard tools"
     >
-      <div className="grid grid-cols-2 gap-1 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-1 sm:grid-cols-3">
         {OPTIONS.map((option) => {
           const selected = value === option.id;
           return (
