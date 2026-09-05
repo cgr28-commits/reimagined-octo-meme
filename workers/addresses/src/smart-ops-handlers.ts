@@ -139,6 +139,8 @@ export async function handleOwnerSaveSmartOps(
         smartAvailability: false,
         alternativeTimeSuggestions: false,
         smartReturnPricing: false,
+        returnCorridorMatching: false,
+        backupDriverCapacity: false,
         shadowMode: true,
       },
       updatedAt: new Date().toISOString(),
@@ -147,13 +149,15 @@ export async function handleOwnerSaveSmartOps(
     const triedCustomerOn =
       incomingFlags.smartAvailability === true ||
       incomingFlags.alternativeTimeSuggestions === true ||
-      incomingFlags.smartReturnPricing === true;
+      incomingFlags.smartReturnPricing === true ||
+      incomingFlags.returnCorridorMatching === true ||
+      incomingFlags.backupDriverCapacity === true;
     return {
       ok: true,
       state,
       locked:
         triedCustomerOn || incomingFlags.shadowMode === false
-          ? "Customer-facing Smart Availability, Alternative Times and Smart Return stay OFF. Shadow mode stays ON."
+          ? "Customer-facing Smart Availability, Alternative Times, Smart Return, corridor matching and backup capacity stay OFF. Shadow mode stays ON."
           : undefined,
     };
   }
@@ -378,6 +382,7 @@ export async function handleOwnerSmartOpsCalendar(request: Request, env: SmartOp
     to,
     bookings,
     unavailable: intervals.map((interval) => ({
+      ruleId: interval.ruleId,
       startLocal: interval.startLocal,
       endLocal: interval.endLocal,
       recurring: interval.recurring,

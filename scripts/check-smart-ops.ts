@@ -14,12 +14,15 @@ import {
 } from "../shared/smart-ops-config";
 import {
   buildQuickBlockRule,
+  buildUnavailableTimeRule,
   clearActiveQuickBlocks,
+  describeUnavailableRule,
   expandSmartAvailabilityIntervals,
   findBlockingSmartInterval,
   findOverlappingSmartInterval,
   normalizeSmartAvailabilityException,
   normalizeSmartAvailabilityRule,
+  unavailableFormFromRule,
 } from "../shared/smart-availability";
 import {
   customerAvailabilityMessage,
@@ -607,6 +610,17 @@ console.log("\n=== Newry corridor + owner/dashboard wiring ===");
   assert.match(panel, /Shadow test mode/);
   assert.match(panel, /Owner test tool/);
   assert.match(panel, /Quick controls/);
+  assert.match(panel, /Add unavailable time/);
+  assert.match(panel, /Unavailable from/);
+  assert.match(panel, /Unavailable until/);
+  assert.match(panel, /This date only/);
+  assert.match(panel, /Every week/);
+  assert.match(panel, /Days of the week/);
+  assert.match(panel, /Save/);
+  assert.match(panel, /Your unavailable times/);
+  assert.match(panel, /startEdit/);
+  assert.match(panel, /delete_rule/);
+  assert.doesNotMatch(panel, /datetime-local/);
   assert.doesNotMatch(panel, /first-booking|£5 booking offer/);
   const page = read("src/app/driver/DriverPageClient.tsx");
   assert.match(page, /ownerToolTab === "availability"/);
@@ -1361,6 +1375,81 @@ console.log("\n=== Defaults remain customer-off / shadow-on ===");
   assert.match(read("shared/route-metrics-resolver.ts"), /pickup: origin\.point/);
   void findOverlappingSmartInterval;
   console.log("OK  defaults + wiring");
+}
+
+console.log("\n=== Add unavailable time: tomorrow 00:00–10:00 one-off ===");
+{
+  const tomorrow = addDaysYmd(MONDAY, 1);
+  const rule = buildUnavailableTimeRule({
+    id: "sleep-in",
+    repeat: "one_off",
+    date: tomorrow,
+    startTime: "00:00",
+    endTime: "10:00",
+  });
+  assert.ok(rule);
+  assert.equal(rule.kind, "one_off");
+  assert.equal(rule.startLocal, `${tomorrow}T00:00`);
+  assert.equal(rule.endLocal, `${tomorrow}T10:00`);
+  assert.match(describeUnavailableRule(rule, MONDAY), /Tomorrow 00:00–10:00/);
+
+  const early = evaluateSmartAvailability({
+    requested: {
+      pickupLabel: "Belfast",
+      dropoffLabel: "BFS",
+      tripDate: tomorrow,
+      tripTime: "09:30",
+      durationMinutes: 25,
+      pickup: BELFAST,
+      dropoff: BFS,
+    },
+    occupied: [],
+    rules: [rule],
+    config,
+    searchAlternatives: false,
+  });
+  assert.equal(early.available, false);
+  assert.equal(early.reason, SMART_OPS_REASON.BLOCKED_OWNER_AVAILABILITY);
+
+  const fromTen = evaluateSmartAvailability({
+    requested: {
+      pickupLabel: "Belfast",
+      dropoffLabel: "BFS",
+      tripDate: tomorrow,
+      tripTime: "10:00",
+      durationMinutes: 25,
+      pickup: BELFAST,
+      dropoff: BFS,
+    },
+    occupied: [],
+    rules: [rule],
+    config,
+    searchAlternatives: false,
+  });
+  assert.equal(fromTen.available, true);
+
+  const form = unavailableFormFromRule(rule, MONDAY);
+  assert.equal(form.repeat, "one_off");
+  assert.equal(form.date, tomorrow);
+  assert.equal(form.startTime, "00:00");
+  assert.equal(form.endTime, "10:00");
+
+  const weekly = buildUnavailableTimeRule({
+    id: "mon-sleep",
+    repeat: "recurring",
+    startTime: "00:00",
+    endTime: "10:00",
+    weekdays: [1],
+  });
+  assert.ok(weekly);
+  assert.equal(weekly.kind, "recurring");
+  assert.match(describeUnavailableRule(weekly, MONDAY), /Every Monday 00:00–10:00/);
+
+  const handlers = read("workers/addresses/src/smart-ops-handlers.ts");
+  assert.match(handlers, /returnCorridorMatching: false/);
+  assert.match(handlers, /backupDriverCapacity: false/);
+  assert.match(handlers, /ruleId: interval.ruleId/);
+  console.log("OK  add unavailable time 00:00–10:00");
 }
 
 console.log("\nAll Smart Availability / Smart Return checks passed.");

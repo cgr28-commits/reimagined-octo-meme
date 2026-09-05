@@ -1,7 +1,16 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ISO_WEEKDAYS } from "../../shared/smart-availability";
+import {
+  ISO_WEEKDAYS,
+  buildUnavailableTimeRule,
+  describeUnavailableDate,
+  describeUnavailableRule,
+  isQuickBlockRule,
+  unavailableFormFromRule,
+  type SmartAvailabilityRule,
+  type UnavailableTimeForm,
+} from "../../shared/smart-availability";
 import { DEFAULT_SMART_OPS_CONFIG, type SmartOpsConfig } from "../../shared/smart-ops-config";
 import { addDaysYmd, londonYmd } from "../../shared/upcoming-jobs";
 import {
@@ -17,37 +26,52 @@ type OwnerSmartAvailabilityPanelProps = {
   ownerKey: string;
 };
 
-const emptyRuleForm = {
-  kind: "one_off" as "one_off" | "recurring" | "full_day",
-  date: londonYmd(),
-  startLocal: `${londonYmd()}T13:00`,
-  endLocal: `${londonYmd()}T17:00`,
-  startTime: "13:00",
-  endTime: "15:00",
-  weekdays: [1] as number[],
-  rangeStart: "",
-  rangeEnd: "",
-  note: "",
+type CalendarState = {
+  bookings: Array<{ id: string; tripDate: string; tripTime: string }>;
+  unavailable: Array<{
+    ruleId?: string;
+    startLocal: string;
+    endLocal: string;
+    recurring: boolean;
+  }>;
 };
 
+const fieldClass =
+  "box-border mt-1 min-h-11 w-full min-w-0 max-w-full rounded-xl border border-white/15 bg-navy px-3 text-base text-white [color-scheme:dark]";
+const labelClass = "block min-w-0 text-sm font-medium text-white/70";
+
+function emptyForm(today = londonYmd()): UnavailableTimeForm {
+  return {
+    repeat: "one_off",
+    date: addDaysYmd(today, 1),
+    startTime: "00:00",
+    endTime: "10:00",
+    weekdays: [1],
+    note: "",
+  };
+}
+
+function ruleById(rules: SmartAvailabilityRule[] | undefined, id?: string) {
+  if (!id) return null;
+  return (rules || []).find((rule) => rule.id === id) || null;
+}
+
 export default function OwnerSmartAvailabilityPanel({ ownerKey }: OwnerSmartAvailabilityPanelProps) {
+  const today = londonYmd();
   const [state, setState] = useState<SmartOpsState | null>(null);
   const [shadow, setShadow] = useState<SmartShadowRecord[]>([]);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const [view, setView] = useState<"day" | "week">("day");
-  const [focusDay, setFocusDay] = useState(londonYmd());
-  const [calendar, setCalendar] = useState<{
-    bookings: Array<{ id: string; tripDate: string; tripTime: string }>;
-    unavailable: Array<{ startLocal: string; endLocal: string; recurring: boolean }>;
-    opportunities: Array<{ parentId: string; tripDate: string; tripTime: string }>;
-  } | null>(null);
-  const [form, setForm] = useState(emptyRuleForm);
+  const [focusDay, setFocusDay] = useState(today);
+  const [calendar, setCalendar] = useState<CalendarState | null>(null);
+  const [form, setForm] = useState<UnavailableTimeForm>(() => emptyForm(today));
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [test, setTest] = useState({
     pickupLabel: "Belfast International Airport",
     dropoffLabel: "Belfast City Centre",
-    tripDate: londonYmd(),
+    tripDate: today,
     tripTime: "14:00",
     vehicle: "Saloon",
     normalJourneyFareGbp: "45",
@@ -56,6 +80,7 @@ export default function OwnerSmartAvailabilityPanel({ ownerKey }: OwnerSmartAvai
   const [testResult, setTestResult] = useState<Record<string, unknown> | null>(null);
 
   const config = state?.config || DEFAULT_SMART_OPS_CONFIG;
+  const rules = state?.rules || [];
 
   const load = useCallback(async () => {
     const result = await fetchSmartOpsState(ownerKey);
@@ -64,17 +89,15 @@ export default function OwnerSmartAvailabilityPanel({ ownerKey }: OwnerSmartAvai
   }, [ownerKey]);
 
   const loadCalendar = useCallback(async () => {
-    const from = view === "day" ? focusDay : focusDay;
+    const from = focusDay;
     const to = view === "day" ? focusDay : addDaysYmd(focusDay, 6);
     const result = (await fetchSmartOpsCalendar(ownerKey, from, to)) as {
-      bookings?: Array<{ id: string; tripDate: string; tripTime: string }>;
-      unavailable?: Array<{ startLocal: string; endLocal: string; recurring: boolean }>;
-      opportunities?: Array<{ parentId: string; tripDate: string; tripTime: string }>;
+      bookings?: CalendarState["bookings"];
+      unavailable?: CalendarState["unavailable"];
     };
     setCalendar({
       bookings: result.bookings || [],
       unavailable: result.unavailable || [],
-      opportunities: result.opportunities || [],
     });
   }, [ownerKey, view, focusDay]);
 
@@ -94,7 +117,7 @@ export default function OwnerSmartAvailabilityPanel({ ownerKey }: OwnerSmartAvai
     try {
       const result = await saveSmartOpsAction(ownerKey, { action, ...extra });
       setState(result.state);
-      setMessage("Saved.");
+      setMessage(action === "delete_rule" ? "Removed." : "Saved.");
       await loadCalendar();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Save failed");
@@ -111,65 +134,62 @@ export default function OwnerSmartAvailabilityPanel({ ownerKey }: OwnerSmartAvai
     await run("save_config", { config: { ...config, ...patch } });
   }
 
+  function startEdit(rule: SmartAvailabilityRule) {
+    setEditingId(rule.id);
+    setForm(unavailableFormFromRule(rule, today));
+    setMessage("");
+    document.getElementById("owner-add-unavailable")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  async function saveUnavailableTime() {
+    const rule = buildUnavailableTimeRule({
+      ...form,
+      id: editingId || undefined,
+      enabled: true,
+    });
+    if (!rule) {
+      setError("Check the date and times, then tap Save again.");
+      return;
+    }
+    await run("save_rule", { rule });
+    setEditingId(null);
+    setForm(emptyForm(today));
+  }
+
   const days = useMemo(() => {
     if (view === "day") return [focusDay];
     return Array.from({ length: 7 }, (_, i) => addDaysYmd(focusDay, i));
   }, [view, focusDay]);
 
+  const sortedRules = useMemo(
+    () =>
+      [...rules].sort((a, b) => {
+        const aKey = a.startLocal || a.date || a.startTime || a.id;
+        const bKey = b.startLocal || b.date || b.startTime || b.id;
+        return aKey.localeCompare(bKey);
+      }),
+    [rules],
+  );
+
   return (
-    <section className="mb-10 space-y-4" data-owner-smart-ops>
+    <section className="mb-10 w-full min-w-0 max-w-full space-y-4" data-owner-smart-ops>
       <div className="rounded-2xl border border-amber-400/25 bg-navy/70 p-4 sm:p-5">
-        <h2 className="text-lg font-bold text-white">Smart Availability</h2>
+        <h2 className="text-lg font-bold text-white">Availability</h2>
         <p className="mt-2 text-sm text-white/70">
-          Test and configure availability, alternative times and Smart Return Pricing. Customer
-          bookings stay on the current live system until you switch a customer-facing flag on.
+          Mark when you cannot take bookings. Customers still use the live website until this is
+          switched on.
         </p>
         {error ? (
           <p className="mt-3 rounded-xl border border-red-400/30 bg-red-500/10 px-3 py-2 text-sm text-red-100">
             {error}
           </p>
         ) : null}
-        {message ? (
-          <p className="mt-3 text-sm text-emerald-light">{message}</p>
-        ) : null}
-      </div>
-
-      <div className="rounded-2xl border border-white/10 bg-navy/70 p-4">
-        <h3 className="text-sm font-bold uppercase tracking-wider text-white/50">Feature flags</h3>
-        <div className="mt-3 grid gap-2">
-          {(
-            [
-              ["smartAvailability", "Smart Availability (customer)", true],
-              ["alternativeTimeSuggestions", "Alternative time suggestions (customer)", true],
-              ["smartReturnPricing", "Smart Return Pricing (customer)", true],
-              ["returnCorridorMatching", "Return corridor matching", false],
-              ["backupDriverCapacity", "Backup driver capacity", false],
-              ["shadowMode", "Shadow test mode", true],
-            ] as const
-          ).map(([key, label, locked]) => (
-            <label key={key} className="flex min-h-11 items-center justify-between gap-3 text-sm text-white">
-              <span>
-                {label}
-                {locked ? <span className="ml-2 text-xs text-amber-100/80">locked</span> : null}
-              </span>
-              <input
-                type="checkbox"
-                checked={Boolean(config.flags[key])}
-                disabled={locked || busy}
-                onChange={(event) => void saveFlags({ [key]: event.target.checked })}
-                className="h-5 w-5 accent-emerald disabled:opacity-60"
-              />
-            </label>
-          ))}
-        </div>
-        <p className="mt-2 text-xs text-amber-100/90">
-          The three customer flags stay OFF and shadow mode stays ON. Calendar and Owner Test Tool
-          still run against real bookings. Live customer quotes are unchanged.
-        </p>
+        {message ? <p className="mt-3 text-sm text-emerald-light">{message}</p> : null}
       </div>
 
       <div className="rounded-2xl border border-white/10 bg-navy/70 p-4">
         <h3 className="text-sm font-bold uppercase tracking-wider text-white/50">Quick controls</h3>
+        <p className="mt-1 text-sm text-white/60">For something that has just come up.</p>
         <div className="mt-3 grid grid-cols-2 gap-2">
           {(
             [
@@ -194,419 +214,195 @@ export default function OwnerSmartAvailabilityPanel({ ownerKey }: OwnerSmartAvai
         </div>
       </div>
 
-      <div className="rounded-2xl border border-white/10 bg-navy/70 p-4">
-        <h3 className="text-sm font-bold uppercase tracking-wider text-white/50">Buffers & capacity</h3>
-        <div className="mt-3 grid gap-3 sm:grid-cols-2">
-          <label className="text-xs text-white/50">
-            Short journey buffer
-            <select
-              value={config.buffers.shortJourneyBufferMinutes}
-              onChange={(event) =>
-                void saveSettings({
-                  buffers: {
-                    ...config.buffers,
-                    shortJourneyBufferMinutes: Number(event.target.value) as 15 | 30 | 45,
-                  },
-                })
-              }
-              className="mt-1 min-h-11 w-full rounded-xl border border-white/15 bg-navy px-3 text-sm text-white"
-            >
-              <option value={15}>15 minutes</option>
-              <option value={30}>30 minutes</option>
-              <option value={45}>45 minutes</option>
-            </select>
-          </label>
-          <label className="text-xs text-white/50">
-            Long-distance buffer
-            <select
-              value={config.buffers.longDistanceBufferMinutes}
-              onChange={(event) =>
-                void saveSettings({
-                  buffers: {
-                    ...config.buffers,
-                    longDistanceBufferMinutes: Number(event.target.value) as 30 | 45 | 60,
-                  },
-                })
-              }
-              className="mt-1 min-h-11 w-full rounded-xl border border-white/15 bg-navy px-3 text-sm text-white"
-            >
-              <option value={30}>30 minutes</option>
-              <option value={45}>45 minutes</option>
-              <option value={60}>60 minutes</option>
-            </select>
-          </label>
-          <label className="text-xs text-white/50">
-            Airport pickup buffer (minutes)
-            <input
-              type="number"
-              value={config.buffers.airportPickupBufferMinutes}
-              onChange={(event) =>
-                void saveSettings({
-                  buffers: {
-                    ...config.buffers,
-                    airportPickupBufferMinutes: Number(event.target.value),
-                  },
-                })
-              }
-              className="mt-1 min-h-11 w-full rounded-xl border border-white/15 bg-navy px-3 text-sm text-white"
-            />
-          </label>
-          <label className="text-xs text-white/50">
-            Driver capacity
-            <select
-              value={config.driverCapacity}
-              onChange={(event) =>
-                void saveSettings({
-                  driverCapacity: event.target.value as SmartOpsConfig["driverCapacity"],
-                })
-              }
-              className="mt-1 min-h-11 w-full rounded-xl border border-white/15 bg-navy px-3 text-sm text-white"
-            >
-              <option value="owner_only">Me only</option>
-              <option value="owner_plus_backup">Me + backup driver</option>
-            </select>
-          </label>
-          <label className="text-xs text-white/50">
-            Minimum turnaround
-            <select
-              value={config.buffers.minTurnaroundMinutes}
-              onChange={(event) =>
-                void saveSettings({
-                  buffers: {
-                    ...config.buffers,
-                    minTurnaroundMinutes: Number(event.target.value) as 5 | 10 | 15 | 20,
-                  },
-                })
-              }
-              className="mt-1 min-h-11 w-full rounded-xl border border-white/15 bg-navy px-3 text-sm text-white"
-            >
-              <option value={5}>5 minutes</option>
-              <option value={10}>10 minutes</option>
-              <option value={15}>15 minutes</option>
-              <option value={20}>20 minutes</option>
-            </select>
-          </label>
-          <label className="text-xs text-white/50">
-            Maximum alternative-time shift
-            <select
-              value={config.alternatives.maxShiftMinutes}
-              onChange={(event) =>
-                void saveSettings({
-                  alternatives: {
-                    ...config.alternatives,
-                    maxShiftMinutes: Number(event.target.value) as 30 | 45 | 60 | 90,
-                  },
-                })
-              }
-              className="mt-1 min-h-11 w-full rounded-xl border border-white/15 bg-navy px-3 text-sm text-white"
-            >
-              <option value={30}>30 minutes</option>
-              <option value={45}>45 minutes</option>
-              <option value={60}>60 minutes</option>
-              <option value={90}>90 minutes</option>
-            </select>
-          </label>
-          <label className="flex min-h-11 items-center justify-between gap-3 text-sm text-white sm:col-span-2">
-            <span>Allow alternatives across midnight</span>
-            <input
-              type="checkbox"
-              checked={config.alternatives.allowAcrossMidnight}
-              onChange={(event) =>
-                void saveSettings({
-                  alternatives: {
-                    ...config.alternatives,
-                    allowAcrossMidnight: event.target.checked,
-                  },
-                })
-              }
-              className="h-5 w-5 accent-emerald"
-            />
-          </label>
-        </div>
-        <p className="mt-2 text-xs text-white/45">
-          Backup-driver capacity is stored only. It does not bypass conflicts until assignment is
-          implemented.
+      <div
+        id="owner-add-unavailable"
+        className="w-full min-w-0 max-w-full rounded-2xl border border-white/10 bg-navy/70 p-4"
+        data-owner-add-unavailable
+      >
+        <h3 className="text-sm font-bold uppercase tracking-wider text-white/50">
+          {editingId ? "Edit unavailable time" : "Add unavailable time"}
+        </h3>
+        <p className="mt-1 text-sm text-white/60">
+          Example: tomorrow, 00:00 to 10:00, this date only — you are free from 10:00.
         </p>
-      </div>
-
-      <div className="rounded-2xl border border-white/10 bg-navy/70 p-4">
-        <h3 className="text-sm font-bold uppercase tracking-wider text-white/50">Smart Return settings</h3>
-        <div className="mt-3 grid gap-3 sm:grid-cols-2">
-          <label className="text-xs text-white/50">
-            Maximum discount %
-            <input
-              type="number"
-              value={config.smartReturn.maxDiscountPercent}
-              onChange={(event) =>
-                void saveSettings({
-                  smartReturn: {
-                    ...config.smartReturn,
-                    maxDiscountPercent: Number(event.target.value),
-                  },
-                })
-              }
-              className="mt-1 min-h-11 w-full rounded-xl border border-white/15 bg-navy px-3 text-sm text-white"
-            />
-          </label>
-          <label className="text-xs text-white/50">
-            Minimum acceptable fare £
-            <input
-              type="number"
-              value={config.smartReturn.minAcceptableFareGbp}
-              onChange={(event) =>
-                void saveSettings({
-                  smartReturn: {
-                    ...config.smartReturn,
-                    minAcceptableFareGbp: Number(event.target.value),
-                  },
-                })
-              }
-              className="mt-1 min-h-11 w-full rounded-xl border border-white/15 bg-navy px-3 text-sm text-white"
-            />
-          </label>
-          <label className="text-xs text-white/50">
-            Return time window (minutes)
-            <input
-              type="number"
-              value={config.smartReturn.returnTimeFlexibilityMinutes}
-              onChange={(event) =>
-                void saveSettings({
-                  smartReturn: {
-                    ...config.smartReturn,
-                    returnTimeFlexibilityMinutes: Number(event.target.value),
-                  },
-                })
-              }
-              className="mt-1 min-h-11 w-full rounded-xl border border-white/15 bg-navy px-3 text-sm text-white"
-            />
-          </label>
-          <label className="text-xs text-white/50">
-            Max route deviation (miles)
-            <input
-              type="number"
-              value={config.smartReturn.maxDeviationMiles}
-              onChange={(event) =>
-                void saveSettings({
-                  smartReturn: {
-                    ...config.smartReturn,
-                    maxDeviationMiles: Number(event.target.value),
-                  },
-                })
-              }
-              className="mt-1 min-h-11 w-full rounded-xl border border-white/15 bg-navy px-3 text-sm text-white"
-            />
-          </label>
-          <label className="text-xs text-white/50 sm:col-span-2">
-            Advertise Smart Return
-            <select
-              value={config.smartReturn.releaseMode}
-              onChange={(event) =>
-                void saveSettings({
-                  smartReturn: {
-                    ...config.smartReturn,
-                    releaseMode: event.target.value as SmartOpsConfig["smartReturn"]["releaseMode"],
-                  },
-                })
-              }
-              className="mt-1 min-h-11 w-full rounded-xl border border-white/15 bg-navy px-3 text-sm text-white"
-            >
-              <option value="inside_free_cancel_cutoff">Only inside 24-hour non-refundable period</option>
-              <option value="immediately">Immediately after parent confirmation</option>
-              <option value="hours_before_pickup">Custom hours before pickup</option>
-            </select>
-          </label>
-        </div>
-      </div>
-
-      <div className="rounded-2xl border border-white/10 bg-navy/70 p-4">
-        <h3 className="text-sm font-bold uppercase tracking-wider text-white/50">Add unavailable period</h3>
-        <div className="mt-3 grid gap-3">
-          <select
-            value={form.kind}
-            onChange={(event) =>
-              setForm((prev) => ({ ...prev, kind: event.target.value as typeof prev.kind }))
-            }
-            className="min-h-11 rounded-xl border border-white/15 bg-navy px-3 text-sm text-white"
-          >
-            <option value="one_off">One-off period</option>
-            <option value="full_day">Full day</option>
-            <option value="recurring">Recurring weekdays</option>
-          </select>
-          {form.kind === "full_day" ? (
+        <div className="mt-3 grid w-full min-w-0 max-w-full grid-cols-1 gap-3">
+          <label className={labelClass}>
+            Date
             <input
               type="date"
               value={form.date}
               onChange={(event) => setForm((prev) => ({ ...prev, date: event.target.value }))}
-              className="min-h-11 rounded-xl border border-white/15 bg-navy px-3 text-sm text-white"
+              className={fieldClass}
             />
-          ) : null}
-          {form.kind === "one_off" ? (
-            <>
+          </label>
+          <div className="grid w-full min-w-0 max-w-full grid-cols-2 gap-2">
+            <label className={labelClass}>
+              Unavailable from
               <input
-                type="datetime-local"
-                value={form.startLocal}
-                onChange={(event) => setForm((prev) => ({ ...prev, startLocal: event.target.value }))}
-                className="min-h-11 rounded-xl border border-white/15 bg-navy px-3 text-sm text-white"
+                type="time"
+                value={form.startTime}
+                onChange={(event) => setForm((prev) => ({ ...prev, startTime: event.target.value }))}
+                className={fieldClass}
               />
+            </label>
+            <label className={labelClass}>
+              Unavailable until
               <input
-                type="datetime-local"
-                value={form.endLocal}
-                onChange={(event) => setForm((prev) => ({ ...prev, endLocal: event.target.value }))}
-                className="min-h-11 rounded-xl border border-white/15 bg-navy px-3 text-sm text-white"
+                type="time"
+                value={form.endTime}
+                onChange={(event) => setForm((prev) => ({ ...prev, endTime: event.target.value }))}
+                className={fieldClass}
               />
-            </>
-          ) : null}
-          {form.kind === "recurring" ? (
-            <>
-              <div className="grid grid-cols-2 gap-2">
-                {ISO_WEEKDAYS.map((day) => (
-                  <label key={day.iso} className="flex min-h-11 items-center gap-2 text-sm text-white">
-                    <input
-                      type="checkbox"
-                      checked={form.weekdays.includes(day.iso)}
-                      onChange={(event) =>
+            </label>
+          </div>
+          <fieldset className="min-w-0">
+            <legend className={labelClass}>Repeat</legend>
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              {(
+                [
+                  ["one_off", "This date only"],
+                  ["recurring", "Every week"],
+                ] as const
+              ).map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setForm((prev) => ({ ...prev, repeat: value }))}
+                  className={`min-h-11 rounded-xl px-3 text-sm font-semibold ${
+                    form.repeat === value
+                      ? "bg-emerald text-navy"
+                      : "border border-white/15 text-white"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </fieldset>
+          {form.repeat === "recurring" ? (
+            <fieldset className="min-w-0">
+              <legend className={labelClass}>Days of the week</legend>
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                {ISO_WEEKDAYS.map((day) => {
+                  const on = form.weekdays.includes(day.iso);
+                  return (
+                    <button
+                      key={day.iso}
+                      type="button"
+                      onClick={() =>
                         setForm((prev) => ({
                           ...prev,
-                          weekdays: event.target.checked
-                            ? [...prev.weekdays, day.iso]
-                            : prev.weekdays.filter((item) => item !== day.iso),
+                          weekdays: on
+                            ? prev.weekdays.filter((item) => item !== day.iso)
+                            : [...prev.weekdays, day.iso],
                         }))
                       }
-                    />
-                    Every {day.label}
-                  </label>
-                ))}
+                      className={`min-h-11 rounded-xl px-3 text-sm font-semibold ${
+                        on ? "bg-emerald text-navy" : "border border-white/15 text-white"
+                      }`}
+                    >
+                      {day.label}
+                    </button>
+                  );
+                })}
               </div>
-              <div className="grid grid-cols-2 gap-2">
-                <input
-                  type="time"
-                  value={form.startTime}
-                  onChange={(event) => setForm((prev) => ({ ...prev, startTime: event.target.value }))}
-                  className="min-h-11 rounded-xl border border-white/15 bg-navy px-3 text-sm text-white"
-                />
-                <input
-                  type="time"
-                  value={form.endTime}
-                  onChange={(event) => setForm((prev) => ({ ...prev, endTime: event.target.value }))}
-                  className="min-h-11 rounded-xl border border-white/15 bg-navy px-3 text-sm text-white"
-                />
-              </div>
-              <input
-                type="date"
-                value={form.rangeStart}
-                onChange={(event) => setForm((prev) => ({ ...prev, rangeStart: event.target.value }))}
-                className="min-h-11 rounded-xl border border-white/15 bg-navy px-3 text-sm text-white"
-              />
-              <input
-                type="date"
-                value={form.rangeEnd}
-                onChange={(event) => setForm((prev) => ({ ...prev, rangeEnd: event.target.value }))}
-                className="min-h-11 rounded-xl border border-white/15 bg-navy px-3 text-sm text-white"
-              />
-            </>
+            </fieldset>
           ) : null}
-          <input
-            value={form.note}
-            onChange={(event) => setForm((prev) => ({ ...prev, note: event.target.value }))}
-            placeholder="Private note (Cara, service, holiday)"
-            className="min-h-11 rounded-xl border border-white/15 bg-navy px-3 text-sm text-white"
-          />
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() =>
-              void run("save_rule", {
-                rule: {
-                  kind: form.kind,
-                  date: form.date,
-                  startLocal: form.startLocal,
-                  endLocal: form.endLocal,
-                  startTime: form.startTime,
-                  endTime: form.endTime,
-                  weekdays: form.weekdays,
-                  rangeStart: form.rangeStart || undefined,
-                  rangeEnd: form.rangeEnd || null,
-                  note: form.note,
-                  enabled: true,
-                },
-              })
-            }
-            className="min-h-11 rounded-xl bg-emerald px-4 text-sm font-bold text-navy"
-          >
-            Add rule
-          </button>
+          <label className={labelClass}>
+            Private note <span className="font-normal text-white/45">(optional)</span>
+            <input
+              value={form.note}
+              onChange={(event) => setForm((prev) => ({ ...prev, note: event.target.value }))}
+              placeholder="Only you can see this"
+              className={fieldClass}
+            />
+          </label>
+          <div className="grid grid-cols-2 gap-2">
+            {editingId ? (
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => {
+                  setEditingId(null);
+                  setForm(emptyForm(today));
+                }}
+                className="min-h-11 rounded-xl border border-white/15 px-4 text-sm font-semibold text-white"
+              >
+                Cancel
+              </button>
+            ) : (
+              <span />
+            )}
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => void saveUnavailableTime()}
+              className="min-h-11 rounded-xl bg-emerald px-4 text-sm font-bold text-navy"
+            >
+              Save
+            </button>
+          </div>
         </div>
       </div>
 
-      <div className="rounded-2xl border border-white/10 bg-navy/70 p-4">
-        <h3 className="text-sm font-bold uppercase tracking-wider text-white/50">Rules</h3>
+      <div className="w-full min-w-0 max-w-full rounded-2xl border border-white/10 bg-navy/70 p-4">
+        <h3 className="text-sm font-bold uppercase tracking-wider text-white/50">Your unavailable times</h3>
         <ul className="mt-3 space-y-3">
-          {(state?.rules || []).map((rule) => (
-            <li key={rule.id} className="rounded-xl border border-white/10 p-3">
-              <p className="text-sm font-semibold text-white">
-                {rule.kind === "recurring"
-                  ? `Every ${(rule.weekdays || [])
-                      .map((d) => ISO_WEEKDAYS.find((item) => item.iso === d)?.label)
-                      .filter(Boolean)
-                      .join(", ")} ${rule.startTime}–${rule.endTime}`
-                  : rule.kind === "full_day"
-                    ? `All day ${rule.date}`
-                    : `${rule.startLocal} → ${rule.endLocal}`}
-                {rule.enabled ? "" : " · disabled"}
+          {sortedRules.map((rule) => (
+            <li
+              key={rule.id}
+              className="w-full min-w-0 rounded-xl border border-white/10 p-3"
+              data-unavailable-rule={rule.id}
+            >
+              <p className="break-words text-sm font-bold text-white">
+                {describeUnavailableRule(rule, today)}
+                {rule.enabled ? "" : " · off"}
+                {isQuickBlockRule(rule) ? " · quick block" : ""}
               </p>
-              {rule.note ? <p className="mt-1 text-xs text-white/45">Private: {rule.note}</p> : null}
-              <div className="mt-2 flex flex-wrap gap-2">
+              {rule.note && !isQuickBlockRule(rule) ? (
+                <p className="mt-1 break-words text-xs text-white/45">{rule.note}</p>
+              ) : null}
+              <div className="mt-2 flex flex-col gap-2 sm:flex-row">
                 <button
                   type="button"
-                  onClick={() => void run("toggle_rule", { id: rule.id })}
-                  className="min-h-11 rounded-xl border border-white/15 px-3 text-xs font-semibold text-white"
+                  disabled={busy}
+                  onClick={() => startEdit(rule)}
+                  className="min-h-11 flex-1 rounded-xl border border-white/15 px-3 text-sm font-semibold text-white"
                 >
-                  {rule.enabled ? "Disable" : "Re-enable"}
+                  Edit
                 </button>
                 <button
                   type="button"
+                  disabled={busy}
                   onClick={() => void run("delete_rule", { id: rule.id })}
-                  className="min-h-11 rounded-xl border border-red-400/30 px-3 text-xs font-semibold text-red-100"
+                  className="min-h-11 flex-1 rounded-xl border border-red-400/30 px-3 text-sm font-semibold text-red-100"
                 >
                   Delete
                 </button>
-                {rule.kind === "recurring" ? (
-                  <button
-                    type="button"
-                    onClick={() =>
-                      void run("save_exception", {
-                        exception: { ruleId: rule.id, date: focusDay, kind: "available" },
-                      })
-                    }
-                    className="min-h-11 rounded-xl border border-emerald/40 px-3 text-xs font-semibold text-emerald-light"
-                  >
-                    Make {focusDay} available
-                  </button>
-                ) : null}
               </div>
             </li>
           ))}
-          {(state?.rules || []).length === 0 ? (
-            <li className="text-sm text-white/55">No Smart Availability rules yet.</li>
+          {sortedRules.length === 0 ? (
+            <li className="text-sm text-white/55">None yet. Add a time above or use a quick control.</li>
           ) : null}
         </ul>
       </div>
 
-      <div className="rounded-2xl border border-white/10 bg-navy/70 p-4">
+      <div className="w-full min-w-0 max-w-full rounded-2xl border border-white/10 bg-navy/70 p-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h3 className="text-sm font-bold uppercase tracking-wider text-white/50">Calendar</h3>
           <div className="flex gap-2">
             <button
               type="button"
               onClick={() => setView("day")}
-              className={`min-h-11 rounded-xl px-3 text-xs font-semibold ${view === "day" ? "bg-emerald text-navy" : "border border-white/15 text-white"}`}
+              className={`min-h-11 rounded-xl px-3 text-sm font-semibold ${view === "day" ? "bg-emerald text-navy" : "border border-white/15 text-white"}`}
             >
               Day
             </button>
             <button
               type="button"
               onClick={() => setView("week")}
-              className={`min-h-11 rounded-xl px-3 text-xs font-semibold ${view === "week" ? "bg-emerald text-navy" : "border border-white/15 text-white"}`}
+              className={`min-h-11 rounded-xl px-3 text-sm font-semibold ${view === "week" ? "bg-emerald text-navy" : "border border-white/15 text-white"}`}
             >
               Week
             </button>
@@ -616,38 +412,56 @@ export default function OwnerSmartAvailabilityPanel({ ownerKey }: OwnerSmartAvai
           type="date"
           value={focusDay}
           onChange={(event) => setFocusDay(event.target.value)}
-          className="mt-3 min-h-11 w-full rounded-xl border border-white/15 bg-navy px-3 text-sm text-white"
+          className={fieldClass}
         />
         <div className="mt-3 space-y-3">
           {days.map((day) => (
             <div key={day} className="rounded-xl border border-white/10 p-3">
-              <p className="text-sm font-semibold text-white">{day}</p>
-              <ul className="mt-2 space-y-1 text-xs">
+              <p className="text-sm font-semibold text-white">{describeUnavailableDate(day, today)}</p>
+              <ul className="mt-2 space-y-2 text-sm">
                 {(calendar?.bookings || [])
                   .filter((item) => item.tripDate === day)
                   .map((item) => (
-                    <li key={item.id} className="rounded-lg bg-sky-500/15 px-2 py-1 text-sky-100">
+                    <li key={item.id} className="rounded-lg bg-sky-500/15 px-3 py-2 text-sky-100">
                       Booked · {item.tripTime}
                     </li>
                   ))}
                 {(calendar?.unavailable || [])
-                  .filter((item) => item.startLocal.slice(0, 10) <= day && item.endLocal.slice(0, 10) >= day)
-                  .map((item) => (
-                    <li
-                      key={`${item.startLocal}-${item.endLocal}`}
-                      className="rounded-lg bg-rose-500/15 px-2 py-1 text-rose-100"
-                    >
-                      Unavailable · {item.startLocal.slice(11)}–{item.endLocal.slice(11)}
-                      {item.recurring ? " · recurring" : ""}
-                    </li>
-                  ))}
-                {(calendar?.opportunities || [])
-                  .filter((item) => item.tripDate === day)
-                  .map((item) => (
-                    <li key={item.parentId} className="rounded-lg bg-emerald/15 px-2 py-1 text-emerald-light">
-                      Possible Smart Return · {item.tripTime}
-                    </li>
-                  ))}
+                  .filter(
+                    (item) => item.startLocal.slice(0, 10) <= day && item.endLocal.slice(0, 10) >= day,
+                  )
+                  .map((item) => {
+                    const rule = ruleById(rules, item.ruleId);
+                    return (
+                      <li
+                        key={`${item.ruleId || "x"}-${item.startLocal}-${item.endLocal}`}
+                        className="rounded-lg bg-rose-500/15 px-3 py-2 text-rose-100"
+                      >
+                        <p className="break-words font-semibold">
+                          Unavailable · {item.startLocal.slice(11, 16)}–{item.endLocal.slice(11, 16)}
+                          {item.recurring ? " · weekly" : ""}
+                        </p>
+                        {rule ? (
+                          <div className="mt-2 grid grid-cols-2 gap-2">
+                            <button
+                              type="button"
+                              onClick={() => startEdit(rule)}
+                              className="min-h-11 rounded-xl border border-white/20 px-3 text-sm font-semibold text-white"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => void run("delete_rule", { id: rule.id })}
+                              className="min-h-11 rounded-xl border border-red-400/30 px-3 text-sm font-semibold text-red-100"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        ) : null}
+                      </li>
+                    );
+                  })}
               </ul>
             </div>
           ))}
@@ -656,17 +470,18 @@ export default function OwnerSmartAvailabilityPanel({ ownerKey }: OwnerSmartAvai
 
       <div className="rounded-2xl border border-white/10 bg-navy/70 p-4" data-owner-smart-ops-test>
         <h3 className="text-sm font-bold uppercase tracking-wider text-white/50">Owner test tool</h3>
-        <div className="mt-3 grid gap-3">
+        <p className="mt-1 text-sm text-white/60">Try a pickup time against your blocks and bookings.</p>
+        <div className="mt-3 grid w-full min-w-0 max-w-full grid-cols-1 gap-3">
           <input
             value={test.pickupLabel}
             onChange={(event) => setTest((prev) => ({ ...prev, pickupLabel: event.target.value }))}
-            className="min-h-11 rounded-xl border border-white/15 bg-navy px-3 text-sm text-white"
+            className={fieldClass}
             placeholder="Pickup"
           />
           <input
             value={test.dropoffLabel}
             onChange={(event) => setTest((prev) => ({ ...prev, dropoffLabel: event.target.value }))}
-            className="min-h-11 rounded-xl border border-white/15 bg-navy px-3 text-sm text-white"
+            className={fieldClass}
             placeholder="Destination"
           />
           <div className="grid grid-cols-2 gap-2">
@@ -674,19 +489,19 @@ export default function OwnerSmartAvailabilityPanel({ ownerKey }: OwnerSmartAvai
               type="date"
               value={test.tripDate}
               onChange={(event) => setTest((prev) => ({ ...prev, tripDate: event.target.value }))}
-              className="min-h-11 rounded-xl border border-white/15 bg-navy px-3 text-sm text-white"
+              className={fieldClass}
             />
             <input
               type="time"
               value={test.tripTime}
               onChange={(event) => setTest((prev) => ({ ...prev, tripTime: event.target.value }))}
-              className="min-h-11 rounded-xl border border-white/15 bg-navy px-3 text-sm text-white"
+              className={fieldClass}
             />
           </div>
           <select
             value={test.vehicle}
             onChange={(event) => setTest((prev) => ({ ...prev, vehicle: event.target.value }))}
-            className="min-h-11 rounded-xl border border-white/15 bg-navy px-3 text-sm text-white"
+            className={fieldClass}
           >
             <option>Saloon</option>
             <option>Estate</option>
@@ -696,13 +511,13 @@ export default function OwnerSmartAvailabilityPanel({ ownerKey }: OwnerSmartAvai
             onChange={(event) =>
               setTest((prev) => ({ ...prev, normalJourneyFareGbp: event.target.value }))
             }
-            className="min-h-11 rounded-xl border border-white/15 bg-navy px-3 text-sm text-white"
+            className={fieldClass}
             placeholder="Normal fare £"
           />
           <input
             value={test.durationMinutes}
             onChange={(event) => setTest((prev) => ({ ...prev, durationMinutes: event.target.value }))}
-            className="min-h-11 rounded-xl border border-white/15 bg-navy px-3 text-sm text-white"
+            className={fieldClass}
             placeholder="Journey duration (minutes)"
           />
           <button
@@ -736,7 +551,11 @@ export default function OwnerSmartAvailabilityPanel({ ownerKey }: OwnerSmartAvai
                 {Object.entries(testResult.diagnostics as Record<string, unknown>).map(([key, value]) => (
                   <div key={key} className="grid grid-cols-[11rem_1fr] gap-2">
                     <dt className="text-white/45">{key}</dt>
-                    <dd className="break-all">{typeof value === "string" || typeof value === "number" || typeof value === "boolean" ? String(value) : JSON.stringify(value)}</dd>
+                    <dd className="break-all">
+                      {typeof value === "string" || typeof value === "number" || typeof value === "boolean"
+                        ? String(value)
+                        : JSON.stringify(value)}
+                    </dd>
                   </div>
                 ))}
               </dl>
@@ -753,9 +572,123 @@ export default function OwnerSmartAvailabilityPanel({ ownerKey }: OwnerSmartAvai
         ) : null}
       </div>
 
-      <div className="rounded-2xl border border-white/10 bg-navy/70 p-4">
-        <h3 className="text-sm font-bold uppercase tracking-wider text-white/50">Shadow log</h3>
-        <p className="mt-1 text-xs text-white/45">
+      <details className="rounded-2xl border border-white/10 bg-navy/70 p-4">
+        <summary className="min-h-11 cursor-pointer text-sm font-bold uppercase tracking-wider text-white/50">
+          Advanced settings — keep off
+        </summary>
+        <div className="mt-3 grid gap-2">
+          {(
+            [
+              ["smartAvailability", "Smart Availability (customer)", true],
+              ["alternativeTimeSuggestions", "Alternative time suggestions (customer)", true],
+              ["smartReturnPricing", "Smart Return Pricing (customer)", true],
+              ["returnCorridorMatching", "Return corridor matching", true],
+              ["backupDriverCapacity", "Backup driver capacity", true],
+              ["shadowMode", "Shadow test mode", true],
+            ] as const
+          ).map(([key, label, locked]) => (
+            <label key={key} className="flex min-h-11 items-center justify-between gap-3 text-sm text-white">
+              <span>
+                {label}
+                {locked ? <span className="ml-2 text-xs text-amber-100/80">locked</span> : null}
+              </span>
+              <input
+                type="checkbox"
+                checked={Boolean(config.flags[key])}
+                disabled={locked || busy}
+                onChange={(event) => void saveFlags({ [key]: event.target.checked })}
+                className="h-5 w-5 accent-emerald disabled:opacity-60"
+              />
+            </label>
+          ))}
+        </div>
+        <p className="mt-2 text-xs text-amber-100/90">
+          Customer Smart Availability, Alternative Times, Smart Return, corridor matching and backup
+          capacity stay OFF. Shadow test mode stays ON. Live quotes are unchanged.
+        </p>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <label className="text-xs text-white/50">
+            Short journey buffer
+            <select
+              value={config.buffers.shortJourneyBufferMinutes}
+              onChange={(event) =>
+                void saveSettings({
+                  buffers: {
+                    ...config.buffers,
+                    shortJourneyBufferMinutes: Number(event.target.value) as 15 | 30 | 45,
+                  },
+                })
+              }
+              className={fieldClass}
+            >
+              <option value={15}>15 minutes</option>
+              <option value={30}>30 minutes</option>
+              <option value={45}>45 minutes</option>
+            </select>
+          </label>
+          <label className="text-xs text-white/50">
+            Long-distance buffer
+            <select
+              value={config.buffers.longDistanceBufferMinutes}
+              onChange={(event) =>
+                void saveSettings({
+                  buffers: {
+                    ...config.buffers,
+                    longDistanceBufferMinutes: Number(event.target.value) as 30 | 45 | 60,
+                  },
+                })
+              }
+              className={fieldClass}
+            >
+              <option value={30}>30 minutes</option>
+              <option value={45}>45 minutes</option>
+              <option value={60}>60 minutes</option>
+            </select>
+          </label>
+          <label className="text-xs text-white/50">
+            Airport pickup buffer (minutes)
+            <input
+              type="number"
+              value={config.buffers.airportPickupBufferMinutes}
+              onChange={(event) =>
+                void saveSettings({
+                  buffers: {
+                    ...config.buffers,
+                    airportPickupBufferMinutes: Number(event.target.value),
+                  },
+                })
+              }
+              className={fieldClass}
+            />
+          </label>
+          <label className="text-xs text-white/50">
+            Minimum turnaround
+            <select
+              value={config.buffers.minTurnaroundMinutes}
+              onChange={(event) =>
+                void saveSettings({
+                  buffers: {
+                    ...config.buffers,
+                    minTurnaroundMinutes: Number(event.target.value) as 5 | 10 | 15 | 20,
+                  },
+                })
+              }
+              className={fieldClass}
+            >
+              <option value={5}>5 minutes</option>
+              <option value={10}>10 minutes</option>
+              <option value={15}>15 minutes</option>
+              <option value={20}>20 minutes</option>
+            </select>
+          </label>
+        </div>
+      </details>
+
+      <details className="rounded-2xl border border-white/10 bg-navy/70 p-4">
+        <summary className="min-h-11 cursor-pointer text-sm font-bold uppercase tracking-wider text-white/50">
+          Shadow log
+        </summary>
+        <p className="mt-2 text-xs text-white/45">
           Route fingerprints only — no customer names, phones or addresses beyond the quote labels
           already used for the journey.
         </p>
@@ -768,7 +701,7 @@ export default function OwnerSmartAvailabilityPanel({ ownerKey }: OwnerSmartAvai
           ))}
           {shadow.length === 0 ? <li>No shadow samples yet.</li> : null}
         </ul>
-      </div>
+      </details>
     </section>
   );
 }

@@ -128,6 +128,139 @@ function sanitizeNote(value: unknown): string | undefined {
   return note || undefined;
 }
 
+export type UnavailableTimeForm = {
+  repeat: "one_off" | "recurring";
+  date: string;
+  startTime: string;
+  endTime: string;
+  weekdays: number[];
+  note: string;
+};
+
+/**
+ * Everyday owner control: date + from + until (+ weekdays if recurring).
+ * Same-day when until is later than from (00:00–10:00). Overnight when until
+ * is earlier or equal and not a full-day 00:00–00:00 (22:00–06:00).
+ */
+export function buildUnavailableTimeRule(
+  input: Partial<UnavailableTimeForm> & { id?: string; enabled?: boolean },
+  now = new Date(),
+): SmartAvailabilityRule | null {
+  const startTime = normalizeHm(input.startTime);
+  const endTime = normalizeHm(input.endTime);
+  if (!startTime || !endTime) return null;
+
+  if (input.repeat === "recurring") {
+    return normalizeSmartAvailabilityRule(
+      {
+        id: input.id,
+        kind: "recurring",
+        weekdays: input.weekdays,
+        startTime,
+        endTime,
+        note: input.note,
+        enabled: input.enabled,
+      },
+      now,
+    );
+  }
+
+  const date = normalizeYmd(input.date);
+  if (!date) return null;
+  if (startTime === endTime) {
+    return normalizeSmartAvailabilityRule(
+      {
+        id: input.id,
+        kind: "full_day",
+        date,
+        note: input.note,
+        enabled: input.enabled,
+      },
+      now,
+    );
+  }
+  const overnight = endTime < startTime;
+  return normalizeSmartAvailabilityRule(
+    {
+      id: input.id,
+      kind: "one_off",
+      startLocal: `${date}T${startTime}`,
+      endLocal: `${overnight ? addDaysYmd(date, 1) : date}T${endTime}`,
+      note: input.note,
+      enabled: input.enabled,
+    },
+    now,
+  );
+}
+
+export function unavailableFormFromRule(rule: SmartAvailabilityRule, todayYmd: string): UnavailableTimeForm {
+  if (rule.kind === "recurring") {
+    return {
+      repeat: "recurring",
+      date: rule.rangeStart || todayYmd,
+      startTime: rule.startTime || "00:00",
+      endTime: rule.endTime || "10:00",
+      weekdays: [...(rule.weekdays || [])],
+      note: rule.note || "",
+    };
+  }
+  const startLocal = rule.startLocal || (rule.date ? `${rule.date}T00:00` : `${todayYmd}T00:00`);
+  const endLocal = rule.endLocal || `${addDaysYmd(startLocal.slice(0, 10), 1)}T00:00`;
+  const startDate = startLocal.slice(0, 10);
+  const endDate = endLocal.slice(0, 10);
+  const startTime = startLocal.slice(11, 16) || "00:00";
+  const endTime = endLocal.slice(11, 16) || "00:00";
+  return {
+    repeat: "one_off",
+    date: startDate,
+    startTime,
+    endTime: rule.kind === "full_day" || (endDate !== startDate && endTime === "00:00" && startTime === "00:00")
+      ? "00:00"
+      : endTime,
+    weekdays: [],
+    note: rule.note || "",
+  };
+}
+
+export function describeUnavailableDate(ymd: string, todayYmd: string): string {
+  if (ymd === todayYmd) return "Today";
+  if (ymd === addDaysYmd(todayYmd, 1)) return "Tomorrow";
+  const instant = parseLondonLocalDateTime(ymd, "12:00");
+  if (!instant) return ymd;
+  return new Intl.DateTimeFormat("en-GB", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    timeZone: UK_TIME_ZONE,
+  }).format(instant);
+}
+
+export function describeUnavailableRule(rule: SmartAvailabilityRule, todayYmd: string): string {
+  if (rule.kind === "recurring") {
+    const days = (rule.weekdays || [])
+      .map((d) => ISO_WEEKDAYS.find((item) => item.iso === d)?.label)
+      .filter(Boolean)
+      .join(", ");
+    return `Every ${days || "selected day"} ${rule.startTime}–${rule.endTime}`;
+  }
+  if (rule.kind === "full_day" && rule.date) {
+    return `All day ${describeUnavailableDate(rule.date, todayYmd)}`;
+  }
+  const start = rule.startLocal || "";
+  const end = rule.endLocal || "";
+  const startDate = start.slice(0, 10);
+  const endDate = end.slice(0, 10);
+  const startTime = start.slice(11, 16);
+  const endTime = end.slice(11, 16);
+  if (startDate && startDate === endDate) {
+    return `${describeUnavailableDate(startDate, todayYmd)} ${startTime}–${endTime}`;
+  }
+  if (startDate && endDate) {
+    return `${describeUnavailableDate(startDate, todayYmd)} ${startTime} → ${describeUnavailableDate(endDate, todayYmd)} ${endTime}`;
+  }
+  return "Unavailable time";
+}
+
 export function normalizeSmartAvailabilityRule(
   raw: Partial<SmartAvailabilityRule> | null | undefined,
   now = new Date(),
