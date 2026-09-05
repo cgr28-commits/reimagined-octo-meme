@@ -54,7 +54,6 @@ const navBlock = header.slice(navStart, navEnd);
 const order = [
   "Manage Your Booking",
   "Get a Quote",
-  "Call {SITE.landlineDisplay}",
   "WhatsApp @{SITE.whatsappUsername}",
   'href="/contact/"',
 ];
@@ -71,10 +70,11 @@ assert.ok(
 );
 console.log("OK  contact action order preserved; Contact remains the final reachable action");
 
-// Destinations / phone unchanged.
+// Destinations / WhatsApp unchanged; no landline CTA in the public menu.
 assert.match(header, /href="\/manage-booking\/"/);
-assert.match(header, /href=\{`tel:\$\{SITE\.landline\}`\}/);
 assert.match(header, /whatsAppChatUrl\(\)/);
-console.log("OK  navigation destinations and contact details unchanged");
+assert.doesNotMatch(header, /tel:\$\{SITE\.landline\}/);
+assert.doesNotMatch(header, /Call \{SITE\.landlineDisplay\}/);
+console.log("OK  navigation destinations and WhatsApp contact details unchanged");
 
 console.log("\nAll mobile menu scroll checks passed.");

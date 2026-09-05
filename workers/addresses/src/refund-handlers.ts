@@ -1820,6 +1820,17 @@ export async function savePaidBookingRecordFromConfirm(input: {
             Math.round(Number(input.booking.returnOfferSavingGbp) * 100) / 100,
         }
       : {}),
+    ...(typeof input.booking.outboundFare === "number" &&
+    Number.isFinite(input.booking.outboundFare) &&
+    input.booking.outboundFare > 0 &&
+    typeof input.booking.returnFare === "number" &&
+    Number.isFinite(input.booking.returnFare) &&
+    input.booking.returnFare > 0
+      ? {
+          outboundFare: Math.round(Number(input.booking.outboundFare) * 100) / 100,
+          returnFare: Math.round(Number(input.booking.returnFare) * 100) / 100,
+        }
+      : {}),
   };
 
   await savePaidBookingRecord(input.env.TRACKING_STORE, record);

@@ -231,6 +231,19 @@ export type PaidBookingRecord = {
   /** Original paid booking that generated a follow-up return offer. */
   returnOfferOriginalPaymentReference?: string;
   returnOfferSavingGbp?: number;
+  /**
+   * Per-leg fares for return bookings (owner ops / earned revenue).
+   * Optional and non-breaking — historic records may omit these.
+   * Never invent a 50/50 split when these are missing.
+   */
+  outboundFare?: number;
+  returnFare?: number;
+  /** Set when the outbound tracking job is marked completed. */
+  outboundCompletedAt?: string;
+  /** Set when the return tracking job is marked completed. */
+  returnCompletedAt?: string;
+  /** Optional pricing snapshot used only to recover persisted per-leg fares. */
+  quoteSnapshot?: Record<string, unknown>;
 };
 
 /** Default driver label when no other driver is assigned (multi-driver capable later). */

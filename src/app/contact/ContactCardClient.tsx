@@ -97,7 +97,7 @@ export default function ContactCardClient() {
                   Scan · Quote · Book
                 </p>
                 <p className="mt-2 text-sm leading-relaxed text-white/65">
-                  Scan the QR code to open this card — get a quote, book, call, or WhatsApp us.
+                  Scan the QR code to open this card — get a quote, book, or WhatsApp us.
                 </p>
                 <div className="mx-auto mt-5 inline-flex max-w-full rounded-2xl bg-white p-3 shadow-lg">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -120,14 +120,14 @@ export default function ContactCardClient() {
             ) : (
               <>
                 <p className="mt-2 text-lg font-bold tracking-wide text-white sm:text-xl">
-                  Quote · Book · Call
+                  Quote · Book · WhatsApp
                 </p>
                 <p className="mt-2 text-sm leading-relaxed text-white/65">
                   {iosInAppBrowser || iphone
                     ? "Opens the contact card — tap Create New Contact, then Done."
                     : android
                       ? "Opens Add contact on your phone — no file download."
-                      : "Save us to your phone contacts — then book, call, or WhatsApp us."}
+                      : "Save us to your phone contacts — then book or WhatsApp us."}
                 </p>
                 {/* Real link (not Web Share) so phones show Create New Contact / Add contact. */}
                 <a href={saveHref} className={saveLinkClassName}>
@@ -159,28 +159,6 @@ export default function ContactCardClient() {
                 <span className="mt-0.5 block text-lg font-bold">Get a quote &amp; book</span>
               </span>
             </Link>
-
-            <a
-              href={`tel:${SITE.landline}`}
-              className="flex min-w-0 items-center gap-4 rounded-2xl border border-emerald/40 bg-emerald/10 px-5 py-4 text-white transition-colors hover:border-emerald hover:bg-emerald/15"
-            >
-              <ActionIcon>
-                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"
-                  />
-                </svg>
-              </ActionIcon>
-              <span className="min-w-0">
-                <span className="block text-xs font-semibold uppercase tracking-wider text-emerald">
-                  Call
-                </span>
-                <span className="mt-0.5 block text-lg font-bold">{SITE.landlineDisplay}</span>
-              </span>
-            </a>
 
             <a
               href={whatsAppChatUrl()}

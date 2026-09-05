@@ -690,7 +690,7 @@ export function returnOfferIneligibleReasonLabel(reason: string): string {
     case "operational_test":
       return "Operational test booking";
     case "awaiting_completion":
-      return "Waiting for airport arrival journey to complete";
+      return "Waiting for the journey to complete";
     case "too_close_to_outbound":
       return "Too close to the outbound journey";
     case "outbound_already_passed":
@@ -831,9 +831,44 @@ export function planReturnOfferProcessing(input: {
   };
 }
 
+function hasActualJourneyCompletion(
+  journeyCompletedAt?: string | null,
+  now = new Date(),
+): boolean {
+  const raw = journeyCompletedAt?.trim();
+  if (!raw) return false;
+  const completedMs = Date.parse(raw);
+  return Number.isFinite(completedMs) && completedMs <= now.getTime();
+}
+
 /**
- * Owner “Send now” planner. Reuses eligibility/security, but skips the
- * automatic waiting delay (48h / 12h / 24h after completion).
+ * Manual owner send only. Prefer a real tracking completion timestamp, then
+ * the paid-booking outbound/return completion fields written by PR #459.
+ * Automatic scheduling still uses tracking-only resolveJourneyCompletedAt.
+ */
+export function pickManualJourneyCompletedAt(input: {
+  trackingCompletedAt?: string | null;
+  outboundCompletedAt?: string | null;
+  returnCompletedAt?: string | null;
+}): string | null {
+  for (const value of [
+    input.trackingCompletedAt,
+    input.outboundCompletedAt,
+    input.returnCompletedAt,
+  ]) {
+    const raw = value?.trim();
+    if (raw && Number.isFinite(Date.parse(raw))) return raw;
+  }
+  return null;
+}
+
+/**
+ * Owner “Send now” planner. Reuses the same eligibility/security as automatic
+ * offers (airport transfer, email, not cancelled, no existing return) and the
+ * same send pipeline — but:
+ * - skips the automatic waiting delay
+ * - requires an actual journeyCompletedAt for every direction
+ * - does not use estimated pickup+duration as a stand-in for completion
  */
 export function planManualReturnOfferSend(input: {
   booking: ReturnOfferBookingSnapshot;
@@ -899,24 +934,18 @@ export function planManualReturnOfferSend(input: {
     };
   }
 
-  if (eligibility.direction === "airport_to_local") {
-    const completedAt = resolveAirportToLocalCompletionAt(
-      input.booking,
-      input.journeyCompletedAt,
-      input.config,
-    );
-    if (!completedAt || now.getTime() < completedAt.getTime()) {
-      return {
-        eligible: true,
-        reason: "awaiting_completion",
-        direction: eligibility.direction,
-        airportCode: eligibility.airportCode,
-        status: "ELIGIBLE",
-        shouldSend: false,
-      };
-    }
+  if (!hasActualJourneyCompletion(input.journeyCompletedAt, now)) {
+    return {
+      eligible: true,
+      reason: "awaiting_completion",
+      direction: eligibility.direction,
+      airportCode: eligibility.airportCode,
+      status: "ELIGIBLE",
+      shouldSend: false,
+    };
   }
 
+  void input.config;
   return {
     eligible: true,
     reason: "manual_send",
@@ -924,6 +953,112 @@ export function planManualReturnOfferSend(input: {
     airportCode: eligibility.airportCode,
     status: "ELIGIBLE",
     shouldSend: true,
+  };
+}
+
+export type OwnerManualReturnOfferUi = {
+  showAction: boolean;
+  alreadySent: boolean;
+  missingEmail: boolean;
+  enabled: boolean;
+  label: string;
+  explanation?: string;
+};
+
+/**
+ * Owner-dashboard visibility for the manual 5% return-offer action.
+ * Shown on a completed displayed leg regardless of automatic canSendNow /
+ * direction. Sending still uses planManualReturnOfferSend + the existing
+ * email pipeline.
+ */
+export function ownerManualReturnOfferUi(input: {
+  displayedLegCompleted: boolean;
+  cancelledOrRefunded: boolean;
+  customerEmail?: string | null;
+  offerStatus?: string | null;
+  offerSentAt?: string | null;
+  returnAlreadyIncluded?: boolean;
+  correspondingReturnBooked?: boolean;
+}): OwnerManualReturnOfferUi {
+  const alreadySent =
+    String(input.offerStatus || "").toUpperCase() === "SENT" ||
+    String(input.offerStatus || "").toUpperCase() === "REDEEMED" ||
+    Boolean(input.offerSentAt?.trim());
+  const email = String(input.customerEmail ?? "").trim();
+  const missingEmail = !email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  const showAction = Boolean(input.displayedLegCompleted) && !input.cancelledOrRefunded;
+
+  if (!showAction) {
+    return {
+      showAction: false,
+      alreadySent,
+      missingEmail,
+      enabled: false,
+      label: "Send 5% Return Offer Now",
+    };
+  }
+
+  if (missingEmail) {
+    return {
+      showAction: true,
+      alreadySent,
+      missingEmail: true,
+      enabled: false,
+      label: "Send 5% Return Offer Now",
+      explanation: "No customer email on this booking — cannot send the return offer.",
+    };
+  }
+
+  if (input.returnAlreadyIncluded) {
+    return {
+      showAction: true,
+      alreadySent,
+      missingEmail: false,
+      enabled: false,
+      label: "Send 5% Return Offer Now",
+      explanation: "This booking already includes a return journey, so a separate 5% return offer cannot be sent.",
+    };
+  }
+
+  if (input.correspondingReturnBooked) {
+    return {
+      showAction: true,
+      alreadySent,
+      missingEmail: false,
+      enabled: false,
+      label: "Send 5% Return Offer Now",
+      explanation: "A corresponding return booking already exists for this customer.",
+    };
+  }
+
+  if (String(input.offerStatus || "").toUpperCase() === "REDEEMED") {
+    return {
+      showAction: true,
+      alreadySent: true,
+      missingEmail: false,
+      enabled: false,
+      label: "5% Return Offer redeemed",
+      explanation: "This return offer has already been used.",
+    };
+  }
+
+  if (alreadySent) {
+    return {
+      showAction: true,
+      alreadySent: true,
+      missingEmail: false,
+      enabled: true,
+      label: "Send 5% Return Offer again",
+      explanation: "5% Return Offer already sent. A second offer will not be created silently.",
+    };
+  }
+
+  return {
+    showAction: true,
+    alreadySent: false,
+    missingEmail: false,
+    enabled: true,
+    label: "Send 5% Return Offer Now",
   };
 }
 

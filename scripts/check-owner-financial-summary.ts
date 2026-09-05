@@ -292,10 +292,13 @@ console.log("=== UI + API wiring ===");
   assert.match(finUi, /This month/i);
   assert.match(finUi, /This year/i);
   assert.match(finUi, /Refunds/);
+  assert.match(finUi, /Earned revenue/);
+  assert.match(finUi, /Payments received/);
   assert.match(finUi, /grid-cols-2/);
   assert.match(finUi, /sm:grid-cols-4/);
   assert.match(finUi, /aria-expanded/);
   assert.match(finUi, /breakdown/i);
+  assert.match(finUi, /cashReceived|buildOwnerOperationalMetrics/);
 
   const api = read("src/lib/paid-bookings-api.ts");
   assert.match(api, /fetchOwnerFinancialSummary/);
@@ -304,6 +307,7 @@ console.log("=== UI + API wiring ===");
   const handlers = read("workers/addresses/src/paid-booking-handlers.ts");
   assert.match(handlers, /handlePaidBookingsFinancialSummaryRequest/);
   assert.match(handlers, /buildOwnerFinancialSummary/);
+  assert.match(handlers, /buildOwnerCashReceived/);
 
   const index = read("workers/addresses/src/index.ts");
   assert.match(index, /paid-bookings-financial-summary/);

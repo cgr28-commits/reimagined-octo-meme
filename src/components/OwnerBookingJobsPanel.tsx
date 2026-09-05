@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   bookingJobAssignmentLabel,
   type BookingJobRecord,
@@ -14,6 +14,11 @@ import {
   type OwnerQuoteStats,
 } from "@/lib/booking-jobs-api";
 import { buildWhatsAppDriverDetailsLink } from "@/lib/tracking-api";
+import { resolveOwnerDisplayedLegNav } from "../../shared/owner-job-actions";
+import {
+  OwnerCustomerCallWhatsApp,
+  OwnerWazeAddressLink,
+} from "@/components/OwnerJobNavActions";
 
 type OwnerBookingJobsPanelProps = {
   ownerKey: string;
@@ -58,6 +63,7 @@ export default function OwnerBookingJobsPanel({ ownerKey }: OwnerBookingJobsPane
   const [busyId, setBusyId] = useState("");
   const [paidAmountById, setPaidAmountById] = useState<Record<string, string>>({});
   const [paymentRefById, setPaymentRefById] = useState<Record<string, string>>({});
+  const [awaitingOpen, setAwaitingOpen] = useState(false);
   const [assignDraftById, setAssignDraftById] = useState<
     Record<
       string,
@@ -94,6 +100,31 @@ export default function OwnerBookingJobsPanel({ ownerKey }: OwnerBookingJobsPane
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    function revealBookingRequestFromHash() {
+      const hash = window.location.hash.replace(/^#/, "");
+      if (!hash.startsWith("owner-booking-job-")) return;
+      const jobId = hash.slice("owner-booking-job-".length);
+      const job = jobs.find((item) => item.id === jobId);
+      if (!job) return;
+      if (job.status === "awaiting_payment" && !awaitingOpen) {
+        setAwaitingOpen(true);
+        return;
+      }
+      window.requestAnimationFrame(() => {
+        const el = document.getElementById(hash);
+        if (!el) return;
+        el.scrollIntoView({ behavior: "smooth", block: "start" });
+        if (el instanceof HTMLElement) {
+          el.focus();
+        }
+      });
+    }
+    revealBookingRequestFromHash();
+    window.addEventListener("hashchange", revealBookingRequestFromHash);
+    return () => window.removeEventListener("hashchange", revealBookingRequestFromHash);
+  }, [jobs, awaitingOpen]);
 
   function draftFor(job: BookingJobRecord) {
     return (
@@ -171,6 +202,15 @@ export default function OwnerBookingJobsPanel({ ownerKey }: OwnerBookingJobsPane
     }
   }
 
+  const awaitingJobs = useMemo(
+    () => jobs.filter((job) => job.status === "awaiting_payment"),
+    [jobs],
+  );
+  const otherJobs = useMemo(
+    () => jobs.filter((job) => job.status !== "awaiting_payment"),
+    [jobs],
+  );
+
   return (
     <section className="mb-10 rounded-2xl border border-emerald/25 bg-emerald/5 p-5 sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -234,23 +274,46 @@ export default function OwnerBookingJobsPanel({ ownerKey }: OwnerBookingJobsPane
           No booking requests yet. New enquiries from the website will appear here.
         </p>
       ) : (
+        <>
+        {awaitingJobs.length > 0 ? (
+          <div className="mt-6 rounded-xl border border-white/10 bg-navy/40">
+            <button
+              type="button"
+              onClick={() => setAwaitingOpen((open) => !open)}
+              aria-expanded={awaitingOpen}
+              className="flex min-h-12 w-full items-center justify-between gap-3 px-4 py-3 text-left"
+            >
+              <span className="text-sm font-bold text-white">
+                Awaiting Payment ({awaitingJobs.length})
+              </span>
+              <span className="text-emerald" aria-hidden>
+                {awaitingOpen ? "▲" : "▼"}
+              </span>
+            </button>
+          </div>
+        ) : null}
         <ul className="mt-6 space-y-4">
-          {jobs.map((job) => {
+          {(awaitingOpen ? [...awaitingJobs, ...otherJobs] : otherJobs).map((job) => {
             const badge = statusBadge(job);
             const draft = draftFor(job);
+            const jobNav = resolveOwnerDisplayedLegNav({
+              pickupLabel: job.pickupLabel,
+              dropoffLabel: job.dropoffLabel,
+              airportCode: job.airportCode,
+              isFromAirport: job.isFromAirport,
+            });
             return (
               <li
                 key={job.id}
-                className="rounded-2xl border border-white/10 bg-navy/60 p-4 sm:p-5"
+                id={`owner-booking-job-${job.id}`}
+                tabIndex={-1}
+                className="rounded-2xl border border-white/10 bg-navy/60 p-4 sm:p-5 outline-none focus:ring-2 focus:ring-emerald/50"
               >
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <p className="text-lg font-bold text-white">{job.customerName}</p>
                     <p className="mt-1 text-sm text-white/65">
                       {job.tripDate} · pick up {job.tripTime} · {job.vehicle}
-                    </p>
-                    <p className="mt-2 text-sm text-white/80">
-                      {job.pickupLabel} → {job.dropoffLabel}
                     </p>
                     <p className="mt-2 text-xs text-white/45">Ref {job.id}</p>
                   </div>
@@ -263,8 +326,26 @@ export default function OwnerBookingJobsPanel({ ownerKey }: OwnerBookingJobsPane
 
                 <dl className="mt-4 grid gap-2 text-sm text-white/70 sm:grid-cols-2">
                   <div>
+                    <dt className="text-white/40">Pickup</dt>
+                    <dd>
+                      <OwnerWazeAddressLink kind="pickup" point={jobNav.pickup} />
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-white/40">Destination</dt>
+                    <dd>
+                      <OwnerWazeAddressLink kind="destination" point={jobNav.destination} />
+                    </dd>
+                  </div>
+                  <div>
                     <dt className="text-white/40">Mobile</dt>
-                    <dd>{job.customerMobile || "—"}</dd>
+                    <dd>
+                      {job.customerMobile ? (
+                        <OwnerCustomerCallWhatsApp phone={job.customerMobile} />
+                      ) : (
+                        "—"
+                      )}
+                    </dd>
                   </div>
                   <div>
                     <dt className="text-white/40">Email</dt>
@@ -401,6 +482,7 @@ export default function OwnerBookingJobsPanel({ ownerKey }: OwnerBookingJobsPane
             );
           })}
         </ul>
+        </>
       )}
     </section>
   );

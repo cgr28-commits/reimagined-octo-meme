@@ -359,6 +359,59 @@ export function formatGbpAmount(amount: number): string {
   return `£${roundGbp(Math.max(0, amount)).toFixed(2)}`;
 }
 
+export type OwnerCashReceivedPeriods = {
+  today: number;
+  week: number;
+  month: number;
+};
+
+/**
+ * Money actually received from customers during the period (payment timestamps).
+ * Independent of when the journey is completed. Does not count earned revenue.
+ */
+export function buildOwnerCashReceived(
+  bookings: OwnerFinancialBookingInput[],
+  now = new Date(),
+): OwnerCashReceivedPeriods {
+  const asOfDay = londonYmd(now);
+  const weekRange = londonWeekRangeContaining(asOfDay);
+  const monthRange = londonMonthRangeContaining(asOfDay);
+  let today = 0;
+  let week = 0;
+  let month = 0;
+
+  const byRef = new Map<string, OwnerFinancialBookingInput>();
+  for (const booking of bookings) {
+    const ref = booking.paymentReference?.trim();
+    if (!ref || !isGenuinePaidFinancialBooking(booking)) continue;
+    if (!byRef.has(ref)) byRef.set(ref, booking);
+  }
+
+  for (const booking of byRef.values()) {
+    const extras = booking.additionalPayments ?? [];
+    const extraTotal = extras.reduce((sum, entry) => sum + (Number(entry.amount) || 0), 0);
+    const firstPayment = roundGbp(
+      Math.max(0, grossAmountCollectedOf(booking) - extraTotal),
+    );
+    const credit = (day: string, amount: number) => {
+      if (!(amount > 0.001) || !day) return;
+      if (day === asOfDay) today = roundGbp(today + amount);
+      if (dayInInclusiveRange(day, weekRange.fromDay, weekRange.toDay)) {
+        week = roundGbp(week + amount);
+      }
+      if (dayInInclusiveRange(day, monthRange.fromDay, monthRange.toDay)) {
+        month = roundGbp(month + amount);
+      }
+    };
+    credit(londonPaymentDay(booking.createdAt), firstPayment);
+    for (const extra of extras) {
+      credit(londonPaymentDay(extra.paidAt), Number(extra.amount) || 0);
+    }
+  }
+
+  return { today, week, month };
+}
+
 /** Inclusive day count from fromDay to today (capped) for KV created-day scans. */
 export function daysBackFromTodayTo(
   fromDay: string,

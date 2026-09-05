@@ -168,16 +168,16 @@ console.log("\n=== 2. Active vs completed day grouping ===");
 console.log("\n=== 3. Owner panel UI contracts ===");
 {
   const panel = read("src/components/OwnerPaidBookingsPanel.tsx");
-  assert.match(panel, /Active jobs/);
-  assert.match(panel, /Completed jobs \(/);
+  assert.match(panel, /Today’s Upcoming Jobs/);
+  assert.match(panel, /Completed Jobs/);
   assert.match(panel, /More options ▼/);
   assert.match(panel, /data-owner-primary-journey-controls/);
   assert.match(panel, /data-owner-more-options/);
   assert.match(panel, /data-owner-journey-action=\{item\.action\}/);
   assert.match(panel, /OWNER_PRIMARY_JOURNEY_BUTTON_LABELS/);
   assert.match(panel, /ownerUpcomingPrimaryJourneyActions/);
-  assert.match(panel, /groupOwnerScheduleByDay/);
-  assert.match(panel, /completedOpenDays/);
+  assert.match(panel, /selectTodayUpcomingLegs/);
+  assert.match(panel, /futureOpenDates/);
   assert.match(panel, /overflow-x-hidden/);
   assert.doesNotMatch(panel, /Status updates only/);
   assert.doesNotMatch(panel, /No driver GPS or live map tracking/);
@@ -237,8 +237,8 @@ console.log("\n=== 3. Owner panel UI contracts ===");
   assert.equal(shared, workerShared, "worker shared copy must stay in sync");
 
   const page = read("src/app/driver/DriverPageClient.tsx");
-  assert.match(page, /Active jobs/);
-  assert.match(page, /Completed jobs \(/);
+  assert.match(page, /OwnerPaidBookingsPanel/);
+  assert.match(page, /OwnerFinancialSummaryPanel/);
 
   console.log("OK  Active/Completed UI · More options · pending collapse · no GPS live UI");
 }

@@ -31,6 +31,8 @@ import { markA2aQuotePaid } from "./a2a-quote-handlers";
 import { markPersonalQuoteUsed } from "./personal-quote-store";
 import { markQuickQuotePaid } from "./quick-quote-store";
 import { markSavedQuoteBookedFromPayment } from "./saved-quote-handlers";
+import { getSavedQuoteByToken } from "./saved-quote-store";
+import { persistableLegFares } from "../shared/owner-dashboard-ops";
 import { getReturnOfferByTokenHash, markReturnOfferRedeemed } from "./return-offer-store";
 import { hashReturnOfferToken } from "../shared/return-offer";
 import { maybeRecordMarketingFromPayload } from "./marketing-handlers";
@@ -359,11 +361,34 @@ export async function finalizePaidCheckout(input: {
 
   const calendar = await logPaidBookingCalendar(env, booking, amountPaid, paymentReference);
 
+  let bookingForSave: PaidBookingDetails = booking;
+  if (pendingForAudit?.savedQuoteToken && env.TRACKING_STORE) {
+    const savedQuote = await getSavedQuoteByToken(
+      env.TRACKING_STORE,
+      pendingForAudit.savedQuoteToken,
+    ).catch(() => null);
+    const fares = persistableLegFares({
+      returnJourney: booking.returnJourney,
+      outboundFare: booking.outboundFare,
+      returnFare: booking.returnFare,
+      outboundAmount: savedQuote?.pricing.outboundAmount,
+      returnAmount: savedQuote?.pricing.returnAmount,
+    });
+    if (fares) bookingForSave = { ...booking, ...fares };
+  } else {
+    const fares = persistableLegFares({
+      returnJourney: booking.returnJourney,
+      outboundFare: booking.outboundFare,
+      returnFare: booking.returnFare,
+    });
+    if (fares) bookingForSave = { ...booking, ...fares };
+  }
+
   // Allocate short MAT-#### before emails so confirmation shows the customer reference.
   const customerReference = paidBookingStoreConfigured(env.TRACKING_STORE)
     ? await savePaidBookingRecordFromConfirm({
         env,
-        booking,
+        booking: bookingForSave,
         checkoutId,
         transactionId,
         transactionCode,

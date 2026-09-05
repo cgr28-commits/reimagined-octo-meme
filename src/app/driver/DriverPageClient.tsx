@@ -2966,6 +2966,8 @@ export default function DriverPageClient({
                 <OwnerFinancialSummaryPanel ownerKey={savedKey} />
               ) : null}
 
+              {isOwnerView && savedKey ? <OwnerPaidBookingsPanel ownerKey={savedKey} /> : null}
+
               {isOwnerView && savedKey ? <OwnerShortNoticePanel ownerKey={savedKey} /> : null}
 
               {isOwnerView && savedKey ? (
@@ -3076,8 +3078,6 @@ export default function DriverPageClient({
                   />
                 </section>
               ) : null}
-
-              {isOwnerView && savedKey ? <OwnerPaidBookingsPanel ownerKey={savedKey} /> : null}
 
               {isOwnerView && savedKey ? <OwnerBookingJobsPanel ownerKey={savedKey} /> : null}
 

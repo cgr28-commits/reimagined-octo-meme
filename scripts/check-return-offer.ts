@@ -21,6 +21,8 @@ import {
   isReturnOfferAirportJourney,
   normalizeReturnOfferToken,
   paidBookingToReturnOfferSnapshot,
+  ownerManualReturnOfferUi,
+  pickManualJourneyCompletedAt,
   planManualReturnOfferSend,
   planReturnOfferProcessing,
   resolveReturnOfferDirection,
@@ -456,7 +458,7 @@ async function run() {
     assert.match(read("src/app/book/page.tsx"), /returnOffer/);
   });
 
-  await check("Manual send bypasses the waiting delay for a local→airport booking", () => {
+  await check("Manual send bypasses the waiting delay for a completed local→airport booking", () => {
     const booking = baseBooking({ createdAt: "2026-09-04T08:00:00.000Z" });
     const now = new Date("2026-09-04T09:00:00.000Z");
     const scheduled = planReturnOfferProcessing({
@@ -465,9 +467,17 @@ async function run() {
       now,
     });
     assert.equal(scheduled.shouldSend, false);
+    const beforeComplete = planManualReturnOfferSend({
+      booking,
+      correspondingReturnBooked: false,
+      now,
+    });
+    assert.equal(beforeComplete.shouldSend, false);
+    assert.equal(beforeComplete.reason, "awaiting_completion");
     const manual = planManualReturnOfferSend({
       booking,
       correspondingReturnBooked: false,
+      journeyCompletedAt: "2026-09-04T08:45:00.000Z",
       now,
     });
     assert.equal(manual.shouldSend, true);
@@ -510,6 +520,82 @@ async function run() {
     });
     assert.equal(manual.shouldSend, false);
     assert.equal(manual.reason, "awaiting_completion");
+  });
+
+  await check("Owner manual UI shows the action on completed journeys in both directions", () => {
+    const airportToCustomer = ownerManualReturnOfferUi({
+      displayedLegCompleted: true,
+      cancelledOrRefunded: false,
+      customerEmail: "pat@example.com",
+    });
+    assert.equal(airportToCustomer.showAction, true);
+    assert.equal(airportToCustomer.enabled, true);
+    assert.equal(airportToCustomer.label, "Send 5% Return Offer Now");
+
+    const customerToAirport = ownerManualReturnOfferUi({
+      displayedLegCompleted: true,
+      cancelledOrRefunded: false,
+      customerEmail: "victor@example.com",
+    });
+    assert.equal(customerToAirport.showAction, true);
+    assert.equal(customerToAirport.enabled, true);
+
+    const scheduled = ownerManualReturnOfferUi({
+      displayedLegCompleted: false,
+      cancelledOrRefunded: false,
+      customerEmail: "pat@example.com",
+    });
+    assert.equal(scheduled.showAction, false);
+
+    const alreadySent = ownerManualReturnOfferUi({
+      displayedLegCompleted: true,
+      cancelledOrRefunded: false,
+      customerEmail: "pat@example.com",
+      offerStatus: "SENT",
+      offerSentAt: "2026-09-04T12:00:00.000Z",
+    });
+    assert.equal(alreadySent.showAction, true);
+    assert.equal(alreadySent.alreadySent, true);
+    assert.match(alreadySent.label, /again/i);
+
+    const noEmail = ownerManualReturnOfferUi({
+      displayedLegCompleted: true,
+      cancelledOrRefunded: false,
+      customerEmail: "",
+    });
+    assert.equal(noEmail.enabled, false);
+    assert.match(noEmail.explanation || "", /email/i);
+
+    const cancelled = ownerManualReturnOfferUi({
+      displayedLegCompleted: true,
+      cancelledOrRefunded: true,
+      customerEmail: "pat@example.com",
+    });
+    assert.equal(cancelled.showAction, false);
+
+    const alreadyHasReturn = ownerManualReturnOfferUi({
+      displayedLegCompleted: true,
+      cancelledOrRefunded: false,
+      customerEmail: "pat@example.com",
+      returnAlreadyIncluded: true,
+    });
+    assert.equal(alreadyHasReturn.showAction, true);
+    assert.equal(alreadyHasReturn.enabled, false);
+    assert.match(alreadyHasReturn.explanation || "", /already includes a return/i);
+
+    assert.equal(
+      pickManualJourneyCompletedAt({
+        outboundCompletedAt: "2026-09-05T10:30:00.000Z",
+      }),
+      "2026-09-05T10:30:00.000Z",
+    );
+    assert.equal(
+      pickManualJourneyCompletedAt({
+        trackingCompletedAt: "2026-09-05T09:00:00.000Z",
+        outboundCompletedAt: "2026-09-05T10:30:00.000Z",
+      }),
+      "2026-09-05T09:00:00.000Z",
+    );
   });
 
   await check("Manual send is blocked after the offer was already sent", () => {
@@ -574,12 +660,19 @@ async function run() {
     assert.equal(noEmail.reason, "missing_email");
   });
 
-  await check("Owner summary canSendNow is true before the automatic delay", () => {
+  await check("Owner summary canSendNow is true after completion, before the automatic delay", () => {
     const booking = baseBooking({ createdAt: "2026-09-04T08:00:00.000Z" });
     const now = new Date("2026-09-04T09:00:00.000Z");
+    const before = buildReturnOfferAdminSummary({
+      booking,
+      correspondingReturnBooked: false,
+      now,
+    });
+    assert.equal(before.canSendNow, false);
     const summary = buildReturnOfferAdminSummary({
       booking,
       correspondingReturnBooked: false,
+      journeyCompletedAt: "2026-09-04T08:40:00.000Z",
       now,
     });
     assert.equal(summary.canSendNow, true);
@@ -607,12 +700,21 @@ async function run() {
     const handlers = read("workers/addresses/src/return-offer-handlers.ts");
     const worker = read("workers/addresses/src/index.ts");
     const api = read("src/lib/paid-bookings-api.ts");
-    assert.match(owner, /Send 5% Return Offer Now/);
+    assert.match(read("shared/return-offer.ts"), /Send 5% Return Offer Now/);
+    assert.match(owner, /returnOfferUi\.label/);
+    assert.match(owner, /ownerManualReturnOfferUi/);
+    assert.match(owner, /returnAlreadyIncluded/);
+    assert.match(owner, /data-owner-manual-return-offer/);
     assert.match(owner, /window\.confirm/);
     assert.match(owner, /sendManualReturnOfferNow/);
+    assert.match(owner, /openBookingRequest/);
+    assert.doesNotMatch(owner, /returnOffer\?\.canSendNow \?/);
     assert.match(api, /paid-bookings\/return-offer\/send/);
     assert.match(handlers, /handleManualReturnOfferSend/);
     assert.match(handlers, /planManualReturnOfferSend/);
+    assert.match(handlers, /pickManualJourneyCompletedAt/);
+    assert.match(handlers, /outboundCompletedAt/);
+    assert.match(handlers, /This journey is not marked completed yet/);
     assert.match(handlers, /processDueReturnOffers/);
     assert.match(worker, /processDueReturnOffers/);
     assert.match(worker, /isManualReturnOfferSendPath/);

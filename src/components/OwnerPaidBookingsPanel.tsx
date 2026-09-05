@@ -4,18 +4,26 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   assignedDriverDisplay,
   formatDisplayTripDate,
-  groupOwnerScheduleByDay,
   isOwnerOperationalTestBooking,
   journeyStatusLabel,
   nextUnfinishedSortKey,
   OWNER_PRIMARY_JOURNEY_BUTTON_LABELS,
   ownerPrimaryJourneyConfirmCopy,
   ownerUpcomingPrimaryJourneyActions,
-  relevantUpcomingJourneyDate,
-  relevantUpcomingJourneyTime,
-  resolveCompletionTimestamp,
   type OwnerPrimaryJourneyAction,
 } from "../../shared/upcoming-jobs";
+import {
+  expandOwnerBookingJobLegs,
+  expandOwnerPaidBookingLegs,
+  formatOwnerOpsMoney,
+  groupCompletedJobsByDate,
+  groupFutureJobsByDate,
+  selectAwaitingPaymentItems,
+  selectTodayCompletedLegs,
+  selectTodayUpcomingLegs,
+  type OwnerJourneyLeg,
+  type OwnerOpsLeg,
+} from "../../shared/owner-dashboard-ops";
 import {
   activeLegPickupLabel,
   activeLegPickupTime,
@@ -49,6 +57,8 @@ import {
   type RefundDiagnosticsReport,
   type TrackingDiagnosticReport,
 } from "@/lib/paid-bookings-api";
+import { fetchOwnerBookingJobs } from "@/lib/booking-jobs-api";
+import type { BookingJobRecord } from "../../shared/booking-job";
 import type { RefundIssueResponse } from "@/lib/refund-api";
 import { markBookingRefundedExternally } from "@/lib/refund-api";
 import {
@@ -62,6 +72,15 @@ import {
   remainingRefundableBalance,
   roundGbp,
 } from "../../shared/refund-ops";
+import { ownerManualReturnOfferUi } from "../../shared/return-offer";
+import {
+  ownerCustomerContactActions,
+  resolveOwnerDisplayedLegNav,
+} from "../../shared/owner-job-actions";
+import {
+  OwnerCustomerCallWhatsApp,
+  OwnerWazeAddressLink,
+} from "@/components/OwnerJobNavActions";
 
 type OwnerPaidBookingsPanelProps = {
   ownerKey: string;
@@ -408,6 +427,7 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
   >({});
   const [diagnosticBusyRef, setDiagnosticBusyRef] = useState("");
   const [refundDiagBusyRef, setRefundDiagBusyRef] = useState("");
+  const [bookingJobs, setBookingJobs] = useState<BookingJobRecord[]>([]);
   const [editingBooking, setEditingBooking] = useState<OwnerPaidBookingSummary | null>(null);
   const [offerUpdatedConfirmationRef, setOfferUpdatedConfirmationRef] = useState<string | null>(null);
   const [fareAdjustMessage, setFareAdjustMessage] = useState("");
@@ -423,19 +443,21 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
     setLoading(true);
     setError("");
     try {
-      const [nextBookings, nextPending] = await Promise.all([
+      const [nextBookings, nextPending, nextJobs] = await Promise.all([
         fetchOwnerPaidBookings(ownerKey, {
           mode: "upcoming",
-          pastDays: 60,
-          futureDays: 90,
-          limit: 200,
+          pastDays: 120,
+          futureDays: 120,
+          limit: 400,
         }),
         fetchOwnerPendingCheckouts(ownerKey, { limit: 40 }).catch(
           () => [] as OwnerPendingCheckoutSummary[],
         ),
+        fetchOwnerBookingJobs(ownerKey).catch(() => [] as BookingJobRecord[]),
       ]);
       setBookings(nextBookings);
       setPending(nextPending);
+      setBookingJobs(nextJobs);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load paid bookings");
     } finally {
@@ -452,9 +474,33 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
     [bookings],
   );
 
-  const scheduleDayGroups = useMemo(
-    () => groupOwnerScheduleByDay(operationalBookings),
+  const paidLegs = useMemo(
+    () => operationalBookings.flatMap(expandOwnerPaidBookingLegs),
     [operationalBookings],
+  );
+  const bookingJobLegs = useMemo(
+    () => bookingJobs.flatMap(expandOwnerBookingJobLegs),
+    [bookingJobs],
+  );
+  const allOpsLegs = useMemo(
+    () => [...paidLegs, ...bookingJobLegs],
+    [paidLegs, bookingJobLegs],
+  );
+  const todayUpcoming = useMemo(() => selectTodayUpcomingLegs(allOpsLegs), [allOpsLegs]);
+  const todayCompleted = useMemo(() => selectTodayCompletedLegs(paidLegs), [paidLegs]);
+  const futureGroups = useMemo(() => groupFutureJobsByDate(allOpsLegs), [allOpsLegs]);
+  const completedHistory = useMemo(() => groupCompletedJobsByDate(paidLegs), [paidLegs]);
+  const completedHistoryOlder = useMemo(
+    () => completedHistory.filter((group) => group.label !== "Today"),
+    [completedHistory],
+  );
+  const awaitingPaymentItems = useMemo(
+    () =>
+      selectAwaitingPaymentItems({
+        paidBookings: operationalBookings,
+        bookingJobs,
+      }),
+    [operationalBookings, bookingJobs],
   );
 
   /** Compact ops list: money still owed back / retry-required refunds. */
@@ -470,19 +516,33 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
     [operationalBookings],
   );
 
-  /** Remember which days’ Completed sections the Owner has opened this session. */
-  const [completedOpenDays, setCompletedOpenDays] = useState<Record<string, boolean>>({});
+  const [todayCompletedOpen, setTodayCompletedOpen] = useState(false);
+  const [awaitingOpen, setAwaitingOpen] = useState(false);
+  const [futureOpenDates, setFutureOpenDates] = useState<Record<string, boolean>>({});
+  const [historyOpenDates, setHistoryOpenDates] = useState<Record<string, boolean>>({});
 
-  function isCompletedSectionOpen(day: string): boolean {
-    return completedOpenDays[day] === true;
+  function toggleDateOpen(
+    setter: (value: Record<string, boolean> | ((current: Record<string, boolean>) => Record<string, boolean>)) => void,
+    day: string,
+  ) {
+    setter((current) => ({ ...current, [day]: !current[day] }));
   }
 
-  function toggleCompletedSection(day: string) {
-    setCompletedOpenDays((current) => ({
-      ...current,
-      [day]: !current[day],
-    }));
-  }
+  const bookingsByRef = useMemo(() => {
+    const map = new Map<string, OwnerPaidBookingSummary>();
+    for (const booking of operationalBookings) {
+      map.set(booking.paymentReference, booking);
+    }
+    return map;
+  }, [operationalBookings]);
+
+  const bookingJobsById = useMemo(() => {
+    const map = new Map<string, BookingJobRecord>();
+    for (const job of bookingJobs) {
+      map.set(job.id, job);
+    }
+    return map;
+  }, [bookingJobs]);
   async function handleResend(booking: OwnerPaidBookingSummary) {
     setBusyRef(booking.paymentReference);
     setError("");
@@ -504,13 +564,28 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
     }
   }
 
+  function openBookingRequest(jobId: string) {
+    const hash = `#owner-booking-job-${jobId}`;
+    if (window.location.hash === hash) {
+      window.dispatchEvent(new HashChangeEvent("hashchange"));
+    } else {
+      window.location.hash = hash;
+    }
+  }
+
   async function handleSendReturnOfferNow(booking: OwnerPaidBookingSummary) {
     const email = booking.customerEmail?.trim() || "the customer";
-    if (
-      !window.confirm(
-        `Send the 5% Return Journey Offer email to ${email} now?\n\nThis uses the same secure return-booking link as the automatic offer. It will not send a second copy later.`,
-      )
-    ) {
+    const alreadySent = Boolean(
+      booking.returnOffer?.sentAt ||
+        String(booking.returnOffer?.status || "").toUpperCase() === "SENT" ||
+        booking.returnOffer?.redeemed,
+    );
+    const confirmText = alreadySent
+      ? `A 5% Return Journey Offer was already sent${
+          booking.returnOffer?.sentAt ? ` (${formatUkInstant(booking.returnOffer.sentAt)})` : ""
+        } to ${email}.\n\nThe system will not silently create a second offer. Continue only to re-check the existing send?`
+      : `Send the 5% Return Journey Offer email to ${email} now?\n\nThis uses the same secure return-booking link as the automatic offer. It will not send a second copy later.`;
+    if (!window.confirm(confirmText)) {
       return;
     }
     setBusyRef(booking.paymentReference);
@@ -528,6 +603,10 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
         );
       }
       if (!result.ok) {
+        if (result.reason === "offer_already_sent") {
+          setMessage("5% Return Journey Offer was already sent. A second offer was not created.");
+          return;
+        }
         throw new Error(result.error || "Return offer could not be sent");
       }
       setMessage(
@@ -1029,10 +1108,46 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
     );
   }
 
-  function renderBookingCard(booking: OwnerPaidBookingSummary, options?: { compact?: boolean }) {
+  function renderBookingCard(
+    booking: OwnerPaidBookingSummary,
+    options?: { compact?: boolean; displayLeg?: OwnerJourneyLeg },
+  ) {
+    const displayLeg: OwnerJourneyLeg =
+      options?.displayLeg ??
+      (booking.returnJourney &&
+      booking.outboundJourneyStatus === "completed" &&
+      booking.returnJourneyStatus !== "completed"
+        ? "return"
+        : "outbound");
+    const outboundDone =
+      booking.outboundJourneyStatus === "completed" ||
+      (!booking.returnJourney &&
+        (booking.journeyStatus === "completed" || booking.allLegsCompleted === true));
+    const returnDone = booking.returnJourneyStatus === "completed";
+    const thisLegCompleted = displayLeg === "return" ? returnDone : outboundDone;
+    const thisLegActive =
+      !thisLegCompleted && (displayLeg === "outbound" ? !outboundDone : outboundDone && !returnDone);
     const isClosed = isOperationallyCancelled(booking.status);
-    const isCompleted = booking.journeyStatus === "completed";
-    const isActiveCard = !options?.compact && !isClosed && !isCompleted;
+    const isCompleted = thisLegCompleted;
+    const isActiveCard = !options?.compact && !isClosed && thisLegActive;
+    const paymentStatusKey = String(booking.status || "");
+    const awaitingPayment =
+      paymentStatusKey === "awaiting_payment" || paymentStatusKey === "unpaid";
+    const cancelledOrRefunded =
+      isClosed ||
+      paymentStatusKey === "refunded" ||
+      paymentStatusKey === "refunded_active" ||
+      booking.paymentStatus === "fully_refunded";
+    const returnOfferUi = ownerManualReturnOfferUi({
+      displayedLegCompleted: thisLegCompleted,
+      cancelledOrRefunded,
+      customerEmail: booking.customerEmail,
+      offerStatus: booking.returnOffer?.status,
+      offerSentAt: booking.returnOffer?.sentAt,
+      returnAlreadyIncluded: Boolean(booking.returnJourney),
+      correspondingReturnBooked:
+        booking.returnOffer?.reason === "Customer booked the return separately",
+    });
     const canEdit = !isClosed && !isCompleted;
     const canAdminConfirm = !isClosed && !isCompleted;
     const showOfferUpdated =
@@ -1061,19 +1176,30 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
       isClosed ||
       Boolean(booking.trackingToken) ||
       (diagnostics[booking.paymentReference]?.gpsPointCount ?? 0) > 0;
-    const nextDate = relevantUpcomingJourneyDate(booking);
-    const nextTime = relevantUpcomingJourneyTime(booking) || "—";
-    const isReturnNext =
-      Boolean(booking.returnJourney) &&
-      nextDate === (booking.returnDate || "").trim() &&
-      nextDate !== (booking.tripDate || "").trim();
+    const nextDate =
+      displayLeg === "return"
+        ? (booking.returnDate || "").trim()
+        : (booking.tripDate || "").trim();
+    const nextTime =
+      displayLeg === "return"
+        ? booking.returnTime || "—"
+        : booking.tripTime || "—";
+    const isReturnNext = displayLeg === "return";
     const routeLabel = isReturnNext
       ? `${booking.dropoffLabel} → ${booking.pickupLabel}`
       : `${booking.pickupLabel} → ${booking.dropoffLabel}`;
+    const legFare =
+      displayLeg === "return"
+        ? booking.returnFare
+        : booking.returnJourney
+          ? booking.outboundFare
+          : booking.amount;
     const fareLabel =
-      typeof booking.amount === "number"
-        ? `£${booking.amount.toFixed(2)}`
-        : booking.amountPaid || "—";
+      typeof legFare === "number" && Number.isFinite(legFare)
+        ? `£${legFare.toFixed(2)}`
+        : typeof booking.amount === "number"
+          ? `£${booking.amount.toFixed(2)}`
+          : booking.amountPaid || "—";
     const flightLabel = isReturnNext
       ? booking.returnFlightNumber?.trim()
       : booking.flightNumber?.trim();
@@ -1093,6 +1219,15 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
       expressDropOffAirport: booking.expressDropOffAirport ?? booking.airportCode,
       fromAirport: booking.isFromAirport,
     });
+    const displayedNav = resolveOwnerDisplayedLegNav({
+      displayedLeg: displayLeg,
+      pickupLabel: booking.pickupLabel,
+      dropoffLabel: booking.dropoffLabel,
+      airportCode: booking.airportCode,
+      isFromAirport: booking.isFromAirport,
+      quoteSnapshot: booking.quoteSnapshot,
+    });
+    const customerContact = ownerCustomerContactActions(booking.mobileNumber);
 
     const moreOptions = (
       <details
@@ -1117,9 +1252,9 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
                     Email customer
                   </a>
                 ) : null}
-                {booking.mobileNumber ? (
+                {customerContact ? (
                   <a
-                    href={`https://wa.me/${booking.mobileNumber.replace(/\D/g, "").replace(/^0/, "44")}`}
+                    href={customerContact.whatsAppHref}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold text-white"
@@ -1189,17 +1324,20 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
                 Edit Booking
               </button>
             ) : null}
-            {booking.returnOffer?.canSendNow ? (
-              <button
-                type="button"
-                disabled={busyRef === booking.paymentReference}
-                onClick={() => void handleSendReturnOfferNow(booking)}
-                className="min-h-11 w-full rounded-xl border border-emerald/50 bg-emerald/20 px-4 py-2.5 text-sm font-bold text-emerald disabled:opacity-60"
-              >
-                {busyRef === booking.paymentReference
-                  ? "Sending…"
-                  : "Send 5% Return Offer Now"}
-              </button>
+            {returnOfferUi.showAction ? (
+              <div data-owner-manual-return-offer>
+                <button
+                  type="button"
+                  disabled={busyRef === booking.paymentReference || !returnOfferUi.enabled}
+                  onClick={() => void handleSendReturnOfferNow(booking)}
+                  className="min-h-11 w-full rounded-xl border border-emerald/50 bg-emerald/20 px-4 py-2.5 text-sm font-bold text-emerald disabled:opacity-60"
+                >
+                  {busyRef === booking.paymentReference ? "Sending…" : returnOfferUi.label}
+                </button>
+                {returnOfferUi.explanation ? (
+                  <p className="mt-1 text-xs text-amber-100/90">{returnOfferUi.explanation}</p>
+                ) : null}
+              </div>
             ) : null}
             {canAdminConfirm ? (
               <button
@@ -1417,43 +1555,51 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
                 </dd>
               </div>
             ) : null}
-            {booking.returnOffer ? (
+            {booking.returnOffer || returnOfferUi.showAction ? (
               <div className="col-span-2">
                 <dt className="text-white/35">Return Offer</dt>
                 <dd className="space-y-1.5 text-white/70">
-                  <p>
-                    Eligible: {booking.returnOffer.eligible ? "Yes" : "No"}
-                    {booking.returnOffer.reason ? ` · ${booking.returnOffer.reason}` : ""}
-                  </p>
-                  {booking.returnOffer.type ? <p>Type: {booking.returnOffer.type}</p> : null}
-                  {booking.returnOffer.status ? <p>Status: {booking.returnOffer.status}</p> : null}
-                  {booking.returnOffer.scheduledAt ? (
-                    <p>Scheduled: {formatUkInstant(booking.returnOffer.scheduledAt)}</p>
-                  ) : null}
-                  {booking.returnOffer.sentAt ? (
-                    <p>Sent: {formatUkInstant(booking.returnOffer.sentAt)}</p>
-                  ) : null}
-                  <p>
-                    Redeemed: {booking.returnOffer.redeemed ? "Yes" : "No"}
-                    {booking.returnOffer.returnBookingPaymentReference
-                      ? ` · ${booking.returnOffer.returnBookingPaymentReference}`
-                      : " · Return booking: —"}
-                  </p>
-                  {booking.returnOffer.canSendNow ? (
-                    <button
-                      type="button"
-                      disabled={busyRef === booking.paymentReference}
-                      onClick={() => void handleSendReturnOfferNow(booking)}
-                      className="mt-1 min-h-11 w-full rounded-xl border border-emerald/50 bg-emerald/20 px-4 py-2.5 text-sm font-bold text-emerald disabled:opacity-60"
-                    >
-                      {busyRef === booking.paymentReference
-                        ? "Sending…"
-                        : "Send 5% Return Offer Now"}
-                    </button>
-                  ) : booking.returnOffer.status === "SENT" ? null : booking.returnOffer
-                      .sendBlockedReason ? (
+                  {booking.returnOffer ? (
+                    <>
+                      <p>
+                        Eligible: {booking.returnOffer.eligible ? "Yes" : "No"}
+                        {booking.returnOffer.reason ? ` · ${booking.returnOffer.reason}` : ""}
+                      </p>
+                      {booking.returnOffer.type ? <p>Type: {booking.returnOffer.type}</p> : null}
+                      {booking.returnOffer.status ? <p>Status: {booking.returnOffer.status}</p> : null}
+                      {booking.returnOffer.scheduledAt ? (
+                        <p>Scheduled: {formatUkInstant(booking.returnOffer.scheduledAt)}</p>
+                      ) : null}
+                      {booking.returnOffer.sentAt ? (
+                        <p>Sent: {formatUkInstant(booking.returnOffer.sentAt)}</p>
+                      ) : null}
+                      <p>
+                        Redeemed: {booking.returnOffer.redeemed ? "Yes" : "No"}
+                        {booking.returnOffer.returnBookingPaymentReference
+                          ? ` · ${booking.returnOffer.returnBookingPaymentReference}`
+                          : " · Return booking: —"}
+                      </p>
+                    </>
+                  ) : (
+                    <p>Manual 5% return offer available after this completed journey.</p>
+                  )}
+                  {returnOfferUi.showAction ? (
+                    <div data-owner-manual-return-offer>
+                      <button
+                        type="button"
+                        disabled={busyRef === booking.paymentReference || !returnOfferUi.enabled}
+                        onClick={() => void handleSendReturnOfferNow(booking)}
+                        className="mt-1 min-h-11 w-full rounded-xl border border-emerald/50 bg-emerald/20 px-4 py-2.5 text-sm font-bold text-emerald disabled:opacity-60"
+                      >
+                        {busyRef === booking.paymentReference ? "Sending…" : returnOfferUi.label}
+                      </button>
+                      {returnOfferUi.explanation ? (
+                        <p className="mt-1 text-xs text-amber-100/90">{returnOfferUi.explanation}</p>
+                      ) : null}
+                    </div>
+                  ) : booking.returnOffer?.sendBlockedReason ? (
                     <p className="text-xs text-amber-100/90">
-                      Send now unavailable: {booking.returnOffer.sendBlockedReason}
+                      Automatic offer: {booking.returnOffer.sendBlockedReason}
                     </p>
                   ) : null}
                 </dd>
@@ -1466,7 +1612,7 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
 
     return (
       <li
-        key={booking.paymentReference}
+        key={`${booking.paymentReference}-${displayLeg}`}
         className={`overflow-x-hidden rounded-2xl border p-3 sm:p-4 ${
           options?.compact || isClosed || isCompleted
             ? "border-white/10 bg-navy/40"
@@ -1485,6 +1631,16 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
               {fareLabel !== "—" ? ` · ${fareLabel}` : ""}
             </p>
             <p className="mt-1 break-words text-sm text-white/80">{routeLabel}</p>
+            {booking.returnJourney ? (
+              <p className="mt-1 text-[11px] font-semibold uppercase tracking-wider text-white/45">
+                {displayLeg === "return" ? "Return leg" : "Outbound leg"}
+              </p>
+            ) : null}
+            {awaitingPayment ? (
+              <p className="mt-1 text-xs font-semibold text-amber-100">
+                Payment status: awaiting payment
+              </p>
+            ) : null}
             {(refundedNum > 0 ||
               booking.status === "partially_refunded" ||
               booking.status === "refunded_active") && (
@@ -1499,34 +1655,54 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
             className={`shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider ${
               isClosed
                 ? "border-red-400/30 bg-red-500/10 text-red-100"
-                : isCompleted
-                  ? "border-white/20 bg-white/5 text-white/70"
-                  : booking.status === "partially_refunded"
-                    ? "border-amber-400/30 bg-amber-500/10 text-amber-100"
-                    : "border-emerald/40 bg-emerald/15 text-emerald"
+                : awaitingPayment
+                  ? "border-amber-400/30 bg-amber-500/10 text-amber-100"
+                  : isCompleted
+                    ? "border-white/20 bg-white/5 text-white/70"
+                    : booking.status === "partially_refunded"
+                      ? "border-amber-400/30 bg-amber-500/10 text-amber-100"
+                      : "border-emerald/40 bg-emerald/15 text-emerald"
             }`}
           >
             {isClosed
               ? booking.status === "cancelled"
                 ? "Cancelled"
                 : "Refunded"
-              : isCompleted
-                ? "Completed"
-                : booking.status === "refunded_active"
-                  ? "Fully refunded · Active"
-                  : journeyStatusLabel(booking.journeyStatus)}
+              : awaitingPayment
+                ? "Awaiting payment"
+                : isCompleted
+                  ? "Completed"
+                  : booking.status === "refunded_active"
+                    ? "Fully refunded · Active"
+                    : journeyStatusLabel(
+                        displayLeg === "return"
+                          ? booking.returnJourneyStatus || booking.journeyStatus
+                          : booking.outboundJourneyStatus || booking.journeyStatus,
+                      )}
           </span>
         </div>
 
         <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 text-sm text-white/70">
           <div>
             <dt className="text-[11px] text-white/40">Pickup</dt>
-            <dd className="break-words">{booking.pickupLabel || "—"}</dd>
+            <dd>
+              <OwnerWazeAddressLink kind="pickup" point={displayedNav.pickup} />
+            </dd>
           </div>
           <div>
             <dt className="text-[11px] text-white/40">Destination</dt>
-            <dd className="break-words">{booking.dropoffLabel || "—"}</dd>
+            <dd>
+              <OwnerWazeAddressLink kind="destination" point={displayedNav.destination} />
+            </dd>
           </div>
+          {customerContact ? (
+            <div className="col-span-2">
+              <dt className="text-[11px] text-white/40">Customer</dt>
+              <dd>
+                <OwnerCustomerCallWhatsApp phone={booking.mobileNumber} />
+              </dd>
+            </div>
+          ) : null}
           <div>
             <dt className="text-[11px] text-white/40">Fare</dt>
             <dd>{fareLabel}</dd>
@@ -1619,40 +1795,88 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
     );
   }
 
-  return (
-    <section className="mb-10">
-      {needsFinalize.length > 0 ? (
-        <div className="mb-6 rounded-xl border border-amber-400/35 bg-amber-500/10 p-4">
-          <p className="text-sm text-white/85">
-            {needsFinalize.length} SumUp PAID checkout
-            {needsFinalize.length === 1 ? "" : "s"} waiting to finalize (email/calendar).
-          </p>
-          <ul className="mt-3 space-y-2 text-sm text-white/70">
-            {needsFinalize.slice(0, 5).map((item) => (
-              <li key={item.checkoutId}>
-                £{item.amount.toFixed(2)} · {item.customerName} · {item.customerEmail}
-                <button
-                  type="button"
-                  disabled={recovering}
-                  onClick={() => void handleRecover(item.checkoutId)}
-                  className="ml-2 text-emerald underline disabled:opacity-60"
-                >
-                  Finalize
-                </button>
-              </li>
-            ))}
-          </ul>
+  function renderOpsLeg(leg: OwnerOpsLeg, options: { compact: boolean }) {
+    if (leg.source === "paid") {
+      const booking = bookingsByRef.get(leg.bookingId);
+      if (!booking) return null;
+      return (
+        <div key={`${leg.bookingId}-${leg.leg}`}>
+          {renderBookingCard(booking, {
+            compact: options.compact,
+            displayLeg: leg.leg,
+          })}
+        </div>
+      );
+    }
+    const job = bookingJobsById.get(leg.bookingId);
+    const enquiryNav = resolveOwnerDisplayedLegNav({
+      displayedLeg: leg.leg,
+      pickupLabel: leg.pickup,
+      dropoffLabel: leg.dropoff,
+      airportCode: job?.airportCode,
+      isFromAirport: job?.isFromAirport,
+    });
+    return (
+      <li
+        key={`${leg.source}-${leg.bookingId}-${leg.leg}`}
+        className="rounded-2xl border border-amber-400/25 bg-amber-500/10 p-4"
+      >
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <p className="text-lg font-bold text-white">{leg.customerName || "Booking request"}</p>
+            <p className="mt-1 text-sm text-white/70">
+              {formatDisplayTripDate(leg.scheduledDate)} · pick up {leg.scheduledTime || "—"}
+              {leg.bookingAmountGbp > 0 ? ` · ${formatOwnerOpsMoney(leg.bookingAmountGbp)}` : ""}
+            </p>
+            <p className="mt-1 text-xs font-semibold text-amber-100">
+              Website booking request · awaiting payment
+            </p>
+          </div>
+          <span className="shrink-0 rounded-full border border-amber-400/30 bg-amber-500/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-amber-100">
+            Awaiting payment
+          </span>
+        </div>
+        <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 text-sm text-white/80">
+          <div>
+            <dt className="text-[11px] text-white/40">Pickup</dt>
+            <dd>
+              <OwnerWazeAddressLink kind="pickup" point={enquiryNav.pickup} />
+            </dd>
+          </div>
+          <div>
+            <dt className="text-[11px] text-white/40">Destination</dt>
+            <dd>
+              <OwnerWazeAddressLink kind="destination" point={enquiryNav.destination} />
+            </dd>
+          </div>
+          {job?.customerMobile ? (
+            <div className="col-span-2">
+              <dt className="text-[11px] text-white/40">Customer</dt>
+              <dd>
+                <OwnerCustomerCallWhatsApp phone={job.customerMobile} />
+              </dd>
+            </div>
+          ) : null}
+        </dl>
+        {job ? (
           <button
             type="button"
-            disabled={recovering}
-            onClick={() => void handleRecover()}
-            className="mt-3 min-h-11 w-full rounded-xl bg-amber-300 px-4 py-3 text-sm font-bold text-navy transition-colors hover:bg-amber-200 disabled:opacity-60 sm:w-auto"
+            data-open-booking-request={job.id}
+            onClick={() => openBookingRequest(job.id)}
+            className="mt-3 inline-flex min-h-11 items-center text-sm font-semibold text-amber-100 underline"
           >
-            {recovering ? "Recovering…" : "Recover PAID checkouts (no new charge)"}
+            Open booking request
           </button>
-        </div>
-      ) : null}
+        ) : null}
+      </li>
+    );
+  }
 
+  const todayCompletedEarnedGbp =
+    completedHistory.find((group) => group.label === "Today")?.earnedGbp || 0;
+
+  return (
+    <section className="mb-10">
       {error ? (
         <p className="mb-4 rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-100">
           {error}
@@ -1666,28 +1890,13 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
 
       {loading ? (
         <p className="text-sm text-white/60">Loading jobs…</p>
-      ) : scheduleDayGroups.length === 0 && refundsPending.length === 0 ? (
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="text-sm text-white/60">
-            No active jobs by journey date (looking ahead ~90 days, plus recent incomplete). If a
-            customer just paid, tap Refresh or use Recover if SumUp shows PAID.
-          </p>
-          <button
-            type="button"
-            onClick={() => void load()}
-            className="min-h-11 shrink-0 rounded-xl border border-white/15 px-4 py-2 text-sm font-semibold text-white transition-colors hover:border-white/30"
-          >
-            Refresh
-          </button>
-        </div>
       ) : (
-        <>
-          {scheduleDayGroups.length === 0 ? (
+        <div className="space-y-4">
+          <section aria-label="Today’s upcoming jobs">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <p className="text-sm text-white/60">
-                No open active jobs right now. Refunds Pending (if any) appear below. Completed
-                jobs for each day stay collapsed under that date after refresh.
-              </p>
+              <h4 className="text-base font-bold text-white">
+                Today’s Upcoming Jobs ({todayUpcoming.length})
+              </h4>
               <button
                 type="button"
                 onClick={() => void load()}
@@ -1696,76 +1905,189 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
                 Refresh
               </button>
             </div>
-          ) : (
-            <div className="space-y-8">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <h3 className="text-base font-bold text-white">Jobs by day</h3>
-                <button
-                  type="button"
-                  onClick={() => void load()}
-                  className="min-h-11 shrink-0 rounded-xl border border-white/15 px-4 py-2 text-sm font-semibold text-white transition-colors hover:border-white/30"
-                >
-                  Refresh
-                </button>
+            {todayUpcoming.length === 0 ? (
+              <p className="mt-2 text-sm text-white/55">
+                No remaining journeys due today. Tomorrow and later bookings are under Future Jobs.
+              </p>
+            ) : (
+              <ul className="mt-3 space-y-4">
+                {todayUpcoming.map((leg) => renderOpsLeg(leg, { compact: false }))}
+              </ul>
+            )}
+          </section>
+
+          <section className="rounded-xl border border-white/10 bg-navy/40" aria-label="Today’s completed jobs">
+            <button
+              type="button"
+              data-today-completed-toggle
+              onClick={() => setTodayCompletedOpen((open) => !open)}
+              aria-expanded={todayCompletedOpen}
+              className="flex min-h-12 w-full items-center justify-between gap-3 px-4 py-3 text-left"
+            >
+              <span className="text-sm font-bold text-white">
+                Today’s Completed Jobs ({todayCompleted.length})
+                {todayCompleted.length > 0
+                  ? ` — ${formatOwnerOpsMoney(todayCompletedEarnedGbp)} earned`
+                  : ""}
+              </span>
+              <span className="text-emerald" aria-hidden>
+                {todayCompletedOpen ? "▲" : "▼"}
+              </span>
+            </button>
+            {todayCompletedOpen ? (
+              <div className="border-t border-white/10 px-3 pb-3 pt-3">
+                {todayCompleted.length === 0 ? (
+                  <p className="text-sm text-white/55">No journeys completed today yet.</p>
+                ) : (
+                  <ul className="space-y-4">
+                    {todayCompleted.map((leg) => renderOpsLeg(leg, { compact: true }))}
+                  </ul>
+                )}
               </div>
-              {scheduleDayGroups.map((group) => (
-                <section key={group.day} className="space-y-3">
-                  <h4 className="text-base font-bold text-white sm:text-lg">{group.title}</h4>
+            ) : null}
+          </section>
 
-                  {group.upcoming.length > 0 ? (
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-wider text-sky-200">
-                        Active jobs
-                      </p>
-                      <ul className="mt-2 space-y-4">
-                        {group.upcoming.map((booking) => renderBookingCard(booking))}
-                      </ul>
-                    </div>
-                  ) : (
-                    <p className="text-sm text-white/45">No active jobs for this day.</p>
-                  )}
+          <section className="rounded-xl border border-white/10 bg-navy/40">
+            <button
+              type="button"
+              onClick={() => setAwaitingOpen((open) => !open)}
+              aria-expanded={awaitingOpen}
+              className="flex min-h-12 w-full items-center justify-between gap-3 px-4 py-3 text-left"
+            >
+              <span className="text-sm font-bold text-white">
+                Awaiting Payment ({awaitingPaymentItems.length})
+              </span>
+              <span className="text-emerald" aria-hidden>
+                {awaitingOpen ? "▲" : "▼"}
+              </span>
+            </button>
+            {awaitingOpen ? (
+              <div className="border-t border-white/10 px-3 pb-3 pt-3">
+                <p className="mb-3 text-xs text-white/50">
+                  Website booking requests start as awaiting payment until you mark them paid.
+                  Today’s unpaid journeys still appear in Today’s Upcoming Jobs above.
+                </p>
+                {awaitingPaymentItems.length === 0 ? (
+                  <p className="text-sm text-white/55">Nothing awaiting payment.</p>
+                ) : (
+                  <ul className="space-y-2">
+                    {awaitingPaymentItems.map((item) => (
+                      <li
+                        key={`${item.source}-${item.id}`}
+                        className="rounded-xl border border-amber-400/25 bg-amber-500/10 px-3 py-3"
+                      >
+                        <p className="text-sm font-semibold text-white">{item.label}</p>
+                        <p className="mt-1 text-xs text-white/55">
+                          {item.date || "No date"} · {item.reference}
+                          {item.today ? " · also in Today’s Upcoming" : ""}
+                        </p>
+                        {item.source === "booking_job" ? (
+                          <button
+                            type="button"
+                            data-open-booking-request={item.id}
+                            onClick={() => openBookingRequest(item.id)}
+                            className="mt-2 inline-flex min-h-11 items-center text-sm font-semibold text-amber-100 underline"
+                          >
+                            Open booking request
+                          </button>
+                        ) : null}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            ) : null}
+          </section>
 
-                  {group.completed.length > 0 ? (
-                    <div className="rounded-xl border border-white/10 bg-navy/40">
+          <section className="rounded-xl border border-white/10 bg-navy/40">
+            <div className="px-4 py-3">
+              <h4 className="text-sm font-bold text-white">
+                Future Jobs ({futureGroups.reduce((sum, group) => sum + group.count, 0)} legs)
+              </h4>
+              <p className="mt-1 text-xs text-white/45">
+                Grouped by journey-leg date. Dates stay collapsed.
+              </p>
+            </div>
+            {futureGroups.length === 0 ? (
+              <p className="px-4 pb-3 text-sm text-white/55">No future journey legs scheduled.</p>
+            ) : (
+              <ul className="border-t border-white/10">
+                {futureGroups.map((group) => {
+                  const open = futureOpenDates[group.date] === true;
+                  return (
+                    <li key={group.date} className="border-b border-white/8 last:border-b-0">
                       <button
                         type="button"
-                        onClick={() => toggleCompletedSection(group.day)}
-                        className="flex min-h-11 w-full items-center justify-between gap-3 px-4 py-3 text-left text-sm font-semibold text-white/85"
-                        aria-expanded={isCompletedSectionOpen(group.day)}
+                        onClick={() => toggleDateOpen(setFutureOpenDates, group.date)}
+                        aria-expanded={open}
+                        className="flex min-h-12 w-full items-center justify-between gap-3 px-4 py-3 text-left"
                       >
-                        <span>
-                          Completed jobs ({group.completed.length})
+                        <span className="text-sm font-semibold text-white">
+                          {group.label} — {group.count} job{group.count === 1 ? "" : "s"}
                         </span>
                         <span className="text-emerald" aria-hidden>
-                          {isCompletedSectionOpen(group.day) ? "▲" : "▼"}
+                          {open ? "▲" : "▶"}
                         </span>
                       </button>
-                      {isCompletedSectionOpen(group.day) ? (
-                        <ul className="space-y-4 border-t border-white/10 px-3 pb-3 pt-3">
-                          {group.completed.map((booking) => {
-                            const completion = resolveCompletionTimestamp(booking);
-                            return (
-                              <div key={booking.paymentReference}>
-                                {completion && completion.source !== "journeyCompletedAt" ? (
-                                  <p className="mb-1 px-1 text-[11px] text-white/40">
-                                    Grouped by {completion.source} (no journeyCompletedAt on record)
-                                  </p>
-                                ) : null}
-                                {renderBookingCard(booking, { compact: true })}
-                              </div>
-                            );
-                          })}
+                      {open ? (
+                        <ul className="space-y-4 px-3 pb-3">
+                          {group.items.map((leg) => renderOpsLeg(leg, { compact: false }))}
                         </ul>
                       ) : null}
-                    </div>
-                  ) : null}
-                </section>
-              ))}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </section>
+
+          <section className="rounded-xl border border-white/10 bg-navy/40">
+            <div className="px-4 py-3">
+              <h4 className="text-sm font-bold text-white">Completed Jobs</h4>
+              <p className="mt-1 text-xs text-white/45">
+                Grouped by the date the journey leg was completed. Older days stay collapsed.
+              </p>
             </div>
-          )}
+            {completedHistoryOlder.length === 0 ? (
+              <p className="px-4 pb-3 text-sm text-white/55">
+                No earlier completed journeys in this window.
+              </p>
+            ) : (
+              <ul className="border-t border-white/10">
+                {completedHistoryOlder.map((group) => {
+                  const open = historyOpenDates[group.date] === true;
+                  return (
+                    <li key={group.date} className="border-b border-white/8 last:border-b-0">
+                      <button
+                        type="button"
+                        onClick={() => toggleDateOpen(setHistoryOpenDates, group.date)}
+                        aria-expanded={open}
+                        className="flex min-h-12 w-full items-center justify-between gap-3 px-4 py-3 text-left"
+                      >
+                        <span className="text-sm font-semibold text-white">
+                          {group.label} — {group.count} completed
+                          {typeof group.earnedGbp === "number"
+                            ? ` — ${formatOwnerOpsMoney(group.earnedGbp)}`
+                            : ""}
+                        </span>
+                        <span className="text-emerald" aria-hidden>
+                          {open ? "▲" : "▶"}
+                        </span>
+                      </button>
+                      {open ? (
+                        <ul className="space-y-4 px-3 pb-3">
+                          {group.items.map((leg) => renderOpsLeg(leg, { compact: true }))}
+                        </ul>
+                      ) : null}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </section>
 
           {refundsPending.length > 0 ? (
-            <div className="mt-10 border-t border-amber-400/20 pt-8">
+            <div className="border-t border-amber-400/20 pt-6">
               <h3 className="text-base font-bold text-amber-100">Refunds Pending</h3>
               <p className="mt-2 text-sm text-white/55">
                 Bookings with a refund still due or needing retry — shown only when something is
@@ -1778,7 +2100,39 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
               </ul>
             </div>
           ) : null}
-        </>
+
+          {needsFinalize.length > 0 ? (
+            <div className="rounded-xl border border-amber-400/35 bg-amber-500/10 p-4">
+              <p className="text-sm text-white/85">
+                {needsFinalize.length} SumUp PAID checkout
+                {needsFinalize.length === 1 ? "" : "s"} waiting to finalize (email/calendar).
+              </p>
+              <ul className="mt-3 space-y-2 text-sm text-white/70">
+                {needsFinalize.slice(0, 5).map((item) => (
+                  <li key={item.checkoutId}>
+                    £{item.amount.toFixed(2)} · {item.customerName} · {item.customerEmail}
+                    <button
+                      type="button"
+                      disabled={recovering}
+                      onClick={() => void handleRecover(item.checkoutId)}
+                      className="ml-2 text-emerald underline disabled:opacity-60"
+                    >
+                      Finalize
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              <button
+                type="button"
+                disabled={recovering}
+                onClick={() => void handleRecover()}
+                className="mt-3 min-h-11 w-full rounded-xl bg-amber-300 px-4 py-3 text-sm font-bold text-navy transition-colors hover:bg-amber-200 disabled:opacity-60 sm:w-auto"
+              >
+                {recovering ? "Recovering…" : "Recover PAID checkouts (no new charge)"}
+              </button>
+            </div>
+          ) : null}
+        </div>
       )}
 
       {editingBooking ? (

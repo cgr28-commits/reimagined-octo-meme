@@ -87,6 +87,9 @@ export type PaidBookingDetails = {
   finalAmountPayableGbp?: number;
   returnOfferSavingGbp?: number;
   returnOfferOriginalPaymentReference?: string;
+  /** Optional per-leg fares — persisted on the paid record when both are known. */
+  outboundFare?: number;
+  returnFare?: number;
   termsAcceptedAt?: string;
   termsVersion?: string;
   cancellationPolicyVersion?: string;
