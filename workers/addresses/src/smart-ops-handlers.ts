@@ -4,7 +4,7 @@
  */
 
 import { ownerAuthorized, type DriverAuthEnv } from "./driver-auth";
-import { listPaidBookingsForTripRange } from "./paid-booking-store";
+import { listPaidBookingsForTripRange, listUpcomingPaidBookings } from "./paid-booking-store";
 import type { PaidBookingRecord } from "../shared/paid-booking-record";
 import { addDaysYmd, londonYmd } from "../shared/upcoming-jobs";
 import {
@@ -75,10 +75,17 @@ async function loadOccupied(
 }> {
   const from = range?.fromYmd || addDaysYmd(londonYmd(), -2);
   const to = range?.toYmd || addDaysYmd(londonYmd(), 180);
-  const bookings = await listPaidBookingsForTripRange(store, from, to, { limit: 400 });
+  const [ranged, upcoming] = await Promise.all([
+    listPaidBookingsForTripRange(store, from, to, { limit: 400 }),
+    listUpcomingPaidBookings(store, { pastDays: 7, futureDays: 180, limit: 250 }),
+  ]);
+  const bookings = new Map<string, PaidBookingRecord>();
+  for (const booking of [...ranged, ...upcoming]) {
+    bookings.set(booking.paymentReference, booking);
+  }
   const occupied: SmartOccupiedJob[] = [];
   const parents: SmartReturnParent[] = [];
-  for (const booking of bookings) {
+  for (const booking of bookings.values()) {
     const jobs = occupiedJobsFromPaidBooking(booking);
     occupied.push(...jobs);
     const parent = paidBookingToParent(booking);

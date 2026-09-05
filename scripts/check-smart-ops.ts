@@ -986,6 +986,7 @@ console.log("\n=== Scenario M. Booking created >90 days earlier still conflicts 
   assert.equal(decision.available, false);
   const handlers = read("workers/addresses/src/smart-ops-handlers.ts");
   assert.match(handlers, /listPaidBookingsForTripRange/);
+  assert.match(handlers, /listUpcomingPaidBookings/);
   assert.doesNotMatch(handlers, /listPaidBookingsCreatedSince/);
   console.log("OK  Scenario M");
 }
