@@ -313,6 +313,7 @@ export async function handleOwnerEvaluateSmartOps(
     availability,
     smartReturn,
     occupiedCount: occupied.length,
+    occupiedJobs: occupied,
     customerMessage: customerAvailabilityMessage(availability, requested.tripTime),
     diagnostics: {
       requestedPickup: availability.diagnostics.requestedPickupLocal,
@@ -336,6 +337,9 @@ export async function handleOwnerEvaluateSmartOps(
       positioningToCoords: availability.diagnostics.positioningToCoords,
       positioningCoordsKnown: availability.diagnostics.positioningCoordsKnown,
       positioningNeededMinutes: availability.diagnostics.positioningNeededMinutes,
+      positioningGapMinutes: availability.diagnostics.positioningGapMinutes,
+      earliestReadyLocal: availability.diagnostics.earliestReadyLocal,
+      nextPickupLocal: availability.diagnostics.nextPickupLocal,
       blockedTimeOverlap: availability.diagnostics.blockedTimeOverlap,
       blockingInterval: availability.diagnostics.blockingInterval,
       available: availability.available,

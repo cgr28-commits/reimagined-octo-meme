@@ -29,8 +29,10 @@ import {
   coordsFromPlaceLabel,
   customerAvailabilityMessage,
   evaluateSmartAvailability,
+  findLatestSafePickup,
   labelsLikelySamePlace,
   occupiedJobsFromPaidBooking,
+  positioningOverrunsDeadline,
   positioningTimeNeededMinutes,
   repositionMinutes,
   resolveSmartOpsPoint,
@@ -1346,22 +1348,52 @@ console.log("\n=== Same-place zero-gap jobs need minimum turnaround ===");
     tripTime: "10:00",
     durationMinutes: 20,
   };
-  const decision = evaluateSmartAvailability({
+  const tooClose = evaluateSmartAvailability({
     requested: {
       pickupLabel: "Belfast City Centre",
       dropoffLabel: "Belfast International Airport",
       pickup: BELFAST,
       dropoff: BFS,
       tripDate: MONDAY,
-      tripTime: "10:40",
+      tripTime: "10:29",
       durationMinutes: 20,
     },
     occupied: [first],
     config,
     searchAlternatives: false,
   });
-  assert.equal(decision.available, false);
-  assert.equal(decision.reason, SMART_OPS_REASON.CONFLICT_MINIMUM_TURNAROUND);
+  assert.equal(tooClose.available, false);
+  const readyAt1030 = evaluateSmartAvailability({
+    requested: {
+      pickupLabel: "Belfast City Centre",
+      dropoffLabel: "Belfast International Airport",
+      pickup: BELFAST,
+      dropoff: BFS,
+      tripDate: MONDAY,
+      tripTime: "10:35",
+      durationMinutes: 20,
+    },
+    occupied: [first],
+    config,
+    searchAlternatives: false,
+  });
+  assert.equal(readyAt1030.available, true);
+  assert.equal(
+    positioningOverrunsDeadline(
+      Date.parse(`${MONDAY}T10:20:00+01:00`),
+      10,
+      Date.parse(`${MONDAY}T10:29:00+01:00`),
+    ),
+    true,
+  );
+  assert.equal(
+    positioningOverrunsDeadline(
+      Date.parse(`${MONDAY}T10:20:00+01:00`),
+      10,
+      Date.parse(`${MONDAY}T10:30:00+01:00`),
+    ),
+    false,
+  );
   console.log("OK  minimum turnaround");
 }
 
@@ -1535,13 +1567,11 @@ console.log("\n=== Geographical positioning: City Centre → Larne after 05:45 =
     searchAlternatives: false,
     now: new Date("2026-09-06T12:00:00+01:00"),
   });
-  // 05:30 finishes 06:00 + 15 min buffer = 06:15. Gap to 07:00 is 45 minutes.
-  const gap0530 = 45;
-  if (cityToLarne > gap0530) {
-    assert.equal(alt0530.available, false);
+  // 05:30 finishes 06:00. 06:00 + 58 needed = 06:58, which is before 07:00.
+  const needed0530 = positioningTimeNeededMinutes(cityToLarne, 10);
+  assert.equal(alt0530.available, needed0530 <= 60);
+  if (needed0530 > 60) {
     assert.ok(!earlier.includes("05:30"));
-  } else {
-    assert.equal(alt0530.available, true);
   }
 
   const alt0515 = evaluateSmartAvailability({
@@ -1682,21 +1712,42 @@ console.log("\n=== Live 05:45 case: airport code must not move Larne onto BHD ==
     },
     occupied: fromPaid,
     config,
+    searchAlternatives: false,
     now: new Date("2026-09-06T12:00:00+01:00"),
   });
   assert.equal(positioningTimeNeededMinutes(30, 10), 40);
   assert.equal(positioningTimeNeededMinutes(0, 10), 10);
   assert.equal(positioningTimeNeededMinutes(cityToLarne, 10), cityToLarne + 10);
-  // Google-fastest ~30 min + 10 turnaround = 40. 05:45 only leaves 30 minutes
-  // after the post-journey buffer (06:30 → 07:00), so it must stay unavailable.
+  // Finish 06:15 + 58 needed = 07:13, after the 07:00 Larne pickup.
   assert.ok(cityToLarne >= 40);
   assert.ok(cityToLarne + 10 > 30);
   assert.equal(proposed0545.available, false);
+  assert.equal(proposed0545.reason, SMART_OPS_REASON.CONFLICT_NEXT_BOOKING);
   assert.equal(proposed0545.diagnostics.positioningMinutes, cityToLarne);
   assert.equal(proposed0545.diagnostics.positioningNeededMinutes, cityToLarne + 10);
+  assert.equal(proposed0545.diagnostics.estimatedCompletionLocal, `${MONDAY}T06:15`);
+  assert.equal(proposed0545.diagnostics.earliestReadyLocal, `${MONDAY}T07:13`);
+  assert.equal(proposed0545.diagnostics.nextPickupLocal, `${MONDAY}T07:00`);
+  assert.equal(proposed0545.diagnostics.positioningGapMinutes, 45);
+  assert.equal(positioningOverrunsDeadline(Date.parse("2026-09-07T06:15:00+01:00"), cityToLarne + 10, Date.parse("2026-09-07T07:00:00+01:00")), true);
   assert.notEqual(proposed0545.diagnostics.positioningMinutes, cityToBhd);
   assert.ok((proposed0545.diagnostics.positioningToCoords?.lat || 0) > 54.8);
-  assert.ok(!(proposed0545.alternatives || []).some((item) => item.tripTime === "05:30"));
+  const withAlts = evaluateSmartAvailability({
+    requested: {
+      pickupLabel: "Belfast International Airport",
+      dropoffLabel: "Belfast City Centre",
+      tripDate: MONDAY,
+      tripTime: "05:45",
+      durationMinutes: 30,
+      airportCode: "BFS",
+      isFromAirport: true,
+    },
+    occupied: fromPaid,
+    config,
+    now: new Date("2026-09-06T12:00:00+01:00"),
+  });
+  assert.equal(withAlts.available, false);
+  assert.ok((withAlts.alternatives || []).some((item) => item.tripTime === "05:30"));
 
   const reverse = evaluateSmartAvailability({
     requested: {
@@ -1728,6 +1779,75 @@ console.log("\n=== Live 05:45 case: airport code must not move Larne onto BHD ==
   assert.equal(reverse.diagnostics.positioningFromLabel, "Belfast City Centre");
   assert.equal(reverse.diagnostics.positioningToLabel, "12 Wyncairn Gardens, Larne BT40 2EB");
   console.log(`OK  live 05:45 trap: City→BHD ${cityToBhd} min vs City→Larne ${cityToLarne} min; 05:45 unavailable`);
+}
+
+console.log("\n=== Decision must enforce 58-minute City→Larne need after 05:45 ===");
+{
+  const larneAt0700 = occupiedJobsFromPaidBooking({
+    id: "JOB-LARNE-0700-DECISION",
+    pickupLabel: "12 Wyncairn Gardens, Larne BT40 2EB",
+    dropoffLabel: "George Best Belfast City Airport",
+    tripDate: MONDAY,
+    tripTime: "07:00",
+    airportCode: "BHD",
+    pickupLat: BHD.lat,
+    pickupLng: BHD.lng,
+    dropoffLat: BHD.lat,
+    dropoffLng: BHD.lng,
+    routeDurationMinutes: 14,
+  });
+  const requested = {
+    pickupLabel: "Belfast International Airport",
+    dropoffLabel: "Belfast City Centre",
+    tripDate: MONDAY,
+    tripTime: "05:45",
+    durationMinutes: 30,
+    airportCode: "BFS",
+    isFromAirport: true,
+  };
+  const proposed0545 = evaluateSmartAvailability({
+    requested,
+    occupied: larneAt0700,
+    config,
+    searchAlternatives: false,
+    now: new Date("2026-09-06T12:00:00+01:00"),
+  });
+  assert.equal(proposed0545.diagnostics.nextPositioningMinutes, 48);
+  assert.equal(proposed0545.diagnostics.positioningNeededMinutes, 58);
+  assert.equal(proposed0545.diagnostics.estimatedCompletionLocal, `${MONDAY}T06:15`);
+  assert.equal(proposed0545.diagnostics.earliestReadyLocal, `${MONDAY}T07:13`);
+  assert.equal(proposed0545.diagnostics.nextPickupLocal, `${MONDAY}T07:00`);
+  assert.equal(proposed0545.diagnostics.positioningGapMinutes, 45);
+  assert.equal(proposed0545.available, false);
+  assert.equal(proposed0545.reason, SMART_OPS_REASON.CONFLICT_NEXT_BOOKING);
+  assert.ok(proposed0545.warnings.some((item) => item.reason === SMART_OPS_REASON.CONFLICT_NEXT_BOOKING));
+
+  const latest = findLatestSafePickup({
+    requested,
+    occupied: larneAt0700,
+    config,
+    beforeTime: "07:00",
+    now: new Date("2026-09-06T12:00:00+01:00"),
+    stepMinutes: 1,
+  });
+  assert.ok(latest, "expected a safe pickup before 07:00");
+  assert.equal(latest?.tripTime, "05:32");
+  assert.equal(latest?.decision.available, true);
+  assert.equal(latest?.decision.diagnostics.estimatedCompletionLocal, `${MONDAY}T06:02`);
+  assert.equal(latest?.decision.diagnostics.earliestReadyLocal, `${MONDAY}T07:00`);
+  assert.equal(latest?.decision.diagnostics.positioningNeededMinutes, 58);
+
+  const justLate = evaluateSmartAvailability({
+    requested: { ...requested, tripTime: "05:33" },
+    occupied: larneAt0700,
+    config,
+    searchAlternatives: false,
+    now: new Date("2026-09-06T12:00:00+01:00"),
+  });
+  assert.equal(justLate.available, false);
+  assert.equal(justLate.reason, SMART_OPS_REASON.CONFLICT_NEXT_BOOKING);
+  assert.equal(justLate.diagnostics.earliestReadyLocal, `${MONDAY}T07:01`);
+  console.log("OK  05:45 rejected; latest safe pickup before 07:00 Larne is 05:32");
 }
 
 console.log("\nAll Smart Availability / Smart Return checks passed.");

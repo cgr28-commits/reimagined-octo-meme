@@ -12,7 +12,14 @@ import {
   type UnavailableTimeForm,
 } from "../../shared/smart-availability";
 import { DEFAULT_SMART_OPS_CONFIG, type SmartOpsConfig } from "../../shared/smart-ops-config";
+import {
+  customerAvailabilityMessage,
+  evaluateSmartAvailability,
+  occupiedJobsFromPaidBooking,
+  type SmartOccupiedJob,
+} from "../../shared/smart-conflict";
 import { addDaysYmd, londonYmd } from "../../shared/upcoming-jobs";
+import { fetchOwnerPaidBookings } from "@/lib/paid-bookings-api";
 import {
   evaluateSmartOpsTest,
   fetchSmartOpsCalendar,
@@ -532,7 +539,51 @@ export default function OwnerSmartAvailabilityPanel({ ownerKey }: OwnerSmartAvai
                   normalJourneyFareGbp: Number(test.normalJourneyFareGbp),
                   durationMinutes: Number(test.durationMinutes) || undefined,
                 })) as Record<string, unknown>;
-                setTestResult(result);
+                let occupied: SmartOccupiedJob[] = Array.isArray(result.occupiedJobs)
+                  ? (result.occupiedJobs as SmartOccupiedJob[])
+                  : [];
+                if (!occupied.length) {
+                  const bookings = await fetchOwnerPaidBookings(ownerKey, {
+                    mode: "upcoming",
+                    pastDays: 7,
+                    futureDays: 21,
+                    limit: 250,
+                  });
+                  occupied = bookings.flatMap((booking) => occupiedJobsFromPaidBooking(booking));
+                }
+                const local = evaluateSmartAvailability({
+                  requested: {
+                    pickupLabel: test.pickupLabel,
+                    dropoffLabel: test.dropoffLabel,
+                    tripDate: test.tripDate,
+                    tripTime: test.tripTime,
+                    vehicle: test.vehicle,
+                    durationMinutes: Number(test.durationMinutes) || undefined,
+                  },
+                  occupied,
+                  rules: state?.rules,
+                  exceptions: state?.exceptions,
+                  config: (result.config as SmartOpsConfig) || config,
+                  now: new Date(),
+                });
+                const localDiagnostics = {
+                  ...(typeof result.diagnostics === "object" && result.diagnostics
+                    ? (result.diagnostics as Record<string, unknown>)
+                    : {}),
+                  ...local.diagnostics,
+                  available: local.available,
+                  reason: local.reason,
+                  alternativeReason: local.alternativeReason,
+                  suggestedAlternatives: local.alternatives,
+                  engine: "preview-local",
+                };
+                setTestResult({
+                  ...result,
+                  availability: local,
+                  customerMessage: customerAvailabilityMessage(local, test.tripTime),
+                  diagnostics: localDiagnostics,
+                  workerAvailability: result.availability,
+                });
               } catch (err) {
                 setError(err instanceof Error ? err.message : "Test failed");
               } finally {
@@ -546,6 +597,38 @@ export default function OwnerSmartAvailabilityPanel({ ownerKey }: OwnerSmartAvai
         </div>
         {testResult ? (
           <div className="mt-3 space-y-2">
+            {(() => {
+              const diag = (testResult.diagnostics || {}) as Record<string, unknown>;
+              const available = diag.available === true;
+              return (
+                <p
+                  className={`rounded-xl px-3 py-2 text-sm font-semibold ${
+                    available ? "bg-emerald/20 text-emerald" : "bg-red-500/20 text-red-100"
+                  }`}
+                >
+                  {available ? "Available" : "Not available"}
+                  {diag.reason ? ` · ${String(diag.reason)}` : ""}
+                  {(diag.estimatedCompletionLocal || diag.estimatedCompletion) &&
+                  diag.positioningNeededMinutes != null ? (
+                    <span className="mt-1 block text-xs font-normal opacity-90">
+                      Finishes{" "}
+                      {String(diag.estimatedCompletionLocal || diag.estimatedCompletion).slice(11, 16)},
+                      needs{" "}
+                      {String(diag.positioningNeededMinutes)} min positioning
+                      {diag.earliestReadyLocal
+                        ? `, earliest ready ${String(diag.earliestReadyLocal).slice(11, 16)}`
+                        : ""}
+                      {diag.nextPickupLocal
+                        ? `, next pickup ${String(diag.nextPickupLocal).slice(11, 16)}`
+                        : ""}
+                      {typeof diag.positioningGapMinutes === "number"
+                        ? ` (gap ${diag.positioningGapMinutes} min)`
+                        : ""}
+                    </span>
+                  ) : null}
+                </p>
+              );
+            })()}
             {testResult.diagnostics ? (
               <dl className="grid gap-1 rounded-xl bg-black/30 p-3 text-[11px] text-white/80">
                 {Object.entries(testResult.diagnostics as Record<string, unknown>).map(([key, value]) => (

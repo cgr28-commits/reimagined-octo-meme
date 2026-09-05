@@ -97,6 +97,11 @@ export type SmartAvailabilityDiagnostics = {
   positioningToCoords: SmartCoords | null;
   positioningCoordsKnown: boolean;
   positioningNeededMinutes: number | null;
+  /** Minutes from estimated drop-off to the next on-site deadline. */
+  positioningGapMinutes: number | null;
+  /** Estimated drop-off plus positioningNeededMinutes. */
+  earliestReadyLocal: string | null;
+  nextPickupLocal: string | null;
   blockedTimeOverlap: boolean;
   blockingInterval: {
     startLocal: string;
@@ -461,6 +466,8 @@ type JobWindow = {
   pickupMs: number | null;
   start: number | null;
   end: number | null;
+  /** Passenger drop-off — positioning clock starts here, not after the post-buffer. */
+  journeyEnd: number | null;
   duration: number;
   preBuffer: number;
   postBuffer: number;
@@ -481,6 +488,7 @@ function jobWindow(job: SmartOccupiedJob, config: SmartOpsConfig): JobWindow {
     pickupMs: startPickup,
     start: startPickup == null ? null : startPickup - preBuffer * 60 * 1000,
     end: startPickup == null ? null : startPickup + (duration + postBuffer) * 60 * 1000,
+    journeyEnd: startPickup == null ? null : startPickup + duration * 60 * 1000,
     duration,
     preBuffer,
     postBuffer,
@@ -547,10 +555,49 @@ function conflictReasonForJob(
     : SMART_OPS_REASON.CONFLICT_EXISTING_BOOKING;
 }
 
+function positioningWarning(
+  occupied: SmartOccupiedJob,
+  laterBooking: boolean,
+  travel: number,
+  minTurnaround: number,
+): SmartConflictWarning {
+  return {
+    bookingId: occupied.id,
+    reason: conflictReasonForJob(
+      occupied,
+      laterBooking,
+      travel > 0 ? "positioning" : "turnaround",
+    ),
+    summary:
+      travel > 0
+        ? laterBooking
+          ? `Not enough time to reach booking ${occupied.id}`
+          : `Not enough time after booking ${occupied.id} to reach this pickup`
+        : laterBooking
+          ? `Minimum ${minTurnaround}-minute turnaround needed before booking ${occupied.id}`
+          : `Minimum ${minTurnaround}-minute turnaround needed after booking ${occupied.id}`,
+  };
+}
+
+/**
+ * True when drop-off + (travel + turnaround) is later than the next on-site time.
+ * This is the availability rule — operational buffers must not hide it.
+ */
+export function positioningOverrunsDeadline(
+  fromCompletionMs: number,
+  neededMinutes: number,
+  onSiteDeadlineMs: number,
+): boolean {
+  if (!Number.isFinite(fromCompletionMs) || !Number.isFinite(onSiteDeadlineMs)) return false;
+  const needed = Math.max(0, Math.round(neededMinutes));
+  return fromCompletionMs + needed * 60_000 > onSiteDeadlineMs + 10;
+}
+
 function conflictAgainstJob(
   requestedStart: number,
   requestedEnd: number,
   requestedPickupAt: number,
+  requestedJourneyEnd: number,
   requestedPickup: SmartCoords | null,
   requestedDropoff: SmartCoords | null,
   requestedPickupLabel: string,
@@ -571,49 +618,25 @@ function conflictAgainstJob(
     };
   }
 
-  if (requestedEnd <= window.start) {
-    const gap = (window.start - requestedEnd) / 60000;
+  if (laterBooking && window.start != null) {
     const travel = repositionMinutes(requestedDropoff, window.pickup, {
       fromLabel: requestedDropoffLabel,
       toLabel: window.pickupLabel,
     });
     const needed = positioningTimeNeededMinutes(travel, minTurnaround);
-    if (gap + 0.01 < needed) {
-      return {
-        bookingId: occupied.id,
-        reason: conflictReasonForJob(
-          occupied,
-          true,
-          travel > 0 ? "positioning" : "turnaround",
-        ),
-        summary:
-          travel > minTurnaround
-            ? `Not enough time to reach booking ${occupied.id}`
-            : `Minimum ${minTurnaround}-minute turnaround needed before booking ${occupied.id}`,
-      };
+    if (positioningOverrunsDeadline(requestedJourneyEnd, needed, window.start)) {
+      return positioningWarning(occupied, true, travel, minTurnaround);
     }
   }
 
-  if (window.end <= requestedStart) {
-    const gap = (requestedStart - window.end) / 60000;
+  if (!laterBooking && window.journeyEnd != null) {
     const travel = repositionMinutes(window.dropoff, requestedPickup, {
       fromLabel: window.finishLabel,
       toLabel: requestedPickupLabel,
     });
     const needed = positioningTimeNeededMinutes(travel, minTurnaround);
-    if (gap + 0.01 < needed) {
-      return {
-        bookingId: occupied.id,
-        reason: conflictReasonForJob(
-          occupied,
-          false,
-          travel > 0 ? "positioning" : "turnaround",
-        ),
-        summary:
-          travel > minTurnaround
-            ? `Not enough time after booking ${occupied.id} to reach this pickup`
-            : `Minimum ${minTurnaround}-minute turnaround needed after booking ${occupied.id}`,
-      };
+    if (positioningOverrunsDeadline(window.journeyEnd, needed, requestedStart)) {
+      return positioningWarning(occupied, false, travel, minTurnaround);
     }
   }
 
@@ -674,6 +697,9 @@ function emptyDiagnostics(
     positioningToCoords: null,
     positioningCoordsKnown: false,
     positioningNeededMinutes: null,
+    positioningGapMinutes: null,
+    earliestReadyLocal: null,
+    nextPickupLocal: null,
     blockedTimeOverlap: false,
     blockingInterval: null,
   };
@@ -809,6 +835,32 @@ export function evaluateSmartAvailability(input: {
       input.config.buffers.minTurnaroundMinutes,
     );
   }
+  if (next) {
+    const nextWindow = jobWindow(next, input.config);
+    diagnostics.nextPickupLocal = localFromMs(nextWindow.pickupMs);
+    if (window.journeyEnd != null && nextWindow.start != null) {
+      diagnostics.positioningGapMinutes = Math.round((nextWindow.start - window.journeyEnd) / 60_000);
+    }
+    if (window.journeyEnd != null && diagnostics.positioningNeededMinutes != null) {
+      diagnostics.earliestReadyLocal = localFromMs(
+        window.journeyEnd + diagnostics.positioningNeededMinutes * 60_000,
+      );
+    }
+  } else if (previous && diagnostics.previousPositioningMinutes != null) {
+    const prevWindow = jobWindow(previous, input.config);
+    const needed = positioningTimeNeededMinutes(
+      diagnostics.previousPositioningMinutes,
+      input.config.buffers.minTurnaroundMinutes,
+    );
+    if (prevWindow.journeyEnd != null) {
+      diagnostics.positioningGapMinutes =
+        window.operationalStart == null
+          ? null
+          : Math.round((window.operationalStart - prevWindow.journeyEnd) / 60_000);
+      diagnostics.earliestReadyLocal = localFromMs(prevWindow.journeyEnd + needed * 60_000);
+      diagnostics.nextPickupLocal = localFromMs(start);
+    }
+  }
 
   const warnings: SmartConflictWarning[] = [];
   for (const job of activeJobs) {
@@ -816,6 +868,7 @@ export function evaluateSmartAvailability(input: {
       window.operationalStart,
       window.operationalEnd,
       start,
+      window.journeyEnd ?? window.operationalEnd,
       window.pickup,
       window.dropoff,
       input.requested.pickupLabel,
@@ -824,6 +877,51 @@ export function evaluateSmartAvailability(input: {
       input.config,
     );
     if (warning) warnings.push(warning);
+  }
+
+  // Same numbers as the diagnostics — never let operational-window padding
+  // skip the travel + turnaround requirement that the owner just saw.
+  if (next && window.journeyEnd != null && diagnostics.positioningNeededMinutes != null) {
+    const nextWindow = jobWindow(next, input.config);
+    if (
+      nextWindow.start != null &&
+      positioningOverrunsDeadline(
+        window.journeyEnd,
+        diagnostics.positioningNeededMinutes,
+        nextWindow.start,
+      ) &&
+      !warnings.some((item) => item.bookingId === next.id)
+    ) {
+      warnings.push(
+        positioningWarning(
+          next,
+          true,
+          diagnostics.nextPositioningMinutes || 0,
+          input.config.buffers.minTurnaroundMinutes,
+        ),
+      );
+    }
+  }
+  if (previous && diagnostics.previousPositioningMinutes != null) {
+    const prevWindow = jobWindow(previous, input.config);
+    const needed = positioningTimeNeededMinutes(
+      diagnostics.previousPositioningMinutes,
+      input.config.buffers.minTurnaroundMinutes,
+    );
+    if (
+      prevWindow.journeyEnd != null &&
+      positioningOverrunsDeadline(prevWindow.journeyEnd, needed, window.operationalStart) &&
+      !warnings.some((item) => item.bookingId === previous.id)
+    ) {
+      warnings.push(
+        positioningWarning(
+          previous,
+          false,
+          diagnostics.previousPositioningMinutes,
+          input.config.buffers.minTurnaroundMinutes,
+        ),
+      );
+    }
   }
 
   // Backup-driver mode must not bypass conflicts until real assignment exists.
@@ -878,6 +976,40 @@ export function evaluateSmartAvailability(input: {
     ownerOverrideApplied: Boolean(input.ownerOverride && reason === SMART_OPS_REASON.OWNER_OVERRIDE),
     diagnostics,
   };
+}
+
+/** Latest same-day pickup that still satisfies positioning before `beforeTime`. */
+export function findLatestSafePickup(input: {
+  requested: SmartRequestedJourney;
+  occupied: SmartOccupiedJob[];
+  rules?: SmartAvailabilityRule[];
+  exceptions?: SmartAvailabilityException[];
+  legacyPeriods?: UnavailablePeriod[];
+  config: SmartOpsConfig;
+  beforeTime: string;
+  now?: Date;
+  stepMinutes?: number;
+}): { tripTime: string; decision: SmartAvailabilityDecision } | null {
+  if (pickupMs(input.requested.tripDate, input.beforeTime) == null) return null;
+  const step = input.stepMinutes && input.stepMinutes > 0 ? input.stepMinutes : 1;
+  for (let minutes = step; minutes <= 12 * 60; minutes += step) {
+    const shifted = addMinutesToTrip(input.requested.tripDate, input.beforeTime, -minutes);
+    if (!shifted || shifted.tripDate !== input.requested.tripDate) continue;
+    const decision = evaluateSmartAvailability({
+      requested: { ...input.requested, ...shifted },
+      occupied: input.occupied,
+      rules: input.rules,
+      exceptions: input.exceptions,
+      legacyPeriods: input.legacyPeriods,
+      config: input.config,
+      searchAlternatives: false,
+      now: input.now,
+    });
+    if (decision.available) {
+      return { tripTime: shifted.tripTime, decision };
+    }
+  }
+  return null;
 }
 
 const ALT_STEPS = [15, 30, 45, 60, 90] as const;
