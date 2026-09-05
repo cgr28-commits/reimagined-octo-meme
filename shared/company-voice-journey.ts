@@ -21,16 +21,18 @@ export const COMPANY_VOICE_BUSINESS_NAME = "My Airport Taxi NI";
 
 export type CompanyVoiceAirportAccessOption = AirportAccessOption;
 
+export const AIRPORT_PICKUP_HEADING = "✈️ Airport Pick-Up";
+
 export const AIRPORT_PICKUP_COPY = {
   express: "Please make your way to Express Pick-Up.",
   bfsBhdFree:
-    "Please make your way to the Long Stay Car Park Free Pick-Up Location and let us know when you have arrived. Your driver will then head over to meet you. Please note there is a maximum stay of 10 minutes at the Free Pick-Up Location.",
+    "Please make your way to the Long Stay Car Park Free Pick-Up Location. Please let us know when you're there so your driver can head over to meet you. Please note there is a maximum stay of 10 minutes at the Free Pick-Up Location.",
   dubT1:
-    "Please make your way to the paid Pick-Up Location at Terminal 1 and let us know when you have arrived. Your driver will then head over to meet you. Please note there is a maximum stay of 10 minutes at the Pick-Up Location.",
+    "Please make your way to the paid Pick-Up Location at Terminal 1. Please let us know when you're there so your driver can head over to meet you. Please note there is a maximum stay of 10 minutes at the Pick-Up Location.",
   dubT2:
-    "Please make your way to the paid Pick-Up Location at Terminal 2 and let us know when you have arrived. Your driver will then head over to meet you. Please note there is a maximum stay of 10 minutes at the Pick-Up Location.",
+    "Please make your way to the paid Pick-Up Location at Terminal 2. Please let us know when you're there so your driver can head over to meet you. Please note there is a maximum stay of 10 minutes at the Pick-Up Location.",
   dubUnknown:
-    "Please make your way to the paid Pick-Up Location at Dublin Airport and let us know when you have arrived. Your driver will then head over to meet you. Please note there is a maximum stay of 10 minutes at the Pick-Up Location. Your arrival terminal still needs confirmation.",
+    "Please make your way to the agreed paid Pick-Up Location at Dublin Airport. Please let us know when you're there so your driver can head over to meet you. Please note there is a maximum stay of 10 minutes at the Pick-Up Location. Your arrival terminal still needs confirmation.",
   generic: "Please make your way to the agreed airport pickup point.",
   street: "Your driver is now at your pickup location and ready when you are.",
 } as const;
@@ -83,6 +85,15 @@ export function resolveCompanyVoiceAirportAccessOption(
   });
 }
 
+export function isCompanyVoiceAirportPickup(
+  booking: CompanyVoiceJourneyBooking,
+): boolean {
+  return (
+    booking.isAirportPickup === true ||
+    Boolean(matchServedAirportCode(booking.pickupLabel ?? ""))
+  );
+}
+
 /**
  * Airport meeting-point copy for the active pickup leg.
  * Depends only on airport + selected pickup option + Dublin terminal — not who pressed the button.
@@ -90,10 +101,7 @@ export function resolveCompanyVoiceAirportAccessOption(
 export function buildAirportPickupInstruction(
   booking: CompanyVoiceJourneyBooking,
 ): string | null {
-  const airportPickup =
-    booking.isAirportPickup === true ||
-    Boolean(matchServedAirportCode(booking.pickupLabel ?? ""));
-  if (!airportPickup) return null;
+  if (!isCompanyVoiceAirportPickup(booking)) return null;
 
   const airportCode = resolveCompanyVoiceAirportCode(booking);
   const access = resolveCompanyVoiceAirportAccessOption(booking);
@@ -137,7 +145,7 @@ export function buildArrivedAirportCompanyVoiceMessage(
     buildAirportPickupInstruction({ ...booking, isAirportPickup: true }) ||
     AIRPORT_PICKUP_COPY.generic;
 
-  return ["✈️ Your driver has arrived", "", instruction].join("\n");
+  return [AIRPORT_PICKUP_HEADING, "", instruction].join("\n");
 }
 
 export function buildArrivedCompanyVoiceWhatsAppMessage(
@@ -152,14 +160,11 @@ export function buildArrivedCompanyVoiceEmailBody(
   booking: CompanyVoiceJourneyBooking,
 ): string {
   const first = companyVoiceCustomerFirstName(booking.customerName ?? "");
-  const airportPickup =
-    booking.isAirportPickup === true ||
-    Boolean(matchServedAirportCode(booking.pickupLabel ?? ""));
-  if (airportPickup) {
+  if (isCompanyVoiceAirportPickup(booking)) {
     const instruction =
       buildAirportPickupInstruction({ ...booking, isAirportPickup: true }) ||
       AIRPORT_PICKUP_COPY.generic;
-    return `Hi ${first}, your driver has arrived. ${instruction}`;
+    return `Hi ${first}, ${instruction}`;
   }
   return `Hi ${first}, your driver has arrived at your pickup location. ${AIRPORT_PICKUP_COPY.street}`;
 }
@@ -181,4 +186,6 @@ export const FORBIDDEN_PERSONAL_VOICE_PATTERNS: RegExp[] = [
   /your My Airport Taxi NI driver/i,
   /Your My Airport Taxi NI driver/,
   /My Airport Taxi NI driver/i,
+  /driver is waiting there/i,
+  /already waiting/i,
 ];

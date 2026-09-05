@@ -94,9 +94,10 @@ const airport = buildArrivedPickupWhatsAppMessage({
   airportAccessOption: "express",
   vehicle: { colour: "Black", make: "Mercedes", model: "E-Class", registration: "ABC123" },
 });
-assert.match(airport, /✈️ Your driver has arrived/);
+assert.match(airport, /✈️ Airport Pick-Up/);
+assert.doesNotMatch(airport, /Your driver has arrived/);
 assert.match(airport, /Please make your way to Express Pick-Up\./);
-assert.doesNotMatch(airport, /waiting there|My Airport Taxi NI driver/);
+assert.doesNotMatch(airport, /waiting there|already waiting|My Airport Taxi NI driver/);
 assert.doesNotMatch(airport, /Registration: ABC123|Your vehicle:|Mercedes/);
 console.log("OK  arrival WhatsApp company voice; vehicle details ignored");
 

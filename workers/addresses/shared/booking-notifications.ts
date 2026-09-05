@@ -37,8 +37,10 @@ import {
   type AdsAttribution,
 } from "./ads-attribution";
 import {
+  AIRPORT_PICKUP_HEADING,
   buildArrivedCompanyVoiceEmailBody,
   buildOnTheWayCompanyVoiceMessage,
+  isCompanyVoiceAirportPickup,
   type CompanyVoiceAirportAccessOption,
 } from "./company-voice-journey";
 
@@ -1628,8 +1630,7 @@ export function buildDriverArrivedPickupEmail(
   void details.vehicleColour;
   void details.partialRegistration;
   void details.trackUrl;
-  const subject = `Your driver has arrived — ${businessName}`;
-  const bodyLine = buildArrivedCompanyVoiceEmailBody({
+  const booking = {
     customerName: details.customerName,
     bookedPickupTime: details.bookedPickupTime,
     pickupLabel: details.pickupLabel,
@@ -1640,7 +1641,13 @@ export function buildDriverArrivedPickupEmail(
     expressDropOffAirport: details.expressDropOffAirport,
     expressDropOffFee: details.expressDropOffFee,
     dublinArrivalTerminal: details.dublinArrivalTerminal,
-  });
+  };
+  const airportPickup = isCompanyVoiceAirportPickup(booking);
+  const statusHeading = airportPickup ? AIRPORT_PICKUP_HEADING : "Your driver has arrived";
+  const subject = airportPickup
+    ? `${AIRPORT_PICKUP_HEADING} — ${businessName}`
+    : `Your driver has arrived — ${businessName}`;
+  const bodyLine = buildArrivedCompanyVoiceEmailBody(booking);
 
   const text = `${bodyLine}\n\n${journeyStatusContactText(businessName)}`;
 
@@ -1660,7 +1667,7 @@ export function buildDriverArrivedPickupEmail(
             <td style="background:${NAVY};padding:28px 32px;text-align:center;">
               <img src="${LOGO_URL}" alt="${escapeHtml(businessName)}" height="72" style="display:block;margin:0 auto;height:72px;width:auto;max-width:100%;" />
               <div style="margin-top:16px;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:${ACCENT};font-weight:bold;">${escapeHtml(businessName)}</div>
-              <div style="margin-top:8px;font-size:22px;line-height:1.35;color:#ffffff;font-weight:bold;">Your driver has arrived</div>
+              <div style="margin-top:8px;font-size:22px;line-height:1.35;color:#ffffff;font-weight:bold;">${escapeHtml(statusHeading)}</div>
             </td>
           </tr>
           <tr>

@@ -17,8 +17,10 @@ import {
 } from "../shared/arrival-whatsapp";
 import {
   AIRPORT_PICKUP_COPY,
+  AIRPORT_PICKUP_HEADING,
   FORBIDDEN_PERSONAL_VOICE_PATTERNS,
   buildAirportPickupInstruction,
+  buildArrivedAirportCompanyVoiceMessage,
   buildOnTheWayCompanyVoiceMessage,
   type CompanyVoiceJourneyBooking,
 } from "../shared/company-voice-journey";
@@ -224,72 +226,135 @@ check("Customer outputs contain no owner or assigned-driver identity or vehicle 
 });
 
 check("Airport pickup rules: BFS/BHD Express, Long Stay free, Dublin T1/T2/unknown", () => {
-  const bfsExpress = buildAirportPickupInstruction({
+  const bfsExpressBooking = {
     isAirportPickup: true,
     pickupLabel: "Belfast International Airport",
-    airportCode: "BFS",
-    airportAccessOption: "express",
-  });
-  const bfsFree = buildAirportPickupInstruction({
+    airportCode: "BFS" as const,
+    airportAccessOption: "express" as const,
+  };
+  const bfsFreeBooking = {
     isAirportPickup: true,
     pickupLabel: "Belfast International Airport",
-    airportCode: "BFS",
-    airportAccessOption: "free",
-  });
-  const bhdExpress = buildAirportPickupInstruction({
+    airportCode: "BFS" as const,
+    airportAccessOption: "free" as const,
+  };
+  const bhdExpressBooking = {
     isAirportPickup: true,
     pickupLabel: "George Best Belfast City Airport",
-    airportCode: "BHD",
-    airportAccessOption: "express",
-  });
-  const bhdFree = buildAirportPickupInstruction({
+    airportCode: "BHD" as const,
+    airportAccessOption: "express" as const,
+  };
+  const bhdFreeBooking = {
     isAirportPickup: true,
     pickupLabel: "George Best Belfast City Airport",
-    airportCode: "BHD",
-    airportAccessOption: "free",
-  });
-  const dubT1 = buildAirportPickupInstruction({
+    airportCode: "BHD" as const,
+    airportAccessOption: "free" as const,
+  };
+  const dubT1Booking = {
     isAirportPickup: true,
     pickupLabel: "Dublin Airport",
-    airportCode: "DUB",
-    dublinArrivalTerminal: "T1",
-  });
-  const dubT2 = buildAirportPickupInstruction({
+    airportCode: "DUB" as const,
+    dublinArrivalTerminal: "T1" as const,
+  };
+  const dubT2Booking = {
     isAirportPickup: true,
     pickupLabel: "Dublin Airport",
-    airportCode: "DUB",
-    dublinArrivalTerminal: "T2",
-  });
-  const dubUnknown = buildAirportPickupInstruction({
+    airportCode: "DUB" as const,
+    dublinArrivalTerminal: "T2" as const,
+  };
+  const dubUnknownBooking = {
     isAirportPickup: true,
     pickupLabel: "Dublin Airport",
-    airportCode: "DUB",
-  });
+    airportCode: "DUB" as const,
+  };
+
+  const bfsExpress = buildAirportPickupInstruction(bfsExpressBooking);
+  const bfsFree = buildAirportPickupInstruction(bfsFreeBooking);
+  const bhdExpress = buildAirportPickupInstruction(bhdExpressBooking);
+  const bhdFree = buildAirportPickupInstruction(bhdFreeBooking);
+  const dubT1 = buildAirportPickupInstruction(dubT1Booking);
+  const dubT2 = buildAirportPickupInstruction(dubT2Booking);
+  const dubUnknown = buildAirportPickupInstruction(dubUnknownBooking);
   const street = buildAirportPickupInstruction({
     isAirportPickup: false,
     pickupLabel: "25 Wanstead Park, Dundonald",
   });
 
+  assert.equal(AIRPORT_PICKUP_HEADING, "✈️ Airport Pick-Up");
   assert.equal(bfsExpress, AIRPORT_PICKUP_COPY.express);
   assert.equal(bhdExpress, AIRPORT_PICKUP_COPY.express);
-  assert.doesNotMatch(String(bfsExpress), /waiting there|already/i);
-  assert.equal(bfsFree, AIRPORT_PICKUP_COPY.bfsBhdFree);
-  assert.equal(bhdFree, AIRPORT_PICKUP_COPY.bfsBhdFree);
-  assert.match(String(bfsFree), /Long Stay Car Park Free Pick-Up Location/);
+  assert.doesNotMatch(String(bfsExpress), /waiting there|already waiting|Your driver has arrived/i);
+  assert.equal(
+    bfsFree,
+    "Please make your way to the Long Stay Car Park Free Pick-Up Location. Please let us know when you're there so your driver can head over to meet you. Please note there is a maximum stay of 10 minutes at the Free Pick-Up Location.",
+  );
+  assert.equal(bhdFree, bfsFree);
+  assert.equal(
+    dubT1,
+    "Please make your way to the paid Pick-Up Location at Terminal 1. Please let us know when you're there so your driver can head over to meet you. Please note there is a maximum stay of 10 minutes at the Pick-Up Location.",
+  );
+  assert.equal(
+    dubT2,
+    "Please make your way to the paid Pick-Up Location at Terminal 2. Please let us know when you're there so your driver can head over to meet you. Please note there is a maximum stay of 10 minutes at the Pick-Up Location.",
+  );
+  assert.equal(
+    dubUnknown,
+    "Please make your way to the agreed paid Pick-Up Location at Dublin Airport. Please let us know when you're there so your driver can head over to meet you. Please note there is a maximum stay of 10 minutes at the Pick-Up Location. Your arrival terminal still needs confirmation.",
+  );
   assert.match(String(bfsFree), /maximum stay of 10 minutes/);
-  assert.equal(dubT1, AIRPORT_PICKUP_COPY.dubT1);
-  assert.equal(dubT2, AIRPORT_PICKUP_COPY.dubT2);
-  assert.equal(dubUnknown, AIRPORT_PICKUP_COPY.dubUnknown);
-  assert.match(String(dubT1), /Terminal 1/);
-  assert.match(String(dubT2), /Terminal 2/);
+  assert.match(String(dubT1), /maximum stay of 10 minutes/);
   assert.match(String(dubUnknown), /needs confirmation/);
-  assert.match(String(dubUnknown), /maximum stay of 10 minutes/);
   assert.equal(street, null);
 
-  for (const copy of [bfsExpress, bfsFree, bhdExpress, bhdFree, dubT1, dubT2, dubUnknown]) {
-    assert.doesNotMatch(String(copy), /My Airport Taxi NI driver/);
-    assert.doesNotMatch(String(copy), /your My Airport Taxi NI driver/i);
+  const airportWhatsApps = [
+    buildArrivedAirportCompanyVoiceMessage(bfsExpressBooking),
+    buildArrivedAirportCompanyVoiceMessage(bfsFreeBooking),
+    buildArrivedAirportCompanyVoiceMessage(bhdExpressBooking),
+    buildArrivedAirportCompanyVoiceMessage(bhdFreeBooking),
+    buildArrivedAirportCompanyVoiceMessage(dubT1Booking),
+    buildArrivedAirportCompanyVoiceMessage(dubT2Booking),
+    buildArrivedAirportCompanyVoiceMessage(dubUnknownBooking),
+  ];
+  assert.equal(
+    airportWhatsApps[1],
+    `${AIRPORT_PICKUP_HEADING}\n\n${AIRPORT_PICKUP_COPY.bfsBhdFree}`,
+  );
+  assert.equal(
+    airportWhatsApps[3],
+    `${AIRPORT_PICKUP_HEADING}\n\n${AIRPORT_PICKUP_COPY.bfsBhdFree}`,
+  );
+  assert.equal(
+    airportWhatsApps[4],
+    `${AIRPORT_PICKUP_HEADING}\n\n${AIRPORT_PICKUP_COPY.dubT1}`,
+  );
+  assert.equal(
+    airportWhatsApps[5],
+    `${AIRPORT_PICKUP_HEADING}\n\n${AIRPORT_PICKUP_COPY.dubT2}`,
+  );
+  assert.equal(
+    airportWhatsApps[6],
+    `${AIRPORT_PICKUP_HEADING}\n\n${AIRPORT_PICKUP_COPY.dubUnknown}`,
+  );
+
+  for (const message of airportWhatsApps) {
+    assert.match(message, /^✈️ Airport Pick-Up\n\n/);
+    assert.doesNotMatch(message, /Your driver has arrived/);
+    assert.doesNotMatch(message, /My Airport Taxi NI driver/);
+    assert.doesNotMatch(message, /your My Airport Taxi NI driver/i);
+    assert.doesNotMatch(message, /driver is waiting there/i);
+    assert.doesNotMatch(message, /already waiting/i);
   }
+
+  const bfsFreeEmail = buildDriverArrivedPickupEmail({
+    customerName: "Alex Customer",
+    ...bfsFreeBooking,
+  });
+  assert.match(bfsFreeEmail.subject, /✈️ Airport Pick-Up/);
+  assert.doesNotMatch(bfsFreeEmail.subject, /Your driver has arrived/);
+  assert.doesNotMatch(bfsFreeEmail.text, /Your driver has arrived/);
+  assert.doesNotMatch(bfsFreeEmail.html, /Your driver has arrived/);
+  assert.match(bfsFreeEmail.html, /✈️ Airport Pick-Up/);
+  assert.match(bfsFreeEmail.text, /Long Stay Car Park Free Pick-Up Location/);
 
   const ownerAirport = buildArrivedPickupWhatsAppMessage({
     isAirportPickup: true,
@@ -316,9 +381,9 @@ check("Airport pickup rules: BFS/BHD Express, Long Stay free, Dublin T1/T2/unkno
     },
   });
   assert.equal(ownerAirport, assignedAirport);
-  assert.match(ownerAirport, /Long Stay Car Park Free Pick-Up Location/);
+  assert.equal(ownerAirport, `${AIRPORT_PICKUP_HEADING}\n\n${AIRPORT_PICKUP_COPY.bfsBhdFree}`);
   assert.doesNotMatch(ownerAirport, /Express Pick-Up/);
-  assert.doesNotMatch(ownerAirport, /My Airport Taxi NI driver/);
+  assert.doesNotMatch(ownerAirport, /My Airport Taxi NI driver|Your driver has arrived|Colin|Sam|OWN1|AB12|07700/);
 });
 
 check("Dublin terminal parser never guesses and owner override wins", () => {

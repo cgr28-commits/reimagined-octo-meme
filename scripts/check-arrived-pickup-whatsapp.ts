@@ -48,10 +48,12 @@ console.log("\n=== 2. Message templates (company voice, no vehicle) ===");
       registration: "ABC 1234",
     },
   });
-  assert.match(airport, /✈️ Your driver has arrived/);
+  assert.match(airport, /✈️ Airport Pick-Up/);
+  assert.doesNotMatch(airport, /Your driver has arrived/);
   assert.match(airport, /Long Stay Car Park Free Pick-Up Location/);
+  assert.match(airport, /Please let us know when you're there so your driver can head over to meet you/);
   assert.match(airport, /maximum stay of 10 minutes/);
-  assert.doesNotMatch(airport, /My Airport Taxi NI driver|waiting there/);
+  assert.doesNotMatch(airport, /My Airport Taxi NI driver|waiting there|already waiting/);
   assert.doesNotMatch(airport, /Driver:|Colin|Chris|Mercedes|ABC 1234|Your vehicle:|Registration:/);
   console.log("OK  Street + airport templates; no driver name or vehicle");
 }
