@@ -74,6 +74,7 @@ export type PaidBookingDetails = {
   expressDropOffAirport?: "BFS" | "BHD" | null;
   /** Explicit access choice stored with the booking ("express" | "free"). */
   airportAccessOption?: "express" | "free" | null;
+  dublinArrivalTerminal?: "T1" | "T2" | null;
   /** Snapshot of applied promotional pricing (open website). */
   journeyFareBeforePromotionsGbp?: number;
   originalEligibleJourneyPriceGbp?: number;
@@ -1602,6 +1603,7 @@ export type ArrivalNotificationDetails = {
   expressDropOffSelected?: boolean | null;
   expressDropOffAirport?: string | null;
   expressDropOffFee?: number | null;
+  dublinArrivalTerminal?: "T1" | "T2" | string | null;
   /** @deprecated Operator identity must not appear in customer email. */
   driverFirstName?: string;
   /** @deprecated Not shown to customers — kept optional for call-site compatibility. */
@@ -1637,6 +1639,7 @@ export function buildDriverArrivedPickupEmail(
     expressDropOffSelected: details.expressDropOffSelected,
     expressDropOffAirport: details.expressDropOffAirport,
     expressDropOffFee: details.expressDropOffFee,
+    dublinArrivalTerminal: details.dublinArrivalTerminal,
   });
 
   const text = `${bodyLine}\n\n${journeyStatusContactText(businessName)}`;

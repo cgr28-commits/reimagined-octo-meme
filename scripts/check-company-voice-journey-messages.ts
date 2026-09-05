@@ -16,11 +16,16 @@ import {
   buildDriverOnTheWayWhatsAppMessage,
 } from "../shared/arrival-whatsapp";
 import {
+  AIRPORT_PICKUP_COPY,
   FORBIDDEN_PERSONAL_VOICE_PATTERNS,
   buildAirportPickupInstruction,
   buildOnTheWayCompanyVoiceMessage,
   type CompanyVoiceJourneyBooking,
 } from "../shared/company-voice-journey";
+import {
+  parseDublinArrivalTerminal,
+  chooseDublinArrivalTerminal,
+} from "../shared/dublin-arrival-terminal";
 
 const root = process.cwd();
 
@@ -218,7 +223,7 @@ check("Customer outputs contain no owner or assigned-driver identity or vehicle 
   }
 });
 
-check("Airport instructions depend only on active leg, airport and pickup option", () => {
+check("Airport pickup rules: BFS/BHD Express, Long Stay free, Dublin T1/T2/unknown", () => {
   const bfsExpress = buildAirportPickupInstruction({
     isAirportPickup: true,
     pickupLabel: "Belfast International Airport",
@@ -237,23 +242,54 @@ check("Airport instructions depend only on active leg, airport and pickup option
     airportCode: "BHD",
     airportAccessOption: "express",
   });
-  const dublin = buildAirportPickupInstruction({
+  const bhdFree = buildAirportPickupInstruction({
+    isAirportPickup: true,
+    pickupLabel: "George Best Belfast City Airport",
+    airportCode: "BHD",
+    airportAccessOption: "free",
+  });
+  const dubT1 = buildAirportPickupInstruction({
     isAirportPickup: true,
     pickupLabel: "Dublin Airport",
     airportCode: "DUB",
-    airportAccessOption: "express",
+    dublinArrivalTerminal: "T1",
+  });
+  const dubT2 = buildAirportPickupInstruction({
+    isAirportPickup: true,
+    pickupLabel: "Dublin Airport",
+    airportCode: "DUB",
+    dublinArrivalTerminal: "T2",
+  });
+  const dubUnknown = buildAirportPickupInstruction({
+    isAirportPickup: true,
+    pickupLabel: "Dublin Airport",
+    airportCode: "DUB",
   });
   const street = buildAirportPickupInstruction({
     isAirportPickup: false,
     pickupLabel: "25 Wanstead Park, Dundonald",
   });
 
-  assert.match(String(bfsExpress), /Express Pick-Up/);
-  assert.match(String(bfsFree), /designated free pick-up area/);
-  assert.notEqual(bfsExpress, bfsFree);
-  assert.equal(bfsExpress, bhdExpress);
-  assert.match(String(dublin), /agreed airport pickup point/);
+  assert.equal(bfsExpress, AIRPORT_PICKUP_COPY.express);
+  assert.equal(bhdExpress, AIRPORT_PICKUP_COPY.express);
+  assert.doesNotMatch(String(bfsExpress), /waiting there|already/i);
+  assert.equal(bfsFree, AIRPORT_PICKUP_COPY.bfsBhdFree);
+  assert.equal(bhdFree, AIRPORT_PICKUP_COPY.bfsBhdFree);
+  assert.match(String(bfsFree), /Long Stay Car Park Free Pick-Up Location/);
+  assert.match(String(bfsFree), /maximum stay of 10 minutes/);
+  assert.equal(dubT1, AIRPORT_PICKUP_COPY.dubT1);
+  assert.equal(dubT2, AIRPORT_PICKUP_COPY.dubT2);
+  assert.equal(dubUnknown, AIRPORT_PICKUP_COPY.dubUnknown);
+  assert.match(String(dubT1), /Terminal 1/);
+  assert.match(String(dubT2), /Terminal 2/);
+  assert.match(String(dubUnknown), /needs confirmation/);
+  assert.match(String(dubUnknown), /maximum stay of 10 minutes/);
   assert.equal(street, null);
+
+  for (const copy of [bfsExpress, bfsFree, bhdExpress, bhdFree, dubT1, dubT2, dubUnknown]) {
+    assert.doesNotMatch(String(copy), /My Airport Taxi NI driver/);
+    assert.doesNotMatch(String(copy), /your My Airport Taxi NI driver/i);
+  }
 
   const ownerAirport = buildArrivedPickupWhatsAppMessage({
     isAirportPickup: true,
@@ -280,8 +316,26 @@ check("Airport instructions depend only on active leg, airport and pickup option
     },
   });
   assert.equal(ownerAirport, assignedAirport);
-  assert.match(ownerAirport, /designated free pick-up area/);
+  assert.match(ownerAirport, /Long Stay Car Park Free Pick-Up Location/);
   assert.doesNotMatch(ownerAirport, /Express Pick-Up/);
+  assert.doesNotMatch(ownerAirport, /My Airport Taxi NI driver/);
+});
+
+check("Dublin terminal parser never guesses and owner override wins", () => {
+  assert.equal(parseDublinArrivalTerminal("1"), "T1");
+  assert.equal(parseDublinArrivalTerminal("T2"), "T2");
+  assert.equal(parseDublinArrivalTerminal("Terminal 1"), "T1");
+  assert.equal(parseDublinArrivalTerminal("3"), null);
+  assert.equal(parseDublinArrivalTerminal("Pier A"), null);
+  assert.equal(parseDublinArrivalTerminal(""), null);
+  assert.equal(
+    chooseDublinArrivalTerminal({ stored: "T1", source: "owner", fromFlight: "T2" }),
+    "T1",
+  );
+  assert.equal(
+    chooseDublinArrivalTerminal({ stored: null, source: "unresolved", fromFlight: "2" }),
+    "T2",
+  );
 });
 
 check("Active-leg pickup time swaps on return like the pickup label", () => {
@@ -319,6 +373,7 @@ check("Owner and driver portals call the shared builders with booking fields onl
   assert.match(owner, /customerName: booking\.customerName/);
   assert.match(owner, /bookedPickupTime: activeLegPickupTime\(booking\)/);
   assert.match(owner, /airportAccessOption: booking\.airportAccessOption/);
+  assert.match(owner, /dublinArrivalTerminal: activeLegDublinArrivalTerminal\(booking\)/);
   assert.doesNotMatch(owner, /driverFirstName:|vehicleColour:|partialRegistration:/);
   assert.doesNotMatch(owner, /assignedDriverName\?\.trim\(\)\.split/);
 
@@ -326,6 +381,7 @@ check("Owner and driver portals call the shared builders with booking fields onl
   assert.match(driver, /customerName: job\.customerName/);
   assert.match(driver, /bookedPickupTime: job\.tripTime/);
   assert.match(driver, /airportAccessOption: job\.airportAccessOption/);
+  assert.match(driver, /dublinArrivalTerminal: job\.dublinArrivalTerminal/);
   const driverOnTheWayCall = driver.slice(
     driver.indexOf("buildDriverOnTheWayWhatsAppLink(mobile, {"),
     driver.indexOf("buildDriverOnTheWayWhatsAppLink(mobile, {") + 280,
@@ -344,6 +400,10 @@ check("Shared company-voice module is synced to the worker", () => {
   assert.equal(
     read("shared/company-voice-journey.ts"),
     read("workers/addresses/shared/company-voice-journey.ts"),
+  );
+  assert.equal(
+    read("shared/dublin-arrival-terminal.ts"),
+    read("workers/addresses/shared/dublin-arrival-terminal.ts"),
   );
   assert.equal(read("shared/arrival-whatsapp.ts"), read("workers/addresses/shared/arrival-whatsapp.ts"));
   assert.equal(

@@ -7,6 +7,10 @@
  */
 
 import {
+  parseDublinArrivalTerminal,
+  type DublinArrivalTerminal,
+} from "./dublin-arrival-terminal";
+import {
   resolveAirportAccessOption,
   type AirportAccessOption,
 } from "./express-drop-off";
@@ -16,6 +20,20 @@ import { formatUkTime } from "./uk-time";
 export const COMPANY_VOICE_BUSINESS_NAME = "My Airport Taxi NI";
 
 export type CompanyVoiceAirportAccessOption = AirportAccessOption;
+
+export const AIRPORT_PICKUP_COPY = {
+  express: "Please make your way to Express Pick-Up.",
+  bfsBhdFree:
+    "Please make your way to the Long Stay Car Park Free Pick-Up Location and let us know when you have arrived. Your driver will then head over to meet you. Please note there is a maximum stay of 10 minutes at the Free Pick-Up Location.",
+  dubT1:
+    "Please make your way to the paid Pick-Up Location at Terminal 1 and let us know when you have arrived. Your driver will then head over to meet you. Please note there is a maximum stay of 10 minutes at the Pick-Up Location.",
+  dubT2:
+    "Please make your way to the paid Pick-Up Location at Terminal 2 and let us know when you have arrived. Your driver will then head over to meet you. Please note there is a maximum stay of 10 minutes at the Pick-Up Location.",
+  dubUnknown:
+    "Please make your way to the paid Pick-Up Location at Dublin Airport and let us know when you have arrived. Your driver will then head over to meet you. Please note there is a maximum stay of 10 minutes at the Pick-Up Location. Your arrival terminal still needs confirmation.",
+  generic: "Please make your way to the agreed airport pickup point.",
+  street: "Your driver is now at your pickup location and ready when you are.",
+} as const;
 
 /** Booking-leg fields only — never operator identity or vehicle details. */
 export type CompanyVoiceJourneyBooking = {
@@ -28,6 +46,7 @@ export type CompanyVoiceJourneyBooking = {
   expressDropOffSelected?: boolean | null;
   expressDropOffAirport?: string | null;
   expressDropOffFee?: number | null;
+  dublinArrivalTerminal?: DublinArrivalTerminal | string | null;
 };
 
 /** Safe first-name greeting token — never empty. */
@@ -66,7 +85,7 @@ export function resolveCompanyVoiceAirportAccessOption(
 
 /**
  * Airport meeting-point copy for the active pickup leg.
- * Depends only on airport + selected pickup option — not who pressed the button.
+ * Depends only on airport + selected pickup option + Dublin terminal — not who pressed the button.
  */
 export function buildAirportPickupInstruction(
   booking: CompanyVoiceJourneyBooking,
@@ -78,16 +97,20 @@ export function buildAirportPickupInstruction(
 
   const airportCode = resolveCompanyVoiceAirportCode(booking);
   const access = resolveCompanyVoiceAirportAccessOption(booking);
-  const expressAirport = airportCode === "BFS" || airportCode === "BHD";
 
-  if (expressAirport && access === "express") {
-    return "Please make your way to Express Pick-Up. Your My Airport Taxi NI driver is waiting there.";
-  }
-  if (expressAirport && access === "free") {
-    return "Please make your way to the designated free pick-up area. It’s only a short walk from the terminal. Your My Airport Taxi NI driver is waiting there.";
+  if (airportCode === "BFS" || airportCode === "BHD") {
+    if (access === "free") return AIRPORT_PICKUP_COPY.bfsBhdFree;
+    return AIRPORT_PICKUP_COPY.express;
   }
 
-  return "Your My Airport Taxi NI driver is at the agreed airport pickup point and ready to meet you.";
+  if (airportCode === "DUB") {
+    const terminal = parseDublinArrivalTerminal(booking.dublinArrivalTerminal);
+    if (terminal === "T1") return AIRPORT_PICKUP_COPY.dubT1;
+    if (terminal === "T2") return AIRPORT_PICKUP_COPY.dubT2;
+    return AIRPORT_PICKUP_COPY.dubUnknown;
+  }
+
+  return AIRPORT_PICKUP_COPY.generic;
 }
 
 /**
@@ -104,11 +127,7 @@ export function buildOnTheWayCompanyVoiceMessage(
 }
 
 export function buildArrivedStreetCompanyVoiceMessage(): string {
-  return [
-    "🚕 Your driver has arrived",
-    "",
-    "Your My Airport Taxi NI driver is now at your pickup location and ready when you are.",
-  ].join("\n");
+  return ["🚕 Your driver has arrived", "", AIRPORT_PICKUP_COPY.street].join("\n");
 }
 
 export function buildArrivedAirportCompanyVoiceMessage(
@@ -116,15 +135,9 @@ export function buildArrivedAirportCompanyVoiceMessage(
 ): string {
   const instruction =
     buildAirportPickupInstruction({ ...booking, isAirportPickup: true }) ||
-    "Your My Airport Taxi NI driver is at the agreed airport pickup point and ready to meet you.";
+    AIRPORT_PICKUP_COPY.generic;
 
-  return [
-    "✈️ Your driver has arrived",
-    "",
-    instruction,
-    "",
-    "Please let us know when you’re making your way outside, so your driver can be ready for you.",
-  ].join("\n");
+  return ["✈️ Your driver has arrived", "", instruction].join("\n");
 }
 
 export function buildArrivedCompanyVoiceWhatsAppMessage(
@@ -145,10 +158,10 @@ export function buildArrivedCompanyVoiceEmailBody(
   if (airportPickup) {
     const instruction =
       buildAirportPickupInstruction({ ...booking, isAirportPickup: true }) ||
-      "Your My Airport Taxi NI driver is at the agreed airport pickup point and ready to meet you.";
-    return `Hi ${first}, your driver has arrived at your pickup location. ${instruction} Please let us know when you’re making your way outside, so your driver can be ready for you.`;
+      AIRPORT_PICKUP_COPY.generic;
+    return `Hi ${first}, your driver has arrived. ${instruction}`;
   }
-  return `Hi ${first}, your My Airport Taxi NI driver has arrived at your pickup location. Please make your way to the vehicle when ready.`;
+  return `Hi ${first}, your driver has arrived at your pickup location. ${AIRPORT_PICKUP_COPY.street}`;
 }
 
 /** Phrases that must never appear in customer email / WhatsApp from journey buttons. */
@@ -165,4 +178,7 @@ export const FORBIDDEN_PERSONAL_VOICE_PATTERNS: RegExp[] = [
   /\bVehicle colour:\b/i,
   /\bVehicle:\s+\w+/i,
   /\bRegistration:\s+/i,
+  /your My Airport Taxi NI driver/i,
+  /Your My Airport Taxi NI driver/,
+  /My Airport Taxi NI driver/i,
 ];

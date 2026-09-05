@@ -24,6 +24,11 @@ import {
   buildDriverOnTheWayWhatsAppLink,
   isAirportPickupLabel,
 } from "../../shared/arrival-whatsapp";
+import {
+  activeLegDublinArrivalTerminal,
+  dublinArrivalTerminalLabel,
+  isDublinAirportCode,
+} from "../../shared/dublin-arrival-terminal";
 import { formatUkInstant } from "../../shared/uk-time";
 import { formatAirportAccessOptionDashboardValue } from "../../shared/express-drop-off";
 import OwnerEditBookingModal from "@/components/OwnerEditBookingModal";
@@ -156,6 +161,7 @@ function openArrivalWhatsAppForBooking(
     expressDropOffSelected: booking.expressDropOffSelected,
     expressDropOffAirport: booking.expressDropOffAirport,
     expressDropOffFee: booking.expressDropOffFee,
+    dublinArrivalTerminal: activeLegDublinArrivalTerminal(booking),
   });
   openWhatsAppDeepLink(buildArrivedPickupWhatsAppLink(mobile, message));
   return "opened";
@@ -1545,6 +1551,14 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
             <div className="col-span-2">
               <dt className="text-[11px] text-white/40">Airport access</dt>
               <dd className="font-semibold text-white">{airportAccessLabel}</dd>
+            </div>
+          ) : null}
+          {isDublinAirportCode(booking.airportCode) ? (
+            <div className="col-span-2">
+              <dt className="text-[11px] text-white/40">Dublin arrival terminal</dt>
+              <dd className="font-semibold text-white">
+                {dublinArrivalTerminalLabel(activeLegDublinArrivalTerminal(booking))}
+              </dd>
             </div>
           ) : null}
           {typeof booking.passengers === "number" || typeof booking.suitcases === "number" ? (

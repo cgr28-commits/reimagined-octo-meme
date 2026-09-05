@@ -44,6 +44,7 @@ import {
   trackingStoreConfigured,
 } from "./tracking-store";
 import { getPaidBookingRecord, paidBookingStoreConfigured, savePaidBookingRecord } from "./paid-booking-store";
+import { resolveDublinArrivalTerminalForJob } from "./dublin-terminal-resolve";
 import type { PaidBookingDetails } from "../shared/booking-notifications";
 import { buildReviewRequestSummary } from "./review-request-handlers";
 import {
@@ -68,6 +69,7 @@ type Env = {
   TWILIO_ACCOUNT_SID?: string;
   TWILIO_AUTH_TOKEN?: string;
   TWILIO_FROM_NUMBER?: string;
+  AERODATABOX_RAPIDAPI_KEY?: string;
 } & WorkerEmailEnv;
 
 const BUSINESS_NAME = "My Airport Taxi NI";
@@ -148,6 +150,7 @@ export async function sendArrivalNotificationIfNeeded(
       expressDropOffSelected: paidBooking?.expressDropOffSelected,
       expressDropOffAirport: paidBooking?.expressDropOffAirport,
       expressDropOffFee: paidBooking?.expressDropOffFee,
+      dublinArrivalTerminal: await resolveDublinArrivalTerminalForJob(job, env),
     },
     BUSINESS_NAME,
   );

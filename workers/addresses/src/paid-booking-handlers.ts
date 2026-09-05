@@ -449,6 +449,21 @@ export async function handlePaidBookingsListRequest(
           booking.airportAccessOption === "free"
             ? booking.airportAccessOption
             : undefined,
+        dublinArrivalTerminal:
+          booking.dublinArrivalTerminal === "T1" || booking.dublinArrivalTerminal === "T2"
+            ? booking.dublinArrivalTerminal
+            : booking.dublinArrivalTerminal === null
+              ? null
+              : undefined,
+        dublinArrivalTerminalSource: booking.dublinArrivalTerminalSource,
+        returnDublinArrivalTerminal:
+          booking.returnDublinArrivalTerminal === "T1" ||
+          booking.returnDublinArrivalTerminal === "T2"
+            ? booking.returnDublinArrivalTerminal
+            : booking.returnDublinArrivalTerminal === null
+              ? null
+              : undefined,
+        returnDublinArrivalTerminalSource: booking.returnDublinArrivalTerminalSource,
         passengers,
         suitcases,
         childSeats,

@@ -241,6 +241,16 @@ function DriverFlightPanel({
               Live flight status is not available right now. Check the airport arrivals board before
               pickup.
             </p>
+            {job.airportCode === "DUB" ? (
+              <p className="mt-2 text-sm text-white/80">
+                Dublin pickup:{" "}
+                {job.dublinArrivalTerminal === "T1"
+                  ? "Terminal 1"
+                  : job.dublinArrivalTerminal === "T2"
+                    ? "Terminal 2"
+                    : "Terminal needs confirmation"}
+              </p>
+            ) : null}
           </div>
           {onRefresh && (
             <button
@@ -300,6 +310,16 @@ function DriverFlightPanel({
       <p className="mt-2 text-xs text-white/50">
         60 minutes complimentary waiting applies from actual landing time.
       </p>
+      {job.airportCode === "DUB" ? (
+        <p className="mt-2 text-sm text-white/80">
+          Dublin pickup:{" "}
+          {job.dublinArrivalTerminal === "T1"
+            ? "Terminal 1"
+            : job.dublinArrivalTerminal === "T2"
+              ? "Terminal 2"
+              : "Terminal needs confirmation"}
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -1104,6 +1124,7 @@ function DriverJobCard({
             pickupLabel: job.pickupLabel,
             airportCode: job.airportCode,
             airportAccessOption: job.airportAccessOption,
+            dublinArrivalTerminal: job.dublinArrivalTerminal,
           });
           const href = buildArrivedPickupWhatsAppLink(mobile, message);
           const opened = window.open(href, "_blank", "noopener,noreferrer");

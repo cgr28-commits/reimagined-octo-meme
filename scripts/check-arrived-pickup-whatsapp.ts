@@ -32,7 +32,8 @@ console.log("\n=== 2. Message templates (company voice, no vehicle) ===");
 {
   const street = buildArrivedPickupWhatsAppMessage({ isAirportPickup: false });
   assert.match(street, /🚕 Your driver has arrived/);
-  assert.match(street, /My Airport Taxi NI driver is now at your pickup location/);
+  assert.match(street, /Your driver is now at your pickup location/);
+  assert.doesNotMatch(street, /My Airport Taxi NI driver/);
   assert.doesNotMatch(street, /Driver:|Colin|Chris|Registration:|Your vehicle:/);
 
   const airport = buildArrivedPickupWhatsAppMessage({
@@ -48,8 +49,9 @@ console.log("\n=== 2. Message templates (company voice, no vehicle) ===");
     },
   });
   assert.match(airport, /✈️ Your driver has arrived/);
-  assert.match(airport, /designated free pick-up area/);
-  assert.match(airport, /making your way outside/);
+  assert.match(airport, /Long Stay Car Park Free Pick-Up Location/);
+  assert.match(airport, /maximum stay of 10 minutes/);
+  assert.doesNotMatch(airport, /My Airport Taxi NI driver|waiting there/);
   assert.doesNotMatch(airport, /Driver:|Colin|Chris|Mercedes|ABC 1234|Your vehicle:|Registration:/);
   console.log("OK  Street + airport templates; no driver name or vehicle");
 }

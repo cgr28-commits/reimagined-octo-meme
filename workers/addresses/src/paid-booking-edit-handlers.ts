@@ -10,6 +10,7 @@ import {
   type PaidBookingReceipt,
 } from "../shared/booking-notifications";
 import { paidBookingRecordToReceipt } from "../shared/paid-booking-canonical";
+import { parseDublinArrivalTerminal } from "../shared/dublin-arrival-terminal";
 import {
   generateAmendmentId,
   MATERIAL_REPRICE_FIELDS,
@@ -114,6 +115,8 @@ export type OwnerEditBookingBody = {
   vehicle?: string;
   airportCode?: string;
   isFromAirport?: boolean;
+  dublinArrivalTerminal?: "T1" | "T2" | "" | null;
+  returnDublinArrivalTerminal?: "T1" | "T2" | "" | null;
   /** @deprecated Automatic send after save is default. Legacy clients may still set this. */
   sendUpdatedConfirmation?: boolean;
   keepAgreedFare?: boolean;
@@ -248,6 +251,16 @@ function parseEditFields(body: OwnerEditBookingBody): {
   }
   if (body.isFromAirport !== undefined) {
     fields.isFromAirport = Boolean(body.isFromAirport);
+  }
+  if (body.dublinArrivalTerminal !== undefined) {
+    const terminal = parseDublinArrivalTerminal(body.dublinArrivalTerminal);
+    fields.dublinArrivalTerminal = terminal;
+    fields.dublinArrivalTerminalSource = terminal ? "owner" : "unresolved";
+  }
+  if (body.returnDublinArrivalTerminal !== undefined) {
+    const terminal = parseDublinArrivalTerminal(body.returnDublinArrivalTerminal);
+    fields.returnDublinArrivalTerminal = terminal;
+    fields.returnDublinArrivalTerminalSource = terminal ? "owner" : "unresolved";
   }
 
   return { fields };

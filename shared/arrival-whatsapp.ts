@@ -108,6 +108,7 @@ export function buildArrivedPickupWhatsAppMessage(options: {
   expressDropOffSelected?: boolean | null;
   expressDropOffAirport?: string | null;
   expressDropOffFee?: number | null;
+  dublinArrivalTerminal?: "T1" | "T2" | string | null;
   /** @deprecated Vehicle details must not appear in customer WhatsApp. */
   vehicle?: ArrivalVehicleDetails | null;
 }): string {
@@ -120,6 +121,7 @@ export function buildArrivedPickupWhatsAppMessage(options: {
     expressDropOffSelected: options.expressDropOffSelected,
     expressDropOffAirport: options.expressDropOffAirport,
     expressDropOffFee: options.expressDropOffFee,
+    dublinArrivalTerminal: options.dublinArrivalTerminal,
   });
 }
 
