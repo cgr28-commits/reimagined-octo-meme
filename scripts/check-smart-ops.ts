@@ -1116,6 +1116,104 @@ console.log("\n=== 15:00 booking after a 13:00–15:00 block is allowed ===");
   console.log("OK  no post-block buffer");
 }
 
+console.log("\n=== Airport pre-buffer must not extend a personal block backwards ===");
+{
+  const airportAt1500 = evaluateSmartAvailability({
+    requested: {
+      pickupLabel: "Belfast International Airport",
+      dropoffLabel: "Belfast City Centre",
+      pickup: BFS,
+      dropoff: BELFAST,
+      tripDate: MONDAY,
+      tripTime: "15:00",
+      durationMinutes: 25,
+      airportCode: "BFS",
+      isFromAirport: true,
+    },
+    occupied: [],
+    rules: [oneOffAfternoon],
+    config,
+    searchAlternatives: false,
+  });
+  assert.equal(airportAt1500.available, true);
+  assert.equal(airportAt1500.diagnostics.personalBlockWindowStartLocal, `${MONDAY}T15:00`);
+  assert.ok(airportAt1500.diagnostics.operationalStartLocal?.endsWith("T14:30"));
+
+  const airportAt1445 = evaluateSmartAvailability({
+    requested: {
+      pickupLabel: "Belfast International Airport",
+      dropoffLabel: "Belfast City Centre",
+      pickup: BFS,
+      dropoff: BELFAST,
+      tripDate: MONDAY,
+      tripTime: "14:45",
+      durationMinutes: 25,
+      airportCode: "BFS",
+      isFromAirport: true,
+    },
+    occupied: [],
+    rules: [oneOffAfternoon],
+    config,
+    searchAlternatives: false,
+  });
+  assert.equal(airportAt1445.available, false);
+  assert.equal(airportAt1445.reason, SMART_OPS_REASON.BLOCKED_OWNER_AVAILABILITY);
+
+  const nonAirportAt1500 = evaluateSmartAvailability({
+    requested: {
+      pickupLabel: "Belfast City Centre",
+      dropoffLabel: "Belfast International Airport",
+      pickup: BELFAST,
+      dropoff: BFS,
+      tripDate: MONDAY,
+      tripTime: "15:00",
+      durationMinutes: 25,
+      airportCode: "BFS",
+    },
+    occupied: [],
+    rules: [oneOffAfternoon],
+    config,
+    searchAlternatives: false,
+  });
+  assert.equal(nonAirportAt1500.available, true);
+
+  const existingAirport: SmartOccupiedJob = {
+    id: "JOB-1500-AIRPORT-BUFFER",
+    pickupLabel: "Belfast International Airport",
+    dropoffLabel: "Belfast City Centre",
+    pickup: BFS,
+    dropoff: BELFAST,
+    tripDate: MONDAY,
+    tripTime: "15:00",
+    durationMinutes: 25,
+    airportCode: "BFS",
+    isFromAirport: true,
+  };
+  const preceding = evaluateSmartAvailability({
+    requested: {
+      pickupLabel: "Belfast City Centre",
+      dropoffLabel: "Belfast International Airport",
+      pickup: BELFAST,
+      dropoff: BFS,
+      tripDate: MONDAY,
+      tripTime: "14:00",
+      durationMinutes: 25,
+      airportCode: "BFS",
+    },
+    occupied: [existingAirport],
+    config,
+    searchAlternatives: false,
+  });
+  assert.equal(preceding.available, false);
+  assert.ok(
+    preceding.reason === SMART_OPS_REASON.CONFLICT_EXISTING_BOOKING ||
+      preceding.reason === SMART_OPS_REASON.CONFLICT_NEXT_BOOKING ||
+      preceding.reason === SMART_OPS_REASON.CONFLICT_POSITIONING_TIME ||
+      preceding.reason === SMART_OPS_REASON.CONFLICT_LONG_DISTANCE,
+  );
+  console.log("OK  airport pre-buffer vs personal block");
+}
+
 console.log("\n=== Overnight recurring 22:00–08:00 spans midnight ===");
 {
   const recurringNight = normalizeSmartAvailabilityRule({

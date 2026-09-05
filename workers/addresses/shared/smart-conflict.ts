@@ -78,6 +78,9 @@ export type SmartAvailabilityDiagnostics = {
   operationalBufferMinutes: number;
   operationalStartLocal: string | null;
   operationalEndLocal: string | null;
+  /** Pickup → journey end + post-buffer. Used only for owner personal-block overlap. */
+  personalBlockWindowStartLocal: string | null;
+  personalBlockWindowEndLocal: string | null;
   minTurnaroundMinutes: number;
   expectedFinishingLocation: string;
   previousBookingId: string | null;
@@ -392,6 +395,9 @@ function requestedWindow(requested: SmartRequestedJourney, config: SmartOpsConfi
   const pickupAt = pickupMs(requested.tripDate, requested.tripTime);
   const pickup = resolvePoint(requested.pickup, requested.pickupLabel, requested.airportCode);
   const dropoff = resolvePoint(requested.dropoff, requested.dropoffLabel, requested.airportCode);
+  const journeyEnd = pickupAt == null ? null : pickupAt + duration * 60 * 1000;
+  const blockOverlapEnd =
+    pickupAt == null ? null : pickupAt + (duration + postBuffer) * 60 * 1000;
   return {
     duration,
     postBuffer,
@@ -399,9 +405,19 @@ function requestedWindow(requested: SmartRequestedJourney, config: SmartOpsConfi
     pickupAt,
     pickup,
     dropoff,
+    /**
+     * Booking-vs-booking window may start earlier than pickup so an airport
+     * collection still has its safety/positioning time.
+     */
     operationalStart: pickupAt == null ? null : pickupAt - preBuffer * 60 * 1000,
-    operationalEnd: pickupAt == null ? null : pickupAt + (duration + postBuffer) * 60 * 1000,
-    journeyEnd: pickupAt == null ? null : pickupAt + duration * 60 * 1000,
+    operationalEnd: blockOverlapEnd,
+    /**
+     * Owner personal blocks use the stated pickup, not the airport pre-buffer.
+     * A block ending at 15:00 must not reject a 15:00 airport pickup.
+     */
+    blockOverlapStart: pickupAt,
+    blockOverlapEnd,
+    journeyEnd,
   };
 }
 
@@ -539,6 +555,8 @@ function emptyDiagnostics(
     operationalBufferMinutes: buffer,
     operationalStartLocal: null,
     operationalEndLocal: null,
+    personalBlockWindowStartLocal: null,
+    personalBlockWindowEndLocal: null,
     minTurnaroundMinutes: config.buffers.minTurnaroundMinutes,
     expectedFinishingLocation: requested.dropoffLabel,
     previousBookingId: null,
@@ -570,6 +588,8 @@ export function evaluateSmartAvailability(input: {
   diagnostics.estimatedCompletionLocal = expectedFinishLocal;
   diagnostics.operationalStartLocal = localFromMs(window.operationalStart);
   diagnostics.operationalEndLocal = localFromMs(window.operationalEnd);
+  diagnostics.personalBlockWindowStartLocal = localFromMs(window.blockOverlapStart);
+  diagnostics.personalBlockWindowEndLocal = localFromMs(window.blockOverlapEnd);
 
   const empty: SmartAvailabilityDecision = {
     available: false,
@@ -586,7 +606,13 @@ export function evaluateSmartAvailability(input: {
     diagnostics,
   };
 
-  if (start == null || window.operationalStart == null || window.operationalEnd == null) {
+  if (
+    start == null ||
+    window.operationalStart == null ||
+    window.operationalEnd == null ||
+    window.blockOverlapStart == null ||
+    window.blockOverlapEnd == null
+  ) {
     return empty;
   }
 
@@ -605,8 +631,8 @@ export function evaluateSmartAvailability(input: {
     intervals,
   );
   const overlapping = findOverlappingSmartInterval(
-    window.operationalStart,
-    window.operationalEnd,
+    window.blockOverlapStart,
+    window.blockOverlapEnd,
     intervals,
     input.config.buffers.postPersonalBlockTurnaroundMinutes,
   );
