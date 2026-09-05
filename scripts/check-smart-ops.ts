@@ -31,6 +31,7 @@ import {
   evaluateSmartAvailability,
   labelsLikelySamePlace,
   occupiedJobsFromPaidBooking,
+  positioningTimeNeededMinutes,
   repositionMinutes,
   resolveSmartOpsPoint,
   type SmartOccupiedJob,
@@ -1683,8 +1684,16 @@ console.log("\n=== Live 05:45 case: airport code must not move Larne onto BHD ==
     config,
     now: new Date("2026-09-06T12:00:00+01:00"),
   });
+  assert.equal(positioningTimeNeededMinutes(30, 10), 40);
+  assert.equal(positioningTimeNeededMinutes(0, 10), 10);
+  assert.equal(positioningTimeNeededMinutes(cityToLarne, 10), cityToLarne + 10);
+  // Google-fastest ~30 min + 10 turnaround = 40. 05:45 only leaves 30 minutes
+  // after the post-journey buffer (06:30 → 07:00), so it must stay unavailable.
+  assert.ok(cityToLarne >= 40);
+  assert.ok(cityToLarne + 10 > 30);
   assert.equal(proposed0545.available, false);
   assert.equal(proposed0545.diagnostics.positioningMinutes, cityToLarne);
+  assert.equal(proposed0545.diagnostics.positioningNeededMinutes, cityToLarne + 10);
   assert.notEqual(proposed0545.diagnostics.positioningMinutes, cityToBhd);
   assert.ok((proposed0545.diagnostics.positioningToCoords?.lat || 0) > 54.8);
   assert.ok(!(proposed0545.alternatives || []).some((item) => item.tripTime === "05:30"));

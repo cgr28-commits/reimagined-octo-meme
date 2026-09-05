@@ -96,6 +96,7 @@ export type SmartAvailabilityDiagnostics = {
   positioningFromCoords: SmartCoords | null;
   positioningToCoords: SmartCoords | null;
   positioningCoordsKnown: boolean;
+  positioningNeededMinutes: number | null;
   blockedTimeOverlap: boolean;
   blockingInterval: {
     startLocal: string;
@@ -371,10 +372,27 @@ export function repositionMinutes(
   if (from && to) {
     const miles = roadMilesEstimate(from, to);
     if (miles < 0.15) return 0;
+    // Conservative road time, not fastest satnav. NI A-roads are slower than
+    // a 40 mph great-circle conversion with no junction/urban slack.
     return Math.round((miles / REPOSITION_SPEED_MPH) * 60) + REPOSITION_OVERHEAD_MINUTES;
   }
   if (labelsLikelySamePlace(options?.fromLabel, options?.toLabel)) return 0;
   return UNKNOWN_LOCATION_REPOSITION_MINUTES;
+}
+
+/**
+ * Time that must sit between one job becoming free and the next pickup.
+ * Road travel and the minimum turnaround are stacked — a 30-minute drive plus
+ * a 10-minute turnaround needs 40 minutes, not 30.
+ */
+export function positioningTimeNeededMinutes(
+  travelMinutes: number,
+  minTurnaroundMinutes: number,
+): number {
+  const travel = Math.max(0, Math.round(travelMinutes));
+  const turnaround = Math.max(0, Math.round(minTurnaroundMinutes));
+  if (travel <= 0) return turnaround;
+  return travel + turnaround;
 }
 
 function pickupMs(date: string, time: string): number | null {
@@ -559,14 +577,14 @@ function conflictAgainstJob(
       fromLabel: requestedDropoffLabel,
       toLabel: window.pickupLabel,
     });
-    const needed = Math.max(minTurnaround, travel);
+    const needed = positioningTimeNeededMinutes(travel, minTurnaround);
     if (gap + 0.01 < needed) {
       return {
         bookingId: occupied.id,
         reason: conflictReasonForJob(
           occupied,
           true,
-          travel > minTurnaround ? "positioning" : "turnaround",
+          travel > 0 ? "positioning" : "turnaround",
         ),
         summary:
           travel > minTurnaround
@@ -582,14 +600,14 @@ function conflictAgainstJob(
       fromLabel: window.finishLabel,
       toLabel: requestedPickupLabel,
     });
-    const needed = Math.max(minTurnaround, travel);
+    const needed = positioningTimeNeededMinutes(travel, minTurnaround);
     if (gap + 0.01 < needed) {
       return {
         bookingId: occupied.id,
         reason: conflictReasonForJob(
           occupied,
           false,
-          travel > minTurnaround ? "positioning" : "turnaround",
+          travel > 0 ? "positioning" : "turnaround",
         ),
         summary:
           travel > minTurnaround
@@ -655,6 +673,7 @@ function emptyDiagnostics(
     positioningFromCoords: null,
     positioningToCoords: null,
     positioningCoordsKnown: false,
+    positioningNeededMinutes: null,
     blockedTimeOverlap: false,
     blockingInterval: null,
   };
@@ -783,6 +802,12 @@ export function evaluateSmartAvailability(input: {
     diagnostics.positioningFromCoords = prevWindow.dropoff;
     diagnostics.positioningToCoords = window.pickup;
     diagnostics.positioningCoordsKnown = Boolean(prevWindow.dropoff && window.pickup);
+  }
+  if (diagnostics.positioningMinutes != null) {
+    diagnostics.positioningNeededMinutes = positioningTimeNeededMinutes(
+      diagnostics.positioningMinutes,
+      input.config.buffers.minTurnaroundMinutes,
+    );
   }
 
   const warnings: SmartConflictWarning[] = [];

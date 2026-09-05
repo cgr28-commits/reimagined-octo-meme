@@ -335,6 +335,7 @@ export async function handleOwnerEvaluateSmartOps(
       positioningFromCoords: availability.diagnostics.positioningFromCoords,
       positioningToCoords: availability.diagnostics.positioningToCoords,
       positioningCoordsKnown: availability.diagnostics.positioningCoordsKnown,
+      positioningNeededMinutes: availability.diagnostics.positioningNeededMinutes,
       blockedTimeOverlap: availability.diagnostics.blockedTimeOverlap,
       blockingInterval: availability.diagnostics.blockingInterval,
       available: availability.available,
