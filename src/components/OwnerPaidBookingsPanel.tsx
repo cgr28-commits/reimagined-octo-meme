@@ -18,11 +18,11 @@ import {
 } from "../../shared/upcoming-jobs";
 import {
   activeLegPickupLabel,
+  activeLegPickupTime,
   buildArrivedPickupWhatsAppLink,
   buildArrivedPickupWhatsAppMessage,
   buildDriverOnTheWayWhatsAppLink,
   isAirportPickupLabel,
-  type ArrivalVehicleDetails,
 } from "../../shared/arrival-whatsapp";
 import { formatUkInstant } from "../../shared/uk-time";
 import { formatAirportAccessOptionDashboardValue } from "../../shared/express-drop-off";
@@ -48,8 +48,6 @@ import type { RefundIssueResponse } from "@/lib/refund-api";
 import { markBookingRefundedExternally } from "@/lib/refund-api";
 import {
   ensurePaidBookingTracking,
-  fetchDriverVehicle,
-  fetchOwnerAccountProfile,
   postJourneyAction,
   type JourneyAction,
 } from "@/lib/tracking-api";
@@ -143,18 +141,21 @@ function bookingCustomerMobile(booking: OwnerPaidBookingSummary): string {
   return booking.mobileNumber?.trim() || "";
 }
 
-async function openArrivalWhatsAppForBooking(
-  ownerKey: string,
+function openArrivalWhatsAppForBooking(
   booking: OwnerPaidBookingSummary,
-): Promise<"opened" | "no_mobile"> {
+): "opened" | "no_mobile" {
   const mobile = bookingCustomerMobile(booking);
   if (!mobile) return "no_mobile";
 
   const pickupLabel = activeLegPickupLabel(booking);
-  const vehicle = await resolveArrivalVehicleForBooking(ownerKey, booking);
   const message = buildArrivedPickupWhatsAppMessage({
     isAirportPickup: isAirportPickupLabel(pickupLabel),
-    vehicle,
+    pickupLabel,
+    airportCode: booking.airportCode ?? booking.expressDropOffAirport,
+    airportAccessOption: booking.airportAccessOption,
+    expressDropOffSelected: booking.expressDropOffSelected,
+    expressDropOffAirport: booking.expressDropOffAirport,
+    expressDropOffFee: booking.expressDropOffFee,
   });
   openWhatsAppDeepLink(buildArrivedPickupWhatsAppLink(mobile, message));
   return "opened";
@@ -167,59 +168,11 @@ function openOnTheWayWhatsAppForBooking(
   if (!mobile) return "no_mobile";
   openWhatsAppDeepLink(
     buildDriverOnTheWayWhatsAppLink(mobile, {
-      driverFirstName: booking.assignedDriverName?.trim().split(/\s+/)[0] || undefined,
+      customerName: booking.customerName,
+      bookedPickupTime: activeLegPickupTime(booking),
     }),
   );
   return "opened";
-}
-
-async function resolveArrivalVehicleForBooking(
-  ownerKey: string,
-  booking: OwnerPaidBookingSummary,
-): Promise<ArrivalVehicleDetails | null> {
-  const assigned = booking.assignedDriverName?.trim();
-  if (assigned) {
-    try {
-      const profile = await fetchDriverVehicle(ownerKey, assigned);
-      if (
-        profile?.colour?.trim() &&
-        profile.make?.trim() &&
-        profile.model?.trim() &&
-        profile.registration?.trim()
-      ) {
-        return {
-          colour: profile.colour.trim(),
-          make: profile.make.trim(),
-          model: profile.model.trim(),
-          registration: profile.registration.trim().toUpperCase(),
-        };
-      }
-    } catch {
-      // Fall through to owner profile.
-    }
-  }
-
-  try {
-    const { profile, complete } = await fetchOwnerAccountProfile(ownerKey);
-    if (
-      complete &&
-      profile?.colour?.trim() &&
-      profile.make?.trim() &&
-      profile.model?.trim() &&
-      profile.registration?.trim()
-    ) {
-      return {
-        colour: profile.colour.trim(),
-        make: profile.make.trim(),
-        model: profile.model.trim(),
-        registration: profile.registration.trim().toUpperCase(),
-      };
-    }
-  } catch {
-    return null;
-  }
-
-  return null;
 }
 
 function sortByTripDateTime(a: OwnerPaidBookingSummary, b: OwnerPaidBookingSummary): number {
@@ -764,7 +717,7 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
         const mobile = bookingCustomerMobile(booking);
         const openWhatsApp = !options?.retryArrivalNotification && Boolean(mobile);
         if (openWhatsApp) {
-          await openArrivalWhatsAppForBooking(ownerKey, booking);
+          openArrivalWhatsAppForBooking(booking);
           setMessage(
             result.idempotent
               ? `Already arrived at pickup${result.arrivedPickupAt ? ` (${formatArrivedPickupHhMm(result.arrivedPickupAt)})` : ""}.${notify} WhatsApp opened — press Send to message the customer.`
@@ -1202,7 +1155,7 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
                     setBusyRef(booking.paymentReference);
                     setError("");
                     try {
-                      const outcome = await openArrivalWhatsAppForBooking(ownerKey, booking);
+                      const outcome = openArrivalWhatsAppForBooking(booking);
                       setMessage(
                         outcome === "opened"
                           ? "WhatsApp arrival message opened — press Send to message the customer."

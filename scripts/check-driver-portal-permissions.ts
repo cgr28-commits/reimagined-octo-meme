@@ -115,29 +115,30 @@ check("Customer-facing vehicle details use partial reg and no driver mobile", ()
   assert.equal("mobile" in vehicle, false);
 });
 
-check("Driver on the way email — no driver mobile; colour + partial reg; no website tracking", () => {
+check("Driver on the way email — company voice; no operator or vehicle details", () => {
   const email = buildDriverOnTheWayEmail({
     customerName: "Alex Customer",
+    bookedPickupTime: "10:30",
     driverFirstName: "John",
     driverMobile: "07700 900123",
     vehicleColour: "Silver",
     partialRegistration: "AB12…",
     trackUrl: "https://www.myairporttaxini.co.uk/track/?id=tok-1",
   });
-  assert.match(email.text, /Your My Airport Taxi NI driver, John, is now on the way/);
-  assert.match(email.text, /Vehicle colour: Silver/);
-  assert.match(email.text, /Registration: AB12…/);
+  assert.match(
+    email.text,
+    /Hi Alex, your driver is now on the way to your pickup location for your booked pickup time of 10:30/,
+  );
+  assert.match(email.text, /We may also share a live location with you here on WhatsApp/);
+  assert.doesNotMatch(email.text, /\bJohn\b|Vehicle colour:|Registration:|Silver|AB12/);
   assert.doesNotMatch(email.text, /AB12 CDE/);
   assert.doesNotMatch(email.text, /Driver mobile|07700 900123|07700900999/i);
   assert.doesNotMatch(email.text, /\/track\/\?id=/i);
   assert.doesNotMatch(email.text, /Track Your Driver|follow your driver|live tracking link/i);
   assert.doesNotMatch(email.html, /\/track\/\?id=|Track Your Driver|follow your driver|Open live tracking/i);
-  assert.match(
-    email.text,
-    /Your driver may contact you through WhatsApp if necessary and may also choose to share their live location with you directly through WhatsApp/,
-  );
+  assert.doesNotMatch(email.text, /I['’]m your driver|I['’]m now on the way|I may also share my/i);
   assert.doesNotMatch(email.text, /£80|£120|SumUp|driver pay|amountPaid/i);
-  assert.doesNotMatch(email.html, /07700 900123|Driver mobile/i);
+  assert.doesNotMatch(email.html, /07700 900123|Driver mobile|\bJohn\b/i);
   assert.match(
     email.text,
     /Questions\? Email us at bookings@myairporttaxini\.co\.uk or chat with us on WhatsApp\./,
@@ -148,29 +149,34 @@ check("Driver on the way email — no driver mobile; colour + partial reg; no we
   assert.match(email.html, /bookings@myairporttaxini\.co\.uk/);
 });
 
-check("Driver on the way WhatsApp — driver voice, no mobile, no website tracking", () => {
+check("Driver on the way WhatsApp — company voice, no mobile, no website tracking", () => {
   const wa = buildDriverOnTheWayWhatsAppMessage({
+    customerName: "Alex Customer",
+    bookedPickupTime: "10:30",
     driverFirstName: "John",
     driverMobile: "07700 900123",
     vehicleColour: "Silver",
     partialRegistration: "AB12…",
     trackUrl: "https://www.myairporttaxini.co.uk/track/?id=tok-1",
   });
-  assert.match(wa, /^Hi, I'm John, your driver for My Airport Taxi NI/);
-  assert.match(wa, /Vehicle: Silver/);
-  assert.match(wa, /Registration: AB12…/);
-  assert.doesNotMatch(wa, /AB12 CDE/);
+  assert.equal(
+    wa,
+    "Hi Alex, your driver is now on the way to your pickup location for your booked pickup time of 10:30. We may also share a live location with you here on WhatsApp.",
+  );
+  assert.doesNotMatch(wa, /AB12 CDE|\bJohn\b|Vehicle:|Registration:/);
   assert.doesNotMatch(wa, /Driver mobile|Mobile:|07700 900123/i);
   assert.doesNotMatch(wa, /\/track\/\?id=/i);
   assert.doesNotMatch(wa, /follow my journey|Track Your Driver|live tracking link/i);
-  assert.match(wa, /I may also share my live location with you here on WhatsApp/);
+  assert.doesNotMatch(wa, /I['’]m your driver|I may also share my/i);
   assert.doesNotMatch(wa, /£80|£120/);
 
   const noName = buildDriverOnTheWayWhatsAppMessage({
+    bookedPickupTime: "10:30",
     vehicleColour: "Silver",
     partialRegistration: "AB12…",
   });
-  assert.match(noName, /^Hi, I'm your driver for My Airport Taxi NI/);
+  assert.match(noName, /^Hi there, your driver is now on the way/);
+  assert.doesNotMatch(noName, /I['’]m your driver/);
 });
 
 check("Customer driver-details email/WhatsApp never include driver mobile", () => {
@@ -313,10 +319,11 @@ check("UI + Worker wiring for accept-gated mobile and privacy", () => {
   assert.match(sanitize, /includeCustomerMobile/);
 
   const journey = read("workers/addresses/src/journey-handlers.ts");
-  assert.match(journey, /resolveAssignedDriverDetails/);
+  assert.doesNotMatch(journey, /resolveAssignedDriverDetails/);
+  assert.match(journey, /bookedPickupTime: job\.tripTime/);
   assert.doesNotMatch(
     journey.slice(journey.indexOf("buildDriverOnTheWayEmail")),
-    /driverMobile: details\.driverMobile/,
+    /driverFirstName:|vehicleColour:|partialRegistration:|driverMobile:/,
   );
 });
 

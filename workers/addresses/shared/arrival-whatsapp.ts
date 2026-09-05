@@ -1,7 +1,14 @@
 /**
  * Owner/driver Arrived at Pickup → WhatsApp click-to-chat helpers.
  * Manual Send only — no WhatsApp Business API.
+ * Customer copy is company voice (My Airport Taxi NI) — never the operator's personal voice.
  */
+
+import {
+  buildArrivedCompanyVoiceWhatsAppMessage,
+  buildOnTheWayCompanyVoiceMessage,
+  type CompanyVoiceJourneyBooking,
+} from "./company-voice-journey";
 
 export type ArrivalVehicleDetails = {
   colour: string;
@@ -9,6 +16,8 @@ export type ArrivalVehicleDetails = {
   model: string;
   registration: string;
 };
+
+export type CompanyVoiceWhatsAppBooking = CompanyVoiceJourneyBooking;
 
 /** Belfast International, Belfast City, Dublin — airport pickup copy. */
 export function isAirportPickupLabel(pickupLabel: string): boolean {
@@ -63,41 +72,55 @@ export function activeLegPickupLabel(booking: {
   return booking.pickupLabel?.trim() || "";
 }
 
-export function buildArrivedPickupWhatsAppMessage(options: {
-  isAirportPickup: boolean;
-  vehicle?: ArrivalVehicleDetails | null;
+/** Booked pickup time for the active unfinished leg (return uses returnTime). */
+export function activeLegPickupTime(booking: {
+  returnJourney?: boolean;
+  outboundJourneyStatus?: string;
+  nextUnfinishedLegDate?: string;
+  nextUnfinishedLegTime?: string;
+  tripDate?: string;
+  returnDate?: string;
+  tripTime?: string;
+  returnTime?: string;
 }): string {
-  if (options.isAirportPickup) {
-    const colour = options.vehicle?.colour?.trim() || "";
-    const make = options.vehicle?.make?.trim() || "";
-    const model = options.vehicle?.model?.trim() || "";
-    const registration = options.vehicle?.registration?.trim().toUpperCase() || "";
-    const vehicleLine =
-      colour && make && model ? `🚘 Your vehicle: ${colour} ${make} ${model}` : "";
-    const regLine = registration ? `Registration: ${registration}` : "";
-
-    const lines = [
-      "✈️ Your driver has arrived",
-      "",
-      "Your My Airport Taxi NI driver is at the agreed airport pickup point and ready to meet you.",
-    ];
-    if (vehicleLine || regLine) {
-      lines.push("");
-      if (vehicleLine) lines.push(vehicleLine);
-      if (regLine) lines.push(regLine);
-    }
-    lines.push("");
-    lines.push(
-      "Please let us know when you’re making your way outside, so your driver can be ready for you.",
-    );
-    return lines.join("\n");
+  if (!booking.returnJourney) {
+    return booking.tripTime?.trim() || "";
   }
 
-  return [
-    "🚕 Your driver has arrived",
-    "",
-    "Your My Airport Taxi NI driver is now at your pickup location and ready when you are.",
-  ].join("\n");
+  const outboundDone = booking.outboundJourneyStatus === "completed";
+  const nextIsReturn =
+    Boolean(booking.nextUnfinishedLegDate?.trim()) &&
+    booking.nextUnfinishedLegDate === (booking.returnDate || "").trim() &&
+    booking.nextUnfinishedLegDate !== (booking.tripDate || "").trim();
+
+  if (outboundDone || nextIsReturn) {
+    return booking.nextUnfinishedLegTime?.trim() || booking.returnTime?.trim() || "";
+  }
+
+  return booking.tripTime?.trim() || "";
+}
+
+export function buildArrivedPickupWhatsAppMessage(options: {
+  isAirportPickup: boolean;
+  pickupLabel?: string;
+  airportCode?: string | null;
+  airportAccessOption?: "express" | "free" | null;
+  expressDropOffSelected?: boolean | null;
+  expressDropOffAirport?: string | null;
+  expressDropOffFee?: number | null;
+  /** @deprecated Vehicle details must not appear in customer WhatsApp. */
+  vehicle?: ArrivalVehicleDetails | null;
+}): string {
+  void options.vehicle;
+  return buildArrivedCompanyVoiceWhatsAppMessage({
+    isAirportPickup: options.isAirportPickup,
+    pickupLabel: options.pickupLabel,
+    airportCode: options.airportCode,
+    airportAccessOption: options.airportAccessOption,
+    expressDropOffSelected: options.expressDropOffSelected,
+    expressDropOffAirport: options.expressDropOffAirport,
+    expressDropOffFee: options.expressDropOffFee,
+  });
 }
 
 /** Normalise UK/IE mobiles to WhatsApp international digits (no +). */
@@ -119,41 +142,40 @@ export function buildArrivedPickupWhatsAppLink(
 }
 
 /**
- * Prefill WhatsApp message opened by the assigned driver to the customer.
- * Written in the driver’s voice so the customer knows who is messaging them.
+ * Prefill WhatsApp opened after Driver on the way.
+ * Company voice only — identical for owner-operated and assigned-driver journeys.
  * Manual Send only — does not automate WhatsApp Live Location.
- * Never includes the driver’s phone number or retired website /track links.
  */
 export function buildDriverOnTheWayWhatsAppMessage(options?: {
+  customerName?: string;
+  bookedPickupTime?: string;
+  /** @deprecated Operator identity must not appear in customer WhatsApp. */
   driverFirstName?: string;
+  /** @deprecated Vehicle details must not appear in customer WhatsApp. */
   vehicleColour?: string;
+  /** @deprecated Vehicle details must not appear in customer WhatsApp. */
   partialRegistration?: string;
   /** @deprecated Never included in customer-facing copy. */
   driverMobile?: string;
   /** @deprecated Website GPS tracking is retired — ignored. */
   trackUrl?: string;
 }): string {
-  const driverFirst = options?.driverFirstName?.trim() || "";
-  const colour = options?.vehicleColour?.trim() || "";
-  const partialReg = options?.partialRegistration?.trim() || "";
+  void options?.driverFirstName;
+  void options?.vehicleColour;
+  void options?.partialRegistration;
   void options?.driverMobile;
   void options?.trackUrl;
-
-  const intro = driverFirst
-    ? `Hi, I'm ${driverFirst}, your driver for My Airport Taxi NI. I'm now on the way to your pickup location.`
-    : "Hi, I'm your driver for My Airport Taxi NI. I'm now on the way to your pickup location.";
-
-  const lines = [intro, ""];
-  if (colour) lines.push(`Vehicle: ${colour}`);
-  if (partialReg) lines.push(`Registration: ${partialReg}`);
-  if (colour || partialReg) lines.push("");
-  lines.push("I may also share my live location with you here on WhatsApp.");
-  return lines.join("\n");
+  return buildOnTheWayCompanyVoiceMessage({
+    customerName: options?.customerName,
+    bookedPickupTime: options?.bookedPickupTime,
+  });
 }
 
 export function buildDriverOnTheWayWhatsAppLink(
   customerMobile: string,
   options?: {
+    customerName?: string;
+    bookedPickupTime?: string;
     driverFirstName?: string;
     vehicleColour?: string;
     partialRegistration?: string;

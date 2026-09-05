@@ -36,6 +36,11 @@ import {
   formatAdsAttributionForOwner,
   type AdsAttribution,
 } from "./ads-attribution";
+import {
+  buildArrivedCompanyVoiceEmailBody,
+  buildOnTheWayCompanyVoiceMessage,
+  type CompanyVoiceAirportAccessOption,
+} from "./company-voice-journey";
 
 export type PaidBookingDetails = {
   customerName: string;
@@ -1589,12 +1594,21 @@ export function buildGoogleReviewRequestEmail(
 
 export type ArrivalNotificationDetails = {
   customerName: string;
-  /** Driver first name for customer-facing copy (never surname). */
+  bookedPickupTime?: string;
+  pickupLabel?: string;
+  isAirportPickup?: boolean;
+  airportCode?: string | null;
+  airportAccessOption?: CompanyVoiceAirportAccessOption | null;
+  expressDropOffSelected?: boolean | null;
+  expressDropOffAirport?: string | null;
+  expressDropOffFee?: number | null;
+  /** @deprecated Operator identity must not appear in customer email. */
   driverFirstName?: string;
   /** @deprecated Not shown to customers — kept optional for call-site compatibility. */
   driverMobile?: string;
+  /** @deprecated Vehicle details must not appear in customer email. */
   vehicleColour?: string;
-  /** Privacy-safe partial registration only — never full plate. */
+  /** @deprecated Vehicle details must not appear in customer email. */
   partialRegistration?: string;
   /**
    * @deprecated Website GPS tracking is retired — ignored for Driver on the way email.
@@ -1607,9 +1621,23 @@ export function buildDriverArrivedPickupEmail(
   details: ArrivalNotificationDetails,
   businessName = "My Airport Taxi NI",
 ): CustomerPaidBookingEmail {
-  const firstName = customerFirstName(details.customerName);
+  void details.driverFirstName;
+  void details.driverMobile;
+  void details.vehicleColour;
+  void details.partialRegistration;
+  void details.trackUrl;
   const subject = `Your driver has arrived — ${businessName}`;
-  const bodyLine = `Hi ${firstName}, your ${businessName} driver has arrived at your pickup location. Please make your way to the vehicle when ready.`;
+  const bodyLine = buildArrivedCompanyVoiceEmailBody({
+    customerName: details.customerName,
+    bookedPickupTime: details.bookedPickupTime,
+    pickupLabel: details.pickupLabel,
+    isAirportPickup: details.isAirportPickup,
+    airportCode: details.airportCode,
+    airportAccessOption: details.airportAccessOption,
+    expressDropOffSelected: details.expressDropOffSelected,
+    expressDropOffAirport: details.expressDropOffAirport,
+    expressDropOffFee: details.expressDropOffFee,
+  });
 
   const text = `${bodyLine}\n\n${journeyStatusContactText(businessName)}`;
 
@@ -1650,7 +1678,7 @@ export function buildDriverArrivedPickupEmail(
 
 /**
  * Customer message when driver/owner marks Driver on the way.
- * Privacy-safe assigned-driver details only — never driver mobile.
+ * Company voice only — identical for owner-operated and assigned-driver journeys.
  * Website GPS / Track Your Driver links are retired; WhatsApp Live Location is optional (“may”).
  */
 export function buildDriverOnTheWayEmail(
@@ -1659,45 +1687,17 @@ export function buildDriverOnTheWayEmail(
 ): CustomerPaidBookingEmail {
   void details.trackUrl;
   void details.driverMobile;
-  const firstName = customerFirstName(details.customerName);
+  void details.driverFirstName;
+  void details.vehicleColour;
+  void details.partialRegistration;
   const subject = `Your driver is on the way — ${businessName}`;
   const statusHeading = "Your driver is on the way";
-  const greeting = `Hi ${firstName},`;
-  const driverFirst = details.driverFirstName?.trim() || "";
-  const intro = driverFirst
-    ? `Your ${businessName} driver, ${driverFirst}, is now on the way to your pickup location.`
-    : `Your ${businessName} driver is now on the way to your pickup location.`;
-  const colour = details.vehicleColour?.trim() || "";
-  const partialReg = details.partialRegistration?.trim() || "";
-  const mayContact =
-    "Your driver may contact you through WhatsApp if necessary and may also choose to share their live location with you directly through WhatsApp.";
+  const bodyLine = buildOnTheWayCompanyVoiceMessage({
+    customerName: details.customerName,
+    bookedPickupTime: details.bookedPickupTime,
+  });
 
-  const detailLines: string[] = [];
-  if (colour) detailLines.push(`Vehicle colour: ${colour}`);
-  if (partialReg) detailLines.push(`Registration: ${partialReg}`);
-
-  const textParts = [
-    greeting,
-    "",
-    statusHeading,
-    "",
-    intro,
-    "",
-    ...detailLines,
-    detailLines.length > 0 ? "" : null,
-    mayContact,
-    "",
-    journeyStatusContactText(businessName),
-  ].filter((line): line is string => line !== null);
-
-  const text = textParts.join("\n");
-
-  const detailHtml = detailLines
-    .map(
-      (line) =>
-        `<p style="margin:0 0 8px;font-size:15px;line-height:1.6;color:#334155;">${escapeHtml(line)}</p>`,
-    )
-    .join("");
+  const text = `${bodyLine}\n\n${journeyStatusContactText(businessName)}`;
 
   const html = `<!DOCTYPE html>
 <html lang="en">
@@ -1720,12 +1720,9 @@ export function buildDriverOnTheWayEmail(
           </tr>
           <tr>
             <td style="padding:28px 32px;font-size:15px;line-height:1.7;color:#334155;">
-              <p style="margin:0 0 14px;">${escapeHtml(greeting)}</p>
-              <p style="margin:0 0 16px;">${escapeHtml(intro)}</p>
-              ${detailHtml}
-              <p style="margin:16px 0 0;font-size:15px;line-height:1.7;color:#334155;">${escapeHtml(mayContact)}</p>
+              <p style="margin:0;">${escapeHtml(bodyLine)}</p>
               <p style="margin:16px 0 0;font-size:14px;color:#64748b;">
-                WhatsApp contact and live location sharing, when used, are sent manually by your driver — they are not automatic and are not a website tracking link.
+                WhatsApp contact and live location sharing, when used, are sent by My Airport Taxi NI — they are not automatic and are not a website tracking link.
               </p>
             </td>
           </tr>

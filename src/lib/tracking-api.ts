@@ -263,6 +263,7 @@ export type DriverJob = PublicTrackResponse & {
   isAirportPickup?: boolean;
   flightNumber?: string | null;
   airportCode?: string | null;
+  airportAccessOption?: "express" | "free" | null;
   journeyLeg?: "outbound" | "return" | null;
   flight?: DriverFlight | null;
 };
