@@ -72,6 +72,7 @@ import {
   remainingRefundableBalance,
   roundGbp,
 } from "../../shared/refund-ops";
+import { ownerManualReturnOfferUi } from "../../shared/return-offer";
 
 type OwnerPaidBookingsPanelProps = {
   ownerKey: string;
@@ -554,13 +555,28 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
     }
   }
 
+  function openBookingRequest(jobId: string) {
+    const hash = `#owner-booking-job-${jobId}`;
+    if (window.location.hash === hash) {
+      window.dispatchEvent(new HashChangeEvent("hashchange"));
+    } else {
+      window.location.hash = hash;
+    }
+  }
+
   async function handleSendReturnOfferNow(booking: OwnerPaidBookingSummary) {
     const email = booking.customerEmail?.trim() || "the customer";
-    if (
-      !window.confirm(
-        `Send the 5% Return Journey Offer email to ${email} now?\n\nThis uses the same secure return-booking link as the automatic offer. It will not send a second copy later.`,
-      )
-    ) {
+    const alreadySent = Boolean(
+      booking.returnOffer?.sentAt ||
+        String(booking.returnOffer?.status || "").toUpperCase() === "SENT" ||
+        booking.returnOffer?.redeemed,
+    );
+    const confirmText = alreadySent
+      ? `A 5% Return Journey Offer was already sent${
+          booking.returnOffer?.sentAt ? ` (${formatUkInstant(booking.returnOffer.sentAt)})` : ""
+        } to ${email}.\n\nThe system will not silently create a second offer. Continue only to re-check the existing send?`
+      : `Send the 5% Return Journey Offer email to ${email} now?\n\nThis uses the same secure return-booking link as the automatic offer. It will not send a second copy later.`;
+    if (!window.confirm(confirmText)) {
       return;
     }
     setBusyRef(booking.paymentReference);
@@ -578,6 +594,10 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
         );
       }
       if (!result.ok) {
+        if (result.reason === "offer_already_sent") {
+          setMessage("5% Return Journey Offer was already sent. A second offer was not created.");
+          return;
+        }
         throw new Error(result.error || "Return offer could not be sent");
       }
       setMessage(
@@ -1104,6 +1124,21 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
     const paymentStatusKey = String(booking.status || "");
     const awaitingPayment =
       paymentStatusKey === "awaiting_payment" || paymentStatusKey === "unpaid";
+    const cancelledOrRefunded =
+      isClosed ||
+      paymentStatusKey === "refunded" ||
+      paymentStatusKey === "refunded_active" ||
+      booking.paymentStatus === "fully_refunded";
+    const returnOfferUi = ownerManualReturnOfferUi({
+      displayedLegCompleted: thisLegCompleted,
+      cancelledOrRefunded,
+      customerEmail: booking.customerEmail,
+      offerStatus: booking.returnOffer?.status,
+      offerSentAt: booking.returnOffer?.sentAt,
+      returnAlreadyIncluded: Boolean(booking.returnJourney),
+      correspondingReturnBooked:
+        booking.returnOffer?.reason === "Customer booked the return separately",
+    });
     const canEdit = !isClosed && !isCompleted;
     const canAdminConfirm = !isClosed && !isCompleted;
     const showOfferUpdated =
@@ -1271,17 +1306,20 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
                 Edit Booking
               </button>
             ) : null}
-            {booking.returnOffer?.canSendNow ? (
-              <button
-                type="button"
-                disabled={busyRef === booking.paymentReference}
-                onClick={() => void handleSendReturnOfferNow(booking)}
-                className="min-h-11 w-full rounded-xl border border-emerald/50 bg-emerald/20 px-4 py-2.5 text-sm font-bold text-emerald disabled:opacity-60"
-              >
-                {busyRef === booking.paymentReference
-                  ? "Sending…"
-                  : "Send 5% Return Offer Now"}
-              </button>
+            {returnOfferUi.showAction ? (
+              <div data-owner-manual-return-offer>
+                <button
+                  type="button"
+                  disabled={busyRef === booking.paymentReference || !returnOfferUi.enabled}
+                  onClick={() => void handleSendReturnOfferNow(booking)}
+                  className="min-h-11 w-full rounded-xl border border-emerald/50 bg-emerald/20 px-4 py-2.5 text-sm font-bold text-emerald disabled:opacity-60"
+                >
+                  {busyRef === booking.paymentReference ? "Sending…" : returnOfferUi.label}
+                </button>
+                {returnOfferUi.explanation ? (
+                  <p className="mt-1 text-xs text-amber-100/90">{returnOfferUi.explanation}</p>
+                ) : null}
+              </div>
             ) : null}
             {canAdminConfirm ? (
               <button
@@ -1499,43 +1537,51 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
                 </dd>
               </div>
             ) : null}
-            {booking.returnOffer ? (
+            {booking.returnOffer || returnOfferUi.showAction ? (
               <div className="col-span-2">
                 <dt className="text-white/35">Return Offer</dt>
                 <dd className="space-y-1.5 text-white/70">
-                  <p>
-                    Eligible: {booking.returnOffer.eligible ? "Yes" : "No"}
-                    {booking.returnOffer.reason ? ` · ${booking.returnOffer.reason}` : ""}
-                  </p>
-                  {booking.returnOffer.type ? <p>Type: {booking.returnOffer.type}</p> : null}
-                  {booking.returnOffer.status ? <p>Status: {booking.returnOffer.status}</p> : null}
-                  {booking.returnOffer.scheduledAt ? (
-                    <p>Scheduled: {formatUkInstant(booking.returnOffer.scheduledAt)}</p>
-                  ) : null}
-                  {booking.returnOffer.sentAt ? (
-                    <p>Sent: {formatUkInstant(booking.returnOffer.sentAt)}</p>
-                  ) : null}
-                  <p>
-                    Redeemed: {booking.returnOffer.redeemed ? "Yes" : "No"}
-                    {booking.returnOffer.returnBookingPaymentReference
-                      ? ` · ${booking.returnOffer.returnBookingPaymentReference}`
-                      : " · Return booking: —"}
-                  </p>
-                  {booking.returnOffer.canSendNow ? (
-                    <button
-                      type="button"
-                      disabled={busyRef === booking.paymentReference}
-                      onClick={() => void handleSendReturnOfferNow(booking)}
-                      className="mt-1 min-h-11 w-full rounded-xl border border-emerald/50 bg-emerald/20 px-4 py-2.5 text-sm font-bold text-emerald disabled:opacity-60"
-                    >
-                      {busyRef === booking.paymentReference
-                        ? "Sending…"
-                        : "Send 5% Return Offer Now"}
-                    </button>
-                  ) : booking.returnOffer.status === "SENT" ? null : booking.returnOffer
-                      .sendBlockedReason ? (
+                  {booking.returnOffer ? (
+                    <>
+                      <p>
+                        Eligible: {booking.returnOffer.eligible ? "Yes" : "No"}
+                        {booking.returnOffer.reason ? ` · ${booking.returnOffer.reason}` : ""}
+                      </p>
+                      {booking.returnOffer.type ? <p>Type: {booking.returnOffer.type}</p> : null}
+                      {booking.returnOffer.status ? <p>Status: {booking.returnOffer.status}</p> : null}
+                      {booking.returnOffer.scheduledAt ? (
+                        <p>Scheduled: {formatUkInstant(booking.returnOffer.scheduledAt)}</p>
+                      ) : null}
+                      {booking.returnOffer.sentAt ? (
+                        <p>Sent: {formatUkInstant(booking.returnOffer.sentAt)}</p>
+                      ) : null}
+                      <p>
+                        Redeemed: {booking.returnOffer.redeemed ? "Yes" : "No"}
+                        {booking.returnOffer.returnBookingPaymentReference
+                          ? ` · ${booking.returnOffer.returnBookingPaymentReference}`
+                          : " · Return booking: —"}
+                      </p>
+                    </>
+                  ) : (
+                    <p>Manual 5% return offer available after this completed journey.</p>
+                  )}
+                  {returnOfferUi.showAction ? (
+                    <div data-owner-manual-return-offer>
+                      <button
+                        type="button"
+                        disabled={busyRef === booking.paymentReference || !returnOfferUi.enabled}
+                        onClick={() => void handleSendReturnOfferNow(booking)}
+                        className="mt-1 min-h-11 w-full rounded-xl border border-emerald/50 bg-emerald/20 px-4 py-2.5 text-sm font-bold text-emerald disabled:opacity-60"
+                      >
+                        {busyRef === booking.paymentReference ? "Sending…" : returnOfferUi.label}
+                      </button>
+                      {returnOfferUi.explanation ? (
+                        <p className="mt-1 text-xs text-amber-100/90">{returnOfferUi.explanation}</p>
+                      ) : null}
+                    </div>
+                  ) : booking.returnOffer?.sendBlockedReason ? (
                     <p className="text-xs text-amber-100/90">
-                      Send now unavailable: {booking.returnOffer.sendBlockedReason}
+                      Automatic offer: {booking.returnOffer.sendBlockedReason}
                     </p>
                   ) : null}
                 </dd>
@@ -1761,12 +1807,14 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
           </span>
         </div>
         {job ? (
-          <a
-            href={`#owner-booking-job-${job.id}`}
+          <button
+            type="button"
+            data-open-booking-request={job.id}
+            onClick={() => openBookingRequest(job.id)}
             className="mt-3 inline-flex min-h-11 items-center text-sm font-semibold text-amber-100 underline"
           >
             Open booking request
-          </a>
+          </button>
         ) : null}
       </li>
     );
@@ -1901,12 +1949,14 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
                           {item.today ? " · also in Today’s Upcoming" : ""}
                         </p>
                         {item.source === "booking_job" ? (
-                          <a
-                            href={`#owner-booking-job-${item.id}`}
+                          <button
+                            type="button"
+                            data-open-booking-request={item.id}
+                            onClick={() => openBookingRequest(item.id)}
                             className="mt-2 inline-flex min-h-11 items-center text-sm font-semibold text-amber-100 underline"
                           >
                             Open booking request
-                          </a>
+                          </button>
                         ) : null}
                       </li>
                     ))}

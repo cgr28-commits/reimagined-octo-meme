@@ -21,6 +21,7 @@ import {
   normalizeReturnOfferToken,
   returnOfferPlaceFromServedAirport,
   paidBookingToReturnOfferSnapshot,
+  pickManualJourneyCompletedAt,
   planManualReturnOfferSend,
   planReturnOfferProcessing,
   resolveReturnOfferConfig,
@@ -480,7 +481,11 @@ export async function handleManualReturnOfferSend(
     candidates.push(booking);
   }
   const correspondingReturnBooked = hasCorrespondingReturnBooking(booking, candidates);
-  const journeyCompletedAt = await resolveJourneyCompletedAt(store, paymentReference);
+  const journeyCompletedAt = pickManualJourneyCompletedAt({
+    trackingCompletedAt: await resolveJourneyCompletedAt(store, paymentReference),
+    outboundCompletedAt: paid.outboundCompletedAt,
+    returnCompletedAt: paid.returnCompletedAt,
+  });
   const now = new Date();
   const config = resolveReturnOfferConfig(env);
   const plan = planManualReturnOfferSend({
@@ -497,6 +502,7 @@ export async function handleManualReturnOfferSend(
       booking,
       record: existing,
       correspondingReturnBooked,
+      journeyCompletedAt,
       now,
     });
 
@@ -515,7 +521,11 @@ export async function handleManualReturnOfferSend(
               ? "Return offer already redeemed."
               : plan.reason === "corresponding_return_booked"
                 ? "A corresponding return booking already exists."
-                : "This booking is not eligible for a return offer.",
+                : plan.reason === "awaiting_completion"
+                  ? "This journey is not marked completed yet."
+                  : plan.reason === "missing_email"
+                    ? "No valid customer email on this booking."
+                    : "This booking is not eligible for a return offer.",
         reason: plan.reason,
         returnOffer: summary(),
       },
@@ -544,6 +554,7 @@ export async function handleManualReturnOfferSend(
     booking,
     record: sentRecord,
     correspondingReturnBooked,
+    journeyCompletedAt,
     now,
   });
 

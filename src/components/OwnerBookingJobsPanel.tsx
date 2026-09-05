@@ -96,6 +96,31 @@ export default function OwnerBookingJobsPanel({ ownerKey }: OwnerBookingJobsPane
     void load();
   }, [load]);
 
+  useEffect(() => {
+    function revealBookingRequestFromHash() {
+      const hash = window.location.hash.replace(/^#/, "");
+      if (!hash.startsWith("owner-booking-job-")) return;
+      const jobId = hash.slice("owner-booking-job-".length);
+      const job = jobs.find((item) => item.id === jobId);
+      if (!job) return;
+      if (job.status === "awaiting_payment" && !awaitingOpen) {
+        setAwaitingOpen(true);
+        return;
+      }
+      window.requestAnimationFrame(() => {
+        const el = document.getElementById(hash);
+        if (!el) return;
+        el.scrollIntoView({ behavior: "smooth", block: "start" });
+        if (el instanceof HTMLElement) {
+          el.focus();
+        }
+      });
+    }
+    revealBookingRequestFromHash();
+    window.addEventListener("hashchange", revealBookingRequestFromHash);
+    return () => window.removeEventListener("hashchange", revealBookingRequestFromHash);
+  }, [jobs, awaitingOpen]);
+
   function draftFor(job: BookingJobRecord) {
     return (
       assignDraftById[job.id] ?? {
@@ -270,7 +295,8 @@ export default function OwnerBookingJobsPanel({ ownerKey }: OwnerBookingJobsPane
               <li
                 key={job.id}
                 id={`owner-booking-job-${job.id}`}
-                className="rounded-2xl border border-white/10 bg-navy/60 p-4 sm:p-5"
+                tabIndex={-1}
+                className="rounded-2xl border border-white/10 bg-navy/60 p-4 sm:p-5 outline-none focus:ring-2 focus:ring-emerald/50"
               >
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>

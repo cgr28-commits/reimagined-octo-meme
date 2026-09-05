@@ -20,6 +20,11 @@ import {
 import { buildOwnerCashReceived } from "../shared/owner-financial-summary";
 import { londonWeekRangeContaining } from "../shared/owner-financial-summary";
 import { londonYmd } from "../shared/upcoming-jobs";
+import {
+  ownerManualReturnOfferUi,
+  pickManualJourneyCompletedAt,
+  planManualReturnOfferSend,
+} from "../shared/return-offer";
 
 const root = process.cwd();
 function read(rel: string): string {
@@ -325,6 +330,192 @@ console.log("\n=== Historic unsplit return is not 50/50 ===");
   assert.equal(bothDone.week.earnedRevenueGbp, 100);
   assert.equal(bothDone.week.journeysCompleted, 1);
   console.log("OK  historic unsplit return earns on later completion day only");
+}
+
+console.log("\n=== Manual 5% return offer + deep link (A–H) ===");
+{
+  const airportToCustomer = planManualReturnOfferSend({
+    booking: {
+      paymentReference: "A-BFS-HOME",
+      customerEmail: "a@example.com",
+      customerName: "A",
+      pickupLabel: "Belfast International Airport",
+      dropoffLabel: "12 High Street, Carrickfergus",
+      returnJourney: false,
+      airportCode: "BFS",
+      isFromAirport: true,
+      isAirportTrip: true,
+      status: "confirmed",
+      operationalStatus: "confirmed",
+      paymentStatus: "paid",
+      createdAt: "2026-08-28T10:00:00.000Z",
+      tripDate: TODAY,
+      tripTime: "09:10",
+    },
+    correspondingReturnBooked: false,
+    journeyCompletedAt: "2026-09-05T10:00:00.000Z",
+    now: NOW,
+  });
+  assert.equal(airportToCustomer.shouldSend, true);
+  assert.equal(
+    ownerManualReturnOfferUi({
+      displayedLegCompleted: true,
+      cancelledOrRefunded: false,
+      customerEmail: "a@example.com",
+    }).showAction,
+    true,
+  );
+  console.log("OK  A: airport → customer completed can send");
+
+  const customerToAirport = planManualReturnOfferSend({
+    booking: {
+      paymentReference: "B-VICTOR",
+      customerEmail: "victor@example.com",
+      customerName: "Victor",
+      pickupLabel: "BT36 Newtownabbey",
+      dropoffLabel: "Belfast International Airport",
+      returnJourney: false,
+      airportCode: "BFS",
+      isFromAirport: false,
+      isAirportTrip: true,
+      status: "confirmed",
+      operationalStatus: "confirmed",
+      paymentStatus: "paid",
+      createdAt: "2026-08-28T10:00:00.000Z",
+      tripDate: TODAY,
+      tripTime: "11:30",
+    },
+    correspondingReturnBooked: false,
+    journeyCompletedAt: "2026-09-05T10:30:00.000Z",
+    now: NOW,
+  });
+  assert.equal(customerToAirport.shouldSend, true);
+  assert.equal(customerToAirport.direction, "local_to_airport");
+  console.log("OK  B: customer → airport completed (Victor) can send");
+
+  const scheduled = planManualReturnOfferSend({
+    booking: {
+      paymentReference: "C-SCHED",
+      customerEmail: "c@example.com",
+      customerName: "C",
+      pickupLabel: "BT36 Newtownabbey",
+      dropoffLabel: "Belfast International Airport",
+      returnJourney: false,
+      airportCode: "BFS",
+      isFromAirport: false,
+      status: "confirmed",
+      paymentStatus: "paid",
+      createdAt: "2026-09-05T08:00:00.000Z",
+      tripDate: "2026-09-12",
+      tripTime: "09:00",
+    },
+    correspondingReturnBooked: false,
+    now: NOW,
+  });
+  assert.equal(scheduled.shouldSend, false);
+  assert.equal(scheduled.reason, "awaiting_completion");
+  assert.equal(
+    ownerManualReturnOfferUi({
+      displayedLegCompleted: false,
+      cancelledOrRefunded: false,
+      customerEmail: "c@example.com",
+    }).showAction,
+    false,
+  );
+  console.log("OK  C: scheduled journey has no completed-offer action");
+
+  const alreadySent = planManualReturnOfferSend({
+    booking: {
+      paymentReference: "D-SENT",
+      customerEmail: "d@example.com",
+      customerName: "D",
+      pickupLabel: "Belfast International Airport",
+      dropoffLabel: "BT9",
+      returnJourney: false,
+      airportCode: "BFS",
+      isFromAirport: true,
+      status: "confirmed",
+      paymentStatus: "paid",
+      createdAt: "2026-08-20T10:00:00.000Z",
+      tripDate: TODAY,
+      tripTime: "08:00",
+    },
+    existing: { status: "SENT", emailSentAt: "2026-09-04T12:00:00.000Z" },
+    correspondingReturnBooked: false,
+    journeyCompletedAt: "2026-09-05T09:00:00.000Z",
+    now: NOW,
+  });
+  assert.equal(alreadySent.shouldSend, false);
+  assert.equal(alreadySent.reason, "offer_already_sent");
+  const sentUi = ownerManualReturnOfferUi({
+    displayedLegCompleted: true,
+    cancelledOrRefunded: false,
+    customerEmail: "d@example.com",
+    offerStatus: "SENT",
+    offerSentAt: "2026-09-04T12:00:00.000Z",
+  });
+  assert.equal(sentUi.alreadySent, true);
+  assert.match(sentUi.label, /again/i);
+  console.log("OK  D: already sent is not a silent duplicate");
+
+  const panel = read("src/components/OwnerPaidBookingsPanel.tsx");
+  assert.match(panel, /ownerManualReturnOfferUi/);
+  assert.match(panel, /data-owner-manual-return-offer/);
+  assert.match(panel, /More options/);
+  assert.match(panel, /Today’s Completed Jobs/);
+  assert.match(panel, /Completed Jobs/);
+  assert.match(panel, /displayLeg/);
+  console.log("OK  E/F: completed today + history cards keep More options return-offer action");
+
+  const returnBooking = paid({
+    paymentReference: "G-RETURN",
+    returnJourney: true,
+    tripDate: TODAY,
+    tripTime: "08:00",
+    returnDate: "2026-09-12",
+    returnTime: "18:00",
+    amount: 100,
+    outboundFare: 45,
+    returnFare: 55,
+    outboundJourneyStatus: "completed",
+    outboundCompletedAt: "2026-09-05T09:00:00.000Z",
+    returnJourneyStatus: "scheduled",
+  });
+  const legs = expandOwnerPaidBookingLegs(returnBooking);
+  assert.equal(legs[0]?.completed, true);
+  assert.equal(legs[1]?.completed, false);
+  assert.equal(legs[1]?.scheduledDate, "2026-09-12");
+  const outboundUi = ownerManualReturnOfferUi({
+    displayedLegCompleted: Boolean(legs[0]?.completed),
+    cancelledOrRefunded: false,
+    customerEmail: "g@example.com",
+    returnAlreadyIncluded: Boolean(returnBooking.returnJourney),
+  });
+  const returnUi = ownerManualReturnOfferUi({
+    displayedLegCompleted: Boolean(legs[1]?.completed),
+    cancelledOrRefunded: false,
+    customerEmail: "g@example.com",
+    returnAlreadyIncluded: Boolean(returnBooking.returnJourney),
+  });
+  assert.equal(outboundUi.showAction, true);
+  assert.equal(outboundUi.enabled, false);
+  assert.equal(returnUi.showAction, false);
+  assert.equal(
+    pickManualJourneyCompletedAt({
+      outboundCompletedAt: returnBooking.outboundCompletedAt,
+    }),
+    "2026-09-05T09:00:00.000Z",
+  );
+  console.log("OK  G: completed outbound does not mark return leg completed");
+
+  const jobsPanel = read("src/components/OwnerBookingJobsPanel.tsx");
+  assert.match(jobsPanel, /revealBookingRequestFromHash|owner-booking-job-/);
+  assert.match(jobsPanel, /setAwaitingOpen\(true\)/);
+  assert.match(jobsPanel, /scrollIntoView/);
+  assert.match(jobsPanel, /requestAnimationFrame/);
+  assert.match(panel, /openBookingRequest/);
+  assert.match(panel, /data-open-booking-request/);
+  console.log("OK  H: Open booking request expands the collapsed awaiting section");
 }
 
 console.log("\n=== Source contracts ===");
