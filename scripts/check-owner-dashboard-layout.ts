@@ -100,7 +100,7 @@ console.log("\n=== 2. Jobs section order: Summary → Paid ops → Short notice 
   );
   assert.match(panel, /const \[todayCompletedOpen, setTodayCompletedOpen\] = useState\(false\)/);
   assert.match(panel, /data-today-completed-toggle/);
-  assert.match(panel, /formatOwnerOpsMoney\(todayCompletedEarnedGbp\)/);
+  assert.match(panel, /formatOwnerOpsMoney\(todayCompletedEarnedGbp\)\} earned/);
   assert.match(panel, /todayCompletedOpen \? \(/);
   assert.ok(
     panel.indexOf("OwnerShortNoticePanel") < 0,

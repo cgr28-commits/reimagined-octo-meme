@@ -14,6 +14,11 @@ import {
   type OwnerQuoteStats,
 } from "@/lib/booking-jobs-api";
 import { buildWhatsAppDriverDetailsLink } from "@/lib/tracking-api";
+import { resolveOwnerDisplayedLegNav } from "../../shared/owner-job-actions";
+import {
+  OwnerCustomerCallWhatsApp,
+  OwnerWazeAddressLink,
+} from "@/components/OwnerJobNavActions";
 
 type OwnerBookingJobsPanelProps = {
   ownerKey: string;
@@ -291,6 +296,12 @@ export default function OwnerBookingJobsPanel({ ownerKey }: OwnerBookingJobsPane
           {(awaitingOpen ? [...awaitingJobs, ...otherJobs] : otherJobs).map((job) => {
             const badge = statusBadge(job);
             const draft = draftFor(job);
+            const jobNav = resolveOwnerDisplayedLegNav({
+              pickupLabel: job.pickupLabel,
+              dropoffLabel: job.dropoffLabel,
+              airportCode: job.airportCode,
+              isFromAirport: job.isFromAirport,
+            });
             return (
               <li
                 key={job.id}
@@ -304,9 +315,6 @@ export default function OwnerBookingJobsPanel({ ownerKey }: OwnerBookingJobsPane
                     <p className="mt-1 text-sm text-white/65">
                       {job.tripDate} · pick up {job.tripTime} · {job.vehicle}
                     </p>
-                    <p className="mt-2 text-sm text-white/80">
-                      {job.pickupLabel} → {job.dropoffLabel}
-                    </p>
                     <p className="mt-2 text-xs text-white/45">Ref {job.id}</p>
                   </div>
                   <span
@@ -318,8 +326,26 @@ export default function OwnerBookingJobsPanel({ ownerKey }: OwnerBookingJobsPane
 
                 <dl className="mt-4 grid gap-2 text-sm text-white/70 sm:grid-cols-2">
                   <div>
+                    <dt className="text-white/40">Pickup</dt>
+                    <dd>
+                      <OwnerWazeAddressLink kind="pickup" point={jobNav.pickup} />
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-white/40">Destination</dt>
+                    <dd>
+                      <OwnerWazeAddressLink kind="destination" point={jobNav.destination} />
+                    </dd>
+                  </div>
+                  <div>
                     <dt className="text-white/40">Mobile</dt>
-                    <dd>{job.customerMobile || "—"}</dd>
+                    <dd>
+                      {job.customerMobile ? (
+                        <OwnerCustomerCallWhatsApp phone={job.customerMobile} />
+                      ) : (
+                        "—"
+                      )}
+                    </dd>
                   </div>
                   <div>
                     <dt className="text-white/40">Email</dt>

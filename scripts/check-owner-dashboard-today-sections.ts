@@ -332,6 +332,34 @@ console.log("\n=== Historic unsplit return is not 50/50 ===");
   console.log("OK  historic unsplit return earns on later completion day only");
 }
 
+console.log("\n=== Today’s upcoming sort + completed heading ===");
+{
+  const late = paid({ paymentReference: "SORT-LATE", tripDate: TODAY, tripTime: "16:00" });
+  const early = paid({ paymentReference: "SORT-EARLY", tripDate: TODAY, tripTime: "08:15" });
+  const mid = paid({ paymentReference: "SORT-MID", tripDate: TODAY, tripTime: "11:30" });
+  const upcoming = selectTodayUpcomingLegs(
+    [
+      ...expandOwnerPaidBookingLegs(late),
+      ...expandOwnerPaidBookingLegs(early),
+      ...expandOwnerPaidBookingLegs(mid),
+    ],
+    TODAY,
+  );
+  assert.deepEqual(
+    upcoming.map((leg) => leg.scheduledTime),
+    ["08:15", "11:30", "16:00"],
+  );
+  const panel = read("src/components/OwnerPaidBookingsPanel.tsx");
+  assert.doesNotMatch(panel, /todayUpcomingOpen/);
+  assert.match(panel, /const \[todayCompletedOpen, setTodayCompletedOpen\] = useState\(false\)/);
+  assert.match(panel, /Today’s Completed Jobs \(\{todayCompleted\.length\}\)/);
+  assert.match(panel, /formatOwnerOpsMoney\(todayCompletedEarnedGbp\)\} earned/);
+  assert.match(panel, /OwnerWazeAddressLink/);
+  assert.match(panel, /OwnerCustomerCallWhatsApp/);
+  assert.match(read("src/components/OwnerJobNavActions.tsx"), /data-owner-waze/);
+  console.log("OK  upcoming sorted by pickup · completed heading count/earned · Waze/Call on cards");
+}
+
 console.log("\n=== Manual 5% return offer + deep link (A–H) ===");
 {
   const airportToCustomer = planManualReturnOfferSend({

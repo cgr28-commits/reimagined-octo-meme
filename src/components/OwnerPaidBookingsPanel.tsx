@@ -73,6 +73,14 @@ import {
   roundGbp,
 } from "../../shared/refund-ops";
 import { ownerManualReturnOfferUi } from "../../shared/return-offer";
+import {
+  ownerCustomerContactActions,
+  resolveOwnerDisplayedLegNav,
+} from "../../shared/owner-job-actions";
+import {
+  OwnerCustomerCallWhatsApp,
+  OwnerWazeAddressLink,
+} from "@/components/OwnerJobNavActions";
 
 type OwnerPaidBookingsPanelProps = {
   ownerKey: string;
@@ -1211,6 +1219,15 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
       expressDropOffAirport: booking.expressDropOffAirport ?? booking.airportCode,
       fromAirport: booking.isFromAirport,
     });
+    const displayedNav = resolveOwnerDisplayedLegNav({
+      displayedLeg: displayLeg,
+      pickupLabel: booking.pickupLabel,
+      dropoffLabel: booking.dropoffLabel,
+      airportCode: booking.airportCode,
+      isFromAirport: booking.isFromAirport,
+      quoteSnapshot: booking.quoteSnapshot,
+    });
+    const customerContact = ownerCustomerContactActions(booking.mobileNumber);
 
     const moreOptions = (
       <details
@@ -1235,9 +1252,9 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
                     Email customer
                   </a>
                 ) : null}
-                {booking.mobileNumber ? (
+                {customerContact ? (
                   <a
-                    href={`https://wa.me/${booking.mobileNumber.replace(/\D/g, "").replace(/^0/, "44")}`}
+                    href={customerContact.whatsAppHref}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold text-white"
@@ -1668,16 +1685,24 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
         <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 text-sm text-white/70">
           <div>
             <dt className="text-[11px] text-white/40">Pickup</dt>
-            <dd className="break-words">
-              {isReturnNext ? booking.dropoffLabel || "—" : booking.pickupLabel || "—"}
+            <dd>
+              <OwnerWazeAddressLink kind="pickup" point={displayedNav.pickup} />
             </dd>
           </div>
           <div>
             <dt className="text-[11px] text-white/40">Destination</dt>
-            <dd className="break-words">
-              {isReturnNext ? booking.pickupLabel || "—" : booking.dropoffLabel || "—"}
+            <dd>
+              <OwnerWazeAddressLink kind="destination" point={displayedNav.destination} />
             </dd>
           </div>
+          {customerContact ? (
+            <div className="col-span-2">
+              <dt className="text-[11px] text-white/40">Customer</dt>
+              <dd>
+                <OwnerCustomerCallWhatsApp phone={booking.mobileNumber} />
+              </dd>
+            </div>
+          ) : null}
           <div>
             <dt className="text-[11px] text-white/40">Fare</dt>
             <dd>{fareLabel}</dd>
@@ -1784,20 +1809,24 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
       );
     }
     const job = bookingJobsById.get(leg.bookingId);
+    const enquiryNav = resolveOwnerDisplayedLegNav({
+      displayedLeg: leg.leg,
+      pickupLabel: leg.pickup,
+      dropoffLabel: leg.dropoff,
+      airportCode: job?.airportCode,
+      isFromAirport: job?.isFromAirport,
+    });
     return (
       <li
         key={`${leg.source}-${leg.bookingId}-${leg.leg}`}
         className="rounded-2xl border border-amber-400/25 bg-amber-500/10 p-4"
       >
         <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
+          <div className="min-w-0 flex-1">
             <p className="text-lg font-bold text-white">{leg.customerName || "Booking request"}</p>
             <p className="mt-1 text-sm text-white/70">
               {formatDisplayTripDate(leg.scheduledDate)} · pick up {leg.scheduledTime || "—"}
               {leg.bookingAmountGbp > 0 ? ` · ${formatOwnerOpsMoney(leg.bookingAmountGbp)}` : ""}
-            </p>
-            <p className="mt-1 break-words text-sm text-white/80">
-              {leg.pickup} → {leg.dropoff}
             </p>
             <p className="mt-1 text-xs font-semibold text-amber-100">
               Website booking request · awaiting payment
@@ -1807,6 +1836,28 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
             Awaiting payment
           </span>
         </div>
+        <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 text-sm text-white/80">
+          <div>
+            <dt className="text-[11px] text-white/40">Pickup</dt>
+            <dd>
+              <OwnerWazeAddressLink kind="pickup" point={enquiryNav.pickup} />
+            </dd>
+          </div>
+          <div>
+            <dt className="text-[11px] text-white/40">Destination</dt>
+            <dd>
+              <OwnerWazeAddressLink kind="destination" point={enquiryNav.destination} />
+            </dd>
+          </div>
+          {job?.customerMobile ? (
+            <div className="col-span-2">
+              <dt className="text-[11px] text-white/40">Customer</dt>
+              <dd>
+                <OwnerCustomerCallWhatsApp phone={job.customerMobile} />
+              </dd>
+            </div>
+          ) : null}
+        </dl>
         {job ? (
           <button
             type="button"
@@ -1874,11 +1925,10 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
               className="flex min-h-12 w-full items-center justify-between gap-3 px-4 py-3 text-left"
             >
               <span className="text-sm font-bold text-white">
-                Today’s Completed Jobs ({todayCompleted.length}
+                Today’s Completed Jobs ({todayCompleted.length})
                 {todayCompleted.length > 0
-                  ? ` — ${formatOwnerOpsMoney(todayCompletedEarnedGbp)}`
+                  ? ` — ${formatOwnerOpsMoney(todayCompletedEarnedGbp)} earned`
                   : ""}
-                )
               </span>
               <span className="text-emerald" aria-hidden>
                 {todayCompletedOpen ? "▲" : "▼"}
