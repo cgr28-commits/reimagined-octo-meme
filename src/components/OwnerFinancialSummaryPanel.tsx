@@ -136,7 +136,7 @@ export default function OwnerFinancialSummaryPanel({
   ];
 
   return (
-    <section className="mb-5" aria-label="Dashboard summary">
+    <section className="mb-3" aria-label="Dashboard summary">
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
         <p className="text-[11px] font-semibold uppercase tracking-wider text-white/45">
           Dashboard summary

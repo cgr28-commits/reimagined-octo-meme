@@ -508,6 +508,7 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
     [operationalBookings],
   );
 
+  const [todayCompletedOpen, setTodayCompletedOpen] = useState(false);
   const [awaitingOpen, setAwaitingOpen] = useState(false);
   const [futureOpenDates, setFutureOpenDates] = useState<Record<string, boolean>>({});
   const [historyOpenDates, setHistoryOpenDates] = useState<Record<string, boolean>>({});
@@ -1820,40 +1821,11 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
     );
   }
 
+  const todayCompletedEarnedGbp =
+    completedHistory.find((group) => group.label === "Today")?.earnedGbp || 0;
+
   return (
     <section className="mb-10">
-      {needsFinalize.length > 0 ? (
-        <div className="mb-6 rounded-xl border border-amber-400/35 bg-amber-500/10 p-4">
-          <p className="text-sm text-white/85">
-            {needsFinalize.length} SumUp PAID checkout
-            {needsFinalize.length === 1 ? "" : "s"} waiting to finalize (email/calendar).
-          </p>
-          <ul className="mt-3 space-y-2 text-sm text-white/70">
-            {needsFinalize.slice(0, 5).map((item) => (
-              <li key={item.checkoutId}>
-                £{item.amount.toFixed(2)} · {item.customerName} · {item.customerEmail}
-                <button
-                  type="button"
-                  disabled={recovering}
-                  onClick={() => void handleRecover(item.checkoutId)}
-                  className="ml-2 text-emerald underline disabled:opacity-60"
-                >
-                  Finalize
-                </button>
-              </li>
-            ))}
-          </ul>
-          <button
-            type="button"
-            disabled={recovering}
-            onClick={() => void handleRecover()}
-            className="mt-3 min-h-11 w-full rounded-xl bg-amber-300 px-4 py-3 text-sm font-bold text-navy transition-colors hover:bg-amber-200 disabled:opacity-60 sm:w-auto"
-          >
-            {recovering ? "Recovering…" : "Recover PAID checkouts (no new charge)"}
-          </button>
-        </div>
-      ) : null}
-
       {error ? (
         <p className="mb-4 rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-100">
           {error}
@@ -1869,21 +1841,19 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
         <p className="text-sm text-white/60">Loading jobs…</p>
       ) : (
         <div className="space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <h3 className="text-base font-bold text-white">Today’s jobs</h3>
-            <button
-              type="button"
-              onClick={() => void load()}
-              className="min-h-11 shrink-0 rounded-xl border border-white/15 px-4 py-2 text-sm font-semibold text-white transition-colors hover:border-white/30"
-            >
-              Refresh
-            </button>
-          </div>
-
           <section aria-label="Today’s upcoming jobs">
-            <h4 className="text-base font-bold text-white">
-              Today’s Upcoming Jobs ({todayUpcoming.length})
-            </h4>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h4 className="text-base font-bold text-white">
+                Today’s Upcoming Jobs ({todayUpcoming.length})
+              </h4>
+              <button
+                type="button"
+                onClick={() => void load()}
+                className="min-h-11 shrink-0 rounded-xl border border-white/15 px-4 py-2 text-sm font-semibold text-white transition-colors hover:border-white/30"
+              >
+                Refresh
+              </button>
+            </div>
             {todayUpcoming.length === 0 ? (
               <p className="mt-2 text-sm text-white/55">
                 No remaining journeys due today. Tomorrow and later bookings are under Future Jobs.
@@ -1895,23 +1865,36 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
             )}
           </section>
 
-          <section aria-label="Today’s completed jobs">
-            <h4 className="text-base font-bold text-white">
-              Today’s Completed Jobs ({todayCompleted.length}
-              {todayCompleted.length > 0
-                ? ` — ${formatOwnerOpsMoney(
-                    completedHistory.find((group) => group.label === "Today")?.earnedGbp || 0,
-                  )}`
-                : ""}
-              )
-            </h4>
-            {todayCompleted.length === 0 ? (
-              <p className="mt-2 text-sm text-white/55">No journeys completed today yet.</p>
-            ) : (
-              <ul className="mt-3 space-y-4">
-                {todayCompleted.map((leg) => renderOpsLeg(leg, { compact: true }))}
-              </ul>
-            )}
+          <section className="rounded-xl border border-white/10 bg-navy/40" aria-label="Today’s completed jobs">
+            <button
+              type="button"
+              data-today-completed-toggle
+              onClick={() => setTodayCompletedOpen((open) => !open)}
+              aria-expanded={todayCompletedOpen}
+              className="flex min-h-12 w-full items-center justify-between gap-3 px-4 py-3 text-left"
+            >
+              <span className="text-sm font-bold text-white">
+                Today’s Completed Jobs ({todayCompleted.length}
+                {todayCompleted.length > 0
+                  ? ` — ${formatOwnerOpsMoney(todayCompletedEarnedGbp)}`
+                  : ""}
+                )
+              </span>
+              <span className="text-emerald" aria-hidden>
+                {todayCompletedOpen ? "▲" : "▼"}
+              </span>
+            </button>
+            {todayCompletedOpen ? (
+              <div className="border-t border-white/10 px-3 pb-3 pt-3">
+                {todayCompleted.length === 0 ? (
+                  <p className="text-sm text-white/55">No journeys completed today yet.</p>
+                ) : (
+                  <ul className="space-y-4">
+                    {todayCompleted.map((leg) => renderOpsLeg(leg, { compact: true }))}
+                  </ul>
+                )}
+              </div>
+            ) : null}
           </section>
 
           <section className="rounded-xl border border-white/10 bg-navy/40">
@@ -2065,6 +2048,38 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
                   renderBookingCard(booking, { compact: true }),
                 )}
               </ul>
+            </div>
+          ) : null}
+
+          {needsFinalize.length > 0 ? (
+            <div className="rounded-xl border border-amber-400/35 bg-amber-500/10 p-4">
+              <p className="text-sm text-white/85">
+                {needsFinalize.length} SumUp PAID checkout
+                {needsFinalize.length === 1 ? "" : "s"} waiting to finalize (email/calendar).
+              </p>
+              <ul className="mt-3 space-y-2 text-sm text-white/70">
+                {needsFinalize.slice(0, 5).map((item) => (
+                  <li key={item.checkoutId}>
+                    £{item.amount.toFixed(2)} · {item.customerName} · {item.customerEmail}
+                    <button
+                      type="button"
+                      disabled={recovering}
+                      onClick={() => void handleRecover(item.checkoutId)}
+                      className="ml-2 text-emerald underline disabled:opacity-60"
+                    >
+                      Finalize
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              <button
+                type="button"
+                disabled={recovering}
+                onClick={() => void handleRecover()}
+                className="mt-3 min-h-11 w-full rounded-xl bg-amber-300 px-4 py-3 text-sm font-bold text-navy transition-colors hover:bg-amber-200 disabled:opacity-60 sm:w-auto"
+              >
+                {recovering ? "Recovering…" : "Recover PAID checkouts (no new charge)"}
+              </button>
             </div>
           ) : null}
         </div>

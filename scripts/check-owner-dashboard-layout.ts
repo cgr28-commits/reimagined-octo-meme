@@ -82,19 +82,31 @@ console.log("\n=== 2. Jobs section order: Summary → Paid ops → Short notice 
   );
 
   const todayAt = panel.indexOf("Today’s Upcoming Jobs (");
+  const todayCompletedAt = panel.indexOf("Today’s Completed Jobs (");
   const awaitingAt = panel.indexOf("Awaiting Payment (");
   const futureAt = panel.indexOf("Future Jobs (");
   const historyAt = panel.indexOf('<h4 className="text-sm font-bold text-white">Completed Jobs</h4>');
   const refundsAt = panel.indexOf('<h3 className="text-base font-bold text-amber-100">Refunds Pending</h3>');
+  const finalizeAt = panel.indexOf("Recover PAID checkouts");
   assert.ok(
     todayAt > 0 &&
-      awaitingAt > todayAt &&
+      todayCompletedAt > todayAt &&
+      awaitingAt > todayCompletedAt &&
       futureAt > awaitingAt &&
       historyAt > futureAt &&
-      refundsAt > historyAt,
-    "paid panel order: today → awaiting → future → completed history → refunds",
+      refundsAt > historyAt &&
+      finalizeAt > historyAt,
+    "paid panel order: upcoming → today completed → awaiting → future → completed history → refunds",
   );
-  console.log("OK  summary at top · today first · collapsed future/history/awaiting");
+  assert.match(panel, /const \[todayCompletedOpen, setTodayCompletedOpen\] = useState\(false\)/);
+  assert.match(panel, /data-today-completed-toggle/);
+  assert.match(panel, /formatOwnerOpsMoney\(todayCompletedEarnedGbp\)/);
+  assert.match(panel, /todayCompletedOpen \? \(/);
+  assert.ok(
+    panel.indexOf("OwnerShortNoticePanel") < 0,
+    "short notice stays on the Jobs tab below the paid ops panel",
+  );
+  console.log("OK  summary at top · upcoming first · today completed collapsed");
 }
 
 console.log("\nAll owner dashboard layout checks passed.");

@@ -463,8 +463,23 @@ console.log("\n=== Manual 5% return offer + deep link (A–H) ===");
   assert.match(panel, /data-owner-manual-return-offer/);
   assert.match(panel, /More options/);
   assert.match(panel, /Today’s Completed Jobs/);
+  assert.match(panel, /data-today-completed-toggle/);
+  assert.match(panel, /todayCompletedOpen \? \(/);
   assert.match(panel, /Completed Jobs/);
   assert.match(panel, /displayLeg/);
+  const upcomingAt = panel.indexOf("Today’s Upcoming Jobs (");
+  const todayCompletedAt = panel.indexOf("Today’s Completed Jobs (");
+  const awaitingAt = panel.indexOf("Awaiting Payment (");
+  const futureAt = panel.indexOf("Future Jobs (");
+  const historyAt = panel.indexOf('<h4 className="text-sm font-bold text-white">Completed Jobs</h4>');
+  assert.ok(
+    upcomingAt > 0 &&
+      todayCompletedAt > upcomingAt &&
+      awaitingAt > todayCompletedAt &&
+      futureAt > awaitingAt &&
+      historyAt > futureAt,
+    "section order: Upcoming → Today completed → Awaiting → Future → Completed history",
+  );
   console.log("OK  E/F: completed today + history cards keep More options return-offer action");
 
   const returnBooking = paid({
@@ -522,6 +537,8 @@ console.log("\n=== Source contracts ===");
 {
   const panel = read("src/components/OwnerPaidBookingsPanel.tsx");
   assert.match(panel, /Today’s Upcoming Jobs/);
+  assert.match(panel, /Today’s Completed Jobs/);
+  assert.match(panel, /data-today-completed-toggle/);
   assert.match(panel, /Awaiting Payment/);
   assert.match(panel, /Future Jobs/);
   assert.match(panel, /displayLeg/);
