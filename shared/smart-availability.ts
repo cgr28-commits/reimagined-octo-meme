@@ -148,7 +148,8 @@ export function normalizeSmartAvailabilityRule(
     ).sort((a, b) => a - b);
     const startTime = normalizeHm(raw.startTime);
     const endTime = normalizeHm(raw.endTime);
-    if (!weekdays.length || !startTime || !endTime || endTime <= startTime) return null;
+    // endTime <= startTime is an overnight block (e.g. 22:00–08:00).
+    if (!weekdays.length || !startTime || !endTime) return null;
     return {
       id,
       enabled: raw.enabled !== false,
@@ -274,7 +275,10 @@ export function expandSmartAvailabilityIntervals(input: {
   for (const rule of input.rules) {
     if (!rule.enabled) continue;
     if (rule.kind === "recurring") {
-      const from = rule.rangeStart && rule.rangeStart > input.fromYmd ? rule.rangeStart : input.fromYmd;
+      // Include the previous calendar day so overnight blocks (22:00–08:00)
+      // that started yesterday still cover early hours today.
+      const scanFrom = addDaysYmd(input.fromYmd, -1);
+      const from = rule.rangeStart && rule.rangeStart > scanFrom ? rule.rangeStart : scanFrom;
       const to =
         rule.rangeEnd && rule.rangeEnd < input.toYmd ? rule.rangeEnd : input.toYmd;
       if (from > to) continue;
@@ -290,9 +294,10 @@ export function expandSmartAvailabilityIntervals(input: {
           ? exception.endTime
           : rule.endTime;
         if (!startTime || !endTime) continue;
+        const overnight = endTime <= startTime;
         const interval = intervalFromLocal(
           `${ymd}T${startTime}`,
-          `${ymd}T${endTime}`,
+          `${overnight ? addDaysYmd(ymd, 1) : ymd}T${endTime}`,
           rule.id,
           true,
           exception ? "exception" : "rule",
@@ -312,6 +317,15 @@ export function expandSmartAvailabilityIntervals(input: {
   return intervals.sort((a, b) => a.startMs - b.startMs);
 }
 
+export function intervalsOverlap(
+  startA: number,
+  endA: number,
+  startB: number,
+  endB: number,
+): boolean {
+  return startA < endB && endA > startB;
+}
+
 export function findBlockingSmartInterval(
   tripDate: string,
   tripTime: string,
@@ -321,6 +335,60 @@ export function findBlockingSmartInterval(
   if (!pickup) return null;
   const t = pickup.getTime();
   return intervals.find((interval) => t >= interval.startMs && t < interval.endMs) || null;
+}
+
+/** True when the requested operational window overlaps a blocked interval. */
+export function findOverlappingSmartInterval(
+  startMs: number,
+  endMs: number,
+  intervals: SmartBlockedInterval[],
+  postBlockTurnaroundMinutes = 0,
+): SmartBlockedInterval | null {
+  const extra = Math.max(0, postBlockTurnaroundMinutes) * 60 * 1000;
+  return (
+    intervals.find((interval) =>
+      intervalsOverlap(startMs, endMs, interval.startMs, interval.endMs + extra),
+    ) || null
+  );
+}
+
+export function isQuickBlockRule(rule: SmartAvailabilityRule): boolean {
+  return (
+    (rule.kind === "one_off" || rule.kind === "full_day") &&
+    Boolean(rule.note && rule.note.startsWith("Quick block"))
+  );
+}
+
+export function smartIntervalActiveAt(
+  interval: SmartBlockedInterval,
+  nowMs: number,
+): boolean {
+  return nowMs >= interval.startMs && nowMs < interval.endMs;
+}
+
+/**
+ * “Available again now” must only finish currently-active Quick blocks.
+ * Planned one-off / full-day rules for other days stay enabled.
+ */
+export function clearActiveQuickBlocks(
+  rules: SmartAvailabilityRule[],
+  now = new Date(),
+): SmartAvailabilityRule[] {
+  const nowMs = now.getTime();
+  const ymd = formatLondonLocalFromInstant(now).slice(0, 10);
+  const fromYmd = addDaysYmd(ymd, -1);
+  const toYmd = addDaysYmd(ymd, 1);
+  return rules.map((rule) => {
+    if (!rule.enabled || !isQuickBlockRule(rule)) return rule;
+    const intervals = expandSmartAvailabilityIntervals({
+      rules: [rule],
+      fromYmd,
+      toYmd,
+    });
+    const active = intervals.some((interval) => smartIntervalActiveAt(interval, nowMs));
+    if (!active) return rule;
+    return { ...rule, enabled: false, updatedAt: now.toISOString() };
+  });
 }
 
 export function buildQuickBlockRule(

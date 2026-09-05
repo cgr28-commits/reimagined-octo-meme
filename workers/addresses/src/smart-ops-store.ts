@@ -14,8 +14,16 @@ import {
   type SmartAvailabilityException,
   type SmartAvailabilityRule,
 } from "../shared/smart-availability";
-import type { SmartReturnLink } from "../shared/smart-return";
+import {
+  reassessSmartReturnAfterParentCancel,
+  type SmartReturnLink,
+} from "../shared/smart-return";
 import type { SmartShadowRecord } from "../shared/smart-shadow";
+import {
+  getPaidBookingRecord,
+  listUpcomingPaidBookings,
+  savePaidBookingRecord,
+} from "./paid-booking-store";
 
 export type SmartOpsState = {
   config: SmartOpsConfig;
@@ -94,4 +102,81 @@ export async function appendSmartShadowRecord(
 export async function listSmartShadowRecords(store: KVNamespace): Promise<SmartShadowRecord[]> {
   const raw = await store.get(SHADOW_KEY, "json");
   return Array.isArray(raw) ? (raw as SmartShadowRecord[]) : [];
+}
+
+/**
+ * When a parent booking is operationally cancelled, reassess linked Smart Returns.
+ * Never changes the confirmed customer price or silently cancels the child.
+ */
+export async function reassessSmartReturnsForCancelledParent(
+  store: KVNamespace,
+  parentPaymentRef: string,
+): Promise<
+  Array<{
+    childPaymentRef: string;
+    flagOwner: boolean;
+    reason: string;
+  }>
+> {
+  const parentRef = parentPaymentRef.trim();
+  if (!parentRef) return [];
+
+  const state = await getSmartOpsState(store);
+  const upcoming = await listUpcomingPaidBookings(store, {
+    pastDays: 2,
+    futureDays: 180,
+    limit: 250,
+  });
+  const flagged: Array<{ childPaymentRef: string; flagOwner: boolean; reason: string }> = [];
+  const nowIso = new Date().toISOString();
+
+  const childRefs = new Set<string>();
+  for (const link of state.links) {
+    if (link.parentBookingId === parentRef && link.linkedBookingId) {
+      childRefs.add(link.linkedBookingId);
+    }
+  }
+  for (const booking of upcoming) {
+    if (booking.smartReturnParentPaymentRef === parentRef) {
+      childRefs.add(booking.paymentReference);
+    }
+  }
+
+  const nextLinks = state.links.map((link) => {
+    if (link.parentBookingId !== parentRef) return link;
+    return link;
+  });
+
+  for (const childRef of childRefs) {
+    const child = await getPaidBookingRecord(store, childRef);
+    if (!child || child.operationalStatus === "cancelled") continue;
+    const linkedFare =
+      Number(child.smartReturnLinkedFareGbp) ||
+      Number(child.amount) ||
+      0;
+    const standalone =
+      Number(child.smartReturnStandaloneMinGbp) ||
+      state.links.find((link) => link.linkedBookingId === childRef)?.standaloneMinGbp ||
+      0;
+    const reassessment = reassessSmartReturnAfterParentCancel({
+      confirmedLinkedFareGbp: linkedFare,
+      standaloneMinGbp: standalone,
+    });
+    await savePaidBookingRecord(store, {
+      ...child,
+      smartReturnParentCancelledAt: nowIso,
+      smartReturnReviewRequired: reassessment.flagOwner ? true : child.smartReturnReviewRequired,
+    });
+    flagged.push({
+      childPaymentRef: childRef,
+      flagOwner: reassessment.flagOwner,
+      reason: reassessment.reason,
+    });
+  }
+
+  if (nextLinks.length !== state.links.length) {
+    await saveSmartOpsState(store, { ...state, links: nextLinks });
+  }
+
+  return flagged;
 }

@@ -13,13 +13,18 @@ import {
   normalizeSmartOpsConfig,
 } from "../shared/smart-ops-config";
 import {
+  buildQuickBlockRule,
+  clearActiveQuickBlocks,
   expandSmartAvailabilityIntervals,
   findBlockingSmartInterval,
+  findOverlappingSmartInterval,
   normalizeSmartAvailabilityException,
   normalizeSmartAvailabilityRule,
 } from "../shared/smart-availability";
 import {
+  customerAvailabilityMessage,
   evaluateSmartAvailability,
+  occupiedJobsFromPaidBooking,
   type SmartOccupiedJob,
 } from "../shared/smart-conflict";
 import {
@@ -29,6 +34,7 @@ import {
 } from "../shared/smart-return";
 import { evaluateSmartOpsShadow } from "../shared/smart-shadow";
 import { UNIVERSAL_ESTATE_PREMIUM_GBP } from "../shared/universal-distance-pricing";
+import { addDaysYmd } from "../shared/upcoming-jobs";
 
 const root = process.cwd();
 function read(rel: string): string {
@@ -292,6 +298,7 @@ console.log("\n=== G. Alternative nearby times ===");
   assert.equal(decision.available, false);
   assert.ok(decision.alternatives.length >= 1);
   assert.ok(decision.alternatives.some((item) => item.tripTime === "15:00" || item.tripTime === "12:00"));
+  assert.ok(decision.alternatives.every((item) => Math.abs(item.deltaMinutes) <= 60));
   console.log("OK  G");
 }
 
@@ -499,7 +506,7 @@ console.log("\n=== M/N. Parent cancel reassessment does not change customer pric
   });
   assert.equal(flag.keep, false);
   assert.equal(flag.flagOwner, true);
-  assert.equal(flag.reason, SMART_OPS_REASON.SMART_RETURN_PARENT_CANCELLED);
+  assert.equal(flag.reason, SMART_OPS_REASON.SMART_RETURN_PARENT_CANCELLED_REVIEW_REQUIRED);
   assert.equal(flag.customerPriceUnchanged, true);
   console.log("OK  M/N");
 }
@@ -605,6 +612,656 @@ console.log("\n=== Newry corridor + owner/dashboard wiring ===");
   assert.match(page, /ownerToolTab === "availability"/);
   assert.match(page, /OwnerSmartAvailabilityPanel/);
   console.log("OK  wiring");
+}
+
+const oneOffAfternoon = normalizeSmartAvailabilityRule({
+  id: "block-1300-1500",
+  kind: "one_off",
+  startLocal: `${MONDAY}T13:00`,
+  endLocal: `${MONDAY}T15:00`,
+  enabled: true,
+});
+assert.ok(oneOffAfternoon);
+
+const overnightRule = normalizeSmartAvailabilityRule({
+  id: "block-overnight",
+  kind: "one_off",
+  startLocal: `${MONDAY}T22:00`,
+  endLocal: `${addDaysYmd(MONDAY, 1)}T08:00`,
+  enabled: true,
+});
+assert.ok(overnightRule);
+
+console.log("\n=== Scenario A. Pickup inside 13:00–15:00 block ===");
+{
+  const decision = evaluateSmartAvailability({
+    requested: {
+      pickupLabel: "Belfast",
+      dropoffLabel: "BFS",
+      tripDate: MONDAY,
+      tripTime: "13:30",
+      durationMinutes: 20,
+      pickup: BELFAST,
+      dropoff: BFS,
+    },
+    occupied: [],
+    rules: [oneOffAfternoon],
+    config,
+    searchAlternatives: false,
+  });
+  assert.equal(decision.available, false);
+  assert.equal(decision.reason, SMART_OPS_REASON.BLOCKED_OWNER_AVAILABILITY);
+  console.log("OK  Scenario A");
+}
+
+console.log("\n=== Scenario B. 12:30 + 60-minute journey overlaps 13:00–15:00 ===");
+{
+  const decision = evaluateSmartAvailability({
+    requested: {
+      pickupLabel: "Belfast",
+      dropoffLabel: "BFS",
+      tripDate: MONDAY,
+      tripTime: "12:30",
+      durationMinutes: 60,
+      pickup: BELFAST,
+      dropoff: BFS,
+    },
+    occupied: [],
+    rules: [oneOffAfternoon],
+    config,
+    searchAlternatives: false,
+  });
+  assert.equal(decision.available, false);
+  assert.equal(decision.reason, SMART_OPS_REASON.BLOCKED_JOURNEY_OVERLAPS_AVAILABILITY);
+  console.log("OK  Scenario B");
+}
+
+console.log("\n=== Scenario C. 12:00 + 20-minute local journey before the block ===");
+{
+  const decision = evaluateSmartAvailability({
+    requested: {
+      pickupLabel: "Belfast",
+      dropoffLabel: "BFS",
+      tripDate: MONDAY,
+      tripTime: "12:00",
+      durationMinutes: 20,
+      pickup: BELFAST,
+      dropoff: BFS,
+    },
+    occupied: [],
+    rules: [oneOffAfternoon],
+    config,
+    searchAlternatives: false,
+  });
+  assert.equal(decision.available, true);
+  console.log("OK  Scenario C");
+}
+
+console.log("\n=== Scenario D / 14. Overnight 01:00 has no 08:00 alternative ===");
+{
+  const decision = evaluateSmartAvailability({
+    requested: {
+      pickupLabel: "Belfast",
+      dropoffLabel: "BFS",
+      tripDate: addDaysYmd(MONDAY, 1),
+      tripTime: "01:00",
+      durationMinutes: 20,
+      pickup: BELFAST,
+      dropoff: BFS,
+    },
+    occupied: [],
+    rules: [overnightRule],
+    config,
+    now: new Date("2026-09-06T12:00:00+01:00"),
+  });
+  assert.equal(decision.available, false);
+  assert.equal(decision.alternatives.length, 0);
+  assert.ok(!decision.alternatives.some((item) => item.tripTime === "08:00" || item.tripTime === "08:30"));
+  assert.equal(decision.alternativeReason, SMART_OPS_REASON.NO_ALTERNATIVE_WITHIN_MAX_SHIFT);
+  assert.match(
+    customerAvailabilityMessage(decision, "01:00"),
+    /don't have availability around your requested pickup time/,
+  );
+  assert.doesNotMatch(customerAvailabilityMessage(decision, "01:00"), /sleep|Cara|8am|appointment/i);
+  console.log("OK  Scenario D");
+}
+
+console.log("\n=== Scenario E. 21:45 + 60-minute journey overlaps 22:00 overnight block ===");
+{
+  const decision = evaluateSmartAvailability({
+    requested: {
+      pickupLabel: "Belfast",
+      dropoffLabel: "Dublin Airport",
+      tripDate: MONDAY,
+      tripTime: "21:45",
+      durationMinutes: 60,
+      pickup: BELFAST,
+      dropoff: DUB,
+    },
+    occupied: [],
+    rules: [overnightRule],
+    config,
+    searchAlternatives: false,
+  });
+  assert.equal(decision.available, false);
+  assert.equal(decision.reason, SMART_OPS_REASON.BLOCKED_JOURNEY_OVERLAPS_AVAILABILITY);
+  console.log("OK  Scenario E");
+}
+
+console.log("\n=== Scenario F. Compatible BFS → city then city → BFS ===");
+{
+  const decision = evaluateSmartAvailability({
+    requested: {
+      pickupLabel: "Belfast City Centre",
+      dropoffLabel: "Belfast International Airport",
+      pickup: BELFAST,
+      dropoff: BFS,
+      tripDate: MONDAY,
+      tripTime: "11:00",
+      durationMinutes: 25,
+      airportCode: "BFS",
+    },
+    occupied: [bfsToCity],
+    config,
+    searchAlternatives: false,
+  });
+  assert.equal(decision.available, true);
+  console.log("OK  Scenario F");
+}
+
+console.log("\n=== Scenario G. Dublin outward blocks later BFS job ===");
+{
+  const decision = evaluateSmartAvailability({
+    requested: {
+      pickupLabel: "Belfast International Airport",
+      dropoffLabel: "Belfast",
+      pickup: BFS,
+      dropoff: BELFAST,
+      tripDate: MONDAY,
+      tripTime: "11:30",
+      durationMinutes: 30,
+      airportCode: "BFS",
+      isFromAirport: true,
+    },
+    occupied: [belfastToDub],
+    config,
+    searchAlternatives: false,
+  });
+  assert.equal(decision.available, false);
+  console.log("OK  Scenario G");
+}
+
+console.log("\n=== Scenario H. Later 15:00 BFS booking rejects 12:00 Dublin outward ===");
+{
+  const later: SmartOccupiedJob = {
+    id: "JOB-1500-BFS",
+    pickupLabel: "Belfast International Airport",
+    dropoffLabel: "Belfast",
+    pickup: BFS,
+    dropoff: BELFAST,
+    tripDate: MONDAY,
+    tripTime: "15:00",
+    durationMinutes: 25,
+    airportCode: "BFS",
+    isFromAirport: true,
+  };
+  const decision = evaluateSmartAvailability({
+    requested: {
+      pickupLabel: "Belfast City Centre",
+      dropoffLabel: "Dublin Airport",
+      pickup: BELFAST,
+      dropoff: DUB,
+      tripDate: MONDAY,
+      tripTime: "12:00",
+      durationMinutes: 120,
+      airportCode: "DUB",
+    },
+    occupied: [later],
+    config,
+    searchAlternatives: false,
+  });
+  assert.equal(decision.available, false);
+  assert.ok(
+    decision.reason === SMART_OPS_REASON.CONFLICT_NEXT_BOOKING ||
+      decision.reason === SMART_OPS_REASON.CONFLICT_LONG_DISTANCE ||
+      decision.reason === SMART_OPS_REASON.CONFLICT_POSITIONING_TIME,
+  );
+  console.log("OK  Scenario H");
+}
+
+console.log("\n=== Scenario I. Dublin → Belfast Smart Return eligible ===");
+{
+  const decision = evaluateSmartReturn({
+    request: {
+      pickupLabel: "Dublin Airport",
+      dropoffLabel: "12 Malone Road, Belfast",
+      pickup: DUB,
+      dropoff: BELFAST,
+      tripDate: MONDAY,
+      tripTime: "12:30",
+      airportCode: "DUB",
+      isFromAirport: true,
+      vehicle: "Saloon",
+      normalJourneyFareGbp: 230,
+    },
+    parents: [dubParent],
+    config,
+    now: NOW,
+    forceEnabled: true,
+  });
+  assert.equal(decision.eligible, true);
+  console.log("OK  Scenario I");
+}
+
+console.log("\n=== Scenario J. Dublin → Galway not eligible ===");
+{
+  const decision = evaluateSmartReturn({
+    request: {
+      pickupLabel: "Dublin Airport",
+      dropoffLabel: "Galway",
+      pickup: DUB,
+      dropoff: GALWAY,
+      tripDate: MONDAY,
+      tripTime: "12:30",
+      airportCode: "DUB",
+      isFromAirport: true,
+      vehicle: "Saloon",
+      normalJourneyFareGbp: 180,
+    },
+    parents: [dubParent],
+    config,
+    now: NOW,
+    forceEnabled: true,
+  });
+  assert.equal(decision.eligible, false);
+  console.log("OK  Scenario J");
+}
+
+console.log("\n=== Scenario K. Short BFS airport return uses smaller discount ===");
+{
+  const bfsParent: SmartReturnParent = {
+    id: "JOB-BFS-OUT-K",
+    pickupLabel: "12 Malone Road, Belfast",
+    dropoffLabel: "Belfast International Airport",
+    pickup: BELFAST,
+    dropoff: BFS,
+    tripDate: MONDAY,
+    tripTime: "09:00",
+    durationMinutes: 25,
+    airportCode: "BFS",
+    amountGbp: 45,
+  };
+  const bfs = evaluateSmartReturn({
+    request: {
+      pickupLabel: "Belfast International Airport",
+      dropoffLabel: "12 Malone Road, Belfast",
+      pickup: BFS,
+      dropoff: BELFAST,
+      tripDate: MONDAY,
+      tripTime: "09:55",
+      airportCode: "BFS",
+      isFromAirport: true,
+      normalJourneyFareGbp: 40,
+      vehicle: "Saloon",
+    },
+    parents: [bfsParent],
+    config,
+    now: NOW,
+    forceEnabled: true,
+  });
+  const dub = evaluateSmartReturn({
+    request: {
+      pickupLabel: "Dublin Airport",
+      dropoffLabel: "Belfast City Centre",
+      pickup: DUB,
+      dropoff: BELFAST,
+      tripDate: MONDAY,
+      tripTime: "12:30",
+      normalJourneyFareGbp: 230,
+      vehicle: "Saloon",
+    },
+    parents: [dubParent],
+    config,
+    now: NOW,
+    forceEnabled: true,
+  });
+  assert.ok(bfs.eligible || bfs.reason === SMART_OPS_REASON.SMART_RETURN_BELOW_MINIMUM);
+  if (bfs.eligible && dub.eligible) {
+    assert.ok((bfs.savingGbp || 0) <= (dub.savingGbp || 0));
+  }
+  console.log("OK  Scenario K");
+}
+
+console.log("\n=== Scenario L. Parent cancel never changes confirmed price ===");
+{
+  const keep = reassessSmartReturnAfterParentCancel({
+    confirmedLinkedFareGbp: 210,
+    standaloneMinGbp: 200,
+  });
+  assert.equal(keep.keep, true);
+  assert.equal(keep.customerPriceUnchanged, true);
+  const review = reassessSmartReturnAfterParentCancel({
+    confirmedLinkedFareGbp: 150,
+    standaloneMinGbp: 210,
+  });
+  assert.equal(review.flagOwner, true);
+  assert.equal(review.reason, SMART_OPS_REASON.SMART_RETURN_PARENT_CANCELLED_REVIEW_REQUIRED);
+  console.log("OK  Scenario L");
+}
+
+console.log("\n=== Scenario M. Booking created >90 days earlier still conflicts ===");
+{
+  const farFuture = occupiedJobsFromPaidBooking({
+    paymentReference: "OLD-CREATED-FUTURE-TRIP",
+    pickupLabel: "Belfast International Airport",
+    dropoffLabel: "Belfast",
+    tripDate: "2026-12-20",
+    tripTime: "10:00",
+    journeyDuration: "25 min",
+    pickupLat: BFS.lat,
+    pickupLng: BFS.lng,
+    dropoffLat: BELFAST.lat,
+    dropoffLng: BELFAST.lng,
+    airportCode: "BFS",
+    isFromAirport: true,
+    operationalStatus: "confirmed",
+    paymentStatus: "paid",
+    status: "confirmed",
+  });
+  assert.equal(farFuture.length, 1);
+  const decision = evaluateSmartAvailability({
+    requested: {
+      pickupLabel: "Belfast",
+      dropoffLabel: "Belfast International Airport",
+      pickup: BELFAST,
+      dropoff: BFS,
+      tripDate: "2026-12-20",
+      tripTime: "10:10",
+      durationMinutes: 25,
+    },
+    occupied: farFuture,
+    config,
+    searchAlternatives: false,
+  });
+  assert.equal(decision.available, false);
+  const handlers = read("workers/addresses/src/smart-ops-handlers.ts");
+  assert.match(handlers, /listPaidBookingsForTripRange/);
+  assert.doesNotMatch(handlers, /listPaidBookingsCreatedSince/);
+  console.log("OK  Scenario M");
+}
+
+console.log("\n=== Scenario N. Return booking occupies both legs ===");
+{
+  const jobs = occupiedJobsFromPaidBooking({
+    paymentReference: "RET-2LEG",
+    pickupLabel: "Belfast City Centre",
+    dropoffLabel: "Dublin Airport",
+    tripDate: "2026-09-10",
+    tripTime: "10:00",
+    returnJourney: true,
+    returnDate: "2026-09-15",
+    returnTime: "18:00",
+    journeyDuration: "2h 0m",
+    pickupLat: BELFAST.lat,
+    pickupLng: BELFAST.lng,
+    dropoffLat: DUB.lat,
+    dropoffLng: DUB.lng,
+    airportCode: "DUB",
+    operationalStatus: "confirmed",
+    paymentStatus: "partially_refunded",
+    status: "confirmed",
+  });
+  assert.equal(jobs.length, 2);
+  assert.equal(jobs[0]?.tripDate, "2026-09-10");
+  assert.equal(jobs[1]?.tripDate, "2026-09-15");
+  const outboundHit = evaluateSmartAvailability({
+    requested: {
+      pickupLabel: "Belfast",
+      dropoffLabel: "BFS",
+      pickup: BELFAST,
+      dropoff: BFS,
+      tripDate: "2026-09-10",
+      tripTime: "10:30",
+      durationMinutes: 20,
+    },
+    occupied: jobs,
+    config,
+    searchAlternatives: false,
+  });
+  const returnHit = evaluateSmartAvailability({
+    requested: {
+      pickupLabel: "Belfast",
+      dropoffLabel: "BFS",
+      pickup: BELFAST,
+      dropoff: BFS,
+      tripDate: "2026-09-15",
+      tripTime: "18:15",
+      durationMinutes: 20,
+    },
+    occupied: jobs,
+    config,
+    searchAlternatives: false,
+  });
+  assert.equal(outboundHit.available, false);
+  assert.equal(returnHit.available, false);
+  console.log("OK  Scenario N");
+}
+
+console.log("\n=== Scenario O. Available again now keeps Friday’s planned block ===");
+{
+  const friday = normalizeSmartAvailabilityRule({
+    id: "friday-planned",
+    kind: "one_off",
+    startLocal: "2026-09-11T13:00",
+    endLocal: "2026-09-11T17:00",
+    note: "School run",
+    enabled: true,
+  });
+  assert.ok(friday);
+  const quick = buildQuickBlockRule("hours", 2, new Date("2026-09-05T18:00:00+01:00"));
+  assert.ok(quick);
+  const cleared = clearActiveQuickBlocks(
+    [friday, quick],
+    new Date("2026-09-05T18:30:00+01:00"),
+  );
+  const planned = cleared.find((rule) => rule.id === "friday-planned");
+  const quickAfter = cleared.find((rule) => rule.id === quick.id);
+  assert.equal(planned?.enabled, true);
+  assert.equal(quickAfter?.enabled, false);
+  const handlers = read("workers/addresses/src/smart-ops-handlers.ts");
+  assert.match(handlers, /clearActiveQuickBlocks/);
+  console.log("OK  Scenario O");
+}
+
+console.log("\n=== 12:30 + 15-minute journey may remain available ===");
+{
+  const decision = evaluateSmartAvailability({
+    requested: {
+      pickupLabel: "Belfast",
+      dropoffLabel: "BFS",
+      tripDate: MONDAY,
+      tripTime: "12:30",
+      durationMinutes: 15,
+      pickup: BELFAST,
+      dropoff: BFS,
+    },
+    occupied: [],
+    rules: [oneOffAfternoon],
+    config,
+    searchAlternatives: false,
+  });
+  assert.equal(decision.available, true);
+  console.log("OK  12:30/15-min before block");
+}
+
+console.log("\n=== 15:00 booking after a 13:00–15:00 block is allowed ===");
+{
+  const decision = evaluateSmartAvailability({
+    requested: {
+      pickupLabel: "Belfast",
+      dropoffLabel: "BFS",
+      tripDate: MONDAY,
+      tripTime: "15:00",
+      durationMinutes: 20,
+      pickup: BELFAST,
+      dropoff: BFS,
+    },
+    occupied: [],
+    rules: [oneOffAfternoon],
+    config,
+    searchAlternatives: false,
+  });
+  assert.equal(decision.available, true);
+  console.log("OK  no post-block buffer");
+}
+
+console.log("\n=== Overnight recurring 22:00–08:00 spans midnight ===");
+{
+  const recurringNight = normalizeSmartAvailabilityRule({
+    id: "recurring-night",
+    kind: "recurring",
+    weekdays: [1],
+    startTime: "22:00",
+    endTime: "08:00",
+    enabled: true,
+  });
+  assert.ok(recurringNight);
+  const intervals = expandSmartAvailabilityIntervals({
+    rules: [recurringNight],
+    fromYmd: MONDAY,
+    toYmd: addDaysYmd(MONDAY, 1),
+  });
+  assert.ok(findBlockingSmartInterval(MONDAY, "23:30", intervals));
+  assert.ok(findBlockingSmartInterval(addDaysYmd(MONDAY, 1), "01:00", intervals));
+  assert.ok(findBlockingSmartInterval(addDaysYmd(MONDAY, 1), "05:00", intervals));
+  assert.ok(findBlockingSmartInterval(addDaysYmd(MONDAY, 1), "07:30", intervals));
+  const pickup = evaluateSmartAvailability({
+    requested: {
+      pickupLabel: "Belfast",
+      dropoffLabel: "BFS",
+      tripDate: addDaysYmd(MONDAY, 1),
+      tripTime: "01:00",
+      durationMinutes: 15,
+    },
+    occupied: [],
+    rules: [recurringNight],
+    config,
+    searchAlternatives: false,
+  });
+  assert.equal(pickup.available, false);
+  assert.equal(pickup.reason, SMART_OPS_REASON.BLOCKED_RECURRING_AVAILABILITY);
+  console.log("OK  overnight recurring");
+}
+
+console.log("\n=== Cancelled operational booking does not block; partial refund still does ===");
+{
+  const cancelled = occupiedJobsFromPaidBooking({
+    paymentReference: "CANCELLED-OP",
+    pickupLabel: "Belfast",
+    dropoffLabel: "BFS",
+    tripDate: MONDAY,
+    tripTime: "10:00",
+    journeyDuration: "25 min",
+    operationalStatus: "cancelled",
+    paymentStatus: "fully_refunded",
+    status: "refunded",
+  });
+  assert.equal(cancelled.length, 0);
+  const partial = occupiedJobsFromPaidBooking({
+    paymentReference: "PARTIAL-REFUND",
+    pickupLabel: "Belfast International Airport",
+    dropoffLabel: "Belfast",
+    tripDate: MONDAY,
+    tripTime: "10:00",
+    journeyDuration: "25 min",
+    pickupLat: BFS.lat,
+    pickupLng: BFS.lng,
+    dropoffLat: BELFAST.lat,
+    dropoffLng: BELFAST.lng,
+    airportCode: "BFS",
+    isFromAirport: true,
+    operationalStatus: "confirmed",
+    paymentStatus: "partially_refunded",
+    status: "confirmed",
+  });
+  assert.equal(partial.length, 1);
+  console.log("OK  operational vs payment status");
+}
+
+console.log("\n=== Nearby alternatives use professional copy ===");
+{
+  const decision = evaluateSmartAvailability({
+    requested: {
+      pickupLabel: "Belfast",
+      dropoffLabel: "BFS",
+      tripDate: MONDAY,
+      tripTime: "14:00",
+      durationMinutes: 20,
+      pickup: BELFAST,
+      dropoff: BFS,
+    },
+    occupied: [],
+    rules: [oneOffAfternoon],
+    config,
+    now: new Date("2026-09-06T12:00:00+01:00"),
+  });
+  assert.equal(decision.available, false);
+  const message = customerAvailabilityMessage(decision, "14:00");
+  assert.match(message, /isn't available/);
+  assert.match(message, /Nearby times available/);
+  assert.doesNotMatch(message, /Cara|sleep|appointment/i);
+  console.log("OK  alternative copy");
+}
+
+console.log("\n=== Same-place zero-gap jobs need minimum turnaround ===");
+{
+  const first: SmartOccupiedJob = {
+    id: "JOB-TURN",
+    pickupLabel: "Belfast City Centre",
+    dropoffLabel: "Belfast City Centre",
+    pickup: BELFAST,
+    dropoff: BELFAST,
+    tripDate: MONDAY,
+    tripTime: "10:00",
+    durationMinutes: 20,
+  };
+  const decision = evaluateSmartAvailability({
+    requested: {
+      pickupLabel: "Belfast City Centre",
+      dropoffLabel: "Belfast International Airport",
+      pickup: BELFAST,
+      dropoff: BFS,
+      tripDate: MONDAY,
+      tripTime: "10:40",
+      durationMinutes: 20,
+    },
+    occupied: [first],
+    config,
+    searchAlternatives: false,
+  });
+  assert.equal(decision.available, false);
+  assert.equal(decision.reason, SMART_OPS_REASON.CONFLICT_MINIMUM_TURNAROUND);
+  console.log("OK  minimum turnaround");
+}
+
+console.log("\n=== Defaults remain customer-off / shadow-on ===");
+{
+  assert.equal(DEFAULT_SMART_OPS_CONFIG.flags.smartAvailability, false);
+  assert.equal(DEFAULT_SMART_OPS_CONFIG.flags.alternativeTimeSuggestions, false);
+  assert.equal(DEFAULT_SMART_OPS_CONFIG.flags.smartReturnPricing, false);
+  assert.equal(DEFAULT_SMART_OPS_CONFIG.flags.returnCorridorMatching, false);
+  assert.equal(DEFAULT_SMART_OPS_CONFIG.flags.backupDriverCapacity, false);
+  assert.equal(DEFAULT_SMART_OPS_CONFIG.flags.shadowMode, true);
+  assert.equal(DEFAULT_SMART_OPS_CONFIG.buffers.minTurnaroundMinutes, 10);
+  assert.equal(DEFAULT_SMART_OPS_CONFIG.alternatives.maxShiftMinutes, 60);
+  assert.equal(DEFAULT_SMART_OPS_CONFIG.alternatives.allowAcrossMidnight, false);
+  assert.equal(DEFAULT_SMART_OPS_CONFIG.smartReturn.releaseMode, "inside_free_cancel_cutoff");
+  const refund = read("workers/addresses/src/refund-handlers.ts");
+  assert.match(refund, /reassessSmartReturnsForCancelledParent/);
+  assert.match(refund, /pickupLat/);
+  assert.match(read("shared/route-metrics-resolver.ts"), /pickup: origin\.point/);
+  void findOverlappingSmartInterval;
+  console.log("OK  defaults + wiring");
 }
 
 console.log("\nAll Smart Availability / Smart Return checks passed.");

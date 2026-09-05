@@ -244,6 +244,22 @@ export type PaidBookingRecord = {
   returnCompletedAt?: string;
   /** Optional pricing snapshot used only to recover persisted per-leg fares. */
   quoteSnapshot?: Record<string, unknown>;
+  /**
+   * Operational route snapshot captured at quote/payment time.
+   * Optional — historic bookings may omit coordinates.
+   */
+  pickupLat?: number | null;
+  pickupLng?: number | null;
+  dropoffLat?: number | null;
+  dropoffLng?: number | null;
+  routeDistanceKm?: number | null;
+  routeDurationMinutes?: number | null;
+  /** Confirmed Smart Return parent — used if that parent is later cancelled. */
+  smartReturnParentPaymentRef?: string;
+  smartReturnLinkedFareGbp?: number;
+  smartReturnStandaloneMinGbp?: number;
+  smartReturnReviewRequired?: boolean;
+  smartReturnParentCancelledAt?: string;
 };
 
 /** Default driver label when no other driver is assigned (multi-driver capable later). */

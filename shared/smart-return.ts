@@ -225,7 +225,7 @@ export function evaluateSmartReturn(input: {
 
   for (const parent of input.parents) {
     if (parent.cancelled || parent.operationalStatus === "cancelled") continue;
-    if (String(parent.status || "").toLowerCase() === "refunded") continue;
+    if (String(parent.status || "").toLowerCase() === "cancelled") continue;
     if (!isLongDistanceJourney(parent) && roadMilesEstimate(
       point(parent.pickup, parent.pickupLabel, parent.airportCode) || { lat: 0, lng: 0 },
       point(parent.dropoff, parent.dropoffLabel, parent.airportCode) || { lat: 0, lng: 0 },
@@ -345,7 +345,9 @@ export function reassessSmartReturnAfterParentCancel(input: {
   return {
     keep,
     flagOwner: !keep,
-    reason: SMART_OPS_REASON.SMART_RETURN_PARENT_CANCELLED,
+    reason: keep
+      ? SMART_OPS_REASON.SMART_RETURN_PARENT_CANCELLED
+      : SMART_OPS_REASON.SMART_RETURN_PARENT_CANCELLED_REVIEW_REQUIRED,
     customerPriceUnchanged: true,
   };
 }

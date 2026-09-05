@@ -1865,6 +1865,10 @@ async function handlePaymentRequest(
         tripLabel: sj.tripLabel || booking.tripLabel || "Airport transfer",
         journeyDistance: sj.journeyDistance,
         journeyDuration: sj.journeyDuration,
+        pickupLat: sj.pickupLat,
+        pickupLng: sj.pickupLng,
+        dropoffLat: sj.dropoffLat,
+        dropoffLng: sj.dropoffLng,
       };
     } else {
       amount = resolved.amount;
@@ -1890,6 +1894,10 @@ async function handlePaymentRequest(
         tripLabel: sj.tripLabel || booking.tripLabel || "Airport transfer",
         journeyDistance: sj.journeyDistance,
         journeyDuration: sj.journeyDuration,
+        pickupLat: sj.pickupLat,
+        pickupLng: sj.pickupLng,
+        dropoffLat: sj.dropoffLat,
+        dropoffLng: sj.dropoffLng,
       };
     }
   }
@@ -1942,6 +1950,17 @@ async function handlePaymentRequest(
       return json(errBody, status, origin);
     }
     const routeMetrics = routeOutcome.metrics;
+    booking = {
+      ...booking,
+      routeDistanceKm: routeMetrics.distanceKm,
+      routeDurationMinutes: routeMetrics.durationMinutes,
+      ...(routeOutcome.pickup
+        ? { pickupLat: routeOutcome.pickup.lat, pickupLng: routeOutcome.pickup.lng }
+        : {}),
+      ...(routeOutcome.dropoff
+        ? { dropoffLat: routeOutcome.dropoff.lat, dropoffLng: routeOutcome.dropoff.lng }
+        : {}),
+    };
 
     // Airport identity / direction from pickup/drop-off labels vs SERVED_AIRPORTS.
     // Never trust client airportCode / isFromAirport / journeyKind / A2A flags.

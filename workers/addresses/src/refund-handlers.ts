@@ -183,9 +183,23 @@ async function persistRecord(
   record: PaidBookingRecord,
   previousTripDate?: string,
 ): Promise<void> {
+  const existing = env.TRACKING_STORE
+    ? await getPaidBookingRecord(env.TRACKING_STORE, record.paymentReference)
+    : null;
   await savePaidBookingRecord(env.TRACKING_STORE!, record, {
     previousTripDate,
+    previousReturnDate: existing?.returnDate,
   });
+  const becameCancelled =
+    record.operationalStatus === "cancelled" && existing?.operationalStatus !== "cancelled";
+  if (becameCancelled && env.TRACKING_STORE) {
+    try {
+      const { reassessSmartReturnsForCancelledParent } = await import("./smart-ops-store");
+      await reassessSmartReturnsForCancelledParent(env.TRACKING_STORE, record.paymentReference);
+    } catch {
+      // Fail-open: cancellation must not depend on Smart Return reassessment.
+    }
+  }
 }
 
 export type RefundIssueResult = {
@@ -1755,6 +1769,24 @@ export async function savePaidBookingRecordFromConfirm(input: {
     vehicle: input.booking.vehicle,
     journeyDistance: input.booking.journeyDistance,
     journeyDuration: input.booking.journeyDuration,
+    ...(Number.isFinite(Number(input.booking.pickupLat))
+      ? { pickupLat: Number(input.booking.pickupLat) }
+      : {}),
+    ...(Number.isFinite(Number(input.booking.pickupLng))
+      ? { pickupLng: Number(input.booking.pickupLng) }
+      : {}),
+    ...(Number.isFinite(Number(input.booking.dropoffLat))
+      ? { dropoffLat: Number(input.booking.dropoffLat) }
+      : {}),
+    ...(Number.isFinite(Number(input.booking.dropoffLng))
+      ? { dropoffLng: Number(input.booking.dropoffLng) }
+      : {}),
+    ...(Number.isFinite(Number(input.booking.routeDistanceKm))
+      ? { routeDistanceKm: Number(input.booking.routeDistanceKm) }
+      : {}),
+    ...(Number.isFinite(Number(input.booking.routeDurationMinutes))
+      ? { routeDurationMinutes: Number(input.booking.routeDurationMinutes) }
+      : {}),
     isAirportTrip: input.booking.isAirportTrip,
     airportCode: input.booking.airportCode,
     isFromAirport: input.booking.isFromAirport,

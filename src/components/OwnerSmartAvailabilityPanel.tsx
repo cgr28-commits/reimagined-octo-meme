@@ -51,6 +51,7 @@ export default function OwnerSmartAvailabilityPanel({ ownerKey }: OwnerSmartAvai
     tripTime: "14:00",
     vehicle: "Saloon",
     normalJourneyFareGbp: "45",
+    durationMinutes: "30",
   });
   const [testResult, setTestResult] = useState<Record<string, unknown> | null>(null);
 
@@ -260,7 +261,67 @@ export default function OwnerSmartAvailabilityPanel({ ownerKey }: OwnerSmartAvai
               <option value="owner_plus_backup">Me + backup driver</option>
             </select>
           </label>
+          <label className="text-xs text-white/50">
+            Minimum turnaround
+            <select
+              value={config.buffers.minTurnaroundMinutes}
+              onChange={(event) =>
+                void saveSettings({
+                  buffers: {
+                    ...config.buffers,
+                    minTurnaroundMinutes: Number(event.target.value) as 5 | 10 | 15 | 20,
+                  },
+                })
+              }
+              className="mt-1 min-h-11 w-full rounded-xl border border-white/15 bg-navy px-3 text-sm text-white"
+            >
+              <option value={5}>5 minutes</option>
+              <option value={10}>10 minutes</option>
+              <option value={15}>15 minutes</option>
+              <option value={20}>20 minutes</option>
+            </select>
+          </label>
+          <label className="text-xs text-white/50">
+            Maximum alternative-time shift
+            <select
+              value={config.alternatives.maxShiftMinutes}
+              onChange={(event) =>
+                void saveSettings({
+                  alternatives: {
+                    ...config.alternatives,
+                    maxShiftMinutes: Number(event.target.value) as 30 | 45 | 60 | 90,
+                  },
+                })
+              }
+              className="mt-1 min-h-11 w-full rounded-xl border border-white/15 bg-navy px-3 text-sm text-white"
+            >
+              <option value={30}>30 minutes</option>
+              <option value={45}>45 minutes</option>
+              <option value={60}>60 minutes</option>
+              <option value={90}>90 minutes</option>
+            </select>
+          </label>
+          <label className="flex min-h-11 items-center justify-between gap-3 text-sm text-white sm:col-span-2">
+            <span>Allow alternatives across midnight</span>
+            <input
+              type="checkbox"
+              checked={config.alternatives.allowAcrossMidnight}
+              onChange={(event) =>
+                void saveSettings({
+                  alternatives: {
+                    ...config.alternatives,
+                    allowAcrossMidnight: event.target.checked,
+                  },
+                })
+              }
+              className="h-5 w-5 accent-emerald"
+            />
+          </label>
         </div>
+        <p className="mt-2 text-xs text-white/45">
+          Backup-driver capacity is stored only. It does not bypass conflicts until assignment is
+          implemented.
+        </p>
       </div>
 
       <div className="rounded-2xl border border-white/10 bg-navy/70 p-4">
@@ -565,7 +626,7 @@ export default function OwnerSmartAvailabilityPanel({ ownerKey }: OwnerSmartAvai
                     </li>
                   ))}
                 {(calendar?.unavailable || [])
-                  .filter((item) => item.startLocal.startsWith(day))
+                  .filter((item) => item.startLocal.slice(0, 10) <= day && item.endLocal.slice(0, 10) >= day)
                   .map((item) => (
                     <li
                       key={`${item.startLocal}-${item.endLocal}`}
@@ -633,6 +694,12 @@ export default function OwnerSmartAvailabilityPanel({ ownerKey }: OwnerSmartAvai
             className="min-h-11 rounded-xl border border-white/15 bg-navy px-3 text-sm text-white"
             placeholder="Normal fare £"
           />
+          <input
+            value={test.durationMinutes}
+            onChange={(event) => setTest((prev) => ({ ...prev, durationMinutes: event.target.value }))}
+            className="min-h-11 rounded-xl border border-white/15 bg-navy px-3 text-sm text-white"
+            placeholder="Journey duration (minutes)"
+          />
           <button
             type="button"
             disabled={busy}
@@ -643,6 +710,7 @@ export default function OwnerSmartAvailabilityPanel({ ownerKey }: OwnerSmartAvai
                 const result = (await evaluateSmartOpsTest(ownerKey, {
                   ...test,
                   normalJourneyFareGbp: Number(test.normalJourneyFareGbp),
+                  durationMinutes: Number(test.durationMinutes) || undefined,
                 })) as Record<string, unknown>;
                 setTestResult(result);
               } catch (err) {
@@ -657,9 +725,26 @@ export default function OwnerSmartAvailabilityPanel({ ownerKey }: OwnerSmartAvai
           </button>
         </div>
         {testResult ? (
-          <pre className="mt-3 overflow-x-auto rounded-xl bg-black/30 p-3 text-[11px] text-white/80">
-            {JSON.stringify(testResult, null, 2)}
-          </pre>
+          <div className="mt-3 space-y-2">
+            {testResult.diagnostics ? (
+              <dl className="grid gap-1 rounded-xl bg-black/30 p-3 text-[11px] text-white/80">
+                {Object.entries(testResult.diagnostics as Record<string, unknown>).map(([key, value]) => (
+                  <div key={key} className="grid grid-cols-[11rem_1fr] gap-2">
+                    <dt className="text-white/45">{key}</dt>
+                    <dd className="break-all">{typeof value === "string" || typeof value === "number" || typeof value === "boolean" ? String(value) : JSON.stringify(value)}</dd>
+                  </div>
+                ))}
+              </dl>
+            ) : null}
+            {typeof testResult.customerMessage === "string" && testResult.customerMessage ? (
+              <p className="rounded-xl border border-white/10 px-3 py-2 text-xs text-white/80">
+                {String(testResult.customerMessage)}
+              </p>
+            ) : null}
+            <pre className="overflow-x-auto rounded-xl bg-black/30 p-3 text-[11px] text-white/80">
+              {JSON.stringify(testResult, null, 2)}
+            </pre>
+          </div>
         ) : null}
       </div>
 

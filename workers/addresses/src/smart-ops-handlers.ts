@@ -4,7 +4,7 @@
  */
 
 import { ownerAuthorized, type DriverAuthEnv } from "./driver-auth";
-import { listPaidBookingsCreatedSince } from "./paid-booking-store";
+import { listPaidBookingsForTripRange } from "./paid-booking-store";
 import type { PaidBookingRecord } from "../shared/paid-booking-record";
 import { addDaysYmd, londonYmd } from "../shared/upcoming-jobs";
 import {
@@ -13,6 +13,7 @@ import {
 } from "../shared/smart-ops-config";
 import {
   buildQuickBlockRule,
+  clearActiveQuickBlocks,
   expandSmartAvailabilityIntervals,
   generateSmartRuleId,
   normalizeSmartAvailabilityException,
@@ -21,7 +22,9 @@ import {
   type SmartAvailabilityRule,
 } from "../shared/smart-availability";
 import {
+  customerAvailabilityMessage,
   evaluateSmartAvailability,
+  occupiedJobsFromPaidBooking,
   type SmartOccupiedJob,
 } from "../shared/smart-conflict";
 import {
@@ -35,6 +38,7 @@ import {
   appendSmartShadowRecord,
   getSmartOpsState,
   listSmartShadowRecords,
+  reassessSmartReturnsForCancelledParent,
   saveSmartOpsState,
 } from "./smart-ops-store";
 
@@ -46,32 +50,8 @@ function unauthorized(): { error: string; status: number } {
   return { error: "Unauthorized", status: 401 };
 }
 
-function parseDurationMinutes(value?: string | null): number {
-  if (!value) return 0;
-  const hours = value.match(/(\d+)\s*h/);
-  const mins = value.match(/(\d+)\s*m/);
-  const hourN = hours ? Number(hours[1]) : 0;
-  const minN = mins ? Number(mins[1]) : 0;
-  if (hourN || minN) return hourN * 60 + minN;
-  const plain = Number(String(value).replace(/[^\d.]/g, ""));
-  return Number.isFinite(plain) && plain > 0 && plain < 400 ? Math.round(plain) : 0;
-}
-
 export function paidBookingToOccupiedJob(booking: PaidBookingRecord): SmartOccupiedJob | null {
-  if (booking.operationalStatus === "cancelled" || booking.status === "cancelled") return null;
-  if (booking.isRefundTest || booking.isAmendmentTestFixture) return null;
-  return {
-    id: booking.paymentReference,
-    pickupLabel: booking.pickupLabel || "",
-    dropoffLabel: booking.dropoffLabel || "",
-    tripDate: booking.tripDate || "",
-    tripTime: booking.tripTime || "",
-    durationMinutes: parseDurationMinutes(booking.journeyDuration),
-    airportCode: booking.airportCode,
-    isFromAirport: booking.isFromAirport,
-    cancelled: false,
-    status: booking.status,
-  };
+  return occupiedJobsFromPaidBooking(booking)[0] || null;
 }
 
 export function paidBookingToParent(booking: PaidBookingRecord): SmartReturnParent | null {
@@ -86,18 +66,22 @@ export function paidBookingToParent(booking: PaidBookingRecord): SmartReturnPare
   };
 }
 
-async function loadOccupied(store: KVNamespace): Promise<{
+async function loadOccupied(
+  store: KVNamespace,
+  range?: { fromYmd: string; toYmd: string },
+): Promise<{
   occupied: SmartOccupiedJob[];
   parents: SmartReturnParent[];
 }> {
-  const from = addDaysYmd(londonYmd(), -90);
-  const bookings = await listPaidBookingsCreatedSince(store, from, { limit: 400 });
+  const from = range?.fromYmd || addDaysYmd(londonYmd(), -2);
+  const to = range?.toYmd || addDaysYmd(londonYmd(), 180);
+  const bookings = await listPaidBookingsForTripRange(store, from, to, { limit: 400 });
   const occupied: SmartOccupiedJob[] = [];
   const parents: SmartReturnParent[] = [];
   for (const booking of bookings) {
-    const job = paidBookingToOccupiedJob(booking);
+    const jobs = occupiedJobsFromPaidBooking(booking);
+    occupied.push(...jobs);
     const parent = paidBookingToParent(booking);
-    if (job) occupied.push(job);
     if (parent) parents.push(parent);
   }
   return { occupied, parents };
@@ -155,13 +139,8 @@ export async function handleOwnerSaveSmartOps(
   }
 
   if (action === "available_now") {
-    const now = new Date();
-    const cleared = current.rules.map((rule) =>
-      rule.enabled && (rule.kind === "one_off" || rule.kind === "full_day")
-        ? { ...rule, enabled: false, updatedAt: now.toISOString() }
-        : rule,
-    );
-    const state = await saveSmartOpsState(env.TRACKING_STORE, { ...current, rules: cleared });
+    const rules = clearActiveQuickBlocks(current.rules, new Date());
+    const state = await saveSmartOpsState(env.TRACKING_STORE, { ...current, rules });
     return { ok: true, state };
   }
 
@@ -222,11 +201,9 @@ export async function handleOwnerSaveSmartOps(
 
   if (action === "reassess_link") {
     const parentId = String(body.parentBookingId || "").trim();
-    const links = current.links.map((link) => {
-      if (link.parentBookingId !== parentId) return link;
-      return link;
-    });
-    const flagged = current.links
+    const automatic = await reassessSmartReturnsForCancelledParent(env.TRACKING_STORE, parentId);
+    const refreshed = await getSmartOpsState(env.TRACKING_STORE);
+    const flagged = refreshed.links
       .filter((link) => link.parentBookingId === parentId)
       .map((link) => ({
         link,
@@ -235,8 +212,7 @@ export async function handleOwnerSaveSmartOps(
           standaloneMinGbp: link.standaloneMinGbp,
         }),
       }));
-    const state = await saveSmartOpsState(env.TRACKING_STORE, { ...current, links });
-    return { ok: true, state, flagged };
+    return { ok: true, state: refreshed, flagged, automatic };
   }
 
   return { error: "Unknown action", status: 400 };
@@ -250,16 +226,28 @@ export async function handleOwnerEvaluateSmartOps(
   if (!ownerAuthorized(request, env)) return unauthorized();
   const state = await getSmartOpsState(env.TRACKING_STORE);
   const settings = await getBookingSettings(env.TRACKING_STORE);
-  const { occupied, parents } = await loadOccupied(env.TRACKING_STORE);
+  const tripDate = String(body.tripDate || londonYmd());
+  const { occupied, parents } = await loadOccupied(env.TRACKING_STORE, {
+    fromYmd: addDaysYmd(tripDate, -3),
+    toYmd: addDaysYmd(tripDate, 3),
+  });
   const requested = {
     pickupLabel: String(body.pickupLabel || ""),
     dropoffLabel: String(body.dropoffLabel || ""),
-    tripDate: String(body.tripDate || ""),
+    tripDate,
     tripTime: String(body.tripTime || ""),
     vehicle: String(body.vehicle || "Saloon"),
     airportCode: body.airportCode ? String(body.airportCode) : null,
     isFromAirport: body.isFromAirport === true,
     durationMinutes: Number(body.durationMinutes) || undefined,
+    pickup:
+      Number.isFinite(Number(body.pickupLat)) && Number.isFinite(Number(body.pickupLng))
+        ? { lat: Number(body.pickupLat), lng: Number(body.pickupLng) }
+        : undefined,
+    dropoff:
+      Number.isFinite(Number(body.dropoffLat)) && Number.isFinite(Number(body.dropoffLng))
+        ? { lat: Number(body.dropoffLat), lng: Number(body.dropoffLng) }
+        : undefined,
   };
   const config: SmartOpsConfig = state.config;
   const availability = evaluateSmartAvailability({
@@ -282,11 +270,41 @@ export async function handleOwnerEvaluateSmartOps(
     config,
     forceEnabled: true,
   });
+  const previous = occupied.find((job) => job.id === availability.diagnostics.previousBookingId);
+  const next = occupied.find((job) => job.id === availability.diagnostics.nextBookingId);
   return {
     ok: true,
     availability,
     smartReturn,
     occupiedCount: occupied.length,
+    customerMessage: customerAvailabilityMessage(availability, requested.tripTime),
+    diagnostics: {
+      requestedPickup: availability.diagnostics.requestedPickupLocal,
+      estimatedJourneyDuration: availability.diagnostics.estimatedJourneyDurationMinutes,
+      estimatedCompletion: availability.diagnostics.estimatedCompletionLocal,
+      operationalBuffer: availability.bufferMinutes,
+      minTurnaround: availability.diagnostics.minTurnaroundMinutes,
+      expectedFinishingLocation: availability.diagnostics.expectedFinishingLocation,
+      previousBooking: previous
+        ? { id: previous.id, tripDate: previous.tripDate, tripTime: previous.tripTime, label: `${previous.pickupLabel} → ${previous.dropoffLabel}` }
+        : null,
+      nextBooking: next
+        ? { id: next.id, tripDate: next.tripDate, tripTime: next.tripTime, label: `${next.pickupLabel} → ${next.dropoffLabel}` }
+        : null,
+      positioningMinutes: availability.diagnostics.positioningMinutes,
+      blockedTimeOverlap: availability.diagnostics.blockedTimeOverlap,
+      blockingInterval: availability.diagnostics.blockingInterval,
+      available: availability.available,
+      reason: availability.reason,
+      alternativeReason: availability.alternativeReason,
+      suggestedAlternatives: availability.alternatives,
+      normalFare: Number(body.normalJourneyFareGbp) || 0,
+      smartReturnEligible: smartReturn.eligible,
+      smartReturnParent: smartReturn.parentBookingId || null,
+      smartReturnFare: smartReturn.finalSmartFareGbp,
+      saving: smartReturn.savingGbp,
+      returnRouteDeviation: smartReturn.deviationMiles,
+    },
     config,
     customerFacingFlagsOff: {
       smartAvailability: config.flags.smartAvailability,
@@ -303,7 +321,10 @@ export async function handleOwnerSmartOpsCalendar(request: Request, env: SmartOp
   const to = url.searchParams.get("to") || addDaysYmd(from, 6);
   const state = await getSmartOpsState(env.TRACKING_STORE);
   const settings = await getBookingSettings(env.TRACKING_STORE);
-  const { occupied, parents } = await loadOccupied(env.TRACKING_STORE);
+  const { occupied, parents } = await loadOccupied(env.TRACKING_STORE, {
+    fromYmd: addDaysYmd(from, -1),
+    toYmd: addDaysYmd(to, 1),
+  });
   const intervals = expandSmartAvailabilityIntervals({
     rules: state.rules,
     exceptions: state.exceptions,
@@ -364,7 +385,11 @@ export async function recordQuoteShadowSafely(input: {
     const state = await getSmartOpsState(input.store);
     if (!state.config.flags.shadowMode) return;
     const settings = await getBookingSettings(input.store);
-    const { occupied, parents } = await loadOccupied(input.store);
+    const requestedDate = input.requested.tripDate || londonYmd();
+    const { occupied, parents } = await loadOccupied(input.store, {
+      fromYmd: addDaysYmd(requestedDate, -3),
+      toYmd: addDaysYmd(requestedDate, 3),
+    });
     const record = evaluateSmartOpsShadow({
       requested: input.requested,
       occupied,

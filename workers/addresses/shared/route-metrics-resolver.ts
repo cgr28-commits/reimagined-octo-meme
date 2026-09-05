@@ -58,7 +58,12 @@ export type RouteResolveFailureReason =
   | "routing_unavailable";
 
 export type RouteResolveOutcome =
-  | { ok: true; metrics: TripRouteMetricsLike }
+  | {
+      ok: true;
+      metrics: TripRouteMetricsLike;
+      pickup?: RoutePoint;
+      dropoff?: RoutePoint;
+    }
   | {
       ok: false;
       reason: RouteResolveFailureReason;
@@ -280,5 +285,5 @@ export async function resolveTripRouteMetricsOutcome(options: {
   if (!metrics) {
     return { ok: false, reason: "routing_unavailable", endpoint: "route" };
   }
-  return { ok: true, metrics };
+  return { ok: true, metrics, pickup: origin.point, dropoff: destination.point };
 }
