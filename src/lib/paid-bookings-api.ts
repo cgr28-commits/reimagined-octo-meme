@@ -64,6 +64,10 @@ export type OwnerPaidBookingSummary = Pick<
   expressDropOffFee?: number;
   expressDropOffAirport?: "BFS" | "BHD" | null;
   airportAccessOption?: "express" | "free" | null;
+  dublinArrivalTerminal?: "T1" | "T2" | null;
+  dublinArrivalTerminalSource?: "flight" | "owner" | "unresolved";
+  returnDublinArrivalTerminal?: "T1" | "T2" | null;
+  returnDublinArrivalTerminalSource?: "flight" | "owner" | "unresolved";
   passengers?: number;
   suitcases?: number;
   childSeats?: number;
@@ -522,6 +526,8 @@ export type OwnerEditBookingInput = {
   mobileNumber?: string;
   flightNumber?: string;
   returnFlightNumber?: string;
+  dublinArrivalTerminal?: "T1" | "T2" | "" | null;
+  returnDublinArrivalTerminal?: "T1" | "T2" | "" | null;
   passengers?: number;
   suitcases?: number;
   childSeats?: number;

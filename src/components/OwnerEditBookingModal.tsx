@@ -18,6 +18,8 @@ type EditFormState = {
   mobileNumber: string;
   flightNumber: string;
   returnFlightNumber: string;
+  dublinArrivalTerminal: string;
+  returnDublinArrivalTerminal: string;
   passengers: string;
   suitcases: string;
   childSeats: string;
@@ -41,6 +43,8 @@ function formFromBooking(booking: OwnerPaidBookingSummary): EditFormState {
     mobileNumber: booking.mobileNumber || "",
     flightNumber: booking.flightNumber || "",
     returnFlightNumber: booking.returnFlightNumber || "",
+    dublinArrivalTerminal: booking.dublinArrivalTerminal || "",
+    returnDublinArrivalTerminal: booking.returnDublinArrivalTerminal || "",
     passengers: String(booking.passengers ?? 1),
     suitcases: String(booking.suitcases ?? 0),
     childSeats: String(booking.childSeats ?? 0),
@@ -66,6 +70,12 @@ function buildDiffs(original: EditFormState, next: EditFormState): DiffRow[] {
   push("Customer email", original.customerEmail, next.customerEmail);
   push("Customer mobile", original.mobileNumber, next.mobileNumber);
   push("Flight number", original.flightNumber, next.flightNumber);
+  push("Dublin arrival terminal", original.dublinArrivalTerminal, next.dublinArrivalTerminal);
+  push(
+    "Return Dublin arrival terminal",
+    original.returnDublinArrivalTerminal,
+    next.returnDublinArrivalTerminal,
+  );
   push("Passengers", original.passengers, next.passengers);
   push("Luggage", original.suitcases, next.suitcases);
   push("Child seats", original.childSeats, next.childSeats);
@@ -153,6 +163,8 @@ export default function OwnerEditBookingModal({
         mobileNumber: form.mobileNumber.trim(),
         flightNumber: form.flightNumber.trim(),
         returnFlightNumber: form.returnFlightNumber.trim(),
+        dublinArrivalTerminal: form.dublinArrivalTerminal.trim() as "T1" | "T2" | "",
+        returnDublinArrivalTerminal: form.returnDublinArrivalTerminal.trim() as "T1" | "T2" | "",
         passengers: Number(form.passengers) || 1,
         suitcases: Number(form.suitcases) || 0,
         childSeats: Number(form.childSeats) || 0,
@@ -295,6 +307,38 @@ export default function OwnerEditBookingModal({
                   className={fieldClass()}
                 />
               </label>
+              {booking.airportCode === "DUB" ? (
+                <label className="text-sm text-white/70">
+                  Dublin arrival terminal
+                  <select
+                    value={form.dublinArrivalTerminal}
+                    onChange={(e) => update("dublinArrivalTerminal", e.target.value)}
+                    className={fieldClass()}
+                  >
+                    <option value="">Needs confirmation</option>
+                    <option value="T1">Terminal 1</option>
+                    <option value="T2">Terminal 2</option>
+                  </select>
+                  <span className="mt-1 block text-xs text-white/45">
+                    Set automatically from the arriving flight when AeroDataBox provides a
+                    terminal. Override if the terminal is missing or changes.
+                  </span>
+                </label>
+              ) : null}
+              {booking.airportCode === "DUB" && form.returnJourney ? (
+                <label className="text-sm text-white/70">
+                  Return Dublin arrival terminal
+                  <select
+                    value={form.returnDublinArrivalTerminal}
+                    onChange={(e) => update("returnDublinArrivalTerminal", e.target.value)}
+                    className={fieldClass()}
+                  >
+                    <option value="">Needs confirmation</option>
+                    <option value="T1">Terminal 1</option>
+                    <option value="T2">Terminal 2</option>
+                  </select>
+                </label>
+              ) : null}
               <div className="grid grid-cols-2 gap-3">
                 <label className="text-sm text-white/70">
                   Passengers

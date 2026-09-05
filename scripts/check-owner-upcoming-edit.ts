@@ -156,6 +156,8 @@ console.log("\n=== 4. Arrival + updated confirmation emails (no send) ===");
   assert.match(arrival.subject, /arrived/i);
   assert.match(arrival.text, /Alex/);
   assert.match(arrival.text, /arrived at your pickup location/i);
+  assert.match(arrival.text, /Your driver is now at your pickup location/);
+  assert.doesNotMatch(arrival.text, /My Airport Taxi NI driver/);
   assert.match(
     arrival.text,
     /Questions\? Email us at bookings@myairporttaxini\.co\.uk or chat with us on WhatsApp\./,
@@ -256,6 +258,8 @@ console.log("\n=== 7. Owner panel UI contracts ===");
   assert.match(editModal, /Confirm Booking Changes/);
   assert.match(editModal, /Confirm Changes/);
   assert.match(editModal, /fareMayNeedManualAdjustment/);
+  assert.match(editModal, /Dublin arrival terminal/);
+  assert.match(editModal, /Needs confirmation/);
   assert.ok(editModal.includes("OwnerEditBookingModal") || editModal.includes("Confirm Changes"));
 
   // Live GPS driver-tracking chrome must stay off Owner paid cards.

@@ -55,6 +55,11 @@ export function paidBookingRecordToDetails(record: PaidBookingRecord): PaidBooki
     record.airportAccessOption === null
       ? { airportAccessOption: record.airportAccessOption }
       : {}),
+    ...(record.dublinArrivalTerminal === "T1" ||
+    record.dublinArrivalTerminal === "T2" ||
+    record.dublinArrivalTerminal === null
+      ? { dublinArrivalTerminal: record.dublinArrivalTerminal }
+      : {}),
     termsAcceptedAt: record.termsAcceptedAt,
     termsVersion: record.termsVersion,
     cancellationPolicyVersion: record.cancellationPolicyVersion,

@@ -11,6 +11,8 @@ export type VerifiedFlight = {
   departureAirport: string;
   arrivalAirport: string;
   status?: string;
+  /** Raw arrival terminal from AeroDataBox when provided (e.g. "1", "2", "T1"). */
+  arrivalTerminal?: string | null;
 };
 
 export type FlightLookupResult =
@@ -150,10 +152,12 @@ type AeroFlight = {
   departure?: {
     airport?: { iata?: string; name?: string; icao?: string };
     scheduledTime?: { local?: string; utc?: string };
+    terminal?: string | null;
   };
   arrival?: {
     airport?: { iata?: string; name?: string; icao?: string };
     scheduledTime?: { local?: string; utc?: string };
+    terminal?: string | null;
   };
 };
 
@@ -285,6 +289,7 @@ function mapAeroFlight(
     arrivalAirport:
       [arrAirport?.iata, arrAirport?.name].filter(Boolean).join(" · ") || "—",
     status: flight.status,
+    arrivalTerminal: flight.arrival?.terminal?.trim() || null,
   };
 }
 

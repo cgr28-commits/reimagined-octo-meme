@@ -82,22 +82,29 @@ function assertNoWebsiteTrackingCopy(content: string, label: string) {
   assert.doesNotMatch(content, /Open live tracking/i, `${label}: must not say Open live tracking`);
 }
 
-console.log("=== Arrival WhatsApp preserved exactly ===");
+console.log("=== Arrival WhatsApp company voice (no vehicle) ===");
 const street = buildArrivedPickupWhatsAppMessage({ isAirportPickup: false });
 assert.match(street, /🚕 Your driver has arrived/);
 assert.match(street, /ready when you are/);
+assert.doesNotMatch(street, /Registration:|Your vehicle:/);
 const airport = buildArrivedPickupWhatsAppMessage({
   isAirportPickup: true,
+  pickupLabel: "Belfast International Airport",
+  airportCode: "BFS",
+  airportAccessOption: "express",
   vehicle: { colour: "Black", make: "Mercedes", model: "E-Class", registration: "ABC123" },
 });
-assert.match(airport, /✈️ Your driver has arrived/);
-assert.match(airport, /agreed airport pickup point/);
-assert.match(airport, /Registration: ABC123/);
-console.log("OK  arrival WhatsApp copy unchanged");
+assert.match(airport, /✈️ Airport Pick-Up/);
+assert.doesNotMatch(airport, /Your driver has arrived/);
+assert.match(airport, /Please make your way to Express Pick-Up\./);
+assert.doesNotMatch(airport, /waiting there|already waiting|My Airport Taxi NI driver/);
+assert.doesNotMatch(airport, /Registration: ABC123|Your vehicle:|Mercedes/);
+console.log("OK  arrival WhatsApp company voice; vehicle details ignored");
 
 console.log("\n=== Driver on the way email wording ===");
 const email = buildDriverOnTheWayEmail({
   customerName: "Alex Customer",
+  bookedPickupTime: "10:00",
   driverFirstName: "John",
   driverMobile: "07700 900123",
   vehicleColour: "Silver",
@@ -105,16 +112,14 @@ const email = buildDriverOnTheWayEmail({
   trackUrl: "https://www.myairporttaxini.co.uk/track/?id=demo",
 });
 assert.match(email.subject, /Your driver is on the way — My Airport Taxi NI/);
-assert.match(email.text, /Your driver is on the way/);
-assert.match(email.text, /Your My Airport Taxi NI driver, John, is now on the way to your pickup location/);
-assert.match(email.text, /Vehicle colour: Silver/);
-assert.match(email.text, /Registration: AB12…/);
-assert.doesNotMatch(email.text, /AB12 CDE/);
-assert.doesNotMatch(email.text, /Driver mobile|07700 900123/i);
 assert.match(
   email.text,
-  /Your driver may contact you through WhatsApp if necessary and may also choose to share their live location with you directly through WhatsApp/,
+  /^Hi Alex, your driver is now on the way to your pickup location for your booked pickup time of 10:00\. We may also share a live location with you here on WhatsApp\./,
 );
+assert.doesNotMatch(email.text, /\bJohn\b|Vehicle colour:|Registration:|AB12|Silver/);
+assert.doesNotMatch(email.text, /AB12 CDE/);
+assert.doesNotMatch(email.text, /Driver mobile|07700 900123/i);
+assert.doesNotMatch(email.text, /I['’]m your driver|I['’]m now on the way|I may also share/i);
 assertNoWebsiteTrackingCopy(email.text, "on-the-way email text");
 assertNoWebsiteTrackingCopy(email.html, "on-the-way email html");
 assert.doesNotMatch(email.text, /£80|£120|SumUp|driver pay/i);
@@ -131,22 +136,26 @@ assert.doesNotMatch(arrival.subject, /Driver on the way/);
 assertJourneyStatusContactFooter(arrival, "arrival email");
 console.log("OK  arrival email separate; landline removed; WhatsApp chat link added");
 
-console.log("\n=== On-the-way WhatsApp (driver voice) ===");
+console.log("\n=== On-the-way WhatsApp (company voice) ===");
 const wa = buildDriverOnTheWayWhatsAppMessage({
+  customerName: "Alex Customer",
+  bookedPickupTime: "10:00",
   driverFirstName: "John",
   driverMobile: "07700 900123",
   vehicleColour: "Silver",
   partialRegistration: "AB12…",
   trackUrl: "https://www.myairporttaxini.co.uk/track/?id=demo",
 });
-assert.match(wa, /^Hi, I'm John, your driver for My Airport Taxi NI\. I'm now on the way to your pickup location\./);
-assert.match(wa, /Vehicle: Silver/);
-assert.match(wa, /Registration: AB12…/);
-assert.match(wa, /I may also share my live location with you here on WhatsApp/);
+assert.equal(
+  wa,
+  "Hi Alex, your driver is now on the way to your pickup location for your booked pickup time of 10:00. We may also share a live location with you here on WhatsApp.",
+);
+assert.doesNotMatch(wa, /\bJohn\b|Vehicle:|Registration:|Silver|AB12/);
 assert.doesNotMatch(wa, /Driver mobile|Mobile:|07700 900123/i);
+assert.doesNotMatch(wa, /I['’]m your driver|I['’]m now on the way|I may also share my/i);
 assertNoWebsiteTrackingCopy(wa, "on-the-way WhatsApp");
 assert.doesNotMatch(wa, /£80|£120|SumUp|driver pay/i);
-console.log("OK  driver-sent WhatsApp generated; no website tracking; Live Location wording kept");
+console.log("OK  company-voice WhatsApp generated; no website tracking; no personal/vehicle details");
 
 console.log("\n=== Status transition ===");
 let job = {
@@ -179,11 +188,12 @@ assert.match(handlers, /sendOnTheWayNotificationIfNeeded/);
 assert.match(handlers, /action === "start_tracking"/);
 assert.match(handlers, /buildDriverOnTheWayEmail/);
 assert.match(handlers, /onTheWayNotificationStatus === "sent"/);
-assert.match(handlers, /resolveAssignedDriverDetails/);
-assert.match(
+assert.doesNotMatch(handlers, /resolveAssignedDriverDetails/);
+assert.match(handlers, /bookedPickupTime: job\.tripTime/);
+assert.doesNotMatch(
   handlers,
-  /partialRegistration: details\.registrationPartial \|\| undefined,\s*\},/,
-  "on-the-way email must not pass trackUrl after partialRegistration",
+  /driverFirstName:|vehicleColour:|partialRegistration:/,
+  "on-the-way email must not pass operator or vehicle details",
 );
 
 const labels = read("src/lib/tracking-api.ts");
@@ -191,20 +201,20 @@ assert.match(labels, /start_tracking:\s*"Driver on the way"/);
 
 const driver = read("src/app/driver/DriverPageClient.tsx");
 assert.match(driver, /buildDriverOnTheWayWhatsAppLink/);
-assert.match(driver, /formatPartialRegistration/);
-assert.match(
-  driver,
-  /partialRegistration: formatPartialRegistration\(job\.assignedDriverReg\) \|\| undefined,\s*\}\);/,
-  "driver WhatsApp on-the-way must not pass trackUrl",
+assert.match(driver, /customerName: job\.customerName/);
+assert.match(driver, /bookedPickupTime: job\.tripTime/);
+assert.doesNotMatch(driver, /partialRegistration: formatPartialRegistration\(job\.assignedDriverReg\)/);
+const driverOnTheWayCall = driver.slice(
+  driver.indexOf("buildDriverOnTheWayWhatsAppLink(mobile, {"),
+  driver.indexOf("buildDriverOnTheWayWhatsAppLink(mobile, {") + 280,
 );
+assert.doesNotMatch(driverOnTheWayCall, /driverFirstName:|vehicleColour:|partialRegistration:/);
 
 const owner = read("src/components/OwnerPaidBookingsPanel.tsx");
 assert.match(owner, /openOnTheWayWhatsAppForBooking/);
-assert.match(
-  owner,
-  /driverFirstName: booking\.assignedDriverName\?\.trim\(\)\.split\(\/\\s\+\/\)\[0\] \|\| undefined,\s*\}\),/,
-  "owner WhatsApp on-the-way must not pass trackUrl",
-);
+assert.match(owner, /customerName: booking\.customerName/);
+assert.match(owner, /bookedPickupTime: activeLegPickupTime\(booking\)/);
+assert.doesNotMatch(owner, /driverFirstName: booking\.assignedDriverName/);
 
 const sharedWa = read("shared/arrival-whatsapp.ts");
 const workerWa = read("workers/addresses/shared/arrival-whatsapp.ts");
@@ -213,6 +223,10 @@ assert.equal(sharedWa, workerWa, "worker shared arrival-whatsapp must match shar
 const sharedEmail = read("shared/booking-notifications.ts");
 const workerEmail = read("workers/addresses/shared/booking-notifications.ts");
 assert.equal(sharedEmail, workerEmail, "worker shared booking-notifications must match shared/");
+
+const sharedVoice = read("shared/company-voice-journey.ts");
+const workerVoice = read("workers/addresses/shared/company-voice-journey.ts");
+assert.equal(sharedVoice, workerVoice, "worker shared company-voice-journey must match shared/");
 
 const data = read("src/lib/data.ts");
 assert.match(data, /liveDriverTracking:\s*false/);

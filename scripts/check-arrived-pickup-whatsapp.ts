@@ -28,15 +28,19 @@ console.log("=== 1. Airport pickup detection ===");
   console.log("OK  BFS/BHD/DUB detected; street addresses not");
 }
 
-console.log("\n=== 2. Message templates (no personal driver name) ===");
+console.log("\n=== 2. Message templates (company voice, no vehicle) ===");
 {
   const street = buildArrivedPickupWhatsAppMessage({ isAirportPickup: false });
   assert.match(street, /🚕 Your driver has arrived/);
-  assert.match(street, /My Airport Taxi NI driver is now at your pickup location/);
-  assert.doesNotMatch(street, /Driver:|Colin|Chris/);
+  assert.match(street, /Your driver is now at your pickup location/);
+  assert.doesNotMatch(street, /My Airport Taxi NI driver/);
+  assert.doesNotMatch(street, /Driver:|Colin|Chris|Registration:|Your vehicle:/);
 
   const airport = buildArrivedPickupWhatsAppMessage({
     isAirportPickup: true,
+    pickupLabel: "Belfast International Airport",
+    airportCode: "BFS",
+    airportAccessOption: "free",
     vehicle: {
       colour: "Black",
       make: "Mercedes-Benz",
@@ -44,13 +48,14 @@ console.log("\n=== 2. Message templates (no personal driver name) ===");
       registration: "ABC 1234",
     },
   });
-  assert.match(airport, /✈️ Your driver has arrived/);
-  assert.match(airport, /agreed airport pickup point/);
-  assert.match(airport, /🚘 Your vehicle: Black Mercedes-Benz E-Class/);
-  assert.match(airport, /Registration: ABC 1234/);
-  assert.match(airport, /making your way outside/);
-  assert.doesNotMatch(airport, /Driver:|Colin|Chris/);
-  console.log("OK  Street + airport templates; vehicle lines; no driver name");
+  assert.match(airport, /✈️ Airport Pick-Up/);
+  assert.doesNotMatch(airport, /Your driver has arrived/);
+  assert.match(airport, /Long Stay Car Park Free Pick-Up Location/);
+  assert.match(airport, /Please let us know when you're there so your driver can head over to meet you/);
+  assert.match(airport, /maximum stay of 10 minutes/);
+  assert.doesNotMatch(airport, /My Airport Taxi NI driver|waiting there|already waiting/);
+  assert.doesNotMatch(airport, /Driver:|Colin|Chris|Mercedes|ABC 1234|Your vehicle:|Registration:/);
+  console.log("OK  Street + airport templates; no driver name or vehicle");
 }
 
 console.log("\n=== 3. Mobile → wa.me + active leg pickup ===");
@@ -88,11 +93,12 @@ console.log("\n=== 4. Owner panel wires existing arrived_pickup + WhatsApp ===")
 {
   const panel = read("src/components/OwnerPaidBookingsPanel.tsx");
   assert.match(panel, /buildArrivedPickupWhatsAppLink/);
-  assert.match(panel, /resolveArrivalVehicleForBooking/);
+  assert.match(panel, /airportAccessOption: booking\.airportAccessOption/);
   assert.match(panel, /activeLegPickupLabel/);
+  assert.doesNotMatch(panel, /resolveArrivalVehicleForBooking/);
   assert.match(panel, /Driver arrived|OWNER_PRIMARY_JOURNEY_BUTTON_LABELS/);
-  assert.match(panel, /fetchOwnerAccountProfile/);
-  assert.match(panel, /fetchDriverVehicle/);
+  assert.doesNotMatch(panel, /fetchOwnerAccountProfile/);
+  assert.doesNotMatch(panel, /fetchDriverVehicle/);
   assert.match(panel, /postJourneyAction/);
   assert.match(panel, /retryArrivalNotification/);
   // All three primary journey CTAs stay visible until Complete job.

@@ -3,11 +3,16 @@ import type { TrackingJobRecord } from "../shared/tracking";
 import { isAirportPickupJob } from "../shared/tracking";
 import { lookupFlight, type VerifiedFlight } from "../shared/flight-lookup";
 import {
+  chooseDublinArrivalTerminal,
+  parseDublinArrivalTerminal,
+} from "../shared/dublin-arrival-terminal";
+import {
   getGoogleAccessToken,
   parseServiceAccountJson,
   rescheduleCalendarEvents,
   transferEventEndDateTime,
 } from "./google-calendar";
+import type { PaidBookingRecord } from "../shared/paid-booking-record";
 import {
   getPaidBookingRecord,
   paidBookingStoreConfigured,
@@ -86,6 +91,53 @@ async function resolveDriverFlight(
   }
 }
 
+async function persistDublinTerminalFromVerifiedFlight(
+  env: Env,
+  job: TrackingJobRecord,
+  paidRecord: PaidBookingRecord | null,
+  flight: VerifiedFlight | null,
+): Promise<"T1" | "T2" | null> {
+  const isReturn = job.journeyLeg === "return";
+  const stored = isReturn
+    ? paidRecord?.returnDublinArrivalTerminal
+    : paidRecord?.dublinArrivalTerminal;
+  const source = isReturn
+    ? paidRecord?.returnDublinArrivalTerminalSource
+    : paidRecord?.dublinArrivalTerminalSource;
+  const fromFlight = parseDublinArrivalTerminal(flight?.arrivalTerminal);
+  const resolved = chooseDublinArrivalTerminal({ stored, source, fromFlight });
+
+  if (
+    resolved &&
+    paidRecord &&
+    env.TRACKING_STORE &&
+    paidBookingStoreConfigured(env.TRACKING_STORE) &&
+    source !== "owner" &&
+    stored !== resolved
+  ) {
+    try {
+      await updatePaidBookingFields(
+        env.TRACKING_STORE,
+        paidRecord.paymentReference,
+        isReturn
+          ? {
+              returnDublinArrivalTerminal: resolved,
+              returnDublinArrivalTerminalSource: "flight",
+            }
+          : {
+              dublinArrivalTerminal: resolved,
+              dublinArrivalTerminalSource: "flight",
+            },
+        { appendAudit: true, changedBy: "System" },
+      );
+    } catch {
+      /* best-effort persist */
+    }
+  }
+
+  return resolved;
+}
+
 export async function enrichDriverJob(
   job: TrackingJobRecord,
   env: Env,
@@ -159,7 +211,14 @@ export async function enrichDriverJob(
       driverLocationRecordedTo: job.driverLocationRecordedTo,
       isAirportPickup: isAirportPickupJob(job),
       flightNumber: job.flightNumber ?? null,
-      airportCode: job.airportCode ?? null,
+      airportCode: job.airportCode ?? paidRecord?.airportCode ?? null,
+      airportAccessOption: paidRecord?.airportAccessOption ?? null,
+      dublinArrivalTerminal: await persistDublinTerminalFromVerifiedFlight(
+        env,
+        job,
+        paidRecord,
+        flight,
+      ),
       flight,
     },
     role,

@@ -86,6 +86,15 @@ check("Flight monitoring + booking record still support flight numbers", () => {
   assert.match(card, /flightNumber: goingFlightNumber/);
 });
 
+check("Existing AeroDataBox lookup reads arrival.terminal for Dublin T1/T2", () => {
+  assert.match(flightLookup, /terminal\?: string \| null/);
+  assert.match(flightLookup, /arrivalTerminal: flight\.arrival\?\.terminal\?\.trim\(\) \|\| null/);
+  assert.match(paidRecord, /dublinArrivalTerminal\?: "T1" \| "T2" \| null/);
+  const dublin = read("shared/dublin-arrival-terminal.ts");
+  assert.match(dublin, /parseDublinArrivalTerminal/);
+  assert.match(dublin, /Never guess/);
+});
+
 check("Flight number is required for airport pickups (blocks continue + payment)", () => {
   assert.match(card, /validateRequiredFlightNumbers/);
   assert.match(card, /FLIGHT_NUMBER_FORMAT_ERROR/);

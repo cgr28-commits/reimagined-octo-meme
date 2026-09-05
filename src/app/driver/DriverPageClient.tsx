@@ -35,7 +35,6 @@ import {
   fetchDriverLocationHistory,
   fetchDriverVehicleProfiles,
   fetchDriverVehicle,
-  fetchOwnerAccountProfile,
   saveDriverVehicle,
   type DriverJob,
   type DriverVehicleProfile,
@@ -52,8 +51,6 @@ import {
   buildDriverOnTheWayWhatsAppLink,
   isAirportPickupLabel,
 } from "../../../shared/arrival-whatsapp";
-import { driverDisplayFirstName } from "../../../shared/booking-job";
-import { formatPartialRegistration } from "../../../shared/partial-registration";
 import { driverProfileComplete } from "../../../shared/driver-vehicle";
 
 /** Mirror of shared DRIVER_GPS_STALE_MS — warn when browser GPS stops updating. */
@@ -244,6 +241,16 @@ function DriverFlightPanel({
               Live flight status is not available right now. Check the airport arrivals board before
               pickup.
             </p>
+            {job.airportCode === "DUB" ? (
+              <p className="mt-2 text-sm text-white/80">
+                Dublin pickup:{" "}
+                {job.dublinArrivalTerminal === "T1"
+                  ? "Terminal 1"
+                  : job.dublinArrivalTerminal === "T2"
+                    ? "Terminal 2"
+                    : "Terminal needs confirmation"}
+              </p>
+            ) : null}
           </div>
           {onRefresh && (
             <button
@@ -303,6 +310,16 @@ function DriverFlightPanel({
       <p className="mt-2 text-xs text-white/50">
         60 minutes complimentary waiting applies from actual landing time.
       </p>
+      {job.airportCode === "DUB" ? (
+        <p className="mt-2 text-sm text-white/80">
+          Dublin pickup:{" "}
+          {job.dublinArrivalTerminal === "T1"
+            ? "Terminal 1"
+            : job.dublinArrivalTerminal === "T2"
+              ? "Terminal 2"
+              : "Terminal needs confirmation"}
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -1100,52 +1117,14 @@ function DriverJobCard({
       if (action === "arrived_pickup") {
         const mobile = job.customerMobile?.trim() || "";
         if (mobile) {
-          let vehicle = null as
-            | { colour: string; make: string; model: string; registration: string }
-            | null;
-          const assigned = job.assignedDriverName?.trim();
-          try {
-            if (assigned) {
-              const profile = await fetchDriverVehicle(driverKey, assigned);
-              if (
-                profile?.colour?.trim() &&
-                profile.make?.trim() &&
-                profile.model?.trim() &&
-                profile.registration?.trim()
-              ) {
-                vehicle = {
-                  colour: profile.colour.trim(),
-                  make: profile.make.trim(),
-                  model: profile.model.trim(),
-                  registration: profile.registration.trim().toUpperCase(),
-                };
-              }
-            }
-            if (!vehicle && isOwner) {
-              const { profile, complete } = await fetchOwnerAccountProfile(driverKey);
-              if (
-                complete &&
-                profile?.colour?.trim() &&
-                profile.make?.trim() &&
-                profile.model?.trim() &&
-                profile.registration?.trim()
-              ) {
-                vehicle = {
-                  colour: profile.colour.trim(),
-                  make: profile.make.trim(),
-                  model: profile.model.trim(),
-                  registration: profile.registration.trim().toUpperCase(),
-                };
-              }
-            }
-          } catch {
-            vehicle = null;
-          }
-
           // Return-leg jobs already store the leg's pickup on pickupLabel.
           const message = buildArrivedPickupWhatsAppMessage({
-            isAirportPickup: isAirportPickupLabel(job.pickupLabel || ""),
-            vehicle,
+            isAirportPickup:
+              Boolean(job.isAirportPickup) || isAirportPickupLabel(job.pickupLabel || ""),
+            pickupLabel: job.pickupLabel,
+            airportCode: job.airportCode,
+            airportAccessOption: job.airportAccessOption,
+            dublinArrivalTerminal: job.dublinArrivalTerminal,
           });
           const href = buildArrivedPickupWhatsAppLink(mobile, message);
           const opened = window.open(href, "_blank", "noopener,noreferrer");
@@ -1160,12 +1139,8 @@ function DriverJobCard({
         const mobile = job.customerMobile?.trim() || "";
         if (mobile) {
           const href = buildDriverOnTheWayWhatsAppLink(mobile, {
-            driverFirstName:
-              driverDisplayFirstName(job.assignedDriverName) ||
-              driverDisplayFirstName(assignForm.driverFirstName) ||
-              undefined,
-            vehicleColour: job.assignedDriverCarColour?.trim() || undefined,
-            partialRegistration: formatPartialRegistration(job.assignedDriverReg) || undefined,
+            customerName: job.customerName,
+            bookedPickupTime: job.tripTime,
           });
           const opened = window.open(href, "_blank", "noopener,noreferrer");
           if (!opened) {

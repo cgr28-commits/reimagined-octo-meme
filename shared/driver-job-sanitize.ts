@@ -21,6 +21,8 @@ export const DRIVER_JOB_WHITELIST = [
   "bookingReference",
   "flightNumber",
   "airportCode",
+  "airportAccessOption",
+  "dublinArrivalTerminal",
   "isAirportTrip",
   "isFromAirport",
   "isAirportPickup",
