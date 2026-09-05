@@ -25,6 +25,7 @@ import {
 import { resolveOperationalStatus } from "../shared/refund-ops";
 import { isOwnerOperationalTestBooking, londonYmd } from "../shared/upcoming-jobs";
 import {
+  buildOwnerCashReceived,
   buildOwnerFinancialSummary,
   londonYearRangeContaining,
 } from "../shared/owner-financial-summary";
@@ -490,6 +491,12 @@ export async function handlePaidBookingsListRequest(
         allLegsCompleted: resolvedAllLegsCompleted,
         nextUnfinishedLegDate,
         nextUnfinishedLegTime,
+        outboundFare: booking.outboundFare,
+        returnFare: booking.returnFare,
+        outboundCompletedAt: booking.outboundCompletedAt || outboundJob?.journeyCompletedAt,
+        returnCompletedAt: booking.returnCompletedAt || returnJob?.journeyCompletedAt,
+        additionalPayments: booking.additionalPayments,
+        quoteSnapshot: booking.quoteSnapshot,
         editHistory,
         isRefundTest: booking.isRefundTest === true ? true : undefined,
         isAmendmentTestFixture:
@@ -838,7 +845,9 @@ export async function handlePaidBookingsFinancialSummaryRequest(
     byRef.set(record.paymentReference, record);
   }
 
-  const summary = buildOwnerFinancialSummary([...byRef.values()], new Date());
+  const uniqueRecords = [...byRef.values()];
+  const summary = buildOwnerFinancialSummary(uniqueRecords, new Date());
+  const cashReceived = buildOwnerCashReceived(uniqueRecords, new Date());
 
   return jsonResponse(
     {
@@ -848,6 +857,7 @@ export async function handlePaidBookingsFinancialSummaryRequest(
       month: summary.month,
       year: summary.year,
       refunds: summary.refunds,
+      cashReceived,
       scanned: byRef.size,
       scanFrom,
       yearFrom: yearRange.fromDay,

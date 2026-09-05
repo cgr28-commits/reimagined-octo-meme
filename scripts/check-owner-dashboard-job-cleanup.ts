@@ -373,12 +373,12 @@ console.log("\n=== 3. Completion day grouping + legacy fallbacks ===");
 console.log("\n=== 4. UI + worker wiring (source contracts) ===");
 {
   const panel = read("src/components/OwnerPaidBookingsPanel.tsx");
-  assert.match(panel, /groupOwnerScheduleByDay/);
+  assert.match(panel, /selectTodayUpcomingLegs/);
   assert.match(panel, /isOwnerOperationalTestBooking/);
-  assert.match(panel, /pastDays:\s*60/);
-  assert.match(panel, /Completed jobs \(/);
-  assert.match(panel, /completedOpenDays/);
-  assert.match(panel, /toggleCompletedSection/);
+  assert.match(panel, /pastDays:\s*120/);
+  assert.match(panel, /Completed Jobs/);
+  assert.match(panel, /historyOpenDates/);
+  assert.match(panel, /groupCompletedJobsByDate/);
   assert.doesNotMatch(panel, /open=\{group\.isToday\}/);
 
   const page = read("src/app/driver/DriverPageClient.tsx");

@@ -73,8 +73,8 @@ console.log("\n=== 3. API enrichment + Completed Jobs label ===");
   assert.match(handlers, /outboundJourneyStatus/);
 
   const panel = read("src/components/OwnerPaidBookingsPanel.tsx");
-  assert.match(panel, /Completed jobs \(/);
-  assert.match(panel, /groupOwnerScheduleByDay/);
+  assert.match(panel, /Completed Jobs/);
+  assert.match(panel, /selectTodayUpcomingLegs/);
   assert.match(panel, /nextUnfinishedSortKey/);
 
   const driverPage = read("src/app/driver/DriverPageClient.tsx");

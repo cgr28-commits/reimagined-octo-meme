@@ -88,6 +88,12 @@ export type OwnerPaidBookingSummary = Pick<
   allLegsCompleted?: boolean;
   nextUnfinishedLegDate?: string;
   nextUnfinishedLegTime?: string;
+  outboundFare?: number | null;
+  returnFare?: number | null;
+  outboundCompletedAt?: string;
+  returnCompletedAt?: string;
+  additionalPayments?: PaidBookingRecord["additionalPayments"];
+  quoteSnapshot?: Record<string, unknown> | null;
   editHistory?: PaidBookingRecord["editHistory"];
   /** Owner-only £1 refund smoke-test — never show in operational lists. */
   isRefundTest?: boolean;
@@ -692,6 +698,7 @@ export type OwnerFinancialSummaryResponse = {
   month: import("../../shared/owner-financial-summary").OwnerFinancialBucket;
   year: import("../../shared/owner-financial-summary").OwnerFinancialBucket;
   refunds: import("../../shared/owner-financial-summary").OwnerFinancialBucket;
+  cashReceived?: import("../../shared/owner-financial-summary").OwnerCashReceivedPeriods;
   scanned?: number;
   error?: string;
 };

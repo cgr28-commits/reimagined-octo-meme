@@ -231,11 +231,11 @@ console.log("\n=== 6. Journey arrival notification channels ===");
 console.log("\n=== 7. Owner panel UI contracts ===");
 {
   const panel = read("src/components/OwnerPaidBookingsPanel.tsx");
-  assert.match(panel, /Active jobs/);
-  assert.match(panel, /Jobs by day/);
-  assert.match(panel, /Completed jobs \(/);
+  assert.match(panel, /Today’s Upcoming Jobs/);
+  assert.match(panel, /Future Jobs/);
+  assert.match(panel, /Completed Jobs/);
   assert.match(panel, /mode:\s*"upcoming"/);
-  assert.match(panel, /groupOwnerScheduleByDay|completedOpenDays/);
+  assert.match(panel, /selectTodayUpcomingLegs|groupFutureJobsByDate/);
   assert.match(panel, /OWNER_PRIMARY_JOURNEY_BUTTON_LABELS|Driver arrived/);
   assert.match(panel, /arrived_pickup/);
   assert.match(panel, /buildArrivedPickupWhatsAppLink|wa\.me/);

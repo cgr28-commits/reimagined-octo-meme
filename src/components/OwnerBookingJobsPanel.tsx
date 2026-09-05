@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   bookingJobAssignmentLabel,
   type BookingJobRecord,
@@ -58,6 +58,7 @@ export default function OwnerBookingJobsPanel({ ownerKey }: OwnerBookingJobsPane
   const [busyId, setBusyId] = useState("");
   const [paidAmountById, setPaidAmountById] = useState<Record<string, string>>({});
   const [paymentRefById, setPaymentRefById] = useState<Record<string, string>>({});
+  const [awaitingOpen, setAwaitingOpen] = useState(false);
   const [assignDraftById, setAssignDraftById] = useState<
     Record<
       string,
@@ -171,6 +172,15 @@ export default function OwnerBookingJobsPanel({ ownerKey }: OwnerBookingJobsPane
     }
   }
 
+  const awaitingJobs = useMemo(
+    () => jobs.filter((job) => job.status === "awaiting_payment"),
+    [jobs],
+  );
+  const otherJobs = useMemo(
+    () => jobs.filter((job) => job.status !== "awaiting_payment"),
+    [jobs],
+  );
+
   return (
     <section className="mb-10 rounded-2xl border border-emerald/25 bg-emerald/5 p-5 sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -234,13 +244,32 @@ export default function OwnerBookingJobsPanel({ ownerKey }: OwnerBookingJobsPane
           No booking requests yet. New enquiries from the website will appear here.
         </p>
       ) : (
+        <>
+        {awaitingJobs.length > 0 ? (
+          <div className="mt-6 rounded-xl border border-white/10 bg-navy/40">
+            <button
+              type="button"
+              onClick={() => setAwaitingOpen((open) => !open)}
+              aria-expanded={awaitingOpen}
+              className="flex min-h-12 w-full items-center justify-between gap-3 px-4 py-3 text-left"
+            >
+              <span className="text-sm font-bold text-white">
+                Awaiting Payment ({awaitingJobs.length})
+              </span>
+              <span className="text-emerald" aria-hidden>
+                {awaitingOpen ? "▲" : "▼"}
+              </span>
+            </button>
+          </div>
+        ) : null}
         <ul className="mt-6 space-y-4">
-          {jobs.map((job) => {
+          {(awaitingOpen ? [...awaitingJobs, ...otherJobs] : otherJobs).map((job) => {
             const badge = statusBadge(job);
             const draft = draftFor(job);
             return (
               <li
                 key={job.id}
+                id={`owner-booking-job-${job.id}`}
                 className="rounded-2xl border border-white/10 bg-navy/60 p-4 sm:p-5"
               >
                 <div className="flex flex-wrap items-start justify-between gap-3">
@@ -401,6 +430,7 @@ export default function OwnerBookingJobsPanel({ ownerKey }: OwnerBookingJobsPane
             );
           })}
         </ul>
+        </>
       )}
     </section>
   );

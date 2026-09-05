@@ -429,6 +429,20 @@ export async function handleJourneyTransitionRequest(
       next,
       resolveReviewRequestDelayMs(env.REVIEW_REQUEST_DELAY_MINUTES),
     );
+    const paymentReference = next.paymentReference?.trim();
+    const completedAt = next.journeyCompletedAt?.trim() || new Date().toISOString();
+    if (paymentReference && paidBookingStoreConfigured(env.TRACKING_STORE)) {
+      const paid = await getPaidBookingRecord(env.TRACKING_STORE, paymentReference);
+      if (paid) {
+        const isReturnLeg = next.journeyLeg === "return";
+        await savePaidBookingRecord(env.TRACKING_STORE, {
+          ...paid,
+          ...(isReturnLeg
+            ? { returnCompletedAt: paid.returnCompletedAt || completedAt }
+            : { outboundCompletedAt: paid.outboundCompletedAt || completedAt }),
+        });
+      }
+    }
   }
 
   if (action === "arrived_pickup") {

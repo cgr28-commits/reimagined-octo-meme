@@ -54,6 +54,7 @@
     "check:owner-daily-driver-layout": "npx tsx scripts/check-owner-daily-driver-layout.ts",
     "check:owner-safer-journey-buttons": "npx tsx scripts/check-owner-safer-journey-buttons.ts",
     "check:owner-dashboard-layout": "npx tsx scripts/check-owner-dashboard-layout.ts",
+    "check:owner-dashboard-today-sections": "npx tsx scripts/check-owner-dashboard-today-sections.ts",
     "check:public-help-fabs": "npx tsx scripts/check-public-help-fabs.ts",
     "check:homepage-hero-ctas": "npx tsx scripts/check-homepage-hero-ctas.ts",
     "check:express-fare-display": "npx tsx scripts/check-express-fare-display.ts",

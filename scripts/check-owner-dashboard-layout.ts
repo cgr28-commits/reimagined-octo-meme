@@ -42,30 +42,34 @@ console.log("=== 1. Top tool switcher ===");
   console.log("OK  Jobs default · exclusive tools · no flight panel");
 }
 
-console.log("\n=== 2. Jobs section order: Financial → Short notice → Calendar → Paid (by day) ===");
+console.log("\n=== 2. Jobs section order: Summary → Paid ops → Short notice → Calendar ===");
 {
   const page = read("src/app/driver/DriverPageClient.tsx");
   assert.match(page, /OwnerFinancialSummaryPanel/);
   const financialAt = page.indexOf("<OwnerFinancialSummaryPanel");
+  const paidAt = page.indexOf("<OwnerPaidBookingsPanel");
   const shortNoticeAt = page.indexOf("<OwnerShortNoticePanel");
   const calendarAt = page.indexOf("<OwnerBookingCalendar");
-  const paidAt = page.indexOf("<OwnerPaidBookingsPanel");
+  const bookingJobsAt = page.indexOf("<OwnerBookingJobsPanel");
   assert.ok(
     financialAt > 0 &&
-      shortNoticeAt > financialAt &&
+      paidAt > financialAt &&
+      shortNoticeAt > paidAt &&
       calendarAt > shortNoticeAt &&
-      paidAt > calendarAt,
-    "Jobs tab order: Financial → Short notice → Calendar → Paid bookings",
+      bookingJobsAt > calendarAt,
+    "Jobs tab order: Summary → Paid ops → Short notice → Calendar → Enquiry jobs",
   );
 
   const panel = read("src/components/OwnerPaidBookingsPanel.tsx");
-  assert.match(panel, /Jobs by day/);
-  assert.match(panel, /Active jobs/);
-  assert.match(panel, /Completed jobs \(/);
+  assert.match(panel, /Today’s Upcoming Jobs/);
+  assert.match(panel, /Today’s Completed Jobs/);
+  assert.match(panel, /Awaiting Payment/);
+  assert.match(panel, /Future Jobs/);
+  assert.match(panel, /Completed Jobs/);
   assert.match(panel, /Refunds Pending/);
   assert.match(panel, /refundsPending/);
-  assert.match(panel, /groupOwnerScheduleByDay/);
-  assert.match(panel, /completedOpenDays/);
+  assert.match(panel, /selectTodayUpcomingLegs/);
+  assert.match(panel, /groupFutureJobsByDate/);
   assert.match(panel, /isOwnerOperationalTestBooking/);
   assert.doesNotMatch(panel, /OwnerFlightStatusPanel/);
   assert.doesNotMatch(panel, /Website card payments/i);
@@ -77,15 +81,20 @@ console.log("\n=== 2. Jobs section order: Financial → Short notice → Calenda
     "financial totals live at top of Jobs tab, not buried in paid panel",
   );
 
-  const scheduleAt = panel.indexOf('<h3 className="text-base font-bold text-white">Jobs by day</h3>');
-  const refundsAt = panel.indexOf(
-    '<h3 className="text-base font-bold text-amber-100">Refunds Pending</h3>',
-  );
+  const todayAt = panel.indexOf("Today’s Upcoming Jobs (");
+  const awaitingAt = panel.indexOf("Awaiting Payment (");
+  const futureAt = panel.indexOf("Future Jobs (");
+  const historyAt = panel.indexOf('<h4 className="text-sm font-bold text-white">Completed Jobs</h4>');
+  const refundsAt = panel.indexOf('<h3 className="text-base font-bold text-amber-100">Refunds Pending</h3>');
   assert.ok(
-    scheduleAt > 0 && refundsAt > scheduleAt,
-    "section order must be Jobs by day → Refunds Pending",
+    todayAt > 0 &&
+      awaitingAt > todayAt &&
+      futureAt > awaitingAt &&
+      historyAt > futureAt &&
+      refundsAt > historyAt,
+    "paid panel order: today → awaiting → future → completed history → refunds",
   );
-  console.log("OK  financial at top of Jobs · per-day upcoming + collapsed completed → Refunds");
+  console.log("OK  summary at top · today first · collapsed future/history/awaiting");
 }
 
 console.log("\nAll owner dashboard layout checks passed.");

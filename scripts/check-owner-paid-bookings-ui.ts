@@ -24,9 +24,9 @@ assert.match(api, /fetchRefundDiagnostics|refund-diagnostics/);
 console.log("OK  paid-bookings API client");
 
 const panel = read("src/components/OwnerPaidBookingsPanel.tsx");
-assert.match(panel, /Active jobs/);
-assert.match(panel, /Jobs by day/);
-assert.match(panel, /Completed jobs \(/);
+assert.match(panel, /Today’s Upcoming Jobs/);
+assert.match(panel, /Future Jobs/);
+assert.match(panel, /Completed Jobs/);
 assert.match(panel, /Resend Confirmation/i);
 assert.doesNotMatch(panel, /Website card payments/i);
 assert.doesNotMatch(panel, /Paid Jobs/);
