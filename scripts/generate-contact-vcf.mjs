@@ -86,8 +86,7 @@ const lines = [
   "ORG:My Airport Taxi NI",
   "TITLE:Belfast & Northern Ireland Airport Transfers",
   ...photoProperty(photo, b64),
-  // Public business line only — no personal/mobile numbers in the vCard.
-  "TEL;TYPE=WORK,VOICE:+442896022952",
+  // Email + website only — no business landline or personal/mobile numbers.
   "EMAIL;TYPE=WORK:bookings@myairporttaxini.co.uk",
   "URL:https://www.myairporttaxini.co.uk",
   "NOTE:Belfast & Northern Ireland Airport Transfers",

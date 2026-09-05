@@ -8,7 +8,7 @@ import {
   BRAND_EMERALD,
   BRAND_NAVY,
   BUSINESS_MAILBOX as BUSINESS_EMAIL,
-  BUSINESS_PHONE_DISPLAY,
+  BUSINESS_WHATSAPP_USERNAME,
   BUSINESS_WEBSITE as CANONICAL_BUSINESS_WEBSITE,
 } from "./business-email";
 import { formatA2aQuoteValidityLabel } from "./a2a-personalised-quote";
@@ -215,7 +215,7 @@ export function buildA2aQuotePaymentLinkEmail(details: A2aQuotePaymentLinkEmailD
     "",
     "Secure card payment powered by SumUp.",
     "",
-    `My Airport Taxi NI · ${BUSINESS_PHONE_DISPLAY} · ${BUSINESS_EMAIL}`,
+    `My Airport Taxi NI · WhatsApp @${BUSINESS_WHATSAPP_USERNAME} · ${BUSINESS_EMAIL}`,
     BUSINESS_WEBSITE,
   );
   const text = textLines.join("\n");

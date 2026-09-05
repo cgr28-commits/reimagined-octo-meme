@@ -29,7 +29,7 @@ function TrackRetiredNotice() {
           Message us on WhatsApp
         </a>
         <p className="mt-4 text-xs text-white/45">
-          Or call {SITE.landlineDisplay}
+          Need help? Contact us via WhatsApp or email.
         </p>
       </div>
     </main>

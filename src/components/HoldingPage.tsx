@@ -55,22 +55,16 @@ export default function HoldingPage() {
         </p>
 
         <p className="holding-fade-up holding-fade-up-delay-2 mx-auto mt-3 max-w-md text-sm text-white/60">
-          Need a transfer in the meantime? Call or WhatsApp us and we&apos;ll help
-          directly.
+          Need a transfer in the meantime? Message us on WhatsApp or email and
+          we&apos;ll help directly.
         </p>
 
         <div className="holding-fade-up holding-fade-up-delay-3 mt-10 flex flex-col items-stretch gap-3 sm:mx-auto sm:max-w-sm">
           <a
-            href={`tel:${SITE.landline}`}
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald px-5 py-3.5 text-base font-bold text-navy-dark transition hover:bg-emerald-light"
-          >
-            Call {SITE.landlineDisplay}
-          </a>
-          <a
             href={WHATSAPP_HREF}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/10 px-5 py-3.5 text-base font-semibold text-white backdrop-blur-sm transition hover:bg-white/15"
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald px-5 py-3.5 text-base font-bold text-navy-dark transition hover:bg-emerald-light"
           >
             WhatsApp @{SITE.whatsappUsername}
           </a>

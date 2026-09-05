@@ -26,7 +26,7 @@ console.log("=== vCard content (public business only) ===");
   assert.match(CONTACT_VCARD, /VERSION:3\.0/);
   assert.match(CONTACT_VCARD, /FN:My Airport Taxi NI/);
   assert.match(CONTACT_VCARD, /ORG:My Airport Taxi NI/);
-  assert.match(CONTACT_VCARD, /TEL;TYPE=WORK,VOICE:\+442896022952/);
+  assert.doesNotMatch(CONTACT_VCARD, /TEL;|028\s*9602\s*2952|\+442896022952/);
   assert.match(CONTACT_VCARD, /EMAIL;TYPE=WORK:bookings@myairporttaxini\.co\.uk/);
   assert.match(CONTACT_VCARD, /URL:https:\/\/www\.myairporttaxini\.co\.uk/);
   assert.match(CONTACT_VCARD, /NOTE:Belfast & Northern Ireland Airport Transfers/);

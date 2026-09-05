@@ -18,7 +18,7 @@ export const CONTACT_VCARD_WORKER_URL =
 export const CONTACT_VCARD_DOWNLOAD_URL = `${CONTACT_VCARD_WORKER_URL}?download=1`;
 
 /** Cache-bust so phones pick up the regenerated branded PHOTO. */
-const VCARD_CACHE_BUST = "v=20260817contacts";
+const VCARD_CACHE_BUST = "v=20260905contacts";
 
 export function contactCardUrl(): string {
   return `${SITE.url}${CONTACT_CARD_PATH}`;
@@ -101,7 +101,6 @@ export function saveToContactsHref(): string {
  */
 export function androidAddContactIntentUrl(): string {
   const name = encodeURIComponent(SITE.name);
-  const phone = encodeURIComponent(SITE.landline);
   const email = encodeURIComponent(SITE.email);
   const company = encodeURIComponent(SITE.name);
   return (
@@ -109,7 +108,6 @@ export function androidAddContactIntentUrl(): string {
     `action=android.intent.action.INSERT;` +
     `type=vnd.android.cursor.dir/contact;` +
     `S.name=${name};` +
-    `S.phone=${phone};` +
     `S.email=${email};` +
     `S.company=${company};` +
     `end`

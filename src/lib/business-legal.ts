@@ -4,8 +4,6 @@ import { SITE } from "@/lib/data";
 export const BUSINESS_LEGAL = {
   tradingName: SITE.name,
   email: SITE.email,
-  phoneDisplay: SITE.landlineDisplay,
-  phoneTel: SITE.landline,
   website: SITE.url,
   jurisdiction: "Northern Ireland, United Kingdom",
   serviceArea: "Greater Belfast and across Northern Ireland",

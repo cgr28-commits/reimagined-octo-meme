@@ -93,7 +93,8 @@
     "check:ad-fraud-monitoring": "npx tsx scripts/check-ad-fraud-monitoring.ts",
     "check:pre-xl-desktop-header": "npx tsx scripts/check-pre-xl-desktop-header.ts",
     "check:homepage-premium-cards": "npx tsx scripts/check-homepage-premium-cards.ts",
-    "check:company-voice-journey-messages": "npx tsx scripts/check-company-voice-journey-messages.ts"
+    "check:company-voice-journey-messages": "npx tsx scripts/check-company-voice-journey-messages.ts",
+    "check:no-public-landline": "npx tsx scripts/check-no-public-landline.ts"
   },
   "dependencies": {
     "leaflet": "^1.9.4",

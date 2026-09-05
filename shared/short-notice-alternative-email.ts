@@ -8,7 +8,7 @@ import {
   BRAND_EMERALD,
   BRAND_NAVY,
   BUSINESS_MAILBOX as BUSINESS_EMAIL,
-  BUSINESS_PHONE_DISPLAY,
+  BUSINESS_WHATSAPP_USERNAME,
   BUSINESS_WEBSITE as CANONICAL_BUSINESS_WEBSITE,
 } from "./business-email";
 
@@ -76,7 +76,7 @@ export function buildShortNoticeAlternativeOfferEmail(
     `No payment will be taken unless you accept the alternative pickup time and complete payment.\n\n` +
     `${businessName}\n` +
     `${BUSINESS_WEBSITE}\n` +
-    `Phone: ${BUSINESS_PHONE_DISPLAY}\n` +
+    `WhatsApp: @${BUSINESS_WHATSAPP_USERNAME}\n` +
     `Email: ${BUSINESS_EMAIL}`;
 
   const html = `<!DOCTYPE html>
@@ -143,7 +143,7 @@ export function buildShortNoticeAlternativeOfferEmail(
             <td style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:20px 32px;font-size:13px;line-height:1.7;color:#64748b;">
               <strong style="color:${NAVY};">${escapeHtml(businessName)}</strong><br />
               <a href="${BUSINESS_WEBSITE}" style="color:${NAVY};">${BUSINESS_WEBSITE.replace(/^https:\/\//, "")}</a> ·
-              Phone: ${BUSINESS_PHONE_DISPLAY} ·
+              WhatsApp @{BUSINESS_WHATSAPP_USERNAME} ·
               <a href="mailto:${BUSINESS_EMAIL}" style="color:${NAVY};">${BUSINESS_EMAIL}</a>
             </td>
           </tr>

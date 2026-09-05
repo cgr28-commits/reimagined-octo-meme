@@ -375,7 +375,7 @@ async function checkLiveWebsite() {
         homeHtml.includes("Temporarily offline") ||
         homeHtml.includes("temporarily offline for a short break");
       if (siteOffline) {
-        const markers = ["My Airport Taxi", "Temporarily offline", "WhatsApp", "028 9602 2952"];
+        const markers = ["My Airport Taxi", "Temporarily offline", "WhatsApp"];
         const missing = markers.filter((snippet) => !homeHtml.includes(snippet));
         if (missing.length > 0) {
           record(
@@ -420,7 +420,7 @@ async function checkLiveWebsite() {
       "My Airport Taxi",
       "Save to contacts",
       "Get a quote",
-      "028 9602 2952",
+      "WhatsApp",
     ]);
   }
 
