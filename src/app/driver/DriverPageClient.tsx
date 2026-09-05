@@ -16,6 +16,7 @@ import OwnerFinancialSummaryPanel from "@/components/OwnerFinancialSummaryPanel"
 import OwnerDashboardToolSwitcher, {
   type OwnerDashboardToolTab,
 } from "@/components/OwnerDashboardToolSwitcher";
+import OwnerSmartAvailabilityPanel from "@/components/OwnerSmartAvailabilityPanel";
 import type { MapMarker, MapRoutePoint } from "@/components/LiveTrackMap";
 import {
   buildWhatsAppDriverDetailsLink,
@@ -2922,6 +2923,16 @@ export default function DriverPageClient({
                   value={ownerToolTab}
                   onChange={setOwnerToolTab}
                 />
+              ) : null}
+
+              {isOwnerView && savedKey && ownerToolTab === "availability" ? (
+                <div
+                  id="owner-tool-panel-availability"
+                  role="tabpanel"
+                  aria-labelledby="owner-tool-tab-availability"
+                >
+                  <OwnerSmartAvailabilityPanel ownerKey={savedKey} />
+                </div>
               ) : null}
 
               {isOwnerView && savedKey && ownerToolTab === "a2a-quotes" ? (

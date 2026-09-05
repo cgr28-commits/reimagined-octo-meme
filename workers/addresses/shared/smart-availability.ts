@@ -1,0 +1,364 @@
+/**
+ * Smart Availability rules: one-off, full-day, recurring, and per-occurrence exceptions.
+ * Private owner notes never leave this module as customer copy.
+ */
+
+import { parseLondonLocalDateTime, UK_TIME_ZONE } from "./uk-time";
+import {
+  normalizeLondonLocalDateTime,
+  parseLondonLocalStored,
+  type UnavailablePeriod,
+} from "./booking-notice";
+import { addDaysYmd } from "./upcoming-jobs";
+
+export const ISO_WEEKDAYS = [
+  { iso: 1, label: "Monday" },
+  { iso: 2, label: "Tuesday" },
+  { iso: 3, label: "Wednesday" },
+  { iso: 4, label: "Thursday" },
+  { iso: 5, label: "Friday" },
+  { iso: 6, label: "Saturday" },
+  { iso: 7, label: "Sunday" },
+] as const;
+
+export type SmartAvailabilityKind = "one_off" | "recurring" | "full_day";
+
+export type SmartAvailabilityRule = {
+  id: string;
+  enabled: boolean;
+  kind: SmartAvailabilityKind;
+  /** Private owner note — never shown to customers. */
+  note?: string;
+  startLocal?: string;
+  endLocal?: string;
+  date?: string;
+  weekdays?: number[];
+  startTime?: string;
+  endTime?: string;
+  rangeStart?: string;
+  rangeEnd?: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type SmartAvailabilityException = {
+  id: string;
+  ruleId: string;
+  date: string;
+  kind: "available" | "unavailable";
+  startTime?: string;
+  endTime?: string;
+  note?: string;
+  createdAt: string;
+};
+
+export type SmartBlockedInterval = {
+  startMs: number;
+  endMs: number;
+  startLocal: string;
+  endLocal: string;
+  ruleId: string;
+  recurring: boolean;
+  source: "rule" | "exception" | "legacy";
+};
+
+function pad2(value: number): string {
+  return String(value).padStart(2, "0");
+}
+
+export function generateSmartRuleId(prefix: string, now = new Date()): string {
+  return `${prefix}-${now.getTime().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+}
+
+export function formatLondonLocalFromInstant(instant: Date): string {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: UK_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(instant);
+  const get = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((part) => part.type === type)?.value ?? "";
+  return `${get("year")}-${get("month")}-${get("day")}T${get("hour")}:${get("minute")}`;
+}
+
+export function londonIsoWeekday(ymd: string): number | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(ymd)) return null;
+  const instant = parseLondonLocalDateTime(ymd, "12:00");
+  if (!instant) return null;
+  const weekday = new Intl.DateTimeFormat("en-GB", {
+    timeZone: UK_TIME_ZONE,
+    weekday: "short",
+  }).format(instant);
+  const map: Record<string, number> = {
+    Mon: 1,
+    Tue: 2,
+    Wed: 3,
+    Thu: 4,
+    Fri: 5,
+    Sat: 6,
+    Sun: 7,
+  };
+  return map[weekday] ?? null;
+}
+
+function normalizeHm(value: string | null | undefined): string | null {
+  const match = String(value ?? "")
+    .trim()
+    .match(/^(\d{1,2}):(\d{2})/);
+  if (!match) return null;
+  const hour = Number(match[1]);
+  const minute = Number(match[2]);
+  if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return null;
+  return `${pad2(hour)}:${pad2(minute)}`;
+}
+
+function normalizeYmd(value: string | null | undefined): string | null {
+  const match = String(value ?? "")
+    .trim()
+    .match(/^(\d{4}-\d{2}-\d{2})/);
+  return match ? match[1] : null;
+}
+
+function sanitizeNote(value: unknown): string | undefined {
+  const note = String(value ?? "").trim().slice(0, 280);
+  return note || undefined;
+}
+
+export function normalizeSmartAvailabilityRule(
+  raw: Partial<SmartAvailabilityRule> | null | undefined,
+  now = new Date(),
+): SmartAvailabilityRule | null {
+  if (!raw) return null;
+  const kind: SmartAvailabilityKind =
+    raw.kind === "recurring" || raw.kind === "full_day" ? raw.kind : "one_off";
+  const createdAt = raw.createdAt?.trim() || now.toISOString();
+  const id = String(raw.id ?? "").trim() || generateSmartRuleId(kind, now);
+
+  if (kind === "recurring") {
+    const weekdays = Array.from(
+      new Set(
+        (Array.isArray(raw.weekdays) ? raw.weekdays : [])
+          .map((d) => Number(d))
+          .filter((d) => d >= 1 && d <= 7),
+      ),
+    ).sort((a, b) => a - b);
+    const startTime = normalizeHm(raw.startTime);
+    const endTime = normalizeHm(raw.endTime);
+    if (!weekdays.length || !startTime || !endTime || endTime <= startTime) return null;
+    return {
+      id,
+      enabled: raw.enabled !== false,
+      kind,
+      note: sanitizeNote(raw.note),
+      weekdays,
+      startTime,
+      endTime,
+      rangeStart: normalizeYmd(raw.rangeStart) || undefined,
+      rangeEnd: normalizeYmd(raw.rangeEnd) || null,
+      createdAt,
+      updatedAt: raw.updatedAt?.trim() || now.toISOString(),
+    };
+  }
+
+  if (kind === "full_day") {
+    const date = normalizeYmd(raw.date) || normalizeYmd(raw.startLocal);
+    if (!date) return null;
+    return {
+      id,
+      enabled: raw.enabled !== false,
+      kind,
+      note: sanitizeNote(raw.note),
+      date,
+      startLocal: `${date}T00:00`,
+      endLocal: `${addDaysYmd(date, 1)}T00:00`,
+      createdAt,
+      updatedAt: raw.updatedAt?.trim() || now.toISOString(),
+    };
+  }
+
+  const startLocal = normalizeLondonLocalDateTime(raw.startLocal);
+  const endLocal = normalizeLondonLocalDateTime(raw.endLocal);
+  if (!startLocal || !endLocal) return null;
+  const start = parseLondonLocalStored(startLocal);
+  const end = parseLondonLocalStored(endLocal);
+  if (!start || !end || end.getTime() <= start.getTime()) return null;
+  return {
+    id,
+    enabled: raw.enabled !== false,
+    kind: "one_off",
+    note: sanitizeNote(raw.note),
+    startLocal,
+    endLocal,
+    createdAt,
+    updatedAt: raw.updatedAt?.trim() || now.toISOString(),
+  };
+}
+
+export function normalizeSmartAvailabilityException(
+  raw: Partial<SmartAvailabilityException> | null | undefined,
+  now = new Date(),
+): SmartAvailabilityException | null {
+  if (!raw) return null;
+  const ruleId = String(raw.ruleId ?? "").trim();
+  const date = normalizeYmd(raw.date);
+  if (!ruleId || !date) return null;
+  const kind = raw.kind === "unavailable" ? "unavailable" : "available";
+  return {
+    id: String(raw.id ?? "").trim() || generateSmartRuleId("ex", now),
+    ruleId,
+    date,
+    kind,
+    startTime: normalizeHm(raw.startTime) || undefined,
+    endTime: normalizeHm(raw.endTime) || undefined,
+    note: sanitizeNote(raw.note),
+    createdAt: raw.createdAt?.trim() || now.toISOString(),
+  };
+}
+
+function intervalFromLocal(
+  startLocal: string,
+  endLocal: string,
+  ruleId: string,
+  recurring: boolean,
+  source: SmartBlockedInterval["source"],
+): SmartBlockedInterval | null {
+  const start = parseLondonLocalStored(startLocal);
+  const end = parseLondonLocalStored(endLocal);
+  if (!start || !end || end.getTime() <= start.getTime()) return null;
+  return {
+    startMs: start.getTime(),
+    endMs: end.getTime(),
+    startLocal,
+    endLocal,
+    ruleId,
+    recurring,
+    source,
+  };
+}
+
+function eachYmd(from: string, to: string): string[] {
+  const out: string[] = [];
+  let cursor = from;
+  for (let i = 0; i < 400 && cursor <= to; i += 1) {
+    out.push(cursor);
+    cursor = addDaysYmd(cursor, 1);
+  }
+  return out;
+}
+
+export function expandSmartAvailabilityIntervals(input: {
+  rules: SmartAvailabilityRule[];
+  exceptions?: SmartAvailabilityException[];
+  fromYmd: string;
+  toYmd: string;
+  legacyPeriods?: UnavailablePeriod[];
+}): SmartBlockedInterval[] {
+  const exceptions = input.exceptions || [];
+  const intervals: SmartBlockedInterval[] = [];
+
+  for (const period of input.legacyPeriods || []) {
+    const interval = intervalFromLocal(
+      period.startLocal,
+      period.endLocal,
+      period.id,
+      false,
+      "legacy",
+    );
+    if (interval) intervals.push(interval);
+  }
+
+  for (const rule of input.rules) {
+    if (!rule.enabled) continue;
+    if (rule.kind === "recurring") {
+      const from = rule.rangeStart && rule.rangeStart > input.fromYmd ? rule.rangeStart : input.fromYmd;
+      const to =
+        rule.rangeEnd && rule.rangeEnd < input.toYmd ? rule.rangeEnd : input.toYmd;
+      if (from > to) continue;
+      for (const ymd of eachYmd(from, to)) {
+        const weekday = londonIsoWeekday(ymd);
+        if (!weekday || !rule.weekdays?.includes(weekday)) continue;
+        const exception = exceptions.find((item) => item.ruleId === rule.id && item.date === ymd);
+        if (exception?.kind === "available") continue;
+        const startTime = exception?.kind === "unavailable" && exception.startTime
+          ? exception.startTime
+          : rule.startTime;
+        const endTime = exception?.kind === "unavailable" && exception.endTime
+          ? exception.endTime
+          : rule.endTime;
+        if (!startTime || !endTime) continue;
+        const interval = intervalFromLocal(
+          `${ymd}T${startTime}`,
+          `${ymd}T${endTime}`,
+          rule.id,
+          true,
+          exception ? "exception" : "rule",
+        );
+        if (interval) intervals.push(interval);
+      }
+      continue;
+    }
+
+    const startLocal = rule.startLocal;
+    const endLocal = rule.endLocal;
+    if (!startLocal || !endLocal) continue;
+    const interval = intervalFromLocal(startLocal, endLocal, rule.id, false, "rule");
+    if (interval) intervals.push(interval);
+  }
+
+  return intervals.sort((a, b) => a.startMs - b.startMs);
+}
+
+export function findBlockingSmartInterval(
+  tripDate: string,
+  tripTime: string,
+  intervals: SmartBlockedInterval[],
+): SmartBlockedInterval | null {
+  const pickup = parseLondonLocalDateTime(tripDate, tripTime);
+  if (!pickup) return null;
+  const t = pickup.getTime();
+  return intervals.find((interval) => t >= interval.startMs && t < interval.endMs) || null;
+}
+
+export function buildQuickBlockRule(
+  kind: "hours" | "rest_of_today" | "whole_day",
+  hours: number,
+  now = new Date(),
+): SmartAvailabilityRule | null {
+  const startLocal = formatLondonLocalFromInstant(now);
+  const [ymd] = startLocal.split("T");
+  if (kind === "whole_day") {
+    return normalizeSmartAvailabilityRule(
+      {
+        kind: "full_day",
+        date: ymd,
+        note: "Quick block: whole day",
+      },
+      now,
+    );
+  }
+  if (kind === "rest_of_today") {
+    return normalizeSmartAvailabilityRule(
+      {
+        kind: "one_off",
+        startLocal,
+        endLocal: `${addDaysYmd(ymd, 1)}T00:00`,
+        note: "Quick block: rest of today",
+      },
+      now,
+    );
+  }
+  const end = new Date(now.getTime() + Math.max(1, hours) * 60 * 60 * 1000);
+  return normalizeSmartAvailabilityRule(
+    {
+      kind: "one_off",
+      startLocal,
+      endLocal: formatLondonLocalFromInstant(end),
+      note: `Quick block: next ${hours} hour${hours === 1 ? "" : "s"}`,
+    },
+    now,
+  );
+}

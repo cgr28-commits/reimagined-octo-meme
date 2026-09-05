@@ -16,6 +16,7 @@ console.log("=== 1. Top tool switcher ===");
 {
   const switcher = read("src/components/OwnerDashboardToolSwitcher.tsx");
   assert.match(switcher, /"jobs"/);
+  assert.match(switcher, /"availability"/);
   assert.match(switcher, /"personal-quotes"/);
   assert.match(switcher, /"same-fare"/);
   assert.match(switcher, /Same Fare Test/);
@@ -24,6 +25,7 @@ console.log("=== 1. Top tool switcher ===");
   const page = read("src/app/driver/DriverPageClient.tsx");
   assert.match(page, /OwnerDashboardToolSwitcher/);
   assert.match(page, /useState<OwnerDashboardToolTab>\("jobs"\)/);
+  assert.match(page, /ownerToolTab === "availability"/);
   assert.match(page, /ownerToolTab === "personal-quotes"/);
   assert.match(page, /ownerToolTab === "same-fare"/);
   assert.match(page, /ownerToolTab === "jobs"/);
@@ -36,6 +38,11 @@ console.log("=== 1. Top tool switcher ===");
     /isOwnerView && savedKey \? \(\s*<OwnerAmendmentTestPanel/.test(page),
     false,
     "Same Fare Test must not always render",
+  );
+  assert.equal(
+    /isOwnerView && savedKey \? \(\s*<OwnerSmartAvailabilityPanel/.test(page),
+    false,
+    "Availability tool must not always render",
   );
   assert.doesNotMatch(page, /OwnerFlightStatusPanel/, "no flight panel in layout PR");
   assert.match(page, /SERVICE_FLAGS\.liveDriverTracking && job\.sharingActive/);
