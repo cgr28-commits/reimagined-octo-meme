@@ -13,6 +13,10 @@ import { getPaymentBookingBlockers } from "../../shared/paid-booking-gate";
 import { getAirportPickupFlightNumberBlockers } from "../../shared/flight-lookup";
 import { resolvePaymentAirportContextFromAddresses } from "../../shared/open-website-payment-fares";
 import { readConsentedAdsAttribution } from "@/lib/ads-attribution";
+import {
+  customerSmartAvailabilityPreviewHeaders,
+  withCustomerSmartAvailabilityPreviewUrl,
+} from "@/lib/customer-smart-availability-client";
 
 export type PaymentCheckoutRequest = {
   amount: number;
@@ -256,11 +260,12 @@ export async function createPaymentCheckout(
     recordAdFraudBehaviour("payment_started");
   });
 
-  const response = await fetch(PAYMENTS_API_URL, {
+  const response = await fetch(withCustomerSmartAvailabilityPreviewUrl(PAYMENTS_API_URL), {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Accept: "application/json",
+      ...customerSmartAvailabilityPreviewHeaders(),
     },
     body: JSON.stringify({
       amount: request.amount,

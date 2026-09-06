@@ -140,6 +140,8 @@ import {
   shouldForceShortNotice,
 } from "./short-notice-handlers";
 import {
+  customerSmartAvailabilityPreviewRequested,
+  enforceCustomerSmartAvailabilityGate,
   handleOwnerEvaluateSmartOps,
   handleOwnerGetSmartOps,
   handleOwnerSaveSmartOps,
@@ -323,7 +325,7 @@ import {
   recordQuoteLeadDeduped,
   recordQuoteLeadSent,
 } from "./quote-stats";
-import { handleQuoteCalculateRequest } from "./quote-handlers";
+import { handleQuoteAvailabilityRequest, handleQuoteCalculateRequest } from "./quote-handlers";
 import {
   handleOwnerCreateQuickQuote,
   handlePublicQuickQuoteLookup,
@@ -437,6 +439,8 @@ type Env = {
   RETURN_OFFER_LOCAL_TO_AIRPORT_DELAY_HOURS?: string;
   RETURN_OFFER_LAST_MINUTE_LOCAL_DELAY_HOURS?: string;
   RETURN_OFFER_AIRPORT_TO_LOCAL_DELAY_HOURS?: string;
+  /** Isolated preview Worker only. Must never be set on production [vars]. */
+  CUSTOMER_SMART_AVAILABILITY_PREVIEW_ENFORCE?: string;
 };
 
 type QuoteLeadRequestBody = QuoteLeadDetails & {
@@ -1473,6 +1477,54 @@ async function handleCalendarStatusRequest(
   }
 }
 
+async function blockedCustomerSmartAvailabilityResponse(
+  request: Request,
+  env: Env,
+  origin: string | null,
+  booking:
+    | {
+        pickupLabel?: string | null;
+        dropoffLabel?: string | null;
+        tripDate?: string | null;
+        tripTime?: string | null;
+        returnJourney?: boolean | null;
+        returnDate?: string | null;
+        returnTime?: string | null;
+        vehicle?: string | null;
+        airportCode?: string | null;
+        isFromAirport?: boolean | null;
+        journeyDuration?: string | null;
+        routeDurationMinutes?: number | null;
+        pickupLat?: number | null;
+        pickupLng?: number | null;
+        dropoffLat?: number | null;
+        dropoffLng?: number | null;
+        isRefundTest?: boolean | null;
+      }
+    | null
+    | undefined,
+): Promise<Response | null> {
+  if (!booking || !env.TRACKING_STORE) return null;
+  const availabilityGate = await enforceCustomerSmartAvailabilityGate({
+    store: env.TRACKING_STORE,
+    origin,
+    previewRequested: customerSmartAvailabilityPreviewRequested(request),
+    previewWorkerEnforce: env.CUSTOMER_SMART_AVAILABILITY_PREVIEW_ENFORCE === "1",
+    booking,
+  });
+  if (!availabilityGate.blocked) return null;
+  return json(
+    {
+      error: availabilityGate.customerMessage,
+      code: "smart_availability_unavailable",
+      available: false,
+      whatsappAvailable: true,
+    },
+    409,
+    origin,
+  );
+}
+
 async function handlePaymentRequest(
   request: Request,
   env: Env,
@@ -1542,6 +1594,14 @@ async function handlePaymentRequest(
       standardWebsiteAmount = record.standardWebsiteAmount;
     }
 
+    const shortNoticeBlocked = await blockedCustomerSmartAvailabilityResponse(
+      request,
+      env,
+      origin,
+      booking,
+    );
+    if (shortNoticeBlocked) return shortNoticeBlocked;
+
     // Reuse an unpaid checkout when possible (blocks duplicate SumUp sessions).
     if (record.checkoutId && record.paymentUrl) {
       try {
@@ -1581,6 +1641,14 @@ async function handlePaymentRequest(
     amount = Math.round((record.quotedPrice ?? 0) * 100) / 100;
     booking = record.booking;
     a2aQuoteReference = record.reference;
+
+    const a2aBlocked = await blockedCustomerSmartAvailabilityResponse(
+      request,
+      env,
+      origin,
+      booking,
+    );
+    if (a2aBlocked) return a2aBlocked;
 
     if (record.checkoutId && record.paymentUrl) {
       try {
@@ -1747,6 +1815,39 @@ async function handlePaymentRequest(
       await saveQuickQuote(env.TRACKING_STORE, record);
     }
 
+    booking = {
+      ...booking,
+      pickupLabel: j.pickupAddress,
+      dropoffLabel: j.dropoffAddress,
+      returnJourney: Boolean(j.returnJourney),
+      tripDate: j.outboundDate,
+      tripTime: j.outboundTime,
+      returnDate: j.returnDate ?? "",
+      returnTime: j.returnTime ?? "",
+      passengers: j.passengers,
+      suitcases: j.suitcases,
+      flightNumber: booking.flightNumber || j.flightNumber || "",
+      returnFlightNumber: booking.returnFlightNumber || j.returnFlightNumber || "",
+      vehicle: j.vehicleType || booking.vehicle,
+      isAirportTrip: Boolean(j.airportCode),
+      airportCode: j.airportCode ?? booking.airportCode,
+      isFromAirport: j.fromAirport,
+      expressDropOffSelected: checkoutPricing.persisted.expressDropOffSelected,
+      expressDropOffFee: checkoutPricing.persisted.expressDropOffFee,
+      expressDropOffAirport: checkoutPricing.persisted.expressDropOffAirport,
+      tripLabel: j.childSeatRequired
+        ? `${booking.tripLabel || "Airport transfer"} · Child seat required`
+        : booking.tripLabel || "Airport transfer",
+    };
+
+    const quickQuoteBlocked = await blockedCustomerSmartAvailabilityResponse(
+      request,
+      env,
+      origin,
+      booking,
+    );
+    if (quickQuoteBlocked) return quickQuoteBlocked;
+
     // Reuse unpaid checkout when present and amount still matches.
     if (record.checkoutId && record.paymentUrl) {
       try {
@@ -1773,31 +1874,6 @@ async function handlePaymentRequest(
     amount = Math.round(record.quotedAmount * 100) / 100;
     // Website-engine quotes only — never mislabel an owner-manual fare as a website price.
     standardWebsiteAmount = quickQuoteCheckoutStandardWebsiteAmount(record);
-    // Overlay locked journey labels onto booking for emails/calendar.
-    booking = {
-      ...booking,
-      pickupLabel: j.pickupAddress,
-      dropoffLabel: j.dropoffAddress,
-      returnJourney: Boolean(j.returnJourney),
-      tripDate: j.outboundDate,
-      tripTime: j.outboundTime,
-      returnDate: j.returnDate ?? "",
-      returnTime: j.returnTime ?? "",
-      passengers: j.passengers,
-      suitcases: j.suitcases,
-      flightNumber: booking.flightNumber || j.flightNumber || "",
-      returnFlightNumber: booking.returnFlightNumber || j.returnFlightNumber || "",
-      vehicle: j.vehicleType || booking.vehicle,
-      isAirportTrip: Boolean(j.airportCode),
-      airportCode: j.airportCode ?? booking.airportCode,
-      isFromAirport: j.fromAirport,
-      expressDropOffSelected: checkoutPricing.persisted.expressDropOffSelected,
-      expressDropOffFee: checkoutPricing.persisted.expressDropOffFee,
-      expressDropOffAirport: checkoutPricing.persisted.expressDropOffAirport,
-      tripLabel: j.childSeatRequired
-        ? `${booking.tripLabel || "Airport transfer"} · Child seat required`
-        : booking.tripLabel || "Airport transfer",
-    };
   } else if (savedQuoteTokenRaw) {
     // Saved Quote: locked KV price UNLESS the customer changed date/time — then recalculate.
     if (!pendingCheckoutStoreConfigured(env.TRACKING_STORE)) {
@@ -2202,6 +2278,14 @@ async function handlePaymentRequest(
   if (!redirectUrl) {
     return json({ error: "Missing redirect URL" }, 400, origin);
   }
+
+  const availabilityBlocked = await blockedCustomerSmartAvailabilityResponse(
+    request,
+    env,
+    origin,
+    booking,
+  );
+  if (availabilityBlocked) return availabilityBlocked;
 
   if (!booking) {
     const blockers = getPaymentBookingBlockers(
@@ -2908,6 +2992,13 @@ export default {
       (request.method === "POST" || request.method === "OPTIONS")
     ) {
       return handleQuoteCalculateRequest(request, origin, env);
+    }
+
+    if (
+      (url.pathname === "/quote/availability" || url.pathname === "/api/quote/availability") &&
+      (request.method === "POST" || request.method === "OPTIONS")
+    ) {
+      return handleQuoteAvailabilityRequest(request, origin, env);
     }
 
     if (

@@ -19,10 +19,10 @@ name: Deploy Pages Preview
         description: "Optional note for this preview deploy"
         required: false
         default: "PR smoke-test preview"
-  # Owner-only interactive test of draft PR #460. Does not publish to the live site.
+  # Owner-only interactive test of draft PRs. Does not publish to the live site.
   push:
     branches:
-      - cursor/smart-availability-return-pricing-514b
+      - cursor/customer-smart-availability-gate-514b
 
 concurrency:
   group: pages-preview
@@ -32,7 +32,65 @@ permissions:
   contents: read
 
 jobs:
+  preview-worker:
+    runs-on: ubuntu-latest
+    outputs:
+      url: ${{ steps.worker_preview.outputs.url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: workers/addresses/package-lock.json
+
+      - name: Deploy isolated preview Worker (not production)
+        id: worker_preview
+        working-directory: workers/addresses
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          GOOGLE_PLACES_API_KEY: ${{ secrets.GOOGLE_PLACES_API_KEY || secrets.GOOGLE_API_KEY || secrets.GOOGLE_MAPS_API_KEY }}
+          IDEAL_POSTCODES_API_KEY: ${{ secrets.IDEAL_POSTCODES_API_KEY }}
+          GETADDRESS_API_KEY: ${{ secrets.GETADDRESS_API_KEY }}
+          WEB3FORMS_ACCESS_KEY: ${{ secrets.WEB3FORMS_ACCESS_KEY }}
+          SUMUP_API_KEY: ${{ secrets.SUMUP_API_KEY }}
+          SUMUP_MERCHANT_CODE: ${{ secrets.SUMUP_MERCHANT_CODE }}
+        run: |
+          set -euo pipefail
+          node ../../scripts/sync-worker-shared.mjs
+          npm ci
+          DEFAULT_WORKER="https://reimagined-octo-meme.cgr28.workers.dev"
+          PREVIEW_WORKER="https://reimagined-octo-meme-sa-preview.cgr28.workers.dev"
+          if [ -z "${CLOUDFLARE_API_TOKEN:-}" ] || [ -z "${CLOUDFLARE_ACCOUNT_ID:-}" ]; then
+            echo "::warning::Skipping preview Worker deploy — Pages preview would call production and cannot enforce the customer gate."
+            echo "url=$DEFAULT_WORKER" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          put_secret() {
+            local name="$1"
+            local value="$2"
+            if [ -n "$value" ]; then
+              printf '%s' "$value" | npx wrangler secret put "$name" --env preview
+            fi
+          }
+          put_secret GOOGLE_PLACES_API_KEY "${GOOGLE_PLACES_API_KEY:-}"
+          put_secret IDEAL_POSTCODES_API_KEY "${IDEAL_POSTCODES_API_KEY:-}"
+          put_secret GETADDRESS_API_KEY "${GETADDRESS_API_KEY:-}"
+          put_secret WEB3FORMS_ACCESS_KEY "${WEB3FORMS_ACCESS_KEY:-}"
+          if [ -n "${SUMUP_API_KEY:-}" ] && [ -n "${SUMUP_MERCHANT_CODE:-}" ]; then
+            put_secret SUMUP_API_KEY "$SUMUP_API_KEY"
+            put_secret SUMUP_MERCHANT_CODE "$SUMUP_MERCHANT_CODE"
+          else
+            echo "::warning::SumUp secrets missing on preview Worker — AVAILABLE Pay now may not open checkout."
+          fi
+          npx wrangler deploy --env preview
+          echo "url=$PREVIEW_WORKER" >> "$GITHUB_OUTPUT"
+          echo "::notice::Preview Worker (not production traffic): $PREVIEW_WORKER"
+
   build-and-deploy:
+    needs: preview-worker
     runs-on: ubuntu-latest
     environment:
       name: Preview
@@ -62,7 +120,10 @@ jobs:
           GOOGLE_ADS_BOOKING_CONVERSION_LABEL: ${{ secrets.GOOGLE_ADS_BOOKING_CONVERSION_LABEL }}
         run: |
           KEY="${GOOGLE_PLACES_API_KEY:-${GOOGLE_API_KEY:-${GOOGLE_MAPS_API_KEY}}}"
-          if [ -z "$BOOKINGS_API_URL" ] || [[ "$BOOKINGS_API_URL" == *"myairporttaxini.co.uk"* ]]; then
+          WORKER_PREVIEW="${{ needs.preview-worker.outputs.url }}"
+          if [ -n "$WORKER_PREVIEW" ]; then
+            BOOKINGS_API_URL="${WORKER_PREVIEW%/}/bookings"
+          elif [ -z "$BOOKINGS_API_URL" ] || [[ "$BOOKINGS_API_URL" == *"myairporttaxini.co.uk"* ]]; then
             BOOKINGS_API_URL="https://reimagined-octo-meme.cgr28.workers.dev/bookings"
           fi
           ADDRESSES_API_URL="${BOOKINGS_API_URL%/bookings}/addresses"
@@ -123,5 +184,5 @@ jobs:
             URL="https://${BRANCH_SAFE}.my-airport-taxi-ni-preview.pages.dev"
           fi
           echo "url=$URL" >> "$GITHUB_OUTPUT"
-          echo "::notice::Preview frontend URL: $URL/owner/"
-          echo "::notice::Stable project URL: https://my-airport-taxi-ni-preview.pages.dev/owner/"
+          echo "::notice::Preview frontend URL: $URL/?smartAvailabilityPreview=1"
+          echo "::notice::Stable project URL: https://my-airport-taxi-ni-preview.pages.dev/?smartAvailabilityPreview=1"

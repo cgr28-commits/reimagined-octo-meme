@@ -1,4 +1,8 @@
 import { resolveWorkerBaseUrl } from "@/lib/worker-api";
+import {
+  customerSmartAvailabilityPreviewHeaders,
+  withCustomerSmartAvailabilityPreviewUrl,
+} from "@/lib/customer-smart-availability-client";
 import type {
   QuickQuoteDiscountType,
   QuickQuoteJourney,
@@ -8,6 +12,10 @@ import type {
   QuickQuoteVehicleChoice,
 } from "../../shared/quick-quote";
 import type { TripRouteMetrics } from "@/lib/trip-route";
+import {
+  parsePublicCustomerAlternativeTimes,
+  type CustomerPublicAlternativeTime,
+} from "../../shared/customer-smart-availability";
 
 const WORKER_BASE = resolveWorkerBaseUrl();
 
@@ -18,6 +26,14 @@ export type {
   QuickQuoteDiscountType,
   QuickQuotePriceSource,
   QuickQuoteValidityMode,
+};
+
+export type CustomerSmartAvailabilityQuoteSignal = {
+  enforced: boolean;
+  available: boolean;
+  blocked: boolean;
+  customerMessage: string | null;
+  alternativeTimes?: CustomerPublicAlternativeTime[];
 };
 
 export type QuickQuoteCalculateResult =
@@ -33,6 +49,7 @@ export type QuickQuoteCalculateResult =
       airportFixedCostsGbp?: number;
       distanceKm?: number;
       durationMinutes?: number;
+      smartAvailability?: CustomerSmartAvailabilityQuoteSignal;
     }
   | { ok: false; reason?: string; message: string; error?: string };
 
@@ -90,16 +107,20 @@ export async function calculateServerQuote(
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     Accept: "application/json",
+    ...customerSmartAvailabilityPreviewHeaders(),
   };
   if (ownerKey?.trim()) {
     headers["X-Owner-Key"] = ownerKey.trim();
   }
-  const response = await fetch(`${WORKER_BASE}/quote/calculate`, {
-    method: "POST",
-    headers,
-    body: JSON.stringify(journey),
-    cache: "no-store",
-  });
+  const response = await fetch(
+    withCustomerSmartAvailabilityPreviewUrl(`${WORKER_BASE}/quote/calculate`),
+    {
+      method: "POST",
+      headers,
+      body: JSON.stringify(journey),
+      cache: "no-store",
+    },
+  );
   const payload = await parseJson(response);
   if (!response.ok) {
     return {
@@ -115,6 +136,21 @@ export async function calculateServerQuote(
       message: String(payload.message || "Could not calculate fare"),
     };
   }
+  const smartRaw =
+    payload.smartAvailability && typeof payload.smartAvailability === "object"
+      ? (payload.smartAvailability as Record<string, unknown>)
+      : null;
+  const smartAvailability = smartRaw
+    ? {
+        enforced: smartRaw.enforced === true,
+        available: smartRaw.available !== false,
+        blocked: smartRaw.blocked === true,
+        customerMessage:
+          typeof smartRaw.customerMessage === "string" ? smartRaw.customerMessage : null,
+        alternativeTimes: parsePublicCustomerAlternativeTimes(smartRaw.alternativeTimes),
+      }
+    : undefined;
+
   return {
     ok: true,
     amount: Number(payload.amount),
@@ -142,6 +178,7 @@ export async function calculateServerQuote(
           ),
         }
       : {}),
+    ...(smartAvailability ? { smartAvailability } : {}),
   };
 }
 

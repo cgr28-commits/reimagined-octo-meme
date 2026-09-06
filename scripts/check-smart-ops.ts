@@ -562,6 +562,7 @@ console.log("\n=== P. Disabling Smart Availability leaves current booking behavi
   assert.doesNotMatch(quote, /OwnerSmartAvailabilityPanel/);
   const payments = read("workers/addresses/src/index.ts");
   assert.doesNotMatch(payments, /shouldForceSmartAvailability/);
+  assert.match(payments, /blockedCustomerSmartAvailabilityResponse/);
   console.log("OK  P");
 }
 

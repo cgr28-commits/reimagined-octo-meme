@@ -1,4 +1,11 @@
+import type { ReactNode } from "react";
 import Link from "next/link";
+import {
+  CANCELLATION_POLICY_PATH,
+  CHECKOUT_CANCELLATION_HEADING,
+  CHECKOUT_CANCELLATION_SUMMARY,
+  VIEW_FULL_CANCELLATION_POLICY_LABEL,
+} from "../../shared/cancellation-policy";
 
 type BookingTermsConsentProps = {
   accepted: boolean;
@@ -7,6 +14,25 @@ type BookingTermsConsentProps = {
   mode: "card-payment" | "booking-request" | "quote-request";
   paymentAmountLabel?: string;
 };
+
+function PolicyLink({
+  href,
+  children,
+}: {
+  href: string;
+  children: ReactNode;
+}) {
+  return (
+    <Link
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="font-medium text-emerald underline decoration-emerald/40 underline-offset-2 hover:text-emerald-light"
+    >
+      {children}
+    </Link>
+  );
+}
 
 export default function BookingTermsConsent({
   accepted,
@@ -19,36 +45,14 @@ export default function BookingTermsConsent({
 
   return (
     <div className="space-y-3">
-      <div className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-xs leading-relaxed text-white/65">
-        <p className="font-semibold text-white/80">Cancellation summary</p>
-        <div className="mt-1.5 space-y-2">
-          <p>
-            Cancel at least 24 hours before your scheduled pickup: You’ll receive a full refund.
-          </p>
-          <p>
-            Cancel less than 24 hours before your scheduled pickup: A cancellation charge of up to
-            the full booking price may apply because a driver and time have been reserved
-            specifically for your journey. The charge will not exceed the reasonable loss caused by
-            the cancellation. If we are able to reduce that loss, including by accepting another
-            booking for the reserved time, any excess will be refunded.
-          </p>
-          <p>
-            No-shows: A booking will only be treated as a no-show after the applicable complimentary
-            waiting period has ended and we have made reasonable attempts to contact you. A charge
-            of up to the full booking price may apply to cover the driver’s reserved time and costs
-            incurred. The charge will not exceed the reasonable loss caused by the no-show.
-          </p>
-          <p>
-            Flight delays: Where a correct flight number has been provided, a flight delay will not
-            normally be treated as a cancellation or no-show. The collection time will be adjusted
-            in accordance with the waiting-time policy.
-          </p>
-          <p>
-            If My Airport Taxi NI cancels the booking and cannot provide the journey: The customer
-            will receive a full refund.
-          </p>
-          <p>The customer’s statutory rights are not affected.</p>
-        </div>
+      <div className="rounded-xl border border-amber-300/35 bg-amber-500/10 px-4 py-3 text-sm leading-relaxed text-white/85">
+        <p className="font-semibold text-white">{CHECKOUT_CANCELLATION_HEADING}</p>
+        <p className="mt-1.5">{CHECKOUT_CANCELLATION_SUMMARY}</p>
+        <p className="mt-2">
+          <PolicyLink href={CANCELLATION_POLICY_PATH}>
+            {VIEW_FULL_CANCELLATION_POLICY_LABEL}
+          </PolicyLink>
+        </p>
       </div>
       {mode === "quote-request" ? (
         <div className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm leading-relaxed text-white/75">
@@ -60,10 +64,18 @@ export default function BookingTermsConsent({
           </p>
         </div>
       ) : null}
-      <label className="flex min-w-0 cursor-pointer items-start gap-3 rounded-xl border border-white/15 bg-white/[0.04] px-4 py-3 text-left">
+      <label
+        className={`flex min-w-0 cursor-pointer items-start gap-3 rounded-xl border bg-white/[0.04] px-4 py-3 text-left ${
+          error
+            ? "border-red-400/55 ring-1 ring-red-400/30"
+            : "border-white/15"
+        }`}
+      >
         <input
           type="checkbox"
           checked={accepted}
+          aria-invalid={Boolean(error)}
+          aria-describedby={error ? "booking-terms-error" : undefined}
           onChange={(event) => onAcceptedChange(event.target.checked)}
           className="mt-0.5 h-4 w-4 shrink-0 rounded border-white/30 bg-navy-dark text-emerald focus:ring-emerald/30"
         />
@@ -71,76 +83,38 @@ export default function BookingTermsConsent({
           {mode === "card-payment" ? (
             <>
               I agree to the{" "}
-              <Link
-                href="/terms/"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="font-medium text-emerald underline decoration-emerald/40 underline-offset-2 hover:text-emerald-light"
-              >
-                Terms &amp; Conditions
-              </Link>{" "}
-              and{" "}
-              <Link
-                href="/privacy/"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="font-medium text-emerald underline decoration-emerald/40 underline-offset-2 hover:text-emerald-light"
-              >
-                Privacy Policy
-              </Link>
-              , including the cancellation policy above, and authorise payment of {fareLabel}. My
-              booking is confirmed once payment is completed.
+              <PolicyLink href="/terms/">Terms &amp; Conditions</PolicyLink> and{" "}
+              <PolicyLink href="/privacy/">Privacy Policy</PolicyLink>, including the{" "}
+              <PolicyLink href={CANCELLATION_POLICY_PATH}>cancellation policy</PolicyLink>{" "}
+              above, and authorise payment of {fareLabel}. My booking is confirmed once payment is
+              completed.
             </>
           ) : mode === "quote-request" ? (
             <>
               I agree to the{" "}
-              <Link
-                href="/terms/"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="font-medium text-emerald underline decoration-emerald/40 underline-offset-2 hover:text-emerald-light"
-              >
-                Terms &amp; Conditions
-              </Link>{" "}
-              and{" "}
-              <Link
-                href="/privacy/"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="font-medium text-emerald underline decoration-emerald/40 underline-offset-2 hover:text-emerald-light"
-              >
-                Privacy Policy
-              </Link>
-              , including the cancellation policy and quote-request agreement above.
+              <PolicyLink href="/terms/">Terms &amp; Conditions</PolicyLink> and{" "}
+              <PolicyLink href="/privacy/">Privacy Policy</PolicyLink>, including the{" "}
+              <PolicyLink href={CANCELLATION_POLICY_PATH}>cancellation policy</PolicyLink>{" "}
+              and quote-request agreement above.
             </>
           ) : (
             <>
               I agree to the{" "}
-              <Link
-                href="/terms/"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="font-medium text-emerald underline decoration-emerald/40 underline-offset-2 hover:text-emerald-light"
-              >
-                Terms &amp; Conditions
-              </Link>{" "}
-              and{" "}
-              <Link
-                href="/privacy/"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="font-medium text-emerald underline decoration-emerald/40 underline-offset-2 hover:text-emerald-light"
-              >
-                Privacy Policy
-              </Link>
-              , including the cancellation policy above. I understand this is a booking request —
-              once you confirm the job, you will email a SumUp payment link, and my booking is
-              confirmed only after payment is received.
+              <PolicyLink href="/terms/">Terms &amp; Conditions</PolicyLink> and{" "}
+              <PolicyLink href="/privacy/">Privacy Policy</PolicyLink>, including the{" "}
+              <PolicyLink href={CANCELLATION_POLICY_PATH}>cancellation policy</PolicyLink>{" "}
+              above. I understand this is a booking request — once you confirm the job, you will
+              email a SumUp payment link, and my booking is confirmed only after payment is
+              received.
             </>
           )}
         </span>
       </label>
-      {error && <p className="text-xs text-red-300">{error}</p>}
+      {error && (
+        <p id="booking-terms-error" role="alert" className="text-xs text-red-300">
+          {error}
+        </p>
+      )}
       <p className="text-xs leading-relaxed text-white/45">
         Keep your confirmation email or booking reference as proof of agreement.
       </p>

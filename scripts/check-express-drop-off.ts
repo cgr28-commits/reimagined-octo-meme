@@ -14,6 +14,8 @@ import {
   EXPRESS_PICK_UP_REMOVED_EXPLANATION,
   canProceedWithoutExpressDropOff,
   composeFareWithExpressDropOff,
+  expressAirportLegendLabel,
+  expressAvoidedChargeMessage,
   expressDropOffBreakdownLabel,
   expressDropOffConfirmRemovalLabel,
   expressDropOffRecommendedLabel,
@@ -317,6 +319,18 @@ check("Breakdown / customer copy wording", () => {
   assert.equal(
     expressDropOffBreakdownLabel("BFS", true, "pick-up"),
     "Belfast International Express Pick-Up: £5",
+  );
+  assert.equal(expressAirportLegendLabel("pick-up"), "Airport Express Pick-Up");
+  assert.equal(expressAirportLegendLabel("drop-off"), "Airport Express Drop-Off");
+  assert.equal(expressAvoidedChargeMessage("pick-up"), "You’ve avoided the Express Pick-Up charge");
+  assert.equal(expressAvoidedChargeMessage("drop-off"), "You’ve avoided the Express Drop-Off charge");
+  assert.equal(
+    expressDropOffBreakdownLabel("BHD", true, "pick-up"),
+    "Belfast City Airport Express Pick-Up: £4",
+  );
+  assert.equal(
+    expressDropOffBreakdownLabel("BHD", true, "drop-off"),
+    "Belfast City Airport Express Drop-Off: £4",
   );
   assert.equal(
     expressDropOffBreakdownLabel("BFS", false, "pick-up"),

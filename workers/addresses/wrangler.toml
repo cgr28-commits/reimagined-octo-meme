@@ -66,3 +66,26 @@ RETURN_OFFER_AIRPORT_TO_LOCAL_DELAY_HOURS = "24"
 
 [triggers]
 crons = ["0 * * * *"]
+
+# Isolated Worker for Pages preview only. Same booking KV so Owner Availability
+# jobs are visible. No cron, no production traffic, no production flag changes.
+[env.preview]
+name = "reimagined-octo-meme-sa-preview"
+workers_dev = true
+preview_urls = true
+
+[[env.preview.kv_namespaces]]
+binding = "TRACKING_STORE"
+id = "53fa3cc2bd46436f90ae19200e599ea1"
+
+[[env.preview.kv_namespaces]]
+binding = "BOOKING_COUNTER"
+id = "869e2c2e02004d4a88c9cfbf563f1d6a"
+
+[env.preview.vars]
+REVIEW_REQUEST_DELAY_MINUTES = "120"
+RETURN_OFFER_LOCAL_TO_AIRPORT_DELAY_HOURS = "48"
+RETURN_OFFER_LAST_MINUTE_LOCAL_DELAY_HOURS = "12"
+RETURN_OFFER_AIRPORT_TO_LOCAL_DELAY_HOURS = "24"
+# Preview Worker only — never add this to production [vars].
+CUSTOMER_SMART_AVAILABILITY_PREVIEW_ENFORCE = "1"

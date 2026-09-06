@@ -21,7 +21,12 @@ import {
 } from "../../../src/lib/vehicle-selection";
 import type { VehicleType } from "../../../src/lib/data";
 import { ownerAuthorized } from "./driver-auth";
-import { recordQuoteShadowSafely } from "./smart-ops-handlers";
+import {
+  customerSmartAvailabilityPreviewRequested,
+  enforceCustomerSmartAvailabilityGate,
+  recordQuoteShadowSafely,
+} from "./smart-ops-handlers";
+import { toPublicCustomerSmartAvailability } from "../shared/customer-smart-availability";
 import { resolveWorkerTripRouteMetrics } from "./resolve-route-metrics";
 import { parseClientRouteMetrics } from "./parse-route-metrics";
 import { resolveAirportTransferIntent } from "../shared/airport-transfer-intent";
@@ -74,6 +79,7 @@ export async function handleQuoteCalculateRequest(
     GOOGLE_PLACES_API_KEY?: string;
     GETADDRESS_API_KEY?: string;
     TRACKING_STORE?: KVNamespace;
+    CUSTOMER_SMART_AVAILABILITY_PREVIEW_ENFORCE?: string;
   },
 ): Promise<Response> {
   if (request.method === "OPTIONS") {
@@ -360,11 +366,36 @@ export async function handleQuoteCalculateRequest(
     return json({ ...result, diagnostics }, 422, origin);
   }
 
-  const quoteBody = {
+  const quoteBody: Record<string, unknown> = {
     ...result,
     vehicleChoice: resolved.vehicleChoice,
     diagnostics,
   };
+
+  if (env?.TRACKING_STORE) {
+    const availabilityGate = await enforceCustomerSmartAvailabilityGate({
+      store: env.TRACKING_STORE,
+      origin,
+      previewRequested: customerSmartAvailabilityPreviewRequested(request),
+      previewWorkerEnforce: env.CUSTOMER_SMART_AVAILABILITY_PREVIEW_ENFORCE === "1",
+      booking: {
+        pickupLabel: pickupAddress,
+        dropoffLabel: dropoffAddress,
+        tripDate: String(body.outboundDate ?? schedule.outboundDate ?? ""),
+        tripTime: String(body.outboundTime ?? schedule.outboundTime ?? ""),
+        returnJourney,
+        returnDate: String(body.returnDate ?? schedule.returnDate ?? ""),
+        returnTime: String(body.returnTime ?? schedule.returnTime ?? ""),
+        vehicle: resolved.vehicleType,
+        airportCode,
+        isFromAirport: fromAirport,
+        routeDurationMinutes: routeMetrics.durationMinutes,
+      },
+    });
+    if (availabilityGate.enforce) {
+      quoteBody.smartAvailability = toPublicCustomerSmartAvailability(availabilityGate);
+    }
+  }
 
   if (env?.TRACKING_STORE) {
     const outboundDate = String(body.outboundDate ?? schedule.outboundDate ?? "");
@@ -387,4 +418,72 @@ export async function handleQuoteCalculateRequest(
   }
 
   return json(quoteBody, 200, origin);
+}
+
+/**
+ * POST /quote/availability — customer Smart Availability preflight.
+ * Uses the same enforceCustomerSmartAvailabilityGate as /payments.
+ * Never returns owner reason codes or diagnostics.
+ */
+export async function handleQuoteAvailabilityRequest(
+  request: Request,
+  origin: string | null,
+  env?: {
+    TRACKING_STORE?: KVNamespace;
+    CUSTOMER_SMART_AVAILABILITY_PREVIEW_ENFORCE?: string;
+  },
+): Promise<Response> {
+  if (request.method === "OPTIONS") {
+    return new Response(null, { status: 204, headers: corsHeaders(origin) });
+  }
+  if (request.method !== "POST") {
+    return json({ error: "Method not allowed" }, 405, origin);
+  }
+
+  let body: Record<string, unknown>;
+  try {
+    body = (await request.json()) as Record<string, unknown>;
+  } catch {
+    return json({ error: "Invalid JSON" }, 400, origin);
+  }
+
+  const availabilityGate = await enforceCustomerSmartAvailabilityGate({
+    store: env?.TRACKING_STORE,
+    origin,
+    previewRequested: customerSmartAvailabilityPreviewRequested(request),
+    previewWorkerEnforce: env?.CUSTOMER_SMART_AVAILABILITY_PREVIEW_ENFORCE === "1",
+    booking: {
+      pickupLabel: String(body.pickupLabel ?? body.pickupAddress ?? ""),
+      dropoffLabel: String(body.dropoffLabel ?? body.dropoffAddress ?? ""),
+      tripDate: String(body.tripDate ?? body.outboundDate ?? ""),
+      tripTime: String(body.tripTime ?? body.outboundTime ?? ""),
+      returnJourney: body.returnJourney === true,
+      returnDate: String(body.returnDate ?? ""),
+      returnTime: String(body.returnTime ?? ""),
+      vehicle: body.vehicle == null ? null : String(body.vehicle),
+      airportCode: body.airportCode == null ? null : String(body.airportCode),
+      isFromAirport: body.isFromAirport === true,
+      journeyDuration: body.journeyDuration == null ? null : String(body.journeyDuration),
+      routeDurationMinutes:
+        typeof body.routeDurationMinutes === "number"
+          ? body.routeDurationMinutes
+          : typeof body.durationMinutes === "number"
+            ? body.durationMinutes
+            : null,
+      pickupLat: typeof body.pickupLat === "number" ? body.pickupLat : null,
+      pickupLng: typeof body.pickupLng === "number" ? body.pickupLng : null,
+      dropoffLat: typeof body.dropoffLat === "number" ? body.dropoffLat : null,
+      dropoffLng: typeof body.dropoffLng === "number" ? body.dropoffLng : null,
+      isRefundTest: body.isRefundTest === true,
+    },
+  });
+
+  return json(
+    {
+      ok: true,
+      ...toPublicCustomerSmartAvailability(availabilityGate),
+    },
+    200,
+    origin,
+  );
 }

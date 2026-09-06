@@ -37,6 +37,11 @@ import {
   type AdsAttribution,
 } from "./ads-attribution";
 import {
+  CANCELLATION_POLICY_PATH,
+  CONFIRMATION_EMAIL_CANCELLATION_POLICY,
+  UNDER_24H_CANCEL_CUSTOMER_NOTICE,
+} from "./cancellation-policy";
+import {
   AIRPORT_PICKUP_HEADING,
   buildArrivedCompanyVoiceEmailBody,
   buildOnTheWayCompanyVoiceMessage,
@@ -509,10 +514,8 @@ function buildInvoiceHtml(
             <td style="padding:8px 32px 8px;">
               <div style="font-size:13px;line-height:1.7;color:#64748b;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:16px 20px;">
                 <strong style="color:#92400e;">Cancellation policy:</strong>
-                Cancel at least 24 hours before your scheduled pickup and you’ll receive a full refund.
-                Cancel less than 24 hours before pickup and a cancellation charge of up to the full booking price may apply because a driver and time have been reserved specifically for your journey; the charge will not exceed the reasonable loss caused by the cancellation.
-                If we cancel and cannot provide the journey, you’ll receive a full refund. Your statutory rights are not affected.
-                See our <a href="${BUSINESS_WEBSITE}/terms/" style="color:${NAVY};">Terms &amp; Conditions</a> for full details.
+                ${CONFIRMATION_EMAIL_CANCELLATION_POLICY}
+                See our <a href="${BUSINESS_WEBSITE}${CANCELLATION_POLICY_PATH}" style="color:${NAVY};">Cancellation Policy</a> and <a href="${BUSINESS_WEBSITE}/terms/" style="color:${NAVY};">Terms &amp; Conditions</a> for full details.
               </div>
             </td>
           </tr>
@@ -1335,7 +1338,7 @@ export function buildCustomerCancellationEmails(
       (when ? `When: ${when}\n` : "") +
       `Pickup: ${details.pickupLabel}\n` +
       `Drop-off: ${details.dropoffLabel}\n\n` +
-      `Your cancellation was received less than 24 hours before the scheduled pickup. A cancellation charge of up to the full booking price may apply because a driver and time have been reserved specifically for your journey. The charge will not exceed the reasonable loss caused by the cancellation. If we are able to reduce that loss, including by accepting another booking for the reserved time, any excess will be refunded.\n\n` +
+      `${UNDER_24H_CANCEL_CUSTOMER_NOTICE}\n\n` +
       `If you believe a refund is appropriate in your circumstances, please contact us.\n\n` +
       `Your statutory rights are not affected.\n\n` +
       `${businessName}\n${BUSINESS_WEBSITE}`;
@@ -1345,7 +1348,7 @@ export function buildCustomerCancellationEmails(
       bodyHtml:
         `<p>Your booking has been cancelled.</p>` +
         `<p>${escapeHtml(details.tripLabel)}${when ? `<br/>${escapeHtml(when)}` : ""}</p>` +
-        `<p>Your cancellation was received less than 24 hours before pickup. A cancellation charge of up to the full booking price may apply because a driver and time have been reserved specifically for your journey. The charge will not exceed the reasonable loss caused by the cancellation. If we are able to reduce that loss, including by accepting another booking for the reserved time, any excess will be refunded.</p>` +
+        `<p>${UNDER_24H_CANCEL_CUSTOMER_NOTICE}</p>` +
         `<p>Your statutory rights are not affected. Contact us if you believe a refund is appropriate.</p>`,
       businessName,
     });

@@ -18,7 +18,9 @@ const card = read("src/components/QuoteCard.tsx");
 console.log("=== Express access visible in quote fare UI ===");
 {
   assert.match(trust, /Journey fare/);
-  assert.match(trust, /Airport Express Drop-Off/);
+  assert.match(trust, /expressAirportLegendLabel/);
+  assert.match(trust, /expressAvoidedChargeMessage/);
+  assert.doesNotMatch(trust, /<dt>Airport Express Drop-Off<\/dt>/);
   assert.match(trust, /Not added/);
   assert.match(trust, /freeAirportAccessSelected/);
   assert.match(trust, /Amount payable/);
@@ -29,14 +31,11 @@ console.log("=== Express access visible in quote fare UI ===");
     trust,
     /line-through[\s\S]{0,120}originalEligibleJourneyPriceGbp[\s\S]{0,80}journeyFareAfterPromotionsGbp/,
   );
-  assert.match(
-    trust,
-    /You’ve avoided the Express Drop-Off charge|You've avoided the Express Drop-Off charge/,
-  );
   assert.match(card, /freeAirportAccessSelected=\{/);
+  assert.match(card, /service=\{expressSelection\.service \?\? "drop-off"\}/);
   assert.match(card, /expressSelection\.feeGbp === 0/);
   assert.doesNotMatch(trust, /totalPromotionalSavingGbp \+ access/);
-  console.log("OK  Journey fare + Express Drop-Off + Amount payable");
+  console.log("OK  Journey fare + direction-aware Express line + Amount payable");
 }
 
 console.log("\n=== Breakdown composition — Express not double-counted in display field ===");
