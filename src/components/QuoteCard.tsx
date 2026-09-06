@@ -2253,6 +2253,21 @@ function QuoteCard({
     }, 80);
   }
 
+  function handleChooseAnotherDate() {
+    navigateQuoteStep(2);
+    window.setTimeout(() => {
+      const field = tripDateInputRef.current ?? document.getElementById("date");
+      if (field instanceof HTMLElement) {
+        try {
+          field.focus({ preventScroll: true });
+        } catch {
+          field.focus();
+        }
+        field.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    }, 80);
+  }
+
   useEffect(() => {
     if (!pickupLabel.trim() || !dropoffLabel.trim() || !tripDate.trim() || !tripTime.trim()) {
       if (smartAvailabilityBlocked) {
@@ -6179,6 +6194,7 @@ function QuoteCard({
                   alternativeTimes={availabilityAlternatives}
                   onSelectAlternative={(option) => void handleSelectAvailabilityAlternative(option)}
                   onChooseAnotherTime={handleChooseAnotherTime}
+                  onChooseAnotherDate={handleChooseAnotherDate}
                   selectingTime={selectingAlternativeTime}
                 />
               </div>
@@ -6368,6 +6384,7 @@ function QuoteCard({
                   alternativeTimes={availabilityAlternatives}
                   onSelectAlternative={(option) => void handleSelectAvailabilityAlternative(option)}
                   onChooseAnotherTime={handleChooseAnotherTime}
+                  onChooseAnotherDate={handleChooseAnotherDate}
                   selectingTime={selectingAlternativeTime}
                 />
               </div>

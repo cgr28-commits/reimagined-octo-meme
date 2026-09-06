@@ -28,6 +28,11 @@ export const CUSTOMER_OTHER_TIMES_HEADING = "Other times we can offer:";
 
 export const CUSTOMER_CHOOSE_ANOTHER_TIME_LABEL = "Choose another time";
 
+export const CUSTOMER_CHOOSE_ANOTHER_DATE_LABEL = "Choose another date";
+
+export const CUSTOMER_SMART_AVAILABILITY_NO_TIMES_LEFT_MESSAGE =
+  "Unfortunately, we’re fully booked/unavailable for the rest of this day.";
+
 export const CUSTOMER_WHATSAPP_SECONDARY_MESSAGE =
   "Still need help? Send us a WhatsApp message and we’ll reply when available.";
 
@@ -106,7 +111,8 @@ export function isCustomerSmartAvailabilityUnavailableMessage(message?: string |
   if (!text) return false;
   if (
     text === CUSTOMER_SMART_AVAILABILITY_UNAVAILABLE_MESSAGE ||
-    text === CUSTOMER_SMART_AVAILABILITY_UNAVAILABLE_MESSAGE_LEGACY
+    text === CUSTOMER_SMART_AVAILABILITY_UNAVAILABLE_MESSAGE_LEGACY ||
+    text === CUSTOMER_SMART_AVAILABILITY_NO_TIMES_LEFT_MESSAGE
   ) {
     return true;
   }
@@ -239,7 +245,15 @@ export function confirmedCustomerAlternativeTimes(input: {
     const tripDate = String(candidate.tripDate || "").trim();
     const tripTime = formatCustomerClock(candidate.tripTime);
     const key = `${tripDate}T${tripTime}`;
-    if (!tripDate || !tripTime || key === requestedKey || seen.has(key)) continue;
+    if (
+      !tripDate ||
+      !tripTime ||
+      tripDate !== input.requested.tripDate ||
+      key === requestedKey ||
+      seen.has(key)
+    ) {
+      continue;
+    }
     const decision = evaluateCustomerSmartAvailability({
       requested: { ...input.requested, tripDate, tripTime },
       occupied: input.occupied,
@@ -446,13 +460,16 @@ export function decideCustomerSmartAvailabilityGate(input: {
           now: input.now,
         });
       }
+      const searchedAlternatives = input.offerAlternatives === true;
       return {
         enforce: true,
         available: false,
         blocked: true,
         customerMessage: alternativeTimes.length
           ? customerUnavailableAtTimeMessage(requested.tripTime)
-          : CUSTOMER_SMART_AVAILABILITY_UNAVAILABLE_MESSAGE,
+          : searchedAlternatives
+            ? CUSTOMER_SMART_AVAILABILITY_NO_TIMES_LEFT_MESSAGE
+            : CUSTOMER_SMART_AVAILABILITY_UNAVAILABLE_MESSAGE,
         reason: suggestion.reason,
         decision: suggestion,
         alternativeTimes,
