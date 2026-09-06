@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import AddressInput from "@/components/AddressInput";
 import QuoteProgressiveRoute from "@/components/QuoteProgressiveRoute";
 import BookingTermsConsent from "@/components/BookingTermsConsent";
@@ -565,6 +566,9 @@ function QuoteCard({
   const pendingBookingResultScrollRef = useRef(false);
   /** Set only by explicit Book Now / Continue / Back — never by quote re-renders. */
   const pendingQuoteStepNavScrollRef = useRef<QuoteStepNavTarget | null>(null);
+  /** Ignore a second tap while availability + step-3 commit are in flight. */
+  const continueToDetailsInFlightRef = useRef(false);
+  const [continueToDetailsBusy, setContinueToDetailsBusy] = useState(false);
   /** Stable id for once-per-attempt Step 1 funnel diagnostics (not PII). */
   const quoteFunnelAttemptIdRef = useRef(
     `q${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`,
@@ -3778,36 +3782,52 @@ function QuoteCard({
   }
 
   async function handleContinueTravelDetails() {
-    setSubmitError("");
-    const schedule = syncScheduleFieldsFromInputs();
-    if (!validateTripForBooking(schedule)) {
-      return;
+    if (continueToDetailsInFlightRef.current) return;
+    continueToDetailsInFlightRef.current = true;
+    setContinueToDetailsBusy(true);
+    try {
+      setSubmitError("");
+      const schedule = syncScheduleFieldsFromInputs();
+      if (!validateTripForBooking(schedule)) {
+        return;
+      }
+      // Soft lookup loading/unavailable must not require a second click — format validity is the gate.
+      if (!validateRequiredFlightNumbers()) {
+        setSubmitError(
+          goingFlightError || collectionFlightError || QUOTE_REQUIRED_FIELD_MESSAGES.flightNumber,
+        );
+        window.setTimeout(() => {
+          focusFirstInvalidField(cardRef.current ?? document);
+        }, 0);
+        return;
+      }
+      const blocked = await applyCustomerSmartAvailabilityCheck();
+      if (blocked) {
+        window.setTimeout(() => {
+          const el = document.getElementById("customer-smart-availability-blocked");
+          if (el) {
+            scrollQuoteStage(el);
+          }
+        }, 80);
+        return;
+      }
+      if (typeof document !== "undefined" && document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
+      // Commit Your Details in this tap so the section exists immediately.
+      // Do not use pendingQuoteStepNavScrollRef — that waits for useEffect + two frames.
+      flushSync(() => {
+        setQuoteStep(3);
+      });
+      scrollQuoteStage(step3CustomerDetailsRef.current ?? "step3-customer-details", {
+        focusHeading: true,
+        immediate: true,
+        correctAfterMs: 120,
+      });
+    } finally {
+      continueToDetailsInFlightRef.current = false;
+      setContinueToDetailsBusy(false);
     }
-    // Soft lookup loading/unavailable must not require a second click — format validity is the gate.
-    if (!validateRequiredFlightNumbers()) {
-      setSubmitError(
-        goingFlightError || collectionFlightError || QUOTE_REQUIRED_FIELD_MESSAGES.flightNumber,
-      );
-      window.setTimeout(() => {
-        focusFirstInvalidField(cardRef.current ?? document);
-      }, 0);
-      return;
-    }
-    const blocked = await applyCustomerSmartAvailabilityCheck();
-    if (blocked) {
-      window.setTimeout(() => {
-        const el = document.getElementById("customer-smart-availability-blocked");
-        if (el) {
-          scrollQuoteStage(el);
-        }
-      }, 80);
-      return;
-    }
-    if (typeof document !== "undefined" && document.activeElement instanceof HTMLElement) {
-      document.activeElement.blur();
-    }
-    pendingQuoteStepNavScrollRef.current = 3;
-    setQuoteStep(3);
   }
 
   const usesWhatsApp = isMobileDevice === true;
@@ -6367,7 +6387,7 @@ function QuoteCard({
               {smartAvailabilityBlocked ? null : (
                 <button
                   type="button"
-                  disabled={submitted}
+                  disabled={submitted || continueToDetailsBusy}
                   onClick={handleContinueTravelDetails}
                   className="btn-primary w-full disabled:cursor-not-allowed disabled:opacity-70"
                 >

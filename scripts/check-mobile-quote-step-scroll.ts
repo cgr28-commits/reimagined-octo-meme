@@ -51,10 +51,23 @@ check("Explicit step CTAs set pending nav scroll then change step", () => {
     card,
     /pendingQuoteStepNavScrollRef\.current = 2;\s*setQuoteStep\(2\)/,
   );
-  // Continue to your details (step 2 → 3)
+  // Continue to your details (step 2 → 3): commit + scroll in the same tap
+  assert.match(card, /continueToDetailsInFlightRef/);
+  assert.match(card, /continueToDetailsBusy/);
+  assert.match(card, /flushSync\(\(\) => \{\s*setQuoteStep\(3\);\s*\}\)/);
   assert.match(
     card,
+    /scrollQuoteStage\(step3CustomerDetailsRef\.current \?\? "step3-customer-details"/,
+  );
+  assert.match(card, /immediate:\s*true/);
+  assert.doesNotMatch(
+    card,
     /pendingQuoteStepNavScrollRef\.current = 3;\s*setQuoteStep\(3\)/,
+  );
+  assert.match(card, /disabled=\{submitted \|\| continueToDetailsBusy\}/);
+  assert.match(
+    card,
+    /await applyCustomerSmartAvailabilityCheck\(\);[\s\S]*flushSync\(\(\) => \{\s*setQuoteStep\(3\);/,
   );
   // Back / Edit journey / Back to travel details use navigateQuoteStep
   assert.match(card, /navigateQuoteStep\(1\)/);
@@ -85,6 +98,8 @@ check("Helper measures header offset and respects reduced motion", () => {
   assert.match(helper, /requestAnimationFrame/);
   assert.match(helper, /cancelled/);
   assert.match(helper, /correctAfterMs/);
+  assert.match(helper, /immediate\?: boolean/);
+  assert.match(helper, /options\?\.immediate && resolveBookingNavElement\(target\)/);
   assert.match(helper, /bookingRequestResult/);
 });
 
@@ -191,10 +206,113 @@ check("Step 2 time Done/blur scrolls once to YOUR JOURNEY summary", () => {
   );
 });
 
+check("Continue to details focuses the heading, not the Name field", () => {
+  assert.match(
+    card,
+    /scrollQuoteStage\(step3CustomerDetailsRef\.current \?\? "step3-customer-details"[\s\S]*?focusHeading:\s*true/,
+  );
+  assert.doesNotMatch(card, /id="name"[\s\S]{0,200}autoFocus/);
+  assert.match(helper, /heading\.focus\(\{ preventScroll: true \}\)/);
+});
+
 check("Validation focuses invalid fields", () => {
   assert.match(card, /focusFirstInvalidField/);
   assert.match(card, /aria-invalid=\{Boolean\(tripDateError\)\}/);
   assert.match(card, /role="alert"/);
 });
 
-console.log("\nAll mobile quote step-scroll checks passed.");
+const IPHONE_WIDTHS = [320, 375, 390, 430] as const;
+
+function installIphoneQuoteNavWindow(width: number) {
+  class FakeHTMLElement {}
+  const headerBottom = 88;
+  const targetTop = 720;
+  const startScrollY = 640;
+  const scrolls: Array<{ top: number; behavior?: ScrollBehavior }> = [];
+  const rafQueue: FrameRequestCallback[] = [];
+  const heading = Object.assign(new FakeHTMLElement(), {
+    hasAttribute: (name: string) => name === "tabindex",
+    tabIndex: -1,
+    focus: () => {},
+    matches: () => true,
+  });
+  const section = Object.assign(new FakeHTMLElement(), {
+    id: "step3-customer-details",
+    matches: () => false,
+    querySelector: () => heading,
+    getBoundingClientRect: () => ({
+      top: targetTop,
+      bottom: targetTop + 520,
+      height: 520,
+      left: 0,
+      right: width,
+    }),
+  });
+  const header = Object.assign(new FakeHTMLElement(), {
+    className: "fixed top-0",
+    getBoundingClientRect: () => ({
+      top: 0,
+      bottom: headerBottom,
+      height: headerBottom,
+      left: 0,
+      right: width,
+    }),
+  });
+  const win = {
+    scrollY: startScrollY,
+    innerHeight: 844,
+    matchMedia: () => ({ matches: false }),
+    scrollTo: (opts: { top?: number; behavior?: ScrollBehavior }) => {
+      win.scrollY = Number(opts.top) || 0;
+      scrolls.push({ top: win.scrollY, behavior: opts.behavior });
+    },
+    requestAnimationFrame: (cb: FrameRequestCallback) => {
+      rafQueue.push(cb);
+      return rafQueue.length;
+    },
+    cancelAnimationFrame: () => {},
+    setTimeout: () => 0,
+    clearTimeout: () => {},
+  };
+  const doc = {
+    documentElement: { style: {} as CSSStyleDeclaration },
+    querySelector: (sel: string) => (String(sel).includes("header") ? header : null),
+    getElementById: (id: string) => (id === "step3-customer-details" ? section : null),
+    activeElement: null,
+  };
+  Object.assign(globalThis, { window: win, document: doc, HTMLElement: FakeHTMLElement });
+  return { scrolls, rafQueue, win, headerBottom, targetTop, startScrollY };
+}
+
+void (async () => {
+  const { scheduleBookingNavAfterRender, HEADER_CLEARANCE_PX } = await import(
+    "../src/lib/quote-step-nav-scroll.ts"
+  );
+  check("Immediate scroll on iPhone widths starts in the same turn", () => {
+    for (const width of IPHONE_WIDTHS) {
+      const { scrolls, rafQueue, headerBottom, targetTop, startScrollY } =
+        installIphoneQuoteNavWindow(width);
+      scheduleBookingNavAfterRender("step3-customer-details", {
+        immediate: true,
+        focusHeading: true,
+        correctAfterMs: 0,
+      });
+      assert.equal(rafQueue.length, 0, `${width}px must not wait for animation frames`);
+      assert.ok(scrolls.length >= 1, `${width}px must scroll immediately`);
+      const expected = Math.max(
+        0,
+        Math.round(startScrollY + targetTop - (headerBottom + HEADER_CLEARANCE_PX)),
+      );
+      assert.equal(
+        scrolls[0]?.top,
+        expected,
+        `${width}px heading lands ${HEADER_CLEARANCE_PX}px below header`,
+      );
+    }
+  });
+
+  console.log("\nAll mobile quote step-scroll checks passed.");
+})().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});
