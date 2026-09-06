@@ -51,7 +51,19 @@ assert.match(
   /hadA2aAddressesScrollRef\.current = true;\s*if \(detectMobileDevice\(\)\) return;/,
 );
 assert.match(card, /hadA2aJourneyTypeScrollRef/);
+assert.match(
+  card,
+  /hadA2aJourneyTypeScrollRef\.current = true;[\s\S]*?if \(detectMobileDevice\(\)\) return;\s*return scrollQuoteStage\("journey-type-selector"/,
+);
 assert.match(card, /hadA2aPartyScrollRef/);
+assert.match(
+  card,
+  /hadA2aPartyScrollRef\.current = true;\s*return scrollQuoteStage\("passenger-luggage-section"/,
+);
+assert.match(
+  card,
+  /hadLegacyJourneyModeScrollRef\.current = true;[\s\S]*?if \(detectMobileDevice\(\)\) return;\s*return scrollQuoteStage\("journey-type-selector"/,
+);
 assert.match(card, /hadRouteSummaryScrollRef/);
 assert.match(card, /pendingRouteSummaryScrollRef/);
 assert.match(card, /hadJourneySummaryScrollRef/);

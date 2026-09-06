@@ -123,6 +123,34 @@ check("Mobile Step 1 journey-type tap does not scroll", () => {
   assert.match(card, /focusFirstInvalidField/);
 });
 
+check("Mobile Step 1 address complete does not scroll", () => {
+  // A2A Stage 3: both addresses valid → One way / Return. Gated on mobile.
+  assert.match(
+    card,
+    /hadA2aJourneyTypeScrollRef\.current = true;\s*[\s\S]*?if \(detectMobileDevice\(\)\) return;\s*return scrollQuoteStage\("journey-type-selector", \{ correctAfterMs: 0 \}\)/,
+  );
+  // Legacy: route becomes valid with no journey mode yet. Gated on mobile.
+  assert.match(
+    card,
+    /hadLegacyJourneyModeScrollRef\.current = true;\s*[\s\S]*?if \(detectMobileDevice\(\)\) return;\s*return scrollQuoteStage\("journey-type-selector", \{ correctAfterMs: 0 \}\)/,
+  );
+  // Desktop still has the address-complete scroll (gate then scrollQuoteStage).
+  assert.match(card, /scrollQuoteStage\("journey-type-selector", \{ correctAfterMs: 0 \}\)/);
+  // One way/Return → passengers, bags → route, and validation are not gated.
+  assert.match(
+    card,
+    /hadA2aPartyScrollRef\.current = true;\s*return scrollQuoteStage\("passenger-luggage-section"/,
+  );
+  assert.match(
+    card,
+    /hadRouteSummaryScrollRef\.current = true;[\s\S]*?scrollQuoteStage\(routeSummaryRef\.current \?\? "quote-route-summary"/,
+  );
+  assert.match(
+    card,
+    /failStep1\("missing_journey_mode"[\s\S]*?scrollQuoteStage\("journey-type-selector"\);/,
+  );
+});
+
 check("Selection-driven auto-scroll stays removed from progressive", () => {
   assert.equal(
     fs.existsSync(path.join(root, "src/lib/quote-mobile-scroll.ts")),
@@ -304,7 +332,42 @@ function installIphoneQuoteNavWindow(width: number) {
   return { scrolls, rafQueue, win, headerBottom, targetTop, startScrollY };
 }
 
+function installMatchMediaViewport(width: number, height: number) {
+  const isDesktop = width >= 768;
+  const win = {
+    innerWidth: width,
+    innerHeight: height,
+    matchMedia: (query: string) => ({
+      matches: String(query).includes("min-width: 768px") ? isDesktop : false,
+    }),
+  };
+  Object.assign(globalThis, { window: win });
+}
+
 void (async () => {
+  const { detectMobileDevice } = await import("../src/lib/device.ts");
+  check("Address-complete mobile gate uses 375 / 390 / 1280+ breakpoints", () => {
+    for (const [width, height] of [
+      [375, 667],
+      [390, 844],
+    ] as const) {
+      installMatchMediaViewport(width, height);
+      assert.equal(
+        detectMobileDevice(),
+        true,
+        `${width}x${height} must gate Step 1 address-complete scroll`,
+      );
+    }
+    installMatchMediaViewport(1280, 800);
+    assert.equal(
+      detectMobileDevice(),
+      false,
+      "1280px+ desktop must keep address-complete scroll",
+    );
+    installMatchMediaViewport(1440, 900);
+    assert.equal(detectMobileDevice(), false, "1440px desktop must keep address-complete scroll");
+  });
+
   const { scheduleBookingNavAfterRender, HEADER_CLEARANCE_PX } = await import(
     "../src/lib/quote-step-nav-scroll.ts"
   );

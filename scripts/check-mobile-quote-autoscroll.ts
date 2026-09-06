@@ -61,6 +61,14 @@ assert.match(
   card,
   /hadA2aAddressesScrollRef\.current = true;\s*if \(detectMobileDevice\(\)\) return;/,
 );
+assert.match(
+  card,
+  /hadA2aJourneyTypeScrollRef\.current = true;\s*[\s\S]*?if \(detectMobileDevice\(\)\) return;\s*return scrollQuoteStage\("journey-type-selector"/,
+);
+assert.match(
+  card,
+  /hadLegacyJourneyModeScrollRef\.current = true;\s*[\s\S]*?if \(detectMobileDevice\(\)\) return;\s*return scrollQuoteStage\("journey-type-selector"/,
+);
 assert.match(card, /scrollQuoteStage\(routeSummaryRef\.current \?\? "quote-route-summary"/);
 assert.doesNotMatch(card, /hadStep2ScheduleScrollRef/);
 
