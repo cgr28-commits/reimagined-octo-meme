@@ -15,14 +15,14 @@ export default function HeroSlideshow() {
           Tablet (md) and desktop (lg): existing quote-first / two-column layout. */}
       <div className="relative mx-auto grid w-full min-w-0 max-w-7xl grid-cols-1 gap-3.5 px-4 py-2 sm:px-6 md:gap-12 md:px-6 md:py-16 lg:max-w-[1400px] lg:grid-cols-[minmax(0,1fr)_minmax(500px,600px)] lg:items-start lg:gap-14 lg:px-10 lg:py-14 xl:gap-16 xl:px-12 xl:py-16">
         <div className="order-1 min-w-0 md:order-2 lg:order-1 lg:pt-2">
-          <p className="section-eyebrow mb-2 md:mb-5 lg:mb-6">Private airport transfers</p>
+          <p className="section-eyebrow mb-2 max-w-full md:mb-5 lg:mb-6">Private taxi airport transfers</p>
 
           <h1 className="font-display text-balance text-[1.95rem] font-semibold leading-[1.12] tracking-tight text-white md:text-[2.7rem] md:leading-[1.08] lg:text-[3.35rem] xl:text-[3.7rem] xl:leading-[1.06]">
             Belfast Airport Transfers – Pre-Booked 24/7
           </h1>
 
           <p className="mt-2.5 max-w-xl text-[0.9375rem] leading-snug text-white/68 md:hidden">
-            Fixed-price, pre-booked transfers to Belfast International, Belfast City and Dublin Airport.
+            Fixed-price, pre-booked private taxi transfers to Belfast International, Belfast City and Dublin Airport.
           </p>
 
           <p className="mt-5 hidden max-w-xl text-base leading-relaxed text-white/68 sm:text-lg md:block lg:mt-6 lg:max-w-xl lg:text-[1.125rem] lg:leading-relaxed">

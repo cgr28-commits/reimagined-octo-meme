@@ -25,10 +25,17 @@ assert.doesNotMatch(
   /<h1[\s\S]*?>[\s\S]*My Airport Taxi NI/,
   "homepage H1 should no longer be the brand name",
 );
+assert.match(hero, /Private taxi airport transfers/);
+assert.doesNotMatch(hero, />Private airport transfers</);
 assert.match(
   hero,
-  /Fixed-price, pre-booked transfers to Belfast International, Belfast City and Dublin Airport\./,
-  "mobile hero should use the shorter pre-booked supporting line",
+  /Fixed-price, pre-booked private taxi transfers to Belfast International, Belfast City and Dublin Airport\./,
+  "mobile hero should use the shorter pre-booked private taxi supporting line",
+);
+assert.match(
+  hero,
+  /Belfast Airport Transfers – Pre-Booked 24\/7/,
+  "homepage H1 must stay Belfast Airport Transfers – Pre-Booked 24/7",
 );
 
 assert.match(
